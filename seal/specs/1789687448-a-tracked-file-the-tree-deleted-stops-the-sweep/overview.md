@@ -17,6 +17,7 @@ produces that tree on purpose.
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | What a reader sees after a fold | `plan.md` §*Operational impact*: *Anyone reading a count line after a fold sees `… passed, N skipped` and should read the reasons rather than the number* | The checklist sentence says what was measured: a fold produces **no** skipped case, and a skipped case appears on a different deletion | Executed 2026-09-18. The fold's missing path is under `seal/ledger/`, which only `tests/test_no_real_identifiers.py#tracked_text_files` has in its corpus — the other four exclude `seal/` by their own prefix lists — and both of that helper's callers are positive sweeps that judge what remains. On the tree a fold leaves, the six modules print `84 passed` at exit 0. `phases/phase-3.md` carries the three readings |
+| How far the class reaches | `spec.md` §*The reach, enumerated from the tree*: five helpers, seven opening call sites | Six helpers, eight opening call sites | The frame enumerated by grepping `git ls-files`. Phase 4's reader, which also matches `ls-tree` and `--name-only`, found `tests/test_a_finding_id_is_a_bare_integer.py#committed_records` — listing from `ls-tree HEAD` and taking its content from the working tree, as its own docstring states. §12 asks for the class rather than the coordinate, so it is guarded in phase 4's commit |
 | How many cases read the corpus to prove something is alive | `spec.md` §*Is a skip a weakening*: two, at `test_no_document_names_the_old_roots.py:142` and `test_a_script_says_which_interpreter_it_needs.py:524` | Three. `test_no_document_names_the_old_roots.py#test_the_scan_covers_something` is the third | Q3 asked the work to read every case in the five modules and repair a third in the phase that found it. The case asserts two named paths are in the corpus, and `skills/implement/SKILL.md` leaving through an unstaged `git mv` makes it report lost coverage for a file that is merely somewhere else |
 | Where the guard lives | `plan.md` phase 1: *a guard inside each helper* | The predicate is one shared function, `tests/conftest.py#on_disk`; each helper gains the `root` argument and calls it | Five copies of `os.path.isfile` is the same defect five times over, and §12 asks for the class rather than the instance. The helper is still the home in the sense the plan meant — the call sites gained nothing |
 
@@ -41,6 +42,15 @@ row, not a measurement.
 keeps its silent `try/except OSError: continue`.** It guards, so it does not
 crash, and its silence was argued at its own round 5. `spec.md` puts it out of
 scope and phase 4's reader classifies it as guarded rather than repairing it.
+
+**A `SyntaxWarning` at `tests/test_a_row_points_by_content.py:763` is left
+standing.** That line carries a string escape python does not know, and
+parsing the file raises it. It predates this branch — executed with this work
+stashed, `bin/test -q tests/test_a_new_returnable_value_is_a_contract_change.py`
+emits it at exit 0 — and it is a fact about a docstring rather than about a
+git listing, so it is outside this work's scope. Phase 4's reader catches it
+at its own `ast.parse` so it does not become a second source. It is one
+character to fix and it belongs to whoever opens that file next.
 
 **No `seal/follow-up.md` row was deleted.** All eleven were read on
 2026-09-18; the framer's reading was re-checked and holds. Row 1 is the one
