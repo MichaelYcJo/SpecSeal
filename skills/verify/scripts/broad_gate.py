@@ -12,15 +12,17 @@ What it does, in order, from the repository root:
 
   1. the repository's own broad command — the `Broad gate` row of
      `seal/config.md`, one shell command line the repository wrote for
-     itself. **A row is refused three ways, and all three are exit 2 with
+     itself. **A row is refused four ways, and all four are exit 2 with
      nothing run**: no row at all, because a seal taken over a command nobody
      chose is the counterfeit `verify` names; a `Broad gate` line that is
      there and will not parse as a row of that table, which the refusal
-     quotes back rather than reporting as absent (#415); or a row this gate
-     would not run as the command it reads as — the whole command wrapped in
-     backticks or in `$(…)`, or ending in a single `&`. No refusal names a
-     command to write: the row is a person's, and the message says where
-     they answer it
+     quotes back rather than reporting as absent (#415); a `Broad gate` line
+     written inside a code fence, which no walk of that table reads because
+     a fenced table is an example of the format rather than a repository's
+     own answer (#429); or a row this gate would not run as the command it
+     reads as — the whole command wrapped in backticks or in `$(…)`, or
+     ending in a single `&`. No refusal names a command to write: the row is
+     a person's, and the message says where they answer it
   2. `evidence-check --strict .`       the ledger's rows still anchor
   3. `unverified-check --baseline <base> seal/specs/`
   4. `chain_check.py --baseline <base>`   judged as a DRAFT pull request,
@@ -263,6 +265,32 @@ def refusal(home):
     return config.refusal(text)
 
 
+def rows_read(home):
+    """Every row the table reader actually returned for the root's config.
+
+    **One arm of `missing_row` cannot use `below`, and this is what it uses
+    instead.** `hooks/config.py#refusal` fills `below` with the rows written
+    under the STOPPING line; the arm for a quoted line that nothing stopped
+    the reader at has no stopping line, so `below` is empty there whatever
+    the file holds — measured 2026-09-18 over a file where the quoted line is
+    the only row and over the same file with a row under it, `[]` both times.
+
+    In that arm alone, every row this returns is written BELOW the quoted
+    line, which is what makes it the right question there and the wrong one
+    anywhere else: a row that had parsed ABOVE the quoted line would have
+    made that line the stopping one, which is a different arm.
+
+    It calls the one reader rather than walking the file again. A second walk
+    written here would answer a different question about the same file, which
+    is the split `hooks/config.py` exists to prevent.
+    """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return []
+    return config.config_rows(text)
+
+
 def names_this_row(line):
     """Whether a refused line's first cell is this gate's row."""
     first = FIRST_CELL.match(line.strip())
@@ -308,9 +336,99 @@ def refused_broad_row(home):
     return next((line for line, _reached in refused if names_this_row(line)), None)
 
 
+def fenced_row_at(home):
+    """(index, line) for this gate's row written inside a code fence, or
+    (None, None). `fenced_row` below is that answer's line alone, and its
+    docstring is where this one's reasoning lives.
+
+    The INDEX is what lets the refusal say *a fence above it*: an opener left
+    unclosed lower down the file is not this row's cause, and the person whose
+    row is in a block that closes correctly still has to move it (#429,
+    round 2).
+    """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return None, None
+    lines = text.splitlines()
+    shown = {index for index, _line in config.unfenced(lines)}
+    return next(
+        (
+            (index, line)
+            for index, line in enumerate(lines)
+            if index not in shown and names_this_row(line)
+        ),
+        (None, None),
+    )
+
+
+def fenced_row(home):
+    """This gate's row written INSIDE a code fence — as written, with its own
+    indentation — or None.
+
+    **The one question about a fenced line anybody asks, and this gate is the
+    only one that may ask it.** `hooks/config.py#unfenced` makes a fenced line
+    invisible to all three walks of that table, which is what stops an example
+    from being the command this gate seals over (#429). It also makes a
+    `Broad gate` line written only inside a fence look exactly like no row at
+    all — and then the absent-row refusal below is a true sentence about a
+    cause that is not the real one, which is the failure #415 was opened
+    about, arriving one shape over. So the line is found again here, on the
+    refusal path alone.
+
+    Asked by THIS command and by nothing else. `hooks/config.py` and
+    `hooks/mode-gate.py` say nothing about a fence: a `PreToolUse` hook that
+    prints is noise on every Bash call, where this command speaks once and
+    only when it refuses.
+
+    It reads the fence rule from the one reader and takes the complement of
+    what that reader shows — every line the walks were not shown — rather than
+    walking the file by a rule of its own. A second fence rule written here
+    would answer a different question about the same file, which is the split
+    `hooks/config.py` exists to prevent.
+
+    **The line alone**, which is what a message quotes. `fenced_row_at` above
+    is the same answer with the index beside it, for the one caller that has
+    to say where the line is relative to a fence.
+    """
+    return fenced_row_at(home)[1]
+
+
+def fence_left_open(home, above=None):
+    """Whether a fenced code block ABOVE the line at index ABOVE is never
+    closed — or anywhere in the file, where ABOVE is None.
+
+    Read off the one fence rule, not a second one. It is the difference
+    between a row somebody pasted into an example block and a row that is in
+    the live table with a fence opened above it — and the two need different
+    sentences, because the second person has nothing to move. Told to move a
+    row that is already where it belongs, they follow the instruction exactly
+    and nothing changes, which is the wrong-cause shape #415, #429 and #430
+    were each opened about.
+
+    False for every way of not having an answer: no file, a file that will not
+    read, a file with no fence in it at all.
+
+    **Above, because that is what the sentence says.** A file whose row sits
+    in an example block that closes and which opens a second block further
+    down answered True here, and the person was told to close a fence that has
+    nothing to do with their row while the act they needed — move it — was the
+    sentence they did not get (#429, round 2).
+    """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return False
+    opened_at = config.fence_map(text.splitlines())[1]
+    if opened_at is None:
+        return False
+    return above is None or opened_at < above
+
+
 def missing_row(home):
-    """The refusal for a row the gate could not read — and there are two,
-    because there are two causes and a person can act on only one of them.
+    """The refusal for a row the gate could not read — and there are three,
+    because there are three causes and what a person does about each one is
+    different.
 
     Where the row IS in the file and the line will not parse, saying it is
     absent is a true sentence about a cause that is not the real one: the
@@ -339,6 +457,50 @@ def missing_row(home):
     the two were false about the two-line file — the rows below were lost
     while the refusal said they were read (#415 round 2 🟡 1).
 
+    **Three of those four then ask what was actually written below, because
+    a sentence about rows below a line is false where no row is below it**
+    (#430). A `Broad gate` line written LAST in its table — the shape this
+    repository's own `seal/config.md` has, and the shape the table
+    `templates/config.md` ships has — lost nothing with it, and being told
+    that every row below it is gone sends that person looking for rows they
+    never wrote. So each of those three sentences has a subject in every
+    state, and the fourth needs none: its clause *this one included* names
+    the quoted line itself. The signal differs by arm and the difference is
+    not cosmetic — the two arms with a stopping line read `below`, and the
+    arm without one reads `rows_read`, whose docstring says why `below` is
+    empty there either way.
+
+    **And a sentence about what was WRITTEN cannot be answered from rows
+    alone.** `below` holds what parsed; a further line the reader will not
+    take as a row is written under that line too, and `refused` is where it
+    is. So each of those sentences says *no ROW was written*, which is what
+    the value supports, and the two arms that go on to predict that one edit
+    finishes the file — *this one line is the whole of what changes* — say
+    instead that fixing it moves the stopping place down, because that is
+    what a further refused line below makes true. Measured at all four sites
+    with a second malformed line below (#430, round 1); `spec.md`
+    §*Data & interfaces* fixed the old wording, and `overview.md` §*Where spec
+    and implementation diverged* records the correction with both sides
+    quoted.
+
+    **The fifth arm is the one where following this message makes the file
+    worse**, and it was the one arm with nothing to say about what lies below.
+    Where the rows below the quoted line were read, repairing that line is
+    what lets the stop rule stop — and it then stops at the next line this
+    reader will not take, so rows that arrive today go with the repair.
+    Measured: `config_rows` returns the `Mode` row before the instructed edit
+    and the `Broad gate` row after it (#430, round 2). That arm now says there
+    is more than one line to write here.
+
+    **The third cause is a row written where no walk of that table reads
+    it.** A `| Broad gate |` line inside a code fence is an example of the
+    format rather than this repository's own answer, and `hooks/config.py#
+    unfenced` is what stops every walk from reading one (#429). That leaves
+    the line looking exactly like no row at all, so the absent-row refusal
+    below would send a person to write a row they can already see — the
+    wrong-cause message this whole work item exists to end. `fenced_row`
+    above finds it and the refusal says where it has to move to.
+
     Where there is no such line, the message is the absent-row refusal
     unchanged. It used to say *write the repository's own broad command into
     it* and print the row to type. The only reader standing here is a
@@ -349,30 +511,103 @@ def missing_row(home):
     they answer it.
     """
     refused, below, stopper = refusal(home)
-    mine, reached = next(
-        ((line, got) for line, got in refused if names_this_row(line)),
-        (None, False),
+    # Two tails, because two of these sentences are about the line this gate
+    # QUOTES and two are about the line that STOPPED the reader. Each is the
+    # lines below its own subject that this reader will not take as rows —
+    # which `below` cannot answer, holding only what parsed (#430, round 1).
+    mine, reached, after_mine, after_stopper = None, False, [], []
+    for position, (line, got) in enumerate(refused):
+        if mine is None and names_this_row(line):
+            mine, reached = line, got
+            after_mine = [text for text, _got in refused[position + 1 :]]
+            break
+    if stopper is not None:
+        # **The stopper's POSITION, not its identity.** `refused` holds line
+        # text, and CPython hands back one shared object for every
+        # one-character string — so two refused lines that are both `|` are
+        # the same object, `line is stopper` matched both, and the tail came
+        # from the last of them with the clause about the lines below silently
+        # dropped. Every entry appended before the stopper carries `got` True
+        # and the stopper's is the last of those, which is a fact about how
+        # `refusal` fills the list rather than about the text (#430, round 2).
+        last_reached = max(
+            position for position, (_line, got) in enumerate(refused) if got
+        )
+        after_stopper = [text for text, _got in refused[last_reached + 1 :]]
+    moves_the_stop = (
+        ". There are more lines below it this reader will not take as rows "
+        "either, so fixing this one moves the stopping place down rather "
+        "than clearing the table"
     )
     if mine is not None:
         if stopper is None:
-            cost = (
-                ". The rows below it were read: nothing had parsed above "
-                "this line, so the table had not begun and the stop rule "
-                "needs a row before it can stop"
-            )
+            if rows_read(home):
+                # **The one arm where doing what this message asks makes the
+                # file worse**, and it was the one arm with nothing to say
+                # about what lies below. Measured over a file whose quoted
+                # line, a second malformed line and a `Mode` row stand in that
+                # order: the reader returns the `Mode` row today and loses it
+                # once the quoted line parses, because the stop rule the
+                # repair switches on then stops at the second malformed line
+                # (#430, round 2).
+                cost = (
+                    ". The rows below it were read: nothing had parsed above "
+                    "this line, so the table had not begun and the stop rule "
+                    "needs a row before it can stop"
+                ) + (
+                    ""
+                    if not after_mine
+                    else ". Fixing this line is what lets the stop rule stop, "
+                    "and the next line below it this reader will not take as "
+                    "a row is where it will — so the rows under THAT line, "
+                    "which arrive today, go with the repair. There is more "
+                    "than one line to write here"
+                )
+            else:
+                cost = (
+                    ". Nothing else was lost with it, because no row was "
+                    "written below it: nothing had parsed above this line "
+                    "either, so the table had not begun and the stop rule "
+                    "needs a row before it can stop"
+                ) + (moves_the_stop if after_mine else "")
         elif mine is stopper:
-            cost = (
-                " — and every row written BELOW that line is lost with it, "
-                "each falling back to its default with nothing said anywhere"
-            )
+            if below:
+                cost = (
+                    " — and every row written BELOW that line is lost with "
+                    "it, each falling back to its default with nothing said "
+                    "anywhere"
+                )
+            else:
+                cost = (
+                    " — and no row was written below it, so nothing else was "
+                    "lost with it"
+                ) + (
+                    ": this one line is the whole of what changes"
+                    if not after_mine
+                    else moves_the_stop
+                )
         elif reached:
+            if below:
+                under = (
+                    "so every row under that line is lost, each falling back "
+                    "to its default with nothing said anywhere"
+                )
+            else:
+                under = (
+                    "and no row was written under that line, so nothing else "
+                    "was lost with it"
+                ) + (
+                    ": that one line is the whole of what changes"
+                    if not after_stopper
+                    else ". There are more lines below THAT one this reader "
+                    "will not take as rows either, so fixing it moves the "
+                    "stopping place down rather than clearing the table"
+                )
             cost = (
                 ". The rows directly below it were read — nothing had parsed "
                 "above this line, and the stop rule needs a row before it can "
                 "stop. The reader stopped LOWER DOWN, at\n"
-                f"    {stopper.strip()}\n"
-                "so every row under that line is lost, each falling back to "
-                "its default with nothing said anywhere"
+                f"    {stopper.strip()}\n" + under
             )
         else:
             cost = (
@@ -397,19 +632,72 @@ def missing_row(home):
             "is the door to it. Nothing ran."
         )
     if stopper is not None and hides_this_row(below):
+        # The same condition as the three arms above, asked of the one row
+        # this branch already knows about: `hides_this_row` is true only
+        # when `below` holds this gate's row, so a one-element `below` is
+        # this row and nothing else, and *every OTHER row* then names rows
+        # nobody wrote (#430, site 4).
+        if len(below) > 1:
+            others = (
+                "Every other row under that line is gone the same way, each "
+                "falling back to its default."
+            )
+        else:
+            # `below` holds rows, so *nothing else was written* is a claim
+            # about the file this value cannot support: a further line the
+            # reader will not take as a row is written under that line too,
+            # and `refused` is where it is (#430, round 1).
+            others = (
+                "No other row was written under that line, so nothing else "
+                "was lost with it."
+            ) + (
+                ""
+                if not after_stopper
+                else " There are more lines below it this reader will not "
+                "take as rows either."
+            )
         return (
             f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` row and "
             "the reader never reached it. This line above it does not parse "
             "as a row of that table, and the reader stops reading there:\n"
             f"    {stopper.strip()}\n"
             f"So the `{ROW}` row written BELOW it is invisible, and there is "
-            "no command to seal over. Every other row under that line is "
-            "gone the same way, each falling back to its default.\n"
+            f"no command to seal over. {others}\n"
             "A cell of that table ends at a `|`. A value that needs one is "
             "written with markdown's own escape, `\\|`, which the reader "
             "reduces to a plain pipe before any shell sees it. "
             "`templates/config.md` §*What is refused, and what stays allowed* "
             "is where the row says so, and `/specseal:config` is the door to "
+            "the file. Nothing ran."
+        )
+    at, fenced = fenced_row_at(home)
+    if fenced is not None:
+        # Two causes, two acts, and the person in the second case has nothing
+        # to move: their row is in the live table and a fence opened ABOVE it
+        # was never closed, so it runs to the end of the file and takes the
+        # whole table with it. Told to move the row they would follow the
+        # instruction exactly and change nothing (#429, round 1). The fence
+        # has to be above the row: one opened below it leaves the row inside a
+        # block that closes, where moving it is still the act (#429, round 2).
+        where = (
+            "A fenced code block above it is never closed, so it runs to the "
+            "end of the file and takes the whole table with it. Close that "
+            "fence — the row itself may already be where it belongs."
+            if fence_left_open(home, at)
+            else "Move the row into the `| Item | Value |` table that stands "
+            "outside every fence, or add that table if the file has none."
+        )
+        return (
+            f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` line and "
+            "this is it, written inside a code fence:\n"
+            f"    {fenced.strip()}\n"
+            "A table inside a code fence is an example of the format and not "
+            "this repository's own answer, so no walk of that table reads it "
+            "— not this gate's reader, not the mode gate's, and not "
+            "`seal mode`'s writer. The row is not absent: it is written where "
+            f"nothing reads it, and there is no command to seal over.\n{where}\n"
+            "`templates/config.md` §*What is refused, and what stays allowed* "
+            "is where the rule says so, and `/specseal:config` is the door to "
             "the file. Nothing ran."
         )
     return (
