@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 440 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `ed85fc2a234f1d9f755fc7bc131e3394862cd9af..2970f694f64a33f14a11a4ed311e237f0fa83e6c`, 2 commits |
+| Contract changes | none |
+| New units | vanished_scopes (depth 1); miscounted_scopes (depth 1); test_an_unguarded_scope_is_named_although_a_module_is_mid_edit (depth 1); SELF (depth 1); GUARDED_CASE (depth 1); test_the_positive_halves_are_asked_before_the_decline (depth 1) |
 | Needs a fix | yes — 🟡 1, the decline sits in front of the offender half, so a mid-edit tree hides a newly planted unguarded scope and the gate exits 0 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -28,8 +28,8 @@ The orchestrator had executed the restored `survivor-check` contract at both rea
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The decline sits inside `classified_scopes`, in front of both halves of the case, so on a mid-edit tree a newly planted unguarded scope is not named and the run exits 0 — the offender half is a positive sweep and must judge what remains | `tests/test_a_shrunken_corpus_declines_to_judge.py:311`, consumed at `:380` | open | Executed: plant alone, exit 1 and the scope named; plant plus one tracked test module off disk, exit 0, `13 passed, 2 skipped`, the scope named nowhere. `spec.md` §*Is a skip a weakening* — *the positive sweeps do not skip themselves* · NAME NOT IN TREE |
-| ⬜ 2 | The corrected pointer for #371 sits at the end of a very long cell while the stale *tracked as #371* stays mid-cell, so a reader meets the wrong pointer first | `seal/follow-up.md`, the survivor-exemption row, `e29a0e51` | open | Read. The append itself is accurate, correctly placed and correctly stops short of the owner's judgment; this is only where the correction sits |
+| 🟡 1 | The decline sits inside `classified_scopes`, in front of both halves of the case, so on a mid-edit tree a newly planted unguarded scope is not named and the run exits 0 — the offender half is a positive sweep and must judge what remains | `tests/test_a_shrunken_corpus_declines_to_judge.py:311`, consumed at `:380` | **fixed** `a04d2818` | fixed at a04d2818; Executed: plant alone, exit 1 and the scope named; plant plus one tracked test module off disk, exit 0, `13 passed, 2 skipped`, the scope named nowhere. `spec.md` §*Is a skip a weakening* — *the positive sweeps do not skip themselves* · NAME NOT IN TREE |
+| ⬜ 2 | The corrected pointer for #371 sits at the end of a very long cell while the stale *tracked as #371* stays mid-cell, so a reader meets the wrong pointer first | `seal/follow-up.md`, the survivor-exemption row, `e29a0e51` | **fixed** `2970f694` | fixed at 2970f694 — The orchestrator's row rather than the fix pass's: the sentence calling #371 the tracker home now says it is closed and points at the correction, so a reader meets the fact where the claim is rather than fifteen hundred characters later. The owner's judgment about what that closure covered is still untaken; Read. The append itself is accurate, correctly placed and correctly stops short of the owner's judgment; this is only where the correction sits |
 | carried | Round 1's first finding — the class reader did not decline on a shrunken corpus | `tests/test_a_shrunken_corpus_declines_to_judge.py` | confirmed | Executed: the identical round 1 reproduction now gives exit 0, `13 passed, 2 skipped` where it gave exit 1, `2 failed`. Mutating `if gone <= set(missing)` to `if True` turns the new case red and restoring it turns it green |
 | carried | Round 1's second finding — the survivors record silenced the check that reported it | `seal/specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep/survivors.md` | confirmed | Executed over `5bf22ddb..HEAD` at the tip: exit 1 with no exemption and the file named; exit 0 with the exemption and one `exempt` line printed. The new anchor is standing text the check prints and is not a phrase it matched |
 | carried | Round 1's third finding — the coverage decline carried a real finding away | `tests/test_no_document_names_the_old_roots.py` | confirmed | Executed: mutating `if absent and not unexplained:` to `if absent:` turns `test_a_real_loss_of_coverage_survives_a_neighbour_being_mid_edit` red at exit 1; restored, green |
