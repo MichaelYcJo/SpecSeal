@@ -116,6 +116,42 @@ def config_path(home):
     return os.path.join(home, CONFIG)
 
 
+def fence_map(lines):
+    """([(index, line)] outside every fenced block, the index of an opener
+    that was never closed or None) -- the one fence rule, computed once.
+
+    `unfenced` below is the generator form all three walks read the file
+    through, and this is the same walk with the state it ENDS in kept. A fence
+    that runs to the end of the file is the one thing about a fence a caller
+    with somebody to tell has to be able to say: `broad-gate` quoting a live
+    `| Broad gate |` row back as *written inside a code fence* and telling the
+    person to move it into a table it is already in is a true sentence about a
+    cause that is not the real one, which is the failure #429 was opened about
+    arriving one shape over. A second fence rule written for that question is
+    the split this module exists to prevent.
+
+    Nothing here refuses and nothing acts on the second value. It is a fact
+    about the file, for the one caller that has somebody to tell --
+    `skills/verify/scripts/broad_gate.py#fence_left_open` -- exactly as
+    `refusal` below is a fact about the table for the same caller.
+    """
+    shown, opener, opened_at = [], None, None
+    for index, raw in enumerate(lines):
+        line = raw.rstrip("\r\n")
+        fence = FENCE.match(line)
+        run = fence.group("run") if fence else ""
+        info = fence.group("info") if fence else ""
+        if opener is None:
+            if run and not (run[0] == "`" and "`" in info):
+                opener, opened_at = (run[0], len(run)), index
+                continue
+            shown.append((index, line))
+            continue
+        if run[:1] == opener[0] and len(run) >= opener[1] and not info.strip():
+            opener, opened_at = None, None
+    return shown, opened_at
+
+
 def unfenced(lines):
     """(index, line) for each of LINES that is outside every fenced code
     block, with the line's own ending removed and its index kept.
@@ -173,21 +209,13 @@ def unfenced(lines):
     table, because this walk answers a question about the file and not about
     any one caller's state. The three walks hold different state at the same
     line, so a fence rule that consulted it would give them three answers.
+
+    **The walk itself is `fence_map` above**, and this is its surviving lines.
+    One walk rather than two: the caller that needs to know whether a fence
+    was left open asks that function, and every walk of the table asks this
+    one, and neither reads the file by a rule of its own.
     """
-    opener = None
-    for index, raw in enumerate(lines):
-        line = raw.rstrip("\r\n")
-        fence = FENCE.match(line)
-        run = fence.group("run") if fence else ""
-        info = fence.group("info") if fence else ""
-        if opener is None:
-            if run and not (run[0] == "`" and "`" in info):
-                opener = (run[0], len(run))
-                continue
-            yield index, line
-            continue
-        if run[:1] == opener[0] and len(run) >= opener[1] and not info.strip():
-            opener = None
+    yield from fence_map(lines)[0]
 
 
 def config_rows(text):

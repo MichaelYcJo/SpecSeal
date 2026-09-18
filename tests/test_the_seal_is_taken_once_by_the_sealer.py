@@ -1498,6 +1498,14 @@ def test_a_broad_gate_line_only_inside_a_fence_is_named_and_not_called_absent(
         f"the line parses perfectly well; what is wrong is where it is:\n{said}"
     )
     assert "/specseal:config" in said, said
+    # The other half of round 1's 🟡 2, and what keeps its repair from being a
+    # flat swap. This fence IS closed, so the row really is inside an example
+    # block and moving it is the act — the sentence for a fence nobody closed
+    # would send this person looking for one.
+    assert "Move the row into" in said, said
+    assert "never closed" not in said, (
+        f"every fence in this file is closed, and the refusal says one is not:\n{said}"
+    )
 
 
 def test_the_absent_row_refusal_still_reaches_a_file_with_no_such_line(tmp_path):
@@ -1550,6 +1558,18 @@ def test_an_unclosed_fence_hides_the_live_table_and_the_gate_says_which_line(
         f"the refusal does not quote the line that was swallowed:\n{out.stderr}"
     )
     assert f"has no `{ROW}` row" not in out.stderr, out.stderr
+    # Round 1's 🟡 2. The quoted line is the person's LIVE row: it is already
+    # in an `| Item | Value |` table and that table is inside no fence anyone
+    # wrote — a fence three lines above it was opened and never closed. Told
+    # to move the row, they would follow the instruction exactly and change
+    # nothing, which is the wrong-cause shape this work item is about.
+    assert "never closed" in out.stderr, (
+        f"the refusal names no cause the person can act on:\n{out.stderr}"
+    )
+    assert "Move the row into" not in out.stderr, (
+        "the row is already in the live table, and the refusal tells the "
+        f"person to move it there:\n{out.stderr}"
+    )
 
 
 def test_both_reads_behind_one_refusal_apply_the_fence_rule(tmp_path):

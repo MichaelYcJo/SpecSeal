@@ -377,6 +377,27 @@ def fenced_row(home):
     )
 
 
+def fence_left_open(home):
+    """Whether a fenced code block in the root's config is never closed.
+
+    Read off the one fence rule, not a second one. It is the difference
+    between a row somebody pasted into an example block and a row that is in
+    the live table with a fence opened above it — and the two need different
+    sentences, because the second person has nothing to move. Told to move a
+    row that is already where it belongs, they follow the instruction exactly
+    and nothing changes, which is the wrong-cause shape #415, #429 and #430
+    were each opened about.
+
+    False for every way of not having an answer: no file, a file that will not
+    read, a file with no fence in it at all.
+    """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return False
+    return config.fence_map(text.splitlines())[1] is not None
+
+
 def missing_row(home):
     """The refusal for a row the gate could not read — and there are three,
     because there are three causes and what a person does about each one is
@@ -545,6 +566,19 @@ def missing_row(home):
         )
     fenced = fenced_row(home)
     if fenced is not None:
+        # Two causes, two acts, and the person in the second case has nothing
+        # to move: their row is in the live table and a fence opened above it
+        # was never closed, so it runs to the end of the file and takes the
+        # whole table with it. Told to move the row they would follow the
+        # instruction exactly and change nothing (#429, round 1).
+        where = (
+            "A fenced code block above it is never closed, so it runs to the "
+            "end of the file and takes the whole table with it. Close that "
+            "fence — the row itself may already be where it belongs."
+            if fence_left_open(home)
+            else "Move the row into the `| Item | Value |` table that stands "
+            "outside every fence, or add that table if the file has none."
+        )
         return (
             f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` line and "
             "this is it, written inside a code fence:\n"
@@ -553,9 +587,7 @@ def missing_row(home):
             "this repository's own answer, so no walk of that table reads it "
             "— not this gate's reader, not the mode gate's, and not "
             "`seal mode`'s writer. The row is not absent: it is written where "
-            "nothing reads it, and there is no command to seal over.\n"
-            "Move the row into the `| Item | Value |` table that stands "
-            "outside every fence, or add that table if the file has none. "
+            f"nothing reads it, and there is no command to seal over.\n{where}\n"
             "`templates/config.md` §*What is refused, and what stays allowed* "
             "is where the rule says so, and `/specseal:config` is the door to "
             "the file. Nothing ran."
