@@ -34,6 +34,12 @@
     and the refusal says to close the fence instead — being told to move a row
     that is already in the live table is an instruction that changes nothing.
 
+  - **A `config.md` whose last line carries no ending keeps the row it
+    already had.** `seal mode` appended the new row without terminating that
+    line, so `| Record language | Korean || Mode | shared |` came back as one
+    line of four cells and both rows stopped being read — written silently
+    before this release. The row now lands on a line of its own.
+
   - **`seal mode` refuses rather than writing a row no walk would read.** A
     fence nobody closed runs to the end of the file, so an appended table
     lands inside it: the write used to report success while the reader went on
