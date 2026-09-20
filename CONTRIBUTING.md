@@ -1,5 +1,100 @@
 # Contributing to SpecSeal
 
+## Opening a pull request
+
+**Base your branch on the open release branch, not on `main`.** GitHub offers
+`main` by default, and for everything except a release that default is the
+wrong one here. Work collects on one release branch and `main` moves once per
+release; `docs/branch-and-release.md` §*Work accumulates on a release branch*
+holds the reasoning, and this section is the part a contributor needs.
+
+**How to find it.** Exactly one branch named `release/vX.Y.Z` is open at a
+time. On GitHub it is the only entry beginning `release/` in the branch
+dropdown on the code page. In a clone:
+
+```bash
+git branch -r --list 'origin/release/*'   # the one to base on, and nothing else
+```
+
+Set it as the base when you open the pull request — the base is the left-hand
+dropdown on the compare page. If one is already open against `main`, the
+**Edit** button beside its title changes the base without closing anything.
+
+**Why a wrong base is refused with a message about a version.** A pull request
+into `main` is a release here, so the checks that run there are a release's
+checks, and one of them asks for `.claude-plugin/plugin.json` to move. A
+contribution is not a release and must not touch that file. Change the base
+instead, and the refusal goes with it.
+
+### What a contribution is asked for
+
+- A branch cut from the open release branch, and a pull request based on it.
+- `bin/test tests/<file> -q` on the module you touched. CI runs the rest, on
+  three platforms.
+- **A change to a gate carries a higher bar**: a test seen failing before the
+  fix, a stated failure direction, a prompt budget, and honesty about the
+  platforms you could not test. §*What a change to a gate must carry* below is
+  the whole of it, and it covers anything under `hooks/` or
+  `.github/workflows/`.
+- The house rules below. Two of them catch most changes: both READMEs move
+  together, and examples use `example.com` and `/Users/x/` rather than any
+  real domain, path or handle.
+
+### What a contribution is not asked for
+
+This repository runs a spec-driven workflow on itself — work items under
+`seal/specs/`, review rounds, an evidence ledger, a version that moves once
+per release. **A contribution is asked for none of it.** The version, changelog
+and ledger-fold steps belong to a release and exit early on any base but
+`main`. The others run on every pull request. Three of them pass for a different
+reason — they ask nothing of a branch that declared nothing: the round-record
+check, the unverified-record tally and the issue-claim report. The remaining
+two, the ledger and the survivor sweep, are always-on and CAN refuse a
+contribution; the heading below counts both and says what each asks.
+Each row below gives its own reason, and a maintainer adding a CI step should
+read the row rather than this sentence.
+
+Established by reading every step of `.github/workflows/hygiene.yml` and
+`.github/workflows/test.yml` against a live contribution that carried none of
+the following and came back green.
+
+| You do not write | Why no check asks for it |
+|---|---|
+| a `routing.md`, `spec.md` or `plan.md` under `seal/specs/` | Nothing in CI reads them. They route a maintainer's own session |
+| a review round record | *a declared review chain has the round record it claimed* passes with a notice when no declaration names your branch |
+| a row under `seal/ledger/` | the `ledger` job runs the lenient reader: content drifting under an anchor is a warning. An anchor that stops resolving is not — see below |
+| a `changelog.md` fragment | *every changelog fragment reached the released file* exits 0 unless the base is `main` |
+| an `overview.md`, or a row inside one | *the unverified record is readable* counts the rows already in the tree, so adding none passes |
+| a new version in `.claude-plugin/plugin.json` | *a change to what ships must move the version* exits 0 unless the base is `main` |
+| an issue number in the description | the issue-claim step reports what it finds and never fails; an empty description is a description |
+
+You also have no commit gate and no worktree guard. Those are this plugin's
+own hooks, installed on a maintainer's machine. Nothing runs them on yours,
+and nothing in CI stands in for them.
+
+### The two checks that can ask you for something you do not have
+
+*wording this branch removed is not still standing elsewhere* runs on every
+pull request into a release branch, and a documentation change can trip it. It
+reports each place still carrying wording your change removed, and its refusal
+tells the author to record the exemption in a `survivors.md` under
+`seal/specs/` — a file belonging to a work item, which a contribution does not
+have.
+
+**Do not create one.** Say so on the pull request instead: quote what the
+check reported, and say why the text it found is correct where it stands. A
+maintainer then either corrects those places or records the exemption on their
+side.
+
+**The evidence ledger is the other one.** `seal/ledger.md` pins claims to
+units of code and prose by name, and the `ledger` job fails when one of those
+names stops resolving — a heading you renamed, a function you removed. Drift
+under a name that still resolves is only a warning; a name that is gone is
+exit 2. The repair is a maintainer's, for the same reason: the row is removed
+from `seal/ledger.md` and the new claim written into a work item's fragment,
+which is a convention a contribution does not have. Say on the pull request
+which name your change moved, and leave the ledger alone.
+
 ## Running the checks
 
 The suite needs only `pytest`; the gates themselves are stdlib-only Python.

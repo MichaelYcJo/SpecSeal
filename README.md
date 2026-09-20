@@ -635,10 +635,22 @@ What this does not do is as load-bearing as what it does.
 
 ## Contributing
 
+**Base your pull request on the open `release/vX.Y.Z` branch, not on `main`.**
+Work collects on one release branch here and `main` moves once per release, so
+GitHub's default base is the wrong one for everything except a release. A
+contribution aimed at `main` that touches what the plugin ships is refused by
+CI for leaving the version alone, and the base is the cause rather than the
+version. One that touches nothing shipped is not refused at all, which is why
+the rule is the branch rather than the check.
+
 Changes to a gate carry a higher bar than the rest of the tree, because a gate
 decides whether someone's commit proceeds: a test seen failing before the fix,
 a stated failure direction, and honesty about platforms you could not test.
-See [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+[CONTRIBUTING.md](./CONTRIBUTING.md) §*Opening a pull request* holds the rest,
+including the half nobody can infer — what a contribution is **not** asked
+for. None of this repository's own workflow applies to one: no work item, no
+review round record, no ledger row, no changelog fragment, no version bump.
 
 ## Language policy
 
