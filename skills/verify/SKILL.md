@@ -313,6 +313,20 @@ is a report; it judges no failure and fixes none.
 takes fifteen minutes is a finding about the run and deserves its own ticket.
 Moving it ahead of the rounds means paying it twice.
 
+**Which base, and it is the one the merge is judged by.** The gate resolves
+`--base` once, before anything runs, to the ref CI will read: the base's
+upstream where the checkout declares one, else `origin/<base>`, else the ref
+as given. Every check it runs takes that one commit — the survivor range, the
+two baselines, the scratch worktree the base comparison checks out, and the
+`Broad gate` cell. A plain branch name is a LOCAL ref and a runner has no
+local branches, so a checkout one commit behind its remote used to seal green
+over a question nobody was asking while CI refused the same commit (#423).
+Where resolving moves the answer the gate prints one line naming both refs,
+both commits and the distance, and runs anyway; where the two agree it prints
+nothing. It never fetches, so a remote-tracking ref is only as fresh as the
+last fetch — which is why the stamp's panel names the ref beside the commit
+rather than the commit alone.
+
 A full suite carries failures that were already there. Attributing them to
 this work is a wrong finding; passing over them is a silent pass. Both are
 avoided the same way: read the run against the base commit.

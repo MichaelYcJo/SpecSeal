@@ -30,6 +30,17 @@ What it does, in order, from the repository root:
   5. `survivor-check --range <base>...HEAD`, with every
      `seal/specs/*/survivors.md` as `--exempt`
 
+**`<base>` above is a resolved commit, never the ref as typed.** `--base` is
+resolved once before anything runs, to the ref CI will read: the given ref's
+upstream where the checkout declares one, else `refs/remotes/origin/<base>`,
+else the ref as given. Every consumer takes that commit, including the
+scratch worktree and the `Broad gate` cell. A branch name in a local checkout
+is a LOCAL ref and a runner has no local branches, so a checkout one commit
+behind its remote sealed green over a question nobody asked while CI refused
+the same commit on the same check (#423). Where resolving MOVES the answer
+one line says so and the run continues; where it does not, nothing extra
+prints. Nothing is fetched.
+
 Every exit code is read directly off the subprocess (`agent-contract` §1),
 and every check's output is kept in a file under `--keep-output` so the
 report can quote a failing check's first lines and name where the rest is.
@@ -164,6 +175,19 @@ QUOTED = 8
 
 NEW, ON_BASE = "new", "failing on base too"
 
+# How many columns `seal_stamp.letter` gives a panel value: `PANEL_WIDTH - 2`
+# less the `"  {label:<8} "` prefix. A longer value is cut AT THE FRAME with no
+# ellipsis, so a cut ref reads as a whole ref — and nothing prints beside the
+# row on a run where the given and resolved bases agree (A4), so there is no
+# second statement to correct it. The gate therefore elides before the frame
+# does (round 1, finding 5).
+#
+# Stated here and measured over there, and neither may move without the other
+# going red: `test_the_panel_value_width_is_what_the_stamp_actually_gives`
+# renders a value nothing could fit and counts what survives.
+PANEL_VALUE_WIDTH = 23
+ELISION = "..."
+
 # pytest's short-summary line for a failed test, `FAILED path::name - why`,
 # printed under `-q` too. The file is what the base comparison re-runs.
 FAILED_RE = re.compile(r"^FAILED\s+(\S+?)::", re.M)
@@ -206,6 +230,193 @@ def git(root, *args):
 def repo_root(start):
     out = git(start, "rev-parse", "--show-toplevel")
     return os.path.normpath(out.strip()) if out and out.strip() else None
+
+
+# --- which base, and it is the one CI will read ----------------------------
+#
+# `.github/workflows/hygiene.yml` spells every base it takes
+# `origin/${{ github.base_ref }}`, at its four base-taking steps. That is not
+# a choice the workflow made: a runner's checkout has no local branch, so the
+# remote-tracking ref is the only thing that resolves there. This gate was
+# handed the ref AS TYPED and so resolved the LOCAL one, and the two part as
+# soon as the local ref falls behind — #423, where the gate sealed a branch
+# green over two excused survivors and CI refused the same commit with seven.
+#
+# `tests/test_the_gate_asks_the_range_ci_will_ask.py` holds this spelling
+# against the workflow's, so the two readers cannot drift apart again in
+# silence.
+REMOTE_BASE = "refs/remotes/origin/{ref}"
+REMOTE_LABEL = "origin/{ref}"
+UPSTREAM_BASE = "{ref}@{{upstream}}"
+
+
+class Base:
+    """Which commit the gate compares against, and where that spelling came
+    from: the caller's `--base`, the ref the resolution landed on, and both
+    refs' commits.
+
+    `commit` is what every check is handed, because #423's own comment asks
+    for the property that anything recorded as evidence names a commit rather
+    than a ref — a ref re-resolves and a commit does not. `ref` is what a
+    person reads, in the panel and in the line below.
+
+    `commit` is None for a base that resolves nowhere. That is not this
+    unit's refusal to raise: `gate()` owns the message, and the message has
+    to quote the spelling the caller typed rather than a resolution of it.
+    """
+
+    __slots__ = ("commit", "given", "given_commit", "ref")
+
+    def __init__(self, given, given_commit, ref, commit):
+        self.given, self.given_commit = given, given_commit
+        self.ref, self.commit = ref, commit
+
+    @property
+    def moved(self):
+        """True where resolving changed the answer — including the case where
+        the given spelling names no commit in this checkout at all, which is
+        an ordinary clone that never made a local branch for its base."""
+        return self.commit != self.given_commit
+
+
+def moved_line(root, base):
+    """The one line printed where resolving the base MOVED the answer, or
+    None where the given spelling and the resolved one are the same commit.
+
+    Printed and then the run continues. A refusal was the ticket's second
+    direction and `plan.md` §*Alternatives considered* rejected it: its only
+    repair is a `git fetch` and a second nine-minute gate, performed by a
+    person the sealer has no way to ask, and it fires on the ordinary release
+    case where a sibling merges while this branch is open.
+
+    **Nothing prints where the two agree.** A line on every run is a line
+    people learn to skip, which is the reasoning
+    `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py` already
+    applies to the lenient ledger notice.
+
+    Two fillings, because a given spelling can name no commit at all. A clone
+    that never made a local branch for its base is an ordinary checkout, and
+    resolving it in silence would be the very defect this repairs — so
+    `Base.moved` compares commits, and `None` is not a hash.
+
+    **It never says CI reads a ref CI does not read.** Step 1 of the rule is
+    `<base>@{upstream}`, which a clone tracking a second remote — a fork with
+    an upstream — answers with something that is not `origin/<base>`, and the
+    workflow spells `origin/<base>` literally. Where the two part, the line
+    says what THIS checkout declares and names the ref a runner would read
+    beside it. `agents/sealer.md` has the sealer quote this line in its
+    report, so a sentence that can be wrong here is wrong in a report
+    (round 1, finding 2).
+
+    **The counts name what they are measured against.** `1 ahead, 0 behind`
+    has no subject and both refs are in the sentence, so the reading that
+    makes it true is the nearer noun rather than anything stated (round 1,
+    finding 7).
+    """
+    if not base.moved:
+        return None
+    runner = REMOTE_LABEL.format(ref=base.given)
+    if base.ref == runner:
+        reads = f"CI reads {base.ref}, which is {base.commit}"
+    else:
+        reads = (
+            f"this checkout says {base.given} tracks {base.ref}, which is "
+            f"{base.commit} — not the {runner} a runner reads"
+        )
+    if base.given_commit is None:
+        return (
+            f"broad-gate: --base {base.given} names no commit in this "
+            f"checkout; {reads}. Every check below was asked about {base.ref}."
+        )
+    # `--left-right` counts each side of the symmetric difference: what the
+    # given spelling holds that the resolved one does not, then the reverse.
+    counts = git(
+        root, "rev-list", "--count", "--left-right", f"{base.given}...{base.ref}"
+    )
+    apart = ""
+    if counts and len(counts.split()) == 2:
+        behind, ahead = counts.split()
+        apart = f" — {base.ref} is {ahead} ahead and {behind} behind {base.given}"
+    return (
+        f"broad-gate: --base {base.given} is {base.given_commit} in this "
+        f"checkout; {reads}{apart}. Every check below was asked about "
+        f"{base.ref}."
+    )
+
+
+def short_commit(root, rev):
+    """`rev`'s short commit hash, or None where it names no commit."""
+    out = git(root, "rev-parse", "--short", f"{rev}^{{commit}}")
+    return out.strip() if out and out.strip() else None
+
+
+def names_a_branch(root, given):
+    """True where `given` is a spelling a branch could have.
+
+    Asked of git rather than of a pattern written here, because the rule this
+    guards — which remote-tracking ref a BRANCH corresponds to — is meaningful
+    only for a branch name, and git already owns what one is.
+    `check-ref-format --branch` refuses `HEAD`, `HEAD~2` and anything carrying
+    `@{…}`, and accepts `base`, `release/vX.Y.Z` and a short SHA. The SHA
+    being accepted is right: it is a legal branch name, and no ref exists for
+    it, so it reaches the fallback either way.
+    """
+    return git(root, "check-ref-format", "--branch", given) is not None
+
+
+def resolve_base(root, given):
+    """`--base` as CI will read it, as a `Base`.
+
+    Three steps, in order:
+
+      1. `<given>@{upstream}` — what THIS checkout says the base tracks. It
+         comes first because a clone whose base branch tracks a second remote
+         (a fork with an upstream) is the defect class being repaired, and
+         reaching for `origin/` there would compare against the fork's stale
+         copy.
+      2. `refs/remotes/origin/<given>` — the spelling the workflow uses
+         literally, and what a runner always has.
+      3. the ref as given. A base with no remote-tracking counterpart — never
+         pushed, a bare SHA, a repository with no remote at all — resolves to
+         itself, and every gate fixture in the suite is that repository.
+         **What does NOT stay the same there is what the consumers are
+         handed.** The resolution turns the ref into its commit for them too,
+         so that repository's `Broad gate` cell, its `NOT SEALED` line and the
+         baselines the child checks quote back all name a hash where they
+         named a branch. One assertion in
+         `tests/test_the_seal_is_taken_once_by_the_sealer.py` moved for it,
+         and this paragraph said *nothing about that run changes* until round
+         1 measured it (finding 3).
+
+    Nothing is fetched. A remote-tracking ref is only as fresh as the last
+    fetch, and #423 §*Not this* refuses a check that moves refs to make
+    itself pass — an unattended run may have no credentials. What this buys
+    is that the gate asks the question the merge is judged by; what it cannot
+    buy is that the answer is current, which is why the ref is named in what
+    a person reads.
+    """
+    given_commit = short_commit(root, given)
+    # Both steps are asked only of a spelling a BRANCH could have, and that is
+    # the whole of round 1's finding 6. `@{upstream}` is a suffix on any
+    # revision expression, so `HEAD@{upstream}` answers for the branch the
+    # checkout is sitting on rather than for the one `--base` named; and a
+    # clone creates `refs/remotes/origin/HEAD`, so guarding step 1 alone moved
+    # the same defect one step down and `--base HEAD` resolved to
+    # `origin/HEAD`. A short SHA is a legal branch name and needs no guard:
+    # neither ref exists for it, so it reaches the fallback the way A9 asks.
+    if names_a_branch(root, given):
+        tracked = git(
+            root, "rev-parse", "--abbrev-ref", UPSTREAM_BASE.format(ref=given)
+        )
+        if tracked and tracked.strip():
+            name = tracked.strip()
+            commit = short_commit(root, name)
+            if commit is not None:
+                return Base(given, given_commit, name, commit)
+        commit = short_commit(root, REMOTE_BASE.format(ref=given))
+        if commit is not None:
+            return Base(given, given_commit, REMOTE_LABEL.format(ref=given), commit)
+    return Base(given, given_commit, given, given_commit)
 
 
 def seal_home(root):
@@ -1014,11 +1225,29 @@ def round_count(item):
 
 
 def panel(tree, base, checks, item):
+    """The stamp's rows. `base` is a `Base`, so the panel can say WHICH ref
+    the commit beside it came from.
+
+    A bare SHA is what #423 found on the stamp of a branch CI then refused:
+    the evidence was right there and a reader still could not tell a base the
+    merge is judged by from a local ref a week behind it. The `from` row is
+    that missing half. `seal_stamp.letter` cuts a value at 23 columns, so a
+    ref longer than that is cut here — which is why the line the gate prints
+    when resolving MOVED the answer is the authoritative statement and this
+    row is context (`questions.md` W1).
+
+    **A ref too long for the row says so.** The elision keeps the TAIL:
+    `origin/` is the part a reader can infer and the branch name is not.
+    """
+    shown = base.ref
+    if len(shown) > PANEL_VALUE_WIDTH:
+        shown = ELISION + shown[-(PANEL_VALUE_WIDTH - len(ELISION)) :]
     rows = [
         ("SEALED", ""),
         None,
         ("tree", tree),
-        ("base", base),
+        ("base", base.commit),
+        ("from", shown),
         None,
         (SUITE, suite_counts(checks[SUITE].text) or "exit 0"),
         # NOT `("lint", "clean")`. The row is one shell command line and
@@ -1113,14 +1342,19 @@ def gate(args, console_wants_letters):
     head = git(root, "rev-parse", "--short", "HEAD")
     if head is None:
         raise Refused(f"broad-gate: {root} has no HEAD to seal — nothing ran")
-    base = git(root, "rev-parse", "--short", f"{args.base}^{{commit}}")
-    if base is None:
+    # The one read of `args.base` in this file, and the count is held by a
+    # case: a seventh consumer written later cannot take the unresolved value
+    # without that case going red (`spec.md` §*The class, enumerated by
+    # construction*). Everything below asks `base.commit`, which is the
+    # commit CI will compare against.
+    base = resolve_base(root, args.base)
+    if base.commit is None:
         raise Refused(
-            f"broad-gate: --base {args.base} does not resolve in {root} — nothing "
+            f"broad-gate: --base {base.given} does not resolve in {root} — nothing "
             "ran. A base that cannot be checked out is a base nothing can be "
             "compared against"
         )
-    tree, base = head.strip(), base.strip()
+    tree = head.strip()
     item = None
     if args.record:
         item = os.path.abspath(args.record)
@@ -1143,23 +1377,26 @@ def gate(args, console_wants_letters):
     # reader judge it — and the sealer opens no repository file, by its own
     # rule, so it has to arrive here (round 1's 🟡 9). `run` wrote it to the
     # kept output file and nothing reached the report.
+    said = moved_line(root, base)
+    if said:
+        sys.stderr.write(said + "\n")
     sys.stderr.write(f"broad-gate: `{ROW}` says: {command}\n")
     checks[SUITE] = run(SUITE, command, root, keep, shell=True)
     checks[LEDGER] = run(LEDGER, [py, EVIDENCE, "--strict", root], root, keep)
     checks[UNVERIFIED_NAME] = run(
         UNVERIFIED_NAME,
-        [py, UNVERIFIED, "--baseline", args.base, specs],
+        [py, UNVERIFIED, "--baseline", base.commit, specs],
         root,
         keep,
     )
     checks[CHAIN_NAME] = run(
         CHAIN_NAME,
-        [py, CHAIN, "--baseline", args.base, "--root", root],
+        [py, CHAIN, "--baseline", base.commit, "--root", root],
         root,
         keep,
         env=draft_env(keep),
     )
-    survivor_args = [py, SURVIVOR, "--range", f"{args.base}...HEAD", "--root", root]
+    survivor_args = [py, SURVIVOR, "--range", f"{base.commit}...HEAD", "--root", root]
     for path in exemptions(home):
         survivor_args += ["--exempt", path]
     checks[SURVIVORS_NAME] = run(SURVIVORS_NAME, survivor_args, root, keep)
@@ -1172,15 +1409,17 @@ def gate(args, console_wants_letters):
         if name == SUITE:
             files = failing_files(check.text)
             if files:
-                verdicts = compare_at_base(root, args.base, command, files, keep)
+                verdicts = compare_at_base(root, base.commit, command, files, keep)
         failures.append((name, failure_lines(check, verdicts)))
     sys.stderr.write(f"broad-gate: outputs kept under {keep}\n")
     if failures:
-        sys.stdout.write("\n".join(stamp.not_sealed(tree, base, failures)) + "\n")
+        sys.stdout.write(
+            "\n".join(stamp.not_sealed(tree, base.commit, failures)) + "\n"
+        )
         return 1
 
     if item is not None:
-        code, text = seal_record(item, tree, root, args.base, keep)
+        code, text = seal_record(item, tree, root, base.commit, keep)
         sys.stdout.write(text)
         if code != 0:
             # `seal` exits 2 on a refusal raised BEFORE the write, and it

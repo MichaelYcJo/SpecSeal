@@ -54,10 +54,35 @@ broad-gate --base <base> --record <item>
 `--base` is the branch this work merges into. `--record` is the work item's
 directory, and it is what turns a green run into the one write below.
 
+**The base you name is resolved to the one CI will read, and you do not
+spell it yourself.** A branch name in your checkout is a LOCAL ref, and a
+runner has no local branches — every base-taking step of
+`.github/workflows/hygiene.yml` reads `origin/<base>`, because that is the
+only spelling that resolves there. So the gate reaches for the same thing:
+the base's upstream where the checkout declares one, else
+`origin/<base>`, else the ref as given. Pass the plain branch name. Passing
+`origin/<base>` yourself would work and would put the rule in a prompt,
+which is where #423's rule went missing the first time.
+
+**Where resolving moves the answer the gate says so and runs anyway.** One
+line on stderr names the ref you gave and its commit, the ref it resolved to
+and its commit, and how far apart they are. It is not a warning to act on and
+not a refusal: a stale local base is ordinary, and the gate has asked the
+question the merge is judged by either way. Quote the line in your report
+when it appears, because it is the one place a reader learns the checkout was
+behind. Where the two agree, nothing extra prints.
+
+**The gate does not fetch, so a remote-tracking ref is only as fresh as the
+last fetch.** That is a limit and not a defect: an unattended run may have no
+credentials, and a check that moves refs to make itself pass is a different
+problem. What the panel gives a reader is the ref beside the commit, so the
+freshness is a question somebody can ask.
+
 Three outcomes, and they are not two:
 
 - **Exit 0, sealed** — every check passed and the cell was written. The stamp
-  printed.
+  printed, and its panel carries `base` (the commit every check was asked
+  about) beside `from` (the ref that commit came from).
 - **Exit 1, not sealed** — a check failed. The gate printed which, its exit
   code, its first lines, and, per failing test file, `new` or `failing on
   base too`. No stamp is drawn, on purpose: a picture saying *sealed* beside
