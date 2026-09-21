@@ -217,6 +217,26 @@ when it arrives.
   So a claim leaves `seal/ledger.md` when the code it was about does, and
   comes back at the release, folded in from the fragment that replaced it.
 
+  **When `seal/ledger.md` conflicts, resolve it hunk by hunk and read both
+  sides.** Never `--ours` and never `--theirs`. A whole-file choice is wrong
+  by construction once both branches have been correcting, and the measured
+  instance is the argument: in #424 the two hunks resolved in opposite
+  directions, because each side was the superset in one of them. Taking a
+  side reverted three corrections that had each turned a false claim true.
+
+  **Nothing downstream can see that, which is why the reading is yours.** A
+  row reverted to a superseded state is byte-identical to a row nobody
+  touched — there is no marker on it, and the hash `evidence-check` reads is
+  correct for the restored text. `correction-check --range
+  origin/<base>...HEAD` reads the `Corrected <date>` and `Re-read <date>`
+  markers instead and names what a merge dropped from a row that still
+  stands; the hygiene workflow runs it on every pull request into a release
+  branch. It reports the loss after the fact and cannot prevent it.
+
+  `CLAUDE.md` carries both paragraphs, and
+  `tests/test_a_merge_cannot_silently_drop_a_correction.py` holds the two
+  against each other.
+
   **Renamed a cited symbol or file?** `bin/evidence-check --reverify .`
   re-anchors every row whose content provably moved intact and prints BROKEN
   with the destination for anything it cannot prove. The command is the rule;

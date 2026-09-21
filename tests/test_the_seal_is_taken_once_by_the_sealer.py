@@ -2774,7 +2774,14 @@ def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(repo, tmp_pat
     assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
     assert re.search(r"\brounds\s+2\b", out.stdout), out.stdout
     cell = fields(two.read_text(encoding="utf-8"))[ROW]
-    assert cell == f"{short(repo, 'HEAD')} against base", cell
+    # The base half used to be the ref as the caller typed it -- `against
+    # base`. #423 is that a ref re-resolves and a commit does not, so the
+    # cell now names the commit the gate actually compared against. This
+    # fixture has no remote, so the resolution lands on the ref as given and
+    # the COMMIT is the only thing that moved. Both parsers of this cell read
+    # the FIRST SHA-shaped word, which is the tree, so neither sees a
+    # difference (`chain_check.broad_gate`, `round_record.py seal`).
+    assert cell == f"{short(repo, 'HEAD')} against {short(repo, 'base')}", cell
 
 
 def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(repo, tmp_path):

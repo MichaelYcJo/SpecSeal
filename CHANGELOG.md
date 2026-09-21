@@ -1,5 +1,216 @@
 # Changelog
 
+## 0.12.2 — 2026-09-21
+
+<!-- specs/1789956662-the-gate-and-ci-ask-about-different-ranges -->
+<!-- seal/specs/1789956662-the-gate-and-ci-ask-about-different-ranges/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **The broad gate and CI ran the same five checks over one branch and asked
+  them about different ranges** (#423). `broad-gate` built every child check's
+  argument out of `--base` as the caller typed it, so a plain branch name
+  resolved to the LOCAL ref, while every base-taking step of
+  `.github/workflows/hygiene.yml` spells it `origin/<base>` — not a choice the
+  workflow made, since a runner's checkout has no local branch. On 2026-09-16
+  the local ref was one commit behind its remote: the gate reported two
+  survivors, all excused, exit 0 and drew the stamp, and CI reported seven
+  places and exit 1 on the same branch, the same check and the same commit.
+
+  - **The base is resolved once, before anything runs, to the ref CI will
+    read.** The given ref's upstream where the checkout declares one, else
+    `refs/remotes/origin/<base>`, else the ref as given. The upstream comes
+    first because a clone whose base branch tracks a second remote — a fork
+    with an upstream — is the defect class being repaired, and reaching for
+    `origin/` there would compare against the fork's stale copy.
+
+    **A repository with no remote resolves to itself, and the one thing that
+    moves there is the spelling the consumers get.** The resolution lands on
+    the ref as given; the commit is what every check, the `Broad gate` cell
+    and the `NOT SEALED` line are handed, in that repository as in any other.
+    That is every fixture in the suite today and every user on a local-only
+    tree, and it is why one assertion in the gate's own test module now reads
+    a hash where it read a branch name.
+
+  - **All six consumers take the resolved commit**, and the closure is
+    structural rather than a list: `args.base` is read exactly once in
+    `broad_gate.py`, at the resolution, and a case counts the reads. A seventh
+    consumer written later cannot take the unresolved value in silence. The
+    six are the panel's SHA, `unverified-check --baseline`,
+    `chain_check --baseline`, `survivor-check --range`, the scratch worktree
+    the base comparison checks out, and the `Broad gate` cell — whose base
+    half used to be the ref as typed and is now the commit, which is the
+    property #423's comment asks for: evidence names a commit, because a ref
+    re-resolves.
+
+  - **The gate says which base it compared against.** The stamp's panel gains
+    a `from` row naming the ref beside the commit. Where resolving MOVED the
+    answer one line names the given ref and its commit, the resolved ref and
+    its commit, and how far apart they are, and the run continues; where the
+    two agree, nothing extra prints. A given spelling that names no commit in
+    the checkout at all — a clone that never made a local branch for its
+    base — used to be exit 2 and now gets the same line's second filling.
+
+    **It is not a refusal, and that was argued rather than assumed.** A
+    refusal's only repair is a `git fetch` and a second nine-minute gate,
+    performed by a person the sealer has no way to ask, and it would fire on
+    the ordinary release case where a sibling merges while a branch is open.
+    Prompt budget: zero.
+
+    **Failure direction: each arm moves toward CI's answer, and that is not
+    one direction.** Wording the base itself removed leaves the range, so the
+    survivor arm can pass where it used to refuse; the branch's replacement of
+    base wording enters it, so the arm can refuse where it used to pass. The
+    two baselines move the same way — a baseline carried forward drops the
+    rows the base's own newer commits added. What a stale base guarantees is a
+    disagreement rather than a direction, and the argument for the change is
+    that the resolved answer is the one the merge is judged by, not that it is
+    the stricter one. The cheaper mistake is still this one: a gate that
+    answers a question the merge is not judged by is worse than a gate that
+    errs either way, because its stamp reads as a pass.
+
+    **It never fetches.** A remote-tracking ref is only as fresh as the last
+    fetch, and that limit is named rather than closed — a check that moves
+    refs to make itself pass is a different problem, and an unattended run may
+    have no credentials. Naming the ref in the panel is what gives a reader
+    somewhere to put the doubt.
+
+  - **One case holds the gate's spelling against the workflow's**, from both
+    sides. The defect was not a bug inside either file; it was two readers
+    answering one question differently, each correct alone, with nothing in
+    the tree comparing them. The workflow side is read as every revision the
+    file names as a base — each `--baseline` and `--range` argument wherever
+    it sits on the line, quoted or bare, and each `BASE:` assignment — rather
+    than as one substring search, so a base-taking step written in any of
+    those shapes is covered the day it is written. A step that names its base
+    some other way is not, and that is the reach of the pin rather than a
+    promise about all of them.
+
+  - **The sealer's definition, `skills/verify/SKILL.md` and the gate's own
+    docstring say which base**, and a case keeps each of them from taking the
+    fact back. The gate's docstring is checked through the parsed module
+    rather than the file, because the file also holds the constants naming the
+    same refs and would otherwise answer for it — a check that cannot fail.
+
+<!-- specs/1789969379-a-conflict-resolved-by-side-reverts-the-other-sides-corrections -->
+<!-- seal/specs/1789969379-a-conflict-resolved-by-side-reverts-the-other-sides-corrections/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A `seal/ledger.md` conflict resolved by taking one side reverted the other
+  side's corrections, and nothing could see it** (#424). The fragment rule has
+  one exception and it is the whole cause: a branch that falsifies what an
+  existing shared-ledger row claims must touch that file to leave the ledger
+  true. So two branches in one release correct rows of one file, and the file
+  conflicts. In the measured instance the two hunks resolved in **opposite**
+  directions — each side was the superset in one of them — and taking a side
+  wholesale reverted three corrections that had each turned a false claim
+  true. A row reverted to a superseded state is byte-identical to a row nobody
+  touched, so `evidence-check` reports it `ok` and `--reverify` re-stamps it:
+  *somebody read this*, written over a claim that had been read, found false
+  and repaired. It was caught because a reviewer happened to grep for the
+  marker the corrections carried and found 0 occurrences in a file that had
+  had three.
+
+  - **`correction-check` is the new command.** It walks every merge commit in
+    a range and names every `Corrected <date>` or `Re-read <date>` marker a
+    parent carried that the merge result does not — with the file, the merge,
+    the parent it came from and the row that still stands. Exit 0 when nothing
+    was dropped, 1 with each loss named, 2 for a range that does not resolve.
+
+    **Both markers, matched on the verb and the date and on neither the
+    sentence after it nor the qualifier before it.** Counted in this
+    repository: 404 marker occurrences on 190 rows, at least three spellings
+    of the `Corrected` sentence, and 39 markers in ten spellings that put a
+    qualifier between the verb and the date — `Re-read again <date>`, `a
+    third time`, `and re-executed`. One row carries no other spelling. A
+    check pinned to either side of the date goes red on a rewording and stays
+    quiet on a revert, which is both failure directions at once.
+
+  - **Row survival is what separates a loss from a removal.** A marker that
+    vanishes with its row is `REMOVED` and correct — that is the repository's
+    own rule about a row whose anchor a change removes — and one that vanishes
+    while its row stands is the defect. A row is identified by its first cell,
+    and by its content anchors where the correction was the first cell.
+
+  - **A marker a parent deleted relative to the merge base is that parent's
+    decision, not the merge's.** Without that reading the check reports one
+    merge over this repository's whole reachable history, and that merge is
+    correct work: a release branch re-anchored a row whose section had moved
+    file and rewrote the cell carrying four historical `Re-read` sentences. A
+    check that fires on correct work is one people learn to skip.
+
+  - **It runs at the pull request into a release branch, and it has no other
+    moment.** A feature branch squashes, so the merges it reads stop existing
+    when the branch lands — measured both ways rather than assumed. It reports
+    the loss and cannot prevent it: reading both sides of a hunk is a person's
+    act, and a merge driver would have to understand what a row claims.
+
+  - **`CLAUDE.md` and `CONTRIBUTING.md` now say what to do at the conflict** —
+    resolve hunk by hunk, read both sides, never `--ours` or `--theirs` — with
+    the opposite-direction instance as the argument. The two are held against
+    each other by a case, because they have disagreed about this rule before.
+
+<!-- specs/1789985781-the-gates-arm-list-is-maintained-by-hand -->
+<!-- seal/specs/1789985781-the-gates-arm-list-is-maintained-by-hand/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **The broad gate's arm list was maintained by hand, so a branch could seal
+  green and meet a red leg** (#468). The gate runs arms so that the sealer's
+  one run says what CI will say, and nothing held its list against
+  `.github/workflows/hygiene.yml`'s. The previous release added a step to that
+  workflow's `release` job — *no merge on this branch dropped a correction the
+  ledger had made* — and nobody added the arm; a coverage probe over the eight
+  structural modules that read those files reported 243 passed and 8 skipped
+  with it absent. So the seventh arm would have arrived the same way, and the
+  eighth.
+
+  - **The gate now declares a partition of every step of that job.** Each one
+    is mirrored by a named arm or excluded with a reason somebody wrote, there
+    is no third state, and a case holds the table against the workflow from
+    both sides: a step added there fails the suite until somebody classifies
+    it, and a row naming a step that was renamed away fails it too. The step
+    names are read out of the workflow as text — the script runs with no
+    third-party dependency, so there is no YAML parser — and the reader takes
+    text rather than a path, which is what lets it be driven over shapes the
+    file does not happen to have.
+
+  - **Two arms were missing rather than one, and the count came out of a
+    construction rather than a reading.** All thirteen steps were classified:
+    three have no local answer at all (the pull request's body, a fetch of the
+    remote's pull-request namespace, the tracker), one only ever warns, and
+    six have a local answer. Of those six, two run a check the plugin ships —
+    `correction-check`, the arm the previous release needed, and
+    `skills/implement/scripts/seal.py mode --check` — and both are now arms.
+    Of the other four, three run a script under `.github/scripts/`, which no
+    plugin ships, and one is shell written inline in the workflow with no
+    script either side can share; a repository that
+    wants checks of its own sealed names them in the `Broad gate` row of
+    `seal/config.md` rather than in the arm list of a script everybody
+    installs.
+
+  - **A seal says what it did not answer.** Where the gated repository has
+    that workflow, the panel carries a `workflow` row — *8 of 13 not
+    answered* — and the names of those steps go to stderr beside the line
+    naming the repository's own command, before the checks run, so a run that
+    comes back `NOT SEALED` carries it too. A panel value is 23 columns, which
+    a count fits and a step name does not; a count alone would send the reader
+    back to the two files this declaration exists to stop them opening. A run
+    that answers every step says so rather than going quiet.
+
+  - **A repository with no such workflow sees none of it.** The partition
+    describes this repository's CI and the gate ships to every repository that
+    installs the plugin, so the row and the line are absent where the file is,
+    and a case asserts the panel's rows against the exact set they were
+    before.
+
+  - **What this does not close, stated rather than left to be found.** An
+    exclusion can be written to make the case green rather than to state a
+    truth, and the partition would then be total with the seal still short.
+    Nor does the partition say a mirrored arm asks the same question its step
+    asks — it says the step is on the list. #473 is the work item about that
+    class, opened with the one live instance: the gate runs the `survivors`
+    and `corrections` arms unconditionally where the workflow skips both
+    steps on a `main` base.
+
 ## 0.12.1 — 2026-09-20
 
 <!-- specs/1789621028-nothing-reads-a-record-against-the-tree -->
