@@ -327,6 +327,43 @@ nothing. It never fetches, so a remote-tracking ref is only as fresh as the
 last fetch — which is why the stamp's panel names the ref beside the commit
 rather than the commit alone.
 
+**What the sealer's seal covers is declared rather than remembered.** The arms
+exist so that its one run says what CI will say, and for three releases the
+list was kept in step with `.github/workflows/hygiene.yml` by whoever
+remembered. #424 added a step to that workflow's `release` job, nobody added
+the arm, and no case in the suite went red — so from that merge onward a green
+seal covered a shorter list than the merge was judged by.
+`skills/verify/scripts/broad_gate.py`'s `PARTITION` is the declaration that
+ends it: every step of that job is mirrored by a named arm or excluded with a
+written reason, there is no third state, and a case holds the table against
+the workflow from both sides. A step added to the workflow fails the suite
+until somebody classifies it, and a row naming a step that was renamed away
+fails it too.
+
+**A seal says what it did not answer.** Where the repository being gated has
+that workflow, the panel carries a `workflow` row — *<n> of <total> not
+answered* — and the names of those steps go to stderr beside the line that
+names the repository's own command. The count is on the panel because a panel
+value is 23 columns and a step name is a sentence; the names are printed
+because a number alone sends the reader back to the two files this
+declaration exists to stop them opening. A repository with no such workflow
+sees neither, and nothing else about its run changes.
+
+**What the count does not say** is whether a mirrored arm asks the same
+question its step asks. The partition says a step is on the list; two readers
+of one question can still disagree about what they are checking. **#473 is
+the work item about that class**, opened with the one live instance this
+repository has: the gate runs the `survivors` and `corrections` arms
+unconditionally where the workflow skips both steps on a `main` base.
+
+**The arms the plugin ships are the arms the gate can run.** Four steps of
+this repository's `release` job have a local answer and no arm: three run a
+script under `.github/scripts/`, which no plugin ships, and one is shell
+written inline in the workflow with no script either side can share. A
+repository that wants checks of its own sealed names them in the `Broad gate`
+row of `seal/config.md` — the row this gate already runs first — rather than
+in the arm list of a script that ships to everybody.
+
 A full suite carries failures that were already there. Attributing them to
 this work is a wrong finding; passing over them is a silent pass. Both are
 avoided the same way: read the run against the base commit.

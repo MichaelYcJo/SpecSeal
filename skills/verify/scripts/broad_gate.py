@@ -29,6 +29,16 @@ What it does, in order, from the repository root:
      because the cell this run is about to write still reads `not yet`
   5. `survivor-check --range <base>...HEAD`, with every
      `seal/specs/*/survivors.md` as `--exempt`
+  6. `correction_check.py --range <base>...HEAD`   no merge on this branch
+     dropped a correction the ledger had made
+  7. `seal.py mode --check`            the `Mode` row and the folder agree
+
+**Which arms exist is declared rather than remembered** (#468). `PARTITION`
+below holds every step of `.github/workflows/hygiene.yml`'s `release` job
+against the arm that mirrors it, or against the reason none does, and a case
+holds that table against the workflow from both sides. The list above went
+three releases at five while the workflow went to thirteen steps, and no case
+went red for it.
 
 **`<base>` above is a resolved commit, never the ref as typed.** `--base` is
 resolved once before anything runs, to the ref CI will read: the given ref's
@@ -146,6 +156,10 @@ UNVERIFIED = os.path.join(HERE, "unverified_check.py")
 EVIDENCE = os.path.join(
     PLUGIN, "skills", "evidence-check", "scripts", "evidence_check.py"
 )
+CORRECTION = os.path.join(
+    PLUGIN, "skills", "evidence-check", "scripts", "correction_check.py"
+)
+SEAL_SCRIPT = os.path.join(PLUGIN, "skills", "implement", "scripts", "seal.py")
 CHAIN = os.path.join(PLUGIN, "skills", "code-review", "scripts", "chain_check.py")
 SURVIVOR = os.path.join(PLUGIN, "skills", "code-review", "scripts", "survivor_check.py")
 RECORD = os.path.join(PLUGIN, "skills", "code-review", "scripts", "round_record.py")
@@ -158,9 +172,14 @@ SPECS = "specs"
 SURVIVORS = "survivors.md"
 ROUND_RE = re.compile(r"^round-(\d+)\.md$")
 
-# The five checks, by the name the report prints for each. The first is the
+# The checks, by the name the report prints for each. The first is the
 # repository's own command; the panel reads its `suite` and `lint` from that
 # one run, because the row carries both.
+#
+# There is no count in this comment on purpose. There were five of these for
+# three releases and every document that said `five` had to be found again
+# when the sixth landed — `PARTITION` below is where the list is declared, and
+# a case holds it against the workflow rather than against a number typed here.
 SUITE, LEDGER, UNVERIFIED_NAME, CHAIN_NAME, SURVIVORS_NAME = (
     "suite",
     "ledger",
@@ -168,6 +187,8 @@ SUITE, LEDGER, UNVERIFIED_NAME, CHAIN_NAME, SURVIVORS_NAME = (
     "chain",
     "survivors",
 )
+# The two the workflow ran and the gate did not, until #468 (`PARTITION`).
+CORRECTIONS_NAME, MODE_NAME = "corrections", "mode"
 
 # How many lines of a failing check's output the report quotes before naming
 # the file that holds the rest.
@@ -1178,6 +1199,292 @@ def compare_at_base(root, base, command, files, keep):
         )
 
 
+# --- the workflow this gate is a local reading of ---------------------------
+#
+# The gate exists so the sealer's one run says what CI will say. It said a
+# SHORTER list than CI for one release: `.github/workflows/hygiene.yml`'s
+# `release` job gained a step in #424, nobody extended the gate, and no case
+# in the suite went red for it — a coverage probe over the eight structural
+# modules that read those files reported 243 passed and 8 skipped with the arm
+# absent (#468).
+#
+# So the list is declared here rather than remembered. **Every step of that
+# job is mirrored by a named arm or excluded with a reason a person wrote**,
+# there is no third state, and
+# `tests/test_the_gate_names_every_step_ci_runs.py` holds the partition
+# against the workflow from both sides: a step added to the workflow and left
+# unclassified goes red there, and so does a row naming a step that was
+# renamed away.
+#
+# **A reason is prose, never a category.** `EXCLUDED` tells the next reader
+# nothing, and the reason is the whole value of the row — it is what a person
+# checks when they wonder whether this gate's seal covers them.
+#
+# What this does NOT close, stated rather than left to be found: an exclusion
+# can be written to make the case green rather than to state a truth, and the
+# partition would then be total and this gate's stamp still short of what the
+# merge is judged by. That hole is real and open; what the declaration buys is
+# that the omission is now a sentence somebody wrote and signed rather than a
+# silence.
+
+WORKFLOW = os.path.join(".github", "workflows", "hygiene.yml")
+RELEASE_JOB = "release"
+
+# A job's key under `jobs:`, at two spaces. Anything deeper is inside a job.
+JOB_RE = re.compile(r"^  ([A-Za-z0-9_-]+):\s*$")
+# A step's name. Any indentation: the dash is what makes it a step of the
+# list, where a `name:` with no dash is a key inside one (`with:`, `env:`).
+STEP_RE = re.compile(r"^\s*-\s+name:\s*(\S.*?)\s*$")
+
+
+def unquote(value):
+    """A YAML scalar with its matching quotes off, if it wore any."""
+    for mark in ('"', "'"):
+        if len(value) >= 2 and value.startswith(mark) and value.endswith(mark):
+            return value[1:-1]
+    return value
+
+
+def job_steps(text, job):
+    """Every named step of one job of a workflow, in file order.
+
+    **Text in, list out.** The reader is driven over shapes this repository's
+    workflow does not happen to have, because a reader nothing drives is a
+    reader nobody can tell is partial — #424's finding 4, whose repair was the
+    same move.
+
+    **No YAML parser.** This script runs with no third-party dependency, and
+    CI installs a test runner and nothing else. A step name is a `- name:`
+    line, read as text, the way
+    `tests/test_ci_gives_the_checks_what_they_need.py#jobs` already reads the
+    same file. A step that exists only in a comment is not a step, and that
+    falls out of both patterns rather than out of a line dropping comments:
+    each requires the first non-blank character to be the list's dash or the
+    job key's own letter. The line that dropped them was written, mutated,
+    and found to change nothing — dead code that looks like a defence is
+    worse than none.
+
+    **Known gap: a TRAILING comment joins the step name.** YAML ends an
+    unquoted scalar at ` #`, and this reader does not, so
+    `- name: a step  # why` reads as `a step  # why`. Not live — no `- name:`
+    line in `hygiene.yml` carries one — and it fails LOUDLY if one ever does,
+    because A1 goes red with the comment visible in the name it could not
+    classify. `strip_comments` in
+    `tests/test_ci_gives_the_checks_what_they_need.py`, the reader this one
+    follows, has the same gap, so it is a class rather than something this
+    reader opened (round 1, recorded as a correction rather than fixed).
+
+    A file this cannot read as a workflow comes back empty rather than
+    raising. The gate calls it on whatever sits at that path in the repository
+    it was pointed at, and the plugin ships to repositories that have no such
+    workflow at all — for them nothing about the run may change. What keeps an
+    empty answer from reading as a pass is the caller: the case that grades
+    this repository refuses an empty list rather than counting zero
+    unclassified steps.
+    """
+    lines = text.splitlines()
+    try:
+        # Found by walking rather than by splitting on `"\njobs:\n"`: that
+        # spelling cannot see a `jobs:` on the FIRST line of the file, and
+        # driving this reader over a fragment that had one is what said so.
+        start = lines.index("jobs:") + 1
+    except ValueError:
+        return []
+    steps, current = [], None
+    for line in lines[start:]:
+        job_line = JOB_RE.match(line)
+        if job_line:
+            current = job_line.group(1)
+            continue
+        if current != job:
+            continue
+        step = STEP_RE.match(line)
+        if step:
+            steps.append(unquote(step.group(1)))
+    return steps
+
+
+# Each row is a step of the `release` job, spelled as `hygiene.yml` spells it,
+# and then either the arm that mirrors it or the reason none does.
+#
+# **Four of the eight exclusions could not run here at all; four could.** The
+# measurement `questions.md` M1 asked for, taken by construction over all
+# thirteen: three steps have no local answer (the pull request's body, the
+# remote's pull-request namespace, the tracker), one raises a warning and can
+# refuse nothing, one is shell written inline in the workflow with no script
+# to share, and three run a script that belongs to this repository rather
+# than to the plugin. The last four are the ones with a local answer, and
+# `seal/config.md`'s `Broad gate` row is where a repository names checks of
+# its own — not the arm list of a script that ships to every repository that
+# installs the plugin.
+PARTITION = (
+    (
+        "every issue this pull request claims, and every one it only names",
+        None,
+        "reads the body of the pull request, and a gate run on a branch has "
+        "no pull request to read. The step never fails either — it reports a "
+        "split and exits 0 — so there is no verdict for an arm to carry",
+    ),
+    (
+        "a change to what ships must move the version",
+        None,
+        "the check is shell written inline in the workflow, with no script "
+        "both sides can run. An arm would be a second reading of one "
+        "question, which is the drift this partition exists to stop",
+    ),
+    (
+        "every changelog fragment reached the released file",
+        None,
+        "runs `.github/scripts/gather_changelog.py`, which belongs to this "
+        "repository and not to the plugin this gate ships in. A repository's "
+        "own checks belong in the `Broad gate` row of `seal/config.md`",
+    ),
+    (
+        "every ledger fragment folded into the gathered ledger",
+        None,
+        "runs `.github/scripts/fold_ledger.py`, this repository's own script "
+        "rather than one the plugin ships, and the `Broad gate` row is where "
+        "a repository names a check of its own",
+    ),
+    (
+        "the unverified record is readable, and rows leave it closed",
+        UNVERIFIED_NAME,
+        None,
+    ),
+    (
+        "the pull request heads a round record may name",
+        None,
+        "fetches the remote's pull-request namespace. The gate seals the tree "
+        "that is already here and fetches nothing, so a ref only a fetch "
+        "would bring is a ref it cannot reach",
+    ),
+    (
+        "a declared review chain has the round record it claimed",
+        CHAIN_NAME,
+        None,
+    ),
+    (
+        "wording this branch removed is not still standing elsewhere",
+        SURVIVORS_NAME,
+        None,
+    ),
+    (
+        "no merge on this branch dropped a correction the ledger had made",
+        CORRECTIONS_NAME,
+        None,
+    ),
+    (
+        "the milestone this release claims is the work it carries",
+        None,
+        "asks the tracker through `gh` which issues the milestone holds. The "
+        "gate reads no network and carries no token",
+    ),
+    (
+        "the mode the row declares is the mode the folder is in",
+        MODE_NAME,
+        None,
+    ),
+    (
+        "the CLAUDE.md block is the template's, line for line",
+        None,
+        "runs `.github/scripts/claude_block.py` over this repository's own "
+        "CLAUDE.md. The plugin does not ship that script, and a repository "
+        "that wants it sealed names it in the `Broad gate` row",
+    ),
+    (
+        "both READMEs move together",
+        None,
+        "raises a warning and never fails, so there is nothing for an arm to "
+        "refuse. Every arm here is an exit code",
+    ),
+)
+
+
+def mirrored():
+    """The arm each classified step is mirrored by, by step name."""
+    return {name: arm for name, arm, _ in PARTITION if arm}
+
+
+def workflow_text(root):
+    """The hygiene workflow of the repository being gated, or None.
+
+    None is the ordinary case away from this repository: the plugin ships to
+    repositories that have no such workflow, and for them nothing about the
+    run changes (`spec.md` A7). **A file that is there and is not UTF-8 is the
+    same case**, and it has to be: `UnicodeDecodeError` is a `ValueError`
+    rather than an `OSError`, and `main` catches only `Refused`, so a decode
+    error raised here ended the whole run on a traceback instead of a verdict
+    — the largest possible change to the run of a repository this partition
+    is not about (round 1, finding 5).
+    """
+    try:
+        with open(os.path.join(root, WORKFLOW), encoding="utf-8") as handle:
+            return handle.read()
+    except (OSError, ValueError):
+        return None
+
+
+def unanswered(text):
+    """The `release` job's steps this run answers nothing for, in file order.
+
+    A step no row classifies counts here too, and that is the honest answer
+    rather than an oversight: in another repository whose workflow happens to
+    carry this name, every step is one this gate runs nothing for.
+    """
+    arms = mirrored()
+    return [step for step in job_steps(text, RELEASE_JOB) if step not in arms]
+
+
+def coverage_line(text):
+    """One line naming the steps this seal did not answer, or None.
+
+    **Names here, a count on the panel** (`questions.md` W1).
+    `seal_stamp.letter` gives a panel value 23 columns, which thirteen step
+    names do not fit and a count does — and a reader who is told only a number
+    has to reconstruct WHICH from two files, which is the reconstruction this
+    work item exists to remove. So the panel carries the number and this
+    carries the names, on the stream the gate already uses to say which
+    command the row asked for.
+
+    **A step no row classifies is named apart from one a row excludes.**
+    `PARTITION` describes SpecSeal's own `release` job; in another repository
+    whose workflow happens to carry that job name, every step is unclassified
+    and none of them has a reason written anywhere. Pointing that reader at
+    `PARTITION` sends them to thirteen rows about a workflow they do not run,
+    which is the reconstruction from two files this work item exists to
+    remove, arriving one level further out (round 1, finding 3).
+    """
+    steps = job_steps(text, RELEASE_JOB)
+    if not steps:
+        return None
+    short = unanswered(text)
+    if not short:
+        return (
+            f"broad-gate: this seal answers every one of {WORKFLOW}'s "
+            f"{len(steps)} `{RELEASE_JOB}` steps"
+        )
+    classified = {name for name, _, _ in PARTITION}
+    excluded = [step for step in short if step in classified]
+    unknown = [step for step in short if step not in classified]
+    said = (
+        f"broad-gate: {WORKFLOW}'s `{RELEASE_JOB}` job runs {len(steps)} "
+        f"steps and this seal answers {len(steps) - len(short)}."
+    )
+    if excluded:
+        said += (
+            " Not answered, each with the reason no arm mirrors it in "
+            "`broad_gate.py#PARTITION`: " + "; ".join(excluded) + "."
+        )
+    if unknown:
+        said += (
+            " In no row of `broad_gate.py#PARTITION` at all, so this gate has "
+            "no reading of them and answers nothing for them: "
+            + "; ".join(unknown)
+            + "."
+        )
+    return said
+
+
 # --- what the panel reads --------------------------------------------------
 
 
@@ -1224,7 +1531,7 @@ def round_count(item):
     return sum(1 for n in names if ROUND_RE.match(n))
 
 
-def panel(tree, base, checks, item):
+def panel(tree, base, checks, item, workflow=None):
     """The stamp's rows. `base` is a `Base`, so the panel can say WHICH ref
     the commit beside it came from.
 
@@ -1261,6 +1568,19 @@ def panel(tree, base, checks, item):
         (LEDGER, ledger_counts(checks[LEDGER].text) or "exit 0"),
         (CHAIN_NAME, f"exit {checks[CHAIN_NAME].code}"),
     ]
+    # What this seal did NOT answer, which a reader otherwise reconstructs
+    # from two files (#468). A COUNT, because a panel value is 23 columns and
+    # a step name is a sentence — the names go to stderr beside the command
+    # line, where `coverage_line` puts them (`questions.md` W1).
+    #
+    # Absent where the repository has no such workflow, which is the ordinary
+    # case away from this one: the partition describes SpecSeal's own CI, the
+    # plugin ships to repositories that have none, and for them nothing about
+    # the run changes (`spec.md` A7).
+    steps = job_steps(workflow, RELEASE_JOB) if workflow else []
+    if steps:
+        short = len(unanswered(workflow))
+        rows += [None, ("workflow", f"{short} of {len(steps)} not answered")]
     if item is not None:
         rows += [None, ("rounds", str(round_count(item)))]
     return rows
@@ -1381,6 +1701,13 @@ def gate(args, console_wants_letters):
     if said:
         sys.stderr.write(said + "\n")
     sys.stderr.write(f"broad-gate: `{ROW}` says: {command}\n")
+    # Before the checks rather than after them, so a run that comes back NOT
+    # SEALED carries it too: what this run's seal would not have covered is as
+    # much a fact about a failed run as about a sealed one.
+    workflow = workflow_text(root)
+    coverage = coverage_line(workflow) if workflow else None
+    if coverage:
+        sys.stderr.write(coverage + "\n")
     checks[SUITE] = run(SUITE, command, root, keep, shell=True)
     checks[LEDGER] = run(LEDGER, [py, EVIDENCE, "--strict", root], root, keep)
     checks[UNVERIFIED_NAME] = run(
@@ -1400,6 +1727,19 @@ def gate(args, console_wants_letters):
     for path in exemptions(home):
         survivor_args += ["--exempt", path]
     checks[SURVIVORS_NAME] = run(SURVIVORS_NAME, survivor_args, root, keep)
+    # The two arms #468 added, and `PARTITION` is where each says which step
+    # of the workflow it stands for. The range is the survivor arm's, spelled
+    # the same way for the same reason: both walk what this branch did
+    # relative to the commit CI will compare against.
+    checks[CORRECTIONS_NAME] = run(
+        CORRECTIONS_NAME,
+        [py, CORRECTION, "--range", f"{base.commit}...HEAD", "--root", root],
+        root,
+        keep,
+    )
+    # No `--root`: `seal.py mode` resolves the repository from the working
+    # directory, which `run` already sets to the tree being gated.
+    checks[MODE_NAME] = run(MODE_NAME, [py, SEAL_SCRIPT, "mode", "--check"], root, keep)
 
     failures = []
     for name, check in checks.items():
@@ -1453,7 +1793,7 @@ def gate(args, console_wants_letters):
             )
             return 2
     shape = args.shape or console_wants_letters
-    rows = panel(tree, base, checks, item)
+    rows = panel(tree, base, checks, item, workflow)
     sys.stdout.write("\n" + "\n".join(stamp.stamp(rows, args.scale, shape)) + "\n\n")
     return 0
 
