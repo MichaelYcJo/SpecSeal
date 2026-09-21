@@ -143,6 +143,26 @@ used to disagree: one forbade editing the file at all while the other forbade
 appending to it, which left a branch in this position with no reading that
 permits the only correct act.
 
+**When `seal/ledger.md` conflicts, resolve it hunk by hunk and read both
+sides.** Never `--ours` and never `--theirs`. A whole-file choice is wrong by
+construction once both branches have been correcting, and the measured
+instance is the argument: in #424 the two hunks resolved in opposite
+directions, because each side was the superset in one of them. Taking a side
+reverted three corrections that had each turned a false claim true.
+
+**Nothing downstream can see that, which is why the reading is yours.** A row
+reverted to a superseded state is byte-identical to a row nobody touched —
+there is no marker on it, and the hash `evidence-check` reads is correct for
+the restored text. `correction-check --range origin/<base>...HEAD` reads the
+`Corrected <date>` and `Re-read <date>` markers instead and names what a merge
+dropped from a row that still stands; the hygiene workflow runs it on every
+pull request into a release branch. It reports the loss after the fact and
+cannot prevent it.
+
+`CONTRIBUTING.md` carries both paragraphs, and
+`tests/test_a_merge_cannot_silently_drop_a_correction.py` holds the two
+against each other.
+
 This overrides the `implement` skill and `agents/smith.md`, which tell a
 session to let the entry accumulate unreleased. That is the
 plugin's answer for a repository with no fragment convention; this repository

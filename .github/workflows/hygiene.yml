@@ -254,6 +254,47 @@ jobs:
           python3 skills/code-review/scripts/survivor_check.py \
             --range "origin/${{ github.base_ref }}...HEAD" ${exempt[@]+"${exempt[@]}"}
 
+      # A `seal/ledger.md` conflict resolved by taking one side reverts the
+      # other side's corrections, and a row reverted to a superseded state is
+      # byte-identical to a row nobody touched — no marker on it, and the hash
+      # the evidence checker reads is *correct* for the restored text. #424
+      # was caught by one accident: a reviewer grepped for the marker the
+      # corrections carried and found 0 occurrences of `Corrected 2026-09-15`
+      # in a file that had had three.
+      #
+      # This reads the markers instead. Both of them — `Corrected` and
+      # `Re-read`, matched on the verb and the date and never on the sentence
+      # after it, because at least three spellings of the first one already
+      # exist; a short qualifier BEFORE the date — `Re-read again <date>`, `a
+      # third time`, `and re-executed` — is read as part of the same marker,
+      # because 39 of the file's 404 markers are spelled that way and one row
+      # carries no other. A marker that vanished WITH its row is `REMOVED` and
+      # correct; one that vanished while its row stands is the defect, and a
+      # marker a parent deleted relative to the merge base is that parent's
+      # decision rather than the merge's.
+      #
+      # **It runs here and nowhere else, because the merges exist only here.**
+      # A feature branch squashes into its release branch, so the branch's own
+      # merge of that release branch in — which is exactly what #424's incident
+      # was — stops existing the moment the pull request merges. Measured in
+      # `tests/test_a_merge_cannot_silently_drop_a_correction.py`: reachable
+      # from the merge ref this job checks out, gone after the squash.
+      #
+      # **Release only in the other direction, like the survivor step above.**
+      # A pull request into `main` is a release, and a release branch carries
+      # squashed commits rather than its work items' merges; the range there
+      # holds merges of `main` back into the release branch, which is a
+      # different question, and every work item was already read at its own
+      # pull request.
+      - name: no merge on this branch dropped a correction the ledger had made
+        shell: bash
+        run: |
+          if [ "${{ github.base_ref }}" = "main" ]; then
+            echo "base is main — a release branch carries squashed commits, not its work items' merges; each of them was checked at its own pull request"; exit 0
+          fi
+          python3 skills/evidence-check/scripts/correction_check.py \
+            --range "origin/${{ github.base_ref }}...HEAD"
+
       # `docs/flow.md` used to ask *is everything in* as a checklist bullet a
       # person ticked, and #351 deleted the file. Nothing replaced it, and
       # nothing had ever checked it: `docs/issues-and-milestones.md` says a

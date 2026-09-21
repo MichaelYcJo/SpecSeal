@@ -308,6 +308,46 @@ A row citing a range that spans several definitions becomes several
 coordinates, one per definition. That is not a loss: it is the row saying which
 pieces of code it is actually about.
 
+## `correction-check` — a correction a merge dropped
+
+The fragment rule has one exception and the exception is the whole of this
+problem: a branch that falsifies what an existing shared-ledger row claims
+must touch that file to leave the ledger true. So two branches in one release
+correct rows of one file, the file conflicts, and resolving it by taking a
+side reverts whatever the other side had corrected.
+
+**This check cannot see that, and neither can anything else here.** A row
+reverted to a superseded state is byte-identical to a row nobody touched:
+there is no marker on it, the anchors resolve, and the hash is correct for the
+restored text. Run afterwards, `--reverify` re-stamps it — writing *somebody
+read this* over a claim that had been read, found false and repaired.
+
+So a second command reads what the corrections carry in their prose:
+
+```bash
+correction-check --range origin/<base>...HEAD
+```
+
+It walks every merge commit in the range, reads `seal/ledger.md` and every
+`seal/ledger/*.md` fragment at the merge, at both parents and at the merge
+base, and names every `Corrected <date>` or `Re-read <date>` marker a parent
+carried that the result does not — while the row carrying it still stands. A
+marker that went **with** its row is `REMOVED` and correct, and a marker a
+parent deleted relative to the base is that parent's decision rather than the
+merge's. Exit 0 when nothing was dropped, 1 with each loss named, 2 for a
+range that does not resolve.
+
+**Its moment is the pull request, and it has no other.** A feature branch
+squashes into its release branch, so the merges it reads stop existing the
+moment the branch lands. The hygiene workflow runs it on every pull request
+into a release branch for that reason, and a repository with no merges in the
+range gets one line saying so and exit 0.
+
+It reports the loss; it does not prevent it. Reading both sides of a hunk is a
+person's act, and a merge driver for the file would have to understand what a
+row claims — which is the judgment this whole ledger is built around a person
+making.
+
 ## The records arm — what a work item's records say about the tree
 
 A ledger row is a claim about the tree that something reads. A **record** —
