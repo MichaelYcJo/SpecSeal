@@ -181,11 +181,24 @@ weaken A3.
 | `skills/verify/scripts/broad_gate.py#seal_record` | its `base` argument is the resolved commit; its signature and the cell's shape are unchanged |
 | `skills/verify/scripts/broad_gate.py#compare_at_base` | unchanged in source; its caller hands it the resolved commit |
 | `skills/verify/scripts/seal_stamp.py#not_sealed` | unchanged in source if the caller passes the resolved base; changed only if the line's wording moves, and then with its case |
-| `skills/verify/scripts/seal_stamp.py#letter` | unchanged. `PANEL_WIDTH` is 36 and the label field is 8, so a panel value is cut at 23 columns — `origin/release/v0.12.0` is 22 and fits, and a longer ref is why the authoritative statement is a printed line rather than a panel cell |
+| `skills/verify/scripts/seal_stamp.py#letter` | unchanged. `PANEL_WIDTH` is 36 and the label field is 8, so a panel value is cut at 23 columns — `origin/release/v0.12.0` is 22 and fits, and a longer ref is elided by `broad_gate.py#panel` before the frame ever sees it, so the row itself says it was cut |
 | `agents/sealer.md` §*The command* | the three outcomes gain what the gate now says about the base |
 | `skills/verify/SKILL.md` §*The broad gate — after the rounds, then compare against the base* | states which base the comparison is against |
 | `tests/test_the_seal_is_taken_once_by_the_sealer.py` | the new cases, and a fixture builder that can give a repository a remote |
 | `.github/workflows/hygiene.yml` | **unchanged**, and held against the gate by A11 |
+
+<!-- CORRECTED 2026-09-21 by work item 1789996775 (#464). The marker sits
+after the table rather than beside its row, because a comment line between two
+rows splits the table. It is about the `seal_stamp.py#letter` row. What stood
+there: "a longer ref is why the authoritative statement is a printed line
+rather than a panel cell". It is retired reasoning, not merely a weaker
+argument: round 1's finding 5 made `broad_gate.py#panel` elide before the
+frame and keep the tail, so the row now says when it was cut, and A4 keeps the
+printed line silent where the two bases agree — there are runs where this row
+is the only statement a reader gets. `phases/phase-3.md`:34 records the same
+argument as being "about a state that no longer arises". Corrected in place
+with the issue named, never deleted silently: a record of a past state that
+quietly becomes true is a record nobody can audit. -->
 
 ## What this repair cannot see
 

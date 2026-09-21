@@ -55,13 +55,35 @@
     one direction.** Wording the base itself removed leaves the range, so the
     survivor arm can pass where it used to refuse; the branch's replacement of
     base wording enters it, so the arm can refuse where it used to pass. The
-    two baselines move the same way — a baseline carried forward drops the
-    rows the base's own newer commits added. What a stale base guarantees is a
+    two baselines should move the same way — a baseline carried forward drops
+    the rows the base's own newer commits added — and that half is **read, not
+    executed**. The survivor arm is the half that was measured, in both
+    directions, and the repository owner answers whether the baseline half is
+    worth a case of its own. What a stale base guarantees is a
     disagreement rather than a direction, and the argument for the change is
     that the resolved answer is the one the merge is judged by, not that it is
     the stricter one. The cheaper mistake is still this one: a gate that
     answers a question the merge is not judged by is worse than a gate that
     errs either way, because its stamp reads as a pass.
+
+<!-- CORRECTED 2026-09-21 by work item 1789996775 (#464). What stood here:
+"The two baselines move the same way — a baseline carried forward drops the
+rows the base's own newer commits added." It is not false, and that is the
+point: round 1's report labelled that half read rather than executed, and it
+stood here beside the measured half with no label and no answerer, which
+`skills/agent-contract/SKILL.md` §4 is the rule against. Round 2's finding 14
+(`rounds/round-2-report.md`:195) names the three sites and its
+§*Paste-ready fixes* carries this replacement; `seal/ledger.md`'s R3 row of
+this work item is where the distinction survived. Corrected in place with the
+issue named, never deleted silently: a record of a past state that quietly
+becomes true is a record nobody can audit.
+
+This fragment was gathered into `CHANGELOG.md` §0.12.2 before the correction.
+`gather_changelog.py#ungathered` decides by marker and never by content, so
+the gathered copy is not re-gathered and keeps the unlabelled sentence. That
+divergence is Q1 of work item 1789996775 — the repository owner's row — and
+it is disclosed in that work item's `overview.md` §*Not verified* and in
+`seal/follow-up.md`. -->
 
     **It never fetches.** A remote-tracking ref is only as fresh as the last
     fetch, and that limit is named rather than closed — a check that moves
