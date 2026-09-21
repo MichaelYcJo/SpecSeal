@@ -329,6 +329,15 @@ def moved_line(root, base):
     report, so a sentence that can be wrong here is wrong in a report
     (round 1, finding 2).
 
+    **And it names a runner's ref only where a runner could hold one.** The
+    clause above was over-claimed by one spelling: `--base @{-1}` passes
+    `names_a_branch`, because `check-ref-format --branch` expands `@{-N}`
+    before it checks, and the runner label built out of it is `origin/@{-1}`
+    — a name no ref can have. The line used to offer it as *the ref a runner
+    reads*. `a_runner_could_hold` asks git about the constructed label, and
+    where git refuses it the line says the runner has no counterpart for that
+    spelling instead of naming one (round 2, finding 10, and #461).
+
     **The counts name what they are measured against.** `1 ahead, 0 behind`
     has no subject and both refs are in the sentence, so the reading that
     makes it true is the nearer noun rather than anything stated (round 1,
@@ -339,10 +348,16 @@ def moved_line(root, base):
     runner = REMOTE_LABEL.format(ref=base.given)
     if base.ref == runner:
         reads = f"CI reads {base.ref}, which is {base.commit}"
-    else:
+    elif a_runner_could_hold(root, runner):
         reads = (
             f"this checkout says {base.given} tracks {base.ref}, which is "
             f"{base.commit} — not the {runner} a runner reads"
+        )
+    else:
+        reads = (
+            f"this checkout says {base.given} tracks {base.ref}, which is "
+            f"{base.commit}; a runner's checkout has no counterpart for "
+            f"{base.given}"
         )
     if base.given_commit is None:
         return (
@@ -377,12 +392,41 @@ def names_a_branch(root, given):
     Asked of git rather than of a pattern written here, because the rule this
     guards — which remote-tracking ref a BRANCH corresponds to — is meaningful
     only for a branch name, and git already owns what one is.
-    `check-ref-format --branch` refuses `HEAD`, `HEAD~2` and anything carrying
-    `@{…}`, and accepts `base`, `release/vX.Y.Z` and a short SHA. The SHA
-    being accepted is right: it is a legal branch name, and no ref exists for
-    it, so it reaches the fallback either way.
+
+    **`--branch` EXPANDS `@{-N}` and then checks what it expanded to.** That
+    is the property, and it is not the same as refusing everything carrying
+    `@{…}`, which is what this docstring claimed until round 2 of #423
+    measured it. On git 2.54.0, `@{-1}` is accepted and the command prints
+    the branch it expanded to (`base`); `HEAD`, `HEAD~1`, `base@{u}` and
+    `topic@{1}` are each refused with *is not a valid branch name*. `base`,
+    `release/vX.Y.Z` and a short SHA are accepted. The SHA being accepted is
+    right: it is a legal branch name, and no ref exists for it, so it reaches
+    the fallback either way.
+
+    `@{-1}` being accepted is right too — it does name a branch, so taking
+    that branch's upstream is coherent. What it is NOT is a spelling a
+    runner's checkout can build a remote-tracking ref out of, and that is a
+    different question, asked of git separately in `a_runner_could_hold`
+    (#461).
     """
     return git(root, "check-ref-format", "--branch", given) is not None
+
+
+def a_runner_could_hold(root, ref):
+    """True where `ref` is a name a ref in a runner's checkout could have.
+
+    A different question from `names_a_branch`, and it has to be, because
+    `--branch` expands `@{-N}` before it checks: `@{-1}` passes that call and
+    the `origin/@{-1}` built out of it is not a name any ref can have. Git
+    refuses the whole name here, so `origin/@{-1}` comes back False while
+    `origin/base` comes back True.
+
+    Asked of git rather than of a pattern written here, for the reason round
+    1's finding 6 established: a hand-written guard closed the spelling in
+    front of it and moved the defect one step down to `origin/HEAD` instead
+    of closing the class. #461's *Not this* says the same thing.
+    """
+    return git(root, "check-ref-format", ref) is not None
 
 
 def resolve_base(root, given):
@@ -1538,13 +1582,24 @@ def panel(tree, base, checks, item, workflow=None):
     A bare SHA is what #423 found on the stamp of a branch CI then refused:
     the evidence was right there and a reader still could not tell a base the
     merge is judged by from a local ref a week behind it. The `from` row is
-    that missing half. `seal_stamp.letter` cuts a value at 23 columns, so a
-    ref longer than that is cut here — which is why the line the gate prints
-    when resolving MOVED the answer is the authoritative statement and this
-    row is context (`questions.md` W1).
+    that missing half.
 
-    **A ref too long for the row says so.** The elision keeps the TAIL:
-    `origin/` is the part a reader can infer and the branch name is not.
+    **A ref too long for the row says so.** `seal_stamp.letter` gives a value
+    `PANEL_VALUE_WIDTH` columns and cuts at the frame with no marker, so the
+    elision is made here instead and the TAIL is kept: for the `origin/<base>`
+    a runner reads, the prefix is the part a reader can infer. Where step 1
+    lands on a second remote the prefix is NOT inferable, and the line the
+    gate prints is what names that ref in full — it fires whenever the given
+    and resolved commits differ (`questions.md` W1, round 1 finding 5).
+
+    **Where it does not fire, this row is the only statement a reader gets.**
+    A4 keeps the line silent where the two bases agree, so a fork whose base
+    and `origin`'s name one commit renders a long `other/…` ref as its tail
+    with the remote hidden and nothing beside it. That is the stated cost of
+    keeping the tail rather than the head, and it is why the reading this
+    docstring used to lead with — a longer ref is why the printed line is the
+    authoritative statement and this row is context — is retired rather than
+    merely weakened (`phases/phase-3.md`, round 2 finding 13).
     """
     shown = base.ref
     if len(shown) > PANEL_VALUE_WIDTH:

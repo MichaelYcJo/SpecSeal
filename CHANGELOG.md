@@ -1,5 +1,125 @@
 # Changelog
 
+## 0.12.3 — 2026-09-21
+
+<!-- specs/1789996775-the-gate-states-what-its-own-fixes-disproved -->
+<!-- seal/specs/1789996775-the-gate-states-what-its-own-fixes-disproved/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **Three sets of statements the gate's own fixes disproved are corrected**
+  (#461, #464, #465). None of them changed what the gate does. Every one of
+  them made a reader believe something the same work item had measured to be
+  false, and all three were left standing because #423 capped before it could
+  spend them as reopenings.
+
+    **The base guard's docstring named a class git does not refuse** (#461).
+    It said `check-ref-format --branch` refuses anything carrying `@{…}`.
+    Measured on git 2.54.0: the command EXPANDS `@{-N}` and then checks what
+    it expanded to, so `@{-1}` is accepted and the command prints the branch
+    it found, while `HEAD`, `HEAD~1`, `base@{u}` and `topic@{1}` are each
+    refused. The docstring now states that property.
+
+    **And the one spelling that slips through made the gate quote a ref
+    nothing reads.** `--base @{-1}` passed the guard, resolved, and the
+    printed line offered `origin/@{-1}` as *the ref a runner reads* — a name
+    no ref can have. The line now asks git whether a runner's checkout could
+    hold the label it is about to name, and where it could not, it says the
+    runner has no counterpart for that spelling instead of naming one. The
+    question is git's own answer and not a pattern written in the gate, which
+    is what round 1's finding 6 already settled for the guard beside it.
+    `agents/sealer.md` has the sealer quote this line verbatim into a report,
+    so the new sentence is pinned by a case rather than only corrected.
+
+    **The panel's docstring led with an argument its own phase retired**
+    (#464). It said a ref too long for the row is why the printed line is the
+    authoritative statement and the row only context. The printed line is
+    silent where the two bases agree, so there are runs where the row is the
+    only statement a reader gets; the row now says so, and the elision's
+    grounds no longer assume the prefix being dropped is always `origin/`.
+
+    **The baseline half of the direction claim carried no evidence label.**
+    Round 1 labelled it *read, not executed* and three operational statements
+    of the shipped work item repeated it beside the measured half with no
+    label and no answerer. All three now carry the label and name who answers
+    it. `CHANGELOG.md` §0.12.2 keeps the unlabelled copy: amending a released
+    section is the repository owner's call, and it is disclosed rather than
+    taken.
+
+    **The gate's own test module said three times that the branch left
+    another module byte-identical** (#465), and that branch changed it — one
+    assertion moved because the `Broad gate` cell's base half now carries the
+    commit. All three statements say what the branch did.
+
+    **No exit code, verdict or resolution moves.** One printed sentence
+    changes, for one input class, and every correction to a shipped record is
+    made in place under a marker quoting what stood there.
+
+<!-- specs/1789996780-the-census-and-the-tie-that-nothing-holds -->
+<!-- seal/specs/1789996780-the-census-and-the-tie-that-nothing-holds/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **The check that exists to stop a false claim shipping was shipping two of
+  its own, and half its parent-naming rule was held by nothing** (#469, #470,
+  #471). All three are leftovers of #424's review chain, left open where that
+  run capped.
+
+  - **Every figure `correction-check` states about the corpus it watches now
+    stands at one site, and carries a corpus, an instrument and a moment.**
+    The comment justifying the bound on a marker's qualifier had been false
+    twice for two different reasons, and the second time the cause was a
+    commit inside the fix range that wrote a marker into a file the census
+    counted. Six tracked files restated one of its numbers; correcting six
+    copies leaves six copies to drift, so the module docstring, the test
+    docstrings, the hygiene workflow's comment and the work item's records
+    point at the census note instead of repeating a digit.
+
+    The corpus is `seal/ledger.md` alone — **not** because a branch cannot
+    move it, which is what the ticket prescribed and is false twice over, but
+    because it is the file a release folds the fragments INTO and therefore
+    the part of the corpus that survives one. The note says so, and says that
+    its digits go stale by construction at the next fold and the next
+    correction.
+
+  - **A case now holds the bound instead of one literal spelling.** It takes
+    an independent census over the real ledger files, read through the
+    module's own `LEDGER` and `FRAGMENTS` rather than a list written in the
+    case, and asserts the property that every candidate marker site the
+    unbounded walk finds is one the pattern also sees. It asserts no count,
+    because a number over that corpus is stale the next time anybody records
+    a correction. It refuses to pass over an empty corpus, and when the
+    corpus grows a longer run it goes red naming the file, the row, the run
+    length and the spelling, so the bound is raised deliberately.
+
+    The instrument is deliberately not the pattern under test, and the pair
+    of mutations is the evidence: narrowing the bound turns the case red, and
+    narrowing the bound **while taking the census with the pattern itself**
+    leaves it green. That is the circular census that went wrong twice,
+    demonstrated rather than asserted.
+
+  - **A tie in the parent-naming rule falls to the first parent, and a case
+    says so.** The report names the parent that lost the most occurrences of
+    a marker, and ties fall to the side the person resolving the conflict had
+    checked out. Only the first clause was held. The tie is the ordinary path
+    rather than the edge — every marker older than the fork is carried by
+    both parents, so both lose the same count — and the behaviour rested on
+    `max` returning the first of equal keys, with nothing red if that ever
+    changed.
+
+  - **Statements about the corpus now say when they were taken.** Ledger rows
+    C1 and C2 are corrected in place, C3 and C4 record being re-read by hand
+    before their hashes were re-stamped rather than after, and the records of
+    #424's work item are corrected under a marker naming the issue. One
+    figure a reader could take at face value is gone: *404 occurrences on 190
+    rows* was the file's total set against the part of it standing on rows,
+    and the survival test never acts on the difference.
+
+  - **A coordinate that was a line number is a spelling.** The longest
+    qualifier the tree carries was addressed as `seal/ledger.md:1172` in four
+    places; it is now named by the spelling itself and by the fact that it
+    stands in the file's prose rather than on any row — which had never been
+    measured, and which means no table row carries a qualifier longer than
+    three words.
+
 ## 0.12.2 — 2026-09-21
 
 <!-- specs/1789956662-the-gate-and-ci-ask-about-different-ranges -->

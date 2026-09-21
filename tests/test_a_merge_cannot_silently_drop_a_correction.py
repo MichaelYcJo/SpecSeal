@@ -25,13 +25,25 @@ each case below names the row it holds.
 §15), against the mutation its phase names -- phase 1's cases against the
 reader's absence (`ImportError`), phase 2's against the merge walk's, and A3's
 by inverting the row-survival test so the check fires on a removal.
+
+The two cases work item 1789996780 added were shown red the same way.
+`test_a_tie_falls_to_the_first_parent` (#471) against `examine`'s parent walk
+reversed, the mutation that leaves every other case green.
+`test_the_bound_covers_every_candidate_marker_site_the_corpus_carries` (#469)
+against `MARKER`'s bound narrowed to four -- and then a second time with the
+bound narrowed AND its census taken with `MARKER` itself, which leaves it
+green. That pair is the point: the second run is the circular census that went
+wrong twice in #424, demonstrated rather than asserted.
 """
 
 import importlib.util
 import io
 import os
 import pathlib
+import re
 import subprocess
+
+from conftest import on_disk
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(
@@ -95,19 +107,28 @@ def test_a_marker_is_the_leading_verb_and_date_and_nothing_after_it():
     wording somebody will reword. At least three spellings of the `Corrected`
     sentence already exist in `seal/ledger.md`.
 
-    The prose BEFORE the date varies too, in ten spellings across 39 of the
-    file's 404 markers, and this case does not reach that — round 1's finding
-    1, and `test_a_qualifier_between_the_verb_and_the_date_is_the_same_marker`
-    below is where it is held."""
+    The prose BEFORE the date varies too, across a minority of the file's
+    markers and in a range of spellings, and this case does not reach that —
+    round 1's finding 1, and
+    `test_a_qualifier_between_the_verb_and_the_date_is_the_same_marker` below
+    is where it is held."""
     found = cc.markers("Corrected 2026-09-15 by issue #98, and Re-read 2026-09-05.")
     assert found == {("Corrected", "2026-09-15"): 1, ("Re-read", "2026-09-05"): 1}
 
 
 def test_both_verbs_count_because_re_read_is_the_common_one():
-    """A2. Measured in the tree: 10 rows carry a `Corrected` marker and 185
-    carry a `Re-read` — 404 marker occurrences on 190 rows, since a row can
-    carry a marker in more than one cell. A check watching only the rare verb
-    would have ignored every row the previous work item re-read."""
+    """A2. `Re-read` is the common verb in this tree by a wide margin and
+    `Corrected` is the rare one, and the marked rows carry more occurrences
+    than there are marked rows, since a row can carry a marker in more than
+    one cell. A check watching only the rare verb would have ignored every row
+    the previous work item re-read.
+
+    No figure stands here. This docstring used to say *404 marker occurrences
+    on 190 rows*, which was one of six sites stating that number and which was
+    false in its own terms — 404 was the file's total and only 401 of them
+    stood on rows (#470). The figures live at one site now, the census note
+    beside `correction_check.MARKER`, which names the corpus, the instrument
+    and the date each one was taken on."""
     assert set(cc.VERBS) == {"Corrected", "Re-read"}
 
 
@@ -335,8 +356,10 @@ def test_a_merge_that_reverts_a_corrected_row_is_reported(tmp_path):
 
 def test_a_merge_that_reverts_a_re_read_row_is_reported(tmp_path):
     """A2, and it is red separately from A1 so a check watching one verb
-    cannot pass both. `Re-read` is the marker 185 rows of the shared file
-    carry against `Corrected`'s 10."""
+    cannot pass both. `Re-read` is much the commoner marker in the shared
+    file and `Corrected` the rare one; the counts are in the module's census
+    note, which is the one site that states them and names the corpus, the
+    instrument and the moment each is true of."""
     root, _start, head = merged(
         tmp_path,
         base=ledger(R_A, R_B),
@@ -732,10 +755,12 @@ def test_the_skill_says_what_the_command_is_for_and_when_it_runs():
 
 
 def test_a_qualifier_between_the_verb_and_the_date_is_the_same_marker():
-    """`seal/ledger.md` spells 39 of its 404 markers this way — `again` 19
-    times, `and re-executed` 5, `a third time` 4, and seven more shapes — and
-    one row carries no other spelling at all. A pattern demanding the date
-    immediately after the verb watches neither that row nor a reword."""
+    """`seal/ledger.md` spells a minority of its markers this way — `again` is
+    much the commonest, then `and re-executed` and `a third time`, with seven
+    more shapes — and one row carries no other spelling at all. A pattern
+    demanding the date immediately after the verb watches neither that row nor
+    a reword. The counts are in the module's census note, which is the one
+    site that states them and names what each is true of."""
     assert cc.markers("Re-read again 2026-09-05 and widened.") == {
         ("Re-read", "2026-09-05"): 1
     }
@@ -783,10 +808,13 @@ def test_a_run_long_enough_to_be_a_sentence_is_not_a_qualifier():
     verb reaches across a whole clause to a date nobody wrote it against,
     which manufactures a marker and then reports its loss.
 
-    The longest qualifier the tree actually carries is five words (`and
-    re-stamped a third time`, at `seal/ledger.md:1172`), and the bound is
-    five — round 2's finding 6. This case is red
-    the moment that bound stops being a bound."""
+    The longest qualifier the tree actually carries is five words — `Re-read
+    and re-stamped a third time <date>`, which stands in `seal/ledger.md`'s
+    prose rather than on any row — and the bound is five, round 2's finding 6.
+    The spelling is the address, not a line number: a row of this repository's
+    ledger names content and never a position (`CLAUDE.md`), and the line that
+    spelling sat on was cited in four places before #470. This case is red the
+    moment that bound stops being a bound."""
     assert cc.markers("Corrected the claim that the reviewer read on 2026-09-05") == {}
     assert cc.markers("Re-read once the base had moved past 2026-09-05") == {}
 
@@ -894,10 +922,13 @@ def test_a_row_ambiguous_on_both_identities_is_not_identified():
 
 
 def test_the_longest_qualifier_the_tree_carries_is_seen(tmp_path):
-    """`seal/ledger.md:1172` spells five lowercase words between the verb and
-    the date — `Re-read and re-stamped a third time <date>` — and the bound
-    was four, so the file's own longest spelling was invisible to the check
-    watching that file.
+    """`seal/ledger.md` spells five lowercase words between the verb and the
+    date in exactly one place — `Re-read and re-stamped a third time <date>`,
+    in the file's prose rather than on any row — and the bound was four, so
+    the file's own longest spelling was invisible to the check watching that
+    file. The spelling is the address: the line it sits on moves for edits
+    that have nothing to do with the claim, which is why `CLAUDE.md` says a
+    coordinate names content and never a position.
 
     Round 1's finding 1 one spelling further out, and found the same way it
     was: by measuring with the run UNBOUNDED instead of with the bound under
@@ -978,3 +1009,240 @@ def test_the_parent_named_is_the_one_that_lost_the_most(tmp_path):
     assert code == 1, out
     ours_sha = run(root, "rev-parse", head + "^1").stdout.strip()
     assert f"from parent {ours_sha[:7]}" in out, out
+
+
+def test_a_tie_falls_to_the_first_parent(tmp_path):
+    """The other half of the sentence the case above pins, and the half that
+    runs in the common case: every marker older than the fork is carried by
+    BOTH parents, so both lose the same count of it and the choice is a tie.
+
+    Ledger row C9's Notes and `examine`'s comment both say ties fall to the
+    first parent -- the side the person resolving the conflict had checked
+    out -- and nothing held it, so rebuilding `carried` in any other order
+    would change the SHA a reader is sent to open while the whole module
+    stayed green (`agent-contract` §14). Issue #471.
+    """
+    base = "| R1 · a claim | `a/b.py#f@11111111` | Read. | none |"
+    ours = "| R1 · a claim | `a/b.py#f@11111111` | Read. Corrected 2026-09-21. | ours |"
+    theirs = (
+        "| R1 · a claim | `a/b.py#f@11111111` | Read. Corrected 2026-09-21. | theirs |"
+    )
+    got = "| R1 · a claim | `a/b.py#f@11111111` | Read. | merged |"
+    root, start, head = merged(
+        tmp_path, ledger(base), ledger(ours), ledger(theirs), ledger(got)
+    )
+    code, out = check(root, f"{start}..{head}")
+    assert code == 1, out
+    first = run(root, "rev-parse", head + "^1").stdout.strip()
+    second = run(root, "rev-parse", head + "^2").stdout.strip()
+    assert f"from parent {first[:7]}" in out, out
+    assert f"from parent {second[:7]}" not in out, out
+    assert "1 correction marker(s)" in out, out
+
+
+# --- the census over the real corpus (#469) --------------------------------
+
+# The instrument, and it is deliberately NOT `cc.MARKER`.
+#
+# For every `Corrected` or `Re-read` in a ledger file, find the next date on
+# the same line and read what lies between. A gap made only of lowercase words
+# is a candidate marker site. Nothing here is bounded, which is the whole
+# point: a census taken with the pattern under test cannot see a spelling that
+# pattern misses, and that is how the bound came out one short twice -- round
+# 1's finding 1 of #424 measured one side of the date only, and round 2's
+# finding 6 re-measured with the widened pattern itself.
+#
+# **The walk is verb by verb rather than one expression over the file, and
+# that is not a style choice.** A single `verb ... date` pattern consumes
+# everything between the two, so a first verb whose gap is NOT a lowercase run
+# swallows a second verb standing before the date, and that second site is
+# never examined. Measured while this case was being written: over the same
+# file, the consuming form found two candidate sites FEWER than `MARKER`
+# matched. The census meant to be the wider instrument was the narrower one,
+# which is round 1's mistake arriving by a third route. The difference is
+# stated rather than the two totals, because a total over this corpus is stale
+# the next time anybody records a correction -- which is #470 itself.
+VERB = re.compile(r"\b(" + "|".join(cc.VERBS) + r")\b")
+DATE = re.compile(r"\d{4}-\d{2}-\d{2}(?!\d)")
+LOWERCASE_RUN = re.compile(r"^(?:[ \t]+[a-z][a-z-]*)*[ \t]+$")
+
+
+def ledger_text(path, from_index=False):
+    """One ledger file's text, from the worktree or from the index.
+
+    `git ls-files` reads the **index**, so a path it lists can be missing from
+    disk -- which is exactly what a release looks like between
+    `fold_ledger.py` removing the fragments and `git add` staging the
+    removal. Reading the worktree blindly raised `FileNotFoundError` here,
+    out of the corpus reader and before either of the census case's guards
+    could run. This repository has already paid for the same class once: an
+    unstaged deletion against an index-reading command cost a ten-minute run
+    during a release.
+
+    The worktree wins where it has the file, because somebody running this
+    after editing a ledger should be told about the edit rather than about
+    what happens to be staged. The index is the fallback, and it is the blob
+    `git ls-files` just listed, so the listing and the content come from one
+    place in the case that used to crash.
+
+    **Which route to take is decided by `conftest.on_disk` in the caller, not
+    here.** This used to ask `pathlib.Path.exists()` for itself, and that is a
+    bespoke copy of the shared predicate which gets one tree state wrong:
+    `exists()` is true of a DIRECTORY, so a tracked path that is now a
+    directory took the worktree route and `read_text` raised
+    `IsADirectoryError` -- the same crash class one state over from the one
+    this function was written for. `on_disk` asks `os.path.isfile`.
+    """
+    if not from_index:
+        return pathlib.Path(ROOT, path).read_text(encoding="utf-8")
+    return subprocess.run(
+        ["git", "-C", ROOT, "show", f":{path}"],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+    ).stdout
+
+
+def ledger_corpus():
+    """`{path: text}` for every ledger file the check watches.
+
+    Read through the module's own `LEDGER` and `FRAGMENTS` rather than a list
+    written here, because a hard-coded list goes blind exactly when the
+    fragments are folded into the shared file -- which `fold_ledger.py` does
+    at every release and did at 0.12.2, leaving `seal/ledger/` an empty glob
+    in this tree. Tracked files only, which is what `ledger_listing` reads
+    through `git ls-tree` at each commit.
+
+    **The listing is split by `conftest.on_disk`**, the predicate five other
+    helpers in this suite share, and
+    `tests/test_a_shrunken_corpus_declines_to_judge.py` re-enumerates every
+    scope that derives a path list from git so that this one cannot drift out
+    of the class by being forgotten. What this caller does with the missing
+    half is its own decision and it is neither of the two that module
+    describes: it does not skip them, which would shrink the corpus the census
+    is taken over without a word, and it does not decline, because it has
+    somewhere true to read them from. It reads them out of the index entry
+    `git ls-files` just named, so the corpus stays whole in the one tree state
+    that used to truncate it.
+    """
+    listed = subprocess.run(
+        ["git", "-C", ROOT, "ls-files", "-z", "--", cc.LEDGER, cc.FRAGMENTS],
+        check=True,
+        capture_output=True,
+        encoding="utf-8",
+    ).stdout
+    paths = [p for p in listed.split("\0") if p.endswith(".md")]
+    present, missing = on_disk(ROOT, paths)
+    corpus = {p: ledger_text(p) for p in present}
+    corpus.update({p: ledger_text(p, from_index=True) for p in missing})
+    return corpus
+
+
+def candidate_sites(text):
+    """`(offset, verb, date, words)` for every candidate marker site."""
+    found = []
+    for verb in VERB.finditer(text):
+        stop = text.find("\n", verb.end())
+        tail = text[verb.end() : stop if stop != -1 else len(text)]
+        date = DATE.search(tail)
+        if date is None:
+            continue
+        gap = tail[: date.start()]
+        if not LOWERCASE_RUN.match(gap):
+            continue
+        found.append((verb.start(), verb.group(1), date.group(0), gap.split()))
+    return found
+
+
+def site_row(text, offset):
+    """The ledger row the site sits on, or a note that it sits in prose."""
+    start = text.rfind("\n", 0, offset) + 1
+    stop = text.find("\n", offset)
+    line = text[start : stop if stop != -1 else len(text)].strip()
+    if line.startswith("|") and not cc.SEPARATOR.match(line):
+        return cc.Row(line).key
+    return "(prose, outside any row)"
+
+
+def test_the_bound_covers_every_candidate_marker_site_the_corpus_carries():
+    """#469. The bound on `MARKER`'s qualifier has been wrong twice, and each
+    repair pinned one more literal spelling -- so an eleventh spelling would
+    be invisible again with every case still green, because no case asked the
+    question the bound is an answer to.
+
+    This asks it, and it asserts a PROPERTY and no count: every candidate
+    marker site the unbounded census finds is one `MARKER` also sees. A number
+    over this corpus is the defect #470 reports -- the corpus moves whenever a
+    release folds fragments in or a branch records a correction, this branch
+    included -- and a case asserting one would go red for legitimate work.
+
+    **How the census is taken, because a third circular one is the specific
+    thing #469 exists to prevent**: verb by verb, the next date on the same
+    line, and the gap between them read with no bound at all. The instrument
+    cannot be `MARKER`, because an instrument that cannot see what it is being
+    calibrated against agrees with the mistake -- which is what happened when
+    round 1's census was taken with the widened pattern itself. Narrowing the
+    bound to four reddens this case; narrowing the bound to four AND taking
+    the census with `MARKER` leaves it green, which is that circularity
+    demonstrated rather than asserted.
+
+    **When the corpus grows a longer run this goes red**, naming the file, the
+    row, the run length and the spelling. That is deliberate and it is not a
+    false refusal to be softened: a warning or a skip is a green that means
+    nothing, which is the hole this case exists to close. The answer is to
+    open the named row, judge whether the run is a qualifier, and raise the
+    bound with this case re-driven.
+    """
+    # The `row` clause of the failure message below, pinned. It reaches a
+    # reader only through a message no standing case builds, so without these
+    # two lines `site_row` can be edited away with the module still green --
+    # measured: replacing its whole body with `return ""` left 50 passed.
+    # Two asserts rather than a case, because A11 bounds the number of cases
+    # in this module and not the number of things a case establishes.
+    on_a_row = "| R1 · a claim | `a/b.py#f@11111111` | Re-read 2026-09-05. | n |"
+    assert site_row(on_a_row, on_a_row.index("Re-read")) == cc.Row(on_a_row).key
+    assert site_row("Re-read 2026-09-05.", 0) == "(prose, outside any row)"
+
+    # The index route of the corpus reader, pinned. `git ls-files` lists what
+    # the INDEX holds, so a listed path can be gone from disk -- a release
+    # between `fold_ledger.py`'s removal and `git add` is exactly that -- and
+    # reading the worktree blindly raised `FileNotFoundError` here before
+    # either guard below ran. Pinned on a path that IS present, because the
+    # branch that must not rot is the one nothing else reaches; asserting the
+    # two routes agree would instead go red for anyone with an edited ledger.
+    assert candidate_sites(ledger_text(cc.LEDGER, from_index=True)), (
+        "the staged blob of the shared ledger carries no candidate marker "
+        "site, so the fallback that keeps a release fold from crashing this "
+        "case is not returning a ledger"
+    )
+
+    corpus = ledger_corpus()
+    assert corpus, (
+        "no ledger file was found through `correction_check.LEDGER` and "
+        "`FRAGMENTS`. An empty corpus makes this case vacuous, which is the "
+        "hole it exists to close, so it refuses rather than passing"
+    )
+    unseen, total = [], 0
+    for path, text in sorted(corpus.items()):
+        for offset, verb, date, words in candidate_sites(text):
+            total += 1
+            seen = cc.MARKER.match(text, offset)
+            if seen is not None and (seen.group(1), seen.group(2)) == (verb, date):
+                continue
+            unseen.append(
+                f"{path}: a run of {len(words)} lowercase word(s) between the "
+                f"verb and the date, which `MARKER` does not read as a marker "
+                f"-- `{verb} {' '.join(words)} {date}`, on row "
+                f"{site_row(text, offset)!r}"
+            )
+    assert total, (
+        "the corpus carries no candidate marker site at all, so this case "
+        "proved nothing. Either `correction_check.VERBS` moved or the corpus "
+        "did, and both are reasons to look rather than to pass"
+    )
+    assert not unseen, (
+        f"{len(unseen)} of {total} candidate marker site(s) fall outside the "
+        "bound on `MARKER`'s qualifier. Open each row, judge whether the run "
+        "is a qualifier, and raise the bound deliberately with this case "
+        "re-driven:\n  " + "\n  ".join(unseen)
+    )

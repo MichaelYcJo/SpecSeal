@@ -101,9 +101,9 @@ machine — CI's matrix is the answerer, and `§Not verified` carries the row.
 found the other.** `spec.md` §*What the markers actually look like* counted
 the spellings AFTER the date, found three, and stated it with a count — which
 made *the variation lives there* read as measured when only one side had been
-looked at. It varies before the date too: 39 of `seal/ledger.md`'s 404
-markers put a qualifier in between, in ten spellings, and one row carries no
-other. The check was silent on a qualified correction reverted at a merge —
+looked at. It varies before the date too: 39 of the 404 markers
+`seal/ledger.md` carried when round 1 measured it put a qualifier in between,
+in ten spellings, and one row carries no other. The check was silent on a qualified correction reverted at a merge —
 #424's own incident — and red on a resolution rewording `Re-read <date>` into
 `Re-read again <date>`, which is A7 broken. **The same false fact was
 standing in nine places**, not the six the round enumerated: the three it
@@ -116,13 +116,27 @@ than the digit.** The census that set round 1's bound at four words was taken
 **with the widened pattern itself**, so a spelling the pattern could not see
 was invisible to the measurement justifying it — the frame counted one side
 of the date, and the fix counted with the instrument it was calibrating. The
-tenth spelling is five words long and sits at line 1172 of `seal/ledger.md`.
-Re-measured with an instrument that is not the pattern and has no bound: 404
-occurrences on 190 rows, 39 qualified, ten spellings, and run lengths of 0, 1,
-2, 3 and 5 — **no run of four**, so the bound that shipped matched exactly
-what a bound of three would have. Fourteen statements were false by then, not
-the three the round named; all fourteen are corrected, `spec.md` and ledger
-row C1 in place.
+tenth spelling is five words long and is spelled `Re-read and re-stamped a
+third time <date>`, in `seal/ledger.md`'s prose rather than on any row.
+Re-measured over that file with an instrument that is not the pattern and has
+no bound, at the SHA round 3 read: 404 occurrences in the file — 401 on the
+190 rows that carried one and 3 in prose — 39 qualified, ten spellings, and
+run lengths of 0, 1, 2, 3 and 5 — **no run of four**, so the bound that
+shipped matched exactly what a bound of three would have. Fourteen statements
+were false by then, not the three the round named; all fourteen are corrected,
+`spec.md` and ledger row C1 in place.
+
+<!-- CORRECTED 2026-09-22 by work item 1789996780 (#470 and #469). Two
+statements stood here. "404 occurrences on 190 rows" is false because 404 is
+the file's total and 401 of them stand on the rows, the other 3 being in
+prose the survival test never acts on; the corpus and the moment are named
+now, because a8bf2a86 folded three ledger fragments into that file and this
+branch wrote a marker into it. "sits at line 1172 of seal/ledger.md" is not
+false but is a position where CLAUDE.md requires content, so it is replaced
+by the spelling itself and by where the spelling stands. Corrected in place
+with the issue named, never deleted silently: a record of a past state that
+quietly becomes true is a record nobody can audit. -->
+
 
 **What that does not close.** Both fixes pin one literal spelling each, so an
 eleventh spelling of six words would be invisible again and the case would
@@ -137,7 +151,7 @@ built. **Answerer: the repository owner, as an issue.**
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | What makes a dropped marker a LOSS | `spec.md` §Scope 1: "a marker present in **either parent's** ledger text and absent from the merge result, **while the row carrying it survives**". The code also reads the merge base and stays silent where a parent deleted the marker relative to it | the merge-base test | M1 measured the spec's rule over this repository's whole reachable history and it reported one merge, five markers, and no defect — a deliberate re-anchoring rewrite that the merge merely carried. `spec.md` §Scope 2 says the check exists to separate a loss from a removal and that "a check that fires on a legitimate removal is a check people learn to skip"; a parent's deliberate deletion is a removal by that argument. The refinement only narrows, and A1/A2/A3/A6 are untouched because no fixture's base carries a marker |
-| The marker counts in the frame | `spec.md` §*What the markers actually look like*: `Corrected` 10, `Re-read` 185 in `seal/ledger.md` | both, stated as what they are | Those are **row** counts (`grep -c`, one line per row); the occurrence counts are 12 and 353 for a `<verb> <date>` pattern and **404 over 190 rows** for the file as it is actually spelled — a row can carry a marker in more than one cell, and a marker can carry a qualifier between the verb and the date (round 1, finding 1). Nothing in the frame's conclusions turns on it — `Re-read` dominates either way — but the check counts markers per row, so the distinction had to be written down where a later reader meets it |
+| The marker counts in the frame | `spec.md` §*What the markers actually look like*: `Corrected` 10, `Re-read` 185 in `seal/ledger.md` | both, stated as what they are | Those are **row** counts (`grep -c`, one line per row); the occurrence counts are 12 and 353 for a `<verb> <date>` pattern and **404 over the whole file** for it as it is actually spelled, 401 of them standing on the 190 marked rows and 3 in prose — a row can carry a marker in more than one cell, and a marker can carry a qualifier between the verb and the date (round 1, finding 1). <!-- CORRECTED 2026-09-22 by work item 1789996780 (#470). What stood here: "404 over 190 rows". It is false because 404 is the file's total and 401 of them stand on the rows; the other 3 are in prose the survival test never reads. Corrected in place with the issue named, never deleted silently: a record of a past state that quietly becomes true is a record nobody can audit. --> Nothing in the frame's conclusions turns on it — `Re-read` dominates either way — but the check counts markers per row, so the distinction had to be written down where a later reader meets it |
 | A blob the check cannot read | `plan.md` is silent; the code passed it in silence | named under `not judged`, and the run continues | Found by mutation rather than by reading. `read_blobs` returned an unreadable blob as absent and said why in its docstring, and nothing downstream acted on the difference — so a ledger over the size cap read as a ledger with no rows and the run printed *no correction marker was dropped*. `skills/verify/SKILL.md` §*The Seal Test*: a check that answers where it cannot see is a counterfeit. It prints rather than refusing, following `survivor_check.py`'s `unresolved` rows, because refusing a whole run over one unreadable blob turns a check about corrections into a check about file sizes |
 
 ## Not verified

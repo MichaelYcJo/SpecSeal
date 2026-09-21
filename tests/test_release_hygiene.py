@@ -134,6 +134,18 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "codes were measured. An exit code read off an unnamed git is not a "
         "measurement, and no release of SpecSeal makes the number wrong (#111)"
     ),
+    ("skills/verify/scripts/broad_gate.py", "2.54.0"): (
+        "git's, named in `names_a_branch`'s docstring as the build on which "
+        "`--branch` was measured to EXPAND `@{-N}` and then check what it "
+        "expanded to. The row above is the same fact about a different "
+        "docstring, and the reason is the row above's reason: a property "
+        "read off an unnamed git is not a measurement, and this one is the "
+        "grounds for a guard a reader can otherwise only take on trust "
+        "(#461). The pair is what makes this an entry rather than a reword — "
+        "the class is *a loaded file naming the tool build a measurement was "
+        "taken on*, it now has two members, and the exemption is keyed on "
+        "(file, token) so neither one lets the number through anywhere else"
+    ),
 }
 
 

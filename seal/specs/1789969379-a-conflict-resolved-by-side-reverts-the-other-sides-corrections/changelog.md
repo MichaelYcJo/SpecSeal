@@ -23,13 +23,30 @@
     was dropped, 1 with each loss named, 2 for a range that does not resolve.
 
     **Both markers, matched on the verb and the date and on neither the
-    sentence after it nor the qualifier before it.** Counted in this
-    repository: 404 marker occurrences on 190 rows, at least three spellings
-    of the `Corrected` sentence, and 39 markers in ten spellings that put a
-    qualifier between the verb and the date — `Re-read again <date>`, `a
-    third time`, `and re-executed`. One row carries no other spelling. A
+    sentence after it nor the qualifier before it.** Counted over
+    `seal/ledger.md` as it stood when this work item shipped: 404 marker
+    occurrences in the file — 401 of them on the 190 rows that carried one,
+    and 3 in the file's prose, which the survival test never reads — at least
+    three spellings of the `Corrected` sentence, and 39 markers in ten
+    spellings that put a qualifier between the verb and the date — `Re-read
+    again <date>`, `a third time`, `and re-executed`. One row carries no
+    other spelling. A
     check pinned to either side of the date goes red on a rewording and stays
     quiet on a revert, which is both failure directions at once.
+
+    <!-- CORRECTED 2026-09-22 by work item 1789996780 (#470). What stood
+    here: "Counted in this repository: 404 marker occurrences on 190 rows".
+    It is false because 404 is the file's total and only 401 of them stand on
+    the 190 rows; the other 3 are in the file's prose, which
+    correction_check.py's module docstring puts out of scope by construction
+    under *Markers in prose are out of scope*. The corpus and the moment are
+    named now as well, because the 0.12.2 release a8bf2a86 folded three
+    ledger fragments into that file and this branch wrote a marker into it,
+    so a bare present-tense figure over it is stale by the next release.
+    Corrected in place with the issue named, never deleted silently: a record
+    of a past state that quietly becomes true is a record nobody can
+    audit. -->
+
 
   - **Row survival is what separates a loss from a removal.** A marker that
     vanishes with its row is `REMOVED` and correct — that is the repository's

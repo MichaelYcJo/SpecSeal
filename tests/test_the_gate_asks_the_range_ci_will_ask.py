@@ -17,9 +17,12 @@ edits:
                   ref's upstream where the checkout declares one, else
                   `refs/remotes/origin/<base>`, else the ref as given. A
                   repository with no remote at all resolves to itself, which
-                  is what keeps every fixture in
-                  `tests/test_the_seal_is_taken_once_by_the_sealer.py` reading
-                  exactly as it did
+                  is what keeps all but ONE assertion of
+                  `tests/test_the_seal_is_taken_once_by_the_sealer.py`
+                  reading as it did. The one that moved is the `Broad gate`
+                  cell's base half: the consumers are handed the resolved
+                  commit even where the resolution lands on the ref as given
+                  (round 1, finding 3, and the A3 row of `overview.md`)
   end to end      a fixture whose local `base` is one commit behind
                   `origin/base` and whose branch has merged `origin/base` in.
                   The survivor arm parts from the local spelling only there:
@@ -67,9 +70,13 @@ def read(path):
 # --- fixtures: a repository that actually has a remote ----------------------
 #
 # Every gate fixture in `tests/test_the_seal_is_taken_once_by_the_sealer.py`
-# is built by a `git init` with no remote, which is why the fallback keeps
-# that module byte-identical (A3). A remote is new work, and it is built here
-# rather than there so A3 stays checkable by reading the diff.
+# is built by a `git init` with no remote, which is why the fallback leaves
+# almost all of that module alone (A3). It is NOT byte-identical: one
+# assertion in `test_the_gate_with_record_seals_the_item_and_counts_its_rounds`
+# reads the commit where it read the ref, because the consumers take the
+# resolved commit even where the resolution lands on the ref as given
+# (round 1, finding 3). A remote is new work, and it is built here rather than
+# there so that one moved reading stays checkable by reading the diff.
 
 
 def git(repo, *args):
@@ -375,8 +382,10 @@ def test_a_bare_commit_sha_is_used_as_given(tmp_path):
 
 def test_a_repository_with_no_remote_at_all_resolves_to_the_ref_as_given(tmp_path):
     """The fallback A3 rests on. Every gate fixture in the suite today is
-    exactly this repository, so the answer here is what keeps that module
-    reading as it did."""
+    exactly this repository, so the answer here is what keeps all but one
+    assertion of `tests/test_the_seal_is_taken_once_by_the_sealer.py` reading
+    as it did. What still moves there is the spelling the consumers get, which
+    is round 1's finding 3."""
     d = upstream_repo(tmp_path / "solo")
     mod = gate_module()
     base = mod.resolve_base(str(d), "base")
@@ -929,8 +938,10 @@ def test_a_ref_too_long_for_the_panel_says_it_was_cut(tmp_path):
     """A6, and round 1's finding 5. `seal_stamp.letter` cuts at the frame with
     no ellipsis, and A4 means nothing prints beside the row on an agreeing
     run — so a ref that does not fit has to say so in the row itself. The
-    tail is kept, because `origin/` is the part a reader can infer and the
-    branch name is not."""
+    tail is kept, because for the `origin/<base>` a runner reads the prefix is
+    the part a reader can infer and the branch name is not. Where step 1 lands
+    on a second remote the prefix is not inferable, which is round 1's finding
+    2 and the cost `panel`'s docstring now states."""
     mod = gate_module()
     long_ref = "origin/release/2026-09-21-hotfix"
     assert len(long_ref) > mod.PANEL_VALUE_WIDTH, "the fixture ref already fits"
@@ -948,3 +959,63 @@ def test_a_ref_that_fits_is_left_exactly_as_it_is(tmp_path):
     mod = gate_module()
     for ref in ("origin/base", "origin/release/v0.12.2"):
         assert panel_of(mod, ref)["from"] == ref, ref
+
+
+# --- #461: the line may not name a ref no runner's checkout can hold --------
+
+
+def a_checkout_whose_previous_branch_is_the_base(tmp_path):
+    """A clone whose local `base` is one commit behind `origin/base`, sitting
+    on a second branch that was switched to FROM `base`. `@{-1}` therefore
+    names the base, and `--base @{-1}` resolves through step 1 of the rule."""
+    work = behind_clone(tmp_path)
+    git(work, "switch", "-qc", "topic")
+    git(work, "switch", "-q", "base")
+    git(work, "switch", "-q", "topic")
+    return work
+
+
+def test_the_guard_states_the_property_the_command_actually_has(tmp_path):
+    """A1, and the measurement behind it. `check-ref-format --branch` EXPANDS
+    `@{-N}` and then checks what it expanded to, so `@{-1}` is accepted while
+    `HEAD`, `HEAD~1`, `base@{u}` and `topic@{1}` are refused. The docstring
+    used to state the class `@{…}`, which is not the class the command
+    refuses (round 2, finding 10)."""
+    work = a_checkout_whose_previous_branch_is_the_base(tmp_path)
+    mod = gate_module()
+    assert mod.names_a_branch(str(work), "@{-1}") is True, (
+        "the command no longer expands `@{-N}`, so A1's docstring is stale"
+    )
+    for refused in ("HEAD", "HEAD~1", "base@{u}", "topic@{1}"):
+        assert mod.names_a_branch(str(work), refused) is False, refused
+    doc = mod.names_a_branch.__doc__
+    assert "@{-1}" in doc, "the docstring does not name the spelling it accepts"
+
+
+def test_the_line_does_not_name_a_ref_a_runners_checkout_cannot_hold(tmp_path):
+    """A2, and #461's second half. The runner label built out of `@{-1}` is
+    `origin/@{-1}`, which git refuses as a refname — so no runner's checkout
+    holds one and the line may not name it as the ref a runner reads.
+
+    Seen red against the shipped line, which round 2's finding 10 quotes
+    whole: *— not the origin/@{-1} a runner reads —*. `agents/sealer.md` has
+    the sealer quote this line verbatim into a report, which is why the
+    assertion is on the printed sentence and not on the guard behind it."""
+    work = a_checkout_whose_previous_branch_is_the_base(tmp_path)
+    mod = gate_module()
+    base = mod.resolve_base(str(work), "@{-1}")
+    assert base.ref == "origin/base", f"the fixture did not resolve: {base.ref}"
+    assert base.moved is True, "the fixture prints no line at all"
+    said = mod.moved_line(str(work), base)
+    assert "origin/@{-1}" not in said, (
+        f"the line names a ref no runner's checkout can hold: {said}"
+    )
+    assert "a runner reads" not in said, (
+        f"the line still speaks for a runner about that spelling: {said}"
+    )
+    assert "a runner's checkout has no counterpart for @{-1}" in said, (
+        f"the line says nothing about why the runner clause is absent: {said}"
+    )
+    assert "origin/base, which is" in said, (
+        f"the line stopped saying what this checkout resolved to: {said}"
+    )
