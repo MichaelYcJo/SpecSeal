@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5[1m] |
 | PR | 445 |
-| Broad gate | not yet |
+| Broad gate | 28fcb28b against origin/main |
 | Fixes checked by | no fixes to check |
 | Fix range | `95de3cdc7e6ceb81c2681dfbadd7f4ebdddbe470..c06997f1723df1376fff043f412bd133d6e17045`, 2 commits |
 | Contract changes | none |

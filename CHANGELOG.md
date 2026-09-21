@@ -1,5 +1,343 @@
 # Changelog
 
+## 0.12.1 — 2026-09-20
+
+<!-- specs/1789621028-nothing-reads-a-record-against-the-tree -->
+<!-- seal/specs/1789621028-nothing-reads-a-record-against-the-tree/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A round record is written once and the tree keeps moving, and nothing read
+  one against the other** (#344, #426, #427). The ledger has a checker that
+  re-reads its claims against the code; the review records had none, so a
+  record could say a range, a size or a fix that the repository no longer
+  holds and every gate stayed green. Three new refusals close the parts of a
+  record that are claims about commits, and the two instances that live inside
+  the generator writing those records.
+
+  - **A fix range is now stated as commits, and `HEAD` is refused.** A fix
+    table used to state its range in prose. Measured by the command
+    `docs/review-chain-spec.md` §*The fix range* now names — one backticked
+    range from each file's first eight lines — at `56945007`: **39** fix-table
+    files, **15** stating a range, **5** of them ending `HEAD`, in **12**
+    distinct sentence forms. The same command at this work item's own tip
+    prints 4 rather than 5, because the work pinned one of them, and that a
+    figure moves with both the command and the tree state is why the command
+    is named here rather than a number quoted. `HEAD` resolves, so
+    such a sentence stays readable while meaning a different set of commits
+    every day, and three records of one work item said one. There is no
+    convention in that prose to enforce, so the authoritative statement moved
+    into the record: `round-record close --range` refuses an end that is not a
+    commit somebody can open — at **both** ends, since a branch name at the
+    start moves as far as `HEAD` at the finish — and `close` then writes the
+    resolved range and its commit count into a new `Fix range` row.
+    `chain-check` re-reads both halves at the pull request.
+
+    **What changes for a caller**, in two places that grandfather
+    differently. `--range <a>..HEAD` stops working, and the refusal prints the
+    commit to write instead. At the **pull request**, records written before
+    this release carry no such row and print rather than failing, the same
+    grandfathering nine earlier record rules use. At the **generator**, there
+    is no grandfathering: `close` replaces a row rather than inserting one,
+    because a record's field order is the template's, so a record written by
+    an older `new` is refused until the row is added. The refusal says which
+    row to add and where.
+
+    Both halves are read because either alone passes what the other catches.
+    Ends this repository cannot see are reported and not failed: a feature
+    branch squashes into its release branch, so a merged record's fix commits
+    are ordinarily invisible and the record did nothing wrong.
+
+  - **Re-closing a corrected record no longer doubles its grounds.** `close`
+    joins the fix pass's grounds in front of the reviewer's rather than
+    replacing them, on purpose — the two are different sentences by different
+    authors. What it never checked is whether its own prefix was already
+    there, so closing the same finding twice wrote the grounds twice, the
+    record still parsed, and the only way it was ever caught was reading a
+    committed file against two earlier commits. That path is not a misuse
+    anybody can be told out of: correcting a record and re-closing it is the
+    documented way out of a record written wrong.
+
+    `close` now refuses ahead of the write, with nothing reaching disk, for
+    all three verdict words and for a cell already carrying a prefix that
+    names a different commit. It refuses rather than overwriting, because
+    overwriting would discard the reviewer's sentence silently. The fully
+    restored record — verdict **and** grounds — still closes exactly as
+    before, which is measured rather than asserted.
+
+  - **A record already carrying a doubled cell is named.** Stopping the second
+    write leaves every existing duplicate unreadable, so `chain-check` gained
+    an arm that names the file, the finding and the repeated text. It has **no
+    cutoff**: a doubled cell is a present cell that says a thing twice and the
+    repair is available to whoever wrote it, unlike a row that did not exist
+    when the record was written.
+
+    **This repository holds none**, measured over 229 round records and 3331
+    grounds cells, and that is disclosed rather than sold as a catch. One of
+    the three fix words leaves a shape a reader can find after the fact:
+    `answered` and `deferred` write the author's own words, so a duplicate of
+    either is indistinguishable from prose that repeats itself. The write
+    guard covers all three; this covers the one that survives into a record.
+
+  - **The guard that said a definition arrived whole compared against a
+    constant** (#426). It asserted every agent definition was larger than 1000
+    bytes and called that wholeness; the smallest definition is 3764 bytes, so
+    a read truncated anywhere between those numbers truncated all five files
+    and the guard stayed silent. It now compares the bytes it read against the
+    size of the file it read, so the assertion carries no number that can be
+    wrong — not a bigger threshold, which would only move the silent range,
+    and not a literal byte count, which would redden whenever anybody edited a
+    definition.
+
+  - **Four lines of an earlier work item's records said what the tree does
+    not**, and are pinned to what they named, each with a comment saying what
+    it was read against and when. One of them named a release branch that has
+    since been deleted, so the command it records could not be re-run at all.
+
+    Re-measuring it turned up the class one level up: with the range pinned,
+    the checker **as it stood** reports three places and the checker **as it
+    stands** reports two, because 60 lines landed in that script in between.
+    A measurement is reproducible only against a named range *and* a named
+    version of whatever measured it. One record's `Location` was found to have
+    been wrong on the day it was written; it is recorded as wrong rather than
+    re-pointed, because re-pointing a position restarts the rot and turning
+    record locations into content anchors is an open question across 227
+    records.
+
+<!-- specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep -->
+<!-- seal/specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A tracked file the working tree had deleted stopped six of this suite's
+  sweeps at the first missing path** (#432, #282). `git ls-files` lists the
+  index, so a file that is tracked and gone from disk is on the list with
+  nothing behind it. Six helpers opened every listed path, and the walk ended
+  there: no file after it was read, and the rule the walk holds reported
+  nothing at all. The one documented moment that produces that tree is step 3
+  of a release — the fold removes each ledger fragment and the whole gate then
+  runs before anything is staged — so what a release met was a
+  `FileNotFoundError` naming a file it had just deleted on purpose, in place
+  of the check it was running.
+
+  - **The guard is one shared predicate, not six copies of a line.**
+    `tests/conftest.py#on_disk` splits a git listing into what is on disk and
+    what is not, and each helper takes the repository root as an argument so a
+    case can build a tree with a tracked-and-deleted file and watch it work.
+    Both halves are returned rather than one dropped, which is what makes the
+    next paragraph possible.
+
+  - **A sweep judges what remains; a check that needs the whole corpus
+    declines to judge and names the missing paths.** Two tickets both proposed
+    a silent skip, and a silent skip is right in one direction and wrong in
+    the other. A sweep looking for something is strictly better off — on that
+    tree it used to report nothing about any file. A check proving an
+    allowlist entry is still ALIVE is not: to it a skipped file and a deleted
+    entry are the same evidence, so it would report a live entry dead. Three
+    such checks now decline, through `pytest.skip` with a reason naming every
+    missing path rather than counting them.
+
+  - **The class is re-enumerated by the suite rather than by whoever
+    remembers.** A new case walks every `tests/*.py` and asks which scopes
+    derive a path list from git; each must apply the shared predicate or be
+    classified with grounds a reader can weigh. It found a sixth helper while
+    it was being written — one that lists with `git ls-tree HEAD` and takes
+    its content from the working tree — which the enumeration by hand had
+    missed because it searched for the other spelling.
+
+  - **`docs/release-checklist.md` step 3 says what that tree looks like.** A
+    fold alone produces no skipped case, because the paths it removes are
+    under `seal/ledger/` and no declining check reads a corpus reaching there.
+    One appears when the tree is also mid-edit where the liveness checks look,
+    and a count line with reasons naming paths is that state rather than
+    something to debug.
+
+<!-- specs/1789721571-the-gate-reads-an-example-and-names-rows-nobody-wrote -->
+<!-- seal/specs/1789721571-the-gate-reads-an-example-and-names-rows-nobody-wrote/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **A `| Item | Value |` table written inside a code fence was the table every
+  gate read** (#429). `seal/config.md`'s own header comment points the reader
+  at `templates/config.md`, a document of example tables, and the config skill
+  tells a session to copy a block of that template — fenced example row
+  included — naming no position for it. Pasted above the live table, or above
+  a table whose first line will not parse, that example supplied the mode, the
+  broad command and every other row, and the sealer's seal was taken over a
+  plausible command nobody chose. Measured: with the rule absent, a repository
+  whose live table sits under an unclosed fence runs the example's command and
+  the gate exits 0 with the stamp printed.
+
+  - **One rule, in front of all three walks of that table.** The gates'
+    reader, the mode gate's reader and `seal mode`'s writer now read the file
+    through one generator, which hands back each surviving line with its own
+    index because the writer overwrites a line by position. A rule in the
+    reader alone would have `seal mode` rewriting the `Mode` row inside
+    somebody's pasted example while every gate read the live one.
+
+  - **The live table is the first one outside every fence**, and a fence is
+    CommonMark's: three or more backticks or tildes, indented at most three
+    spaces, closed by at least as many of the same character. A fence that is
+    never closed runs to the end of the file, so what it swallows reads as
+    undeclared — loud rather than quiet, which is the direction this reader
+    already fails in.
+
+  - **`broad-gate` refuses four ways now rather than three.** Where this
+    gate's row exists only inside a fence, the refusal quotes that line and
+    says where it has to move to, instead of reporting the row absent and
+    sending a person to write a row they can see in front of them. Where the
+    fence above it was never closed the row may already be where it belongs,
+    and the refusal says to close the fence instead — being told to move a row
+    that is already in the live table is an instruction that changes nothing.
+
+  - **A `config.md` whose last line carries no ending keeps the row it
+    already had.** `seal mode` appended the new row without terminating that
+    line, so `| Record language | Korean || Mode | shared |` came back as one
+    line of four cells and both rows stopped being read — written silently
+    before this release. The row now lands on a line of its own.
+
+  - **`seal mode` refuses rather than writing a row no walk would read.** A
+    fence nobody closed runs to the end of the file, so an appended table
+    lands inside it: the write used to report success while the reader went on
+    answering *nothing is declared*, the mode question came back every
+    session, and the file grew by a table a run. The row is now written only
+    if it reads back, and a refused write leaves the file exactly as it was.
+
+  - **Neither half of the stop rule moved**, and a table can now span a fenced
+    block where the fence's own delimiter line used to end it. The filter
+    decides which lines the walks are shown; what they do with a line they are
+    shown is unchanged.
+
+- **`broad-gate`'s refusal for a `Broad gate` line that will not parse said
+  every row below it was lost without ever asking whether anything was below
+  it** (#430). The sentence was computed from which line stopped the table
+  reader, never from what anybody had written under that line. A `Broad gate`
+  row written LAST in its table — the shape `seal/config.md` has in this
+  repository, the shape the table `templates/config.md` ships has, and the
+  shape the stub `seal mode` writes grows into — loses nothing with it, and
+  the person holding that file was told to go looking for rows they had never
+  written.
+
+  - **Four sentences of that shape, not the one the ticket named.** The arm
+    for a line nothing stopped the reader at, the arm for the line that
+    stopped it, the arm for a line read with something lower down stopping the
+    reader, and the hidden-row refusal, where this gate's row can be the one
+    and only row under the stopping line and there is then no *other* one. Each
+    now has a subject in every state it can be reached in, and each shipped
+    with a case seen red against its own unfixed arm. The fifth arm keeps its
+    flat sentence deliberately: its clause *this one included* names the quoted
+    line, so it never spoke about rows that might not exist.
+
+  - **Three of the four read what the reader reported as lost; the first
+    cannot, and reads what arrived instead.** `hooks/config.py#refusal` fills
+    `below` with the rows written under the STOPPING line, and the first arm is
+    the one with no stopping line — so `below` is empty there whether the file
+    holds rows under that line or not, measured both ways. That arm asks the
+    table reader what it returned, which in that arm alone is exactly the rows
+    below the quoted line: a row above it would have made the quoted line the
+    stopping one.
+
+  - **Each says no ROW was written, which is what the reader can answer.**
+    The reader reports two things — the rows that parsed, and the lines
+    somebody wrote as rows that it will not take — and a second malformed line
+    below the first is in neither the first list nor nothing. Where one stands
+    there, the refusal says so and says that fixing the quoted line moves the
+    stopping place down rather than clearing the table, instead of promising
+    that one edit is the whole of what changes.
+
+  - **And the one refusal whose instruction costs a row now says so.** Where
+    the rows below the quoted line were read, escaping the pipe as the message
+    asks is what lets the stop rule stop — and it then stops at the next line
+    the reader will not take, so rows that arrive today go with the repair. A
+    `Mode` row that reads before the edit is gone after it. That refusal now
+    says the rows under that next line go with the repair and that there is
+    more than one line to write here, which is a different and worse cost than
+    the stopping place moving down.
+
+  - **No verdict moves.** Nothing new is refused and nothing previously
+    refused is now run; only the sentence a refusal already printed changes.
+    The repository's own config answers identically before and after — mode,
+    command, and no refusal at all — and that is now a case rather than a
+    reading somebody took once.
+
+<!-- specs/1789919879-the-outside-contributor-has-no-procedure -->
+<!-- seal/specs/1789919879-the-outside-contributor-has-no-procedure/changelog.md
+— gathered into `CHANGELOG.md` at the release. -->
+
+- **The outside contributor had no procedure, and the gate that caught the
+  first one named the wrong file** (#443). A first-time contributor opened a
+  pull request against `main`, because nothing this repository showed a
+  contributor said where a pull request goes: the contribution guide opened on
+  how to run the suite, neither README carried the fact, and there was no pull
+  request template. GitHub's default is the default branch, and nothing
+  offered an alternative. The hygiene step then refused it with a message
+  naming `.claude-plugin/plugin.json` and a version — correct for somebody
+  cutting a release, and for a contributor an instruction to edit the one file
+  their change must not touch.
+
+  - **The refusal names both causes and asserts neither.** At the moment it
+    refuses, the two readers are indistinguishable to the step: a release that
+    forgot the version bump and a contribution filed against the wrong branch
+    both arrive with `base_ref = main`. So the message states the release case
+    first — that reader is who the old text was already right for — then the
+    base-branch case, and it says which of the two edits is the wrong one
+    (`Change the base rather than plugin.json`). The branch is named by
+    convention, `release/vX.Y.Z`, never by a version number that expires with
+    the branch it names.
+
+    **The step's logic does not move.** The condition, the exit codes and the
+    set of refused pull requests are identical before and after; only the text
+    a refused author reads differs, which is the failure direction
+    `CONTRIBUTING.md` §*What a change to a gate must carry* asks a gate change
+    to state. Prompt budget: zero.
+
+  - **`CONTRIBUTING.md` opens with the procedure**, above §*Running the
+    checks*. Which branch to base on and how to find it without knowing
+    today's version, why a wrong base is refused with a message about a
+    version, and what a contribution is asked for.
+
+    **The half that cannot be inferred is the exemption list.** This
+    repository runs a spec-driven workflow on itself — work items, review
+    rounds, an evidence ledger — and an outsider has every reason to assume
+    all of it applies to them. None of it does: no `routing.md`, no `spec.md`
+    or `plan.md`, no round record, no ledger row, no changelog fragment, no
+    `overview.md`, no version bump, and no commit gate or worktree guard,
+    which are hooks on a maintainer's machine. Each row names the CI step that
+    would have asked and its own reason for not asking — three of them exit
+    early on any base but `main`, and the rest run on every pull request and
+    ask nothing of a branch that declared nothing — so the list reads as a
+    consequence of the workflow rather than as a promise.
+
+    **Two checks can still refuse a contribution**, and both are documented
+    with what to do instead, which is to say so on the pull request rather
+    than create anything under `seal/`. *Wording this branch removed is not
+    still standing elsewhere* sends the author into a `survivors.md` they do
+    not have. The `ledger` job is the second: drift under an anchor that still
+    resolves is a warning, but an anchor that stops resolving — a heading
+    renamed, a function removed — is exit 2, and the repair is a maintainer's
+    for the same reason.
+
+  - **A pull request template**, `.github/PULL_REQUEST_TEMPLATE.md`, carrying
+    the base-branch fact in its own words. Its whole advantage is reaching
+    somebody who opened no document, so it states the fact rather than only
+    linking to it, and it sits on the same screen as the base dropdown it is
+    about. The guidance is HTML comments: that is what a contributor reads
+    while writing, it renders nothing into the posted pull request, and a
+    maintainer therefore has nothing to delete each time.
+
+  - **Both READMEs** state where a pull request goes and summarise the
+    exemption list, ahead of the gate bar they already carried.
+
+  - **The rationale says what the gate actually does.** A pull request into
+    `main` is refused for leaving the version alone only when it touches what
+    the plugin ships; one that touches nothing shipped gets a green run on the
+    wrong base. The template and both READMEs say so, because a reader taught
+    that the gate is what catches a wrong base draws the wrong conclusion from
+    a green run. The rule is the branch, not the check.
+
+  - **The branch-by-convention rule is pinned on every surface that carries
+    it**, not only on the two it was first written on. `README.md`,
+    `README.ko.md` and the pull request template each go red on a concrete
+    `release/vX.Y.Z`, which is the single edit that would otherwise put a
+    branch name into a document that outlives it.
+
 ## 0.12.0 — 2026-09-17
 
 <!-- specs/1789445605-the-broad-gate-row-runs-unchecked-and-is-never-asked-for -->
