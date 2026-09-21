@@ -1,0 +1,35 @@
+# the outside contributor has no procedure — questions for the planner
+
+<!-- seal/specs/1789919879-the-outside-contributor-has-no-procedure/questions.md — decisions only
+a human can make, extracted so nothing ships on a silent assumption. Before
+adding a row, check the inheritance rule: if policy is silent but existing
+behavior answers it, inherit and record — only genuinely NEW rules belong
+here. -->
+
+**The routing answer is the `automation` preset, so this file records decisions
+rather than a batch waiting for somebody.** Every row a person would normally
+own is answered the way the evidence points, with the grounds beside it, and
+marked as a decision the owner can overturn at review. No row blocks the build.
+`Status` stays ⬜ on every owner's row, because the framer opens rows and does
+not close them — a ⬜ here means *decided and still overturnable*, not
+*waiting*.
+
+| # | Question | Who can answer | Options & what each implies | Default until answered | Status |
+|---|---|---|---|---|---|
+| Q1 | How does the document name the branch a contributor bases on, so it does not rot at every release? | a person (the owner) | **(a)** name the current branch, `release/v0.12.1` — accurate today and false at the next release, in the one document a newcomer trusts. **(b)** name the convention — *the open `release/vX.Y.Z` branch, which is the only `release/*` in the branch list* — plus how to see it on GitHub in one click | **(b), decided.** Verified: `git branch -r` shows exactly one, `origin/release/v0.12.1`, and `docs/branch-and-release.md` §*Work accumulates on a release branch* says `main` moves once per release, so one open release branch is the design rather than today's accident. A version number in a contribution guide is a fact that goes stale on a schedule | ⬜ |
+| Q2 | Should the repository's default branch move off `main`, so GitHub defaults a contributor's base correctly at the source? | a person (the owner) | **(a)** move it — the defect disappears with no document required. **(b)** leave it and fix the documents | **(b), decided, and the reasoning is in `spec.md` O4.** The marketplace clone tracks `main`, `claude plugin update` installs whatever `main` holds, two branch rulesets name `main` and `release/*`, and a release branch is deleted after each release — so the default would have to be moved every release or point at a branch that no longer exists. Reshaping what ships to repair a documentation gap is the larger change, and (a) stays available if the documents prove insufficient | ⬜ |
+| Q3 | `.github/PULL_REQUEST_TEMPLATE.md` is pre-filled into **every** pull request here, maintainers' included. Is it contributor-shaped or does it serve both? | a person (the owner) | **(a)** contributor-shaped and short — a maintainer deletes three lines. **(b)** both — add the SDD row (`routing.md` declared, round records, fragments), which is longer and irrelevant to the reader it exists for. **(c)** none — rely on `CONTRIBUTING.md` alone | **(a), decided.** The template's whole advantage is reaching someone who opened no document, and that someone is the contributor; a maintainer already has `routing.md`, the commit gate and this skill set. (b) buys a maintainer nothing they lack and costs the contributor the signal-to-noise the template exists for. The risk of (a) is maintainers deleting it each time, which phase 3 answers by keeping it short | ⬜ |
+| Q4 | `survivor_check.py` can refuse a contributor's documentation change and its refusal tells the author to *record it in `seal/specs/<work-item-id>/survivors.md`* — a convention a contributor has none of. Repair the message, or document the case? | a person (the owner) | **(a)** repair it too — a second gate change, owing its own red test, failure direction and prompt budget. **(b)** document it: the guide tells a contributor who meets it to say so on the pull request and let a maintainer judge | **(b), decided, and `spec.md` O7 records it as out of scope.** Zero contributors have met it — #443 passed that step — so (a) would be a gate change bought by a hazard rather than an occurrence, inside a work item already carrying one gate change. (b) closes the trap with a sentence. If a contributor does meet it, that is the occurrence that buys (a) | ⬜ |
+| Q5 | Does the new `.github/PULL_REQUEST_TEMPLATE.md` join `tests/test_docs_line_wrap.py`'s `COVERED`? | a measurement | It is settled by reading that file's own stated rule, not by an opinion | **Yes, decided.** The file's comments say a document *wrapped from its first line goes in at birth rather than waiting for the sweep that would otherwise be needed to bring it under*, and phase 3 writes the template wrapped. Adding it costs nothing and skipping it loses coverage the file already has. Phase 3's record says which way it went | ⬜ |
+| Q6 | Does anything bind the exemption list in `CONTRIBUTING.md` to the workflow steps it describes, or is it prose that can silently go stale? | a measurement | Answered by looking, not by deciding | **Nothing binds it today, and a precedent for binding it does exist — the first draft of this row claimed otherwise and was corrected by running the grep.** Executed: `grep -rn CONTRIBUTING tests/` returns twenty-one hits across fifteen modules, and eight of those modules read a workflow too. None binds a contributor-facing claim to a workflow step, but `tests/test_the_suite_has_a_command_that_is_cheap_twice.py#contributing_section` reads `CONTRIBUTING.md` §*Running the checks* to the next heading and asserts what that section names, and `test_release_hygiene.py` pins a phrase in the release section the same way. **So a minimal pin is decided in, and phase 1 carries it**, modelled on `contributing_section()`: the new section exists and names the release-only guard in the terms a reader searches for. It is deliberately minimal — a pin on every sentence would go red for a reword, which teaches people to write less prose. Overturnable to prose-only, at the cost that a new always-on CI step could make the list false with every check green | ⬜ |
+| Q7 | What exactly does the repaired refusal say, given that the step cannot tell a forgotten release bump from a contribution filed against the wrong branch? | the work | Phase 2 decides it against the constraint in `plan.md` §*The design constraint the message has to satisfy*, and the case it plants is what pins the answer | Unknowable at framing time and it does not travel back here. The constraint is fixed — name both cases, in that order, and assert neither — and A1 is what the phase is judged against | ⬜ |
+
+**The three kinds, and why the rows say which.** Four rows above are a person's
+and would normally block; the preset converted them into decisions with grounds
+the owner can read and reverse in one line. Two are measurements, which should
+never have queued behind a person — they were settled by running a command and
+reading a file. One is the work's, which no amount of asking at framing time
+could have answered.
+
+Answered rows feed back into `docs/` (policy clause or open-questions section)
+before this directory's work merges.

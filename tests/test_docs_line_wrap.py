@@ -96,6 +96,11 @@ COVERED = [
     # The same, and the tracker's own authority: it was written wrapped, so it
     # never had a maximum to bring down.
     "docs/issues-and-milestones.md",
+    # Wrapped from its first line, so it goes in at birth. Nearly all of it is
+    # HTML comments, which GitHub does not render and this file does not skip
+    # — and the edit box a contributor reads them in wraps nothing for them,
+    # so the limit is doing visible work here rather than tidying a source.
+    ".github/PULL_REQUEST_TEMPLATE.md",
 ]
 
 

@@ -159,6 +159,7 @@ def record(sha, contract="none", new_units="none"):
         # settled record says. `chain_check.GATE_FROM` reaches this fixture's
         # work-item id, so this record owes the row like the seven above it.
         f"| Broad gate | {sha} against base |\n"
+        "| Fix range | none |\n"
         f"| Fixes checked by | no fixes to check |\n{rows}\n"
         "- [x] Pass\n\n"
         "## Verdicts\n\n"

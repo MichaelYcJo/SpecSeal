@@ -2122,6 +2122,11 @@ def build(reader, routing, args, root, item, rounds):
         cell(chain.PR_FIELD, pull_request_cell(root, args.pr)),
         cell(BROAD_GATE, args.broad_gate if args.broad_gate else GATE_NOT_YET),
         cell(chain.CHECKED_BY, checker),
+        # The same pending value the two surface rows take, for the same
+        # reason: a record is committed before its fixes exist, so the range
+        # they were measured over does not exist either when `new` runs.
+        # `close` replaces it with the resolved ends and their count.
+        cell(chain.FIX_RANGE, surface),
         cell(chain.CONTRACT, surface),
         cell(chain.NEW_UNITS, surface),
         cell(chain.NEEDS, needs),
@@ -2373,7 +2378,9 @@ FIXED, ANSWERED, DEFERRED_WORD = "fixed", "answered", chain.DEFERRED
 assert {FIXED, ANSWERED, DEFERRED_WORD} <= chain.CLOSED_WORDS, (
     "a fix verdict the checker cannot close"
 )
-FIXED_AT = "fixed at"
+# One spelling, held in the checker because the checker reads it too (#427):
+# this generator writes the prefix and `chain_check` names a cell carrying two.
+FIXED_AT = chain.CLOSE_PREFIX
 # The reach grammar `fix_surface` reads, `unit → site, site`, in the checker's
 # first spelling of the arrow. The comma between sites is the writer's own and
 # never an input's, which is what lets `cell` keep refusing one in this row.
@@ -2734,8 +2741,29 @@ def surface_cell(label, entries):
     return row((label, "; ".join(entries)))
 
 
+# A range end has to be a COMMIT somebody can open, which is narrower than a
+# ref that resolves (#344). `HEAD`, `@`, a branch and a tag all resolve, and
+# all four name something different tomorrow -- so a record stating one is a
+# sentence that stays readable while meaning a different set of commits every
+# day. Three instances in one work item is what made it a ticket.
+#
+# Hex, seven to forty characters, AND resolving to a commit it is a prefix of.
+# The second half is what makes the first one true: a branch named `abcdefg`
+# is hex-shaped, and it passes this only if it happens to point at a commit
+# whose sha starts with its own name. That coincidence is recorded rather than
+# parsed away -- refusing hex-shaped ref NAMES would mean asking git which
+# refs exist, and the check would then pass or fail on what somebody else had
+# created.
+PINNED_RE = re.compile(r"^[0-9a-fA-F]{7,40}$")
+
+
 def parse_range(root, value):
-    """(a, b) as full commits from `<a>..<b>`, or `Refused`."""
+    """(a, b) as full commits from `<a>..<b>`, or `Refused`.
+
+    BOTH ends, not only the second. `HEAD` is the end #344 measured and a
+    branch name at the start moves exactly as far; a rule aimed at the word
+    that happened to be reported closes the instance and not the class (§12).
+    """
     a, dots, b = value.partition("..")
     a, b = a.strip(), b.strip()
     if not dots or not a or not b or b.startswith("."):
@@ -2745,6 +2773,18 @@ def parse_range(root, value):
         full = chain.resolves_to(root, ref)
         if full is None:
             raise Refused(f"--range names `{ref}`, which does not resolve in {root}")
+        if not PINNED_RE.match(ref) or not full.startswith(ref.lower()):
+            raise Refused(
+                f"--range names `{ref}`, which resolves today and is not a "
+                f"commit anybody can open tomorrow. A record states its fix "
+                f"range as commits, and `{ref}` is a name that moves: this "
+                f"same record would mean a different set of commits every "
+                f"time the branch does. Write the commit instead — "
+                f"`git -C {root} rev-parse {ref}` gives `{full[:8]}`, so "
+                f"`--range "
+                + (f"{full[:8]}..{b}" if ref == a else f"{a}..{full[:8]}")
+                + "`. No cell was written"
+            )
         out.append(full)
     return out[0], out[1]
 
@@ -3745,6 +3785,27 @@ def close(args):
         [units_entry(n, 1) for n in dict.fromkeys(n for _r, n in added)],
     )
     gate = cell(BROAD_GATE, args.broad_gate) if args.broad_gate else None
+    # The range this pass was measured over, as commits and as a count (#344).
+    # `parse_range` has already refused an end that is not a commit somebody
+    # can open, so both halves here are pinned by construction -- and the
+    # count is derived from them rather than typed, which is the half a reader
+    # can check against the tree without opening anything.
+    counted = git(root, "rev-list", "--count", f"{a}..{b}")
+    # `isdigit()` as well as `is None`, because `chain_check.fix_range` reads
+    # the same command forty lines away and checks both, and two readings of
+    # one command that disagree are the split this file spends its docstrings
+    # closing (round 1's 8). Defensive either way: git answers a digit or
+    # fails.
+    if counted is None or not counted.strip().isdigit():
+        raise Refused(
+            f"git rev-list --count {a[:7]}..{b[:7]} failed in {root}, so the "
+            f"`{chain.FIX_RANGE}` row cannot be derived. No cell was written"
+        )
+    spanned = int(counted.strip())
+    fix_range = cell(
+        chain.FIX_RANGE,
+        f"`{a}..{b}`, {spanned} commit{'' if spanned == 1 else 's'}",
+    )
 
     # Nothing above touched `raw`; everything below does, indices first and
     # the one insertion last.
@@ -3768,6 +3829,44 @@ def close(args):
         else:
             cells[VERDICT_COL] = f"{DEFERRED_WORD} {value}"
             grounds = value + (f" {DASH} {note}" if note else "")
+        # #427: `close` joined a cell it had already written, so re-closing a
+        # corrected record carried the fix grounds twice and nothing said so.
+        # The path is not a misuse a person can be told out of -- correcting a
+        # record and re-closing it is the documented way out of a record
+        # written wrong, and the repair that reached it restored the `Verdict`
+        # cells from the reviewer's report and left `Grounds` alone, because
+        # its author did not know this line prefixes.
+        #
+        # TWO arms, because one of them alone closes the instance and not the
+        # class (§12). The first is the re-close with the SAME fix table, which
+        # is what a corrected record produces and what #427 reproduced
+        # byte-identically; it covers all three verdict words, because all
+        # three reach this line and all three join. The second is the cell that
+        # already carries a close-prefix naming a DIFFERENT commit -- a fix
+        # pass that amended its commit between two closes, or a row reopened
+        # and re-closed under another word -- which the first arm cannot see
+        # because the text it would compare has changed.
+        #
+        # It REFUSES rather than overwriting, which is `questions.md` Q4
+        # (#427 allows either). Overwriting discards the reviewer's sentence
+        # silently, and not discarding it is what this whole join was written
+        # for. Refusing costs the author one restore and tells them which half
+        # of the record is still half-repaired.
+        #
+        # Nothing has reached disk when this raises: `write_record` runs after
+        # this loop, so `raw`'s earlier rows are in memory only.
+        if old and (old.startswith(grounds) or chain.CLOSE_PREFIX_RE.match(old)):
+            raise Refused(
+                f"finding {number}'s `Grounds` cell already carries a close "
+                f"prefix -- {old[:60]!r} -- so this row was closed once "
+                f"already and only its `{chain.VERDICT_COLUMN}` cell was "
+                f"reopened. Writing it again would carry the fix grounds "
+                f"twice, and a record that says a thing twice still parses, "
+                f"so nobody would see it. Restore the `Grounds` cell to what "
+                f"the reviewer wrote as well -- the round's report is where it "
+                f"stands -- and run `close` again, or leave the row as it is. "
+                f"No cell was written"
+            )
         cells[GROUNDS_COL] = grounds + (f"; {old}" if old else "")
         raw[i] = row([escape(c) for c in cells])
     words = [
@@ -3843,6 +3942,28 @@ def close(args):
         checker = WRITTEN_CHECKER
     if checker in (chain.NO_FIXES, WRITTEN_CHECKER):
         raw[at] = cell(chain.CHECKED_BY, checker)
+    # Round 1's 🟡 2. `field_index` refuses a record with no such row, and
+    # its message names a count and no repair -- which is right for a label
+    # every `new` has always written and wrong for the one label `new` began
+    # writing this release. `chain_check` grandfathers those records behind
+    # `RANGE_FROM`; the generator has no equivalent and should not grow one,
+    # because `close` REPLACES a row rather than inserting one: a record's
+    # field order is the template's, and a `close` that inserted would put the
+    # row wherever it happened to look. So the refusal stands and says what to
+    # add and where.
+    try:
+        at_range = field_index(reader, lines, chain.FIX_RANGE)
+    except Refused:
+        raise Refused(
+            f"the record has no `| {chain.FIX_RANGE} | … |` row, so there is "
+            f"nowhere to write the range this pass was measured over. It was "
+            f"written by a `new` from before that row existed. `close` "
+            f"replaces the row rather than inserting one, because a record's "
+            f"field order is the template's — so add `| {chain.FIX_RANGE} | "
+            f"{chain.NONE_WORD} |` under `| {chain.CHECKED_BY} | … |` and run "
+            f"`close` again. No cell was written"
+        ) from None
+    raw[at_range] = fix_range
     raw[field_index(reader, lines, chain.CONTRACT)] = contract
     last = field_index(reader, lines, chain.NEW_UNITS)
     raw[last] = units
@@ -3873,7 +3994,7 @@ def close(args):
     print(
         f"round-record: closed {os.path.relpath(target, root)} {DASH} "
         + ", ".join(f"{n} {w}" for w, n in counts.items())
-        + f"; {contract.strip('| ')}; {units.strip('| ')}"
+        + f"; {fix_range.strip('| ')}; {contract.strip('| ')}; {units.strip('| ')}"
         + (
             f"; {chain.CHECKED_BY} | {checker}"
             if checker in (chain.NO_FIXES, WRITTEN_CHECKER)

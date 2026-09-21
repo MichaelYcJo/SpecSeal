@@ -150,6 +150,11 @@ def record(sha, floor="no", new_units="none", needs="no"):
     """
     rows = (
         "| Fixes checked by | no fixes to check |\n"
+        # A round that commissioned no fixes has no range, and `none` is
+        # what `chain_check.fix_range` reads as nothing to check against
+        # the tree. This fixture's work-item id is above `RANGE_FROM`, so
+        # the row is owed here the way `Broad gate` is.
+        "| Fix range | none |\n"
         "| Contract changes | none |\n"
         # `Ran by` for the reason `Contract changes` is here: `NEW_ITEM`
         # began after `chain_check.RUNNER_FROM`, so leaving it out would fail
@@ -472,6 +477,9 @@ def fixed_record(sha, verdict, checker):
         "# a round\n\n"
         f"| Field | Value |\n|---|---|\n| Target SHA | {sha} |\n"
         f"| Fixes checked by | {checker} |\n"
+        # Owed here for the reason `Contract changes` is: this fixture's
+        # work-item id is above `chain_check.RANGE_FROM`.
+        "| Fix range | none |\n"
         "| Contract changes | none |\n"
         "| Ran by | specseal:warden on a model |\n"
         "| New units | none |\n"

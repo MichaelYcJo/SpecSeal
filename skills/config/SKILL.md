@@ -67,6 +67,16 @@ second answer.
   person reads, and a repository that reached this file through `seal mode`
   has none of it.
 
+  **The copied block lands BELOW the live table, and its fenced example row
+  is not a row.** That block carries a fenced `| Broad gate | … |` line as an
+  illustration of the format, and a table inside a code fence is read by no
+  walk of that table — not the gates' reader, not the mode gate's, and not
+  `seal mode`'s writer. Pasted above the live table, or above a table that has
+  no parseable row yet, that example used to be the table every gate read, and
+  the sealer sealed over its command (#429). Put the prose under the table the
+  repository actually answers in, and where the `Broad gate` row exists only
+  inside a fence, `broad-gate` quotes that line and says to move it.
+
   **The two lists and the criterion are pointed at, never copied down.** They
   are the plugin's, they change when the plugin changes, and a frozen copy in
   somebody's `seal/config.md` is a copy that says something false about the
@@ -87,9 +97,13 @@ second answer.
   characters to a plain pipe before any shell sees it, and leaves every other
   backslash alone, so a Windows path keeps its separators. Written with a
   bare pipe the line parses as no row and `broad-gate` quotes it back. Where
-  a row above it already parsed, every row below it is lost with it — the
-  reader stops reading the table there. Written as the table's first row it
-  loses only itself, because the stop rule needs a row before it can stop.
+  a row above it already parsed, every row **written** below it is lost with
+  it — the reader stops reading the table there. Written as the table's first
+  row it loses only itself, because the stop rule needs a row before it can
+  stop. And written LAST in its table it loses only itself too, because there
+  is nothing under it to lose — which is the shape the row usually has, in
+  this template and in the stub `seal mode` writes, so the refusal asks what
+  was written below the line before it says anything was lost (#430).
 
   **The `Broad gate` row is looked at before it is run**, and a value that
   would not run as the command it reads as is refused with nothing run —

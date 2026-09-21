@@ -211,6 +211,32 @@ so the refusal names the form, quotes the row as written, and shows it as
 meant. Rewriting it is the person's act, and `/specseal:config` is the door
 to the row.
 
+**A table inside a code fence is an example of this format and never a
+repository's own answer.** The live table is the first `| Item | Value |`
+table that stands outside every fenced code block, and a line inside a fence
+is not part of any table: not a header, not a separator, not a row, and not a
+line somebody wrote as a row. One rule says so and all three walks of this
+table read through it — the gates' reader, the mode gate's reader, and
+`seal mode`'s writer — so the reader and the writer can never disagree about
+which row is the row.
+
+A fence opens at a line indented at most three spaces whose first run is three
+or more backticks or three or more tildes, and closes at the next line of at
+least as many of the same character with nothing after it but spaces. **A
+fence that is never closed runs to the end of the file**, so everything under
+it — the live table included — reads as undeclared: `broad-gate` exits 2 with
+a message and the mode question comes back. That is loud rather than quiet,
+which is the trade this rule is written for.
+
+What it prevents is quiet and was reachable by following this plugin's own
+procedure. The block `/specseal:config` copies out of this file carries the
+fenced example row above, and nothing said where in `seal/config.md` it had to
+land; pasted above the live table, or above a table with no parseable row yet,
+the example WAS the table every gate read — the sealer's seal taken over a
+plausible command nobody chose (#429). **`broad-gate` says so by name**: where
+this gate's row exists only inside a fence, the refusal quotes that line and
+says where it has to move to, rather than reporting the row absent.
+
 **Everything else stays legal**, because the row is an arbitrary shell
 command line by design. A gate that could tell a status-discarding `;` from
 one inside a quoted argument would need a shell parser, whose own failure
@@ -221,7 +247,7 @@ rather than paid for by a refusal:
 |---|---|
 | `$(…)` **inside** a longer line | nothing. `pytest -n $(nproc)` still runs as the command it reads as |
 | `;`, `\|\|`, quotes, redirection, variables, globs | the row answers with whatever the composition the repository wrote answers with. That is the repository's own claim about itself, which is what this row already is |
-| a pipe, **written `\|`** | the same, and one thing more. A piped row exits with the pipe's LAST status, so `bin/test -q \| tee out.txt` is green whenever `tee` is — the repository's own claim about itself. **This file is markdown and a cell of it ends at a bare pipe**, so `\|` is how the value carries one, the way every other cell of this table already writes it. The reader reduces exactly those two characters to a plain pipe before any shell sees it, so a value holding Windows path separators is untouched. **A BARE pipe still parses as no row**, and `broad-gate` quotes that line back and names the escape rather than reporting the row as absent. **A line that does not parse still takes every row below it** where a row above it already parsed — `config_rows` stops reading the table there, so a `Mode` row written under it is invisible and `seal mode` writes a second one into the file. Measured 2026-09-17; the row's own fragment carries it |
+| a pipe, **written `\|`** | the same, and one thing more. A piped row exits with the pipe's LAST status, so `bin/test -q \| tee out.txt` is green whenever `tee` is — the repository's own claim about itself. **This file is markdown and a cell of it ends at a bare pipe**, so `\|` is how the value carries one, the way every other cell of this table already writes it. The reader reduces exactly those two characters to a plain pipe before any shell sees it, so a value holding Windows path separators is untouched. **A BARE pipe still parses as no row**, and `broad-gate` quotes that line back and names the escape rather than reporting the row as absent. **A line that does not parse still takes every row below it** where a row above it already parsed — `config_rows` stops reading the table there, so a `Mode` row written under it is invisible and `seal mode` writes a second one into the file. Measured 2026-09-17; the row's own fragment carries it. Written LAST in its table it takes nothing, because nothing is under it to take, and `broad-gate`'s refusal asks what was written below the line before it says anything was lost (#430) |
 | an `&` anywhere but at the end | the command before it is backgrounded and its status discarded, exactly as a `;` discards one — and unlike a `;`, it may still be running when the gate stamps, writing into the tree the stamp is about. That is `/bin/sh`; `cmd.exe` sequences the two commands instead, so nothing is left running and the status read is the second command's. Telling an operator `&` from a `2>&1` or a quoted `&` needs the shell parser this list exists to avoid, so it stays the row author's own composition. The **trailing** form is refused, because nothing composes after it and the whole line goes to the background |
 
 ### Choosing a value — the criterion
