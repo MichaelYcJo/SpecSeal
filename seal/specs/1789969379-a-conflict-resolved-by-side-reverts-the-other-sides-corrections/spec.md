@@ -80,27 +80,41 @@ with a count — which made *the variation lives after the date* read as
 measured when only one side of the date had been looked at. It varies before
 it too, and by more:
 
-| | occurrences in `seal/ledger.md` |
+| | occurrences in `seal/ledger.md` when round 2 measured it |
 |---|---|
 | markers a `<verb> <date>` pattern matches | 365 |
 | markers the file actually carries | 404 |
 | **markers such a pattern cannot see** | **39** |
 
-Ten qualifier spellings sit between the verb and the date — `again` 19
-times, `and re-executed` 5, `a third time` 4, `a fourth time` 3, `and
-re-stamped` 2, `a fifth time` 2, and one each of `and re-stamped again`, `and
-re-stamped a third time`, `and widened` and `and re-measured`. One row, `R4 ·
+Ten qualifier spellings sat between the verb and the date when round 2
+measured it — `again` 19 times, `and re-executed` 5, `a third time` 4, `a
+fourth time` 3, `and re-stamped` 2, `a fifth time` 2, and one each of `and
+re-stamped again`, `and re-stamped a third time`, `and widened` and `and
+re-measured`. One row, `R4 ·
 the printed bound reads BOTH of the gate's walks …`, carries no other
-spelling, so it was invisible to the check entirely. Six commits in this
-repository's history introduced `Re-read again` into that file.
+spelling, so it was invisible to the check entirely. Nine commits in this
+repository's history have introduced `Re-read again` into that file, measured
+at the tip of the branch for #469, #470 and #471 with `git log -S`; it was
+stated as six here, with no moment and no instrument.
 
 **CORRECTED at round 2, finding 6.** The middle row of that table read `403`
 and the last `38`, and the paragraph said nine spellings. Those numbers were
 measured **with the widened pattern itself**, so a spelling the pattern could
 not see was invisible to the census justifying it — the same circle this
 section was written to correct, one layer down. The tenth spelling is `Re-read
-and re-stamped a third time <date>` at `seal/ledger.md:1172`, five lowercase
-words where the bound was four.
+and re-stamped a third time <date>`, five lowercase words where the bound was
+four, and it stands in `seal/ledger.md`'s prose rather than on any row.
+
+<!-- CORRECTED 2026-09-22 by work item 1789996780 (#470 and #469). Two things
+stood here. The table had no moment on it, and the figures in it are over a
+corpus that moves: a8bf2a86 folded three ledger fragments into that file and
+this branch wrote a marker into it, so the header now names when they were
+taken. And the tenth spelling was addressed as "seal/ledger.md:1172", a
+position where CLAUDE.md requires content, so it is named by its spelling and
+by the fact that it stands in prose rather than on a row -- which is itself
+worth knowing, since the survival test acts per row and never reaches it.
+Corrected in place with the issue named, never deleted silently: a record of
+a past state that quietly becomes true is a record nobody can audit. -->
 
 The figures above are now taken by an instrument that is **not** the pattern
 and has no bound: for every verb, the next date on the same line, counting the

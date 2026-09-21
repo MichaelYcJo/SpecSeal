@@ -43,15 +43,20 @@ person making.
 `Corrected <date>` and `Re-read <date>`, and the two tokens are the whole of
 the identity.
 
-**Both verbs, and `Re-read` is the common one.** Counted over `seal/ledger.md`
-at round 2: **404 marker occurrences on 190 rows.** A `grep -c` gives 10 rows
-carrying a `Corrected` marker against 185 carrying a `Re-read`, and those row
-counts differ from the occurrence counts for two reasons -- a row can carry a
-marker in more than one cell, and a marker can carry a qualifier between the
-verb and the date. A check watching only `Corrected` would watch 10 rows and
-ignore 185, and the work item that merged immediately before this one re-read
-and widened four rows of the shared file, writing `Re-read` on every one of
-them. Losing one of those to a merge is the loss the ticket is about.
+**Both verbs, and `Re-read` is the common one by a wide margin.** The census
+beside `MARKER` below is the only place in this module that states a figure
+about the corpus, and it says which corpus, which instrument and which date
+each one is true of. Nothing here restates a digit, and that is the repair
+#470 asked for: six sites stating one number is the defect it reported, and
+correcting six copies would have left six copies to drift.
+
+What those figures support is this. Row counts and occurrence counts differ,
+because a row can carry a marker in more than one cell and a marker can carry
+a qualifier between the verb and the date. A check watching `Corrected` alone
+would watch a small fraction of the marked rows and ignore the rest, and the
+work item that merged immediately before this one re-read and widened four
+rows of the shared file, writing `Re-read` on every one of them. Losing one of
+those to a merge is the loss the ticket is about.
 
 **Nothing after the date is read**, because at least three spellings of the
 `Corrected` sentence already exist -- `…by issue #98.`, `…by review round 3,
@@ -61,10 +66,11 @@ is both failure directions at once.
 
 **And a short qualifier before it is read as part of the marker.** `Re-read
 again <date>`, `Re-read a third time <date>`, `Corrected and widened <date>`:
-**39 of this repository's 404 markers**, in ten spellings, and one row
-carries no other. The marker's identity is the verb and the date, so a
+a minority of this repository's markers, in a handful of spellings, and one
+row carries no other. The marker's identity is the verb and the date, so a
 qualifier changes neither -- which is what keeps a reworded marker from
-reading as a lost one. `MARKER` below has the census and the bound.
+reading as a lost one. `MARKER` below has the census, the bound and every
+figure either of them rests on.
 
 **This half was measured late, and the sentence above it is why.** The frame
 counted the spellings of the sentence AFTER the date, found three, and stated
@@ -75,8 +81,8 @@ then, including a ledger row, on a branch whose whole subject is ledger truth.
 
 **What this cannot see, stated rather than discovered later:** a correction
 that carries neither word. The check is exactly as good as the convention, and
-the convention is prose. The counts above are in this docstring so a later
-reader can see what its reach actually was rather than assuming it covered
+the convention is prose. The census below is in this module so a later reader
+can see what its reach actually was rather than assuming it covered
 corrections as a class. What closes that gap is a structured column, which is
 the ledger format changing -- a different work item.
 
@@ -146,9 +152,11 @@ carries it in none.
 rather than the shared file alone. `.github/scripts/fold_ledger.py` moves
 every fragment into the shared file at the release, so a check watching one of
 them goes blind exactly when the rows become shared. Both are read at each
-commit through `git cat-file --batch`, because `seal/ledger.md` here is 2364
-lines and 1.07 MB with single rows running to thousands of characters, and a
-process spawn per file per commit is most of the run.
+commit through `git cat-file --batch`, because `seal/ledger.md` here runs to
+thousands of lines and about a megabyte, with single rows running to thousands
+of characters, and a process spawn per file per commit is most of the run. No
+digit stands in that sentence on purpose: the file grows at every release, so
+a measured size written here is a figure nothing would ever re-take.
 
 Only the committed root is readable at all. A repository in local mode keeps
 `seal/` under the git common directory and commits nothing, so it has no
@@ -176,8 +184,10 @@ LEDGER = "seal/ledger.md"
 FRAGMENTS = "seal/ledger"
 
 # A blob bigger than this is not a ledger anybody wrote by hand. The shared
-# file in this repository is 1.07 MB, so the cap has room and is not a limit
-# anything here is near.
+# file in this repository is around a megabyte, so the cap has room and is not
+# a limit anything here is near. No measured size stands here: the file grows
+# at every release, and the census note below is the one site in this module
+# that states a figure about the corpus.
 SIZE_CAP = 8 * 1024 * 1024
 
 # The two verbs, and the date shape. Nothing AFTER the date is read, and a
@@ -192,22 +202,66 @@ SIZE_CAP = 8 * 1024 * 1024
 # justifying it, and the bound came out one short. Both are the same error:
 # an instrument that cannot see what it is being calibrated against.
 #
-# So the number below is taken by something that is NOT this pattern and has
+# So the numbers below are taken by something that is NOT this pattern and has
 # no bound at all. For every `\b(Corrected|Re-read)\b` in the file, find the
 # next date on the same line and count the words between; a run made only of
 # lowercase words is a candidate marker site. Nothing about it can be limited
-# by the bound under test, and it is reproducible in a dozen lines.
+# by the bound under test, and it is reproducible in a dozen lines. The walk
+# goes verb by verb rather than as one expression over the file, because a
+# single `verb ... date` pattern consumes any second verb standing before the
+# date and silently drops its site --
+# `test_the_bound_covers_every_candidate_marker_site_the_corpus_carries` is
+# that walk as a case, and it is what holds the bound now.
 #
-# Measured that way over `seal/ledger.md`: **404 marker occurrences on 190
-# rows** — 401 in table cells and 3 in the file's prose. A pattern demanding
-# the date immediately after the verb sees **365**. The other 39 put a
-# qualifier in between, in ten spellings: `again` 19 times, `and re-executed`
-# 5, `a third time` 4, `a fourth time` 3, `and re-stamped` 2, `a fifth time`
-# 2, and one each of `and re-stamped again`, `and re-stamped a third time`,
-# `and widened` and `and re-measured`. One row (`R4 · the printed bound reads
-# BOTH of the gate's walks …`) carries no other spelling, so losing its marker
-# at a merge reported nothing at all. Six commits in this repository's history
-# introduced `Re-read again` into that file.
+# **Every figure here is three things or it is nothing: a corpus, an
+# instrument and a moment.** Two earlier versions of this comment were false
+# for want of one of them (#470).
+#
+#   corpus       `seal/ledger.md` alone. Not because a branch cannot move it
+#                -- a branch CAN, and the one that wrote this comment moved it
+#                twice, correcting rows C1 and C2 -- but because it is the
+#                file a release folds the fragments INTO, so it is the part of
+#                the corpus that survives a release instead of vanishing at
+#                one. A figure spanning `seal/ledger/*.md` is invalidated by
+#                any work item recording a correction in its own fragment, and
+#                by the fold itself.
+#   instrument   the unbounded walk above, never `MARKER`.
+#   moment       2026-09-22, at the tip of the branch for #469, #470 and #471,
+#                taken after both of that branch's own ledger edits. THESE
+#                DIGITS GO STALE, by construction, at the next release that
+#                folds a fragment in and at the next branch that corrects a
+#                row. Nothing is wrong when they do. The case named above is
+#                what holds the property; this is a snapshot of what the
+#                property looked like on one day.
+#
+# Measured that way: **429 marker occurrences in `seal/ledger.md`** -- 426
+# standing on the 204 rows that carry one, and 3 in the file's prose. The
+# survival test acts on the 426 and never on the 3, because text outside a
+# table row has no row for it to decide (see *Markers in prose are out of
+# scope, by construction* above); a reader told *429 on 204 rows* would
+# believe it watches three markers it cannot see, which is exactly what six
+# tracked files said before #470. A pattern demanding the date immediately
+# after the verb sees **385**. The other 44 put a qualifier in between, in ten
+# spellings: `again` 23 times, `a third time` and `and re-executed` 5 each, `a
+# fourth time` 3, `a fifth time` and `and re-stamped` 2 each, and one each of
+# `and re-stamped again`, `and re-stamped a third time`, `and widened` and
+# `and re-measured`. One row (`R4 · the printed bound reads BOTH of the gate's
+# walks …`) carries a qualifier on every marker it has and no bare spelling at
+# all, so losing one at a merge reported nothing. And the qualifier is not a
+# one-off somebody can be asked to stop writing: nine commits in this
+# repository's history have introduced `Re-read again` into that file -- a
+# figure taken with `git log -S'Re-read again' -- seal/ledger.md` rather than
+# with the walk above, which counts sites in a file and not commits. Naming
+# the second instrument is not pedantry, and *counts commits against the
+# first parent* is not yet a name: read as *the count rose* and read as *the
+# count differs* it is two instruments, each perfectly stable and each
+# answering higher than `git log -S` does. Review round 1 of work item
+# 1789996780 and the fix pass answering it reported different totals for what
+# both called one variant, and round 2 settled it by running both readings at
+# three tips -- the gap was the predicate, not the history and not the days
+# between the two readings. The conclusion holds on every reading, which is
+# why the figure stays; `git log -S` is named because its question has one
+# reading.
 #
 # **Both failure directions at once, which is what this design was chosen to
 # avoid.** Silent when a qualified marker is reverted, and red when a
@@ -216,18 +270,33 @@ SIZE_CAP = 8 * 1024 * 1024
 #
 # Five words is the bound and lowercase is the gate. A qualifier is a phrase
 # inside the sentence, so a capital letter is the next sentence and a digit is
-# the date itself. The longest run the tree carries is five — `Re-read and
-# re-stamped a third time <date>` at `seal/ledger.md:1172` — and the
-# distribution has a hole where the old bound sat: runs of 0, 1, 2, 3 and 5
-# words occur and **no run of 4 does**, so a bound of four matched exactly
-# what a bound of three matched (411 across the three ledger files, against
-# 412 at five) and bought nothing at all. Six and eight also match 412, so
-# five is the last bound that changes an answer; going past it would turn
+# the date itself. The longest run the tree carries is five, and it is spelled
+# `Re-read and re-stamped a third time <date>` -- the spelling is the address,
+# because a line number moves for edits that have nothing to do with the
+# claim, and this one was cited as `seal/ledger.md:1172` in four places until
+# #470. The distribution has a hole where the old bound sat: runs of 0, 1, 2,
+# 3 and 5 words occur and **no run of 4 does**, so a bound of four matches
+# exactly what a bound of three matches (428 of the 429, against 429 at five)
+# and buys nothing at all. Six and eight also reach 429, so five is the last
+# bound that changes an answer; going past it would turn
 # `test_a_run_long_enough_to_be_a_sentence_is_not_a_qualifier` green for
-# nothing. The bound is what keeps the verb from reaching across a clause to a
-# date nobody wrote it against, which would manufacture a marker and then
-# report its loss. The identity stays `(verb, date)`, so the spellings of one
-# reading compare equal and a reword is not a loss.
+# nothing.
+#
+# **What the bound is justified by, stated because the split had never been
+# taken.** That five-word run stands in the file's PROSE, not on a table row,
+# and so do the two next-longest; no table row carries a qualifier longer than
+# three words. So the survival test, which acts per row, would return the same
+# verdicts today at a bound of three. The bound is not narrowed on that
+# ground, and the reason is the sentence above: the same hands that wrote a
+# five-word qualifier into this file's prose will write one into a row, and
+# `markers()` is applied to whole-file text as well as to rows. What the bound
+# is answerable to is the tree's longest spelling WHEREVER it stands -- which
+# is a property, and which the census case holds.
+#
+# The bound is what keeps the verb from reaching across a clause to a date
+# nobody wrote it against, which would manufacture a marker and then report
+# its loss. The identity stays `(verb, date)`, so the spellings of one reading
+# compare equal and a reword is not a loss.
 VERBS = ("Corrected", "Re-read")
 MARKER = re.compile(
     r"\b(" + "|".join(VERBS) + r")"
@@ -317,9 +386,9 @@ def standing(row, ambiguous, ambiguous_keys, by_key, by_anchor):
     carrying an argument the cheap identity needed just as much: removing one
     of two rows that share a first cell would report a loss because its twin
     still stands, which is A3 broken by the identity that runs first. Latent
-    when round 1 measured it -- 0 of 189 marked rows share a key -- and not
-    unreachable: `seal/ledger.md` repeats its section table headers, 123 rows
-    carrying one of two first cells.
+    when round 1 measured it -- no marked row shared a key -- and not
+    unreachable: `seal/ledger.md` repeats its section table headers, so well
+    over a hundred of its rows carry one of two first cells.
     """
     if row.key not in ambiguous_keys:
         found = by_key.get(row.key)
@@ -499,8 +568,11 @@ def read_blobs(root, pairs):
     """`{(rev, path): text}` for the pairs that exist and decode as text.
 
     One `git cat-file --batch` for every blob the walk needs rather than one
-    `git show` per file per commit. The shared ledger here is 1.07 MB and a
-    range can hold dozens of merges; the difference is the run.
+    `git show` per file per commit. The shared ledger here runs to about a
+    megabyte and a range can hold dozens of merges; the difference is the run.
+    No measured size stands here: the file grows at every release, and the
+    census note beside `MARKER` is the one site in this module that states a
+    figure about the corpus.
 
     A path a rev does not carry comes back absent rather than empty, because
     an empty string reads as a ledger with no rows in it, which is a

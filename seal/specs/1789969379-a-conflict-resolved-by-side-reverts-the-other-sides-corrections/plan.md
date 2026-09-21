@@ -36,10 +36,24 @@ appears 10 times, all in `seal/ledger.md`, in at least three spellings.
 are prose conventions; nothing reads either today.
 
 **CORRECTED at round 1, finding 1.** Those are ROW counts, and the three
-spellings all vary after the date. The file carries 404 marker occurrences
-on 190 rows, and 39 of them put a qualifier between the verb and the date in
-ten spellings. This paragraph's numbers were the ones the build was written
-against, and they hid the axis the check turned out to be blind on.
+spellings all vary after the date. `seal/ledger.md` carried 404 marker
+occurrences when round 1 measured it — 401 of them on the 190 rows that
+carried one, and 3 in the file's prose — and 39 of them put a qualifier
+between the verb and the date in ten spellings. This paragraph's numbers were
+the ones the build was written against, and they hid the axis the check turned
+out to be blind on.
+
+<!-- CORRECTED 2026-09-22 by work item 1789996780 (#470). What stood here:
+"The file carries 404 marker occurrences on 190 rows". It is false because
+404 is the file's total and only 401 of them stand on the 190 rows; the other
+3 are in prose, which correction_check.py puts out of scope by construction,
+so a reader taking the sentence at face value believes the survival test
+watches three markers it cannot see. The corpus and the moment are named now
+as well, because a8bf2a86 folded three ledger fragments into that file and
+this branch wrote a marker into it. Corrected in place with the issue named,
+never deleted silently: a record of a past state that quietly becomes true is
+a record nobody can audit. -->
+
 
 **What is NOT available to build on.** `grep -n "Checked"
 skills/evidence-check/scripts/evidence_check.py` returns two lines, `1577` and
@@ -60,10 +74,19 @@ while one is unanswered. W1 follows its shape rather than inventing one.
   shared file.
 - **A feature branch squashes**, so the merge commits this reads exist only
   before that. The leg runs at the pull request or nowhere — M2 measures it.
-- **`seal/ledger.md` is 2364 lines and 1.07 MB**, with single rows running to
-  thousands of characters. Anything that reads it whole per merge commit per
+- **`seal/ledger.md` runs to thousands of lines and about a megabyte**, with
+  single rows running to thousands of characters. Anything that reads it whole per merge commit per
   file will be slow; read blobs with `git show` and compare marker sets rather
   than diffing text.
+  <!-- CORRECTED 2026-09-22 by work item 1789996780 (#470). What stood here:
+  "`seal/ledger.md` is 2364 lines and 1.07 MB". The file is 2408 lines and
+  1.11 MB at the tip of the branch for #469, #470 and #471, and it grows at
+  every release, so a measured size stated in the present tense with no
+  moment is stale the moment it ships. The sentence's point is that the file
+  is big enough that reading it whole per merge commit per file is slow, and
+  that survives a release where the digits do not. Corrected in place with
+  the issue named, never deleted silently: a record of a past state that
+  quietly becomes true is a record nobody can audit. -->
 - **`agent-contract` §8**: a probe that needs a repository drives git from
   Python, and a fixture here needs real merge commits with real conflicts.
 

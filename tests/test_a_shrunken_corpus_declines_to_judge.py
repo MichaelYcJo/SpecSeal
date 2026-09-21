@@ -162,6 +162,12 @@ APPLIES_THE_SHARED_GUARD = {
     # module listed and not on disk would end the enumeration at it --
     # this case reporting no offender because it read almost nothing.
     "tests/test_a_shrunken_corpus_declines_to_judge.py#suite_modules": 1,
+    # The seventh, and it arrived after this case was written -- which is the
+    # class re-deriving itself rather than somebody remembering. It does a
+    # third thing with the missing half: neither skip nor decline, but read
+    # the index entry `git ls-files` just named, so the corpus the census is
+    # taken over stays whole in the tree state that used to truncate it.
+    "tests/test_a_merge_cannot_silently_drop_a_correction.py#ledger_corpus": 1,
 }
 
 # 2. It guards its own list by another predicate, which predates this work.

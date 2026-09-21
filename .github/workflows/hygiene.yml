@@ -267,8 +267,12 @@ jobs:
       # after it, because at least three spellings of the first one already
       # exist; a short qualifier BEFORE the date — `Re-read again <date>`, `a
       # third time`, `and re-executed` — is read as part of the same marker,
-      # because 39 of the file's 404 markers are spelled that way and one row
-      # carries no other. A marker that vanished WITH its row is `REMOVED` and
+      # because a minority of the file's markers are spelled that way and one
+      # row carries no other. The figures live at one site, the census note
+      # beside the check's own `MARKER`, which names the corpus and the date
+      # each is true of — this comment used to restate one of them, and it
+      # was one of the six copies #470 reported.
+      # A marker that vanished WITH its row is `REMOVED` and
       # correct; one that vanished while its row stands is the defect, and a
       # marker a parent deleted relative to the merge base is that parent's
       # decision rather than the merge's.

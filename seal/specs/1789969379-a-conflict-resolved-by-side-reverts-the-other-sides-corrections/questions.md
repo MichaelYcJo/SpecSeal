@@ -28,10 +28,21 @@ reopens them. -->
   prose somebody will reword.
 
   **CORRECTED at round 1, finding 1.** The variation is not only after the
-  date. 39 of `seal/ledger.md`'s 404 markers put a qualifier between the
-  verb and the date — `again` 19 times and nine other spellings — and one
-  row carries no other. A marker is matched on the verb and the date, with
-  any short run of lowercase words between them read as part of it.
+  date. 39 of the 404 markers `seal/ledger.md` carried when round 1 measured
+  it put a qualifier between the verb and the date — `again` 19 times and
+  nine other spellings — and one row carries no other. A marker is matched on
+  the verb and the date, with any short run of lowercase words between them
+  read as part of it.
+
+  <!-- CORRECTED 2026-09-22 by work item 1789996780 (#470). What stood here:
+  "39 of seal/ledger.md's 404 markers". The count is right for the moment it
+  was taken and the sentence did not say there was one: a8bf2a86 folded three
+  ledger fragments into that file and this branch wrote a marker into it, so
+  a bare present-tense figure over that corpus goes stale at every release.
+  The moment is named now. Corrected in place with the issue named, never
+  deleted silently: a record of a past state that quietly becomes true is a
+  record nobody can audit. -->
+
 - **Fragments are watched from the start**, because `fold_ledger.py` moves
   them into the shared file at the release and a check watching one file goes
   blind there.
