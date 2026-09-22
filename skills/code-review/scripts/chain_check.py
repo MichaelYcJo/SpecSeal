@@ -225,10 +225,21 @@ verifying round. So a second walk over the same later records counts the
 ones whose verdicts closed on a fix, wherever they sit, and refuses the
 SECOND -- naming it and the floor record it follows -- for work items begun
 on or after `REOPEN_FROM`; earlier items print. The exit is `capped`: every
-finding still open becomes an issue, its verdict reads `deferred #N`, the
-record's `Fixes checked by` reads `no fixes to check`, and the pull request
-says `chain: capped`. `deferred <home>` is a closing word for that and not a
-fix word; the bare word stays open.
+finding still open takes the filing ladder, its verdict reads `deferred
+<home>` -- `deferred #N` where that home is an issue -- the record's `Fixes
+checked by` reads `no fixes to check`, and the pull request says `chain:
+capped`. `docs/review-chain-spec.md` §*Where a leftover goes — the ladder,
+and why a new issue is not the default* owns where a filed finding goes.
+`deferred <home>` is a closing word for that and not a fix word; the bare
+word stays open.
+
+That exit is the REOPENING BOUND's and not the round cap's. A run the round
+cap stopped may still write fixes for what the branch owns, and its record
+then reads `round-N` with the verifying round after it reading `no fixes to
+check`. `docs/review-chain-spec.md` §*The cap bounds rounds, and not the
+fixes of the round it stopped* owns that rule; nothing here computes it, and
+the walks below read the records either shape produces without knowing which
+bound ended the run.
 
 WHAT RAN THE ROUND, which no record said. Issue #137: every segment of two
 work items was metered and posted to a measurement log, and not one of the

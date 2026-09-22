@@ -143,6 +143,15 @@ checked by` reading anything but `no fixes to check`, which says the run has
 not ended; or a commit the record's own target already descends from, which
 would be a run spent before the round it claims to seal.
 
+**A `round-N` in that cell says the run capped with fixes written, and not
+that somebody filled it wrongly.** A run the round cap stopped may write fixes
+for what the branch owns, and the record that wrote them names its reader — so
+the refusal lands on the record before the reader rather than on a defect.
+`docs/review-chain-spec.md` §*The cap bounds rounds, and not the fixes of the
+round it stopped* owns the rule, and what it means for you is that the way
+past this refusal is a verifying round somebody spawns, never an edit to the
+cell.
+
 You do not open the record, edit it, or write any other file. Where the cell
 would need a value that subcommand will not write, that is something to
 report, not something to type in.

@@ -161,11 +161,20 @@ The fixes of a verifying round that opened something need a reader, that
 reader is a verifying round again, and #161 measured fifteen rounds through
 that door. So the reopening is **one**: after a record that met the floor, one
 later record may close on a fix, a second is refused, and the run ends
-`capped` — every finding still open becomes an issue, its verdict reads
-`deferred #N`, the record's `Fixes checked by` reads `no fixes to check`, and
-the pull request is labelled `chain: capped`. `docs/review-chain-spec.md`
+`capped` — every finding still open takes the filing ladder below, its
+verdict reads `deferred <home>` wherever a home was found (`deferred #N`
+where that home is an issue), the record's `Fixes checked by` reads `no fixes
+to check`, and the pull request is labelled `chain: capped`.
+`docs/review-chain-spec.md`
 §*The reopening — one, and then the run is capped* owns the rule, the refusal
 and its cutoff.
+
+**That exit is the reopening bound's, and it is not the round cap's.** A run
+the round cap stopped may still write a fix, and what decides which of its
+open findings gets one is who owns the unit now — answered by reading the
+`New units` rows of the run's own records, so the decision costs nobody a
+question. `docs/review-chain-spec.md` §*The cap bounds rounds, and not the
+fixes of the round it stopped* owns the rule and that test.
 
 The condition is not *this round found nothing* — that would be unbounded, and
 it was considered and rejected. A verifying round that raises a 🟡 the smith
@@ -186,6 +195,16 @@ crashes.** Whatever else it found is deferred with a named answerer, or becomes
 an issue. `docs/review-chain-spec.md` owns the definition and the measurement
 behind it; what matters where you decide to spawn another round is that three
 and five are a ceiling rather than a budget to spend down.
+
+**Which of those two, and whether a new issue at all, is a ladder rather than
+a choice.** An open finding takes the first rung that fits: the branch fixes
+what it owns, a comment goes on the open issue that already owns the ground, a
+new issue is opened only where the finding can name a party who will act, and
+what names nobody stays in the round record and the pull request body. Read
+the answer off the reviewer's `## Deferred` table, whose `Who answers it`
+column is the test. `docs/review-chain-spec.md` §*Where a leftover goes — the
+ladder, and why a new issue is not the default* owns the rule and the
+measurement that produced it.
 
 The reviewer answers this in a line of its own too — `Loses a record or
 crashes: no`, or `yes` and what does — and it is copied into `round-N.md`'s row
@@ -222,8 +241,10 @@ rule that refuses without saying where the refused work goes stops the chain
 at a wall.
 
 **A fix pass may not add mechanism.** Not a rule, not a checker, not a
-template section, not a walk. A finding that can be closed only by one is an
-issue, and its verdict reads `deferred #N`. This is the first level, and the
+template section, not a walk. A finding that can be closed only by one takes
+the filing ladder rather than an issue by default, and its verdict reads
+`deferred <home>` — `deferred #N` where that home is an issue. This is the
+first level, and the
 depth below is the second: that one refuses a unit added to pin a unit, this
 one refuses the fix pass building the thing that would need pinning at all.
 Measured on the branch that shipped the release before this one (#153 and

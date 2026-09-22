@@ -91,6 +91,22 @@ CONFIG_SKILL = ("skills", "config", "SKILL.md")
 CRITERION_OWNER = (
     "`templates/config.md` §*Choosing a value — the criterion* owns the criterion"
 )
+# The checker whose module docstring restates the capped exit. It is a link
+# carrier like any other here: the docstring names the owner and computes
+# nothing, which is what #492 left it free to do.
+CHAIN_CHECK = ("skills", "code-review", "scripts", "chain_check.py")
+CAP_BOUNDS_ROUNDS = (
+    "`docs/review-chain-spec.md` §*The cap bounds rounds, and not the fixes "
+    "of the round it stopped* owns"
+)
+# The document that owns the tracker's own conventions. It is a link carrier
+# for the filing rule and the owner of what the `from-review` label means —
+# the two are different questions, and #493's measurement needs both.
+TRACKER = ("docs", "issues-and-milestones.md")
+LADDER_OWNER = (
+    "`docs/review-chain-spec.md` §*Where a leftover goes — the ladder, and "
+    "why a new issue is not the default* owns"
+)
 
 
 def read(*parts):
@@ -196,6 +212,66 @@ RULES = {
         "A check that is red repository-wide for reasons unrelated to any "
         "branch does not belong in the row",
         {CONFIG_SKILL: CRITERION_OWNER, ORCH_IMPL: CRITERION_OWNER},
+    ),
+    # A thirteenth, from #492. The cap counts ROUNDS and was read as bounding
+    # FIXES, so a one-line verified repair was filed instead of made; and the
+    # two bounds that both exit `capped` were read as one rule although only
+    # the round cap permits a fix. The owner is the document that already
+    # owns the cap, and this row has more link carriers than any other
+    # because the exit sentence was already copied into six of them.
+    #
+    # WHAT IT PINS, written down because it is narrower than the rule
+    # (round 1's ⬜ 5): one sentence — the ownership test — plus seven
+    # carriers naming the section. The section TITLE is pinned indirectly and
+    # seven times over, because every link string quotes it. *Three and five
+    # count rounds*, the two-bounds table and the `Fixes checked by`
+    # paragraph are NOT pinned here; the reopening half of the pair is, by
+    # `tests/test_the_reopening_is_one.py`.
+    "13 the cap bounds rounds, and ownership decides the rest": (
+        SPEC,
+        "What decides between a fix and a home is who owns the unit now.",
+        {
+            ORCH: CAP_BOUNDS_ROUNDS,
+            TEMPLATE: CAP_BOUNDS_ROUNDS,
+            PROTOCOL: CAP_BOUNDS_ROUNDS,
+            WARDEN: CAP_BOUNDS_ROUNDS,
+            SMITH: CAP_BOUNDS_ROUNDS,
+            SEALER: CAP_BOUNDS_ROUNDS,
+            CHAIN_CHECK: CAP_BOUNDS_ROUNDS,
+        },
+    ),
+    # A fourteenth, from #493 and the other end of the same question. Filing a
+    # finding ran at 100% and acting on one at 47%, because opening an issue
+    # was the default rather than a rung. The owner is the document that
+    # already carried the table of homes, and the test the ladder applies is
+    # a column the reviewer's report already writes — so the rule adds no
+    # parsed field, which is what §*What the record carries* refuses.
+    #
+    # WHAT IT PINS (round 1's ⬜ 5): the headline sentence plus five carriers
+    # naming the section. The four RUNGS are not pinned — a rung could be
+    # reordered, reworded or deleted and both new cases stay green.
+    #
+    # WHAT NEITHER ROW CAN SEE, and it is the shape round 1's 🔴 1 reported:
+    # the link assertion is a substring test of the link string against the
+    # carrier read through `flat`, so a carrier that names the owner AND also
+    # states a contradicting sentence passes. `orchestration.md` was exactly
+    # that for one release — a rule-14 link carrier still telling a reader at
+    # a capped exit to file everything. House shape rather than a regression
+    # (existing carriers restate before they link too), which is why it is
+    # written here rather than asserted: an assertion that a carrier states
+    # nothing contradicting the owner is a walk, and a fix pass may not add
+    # mechanism.
+    "14 a finding is filed where somebody will act": (
+        SPEC,
+        "A finding is filed where somebody will act on it, and a new issue is "
+        "the third rung rather than the default.",
+        {
+            ORCH: LADDER_OWNER,
+            TEMPLATE: LADDER_OWNER,
+            WARDEN: LADDER_OWNER,
+            SMITH: LADDER_OWNER,
+            TRACKER: LADDER_OWNER,
+        },
     ),
 }
 

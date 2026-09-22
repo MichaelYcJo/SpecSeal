@@ -32,12 +32,11 @@ effect. Neither of them was cut short of a target.
 **Three or four is a ceiling, not a target.** It is as much as one section can
 describe while a reader still comes away knowing what the release is about, and
 it says nothing about when to stop under it. The count is in work items rather
-than in ticket numbers because a run that reaches the reopening bound turns
-every finding still open into an issue, which is right — and it means one
-branch's leftovers arrive as four ticket numbers, which a reader counts as four
-releases' worth of work. Size a ticket set that will be one branch as one
-item. 0.8.3 shipped three of eight, and carrying five forward was the call
-rather than the failure.
+than in ticket numbers because a run that reaches either bound files what it
+could not close, and one branch's leftovers arrive as several ticket numbers
+that a reader counts as several releases' worth of work. Size a ticket set
+that will be one branch as one item. 0.8.3 shipped three of eight, and
+carrying five forward was the call rather than the failure.
 
 **The two releases above are named rather than numbered on purpose.** Both sit
 at or above the running version, and
@@ -78,6 +77,22 @@ concern that outlives a schedule needs a label instead: `measurement` is
 carried by `#51`, by the rolling log, and by the scheduled work that came out
 of them, whichever milestone each one sits in. Query the concern by label and
 the release by milestone; neither substitutes for the other.
+
+**`from-review` marks an issue a review round filed.** A round that hands a
+finding to the tracker puts it on the new issue, and nothing reads the label —
+what it is for is one query. `--label from-review --state all` beside
+`--state closed` gives the share of filed findings anybody went on to act on,
+and that share is why the filing decision is a ladder rather than a reflex:
+on 2026-09-22 the label carried 89 issues, 43 of them closed — 48% — with 23
+of the 46 still open opened inside one three-day window, the one issue that
+run filed excluded. **Quote the date with the number.** The label set moves,
+so a share written without its as-of date goes false quietly and a reader
+re-taking the query cannot tell which of the two changed. A measurement whose
+key is undocumented is not repeatable either, which is the whole of why the
+label is written down here.
+`docs/review-chain-spec.md` §*Where a leftover goes — the ladder, and why a
+new issue is not the default* owns where a filed finding goes; this section
+owns what the label means.
 
 **`flow-measurement` is a label that is not an index.** It is a lookup key,
 and it carries an invariant: *exactly one open at a time*.

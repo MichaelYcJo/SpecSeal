@@ -254,6 +254,13 @@ only read `no fixes to check` or `nobody — <why>`. That is the shape of the
 rule rather than a limitation of it: a run ends at a round that wrote no code
 nobody read, or it ends with the gap in the diff where a reader will meet it.
 
+**A record whose run was capped is not by that fact the last record.** A run
+the round cap stopped may write fixes for what the branch owns; the record
+that wrote them names the round that read them, and that reader is the last
+record. `docs/review-chain-spec.md` §*The cap bounds rounds, and not the fixes
+of the round it stopped* owns the rule, and this protocol carries the shape it
+produces rather than granting the permission itself.
+
 **A conforming tool reads this on every record**, where it reads `Pass` on the
 last one alone. The two scopes differ because the two facts do: `Pass` is a
 verdict on the whole review, and the last round's speaks for it; this is a

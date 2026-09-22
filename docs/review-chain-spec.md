@@ -60,6 +60,67 @@ by what a finding requires rather than by rank, and 🔴 means *blocks merge* �
 so "a 🔴 is open" is a state the review already reports, readable from the
 last round record's verdict table and its `Pass` checkbox.
 
+### The cap bounds rounds, and not the fixes of the round it stopped
+
+**Three and five count rounds.** What they decide is whether another round is
+spawned. What happens to the findings of the round they stopped at is decided
+by the rule below, and reading the numbers as a bound on fixes is what files a
+verified one-line repair instead of making it.
+
+**A run the round cap stopped may still write a fix.** Writing one spends no
+round: the fixes are read the way every other round's fixes are read, by one
+verifying round at their diff, and a round that opens nothing needing a fix
+does not consume the cap.
+
+**What decides between a fix and a home is who owns the unit now.** A finding
+inside a unit this run's own fixes created belongs to the branch that created
+it, and the branch fixes it whatever round it surfaced in. A finding in code
+that stood before the run belongs to whoever owns that code, and it takes the
+filing ladder at the end of this section. The evidence is already written
+down: each record's `New units` row names the units that round's fixes added,
+so the question is answered by reading the run's own records rather than by
+judging, and it costs nobody a question.
+
+**`New units` names Python units, so a finding in a document is answered by
+the fix range instead.** `round_record.py`'s `measure` skips every prose path
+whole — `.md`, `.markdown`, `.txt`, `.rst`, before both the AST pass and the
+diff-line heuristic — so a round whose fixes were documents writes
+`New units | none` however much the branch wrote. An empty row is therefore
+not evidence that the run created nothing, and reading it as *not a unit this
+run created* sends a paragraph the run wrote three commits ago down the
+ladder, which is the expensive direction this section exists to close. There
+the evidence of ownership is the range itself: a paragraph this run's own
+fixes added belongs to the branch on the same test, read off the diff rather
+than off the row.
+
+**The question asked in its place was *when did the defect start*.** That is
+the substitution to watch for, and it fails in the expensive direction — it
+sends work the branch owns to a tracker nobody schedules from. Measured: round
+6 of `seal/specs/1790039346-settle-reads-a-marker-inside-a-commented-out-draft/`
+filed five findings on the grounds that the run was capped. Re-examined
+against ownership, the unit one of them named had been created by round 4 of
+that same work item and the character-level oracle another named was the
+branch's outright, so all five were fixed on the branch, the record was
+corrected in place, and one verifying round read them.
+
+**Two bounds end a run `capped`, and only one of them permits a fix.** Say
+which one ended the run, because the answer differs between them:
+
+| The bound | Where it is stated | What its terminal record may do |
+|---|---|---|
+| the round cap | here — three rounds, and five while a 🔴 is open | write fixes for what the branch owns, and have one verifying round read them |
+| the reopening bound | §*The reopening — one, and then the run is capped* | commission nothing. `chain_check.py` refuses a second fix-closing record after a floor `no`, so that record closes its open findings on homes alone |
+
+**So what `Fixes checked by` reads at a round-cap exit depends on what the
+record did.** A capped record that closed nothing on a fix reads `no fixes to
+check`, and it is the last record of the run. A capped record that wrote fixes
+reads `round-N` and is **not** the last record — the verifying round that read
+those fixes is, and that one reads `no fixes to check`. `round_record.py seal`
+refuses to write `Broad gate` on a last record whose cell reads anything else,
+so the reader is required by the generator and not by this document alone.
+Both shapes are in the tree, in the same work item named above: its round 6
+wrote fixes and reads `round-7`, and its round 7 commissioned nothing.
+
 ### The bound has a floor, and a quiet round is where it stops
 
 **Stop when a round finds nothing that leaves the root and nothing that
@@ -192,15 +253,62 @@ last branch (#161's second comment): 33 of its 65 findings were located in
 records, and the records were 55 % of the diff — a loop reviewing the tool's
 own paperwork, with a reader spawned for every correction.
 
+### Where a leftover goes — the ladder, and why a new issue is not the default
+
 At the bound, or earlier when a round returns nothing blocking, the change
 ends the same way whether or not everything was resolved. Nothing is dropped;
-each kind of leftover has a home that outlives the session:
+each kind of leftover has a home that outlives the session.
+
+**A finding is filed where somebody will act on it, and a new issue is the
+third rung rather than the default.** An open finding takes the first rung
+that fits, read top to bottom:
+
+| Rung | When it fits | Where the finding goes |
+|---|---|---|
+| 1 | the branch owns the unit, or the smith answers the finding with grounds | the diff, or `round-N.md` with the grounds. §*The cap bounds rounds, and not the fixes of the round it stopped* says how ownership is read |
+| 2 | an open issue already owns the ground | a comment on that issue, and the verdict reads `deferred #N`. `docs/issues-and-milestones.md` §*An issue is its body and its comments together* is what makes a comment the way a ticket grows here |
+| 3 | the finding names a party who will act on it | a new issue, labelled `from-review`, and the verdict reads `deferred #N`. Where a repository has no tracker, `seal/follow-up.md` is the same rung and takes the same test |
+| 4 | it names nobody | the round record alone, with the finding named in the pull request body |
+
+**The test is agreement, not naming**, and it is the one `seal/follow-up.md`
+already applies to itself: *nobody agreed to open `X`, so nobody answers*. A
+row in that file names a person with no condition attached, which is the shape
+the cell takes; what decides the rung is whether anybody agreed to it. So the
+cell has to name somebody the finding gives a reason to act,
+and an owner written because there was nobody else to write is rung 4's
+answer rather than rung 3's. That distinction is the whole of the rung, and
+it is why naming is not the test: the most common value this column already
+holds is the repository owner, so a rung that stopped at *a person, with no
+condition* would file exactly what is filed today. Nothing new is written to
+answer it. The reviewer's `## Deferred` table already carries the column —
+`Who answers it` — and the ladder reads that cell, so the decision costs no
+field, no verdict word and no question. A cell reading *whoever picks it up*
+is the same answer as an empty one.
+
+**What rung 4 costs, stated rather than left to be found.** A real defect that
+can name nobody stops being visible in the tracker. It lives in the round
+record and in the pull request body, which is durable until `settle` retires
+the work item's directory at a later release — after which the pull request
+body is what carries it. `seal/follow-up.md` made that trade for its own file
+first, on the grounds that an unowned row is not a plan, and the repository
+owner is who overturns it.
+
+**What the ladder is measured against.** Filing is cheap and acting on a
+filing is not, so a ladder is what keeps the cheapest act from being the
+default one. Measured on 2026-09-22 with
+`gh issue list --label from-review --state all`: the label carried 89 issues,
+43 of them closed — 48% — and 23 of the 46 still open had been opened inside
+one three-day window. The count excludes the one issue this work item's own
+run filed. **The date is part of the claim**, because the label set moves:
+without it a reader re-taking the query cannot tell whether the tracker
+changed or the number was wrong. Re-taking it is one query rather than a
+reconstruction, which is why `docs/issues-and-milestones.md` documents the
+label.
+
+Two leftovers are not findings and take no rung:
 
 | What is left | Where it goes |
 |---|---|
-| A finding the smith fixed | the diff |
-| A finding the smith answered with grounds | `round-N.md`, with the grounds |
-| A finding neither fixed nor answered | `seal/follow-up.md`, and named in the PR body |
 | A decision only a person can make | `seal/specs/<item>/questions.md`, and named in the PR body |
 | An original whose behavior is plainly wrong | both texts side by side per `legacy-parity`, and named in the PR body |
 
@@ -1240,9 +1348,22 @@ verifying round of it.
 **After a record that met the floor, at most one later record may close on a
 fix.** That one is the verifying round that reopened the run; the record that
 reads its fixes ends the run whatever it finds. There the run is `capped`:
-every finding still open becomes an issue, its verdict reads `deferred #N`,
-the record's `Fixes checked by` reads `no fixes to check`, and the pull
-request says `chain: capped`.
+every finding still open takes the ladder in §*Where a leftover goes — the
+ladder, and why a new issue is not the default*, its verdict reads `deferred
+<home>` wherever a home was found — `deferred #N` where that home is an
+issue — the record's `Fixes checked by` reads `no fixes to check`, and the
+pull request says `chain: capped`.
+
+**This is the reopening bound, and it is not the round cap.** Both exits end a
+run `capped`, and the one word is why the two get read as one rule. What
+separates them is what the terminal record may do. This bound's commissions
+nothing, because the walk below refuses a second fix-closing record after the
+floor — so `no fixes to check` is true of it by construction, and the sentence
+above says it of this exit rather than of every capped record. The round cap's
+terminal record may write fixes for what the branch owns, and then reads
+`round-N` instead; §*The cap bounds rounds, and not the fixes of the round it
+stopped* owns that permission. Granting it here would name a state this
+subsection's own walk refuses.
 
 | The records after a record whose floor row is `no` | The check |
 |---|---|
