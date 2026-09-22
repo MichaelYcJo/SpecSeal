@@ -60,13 +60,23 @@ def _read(path):
         return handle.read()
 
 
-def marked_headings(text):
-    """Every `##` / `###` heading whose text starts with the marker, outside
-    fenced code. A fence is tracked because a skill quotes headings as
-    examples, and an example is not a section. A fence closes only on a
-    fence of the same character at least as long, so a ``` inside a ````
-    block, or a ~~~ inside a ``` block, does not end the outer one — the
-    same rule `payload_meter.py#heading_starts` applies (#292 round 2)."""
+def headings(text):
+    """Every `##` / `###` heading outside fenced code, as `(level, title,
+    line)` — the count of `#`, the heading's own text, and the whole line.
+
+    A fence is tracked because a skill quotes headings as examples, and an
+    example is not a section. A fence closes only on a fence of the same
+    character at least as long, so a ``` inside a ```` block, or a ~~~
+    inside a ``` block, does not end the outer one — the same rule
+    `payload_meter.py#heading_starts` applies (#292 round 2).
+
+    **One parser, two readers.** `marked_headings` below filters it for this
+    module's own question, and
+    `tests/test_every_orchestrator_act_names_its_delivery.py` reads it for
+    the row set of the orchestrator's own table (#330). Two parsers of one
+    marker is how half of them come to keep the old answer, which is
+    `hooks/routing.py`'s own reason for being a module.
+    """
     found, fence = [], None
     for line in text.splitlines():
         opened = FENCE.match(line)
@@ -83,9 +93,15 @@ def marked_headings(text):
         if fence is not None:
             continue
         match = HEADING.match(line)
-        if match and match.group(2).lstrip().startswith(MARKER):
-            found.append(line.rstrip())
+        if match:
+            found.append((len(match.group(1)), match.group(2).strip(), line.rstrip()))
     return found
+
+
+def marked_headings(text):
+    """Every `##` / `###` heading whose text starts with the marker, outside
+    fenced code, as the whole line."""
+    return [line for _level, title, line in headings(text) if title.startswith(MARKER)]
 
 
 def _names_the_orchestrators_half(entry):

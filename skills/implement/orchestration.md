@@ -474,3 +474,82 @@ command — and there is no third value meaning no enforcement anywhere.
 Deciding early does not weaken the question; it moves it to the minute where
 answering it costs a reply rather than a stopped session.
 
+## Orchestrator: which of these acts runs itself
+
+Every act addressed to the orchestrator sits under a heading carrying the
+`Orchestrator:` prefix, in this file or in
+`skills/code-review/orchestration.md`, and until #330 there was no list of
+them. This is the list.
+`tests/test_every_orchestrator_act_names_its_delivery.py` holds it against
+both files from both sides: an act with no row fails, and a row naming an act
+no file carries fails. One-sided is the state `broad_gate.PARTITION` was
+written to end one subject over, and that list went three releases at five
+entries while the workflow it mirrored went to thirteen steps.
+
+**The row set is mechanical.** Every `##` heading whose text begins
+`Orchestrator:` in either file, plus every `###` heading directly beneath
+one. This section is one of those headings, so it has a row of its own.
+
+**`Delivered by` answers one question: when the orchestrator forgets this
+act, what notices?** Four values and nothing else.
+
+| Value | What it says |
+|---|---|
+| `command: <path>` | the act is one command somebody types, so there is nothing to reconstruct from prose. The path has to exist |
+| `check: <path>` | something refuses, or says so, when the act did not happen. The path has to exist |
+| `part of its parent's act` | a `###` describing its parent's act rather than naming one of its own. A `##` cannot take it |
+| `still a sentence` | nothing notices. The `Grounds` cell says what was looked at and came back empty, and an empty cell there fails |
+
+**A command does not make anybody run it, and a row naming one says so where
+that is the case.** The miss #330 measured for the flow log is that the meter
+sat unreferenced through a full day of measurements nobody took: the
+measurement was not taken, not that the posting failed. So the grounds of a
+row whose delivery reaches only part of its act name the part it does not
+reach. A row that reads closed over a tree that is not is worse than no row
+at all, because the next work item picks its subject from this table.
+
+**What this does not catch**, stated rather than left to be found: an act
+written for the orchestrator under a heading carrying no marker has no row
+and nothing notices. The check reads the marker, not the meaning, which is
+the limit
+`tests/test_a_section_marked_for_one_role_reaches_only_that_role.py` already
+states for itself. The two read the headings through one parser, so they
+cannot come to different answers about what a heading is.
+
+**The one act outside this table is the one #330 measured, and it is named
+here because the table cannot hold it.** Posting a segment's reading to the
+flow log is structurally the orchestrator's — contract §6 withholds posting
+from every agent whatever its definition says — and it lives in
+`skills/verify/SKILL.md` §*Measure the segment, and feed the flow log*, under
+a heading carrying no marker, in a file the row rule above does not read. Its
+delivery is `session-cost … --post`, which resolves the label, applies the
+invariant and posts the reading with what a person says about it. **And
+nothing makes it run.** The miss the ticket measured is that the meter sat
+unreferenced through a full day of measurements nobody took: the measurement
+was not taken, not that the posting failed. So this paragraph is the row that
+act would have, written where the table's own blind spot put it, and it is
+not a closed-looking one.
+
+| Act | File | Delivered by | Grounds |
+|---|---|---|---|
+| Orchestrator: the order inside a ticket | `skills/implement/orchestration.md` | still a sentence | Nothing reads the order. Each step it sequences has a row of its own, and what the sequence itself asserts, which party runs when, is in no file a check opens. A run that opened the pull request after the rounds leaves the same tree as one that opened it before them |
+| Orchestrator: Bootstrap — create what's missing | `skills/implement/orchestration.md` | check: `hooks/mode-gate.py` | A root with no `Mode` row in `config.md` is exactly nobody was asked, and this gate stops the next command until `seal mode` writes it. It reaches the mode question alone. Nothing reads the `Broad gate` proposal, so a repository that was never offered candidates meets `bin/broad-gate`'s own refusal after the rounds have settled, and nothing checks that the workflow file was written from the template with the version substituted |
+| Orchestrator: Parity setup — deriving what can be derived | `skills/implement/orchestration.md` | still a sentence | The four fields are derived by hand and nothing reads the result. The commit gate's parity arm wakes on `seal/parity.md` existing, so a setup that never happened is silence rather than a refusal, and a guessed original produces a file that parses |
+| Orchestrator: how the work is routed — two questions, one call, one file | `skills/implement/orchestration.md` | check: `hooks/commit-review-gate.py` | The review arm asks at every commit until a declaration naming the branch stands in the working tree, and `templates/claude-md-block.md` carries the question's exact shape into every session on the machine. What neither reaches is the shape of the asking: a declaration built from four separate questions parses exactly like one built from the single call this section mandates |
+| Question 1 — single-select | `skills/implement/orchestration.md` | part of its parent's act | The three options of the one `AskUserQuestion` call its parent describes. It names no act of its own |
+| Question 2 — `multiSelect`, meaningful only under *per axis* | `skills/implement/orchestration.md` | part of its parent's act | The four boxes of the same call, and the ceiling on how many there may be. It names no act of its own |
+| What the answer writes | `skills/implement/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | It refuses a `Review` or `Destination` value outside the vocabulary at the pull request, and `hooks/routing.py` parses the same rows at every commit. The three optional rows are read by nothing that refuses: `hooks/implementer-notice.py` says one line after a commit where a declared agent left no mark, and blocks nothing |
+| Orchestrator: which of these acts runs itself | `skills/implement/orchestration.md` | check: `tests/test_every_orchestrator_act_names_its_delivery.py` | The test holds this table against both files from both sides, which is the condition #330 set for enumerating the class at all: unless something reads it. It reads the marker and not the meaning, so an act written under a heading with no prefix is in neither the table nor the test |
+| Orchestrator: a fix pass resumes the implementer | `skills/code-review/orchestration.md` | still a sentence | A resumed fix pass and a fresh spawn leave identical trees, so nothing at the pull request can tell them apart, and the measured difference between them is 282 calls against 30. The steps inside the section are commands, `bin/round-record` for the fix table and `bin/survivor-check` for the sweep that follows, and the choice of session is not one of them |
+| Orchestrator: the run ends with a verifying round | `skills/code-review/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | It fails the pull request when the run's last record carries `nobody` beside a checked `Pass`, which is the run whose own last fixes nobody opened. Work items begun before its cutoff print instead of failing |
+| The cap is a ceiling, and this is the floor it never had | `skills/code-review/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | It reads `Loses a record or crashes` on every record and refuses a run whose count of records passes the bound that row sets. What it cannot read is whether the reviewer's answer was true |
+| A fix pass adds the unit that pins it, and that unit ships unreviewed | `skills/code-review/orchestration.md` | command: `bin/round-record` | `close` derives `New units` from the fix range with a depth per entry, and refuses depth 2 before any cell is written. It does not reach the level above: a fix pass that adds mechanism, a rule or a checker or a template section or a walk, leaves a unit at depth 1 and nothing refuses it |
+| Then say who checked them, in the record | `skills/code-review/orchestration.md` | command: `bin/round-record` | `new` sets the previous record's cell when it writes the next round's, so the act is no longer a last step to remember, and it was forgotten five times on the branch before it existed. `skills/code-review/scripts/chain_check.py` refuses any value outside the three |
+| And name the fix surface, in the same record | `skills/code-review/orchestration.md` | command: `bin/round-record` | `close` writes `Contract changes` and `New units` from the fix range, so the rows cost no question to anybody. Before it did, one record sat at its starting values for two rounds and the six units its fix pass created reached the next round only because a reviewer went and looked. What the derivation does not reach is a surface with no unit in it: `New units` reads top-level defs, classes and module constants, and for a file the AST cannot read the `+` lines for five keywords, so a fix pass that adds a template section, a skill rule or a walk names an empty surface and nothing refuses it |
+| And say what ran the round | `skills/code-review/orchestration.md` | command: `bin/round-record` | `new` writes the row from the value the spawning session gives it, and `skills/code-review/scripts/chain_check.py` fails a record missing it after its cutoff and refuses a present row it cannot read. Neither reaches whether the value is true: the agent and the model are the orchestrator's own knowledge, and nothing else in the tree holds them |
+| And commit the record before commissioning the fixes | `skills/code-review/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | It refuses a record whose adding commit descends from a commit its own verdicts name as the fix. `round_record.py new` lists the commits between and refuses nothing, because 40 records of 152 differ that way for a reason that is not this one. Nothing reads whether the reviewer's report rode in the same commit |
+| The check a round runs reads everything, and only a write is narrowed | `skills/code-review/orchestration.md` | command: `bin/evidence-check` | A narrowed run names the ledgers it did not read and says how to read them, so the narrowing announces its own blind spot instead of waiting for the pull request to find it. It does not refuse: a round that reads only its own fragment still exits 0, and the unscoped read at the pull request is what found fifteen drifted rows and one broken claim over three rounds that had all reported clean |
+| Orchestrator: the pull request opens before round 1, and a phase is re-run | `skills/code-review/orchestration.md` | still a sentence | A pull request opened after the rounds leaves the same tree as one opened before them, so nothing reads the timing, and nothing records that a closed phase's suite and lint were re-run before the next phase spawned. What is delivered is the step the section ends on: `skills/code-review/scripts/chain_check.py` fails a ready pull request whose last record's `Broad gate` cell still reads `not yet`, which is what makes the sealer's spawn happen |
+| Orchestrator: verify before posting | `skills/code-review/orchestration.md` | still a sentence | The four checks are readings the orchestrator takes before posting, and nothing in the tree records that any of them happened. The one part a record carries is both SHAs in `Target SHA` where HEAD moved, and `round_record.py new` prints the commits between rather than refusing |
+| Orchestrator: closing the cycle | `skills/code-review/orchestration.md` | check: `hooks/commit-review-gate.py` | The review arm quiets on a mark standing at HEAD, so a cycle left unclosed meets the gate at the next commit. On a branch with a routing declaration in force the declaration quiets that arm first, and that is every branch this workflow routes, so for those the missing mark is never noticed |
+
