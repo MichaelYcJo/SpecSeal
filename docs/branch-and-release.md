@@ -88,6 +88,30 @@ exactly that, and the patch release after it exists to fix one line. The
 round records survived only
 because their feature branches had been restored to the remote first.
 
+**A third reader points at those commits now, and it is outside this
+repository.** A plugin directory lists an external plugin by pinning a commit
+of its source repository — measured 2026-09-22 over one directory's 310
+entries, 258 point outward and **every one of them carries a `sha`**, while
+the other 52 name a path inside the directory's own repository and pin nothing
+at all. Ninety-six of the 258 also carry a `ref`, and 91 of those name `main`
+or `master`, so the `sha` is what a reader resolves. The counts and the
+command that produced them are in
+`seal/specs/1790076050-the-release-tail-is-three-acts-no-document-names/phases/phase-3.md`.
+So the rule above stopped being only about readers this repository can fix.
+Breaking it now also breaks a consumer nobody here can reach, and the people
+it reaches are people the owner cannot name — which is the same failure as
+the release that shipped untagged, with the half that made that one visible
+removed.
+`docs/release-checklist.md` §6 carries the box that reads what is pinned.
+
+**The plugin's name is fixed, and that is not a style question.** Everybody
+already running it installed it under its slug, so renaming it breaks their
+install — and a directory listing is keyed on the same name, so a rename reads
+there as the plugin having vanished rather than as the plugin having moved.
+`.claude-plugin/plugin.json` holds the one copy; nothing else in the tree
+should spell it, which is why the directory check reads the name out of that
+file instead of carrying a literal.
+
 **This is enforced, and it was not always.** Two rulesets do it, because the
 repository-wide merge-method setting cannot: that setting is one switch for
 every branch, so it can never allow a squash into the release branch while

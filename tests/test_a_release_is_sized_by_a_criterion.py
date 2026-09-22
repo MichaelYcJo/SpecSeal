@@ -223,10 +223,20 @@ def test_the_rule_says_what_it_does_not_change():
         assert clause in doc, f"{OWNER} no longer says {clause!r}"
 
 
-def test_the_label_is_two_states_and_nothing_reads_it():
+def test_the_label_is_two_states_and_nothing_schedules_from_it():
     """`size: now` is where the sizing judgment stops being made again from
     scratch. A reader has to be able to apply it without asking, which takes
-    the meaning, the absence, and the fact that no automation reads it."""
+    the meaning, the absence, and the fact that no automation SCHEDULES from
+    it.
+
+    **Renamed with the sentence it pins** (round 1, finding 4). It was
+    `…_and_nothing_reads_it` while its body asserted that one thing does read
+    it, so the coordinate a reader opens to check the claim was named for the
+    claim's negation — and `seal/ledger/`'s T1 anchored on that name. The
+    sibling in `tests/test_release_hygiene.py` was renamed in the same commit
+    that changed what it asserts; this one was not, which is the asymmetry
+    the finding caught.
+    """
     doc = flat(OWNER)
     assert (
         "`size: now` says this ticket has to be in effect before the next "
@@ -236,9 +246,23 @@ def test_the_label_is_two_states_and_nothing_reads_it():
         "the label's absence has no stated meaning, so a reader cannot apply "
         "it in two states"
     )
-    assert "**Nothing reads this label**" in doc, (
+    # **The literal moved, and the purpose did not.** This used to pin
+    # `**Nothing reads this label**`. After #450 something does read it --
+    # `close-issues-on-release.yml`, and only to take a spent one off the
+    # issue it is closing -- so the old literal had become false while the
+    # thing it protected was still true. What a reader must not come away
+    # with is that something SCHEDULES from the label, because then a stale
+    # one reads as a blocked release. So the sentence says that, and the
+    # assertion follows it (`skills/agent-contract/SKILL.md` §14: a change to
+    # what a person reads documents it and pins it, in the same commit).
+    assert "**Nothing schedules from this label**" in doc, (
         "a reader who thinks something schedules from the label reads a stale "
         "one as a blocked release"
+    )
+    assert "One thing reads it, and only to spend it." in doc, (
+        "the section says nothing schedules from the label without naming the "
+        "one workflow that does read it, which leaves the first reader to "
+        "meet that workflow thinking the document is out of date"
     )
 
 

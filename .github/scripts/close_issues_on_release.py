@@ -17,9 +17,25 @@ same manual step one layer up -- somebody assembling a list, and forgetting.
 The keywords are already written, one per feature pull request, by the session
 that knew which issue it was answering.
 
-**It never reopens and never comments on an unrelated issue.** The only write
-is a close, and a close of an issue already closed is skipped rather than
-repeated, so a re-run or a force-push changes nothing.
+**It never reopens and never comments on an unrelated issue.** There are two
+writes and no others: the close, and taking `size: now` off the issue being
+closed -- the moment `docs/issues-and-milestones.md` had already named as
+where a spent sizing label comes off, with nothing acting on it until #450.
+Both are idempotent. A close of an issue already closed is skipped rather
+than repeated, and the removal happens only after a read says the label is
+there, so a re-run or a force-push changes nothing.
+
+**The close comes first and the label after it**, because the close is what
+this script exists for and the label is bookkeeping about it. An issue that
+closed and kept a stale label is a wrong answer on a tracker; an issue left
+open because a label write failed is a release that did not finish. So the
+removal's failure is reported and the run goes on, which is the one place
+this script does not fail loudly and the paragraph below says why it
+otherwise does.
+
+**It never ADDS a label.** That is the sibling's act at the squash
+(`label_merged_on_release_branch.py`), and a second writer of labels is how
+two scripts come to disagree about which is the current answer.
 
 **A `(#N)` that names no pull request is skipped, not fatal.** People write
 that form by hand to name the issue a commit fixes; measured here on a `(#N)`
@@ -121,6 +137,80 @@ def issue_state(repo, number):
     return data.get("state") if exists else None
 
 
+def issue_labels(repo, number):
+    """(label names, exists) for an issue, or ([], False) if there is none.
+
+    The one reader, here rather than beside either caller.
+    `label_merged_on_release_branch.py` wrote this against `_issue_api` and
+    delegates to it now; the loop below reads it to know whether a spent
+    `size: now` is there to remove. A second copy is what this module's
+    neighbours already exist not to have.
+    """
+    data, exists = _issue_api(repo, number)
+    if not exists:
+        return [], False
+    return [entry.get("name") for entry in data.get("labels") or []], True
+
+
+# The sizing label, spent the moment the release that carried the ticket
+# closes it. `docs/issues-and-milestones.md` says that is the moment, and
+# until this line nothing acted on it -- the same shape as the closing
+# keyword this whole script exists for: an answer written down and nothing
+# reading it. The name is the document's, and the description of what it
+# means lives in `.github/scripts/tracker_labels.py`, which is what creates
+# it.
+SPENT_ON_CLOSE = "size: now"
+
+
+def drop_label(repo, number, label):
+    """Take `label` off an issue, tolerating a failure.
+
+    **The close is the act; this is not.** An issue that closed and kept a
+    stale label is a wrong answer on a tracker. An issue that stayed open
+    because a label write failed is a release that did not finish, and
+    `close_issues_on_release.py` failing loudly is right about the close and
+    would be wrong about this. So the failure is reported and the run goes
+    on.
+    """
+    out = subprocess.run(
+        ["gh", "issue", "edit", str(number), "--repo", repo, "--remove-label", label],
+        capture_output=True,
+        text=True,
+    )
+    if out.returncode:
+        print(
+            f"could not remove {label!r} from #{number}: "
+            f"{out.stderr.strip()} — the issue is closed either way"
+        )
+        return False
+    return True
+
+
+def spend_label(repo, number, dry):
+    """Take the spent sizing label off `number`, and say what happened.
+
+    **Three call sites reach this and they used to be three copies.** Round 1
+    found the reason to have one: the loop below spends the label on an issue
+    it just closed and on one a previous run closed, and only the first copy
+    guarded its report on the write. A refused removal therefore printed
+    `could not remove …` and then `removed …` for the same issue, in the job
+    log that is the only record of what the release did to the tracker, with
+    the tracker in the state the first line describes and the second denies.
+
+    The dry arm is here for the same reason: it was written at one of the
+    three sites and not the others, so a preview over an already-closed issue
+    said nothing about the label at all, and `DRY_RUN` exists precisely so a
+    person can see the whole act before it happens.
+
+    One copy is what keeps a fourth call site from being written unguarded.
+    """
+    if dry:
+        print(f"would remove {SPENT_ON_CLOSE!r} from #{number}")
+        return
+    if drop_label(repo, number, SPENT_ON_CLOSE):
+        print(f"removed {SPENT_ON_CLOSE!r} from #{number}")
+
+
 def pull_request_body(repo, number):
     """The body of pull request `number`, or None if it is not one.
 
@@ -189,15 +279,25 @@ def main():
         return
 
     for issue, source in sorted(wanted.items()):
+        carried, exists = issue_labels(repo, issue)
         state = issue_state(repo, issue)
         if state is None:
             print(f"#{issue} does not exist (named by #{source}) — skipping")
             continue
+        spent = exists and SPENT_ON_CLOSE in carried
         if state == "closed":
             print(f"#{issue} already closed (named by #{source}) — leaving it")
+            # A closed issue still carrying it is one a previous run closed
+            # before this line existed, or one closed by hand. The label is
+            # spent either way and the removal is idempotent, so taking it
+            # off here costs one call and leaves no stale ones behind.
+            if spent:
+                spend_label(repo, issue, dry)
             continue
         if dry:
             print(f"would close #{issue}, named by #{source}")
+            if spent:
+                spend_label(repo, issue, dry)
             continue
         run(
             "gh",
@@ -214,6 +314,11 @@ def main():
             f"`docs/branch-and-release.md` has the reasoning.",
         )
         print(f"closed #{issue}, named by #{source}")
+        # After the close, never before it. The close is what this script
+        # exists for and the label is bookkeeping about it, so the order is
+        # the one where a failing label write cannot cost an issue its close.
+        if spent:
+            spend_label(repo, issue, dry)
 
 
 if __name__ == "__main__":

@@ -145,10 +145,35 @@ one label that is not a topic at all. A bare `now` was the name proposed, and
 it is not the name — standing alone it is a schedule answer with no subject,
 and it reads as the ordinary adverb this document itself uses.
 
-**Nothing reads this label** — no workflow, no check, no script — so a stale
-one costs a reader a wrong answer about what has to go next and costs no
-automation anything. It comes off when the release that carried the ticket
-reaches `main` and the issue closes, and nothing enforces that.
+**Nothing schedules from this label** — no workflow, no check and no script
+reads it to decide what happens next — so a stale one costs a reader a wrong
+answer about what has to go next and costs no automation anything.
+
+**One thing reads it, and only to spend it.**
+`.github/workflows/close-issues-on-release.yml` removes `size: now` from each
+issue it closes when the release reaches `main`. That is the moment this
+section already named, and until #450 nothing acted on it: the sentence said
+the label comes off then and that nothing enforced it, which is the same shape
+as the closing keyword nobody read — an answer written down with no reader.
+The removal rides the close rather than preceding it, so a label write that
+fails cannot cost an issue its close.
+
+**The judgment is made at filing, and again when an issue moves milestone.**
+Those are the two moments somebody is already reading the body, which is the
+whole argument for the label: the reading is cheap while it is happening
+anyway and expensive when it has to be repeated from scratch at a cut. A
+ticket filed without it is not a ticket judged *not now* — it is one nobody
+has judged, and the absence reads the same either way, which is the price of
+two states.
+
+**No sweep of the standing backlog is owed, and none should be done.** The
+argument above is that the judgment is cheap at filing and expensive in a
+batch; a sweep is the batch, performed once, by the very party the label
+exists to spare. The label earns its keep on tickets filed from here on, and
+an old ticket gets one the next time somebody opens it for another reason.
+This is written down because the obvious first move after creating a label is
+to apply it everywhere, and doing that here would pay the whole cost the
+section is trying to avoid, in one sitting, for answers that go stale.
 **`merged: X.Y.Z` goes on earlier inside that same release**, at the squash
 onto the release branch — §*A label says a ticket is already in, before the
 release ships* is that mechanism, and the gap between the two moments is

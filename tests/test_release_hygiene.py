@@ -6,6 +6,7 @@ file that outlives it, and a supported-Python floor that three files state
 differently.
 """
 
+import ast
 import json
 import os
 import re
@@ -1047,22 +1048,126 @@ def test_the_token_stays_the_smallest_that_can_close_an_issue():
     )
 
 
-def test_the_script_only_ever_closes():
-    """Fold the source before matching.
+def test_the_script_closes_and_takes_off_one_named_label_and_nothing_else():
+    """Parse the source; never search it.
 
     The arguments go one per line, so `issue reopen` cannot occur as a literal
-    and a forbidden-substring list over the raw text forbids nothing. The
-    earlier version also carried `or "issue" in script`, whose right side is
-    true of any file with the word in it."""
-    folded = " ".join(
-        read_text(".github", "scripts", "close_issues_on_release.py").split()
+    and a forbidden-substring list over the raw text forbids nothing. Folding
+    the source first was the answer to that for a long time, and it is not
+    enough: a fold normalises whitespace and nothing else, so a comment
+    between two words of the argv defeats it just as the line breaks did. Two
+    review rounds of #450 each found that from a different side. The reader is
+    `ast` now and the fold is gone.
+
+    **What the parse closes, and what it does not.** It closes layout — the
+    argv wrapped one word per line, a comment between two of its words, any
+    whitespace at all — because the tree does not carry layout. It does NOT
+    close a value that is not a string literal. `words` keeps only
+    `ast.Constant` strings and `issue_argvs` compares the first three of them
+    against `["gh", "issue", verb]`, so a name anywhere in those three
+    positions is dropped, the prefix shifts by one, and the verb is never
+    matched. Measured in round 3 of #450 and again in its fix pass, four
+    spellings of a planted `gh issue reopen`: plain and comment-separated both
+    red this case; `GH = "gh"` used as the first word, and the verb moved into
+    a module constant, both leave it green.
+
+    So this reader is strictly stronger than the fold and blind in a place the
+    fold was blind too. Closing that means resolving module-level names before
+    comparing, which is a different checker with its own argument to make;
+    `seal/follow-up.md` carries it with the repository owner named.
+
+    **This used to say `only ever closes`, and #450 changed what is true.**
+    The script now also removes `size: now` from the issue it is closing —
+    the moment `docs/issues-and-milestones.md` had already named as where a
+    spent sizing label comes off, with nothing acting on it. So `issue edit`
+    is no longer forbidden outright; what is forbidden is `issue edit` in any
+    form but `--remove-label`, because the property being protected was never
+    the verb. It is that a re-run and a force-push are safe to reason about,
+    and both acts are idempotent: the close skips an issue already closed,
+    and the removal is guarded by a read saying the label is there.
+
+    Adding a label here would not be. That is the sibling's act
+    (`label_merged_on_release_branch.py`, at the squash rather than at the
+    close), and a second writer of labels is how two scripts come to disagree
+    about which is the current answer.
+    """
+    # **Every claim in this case is parsed, and none is searched.**
+    #
+    # Round 1's finding 6 was that two flag assertions were not bound to the
+    # call they judged, and bound them through `ast`. Round 2's finding 1 was
+    # that the binding was then made conditional on the reader it replaced:
+    # the block ran under `if edits:`, where `edits` was a folded-substring
+    # count with `assert edits <= 1` above it — and that passes at ZERO. So
+    # any re-spelling the substring missed took the count to zero, skipped the
+    # parse, and left the case asserting nothing at all about what the script
+    # edits. Measured by the round: the argv rewritten across lines with one
+    # comment between its words and `"--add-assignee", "someone"` added exits
+    # 0, while the script assigns a person on every label removal.
+    #
+    # **The same blindness was under the five forbidden verbs**, which is the
+    # class rather than the coordinate (`agent-contract` §12): they were
+    # substring searches too, so a re-spelled `gh issue reopen` walked past
+    # them for exactly the reason the `edit` one did. The folded reader is
+    # gone from this case entirely; there is one reader and it does not care
+    # how the argv is laid out.
+    tree = ast.parse(read_text(".github", "scripts", "close_issues_on_release.py"))
+    # BOTH argv shapes this file uses: `run("gh", …)` spreads the words as
+    # call arguments, and `subprocess.run(["gh", …], …)` passes a list. The
+    # one `issue edit` is written the second way, and a reader that knew only
+    # the first parsed zero calls and asserted nothing — measured, on the
+    # first spelling of round 1's fix.
+    argvs = [node.elts for node in ast.walk(tree) if isinstance(node, ast.List)]
+    argvs += [node.args for node in ast.walk(tree) if isinstance(node, ast.Call)]
+
+    def words(argv):
+        return [
+            a.value
+            for a in argv
+            if isinstance(a, ast.Constant) and isinstance(a.value, str)
+        ]
+
+    def issue_argvs(verb):
+        """Every `gh issue <verb>` argv in the script, however it is laid out."""
+        return [argv for argv in argvs if words(argv)[:3] == ["gh", "issue", verb]]
+
+    # **What this gave up, recorded rather than restored.** The folded form
+    # asserted `'"gh", "issue", "close", str(issue),' in folded` — the verb
+    # AND that the fourth word of that argv is the issue number. This checks
+    # the count, which the folded form did not check at all, and reads no
+    # operand: a close rewritten to act on something other than `issue`
+    # passes. The trade is taken deliberately and is the same one the `edit`
+    # argv below already makes, where the flags are read and the operand is
+    # not — an operand is a variable name, and a name is exactly what this
+    # reader cannot resolve (see the docstring). Pinning it would mean
+    # asserting on an `ast.Name`'s spelling, which breaks on a rename that
+    # changes nothing. Round 3 of #450 named the silence; this comment is it.
+    closes = issue_argvs("close")
+    assert len(closes) == 1, (
+        f"{len(closes)} `gh issue close` argv lists; the script exists to "
+        "close, exactly once, in one place"
     )
-    assert '"gh", "issue", "close", str(issue),' in folded, "the script stopped closing"
-    for forbidden in ("reopen", "delete", "edit", "create", "comment", "transfer"):
-        assert f'"gh", "issue", "{forbidden}"' not in folded, (
-            f"the script gained `issue {forbidden}`. Only ever closes is what "
-            "makes a re-run and a force-push safe to reason about"
+    for forbidden in ("reopen", "delete", "create", "comment", "transfer"):
+        assert not issue_argvs(forbidden), (
+            f"the script gained `issue {forbidden}`. Closing and taking off "
+            "one named label is what makes a re-run and a force-push safe to "
+            "reason about"
         )
+    edit_calls = issue_argvs("edit")
+    # EXACTLY one, never `<= 1`: the label removal is behaviour this case
+    # pins, so a script that stopped editing is a script that stopped
+    # spending the label, and the old `<= 1` was what let the whole block be
+    # skipped at zero.
+    assert len(edit_calls) == 1, (
+        f"{len(edit_calls)} `gh issue edit` argv lists; there is one, and it "
+        "is the removal of a spent sizing label"
+    )
+    flags = {word for word in words(edit_calls[0]) if word.startswith("--")}
+    assert flags == {"--repo", "--remove-label"}, (
+        f"the one `gh issue edit` carries {sorted(flags)}. It may carry "
+        "`--remove-label` and nothing else that writes: adding a label is "
+        "the sibling's act at the squash, and any other write is not the "
+        "removal this case says the one edit is"
+    )
 
 
 def test_only_a_keyword_before_a_number_closes_anything():
@@ -1094,6 +1199,56 @@ def test_only_a_keyword_before_a_number_closes_anything():
     )
 
 
+def _offline(monkeypatch, m, closed):
+    """Shut every door this module has to the tracker, and make an escape loud.
+
+    **Why this exists** — CI, 2026-09-22, on the pull request that merged
+    #450. Three cases below stubbed `arrived`, `pull_request_body`,
+    `issue_state` and `run`, and that was the whole set of readers `main`
+    used. The label work added one more: `main` now asks `issue_labels`
+    whether the issue carries a spent `size: now`, and that goes through
+    `_issue_api`, which nothing here had stubbed. So all three walked into a
+    live `gh api` call.
+
+    **They passed anyway on every machine that ran them**, because `gh` is
+    authenticated on a developer's laptop and under the broad gate. CI's
+    pytest job has no `GH_TOKEN`, correctly, and it was the first party in
+    the whole run that could see it: `SystemExit: gh api issues/88 failed`,
+    on both the ubuntu and macOS legs, against `4164 passed`.
+
+    That is the defect worth naming: **a case that reaches the network cannot
+    fail for the reason it claims to test**, and whether it passes depends on
+    who is logged in rather than on the code. Stubbing the one reader that
+    leaked would have fixed the instance; this closes the class.
+
+    Two doors, and both are shut here:
+
+    - `_issue_api` is the only READ into the tracker, and `issue_state`,
+      `pull_request_body` and `issue_labels` all go through it. Cases that
+      stub those three by name keep their own stubs; this catches whatever
+      they did not name, now or later.
+    - `subprocess.run` is what `run` and `drop_label` reach for, and it
+      RAISES rather than returning a stub, so a future path that escapes
+      fails loudly and identically for everyone instead of passing for
+      whoever holds a token.
+    """
+
+    def no_network(*args, **kwargs):
+        raise AssertionError(
+            f"this case reached the network: {args[0] if args else kwargs}. "
+            "A case that calls `gh` passes or fails on whether the runner is "
+            "authenticated, not on the code under test — CI caught exactly "
+            "that on #500 and no local run could have"
+        )
+
+    monkeypatch.setattr(m.subprocess, "run", no_network)
+    # An issue that exists and carries no labels: consistent with the
+    # `issue_state` stubs above it, and it leaves `spent` False, so no case
+    # here changes what it asserts.
+    monkeypatch.setattr(m, "_issue_api", lambda repo, number: ({"labels": []}, True))
+    monkeypatch.setattr(m, "run", lambda *a: closed.append(a) or "")
+
+
 def test_it_closes_the_issue_the_keyword_named_and_nothing_else(monkeypatch):
     """Swapping the key and value in `wanted` would close the pull requests
     instead of the issues, and no string check can see that."""
@@ -1102,7 +1257,7 @@ def test_it_closes_the_issue_the_keyword_named_and_nothing_else(monkeypatch):
     monkeypatch.setattr(m, "arrived", lambda b, a: ["feat: a thing (#100)"])
     monkeypatch.setattr(m, "pull_request_body", lambda r, n: "Closes #88\ncloses #92")
     monkeypatch.setattr(m, "issue_state", lambda r, n: "closed" if n == 92 else "open")
-    monkeypatch.setattr(m, "run", lambda *a: closed.append(a) or "")
+    _offline(monkeypatch, m, closed)
     monkeypatch.setenv("AFTER", "x")
     monkeypatch.setenv("REPO", "example/repo")
     monkeypatch.delenv("DRY_RUN", raising=False)
@@ -1124,7 +1279,7 @@ def test_a_number_that_names_nothing_does_not_kill_the_run(monkeypatch):
     monkeypatch.setattr(m, "arrived", lambda b, a: ["feat: a thing (#100)"])
     monkeypatch.setattr(m, "pull_request_body", lambda r, n: "Closes #9999\ncloses #88")
     monkeypatch.setattr(m, "issue_state", lambda r, n: None if n == 9999 else "open")
-    monkeypatch.setattr(m, "run", lambda *a: closed.append(a) or "")
+    _offline(monkeypatch, m, closed)
     monkeypatch.setenv("AFTER", "x")
     monkeypatch.setenv("REPO", "example/repo")
     monkeypatch.delenv("DRY_RUN", raising=False)
@@ -1141,7 +1296,7 @@ def test_dry_run_writes_nothing(monkeypatch):
     monkeypatch.setattr(m, "arrived", lambda b, a: ["feat: a thing (#100)"])
     monkeypatch.setattr(m, "pull_request_body", lambda r, n: "Closes #88")
     monkeypatch.setattr(m, "issue_state", lambda r, n: "open")
-    monkeypatch.setattr(m, "run", lambda *a: closed.append(a) or "")
+    _offline(monkeypatch, m, closed)
     monkeypatch.setenv("AFTER", "x")
     monkeypatch.setenv("REPO", "example/repo")
     monkeypatch.setenv("DRY_RUN", "1")

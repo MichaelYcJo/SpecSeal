@@ -1,0 +1,48 @@
+name: publish the release note
+
+# `docs/release-checklist.md` walked from the preparation branch to the tag and
+# stopped. Publishing a GitHub Release was in no document and in no workflow,
+# and three consecutive releases shipped without one (#386) — the run that
+# measured it was the one that would have made it four.
+#
+# The step beside it gets done every time, because something reads the tag:
+# `hooks/version-check.py` asks `git ls-remote --tags`, and an untagged release
+# is one no installed session is ever told about. The note had no reader in the
+# tree at all, so nothing noticed its absence and the only cost was borne by a
+# person opening the releases page.
+#
+# So the tag push publishes it. That is the release's last manual act and the
+# one `docs/branch-and-release.md` keeps a person's — nothing in CI pushes a
+# tag, and nothing here creates one either. By the time it exists, the
+# `CHANGELOG.md` section this publishes has been gathered, reviewed and merged
+# to `main`.
+
+on:
+  push:
+    tags: ['v*']
+
+# The first write of this scope in the repository, and the minimum
+# `gh release create` needs. The job does nothing else: it reads a file, reads
+# one commit message, and creates one release.
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The tagged commit's message is where the title comes from, and a
+          # depth-1 checkout of a tag still carries that one commit. The whole
+          # history is fetched anyway so `git log -1 <tag>` resolves the tag
+          # itself rather than whatever the runner happened to check out.
+          fetch-depth: 0
+
+      - name: publish the GitHub Release for this tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: python3 .github/scripts/publish_release_note.py
