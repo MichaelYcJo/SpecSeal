@@ -62,6 +62,7 @@ actually has: call the Agent again without `isolation: "worktree"`.
 
 ## Creation consent — the first creation is the question, not every one
 
+<!-- specs/1788817291-the-guard-asks-once-per-worktree-not-once-per-session -->
 The guard used to answer creation with `ask` at every site that reached it, so
 no path through it cost zero prompts and the cost grew with the number of
 worktrees. Measured on the release run that opened #237, on 2026-09-08: six work items on six branches
@@ -356,6 +357,7 @@ is a safety net, never a blocker.
 
 ## Activity: what makes a session ACTIVE (heuristics, for sessions without a lease)
 
+<!-- specs/1788846800-an-exited-session-reads-as-live-for-five-minutes -->
 Active = ANY signal within `WORKTREE_GUARD_IDLE_MIN` minutes (default 5):
 
 | Signal | Detects | Measured grounds (2026-05-06, live sessions) |

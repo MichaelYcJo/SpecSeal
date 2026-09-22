@@ -33,6 +33,7 @@ Check both agree before announcing anything:
 git describe --tags   # must name the release, not "<tag>-N-g<sha>"
 ```
 
+<!-- specs/1788302682-the-release-check-never-watched-bin -->
 Two checks enforce the half that can be: `tests/test_chain_hooks_hardening.py`
 binds the changelog to whatever `plugin.json` says, and the `hygiene` workflow
 fails a release PR — one whose base is `main` — that changes `skills/`,
@@ -80,6 +81,7 @@ have to check at the merge button, so the ruleset does not offer the choice.
 
 **What breaks when the last row is squashed** — measured. A squash
 discards every commit the release branch wrote, and two things point at those
+<!-- specs/1788826000-a-stamp-names-content-not-a-commit -->
 commits by SHA: the `Verified … at <sha>` stamp on every `# RIDER:` comment,
 and the `Target SHA` field in every `round-N.md`. After the squash the stamp
 resolves for nobody, which removes the one way a reader has to tell a live

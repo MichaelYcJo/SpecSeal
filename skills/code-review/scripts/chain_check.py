@@ -4059,11 +4059,41 @@ def main(argv=None):
         print(reader.annotate("notice", "", 0, why))
         return 0
 
+    # A declaration this pull request RETIRED is not one it made — the same
+    # judgment the rename exclusion in `changed_routing` already makes, for
+    # the other way a declaration leaves the diff. `settle --retire` removes a
+    # released work item's directory once a `docs/` policy has absorbed its
+    # spec, so its `routing.md` is in the diff as a deletion and gone at HEAD,
+    # and every one of them was reviewed at its own pull request years of
+    # commits ago. The first fold put 88 of them in one diff, and this check
+    # failed all 88.
+    #
+    # **The marker is what tells a fold from a deletion**, and it is the only
+    # thing that can: both leave the file absent here.
+    # `unverified_check.folded_items` grew this arm when `settle` shipped and
+    # this reader did not, so the two disagreed about the same tree. A
+    # directory removed with NO marker behind it is still refused below, which
+    # is the case this refusal was written for.
+    retired = reader.folded_items(root)
+
     errors, notices = [], []
     for rel in declarations:
         item = os.path.dirname(rel)
         text = read_record(root, rel)
         if text is None:
+            if os.path.basename(item) in retired:
+                notices.append(
+                    (
+                        rel,
+                        0,
+                        f"retired: `docs/` carries <!-- specs/"
+                        f"{os.path.basename(item)} -->, so this pull request "
+                        "folded the work item into a policy document and "
+                        "removed it rather than declaring it. Its review "
+                        "happened at its own pull request",
+                    )
+                )
+                continue
             errors.append(
                 (
                     rel,

@@ -689,6 +689,104 @@ def test_an_uncommitted_record_is_not_in_the_committed_corpus(repo):
     )
 
 
+def _committed_at_head(root, item):
+    """Whether any round record `item` holds on disk is also at HEAD.
+
+    Asked per path with `git cat-file -e`, not through the `ls-tree` listing
+    the guard below is checking, so the two cannot agree by sharing a bug.
+    """
+    rounds = os.path.join(root, "seal", "specs", item, "rounds")
+    for name in os.listdir(rounds):
+        if not re.fullmatch(r"round-\d+\.md", name):
+            continue
+        probe = subprocess.run(
+            [
+                "git",
+                "-C",
+                root,
+                "cat-file",
+                "-e",
+                f"HEAD:seal/specs/{item}/rounds/{name}",
+            ],
+            capture_output=True,
+        )
+        if probe.returncode == 0:
+            return True
+    return False
+
+
+def _the_corpus_covers_every_work_item_that_has_rounds(paths, root=ROOT):
+    """The population guard that replaces `assert len(paths) > 100`.
+
+    The floor asked whether the corpus was big enough to make the comparison
+    below worth running, and the fold makes the answer no: `settle --retire`
+    takes 263 records to 7 in one commit, and lowering the number until the
+    run passes is the answer `skills/settle/SKILL.md` §3 names as the one
+    that turns a check into a comment.
+
+    **The question the floor was really asking is whether the listing found
+    the records that are there**, and that has an answer the corpus size
+    cannot change. `committed_records` derives its paths from `git ls-tree
+    HEAD`; this derives the expected set of work items from `os.listdir` of
+    `seal/specs/`, which git never sees. A directory holding a `rounds/`
+    directory contributed a record, and a record came from a directory that
+    has one — so a filter that drops a whole work item, or a listing that
+    quietly returns nothing, is named either way.
+
+    It held at 263 records over 82 work items and it holds at 7 over 2.
+
+    **The two directions are asserted apart** because they fail for opposite
+    reasons. A work item with rounds and no record in the corpus is a listing
+    or a filter that lost it; a record whose work item has no `rounds/`
+    directory on disk is a path git carries that the tree no longer has,
+    which is `on_disk`'s subject and is skipped rather than failed.
+
+    **A work item whose records are all uncommitted was not lost** (#497
+    round 1 🟡 5). The corpus is a listing of HEAD, and a record written and
+    not yet committed is the ordinary state of a round mid-flight — the
+    sibling guard `_the_walk_found_every_committed_record` in
+    `test_chain_check_at_the_pull_request.py` allows it for the same reason.
+    So a work item counts as lost only when at least one of its records is at
+    HEAD, and the message says the listing dropped a COMMITTED record.
+    """
+    specs = os.path.join(root, "seal", "specs")
+    with_rounds = {
+        d
+        for d in os.listdir(specs)
+        if os.path.isdir(os.path.join(specs, d, "rounds"))
+        and any(
+            re.fullmatch(r"round-\d+\.md", n)
+            for n in os.listdir(os.path.join(specs, d, "rounds"))
+        )
+    }
+    covered = {p.split("/")[2] for p in paths}
+    assert with_rounds, (
+        "no work item under seal/specs/ has a rounds/ directory holding a "
+        "record, so there is nothing for the corpus to be a listing OF"
+    )
+    missed = sorted(d for d in with_rounds - covered if _committed_at_head(root, d))
+    assert not missed, (
+        f"{len(missed)} work item(s) hold a round record committed at HEAD "
+        f"and contributed nothing to the committed corpus: {missed[:3]}. The "
+        "listing or the filter above lost them"
+    )
+
+
+def test_a_work_item_whose_records_are_all_uncommitted_was_not_lost(repo):
+    """#497 round 1 🟡 5. The first `round_record.py new` of every work item
+    leaves its record on disk and not yet at HEAD, and the guard called that
+    state a listing that lost a work item. A committed record the corpus
+    leaves out is still named, and the message says it was committed."""
+    write(repo, f"{ROUNDS}/round-1.md", "# round 1\n")
+    commit(repo, "a committed record")
+    write(repo, "seal/specs/1799000001-a-round-mid-flight/rounds/round-1.md", "x\n")
+
+    paths, _ = committed_records(repo)
+    _the_corpus_covers_every_work_item_that_has_rounds(paths, root=str(repo))
+    with pytest.raises(AssertionError, match="committed at HEAD"):
+        _the_corpus_covers_every_work_item_that_has_rounds([], root=str(repo))
+
+
 def test_the_corpus_is_records_only():
     """Not one of the three siblings `rounds/` holds reaches the corpus.
 
@@ -749,7 +847,7 @@ def test_the_committed_records_only_lose_a_miscount():
     """
     generator, reader = generator_module(), reader_module()
     paths, _ = committed_records()
-    assert len(paths) > 100, f"the corpus is {len(paths)} records; the case is vacuous"
+    _the_corpus_covers_every_work_item_that_has_rounds(paths)
     parsed = teeth = 0
     for path in paths:
         cells = id_cells(generator, reader, f"{ROOT}/{path}")
@@ -772,7 +870,25 @@ def test_the_committed_records_only_lose_a_miscount():
             assert old_key(c) != last_run(c), (
                 f"{path}: `{c}` reads correctly today and the new rule refuses it"
             )
-    assert parsed > 100, parsed
+    # `assert parsed > 100` stood here. The floor was asking whether the loop
+    # above examined anything, with a literal that the fold turns false: the
+    # corpus went from 263 records to 7 in one commit, and a floor lowered to
+    # fit is a comment (`skills/settle/SKILL.md` §3). What it is replaced by
+    # asks the same question of the tree — every listed record either parsed
+    # or is NAMED, and something parsed. Naming them is the half the floor
+    # never had: a format change that quietly stopped most records parsing
+    # showed up as a smaller number nobody was reading, where now it shows up
+    # as paths in the failure text (§14).
+    unparsed = [p for p in paths if id_cells(generator, reader, f"{ROOT}/{p}") is None]
+    assert parsed, (
+        f"none of the {len(paths)} listed record(s) parsed as a verdict "
+        "table, so the comparison above ran over nothing: "
+        f"{unparsed[:3]}"
+    )
+    assert parsed + len(unparsed) == len(paths), (
+        "a record was neither parsed nor named unreadable, so the loop above "
+        "skipped it for a third reason nobody has stated"
+    )
     assert teeth, "the rule refuses nothing in the corpus, so it has no teeth"
 
 

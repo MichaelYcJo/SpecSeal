@@ -50,6 +50,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import gathered_entry
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -68,6 +69,13 @@ def _load(name, path):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def folded_items(root):
+    """`unverified_check.folded_items` — the one reader of the fold marker,
+    so a retirement is told from a deletion the way the checkers tell it."""
+    path = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
+    return _load("specseal_unverified_for_tests", path).folded_items(root)
 
 
 def check_module():
@@ -917,6 +925,13 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
     file (`fold_ledger.py`), so the copy is the fragment while it exists and
     that section after. Pinned to the fragment's path alone, this case went
     red at the first release preparation that folded it.
+
+    **Then the work item was retired, and two of the five went with its
+    directory** (#497). The changelog fragment had been gathered, so its copy
+    is `CHANGELOG.md`'s block under the item's marker, the same move the
+    ledger copy makes. The overview is the memo `settle --retire` removes on
+    purpose, and a memo is not a claim the tree makes: with it gone there are
+    four copies, and the fifth is read only while its file is still there.
     """
     item = "1788501054-a-check-reports-clean-while-something-is-missing"
     copies = (
@@ -927,8 +942,24 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
         ("seal", "specs", item, "overview.md"),
     )
     assert len(copies) == 5, "the removal table in phase-7.md names five copies"
+    retired = not os.path.isdir(os.path.join(ROOT, "seal", "specs", item))
+    if retired:
+        assert folded_items(ROOT) >= {item}, (
+            f"{item}'s directory is gone and no docs/ file carries its "
+            "marker — a deletion, not a retirement, and the copies it held "
+            "were lost rather than absorbed"
+        )
     for where in copies:
-        if where[:2] == ("seal", "ledger") and not os.path.exists(
+        if retired and where[-1] == "overview.md":
+            continue
+        if retired and where[-1] == "changelog.md":
+            text = gathered_entry(ROOT, item)
+            assert text is not None, (
+                f"{item} is retired and CHANGELOG.md carries no marker for "
+                "it — the changelog copy was never gathered"
+            )
+            text = " ".join(text.split())
+        elif where[:2] == ("seal", "ledger") and not os.path.exists(
             os.path.join(ROOT, *where)
         ):
             folded = read("seal", "ledger.md")

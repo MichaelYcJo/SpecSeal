@@ -438,6 +438,7 @@ first read it, so a value written earlier was held to no vocabulary.
 
 #### Ran by — what executed this segment
 
+<!-- specs/1788491830-a-segments-record-says-what-it-cost -->
 A record says what its segment was asked, what it found, and which commit it
 looked at. It does not say what ran it, and that fact survives nowhere else:
 the model is a spawn-time argument, and once the session ends it exists only
@@ -515,6 +516,7 @@ worker findings are pre-verification.
 
 ## The handoff before round 1
 
+<!-- specs/1788224363-a-subagent-rediscovers-what-the-session-established -->
 Everything above hands one round's state to the next. The same boundary
 exists one step earlier and had no rule: the session that decides the work
 hands it to the session that does it, in a spawn prompt whose format nothing
@@ -613,6 +615,7 @@ the work item that added the rule was checked that way from its first phase
 
 ### After the run — the per-segment bars
 
+<!-- specs/1788277657-one-bar-misreads-two-of-the-three-segment-kinds -->
 The meter's numbers mean nothing without a bar, and the bar depends on
 which kind of segment produced the transcript. One bar misreads two of the
 three kinds: a ratio that is the right question for a reviewer is the wrong
@@ -669,6 +672,15 @@ any of it here would put a second copy in front of the same reader, which is
 the duplication the move was made to end.
 
 ### Where each half went
+
+<!-- specs/1788873630-the-orchestrator-sections-leave-the-reviewers-payload -->
+**A section marked for one role reaches that role and no other.** A skill a
+reviewer preloads carries the reviewer's procedure; the orchestrator's half
+of the same skill, and the three per-document sections of a writing-style
+guide that are not a reviewer's, live in files the orchestrator reaches and
+the reviewer never loads. Prose that arrives on every spawn with no act of
+its own to apply it to is payload the segment pays for and cannot use, and a
+heading that moves takes every live reference to it along.
 
 **The rules every agent is bound by are `skills/agent-contract/SKILL.md`.**
 The harness injects it into each agent at startup through the `skills:` list

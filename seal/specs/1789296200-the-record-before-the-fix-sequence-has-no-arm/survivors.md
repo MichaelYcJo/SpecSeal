@@ -1,8 +1,0 @@
-<!-- seal/specs/1789296200-the-record-before-the-fix-sequence-has-no-arm/survivors.md
-— survivors a person opened and judged legitimate. The quote is the anchor, so
-each row stops holding the moment that text changes. -->
-
-| Path | Quote | Grounds |
-|---|---|---|
-| `skills/code-review/scripts/chain_check.py` | grandfathering `Fixes checked by` already uses | round 1's fix rewrote `written_late`'s `else: errors.append(...)` branch, and what survives here is that code idiom in a different check — the missing `Loses a record or crashes` row. It carries none of the wording the range corrected: no `Written late`, no fourth exit, no *commit the record when the round posts*. The two share `else errors append` and `message return errors`, which are the shape every refusal in this file is written in. And the fact the fix pass was about — a refusal that names no exit its reader can take — is not restated here: this message already names the exit, spelling out both cell values and where the reviewer copies them from |
-| `skills/code-review/scripts/chain_check.py` | the rounds it names are over, and no record anybody writes now un-spawns them | The same idiom in the reopening bound, which is a third check with a grandfathering of its own. Its message ends in `CAPPED_EXIT`, which names the whole exit — every open finding becomes an issue, the verdict reads `deferred #N`, `Fixes checked by` reads `no fixes to check`, and the pull request says `chain: capped`. So it is not a member of the class round 1's finding belongs to, and correcting it would mean rewriting a message about a different rule |

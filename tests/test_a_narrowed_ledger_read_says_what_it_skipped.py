@@ -300,12 +300,31 @@ def test_an_inode_of_zero_does_not_fold_two_files_into_one(proj, monkeypatch):
         "through the zeroed inode alone, which is Windows-only where the "
         "fallback is not"
     )
-    memo = flat(
-        "seal",
-        "specs",
-        "1788501054-a-check-reports-clean-while-something-is-missing",
-        "overview.md",
-    )
+    # The memo's copy went with its directory when #497 retired the work
+    # item: `settle --retire` removes the memo on purpose, so the source's
+    # copy above is the one left, and the memo is read only while it exists.
+    # A directory gone with no `docs/` marker behind it is a deletion rather
+    # than a retirement, so the skip is taken only over a recorded fold — the
+    # guard the five-copies case in
+    # `test_a_record_precedes_the_fixes_it_commissions.py` carries.
+    item = "1788501054-a-check-reports-clean-while-something-is-missing"
+    memo_path = os.path.join(ROOT, "seal", "specs", item, "overview.md")
+    if not os.path.exists(memo_path):
+        reader_path = os.path.join(
+            ROOT, "skills", "verify", "scripts", "unverified_check.py"
+        )
+        spec = importlib.util.spec_from_file_location(
+            "specseal_unverified_for_the_memo_arm", reader_path
+        )
+        reader = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader)
+        assert item in reader.folded_items(ROOT), (
+            f"{item}'s memo is gone and no docs/ file carries its marker — a "
+            "deletion, not a retirement, so the memo's copy was lost rather "
+            "than absorbed"
+        )
+        return
+    memo = flat(os.path.relpath(memo_path, ROOT))
     for phrase in (
         "re-deriving all four found three of the four reasons false",
         "reached by `OSError` on EVERY platform",
