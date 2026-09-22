@@ -1,5 +1,216 @@
 # Changelog
 
+## 0.13.1 — 2026-09-22
+
+<!-- specs/1790076050-the-release-tail-is-three-acts-no-document-names -->
+- **The release tail is three acts, and no document named any of them.**
+  Publishing the release note, telling the plugin directory, and the
+  `size: now` label the sizing rule specifies — each an act assigned to
+  whoever was at the keyboard, written into no document and read by no
+  machine. Three consecutive releases shipped with no release note; the
+  checklist ended at the tag and had never had a step that looked at the
+  directory; and the label was specified in 0.11.1 and never created, so
+  three releases were cut by re-reading issue bodies the label exists to make
+  unnecessary. A person has no queue this repository can read, which is why
+  all three went missing the same way.
+
+- **A `v*` tag push now publishes the GitHub Release.**
+  `.github/workflows/publish-release.yml` takes the `## X.Y.Z` section the
+  preparation commit already gathered and reviewed as the body, and the
+  `release: X.Y.Z — <symptoms>` line `docs/release-checklist.md` §5
+  prescribes as the title, read from the tagged commit's own message. A
+  release already at the tag is left exactly as it is, so a re-pushed tag and
+  a re-run job write nothing — the note may have been edited by hand after
+  publication. Where no title line is readable the title is the tag name and
+  the job log says which it used, because nothing in the tree holds that
+  convention and a failed job at the tag is a release that stops after `main`
+  has already moved. The one red direction is a tag whose version
+  `CHANGELOG.md` carries no section for.
+
+- **`docs/release-checklist.md` §6 stops at the tag no longer.** Two boxes
+  follow it, each carrying the command that answers it: `gh release view` for
+  the note, and `plugin_directory_check.py` for the directory. That command
+  reads both public directory files and says, per directory, whether this
+  plugin is listed, which commit the entry pins, and whether that commit is
+  an ancestor of `main`. **It reports and never fails** — the directories
+  sync on somebody else's schedule, one of the two has gone twenty-eight days
+  without a commit, and a red nobody can act on is what this repository's
+  first goal is against. Measured while building it: the manifest is at
+  `.claude-plugin/marketplace.json` rather than at the repository root, an
+  entry's `source` has four shapes of which two pin no commit at all, and a
+  commit the local clone does not have is a third ancestry answer rather than
+  an unreachable one.
+
+- **`docs/branch-and-release.md` names the reader that arrived from outside.**
+  Its squash rule enumerated the rider stamps and the round records, both of
+  which this repository can repair. A plugin directory pins a commit of the
+  source repository, so breaking that rule now also breaks a consumer nobody
+  here can reach, for people the owner cannot name. Beside it, the sentence
+  saying the plugin's name is fixed: people are already running it under that
+  slug, and a rename reads to a directory as the plugin having vanished.
+
+- **`size: now` is created by the workflow that already runs when `main`
+  moves, and comes off the issue it was spent on.**
+  `.github/scripts/tracker_labels.py` holds what the documents specify — name,
+  colour, description and **the document that specifies each** — and creates
+  what the tracker lacks, only after a read says the name is absent.
+  `close_issues_on_release.py` removes the label from each issue it closes,
+  after the close rather than before: an issue that closed and kept a stale
+  label is a wrong answer on a tracker, and an issue left open because a label
+  write failed is a release that did not finish. A gate failing a pull request
+  for a missing label was rejected — it would be red on the very branch that
+  adds one, since no agent in this repository's chain may write to the tracker.
+
+- **`docs/issues-and-milestones.md` says the three things it never said**:
+  where the sizing judgment is made, what removes a spent label, and that no
+  sweep of the standing backlog is owed. The sentence reading *nothing reads
+  this label* is now *nothing schedules from this label*, naming the one
+  workflow that reads it only to spend it — the old literal had become false
+  while the thing it protected was still true, and the case pinning it moved
+  in the same commit.
+
+<!-- specs/1790076060-the-cap-is-read-as-bounding-fixes-and-the-pile-is-nobodys -->
+- **The review chain's cap bounds rounds, not fixes, and a filed finding now
+  names who will act on it.** Two sentences were repaired where each rule is
+  owned; no gate, checker arm, parsed field or verdict word changed.
+
+  **The cap (#492).** Three and five count rounds, and what they decide is
+  whether another round is spawned — never what happens to the findings of the
+  round they stopped at. A run the round cap stopped may still write a fix, and
+  what decides between a fix and a home is **who owns the unit now**: each
+  record's `New units` row already names the units its fixes added, so the
+  question is answered by reading the run's own records rather than by judging.
+  The substitution that was made instead — *when did the defect start* — is
+  named as the wrong question, because it sends work the branch owns to a
+  tracker nobody schedules from. Measured on a shipped run: five findings were
+  filed at a capped exit and all five were the branch's, and the record that
+  wrote their fixes reads `round-N` with one verifying round after it.
+
+  **The two capped exits are named apart.** The round cap and the reopening
+  bound both end a run `capped` and they permit different things: the round
+  cap's terminal record may write fixes and then reads `round-N`, while the
+  reopening bound's commissions nothing, because `chain_check.py`'s reopening
+  walk refuses a second fix-closing record after a floor `no`. Writing the
+  permission into the reopening's own section would have named a state its own
+  checker refuses.
+
+  **The filing ladder (#493).** An open finding takes the first home that fits:
+  the branch fixes what it owns, a comment goes on the open issue that already
+  owns the ground, a new issue is opened only where the finding can name a
+  party who will act, and what names nobody stays in the round record and the
+  pull request body. Filing ran at 100% while acting on a filing ran at 48% —
+  89 issues carried `from-review` on 2026-09-22 and 43 of them were closed —
+  which is the pile the ladder is against. The test is the one
+  `seal/follow-up.md` already applies to its own rows, and what makes it a
+  test is agreement rather than naming: an owner written because there was
+  nobody else to write is the fourth rung's answer, not the third's. It is
+  read off a column that already exists — the reviewer's `## Deferred` table
+  carries `Who answers it`.
+
+  **What the fourth rung costs is stated rather than discovered**: a real
+  defect that can name nobody stops being visible in the tracker and lives in
+  the round record and the pull request body, which is durable until `settle`
+  retires the work item's directory. That is the trade `seal/follow-up.md` made
+  for its own file first, and the repository owner is who overturns it.
+
+  Six carriers and one checker docstring became links naming the owner,
+  `docs/issues-and-milestones.md` documents the `from-review` label so the
+  measurement behind the ladder is one query, and
+  `tests/test_the_rules_have_one_owner.py` gains two rules — fourteen now — each
+  seen red one mutation at a time.
+
+<!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
+- **`settle` shipped one release ago and had folded nothing; this is the
+  first fold, and it removes 88 work item directories (issue #497).** The
+  standing statements of 88 released work items are written into `docs/`,
+  every check that counted the record corpus is answered, and
+  `settle --retire` removes the directories the prose now covers. Measured
+  before and after: 99 directories and 1,379 files under `seal/specs/`
+  become 12 and 51, and the round-record corpus goes from 263 to 7. Eleven
+  directories are kept by name — ten because they wrote no `spec.md` and so
+  state no rule, and one because a permanent `seal/ledger.md` row anchors
+  into its round record and the repository's own rule refuses a re-point.
+  Five other `seal/ledger.md` rows anchored into a retired `spec.md`, so the
+  ledger is edited: the three whose only anchor that was are removed, and the
+  two with a live code anchor keep it and drop the dead one.
+
+  **A reader of this release meets four new policy documents, and that is a
+  change to the repository's policy surface rather than a side effect of a
+  cleanup.** `docs/the-evidence-ledger.md`, `docs/the-broad-gate.md`,
+  `docs/measuring-a-run.md` and `docs/the-agent-set.md` are new, and a
+  `docs/` file outranks the SDD set from the moment it lands. Each area was
+  checked for an existing owner first: a fifth document about the gates a
+  session meets was planned and **not** written, because
+  `docs/review-chain-spec.md` already carries a section per gate and the
+  plan forbids a second document for a covered area. Whether four is the
+  right shape is the owner's to overturn at the merge — each new file is its
+  own phase and each folded item sits on a named section, so merging two of
+  them afterwards is one edit and a marker move.
+
+  **No floor literal was lowered.** Nine checks carried a population floor
+  over `seal/specs/` that the fold turns red, and every one of them was
+  re-pointed rather than reduced — `assert len(records) > 200` becomes *the
+  walk covers the records `git ls-tree HEAD` carries and the tree still
+  has*, and `> 100` becomes *the corpus covers every work item whose
+  `rounds/` holds a committed record*, derived from `os.listdir` rather than
+  from git.
+  Both hold at 263 records and at 7, and both are stronger than the floors
+  they replace: `> 200` was green over a listing that had lost a whole work
+  item, and neither of these is. Of the same nine, three moved to fixtures
+  that plant their own specimens, and two cutoff constants ask whether their
+  work item is **traceable** — its directory in the tree, or `docs/`
+  recording the fold — so a directory removed with no marker behind it still
+  fails, which is the typo they were written for. One floor the frame
+  expected to re-point was measured instead and declined: the teeth survive,
+  in four of the seven remaining records.
+
+  **The pull request's chain check now tells a retirement from a
+  deletion.** `chain_check.py` prints `retired: …` for a `routing.md` that
+  `settle --retire` removed, where a top-level `docs/` file carries the work
+  item's `<!-- specs/<work-item-id> -->` marker on a live line, and it still
+  refuses a removed declaration where no such marker stands. Before this, the
+  first fold's 88 retired declarations were refused, every one of them.
+
+  **The wrap limit and the fold marker collided, and the limit moved.**
+  `<!-- specs/<id> -->` is matched whole by the reader, so wrapping it makes
+  it stop being a fold record and the retirement refuses the directory it
+  covers — and its length is decided by a directory name chosen months
+  earlier in another work item. Of the 88 markers one reaches 89 columns.
+  `tests/test_docs_line_wrap.py` now skips a marker on a line of its own,
+  exactly one line wide, with cases pinning both halves.
+
+<!-- specs/1790076080-every-orchestrator-rule-is-a-sentence -->
+- **The orchestrator's acts are a table now, and a case holds it from both
+  sides.** Every act addressed to the session that spawns agents sits under an
+  `Orchestrator:` heading in one of the two orchestration files, and there was
+  no list of them — so nobody could say which of them still had to be
+  remembered. `skills/implement/orchestration.md` §*Orchestrator: which of
+  these acts runs itself* is that list, one row per act against what delivers
+  it, and `tests/test_every_orchestrator_act_names_its_delivery.py` fails when
+  an act has no row, when a row names a heading no file carries, when a row
+  names a command or a check with no file behind it, and when a row reading
+  `still a sentence` carries no grounds. The cell answers one question — when
+  the orchestrator forgets this act, what notices — and the reading it
+  produced corrects the ticket: of the twenty acts, eight are already delivered
+  by a check and five by a command, and five are still a sentence. Those five
+  are what a next work item picks from. The table has twenty rows rather than
+  the nineteen the frame counted, because the section holding it is itself a
+  marked heading.
+- **`session-cost --post` is the flow-log posting, as a command.**
+  `skills/verify/SKILL.md` §*Measure the segment, and feed the flow log* wrote
+  the procedure out in full — which label to look up, how to tell a repository
+  that never made the log from one whose log somebody closed, which of the two
+  logs a reading belongs to — and nothing typed it. The mode resolves the
+  label, implements every state the prose enumerates, and posts the reading
+  with what a person says about it. It refuses without `--says`, because the
+  numbers are the script's and the judgment is not; it opens no issue in any
+  state; and `--label` reaches the durable cross-version log with the same
+  code. A repository that never created the label, and a machine with no `gh`
+  on it, both post nothing and fail nothing — that is the ordinary case, and a
+  command red there is one people stop running. The command does not make
+  anybody run it, and both the skill and the table say so rather than reading
+  closed. (#330)
+
 ## 0.13.0 — 2026-09-22
 
 <!-- specs/1790027178-a-shipped-spec-waits-for-a-settle-that-was-never-built -->
