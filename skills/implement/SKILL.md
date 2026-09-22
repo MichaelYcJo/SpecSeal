@@ -550,8 +550,11 @@ writes no `phases/phase-N.md` and no `plan.md` row — `round_record.py close`
 applies the table to `rounds/round-N.md` and measures the fix surface from
 the range of fix commits, so the round record is the pass's record. The
 build's phases keep theirs. Nor does a fix pass add mechanism — a rule, a
-checker, a template section, a walk — and a finding closable only by one is
-`deferred #N` to an issue; `skills/code-review/orchestration.md` §*A fix
+checker, a template section, a walk — and a finding closable only by one
+takes the filing ladder rather than an issue by default, its verdict
+`deferred <home>` (`docs/review-chain-spec.md` §*Where a leftover goes — the
+ladder, and why a new issue is not the default*);
+`skills/code-review/orchestration.md` §*A fix
 pass adds the unit that pins it, and that unit ships unreviewed* owns that
 rule.
 

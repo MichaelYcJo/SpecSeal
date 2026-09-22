@@ -4145,7 +4145,12 @@ def seal(args):
           window `skills/code-review/orchestration.md` §*Orchestrator: the
           pull request opens before round 1* calls red, on a record the
           verifying round is about to stop being the last one of. A capped
-          run reads `no fixes to check` here, so this costs it nothing.
+          run's LAST record reads `no fixes to check`, so this costs it
+          nothing -- but a capped record that WROTE fixes reads `round-N`
+          and is not the last record, so the refusal is what sends that run
+          to spawn its verifying round first. `docs/review-chain-spec.md`
+          §*The cap bounds rounds, and not the fixes of the round it
+          stopped* owns that.
           Everything outside that ONE value is refused -- not `nobody`
           alone, and not everything-but-a-`round-N` either. The chain check
           this subcommand runs AFTER the write refuses on that same row, and
@@ -4234,7 +4239,11 @@ def seal(args):
     # opens before round 1* calls that window red, and it is the window a
     # seal is spent in — the verifying round's record becomes the last one,
     # its cell reads `not yet`, and the run has to be taken again.
-    # A capped run reads `no fixes to check` here, so this costs it nothing.
+    # A capped run's LAST record reads `no fixes to check`, so this costs it
+    # nothing — but a capped record that WROTE fixes reads `round-N` and is
+    # not the last record, so the refusal is what sends that run to spawn its
+    # verifying round first. `docs/review-chain-spec.md` §*The cap bounds
+    # rounds, and not the fixes of the round it stopped* owns that.
     #
     # Every value that is NOT a later round and NOT `no fixes to check` is
     # refused, rather than `nobody` alone (round 2's 🟡 12). The row has a

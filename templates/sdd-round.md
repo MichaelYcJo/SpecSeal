@@ -109,6 +109,13 @@ Only a later round may be named, so the LAST record of a finished run reads
 limit on it: a run ends at a round that wrote no code nobody read, or it ends
 with the gap where a reader meets it.
 
+**A capped record is not automatically the last record.** A run the round cap
+stopped may write fixes for what the branch owns; that record then reads
+`round-N`, and the verifying round at the diff of those fixes is the one
+reading `no fixes to check`. `docs/review-chain-spec.md` §*The cap bounds
+rounds, and not the fixes of the round it stopped* owns the rule and the test
+that decides which findings get a fix.
+
 `nobody` prints on every run. On the run's LAST record it also FAILS the pull
 request when `Pass` is checked beside it, because that pair is the review
 claiming to have passed while its own fixes went unread. Work items begun
@@ -422,7 +429,15 @@ other. -->
 it went to. `nothing to drain` is a valid answer and has to be written.
 
 The row stays here as well as in its new home. A deferral that leaves this
-file leaves the inheritance range, and the next round raises it again. -->
+file leaves the inheritance range, and the next round raises it again.
+
+`Who answers it` is read rather than filed. An open finding takes the first
+home that fits — the branch fixes what it owns, a comment goes on the issue
+that already owns the ground, a new issue is opened only where this cell names
+a party who will act, and what names nobody stays in this record and in the
+pull request body. `docs/review-chain-spec.md` §*Where a leftover goes — the
+ladder, and why a new issue is not the default* owns the rule; a cell reading
+*whoever picks it up* is the same answer as an empty one. -->
 
 | Finding | Where it went | Who answers it |
 |---|---|---|

@@ -10,6 +10,8 @@ record. This is that document.
 
 ## A milestone answers *when*, and takes three shapes
 
+<!-- specs/1789172128-a-release-is-sized-by-a-count-and-cut-by-urgency -->
+
 | Prefix | Holds | Ends |
 |---|---|---|
 | `release:` | the work going out in that version | closed when the version ships |
@@ -32,12 +34,11 @@ effect. Neither of them was cut short of a target.
 **Three or four is a ceiling, not a target.** It is as much as one section can
 describe while a reader still comes away knowing what the release is about, and
 it says nothing about when to stop under it. The count is in work items rather
-than in ticket numbers because a run that reaches the reopening bound turns
-every finding still open into an issue, which is right — and it means one
-branch's leftovers arrive as four ticket numbers, which a reader counts as four
-releases' worth of work. Size a ticket set that will be one branch as one
-item. 0.8.3 shipped three of eight, and carrying five forward was the call
-rather than the failure.
+than in ticket numbers because a run that reaches either bound files what it
+could not close, and one branch's leftovers arrive as several ticket numbers
+that a reader counts as several releases' worth of work. Size a ticket set
+that will be one branch as one item. 0.8.3 shipped three of eight, and
+carrying five forward was the call rather than the failure.
 
 **The two releases above are named rather than numbered on purpose.** Both sit
 at or above the running version, and
@@ -79,6 +80,24 @@ carried by `#51`, by the rolling log, and by the scheduled work that came out
 of them, whichever milestone each one sits in. Query the concern by label and
 the release by milestone; neither substitutes for the other.
 
+**`from-review` marks an issue a review round filed.** A round that hands a
+finding to the tracker puts it on the new issue, and nothing reads the label —
+what it is for is one query. `--label from-review --state all` beside
+`--state closed` gives the share of filed findings anybody went on to act on,
+and that share is why the filing decision is a ladder rather than a reflex:
+on 2026-09-22 the label carried 89 issues, 43 of them closed — 48% — with 23
+of the 46 still open opened inside one three-day window, the one issue that
+run filed excluded. **Quote the date with the number.** The label set moves,
+so a share written without its as-of date goes false quietly and a reader
+re-taking the query cannot tell which of the two changed. A measurement whose
+key is undocumented is not repeatable either, which is the whole of why the
+label is written down here.
+`docs/review-chain-spec.md` §*Where a leftover goes — the ladder, and why a
+new issue is not the default* owns where a filed finding goes; this section
+owns what the label means.
+
+<!-- specs/1788661274-the-roll-names-the-next-version-by-guessing -->
+<!-- specs/1788486395-the-roll-opens-the-next-log-with-no-body -->
 **`flow-measurement` is a label that is not an index.** It is a lookup key,
 and it carries an invariant: *exactly one open at a time*.
 `.github/scripts/roll_flow_measurement_issue.py` closes the current one and
@@ -92,6 +111,7 @@ that key. Reading `--label flow-measurement --state all` finds the rolling
 logs and misses `#51`; reading `--label measurement` finds everything and
 answers no lookup.
 
+<!-- specs/1788844200-the-refusal-text-is-unobserved-and-an-uppercase-v-is-invisible -->
 **A rolling log is titled after the version it rolled from**, in the form
 `chore: flow measurement — after 1.2.3`. That log opened at the 1.2.3
 release, holds the measurements taken since, and is closed by whatever ships
@@ -145,10 +165,35 @@ one label that is not a topic at all. A bare `now` was the name proposed, and
 it is not the name — standing alone it is a schedule answer with no subject,
 and it reads as the ordinary adverb this document itself uses.
 
-**Nothing reads this label** — no workflow, no check, no script — so a stale
-one costs a reader a wrong answer about what has to go next and costs no
-automation anything. It comes off when the release that carried the ticket
-reaches `main` and the issue closes, and nothing enforces that.
+**Nothing schedules from this label** — no workflow, no check and no script
+reads it to decide what happens next — so a stale one costs a reader a wrong
+answer about what has to go next and costs no automation anything.
+
+**One thing reads it, and only to spend it.**
+`.github/workflows/close-issues-on-release.yml` removes `size: now` from each
+issue it closes when the release reaches `main`. That is the moment this
+section already named, and until #450 nothing acted on it: the sentence said
+the label comes off then and that nothing enforced it, which is the same shape
+as the closing keyword nobody read — an answer written down with no reader.
+The removal rides the close rather than preceding it, so a label write that
+fails cannot cost an issue its close.
+
+**The judgment is made at filing, and again when an issue moves milestone.**
+Those are the two moments somebody is already reading the body, which is the
+whole argument for the label: the reading is cheap while it is happening
+anyway and expensive when it has to be repeated from scratch at a cut. A
+ticket filed without it is not a ticket judged *not now* — it is one nobody
+has judged, and the absence reads the same either way, which is the price of
+two states.
+
+**No sweep of the standing backlog is owed, and none should be done.** The
+argument above is that the judgment is cheap at filing and expensive in a
+batch; a sweep is the batch, performed once, by the very party the label
+exists to spare. The label earns its keep on tickets filed from here on, and
+an old ticket gets one the next time somebody opens it for another reason.
+This is written down because the obvious first move after creating a label is
+to apply it everywhere, and doing that here would pay the whole cost the
+section is trying to avoid, in one sitting, for answers that go stale.
 **`merged: X.Y.Z` goes on earlier inside that same release**, at the squash
 onto the release branch — §*A label says a ticket is already in, before the
 release ships* is that mechanism, and the gap between the two moments is
@@ -208,6 +253,7 @@ that caused it.
 
 ## A label says a ticket is already in, before the release ships
 
+<!-- specs/1789108681-a-merged-ticket-looks-unstarted-until-the-release-ships -->
 An issue's state does not move until `main` moves, and `main` moves once per
 release. So for the length of a release a finished work item and one nobody
 has started look identical on the tracker, and for a while the only thing
@@ -238,6 +284,7 @@ Three things about it are worth knowing before anyone tidies it.
 
 ## A keyword claims the one number after it
 
+<!-- specs/1788844400-a-body-naming-two-issues-claims-one -->
 `Closes #153 and #150` claims #153. The second number carries no keyword of
 its own, so nothing reads it as a claim — not GitHub, and not the script
 above, whose own comment says `Closes #1, #2` is not read as two either. PR

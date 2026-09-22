@@ -60,6 +60,67 @@ by what a finding requires rather than by rank, and 🔴 means *blocks merge* �
 so "a 🔴 is open" is a state the review already reports, readable from the
 last round record's verdict table and its `Pass` checkbox.
 
+### The cap bounds rounds, and not the fixes of the round it stopped
+
+**Three and five count rounds.** What they decide is whether another round is
+spawned. What happens to the findings of the round they stopped at is decided
+by the rule below, and reading the numbers as a bound on fixes is what files a
+verified one-line repair instead of making it.
+
+**A run the round cap stopped may still write a fix.** Writing one spends no
+round: the fixes are read the way every other round's fixes are read, by one
+verifying round at their diff, and a round that opens nothing needing a fix
+does not consume the cap.
+
+**What decides between a fix and a home is who owns the unit now.** A finding
+inside a unit this run's own fixes created belongs to the branch that created
+it, and the branch fixes it whatever round it surfaced in. A finding in code
+that stood before the run belongs to whoever owns that code, and it takes the
+filing ladder at the end of this section. The evidence is already written
+down: each record's `New units` row names the units that round's fixes added,
+so the question is answered by reading the run's own records rather than by
+judging, and it costs nobody a question.
+
+**`New units` names Python units, so a finding in a document is answered by
+the fix range instead.** `round_record.py`'s `measure` skips every prose path
+whole — `.md`, `.markdown`, `.txt`, `.rst`, before both the AST pass and the
+diff-line heuristic — so a round whose fixes were documents writes
+`New units | none` however much the branch wrote. An empty row is therefore
+not evidence that the run created nothing, and reading it as *not a unit this
+run created* sends a paragraph the run wrote three commits ago down the
+ladder, which is the expensive direction this section exists to close. There
+the evidence of ownership is the range itself: a paragraph this run's own
+fixes added belongs to the branch on the same test, read off the diff rather
+than off the row.
+
+**The question asked in its place was *when did the defect start*.** That is
+the substitution to watch for, and it fails in the expensive direction — it
+sends work the branch owns to a tracker nobody schedules from. Measured: round
+6 of `seal/specs/1790039346-settle-reads-a-marker-inside-a-commented-out-draft/`
+filed five findings on the grounds that the run was capped. Re-examined
+against ownership, the unit one of them named had been created by round 4 of
+that same work item and the character-level oracle another named was the
+branch's outright, so all five were fixed on the branch, the record was
+corrected in place, and one verifying round read them.
+
+**Two bounds end a run `capped`, and only one of them permits a fix.** Say
+which one ended the run, because the answer differs between them:
+
+| The bound | Where it is stated | What its terminal record may do |
+|---|---|---|
+| the round cap | here — three rounds, and five while a 🔴 is open | write fixes for what the branch owns, and have one verifying round read them |
+| the reopening bound | §*The reopening — one, and then the run is capped* | commission nothing. `chain_check.py` refuses a second fix-closing record after a floor `no`, so that record closes its open findings on homes alone |
+
+**So what `Fixes checked by` reads at a round-cap exit depends on what the
+record did.** A capped record that closed nothing on a fix reads `no fixes to
+check`, and it is the last record of the run. A capped record that wrote fixes
+reads `round-N` and is **not** the last record — the verifying round that read
+those fixes is, and that one reads `no fixes to check`. `round_record.py seal`
+refuses to write `Broad gate` on a last record whose cell reads anything else,
+so the reader is required by the generator and not by this document alone.
+Both shapes are in the tree, in the same work item named above: its round 6
+wrote fixes and reads `round-7`, and its round 7 commissioned nothing.
+
 ### The bound has a floor, and a quiet round is where it stops
 
 **Stop when a round finds nothing that leaves the root and nothing that
@@ -192,15 +253,62 @@ last branch (#161's second comment): 33 of its 65 findings were located in
 records, and the records were 55 % of the diff — a loop reviewing the tool's
 own paperwork, with a reader spawned for every correction.
 
+### Where a leftover goes — the ladder, and why a new issue is not the default
+
 At the bound, or earlier when a round returns nothing blocking, the change
 ends the same way whether or not everything was resolved. Nothing is dropped;
-each kind of leftover has a home that outlives the session:
+each kind of leftover has a home that outlives the session.
+
+**A finding is filed where somebody will act on it, and a new issue is the
+third rung rather than the default.** An open finding takes the first rung
+that fits, read top to bottom:
+
+| Rung | When it fits | Where the finding goes |
+|---|---|---|
+| 1 | the branch owns the unit, or the smith answers the finding with grounds | the diff, or `round-N.md` with the grounds. §*The cap bounds rounds, and not the fixes of the round it stopped* says how ownership is read |
+| 2 | an open issue already owns the ground | a comment on that issue, and the verdict reads `deferred #N`. `docs/issues-and-milestones.md` §*An issue is its body and its comments together* is what makes a comment the way a ticket grows here |
+| 3 | the finding names a party who will act on it | a new issue, labelled `from-review`, and the verdict reads `deferred #N`. Where a repository has no tracker, `seal/follow-up.md` is the same rung and takes the same test |
+| 4 | it names nobody | the round record alone, with the finding named in the pull request body |
+
+**The test is agreement, not naming**, and it is the one `seal/follow-up.md`
+already applies to itself: *nobody agreed to open `X`, so nobody answers*. A
+row in that file names a person with no condition attached, which is the shape
+the cell takes; what decides the rung is whether anybody agreed to it. So the
+cell has to name somebody the finding gives a reason to act,
+and an owner written because there was nobody else to write is rung 4's
+answer rather than rung 3's. That distinction is the whole of the rung, and
+it is why naming is not the test: the most common value this column already
+holds is the repository owner, so a rung that stopped at *a person, with no
+condition* would file exactly what is filed today. Nothing new is written to
+answer it. The reviewer's `## Deferred` table already carries the column —
+`Who answers it` — and the ladder reads that cell, so the decision costs no
+field, no verdict word and no question. A cell reading *whoever picks it up*
+is the same answer as an empty one.
+
+**What rung 4 costs, stated rather than left to be found.** A real defect that
+can name nobody stops being visible in the tracker. It lives in the round
+record and in the pull request body, which is durable until `settle` retires
+the work item's directory at a later release — after which the pull request
+body is what carries it. `seal/follow-up.md` made that trade for its own file
+first, on the grounds that an unowned row is not a plan, and the repository
+owner is who overturns it.
+
+**What the ladder is measured against.** Filing is cheap and acting on a
+filing is not, so a ladder is what keeps the cheapest act from being the
+default one. Measured on 2026-09-22 with
+`gh issue list --label from-review --state all`: the label carried 89 issues,
+43 of them closed — 48% — and 23 of the 46 still open had been opened inside
+one three-day window. The count excludes the one issue this work item's own
+run filed. **The date is part of the claim**, because the label set moves:
+without it a reader re-taking the query cannot tell whether the tracker
+changed or the number was wrong. Re-taking it is one query rather than a
+reconstruction, which is why `docs/issues-and-milestones.md` documents the
+label.
+
+Two leftovers are not findings and take no rung:
 
 | What is left | Where it goes |
 |---|---|
-| A finding the smith fixed | the diff |
-| A finding the smith answered with grounds | `round-N.md`, with the grounds |
-| A finding neither fixed nor answered | `seal/follow-up.md`, and named in the PR body |
 | A decision only a person can make | `seal/specs/<item>/questions.md`, and named in the PR body |
 | An original whose behavior is plainly wrong | both texts side by side per `legacy-parity`, and named in the PR body |
 
@@ -335,6 +443,7 @@ that the model never sees, and declining is a bare "No".
 
 ### Which repository, and what happens when it cannot be read
 
+<!-- specs/1788305134-the-reader-stops-where-it-need-not -->
 The repository judged is the one the command commits **into**, not the one the
 shell sits in. `git -C <path> commit` moves git without moving the shell, so
 the directory comes from the command and falls back to `cwd` only when the
@@ -579,6 +688,7 @@ needs a tty and sources a user's rc.
 
 #### The declaration, and where the check went instead
 
+<!-- specs/1789518345-who-asks-the-routing-question-and-what-checks-the-answer -->
 The gate reads `seal/specs/<work-item-id>/routing.md` before it reads anything
 else. Where a declaration is in force the review arm stays silent — for
 **either** answer, because the routing question was answered before the first
@@ -589,6 +699,24 @@ edit and asking for `[no-review]` as well is asking for the same answer twice.
 | through the review chain | silent | a committed `rounds/round-N.md` is required, every commit its `Target SHA` names being REACHABLE — an ancestor of HEAD, or of the branch `routing.md` declares — its last round's `Pass` **checked**, that claim consistent with its own verdict table, and its `Fixes checked by` naming a checker the repository can confirm. A record this pull request does not touch keeps every requirement except reachability: its commits are expected to be gone, and the review it records was enforced at the pull request that added it |
 | straight to the PR | silent | nothing required; the declaration is printed |
 | nothing readable, or no file | today's behavior — deny once, then ask | pass, with a notice saying nothing was checked |
+
+**A declaration the pull request RETIRED is not one it made**, and neither is
+one it only renamed. Both are ways a `routing.md` leaves a diff without
+anybody declaring anything, and both are excluded: the rename because the
+root move renames every declaration in the repository at once, the
+retirement because `settle --retire` removes a released work item's directory
+after a `docs/` policy has absorbed its spec, and that work item was reviewed
+at its own pull request. The first fold put 88 retired declarations in one
+diff, and this check failed all 88.
+
+**The marker is what tells a retirement from a deletion**, because both leave
+the file absent at `HEAD` and nothing else can. Where `docs/` carries the
+work item's `<!-- specs/<work-item-id> -->` comment on a live line, the check
+prints `retired: …` and reads no further; where it does not, the refusal stands —
+that is a directory removed with nothing absorbing it, which is what the
+refusal was written for. It is the same distinction
+`unverified_check.folded_items` draws for a removed `overview.md`, and this
+reader had not grown it.
 
 Every record is read as git carries it at `HEAD`, never as the working tree
 holds it: a tree that differs from `HEAD` is what CI never sees, and a local
@@ -628,6 +756,7 @@ commit gate has always carried.
 
 ##### `Fixes checked by` has to name a checker the repository can confirm
 
+<!-- specs/1788212517-the-last-rounds-fixes-are-reviewed-by-nobody -->
 The draft excuse does not reach this row. `Pass` is excused in a draft because
 a review still running has not reached its verdict; a record naming a checker
 it does not have is wrong at every stage of a run.
@@ -943,6 +1072,7 @@ and the rule would then pass or fail on what somebody else had created.
 
 ##### The fix surface — `Contract changes` and `New units`
 
+<!-- specs/1788272986-the-fixes-are-what-open-the-next-round -->
 Two more rows, read on every record the same way `Fixes checked by` is, and
 for the same reason: every round has its own fixes. Issue #57 measured ten
 regressions each traced to the fix that opened it, and the largest class —
@@ -1150,6 +1280,7 @@ created has been reviewed by nobody.
 
 ##### The floor — `Loses a record or crashes`, and what may follow it
 
+<!-- specs/1788472135-the-run-outlives-its-last-finding -->
 The floor is stated at the top of this document, and this is what the check
 makes of it. The row is read on every record, like the two above and for the
 same reason: every round has its own answer, and the run's stopping point is a
@@ -1240,9 +1371,22 @@ verifying round of it.
 **After a record that met the floor, at most one later record may close on a
 fix.** That one is the verifying round that reopened the run; the record that
 reads its fixes ends the run whatever it finds. There the run is `capped`:
-every finding still open becomes an issue, its verdict reads `deferred #N`,
-the record's `Fixes checked by` reads `no fixes to check`, and the pull
-request says `chain: capped`.
+every finding still open takes the ladder in §*Where a leftover goes — the
+ladder, and why a new issue is not the default*, its verdict reads `deferred
+<home>` wherever a home was found — `deferred #N` where that home is an
+issue — the record's `Fixes checked by` reads `no fixes to check`, and the
+pull request says `chain: capped`.
+
+**This is the reopening bound, and it is not the round cap.** Both exits end a
+run `capped`, and the one word is why the two get read as one rule. What
+separates them is what the terminal record may do. This bound's commissions
+nothing, because the walk below refuses a second fix-closing record after the
+floor — so `no fixes to check` is true of it by construction, and the sentence
+above says it of this exit rather than of every capped record. The round cap's
+terminal record may write fixes for what the branch owns, and then reads
+`round-N` instead; §*The cap bounds rounds, and not the fixes of the round it
+stopped* owns that permission. Granting it here would name a state this
+subsection's own walk refuses.
 
 | The records after a record whose floor row is `no` | The check |
 |---|---|
@@ -1473,6 +1617,7 @@ English reason may begin with `on`.
 
 ##### When the record was written — before the fixes it commissioned
 
+<!-- specs/1788501054-a-check-reports-clean-while-something-is-missing -->
 `templates/sdd-round.md` says a record is written *right after it posts*, and
 until this check nothing observed it. Measured twice in one release, four
 minutes and two minutes after the fix commits those records commissioned, and
@@ -1732,6 +1877,7 @@ options, and an `ask` never gives the model the turn.
 
 ## review-history-guard (PostToolUse, Bash)
 
+<!-- specs/1788844300-the-guards-cases-cannot-observe-what-they-guard -->
 Two branches with **opposite conditions** — the failure modes differ:
 
 | Trigger | Condition | Reminder |
@@ -1751,6 +1897,7 @@ Reminder-only (PostToolUse cannot block). Same `seal/` opt-in as the gate.
 
 ## implementer-mark · implementer-notice (PreToolUse Agent|Task · PostToolUse Bash)
 
+<!-- specs/1788310269-the-implementer-leaves-a-mark -->
 The routing declaration has two axes that name an agent — `Planning`, who
 draws the frame, and `Implementation`, who builds the work item — each
 answered by that agent's name or by `the session`, and until these two hooks
@@ -1775,6 +1922,206 @@ session could not also write. Everything fails toward "no mark", which is toward
 reminder: a mark gate that quietly stops running turns the notice on, not off,
 so a dead gate produces a line somebody reads rather than a silence nobody
 does. The commit gate's decision is byte-identical with the row and without it.
+
+## The survivor sweep — a corrected sentence standing somewhere else
+
+A fix corrects one coordinate. The fact behind it is usually written down in
+more than one place, and the copies nobody touched come back as the next
+round's finding. This is the check that names them.
+
+<!-- specs/1788873640-a-corrected-sentence-survives-elsewhere-and-nothing-looks -->
+**`survivor-check --range <a>..<b>` reports every place in the tree still
+carrying wording the range removed**, naming the path, the surviving sentence
+and the corrected sentence it matched. It is run by the party whose range it
+is about — the fix pass, and the implementer's verify phase — because nothing
+downstream can run it for somebody else's range. A survivor that is a
+deliberate carrier is exempted by a content-anchored row in the work item's
+own `seal/specs/<id>/survivors.md`, so the exemption stops holding the moment
+that text changes.
+
+<!-- specs/1788912166-red-for-following-the-documents-green-for-ignoring-one -->
+**A range that removes a shipped section whole takes one row for the range
+instead of one per sentence.** Every sentence of a deleted section stands in
+the durable copies that are supposed to survive a deletion, so the sweep
+reports all of them and every report is correct — one real range reported
+153. Writing 153 rows is not an escape anybody takes, and the alternative to
+a range row is turning the check off. The row is anchored on the range **and**
+on the work item whose `survivors.md` holds it, so it cannot become a
+standing *check nothing*.
+
+<!-- specs/1789211172-a-round-record-disarms-survivor-check -->
+**A round record is outside the sweep's corpus on both sides.** A record is
+the write-up of a finding rather than a carrier of the claim, so a sentence
+*removed* from one is not corrected wording any more than a sentence
+surviving in one is an uncorrected copy. Excluding only the added side left
+the check able to name a coordinate nobody should be asked to correct, which
+is worse than not looking: a false name spends a round.
+
+### What a draft is excused, and what it is not
+
+The same work item settles an asymmetry that runs through every arm above.
+**A draft pull request is not a request to merge**, so an arm whose subject is
+a review still in progress prints its state instead of failing — the record
+count is one of those, the way `Pass` already was. Pressing *Ready for
+review* fires the event, the workflow re-runs, and the arm applies, so nothing
+that can reach the default branch is exempt.
+
+What a draft does **not** excuse is a claim that is wrong at every stage. A
+record naming a checker the repository does not have, and a `Broad gate` cell
+reading `not yet` or naming a SHA that precedes that record's own
+`Target SHA`, are both refused on a ready pull request and each says which of
+the two it is — one is the run that never happened, the other the run spent
+before the round it was meant to seal.
+
+## The record generator — what it writes, and what it refuses at the keyboard
+
+`skills/code-review/scripts/round_record.py` is the one writer of
+`rounds/round-N.md`, and `bin/round-record` is how it is typed. The sections
+above say what each field means; this one says what the generator does about
+them, and it is where fourteen work items' specifications came to rest.
+
+<!-- specs/1788597030-a-runs-rounds-come-mostly-from-the-tools-own-fixes-and-records -->
+**A record is derived, not typed.** `new` writes the round record from the
+warden's report and the spawn prompt's round paragraph — `Target SHA` from
+git, `PR` from `gh`, both surface rows at *not yet written*, the verdict,
+probe and deferred tables copied from the report — and `close` applies the
+implementer's fix table and derives the fix surface from the fix range. The
+orchestrator writes one thing by hand, the round paragraph, and no
+orchestrator prose ever sits in a parsed cell. Both halves run
+`chain_check --worktree` on the work item before they return, so the check
+sees the cell that was just written rather than the one at `HEAD`.
+
+<!-- specs/1788844127-the-reviewers-report-reaches-the-record-retyped -->
+**The record and the report are different artifacts with different owners,
+and neither is retyped into the other.** The reviewer writes its report to
+`rounds/round-<n>-report.md` under the work item and returns that path;
+`new` reads `--report` from that location when the flag is absent. A report
+that reaches the record through a person's hands is a copy nobody can check
+against its original.
+
+<!-- specs/1789338080-the-one-script-an-agent-is-told-to-run-cannot-be-typed -->
+**A script a shipped document tells an agent to run is reachable by a
+command.** Every `skills/*/scripts/*.py` a shipped document names either has
+a `bin/` wrapper pair or is classified, with its reason, in the case that
+pins this rule. `chain_check.py` is the one classified: CI and the scripts
+that run it carry its full path, and no shipped document shows it with a
+flag to type. Every document naming a script also names a form that can be
+typed — the wrapper, or the script's repository-relative path. A document
+that names a script and no way to reach it is an instruction with no
+executable spelling.
+
+### What it refuses before anything is written
+
+<!-- specs/1788789985-round-record-dies-on-python-3-9 -->
+**An interpreter below the supported floor is refused at entry**, in a
+sentence naming the floor, the version it found and the interpreter it found
+it at — before argument parsing, before the sibling checker is loaded, and
+before anything is read or written. Dying partway through on a construct the
+old interpreter does not know tells the reader about the construct rather
+than about the floor, and the floor is the fact they need. The repository's
+supported floor is stated once, in `.github/scripts/run_tests.py`, and the
+guard names that number rather than a second copy of it.
+
+<!-- specs/1788817290-the-derivation-misreads-and-the-record-refuses-the-id -->
+**A finding id is a bare integer, behind an optional severity marker, in both
+the verdict table and the fix table**, and a refusal names the format and
+quotes the offending row. A duplicate quotes both rows, because naming one of
+a pair is the manual scan the rule was written to remove. The same work item
+fixed what `Contract changes` compares: a unit's contract carries the set of
+constant literals it returns, so gaining or losing one reads as a contract
+change — and the document states the hole that leaves, a changed
+input-to-value mapping, rather than implying there is none.
+
+<!-- specs/1789356180-the-two-halves-of-one-generator-refuse-each-other -->
+**A verdict row that commissions nothing takes no fix row.** `close` stops
+demanding one for a row that is not an open finding, and stops writing a
+verdict word over it; a row with no finding id and a row whose verdict is
+`❓ out of verified scope` are both members. A refusal names **every**
+offending row rather than the first, because a message naming one costs a
+round trip per repair, and five were measured in one record.
+
+<!-- specs/1789296200-the-record-before-the-fix-sequence-has-no-arm -->
+**`new` says when the reviewer's target is no longer the branch's HEAD.** It
+compares the resolved `--target` against HEAD, names the commits that landed
+since the reviewer read it, and says what that can mean. There is one escape,
+`--written-late "<why>"`, and the reason it carries reaches the record — so a
+state that used to leave no trace leaves one, and `chain_check`'s
+`written_late` arm prints for a record carrying that reason instead of
+failing. A gate with no honest way past it is a gate people route around.
+
+### What it copies, and what copying costs
+
+<!-- specs/1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row -->
+**The record carries the reviewer's paste-ready fixes**, from a heading the
+reviewer writes, by the mechanism the file already had for the probes table.
+And a bare `|` inside a cell the record **copies** no longer truncates the
+row: every column of the verdicts table, `## Executed probes`,
+`## Inherited coordinates`, `## Deferred`, and `close`'s `Commit or grounds`.
+The distinction is who wrote the pipe. A value the generator composes with a
+pipe in it is a defect in the generator and stays refused; a copied cell is
+the reviewer's own text, and truncating it silently loses the finding.
+
+<!-- specs/1788873610-every-copy-out-of-raw-meets-the-hider-question -->
+**Every record the generator writes is asked the hider question before the
+bytes reach the disk**, in the one function that writes one — not at each
+call site, which is where a copy gets missed. A comment that opens inside a
+fenced block and closes outside it is refused by a message naming the
+comment, on every text the question is asked of. A record that hides part of
+itself from the next reader is the one failure the whole chain rests on not
+happening.
+
+<!-- specs/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading -->
+**A fenced block that closes after a later heading is refused, naming the
+heading it swallowed.** A fence opened under `## Executed probes` and closed
+below `## Deferred` takes the Deferred section into the probes block, and the
+record then reads as though the section were empty. The message names what
+the fence ate, so the writer is told what to fix rather than that something
+is wrong.
+
+<!-- specs/1789347354-a-wrapped-terminal-line-is-not-one-value -->
+**A wrapped terminal line is one value, and the join stops at a blank line.**
+A terminal row a narrow window wrapped is still one value, so a continuation
+is joined to it. A line that opens a new markdown block stops the join as
+well: a heading marker followed by a space, a list, quote or table marker, a
+fence, a thematic break or a setext underline. A continuation that opens with
+an issue number such as `#120`, with `**bold**`, with an HTML tag or with an
+indented run of prose is joined, because its first characters cannot tell it
+from prose. The blank line is the only stop that covers every shape, and
+that sentence is the one that keeps the next reader from widening the marker
+list instead of trusting the blank line.
+
+### What `close` derives, and the arithmetic it must not double
+
+<!-- specs/1789621028-nothing-reads-a-record-against-the-tree -->
+**A record is read against the tree, not only against itself.** The
+`Fix range` row states a range and a commit count, and the check compares
+both against what the repository actually holds — the job `evidence-check`
+already does for the ledger over content anchors, and the records were left
+out of. In the same class: `close` does not prefix a `Grounds` cell it has
+already prefixed, for any of the three verdict words, because all three reach
+the same line and all three join rather than overwrite.
+
+<!-- specs/1789455558-the-record-chain-disagrees-with-itself-in-five-places -->
+**Where two rows share a coordinate, the forward map takes the first**, the
+way the inherited table already did — two readers of one relation disagreeing
+is how a record comes to state the same finding as open and as fixed. A
+round's silence at zero filled rows is conditioned on whether the next
+round's inherited table accounts for this round's coordinates, rather than
+unconditional; and a row's severity is read from its `#` cell, with an
+unrecognised verdict word getting a message of its own instead of falling
+into the nearest branch.
+
+<!-- specs/1789425391-the-checker-is-wrong-about-itself-and-nothing-goes-red -->
+**A checker's own cases have to be able to fail, and several of these could
+not.** Replacing a sweep's `failures.extend(errors)` with `pass` left it
+green; a reader that said it read `HEAD` called `git ls-files`, which reads
+the index; a rule testing the shape of `Fixes checked by` and not its
+position accepted on the last record exactly what the pull-request check then
+refused; and a depth walk attributing added units by **file** rather than by
+enclosing unit named the wrong finding while refusing correctly. The standing
+rule is the one `skills/agent-contract/SKILL.md` §15 states for new cases,
+applied to the checkers themselves: a case nobody has seen fail is a case
+nobody has seen.
 
 ## Non-goals
 

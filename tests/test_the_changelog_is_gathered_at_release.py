@@ -21,6 +21,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import gathered_entry
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, ".github", "scripts", "gather_changelog.py")
@@ -282,17 +283,34 @@ def test_the_release_sequence_names_the_gather_step():
 
 def test_this_work_item_wrote_its_own_fragment():
     """Dogfood. A convention the branch introducing it did not follow is one
-    nobody has tried."""
-    frag = os.path.join(
-        ROOT,
-        "seal",
-        "specs",
-        "1788229400-every-branch-appends-to-the-same-two-files",
-        "changelog.md",
+    nobody has tried.
+
+    Once the work item is released and retired, the fragment is gone and
+    the marker `gather_changelog.py` wrote above its body is the proof it
+    existed — a hand edit of `CHANGELOG.md` leaves no marker behind."""
+    item = "1788229400-every-branch-appends-to-the-same-two-files"
+    frag = os.path.join(ROOT, "seal", "specs", item, "changelog.md")
+    if os.path.isfile(frag):
+        with open(frag, encoding="utf-8") as f:
+            assert f.read().strip(), "the fragment is empty"
+        return
+    body = gathered_entry(ROOT, item)
+    assert body is not None, "this work item edited CHANGELOG.md instead"
+    assert body.strip(), "the gathered fragment is empty"
+
+
+def test_a_gathered_body_line_opening_with_an_issue_number_is_kept(tmp_path):
+    """#497 round 1 ⬜ 8. The block ends at the next marker or heading, and a
+    heading is `#` and then a space; a body line wrapped onto `#120` is the
+    entry's own sentence, and cutting it there reads as a shorter entry."""
+    (tmp_path / "CHANGELOG.md").write_text(
+        "## [1.0.0]\n\n<!-- specs/1799000000-an-item -->\n- **A thing changed**, per\n"
+        "#120, and the rest of it.\n\n## [0.9.0]\n- an older entry\n",
+        encoding="utf-8",
     )
-    assert os.path.isfile(frag), "this work item edited CHANGELOG.md instead"
-    with open(frag, encoding="utf-8") as f:
-        assert f.read().strip(), "the fragment is empty"
+    body = gathered_entry(str(tmp_path), "1799000000-an-item")
+    assert "#120, and the rest of it." in body, body
+    assert "an older entry" not in body, body
 
 
 # --- the check after a fold ------------------------------------------------

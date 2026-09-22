@@ -37,6 +37,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import cutoff_item_is_traceable
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -1234,9 +1235,17 @@ def test_the_two_cutoffs_are_the_id_of_the_item_that_wrote_them():
     rests on, and the convention `STRICT_FROM` and `SURFACE_FROM` set.
 
     No number is typed here. The claim is that both cutoffs are ONE work
-    item's id and that the work item is in the tree — a constant with a digit
-    wrong names a directory nobody has, and one copied from another rule's
-    cutoff excuses the very records that were written to be held.
+    item's id and that the work item is traceable in the tree — a constant
+    with a digit wrong names a directory nobody has, and one copied from
+    another rule's cutoff excuses the very records that were written to be
+    held.
+
+    *Traceable* rather than *present* since the fold: `settle --retire`
+    removes a released work item's directory once a `docs/` policy has
+    absorbed it, and `1788472135-…` is one it removed.
+    `conftest.cutoff_item_is_traceable` carries the reasoning, and the half
+    that still fails — a directory gone with no marker behind it — is the
+    typo this case was written for.
     """
     module = check_module()
     assert module.FLOOR_FROM == module.DEPTH_FROM == module.NEEDS_FROM, (
@@ -1246,8 +1255,6 @@ def test_the_two_cutoffs_are_the_id_of_the_item_that_wrote_them():
         "for a second reason: between the two, the floor's run-length bound "
         "would rest on a row no record was required to carry"
     )
-    items = os.listdir(os.path.join(ROOT, "seal", "specs"))
-    assert [d for d in items if d.startswith(f"{module.FLOOR_FROM}-")], (
-        "the cutoffs name a work item whose directory is not in the tree, so "
-        "the first records held to both rules are nobody's"
-    )
+    reader = _load("reader_for_the_cutoffs", module.READER)
+    ok, how = cutoff_item_is_traceable(ROOT, reader, module.FLOOR_FROM)
+    assert ok, f"{how} — so the first records held to both rules are nobody's"

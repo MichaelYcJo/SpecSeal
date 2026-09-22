@@ -127,9 +127,18 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   a correction — ⬜, with the coordinate — and leave it out of `Needs a fix`.
   `docs/review-chain-spec.md` §*The last round verifies* owns the rule. And
   the run reopens at most once: a verifying round spawned after a reopening
-  reports what it finds as `deferred #N` candidates rather than as fixes to
+  reports what it finds as `deferred <home>` candidates rather than as fixes to
   commission, because `docs/review-chain-spec.md` §*The reopening — one, and
   then the run is capped* owns the bound and the exit it ends in.
+
+  **A round told the run is capped still reports what it finds, at the
+  severity it finds it.** What a cap decides is whether another round is
+  spawned — never what becomes of what this one finds, and never the bar you
+  report at. A finding inside a unit the run's own fixes created is the
+  branch's to fix whatever round it surfaced in, so do not soften one because
+  of where you think it will land. `docs/review-chain-spec.md` §*The cap
+  bounds rounds, and not the fixes of the round it stopped* owns the rule and
+  the test the orchestrator applies to your findings afterwards.
 
   Say plainly whether you opened anything that needs a fix, because the run
   ends on that answer. Nothing needing a fix ends it; a 🟡 the smith can answer
@@ -257,6 +266,15 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   expected; writing it up as new is the duplicate this field exists to stop.
   Name it as already deferred, and where, so the reader can go argue with that
   decision instead of re-litigating it in your report.
+
+  **The `Who answers it` cell is read, so write a party and not a hope.** The
+  orchestrator decides where each deferral actually goes by reading that
+  column: a cell naming somebody who will act is what opens a new issue, and
+  a cell reading *whoever picks it up* sends the finding to the round record
+  instead. You are not deciding the destination and you are supplying the one
+  fact it turns on. `docs/review-chain-spec.md` §*Where a leftover goes — the
+  ladder, and why a new issue is not the default* owns the rule that reads
+  your column.
 
   **That phrase belongs in this field and in a Grounds cell, never in a
   Verdict cell.** `already deferred` is in no vocabulary, so a verdict cell

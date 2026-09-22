@@ -120,17 +120,16 @@ def label_description(version):
 def issue_labels(repo, number):
     """(label names, exists) for an issue, or ([], False) if there is none.
 
-    `_issue_api` is the 404-tolerant read `close_issues_on_release.py` wrote
-    for exactly this -- a number that names nothing arrives here from a
-    hand-written `(#N)` and from a typo in a merged body, and neither is a
-    reason to fail a push. Reaching for the private name is deliberate: the
-    public wrappers beside it return a state and a body, and a second read of
-    my own would be the copied reader this script exists not to have.
+    This used to unpack `closer._issue_api` here, which was correct while
+    this was the only caller. It is not any more: `close_issues_on_release.py`
+    reads an issue's labels too, to take a spent `size: now` off the issue it
+    is closing. So the reader moved to the module that owns the 404-tolerant
+    read it is built on, and this is the delegation -- one source, the way
+    both scripts take `MERGED_PR`, `keywords_in`, `pull_request_body` and
+    `arrived` from one source. The name stays here so nothing calling it had
+    to change.
     """
-    data, exists = closer._issue_api(repo, number)
-    if not exists:
-        return [], False
-    return [entry.get("name") for entry in data.get("labels") or []], True
+    return closer.issue_labels(repo, number)
 
 
 def existing_labels(repo):

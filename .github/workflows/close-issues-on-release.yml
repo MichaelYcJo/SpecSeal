@@ -39,6 +39,20 @@ jobs:
         shell: bash
         run: python3 .github/scripts/close_issues_on_release.py
 
+      # A label this repository's documents specify and the tracker lacks is
+      # an act that was assigned to a person, and a person has no queue
+      # anything here can read: `size: now` was specified in 0.11.1 and three
+      # releases were cut before anybody noticed it had never been created
+      # (#450). Reconciling it here costs no new permission and no new
+      # trigger — the job already holds `issues: write` and already fires
+      # when `main` moves.
+      - name: create the labels the documents specify and the tracker lacks
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        shell: bash
+        run: python3 .github/scripts/tracker_labels.py --apply
+
       - name: roll the flow-measurement issue to the next version
         env:
           GH_TOKEN: ${{ github.token }}

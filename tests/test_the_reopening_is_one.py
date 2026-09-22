@@ -26,6 +26,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import cutoff_item_is_traceable
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -316,15 +317,22 @@ def test_a_second_reopening_prints_for_an_item_begun_a_second_before(repo):
 
 def test_the_cutoff_is_this_work_items_own_id():
     """The shape the six cutoffs before it set: the constant is one work
-    item's id, that work item is in the tree, and it is later than the
-    cutoff before it."""
+    item's id, that work item is traceable in the tree, and it is later than
+    the cutoff before it.
+
+    *Traceable* rather than *present* since the fold: `settle --retire`
+    removes a released work item's directory once a `docs/` policy has
+    absorbed it, and `1788597030-…` is one it removed. `conftest.
+    cutoff_item_is_traceable` carries the reasoning and the other half of the
+    rule — a directory gone with no marker behind it is still a failure, and
+    that is the typo this case was written for.
+    """
     module = check_module()
     assert module.REOPEN_FROM == 1788597030
     assert module.REOPEN_FROM > module.ORDER_FROM
-    items = os.listdir(os.path.join(ROOT, "seal", "specs"))
-    assert [d for d in items if d.startswith(f"{module.REOPEN_FROM}-")], (
-        "the cutoff names a work item whose directory is not in the tree"
-    )
+    reader = _load("reader_for_the_cutoff", module.READER)
+    ok, how = cutoff_item_is_traceable(ROOT, reader, module.REOPEN_FROM)
+    assert ok, how
 
 
 # --- `deferred <home>` closes; bare `deferred` is open --------------------------

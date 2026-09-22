@@ -1,6 +1,0 @@
-## Fixes
-
-| # | Verdict | Commit or grounds |
-|---|---|---|
-| 1 | fixed | `6233b769`. `refusal_paragraph()` bounds the slice at the blank line, in the shape `refusal_bullet()` already had, and the case asserts three things inside that paragraph — the positive sentence, the clause round 1 added, and `#401`. The section-wide negative stays section-wide. Both mutations round 2 executed are red now, and two more beside them: the positive sentence reverted to its old wording, and the paragraph's opening removed, which the helper refuses rather than passing on a missing heading |
-| 2 | fixed | `6233b769`. Fixed rather than justified — the grounds went into the two cells themselves, which is what round 2 said justifying would mean. The refused row now says `/bin/sh` backgrounds the whole line and answers 0 before any check has finished, while `cmd.exe` separates two commands so what the gate reads is the second one's status — two different wrong answers refused for the same half of the criterion. The allowed row says `cmd.exe` sequences instead, so nothing is left running, which matters because that row's whole stated cost is that the command may still be running when the gate stamps. `test_both_ampersand_cells_name_both_shells` pins both cells, per cell, in the list each cell is in |

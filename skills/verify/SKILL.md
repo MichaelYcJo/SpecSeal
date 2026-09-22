@@ -500,11 +500,31 @@ A repository declares each of them the same way, with a label on an issue,
 and each keeps the same invariant: exactly one open. Neither is named by
 number, because a number goes stale the moment its issue closes.
 
-Find the rolling log first — `gh issue list --label flow-measurement --state
-open` — rather than assuming a number, and the durable one the same way with
-`--label flow-baseline`. Where more than one is open, treat it the way any
-broken invariant is treated: name it rather than guessing which one is
-current.
+**One command does the lookup, the four readings below, and the post.**
+
+```
+session-cost --segments <the run's transcript> --post --says <file|->
+```
+
+It resolves the label rather than a number, `--label flow-baseline` reaches
+the durable log with the same code, and it **opens no issue in any state**.
+It refuses without `--says`, because the numbers are the script's and what
+they say is yours: a command that invented the sentence would be posting a
+judgment nobody made. The readings below are what its exits mean, and they
+are still worth knowing, because a session that meets a refusal has to know
+which one it hit.
+
+**The command does not make anybody run it.** What was measured is that this
+meter sat unreferenced through a full day of measurements nobody took — the
+measurement was not taken, not that the posting failed. `--post` removes the
+procedure a session otherwise reconstructs from this section every time; it
+does not remove the remembering, and nothing here does.
+
+By hand it is two lookups. Find the rolling log first — `gh issue list
+--label flow-measurement --state open` — rather than assuming a number, and
+the durable one the same way with `--label flow-baseline`. Where more than
+one is open, treat it the way any broken invariant is treated: name it rather
+than guessing which one is current.
 
 **A reading of zero open is two different facts, and one call tells them
 apart.** `gh issue list --label flow-measurement --state all` says whether
@@ -664,10 +684,12 @@ finished, not as a follow-up someone might do later:
    above the fifteen minutes model time stops counting at — the orchestrator
    issuing nothing between two of its own calls. Read it as idle time in the
    orchestrator, never as the agent it spawned.
-2. Post what the numbers say with `gh issue comment <n> --body-file
-   <file>`, where `<n>` is the issue number the lookup above returned — the
+2. Post what the numbers say. `--post` does it: your sentence first, the
+   reading fenced beneath it, on the issue the label resolved to — the
    rolling log's for the segment's own numbers, the durable one's for a
-   reading that spans versions.
+   reading that spans versions. By hand it is `gh issue comment <n>
+   --body-file <file>`, where `<n>` is the issue number the lookup above
+   returned, and that is the command `--post` composes.
 
 **And write down what ran the segment, in that segment's own record.**
 `rounds/round-N.md` and `phases/phase-N.md` both carry a `| Ran by |` row: the

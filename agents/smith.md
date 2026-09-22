@@ -80,15 +80,36 @@ incorporation. This file only adds what the skill does not carry.
         questions.md, answerable by the repository owner.
         This rider used to say that `_hides_a_commit` therefore returns True
         for this file as a whole, so a session patching its own contract by
-        heredoc meets the prompt. MEASURED 2026-09-08 and that half is false,
-        and was already false one commit before this branch: the exact line,
-        alone in a heredoc body, gives `commit_invocations` one invocation,
-        and the same line with everything above it gives zero, parsed
-        cleanly. Whatever silences it is earlier in the file, not the
-        example -- so the standing instruction above is still right and its
-        stated consequence is not. Why it is silenced is unanswered and is
-        nobody's finding yet.
-        Verified 2026-09-16 against "## Phases"@a8d794c7. -->
+        heredoc meets the prompt. A 2026-09-08 measurement called that half
+        false: the exact line alone in a heredoc body gave
+        `commit_invocations` one invocation, the same line with everything
+        above it gave zero, and whatever silenced it was said to be earlier
+        in the file than the example.
+        RE-MEASURED 2026-09-22 and there is no silencing. The line alone in a
+        heredoc body still gives ONE invocation; the same line with
+        everything above it gives one as well, not zero; and
+        `_hides_a_commit` is True for this file as a whole. So the standing
+        instruction above is right and so is its original stated
+        consequence -- it is the 2026-09-08 correction that does not
+        reproduce.
+        This is not the branch that moved it. The same four numbers come
+        back for this file at `6d410023` and at this commit, under the gate
+        at both, all four combinations agreeing, so the staleness predates
+        the branch whose edit made this rider fire. WHY the earlier reading
+        was zero is unanswered and is nobody's finding yet. The 2026-09-08
+        measurement was taken at `release/v0.9.3`, and the gate has since
+        gained the heredoc and `eval` recursion its own docstring records as
+        "Both used to return nothing found" -- so a long prose body that
+        parsed to nothing then may recurse and find the commit now. That is
+        a candidate and it is UNMEASURED here; measuring it means running the
+        gate as it stood at that tag, which is not this branch's work. What
+        is ruled out is a miscount: `commit_invocations` returns a pair, and
+        a reader counting the returned value rather than its first element
+        gets two and two, not the one and zero that reading recorded.
+        `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
+        nothing-looks/questions.md` Q4 is where the question is open, and
+        this paragraph is evidence for it rather than an answer to it.
+        Verified 2026-09-22 against "## Phases"@72cf1e1b. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
@@ -276,6 +297,14 @@ last fixes nobody opened. That pair, `nobody` beside a checked `Pass` on the
 last record, **fails the pull request** for any work item begun after the rule
 landed; the way out is the verifying round above, which costs no round.
 
+**A capped run does not end your fixes.** What the cap bounds is rounds: a
+finding inside a unit this run's own fixes created is yours to fix whatever
+round it surfaced in, and one in code that stood before the run takes a home
+instead. `docs/review-chain-spec.md` §*The cap bounds rounds, and not the
+fixes of the round it stopped* owns the rule, and it names the records' `New
+units` rows as where the evidence for that question already sits — so filing
+a repair you could make is a decision to check rather than a default.
+
 **A unit you may not add has somewhere to go.** It is deferred with a named
 answerer, or becomes an issue — the same homes the paragraph below gives
 everything else the run could not close. Then the bound: **A fix pass may add
@@ -294,7 +323,8 @@ your fix range added from its diff, writes each unit into `round-N.md`'s
 any cell is written — so a unit you may not add is not one to describe in the
 hand-back; it takes the exit above. One level above the depth, a fix pass may
 not add mechanism at all — a rule, a checker, a template section, a walk —
-and a finding closable only by one is an issue, its row `deferred #N`;
+and a finding closable only by one takes the ladder below rather than an
+issue by default, its row `deferred <home>`;
 `skills/code-review/orchestration.md` §*A fix pass adds the unit that pins
 it, and that unit ships unreviewed* owns that rule and the measurement
 behind it.
@@ -304,6 +334,15 @@ neither fixed nor answered goes to `seal/follow-up.md`, a decision only a
 person can make goes to `questions.md`, an original whose behavior is plainly
 wrong gets both texts recorded per `legacy-parity` — and each is named in the
 PR body, because a leftover nobody can find was not handed over.
+
+**That first home is a rung and not the default.** A finding takes the first
+one that fits: what the branch owns it fixes, what an open issue already owns
+gets a comment there, a new issue or a `seal/follow-up.md` row is for a
+finding that names a party who will act, and what names nobody stays in the
+round record and the pull request body.
+`docs/review-chain-spec.md` §*Where a leftover goes — the ladder, and why a
+new issue is not the default* owns the rule, and the test is the one
+`seal/follow-up.md` already applies to its own rows.
 
 Then the sealer takes the broad gate once — the orchestrator spawns it with
 the base and the item, and it is not yours to run — and the change opens as a

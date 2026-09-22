@@ -25,6 +25,17 @@ Usage:
   session_cost.py --spawns <transcript>  one row per spawn cycle, not one per run
   session_cost.py --segments <transcript>  one row per segment this run spawned
   session_cost.py --json <transcript>    the same numbers, machine-readable
+  session_cost.py --segments <t> --post --says <path|->
+                                         post that reading, and what it says,
+                                         to the repository's measurement log
+
+**Why `--post` exists, in one sentence.** `skills/verify/SKILL.md` §*Measure
+the segment, and feed the flow log* wrote the posting procedure out in full —
+which label, how to tell a repository that never made the log from one whose
+log somebody closed, which of the two logs a reading belongs to — and nothing
+typed it, so the meter sat unreferenced through a full day of measurements
+nobody took (#330). It refuses without `--says`, because the numbers are this
+script's and what they say is not, and it never opens an issue.
 
 Transcripts live under ~/.claude/projects/<path-with-slashes-as-dashes>/,
 with subagent runs in <session-id>/subagents/. `--latest` searches both.
@@ -51,13 +62,17 @@ owns that distinction and `tests/test_one_word_one_meaning.py` holds it.
 
 import argparse
 import bisect
+import contextlib
 import datetime as dt
+import io
 import itertools
 import json
 import math
 import os
 import re
+import subprocess
 import sys
+import tempfile
 from collections import defaultdict
 
 HOME = os.path.expanduser("~")
@@ -1987,6 +2002,262 @@ def newest(directory):
     return max(found, key=os.path.getmtime) if found else None
 
 
+# --- posting the reading to the flow log --------------------------------------
+#
+# `skills/verify/SKILL.md` §*Measure the segment, and feed the flow log* wrote
+# this procedure out in full and nothing typed it: which label to look up, how
+# to tell a repository that never created the log from one whose log somebody
+# closed, and which of the two logs a reading belongs to. #330 measured what
+# that costs — the meter sat unreferenced through a full day of measurements
+# nobody took. This is the procedure as a command.
+#
+# **It never opens an issue.** The skill says opening one is not a session's
+# act: two sessions finishing segments at the same moment both read zero and
+# both create, and the next release then fails on two or more. A command that
+# opened one would break the same invariant from the other side.
+#
+# **The numbers are this script's and what they say is not.** `--post` refuses
+# without `--says`, because a command that invented the sentence would be
+# posting a judgment nobody made.
+ROLLING_LABEL = "flow-measurement"
+
+# The four states `skills/verify/SKILL.md` enumerates, plus the one it does not
+# because it is about the machine rather than the tracker.
+NO_HISTORY, LOG_CLOSED, ONE_OPEN, MANY_OPEN, UNREADABLE = (
+    "no history",
+    "closed",
+    "one open",
+    "many open",
+    "unreadable",
+)
+
+# `gh issue list` defaults to 30. A rolling log's open issue is the newest and
+# would survive that, but the `--state all` reading below counts history, and a
+# label with more than thirty closed logs would read as one that never existed.
+LOOKUP_LIMIT = 200
+
+
+def run_gh(args):
+    """`gh` with `args`, as `(exit code, stdout, stderr)`.
+
+    The one place this module touches a network, and the seam every case
+    below replaces. The exit code is read straight off the subprocess
+    (`agent-contract` §1) rather than through a pipe.
+
+    A `gh` that is not on PATH comes back with `None` for the code — a
+    different fact from a lookup that ran and failed, and the caller treats
+    both the same way on purpose.
+    """
+    try:
+        done = subprocess.run(
+            ["gh", *args], capture_output=True, encoding="utf-8", errors="replace"
+        )
+    except OSError as exc:
+        return None, "", str(exc)
+    return done.returncode, done.stdout, done.stderr
+
+
+def open_log(label):
+    """`(state, payload)` for the measurement log `label` declares.
+
+    One lookup, not two. The skill describes the `--state open` reading and
+    the `--state all` reading as two questions, which they are; `--state all`
+    answers both, because every open issue is in it. The payload is the issue
+    number for `ONE_OPEN`, the numbers for `MANY_OPEN`, and a sentence for
+    `UNREADABLE`.
+
+    **Measured 2026-09-22, which is what settles `NO_HISTORY`** (`questions.md`
+    Q1): `gh issue list --label <a label that exists nowhere> --state all`
+    exits **0 with empty stdout and empty stderr**. So an empty reading is the
+    label having no history, and a non-zero exit is a lookup that failed —
+    `gh` missing, no authentication, no repository. The two are not folded
+    together: the caller no-ops on both and says which happened.
+    """
+    code, out, err = run_gh(
+        [
+            "issue",
+            "list",
+            "--label",
+            label,
+            "--state",
+            "all",
+            "--limit",
+            str(LOOKUP_LIMIT),
+            "--json",
+            "number,state",
+        ]
+    )
+    if code != 0:
+        first = (err or out or "").strip().splitlines()
+        return UNREADABLE, (
+            "`gh` is not on PATH" if code is None else f"exit {code}"
+        ) + (f": {first[0]}" if first else "")
+    try:
+        issues = json.loads(out or "[]")
+    except ValueError as exc:
+        return UNREADABLE, f"the lookup's output is not the JSON it asked for: {exc}"
+    if not issues:
+        return NO_HISTORY, label
+    opened = [
+        i.get("number") for i in issues if str(i.get("state", "")).upper() == "OPEN"
+    ]
+    if not opened:
+        return LOG_CLOSED, label
+    if len(opened) > 1:
+        return MANY_OPEN, sorted(n for n in opened if n is not None)
+    return ONE_OPEN, opened[0]
+
+
+def comment_body(reading, says):
+    """The comment: what the numbers say, then the numbers.
+
+    The judgment first, because it is what a reader of the log came for, and
+    the reading fenced below it so the report's columns survive markdown.
+    """
+    return f"{says.strip()}\n\n```\n{reading.strip()}\n```\n"
+
+
+def read_says(source):
+    """The sentence the orchestrator wrote, from a file or from stdin."""
+    if source == "-":
+        return sys.stdin.read()
+    with open(source, encoding="utf-8", errors="replace") as handle:
+        return handle.read()
+
+
+def post(reading, says, label):
+    """Post `reading` and `says` to the one open issue carrying `label`.
+
+    Returns the exit code, and the direction of every refusal is the same one
+    `plan.md` states: it refuses rather than posts. A wrong refusal costs one
+    reading a person posts by hand, which is what they do today; a wrong post
+    writes into a repository's issue tracker, where the repair is a person
+    deleting a comment.
+
+    **Two of the five states exit 0 with nothing posted**, and that is not a
+    check going quiet. Most installed repositories never create the label, so
+    most segments end at `NO_HISTORY` — the skill calls that the expected case
+    rather than a missed one — and a machine with no `gh` on it is the same
+    shape. A command that went red there would be red for following the
+    document beside it, which is the one thing that makes people stop running
+    a check.
+    """
+    state, payload = open_log(label)
+    if state == UNREADABLE:
+        print(
+            f"the `{label}` lookup could not run ({payload}), so nothing was "
+            f"posted. Nothing failed either: this reads as a machine without "
+            f"`gh`, not as a log that went missing"
+        )
+        return 0
+    if state == NO_HISTORY:
+        print(
+            f"no issue has ever carried `{label}`, so this repository does "
+            f"not run that log. Nothing was measured, nothing was posted, "
+            f"nothing failed and nothing was opened"
+        )
+        return 0
+    if state == LOG_CLOSED:
+        print(
+            f"`{label}` has a history and nothing is open: the log stopped "
+            f"and nobody reopened it. Opening one is not a session's act — "
+            f"two sessions finishing segments at once would both read zero "
+            f"and both create, and the next release fails on two or more. "
+            f"Name this in the segment's own handover"
+        )
+        return 1
+    if state == MANY_OPEN:
+        named = ", ".join(f"#{n}" for n in payload)
+        print(
+            f"{len(payload)} issues carry `{label}` and exactly one may: "
+            f"{named}. Nothing was posted. A broken invariant is named rather "
+            f"than guessed past, so pick the current log by hand"
+        )
+        return 1
+
+    # `--body-file` rather than `--body`, because the body carries a fenced
+    # report and an argv has a length a comment does not. `delete=False` and
+    # an explicit unlink, because `gh` is a separate process and has to be
+    # able to open the path while this one holds it.
+    with tempfile.NamedTemporaryFile(
+        "w", suffix=".md", delete=False, encoding="utf-8"
+    ) as handle:
+        handle.write(comment_body(reading, says))
+        body_file = handle.name
+    try:
+        code, out, err = run_gh(
+            ["issue", "comment", str(payload), "--body-file", body_file]
+        )
+    finally:
+        os.unlink(body_file)
+    if code != 0:
+        where = "`gh` is not on PATH" if code is None else f"exit {code}"
+        print(
+            f"the comment on #{payload} was not posted ({where}): {(err or out).strip()}"
+        )
+        return 1
+    print(f"posted the segment's reading to #{payload}")
+    return 0
+
+
+def emit(args, render, path=None):
+    """Print the report, or capture it and post it. Returns the exit code.
+
+    **What is printed locally and what is posted are not the same text, and
+    the transcript's path is the difference.** A transcript lives at
+    `~/.claude/projects/-Users-x-<repo>/<session-id>.jsonl`, so the path
+    carries the account name twice and the session id once; `--post` writes
+    into an issue tracker, where the repair for a published one is a person
+    deleting a comment. `CONTRIBUTING.md` §*Hooks stay local and quiet*
+    states the repository's position on what may leave the machine — *anything
+    that would send repository contents, paths, or prompts is not on the
+    table* — and it binds hooks rather than this, which is why the rule is
+    written here rather than cited.
+
+    **The rule already existed in this file and reached one place of three.**
+    `main` prints `--latest`'s `# {path}` line BEFORE calling this, so that
+    line never enters the buffer. `report_segments` and `report_spawns` print
+    the path themselves, on the empty branch that fires whenever the named
+    transcript has no subagents beside it — which is every segment measured on
+    its own, the case the documented invocation is for. This is that same rule
+    at the seam all three reports pass through: the captured body carries the
+    basename, the printed report is untouched.
+
+    The longer form is replaced first, so a `path` given as absolute is not
+    half-substituted by its own relative spelling.
+
+    **The residual, stated rather than left to be found:** this replaces the
+    ONE path the reading was taken over. A future report line printing some
+    other absolute path would not be covered, and today none does — a segment
+    row's transcript is stored by `measure_segments` as `os.path.relpath`
+    against the file it was measured beside, so every row label is already
+    relative.
+    """
+    if not args.post:
+        render()
+        return 0
+    # Before the render, because a refusal that renders first spends the work
+    # to throw it away, and `--says -` answers at EOF either way.
+    says = read_says(args.says)
+    if not says.strip():
+        print(
+            f"`--says {args.says}` gave no reading, so nothing was posted. "
+            f"The numbers are this script's and what they say is not, and an "
+            f"empty reading posts a fence with nothing above it — which is "
+            f"the judgment nobody made that `--says` exists to refuse"
+        )
+        return 1
+    buffer = io.StringIO()
+    with contextlib.redirect_stdout(buffer):
+        render()
+    body = buffer.getvalue()
+    if path:
+        short = os.path.basename(str(path))
+        for form in (os.path.abspath(str(path)), str(path)):
+            body = body.replace(form, short)
+    return post(body, says, args.label)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("transcript", nargs="?")
@@ -1994,7 +2265,40 @@ def main():
     parser.add_argument("--json", action="store_true")
     parser.add_argument("--spawns", action="store_true")
     parser.add_argument("--segments", action="store_true")
+    parser.add_argument(
+        "--post",
+        action="store_true",
+        help="post this reading to the repository's measurement log instead "
+        "of printing it",
+    )
+    parser.add_argument(
+        "--says",
+        metavar="PATH",
+        help="the file holding what the numbers say, or `-` to read it from "
+        "stdin. Required by --post",
+    )
+    parser.add_argument(
+        "--label",
+        default=ROLLING_LABEL,
+        help=f"the label the log declares itself with (default: "
+        f"{ROLLING_LABEL}). The durable cross-version log is reachable the "
+        f"same way, under its own label",
+    )
     args = parser.parse_args()
+
+    if args.post and not args.says:
+        parser.error(
+            "--post needs --says. The numbers are this script's and what they "
+            "say is the orchestrator's judgment, so the sentence comes from a "
+            "file you name, or from stdin with `--says -`. A command that "
+            "invented one would be posting a sentence nobody wrote"
+        )
+    if args.post and args.json:
+        parser.error(
+            "--post and --json ask for different things: one posts a reading "
+            "to the log, the other prints it for a program to read. Run them "
+            "separately"
+        )
 
     path = args.transcript
     if args.latest:
@@ -2026,8 +2330,13 @@ def main():
         # count of its own: `load` gives tokens per TURN and the tokens a
         # spawn spent are in the subagent's own transcript, so a per-cycle
         # token column would be summing the wrong file.
-        report_spawns(spawns, path, len(calls), timings["span_s"] if timings else 0.0)
-        return 0
+        return emit(
+            args,
+            lambda: report_spawns(
+                spawns, path, len(calls), timings["span_s"] if timings else 0.0
+            ),
+            path,
+        )
     # The other transcripts of this run, one row each. Gated the way `spawns`
     # is — behind its own flag, and in `--json` regardless, so a
     # machine-readable reading is never missing it.
@@ -2057,8 +2366,7 @@ def main():
     # the six rows are a reading somebody asked for by name.
     segments = measure_segments(path, calls) if args.segments or args.json else None
     if args.segments and not args.json:
-        report_segments(segments, path)
-        return 0
+        return emit(args, lambda: report_segments(segments, path), path)
     # The whole run, not the transcript that was named: a token count covering
     # one segment is not comparable with one that covered a run, and #170 asks
     # for the row to be one command rather than one command per transcript.
@@ -2079,15 +2387,19 @@ def main():
     }
     if args.json:
         print(json.dumps(data, indent=2))
-    elif timings:
-        report(data)
-    else:
-        print(
-            "no paired tool call in this transcript, so there is no time to "
-            "report — what it spent is below\n"
-        )
-        report_tokens(tokens)
-    return 0
+        return 0
+
+    def render():
+        if timings:
+            report(data)
+        else:
+            print(
+                "no paired tool call in this transcript, so there is no time to "
+                "report — what it spent is below\n"
+            )
+            report_tokens(tokens)
+
+    return emit(args, render, path)
 
 
 if __name__ == "__main__":

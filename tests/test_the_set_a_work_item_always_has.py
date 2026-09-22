@@ -305,6 +305,70 @@ def test_the_cost_of_a_judgment_over_a_count_is_stated():
     )
 
 
+TODO_FILES = ("evidence-todo.md", "tests-todo.md")
+
+
+def _below_the_work_item(root):
+    """Every todo file sitting BELOW a work item's own directory.
+
+    The glob spelled once, so the sweep over this repository and the case
+    that plants a specimen ask the identical question. They used to be one
+    place because only the repository's own corpus was ever swept; the fold
+    removes every live specimen, and a sweep with nothing of its kind left in
+    range is a sweep nobody can tell from a broken one.
+    """
+    found = []
+    for name in TODO_FILES:
+        found += glob.glob(
+            os.path.join(root, "seal", "specs", "*", "*", "**", name), recursive=True
+        )
+    return found
+
+
+def _at_the_work_item(root):
+    """Every todo file at the level `fold_ledger.py`'s glob reads."""
+    found = []
+    for name in TODO_FILES:
+        found += glob.glob(os.path.join(root, "seal", "specs", "*", name))
+    return found
+
+
+def test_the_stray_sweep_sees_a_todo_file_one_level_down(tmp_path):
+    """Both layouts planted, and the two globs told apart.
+
+    Issue #96's defect is a todo file one directory deeper than the release
+    guard looks, and the sweep above is what catches it. What that sweep
+    could not catch is itself going blind: a glob that matches nothing
+    reports the same clean result whether the layout is right or the pattern
+    is wrong, and until now the only thing standing between those two
+    readings was that some work item in this repository happened to keep a
+    todo file at the top level. The fold retires all fourteen of them.
+
+    So the specimen is planted here. `rounds/` is the directory the two real
+    work items of #96 used, and it is the one a deeper layout reaches for,
+    because it is the only member of the set that is plural.
+    """
+    top = tmp_path / "seal" / "specs" / "1700000001-at-the-right-level"
+    deep = tmp_path / "seal" / "specs" / "1700000002-one-level-down" / "rounds"
+    top.mkdir(parents=True)
+    deep.mkdir(parents=True)
+    for name in TODO_FILES:
+        (top / name).write_text("| row |\n", encoding="utf-8")
+        (deep / name).write_text("| row |\n", encoding="utf-8")
+
+    stray = sorted(os.path.relpath(p, tmp_path) for p in _below_the_work_item(tmp_path))
+    assert stray == sorted(
+        os.path.join("seal", "specs", "1700000002-one-level-down", "rounds", name)
+        for name in TODO_FILES
+    ), stray
+
+    at_level = sorted(os.path.relpath(p, tmp_path) for p in _at_the_work_item(tmp_path))
+    assert at_level == sorted(
+        os.path.join("seal", "specs", "1700000001-at-the-right-level", name)
+        for name in TODO_FILES
+    ), at_level
+
+
 def test_the_two_todo_files_sit_where_the_release_guard_looks():
     """A glob is a claim about layout, and nothing checked the layout.
 
@@ -323,32 +387,21 @@ def test_the_two_todo_files_sit_where_the_release_guard_looks():
     This pins the layout the glob assumes rather than the glob, because the
     glob is one line and the layout is written by hand once per work item.
     """
-    stray = sorted(
-        glob.glob(
-            os.path.join(ROOT, "seal", "specs", "*", "*", "**", "tests-todo.md"),
-            recursive=True,
-        )
-        + glob.glob(
-            os.path.join(ROOT, "seal", "specs", "*", "*", "**", "evidence-todo.md"),
-            recursive=True,
-        )
-    )
+    stray = sorted(_below_the_work_item(ROOT))
     assert not stray, (
         "a todo file sits below the work item's own directory, where "
         "`fold_ledger.py`'s glob cannot see it: "
         f"{[os.path.relpath(p, ROOT) for p in stray]}. The release guard "
         "reads `seal/specs/*/evidence-todo.md`, one level only"
     )
-    assert glob.glob(os.path.join(ROOT, "seal", "specs", "*", "evidence-todo.md")), (
-        "no evidence-todo file at the work-item level at all — this case is "
-        "blind, and would stay green if every one of them moved. "
-        "`fold_ledger.py` globs this filename and no other"
-    )
-    assert glob.glob(os.path.join(ROOT, "seal", "specs", "*", "tests-todo.md")), (
-        "no tests-todo file at the work-item level either. The stray glob "
-        "above covers both names, so both need a live specimen or half of it "
-        "is unexercised"
-    )
+    # The two `assert glob(...)` lines that stood here demanded a live
+    # specimen of each todo file in this repository's own corpus, so that the
+    # sweep above was not sweeping a corpus with nothing of its kind in it.
+    # `settle --retire` takes every one of them — 6 evidence-todo and 8
+    # tests-todo files, all in retired work items — and a corpus this case
+    # does not control was never the right place to keep a specimen anyway.
+    # `test_the_stray_sweep_sees_a_todo_file_one_level_down` below plants
+    # both layouts and asserts the same glob tells them apart.
 
 
 # --- the approval, and who writes each member of the set --------------------

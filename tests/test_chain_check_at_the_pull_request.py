@@ -20,7 +20,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import load_hook_module, symlink_or_skip
+from conftest import load_hook_module, on_disk, symlink_or_skip
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -2181,6 +2181,58 @@ def _real_records(root=ROOT):
     return sorted(p for p in out.split("\0") if RECORD_PATH_RE.fullmatch(p))
 
 
+def _the_walk_found_every_committed_record(records, what):
+    """The population guard for a sweep of this repository's own records.
+
+    It replaces `assert len(records) > 200` at the two sweeps below. The
+    floor was answering the right question — *did the walk read anything* —
+    with a literal that stops being true the moment the corpus shrinks, and
+    `settle --retire` shrank it from 263 records to 7 in one commit. A floor
+    lowered to fit is a comment (`skills/settle/SKILL.md` §3), so the
+    question is asked against the tree instead.
+
+    **Two independent routes to the same population.** The sweeps build
+    `records` by walking `seal/specs/` on disk; this compares that against
+    `_real_records()`, which is `git ls-tree HEAD`. Neither can go quiet
+    without the other noticing, and the comparison says nothing about how
+    many records there are — it holds at 263 and at 7.
+
+    **`on_disk` before the comparison, for the reason it exists.** A record
+    git carries at HEAD and the working tree has deleted is listed with
+    nothing behind it (#432, #282), and that is the ordinary state at step 3
+    of `docs/release-checklist.md`. Comparing the raw listing against a walk
+    of the disk would report every such path as a record the walk missed,
+    which is a fact about the release sequence rather than about the sweep.
+
+    **The walk may hold MORE than the listing.** A record written and not yet
+    committed is on disk and not at HEAD, which is the ordinary state of a
+    review round mid-flight. So the assertion is that the walk covers the
+    committed corpus, not that the two sets are equal.
+    """
+    listed, _missing = on_disk(
+        ROOT,
+        [
+            p
+            for p in _real_records()
+            if re.fullmatch(r"round-\d+\.md", os.path.basename(p))
+        ],
+    )
+    assert listed, (
+        f"no round record is committed under seal/specs/, so {what} reads "
+        "nothing and is green over an empty corpus"
+    )
+    # git names a path with `/` on every platform and a walk joins with
+    # `os.sep`, so the comparison is made on one spelling. The doubled-grounds
+    # sweep passed its paths unnormalised and this reported all 15 committed
+    # records as missed on windows alone.
+    walked = {rel.replace(os.sep, "/") for rel in records}
+    unwalked = sorted(set(listed) - walked)
+    assert not unwalked, (
+        f"{len(unwalked)} committed record(s) the tree still has did not "
+        f"reach {what}: {unwalked[:3]}"
+    )
+
+
 def _numbered(routing, records):
     """The RECORDS among `records`, by name.
 
@@ -2646,7 +2698,7 @@ def test_the_records_in_this_repository_carry_no_doubled_grounds():
         for name in names
         if re.fullmatch(r"round-\d+\.md", name)
     ]
-    assert len(records) > 200, f"the walk found {len(records)} records"
+    _the_walk_found_every_committed_record(records, "the doubled-grounds sweep")
     named = []
     for rel in sorted(records):
         errors, _notices = check.doubled_grounds(reader, ROOT, rel.replace(os.sep, "/"))
@@ -2822,7 +2874,7 @@ def test_the_records_in_this_repository_are_not_failed_by_the_new_row(repo):
         for name in names
         if re.fullmatch(r"round-\d+\.md", name)
     ]
-    assert len(records) > 200, f"the walk found {len(records)} records"
+    _the_walk_found_every_committed_record(records, "the fix-range sweep")
     failed, printed_without_a_row, carrying = [], 0, []
     for rel in sorted(records):
         errors, notices = check.fix_range(reader, ROOT, rel)
@@ -2849,9 +2901,146 @@ def test_the_records_in_this_repository_are_not_failed_by_the_new_row(repo):
     # this branch makes it the state of the one record carrying the row. A
     # subtraction asserts that such a record prints nothing, which is the
     # opposite of what this module documents (round 2's 🔴 1).
-    assert carrying, "no record in this tree carries the row, so nothing is read"
+    # `assert carrying` stood here and the fold took its subject away. Every
+    # one of the 34 records carrying the row belonged to a work item the
+    # retirement removed, because the row is younger than every work item
+    # kept — so the assertion is not weakened here, it is MOVED to
+    # `test_a_record_carrying_the_row_is_read_and_one_without_it_prints`
+    # below, where the two-way split is exercised over a record this case
+    # builds. What stays here is the real-corpus half the fold cannot empty:
+    # no shipped record is failed by the row, and every record without one
+    # prints rather than going quiet.
     assert printed_without_a_row == len(records) - len(carrying), (
         f"{printed_without_a_row} notices over {len(records) - len(carrying)} "
         "records with no row: a record that predates the row has to print, "
         "not go quiet"
+    )
+
+
+# --- a declaration the pull request RETIRED (#497) ---------------------------
+
+
+def retired_item(repo, item, marker=True):
+    """A declared, reviewed work item that this branch then folds away.
+
+    The shape `settle --retire` leaves: the declaration is on the base branch,
+    the branch removes the whole directory, and `docs/` carries the marker
+    saying a policy document absorbed the spec first.
+    """
+    git(repo, "switch", "-q", "base")
+    write(repo, f"{item}/routing.md", declaration())
+    write(repo, f"{item}/rounds/round-1.md", "# round 1\n")
+    commit(repo, "a work item, declared and reviewed")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "merge", "-q", "base")
+    shutil.rmtree(repo / item)
+    if marker:
+        write(
+            repo,
+            "docs/a-policy.md",
+            f"# a policy\n\nA rule that still governs.\n\n"
+            f"<!-- specs/{os.path.basename(item)} -->\nThe folded sentence.\n",
+        )
+    commit(repo, "fold and retire")
+
+
+def test_a_declaration_this_branch_retired_is_not_one_it_made(repo):
+    """#497's first fold put 88 retired declarations in one diff and this
+    check failed all 88.
+
+    A `routing.md` that `settle --retire` removed is in the diff as a
+    deletion and absent at HEAD, which is what the refusal below reads — but
+    the work item it declared was reviewed at its own pull request, long
+    before this branch existed. That is the judgment `changed_routing`
+    already makes for a rename, arriving for the other way a declaration
+    leaves a diff.
+
+    The marker is the only thing that can tell the two apart, because a fold
+    and a plain deletion both leave the file absent here.
+    """
+    retired_item(repo, "seal/specs/1788000000-a-folded-item")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "retired:" in out, out
+    assert "1788000000-a-folded-item" in out, out
+    assert "its own pull request" in out, out
+    assert "does not carry this file at HEAD" not in out, (
+        "a retired declaration is still being refused as a missing one"
+    )
+
+
+def test_a_deleted_declaration_with_no_marker_is_still_refused(repo):
+    """The half that keeps the refusal's teeth.
+
+    A directory removed with nothing absorbing it is not a fold, and it is
+    exactly what the original refusal was written for. If this passed, the
+    arm above would be excusing every deletion rather than a retirement.
+    """
+    retired_item(repo, "seal/specs/1788000000-a-deleted-item", marker=False)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "does not carry this file at HEAD" in out, out
+    assert "retired:" not in out, out
+
+
+def test_a_record_carrying_the_row_is_read_and_one_without_it_prints(repo):
+    """The two-way split, over records this case builds rather than over
+    whatever the repository happens to hold.
+
+    `assert carrying` used to sit in the sweep above and assert that the real
+    corpus had a specimen of each kind, so that the subtraction beside it was
+    comparing two non-empty groups. The `Fix range` row is younger than every
+    work item the fold keeps, so all 34 of its carriers left in one commit and
+    the assertion had no subject at all. Re-pointed here, where both kinds
+    exist because this case writes them, the split is pinned for good instead
+    of for as long as a carrier happens to survive.
+
+    The item with no row is begun a second BEFORE the cutoff. A record owing
+    the row and not carrying it is failed rather than printed, which is a
+    different case (`test_a_missing_fix_range_row_fails_a_work_item_begun_
+    after_the_cutoff`); what this one needs is the grandfathered state, where
+    a record with no row prints and is not refused.
+    """
+    check = load_by_path(CHECK, "specseal_chain_check_for_the_split")
+    reader = load_by_path(
+        os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py"),
+        "specseal_reader_for_the_split",
+    )
+    check.WORKTREE = True
+    first, _second = ranged(repo, RANGE_FROM, lambda a, b: f"`{a}..{b}`, 1 commit")
+    older = gated_item(RANGE_FROM - 1, slug="an-item-with-no-row")
+    write(repo, f"{older}/routing.md", declaration())
+    write(
+        repo,
+        f"{older}/rounds/round-1.md",
+        gated_record(first, gate=f"{first} against base"),
+    )
+    commit(repo, "a record from before the row existed")
+
+    records = sorted(
+        os.path.relpath(os.path.join(d, name), str(repo)).replace(os.sep, "/")
+        for d, _dirs, names in os.walk(os.path.join(str(repo), "seal", "specs"))
+        for name in names
+        if re.fullmatch(r"round-\d+\.md", name)
+    )
+    failed, printed_without_a_row, carrying = [], 0, []
+    for rel in records:
+        errors, notices = check.fix_range(reader, str(repo), rel)
+        failed.extend(errors)
+        with open(os.path.join(str(repo), rel), encoding="utf-8") as f:
+            carries = f"| {check.FIX_RANGE} |" in f.read()
+        if carries:
+            carrying.append(rel)
+        else:
+            printed_without_a_row += len(notices)
+
+    assert len(records) == 2, records
+    assert not failed, failed
+    assert len(carrying) == 1, (
+        "the walk found no record carrying the row, so the group the "
+        f"subtraction below excludes is empty: {records}"
+    )
+    assert printed_without_a_row == len(records) - len(carrying), (
+        f"{printed_without_a_row} notices over one record with no row: a "
+        "record that predates the row has to print, not go quiet"
     )

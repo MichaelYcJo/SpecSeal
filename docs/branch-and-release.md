@@ -33,6 +33,7 @@ Check both agree before announcing anything:
 git describe --tags   # must name the release, not "<tag>-N-g<sha>"
 ```
 
+<!-- specs/1788302682-the-release-check-never-watched-bin -->
 Two checks enforce the half that can be: `tests/test_chain_hooks_hardening.py`
 binds the changelog to whatever `plugin.json` says, and the `hygiene` workflow
 fails a release PR — one whose base is `main` — that changes `skills/`,
@@ -80,6 +81,7 @@ have to check at the merge button, so the ruleset does not offer the choice.
 
 **What breaks when the last row is squashed** — measured. A squash
 discards every commit the release branch wrote, and two things point at those
+<!-- specs/1788826000-a-stamp-names-content-not-a-commit -->
 commits by SHA: the `Verified … at <sha>` stamp on every `# RIDER:` comment,
 and the `Target SHA` field in every `round-N.md`. After the squash the stamp
 resolves for nobody, which removes the one way a reader has to tell a live
@@ -87,6 +89,30 @@ rider from a spent one; `tests/test_a_rider_reaches_its_file.py` went red for
 exactly that, and the patch release after it exists to fix one line. The
 round records survived only
 because their feature branches had been restored to the remote first.
+
+**A third reader points at those commits now, and it is outside this
+repository.** A plugin directory lists an external plugin by pinning a commit
+of its source repository — measured 2026-09-22 over one directory's 310
+entries, 258 point outward and **every one of them carries a `sha`**, while
+the other 52 name a path inside the directory's own repository and pin nothing
+at all. Ninety-six of the 258 also carry a `ref`, and 91 of those name `main`
+or `master`, so the `sha` is what a reader resolves. The counts and the
+command that produced them are in
+`seal/specs/1790076050-the-release-tail-is-three-acts-no-document-names/phases/phase-3.md`.
+So the rule above stopped being only about readers this repository can fix.
+Breaking it now also breaks a consumer nobody here can reach, and the people
+it reaches are people the owner cannot name — which is the same failure as
+the release that shipped untagged, with the half that made that one visible
+removed.
+`docs/release-checklist.md` §6 carries the box that reads what is pinned.
+
+**The plugin's name is fixed, and that is not a style question.** Everybody
+already running it installed it under its slug, so renaming it breaks their
+install — and a directory listing is keyed on the same name, so a rename reads
+there as the plugin having vanished rather than as the plugin having moved.
+`.claude-plugin/plugin.json` holds the one copy; nothing else in the tree
+should spell it, which is why the directory check reads the name out of that
+file instead of carrying a literal.
 
 **This is enforced, and it was not always.** Two rulesets do it, because the
 repository-wide merge-method setting cannot: that setting is one switch for

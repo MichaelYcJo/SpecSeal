@@ -65,6 +65,8 @@ this branch and a squash merge like any other work.
 
 ## 2. Gather, fold, bump
 
+<!-- specs/1788326734-the-ledger-fragments-are-never-gathered -->
+
 ```bash
 python3 .github/scripts/gather_changelog.py --dry-run --version X.Y.Z
 python3 .github/scripts/fold_ledger.py --dry-run --version X.Y.Z
@@ -116,6 +118,7 @@ tests that scan `CHANGELOG.md`, and the first time `seal/ledger/` is empty.
 Both found something the first time. So the whole gate runs on this tree, and
 every exit code is read directly rather than through a `| tail`.
 
+<!-- specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep -->
 It is also a tree where git lists tracked files the disk does not have: the
 fold removes each fragment and nothing has staged the removal yet. The sweeps
 that walk a git listing judge what remains instead of stopping at the first of
@@ -181,6 +184,38 @@ green without a push. Press ***Create a merge commit***, never squash: the
 review records and rider stamps name the release branch's commits by SHA, and a
 squash discards them.
 
+### What a release pull request is not the right range for
+
+<!-- specs/1788890000-the-survivor-step-runs-on-a-range-no-fix-pass-wrote -->
+**The survivor check's unit is a fix pass's range, and a release is not
+one.** A pull request into the default branch carries the union of every work
+item the release holds, so one item's removed wording is scored against
+another item's prose — and each of those items was already checked at its own
+pull request. The release that shipped the check found this the only way it
+could be found, by failing its own release pull request with 72 places
+reported and not one of them a survivor of the range that removed the
+wording. So the step passes on that base and **prints why**: a job-level skip
+reads as *did not run*, and that is the state where the next reader deletes a
+guard nobody can explain.
+
+<!-- specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer -->
+**A loaded file naming a version at or above the running one is a timer.** A
+document that names a version which does not exist yet goes red on the commit
+that writes it rather than on the release that ships it, so the refusal
+covers every version at or above the running one rather than the running one
+alone. Three exemptions, each argued where the rule is: the illustrative
+version this repository already writes, records of a moment under
+`docs/experiments/`, and a version belonging to another product.
+
+<!-- specs/1789919879-the-outside-contributor-has-no-procedure -->
+**A contributor whose base is wrong is told the base is wrong.** The
+procedure a contributor needs is the first thing in the contributing guide,
+not the fourth: which branch to base on and how to find it, what they do, and
+what they are not asked to do. A pull request template carries the
+base-branch fact itself rather than only a link, because its whole advantage
+is that it reaches somebody who opened no document — and the refusal message
+of the check that fires on a wrong base says which fact is wrong.
+
 ## 6. After the merge
 
 ```bash
@@ -190,6 +225,53 @@ git describe --tags     # names the release, not "<tag>-N-g<sha>"
 
 The version hook reads tags and nothing else; an untagged release is one no
 installed session is ever told about.
+
+**This section used to stop here, and that is what #386 measured.** Two acts
+come after the tag, and neither was written down anywhere: publishing the
+release note, which three consecutive releases skipped, and telling the plugin
+directory, which had no step at all because until 2026-09-16 there was no
+directory to tell. Both are boxes now, and each carries the command that
+answers it — a box a reader cannot act on is the same defect one layer up.
+
+```bash
+gh release view vX.Y.Z                              # did the note publish
+python3 .github/scripts/plugin_directory_check.py   # what the directory has
+```
+
+- [ ] **A GitHub Release exists at `vX.Y.Z`** — `gh release view vX.Y.Z`.
+      The tag push fires `.github/workflows/publish-release.yml`, which
+      publishes it from the `## X.Y.Z` section step 2 already gathered, with
+      the title taken from the `release: X.Y.Z — <symptoms>` line step 5
+      prescribes. **This box confirms the workflow fired; it is not where the
+      note gets written.** Nothing there means the job went red or never ran,
+      and `gh run list --workflow publish-release.yml` says which. The one
+      direction that job fails in is a tag whose version `CHANGELOG.md`
+      carries no section for, which is step 2 not having happened.
+- [ ] **The plugin directory's answer has been read** —
+      `python3 .github/scripts/plugin_directory_check.py`. It says, per
+      directory, whether this plugin is listed, which commit the entry pins,
+      and whether that commit is an ancestor of `main`. **It reports and never
+      fails**, deliberately: the directories sync on somebody else's schedule,
+      one of the two has gone twenty-eight days without a commit, and a red
+      nobody can act on is what `CLAUDE.md`'s first goal is against. Not
+      listed means submitting it through the form the command names, which is
+      a person's act, once. Listed while pinning an older commit means the
+      directory has not caught up — resubmit through the same form. Whether an
+      update reaches a listed plugin on its own is readable from nowhere
+      public — the work item that built this box carries it as an open
+      question — and resubmitting is unnecessary under one answer and never
+      wrong under either.
+
+<!-- specs/1788789330-the-update-notice-names-the-expensive-move -->
+**A notice telling somebody an update landed names the move it costs them.**
+An installed copy is what a session loads, so an update that has landed on
+disk is not an update that is in force until the session reloads — and
+reloading is the expensive part, not the install. Every place this repository
+tells a user what to do after an update names the reload command, says what a
+reload was measured to do, and says what nobody has measured about it. A
+session-start hook writes into a session and cannot type into one, so running
+it for the user is not on offer, and a notice that leaves the cost out reads
+as though there were none.
 
 The close-issues workflow has already run by now. It fires when `main` moves,
 which is the merge above rather than anything you do here, and it reads the
