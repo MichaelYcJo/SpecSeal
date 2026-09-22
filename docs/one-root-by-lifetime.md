@@ -593,3 +593,18 @@ table above.
 | 1 | Plugin name | keep SpecSeal · rename | rename costs the URL, marketplace entry, `plugin.json`, hook prefixes, install docs, three tags of history; 0.4.0 is the one cheap moment | keep SpecSeal |
 | 2 | Root name | `seal/` · `.seal/` | the items in flight are what people read while a pull request is open, which argues for the visible row beside `docs/`; a dot only if footprint wins | `seal/` |
 | 3 | Sub-directory name | `specs/` · `work/` · a metaphor | it must say what it holds to a first-time reader | `specs/` |
+
+## Decided when `settle` was built (2026-09-22)
+
+The text above is a record of 2026-09-02 and is not rewritten. This is what
+#458 settled while building the step that document described, in the same
+shape *Decided after the thread* uses.
+
+| Decision | Answer | What it corrects above |
+|---|---|---|
+| What `settle` is | a skill with a command beside it, not a script. The command reads and groups; the session judges which sentences are still true and writes them. `skills/settle/SKILL.md` is the procedure, `skills/settle/scripts/settle.py` the reader, `bin/settle` the command | §*What keeps `settle` light* said the step moves and does not verify, and left open who does the moving. Nothing mechanical can decide what is still true, so the two halves have two owners |
+| Where the fold record lives | the `<!-- specs/<id> -->` comment the folded sentence already carries in its `docs/` document. No second file | §*What happens at a release* step 2 named the comment as provenance only. Deriving the record from the destination is also what makes an interrupted run resumable: folded, and folded-and-retired, are two states the tree itself answers |
+| What groups | the file a work item's ledger coordinates anchor in, by majority over its non-`tests/` anchors. A `tests/` anchor rolls up to the code the case pins; an item anchored only under `tests/`, or with no ledger row, is named rather than guessed at | nothing above said. Measured on this repository when the mechanism shipped: 97 released work items, 81 grouped into 37 segments, 16 named |
+| What a removal actually breaks | §*The dependency rule*'s two readers are **not** the whole list. Both changed — `unverified_check.py --baseline` now reads the fold record and names a folded directory instead of reporting it, and `gather_changelog.py --check` now counts the markers in `CHANGELOG.md` and refuses a corpus carrying neither. Beyond them: the survivor sweep, which has `seal/specs/` outside `rounds/` in its corpus, and every check in a repository carrying a **population floor** over that corpus | §*The dependency rule* was written when this repository had 13 work items. At 98 it had 14 test modules reading the corpus and at least 6 with a floor a fold turns red. The general rule is in `skills/settle/SKILL.md`, because any repository running this methodology accumulates the same shape |
+| Who may write in `docs/` | the `implement` skill's layout table now says a work item creates no `docs/` document and `settle` is the one writer that does | the *never created here* sentence, which the table above already listed as one to correct |
+| Whether the mechanism's own release folds this repository | no. The mechanism shipped and nothing was removed; the fold of the accumulated work items is its own work item | nothing above said. Putting both in one pull request means one review round judges a mechanism and nine segments of policy prose at once, on a tree whose suite that same commit had just shortened |

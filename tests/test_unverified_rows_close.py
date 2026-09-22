@@ -1233,3 +1233,283 @@ def test_the_documents_state_the_merge_base_footing(doc):
         f"{doc} describes `unverified-check --baseline` and does not say the "
         "comparison is against the merge base"
     )
+
+
+# --- a fold is not this branch's deletion ----------------------------------
+
+
+def fold_into_docs(repo, work_item_id, document="a-segment.md"):
+    """Record `work_item_id` as folded, the way `settle`'s procedure does.
+
+    The fold record is the provenance comment the folded prose carries in
+    `docs/`, which is the marker `.github/scripts/fold_ledger.py#marker` and
+    `.github/scripts/gather_changelog.py#marker` already write. Nothing else
+    is written: a record derived from the destination cannot disagree with
+    it, which is why there is no second file to keep in step.
+    """
+    docs = repo / "docs"
+    docs.mkdir(exist_ok=True)
+    (docs / document).write_text(
+        f"# a segment\n\nOne standing statement.\n<!-- specs/{work_item_id} -->\n",
+        encoding="utf-8",
+    )
+
+
+def test_a_folded_work_item_is_not_read_as_this_branchs_deletion(tmp_path, capsys):
+    """A1. `settle` removes a released work item's directory after its SDD set
+    has been folded into `docs/`, and this arm used to call that a deletion —
+    97 of them in one commit, which is what made the fold impossible rather
+    than merely noisy.
+
+    The discriminator is the fold record, not the removal: a directory whose
+    work item carries no marker anywhere in `docs/` is still this branch's
+    deletion and still fails."""
+    d, p = git_repo(tmp_path, CANONICAL)
+    other = d / "specs" / "1780000001-other"
+    other.mkdir(parents=True)
+    (other / "overview.md").write_text("# o\n\n" + CANONICAL, encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qm", "two"], check=True, capture_output=True
+    )
+    shutil.rmtree(os.path.dirname(p))
+    fold_into_docs(d, "1780000000-work")
+    assert run([str(d), "--baseline", "HEAD"]) == 0
+    out = capsys.readouterr().out
+    assert "present at HEAD and not here" not in out
+    assert "1780000000-work" in out and "folded" in out, (
+        f"the run says nothing about the directory it stopped reporting: {out}"
+    )
+
+
+def test_an_unfolded_removal_beside_a_folded_one_still_fails(tmp_path, capsys):
+    """The other half of A1, and the one that keeps the exemption from being
+    a way past the check: two directories leave in one commit and only one of
+    them has been absorbed by a policy document."""
+    d, p = git_repo(tmp_path, CANONICAL)
+    for name in ("1780000001-other", "1780000002-third"):
+        other = d / "specs" / name
+        other.mkdir(parents=True)
+        (other / "overview.md").write_text("# o\n\n" + CANONICAL, encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qm", "three"], check=True, capture_output=True
+    )
+    shutil.rmtree(os.path.dirname(p))
+    shutil.rmtree(str(d / "specs" / "1780000001-other"))
+    fold_into_docs(d, "1780000000-work")
+    assert run([str(d), "--baseline", "HEAD"]) == 1
+    out = capsys.readouterr().out
+    assert "1780000001-other" in out and "present at HEAD and not here" in out
+    assert "1780000000-work/overview.md" not in out.split("rows left the record")[-1]
+
+
+def test_a_marker_quoted_in_prose_is_not_a_fold_record(tmp_path, capsys):
+    """The line-anchored test `fold_ledger.py#is_marked` already pays for: a
+    document that quotes the marker's shape inline, which every document
+    describing the convention does, must not read as a fold."""
+    d, p = git_repo(tmp_path, CANONICAL)
+    other = d / "specs" / "1780000001-other"
+    other.mkdir(parents=True)
+    (other / "overview.md").write_text("# o\n\n" + CANONICAL, encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qm", "two"], check=True, capture_output=True
+    )
+    shutil.rmtree(os.path.dirname(p))
+    docs = d / "docs"
+    docs.mkdir()
+    (docs / "how-it-works.md").write_text(
+        "Each folded sentence carries `<!-- specs/1780000000-work -->` inline.\n",
+        encoding="utf-8",
+    )
+    assert run([str(d), "--baseline", "HEAD"]) == 1
+    assert "present at HEAD and not here" in capsys.readouterr().out
+
+
+def test_a_marker_inside_a_fenced_block_is_not_a_fold_record(tmp_path):
+    """Round 1's 🔴. The line anchor says the marker stands alone on its line
+    and never says the line is prose, so a document that QUOTES the convention
+    in a fenced block satisfied the removal guard.
+
+    The shape is the project's own: `skills/settle/SKILL.md` §2 — the one
+    document a session reads before it folds — shows the marker inside a
+    fenced block with a real released work item id, so a session copying that
+    example into the policy it is writing hands `settle --retire` a real
+    directory to delete. Measured before the fix: the retirement removed it at
+    exit 0."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a-policy.md").write_text(
+        "# a segment\n\nEach folded sentence carries its comment:\n\n"
+        "```markdown\n<!-- specs/1780000000-work -->\nA standing statement.\n```\n",
+        encoding="utf-8",
+    )
+    assert uc.folded_items(str(tmp_path)) == set()
+    # Positive direction in the same fixture, so the fix cannot be "find
+    # nothing ever": a marker outside the fence is still a fold record.
+    (docs / "b-policy.md").write_text(
+        "# another\n\n<!-- specs/1780000001-other -->\nA standing statement.\n",
+        encoding="utf-8",
+    )
+    assert uc.folded_items(str(tmp_path)) == {"1780000001-other"}
+
+
+@pytest.mark.parametrize(
+    "body, found",
+    [
+        ("<!-- specs/x-1 -->\n", {"x-1"}),
+        ("```markdown\n<!-- specs/x-2 -->\n```\n", set()),
+        ("~~~\n<!-- specs/x-3 -->\n~~~\n", set()),
+        # A ``` inside a ```` block does not close it, which is CommonMark and
+        # which `blank_fences` already implements — the reason this reuses
+        # that reader instead of writing a second one.
+        ("````\n```markdown\n<!-- specs/x-4 -->\n```\n````\n", set()),
+        ("```\n<!-- specs/x-5 -->\n", set()),
+        ("```\nx\n```\n<!-- specs/x-6 -->\n", {"x-6"}),
+        ("see `<!-- specs/x-7 -->` here\n", set()),
+    ],
+)
+def test_every_fence_shape_a_policy_document_can_carry(tmp_path, body, found):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a.md").write_text(body, encoding="utf-8")
+    assert uc.folded_items(str(tmp_path)) == found
+
+
+def test_the_shipped_skill_copied_into_docs_records_no_fold(tmp_path):
+    """The class rather than the instance. `skills/settle/SKILL.md` is what a
+    session reads before it writes the policy, and its worked example carries
+    a real released work item id. Pasting the skill itself into `docs/` is the
+    worst case a copy can produce, and it must record nothing."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    skill = os.path.join(ROOT, "skills", "settle", "SKILL.md")
+    with open(skill, encoding="utf-8") as f:
+        text = f.read()
+    assert "<!-- specs/" in text, (
+        "the skill no longer shows the marker, so this case is vacuous — it "
+        "exists because the skill's own example is the reachable path"
+    )
+    (docs / "pasted.md").write_text(text, encoding="utf-8")
+    assert uc.folded_items(str(tmp_path)) == set()
+
+
+def test_a_marker_below_the_top_level_of_docs_is_not_a_fold_record(tmp_path):
+    """`spec.md` G2 and `skills/settle/SKILL.md` §2 fix the destination as a
+    flat `docs/`, so a fold never writes below the top level and a marker
+    below it is somebody's notes. This repository's own `docs/experiments/` is
+    four scratch files, and a quoted marker in one of them excused a removal
+    nothing absorbed."""
+    docs = tmp_path / "docs"
+    (docs / "experiments").mkdir(parents=True)
+    (docs / "experiments" / "2026-09-03-a-note.md").write_text(
+        "<!-- specs/1780000000-work -->\n", encoding="utf-8"
+    )
+    assert uc.folded_items(str(tmp_path)) == set()
+    (docs / "a-policy.md").write_text(
+        "<!-- specs/1780000000-work -->\n", encoding="utf-8"
+    )
+    assert uc.folded_items(str(tmp_path)) == {"1780000000-work"}
+
+
+def test_the_folded_line_reads_as_a_sentence(tmp_path, capsys):
+    """§14: the line a person reads in the hygiene workflow's output. It
+    carried a space before its comma and nothing pinned it, so nothing would
+    have caught it changing either."""
+    d, p = git_repo(tmp_path, CANONICAL)
+    other = d / "specs" / "1780000001-other"
+    other.mkdir(parents=True)
+    (other / "overview.md").write_text("# o\n\n" + CANONICAL, encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qm", "two"], check=True, capture_output=True
+    )
+    shutil.rmtree(os.path.dirname(p))
+    fold_into_docs(d, "1780000000-work")
+    assert run([str(d), "--baseline", "HEAD"]) == 0
+    out = capsys.readouterr().out
+    assert "<!-- specs/1780000000-work -->, so what this" in out, out
+    assert " --> ," not in out, f"a space before the comma: {out}"
+
+
+def test_a_marker_inside_a_commented_out_draft_is_not_a_fold_record(tmp_path):
+    """Round 2's 🔴, and the other half of round 1's. A line stops being live
+    two ways: a fence is a quotation and an enclosing comment is a parked
+    draft. Round 1 closed the first; this closes the second.
+
+    Measured before the fix: a `docs/` document with a draft section commented
+    out around a real marker made `settle --retire` remove the directory at
+    exit 0, nothing having absorbed it."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a-policy.md").write_text(
+        "# a segment\n\n<!-- a draft section, parked\n\n"
+        "<!-- specs/1780000000-work -->\nA statement nobody has agreed to.\n\n-->\n",
+        encoding="utf-8",
+    )
+    assert uc.folded_items(str(tmp_path)) == set()
+    (docs / "b-policy.md").write_text(
+        "<!-- specs/1780000001-other -->\nA standing statement.\n", encoding="utf-8"
+    )
+    assert uc.folded_items(str(tmp_path)) == {"1780000001-other"}
+
+
+@pytest.mark.parametrize(
+    "body, found",
+    [
+        # A marker is itself a comment, which is why the state a line STARTED
+        # in is the question and the line's surviving text is not.
+        ("<!-- specs/c-1 -->\n", {"c-1"}),
+        ("<!-- parked\n<!-- specs/c-2 -->\n-->\n", set()),
+        # The draft closes before the marker, so the marker is live again.
+        ("<!-- parked\n-->\n<!-- specs/c-3 -->\n", {"c-3"}),
+        # An unclosed comment runs to the end of the file.
+        ("<!-- parked\n<!-- specs/c-4 -->\n", set()),
+        # Opened and closed on one line before the marker on the next.
+        ("<!-- a note --> and prose\n<!-- specs/c-5 -->\n", {"c-5"}),
+        # Both ways of not being live at once.
+        ("<!-- parked\n```\n<!-- specs/c-6 -->\n```\n-->\n", set()),
+    ],
+)
+def test_every_comment_shape_a_policy_document_can_carry(tmp_path, body, found):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a.md").write_text(body, encoding="utf-8")
+    assert uc.folded_items(str(tmp_path)) == found
+
+
+def test_one_comment_scanner_serves_both_readers():
+    """The refactor this fix rests on. `strip_comments` wants the text and
+    `opens_outside_a_comment` wants the state the line started in; a second
+    copy of the walk is what `check_text`'s docstring spent three review
+    rounds undoing, and #487 is the open ticket for the last pair that got
+    written twice.
+
+    So this asks that the two views still come out of one scan, and that
+    `strip_comments` answers exactly what it answered before."""
+    lines = [
+        "prose <!-- open",
+        "still inside",
+        "closed --> and prose again",
+        "<!-- specs/x-1 -->",
+    ]
+    assert uc.strip_comments(lines) == [
+        "prose ",
+        "",
+        " and prose again",
+        "",
+    ]
+    assert uc.opens_outside_a_comment(lines) == [True, False, False, True]
+    scanned = list(uc.comment_scan(lines))
+    assert [kept for _, kept in scanned] == uc.strip_comments(lines)
+    assert [began for began, _ in scanned] == uc.opens_outside_a_comment(lines)
+
+
+def test_readable_would_erase_every_fold_record():
+    """Why the pair `check_text` uses is the wrong reader here, asked of the
+    code rather than asserted in a comment. Round 2 confirmed the rejection by
+    execution and this is the standing form of it."""
+    marker = ["<!-- specs/1780000000-work -->", "A standing statement."]
+    assert uc.readable("\n".join(marker))[0] == ""
+    assert uc.opens_outside_a_comment(marker)[0] is True

@@ -63,6 +63,16 @@ The directory is **committed** — ignored files do not follow worktrees or
 other machines — and it **outlives the merge**. It is closed, not deleted
 (below).
 
+**Outliving the merge is not outliving the release**, and the two deadlines
+are different acts with different owners. Closing happens before the merge and
+is the implementer's: every unresolved row moves to a durable home. Retiring
+happens after the release and is `settle`'s: a released work item's spec is
+folded into a `docs/` policy and the whole directory, round records included,
+is then removed. The protocol requires that a record outlive the merge, which
+is the deadline draft 0.1 got wrong; what happens to it once nothing is left
+to inherit from is the implementation's business, and this one's answer is
+`skills/settle/SKILL.md`.
+
 ### Why the work item, and not the change request
 
 Draft 0.2 keyed the directory to a pull request: `PR-<id>/`, where `<id>` was
@@ -122,6 +132,15 @@ go stale. What deletion cost was worse than what it bought. Items were pushed
 out to durable homes because the directory was about to disappear, and those
 homes sit outside what a reviewer reads, so a finding deferred in round 1 left
 the inheritance range and round 2 raised it again.
+
+**It is deleted eventually, and that is a different deadline.** Draft 0.1's
+deletion was before the merge, while rounds could still inherit from the
+records; the reference implementation's `settle` removes the directory after
+the release that ships the work item, once its spec has been folded into a
+`docs/` policy. By then there is no next round to inherit anything, and the
+deferral that made the early deletion expensive has had its own deadline —
+closing before the merge — for the whole of the work item's life. The protocol
+is about the first deadline and says nothing about the second.
 
 ## Files
 

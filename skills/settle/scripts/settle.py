@@ -1,0 +1,688 @@
+#!/usr/bin/env python3
+"""settle — name the released work items a policy document has yet to absorb.
+
+`seal/README.md` has said a work item's directory "waits until a later
+`settle` folds it" since the root existed, and nothing was ever built. The
+directory therefore never stops growing: 98 work items, 1,338 files, 15M on
+the tree this shipped from, and no check reads any of it after the merge.
+
+**This reads, groups and records. It never writes prose and it never judges.**
+`docs/one-root-by-lifetime.md` §*What keeps `settle` light* says the step
+"moves and does not verify", and folding *only what is still true* is exactly
+a judgment about truth — so the standing statement each segment gets is
+written by the session, following `skills/settle/SKILL.md`, and this command
+supplies the corpus it is written from. A script that wrote the prose itself
+would either splice 97 sentences up under their provenance comments, which is
+a move and not a compaction, or assert that each moved sentence still holds,
+which is the one thing the clause above forbids.
+
+  settle                        what would fold, grouped by segment
+  settle --retire               remove the directories whose fold is recorded
+  settle --released-at REF      what counts as released (default origin/main)
+  settle --root DIR             a repository other than this one
+
+**Released means present on the branch the release merges to**, which is why
+`--released-at` names a ref rather than a date. The two alternatives were
+measured on this repository and both are wrong: 11 work items carry no
+`<!-- specs/<id> -->` marker in `CHANGELOG.md` although they plainly shipped,
+and 15 carry none in `seal/ledger.md`.
+
+**The fold record is the provenance comment, and there is no second file.**
+A folded sentence carries `<!-- specs/<work-item-id> -->` in the `docs/`
+document it landed in — the marker `.github/scripts/fold_ledger.py#marker`
+and `.github/scripts/gather_changelog.py#marker` already write — so the
+record is derived from the destination and cannot disagree with it. Reading
+it is `skills/verify/scripts/unverified_check.py#folded_items`, loaded here
+rather than re-spelled: that module is the fold record's one reader, and the
+same arm of `unverified-check` is what would otherwise call a retirement this
+branch's deletion.
+
+**The guard.** A work item whose `evidence-todo.md` still has an open row is
+skipped and named, never folded and never removed. A fact a reviewer verified
+that never reached the ledger is exactly what the directory must not take
+with it.
+
+**Two halves, and the retirement is the second.** The command lists what a
+session has to write policy for; `--retire` removes the directories whose
+policy was written, which the marker is the proof of. Nothing is removed
+without one, so the failure this arrangement can produce is a thin policy
+document, which a reader can see, rather than a directory deleted with
+nothing absorbing it, which nobody can.
+
+**Local mode is refused rather than reported on.** A root under the common
+git directory is never committed, so no ref holds the work item directories,
+nothing in them reads as released, and nothing removed from them could be
+recovered. `seal mode shared` moves the root into the tree and this command
+works from there. A repository that opted out with the scratch marker is
+refused too, and told which of the two it is.
+
+Exit codes: 0 the report was produced, or the retirement ran · 1 a retirement
+was asked for and something refused it · 2 the arguments or the tree were
+unusable, which is five states: a `--released-at` ref that does not resolve,
+a root at neither place, a root in local mode, a repository that opted out,
+and an interpreter below the floor.
+"""
+
+import argparse
+import collections
+import glob
+import importlib.util
+import os
+import re
+import shutil
+import subprocess
+import sys
+
+# **The interpreter floor, copied from
+# `skills/code-review/scripts/round_record.py#below_floor`**, which is written
+# to be copied and says so. Two things about its shape are load-bearing, and
+# they are the reason it is copied rather than imported. It sits after the
+# imports and not after `import sys`, because ruff's E402 is selected and
+# every shipped script is measured to compile under 3.9, so no import above it
+# can fail first. And it uses no syntax newer than the oldest interpreter it
+# means to catch — no walrus, no f-string — since a guard that cannot parse is
+# the traceback it exists to replace.
+#
+# A read that can fail gives the guard a second way to die on the one machine
+# that has no other way of being told what is wrong, which is why the floor is
+# spelled here instead of imported;
+# `tests/test_a_script_says_which_interpreter_it_needs.py` pins this number to
+# the runner's and to `ruff.toml`'s.
+FLOOR = (3, 12)
+FLOOR_TEXT = ".".join(str(part) for part in FLOOR)
+BELOW_FLOOR = (
+    "settle: needs python {floor} or newer, and this is python {found} "
+    "at {executable}.\n"
+    "Nothing was read and nothing was written.\n"
+    "`python3` is not always the newest interpreter installed -- macOS ships "
+    "python 3.9 under that name -- so name one explicitly, `python{floor} "
+    "<this script> ...`, or see CONTRIBUTING.md section 'Running the checks'."
+)
+
+
+def below_floor(version=None, executable=None):
+    """The sentence for an interpreter under the floor, or None above it.
+
+    Both numbers are in the sentence. A floor with no found version tells the
+    reader what is wanted and not whether they have it -- and the reader
+    whose `python3` is secretly 3.9 is exactly the one who does not know what
+    they are running. The interpreter's path is there for the same reason: on
+    macOS the surprise is not the version, it is which file `python3` was.
+    """
+    version = tuple(sys.version_info[:3]) if version is None else tuple(version)
+    if version[:2] >= FLOOR:
+        return None
+    return BELOW_FLOOR.format(
+        floor=FLOOR_TEXT,
+        found=".".join(str(part) for part in version),
+        executable=sys.executable if executable is None else executable,
+    )
+
+
+_refusal = below_floor()
+if _refusal:
+    sys.stderr.write(_refusal + "\n")
+    raise SystemExit(2)
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
+OPTIN = os.path.join(HERE, "..", "..", "..", "hooks", "optin.py")
+
+SPECS = "seal/specs"
+LEDGER = "seal/ledger.md"
+FRAGMENTS = "seal/ledger"
+TESTS = "tests/"
+
+# `path#anchor@hash`, narrowed to the one group this reads. The full shape is
+# `skills/evidence-check/scripts/evidence_check.py#ANCHOR_RE`, which resolves
+# the anchor and the hash as well; nothing here opens the code a row cites, so
+# the path is the whole of what a segment is derived from.
+COORDINATE_RE = re.compile(
+    r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
+    r"#(?:\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)"
+    r"(?:>\"(?:[^\"\n]|\\\")+\")?"
+    r"@[0-9a-f]{6,12}"
+)
+MARKER_LINE_RE = re.compile(r"^<!-- specs/(\S+) -->$", re.M)
+SEPARATOR_RE = re.compile(r"^\|(\s*:?-+:?\s*\|)+\s*$")
+DRAINED_RE = re.compile(r"^[\s*_]*drained\b", re.IGNORECASE)
+
+
+def under(root, rel):
+    """The disk path of a `/`-joined repository-relative path."""
+    return os.path.join(root, *rel.split("/"))
+
+
+def plural(count):
+    """`s` unless there is one of them. Every count this prints is read by a
+    person, and `1 work items` is the tell that nobody read the output."""
+    return "" if count == 1 else "s"
+
+
+def load(path, name):
+    """Import a sibling script by path, or refuse with a sentence.
+
+    Not a bare `exec_module`: `spec_from_file_location` hands back a spec for
+    any path ending in `.py`, present or not, so a missing reader reaches the
+    loader and raises `FileNotFoundError` — a traceback where this file's
+    whole contract is that every failure is a sentence. That is the shape the
+    rider on `round_record.py#load` is still waiting for somebody to fix; it
+    arrives written here rather than copied broken.
+    """
+    if not os.path.isfile(path):
+        raise SystemExit(
+            f"settle: cannot read {path}, and it is where the fold record is "
+            "read from. This command ships beside it under `skills/`; a copy "
+            "of one script taken on its own is not a plugin."
+        )
+    spec = importlib.util.spec_from_file_location(name, path)
+    if spec is None or spec.loader is None:
+        raise SystemExit(f"settle: cannot load {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# --- what the tree says ----------------------------------------------------
+
+
+def work_items(root):
+    """Every work item id with a directory under `seal/specs/`, in id order."""
+    top = under(root, SPECS)
+    if not os.path.isdir(top):
+        return []
+    return sorted(
+        name for name in os.listdir(top) if os.path.isdir(os.path.join(top, name))
+    )
+
+
+def released(root, ref):
+    """Work item ids whose directory is present at `ref`, or None if it is not.
+
+    A work item is released when the branch the release merges to holds its
+    directory, which is a question only git can answer. None is returned for
+    a ref that does not resolve, and the caller refuses: a ref this cannot
+    read would otherwise make every work item read as unreleased and the
+    whole report as "nothing to fold", which is the quiet zero every checker
+    in this plugin is written against.
+    """
+    r = subprocess.run(
+        ["git", "-C", root, "ls-tree", "-r", "--name-only", ref],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    if r.returncode != 0:
+        return None
+    prefix = SPECS + "/"
+    found = set()
+    for line in r.stdout.splitlines():
+        if line.startswith(prefix):
+            rest = line[len(prefix) :]
+            if "/" in rest:
+                found.add(rest.split("/", 1)[0])
+    return found
+
+
+def open_rows(text):
+    """Table body rows of an evidence-todo file that are still open.
+
+    The rule, so a person can apply it by hand: a line outside a table whose
+    first word is `drained` closes the whole file; otherwise every body row is
+    open unless its first cell begins with ✅. A table is a run of lines
+    starting with `|`; its first line is the header when the second is a
+    separator, and neither is a body row.
+
+    Split on `\\n` alone: `splitlines()` also breaks on U+2028, U+0085 and
+    form feed, so a cell holding one of those followed by `drained` closed the
+    file — the silent direction for a guard.
+
+    **The same rule is spelled in `.github/scripts/fold_ledger.py#open_rows`,
+    and the two are not one reader.** That script is this repository's own
+    release automation under `.github/`, which is not on the list of what the
+    plugin ships (`tests/test_the_release_check_watches_what_ships.py#SHIPS`),
+    so a shipped command may not depend on it: a user's repository has the
+    ledger fold nowhere. The guard travels with the command that enforces it.
+    """
+    lines = text.split("\n")
+    rows = []
+    n = 0
+    while n < len(lines):
+        line = lines[n]
+        if not line.lstrip().startswith("|"):
+            if DRAINED_RE.match(line):
+                return []
+            n += 1
+            continue
+        table = []
+        while n < len(lines) and lines[n].lstrip().startswith("|"):
+            table.append(lines[n])
+            n += 1
+        if len(table) >= 2 and SEPARATOR_RE.match(table[1].strip()):
+            table = table[2:]
+        for row in table:
+            if SEPARATOR_RE.match(row.strip()):
+                continue
+            first = row.strip().strip("|").split("|", 1)[0].strip()
+            if not first.startswith("✅"):
+                rows.append(row)
+    return rows
+
+
+def open_items(root):
+    """{work item id: open row count} for every one the guard is holding."""
+    out = {}
+    for path in sorted(
+        glob.glob(os.path.join(under(root, SPECS), "*", "evidence-todo.md"))
+    ):
+        with open(path, encoding="utf-8") as f:
+            rows = open_rows(f.read())
+        if rows:
+            out[os.path.basename(os.path.dirname(path))] = len(rows)
+    return out
+
+
+# --- what groups -----------------------------------------------------------
+
+
+def coordinates(root):
+    """{work item id: [the path of each ledger coordinate it wrote]}.
+
+    Two addresses hold the rows and both are read, which is what the checker
+    does: `seal/ledger.md`, where a release folded each work item's section
+    under its own `<!-- specs/<id> -->` marker, and `seal/ledger/<id>.md`,
+    the fragment of a work item whose release has not folded it yet.
+
+    A section runs from its marker to the next marker or the next `##`
+    heading, which is exactly what `fold_ledger.py#section` writes. Rows above
+    the first marker belong to no work item — they are the rows from before
+    the fragments existed, and the ledger's own header says so.
+
+    **A fenced example opens no section**, which is round 2's finding 5 and is
+    round 1's finding 1 one function over: a line anchor is not a test that
+    the line is live. `seal/ledger.md` carries no fence today, so nothing was
+    mis-sectioned — but a fenced marker there would attribute every coordinate
+    after it to the id in the quotation, and the segment the report prints
+    would be wrong for two work items at once.
+
+    It is closed by reading through the SAME `blank_fences` this module
+    already loads for `folded_items`, not by a third copy of the rule.
+    `.github/scripts/fold_ledger.py#demote` carries the second copy and #487
+    is the ticket for it; writing a third here would be that ticket again.
+    """
+    out = collections.defaultdict(list)
+    live = load(READER, "specseal_unverified_reader").blank_fences
+    ledger = under(root, LEDGER)
+    if os.path.isfile(ledger):
+        with open(ledger, encoding="utf-8") as f:
+            current = None
+            for line in live(f.read().split("\n")):
+                marker = MARKER_LINE_RE.match(line)
+                if marker:
+                    current = marker.group(1)
+                    continue
+                if line.startswith("## "):
+                    current = None
+                if current:
+                    out[current] += [
+                        m.group("path") for m in COORDINATE_RE.finditer(line)
+                    ]
+    for path in sorted(glob.glob(os.path.join(under(root, FRAGMENTS), "*.md"))):
+        work_item_id = os.path.basename(path)[: -len(".md")]
+        with open(path, encoding="utf-8") as f:
+            for line in live(f.read().split("\n")):
+                out[work_item_id] += [
+                    m.group("path") for m in COORDINATE_RE.finditer(line)
+                ]
+    return out
+
+
+def segment_of(paths):
+    """`(segment, reason)` for one work item's coordinate paths.
+
+    The segment is the enclosing file of the work item's ledger anchors,
+    which is what `spec.md` §*What groups* fixes, and it is decided by
+    majority rather than by the first row: a work item cites several
+    coordinates and the one it cites most is the code it is about.
+
+    **A `tests/` anchor rolls up to the segment of the code it pins**, and
+    this is the rule that decides it — Q2, against the real corpus, where 852
+    of 1,772 coordinates are under `tests/`. A case that pins
+    `round_record.py`'s behaviour is evidence about `round_record.py`, so a
+    work item's test anchors are dropped in favour of its code anchors, and
+    they carry no segment of their own.
+
+    What that leaves is named rather than guessed, which is the other half of
+    Q2's default. A work item whose anchors are ALL under `tests/` pins code
+    this file cannot name: the link from a case to the code it pins is
+    nowhere a machine reads, and inventing it from a filename is the second
+    mechanism `plan.md` rejected building before the first one exists. Such
+    an item is returned ungrouped with `tests only` as its reason, and so is
+    one with no ledger row at all.
+    """
+    if not paths:
+        return None, "no ledger row"
+    code = [p for p in paths if not p.startswith(TESTS)]
+    if not code:
+        return None, "tests only"
+    counted = collections.Counter(code)
+    best = max(counted.values())
+    return sorted(p for p in counted if counted[p] == best)[0], None
+
+
+# --- the report ------------------------------------------------------------
+
+
+def survey(root, ref):
+    """What the report is derived from, and where the retirement gets released.
+
+    One walk for the listing, so no work item appears in two of its lists.
+
+    **The retirement does not take its candidates from here.** `retire` reads
+    the markers, the directories and the guard from the tree again, and its
+    own docstring says why: a classification made for a printed list is not a
+    guard on a destructive act. This sentence used to say the opposite — that
+    the retirement was derived from this walk, and that a second traversal was
+    the failure mode to avoid — which after round 1's finding 4 was the stale
+    half of a contradiction, and the half a reader meets first. Left standing
+    it invites the next editor to simplify `retire` back to `found["folded"]`,
+    which is exactly the mutation that reopens that finding.
+
+    What the retirement does take from here is `released`, which only git can
+    answer and which this has already asked.
+    """
+    present = work_items(root)
+    on_base = released(root, ref)
+    if on_base is None:
+        return None
+    folded = load(READER, "specseal_unverified_reader").folded_items(root)
+    held = open_items(root)
+    rows = coordinates(root)
+
+    survey = {
+        "released": [i for i in present if i in on_base],
+        "unreleased": [i for i in present if i not in on_base],
+        "folded": [],
+        "skipped": [],
+        "grouped": collections.defaultdict(list),
+        "ungrouped": [],
+    }
+    for work_item_id in survey["released"]:
+        # The guard is asked first. `spec.md` G3 says an item with an open row
+        # is skipped AND NAMED, never folded — and an item that was both
+        # folded and held used to be named under "waiting to be retired",
+        # which tells the reader to run the command that will refuse it, while
+        # the summary counted it `0 skipped`. `retire()` reads `open_items`
+        # again and keeps the directory either way; what this decides is what
+        # the reader is told before running anything.
+        if work_item_id in held:
+            survey["skipped"].append((work_item_id, held[work_item_id]))
+            continue
+        if work_item_id in folded:
+            survey["folded"].append(work_item_id)
+            continue
+        segment, reason = segment_of(rows.get(work_item_id, []))
+        if segment is None:
+            survey["ungrouped"].append((work_item_id, reason))
+        else:
+            survey["grouped"][segment].append(work_item_id)
+    return survey
+
+
+def report(found, ref, out=sys.stdout):
+    """What a session reads before it writes one statement per segment."""
+    write = out.write
+    foldable = sum(len(v) for v in found["grouped"].values())
+    write(
+        f"released and unfolded: {foldable} work item{plural(foldable)} in "
+        f"{len(found['grouped'])} segment{plural(len(found['grouped']))}, "
+        f"{len(found['ungrouped'])} ungrouped, {len(found['skipped'])} skipped\n"
+    )
+    write(
+        f"(released = present at {ref}; {len(found['unreleased'])} "
+        "unreleased and untouched)\n"
+    )
+
+    for segment in sorted(found["grouped"]):
+        items = found["grouped"][segment]
+        write(f"\n{segment}  ({len(items)} work item{plural(len(items))})\n")
+        for work_item_id in items:
+            write(f"    {work_item_id}\n")
+
+    if found["ungrouped"]:
+        write("\nungrouped — no segment this can name, so a session names it:\n")
+        for work_item_id, reason in found["ungrouped"]:
+            write(f"    {work_item_id}  ({reason})\n")
+
+    if found["skipped"]:
+        write("\nskipped — an evidence-todo row is still open, and a fact that\n")
+        write("never reached the ledger may not leave with the directory:\n")
+        for work_item_id, count in found["skipped"]:
+            write(
+                f"    {work_item_id}  ({count} open row{plural(count)} in "
+                f"{SPECS}/{work_item_id}/evidence-todo.md)\n"
+            )
+
+    if found["folded"]:
+        write("\nfolded already, waiting to be retired — `settle --retire`:\n")
+        for work_item_id in found["folded"]:
+            write(f"    {work_item_id}\n")
+
+    write(
+        "\nNothing was written and nothing was removed. `skills/settle/SKILL.md`\n"
+        "is the procedure: one standing statement per segment in `docs/`, each\n"
+        "folded sentence carrying its `<!-- specs/<id> -->` comment, then\n"
+        "`settle --retire` removes the directories that comment now covers.\n"
+    )
+    return 0
+
+
+def retire(found, root, out=sys.stdout):
+    """Remove the directories whose fold `docs/` records, and nothing else.
+
+    The marker is the condition, so a directory is removed only where a
+    policy document has absorbed the work item. An item the guard is holding
+    is refused even with a marker: the fold was recorded and the fact the row
+    names still has not reached the ledger.
+
+    **The candidate set is read from the tree, not taken from `survey`.** It
+    used to be `found["folded"]`, and round 1's finding 4 moved the guard
+    ahead of the fold record in `survey` — correctly, because the REPORT must
+    say *skipped and named* rather than *waiting to be retired*. That one move
+    would have emptied `found["folded"]` of every held item and left the
+    refusal below unreachable, so the only guard on a destructive act would
+    have been a classification made for a printed list. Two readers of
+    `open_items` is the point rather than the redundancy: this one decides
+    what is removed, and it answers to the tree.
+
+    `found` is still where *released* comes from, because only git can answer
+    that and `survey` has already asked.
+
+    **`present` stays in the intersection although it decides nothing today.**
+    Round 2's finding 6 is right that it is inert: `found["released"]` is
+    already a subset of the directories `survey` saw, so the only case the
+    term can catch is a directory removed between the two calls in this same
+    process. What it costs is one set operation; what it buys is that
+    `shutil.rmtree` below cannot be handed a path that is gone. Leaving it out
+    would make a destructive call depend on an invariant held by another
+    function at another moment, which is the coupling the paragraph above is
+    about. It also has a second reader now — `stranded` is `marked & present`,
+    and that one is not inert at all.
+    """
+    marked = load(READER, "specseal_unverified_reader").folded_items(root)
+    present = set(work_items(root))
+    released_at_base = set(found["released"])
+    held = open_items(root)
+    candidates = sorted(marked & present & released_at_base)
+    refused = [i for i in candidates if i in held]
+    removable = [i for i in candidates if i not in held]
+    if not removable and not refused:
+        # THREE states, and they are told apart by what the sentence asserts
+        # rather than by what happens to be empty. Round 1 split one of them
+        # out of the other; round 2's finding 2 is that the split fired on
+        # `if marked:`, which asks only whether `docs/` records any fold at
+        # all, while the sentence it prints asserts that none of the marked
+        # items still has a directory. Nothing had asked that, and a reader
+        # who acts on *the fold is complete* stops looking.
+        stranded = sorted(marked & present)
+        if marked and not stranded:
+            out.write(
+                f"nothing left to retire: docs/ records the fold of "
+                f"{len(marked)} work item{plural(len(marked))}, and none of "
+                f"them still has a directory under {SPECS}/. "
+                "The fold is complete.\n"
+            )
+            return 0
+        if stranded:
+            # Marked, still on disk, and not present at `--released-at`. It is
+            # reachable two ways: a policy absorbing work that has not merged
+            # to the release branch yet, and a run pointed at an older ref
+            # than the one the items merged to.
+            out.write(
+                f"nothing to retire: docs/ records the fold of "
+                f"{len(stranded)} work item{plural(len(stranded))} whose "
+                f"directory is still under {SPECS}/, and none of them is "
+                "present at the release ref, so nothing here reads as "
+                "released:\n"
+            )
+            for work_item_id in stranded:
+                out.write(f"    {work_item_id}\n")
+            return 1
+        out.write(
+            "nothing to retire: no released work item carries a "
+            "`<!-- specs/<id> -->` marker in docs/, so none of them has been "
+            "folded yet. `settle` alone says which ones are waiting for one.\n"
+        )
+        return 1
+    for work_item_id in removable:
+        shutil.rmtree(under(root, f"{SPECS}/{work_item_id}"))
+        out.write(f"removed {SPECS}/{work_item_id}/\n")
+    if refused:
+        out.write(
+            "\nkept, although the fold is recorded — an evidence-todo row is "
+            "still open:\n"
+        )
+        for work_item_id in refused:
+            count = held[work_item_id]
+            out.write(f"    {work_item_id}  ({count} open row{plural(count)})\n")
+    out.write(f"\nretired {len(removable)} work items; {len(refused)} kept\n")
+    return 1 if refused else 0
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(
+        prog="settle",
+        description="Name the released work items a `docs/` policy has yet to "
+        "absorb, grouped by the segment their ledger rows anchor in.",
+    )
+    ap.add_argument(
+        "--root", default=None, help="repository root (default: the one this is run in)"
+    )
+    ap.add_argument(
+        "--released-at",
+        default="origin/main",
+        metavar="REF",
+        help="the branch a release merges to. A work item is released when "
+        "its directory is present there (default: origin/main)",
+    )
+    ap.add_argument(
+        "--retire",
+        action="store_true",
+        help="remove the directories whose fold `docs/` records. Writes no "
+        "prose: what it removes is what a policy document has already "
+        "absorbed, and the marker is the proof",
+    )
+    args = ap.parse_args(argv)
+
+    root = os.path.abspath(args.root or os.getcwd())
+    # The root is resolved through the one resolver, `hooks/optin.py#home_at`,
+    # the way `evidence_check.py#seal_home` reaches it from the same depth.
+    # Before this, `under(root, SPECS)` was the only place looked at, so a
+    # local-mode repository holding ninety-eight work items was told it had
+    # none — and the sentence written for local mode, in the `--released-at`
+    # refusal below, could never be printed, because this check fired first
+    # and always.
+    optin = load(OPTIN, "specseal_optin")
+    home = optin.home_at(root)
+    if not home:
+        # `home_at` answers "" for two states, and round 2's finding 7 is that
+        # they were given one sentence: no root at either place, and a
+        # repository that opted out with the scratch marker. The second was
+        # told it had no work items while holding them in the tree, which is
+        # the defect one refusal up reached through another door.
+        common = optin.git_common_dir(root)
+        if common and os.path.exists(os.path.join(common, optin.SCRATCH)):
+            sys.stderr.write(
+                f"settle: {root} has opted out — `{optin.SCRATCH}` is under "
+                "its git directory, so every gate in this plugin reads it as "
+                "a repository that never opted in and this command will "
+                "remove nothing. Delete that file to turn them back on.\n"
+            )
+            return 2
+        sys.stderr.write(
+            f"settle: {root} has no {SPECS}/ at either place — nothing was "
+            "read. This command folds work items, and a repository with none "
+            "has nothing to settle.\n"
+        )
+        return 2
+    # **Local mode refuses, and it is not the same refusal.** Resolving the
+    # root is only half the finding: with the root found, a local-mode run
+    # would go on to ask git which work items are released, git would answer
+    # with none — an uncommitted root has no path in any tree — and the report
+    # would say there is nothing to fold. That is the quiet zero this whole
+    # module is written against, reached by the other door. So the state is
+    # named here. It is the right answer as well as the honest one: nothing
+    # removed from a root git never held can be recovered.
+    #
+    # The sentence written for local mode used to live inside the
+    # `--released-at` refusal below and this comment claimed the fix made it
+    # reachable at last. It did the opposite — that branch fires only for a
+    # ref that does not resolve, and this one returns before `survey` is
+    # called, so the clause was more unreachable than it had been (round 2,
+    # finding 4). It is stated here and taken out of there.
+    if os.path.realpath(home) != os.path.realpath(under(root, "seal")):
+        sys.stderr.write(
+            f"settle: the seal root of {root} is {home}, which is local mode "
+            "— nothing was read. Local mode never commits the root, so no ref "
+            "holds the work item directories, nothing in them can be called "
+            "released, and nothing removed from them could be recovered. "
+            "`seal mode shared` moves the root into the tree, and this "
+            "command works from there.\n"
+        )
+        return 2
+    if not os.path.isdir(under(root, SPECS)):
+        sys.stderr.write(
+            f"settle: {root} has no {SPECS}/ — nothing was read. This command folds "
+            "work items, and a repository with none has nothing to "
+            "settle.\n"
+        )
+        return 2
+
+    found = survey(root, args.released_at)
+    if found is None:
+        sys.stderr.write(
+            f"settle: --released-at {args.released_at} does not resolve in {root} — nothing was "
+            "read. Without it every work item reads as unreleased and this "
+            "would report nothing to fold, which is the one answer it must "
+            "not give by accident.\n"
+        )
+        return 2
+
+    if args.retire:
+        return retire(found, root)
+    return report(found, args.released_at)
+
+
+if __name__ == "__main__":
+    # A console that cannot encode what this prints kills it with stdout
+    # empty, which is how a hook says "nothing to see here". `hooks/console.py`
+    # owns the reasoning and the three decisions behind these lines.
+    for _name, _errors in (
+        ("stdin", "replace"),
+        ("stdout", "replace"),
+        ("stderr", "backslashreplace"),
+    ):
+        _stream = getattr(sys, _name, None)
+        if hasattr(_stream, "reconfigure"):
+            _stream.reconfigure(encoding="utf-8", errors=_errors)
+    sys.exit(main())

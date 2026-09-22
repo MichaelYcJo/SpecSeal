@@ -88,7 +88,7 @@ laid out by **lifetime**, not by who wrote it:
 
 | Root | Lifetime | Test | Authority |
 |---|---|---|---|
-| `docs/` | Permanent, cumulative | Must still be true in 6 months | **Norms, ratified by humans.** Read when the repository has them; **never created here** — a project's documentation convention is its own |
+| `docs/` | Permanent, cumulative | Must still be true in 6 months | **Norms, ratified by humans.** Read when the repository has them. A work item does not create one: the documentation convention is the project's. The one writer that does is `settle`, which folds a released work item's spec into a `docs/` policy and then retires the directory — and a session running it is following `skills/settle/SKILL.md`, not this one |
 | `seal/specs/<work-item-id>/` | One work item | Its role ends when this work ships (SDD, overview, round records) | The contract this work executes against. A human approves `plan.md`, which is why this is a repository document and not tool state |
 | `seal/`, everything above `specs/` | Permanent | Everything this plugin maintains | Written and read by machines: the ledger, the migration config, the follow-up list |
 

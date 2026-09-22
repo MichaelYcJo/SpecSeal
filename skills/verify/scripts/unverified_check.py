@@ -22,7 +22,10 @@ It fails for what the author can always fix:
               here, and zero reads as "everything has been closed" — the worst
               available failure, because it is indistinguishable from success
   fewer rows  a table that lost rows against the base, or an `overview.md`
-              that was there and is not (`--baseline REF`)
+              that was there and is not (`--baseline REF`) — unless the work
+              item's fold is recorded in `docs/`, which is `settle` retiring
+              a released spec rather than this branch deleting a record. Such
+              a directory is named as folded and counted apart
   no baseline the ref itself does not resolve, or it shares no history with
               HEAD. That is exit 2, not a pass: a comparison against nothing
               is not a comparison
@@ -65,6 +68,38 @@ PLACEHOLDER = re.compile(r"^<[^>]*>$")
 # family, and the byte-order mark. None of them make a marker into a claim.
 INVISIBLE = "\ufe0f\ufe0e\u200b\u200c\u200d\u2060\ufeff"
 SEPARATOR = re.compile(r"^:?-+:?$")
+# Where a fold records itself, and the one line-anchored shape it takes. A
+# released work item's directory is removed by `settle` once its SDD set has
+# been folded into `docs/`, and the fold's record is the provenance comment
+# the folded prose carries there — the same marker
+# `.github/scripts/fold_ledger.py#marker` and
+# `.github/scripts/gather_changelog.py#marker` write. A record derived from
+# the destination cannot disagree with the destination, which is why there is
+# no second file for this to read.
+#
+# Line-anchored, for the reason `fold_ledger.py#is_marked` already pays for:
+# every document that describes the convention quotes the marker's shape
+# inline, and a substring test would read that prose as a fold and excuse a
+# removal nothing absorbed.
+#
+# **The line anchor is not the whole of it, and a fence is the other half.**
+# It says the marker stands alone on its line; it never says the line is
+# prose. `skills/settle/SKILL.md` §2 — the one document a session reads before
+# it folds — shows the marker inside a fenced block with a REAL released work
+# item id, so a session copying that example into the policy it is writing
+# hands `settle --retire` a real directory to delete. Measured 2026-09-22:
+# `folded_items` over a `docs/` holding a copy of that skill returns
+# `1788302682-the-release-check-never-watched-bin`, and the retirement removed
+# it at exit 0. So every read below goes through `blank_fences`, which is
+# already in this file and already the reader every other scan here uses — a
+# second fence reader is the duplicated-reader shape `check_text`'s docstring
+# spent three review rounds closing.
+#
+# `readable()` is NOT what this uses, although it is the pair `check_text`
+# takes. It blanks HTML comments too, and the marker IS one, so it would erase
+# every fold record there is.
+DOCS = "docs"
+FOLD_MARKER = re.compile(r"^<!-- specs/(\S+) -->$", re.M)
 SKIP_DIRS = {
     ".git",
     ".venv",
@@ -113,14 +148,20 @@ def visible(s):
     return s.translate({ord(c): None for c in INVISIBLE}).strip()
 
 
-def strip_comments(lines):
-    """The same lines with HTML comment content blanked out, indices intact.
+def comment_scan(lines):
+    """`(the line began outside a comment, its text outside comments)`, each.
 
-    A template explains a section in a comment beside it, and an overview keeps
-    that comment. The guidance is not rows, and it is not prose where a table
-    belongs."""
-    out, inside = [], False
+    One scanner, because two readers of this file want two different things
+    out of the same walk and a second copy of the walk is what
+    `check_text`'s docstring spent three review rounds undoing. `strip_comments`
+    wants the text; `opens_outside_a_comment` wants the state the line STARTED
+    in, which the text cannot answer — a fold marker IS a comment, so a
+    genuine one and one sitting inside a commented-out draft both come back
+    with nothing kept.
+    """
+    inside = False
     for line in lines:
+        began = not inside
         rest, kept = line, ""
         while rest:
             if inside:
@@ -135,8 +176,32 @@ def strip_comments(lines):
                     kept, rest = kept + rest, ""
                 else:
                     kept, rest, inside = kept + rest[:start], rest[start + 4 :], True
-        out.append(kept)
-    return out
+        yield began, kept
+
+
+def strip_comments(lines):
+    """The same lines with HTML comment content blanked out, indices intact.
+
+    A template explains a section in a comment beside it, and an overview keeps
+    that comment. The guidance is not rows, and it is not prose where a table
+    belongs."""
+    return [kept for _, kept in comment_scan(lines)]
+
+
+def opens_outside_a_comment(lines):
+    """Whether each line begins outside an HTML comment.
+
+    A line stops being live two ways and the fold record has now met both. A
+    fence is a quotation, which `blank_fences` answers; an enclosing comment is
+    a parked draft, which this answers. Measured 2026-09-22: a `docs/` document
+    with a draft section commented out around a real marker retired the
+    directory at exit 0, nothing having absorbed it — the half of round 1's
+    finding the fence blanking does not reach.
+
+    Not `readable()` and not `strip_comments`, for the reason `comment_scan`
+    above gives: they blank a comment's content, and the marker is one.
+    """
+    return [began for began, _ in comment_scan(lines)]
 
 
 def blank_fences(lines):
@@ -583,6 +648,87 @@ def overviews_at(root, ref, prefixes):
     return out
 
 
+def folded_items(root):
+    """Work item ids whose SDD set has been folded into `docs/`.
+
+    The removal of a released work item's directory is `settle`'s last act,
+    and until this read existed the arm below could not tell it from a branch
+    deleting a record. It is not a distinction the removal itself carries:
+    both shapes are a directory present at the fork point and absent here.
+    What tells them apart is whether a policy document absorbed the item, and
+    the marker is that, written where the prose landed.
+
+    Nothing outside `docs/` is read. `docs/` is where the fold writes, by
+    `docs/one-root-by-lifetime.md` §*What happens at a release* step 2, and
+    widening the scan to the whole tree would let a marker anywhere — a round
+    record, a changelog fragment, the removed directory's own files at the
+    base — excuse a removal nothing absorbed. A repository with no `docs/`
+    folds nothing and gets an empty set, which is the state every repository
+    was in before `settle` shipped.
+
+    **The top level of `docs/` and no deeper**, for the same reason one step
+    in. `spec.md` G2 and `skills/settle/SKILL.md` §2 fix the destination as a
+    flat `docs/` — merge into a document that exists, create one only for a
+    new area, and no `docs/policy/` directory — so a fold never writes below
+    this level and a marker below it is somebody's notes. This repository's
+    own `docs/experiments/` is four scratch files, and a quoted marker in one
+    of them excused a removal nothing absorbed (measured 2026-09-22). The
+    docstring above argued that scope for the tree and then did not apply it
+    inside `docs/`.
+
+    **A line has to be live, and it stops being live two ways.** A fenced
+    block is a quotation, which `blank_fences` answers; a commented-out draft
+    is a parked one, which `opens_outside_a_comment` answers. Round 1 closed
+    the first and round 2 found the second still open, with the same outcome
+    both times — a directory removed at exit 0 with nothing having absorbed
+    it. The constant's own comment carries the measurements.
+    """
+    found = set()
+    top = under_root(root, DOCS)
+    if not os.path.isdir(top):
+        return found
+    for name in sorted(os.listdir(top)):
+        if not name.endswith(".md"):
+            continue
+        path = os.path.join(top, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        except OSError:
+            continue
+        # `enumerate` and not a paired walk of the two lists. Ruff's B905
+        # requires the strictness keyword on every such call, that keyword
+        # arrived in python 3.10, and this script carries no interpreter
+        # guard — so writing one here is the traceback on somebody's 3.9
+        # `python3` that `tests/test_a_script_says_which_interpreter_it_needs.py`
+        # keeps out of the tree. That module reads TEXT rather than an AST, so
+        # even naming the construct in this comment reddens it, which is how
+        # this sentence came to be phrased the long way round.
+        lines = blank_fences(text.splitlines())
+        live = opens_outside_a_comment(lines)
+        for n, line in enumerate(lines):
+            if live[n]:
+                found.update(FOLD_MARKER.findall(line))
+    return found
+
+
+def under_root(root, rel):
+    """The disk path of a `/`-joined repository-relative path."""
+    return os.path.join(root, *rel.split("/"))
+
+
+def work_item_of(rel):
+    """The work item id a repo-relative record path belongs to.
+
+    The directory that holds the record, which is how every other reader of
+    this layout names a work item — `gather_changelog.py#fragments` takes the
+    same basename for the same reason.
+    """
+    return os.path.basename(os.path.dirname(rel))
+
+
 def show(root, ref, rel):
     r = subprocess.run(
         ["git", "-C", root, "show", f"{ref}:{rel}"],
@@ -623,7 +769,10 @@ def main(argv=None):
         "leaves by being marked closed, not by the row or the file being "
         "deleted. The comparison is against `git merge-base REF HEAD`, so a "
         "work item squashed into REF after this branch forked is not this "
-        "branch's removal",
+        "branch's removal. Nor is a work item whose fold `docs/` records with "
+        "its `<!-- specs/<id> -->` marker: that is `settle` retiring a "
+        "released spec a policy document has absorbed, and it is named as "
+        "folded rather than reported as a deletion",
     )
     args = ap.parse_args(argv)
 
@@ -721,7 +870,7 @@ def main(argv=None):
     files = overviews(args.path)
     cwd = os.getcwd()
     total_open = total_closed = 0
-    bad, deleted, uncompared = [], [], []
+    bad, deleted, uncompared, settled = [], [], [], []
     for path in unique_by_target(files):
         rel = display_path(path, cwd)
         open_rows, closed_rows, errors = check_file(path)
@@ -775,7 +924,24 @@ def main(argv=None):
     if args.baseline:
         prefixes = sorted({repo_relative(real(p), root) for p in args.path})
         here = {repo_relative(f, root) for f in files}
+        folded_ids = folded_items(root)
         for rel in overviews_at(root, base, prefixes):
+            if rel not in here and work_item_of(rel) in folded_ids:
+                # A fold, not a deletion. Named rather than passed over in
+                # silence: a removal this arm stops reporting is one the
+                # reader has to be able to see it decided about.
+                settled.append(
+                    annotate(
+                        "notice",
+                        display_path(os.path.join(root, rel), cwd),
+                        1,
+                        f"folded: `{DOCS}/` carries "
+                        f"<!-- specs/{work_item_of(rel)} -->, so what this "
+                        "recorded as unverified was absorbed by a policy "
+                        "document before the directory was removed",
+                    )
+                )
+                continue
             if rel not in here:
                 # Relative to the caller's directory, like every other line
                 # this prints. The two deletion reports used to answer on
@@ -793,7 +959,7 @@ def main(argv=None):
                     )
                 )
 
-    if not files and not deleted:
+    if not files and not deleted and not settled:
         print(
             f"unverified-check: no {OVERVIEW} found under "
             f"{', '.join(args.path)} — nothing was checked",
@@ -806,7 +972,13 @@ def main(argv=None):
         f" · {total_closed} closed"
         f" · {len(bad)} unreadable"
         + (f" · {len(uncompared)} not compared" if uncompared else "")
+        + (f" · {len(settled)} folded" if settled else "")
     )
+
+    if settled:
+        print(f"\nfolded into {DOCS}/ and removed, not deleted from the record:")
+        for line in settled:
+            print(line)
 
     if uncompared:
         print(f"\nnot compared against {named}:")
