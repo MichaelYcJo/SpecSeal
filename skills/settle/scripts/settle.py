@@ -54,7 +54,9 @@ git directory is never committed, so no ref holds the work item directories,
 nothing in them reads as released, and nothing removed from them could be
 recovered. `seal mode shared` moves the root into the tree and this command
 works from there. A repository that opted out with the scratch marker is
-refused too, and told which of the two it is.
+refused too, and told which of the two it is. The marker is an empty FILE
+under the common git directory, read the way `hooks/optin.py#home_at` reads
+it; a directory of that name is not one, and is refused as no root.
 
 Exit codes: 0 the report was produced, or the retirement ran · 1 a retirement
 was asked for and something refused it · 2 the arguments or the tree were
@@ -298,25 +300,60 @@ def coordinates(root):
     the first marker belong to no work item — they are the rows from before
     the fragments existed, and the ledger's own header says so.
 
-    **A fenced example opens no section**, which is round 2's finding 5 and is
-    round 1's finding 1 one function over: a line anchor is not a test that
-    the line is live. `seal/ledger.md` carries no fence today, so nothing was
-    mis-sectioned — but a fenced marker there would attribute every coordinate
-    after it to the id in the quotation, and the segment the report prints
-    would be wrong for two work items at once.
+    **A line has to be live, by the one rule the reader owns.** A line anchor
+    is not a test that the line is live — round 1's finding 1, met here twice:
+    a fenced example opens no section (round 2's finding 5) and neither does a
+    marker inside a commented-out draft (round 3's finding 2). Either would
+    attribute every coordinate after it to the id in the quotation, and the
+    segment the report prints would be wrong for two work items at once.
 
-    It is closed by reading through the SAME `blank_fences` this module
-    already loads for `folded_items`, not by a third copy of the rule.
-    `.github/scripts/fold_ledger.py#demote` carries the second copy and #487
-    is the ticket for it; writing a third here would be that ticket again.
+    Both loops below read through `unverified_check.py#live_lines`, the same
+    function `folded_items` reads through, rather than a copy of any part of
+    the rule. A line is live there when it BEGINS outside a fence, outside a
+    comment and outside a code span, answered by one scan carrying all three
+    states; the line comes back unchanged, and the coordinate still sits
+    inside its backticks.
+
+    The comment state cannot be asked of the raw text, which is what makes
+    the code-span state part of the same question: a ledger anchor quotes the
+    text it points at, and measured 2026-09-22 four rows of `seal/ledger.md`
+    held `<!--` inside backticks with no closer on the line — asking the
+    comment state of the file as it stood lost three real section markers.
+    The count is a reading of one day's file and grows at every release fold;
+    what the rule rests on is that such rows exist, not that there are four.
+    That reader answered this with three passes in sequence for four review
+    rounds, and each formulation had a shape it got wrong; `live_lines`'s own
+    docstring carries why a sequence could not answer it.
+
+    **A THIRD quotation is out of scope, and it is named here so it is not
+    met as a surprise:** markdown's indented code block. `blank_fences` knows
+    the two fenced forms only, so a fragment that shows its example row
+    indented four spaces has that example counted as its own coordinate.
+    Widening the fence reader would move `readable`, `check_text`,
+    `round_record.py` and the review-history guard at once — measured
+    2026-09-22, one such widening reddens
+    `tests/test_the_record_is_generated.py#test_a_continuation_that_looks_like_an_opener_is_still_joined`,
+    a record reader with no stake in this rule. `reader_blanking_passes` is
+    NOT that refusal and does not fire here: it reads the calls `readable`
+    makes by name, and a widened `blank_fences` leaves that set unchanged. It
+    refuses a pass ADDED to `readable`, which is a different alternative.
+    The ledger and every fragment here carry rows as tables and an example as
+    a fence, so the shape is answered by convention rather than by the reader.
+    `FOLD_MARKER` is line-anchored, so `folded_items` is not reachable this
+    way at all — measured 2026-09-22, an indented marker returns the empty
+    set. `tests/test_settle_reads_before_it_removes.py#test_an_indented_example_row_is_counted_and_the_reader_says_so`
+    pins the decision, so a session that widens the reader is told what this
+    one chose.
     """
     out = collections.defaultdict(list)
-    live = load(READER, "specseal_unverified_reader").blank_fences
+    live_lines = load(READER, "specseal_unverified_reader").live_lines
     ledger = under(root, LEDGER)
     if os.path.isfile(ledger):
         with open(ledger, encoding="utf-8") as f:
             current = None
-            for line in live(f.read().split("\n")):
+            for line, live in live_lines(f.read().split("\n")):
+                if not live:
+                    continue
                 marker = MARKER_LINE_RE.match(line)
                 if marker:
                     current = marker.group(1)
@@ -330,10 +367,11 @@ def coordinates(root):
     for path in sorted(glob.glob(os.path.join(under(root, FRAGMENTS), "*.md"))):
         work_item_id = os.path.basename(path)[: -len(".md")]
         with open(path, encoding="utf-8") as f:
-            for line in live(f.read().split("\n")):
-                out[work_item_id] += [
-                    m.group("path") for m in COORDINATE_RE.finditer(line)
-                ]
+            for line, live in live_lines(f.read().split("\n")):
+                if live:
+                    out[work_item_id] += [
+                        m.group("path") for m in COORDINATE_RE.finditer(line)
+                    ]
     return out
 
 
@@ -603,15 +641,24 @@ def main(argv=None):
     # refusal below, could never be printed, because this check fired first
     # and always.
     optin = load(OPTIN, "specseal_optin")
-    home = optin.home_at(root)
+    # The common git directory is resolved once and handed down: `home_at`
+    # takes it for exactly this caller, the one that needs the value for the
+    # opt-out sentence below as well, and resolving it here and again inside
+    # `home_at` was round 3's finding 5.
+    common = optin.git_common_dir(root)
+    home = optin.home_at(root, common)
     if not home:
         # `home_at` answers "" for two states, and round 2's finding 7 is that
         # they were given one sentence: no root at either place, and a
         # repository that opted out with the scratch marker. The second was
         # told it had no work items while holding them in the tree, which is
         # the defect one refusal up reached through another door.
-        common = optin.git_common_dir(root)
-        if common and os.path.exists(os.path.join(common, optin.SCRATCH)):
+        #
+        # `isfile`, the accessor `home_at` uses and says why: `exists` also
+        # accepts a DIRECTORY of that name, which no gate reads as an opt-out,
+        # so this arm told such a repository to delete "that file" to turn the
+        # gates back on — every clause false (round 3, finding 1).
+        if common and os.path.isfile(os.path.join(common, optin.SCRATCH)):
             sys.stderr.write(
                 f"settle: {root} has opted out — `{optin.SCRATCH}` is under "
                 "its git directory, so every gate in this plugin reads it as "

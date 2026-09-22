@@ -12,6 +12,7 @@ ask what it removed and what it refused to remove. Nothing here asserts that
 prose was written, because the command writes none.
 """
 
+import glob
 import importlib.util
 import io
 import os
@@ -703,6 +704,241 @@ def test_a_fenced_marker_in_the_ledger_opens_no_section(tree):
     assert "hooks/quoted.py" not in text, text
 
 
+def test_a_parked_marker_in_the_ledger_opens_no_section(tree):
+    """Round 3, finding 2 — the other way a line stops being live, which
+    `folded_items` had and `coordinates` did not. A marker inside a
+    commented-out draft opened a section and took the draft's coordinate with
+    it, so `segment_of` grouped that work item by a coordinate nobody wrote
+    for it. Closed by reading through the one `live_lines` the reader owns,
+    never by asking the comment state of the raw text — the case after this
+    one is why."""
+    ledger = tree / "seal" / "ledger.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8")
+        + "\n<!-- a draft, parked\n"
+        + "| q | `hooks/quoted.py#thing@99999999` | read | 2026-01-01 | |\n"
+        + "<!-- specs/1700000002-beta -->\n"
+        + "| r | `hooks/reopened.py#thing@66666666` | read | 2026-01-01 | |\n"
+        + "-->\n"
+        + "<!-- specs/1700000002-beta -->\n"
+        + "| after | `hooks/after.py#thing@88888888` | read | 2026-01-01 | |\n",
+        encoding="utf-8",
+    )
+    rows = settle.coordinates(str(tree))
+    assert all("hooks/quoted.py" not in paths for paths in rows.values()), dict(rows)
+    # The parked marker opened no section; the real one after the draft did.
+    assert rows["1700000002-beta"] == ["tests/test_b.py", "hooks/after.py"], rows
+    # HTML comments do not nest, so the parked marker's own `-->` closed the
+    # draft: the row after it is live again and falls to the section that was
+    # open. That is `comment_scan`'s rule, which `seal/ledger.md` pins for
+    # every record reader, and not a rule of this module.
+    assert rows["1700000003-gamma"] == ["hooks/a.py", "hooks/reopened.py"], rows
+
+
+def test_a_closer_quoted_in_prose_still_closes_a_parked_draft(tree):
+    """The span pass blanks a whole span, delimiters and all, so a draft's
+    closing delimiter quoted in a row or a sentence disappeared before the
+    comment state was asked and the draft never closed. The next real section
+    marker then began inside the draft and opened nothing — and because a
+    marker carries a closer of its own, the row below it came back live and
+    went to whichever section was open. Round 3's finding 2 again, arriving
+    through the fix for it. Inside a comment nothing is markdown, so the
+    quotation is not one and the pass must leave it alone."""
+    ledger = tree / "seal" / "ledger.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8")
+        + "\n<!-- a draft, parked\n"  # the quoted closer below is what ends it
+        + "the draft ends with `-->` said in prose\n"
+        + "<!-- specs/1700000002-beta -->\n"
+        + "| after | `hooks/after.py#thing@88888888` | read | 2026-01-01 | |\n",
+        encoding="utf-8",
+    )
+    rows = settle.coordinates(str(tree))
+    assert "hooks/after.py" in rows["1700000002-beta"], dict(rows)
+    assert "hooks/after.py" not in rows["1700000003-gamma"], dict(rows)
+
+
+def test_a_quoted_whole_comment_still_closes_the_draft_it_sits_in(tree):
+    """The other half of the shape above. A span quoting a COMPLETE comment
+    holds the opener, so a pass that blanks the span blanked it whole and the
+    quoted closing delimiter went with it — the draft stayed open, the next
+    real section marker began inside it and opened nothing, and the row below
+    went to whichever section was open. Inside a comment nothing is markdown,
+    so what the pass owes the comment scan is the opener blanked and the
+    closer left where it stands: the DELIMITER, not the span around it."""
+    ledger = tree / "seal" / "ledger.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8")
+        + "\n<!-- a draft, parked\n"  # the whole comment quoted below ends it
+        + "the draft ends with `<!-- a note -->` quoted whole\n"
+        + "<!-- specs/1700000002-beta -->\n"
+        + "| after | `hooks/after.py#thing@88888888` | read | 2026-01-01 | |\n",
+        encoding="utf-8",
+    )
+    rows = settle.coordinates(str(tree))
+    assert "hooks/after.py" in rows["1700000002-beta"], dict(rows)
+    assert "hooks/after.py" not in rows["1700000003-gamma"], dict(rows)
+
+
+def test_an_opener_after_a_quoted_closer_still_parks_the_marker_below(tree):
+    """The residue of the shape above, in the expensive direction. A pass
+    that blanked code spans before the comment state was read could not know
+    that inside a parked draft the backticks are not a span at all: the first
+    closing delimiter ends the draft and the opener after it re-opens one.
+    Blanking that opener read a parked marker as a fold record, and
+    `settle --retire` removed the directory at exit 0 with nothing having
+    absorbed it. The scan carries the comment state as it goes, so inside a
+    draft it reads no spans at all and the question does not arise."""
+    ledger = tree / "seal" / "ledger.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8")
+        + "\n<!-- a draft, parked\n"  # the span below ends it and re-opens it
+        + "prose that quotes `--> and then <!--` on one line\n"
+        + "<!-- specs/1700000002-beta -->\n"
+        + "| after | `hooks/after.py#thing@88888888` | read | 2026-01-01 | |\n"
+        + "-->\n",
+        encoding="utf-8",
+    )
+    rows = settle.coordinates(str(tree))
+    assert "hooks/after.py" not in rows.get("1700000002-beta", []), dict(rows)
+
+
+def test_an_indented_example_row_is_counted_and_the_reader_says_so(tree):
+    """The third quotation, pinned as read rather than as fixed. `blank_fences`
+    knows the two fenced forms and markdown's indented code block is neither,
+    so a fragment showing its example row indented has that example counted as
+    its own coordinate. Widening the fence reader would move `readable`,
+    `check_text`, `round_record.py` and the review-history guard at once —
+    measured, it reddens a record reader's continuation case with no stake in
+    this rule. `tests/test_chain_hooks.py#reader_blanking_passes` is not that
+    refusal: it reads the calls `readable` makes by name and a widened
+    `blank_fences` leaves them unchanged.
+    The case exists so a session that widens it one day is told what
+    this one decided, and why it decided it in the docstring instead of in the
+    code."""
+    fragments = tree / "seal" / "ledger"
+    fragments.mkdir()
+    (fragments / "1700000001-alpha.md").write_text(
+        "| r | `hooks/frag.py#real@12345678` | read | 2026-01-01 | |\n"
+        "\nAn example, indented rather than fenced:\n\n"
+        "    | q | `hooks/quoted.py#thing@99999999` | read | 2026-01-01 | |\n",
+        encoding="utf-8",
+    )
+    rows = settle.coordinates(str(tree))["1700000001-alpha"]
+    assert "hooks/frag.py" in rows, rows
+    assert "hooks/quoted.py" in rows, (
+        "an indented example is read as the fragment's own coordinate; the "
+        "docstring says so on purpose, so change both or neither"
+    )
+
+
+def test_an_opener_quoted_inside_a_code_span_parks_nothing(tree):
+    """Why the obvious closure is wrong. A ledger row's anchor quotes the text
+    it is anchored to, and that text is often a comment: `seal/ledger.md`
+    carries four anchors holding `<!--` with no closer on the line, and asking
+    the comment state of the file as it stands parks every section below the
+    first of them — three real markers lost, round 3's measurement and the
+    framer's at `3cdfd8ad`. So `live_lines` carries the code-span state as it
+    scans and an opener inside a span opens nothing, while the line comes back
+    unchanged — the coordinate lives inside backticks too."""
+    ledger = tree / "seal" / "ledger.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8")
+        + '| four | `docs/x.md#"<!-- a quoted opener"@ffffffff` | read | 2026-01-01 | |\n'
+        + "\n<!-- specs/1700000005-epsilon -->\n"
+        + "### 1700000005-epsilon\n"
+        + "| one | `hooks/e.py#one@12121212` | read | 2026-01-01 | |\n",
+        encoding="utf-8",
+    )
+    rows = settle.coordinates(str(tree))
+    assert rows["1700000005-epsilon"] == ["hooks/e.py"], dict(rows)
+    assert "docs/x.md" in rows["1700000003-gamma"], rows["1700000003-gamma"]
+
+
+def test_the_rule_over_this_repositorys_ledger_loses_no_section():
+    """The same fact over the real corpus: the ids `coordinates` sections are
+    the ids `blank_fences` alone would section, and there are some. Set
+    equality rather than a number — the number grows at every release fold,
+    and a floor over the repository's own records is the shape
+    `skills/settle/SKILL.md` §3 names as the expensive one. With the span pass
+    removed this reports three ids missing."""
+    reader = settle.load(settle.READER, "specseal_unverified_reader_a4")
+    with open(os.path.join(ROOT, "seal", "ledger.md"), encoding="utf-8") as f:
+        fenced = reader.blank_fences(f.read().split("\n"))
+    sectioned = {m.group(1) for m in map(settle.MARKER_LINE_RE.match, fenced) if m}
+    fragments = {
+        os.path.basename(path)[: -len(".md")]
+        for path in glob.glob(os.path.join(ROOT, "seal", "ledger", "*.md"))
+    }
+    assert sectioned, "the ledger carries no section marker"
+    assert set(settle.coordinates(ROOT)) == sectioned | fragments
+
+
+def test_no_section_of_this_repositorys_ledger_loses_a_coordinate():
+    """The invariant every formulation of the liveness rule has had to keep,
+    and the one a case did not reach until round 5's fix pass.
+
+    Sectioning by the fence-only reading is what `seal/ledger.md` meant
+    before any comment or code-span rule existed, and the file carries no
+    fence, so that reading is the ground truth for it. A rule that parks a
+    row inside a section does not lose the section — the id set is unchanged
+    and `test_the_rule_over_this_repositorys_ledger_loses_no_section` stays
+    green — it loses the row, and `segment_of` then groups that work item by
+    what is left. Measured while building this: bounding the crossing
+    reading by a blank line alone keeps all 94 markers and all 83 ids and
+    still takes three work items from 12, 57 and 29 coordinates to 5, 40 and
+    19."""
+    reader = settle.load(settle.READER, "specseal_unverified_reader_coords")
+    with open(os.path.join(ROOT, "seal", "ledger.md"), encoding="utf-8") as f:
+        lines = f.read().split("\n")
+
+    def sectioned(pairs):
+        out, current = {}, None
+        for line, live in pairs:
+            if not live:
+                continue
+            marker = settle.MARKER_LINE_RE.match(line)
+            if marker:
+                current = marker.group(1)
+                continue
+            if line.startswith("## "):
+                current = None
+            if current:
+                out.setdefault(current, []).extend(
+                    m.group("path") for m in settle.COORDINATE_RE.finditer(line)
+                )
+        return out
+
+    fence_only = sectioned([(line, True) for line in reader.blank_fences(lines)])
+    assert sectioned(reader.live_lines(lines)) == fence_only
+    assert sum(len(v) for v in fence_only.values()) > 1000, "the ledger went empty"
+
+
+def test_a_fragments_quoted_coordinates_are_not_the_fragments_own(tree):
+    """Round 3, finding 3 — the other half of round 2's finding 5.
+    `coordinates` reads two places and the fix changed both; only the ledger
+    half had a case, so reverting the fragment loop to a whole-file `finditer`
+    turned nothing red. A fragment is where a work item explains its own rows,
+    so a fenced example row or a parked draft of one is more plausible there
+    than in the shared file, not less."""
+    fragments = tree / "seal" / "ledger"
+    fragments.mkdir()
+    (fragments / "1700000001-alpha.md").write_text(
+        "| r | `hooks/frag.py#real@12345678` | read | 2026-01-01 | |\n"
+        "\nAn example of the convention:\n\n```markdown\n"
+        "| q | `hooks/quoted.py#thing@99999999` | read | 2026-01-01 | |\n"
+        "```\n"
+        "<!-- a draft, parked\n"
+        "| p | `hooks/parked.py#thing@77777777` | read | 2026-01-01 | |\n"
+        "-->\n",
+        encoding="utf-8",
+    )
+    rows = settle.coordinates(str(tree))["1700000001-alpha"]
+    assert "hooks/frag.py" in rows, rows
+    assert "hooks/quoted.py" not in rows, rows
+    assert "hooks/parked.py" not in rows, rows
+
+
 def test_an_opted_out_repository_is_told_which_state_it_is_in(tmp_path):
     """Round 2, finding 7. `home_at` answers `""` for two states — no root at
     either place, and a repository that opted out with the scratch marker —
@@ -726,6 +962,68 @@ def test_an_opted_out_repository_is_told_which_state_it_is_in(tmp_path):
     assert "has nothing to settle" not in r.stderr, (
         "a repository holding a work item is still being told it has none"
     )
+
+
+def test_a_directory_of_the_markers_name_is_not_an_opt_out(tmp_path):
+    """Round 3, finding 1. `hooks/optin.py#home_at` reads the scratch marker
+    with `os.path.isfile` and says why: `os.path.exists` also accepted a
+    DIRECTORY of that name, and one created once turned every gate off in
+    every clone. The refusal here asked `exists`, so a repository holding a
+    directory of that name and no root was told it had opted out and to delete
+    "that file" — and no gate reads a directory as the opt-out, so every clause
+    of that sentence was false. The three readers of one marker answer alike."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    (repo / ".git" / "specseal-scratch").mkdir()
+    r = subprocess.run(
+        [sys.executable, SCRIPT, "--root", str(repo), "--released-at", "HEAD"],
+        capture_output=True,
+        encoding="utf-8",
+    )
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "has no seal/specs/ at either place" in r.stderr, r.stderr
+    assert "has opted out" not in r.stderr, (
+        "a directory of the marker's name is read as the opt-out, which is the "
+        "reading `hooks/optin.py` rejected by name"
+    )
+
+
+def test_the_refusal_path_asks_for_the_common_directory_once(tmp_path, monkeypatch):
+    """Round 3, finding 5. `home_at(root)` resolves the common git directory
+    for itself, and the opt-out arm then resolved it a second time, although
+    `home_at(root, common)` exists for a caller that needs the value too and
+    `hooks/optin.py` documents the parameter with the measurement that created
+    it. Counted through the module `settle.load` hands `main`, and counted as
+    calls rather than processes: on a main worktree the resolver's fast path
+    costs no process, so a process count would have said nothing."""
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    git(repo, "init", "-q")
+    optin = settle.load(settle.OPTIN, "specseal_optin_counted")
+    calls, received = [], []
+    common_dir, home_at = optin.git_common_dir, optin.home_at
+
+    def counted(root):
+        calls.append(root)
+        return common_dir(root)
+
+    def recorded(root, common=None):
+        received.append(common)
+        return home_at(root, common)
+
+    # `home_at` reaches `git_common_dir` through the module global, so the
+    # counter sees the resolver's own call as well as `main`'s.
+    optin.git_common_dir, optin.home_at = counted, recorded
+    real_load = settle.load
+    monkeypatch.setattr(
+        settle,
+        "load",
+        lambda path, name: optin if path == settle.OPTIN else real_load(path, name),
+    )
+    assert settle.main(["--root", str(repo), "--released-at", "HEAD"]) == 2
+    assert len(calls) == 1, calls
+    assert received == [common_dir(os.path.abspath(str(repo)))], received
 
 
 def test_the_released_at_refusal_is_about_the_ref_and_nothing_else(tmp_path):

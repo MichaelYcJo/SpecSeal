@@ -1,5 +1,7 @@
 # Round 3 — the verifying round for round 2's fixes
 
+<!-- Annotated 2026-09-22, round 4's fix pass. The lines below marked `NAME NOT IN TREE` name units this branch later removed: `blank_code_spans` and `opens_outside_a_comment`, deleted when one stateful scan replaced the three passes behind `live_lines`, and `test_one_comment_scanner_serves_both_readers`, renamed to `test_strip_comments_reads_through_the_one_comment_scanner` once that scan left `comment_scan` a single reader. Every one was in the tree when this record was written and the marker says so rather than rewriting it. NAME NOT IN TREE -->
+
 Target SHA `02b2038d3a73c3306a255c856110dea4df1f8999`, branch
 `feat/458-the-shipped-specs-are-sediment-no-check-reads`, base
 `origin/release/v0.13.0`, pull request 486. The fix range is
@@ -129,7 +131,7 @@ simplifies that loop back will be told nothing.
 
 `tests/test_unverified_rows_close.py:1482`
 
-`test_one_comment_scanner_serves_both_readers` is the case that guards the
+`test_one_comment_scanner_serves_both_readers` is the case that guards the (NAME NOT IN TREE)
 refactor. Its docstring says it *asks that the two views still come out of one
 scan*. Its last two assertions compare `comment_scan`'s output against the two
 readers' output, which agrees whenever the two readers are correct — including
@@ -208,7 +210,7 @@ families as one unit each.
 | 🟡 1 | The opt-out refusal reads the scratch marker with `os.path.exists`, the accessor `hooks/optin.py` documents as measured-wrong, so `settle` and the opt-in module disagree about what a marker is | `skills/settle/scripts/settle.py:614` · `hooks/optin.py:200` | open | executed — against a repository with no root and a DIRECTORY of that name, `home_at` answers `""` while `settle` answers *has opted out … Delete that file to turn them back on*, and every clause after the dash is false |
 | 🟡 2 | `coordinates` got the fence half of round 2's finding 5 and not the comment half: a marker inside a commented-out draft in `seal/ledger.md` still opens a section | `skills/settle/scripts/settle.py:320` | open | executed — a scratch ledger with a parked marker attributes `hooks/quoted.py` to the id in the parked block. The naive closure is wrong: applying `opens_outside_a_comment` to today's `seal/ledger.md` loses three real markers at lines 767, 992 and 1619, because a row's anchor quotes an unclosed opener inside a code span |
 | 🟡 3 | The fragment half of finding 5's fix is pinned by nothing — reverting it turns no case red | `skills/settle/scripts/settle.py:333` · `tests/test_settle_reads_before_it_removes.py:678` | open | executed — mutation M7, the fragment loop back to a whole-file `finditer`: both modules exit 0 with nothing red, where all ten other mutations reddened at least one case |
-| 🟡 4 | `test_one_comment_scanner_serves_both_readers` says it pins that the two views come out of one scan; its assertions only ask that they agree, which a duplicated walk also satisfies | `tests/test_unverified_rows_close.py:1482` | open | executed — stubbing `comment_scan` at module level makes both readers answer from the stub, so the single scan is pinnable and is not pinned |
+| 🟡 4 | `test_one_comment_scanner_serves_both_readers` says it pins that the two views come out of one scan; its assertions only ask that they agree, which a duplicated walk also satisfies | `tests/test_unverified_rows_close.py:1482` | open | executed — stubbing `comment_scan` at module level makes both readers answer from the stub, so the single scan is pinnable and is not pinned (NAME NOT IN TREE) |
 | 🟢 confirmation | Round 2 finding 1: a marker inside a commented-out draft is no longer a fold record | `skills/verify/scripts/unverified_check.py:697` | confirmed closed | executed — M1 and M2 each redden `test_a_marker_inside_a_commented_out_draft_is_not_a_fold_record` and the comment-shape family |
 | 🟢 confirmation | The refactor is behaviour-preserving: `strip_comments` returns what it returned | `skills/verify/scripts/unverified_check.py:182` | confirmed | executed — 1,435 tracked markdown files and 584 token arrangements, zero differing; the eight caller modules 336 passed at exit 0 |
 | 🟢 confirmation | Round 2 finding 2: *The fold is complete.* no longer prints over a marked item still on disk, and still prints when it is | `skills/settle/scripts/settle.py:518` | confirmed closed | executed — M4 reddens the first case, M5 reddens the second |
@@ -232,8 +234,8 @@ families as one unit each.
 |---|---|
 | `tests/test_settle_reads_before_it_removes.py` and `tests/test_unverified_rows_close.py` in a `--no-local` clone at the target SHA | `161 passed`, exit 0 read directly — the baseline every mutation below runs against |
 | M1 — `folded_items` stops asking whether the line is live | red: `test_a_marker_inside_a_commented_out_draft_is_not_a_fold_record`, `test_every_comment_shape_a_policy_document_can_carry` |
-| M2 — `comment_scan` reports the state the line ENDED in | red: 18 cases including `test_one_comment_scanner_serves_both_readers`, `test_readable_would_erase_every_fold_record`, both comment-shape and fence-shape families |
-| M3 — `comment_scan` keeps the text a comment opener swallows | red: `test_one_comment_scanner_serves_both_readers`, `test_readable_would_erase_every_fold_record`, three older comment cases |
+| M2 — `comment_scan` reports the state the line ENDED in | red: 18 cases including `test_one_comment_scanner_serves_both_readers`, `test_readable_would_erase_every_fold_record`, both comment-shape and fence-shape families (NAME NOT IN TREE) |
+| M3 — `comment_scan` keeps the text a comment opener swallows | red: `test_one_comment_scanner_serves_both_readers`, `test_readable_would_erase_every_fold_record`, three older comment cases (NAME NOT IN TREE) |
 | M4 — the fold-is-complete arm fires on `if marked:` again | red: `test_a_marked_item_still_on_disk_is_not_the_fold_being_complete`, alone |
 | M5 — the fold-is-complete arm never fires | red: `test_the_fold_is_complete_still_prints_when_it_is` and two older cases |
 | M6 — `coordinates` reads the ledger without fence tracking | red: `test_a_fenced_marker_in_the_ledger_opens_no_section`, alone |
@@ -276,7 +278,7 @@ families as one unit each.
 |---|---|---|
 | `test_a_parked_marker_in_the_ledger_opens_no_section` (NAME NOT IN TREE) | `tests/test_settle_reads_before_it_removes.py`, beside `test_a_fenced_marker_in_the_ledger_opens_no_section` | finding 2 — and the same case has to assert that this repository's own `seal/ledger.md` still yields 94 sections, because that is the half the naive closure breaks |
 | `test_a_fenced_coordinate_in_a_fragment_is_not_the_fragments_own` (NAME NOT IN TREE) | the same module | finding 3 — the fragment loop, which today no case reaches |
-| the monkeypatch assertions below | `tests/test_unverified_rows_close.py`, inside `test_one_comment_scanner_serves_both_readers` | finding 4 — that the two views come off one walk, rather than merely agreeing |
+| the monkeypatch assertions below | `tests/test_unverified_rows_close.py`, inside `test_one_comment_scanner_serves_both_readers` | finding 4 — that the two views come off one walk, rather than merely agreeing (NAME NOT IN TREE) |
 | the opt-out arm against a DIRECTORY of the marker's name | `tests/test_settle_reads_before_it_removes.py`, beside `test_an_opted_out_repository_is_told_which_state_it_is_in` | finding 1 — that the two readers of the marker answer alike |
 
 ## Facts for the evidence ledger
@@ -358,7 +360,7 @@ def test_a_fenced_coordinate_in_a_fragment_is_not_the_fragments_own(tree):
 ```
 
 Finding 4 — `tests/test_unverified_rows_close.py`, replacing the last two
-assertions of `test_one_comment_scanner_serves_both_readers`:
+assertions of `test_one_comment_scanner_serves_both_readers`: (NAME NOT IN TREE)
 
 ```python
     # One scan, asked of the code rather than of the two answers agreeing:
