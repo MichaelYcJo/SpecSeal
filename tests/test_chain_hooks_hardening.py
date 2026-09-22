@@ -557,6 +557,7 @@ NUMBER_WORDS = {
     21: ("Twenty-one", "스물한"),
     22: ("Twenty-two", "스물두"),
     23: ("Twenty-three", "스물세"),
+    24: ("Twenty-four", "스물네"),
 }
 
 # Where each edition states the count. Scoping to the row is not tidiness:

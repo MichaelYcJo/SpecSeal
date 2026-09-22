@@ -613,3 +613,159 @@ def test_a_present_classified_file_is_still_judged(tmp_path):
     found, missing = above_the_floor(root)
     assert missing == ["hooks/folded.py"], missing
     assert set(CLASSIFIED) - found == set(sorted(CLASSIFIED)[1:])
+
+
+# --- the second guarded script ---------------------------------------------
+
+# #458. `skills/code-review/scripts/round_record.py`'s guard block says it is
+# the spelling to copy, and `settle` is the first shipped command to copy it.
+# The three cases below are the two above plus the structural one, asked of
+# that copy: a guard that was copied and then quietly moved below an act is a
+# guard nobody would notice was gone.
+SETTLE = os.path.join(ROOT, "skills", "settle", "scripts", "settle.py")
+SETTLE_ARGS = ("--root", JUNK_ITEM)
+
+
+def settle_source():
+    with open(SETTLE, encoding="utf-8") as f:
+        return f.read()
+
+
+def settle_with_raised_floor(tmp_path, floor="(99, 0)"):
+    """The real file with `FLOOR` raised above any interpreter, in a mirror of
+    the layout it resolves its siblings against.
+
+    The mirror is three files rather than the whole plugin, and it is what
+    lets the ABOVE-the-floor half of this pair say anything. Below the floor
+    the guard answers before `HERE` is computed, so the copy could sit
+    anywhere; above it the script loads `hooks/optin.py` to resolve the seal
+    root and `unverified_check.py` to read the fold record, and a copy alone
+    refuses with a missing-sibling sentence before it reaches the argument it
+    is being handed. That refusal is correct and it is not what this pair is
+    about."""
+    scripts = tmp_path / "skills" / "settle" / "scripts"
+    scripts.mkdir(parents=True)
+    for rel in (
+        ("hooks", "optin.py"),
+        ("skills", "verify", "scripts", "unverified_check.py"),
+    ):
+        target = tmp_path.joinpath(*rel)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy(os.path.join(ROOT, *rel), target)
+    copy = scripts / "settle.py"
+    text = settle_source()
+    old = "FLOOR = (3, 12)"
+    assert old in text, (
+        f"settle.py no longer spells the floor as `{old}`, so this case has "
+        "been raising a floor in a file that does not have one"
+    )
+    copy.write_text(text.replace(old, f"FLOOR = {floor}"), encoding="utf-8")
+    return str(copy)
+
+
+def run_settle(python, script):
+    return subprocess.run(
+        [python, script, *SETTLE_ARGS],
+        cwd=ROOT,
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+
+
+def test_settle_refuses_before_anything_is_read_below_a_raised_floor(tmp_path):
+    """Never skips, so CI stands on it. Every line of the guard is the
+    shipped line and one constant moved."""
+    out = run_settle(sys.executable, settle_with_raised_floor(tmp_path))
+    assert out.returncode == 2, out.stdout + out.stderr
+    assert "settle: needs python 99.0 or newer" in out.stderr, out.stderr
+    assert "Nothing was read and nothing was written." in out.stderr, out.stderr
+    assert "Traceback" not in out.stderr, out.stderr
+    assert JUNK_ITEM not in out.stderr + out.stdout, (
+        "the refusal reached argument handling first, which is the moment the "
+        "ticket is about"
+    )
+
+
+def test_above_the_floor_settle_gets_as_far_as_its_own_arguments(tmp_path):
+    """The contrast. The same arguments, a floor this interpreter satisfies,
+    and the refusal is about the tree rather than about python."""
+    out = run_settle(sys.executable, settle_with_raised_floor(tmp_path, "(3, 0)"))
+    assert out.returncode == 2, out.stdout + out.stderr
+    assert "needs python" not in out.stderr, out.stderr
+    assert JUNK_ITEM in out.stderr, out.stderr
+
+
+def test_settle_refuses_at_entry_on_a_below_floor_interpreter():
+    """The genuine article, where the machine has one. Its job is to catch
+    the raised-floor copy above lying about what the real file does on a real
+    old interpreter."""
+    module = generator()
+    found = an_interpreter_below(module.FLOOR)
+    if not found:
+        pytest.skip("no interpreter below the floor on this machine")
+    python, version = found
+    out = run_settle(python, SETTLE)
+    assert out.returncode == 2, (
+        f"{python} ({version}) exited {out.returncode}; stderr {out.stderr!r}"
+    )
+    assert module.FLOOR_TEXT in out.stderr, out.stderr
+    assert version in out.stderr, out.stderr
+    assert "Traceback" not in out.stderr, out.stderr
+    assert JUNK_ITEM not in out.stderr + out.stdout
+
+
+def test_settles_guard_precedes_every_module_level_act():
+    """Structure, because the cases above cannot see ordering. `settle.py`
+    compiles three regular expressions and resolves two paths at import; a
+    guard placed after any of them lets the operator watch progress the
+    ticket is about."""
+    import ast
+
+    tree = ast.parse(settle_source())
+    asked = refusal = None
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and "below_floor" in ast.dump(node.value):
+            asked = asked or node.lineno
+        if isinstance(node, ast.If) and "SystemExit" in ast.dump(node):
+            refusal = refusal or node.lineno
+    assert asked, "nothing at module level calls `below_floor`"
+    assert refusal, "no module-level `if` raises SystemExit"
+    assert asked < refusal, "the floor is asked about after the refusal"
+
+    OWN = {"FLOOR", "FLOOR_TEXT", "BELOW_FLOOR", "_refusal"}
+    for node in tree.body:
+        if isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.Import)):
+            continue
+        if isinstance(node, ast.Assign) and all(
+            getattr(t, "id", None) in OWN for t in node.targets
+        ):
+            continue
+        for inner in ast.walk(node):
+            if not isinstance(inner, ast.Call):
+                continue
+            called = getattr(inner.func, "id", None) or getattr(
+                inner.func, "attr", None
+            )
+            assert node.lineno >= refusal, (
+                f"settle.py's module level calls {called}() at line "
+                f"{node.lineno}, above the guard at line {refusal}"
+            )
+
+
+def test_the_guard_block_is_the_one_round_record_says_to_copy():
+    """The copy and the original are the same block, so a repair to one is
+    visibly owed to the other. Only the command's own name differs, which is
+    the whole of what a copied sentence has to change."""
+    original, copy = source(), settle_source()
+    for line in (
+        "version = tuple(sys.version_info[:3]) if version is None else tuple(version)",
+        "    if version[:2] >= FLOOR:",
+        "        return None",
+        "_refusal = below_floor()",
+    ):
+        assert line in original and line in copy, line
+    assert copy.count("settle: needs python {floor} or newer") == 1
+    assert "round-record: needs python" not in copy, (
+        "the copied block still names the script it was copied from"
+    )

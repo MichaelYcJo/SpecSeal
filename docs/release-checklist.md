@@ -82,6 +82,33 @@ The fold refuses while any `seal/specs/<id>/evidence-todo.md` has an open
 row; that is a review that never drained, not a release problem, and the
 row's work item is where it is closed.
 
+## 2b. Settle what the release leaves behind — by hand, and not in that commit
+
+```bash
+settle
+```
+
+It names the released work items whose `spec.md` no `docs/` policy has
+absorbed yet, grouped by the file their ledger rows anchor in. Read it, write
+one standing statement per segment into `docs/`, and then:
+
+```bash
+settle --retire
+```
+
+**This is a separate branch and a separate pull request from step 2.** Writing
+policy prose is a judgment act, and step 2 is two dry runs somebody reads
+followed by one mechanical commit; a release that stops for a person to write
+documentation is a release that stops. Nothing fails a build for an unsettled
+work item, so the honest answer on a busy release is to skip this step and run
+it on its own later.
+
+`skills/settle/SKILL.md` is the procedure and carries the two things a fold
+branch owes that nothing else will tell you: a `survivors.md` range-row,
+because deleting shipped sections makes the survivor sweep report every
+sentence of them, and an answer for every check in this repository carrying a
+population floor over `seal/specs/`.
+
 ## 3. Verify before committing — all of it, here
 
 The preparation commit is the first time a fragment's prose is read by the

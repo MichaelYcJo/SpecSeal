@@ -293,3 +293,65 @@ def test_this_work_item_wrote_its_own_fragment():
     assert os.path.isfile(frag), "this work item edited CHANGELOG.md instead"
     with open(frag, encoding="utf-8") as f:
         assert f.read().strip(), "the fragment is empty"
+
+
+# --- the check after a fold ------------------------------------------------
+
+
+def test_the_check_says_how_many_markers_it_read(tree):
+    """A2, the half that is a report. `--check` judged only by the fragments
+    on disk, so its one success line said nothing about the file it is
+    checking against. `fold_ledger.py --check` has printed both numbers since
+    it shipped; this is the sibling catching up."""
+    gather(tree)
+    r = run("--check", root=tree)
+    assert r.returncode == 0, r.stdout
+    assert "2 work items marked in CHANGELOG.md" in r.stdout, r.stdout
+
+
+def test_a_corpus_with_no_fragment_and_no_marker_is_not_a_pass(tmp_path):
+    """A2. After `settle` removes a released work item's directory the
+    fragment glob goes empty, and an empty glob means every fragment reached
+    the file — so the check passed having examined nothing, which reads as
+    *all gathered*.
+
+    That is the silent direction `unverified_check.py`'s own docstring argues
+    against one file over: a tolerant reader reports zero and zero is
+    indistinguishable from success. So the check judges by the markers the
+    file carries, and a corpus with neither is refused rather than passed."""
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n- an entry with no marker\n",
+        encoding="utf-8",
+    )
+    r = run("--check", root=tmp_path)
+    assert r.returncode == 1, r.stdout
+    assert "examined nothing" in r.stdout, r.stdout
+
+
+def test_a_folded_corpus_still_passes_on_its_markers(tmp_path):
+    """The other half, and the one that makes the fold possible at all: every
+    fragment has been gathered and every directory has been retired, so there
+    is nothing left on disk and the file carries the record of all of it."""
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n"
+        "<!-- specs/1700000000-earlier -->\n- the earlier one\n\n"
+        "<!-- specs/1788229400-later -->\n- the later one\n",
+        encoding="utf-8",
+    )
+    r = run("--check", root=tmp_path)
+    assert r.returncode == 0, r.stdout
+    assert "2 work items marked in CHANGELOG.md" in r.stdout, r.stdout
+
+
+def test_a_marker_quoted_inline_is_not_a_gathered_work_item(tmp_path):
+    """The count is line-anchored for the reason `fold_ledger.py#is_marked`
+    already pays for: `CHANGELOG.md`'s own entries describe the convention,
+    and a bare substring count read the description as a work item."""
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n"
+        "- each entry carries `<!-- specs/<work-item-id> -->` above it\n",
+        encoding="utf-8",
+    )
+    r = run("--check", root=tmp_path)
+    assert r.returncode == 1, r.stdout
+    assert "examined nothing" in r.stdout, r.stdout

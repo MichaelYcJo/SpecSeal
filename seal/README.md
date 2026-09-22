@@ -3,9 +3,13 @@
 This directory exists for AI sessions to hand work to each other. It is one
 root laid out by lifetime: the rows that outlive a work item at the top, and
 each work item whole under `seal/specs/<work-item-id>/`, where it waits until
-a later `settle` folds it. It is safe to delete a work item's directory
-wholesale **after the export rules below have run** — nothing that must
-survive is allowed to live only there.
+`settle` folds it. **That step exists now**: `settle` names the released work
+items whose `spec.md` no `docs/` policy has absorbed yet, a session writes one
+standing statement per segment, and `settle --retire` then removes the
+directories that statement covers. `skills/settle/SKILL.md` is the procedure
+and `skills/settle/scripts/settle.py` is the reader behind it. It is safe to
+delete a work item's directory wholesale **after the export rules below have
+run** — nothing that must survive is allowed to live only there.
 
 It lives at one of two places, and its presence at either is what opts the
 repository into the workflow. There is no config key. **Shared mode** keeps

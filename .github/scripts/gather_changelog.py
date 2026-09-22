@@ -28,8 +28,17 @@ it is the only link from a released entry back to the work that produced it.
 
 Markdown comments do not render, so a reader never sees them.
 
-Exit codes: 0 done · 1 nothing to gather, or a fragment is missing from the
-file. Both are failures a release pull request should stop on.
+**`--check` judges by the markers, not only by the fragments.** A fragment
+glob goes empty two ways: every fragment reached the file, and there are no
+fragments left to reach it because `settle` retired the work items whole. The
+second is the state every repository running this methodology ends up in, and
+reporting it as *all gathered* is a pass over an empty set. So the check also
+counts the markers `CHANGELOG.md` carries and prints both numbers, and a
+corpus with neither a fragment nor a marker is refused rather than passed.
+
+Exit codes: 0 done · 1 nothing to gather, a fragment is missing from the file,
+or `--check` found neither a fragment nor a marker and so examined nothing.
+All three are failures a release pull request should stop on.
 """
 
 import argparse
@@ -46,6 +55,11 @@ import console
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 TITLE = "# Changelog"
+# Markers on a line of their own, which is how `section()` writes them. The
+# line anchor is what `fold_ledger.py#is_marked` already pays for: this file's
+# own entries describe the convention, so a bare substring count reads the
+# description as a gathered work item.
+MARKER_LINE_RE = re.compile(r"^<!-- specs/\S+ -->$", re.M)
 
 
 def marker(work_item_id):
@@ -134,7 +148,30 @@ def main(argv=None):
                 "  python3 .github/scripts/gather_changelog.py --version X.Y.Z"
             )
             return 1
-        print(f"{len(frags)} changelog fragments, all gathered")
+        # What the check read, not only what it did not find. `ungathered`
+        # measures the fragments on disk, and after `settle` retires a
+        # released work item its directory is gone with its fragment — so an
+        # empty glob used to print "all gathered" having examined nothing,
+        # which reads as success and is the one direction a checker of claims
+        # must not fail in (`unverified_check.py`'s own docstring argues it
+        # one file over). The markers in the file are the record that survives
+        # the directory, so they are what a folded corpus is judged by.
+        marked = len(MARKER_LINE_RE.findall(text))
+        if not frags and not marked:
+            print(
+                "nothing to check: no changelog fragment under seal/specs/ "
+                "and no <!-- specs/<work-item-id> --> marker in CHANGELOG.md, "
+                "so this examined nothing and `all gathered` would be a "
+                "report about an empty set.\n"
+                "A release gathers its fragments into the file, and the "
+                "marker above each entry is what stays once the work item's "
+                "directory is folded away."
+            )
+            return 1
+        print(
+            f"{len(frags)} changelog fragments, all gathered; "
+            f"{marked} work items marked in CHANGELOG.md"
+        )
         return 0
 
     if not re.fullmatch(r"\d+\.\d+\.\d+", args.version):

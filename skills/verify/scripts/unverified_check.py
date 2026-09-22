@@ -22,7 +22,10 @@ It fails for what the author can always fix:
               here, and zero reads as "everything has been closed" — the worst
               available failure, because it is indistinguishable from success
   fewer rows  a table that lost rows against the base, or an `overview.md`
-              that was there and is not (`--baseline REF`)
+              that was there and is not (`--baseline REF`) — unless the work
+              item's fold is recorded in `docs/`, which is `settle` retiring
+              a released spec rather than this branch deleting a record. Such
+              a directory is named as folded and counted apart
   no baseline the ref itself does not resolve, or it shares no history with
               HEAD. That is exit 2, not a pass: a comparison against nothing
               is not a comparison
@@ -65,6 +68,64 @@ PLACEHOLDER = re.compile(r"^<[^>]*>$")
 # family, and the byte-order mark. None of them make a marker into a claim.
 INVISIBLE = "\ufe0f\ufe0e\u200b\u200c\u200d\u2060\ufeff"
 SEPARATOR = re.compile(r"^:?-+:?$")
+# Where a fold records itself, and the one line-anchored shape it takes. A
+# released work item's directory is removed by `settle` once its SDD set has
+# been folded into `docs/`, and the fold's record is the provenance comment
+# the folded prose carries there — the same marker
+# `.github/scripts/fold_ledger.py#marker` and
+# `.github/scripts/gather_changelog.py#marker` write. A record derived from
+# the destination cannot disagree with the destination, which is why there is
+# no second file for this to read.
+#
+# Line-anchored, for the reason `fold_ledger.py#is_marked` already pays for:
+# every document that describes the convention quotes the marker's shape
+# inline, and a substring test would read that prose as a fold and excuse a
+# removal nothing absorbed.
+#
+# **The line anchor is not the whole of it, and a fence is the other half.**
+# It says the marker stands alone on its line; it never says the line is
+# prose. `skills/settle/SKILL.md` §2 — the one document a session reads before
+# it folds — shows the marker inside a fenced block with a REAL released work
+# item id, so a session copying that example into the policy it is writing
+# hands `settle --retire` a real directory to delete. Measured 2026-09-22:
+# `folded_items` over a `docs/` holding a copy of that skill returns
+# `1788302682-the-release-check-never-watched-bin`, and the retirement removed
+# it at exit 0. And a commented-out draft is the other way a line stops being
+# live, which round 2 of the same chain found still open. So every read below
+# goes through `live_lines`, the one rule for whether a line is live: one scan
+# carrying fence, comment and code-span state together, read by
+# `settle.py#coordinates` through the same function, because a second copy of
+# any part of it is the duplicated-reader shape `check_text`'s docstring spent
+# three review rounds closing and round 3 found once more. It was three passes
+# in sequence for four rounds; `live_lines`'s docstring says why a sequence
+# could not answer this and what each formulation got wrong.
+#
+# `readable()` is NOT what this uses, although it is the pair `check_text`
+# takes. It blanks HTML comments too, and the marker IS one, so it would erase
+# every fold record there is.
+DOCS = "docs"
+FOLD_MARKER = re.compile(r"^<!-- specs/(\S+) -->$", re.M)
+# The two delimiters of an HTML comment. `live_lines` scans for them directly:
+# it holds the comment state itself, so neither is looked for while it is
+# inside a fence or a code span, and nothing blanks either one out of the text.
+OPENER = "<!--"
+CLOSER = "-->"
+# A run of backticks, and a fence opener. `live_lines` needs both as it
+# scans; `blank_fences` keeps its own copy of the fence pattern because it
+# serves the other gates and this scan may not move it.
+BACKTICKS = re.compile(r"`+")
+# **Three spaces, not `\\s*`.** CommonMark 4.5 bounds an opening fence to
+# three spaces of indentation; four is an indented code block, or a lazy
+# continuation line inside an open paragraph. Reading one as a delimiter does
+# not merely park lines — it INVERTS the fence state for the rest of the file,
+# so a real fenced block's content reads live and its delimiters read as
+# content, and a fold marker quoted inside a fenced example becomes a fold
+# record. `skills/settle/SKILL.md` §2 shows the marker inside a fence with a
+# real released id, which is the quotation this would have read (round 6,
+# finding 1; executed on a throwaway git repository, `settle --retire` at
+# exit 0 with the directory removed). `blank_fences` keeps the old spelling
+# because it serves the other gates and this scan may not move it.
+FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
 SKIP_DIRS = {
     ".git",
     ".venv",
@@ -113,14 +174,20 @@ def visible(s):
     return s.translate({ord(c): None for c in INVISIBLE}).strip()
 
 
-def strip_comments(lines):
-    """The same lines with HTML comment content blanked out, indices intact.
+def comment_scan(lines):
+    """`(the line began outside a comment, its text outside comments)`, each.
 
-    A template explains a section in a comment beside it, and an overview keeps
-    that comment. The guidance is not rows, and it is not prose where a table
-    belongs."""
-    out, inside = [], False
+    One scanner, because two readers of this file want two different things
+    out of the same walk and a second copy of the walk is what
+    `check_text`'s docstring spent three review rounds undoing. `strip_comments`
+    wants the text; `opens_outside_a_comment` wants the state the line STARTED
+    in, which the text cannot answer — a fold marker IS a comment, so a
+    genuine one and one sitting inside a commented-out draft both come back
+    with nothing kept.
+    """
+    inside = False
     for line in lines:
+        began = not inside
         rest, kept = line, ""
         while rest:
             if inside:
@@ -135,8 +202,16 @@ def strip_comments(lines):
                     kept, rest = kept + rest, ""
                 else:
                     kept, rest, inside = kept + rest[:start], rest[start + 4 :], True
-        out.append(kept)
-    return out
+        yield began, kept
+
+
+def strip_comments(lines):
+    """The same lines with HTML comment content blanked out, indices intact.
+
+    A template explains a section in a comment beside it, and an overview keeps
+    that comment. The guidance is not rows, and it is not prose where a table
+    belongs."""
+    return [kept for _, kept in comment_scan(lines)]
 
 
 def blank_fences(lines):
@@ -161,6 +236,242 @@ def blank_fences(lines):
             continue
         out.append("" if marker else line)
     return out
+
+
+def _liveness(lines, spans_cross_lines):
+    """Whether each line BEGINS live, under one of the two span readings.
+
+    `spans_cross_lines` is the only thing that differs between them, and it is
+    the one question markdown cannot answer without a block model: a backtick
+    run with no partner on its own line is literal text if the paragraph ends
+    before its partner, and a code span if it does not. `live_lines` runs this
+    twice rather than deciding.
+
+    Everything else is shared and is not a guess. Inside a fence nothing is
+    read but the closing fence; inside a comment nothing is markdown, so
+    backticks there are ordinary characters; inside a code span no comment
+    delimiter is a delimiter. A fence is decided before the rest of its line
+    because a fence opener owns the whole line, and after that whichever of a
+    comment opener and a backtick run comes first in the text wins.
+    """
+    fence, comment, span = None, False, None
+    out = []
+    for n, line in enumerate(lines):
+        out.append(fence is None and not comment and span is None)
+
+        if fence is not None:
+            closing = FENCE_RE.match(line)
+            if (
+                closing
+                and closing.group(1)[0] == fence[0]
+                and len(closing.group(1)) >= len(fence)
+            ):
+                fence = None
+            continue
+        if not comment and span is None:
+            opening = FENCE_RE.match(line)
+            if opening:
+                fence = opening.group(1)
+                continue
+
+        pos = 0
+        while pos < len(line):
+            if comment:
+                at = line.find(CLOSER, pos)
+                if at == -1:
+                    break
+                pos, comment = at + len(CLOSER), False
+            elif span is not None:
+                closer = next(
+                    (
+                        m
+                        for m in BACKTICKS.finditer(line, pos)
+                        if m.end() - m.start() == span
+                    ),
+                    None,
+                )
+                if closer is None:
+                    break
+                pos, span = closer.end(), None
+            else:
+                opener = line.find(OPENER, pos)
+                run = BACKTICKS.search(line, pos)
+                if opener != -1 and (run is None or opener < run.start()):
+                    pos, comment = opener + len(OPENER), True
+                elif run is None:
+                    break
+                else:
+                    width = run.end() - run.start()
+                    closer = next(
+                        (
+                            m
+                            for m in BACKTICKS.finditer(line, run.end())
+                            if m.end() - m.start() == width
+                        ),
+                        None,
+                    )
+                    if closer is not None:
+                        pos = closer.end()
+                    elif spans_cross_lines and _partner_ahead(lines, n + 1, width):
+                        span = width
+                        break
+                    else:
+                        pos = run.end()
+    return out
+
+
+def _paragraph_ends_at(line):
+    """Whether this line ends the paragraph above it.
+
+    Each rule is the format's own: a blank line (CommonMark 4.8), an ATX
+    heading (4.2), a fence delimiter (4.5), a thematic break (4.1), a block
+    quote marker (5.1), a bullet or an ordered list that may interrupt a
+    paragraph (5.2, 5.3), a setext underline (4.3), and a table row, which
+    GFM parses cell by cell.
+
+    **Being incomplete here is CHEAP, not safe, and the difference is a line
+    the format parks.** This bounds one half of a disagreement rather than
+    the answer, and a missing stop USUALLY only lets `_partner_ahead` reach
+    further, which makes the crossing reading believe in a span the format
+    would not, which parks a line — a fold reported as a deletion, at exit 1,
+    which a person sees. Usually, not always: reaching further also changes
+    which runs pair with which, and a run that consumes a partner early
+    leaves a later run with none, so a later line goes live rather than
+    parked. Measured 2026-09-22 with the setext underline missing, which it
+    was until round 6: `["text `", "===", "text `", "plain prose", "text `"]`
+    read its last two lines live where the format parks them. The rule round
+    5 removed decided the answer by itself, so its missing stops removed a
+    directory; this one only leans, but it leans in both directions. **Add a
+    stop when the format has one, and stop nowhere the format does not** — an
+    over-stop shortens the reach, which is the direction that goes live.
+    """
+    s = line.strip()
+    if not s:
+        return True
+    # `|` is a deliberate over-stop — GFM parses a table row's cells
+    # independently and it is what keeps three work items' coordinates.
+    # `>` is the format's own rule (CommonMark 5.1).
+    if s.startswith(("|", ">")):
+        return True
+    # CommonMark 4.2: one to six hashes, then a space, a tab or end of line.
+    # `s.startswith("#")` alone stopped on `#hello` and on `####### seven`,
+    # which are paragraph text — and on the issue references this repository
+    # writes constantly, 944 lines of them (round 6, finding 4).
+    if s.startswith("#"):
+        n = len(s) - len(s.lstrip("#"))
+        if 1 <= n <= 6 and (len(s) == n or s[n] in " \t"):
+            return True
+    if FENCE_RE.match(line):
+        return True
+    if s[0] in "*-_" and len(s) >= 3 and set(s.replace(" ", "")) == {s[0]}:
+        return True
+    if s[:2] in ("- ", "* ", "+ "):
+        return True
+    # CommonMark 4.3: a setext underline is a run of `=` under a paragraph.
+    # The `-` form is already a thematic break above.
+    if set(s) == {"="}:
+        return True
+    # CommonMark 5.3: an ordered list interrupts a paragraph only when it
+    # starts with 1. `3. an item` inside a paragraph is paragraph text, and
+    # stopping there shortens the crossing reading's reach.
+    return s[:2] in ("1.", "1)") and len(s) > 2 and s[2] in " \t"
+
+
+def _partner_ahead(lines, start_line, width):
+    """Whether a backtick run of exactly `width` arrives before the paragraph
+    the run opened in has ended.
+
+    This is one half of a disagreement, not an answer: it asks how far a span
+    COULD reach, and `live_lines` pairs it with the reading where an unclosed
+    run reaches nowhere at all. A true span's partner lies inside its own
+    paragraph, so this finds the very same partner; everywhere the two differ
+    this reading parks a line the format would have read live, which is the
+    direction that keeps a work item's directory.
+    """
+    for i in range(start_line, len(lines)):
+        if _paragraph_ends_at(lines[i]):
+            return False
+        for m in BACKTICKS.finditer(lines[i]):
+            if m.end() - m.start() == width:
+                return True
+    return False
+
+
+def live_lines(lines):
+    """`(the line, it begins live)` for each line — both readings, ANDed.
+
+    **The one rule for whether a line is live, and every reader of the fold
+    record and of the ledger sections asks it here** — `folded_items` below
+    and both loops of `skills/settle/scripts/settle.py#coordinates`. A line
+    begins live when it begins outside a fenced block, outside an HTML
+    comment and outside a code span. The line is handed back unchanged; what
+    a caller reads out of it — a marker, a coordinate — lives inside
+    backticks, and the flag beside it is the whole of the judgment.
+
+    **The one question markdown will not answer without a block model, and
+    what is done about it.** A backtick run with no partner on its own line
+    is literal text if the paragraph ends before its partner arrives, and a
+    code span if it does not. Knowing which needs to know where the block
+    ends, and every rule this reader has had for that was a guess:
+
+    - Reading A: the run is **not** a span. It is literal, and comment
+      delimiters after it on later lines are real delimiters.
+    - Reading B: the run **is** a span, reaching to the next run of equal
+      length wherever that falls.
+
+    **A line is live only where both readings call it live.** Nothing decides
+    where a block ends, because neither reading is chosen — both are computed
+    and the disagreement is resolved toward keeping a work item's directory.
+    Where the two agree, that is the answer; where they differ, the line is
+    read as quoted and its marker is not a fold record. The cost is a fold
+    reported as a deletion, which a person sees at exit 1 and can act on.
+
+    **This is what five review rounds cost.** Rounds 1 to 4 each guessed at
+    the comment state from a stateless pass; the scan that replaced them
+    guessed instead at markdown's block structure, and round 5 found the
+    shape that guess got wrong — a paragraph carrying an unclosed backtick,
+    a draft opener on the next line, the closing backtick after it, and a
+    marker below, which read live and took `settle --retire` to exit 0 with
+    the directory removed. A guess at a block model fails for the same reason
+    a guess at the comment state did, one level down. Computing both readings
+    is what ends the class: there is no third thing to be wrong about.
+    `plan.md` §*Alternatives considered* carries the four formulations of the
+    pre-pass and this one's own predecessor.
+
+    **What it reads, and what it does not model.** Inside a fence nothing is
+    read but the closing fence; inside a comment nothing is markdown, so
+    backticks there are ordinary characters; inside a code span no comment
+    delimiter is a delimiter. A fence is decided before the rest of its line,
+    then whichever of a comment opener and a backtick run comes first wins.
+    Reference definitions, link destinations, raw HTML blocks and entity
+    references are not modelled and none can hold a fold marker on a line of
+    its own. Markdown's indented code block is the one deliberate omission
+    with a shape that could: `skills/settle/scripts/settle.py#coordinates`
+    names it and
+    `tests/test_settle_reads_before_it_removes.py#test_an_indented_example_row_is_counted_and_the_reader_says_so`
+    pins the decision.
+
+    **What this may not touch.** `comment_scan`, `strip_comments`,
+    `blank_fences` and `readable` serve the other gates — `check_text`,
+    `round_record.py`, `chain_check.py`, the review-history guard — and
+    `seal/ledger.md` pins `strip_comments`'s exact output while
+    `tests/test_chain_hooks.py#reader_blanking_passes` pins the passes
+    `readable` makes. None of them is on this path and none of them moved.
+
+    No `zip`. Ruff's B905 requires the strictness keyword on every such call,
+    that keyword arrived in python 3.10, and this script carries no
+    interpreter guard — so writing one here is the traceback on somebody's
+    3.9 `python3` that
+    `tests/test_a_script_says_which_interpreter_it_needs.py` keeps out of the
+    tree. That module reads TEXT rather than an AST, so even naming the
+    construct here reddens it, which is why this sentence goes the long way
+    round.
+    """
+    lines = list(lines)
+    literal = _liveness(lines, spans_cross_lines=False)
+    crossing = _liveness(lines, spans_cross_lines=True)
+    for n, line in enumerate(lines):
+        yield line, literal[n] and crossing[n]
 
 
 def readable(text):
@@ -583,6 +894,81 @@ def overviews_at(root, ref, prefixes):
     return out
 
 
+def folded_items(root):
+    """Work item ids whose SDD set has been folded into `docs/`.
+
+    The removal of a released work item's directory is `settle`'s last act,
+    and until this read existed the arm below could not tell it from a branch
+    deleting a record. It is not a distinction the removal itself carries:
+    both shapes are a directory present at the fork point and absent here.
+    What tells them apart is whether a policy document absorbed the item, and
+    the marker is that, written where the prose landed.
+
+    Nothing outside `docs/` is read. `docs/` is where the fold writes, by
+    `docs/one-root-by-lifetime.md` §*What happens at a release* step 2, and
+    widening the scan to the whole tree would let a marker anywhere — a round
+    record, a changelog fragment, the removed directory's own files at the
+    base — excuse a removal nothing absorbed. A repository with no `docs/`
+    folds nothing and gets an empty set, which is the state every repository
+    was in before `settle` shipped.
+
+    **The top level of `docs/` and no deeper**, for the same reason one step
+    in. `spec.md` G2 and `skills/settle/SKILL.md` §2 fix the destination as a
+    flat `docs/` — merge into a document that exists, create one only for a
+    new area, and no `docs/policy/` directory — so a fold never writes below
+    this level and a marker below it is somebody's notes. This repository's
+    own `docs/experiments/` is four scratch files, and a quoted marker in one
+    of them excused a removal nothing absorbed (measured 2026-09-22). The
+    docstring above argued that scope for the tree and then did not apply it
+    inside `docs/`.
+
+    **A line has to be live, and `live_lines` is the one rule for it.** A
+    fenced block is a quotation and a commented-out draft is a parked one;
+    round 1 closed the first and round 2 found the second still open, with
+    the same outcome both times — a directory removed at exit 0 with nothing
+    having absorbed it. Round 3 then found the rule spelled here in full and
+    in `settle.py#coordinates` by half, so neither reader spells it any more:
+    both ask `live_lines`, which also blanks inline code spans before it asks
+    the comment state, because a document that quotes `<!--` inside backticks
+    would otherwise park every marker below it. The constant's own comment
+    carries the measurements.
+    """
+    found = set()
+    top = under_root(root, DOCS)
+    if not os.path.isdir(top):
+        return found
+    for name in sorted(os.listdir(top)):
+        if not name.endswith(".md"):
+            continue
+        path = os.path.join(top, name)
+        if not os.path.isfile(path):
+            continue
+        try:
+            with open(path, encoding="utf-8") as f:
+                text = f.read()
+        except OSError:
+            continue
+        for line, live in live_lines(text.splitlines()):
+            if live:
+                found.update(FOLD_MARKER.findall(line))
+    return found
+
+
+def under_root(root, rel):
+    """The disk path of a `/`-joined repository-relative path."""
+    return os.path.join(root, *rel.split("/"))
+
+
+def work_item_of(rel):
+    """The work item id a repo-relative record path belongs to.
+
+    The directory that holds the record, which is how every other reader of
+    this layout names a work item — `gather_changelog.py#fragments` takes the
+    same basename for the same reason.
+    """
+    return os.path.basename(os.path.dirname(rel))
+
+
 def show(root, ref, rel):
     r = subprocess.run(
         ["git", "-C", root, "show", f"{ref}:{rel}"],
@@ -623,7 +1009,10 @@ def main(argv=None):
         "leaves by being marked closed, not by the row or the file being "
         "deleted. The comparison is against `git merge-base REF HEAD`, so a "
         "work item squashed into REF after this branch forked is not this "
-        "branch's removal",
+        "branch's removal. Nor is a work item whose fold `docs/` records with "
+        "its `<!-- specs/<id> -->` marker: that is `settle` retiring a "
+        "released spec a policy document has absorbed, and it is named as "
+        "folded rather than reported as a deletion",
     )
     args = ap.parse_args(argv)
 
@@ -721,7 +1110,7 @@ def main(argv=None):
     files = overviews(args.path)
     cwd = os.getcwd()
     total_open = total_closed = 0
-    bad, deleted, uncompared = [], [], []
+    bad, deleted, uncompared, settled = [], [], [], []
     for path in unique_by_target(files):
         rel = display_path(path, cwd)
         open_rows, closed_rows, errors = check_file(path)
@@ -775,7 +1164,24 @@ def main(argv=None):
     if args.baseline:
         prefixes = sorted({repo_relative(real(p), root) for p in args.path})
         here = {repo_relative(f, root) for f in files}
+        folded_ids = folded_items(root)
         for rel in overviews_at(root, base, prefixes):
+            if rel not in here and work_item_of(rel) in folded_ids:
+                # A fold, not a deletion. Named rather than passed over in
+                # silence: a removal this arm stops reporting is one the
+                # reader has to be able to see it decided about.
+                settled.append(
+                    annotate(
+                        "notice",
+                        display_path(os.path.join(root, rel), cwd),
+                        1,
+                        f"folded: `{DOCS}/` carries "
+                        f"<!-- specs/{work_item_of(rel)} -->, so what this "
+                        "recorded as unverified was absorbed by a policy "
+                        "document before the directory was removed",
+                    )
+                )
+                continue
             if rel not in here:
                 # Relative to the caller's directory, like every other line
                 # this prints. The two deletion reports used to answer on
@@ -793,7 +1199,7 @@ def main(argv=None):
                     )
                 )
 
-    if not files and not deleted:
+    if not files and not deleted and not settled:
         print(
             f"unverified-check: no {OVERVIEW} found under "
             f"{', '.join(args.path)} — nothing was checked",
@@ -806,7 +1212,13 @@ def main(argv=None):
         f" · {total_closed} closed"
         f" · {len(bad)} unreadable"
         + (f" · {len(uncompared)} not compared" if uncompared else "")
+        + (f" · {len(settled)} folded" if settled else "")
     )
+
+    if settled:
+        print(f"\nfolded into {DOCS}/ and removed, not deleted from the record:")
+        for line in settled:
+            print(line)
 
     if uncompared:
         print(f"\nnot compared against {named}:")

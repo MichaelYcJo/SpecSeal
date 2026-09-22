@@ -10,6 +10,7 @@ to make expensive.
 import atexit
 import importlib.util
 import os
+import random
 import shutil
 import subprocess
 import tempfile
@@ -1233,3 +1234,675 @@ def test_the_documents_state_the_merge_base_footing(doc):
         f"{doc} describes `unverified-check --baseline` and does not say the "
         "comparison is against the merge base"
     )
+
+
+# --- a fold is not this branch's deletion ----------------------------------
+
+
+def fold_into_docs(repo, work_item_id, document="a-segment.md"):
+    """Record `work_item_id` as folded, the way `settle`'s procedure does.
+
+    The fold record is the provenance comment the folded prose carries in
+    `docs/`, which is the marker `.github/scripts/fold_ledger.py#marker` and
+    `.github/scripts/gather_changelog.py#marker` already write. Nothing else
+    is written: a record derived from the destination cannot disagree with
+    it, which is why there is no second file to keep in step.
+    """
+    docs = repo / "docs"
+    docs.mkdir(exist_ok=True)
+    (docs / document).write_text(
+        f"# a segment\n\nOne standing statement.\n<!-- specs/{work_item_id} -->\n",
+        encoding="utf-8",
+    )
+
+
+def test_a_folded_work_item_is_not_read_as_this_branchs_deletion(tmp_path, capsys):
+    """A1. `settle` removes a released work item's directory after its SDD set
+    has been folded into `docs/`, and this arm used to call that a deletion —
+    97 of them in one commit, which is what made the fold impossible rather
+    than merely noisy.
+
+    The discriminator is the fold record, not the removal: a directory whose
+    work item carries no marker anywhere in `docs/` is still this branch's
+    deletion and still fails."""
+    d, p = git_repo(tmp_path, CANONICAL)
+    other = d / "specs" / "1780000001-other"
+    other.mkdir(parents=True)
+    (other / "overview.md").write_text("# o\n\n" + CANONICAL, encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qm", "two"], check=True, capture_output=True
+    )
+    shutil.rmtree(os.path.dirname(p))
+    fold_into_docs(d, "1780000000-work")
+    assert run([str(d), "--baseline", "HEAD"]) == 0
+    out = capsys.readouterr().out
+    assert "present at HEAD and not here" not in out
+    assert "1780000000-work" in out and "folded" in out, (
+        f"the run says nothing about the directory it stopped reporting: {out}"
+    )
+
+
+def test_an_unfolded_removal_beside_a_folded_one_still_fails(tmp_path, capsys):
+    """The other half of A1, and the one that keeps the exemption from being
+    a way past the check: two directories leave in one commit and only one of
+    them has been absorbed by a policy document."""
+    d, p = git_repo(tmp_path, CANONICAL)
+    for name in ("1780000001-other", "1780000002-third"):
+        other = d / "specs" / name
+        other.mkdir(parents=True)
+        (other / "overview.md").write_text("# o\n\n" + CANONICAL, encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qm", "three"], check=True, capture_output=True
+    )
+    shutil.rmtree(os.path.dirname(p))
+    shutil.rmtree(str(d / "specs" / "1780000001-other"))
+    fold_into_docs(d, "1780000000-work")
+    assert run([str(d), "--baseline", "HEAD"]) == 1
+    out = capsys.readouterr().out
+    assert "1780000001-other" in out and "present at HEAD and not here" in out
+    assert "1780000000-work/overview.md" not in out.split("rows left the record")[-1]
+
+
+def test_a_marker_quoted_in_prose_is_not_a_fold_record(tmp_path, capsys):
+    """The line-anchored test `fold_ledger.py#is_marked` already pays for: a
+    document that quotes the marker's shape inline, which every document
+    describing the convention does, must not read as a fold."""
+    d, p = git_repo(tmp_path, CANONICAL)
+    other = d / "specs" / "1780000001-other"
+    other.mkdir(parents=True)
+    (other / "overview.md").write_text("# o\n\n" + CANONICAL, encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qm", "two"], check=True, capture_output=True
+    )
+    shutil.rmtree(os.path.dirname(p))
+    docs = d / "docs"
+    docs.mkdir()
+    (docs / "how-it-works.md").write_text(
+        "Each folded sentence carries `<!-- specs/1780000000-work -->` inline.\n",
+        encoding="utf-8",
+    )
+    assert run([str(d), "--baseline", "HEAD"]) == 1
+    assert "present at HEAD and not here" in capsys.readouterr().out
+
+
+def test_a_marker_inside_a_fenced_block_is_not_a_fold_record(tmp_path):
+    """Round 1's 🔴. The line anchor says the marker stands alone on its line
+    and never says the line is prose, so a document that QUOTES the convention
+    in a fenced block satisfied the removal guard.
+
+    The shape is the project's own: `skills/settle/SKILL.md` §2 — the one
+    document a session reads before it folds — shows the marker inside a
+    fenced block with a real released work item id, so a session copying that
+    example into the policy it is writing hands `settle --retire` a real
+    directory to delete. Measured before the fix: the retirement removed it at
+    exit 0."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a-policy.md").write_text(
+        "# a segment\n\nEach folded sentence carries its comment:\n\n"
+        "```markdown\n<!-- specs/1780000000-work -->\nA standing statement.\n```\n",
+        encoding="utf-8",
+    )
+    assert uc.folded_items(str(tmp_path)) == set()
+    # Positive direction in the same fixture, so the fix cannot be "find
+    # nothing ever": a marker outside the fence is still a fold record.
+    (docs / "b-policy.md").write_text(
+        "# another\n\n<!-- specs/1780000001-other -->\nA standing statement.\n",
+        encoding="utf-8",
+    )
+    assert uc.folded_items(str(tmp_path)) == {"1780000001-other"}
+
+
+@pytest.mark.parametrize(
+    "body, found",
+    [
+        ("<!-- specs/x-1 -->\n", {"x-1"}),
+        ("```markdown\n<!-- specs/x-2 -->\n```\n", set()),
+        ("~~~\n<!-- specs/x-3 -->\n~~~\n", set()),
+        # A ``` inside a ```` block does not close it, which is CommonMark and
+        # which `blank_fences` already implements — the reason this reuses
+        # that reader instead of writing a second one.
+        ("````\n```markdown\n<!-- specs/x-4 -->\n```\n````\n", set()),
+        ("```\n<!-- specs/x-5 -->\n", set()),
+        ("```\nx\n```\n<!-- specs/x-6 -->\n", {"x-6"}),
+        ("see `<!-- specs/x-7 -->` here\n", set()),
+    ],
+)
+def test_every_fence_shape_a_policy_document_can_carry(tmp_path, body, found):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a.md").write_text(body, encoding="utf-8")
+    assert uc.folded_items(str(tmp_path)) == found
+
+
+def test_the_shipped_skill_copied_into_docs_records_no_fold(tmp_path):
+    """The class rather than the instance. `skills/settle/SKILL.md` is what a
+    session reads before it writes the policy, and its worked example carries
+    a real released work item id. Pasting the skill itself into `docs/` is the
+    worst case a copy can produce, and it must record nothing."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    skill = os.path.join(ROOT, "skills", "settle", "SKILL.md")
+    with open(skill, encoding="utf-8") as f:
+        text = f.read()
+    assert "<!-- specs/" in text, (
+        "the skill no longer shows the marker, so this case is vacuous — it "
+        "exists because the skill's own example is the reachable path"
+    )
+    (docs / "pasted.md").write_text(text, encoding="utf-8")
+    assert uc.folded_items(str(tmp_path)) == set()
+
+
+def test_a_marker_below_the_top_level_of_docs_is_not_a_fold_record(tmp_path):
+    """`spec.md` G2 and `skills/settle/SKILL.md` §2 fix the destination as a
+    flat `docs/`, so a fold never writes below the top level and a marker
+    below it is somebody's notes. This repository's own `docs/experiments/` is
+    four scratch files, and a quoted marker in one of them excused a removal
+    nothing absorbed."""
+    docs = tmp_path / "docs"
+    (docs / "experiments").mkdir(parents=True)
+    (docs / "experiments" / "2026-09-03-a-note.md").write_text(
+        "<!-- specs/1780000000-work -->\n", encoding="utf-8"
+    )
+    assert uc.folded_items(str(tmp_path)) == set()
+    (docs / "a-policy.md").write_text(
+        "<!-- specs/1780000000-work -->\n", encoding="utf-8"
+    )
+    assert uc.folded_items(str(tmp_path)) == {"1780000000-work"}
+
+
+def test_the_folded_line_reads_as_a_sentence(tmp_path, capsys):
+    """§14: the line a person reads in the hygiene workflow's output. It
+    carried a space before its comma and nothing pinned it, so nothing would
+    have caught it changing either."""
+    d, p = git_repo(tmp_path, CANONICAL)
+    other = d / "specs" / "1780000001-other"
+    other.mkdir(parents=True)
+    (other / "overview.md").write_text("# o\n\n" + CANONICAL, encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qm", "two"], check=True, capture_output=True
+    )
+    shutil.rmtree(os.path.dirname(p))
+    fold_into_docs(d, "1780000000-work")
+    assert run([str(d), "--baseline", "HEAD"]) == 0
+    out = capsys.readouterr().out
+    assert "<!-- specs/1780000000-work -->, so what this" in out, out
+    assert " --> ," not in out, f"a space before the comma: {out}"
+
+
+def test_a_marker_inside_a_commented_out_draft_is_not_a_fold_record(tmp_path):
+    """Round 2's 🔴, and the other half of round 1's. A line stops being live
+    three ways: a fence is a quotation, an enclosing comment is a parked draft
+    and a code span is a quotation too. Round 1 closed the first; this closes
+    the second, and round 4 of this work item's own chain closed the third.
+
+    Measured before the fix: a `docs/` document with a draft section commented
+    out around a real marker made `settle --retire` remove the directory at
+    exit 0, nothing having absorbed it."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a-policy.md").write_text(
+        "# a segment\n\n<!-- a draft section, parked\n\n"
+        "<!-- specs/1780000000-work -->\nA statement nobody has agreed to.\n\n-->\n",
+        encoding="utf-8",
+    )
+    assert uc.folded_items(str(tmp_path)) == set()
+    (docs / "b-policy.md").write_text(
+        "<!-- specs/1780000001-other -->\nA standing statement.\n", encoding="utf-8"
+    )
+    assert uc.folded_items(str(tmp_path)) == {"1780000001-other"}
+
+
+@pytest.mark.parametrize(
+    "body, found",
+    [
+        # A marker is itself a comment, which is why the state a line STARTED
+        # in is the question and the line's surviving text is not.
+        ("<!-- specs/c-1 -->\n", {"c-1"}),
+        ("<!-- parked\n<!-- specs/c-2 -->\n-->\n", set()),
+        # The draft closes before the marker, so the marker is live again.
+        ("<!-- parked\n-->\n<!-- specs/c-3 -->\n", {"c-3"}),
+        # An unclosed comment runs to the end of the file.
+        ("<!-- parked\n<!-- specs/c-4 -->\n", set()),
+        # Opened and closed on one line before the marker on the next.
+        ("<!-- a note --> and prose\n<!-- specs/c-5 -->\n", {"c-5"}),
+        # Both ways of not being live at once.
+        ("<!-- parked\n```\n<!-- specs/c-6 -->\n```\n-->\n", set()),
+        # An opener quoted inside a code span is prose, not a draft. Three
+        # top-level `docs/` documents quote the marker's shape inside
+        # backticks today, each closed on its own line; one `<!--` alone in a
+        # sentence would park every marker below it (round 3, finding 2).
+        ("see `<!--` here\n<!-- specs/c-7 -->\n", {"c-7"}),
+        # And its mirror. A CLOSER quoted inside a span is left alone, because
+        # inside a comment nothing is markdown and the quotation really does
+        # end the draft. So the marker below it is live and this IS a fold
+        # record — the one shape where the narrowed pass reads MORE than the
+        # pass that blanked every span, and `settle --retire` removes the
+        # directory at exit 0. Deliberate, and pinned here so that a later
+        # edit cannot take the direction back in silence.
+        ("<!-- parked\nprose with `-->` in it\n<!-- specs/c-8 -->\n-->\n", {"c-8"}),
+    ],
+)
+def test_every_comment_shape_a_policy_document_can_carry(tmp_path, body, found):
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a.md").write_text(body, encoding="utf-8")
+    assert uc.folded_items(str(tmp_path)) == found
+
+
+def test_strip_comments_reads_through_the_one_comment_scanner(monkeypatch):
+    """`strip_comments` keeps no private copy of the comment walk.
+
+    It used to share `comment_scan` with `opens_outside_a_comment`, and this
+    case was named for that pair. The pair is gone: `live_lines` carries the
+    comment state itself now, so `comment_scan` has one reader left. What is
+    still worth pinning is the half that has not changed — a second copy of
+    the walk inside `strip_comments` would answer identically to the real one
+    and no assertion comparing outputs could see it (round 3 of the parent
+    chain, finding 4), so the scanner is replaced at module level and the
+    reader has to answer from the stub."""
+    lines = [
+        "prose <!-- open",
+        "still inside",
+        "closed --> and prose again",
+        "<!-- specs/x-1 -->",
+    ]
+    assert uc.strip_comments(lines) == [
+        "prose ",
+        "",
+        " and prose again",
+        "",
+    ]
+    monkeypatch.setattr(uc, "comment_scan", lambda lines: iter([(False, "SENTINEL")]))
+    assert uc.strip_comments(lines) == ["SENTINEL"]
+
+
+@pytest.mark.parametrize(
+    "line, opens",
+    [
+        # A comment opener inside a code span is a quotation and opens nothing.
+        ("a `<!--` c", False),
+        # A backtick string closes at the next one of EQUAL length, so the
+        # single backtick inside this double-backtick span is span content and
+        # the opener after it is still quoted.
+        ("``a ` <!--`` c", False),
+        # Closed span, then a real opener outside it.
+        ("`a` <!-- b", True),
+        # An unmatched backtick run is literal text, so the opener is real.
+        ("`open <!--", True),
+        ("no span <!--", True),
+        ("no span at all", False),
+    ],
+)
+def test_a_code_span_closes_at_a_backtick_string_of_equal_length(line, opens):
+    """CommonMark 6.1's span rule, asked of the scan that now implements it:
+    equal-length backtick strings, an unmatched one left literal. Observed
+    where it matters rather than through a blanked string — whether the line
+    leaves a comment open, which is what the next line's liveness answers."""
+    answer = [live for _, live in uc.live_lines([line, "<!-- specs/x-1 -->"])]
+    assert answer[0] is True
+    assert answer[1] is not opens
+
+
+def test_the_scan_decides_a_fence_before_a_comment_or_a_span():
+    """Precedence, half one. A fence opener owns its whole line, so a comment
+    opener or a backtick run on the same line is fenced content and opens
+    nothing — and the lines inside the block are not live however they read."""
+    lines = ["```markdown <!--", "<!-- specs/x-1 -->", "```", "<!-- specs/x-2 -->"]
+    assert [live for _, live in uc.live_lines(lines)] == [True, False, False, True]
+
+
+def test_the_first_delimiter_on_the_line_wins():
+    """Precedence, half two. Where a comment opener and a backtick run are
+    both ahead, whichever comes first in the text decides: the opener first
+    parks what follows, the backtick run first quotes it."""
+    run_first = [live for _, live in uc.live_lines(["x `<!--` y", "after"])]
+    opener_first = [live for _, live in uc.live_lines(["x <!-- `y`", "after"])]
+    assert run_first == [True, True]
+    assert opener_first == [True, False]
+
+
+def a_reading_from_the_commonmark_rules(lines):
+    """A reference reading of a markdown document, written from the format.
+
+    Nothing here is named after, or copied from, a choice `live_lines` made —
+    that was round 5's finding 2, where this function's block rule was the
+    reader's own and the case built on it could not report the reader being
+    wrong. Every rule below cites the specification it comes from, so a
+    disagreement is settled by reading the spec rather than by reading the
+    module under test.
+
+    - **Fenced code blocks** (CommonMark 4.5): a line whose first non-space
+      run is three or more backticks or tildes opens one; a line whose run is
+      the same character and at least as long closes it. Nothing inside is
+      parsed.
+    - **HTML comments** (CommonMark 6.6, raw HTML): `<!--` opens and the next
+      `-->` closes, and between them the document is not markdown at all, so
+      backticks are ordinary characters.
+    - **Code spans** (CommonMark 6.1): a backtick string is closed by the
+      next backtick string of equal length; one with no partner is literal
+      text. A code span is inline content of a leaf block, so its partner
+      must lie in the same block.
+    - **Where a block ends** (CommonMark 4.1, 4.2, 4.3, 4.5, 4.8, 5.1, 5.2
+      and GFM 4.10): a blank line, a thematic break, an ATX heading, a fence
+      delimiter, a block quote marker, a list item marker, a setext
+      underline, or a table row. **A richer list is a WEAKER case, not a
+      safer one**, and the sentence here used to claim the opposite. Every
+      extra stop shortens `partner_in_this_block`, which makes this reading
+      see fewer spans, which makes it call MORE lines live — and the only
+      violation this case can report is the scan live where this reading
+      parks. So each rule is the format's rule and no other, and the two
+      indentation bounds below are where that stopped being true (round 6,
+      finding 2).
+
+    A line is live when it begins outside all three.
+    """
+
+    def block_ends_at(line):
+        indent = len(line) - len(line.lstrip(" "))
+        s = line.strip()
+        if not s:
+            return True
+        if s.startswith("|") or s.startswith(">"):
+            return True
+        if indent <= 3 and s.startswith("#"):
+            # CommonMark 4.2: one to six hashes, then a space, a tab or the
+            # end of the line. The guard this replaces read
+            # `s.lstrip("#").startswith((" ", ""))`, and `str.startswith("")`
+            # is true of every string, so it asserted nothing.
+            n = len(s) - len(s.lstrip("#"))
+            if 1 <= n <= 6 and (len(s) == n or s[n] in " \t"):
+                return True
+        if set(s) == {"="}:
+            return True
+        if indent <= 3 and len(s) >= 3 and s[0] in "`~" and s[:3] == s[0] * 3:
+            return True
+        if len(s) >= 3 and s[0] in "*-_" and set(s.replace(" ", "")) == {s[0]}:
+            return True
+        if s[:2] in ("- ", "* ", "+ "):
+            return True
+        return s[:2] in ("1.", "1)") and len(s) > 2 and s[2] in " \t"
+
+    def runs(text, at):
+        n = 0
+        while at + n < len(text) and text[at + n] == "`":
+            n += 1
+        return n
+
+    def partner_in_this_block(start_line, start_at, width):
+        # Every line reached here is a LATER line than the run's own, so each
+        # one is checked: a block that ends on the first of them ends the
+        # paragraph the run was opened in.
+        for i in range(start_line, len(lines)):
+            if block_ends_at(lines[i]):
+                return False
+            text = lines[i]
+            j = start_at if i == start_line else 0
+            while j < len(text):
+                if text[j] == "`":
+                    n = runs(text, j)
+                    if n == width:
+                        return True
+                    j += n
+                else:
+                    j += 1
+        return False
+
+    def fence_of(line):
+        # CommonMark 4.5 bounds an opening fence to three spaces. Stripping
+        # the line first was the one rule this reading still took from
+        # `live_lines`, and while it did, this case agreed with the scan on
+        # the very shape that removed a directory (round 6, finding 2).
+        if len(line) - len(line.lstrip(" ")) > 3:
+            return None
+        s = line.strip()
+        if len(s) < 3 or s[0] not in "`~":
+            return None
+        n = runs(s, 0) if s[0] == "`" else len(s) - len(s.lstrip("~"))
+        return s[0] * n if n >= 3 else None
+
+    fence = None
+    in_comment = False
+    open_span = None
+    verdict = []
+    for n, line in enumerate(lines):
+        verdict.append(fence is None and not in_comment and open_span is None)
+        if fence is not None:
+            closing = fence_of(line)
+            if closing and closing[0] == fence[0] and len(closing) >= len(fence):
+                fence = None
+            continue
+        if not in_comment and open_span is None and fence_of(line) is not None:
+            fence = fence_of(line)
+            continue
+        i = 0
+        while i < len(line):
+            if in_comment:
+                if line.startswith("-->", i):
+                    in_comment, i = False, i + 3
+                else:
+                    i += 1
+            elif open_span is not None:
+                width = runs(line, i)
+                if width == open_span:
+                    open_span, i = None, i + width
+                else:
+                    i += width if width else 1
+            elif line.startswith("<!--", i):
+                in_comment, i = True, i + 4
+            elif line[i] == "`":
+                width = runs(line, i)
+                j, closed = i + width, None
+                while j < len(line):
+                    here = runs(line, j)
+                    if here == width:
+                        closed = j + here
+                        break
+                    j += here if here else 1
+                if closed is not None:
+                    i = closed
+                elif partner_in_this_block(n + 1, 0, width):
+                    open_span, i = width, len(line)
+                else:
+                    i += width
+            else:
+                i += 1
+    return verdict
+
+
+def documents_with_several_spans_on_a_line(count, seed=20260922):
+    """Documents whose lines can carry several code spans, unclosed backtick
+    runs, and the block starts a span could be asked to reach past.
+
+    The generator is half of what a fuzz is worth. With at most one span per
+    line every formulation of this rule scored zero, and round 5's defect
+    needs an unclosed run, a block start on a later line and the run's
+    partner after it — so the tokens below include the delimiters, backtick
+    runs of two lengths, a table row, a heading, a bullet and a fence.
+    """
+    rng = random.Random(seed)
+    tokens = [
+        "<!--",
+        "-->",
+        "`",
+        "``",
+        "text",
+        " ",
+        "<!-- specs/a -->",
+        "| row |",
+        "```",
+        "# head",
+        "- item",
+        "> quote",
+        # The shapes a paragraph rule can be WRONG about, without which the
+        # case cannot report the class it is written for. Reverting any of
+        # the three paragraph corrections reddened nothing until these
+        # arrived (round 6, findings 3 and 4): a hash with no space and seven
+        # hashes are paragraph text, an ordered marker that is not 1 does not
+        # interrupt a paragraph, a run of `=` is a setext underline, and four
+        # spaces before a delimiter is an indented code block.
+        "#nospace",
+        "####### seven",
+        "3. item",
+        "===",
+        "    ```",
+    ]
+
+    def line():
+        # One token alone some of the time. A setext underline and an
+        # indented delimiter are only themselves when nothing follows them on
+        # the line, and while every line was a join of several tokens the
+        # case could not see either (round 6, findings 1 and 3).
+        if rng.random() < 0.25:
+            return rng.choice(tokens)
+        return "".join(rng.choice(tokens) for _ in range(rng.randint(1, 8)))
+
+    return [[line() for _ in range(rng.randint(1, 7))] for _ in range(count)]
+
+
+def test_the_scan_never_reads_live_what_the_format_parks():
+    """The safety direction, against a reading written from the format.
+
+    Not full agreement: `live_lines` computes two readings and parks a line
+    wherever they differ, so it deliberately parks lines the format calls
+    live, and a case demanding agreement would forbid the thing that ends
+    this class. What may never happen is the other direction — the scan
+    calling a line live that the format parks — because that is the line a
+    marker sits on when `settle --retire` removes a work item's directory
+    with nothing having absorbed it. Five review rounds each found one shape
+    of exactly that.
+    """
+    unsafe, live_seen = [], 0
+    for lines in documents_with_several_spans_on_a_line(2000):
+        scan = [live for _, live in uc.live_lines(lines)]
+        truth = a_reading_from_the_commonmark_rules(lines)
+        live_seen += sum(1 for v in scan if v)
+        for n in range(len(lines)):
+            if scan[n] and not truth[n]:
+                unsafe.append((lines, n, scan, truth))
+    assert not unsafe, (
+        f"{len(unsafe)} line(s) read live where the format parks; first: {unsafe[0]}"
+    )
+    # Not vacuous: a reader that parked everything would satisfy the above.
+    assert live_seen > 2000, live_seen
+
+
+@pytest.mark.parametrize(
+    "name, body, found",
+    [
+        # Round 1. Inside a draft nothing is markdown, so the quoted closing
+        # delimiter really ends it and the marker below is a fold record.
+        (
+            "a closer quoted alone inside a draft",
+            "<!-- a draft, parked\nprose with `-->` in it\n<!-- specs/s-1 -->\n-->\n",
+            {"s-1"},
+        ),
+        # Round 2. A span quoting a COMPLETE comment keeps its closer, for the
+        # same reason: the quotation is not one while the draft is open.
+        (
+            "a whole comment quoted inside a draft",
+            "<!-- a draft, parked\nends with `<!-- a note -->` whole\n<!-- specs/s-2 -->\n-->\n",
+            {"s-2"},
+        ),
+        # Round 3. A closer and then an opener inside ONE span: the draft ends
+        # and re-opens, so the marker begins inside it.
+        (
+            "a closer then an opener in one span",
+            "<!-- a draft, parked\nquotes `--> and then <!--` here\n<!-- specs/s-3 -->\n-->\n",
+            set(),
+        ),
+        # Round 4. The same pair in two different spans on one line.
+        (
+            "a closer and an opener in different spans",
+            "<!-- a draft, parked\n`-->` and then `<!--` more\n<!-- specs/s-4 -->\n-->\n",
+            set(),
+        ),
+        # Round 5. An unclosed run, a draft opener on the next line, the
+        # partner after it. The crossing reading calls the opener quoted and
+        # the literal reading calls it real; they disagree, so the line parks.
+        (
+            "a span reaching past a draft opener",
+            "prose with an unclosed `run\n<!-- a draft, parked\nclosing ` here\n<!-- specs/s-5 -->\n-->\n",
+            set(),
+        ),
+        # The door `overview.md` carried from round 2: a marker between the
+        # two halves of a code span. The literal reading calls it live and the
+        # crossing reading parks it.
+        (
+            "a marker inside a multi-line code span",
+            "a span opens `here\n<!-- specs/s-6 -->\nand closes` there\n",
+            set(),
+        ),
+        # Round 6. A fence delimiter indented four spaces is an indented code
+        # block, not a delimiter. One of them inverts the fence state for the
+        # rest of the file, and the marker quoted inside the real fenced
+        # example below becomes a fold record — `settle --retire` removing
+        # the work item's directory at exit 0 with nothing having absorbed
+        # it. The generator builds no indentation, so this arrives as a row.
+        (
+            "a marker in a fenced example under an indented delimiter",
+            "A fence opens with\n\n    ```python\n\nand closes with a run "
+            "at least as long.\n\n```markdown\n<!-- specs/s-8 -->\n```\n",
+            set(),
+        ),
+        # And the control, without which every answer above is satisfied by a
+        # reader that parks the whole document.
+        (
+            "a genuine marker, nothing quoted",
+            "# a policy\n\n<!-- specs/s-7 -->\nThe standing statement.\n",
+            {"s-7"},
+        ),
+    ],
+)
+def test_every_shape_five_review_rounds_named(tmp_path, name, body, found):
+    """One row per shape a review round of this work item found, and the two
+    controls. Each of the five was a directory removed at exit 0 or a row
+    filed under another work item's id, and each was found by a round rather
+    than by a case, which is what this family exists to change."""
+    docs = tmp_path / "docs"
+    docs.mkdir()
+    (docs / "a.md").write_text(body, encoding="utf-8")
+    assert uc.folded_items(str(tmp_path)) == found, name
+
+
+def test_the_three_named_markers_are_live_in_this_repositorys_ledger():
+    """The corpus floor, as a case rather than as a figure in a record. These
+    three markers are the ones the naive comment rule lost at round 0, and
+    every formulation since has had to keep them.
+
+    Every OCCURRENCE, not a dictionary keyed on the line. `seal/ledger.md`
+    carries eleven marker lines twice, so keying on the text kept only the
+    last state of each and a regression parking the first of a pair was
+    invisible — the same shape as the oracle that could not see the class it
+    was written for (round 6, finding 5)."""
+    ledger = os.path.join(ROOT, "seal", "ledger.md")
+    with open(ledger, encoding="utf-8") as f:
+        lines = f.read().split("\n")
+    occurrences = [
+        (n, line.strip(), state)
+        for n, (line, state) in enumerate(uc.live_lines(lines), 1)
+        if line.startswith(uc.OPENER + " specs/")
+    ]
+    parked = [(n, line) for n, line, state in occurrences if not state]
+    assert not parked, parked
+    for want in (
+        "1788472135-the-run-outlives-its-last-finding",
+        "1788613827-a-runs-report-carries-one-comparison-table",
+        "1788844127-the-reviewers-report-reaches-the-record-retyped",
+    ):
+        assert any(f"specs/{want} " in line for _, line, _ in occurrences), want
+    assert len(occurrences) >= 90, len(occurrences)
+    assert len({line for _, line, _ in occurrences}) >= 80, len(occurrences)
+
+
+def test_readable_would_erase_every_fold_record():
+    """Why the pair `check_text` uses is the wrong reader here, asked of the
+    code rather than asserted in a comment. Round 2 confirmed the rejection by
+    execution and this is the standing form of it."""
+    marker = ["<!-- specs/1780000000-work -->", "A standing statement."]
+    assert uc.readable("\n".join(marker))[0] == ""
+    assert next(iter(uc.live_lines(marker)))[1] is True
