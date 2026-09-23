@@ -1364,13 +1364,15 @@ def terminal_value(reader, lines, label):
         # the two terminal lines, whichever the ticket named.
         raise Refused(
             f"`{label}: {value}` carries no reason. The whole of what makes "
-            "the line readable is what was found — the next round inherits "
-            f"it, and `{chain.NEEDS}` is the cell the floor's count of later "
-            "records restarts at, so a bare `yes` there bought a round "
-            "until `chain_check.py` refused it. The shape is "
+            "the line readable is what was found, and the next round "
+            "inherits it. `chain_check.py` refuses a bare `yes` in both "
+            f"rows — `{chain.NEEDS}` because it is the cell the floor's "
+            "count of later records restarts at, so three characters must "
+            f"not buy a round; `{chain.FLOOR}` because the cell would record "
+            "that something was found and not what. The shape is "
             f"`{chain.FLOOR_YES} {DASH} <what>`, copied from the reviewer's "
-            "line of the same name; a bare `yes` is refused at the pull "
-            "request, and refusing it here is one command earlier"
+            "line of the same name, and refusing it here is one command "
+            "earlier than the pull request"
         )
     return value
 

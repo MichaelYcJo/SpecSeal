@@ -9,7 +9,7 @@ evidence ledger, not here. -->
 📋 implement applied
 · spec:     `CLAUDE.md` (the goal, the fragment rule, the ledger's REMOVED rule), `CONTRIBUTING.md` §House rules, `docs/review-chain-spec.md` §Review arm and §`Needs a fix`, `docs/release-checklist.md` §4, `skills/implement/orchestration.md` §Question 1 and the four-combinations table, `seal/specs/1790173106-…/{routing,spec,plan,questions}.md`, MichaelYcJo/SpecSeal#138 and #241
 · evidence: `seal/ledger/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row.md` B1–B3 (B2 re-founds F8, REMOVED from `seal/ledger.md`); 17 rows of `seal/ledger.md` re-read and re-stamped, each with a dated note
-· verified: executed — the floor-and-depth module (76), the two round-record suites (173), the pinning module with the routing, waiver, wrap and one-word modules (128), fifteen document-reading modules (615 passed, 1 failed on the not-yet-written overview), `evidence-check --strict`, the ten mutations in `phases/`; read — the ledger rows' claims against the edited units; unverified — the broad gate, the sealer's
+· verified: executed — the floor-and-depth module (76), the two round-record suites (173), the pinning module with the routing, waiver, wrap and one-word modules (128), fifteen document-reading modules (615 passed, 1 failed on the not-yet-written overview), `evidence-check --strict`, the thirteen mutations M1–M13 tabled in `phases/`; read — the ledger rows' claims against the edited units; unverified — the broad gate, the sealer's
 
 ## Why this work exists
 
