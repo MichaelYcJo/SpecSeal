@@ -1493,12 +1493,22 @@ def test_this_repository_has_one_root_laid_out_by_lifetime():
         assert not stray, (
             f"seal/ledger/ holds something that is not a fragment: {stray}"
         )
-    items = [
-        n
-        for n in os.listdir(os.path.join(seal, "specs"))
-        if os.path.isfile(os.path.join(seal, "specs", n, "routing.md"))
-    ]
-    assert items, "no work item under seal/specs/ carries a routing.md"
+    # `seal/specs/` is absent after a complete fold for the same reason
+    # `seal/ledger/` is absent after a release, and that is the laid-out
+    # state. `assert items` stood here — some work item carries a routing.md
+    # — and it was a floor of one (#517); what it was about holds at any
+    # size and is stronger: every entry under `seal/specs/` is a work item,
+    # whole, which starts with the declaration written before its first edit.
+    specs = os.path.join(seal, "specs")
+    if os.path.isdir(specs):
+        loose = [
+            n
+            for n in sorted(os.listdir(specs))
+            if not os.path.isfile(os.path.join(specs, n, "routing.md"))
+        ]
+        assert not loose, (
+            f"seal/specs/ holds something that is not a work item: {loose}"
+        )
     for old in (".specseal", "specs"):
         assert not os.path.exists(os.path.join(ROOT, old)), (
             f"{old}/ is back. Nothing reads it since 0.4.0; move it into seal/"

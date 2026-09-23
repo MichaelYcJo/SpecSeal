@@ -71,9 +71,11 @@ refused too, and told which of the two it is. The marker is an empty FILE
 under the common git directory, read the way `hooks/optin.py#home_at` reads
 it; a directory of that name is not one, and is refused as no root.
 
-Exit codes: 0 the report was produced, or the retirement ran · 1 a retirement
-was asked for and something refused it · 2 the arguments or the tree were
-unusable, which is five states: a `--released-at` ref that does not resolve,
+Exit codes: 0 the report was produced, or the retirement ran, or the root
+holds no work item at all — an empty or absent `seal/specs/` under a present
+`seal/` is the state a complete fold reaches · 1 a retirement was asked for
+and something refused it · 2 the arguments or the tree were unusable, which
+is five states: a `--released-at` ref that does not resolve,
 a root at neither place, a root in local mode, a repository that opted out,
 and an interpreter below the floor.
 """
@@ -381,6 +383,13 @@ NARROW_SAYS = (
     "repository owner's question (`seal/ledger.md` §1788354065's S12 row)"
 )
 
+
+# What a settled root prints, for the report and the retirement alike.
+SETTLED = (
+    "settle: {specs}/ in {root} holds no work item — nothing to fold and "
+    "nothing to retire. A complete fold ends here, and git keeps no empty "
+    "directory, so a fresh checkout of this state has no {specs}/ at all.\n"
+)
 
 # The rule arm's headings, and the listings D1's table asks the command to
 # print by itself. Pinned by `tests/test_settle_reads_before_it_removes.py`.
@@ -1018,13 +1027,17 @@ def main(argv=None):
             "command works from there.\n"
         )
         return 2
-    if not os.path.isdir(under(root, SPECS)):
-        sys.stderr.write(
-            f"settle: {root} has no {SPECS}/ — nothing was read. This command folds "
-            "work items, and a repository with none has nothing to "
-            "settle.\n"
-        )
-        return 2
+    # **A settled root is not an unusable one (#517, `spec.md` G7).** After
+    # the last retirement the tree that ran `--retire` holds an empty
+    # `seal/specs/`, and a fresh checkout of that commit holds none at all,
+    # because git keeps no empty directory. Both are the state a complete
+    # fold reaches, with the `seal/` root still there, and this used to
+    # refuse the second at exit 2 — the command unable to run on its own
+    # finished work. A repository with no root at either place is still
+    # refused above.
+    if not work_items(root):
+        sys.stdout.write(SETTLED.format(root=root, specs=SPECS))
+        return 0
 
     found = survey(root, args.released_at)
     if found is None:

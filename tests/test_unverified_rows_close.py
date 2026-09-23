@@ -2025,3 +2025,47 @@ def test_every_reader_of_a_retirement_calls_the_one_predicate(script):
         for node in ast.walk(tree)
         if isinstance(node, ast.FunctionDef) and node.name == "retired_by_rule"
     ], f"{'/'.join(script)} defines a second `retired_by_rule`"
+
+
+# --- G7: the root's own seal/specs/, empty or absent, is a settled state ----
+
+
+def settled(tmp_path, keep_empty_dir):
+    d = tmp_path / "repo"
+    shutil.copytree(_bare_inited_repo_template(), d)
+    (d / "seal").mkdir()
+    (d / "seal" / "ledger.md").write_text("# ledger\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qm", "settled"],
+        check=True,
+        capture_output=True,
+    )
+    if keep_empty_dir:
+        (d / "seal" / "specs").mkdir()
+    return d
+
+
+@pytest.mark.parametrize("keep_empty_dir", [True, False], ids=["empty", "absent"])
+@pytest.mark.parametrize("baseline", [True, False], ids=["baseline", "plain"])
+def test_the_roots_own_specs_path_is_settled_when_nothing_is_under_it(
+    tmp_path, capsys, keep_empty_dir, baseline
+):
+    """G7. Every pull request after a complete fold runs
+    `--baseline origin/<base> seal/specs/`, the shipped `templates/hygiene.yml`
+    included, and the path holds nothing at HEAD and held no overview at the
+    merge base. That was *a typo*, exit 2 — so every such pull request red."""
+    d = settled(tmp_path, keep_empty_dir)
+    path = str(d / "seal" / "specs")
+    argv = [path] + (["--baseline", "HEAD"] if baseline else [])
+    assert run(argv) == 0, capsys.readouterr()
+    out = capsys.readouterr()
+    assert "holds no work item" in out.out + out.err, out
+
+
+@pytest.mark.parametrize("baseline", [True, False], ids=["baseline", "plain"])
+def test_any_other_missing_path_is_still_a_typo(tmp_path, capsys, baseline):
+    d = settled(tmp_path, keep_empty_dir=False)
+    argv = [str(d / "seal" / "spces")] + (["--baseline", "HEAD"] if baseline else [])
+    assert run(argv) == 2
+    assert "no such path" in capsys.readouterr().err

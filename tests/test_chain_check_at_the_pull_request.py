@@ -20,7 +20,12 @@ import subprocess
 import sys
 
 import pytest
-from conftest import load_hook_module, on_disk, symlink_or_skip
+from conftest import (
+    committed_round_records_on_disk,
+    load_hook_module,
+    on_disk,
+    symlink_or_skip,
+)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -2181,7 +2186,7 @@ def _real_records(root=ROOT):
     return sorted(p for p in out.split("\0") if RECORD_PATH_RE.fullmatch(p))
 
 
-def _the_walk_found_every_committed_record(records, what):
+def _the_walk_found_every_committed_record(records, what, root=ROOT):
     """The population guard for a sweep of this repository's own records.
 
     It replaces `assert len(records) > 200` at the two sweeps below. The
@@ -2208,18 +2213,30 @@ def _the_walk_found_every_committed_record(records, what):
     committed is on disk and not at HEAD, which is the ordinary state of a
     review round mid-flight. So the assertion is that the walk covers the
     committed corpus, not that the two sets are equal.
+
+    **`assert listed` stood here, and it was a floor of one.** It asked
+    whether the listing found anything, which is the right question with an
+    answer the fold turns false: after a complete fold nothing is committed
+    under `seal/specs/` and the listing is empty because the corpus is. The
+    question is asked of the tree instead —
+    `conftest.committed_round_records_on_disk`, a walk of the disk and a
+    `git cat-file` per file, has to find nothing the listing lacks — so a
+    listing that goes quiet over records that exist is named, and one that is
+    empty over an empty corpus is correct (#517, `skills/settle/SKILL.md` §3).
     """
     listed, _missing = on_disk(
-        ROOT,
+        root,
         [
             p
-            for p in _real_records()
+            for p in _real_records(root)
             if re.fullmatch(r"round-\d+\.md", os.path.basename(p))
         ],
     )
-    assert listed, (
-        f"no round record is committed under seal/specs/, so {what} reads "
-        "nothing and is green over an empty corpus"
+    unlisted = sorted(set(committed_round_records_on_disk(root)) - set(listed))
+    assert not unlisted, (
+        f"{len(unlisted)} record(s) git carries at HEAD are not in the listing "
+        f"{what} is checked against, so it reads less than is there: "
+        f"{unlisted[:3]}"
     )
     # git names a path with `/` on every platform and a walk joins with
     # `os.sep`, so the comparison is made on one spelling. The doubled-grounds
@@ -2231,6 +2248,25 @@ def _the_walk_found_every_committed_record(records, what):
         f"{len(unwalked)} committed record(s) the tree still has did not "
         f"reach {what}: {unwalked[:3]}"
     )
+
+
+def test_the_walk_guard_names_what_either_route_missed(repo, monkeypatch):
+    """The guard the two sweeps and the per-record walk share, over a corpus
+    this case builds — the property the real tree can no longer be relied on
+    to exercise once a fold empties it (#517, `skills/settle/SKILL.md` §3).
+
+    Both directions: a walk that missed a committed record, and a listing
+    that went quiet over a record git carries. An empty corpus is neither."""
+    rel = f"{ROUNDS}/round-1.md"
+    write(repo, rel, "# round 1\n")
+    commit(repo, "a committed record")
+    _the_walk_found_every_committed_record([rel], "the case", root=str(repo))
+    with pytest.raises(AssertionError, match="did not reach"):
+        _the_walk_found_every_committed_record([], "the case", root=str(repo))
+    module = sys.modules[__name__]
+    monkeypatch.setattr(module, "_real_records", lambda root=ROOT: [])
+    with pytest.raises(AssertionError, match="not in the listing"):
+        _the_walk_found_every_committed_record([rel], "the case", root=str(repo))
 
 
 def _numbered(routing, records):
@@ -2365,7 +2401,14 @@ def test_this_repositorys_own_round_records_pass_the_per_record_checks():
     routing = _module("routing_for_real_records", chain.ROUTING)
 
     records = _numbered(routing, _real_records())
-    assert records, "no round records found — the glob or the layout moved"
+    # `assert records` stood here: a floor of one, red once a fold empties the
+    # corpus. The question it asked — did the glob or the layout move — is
+    # asked of the tree instead, at any size (#517).
+    unlisted = sorted(set(committed_round_records_on_disk(ROOT)) - set(records))
+    assert not unlisted, (
+        f"records git carries at HEAD are not in the walk — the glob or the "
+        f"layout moved: {unlisted[:3]}"
+    )
 
     failures = _record_walk(chain, reader, routing, ROOT, records)
 

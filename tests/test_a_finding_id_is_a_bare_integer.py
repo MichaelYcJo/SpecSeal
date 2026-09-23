@@ -42,7 +42,7 @@ import subprocess
 import time
 
 import pytest
-from conftest import git_listing, on_disk
+from conftest import committed_round_records_on_disk, git_listing, on_disk
 from test_the_fixes_close_the_record import (
     MOD_CHANGED,
     OPEN_1,
@@ -752,7 +752,7 @@ def _the_corpus_covers_every_work_item_that_has_rounds(paths, root=ROOT):
     specs = os.path.join(root, "seal", "specs")
     with_rounds = {
         d
-        for d in os.listdir(specs)
+        for d in (os.listdir(specs) if os.path.isdir(specs) else [])
         if os.path.isdir(os.path.join(specs, d, "rounds"))
         and any(
             re.fullmatch(r"round-\d+\.md", n)
@@ -760,16 +760,19 @@ def _the_corpus_covers_every_work_item_that_has_rounds(paths, root=ROOT):
         )
     }
     covered = {p.split("/")[2] for p in paths}
-    assert with_rounds, (
-        "no work item under seal/specs/ has a rounds/ directory holding a "
-        "record, so there is nothing for the corpus to be a listing OF"
-    )
+    # `assert with_rounds` stood here — a floor of one, red the moment a fold
+    # empties `seal/specs/`, and absent after a complete one (#517). The
+    # comparison below is the question it guarded, and it holds at any size;
+    # what it cannot show over an empty tree is that it can fail, which
+    # `test_a_work_item_whose_records_are_all_uncommitted_was_not_lost` shows
+    # over a corpus it builds, with this function's return value.
     missed = sorted(d for d in with_rounds - covered if _committed_at_head(root, d))
     assert not missed, (
         f"{len(missed)} work item(s) hold a round record committed at HEAD "
         f"and contributed nothing to the committed corpus: {missed[:3]}. The "
         "listing or the filter above lost them"
     )
+    return with_rounds
 
 
 def test_a_work_item_whose_records_are_all_uncommitted_was_not_lost(repo):
@@ -782,7 +785,8 @@ def test_a_work_item_whose_records_are_all_uncommitted_was_not_lost(repo):
     write(repo, "seal/specs/1799000001-a-round-mid-flight/rounds/round-1.md", "x\n")
 
     paths, _ = committed_records(repo)
-    _the_corpus_covers_every_work_item_that_has_rounds(paths, root=str(repo))
+    seen = _the_corpus_covers_every_work_item_that_has_rounds(paths, root=str(repo))
+    assert os.path.basename(os.path.dirname(ROUNDS)) in seen, seen
     with pytest.raises(AssertionError, match="committed at HEAD"):
         _the_corpus_covers_every_work_item_that_has_rounds([], root=str(repo))
 
@@ -802,7 +806,12 @@ def test_the_corpus_is_records_only():
     over its own output cannot.
     """
     paths, _ = committed_records()
-    assert paths, "the corpus is empty; the filter takes everything"
+    # `assert paths` stood here, a floor of one (#517). "The filter takes
+    # everything" is asked of the tree instead, at any size, and the shape the
+    # filter exists for is built in
+    # `test_the_filter_keeps_a_record_and_drops_its_three_siblings`.
+    taken = sorted(set(committed_round_records_on_disk(ROOT)) - set(paths))
+    assert not taken, f"the filter took committed records: {taken[:3]}"
     strays = [
         p
         for p in paths
@@ -836,22 +845,16 @@ def id_cells(generator, reader, path):
         return None
 
 
-def test_the_committed_records_only_lose_a_miscount():
-    """No record that the old rule reads CORRECTLY is refused by the new one.
-
-    The invariant rather than the count, because the count moves as records
-    land. A record the old rule accepts and the new one refuses has to be one
-    whose accepted key is not the number its own cell names — the first digit
-    run and the last one disagree. That is the whole of what this branch
-    takes away, and it takes away a wrong answer.
-    """
-    generator, reader = generator_module(), reader_module()
-    paths, _ = committed_records()
-    _the_corpus_covers_every_work_item_that_has_rounds(paths)
+def _census(generator, reader, paths, root=ROOT):
+    """`(parsed, unparsed, teeth)` over `paths`, asserting the invariant on
+    each record: no record the old rule reads CORRECTLY is refused by the new
+    one. Extracted so the real corpus and a built one run the same loop."""
     parsed = teeth = 0
+    unparsed = []
     for path in paths:
-        cells = id_cells(generator, reader, f"{ROOT}/{path}")
+        cells = id_cells(generator, reader, f"{root}/{path}")
         if cells is None:
+            unparsed.append(path)
             continue
         parsed += 1
         old, seen = {}, None
@@ -870,17 +873,33 @@ def test_the_committed_records_only_lose_a_miscount():
             assert old_key(c) != last_run(c), (
                 f"{path}: `{c}` reads correctly today and the new rule refuses it"
             )
-    # `assert parsed > 100` stood here. The floor was asking whether the loop
-    # above examined anything, with a literal that the fold turns false: the
-    # corpus went from 263 records to 7 in one commit, and a floor lowered to
-    # fit is a comment (`skills/settle/SKILL.md` §3). What it is replaced by
-    # asks the same question of the tree — every listed record either parsed
-    # or is NAMED, and something parsed. Naming them is the half the floor
-    # never had: a format change that quietly stopped most records parsing
-    # showed up as a smaller number nobody was reading, where now it shows up
-    # as paths in the failure text (§14).
-    unparsed = [p for p in paths if id_cells(generator, reader, f"{ROOT}/{p}") is None]
-    assert parsed, (
+    return parsed, unparsed, teeth
+
+
+def test_the_committed_records_only_lose_a_miscount():
+    """No record that the old rule reads CORRECTLY is refused by the new one.
+
+    The invariant rather than the count, because the count moves as records
+    land. A record the old rule accepts and the new one refuses has to be one
+    whose accepted key is not the number its own cell names — the first digit
+    run and the last one disagree. That is the whole of what this branch
+    takes away, and it takes away a wrong answer.
+
+    **Two floors stood at the end of this case and both moved (#517).**
+    `assert parsed` asked whether the loop examined anything; it is kept in
+    the one form that holds at any size — if anything was listed, something
+    parsed — and every unparsed record is still NAMED. `assert teeth` asked
+    whether the corpus holds a record the rule refuses, which is a question
+    about what the repository happens to hold: the fold retires the four
+    records that carried it. It moves to a corpus built in `tmp_path`,
+    `test_the_census_has_teeth_over_a_corpus_it_builds`, which is
+    `skills/settle/SKILL.md` §3's second answer.
+    """
+    generator, reader = generator_module(), reader_module()
+    paths, _ = committed_records()
+    _the_corpus_covers_every_work_item_that_has_rounds(paths)
+    parsed, unparsed, _teeth = _census(generator, reader, paths)
+    assert parsed or not paths, (
         f"none of the {len(paths)} listed record(s) parsed as a verdict "
         "table, so the comparison above ran over nothing: "
         f"{unparsed[:3]}"
@@ -889,7 +908,35 @@ def test_the_committed_records_only_lose_a_miscount():
         "a record was neither parsed nor named unreadable, so the loop above "
         "skipped it for a third reason nobody has stated"
     )
-    assert teeth, "the rule refuses nothing in the corpus, so it has no teeth"
+
+
+def test_the_census_has_teeth_over_a_corpus_it_builds(repo):
+    """The property the real corpus stops exercising once a fold retires the
+    records that carried it: over a record whose verdict id the rule refuses,
+    the census parses it, counts it as a refusal, and the miscount invariant
+    holds — `R2-1` keys as 2 under the old rule and names 1."""
+    round_one(repo, verdicts=OPEN_1)
+    hand_edited(repo, "| 🔴 1 |", "| 🔴 R2-1 |")
+    commit(repo, "a record the rule refuses")
+    paths, _ = committed_records(repo)
+    assert paths == [f"{ROUNDS}/round-1.md"], paths
+    parsed, unparsed, teeth = _census(
+        generator_module(), reader_module(), paths, root=str(repo)
+    )
+    assert (parsed, unparsed, teeth) == (1, [], 1), (parsed, unparsed, teeth)
+
+
+def test_the_filter_keeps_a_record_and_drops_its_three_siblings(repo):
+    """What `test_the_corpus_is_records_only` asserts over the real tree,
+    over a `rounds/` this case builds: the review chain writes a report, an
+    asked file and a fix table beside each record, and only the record is in
+    the corpus."""
+    round_one(repo)
+    for sibling in ("round-1-report.md", "round-1-asked.md", "round-1-fixes.md"):
+        write(repo, f"{ROUNDS}/{sibling}", "## Verdicts\n")
+    commit(repo, "the three siblings")
+    paths, _ = committed_records(repo)
+    assert paths == [f"{ROUNDS}/round-1.md"], paths
 
 
 def test_the_rule_is_one_constant_both_tables_read():

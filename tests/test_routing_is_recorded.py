@@ -496,20 +496,44 @@ def test_every_declaration_in_this_repository_still_parses():
 
     root = os.path.join(os.path.dirname(__file__), "..")
     found = sorted(glob.glob(os.path.join(root, "seal", "specs", "*", "routing.md")))
-    assert found, "no declarations found -- the check would pass vacuously"
-    optional = (
-        (routing.PLANNING, "planning"),
-        (routing.IMPLEMENTATION, "implementation"),
-        (routing.AUTOMATION, "automation"),
-        (routing.ANSWER_PRESSED, "pressed"),
+    # `assert found` and the vacuity guard over `omitted` stood here, and both
+    # were floors a fold turns red (#517). The first asked whether the glob
+    # found the declarations that are there, and is asked of the tree instead:
+    # a second listing, by `os.listdir`, has to agree with it at any size.
+    # The second asked whether the corpus holds a declaration that omits an
+    # optional row, which is a question about what the repository happens to
+    # hold, and it moves to
+    # `test_an_absent_optional_row_reads_as_nothing_over_a_built_declaration`.
+    specs = os.path.join(root, "seal", "specs")
+    listed = sorted(
+        os.path.join(specs, n, "routing.md")
+        for n in (os.listdir(specs) if os.path.isdir(specs) else [])
+        if os.path.isfile(os.path.join(specs, n, "routing.md"))
     )
-    omitted = {row: 0 for row, _ in optional}
-    for path in found:
+    assert [os.path.normpath(p) for p in found] == [
+        os.path.normpath(p) for p in listed
+    ], "the glob and the listing disagree about which declarations exist"
+    _absent_optional_rows_read_as_nothing(found)
+
+
+OPTIONAL_ROWS = (
+    (routing.PLANNING, "planning"),
+    (routing.IMPLEMENTATION, "implementation"),
+    (routing.AUTOMATION, "automation"),
+    (routing.ANSWER_PRESSED, "pressed"),
+)
+
+
+def _absent_optional_rows_read_as_nothing(paths):
+    """`{row: how many of `paths` omit it}`, asserting each omission parses as
+    unanswered — one loop for the real declarations and a built one."""
+    omitted = {row: 0 for row, _ in OPTIONAL_ROWS}
+    for path in paths:
         with open(path, encoding="utf-8") as f:
             text = f.read()
         parsed = routing.parse(text)
         assert parsed is not None, path
-        for row, key in optional:
+        for row, key in OPTIONAL_ROWS:
             if f"| {row} |" in text:
                 continue
             omitted[row] += 1
@@ -518,9 +542,17 @@ def test_every_declaration_in_this_repository_still_parses():
                 f"that axis -- an absent optional row has to read as nothing, "
                 f"or the commit gate un-silences on every declaration like it"
             )
-    assert sum(omitted.values()), (
-        "every declaration answers both optional rows -- the case is vacuous"
-    )
+    return omitted
+
+
+def test_an_absent_optional_row_reads_as_nothing_over_a_built_declaration(tmp_path):
+    """The shape the real corpus may stop holding once a fold retires the
+    declarations written before the optional rows existed: one that carries
+    none of them, read through the same loop."""
+    path = tmp_path / "routing.md"
+    path.write_text(two_axis_text(), encoding="utf-8")
+    omitted = _absent_optional_rows_read_as_nothing([str(path)])
+    assert all(omitted.values()), omitted
 
 
 # --- the fourth axis: the third's terms, its own vocabulary ------------------

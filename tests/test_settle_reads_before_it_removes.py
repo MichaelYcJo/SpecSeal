@@ -1450,3 +1450,42 @@ def test_surveys_docstring_does_not_invite_the_mutation_that_reopens_finding_4()
     assert "the retirement are both derived from" not in doc["survey"], doc["survey"]
     assert "does not take its candidates from here" in doc["survey"], doc["survey"]
     assert "not taken from `survey`" in doc["retire"], doc["retire"]
+
+
+# --- G7: an empty seal/specs/ is not one state but two, and both are green --
+
+
+def settled_repo(tmp_path, keep_empty_dir):
+    """A repository whose fold is complete: a `seal/` root with its ledger,
+    and `seal/specs/` either empty on disk — the tree `--retire` leaves — or
+    absent, which is what a fresh checkout of that commit has."""
+    repo = tmp_path / "repo"
+    (repo / "docs").mkdir(parents=True)
+    (repo / "docs" / "one-root.md").write_text("# a policy\n", encoding="utf-8")
+    (repo / "seal").mkdir()
+    (repo / "seal" / "ledger.md").write_text("# spec-to-code map\n", encoding="utf-8")
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "x@example.com")
+    git(repo, "config", "user.name", "x")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "settled")
+    if keep_empty_dir:
+        (repo / "seal" / "specs").mkdir()
+    return repo
+
+
+@pytest.mark.parametrize("keep_empty_dir", [True, False], ids=["empty", "absent"])
+@pytest.mark.parametrize("retire", [False, True], ids=["report", "retire"])
+def test_a_settled_root_is_green_and_says_so(tmp_path, keep_empty_dir, retire):
+    """G7. After the last retirement a fresh checkout has no `seal/specs/`
+    at all and the tree that ran `--retire` has an empty one. Both are the
+    state a complete fold reaches, and `settle` used to refuse the first at
+    exit 2 — so the command could not run on its own finished work."""
+    repo = settled_repo(tmp_path, keep_empty_dir)
+    argv = [sys.executable, SCRIPT, "--root", str(repo), "--released-at", "HEAD"]
+    r = subprocess.run(
+        argv + (["--retire"] if retire else []), capture_output=True, encoding="utf-8"
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "holds no work item" in r.stdout, r.stdout + r.stderr
+    assert "A complete fold ends here" in r.stdout, r.stdout

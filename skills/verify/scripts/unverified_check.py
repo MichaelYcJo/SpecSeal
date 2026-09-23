@@ -53,7 +53,10 @@ on purpose — see `check_file`.
 
 Exit codes: 0 the record is readable (open items are reported, not punished) ·
 1 a section could not be read, or rows were deleted · 2 the path or arguments
-were unusable, which includes a scan that found no overview at all.
+were unusable, which includes a scan that found no overview at all — except
+under a `seal/` root's own `specs` path holding no work item, empty or absent,
+which is the state a complete fold ends in and exits 0 saying so
+(`settled_root`).
 """
 
 import argparse
@@ -1114,6 +1117,38 @@ def retired_by_rule(root, ref, directory):
     return not open_record_rows(root, ref, directory)
 
 
+def settled_root(path):
+    """Whether `path` is a `seal/` root's own `specs` directory with no work
+    item under it — empty on disk, or absent while the root is there.
+
+    That is the state a complete fold reaches (#517, `spec.md` G7), and it is
+    two states: the tree that ran `settle --retire` holds an empty
+    `seal/specs/`, and a fresh checkout of the commit holds none, because git
+    keeps no empty directory. Every pull request after the fold hands this
+    tool `--baseline origin/<base> seal/specs/`, the shipped
+    `templates/hygiene.yml` included, and reading that as a typo turned every
+    one of them red. Only this one path is settled: any other path that is
+    missing is still refused, which is what keeps `specs/ spces/` from
+    passing in silence.
+    """
+    p = os.path.abspath(path)
+    parent = os.path.dirname(p)
+    if os.path.basename(p) != "specs" or os.path.basename(parent) != "seal":
+        return False
+    if not os.path.isdir(parent):
+        return False
+    if not os.path.isdir(p):
+        return True
+    return not any(os.path.isdir(os.path.join(p, n)) for n in os.listdir(p))
+
+
+SETTLED = (
+    "unverified-check: {path} holds no work item and its `seal/` root is "
+    "there — the state a complete fold ends in, so there is nothing to read "
+    "and nothing left the record without being closed"
+)
+
+
 def under_root(root, rel):
     """The disk path of a `/`-joined repository-relative path."""
     return os.path.join(root, *rel.split("/"))
@@ -1179,7 +1214,7 @@ def main(argv=None):
     )
     args = ap.parse_args(argv)
 
-    missing = [p for p in args.path if not os.path.exists(p)]
+    missing = [p for p in args.path if not os.path.exists(p) and not settled_root(p)]
     if missing and not args.baseline:
         print(f"unverified-check: no such path: {missing[0]}", file=sys.stderr)
         return 2
@@ -1386,6 +1421,9 @@ def main(argv=None):
                 )
 
     if not files and not deleted and not settled and not ruled:
+        if all(settled_root(p) for p in args.path):
+            print(SETTLED.format(path=", ".join(args.path)))
+            return 0
         print(
             f"unverified-check: no {OVERVIEW} found under "
             f"{', '.join(args.path)} — nothing was checked",
