@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 541 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `43afbc1e5877ea1ba8509b2ada6779ea7316f9e4..db292bfbb01cae187f801617003558cc91f42c32`, 2 commits |
 | Contract changes | none |
 | New units | same_run (depth 1); test_a_re_seal_at_the_same_commit_against_another_base_keeps_both (depth 1) |
