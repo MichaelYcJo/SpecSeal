@@ -1,0 +1,7 @@
+# Survivors — folded statements pile into one spec
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `tests/test_a_document_has_room_for_the_next_fold.py` | adds a statement there and removes another keeps the count and changes this | The comment above `FROZEN_IDS_DIGEST` describes the case the digest exists to catch, as a conditional. Round 2's finding 3 was a message reporting that swap as a fact after a deliberate removal. The same comment already says a deliberate removal recomputes the digest with `marker_digest` |
+| `tests/test_a_document_has_room_for_the_next_fold.py` | Round 1, finding 1: a fold that adds a statement to the listed document and removes another keeps the count and changes which markers it holds. | The docstring of `test_a_marker_swapped_into_the_listed_document_is_named`, a case whose tree really is a swap. The corrected message still names that case, conditionally |
+| `seal/specs/1790154761-folded-statements-pile-into-one-spec/spec.md` | A heading needs `#` and then a space, because each edition has one prose line that begins `#<number>`. | The framer's measurement record, taken at `9b18172a` with a space-only reader. The reason it gives still holds: a digit straight after the hashes is not a heading, and both readers still refuse `#<number>`. Round 2's fix pass widened the space to a space, a tab or the end of the line, as CommonMark reads a heading. `overview.md` §*Fed back into the spec* carries that as an inferred clause, and ledger row E1 records it |

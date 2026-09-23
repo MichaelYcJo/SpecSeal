@@ -53,6 +53,24 @@ changelog and ledger fragments. Folding writes policy prose, which is a
 judgment act, and a release that stops for somebody to write documentation is
 a release that stops.
 
+## A fold is not a work item
+
+**A fold opens no directory under `seal/specs/`** — no `routing.md`, no
+`spec.md` or `plan.md`, no round records — and the routing question is not
+asked for it. This skill is its spec. It runs outside the review chain: every
+commit carries `: '[no-review]';` in front of the command, quotes included,
+and the one judgment it makes — which `docs/` file a rule goes to, and whether
+the rule is still true — is reviewed at its pull request.
+
+That is what ends the regress. A fold that opened a work item left a
+directory behind for the next fold to retire, and that fold opened one of its
+own, so no fold could ever finish. Nor does a fold keep a log of folds, under
+`seal/` or anywhere else: a log is a record of a moment that would need
+folding in turn. What a fold has to leave already has a home — what went
+where is the `<!-- specs/<work-item-id> -->` marker in `docs/`, who checked
+the prose is the pull request, and the removed text is git history, reachable
+from the marker's id.
+
 ## The procedure
 
 ### 1. Read what is waiting
@@ -62,9 +80,34 @@ settle
 ```
 
 It prints the released, unfolded work items grouped by **segment** — the file
-their ledger coordinates anchor in — and three lists beside them: the ones it
-cannot group, the ones an open `evidence-todo.md` row is holding, and the ones
-already folded and waiting to be retired.
+their ledger coordinates anchor in — and lists beside them: the ones it cannot
+group, the ones an open `evidence-todo.md` row is holding, the ones already
+folded and waiting to be retired, and every ledger row anchored inside a
+released directory (§4).
+
+**A released work item with no `spec.md` is not yours to place.** It states
+no rule, so there is nothing to fold out of it, and `settle` prints it under
+its own heading: *retired by the rule* when nothing in its record is open,
+*kept by the rule* when something is, with every open `## Not verified` and
+`evidence-todo.md` row named. Such a row is a claim with an answerer, not a
+rule, so it leaves by being closed (✅ with what closed it) and never with the
+directory. A row re-homed — to `seal/follow-up.md`, to an issue — is closed
+the same way, ✅ naming where it went, because a row deleted from
+`overview.md` is refused on any pull request.
+
+**Close it in a pull request of its own, and let that one merge first.** The
+CI readers ask the rule of the merge base, so a row closed and its directory
+retired in one pull request is still open where they look, and
+`unverified-check` and `chain-check` refuse the removal that `settle --retire`
+just made. Merged first, the ✅ also stays in the release branch's history,
+where a closure made and removed in one squash would leave nothing. Once the
+closure has merged, the next `settle --retire` takes the directory.
+
+For every directory a retirement would take, by either arm, the report also
+lists what would go with it: the open `## Not verified` rows in its overview,
+and the paths outside `seal/specs/` that cite into it, which stop resolving
+when it goes. Once for the run it lists every `tests/` file that reads
+`seal/specs`, which is §3's grep done for you.
 
 A work item is **released** when its directory is present on the branch the
 release merges to. `--released-at` names that branch.
@@ -106,6 +149,48 @@ run interrupted between writing the prose and removing the directory picks up
 where it left off. It is the same marker `.github/scripts/fold_ledger.py` and
 `.github/scripts/gather_changelog.py` already write, and it is read on a line
 of its own — a marker quoted inside a sentence is a description, not a fold.
+
+**A standing statement has one shape: the rule, its grounds, and what enforces
+it.** It opens with the rule as one bold sentence, and the grounds follow as
+prose. It carries exactly one line of its own that names what reads the rule,
+and that line is written last:
+
+```markdown
+<!-- specs/<work-item-id> -->
+**A cell may carry an escaped pipe.** A reader that stopped at one silently
+took every row below it out of the config.
+Enforced by: tests/test_config_rows.py::test_an_escaped_pipe_is_content
+```
+
+- **A target is a repository path**, relative to the root, optionally followed
+  by `::<name>` for a `def` or `class` in that file. Several are separated by
+  commas, and each may be written in backticks.
+- **A rule nothing reads says so:** `Enforced by: nothing — <why>`, and the
+  reason is not empty. Writing it is always possible, so it is the line a
+  reviewer reads first; a check can make the choice visible and cannot make it
+  right.
+- **Stacked markers share one statement.** Consecutive marker lines are one
+  group, and a statement runs from its markers to the next marker, the next
+  heading or the end of the file.
+- `Enforced by:` is a field name, so it stays English in every edition of a
+  document, like every other name a checker matches.
+
+**What this plugin does not check.** It ships no checker for the shape, the
+same way it ships none for *only what is still true*; a repository that wants
+the shape held writes its own check, and says where the shape starts to bind,
+because statements folded before it will not carry the line. Nor can any check
+tell that two standing statements contradict each other. That takes a reader
+who knows what both mean, and it is review's to find.
+
+**One subject, one document, and a document over its ceiling takes no new
+statement.** A rule goes into the document that owns its subject, so a reader
+looking for it, and a reviewer looking for what contradicts it, opens one
+file. A repository may set a ceiling on how large a document grows. A document
+above that ceiling takes no new standing statement: the fold either splits it
+first, along the headings it already has, or places the rule in the document
+for the rule's own sub-subject, created only where none exists. The plugin sets
+no ceiling; the repository states its value and the check that holds it, in
+the document that describes its own fold.
 
 ### 3. Answer every check that reads the corpus
 
@@ -150,40 +235,51 @@ settle --retire
 ```
 
 It removes the directory of every released work item whose fold is recorded,
+and of every released one with no `spec.md` and nothing open in its record,
 and nothing else. An item the evidence-todo guard is holding is kept even when
 the marker is there: the record says the prose landed, and the row says a fact
 the reviewer verified has not reached the ledger yet.
 
+**A directory a ledger row anchors into is kept too**, and the row is named
+with its file, its line and its claim. Removing the directory would leave the
+row BROKEN, and the checker would say so only after the directory was gone.
+Every ledger `evidence-check` reads is read — `seal/ledger.md`, every
+`seal/ledger/*.md` and any `docs/**/_evidence.md` — and every line of each,
+the ones above the first section marker and the ones inside a fence included,
+because the checker reports a fenced anchor broken too. `settle` alone names
+them for every released directory before you write any prose. Each row
+carries what `CLAUDE.md` requires of it: **REMOVED** when every anchor it
+cites goes, and its claim written anew where it still stands; **narrow** when
+it keeps a live anchor, with the dead one dropped — and whether such a row is
+removed instead is the repository owner's question. The command edits no row.
+Answer them, and the next `settle --retire` takes the directory.
+
 **The retirement is the second half of the fold and never its own act.** A
 directory removed before a policy document absorbed it takes the reasoning
 with it, and that is the one loss nothing can undo. The marker is what makes
-the order enforceable rather than remembered.
+the order enforceable rather than remembered. The rule arm is not an
+exception: a directory with no `spec.md` holds no reasoning for a document to
+absorb, which is the whole of why it needs no marker.
 
 ## What a fold branch owes
 
-**A `survivors.md` range-row.** `seal/specs/` outside `rounds/` is in the
-survivor sweep's corpus, and that step runs on every pull request into a
-release branch. A branch that deletes a shipped section leaves every sentence
-of it standing in the durable copies that are supposed to survive a deletion,
-so the sweep reports all of them — one real range reported 153, every one
-correct as a report and none of them a defect. Writing 153 rows is not an
-escape anybody takes; the row shape for a whole range exists so that the
-alternative is not turning the check off:
+**No `survivors.md` row.** The survivor sweep leaves a directory the range
+retired — folded, or retired by the rule — out of the range on both sides, the
+way it already leaves round records out: its sentences stand in `docs/`
+because that is what a fold is, and the removed spec is not a place that still
+instructs anybody. A sentence the same branch removes from anywhere else is
+measured as before, and a survivor reported there is answered the ordinary
+way.
 
-```markdown
-| Range | Grounds |
-|---|---|
-| `origin/release/vX.Y.Z...HEAD` | a fold removes shipped sections whole, and
-  their sentences stand in the durable copies by design |
-```
+**An answer for every check that reads the corpus** (§3), and for every row
+`settle` names as anchored (§4).
 
-That row is anchored on the range **and** on the work item whose
-`seal/specs/<id>/survivors.md` holds it, so it cannot become a standing
-*check nothing*.
-
-**Nothing in `seal/ledger.md` moves.** A ledger row is a content anchor and
-survives the fold untouched. The fold is about the spec's prose, not about the
-rows the work item wrote.
+**`seal/ledger.md` changes only by removal and re-verification.** A fold
+appends nothing: it has no work item, so it has no fragment to append under.
+It removes a row the guard named REMOVED, drops the dead anchor from a row it
+named narrow, and re-reads and re-verifies — `evidence-check --reverify` — a
+row whose anchored unit its own prose edited. Every other row is a content
+anchor and survives the fold untouched.
 
 ## What this does not do
 

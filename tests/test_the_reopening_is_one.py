@@ -26,7 +26,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import cutoff_item_is_traceable
+from conftest import committed_round_records_on_disk, cutoff_item_is_traceable
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -542,7 +542,14 @@ def test_this_repositorys_own_records_are_not_refused_by_the_reopening_walk():
     reader = _load("reader_for_reopening", chain.READER)
     routing = _load("routing_for_reopening", chain.ROUTING)
     records = _numbered(routing, _real_records())
-    assert records, "no round records found — the glob or the layout moved"
+    # `assert records` stood here: a floor of one, red once a fold empties the
+    # corpus. The walk above this case runs the same listing over records it
+    # builds; this asks the real tree the same question at any size (#517).
+    unlisted = sorted(set(committed_round_records_on_disk(ROOT)) - set(records))
+    assert not unlisted, (
+        f"records git carries at HEAD are not in the walk — the glob or the "
+        f"layout moved: {unlisted[:3]}"
+    )
     failures = _capped_failures(chain, reader, routing, ROOT, records)
     assert not failures, "this repository's own records are refused:\n" + "\n".join(
         f"  {rel}: {message}" for rel, _, message in failures

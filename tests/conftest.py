@@ -135,6 +135,50 @@ def decline_if_shrunken(missing, what):
         pytest.skip(shrunken_corpus(missing, what))
 
 
+ROUND_RECORD_NAME = re.compile(r"round-\d+\.md")
+
+
+def committed_round_records_on_disk(root):
+    """Every round record under `seal/specs/*/rounds/` on disk that git
+    carries at HEAD, as `/`-joined repository paths, sorted.
+
+    **The independent listing a population floor over the records is replaced
+    by** (`skills/settle/SKILL.md` §3, `docs/the-evidence-ledger.md`
+    §*A population floor over the records is replaced, never lowered*). A
+    sweep lists its corpus through `git ls-tree`; this reaches the same
+    population from the other side — a walk of the disk, then `git cat-file
+    -e` per file — so the two cannot agree by sharing a bug. A sweep's corpus
+    has to hold every path this returns, which is the question the floor was
+    asking, and it holds at 263 records, at 7, and at none: after a complete
+    fold `seal/specs/` is absent and the answer is the empty list.
+
+    Per path rather than a listing, and that is on purpose:
+    `tests/test_a_shrunken_corpus_declines_to_judge.py` classifies every
+    scope that derives a path list from git, and `cat-file` asks about one
+    path it was handed. A record on disk and not yet committed is the
+    ordinary state of a round mid-flight, and it is left out.
+    """
+    specs = os.path.join(root, "seal", "specs")
+    if not os.path.isdir(specs):
+        return []
+    found = []
+    for item in sorted(os.listdir(specs)):
+        rounds = os.path.join(specs, item, "rounds")
+        if not os.path.isdir(rounds):
+            continue
+        for name in sorted(os.listdir(rounds)):
+            if not ROUND_RECORD_NAME.fullmatch(name):
+                continue
+            rel = f"seal/specs/{item}/rounds/{name}"
+            probe = subprocess.run(
+                ["git", "-C", str(root), "cat-file", "-e", f"HEAD:{rel}"],
+                capture_output=True,
+            )
+            if probe.returncode == 0:
+                found.append(rel)
+    return found
+
+
 def cutoff_item_is_traceable(root, reader, cutoff):
     """`(ok, how)` for "the work item a cutoff constant names can be found".
 

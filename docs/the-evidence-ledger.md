@@ -130,6 +130,24 @@ against nothing is not a comparison.
 
 ## The fold, and what tells it from a deletion
 
+**This repository holds the fold's shape and placement rules with three
+values.** `skills/settle/SKILL.md` §*2. Write one standing statement per
+segment* states both rules, and this paragraph holds only the values.
+
+- The shape binds statements from work item `1790154761` on, by the id in
+  the marker. Statements from earlier work items carry no `Enforced by:`
+  line whenever they are folded: the 101 folded before it, and those of work
+  items released with it or still waiting from before it.
+- A top-level document under `docs/` stays at or under 1000 lines.
+- One document is over that ceiling and listed: `docs/review-chain-spec.md`,
+  frozen at 29 fold markers until MichaelYcJo/SpecSeal#526 splits it. Until
+  then a fold places a chain rule in the document for the rule's own
+  sub-subject.
+
+`tests/test_a_folded_statement_names_what_enforces_it.py` reads the shape and
+`tests/test_a_document_has_room_for_the_next_fold.py` reads the ceiling. The
+second also pins these three values against its constants.
+
 <!-- specs/1790027178-a-shipped-spec-waits-for-a-settle-that-was-never-built -->
 **A released work item's directory is folded into a policy document and then
 removed, and the removal is the second half of the fold, never its own act.**
@@ -171,35 +189,59 @@ for an area with none — so a marker below the top level is somebody's notes,
 and a scratch file quoting one excused a removal nothing had absorbed.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
-**A released work item that wrote no `spec.md` states no rule, and it is kept
-by name.** `settle` names what it cannot group rather than guessing, and such
-an item was below the SDD ladder: a release entry, a renumbering, a CI repair,
-a pull request's record. Those are records of a moment, and a moment states
-nothing to fold. An ungrouped item that did write a `spec.md` is folded where
-that spec's rule belongs. One more reason keeps a directory: **a permanent
+**A released work item that wrote no `spec.md` states no rule, and it is
+retired by that rule, with no marker.** Such an item was below the SDD
+ladder: a release entry, a renumbering, a CI repair, a pull request's record.
+Those are records of a moment, and a moment states nothing to fold — which is
+also why nothing has to be carried out of one, so `settle` prints these under
+their own heading and `settle --retire` removes them without writing a marker
+into `docs/` (#517). **One condition narrows it: nothing in the record may
+still be open.** An open `## Not verified` row or an open `evidence-todo.md`
+row is a claim with an answerer rather than a rule, so a directory holding one
+is kept and named with its rows, and closing each row — a row re-homed is
+closed too, ✅ naming where it went — in a pull request merged before the one
+that retires the directory is what lets the next retirement take it. The CI
+readers ask the rule of the merge base, so a closure in the same pull request
+as the removal is still open where they look. That condition is a judgment the
+repository owner may overturn. An ungrouped item that did write a `spec.md` is
+folded where that spec's rule belongs. One more reason keeps a directory: **a permanent
 ledger row anchored inside it**, which holds the directory until the row is
 answered — so a work item with a row anchored in its `rounds/` stays on disk,
 and the fold does not remove it to tidy the list. Keeping the directory rather
 than removing the row is a default, and the repository owner is who can trade
 it the other way: remove the row, carry its claim into the prose it evidences,
-and let the next `settle --retire` take the directory. That question, for
-`1788184145`, the one directory held this way today, is carried by #517's
-design comment.
+and let the next `settle --retire` take the directory. For `1788184145`, the
+one directory held this way when the guard below shipped, that trade was
+taken (#517): the row was removed, and its claim stands in
+`docs/review-chain-spec.md` §*Two records, and what each of them says*.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
-**A retirement breaks every ledger row anchored inside the directory it
-removes, and nothing refuses the removal first.** An anchor into a work item's
-`spec.md` or its round records is a file path like any other, so after
-`settle --retire` the checker reports it broken (#511 is the missing refusal).
-So a fold branch greps the ledger for its directories before it retires
-anything, and the frame that says *no row anchors there* is a count to open. A
-hit found then is answered by the rule above: the directory stays. What the
-grep missed is decided after the removal by the rule `CLAUDE.md` gives: a row
-whose only anchor went is REMOVED, never re-pointed, and its claim is written
-anew where a work item still holds it. A row that keeps a live anchor beside
-the dead one loses only the dead one, and whether it should be removed instead
-is the repository owner's question, recorded against the ledger row that first
-met it.
+**A retirement would break every ledger row anchored inside the directory it
+removes, so the retirement refuses that directory first.** An anchor into a
+work item's `spec.md` or its round records is a file path like any other, and
+after a removal the checker reports it broken. So `settle` reads every ledger
+the checker reads — `seal/ledger.md`, every `seal/ledger/*.md` and any
+`docs/**/_evidence.md` — and every line of each, the rows above the first
+section marker and the rows inside a fence included, because the checker
+reads those too, and names each one anchored inside a released
+directory, and `settle --retire` keeps every directory such a row anchors
+into, removes the rest, and exits 1 naming each row (#511). It says per row
+what `CLAUDE.md` requires: a row whose every anchor goes is REMOVED, never
+re-pointed, and its claim is written anew where a work item still holds it; a
+row that keeps a live anchor beside the dead one loses only the dead one, and
+whether it should be removed instead is the repository owner's question,
+recorded against the ledger row that first met it. The command names the rows
+and edits none of them, because which row goes is a judgment about a claim.
+
+**A fold is not a work item, and it adds nothing to the ledger.** It opens
+no directory under `seal/specs/`, so it has no fragment to append under, and
+`seal/ledger.md` changes on a fold branch only by removal and re-verification:
+a row the guard named REMOVED goes, a row it named narrow loses its dead
+anchor, and a row whose anchored unit the fold's own prose edited is re-read
+and re-verified. Its commits are waived one command at a time and its
+judgment is reviewed at its pull request (#517). What it leaves already has a
+home — the marker, the pull request, git history — so it keeps no log of its
+own.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 **A population floor over the records is replaced, never lowered.** A check

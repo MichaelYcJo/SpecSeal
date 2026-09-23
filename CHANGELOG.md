@@ -1,5 +1,145 @@
 # Changelog
 
+## 0.14.0 — 2026-09-23
+
+<!-- specs/1790134781-a-label-description-past-100-characters-fails-every-release -->
+### Fixed
+
+- The close-issues workflow no longer fails after every release at the step
+  that creates the labels the documents specify: `size: now`'s description
+  was 119 characters and GitHub refuses one past 100, so the label was never
+  created and the step behind it, rolling the flow-measurement log, was
+  skipped. The description now says the same two things — the ticket has to
+  be in effect before the next work item starts, and it comes off when its
+  release closes the issue — in 95. The cap is named once, and a case holds
+  every declared description and the `merged: X.Y.Z` description under it,
+  so the next one that is too long fails the suite instead of the release.
+  A failed step in that workflow also no longer skips the steps behind it
+  that do not need it: the label step and the flow-measurement roll now run
+  unless the job was cancelled, so the next refusal of any kind costs a red
+  job and not a release's roll.
+  (`1790134781-a-label-description-past-100-characters-fails-every-release`,
+  #515)
+
+<!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
+### Changed
+
+- A released work item that wrote no `spec.md` is retired by a rule now,
+  not kept forever: `settle` prints it under its own heading, and
+  `settle --retire` removes it with no marker in `docs/` when nothing in its
+  `overview.md` `## Not verified` or its `evidence-todo.md` is still open. A
+  directory whose record still holds an open row is kept, with every such
+  row printed; closing the row (a re-homed row is closed too, ✅ naming
+  where it went) in a pull request that merges before the one retiring the
+  directory is what lets the next retirement take it. Before, these directories had no way out, and after
+  two folds `settle` reported nothing left to fold while ten of them sat in
+  `seal/specs/`. For every directory a retirement would take, the report also
+  lists the open memo rows, the paths outside `seal/specs/` that cite into
+  it, and the `tests/` files that read `seal/specs` — the three things a fold
+  used to find by hand.
+- The three pull-request checks read a rule retirement as one, through the
+  same predicate `settle` asks: `unverified-check --baseline` names it apart
+  from a fold, `chain_check --baseline` prints `retired: by the rule`, and
+  `survivor-check` leaves a retired directory — folded or by the rule — out
+  of its range, so a fold no longer owes a `survivors.md` row. Each still
+  refuses a directory whose history held a `spec.md`, one with an open row
+  at the merge base, and a file removed from a directory that stays.
+- A fold is not a work item. `skills/settle/SKILL.md` says it opens no
+  directory, is not asked the routing question, waives each commit with the
+  no-review token in front, and is judged at its pull request; and that it
+  changes `seal/ledger.md` only by removing a row the guard named and
+  re-verifying a row its own prose edited.
+
+### Fixed
+
+- `settle --retire` no longer removes a directory a ledger row anchors
+  into. It keeps that directory, removes the rest, exits 1, and names each
+  row with its file, its line and its claim, saying whether the row is to be
+  REMOVED or narrowed. Before, the row survived the removal and
+  `evidence-check --strict` reported it broken only afterwards — twice on one
+  branch. `settle` names such rows for every released directory before any
+  prose is written, reading every ledger `evidence-check` reads and every
+  line of each, including rows above the first section marker and rows
+  inside a fence.
+- A `seal/` root with no work item left is a green state. `settle` and
+  `settle --retire` exit 0 and say the fold is complete when `seal/specs/`
+  is empty or — as on a fresh checkout, since git keeps no empty
+  directory — absent; `unverified-check` does the same for that path and
+  still refuses any other missing one. Before, both exited 2, so every pull
+  request after a complete fold would have failed, the shipped
+  `templates/hygiene.yml` included.
+  (`1790138190-settle-leaves-twelve-directories-with-no-way-out`, #517,
+  #511)
+
+<!-- specs/1790154759-the-review-arm-asks-where-no-reviewer-compares -->
+- **A commit confined to `docs/` and `seal/` still meets the commit gate's
+  review question, and the documents now say that is deliberate (issue
+  #518).** The parity arm stays silent on those two directories because
+  nothing there can be compared against an original. The review arm asks a
+  different question — whether anybody reads the change before it lands — and
+  it has no such line. The issue asked for a measurement before any line was
+  drawn, and the measurement refused one: when review reads `docs/` and the
+  ledger it finds real defects there, at least 25 and 26 fixed findings across
+  every round record, one of them 🔴 in the last fold, while no docs-only
+  change has ever reached a reviewer, so the commits the line would exempt
+  were never measured at all. What the gate decides is unchanged.
+  `docs/review-chain-spec.md` §*Review arm* gains a row for a docs-only change
+  and a paragraph with the measurement, plus the row for a `routing.md`
+  declaration that the table had left to the prose. The wake/quiet table in
+  `skills/implement/orchestration.md` says the review arm wakes whatever the
+  change touches. Cases fail if the parity arm's path line ever reaches the
+  review arm. A documentation pass that should reach no reviewer declares
+  `straight to the PR` before the first edit, as before.
+
+<!-- specs/1790154760-the-ledger-grows-and-nothing-takes-a-row-out -->
+### Changed
+
+- A `git commit` in an opted-in repository with a large ledger no longer
+  waits on the evidence advisor for about fifteen seconds. The checker used
+  to parse a Python file once for every ledger row that cited it; it now
+  parses each file once per run, keyed on the file's content so an edited
+  file is never read from a stale answer. On this repository's ledger the
+  advisor went from about 15.3 s to about 1.7 s per commit, and
+  `evidence-check --strict .` from about 16.3 s to about 2.0 s. Every
+  finding the checker prints is unchanged. The advisor's own description of
+  what it costs said "about 114 ms" with no date; it now states the measured
+  cost, how it was measured, and when, and so do the two other places that
+  stated one: the session-start ledger migration and the evidence-check
+  skill's note on the rename scan. No ledger row was removed: every
+  anchor still resolves, and what the ledger's size cost was the parsing,
+  not the rows.
+  (`1790154760-the-ledger-grows-and-nothing-takes-a-row-out`, #519)
+
+<!-- specs/1790154761-folded-statements-pile-into-one-spec -->
+### Changed
+
+- **`settle` now tells the folding session what shape a standing statement
+  takes and where it may land (#520).** Step 2 of the fold says a statement
+  opens with its rule as one bold sentence, gives its grounds, and ends with
+  one line naming what enforces it: `Enforced by:` and a repository path, a
+  `path::name`, or `nothing — <why>`. It also says a rule goes into the
+  document that owns its subject, and that a document over the repository's
+  size ceiling takes no new statement until it is split. The plugin ships no
+  checker for either rule and sets no ceiling. It says so, and it says that a
+  contradiction between two statements is left to review.
+
+  In this repository the two rules have values and checks. Statements folded
+  from work item `1790154761` on must carry the `Enforced by:` line, and a
+  test resolves every target it names. A top-level document under `docs/`
+  stays at or under 1000 lines. `docs/review-chain-spec.md`, which the first
+  folds grew to 2,159 lines and 29 folded statements, is frozen at that
+  marker count until MichaelYcJo/SpecSeal#526 splits it. The next fold
+  therefore cannot add to it. `docs/the-evidence-ledger.md` states the values,
+  and a test keeps the prose and the constants the same numbers.
+
+- **Both editions of a document now carry the same folds, and a test holds
+  them.** The Korean edition of `docs/one-root-by-lifetime.md` lacked the
+  section the first fold wrote and all ten of its fold markers. It has both
+  now. A new test compares every top-level `docs/X.ko.md` with its English
+  edition by heading levels and by the fold markers under each heading, so a
+  fold into one edition only is refused. `CONTRIBUTING.md`'s rule that the two
+  READMEs move together now covers every document with a `.ko.md` edition.
+
 ## 0.13.2 — 2026-09-23
 
 <!-- specs/1790119502-four-shipped-work-items-wait-unfolded -->

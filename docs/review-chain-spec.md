@@ -666,8 +666,27 @@ still costs one interruption.
 | Condition | Decision |
 |---|---|
 | `[no-review]` in the command | silent (explicit skip, visible in history). Typed in front of it: `: '[no-review]'; git commit …` — see below |
+| a `routing.md` declaration names this branch, for either answer | silent — the routing question was answered before the first edit, and CI checks the answer at the pull request. See *The declaration* below |
 | `specseal-reviewed` equals current HEAD | satisfied |
+| the change confined to `docs/`, `seal/` | no different from any other change — this arm reads no paths. The parity arm's silence on the same roots is that arm's alone, and the paragraph below says why |
 | otherwise | contributes an ask |
+
+**Why this arm has no document-root line.** The two arms ask different
+questions. The parity arm asks whether the original was consulted, and a
+`docs/` file has no original, so its silence there is right. This arm asks
+whether anybody reads the change before it lands, and here `docs/` is the
+policy the code conforms to and `seal/ledger.md` is the verified evidence.
+#518 measured whether review finds defects there before drawing any line,
+and it does. Across every round record, at least 25 fixed findings sit in
+`docs/` alone and 26 in the ledger alone. #514's fold, which changed `docs/`,
+`seal/` and four test files, opened seven findings a later round verified as
+fixed, all in `docs/`, one of them 🔴. No reviewed work item was ever confined
+to the two roots, and the seventeen docs/seal-only commits on the release
+branch never reached a reviewer, so nothing measured them either way. The
+parity arm's line would stop asking exactly where the reviewed findings sit,
+on the strength of a population nobody measured. A documentation pass that
+should reach nobody is routed that way before the first edit, by declaring
+`straight to the PR`; it is never inferred from the paths it touches.
 
 The marker is decided when the work starts, not discovered at the commit
 (`implement` §1) — and until the release that added `routing.md`, nothing
@@ -740,6 +759,22 @@ that is a directory removed with nothing absorbing it, which is what the
 refusal was written for. It is the same distinction
 `unverified_check.folded_items` draws for a removed `overview.md`, and this
 reader had not grown it.
+
+**The rule is the other way a declaration is retired, and it carries no
+marker.** `settle --retire` also removes a released directory that held no
+`spec.md` and nothing open in its record, because a record of a moment states
+no rule to fold (#517). So a declaration absent at `HEAD` whose directory is
+gone is asked one more question of the merge base: did the directory hold no
+`spec.md` there, and nothing open in its `overview.md` or `evidence-todo.md`?
+Where it did not, the check prints `retired: by the rule — …`; where the merge
+base held a spec or an open row, the refusal stands. The question is
+`unverified_check.retired_by_rule`, the one predicate `settle`,
+`unverified_check.py --baseline` and the survivor sweep ask too, so the four
+cannot disagree about the same tree the way the marker arm once did. Asked of
+the merge base rather than of the tree the branch left, and asked whether the
+directory's history ever held a `spec.md`, a spec deleted in one commit — or
+in an earlier pull request — and the directory in the next is still a
+deletion.
 
 Every record is read as git carries it at `HEAD`, never as the working tree
 holds it: a tree that differs from `HEAD` is what CI never sees, and a local

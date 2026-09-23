@@ -25,7 +25,10 @@ It fails for what the author can always fix:
               that was there and is not (`--baseline REF`) — unless the work
               item's fold is recorded in `docs/`, which is `settle` retiring
               a released spec rather than this branch deleting a record. Such
-              a directory is named as folded and counted apart
+              a directory is named as folded and counted apart. So is one the
+              rule arm retired (#517): the whole directory is gone, and at
+              the merge base it held no `spec.md` and nothing open in its
+              record, which `retired_by_rule` answers for every reader
   no baseline the ref itself does not resolve, or it shares no history with
               HEAD. That is exit 2, not a pass: a comparison against nothing
               is not a comparison
@@ -50,7 +53,10 @@ on purpose — see `check_file`.
 
 Exit codes: 0 the record is readable (open items are reported, not punished) ·
 1 a section could not be read, or rows were deleted · 2 the path or arguments
-were unusable, which includes a scan that found no overview at all.
+were unusable, which includes a scan that found no overview at all — except
+under a `seal/` root's own `specs` path holding no work item, empty or absent,
+which is the state a complete fold ends in and exits 0 saying so
+(`settled_root`).
 """
 
 import argparse
@@ -954,6 +960,235 @@ def folded_items(root):
     return found
 
 
+# A released work item that wrote no `spec.md` states no rule, and the rule
+# arm retires it with no marker: #517's owner decision D3, narrowed by one
+# condition the frame recorded as a judgment the owner may overturn — nothing
+# in its record may still be open. These are the files the arm reads.
+SPEC = "spec.md"
+EVIDENCE_TODO = "evidence-todo.md"
+# The evidence-todo rule's two row shapes. `SEPARATOR` above reads one cell;
+# these read a whole line, which is what the evidence-todo reader walks.
+TODO_SEPARATOR_RE = re.compile(r"^\|(\s*:?-+:?\s*\|)+\s*$")
+DRAINED_RE = re.compile(r"^[\s*_]*drained\b", re.IGNORECASE)
+
+
+def todo_open_rows(text):
+    """Table body rows of an evidence-todo file that are still open.
+
+    The rule, so a person can apply it by hand: a line outside a table whose
+    first word is `drained` closes the whole file; otherwise every body row is
+    open unless its first cell begins with ✅. A table is a run of lines
+    starting with `|`; its first line is the header when the second is a
+    separator, and neither is a body row.
+
+    Split on `\\n` alone: `splitlines()` also breaks on U+2028, U+0085 and
+    form feed, so a cell holding one of those followed by `drained` closed the
+    file — the silent direction for a guard.
+
+    **It lives here because the rule arm's predicate reads it.**
+    `skills/settle/scripts/settle.py#open_rows` asks this function, so the
+    command's guard and the predicate every CI reader asks are one rule. The
+    same rule is spelled once more in `.github/scripts/fold_ledger.py#open_rows`,
+    which is this repository's release automation and not a shipped script, so
+    a shipped command may not depend on it and it may not depend on this.
+    """
+    lines = text.split("\n")
+    rows = []
+    n = 0
+    while n < len(lines):
+        line = lines[n]
+        if not line.lstrip().startswith("|"):
+            if DRAINED_RE.match(line):
+                return []
+            n += 1
+            continue
+        table = []
+        while n < len(lines) and lines[n].lstrip().startswith("|"):
+            table.append(lines[n])
+            n += 1
+        if len(table) >= 2 and TODO_SEPARATOR_RE.match(table[1].strip()):
+            table = table[2:]
+        for row in table:
+            if TODO_SEPARATOR_RE.match(row.strip()):
+                continue
+            first = row.strip().strip("|").split("|", 1)[0].strip()
+            if not first.startswith(CLOSED):
+                rows.append(row)
+    return rows
+
+
+def tree_at(root, ref, directory):
+    """Repo-relative paths under `directory` at `ref`; the disk when `ref` is
+    None. `directory` is `/`-joined, and so is every path returned.
+
+    Public because `survivor_check.py` asks it whether a directory is gone at
+    the right end of its range, which keeps that module's own path-listing
+    call sites at the count its case holds them to."""
+    if ref is None:
+        top = under_root(root, directory)
+        out = []
+        for here, dirs, files in os.walk(top):
+            dirs.sort()
+            for name in sorted(files):
+                rel = os.path.relpath(os.path.join(here, name), root)
+                out.append(git_path(rel))
+        return out
+    r = subprocess.run(
+        ["git", "-C", root, "ls-tree", "-r", "--name-only", ref, "--", directory],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return r.stdout.splitlines() if r.returncode == 0 else []
+
+
+def _text_at(root, ref, rel):
+    """What `rel` held at `ref`, or on disk when `ref` is None; None if absent."""
+    if ref is not None:
+        return show(root, ref, rel)
+    try:
+        with open(under_root(root, rel), encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def open_record_rows(root, ref, directory):
+    """`[(file, what is open)]` for a work item's record at `ref`.
+
+    The rows the rule arm refuses to take with a directory: every open item in
+    `overview.md`'s `## Not verified`, and every open row of
+    `evidence-todo.md`. Each is a claim with an answerer rather than a rule,
+    and #514's frame measured the loss this prevents — the only record that a
+    production workflow was red sat in a retiring overview (its L2).
+
+    An overview whose section cannot be read is one entry saying so, never
+    zero rows: a count this cannot read is not a count of nothing, which is
+    the rule `check_text` above is written to. A base revision is read with
+    the same relaxations the `--baseline` comparison gives it.
+    """
+    found = []
+    overview = _text_at(root, ref, f"{directory}/{OVERVIEW}")
+    if overview is not None:
+        if ref is None:
+            rows, _, errors = check_text(overview)
+        else:
+            rows, _, errors = check_text(
+                overview, heading=LOOSE_HEADING, strict_header=False
+            )
+        if errors:
+            found.append((OVERVIEW, f"cannot be read ({errors[0][1]})"))
+        for _, item, _who in rows:
+            found.append((OVERVIEW, item))
+    todo = _text_at(root, ref, f"{directory}/{EVIDENCE_TODO}")
+    if todo is not None:
+        for row in todo_open_rows(todo):
+            found.append((EVIDENCE_TODO, row.strip()))
+    return found
+
+
+def retired_by_rule(root, ref, directory):
+    """Whether the rule arm may retire `directory` as it stood at `ref`.
+
+    **The one predicate, and every reader of a retirement asks it here**:
+    `settle` of the working tree (`ref` None), and `--baseline` below,
+    `chain_check.py --baseline` and `survivor_check.py --range` of the
+    merge-base they already compute. `plan.md` §*What breaks in six months*
+    is why it is not spelled in each: the next condition added to it would
+    land in one reader and not the others, and the first sign would be a fold
+    pull request red in CI after `settle --retire` said the removal was fine.
+
+    True when the directory existed at `ref`, held no `spec.md` there, and
+    its record there held no open row (`open_record_rows`). Released-ness is
+    not asked, because it is `settle`'s question about a ref this does not
+    know; a CI reader's merge-base is by construction a commit the removal
+    happened after.
+
+    **A spec is asked of history, not of the tree at `ref` alone**
+    (`wrote_a_spec`), so a `spec.md` deleted in one commit, or in an earlier
+    pull request that has already merged, and the directory in the next still
+    reads as a deletion. That is what makes this a rule about what the work
+    item was, rather than about what it was left looking like.
+    """
+    paths = tree_at(root, ref, directory)
+    if not paths:
+        return False
+    if f"{directory}/{SPEC}" in paths or wrote_a_spec(root, ref, directory):
+        return False
+    return not open_record_rows(root, ref, directory)
+
+
+def wrote_a_spec(root, ref, directory):
+    """Whether any commit reachable from `ref` (HEAD when None) touched
+    `directory/spec.md`.
+
+    D3 names a work item that WROTE no spec, which is a question about
+    history rather than about one tree. Asked of the merge base alone, a spec
+    deleted by an earlier merged pull request read as never written, and the
+    next pull request retired the directory with no marker while every reader
+    passed both (round 1's finding 3).
+
+    A git failure answers *wrote one*, which keeps the directory. A shallow
+    clone cut short of the deletion answers *never*, which is the reading
+    before this existed; the CI checkout fetches the whole history.
+    """
+    r = subprocess.run(
+        [
+            "git",
+            "-C",
+            root,
+            "log",
+            # Without it, a merge commit whose result matches one parent for
+            # this path is followed down that parent alone, and a spec added
+            # and dropped on the other side is pruned. Every release reaches
+            # `main` through such a merge, so the next release read a spec
+            # its predecessor dropped as never written (round 2's finding 6).
+            "--full-history",
+            "-1",
+            "--format=%H",
+            ref or "HEAD",
+            "--",
+            f"{directory}/{SPEC}",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return r.returncode != 0 or bool(r.stdout.strip())
+
+
+def settled_root(path):
+    """Whether `path` is a `seal/` root's own `specs` directory with no work
+    item under it — empty on disk, or absent while the root is there.
+
+    That is the state a complete fold reaches (#517, `spec.md` G7), and it is
+    two states: the tree that ran `settle --retire` holds an empty
+    `seal/specs/`, and a fresh checkout of the commit holds none, because git
+    keeps no empty directory. Every pull request after the fold hands this
+    tool `--baseline origin/<base> seal/specs/`, the shipped
+    `templates/hygiene.yml` included, and reading that as a typo turned every
+    one of them red. Only this one path is settled: any other path that is
+    missing is still refused, which is what keeps `specs/ spces/` from
+    passing in silence.
+    """
+    p = os.path.abspath(path)
+    parent = os.path.dirname(p)
+    if os.path.basename(p) != "specs" or os.path.basename(parent) != "seal":
+        return False
+    if not os.path.isdir(parent):
+        return False
+    if not os.path.isdir(p):
+        return True
+    return not any(os.path.isdir(os.path.join(p, n)) for n in os.listdir(p))
+
+
+SETTLED = (
+    "unverified-check: {path} holds no work item and its `seal/` root is "
+    "there — the state a complete fold ends in, so there is nothing to read "
+    "and nothing left the record without being closed"
+)
+
+
 def under_root(root, rel):
     """The disk path of a `/`-joined repository-relative path."""
     return os.path.join(root, *rel.split("/"))
@@ -1012,11 +1247,14 @@ def main(argv=None):
         "branch's removal. Nor is a work item whose fold `docs/` records with "
         "its `<!-- specs/<id> -->` marker: that is `settle` retiring a "
         "released spec a policy document has absorbed, and it is named as "
-        "folded rather than reported as a deletion",
+        "folded rather than reported as a deletion. Nor is a directory "
+        "removed whole that held no spec.md and nothing open at the merge "
+        "base: `settle` retires that by the rule, with no marker, and it is "
+        "named as retired by the rule",
     )
     args = ap.parse_args(argv)
 
-    missing = [p for p in args.path if not os.path.exists(p)]
+    missing = [p for p in args.path if not os.path.exists(p) and not settled_root(p)]
     if missing and not args.baseline:
         print(f"unverified-check: no such path: {missing[0]}", file=sys.stderr)
         return 2
@@ -1110,7 +1348,7 @@ def main(argv=None):
     files = overviews(args.path)
     cwd = os.getcwd()
     total_open = total_closed = 0
-    bad, deleted, uncompared, settled = [], [], [], []
+    bad, deleted, uncompared, settled, ruled = [], [], [], [], []
     for path in unique_by_target(files):
         rel = display_path(path, cwd)
         open_rows, closed_rows, errors = check_file(path)
@@ -1182,6 +1420,29 @@ def main(argv=None):
                     )
                 )
                 continue
+            directory = os.path.dirname(rel)
+            if (
+                rel not in here
+                and not os.path.isdir(under_root(root, directory))
+                and retired_by_rule(root, base, directory)
+            ):
+                # The rule arm (#517 D3): the directory is gone, and at the
+                # merge-base it held no `spec.md` and nothing open, which is
+                # exactly what `settle --retire` removes without a marker. A
+                # memo removed from a directory that stays is not this — a
+                # retirement takes the whole directory.
+                ruled.append(
+                    annotate(
+                        "notice",
+                        display_path(os.path.join(root, rel), cwd),
+                        1,
+                        f"retired by the rule: at {named} the directory held "
+                        f"no `{SPEC}` and nothing open in its record, so "
+                        "it states no rule for a policy document to absorb "
+                        "and nothing unverified left with it",
+                    )
+                )
+                continue
             if rel not in here:
                 # Relative to the caller's directory, like every other line
                 # this prints. The two deletion reports used to answer on
@@ -1199,7 +1460,10 @@ def main(argv=None):
                     )
                 )
 
-    if not files and not deleted and not settled:
+    if not files and not deleted and not settled and not ruled:
+        if all(settled_root(p) for p in args.path):
+            print(SETTLED.format(path=", ".join(args.path)))
+            return 0
         print(
             f"unverified-check: no {OVERVIEW} found under "
             f"{', '.join(args.path)} — nothing was checked",
@@ -1213,11 +1477,20 @@ def main(argv=None):
         f" · {len(bad)} unreadable"
         + (f" · {len(uncompared)} not compared" if uncompared else "")
         + (f" · {len(settled)} folded" if settled else "")
+        + (f" · {len(ruled)} retired by the rule" if ruled else "")
     )
 
     if settled:
         print(f"\nfolded into {DOCS}/ and removed, not deleted from the record:")
         for line in settled:
+            print(line)
+
+    if ruled:
+        print(
+            f"\nretired by the rule — no `{SPEC}` and nothing open at the base, "
+            "so no marker is owed:"
+        )
+        for line in ruled:
             print(line)
 
     if uncompared:

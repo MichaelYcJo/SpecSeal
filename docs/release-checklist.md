@@ -105,11 +105,13 @@ documentation is a release that stops. Nothing fails a build for an unsettled
 work item, so the honest answer on a busy release is to skip this step and run
 it on its own later.
 
-`skills/settle/SKILL.md` is the procedure and carries the two things a fold
-branch owes that nothing else will tell you: a `survivors.md` range-row,
-because deleting shipped sections makes the survivor sweep report every
-sentence of them, and an answer for every check in this repository carrying a
-population floor over `seal/specs/`.
+`skills/settle/SKILL.md` is the procedure. **A fold is not a work item**: it
+opens no directory under `seal/specs/`, the routing question is not asked for
+it, every commit carries `: '[no-review]';` in front of the command, and its
+pull request is where the prose is judged. It owes an answer for every check
+in this repository carrying a population floor over `seal/specs/`, and for
+every ledger row `settle` names as anchored. It owes no `survivors.md` row:
+the survivor sweep leaves a retired directory out of its range.
 
 ## 3. Verify before committing — all of it, here
 

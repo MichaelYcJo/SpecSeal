@@ -89,6 +89,14 @@ closer = signal.closer
 # says when the label stops being the current answer -- which is the half a
 # person reading the tracker cannot otherwise know.
 #
+# It is also at most `LABEL_DESCRIPTION_LIMIT` characters, GitHub's cap, and
+# that is why `size: now`'s is the document's clause rather than its whole
+# sentence. The first version carried both halves in 119 characters, the
+# tracker refused it with a 422, and the step behind it in the workflow was
+# skipped (#515). Shortening keeps both halves and drops the words that say
+# neither: the subject a label is always about, and which release -- `its`
+# is the one carrying the ticket.
+#
 # The colour is `chain: capped`'s. That is this repository's other
 # `<subject>: <state>` label and the shape `size: now`'s name was taken from
 # -- the specifying section says so in as many words -- so two labels of one
@@ -101,8 +109,8 @@ LABELS = (
         "name": "size: now",
         "color": "d4c5f9",
         "description": (
-            "This ticket has to be in effect before the next work item "
-            "starts; removed when the release carrying it closes the issue"
+            "Has to be in effect before the next work item starts; "
+            "removed when its release closes the issue"
         ),
         "specified_by": (
             "docs/issues-and-milestones.md "

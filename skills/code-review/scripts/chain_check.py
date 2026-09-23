@@ -3978,7 +3978,10 @@ def main(argv=None):
         "--baseline",
         metavar="REF",
         required=True,
-        help="the branch this pull request merges into",
+        help="the branch this pull request merges into. A declaration the "
+        "pull request removes is refused unless its directory was retired: "
+        "folded, with its marker in docs/, or retired by the rule, with no "
+        "spec.md and nothing open in its record at the merge base",
     )
     ap.add_argument("--root", default=".", help="the repository to read")
     ap.add_argument(
@@ -4075,6 +4078,13 @@ def main(argv=None):
     # directory removed with NO marker behind it is still refused below, which
     # is the case this refusal was written for.
     retired = reader.folded_items(root)
+    # **The rule arm (#517 D3) is the other way a declaration is retired**,
+    # and the marker cannot see it: `settle --retire` removes a released
+    # directory that held no `spec.md` and nothing open with no marker at
+    # all. So a declaration absent here whose directory is gone is also
+    # asked `reader.retired_by_rule` of the merge base — the one predicate
+    # `settle` and `unverified_check.py --baseline` ask, never re-derived.
+    fork = reader.merge_base(root, args.baseline)
 
     errors, notices = [], []
     for rel in declarations:
@@ -4091,6 +4101,24 @@ def main(argv=None):
                         "folded the work item into a policy document and "
                         "removed it rather than declaring it. Its review "
                         "happened at its own pull request",
+                    )
+                )
+                continue
+            if (
+                fork
+                and not os.path.isdir(os.path.join(root, item))
+                and reader.retired_by_rule(root, fork, item)
+            ):
+                notices.append(
+                    (
+                        rel,
+                        0,
+                        "retired: by the rule — at the merge base this "
+                        "directory held no `spec.md` and nothing open in its "
+                        "record, so this pull request removed a record of a "
+                        "moment rather than declaring it, and no marker is "
+                        "owed. Its review, where it had one, happened at its "
+                        "own pull request",
                     )
                 )
                 continue

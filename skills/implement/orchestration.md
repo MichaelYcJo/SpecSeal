@@ -417,7 +417,7 @@ it is a table:
 
 | | Review arm | Parity arm |
 |---|---|---|
-| **Wakes when** | `seal/` exists in the repository the commit lands in | `seal/parity.md` exists there, **and** the change touches something outside `docs/` and `seal/` |
+| **Wakes when** | `seal/` exists in the repository the commit lands in, whatever the change touches — a commit confined to `docs/` and `seal/` wakes it too | `seal/parity.md` exists there, **and** the change touches something outside `docs/` and `seal/` |
 | **Quiets when** | a `routing.md` declaration names this branch, for either answer · the review mark stands at HEAD, written by the review chain · `[no-review]` rides in front of one command | the parity mark stands at HEAD, written by a recorded comparison against the original · `[no-parity]` rides in front of one command |
 
 Two things the sentences kept dropping. A declaration reaches the review arm

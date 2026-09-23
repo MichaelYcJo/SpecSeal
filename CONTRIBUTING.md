@@ -272,8 +272,13 @@ when it arrives.
   belongs in human-facing docs (`README.ko.md`). The `writing-style` skill
   is the deliberate exception: its per-language sections are independent
   norms, not mirrors.
-- **Both READMEs move together.** They need not be literal translations, but
-  they must tell the same story about what exists.
+- **Both READMEs move together, and so does every document with a `.ko.md`
+  edition.** They need not be literal translations, but they must tell the
+  same story about what exists. Under `docs/` the outline is checked:
+  `tests/test_both_editions_carry_the_same_folds.py` reads every top-level
+  `docs/X.ko.md` beside a `docs/X.md` and requires the same sequence of
+  heading levels and, under each heading position, the same fold markers. A
+  fold into one edition is a fold into both.
 - **Hooks stay local and quiet.** No writing outside the repo being worked
   on, and failure must never block a tool call. A gate that crashes should
   let the work through, not wedge the session.

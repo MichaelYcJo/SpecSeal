@@ -226,17 +226,26 @@ def test_the_existing_mirrors_are_consistent_with_the_rule():
         os.path.basename(p)
         for p in glob.glob(os.path.join(ROOT, "seal", "specs", "*", "pr.*.md"))
     )
-    assert mirrors, "no mirror files at all — this case is blind"
+    # `assert mirrors, "... this case is blind"` stood here, and every mirror
+    # lives in a directory the next fold retires (#517). Blindness is asked
+    # of the tree instead, by a second listing that has to agree at any size,
+    # and the rule's teeth move to
+    # `test_a_mirror_named_for_a_country_is_refused_by_the_same_rule`.
+    specs = os.path.join(ROOT, "seal", "specs")
+    listed = sorted(
+        name
+        for d in (os.listdir(specs) if os.path.isdir(specs) else [])
+        if os.path.isdir(os.path.join(specs, d))
+        for name in os.listdir(os.path.join(specs, d))
+        if name.startswith("pr.") and name.endswith(".md")
+    )
+    assert mirrors == listed, "the glob and the listing disagree about the mirrors"
 
     # 🟡 7 first, and unconditionally: every mirror is named for A language.
     # Narrowing to "not the body's own" dropped that, and `pr.kr.md` — `kr`
     # is a country, `ko` the language — is the mistake twelve files are one
     # copy away from. It would have stayed green.
-    unknown = sorted(
-        name
-        for name in set(mirrors)
-        if name[len("pr.") : -len(".md")] not in set(LANGUAGE_CODES.values())
-    )
+    unknown = unknown_mirrors(mirrors)
     assert not unknown, (
         f"a mirror is not named for a language this file knows: {unknown}. "
         f"Known codes: {sorted(LANGUAGE_CODES.values())} — `kr` is a country "
@@ -260,6 +269,21 @@ def test_the_existing_mirrors_are_consistent_with_the_rule():
         f"{refused} is a mirror in the body's OWN language, which is not a "
         f"mirror. This repository's pull request language is {language}"
     )
+
+
+def unknown_mirrors(mirrors):
+    """The mirror names that are not named for a language this file knows."""
+    return sorted(
+        name
+        for name in set(mirrors)
+        if name[len("pr.") : -len(".md")] not in set(LANGUAGE_CODES.values())
+    )
+
+
+def test_a_mirror_named_for_a_country_is_refused_by_the_same_rule():
+    """The teeth the real corpus stops showing once the directories holding
+    its mirrors are retired: `kr` is a country and `ko` the language."""
+    assert unknown_mirrors(["pr.ko.md", "pr.kr.md"]) == ["pr.kr.md"]
 
 
 def test_a_config_holding_the_templates_default_row_reads_as_english(tmp_path):
