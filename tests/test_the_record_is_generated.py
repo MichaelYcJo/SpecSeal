@@ -1483,7 +1483,7 @@ def test_the_two_record_run_reads_back_through_chain_check(repo):
     sha1 = declared(repo)
     code, out, _ = generate(repo, target=sha1)
     assert code == 0, out
-    commit(repo, "round 1")
+    r1 = commit(repo, "round 1")
     write(repo, "f.py", "x = 2\n")
     fix = commit(repo, "fix")
     path = repo / ROUNDS / "round-1.md"
@@ -1495,9 +1495,22 @@ def test_the_two_record_run_reads_back_through_chain_check(repo):
         text,
         flags=re.MULTILINE,
     )
+    # The third row `close` would have written: the range the fix was
+    # measured over. Left at its pending value beside the `round-2` that
+    # round 2's `new` is about to set, `chain_check.fix_range` refuses the
+    # pair (#436) — the same refusal the two rows above already met.
+    text = re.sub(
+        r"^\| Fix range \|.*$",
+        f"| Fix range | `{r1}..{fix}`, 1 commit |",
+        text,
+        flags=re.MULTILINE,
+    )
     assert "| open |" not in text and fields(text)["New units"] == "none", (
         "a substitution missed, so round 1 is not the closed record this "
         "reads back (#407's class)"
+    )
+    assert fields(text)["Fix range"].endswith("1 commit"), (
+        "the range substitution missed"
     )
     path.write_text(text, encoding="utf-8")
     sha2 = commit(repo, "round 1 closed")
@@ -1979,6 +1992,96 @@ def test_two_paste_ready_fixes_stay_apart_and_in_the_reviewers_order(repo):
     assert section.index(ONE_FIX.strip()) < section.index(OTHER_FIX.strip())
 
 
+def test_paste_ready_fixes_under_subheadings_are_carried_in_order(repo):
+    """A1 of #505. Six fixes, one `### <n> — <file>` entry each, which is
+    how a reviewer writes six readably — and the record read `no paste-ready
+    fix in the report`, because `section_body` ended the section at the
+    first line starting with `#`, which the first `###` is. The better-written
+    report was the one that lost its fixes. A section ends at a heading of
+    its own level or shallower; a deeper heading is inside it."""
+    declared(repo)
+    fences = [f"```python\nfix_{n} = {n}\n```\n" for n in range(1, 7)]
+    fixes = "".join(
+        f"### {n} — f{n}.py\n\nWhy this one.\n\n{fence}\n"
+        for n, fence in enumerate(fences, 1)
+    )
+    code, out, text = generate(repo, report_text=report(fixes=fixes))
+    assert code == 0, out
+    section = paste_ready(text)
+    assert generator_module().NO_PASTE_READY not in section, text
+    positions = [section.find(fence.strip()) for fence in fences]
+    assert all(p >= 0 for p in positions), (positions, text)
+    assert positions == sorted(positions), "the reviewer's order is the agenda"
+    assert "### 1" not in section and "Why this one" not in section, (
+        "a fence is copied whole and nothing else of the section is"
+    )
+
+
+def test_a_section_still_ends_at_a_heading_of_its_own_level(repo):
+    """A2 of #505, both halves. `## Paste-ready fixes` followed at once by
+    `## Executed probes` is an empty section, and the fence under the probes
+    table is the probes section's, not the paste-ready section's. And a
+    `###` under the probes table with a fence under it is inside the probes
+    section, so that fence is carried there — the same rule, one section
+    over."""
+    declared(repo)
+    code, out, text = generate(
+        repo,
+        report_text=report(
+            fixes="",
+            probes=PROBE_ROW + "\n### the replacement, labelled\n\n" + FENCE,
+        ),
+    )
+    assert code == 0, out
+    assert generator_module().NO_PASTE_READY in paste_ready(text), text
+    assert FENCE.strip() not in paste_ready(text), text
+    probes = text.split("## Executed probes", 1)[1].split(
+        "## Inherited coordinates", 1
+    )[0]
+    assert FENCE.strip() in probes, text
+    assert "the replacement, labelled" not in text, "prose stays in the report"
+
+
+def test_a_second_tables_header_under_a_subheading_is_not_a_verdict_row(repo):
+    """Round 1's 🟡 3. A reviewer who groups `## Verdicts` under `###`
+    entries writes a header row for each table, and with the section now
+    reaching past the `###` (#505) the second header was copied into the
+    record as a verdict row at exit 0 — a `#` cell reading `#`, which
+    `finding_number` admits as a row that commissions nothing. A row that
+    repeats the header names the columns and is not a row; the rows under
+    it are, and they are carried."""
+    declared(repo)
+    second = "| 🟢 | round 0's finding, re-read | `f.py:1` | confirmed | read |\n"
+    verdicts = f"{OPEN_ROW}\n### earlier rounds, re-checked\n\n{VERDICT_HEADER}{second}"
+    code, out, text = generate(repo, report_text=report(verdicts=verdicts))
+    assert code == 0, out
+    rows = rows_of(text, "## Verdicts")
+    header = VERDICT_HEADER.splitlines()[0]
+    assert rows.count(header) == 1, rows
+    assert OPEN_ROW.strip() in rows and second.strip() in rows, rows
+
+
+def test_a_table_hidden_under_a_subheading_is_still_a_swallowed_table(repo):
+    """A3 of #505: the section-end scan inside `swallowed` takes the same
+    rule as `section_body`, or the two define *a section* differently in one
+    module. The probes heading stands, a `###` follows it, and the only
+    table rows are inside a fence under that `###`. Ending the scan at the
+    `###` put the hidden rows outside the section, so nothing was refused and
+    the record arrived with the template's empty table — the silent loss the
+    guard exists to name."""
+    declared(repo)
+    # `report()` writes the header outside any fence, so the section is
+    # spliced in by hand: the heading, a `###`, and the whole table fenced.
+    hidden = (
+        f"## Executed probes\n\n### a label\n\n```\n{PROBE_HEADER}{PROBE_ROW}```\n\n"
+    )
+    text = report(probes=None).replace("## Deferred", hidden + "## Deferred")
+    code, out, text = generate(repo, report_text=text)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "hides every table row" in out and "Executed probes" in out, out
+
+
 def test_prose_under_the_paste_ready_heading_stays_in_the_report(repo):
     """A fence is copied whole and nothing else of the section is. Prose
     nobody parses in a file `chain_check.py` reads is what `plan.md` refused
@@ -2095,6 +2198,43 @@ def test_the_reviewer_is_told_where_the_paste_ready_fixes_go():
     proto = read("docs", "review-handoff-protocol.md")
     table = proto[proto.index("\n| Field | Required | Content |\n") :]
     assert f"| {heading.lstrip('# ')} |" in table[: table.index("\n#### ")], table
+
+
+def test_the_reviewers_skeleton_is_a_report_the_generator_accepts(repo):
+    """A15 of #503. The fenced skeleton in `agents/warden.md` §Report is what
+    a reviewer copies, so it is assembled into a report here — read out of
+    the file rather than retyped, so the two cannot drift — and run through
+    `new`. Its three example rows are the three shapes a `#` cell takes: a
+    numbered 🟡, a bare 🟢 carried closure with `confirmed`, and a bare ❓.
+    The generator accepts all three as written, and the record carries them
+    row for row."""
+    body = read("agents", "warden.md")
+    section = body[body.index("\n## Report\n") :]
+    blocks = re.findall(r"\n```[^\n]*\n(.*?\n)```\n", section, re.S)
+    generator = generator_module()
+    tables = next(b for b in blocks if b.startswith(f"{generator.VERDICTS}\n"))
+    fixes = next(b for b in blocks if b.startswith(f"{generator.PASTE_READY}\n"))
+    lines = next(b for b in blocks if b.startswith("Needs a fix:"))
+    needs = next(ln for ln in lines.splitlines() if ln.startswith("Needs a fix: yes"))
+    floor = next(
+        ln for ln in lines.splitlines() if ln == "Loses a record or crashes: no"
+    )
+    verdicts = tables.split("\n## ", 1)[0]
+    rows = [ln for ln in verdicts.splitlines() if ln.startswith("| ")]
+    example = [r for r in rows if r.split("|")[1].strip() not in ("#", "---")]
+    assert len(example) == 3, example
+    text = (
+        f"# what the round found\n\nProse.\n\n{tables}\n{fixes}\n{needs}\n{floor}\n\n"
+    )
+    declared(repo)
+    code, out, record = generate(repo, report_text=text)
+    assert code == 0, out
+    assert record is not None, out
+    for row_text in example:
+        assert row_text in record, (row_text, record)
+    cells = [r.split("|")[1].strip() for r in example]
+    assert cells[0].startswith("🟡 1") and cells[1] == "🟢" and cells[2] == "❓", cells
+    assert "| confirmed |" in example[1], example[1]
 
 
 def test_the_reviewer_is_not_told_the_report_is_read_for_tables_alone():
@@ -2566,9 +2706,14 @@ def test_an_intermediate_floor_record_starts_a_count_walk_of_its_own(repo):
 
 
 def test_the_count_walks_message_says_records_when_it_counted_two(repo):
-    """The plural branch of the count-walk line, which no case reached
-    (round 2, ⬜ 6). §14 asks the printed line to be pinned, and `1 records`
-    is what an unpinned plural branch ships."""
+    """A running walk that already counted two is #218's sibling (round 1's
+    ⬜ 5 of the work item that fixed #218): the gate refuses at the floor
+    record the moment its count reaches two, running or stopped, so the line
+    reports that refusal — *reached 2 before this record exists* — rather
+    than a *reaches 3 here* the gate never says. This case used to pin the
+    plural branch of the running sentence (round 2, ⬜ 6 of #207), and that
+    branch is unreachable now: a running walk fires this line only at one
+    record spent."""
     generator, reader = generator_module(), reader_module()
     routing = generator.load(check_module().ROUTING, "specseal_routing_plural")
     rounds = chain_of(
@@ -2580,8 +2725,9 @@ def test_the_count_walks_message_says_records_when_it_counted_two(repo):
     )
     line = generator.bound_line(reader, routing, str(rounds), 4)
     assert line is not None, line
-    assert "the 2 records after it" in line, line
-    assert "reaches 3" in line, line
+    assert "already returns an error at round-1.md" in line, line
+    assert "reached 2" in line, line
+    assert "reaches 3" not in line, line
 
 
 def test_a_round_that_reopened_without_writing_fixes_stops_the_count(repo):
@@ -2628,6 +2774,48 @@ def test_a_bare_yes_on_a_later_record_is_no_reopening_here_either(repo):
     assert line is not None, "the count walk says round 3 is over the bound"
     assert "this record ends the run" in line, line
     assert "reaches 2" in line, line
+
+
+def test_a_stopped_count_walk_that_reached_two_is_not_a_reopening_left(repo):
+    """A9 of #218. Round 1 met the floor, round 2 was quiet, round 3 reopened
+    the run — written anyway, over the `ends the run` printed at round 3.
+    Round 1's count walk counted round 2 and round 3 and stopped at the
+    reopening, so the gate refuses at `round-1.md` right now, before round 4
+    exists. This line read only walks still RUNNING, found none, fell through
+    to the reopening walk and printed `one reopening remains` — the most
+    permissive of its three sentences, one round after the strictest, while
+    the branch could not pass its own gate. Now a stopped walk that reached
+    two is the bound, and the line says the gate is already refusing.
+    The second half is the gate itself, read over the same files, so the
+    case is the differential #218 ran in miniature: what the line says and
+    what `stopping_floor` returns may not disagree about one sequence.
+    """
+    generator, reader, check = generator_module(), reader_module(), check_module()
+    routing = generator.load(check.ROUTING, "specseal_routing_stopped_walk")
+    rounds = chain_of(
+        repo,
+        LATE,
+        (1, "no", "no", CLOSED_ROW),
+        (2, "no", "no", CLOSED_ROW),
+        (3, "no", "yes — 🔴 1", CLOSED_ROW),
+    )
+    line = generator.bound_line(reader, routing, str(rounds), 4)
+    assert line is not None, "a stopped walk that reached two bounds the run"
+    assert "this record ends the run" in line, line
+    assert "one reopening remains" not in line, line
+    assert "round-1.md" in line and "reached 2" in line, line
+    assert check.CAPPED_EXIT in line, line
+    # The gate, over the records on disk: an error at round-1.md, whose walk
+    # counted two. `WORKTREE` because these records are not committed.
+    check.WORKTREE = True
+    rel = f"seal/specs/{LATE}/rounds"
+    errors, _notices = check.stopping_floor(
+        reader,
+        str(repo),
+        f"{rel}/round-1.md",
+        [f"{rel}/round-2.md", f"{rel}/round-3.md"],
+    )
+    assert errors and "reaches 2" in errors[0][2], errors
 
 
 def test_the_reopening_named_is_the_first_record_that_closed_on_a_fix(repo):

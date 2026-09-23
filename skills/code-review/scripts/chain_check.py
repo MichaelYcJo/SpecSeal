@@ -1177,6 +1177,51 @@ def field(rows, label):
     return None
 
 
+def heading_level(line):
+    """How many `#` open the line, or None where none does.
+
+    The reader's own test for a heading is `startswith("#")` (`headings` in
+    `unverified_check.py`), and this keeps it: a `#120` at column 0 is a
+    heading here exactly as it is there, because only a fence tells a
+    Markdown heading from a Python comment and `readable` has already
+    blanked the fences. What this adds is the DEPTH, which is the one thing a
+    section's end turns on.
+    """
+    if not line.startswith("#"):
+        return None
+    return len(line) - len(line.lstrip("#"))
+
+
+def section_end(lines, start):
+    """The index of the line that ends the section opened at `start`, or
+    `len(lines)` where nothing does.
+
+    A section ends at the first heading of its own level or shallower, and a
+    deeper heading is INSIDE it (#505). Every reader of a section's end in
+    this file and in `round_record.py` reads by this one definition: the
+    generator's `section_body` and the section-end scan inside its
+    `swallowed` reach it through `chain.section_end`, and `verdict_table`
+    below reads a record's `## Verdicts` by it. It used to end at any line
+    starting with `#` in all three, and the survivor sweep over the
+    generator's fix found this file's copy of the loop: a `###` a hand edit
+    put between the verdict header and an open 🔴 row placed the row outside
+    the section, `open_blocking` saw no blocker, and a checked `Pass` beside
+    it passed — the permissive direction, on the one kind of record the
+    checker exists for.
+
+    A `##` inside a section is still an end, as it always was; the one shape
+    that changes is the deeper heading, and a `####` under a `###` under the
+    section is inside it for the same reason, because the rule is *same
+    level or shallower ends it* and not *one level deeper is allowed*.
+    """
+    level = heading_level(lines[start]) or 1
+    for i in range(start + 1, len(lines)):
+        found = heading_level(lines[i])
+        if found is not None and found <= level:
+            return i
+    return len(lines)
+
+
 def table_rows(reader, lines):
     """Every table row in already-`readable` lines, as lists of cells."""
     out = []
@@ -1481,11 +1526,11 @@ def verdict_table(reader, lines, rel):
         )
 
     start = starts[0]
-    body = []
-    for i in range(start + 1, len(lines)):
-        if lines[i].startswith("#"):
-            break
-        body.append((i + 1, lines[i]))
+    # To `section_end`, not to any `#` (#505): a `###` a hand edit put inside
+    # the table would otherwise cut the rows below it out of the section,
+    # and a blocker among them out of `open_blocking`'s sight.
+    end = section_end(lines, start)
+    body = [(i + 1, lines[i]) for i in range(start + 1, end)]
 
     rows = [(n, reader.split_row(ln)) for n, ln in body if ln.strip()]
     rows = [(n, c) for n, c in rows if c is not None]
@@ -1525,6 +1570,13 @@ def verdict_table(reader, lines, rel):
     for line_no, cells in rows[1:]:
         seen = [reader.visible(c) for c in cells]
         if reader.is_separator(seen):
+            continue
+        if [c.casefold() for c in seen] == header:
+            # A second table's header under a `###` inside the section, or
+            # one pasted by hand (round 1's 🟡 3): a row that names the
+            # columns is not a verdict row, and read as one it carried a `#`
+            # cell reading `#` and a verdict reading `Verdict`, which
+            # nothing downstream refuses. Skipped the way the separator is.
             continue
         if len(cells) <= col:
             errors.append(
@@ -1802,7 +1854,50 @@ def fix_range(reader, root, rel):
     if says_none(value):
         # A round that commissioned no fixes has no range, and the value
         # `new` writes before the fixes exist says so in the same words the
-        # two surface rows use. Nothing to read against the tree either way.
+        # two surface rows use. Nothing to read against the tree either way
+        # -- EXCEPT the pair `fix_surface` already refuses on its own rows
+        # (#436): `Fixes checked by` naming a later round says that round
+        # opened these fixes, so they exist, and a cell still saying they
+        # are not yet written is false about a fact the same file states.
+        # Three rows take that pending value from one line of `build`; two
+        # were read back for whether anybody replaced it and this one was
+        # not. Keyed on the same cell, normalized the same way, and behind
+        # `RANGE_FROM` rather than a cutoff of its own: the row has carried
+        # the pending value from birth since it shipped, so `ORDER_FROM`
+        # would excuse nothing this does not, and zero committed records at
+        # or after `RANGE_FROM` hold the pair (read 2026-09-23, 23 records).
+        checker = (
+            reader.visible(field(rows, CHECKED_BY) or "")
+            .strip()
+            .strip("`")
+            .strip()
+            .rstrip(".")
+            .lower()
+        )
+        if CHECKER_RE.match(checker) and says_not_yet(value):
+            message = (
+                f"`{FIX_RANGE}` still says the fixes are not yet written, "
+                f"and `{CHECKED_BY}` names `{checker}` — so a later round "
+                "opened those fixes and they exist. The cell contradicts "
+                f"its own file, the way `{NO_FIXES}` beside a `fixed` "
+                "verdict does. It is the starting value every record "
+                "carries, because a record is committed BEFORE its fixes; "
+                "what is missing is the `round-record close` that writes "
+                "the range they were measured over. Write "
+                f"`` `<a>..<b>`, N commits ``, or a bare `{NONE_WORD}` if "
+                "the round commissioned nothing"
+            )
+            if excused:
+                return [], [
+                    (
+                        rel,
+                        0,
+                        message + f". Work items begun before {RANGE_FROM} "
+                        "are excused this and print instead — the "
+                        "grandfathering the absent row already uses",
+                    )
+                ]
+            return [(rel, 0, message)], []
         return [], []
 
     found = FIX_RANGE_RE.search(value)
@@ -3563,6 +3658,17 @@ def broad_gate(
     first, which is also what makes an abbreviated cell and a full-length
     `Target SHA` comparable at all.
 
+    THE FIRST SHA-SHAPED WORD IS THE RUN, and that is a property the writer
+    keeps rather than one this arm assumes (#174). The cell holds one entry
+    per full-suite run, NEWEST FIRST: `round_record.py seal` writes a new
+    run in front of what the cell already held and keeps the earlier entry
+    behind it as `earlier run`, so a re-seal after a pre-existing failure or
+    a late fix records a second run instead of erasing the first. Every
+    question below is asked of `named[0]` alone -- the newest run is the one
+    that has to be at or after the round it seals -- and a first seal is one
+    entry, so a record written before the cell could hold two reads exactly
+    as it always did.
+
     A gate SHA this repository cannot see makes NO CLAIM. A squash discards
     the commits a round reviewed and the gate ran at one of them, so
     `resolves_to` returning None is the ordinary state after a merge -- the
@@ -3617,7 +3723,8 @@ def broad_gate(
             "this arm cannot tell a run that happened from one that did not. "
             "Spawn the `sealer` and let `broad-gate --record <item>` write "
             "this cell, or `round_record.py close --broad-gate '<sha> against "
-            "<base>'` where fixes and the gate land in one pass — or "
+            "<base>'` where fixes and the gate land in one pass (the same "
+            "newest-first path, so a run the cell holds is kept) — or "
             f"`{GATE_NOT_YET}` while it has not run"
         )
     else:

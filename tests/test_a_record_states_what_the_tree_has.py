@@ -683,6 +683,58 @@ def test_a_fence_the_record_never_closes_does_not_silence_what_follows(tmp_path)
     assert "`gone_helper`" in found[0][2]
 
 
+def test_a_comment_the_record_never_closes_does_not_silence_what_follows(tmp_path):
+    """The pair of the case above, one region over (#217). A comment with no
+    `-->` set the aside and nothing ever cleared it, so every remaining line
+    of the record was dropped and the arm said nothing — exit 0, `0 names
+    read`, on a file whose author made a mistake. The fence half had already
+    been given the answer: an unclosed region is a malformed record, not a
+    licence to read nothing, so its lines are held and read at the end."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\n<!-- note\n\nand then `gone_helper` in prose\n"},
+    )
+    found, read = refusals(tmp_path)
+    assert read == 1, (found, read)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+    assert "`gone_helper`" in found[0][2]
+
+
+def test_the_marker_exempts_a_line_a_never_closed_comment_held(tmp_path):
+    """The marker exempts the LINE, and a line an unclosed comment held is
+    still a line — the same rule the fence's held lines already have. The
+    marker is written bare here, because a `<!-- … -->` on the held line
+    would close the comment and the line would never be held at all."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\n<!-- note\n\n`gone_helper` — NAME NOT IN TREE\n"},
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+def test_a_closed_comment_lets_go_of_the_lines_it_held(tmp_path):
+    """A comment that DOES close is an aside to its end, middle lines
+    included: what the region held while it was open is dropped at the
+    `-->`, exactly as a closed fence clears `held`. Without that, a
+    three-line template comment would have its middle line read as a claim
+    at the end of the file — round 2's 🟡 2 of #190, one region over."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "plan.md": "# p\n\n<!-- what this field holds,\n"
+            "     why `gone_helper` is the example,\n"
+            "     and where it goes -->\n"
+        },
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
 def test_a_tilde_fence_does_not_close_a_backtick_fence(tmp_path):
     """The two markers shared one flag, so a `~~~` line quoted INSIDE a
     ```-fence closed it and everything after was read as prose. The opener

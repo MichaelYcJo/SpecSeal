@@ -500,16 +500,21 @@ def test_the_location_buckets_are_the_repositorys_own_definition_of_a_record():
 
 
 def test_the_broad_gate_row_asks_for_what_the_cell_actually_carries():
-    """Round 1's finding 4. The row asked for `how many times, at what SHA`
-    from a cell that holds one entry — `round_record.py` replaces it rather
-    than appending — so a run that ran the gate twice had nowhere in the
-    record to say so and the row was filled from memory or left blank."""
+    """Round 1's finding 4, and the premise #174 reversed. The row asked for
+    `how many times, at what SHA` from a cell that held one entry —
+    `round_record.py` replaced it rather than appending — so a run that ran
+    the gate twice had nowhere in the record to say so, and this case refused
+    the count. Under #174 the cell holds one entry per full-suite run, newest
+    first, so the count is read off the cell rather than remembered: the row
+    may ask for it again, on the one condition that its source says where
+    the count comes from."""
     label, source = labelled("Broad gate")
-    assert "how many times" not in label, (
-        "the `Broad gate` row asks for a count. The cell it names carries at "
-        "most one SHA, so the count comes from somewhere the next run cannot "
-        "check"
-    )
+    if "how many times" in label:
+        assert "one entry per full-suite run" in source, (
+            "the `Broad gate` row asks for a count without saying the cell "
+            "holds one entry per run, so the count comes from somewhere the "
+            "next run cannot check"
+        )
     assert "not yet" in source, (
         "the row names the cell without saying what it holds, which is the "
         "reason the count went unnoticed in the first place"

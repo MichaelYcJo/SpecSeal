@@ -2521,6 +2521,125 @@ def test_a_work_item_with_rounds_still_seals_onto_its_last_record(repo):
     )
 
 
+def test_a_re_seal_keeps_the_earlier_run_and_the_reader_takes_the_newest(repo):
+    """A12 of #174. A run that meets a pre-existing failure, or whose last
+    fixes land after the gate, takes the broad run again — and the cell held
+    one entry that `seal` REPLACED, so the second run erased the record of
+    the first and the run-level table was filled from memory. The cell now
+    holds one entry per run, newest first: `seal` writes the new entry in
+    front and keeps what was there. `chain_check.broad_gate` reads the first
+    SHA-shaped word as the run, so newest-first is what keeps its reading
+    unchanged, and that half is asserted through the reader itself."""
+    _one, two = settled_item(repo)
+    first = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{first} against base")
+    assert code == 0, out
+    write(repo, "f.py", "x = 3\n")
+    commit(repo, "a fix after the gate, which spends it")
+    second = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{second} against base")
+    assert code == 0, out
+    after = two.read_text(encoding="utf-8")
+    generator = _load("specseal_round_record_for_a_re_seal", GENERATOR)
+    assert fields(after)[ROW] == (
+        f"{second} against base{generator.EARLIER_RUN}{first} against base"
+    ), after
+    # The reader: at a ready pull request, the newest entry is the run, and
+    # the cell has nothing to be refused for.
+    check, reader = check_module(), reader_module()
+    check.WORKTREE = True
+    errors, notices = check.broad_gate(reader, str(repo), f"{ROUNDS}/round-2.md", True)
+    assert errors == [] and notices == [], (errors, notices)
+
+
+def test_a_re_seal_at_the_commit_the_cell_names_replaces_that_entry(repo):
+    """Round 1's ⬜ 8, decided: a run taken again at the commit the newest
+    entry already names is the same claim about the same tree, so the new
+    entry replaces that one rather than standing beside it — the cell holds
+    one entry per run at a distinct commit, and a sealer re-run over an
+    unchanged tree does not grow it. An earlier run at a different commit
+    stays behind the newest as before."""
+    _one, two = settled_item(repo)
+    first = short(repo, "HEAD")
+    assert run_seal(repo, f"{first} against base")[0] == 0
+    write(repo, "f.py", "x = 3\n")
+    commit(repo, "a fix after the gate")
+    second = short(repo, "HEAD")
+    assert run_seal(repo, f"{second} against base")[0] == 0
+    code, out = run_seal(repo, f"{second} against base")
+    assert code == 0, out
+    generator = _load("specseal_round_record_for_a_same_commit_re_seal", GENERATOR)
+    cell = fields(two.read_text(encoding="utf-8"))[ROW]
+    assert cell == (
+        f"{second} against base{generator.EARLIER_RUN}{first} against base"
+    ), cell
+    assert cell.count(second) == 1, "the same commit was entered twice"
+
+
+def test_a_re_seal_at_the_same_commit_against_another_base_keeps_both(repo):
+    """Round 2's 🟡 1. The seal is the commit AND the base (`agents/sealer.md`
+    §Bind the result to a tree state), so a run at one commit against a
+    moved base is a second comparison and stays beside the first rather
+    than replacing it — the erasure #174 was filed on, one field narrower.
+    Keyed on the SHA alone, the replace erased the first base, which the
+    four sentences promising *a second run never erases the first* forbid."""
+    _one, two = settled_item(repo)
+    sha = short(repo, "HEAD")
+    assert run_seal(repo, f"{sha} against base")[0] == 0
+    code, out = run_seal(repo, f"{sha} against origin/base")
+    assert code == 0, out
+    generator = _load("specseal_round_record_for_another_base", GENERATOR)
+    cell = fields(two.read_text(encoding="utf-8"))[ROW]
+    assert cell == (
+        f"{sha} against origin/base{generator.EARLIER_RUN}{sha} against base"
+    ), cell
+
+
+def test_a_first_seal_is_byte_identical_to_a_cell_that_was_never_a_list(repo):
+    """A13 of #174: with nothing to keep there is no separator, so every
+    committed record and every fixture in the tree is already the shape."""
+    _one, two = settled_item(repo)
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    cell = fields(two.read_text(encoding="utf-8"))[ROW]
+    assert cell == f"{head} against base", cell
+    generator = _load("specseal_round_record_for_a_first_seal", GENERATOR)
+    assert generator.EARLIER_RUN.strip(" ;:") not in cell, cell
+
+
+def test_the_direct_home_takes_the_same_shape_on_a_re_seal(repo):
+    """A14 of #174. `broad-gate.md` is the whole record of a `straight to the
+    PR` work item and `direct_seal` reads it through `broad_gate`, so one
+    writer gives both homes one shape: the re-sealed file holds both entries
+    and the direct arm passes on the newest."""
+    write(repo, f"{ITEM}/routing.md", declaration(review="straight to the PR"))
+    commit(repo, "declare direct")
+    first = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{first} against base")
+    assert code == 0, out
+    write(repo, "f.py", "x = 3\n")
+    commit(repo, "a fix after the gate")
+    second = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{second} against base")
+    assert code == 0, out
+    path = repo / ITEM / GATE_FILE
+    text = path.read_text(encoding="utf-8")
+    generator = _load("specseal_round_record_for_a_direct_re_seal", GENERATOR)
+    assert fields(text)[ROW] == (
+        f"{second} against base{generator.EARLIER_RUN}{first} against base"
+    ), text
+    table = [ln for ln in text.splitlines() if ln.startswith("|")]
+    assert len(table) == 3, "the cell is still one row, and the file still one cell"
+    check, reader = check_module(), reader_module()
+    check.WORKTREE = True
+    routing = generator.load(check.ROUTING, "specseal_routing_for_a_re_seal")
+    errors, notices = check.direct_seal(
+        reader, routing, str(repo), str(repo / ITEM), f"{ITEM}/{GATE_FILE}", True
+    )
+    assert errors == [] and notices == [], (errors, notices)
+
+
 def test_seal_writes_over_a_capped_runs_needs_a_fix(repo):
     """S5. A capped run seals, and until phase 5 it could not.
 

@@ -291,23 +291,63 @@ def test_the_sweep_can_fail():
     )
 
 
-# --- the sweep's reach is NOT pinned, and that is recorded rather than implied -
+# --- the sweep's reach is pinned against the reader itself (#366) -------------
 
 # **A sweep that answers *no offender* cannot pin its own reach.** No file in
 # the tree carries any of the shapes this module looks for, so deleting the
-# reach that finds them changes the sweep's answer not at all: round 2 measured
-# each of round 1's three widenings -- the pattern's noun alternatives,
-# `CLAUDE.md` in the scanned set, and `hits()`'s joined-line branch -- reverting
-# with this module still green.
-#
-# Two cases pinning the first two were written and measured red under exactly
-# their own mutation, and then reverted: `round_record.py close` refused them at
-# depth 2 because round 2's finding named `hits()` among its coordinates, and
-# the repository owner's answer was to take that gate's exit rather than route
-# around it. **#366** holds the drafted cases, the measurement, and the open
-# question about a finding whose Location spans two depths. Until it lands, a
-# later edit trimming any of the three widenings as unused is caught by nothing
-# here.
+# reach that finds them changes the sweep's answer not at all: round 2 of the
+# work item that built it measured each of round 1's three widenings -- the
+# pattern's noun alternatives, `CLAUDE.md` in the scanned set, and `hits()`'s
+# joined-line branch -- reverting with this module still green. The three cases
+# below were drafted there and refused by `round_record.py close` at depth 2,
+# because the finding that commissioned them named `hits()` among its
+# coordinates; #366 held them until a work item that was not a fix pass could
+# plant them. Each is red under exactly its own reversion and green under the
+# other two.
+
+# The shapes round 1 measured escaping, kept as data rather than as prose.
+NOUN_FORMS = (
+    "A release's size is three or four work items.",
+    "Three or four work items is the size of a release.",
+    "The size of a release is three work items.",
+)
+
+
+def test_the_pattern_catches_the_noun_forms_and_not_only_the_verb():
+    """Round 1 measured all three escaping, on one line and with no wrap
+    involved. `test_the_sweep_can_fail` cannot see them go: the owner matches
+    on `release ... sized` alone, which was there before the widening."""
+    for sentence in NOUN_FORMS:
+        assert STATES_A_SIZE.search(sentence), (
+            f"a one-line restatement of a release's size escapes the sweep: {sentence!r}"
+        )
+
+
+def test_the_sweep_reads_a_statement_whose_wrap_falls_inside_it():
+    """The failure round 1 found, and the whole reason `hits()` exists rather
+    than a line scan. The first assertion is the control: if a plain scan ever
+    starts seeing this shape, the case has stopped measuring the reader."""
+    wrapped = ["the paragraph says three or four is the", "size a release is cut to."]
+    plain = [n for n, line in enumerate(wrapped, 1) if STATES_A_SIZE.search(line)]
+    assert plain == [], (
+        "the control moved: a plain line scan must miss this shape, or this "
+        "case passes on a reader the sweep does not need"
+    )
+    assert hits(wrapped) == [1], (
+        "a statement whose wrap falls inside it must be reported, at the line "
+        "it starts on"
+    )
+
+
+def test_the_scanned_set_reaches_the_file_a_rule_gets_restated_in():
+    """`CLAUDE.md` is where a rule is restated for a session that never opens
+    `docs/`, and `tests/test_one_word_one_meaning.py` — the module this sweep
+    is modelled on — already reads it."""
+    files, _missing = tracked()
+    assert "CLAUDE.md" in files, (
+        "CLAUDE.md is outside the sweep, so a second answer stated there is "
+        "invisible to it"
+    )
 
 
 def test_the_sweep_survives_a_tracked_file_the_tree_deleted(tmp_path):

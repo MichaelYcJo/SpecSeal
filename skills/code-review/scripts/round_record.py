@@ -24,7 +24,8 @@ carries retyped coordinates.
 
   Report              `--report`, else `<item>/rounds/round-N-report.md`; the
                       absence of both refuses and names the path
-  Target SHA          `--target`, which has to resolve
+  Target SHA          the commit `--target` resolves to, never the revision
+                      as typed; a flag that does not resolve is refused
   Ran by              `--ran-by`
   PR                  `--pr`, else what `gh pr view` says, else `not yet opened`
   Broad gate          `--broad-gate`, else `not yet`
@@ -331,6 +332,77 @@ INHERITED_HEADER = ("From", "Coordinate", "Why it is still worth opening")
 # longer finds, which the checker reads as `no run was named`.
 BROAD_GATE = chain.BROAD_GATE
 GATE_NOT_YET = chain.GATE_NOT_YET
+# What `seal` writes between the entries of a `Broad gate` cell that already
+# held a run (#174): the new entry first, then this, then what was there. The
+# cell used to hold one entry that every `seal` REPLACED, so a run taken
+# again — after a pre-existing failure, or after the last fixes landed — erased
+# the record of the first and the run-level table was filled from memory.
+# Three constraints, all the readers': no `|` (a cell), no SHA-shaped word
+# (`chain_check.broad_gate` takes the first one as the run) and no `<!--` (the
+# hider question every record is asked). `earlier run` is none of those, and
+# the newest entry stays first so the reader's `named[0]` is unchanged.
+EARLIER_RUN = "; earlier run: "
+
+
+def kept_broad_gate(reader, rows, value):
+    """`value` in front of the run `rows`' `Broad gate` cell already holds,
+    or `value` alone where it holds none (#174).
+
+    ONE ENTRY PER RUN, NEWEST FIRST, for every writer of the cell. `seal` and
+    `close --broad-gate` used to disagree — the first kept a held run and the
+    second replaced it, while the template described them as writing the
+    same cell (round 1's 🟡 1) — so both call this and neither builds the
+    cell from the flag alone. `not yet` holds no run and is replaced, so a
+    first seal is byte-identical to what it always was; the new entry goes in
+    front so that `chain_check.broad_gate`, which takes the first SHA-shaped
+    word as the run, reads what it read before.
+
+    **A run the newest entry already records — the same commit against the
+    same base — replaces that entry rather than standing beside it** (round
+    1's ⬜ 8, narrowed by round 2's 🟡 1). It is the same claim about the
+    same comparison — the sealer re-run over an unchanged checkout — and
+    two entries for one claim would make the count of entries stop being
+    the count of runs. A run at that commit against ANOTHER base is another
+    comparison and is kept behind the new entry like any earlier run, which
+    is what `agents/sealer.md` and the `broad-gate.md` comment promise: a
+    second run never erases the first. Keyed on the SHA alone, the replace
+    erased the first base. The comparison is `same_run`'s, by prefix per
+    SHA-shaped word, so an abbreviated entry and a full-length flag name one
+    commit; nothing here asks git: `seal` has already refused a flag that
+    does not resolve, and `close --broad-gate` never resolves its flag, so a
+    value with no SHA-shaped word is written as typed and left for
+    `chain_check.broad_gate` to report at the pull request.
+    """
+    held = reader.visible(chain.field(rows, BROAD_GATE) or "").strip()
+    if not held or chain.says_gate_not_yet(held):
+        return value
+    entries = held.split(EARLIER_RUN)
+    if same_run(entries[0], value):
+        entries = entries[1:]
+    if not any(chain.SHA_RE.search(e) for e in entries):
+        return value
+    return EARLIER_RUN.join([value, *entries])
+
+
+def same_run(entry, value):
+    """Whether `entry` and `value` record one run: the same commit AND the
+    same base. A SHA-shaped word is compared by prefix, so an abbreviated
+    entry and a full-length flag agree; every other word exactly. Two runs
+    at one commit against different bases are two comparisons —
+    `agents/sealer.md` binds a seal to both halves — and both are kept.
+    """
+    a, b = entry.split(), value.split()
+    if len(a) != len(b):
+        return False
+    for x, y in zip(a, b, strict=True):
+        if chain.SHA_RE.fullmatch(x) and chain.SHA_RE.fullmatch(y):
+            if not (x.startswith(y) or y.startswith(x)):
+                return False
+        elif x != y:
+            return False
+    return True
+
+
 # The row this script writes and `chain_check.written_late` reads, imported
 # from the reader for the same reason `BROAD_GATE` is: rename it in one file
 # alone and this one keeps writing a row the checker no longer finds, which
@@ -992,23 +1064,48 @@ def report_path(rounds, n, given):
     return path
 
 
+def section_end(lines, start):
+    """The index of the line that ends the section opened at `start`, or
+    `len(lines)` where nothing does — `chain.section_end`, the one
+    definition of a section both scripts read by.
+
+    A section ends at the first heading of its own level or shallower, and a
+    deeper heading is INSIDE it (#505). It used to end at any line starting
+    with `#`, so a `## Paste-ready fixes` organised under one `###` per
+    finding — the readable way to write six of them — had an empty body
+    before any fence was looked for, and the record read `no paste-ready fix
+    in the report` over six. The better-written report was the one that lost
+    its fixes, and nothing raised.
+
+    One definition of *a section* for the module, and for the checker:
+    `section_body` reads by it and `swallowed`'s section-end scan reads by
+    it, so a table a `###` labels is inside the section to both — copied by
+    one and, when it stands only inside a fence, refused by the other — and
+    `chain_check.verdict_table` reads a record's `## Verdicts` by the same
+    rule, which is why the definition lives there. A reviewer's `##` inside
+    a section is still an end, as it always was; the one shape that changes
+    is the deeper heading, and a `####` under a `###` under the section is
+    carried for the same reason, because the rule is *same level or
+    shallower ends it* and not *one level deeper is allowed*.
+    """
+    return chain.section_end(lines, start)
+
+
 def section_body(reader, lines, heading):
     """(start, [(index, line)]) for the one section under `heading`, or None.
 
     `lines` are already `readable`, so a heading inside a comment or a fence
-    is not a section, and indices are the raw file's.
+    is not a section, and indices are the raw file's. The section runs to
+    `section_end`: a heading of the section's own level or shallower ends
+    it, and a deeper one is part of it (#505).
     """
     starts = reader.sections(lines, heading)
     if not starts:
         return None
     if len(starts) > 1:
         raise Refused(f"the report has {len(starts)} `{heading}` sections")
-    body = []
-    for i in range(starts[0] + 1, len(lines)):
-        if lines[i].startswith("#"):
-            break
-        body.append((i, lines[i]))
-    return starts[0], body
+    end = section_end(lines, starts[0])
+    return starts[0], [(i, lines[i]) for i in range(starts[0] + 1, end)]
 
 
 def table_body(reader, lines, heading, header, required):
@@ -1047,10 +1144,17 @@ def table_body(reader, lines, heading, header, required):
             f"{row(header)!r}, and the generator copies only a table in the "
             "record's own columns"
         )
+    # A row that repeats the header is a second table's header under a
+    # `###` inside the section (round 1's 🟡 3 — reachable since #505 made
+    # the section reach past the `###`): it names the columns and is not a
+    # row, and copied through it carried a `#` cell reading `#` that
+    # `finding_number` admits as a row commissioning nothing. Skipped the
+    # way the separator is; the rows under it are the section's.
     return [
         (i, cells)
         for i, cells in rows[1:]
         if not reader.is_separator([reader.visible(c) for c in cells])
+        and tuple(reader.visible(c) for c in cells) != header
     ]
 
 
@@ -1180,10 +1284,12 @@ def swallowed(reader, report, lines):
         if len(starts) != 1:
             continue  # absent is the loop above; twice is `section_body`'s
         start = starts[0]
-        end = next(
-            (i for i in range(start + 1, len(lines)) if lines[i].startswith("#")),
-            len(lines),
-        )
+        # The same end `section_body` reads by (#505): a table under a `###`
+        # inside this section is this section's, so rows hidden there are
+        # rows this section lost. Ending at any `#` put them outside the
+        # span, and the record then arrived with the template's empty table
+        # and nothing said so.
+        end = section_end(lines, start)
         if any(reader.split_row(ln) for ln in lines[start + 1 : end]):
             continue
         if any(start < i < end and reader.split_row(t) for i, t in hidden):
@@ -1836,13 +1942,16 @@ ONE_REOPENING = "one reopening remains"
 
 def floor_and_fixes(reader, earlier):
     """(the floor record, the later ones that closed on a fix, how many
-    records the FIRING count walk has spent, whether a count walk is still
-    running, the record that walk started from).
+    records the FIRING count walk has spent, whether that walk is still
+    running, the record it started from).
 
     The last three are one answer in three cells and never disagree: with no
-    walk running the count is 0 and the record is None, because a walk that
-    has stopped bounds nothing and a count reported from one would be a
-    number about a record the caller is not told.
+    walk firing the count is 0 and the record is None, because a count
+    reported from a walk would be a number about a record the caller is not
+    told. A walk FIRES two ways. Still running with one record spent, it
+    counts the record being written as the gate's second; stopped with two
+    or more spent, it is an error the gate already returns at the record it
+    started from (#218) — and a walk that stopped at one bounds nothing.
 
     **`chain_check.stopping_floor` runs TWO walks over the records after the
     floor, and this used to carry one of them.** The reopening walk counts
@@ -1946,7 +2055,20 @@ def floor_and_fixes(reader, earlier):
     # the earlier one, which would have to have stopped for the later one to
     # start fresh — so the maximum is the walk the gate refuses first, and
     # `counted_at` is the record it started from.
-    counted, counted_at = 0, None
+    #
+    # A RUNNING walk counts this record next, so one record already reaches
+    # the gate's two. A STOPPED walk bounds nothing further — unless it
+    # already reached two, which is an error `stopping_floor` returns at
+    # `path` right now, before this record exists (#218). Reading only the
+    # running walks printed `one reopening remains` at round 4 over a floor
+    # record the gate was refusing, one round after it had printed `ends the
+    # run` at round 3: the most permissive of the three sentences, after the
+    # strictest, on a branch that could not pass its own gate. `running` is
+    # what tells the two apart for `bound_line`, and the inner `break` is
+    # what makes a stopped walk's count the gate's — without it every record
+    # after the stop would be counted too (the ticket's ninth mutation
+    # survivor, which this reading closes).
+    counted, counted_at, running = 0, None, False
     for i, (path, met, _r, _w) in enumerate(seen):
         if not met:
             continue
@@ -1956,9 +2078,10 @@ def floor_and_fixes(reader, earlier):
             if reopened or wrote:
                 stopped = True
                 break
-        if not stopped and spent > counted:
-            counted, counted_at = spent, path
-    return seen[floor_i][0], fixes, counted, counted_at is not None, counted_at
+        fires = spent > 1 if stopped else spent >= 1
+        if fires and spent > counted:
+            counted, counted_at, running = spent, path, not stopped
+    return seen[floor_i][0], fixes, counted, running, counted_at
 
 
 def bound_line(reader, routing, rounds, n):
@@ -2014,24 +2137,38 @@ def bound_line(reader, routing, rounds, n):
             "on a fix, and the record that reads its fixes ends the run "
             f"whatever it finds. {chain.CAPPED_EXIT}"
         )
-    if counted and running:
-        # Every record after some floor record was quiet, so that walk is
-        # still running and this record is the one it counts next — the
-        # gate's SECOND counted record, which it refuses.
+    if counted_at is not None:
         if count_excused:
             return None
-        quiet = "record" if counted == 1 else "records"
         # The record the FIRING walk started from, which is not always the
         # earliest floor record `met` names (round 2, 🟡 1). Naming `met`
         # here sent the reader to a walk that had already stopped, and the
         # count beside it then belonged to a record the sentence did not
         # mention — the one thing in this line a reader can check.
         started = os.path.basename(counted_at)
+        if not running or counted > 1:
+            # A walk that already reached two — STOPPED there, or still
+            # running past it: the gate returns an error at `started` right
+            # now, whatever this record says, and the line reports the
+            # gate's own refusal rather than the most permissive sentence it
+            # has (#218). Falling through to the reopening walk printed `one
+            # reopening remains` for the stopped walk, and the running walk
+            # of two printed `reaches 3 here`, a count the gate never says
+            # (round 1's ⬜ 5 of the work item that fixed #218).
+            return (
+                f"round-record: {ENDS_THE_RUN} — the gate already returns an "
+                f"error at {started}, whose count of round records after the "
+                f"floor reached {counted} before this record exists. "
+                f"{chain.CAPPED_EXIT}"
+            )
+        # One record after some floor record was quiet, so that walk is
+        # still running and this record is the one it counts next — the
+        # gate's SECOND counted record, which it refuses.
         return (
             f"round-record: {ENDS_THE_RUN} — {started} met the floor and the "
-            f"{counted} {quiet} after it neither reopened the run nor closed "
-            "on a fix, so the gate's count of round records after the floor "
-            f"reaches {counted + 1} here. {chain.CAPPED_EXIT}"
+            "record after it neither reopened the run nor closed on a fix, "
+            "so the gate's count of round records after the floor reaches 2 "
+            f"here. {chain.CAPPED_EXIT}"
         )
     if reopen_excused:
         return None
@@ -2044,7 +2181,14 @@ def bound_line(reader, routing, rounds, n):
 
 def build(reader, routing, args, root, item, rounds):
     """The record's text, and the reach-back to make once it is written."""
-    if not reader.resolves(root, args.target):
+    # The commit the flag names, not the flag: `HEAD~1` and a branch name are
+    # legitimate spellings at the keyboard and name nothing in a record —
+    # `chain_check.target_shas` reads the cell for SHA-shaped words and
+    # reported *no row naming a commit* over a cell that held the revision
+    # as typed (#382). `head_moved` resolves the same flag for its printed
+    # line, so the line and the cell now agree.
+    target = reader.commit_of(root, args.target)
+    if target is None:
         raise Refused(
             f"--target {args.target} does not resolve in {root} — a record "
             "naming a commit nobody can open names nothing"
@@ -2138,7 +2282,7 @@ def build(reader, routing, args, root, item, rounds):
     fields = [
         row(("Field", "Value")),
         separator(2),
-        cell(chain.TARGET, args.target),
+        cell(chain.TARGET, target),
         cell(WRITTEN_LATE, written_late_cell(args.written_late)),
         cell(chain.RAN_BY, args.ran_by),
         cell(chain.PR_FIELD, pull_request_cell(root, args.pr)),
@@ -3806,7 +3950,16 @@ def close(args):
         chain.NEW_UNITS,
         [units_entry(n, 1) for n in dict.fromkeys(n for _r, n in added)],
     )
-    gate = cell(BROAD_GATE, args.broad_gate) if args.broad_gate else None
+    # Through the same path as `seal` (round 1's 🟡 1): a run the cell
+    # already holds is kept behind the new entry by either writer.
+    gate = (
+        cell(
+            BROAD_GATE,
+            kept_broad_gate(reader, chain.table_rows(reader, lines), args.broad_gate),
+        )
+        if args.broad_gate
+        else None
+    )
     # The range this pass was measured over, as commits and as a count (#344).
     # `parse_range` has already refused an end that is not a commit somebody
     # can open, so both halves here are pinned by construction -- and the
@@ -4122,7 +4275,9 @@ def new_broad_gate_file(item, value):
         "records the commit the run happened at and the base it was compared\n"
         "against, so an edit after the run spends it — which is the whole of\n"
         "what a broad-gate cell asserts, and none of it depends on a round\n"
-        "having run. -->\n"
+        "having run. One entry per run, newest first: a run taken again is\n"
+        "written in front, and the earlier one stays behind it as\n"
+        "`earlier run`, so the reader takes the first SHA as the run. -->\n"
         "\n"
         "| Field | Value |\n"
         "|---|---|\n"
@@ -4234,6 +4389,13 @@ def seal(args):
     if n is None:
         rows = []
         raw = lines = []
+        # A `broad-gate.md` already there is read for ONE thing: the run it
+        # holds, which the write below keeps behind the new entry (#174).
+        # Nothing else of it is asked, because the three record refusals
+        # are about a round, and this home has none.
+        if os.path.isfile(path):
+            held_text = read_text(path, chain.BROAD_GATE_FILE)
+            rows = chain.table_rows(reader, reader.readable(held_text))
     else:
         text = read_text(path, f"last record round-{n}.md")
         raw, lines = text.splitlines(), reader.readable(text)
@@ -4347,16 +4509,21 @@ def seal(args):
                 "Run it again at the tree as it stands; no cell was written"
             )
 
+    # ONE ENTRY PER RUN, NEWEST FIRST (#174). A run the cell already holds is
+    # kept behind the new one as `earlier run`, because a second broad run --
+    # after a pre-existing failure, or after the last fixes landed -- used to
+    # REPLACE the first and the run-level table was then filled from memory.
+    # `kept_broad_gate` is the one path, shared with `close --broad-gate`.
+    value = kept_broad_gate(reader, rows, args.broad_gate)
     if n is None:
-        write_record(reader, path, new_broad_gate_file(item, args.broad_gate))
+        write_record(reader, path, new_broad_gate_file(item, value))
     else:
         i = field_index(reader, lines, BROAD_GATE)
-        raw[i] = cell(BROAD_GATE, args.broad_gate)
+        raw[i] = cell(BROAD_GATE, value)
         ending = "\n" if text.endswith("\n") else ""
         write_record(reader, path, "\n".join(raw) + ending)
     print(
-        f"round-record: sealed {os.path.relpath(path, root)} {DASH} "
-        f"`{BROAD_GATE}` | {args.broad_gate}"
+        f"round-record: sealed {os.path.relpath(path, root)} {DASH} `{BROAD_GATE}` | {value}"
     )
     return run_check(root, args.baseline or default_baseline(root))
 

@@ -2044,12 +2044,25 @@ def claim_lines(lines):
     kept in `held` and read at the end, and the marker still exempts a held
     line. A CLOSED fence clears `held`, so a quotation stays a quotation.
 
+    **A comment the record never closes is the same malformed record, and
+    takes the same answer** (#217). The fence half above was written and the
+    comment half was not: a `<!--` with no `-->` set `aside` and nothing
+    cleared it, so every remaining line of the record was dropped and the arm
+    said nothing — exit 0, `0 names read`, on a file whose author made a
+    mistake. Enumerating the kinds of line that open a region was not
+    enumerating the kinds crossed with the states, and the second question — what
+    happens when the region is never closed — had been asked of one region.
+    So the aside has `aside_held`, symmetric with `held`: a closed comment
+    clears it, and an unclosed one is read at the end with the marker still
+    exempting a held line.
+
     What that gives up: inside a never-closed fence an HTML comment is not
-    recognised as an aside, so a name inside one is read. The record is
-    already malformed there, the direction is to read rather than to drop,
-    and the marker is one comment away.
+    recognised as an aside, so a name inside one is read; and inside a
+    never-closed comment a fence is not recognised, so a fenced name is
+    read. The record is already malformed in both, the direction is to read
+    rather than to drop, and the marker is one comment away.
     """
-    out, opener, held, aside = [], None, [], False
+    out, opener, held, aside, aside_held = [], None, [], False, []
     for number, line in enumerate(lines, 1):
         stripped = line.lstrip()
         mark = (
@@ -2070,7 +2083,12 @@ def claim_lines(lines):
             continue
         if aside:
             if "-->" in line:
-                aside = False
+                aside, aside_held = False, []
+            elif NOT_IN_TREE not in line:
+                # The same rule as `held` above: a comment the record never
+                # closes is malformed, and an author's missing `-->` must
+                # not be what makes the rest of a record pass in silence.
+                aside_held.append((number, line))
             continue
         if mark is not None:
             opener = mark
@@ -2082,7 +2100,7 @@ def claim_lines(lines):
         if NOT_IN_TREE in line:
             continue
         out.append((number, line))
-    return sorted(out + held)
+    return sorted(out + held + aside_held)
 
 
 def stated_names(lines):

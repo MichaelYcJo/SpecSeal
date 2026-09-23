@@ -524,15 +524,19 @@ it is a spawn rather than a run: **spawn `sealer`, with the base and the work
 item's directory.** It runs `broad-gate --base <base> --record <item>`, which
 takes the one broad pass now that the rounds have settled and, on a green
 run, writes the SHA it ran at and the base it was compared against into that
-cell through `round_record.py seal`. You read what it returns; you do not
-take the run yourself. A cell still reading `not yet` fails the pull request,
-and so does a SHA the record's own `Target SHA` descends from — a run spent
-before the round it was meant to seal. Work items begun before
+cell through `round_record.py seal` — in front of any run the cell already
+held, which stays behind it as `earlier run` (#174). You read what it
+returns; you do not take the run yourself. A cell still reading `not yet`
+fails the pull request, and so does a newest entry the record's own
+`Target SHA` descends from — a run spent before the round it was meant to
+seal. Work items begun before
 `chain_check.GATE_FROM` print instead of failing.
 
-`close --broad-gate` still writes the same cell, and it is for the one case
-`seal` refuses by design: fixes and the gate landing in the same pass, where
-the fix table and the cell are one write. Where the rounds have settled and
+`close --broad-gate` still writes the same cell, through the same
+newest-first path — a run the cell already holds is kept behind the new
+entry by either writer — and it is for the one case `seal` refuses by
+design: fixes and the gate landing in the same pass, where the fix table and
+the cell are one write. Where the rounds have settled and
 nothing is being fixed, the sealer's spawn is the route.
 
 **A refusal about the `Broad gate` row goes to a person, and the run stops

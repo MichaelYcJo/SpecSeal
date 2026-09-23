@@ -206,7 +206,7 @@ company because the layout is one rule rather than two:
 
 | File | Contents |
 |---|---|
-| `rounds/round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or the SHA the one full-suite run happened at, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table — and **whether anything it found leaves the root or crashes**, the reviewer's `Loses a record or crashes` line, which is the floor under the cap, and **what ran the round** — the `Ran by` row, the agent and the model, filled by the session that spawned it (below) |
+| `rounds/round-N.md` | target commit SHA (mandatory — branches move between rounds), verdict table with the grounds behind each verdict, **executed probe results**, the coordinates carried in from earlier rounds, **deferrals** — what this round took out of scope and the durable home each went to — the **broad-gate state**, `not yet` or one entry per full-suite run, newest first, each the SHA it happened at and the base it was compared against, **who checked the fixes** (below), the **fix surface** — the `Contract changes` and `New units` of this round's fixes (below) — **whether anything it opened needs a fix** — the reviewer's own `Needs a fix` line, copied rather than re-derived from the verdict table — and **whether anything it found leaves the root or crashes**, the reviewer's `Loses a record or crashes` line, which is the floor under the cap, and **what ran the round** — the `Ran by` row, the agent and the model, filled by the session that spawned it (below) |
 | `rounds/round-N-report.md` | the reviewer's report as the reviewer wrote it — written by the reviewer, read by `round_record.py new`, committed by the orchestrator beside the record it produced. Not a record: nothing reads a verdict out of it, and every reader of `rounds/` selects records by name. That commit is also what puts a reviewer's prose in front of whatever scans the tree — `agents/warden.md` §Report says what it costs, and it is the reviewer who has to know |
 | `tests-todo.md` | regression tests to plant, with the destination file per row |
 | `evidence-todo.md` | verified facts to merge into `seal/ledger.md` |
@@ -315,6 +315,22 @@ be asked to close, and `close` exits 0 over it. So the id is what says
 An earlier round's number goes in the **Finding** cell, which is prose:
 `| 🟢 | round 2's finding 1, re-read | … |`. In the `#` cell it is digits, and
 digits there are an id.
+
+**A carried closure — an earlier round's finding this round confirmed
+closed — is one worked row, and it carries three requirements at once**
+(#437):
+
+```
+| 🟢 | round N's blocking finding is closed — <what> | <location> | confirmed | <grounds> |
+```
+
+A bare marker in `#`, never a number and never an empty cell. The verdict
+word `confirmed`, never `fixed`: `chain_check.closed_with_a_fix` reads the
+fix words across every row, so a `fixed` carried forward makes the record
+one that closed on a fix, which the cap refuses. And no 🔴 anywhere in the
+row: `chain_check.open_blocking` selects on the glyph in every cell, so the
+inherited severity is written in words. #437 measured it at its filing:
+three last records read as closed-with-a-fix, and every one was this shape.
 
 **This is the one format choice a reviewer makes that another agent pays
 for.** The fix pass copies your numbering into its `## Fixes` table, so a
