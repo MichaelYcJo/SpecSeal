@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #525 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `492c9b8e59f2db4d41ddb4eb5b45711a590d5856..100058fa0956b66048b52e80840d10eb10472e29`, 10 commits |
 | Contract changes | none |
 | New units | CHECKER (depth 1); wrote_a_spec (depth 1); test_a_specs_directory_outside_the_seal_root_stays_in_the_range (depth 1); test_a_spec_deleted_by_an_earlier_merge_is_not_a_rule_retirement (depth 1); test_a_fenced_anchor_still_keeps_the_directory (depth 1); test_a_row_at_the_old_evidence_address_keeps_the_directory (depth 1); test_a_closed_row_is_told_to_merge_before_its_directory_goes (depth 1); test_a_spec_deleted_by_an_earlier_merge_is_still_a_deletion (depth 1); test_a_history_git_cannot_read_counts_as_a_spec_written (depth 1) |
