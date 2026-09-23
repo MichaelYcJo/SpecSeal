@@ -40,14 +40,16 @@ that a reader counts as several releases' worth of work. Size a ticket set
 that will be one branch as one item. 0.8.3 shipped three of eight, and
 carrying five forward was the call rather than the failure.
 
-**The two releases above are named rather than numbered on purpose.** Both sit
-at or above the running version, and
-`test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses a
-loaded file that names one — the same rule that keeps the number illustrative
-in **A rolling log is titled after the version it rolled from** below.
-`CHANGELOG.md` turns either description back into a number in one grep. One of
-the two has already shipped, so for one release's length the refusal outlives
-its own reason; #363 is where that is repaired, and not here.
+**The two releases above are named rather than numbered on purpose.** Both sat
+at or above the running version when this was written, and
+`test_no_loaded_file_names_a_version_at_or_above_the_running_one` refused a
+loaded file that named either — the same rule that keeps the number
+illustrative in **A rolling log is titled after the version it rolled from**
+below. `CHANGELOG.md` turns either description back into a number in one
+grep. Since #363 a version this repository has tagged is history to that
+rule, so the one that had shipped could be numbered now; the citations stay
+prose because a description reads the same on every release and a number
+here would be one more line to re-read at each.
 
 **What the criterion does not change.** It decides a release's size and nothing
 else. A `release:` milestone is still the pool a release is cut from rather than
@@ -118,12 +120,16 @@ release, holds the measurements taken since, and is closed by whatever ships
 next. The number here is illustrative on purpose: a real version written
 into a loaded file is what
 `test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses —
-at or above the running one, whether that is the version being cut or one
-still ahead of it — and this paragraph would go red at its own next release.
-**A version below the running one is history and is kept.** That half is not
-a detail: it is what lets this document say further down which release an
-issue shipped in, and a rule that refused every version this repository has
-ever shipped would have refused that sentence too.
+at or above the running one and not yet tagged, whether that is the version
+being cut or one still ahead of it — and this paragraph would go red the day
+it named one. **A version below the running one, or one this repository has
+tagged, is history and is kept.** That half is not a detail: it is what lets
+this document say further down which release an issue shipped in, and a
+rule that refused every version this repository has ever shipped would have
+refused that sentence too. The tagged half is #363's: the preparation commit
+bumps the running version, so until the next bump the running version is one
+that has already shipped, and a tag — never the changelog, whose heading
+lands in the bump's own commit — is what says it did.
 The version in it is a fact rather than a prediction:
 `docs/branch-and-release.md` says whether the next number is a minor or a
 patch is known at the end and not at the cut, so at the moment the roll runs

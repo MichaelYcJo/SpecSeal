@@ -30,3 +30,16 @@
   write a second heading for it, so one release's entries read as two
   releases with the same number. The dry run says which section the entries
   join. `docs/release-checklist.md` §2 says a second gather appends.
+- **A version this repository has tagged may be named in the documents that
+  ship with it (issue #363).** The timer sweep in
+  `tests/test_release_hygiene.py` refused every version at or above the
+  running one, and the running one is bumped at the preparation commit — so
+  from that commit until the next bump the version that had just shipped
+  could not be written into `docs/`, one release long, exactly when a
+  document most wants to cite it. The shipped set is read from the root's
+  `v*` tags and never from `CHANGELOG.md`, whose heading lands in the same
+  commit as the bump; a version bumped and not yet tagged is still refused.
+  A checkout that can see no tag fails loudly, naming `fetch-depth: 0`,
+  rather than refusing the running version again in silence. The refusal
+  text names the route; `docs/release-checklist.md` §3 and §5 and
+  `docs/issues-and-milestones.md` say a tagged version is history.

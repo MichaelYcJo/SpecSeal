@@ -157,7 +157,7 @@ What each one has caught, so a failure is recognised rather than debugged:
 |---|---|
 | `evidence-check --strict` | rows anchored on units the preparation edited read as drifted; `--reverify` after re-reading them, in the same commit. The total can drop across a fold: two fragments citing one coordinate identically fold into one row, and the unique-anchor count is what stays equal |
 | the full suite | a gathered entry prescribed a `git mv` whose destination nothing creates; a layout test asserted `seal/ledger/` exists, and git keeps no empty directory once the fold removes the last fragment |
-| `test_no_loaded_file_names_a_version_at_or_above_the_running_one` | living prose that named the release by number the moment it became the running one. Since #179 it also names one written *ahead* of the release, which used to be green until the day it shipped — a document had carried an unshipped version for three releases that way. Records of a moment are listed in the test; everything else is reworded to name the change, or to the illustrative version the test's own message points at |
+| `test_no_loaded_file_names_a_version_at_or_above_the_running_one` | living prose that named the release by number the moment it became the running one. Since #179 it also names one written *ahead* of the release, which used to be green until the day it shipped — a document had carried an unshipped version for three releases that way. Records of a moment are listed in the test; everything else is reworded to name the change, or to the illustrative version the test's own message points at. Since #363 a version this repository has *tagged* is history and may be named — the shipped set is read from the root's `v*` tags, never from this file, because this commit writes the heading and the bump together and the version being cut is the timer |
 | `chain_check --baseline origin/main` | exit 1 in a checkout that never fetched `refs/pull/*/head` — the fetch line above is the fix, not a lost commit. CI fetches it itself |
 
 ## 4. Commit, push, open the first pull request
@@ -213,9 +213,12 @@ guard nobody can explain.
 document that names a version which does not exist yet goes red on the commit
 that writes it rather than on the release that ships it, so the refusal
 covers every version at or above the running one rather than the running one
-alone. Three exemptions, each argued where the rule is: the illustrative
-version this repository already writes, records of a moment under
-`docs/experiments/`, and a version belonging to another product.
+alone — less the versions this repository has tagged, because from the
+preparation commit until the next bump the running version is one that has
+already shipped, and a tag is what says so (#363). Three exemptions, each
+argued where the rule is: the illustrative version this repository already
+writes, records of a moment under `docs/experiments/`, and a version
+belonging to another product.
 
 <!-- specs/1789919879-the-outside-contributor-has-no-procedure -->
 **A contributor whose base is wrong is told the base is wrong.** The

@@ -344,6 +344,11 @@ def test_the_message_has_a_route_for_every_token_the_check_refuses():
     )
     assert "RECORDS_OF_A_MOMENT" in routes, "no route for a record of a moment"
     assert "BELOW" in routes, "the message does not say history is already allowed"
+    assert "TAGGED" in routes, (
+        "the message does not say a tagged version is history too (#363), so "
+        "an author refused on the version that just shipped is sent to an "
+        "exemption none of which is a truthful home for it"
+    )
     # The date. Refused as `(2026, 9, 3)`, and no exemption fits it.
     assert "date" in routes, (
         "the message offers no route for a token that is not a release at "
