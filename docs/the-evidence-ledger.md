@@ -198,9 +198,11 @@ taken (#517): the row was removed, and its claim stands in
 **A retirement would break every ledger row anchored inside the directory it
 removes, so the retirement refuses that directory first.** An anchor into a
 work item's `spec.md` or its round records is a file path like any other, and
-after a removal the checker reports it broken. So `settle` reads every live
-row of `seal/ledger.md` and of every `seal/ledger/*.md` — the rows above the
-first section marker included — and names each one anchored inside a released
+after a removal the checker reports it broken. So `settle` reads every ledger
+the checker reads — `seal/ledger.md`, every `seal/ledger/*.md` and any
+`docs/**/_evidence.md` — and every line of each, the rows above the first
+section marker and the rows inside a fence included, because the checker
+reads those too, and names each one anchored inside a released
 directory, and `settle --retire` keeps every directory such a row anchors
 into, removes the rest, and exits 1 naming each row (#511). It says per row
 what `CLAUDE.md` requires: a row whose every anchor goes is REMOVED, never

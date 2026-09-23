@@ -460,7 +460,10 @@ def anchored_rows(root, work_item_ids):
     settled as *not live*: that bias keeps a directory for the marker reader
     and removed one here, which was #511 again one step narrower (round 1's
     finding 1). A guard that reads fewer lines or fewer files than the checker
-    keeps fewer directories than the checker will report broken.
+    keeps fewer directories than the checker will report broken. When #444
+    teaches the checker to skip a fenced row, this still reads one, which
+    keeps a directory the checker would not break — the direction to be wrong
+    in, since a kept directory is a sentence and a removed one is not.
 
     It reads and names; it never edits the ledger. Which row goes is a
     judgment about a claim, and `docs/one-root-by-lifetime.md` §*What keeps

@@ -192,8 +192,10 @@ the reviewer verified has not reached the ledger yet.
 **A directory a ledger row anchors into is kept too**, and the row is named
 with its file, its line and its claim. Removing the directory would leave the
 row BROKEN, and the checker would say so only after the directory was gone.
-Every live row of `seal/ledger.md` and of every `seal/ledger/*.md` is read,
-the ones above the first section marker included, and `settle` alone names
+Every ledger `evidence-check` reads is read — `seal/ledger.md`, every
+`seal/ledger/*.md` and any `docs/**/_evidence.md` — and every line of each,
+the ones above the first section marker and the ones inside a fence included,
+because the checker reports a fenced anchor broken too. `settle` alone names
 them for every released directory before you write any prose. Each row
 carries what `CLAUDE.md` requires of it: **REMOVED** when every anchor it
 cites goes, and its claim written anew where it still stands; **narrow** when

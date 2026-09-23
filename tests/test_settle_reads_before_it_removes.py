@@ -397,8 +397,17 @@ def test_the_documents_say_the_retirement_keeps_an_anchored_directory():
     refuses the removal."""
     text = flat(skill())
     assert "A directory a ledger row anchors into is kept too" in text
-    assert "the ones above the first section marker included" in text
+    assert (
+        "the ones above the first section marker and the ones inside a fence "
+        "included" in text
+    )
+    assert "`docs/**/_evidence.md`" in text, (
+        "the skill does not name the checker's third ledger address"
+    )
     policy = document("docs", "the-evidence-ledger.md")
+    assert "the rows inside a fence included, because the checker" in flat(policy), (
+        "the policy still says the guard reads only live rows"
+    )
     assert "nothing refuses the removal first" not in policy, (
         "the policy still says nothing refuses the removal"
     )
