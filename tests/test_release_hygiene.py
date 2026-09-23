@@ -1246,7 +1246,9 @@ def test_a_double_backtick_span_masks_a_keyword():
     assert m.keywords_in("see ``Closes #3`` there\nCloses #4") == ["4"], (
         "a double-backtick span around the whole claim leaves it read"
     )
-    assert m.keywords_in("see `` `Closes #3` `` there\nCloses #4") == ["4"], (
+    # The inner backtick is UNPAIRED on purpose: with a pair, the one-backtick
+    # arm masks the claim anyway and the double form's reach is unmeasured.
+    assert m.keywords_in("see ``Closes #3 ` x`` and Closes #4") == ["4"], (
         "a double-backtick span holding a single backtick is cut at the inner backtick"
     )
 

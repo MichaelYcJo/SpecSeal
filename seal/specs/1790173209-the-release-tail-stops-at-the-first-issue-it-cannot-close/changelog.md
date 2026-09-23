@@ -10,3 +10,15 @@
   attempted. `docs/branch-and-release.md` and `docs/release-checklist.md` §6
   say so, and the checklist gains the box that repairs a partial close by
   re-running the script with the run's `BEFORE`, `AFTER` and `REPO`.
+- **The closer masks a tilde fence, a fence indented under a list item and a
+  double-backtick span, so a closing keyword quoted inside any of them no
+  longer closes the issue at the release (issue #266).** This changes what a
+  release closes, in one direction: masking more closes fewer, and an issue
+  left open is visible on the tracker and closed by a re-run where an issue
+  closed on a quoted example is a false record. `issue_claims_check.py`
+  imports the same two patterns, so the pull request check widens with them.
+  Two shapes stay as they were, each with a case pinning it and the reason at
+  the pattern: a four-space indented block, because that is also how this
+  repository's pull request bodies continue a bullet, and an HTML comment,
+  because whether GitHub acts on a keyword inside one is unmeasured. The
+  `# RIDER:` that carried the question is retired.
