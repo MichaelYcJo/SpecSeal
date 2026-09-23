@@ -59,17 +59,24 @@ class Tracker:
     """Issues with labels and states, pull request bodies, and every call.
 
     `refuse_close` is the set of issue numbers `gh issue close` refuses, the
-    way the tracker refused #515; `refuse_rest` is the set the REST PATCH
-    refuses too. Both routes record the comment they post, so a case can
-    assert the fallback carried the same text as the first route would have.
+    way the tracker refused #515 — AFTER the comment landed, because
+    `gh issue close --comment` posts the comment and then sends the close,
+    and the refused issue at the previous release carried the workflow's
+    comment (round 1, finding 1). `refuse_before_comment` is the other order,
+    a refusal that left nothing on the issue. `refuse_rest` is the set the
+    REST PATCH refuses too. Both routes record the comment they post, so a
+    case can count what the issue ends up carrying.
     """
 
-    def __init__(self, issues, pulls, refuse_close=(), refuse_rest=()):
+    def __init__(
+        self, issues, pulls, refuse_close=(), refuse_rest=(), refuse_before_comment=()
+    ):
         self.issues = {n: list(labels) for n, labels in issues.items()}
         self.states = dict.fromkeys(self.issues, "open")
         self.pulls = dict(pulls)
         self.refuse_close = set(refuse_close)
         self.refuse_rest = set(refuse_rest)
+        self.refuse_before_comment = set(refuse_before_comment)
         self.comments = {n: [] for n in self.issues}
         self.calls = []
 
@@ -80,6 +87,7 @@ class Tracker:
             return {
                 "labels": [{"name": name} for name in self.issues[number]],
                 "state": self.states[number],
+                "comments": len(self.comments[number]),
             }, True
         return None, False
 
@@ -100,10 +108,14 @@ class Tracker:
         self.calls.append(args)
         if args[:3] == ("gh", "issue", "close"):
             number = int(args[3])
+            if number in self.refuse_before_comment:
+                return False, GRAPHQL_REFUSAL
+            # The comment lands first and the close is what gets refused:
+            # the order the tracker showed (round 1, finding 1).
+            self.comments[number].append(args[args.index("--comment") + 1])
             if number in self.refuse_close:
                 return False, GRAPHQL_REFUSAL
             self.states[number] = "closed"
-            self.comments[number].append(args[args.index("--comment") + 1])
             return True, ""
         if args[:2] == ("gh", "api"):
             path = next(a for a in args if a.startswith(f"repos/{REPO}/issues/"))
@@ -198,18 +210,63 @@ def test_a_refused_close_takes_the_rest_route_and_the_run_finishes(monkeypatch, 
 def test_the_fallback_posts_the_same_comment_the_first_route_carries(monkeypatch):
     """The comment is the last thing written on an issue people go on
     reading, and it says why a workflow closed it. An issue closed through
-    the REST route gets the same sentence, not a bare state change."""
+    the REST route ends up with the same sentence ONCE: `gh issue close
+    --comment` posts the comment before the close it then fails, so the
+    refused route usually left it already, and the fallback must not post it
+    a second time. Measured on the tracker after the previous release: the
+    issue that run could not close carried one identical comment per refused
+    run (round 1, finding 1)."""
     tracker = Tracker(THREE, CLAIMS, refuse_close={2})
     mod = wire(monkeypatch, tracker)
 
     mod.main()
 
-    assert len(tracker.comments[2]) == 1, tracker.comments
+    assert len(tracker.comments[2]) == 1, (
+        f"#2 carries {len(tracker.comments[2])} closing comments; the refused "
+        f"route had already posted one"
+    )
     assert tracker.comments[2] == tracker.comments[1], (
         f"the REST route's comment differs from the first route's:\n"
         f"{tracker.comments[2][0]!r}\n{tracker.comments[1][0]!r}"
     )
     assert "Closed by #100" in tracker.comments[2][0]
+
+
+def test_a_refusal_before_the_comment_landed_still_gets_it_from_the_fallback(
+    monkeypatch,
+):
+    """The other order: the comment mutation is what the tracker refused, so
+    nothing is on the issue yet and the fallback has to say why it closed."""
+    tracker = Tracker(THREE, CLAIMS, refuse_before_comment={2})
+    mod = wire(monkeypatch, tracker)
+
+    mod.main()
+
+    assert tracker.states[2] == "closed"
+    assert tracker.comments[2] == tracker.comments[1], tracker.comments
+
+
+def test_a_tracker_that_does_not_count_comments_gets_the_comment_posted(
+    monkeypatch,
+):
+    """Where the read cannot say whether the first route's comment landed,
+    the fallback posts it: a duplicate is the smaller wrong answer than a
+    close nobody explained."""
+
+    class Uncounted(Tracker):
+        def api(self, repo, number):
+            data, exists = super().api(repo, number)
+            if exists:
+                data.pop("comments", None)
+            return data, exists
+
+    tracker = Uncounted(THREE, CLAIMS, refuse_close={2})
+    mod = wire(monkeypatch, tracker)
+
+    mod.main()
+
+    assert tracker.states[2] == "closed"
+    assert len(tracker.comments[2]) == 2, tracker.comments
 
 
 def test_an_issue_closed_through_the_fallback_still_loses_its_spent_label(

@@ -50,8 +50,10 @@ issue with `GraphQL: Something went wrong while executing your query`, twice,
 and the four issues behind it stayed open while the job went red. So every
 issue is attempted, a refusal on the `gh issue close` route falls back to the
 REST route (`gh api -X PATCH …/issues/<n> -f state=closed`, then the same
-comment through `gh api …/issues/<n>/comments`, which is what closed that
-issue by hand), each fallback is printed so the log says how many took it,
+comment through `gh api …/issues/<n>/comments` where the refused route did
+not already post it -- `gh issue close --comment` comments before it closes,
+so it usually did; that pair is what closed that issue by hand), each
+fallback is printed so the log says how many took it,
 and the run exits non-zero only once every issue has been tried, naming each
 one that both routes refused with both errors. A partial close is repaired by
 re-running this script with the run's `BEFORE`, `AFTER` and `REPO`: it skips
@@ -175,6 +177,18 @@ def issue_state(repo, number):
     return data.get("state") if exists else None
 
 
+def comments_on(repo, number):
+    """How many comments `number` carries, or None where the read did not say.
+
+    The same read `issue_state` makes; taken before and after the first
+    route so the fallback can tell whether that route's comment landed
+    before its close was refused (round 1 of #536's work item, finding 1).
+    """
+    data, exists = _issue_api(repo, number)
+    count = data.get("comments") if exists and isinstance(data, dict) else None
+    return count if isinstance(count, int) else None
+
+
 def issue_labels(repo, number):
     """(label names, exists) for an issue, or ([], False) if there is none.
 
@@ -267,8 +281,17 @@ def close_issue(repo, number, comment):
     goes through GraphQL. When that is refused -- as it was at the release
     before #536, twice on the same issue, for a reason nobody has found --
     the REST route takes over: a PATCH of the state, then the comment posted
-    to the issue's comments. That is exactly the pair a person typed to
-    repair that release, in that order.
+    to the issue's comments where the refused route did not already post it.
+    That is exactly the pair a person typed to repair that release, in that
+    order.
+
+    `gh issue close --comment` posts the comment and THEN sends the close, so
+    the route that was refused usually left its comment behind: the issue the
+    previous release's run could not close carried one identical closing
+    comment per refused run (round 1, finding 1). The comment count is read
+    before and after the first route, and where it grew by one the sentence
+    is already there. Where the read did not say, the comment is posted: a
+    duplicate is the smaller wrong answer than a close nobody explained.
 
     A refused PATCH leaves the issue open and this answers both errors, so
     the caller can name them together. A comment the REST route could not
@@ -276,6 +299,7 @@ def close_issue(repo, number, comment):
     is what says why, and an issue closed without its sentence is a smaller
     wrong answer than an issue left open.
     """
+    before = comments_on(repo, number)
     ok, first = attempt(
         "gh",
         "issue",
@@ -303,6 +327,12 @@ def close_issue(repo, number, comment):
         f"closed #{number} through the REST route after `gh issue close` "
         f"was refused: {first}"
     )
+    if before is not None and comments_on(repo, number) == before + 1:
+        print(
+            f"#{number} already carries the closing comment from the refused "
+            f"`gh issue close` — not posting it again"
+        )
+        return []
     ok, third = attempt(
         "gh",
         "api",

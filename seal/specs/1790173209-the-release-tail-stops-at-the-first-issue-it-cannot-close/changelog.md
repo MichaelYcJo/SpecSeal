@@ -4,7 +4,10 @@
   refusal at the release before this one left four shipped issues open and
   the repair was a hand run. Now a refusal takes `gh api -X PATCH
   …/issues/<n> -f state=closed` and posts the same closing comment through
-  `gh api …/issues/<n>/comments`; each fallback is printed so the job log says
+  `gh api …/issues/<n>/comments` where the refused route did not already
+  leave it (`gh issue close --comment` comments before it closes, so it
+  usually did — the comment count is read around the first route); each
+  fallback is printed so the job log says
   how many took it; an issue both routes refuse keeps its `size: now` label
   and is named at the end with both errors, after every other issue was
   attempted. `docs/branch-and-release.md` and `docs/release-checklist.md` §6

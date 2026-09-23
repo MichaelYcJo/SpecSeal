@@ -344,7 +344,9 @@ after it still open — measured on the release before #536, where one GraphQL
 refusal left four shipped issues open. Every issue is attempted now; a
 refusal on `gh issue close` falls back to the REST route (`gh api -X PATCH
 …/issues/<n> -f state=closed`, then the same comment through `gh api
-…/issues/<n>/comments`), each fallback is printed so the job log says how
+…/issues/<n>/comments` where the refused route did not already post it —
+`gh issue close --comment` comments before it closes, so it usually did),
+each fallback is printed so the job log says how
 many took it, and the run exits non-zero only at the end, naming each issue
 both routes refused with both errors. A partial close is repaired by
 re-running the script with the run's `BEFORE`, `AFTER` and `REPO`: it skips
