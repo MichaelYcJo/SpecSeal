@@ -18,7 +18,7 @@
             notes did. S11 did not drift and was left as it is
 · verified: **executed** — every mutation named in `phases/phase-1.md` and
             `phases/phase-2.md`, each seen red and restored; the two gate
-            modules (139 passed); the 39 modules that read the two edited
+            modules (139 passed at phase 1's close, 140 once phase 2 added its case, 142 after round 1's fix pass parametrised the behaviour cases by root; *corrected 2026-09-23 in round 1's fix pass*); the 39 modules that read the two edited
             documents (1735 passed, 1 skipped); `evidence-check --strict`
             (0, 1481 ok). **read** — the READMEs, which name no paths for the
             review arm and so did not move. **unverified** — the broad gate,
