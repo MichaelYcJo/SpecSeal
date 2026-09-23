@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 525 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `5d777c12288c588dbd3f96e4de95d056a0277cad..157e2d1cc0329d93e0b81aa49ca064c13743757e`, 3 commits |
+| Contract changes | none |
+| New units | test_a_commented_out_row_is_named_by_its_claim (depth 1); test_a_spec_dropped_on_the_far_side_of_a_merge_is_still_written (depth 1) |
 | Needs a fix | yes — finding 6 (🟡): `wrote_a_spec` needs `--full-history`, so a spec dropped before a release's merge into `main` still counts as written. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,8 +29,8 @@ Round 2 is a verifying round. Its target was the diff of round 1's fixes, `492c9
 | 3 | 🟡 a spec deleted in an earlier merged pull request | `skills/verify/scripts/unverified_check.py:1115` | answered | executed: the reproduced shape (one release branch) is refused by all three planted cases, each red at `492c9b8e`; the class remains open as finding 6 |
 | 4 | 🟡 `WORK_ITEM_DIR` matched `docs/specs/` | `skills/code-review/scripts/survivor_check.py:522` | answered | executed: the planted CLI case keeps the directory in the range and measures its sentence; red at `492c9b8e` |
 | 5 | ⬜ an anchored spec-less directory listed under the rule heading | `skills/settle/scripts/settle.py:614` | answered | read: `survey["rule"]` is filtered before the report, and `retire()` recomputes its own lists; executed: `0 to retire by the rule` |
-| 6 | 🟡 `wrote_a_spec` uses default history simplification, so a spec dropped before a merge commit (release into `main`) reads as never written, and the next release retires it by the rule with no marker | `skills/verify/scripts/unverified_check.py:1140` | open | executed: `wrote_a_spec` False and `retired_by_rule` True at the merge; `unverified_check --baseline` exit 0 *retired by the rule*; `--full-history` flips both; the proposed case is red at `207c7e33` and green with the fix |
-| 7 | ⬜ a commented-out anchored row prints `&lt;!--` as its claim | `skills/settle/scripts/settle.py:431` | open | executed: the probe's report line `seal/ledger.md:36  &lt;!--`; the directory is kept correctly |
+| 6 | 🟡 `wrote_a_spec` uses default history simplification, so a spec dropped before a merge commit (release into `main`) reads as never written, and the next release retires it by the rule with no marker | `skills/verify/scripts/unverified_check.py:1140` | **fixed** `3bc96429` | fixed at 3bc96429 — (`--full-history` in `wrote_a_spec`, and the merge-commit case), 157e2d1c (D3 ledger row corrected and re-verified); executed: `wrote_a_spec` False and `retired_by_rule` True at the merge; `unverified_check --baseline` exit 0 *retired by the rule*; `--full-history` flips both; the proposed case is red at `207c7e33` and green with the fix |
+| 7 | ⬜ a commented-out anchored row prints `&lt;!--` as its claim | `skills/settle/scripts/settle.py:431` | **fixed** `4fff55bb` | fixed at 4fff55bb — `first_cell` removes a leading comment opener before it splits the row; pinned by `test_a_commented_out_row_is_named_by_its_claim`; executed: the probe's report line `seal/ledger.md:36  &lt;!--`; the directory is kept correctly |
 | 🟢 | the surviving mutation (HEAD in place of `ref`) is not a defect | `skills/verify/scripts/unverified_check.py:1121` | not a defect | read: in every caller `ref` is HEAD or an ancestor of it, so the mutation only refuses more |
 | 🟢 | CHECKER sources the checker's own address list, including local mode | `skills/settle/scripts/settle.py:475` | not a defect | read, and executed through the old-address case |
 | 🟢 | the seven new cases were seen red | `tests/test_settle_reads_before_it_removes.py` | not a defect | executed: 11 of 11 selected failed with `skills/` and `docs/` at `492c9b8e`, and 11 passed at `207c7e33` |
