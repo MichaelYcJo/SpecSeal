@@ -565,6 +565,11 @@ def test_a_row_anchored_inside_a_rule_arm_directory_keeps_it(tree):
         f'| a moment\'s claim | `seal/specs/{MOMENT}/routing.md#"# {MOMENT} — routing"@abcdef12` | read | 2026-01-01 | |',
         "| one | `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |",
     )
+    # Round 1's finding 5: the report does not list it under the heading
+    # that says `settle --retire` removes what it lists.
+    _, report = run(tree)
+    assert "retired by the rule" not in report, report
+    assert "0 to retire by the rule" in report, report
     code, text = run(tree, "--retire")
     assert code == 1, text
     assert (tree / "seal" / "specs" / MOMENT).exists(), text

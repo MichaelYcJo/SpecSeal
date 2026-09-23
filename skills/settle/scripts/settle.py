@@ -641,6 +641,10 @@ def survey(root, ref):
     # the three things #514's frame found by hand and the command should
     # report by itself. A directory the anchored guard holds is not retiring.
     holding = {i for row in survey["anchored"] for i in row.items}
+    # Nor is it listed under the rule arm's heading, which says `settle
+    # --retire` removes what it lists: the anchored heading already names it
+    # as kept (round 1's finding 5).
+    survey["rule"] = [i for i in survey["rule"] if i not in holding]
     survey["retiring"] = [
         i for i in survey["folded"] + survey["rule"] if i not in holding
     ]
