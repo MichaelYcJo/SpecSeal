@@ -446,6 +446,89 @@ def test_parity_gate_ignores_document_only_commits(repo):
     )
 
 
+@pytest.mark.parametrize("path", ["docs/policies/note.md", "seal/ledger.md"])
+def test_the_review_arm_asks_on_a_document_only_commit(repo, path):
+    """The parity arm's line at `docs/` and `seal/` is the parity arm's alone.
+
+    The review arm asks whether anybody reads the change before it lands, and
+    in a repository that runs this workflow `docs/` is the policy the code
+    conforms to. #518 measured it: #514's fold, which changed `docs/`,
+    `seal/` and four test files, produced seven fixed findings, all located
+    in `docs/`, one of them 🔴, and 26 fixed findings across every round
+    record sit in the ledger alone. So a commit confined to either root meets
+    the review arm exactly as a code change does (`docs/review-chain-spec.md`
+    §*Review arm*). One path per root, because the line can leak by halves:
+    an exemption for `seal/` alone passes every `docs/` case. This case is
+    what fails if `touches_code`, or either half of it, is ever shared
+    between the arms.
+    """
+    (repo / "seal").mkdir(exist_ok=True)
+    (repo / path).parent.mkdir(parents=True, exist_ok=True)
+    stage(repo, path, "text\n")
+    out = run_hook("commit-review-gate.py", payload("git commit -m x", repo))
+    assert decision_of(out) == "deny", (
+        f"a commit confined to {path} passed the review arm with no "
+        "declaration, no review mark and no waiver"
+    )
+    reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "[no-review]" in reason
+
+
+@pytest.mark.parametrize("path", ["docs/policies/note.md", "seal/ledger.md"])
+def test_a_document_only_commit_wakes_one_arm_and_not_two(repo, path):
+    """In a migration repository the same commit wakes the review arm alone:
+    the parity arm's silence on `docs/` and `seal/` holds, and the review
+    arm's question does not borrow either half of it."""
+    parity_repo(repo)
+    (repo / path).parent.mkdir(parents=True, exist_ok=True)
+    stage(repo, path, "text\n")
+    out = run_hook("commit-review-gate.py", payload("git commit -m x", repo))
+    assert decision_of(out) == "deny"
+    reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "[no-review]" in reason
+    assert "[no-parity]" not in reason, (
+        "the parity arm woke on a docs-only commit, so the question names a "
+        "comparison nothing could have made"
+    )
+
+
+def test_the_review_arms_missing_path_line_is_written_where_it_is_met():
+    """The two cases above pin the code half; this pins the prose half.
+
+    A reader who finds `touches_code` beside the review arm can take its
+    absence for an oversight, as #518 did. The review arm's decision table and
+    the wake/quiet table are where that reader looks, so each says the arm
+    reads no paths, and the table says why beside the parity arm's row."""
+
+    def flat(*parts):
+        with open(os.path.join(ROOT, *parts), encoding="utf-8") as f:
+            return re.sub(r"\s+", " ", f.read())
+
+    spec = flat("docs", "review-chain-spec.md")
+    review_arm = spec.split("### Review arm", 1)[1].split("####", 1)[0]
+    assert (
+        "| the change confined to `docs/`, `seal/` | no different from any "
+        "other change — this arm reads no paths." in review_arm
+    ), "the review arm's table lost its row for a docs-only change"
+    assert "**Why this arm has no document-root line.**" in review_arm, (
+        "the row points at a paragraph that is not there"
+    )
+    assert "it is never inferred from the paths it touches" in review_arm, (
+        "the paragraph lost the rule it exists for: the lighter tier is a "
+        "declaration made before the first edit, not a path line"
+    )
+    assert (
+        "| a `routing.md` declaration names this branch, for either answer | "
+        "silent" in review_arm
+    ), "the review arm's table lost the declaration, one of its three quieters"
+
+    wake = flat("skills", "implement", "orchestration.md")
+    assert (
+        "whatever the change touches — a commit confined to `docs/` and "
+        "`seal/` wakes it too" in wake
+    ), "the wake/quiet table no longer says the review arm reads no paths"
+
+
 def test_parity_gate_silent_without_the_declaration(repo):
     stage(repo, "service.py")
     assert (
