@@ -53,6 +53,24 @@ changelog and ledger fragments. Folding writes policy prose, which is a
 judgment act, and a release that stops for somebody to write documentation is
 a release that stops.
 
+## A fold is not a work item
+
+**A fold opens no directory under `seal/specs/`** — no `routing.md`, no
+`spec.md` or `plan.md`, no round records — and the routing question is not
+asked for it. This skill is its spec. It runs outside the review chain: every
+commit carries `: '[no-review]';` in front of the command, quotes included,
+and the one judgment it makes — which `docs/` file a rule goes to, and whether
+the rule is still true — is reviewed at its pull request.
+
+That is what ends the regress. A fold that opened a work item left a
+directory behind for the next fold to retire, and that fold opened one of its
+own, so no fold could ever finish. Nor does a fold keep a log of folds, under
+`seal/` or anywhere else: a log is a record of a moment that would need
+folding in turn. What a fold has to leave already has a home — what went
+where is the `<!-- specs/<id> -->` marker in `docs/`, who checked the prose is
+the pull request, and the removed text is git history, reachable from the
+marker's id.
+
 ## The procedure
 
 ### 1. Read what is waiting
@@ -192,29 +210,23 @@ absorb, which is the whole of why it needs no marker.
 
 ## What a fold branch owes
 
-**A `survivors.md` range-row.** `seal/specs/` outside `rounds/` is in the
-survivor sweep's corpus, and that step runs on every pull request into a
-release branch. A branch that deletes a shipped section leaves every sentence
-of it standing in the durable copies that are supposed to survive a deletion,
-so the sweep reports all of them — one real range reported 153, every one
-correct as a report and none of them a defect. Writing 153 rows is not an
-escape anybody takes; the row shape for a whole range exists so that the
-alternative is not turning the check off:
+**No `survivors.md` row.** The survivor sweep leaves a directory the range
+retired — folded, or retired by the rule — out of the range on both sides, the
+way it already leaves round records out: its sentences stand in `docs/`
+because that is what a fold is, and the removed spec is not a place that still
+instructs anybody. A sentence the same branch removes from anywhere else is
+measured as before, and a survivor reported there is answered the ordinary
+way.
 
-```markdown
-| Range | Grounds |
-|---|---|
-| `origin/release/vX.Y.Z...HEAD` | a fold removes shipped sections whole, and
-  their sentences stand in the durable copies by design |
-```
+**An answer for every check that reads the corpus** (§3), and for every row
+`settle` names as anchored (§4).
 
-That row is anchored on the range **and** on the work item whose
-`seal/specs/<id>/survivors.md` holds it, so it cannot become a standing
-*check nothing*.
-
-**Nothing in `seal/ledger.md` moves.** A ledger row is a content anchor and
-survives the fold untouched. The fold is about the spec's prose, not about the
-rows the work item wrote.
+**`seal/ledger.md` changes only by removal and re-verification.** A fold
+appends nothing: it has no work item, so it has no fragment to append under.
+It removes a row the guard named REMOVED, drops the dead anchor from a row it
+named narrow, and re-reads and re-verifies — `evidence-check --reverify` — a
+row whose anchored unit its own prose edited. Every other row is a content
+anchor and survives the fold untouched.
 
 ## What this does not do
 

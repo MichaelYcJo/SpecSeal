@@ -6,8 +6,10 @@ each work item whole under `seal/specs/<work-item-id>/`, where it waits until
 `settle` folds it. **That step exists now**: `settle` names the released work
 items whose `spec.md` no `docs/` policy has absorbed yet, a session writes one
 standing statement per segment, and `settle --retire` then removes the
-directories that statement covers. `skills/settle/SKILL.md` is the procedure
-and `skills/settle/scripts/settle.py` is the reader behind it. It is safe to
+directories that statement covers, along with every released one that wrote
+no `spec.md` and holds nothing open, which states no rule to fold. A fold is
+not a work item and opens no directory here. `skills/settle/SKILL.md` is the
+procedure and `skills/settle/scripts/settle.py` is the reader behind it. It is safe to
 delete a work item's directory wholesale **after the export rules below have
 run** — nothing that must survive is allowed to live only there.
 

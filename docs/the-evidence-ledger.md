@@ -210,6 +210,16 @@ whether it should be removed instead is the repository owner's question,
 recorded against the ledger row that first met it. The command names the rows
 and edits none of them, because which row goes is a judgment about a claim.
 
+**A fold is not a work item, and it adds nothing to the ledger.** It opens
+no directory under `seal/specs/`, so it has no fragment to append under, and
+`seal/ledger.md` changes on a fold branch only by removal and re-verification:
+a row the guard named REMOVED goes, a row it named narrow loses its dead
+anchor, and a row whose anchored unit the fold's own prose edited is re-read
+and re-verified. Its commits are waived one command at a time and its
+judgment is reviewed at its pull request (#517). What it leaves already has a
+home — the marker, the pull request, git history — so it keeps no log of its
+own.
+
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 **A population floor over the records is replaced, never lowered.** A check
 asserting that a sweep of `seal/specs/` read *enough* — `len(records) > 200` —

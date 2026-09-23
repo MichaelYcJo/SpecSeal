@@ -673,3 +673,16 @@ shape *Decided after the thread* uses.
 | What a removal actually breaks | §*The dependency rule*'s two readers are **not** the whole list. Both changed — `unverified_check.py --baseline` now reads the fold record and names a folded directory instead of reporting it, and `gather_changelog.py --check` now counts the markers in `CHANGELOG.md` and refuses a corpus carrying neither. Beyond them: the survivor sweep, which has `seal/specs/` outside `rounds/` in its corpus, and every check in a repository carrying a **population floor** over that corpus | §*The dependency rule* was written when this repository had 13 work items. At 98 it had 14 test modules reading the corpus and at least 6 with a floor a fold turns red. The general rule is in `skills/settle/SKILL.md`, because any repository running this methodology accumulates the same shape |
 | Who may write in `docs/` | the `implement` skill's layout table now says a work item creates no `docs/` document and `settle` is the one writer that does | the *never created here* sentence, which the table above already listed as one to correct |
 | Whether the mechanism's own release folds this repository | no. The mechanism shipped and nothing was removed; the fold of the accumulated work items is its own work item | nothing above said. Putting both in one pull request means one review round judges a mechanism and nine segments of policy prose at once, on a tree whose suite that same commit had just shortened |
+
+## Decided when the fold stopped being a work item (2026-09-23)
+
+The two sections above are records of 2026-09-02 and 2026-09-22 and are not
+rewritten. This is what #517 and #511 settled after two folds had run, in the
+same shape.
+
+| Decision | Answer | What it corrects above |
+|---|---|---|
+| Whether a fold is a work item | no. A fold opens no `routing.md`, spec, plan or rounds and is not asked the routing question; every commit is waived with `: '[no-review]';` in front, and its judgment is reviewed at its pull request. `skills/settle/SKILL.md` is its spec, and it keeps no log of folds | the 2026-09-22 row that made the fold of the accumulated work items its own work item. Two folds ran that way, and each left a directory for the next fold to retire, so no fold could finish |
+| A released work item that wrote no `spec.md` | retired by the rule, with no marker, when nothing in its `overview.md` or `evidence-todo.md` is open; kept and named with its rows when something is. One predicate beside the fold record decides it for `settle` and for every CI reader, asked of the merge base | nothing above said. `docs/the-evidence-ledger.md` had kept such items by name, and ten of them had no way out |
+| A ledger row anchored inside a retiring directory | `settle` names it and `settle --retire` keeps that directory, saying per row whether the row is removed or narrowed | the 2026-09-22 row on what a removal breaks, which listed readers of the corpus and not the ledger rows anchored in it; the first fold broke five of them |
+| What a fold owes the survivor sweep | nothing. A directory the range retired, by either arm, is out of the sweep's range on both sides | the same row, which named the survivor sweep among what a removal breaks. Its answer was a `survivors.md` row, and a fold with no directory has nowhere to keep one |

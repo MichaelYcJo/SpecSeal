@@ -766,14 +766,33 @@ def test_the_skill_says_who_judges_and_who_reads():
     assert "The command reads and groups; you judge and write." in text
 
 
-def test_the_skill_carries_the_survivors_row_a_fold_branch_owes():
-    """The sweep runs on every pull request into a release branch, and a fold
-    reports every sentence of every section it deleted. A branch told nothing
-    about the range row turns the check off instead."""
+def test_the_skill_says_a_fold_is_not_a_work_item_and_owes_no_range_row():
+    """#517's D1, and the sentence it retired. The skill used to hand a fold
+    branch a `survivors.md` range-row to copy, anchored on the range and on
+    the work item whose directory held it — and a fold with no work item has
+    no directory to hold one. The sweep leaves a retired directory out of its
+    range instead, so the row shape is gone and the rule that replaced it is
+    what a fold session reads."""
     text = flat(skill())
-    assert "| Range | Grounds |" in text, "no range-row shape to copy"
-    assert "153" in text, "the measured number that makes the row worth having"
-    assert "anchored on the range" in text
+    assert "| Range | Grounds |" not in text, "the skill still hands a fold a range row"
+    assert "No `survivors.md` row." in text
+    assert "## A fold is not a work item" in skill()
+    assert "A fold opens no directory under `seal/specs/`" in text
+    assert "`: '[no-review]';`" in text, "the skill does not say how a fold commits"
+    assert "reviewed at its pull request" in text
+    assert "keep a log of folds" in text
+
+
+def test_the_skill_says_what_a_fold_does_to_the_ledger():
+    """Q3's default. *Nothing in `seal/ledger.md` moves* was false of both
+    folds — one removed rows, the other re-verified four — and it disagreed
+    with the policy the fold works under."""
+    text = flat(skill())
+    assert "Nothing in `seal/ledger.md` moves" not in text
+    assert "`seal/ledger.md` changes only by removal and re-verification." in text
+    assert "A fold appends nothing" in text
+    policy = document("docs", "the-evidence-ledger.md")
+    assert "A fold is not a work item, and it adds nothing to the ledger." in policy
 
 
 def test_the_skill_says_the_retirement_is_the_second_half_of_the_fold():
@@ -819,6 +838,10 @@ def test_the_seal_readme_says_the_step_exists(parts):
         f"{'/'.join(parts)} still describes a `settle` that has not been built"
     )
     assert "skills/settle/SKILL.md" in text and "settle --retire" in text
+    assert "A fold is not a work item and opens no directory here." in text, (
+        f"{'/'.join(parts)} does not say a fold opens no work item (#517)"
+    )
+    assert "wrote no `spec.md` and holds nothing open" in text
 
 
 def test_the_implement_skill_names_the_one_writer_of_docs():
@@ -864,6 +887,47 @@ def test_the_design_record_takes_the_later_decision_as_a_dated_section(parts, he
     )
 
 
+@pytest.mark.parametrize(
+    "parts, heading",
+    [
+        (
+            ("docs", "one-root-by-lifetime.md"),
+            "## Decided when the fold stopped being a work item (2026-09-23)",
+        ),
+        (
+            ("docs", "one-root-by-lifetime.ko.md"),
+            "## fold 가 작업 항목이 아니게 되면서 정해진 것 (2026-09-23)",
+        ),
+    ],
+)
+def test_the_design_record_takes_d1_as_a_dated_section(parts, heading):
+    """#517's D1 overturns the 2026-09-22 row that made the fold its own work
+    item, and a record of a moment takes the overturning as a new dated
+    section rather than an edit to the row."""
+    text = document(*parts)
+    assert heading in text, f"{'/'.join(parts)} carries no dated section for #517"
+    later = text.split(heading, 1)[1]
+    assert "2026-09-02" in later and "2026-09-22" in later, (
+        "the new section does not say which two records it leaves alone"
+    )
+    assert "[no-review]" in later
+
+
+DATED_SECTIONS = (
+    ("## Decided when `settle` was built", "## `settle` 을 만들면서 정해진 것"),
+    (
+        "## Decided when the fold stopped being a work item",
+        "## fold 가 작업 항목이 아니게 되면서 정해진 것",
+    ),
+)
+
+
+def section(flat_text, heading):
+    """A dated section of a flattened document, from its heading to the next."""
+    rest = flat_text.split(heading, 1)[1]
+    return rest.split(" ## ", 1)[0]
+
+
 def test_both_editions_took_the_same_decisions():
     """`CONTRIBUTING.md` requires the two editions to move together, and a
     mirror drifts one edit at a time. The rows are prose in two languages, so
@@ -871,22 +935,19 @@ def test_both_editions_took_the_same_decisions():
     other's."""
     en = document("docs", "one-root-by-lifetime.md")
     ko = document("docs", "one-root-by-lifetime.ko.md")
-    rows = (
-        en.split("## Decided when `settle` was built")[1].count("|---|---|---|"),
-        ko.split("## `settle` 을 만들면서 정해진 것")[1].count("|---|---|---|"),
-    )
-    assert rows == (1, 1), rows
-    counted = tuple(
-        text.split(marker)[1].count(" | ")
-        for text, marker in (
-            (en, "## Decided when `settle` was built"),
-            (ko, "## `settle` 을 만들면서 정해진 것"),
+    # Each section is read up to the next `## ` heading, so a later dated
+    # section is compared with its own twin rather than counted into this
+    # one's (#517 added the second).
+    for en_heading, ko_heading in DATED_SECTIONS:
+        sections = (section(en, en_heading), section(ko, ko_heading))
+        rows = tuple(s.count("|---|---|---|") for s in sections)
+        assert rows == (1, 1), (en_heading, rows)
+        counted = tuple(s.count(" | ") for s in sections)
+        assert counted[0] == counted[1], (
+            f"{en_heading}: the English section holds {counted[0]} cells and "
+            f"the Korean {counted[1]} — one edition took a decision the other "
+            "did not"
         )
-    )
-    assert counted[0] == counted[1], (
-        f"the English section holds {counted[0]} cells and the Korean "
-        f"{counted[1]} — one edition took a decision the other did not"
-    )
 
 
 # --- what the plugin says it ships -----------------------------------------
@@ -905,6 +966,10 @@ def test_the_release_checklist_carries_the_by_hand_step():
         "the checklist does not say the fold is its own branch, which is what "
         "keeps a judgment act out of the release-preparation commit"
     )
+    assert "A fold is not a work item" in text, (
+        "the checklist does not say the fold opens no work item"
+    )
+    assert "range-row" not in text, "the checklist still owes a fold a range row"
     assert "skills/settle/SKILL.md" in text
 
 
