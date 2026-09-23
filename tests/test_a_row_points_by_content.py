@@ -120,6 +120,66 @@ def test_a_file_that_will_not_parse_yields_no_symbols(repo):
     assert ec.py_spans("def broken(:\n") is None
 
 
+def test_rows_citing_one_file_cost_one_parse(repo, monkeypatch):
+    """Five rows in one Python file are one parse, not five (#519).
+
+    The checker used to parse a file once per ROW that cited it: 1,328 parses
+    of 126 files for this repository's own ledger, about 94 % of a 15.8 s run
+    that every `git commit` paid through the advisor. The file's text is made
+    unique to this test, so a parse another case already paid for cannot make
+    the count read low."""
+    unique = f"# {repo}\n"
+    body = unique + SERVICE + "\n\ndef third():\n    return 3\n\n\nLIMIT = 4\n"
+    (repo / "src" / "many.py").write_text(body)
+
+    parses = []
+    real = ec.ast.parse
+
+    def counting(source, *a, **k):
+        if source == body:
+            parses.append(1)
+        return real(source, *a, **k)
+
+    # Counted from before the fixture resolves its own anchors, because that
+    # is a read of the same text too: one parse has to serve all of it.
+    monkeypatch.setattr(ec.ast, "parse", counting)
+    rows = []
+    for anchor in ("handler", "Box", "Box.open", "third", "LIMIT"):
+        (a, b) = ec.resolve("src/many.py", anchor, body)[0]
+        h = ec.content_hash(body.splitlines()[a - 1 : b])
+        rows.append(f"| C | `src/many.py#{anchor}@{h}` |")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    ledger.write_text("# frag\n\n" + "\n".join(rows) + "\n")
+    findings = ec.check_ledger(str(ledger), str(repo), {})
+    assert [f[0] for f in findings] == ["OK"] * 5, findings
+    assert len(parses) == 1, f"{len(parses)} parses of one file for five rows"
+
+
+def test_a_file_edited_between_two_reads_gets_its_new_spans(repo):
+    """The memo is keyed on the text, never the path, so an edit is never
+    served the spans of the text before it. `--reverify` and every case with a
+    `tmp_path` fixture read one path twice with different content in one
+    process. The two texts are the same length on purpose: a key that stood in
+    for the text by a cheaper property would serve the stale answer here."""
+    before = "def aa():\n    return 1\n"
+    after = "def bb():\n    return 1\n"
+    assert len(before) == len(after)
+    assert ec.py_spans(before) == {"aa": [(1, 2)]}
+    assert ec.py_spans(after) == {"bb": [(1, 2)]}
+
+
+def test_changing_the_returned_spans_does_not_reach_the_next_caller(repo):
+    """Every caller gets its own dict and its own lists. No caller today
+    changes what it is handed, but a memo that returned its stored object
+    would let the first one that does rewrite every later answer for that
+    text, silently and for the rest of the process."""
+    text = "def f():\n    return 1\n\n\ndef g():\n    return 2\n"
+    first = ec.py_spans(text)
+    first["f"].append((99, 99))
+    first.pop("g")
+    assert ec.py_spans(text) == {"f": [(1, 2)], "g": [(5, 6)]}
+
+
 def test_an_ambiguous_anchor_is_broken_and_says_where(repo):
     """Two places to look is not a measurement. Reporting OK would be a claim
     about whichever one the code happened to reach first."""

@@ -165,6 +165,30 @@ def py_spans(text):
     text rule, while a file that parses and simply lacks the symbol is
     BROKEN. Conflating the two anchored rows to leftover call sites, and
     `--reverify` then made the wrong anchor permanent (round 4, 🔴 2).
+
+    **One parse per distinct text, for the life of the process** (#519). The
+    ledger cites one file from many rows, and parsing it once per row was
+    1,328 parses of 126 files, about 94 % of a 15.8 s `--strict` run that
+    every `git commit` paid through `hooks/evidence-advisor.py`. The memo is
+    keyed on the TEXT and never on the path: `--reverify` and the suite read
+    one path twice with different content in one process, and a path key
+    would hand the second read the first read's spans, a silent wrong answer
+    of exactly the kind this checker exists to refuse. Each caller gets a
+    fresh dict of fresh lists, so none can change the stored answer for the
+    next one.
+    """
+    spans = parsed_spans(text)
+    if spans is None:
+        return None
+    return {name: list(places) for name, places in spans.items()}
+
+
+@functools.cache
+def parsed_spans(text):
+    """`py_spans`'s answer, stored: {name: ((start, end), ...)} or None.
+
+    Tuples, so the stored value cannot be changed through a reference to it.
+    Call `py_spans`, which copies; this is its memo and nothing else's.
     """
     out = {}
     try:
@@ -194,7 +218,7 @@ def py_spans(text):
                 walk(child, prefix, in_function)
 
     walk(tree, "", False)
-    return out
+    return {name: tuple(places) for name, places in out.items()}
 
 
 def heading_level(line):
