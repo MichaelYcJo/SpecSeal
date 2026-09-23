@@ -1738,3 +1738,27 @@ def test_a_spec_less_directory_with_an_open_row_stays_in_the_range(tmp_path):
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 1, text
     assert "docs/policy.md" in text, text
+
+
+def test_a_spec_less_directory_that_stays_is_still_in_the_range(tmp_path):
+    """A retirement removes the directory: one still present at the range's
+    right end was edited, not retired, and what the edit removed is measured
+    like any other correction."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/policy.md": f"# policy\n\n{STANDING_MOMENT}\n",
+            f"{MOMENT}/routing.md": f"# routing\n\n{RETIRED_MOMENT_SENTENCE}\n",
+            f"{MOMENT}/overview.md": CLOSED_MEMO,
+            **FILLER,
+        },
+        "a moment, nothing open",
+    )
+    head = build(
+        repo, {f"{MOMENT}/routing.md": "# routing\n\nReworded entirely.\n"}, "edited"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, text
+    assert "docs/policy.md" in text, text

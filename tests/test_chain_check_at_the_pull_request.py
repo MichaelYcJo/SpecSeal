@@ -3043,6 +3043,24 @@ def test_an_open_row_at_the_merge_base_is_still_a_missing_declaration(repo):
     assert "does not carry this file at HEAD" in out, out
 
 
+def test_a_declaration_removed_from_a_directory_that_stays_is_refused(repo):
+    """A retirement removes the directory. A spec-less directory that stays
+    with only its `routing.md` gone is a declaration deleted, whatever the
+    merge base held."""
+    item = "seal/specs/1788000000-a-kept-moment"
+    git(repo, "switch", "-q", "base")
+    write(repo, f"{item}/routing.md", declaration())
+    write(repo, f"{item}/overview.md", CLOSED_MEMO)
+    commit(repo, "a moment, declared")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "merge", "-q", "base")
+    (repo / item / "routing.md").unlink()
+    commit(repo, "remove the declaration only")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "does not carry this file at HEAD" in out, out
+
+
 def test_a_record_carrying_the_row_is_read_and_one_without_it_prints(repo):
     """The two-way split, over records this case builds rather than over
     whatever the repository happens to hold.
