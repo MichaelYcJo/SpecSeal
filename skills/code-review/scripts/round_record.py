@@ -342,6 +342,48 @@ GATE_NOT_YET = chain.GATE_NOT_YET
 # hider question every record is asked). `earlier run` is none of those, and
 # the newest entry stays first so the reader's `named[0]` is unchanged.
 EARLIER_RUN = "; earlier run: "
+
+
+def kept_broad_gate(reader, rows, value):
+    """`value` in front of the run `rows`' `Broad gate` cell already holds,
+    or `value` alone where it holds none (#174).
+
+    ONE ENTRY PER RUN, NEWEST FIRST, for every writer of the cell. `seal` and
+    `close --broad-gate` used to disagree — the first kept a held run and the
+    second replaced it, while the template described them as writing the
+    same cell (round 1's 🟡 1) — so both call this and neither builds the
+    cell from the flag alone. `not yet` holds no run and is replaced, so a
+    first seal is byte-identical to what it always was; the new entry goes in
+    front so that `chain_check.broad_gate`, which takes the first SHA-shaped
+    word as the run, reads what it read before.
+
+    **A run at the commit the newest entry already names replaces that entry
+    rather than standing beside it** (round 1's ⬜ 8). It is the same claim
+    about the same tree — the sealer re-run over an unchanged checkout, or a
+    base spelled differently — and two entries naming one commit would make
+    the count of entries stop being the count of runs at distinct commits,
+    which is what the run-level table reads off the cell. The comparison is
+    by prefix, so an abbreviated entry and a full-length flag name one
+    commit; nothing here asks git, because the value has already been
+    resolved by the caller that refuses an unresolvable one.
+    """
+    held = reader.visible(chain.field(rows, BROAD_GATE) or "").strip()
+    if not held or chain.says_gate_not_yet(held):
+        return value
+    entries = held.split(EARLIER_RUN)
+    newest = chain.SHA_RE.findall(entries[0])
+    new = chain.SHA_RE.findall(value)
+    if (
+        newest
+        and new
+        and (newest[0].startswith(new[0]) or new[0].startswith(newest[0]))
+    ):
+        entries = entries[1:]
+    if not any(chain.SHA_RE.search(e) for e in entries):
+        return value
+    return EARLIER_RUN.join([value, *entries])
+
+
 # The row this script writes and `chain_check.written_late` reads, imported
 # from the reader for the same reason `BROAD_GATE` is: rename it in one file
 # alone and this one keeps writing a row the checker no longer finds, which
@@ -1083,10 +1125,17 @@ def table_body(reader, lines, heading, header, required):
             f"{row(header)!r}, and the generator copies only a table in the "
             "record's own columns"
         )
+    # A row that repeats the header is a second table's header under a
+    # `###` inside the section (round 1's 🟡 3 — reachable since #505 made
+    # the section reach past the `###`): it names the columns and is not a
+    # row, and copied through it carried a `#` cell reading `#` that
+    # `finding_number` admits as a row commissioning nothing. Skipped the
+    # way the separator is; the rows under it are the section's.
     return [
         (i, cells)
         for i, cells in rows[1:]
         if not reader.is_separator([reader.visible(c) for c in cells])
+        and tuple(reader.visible(c) for c in cells) != header
     ]
 
 
@@ -2078,27 +2127,29 @@ def bound_line(reader, routing, rounds, n):
         # count beside it then belonged to a record the sentence did not
         # mention — the one thing in this line a reader can check.
         started = os.path.basename(counted_at)
-        if not running:
-            # A walk that STOPPED after reaching two: the gate returns an
-            # error at `started` right now, whatever this record says, and
-            # the line reports the gate's own refusal rather than the most
-            # permissive sentence it has (#218). Falling through to the
-            # reopening walk printed `one reopening remains` here.
+        if not running or counted > 1:
+            # A walk that already reached two — STOPPED there, or still
+            # running past it: the gate returns an error at `started` right
+            # now, whatever this record says, and the line reports the
+            # gate's own refusal rather than the most permissive sentence it
+            # has (#218). Falling through to the reopening walk printed `one
+            # reopening remains` for the stopped walk, and the running walk
+            # of two printed `reaches 3 here`, a count the gate never says
+            # (round 1's ⬜ 5 of the work item that fixed #218).
             return (
                 f"round-record: {ENDS_THE_RUN} — the gate already returns an "
                 f"error at {started}, whose count of round records after the "
                 f"floor reached {counted} before this record exists. "
                 f"{chain.CAPPED_EXIT}"
             )
-        # Every record after some floor record was quiet, so that walk is
+        # One record after some floor record was quiet, so that walk is
         # still running and this record is the one it counts next — the
         # gate's SECOND counted record, which it refuses.
-        quiet = "record" if counted == 1 else "records"
         return (
             f"round-record: {ENDS_THE_RUN} — {started} met the floor and the "
-            f"{counted} {quiet} after it neither reopened the run nor closed "
-            "on a fix, so the gate's count of round records after the floor "
-            f"reaches {counted + 1} here. {chain.CAPPED_EXIT}"
+            "record after it neither reopened the run nor closed on a fix, "
+            "so the gate's count of round records after the floor reaches 2 "
+            f"here. {chain.CAPPED_EXIT}"
         )
     if reopen_excused:
         return None
@@ -3880,7 +3931,16 @@ def close(args):
         chain.NEW_UNITS,
         [units_entry(n, 1) for n in dict.fromkeys(n for _r, n in added)],
     )
-    gate = cell(BROAD_GATE, args.broad_gate) if args.broad_gate else None
+    # Through the same path as `seal` (round 1's 🟡 1): a run the cell
+    # already holds is kept behind the new entry by either writer.
+    gate = (
+        cell(
+            BROAD_GATE,
+            kept_broad_gate(reader, chain.table_rows(reader, lines), args.broad_gate),
+        )
+        if args.broad_gate
+        else None
+    )
     # The range this pass was measured over, as commits and as a count (#344).
     # `parse_range` has already refused an end that is not a commit somebody
     # can open, so both halves here are pinned by construction -- and the
@@ -4434,14 +4494,8 @@ def seal(args):
     # kept behind the new one as `earlier run`, because a second broad run --
     # after a pre-existing failure, or after the last fixes landed -- used to
     # REPLACE the first and the run-level table was then filled from memory.
-    # `not yet` holds no run and is replaced as before, so a first seal is
-    # byte-identical to what it always was; and the new entry goes in FRONT
-    # so that `chain_check.broad_gate`, which takes the first SHA-shaped word
-    # as the run, reads exactly what it read before.
-    held = reader.visible(chain.field(rows, BROAD_GATE) or "").strip()
-    value = args.broad_gate
-    if held and chain.SHA_RE.search(held) and not chain.says_gate_not_yet(held):
-        value = f"{args.broad_gate}{EARLIER_RUN}{held}"
+    # `kept_broad_gate` is the one path, shared with `close --broad-gate`.
+    value = kept_broad_gate(reader, rows, args.broad_gate)
     if n is None:
         write_record(reader, path, new_broad_gate_file(item, value))
     else:

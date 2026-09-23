@@ -532,9 +532,11 @@ fails the pull request, and so does a newest entry the record's own
 seal. Work items begun before
 `chain_check.GATE_FROM` print instead of failing.
 
-`close --broad-gate` still writes the same cell, and it is for the one case
-`seal` refuses by design: fixes and the gate landing in the same pass, where
-the fix table and the cell are one write. Where the rounds have settled and
+`close --broad-gate` still writes the same cell, through the same
+newest-first path — a run the cell already holds is kept behind the new
+entry by either writer — and it is for the one case `seal` refuses by
+design: fixes and the gate landing in the same pass, where the fix table and
+the cell are one write. Where the rounds have settled and
 nothing is being fixed, the sealer's spawn is the route.
 
 **A refusal about the `Broad gate` row goes to a person, and the run stops

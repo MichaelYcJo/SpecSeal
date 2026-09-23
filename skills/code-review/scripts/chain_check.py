@@ -1571,6 +1571,13 @@ def verdict_table(reader, lines, rel):
         seen = [reader.visible(c) for c in cells]
         if reader.is_separator(seen):
             continue
+        if [c.casefold() for c in seen] == header:
+            # A second table's header under a `###` inside the section, or
+            # one pasted by hand (round 1's 🟡 3): a row that names the
+            # columns is not a verdict row, and read as one it carried a `#`
+            # cell reading `#` and a verdict reading `Verdict`, which
+            # nothing downstream refuses. Skipped the way the separator is.
+            continue
         if len(cells) <= col:
             errors.append(
                 (
@@ -3716,7 +3723,8 @@ def broad_gate(
             "this arm cannot tell a run that happened from one that did not. "
             "Spawn the `sealer` and let `broad-gate --record <item>` write "
             "this cell, or `round_record.py close --broad-gate '<sha> against "
-            "<base>'` where fixes and the gate land in one pass — or "
+            "<base>'` where fixes and the gate land in one pass (the same "
+            "newest-first path, so a run the cell holds is kept) — or "
             f"`{GATE_NOT_YET}` while it has not run"
         )
     else:

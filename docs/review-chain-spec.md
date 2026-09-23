@@ -979,9 +979,11 @@ reads `FIX_WORDS` across every row of the table, so a `fixed` carried forward
 makes the record one that closed on a fix, which the reopening rule refuses
 at the cap with no way forward the documents describe. And no 🔴 anywhere in
 the row: `open_blocking` selects on the glyph in every cell, so the inherited
-severity is written in words. Measured over the 71 work items with two or
-more records: 3 had a last record reading as closed-with-a-fix, and every
-one was a carried `fixed`.
+severity is written in words. #437 measured it at its filing, over the work
+items then holding two or more records: three last records read as
+closed-with-a-fix, and every one was a carried `fixed`. The count is the
+ticket's and is not repeated here — it moves with every record the tree
+gains, and a number without its tree state is not a coordinate.
 
 **The severity is read as well as the `#` cell, and that is not decoration.**
 A row admitted here is never keyed, never asked for a closure and never
@@ -1515,7 +1517,7 @@ prompt it sent, and reverted 37.9 minutes of agent time.
 |---|---|
 | nothing | no earlier record met the floor — the cap governs, and the cap is not this line's subject — or the gate grandfathers this work item, so there is no refusal to warn of |
 | `one reopening remains` | an earlier record's floor row reads `no`, no later record has closed on a fix, and no floor record's count walk has fired — a running walk with a record already spent, or a stopped walk that reached two |
-| `this record ends the run` | one later record closed on a fix — or every record after some floor record was quiet, so this one is the gate's second counted record — or an earlier floor record's count walk already reached two before it stopped, so the gate returns an error at that record now, before this one exists (#218) |
+| `this record ends the run` | one later record closed on a fix — or every record after some floor record was quiet, so this one is the gate's second counted record — or some floor record's count walk already reached two — stopped there, or still running past it — so the gate returns an error at that record now, before this one exists (#218; the running case is its sibling, found by round 1 of the work item that fixed it) |
 
 The floor record it names is the **earliest** whose row reads `no` — except
 in the count branch, where it is the record the firing walk **started

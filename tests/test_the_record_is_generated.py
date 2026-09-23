@@ -2042,6 +2042,25 @@ def test_a_section_still_ends_at_a_heading_of_its_own_level(repo):
     assert "the replacement, labelled" not in text, "prose stays in the report"
 
 
+def test_a_second_tables_header_under_a_subheading_is_not_a_verdict_row(repo):
+    """Round 1's 🟡 3. A reviewer who groups `## Verdicts` under `###`
+    entries writes a header row for each table, and with the section now
+    reaching past the `###` (#505) the second header was copied into the
+    record as a verdict row at exit 0 — a `#` cell reading `#`, which
+    `finding_number` admits as a row that commissions nothing. A row that
+    repeats the header names the columns and is not a row; the rows under
+    it are, and they are carried."""
+    declared(repo)
+    second = "| 🟢 | round 0's finding, re-read | `f.py:1` | confirmed | read |\n"
+    verdicts = f"{OPEN_ROW}\n### earlier rounds, re-checked\n\n{VERDICT_HEADER}{second}"
+    code, out, text = generate(repo, report_text=report(verdicts=verdicts))
+    assert code == 0, out
+    rows = rows_of(text, "## Verdicts")
+    header = VERDICT_HEADER.splitlines()[0]
+    assert rows.count(header) == 1, rows
+    assert OPEN_ROW.strip() in rows and second.strip() in rows, rows
+
+
 def test_a_table_hidden_under_a_subheading_is_still_a_swallowed_table(repo):
     """A3 of #505: the section-end scan inside `swallowed` takes the same
     rule as `section_body`, or the two define *a section* differently in one
@@ -2687,9 +2706,14 @@ def test_an_intermediate_floor_record_starts_a_count_walk_of_its_own(repo):
 
 
 def test_the_count_walks_message_says_records_when_it_counted_two(repo):
-    """The plural branch of the count-walk line, which no case reached
-    (round 2, ⬜ 6). §14 asks the printed line to be pinned, and `1 records`
-    is what an unpinned plural branch ships."""
+    """A running walk that already counted two is #218's sibling (round 1's
+    ⬜ 5 of the work item that fixed #218): the gate refuses at the floor
+    record the moment its count reaches two, running or stopped, so the line
+    reports that refusal — *reached 2 before this record exists* — rather
+    than a *reaches 3 here* the gate never says. This case used to pin the
+    plural branch of the running sentence (round 2, ⬜ 6 of #207), and that
+    branch is unreachable now: a running walk fires this line only at one
+    record spent."""
     generator, reader = generator_module(), reader_module()
     routing = generator.load(check_module().ROUTING, "specseal_routing_plural")
     rounds = chain_of(
@@ -2701,8 +2725,9 @@ def test_the_count_walks_message_says_records_when_it_counted_two(repo):
     )
     line = generator.bound_line(reader, routing, str(rounds), 4)
     assert line is not None, line
-    assert "the 2 records after it" in line, line
-    assert "reaches 3" in line, line
+    assert "already returns an error at round-1.md" in line, line
+    assert "reached 2" in line, line
+    assert "reaches 3" not in line, line
 
 
 def test_a_round_that_reopened_without_writing_fixes_stops_the_count(repo):

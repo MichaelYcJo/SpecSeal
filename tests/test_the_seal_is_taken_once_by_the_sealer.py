@@ -2552,6 +2552,30 @@ def test_a_re_seal_keeps_the_earlier_run_and_the_reader_takes_the_newest(repo):
     assert errors == [] and notices == [], (errors, notices)
 
 
+def test_a_re_seal_at_the_commit_the_cell_names_replaces_that_entry(repo):
+    """Round 1's ⬜ 8, decided: a run taken again at the commit the newest
+    entry already names is the same claim about the same tree, so the new
+    entry replaces that one rather than standing beside it — the cell holds
+    one entry per run at a distinct commit, and a sealer re-run over an
+    unchanged tree does not grow it. An earlier run at a different commit
+    stays behind the newest as before."""
+    _one, two = settled_item(repo)
+    first = short(repo, "HEAD")
+    assert run_seal(repo, f"{first} against base")[0] == 0
+    write(repo, "f.py", "x = 3\n")
+    commit(repo, "a fix after the gate")
+    second = short(repo, "HEAD")
+    assert run_seal(repo, f"{second} against base")[0] == 0
+    code, out = run_seal(repo, f"{second} against origin/base")
+    assert code == 0, out
+    generator = _load("specseal_round_record_for_a_same_commit_re_seal", GENERATOR)
+    cell = fields(two.read_text(encoding="utf-8"))[ROW]
+    assert cell == (
+        f"{second} against origin/base{generator.EARLIER_RUN}{first} against base"
+    ), cell
+    assert cell.count(second) == 1, "the same commit was entered twice"
+
+
 def test_a_first_seal_is_byte_identical_to_a_cell_that_was_never_a_list(repo):
     """A13 of #174: with nothing to keep there is no separator, so every
     committed record and every fixture in the tree is already the shape."""

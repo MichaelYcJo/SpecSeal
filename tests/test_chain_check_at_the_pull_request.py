@@ -790,6 +790,30 @@ def test_a_blocking_finding_below_a_subheading_is_still_in_the_table(repo):
     assert "`Pass` is checked" in out
 
 
+def test_a_repeated_header_row_is_not_a_verdict_row():
+    """Round 1's 🟡 3, the checker's half. A record whose `## Verdicts` holds
+    a second table under a `###` — or a hand-pasted header — used to hand
+    `verdict_table`'s callers a row whose `#` cell reads `#` and whose
+    verdict cell reads `Verdict`. The row names the columns; it is skipped
+    the way the separator is, and the rows around it are read."""
+    check = _module("chain_check_for_a_repeated_header", CHECK)
+    reader = _module("reader_for_a_repeated_header", check.READER)
+    text = (
+        "# r\n\n## Verdicts\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
+        "| 🔴 1 | something | `f.py:1` | open | grounds |\n\n"
+        "### earlier rounds, re-checked\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
+        "| 🟢 | round 0's finding | `f.py:2` | confirmed | read |\n"
+    )
+    rows, col, _header, errors = check.verdict_table(
+        reader, reader.readable(text), "rounds/round-1.md"
+    )
+    assert errors == [], errors
+    assert [seen[0] for _n, seen in rows] == ["🔴 1", "🟢"], rows
+    assert col == 3
+
+
 def test_an_unchecked_pass_fails_once_the_pull_request_is_ready(repo):
     """Reversed deliberately, and this docstring is the record of it.
 
