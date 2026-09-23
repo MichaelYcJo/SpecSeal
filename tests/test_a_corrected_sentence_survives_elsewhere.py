@@ -641,6 +641,253 @@ def test_a_round_record_the_range_edited_does_not_become_a_source(tmp_path):
     )
 
 
+# --- the work item's own exemption file -------------------------------------
+#
+# One directory above its round records, and a stronger instance of the same
+# defect: a `survivors.md` row QUOTES the surviving wording, because the quote
+# is the anchor. Left in the range, the row's quote counts as wording the fix
+# wrote and `wanted` subtracts the very survivor the row excuses (#507). Left
+# in the pool, the file is one more carrier of exactly the phrases that
+# produced the score, and a survivor near the floor drops under it (#308).
+# Either way the `exempt` line never prints, and the check goes green because
+# the survivor was not found rather than because it was excused. Measured on
+# three pull requests of one release: 36 rows written, 7 consulted.
+EXEMPTION = "seal/specs/1700000000-a-claim-stands-in-two-places/survivors.md"
+EXCUSED = "the guide states it on purpose, and this row is what a reader audits"
+# The two stretches of FOUND that REPAIRED does not write back, as `weigh`
+# names them. Two independent runs is what clears the floor, and each is worth
+# 1.0 only while nothing else in the pool carries it.
+FOUND_RUNS = (
+    "by the reviewing round itself and the",
+    "the orchestrator never edits it afterwards",
+)
+
+
+def exemption_row(where, quote):
+    """A per-survivor row for `where`, quoting `quote`, with grounds."""
+    return f"| Path | Quote | Grounds |\n|---|---|---|\n| `{where}` | {quote} | {EXCUSED} |\n"
+
+
+def in_repo(repo, path):
+    return os.path.join(str(repo), *path.split("/"))
+
+
+def test_an_exemption_file_the_range_added_does_not_subtract_the_survivor_it_quotes(
+    tmp_path,
+):
+    """#507 -- the range half. Writing the row is what stopped the survivor
+    being reported.
+
+    Without `--exempt` the survivor has to be REPORTED: the row's quote is
+    not wording the fix wrote, and the count of removed sentences is the
+    count it was before the file existed. With `--exempt` naming the file,
+    the same survivor prints under `exempt` with the row's grounds, which is
+    the only thing a row was ever supposed to do. Red today at exit 0 in both
+    runs, with no `exempt` line in either."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {FOUND}\n",
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the claim, stated in two files",
+    )
+    head = build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n",
+            EXEMPTION: exemption_row("guide.md", FOUND),
+        },
+        "corrected notes.md, and wrote the row that excuses guide.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "guide.md still carries the wording this range removed from notes.md, "
+        "and the exemption file quoting that wording is what silenced it -- the "
+        f"row's quote counted as wording the fix wrote; exit {code}\n{text}"
+    )
+    assert "guide.md" in text, f"the report does not name the survivor:\n{text}"
+    assert re.search(r"against 1 sentence\(s\)", text), (
+        f"the removed-sentence count moved when the filter was applied:\n{text}"
+    )
+    assert EXEMPTION not in text, (
+        "the report names the exemption file. It is out of the pool and out of "
+        f"the range, so it is neither a survivor nor a source:\n{text}"
+    )
+    code, text = run(
+        "--range",
+        f"{head}^..{head}",
+        "--root",
+        str(repo),
+        "--exempt",
+        in_repo(repo, EXEMPTION),
+    )
+    assert code == 0, f"the row did not excuse its own survivor; exit {code}\n{text}"
+    assert re.search(
+        rf"^\s+exempt\s+guide\.md:\d+ -- {re.escape(EXCUSED)}", text, re.M
+    ), (
+        "the survivor is not printed under `exempt` with the row's grounds, so "
+        f"nobody at the pull request reads why it was excused:\n{text}"
+    )
+    assert "every survivor is excused by a row above (1)" in text, (
+        f"the run was clean rather than excused:\n{text}"
+    )
+
+
+def test_an_exemption_file_in_the_pool_does_not_dilute_the_survivor_it_quotes(
+    tmp_path,
+):
+    """#308 -- the corpus half, where the file was committed BEFORE the range.
+
+    The file is then not in the diff at all, so the range half cannot be what
+    silences the survivor: it is the pool. A four-file pool with two carriers
+    of the quoted run weighs that run at `log2(4 / 2) / log2(4)`, half of what
+    it is worth with the file absent, and the total falls under the floor.
+    Asserted on the score and on which phrases are named, both -- two scores
+    under the floor were both the weaker phrase when #308 was measured, and a
+    score comparison alone passes for the wrong reason there."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {FOUND}\n",
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+            EXEMPTION: exemption_row("guide.md", FOUND),
+        },
+        "the claim in two files, and a row already written for the guide's copy",
+    )
+    head = build(
+        repo,
+        {"notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n"},
+        "corrected notes.md only",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "guide.md still carries the wording this range removed, and the "
+        "exemption file sitting in the pool diluted the phrases it quotes under "
+        f"the floor; exit {code}\n{text}"
+    )
+    assert "guide.md" in text, f"the report does not name the survivor:\n{text}"
+    shared = re.search(r"^\s+shared\s+(\d+) phrase\(s\), ([\d.]+):(.*)$", text, re.M)
+    assert shared is not None, f"the report has no `shared` line:\n{text}"
+    assert shared.group(2) == "2.00", (
+        f"the survivor scored {shared.group(2)} where each of its two runs is "
+        "worth 1.0 with the exemption file out of the pool; the file is still "
+        f"counted as a carrier of the phrases it quotes:\n{text}"
+    )
+    for phrase in FOUND_RUNS:
+        assert phrase in shared.group(3), (
+            f"the report does not name “{phrase}”, so the phrase reported is "
+            f"not the one the row quotes:\n{text}"
+        )
+
+
+def test_the_report_is_the_same_with_the_exemption_file_and_with_it_deleted(
+    tmp_path,
+):
+    """The property the three pull requests lost, as one invariant.
+
+    The same range read at a tip that carries the file and at the same tip
+    with the file deleted in a further commit has to name the same candidates
+    with the same scores. The file is invisible to the search; only `--exempt`
+    reads it."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    base = build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {FOUND}\n",
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the claim, stated in two files",
+    )
+    head = build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n",
+            EXEMPTION: exemption_row("guide.md", FOUND),
+        },
+        "corrected notes.md, and wrote the row",
+    )
+    os.remove(in_repo(repo, EXEMPTION))
+    gone = build(repo, {}, "the exemption file deleted at the tip")
+
+    def body(report):
+        # Everything but the header, which names the tip's own SHA.
+        return [
+            line
+            for line in report.splitlines()
+            if not line.startswith("survivor-check:")
+        ]
+
+    code_with, with_file = run("--range", f"{base}..{head}", "--root", str(repo))
+    code_gone, without = run("--range", f"{base}..{gone}", "--root", str(repo))
+    assert code_gone == 1 and "guide.md" in without, (
+        f"the range with no exemption file in it reported nothing, so the "
+        f"invariant below is vacuous:\n{without}"
+    )
+    assert (code_with, body(with_file)) == (code_gone, body(without)), (
+        "the report changes with the exemption file present at the tip, so the "
+        f"file is an input of the search rather than a judgment on its result:\n"
+        f"--- with the file\n{with_file}\n--- with it deleted\n{without}"
+    )
+
+
+def test_an_exemption_file_the_range_edited_does_not_become_a_source(tmp_path):
+    """The other side of the same list, which is why the filter goes on `paths`.
+
+    A quote REMOVED from an exemption row is not corrected wording. Filtering
+    the added side alone would leave a reflowed row reading as a correction
+    somebody has to chase into the file the row was written about."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            EXEMPTION: exemption_row("guide.md", FOUND),
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the row quotes the guide, and the guide carries the claim",
+    )
+    head = build(
+        repo,
+        {EXEMPTION: exemption_row("guide.md", REPAIRED)},
+        "reflowed the exemption row and nothing else",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "this range edited an exemption file and touched nothing else, and the "
+        "check read that edit as a correction somebody has to chase into "
+        f"guide.md; exit {code}\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), (
+        "wording removed from an exemption row still counts as wording the "
+        f"range removed, so a range that touched only the file is not empty:\n{text}"
+    )
+    assert EXEMPTION not in text, (
+        f"the report names the exemption file as the source of a correction:\n{text}"
+    )
+
+
+# Every exclusion the module docstring states, by the bold opener of its
+# paragraph, in the order the section states them. The round record stays
+# first: it is the one whose one-sided shipping (#365) is the reason the
+# section names sides at all. A member of the class that is excluded in code
+# and absent here is the docstring falling behind the code, which is the
+# state #365 lived in for five releases.
+EXCLUSIONS = (
+    "**A record of a past round.**",
+    "**The work item's own exemption file.**",
+)
+
+
 def test_the_docstring_names_both_sides_of_the_round_record_exclusion():
     """`agent-contract` §14 -- a fix that changes a verdict pins the sentence.
 
@@ -659,24 +906,31 @@ def test_the_docstring_names_both_sides_of_the_round_record_exclusion():
     )
     section = source[source.index(heading) + len(heading) :]
     section = section[: section.index("\n## ")]
-    opener = "**A record of a past round.**"
-    assert opener in section, f"{opener} is no longer the first exclusion stated"
-    paragraph = section[section.index(opener) :]
-    paragraph = paragraph.split("\n\n")[0]
-    flat = " ".join(paragraph.split())
-    for side in ("pool", "range"):
-        assert side in flat, (
-            f"the paragraph does not say the exclusion applies to the {side}. "
-            "Naming one side is exactly how this defect survived -- the "
-            "intent was stated here and carried in one of the two "
-            f"functions:\n{flat}"
-        )
-    assert "both sides" in flat, (
-        "the paragraph names the pool and the range without saying the "
-        "exclusion holds on both SIDES of the range's path list, which leaves "
-        "the added-side-only reading that was already true and already "
-        f"wrong:\n{flat}"
+    for opener in EXCLUSIONS:
+        assert opener in section, f"{opener} is no longer an exclusion stated"
+    positions = [section.index(opener) for opener in EXCLUSIONS]
+    assert positions == sorted(positions), (
+        f"the exclusions are stated out of order, and {EXCLUSIONS[0]} has to come first"
     )
+    flats = {}
+    for opener in EXCLUSIONS:
+        paragraph = section[section.index(opener) :]
+        paragraph = paragraph.split("\n\n")[0]
+        flat = flats[opener] = " ".join(paragraph.split())
+        for side in ("pool", "range"):
+            assert side in flat, (
+                f"the {opener} paragraph does not say the exclusion applies to "
+                f"the {side}. Naming one side is exactly how this defect "
+                "survived -- the intent was stated here and carried in one of "
+                f"the two functions:\n{flat}"
+            )
+        assert "both sides" in flat, (
+            f"the {opener} paragraph names the pool and the range without "
+            "saying the exclusion holds on both SIDES of the range's path "
+            "list, which leaves the added-side-only reading that was already "
+            f"true and already wrong:\n{flat}"
+        )
+    flat = flats[EXCLUSIONS[0]]
     assert "`rounds/` is out." not in flat, (
         "the one-sided sentence is back: `Everything under a work item's "
         "`rounds/` is out.` states the intent and names neither function it "
@@ -699,7 +953,7 @@ def test_the_docstring_names_both_sides_of_the_round_record_exclusion():
 # collapsed to one entry and a list at module scope was not found at all. Two
 # of the three shapes `plan.md:46-50` names as this change's own six-month
 # failure scenario -- a second range, a cache of changed files -- passed it.
-PREDICATE = "records_a_past_round"
+PREDICATE = "records_a_past_state"
 FILTERS_ITS_OWN_LIST = {"corrected"}
 FILTERED_BY_ITS_ONLY_CALLER = {"tracked": "corpus"}
 NAMED_EXCEPTION = {
