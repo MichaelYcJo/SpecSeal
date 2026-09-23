@@ -10,6 +10,7 @@ import ast
 import json
 import os
 import re
+import subprocess
 
 from conftest import build_tracked_tree, git_listing, on_disk
 
@@ -189,12 +190,35 @@ def is_a_record_of_a_moment(rel):
 
 
 def shipped_versions():
-    """Every version `CHANGELOG.md` records as released."""
+    """Every version `CHANGELOG.md` records as released.
+
+    Read by the illustrative-version case alone, and NOT the source of the
+    shipped set `timers_in` keeps: the preparation commit writes the heading
+    and bumps `plugin.json` together, so a changelog-derived set would wave
+    through the very version being cut (#363).
+    """
     return set(re.findall(r"^## (\d+\.\d+\.\d+)\b", read_text("CHANGELOG.md"), re.M))
 
 
-def timers_in(rel, text, running):
-    """Every version-shaped token in `text` at or above `running`.
+def shipped_tags(root=ROOT):
+    """Every version `root` has a `v*` tag for, bare.
+
+    A tag exists only once the release reached `main`, which is what makes it
+    the one truthful source for *shipped* — `CHANGELOG.md` gets its heading
+    in the same commit that bumps the running version, and the version being
+    cut is the timer the rule exists to catch. A tag that is not
+    version-shaped is not a release and is dropped.
+    """
+    return {
+        tag[1:]
+        for tag in git_listing(root, "tag", "--list", "v*")
+        if re.fullmatch(r"v\d+\.\d+\.\d+", tag)
+    }
+
+
+def timers_in(rel, text, running, shipped=frozenset()):
+    """Every version-shaped token in `text` at or above `running`, less the
+    ones `shipped` names.
 
     Answers `(line number, token)` pairs. Below `running` is history and is
     kept: `docs/issues-and-milestones.md` says in so many words that *the
@@ -202,6 +226,13 @@ def timers_in(rel, text, running):
     that fact is refusing history rather than catching a timer. That case is
     what decides against widening to every version this repository has ever
     shipped (#179's second candidate).
+
+    A tagged version is history by the same argument, one number higher
+    (#363): `plugin.json` is bumped at the preparation commit, so from that
+    commit until the next bump the running version is one that has already
+    shipped, and the documents shipping with it could not name it. `shipped`
+    is the set of tagged versions of the root being swept — never derived
+    from `CHANGELOG.md`, whose heading lands in the bump's own commit.
     """
     if is_a_record_of_a_moment(rel):
         return []
@@ -210,7 +241,7 @@ def timers_in(rel, text, running):
     for number, line in enumerate(text.splitlines(), 1):
         for match in VERSION_TOKEN.finditer(line):
             bare = match.group(1)
-            if bare == ILLUSTRATIVE_VERSION:
+            if bare == ILLUSTRATIVE_VERSION or bare in shipped:
                 continue
             # Either spelling. The refusal prints `match.group(0)` — `v4.4.17`,
             # not `4.4.17` — and tells the author to declare what it printed,
@@ -245,7 +276,8 @@ def what_to_write_instead():
         "file's whole job is to name a moment, it belongs in "
         '`RECORDS_OF_A_MOMENT` with the argument CONTRIBUTING.md §"What a '
         'change to a gate must carry" asks for. A version BELOW the running '
-        "one is history and is already allowed — nothing needs doing to it. "
+        "one, or one this repository has TAGGED, is history and is already "
+        "allowed — nothing needs doing to it. "
         "And if the number is not a release at all — a date written with "
         "dots, say — there is no exemption for it and none is wanted: write "
         "it in a form that is not version-shaped. This repository writes a "
@@ -486,12 +518,13 @@ def timer_offenders(root=ROOT, running=None):
     a helper taking a root and then not using it for half its inputs.
     """
     running = running or version(root)
+    shipped = shipped_tags(root)
     offenders = []
     files, _ = tracked(*LOADED, root=root)
     for rel in files:
         with open(os.path.join(root, rel), encoding="utf-8", errors="replace") as f:
             text = f.read()
-        for number, token in timers_in(rel, text, running):
+        for number, token in timers_in(rel, text, running, shipped):
             offenders.append(f"{rel}:{number} names {token}")
     return offenders
 
@@ -549,6 +582,67 @@ def test_a_version_below_the_running_one_is_history_and_is_kept():
     assert (
         timers_in("docs/issues-and-milestones.md", history, RUNNING_IN_THE_FIXTURES)
         == []
+    )
+
+
+def test_a_tagged_version_is_history_and_is_kept():
+    """#363. The preparation commit bumps `plugin.json`, so from that commit
+    until the next bump the running version is one that has ALREADY shipped
+    — tagged, merged to `main`, recorded in the changelog — and the documents
+    that ship with it could not name it. `timers_in`'s own docstring argues
+    the ceiling from *below `running` is history*; a shipped version is
+    history by that argument, and this is the sibling of the case above that
+    pins it one number higher. The case above is not edited: below the
+    running version stays history whether or not it is tagged.
+
+    `shipped` is passed explicitly. What it is derived from is the case
+    below's question, and the trap is there too."""
+    text = "shipped as 0.8.3\nlands in 0.9.0\n"
+    assert timers_in("docs/x.md", text, RUNNING_IN_THE_FIXTURES, shipped={"0.8.3"}) == [
+        (2, "0.9.0")
+    ], "a tagged running version is refused as a timer"
+    assert timers_in("docs/x.md", text, RUNNING_IN_THE_FIXTURES, shipped=set()) == [
+        (1, "0.8.3"),
+        (2, "0.9.0"),
+    ], "with nothing shipped the running version stopped being refused"
+
+
+def test_the_shipped_set_is_the_tags_of_the_root_being_swept(tmp_path):
+    """The trap #363 names: `CHANGELOG.md` gets its heading in the SAME
+    commit that bumps `plugin.json`, so *shipped* derived from the changelog
+    would wave through the very version being cut. A tag exists only after
+    the release reaches `main`, so tags are the source and nothing else.
+
+    The fixture tags its running version and names three: one below it, the
+    running one, one above. Read against tags, only the one above is a
+    timer; read against nothing, the running one is refused too, which is
+    the reading this case exists to end."""
+    root = build_tracked_tree(
+        tmp_path / "r",
+        {
+            ".claude-plugin/plugin.json": json.dumps({"version": "0.2.0"}),
+            "docs/live.md": "shipped in 0.1.0, then 0.2.0, and 0.3.0 is next\n",
+        },
+    )
+    subprocess.run(["git", "-C", str(root), "tag", "v0.2.0"], check=True)
+    subprocess.run(["git", "-C", str(root), "tag", "v-not-a-version"], check=True)
+    assert shipped_tags(root) == {"0.2.0"}, (
+        "the shipped set is not the bare versions of the root's `v*` tags"
+    )
+    assert timer_offenders(root) == ["docs/live.md:1 names 0.3.0"]
+
+
+def test_this_checkout_has_tags_to_read_the_shipped_set_from():
+    """A checkout without tags — shallow, or fetched without them — would
+    read an empty shipped set and refuse the running version again, silently
+    and exactly as before #363. That is a wrong deny that reads as the old
+    rule working, so it is loud instead: this repository has shipped, and a
+    checkout that cannot see a single `v*` tag is not one this sweep can
+    judge. `test.yml` and `hygiene.yml` check out with `fetch-depth: 0`."""
+    assert shipped_tags(ROOT), (
+        "no `v*` tag is readable from this checkout, so the timer sweep "
+        "cannot tell a shipped version from one being cut. CI checks out with "
+        "`fetch-depth: 0`; a local clone needs `git fetch --tags`"
     )
 
 
