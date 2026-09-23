@@ -94,16 +94,30 @@ MERGED_PR = re.compile(r"\(#(\d+)\)\s*$")
 # `Closes #88` in a fenced block as the example to copy, so a pull request
 # body quoting the document would otherwise close the issue the document
 # names -- and this repository's bodies quote its documents routinely.
-# RIDER: Verified 2026-09-08 against FENCE@53c82b1e
-# Review round 1 of work item 1788844400 measured five well-formed shapes
-# these two patterns give up: a tilde fence, a four-space indented block, a
-# fence indented inside a list item, an HTML comment, and a double-backtick
-# span. A closing keyword inside any of them is read as a claim, so a release
-# closes the issue. Widening them changes what a RELEASE closes and not only
-# what issue_claims_check.py reports, which is the decision issue #266
-# carries. If you open these two patterns, answer it there first.
-FENCE = re.compile(r"^```.*?^```", re.M | re.S)
-SPAN = re.compile(r"`[^`\n]*`")
+#
+# Five well-formed shapes these two patterns used to give up were enumerated
+# by review round 1 of work item 1788844400 (#266), and three are masked now:
+# a tilde fence, a fence indented under a list item, and a double-backtick
+# span. The direction is chosen rather than incidental -- masking more closes
+# FEWER issues, and an issue left open is visible on the tracker and closed
+# by a re-run, where an issue closed on a quoted example is a false record.
+# `issue_claims_check.py` imports these two, so it widens with them.
+#
+# Two shapes stay unmasked, on purpose, and each has a case pinning it in
+# `tests/test_release_hygiene.py`. A four-space indented block is an indented
+# code block to CommonMark and is ALSO how this repository's pull request
+# bodies continue a bullet onto the next line, so masking it would drop real
+# claims -- the wrong direction for a closer. Whether GitHub acts on a keyword
+# inside an HTML comment is unmeasured (`questions.md` Q1 of work item
+# 1790173209); until somebody measures it on a scratch pull request the shape
+# is read as it always was.
+#
+# A fence is three backticks or three tildes, indented or not, closed by the
+# same delimiter; `\1` is what keeps a tilde fence from ending at a backtick
+# one. A span is one backtick to the next, or two backticks to the next two,
+# and the double form may hold a single backtick inside.
+FENCE = re.compile(r"^[ \t]*(```|~~~).*?^[ \t]*\1", re.M | re.S)
+SPAN = re.compile(r"``(?:[^`\n]|`(?!`))+?``|`[^`\n]*`")
 
 
 def keywords_in(body):

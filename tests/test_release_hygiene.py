@@ -1199,6 +1199,77 @@ def test_only_a_keyword_before_a_number_closes_anything():
     )
 
 
+# --- #266: the shapes the two patterns gave up ------------------------------
+#
+# Review round 1 of work item 1788844400 enumerated five well-formed shapes
+# `FENCE` and `SPAN` did not mask, by construction rather than by reading. A
+# closing keyword inside any of them was read as a claim, so a RELEASE closed
+# the issue. Three are masked now and two are deliberately not; each of the
+# five has a case, so a later widening or narrowing is a red rather than a
+# drift. The direction is stated at the patterns: masking more closes fewer,
+# and an unclosed issue is visible and re-runnable where a wrong close is a
+# false record on the tracker.
+
+
+def test_a_tilde_fence_masks_a_keyword():
+    """`~~~` is a fence to CommonMark and to GitHub, and it was invisible here
+    because the pattern spelled backticks."""
+    m = _closer()
+    assert m.keywords_in("~~~\nCloses #1\n~~~\nCloses #4") == ["4"], (
+        "a keyword inside a tilde fence closes the issue it names"
+    )
+    # A fence closes on ITS delimiter. Read as any delimiter, this one ends
+    # at the backticks and the keyword after them is prose.
+    assert m.keywords_in("~~~\n```\nCloses #1\n~~~\nCloses #4") == ["4"], (
+        "a tilde fence was closed by a backtick line inside it"
+    )
+
+
+def test_a_fence_indented_under_a_list_item_masks_a_keyword():
+    """A fence inside a list item is indented to the item's content, and the
+    pattern anchored the delimiter at column 0."""
+    m = _closer()
+    body = "- the example:\n  ```\n  Closes #2\n  ```\nCloses #4"
+    assert m.keywords_in(body) == ["4"], (
+        "a keyword inside a fence indented under a list item closes the issue"
+    )
+
+
+def test_a_double_backtick_span_masks_a_keyword():
+    """A span opened with two backticks closes with two, and may hold a
+    single backtick inside. The one-backtick pattern read `` ``#150`` `` as
+    two EMPTY spans with the number in prose between them."""
+    m = _closer()
+    assert m.keywords_in("Closes ``#3``\nCloses #4") == ["4"], (
+        "a double-backtick span around the number leaves the keyword read"
+    )
+    assert m.keywords_in("see ``Closes #3`` there\nCloses #4") == ["4"], (
+        "a double-backtick span around the whole claim leaves it read"
+    )
+    assert m.keywords_in("see `` `Closes #3` `` there\nCloses #4") == ["4"], (
+        "a double-backtick span holding a single backtick is cut at the inner backtick"
+    )
+
+
+def test_a_four_space_indented_block_is_still_read_as_a_claim():
+    """Deliberately unmasked. Four spaces open an indented code block to
+    CommonMark, and they are ALSO how this repository's pull request bodies
+    continue a bullet's text onto the next line — so masking the shape would
+    drop real claims, which is the wrong direction for a closer. Stated at
+    the pattern; this case turns a future widening into a decision."""
+    m = _closer()
+    assert m.keywords_in("- a bullet whose text\n    Closes #5") == ["5"]
+
+
+def test_an_html_comment_is_still_read_as_a_claim():
+    """Deliberately unmasked, and for a different reason: whether GitHub
+    acts on a keyword inside a comment is unmeasured (`questions.md` Q1 of
+    work item 1790173209), and a measurement needs a scratch pull request on
+    a tracker. Until it is taken the shape stays as it was."""
+    m = _closer()
+    assert m.keywords_in("<!-- Closes #6 -->") == ["6"]
+
+
 def _offline(monkeypatch, m, closed):
     """Shut every door this module has to the tracker, and make an escape loud.
 

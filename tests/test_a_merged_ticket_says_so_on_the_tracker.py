@@ -376,9 +376,10 @@ def test_the_script_only_ever_creates_a_label_and_adds_one():
 def test_the_readers_come_from_the_closer_rather_than_a_second_copy():
     """Two readers of the same pull request body drifted apart here before.
 
-    `FENCE` and `SPAN` carry a `# RIDER:` stamp and an open decision (#266)
-    about widening them; a second copy of that treatment would answer that
-    decision by accident, in a file whose author never read the rider.
+    `FENCE` and `SPAN` were widened once, for #266, and the comment above
+    them says which shapes stay unmasked and why; a second copy of that
+    treatment would answer that decision again by accident, in a file whose
+    author never read the comment.
     """
     source = read(SCRIPT)
     assert "close_issues_on_release.py" in source, "the closer is not imported"
