@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 539 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `e7dacbf896662667530ab07c72f7b6f6caffac13..09292fa8988915727a527e7bd3cec934e817f7b4`, 2 commits |
+| Contract changes | test_a_phase_record_standing_in_the_pool_is_not_a_survivor → round-1-report.md, round-1.md |
+| New units | none |
 | Needs a fix | yes — 🟡 1, the second arm of the S6 pool case, seen red on the `named` assertion under the `phases/` arm removed before it is committed; the four ⬜ rows are paperwork corrections and are not counted here |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,7 +31,7 @@ The hand-back labelled the broad gate unverified; the sealer answers that after 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The S6 pool case asserts both directions but only dilution can turn it red on its fixture; the `named` assertion has never failed | `tests/test_a_corrected_sentence_survives_elsewhere.py` `test_a_phase_record_standing_in_the_pool_is_not_a_survivor` | open | Executed: `phases/` arm removed → 4-file pool exit 0 nothing named, 33-file pool exit 1 naming `guide.md` and the record. Ledger E3 and `overview.md` claim both directions pinned. Paste-ready fix below |
+| 🟡 1 | The S6 pool case asserts both directions but only dilution can turn it red on its fixture; the `named` assertion has never failed | `tests/test_a_corrected_sentence_survives_elsewhere.py` `test_a_phase_record_standing_in_the_pool_is_not_a_survivor` | **fixed** `d3e544d6` | fixed at d3e544d6 — `test_a_phase_record_standing_in_the_pool_is_not_a_survivor` parametrised over a 4-file and a 33-file pool; with the `phases/` arm removed both arms go red on their own assertion (`[0]`: exit 0, nothing named; `[29]`: the record named beside `guide.md`), restored and green. The ⬜ corrections went in `09292fa8`: `overview.md`'s `Ran by` row closed, `phases/phase-4.md` and ledger E1 read 6/6, the memo's "13 cases" reads "eleven red runs over ten cases (6+4+1)", E3 re-read with the mutation in the phase-2 table; the fourth ⬜ is not a defect and was not edited. The orchestrator re-ran at `09292fa8`: module 70 passed, `evidence-check --strict` exit 0, tree-wide ruff clean, CI-form sweep nine excused; Executed: `phases/` arm removed → 4-file pool exit 0 nothing named, 33-file pool exit 1 naming `guide.md` and the record. Ledger E3 and `overview.md` claim both directions pinned. Paste-ready fix below |
 | 🟢 | One predicate, `records_a_past_state`, at both call sites and nowhere else; `whole_range`'s list unfiltered; `records_a_past_round` untouched | `skills/code-review/scripts/survivor_check.py` `#records_a_past_state`, `#corpus`, `#corrected` | answered | Read; the path-list case green; 5 mutations red at the counts above; no other caller in the tree |
 | 🟢 | A row is read against a found survivor and printed, never subtracted from the search | the branch's own range, `seal/specs/1790174139-survivors-md-silences-what-it-quotes/survivors.md` | answered | Executed: nine standing at exit 1 without `--exempt`, nine `exempt` at exit 0 with it, every grounds a row's; seven rows cover nine places by normalised-word matching, as `exempted` documents |
 | 🟢 | The three-range re-measurement reproduces, the file's presence changing nothing | `phases/phase-1.md`, `phases/phase-2.md`, ledger row E2 | answered | Executed: 14 / 0 / 0 with `--exempt`, without, and with the file deleted at the tip in a scratch clone driven from Python |
