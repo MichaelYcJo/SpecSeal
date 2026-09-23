@@ -774,7 +774,8 @@ break. What earns a row is inside `chain_check.py`: a grandfathering that is
 three different excusals under one name (F1), a cutoff that is deliberately
 not the cutoff beside it and a case that pins the three together anyway (F2),
 and narrow readings a later tidy-up would widen in good faith, each of which
-only mutation or a review round found (F3, F6, F8, F9, F10, F11). F12 is the
+only mutation or a review round found (F3, F6, F9, F10, F11, and F8 until
+#138 removed it — see the F4 note below). F12 is the
 class round 2's 🔴 1 belongs to, and the case that would have caught it. F5 is the one
 that is not about this checker at all — it is why the floor's answer words had
 to be constants. F7 is not about this branch's own code: it is the claim that
@@ -782,9 +783,11 @@ replaces a count this branch moved in a row `seal/ledger.md` already carried.
 
 F4 was `floor_answer`, and round 1's fix pass renamed that function to
 `yes_or_no` when a second row started using it. The anchor is gone, so the row
-is REMOVED rather than re-pointed and its claim is carried forward by F8 —
-which says more than F4 did, because the reason for the rename is part of the
-claim now. -->
+is REMOVED rather than re-pointed. **Corrected 2026-09-24 by work item
+1790173106 (#138)**: F8 carried F4's claim forward, and F8 has left this file
+too — its bare-`yes` reading went with the code — so the claim now lives in
+`seal/ledger/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row.md`
+B2, which the fold moves under this file's `### 1790173106` heading. -->
 
 <!-- What deliberately has no row. The floor and the depth are stated in
 `docs/review-chain-spec.md`, `skills/code-review/SKILL.md`, `agents/warden.md`,
