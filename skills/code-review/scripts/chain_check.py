@@ -202,10 +202,14 @@ three rounds found nothing that leaves the root and nothing that crashes.
                               `FLOOR_FROM` fails, empty or unreadable fails
                               at any age
   Needs a fix                 whether this round opened anything needing one.
-                              The floor's bound below rests on it, and until
+                              The floor's bound below rests on it, so `yes`
+                              alone is refused the way the floor row's is:
+                              a bare `yes` is the cell the count of later
+                              records restarts at, and three characters must
+                              not buy the run a round (#138). Until
                               `NEEDS_FROM` nothing read the row at all --
                               which is why it is grandfathered WHOLE rather
-                              than only when absent
+                              than only when absent, the bare `yes` included
 
 A record that met the floor is followed by AT MOST ONE more round record: the
 verifying round at the diff of the fixes that closed it. The count stops at
@@ -2379,6 +2383,35 @@ def yes_or_no(value):
     return None, ""
 
 
+def says_reopened(value):
+    """Does a `Needs a fix` cell say the run reopened: True, False or None.
+
+    ONE reader for the reopening question (#138). `yes_or_no` above parses
+    the vocabulary and leaves the reason to the caller; this is the caller
+    that decides what the cell MEANS for the floor's bound, and it is read by
+    `run_reopened` and `stopping_floor` here and by the generator's printed
+    bound (`round_record.py#floor_and_fixes`), so the gate and the line a
+    session reads before spawning cannot disagree about one cell.
+
+      `yes — <what>`             True — the run reopened
+      `no`, `no — <why>`         False — a reason after `no` is still `no`
+      `yes` alone, an empty      None — not a reopening, wherever it is read.
+      cell, a word outside the   The bare `yes` is the case worth saying out
+      vocabulary                 loud: it used to read as True, so three
+                                 characters restarted the count of later
+                                 records and bought the run a round. A cell
+                                 the checker refuses must never be the thing
+                                 that quiets a refusal, which is the
+                                 direction `run_reopened` already states
+    """
+    word, reason = yes_or_no(value)
+    if word == FLOOR_NO:
+        return False
+    if word == FLOOR_YES and reason:
+        return True
+    return None
+
+
 def depth_problems(value):
     """(no depth, crowded, too deep, below the first level) among the entries.
 
@@ -3092,11 +3125,12 @@ def written_late(reader, root, base, rel):
 def run_reopened(reader, root, rel):
     """True when this record's `Needs a fix` says the run reopened.
 
-    None when the row is absent or its value is outside the vocabulary, and
-    None counts as NOT reopening wherever it is read: `plan.md` declares the
-    failure direction *blocks more*, and a row this cannot read must never be
-    the thing that quiets a refusal. The record itself is told about the
-    unreadable row by `stopping_floor`, so the state is never silent.
+    None when the row is absent, its value is outside the vocabulary, or it
+    is a bare `yes` with nothing after it, and None counts as NOT reopening
+    wherever it is read: `plan.md` declares the failure direction *blocks
+    more*, and a row this cannot read must never be the thing that quiets a
+    refusal. The record itself is told about the unreadable row — and the
+    bare `yes` — by `stopping_floor`, so the state is never silent.
     """
     text = read_record(root, rel)
     if text is None:
@@ -3104,8 +3138,7 @@ def run_reopened(reader, root, rel):
     cell = field(table_rows(reader, reader.readable(text)), NEEDS)
     if cell is None:
         return None
-    word, _ = yes_or_no(reader.visible(cell).strip())
-    return word == FLOOR_YES if word is not None else None
+    return says_reopened(reader.visible(cell).strip())
 
 
 def wrote_fixes(reader, root, rel):
@@ -3163,7 +3196,11 @@ def stopping_floor(reader, root, rel, later):
 
     Both rows are read here rather than in two functions, because the bound
     is one question spread over two cells and a second reader of `Needs a
-    fix` would be a second answer to it.
+    fix` would be a second answer to it. What that cell MEANS — reopened,
+    not reopened, or nothing readable — is `says_reopened`'s answer, here
+    and in the walk and in the generator's printed bound alike, so `yes`
+    alone is refused the way the floor row's is (#138): it is the cell the
+    count restarts at, and three characters must not buy the run a round.
 
     **Two walks over the same `later`, and they decide different things** --
     the way `docs/review-chain-spec.md` tells the floor from the cap:
@@ -3215,10 +3252,9 @@ def stopping_floor(reader, root, rel, later):
     # `is not None`, not truthiness: an empty cell is a state of its own and
     # gets its own sentence below, where `if needs` sent it to the branch
     # that quotes a value and printed empty backticks (round 2, 🟡 3).
-    word_needs = (
-        yes_or_no(reader.visible(needs).strip())[0] if needs is not None else None
-    )
-    if word_needs is None:
+    value_needs = reader.visible(needs).strip() if needs is not None else None
+    reopened = says_reopened(value_needs) if value_needs is not None else None
+    if reopened is None:
         if needs is None:
             message = f"no readable `| {NEEDS} | … |` row"
         elif not needs.strip():
@@ -3226,6 +3262,23 @@ def stopping_floor(reader, root, rel, later):
             # empty cell. Two rows read the same vocabulary, so one state
             # cannot have two answers at two qualities.
             message = f"`{NEEDS}` is empty — a row that says nothing answers nothing"
+        elif yes_or_no(value_needs)[0] == FLOOR_YES:
+            # The floor row's own refusal below, in its words (#138). This
+            # row passed the same three characters for as long as nothing
+            # read it, and once the bound did, a bare `yes` was what
+            # restarted the count of later records: one cell bought the run
+            # a round past its own floor. `says_reopened` reads it as None
+            # now, so it stops the count of nothing, and the record that
+            # carries it is told so here rather than passing in silence.
+            message = (
+                f"`{NEEDS}` says `{FLOOR_YES}` and does not say what. The "
+                "whole of what makes the row readable is what was opened — "
+                "without it the cell records that something was, and not "
+                "what, and the verifying round that has to answer it "
+                "inherits nothing. It is also the cell the count of later "
+                f"records restarts at, so a bare `{FLOOR_YES}` counts as no "
+                "reopening"
+            )
         else:
             message = f"`{NEEDS}` is `{needs.strip()}`, which is neither answer"
         message += (

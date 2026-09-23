@@ -193,10 +193,13 @@ concluded about it, and the two come apart at exactly the case above.
 This row is read by `chain_check.py`, and the floor's bound below is what
 reads it: a verifying round that opens something is a finding round, so its
 own fixes need a reader, and `yes` here is what says the run reopened. Write
-`no`, or `yes — <what>`. A record whose work item began before anything read
-the row prints instead of failing, whatever the cell says — the row has
-carried free text since draft 0.5 of the handoff protocol and was held to no
-vocabulary.
+`no`, or `yes — <what>`. `yes` alone is refused the way the floor row's is
+(#138): the reason is what the verifying round inherits, and a bare `yes` is
+the cell the count of later records restarts at, so three characters must not
+buy the run a round — in the count it reads as no reopening at all. A record
+whose work item began before anything read the row prints instead of failing,
+whatever the cell says — the row has carried free text since draft 0.5 of the
+handoff protocol and was held to no vocabulary.
 
 **Either terminal line in the report may wrap, and a wrapped line is one
 value**, so this cell holds the join rather than the first physical line of

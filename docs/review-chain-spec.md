@@ -1400,7 +1400,8 @@ vocabulary.
 |---|---|
 | `no`, or `yes — <what>` | passes. A reason after `no` is an answer too, and 30 of this repository's own records are written that way |
 | absent, empty, or a value that is neither, work item begun on or after `NEEDS_FROM` | **fails**, naming the row and the bound that rests on it |
-| any of those, work item begun before `NEEDS_FROM` (or with no timestamp prefix) | prints |
+| `yes` with nothing after it, work item begun on or after `NEEDS_FROM` | **fails** — `yes` alone is refused the way the floor row's is, *says `yes` and does not say what*, because this is the cell the bound above restarts its count at: a bare `yes` used to read as a reopening, so three characters bought the run a round past its own floor (#138). In the count it now reads as no reopening at all, the value an unreadable cell already has — a cell the check refuses must never be the thing that quiets a refusal |
+| any of those four, work item begun before `NEEDS_FROM` (or with no timestamp prefix) | prints |
 
 **This row is grandfathered WHOLE, where the three above grandfather only an
 absent row, and the difference is the row's history rather than an
