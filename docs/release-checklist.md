@@ -154,8 +154,11 @@ What each one has caught, so a failure is recognised rather than debugged:
 
 ## 4. Commit, push, open the first pull request
 
-The commit belongs to no work item, so the gate is waived for the one command,
-in front of it and in quotes:
+The commit belongs to no work item — it is the routing question's
+`no work item` answer (`skills/implement/orchestration.md` §*Question 1*),
+the class #517 settled for the fold, declared rather than stepped around —
+and that answer's recorded form is the waiver in front of each command, in
+quotes:
 
 ```bash
 : '[no-review]'; git commit -m "chore: release X.Y.Z — <what the fragments say>"

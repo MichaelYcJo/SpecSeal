@@ -407,8 +407,8 @@ What the four combinations do:
 |---|---|---|---|---|
 | chain | open the PR | the review arm stays silent | the PR opens | a round record is required |
 | chain | stop before the PR | the review arm stays silent | the branch is handed back, committed and unpushed | **nothing runs** — say so in the handback |
-| direct | open the PR | the review arm stays silent | the PR opens | nothing required |
-| direct | stop before the PR | the review arm stays silent | the branch is handed back | nothing |
+| direct | open the PR | the review arm stays silent | the sealer takes the broad run, then the PR opens | the sealer's `broad-gate.md` in the work item's directory — the one broad run, at a SHA, against the base — and no round record; the answer turns off the reviewer alone |
+| direct | stop before the PR | the review arm stays silent | the branch is handed back | **nothing runs** — say so in the handback; the sealer's record is owed when a pull request opens |
 
 That column is about the review arm. The gate has two arms, they are separate
 opt-ins, and each has terms that **wake** it and terms that **quiet** it.
@@ -469,8 +469,11 @@ What must not happen instead is a standing waiver. A session-level switch that
 turns the gate off leaves it nothing to do but stay quiet, which is the state
 the gate exists to end. The routing declaration is not that switch: it moves
 the check rather than removing it — the chain answer is checked at the pull
-request against the round record, the direct answer by the token in every
-command — and there is no third value meaning no enforcement anywhere.
+request against the round record, the direct answer against the sealer's
+`broad-gate.md` at the same place — and there is no third value meaning no
+enforcement anywhere. The declaration silences the review arm for either
+answer, so no token checks the direct answer at any commit; what the answer
+turns off is the reviewer, and the broad run is owed just the same.
 Deciding early does not weaken the question; it moves it to the minute where
 answering it costs a reply rather than a stopped session.
 

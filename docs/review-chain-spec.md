@@ -739,8 +739,25 @@ edit and asking for `[no-review]` as well is asking for the same answer twice.
 | The declaration says | At the commit | At the pull request |
 |---|---|---|
 | through the review chain | silent | a committed `rounds/round-N.md` is required, every commit its `Target SHA` names being REACHABLE — an ancestor of HEAD, or of the branch `routing.md` declares — its last round's `Pass` **checked**, that claim consistent with its own verdict table, and its `Fixes checked by` naming a checker the repository can confirm. A record this pull request does not touch keeps every requirement except reachability: its commits are expected to be gone, and the review it records was enforced at the pull request that added it |
-| straight to the PR | silent | nothing required; the declaration is printed |
+| straight to the PR | silent | the sealer's `broad-gate.md` in the work item's directory, for a work item begun at or after `chain_check.py`'s `DIRECT_GATE_FROM` — the one broad run, at a SHA the tree can see, against the base — and nothing else: the answer turns off the reviewer alone. A draft pull request is excused the file, an earlier work item is excused and prints, and the declaration is printed either way, because a decision nobody sees is not a record |
 | nothing readable, or no file | today's behavior — deny once, then ask | pass, with a notice saying nothing was checked |
+
+**Two answers, and not three.** A session that wrote a change and then checked
+it itself has asked for a third — *reviewed by the session* — with a record of
+its own (#241). There is none, and the reason is what the chain's record is
+worth: something, only because somebody other than the author wrote it.
+`Fixes checked by` refuses *the session that wrote them*
+(§*Two records, and what each of them says*), `Ran by` is the spawning
+session's row and never the agent's own, and the contract names a review that
+certifies itself as what the commit gate exists to catch. What the author's own
+check leaves that CI can read is what it RAN — the broad gate at a SHA against
+a base — and that is the sealer's stamp, which `straight to the PR` already
+owes in the row above. The reading half, *here is what I checked*, is prose,
+and prose is not evidence. So a change its author checked declares `straight
+to the PR` and takes the broad run; what that answer turns off is the reviewer,
+and nothing else. A change belonging to no work item at all is the routing
+question's third answer, `no work item`, whose recorded form is `[no-review]`
+in front of each commit — there is no value meaning no enforcement anywhere.
 
 **A declaration the pull request RETIRED is not one it made**, and neither is
 one it only renamed. Both are ways a `routing.md` leaves a diff without
@@ -1400,7 +1417,8 @@ vocabulary.
 |---|---|
 | `no`, or `yes — <what>` | passes. A reason after `no` is an answer too, and 30 of this repository's own records are written that way |
 | absent, empty, or a value that is neither, work item begun on or after `NEEDS_FROM` | **fails**, naming the row and the bound that rests on it |
-| any of those, work item begun before `NEEDS_FROM` (or with no timestamp prefix) | prints |
+| `yes` with nothing after it, work item begun on or after `NEEDS_FROM` | **fails** — `yes` alone is refused the way the floor row's is, *says `yes` and does not say what*, because this is the cell the bound above restarts its count at: a bare `yes` used to read as a reopening, so three characters bought the run a round past its own floor (#138). In the count it now reads as no reopening at all, the value an unreadable cell already has — a cell the check refuses must never be the thing that quiets a refusal |
+| any of those four, work item begun before `NEEDS_FROM` (or with no timestamp prefix) | prints |
 
 **This row is grandfathered WHOLE, where the three above grandfather only an
 absent row, and the difference is the row's history rather than an
