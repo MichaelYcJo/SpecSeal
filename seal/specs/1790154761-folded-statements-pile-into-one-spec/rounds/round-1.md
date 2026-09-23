@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 527 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `edcd2e3312c6b35323bb3f7e13d605e14ad2aa6a..ca3808375a700e401f7826d0e4f515f0394c74d2`, 1 commit |
+| Contract changes | ceiling_problems → round-1-report.md, round-1.md, pytest |
+| New units | FROZEN_IDS_DIGEST (depth 1); marker_digest (depth 1); test_a_marker_swapped_into_the_listed_document_is_named (depth 1); test_the_frozen_digest_is_the_listed_document_s_markers (depth 1); BOLD_OPENING (depth 1); test_a_target_that_is_not_a_file_in_the_repository_is_named (depth 1); test_a_bare_bold_delimiter_is_not_a_rule_sentence (depth 1); test_a_heading_indented_up_to_three_spaces_is_read (depth 1) |
 | Needs a fix | yes — findings 1 and 2: the frozen count passes a marker swap into the listed document, and a target of `.`, a directory or `../x` resolves |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 1 over the whole branch `f8f1c9de..c48d4109`. Stage 1 checked spec complia
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🟡 The frozen marker count passes a fold that adds a marker to the listed document and removes another, so the placement rule the 0.14.0 fold is held to has a hole | `tests/test_a_document_has_room_for_the_next_fold.py#ceiling_problems` | open | Executed: a planted listed file frozen at 2, carrying one old and one bound marker, returned `[]`. `spec.md` §Scope item 3 and ledger row P1 say "fails when a listed file gains a marker" |
-| 2 | 🟡 An `Enforced by:` target that is the root (`.`), a directory, or a path outside the repository (`../x`) passes resolution | `tests/test_a_folded_statement_names_what_enforces_it.py#target_problem` | open | Executed: `.` and `../outside.txt` both returned `[]`. Ledger row S1 says each target resolves "to a file"; settle §2 says "a repository path" |
+| 1 | 🟡 The frozen marker count passes a fold that adds a marker to the listed document and removes another, so the placement rule the 0.14.0 fold is held to has a hole | `tests/test_a_document_has_room_for_the_next_fold.py#ceiling_problems` | **fixed** `ca380837` | fixed at ca380837 — `ceiling_problems` compares a digest of the sorted marker ids beside the count (`FROZEN_IDS_DIGEST`, `marker_digest`); Executed: a planted listed file frozen at 2, carrying one old and one bound marker, returned `[]`. `spec.md` §Scope item 3 and ledger row P1 say "fails when a listed file gains a marker" |
+| 2 | 🟡 An `Enforced by:` target that is the root (`.`), a directory, or a path outside the repository (`../x`) passes resolution | `tests/test_a_folded_statement_names_what_enforces_it.py#target_problem` | **fixed** `ca380837` | fixed at ca380837 — `target_problem` normalises the target, refuses a path outside the root, and requires a file; Executed: `.` and `../outside.txt` both returned `[]`. Ledger row S1 says each target resolves "to a file"; settle §2 says "a repository path" |
 | ⬜ | The evidence ledger's "The 101 folded before it" reads as the whole exempt set, while #515's, #517's and `1790119502`'s statements folded at 0.14.0 are exempt too | `docs/the-evidence-ledger.md` §*The fold, and what tells it from a deletion*, first bullet | correction | Read. Marker ids are the retired work item's. `plan.md` §*Operational impact* makes the exemption intended, so only the sentence is corrected |
 | ⬜ | Settle §2 says the statement "closes with" the `Enforced by:` line, while the check accepts it anywhere; a first line of bare `**` counts as bold | `skills/settle/SKILL.md` §*2. Write one standing statement per segment*; `tests/test_a_folded_statement_names_what_enforces_it.py#shape_problems` | correction | Executed for both. `spec.md` §Scope item 2 says "carries", so the wording is what moves |
 | ⬜ | A heading indented one to three spaces is a CommonMark heading that the pairing reader skips | `tests/test_both_editions_carry_the_same_folds.py#outline` | correction | Executed: `   ## A` in one edition only returned `[]`. No instance in the tree |
