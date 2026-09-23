@@ -377,6 +377,22 @@ def test_a_fenced_anchor_still_keeps_the_directory(tree):
     assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
 
 
+def test_a_commented_out_row_is_named_by_its_claim(tree):
+    """Round 2's finding 7: a row inside an HTML comment keeps its directory,
+    and the report names it by its first cell, not by the comment opener."""
+    fold(tree, "1700000001-alpha")
+    ledger = tree / "seal" / "ledger.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + f"\n<!-- {INSIDE_ROW} -->\n",
+        encoding="utf-8",
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert "a claim read in a round record" in text, text
+    assert "  <!--\n" not in text, text
+
+
 def test_a_row_at_the_old_evidence_address_keeps_the_directory(tree):
     """The checker's third address, `docs/**/_evidence.md`, is still read, so
     a row there anchored inside a retiring directory is BROKEN after the

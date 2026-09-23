@@ -428,8 +428,15 @@ def write_rule_kept(kept, out):
 
 
 def first_cell(line):
-    """The first cell of a table row, which names the row's claim."""
-    cells = CELL_RE.split(line.strip())
+    """The first cell of a table row, which names the row's claim.
+
+    A row commented out on its own line still carries an anchor the checker
+    reads, so the guard names it; the comment opener in front of it is not
+    the claim (round 2's finding 7)."""
+    text = line.strip()
+    if text.startswith("<!--"):
+        text = text[len("<!--") :].strip()
+    cells = CELL_RE.split(text)
     if len(cells) > 1 and not cells[0].strip():
         cells = cells[1:]
     return cells[0].strip() if cells else ""
