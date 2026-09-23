@@ -7,7 +7,7 @@ of the build did, written by the implementer when the phase closes. -->
 |---|---|
 | Phase | 1 |
 | Commit | 10c44097 |
-| Ran by | unknown — the spawn prompt handed over no value; the spawning session fills this row |
+| Ran by | specseal:smith on claude-fable-5-1 |
 
 ## What this phase was asked
 
