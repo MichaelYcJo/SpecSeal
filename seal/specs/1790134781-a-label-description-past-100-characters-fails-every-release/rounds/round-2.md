@@ -7,14 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #524 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `0e2935cc9420fc1a9fd87aca82c764d984f926e4..af590c9fd83a5237cc74ae95c223a005fa061776`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
+<!-- New units: .github/workflows/close-issues-on-release.yml read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,10 +31,10 @@ Round 2 is the run's verifying round. It read the diff of round 1's fixes, `24f8
 | 🟢 | The fix was widened to the label step, so a failed close no longer skips the reconcile | `.github/workflows/close-issues-on-release.yml:57` | not a defect | The reconcile is idempotent and reads nothing the close writes. After a failed checkout it fails loudly on a missing script, in a job already red |
 | 🟢 | `!cancelled()` rather than `always()` or `success() \|\| failure()` | `.github/workflows/close-issues-on-release.yml:57,65` | not a defect | `always()` also runs after a cancel, and GitHub's reference warns against it. The third is equal at a step, and the case pins one form |
 | 🟢 | New unit `test_a_failed_step_cannot_skip_the_independent_steps_after_it` | `tests/test_a_declared_label_reaches_the_tracker.py:258-276` | not a defect | Seven mutations, executed. Each param goes red on its own, and a moved but equal condition stays green |
-| 4 | ⬜ correction: the changelog fragment does not carry round 1's condition, so the released entry would name the description as the only repair | `seal/specs/1790134781-a-label-description-past-100-characters-fails-every-release/changelog.md:1-12` | open | Read. No commit in the fix range touches it, and a6bdf34's subject claims the records carry the condition |
-| 5 | ⬜ correction: the verified line still lists the cap as unverified and omits the `!cancelled()` item | `seal/specs/1790134781-a-label-description-past-100-characters-fails-every-release/overview.md:6` | open | Read. The same file's table marks the cap ✅ read, and C1 says Read |
-| 6 | ⬜ The comment and the new case say the two steps read nothing an earlier step writes, and both read checkout's tree | `.github/workflows/close-issues-on-release.yml:50-51`, `tests/test_a_declared_label_reaches_the_tracker.py:21,268` | open | Read, `git grep`. Behaviour is right. The sentence means the close step and says every earlier step |
-| 7 | ⬜ correction: C2's Read cell carries the same overstatement | `seal/ledger/1790134781-a-label-description-past-100-characters-fails-every-release.md` C2 | open | Read. C2's Clause is unaffected |
+| 4 | ⬜ correction: the changelog fragment does not carry round 1's condition, so the released entry would name the description as the only repair | `seal/specs/1790134781-a-label-description-past-100-characters-fails-every-release/changelog.md:1-12` | answered | corrected at af590c9 — `changelog.md` now says a failed step no longer skips the label step or the flow-measurement roll unless the job is cancelled; Read. No commit in the fix range touches it, and a6bdf34's subject claims the records carry the condition |
+| 5 | ⬜ correction: the verified line still lists the cap as unverified and omits the `!cancelled()` item | `seal/specs/1790134781-a-label-description-past-100-characters-fails-every-release/overview.md:6` | answered | corrected at af590c9 — `overview.md`'s proof-block `verified` line moves the cap to read, cites the REST reference and the expressions reference, and lists a real runner's `!cancelled()` as unverified; Read. The same file's table marks the cap ✅ read, and C1 says Read |
+| 6 | ⬜ The comment and the new case say the two steps read nothing an earlier step writes, and both read checkout's tree | `.github/workflows/close-issues-on-release.yml:50-51`, `tests/test_a_declared_label_reaches_the_tracker.py:21,268` | **fixed** `e0b6601` | fixed at e0b6601; Read, `git grep`. Behaviour is right. The sentence means the close step and says every earlier step |
+| 7 | ⬜ correction: C2's Read cell carries the same overstatement | `seal/ledger/1790134781-a-label-description-past-100-characters-fails-every-release.md` C2 | answered | corrected at af590c9 — C2's Read cell names only what the two steps actually depend on, carries `Corrected 2026-09-23`, and adds the expressions reference; Read. C2's Clause is unaffected |
 
 ## Paste-ready fixes
 
