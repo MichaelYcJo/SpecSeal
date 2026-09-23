@@ -12,8 +12,8 @@ excused (round 1's 🟡 1).
 
 Round 1 read this file as excusing six reports where the range produced one,
 and the fix pass first dropped the five. That reading was the check's own
-artefact, not a fact about the tree: `survivor_check.py#removed_sentences`
-subtracts the n-grams of every sentence the range ADDED, and a row here quotes
+artefact, not a fact about the tree: `survivor_check.py#corrected` collects the
+n-grams of every sentence the range ADDED and `wanted` subtracts them, and a row here quotes
 the standing sentence it excuses, so the quotes themselves silenced the five
 reports whether or not this file was handed over as `--exempt`. With the rows
 removed, the CI form reports all five again (exit 1); with them present, it
