@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 538 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `5073481487e055c88c8deb1db1693427bda3d6f2..3ba12d83cad25584c0527e98cc01edae186cd66a`, 3 commits |
+| Contract changes | Tracker → round-1-report.md, round-1.md, pytest |
+| New units | comments_on (depth 1); section_heading (depth 1); test_a_second_gather_into_the_last_section_ends_the_file_with_one_newline (depth 1); test_a_second_gather_into_an_undated_heading_says_what_the_write_does (depth 1); test_a_refusal_before_the_comment_landed_still_gets_it_from_the_fallback (depth 1); test_a_tracker_that_does_not_count_comments_gets_the_comment_posted (depth 1) |
 | Needs a fix | yes — finding 1, the fallback's duplicate closing comment (🟡, with the fake's refusal order corrected so a case sees it) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -32,7 +32,7 @@ The hand-back labelled the broad gate unverified; the sealer answers that after 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🟡 The REST fallback posts the closing comment a second time, because `gh issue close --comment` comments before it closes and the refused route has already left its comment on the issue | `.github/scripts/close_issues_on_release.py#close_issue`; `tests/test_the_closer_carries_on_past_a_refusal.py#Tracker.attempt` | open | Executed, read only: `gh issue view 515 --json state,comments` — closed, three identical closing comments, one from the refused workflow run and two from the hand repair. The fake refuses before it records the comment, so no case sees the duplicate |
+| 1 | 🟡 The REST fallback posts the closing comment a second time, because `gh issue close --comment` comments before it closes and the refused route has already left its comment on the issue | `.github/scripts/close_issues_on_release.py#close_issue`; `tests/test_the_closer_carries_on_past_a_refusal.py#Tracker.attempt` | **fixed** `611df55b` | fixed at 611df55b — `comments_on(repo, number)` reads the count through `_issue_api` before and after the first route; `close_issue` skips the REST comment when the count grew by one and posts it when the read cannot say; the fake records the comment before it refuses (the tracker's order) plus a `refuse_before_comment` knob; the same-comment case seen red at `50734814` and green after; two new cases; the five sentences gained *where the refused route did not already post it*; P1 corrected and P1d added. The two ⬜ rows went in the same commit: `insert`'s append arm drops the tail's blank lines and `rstrip`s the join (two cases seen red), and `section_heading(text, version)` is the one predicate `main` and `insert` ask, with `existing_date` answering the date alone (undated-heading case seen red; P3 corrected, P3b added). `c175a118` carries the ledger rows and `3ba12d83` the `survivors.md` judging two survivors of the build's range. The orchestrator re-ran at `3ba12d83`: three modules 81 passed, CI-form sweep clean, `evidence-check --strict` exit 0, tree-wide ruff clean; Executed, read only: `gh issue view 515 --json state,comments` — closed, three identical closing comments, one from the refused workflow run and two from the hand repair. The fake refuses before it records the comment, so no case sees the duplicate |
 | ⬜ | The append arm re-joins the blank lines it walked back over, leaving two before the next `## ` and one extra at the end of the file | `.github/scripts/gather_changelog.py#insert` | correction | Executed with a stripped body: `- second\n\n\n## 0.1.0`, and `\n\n\n` at the end of a file whose last section took the append. Renders the same; no case reads the spacing |
 | ⬜ | `existing_date` answers `None` for an undated heading that `insert` still appends into, so the dry run and the summary line disagree with the write on that shape | `.github/scripts/gather_changelog.py#existing_date`; `#main` | correction | Executed: `## 0.2.0` with no date — `existing_date` `None`, `insert` appends. The gatherer never writes that heading |
 | 🟢 | S2: a refusal on both routes leaves the `size: now` label, closes every other issue, and exits non-zero at the end naming both errors and the re-run | `.github/scripts/close_issues_on_release.py#main` | verified | Executed: the module green; *label spent on an unclosed issue* 1 red, *failures never exiting* 3 red, as the P1 row records |
