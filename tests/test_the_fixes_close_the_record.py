@@ -272,6 +272,37 @@ def test_pass_is_ticked_when_nothing_is_open_and_the_gate_is_the_flag(repo):
     assert "`Pass` is checked beside" in out
 
 
+def test_close_broad_gate_keeps_a_run_the_cell_already_holds(repo):
+    """Round 1's 🟡 1. `close --broad-gate` is the second writer of the
+    `Broad gate` cell, and it built its cell from the flag alone while `seal`
+    keeps a held run behind the new entry as `earlier run` (#174). Both
+    writers go through one function now, so a run the cell already holds —
+    here put there by hand, the way a re-taken gate leaves it — is kept by
+    either, and the template's *writes the same cell* is true of the path
+    and not only of the row."""
+    first = round_one(repo, verdicts=OPEN_1)[:7]
+    path = repo / ROUNDS / "round-1.md"
+    text = path.read_text(encoding="utf-8")
+    held = f"| Broad gate | {first} against base |"
+    assert text.count("| Broad gate | not yet |") == 1, text
+    path.write_text(text.replace("| Broad gate | not yet |", held), encoding="utf-8")
+    a = commit(repo, "a run the cell already holds")
+    write(repo, "mod.py", MOD_CHANGED)
+    b = commit(repo, "fix")
+    _code, out, record = close(
+        repo,
+        1,
+        fix_table(f"| 1 | fixed | {b[:7]} |\n"),
+        f"{a}..{b}",
+        extra=("--broad-gate", f"{b[:7]} against base"),
+    )
+    assert record is not None, out
+    generator = generator_module()
+    assert fields(record)["Broad gate"] == (
+        f"{b[:7]} against base{generator.EARLIER_RUN}{first} against base"
+    ), fields(record)["Broad gate"]
+
+
 def test_a_closed_record_reads_back_through_the_next_round(repo):
     """Round 1 closed by `close`, committed, then round 2 generated as the
     verifying round: the reach-back names round 2 and the check exits 0 with

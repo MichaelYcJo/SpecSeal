@@ -282,9 +282,34 @@ def list_open_issues(repo):
         "--state",
         "open",
         "--json",
-        "number,title",
+        "number,title,comments",
     )
     return json.loads(out)
+
+
+def comment_count(issue):
+    """How many comments the open log carries, or `None` where the listing
+    did not say.
+
+    #198: a release opened a log, carried it through a whole cycle and closed
+    it with nothing written in it, and nothing read what was in the log it
+    was closing. The count is read off the one list call `main` already
+    makes rather than a second read, so the check costs no call and no
+    write; a listing without the field answers `None`, and `main` says so
+    and rolls exactly as before -- the count is never allowed to touch the
+    exactly-one-open invariant, and never a reason to refuse a release.
+    """
+    comments = issue.get("comments")
+    return len(comments) if isinstance(comments, list) else None
+
+
+def empty_log_note(number):
+    """The sentence the three places share when a log closes empty."""
+    return (
+        f"#{number} closed with no measurement written in it: not one comment "
+        f"over the whole cycle, so the readings that span versions have nothing "
+        f"from it (#198)."
+    )
 
 
 def open_flow_measurement_issues(repo):
@@ -302,7 +327,7 @@ def open_flow_measurement_issues(repo):
     return issues
 
 
-def close_issue(repo, number, shipped):
+def close_issue(repo, number, shipped, comments=None):
     """Close the old log, saying on it what replaces it and how it is named.
 
     The comment is the last thing written on an issue people go on reading,
@@ -310,7 +335,14 @@ def close_issue(repo, number, shipped):
     used to promise a log "for the version this release ships next", which is
     the prediction #155 removed: the new log is named after the version this
     release just shipped, and that version is the one thing knowable here.
+
+    `comments` is the count `comment_count` read, and zero adds one sentence:
+    this is the first of the three places a person reads that says the cycle
+    measured nothing (#198). `None` -- the count could not be read -- adds
+    nothing, because a sentence about emptiness on a log that may not be
+    empty is a false record.
     """
+    empty = f" {empty_log_note(number)}" if comments == 0 else ""
     run(
         "gh",
         "issue",
@@ -323,7 +355,7 @@ def close_issue(repo, number, shipped):
         f"flow-measurement issue opens as `{log_title(shipped)}` -- named "
         f"after the version this release shipped, and closed by whatever "
         f"ships after it. `skills/verify/SKILL.md`'s \"Measure the segment, "
-        f'and feed the flow log" section has the reasoning.',
+        f'and feed the flow log" section has the reasoning.{empty}',
     )
 
 
@@ -370,12 +402,15 @@ def find_baseline_issue(repo):
     return (issues[0]["number"], None) if issues else (None, None)
 
 
-def issue_body(shipped, closed_number, baseline_number, notes=()):
+def issue_body(shipped, closed_number, baseline_number, notes=(), comments=None):
     """What the rolling log says about itself on the day it is opened.
 
     `notes` are what the create could not set -- see the module docstring.
     They go in the body rather than in the workflow log because the issue is
-    the artifact a person opens.
+    the artifact a person opens. `comments` at zero adds the second of the
+    three places that say the predecessor closed empty (#198): the new log is
+    the one the next session opens to write in, and a reader there is the
+    one who can still do something about a cycle that measured nothing.
     """
     ledger = (
         f"Baselines and the observations that span versions live in "
@@ -388,7 +423,8 @@ def issue_body(shipped, closed_number, baseline_number, notes=()):
         f"segment, covers the work done since {shipped} shipped, and is "
         f"closed by the release that ships the next version."
     )
-    return "\n\n".join([opening, *notes])
+    empty = (empty_log_note(closed_number),) if comments == 0 else ()
+    return "\n\n".join([opening, *empty, *notes])
 
 
 def create_args(repo, title, body, extras):
@@ -427,7 +463,7 @@ def landed_create(repo, closed_number):
     return False
 
 
-def open_issue(repo, shipped, closed_number):
+def open_issue(repo, shipped, closed_number, comments=None):
     title = log_title(shipped)
     baseline, baseline_note = find_baseline_issue(repo)
     ledger_notes = (baseline_note,) if baseline_note else ()
@@ -439,7 +475,9 @@ def open_issue(repo, shipped, closed_number):
         (("--label", INDEX_LABEL, "--milestone", INDEX_MILESTONE), ()),
         (("--label", INDEX_LABEL), (MILESTONE_NOTE,)),
     ):
-        body = issue_body(shipped, closed_number, baseline, (*notes, *ledger_notes))
+        body = issue_body(
+            shipped, closed_number, baseline, (*notes, *ledger_notes), comments
+        )
         if try_run(*create_args(repo, title, body, extras)) is not None:
             return title
         if landed_create(repo, closed_number):
@@ -449,7 +487,11 @@ def open_issue(repo, shipped, closed_number):
             return title
 
     body = issue_body(
-        shipped, closed_number, baseline, (MILESTONE_NOTE, INDEX_NOTE, *ledger_notes)
+        shipped,
+        closed_number,
+        baseline,
+        (MILESTONE_NOTE, INDEX_NOTE, *ledger_notes),
+        comments,
     )
     run(*create_args(repo, title, body, ()))
     return title
@@ -489,9 +531,23 @@ def main():
         )
         return
 
-    close_issue(repo, number, shipped)
+    # The third of the three places that say a cycle measured nothing (#198):
+    # the job's own output, beside the `rolled:` line below. Read before the
+    # close so the count is the log's as it stood, and never a reason not
+    # to roll -- a release does not stop for bookkeeping about a release.
+    comments = comment_count(issues[0])
+    if comments is None:
+        print(
+            f"could not read #{number}'s comment count from the listing — "
+            f"rolling as before, and saying nothing about whether the log "
+            f"was written in"
+        )
+    elif comments == 0:
+        print(empty_log_note(number))
+
+    close_issue(repo, number, shipped, comments)
     try:
-        opened = open_issue(repo, shipped, number)
+        opened = open_issue(repo, shipped, number, comments)
     except SystemExit as exc:
         sys.exit(
             f"closed #{number}, but opening the next issue failed: {exc}. "

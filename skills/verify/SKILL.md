@@ -453,7 +453,7 @@ End with this block. Values that cannot be filled honestly stay `none —
 · <claim> — <command> → <key output line> (exit <n>)  [executed]
 · <claim> — <where read, file:line>                   [read]
 · <claim> — unverified; <who/what answers>            [unverified]
-· broad gate: <not yet — due when the last round record's `Pass` is checked | ran at <sha> vs base <sha>>
+· broad gate: <not yet — due when the last round record's `Pass` is checked | ran at <sha> vs base <sha>[; earlier run: <sha> vs base <sha>]>
 · cost: <n> check runs, <m> minutes of command time
 · red proven: <how the check was seen failing, or none — <reason>>
 ```
@@ -747,7 +747,7 @@ gathers up.
 | Records' share of the diff | `git diff --numstat` against the base, the record paths above counted apart |
 | Model turns · output tokens · cache write · cache read | `session_cost.py`'s token line over the run's main transcript |
 | Segments: count, minutes and tokens per kind | the agent completion notices, or the subagent transcripts |
-| Broad gate: whether it has run, and at what SHA | the last round record's `Broad gate` cell, which holds `not yet` or one SHA with the base it was compared against |
+| Broad gate: whether it has run, how many times, and at what SHA | the last round record's `Broad gate` cell, which holds `not yet` or one entry per full-suite run, newest first, each a SHA with the base it was compared against — the count is the number of entries, read off the cell rather than remembered (#174) |
 
 **The tokens are counted, not estimated, and counted the same way every
 time.** `session_cost.py <the run's main transcript>` prints the token line,

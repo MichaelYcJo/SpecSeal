@@ -186,7 +186,25 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   check nobody ran. A row that commissions nothing takes no id at all, and so
   does a confirmation you verified and an earlier round's closure you carried
   forward (`docs/review-chain-spec.md` §*A verdict row that commissions
-  nothing*).
+  nothing*). *No id* means the number and not the cell: the cell holds a
+  bare marker or a word — `🟢`, `❓`, `carried` — and an empty cell is the one
+  shape refused (#437).
+
+  **A carried closure has three requirements, and one row shows all of
+  them:**
+
+  ```
+  | 🟢 | round N's blocking finding is closed — <what> | <location> | confirmed | <grounds> |
+  ```
+
+  A bare marker in `#`; the verdict word `confirmed`, never `fixed` —
+  `chain_check.closed_with_a_fix` reads the fix words across every row of
+  the table, so a `fixed` carried forward makes this record one that closed
+  on a fix, which the cap refuses with no way forward; and no 🔴 anywhere in
+  the row — `chain_check.open_blocking` selects on the glyph in every cell,
+  so the inherited severity is written in words, *blocking finding*, never
+  as the glyph. A reviewer who kept the previous round's `fixed` and its 🔴
+  landed on a record the cap refused, at the end of the run.
 
   **Every 🔴 and every 🟡 takes a number, and an unnumbered one is refused.**
   Those two severities are the ones that mean somebody owes the row an
@@ -300,9 +318,11 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   many words, never a figure or a word that reads as an outcome. §4 is the
   rule under it — what was executed and what was not must not share a label.
   Whether
-  the one full-suite run has happened — `not yet`, or the SHA it ran at and
-  the base it was compared against — is invisible in the code, and the next
-  session either repeats a sealed run or ships assuming someone else made it.
+  the one full-suite run has happened — `not yet`, or one entry per run,
+  newest first, each the SHA it ran at and the base it was compared against,
+  an earlier run kept behind the newest as `earlier run` — is invisible in
+  the code, and the next session either repeats a sealed run or ships
+  assuming someone else made it.
   The `Broad gate` cell itself is not yours: `agents/sealer.md` names it as
   that agent's one write, and two definitions naming one cell is the state §6
   exists to make impossible. What you produce is the sentence it and the
@@ -398,13 +418,18 @@ behaviour and the fact stay right is ⬜, which `Needs a fix` never counts —
 
 Beneath the findings prose, three tables in the record's own column headers,
 under these headings exactly — `round_record.py new` writes the record from
-this report, so the headers are what it parses:
+this report, so the headers are what it parses. The three verdict rows are
+the three shapes a `#` cell takes, and copying them is what keeps the
+generator from refusing the table (#503):
 
 ```
 ## Verdicts
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
+| 🟡 1 | <what is wrong> | `file.py:120` | open | <grounds> |
+| 🟢 | round N's blocking finding is closed — <what> | <location> | confirmed | <grounds> |
+| ❓ | <what could not be judged> | <location> | ❓ out of verified scope | <why, and who answers it> |
 
 ## Executed probes
 
@@ -417,6 +442,18 @@ this report, so the headers are what it parses:
 |---|---|---|
 ```
 
+**The severity goes in the `#` cell, and never at the head of the Finding
+cell.** A finding is the marker and then a bare integer — `🔴 1`, `🟡 2`,
+`⬜ 3` — and a 🔴 or 🟡 without a number is refused. A row that commissions
+nothing takes a bare marker or a word — `🟢`, `⬜`, `❓`, `carried` — and
+never an empty cell, which is the one shape refused: two of three reviewers
+in one release wrote the severity at the head of the summary cell, left `#`
+empty, and had the whole table refused after the round had ended. **The
+marker vocabulary is the five the findings format names — 🔴 · 🟡 · ⬜ · 🟢 ·
+❓ — and `✅` is not one of them**: the generator admits it as a row that
+commissions nothing, no document names it, and a reviewer who writes it is
+writing a sixth vocabulary.
+
 And one more heading, with no table under it — the paste-ready fixes
 themselves, one fenced block per finding, in your own order:
 
@@ -425,6 +462,16 @@ themselves, one fenced block per finding, in your own order:
 
 <a fenced block per 🔴/🟡, each marked the way the findings format asks>
 ```
+
+Under `## Paste-ready fixes` and under `## Executed probes` you may group
+with `###` subheadings, one per finding; the generator takes the fences and
+nothing else, and a section ends at the next heading of its own level or
+shallower — a `##` or a `#` — never at a `###` (#505). **Write `&lt;!--`
+wherever you mean the four characters of a comment opener, a code span
+included**: the generator reads the report with comments stripped, so a
+literal opener anywhere in it — even inside backticks — opens a comment and
+takes the rest of the report with it, and the refusal arrives after your
+round has ended.
 
 `round_record.py new` copies those three tables into `round-N.md` row for
 row, takes every fenced block under `## Paste-ready fixes` and under

@@ -484,21 +484,64 @@ def test_every_input_the_script_reads_is_handed_to_it_by_the_step():
     `HEAD_SHA` is neither. Losing it falls back to `HEAD`, which in CI is the
     merge ref — so the step goes green, the range silently collapses to the
     spelling `questions.md` Q8 rejected, and finding 2 is back with nothing
-    saying so. One silent entry in the block is what turns the note into a
-    case, and the case covers every entry rather than one, because a reader
-    deleting a line does not first ask which kind it is.
+    saying so. `HEAD_BRANCH` is silent the same way: `version_of("")` takes
+    the hotfix skip and borrows its log line (#362). A silent entry in the
+    block is what turns the note into a case, and the case covers every entry
+    rather than the silent ones, because a reader deleting a line does not
+    first ask which kind it is.
+
+    The boundary is what the step must pass — `GH_TOKEN` included, which
+    reaches the script through `gh` rather than through `os.environ`.
+    Measured one entry removed at a time against a fixture branch name, exit
+    codes read directly: `REPO` 1 (`KeyError`), `HEAD_SHA` 0 (silent),
+    `HEAD_BRANCH` 0 (the *not a release branch* line), `BASE` 0 (the
+    default), `GH_TOKEN` 1 (`gh` fails). The module docstring carries the
+    same table, and the case below holds the two texts to each other.
     """
     env = hygiene_step().split("shell:")[0]
     for name in ("GH_TOKEN", "HEAD_BRANCH", "HEAD_SHA", "BASE", "REPO"):
         assert f"{name}:" in env, (
             f"the gate step no longer passes {name}. Every one of these is "
-            "read by `release_completeness_check.py`, and HEAD_SHA's absence "
-            "is the only one that is silent"
+            "an input of `release_completeness_check.py`, and two absences "
+            "are silent"
         )
     assert "github.event.pull_request.head.sha" in env, (
         "HEAD_SHA no longer names the pull request's own head commit, so the "
         "fork point is measured against whatever the checkout left at HEAD"
     )
+
+
+def test_the_script_and_this_file_draw_the_input_boundary_the_same_way():
+    """#362. The module docstring said `HEAD_SHA` is *the one entry whose
+    absence is silent* and named four inputs; the case above loops over five
+    and repeated the superlative. Measured one input removed at a time, two
+    absences are silent (`HEAD_SHA`, `HEAD_BRANCH`), so the superlative was
+    false, and a count rots the next time an input is added. Both places now
+    say the boundary is what the step must pass and carry the measured table
+    instead of a count — this reads the two texts for the superlative and for
+    the five names, so the next edit to one has to reach the other."""
+    # Whitespace collapsed, because both texts wrap: the superlative sat
+    # across a line break, and a substring check on the raw text missed it.
+    module = " ".join(read(SCRIPT).split('"""')[1].split())
+    this = read(os.path.abspath(__file__))
+    here = this[
+        this.index(
+            "def test_every_input_the_script_reads_is_handed_to_it_by_the_step"
+        ) :
+    ]
+    here = " ".join(here.split('"""')[1].split())
+    for name, text in (
+        ("the module docstring", module),
+        ("the case's docstring", here),
+    ):
+        assert "the one entry whose absence is silent" not in text, (
+            f"{name} says one absence is silent; two are, measured"
+        )
+        assert "the step must pass" in text, (
+            f"{name} does not say which boundary it draws"
+        )
+        for env in ("GH_TOKEN", "HEAD_BRANCH", "HEAD_SHA", "BASE", "REPO"):
+            assert f"`{env}`" in text, f"{name} does not name {env}"
 
 
 def test_the_job_asks_for_a_token_that_can_read_issues():

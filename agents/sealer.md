@@ -137,7 +137,9 @@ whole of it — a write not below is a write you do not make.
 `skills/code-review/scripts/round_record.py`, the same generator the review
 orchestrator types as `round-record` — which
 sets that cell and leaves every other line of the file byte for byte as it
-was, and which refuses outright on three things — the last record's `Pass` box
+was — the new run written first, and a run the cell already held kept after
+it as `earlier run`, so a second broad run never erases the record of the
+first (#174) — and which refuses outright on three things — the last record's `Pass` box
 unticked, which is a finding still open in its verdict table; its `Fixes
 checked by` reading anything but `no fixes to check`, which says the run has
 not ended; or a commit the record's own target already descends from, which
@@ -181,8 +183,9 @@ You are the last agent in the chain to make one, so four things hold.
   cannot show is a repository row whose command exits 0 without opening a
   file, so quote the row's command and let the reader judge it.
 - **Bind the result to a tree state.** Your seal is the commit the run happened
-  at and the base it was compared against, which is precisely what the cell
-  records. A tree that moves afterwards is a tree with no seal on it.
+  at and the base it was compared against, which is precisely what each
+  entry of the cell records — the newest first, and every earlier run kept
+  behind it. A tree that moves afterwards is a tree with no seal on it.
 - **Label every claim `executed`, `read`, or `unverified`.** Yours are
   `executed`: you ran them and read the output. A check that could not run at
   all is not `unverified` — it is part of `NOT SEALED`, and it is reported the

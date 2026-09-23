@@ -288,15 +288,15 @@ def test_a_target_given_as_a_revision_is_named_by_its_sha(repo):
     """`--target` legitimately takes `HEAD~1` or a branch name, and a line
     reading *the round read HEAD~1* names nothing anybody can open later.
 
-    This case pins the PRINTED line alone, and deliberately not the record's
-    own cell. `build` writes `--target` into `Target SHA` exactly as it was
-    typed, so a revision there produces `| Target SHA | HEAD~1 |` and
-    `chain_check` then reports *no `| Target SHA | … |` row naming a commit* —
-    observed in this module's own red run of 2026-09-13. That is a defect this
-    work item found and deliberately did not take: `spec.md` §Data & interfaces
-    says nothing about `--target`'s signature moving, and the state is loud
-    rather than silent, because `new` ends in the very check that reports it.
-    `overview.md` §Not done carries the grounds.
+    This case pins the printed line AND the record's own cell. It used to pin
+    the line alone: `build` wrote `--target` into `Target SHA` exactly as it
+    was typed, so a revision there produced `| Target SHA | HEAD~1 |` and
+    `chain_check` then reported *no `| Target SHA | … |` row naming a commit*
+    — observed in this module's own red run of 2026-09-13, filed as #382 and
+    left by that work item because its frame did not move the flag. The cell
+    now holds the commit the revision resolved to, which is what every reader
+    of the cell — `target_shas`, `broad_gate`, `written_late`, `close` — wanted
+    all along; the spelling a person typed is the printed line's to show.
     """
     reviewed = declared(repo)
     write(repo, "f.py", "x = 2\n")
@@ -306,6 +306,9 @@ def test_a_target_given_as_a_revision_is_named_by_its_sha(repo):
     assert MOVED in out, out
     assert reviewed[:7] in out, out
     assert "read HEAD~1" not in out, out
+    record = (repo / ITEM / "rounds" / "round-1.md").read_text(encoding="utf-8")
+    assert f"| Target SHA | {reviewed} |" in record, record
+    assert "HEAD~1" not in record, "the cell names a commit, not a revision"
 
 
 # --- round 1's 🟡 2: HEAD is BEHIND the commit the round read ---------------

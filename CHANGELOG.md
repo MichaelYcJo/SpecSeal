@@ -1,5 +1,190 @@
 # Changelog
 
+## 0.15.0 — 2026-09-23
+
+<!-- specs/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row -->
+- **A bare `yes` in a round record's `Needs a fix` row no longer buys the run
+  a round (issue #138).** The floor's count of later records restarts at the
+  record whose `Needs a fix` says the run reopened, and a `yes` with nothing
+  after it used to say exactly that — three characters that the row beside
+  it, `Loses a record or crashes`, had refused from the day it was read.
+  Now the two rows take one vocabulary at both ends: `chain_check.py` refuses
+  a bare `yes` on the record that carries it, in the floor row's words, for
+  work items begun at or after `NEEDS_FROM` (it prints before that, under
+  the row's existing grandfathering — no committed record carries one, so no
+  new cutoff), and in the count walk a bare `yes` reads as no reopening at
+  all, the value an unreadable cell already has. `round_record.py new`
+  refuses the report one command earlier, for either terminal line, and its
+  printed bound reads the cell through the gate's own reader, so the line a
+  session reads before spawning and the gate cannot disagree about it.
+  `docs/review-chain-spec.md`'s `Needs a fix` table, `templates/sdd-round.md`
+  and the checker's own inventory say so, each pinned.
+- **A session that wrote a change and checked it itself has an honest
+  `Review` answer, and it is the second of the two (issue #241).** The ticket
+  asked for a third — *reviewed by the session* — because seven documents said
+  `straight to the PR` requires nothing. It has not required nothing since
+  `chain_check.py#direct_seal` began asking a ready pull request for the
+  sealer's `broad-gate.md`: the one broad run, at a SHA, against the base.
+  That is exactly what a session's own check leaves that CI can read; the
+  reading half is prose, and a record its author writes about itself is what
+  the chain's `Fixes checked by` and `Ran by` rows already refuse. So no third
+  answer is added, and the seven places — the specification's declaration
+  table, the checker's inventory, the orchestration skill's four-combinations
+  table and closing paragraph, the commit gate's first option, that option's
+  own test and the routing template — now say what the direct answer owes and
+  what it turns off, which is the reviewer alone. The specification gains a
+  paragraph beside the table saying why two answers and not three, the
+  release checklist names its waived commit as the routing question's
+  `no work item` answer, and a pinning module holds each carrier to the
+  sentence that stands and the one that is gone.
+
+<!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
+- **The release closer attempts every issue, falls back to the REST route
+  where `gh issue close` is refused, and goes red only at the end (issue
+  #536).** It used to exit on the first refused `gh` call, so one GraphQL
+  refusal at the release before this one left four shipped issues open and
+  the repair was a hand run. Now a refusal takes `gh api -X PATCH
+  …/issues/<n> -f state=closed` and posts the same closing comment through
+  `gh api …/issues/<n>/comments` where the refused route did not already
+  leave it (`gh issue close --comment` comments before it closes, so it
+  usually did — the comment count is read around the first route); each
+  fallback is printed so the job log says
+  how many took it; an issue both routes refuse keeps its `size: now` label
+  and is named at the end with both errors, after every other issue was
+  attempted. `docs/branch-and-release.md` and `docs/release-checklist.md` §6
+  say so, and the checklist gains the box that repairs a partial close by
+  re-running the script with the run's `BEFORE`, `AFTER` and `REPO`.
+- **The closer masks a tilde fence, a fence indented under a list item and a
+  double-backtick span, so a closing keyword quoted inside any of them no
+  longer closes the issue at the release (issue #266).** This changes what a
+  release closes, in one direction: masking more closes fewer, and an issue
+  left open is visible on the tracker and closed by a re-run where an issue
+  closed on a quoted example is a false record. `issue_claims_check.py`
+  imports the same two patterns, so the pull request check widens with them.
+  Two shapes stay as they were, each with a case pinning it and the reason at
+  the pattern: a four-space indented block, because that is also how this
+  repository's pull request bodies continue a bullet, and an HTML comment,
+  because whether GitHub acts on a keyword inside one is unmeasured. The
+  `# RIDER:` that carried the question is retired.
+- **A second `gather_changelog.py --version X.Y.Z` appends into the section
+  that version already has, keeps the first gather's date, and a hygiene
+  case refuses a `CHANGELOG.md` that heads one version twice (issue #289).**
+  A release pull request going red and a fragment landing after the
+  preparation commit is the ordinary shape, and the second gather used to
+  write a second heading for it, so one release's entries read as two
+  releases with the same number. The dry run says which section the entries
+  join. `docs/release-checklist.md` §2 says a second gather appends.
+- **A version this repository has tagged may be named in the documents that
+  ship with it (issue #363).** The timer sweep in
+  `tests/test_release_hygiene.py` refused every version at or above the
+  running one, and the running one is bumped at the preparation commit — so
+  from that commit until the next bump the version that had just shipped
+  could not be written into `docs/`, one release long, exactly when a
+  document most wants to cite it. The shipped set is read from the root's
+  `v*` tags and never from `CHANGELOG.md`, whose heading lands in the same
+  commit as the bump; a version bumped and not yet tagged is still refused.
+  A checkout that can see no tag fails loudly, naming `fetch-depth: 0`,
+  rather than refusing the running version again in silence. The refusal
+  text names the route; `docs/release-checklist.md` §3 and §5 and
+  `docs/issues-and-milestones.md` say a tagged version is history.
+- **The completeness gate's docstring and the case that pins its inputs draw
+  one boundary — what the step must pass — and carry the measured table
+  instead of a count and a superlative (issue #362).** The docstring said
+  `HEAD_SHA` was the one input whose absence is silent and named four; the
+  case looped over five. Measured again, one input removed at a time: two
+  absences are silent, `HEAD_SHA` and `HEAD_BRANCH`. A case holds the two
+  texts to each other so the next edit to one reaches the other. Nothing the
+  gate decides changes.
+- **A flow-measurement log the release rolls with no comment on it is said
+  so where a person reads (issue #198).** The roll opened a log, carried it
+  through a whole release and closed it empty, and nothing read what was in
+  the log it was closing. It now reads the comment count off the one list
+  call it already makes, and at zero says so in three places: the close
+  comment on the old log, the new log's body, and the job's output. The
+  release ships either way; a count the listing could not answer rolls
+  exactly as before and prints that it was unreadable.
+  `docs/issues-and-milestones.md` §*`flow-measurement` is a label that is
+  not an index* says what an empty cycle produces.
+- **`/specseal:update` reads the installed copy before it summarises (issue
+  #157).** The installer keys the install path by the version string and
+  skips extraction when that directory already exists, so on a machine with
+  a directory by that name from an earlier numbering it reported success
+  and the copy that would have loaded was eight releases old — and the
+  skill summarised the marketplace clone, the right file in the wrong place.
+  A step 2b reads `installed_plugins.json`'s one `installPath`, compares the
+  installed `CHANGELOG.md`'s top heading with the version the installer
+  reported, and on a mismatch stops before the summary, names both
+  versions, and prints the repair for the user to type — with the two
+  cautions: `.in_use/` holds a live session's PID files, and the one
+  `installPath` is the directory that must not be deleted.
+
+<!-- specs/1790174138-the-report-the-record-and-the-cells-disagree-on-one-format -->
+- **The warden's report, `round_record.py` and the record's cells agree on
+  one format (issues #503, #437, #505, #382, #436, #217, #218, #174).** Three
+  reviewers in one release were refused by the record generator for the shape
+  of one cell, and the generator and the checkers had five quieter
+  disagreements with the cells they write and read. Now the reviewer copies
+  the standard rather than being told it: `agents/warden.md`'s fenced
+  skeleton shows a numbered 🟡, a bare 🟢 carried closure with `confirmed`,
+  and a bare ❓, says the severity goes in the `#` cell and an empty cell is
+  the one shape refused, names the five markers with `✅` outside them,
+  allows `###` under the two fenced sections, and asks for `&lt;!--` wherever
+  a comment opener is meant. The worked carried-closure row — a bare marker,
+  `confirmed` never `fixed`, no 🔴 anywhere in it — is one text in the
+  warden, the review skill, the specification and the round template, pinned
+  to each other, and the skeleton itself is run through `new`.
+  The generator reads a report section to the next heading of its own level
+  or shallower, so six fixes under six `###` entries reach the record where
+  they used to arrive as *no paste-ready fix in the report*, and a table
+  hidden under a `###` is refused rather than silently lost; `Target SHA`
+  holds the commit `--target` resolved to rather than `HEAD~1` as typed.
+  `chain_check.py` refuses a `Fix range` still saying the fixes are not yet
+  written beside a `round-N`, as it already refused the two surface rows,
+  under `RANGE_FROM` and no cutoff of its own; `evidence-check`'s records arm
+  reads the lines after an HTML comment the record never closes, the way it
+  already read an unclosed fence, so a missing `-->` is no longer a way past
+  it. The printed bound reports a count walk that stopped after reaching
+  two as the error the gate already returns, where it printed `one
+  reopening remains` one round after `this record ends the run`
+  (584-sequence differential against `stopping_floor`: 16 disagreeing, now
+  0). And the `Broad gate` cell holds one entry per full-suite run, newest
+  first — `seal` writes the new run in front and keeps the earlier one as
+  `earlier run` — for the last round record and `broad-gate.md` alike, so a
+  re-seal records a second run instead of erasing the first; a first seal is
+  byte-identical to before, and the reader still takes the first SHA as the
+  run. #159 is deferred to the release after, with its design sketched in
+  the work item's plan.
+
+<!-- specs/1790174139-survivors-md-silences-what-it-quotes -->
+### Fixed
+
+- `survivor-check` no longer lets a work item's own `survivors.md` silence the
+  survivors it quotes. The file is out of the search on both sides — the pool
+  it reads at the tip and the range it measures — so a row's quote is neither
+  wording the fix wrote (which subtracted the survivor before `--exempt` was
+  read, #507) nor one more carrier of the phrase (which diluted the score
+  under the floor, #308). A survivor is found, the row is read against it,
+  and it prints under `exempt` with the row's grounds; a range that edits
+  only the exemption file removes no sentence. On three pull requests of one
+  release the file had silenced 29 of the 36 rows written into it; over the
+  same three ranges 14 rows now print and the rest match nothing at that
+  range, with or without the file.
+- A work item's `phases/phase-N.md` is out of the survivor sweep on both
+  sides too, the way a round record already was: it records what a phase was
+  asked, found and removed, so wording it quotes is neither a survivor to
+  correct nor a correction to chase. Before, a phase record carrying the old
+  wording was reported beside the real survivor and diluted it, and a phase
+  record the range closed subtracted what it quoted. What the sweep gives up
+  with that — a correction hidden in an HTML comment beside a claim still
+  rendered in bold, which it caught once only because the record was in the
+  pool — is named in `seal/follow-up.md`.
+- A `survivors.md` handed to `survivor-check --exempt` from one directory
+  deeper than the layout now belongs to the work item above it, so its
+  whole-range row is asked whether the range touches that work item and is
+  refused with `not yours` when it does not. Before, the deeper file had no
+  owner, and an ownerless row excused any range it resolved onto, in silence.
+  CI never hands the sweep such a file; a hand run could.
+
 ## 0.14.0 — 2026-09-23
 
 <!-- specs/1790134781-a-label-description-past-100-characters-fails-every-release -->

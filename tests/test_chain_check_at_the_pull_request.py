@@ -767,6 +767,53 @@ def test_a_checked_pass_beside_an_open_blocking_finding_fails(repo):
     assert "`Pass` is checked" in out
 
 
+def test_a_blocking_finding_below_a_subheading_is_still_in_the_table(repo):
+    """#505's class in the checker's own reader. `verdict_table` ended the
+    `## Verdicts` section at the first line starting with `#`, so a `###`
+    inserted by hand between the header and an open 🔴 row put that row
+    outside the section: `open_blocking` saw no blocker, and a checked `Pass`
+    beside it passed. The generator never writes a heading into a section,
+    so only a hand-edited record reaches this — which is the record the
+    checker exists for. A section ends at a heading of its own level or
+    shallower, here as in `round_record.py`, and the survivor sweep over the
+    generator's fix is what found this copy of the loop."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    text = record(sha, passed=True, verdict="open")
+    separator = "|---|---|---|---|---|\n"
+    assert text.count(separator) == 1, text
+    text = text.replace(separator, separator + "\n### a label somebody added\n\n")
+    write(repo, f"{ROUNDS}/round-1.md", text)
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 1, out
+    assert "`Pass` is checked" in out
+
+
+def test_a_repeated_header_row_is_not_a_verdict_row():
+    """Round 1's 🟡 3, the checker's half. A record whose `## Verdicts` holds
+    a second table under a `###` — or a hand-pasted header — used to hand
+    `verdict_table`'s callers a row whose `#` cell reads `#` and whose
+    verdict cell reads `Verdict`. The row names the columns; it is skipped
+    the way the separator is, and the rows around it are read."""
+    check = _module("chain_check_for_a_repeated_header", CHECK)
+    reader = _module("reader_for_a_repeated_header", check.READER)
+    text = (
+        "# r\n\n## Verdicts\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
+        "| 🔴 1 | something | `f.py:1` | open | grounds |\n\n"
+        "### earlier rounds, re-checked\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n|---|---|---|---|---|\n"
+        "| 🟢 | round 0's finding | `f.py:2` | confirmed | read |\n"
+    )
+    rows, col, _header, errors = check.verdict_table(
+        reader, reader.readable(text), "rounds/round-1.md"
+    )
+    assert errors == [], errors
+    assert [seen[0] for _n, seen in rows] == ["🔴 1", "🟢"], rows
+    assert col == 3
+
+
 def test_an_unchecked_pass_fails_once_the_pull_request_is_ready(repo):
     """Reversed deliberately, and this docstring is the record of it.
 
@@ -2843,6 +2890,87 @@ def test_a_fix_range_saying_none_is_not_read_against_anything(repo):
     code, out = run(repo, draft=False)
     assert code == 0, out
     assert RANGE_ROW not in out, out
+
+
+PENDING_RANGE = "none — the fixes are not yet written"
+
+
+def read_by_a_later_round(repo, began, checked_by):
+    """Two records; the FIRST carries `Fix range` at the value `new` writes
+    before the fixes exist, beside a `Fixes checked by` of `checked_by`.
+
+    The second record exists so that `round-2` is a checker the repository
+    can confirm; it is the last record and carries its own seal.
+    """
+    item = gated_item(began, slug="a-ranged-item")
+    write(repo, f"{item}/routing.md", declaration())
+    first = commit(repo, "declare")
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        "# a round\n\n"
+        f"| Field | Value |\n|---|---|\n| Target SHA | {first} |\n"
+        "| Broad gate | not yet |\n"
+        f"| Fix range | {PENDING_RANGE} |\n"
+        f"| Fixes checked by | {checked_by} |\n"
+        "| Contract changes | none |\n"
+        "| New units | none |\n"
+        "| Ran by | specseal:warden on a model |\n"
+        "| Needs a fix | no |\n"
+        "| Loses a record or crashes | no |\n\n"
+        "- [x] Pass\n\n"
+        "## Verdicts\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n"
+        "|---|---|---|---|---|\n"
+        "| 🟡 1 | something | `f.py:1` | answered | grounds |\n",
+    )
+    second = commit(repo, "round 1")
+    write(
+        repo,
+        f"{item}/rounds/round-2.md",
+        gated_record(second, gate=f"{second} against base", rng="none"),
+    )
+    commit(repo, "round 2")
+    return run(repo, draft=False)
+
+
+def test_a_fix_range_still_pending_after_a_round_read_the_fixes_fails(repo):
+    """A6 of #436. `Fixes checked by` naming `round-2` says a later round
+    opened this record's fixes, so they exist — and `Fix range` two rows up
+    still saying they are not yet written is false about a fact the same
+    file states. `fix_surface` refuses exactly that on its own two rows;
+    this row took the same pending value from the same line of `build` and
+    was never read back for whether anybody replaced it."""
+    code, out = read_by_a_later_round(repo, RANGE_FROM, "round-2")
+    assert code == 1, out
+    assert RANGE_ROW in out and "not yet written" in out, out
+    assert "round-1.md" in out, out
+    assert "round-2" in out, "the refusal names the checker that contradicts the cell"
+
+
+def test_a_fix_range_still_pending_prints_for_a_work_item_begun_before_the_row(
+    repo,
+):
+    """One second before `RANGE_FROM`, the same pair prints and does not fail
+    — the row's own grandfathering, and no cutoff of its own. The row has
+    carried the pending value from birth since it shipped, so `ORDER_FROM`
+    would excuse nothing this does not."""
+    code, out = read_by_a_later_round(repo, RANGE_FROM - 1, "round-2")
+    assert code == 0, out
+    assert RANGE_ROW in out and "not yet written" in out, "the state is reported"
+    assert str(RANGE_FROM) in out, "and the cutoff is named"
+
+
+def test_a_fix_range_pending_beside_nobody_is_the_honest_mid_run_state(repo):
+    """The direction that must keep passing: nothing has opened the fixes,
+    `Fixes checked by` says so, and the pending value is the truth rather than
+    an abandoned cell. `no fixes to check` beside the same value is the case
+    two above, and stays untouched too."""
+    code, out = read_by_a_later_round(
+        repo, RANGE_FROM, "nobody — this round's fixes are not written"
+    )
+    assert code == 0, out
+    assert "still says the fixes are not yet written" not in out, out
 
 
 def test_an_empty_fix_range_row_is_named(repo):

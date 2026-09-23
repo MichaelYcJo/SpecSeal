@@ -22,7 +22,13 @@ this file is for people. -->
 | Answer pressed | <automation, or: per axis> |
 | Branch | <the branch this work item is being built on> |
 
-<!-- Review — `through the review chain` or `straight to the PR`.
+<!-- Review — `through the review chain` or `straight to the PR`. The first
+     owes a committed `rounds/round-N.md` at the pull request; the second
+     turns off the reviewer alone and owes the sealer's `broad-gate.md` in
+     this directory at a ready pull request — the one broad run, at a SHA,
+     against the base. Neither is *no enforcement*: a change belonging to no
+     work item is the routing question's `no work item` answer, recorded as
+     `[no-review]` in front of each commit.
      Destination — `open the pull request` or `stop before the pull request`.
      Planning — `framer` or `the session`. Who draws the frame — `spec.md`,
      `plan.md` and the questions: the `framer` subagent, or this session

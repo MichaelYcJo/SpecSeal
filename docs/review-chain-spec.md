@@ -337,7 +337,11 @@ Two leftovers are not findings and take no rung:
 
 Then the `sealer` takes the broad gate once — spawned with the base and the
 work item, running `broad-gate` and writing the last record's `Broad gate`
-cell — and the change opens as a pull request.
+cell — and the change opens as a pull request. Where the gate has to be taken
+again, the cell keeps every run: the newest entry first, each `<sha> against
+<base>`, the earlier ones behind it as `earlier run` — so a re-seal records a
+second run rather than erasing the first, and the reader still takes the
+first SHA-shaped word as the run (#174).
 
 **The chain ends at a PR, never at a merge.** Those are two mistakes at the
 same spot. A run that stops at a report leaves finished work where nobody
@@ -739,8 +743,25 @@ edit and asking for `[no-review]` as well is asking for the same answer twice.
 | The declaration says | At the commit | At the pull request |
 |---|---|---|
 | through the review chain | silent | a committed `rounds/round-N.md` is required, every commit its `Target SHA` names being REACHABLE — an ancestor of HEAD, or of the branch `routing.md` declares — its last round's `Pass` **checked**, that claim consistent with its own verdict table, and its `Fixes checked by` naming a checker the repository can confirm. A record this pull request does not touch keeps every requirement except reachability: its commits are expected to be gone, and the review it records was enforced at the pull request that added it |
-| straight to the PR | silent | nothing required; the declaration is printed |
+| straight to the PR | silent | the sealer's `broad-gate.md` in the work item's directory, for a work item begun at or after `chain_check.py`'s `DIRECT_GATE_FROM` — the one broad run, at a SHA the tree can see, against the base — and nothing else: the answer turns off the reviewer alone. A draft pull request is excused the file, an earlier work item is excused and prints, and the declaration is printed either way, because a decision nobody sees is not a record |
 | nothing readable, or no file | today's behavior — deny once, then ask | pass, with a notice saying nothing was checked |
+
+**Two answers, and not three.** A session that wrote a change and then checked
+it itself has asked for a third — *reviewed by the session* — with a record of
+its own (#241). There is none, and the reason is what the chain's record is
+worth: something, only because somebody other than the author wrote it.
+`Fixes checked by` refuses *the session that wrote them*
+(§*Two records, and what each of them says*), `Ran by` is the spawning
+session's row and never the agent's own, and the contract names a review that
+certifies itself as what the commit gate exists to catch. What the author's own
+check leaves that CI can read is what it RAN — the broad gate at a SHA against
+a base — and that is the sealer's stamp, which `straight to the PR` already
+owes in the row above. The reading half, *here is what I checked*, is prose,
+and prose is not evidence. So a change its author checked declares `straight
+to the PR` and takes the broad run; what that answer turns off is the reviewer,
+and nothing else. A change belonging to no work item at all is the routing
+question's third answer, `no work item`, whose recorded form is `[no-review]`
+in front of each commit — there is no value meaning no enforcement anywhere.
 
 **A declaration the pull request RETIRED is not one it made**, and neither is
 one it only renamed. Both are ways a `routing.md` leaves a diff without
@@ -944,6 +965,26 @@ count is what a later round and the pull request read.
 digits there are an id — `round 2's 1` keyed as finding **2** under the reader
 that took the first digit run, colliding with this round's own 2.
 
+**A carried closure is one worked row, and the row carries three
+requirements** (#437) — the reviewer's two files, `agents/warden.md` and
+`skills/code-review/SKILL.md`, show the same row:
+
+```
+| 🟢 | round N's blocking finding is closed — <what> | <location> | confirmed | <grounds> |
+```
+
+A bare marker in `#`, because the row commissions nothing and an empty cell
+is refused. The verdict word `confirmed`, never `fixed`: `closed_with_a_fix`
+reads `FIX_WORDS` across every row of the table, so a `fixed` carried forward
+makes the record one that closed on a fix, which the reopening rule refuses
+at the cap with no way forward the documents describe. And no 🔴 anywhere in
+the row: `open_blocking` selects on the glyph in every cell, so the inherited
+severity is written in words. #437 measured it at its filing, over the work
+items then holding two or more records: three last records read as
+closed-with-a-fix, and every one was a carried `fixed`. The count is the
+ticket's and is not repeated here — it moves with every record the tree
+gains, and a number without its tree state is not a coordinate.
+
 **The severity is read as well as the `#` cell, and that is not decoration.**
 A row admitted here is never keyed, never asked for a closure and never
 counted toward `Pass` — so a `#` cell alone deciding the question ticked
@@ -1095,6 +1136,7 @@ with the tree is what a moving end leaves behind once it has stopped moving.
 | `Fix range` absent, work item begun on or after the cutoff | **fails**, naming the row and what it buys |
 | absent, work item begun before the cutoff (or with no timestamp prefix) | prints — the same grandfathering the rows above use, keyed to `chain_check.py`'s `RANGE_FROM`, whose value is the id of the work item that added the row |
 | `none`, with or without a reason | passes. A round that commissioned no fixes has no range, and this is the value the row starts at |
+| `none — the fixes are not yet written` — the template's own pending words — beside a `round-N` in `Fixes checked by`, work item begun on or after the cutoff | **fails**, naming both cells (#436). A later round opened these fixes, so they exist, and the cell contradicts its own file the way `no fixes to check` beside a `fixed` verdict does — the refusal `fix_surface` already makes on its own two rows, which took the same pending value from the same line of the generator. Beside `nobody — <why>` or `no fixes to check` the pair is untouched: nothing has opened the fixes, or there are none. Before the cutoff it prints, under the row's own grandfathering — no cutoff of its own, because the row has carried the pending value from birth since it shipped and zero committed records at or after `RANGE_FROM` hold the pair |
 | an empty cell | **fails** on any record — a row that says nothing answers nothing |
 | a value naming no readable `` `<a>..<b>`, N commits `` | **fails** on any record, quoting the cell. A present cell nobody can parse is always the author's to fix, where a row that did not exist when the record was written is not |
 | both ends resolve and the count matches `git rev-list --count <a>..<b>` | passes |
@@ -1400,7 +1442,8 @@ vocabulary.
 |---|---|
 | `no`, or `yes — <what>` | passes. A reason after `no` is an answer too, and 30 of this repository's own records are written that way |
 | absent, empty, or a value that is neither, work item begun on or after `NEEDS_FROM` | **fails**, naming the row and the bound that rests on it |
-| any of those, work item begun before `NEEDS_FROM` (or with no timestamp prefix) | prints |
+| `yes` with nothing after it, work item begun on or after `NEEDS_FROM` | **fails** — `yes` alone is refused the way the floor row's is, *says `yes` and does not say what*, because this is the cell the bound above restarts its count at: a bare `yes` used to read as a reopening, so three characters bought the run a round past its own floor (#138). In the count it now reads as no reopening at all, the value an unreadable cell already has — a cell the check refuses must never be the thing that quiets a refusal |
+| any of those four, work item begun before `NEEDS_FROM` (or with no timestamp prefix) | prints |
 
 **This row is grandfathered WHOLE, where the three above grandfather only an
 absent row, and the difference is the row's history rather than an
@@ -1473,8 +1516,8 @@ prompt it sent, and reverted 37.9 minutes of agent time.
 | What `new` prints | When |
 |---|---|
 | nothing | no earlier record met the floor — the cap governs, and the cap is not this line's subject — or the gate grandfathers this work item, so there is no refusal to warn of |
-| `one reopening remains` | an earlier record's floor row reads `no`, no later record has closed on a fix, and the count walk has not already spent a record |
-| `this record ends the run` | one later record closed on a fix — or every later record was quiet, so this one is the gate's second counted record |
+| `one reopening remains` | an earlier record's floor row reads `no`, no later record has closed on a fix, and no floor record's count walk has fired — a running walk with a record already spent, or a stopped walk that reached two |
+| `this record ends the run` | one later record closed on a fix — or every record after some floor record was quiet, so this one is the gate's second counted record — or some floor record's count walk already reached two — stopped there, or still running past it — so the gate returns an error at that record now, before this one exists (#218; the running case is its sibling, found by round 1 of the work item that fixed it) |
 
 The floor record it names is the **earliest** whose row reads `no` — except
 in the count branch, where it is the record the firing walk **started
@@ -2026,8 +2069,8 @@ that can reach the default branch is exempt.
 
 What a draft does **not** excuse is a claim that is wrong at every stage. A
 record naming a checker the repository does not have, and a `Broad gate` cell
-reading `not yet` or naming a SHA that precedes that record's own
-`Target SHA`, are both refused on a ready pull request and each says which of
+reading `not yet` or whose newest entry names a SHA that precedes that
+record's own `Target SHA`, are both refused on a ready pull request and each says which of
 the two it is — one is the run that never happened, the other the run spent
 before the round it was meant to seal.
 

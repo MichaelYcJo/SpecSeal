@@ -809,6 +809,77 @@ def test_needs_a_fix_takes_a_reason_after_either_answer(repo):
     assert code == 0, out
 
 
+# --- a bare `yes` is refused on both terminal rows (#138) -------------------
+
+BARE_YES = "`Needs a fix` says `yes` and does not say what"
+
+
+def test_a_bare_yes_in_needs_a_fix_fails_after_the_cutoff(repo):
+    """A1 of #138. `Loses a record or crashes` refused `yes` with no reason
+    from the day it was read, and the row beside it passed the same three
+    characters under the same parser — and a bare `yes` here is what
+    restarted the floor's count of later records, so it bought the run a
+    round. Refused on the record that carries it, in the floor row's words.
+    """
+    declared(repo, NEW_ITEM, lambda sha: record(sha, needs="yes"))
+    code, out = run(repo)
+    assert code == 1, out
+    assert BARE_YES in out, out
+
+
+def test_a_bare_yes_in_needs_a_fix_prints_before_the_cutoff(repo):
+    """A2. The row is grandfathered WHOLE against `NEEDS_FROM`, and the new
+    refusal sits under that grandfathering rather than under a cutoff of its
+    own: no committed record at or after `NEEDS_FROM` carries a bare `yes`
+    (measured 2026-09-23 — 20 live records and every fixture under `tests/`,
+    none), so a ninth cutoff would excuse nothing."""
+    declared(repo, OLD_ITEM, lambda sha: record(sha, needs="yes"))
+    code, out = run(repo)
+    assert code == 0, out
+    assert BARE_YES in out, (
+        "passing in silence would hide the state the row is read for"
+    )
+    assert "prints instead of failing" in out
+
+
+def test_a_bare_yes_on_a_later_record_does_not_stop_the_count(repo):
+    """A3. Before this, `run_reopened` answered True for a bare `yes`, so the
+    count from R1 stopped at R2 and R3 went uncounted — three characters
+    bought one record. A cell the checker refuses must never be the thing
+    that quiets a refusal: it reads as None, the value an unreadable cell
+    already has, so R1 counts R2 and R3 and fails at two, and R2 fails on
+    its own row as well."""
+    declared(
+        repo,
+        NEW_ITEM,
+        lambda sha: record(sha, floor="no", needs="no"),
+        lambda sha: record(sha, floor="no", needs="yes"),
+        lambda sha: record(sha, floor="no", needs="no"),
+    )
+    code, out = run(repo)
+    assert code == 1, out
+    assert BARE_YES in out, "the bare `yes` is refused on its own record"
+    assert "at most one more" in out, (
+        "the count treated a bare `yes` as a reopening, so the run that went "
+        "past its floor was reported by nothing"
+    )
+
+
+def test_says_reopened_is_the_one_reader_of_the_reopening_question():
+    """The three answers, pinned on the unit both walks and the generator's
+    printed bound read through: `yes — <what>` reopened, `no` (with or
+    without a reason) did not, and a bare `yes` — like an empty cell and a
+    word outside the vocabulary — answers None, which is *not a reopening*
+    wherever it is read."""
+    check = check_module()
+    assert check.says_reopened("yes — 🔴 1") is True
+    assert check.says_reopened("**yes** — one, inside the fixes") is True
+    assert check.says_reopened("no") is False
+    assert check.says_reopened("`no` — both were answered with grounds") is False
+    for value in ("yes", "yes —", "", "probably"):
+        assert check.says_reopened(value) is None, value
+
+
 # --- every `New units` entry carries its depth ------------------------------
 
 
@@ -1224,6 +1295,31 @@ def test_no_document_still_says_the_row_is_read_by_nothing(parts):
     assert gone not in text, (
         f"{'/'.join(parts)} still tells a reader no check reads `Needs a "
         "fix`, beside a bound that now rests on it"
+    )
+
+
+# The sentence each carrier of the `Needs a fix` vocabulary says about a bare
+# `yes` (#138), in words no other row of the same file uses — the floor's own
+# table already says *`yes` with nothing after it*, so pinning that phrase
+# would be live for the wrong row (R12's lesson: a whole-file substring pin
+# is evidence only where the words occur nowhere else).
+BARE_YES_REFUSED = "`yes` alone is refused the way the floor row's is"
+BARE_YES_CARRIERS = (
+    SPEC,
+    ("templates", "sdd-round.md"),
+    CHECKER,
+)
+
+
+@pytest.mark.parametrize("parts", BARE_YES_CARRIERS)
+def test_each_carrier_says_a_bare_yes_is_refused(parts):
+    """A7. A reader opening the specification's `Needs a fix` table, the
+    template's comment or the checker's own inventory finds the refusal
+    where they find the row, rather than meeting it first at the pull
+    request. Seen red by deleting the sentence from one carrier."""
+    assert BARE_YES_REFUSED in flat(*parts), (
+        f"{'/'.join(parts)} does not say a bare `yes` in `Needs a fix` is "
+        "refused, beside a bound the cell restarts"
     )
 
 
