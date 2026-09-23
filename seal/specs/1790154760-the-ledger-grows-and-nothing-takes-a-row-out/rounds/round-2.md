@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 531 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `6d3f4296e2709cf24c74f9c61968407cdc5f76c0..2ec84ed5d2abe311a8e2cbe1fe41436c4312eaa5`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no — both round-1 findings are closed; ⬜ 3 is a correction to C3's enumeration and the counts in spec.md and changelog.md, which are records, not code |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,7 +29,7 @@ Round 2 of #519 is a verifying round. It checked whether round 1's two findings,
 |---|---|---|---|---|
 | 1 | 🟡 `hooks/ledger-migrate.py` stated the checker's full run as "~130 ms", undated and with no instrument | `hooks/ledger-migrate.py:32-40` | answered | Carried from round 1. At `7b0e9b75` every figure has an instrument, a date, the interpreter and the platform. Executed in a clone at the target: scan 144 ms, hook 192 ms, session-start group 262 ms, `--strict .` 1.94–2.07 s; the scan alone is 125 ms of that, so the stated cause holds |
 | 2 | ⬜ `py_spans`'s docstring and the parse-count case's docstring gave "1,328 parses … 15.8 s" with no instrument | `skills/evidence-check/scripts/evidence_check.py:169-174`, `tests/test_a_row_points_by_content.py:126-129` | answered | Carried from round 1. Both now name the instrument and the date (read) |
-| 3 | ⬜ C3 says "every other place" that states a cost of the check or its hooks names the instrument, date and platform. Its enumeration misses `README.md:171-174` / `README.ko.md:170-172` (per-Bash-call gate cost; the post-bash group runs the advisor; undated, no instrument) and `seal/ledger.md:132` (dated by `Checked`, no instrument). `spec.md`'s corrected opening and `changelog.md` count the same short list. Both texts can stand on C3's own dispatch.py grounds; what is wrong is the paperwork's claim of completeness | `seal/ledger/1790154760-the-ledger-grows-and-nothing-takes-a-row-out.md` C3, `seal/specs/1790154760-the-ledger-grows-and-nothing-takes-a-row-out/spec.md` opening, `.../changelog.md` | open | Read: grep of all tracked files, `hooks/dispatch.py:35-54` groups, `git log -S` (`716d8548`). A correction to the run's records, not a fix |
+| 3 | ⬜ C3 says "every other place" that states a cost of the check or its hooks names the instrument, date and platform. Its enumeration misses `README.md:171-174` / `README.ko.md:170-172` (per-Bash-call gate cost; the post-bash group runs the advisor; undated, no instrument) and `seal/ledger.md:132` (dated by `Checked`, no instrument). `spec.md`'s corrected opening and `changelog.md` count the same short list. Both texts can stand on C3's own dispatch.py grounds; what is wrong is the paperwork's claim of completeness | `seal/ledger/1790154760-the-ledger-grows-and-nothing-takes-a-row-out.md` C3, `seal/specs/1790154760-the-ledger-grows-and-nothing-takes-a-row-out/spec.md` opening, `.../changelog.md` | answered | corrected at ee13fe80 — ledger row C3's Notes name `README.md`'s and `README.ko.md`'s gate-group figure and `seal/ledger.md`'s `scan_candidates` row, each with why it stays, under a dated Corrected marker; Read: grep of all tracked files, `hooks/dispatch.py:35-54` groups, `git log -S` (`716d8548`). A correction to the run's records, not a fix |
 | 🟢 | The rider timings near `ANCHOR_RE`, `hooks/dispatch.py`'s start-up figures and `session_cost.py`'s figures are rightly left | `skills/evidence-check/scripts/evidence_check.py:79-97`, `hooks/dispatch.py:5-8`, `skills/verify/scripts/session_cost.py` | not a defect | Read. Dated by the rider's stamp; a gate start-up cost #519 did not change; session durations |
 | 🟢 | `skills/evidence-check/SKILL.md`'s rename-scan figures are dated and have their instrument, and their conclusion holds | `skills/evidence-check/SKILL.md:457-461` | not a defect | Executed: empty-ledger CLI 48 ms with the direct interpreter, about 40 ms more through the pyenv shim; the stated 67 ms lies between |
 | 🟢 | Round 1's Deferred row on "~24 ms / ~60 ms" is answered: the smith re-measured instead of dating | `hooks/ledger-migrate.py:32-40` | not a defect | Executed, as in 1 |
