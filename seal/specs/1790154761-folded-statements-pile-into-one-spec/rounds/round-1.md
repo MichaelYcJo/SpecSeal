@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 527 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `edcd2e3312c6b35323bb3f7e13d605e14ad2aa6a..ca3808375a700e401f7826d0e4f515f0394c74d2`, 1 commit |
 | Contract changes | ceiling_problems → round-1-report.md, round-1.md, pytest |
 | New units | FROZEN_IDS_DIGEST (depth 1); marker_digest (depth 1); test_a_marker_swapped_into_the_listed_document_is_named (depth 1); test_the_frozen_digest_is_the_listed_document_s_markers (depth 1); BOLD_OPENING (depth 1); test_a_target_that_is_not_a_file_in_the_repository_is_named (depth 1); test_a_bare_bold_delimiter_is_not_a_rule_sentence (depth 1); test_a_heading_indented_up_to_three_spaces_is_read (depth 1) |
