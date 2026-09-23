@@ -1985,6 +1985,12 @@ def test_a_spec_deleted_by_an_earlier_merge_is_still_a_deletion(tmp_path, capsys
     assert "retired by the rule" not in out, out
 
 
+def test_a_history_git_cannot_read_counts_as_a_spec_written(tmp_path):
+    """`wrote_a_spec`'s failure direction: a git that cannot answer keeps the
+    directory, because *never wrote one* is the answer that removes it."""
+    assert uc.wrote_a_spec(str(tmp_path), None, "seal/specs/1780000009-x")
+
+
 def test_a_removed_memo_in_a_directory_that_stays_is_not_a_retirement(tmp_path, capsys):
     """A retirement removes the directory. Deleting only the memo of a
     spec-less directory that stays is deleting a record, whatever it held."""
