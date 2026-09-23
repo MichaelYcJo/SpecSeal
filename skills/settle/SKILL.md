@@ -139,6 +139,16 @@ because statements folded before it will not carry the line. Nor can any check
 tell that two standing statements contradict each other. That takes a reader
 who knows what both mean, and it is review's to find.
 
+**One subject, one document, and a document over its ceiling takes no new
+statement.** A rule goes into the document that owns its subject, so a reader
+looking for it, and a reviewer looking for what contradicts it, opens one
+file. A repository may set a ceiling on how large a document grows. A document
+above that ceiling takes no new standing statement: the fold either splits it
+first, along the headings it already has, or places the rule in the document
+for the rule's own sub-subject, created only where none exists. The plugin sets
+no ceiling; the repository states its value and the check that holds it, in
+the document that describes its own fold.
+
 ### 3. Answer every check that reads the corpus
 
 **A fold is not finished until every check in your own repository that carries
