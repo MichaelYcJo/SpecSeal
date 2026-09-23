@@ -595,6 +595,21 @@ def test_a_report_without_one_of_the_two_lines_is_refused(repo, missing):
     assert missing in out
 
 
+@pytest.mark.parametrize("label", ["Needs a fix", "Loses a record or crashes"])
+def test_a_bare_yes_on_either_terminal_line_is_refused_at_the_writer(repo, label):
+    """A5 of #138. `chain_check.py` refuses a bare `yes` in both rows, so a
+    record the generator writes with one is refused one command later than
+    the reviewer is at the keyboard — the reason `written_late_cell` already
+    refuses `--written-late ""` at the point of writing. The class is both
+    terminal lines, not the one the ticket names."""
+    declared(repo)
+    kw = {"needs": "yes"} if label == "Needs a fix" else {"floor": "yes"}
+    code, out, record = generate(repo, report_text=report(**kw))
+    assert code == 2, out
+    assert record is None, "a refusal writes no record"
+    assert f"`{label}: yes` carries no reason" in out, out
+
+
 def test_the_field_rows_are_the_templates_in_the_templates_order(repo):
     """Derived from `templates/sdd-round.md` rather than listed here, the way
     `test_the_run_stops_at_the_last_finding` reads the same table: a row the
@@ -2590,6 +2605,29 @@ def test_a_round_that_reopened_without_writing_fixes_stops_the_count(repo):
     line = generator.bound_line(reader, routing, str(rounds), 3)
     assert line is not None, line
     assert "one reopening remains" in line, line
+
+
+def test_a_bare_yes_on_a_later_record_is_no_reopening_here_either(repo):
+    """A6 of #138. Round 1 met the floor and round 2's cell is a bare `yes`
+    that a hand edit put there. The gate reads that cell as no reopening
+    and refuses round 2 on its own row, so its count walk from round 1 is
+    still running and counts round 3 as the second record. This line used
+    to read the cell through its own `== FLOOR_YES` and printed `one
+    reopening remains` over a round the gate was about to refuse — #218's
+    class, one cell wide. Now it reads through `chain.says_reopened` and
+    says what the gate says."""
+    generator, reader = generator_module(), reader_module()
+    routing = generator.load(check_module().ROUTING, "specseal_routing_bare_yes")
+    rounds = chain_of(
+        repo,
+        LATE,
+        (1, "no", "no", CLOSED_ROW),
+        (2, "no", "yes", CLOSED_ROW),
+    )
+    line = generator.bound_line(reader, routing, str(rounds), 3)
+    assert line is not None, "the count walk says round 3 is over the bound"
+    assert "this record ends the run" in line, line
+    assert "reaches 2" in line, line
 
 
 def test_the_reopening_named_is_the_first_record_that_closed_on_a_fix(repo):

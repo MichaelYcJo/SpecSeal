@@ -1349,12 +1349,28 @@ def terminal_value(reader, lines, label):
             "the colon"
         )
     value = reader.visible(found[0])
-    word, _ = chain.yes_or_no(value)
+    word, reason = chain.yes_or_no(value)
     if word is None:
         raise Refused(
             f"`{label}: {value}` is not `{chain.FLOOR_NO}` or "
             f"`{chain.FLOOR_YES} {DASH} <what>`, which is the vocabulary the "
             "checker reads the row in"
+        )
+    if word == chain.FLOOR_YES and not reason:
+        # Refused here, at the writer, for the reason `written_late_cell`
+        # refuses an empty `--written-late`: `chain_check.py` refuses a bare
+        # `yes` in BOTH rows, so a record written with one fails one command
+        # later than the reviewer is at the keyboard (#138). The class is
+        # the two terminal lines, whichever the ticket named.
+        raise Refused(
+            f"`{label}: {value}` carries no reason. The whole of what makes "
+            "the line readable is what was found — the next round inherits "
+            f"it, and `{chain.NEEDS}` is the cell the floor's count of later "
+            "records restarts at, so a bare `yes` there bought a round "
+            "until `chain_check.py` refused it. The shape is "
+            f"`{chain.FLOOR_YES} {DASH} <what>`, copied from the reviewer's "
+            "line of the same name; a bare `yes` is refused at the pull "
+            "request, and refusing it here is one command earlier"
         )
     return value
 
@@ -1830,7 +1846,7 @@ def floor_and_fixes(reader, earlier):
     floor, and this used to carry one of them.** The reopening walk counts
     fix-closing records wherever they sit and refuses a second; the count walk
     counts every later record up to and including the first that reopened
-    (`Needs a fix: yes`) or closed on a fix, and refuses a second counted
+    (`Needs a fix: yes — <what>`) or closed on a fix, and refuses a second counted
     record. A run whose floor was met and whose next rounds are simply QUIET
     is bounded by the second walk alone — so reading only the first printed
     `one reopening remains` at round 2 and the gate then refused round 3, the
@@ -1907,8 +1923,12 @@ def floor_and_fixes(reader, earlier):
             chain.yes_or_no(reader.visible(floor).strip())[0] == chain.FLOOR_NO
         )
         needs = chain.field(rows, chain.NEEDS)
+        # Through the gate's own reader of the reopening question rather
+        # than a `== FLOOR_YES` of this line's own (#138): a bare `yes` is
+        # no reopening there, so it is none here, and the printed bound and
+        # the gate cannot be made to disagree by one cell — #218's class.
         reopened = needs is not None and (
-            chain.yes_or_no(reader.visible(needs).strip())[0] == chain.FLOOR_YES
+            chain.says_reopened(reader.visible(needs).strip()) is True
         )
         seen.append((path, met, reopened, chain.closed_with_a_fix(reader, lines, path)))
 
