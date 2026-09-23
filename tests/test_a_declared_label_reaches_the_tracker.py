@@ -18,7 +18,8 @@ the act to the workflow that already runs when `main` moves.
   A13  every declared description fits the tracker's cap, read from
        `LABEL_DESCRIPTION_LIMIT` rather than written here (#515)
   A14  the label step and the roll run whether or not a step before them
-       failed, because neither reads what an earlier one writes (#515)
+       failed, because neither needs a step after checkout to have succeeded
+       (#515)
 
 **Nothing here reaches GitHub.** The fake tracker is
 `tests/test_a_merged_ticket_says_so_on_the_tracker.py`'s, for its stated
@@ -265,8 +266,8 @@ def test_the_workflow_runs_the_apply_arm_and_needs_no_new_permission():
 def test_a_failed_step_cannot_skip_the_independent_steps_after_it(step):
     """A14, #515's second cost. The label step failed and the roll behind it
     was skipped, because a step with no `if:` runs only when every step before
-    it succeeded. Neither step reads what an earlier one writes, so a failure
-    before them must not decide whether they run."""
+    it succeeded. Neither step needs a step after checkout to have succeeded,
+    so a failure before them must not decide whether they run."""
     steps = re.split(r"^      - ", read(WORKFLOW), flags=re.M)
     found = [s for s in steps if s.startswith(f"name: {step}\n")]
     assert len(found) == 1, f"the workflow has {len(found)} steps named {step!r}"
