@@ -2,7 +2,7 @@
 
 <!-- seal/specs/1790154760-the-ledger-grows-and-nothing-takes-a-row-out/plan.md -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-09-23 by the orchestrating session, under the owner's `automation` preset, when `smith` was spawned.
 
 ## Summary
 
