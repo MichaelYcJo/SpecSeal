@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 541 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `83988abdb608201ce95226823cb2294bd55efa3e..21b8d61e127d7c40e21ffed4db01be07cc60f699`, 3 commits |
 | Contract changes | none |
 | New units | kept_broad_gate (depth 1); test_a_repeated_header_row_is_not_a_verdict_row (depth 1); ROOT (depth 1); GATE_CARRIERS (depth 1); flat (depth 1); test_every_carrier_says_the_cell_holds_one_entry_per_run (depth 1); test_no_carrier_still_describes_the_cell_as_one_run (depth 1); test_the_writers_are_named_as_one_path (depth 1); test_close_broad_gate_keeps_a_run_the_cell_already_holds (depth 1); test_a_second_tables_header_under_a_subheading_is_not_a_verdict_row (depth 1); test_a_re_seal_at_the_commit_the_cell_names_replaces_that_entry (depth 1) |
