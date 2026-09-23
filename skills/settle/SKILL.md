@@ -67,9 +67,9 @@ directory behind for the next fold to retire, and that fold opened one of its
 own, so no fold could ever finish. Nor does a fold keep a log of folds, under
 `seal/` or anywhere else: a log is a record of a moment that would need
 folding in turn. What a fold has to leave already has a home — what went
-where is the `<!-- specs/<id> -->` marker in `docs/`, who checked the prose is
-the pull request, and the removed text is git history, reachable from the
-marker's id.
+where is the `<!-- specs/<work-item-id> -->` marker in `docs/`, who checked
+the prose is the pull request, and the removed text is git history, reachable
+from the marker's id.
 
 ## The procedure
 
