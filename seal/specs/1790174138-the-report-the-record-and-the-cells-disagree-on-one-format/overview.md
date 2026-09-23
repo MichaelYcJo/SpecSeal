@@ -8,8 +8,8 @@ evidence ledger, not here. -->
 
 📋 implement applied
 · spec:     `CLAUDE.md` (the goal, the fragment rule, the ledger's REMOVED rule), `CONTRIBUTING.md` §*What a change to a gate must carry*, `docs/review-chain-spec.md` §*The finding id*, §*A verdict row that commissions nothing*, §*The fix range*, §*The reopening* (the `What new prints` table), §*The record generator*, `docs/review-handoff-protocol.md` §record fields, `skills/agent-contract/SKILL.md` §2, `seal/specs/1790174138-…/{routing,spec,plan,questions}.md`, work item 0's `overview.md` and `plan.md`, MichaelYcJo/SpecSeal#218, #505, #382, #436, #217, #174, #503, #437, #366
-· evidence: `seal/ledger/1790174138-the-report-the-record-and-the-cells-disagree-on-one-format.md` A1–A4 so far; `seal/ledger.md` rows R3, R4, R1, R9, F1–F5, R3/R4 of the swallow guard, R5, R6, S5, the `### Review arm` row and R5/C2/C6/R7/R8 of the spec-anchored rows re-read with dated notes; work item 0's B1 re-read
-· verified: executed — the generator module (126), the target and close modules (110), the pull-request check's `fix_range` selection (13), the records-arm module (61), the precedes module (51), sixteen mutations tabled in `phases/`, the 584-sequence differential, Q3's walk; read — the ledger rows' claims against the edited units; unverified — the broad gate, the sealer's
+· evidence: `seal/ledger/1790174138-the-report-the-record-and-the-cells-disagree-on-one-format.md` A1–A8; 61 rows of `seal/ledger.md` anchored on the units and sections this work moved re-read with dated notes and their hashes recomputed; work item 0's B1 re-read
+· verified: executed — the generator module (127), the target and close modules (110), the seal module (124), the pull-request check's `fix_range`, broad-gate and direct selections (34), the records-arm module (61), the precedes module (51), the release-sizing module (11), the pin module (7), fourteen document-pinning modules (484 + 130), thirty-five mutations tabled in `phases/`, the 584-sequence differential, Q3's walk, Q7's probe; read — the ledger rows' claims against the edited units; unverified — the broad gate, the sealer's
 
 ## Why this work exists
 
@@ -27,6 +27,8 @@ means one thing to its writer and its reader.
 |---|---|---|---|
 | Where A9's case lives | `spec.md` names `tests/test_a_record_precedes_the_fixes_it_commissions.py` | `tests/test_the_record_is_generated.py`, beside every other `bound_line` case | `phases/phase-1.md`; the spec's own alternative, *where 0's phase 2 put A6*, is that file |
 | The frame's ledger coordinates | `spec.md` §Data & interfaces wrote four rows as `path#unit@hash` with a short path | the stamps dropped, the units named bare | `evidence-check --strict`'s records arm refuses a short-path stamp as a file not found; `phases/phase-1.md` |
+| A sixth phase | `plan.md` framed five | #366's three cases planted as phase 6, and the plan's table gained the row | the spawn prompt added the ticket from work item B's frame and asked for the decision; `phases/phase-6.md` holds it |
+| Documents that describe the `Broad gate` cell | `spec.md` lists seven | eight — `skills/code-review/SKILL.md`'s files table also described the cell as one SHA | found while executing phase 4's document list; `phases/phase-4.md` |
 
 ## What a change to a gate must carry — the four answers, for the pull request body
 
@@ -60,6 +62,26 @@ Prompt budget: zero; Q3 found 0 live records ending inside a comment across
   and `New units` without a `Fix range` line; the spec's `Fix range` table is
   the policy home and `test_the_module_docstring_names_what_the_checker_refuses`
   pins three other phrases, so the inventory was left as it stood.
+- #159 stays deferred to the release after this one (`questions.md` Q1's
+  default); `plan.md` §Alternatives carries the sketch, and the orchestrator
+  relays it to the ticket. What this work item takes of it is the one cell
+  the generator itself rewrote, which `seal` now appends to rather than
+  overwrites.
+- #366's second half — what `round_record.py#depth_two` should do when one
+  finding's `Location` spans units of two depths — is not taken. It is a
+  gate change with the four answers to carry, and the ticket's own cheaper
+  answer is a reviewing convention (split a finding whose coordinates sit at
+  two depths) that the report standard in phase 5 did not adopt, because the
+  ticket leaves the choice open. The three cases are planted (phase 6); the
+  question stays on #366, answerer the repository owner.
+- Two parallel wardens colliding on a shared scratchpad clone name is an
+  orchestration fact the spawn prompt reported, not a report-format one, and
+  is handed back to the orchestrator rather than written into
+  `agents/warden.md`.
+- The `close` refusals the run learned — a fixes table naming a ⬜ row with
+  no id, a Verdict cell reading `fixed <sha>` — are the fix pass's rules and
+  already stand in `skills/implement/SKILL.md` §5 and `agents/smith.md`; the
+  reviewer's standard does not repeat them.
 
 ## Fed back into the spec
 
@@ -69,3 +91,9 @@ Prompt budget: zero; Q3 found 0 live records ending inside a comment across
   code.
 - `docs/review-chain-spec.md` §*The fix range*: the pending-beside-a-`round-N`
   row (#436).
+- `docs/review-chain-spec.md` §*A verdict row that commissions nothing*: the
+  worked carried-closure row and its three requirements (#437) — the same
+  row in `skills/code-review/SKILL.md`, `agents/warden.md` and
+  `templates/sdd-round.md`, pinned to one text.
+- `docs/review-handoff-protocol.md`'s `Broad gate` field row and the seven
+  other carriers: one entry per run, newest first (#174).
