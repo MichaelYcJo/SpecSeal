@@ -2,12 +2,12 @@
 
 📋 implement applied
 · spec:     `docs/issues-and-milestones.md` §*A label answers what it is about, and survives the move* (the `size: now` paragraphs, and *One thing reads it, and only to spend it*); `.github/scripts/tracker_labels.py` module docstring and the comment above `LABELS`; `.github/scripts/label_merged_on_release_branch.py#label_description`; `CONTRIBUTING.md` §*Changing cited code is the case the rule has to answer*; `skills/evidence-check/SKILL.md` §*Verdicts and what to do*; #515's body
-· evidence: `seal/ledger/1790134781-a-label-description-past-100-characters-fails-every-release.md` C1 added; `seal/ledger.md` T2 re-read (`--reverify` on its two drifted anchors, Checked moved to 2026-09-23, a `Re-read` marker in Notes)
-· verified: executed — both case files (44 passed), the new cap case red on the 119-character value, five single-unit mutations, `ruff check` and `ruff format --check` on the four changed files, `evidence-check .` (1473 ok, 0 drifted); read — the specifying section, the scripts, #515; unverified — the cap's value on GitHub's side, the live tracker, the broad gate
+· evidence: `seal/ledger/1790134781-a-label-description-past-100-characters-fails-every-release.md` C1 added, and C2 added in round 1's fix pass; `seal/ledger.md` T2 re-read (`--reverify` on its drifted anchors — two at the build, the workflow step's at the fix pass — Checked moved to 2026-09-23, a `Re-read` marker in Notes)
+· verified: executed — both case files (44 passed), the new cap case red on the 119-character value, four single-unit mutations (one of them run twice, because its first try was sized short of the cap and stayed green), the workflow-condition case red with each condition removed and green with both, `ruff check` and `ruff format --check` on the four changed files, `evidence-check .` (1473 ok, 0 drifted); read — the specifying section, the scripts, #515; unverified — the cap's value on GitHub's side, the live tracker, the broad gate
 
 ## Scope confirmation
 
-Shorten one declared label description to fit GitHub's 100-character cap, and pin every label description this repository sends to `gh label create` under that cap.
+Shorten one declared label description to fit GitHub's 100-character cap, and pin every label description this repository sends to `gh label create` under that cap; and, from round 1, stop a failed step in the close-issues workflow from skipping the label step and the roll behind it.
 
 ## Why this work exists
 
@@ -24,17 +24,18 @@ The first release to reach `main` after `size: now` was declared failed the clos
 
 | Item | Who must answer |
 |---|---|
-| GitHub's cap is 100 characters. Taken from the 422 quoted in #515's body; the cited run `35796513013` returns 404 on this repository, so the log itself was not opened | the next close-issues run when a release reaches `main` — the job log either shows `created 'size: now'` or the 422 again; the repository owner reads it |
+| ✅ GitHub's cap is 100 characters. Taken from the 422 quoted in #515's body; the cited run `35796513013` returns 404 on this repository, so the log itself was not opened | read 2026-09-23: GitHub's REST reference for *Create a label* says `description` "Must be 100 characters or fewer" — read by round 1's reviewer and re-read in the fix pass; ledger row C1 |
+| GitHub evaluates `if: ${{ !cancelled() }}` so that the label step and the roll run after an earlier step fails | the first close-issues run in which a step fails; the repository owner reads the job log. Nothing forces such a run |
 | `size: now` gets created on the live tracker and #496 rolls to the next version | the same run; the repository owner |
 | The full suite, the repository-wide lint and the typecheck | the sealer, spawned by the orchestrator after the review rounds |
 
 ## Not done
 
-- **Label names are not pinned under GitHub's name cap.** A label's name is capped too, and it goes to the same `gh label create` call, so it is plausibly the same class. It is not pinned because nobody here has measured that cap's number, and a constant with a guessed value is worse than none. The two names in the tree are 9 characters and `merged: X.Y.Z`. This names nobody who will act, so it stays here and in the pull request body.
+- **Label names are not pinned under GitHub's name cap.** A label's name is capped too, and it goes to the same `gh label create` call, so it is plausibly the same class. It is not pinned: GitHub's REST reference for *Create a label* states no limit for `name` (read 2026-09-23), so there is no documented number to name, and a constant with a guessed value is worse than none. The two names in the tree are 9 characters and `merged: X.Y.Z`. This names nobody who will act, so it stays here and in the pull request body.
 - **No runtime refusal in `create` or `create_label`.** A check before the `gh` call would still fail the workflow after the merge; the case refuses the value before it, which is where the defect has to be caught.
 - **Where the constant lives.** `LABEL_DESCRIPTION_LIMIT` sits beside `label_description` in `label_merged_on_release_branch.py`, because `tracker_labels.py` already imports that module as `signal` and the reverse import does not exist. Both cases read it from there.
 - **`label_description` is judged the same class and pinned.** It goes to the same call and is refused the same way. It had 20 characters to spare at `9999.9999.9999`, so it was not broken; the case exists so a longer template is refused by the suite rather than by the tracker.
-- **The roll #515 says was skipped is not repaired by hand here.** It happens at the next release reaching `main`, once the step in front of it stops failing.
+- **The roll #515 says was skipped is not repaired by hand here.** It happens at the next release reaching `main`, and since round 1 it no longer waits on the label step succeeding.
 
 ## Fed back into the spec
 
