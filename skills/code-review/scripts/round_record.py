@@ -357,31 +357,50 @@ def kept_broad_gate(reader, rows, value):
     front so that `chain_check.broad_gate`, which takes the first SHA-shaped
     word as the run, reads what it read before.
 
-    **A run at the commit the newest entry already names replaces that entry
-    rather than standing beside it** (round 1's ⬜ 8). It is the same claim
-    about the same tree — the sealer re-run over an unchanged checkout, or a
-    base spelled differently — and two entries naming one commit would make
-    the count of entries stop being the count of runs at distinct commits,
-    which is what the run-level table reads off the cell. The comparison is
-    by prefix, so an abbreviated entry and a full-length flag name one
-    commit; nothing here asks git, because the value has already been
-    resolved by the caller that refuses an unresolvable one.
+    **A run the newest entry already records — the same commit against the
+    same base — replaces that entry rather than standing beside it** (round
+    1's ⬜ 8, narrowed by round 2's 🟡 1). It is the same claim about the
+    same comparison — the sealer re-run over an unchanged checkout — and
+    two entries for one claim would make the count of entries stop being
+    the count of runs. A run at that commit against ANOTHER base is another
+    comparison and is kept behind the new entry like any earlier run, which
+    is what `agents/sealer.md` and the `broad-gate.md` comment promise: a
+    second run never erases the first. Keyed on the SHA alone, the replace
+    erased the first base. The comparison is `same_run`'s, by prefix per
+    SHA-shaped word, so an abbreviated entry and a full-length flag name one
+    commit; nothing here asks git: `seal` has already refused a flag that
+    does not resolve, and `close --broad-gate` never resolves its flag, so a
+    value with no SHA-shaped word is written as typed and left for
+    `chain_check.broad_gate` to report at the pull request.
     """
     held = reader.visible(chain.field(rows, BROAD_GATE) or "").strip()
     if not held or chain.says_gate_not_yet(held):
         return value
     entries = held.split(EARLIER_RUN)
-    newest = chain.SHA_RE.findall(entries[0])
-    new = chain.SHA_RE.findall(value)
-    if (
-        newest
-        and new
-        and (newest[0].startswith(new[0]) or new[0].startswith(newest[0]))
-    ):
+    if same_run(entries[0], value):
         entries = entries[1:]
     if not any(chain.SHA_RE.search(e) for e in entries):
         return value
     return EARLIER_RUN.join([value, *entries])
+
+
+def same_run(entry, value):
+    """Whether `entry` and `value` record one run: the same commit AND the
+    same base. A SHA-shaped word is compared by prefix, so an abbreviated
+    entry and a full-length flag agree; every other word exactly. Two runs
+    at one commit against different bases are two comparisons —
+    `agents/sealer.md` binds a seal to both halves — and both are kept.
+    """
+    a, b = entry.split(), value.split()
+    if len(a) != len(b):
+        return False
+    for x, y in zip(a, b, strict=True):
+        if chain.SHA_RE.fullmatch(x) and chain.SHA_RE.fullmatch(y):
+            if not (x.startswith(y) or y.startswith(x)):
+                return False
+        elif x != y:
+            return False
+    return True
 
 
 # The row this script writes and `chain_check.written_late` reads, imported

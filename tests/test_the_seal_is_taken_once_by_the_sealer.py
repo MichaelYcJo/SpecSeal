@@ -2566,14 +2566,33 @@ def test_a_re_seal_at_the_commit_the_cell_names_replaces_that_entry(repo):
     commit(repo, "a fix after the gate")
     second = short(repo, "HEAD")
     assert run_seal(repo, f"{second} against base")[0] == 0
-    code, out = run_seal(repo, f"{second} against origin/base")
+    code, out = run_seal(repo, f"{second} against base")
     assert code == 0, out
     generator = _load("specseal_round_record_for_a_same_commit_re_seal", GENERATOR)
     cell = fields(two.read_text(encoding="utf-8"))[ROW]
     assert cell == (
-        f"{second} against origin/base{generator.EARLIER_RUN}{first} against base"
+        f"{second} against base{generator.EARLIER_RUN}{first} against base"
     ), cell
     assert cell.count(second) == 1, "the same commit was entered twice"
+
+
+def test_a_re_seal_at_the_same_commit_against_another_base_keeps_both(repo):
+    """Round 2's 🟡 1. The seal is the commit AND the base (`agents/sealer.md`
+    §Bind the result to a tree state), so a run at one commit against a
+    moved base is a second comparison and stays beside the first rather
+    than replacing it — the erasure #174 was filed on, one field narrower.
+    Keyed on the SHA alone, the replace erased the first base, which the
+    four sentences promising *a second run never erases the first* forbid."""
+    _one, two = settled_item(repo)
+    sha = short(repo, "HEAD")
+    assert run_seal(repo, f"{sha} against base")[0] == 0
+    code, out = run_seal(repo, f"{sha} against origin/base")
+    assert code == 0, out
+    generator = _load("specseal_round_record_for_another_base", GENERATOR)
+    cell = fields(two.read_text(encoding="utf-8"))[ROW]
+    assert cell == (
+        f"{sha} against origin/base{generator.EARLIER_RUN}{sha} against base"
+    ), cell
 
 
 def test_a_first_seal_is_byte_identical_to_a_cell_that_was_never_a_list(repo):

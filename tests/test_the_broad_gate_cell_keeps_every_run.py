@@ -51,9 +51,12 @@ GATE_CARRIERS = (
         "earlier run",
         "into that cell through `round_record.py seal`. You read",
     ),
+    # `earlier run` alone stood in this file at the base (§Counterfeits, a
+    # different sense), so the stands phrase is the seal block's new line
+    # (round 2's ⬜ 2).
     (
         ("skills", "verify", "SKILL.md"),
-        "earlier run",
+        "; earlier run: <sha> vs base <sha>",
         "one SHA with the base it was compared against",
     ),
     (
