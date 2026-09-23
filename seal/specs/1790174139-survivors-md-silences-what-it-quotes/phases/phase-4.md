@@ -59,7 +59,10 @@ docstring sentence was removed, only added.
 `tests/__pycache__` cleared between them, every one red: the `survivors.md`
 arm off (4 red), the `phases/` arm off (3), the class collapsed to round
 records (7), `corpus` and `corrected` each back on `records_a_past_round`
-(3 and 5), `OWNER_DIR`'s old tail (1 red, 1 green — the layout arm), and
+(**6 and 6** over the whole module — first recorded here as 3 and 5, which
+were the counts under the `-k` selections the mutation script ran, and
+round 1's ⬜ b corrected them to the full-module counts, the path-list case
+red in both), `OWNER_DIR`'s old tail (1 red, 1 green — the layout arm), and
 each new docstring paragraph's opener broken (1 each).
 
 **Narrow runs only.** The module was run at every phase boundary (60 → 64

@@ -33,7 +33,15 @@ in one run (`4 failed, 63 deselected`):
   weight halves, and nothing clears the floor at all — #308's arithmetic
   rather than #460's report. The case's second assertion, that the report
   names `guide.md` and nothing else, is what refuses the reported-record
-  direction; both are pinned.
+  direction — and round 1 found that on a four-file pool it could never be
+  the assertion that failed. **Corrected in the round-1 fix pass
+  (`d3e544d6`)**: the case is parametrised over `fillers in (0, 29)`, and
+  with the `phases/` arm removed both arms went red for their own reason,
+  executed: `[0]` — `guide.md's copy went unreported on a pool of 4; exit
+  0`, the report reading `no removed wording is still standing`; `[29]` —
+  `the report names ['guide.md',
+  'seal/specs/1700000000-a-claim-stands-in-two-places/phases/phase-3.md'] on
+  a pool of 33`, both at 1.60 against the floor. Restored, `2 passed`.
 - `test_the_docstring_names_both_sides_of_the_round_record_exclusion` —
   `**A phase record.** is no longer an exclusion stated`.
 
