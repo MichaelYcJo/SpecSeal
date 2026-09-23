@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 527 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `8549aa3aa83824844ed4a79d4b213ab109e164ff..bbd984667adeef2854650e530cc63ce4a42fbb18`, 2 commits |
 | Contract changes | none |
 | New units | test_a_marker_removed_on_purpose_is_told_to_recompute_the_digest (depth 1); test_a_count_that_moved_is_told_to_recompute_the_digest_too (depth 1); test_a_rule_sentence_in_bold_italics_opens_bold (depth 1); test_a_heading_with_a_tab_or_no_text_ends_a_statement (depth 1); test_a_symlink_inside_the_root_that_leaves_it_is_named (depth 1); test_a_heading_with_a_tab_or_no_text_is_read (depth 1) |
