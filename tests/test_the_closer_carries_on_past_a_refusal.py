@@ -292,6 +292,27 @@ def test_the_exit_message_says_how_a_partial_close_is_repaired(monkeypatch):
         assert name in message, f"the exit does not name {name}: {message!r}"
 
 
+# --- the runner under it all --------------------------------------------------
+
+
+def test_attempt_answers_the_exit_code_and_the_error_rather_than_exiting(
+    monkeypatch,
+):
+    """Every case above fakes `attempt`, so a mutation making it report every
+    write as refused left all of them green. This one drives the real
+    function against a fake `subprocess.run`, both ways round."""
+    mod = closer_module()
+    outcomes = iter([(0, ""), (1, "HTTP 502: Bad Gateway\n")])
+
+    class Result:
+        def __init__(self, returncode, stderr):
+            self.returncode, self.stderr = returncode, stderr
+
+    monkeypatch.setattr(mod.subprocess, "run", lambda *a, **k: Result(*next(outcomes)))
+    assert mod.attempt("gh", "issue", "close", "1") == (True, "")
+    assert mod.attempt("gh", "issue", "close", "2") == (False, "HTTP 502: Bad Gateway")
+
+
 # --- S3: the fallback adds no verb the AST case forbids -----------------------
 
 

@@ -286,6 +286,21 @@ the changelog section. This paragraph said the opposite of both halves until
 #359, which is how a sentence nobody could act on survived for several
 releases.
 
+- [ ] **Every issue the run named is closed** — `gh run list --workflow
+      close-issues-on-release.yml --limit 1`, then the job log. The run
+      attempts every issue and falls back to the REST route where `gh issue
+      close` is refused (#536); a red job is one where both routes refused an
+      issue, and its last lines name each one with both errors. Repair it
+      from a clone that has both commits, with the run's own inputs:
+
+      ```bash
+      BEFORE=<github.event.before> AFTER=<github.event.after> REPO=<owner>/<repo> \
+        python3 .github/scripts/close_issues_on_release.py
+      ```
+
+      It skips what is already closed and reaches the rest; `DRY_RUN=1` in
+      front of it prints the plan and writes nothing.
+
 Leave the `merged: X.Y.Z` labels where they are. They accumulate, one per
 release, and that is deliberate: deleting a label deletes it from every issue
 that ever carried it, which falsifies the record the label was created to
