@@ -143,6 +143,9 @@ if _refusal:
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
+CHECKER = os.path.join(
+    HERE, "..", "..", "evidence-check", "scripts", "evidence_check.py"
+)
 OPTIN = os.path.join(HERE, "..", "..", "..", "hooks", "optin.py")
 
 SPECS = "seal/specs"
@@ -445,9 +448,19 @@ def anchored_rows(root, work_item_ids):
     skips every row above the first marker, which is exactly where this
     repository's one anchored row sat. What this asks is only whether an
     anchor's PATH lies under `seal/specs/<id>/`, whoever wrote the row, so it
-    reads every live line of `seal/ledger.md` and of every `seal/ledger/*.md`
-    through the one liveness rule, `unverified_check.py#live_lines`, and the
-    one coordinate shape, `COORDINATE_RE`.
+    reads every ledger the checker reads, asked of the checker itself
+    (`evidence_check.py#default_patterns` — `seal/ledger.md`, every
+    `seal/ledger/*.md`, and the pre-0.10 `docs/**/_evidence.md`), with the one
+    coordinate shape, `COORDINATE_RE`.
+
+    **Every line, a fenced or commented one included.** The checker's
+    `check_text` runs its anchor pattern over the whole text, so a row shown
+    inside a fence is BROKEN after the removal like any other. This used to
+    read through `unverified_check.py#live_lines`, whose ambiguous line is
+    settled as *not live*: that bias keeps a directory for the marker reader
+    and removed one here, which was #511 again one step narrower (round 1's
+    finding 1). A guard that reads fewer lines or fewer files than the checker
+    keeps fewer directories than the checker will report broken.
 
     It reads and names; it never edits the ledger. Which row goes is a
     judgment about a claim, and `docs/one-root-by-lifetime.md` §*What keeps
@@ -456,19 +469,17 @@ def anchored_rows(root, work_item_ids):
     prefixes = {f"{SPECS}/{i}/": i for i in work_item_ids}
     if not prefixes:
         return []
-    live_lines = load(READER, "specseal_unverified_reader").live_lines
+    checker = load(CHECKER, "specseal_evidence_checker")
     sources = []
-    if os.path.isfile(under(root, LEDGER)):
-        sources.append(LEDGER)
-    for path in sorted(glob.glob(os.path.join(under(root, FRAGMENTS), "*.md"))):
-        sources.append(f"{FRAGMENTS}/{os.path.basename(path)}")
+    for path in checker.resolve_patterns(checker.default_patterns(root)):
+        rel = os.path.relpath(path, root).replace(os.sep, "/")
+        if rel not in sources:
+            sources.append(rel)
     found = []
     for rel in sources:
         with open(under(root, rel), encoding="utf-8") as f:
             lines = f.read().split("\n")
-        for number, (line, live) in enumerate(live_lines(lines), start=1):
-            if not live:
-                continue
+        for number, line in enumerate(lines, start=1):
             paths = [m.group("path") for m in COORDINATE_RE.finditer(line)]
             dead, items = [], set()
             for path in paths:

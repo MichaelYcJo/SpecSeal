@@ -362,8 +362,10 @@ def test_the_report_names_an_anchored_row_before_anything_is_removed(tree):
     assert "1700000001-alpha" in text.split("anchored")[1], text
 
 
-def test_a_quoted_anchor_is_not_a_row(tree):
-    """The one liveness rule: a row shown inside a fence is an example."""
+def test_a_fenced_anchor_still_keeps_the_directory(tree):
+    """evidence-check reads an anchor inside a fence as a coordinate like any
+    other, so the guard has to as well: a fenced row's directory removed is a
+    BROKEN row found after the fact, which is #511 (round 1's finding 1)."""
     fold(tree, "1700000001-alpha")
     ledger = tree / "seal" / "ledger.md"
     ledger.write_text(
@@ -371,8 +373,22 @@ def test_a_quoted_anchor_is_not_a_row(tree):
         encoding="utf-8",
     )
     code, text = run(tree, "--retire")
-    assert code == 0, text
-    assert not (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+
+
+def test_a_row_at_the_old_evidence_address_keeps_the_directory(tree):
+    """The checker's third address, `docs/**/_evidence.md`, is still read, so
+    a row there anchored inside a retiring directory is BROKEN after the
+    removal all the same."""
+    fold(tree, "1700000001-alpha")
+    old = tree / "docs" / "area" / "_evidence.md"
+    old.parent.mkdir(parents=True)
+    old.write_text(INSIDE_ROW + "\n", encoding="utf-8")
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert "docs/area/_evidence.md:1" in text, text
 
 
 def test_the_documents_say_the_retirement_keeps_an_anchored_directory():
