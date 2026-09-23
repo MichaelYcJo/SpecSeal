@@ -767,6 +767,29 @@ def test_a_checked_pass_beside_an_open_blocking_finding_fails(repo):
     assert "`Pass` is checked" in out
 
 
+def test_a_blocking_finding_below_a_subheading_is_still_in_the_table(repo):
+    """#505's class in the checker's own reader. `verdict_table` ended the
+    `## Verdicts` section at the first line starting with `#`, so a `###`
+    inserted by hand between the header and an open 🔴 row put that row
+    outside the section: `open_blocking` saw no blocker, and a checked `Pass`
+    beside it passed. The generator never writes a heading into a section,
+    so only a hand-edited record reaches this — which is the record the
+    checker exists for. A section ends at a heading of its own level or
+    shallower, here as in `round_record.py`, and the survivor sweep over the
+    generator's fix is what found this copy of the loop."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    sha = commit(repo, "declare")
+    text = record(sha, passed=True, verdict="open")
+    separator = "|---|---|---|---|---|\n"
+    assert text.count(separator) == 1, text
+    text = text.replace(separator, separator + "\n### a label somebody added\n\n")
+    write(repo, f"{ROUNDS}/round-1.md", text)
+    commit(repo, "round 1")
+    code, out = run(repo)
+    assert code == 1, out
+    assert "`Pass` is checked" in out
+
+
 def test_an_unchecked_pass_fails_once_the_pull_request_is_ready(repo):
     """Reversed deliberately, and this docstring is the record of it.
 

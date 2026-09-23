@@ -1177,6 +1177,51 @@ def field(rows, label):
     return None
 
 
+def heading_level(line):
+    """How many `#` open the line, or None where none does.
+
+    The reader's own test for a heading is `startswith("#")` (`headings` in
+    `unverified_check.py`), and this keeps it: a `#120` at column 0 is a
+    heading here exactly as it is there, because only a fence tells a
+    Markdown heading from a Python comment and `readable` has already
+    blanked the fences. What this adds is the DEPTH, which is the one thing a
+    section's end turns on.
+    """
+    if not line.startswith("#"):
+        return None
+    return len(line) - len(line.lstrip("#"))
+
+
+def section_end(lines, start):
+    """The index of the line that ends the section opened at `start`, or
+    `len(lines)` where nothing does.
+
+    A section ends at the first heading of its own level or shallower, and a
+    deeper heading is INSIDE it (#505). Every reader of a section's end in
+    this file and in `round_record.py` reads by this one definition: the
+    generator's `section_body` and the section-end scan inside its
+    `swallowed` reach it through `chain.section_end`, and `verdict_table`
+    below reads a record's `## Verdicts` by it. It used to end at any line
+    starting with `#` in all three, and the survivor sweep over the
+    generator's fix found this file's copy of the loop: a `###` a hand edit
+    put between the verdict header and an open 🔴 row placed the row outside
+    the section, `open_blocking` saw no blocker, and a checked `Pass` beside
+    it passed — the permissive direction, on the one kind of record the
+    checker exists for.
+
+    A `##` inside a section is still an end, as it always was; the one shape
+    that changes is the deeper heading, and a `####` under a `###` under the
+    section is inside it for the same reason, because the rule is *same
+    level or shallower ends it* and not *one level deeper is allowed*.
+    """
+    level = heading_level(lines[start]) or 1
+    for i in range(start + 1, len(lines)):
+        found = heading_level(lines[i])
+        if found is not None and found <= level:
+            return i
+    return len(lines)
+
+
 def table_rows(reader, lines):
     """Every table row in already-`readable` lines, as lists of cells."""
     out = []
@@ -1481,11 +1526,11 @@ def verdict_table(reader, lines, rel):
         )
 
     start = starts[0]
-    body = []
-    for i in range(start + 1, len(lines)):
-        if lines[i].startswith("#"):
-            break
-        body.append((i + 1, lines[i]))
+    # To `section_end`, not to any `#` (#505): a `###` a hand edit put inside
+    # the table would otherwise cut the rows below it out of the section,
+    # and a blocker among them out of `open_blocking`'s sight.
+    end = section_end(lines, start)
+    body = [(i + 1, lines[i]) for i in range(start + 1, end)]
 
     rows = [(n, reader.split_row(ln)) for n, ln in body if ln.strip()]
     rows = [(n, c) for n, c in rows if c is not None]

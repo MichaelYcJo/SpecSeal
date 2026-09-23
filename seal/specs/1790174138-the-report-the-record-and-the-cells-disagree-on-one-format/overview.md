@@ -29,6 +29,7 @@ means one thing to its writer and its reader.
 | The frame's ledger coordinates | `spec.md` §Data & interfaces wrote four rows as `path#unit@hash` with a short path | the stamps dropped, the units named bare | `evidence-check --strict`'s records arm refuses a short-path stamp as a file not found; `phases/phase-1.md` |
 | A sixth phase | `plan.md` framed five | #366's three cases planted as phase 6, and the plan's table gained the row | the spawn prompt added the ticket from work item B's frame and asked for the decision; `phases/phase-6.md` holds it |
 | Documents that describe the `Broad gate` cell | `spec.md` lists seven | eight — `skills/code-review/SKILL.md`'s files table also described the cell as one SHA | found while executing phase 4's document list; `phases/phase-4.md` |
+| Readers of a section's end (A3) | `spec.md` names two, both in `round_record.py` | three — `chain_check.verdict_table` reads a record's `## Verdicts` by the same any-`#` loop, and a hand-inserted `###` put an open 🔴 row outside `open_blocking`'s sight; fixed, with the definition moved to `chain_check.section_end` and the generator delegating to it | the survivor sweep over the committed range reported the checker's copy of the loop the generator's fix removed; §12 owes the fix to every instance the cause produces, and this one fails in the permissive direction. A gate change: seen red at `d8ce75a9`, blocks more on hand-edited records only, prompt budget zero, no platform guarantee |
 
 ## What a change to a gate must carry — the four answers, for the pull request body
 

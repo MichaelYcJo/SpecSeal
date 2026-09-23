@@ -1483,7 +1483,7 @@ def test_the_two_record_run_reads_back_through_chain_check(repo):
     sha1 = declared(repo)
     code, out, _ = generate(repo, target=sha1)
     assert code == 0, out
-    commit(repo, "round 1")
+    r1 = commit(repo, "round 1")
     write(repo, "f.py", "x = 2\n")
     fix = commit(repo, "fix")
     path = repo / ROUNDS / "round-1.md"
@@ -1495,9 +1495,22 @@ def test_the_two_record_run_reads_back_through_chain_check(repo):
         text,
         flags=re.MULTILINE,
     )
+    # The third row `close` would have written: the range the fix was
+    # measured over. Left at its pending value beside the `round-2` that
+    # round 2's `new` is about to set, `chain_check.fix_range` refuses the
+    # pair (#436) — the same refusal the two rows above already met.
+    text = re.sub(
+        r"^\| Fix range \|.*$",
+        f"| Fix range | `{r1}..{fix}`, 1 commit |",
+        text,
+        flags=re.MULTILINE,
+    )
     assert "| open |" not in text and fields(text)["New units"] == "none", (
         "a substitution missed, so round 1 is not the closed record this "
         "reads back (#407's class)"
+    )
+    assert fields(text)["Fix range"].endswith("1 commit"), (
+        "the range substitution missed"
     )
     path.write_text(text, encoding="utf-8")
     sha2 = commit(repo, "round 1 closed")

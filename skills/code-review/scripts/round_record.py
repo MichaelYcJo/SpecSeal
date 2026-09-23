@@ -1003,24 +1003,10 @@ def report_path(rounds, n, given):
     return path
 
 
-def heading_level(line):
-    """How many `#` open the line, or None where none does.
-
-    The reader's own test for a heading is `startswith("#")` (`headings` in
-    `unverified_check.py`), and this keeps it: a `#120` at column 0 is a
-    heading here exactly as it is there, because only a fence tells a
-    Markdown heading from a Python comment and `readable` has already
-    blanked the fences. What this adds is the DEPTH, which is the one thing a
-    section's end turns on.
-    """
-    if not line.startswith("#"):
-        return None
-    return len(line) - len(line.lstrip("#"))
-
-
 def section_end(lines, start):
     """The index of the line that ends the section opened at `start`, or
-    `len(lines)` where nothing does.
+    `len(lines)` where nothing does — `chain.section_end`, the one
+    definition of a section both scripts read by.
 
     A section ends at the first heading of its own level or shallower, and a
     deeper heading is INSIDE it (#505). It used to end at any line starting
@@ -1030,21 +1016,18 @@ def section_end(lines, start):
     in the report` over six. The better-written report was the one that lost
     its fixes, and nothing raised.
 
-    One definition of *a section* for the module: `section_body` reads by it
-    and `swallowed`'s section-end scan reads by it, so a table a `###` labels
-    is inside the section to both — copied by one and, when it stands only
-    inside a fence, refused by the other. A reviewer's `##` inside a section
-    is still an end, as it always was; the one shape that changes is the
-    deeper heading, and a `####` under a `###` under the section is carried
-    for the same reason, because the rule is *same level or shallower ends
-    it* and not *one level deeper is allowed*.
+    One definition of *a section* for the module, and for the checker:
+    `section_body` reads by it and `swallowed`'s section-end scan reads by
+    it, so a table a `###` labels is inside the section to both — copied by
+    one and, when it stands only inside a fence, refused by the other — and
+    `chain_check.verdict_table` reads a record's `## Verdicts` by the same
+    rule, which is why the definition lives there. A reviewer's `##` inside
+    a section is still an end, as it always was; the one shape that changes
+    is the deeper heading, and a `####` under a `###` under the section is
+    carried for the same reason, because the rule is *same level or
+    shallower ends it* and not *one level deeper is allowed*.
     """
-    level = heading_level(lines[start]) or 1
-    for i in range(start + 1, len(lines)):
-        found = heading_level(lines[i])
-        if found is not None and found <= level:
-            return i
-    return len(lines)
+    return chain.section_end(lines, start)
 
 
 def section_body(reader, lines, heading):
