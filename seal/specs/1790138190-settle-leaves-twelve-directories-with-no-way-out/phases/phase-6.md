@@ -16,7 +16,7 @@ its pull request) and §*What a fold branch owes* loses the range-row and
 section in `docs/one-root-by-lifetime.md` and `.ko.md`; `seal/README.md` and
 `templates/seal-README.md`, byte for byte. Every pin those sentences had
 moves with them —
-`test_the_skill_carries_the_survivors_row_a_fold_branch_owes` among them.
+`test_the_skill_carries_the_survivors_row_a_fold_branch_owes` among them. (NAME NOT IN TREE: this phase replaced it)
 Verified by the settle module's document cases,
 `tests/test_first_setup_asks_once.py`, `tests/test_docs_line_wrap.py`,
 `tests/test_release_hygiene.py`, `tests/test_one_word_one_meaning.py`; each
