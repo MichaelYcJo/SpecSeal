@@ -819,7 +819,7 @@ OLD_LEDGER = (
 
 
 def test_an_old_format_ledger_is_loud_never_invisible(repo):
-    """The release blocker, pinned as it was measured: a 0.1.0 ledger —
+    r"""The release blocker, pinned as it was measured: a 0.1.0 ledger —
     `path:line` coordinates, `date \`sha\`` stamps — read `0 ok · 0 drifted ·
     0 broken`, exit 0. Every row silently ignored, green light. A user
     updating the plugin lost their whole ledger's coverage without one

@@ -113,7 +113,7 @@ anchor would drop that evidence and keep almost nothing that `docs/` holds.
    several rows costs one parse. It must be seen red against the current code
    (contract §15).
 4. The work item's changelog fragment and ledger fragment, and re-reading the
-   shared-ledger rows the edit drifts: `evidence_check.py#py_spans@4045ba55`
+   shared-ledger rows the edit drifts: the `evidence_check.py#py_spans` row (hash `4045ba55` at framing)
    (1 row) at minimum, plus any row on a unit phase 1 actually changes.
 
 **Out, and why:**
