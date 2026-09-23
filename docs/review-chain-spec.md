@@ -666,8 +666,26 @@ still costs one interruption.
 | Condition | Decision |
 |---|---|
 | `[no-review]` in the command | silent (explicit skip, visible in history). Typed in front of it: `: '[no-review]'; git commit …` — see below |
+| a `routing.md` declaration names this branch, for either answer | silent — the routing question was answered before the first edit, and CI checks the answer at the pull request. See *The declaration* below |
 | `specseal-reviewed` equals current HEAD | satisfied |
+| the change confined to `docs/`, `seal/` | no different from any other change — this arm reads no paths. The parity arm's silence on the same roots is that arm's alone, and the paragraph below says why |
 | otherwise | contributes an ask |
+
+**Why this arm has no document-root line.** The two arms ask different
+questions. The parity arm asks whether the original was consulted, and a
+`docs/` file has no original, so its silence there is right. This arm asks
+whether anybody reads the change before it lands, and here `docs/` is the
+policy the code conforms to and `seal/ledger.md` is the verified evidence.
+#518 measured it before drawing any line. Every docs/seal-only change that
+reached a reviewer produced real defects in `docs/`: #514's fold opened seven
+findings a later round verified as fixed, all in `docs/`, one of them 🔴. The
+docs/seal-only commits that never reached a reviewer were planning bookkeeping
+in `docs/flow.md`, a file retired on 2026-09-11. Across every round record,
+at least 25 fixed findings sit in `docs/` alone and 26 in the ledger alone. So
+the parity arm's line would exempt the one population that measured positive
+and buy nothing on the one that measured empty. A documentation pass that
+should reach nobody is routed that way before the first edit, by declaring
+`straight to the PR`; it is never inferred from the paths it touches.
 
 The marker is decided when the work starts, not discovered at the commit
 (`implement` §1) — and until the release that added `routing.md`, nothing
