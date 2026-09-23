@@ -878,7 +878,16 @@ RANGE_CELL = re.compile(r"^[^\s|]+\.\.\.?[^\s|]+$")
 # in the tree to every run, and the spelling this module recommends --
 # `origin/<base>...HEAD` -- re-resolves on each checkout, so one merged row
 # matched every later branch cut from the same base and excused its whole run.
-OWNER_DIR = re.compile(r"(?:^|.*/)(seal/specs/[^/]+)/[^/]+$")
+#
+# The owner is the `seal/specs/<id>` prefix wherever the file sits beneath it
+# (#304). The tail used to be `[^/]+$`, one segment, so a `survivors.md` one
+# directory deeper had no owner -- and an ownerless declaration is not asked
+# the ownership question, so it kept the unbounded reach the question exists
+# to refuse, in silence. Not anchored at the start, because `--exempt` paths
+# may be absolute; a file outside any `seal/specs/<id>/` keeps the hand-run
+# reach `whole_range` documents, and the pre-0.4.0 top-level `specs/` root is
+# left out on purpose (`spec.md` §*Out* of work item 1790174139).
+OWNER_DIR = re.compile(r"(?:^|.*/)(seal/specs/[^/]+)/.+$")
 
 
 def read_exemptions(paths):

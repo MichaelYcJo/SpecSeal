@@ -20,3 +20,9 @@
   with that — a correction hidden in an HTML comment beside a claim still
   rendered in bold, which it caught once only because the record was in the
   pool — is named in `seal/follow-up.md`.
+- A `survivors.md` handed to `survivor-check --exempt` from one directory
+  deeper than the layout now belongs to the work item above it, so its
+  whole-range row is asked whether the range touches that work item and is
+  refused with `not yours` when it does not. Before, the deeper file had no
+  owner, and an ownerless row excused any range it resolved onto, in silence.
+  CI never hands the sweep such a file; a hand run could.

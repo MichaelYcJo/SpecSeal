@@ -1727,6 +1727,40 @@ def test_a_declaration_does_not_reach_a_work_item_that_did_not_write_it(tmp_path
     )
 
 
+# #304. `OWNER_DIR` read the owner off `seal/specs/<id>/<file>` and stopped one
+# segment short, so a `survivors.md` one directory deeper had no owner -- and
+# an ownerless declaration is not asked the ownership question at all. It kept
+# the unbounded reach the question exists to refuse, in silence, because
+# `not yours` prints only when ownership is asked. CI cannot hand it such a
+# file (`hygiene.yml` globs one level); a hand run can.
+@pytest.mark.parametrize("depth", ["", "deeper/"])
+def test_a_declaration_one_directory_deeper_still_has_an_owner(tmp_path, depth):
+    """The owner is the `seal/specs/<id>` prefix wherever the file sits
+    beneath it, so the deeper file is asked the same question and refused
+    the same way -- printed, with the work item named. At the layout position
+    nothing changes, which the `""` arm holds."""
+    repo = tmp_path / "probe"
+    head = one_survivor(repo)
+    where = os.path.join(str(repo), *f"{ITEM_A}/{depth}survivors.md".split("/"))
+    os.makedirs(os.path.dirname(where), exist_ok=True)
+    with open(where, "w", encoding="utf-8") as handle:
+        handle.write(
+            f"| Range | Grounds |\n|---|---|\n| `{head}^..{head}` | {GROUNDS} |\n"
+        )
+    code, text = run(
+        "--range", f"{head}^..{head}", "--root", str(repo), "--exempt", where
+    )
+    assert code == 1, (
+        "a declaration whose range touches nothing in its own work item "
+        f"excused the run, at depth {depth!r}; exit {code}\n{text}"
+    )
+    assert "notes.md" in text, f"the survivor itself was not reported\n{text}"
+    assert "not yours" in text and "1799000001-work-item-a" in text, (
+        "the declaration was refused without saying so, or without naming the "
+        f"work item it belongs to, at depth {depth!r}:\n{text}"
+    )
+
+
 def test_a_range_row_that_does_not_resolve_silences_nothing_and_says_so(tmp_path):
     """Reported, never exit 2, and the reason is a landmine avoided.
 
