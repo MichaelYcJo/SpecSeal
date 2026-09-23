@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 2 |
 | Commit | 9374d402 |
-| Ran by | unknown — the spawn prompt named the agent (`smith`) and not the model, and the value is the spawning session's to give |
+| Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
 
