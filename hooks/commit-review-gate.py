@@ -480,6 +480,13 @@ def changed_paths(cwd, invocations):
 # `seal/` as a string rather than `optin.HOME` joined under anything: these
 # classify paths as `git diff` prints them, repository-relative, and a path
 # in a diff is only ever the shared root (`docs/one-root-by-lifetime.md`).
+#
+# The line is the PARITY arm's alone. The review arm reads no paths, on
+# purpose: it asks whether anybody reads the change, and `docs/` here is the
+# policy the code conforms to. #518 measured it and kept the asymmetry --
+# `docs/review-chain-spec.md` §*Review arm* holds the grounds, and
+# `test_the_review_arm_asks_on_a_document_only_commit` fails if this line
+# ever reaches the review arm.
 DOC_ROOTS = ("docs/", "seal/")
 
 
@@ -489,6 +496,10 @@ def touches_code(cwd, invocations):
     A commit that only moves docs/ or seal/ has nothing to compare against an
     original, and asking there would train people to click through the
     prompt — which costs more than the check is worth.
+
+    Only the parity arm calls this. The review arm's question is not about an
+    original, and a docs-only change is exactly where the measured findings
+    were (`docs/review-chain-spec.md` §*Review arm*, #518).
     """
     paths = changed_paths(cwd, invocations)
     return any(not path.startswith(DOC_ROOTS) for path in paths)

@@ -446,6 +446,46 @@ def test_parity_gate_ignores_document_only_commits(repo):
     )
 
 
+def test_the_review_arm_asks_on_a_document_only_commit(repo):
+    """The parity arm's line at `docs/` and `seal/` is the parity arm's alone.
+
+    The review arm asks whether anybody reads the change before it lands, and
+    in a repository that runs this workflow `docs/` is the policy the code
+    conforms to. #518 measured it: the only docs/seal-only change that reached
+    a reviewer (#514's fold) produced seven fixed findings in `docs/`, one of
+    them 🔴. So a commit confined to `docs/` meets the review arm exactly as a
+    code change does (`docs/review-chain-spec.md` §*Review arm*). This case is
+    what fails if `touches_code` is ever shared between the arms.
+    """
+    (repo / "seal").mkdir(exist_ok=True)
+    (repo / "docs" / "policies").mkdir(parents=True, exist_ok=True)
+    stage(repo, "docs/policies/note.md", "text\n")
+    out = run_hook("commit-review-gate.py", payload("git commit -m x", repo))
+    assert decision_of(out) == "deny", (
+        "a commit confined to docs/ passed the review arm with no declaration, "
+        "no review mark and no waiver"
+    )
+    reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "[no-review]" in reason
+
+
+def test_a_document_only_commit_wakes_one_arm_and_not_two(repo):
+    """In a migration repository the same commit wakes the review arm alone:
+    the parity arm's silence on `docs/` holds, and the review arm's question
+    does not borrow it."""
+    parity_repo(repo)
+    (repo / "docs" / "policies").mkdir(parents=True, exist_ok=True)
+    stage(repo, "docs/policies/note.md", "text\n")
+    out = run_hook("commit-review-gate.py", payload("git commit -m x", repo))
+    assert decision_of(out) == "deny"
+    reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
+    assert "[no-review]" in reason
+    assert "[no-parity]" not in reason, (
+        "the parity arm woke on a docs-only commit, so the question names a "
+        "comparison nothing could have made"
+    )
+
+
 def test_parity_gate_silent_without_the_declaration(repo):
     stage(repo, "service.py")
     assert (
