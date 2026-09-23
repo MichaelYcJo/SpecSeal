@@ -160,8 +160,8 @@ first SHA-shaped word of the cell.
   The section-end scan inside `swallowed` is the same class (A3).
 - `evidence_check.py#claim_lines`: an unclosed HTML comment holds its lines
   and reads them at the end, symmetric with `held`; the ticket's paste-ready
-  is the shape, and its `aside_held` is the name #217 proposes — NAME NOT IN
-  TREE until phase 3 lands.
+  is the shape, and the name #217 proposes for the held list is
+  `aside_held` <!-- NAME NOT IN TREE --> (until phase 3 lands).
 - `chain_check.py#fix_range`: a pending arm keyed on `Fixes checked by`
   naming a round, mirrored from `fix_surface`'s `fixes_exist and
   says_not_yet(value)`, before the `says_none` early return.
@@ -173,12 +173,16 @@ first SHA-shaped word of the cell.
 **Ledger rows this work re-reads or replaces** (`seal/ledger.md`, coordinates
 as they stand; a row whose anchor this work removes is REMOVED there and
 re-founded in `seal/ledger/1790174138-….md`): R3 and R4 on
-`round_record.py#floor_and_fixes@3d71e88a` and `#bound_line`; R5 on
-`evidence_check.py#claim_lines@bc9a3d6c`; G2 and the `direct_seal` row on
-`chain_check.py#broad_gate@e22933ea`; R6 on `chain_check.py#fix_range` and
-`round_record.py#close@7a58b213`; R7 on `#says_not_yet@61e75f01` /
+`round_record.py#floor_and_fixes` and `#bound_line`; R5 on
+`evidence_check.py#claim_lines`; G2 and the `direct_seal` row on
+`chain_check.py#broad_gate`; R6 on `chain_check.py#fix_range` and
+`round_record.py#close`; R7 on `#says_not_yet` /
 `#fix_surface` stays and gains a sibling row for `fix_range`. No row cites
 `section_body` or `fenced_after`; those claims are new rows in the fragment.
+(The rows' hashes are not repeated here: a stamp in a record is read by
+`evidence-check`'s records arm against the tree, and a short path beside one
+is refused as a file not found — the frame carried four such stamps, corrected
+in phase 1.)
 
 **Documents that describe the `Broad gate` cell** and move with it:
 `templates/sdd-round.md` (the cell's comment), `docs/review-handoff-protocol.md`
