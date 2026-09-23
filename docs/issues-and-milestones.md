@@ -108,6 +108,12 @@ shipped** since the open log opened; it fails loudly on zero or on two
 rather than guessing which is current. The workflow fires on every push to
 the default branch, so a push that moved no version — a re-run of the job,
 or a merge that shipped nothing — rolls nothing and says so in the job log.
+**A log rolled with no comment on it is said so in three places** — the
+close comment on the old log, the new log's body, and the job's output —
+and the release ships anyway (#198): the count is read off the list call
+the roll already makes, so a release is never held for bookkeeping about a
+release, and a count the listing could not answer rolls exactly as before
+and says the count was unreadable.
 `skills/verify/SKILL.md` finds the log to post a segment's measurement to by
 that key. Reading `--label flow-measurement --state all` finds the rolling
 logs and misses `#51`; reading `--label measurement` finds everything and

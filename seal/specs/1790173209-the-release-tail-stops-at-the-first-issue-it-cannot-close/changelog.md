@@ -51,3 +51,13 @@
   absences are silent, `HEAD_SHA` and `HEAD_BRANCH`. A case holds the two
   texts to each other so the next edit to one reaches the other. Nothing the
   gate decides changes.
+- **A flow-measurement log the release rolls with no comment on it is said
+  so where a person reads (issue #198).** The roll opened a log, carried it
+  through a whole release and closed it empty, and nothing read what was in
+  the log it was closing. It now reads the comment count off the one list
+  call it already makes, and at zero says so in three places: the close
+  comment on the old log, the new log's body, and the job's output. The
+  release ships either way; a count the listing could not answer rolls
+  exactly as before and prints that it was unreadable.
+  `docs/issues-and-milestones.md` §*`flow-measurement` is a label that is
+  not an index* says what an empty cycle produces.
