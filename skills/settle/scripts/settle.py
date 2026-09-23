@@ -403,8 +403,8 @@ RULE_HEADING = (
 )
 RULE_KEPT_HEADING = (
     "kept by the rule — no `spec.md`, but the record still holds an open "
-    "row, which\nleaves by being closed (✅ with what closed it) or "
-    "re-homed, never with the directory:"
+    "row, which\nleaves by being closed (✅ with what closed it) in a pull "
+    "request merged before the\none that retires the directory, never with it:"
 )
 TAKES_HEADING = (
     "what a retirement here would take with it — read each before `settle --retire`:"

@@ -180,8 +180,11 @@ their own heading and `settle --retire` removes them without writing a marker
 into `docs/` (#517). **One condition narrows it: nothing in the record may
 still be open.** An open `## Not verified` row or an open `evidence-todo.md`
 row is a claim with an answerer rather than a rule, so a directory holding one
-is kept and named with its rows, and closing each row or re-homing it is what
-lets the next retirement take the directory. That condition is a judgment the
+is kept and named with its rows, and closing each row — a row re-homed is
+closed too, ✅ naming where it went — in a pull request merged before the one
+that retires the directory is what lets the next retirement take it. The CI
+readers ask the rule of the merge base, so a closure in the same pull request
+as the removal is still open where they look. That condition is a judgment the
 repository owner may overturn. An ungrouped item that did write a `spec.md` is
 folded where that spec's rule belongs. One more reason keeps a directory: **a permanent
 ledger row anchored inside it**, which holds the directory until the row is

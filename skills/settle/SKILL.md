@@ -90,9 +90,18 @@ no rule, so there is nothing to fold out of it, and `settle` prints it under
 its own heading: *retired by the rule* when nothing in its record is open,
 *kept by the rule* when something is, with every open `## Not verified` and
 `evidence-todo.md` row named. Such a row is a claim with an answerer, not a
-rule, so it leaves by being closed (✅ with what closed it) or re-homed —
-`seal/follow-up.md`, an issue — and never with the directory. Once it has,
-the next `settle --retire` takes the directory.
+rule, so it leaves by being closed (✅ with what closed it) and never with the
+directory. A row re-homed — to `seal/follow-up.md`, to an issue — is closed
+the same way, ✅ naming where it went, because a row deleted from
+`overview.md` is refused on any pull request.
+
+**Close it in a pull request of its own, and let that one merge first.** The
+CI readers ask the rule of the merge base, so a row closed and its directory
+retired in one pull request is still open where they look, and
+`unverified-check` and `chain-check` refuse the removal that `settle --retire`
+just made. Merged first, the ✅ also stays in the release branch's history,
+where a closure made and removed in one squash would leave nothing. Once the
+closure has merged, the next `settle --retire` takes the directory.
 
 For every directory a retirement would take, by either arm, the report also
 lists what would go with it: the open `## Not verified` rows in its overview,

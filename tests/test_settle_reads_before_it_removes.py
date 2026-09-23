@@ -521,6 +521,25 @@ def test_an_open_memo_row_keeps_a_spec_less_directory(tree):
     assert "a claim nobody ran" in text, text
 
 
+def test_a_closed_row_is_told_to_merge_before_its_directory_goes(tree):
+    """Round 1's finding 2. The CI readers ask the rule of the merge base, so
+    a row closed and its directory retired in one pull request is refused
+    there after `settle --retire` said the removal was fine. The report, the
+    skill and the policy all say the closure merges first."""
+    moment(tree, overview=OVERVIEW_OPEN)
+    _, text = run(tree)
+    assert "in a pull request merged before the one that retires the directory" in (
+        flat(text)
+    ), text
+    assert "merge first" in flat(skill()), (
+        "the skill lets a fold close a row and retire its directory in one "
+        "pull request, which the CI readers refuse at the merge base"
+    )
+    assert "in a pull request merged before the one that retires" in document(
+        "docs", "the-evidence-ledger.md"
+    )
+
+
 def test_an_open_evidence_todo_row_keeps_a_spec_less_directory(tree):
     moment(tree, todo=OPEN_TODO)
     code, text = run(tree, "--retire")
