@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 2 |
 | Commit | e88cdebc |
-| Ran by | unknown — the spawn prompt handed over no agent or model name; the orchestrating session fills this row |
+| Ran by | specseal:smith on claude-fable-5-1 |
 
 ## What this phase was asked
 
