@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 539 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `e7dacbf896662667530ab07c72f7b6f6caffac13..09292fa8988915727a527e7bd3cec934e817f7b4`, 2 commits |
 | Contract changes | test_a_phase_record_standing_in_the_pool_is_not_a_survivor → round-1-report.md, round-1.md |
 | New units | none |
