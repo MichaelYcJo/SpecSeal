@@ -1979,6 +1979,77 @@ def test_two_paste_ready_fixes_stay_apart_and_in_the_reviewers_order(repo):
     assert section.index(ONE_FIX.strip()) < section.index(OTHER_FIX.strip())
 
 
+def test_paste_ready_fixes_under_subheadings_are_carried_in_order(repo):
+    """A1 of #505. Six fixes, one `### <n> — <file>` entry each, which is
+    how a reviewer writes six readably — and the record read `no paste-ready
+    fix in the report`, because `section_body` ended the section at the
+    first line starting with `#`, which the first `###` is. The better-written
+    report was the one that lost its fixes. A section ends at a heading of
+    its own level or shallower; a deeper heading is inside it."""
+    declared(repo)
+    fences = [f"```python\nfix_{n} = {n}\n```\n" for n in range(1, 7)]
+    fixes = "".join(
+        f"### {n} — f{n}.py\n\nWhy this one.\n\n{fence}\n"
+        for n, fence in enumerate(fences, 1)
+    )
+    code, out, text = generate(repo, report_text=report(fixes=fixes))
+    assert code == 0, out
+    section = paste_ready(text)
+    assert generator_module().NO_PASTE_READY not in section, text
+    positions = [section.find(fence.strip()) for fence in fences]
+    assert all(p >= 0 for p in positions), (positions, text)
+    assert positions == sorted(positions), "the reviewer's order is the agenda"
+    assert "### 1" not in section and "Why this one" not in section, (
+        "a fence is copied whole and nothing else of the section is"
+    )
+
+
+def test_a_section_still_ends_at_a_heading_of_its_own_level(repo):
+    """A2 of #505, both halves. `## Paste-ready fixes` followed at once by
+    `## Executed probes` is an empty section, and the fence under the probes
+    table is the probes section's, not the paste-ready section's. And a
+    `###` under the probes table with a fence under it is inside the probes
+    section, so that fence is carried there — the same rule, one section
+    over."""
+    declared(repo)
+    code, out, text = generate(
+        repo,
+        report_text=report(
+            fixes="",
+            probes=PROBE_ROW + "\n### the replacement, labelled\n\n" + FENCE,
+        ),
+    )
+    assert code == 0, out
+    assert generator_module().NO_PASTE_READY in paste_ready(text), text
+    assert FENCE.strip() not in paste_ready(text), text
+    probes = text.split("## Executed probes", 1)[1].split(
+        "## Inherited coordinates", 1
+    )[0]
+    assert FENCE.strip() in probes, text
+    assert "the replacement, labelled" not in text, "prose stays in the report"
+
+
+def test_a_table_hidden_under_a_subheading_is_still_a_swallowed_table(repo):
+    """A3 of #505: the section-end scan inside `swallowed` takes the same
+    rule as `section_body`, or the two define *a section* differently in one
+    module. The probes heading stands, a `###` follows it, and the only
+    table rows are inside a fence under that `###`. Ending the scan at the
+    `###` put the hidden rows outside the section, so nothing was refused and
+    the record arrived with the template's empty table — the silent loss the
+    guard exists to name."""
+    declared(repo)
+    # `report()` writes the header outside any fence, so the section is
+    # spliced in by hand: the heading, a `###`, and the whole table fenced.
+    hidden = (
+        f"## Executed probes\n\n### a label\n\n```\n{PROBE_HEADER}{PROBE_ROW}```\n\n"
+    )
+    text = report(probes=None).replace("## Deferred", hidden + "## Deferred")
+    code, out, text = generate(repo, report_text=text)
+    assert code == 2, out
+    assert text is None, "a refusal writes no record"
+    assert "hides every table row" in out and "Executed probes" in out, out
+
+
 def test_prose_under_the_paste_ready_heading_stays_in_the_report(repo):
     """A fence is copied whole and nothing else of the section is. Prose
     nobody parses in a file `chain_check.py` reads is what `plan.md` refused

@@ -24,7 +24,8 @@ carries retyped coordinates.
 
   Report              `--report`, else `<item>/rounds/round-N-report.md`; the
                       absence of both refuses and names the path
-  Target SHA          `--target`, which has to resolve
+  Target SHA          the commit `--target` resolves to, never the revision
+                      as typed; a flag that does not resolve is refused
   Ran by              `--ran-by`
   PR                  `--pr`, else what `gh pr view` says, else `not yet opened`
   Broad gate          `--broad-gate`, else `not yet`
@@ -992,23 +993,65 @@ def report_path(rounds, n, given):
     return path
 
 
+def heading_level(line):
+    """How many `#` open the line, or None where none does.
+
+    The reader's own test for a heading is `startswith("#")` (`headings` in
+    `unverified_check.py`), and this keeps it: a `#120` at column 0 is a
+    heading here exactly as it is there, because only a fence tells a
+    Markdown heading from a Python comment and `readable` has already
+    blanked the fences. What this adds is the DEPTH, which is the one thing a
+    section's end turns on.
+    """
+    if not line.startswith("#"):
+        return None
+    return len(line) - len(line.lstrip("#"))
+
+
+def section_end(lines, start):
+    """The index of the line that ends the section opened at `start`, or
+    `len(lines)` where nothing does.
+
+    A section ends at the first heading of its own level or shallower, and a
+    deeper heading is INSIDE it (#505). It used to end at any line starting
+    with `#`, so a `## Paste-ready fixes` organised under one `###` per
+    finding — the readable way to write six of them — had an empty body
+    before any fence was looked for, and the record read `no paste-ready fix
+    in the report` over six. The better-written report was the one that lost
+    its fixes, and nothing raised.
+
+    One definition of *a section* for the module: `section_body` reads by it
+    and `swallowed`'s section-end scan reads by it, so a table a `###` labels
+    is inside the section to both — copied by one and, when it stands only
+    inside a fence, refused by the other. A reviewer's `##` inside a section
+    is still an end, as it always was; the one shape that changes is the
+    deeper heading, and a `####` under a `###` under the section is carried
+    for the same reason, because the rule is *same level or shallower ends
+    it* and not *one level deeper is allowed*.
+    """
+    level = heading_level(lines[start]) or 1
+    for i in range(start + 1, len(lines)):
+        found = heading_level(lines[i])
+        if found is not None and found <= level:
+            return i
+    return len(lines)
+
+
 def section_body(reader, lines, heading):
     """(start, [(index, line)]) for the one section under `heading`, or None.
 
     `lines` are already `readable`, so a heading inside a comment or a fence
-    is not a section, and indices are the raw file's.
+    is not a section, and indices are the raw file's. The section runs to
+    `section_end`: a heading of the section's own level or shallower ends
+    it, and a deeper one is part of it (#505).
     """
     starts = reader.sections(lines, heading)
     if not starts:
         return None
     if len(starts) > 1:
         raise Refused(f"the report has {len(starts)} `{heading}` sections")
-    body = []
-    for i in range(starts[0] + 1, len(lines)):
-        if lines[i].startswith("#"):
-            break
-        body.append((i, lines[i]))
-    return starts[0], body
+    end = section_end(lines, starts[0])
+    return starts[0], [(i, lines[i]) for i in range(starts[0] + 1, end)]
 
 
 def table_body(reader, lines, heading, header, required):
@@ -1180,10 +1223,12 @@ def swallowed(reader, report, lines):
         if len(starts) != 1:
             continue  # absent is the loop above; twice is `section_body`'s
         start = starts[0]
-        end = next(
-            (i for i in range(start + 1, len(lines)) if lines[i].startswith("#")),
-            len(lines),
-        )
+        # The same end `section_body` reads by (#505): a table under a `###`
+        # inside this section is this section's, so rows hidden there are
+        # rows this section lost. Ending at any `#` put them outside the
+        # span, and the record then arrived with the template's empty table
+        # and nothing said so.
+        end = section_end(lines, start)
         if any(reader.split_row(ln) for ln in lines[start + 1 : end]):
             continue
         if any(start < i < end and reader.split_row(t) for i, t in hidden):
@@ -2073,7 +2118,14 @@ def bound_line(reader, routing, rounds, n):
 
 def build(reader, routing, args, root, item, rounds):
     """The record's text, and the reach-back to make once it is written."""
-    if not reader.resolves(root, args.target):
+    # The commit the flag names, not the flag: `HEAD~1` and a branch name are
+    # legitimate spellings at the keyboard and name nothing in a record —
+    # `chain_check.target_shas` reads the cell for SHA-shaped words and
+    # reported *no row naming a commit* over a cell that held the revision
+    # as typed (#382). `head_moved` resolves the same flag for its printed
+    # line, so the line and the cell now agree.
+    target = reader.commit_of(root, args.target)
+    if target is None:
         raise Refused(
             f"--target {args.target} does not resolve in {root} — a record "
             "naming a commit nobody can open names nothing"
@@ -2167,7 +2219,7 @@ def build(reader, routing, args, root, item, rounds):
     fields = [
         row(("Field", "Value")),
         separator(2),
-        cell(chain.TARGET, args.target),
+        cell(chain.TARGET, target),
         cell(WRITTEN_LATE, written_late_cell(args.written_late)),
         cell(chain.RAN_BY, args.ran_by),
         cell(chain.PR_FIELD, pull_request_cell(root, args.pr)),
