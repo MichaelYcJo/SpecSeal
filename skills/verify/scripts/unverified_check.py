@@ -1138,6 +1138,12 @@ def wrote_a_spec(root, ref, directory):
             "-C",
             root,
             "log",
+            # Without it, a merge commit whose result matches one parent for
+            # this path is followed down that parent alone, and a spec added
+            # and dropped on the other side is pruned. Every release reaches
+            # `main` through such a merge, so the next release read a spec
+            # its predecessor dropped as never written (round 2's finding 6).
+            "--full-history",
             "-1",
             "--format=%H",
             ref or "HEAD",

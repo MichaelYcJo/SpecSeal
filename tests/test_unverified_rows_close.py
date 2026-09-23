@@ -1985,6 +1985,44 @@ def test_a_spec_deleted_by_an_earlier_merge_is_still_a_deletion(tmp_path, capsys
     assert "retired by the rule" not in out, out
 
 
+def test_a_spec_dropped_on_the_far_side_of_a_merge_is_still_written(tmp_path):
+    """Round 2's finding 6. A spec added and dropped on a branch that reached
+    this one through a merge commit is history git's default simplification
+    prunes: at the merge the path matches the parent that never held it, so
+    `git log` follows that parent alone. Every release reaches `main` that
+    way, so a spec dropped in one release read as never written in the next."""
+    d = tmp_path / "r"
+    d.mkdir()
+
+    def git(*args):
+        subprocess.run(["git", "-C", str(d), *args], check=True, capture_output=True)
+
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "x@example.com")
+    git("config", "user.name", "x")
+    (d / "README.md").write_text("r\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-qm", "root")
+    git("switch", "-qc", "release")
+    item = d / "seal" / "specs" / "1780000009-x"
+    item.mkdir(parents=True)
+    (item / "routing.md").write_text("# x — routing\n", encoding="utf-8")
+    (item / "spec.md").write_text("# a spec\n\nA rule.\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-qm", "a work item with a spec")
+    git("rm", "-q", "seal/specs/1780000009-x/spec.md")
+    git("commit", "-qm", "the spec, dropped")
+    git("switch", "-q", "main")
+    (d / "other.md").write_text("o\n", encoding="utf-8")
+    git("add", "-A")
+    git("commit", "-qm", "main moves")
+    git("merge", "-q", "--no-ff", "-m", "release into main", "release")
+    assert uc.wrote_a_spec(str(d), "HEAD", "seal/specs/1780000009-x"), (
+        "a spec dropped before a merge commit read as never written"
+    )
+    assert not uc.retired_by_rule(str(d), "HEAD", "seal/specs/1780000009-x")
+
+
 def test_a_history_git_cannot_read_counts_as_a_spec_written(tmp_path):
     """`wrote_a_spec`'s failure direction: a git that cannot answer keeps the
     directory, because *never wrote one* is the answer that removes it."""
