@@ -37,10 +37,12 @@ rather than re-spelled: that module is the fold record's one reader, and the
 same arm of `unverified-check` is what would otherwise call a retirement this
 branch's deletion.
 
-**The guard.** A work item whose `evidence-todo.md` still has an open row is
+**The guards.** A work item whose `evidence-todo.md` still has an open row is
 skipped and named, never folded and never removed. A fact a reviewer verified
 that never reached the ledger is exactly what the directory must not take
-with it.
+with it. And a directory a live ledger row anchors into is kept, with the row
+named and what `CLAUDE.md` requires of it (#511): removing the directory
+would leave the row BROKEN, and the checker would only say so afterwards.
 
 **Two halves, and the retirement is the second.** The command lists what a
 session has to write policy for; `--retire` removes the directories whose
@@ -375,6 +377,113 @@ def coordinates(root):
     return out
 
 
+# --- what a removal would break --------------------------------------------
+
+AnchoredRow = collections.namedtuple("AnchoredRow", "file line clause dead live items")
+
+# A cell boundary: a pipe no backslash escapes. A ledger anchor that quotes a
+# table line escapes the pipes it holds, and splitting on those would hand the
+# report a fragment of the anchor as the row's first cell.
+CELL_RE = re.compile(r"(?<!\\)\|")
+
+# What the guard prints for each verdict. Pinned by
+# `tests/test_settle_reads_before_it_removes.py`, because a person acts on it.
+REMOVED_SAYS = (
+    "REMOVED — every anchor it cites lies inside a directory a retirement "
+    "removes, and `CLAUDE.md` says a row whose anchor a change removes is "
+    "REMOVED, not re-pointed; its claim is written anew where it still stands"
+)
+NARROW_SAYS = (
+    "narrow — drop the anchor{s} inside a retiring directory and keep the "
+    "{live} live one{live_s}; whether such a row is removed instead is the "
+    "repository owner's question (`seal/ledger.md` §1788354065's S12 row)"
+)
+
+
+def first_cell(line):
+    """The first cell of a table row, which names the row's claim."""
+    cells = CELL_RE.split(line.strip())
+    if len(cells) > 1 and not cells[0].strip():
+        cells = cells[1:]
+    return cells[0].strip() if cells else ""
+
+
+def anchored_rows(root, work_item_ids):
+    """Every live ledger row with an anchor inside one of these directories.
+
+    #511. A retirement used to remove a directory a ledger row anchored into,
+    and the checker then reported the row BROKEN — found twice on one branch,
+    both times after the fact. This is the read that answers it before
+    anything is removed.
+
+    **It is not `coordinates`, and it cannot be.** That reader attributes a
+    row to the work item whose `<!-- specs/<id> -->` section holds it, and
+    skips every row above the first marker, which is exactly where this
+    repository's one anchored row sat. What this asks is only whether an
+    anchor's PATH lies under `seal/specs/<id>/`, whoever wrote the row, so it
+    reads every live line of `seal/ledger.md` and of every `seal/ledger/*.md`
+    through the one liveness rule, `unverified_check.py#live_lines`, and the
+    one coordinate shape, `COORDINATE_RE`.
+
+    It reads and names; it never edits the ledger. Which row goes is a
+    judgment about a claim, and `docs/one-root-by-lifetime.md` §*What keeps
+    `settle` light* keeps that out of the command.
+    """
+    prefixes = {f"{SPECS}/{i}/": i for i in work_item_ids}
+    if not prefixes:
+        return []
+    live_lines = load(READER, "specseal_unverified_reader").live_lines
+    sources = []
+    if os.path.isfile(under(root, LEDGER)):
+        sources.append(LEDGER)
+    for path in sorted(glob.glob(os.path.join(under(root, FRAGMENTS), "*.md"))):
+        sources.append(f"{FRAGMENTS}/{os.path.basename(path)}")
+    found = []
+    for rel in sources:
+        with open(under(root, rel), encoding="utf-8") as f:
+            lines = f.read().split("\n")
+        for number, (line, live) in enumerate(live_lines(lines), start=1):
+            if not live:
+                continue
+            paths = [m.group("path") for m in COORDINATE_RE.finditer(line)]
+            dead, items = [], set()
+            for path in paths:
+                for prefix, work_item_id in prefixes.items():
+                    if path.startswith(prefix):
+                        dead.append(path)
+                        items.add(work_item_id)
+            if dead:
+                found.append(
+                    AnchoredRow(
+                        rel,
+                        number,
+                        first_cell(line),
+                        dead,
+                        len(paths) - len(dead),
+                        sorted(items),
+                    )
+                )
+    return found
+
+
+def verdict(row):
+    """What `CLAUDE.md` requires of one anchored row, as a person reads it."""
+    if not row.live:
+        return REMOVED_SAYS
+    return NARROW_SAYS.format(
+        s=plural(len(row.dead)), live=row.live, live_s=plural(row.live)
+    )
+
+
+def write_anchored(rows, out):
+    """One block per row: where it is, what it claims, where it points, and
+    what `CLAUDE.md` says to do with it."""
+    for row in rows:
+        out.write(f"    {row.file}:{row.line}  {row.clause}\n")
+        out.write(f"        into {', '.join(row.items)}\n")
+        out.write(f"        {verdict(row)}\n")
+
+
 def segment_of(paths):
     """`(segment, reason)` for one work item's coordinate paths.
 
@@ -444,7 +553,12 @@ def survey(root, ref):
         "skipped": [],
         "grouped": collections.defaultdict(list),
         "ungrouped": [],
+        "anchored": [],
     }
+    # Every released directory, folded or not, because this list is for the
+    # session writing the prose: a row it sees now is answered before the
+    # retirement, rather than found by a red `evidence-check` after it.
+    survey["anchored"] = anchored_rows(root, survey["released"])
     for work_item_id in survey["released"]:
         # The guard is asked first. `spec.md` G3 says an item with an open row
         # is skipped AND NAMED, never folded — and an item that was both
@@ -506,6 +620,14 @@ def report(found, ref, out=sys.stdout):
         for work_item_id in found["folded"]:
             write(f"    {work_item_id}\n")
 
+    if found["anchored"]:
+        write(
+            "\nanchored — a ledger row cites a path inside a released work "
+            "item's\ndirectory, and `settle --retire` keeps that directory "
+            "until the row is answered:\n"
+        )
+        write_anchored(found["anchored"], out)
+
     write(
         "\nNothing was written and nothing was removed. `skills/settle/SKILL.md`\n"
         "is the procedure: one standing statement per segment in `docs/`, each\n"
@@ -521,7 +643,10 @@ def retire(found, root, out=sys.stdout):
     The marker is the condition, so a directory is removed only where a
     policy document has absorbed the work item. An item the guard is holding
     is refused even with a marker: the fold was recorded and the fact the row
-    names still has not reached the ledger.
+    names still has not reached the ledger. So is an item a live ledger row
+    anchors into (#511), per directory rather than for the whole run — the
+    evidence-todo guard's shape — so one held directory does not stop the
+    others, and the run exits 1 naming every row.
 
     **The candidate set is read from the tree, not taken from `survey`.** It
     used to be `found["folded"]`, and round 1's finding 4 moved the guard
@@ -552,8 +677,13 @@ def retire(found, root, out=sys.stdout):
     released_at_base = set(found["released"])
     held = open_items(root)
     candidates = sorted(marked & present & released_at_base)
-    refused = [i for i in candidates if i in held]
-    removable = [i for i in candidates if i not in held]
+    # #511's guard, asked of the candidates themselves and read from the
+    # ledger now, for the reason the paragraph above gives for `open_items`:
+    # the report's list is not a guard on a destructive act.
+    anchored = anchored_rows(root, candidates)
+    holding = {i for row in anchored for i in row.items}
+    refused = [i for i in candidates if i in held or i in holding]
+    removable = [i for i in candidates if i not in held and i not in holding]
     if not removable and not refused:
         # THREE states, and they are told apart by what the sentence asserts
         # rather than by what happens to be empty. Round 1 split one of them
@@ -595,15 +725,26 @@ def retire(found, root, out=sys.stdout):
     for work_item_id in removable:
         shutil.rmtree(under(root, f"{SPECS}/{work_item_id}"))
         out.write(f"removed {SPECS}/{work_item_id}/\n")
-    if refused:
+    todo_kept = [i for i in refused if i in held]
+    if todo_kept:
         out.write(
             "\nkept, although the fold is recorded — an evidence-todo row is "
             "still open:\n"
         )
-        for work_item_id in refused:
+        for work_item_id in todo_kept:
             count = held[work_item_id]
             out.write(f"    {work_item_id}  ({count} open row{plural(count)})\n")
-    out.write(f"\nretired {len(removable)} work items; {len(refused)} kept\n")
+    if anchored:
+        out.write(
+            "\nkept — a ledger row anchors inside the directory, and removing "
+            "it would\nleave the row BROKEN. Answer each row, then run "
+            "`settle --retire` again:\n"
+        )
+        write_anchored(anchored, out)
+    out.write(
+        f"\nretired {len(removable)} work item{plural(len(removable))}; "
+        f"{len(refused)} kept\n"
+    )
     return 1 if refused else 0
 
 

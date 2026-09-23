@@ -187,19 +187,20 @@ and let the next `settle --retire` take the directory. That question, for
 design comment.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
-**A retirement breaks every ledger row anchored inside the directory it
-removes, and nothing refuses the removal first.** An anchor into a work item's
-`spec.md` or its round records is a file path like any other, so after
-`settle --retire` the checker reports it broken (#511 is the missing refusal).
-So a fold branch greps the ledger for its directories before it retires
-anything, and the frame that says *no row anchors there* is a count to open. A
-hit found then is answered by the rule above: the directory stays. What the
-grep missed is decided after the removal by the rule `CLAUDE.md` gives: a row
-whose only anchor went is REMOVED, never re-pointed, and its claim is written
-anew where a work item still holds it. A row that keeps a live anchor beside
-the dead one loses only the dead one, and whether it should be removed instead
-is the repository owner's question, recorded against the ledger row that first
-met it.
+**A retirement would break every ledger row anchored inside the directory it
+removes, so the retirement refuses that directory first.** An anchor into a
+work item's `spec.md` or its round records is a file path like any other, and
+after a removal the checker reports it broken. So `settle` reads every live
+row of `seal/ledger.md` and of every `seal/ledger/*.md` — the rows above the
+first section marker included — and names each one anchored inside a released
+directory, and `settle --retire` keeps every directory such a row anchors
+into, removes the rest, and exits 1 naming each row (#511). It says per row
+what `CLAUDE.md` requires: a row whose every anchor goes is REMOVED, never
+re-pointed, and its claim is written anew where a work item still holds it; a
+row that keeps a live anchor beside the dead one loses only the dead one, and
+whether it should be removed instead is the repository owner's question,
+recorded against the ledger row that first met it. The command names the rows
+and edits none of them, because which row goes is a judgment about a claim.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 **A population floor over the records is replaced, never lowered.** A check

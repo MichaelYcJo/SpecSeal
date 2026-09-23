@@ -258,6 +258,138 @@ def test_an_interrupted_run_resumes(tree):
     assert "The fold is complete." in text, text
 
 
+# --- #511: a ledger row anchored inside a directory keeps it ---------------
+
+INSIDE = (
+    '`seal/specs/1700000001-alpha/rounds/round-1.md#"# alpha — review round 1"'
+    "@abcdef12`"
+)
+INSIDE_ROW = f"| a claim read in a round record | {INSIDE} | read | 2026-01-01 | |"
+
+
+def anchor(repo, row, after):
+    """Put `row` into the fixture ledger on the line after `after`."""
+    ledger = repo / "seal" / "ledger.md"
+    text = ledger.read_text(encoding="utf-8")
+    assert after in text, f"the fixture has no line {after!r}"
+    ledger.write_text(text.replace(after, f"{after}\n{row}", 1), encoding="utf-8")
+    return text.split("\n").index(after) + 2
+
+
+def test_a_row_anchored_inside_a_candidate_keeps_that_directory(tree):
+    """#511's red direction. The fold's own retirement broke five permanent
+    rows, each anchored at a retired work item's `spec.md`, and the branch
+    found them only when `evidence_check .` went red after the removal. The
+    guard keeps per directory — the evidence-todo guard's shape — so the other
+    candidate still goes."""
+    fold(tree, "1700000001-alpha")
+    fold(tree, "1700000002-beta")
+    line = anchor(
+        tree, INSIDE_ROW, "| one | `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |"
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), (
+        "a directory a ledger row anchors into was removed"
+    )
+    assert not (tree / "seal" / "specs" / "1700000002-beta").exists(), (
+        "the guard held a directory no row anchors into"
+    )
+    assert f"seal/ledger.md:{line}" in text, text
+    assert "a claim read in a round record" in text, text
+    assert "REMOVED" in text, text
+
+
+def test_a_row_above_the_first_marker_is_read_by_the_guard(tree):
+    """`coordinates` skips every row above the first `<!-- specs/ -->` marker,
+    and the one row that anchors under `seal/specs/` in this repository's own
+    ledger sits exactly there. A guard built on that reader would never see
+    it."""
+    fold(tree, "1700000001-alpha")
+    line = anchor(
+        tree,
+        INSIDE_ROW,
+        "| a row from before the fragments existed | `hooks/old.py#thing@11111111`"
+        " | read | 2026-01-01 | |",
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert f"seal/ledger.md:{line}" in text, text
+
+
+def test_a_row_in_a_fragment_is_read_by_the_guard(tree):
+    """The second address the checker reads. A fragment row anchored at a
+    work item's own `survivors.md` is the other instance #511 measured."""
+    fold(tree, "1700000001-alpha")
+    fragments = tree / "seal" / "ledger"
+    fragments.mkdir()
+    (fragments / "1700000009-later.md").write_text(INSIDE_ROW + "\n", encoding="utf-8")
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert "seal/ledger/1700000009-later.md:1" in text, text
+
+
+def test_a_row_with_a_live_anchor_beside_the_dead_one_is_narrowed(tree):
+    """A row that keeps a live anchor is not REMOVED by `CLAUDE.md`'s rule,
+    and whether it should be is the repository owner's question — so the line
+    says to drop the dead anchor and names who answers the rest."""
+    fold(tree, "1700000001-alpha")
+    anchor(
+        tree,
+        f"| two anchors | {INSIDE}, `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |",
+        "| one | `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |",
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert "narrow" in text, text
+    assert "REMOVED" not in text, text
+    assert "repository owner" in text, (
+        "the multi-anchor answer is the owner's and the line does not say so"
+    )
+
+
+def test_the_report_names_an_anchored_row_before_anything_is_removed(tree):
+    """The session sees the row while it writes the prose, not after. The
+    report reads every released directory, folded or not."""
+    anchor(
+        tree, INSIDE_ROW, "| one | `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |"
+    )
+    code, text = run(tree)
+    assert code == 0, text
+    assert "anchored" in text and "a claim read in a round record" in text, text
+    assert "1700000001-alpha" in text.split("anchored")[1], text
+
+
+def test_a_quoted_anchor_is_not_a_row(tree):
+    """The one liveness rule: a row shown inside a fence is an example."""
+    fold(tree, "1700000001-alpha")
+    ledger = tree / "seal" / "ledger.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + f"\n```markdown\n{INSIDE_ROW}\n```\n",
+        encoding="utf-8",
+    )
+    code, text = run(tree, "--retire")
+    assert code == 0, text
+    assert not (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+
+
+def test_the_documents_say_the_retirement_keeps_an_anchored_directory():
+    """§14's half of #511: the skill a fold session reads and the policy it
+    folds under both say the guard exists, and neither still says nothing
+    refuses the removal."""
+    text = flat(skill())
+    assert "A directory a ledger row anchors into is kept too" in text
+    assert "the ones above the first section marker included" in text
+    policy = document("docs", "the-evidence-ledger.md")
+    assert "nothing refuses the removal first" not in policy, (
+        "the policy still says nothing refuses the removal"
+    )
+    assert "so the retirement refuses that directory first" in policy
+    assert "The command names the rows and edits none of them" in policy
+
+
 def test_a_marker_quoted_in_prose_is_not_a_fold_record(tree):
     """The line anchor `fold_ledger.py#is_marked` already pays for. Every
     document describing the convention quotes the marker's shape inline."""

@@ -154,6 +154,18 @@ and nothing else. An item the evidence-todo guard is holding is kept even when
 the marker is there: the record says the prose landed, and the row says a fact
 the reviewer verified has not reached the ledger yet.
 
+**A directory a ledger row anchors into is kept too**, and the row is named
+with its file, its line and its claim. Removing the directory would leave the
+row BROKEN, and the checker would say so only after the directory was gone.
+Every live row of `seal/ledger.md` and of every `seal/ledger/*.md` is read,
+the ones above the first section marker included, and `settle` alone names
+them for every released directory before you write any prose. Each row
+carries what `CLAUDE.md` requires of it: **REMOVED** when every anchor it
+cites goes, and its claim written anew where it still stands; **narrow** when
+it keeps a live anchor, with the dead one dropped — and whether such a row is
+removed instead is the repository owner's question. The command edits no row.
+Answer them, and the next `settle --retire` takes the directory.
+
 **The retirement is the second half of the fold and never its own act.** A
 directory removed before a policy document absorbed it takes the reasoning
 with it, and that is the one loss nothing can undo. The marker is what makes
