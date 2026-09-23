@@ -676,14 +676,15 @@ questions. The parity arm asks whether the original was consulted, and a
 `docs/` file has no original, so its silence there is right. This arm asks
 whether anybody reads the change before it lands, and here `docs/` is the
 policy the code conforms to and `seal/ledger.md` is the verified evidence.
-#518 measured it before drawing any line. Every docs/seal-only change that
-reached a reviewer produced real defects in `docs/`: #514's fold opened seven
-findings a later round verified as fixed, all in `docs/`, one of them 🔴. The
-docs/seal-only commits that never reached a reviewer were planning bookkeeping
-in `docs/flow.md`, a file retired on 2026-09-11. Across every round record,
-at least 25 fixed findings sit in `docs/` alone and 26 in the ledger alone. So
-the parity arm's line would exempt the one population that measured positive
-and buy nothing on the one that measured empty. A documentation pass that
+#518 measured whether review finds defects there before drawing any line,
+and it does. Across every round record, at least 25 fixed findings sit in
+`docs/` alone and 26 in the ledger alone. #514's fold, which changed `docs/`,
+`seal/` and four test files, opened seven findings a later round verified as
+fixed, all in `docs/`, one of them 🔴. No reviewed work item was ever confined
+to the two roots, and the seventeen docs/seal-only commits on the release
+branch never reached a reviewer, so nothing measured them either way. The
+parity arm's line would stop asking exactly where the reviewed findings sit,
+on the strength of a population nobody measured. A documentation pass that
 should reach nobody is routed that way before the first edit, by declaring
 `straight to the PR`; it is never inferred from the paths it touches.
 

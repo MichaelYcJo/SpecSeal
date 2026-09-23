@@ -10,11 +10,13 @@ for each, and any of them can be overturned by opening what was opened.
 
 - **Whether a lighter tier by paths is drawn at all** — no. The issue made this
   depend on one number: how many review rounds on docs/seal-only changes found
-  a real defect. The number is not zero. The only such changes that reached a
-  reviewer (#514's fold) produced seven fixed findings in `docs/`, one 🔴, and
-  the docs/seal-only commits that never reached one were planning bookkeeping
-  in `docs/flow.md`, retired on 2026-09-11. `spec.md` §*The measurement the
-  issue asked for*, M1 to M4.
+  a real defect. No docs/seal-only change ever reached a reviewer, so the
+  number was taken where review did read those roots: #514's fold, which also
+  changed four test files, had seven fixed findings all in `docs/`, one 🔴,
+  and at least 25 and 26 fixed findings across every round record sit in
+  `docs/` or the ledger alone. The seventeen docs/seal-only commits were never
+  reviewed, so nothing measured them. `spec.md` §*The measurement the issue
+  asked for*, M1 to M4. *(Corrected 2026-09-23 in round 1's fix pass.)*
 - **Which paths** (issue question 1) — none, by the answer above.
 - **Where the list lives** (question 2) — there is no list.
 - **Whether `DOC_ROOTS` becomes that list** (question 3) — no. It stays the

@@ -446,36 +446,42 @@ def test_parity_gate_ignores_document_only_commits(repo):
     )
 
 
-def test_the_review_arm_asks_on_a_document_only_commit(repo):
+@pytest.mark.parametrize("path", ["docs/policies/note.md", "seal/ledger.md"])
+def test_the_review_arm_asks_on_a_document_only_commit(repo, path):
     """The parity arm's line at `docs/` and `seal/` is the parity arm's alone.
 
     The review arm asks whether anybody reads the change before it lands, and
     in a repository that runs this workflow `docs/` is the policy the code
-    conforms to. #518 measured it: the only docs/seal-only change that reached
-    a reviewer (#514's fold) produced seven fixed findings in `docs/`, one of
-    them 🔴. So a commit confined to `docs/` meets the review arm exactly as a
-    code change does (`docs/review-chain-spec.md` §*Review arm*). This case is
-    what fails if `touches_code` is ever shared between the arms.
+    conforms to. #518 measured it: #514's fold, which changed `docs/`,
+    `seal/` and four test files, produced seven fixed findings, all located
+    in `docs/`, one of them 🔴, and 26 fixed findings across every round
+    record sit in the ledger alone. So a commit confined to either root meets
+    the review arm exactly as a code change does (`docs/review-chain-spec.md`
+    §*Review arm*). One path per root, because the line can leak by halves:
+    an exemption for `seal/` alone passes every `docs/` case. This case is
+    what fails if `touches_code`, or either half of it, is ever shared
+    between the arms.
     """
     (repo / "seal").mkdir(exist_ok=True)
-    (repo / "docs" / "policies").mkdir(parents=True, exist_ok=True)
-    stage(repo, "docs/policies/note.md", "text\n")
+    (repo / path).parent.mkdir(parents=True, exist_ok=True)
+    stage(repo, path, "text\n")
     out = run_hook("commit-review-gate.py", payload("git commit -m x", repo))
     assert decision_of(out) == "deny", (
-        "a commit confined to docs/ passed the review arm with no declaration, "
-        "no review mark and no waiver"
+        f"a commit confined to {path} passed the review arm with no "
+        "declaration, no review mark and no waiver"
     )
     reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
     assert "[no-review]" in reason
 
 
-def test_a_document_only_commit_wakes_one_arm_and_not_two(repo):
+@pytest.mark.parametrize("path", ["docs/policies/note.md", "seal/ledger.md"])
+def test_a_document_only_commit_wakes_one_arm_and_not_two(repo, path):
     """In a migration repository the same commit wakes the review arm alone:
-    the parity arm's silence on `docs/` holds, and the review arm's question
-    does not borrow it."""
+    the parity arm's silence on `docs/` and `seal/` holds, and the review
+    arm's question does not borrow either half of it."""
     parity_repo(repo)
-    (repo / "docs" / "policies").mkdir(parents=True, exist_ok=True)
-    stage(repo, "docs/policies/note.md", "text\n")
+    (repo / path).parent.mkdir(parents=True, exist_ok=True)
+    stage(repo, path, "text\n")
     out = run_hook("commit-review-gate.py", payload("git commit -m x", repo))
     assert decision_of(out) == "deny"
     reason = json.loads(out)["hookSpecificOutput"]["permissionDecisionReason"]
@@ -507,8 +513,9 @@ def test_the_review_arms_missing_path_line_is_written_where_it_is_met():
     assert "**Why this arm has no document-root line.**" in review_arm, (
         "the row points at a paragraph that is not there"
     )
-    assert "the one population that measured positive" in review_arm, (
-        "the paragraph lost the measurement that decides the line"
+    assert "it is never inferred from the paths it touches" in review_arm, (
+        "the paragraph lost the rule it exists for: the lighter tier is a "
+        "declaration made before the first edit, not a path line"
     )
     assert (
         "| a `routing.md` declaration names this branch, for either answer | "

@@ -16,10 +16,12 @@ where a reader meets the question — the review arm's decision table, the
 wake/quiet table, the hook beside `DOC_ROOTS` — and plants a test that fails
 if the parity arm's path line is ever added to the review arm.
 
-The reason is the measurement in `spec.md`. The only docs/seal-only changes
-that reached a reviewer produced seven fixed findings in `docs/`, one of them
-🔴, and the docs-only commits that never reached one were planning bookkeeping
-in a file that has since been retired.
+The reason is the measurement in `spec.md`. When review reads `docs/` and the
+ledger it finds defects there — #514's fold, which also changed four test
+files, had seven fixed findings all in `docs/`, one of them 🔴 — and no
+docs/seal-only change ever reached a reviewer, so nothing measured the
+commits the line would exempt. *(Corrected 2026-09-23 in round 1's fix
+pass.)*
 
 ## Technical context
 

@@ -4,10 +4,11 @@
   nothing there can be compared against an original. The review arm asks a
   different question — whether anybody reads the change before it lands — and
   it has no such line. The issue asked for a measurement before any line was
-  drawn, and the measurement refused one: every docs-only change that reached
-  a reviewer produced real defects in `docs/`, one of them 🔴, while the
-  docs-only commits that never reached a reviewer were planning notes in a
-  file retired on 2026-09-11. What the gate decides is unchanged.
+  drawn, and the measurement refused one: when review reads `docs/` and the
+  ledger it finds real defects there, at least 25 and 26 fixed findings across
+  every round record, one of them 🔴 in the last fold, while no docs-only
+  change has ever reached a reviewer, so the commits the line would exempt
+  were never measured at all. What the gate decides is unchanged.
   `docs/review-chain-spec.md` §*Review arm* gains a row for a docs-only change
   and a paragraph with the measurement, plus the row for a `routing.md`
   declaration that the table had left to the prose. The wake/quiet table in

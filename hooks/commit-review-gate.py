@@ -498,8 +498,8 @@ def touches_code(cwd, invocations):
     prompt — which costs more than the check is worth.
 
     Only the parity arm calls this. The review arm's question is not about an
-    original, and a docs-only change is exactly where the measured findings
-    were (`docs/review-chain-spec.md` §*Review arm*, #518).
+    original, and `docs/` is where a measured share of the review chain's
+    fixed findings sit (`docs/review-chain-spec.md` §*Review arm*, #518).
     """
     paths = changed_paths(cwd, invocations)
     return any(not path.startswith(DOC_ROOTS) for path in paths)

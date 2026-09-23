@@ -62,12 +62,14 @@ one is added.
 
 **Out, one line each:**
 
-- **A lighter tier chosen by paths.** Refused by the measurement: the only
-  docs/seal-only changes that reached a reviewer produced real defects in
-  `docs/`. The population that never reached one was planning bookkeeping,
-  thirteen of seventeen commits in `docs/flow.md`, which was retired on
-  2026-09-11 (`d851bd14`). No docs/seal-only commit has landed on the release
-  branch since.
+- **A lighter tier chosen by paths.** Refused by the measurement: review of
+  `docs/` and ledger content finds defects there (M3, M4). No docs/seal-only
+  change ever reached a reviewer (M1), so the seventeen that did not were
+  never measured either way; thirteen of them touch `docs/flow.md`, which was
+  retired on 2026-09-11 (`d851bd14`). No docs/seal-only commit has landed on
+  the release branch since. *(Corrected 2026-09-23 in round 1's fix pass: this
+  line said the only docs/seal-only changes that reached a reviewer produced
+  defects, and M1 says none reached one.)*
 - **An exemption by branch name.** The issue rules it out.
 - **A shared path list for the gate and CI** (the issue's questions 2 and 3,
   and #506's complaint about hand-kept enumerations). With no tier there is no
@@ -169,12 +171,17 @@ a lower bound: a finding whose Location cell cites no backticked path is not
 counted, and neither is a verdict other than `fixed`.
 
 **What the measurement decides.** The number the issue asked for is not zero,
-and it is not small where it matters. Every docs/seal-only change that reached a
-reviewer produced real defects in `docs/`, and the changes that never reached
-one were planning bookkeeping in a file that has since been retired. So a line
-drawn at `docs/` and `seal/`, the parity arm's line, would have exempted the
-only population that measured positive and bought nothing on the population
-that measured empty. The measurement refuses that line.
+and it is not small where it matters. When review reads `docs/` and the
+ledger it finds defects there: at least 25 and 26 fixed findings (M4), and
+#514's fold, the nearest thing to a docs/seal-only item, had all seven of its
+fixed findings in `docs/` (M3). No docs/seal-only change ever reached a
+reviewer (M1), so the seventeen commits of M2 were never measured either way.
+A line drawn at `docs/` and `seal/`, the parity arm's line, would stop asking
+exactly where the reviewed findings sit, on the strength of a population
+nobody measured. The measurement refuses that line. *(Corrected 2026-09-23 in
+round 1's fix pass: this paragraph said every docs/seal-only change that
+reached a reviewer produced defects and that the unreviewed ones measured
+empty; M1 says none reached one, and an unreviewed commit measured nothing.)*
 
 **How the numbers were taken, so they can be re-taken.** M1: for every
 `*/rounds/round-1.md` added on the release branch, the paths of the commit
