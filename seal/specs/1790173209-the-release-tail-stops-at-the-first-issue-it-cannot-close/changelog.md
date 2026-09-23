@@ -43,3 +43,11 @@
   rather than refusing the running version again in silence. The refusal
   text names the route; `docs/release-checklist.md` §3 and §5 and
   `docs/issues-and-milestones.md` say a tagged version is history.
+- **The completeness gate's docstring and the case that pins its inputs draw
+  one boundary — what the step must pass — and carry the measured table
+  instead of a count and a superlative (issue #362).** The docstring said
+  `HEAD_SHA` was the one input whose absence is silent and named four; the
+  case looped over five. Measured again, one input removed at a time: two
+  absences are silent, `HEAD_SHA` and `HEAD_BRANCH`. A case holds the two
+  texts to each other so the next edit to one reaches the other. Nothing the
+  gate decides changes.
