@@ -1,8 +1,9 @@
 - **The release before this one shipped four work items and folded none of
   them; this is the second fold, and it retires all four (issue #514).**
   Their standing rules are written into `docs/`: the release tail's rule —
-  every act after the tag belongs to a machine the tag push fires — into
-  `docs/branch-and-release.md`; the first fold's four rules for the ungrouped,
+  every act after the merge to `main` belongs to a machine or to a command
+  that answers it, with the merge firing the label acts and the tag push the
+  note — into `docs/branch-and-release.md`; the first fold's four rules for the ungrouped,
   for ledger rows anchored inside a retired directory, for population floors
   and for the wrap limit into `docs/the-evidence-ledger.md`; the review cap's
   rules marked where `docs/review-chain-spec.md` already states them; and the
