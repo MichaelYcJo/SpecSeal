@@ -45,11 +45,30 @@ reporting:
 It writes nothing anywhere. Exit 0 or 1, and a shape it cannot judge exits 0
 with the reason printed.
 
-Environment: `REPO`, `HEAD_BRANCH` (`github.head_ref`), `BASE` for the ref
-the range is measured from (default `origin/main`), and `HEAD_SHA` for the
-commit it is measured TO (default `HEAD`). `HEAD_SHA` is the one entry whose
-absence is silent rather than loud, and `merge_base` below carries what
-falling back to `HEAD` costs on a `pull_request` event.
+Environment: every entry the step in `.github/workflows/hygiene.yml` passes,
+and the boundary is what the step must pass rather than what `os.environ`
+reads -- `GH_TOKEN` reaches this through `gh` and is an input all the same.
+Measured one entry removed at a time against a fixture branch name, exit
+codes read directly (#362):
+
+    `REPO`         exit 1   `KeyError: 'REPO'` -- loud
+    `HEAD_SHA`     exit 0   the commit the range is measured TO falls back to
+                            `HEAD`, which in CI is the merge ref; nothing
+                            printed says so, and `merge_base` below carries
+                            what that costs on a `pull_request` event
+    `HEAD_BRANCH`  exit 0   `'' is not a release/vX.Y.Z branch -- nothing to
+                            judge`: the hotfix skip, borrowed by a gate that
+                            was asked to judge a release and could not see
+                            which one
+    `BASE`         exit 0   the default `origin/main`, the ref the range is
+                            measured FROM, which is what a release pull
+                            request wants
+    `GH_TOKEN`     exit 1   `gh api ... failed: ... gh auth login` -- loud
+
+Two absences are silent, and neither is caught here: the case
+`tests/test_a_release_cannot_ship_an_untrue_milestone.py#test_every_input_the_script_reads_is_handed_to_it_by_the_step`
+holds the step to every entry of the table, and its sibling holds this
+paragraph and that case's docstring to each other.
 """
 
 import importlib.util

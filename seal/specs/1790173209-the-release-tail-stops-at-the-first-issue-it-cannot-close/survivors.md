@@ -1,0 +1,6 @@
+# Survivors — the release tail stops at the first issue it cannot close
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `CHANGELOG.md` | Both releases sit at or above the running version, and `test_no_loaded_file_names_a_version_at_or_above_the_running_one` refuses a loaded file that names one | A released changelog entry, in a shipped section, describing the rule as it stood when that release wrote it. Phase 4 (#363) reworded the living paragraph in `docs/issues-and-milestones.md` to say a tagged version is history now; the entry is a record of the release that shipped the prose citations and is not rewritten by a later release, the way `docs/experiments/` is not |
+| `.github/scripts/fold_ledger.py` | date = args.date or datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d") block, empty = section(args.version, date, frags) if args.dry_run: print | Code, not a sentence: the fold's own date line, which shares its spelling with the line phase 3 (#289) replaced in the gatherer and makes no claim about the gather. It is left as it is because the fold's `section` writes a `## X.Y.Z — <date>` heading the same way the gatherer did, so a second fold for one version is the same second-heading class one file over — and that is a mechanism a fix pass does not add. Named in the hand-back for the caller to file, with this row as the quote |

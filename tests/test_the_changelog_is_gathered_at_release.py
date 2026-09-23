@@ -119,6 +119,108 @@ def test_gathering_twice_writes_one_copy(tree):
     assert changelog(tree).count("the later one") == 1, changelog(tree)
 
 
+def test_a_second_gather_for_the_same_version_appends_into_its_section(tree):
+    """#289. A release pull request finding something is the ordinary shape:
+    the first gather ran at the preparation commit, the pull request went
+    red, a fragment landed, and the second gather wrote a SECOND `## X.Y.Z`
+    heading — one release's entries split across two sections that read as
+    two releases with the same number. The section is appended into now, it
+    keeps the first gather's date, and the file holds one heading."""
+    gather(tree)
+    late = tree / "seal" / "specs" / "1788300001-late"
+    late.mkdir(parents=True)
+    (late / "changelog.md").write_text(
+        "- **the late one.** A repair.\n", encoding="utf-8"
+    )
+    second = run("--version", "0.2.0", "--date", "2026-09-16", root=tree)
+    assert second.returncode == 0, second.stdout + second.stderr
+    text = changelog(tree)
+    headings = re.findall(r"^## (.+)$", text, re.M)
+    assert headings == ["0.2.0 — 2026-09-15", "0.1.0 — 2026-09-01"], (
+        f"the second gather wrote a second heading, or re-dated the first: {headings}"
+    )
+    assert "the late one" in text, text
+    # Inside the section, after the entries the first gather wrote and
+    # before the release below it.
+    assert (
+        text.index("the later one")
+        < text.index("the late one")
+        < text.index("## 0.1.0")
+    ), text
+    assert "<!-- specs/1788300001-late -->" in text, text
+    # Round 1 of #536's work item (⬜ 2): the append arm re-joined the blank
+    # lines it had walked back over, leaving two before the next heading.
+    # One blank line between the appended entry and the next `## `, as the
+    # first gather writes it, and no run of three newlines anywhere.
+    assert "\n\n\n" not in text, f"a run of blank lines:\n{text}"
+    assert "- **the late one.** A repair.\n\n## 0.1.0" in text, text
+    check = run("--check", root=tree)
+    assert check.returncode == 0, check.stdout
+    assert "3 changelog fragments, all gathered" in check.stdout, check.stdout
+
+
+def test_a_second_gather_into_the_last_section_ends_the_file_with_one_newline(
+    tmp_path,
+):
+    """The other half of ⬜ 2: appending into the LAST section of a file
+    left the file ending with three newlines."""
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## 0.2.0 — 2026-09-15\n\n<!-- specs/1700000000-earlier -->\n"
+        "- the earlier one\n",
+        encoding="utf-8",
+    )
+    d = tmp_path / "seal" / "specs" / "1788300001-late"
+    d.mkdir(parents=True)
+    (d / "changelog.md").write_text("- the late one\n", encoding="utf-8")
+    r = run("--version", "0.2.0", "--date", "2026-09-16", root=tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    text = changelog(tmp_path)
+    assert text.endswith("- the late one\n"), repr(text[-40:])
+    assert "\n\n\n" not in text, repr(text)
+
+
+def test_a_second_gather_into_an_undated_heading_says_what_the_write_does(tmp_path):
+    """⬜ 3: `existing_date` answered `None` for a heading with no date while
+    `insert` appended into it, so the dry run printed a fresh heading dated
+    today and the summary line said nothing about appending — and the write
+    appended anyway. One predicate answers *is there a section* for both.
+    The gatherer never writes an undated heading; a hand edit does."""
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## 0.2.0\n\n- an entry somebody wrote by hand\n",
+        encoding="utf-8",
+    )
+    d = tmp_path / "seal" / "specs" / "1788300001-late"
+    d.mkdir(parents=True)
+    (d / "changelog.md").write_text("- the late one\n", encoding="utf-8")
+    dry = run("--version", "0.2.0", "--date", "2026-09-16", "--dry-run", root=tmp_path)
+    assert dry.returncode == 0, dry.stdout
+    assert "appending into the existing section" in dry.stdout, dry.stdout
+    assert "2026-09-16" not in dry.stdout, dry.stdout
+    r = run("--version", "0.2.0", "--date", "2026-09-16", root=tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "appended into the existing section" in r.stdout, r.stdout
+    headings = re.findall(r"^## (.+)$", changelog(tmp_path), re.M)
+    assert headings == ["0.2.0"], headings
+
+
+def test_a_dry_run_of_a_second_gather_shows_the_section_it_appends_into(tree):
+    """The preview a person reads before the write says which heading the
+    entries join, dated as the file has it — not a fresh heading with today's
+    date that the write then does not make."""
+    gather(tree)
+    late = tree / "seal" / "specs" / "1788300001-late"
+    late.mkdir(parents=True)
+    (late / "changelog.md").write_text(
+        "- **the late one.** A repair.\n", encoding="utf-8"
+    )
+    before = changelog(tree)
+    r = run("--version", "0.2.0", "--date", "2026-09-16", "--dry-run", root=tree)
+    assert r.returncode == 0, r.stdout
+    assert "## 0.2.0 — 2026-09-15" in r.stdout, r.stdout
+    assert "2026-09-16" not in r.stdout, r.stdout
+    assert changelog(tree) == before, "--dry-run wrote to the file"
+
+
 def test_a_release_with_nothing_to_gather_fails(tree):
     """A release with no entries is one nobody can read. `hooks/version-check.py`
     tells a user a new version exists and the changelog is where they find out

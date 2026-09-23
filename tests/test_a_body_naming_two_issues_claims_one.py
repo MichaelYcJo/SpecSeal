@@ -138,6 +138,18 @@ def test_an_inline_span_claims_nothing_and_mentions_nothing():
     assert read("see `Closes #11, #22` in the ticket") == ([], [], [])
 
 
+def test_the_shapes_the_closer_masks_since_266_are_masked_here_too():
+    """The patterns are imported, so a widening of the closer's masks is a
+    widening here — which is the reason for importing them (#266). Three
+    shapes, each holding a body that would otherwise warn or claim."""
+    for body in (
+        "~~~\nCloses #11, #22\n~~~\n\nDo not write that.",
+        "- the example:\n  ```\n  Closes #11, #22\n  ```\n\nDo not write that.",
+        "see ``Closes #11, #22`` in the ticket",
+    ):
+        assert read(body) == ([], [], []), body
+
+
 def test_a_fence_does_not_splice_the_line_above_it_onto_the_line_below():
     """The masking is length-preserving for this reason. Collapsing a fenced
     block to one space would join `Closes #11` to `#22` across it, and invent

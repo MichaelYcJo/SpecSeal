@@ -84,6 +84,14 @@ The fold refuses while any `seal/specs/<id>/evidence-todo.md` has an open
 row; that is a review that never drained, not a release problem, and the
 row's work item is where it is closed.
 
+**A second gather for the same version appends into its section.** The
+release pull request going red and a fragment landing after this step is the
+ordinary shape, and the gather used to write a second `## X.Y.Z` heading for
+it (#289) — one release's entries split across two sections that read as two
+releases. Run the same command again: the new entries join the existing
+section, the section keeps the first gather's date, and
+`tests/test_release_hygiene.py` refuses a file that heads a version twice.
+
 ## 2b. Settle what the release leaves behind — by hand, and not in that commit
 
 ```bash
@@ -149,7 +157,7 @@ What each one has caught, so a failure is recognised rather than debugged:
 |---|---|
 | `evidence-check --strict` | rows anchored on units the preparation edited read as drifted; `--reverify` after re-reading them, in the same commit. The total can drop across a fold: two fragments citing one coordinate identically fold into one row, and the unique-anchor count is what stays equal |
 | the full suite | a gathered entry prescribed a `git mv` whose destination nothing creates; a layout test asserted `seal/ledger/` exists, and git keeps no empty directory once the fold removes the last fragment |
-| `test_no_loaded_file_names_a_version_at_or_above_the_running_one` | living prose that named the release by number the moment it became the running one. Since #179 it also names one written *ahead* of the release, which used to be green until the day it shipped — a document had carried an unshipped version for three releases that way. Records of a moment are listed in the test; everything else is reworded to name the change, or to the illustrative version the test's own message points at |
+| `test_no_loaded_file_names_a_version_at_or_above_the_running_one` | living prose that named the release by number the moment it became the running one. Since #179 it also names one written *ahead* of the release, which used to be green until the day it shipped — a document had carried an unshipped version for three releases that way. Records of a moment are listed in the test; everything else is reworded to name the change, or to the illustrative version the test's own message points at. Since #363 a version this repository has *tagged* is history and may be named — the shipped set is read from the root's `v*` tags, never from this file, because this commit writes the heading and the bump together and the version being cut is the timer |
 | `chain_check --baseline origin/main` | exit 1 in a checkout that never fetched `refs/pull/*/head` — the fetch line above is the fix, not a lost commit. CI fetches it itself |
 
 ## 4. Commit, push, open the first pull request
@@ -208,9 +216,12 @@ guard nobody can explain.
 document that names a version which does not exist yet goes red on the commit
 that writes it rather than on the release that ships it, so the refusal
 covers every version at or above the running one rather than the running one
-alone. Three exemptions, each argued where the rule is: the illustrative
-version this repository already writes, records of a moment under
-`docs/experiments/`, and a version belonging to another product.
+alone — less the versions this repository has tagged, because from the
+preparation commit until the next bump the running version is one that has
+already shipped, and a tag is what says so (#363). Three exemptions, each
+argued where the rule is: the illustrative version this repository already
+writes, records of a moment under `docs/experiments/`, and a version
+belonging to another product.
 
 <!-- specs/1789919879-the-outside-contributor-has-no-procedure -->
 **A contributor whose base is wrong is told the base is wrong.** The
@@ -288,6 +299,21 @@ only for a pull request whose base is the default branch. It does not read
 the changelog section. This paragraph said the opposite of both halves until
 #359, which is how a sentence nobody could act on survived for several
 releases.
+
+- [ ] **Every issue the run named is closed** — `gh run list --workflow
+      close-issues-on-release.yml --limit 1`, then the job log. The run
+      attempts every issue and falls back to the REST route where `gh issue
+      close` is refused (#536); a red job is one where both routes refused an
+      issue, and its last lines name each one with both errors. Repair it
+      from a clone that has both commits, with the run's own inputs:
+
+      ```bash
+      BEFORE=<github.event.before> AFTER=<github.event.after> REPO=<owner>/<repo> \
+        python3 .github/scripts/close_issues_on_release.py
+      ```
+
+      It skips what is already closed and reaches the rest; `DRY_RUN=1` in
+      front of it prints the plan and writes nothing.
 
 Leave the `merged: X.Y.Z` labels where they are. They accumulate, one per
 release, and that is deliberate: deleting a label deletes it from every issue
