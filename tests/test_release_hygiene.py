@@ -1113,6 +1113,21 @@ def test_no_version_heads_two_sections_of_this_changelog():
     )
 
 
+def test_no_version_heads_two_sections_of_this_ledger():
+    """The gathered ledger, the same way. #540: `fold_ledger.py` wrote a
+    second `## 0.9.3` heading when a fragment landed the day after the
+    release-preparation commit (`4ac9bf35`), and the file carried both for
+    six releases while the ticket said nobody had run the fold twice. Seen
+    red against that tree: `0.9.3 twice, at lines [1673, 1764]`."""
+    found = duplicated_version_headings(read_text("seal", "ledger.md"))
+    assert not found, "\n".join(
+        f"seal/ledger.md heads {version} twice, at lines {at}. One release, "
+        "one section: move the later heading's work items under the first "
+        "and delete it"
+        for version, at in found
+    )
+
+
 def test_the_newest_changelog_entry_is_the_version_being_shipped():
     """`test_plugin_version_is_in_changelog` accepts the version appearing
     anywhere, and an older entry satisfies that forever. What has to hold is
