@@ -102,7 +102,8 @@ def test_this_repository_keeps_no_record_at_the_old_location():
     """
     specs = os.path.join(ROOT, "seal", "specs")
     flat = []
-    for n in sorted(os.listdir(specs)):
+    # Absent after a complete fold (#517): no record at the old location.
+    for n in sorted(os.listdir(specs) if os.path.isdir(specs) else []):
         d = os.path.join(specs, n)
         if not os.path.isdir(d):
             continue

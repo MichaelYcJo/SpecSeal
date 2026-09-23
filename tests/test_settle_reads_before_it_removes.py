@@ -258,6 +258,449 @@ def test_an_interrupted_run_resumes(tree):
     assert "The fold is complete." in text, text
 
 
+# --- #511: a ledger row anchored inside a directory keeps it ---------------
+
+INSIDE = (
+    '`seal/specs/1700000001-alpha/rounds/round-1.md#"# alpha — review round 1"'
+    "@abcdef12`"
+)
+INSIDE_ROW = f"| a claim read in a round record | {INSIDE} | read | 2026-01-01 | |"
+
+
+def anchor(repo, row, after):
+    """Put `row` into the fixture ledger on the line after `after`."""
+    ledger = repo / "seal" / "ledger.md"
+    text = ledger.read_text(encoding="utf-8")
+    assert after in text, f"the fixture has no line {after!r}"
+    ledger.write_text(text.replace(after, f"{after}\n{row}", 1), encoding="utf-8")
+    return text.split("\n").index(after) + 2
+
+
+def test_a_row_anchored_inside_a_candidate_keeps_that_directory(tree):
+    """#511's red direction. The fold's own retirement broke five permanent
+    rows, each anchored at a retired work item's `spec.md`, and the branch
+    found them only when `evidence_check .` went red after the removal. The
+    guard keeps per directory — the evidence-todo guard's shape — so the other
+    candidate still goes."""
+    fold(tree, "1700000001-alpha")
+    fold(tree, "1700000002-beta")
+    line = anchor(
+        tree, INSIDE_ROW, "| one | `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |"
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), (
+        "a directory a ledger row anchors into was removed"
+    )
+    assert not (tree / "seal" / "specs" / "1700000002-beta").exists(), (
+        "the guard held a directory no row anchors into"
+    )
+    assert f"seal/ledger.md:{line}" in text, text
+    assert "a claim read in a round record" in text, text
+    assert "REMOVED" in text, text
+
+
+def test_a_row_above_the_first_marker_is_read_by_the_guard(tree):
+    """`coordinates` skips every row above the first `<!-- specs/ -->` marker,
+    and the one row that anchors under `seal/specs/` in this repository's own
+    ledger sits exactly there. A guard built on that reader would never see
+    it."""
+    fold(tree, "1700000001-alpha")
+    line = anchor(
+        tree,
+        INSIDE_ROW,
+        "| a row from before the fragments existed | `hooks/old.py#thing@11111111`"
+        " | read | 2026-01-01 | |",
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert f"seal/ledger.md:{line}" in text, text
+
+
+def test_a_row_in_a_fragment_is_read_by_the_guard(tree):
+    """The second address the checker reads. A fragment row anchored at a
+    work item's own `survivors.md` is the other instance #511 measured."""
+    fold(tree, "1700000001-alpha")
+    fragments = tree / "seal" / "ledger"
+    fragments.mkdir()
+    (fragments / "1700000009-later.md").write_text(INSIDE_ROW + "\n", encoding="utf-8")
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert "seal/ledger/1700000009-later.md:1" in text, text
+
+
+def test_a_row_with_a_live_anchor_beside_the_dead_one_is_narrowed(tree):
+    """A row that keeps a live anchor is not REMOVED by `CLAUDE.md`'s rule,
+    and whether it should be is the repository owner's question — so the line
+    says to drop the dead anchor and names who answers the rest."""
+    fold(tree, "1700000001-alpha")
+    anchor(
+        tree,
+        f"| two anchors | {INSIDE}, `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |",
+        "| one | `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |",
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert "narrow" in text, text
+    assert "REMOVED" not in text, text
+    assert "repository owner" in text, (
+        "the multi-anchor answer is the owner's and the line does not say so"
+    )
+
+
+def test_the_report_names_an_anchored_row_before_anything_is_removed(tree):
+    """The session sees the row while it writes the prose, not after. The
+    report reads every released directory, folded or not."""
+    anchor(
+        tree, INSIDE_ROW, "| one | `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |"
+    )
+    code, text = run(tree)
+    assert code == 0, text
+    assert "anchored" in text and "a claim read in a round record" in text, text
+    assert "1700000001-alpha" in text.split("anchored")[1], text
+
+
+def test_a_fenced_anchor_still_keeps_the_directory(tree):
+    """evidence-check reads an anchor inside a fence as a coordinate like any
+    other, so the guard has to as well: a fenced row's directory removed is a
+    BROKEN row found after the fact, which is #511 (round 1's finding 1)."""
+    fold(tree, "1700000001-alpha")
+    ledger = tree / "seal" / "ledger.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + f"\n```markdown\n{INSIDE_ROW}\n```\n",
+        encoding="utf-8",
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+
+
+def test_a_commented_out_row_is_named_by_its_claim(tree):
+    """Round 2's finding 7: a row inside an HTML comment keeps its directory,
+    and the report names it by its first cell, not by the comment opener."""
+    fold(tree, "1700000001-alpha")
+    ledger = tree / "seal" / "ledger.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + f"\n<!-- {INSIDE_ROW} -->\n",
+        encoding="utf-8",
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert "a claim read in a round record" in text, text
+    assert "  <!--\n" not in text, text
+
+
+def test_a_row_at_the_old_evidence_address_keeps_the_directory(tree):
+    """The checker's third address, `docs/**/_evidence.md`, is still read, so
+    a row there anchored inside a retiring directory is BROKEN after the
+    removal all the same."""
+    fold(tree, "1700000001-alpha")
+    old = tree / "docs" / "area" / "_evidence.md"
+    old.parent.mkdir(parents=True)
+    old.write_text(INSIDE_ROW + "\n", encoding="utf-8")
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert "docs/area/_evidence.md:1" in text, text
+
+
+def test_the_documents_say_the_retirement_keeps_an_anchored_directory():
+    """§14's half of #511: the skill a fold session reads and the policy it
+    folds under both say the guard exists, and neither still says nothing
+    refuses the removal."""
+    text = flat(skill())
+    assert "A directory a ledger row anchors into is kept too" in text
+    assert (
+        "the ones above the first section marker and the ones inside a fence "
+        "included" in text
+    )
+    assert "`docs/**/_evidence.md`" in text, (
+        "the skill does not name the checker's third ledger address"
+    )
+    policy = document("docs", "the-evidence-ledger.md")
+    assert "the rows inside a fence included, because the checker" in flat(policy), (
+        "the policy still says the guard reads only live rows"
+    )
+    assert "nothing refuses the removal first" not in policy, (
+        "the policy still says nothing refuses the removal"
+    )
+    assert "so the retirement refuses that directory first" in policy
+    assert "The command names the rows and edits none of them" in policy
+
+
+def test_no_row_of_this_repositorys_ledger_anchors_inside_a_work_item():
+    """#517's repair step 2, and the rule it leaves behind. The one row the
+    guard found when it shipped — anchored at `1788184145`'s round 3 — was
+    REMOVED and its claim re-founded on the prose that states it, and no row
+    a later work item writes may anchor under `seal/specs/`, its own directory
+    included, or the next fold keeps that directory.
+
+    Every work item, released or not, and no floor: at zero directories the
+    list is empty and the property still holds."""
+    rows = settle.anchored_rows(ROOT, settle.work_items(ROOT))
+    assert not rows, [f"{r.file}:{r.line}  {r.clause[:60]}" for r in rows]
+
+
+def test_the_policy_says_the_held_row_was_answered():
+    policy = document("docs", "the-evidence-ledger.md")
+    assert "is carried by #517's design comment" not in policy, (
+        "the policy still says the question for 1788184145 is open"
+    )
+    assert "that trade was taken" in policy
+
+
+# --- D3: a released work item with no spec.md is retired by a rule ---------
+
+OVERVIEW_OPEN = """# x — overview
+
+## Not verified
+
+| Item | Who must answer |
+|---|---|
+| a claim nobody ran | the repository owner |
+"""
+
+OVERVIEW_CLOSED = """# x — overview
+
+## Not verified
+
+| Item | Who must answer |
+|---|---|
+| ✅ a claim | run on 2026-01-01 |
+"""
+
+MOMENT = "1700000006-release-0-1-0"
+
+
+def moment(repo, name=MOMENT, overview=None, todo=None):
+    """A released work item below the SDD ladder: a routing declaration and
+    perhaps a memo, and no `spec.md`. Committed on its own path, so the
+    unreleased `delta` the fixture leaves on disk stays unreleased."""
+    item = repo / "seal" / "specs" / name
+    item.mkdir(parents=True)
+    (item / "routing.md").write_text(f"# {name} — routing\n", encoding="utf-8")
+    if overview is not None:
+        (item / "overview.md").write_text(overview, encoding="utf-8")
+    if todo is not None:
+        (item / "evidence-todo.md").write_text(todo, encoding="utf-8")
+    git(repo, "add", "--", f"seal/specs/{name}")
+    git(repo, "commit", "-qm", f"released {name}")
+    return item
+
+
+def docs_text(repo):
+    return {p.name: p.read_text(encoding="utf-8") for p in (repo / "docs").glob("*")}
+
+
+def test_a_spec_less_directory_is_listed_under_its_own_heading(tree):
+    """D3: `settle` prints these under their own heading rather than as
+    *ungrouped — yours to place*, because there is nothing to place."""
+    moment(tree, overview=OVERVIEW_CLOSED)
+    code, text = run(tree)
+    assert code == 0, text
+    assert "retired by the rule" in text, text
+    assert MOMENT in text.split("retired by the rule")[1], text
+    ungrouped = (
+        text.split("ungrouped —")[1].split("\n\n")[0] if "ungrouped —" in text else ""
+    )
+    assert MOMENT not in ungrouped, text
+
+
+def test_the_rule_arm_removes_it_with_no_marker(tree):
+    moment(tree, overview=OVERVIEW_CLOSED)
+    before = docs_text(tree)
+    code, text = run(tree, "--retire")
+    assert not (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert docs_text(tree) == before, "the rule arm wrote a marker into docs/"
+    assert f"removed seal/specs/{MOMENT}/" in text, text
+    assert "no `spec.md`" in text, text
+    # The fixture's other released items carry a spec and no marker, so they
+    # stay; nothing refused, so the run is clean.
+    assert code == 0, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists()
+
+
+def test_an_open_memo_row_keeps_a_spec_less_directory(tree):
+    """G2: D3 is true of the spec and false of the memo. An open
+    `## Not verified` row is a claim with an answerer, and it leaves by being
+    closed or re-homed — never with the directory."""
+    moment(tree, overview=OVERVIEW_OPEN)
+    _, text = run(tree)
+    assert "kept by the rule" in text, text
+    assert "a claim nobody ran" in text.split("kept by the rule")[1], text
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert "a claim nobody ran" in text, text
+
+
+def test_a_closed_row_is_told_to_merge_before_its_directory_goes(tree):
+    """Round 1's finding 2. The CI readers ask the rule of the merge base, so
+    a row closed and its directory retired in one pull request is refused
+    there after `settle --retire` said the removal was fine. The report, the
+    skill and the policy all say the closure merges first."""
+    moment(tree, overview=OVERVIEW_OPEN)
+    _, text = run(tree)
+    assert "in a pull request merged before the one that retires the directory" in (
+        flat(text)
+    ), text
+    assert "merge first" in flat(skill()), (
+        "the skill lets a fold close a row and retire its directory in one "
+        "pull request, which the CI readers refuse at the merge base"
+    )
+    assert "in a pull request merged before the one that retires" in document(
+        "docs", "the-evidence-ledger.md"
+    )
+
+
+def test_an_open_evidence_todo_row_keeps_a_spec_less_directory(tree):
+    moment(tree, todo=OPEN_TODO)
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+
+
+def test_an_unreadable_memo_keeps_a_spec_less_directory(tree):
+    """A section this cannot read is a count it does not know, never zero."""
+    moment(tree, overview="# x — overview\n\n## Not checked\n")
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert "cannot be read" in text, text
+
+
+def test_a_row_anchored_inside_a_rule_arm_directory_keeps_it(tree):
+    """Phase 1's guard over the widened set: the rule arm may not reopen
+    #511 the moment it ships."""
+    moment(tree)
+    anchor(
+        tree,
+        f'| a moment\'s claim | `seal/specs/{MOMENT}/routing.md#"# {MOMENT} — routing"@abcdef12` | read | 2026-01-01 | |',
+        "| one | `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |",
+    )
+    # Round 1's finding 5: the report does not list it under the heading
+    # that says `settle --retire` removes what it lists.
+    _, report = run(tree)
+    assert "retired by the rule" not in report, report
+    assert "0 to retire by the rule" in report, report
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert "a moment's claim" in text, text
+
+
+def test_an_unreleased_spec_less_directory_is_not_a_candidate(tree):
+    item = tree / "seal" / "specs" / MOMENT
+    item.mkdir()
+    (item / "routing.md").write_text("# routing\n", encoding="utf-8")
+    _, text = run(tree, "--retire")
+    assert item.exists(), text
+
+
+def test_the_report_lists_what_a_retirement_would_take(tree):
+    """D1's table: the command reports by itself the open memo rows in what
+    it would retire, the paths outside `seal/specs/` that cite into it, and the
+    `tests/` files that read `seal/specs` — the three things #514's frame
+    found by hand."""
+    fold(tree, "1700000001-alpha")
+    (tree / "seal" / "specs" / "1700000001-alpha" / "overview.md").write_text(
+        OVERVIEW_OPEN, encoding="utf-8"
+    )
+    moment(tree)
+    (tree / "docs" / "cites.md").write_text(
+        "See `seal/specs/1700000001-alpha/spec.md` for the decision.\n"
+        f"And `seal/specs/{MOMENT[:11]}…/routing.md` for the moment.\n"
+        "A marker <!-- specs/1700000002-beta --> and a bare 1700000002-beta.\n",
+        encoding="utf-8",
+    )
+    (tree / "tests").mkdir()
+    (tree / "tests" / "test_reads.py").write_text(
+        'SPECS = "seal/specs"\n', encoding="utf-8"
+    )
+    git(tree, "add", "--", "docs", "tests")
+    git(tree, "commit", "-qm", "citations")
+    _, text = run(tree)
+    takes = text.split("what a retirement here would take with it")[1]
+    assert "a claim nobody ran" in takes, text
+    assert "docs/cites.md:1" in takes, text
+    assert "docs/cites.md:2" in takes, "an abbreviated path is a citation too"
+    assert "1700000002-beta" not in takes, "a marker or a bare id is not a path"
+    assert "tests/test_reads.py" in text.split("checks that read")[1], text
+
+
+@pytest.mark.parametrize("ref", [None, "HEAD"])
+def test_the_predicate_asks_every_condition_itself(tree, ref):
+    """`settle` checks `spec.md` and the evidence-todo guard before the
+    predicate can decide, so through `settle` alone the predicate's own
+    conditions are never seen. The CI readers ask it of a merge-base where
+    neither check has run, so each condition is asked here directly, of the
+    working tree and of a ref."""
+    reader = settle.load(settle.READER, "specseal_unverified_reader_rule")
+    moment(tree, overview=OVERVIEW_CLOSED)
+    moment(tree, name="1700000007-with-todo", todo=OPEN_TODO)
+    moment(tree, name="1700000008-with-memo", overview=OVERVIEW_OPEN)
+    root = str(tree)
+    assert reader.retired_by_rule(root, ref, f"seal/specs/{MOMENT}")
+    assert not reader.retired_by_rule(root, ref, "seal/specs/1700000001-alpha"), (
+        "a directory holding a spec.md read as a rule retirement"
+    )
+    assert not reader.retired_by_rule(root, ref, "seal/specs/1700000007-with-todo")
+    assert not reader.retired_by_rule(root, ref, "seal/specs/1700000008-with-memo")
+    assert not reader.retired_by_rule(root, ref, "seal/specs/1700009999-nowhere"), (
+        "a directory that never existed read as retired by the rule"
+    )
+    # Round 1's finding 3: a spec an earlier commit deleted was still written.
+    dropped = moment(tree, name="1700000009-spec-dropped")
+    (dropped / "spec.md").write_text("# a spec\n\nA rule.\n", encoding="utf-8")
+    git(tree, "add", "--", "seal/specs/1700000009-spec-dropped")
+    git(tree, "commit", "-qm", "a spec")
+    git(tree, "rm", "-q", "seal/specs/1700000009-spec-dropped/spec.md")
+    git(tree, "commit", "-qm", "the spec, dropped")
+    assert not reader.retired_by_rule(
+        root, ref, "seal/specs/1700000009-spec-dropped"
+    ), "a directory whose spec.md an earlier commit deleted read as one that wrote none"
+
+
+def test_the_predicate_is_what_settle_asks(tree, monkeypatch):
+    """`plan.md` §*What breaks in six months*: one predicate, asked by every
+    reader. With it answering False, the rule arm lists nothing."""
+    moment(tree)
+    reader = settle.load(settle.READER, "specseal_unverified_reader")
+    real_load = settle.load
+    monkeypatch.setattr(reader, "retired_by_rule", lambda root, ref, d: False)
+    monkeypatch.setattr(
+        settle,
+        "load",
+        lambda path, name: reader if path == settle.READER else real_load(path, name),
+    )
+    _, text = run(tree, "--retire")
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+
+
+def test_the_documents_say_a_spec_less_directory_is_retired_by_the_rule():
+    """§14's half of D3. The policy said such an item *is kept by name*, and
+    the skill offered it as *yours to place*; both are overturned, and the one
+    condition the frame added is stated where the owner can overturn it."""
+    policy = document("docs", "the-evidence-ledger.md")
+    assert "and it is kept by name" not in policy, (
+        "the policy still keeps a spec-less directory by name"
+    )
+    assert "it is retired by that rule, with no marker" in policy
+    assert "nothing in the record may still be open" in policy
+    assert "a judgment the repository owner may overturn" in policy
+    text = flat(skill())
+    assert "A released work item with no `spec.md` is not yours to place." in text
+    assert "*retired by the rule*" in text and "*kept by the rule*" in text
+    assert "The rule arm is not an exception" in text
+    for edition in ("README.md", "README.ko.md"):
+        assert "`spec.md`" in document(edition).split("`settle [--retire]`")[1][:900], (
+            f"{edition}'s cheat-sheet row does not name the rule arm"
+        )
+
+
 def test_a_marker_quoted_in_prose_is_not_a_fold_record(tree):
     """The line anchor `fold_ledger.py#is_marked` already pays for. Every
     document describing the convention quotes the marker's shape inline."""
@@ -398,14 +841,33 @@ def test_the_skill_says_who_judges_and_who_reads():
     assert "The command reads and groups; you judge and write." in text
 
 
-def test_the_skill_carries_the_survivors_row_a_fold_branch_owes():
-    """The sweep runs on every pull request into a release branch, and a fold
-    reports every sentence of every section it deleted. A branch told nothing
-    about the range row turns the check off instead."""
+def test_the_skill_says_a_fold_is_not_a_work_item_and_owes_no_range_row():
+    """#517's D1, and the sentence it retired. The skill used to hand a fold
+    branch a `survivors.md` range-row to copy, anchored on the range and on
+    the work item whose directory held it — and a fold with no work item has
+    no directory to hold one. The sweep leaves a retired directory out of its
+    range instead, so the row shape is gone and the rule that replaced it is
+    what a fold session reads."""
     text = flat(skill())
-    assert "| Range | Grounds |" in text, "no range-row shape to copy"
-    assert "153" in text, "the measured number that makes the row worth having"
-    assert "anchored on the range" in text
+    assert "| Range | Grounds |" not in text, "the skill still hands a fold a range row"
+    assert "No `survivors.md` row." in text
+    assert "## A fold is not a work item" in skill()
+    assert "A fold opens no directory under `seal/specs/`" in text
+    assert "`: '[no-review]';`" in text, "the skill does not say how a fold commits"
+    assert "reviewed at its pull request" in text
+    assert "keep a log of folds" in text
+
+
+def test_the_skill_says_what_a_fold_does_to_the_ledger():
+    """Q3's default. *Nothing in `seal/ledger.md` moves* was false of both
+    folds — one removed rows, the other re-verified four — and it disagreed
+    with the policy the fold works under."""
+    text = flat(skill())
+    assert "Nothing in `seal/ledger.md` moves" not in text
+    assert "`seal/ledger.md` changes only by removal and re-verification." in text
+    assert "A fold appends nothing" in text
+    policy = document("docs", "the-evidence-ledger.md")
+    assert "A fold is not a work item, and it adds nothing to the ledger." in policy
 
 
 def test_the_skill_says_the_retirement_is_the_second_half_of_the_fold():
@@ -451,6 +913,10 @@ def test_the_seal_readme_says_the_step_exists(parts):
         f"{'/'.join(parts)} still describes a `settle` that has not been built"
     )
     assert "skills/settle/SKILL.md" in text and "settle --retire" in text
+    assert "A fold is not a work item and opens no directory here." in text, (
+        f"{'/'.join(parts)} does not say a fold opens no work item (#517)"
+    )
+    assert "wrote no `spec.md` and holds nothing open" in text
 
 
 def test_the_implement_skill_names_the_one_writer_of_docs():
@@ -496,6 +962,47 @@ def test_the_design_record_takes_the_later_decision_as_a_dated_section(parts, he
     )
 
 
+@pytest.mark.parametrize(
+    "parts, heading",
+    [
+        (
+            ("docs", "one-root-by-lifetime.md"),
+            "## Decided when the fold stopped being a work item (2026-09-23)",
+        ),
+        (
+            ("docs", "one-root-by-lifetime.ko.md"),
+            "## fold 가 작업 항목이 아니게 되면서 정해진 것 (2026-09-23)",
+        ),
+    ],
+)
+def test_the_design_record_takes_d1_as_a_dated_section(parts, heading):
+    """#517's D1 overturns the 2026-09-22 row that made the fold its own work
+    item, and a record of a moment takes the overturning as a new dated
+    section rather than an edit to the row."""
+    text = document(*parts)
+    assert heading in text, f"{'/'.join(parts)} carries no dated section for #517"
+    later = text.split(heading, 1)[1]
+    assert "2026-09-02" in later and "2026-09-22" in later, (
+        "the new section does not say which two records it leaves alone"
+    )
+    assert "[no-review]" in later
+
+
+DATED_SECTIONS = (
+    ("## Decided when `settle` was built", "## `settle` 을 만들면서 정해진 것"),
+    (
+        "## Decided when the fold stopped being a work item",
+        "## fold 가 작업 항목이 아니게 되면서 정해진 것",
+    ),
+)
+
+
+def section(flat_text, heading):
+    """A dated section of a flattened document, from its heading to the next."""
+    rest = flat_text.split(heading, 1)[1]
+    return rest.split(" ## ", 1)[0]
+
+
 def test_both_editions_took_the_same_decisions():
     """`CONTRIBUTING.md` requires the two editions to move together, and a
     mirror drifts one edit at a time. The rows are prose in two languages, so
@@ -503,22 +1010,19 @@ def test_both_editions_took_the_same_decisions():
     other's."""
     en = document("docs", "one-root-by-lifetime.md")
     ko = document("docs", "one-root-by-lifetime.ko.md")
-    rows = (
-        en.split("## Decided when `settle` was built")[1].count("|---|---|---|"),
-        ko.split("## `settle` 을 만들면서 정해진 것")[1].count("|---|---|---|"),
-    )
-    assert rows == (1, 1), rows
-    counted = tuple(
-        text.split(marker)[1].count(" | ")
-        for text, marker in (
-            (en, "## Decided when `settle` was built"),
-            (ko, "## `settle` 을 만들면서 정해진 것"),
+    # Each section is read up to the next `## ` heading, so a later dated
+    # section is compared with its own twin rather than counted into this
+    # one's (#517 added the second).
+    for en_heading, ko_heading in DATED_SECTIONS:
+        sections = (section(en, en_heading), section(ko, ko_heading))
+        rows = tuple(s.count("|---|---|---|") for s in sections)
+        assert rows == (1, 1), (en_heading, rows)
+        counted = tuple(s.count(" | ") for s in sections)
+        assert counted[0] == counted[1], (
+            f"{en_heading}: the English section holds {counted[0]} cells and "
+            f"the Korean {counted[1]} — one edition took a decision the other "
+            "did not"
         )
-    )
-    assert counted[0] == counted[1], (
-        f"the English section holds {counted[0]} cells and the Korean "
-        f"{counted[1]} — one edition took a decision the other did not"
-    )
 
 
 # --- what the plugin says it ships -----------------------------------------
@@ -537,6 +1041,10 @@ def test_the_release_checklist_carries_the_by_hand_step():
         "the checklist does not say the fold is its own branch, which is what "
         "keeps a judgment act out of the release-preparation commit"
     )
+    assert "A fold is not a work item" in text, (
+        "the checklist does not say the fold opens no work item"
+    )
+    assert "range-row" not in text, "the checklist still owes a fold a range row"
     assert "skills/settle/SKILL.md" in text
 
 
@@ -1082,3 +1590,42 @@ def test_surveys_docstring_does_not_invite_the_mutation_that_reopens_finding_4()
     assert "the retirement are both derived from" not in doc["survey"], doc["survey"]
     assert "does not take its candidates from here" in doc["survey"], doc["survey"]
     assert "not taken from `survey`" in doc["retire"], doc["retire"]
+
+
+# --- G7: an empty seal/specs/ is not one state but two, and both are green --
+
+
+def settled_repo(tmp_path, keep_empty_dir):
+    """A repository whose fold is complete: a `seal/` root with its ledger,
+    and `seal/specs/` either empty on disk — the tree `--retire` leaves — or
+    absent, which is what a fresh checkout of that commit has."""
+    repo = tmp_path / "repo"
+    (repo / "docs").mkdir(parents=True)
+    (repo / "docs" / "one-root.md").write_text("# a policy\n", encoding="utf-8")
+    (repo / "seal").mkdir()
+    (repo / "seal" / "ledger.md").write_text("# spec-to-code map\n", encoding="utf-8")
+    git(repo, "init", "-q")
+    git(repo, "config", "user.email", "x@example.com")
+    git(repo, "config", "user.name", "x")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "settled")
+    if keep_empty_dir:
+        (repo / "seal" / "specs").mkdir()
+    return repo
+
+
+@pytest.mark.parametrize("keep_empty_dir", [True, False], ids=["empty", "absent"])
+@pytest.mark.parametrize("retire", [False, True], ids=["report", "retire"])
+def test_a_settled_root_is_green_and_says_so(tmp_path, keep_empty_dir, retire):
+    """G7. After the last retirement a fresh checkout has no `seal/specs/`
+    at all and the tree that ran `--retire` has an empty one. Both are the
+    state a complete fold reaches, and `settle` used to refuse the first at
+    exit 2 — so the command could not run on its own finished work."""
+    repo = settled_repo(tmp_path, keep_empty_dir)
+    argv = [sys.executable, SCRIPT, "--root", str(repo), "--released-at", "HEAD"]
+    r = subprocess.run(
+        argv + (["--retire"] if retire else []), capture_output=True, encoding="utf-8"
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "holds no work item" in r.stdout, r.stdout + r.stderr
+    assert "A complete fold ends here" in r.stdout, r.stdout

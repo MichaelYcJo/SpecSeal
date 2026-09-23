@@ -164,6 +164,22 @@ left a branch with no reading that permits the only correct act. The escape is
 for the third kind of carrier, text that quotes old wording in order to say it
 was wrong.
 
+## A retirement is out of the range, so a fold owes no row
+
+A fold is the other deletion of shipped sentences, and the largest. The
+directories `settle --retire` removes hold specs whose sentences stand in
+`docs/` because that is what a fold IS, so every one of them was reported and
+a fold branch owed the range row above. Under #517 a fold is not a work item
+and has no directory to hold a `survivors.md`, so the row had nowhere to live.
+
+So a directory the range retired is left out of it on both sides, the way a
+round record is: gone at the right end, and either folded — its
+`<!-- specs/<id> -->` marker in `docs/` — or retired by the rule, which is
+`unverified_check.py#retired_by_rule` asked of the left end. It is the same
+predicate `settle` and the other two readers ask, loaded rather than spelled
+here. A sentence the same range removes from anywhere else is measured as
+before.
+
 ## What it does not answer
 
 It reads the tip of the range, so a survivor introduced AFTER the range is
@@ -172,6 +188,7 @@ the tree consistent now*, which is why the report prints what it examined.
 """
 
 import argparse
+import importlib.util
 import math
 import os
 import re
@@ -495,6 +512,59 @@ def records_a_past_round(path):
     return "rounds" in parts and "specs" in parts[: parts.index("rounds")]
 
 
+# The fold record's one reader, loaded by path the way `chain_check.py#load`
+# loads it from this same directory. It answers both arms of what a
+# retirement is: the marker (`folded_items`) and the rule (`retired_by_rule`).
+HERE = os.path.dirname(os.path.abspath(__file__))
+READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
+# A work item's directory, read off a path: the `seal/` root's `specs/`, or
+# the top-level `specs/` a repository from before 0.4.0 still carries. Local
+# mode is never committed, so it never reaches a range. Anchored at the start,
+# so `docs/specs/<name>/` is a directory of prose like any other and stays in
+# the range (round 1's finding 4).
+WORK_ITEM_DIR = re.compile(r"^((?:seal/)?specs/[^/]+)/")
+
+
+def reader():
+    """`unverified_check.py`, or a sentence saying why it cannot be read."""
+    if not os.path.isfile(READER):
+        raise Refused(
+            f"cannot read {READER}, which says what a retirement is. This "
+            "script ships beside it under `skills/`."
+        )
+    spec = importlib.util.spec_from_file_location("specseal_unverified_reader", READER)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def retired_directories(root, a, b, paths):
+    """The work item directories this range retired, by either arm.
+
+    A directory is retired when it is gone at `b` and was either folded — its
+    `<!-- specs/<id> -->` marker is in `docs/` — or retired by the rule: at
+    `a` it held no `spec.md` and nothing open, which is
+    `unverified_check.py#retired_by_rule`, the predicate `settle` and the other
+    two CI readers ask. Never re-derived here.
+    """
+    candidates = sorted(
+        {m.group(1) for m in map(WORK_ITEM_DIR.match, paths) if m is not None}
+    )
+    if not candidates:
+        return set()
+    loaded = reader()
+    folded = loaded.folded_items(root)
+    out = set()
+    for directory in candidates:
+        if loaded.tree_at(root, b, directory):
+            continue
+        if os.path.basename(directory) in folded or loaded.retired_by_rule(
+            root, a, directory
+        ):
+            out.add(directory)
+    return out
+
+
 def corpus(root, rev):
     """`{path: [Sentence]}` for the tree at `rev`, less what is excluded."""
     paths = [p for p in tracked(root, rev) if not records_a_past_round(p)]
@@ -541,6 +611,14 @@ def corrected(root, a, b):
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
     paths = [
         path for path in names.split("\0") if path and not records_a_past_round(path)
+    ]
+    # A retired directory is out of the range on both sides too (#517), for
+    # the reason the round records are: its sentences stand in `docs/` by
+    # design, because that is what a fold is, and the removed spec is not a
+    # place that still instructs anybody.
+    retired = retired_directories(root, a, b, paths)
+    paths = [
+        path for path in paths if not any(path.startswith(d + "/") for d in retired)
     ]
     before = read_blobs(root, a, paths)
     after = read_blobs(root, b, paths)
@@ -1012,7 +1090,13 @@ def main(argv=None):
         prog="survivor-check",
         description="Report every place still carrying wording a range removed.",
     )
-    ap.add_argument("--range", required=True, metavar="A..B", help="the fix commits")
+    ap.add_argument(
+        "--range",
+        required=True,
+        metavar="A..B",
+        help="the fix commits. A work item directory the range retired, "
+        "folded or by the rule, is left out of it on both sides",
+    )
     ap.add_argument("--root", default=".", help="the repository (default: .)")
     ap.add_argument(
         "--exempt",
