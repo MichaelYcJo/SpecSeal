@@ -25,7 +25,10 @@ It fails for what the author can always fix:
               that was there and is not (`--baseline REF`) — unless the work
               item's fold is recorded in `docs/`, which is `settle` retiring
               a released spec rather than this branch deleting a record. Such
-              a directory is named as folded and counted apart
+              a directory is named as folded and counted apart. So is one the
+              rule arm retired (#517): the whole directory is gone, and at
+              the merge base it held no `spec.md` and nothing open in its
+              record, which `retired_by_rule` answers for every reader
   no baseline the ref itself does not resolve, or it shares no history with
               HEAD. That is exit 2, not a pass: a comparison against nothing
               is not a comparison
@@ -1011,9 +1014,13 @@ def todo_open_rows(text):
     return rows
 
 
-def _tree_at(root, ref, directory):
+def tree_at(root, ref, directory):
     """Repo-relative paths under `directory` at `ref`; the disk when `ref` is
-    None. `directory` is `/`-joined, and so is every path returned."""
+    None. `directory` is `/`-joined, and so is every path returned.
+
+    Public because `survivor_check.py` asks it whether a directory is gone at
+    the right end of its range, which keeps that module's own path-listing
+    call sites at the count its case holds them to."""
     if ref is None:
         top = under_root(root, directory)
         out = []
@@ -1099,7 +1106,7 @@ def retired_by_rule(root, ref, directory):
     the fork point held the spec. That is what makes this a rule about what
     the work item was, rather than about what it was left looking like.
     """
-    paths = _tree_at(root, ref, directory)
+    paths = tree_at(root, ref, directory)
     if not paths:
         return False
     if f"{directory}/{SPEC}" in paths:
@@ -1165,7 +1172,10 @@ def main(argv=None):
         "branch's removal. Nor is a work item whose fold `docs/` records with "
         "its `<!-- specs/<id> -->` marker: that is `settle` retiring a "
         "released spec a policy document has absorbed, and it is named as "
-        "folded rather than reported as a deletion",
+        "folded rather than reported as a deletion. Nor is a directory "
+        "removed whole that held no spec.md and nothing open at the merge "
+        "base: `settle` retires that by the rule, with no marker, and it is "
+        "named as retired by the rule",
     )
     args = ap.parse_args(argv)
 
@@ -1263,7 +1273,7 @@ def main(argv=None):
     files = overviews(args.path)
     cwd = os.getcwd()
     total_open = total_closed = 0
-    bad, deleted, uncompared, settled = [], [], [], []
+    bad, deleted, uncompared, settled, ruled = [], [], [], [], []
     for path in unique_by_target(files):
         rel = display_path(path, cwd)
         open_rows, closed_rows, errors = check_file(path)
@@ -1335,6 +1345,29 @@ def main(argv=None):
                     )
                 )
                 continue
+            directory = os.path.dirname(rel)
+            if (
+                rel not in here
+                and not os.path.isdir(under_root(root, directory))
+                and retired_by_rule(root, base, directory)
+            ):
+                # The rule arm (#517 D3): the directory is gone, and at the
+                # merge-base it held no `spec.md` and nothing open, which is
+                # exactly what `settle --retire` removes without a marker. A
+                # memo removed from a directory that stays is not this — a
+                # retirement takes the whole directory.
+                ruled.append(
+                    annotate(
+                        "notice",
+                        display_path(os.path.join(root, rel), cwd),
+                        1,
+                        f"retired by the rule: at {named} the directory held "
+                        f"no `{SPEC}` and nothing open in its record, so "
+                        "it states no rule for a policy document to absorb "
+                        "and nothing unverified left with it",
+                    )
+                )
+                continue
             if rel not in here:
                 # Relative to the caller's directory, like every other line
                 # this prints. The two deletion reports used to answer on
@@ -1352,7 +1385,7 @@ def main(argv=None):
                     )
                 )
 
-    if not files and not deleted and not settled:
+    if not files and not deleted and not settled and not ruled:
         print(
             f"unverified-check: no {OVERVIEW} found under "
             f"{', '.join(args.path)} — nothing was checked",
@@ -1366,11 +1399,20 @@ def main(argv=None):
         f" · {len(bad)} unreadable"
         + (f" · {len(uncompared)} not compared" if uncompared else "")
         + (f" · {len(settled)} folded" if settled else "")
+        + (f" · {len(ruled)} retired by the rule" if ruled else "")
     )
 
     if settled:
         print(f"\nfolded into {DOCS}/ and removed, not deleted from the record:")
         for line in settled:
+            print(line)
+
+    if ruled:
+        print(
+            f"\nretired by the rule — no `{SPEC}` and nothing open at the base, "
+            "so no marker is owed:"
+        )
+        for line in ruled:
             print(line)
 
     if uncompared:

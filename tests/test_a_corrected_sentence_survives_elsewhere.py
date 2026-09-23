@@ -36,6 +36,7 @@ import ast
 import importlib.util
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -1625,3 +1626,115 @@ def test_the_windows_wrapper_points_at_the_same_script():
     assert "code-review" in posix and "code-review" in windows, (
         "one wrapper points into a different skill's scripts directory"
     )
+
+
+# --- #517: a retired directory is out of the range, either arm -------------
+
+RETIRED_SPEC_SENTENCE = (
+    "The quarterly ferry manifest is reconciled by the harbour clerk before "
+    "any cargo leaves the eastern pier."
+)
+RETIRED_MOMENT_SENTENCE = (
+    "The lighthouse keeper logs every lantern trim in the brass ledger kept "
+    "beside the spiral stair."
+)
+# What the fold wrote into `docs/`: the same fact restated, one word
+# changed. A verbatim copy is ONE shared run, and a run scores at most 1.0, so
+# it could never reach the floor; a restatement shares two runs, which is what
+# the 153 survivors #293's range reported were.
+STANDING_SPEC = RETIRED_SPEC_SENTENCE.replace("harbour", "night")
+STANDING_MOMENT = RETIRED_MOMENT_SENTENCE.replace("brass", "copper")
+CLOSED_MEMO = (
+    "# a moment\n\n## Not verified\n\n| Item | Who must answer |\n|---|---|\n"
+    "| ✅ a claim | run on 2026-01-01 |\n"
+)
+MARKED = "seal/specs/1700000001-a-folded-item"
+MOMENT = "seal/specs/1700000002-a-release-entry"
+# A pool large enough that a phrase unique to one file scores as one: the
+# score is scaled by `log2` of the pool, so two files cannot report anything.
+FILLER = {
+    f"filler/{n}.md": f"# filler {n}\n\nUnrelated prose number {n} shares nothing.\n"
+    for n in range(12)
+}
+
+
+def retired_range(repo, also=None):
+    """Two directories retired in one range — one by its marker, one by the
+    rule — with their sentences standing in `docs/`, where a fold puts them.
+    `also` is a further change to `docs/` in the same range."""
+    build(
+        repo,
+        {
+            "docs/policy.md": (f"# policy\n\n{STANDING_SPEC}\n\n{STANDING_MOMENT}\n"),
+            "docs/guide.md": f"# guide\n\nFirst statement. {FOUND}\n",
+            "docs/notes.md": f"# notes\n\nSecond statement. {FOUND}\n",
+            f"{MARKED}/spec.md": f"# spec\n\n{RETIRED_SPEC_SENTENCE}\n",
+            f"{MOMENT}/routing.md": f"# routing\n\n{RETIRED_MOMENT_SENTENCE}\n",
+            f"{MOMENT}/overview.md": CLOSED_MEMO,
+            **FILLER,
+        },
+        "two work items, released",
+    )
+    shutil.rmtree(os.path.join(repo, *MARKED.split("/")))
+    shutil.rmtree(os.path.join(repo, *MOMENT.split("/")))
+    # The marker in a document of its own, so `docs/policy.md` is untouched
+    # and its sentences are neither removed nor written by this range.
+    files = {
+        "docs/a-segment.md": (
+            f"# a segment\n\n<!-- specs/{os.path.basename(MARKED)} -->\n"
+            "The standing statement.\n"
+        )
+    }
+    files.update(also or {})
+    return build(repo, files, "fold one, retire the other by the rule")
+
+
+def test_a_retired_directory_is_not_corrected_wording(tmp_path):
+    """A8. A fold removes a directory whose sentences stand in `docs/` by
+    design, and the sweep reported every one of them — which is why a fold
+    owed a `survivors.md` range-row, and under #517's D1 a fold has no work
+    item directory to hold one. Left out of the range on both sides, the way
+    a round record already is."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    head = retired_range(repo)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"a retirement's standing sentences were reported:\n{text}"
+    assert "docs/policy.md" not in text.split("examined")[-1], text
+
+
+def test_a_sentence_the_same_range_removes_from_docs_is_still_measured(tmp_path):
+    """The exclusion is the retired directories and nothing else: a range
+    that retires them and also corrects `docs/` is still read for what it
+    left standing there."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    head = retired_range(
+        repo, also={"docs/guide.md": f"# guide\n\nFirst statement. {REPAIRED}\n"}
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, text
+    assert "docs/notes.md" in text, text
+
+
+def test_a_spec_less_directory_with_an_open_row_stays_in_the_range(tmp_path):
+    """The rule arm's condition, asked of the range's left end through the
+    one predicate: a directory whose record held an open row was not retired
+    by the rule, and its sentences are corrected wording like any other."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/policy.md": f"# policy\n\n{STANDING_MOMENT}\n",
+            f"{MOMENT}/routing.md": f"# routing\n\n{RETIRED_MOMENT_SENTENCE}\n",
+            f"{MOMENT}/overview.md": CLOSED_MEMO.replace("✅ a claim", "a claim"),
+            **FILLER,
+        },
+        "a moment with an open row",
+    )
+    shutil.rmtree(os.path.join(repo, *MOMENT.split("/")))
+    head = build(repo, {"filler/0.md": "# filler\n\nStill unrelated.\n"}, "removed")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, text
+    assert "docs/policy.md" in text, text

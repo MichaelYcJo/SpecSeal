@@ -741,6 +741,20 @@ refusal was written for. It is the same distinction
 `unverified_check.folded_items` draws for a removed `overview.md`, and this
 reader had not grown it.
 
+**The rule is the other way a declaration is retired, and it carries no
+marker.** `settle --retire` also removes a released directory that held no
+`spec.md` and nothing open in its record, because a record of a moment states
+no rule to fold (#517). So a declaration absent at `HEAD` whose directory is
+gone is asked one more question of the merge base: did the directory hold no
+`spec.md` there, and nothing open in its `overview.md` or `evidence-todo.md`?
+Where it did not, the check prints `retired: by the rule — …`; where the merge
+base held a spec or an open row, the refusal stands. The question is
+`unverified_check.retired_by_rule`, the one predicate `settle`,
+`unverified_check.py --baseline` and the survivor sweep ask too, so the four
+cannot disagree about the same tree the way the marker arm once did. Asked of
+the merge base rather than of the tree the branch left, a branch that deletes
+a `spec.md` in one commit and the directory in the next is still a deletion.
+
 Every record is read as git carries it at `HEAD`, never as the working tree
 holds it: a tree that differs from `HEAD` is what CI never sees, and a local
 run reading it would be the more permissive of the two. `--worktree` reads the

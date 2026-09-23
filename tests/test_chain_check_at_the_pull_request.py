@@ -2926,9 +2926,15 @@ def retired_item(repo, item, marker=True):
     The shape `settle --retire` leaves: the declaration is on the base branch,
     the branch removes the whole directory, and `docs/` carries the marker
     saying a policy document absorbed the spec first.
+
+    **It writes a `spec.md`**, because the marker arm is about a work item
+    that stated a rule. Without one, the directory is the rule arm's (#517
+    D3) — no `spec.md` and nothing open at the merge base is retired with no
+    marker — and `marker=False` would stop being a deletion at all.
     """
     git(repo, "switch", "-q", "base")
     write(repo, f"{item}/routing.md", declaration())
+    write(repo, f"{item}/spec.md", "# a spec\n\nA rule that still governs.\n")
     write(repo, f"{item}/rounds/round-1.md", "# round 1\n")
     commit(repo, "a work item, declared and reviewed")
     git(repo, "switch", "-q", "feature")
@@ -2981,6 +2987,60 @@ def test_a_deleted_declaration_with_no_marker_is_still_refused(repo):
     assert code == 1, out
     assert "does not carry this file at HEAD" in out, out
     assert "retired:" not in out, out
+
+
+CLOSED_MEMO = (
+    "# a moment — overview\n\n## Not verified\n\n"
+    "| Item | Who must answer |\n|---|---|\n"
+    "| ✅ a claim | run on 2026-01-01 |\n"
+)
+OPEN_MEMO = (
+    "# a moment — overview\n\n## Not verified\n\n"
+    "| Item | Who must answer |\n|---|---|\n"
+    "| a claim nobody ran | the repository owner |\n"
+)
+
+
+def moment_item(repo, item, memo=CLOSED_MEMO, spec=False):
+    """A declared work item below the SDD ladder that this branch removes
+    with no marker — the rule arm's shape (#517 D3)."""
+    git(repo, "switch", "-q", "base")
+    write(repo, f"{item}/routing.md", declaration())
+    write(repo, f"{item}/overview.md", memo)
+    if spec:
+        write(repo, f"{item}/spec.md", "# a spec\n\nA rule.\n")
+    commit(repo, "a moment, declared")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "merge", "-q", "base")
+    shutil.rmtree(repo / item)
+    commit(repo, "retire by the rule")
+
+
+def test_a_declaration_the_rule_arm_retired_is_not_one_it_made(repo):
+    """A7. `settle --retire` removes a released directory that held no
+    `spec.md` and nothing open, and writes no marker — so the marker arm above
+    refused it as a missing declaration. Asked of the merge base, through the
+    one predicate the other readers ask."""
+    moment_item(repo, "seal/specs/1788000000-a-release-entry")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "retired:" in out and "by the rule" in out, out
+    assert "1788000000-a-release-entry" in out, out
+    assert "does not carry this file at HEAD" not in out, out
+
+
+def test_a_spec_at_the_merge_base_is_still_a_missing_declaration(repo):
+    moment_item(repo, "seal/specs/1788000000-a-deleted-spec", spec=True)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "does not carry this file at HEAD" in out, out
+
+
+def test_an_open_row_at_the_merge_base_is_still_a_missing_declaration(repo):
+    moment_item(repo, "seal/specs/1788000000-an-open-moment", memo=OPEN_MEMO)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "does not carry this file at HEAD" in out, out
 
 
 def test_a_record_carrying_the_row_is_read_and_one_without_it_prints(repo):

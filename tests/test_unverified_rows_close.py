@@ -1906,3 +1906,122 @@ def test_readable_would_erase_every_fold_record():
     marker = ["<!-- specs/1780000000-work -->", "A standing statement."]
     assert uc.readable("\n".join(marker))[0] == ""
     assert next(iter(uc.live_lines(marker)))[1] is True
+
+
+# --- #517 D3: a spec-less directory is retired by the rule, not by a record -
+
+CLOSED_SECTION = """## Not verified
+
+| Item | Who must answer |
+|---|---|
+| ✅ how the gate renders in a TUI | seen on screen, 2026-01-01 |
+"""
+
+
+def moment_repo(tmp_path, section, spec=False, name="1780000009-release-0-1-0"):
+    """A committed spec-less work item — a routing declaration and a memo —
+    beside the fixture's own, and the path of its directory."""
+    d, _ = git_repo(tmp_path, CANONICAL)
+    item = d / "specs" / name
+    item.mkdir(parents=True)
+    (item / "routing.md").write_text(f"# {name} — routing\n", encoding="utf-8")
+    (item / "overview.md").write_text(f"# {name}\n\n{section}", encoding="utf-8")
+    if spec:
+        (item / "spec.md").write_text("# a spec\n\nA rule.\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True, capture_output=True)
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qm", "moment"],
+        check=True,
+        capture_output=True,
+    )
+    return d, item
+
+
+def test_a_rule_retirement_is_not_this_branchs_deletion(tmp_path, capsys):
+    """A6. `settle --retire` removes a released directory that held no
+    `spec.md` and nothing open, with no marker anywhere — and this arm used to
+    call that a deletion, so the first fold under the rule arm would have been
+    refused for every directory it removed."""
+    d, item = moment_repo(tmp_path, CLOSED_SECTION)
+    shutil.rmtree(item)
+    assert run([str(d), "--baseline", "HEAD"]) == 0
+    out = capsys.readouterr().out
+    assert "present at HEAD and not here" not in out, out
+    assert "retired by the rule" in out and item.name in out, out
+    assert "1 retired by the rule" in out, out
+    assert "folded into" not in out, "a rule retirement is named as a fold"
+
+
+def test_a_rule_retirement_with_an_open_row_at_the_base_still_fails(tmp_path, capsys):
+    d, item = moment_repo(tmp_path, CANONICAL)
+    shutil.rmtree(item)
+    assert run([str(d), "--baseline", "HEAD"]) == 1
+    assert "present at HEAD and not here" in capsys.readouterr().out
+
+
+def test_a_spec_at_the_base_is_still_a_deletion(tmp_path, capsys):
+    """The merge-base is asked, not the tree the branch left: a spec deleted in
+    one commit and its directory in the next is a deletion."""
+    d, item = moment_repo(tmp_path, CLOSED_SECTION, spec=True)
+    shutil.rmtree(item)
+    assert run([str(d), "--baseline", "HEAD"]) == 1
+    assert "present at HEAD and not here" in capsys.readouterr().out
+
+
+def test_a_removed_memo_in_a_directory_that_stays_is_not_a_retirement(tmp_path, capsys):
+    """A retirement removes the directory. Deleting only the memo of a
+    spec-less directory that stays is deleting a record, whatever it held."""
+    d, item = moment_repo(tmp_path, CLOSED_SECTION)
+    (item / "overview.md").unlink()
+    assert run([str(d), "--baseline", "HEAD"]) == 1
+    assert "present at HEAD and not here" in capsys.readouterr().out
+
+
+def test_the_baseline_arm_asks_the_one_predicate(tmp_path, capsys, monkeypatch):
+    """`plan.md` §*What breaks in six months*: the reader calls
+    `retired_by_rule` rather than re-deriving it, so the next condition added
+    to the predicate reaches this reader too."""
+    d, item = moment_repo(tmp_path, CLOSED_SECTION)
+    shutil.rmtree(item)
+    asked = []
+    monkeypatch.setattr(
+        uc, "retired_by_rule", lambda root, ref, directory: asked.append(directory)
+    )
+    assert run([str(d), "--baseline", "HEAD"]) == 1
+    assert asked == [f"specs/{item.name}"], asked
+
+
+@pytest.mark.parametrize(
+    "script",
+    [
+        ("skills", "code-review", "scripts", "chain_check.py"),
+        ("skills", "code-review", "scripts", "survivor_check.py"),
+        ("skills", "settle", "scripts", "settle.py"),
+    ],
+)
+def test_every_reader_of_a_retirement_calls_the_one_predicate(script):
+    """`plan.md` §*What breaks in six months*: four parties ask whether a
+    removed directory was retired, and a predicate spelled in each would take
+    the next condition in one and not the others. The behaviour is pinned per
+    reader in its own module; this pins that each one reaches the answer by
+    calling `retired_by_rule` on the module that owns it, so a reader that
+    re-derives the rule inline goes red here even while it agrees today."""
+    import ast
+
+    with open(os.path.join(ROOT, *script), encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+    calls = [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and node.func.attr == "retired_by_rule"
+    ]
+    assert calls, (
+        f"{'/'.join(script)} decides a retirement without asking the predicate"
+    )
+    assert not [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef) and node.name == "retired_by_rule"
+    ], f"{'/'.join(script)} defines a second `retired_by_rule`"
