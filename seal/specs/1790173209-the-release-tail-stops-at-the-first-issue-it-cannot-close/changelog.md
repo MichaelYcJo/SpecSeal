@@ -22,3 +22,11 @@
   repository's pull request bodies continue a bullet, and an HTML comment,
   because whether GitHub acts on a keyword inside one is unmeasured. The
   `# RIDER:` that carried the question is retired.
+- **A second `gather_changelog.py --version X.Y.Z` appends into the section
+  that version already has, keeps the first gather's date, and a hygiene
+  case refuses a `CHANGELOG.md` that heads one version twice (issue #289).**
+  A release pull request going red and a fragment landing after the
+  preparation commit is the ordinary shape, and the second gather used to
+  write a second heading for it, so one release's entries read as two
+  releases with the same number. The dry run says which section the entries
+  join. `docs/release-checklist.md` §2 says a second gather appends.
