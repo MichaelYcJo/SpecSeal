@@ -672,7 +672,7 @@ def scan_candidates(repo, rel, cache):
     """(other files worth scanning, capped?) for a broken row in `rel`.
 
     Built lazily — only a BROKEN row pays for this — and bounded twice, so the
-    clean path stays the ~114 ms tool it just became: files over
+    clean path pays nothing for it and the broken path stays bounded: files over
     SCAN_SIZE_CAP are skipped, and past SCAN_FILE_CAP the scan degrades to
     the row's own file and the caller says so out loud. A silently narrowed
     search reads as a search that found nothing.

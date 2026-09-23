@@ -779,7 +779,7 @@ def test_a_whole_file_rename_heals_mechanically(repo):
 
 
 def test_past_the_file_cap_the_scan_degrades_and_says_so(repo):
-    """The clean path stays the 114 ms tool; the broken path stays bounded.
+    """The clean path never pays for the scan; the broken path stays bounded.
     Past the cap the scan degrades to the row's own file and the line says
     so, because a silently narrowed search reads as a search that found
     nothing."""

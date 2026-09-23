@@ -3,8 +3,15 @@
 
 The rename that breaks a ledger row is caught at the commit that made it, in
 the terminal where the rename just happened — not in CI minutes later, and not
-by somebody remembering to run a command. The checker costs about 114 ms with
-no git calls, which is what makes running it at every commit affordable.
+by somebody remembering to run a command. The checker makes no git calls, and
+on this repository's own ledger (1,476 anchors) the whole hook takes about
+1.7 s per commit: `/usr/bin/time -p` over this file fed a `git commit`
+payload, three runs of 1.73 to 1.77 s, 2026-09-23, Python 3.12.11 on macOS. That
+is what makes running it at every commit affordable. Before #519 the same
+runs took 15.2 to 15.4 s, because the checker parsed a Python file once for
+every row citing it; it now parses each file once per process. What remains
+still grows with the rows, more slowly: the measurement that framed #519 put
+a ledger four times this size at 4.6 s.
 
 **Advisory, never a gate.** A pre-commit block would fire on every
 work-in-progress ledger state and fight the commit-early rule; PostToolUse
