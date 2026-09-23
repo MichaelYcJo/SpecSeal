@@ -938,6 +938,46 @@ def test_no_section_accumulates_entries_in_the_shared_file():
     )
 
 
+def duplicated_version_headings(text):
+    """`[(version, [line numbers])]` for every version `## ` heads twice.
+
+    #289: `gather_changelog.py` used to write a second `## X.Y.Z` when run
+    twice for one version, and one release shipped with its entries split
+    across two headings that read as two releases with the same number. The
+    gather appends now; this is the half that keeps it closed, because the
+    append is a one-line change a later edit can undo silently.
+    """
+    lines = {}
+    for number, line in enumerate(text.splitlines(), 1):
+        found = re.match(r"^## (\d+\.\d+\.\d+)\b", line)
+        if found:
+            lines.setdefault(found.group(1), []).append(number)
+    return [(version, at) for version, at in lines.items() if len(at) > 1]
+
+
+def test_a_version_heading_appears_once_in_a_changelog():
+    """The reader, against a file that has the defect and one that does not,
+    so the real-tree case below cannot pass by reading nothing."""
+    split = (
+        "# Changelog\n\n## 0.2.0 — d\n\n- a\n\n## 0.2.0 — d\n\n- b\n\n## 0.1.0 — c\n"
+    )
+    assert duplicated_version_headings(split) == [("0.2.0", [3, 7])]
+    assert duplicated_version_headings("# Changelog\n\n## 0.2.0 — d\n\n- a\n") == []
+
+
+def test_no_version_heads_two_sections_of_this_changelog():
+    """This repository's own file. A second heading for one version is a
+    second gather that did not append — the defect #289 measured at one
+    release and removed by hand at the next."""
+    found = duplicated_version_headings(read_text("CHANGELOG.md"))
+    assert not found, "\n".join(
+        f"CHANGELOG.md heads {version} twice, at lines {at}. One release, "
+        "one section: merge the later heading's entries into the first and "
+        "delete it"
+        for version, at in found
+    )
+
+
 def test_the_newest_changelog_entry_is_the_version_being_shipped():
     """`test_plugin_version_is_in_changelog` accepts the version appearing
     anywhere, and an older entry satisfies that forever. What has to hold is

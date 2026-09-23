@@ -84,6 +84,14 @@ The fold refuses while any `seal/specs/<id>/evidence-todo.md` has an open
 row; that is a review that never drained, not a release problem, and the
 row's work item is where it is closed.
 
+**A second gather for the same version appends into its section.** The
+release pull request going red and a fragment landing after this step is the
+ordinary shape, and the gather used to write a second `## X.Y.Z` heading for
+it (#289) — one release's entries split across two sections that read as two
+releases. Run the same command again: the new entries join the existing
+section, the section keeps the first gather's date, and
+`tests/test_release_hygiene.py` refuses a file that heads a version twice.
+
 ## 2b. Settle what the release leaves behind — by hand, and not in that commit
 
 ```bash

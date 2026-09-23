@@ -99,15 +99,54 @@ def section(version, date, entries):
     return "\n".join(blocks)
 
 
-def insert(changelog_text, block):
-    """Above every dated section, below the file's title.
+def heading_re(version):
+    """The `## X.Y.Z — <date>` line for one version, with the date captured."""
+    return re.compile(rf"^## {re.escape(version)}\b(?: — (\S+))?.*$", re.M)
+
+
+def existing_date(changelog_text, version):
+    """The date the file already gives `version`, or None if it has no section.
+
+    #289: a second gather for a version already in the file used to write a
+    second heading, dated the day it ran, and one release shipped with its
+    entries split across two sections that read as two releases with the same
+    number. The date a section carries is the first gather's — the release
+    date — and a repair gathered after the release pull request went red does
+    not move it.
+    """
+    found = heading_re(version).search(changelog_text)
+    return found.group(1) if found else None
+
+
+def insert(changelog_text, block, version):
+    """Into the section `version` already has, or above every dated one.
 
     A released section reads as newer than everything under it, so a new one
     landing anywhere but the top inverts the order the file is read in — which
     `tests/test_release_hygiene.py` has caught once already, from a rebase
     resolved the wrong way.
+
+    Where the file already heads `version`, `block`'s heading is dropped and
+    its entries go at the end of that section, before the next `## `, in the
+    order the fragments came: the section is one release however many gathers
+    wrote it, and `publish_release_note.py#section_body` reads one section.
+    `tests/test_release_hygiene.py` refuses a file that heads a version twice,
+    so this arm is the one a red release pull request has to take.
     """
     lines = changelog_text.splitlines()
+    heading = heading_re(version)
+    at = next((n for n, line in enumerate(lines) if heading.match(line)), None)
+    if at is not None:
+        end = next(
+            (n for n in range(at + 1, len(lines)) if lines[n].startswith("## ")),
+            len(lines),
+        )
+        while end > at + 1 and not lines[end - 1].strip():
+            end -= 1
+        # `section()` writes the heading, a blank line, then the entries;
+        # the heading is the file's already and the blank line is re-added.
+        entries = block.splitlines()[2:]
+        return "\n".join([*lines[:end], "", *entries, "", *lines[end:]]) + "\n"
     at = next((n for n, line in enumerate(lines) if line.startswith("## ")), None)
     if at is None:
         at = len(lines)
@@ -185,14 +224,24 @@ def main(argv=None):
         )
         return 1
 
-    date = args.date or datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+    # The section's own date where it already exists — the release date is
+    # the first gather's, and a later gather joins that section (#289).
+    already = existing_date(text, args.version)
+    date = (
+        already or args.date or datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
+    )
     block = section(args.version, date, missing)
     if args.dry_run:
+        if already:
+            print("appending into the existing section:\n")
         print(block)
         return 0
     with open(changelog, "w", encoding="utf-8") as f:
-        f.write(insert(text, block))
-    print(f"gathered {len(missing)} fragments into ## {args.version} — {date}")
+        f.write(insert(text, block, args.version))
+    print(
+        f"gathered {len(missing)} fragments into ## {args.version} — {date}"
+        + (" (appended into the existing section)" if already else "")
+    )
     for work_item_id, _ in missing:
         print(f"  seal/specs/{work_item_id}/changelog.md")
     return 0
