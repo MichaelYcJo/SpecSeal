@@ -113,16 +113,20 @@ def ceiling_problems(root, ceiling, over, digests=None):
                 f"{rel} carries {found} fold markers and is frozen at {frozen} "
                 f"until {home} splits it. A new fold goes to the document for "
                 "the rule's own sub-subject; a removed marker lowers the frozen "
-                "count, so the room it made is not refilled"
+                "count, so the room it made is not refilled, and recomputes "
+                "FROZEN_IDS_DIGEST with marker_digest() in the same commit"
             )
             continue
         want = (digests or {}).get(rel)
         if want is not None and marker_digest(text) != want:
             problems.append(
                 f"{rel} carries {frozen} fold markers, but not the ones frozen "
-                f"until {home} splits it. A fold that adds a statement here and "
-                "removes another keeps the count; the new rule goes to the "
-                "document for its own sub-subject"
+                f"until {home} splits it: their ids no longer match "
+                "FROZEN_IDS_DIGEST. If a fold added a statement here and "
+                "removed another, the new rule goes to the document for its own "
+                "sub-subject. If a marker was removed on purpose, set the digest "
+                "to marker_digest() of the file in the commit that lowered the "
+                "count"
             )
     return problems
 
@@ -276,3 +280,26 @@ def test_the_frozen_digest_is_the_listed_document_s_markers():
     for rel, digest in FROZEN_IDS_DIGEST.items():
         with open(os.path.join(ROOT, *rel.split("/")), encoding="utf-8") as f:
             assert marker_digest(f.read()) == digest, rel
+
+
+def test_a_marker_removed_on_purpose_is_told_to_recompute_the_digest(tmp_path):
+    """Round 2, finding 3: the count was lowered and the digest was not. The
+    message may not report a swap as fact, and it names the recomputation."""
+    frozen = body(12, 2)
+    root = tree(tmp_path, {"big.md": body(12, 1)})
+    found = ceiling_problems(
+        root, 10, {"docs/big.md": (1, "#1")}, {"docs/big.md": marker_digest(frozen)}
+    )
+    assert len(found) == 1, found
+    assert "set the digest to marker_digest() of the file" in found[0], found
+    assert "keeps the count" not in found[0], found
+
+
+def test_a_count_that_moved_is_told_to_recompute_the_digest_too(tmp_path):
+    """The count message is the one a removal meets first."""
+    root = tree(tmp_path, {"big.md": body(12, 1)})
+    found = ceiling_problems(
+        root, 10, OVER, {"docs/big.md": marker_digest(body(12, 2))}
+    )
+    assert len(found) == 1, found
+    assert "recomputes FROZEN_IDS_DIGEST with marker_digest()" in found[0], found

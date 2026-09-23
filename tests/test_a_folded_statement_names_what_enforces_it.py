@@ -34,8 +34,8 @@ SETTLE = os.path.join(ROOT, "skills", "settle", "SKILL.md")
 
 SHAPE_CUTOFF = 1790154761
 
-HEADING = re.compile(r"^ {0,3}#{1,6} ")
-BOLD_OPENING = re.compile(r"^\*\*[^*\s]")
+HEADING = re.compile(r"^ {0,3}#{1,6}(?:[ \t]|$)")
+BOLD_OPENING = re.compile(r"^\*{2,3}[^*\s]")
 ENFORCED = "Enforced by: "
 NOTHING = "nothing — "
 
@@ -95,8 +95,10 @@ def target_problem(root, target):
     if not target:
         return "an empty target"
     path, _, name = target.partition("::")
-    base = os.path.normpath(os.path.abspath(root))
-    full = os.path.normpath(os.path.join(base, *path.split("/")))
+    # Both sides through `realpath`, so a symlink inside the root that opens
+    # a file outside it is outside, and a root reached through one is itself.
+    base = os.path.realpath(root)
+    full = os.path.realpath(os.path.join(base, *path.split("/")))
     if os.path.commonpath([full, base]) != base:
         return f"{path} is not a path inside the repository"
     if not os.path.exists(full):
@@ -300,3 +302,33 @@ def test_a_bare_bold_delimiter_is_not_a_rule_sentence(tmp_path):
     """Round 1, correction: a first line of `**` alone opens nothing."""
     found = planted(tmp_path, "**\nEnforced by: nothing — r\n")
     assert len(found) == 1 and "bold rule sentence" in found[0], found
+
+
+def test_a_rule_sentence_in_bold_italics_opens_bold(tmp_path):
+    """Round 2, correction: `***Rule.***` is bold, and `***` alone is not."""
+    body = "***Rule.***\nEnforced by: nothing — r\n"
+    assert planted(tmp_path, body) == []
+    (tmp_path / "x").mkdir()
+    assert len(planted(tmp_path / "x", "***\nEnforced by: nothing — r\n")) == 1
+
+
+def test_a_heading_with_a_tab_or_no_text_ends_a_statement(tmp_path):
+    """Round 2, correction: `##<tab>Next` and a bare `##` are headings."""
+    for i, heading in enumerate(("##\tNext", "##")):
+        sub = tmp_path / f"h{i}"
+        sub.mkdir()
+        found = planted(sub, f"**Rule.**\n{heading}\nEnforced by: tests/test_x.py\n")
+        assert len(found) == 1 and "carries 0" in found[0], (heading, found)
+
+
+def test_a_symlink_inside_the_root_that_leaves_it_is_named(tmp_path):
+    """Round 2, correction: the path is inside, and the file it opens is not."""
+    from conftest import symlink_or_skip
+
+    (tmp_path / "outside.txt").write_text("x")
+    sub = tmp_path / "repo"
+    sub.mkdir()
+    (sub / "docs").mkdir()
+    symlink_or_skip(str(tmp_path / "outside.txt"), str(sub / "docs" / "link.txt"))
+    found = planted(sub, "**Rule.**\nEnforced by: docs/link.txt\n")
+    assert len(found) == 1 and "inside the repository" in found[0], found

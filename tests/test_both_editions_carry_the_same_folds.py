@@ -19,9 +19,10 @@ Markers are read with the fold's own reader —
 so a marker this counts is exactly one the fold would count
 (`docs/the-evidence-ledger.md` §*The fold, and what tells it from a
 deletion*: one function decides what live means). A heading is a live line
-matching `^ {0,3}#{1,6} ` (CommonMark allows up to three spaces of
-indentation); the space after the hashes is required, because each edition has a prose
-line that begins `#<number>`.
+matching `^ {0,3}#{1,6}` followed by a space, a tab or the end of the line
+(CommonMark allows up to three spaces of indentation). A digit straight
+after the hashes is prose, and each edition has a line that begins
+`#<number>`.
 """
 
 import collections
@@ -33,7 +34,7 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 DOCS = os.path.join(ROOT, "docs")
 READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
 
-HEADING = re.compile(r"^ {0,3}(#{1,6}) ")
+HEADING = re.compile(r"^ {0,3}(#{1,6})(?:[ \t]|$)")
 
 
 def _reader():
@@ -169,3 +170,11 @@ def test_a_heading_indented_up_to_three_spaces_is_read():
     spaces as an indented code block."""
     assert "heading levels differ" in disagreements("d", "# T\n   ## A\n", "# T\n")[0]
     assert disagreements("d", "# T\n    ## code\n", "# T\n") == []
+
+
+def test_a_heading_with_a_tab_or_no_text_is_read():
+    """Round 2, correction: CommonMark ends the hashes at a space, a tab or
+    the end of the line."""
+    for heading in ("##\tA", "##"):
+        found = disagreements("d", f"# T\n{heading}\n", "# T\n")
+        assert found and "heading levels differ" in found[0], heading
