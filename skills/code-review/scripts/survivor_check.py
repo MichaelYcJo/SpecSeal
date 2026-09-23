@@ -517,9 +517,12 @@ def records_a_past_round(path):
 # retirement is: the marker (`folded_items`) and the rule (`retired_by_rule`).
 HERE = os.path.dirname(os.path.abspath(__file__))
 READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
-# A work item's directory, read off a path at any root: the `specs/` segment
-# and the name after it, whatever precedes them.
-WORK_ITEM_DIR = re.compile(r"^((?:[^/]+/)*?specs/[^/]+)/")
+# A work item's directory, read off a path: the `seal/` root's `specs/`, or
+# the top-level `specs/` a repository from before 0.4.0 still carries. Local
+# mode is never committed, so it never reaches a range. Anchored at the start,
+# so `docs/specs/<name>/` is a directory of prose like any other and stays in
+# the range (round 1's finding 4).
+WORK_ITEM_DIR = re.compile(r"^((?:seal/)?specs/[^/]+)/")
 
 
 def reader():

@@ -1740,6 +1740,31 @@ def test_a_spec_less_directory_with_an_open_row_stays_in_the_range(tmp_path):
     assert "docs/policy.md" in text, text
 
 
+def test_a_specs_directory_outside_the_seal_root_stays_in_the_range(tmp_path):
+    """Round 1's finding 4. A work item lives under `seal/specs/` or the
+    pre-0.4.0 top-level `specs/`, never under `docs/specs/`: a directory of
+    design notes deleted whole there holds no `spec.md` and nothing open, so
+    an unanchored pattern read it as retired by the rule and the sweep
+    measured none of its sentences."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    notes = "docs/specs/login-flow"
+    build(
+        repo,
+        {
+            "docs/policy.md": f"# policy\n\n{STANDING_MOMENT}\n",
+            f"{notes}/design.md": f"# design\n\n{RETIRED_MOMENT_SENTENCE}\n",
+            **FILLER,
+        },
+        "design notes under docs/specs",
+    )
+    shutil.rmtree(os.path.join(repo, *notes.split("/")))
+    head = build(repo, {"filler/0.md": "# filler\n\nStill unrelated.\n"}, "removed")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, text
+    assert "docs/policy.md" in text, text
+
+
 def test_a_spec_less_directory_that_stays_is_still_in_the_range(tmp_path):
     """A retirement removes the directory: one still present at the range's
     right end was edited, not retired, and what the edit removed is measured
