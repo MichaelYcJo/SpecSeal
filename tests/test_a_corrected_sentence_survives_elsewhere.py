@@ -876,6 +876,127 @@ def test_an_exemption_file_the_range_edited_does_not_become_a_source(tmp_path):
     )
 
 
+# --- a phase record is a record (#460) --------------------------------------
+#
+# `phases/phase-N.md` says what a phase was asked, what building it found and
+# what it removed -- a past state, quoted for audit, instructing nobody, which
+# is what a round record is. It was in the sweep on both sides: in the pool it
+# was reported as a survivor (two of four places in one measured pass) and
+# diluted the real ones, and in the range it subtracted what it quoted, which
+# is #507's shape one directory over.
+PHASE = "seal/specs/1700000000-a-claim-stands-in-two-places/phases/phase-3.md"
+
+
+def phase_record(quote):
+    return f"# phase 3\n\n## What this phase found\n\nThe narrow answer as phase 3 left it. {quote}\n"
+
+
+def test_a_phase_record_the_range_added_does_not_subtract_the_survivor_it_quotes(
+    tmp_path,
+):
+    """The range half, in the shape S1 has for the exemption file."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {FOUND}\n",
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the claim, stated in two files",
+    )
+    head = build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n",
+            PHASE: phase_record(FOUND),
+        },
+        "corrected notes.md, and closed the phase with a record quoting it",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "guide.md still carries the wording this range removed from notes.md, "
+        "and the phase record quoting that wording is what silenced it; "
+        f"exit {code}\n{text}"
+    )
+    assert "guide.md" in text, f"the report does not name the survivor:\n{text}"
+    assert re.search(r"against 1 sentence\(s\)", text), (
+        f"the removed-sentence count moved when the filter was applied:\n{text}"
+    )
+    assert "/phases/" not in text, (
+        f"the report names the phase record; a record is neither a survivor "
+        f"nor a source:\n{text}"
+    )
+
+
+def test_a_phase_record_the_range_edited_does_not_become_a_source(tmp_path):
+    """The other side of the list. A phase record is corrected in place while
+    its work item is live -- which is what #423's pass did to two of them --
+    and a sentence removed from one is not corrected wording."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            PHASE: phase_record(FOUND),
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the record quotes the finding, and the guide carries the claim",
+    )
+    head = build(
+        repo,
+        {PHASE: phase_record(REPAIRED)},
+        "corrected the phase record in place and nothing else",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "this range edited a phase record and touched nothing else, and the "
+        "check read that edit as a correction somebody has to chase into "
+        f"guide.md; exit {code}\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), (
+        "wording removed from a phase record still counts as wording the "
+        f"range removed:\n{text}"
+    )
+    assert "/phases/" not in text, (
+        f"the report names the phase record as the source of a correction:\n{text}"
+    )
+
+
+def test_a_phase_record_standing_in_the_pool_is_not_a_survivor(tmp_path):
+    """The pool half, and the one #460 paid for twice in one pass: a record
+    carrying the removed wording was reported beside the real survivor, and
+    answering it meant editing a record of a past state."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst statement. {FOUND}\n",
+            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+            PHASE: phase_record(FOUND),
+        },
+        "the claim in two files, and an earlier phase's record quoting it",
+    )
+    head = build(
+        repo,
+        {"notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n"},
+        "corrected notes.md only",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"guide.md's copy went unreported; exit {code}\n{text}"
+    named = paths_in(text)
+    assert "guide.md" in named, f"the report does not name the survivor:\n{text}"
+    assert named == ["guide.md"], (
+        f"the report names {named}. A phase record quotes what a phase found and "
+        f"instructs nobody, so reporting it asks somebody to correct a record "
+        f"of a past state:\n{text}"
+    )
+
+
 # Every exclusion the module docstring states, by the bold opener of its
 # paragraph, in the order the section states them. The round record stays
 # first: it is the one whose one-sided shipping (#365) is the reason the
@@ -885,6 +1006,7 @@ def test_an_exemption_file_the_range_edited_does_not_become_a_source(tmp_path):
 EXCLUSIONS = (
     "**A record of a past round.**",
     "**The work item's own exemption file.**",
+    "**A phase record.**",
 )
 
 

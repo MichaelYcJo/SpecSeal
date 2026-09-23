@@ -11,3 +11,12 @@
   release the file had silenced 29 of the 36 rows written into it; over the
   same three ranges 14 rows now print and the rest match nothing at that
   range, with or without the file.
+- A work item's `phases/phase-N.md` is out of the survivor sweep on both
+  sides too, the way a round record already was: it records what a phase was
+  asked, found and removed, so wording it quotes is neither a survivor to
+  correct nor a correction to chase. Before, a phase record carrying the old
+  wording was reported beside the real survivor and diluted it, and a phase
+  record the range closed subtracted what it quoted. What the sweep gives up
+  with that — a correction hidden in an HTML comment beside a claim still
+  rendered in bold, which it caught once only because the record was in the
+  pool — is named in `seal/follow-up.md`.

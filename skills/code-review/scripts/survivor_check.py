@@ -105,6 +105,21 @@ of one release, 36 rows written and 7 consulted. The file is read by
 `--exempt` alone, as a judgment on the search's result and never as an input
 to it.
 
+**A phase record.** Everything under a work item's `phases/` is out of the
+**pool** and out of the **range**, on both sides of the range's path list,
+because it is the same kind of file as a round record: what a phase was
+asked, what building it found and what it removed -- a past state, quoted
+for audit, instructing nobody (#460). In the pool it was reported beside the
+real survivor, two of four places in one measured pass, and answering it
+meant editing a record; in the range it subtracted what it quoted, the
+exemption file's shape one directory over. That a phase record is corrected
+in place while its work item is live does not keep it in: the exclusion is
+about what the file is, never about when it was last written, and a round
+record's `Deferred` and `Fixes checked by` cells are filled after the fact
+too. What this gives up is the one shape the pool caught only because these
+records were in it -- a correction inside an HTML comment while the false
+claim rendered in bold -- and `seal/follow-up.md` names whose that loss is.
+
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
 inside one is by definition not a standing sentence.
@@ -532,8 +547,9 @@ def records_a_past_state(path):
     one member of.
 
     The members: a round record or reviewer's report (`records_a_past_round`,
-    unchanged), and the work item's own `survivors.md`, directly under its
-    `specs/<id>/` directory. One predicate rather than one per member,
+    unchanged); the work item's own `survivors.md`, directly under its
+    `specs/<id>/` directory; and everything under its `phases/`, a record of
+    what a phase was asked, found and removed (#460). One predicate rather than one per member,
     applied on both sides -- `corpus` and `corrected` -- because the defect
     this closes was one member excluded on one side (#365) and the next
     member excluded on neither (#507, #308): the exemption file's rows QUOTE
@@ -552,7 +568,7 @@ def records_a_past_state(path):
     if "specs" not in parts:
         return False
     inside = parts[parts.index("specs") + 2 :]
-    return inside == ["survivors.md"]
+    return inside == ["survivors.md"] or (len(inside) > 1 and inside[0] == "phases")
 
 
 # The fold record's one reader, loaded by path the way `chain_check.py#load`
