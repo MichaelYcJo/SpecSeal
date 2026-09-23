@@ -19,7 +19,8 @@ Markers are read with the fold's own reader —
 so a marker this counts is exactly one the fold would count
 (`docs/the-evidence-ledger.md` §*The fold, and what tells it from a
 deletion*: one function decides what live means). A heading is a live line
-matching `^#{1,6} `; the space is required, because each edition has a prose
+matching `^ {0,3}#{1,6} ` (CommonMark allows up to three spaces of
+indentation); the space after the hashes is required, because each edition has a prose
 line that begins `#<number>`.
 """
 
@@ -32,7 +33,7 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 DOCS = os.path.join(ROOT, "docs")
 READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
 
-HEADING = re.compile(r"^(#{1,6}) ")
+HEADING = re.compile(r"^ {0,3}(#{1,6}) ")
 
 
 def _reader():
@@ -161,3 +162,10 @@ def test_a_hash_without_a_space_and_a_fenced_marker_are_not_read():
     english = "# T\n#458 settled it.\n```\n<!-- specs/1-a -->\n## not a heading\n```\n"
     korean = "# T\n"
     assert disagreements("d", english, korean) == []
+
+
+def test_a_heading_indented_up_to_three_spaces_is_read():
+    """Round 1, correction: CommonMark reads `   ## A` as a heading, and four
+    spaces as an indented code block."""
+    assert "heading levels differ" in disagreements("d", "# T\n   ## A\n", "# T\n")[0]
+    assert disagreements("d", "# T\n    ## code\n", "# T\n") == []

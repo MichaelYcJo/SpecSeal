@@ -34,7 +34,8 @@ SETTLE = os.path.join(ROOT, "skills", "settle", "SKILL.md")
 
 SHAPE_CUTOFF = 1790154761
 
-HEADING = re.compile(r"^#{1,6} ")
+HEADING = re.compile(r"^ {0,3}#{1,6} ")
+BOLD_OPENING = re.compile(r"^\*\*[^*\s]")
 ENFORCED = "Enforced by: "
 NOTHING = "nothing — "
 
@@ -94,12 +95,17 @@ def target_problem(root, target):
     if not target:
         return "an empty target"
     path, _, name = target.partition("::")
-    full = os.path.join(root, *path.split("/"))
+    base = os.path.normpath(os.path.abspath(root))
+    full = os.path.normpath(os.path.join(base, *path.split("/")))
+    if os.path.commonpath([full, base]) != base:
+        return f"{path} is not a path inside the repository"
     if not os.path.exists(full):
         return f"{path} does not exist"
+    if not os.path.isfile(full):
+        return f"{path} is not a file in the repository"
     if not name:
         return None
-    if not path.endswith(".py") or not os.path.isfile(full):
+    if not path.endswith(".py"):
         return f"{target}: `::name` needs a Python file"
     with open(full, encoding="utf-8") as f:
         tree = ast.parse(f.read())
@@ -117,7 +123,7 @@ def shape_problems(root, name, text):
             continue
         where = f"{name}: the statement under {ids}"
         body = [line for line in lines if line.strip()]
-        if not body or not body[0].startswith("**"):
+        if not body or not BOLD_OPENING.match(body[0]):
             problems.append(f"{where} does not open with a bold rule sentence")
         enforced = [line for line in lines if line.startswith(ENFORCED)]
         if len(enforced) != 1:
@@ -277,3 +283,20 @@ def test_a_quoted_example_in_a_fence_is_not_a_statement(tmp_path):
     body = "```\n" + BOUND + "\nRule.\n```\n"
     text = f"# D\n\n{body}"
     assert shape_problems(str(tmp_path), "d.md", text) == []
+
+
+def test_a_target_that_is_not_a_file_in_the_repository_is_named(tmp_path):
+    """Round 1, finding 2: the root, a directory and a path outside the root
+    all exist, and none of them is a file the repository holds."""
+    (tmp_path / "outside.txt").write_text("x")
+    for i, target in enumerate((".", "tests", "../outside.txt", "tests/../..")):
+        sub = tmp_path / f"t{i}"
+        sub.mkdir()
+        found = planted(sub, f"**Rule.**\nEnforced by: {target}\n")
+        assert len(found) == 1 and "repository" in found[0], (target, found)
+
+
+def test_a_bare_bold_delimiter_is_not_a_rule_sentence(tmp_path):
+    """Round 1, correction: a first line of `**` alone opens nothing."""
+    found = planted(tmp_path, "**\nEnforced by: nothing — r\n")
+    assert len(found) == 1 and "bold rule sentence" in found[0], found

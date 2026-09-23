@@ -134,8 +134,10 @@ against nothing is not a comparison.
 values.** `skills/settle/SKILL.md` §*2. Write one standing statement per
 segment* states both rules, and this paragraph holds only the values.
 
-- The shape binds statements from work item `1790154761` on. The 101 folded
-  before it carry no `Enforced by:` line.
+- The shape binds statements from work item `1790154761` on, by the id in
+  the marker. Statements from earlier work items carry no `Enforced by:`
+  line whenever they are folded: the 101 folded before it, and those of work
+  items released with it or still waiting from before it.
 - A top-level document under `docs/` stays at or under 1000 lines.
 - One document is over that ceiling and listed: `docs/review-chain-spec.md`,
   frozen at 29 fold markers until MichaelYcJo/SpecSeal#526 splits it. Until

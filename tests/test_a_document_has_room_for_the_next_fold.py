@@ -20,6 +20,7 @@ the constants below, `SHAPE_CUTOFF` included, which lives in
 `tests/test_a_folded_statement_names_what_enforces_it.py`.
 """
 
+import hashlib
 import importlib.util
 import os
 import re
@@ -33,6 +34,13 @@ SHAPE = os.path.join(
 LINE_CEILING = 1000
 OVER_CEILING = {
     "docs/review-chain-spec.md": (29, "MichaelYcJo/SpecSeal#526"),
+}
+# WHICH markers each listed document holds, not only how many: a fold that
+# adds a statement there and removes another keeps the count and changes this
+# (round 1, finding 1). A marker removed on purpose recomputes it with
+# `marker_digest` in the same commit that lowers the count.
+FROZEN_IDS_DIGEST = {
+    "docs/review-chain-spec.md": "8f8c4d85f213",
 }
 
 
@@ -55,6 +63,17 @@ def markers(text):
     )
 
 
+def marker_digest(text):
+    """The first 12 hex digits of a SHA-256 over the sorted live marker ids."""
+    ids = sorted(
+        found
+        for line, live in uc.live_lines(text.splitlines())
+        if live
+        for found in uc.FOLD_MARKER.findall(line)
+    )
+    return hashlib.sha256("\n".join(ids).encode()).hexdigest()[:12]
+
+
 def documents(root):
     top = os.path.join(root, "docs")
     return [
@@ -64,7 +83,7 @@ def documents(root):
     ]
 
 
-def ceiling_problems(root, ceiling, over):
+def ceiling_problems(root, ceiling, over, digests=None):
     """Every way the tree at `root` breaks the ceiling or its listing."""
     problems = []
     names = documents(root)
@@ -96,12 +115,21 @@ def ceiling_problems(root, ceiling, over):
                 "the rule's own sub-subject; a removed marker lowers the frozen "
                 "count, so the room it made is not refilled"
             )
+            continue
+        want = (digests or {}).get(rel)
+        if want is not None and marker_digest(text) != want:
+            problems.append(
+                f"{rel} carries {frozen} fold markers, but not the ones frozen "
+                f"until {home} splits it. A fold that adds a statement here and "
+                "removes another keeps the count; the new rule goes to the "
+                "document for its own sub-subject"
+            )
     return problems
 
 
 def test_every_document_in_docs_is_under_the_ceiling_or_frozen():
     assert documents(ROOT), "no document under docs/ was read"
-    problems = ceiling_problems(ROOT, LINE_CEILING, OVER_CEILING)
+    problems = ceiling_problems(ROOT, LINE_CEILING, OVER_CEILING, FROZEN_IDS_DIGEST)
     assert not problems, "\n".join(problems)
 
 
@@ -230,3 +258,21 @@ def test_the_evidence_ledger_states_the_values_these_constants_hold():
     assert cutoff and int(cutoff.group(1)) == shape.SHAPE_CUTOFF, cutoff
     assert ceiling and int(ceiling.group(1).replace(",", "")) == LINE_CEILING, ceiling
     assert {rel: (int(n), home) for rel, n, home in listed} == OVER_CEILING, listed
+
+
+def test_a_marker_swapped_into_the_listed_document_is_named(tmp_path):
+    """Round 1, finding 1: a fold that adds a statement to the listed document
+    and removes another keeps the count and changes which markers it holds."""
+    frozen = body(12, 2)
+    swapped = "<!-- specs/1790154762-new -->\n" + body(11, 1)
+    root = tree(tmp_path, {"big.md": swapped})
+    found = ceiling_problems(root, 10, OVER, {"docs/big.md": marker_digest(frozen)})
+    assert len(found) == 1 and "but not the ones frozen" in found[0], found
+
+
+def test_the_frozen_digest_is_the_listed_document_s_markers():
+    """Every listed document has a digest, and it is the one on disk."""
+    assert set(FROZEN_IDS_DIGEST) == set(OVER_CEILING)
+    for rel, digest in FROZEN_IDS_DIGEST.items():
+        with open(os.path.join(ROOT, *rel.split("/")), encoding="utf-8") as f:
+            assert marker_digest(f.read()) == digest, rel

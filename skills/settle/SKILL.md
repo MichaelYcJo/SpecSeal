@@ -109,8 +109,8 @@ of its own — a marker quoted inside a sentence is a description, not a fold.
 
 **A standing statement has one shape: the rule, its grounds, and what enforces
 it.** It opens with the rule as one bold sentence, and the grounds follow as
-prose. It closes with exactly one line of its own that names what reads the
-rule:
+prose. It carries exactly one line of its own that names what reads the rule,
+and that line is written last:
 
 ```markdown
 <!-- specs/<work-item-id> -->
