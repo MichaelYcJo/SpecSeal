@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 528 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `d954610bdf5af6587d1a606db83f126eea512483..2cbb39fef1047cb456a754f42afcf923b0fc3a8b`, 3 commits |
+| Contract changes | test_the_review_arm_asks_on_a_document_only_commit → round-1-report.md, round-1.md; test_a_document_only_commit_wakes_one_arm_and_not_two → pytest only |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (the grounds misstate what was measured) and 🟡 2 (the `seal/` half of the line can leak unseen) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,9 +31,9 @@ The handoff labelled M4's lower bound unverified, and asked whether the paragrap
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🟡 The grounds paragraph says every docs/seal-only change that reached a reviewer produced defects, using #514 as the example. M1 says none ever did, and #514 changed four test files. It also calls the never-reviewed commits "measured empty". The same claim is in a shipped hook docstring and a test docstring | `docs/review-chain-spec.md` §*Review arm*, paragraph *Why this arm has no document-root line*; `hooks/commit-review-gate.py#touches_code`; `tests/test_chain_hooks_hardening.py#test_the_review_arm_asks_on_a_document_only_commit` | open | Executed: M1 probe (0 of 88 adders confined), `git show --name-only f2943c04` (four test paths), M2 probe (13 flow, 3 one-root only, 1 seal-only). Read: `spec.md` M1, M3 |
-| 2 | 🟡 Both behaviour cases stage only a `docs/` file, so a review-arm exemption for `seal/`-only commits passes every gate case. R1 claims the `seal/` half as executed | `tests/test_chain_hooks_hardening.py#test_the_review_arm_asks_on_a_document_only_commit`; `seal/ledger/1790154759-the-review-arm-asks-where-no-reviewer-compares.md` R1 | open | Executed: `seal/`-only mutation in `judge`, two gate modules `140 passed`. The parametrised fix fails `[seal/ledger.md]` under it, and passes clean |
-| 3 | ⬜ The prose pin asserts a phrase of the argument ("the one population that measured positive"), not the rule, so rewording the grounds fails it with the rule unchanged | `tests/test_chain_hooks_hardening.py#test_the_review_arms_missing_path_line_is_written_where_it_is_met` | open | Read. The other three assertions pin the rule and are right |
+| 1 | 🟡 The grounds paragraph says every docs/seal-only change that reached a reviewer produced defects, using #514 as the example. M1 says none ever did, and #514 changed four test files. It also calls the never-reviewed commits "measured empty". The same claim is in a shipped hook docstring and a test docstring | `docs/review-chain-spec.md` §*Review arm*, paragraph *Why this arm has no document-root line*; `hooks/commit-review-gate.py#touches_code`; `tests/test_chain_hooks_hardening.py#test_the_review_arm_asks_on_a_document_only_commit` | **fixed** `20c42b6f` | fixed at 20c42b6f — the grounds paragraph, the `touches_code` docstring and the test docstring state what M1, M3 and M4 measured; the work item's records corrected in the same commit; Executed: M1 probe (0 of 88 adders confined), `git show --name-only f2943c04` (four test paths), M2 probe (13 flow, 3 one-root only, 1 seal-only). Read: `spec.md` M1, M3 |
+| 2 | 🟡 Both behaviour cases stage only a `docs/` file, so a review-arm exemption for `seal/`-only commits passes every gate case. R1 claims the `seal/` half as executed | `tests/test_chain_hooks_hardening.py#test_the_review_arm_asks_on_a_document_only_commit`; `seal/ledger/1790154759-the-review-arm-asks-where-no-reviewer-compares.md` R1 | **fixed** `20c42b6f` | fixed at 20c42b6f — both behaviour cases parametrised over a `docs/` and a `seal/` path; 07986ea3 corrects ledger row R1; Executed: `seal/`-only mutation in `judge`, two gate modules `140 passed`. The parametrised fix fails `[seal/ledger.md]` under it, and passes clean |
+| 3 | ⬜ The prose pin asserts a phrase of the argument ("the one population that measured positive"), not the rule, so rewording the grounds fails it with the rule unchanged | `tests/test_chain_hooks_hardening.py#test_the_review_arms_missing_path_line_is_written_where_it_is_met` | **fixed** `20c42b6f` | fixed at 20c42b6f — the pin asserts the rule sentence ("it is never inferred from the paths it touches") rather than a phrase of the argument; Read. The other three assertions pin the rule and are right |
 | ⬜ | The work item's records repeat 🟡 1's misstatement (`changelog.md`, `questions.md` preamble, `spec.md` §*What the measurement decides* and §*Out*, `plan.md` summary); R1 and `overview.md` say 139 gate cases where HEAD has 140 | `seal/specs/1790154759-the-review-arm-asks-where-no-reviewer-compares/` | correction | Read; count executed at `17327c53` |
 | 🟢 | M1, M2 and M3 reproduce from the release branch | `spec.md` M1–M3 | confirmed | Executed: scratch probe over `f8f1c9de` (88 / 0; 175 / 17 / 13 flow). Read: the three verdict tables of `1790119502-four-shipped-work-items-wait-unfolded` (4 + 3, all `docs/`, one 🔴) |
 | 🟢 | M4's "at least 25 / 26" is no larger than an independent count | `docs/review-chain-spec.md` §*Review arm* | confirmed | Executed: own classifier, 311 records, 31 `docs/`-only from 16 items, 26 ledger-only |
