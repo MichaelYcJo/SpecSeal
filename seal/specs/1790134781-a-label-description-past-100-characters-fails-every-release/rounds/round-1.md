@@ -7,14 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #524 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `24f8a928dbccd0e582bedfacf77bc6429483aec5..a6bdf34d6cc051447ccdcd37b02fe1e1d0fdeb90`, 2 commits |
+| Contract changes | none |
+| New units | test_a_failed_step_cannot_skip_the_independent_steps_after_it (depth 1) |
 | Needs a fix | yes — finding 1, the roll step still depends on the label step succeeding |
 | Loses a record or crashes | no |
+<!-- New units: .github/workflows/close-issues-on-release.yml read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +25,9 @@ Round 1 read the whole branch against its base: the shortened `size: now` descri
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🟡 The roll step has no `if:`, so any failure of the label step skips the flow-measurement roll, which is #515's second cost | `.github/workflows/close-issues-on-release.yml:56-61` | open | The workflow has three steps in sequence with the default `success()` condition. The probe was red at `a479a38` and green with `if: ${{ !cancelled() }}`, and the neighbouring workflow cases stayed green |
-| 2 | ⬜ The module docstring's case index omits the new cap case, and its §15 paragraph points every case's red run at `1790076050` | `tests/test_a_declared_label_reaches_the_tracker.py:10-34` | open | Read. The index lists A9 to A12. The new case's red run is in C1 |
-| 3 | ⬜ correction: `overview.md` says five single-unit mutations, and C1 and the hand-back list four | `seal/specs/1790134781-a-label-description-past-100-characters-fails-every-release/overview.md:6` | open | Read. C1 names four mutations |
+| 1 | 🟡 The roll step has no `if:`, so any failure of the label step skips the flow-measurement roll, which is #515's second cost | `.github/workflows/close-issues-on-release.yml:56-61` | **fixed** `59d067e` | fixed at 59d067e; The workflow has three steps in sequence with the default `success()` condition. The probe was red at `a479a38` and green with `if: ${{ !cancelled() }}`, and the neighbouring workflow cases stayed green |
+| 2 | ⬜ The module docstring's case index omits the new cap case, and its §15 paragraph points every case's red run at `1790076050` | `tests/test_a_declared_label_reaches_the_tracker.py:10-34` | **fixed** `59d067e` | fixed at 59d067e; Read. The index lists A9 to A12. The new case's red run is in C1 |
+| 3 | ⬜ correction: `overview.md` says five single-unit mutations, and C1 and the hand-back list four | `seal/specs/1790134781-a-label-description-past-100-characters-fails-every-release/overview.md:6` | answered | corrected at a6bdf34 — `overview.md` now says four single-unit mutations and why one unit was run twice; Read. C1 names four mutations |
 | 🟢 | The shortened description keeps what the label means and when it comes off | `.github/scripts/tracker_labels.py:111-114` | not a defect | 95 characters, measured. The first clause is the document's words minus the subject, and the close it names is the moment the document names |
 | 🟢 | `LABEL_DESCRIPTION_LIMIT` lives beside one of its two users | `.github/scripts/label_merged_on_release_branch.py:104-113` | not a defect | Two functions call `gh label create`. The other reaches the constant through its existing `signal` import |
 | 🟢 | T2 is edited in the shared ledger | `seal/ledger.md:2498` | not a defect | `CONTRIBUTING.md:204-215` gives the `--reverify` arm for a claim that still holds. `evidence-check --strict` returned 1468 ok |
