@@ -244,9 +244,11 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
       the title taken from the `release: X.Y.Z — <symptoms>` line step 5
       prescribes. **This box confirms the workflow fired; it is not where the
       note gets written.** Nothing there means the job went red or never ran,
-      and `gh run list --workflow publish-release.yml` says which. The one
-      direction that job fails in is a tag whose version `CHANGELOG.md`
-      carries no section for, which is step 2 not having happened.
+      and `gh run list --workflow publish-release.yml` says which. The job
+      fails for a tag whose version `CHANGELOG.md` carries no section for,
+      which is step 2 not having happened; for a `v*` tag that is not
+      `vX.Y.Z`; and when a `gh` call it makes fails. A missing title line is
+      not one of them — it falls back to the tag name.
 - [ ] **The plugin directory's answer has been read** —
       `python3 .github/scripts/plugin_directory_check.py`. It says, per
       directory, whether this plugin is listed, which commit the entry pins,
@@ -258,8 +260,8 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
       a person's act, once. Listed while pinning an older commit means the
       directory has not caught up — resubmit through the same form. Whether an
       update reaches a listed plugin on its own is readable from nowhere
-      public — the work item that built this box carries it as an open
-      question — and resubmitting is unnecessary under one answer and never
+      public — it is an open question, and the repository owner is who
+      answers it — and resubmitting is unnecessary under one answer and never
       wrong under either.
 
 <!-- specs/1788789330-the-update-notice-names-the-expensive-move -->

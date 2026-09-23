@@ -62,6 +62,7 @@ last round record's verdict table and its `Pass` checkbox.
 
 ### The cap bounds rounds, and not the fixes of the round it stopped
 
+<!-- specs/1790076060-the-cap-is-read-as-bounding-fixes-and-the-pile-is-nobodys -->
 **Three and five count rounds.** What they decide is whether another round is
 spawned. What happens to the findings of the round they stopped at is decided
 by the rule below, and reading the numbers as a bound on fixes is what files a
@@ -103,6 +104,7 @@ that same work item and the character-level oracle another named was the
 branch's outright, so all five were fixed on the branch, the record was
 corrected in place, and one verifying round read them.
 
+<!-- specs/1790076060-the-cap-is-read-as-bounding-fixes-and-the-pile-is-nobodys -->
 **Two bounds end a run `capped`, and only one of them permits a fix.** Say
 which one ended the run, because the answer differs between them:
 
@@ -259,6 +261,7 @@ At the bound, or earlier when a round returns nothing blocking, the change
 ends the same way whether or not everything was resolved. Nothing is dropped;
 each kind of leftover has a home that outlives the session.
 
+<!-- specs/1790076060-the-cap-is-read-as-bounding-fixes-and-the-pile-is-nobodys -->
 **A finding is filed where somebody will act on it, and a new issue is the
 third rung rather than the default.** An open finding takes the first rung
 that fits, read top to bottom:
@@ -292,6 +295,26 @@ the work item's directory at a later release — after which the pull request
 body is what carries it. `seal/follow-up.md` made that trade for its own file
 first, on the grounds that an unowned row is not a plan, and the repository
 owner is who overturns it.
+
+<!-- specs/1790076060-the-cap-is-read-as-bounding-fixes-and-the-pile-is-nobodys -->
+**Two refusal messages still say a refused finding becomes an issue, and the
+rules above are what they lag.** `CAPPED_EXIT` in `chain_check.py`, printed at
+a round-cap exit, says *every finding still open becomes an issue* and that the
+record's `Fixes checked by` reads `no fixes to check` — the second half is
+true only of a capped record that wrote no fixes, which the cap subsection
+says. The depth exit's `DEPTH_EXIT` in `round_record.py`, printed when `close`
+refuses a depth-2 unit and repeated by `chain_check.py`, says *deferred with a
+named answerer, or becomes an issue*. Under the ladder either finding may take
+rung 2 or rung 4 instead, so both are imprecise where they were once exact.
+The depth exit's wording also stands in prose: documents, agent definitions,
+skills and the round-record template. Those carriers are found by searching for
+*or becomes an issue* with whitespace collapsed, not by a list. Some spell the
+clause before it without a comma, and a list goes stale the first time a
+carrier is added. Not every carrier points at the ladder; some state the two
+homes with no pointer at all. Rewording a line a person reads at a refusal
+is a gate change, which the work that wrote the ladder was scoped out of.
+Whether and how to reword the pair is the repository owner's decision; the two
+messages move together, and every carrier the search finds moves with them.
 
 **What the ladder is measured against.** Filing is cheap and acting on a
 filing is not, so a ladder is what keeps the cheapest act from being the

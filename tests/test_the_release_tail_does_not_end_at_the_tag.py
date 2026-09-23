@@ -28,8 +28,9 @@ its own docstring gives.
 
 **Shown red before it was committed (§15).** Each case was run against the two
 documents with the sentence or box it pins removed; the mutations and what
-each case said are in
-`seal/specs/1790076050-the-release-tail-is-three-acts-no-document-names/phases/phase-2.md`.
+each case said were recorded in
+phase 2 of work item `1790076050-the-release-tail-is-three-acts-no-document-names`,
+whose rule `docs/branch-and-release.md` §*Cutting a release* now carries.
 """
 
 import os
@@ -220,4 +221,44 @@ def test_the_fixed_name_sentence_sits_beside_it():
     assert ".claude-plugin/plugin.json` holds the one copy" in rule, (
         "the sentence says the name is fixed without saying where the one "
         "copy of it lives, so a reader cannot tell which spelling is the name"
+    )
+
+
+# --- the folded rule names the push that fires each act ---------------------
+
+
+def release_tail_rule():
+    """The standing statement the second fold wrote for this work item.
+
+    From its fold marker in §*Cutting a release* to the next `###` heading, so
+    the third-reader paragraph further down, which carries the same marker,
+    is not read as part of it.
+    """
+    text = read(BRANCHING)
+    marker = (
+        "<!-- specs/1790076050-the-release-tail-is-three-acts-no-document-names -->"
+    )
+    start = text.index(marker) + len(marker)
+    rest = text[start:]
+    return flat(rest[: rest.index("### Work accumulates on a release branch")])
+
+
+def test_the_label_acts_are_fired_by_the_merge_to_main_not_the_tag():
+    """Round 1's 🔴 on the second fold. The statement's headline said the tag
+    push fires every act after the tag, and the label acts run in the
+    close-issues workflow, which fires on `push: branches: [main]` — before
+    any tag exists. A reader trusting the headline looks for the label step
+    in the wrong run. Nothing fires the directory check at all; a person runs
+    it at the checklist's box."""
+    rule = release_tail_rule()
+    headline = rule[: rule.index("**", 2) + 2]
+    assert "tag push" not in headline, (
+        "the headline attributes every act to the tag push; the label acts "
+        "fire on the merge to `main`"
+    )
+    assert "The merge to `main` fires the close-issues workflow" in rule, (
+        "the statement does not say which push fires the label acts"
+    )
+    assert "Nothing fires it" in rule, (
+        "the statement does not say the directory check is run by a person"
     )

@@ -92,3 +92,31 @@ findings that outlive a version. A repository declares its durable one with a
 second label, since the instruction ships to repositories that have no such
 issue at all — and **a repository that never measured and one that stopped
 are told apart**, because both used to be the same silence.
+
+<!-- specs/1790076080-every-orchestrator-rule-is-a-sentence -->
+**Posting a reading is one command, and a command does not make anybody run
+it.** `session-cost --segments <transcript> --post --says <path|->` posts to
+the one open log its label resolves to. It refuses without `--says`, because
+the numbers are the script's and what they say is the session's judgment, and
+a command that wrote that sentence itself would be posting one nobody wrote.
+The label is resolved rather than a number, and every state is answered: no
+issue has ever carried it, or `gh` cannot run, and nothing is posted and
+nothing fails; a history with nothing open, or more than one open log, is
+named and posts nothing; exactly one open log takes the comment. **It never
+opens a log**, because opening one is not a session's act — two sessions
+finishing segments at once would both read zero and both create one. What the
+command removes is the procedure a session used to reconstruct from prose;
+what it cannot remove is the remembering, and the miss that started this was a
+day of measurements nobody took rather than a post that failed.
+
+<!-- specs/1790076080-every-orchestrator-rule-is-a-sentence -->
+**A network write only a person's typing starts is not a hook, and the list of
+hook network touches does not reach it.** `CONTRIBUTING.md` counts the
+plugin's network touches under *Hooks stay local and quiet*, and every
+condition that list sets for another entry is shaped for a hook: an opt-in so
+unrelated repositories are untouched, a throttle so it is not per session,
+silence on every failure. `--post` fires on no hook and writes only when
+typed, only through `gh`, and only what it was handed. What the same bullet
+forbids still binds it — nothing sent may carry repository contents, paths or
+prompts — so the posted body names the transcript by its file name and never
+by its path. The repository owner owns that list and can overturn this.

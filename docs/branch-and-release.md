@@ -40,6 +40,45 @@ fails a release PR — one whose base is `main` — that changes `skills/`,
 `agents/`, `hooks/`, `templates/`, `bin/` or `.claude-plugin/` without moving
 the version. The tag is still yours to push — nothing in CI can do it for you.
 
+<!-- specs/1790076050-the-release-tail-is-three-acts-no-document-names -->
+**Every act the release performs once it reaches `main` belongs to a machine or
+to a command that answers it, and none of them waits on somebody remembering.**
+Three acts used to follow the merge that were assigned to whoever was at the
+keyboard, written into no document and read by nothing — publishing the release
+note, telling the plugin directory, spending the `size: now` label — and a step
+a person can skip is a step that gets skipped: the note was missed three
+releases running. Two different pushes fire two of them, and the difference is the
+point. The merge to `main` fires the close-issues workflow, so the label is
+created and spent before any tag exists. The tag push, the maintainer's last
+act, fires the note, because a note has to name a tag.
+
+- **The release note publishes itself.** `.github/workflows/publish-release.yml`
+  fires on the `v*` tag push and publishes the `CHANGELOG.md` section the
+  preparation commit already gathered, titled from the tagged commit's
+  `release: X.Y.Z — <symptoms>` line (`docs/release-checklist.md` §5). It never
+  republishes a release that exists, and falls back to the tag name when that
+  line is missing or carries no symptoms. The red it exists to raise is a
+  changelog with no section for the tag, which is the release shipping
+  unexplained.
+- **The plugin directory is read by a command that never fails a release.**
+  `.github/scripts/plugin_directory_check.py` says, per directory, whether the
+  plugin is listed, which commit the entry pins and whether that commit is on
+  `main`, and it exits 0 whatever it finds: the directories sync on somebody
+  else's schedule, and a red nobody here can act on is what `CLAUDE.md`'s first
+  goal is against. Nothing fires it; a person runs it at the checklist's box.
+  Submitting or resubmitting is a person's act.
+- **A label a document specifies is created and spent by a workflow.** When
+  the release reaches `main`, the close-issues workflow runs
+  `.github/scripts/tracker_labels.py --apply`, which creates every declared
+  label the tracker lacks, and takes `size: now` off each issue it closes.
+  `docs/issues-and-milestones.md` owns what the label means; this says only who
+  performs the acts. It states the design and not the tracker's state — whether
+  the label exists is what `gh label list` says.
+
+`docs/release-checklist.md` §6 carries a box for each of the first two. The
+first confirms the workflow fired and is not where the note gets written; the
+second is where the command is run.
+
 ### Work accumulates on a release branch
 
 The marketplace clone tracks `main`, so `claude plugin update` installs
@@ -90,6 +129,7 @@ exactly that, and the patch release after it exists to fix one line. The
 round records survived only
 because their feature branches had been restored to the remote first.
 
+<!-- specs/1790076050-the-release-tail-is-three-acts-no-document-names -->
 **A third reader points at those commits now, and it is outside this
 repository.** A plugin directory lists an external plugin by pinning a commit
 of its source repository — measured 2026-09-22 over one directory's 310
@@ -97,8 +137,9 @@ entries, 258 point outward and **every one of them carries a `sha`**, while
 the other 52 name a path inside the directory's own repository and pin nothing
 at all. Ninety-six of the 258 also carry a `ref`, and 91 of those name `main`
 or `master`, so the `sha` is what a reader resolves. The counts and the
-command that produced them are in
-`seal/specs/1790076050-the-release-tail-is-three-acts-no-document-names/phases/phase-3.md`.
+command that produced them were recorded in phase 3 of work item
+`1790076050-the-release-tail-is-three-acts-no-document-names`, whose marker
+stands above this paragraph.
 So the rule above stopped being only about readers this repository can fix.
 Breaking it now also breaks a consumer nobody here can reach, and the people
 it reaches are people the owner cannot name — which is the same failure as

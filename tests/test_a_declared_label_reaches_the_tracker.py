@@ -29,8 +29,9 @@ close was made first rather than trusting that it was.
 
 **Shown red before it was committed (§15).** Each case was run against the
 script or document with the one behaviour it pins removed; the mutations and
-what each case said are in
-`seal/specs/1790076050-the-release-tail-is-three-acts-no-document-names/phases/phase-4.md`.
+what each case said were recorded in
+phase 4 of work item `1790076050-the-release-tail-is-three-acts-no-document-names`,
+whose rule `docs/branch-and-release.md` §*Cutting a release* now carries.
 """
 
 import importlib.util
