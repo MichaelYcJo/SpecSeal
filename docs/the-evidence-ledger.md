@@ -182,9 +182,10 @@ answered — so a work item with a row anchored in its `rounds/` stays on disk,
 and the fold does not remove it to tidy the list. Keeping the directory rather
 than removing the row is a default, and the repository owner is who can trade
 it the other way: remove the row, carry its claim into the prose it evidences,
-and let the next `settle --retire` take the directory. That question, for
-`1788184145`, the one directory held this way today, is carried by #517's
-design comment.
+and let the next `settle --retire` take the directory. For `1788184145`, the
+one directory held this way when the guard below shipped, that trade was
+taken (#517): the row was removed, and its claim stands in
+`docs/review-chain-spec.md` §*Two records, and what each of them says*.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 **A retirement would break every ledger row anchored inside the directory it

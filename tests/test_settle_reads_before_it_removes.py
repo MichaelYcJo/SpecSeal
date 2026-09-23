@@ -390,6 +390,27 @@ def test_the_documents_say_the_retirement_keeps_an_anchored_directory():
     assert "The command names the rows and edits none of them" in policy
 
 
+def test_no_row_of_this_repositorys_ledger_anchors_inside_a_work_item():
+    """#517's repair step 2, and the rule it leaves behind. The one row the
+    guard found when it shipped — anchored at `1788184145`'s round 3 — was
+    REMOVED and its claim re-founded on the prose that states it, and no row
+    a later work item writes may anchor under `seal/specs/`, its own directory
+    included, or the next fold keeps that directory.
+
+    Every work item, released or not, and no floor: at zero directories the
+    list is empty and the property still holds."""
+    rows = settle.anchored_rows(ROOT, settle.work_items(ROOT))
+    assert not rows, [f"{r.file}:{r.line}  {r.clause[:60]}" for r in rows]
+
+
+def test_the_policy_says_the_held_row_was_answered():
+    policy = document("docs", "the-evidence-ledger.md")
+    assert "is carried by #517's design comment" not in policy, (
+        "the policy still says the question for 1788184145 is open"
+    )
+    assert "that trade was taken" in policy
+
+
 def test_a_marker_quoted_in_prose_is_not_a_fold_record(tree):
     """The line anchor `fold_ledger.py#is_marked` already pays for. Every
     document describing the convention quotes the marker's shape inline."""
