@@ -92,7 +92,7 @@ skipped`; the skip is `test_the_whole_check_names_no_earlier_items_record`
 new helper adds no path-listing scope, so the shrunken-corpus guard is green
 without a new classification.
 
-**Rows** re-read and re-verified: S1 of the root move (`one_root_laid_out`),
+**Rows** re-read and re-verified: S1 of the root move (`test_this_repository_has_one_root_laid_out_by_lifetime`),
 `unverified_check.py#main` (×3, the local-mode S7 among them — `settled_root`
 requires `<repo>/seal/` to exist, so local mode still exits 2 there), the
 mirror rows (×3), the row *F12 · the separator's limit is the third of three*, R1 of the finding-id
