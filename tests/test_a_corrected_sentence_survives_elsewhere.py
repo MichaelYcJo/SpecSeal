@@ -52,9 +52,12 @@ SCRIPT = os.path.join(ROOT, "skills", "code-review", "scripts", "survivor_check.
 # here the day the branch list was tidied. They are now anchored by the tags
 # `fixture/survivor-pin-left-behind` and `fixture/survivor-class-left-standing`
 # rather than by any branch. Delete either tag and every case below skips.
-PIN_LEFT_BEHIND = "7bcf36a"
+# The cases name the tags rather than the commits' SHAs: a history rewrite
+# moves each tag to its commit's new SHA, and a SHA written here would stop
+# resolving while the tag still reaches the same commit.
+PIN_LEFT_BEHIND = "fixture/survivor-pin-left-behind"
 PIN_CARRIER = "tests/test_the_rules_have_one_owner.py"
-CLASS_LEFT_STANDING = "ad6f81a"
+CLASS_LEFT_STANDING = "fixture/survivor-class-left-standing"
 CLASS_CARRIERS = (
     "seal/ledger.md",
     "seal/ledger/1788844200-the-refusal-text-is-unobserved-and-an-uppercase-v-is-invisible.md",
