@@ -22,7 +22,13 @@ What it reads, for every routing declaration this pull request adds or changes:
                              things the rounds themselves produce, and nothing
                              else. What excuses them is `strict`, so the
                              `unknown` state below is excused none of them
-  straight to the PR         nothing required — the declaration is printed,
+  straight to the PR         the sealer's `broad-gate.md` in the work item's
+                             directory at a ready pull request, for a work
+                             item begun at or after `DIRECT_GATE_FROM` -- the
+                             one broad run, at a SHA the tree can see, against
+                             the base (`direct_seal`). The answer turns off
+                             the REVIEWER alone; a draft is excused the file,
+                             and the declaration is printed either way,
                              because a decision nobody sees is not a record
   an unreadable declaration  FAIL. A tolerant read reports "no declaration",
                              which is indistinguishable from a branch that

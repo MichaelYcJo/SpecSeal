@@ -58,9 +58,10 @@ After the fix: `tests/test_the_record_is_generated.py` and
 
 **The records check reads this work item now, and it refused four names.**
 `evidence-check --strict` came back exit 2 with the fragment in place — not on
-a ledger row but on the records: `word_needs` in `spec.md`, `plan.md` and
-`phases/phase-1.md` (the local phase 1 removed) and `NEEDS_REASON_FROM` in
-`plan.md` (a rejected alternative that never existed). Each line carries
+a ledger row but on the records: `word_needs` (NAME NOT IN TREE: the local
+phase 1 removed) in `spec.md`, `plan.md` and `phases/phase-1.md`, and
+`NEEDS_REASON_FROM` (NAME NOT IN TREE: a rejected alternative that never
+existed) in `plan.md`. Each line carries
 `NAME NOT IN TREE` with the reason, the sanctioned form
 (`seal/specs/1790138190-…/overview.md`'s precedent); the strict check is exit
 0 afterwards with 1565 rows ok and 0 refused.
