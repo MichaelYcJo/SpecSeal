@@ -21,7 +21,8 @@ pinned. Both ship in this work item; nothing from work item A is pulled in.
 **#138, the readers of one cell.** `skills/code-review/scripts/chain_check.py`:
 `yes_or_no` (one parser for both terminal rows; returns `("yes", "")` for a
 bare `yes` and leaves the reason to the caller), `stopping_floor` (reads the
-record's own `Needs a fix` as `word_needs` only, then the floor row with
+record's own `Needs a fix` as `word_needs` (NAME NOT IN TREE: phase 1 replaced
+the local with `says_reopened`'s answer) only, then the floor row with
 `if word == FLOOR_YES and not reason` — the branch the other row lacks),
 `run_reopened` (`word == FLOOR_YES`, so a bare `yes` stops the count).
 `skills/code-review/scripts/round_record.py`: `terminal_value` (refuses only
@@ -75,7 +76,7 @@ which, so it fails loudly rather than leaving an eighth stale sentence.
 | #138 refuse at the reader only | the writer keeps producing records the reader refuses, one command later than the author is at the keyboard; `written_late_cell` already refuses at the writer for the same reason | rejected — both ends |
 | #138 refuse `Loses a record or crashes` at the writer too, as part of the class | none: the reader already refuses it, so the writer refusing it earlier changes no verdict and saves a round trip | **chosen** with option 1 (§12: the class is both terminal lines) |
 | #138 a bare `yes` still stops the count in the walk, only the record itself fails | the earlier record's count stays quiet on the strength of a cell the checker refuses — the direction `run_reopened`'s docstring forbids | rejected — reads as `None` |
-| #138 a new cutoff (`NEEDS_REASON_FROM`) for the refusal | a ninth cutoff for a rule that is red on zero committed records; the row's own grandfathering (`NEEDS_FROM`, WHOLE) already excuses everything written before anything read it | rejected |
+| #138 a new cutoff (`NEEDS_REASON_FROM` — NAME NOT IN TREE: a rejected alternative, never written) for the refusal | a ninth cutoff for a rule that is red on zero committed records; the row's own grandfathering (`NEEDS_FROM`, WHOLE) already excuses everything written before anything read it | rejected |
 | **#241 — no third answer; document what `straight to the PR` requires, and pin it** | a session that checked its own change reads the declaration table, sees the seal is what it owes, and declares direct; CI reads `broad-gate.md` | **chosen** |
 | #241 a third answer, `reviewed by the session`, requiring a round record written by the session | the record's writer is its subject: `Fixes checked by` cannot name a later round, `Ran by` names the session that is also the author, and the chain's own table refuses *the session that wrote them*. The answer records a reading nobody can verify and catches nothing `broad-gate.md` does not; a vocabulary change touches `routing.py`, the gate prompt, `chain_check.py`, the template, the `CLAUDE.md` block, the orchestration tables and every test enumerating two spellings | rejected |
 | #241 a third answer as an alias of `straight to the PR` with the same requirements | two spellings of one requirement — the drift `routing.py`'s `BY_SESSION` comment refuses for the same reason | rejected |

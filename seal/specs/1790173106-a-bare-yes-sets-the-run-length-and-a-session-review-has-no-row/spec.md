@@ -34,7 +34,8 @@ says the answer requires nothing, and adds no third answer.**
 **The ticket's asymmetry holds in the tree today.** `chain_check.py#stopping_floor`
 refuses `Loses a record or crashes` at `yes` with no reason (*says `yes` and
 does not say what*) and passes `Needs a fix` at the same value: its own-row
-read computes only `word_needs` and never the reason. `run_reopened` returns
+read computes only `word_needs` (NAME NOT IN TREE: phase 1 replaced the local
+with `says_reopened`'s answer) and never the reason. `run_reopened` returns
 `True` for a bare `yes`, so the count walk stops there. `round_record.py#terminal_value`
 copies either terminal line into the record refusing only a word outside the
 vocabulary, so the writer accepts the bare `yes` too. And

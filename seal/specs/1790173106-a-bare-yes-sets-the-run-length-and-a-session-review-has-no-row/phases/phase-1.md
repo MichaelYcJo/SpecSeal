@@ -24,7 +24,8 @@ first. Measure Q1: how many records refused by the new arm exist at or after
 **The frame holds for this phase.** Every coordinate `plan.md` §*Technical
 context* names for #138 was opened at `659b4229` and says what the plan says:
 `yes_or_no` returns `("yes", "")` for a bare `yes`, `stopping_floor`'s own-row
-read computes only `word_needs`, `run_reopened` returns `word == FLOOR_YES`,
+read computes only `word_needs` (NAME NOT IN TREE: this phase replaced the
+local with `says_reopened`'s answer), `run_reopened` returns `word == FLOOR_YES`,
 and `NEEDS_FROM == FLOOR_FROM == 1788472135` with the row grandfathered whole
 through `needs_excused`.
 
