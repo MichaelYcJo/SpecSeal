@@ -332,6 +332,16 @@ INHERITED_HEADER = ("From", "Coordinate", "Why it is still worth opening")
 # longer finds, which the checker reads as `no run was named`.
 BROAD_GATE = chain.BROAD_GATE
 GATE_NOT_YET = chain.GATE_NOT_YET
+# What `seal` writes between the entries of a `Broad gate` cell that already
+# held a run (#174): the new entry first, then this, then what was there. The
+# cell used to hold one entry that every `seal` REPLACED, so a run taken
+# again — after a pre-existing failure, or after the last fixes landed — erased
+# the record of the first and the run-level table was filled from memory.
+# Three constraints, all the readers': no `|` (a cell), no SHA-shaped word
+# (`chain_check.broad_gate` takes the first one as the run) and no `<!--` (the
+# hider question every record is asked). `earlier run` is none of those, and
+# the newest entry stays first so the reader's `named[0]` is unchanged.
+EARLIER_RUN = "; earlier run: "
 # The row this script writes and `chain_check.written_late` reads, imported
 # from the reader for the same reason `BROAD_GATE` is: rename it in one file
 # alone and this one keeps writing a row the checker no longer finds, which
@@ -4203,7 +4213,9 @@ def new_broad_gate_file(item, value):
         "records the commit the run happened at and the base it was compared\n"
         "against, so an edit after the run spends it — which is the whole of\n"
         "what a broad-gate cell asserts, and none of it depends on a round\n"
-        "having run. -->\n"
+        "having run. One entry per run, newest first: a run taken again is\n"
+        "written in front, and the earlier one stays behind it as\n"
+        "`earlier run`, so the reader takes the first SHA as the run. -->\n"
         "\n"
         "| Field | Value |\n"
         "|---|---|\n"
@@ -4315,6 +4327,13 @@ def seal(args):
     if n is None:
         rows = []
         raw = lines = []
+        # A `broad-gate.md` already there is read for ONE thing: the run it
+        # holds, which the write below keeps behind the new entry (#174).
+        # Nothing else of it is asked, because the three record refusals
+        # are about a round, and this home has none.
+        if os.path.isfile(path):
+            held_text = read_text(path, chain.BROAD_GATE_FILE)
+            rows = chain.table_rows(reader, reader.readable(held_text))
     else:
         text = read_text(path, f"last record round-{n}.md")
         raw, lines = text.splitlines(), reader.readable(text)
@@ -4428,16 +4447,27 @@ def seal(args):
                 "Run it again at the tree as it stands; no cell was written"
             )
 
+    # ONE ENTRY PER RUN, NEWEST FIRST (#174). A run the cell already holds is
+    # kept behind the new one as `earlier run`, because a second broad run --
+    # after a pre-existing failure, or after the last fixes landed -- used to
+    # REPLACE the first and the run-level table was then filled from memory.
+    # `not yet` holds no run and is replaced as before, so a first seal is
+    # byte-identical to what it always was; and the new entry goes in FRONT
+    # so that `chain_check.broad_gate`, which takes the first SHA-shaped word
+    # as the run, reads exactly what it read before.
+    held = reader.visible(chain.field(rows, BROAD_GATE) or "").strip()
+    value = args.broad_gate
+    if held and chain.SHA_RE.search(held) and not chain.says_gate_not_yet(held):
+        value = f"{args.broad_gate}{EARLIER_RUN}{held}"
     if n is None:
-        write_record(reader, path, new_broad_gate_file(item, args.broad_gate))
+        write_record(reader, path, new_broad_gate_file(item, value))
     else:
         i = field_index(reader, lines, BROAD_GATE)
-        raw[i] = cell(BROAD_GATE, args.broad_gate)
+        raw[i] = cell(BROAD_GATE, value)
         ending = "\n" if text.endswith("\n") else ""
         write_record(reader, path, "\n".join(raw) + ending)
     print(
-        f"round-record: sealed {os.path.relpath(path, root)} {DASH} "
-        f"`{BROAD_GATE}` | {args.broad_gate}"
+        f"round-record: sealed {os.path.relpath(path, root)} {DASH} `{BROAD_GATE}` | {value}"
     )
     return run_check(root, args.baseline or default_baseline(root))
 

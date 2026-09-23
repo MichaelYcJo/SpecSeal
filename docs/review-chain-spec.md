@@ -337,7 +337,11 @@ Two leftovers are not findings and take no rung:
 
 Then the `sealer` takes the broad gate once — spawned with the base and the
 work item, running `broad-gate` and writing the last record's `Broad gate`
-cell — and the change opens as a pull request.
+cell — and the change opens as a pull request. Where the gate has to be taken
+again, the cell keeps every run: the newest entry first, each `<sha> against
+<base>`, the earlier ones behind it as `earlier run` — so a re-seal records a
+second run rather than erasing the first, and the reader still takes the
+first SHA-shaped word as the run (#174).
 
 **The chain ends at a PR, never at a merge.** Those are two mistakes at the
 same spot. A run that stops at a report leaves finished work where nobody
@@ -2045,8 +2049,8 @@ that can reach the default branch is exempt.
 
 What a draft does **not** excuse is a claim that is wrong at every stage. A
 record naming a checker the repository does not have, and a `Broad gate` cell
-reading `not yet` or naming a SHA that precedes that record's own
-`Target SHA`, are both refused on a ready pull request and each says which of
+reading `not yet` or whose newest entry names a SHA that precedes that
+record's own `Target SHA`, are both refused on a ready pull request and each says which of
 the two it is — one is the run that never happened, the other the run spent
 before the round it was meant to seal.
 

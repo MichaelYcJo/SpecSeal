@@ -3606,6 +3606,17 @@ def broad_gate(
     first, which is also what makes an abbreviated cell and a full-length
     `Target SHA` comparable at all.
 
+    THE FIRST SHA-SHAPED WORD IS THE RUN, and that is a property the writer
+    keeps rather than one this arm assumes (#174). The cell holds one entry
+    per full-suite run, NEWEST FIRST: `round_record.py seal` writes a new
+    run in front of what the cell already held and keeps the earlier entry
+    behind it as `earlier run`, so a re-seal after a pre-existing failure or
+    a late fix records a second run instead of erasing the first. Every
+    question below is asked of `named[0]` alone -- the newest run is the one
+    that has to be at or after the round it seals -- and a first seal is one
+    entry, so a record written before the cell could hold two reads exactly
+    as it always did.
+
     A gate SHA this repository cannot see makes NO CLAIM. A squash discards
     the commits a round reviewed and the gate ran at one of them, so
     `resolves_to` returning None is the ordinary state after a merge -- the
