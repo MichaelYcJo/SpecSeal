@@ -3,7 +3,7 @@
 <!-- seal/specs/1790154759-the-review-arm-asks-where-no-reviewer-compares/plan.md
 — HOW, in phases. Frames MichaelYcJo/SpecSeal#518. -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-09-23 by the orchestrating session, under the owner's `automation` preset, when `smith` was spawned.
 
 <!-- Filled by the session that spawns `smith`: reading this plan and
 spawning the builder is the approval. -->
