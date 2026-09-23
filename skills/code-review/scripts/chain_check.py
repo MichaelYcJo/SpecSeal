@@ -1802,7 +1802,50 @@ def fix_range(reader, root, rel):
     if says_none(value):
         # A round that commissioned no fixes has no range, and the value
         # `new` writes before the fixes exist says so in the same words the
-        # two surface rows use. Nothing to read against the tree either way.
+        # two surface rows use. Nothing to read against the tree either way
+        # -- EXCEPT the pair `fix_surface` already refuses on its own rows
+        # (#436): `Fixes checked by` naming a later round says that round
+        # opened these fixes, so they exist, and a cell still saying they
+        # are not yet written is false about a fact the same file states.
+        # Three rows take that pending value from one line of `build`; two
+        # were read back for whether anybody replaced it and this one was
+        # not. Keyed on the same cell, normalized the same way, and behind
+        # `RANGE_FROM` rather than a cutoff of its own: the row has carried
+        # the pending value from birth since it shipped, so `ORDER_FROM`
+        # would excuse nothing this does not, and zero committed records at
+        # or after `RANGE_FROM` hold the pair (read 2026-09-23, 23 records).
+        checker = (
+            reader.visible(field(rows, CHECKED_BY) or "")
+            .strip()
+            .strip("`")
+            .strip()
+            .rstrip(".")
+            .lower()
+        )
+        if CHECKER_RE.match(checker) and says_not_yet(value):
+            message = (
+                f"`{FIX_RANGE}` still says the fixes are not yet written, "
+                f"and `{CHECKED_BY}` names `{checker}` — so a later round "
+                "opened those fixes and they exist. The cell contradicts "
+                f"its own file, the way `{NO_FIXES}` beside a `fixed` "
+                "verdict does. It is the starting value every record "
+                "carries, because a record is committed BEFORE its fixes; "
+                "what is missing is the `round-record close` that writes "
+                "the range they were measured over. Write "
+                f"`` `<a>..<b>`, N commits ``, or a bare `{NONE_WORD}` if "
+                "the round commissioned nothing"
+            )
+            if excused:
+                return [], [
+                    (
+                        rel,
+                        0,
+                        message + f". Work items begun before {RANGE_FROM} "
+                        "are excused this and print instead — the "
+                        "grandfathering the absent row already uses",
+                    )
+                ]
+            return [(rel, 0, message)], []
         return [], []
 
     found = FIX_RANGE_RE.search(value)

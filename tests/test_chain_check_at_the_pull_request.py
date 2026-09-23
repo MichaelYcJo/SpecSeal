@@ -2845,6 +2845,87 @@ def test_a_fix_range_saying_none_is_not_read_against_anything(repo):
     assert RANGE_ROW not in out, out
 
 
+PENDING_RANGE = "none — the fixes are not yet written"
+
+
+def read_by_a_later_round(repo, began, checked_by):
+    """Two records; the FIRST carries `Fix range` at the value `new` writes
+    before the fixes exist, beside a `Fixes checked by` of `checked_by`.
+
+    The second record exists so that `round-2` is a checker the repository
+    can confirm; it is the last record and carries its own seal.
+    """
+    item = gated_item(began, slug="a-ranged-item")
+    write(repo, f"{item}/routing.md", declaration())
+    first = commit(repo, "declare")
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        "# a round\n\n"
+        f"| Field | Value |\n|---|---|\n| Target SHA | {first} |\n"
+        "| Broad gate | not yet |\n"
+        f"| Fix range | {PENDING_RANGE} |\n"
+        f"| Fixes checked by | {checked_by} |\n"
+        "| Contract changes | none |\n"
+        "| New units | none |\n"
+        "| Ran by | specseal:warden on a model |\n"
+        "| Needs a fix | no |\n"
+        "| Loses a record or crashes | no |\n\n"
+        "- [x] Pass\n\n"
+        "## Verdicts\n\n"
+        "| # | Finding | Location | Verdict | Grounds |\n"
+        "|---|---|---|---|---|\n"
+        "| 🟡 1 | something | `f.py:1` | answered | grounds |\n",
+    )
+    second = commit(repo, "round 1")
+    write(
+        repo,
+        f"{item}/rounds/round-2.md",
+        gated_record(second, gate=f"{second} against base", rng="none"),
+    )
+    commit(repo, "round 2")
+    return run(repo, draft=False)
+
+
+def test_a_fix_range_still_pending_after_a_round_read_the_fixes_fails(repo):
+    """A6 of #436. `Fixes checked by` naming `round-2` says a later round
+    opened this record's fixes, so they exist — and `Fix range` two rows up
+    still saying they are not yet written is false about a fact the same
+    file states. `fix_surface` refuses exactly that on its own two rows;
+    this row took the same pending value from the same line of `build` and
+    was never read back for whether anybody replaced it."""
+    code, out = read_by_a_later_round(repo, RANGE_FROM, "round-2")
+    assert code == 1, out
+    assert RANGE_ROW in out and "not yet written" in out, out
+    assert "round-1.md" in out, out
+    assert "round-2" in out, "the refusal names the checker that contradicts the cell"
+
+
+def test_a_fix_range_still_pending_prints_for_a_work_item_begun_before_the_row(
+    repo,
+):
+    """One second before `RANGE_FROM`, the same pair prints and does not fail
+    — the row's own grandfathering, and no cutoff of its own. The row has
+    carried the pending value from birth since it shipped, so `ORDER_FROM`
+    would excuse nothing this does not."""
+    code, out = read_by_a_later_round(repo, RANGE_FROM - 1, "round-2")
+    assert code == 0, out
+    assert RANGE_ROW in out and "not yet written" in out, "the state is reported"
+    assert str(RANGE_FROM) in out, "and the cutoff is named"
+
+
+def test_a_fix_range_pending_beside_nobody_is_the_honest_mid_run_state(repo):
+    """The direction that must keep passing: nothing has opened the fixes,
+    `Fixes checked by` says so, and the pending value is the truth rather than
+    an abandoned cell. `no fixes to check` beside the same value is the case
+    two above, and stays untouched too."""
+    code, out = read_by_a_later_round(
+        repo, RANGE_FROM, "nobody — this round's fixes are not written"
+    )
+    assert code == 0, out
+    assert "still says the fixes are not yet written" not in out, out
+
+
 def test_an_empty_fix_range_row_is_named(repo):
     """A row that says nothing answers nothing, on any record."""
     ranged(repo, RANGE_FROM, lambda a, b: " ")

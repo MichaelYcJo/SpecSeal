@@ -391,8 +391,10 @@ quoted inside a ```-block does not end the quotation. And a fence the record
 never closes reads as a malformed record rather than as a quotation of
 everything left: its lines are read as claims, because an author's missing
 backticks must not be the thing that makes the rest of a record pass in
-silence. The `NAME NOT IN TREE` marker still exempts any line it sits on,
-held or not.
+silence. A comment the record never closes takes the same answer — its lines
+are read, because a missing `-->` is the same mistake one region over, and
+until #217 it silenced every claim under it while the arm said nothing. The
+`NAME NOT IN TREE` marker still exempts any line it sits on, held or not.
 
 **What counts as the tree.** Every identifier-shaped token in every file the
 walk reaches, prose and file names included, outside `seal/specs/` and
