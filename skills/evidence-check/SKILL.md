@@ -455,7 +455,7 @@ absent, or the record is wrong, and the marker is one comment away.
 - The rename scan is bounded so the clean path stays fast: same-extension
   files only, files over 256 KB skipped, and past 200 candidate files it
   degrades to the row's own file and says so on the line. Measured
-  2026-09-23, CLI wall time, median of five, Python 3.12.11 on macOS, on
+  2026-09-23, CLI wall time, median of five, Python 3.12 on macOS, on
   one-line candidate files: one BROKEN row against 200 files ~72 ms, past
   the cap ~70 ms, against ~67 ms for an empty ledger. The interpreter and the
   import are nearly all of it.

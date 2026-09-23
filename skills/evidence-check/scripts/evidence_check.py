@@ -171,7 +171,7 @@ def py_spans(text):
     1,328 parses of 126 files, about 94 % of a 15.8 s `--strict` run that
     every `git commit` paid through `hooks/evidence-advisor.py` (`cProfile`
     and `/usr/bin/time -p` over `--strict .` on this repository, 2026-09-23,
-    Python 3.12.11 on macOS, while #519 was framed). The memo is
+    Python 3.12 on macOS, while #519 was framed). The memo is
     keyed on the TEXT and never on the path: `--reverify` and the suite read
     one path twice with different content in one process, and a path key
     would hand the second read the first read's spans, a silent wrong answer
