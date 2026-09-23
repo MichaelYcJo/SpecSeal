@@ -38,3 +38,4 @@ Two folds put 29 of 101 folded statements into one 2,159-line document and none 
 
 - *Inferred during implementation*: the frozen marker count is an equality, not a ceiling on growth (neither settle §2 nor the evidence ledger states it; the ceiling test's message does).
 - *Inferred during implementation*: an `Enforced by:` target may be written in backticks (settle §2, second bullet of the shape rule).
+- *Inferred during review round 2*: a heading is `^ {0,3}#{1,6}` followed by a space, a tab or the end of the line, as CommonMark reads it; `spec.md` §*Data & interfaces* says the space is required, and the reason it gives — `#<number>` is prose — still holds.
