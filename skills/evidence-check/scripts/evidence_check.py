@@ -185,10 +185,11 @@ def py_spans(text):
 
 @functools.cache
 def parsed_spans(text):
-    """`py_spans`'s answer, stored: {name: ((start, end), ...)} or None.
+    """`py_spans`'s answer, stored once per distinct text, or None.
 
-    Tuples, so the stored value cannot be changed through a reference to it.
-    Call `py_spans`, which copies; this is its memo and nothing else's.
+    Call `py_spans`, which hands each caller a copy; this is its memo and
+    nothing else's, and a caller holding this dict could change the answer
+    every later call gets.
     """
     out = {}
     try:
@@ -218,7 +219,7 @@ def parsed_spans(text):
                 walk(child, prefix, in_function)
 
     walk(tree, "", False)
-    return {name: tuple(places) for name, places in out.items()}
+    return out
 
 
 def heading_level(line):
