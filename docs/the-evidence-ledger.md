@@ -130,6 +130,24 @@ against nothing is not a comparison.
 
 ## The fold, and what tells it from a deletion
 
+**This repository holds the fold's shape and placement rules with three
+values.** `skills/settle/SKILL.md` §*2. Write one standing statement per
+segment* states both rules, and this paragraph holds only the values.
+
+- The shape binds statements from work item `1790154761` on, by the id in
+  the marker. Statements from earlier work items carry no `Enforced by:`
+  line whenever they are folded: the 101 folded before it, and those of work
+  items released with it or still waiting from before it.
+- A top-level document under `docs/` stays at or under 1000 lines.
+- One document is over that ceiling and listed: `docs/review-chain-spec.md`,
+  frozen at 29 fold markers until MichaelYcJo/SpecSeal#526 splits it. Until
+  then a fold places a chain rule in the document for the rule's own
+  sub-subject.
+
+`tests/test_a_folded_statement_names_what_enforces_it.py` reads the shape and
+`tests/test_a_document_has_room_for_the_next_fold.py` reads the ceiling. The
+second also pins these three values against its constants.
+
 <!-- specs/1790027178-a-shipped-spec-waits-for-a-settle-that-was-never-built -->
 **A released work item's directory is folded into a policy document and then
 removed, and the removal is the second half of the fold, never its own act.**

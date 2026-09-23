@@ -150,6 +150,48 @@ where it left off. It is the same marker `.github/scripts/fold_ledger.py` and
 `.github/scripts/gather_changelog.py` already write, and it is read on a line
 of its own — a marker quoted inside a sentence is a description, not a fold.
 
+**A standing statement has one shape: the rule, its grounds, and what enforces
+it.** It opens with the rule as one bold sentence, and the grounds follow as
+prose. It carries exactly one line of its own that names what reads the rule,
+and that line is written last:
+
+```markdown
+<!-- specs/<work-item-id> -->
+**A cell may carry an escaped pipe.** A reader that stopped at one silently
+took every row below it out of the config.
+Enforced by: tests/test_config_rows.py::test_an_escaped_pipe_is_content
+```
+
+- **A target is a repository path**, relative to the root, optionally followed
+  by `::<name>` for a `def` or `class` in that file. Several are separated by
+  commas, and each may be written in backticks.
+- **A rule nothing reads says so:** `Enforced by: nothing — <why>`, and the
+  reason is not empty. Writing it is always possible, so it is the line a
+  reviewer reads first; a check can make the choice visible and cannot make it
+  right.
+- **Stacked markers share one statement.** Consecutive marker lines are one
+  group, and a statement runs from its markers to the next marker, the next
+  heading or the end of the file.
+- `Enforced by:` is a field name, so it stays English in every edition of a
+  document, like every other name a checker matches.
+
+**What this plugin does not check.** It ships no checker for the shape, the
+same way it ships none for *only what is still true*; a repository that wants
+the shape held writes its own check, and says where the shape starts to bind,
+because statements folded before it will not carry the line. Nor can any check
+tell that two standing statements contradict each other. That takes a reader
+who knows what both mean, and it is review's to find.
+
+**One subject, one document, and a document over its ceiling takes no new
+statement.** A rule goes into the document that owns its subject, so a reader
+looking for it, and a reviewer looking for what contradicts it, opens one
+file. A repository may set a ceiling on how large a document grows. A document
+above that ceiling takes no new standing statement: the fold either splits it
+first, along the headings it already has, or places the rule in the document
+for the rule's own sub-subject, created only where none exists. The plugin sets
+no ceiling; the repository states its value and the check that holds it, in
+the document that describes its own fold.
+
 ### 3. Answer every check that reads the corpus
 
 **A fold is not finished until every check in your own repository that carries
