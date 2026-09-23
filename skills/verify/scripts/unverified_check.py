@@ -1104,17 +1104,51 @@ def retired_by_rule(root, ref, directory):
     know; a CI reader's merge-base is by construction a commit the removal
     happened after.
 
-    **Asked of the merge-base, a branch that deletes a `spec.md` in one
-    commit and the directory in the next still reads as a deletion**, because
-    the fork point held the spec. That is what makes this a rule about what
-    the work item was, rather than about what it was left looking like.
+    **A spec is asked of history, not of the tree at `ref` alone**
+    (`wrote_a_spec`), so a `spec.md` deleted in one commit, or in an earlier
+    pull request that has already merged, and the directory in the next still
+    reads as a deletion. That is what makes this a rule about what the work
+    item was, rather than about what it was left looking like.
     """
     paths = tree_at(root, ref, directory)
     if not paths:
         return False
-    if f"{directory}/{SPEC}" in paths:
+    if f"{directory}/{SPEC}" in paths or wrote_a_spec(root, ref, directory):
         return False
     return not open_record_rows(root, ref, directory)
+
+
+def wrote_a_spec(root, ref, directory):
+    """Whether any commit reachable from `ref` (HEAD when None) touched
+    `directory/spec.md`.
+
+    D3 names a work item that WROTE no spec, which is a question about
+    history rather than about one tree. Asked of the merge base alone, a spec
+    deleted by an earlier merged pull request read as never written, and the
+    next pull request retired the directory with no marker while every reader
+    passed both (round 1's finding 3).
+
+    A git failure answers *wrote one*, which keeps the directory. A shallow
+    clone cut short of the deletion answers *never*, which is the reading
+    before this existed; the CI checkout fetches the whole history.
+    """
+    r = subprocess.run(
+        [
+            "git",
+            "-C",
+            root,
+            "log",
+            "-1",
+            "--format=%H",
+            ref or "HEAD",
+            "--",
+            f"{directory}/{SPEC}",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return r.returncode != 0 or bool(r.stdout.strip())
 
 
 def settled_root(path):

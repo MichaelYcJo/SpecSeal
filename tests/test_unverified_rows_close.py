@@ -1968,6 +1968,23 @@ def test_a_spec_at_the_base_is_still_a_deletion(tmp_path, capsys):
     assert "present at HEAD and not here" in capsys.readouterr().out
 
 
+def test_a_spec_deleted_by_an_earlier_merge_is_still_a_deletion(tmp_path, capsys):
+    """Round 1's finding 3: a base whose `spec.md` an earlier commit already
+    deleted still read as a spec-less work item. The predicate asks history."""
+    d, item = moment_repo(tmp_path, CLOSED_SECTION, spec=True)
+    (item / "spec.md").unlink()
+    subprocess.run(
+        ["git", "-C", str(d), "commit", "-qam", "an earlier pull request drops it"],
+        check=True,
+        capture_output=True,
+    )
+    shutil.rmtree(item)
+    assert run([str(d), "--baseline", "HEAD"]) == 1
+    out = capsys.readouterr().out
+    assert "present at HEAD and not here" in out, out
+    assert "retired by the rule" not in out, out
+
+
 def test_a_removed_memo_in_a_directory_that_stays_is_not_a_retirement(tmp_path, capsys):
     """A retirement removes the directory. Deleting only the memo of a
     spec-less directory that stays is deleting a record, whatever it held."""

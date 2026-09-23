@@ -3079,6 +3079,29 @@ def test_a_spec_at_the_merge_base_is_still_a_missing_declaration(repo):
     assert "does not carry this file at HEAD" in out, out
 
 
+def test_a_spec_deleted_by_an_earlier_merge_is_not_a_rule_retirement(repo):
+    """Round 1's finding 3. The merge base held no `spec.md` because an
+    earlier pull request had deleted it, and that one passed every reader
+    too. D3 is about a work item that WROTE no spec, which history answers
+    and one tree does not."""
+    item = "seal/specs/1788000000-a-spec-dropped-earlier"
+    git(repo, "switch", "-q", "base")
+    write(repo, f"{item}/routing.md", declaration())
+    write(repo, f"{item}/overview.md", CLOSED_MEMO)
+    write(repo, f"{item}/spec.md", "# a spec\n\nA rule nobody folded.\n")
+    commit(repo, "a work item that stated a rule")
+    (repo / item / "spec.md").unlink()
+    commit(repo, "an earlier pull request drops the spec")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "merge", "-q", "base")
+    shutil.rmtree(repo / item)
+    commit(repo, "the directory, removed with no marker")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "does not carry this file at HEAD" in out, out
+    assert "by the rule" not in out, out
+
+
 def test_an_open_row_at_the_merge_base_is_still_a_missing_declaration(repo):
     moment_item(repo, "seal/specs/1788000000-an-open-moment", memo=OPEN_MEMO)
     code, out = run(repo, draft=False)

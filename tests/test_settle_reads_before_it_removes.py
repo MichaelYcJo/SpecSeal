@@ -631,6 +631,16 @@ def test_the_predicate_asks_every_condition_itself(tree, ref):
     assert not reader.retired_by_rule(root, ref, "seal/specs/1700009999-nowhere"), (
         "a directory that never existed read as retired by the rule"
     )
+    # Round 1's finding 3: a spec an earlier commit deleted was still written.
+    dropped = moment(tree, name="1700000009-spec-dropped")
+    (dropped / "spec.md").write_text("# a spec\n\nA rule.\n", encoding="utf-8")
+    git(tree, "add", "--", "seal/specs/1700000009-spec-dropped")
+    git(tree, "commit", "-qm", "a spec")
+    git(tree, "rm", "-q", "seal/specs/1700000009-spec-dropped/spec.md")
+    git(tree, "commit", "-qm", "the spec, dropped")
+    assert not reader.retired_by_rule(
+        root, ref, "seal/specs/1700000009-spec-dropped"
+    ), "a directory whose spec.md an earlier commit deleted read as one that wrote none"
 
 
 def test_the_predicate_is_what_settle_asks(tree, monkeypatch):

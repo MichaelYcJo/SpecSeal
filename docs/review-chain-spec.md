@@ -752,8 +752,10 @@ base held a spec or an open row, the refusal stands. The question is
 `unverified_check.retired_by_rule`, the one predicate `settle`,
 `unverified_check.py --baseline` and the survivor sweep ask too, so the four
 cannot disagree about the same tree the way the marker arm once did. Asked of
-the merge base rather than of the tree the branch left, a branch that deletes
-a `spec.md` in one commit and the directory in the next is still a deletion.
+the merge base rather than of the tree the branch left, and asked whether the
+directory's history ever held a `spec.md`, a spec deleted in one commit — or
+in an earlier pull request — and the directory in the next is still a
+deletion.
 
 Every record is read as git carries it at `HEAD`, never as the working tree
 holds it: a tree that differs from `HEAD` is what CI never sees, and a local
