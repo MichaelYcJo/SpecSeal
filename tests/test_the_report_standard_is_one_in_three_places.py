@@ -1,6 +1,9 @@
-"""The reviewer-facing report standard is one text in the places a reviewer
-copies from, and each place is held to it (#503, #437, the comment-opener
-rule).
+"""The reviewer-facing report standard is one text in the three places a
+reviewer copies from — `agents/warden.md`, `skills/code-review/SKILL.md`
+and `docs/review-chain-spec.md` — and in the fourth carrier, the round
+template's comment beside the verdict table, which the record itself holds;
+each is held to it (#503, #437, the comment-opener rule). The module's name
+counts the reviewer's three; `CARRIERS` lists all four (round 1's ⬜ 7).
 
 Three reviewers in one release were refused by `round_record.py new` for the
 shape of one cell, and the repair is an example where the reviewer copies

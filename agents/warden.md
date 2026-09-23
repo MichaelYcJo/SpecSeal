@@ -318,9 +318,11 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   many words, never a figure or a word that reads as an outcome. §4 is the
   rule under it — what was executed and what was not must not share a label.
   Whether
-  the one full-suite run has happened — `not yet`, or the SHA it ran at and
-  the base it was compared against — is invisible in the code, and the next
-  session either repeats a sealed run or ships assuming someone else made it.
+  the one full-suite run has happened — `not yet`, or one entry per run,
+  newest first, each the SHA it ran at and the base it was compared against,
+  an earlier run kept behind the newest as `earlier run` — is invisible in
+  the code, and the next session either repeats a sealed run or ships
+  assuming someone else made it.
   The `Broad gate` cell itself is not yours: `agents/sealer.md` names it as
   that agent's one write, and two definitions naming one cell is the state §6
   exists to make impossible. What you produce is the sentence it and the
@@ -463,7 +465,8 @@ themselves, one fenced block per finding, in your own order:
 
 Under `## Paste-ready fixes` and under `## Executed probes` you may group
 with `###` subheadings, one per finding; the generator takes the fences and
-nothing else, and a section ends at the next `##` (#505). **Write `&lt;!--`
+nothing else, and a section ends at the next heading of its own level or
+shallower — a `##` or a `#` — never at a `###` (#505). **Write `&lt;!--`
 wherever you mean the four characters of a comment opener, a code span
 included**: the generator reads the report with comments stripped, so a
 literal opener anywhere in it — even inside backticks — opens a comment and

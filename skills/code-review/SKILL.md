@@ -329,9 +329,8 @@ word `confirmed`, never `fixed`: `chain_check.closed_with_a_fix` reads the
 fix words across every row, so a `fixed` carried forward makes the record
 one that closed on a fix, which the cap refuses. And no 🔴 anywhere in the
 row: `chain_check.open_blocking` selects on the glyph in every cell, so the
-inherited severity is written in words. Measured: 3 of the 71 work items
-with two or more records had a last record reading as closed-with-a-fix,
-and every one was this shape.
+inherited severity is written in words. #437 measured it at its filing:
+three last records read as closed-with-a-fix, and every one was this shape.
 
 **This is the one format choice a reviewer makes that another agent pays
 for.** The fix pass copies your numbering into its `## Fixes` table, so a
