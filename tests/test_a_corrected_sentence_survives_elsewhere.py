@@ -965,20 +965,35 @@ def test_a_phase_record_the_range_edited_does_not_become_a_source(tmp_path):
     )
 
 
-def test_a_phase_record_standing_in_the_pool_is_not_a_survivor(tmp_path):
+@pytest.mark.parametrize("fillers", [0, 29])
+def test_a_phase_record_standing_in_the_pool_is_not_a_survivor(tmp_path, fillers):
     """The pool half, and the one #460 paid for twice in one pass: a record
     carrying the removed wording was reported beside the real survivor, and
-    answering it meant editing a record of a past state."""
+    answering it meant editing a record of a past state.
+
+    Two pools, because the two directions of the defect need different sizes
+    to show. On four files a fourth carrier halves every quoted phrase's
+    weight and nothing clears the floor -- the record silences the survivor
+    (exit 0). On 33 files the halving is small enough that both carriers
+    clear it -- the record is REPORTED beside the survivor, which is what
+    #460 measured in the tree. The `named` assertion is the only one that
+    catches the second; the `code` assertion is the only one that catches
+    the first. Round 1 found the case on one pool had seen only the first."""
     repo = tmp_path / "probe"
     os.makedirs(repo, exist_ok=True)
+    files = {
+        "notes.md": f"# notes\n\nFirst statement. {FOUND}\n",
+        "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
+        "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        PHASE: phase_record(FOUND),
+    }
+    for index in range(fillers):
+        files[f"filler-{index}.md"] = (
+            f"# filler {index}\n\nUnrelated prose number {index} that shares nothing at all.\n"
+        )
     build(
         repo,
-        {
-            "notes.md": f"# notes\n\nFirst statement. {FOUND}\n",
-            "guide.md": f"# guide\n\nSecond statement. {FOUND}\n",
-            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
-            PHASE: phase_record(FOUND),
-        },
+        files,
         "the claim in two files, and an earlier phase's record quoting it",
     )
     head = build(
@@ -987,13 +1002,15 @@ def test_a_phase_record_standing_in_the_pool_is_not_a_survivor(tmp_path):
         "corrected notes.md only",
     )
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
-    assert code == 1, f"guide.md's copy went unreported; exit {code}\n{text}"
+    assert code == 1, (
+        f"guide.md's copy went unreported on a pool of {fillers + 4}; exit {code}\n{text}"
+    )
     named = paths_in(text)
     assert "guide.md" in named, f"the report does not name the survivor:\n{text}"
     assert named == ["guide.md"], (
-        f"the report names {named}. A phase record quotes what a phase found and "
-        f"instructs nobody, so reporting it asks somebody to correct a record "
-        f"of a past state:\n{text}"
+        f"the report names {named} on a pool of {fillers + 4}. A phase record "
+        "quotes what a phase found and instructs nobody, so reporting it asks "
+        f"somebody to correct a record of a past state:\n{text}"
     )
 
 
