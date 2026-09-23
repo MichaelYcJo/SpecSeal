@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #525 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `492c9b8e59f2db4d41ddb4eb5b45711a590d5856..100058fa0956b66048b52e80840d10eb10472e29`, 10 commits |
+| Contract changes | none |
+| New units | CHECKER (depth 1); wrote_a_spec (depth 1); test_a_specs_directory_outside_the_seal_root_stays_in_the_range (depth 1); test_a_spec_deleted_by_an_earlier_merge_is_not_a_rule_retirement (depth 1); test_a_fenced_anchor_still_keeps_the_directory (depth 1); test_a_row_at_the_old_evidence_address_keeps_the_directory (depth 1); test_a_closed_row_is_told_to_merge_before_its_directory_goes (depth 1); test_a_spec_deleted_by_an_earlier_merge_is_still_a_deletion (depth 1); test_a_history_git_cannot_read_counts_as_a_spec_written (depth 1) |
 | Needs a fix | yes — findings 1, 2, 3 and 4 (🟡); finding 5 is ⬜ and not counted |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 1 read the whole branch against its base, `f8f1c9d..4d19cc0`. Stage 1 comp
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🟡 the #511 guard reads live lines of two ledger addresses; evidence-check reads every line of three, so a fenced or `_evidence.md` anchor is removed and reported BROKEN afterwards | `skills/settle/scripts/settle.py:459` | open | executed: fenced row's directory removed, then `file not found` from evidence-check; `evidence_check.py:1207` scans the whole text; `evidence_check.py:919` lists the third address |
-| 2 | 🟡 a memo row closed and its directory retired in one pull request passes `settle --retire` and fails `unverified_check` and `chain_check` at the merge base; the skill prescribes that order | `skills/settle/SKILL.md:94` | open | executed: settle exit 0, then both readers exit 1; also `docs/the-evidence-ledger.md:184` and `RULE_KEPT_HEADING` |
-| 3 | 🟡 a spec deleted in one merged pull request lets the next retire its directory with no marker, and every reader passes both pull requests | `skills/verify/scripts/unverified_check.py:1115` | open | executed: the one-PR control is refused; PR 1 and PR 2 each exit 0 in all three readers; the claim at `docs/review-chain-spec.md:755` holds only inside one pull request |
-| 4 | 🟡 `WORK_ITEM_DIR` matches any `*/specs/<x>/`, so a whole deletion under `docs/specs/` is dropped from the survivor range | `skills/code-review/scripts/survivor_check.py:522` | open | executed: `retired_directories` returned `docs/specs/login-flow`; `corrected()` measured 0 sentences |
-| 5 | ⬜ the report lists an anchored spec-less directory under *`settle --retire` removes these* | `skills/settle/scripts/settle.py:614` | open | read: `survey["rule"]` is filled before `holding` is applied; `retire()` keeps it correctly |
+| 1 | 🟡 the #511 guard reads live lines of two ledger addresses; evidence-check reads every line of three, so a fenced or `_evidence.md` anchor is removed and reported BROKEN afterwards | `skills/settle/scripts/settle.py:459` | **fixed** `29390035` | fixed at 29390035 — (guard reads the checker's own address list, every line), a5acea6a (skill and policy prose, pinned), 2c74aad5 (ledger G3 row corrected and re-verified); executed: fenced row's directory removed, then `file not found` from evidence-check; `evidence_check.py:1207` scans the whole text; `evidence_check.py:919` lists the third address |
+| 2 | 🟡 a memo row closed and its directory retired in one pull request passes `settle --retire` and fails `unverified_check` and `chain_check` at the merge base; the skill prescribes that order | `skills/settle/SKILL.md:94` | **fixed** `6f9ff718` | fixed at 6f9ff718 — the skill, `docs/the-evidence-ledger.md` and `RULE_KEPT_HEADING` say the closure merges in its own pull request before the one that retires the directory; pinned by `test_a_closed_row_is_told_to_merge_before_its_directory_goes`; executed: settle exit 0, then both readers exit 1; also `docs/the-evidence-ledger.md:184` and `RULE_KEPT_HEADING` |
+| 3 | 🟡 a spec deleted in one merged pull request lets the next retire its directory with no marker, and every reader passes both pull requests | `skills/verify/scripts/unverified_check.py:1115` | **fixed** `c70c801d` | fixed at c70c801d — (`wrote_a_spec` asks history; `docs/review-chain-spec.md` rewritten), 100058fa (pins the git-failure direction); executed: the one-PR control is refused; PR 1 and PR 2 each exit 0 in all three readers; the claim at `docs/review-chain-spec.md:755` holds only inside one pull request |
+| 4 | 🟡 `WORK_ITEM_DIR` matches any `*/specs/<x>/`, so a whole deletion under `docs/specs/` is dropped from the survivor range | `skills/code-review/scripts/survivor_check.py:522` | **fixed** `89d41871` | fixed at 89d41871 — `WORK_ITEM_DIR` anchored at the start; executed: `retired_directories` returned `docs/specs/login-flow`; `corrected()` measured 0 sentences |
+| 5 | ⬜ the report lists an anchored spec-less directory under *`settle --retire` removes these* | `skills/settle/scripts/settle.py:614` | **fixed** `1160761c` | fixed at 1160761c — `survey` drops a directory the anchored guard holds from the rule-arm list; read: `survey["rule"]` is filled before `holding` is applied; `retire()` keeps it correctly |
 | 🟢 | one predicate asked by four readers, not re-derived | `skills/verify/scripts/unverified_check.py:1090` | not a defect | read: each reader calls `retired_by_rule` on the loaded module |
 | 🟢 | a partial removal or a memo removed from a directory that stays is still a deletion | `skills/verify/scripts/unverified_check.py:1384` | not a defect | read: both CI arms require the directory gone |
 | 🟢 | the guard reads rows above the first marker and every fragment | `skills/settle/scripts/settle.py:435` | not a defect | read and executed (P1: two of three rows caught) |

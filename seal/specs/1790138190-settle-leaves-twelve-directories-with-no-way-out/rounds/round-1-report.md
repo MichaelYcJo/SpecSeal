@@ -61,7 +61,7 @@ nothing breaks now. The gap stays open for any later ledger and for every user
 repository.
 
 `tests/test_settle_reads_before_it_removes.py:365`
-(`test_a_quoted_anchor_is_not_a_row`) pins the skipping. `spec.md` G3
+(`test_a_quoted_anchor_is_not_a_row`) pins the skipping. `spec.md` G3  <!-- NAME NOT IN TREE -->
 prescribed `live_lines`, so the defect is in the frame as well as in the
 code. The fix goes to the rule the guard reads, not to one test.
 
@@ -226,7 +226,7 @@ Each one has to be seen red against the target SHA before it is committed
 (`agent-contract` §15). Every proposed case name below is new.
 
 - `tests/test_settle_reads_before_it_removes.py` — replace
-  `test_a_quoted_anchor_is_not_a_row` with a case in which a fenced ledger row
+  `test_a_quoted_anchor_is_not_a_row` with a case in which a fenced ledger row  <!-- NAME NOT IN TREE -->
   anchored inside a folded directory keeps that directory at exit 1, plus a
   second fixture for `docs/sub/_evidence.md` (finding 1). Red today: the
   directory is removed.
@@ -337,7 +337,7 @@ checker reads it.
 ```
 
 Finding 1 — `tests/test_settle_reads_before_it_removes.py`, in place of
-`test_a_quoted_anchor_is_not_a_row`:
+`test_a_quoted_anchor_is_not_a_row`:  <!-- NAME NOT IN TREE -->
 
 ```python
 def test_a_fenced_anchor_still_keeps_the_directory(tree):  # NAME NOT IN TREE
