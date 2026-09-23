@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 538 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `5073481487e055c88c8deb1db1693427bda3d6f2..3ba12d83cad25584c0527e98cc01edae186cd66a`, 3 commits |
 | Contract changes | Tracker → round-1-report.md, round-1.md, pytest |
 | New units | comments_on (depth 1); section_heading (depth 1); test_a_second_gather_into_the_last_section_ends_the_file_with_one_newline (depth 1); test_a_second_gather_into_an_undated_heading_says_what_the_write_does (depth 1); test_a_refusal_before_the_comment_landed_still_gets_it_from_the_fallback (depth 1); test_a_tracker_that_does_not_count_comments_gets_the_comment_posted (depth 1) |
