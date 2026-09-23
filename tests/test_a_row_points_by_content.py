@@ -125,6 +125,7 @@ def test_rows_citing_one_file_cost_one_parse(repo, monkeypatch):
 
     The checker used to parse a file once per ROW that cited it: 1,328 parses
     of 126 files for this repository's own ledger, about 94 % of a 15.8 s run
+    (`cProfile` and `/usr/bin/time -p` over `--strict .`, 2026-09-23)
     that every `git commit` paid through the advisor. The file's text is made
     unique to this test, so a parse another case already paid for cannot make
     the count read low."""

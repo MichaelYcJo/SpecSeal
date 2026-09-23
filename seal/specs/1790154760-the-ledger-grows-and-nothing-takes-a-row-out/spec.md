@@ -7,8 +7,12 @@ that nothing should change. The measurements below were taken while framing.
 They say the ledger's size costs something now, but the cost does not come
 from the row count. It comes from the checker parsing the same Python file
 once per row. So this work takes no row out of the ledger. It makes the
-checker parse each file once, and it corrects the one document that states
-what the check costs.
+checker parse each file once, and it corrects what the repository states the
+check costs. (Corrected 2026-09-23 in round 1's fix pass: this sentence said
+"the one document that states what the check costs". Four places stated a
+cost for the check or its hooks with no instrument or date, the advisor's
+docstring, `evidence_check.py#scan_candidates`, `hooks/ledger-migrate.py` and
+`skills/evidence-check/SKILL.md`, plus one test docstring.)
 
 ## Grounding
 
