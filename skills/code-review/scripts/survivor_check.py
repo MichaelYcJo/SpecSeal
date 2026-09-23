@@ -91,6 +91,35 @@ reported on this range; it is the thing that stops records from diluting the
 survivors into the floor. Both matter, and only the second was measurable
 here.
 
+**The work item's own exemption file.** `survivors.md` directly under
+`seal/specs/<id>/` is out of the **pool** and out of the **range**, on both
+sides of the range's path list, for a reason one step stronger than a round
+record's: its rows QUOTE the surviving wording, because the quote is the
+anchor. Left in the range, a row's quote counts as wording the fix wrote and
+`wanted` subtracts the very survivor the row excuses (#507); left in the pool,
+the file is one more carrier of exactly the phrases that produced the score,
+and a survivor near the floor drops under it (#308). Either way the `exempt`
+line never prints, and the check goes green because the survivor was not
+found rather than because it was excused -- measured on three pull requests
+of one release, 36 rows written and 7 consulted. The file is read by
+`--exempt` alone, as a judgment on the search's result and never as an input
+to it.
+
+**A phase record.** Everything under a work item's `phases/` is out of the
+**pool** and out of the **range**, on both sides of the range's path list,
+because it is the same kind of file as a round record: what a phase was
+asked, what building it found and what it removed -- a past state, quoted
+for audit, instructing nobody (#460). In the pool it was reported beside the
+real survivor, two of four places in one measured pass, and answering it
+meant editing a record; in the range it subtracted what it quoted, the
+exemption file's shape one directory over. That a phase record is corrected
+in place while its work item is live does not keep it in: the exclusion is
+about what the file is, never about when it was last written, and a round
+record's `Deferred` and `Fixes checked by` cells are filled after the fact
+too. What this gives up is the one shape the pool caught only because these
+records were in it -- a correction inside an HTML comment while the false
+claim rendered in bold -- and `seal/follow-up.md` names whose that loss is.
+
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
 inside one is by definition not a standing sentence.
@@ -512,6 +541,36 @@ def records_a_past_round(path):
     return "rounds" in parts and "specs" in parts[: parts.index("rounds")]
 
 
+def records_a_past_state(path):
+    """True for a file under a work item directory that records or judges a
+    past state and instructs nobody -- the class `records_a_past_round` is
+    one member of.
+
+    The members: a round record or reviewer's report (`records_a_past_round`,
+    unchanged); the work item's own `survivors.md`, directly under its
+    `specs/<id>/` directory; and everything under its `phases/`, a record of
+    what a phase was asked, found and removed (#460). One predicate rather than one per member,
+    applied on both sides -- `corpus` and `corrected` -- because the defect
+    this closes was one member excluded on one side (#365) and the next
+    member excluded on neither (#507, #308): the exemption file's rows QUOTE
+    the surviving wording, so in the range it subtracts the survivor it
+    excuses before `--exempt` is read, and in the pool it is one more carrier
+    of exactly the phrases that produced the score.
+
+    Matched on the path's own shape, at either `seal/` root, the way
+    `records_a_past_round` is. `survivors.md` has to sit directly under the
+    work item directory: one level deeper it is somebody's prose until the
+    layout says otherwise, and `OWNER_DIR` is where a deeper file is a
+    question at all."""
+    if records_a_past_round(path):
+        return True
+    parts = path.replace("\\", "/").split("/")
+    if "specs" not in parts:
+        return False
+    inside = parts[parts.index("specs") + 2 :]
+    return inside == ["survivors.md"] or (len(inside) > 1 and inside[0] == "phases")
+
+
 # The fold record's one reader, loaded by path the way `chain_check.py#load`
 # loads it from this same directory. It answers both arms of what a
 # retirement is: the marker (`folded_items`) and the rule (`retired_by_rule`).
@@ -567,7 +626,7 @@ def retired_directories(root, a, b, paths):
 
 def corpus(root, rev):
     """`{path: [Sentence]}` for the tree at `rev`, less what is excluded."""
-    paths = [p for p in tracked(root, rev) if not records_a_past_round(p)]
+    paths = [p for p in tracked(root, rev) if not records_a_past_state(p)]
     return {
         path: sentences(path, text)
         for path, text in read_blobs(root, rev, paths).items()
@@ -599,7 +658,12 @@ def corrected(root, a, b):
     verbatim, so a record left in the range counts as wording the fix wrote
     and `wanted` subtracts the very survivor the quotation is about -- which
     made every branch that went through review report success having measured
-    nothing.
+    nothing. The work item's own `survivors.md` is out for the same reason
+    one step stronger (#507): its rows quote the surviving wording by design,
+    so committed inside the range it subtracted the survivors it was written
+    to excuse, and the `exempt` lines that would have shown the grounds never
+    printed. `records_a_past_state` is the one predicate for the class, and
+    `corpus` applies the same one.
 
     **The filter goes on `paths`, so it holds on both sides of the range.** A
     sentence REMOVED from a record is not corrected wording either, and
@@ -610,7 +674,7 @@ def corrected(root, a, b):
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
     paths = [
-        path for path in names.split("\0") if path and not records_a_past_round(path)
+        path for path in names.split("\0") if path and not records_a_past_state(path)
     ]
     # A retired directory is out of the range on both sides too (#517), for
     # the reason the round records are: its sentences stand in `docs/` by
@@ -814,7 +878,16 @@ RANGE_CELL = re.compile(r"^[^\s|]+\.\.\.?[^\s|]+$")
 # in the tree to every run, and the spelling this module recommends --
 # `origin/<base>...HEAD` -- re-resolves on each checkout, so one merged row
 # matched every later branch cut from the same base and excused its whole run.
-OWNER_DIR = re.compile(r"(?:^|.*/)(seal/specs/[^/]+)/[^/]+$")
+#
+# The owner is the `seal/specs/<id>` prefix wherever the file sits beneath it
+# (#304). The tail used to be `[^/]+$`, one segment, so a `survivors.md` one
+# directory deeper had no owner -- and an ownerless declaration is not asked
+# the ownership question, so it kept the unbounded reach the question exists
+# to refuse, in silence. Not anchored at the start, because `--exempt` paths
+# may be absolute; a file outside any `seal/specs/<id>/` keeps the hand-run
+# reach `whole_range` documents, and the pre-0.4.0 top-level `specs/` root is
+# left out on purpose (`spec.md` §*Out* of work item 1790174139).
+OWNER_DIR = re.compile(r"(?:^|.*/)(seal/specs/[^/]+)/.+$")
 
 
 def read_exemptions(paths):
