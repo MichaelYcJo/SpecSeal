@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 537 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `4f596a7719ae5757880bb9dea06555e55596d701..506b030ad911eee0bcb5fe533c3b0d4176247ecd`, 3 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1, the F4 note in `seal/ledger.md` that still names the removed F8 and turns the hygiene workflow's survivor-check step red at the pull request |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,7 +31,7 @@ The hand-back labelled the broad gate unverified; the sealer answers that after 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `seal/ledger.md`'s F4 note says F8 carries its claim forward; this branch removed F8 from that file, so the note is false and the hygiene workflow's `survivor_check.py --range origin/<base>...HEAD` exits 1 on it at the pull request | `seal/ledger.md:777`, `seal/ledger.md:785` | open | executed: CI form exit 1 at `7604e522` on `seal/ledger.md:784`; exit 0 with the paste-ready correction committed in the clone; the smith's range `659b4229..HEAD` does not surface it |
+| 🟡 1 | `seal/ledger.md`'s F4 note says F8 carries its claim forward; this branch removed F8 from that file, so the note is false and the hygiene workflow's `survivor_check.py --range origin/<base>...HEAD` exits 1 on it at the pull request | `seal/ledger.md:777`, `seal/ledger.md:785` | **fixed** `9493d34c` | fixed at 9493d34c — the two paste-ready edits applied as given: `seal/ledger.md` line 777 lists F8 as *until #138 removed it*, and the F4 note carries `**Corrected 2026-09-24 by work item 1790173106 (#138)**` pointing at the fragment's B2. Verified on the committed tree with the CI form (`survivor_check.py --range origin/release/v0.15.0...HEAD` with every `survivors.md`): exit 0, re-run by the orchestrator at `506b030a`. The three ⬜ paperwork rows went in `b871c3c7` and `506b030a`: the memo counts thirteen mutations; `terminal_value`'s refusal names each row's own reason; and the six `survivors.md` rows stay, because the round's *one place* reading was the check silencing itself — a row's quote is an added sentence whose n-grams `removed_sentences` subtracts, which is #507/#308, work item B of this release; executed: CI form exit 1 at `7604e522` on `seal/ledger.md:784`; exit 0 with the paste-ready correction committed in the clone; the smith's range `659b4229..HEAD` does not surface it |
 | ⬜ | `overview.md` says ten mutations; the phase files table thirteen (M1–M13) | `seal/specs/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row/overview.md:12` | not a defect | read; paperwork correction under `seal/specs/`, kept out of `Needs a fix` |
 | ⬜ | `survivors.md` excuses six reports; at the target SHA the same range produces one (`chain_check.py:2960`), so five rows anchor nothing | `seal/specs/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row/survivors.md:3` | not a defect | executed: `survivor-check --range 659b4229..HEAD` reports one place |
 | ⬜ | `terminal_value`'s refusal for the floor line explains `Needs a fix`'s count, one row off | `skills/code-review/scripts/round_record.py:1365` | not a defect | read; the behaviour and the fact are right, the sentence is one row off |
