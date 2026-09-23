@@ -3,7 +3,7 @@
 <!-- seal/specs/1790138190-settle-leaves-twelve-directories-with-no-way-out/plan.md
 — HOW, in phases. This is the Design Gate's artifact. -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-09-23 by the orchestrating session, under the owner's `automation` preset, when `smith` was spawned.
 
 ## Summary
 
