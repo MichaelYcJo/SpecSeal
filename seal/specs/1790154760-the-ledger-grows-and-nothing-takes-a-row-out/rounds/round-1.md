@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 531 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `e554d21cd3253e601e7fb41d6e52ff1f0e2bb36a..7b0e9b75d60b4530c75084ff5bf5b105435eeb07`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — finding 1, `hooks/ledger-migrate.py` still states the checker's full run as ~130 ms, the stale-cost class this work item exists to correct |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,8 +31,8 @@ It also asked whether every place stating the old cost was corrected, and whethe
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 1 | 🟡 `hooks/ledger-migrate.py` still states the checker's full run as "~130 ms", undated and with no instrument, now wrong by 14x. It is a fourth instance of the stale-cost class that the branch enumerated by the literal "114 ms" | `hooks/ledger-migrate.py:32-35` | open | Read and `git log -S` (`117d37fe`, 2026-09-01). The full check measured 1.90 s at the target (executed) |
-| 2 | ⬜ `py_spans`'s docstring and the parse-count case's docstring state "1,328 parses of 126 files, about 94 % of a 15.8 s run" with no instrument | `skills/evidence-check/scripts/evidence_check.py:169-172`, `tests/test_a_row_points_by_content.py:126-128` | open | Read. The sentences are past-tense motivation, so no behaviour or current fact is wrong |
+| 1 | 🟡 `hooks/ledger-migrate.py` still states the checker's full run as "~130 ms", undated and with no instrument, now wrong by 14x. It is a fourth instance of the stale-cost class that the branch enumerated by the literal "114 ms" | `hooks/ledger-migrate.py:32-35` | **fixed** `7b0e9b75` | fixed at 7b0e9b75 — the class enumerated by what a sentence claims; `hooks/ledger-migrate.py` and `skills/evidence-check/SKILL.md` re-measured and dated; three sentences left with grounds in ledger row C3; Read and `git log -S` (`117d37fe`, 2026-09-01). The full check measured 1.90 s at the target (executed) |
+| 2 | ⬜ `py_spans`'s docstring and the parse-count case's docstring state "1,328 parses of 126 files, about 94 % of a 15.8 s run" with no instrument | `skills/evidence-check/scripts/evidence_check.py:169-172`, `tests/test_a_row_points_by_content.py:126-128` | **fixed** `7b0e9b75` | fixed at 7b0e9b75 — the `py_spans` docstring and the parse-count case's docstring carry the instrument and the date; Read. The sentences are past-tense motivation, so no behaviour or current fact is wrong |
 | 🟢 | The decision (memoise the parse, remove no row) follows from `spec.md`'s three measurements | `seal/specs/1790154760-the-ledger-grows-and-nothing-takes-a-row-out/spec.md` §1–§3, Scope | not a defect | Read |
 | 🟢 | Output unchanged: `--strict`, plain, `--reverify` and the advisor are identical old vs new on one tree, clean and perturbed. The only difference is the `SyntaxWarning` collapsing on stderr, which is disclosed | `skills/evidence-check/scripts/evidence_check.py:152-222` | not a defect | Executed. `diff -r` after `--reverify` is empty |
 | 🟢 | No staleness within one process: the key is the text, and the path's influence stays outside the memo | `skills/evidence-check/scripts/evidence_check.py:186-222`, `:363-371`, `:638-641` | not a defect | Read, and the `--reverify` comparison was executed |
