@@ -566,6 +566,29 @@ def test_the_report_lists_what_a_retirement_would_take(tree):
     assert "tests/test_reads.py" in text.split("checks that read")[1], text
 
 
+@pytest.mark.parametrize("ref", [None, "HEAD"])
+def test_the_predicate_asks_every_condition_itself(tree, ref):
+    """`settle` checks `spec.md` and the evidence-todo guard before the
+    predicate can decide, so through `settle` alone the predicate's own
+    conditions are never seen. The CI readers ask it of a merge-base where
+    neither check has run, so each condition is asked here directly, of the
+    working tree and of a ref."""
+    reader = settle.load(settle.READER, "specseal_unverified_reader_rule")
+    moment(tree, overview=OVERVIEW_CLOSED)
+    moment(tree, name="1700000007-with-todo", todo=OPEN_TODO)
+    moment(tree, name="1700000008-with-memo", overview=OVERVIEW_OPEN)
+    root = str(tree)
+    assert reader.retired_by_rule(root, ref, f"seal/specs/{MOMENT}")
+    assert not reader.retired_by_rule(root, ref, "seal/specs/1700000001-alpha"), (
+        "a directory holding a spec.md read as a rule retirement"
+    )
+    assert not reader.retired_by_rule(root, ref, "seal/specs/1700000007-with-todo")
+    assert not reader.retired_by_rule(root, ref, "seal/specs/1700000008-with-memo")
+    assert not reader.retired_by_rule(root, ref, "seal/specs/1700009999-nowhere"), (
+        "a directory that never existed read as retired by the rule"
+    )
+
+
 def test_the_predicate_is_what_settle_asks(tree, monkeypatch):
     """`plan.md` §*What breaks in six months*: one predicate, asked by every
     reader. With it answering False, the rule arm lists nothing."""
