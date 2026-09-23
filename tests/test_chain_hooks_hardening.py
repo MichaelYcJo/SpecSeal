@@ -1435,9 +1435,11 @@ def test_spec_directories_carry_the_timestamp_prefix():
     import re
 
     specs = os.path.join(ROOT, "seal", "specs")
+    # Absent after a complete fold (#517); an absent directory holds no
+    # offender, and the rule is the same at any size.
     offenders = [
         name
-        for name in sorted(os.listdir(specs))
+        for name in sorted(os.listdir(specs) if os.path.isdir(specs) else [])
         if os.path.isdir(os.path.join(specs, name))
         and not re.match(r"^\d{10}-[a-z0-9][a-z0-9-]*$", name)
     ]
@@ -1462,7 +1464,8 @@ def test_every_spec_directory_that_reached_the_ladder_has_an_overview():
     """
     specs = os.path.join(ROOT, "seal", "specs")
     missing = []
-    for n in sorted(os.listdir(specs)):
+    # Absent after a complete fold (#517), which is no directory missing a memo.
+    for n in sorted(os.listdir(specs) if os.path.isdir(specs) else []):
         d = os.path.join(specs, n)
         if not os.path.isdir(d):
             continue

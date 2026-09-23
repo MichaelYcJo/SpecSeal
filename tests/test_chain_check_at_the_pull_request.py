@@ -20,7 +20,12 @@ import subprocess
 import sys
 
 import pytest
-from conftest import load_hook_module, on_disk, symlink_or_skip
+from conftest import (
+    committed_round_records_on_disk,
+    load_hook_module,
+    on_disk,
+    symlink_or_skip,
+)
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -2181,7 +2186,7 @@ def _real_records(root=ROOT):
     return sorted(p for p in out.split("\0") if RECORD_PATH_RE.fullmatch(p))
 
 
-def _the_walk_found_every_committed_record(records, what):
+def _the_walk_found_every_committed_record(records, what, root=ROOT):
     """The population guard for a sweep of this repository's own records.
 
     It replaces `assert len(records) > 200` at the two sweeps below. The
@@ -2208,18 +2213,30 @@ def _the_walk_found_every_committed_record(records, what):
     committed is on disk and not at HEAD, which is the ordinary state of a
     review round mid-flight. So the assertion is that the walk covers the
     committed corpus, not that the two sets are equal.
+
+    **`assert listed` stood here, and it was a floor of one.** It asked
+    whether the listing found anything, which is the right question with an
+    answer the fold turns false: after a complete fold nothing is committed
+    under `seal/specs/` and the listing is empty because the corpus is. The
+    question is asked of the tree instead —
+    `conftest.committed_round_records_on_disk`, a walk of the disk and a
+    `git cat-file` per file, has to find nothing the listing lacks — so a
+    listing that goes quiet over records that exist is named, and one that is
+    empty over an empty corpus is correct (#517, `skills/settle/SKILL.md` §3).
     """
     listed, _missing = on_disk(
-        ROOT,
+        root,
         [
             p
-            for p in _real_records()
+            for p in _real_records(root)
             if re.fullmatch(r"round-\d+\.md", os.path.basename(p))
         ],
     )
-    assert listed, (
-        f"no round record is committed under seal/specs/, so {what} reads "
-        "nothing and is green over an empty corpus"
+    unlisted = sorted(set(committed_round_records_on_disk(root)) - set(listed))
+    assert not unlisted, (
+        f"{len(unlisted)} record(s) git carries at HEAD are not in the listing "
+        f"{what} is checked against, so it reads less than is there: "
+        f"{unlisted[:3]}"
     )
     # git names a path with `/` on every platform and a walk joins with
     # `os.sep`, so the comparison is made on one spelling. The doubled-grounds
@@ -2231,6 +2248,25 @@ def _the_walk_found_every_committed_record(records, what):
         f"{len(unwalked)} committed record(s) the tree still has did not "
         f"reach {what}: {unwalked[:3]}"
     )
+
+
+def test_the_walk_guard_names_what_either_route_missed(repo, monkeypatch):
+    """The guard the two sweeps and the per-record walk share, over a corpus
+    this case builds — the property the real tree can no longer be relied on
+    to exercise once a fold empties it (#517, `skills/settle/SKILL.md` §3).
+
+    Both directions: a walk that missed a committed record, and a listing
+    that went quiet over a record git carries. An empty corpus is neither."""
+    rel = f"{ROUNDS}/round-1.md"
+    write(repo, rel, "# round 1\n")
+    commit(repo, "a committed record")
+    _the_walk_found_every_committed_record([rel], "the case", root=str(repo))
+    with pytest.raises(AssertionError, match="did not reach"):
+        _the_walk_found_every_committed_record([], "the case", root=str(repo))
+    module = sys.modules[__name__]
+    monkeypatch.setattr(module, "_real_records", lambda root=ROOT: [])
+    with pytest.raises(AssertionError, match="not in the listing"):
+        _the_walk_found_every_committed_record([rel], "the case", root=str(repo))
 
 
 def _numbered(routing, records):
@@ -2365,7 +2401,14 @@ def test_this_repositorys_own_round_records_pass_the_per_record_checks():
     routing = _module("routing_for_real_records", chain.ROUTING)
 
     records = _numbered(routing, _real_records())
-    assert records, "no round records found — the glob or the layout moved"
+    # `assert records` stood here: a floor of one, red once a fold empties the
+    # corpus. The question it asked — did the glob or the layout move — is
+    # asked of the tree instead, at any size (#517).
+    unlisted = sorted(set(committed_round_records_on_disk(ROOT)) - set(records))
+    assert not unlisted, (
+        f"records git carries at HEAD are not in the walk — the glob or the "
+        f"layout moved: {unlisted[:3]}"
+    )
 
     failures = _record_walk(chain, reader, routing, ROOT, records)
 
@@ -2926,9 +2969,15 @@ def retired_item(repo, item, marker=True):
     The shape `settle --retire` leaves: the declaration is on the base branch,
     the branch removes the whole directory, and `docs/` carries the marker
     saying a policy document absorbed the spec first.
+
+    **It writes a `spec.md`**, because the marker arm is about a work item
+    that stated a rule. Without one, the directory is the rule arm's (#517
+    D3) — no `spec.md` and nothing open at the merge base is retired with no
+    marker — and `marker=False` would stop being a deletion at all.
     """
     git(repo, "switch", "-q", "base")
     write(repo, f"{item}/routing.md", declaration())
+    write(repo, f"{item}/spec.md", "# a spec\n\nA rule that still governs.\n")
     write(repo, f"{item}/rounds/round-1.md", "# round 1\n")
     commit(repo, "a work item, declared and reviewed")
     git(repo, "switch", "-q", "feature")
@@ -2981,6 +3030,101 @@ def test_a_deleted_declaration_with_no_marker_is_still_refused(repo):
     assert code == 1, out
     assert "does not carry this file at HEAD" in out, out
     assert "retired:" not in out, out
+
+
+CLOSED_MEMO = (
+    "# a moment — overview\n\n## Not verified\n\n"
+    "| Item | Who must answer |\n|---|---|\n"
+    "| ✅ a claim | run on 2026-01-01 |\n"
+)
+OPEN_MEMO = (
+    "# a moment — overview\n\n## Not verified\n\n"
+    "| Item | Who must answer |\n|---|---|\n"
+    "| a claim nobody ran | the repository owner |\n"
+)
+
+
+def moment_item(repo, item, memo=CLOSED_MEMO, spec=False):
+    """A declared work item below the SDD ladder that this branch removes
+    with no marker — the rule arm's shape (#517 D3)."""
+    git(repo, "switch", "-q", "base")
+    write(repo, f"{item}/routing.md", declaration())
+    write(repo, f"{item}/overview.md", memo)
+    if spec:
+        write(repo, f"{item}/spec.md", "# a spec\n\nA rule.\n")
+    commit(repo, "a moment, declared")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "merge", "-q", "base")
+    shutil.rmtree(repo / item)
+    commit(repo, "retire by the rule")
+
+
+def test_a_declaration_the_rule_arm_retired_is_not_one_it_made(repo):
+    """A7. `settle --retire` removes a released directory that held no
+    `spec.md` and nothing open, and writes no marker — so the marker arm above
+    refused it as a missing declaration. Asked of the merge base, through the
+    one predicate the other readers ask."""
+    moment_item(repo, "seal/specs/1788000000-a-release-entry")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "retired:" in out and "by the rule" in out, out
+    assert "1788000000-a-release-entry" in out, out
+    assert "does not carry this file at HEAD" not in out, out
+
+
+def test_a_spec_at_the_merge_base_is_still_a_missing_declaration(repo):
+    moment_item(repo, "seal/specs/1788000000-a-deleted-spec", spec=True)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "does not carry this file at HEAD" in out, out
+
+
+def test_a_spec_deleted_by_an_earlier_merge_is_not_a_rule_retirement(repo):
+    """Round 1's finding 3. The merge base held no `spec.md` because an
+    earlier pull request had deleted it, and that one passed every reader
+    too. D3 is about a work item that WROTE no spec, which history answers
+    and one tree does not."""
+    item = "seal/specs/1788000000-a-spec-dropped-earlier"
+    git(repo, "switch", "-q", "base")
+    write(repo, f"{item}/routing.md", declaration())
+    write(repo, f"{item}/overview.md", CLOSED_MEMO)
+    write(repo, f"{item}/spec.md", "# a spec\n\nA rule nobody folded.\n")
+    commit(repo, "a work item that stated a rule")
+    (repo / item / "spec.md").unlink()
+    commit(repo, "an earlier pull request drops the spec")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "merge", "-q", "base")
+    shutil.rmtree(repo / item)
+    commit(repo, "the directory, removed with no marker")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "does not carry this file at HEAD" in out, out
+    assert "by the rule" not in out, out
+
+
+def test_an_open_row_at_the_merge_base_is_still_a_missing_declaration(repo):
+    moment_item(repo, "seal/specs/1788000000-an-open-moment", memo=OPEN_MEMO)
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "does not carry this file at HEAD" in out, out
+
+
+def test_a_declaration_removed_from_a_directory_that_stays_is_refused(repo):
+    """A retirement removes the directory. A spec-less directory that stays
+    with only its `routing.md` gone is a declaration deleted, whatever the
+    merge base held."""
+    item = "seal/specs/1788000000-a-kept-moment"
+    git(repo, "switch", "-q", "base")
+    write(repo, f"{item}/routing.md", declaration())
+    write(repo, f"{item}/overview.md", CLOSED_MEMO)
+    commit(repo, "a moment, declared")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "merge", "-q", "base")
+    (repo / item / "routing.md").unlink()
+    commit(repo, "remove the declaration only")
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "does not carry this file at HEAD" in out, out
 
 
 def test_a_record_carrying_the_row_is_read_and_one_without_it_prints(repo):
