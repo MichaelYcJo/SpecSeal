@@ -2630,6 +2630,49 @@ def test_a_bare_yes_on_a_later_record_is_no_reopening_here_either(repo):
     assert "reaches 2" in line, line
 
 
+def test_a_stopped_count_walk_that_reached_two_is_not_a_reopening_left(repo):
+    """A9 of #218. Round 1 met the floor, round 2 was quiet, round 3 reopened
+    the run — written anyway, over the `ends the run` printed at round 3.
+    Round 1's count walk counted round 2 and round 3 and stopped at the
+    reopening, so the gate refuses at `round-1.md` right now, before round 4
+    exists. This line read only walks still RUNNING, found none, fell through
+    to the reopening walk and printed `one reopening remains` — the most
+    permissive of its three sentences, one round after the strictest, while
+    the branch could not pass its own gate. Now a stopped walk that reached
+    two is the bound, and the line says the gate is already refusing.
+
+    The second half is the gate itself, read over the same files, so the
+    case is the differential #218 ran in miniature: what the line says and
+    what `stopping_floor` returns may not disagree about one sequence.
+    """
+    generator, reader, check = generator_module(), reader_module(), check_module()
+    routing = generator.load(check.ROUTING, "specseal_routing_stopped_walk")
+    rounds = chain_of(
+        repo,
+        LATE,
+        (1, "no", "no", CLOSED_ROW),
+        (2, "no", "no", CLOSED_ROW),
+        (3, "no", "yes — 🔴 1", CLOSED_ROW),
+    )
+    line = generator.bound_line(reader, routing, str(rounds), 4)
+    assert line is not None, "a stopped walk that reached two bounds the run"
+    assert "this record ends the run" in line, line
+    assert "one reopening remains" not in line, line
+    assert "round-1.md" in line and "reached 2" in line, line
+    assert check.CAPPED_EXIT in line, line
+    # The gate, over the records on disk: an error at round-1.md, whose walk
+    # counted two. `WORKTREE` because these records are not committed.
+    check.WORKTREE = True
+    rel = f"seal/specs/{LATE}/rounds"
+    errors, _notices = check.stopping_floor(
+        reader,
+        str(repo),
+        f"{rel}/round-1.md",
+        [f"{rel}/round-2.md", f"{rel}/round-3.md"],
+    )
+    assert errors and "reaches 2" in errors[0][2], errors
+
+
 def test_the_reopening_named_is_the_first_record_that_closed_on_a_fix(repo):
     """The reopening walk never stops, so a run that closed on a fix twice
     has two paths in `fixes` — and the one the line names is the reopening

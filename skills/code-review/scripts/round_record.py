@@ -1836,13 +1836,16 @@ ONE_REOPENING = "one reopening remains"
 
 def floor_and_fixes(reader, earlier):
     """(the floor record, the later ones that closed on a fix, how many
-    records the FIRING count walk has spent, whether a count walk is still
-    running, the record that walk started from).
+    records the FIRING count walk has spent, whether that walk is still
+    running, the record it started from).
 
     The last three are one answer in three cells and never disagree: with no
-    walk running the count is 0 and the record is None, because a walk that
-    has stopped bounds nothing and a count reported from one would be a
-    number about a record the caller is not told.
+    walk firing the count is 0 and the record is None, because a count
+    reported from a walk would be a number about a record the caller is not
+    told. A walk FIRES two ways. Still running with one record spent, it
+    counts the record being written as the gate's second; stopped with two
+    or more spent, it is an error the gate already returns at the record it
+    started from (#218) — and a walk that stopped at one bounds nothing.
 
     **`chain_check.stopping_floor` runs TWO walks over the records after the
     floor, and this used to carry one of them.** The reopening walk counts
@@ -1946,7 +1949,20 @@ def floor_and_fixes(reader, earlier):
     # the earlier one, which would have to have stopped for the later one to
     # start fresh — so the maximum is the walk the gate refuses first, and
     # `counted_at` is the record it started from.
-    counted, counted_at = 0, None
+    #
+    # A RUNNING walk counts this record next, so one record already reaches
+    # the gate's two. A STOPPED walk bounds nothing further — unless it
+    # already reached two, which is an error `stopping_floor` returns at
+    # `path` right now, before this record exists (#218). Reading only the
+    # running walks printed `one reopening remains` at round 4 over a floor
+    # record the gate was refusing, one round after it had printed `ends the
+    # run` at round 3: the most permissive of the three sentences, after the
+    # strictest, on a branch that could not pass its own gate. `running` is
+    # what tells the two apart for `bound_line`, and the inner `break` is
+    # what makes a stopped walk's count the gate's — without it every record
+    # after the stop would be counted too (the ticket's ninth mutation
+    # survivor, which this reading closes).
+    counted, counted_at, running = 0, None, False
     for i, (path, met, _r, _w) in enumerate(seen):
         if not met:
             continue
@@ -1956,9 +1972,10 @@ def floor_and_fixes(reader, earlier):
             if reopened or wrote:
                 stopped = True
                 break
-        if not stopped and spent > counted:
-            counted, counted_at = spent, path
-    return seen[floor_i][0], fixes, counted, counted_at is not None, counted_at
+        fires = spent > 1 if stopped else spent >= 1
+        if fires and spent > counted:
+            counted, counted_at, running = spent, path, not stopped
+    return seen[floor_i][0], fixes, counted, running, counted_at
 
 
 def bound_line(reader, routing, rounds, n):
@@ -2014,19 +2031,31 @@ def bound_line(reader, routing, rounds, n):
             "on a fix, and the record that reads its fixes ends the run "
             f"whatever it finds. {chain.CAPPED_EXIT}"
         )
-    if counted and running:
-        # Every record after some floor record was quiet, so that walk is
-        # still running and this record is the one it counts next — the
-        # gate's SECOND counted record, which it refuses.
+    if counted_at is not None:
         if count_excused:
             return None
-        quiet = "record" if counted == 1 else "records"
         # The record the FIRING walk started from, which is not always the
         # earliest floor record `met` names (round 2, 🟡 1). Naming `met`
         # here sent the reader to a walk that had already stopped, and the
         # count beside it then belonged to a record the sentence did not
         # mention — the one thing in this line a reader can check.
         started = os.path.basename(counted_at)
+        if not running:
+            # A walk that STOPPED after reaching two: the gate returns an
+            # error at `started` right now, whatever this record says, and
+            # the line reports the gate's own refusal rather than the most
+            # permissive sentence it has (#218). Falling through to the
+            # reopening walk printed `one reopening remains` here.
+            return (
+                f"round-record: {ENDS_THE_RUN} — the gate already returns an "
+                f"error at {started}, whose count of round records after the "
+                f"floor reached {counted} before this record exists. "
+                f"{chain.CAPPED_EXIT}"
+            )
+        # Every record after some floor record was quiet, so that walk is
+        # still running and this record is the one it counts next — the
+        # gate's SECOND counted record, which it refuses.
+        quiet = "record" if counted == 1 else "records"
         return (
             f"round-record: {ENDS_THE_RUN} — {started} met the floor and the "
             f"{counted} {quiet} after it neither reopened the run nor closed "
