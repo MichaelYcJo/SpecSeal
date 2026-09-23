@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #524 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `24f8a928dbccd0e582bedfacf77bc6429483aec5..a6bdf34d6cc051447ccdcd37b02fe1e1d0fdeb90`, 2 commits |
 | Contract changes | none |
 | New units | test_a_failed_step_cannot_skip_the_independent_steps_after_it (depth 1) |
