@@ -153,7 +153,7 @@ def test_a_missing_label_is_created_with_the_documents_own_sentence(
     assert "before the next work item starts" in description, (
         "the description is not the document's own sentence about what the label means"
     )
-    assert "removed when the release carrying it closes the issue" in description, (
+    assert "removed when its release closes the issue" in description, (
         "the description does not say when the label stops being the current "
         "answer, which is the one thing a reader cannot get from the name"
     )
@@ -189,6 +189,27 @@ def test_check_reports_and_writes_nothing(monkeypatch, capsys):
     out = capsys.readouterr().out
     assert LABEL in out and "is missing" in out
     assert "--apply" in out, "the report does not name the arm that fixes it"
+
+
+def test_every_declared_description_fits_the_trackers_cap():
+    """#515. GitHub refuses a label description past its cap with a 422, and
+    the refusal arrives in the workflow that runs after a release reaches
+    `main` — where it skips the step behind it and nobody is looking. Held
+    here, an over-long description is refused before the merge instead.
+
+    The cap is read from the module that names it rather than written here,
+    so the number has one source and a pointer to where it comes from."""
+    mod = labels_module()
+    limit = mod.signal.LABEL_DESCRIPTION_LIMIT
+    too_long = [
+        (label["name"], len(label["description"]))
+        for label in mod.declared()
+        if len(label["description"]) > limit
+    ]
+    assert not too_long, (
+        f"the tracker refuses a label description past {limit} characters, "
+        f"and these are longer: {too_long}"
+    )
 
 
 def test_every_declared_label_says_which_document_specifies_it():

@@ -149,6 +149,21 @@ def test_the_branch_name_decides_the_version_the_milestone_and_the_label():
     )
 
 
+def test_the_label_description_fits_the_trackers_cap_for_a_long_version():
+    """#515's class. This description goes to `gh label create` too, and the
+    tracker refuses one past its cap with a 422 — in the workflow that runs
+    when a release branch moves, after the merge. The version is the only part
+    that grows, so the case takes one far longer than any this repository will
+    cut: fitting at that length is fitting at every realistic one."""
+    m = signal()
+    description = m.label_description("9999.9999.9999")
+    assert len(description) <= m.LABEL_DESCRIPTION_LIMIT, (
+        f"the tracker refuses a label description past "
+        f"{m.LABEL_DESCRIPTION_LIMIT} characters, and this one is "
+        f"{len(description)}: {description!r}"
+    )
+
+
 @pytest.mark.parametrize(
     "branch",
     ["main", "feat/a-thing", "release/next", "release/v1.2", "", "release/v1.2.3.4"],
