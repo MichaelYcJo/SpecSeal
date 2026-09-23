@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 527 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `8549aa3aa83824844ed4a79d4b213ab109e164ff..bbd984667adeef2854650e530cc63ce4a42fbb18`, 2 commits |
+| Contract changes | none |
+| New units | test_a_marker_removed_on_purpose_is_told_to_recompute_the_digest (depth 1); test_a_count_that_moved_is_told_to_recompute_the_digest_too (depth 1); test_a_rule_sentence_in_bold_italics_opens_bold (depth 1); test_a_heading_with_a_tab_or_no_text_ends_a_statement (depth 1); test_a_symlink_inside_the_root_that_leaves_it_is_named (depth 1); test_a_heading_with_a_tab_or_no_text_is_read (depth 1) |
 | Needs a fix | yes — finding 3: after a marker is removed on purpose, the digest branch reports a swap that did not happen and neither message says to recompute `FROZEN_IDS_DIGEST` |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -27,7 +27,7 @@ A verifying round over round 1's fixes (`edcd2e33..ca380837`, one commit, plus t
 | 🟢 | Round 1 finding 1: a marker swap at equal count into the listed document is now refused | `tests/test_a_document_has_room_for_the_next_fold.py#ceiling_problems` | verified | Executed: round 1's probe (old id plus a bound id, frozen at 2) is named "but not the ones frozen"; a duplicate-id swap is named too; the real-tree digest is `8f8c4d85f213` over 29, matching the constant |
 | 🟢 | Round 1 finding 2: `.`, a directory, `../outside.txt` and `tests/../..` are now refused as targets | `tests/test_a_folded_statement_names_what_enforces_it.py#target_problem` | verified | Executed: all four are named; the pre-fix unit passed all four; with containment removed, `../outside.txt` passes again |
 | 🟢 | The smith dropped round 1's `full == base` clause | `tests/test_a_folded_statement_names_what_enforces_it.py#target_problem` | verified | Executed: `.` normalises to the base, which is a directory, so `isfile` refuses it; no input reaches that clause and passes. The added `abspath` fixes a relative-root `commonpath` error round 1's fix had |
-| 3 | 🟡 After a marker is removed on purpose and the count is lowered, the digest branch says a fold "adds a statement here and removes another" and "keeps the count", both false, and neither message says to recompute `FROZEN_IDS_DIGEST` | `tests/test_a_document_has_room_for_the_next_fold.py#ceiling_problems` | open | Executed: frozen at 1 with the old two-id digest returned the swap message. The recompute instruction is only in a code comment. The text came from round 1's paste-ready fix |
+| 3 | 🟡 After a marker is removed on purpose and the count is lowered, the digest branch says a fold "adds a statement here and removes another" and "keeps the count", both false, and neither message says to recompute `FROZEN_IDS_DIGEST` | `tests/test_a_document_has_room_for_the_next_fold.py#ceiling_problems` | **fixed** `d8aa3054` | fixed at d8aa3054 — the count message names the recompute, and the digest message states the swap and the deliberate removal as conditions, each with its repair; Executed: frozen at 1 with the old two-id digest returned the swap message. The recompute instruction is only in a code comment. The text came from round 1's paste-ready fix |
 | ⬜ | `BOLD_OPENING` refuses `***Rule.***`, which CommonMark renders bold, and says it is not bold | `tests/test_a_folded_statement_names_what_enforces_it.py#BOLD_OPENING` | correction | Executed. No instance in the tree; a writer can drop the italic |
 | ⬜ | Both `HEADING` patterns skip `##` followed by a tab and a bare `##`, the rest of round 1's correction-5 class | `tests/test_both_editions_carry_the_same_folds.py#HEADING`; `tests/test_a_folded_statement_names_what_enforces_it.py#HEADING` | correction | Executed: one edition carrying either passes. No line of either shape under `docs/` |
 | ⬜ | `target_problem` resolves a symlink inside the root that points at a file outside it | `tests/test_a_folded_statement_names_what_enforces_it.py#target_problem` | correction | Executed. `normpath` does not resolve links; `realpath` on both sides closes it. No such target is written anywhere |
