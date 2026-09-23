@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-fable-5-1 |
 | PR | 541 |
-| Broad gate | not yet |
+| Broad gate | 7beed36c against 0b8dc4b2 |
 | Fixes checked by | no fixes to check |
 | Fix range | none |
 | Contract changes | none |
