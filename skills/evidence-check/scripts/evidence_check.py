@@ -165,6 +165,33 @@ def py_spans(text):
     text rule, while a file that parses and simply lacks the symbol is
     BROKEN. Conflating the two anchored rows to leftover call sites, and
     `--reverify` then made the wrong anchor permanent (round 4, 🔴 2).
+
+    **One parse per distinct text, for the life of the process** (#519). The
+    ledger cites one file from many rows, and parsing it once per row was
+    1,328 parses of 126 files, about 94 % of a 15.8 s `--strict` run that
+    every `git commit` paid through `hooks/evidence-advisor.py` (`cProfile`
+    and `/usr/bin/time -p` over `--strict .` on this repository, 2026-09-23,
+    Python 3.12 on macOS, while #519 was framed). The memo is
+    keyed on the TEXT and never on the path: `--reverify` and the suite read
+    one path twice with different content in one process, and a path key
+    would hand the second read the first read's spans, a silent wrong answer
+    of exactly the kind this checker exists to refuse. Each caller gets a
+    fresh dict of fresh lists, so none can change the stored answer for the
+    next one.
+    """
+    spans = parsed_spans(text)
+    if spans is None:
+        return None
+    return {name: list(places) for name, places in spans.items()}
+
+
+@functools.cache
+def parsed_spans(text):
+    """`py_spans`'s answer, stored once per distinct text, or None.
+
+    Call `py_spans`, which hands each caller a copy; this is its memo and
+    nothing else's, and a caller holding this dict could change the answer
+    every later call gets.
     """
     out = {}
     try:
@@ -647,7 +674,7 @@ def scan_candidates(repo, rel, cache):
     """(other files worth scanning, capped?) for a broken row in `rel`.
 
     Built lazily — only a BROKEN row pays for this — and bounded twice, so the
-    clean path stays the ~114 ms tool it just became: files over
+    clean path pays nothing for it and the broken path stays bounded: files over
     SCAN_SIZE_CAP are skipped, and past SCAN_FILE_CAP the scan degrades to
     the row's own file and the caller says so out loud. A silently narrowed
     search reads as a search that found nothing.

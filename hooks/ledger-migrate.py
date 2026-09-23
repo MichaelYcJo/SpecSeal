@@ -29,10 +29,15 @@ Boundaries, each pinned in `tests/test_the_ledger_migrates_itself.py`:
     morning; those rows keep failing the check, which is the backstop
   - **never at check time** — reading never rewrites; the plain checker stays
     pure and this hook is the one write moment
-  - **silent when there is nothing to migrate** — the every-session scan
-    measured at ~24 ms in-process on this repository's own ledgers, ~60 ms
-    wall for the whole session-start group, against the checker's ~130 ms
-    full run
+  - **silent when there is nothing to migrate** — measured 2026-09-23 on
+    this repository's own ledgers (three files, 1.2 MB), Python 3.12.11 on
+    macOS, median of five: the every-session scan, loading the checker and
+    reading every ledger for old-format rows in process, ~160 ms; this hook
+    ~200 ms wall and the whole session-start group ~300 ms wall
+    (`time.perf_counter` around `subprocess.run` with a SessionStart
+    payload); the checker's full `--strict .` run ~2.0 s
+    (`/usr/bin/time -p`). The scan grows with the ledger's bytes, which is
+    why it no longer reads ~24 ms
 
 Rows it cannot prove are left and named in the count, never guessed —
 unchanged from `--migrate`, whose engine this calls.
