@@ -171,12 +171,19 @@ for an area with none — so a marker below the top level is somebody's notes,
 and a scratch file quoting one excused a removal nothing had absorbed.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
-**A released work item that wrote no `spec.md` states no rule, and it is kept
-by name.** `settle` names what it cannot group rather than guessing, and such
-an item was below the SDD ladder: a release entry, a renumbering, a CI repair,
-a pull request's record. Those are records of a moment, and a moment states
-nothing to fold. An ungrouped item that did write a `spec.md` is folded where
-that spec's rule belongs. One more reason keeps a directory: **a permanent
+**A released work item that wrote no `spec.md` states no rule, and it is
+retired by that rule, with no marker.** Such an item was below the SDD
+ladder: a release entry, a renumbering, a CI repair, a pull request's record.
+Those are records of a moment, and a moment states nothing to fold — which is
+also why nothing has to be carried out of one, so `settle` prints these under
+their own heading and `settle --retire` removes them without writing a marker
+into `docs/` (#517). **One condition narrows it: nothing in the record may
+still be open.** An open `## Not verified` row or an open `evidence-todo.md`
+row is a claim with an answerer rather than a rule, so a directory holding one
+is kept and named with its rows, and closing each row or re-homing it is what
+lets the next retirement take the directory. That condition is a judgment the
+repository owner may overturn. An ungrouped item that did write a `spec.md` is
+folded where that spec's rule belongs. One more reason keeps a directory: **a permanent
 ledger row anchored inside it**, which holds the directory until the row is
 answered — so a work item with a row anchored in its `rounds/` stays on disk,
 and the fold does not remove it to tidy the list. Keeping the directory rather

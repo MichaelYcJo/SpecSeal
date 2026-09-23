@@ -411,6 +411,198 @@ def test_the_policy_says_the_held_row_was_answered():
     assert "that trade was taken" in policy
 
 
+# --- D3: a released work item with no spec.md is retired by a rule ---------
+
+OVERVIEW_OPEN = """# x — overview
+
+## Not verified
+
+| Item | Who must answer |
+|---|---|
+| a claim nobody ran | the repository owner |
+"""
+
+OVERVIEW_CLOSED = """# x — overview
+
+## Not verified
+
+| Item | Who must answer |
+|---|---|
+| ✅ a claim | run on 2026-01-01 |
+"""
+
+MOMENT = "1700000006-release-0-1-0"
+
+
+def moment(repo, name=MOMENT, overview=None, todo=None):
+    """A released work item below the SDD ladder: a routing declaration and
+    perhaps a memo, and no `spec.md`. Committed on its own path, so the
+    unreleased `delta` the fixture leaves on disk stays unreleased."""
+    item = repo / "seal" / "specs" / name
+    item.mkdir(parents=True)
+    (item / "routing.md").write_text(f"# {name} — routing\n", encoding="utf-8")
+    if overview is not None:
+        (item / "overview.md").write_text(overview, encoding="utf-8")
+    if todo is not None:
+        (item / "evidence-todo.md").write_text(todo, encoding="utf-8")
+    git(repo, "add", "--", f"seal/specs/{name}")
+    git(repo, "commit", "-qm", f"released {name}")
+    return item
+
+
+def docs_text(repo):
+    return {p.name: p.read_text(encoding="utf-8") for p in (repo / "docs").glob("*")}
+
+
+def test_a_spec_less_directory_is_listed_under_its_own_heading(tree):
+    """D3: `settle` prints these under their own heading rather than as
+    *ungrouped — yours to place*, because there is nothing to place."""
+    moment(tree, overview=OVERVIEW_CLOSED)
+    code, text = run(tree)
+    assert code == 0, text
+    assert "retired by the rule" in text, text
+    assert MOMENT in text.split("retired by the rule")[1], text
+    ungrouped = (
+        text.split("ungrouped —")[1].split("\n\n")[0] if "ungrouped —" in text else ""
+    )
+    assert MOMENT not in ungrouped, text
+
+
+def test_the_rule_arm_removes_it_with_no_marker(tree):
+    moment(tree, overview=OVERVIEW_CLOSED)
+    before = docs_text(tree)
+    code, text = run(tree, "--retire")
+    assert not (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert docs_text(tree) == before, "the rule arm wrote a marker into docs/"
+    assert f"removed seal/specs/{MOMENT}/" in text, text
+    assert "no `spec.md`" in text, text
+    # The fixture's other released items carry a spec and no marker, so they
+    # stay; nothing refused, so the run is clean.
+    assert code == 0, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists()
+
+
+def test_an_open_memo_row_keeps_a_spec_less_directory(tree):
+    """G2: D3 is true of the spec and false of the memo. An open
+    `## Not verified` row is a claim with an answerer, and it leaves by being
+    closed or re-homed — never with the directory."""
+    moment(tree, overview=OVERVIEW_OPEN)
+    _, text = run(tree)
+    assert "kept by the rule" in text, text
+    assert "a claim nobody ran" in text.split("kept by the rule")[1], text
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert "a claim nobody ran" in text, text
+
+
+def test_an_open_evidence_todo_row_keeps_a_spec_less_directory(tree):
+    moment(tree, todo=OPEN_TODO)
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+
+
+def test_an_unreadable_memo_keeps_a_spec_less_directory(tree):
+    """A section this cannot read is a count it does not know, never zero."""
+    moment(tree, overview="# x — overview\n\n## Not checked\n")
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert "cannot be read" in text, text
+
+
+def test_a_row_anchored_inside_a_rule_arm_directory_keeps_it(tree):
+    """Phase 1's guard over the widened set: the rule arm may not reopen
+    #511 the moment it ships."""
+    moment(tree)
+    anchor(
+        tree,
+        f'| a moment\'s claim | `seal/specs/{MOMENT}/routing.md#"# {MOMENT} — routing"@abcdef12` | read | 2026-01-01 | |',
+        "| one | `hooks/a.py#one@aaaaaaaa` | read | 2026-01-01 | |",
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert "a moment's claim" in text, text
+
+
+def test_an_unreleased_spec_less_directory_is_not_a_candidate(tree):
+    item = tree / "seal" / "specs" / MOMENT
+    item.mkdir()
+    (item / "routing.md").write_text("# routing\n", encoding="utf-8")
+    _, text = run(tree, "--retire")
+    assert item.exists(), text
+
+
+def test_the_report_lists_what_a_retirement_would_take(tree):
+    """D1's table: the command reports by itself the open memo rows in what
+    it would retire, the paths outside `seal/specs/` that cite into it, and the
+    `tests/` files that read `seal/specs` — the three things #514's frame
+    found by hand."""
+    fold(tree, "1700000001-alpha")
+    (tree / "seal" / "specs" / "1700000001-alpha" / "overview.md").write_text(
+        OVERVIEW_OPEN, encoding="utf-8"
+    )
+    moment(tree)
+    (tree / "docs" / "cites.md").write_text(
+        "See `seal/specs/1700000001-alpha/spec.md` for the decision.\n"
+        f"And `seal/specs/{MOMENT[:11]}…/routing.md` for the moment.\n"
+        "A marker <!-- specs/1700000002-beta --> and a bare 1700000002-beta.\n",
+        encoding="utf-8",
+    )
+    (tree / "tests").mkdir()
+    (tree / "tests" / "test_reads.py").write_text(
+        'SPECS = "seal/specs"\n', encoding="utf-8"
+    )
+    git(tree, "add", "--", "docs", "tests")
+    git(tree, "commit", "-qm", "citations")
+    _, text = run(tree)
+    takes = text.split("what a retirement here would take with it")[1]
+    assert "a claim nobody ran" in takes, text
+    assert "docs/cites.md:1" in takes, text
+    assert "docs/cites.md:2" in takes, "an abbreviated path is a citation too"
+    assert "1700000002-beta" not in takes, "a marker or a bare id is not a path"
+    assert "tests/test_reads.py" in text.split("checks that read")[1], text
+
+
+def test_the_predicate_is_what_settle_asks(tree, monkeypatch):
+    """`plan.md` §*What breaks in six months*: one predicate, asked by every
+    reader. With it answering False, the rule arm lists nothing."""
+    moment(tree)
+    reader = settle.load(settle.READER, "specseal_unverified_reader")
+    real_load = settle.load
+    monkeypatch.setattr(reader, "retired_by_rule", lambda root, ref, d: False)
+    monkeypatch.setattr(
+        settle,
+        "load",
+        lambda path, name: reader if path == settle.READER else real_load(path, name),
+    )
+    _, text = run(tree, "--retire")
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+
+
+def test_the_documents_say_a_spec_less_directory_is_retired_by_the_rule():
+    """§14's half of D3. The policy said such an item *is kept by name*, and
+    the skill offered it as *yours to place*; both are overturned, and the one
+    condition the frame added is stated where the owner can overturn it."""
+    policy = document("docs", "the-evidence-ledger.md")
+    assert "and it is kept by name" not in policy, (
+        "the policy still keeps a spec-less directory by name"
+    )
+    assert "it is retired by that rule, with no marker" in policy
+    assert "nothing in the record may still be open" in policy
+    assert "a judgment the repository owner may overturn" in policy
+    text = flat(skill())
+    assert "A released work item with no `spec.md` is not yours to place." in text
+    assert "*retired by the rule*" in text and "*kept by the rule*" in text
+    assert "The rule arm is not an exception" in text
+    for edition in ("README.md", "README.ko.md"):
+        assert "`spec.md`" in document(edition).split("`settle [--retire]`")[1][:900], (
+            f"{edition}'s cheat-sheet row does not name the rule arm"
+        )
+
+
 def test_a_marker_quoted_in_prose_is_not_a_fold_record(tree):
     """The line anchor `fold_ledger.py#is_marked` already pays for. Every
     document describing the convention quotes the marker's shape inline."""

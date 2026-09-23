@@ -954,6 +954,159 @@ def folded_items(root):
     return found
 
 
+# A released work item that wrote no `spec.md` states no rule, and the rule
+# arm retires it with no marker: #517's owner decision D3, narrowed by one
+# condition the frame recorded as a judgment the owner may overturn — nothing
+# in its record may still be open. These are the files the arm reads.
+SPEC = "spec.md"
+EVIDENCE_TODO = "evidence-todo.md"
+# The evidence-todo rule's two row shapes. `SEPARATOR` above reads one cell;
+# these read a whole line, which is what the evidence-todo reader walks.
+TODO_SEPARATOR_RE = re.compile(r"^\|(\s*:?-+:?\s*\|)+\s*$")
+DRAINED_RE = re.compile(r"^[\s*_]*drained\b", re.IGNORECASE)
+
+
+def todo_open_rows(text):
+    """Table body rows of an evidence-todo file that are still open.
+
+    The rule, so a person can apply it by hand: a line outside a table whose
+    first word is `drained` closes the whole file; otherwise every body row is
+    open unless its first cell begins with ✅. A table is a run of lines
+    starting with `|`; its first line is the header when the second is a
+    separator, and neither is a body row.
+
+    Split on `\\n` alone: `splitlines()` also breaks on U+2028, U+0085 and
+    form feed, so a cell holding one of those followed by `drained` closed the
+    file — the silent direction for a guard.
+
+    **It lives here because the rule arm's predicate reads it.**
+    `skills/settle/scripts/settle.py#open_rows` asks this function, so the
+    command's guard and the predicate every CI reader asks are one rule. The
+    same rule is spelled once more in `.github/scripts/fold_ledger.py#open_rows`,
+    which is this repository's release automation and not a shipped script, so
+    a shipped command may not depend on it and it may not depend on this.
+    """
+    lines = text.split("\n")
+    rows = []
+    n = 0
+    while n < len(lines):
+        line = lines[n]
+        if not line.lstrip().startswith("|"):
+            if DRAINED_RE.match(line):
+                return []
+            n += 1
+            continue
+        table = []
+        while n < len(lines) and lines[n].lstrip().startswith("|"):
+            table.append(lines[n])
+            n += 1
+        if len(table) >= 2 and TODO_SEPARATOR_RE.match(table[1].strip()):
+            table = table[2:]
+        for row in table:
+            if TODO_SEPARATOR_RE.match(row.strip()):
+                continue
+            first = row.strip().strip("|").split("|", 1)[0].strip()
+            if not first.startswith(CLOSED):
+                rows.append(row)
+    return rows
+
+
+def _tree_at(root, ref, directory):
+    """Repo-relative paths under `directory` at `ref`; the disk when `ref` is
+    None. `directory` is `/`-joined, and so is every path returned."""
+    if ref is None:
+        top = under_root(root, directory)
+        out = []
+        for here, dirs, files in os.walk(top):
+            dirs.sort()
+            for name in sorted(files):
+                rel = os.path.relpath(os.path.join(here, name), root)
+                out.append(git_path(rel))
+        return out
+    r = subprocess.run(
+        ["git", "-C", root, "ls-tree", "-r", "--name-only", ref, "--", directory],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return r.stdout.splitlines() if r.returncode == 0 else []
+
+
+def _text_at(root, ref, rel):
+    """What `rel` held at `ref`, or on disk when `ref` is None; None if absent."""
+    if ref is not None:
+        return show(root, ref, rel)
+    try:
+        with open(under_root(root, rel), encoding="utf-8", errors="replace") as f:
+            return f.read()
+    except OSError:
+        return None
+
+
+def open_record_rows(root, ref, directory):
+    """`[(file, what is open)]` for a work item's record at `ref`.
+
+    The rows the rule arm refuses to take with a directory: every open item in
+    `overview.md`'s `## Not verified`, and every open row of
+    `evidence-todo.md`. Each is a claim with an answerer rather than a rule,
+    and #514's frame measured the loss this prevents — the only record that a
+    production workflow was red sat in a retiring overview (its L2).
+
+    An overview whose section cannot be read is one entry saying so, never
+    zero rows: a count this cannot read is not a count of nothing, which is
+    the rule `check_text` above is written to. A base revision is read with
+    the same relaxations the `--baseline` comparison gives it.
+    """
+    found = []
+    overview = _text_at(root, ref, f"{directory}/{OVERVIEW}")
+    if overview is not None:
+        if ref is None:
+            rows, _, errors = check_text(overview)
+        else:
+            rows, _, errors = check_text(
+                overview, heading=LOOSE_HEADING, strict_header=False
+            )
+        if errors:
+            found.append((OVERVIEW, f"cannot be read ({errors[0][1]})"))
+        for _, item, _who in rows:
+            found.append((OVERVIEW, item))
+    todo = _text_at(root, ref, f"{directory}/{EVIDENCE_TODO}")
+    if todo is not None:
+        for row in todo_open_rows(todo):
+            found.append((EVIDENCE_TODO, row.strip()))
+    return found
+
+
+def retired_by_rule(root, ref, directory):
+    """Whether the rule arm may retire `directory` as it stood at `ref`.
+
+    **The one predicate, and every reader of a retirement asks it here**:
+    `settle` of the working tree (`ref` None), and `--baseline` below,
+    `chain_check.py --baseline` and `survivor_check.py --range` of the
+    merge-base they already compute. `plan.md` §*What breaks in six months*
+    is why it is not spelled in each: the next condition added to it would
+    land in one reader and not the others, and the first sign would be a fold
+    pull request red in CI after `settle --retire` said the removal was fine.
+
+    True when the directory existed at `ref`, held no `spec.md` there, and
+    its record there held no open row (`open_record_rows`). Released-ness is
+    not asked, because it is `settle`'s question about a ref this does not
+    know; a CI reader's merge-base is by construction a commit the removal
+    happened after.
+
+    **Asked of the merge-base, a branch that deletes a `spec.md` in one
+    commit and the directory in the next still reads as a deletion**, because
+    the fork point held the spec. That is what makes this a rule about what
+    the work item was, rather than about what it was left looking like.
+    """
+    paths = _tree_at(root, ref, directory)
+    if not paths:
+        return False
+    if f"{directory}/{SPEC}" in paths:
+        return False
+    return not open_record_rows(root, ref, directory)
+
+
 def under_root(root, rel):
     """The disk path of a `/`-joined repository-relative path."""
     return os.path.join(root, *rel.split("/"))

@@ -62,9 +62,25 @@ settle
 ```
 
 It prints the released, unfolded work items grouped by **segment** — the file
-their ledger coordinates anchor in — and three lists beside them: the ones it
-cannot group, the ones an open `evidence-todo.md` row is holding, and the ones
-already folded and waiting to be retired.
+their ledger coordinates anchor in — and lists beside them: the ones it cannot
+group, the ones an open `evidence-todo.md` row is holding, the ones already
+folded and waiting to be retired, and every ledger row anchored inside a
+released directory (§4).
+
+**A released work item with no `spec.md` is not yours to place.** It states
+no rule, so there is nothing to fold out of it, and `settle` prints it under
+its own heading: *retired by the rule* when nothing in its record is open,
+*kept by the rule* when something is, with every open `## Not verified` and
+`evidence-todo.md` row named. Such a row is a claim with an answerer, not a
+rule, so it leaves by being closed (✅ with what closed it) or re-homed —
+`seal/follow-up.md`, an issue — and never with the directory. Once it has,
+the next `settle --retire` takes the directory.
+
+For every directory a retirement would take, by either arm, the report also
+lists what would go with it: the open `## Not verified` rows in its overview,
+and the paths outside `seal/specs/` that cite into it, which stop resolving
+when it goes. Once for the run it lists every `tests/` file that reads
+`seal/specs`, which is §3's grep done for you.
 
 A work item is **released** when its directory is present on the branch the
 release merges to. `--released-at` names that branch.
@@ -150,6 +166,7 @@ settle --retire
 ```
 
 It removes the directory of every released work item whose fold is recorded,
+and of every released one with no `spec.md` and nothing open in its record,
 and nothing else. An item the evidence-todo guard is holding is kept even when
 the marker is there: the record says the prose landed, and the row says a fact
 the reviewer verified has not reached the ledger yet.
@@ -169,7 +186,9 @@ Answer them, and the next `settle --retire` takes the directory.
 **The retirement is the second half of the fold and never its own act.** A
 directory removed before a policy document absorbed it takes the reasoning
 with it, and that is the one loss nothing can undo. The marker is what makes
-the order enforceable rather than remembered.
+the order enforceable rather than remembered. The rule arm is not an
+exception: a directory with no `spec.md` holds no reasoning for a document to
+absorb, which is the whole of why it needs no marker.
 
 ## What a fold branch owes
 

@@ -17,7 +17,9 @@ a move and not a compaction, or assert that each moved sentence still holds,
 which is the one thing the clause above forbids.
 
   settle                        what would fold, grouped by segment
-  settle --retire               remove the directories whose fold is recorded
+  settle --retire               remove the directories whose fold is recorded,
+                                and the released ones with no spec.md and
+                                nothing open
   settle --released-at REF      what counts as released (default origin/main)
   settle --root DIR             a repository other than this one
 
@@ -46,10 +48,19 @@ would leave the row BROKEN, and the checker would only say so afterwards.
 
 **Two halves, and the retirement is the second.** The command lists what a
 session has to write policy for; `--retire` removes the directories whose
-policy was written, which the marker is the proof of. Nothing is removed
-without one, so the failure this arrangement can produce is a thin policy
-document, which a reader can see, rather than a directory deleted with
-nothing absorbing it, which nobody can.
+policy was written, which the marker is the proof of. Nothing that states a
+rule is removed without one, so the failure this arrangement can produce is a
+thin policy document, which a reader can see, rather than a directory deleted
+with nothing absorbing it, which nobody can.
+
+**The rule arm, and why it needs no marker.** A released work item that wrote
+no `spec.md` states no rule — a release entry, a renumbering, a CI repair —
+so there is nothing for a document to absorb, and #517's owner decision D3
+retires it by that rule rather than by a record. One condition narrows it:
+nothing in its record may be open, because an open `## Not verified` or
+`evidence-todo.md` row is a claim with an answerer, not a rule. Whether a
+directory qualifies is `unverified_check.py#retired_by_rule`, the predicate
+every CI reader asks of the merge-base, asked here of the working tree.
 
 **Local mode is refused rather than reported on.** A root under the common
 git directory is never committed, so no ref holds the work item directories,
@@ -148,8 +159,6 @@ COORDINATE_RE = re.compile(
     r"@[0-9a-f]{6,12}"
 )
 MARKER_LINE_RE = re.compile(r"^<!-- specs/(\S+) -->$", re.M)
-SEPARATOR_RE = re.compile(r"^\|(\s*:?-+:?\s*\|)+\s*$")
-DRAINED_RE = re.compile(r"^[\s*_]*drained\b", re.IGNORECASE)
 
 
 def under(root, rel):
@@ -231,15 +240,10 @@ def released(root, ref):
 def open_rows(text):
     """Table body rows of an evidence-todo file that are still open.
 
-    The rule, so a person can apply it by hand: a line outside a table whose
-    first word is `drained` closes the whole file; otherwise every body row is
-    open unless its first cell begins with ✅. A table is a run of lines
-    starting with `|`; its first line is the header when the second is a
-    separator, and neither is a body row.
-
-    Split on `\\n` alone: `splitlines()` also breaks on U+2028, U+0085 and
-    form feed, so a cell holding one of those followed by `drained` closed the
-    file — the silent direction for a guard.
+    The rule is `unverified_check.py#todo_open_rows`, and its docstring says
+    how a person applies it by hand. It moved there when the rule arm's
+    predicate began reading `evidence-todo.md` too: the guard here and the
+    predicate every CI reader asks are one rule, not two copies of it.
 
     **The same rule is spelled in `.github/scripts/fold_ledger.py#open_rows`,
     and the two are not one reader.** That script is this repository's own
@@ -248,29 +252,7 @@ def open_rows(text):
     so a shipped command may not depend on it: a user's repository has the
     ledger fold nowhere. The guard travels with the command that enforces it.
     """
-    lines = text.split("\n")
-    rows = []
-    n = 0
-    while n < len(lines):
-        line = lines[n]
-        if not line.lstrip().startswith("|"):
-            if DRAINED_RE.match(line):
-                return []
-            n += 1
-            continue
-        table = []
-        while n < len(lines) and lines[n].lstrip().startswith("|"):
-            table.append(lines[n])
-            n += 1
-        if len(table) >= 2 and SEPARATOR_RE.match(table[1].strip()):
-            table = table[2:]
-        for row in table:
-            if SEPARATOR_RE.match(row.strip()):
-                continue
-            first = row.strip().strip("|").split("|", 1)[0].strip()
-            if not first.startswith("✅"):
-                rows.append(row)
-    return rows
+    return load(READER, "specseal_unverified_reader").todo_open_rows(text)
 
 
 def open_items(root):
@@ -398,6 +380,39 @@ NARROW_SAYS = (
     "{live} live one{live_s}; whether such a row is removed instead is the "
     "repository owner's question (`seal/ledger.md` §1788354065's S12 row)"
 )
+
+
+# The rule arm's headings, and the listings D1's table asks the command to
+# print by itself. Pinned by `tests/test_settle_reads_before_it_removes.py`.
+RULE_HEADING = (
+    "retired by the rule — released, no `spec.md`, nothing open; "
+    "`settle --retire`\nremoves these with no marker, because a moment "
+    "states no rule to fold:"
+)
+RULE_KEPT_HEADING = (
+    "kept by the rule — no `spec.md`, but the record still holds an open "
+    "row, which\nleaves by being closed (✅ with what closed it) or "
+    "re-homed, never with the directory:"
+)
+TAKES_HEADING = (
+    "what a retirement here would take with it — read each before `settle --retire`:"
+)
+READERS_HEADING = (
+    "checks that read `seal/specs` — each owes an answer by "
+    "`skills/settle/SKILL.md` §3\nbefore the directories go:"
+)
+
+
+def write_rule_kept(kept, out):
+    """Each spec-less directory the rule arm keeps, with every open row."""
+    for work_item_id, rows in kept:
+        out.write(f"    {work_item_id}\n")
+        for name, item in rows:
+            out.write(f"        open in {name}: {item}\n")
+        if not rows:
+            out.write(
+                "        the rule's predicate refused it with nothing open read\n"
+            )
 
 
 def first_cell(line):
@@ -542,7 +557,8 @@ def survey(root, ref):
     on_base = released(root, ref)
     if on_base is None:
         return None
-    folded = load(READER, "specseal_unverified_reader").folded_items(root)
+    reader = load(READER, "specseal_unverified_reader")
+    folded = reader.folded_items(root)
     held = open_items(root)
     rows = coordinates(root)
 
@@ -554,6 +570,12 @@ def survey(root, ref):
         "grouped": collections.defaultdict(list),
         "ungrouped": [],
         "anchored": [],
+        "rule": [],
+        "rule_kept": [],
+        "retiring": [],
+        "takes": {},
+        "citations": {},
+        "readers": [],
     }
     # Every released directory, folded or not, because this list is for the
     # session writing the prose: a row it sees now is answered before the
@@ -573,12 +595,111 @@ def survey(root, ref):
         if work_item_id in folded:
             survey["folded"].append(work_item_id)
             continue
+        # D3: a released work item with no `spec.md` states no rule, so there
+        # is nothing to place and it is not "ungrouped". Whether the rule arm
+        # takes it is the predicate's answer, the one every CI reader asks of
+        # the merge-base; this only asks it of the working tree.
+        if not has_spec(root, work_item_id):
+            directory = f"{SPECS}/{work_item_id}"
+            if reader.retired_by_rule(root, None, directory):
+                survey["rule"].append(work_item_id)
+            else:
+                survey["rule_kept"].append(
+                    (work_item_id, reader.open_record_rows(root, None, directory))
+                )
+            continue
         segment, reason = segment_of(rows.get(work_item_id, []))
         if segment is None:
             survey["ungrouped"].append((work_item_id, reason))
         else:
             survey["grouped"][segment].append(work_item_id)
+
+    # What a retirement here would take with it, by either arm: D1's table,
+    # the three things #514's frame found by hand and the command should
+    # report by itself. A directory the anchored guard holds is not retiring.
+    holding = {i for row in survey["anchored"] for i in row.items}
+    survey["retiring"] = [
+        i for i in survey["folded"] + survey["rule"] if i not in holding
+    ]
+    if survey["retiring"]:
+        for work_item_id in survey["retiring"]:
+            survey["takes"][work_item_id] = reader.open_record_rows(
+                root, None, f"{SPECS}/{work_item_id}"
+            )
+        survey["citations"], survey["readers"] = citations(root, survey["retiring"])
     return survey
+
+
+def has_spec(root, work_item_id):
+    """Whether the work item's directory holds a `spec.md` on disk."""
+    return os.path.isfile(under(root, f"{SPECS}/{work_item_id}/spec.md"))
+
+
+# A path into a work item directory, however it is spelled before `specs/`
+# (`seal/specs/`, the old `specs/`, a local-mode root). The name may be cut
+# short with an ellipsis, which is how this repository's prose abbreviates a
+# long id; a marker and a bare id carry no `/` after the name, so neither is
+# read as a citation.
+CITATION_RE = re.compile(r"specs/(\d{6,}[^\s/`'\"()\[\]|<>*]*)/")
+ELLIPSES = ("…", "...")
+
+
+def names(name, work_item_id):
+    """Whether a cited directory name, possibly abbreviated, is this id."""
+    for dots in ELLIPSES:
+        if name.endswith(dots):
+            stem = name[: -len(dots)]
+            return bool(stem) and work_item_id.startswith(stem)
+    return name == work_item_id
+
+
+def tracked_text(root):
+    """`(repo-relative path, text)` for every tracked text file outside
+    `seal/specs/`. A file holding a NUL byte is binary and skipped."""
+    r = subprocess.run(
+        ["git", "-C", root, "ls-files", "-z"],
+        capture_output=True,
+    )
+    if r.returncode != 0:
+        return
+    for rel in r.stdout.decode("utf-8", "replace").split("\0"):
+        if not rel or rel.startswith(SPECS + "/"):
+            continue
+        try:
+            with open(under(root, rel), "rb") as f:
+                data = f.read()
+        except OSError:
+            continue
+        if b"\0" in data:
+            continue
+        yield rel, data.decode("utf-8", "replace")
+
+
+def citations(root, work_item_ids):
+    """`({id: ["path:line", ...]}, [tests/ files naming seal/specs])`.
+
+    The two listings a fold otherwise builds by hand. A path outside
+    `seal/specs/` that cites into a retiring directory stops resolving when
+    it goes, and each one is the fold's to rewrite or leave with a reason;
+    and every `tests/` file that reads `seal/specs` is a check
+    `skills/settle/SKILL.md` §3 says has to be answered before anything is
+    removed. One scan of the tracked tree answers both.
+    """
+    cited = {i: [] for i in work_item_ids}
+    readers = []
+    for rel, text in tracked_text(root):
+        if rel.startswith(TESTS) and SPECS in text:
+            readers.append(rel)
+        if "specs/" not in text:
+            continue
+        for number, line in enumerate(text.split("\n"), start=1):
+            for m in CITATION_RE.finditer(line):
+                for work_item_id in work_item_ids:
+                    if names(m.group(1), work_item_id):
+                        where = f"{rel}:{number}"
+                        if where not in cited[work_item_id]:
+                            cited[work_item_id].append(where)
+    return cited, sorted(readers)
 
 
 def report(found, ref, out=sys.stdout):
@@ -593,6 +714,10 @@ def report(found, ref, out=sys.stdout):
     write(
         f"(released = present at {ref}; {len(found['unreleased'])} "
         "unreleased and untouched)\n"
+    )
+    write(
+        f"no spec.md: {len(found['rule'])} to retire by the rule, "
+        f"{len(found['rule_kept'])} kept by it\n"
     )
 
     for segment in sorted(found["grouped"]):
@@ -627,6 +752,34 @@ def report(found, ref, out=sys.stdout):
             "until the row is answered:\n"
         )
         write_anchored(found["anchored"], out)
+
+    if found["rule"]:
+        write(f"\n{RULE_HEADING}\n")
+        for work_item_id in found["rule"]:
+            write(f"    {work_item_id}\n")
+
+    if found["rule_kept"]:
+        write(f"\n{RULE_KEPT_HEADING}\n")
+        write_rule_kept(found["rule_kept"], out)
+
+    if found["retiring"]:
+        write(f"\n{TAKES_HEADING}\n")
+        for work_item_id in found["retiring"]:
+            write(f"    {work_item_id}\n")
+            rows = found["takes"].get(work_item_id, [])
+            cited = found["citations"].get(work_item_id, [])
+            if not rows and not cited:
+                write(
+                    f"        nothing open, and nothing outside {SPECS}/ "
+                    "cites into it\n"
+                )
+            for name, item in rows:
+                write(f"        open in {name}: {item}\n")
+            for where in cited:
+                write(f"        cited from {where}\n")
+        write(f"\n{READERS_HEADING}\n")
+        for rel in found["readers"] or ["none under tests/"]:
+            write(f"    {rel}\n")
 
     write(
         "\nNothing was written and nothing was removed. `skills/settle/SKILL.md`\n"
@@ -672,11 +825,27 @@ def retire(found, root, out=sys.stdout):
     about. It also has a second reader now — `stranded` is `marked & present`,
     and that one is not inert at all.
     """
-    marked = load(READER, "specseal_unverified_reader").folded_items(root)
+    reader = load(READER, "specseal_unverified_reader")
+    marked = reader.folded_items(root)
     present = set(work_items(root))
     released_at_base = set(found["released"])
     held = open_items(root)
-    candidates = sorted(marked & present & released_at_base)
+    # The rule arm (D3), read from the tree like the marker arm and for the
+    # same reason: a released directory with no `spec.md` whose record holds
+    # nothing open is a candidate with no marker, and one whose record does
+    # is kept and named. The predicate is the one every CI reader asks.
+    spec_less = sorted(
+        i for i in (present & released_at_base) - marked if not has_spec(root, i)
+    )
+    by_rule = [
+        i for i in spec_less if reader.retired_by_rule(root, None, f"{SPECS}/{i}")
+    ]
+    rule_kept = [
+        (i, reader.open_record_rows(root, None, f"{SPECS}/{i}"))
+        for i in spec_less
+        if i not in by_rule
+    ]
+    candidates = sorted((marked & present & released_at_base) | set(by_rule))
     # #511's guard, asked of the candidates themselves and read from the
     # ledger now, for the reason the paragraph above gives for `open_items`:
     # the report's list is not a guard on a destructive act.
@@ -684,7 +853,7 @@ def retire(found, root, out=sys.stdout):
     holding = {i for row in anchored for i in row.items}
     refused = [i for i in candidates if i in held or i in holding]
     removable = [i for i in candidates if i not in held and i not in holding]
-    if not removable and not refused:
+    if not removable and not refused and not rule_kept:
         # THREE states, and they are told apart by what the sentence asserts
         # rather than by what happens to be empty. Round 1 split one of them
         # out of the other; round 2's finding 2 is that the split fired on
@@ -719,12 +888,18 @@ def retire(found, root, out=sys.stdout):
         out.write(
             "nothing to retire: no released work item carries a "
             "`<!-- specs/<id> -->` marker in docs/, so none of them has been "
-            "folded yet. `settle` alone says which ones are waiting for one.\n"
+            "folded yet, and none is a released directory with no `spec.md`. "
+            "`settle` alone says which ones are waiting for one.\n"
         )
         return 1
     for work_item_id in removable:
         shutil.rmtree(under(root, f"{SPECS}/{work_item_id}"))
-        out.write(f"removed {SPECS}/{work_item_id}/\n")
+        why = (
+            "  (no `spec.md` — retired by the rule, with no marker)"
+            if work_item_id in by_rule
+            else ""
+        )
+        out.write(f"removed {SPECS}/{work_item_id}/{why}\n")
     todo_kept = [i for i in refused if i in held]
     if todo_kept:
         out.write(
@@ -741,11 +916,14 @@ def retire(found, root, out=sys.stdout):
             "`settle --retire` again:\n"
         )
         write_anchored(anchored, out)
+    if rule_kept:
+        out.write(f"\n{RULE_KEPT_HEADING}\n")
+        write_rule_kept(rule_kept, out)
+    kept = len(refused) + len(rule_kept)
     out.write(
-        f"\nretired {len(removable)} work item{plural(len(removable))}; "
-        f"{len(refused)} kept\n"
+        f"\nretired {len(removable)} work item{plural(len(removable))}; {kept} kept\n"
     )
-    return 1 if refused else 0
+    return 1 if kept else 0
 
 
 def main(argv=None):
@@ -767,9 +945,11 @@ def main(argv=None):
     ap.add_argument(
         "--retire",
         action="store_true",
-        help="remove the directories whose fold `docs/` records. Writes no "
-        "prose: what it removes is what a policy document has already "
-        "absorbed, and the marker is the proof",
+        help="remove the directories whose fold `docs/` records, and the "
+        "released ones with no spec.md and nothing open in their record. "
+        "Writes no prose: what it removes is what a policy document has "
+        "already absorbed, or a record of a moment that states no rule. A "
+        "directory a ledger row anchors into is kept",
     )
     args = ap.parse_args(argv)
 
