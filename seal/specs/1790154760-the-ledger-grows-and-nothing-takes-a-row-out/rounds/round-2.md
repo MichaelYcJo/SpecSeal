@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 531 |
-| Broad gate | not yet |
+| Broad gate | 52e2fa80 against 24ea206f |
 | Fixes checked by | no fixes to check |
 | Fix range | `6d3f4296e2709cf24c74f9c61968407cdc5f76c0..2ec84ed5d2abe311a8e2cbe1fe41436c4312eaa5`, 2 commits |
 | Contract changes | none |
