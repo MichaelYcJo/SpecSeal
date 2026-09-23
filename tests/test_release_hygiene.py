@@ -1247,6 +1247,9 @@ def _offline(monkeypatch, m, closed):
     # here changes what it asserts.
     monkeypatch.setattr(m, "_issue_api", lambda repo, number: ({"labels": []}, True))
     monkeypatch.setattr(m, "run", lambda *a: closed.append(a) or "")
+    # The close goes through `attempt` since #536, so a refusal cannot end
+    # the run; it is the third door, and every close through it succeeds.
+    monkeypatch.setattr(m, "attempt", lambda *a: closed.append(a) or (True, ""))
 
 
 def test_it_closes_the_issue_the_keyword_named_and_nothing_else(monkeypatch):

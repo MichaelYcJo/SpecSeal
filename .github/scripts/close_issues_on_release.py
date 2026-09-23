@@ -41,9 +41,21 @@ two scripts come to disagree about which is the current answer.
 that form by hand to name the issue a commit fixes; measured here on a `(#N)`
 that names an issue. Everything else still fails loudly.
 
-**It fails loudly.** A closing keyword nobody acted on is the defect this
-exists for; a run that swallows its own error would be that defect wearing a
-green check.
+**It fails loudly, and it fails at the END.** A closing keyword nobody acted on
+is the defect this exists for; a run that swallows its own error would be that
+defect wearing a green check. But a run that dies on the first refusal leaves
+every issue sorted after it open, with a re-run dying in the same place --
+measured at the release before #536: `gh issue close` was refused on one
+issue with `GraphQL: Something went wrong while executing your query`, twice,
+and the four issues behind it stayed open while the job went red. So every
+issue is attempted, a refusal on the `gh issue close` route falls back to the
+REST route (`gh api -X PATCH …/issues/<n> -f state=closed`, then the same
+comment through `gh api …/issues/<n>/comments`, which is what closed that
+issue by hand), each fallback is printed so the log says how many took it,
+and the run exits non-zero only once every issue has been tried, naming each
+one that both routes refused with both errors. A partial close is repaired by
+re-running this script with the run's `BEFORE`, `AFTER` and `REPO`: it skips
+what is already closed and reaches the rest.
 
 `DRY_RUN=1` prints what it would close and writes nothing. It exists because
 of an incident rather than for tidiness: this script was run by hand against
@@ -104,6 +116,18 @@ def run(*args):
     if out.returncode:
         sys.exit(f"{' '.join(args)} failed: {out.stderr.strip()}")
     return out.stdout
+
+
+def attempt(*args):
+    """`(ok, stderr)` for a write whose failure is not the run's.
+
+    `run` exits on a non-zero `gh`, which is right for a read the rest of the
+    run depends on and wrong for one issue's close: the issues sorted after
+    it depend on nothing about it. The close loop reads this instead and
+    decides at the end what the failures add up to.
+    """
+    out = subprocess.run(args, capture_output=True, text=True)
+    return out.returncode == 0, out.stderr.strip()
 
 
 def gh_json(path):
@@ -211,6 +235,75 @@ def spend_label(repo, number, dry):
         print(f"removed {SPENT_ON_CLOSE!r} from #{number}")
 
 
+def closing_comment(source):
+    """What the closed issue says about why a workflow closed it."""
+    return (
+        f"Closed by #{source}, which shipped in the release that just "
+        f"reached `main`.\n\nIts body carried the keyword; GitHub does not "
+        f"read one on a pull request whose base is not the default branch, "
+        f"so this workflow acts on it instead. "
+        f"`docs/branch-and-release.md` has the reasoning."
+    )
+
+
+def close_issue(repo, number, comment):
+    """Close `number` with `comment`; the errors, empty where it closed.
+
+    Two routes to the same two writes. `gh issue close` is the first, and it
+    goes through GraphQL. When that is refused -- as it was at the release
+    before #536, twice on the same issue, for a reason nobody has found --
+    the REST route takes over: a PATCH of the state, then the comment posted
+    to the issue's comments. That is exactly the pair a person typed to
+    repair that release, in that order.
+
+    A refused PATCH leaves the issue open and this answers both errors, so
+    the caller can name them together. A comment the REST route could not
+    post is reported and the close stands: the close is the act, the comment
+    is what says why, and an issue closed without its sentence is a smaller
+    wrong answer than an issue left open.
+    """
+    ok, first = attempt(
+        "gh",
+        "issue",
+        "close",
+        str(number),
+        "--repo",
+        repo,
+        "--comment",
+        comment,
+    )
+    if ok:
+        return []
+    ok, second = attempt(
+        "gh",
+        "api",
+        "-X",
+        "PATCH",
+        f"repos/{repo}/issues/{number}",
+        "-f",
+        "state=closed",
+    )
+    if not ok:
+        return [f"gh issue close: {first}", f"gh api PATCH: {second}"]
+    print(
+        f"closed #{number} through the REST route after `gh issue close` "
+        f"was refused: {first}"
+    )
+    ok, third = attempt(
+        "gh",
+        "api",
+        f"repos/{repo}/issues/{number}/comments",
+        "-f",
+        f"body={comment}",
+    )
+    if not ok:
+        print(
+            f"could not post the closing comment on #{number} through the REST "
+            f"route: {third} — the issue is closed either way"
+        )
+    return []
+
+
 def pull_request_body(repo, number):
     """The body of pull request `number`, or None if it is not one.
 
@@ -278,6 +371,7 @@ def main():
         print("no closing keyword in any of them — nothing to close")
         return
 
+    failures = []
     for issue, source in sorted(wanted.items()):
         carried, exists = issue_labels(repo, issue)
         state = issue_state(repo, issue)
@@ -299,26 +393,33 @@ def main():
             if spent:
                 spend_label(repo, issue, dry)
             continue
-        run(
-            "gh",
-            "issue",
-            "close",
-            str(issue),
-            "--repo",
-            repo,
-            "--comment",
-            f"Closed by #{source}, which shipped in the release that just "
-            f"reached `main`.\n\nIts body carried the keyword; GitHub does not "
-            f"read one on a pull request whose base is not the default branch, "
-            f"so this workflow acts on it instead. "
-            f"`docs/branch-and-release.md` has the reasoning.",
-        )
+        errors = close_issue(repo, issue, closing_comment(source))
+        if errors:
+            # Reported here and again at the end, and the loop goes on: the
+            # issues sorted after this one depend on nothing about it. The
+            # label stays, because it is bookkeeping about a close that did
+            # not happen.
+            print(f"could not close #{issue} (named by #{source}): {'; '.join(errors)}")
+            failures.append((issue, source, errors))
+            continue
         print(f"closed #{issue}, named by #{source}")
         # After the close, never before it. The close is what this script
         # exists for and the label is bookkeeping about it, so the order is
         # the one where a failing label write cannot cost an issue its close.
         if spent:
             spend_label(repo, issue, dry)
+
+    if failures:
+        named = "\n".join(
+            f"  #{issue} (named by #{source}): {' — '.join(errors)}"
+            for issue, source, errors in failures
+        )
+        sys.exit(
+            f"{len(failures)} issue(s) could not be closed on either route, "
+            f"after every issue was attempted:\n{named}\n"
+            "Close each by hand, or re-run this script with the run's BEFORE, "
+            "AFTER and REPO: it skips what is already closed and reaches the rest."
+        )
 
 
 if __name__ == "__main__":
