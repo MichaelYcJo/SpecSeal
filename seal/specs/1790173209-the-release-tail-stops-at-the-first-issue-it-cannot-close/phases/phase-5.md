@@ -32,8 +32,10 @@ asserts each of the five names rather than a count word.
 **The measurement, executed 2026-09-24**, against `HEAD_BRANCH=release/v1.2.3`
 (a fixture name; no such milestone exists, so the gate's own *verified
 NOTHING* warning is what the control run prints), `HEAD_SHA` the branch tip,
-`BASE=origin/main`, the real repository, and an empty `GH_CONFIG_DIR` so that
-removing `GH_TOKEN` removes the only credential the command could find. Exit
+`BASE=origin/main`, the real repository, and `gh`'s config directory pointed
+at an empty scratch directory (`GH_CONFIG_DIR`, NAME NOT IN TREE — it is
+`gh`'s own variable) so that removing `GH_TOKEN` removes the only credential
+the command could find. Exit
 codes read from `$?`, never through a pipe:
 
 | Removed | Exit | What happened |
