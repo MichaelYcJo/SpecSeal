@@ -61,3 +61,15 @@
   exactly as before and prints that it was unreadable.
   `docs/issues-and-milestones.md` §*`flow-measurement` is a label that is
   not an index* says what an empty cycle produces.
+- **`/specseal:update` reads the installed copy before it summarises (issue
+  #157).** The installer keys the install path by the version string and
+  skips extraction when that directory already exists, so on a machine with
+  a directory by that name from an earlier numbering it reported success
+  and the copy that would have loaded was eight releases old — and the
+  skill summarised the marketplace clone, the right file in the wrong place.
+  A step 2b reads `installed_plugins.json`'s one `installPath`, compares the
+  installed `CHANGELOG.md`'s top heading with the version the installer
+  reported, and on a mismatch stops before the summary, names both
+  versions, and prints the repair for the user to type — with the two
+  cautions: `.in_use/` holds a live session's PID files, and the one
+  `installPath` is the directory that must not be deleted.

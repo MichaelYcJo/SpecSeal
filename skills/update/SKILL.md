@@ -31,6 +31,44 @@ looks like success.
 If the second command reports it is already current, say so and stop. Nothing
 arrived, so there is nothing to load and neither move below is needed.
 
+**2b. Read the installed copy before you believe the installer.** The install
+path is keyed by the version string, and extraction is skipped when a
+directory by that name already exists — so on a machine that had one from an
+earlier numbering, the installer reports success, writes the right commit
+SHA beside it, and the copy that loads is whatever was already there.
+Measured the day this step was written: eight releases old (#157). The
+summary in step 3 cannot see that, because it reads the marketplace clone,
+which is correct; it is the installed copy that is stale. Read the one path
+the installer records and compare:
+
+```bash
+p=$(python3 -c "import json,os;d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json')));print(d['plugins']['specseal@specseal'][0]['installPath'])")
+grep -m1 '^## ' "$p/CHANGELOG.md"        # must name the version step 2 reported
+```
+
+| Result | What happens |
+|---|---|
+| the heading names the version the installer reported | go on to step 3 |
+| a mismatch | **stop before step 3.** The update did not land. Say so, name both versions — the one the installer reported and the one the installed `CHANGELOG.md` heads — and print the repair below for the user to type. Do not summarise: a summary of what they should be getting is exactly what made this failure invisible |
+
+The repair replaces the stale directory from the marketplace clone, and it is
+the user's to type rather than this procedure's to run, because it deletes a
+directory a session may be holding:
+
+```bash
+mv "$p" "$p.stale.bak"
+rsync -a --exclude '.git' ~/.claude/plugins/marketplaces/specseal/ "$p/"
+mkdir -p "$p/.in_use"
+```
+
+Two cautions, both measured the same day. `.in_use/` under a version
+directory holds PID files — a running session pins its own version — so never
+delete a directory whose `.in_use/` names a live PID; the `mv` above leaves
+the stale copy in place under another name for that reason. And
+`installed_plugins.json` names exactly one `installPath`: deleting that
+directory breaks the install, while any other version directory is free to
+remove.
+
 **3. Name what changed.** Read `CHANGELOG.md` from the refreshed marketplace
 clone — `~/.claude/plugins/marketplaces/specseal/CHANGELOG.md` — and summarize
 every entry between the old version and the new one, oldest first. Lead each

@@ -1012,6 +1012,42 @@ def test_update_tells_the_user_when_the_preset_block_changed():
     )
 
 
+def test_update_reads_the_installed_copy_before_it_summarises():
+    """#157. `claude plugin update` keys the install path by the version
+    string and skips extraction when that directory already exists, so on a
+    machine that had a directory by that name from an earlier numbering the
+    installer reported success and the copy that would have loaded was eight
+    releases old. The skill then summarised the marketplace CLONE's changelog
+    — the right file in the wrong place — and the more thorough the summary,
+    the more convincing the wrong answer.
+
+    So a step between installing and summarising reads the INSTALLED copy:
+    `installed_plugins.json` names the one `installPath`, and its
+    `CHANGELOG.md`'s first heading has to be the version the installer just
+    reported. A mismatch stops the procedure before the summary and prints
+    the repair, with the two cautions the ticket measured: `.in_use/` holds a
+    live session's PID files, and the one `installPath` is the directory
+    that must not be deleted."""
+    update = read_text("skills", "update", "SKILL.md")
+    assert "**2b." in update, "no step reads the installed copy between 2 and 3"
+    step = update[update.index("**2b.") : update.index("**3.")]
+    flat = " ".join(step.split())
+    for needed, why in (
+        ("installed_plugins.json", "the file that names the installed copy"),
+        ("installPath", "the field that names it"),
+        ("CHANGELOG.md", "the file whose top heading says which version landed"),
+        ("mismatch", "the word that makes the outcome a stop rather than a note"),
+        (".in_use", "the directory the caution is about"),
+        # The word, not the path: `.in_use` is also in the repair's `mkdir`,
+        # so a step that lost the caution and kept the repair still said it.
+        ("PID", "the caution about a live session's PID files"),
+        ("rsync", "the repair"),
+        ("stop", "the instruction not to reach the summary"),
+    ):
+        assert needed in flat, f"step 2b does not carry {needed!r}: {why}"
+    assert "/Users/" not in flat, "a user path in a shipped skill"
+
+
 def test_no_section_accumulates_entries_in_the_shared_file():
     """`## Unreleased` was the region every branch appended to.
 
