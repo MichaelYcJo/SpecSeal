@@ -113,9 +113,17 @@ class Tracker:
         if args[:3] == ("gh", "label", "create"):
             self.labels.add(args[3])
             return ""
+        raise AssertionError(f"unexpected command: {args}")
+
+    def attempt(self, *args):
+        """Stands in for the closer's `attempt`, which the close goes through
+        since #536 so a refusal cannot end the run. Every close succeeds here;
+        the refusing tracker is
+        `tests/test_the_closer_carries_on_past_a_refusal.py`'s."""
+        self.calls.append(args)
         if args[:3] == ("gh", "issue", "close"):
             self.states[int(args[3])] = "closed"
-            return ""
+            return True, ""
         raise AssertionError(f"unexpected command: {args}")
 
     def edit(self, command, **kwargs):
@@ -285,6 +293,7 @@ def wire_closer(monkeypatch, tracker, subjects):
     monkeypatch.setattr(mod, "arrived", lambda before, after: subjects)
     monkeypatch.setattr(mod, "_issue_api", tracker.api)
     monkeypatch.setattr(mod, "run", tracker.run)
+    monkeypatch.setattr(mod, "attempt", tracker.attempt)
     monkeypatch.setattr(mod.subprocess, "run", tracker.edit)
     monkeypatch.setenv("AFTER", "aaa")
     monkeypatch.setenv("BEFORE", "bbb")

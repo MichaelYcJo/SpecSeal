@@ -104,12 +104,14 @@ def test_one_open_issue_after_the_retry_succeeds(monkeypatch):
     monkeypatch.setattr(m.time, "sleep", lambda s: slept.append(s))
     monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
     monkeypatch.setattr(
-        m, "close_issue", lambda repo, number, shipped: closed.append((repo, number))
+        m,
+        "close_issue",
+        lambda repo, number, shipped, comments=None: closed.append((repo, number)),
     )
     monkeypatch.setattr(
         m,
         "open_issue",
-        lambda repo, shipped, closed_number: (
+        lambda repo, shipped, closed_number, comments=None: (
             created.append((repo, shipped, closed_number))
             or (f"chore: flow measurement — after {shipped}")
         ),
@@ -263,7 +265,9 @@ def _ladder_harness(m, monkeypatch, create_results, readings, baseline="[]"):
     monkeypatch.setattr(
         m, "list_open_issues", lambda repo: readings.pop(0) if readings else []
     )
-    monkeypatch.setattr(m, "close_issue", lambda repo, number, shipped: None)
+    monkeypatch.setattr(
+        m, "close_issue", lambda repo, number, shipped, comments=None: None
+    )
     monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
     monkeypatch.setattr(m.time, "sleep", lambda s: slept.append(s))
     monkeypatch.setenv("REPO", "example/repo")
@@ -397,9 +401,11 @@ def test_the_recovery_message_does_not_promise_the_log_is_empty(monkeypatch):
         m, "list_open_issues", lambda repo: [{"number": 89, "title": "x"}]
     )
     monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
-    monkeypatch.setattr(m, "close_issue", lambda repo, number, shipped: None)
+    monkeypatch.setattr(
+        m, "close_issue", lambda repo, number, shipped, comments=None: None
+    )
 
-    def fake_open_issue(repo, version, closed_number):
+    def fake_open_issue(repo, version, closed_number, comments=None):
         raise SystemExit("gh issue list failed: some network error")
 
     monkeypatch.setattr(m, "open_issue", fake_open_issue)
@@ -553,10 +559,10 @@ def test_close_succeeds_but_open_fails_names_both_in_the_message(monkeypatch):
     monkeypatch.setattr(
         m,
         "close_issue",
-        lambda repo, number, shipped: closed.append((repo, number)),
+        lambda repo, number, shipped, comments=None: closed.append((repo, number)),
     )
 
-    def fake_open_issue(repo, version, closed_number):
+    def fake_open_issue(repo, version, closed_number, comments=None):
         raise SystemExit("gh issue create failed: some network error")
 
     monkeypatch.setattr(m, "open_issue", fake_open_issue)
@@ -641,7 +647,9 @@ def _roll_harness(m, monkeypatch, title, shipped, number=89):
         m, "list_open_issues", lambda repo: [{"number": number, "title": title}]
     )
     monkeypatch.setattr(
-        m, "close_issue", lambda repo, n, shipped: closed.append((repo, n))
+        m,
+        "close_issue",
+        lambda repo, n, shipped, comments=None: closed.append((repo, n)),
     )
     monkeypatch.setattr(m, "read_version", lambda: shipped)
     monkeypatch.setattr(m, "run", lambda *a: pytest.fail(f"fell through to run: {a}"))
@@ -1071,3 +1079,122 @@ def test_the_tracker_doc_says_what_a_title_written_before_this_means():
         "which is the failure class #155 is about; the direction is chosen, "
         "so it is stated"
     )
+
+
+# --- #198: a cycle that measured nothing is said so, and the release ships ---
+#
+# The roll opened a log, carried it through a release, and closed it with
+# nothing written in it — and nothing read what was in the log it was
+# closing. The count is read off the one list call the roll already makes
+# (`--json number,title,comments`), so the check adds no call and no write.
+# Never a refusal: the ticket's *Done when* says the release must still ship,
+# and `CLAUDE.md`'s first goal is a design that does not stop for a person.
+
+
+def _empty_log_harness(m, monkeypatch, issue):
+    """Drive `main` with `issue` as the one open log and the real
+    `close_issue`/`open_issue`, recording every `gh` call so the close
+    comment, the created body and the printed line can all be read."""
+    calls = []
+
+    def fake_try_run(*args):
+        calls.append(args)
+        if args[:3] == ("gh", "issue", "list"):
+            return "[]"
+        return ""
+
+    monkeypatch.setattr(m, "run", lambda *a: calls.append(a) or "")
+    monkeypatch.setattr(m, "try_run", fake_try_run)
+    monkeypatch.setattr(m, "list_open_issues", lambda repo: [issue])
+    monkeypatch.setattr(m, "read_version", lambda: "0.7.0")
+    monkeypatch.setenv("REPO", "example/repo")
+    return calls
+
+
+def _close_comment_and_body(calls):
+    close = next(a for a in calls if a[:3] == ("gh", "issue", "close"))
+    create = next(a for a in calls if a[:3] == ("gh", "issue", "create"))
+    return close[close.index("--comment") + 1], create[create.index("--body") + 1]
+
+
+def test_a_log_closed_with_no_comment_is_said_in_three_places(monkeypatch, capsys):
+    """S13. The old log's close comment, the new log's body and the job's
+    output each say the cycle closed with no measurement written — the three
+    places a person reads, in the order they are likely to look."""
+    m = _roller()
+    calls = _empty_log_harness(
+        m,
+        monkeypatch,
+        {"number": 89, "title": "chore: flow measurement — 0.7.0", "comments": []},
+    )
+
+    m.main()
+
+    comment, body = _close_comment_and_body(calls)
+    assert "no measurement" in comment, (
+        f"the close comment does not say the log was empty: {comment!r}"
+    )
+    assert "no measurement" in body and "#89" in body, (
+        f"the successor's body does not name the empty predecessor: {body!r}"
+    )
+    out = capsys.readouterr().out
+    assert "no measurement" in out and "#89" in out, (
+        f"the job log does not say the cycle measured nothing: {out!r}"
+    )
+    assert "rolled" in out, "the roll did not finish — the release must still ship"
+
+
+def test_a_log_with_comments_says_nothing_new(monkeypatch, capsys):
+    """S13's other half: a log somebody wrote in is closed as before, and
+    neither text nor the output gains a sentence about emptiness."""
+    m = _roller()
+    calls = _empty_log_harness(
+        m,
+        monkeypatch,
+        {
+            "number": 89,
+            "title": "chore: flow measurement — 0.7.0",
+            "comments": [{"body": "a segment"}, {"body": "another"}],
+        },
+    )
+
+    m.main()
+
+    comment, body = _close_comment_and_body(calls)
+    out = capsys.readouterr().out
+    for name, text in (("comment", comment), ("body", body), ("output", out)):
+        assert "no measurement" not in text, (
+            f"the {name} says a log with two comments measured nothing: {text!r}"
+        )
+
+
+def test_an_unreadable_count_rolls_as_before_and_says_so(monkeypatch, capsys):
+    """S14. The count read cannot change the invariant: where the listing
+    carries no `comments` the roll closes and opens exactly as it did, says
+    nothing about emptiness on either issue, and prints that the count could
+    not be read."""
+    m = _roller()
+    calls = _empty_log_harness(
+        m, monkeypatch, {"number": 89, "title": "chore: flow measurement — 0.7.0"}
+    )
+
+    m.main()
+
+    comment, body = _close_comment_and_body(calls)
+    assert "no measurement" not in comment and "no measurement" not in body
+    out = capsys.readouterr().out
+    assert "could not read" in out and "#89" in out, (
+        f"the job log does not say the comment count was unreadable: {out!r}"
+    )
+    assert "rolled" in out
+
+
+def test_the_one_list_call_asks_for_the_comments():
+    """The count is read off the list call the roll already makes — no
+    second call, no write — so this is where the field has to be asked for."""
+    m = _roller()
+    asked = []
+    m.run = lambda *a: asked.append(a) or "[]"
+    m.list_open_issues("example/repo")
+    args = asked[0]
+    assert args[args.index("--json") + 1] == "number,title,comments", args

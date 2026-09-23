@@ -279,7 +279,9 @@ def test_the_reader_reads_what_the_gatherer_writes(tmp_path):
     """
     gather = gatherer()
     block = gather.section(VERSION, "2026-01-02", [("1700000000-a-work-item", NOTES)])
-    text = gather.insert("# Changelog\n\n## 1.2.2 — 2026-01-01\n\n- older\n", block)
+    text = gather.insert(
+        "# Changelog\n\n## 1.2.2 — 2026-01-01\n\n- older\n", block, VERSION
+    )
     assert publisher().section_body(text, VERSION) is not None, (
         "the reader no longer recognises the section the gatherer writes, so "
         "every release would publish with no notes at all"

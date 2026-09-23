@@ -2786,7 +2786,6 @@ def test_a_stopped_count_walk_that_reached_two_is_not_a_reopening_left(repo):
     permissive of its three sentences, one round after the strictest, while
     the branch could not pass its own gate. Now a stopped walk that reached
     two is the bound, and the line says the gate is already refusing.
-
     The second half is the gate itself, read over the same files, so the
     case is the differential #218 ran in miniature: what the line says and
     what `stopping_floor` returns may not disagree about one sequence.
