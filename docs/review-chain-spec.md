@@ -965,6 +965,24 @@ count is what a later round and the pull request read.
 digits there are an id — `round 2's 1` keyed as finding **2** under the reader
 that took the first digit run, colliding with this round's own 2.
 
+**A carried closure is one worked row, and the row carries three
+requirements** (#437) — the reviewer's two files, `agents/warden.md` and
+`skills/code-review/SKILL.md`, show the same row:
+
+```
+| 🟢 | round N's blocking finding is closed — <what> | <location> | confirmed | <grounds> |
+```
+
+A bare marker in `#`, because the row commissions nothing and an empty cell
+is refused. The verdict word `confirmed`, never `fixed`: `closed_with_a_fix`
+reads `FIX_WORDS` across every row of the table, so a `fixed` carried forward
+makes the record one that closed on a fix, which the reopening rule refuses
+at the cap with no way forward the documents describe. And no 🔴 anywhere in
+the row: `open_blocking` selects on the glyph in every cell, so the inherited
+severity is written in words. Measured over the 71 work items with two or
+more records: 3 had a last record reading as closed-with-a-fix, and every
+one was a carried `fixed`.
+
 **The severity is read as well as the `#` cell, and that is not decoration.**
 A row admitted here is never keyed, never asked for a closure and never
 counted toward `Pass` — so a `#` cell alone deciding the question ticked

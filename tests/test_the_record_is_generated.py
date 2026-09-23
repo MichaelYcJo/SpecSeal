@@ -2168,6 +2168,43 @@ def test_the_reviewer_is_told_where_the_paste_ready_fixes_go():
     assert f"| {heading.lstrip('# ')} |" in table[: table.index("\n#### ")], table
 
 
+def test_the_reviewers_skeleton_is_a_report_the_generator_accepts(repo):
+    """A15 of #503. The fenced skeleton in `agents/warden.md` §Report is what
+    a reviewer copies, so it is assembled into a report here — read out of
+    the file rather than retyped, so the two cannot drift — and run through
+    `new`. Its three example rows are the three shapes a `#` cell takes: a
+    numbered 🟡, a bare 🟢 carried closure with `confirmed`, and a bare ❓.
+    The generator accepts all three as written, and the record carries them
+    row for row."""
+    body = read("agents", "warden.md")
+    section = body[body.index("\n## Report\n") :]
+    blocks = re.findall(r"\n```[^\n]*\n(.*?\n)```\n", section, re.S)
+    generator = generator_module()
+    tables = next(b for b in blocks if b.startswith(f"{generator.VERDICTS}\n"))
+    fixes = next(b for b in blocks if b.startswith(f"{generator.PASTE_READY}\n"))
+    lines = next(b for b in blocks if b.startswith("Needs a fix:"))
+    needs = next(ln for ln in lines.splitlines() if ln.startswith("Needs a fix: yes"))
+    floor = next(
+        ln for ln in lines.splitlines() if ln == "Loses a record or crashes: no"
+    )
+    verdicts = tables.split("\n## ", 1)[0]
+    rows = [ln for ln in verdicts.splitlines() if ln.startswith("| ")]
+    example = [r for r in rows if r.split("|")[1].strip() not in ("#", "---")]
+    assert len(example) == 3, example
+    text = (
+        f"# what the round found\n\nProse.\n\n{tables}\n{fixes}\n{needs}\n{floor}\n\n"
+    )
+    declared(repo)
+    code, out, record = generate(repo, report_text=text)
+    assert code == 0, out
+    assert record is not None, out
+    for row_text in example:
+        assert row_text in record, (row_text, record)
+    cells = [r.split("|")[1].strip() for r in example]
+    assert cells[0].startswith("🟡 1") and cells[1] == "🟢" and cells[2] == "❓", cells
+    assert "| confirmed |" in example[1], example[1]
+
+
 def test_the_reviewer_is_not_told_the_report_is_read_for_tables_alone():
     """The sentence that has to change with the section, pinned so the next
     edit does not take it back. `agents/warden.md` told the reviewer the

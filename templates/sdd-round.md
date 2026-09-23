@@ -332,7 +332,11 @@ durable, committed home instead. -->
      the record says it is open in as many letters.
 
      An earlier round's number goes in the **Finding** cell, which is prose.
-     In the `#` cell it is digits, and digits there are an id.
+     In the `#` cell it is digits, and digits there are an id. A carried
+     closure is one worked row with three requirements — a bare marker,
+     the word `confirmed` and never `fixed`, and no 🔴 anywhere in it (#437):
+
+     | 🟢 | round N's blocking finding is closed — <what> | <location> | confirmed | <grounds> |
 
      Severities name what they require, not a rank:
      🔴 blocks merge · 🟡 needs grounds · 🟢 matches · ❓ could not be judged.
