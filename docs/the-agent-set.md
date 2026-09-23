@@ -91,3 +91,15 @@ measured instance is an orchestrator's procedure preloaded into every
 implementer spawn: procedure for asking a person a question, delivered to a
 party that has no way to ask anybody anything. What it cost was paid once per
 spawn, and nothing in either file could say it was wrong.
+
+<!-- specs/1790076080-every-orchestrator-rule-is-a-sentence -->
+**The orchestrator's acts are counted, each against what delivers it.** An
+agent's rules arrive by mechanism, while the orchestrator has no spawn for a
+preload to attach to, so each of its acts is a sentence until something
+refuses when the act did not happen. `skills/implement/orchestration.md`
+tables every `##` heading carrying the `Orchestrator:` marker in both
+orchestration files, and every `###` directly beneath one, against its
+delivery — a command, a check, part of its parent's act, or still a sentence
+with its grounds — and a test holds the table against both files from both
+sides. That test reads the marker and not the meaning, so an act written
+outside a marked section is counted by nobody.

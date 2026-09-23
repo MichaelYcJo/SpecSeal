@@ -169,3 +169,53 @@ and that is the cheaper of the two mistakes.
 a flat policy directory — merge into a document that exists, create one only
 for an area with none — so a marker below the top level is somebody's notes,
 and a scratch file quoting one excused a removal nothing had absorbed.
+
+<!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
+**A released work item that wrote no `spec.md` states no rule, and it is kept
+by name.** `settle` names what it cannot group rather than guessing, and such
+an item was below the SDD ladder: a release entry, a renumbering, a CI repair,
+a pull request's record. Those are records of a moment, and a moment states
+nothing to fold. An ungrouped item that did write a `spec.md` is folded where
+that spec's rule belongs. One more reason keeps a directory: **a permanent
+ledger row anchored inside it**, which holds the directory until the row is
+answered — so a work item with a row anchored in its `rounds/` stays on disk,
+and the fold does not remove it to tidy the list. Keeping the directory rather
+than removing the row is a default, and the repository owner is who can trade
+it the other way: remove the row, carry its claim into the prose it evidences,
+and let the next `settle --retire` take the directory. That question, for
+`1788184145`, the one directory held this way today, is carried by #517's
+design comment.
+
+<!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
+**A retirement breaks every ledger row anchored inside the directory it
+removes, and nothing refuses the removal first.** An anchor into a work item's
+`spec.md` or its round records is a file path like any other, so after
+`settle --retire` the checker reports it broken (#511 is the missing refusal).
+So a fold branch greps the ledger for its directories before it retires
+anything, and the frame that says *no row anchors there* is a count to open. A
+hit found then is answered by the rule above: the directory stays. What the
+grep missed is decided after the removal by the rule `CLAUDE.md` gives: a row
+whose only anchor went is REMOVED, never re-pointed, and its claim is written
+anew where a work item still holds it. A row that keeps a live anchor beside
+the dead one loses only the dead one, and whether it should be removed instead
+is the repository owner's question, recorded against the ledger row that first
+met it.
+
+<!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
+**A population floor over the records is replaced, never lowered.** A check
+asserting that a sweep of `seal/specs/` read *enough* — `len(records) > 200` —
+is answering *did the walk read anything* with a literal that stops being true
+the moment the corpus shrinks, and a fold shrinks it by design. The repair
+compares the walk against an independent listing of the same tree —
+`git ls-tree HEAD` — which holds at any size, and a property the real corpus no
+longer exercises moves to a record built in `tmp_path`. A repair is green
+before the fold and after it; one green only once the directories are gone is
+a lowering. `skills/settle/SKILL.md` §3 gives the three answers.
+
+<!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
+**A fold marker on a line of its own is exempt from the wrap limit.** The
+marker is matched whole, so wrapping a long work item id stops it being a fold
+record, and `tests/test_docs_line_wrap.py` skips a line that is exactly one
+marker rather than asking a document to choose between the two. The chain
+checker's reading of a retired declaration is `docs/review-chain-spec.md`'s,
+under *The declaration, and where the check went instead*.
