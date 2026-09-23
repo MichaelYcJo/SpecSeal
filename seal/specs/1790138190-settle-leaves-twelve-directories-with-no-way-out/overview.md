@@ -42,6 +42,16 @@ until the fold that removes it, which `settle`'s new citation listing hands
 them to (O4); the fold's route (O1, `questions.md` Q1); #518 and #519 (O7).
 No floor literal was lowered (O8).
 
+**One finding outside scope, left for the repository owner to file as an
+issue** (this agent posts nothing): a committed `survivors.md` silences the
+survivors it quotes by subtraction rather than by exemption. Over this
+branch's range the sweep reported fifteen places before `survivors.md` was
+committed and seven after, with `--exempt` and without it, because
+`survivor_check.py#wanted` subtracts the quotes as wording the range wrote —
+#365's shape through `survivors.md` rather than `rounds/`. Closing it is new
+mechanism in the sweep, which a branch framed for `settle` does not carry
+(`phases/phase-7.md`).
+
 ## Fed back into the spec
 
 Inferred during implementation — planners may overturn each:
