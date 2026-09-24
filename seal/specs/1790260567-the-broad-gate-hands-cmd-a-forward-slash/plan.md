@@ -2,7 +2,7 @@
 
 <!-- seal/specs/1790260567-the-broad-gate-hands-cmd-a-forward-slash/plan.md -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-09-24 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
 
 ## Summary
 
