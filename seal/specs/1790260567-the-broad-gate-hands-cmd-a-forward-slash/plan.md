@@ -136,7 +136,11 @@ phase closes. After any rebase, re-read this column.
   written straight after one of `cmd.exe`'s own commands (`rd/s/q`, `dir/b`)
   is that command's switch, runs today, and is left as written. **Corrected
   2026-09-25** in round 1's fix pass, which added that exception (round 1's
-  🟡 2).
+  🟡 2). A `/` written straight after any other program (`xcopy/e`) is its
+  switch too, runs today, and is rewritten, so that row does change: it
+  stops running. A blank before the switch (`xcopy /e`) avoids it, the
+  template says so, and #596 holds the behaviour fix. **Corrected
+  2026-09-25** in round 2's fix pass (round 2's 🟡 1).
 - Contributors running the suite with `gh` authenticated now get CI's answer
   for any case that reaches `gh`. That is the intended new red, and
   `CONTRIBUTING.md` says why.
