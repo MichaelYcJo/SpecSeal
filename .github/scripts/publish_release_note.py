@@ -13,10 +13,17 @@ So this reads the tag instead of asking anybody to remember. It runs when a
 `v*` tag is pushed, which is the release's last manual act and the moment
 `docs/branch-and-release.md` says stays a person's.
 
-**The body is the `CHANGELOG.md` section the preparation commit gathered.**
-By the time the tag exists that section is written, reviewed and on `main`:
-`gather_changelog.py --version X.Y.Z` wrote it and the hygiene workflow ran
-`--check` over it at the release pull request. Nothing here composes prose.
+**The body is a summary a reader scans, over the `CHANGELOG.md` section the
+preparation commit gathered** (#572). By the time the tag exists that section
+is written, reviewed and on `main`: `gather_changelog.py --version X.Y.Z`
+wrote it and the hygiene workflow ran `--check` over it at the release pull
+request. It is also a page of reasoning per change, and a note that was only
+that section read as a wall of prose to somebody asking what changed. So the
+note opens with what the pull requests merged into `release/vX.Y.Z` already
+say -- a count, one line per pull request under its conventional-commit type
+with the issues its body closes, a credit for every outside contributor, how
+to update -- and keeps the whole section beneath, folded. Nothing here
+composes prose: every line is a pull request title, a number, or a handle.
 
 **The title comes from the tagged commit's message**, which carries the
 `release: X.Y.Z -- <symptoms>` line `docs/release-checklist.md` §5
@@ -47,7 +54,18 @@ release that stops after `main` has already moved.
 direction on purpose. That is the release shipping unexplained, and the body
 is the whole of what this publishes.
 
-`DRY_RUN=1` prints what it would create and writes nothing, for the reason
+**Outside contributors are thanked by handle.** An outside contribution
+carries no work item and so no changelog fragment, so a release that carried
+one credited it only when somebody remembered to write a sentence about it.
+The set is read instead: the pull requests' authors, less the repository
+owner and any bot. A release with none gets no credit line and no count.
+
+**The summary adds no way to fail.** A `gh` call that cannot list the pull
+requests publishes the section alone, as every note before #572 was, and
+says so in the job log -- a plain note is fixable in one edit, and a failed
+job at the tag is not.
+
+`DRY_RUN=1` prints the note it would create and writes nothing, for the reason
 `close_issues_on_release.py`'s docstring gives: a tool whose only mode has
 side effects gets run for its output sooner or later, and the first person to
 do it is whoever wrote it.
@@ -58,15 +76,17 @@ Exit codes: 0 published, or already published, or a dry run -- 1 the tag is
 not `vX.Y.Z`, or `CHANGELOG.md` carries no section for it.
 """
 
+import json
 import os
 import re
 import subprocess
 import sys
 
-sys.path.insert(
-    0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "hooks")
-)
-import console
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+sys.path.insert(0, os.path.join(HERE, "..", "..", "hooks"))
+import console  # noqa: E402
+from close_issues_on_release import keywords_in  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 CHANGELOG = "CHANGELOG.md"
@@ -176,6 +196,222 @@ def release_exists(repo, tag):
     return True
 
 
+THANKS_HEADING = "### 🙌 Thanks to"
+GLANCE_HEADING = "### 📊 At a glance"
+FULL_SUMMARY = "📋 Full changelog — what each change does and why"
+UPDATE_HEADING = "### ⬆️ Update"
+
+# A pull request title's conventional-commit type, and the heading its line
+# goes under. The order here is the order the note reads in: what a user can
+# now do, then what stopped going wrong, then what only a contributor sees.
+# A type not listed -- or a title with no type at all -- goes under Other
+# rather than being dropped, so the list stays a partition of the release.
+TYPES = (
+    ("feat", "✨ Features"),
+    ("fix", "🐛 Fixes"),
+    ("perf", "⚡ Performance"),
+    ("refactor", "♻️ Refactoring"),
+    ("docs", "📚 Docs"),
+    ("test", "🧪 Tests"),
+    ("ci", "⚙️ CI"),
+    ("build", "🧹 Chores"),
+    ("chore", "🧹 Chores"),
+    ("revert", "⏪ Reverts"),
+)
+OTHER = "📦 Other"
+TITLE_RE = re.compile(r"^(?P<type>[a-z]+)(?:\([^)]*\))?!?:\s*(?P<text>.+)$", re.I)
+# The preparation pull request -- `chore: release X.Y.Z -- ...` -- gathers the
+# release and changes nothing a user reads, so it is not one of the changes.
+PREPARATION_RE = re.compile(r"^chore:\s*release\s+\d+\.\d+\.\d+\b", re.I)
+# A title that ends in the issue it closes, `... (#572)`, would read
+# `(#572) (#574)`; the closing list carries the issue instead.
+TRAILING_REF_RE = re.compile(r"\s*\(#\d+\)\s*$")
+
+
+def merged_pulls(repo, version):
+    """The pull requests merged into `release/v<version>`, or None.
+
+    Each is `{"number", "title", "body", "author": {"login", "is_bot"}}` as
+    `gh pr list --json` prints it. None means the list could not be read, and
+    the caller publishes the changelog section alone rather than failing
+    the tag's job.
+    """
+    out = subprocess.run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--base",
+            f"release/v{version}",
+            "--state",
+            "merged",
+            "--limit",
+            "500",
+            "--json",
+            "number,title,author,body",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if out.returncode:
+        print(
+            "gh pr list failed, so the note is the changelog section alone: "
+            f"{out.stderr.strip()}"
+        )
+        return None
+    try:
+        return json.loads(out.stdout)
+    except ValueError:
+        print(
+            "gh pr list printed something that is not JSON, so the note is the "
+            "changelog section alone"
+        )
+        return None
+
+
+def outside(pull, owner):
+    """The login of `pull`'s author if it is an outside contributor, else "".
+
+    Outside means neither `owner` -- the repository's, read from `REPO` and
+    never written down here -- nor a bot, whether `gh` marks it one, its login
+    carries the `[bot]` suffix, or `gh` prints it as an `app/` account.
+    """
+    author = pull.get("author") or {}
+    login = author.get("login") or ""
+    if not login or login.lower() == owner.lower():
+        return ""
+    if author.get("is_bot") or login.endswith("[bot]") or login.startswith("app/"):
+        return ""
+    return login
+
+
+def changes(pulls):
+    """The release's own pull requests, oldest first, less the preparation."""
+    return [
+        p
+        for p in sorted(pulls or (), key=lambda p: p["number"])
+        if not PREPARATION_RE.match(p.get("title", "").strip())
+    ]
+
+
+def kind_and_text(title):
+    """`(heading, text)`: where a title's line goes, and what it reads."""
+    title = TRAILING_REF_RE.sub("", title.strip())
+    found = TITLE_RE.match(title)
+    heading, text = OTHER, title
+    if found:
+        heading = dict(TYPES).get(found.group("type").lower(), OTHER)
+        text = found.group("text")
+    # A line reads as a sentence; a title that opens on code keeps its case.
+    return heading, text[:1].upper() + text[1:]
+
+
+def closed_by(pull):
+    """The issues `pull`'s body closes, in order, each once -- read the way
+    `close_issues_on_release.py` reads them, which is what closed them."""
+    seen = []
+    for number in keywords_in(pull.get("body") or ""):
+        if number not in seen:
+            seen.append(number)
+    return seen
+
+
+def thanks_section(pulls, owner):
+    """`### 🙌 Thanks to` and one line per outside contributor, or "".
+
+    A person with several pull requests gets one line naming them all, oldest
+    first; the lines are ordered by the contributor's first pull request, so
+    the order is the release's own.
+    """
+    by_login = {}
+    for pull in changes(pulls):
+        login = outside(pull, owner)
+        if login:
+            by_login.setdefault(login, []).append(pull)
+    if not by_login:
+        return ""
+    lines = [THANKS_HEADING, ""]
+    for login, mine in by_login.items():
+        named = "; ".join(
+            f"{kind_and_text(p['title'])[1]} (#{p['number']})" for p in mine
+        )
+        lines.append(f"- **@{login}** — {named}")
+    return "\n".join(lines)
+
+
+def release_body(section, pulls, owner, repo, tag):
+    """The note: a summary a reader scans, over the section they can open.
+
+    Read top to bottom it answers, in order, how big the release is, what
+    changed -- one line per pull request under its type, with the issues it
+    closed -- who outside the project helped, and how to get it. The gathered
+    `CHANGELOG.md` section follows, folded, because it is the reasoning a
+    reader wants for one change rather than the list they read for all of
+    them. Every line is read from the pull requests and the tree; nothing
+    here writes a sentence.
+
+    With no pull request to read -- the list failed, or a release was cut
+    with none -- the note is `section` alone, which is what it always was.
+    """
+    work = changes(pulls)
+    if not work:
+        return section
+    groups, closed = {}, []
+    for pull in work:
+        heading, text = kind_and_text(pull["title"])
+        issues = closed_by(pull)
+        closed += [n for n in issues if n not in closed]
+        line = f"- {text} (#{pull['number']})"
+        if issues:
+            line += " · closes " + ", ".join(f"#{n}" for n in issues)
+        login = outside(pull, owner)
+        if login:
+            line += f" — thanks @{login}"
+        groups.setdefault(heading, []).append(line)
+    people = {outside(p, owner) for p in work} - {""}
+
+    parts = [
+        GLANCE_HEADING,
+        "",
+        "| | |",
+        "| --- | ---: |",
+        f"| 🔀 Pull requests | **{len(work)}** |",
+        f"| ✅ Issues closed | **{len(closed)}** |",
+    ]
+    if people:
+        parts.append(f"| 🙌 Outside contributors | **{len(people)}** |")
+    order = list(dict.fromkeys([h for _, h in TYPES] + [OTHER]))
+    for heading in order:
+        if heading in groups:
+            parts += ["", f"### {heading}", ""] + groups[heading]
+    thanks = thanks_section(pulls, owner)
+    if thanks:
+        parts += ["", thanks]
+    parts += [
+        "",
+        UPDATE_HEADING,
+        "",
+        "```",
+        "/specseal:update",
+        "```",
+        "",
+        "Then start a new session: the one you are in keeps the version it "
+        "started with.",
+        "",
+        "<details>",
+        f"<summary>{FULL_SUMMARY}</summary>",
+        "",
+        section,
+        "",
+        "</details>",
+        "",
+        f"[`CHANGELOG.md` at {tag}](https://github.com/{repo}/blob/{tag}/CHANGELOG.md)",
+    ]
+    return "\n".join(parts)
+
+
 def create(repo, tag, title, body):
     run(
         "gh",
@@ -231,8 +467,13 @@ def main(argv=None):
 
     title, source = title_from(commit_message(tag), version, tag)
     print(f"title {title!r}, from {source}")
+    pulls = merged_pulls(repo, version)
+    body = release_body(body, pulls, repo.split("/")[0], repo, tag)
+    if pulls is not None and not thanks_section(pulls, repo.split("/")[0]):
+        print("no outside contribution in this release, so no Thanks to section")
     if dry:
         print(f"would create the release at {tag} with {len(body)} characters of notes")
+        print(body)
         return 0
     create(repo, tag, title, body)
     print(f"published the release at {tag}")
