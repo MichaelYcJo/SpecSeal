@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 589 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `34bee5dbe22315fbeb947778b96019ef6e16b58d..cc0a2c7cbc5c26b203c6f058a175fcdf3cb32a6c`, 2 commits |
 | Contract changes | hook → round-2-report.md, round-2.md, local_specs, on_its_branch, pytest |
 | New units | test_a_missing_common_dir_reader_refuses_rather_than_placing_nothing (depth 1) |
