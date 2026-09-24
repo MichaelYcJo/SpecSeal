@@ -109,7 +109,7 @@ against ownership, the unit one of them named had been created by round 4 of
 that same work item and the character-level oracle another named was the
 branch's outright, so all five were fixed on the branch, the record was
 corrected in place, and one verifying round read them.
-Enforced by: tests/test_the_rules_have_one_owner.py::test_the_owner_states_the_rule, tests/test_the_rules_have_one_owner.py::test_every_link_names_the_owner
+Enforced by: nothing — no case reads the opening yet. A pin on *Three and five count rounds* beside rule 13 in `tests/test_the_rules_have_one_owner.py` would; the ownership rule after it is held by `test_the_owner_states_the_rule` and `test_every_link_names_the_owner`.
 
 <!-- specs/1790076060-the-cap-is-read-as-bounding-fixes-and-the-pile-is-nobodys -->
 **Two bounds end a run `capped`, and only one of them permits a fix.** Say

@@ -26,9 +26,8 @@ running.
       that merge is resolved as `docs/the-evidence-ledger.md` §*A correction a
       merge dropped* says, and `evidence-check` runs after the resolution.
       **Never rebase a work item's branch, for any reason** — every round
-      record names its branch's commits by `Target SHA` and every `# RIDER:`
-      carries a `Verified … at <sha>` stamp, a rebase orphans both, and that
-      is the class this repository has a patch release about. That rule
+      record names its branch's commits by `Target SHA`, a rebase orphans
+      them, and that is the class this repository has a patch release about. That rule
       predates the baseline repair and outlives it; it used to be written
       here as a footnote to a workaround, which is the wrong place for a
       standing rule.
@@ -258,7 +257,7 @@ gh pr create --base main --head release/vX.Y.Z \
 
 Its hygiene checks fail until step 4 is squashed in, by design. Then they go
 green without a push. Press ***Create a merge commit***, never squash: the
-review records and rider stamps name the release branch's commits by SHA, and a
+review records name the release branch's commits by `Target SHA`, and a
 squash discards them.
 
 ### What a release pull request is not the right range for

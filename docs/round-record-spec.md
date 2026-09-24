@@ -938,5 +938,4 @@ enclosing unit named the wrong finding while refusing correctly. The standing
 rule is the one `skills/agent-contract/SKILL.md` §15 states for new cases,
 applied to the checkers themselves: a case nobody has seen fail is a case
 nobody has seen.
-Enforced by: nothing — a session's act: seeing a checker's case fail before it is planted,
-by mutation or against the old code, is what the phase record reports and review reads.
+Enforced by: tests/test_the_agent_contract_holds_the_universal_rules.py::test_each_section_holds_its_rule

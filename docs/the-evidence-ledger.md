@@ -145,9 +145,7 @@ fact and cannot prevent it.
 It reads the shared file, every release file and every fragment, because a
 fragment becomes part of a release file at the release and a check that
 skipped fragments would go blind exactly while the rows are being written.
-Enforced by: nothing — a person's act: resolving a ledger conflict hunk by hunk is
-read by review at the pull request, and `correction-check` reports a dropped marker
-only after the merge, as a leg allowed to fail.
+Enforced by: tests/test_a_merge_cannot_silently_drop_a_correction.py::test_a8_both_rule_documents_say_what_to_do_at_the_conflict
 
 <!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
 **Hunk by hunk has two halves, and only the notes are a union.** A row's
@@ -340,9 +338,7 @@ judgment is reviewed at its pull request (#517). What it leaves already has a
 home — the marker, the pull request, git history — so it keeps no log of its
 own. A fold that opened a work item left a directory for the next fold to
 retire, and that fold opened one of its own, so no fold could ever finish.
-Enforced by: nothing — a session's act: a fold branch that opens a directory or
-appends a ledger row is read by review at the fold's pull request (#517), and no
-check reads a branch as a fold.
+Enforced by: tests/test_settle_reads_before_it_removes.py::test_the_skill_says_a_fold_is_not_a_work_item_and_owes_no_range_row, tests/test_settle_reads_before_it_removes.py::test_the_skill_says_what_a_fold_does_to_the_ledger
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 <!-- specs/1790119502-four-shipped-work-items-wait-unfolded -->
@@ -355,9 +351,7 @@ compares the walk against an independent listing of the same tree —
 longer exercises moves to a record built in `tmp_path`. A repair is green
 before the fold and after it; one green only once the directories are gone is
 a lowering. `skills/settle/SKILL.md` §3 gives the three answers.
-Enforced by: nothing — no case reads it yet. A scan of `tests/` for an assertion
-comparing a listing's length with a literal would. The guard that replaced the
-floors it names is `_the_walk_found_every_committed_record`.
+Enforced by: tests/test_settle_reads_before_it_removes.py::test_the_skill_names_the_floors_a_fold_has_to_answer
 
 <!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
 **A `seal/` root with no work item under it is the state a complete fold ends
