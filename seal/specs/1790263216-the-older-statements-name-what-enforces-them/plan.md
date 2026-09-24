@@ -3,7 +3,8 @@
 <!-- seal/specs/1790263216-the-older-statements-name-what-enforces-them/plan.md
      HOW, in phases. Reading this plan and spawning `smith` is the approval. -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-09-25 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
+Q1 builds on its default.
 
 ## Summary
 
