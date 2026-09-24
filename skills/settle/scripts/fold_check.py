@@ -678,4 +678,16 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    # The console's encoding is not UTF-8 everywhere — cp1252 on Windows —
+    # and every line this prints carries an em dash, so stdio is reconfigured
+    # before `main()`, as every other shipped script does (found by CI's
+    # `windows-latest` leg after the seal).
+    for _name, _errors in (
+        ("stdin", "replace"),
+        ("stdout", "replace"),
+        ("stderr", "backslashreplace"),
+    ):
+        _stream = getattr(sys, _name, None)
+        if hasattr(_stream, "reconfigure"):
+            _stream.reconfigure(encoding="utf-8", errors=_errors)
     sys.exit(main())

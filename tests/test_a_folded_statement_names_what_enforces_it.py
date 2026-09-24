@@ -357,3 +357,20 @@ def test_a_script_copied_on_its_own_says_which_sibling_it_misses(tmp_path):
     assert done.returncode != 0 and "Traceback" not in done.stderr, done.stderr
     assert "it is what finds the repository's seal/ root" in done.stderr, done.stderr
     assert "fold's markers" not in done.stderr, done.stderr
+
+
+def test_the_refusal_reaches_a_hostile_console_as_utf8(tmp_path):
+    """Post-seal, CI's `windows-latest` leg: stderr was written in the
+    console's encoding, so the em dash arrived as cp1252 and read back as
+    `\\ufffd`. `PYTHONIOENCODING=ascii` is the sharpest such console and
+    reproduces it anywhere. The entry reconfigures stdio to UTF-8 before
+    `main()`, as every other shipped script does."""
+    done = subprocess.run(
+        [sys.executable, SCRIPT, "--root", str(tmp_path / "gone"), "--ceiling", "1"],
+        capture_output=True,
+        env={**os.environ, "PYTHONIOENCODING": "ascii"},
+    )
+    assert done.returncode == 2, done.stderr
+    assert "is not a directory — nothing was checked".encode() in done.stderr, (
+        done.stderr
+    )
