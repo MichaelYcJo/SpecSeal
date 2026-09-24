@@ -3082,6 +3082,53 @@ def test_a_release_that_replaces_an_entry_with_a_gathered_rewording_reports(
     assert "docs/b.md" in text, text
 
 
+def test_a_gathered_fragment_cannot_subtract_a_survivor_through_a_lost_entry(
+    tmp_path,
+):
+    """Round 2's 🟡 1. The release rewords a live entry that quotes the claim,
+    gathers a fragment quoting it verbatim, and corrects `docs/a.md`. What the
+    fragment shares with the lost entry splits that entry and nothing else:
+    written for every file, it subtracts the claim from `docs/a.md`'s
+    corrected sentence too, and the survivor in `docs/b.md` goes silent. The
+    same release without the fragment reports. Red at e6c85df6: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    quoting = f"The docs no longer say that {FOUND[0].lower()}{FOUND[1:]}"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {quoting}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "a live entry quoting the claim, a fragment quoting it, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0],
+                f"{FOUND}\n\n- The docs now name the generator as its writer.",
+                marker=True,
+            )
+            + f"\n{older}",
+        },
+        "release 1.0.0: reword the entry, gather the fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered text shared with the lost entry was written for every "
+        f"file and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
 def test_a_gathered_fragment_standing_in_the_pool_is_not_a_survivor(tmp_path):
     """S10, the pool side. The fragment's marker is in `CHANGELOG.md` at the
     tip, so the fragment is the released entry one file over and is not

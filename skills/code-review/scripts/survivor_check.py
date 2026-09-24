@@ -174,8 +174,8 @@ the fragment's sentences as removed, and the work items' own `spec.md` and
 at the release and not written as the range's own (#557): the fragment's
 own branch wrote it, so it may not subtract a survivor the same commit's
 correction left. Only its n-grams that also occur in a sentence
-`CHANGELOG.md` itself lost are written, so a gathered rewording of a lost
-entry still splits that entry into runs.
+`CHANGELOG.md` itself lost count, and against that file's sentences alone,
+so a gathered rewording of a lost entry still splits that entry into runs.
 
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
@@ -918,7 +918,8 @@ def corpus(root, rev):
 
 
 def corrected(root, a, b):
-    """`[Sentence]` -- what the range removed -- and the n-grams it wrote.
+    """`[Sentence]` -- what the range removed -- the n-grams it wrote, and
+    the gathered n-grams that split `CHANGELOG.md`'s removed sentences alone.
 
     A sentence counts as corrected when the file holds it FEWER times at `b`
     than at `a`. Counted rather than tested for membership, so a sentence
@@ -983,11 +984,13 @@ def corrected(root, a, b):
     a sentence, and the gathered wording would then subtract the survivor a
     correction in the same commit left standing in another file (round 3's
     🟡 1, #557). Of a gathered sentence, only the n-grams that also occur in a
-    sentence THIS file lost are written: a live entry the release replaced
-    with a gathered fragment rewording it is still split into the runs it
-    no longer shares, as a reworded release is, while gathered text that
-    shares nothing with what the file lost stays held. A release that
-    removes no live sentence writes nothing at all."""
+    sentence THIS file lost count, and they are the third return rather than
+    part of `written`: `score` subtracts them from `CHANGELOG.md`'s removed
+    sentences alone, so a live entry the release replaced with a gathered
+    fragment rewording it is still split into the runs it no longer shares,
+    as a reworded release is, while no gathered text subtracts another
+    file's sentence. A release that removes no live sentence writes nothing
+    at all."""
     names = git(root, "diff", "--name-only", "--no-renames", "-z", a, b)
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
@@ -1027,7 +1030,7 @@ def corrected(root, a, b):
         for path, text in read_blobs(root, a, fragments).items()
         for sentence in sentences(path, text)
     }
-    gone, written = [], set()
+    gone, written, split = [], set(), set()
     for path in paths:
         was = sentences(path, before[path]) if path in before else []
         now = sentences(path, after[path]) if path in after else []
@@ -1057,18 +1060,21 @@ def corrected(root, a, b):
         # ...except against what THIS file lost: a live entry the release
         # replaced with a gathered fragment rewording it is still split by
         # that rewording, as a reworded release is (step A's round 2 🟡 1).
-        # Only the grams the lost sentences carry are written, so gathered
-        # text still cannot subtract another file's corrected wording.
+        # Those n-grams are kept apart from `written`, which every file's
+        # removed sentences are scored against, and `score` subtracts them
+        # from this file's alone: written for every file, a fragment quoting
+        # wording the same commit corrected elsewhere would subtract that
+        # survivor again (round 2's 🟡 1).
         lost_here = {gram for sentence in gone[lost:] for gram in sentence.grams()}
         for sentence in held:
-            written.update(gram for gram in sentence.grams() if gram in lost_here)
+            split.update(gram for gram in sentence.grams() if gram in lost_here)
         old = Counter(s.key for s in was)
         fresh = Counter()
         for sentence in now + moved:
             fresh[sentence.key] += 1
             if fresh[sentence.key] > old[sentence.key]:
                 written.update(sentence.grams())
-    return gone, written
+    return gone, written, split
 
 
 def wanted(gone, written):
@@ -1163,7 +1169,7 @@ def weigh(sequence, shared, weight_of):
     return total, named
 
 
-def score(gone, keep, where, weight_of, floor):
+def score(gone, keep, where, weight_of, floor, split=frozenset()):
     """`[(score, candidate, source, shared)]`, worst first.
 
     `shared` is the phrases a candidate has in common with the sentence it
@@ -1178,6 +1184,10 @@ def score(gone, keep, where, weight_of, floor):
     for source in gone:
         sequence = source.grams()
         mine = set(sequence) & keep
+        if source.path == CHANGELOG:
+            # What a gathered rewording shares with the entry it replaced
+            # splits that entry, and no other file's sentence (`corrected`).
+            mine -= split
         reached = {}
         for gram in mine:
             if weight_of.get(gram, 0.0) <= 0:
@@ -1214,12 +1224,12 @@ def examine(root, a, b, floor=FLOOR):
     Every caller goes through this. It returns the two counts as well as the
     rows because the report line names what was examined -- a check that says
     only what it found cannot be told apart from one that looked at nothing."""
-    gone, written = corrected(root, a, b)
+    gone, written, split = corrected(root, a, b)
     keep = wanted(gone, written)
     pool = corpus(root, b)
     where, files = carriers(pool, keep)
     return (
-        score(gone, keep, where, weights(len(pool), files), floor),
+        score(gone, keep, where, weights(len(pool), files), floor, split),
         len(pool),
         len(gone),
     )
