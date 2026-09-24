@@ -93,7 +93,7 @@ Why it matters:
   runs logged out "on your machine as on CI". On the default `gh` setup
   that is false, and the #510 class (a case that passes locally and fails
   on CI) stays open there.
-- `test_gh_reports_no_login_under_the_suites_environment`
+- `test_gh_reports_no_login_under_the_suites_environment` · NAME NOT IN TREE
   (`tests/test_the_suite_runs_with_gh_logged_out.py:69`) asks
   `gh auth status`. That is the one command that is blind to this path, so
   it stays green on exactly the machines where the scrub fails.
