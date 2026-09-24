@@ -597,6 +597,69 @@ def test_a_missing_ledger_is_a_failure_not_a_fresh_start(tree):
     assert fragments_left(tree) == ["1700000000-earlier.md", "1788229400-later.md"]
 
 
+# --- a fragment's own marker line (#553) ------------------------------------
+
+
+def marker_lines(text, work_item_id):
+    return [
+        n
+        for n, ln in enumerate(text.split("\n"), 1)
+        if ln == f"<!-- specs/{work_item_id} -->"
+    ]
+
+
+def test_a_fragment_that_begins_with_its_own_marker_is_folded_with_one_marker(tree):
+    """#553. Twenty fragments began with their own `<!-- specs/<id> -->`
+    line; the fold wrote its marker in front and copied the fragment whole,
+    so each marker stood twice in `seal/ledger.md` and `--check` counted
+    118 work items over 98 folded sections. The leading marker is the
+    fragment's own and is dropped; the fold's is the one that stands."""
+    (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
+        "<!-- specs/1788229400-later -->\n\n"
+        + fragment(
+            "1788229400-later",
+            "Began with its own marker.",
+            [row("the later claim", unit_hash("parse"), anchor="parse")],
+        ),
+        encoding="utf-8",
+    )
+    fold(tree)
+    text = released(tree)
+    assert marker_lines(text, "1788229400-later") == [
+        text.split("\n").index("### 1788229400-later")
+    ], f"the marker stands more than once, or not above its heading:\n{text}"
+    assert "| the later claim |" in text, text
+    r = run("--check", root=tree)
+    assert r.returncode == 0, r.stdout
+    assert "2 work items marked" in r.stdout, r.stdout
+
+
+@pytest.mark.parametrize("where", ["seal/ledger.md", "seal/releases/0.4.0.md"])
+def test_check_refuses_a_marker_that_stands_twice(tree, where):
+    """#553. A marker standing twice is a fold from before the leading line
+    was dropped, or a hand edit; `--check` names the file and both lines,
+    the way it names a doubled heading, and the fragment report still prints.
+    Two shapes of the one defect: `seal/releases/0.4.0.md` marks the work
+    item twice in one file, and `seal/ledger.md` marks it once beside the
+    release file's marker — one work item in two files, which the count
+    reads as two just the same."""
+    fold(tree)
+    path = tree / where
+    text = path.read_text(encoding="utf-8")
+    text += "\n<!-- specs/1788229400-later -->\n\nA second marker for one work item.\n"
+    path.write_text(text, encoding="utf-8")
+    at = marker_lines(text, "1788229400-later")
+    late_fragment(tree)
+    r = run("--check", root=tree)
+    assert r.returncode == 1, r.stdout
+    assert where in r.stdout, r.stdout
+    assert "1788229400-later" in r.stdout, r.stdout
+    assert all(f"{where}:{n}" in r.stdout for n in at), (at, r.stdout)
+    assert "seal/releases/0.4.0.md:" in r.stdout, r.stdout
+    assert "one work item, one marker" in r.stdout, r.stdout
+    assert f"seal/ledger/{LATE}.md" in r.stdout, r.stdout
+
+
 # --- the checker cannot tell ------------------------------------------------
 
 

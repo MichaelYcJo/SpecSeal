@@ -1875,10 +1875,12 @@ def test_the_three_named_markers_are_live_in_this_repositorys_ledger():
     every formulation since has had to keep them.
 
     Every OCCURRENCE, not a dictionary keyed on the line. `seal/ledger.md`
-    carries eleven marker lines twice, so keying on the text kept only the
+    carried eleven marker lines twice when this was written (twenty by
+    `9f846733`, removed by #553), so keying on the text kept only the
     last state of each and a regression parking the first of a pair was
     invisible — the same shape as the oracle that could not see the class it
-    was written for (round 6, finding 5)."""
+    was written for (round 6, finding 5). The reading stays per occurrence
+    whether or not the corpus doubles any line today."""
     ledger = os.path.join(ROOT, "seal", "ledger.md")
     with open(ledger, encoding="utf-8") as f:
         lines = f.read().split("\n")

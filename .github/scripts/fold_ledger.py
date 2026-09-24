@@ -59,6 +59,16 @@ in `ledger.md` or in any release file is refused rather than folded twice: the
 same claim in the corpus twice, with no way to tell which is current, is
 worse than a stop that names the work item and the file.
 
+**A fragment's own leading marker line is dropped** (#553). `CLAUDE.md` says
+a fragment needs no header, and twenty of them began with their own
+`<!-- specs/<id> -->` line anyway; the fold wrote its marker in front and
+copied the fragment whole, so each of the twenty stood twice in
+`seal/ledger.md` and `--check` counted 118 work items over 98 folded
+sections. `section()` drops a first line equal to the fragment's own marker,
+the way `demote` drops its `# <id>` title, and `--check` refuses a marker
+standing twice in `seal/ledger.md` or a release file, naming the file and
+both lines. A marker quoted elsewhere in a fragment is text and is copied.
+
 **The guard.** A sentence in a work item's `spec.md` that must outlive the
 release has to have moved into a `docs/` policy or a ledger row before the
 merge, and `seal/specs/<id>/evidence-todo.md` is where a reviewer lists the facts
@@ -86,8 +96,9 @@ Exit codes: 0 done · 1 for nothing to fold, an open evidence-todo row, a
 fragment whose marker is already in a ledger, a release file that does not
 head the version it is named for, a fragment left at `--check`, a release
 heading left in `seal/ledger.md` at `--check`, a release file headed twice or
-misnamed at `--check`, or a missing `seal/ledger.md`. Every one is a failure
-a release pull request should stop on.
+misnamed at `--check`, a marker standing twice in any ledger at `--check`, or
+a missing `seal/ledger.md`. Every one is a failure a release pull request
+should stop on.
 """
 
 import argparse
@@ -251,6 +262,49 @@ def demote(text, work_item_id):
     return "\n".join(out).strip("\n")
 
 
+def own_marker_dropped(text, work_item_id):
+    """The fragment without a first line that is its own marker (#553).
+
+    Blank lines above it are skipped the way `demote` skips them above the
+    title, and only the FIRST non-blank line is asked: a marker quoted later
+    in the fragment is the fragment's text. The blank lines under a dropped
+    marker go with it, or the section would open on a blank.
+    """
+    lines = text.split("\n")
+    at = 0
+    while at < len(lines) and not lines[at].strip():
+        at += 1
+    if at < len(lines) and lines[at].strip() == marker(work_item_id):
+        at += 1
+        while at < len(lines) and not lines[at].strip():
+            at += 1
+        return "\n".join(lines[at:])
+    return text
+
+
+def doubled_markers(ledgers):
+    """`[(work item id, [(path, line number)])]` for every work item whose
+    marker stands on a line of its own more than once across `ledgers` —
+    `[(path, text)]`, the shared file and every release file (#553).
+
+    Across the corpus rather than per file, because both shapes are one
+    defect: a work item marked twice in one file (the fragment that began
+    with its own marker) and one marked in two files (a fold to the old
+    place after the split) both make the count say one work item is two.
+    `tests/test_release_hygiene.py#duplicated_markers` is the same reader
+    over the real tree on every pull request.
+    """
+    where = {}
+    for path, text in ledgers:
+        for number, line in enumerate(text.split("\n"), 1):
+            found = MARKER_LINE_RE.match(line)
+            if found:
+                where.setdefault(
+                    found.group(0)[len("<!-- specs/") : -len(" -->")], []
+                ).append((path, number))
+    return [(work_item_id, at) for work_item_id, at in where.items() if len(at) > 1]
+
+
 def section(version, date, entries):
     """The release section, as it goes into the ledger.
 
@@ -262,7 +316,7 @@ def section(version, date, entries):
     blocks = [f"## {version} — {date}", ""]
     empty = []
     for work_item_id, text in entries:
-        body = demote(text, work_item_id)
+        body = demote(own_marker_dropped(text, work_item_id), work_item_id)
         if not body.strip():
             empty.append(work_item_id)
             continue
@@ -449,8 +503,9 @@ def main(argv=None):
         "--check",
         action="store_true",
         help="report fragments left in seal/ledger/, open evidence-todo "
-        "rows, a release left in seal/ledger.md and a release file not "
-        "named for the one version it heads once, and exit 1",
+        "rows, a release left in seal/ledger.md, a release file not "
+        "named for the one version it heads once and a marker standing "
+        "twice, and exit 1",
     )
     ap.add_argument("--dry-run", action="store_true", help="print, write nothing")
     ap.add_argument("--root", default=ROOT, help="repository root (default: this one)")
@@ -529,6 +584,22 @@ def main(argv=None):
                 "\nA release file heads exactly the version it is named for, "
                 "once: rename it, or move a later heading's work items under "
                 "the first and delete the later one"
+            )
+        twice = doubled_markers(ledgers)
+        if twice:
+            # A fragment that began with its own marker line used to be
+            # folded with it (#553); a marker standing twice now is a fold
+            # from before, or a hand edit.
+            bad = True
+            if frags or items or headed or wrong:
+                print()
+            print("a marker stands twice — one work item, one marker:")
+            for work_item_id, at in twice:
+                places = ", ".join(f"{path}:{n}" for path, n in at)
+                print(f"  {work_item_id}  at {places}")
+            print(
+                "\nKeep the marker above the work item's `### ` heading; delete "
+                "the other line and the blank line under it"
             )
         if bad:
             return 1

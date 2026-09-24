@@ -294,13 +294,13 @@ while a reviewer-verified fact is still outside the ledger.
 
 | Clause | Code grounds | Verified behavior | Checked | Notes |
 |---|---|---|---|---|
-| Every fragment under `seal/ledger/` is read in work item id order, its text moved into `ledger.md` under `## X.Y.Z — <date>` and `### <id>`, and the file removed only after the ledger is on disk | `.github/scripts/fold_ledger.py#fragments@c8fe3dfd`, `.github/scripts/fold_ledger.py#section@1b72e077`, `.github/scripts/fold_ledger.py#append@e091419b`, `.github/scripts/fold_ledger.py#main@895bd15b` | **Executed** on a copy of this repository's tree, twice: before this work item's own fragment existed, six fragments and 55 table rows; with it, seven and 99 (round 1, the reviewer). Every row found byte-identical in the folded `map.md`, `.specseal/map/` gone; the earlier id sorts above the later one; a second run exits 1 with `nothing to fold`. Mutation: dropping the `os.remove` turns 10 cases red | 2026-09-02 | The section is appended, where the changelog gather inserts at the top — a ledger is read by area and its top holds the notation; nothing measures from the position (`questions.md` Q2). **Re-read 2026-09-24 by work item 1790206437 (#540), phase 2:** `main` now asks `section_heading` before it builds the block and writes through `insert`, so a fold for a version the ledger already heads joins that section and keeps its date; a new section is still appended below everything, the order and the move-then-remove sequence are untouched, and the claim holds **Re-read 2026-09-24 by work item 1790208593 (#547), phase 2:** the text moves into `seal/releases/<X.Y.Z>.md` — a new file for a new release, C's `insert` over the existing one — and `seal/ledger.md` is never written by a fold; the order and the move-then-remove sequence are untouched. `append` is still `insert`'s no-section arm, unreachable from `main` because a release file that does not head its version is refused first, and it stays (`questions.md` Q2) |
+| Every fragment under `seal/ledger/` is read in work item id order, its text moved into `ledger.md` under `## X.Y.Z — <date>` and `### <id>`, and the file removed only after the ledger is on disk | `.github/scripts/fold_ledger.py#fragments@c8fe3dfd`, `.github/scripts/fold_ledger.py#section@07b148a7`, `.github/scripts/fold_ledger.py#append@e091419b`, `.github/scripts/fold_ledger.py#main@2c95f1a6` | **Executed** on a copy of this repository's tree, twice: before this work item's own fragment existed, six fragments and 55 table rows; with it, seven and 99 (round 1, the reviewer). Every row found byte-identical in the folded `map.md`, `.specseal/map/` gone; the earlier id sorts above the later one; a second run exits 1 with `nothing to fold`. Mutation: dropping the `os.remove` turns 10 cases red | 2026-09-02 | The section is appended, where the changelog gather inserts at the top — a ledger is read by area and its top holds the notation; nothing measures from the position (`questions.md` Q2). **Re-read 2026-09-24 by work item 1790206437 (#540), phase 2:** `main` now asks `section_heading` before it builds the block and writes through `insert`, so a fold for a version the ledger already heads joins that section and keeps its date; a new section is still appended below everything, the order and the move-then-remove sequence are untouched, and the claim holds **Re-read 2026-09-24 by work item 1790208593 (#547), phase 2:** the text moves into `seal/releases/<X.Y.Z>.md` — a new file for a new release, C's `insert` over the existing one — and `seal/ledger.md` is never written by a fold; the order and the move-then-remove sequence are untouched. `append` is still `insert`'s no-section arm, unreachable from `main` because a release file that does not head its version is refused first, and it stays (`questions.md` Q2) **Re-read 2026-09-24 by work item 1790208593 (#553), phase 3:** `section` drops a fragment's own leading marker line before `demote`, so a folded section carries one marker; every table row still moves byte for byte |
 | A fragment's `# <id>` title is dropped, blank lines above it too, and every other heading outside a code fence moves down two levels; every other line is copied byte for byte — split on `\n` alone, trailing whitespace kept, a `#` line inside a ``` or `~~~` fence left as text, each fence closed by the next line starting with its own three characters — looser than CommonMark, which the rider at that line records | `.github/scripts/fold_ledger.py#demote@bddf3e2e` | **Executed**: the fixture's `## The area this work item wrote` lands as `####`, the `# <id>` line is absent, the preamble survives, a row holding an escaped pipe arrives unchanged, a row holding U+2028 arrives as one row, the last row keeps its trailing tab, a `# not a heading` line inside a fence is not demoted, a title after a whitespace-only line yields one `### <id>` and not two, and a ``` line inside a `~~~` fence does not close it | 2026-09-05 | Round 1's 🟡 5, probes A–C: `strip()`, `splitlines()` and the fence were each a way the move was not byte for byte; round 2's 🟡 4 added the blank first line and the `~~~` form. Today's fragments hold none of the five shapes, so the real fold was 99/99 either way. **Re-read 2026-09-05 at the 0.8.1 release preparation**, which found the content under `demote` moved by one line: its rider stamp names `5a831e8` where it named `9edc59f`, moved by the same rewrite. The split is still on `\n` alone and nothing about the demotion changed, so the claim holds |
 | A folded work item is marked with `<!-- specs/<id> -->` on a line of its own, and a fragment present while its marker stands in `ledger.md` is refused with nothing written; the marker quoted inline in prose is not a mark, and one standing alone inside a code fence is | `.github/scripts/fold_ledger.py#marker@2befe8df`, `.github/scripts/fold_ledger.py#is_marked@0fe8ff3a`, `.github/scripts/fold_ledger.py#folded@a10e4565` | **Executed**: re-creating a folded fragment makes the fold exit 1 naming it, the ledger byte-identical and the fragment still there; re-wording a folded note leaves `--check` green; a real work item's marker quoted inline in the ledger's prose lets the fold run and exit 0 (round 2 executed eight shapes: inline and padded lines are not marks, a bare line inside a fence is, and fold and `--check` agree on each). Mutation: not writing the marker turns 18 cases red | 2026-09-02 | The same marker string `gather_changelog.py` writes into `CHANGELOG.md`, so one comment shape names a work item in both gathered files. Round 1's 🟡 3: the substring test refused, with advice that would have a person delete the only copy of the rows **Re-read 2026-09-24 by work item 1790208593 (#547), phase 2:** `folded` asks `is_marked` of `seal/ledger.md` and every release file and returns the file the marker stands in, which the refusal names |
 | The messages print `/`-joined paths on every platform; disk paths are built from them through one helper | `.github/scripts/fold_ledger.py#under@fae97017`, `.github/scripts/fold_ledger.py#LEDGER@3d869849`, `.github/scripts/fold_ledger.py#FRAGMENTS@dafda07f` | **Executed**: `--check` and the already-folded refusal print no backslash, and the fold on a copy of this tree still removes every fragment through `under()` | 2026-09-02 | Round 1's 🔴 1: `os.path.join` printed `.specseal\map` on Windows, where three assertions expected `/`, and `test.yml` runs the suite on `windows-latest`. The backslash test goes red only on the Windows leg, where `os.path.join` differs; on the other two it pins the `/` form (round 2, 🟡 3: with the constants reverted it passes on macOS) |
 | The checker de-duplicates on `(coordinate, hash)` within one file, so a fold moves its total by exactly the rows two files cited identically | `skills/evidence-check/scripts/evidence_check.py#check_text@2328e19a` | **Executed** on copies of this tree: 141 ok → 140 ok before this fragment existed, 155 → 154 with it (round 1, the reviewer); 0 drifted, 0 broken either time. The pair is `skills/code-review/scripts/chain_check.py#main`, cited by `map.md` and the `1788272986-…` fragment | 2026-09-02 | `seen` is a local of one `check_ledger` call. A release reading a smaller total after the fold should look here before looking for a lost row (`spec.md` S6) |
-| An empty fragment gets no section and no marker, and is removed and named | `.github/scripts/fold_ledger.py#section@1b72e077` | **Executed**: a fragment holding only its title prints `(empty, removed)` and leaves no `1788300000-empty` in the ledger | 2026-09-02 | A marker with nothing under it would make `--check` say the rows arrived when there were none. **Re-read 2026-09-24 by work item 1790206437 (#540), phase 2:** `section` is byte-identical; `main`'s empty-fragment handling is untouched by the join, and the claim holds |
-| `--check` counts markers on a line of their own, so the ledger's header quoting the marker's shape is not a work item | `.github/scripts/fold_ledger.py#MARKER_LINE_RE@95d471a3`, `.github/scripts/fold_ledger.py#main@895bd15b` | **Executed**: on the folded copy, a substring count read 7 where six fragments had been folded; the line-anchored count reads 6 | 2026-09-02 | Found by the first real run, not by the fixture, whose ledger header does not quote the marker. **Re-read 2026-09-24 by work item 1790206437 (#540), phase 2:** `--check` gained a third arm, a version headed twice (`doubled_versions`), printed after the fragment and open-row reports; the marker count is unchanged and the claim holds **Re-read 2026-09-24 by work item 1790208593 (#547), phase 2:** the count runs across `seal/ledger.md` and every release file and the line names both; two further arms refuse a release heading left in the shared file and a release file not named for the one version it heads once |
+| An empty fragment gets no section and no marker, and is removed and named | `.github/scripts/fold_ledger.py#section@07b148a7` | **Executed**: a fragment holding only its title prints `(empty, removed)` and leaves no `1788300000-empty` in the ledger | 2026-09-02 | A marker with nothing under it would make `--check` say the rows arrived when there were none. **Re-read 2026-09-24 by work item 1790206437 (#540), phase 2:** `section` is byte-identical; `main`'s empty-fragment handling is untouched by the join, and the claim holds **Re-read 2026-09-24 by work item 1790208593 (#553), phase 3:** a fragment holding nothing but its own marker line is empty after the drop, so it too gets no section and is removed and named |
+| `--check` counts markers on a line of their own, so the ledger's header quoting the marker's shape is not a work item | `.github/scripts/fold_ledger.py#MARKER_LINE_RE@95d471a3`, `.github/scripts/fold_ledger.py#main@2c95f1a6` | **Executed**: on the folded copy, a substring count read 7 where six fragments had been folded; the line-anchored count reads 6 | 2026-09-02 | Found by the first real run, not by the fixture, whose ledger header does not quote the marker. **Re-read 2026-09-24 by work item 1790206437 (#540), phase 2:** `--check` gained a third arm, a version headed twice (`doubled_versions`), printed after the fragment and open-row reports; the marker count is unchanged and the claim holds **Re-read 2026-09-24 by work item 1790208593 (#547), phase 2:** the count runs across `seal/ledger.md` and every release file and the line names both; two further arms refuse a release heading left in the shared file and a release file not named for the one version it heads once **Re-read 2026-09-24 by work item 1790208593 (#553), phase 3:** a further arm refuses a work item marked more than once across `seal/ledger.md` and the release files, naming each `path:line`; the count itself is unchanged |
 
 #### The guard
 
@@ -308,7 +308,7 @@ while a reviewer-verified fact is still outside the ledger.
 |---|---|---|---|---|
 | A line outside a table whose first word is `drained` closes the whole file; otherwise every table body row is open unless its first cell begins with ✅; a header and its separator are not rows | `.github/scripts/fold_ledger.py#open_rows@9bec3304` | **Executed**: `drained` above the table, below it, and in bold all pass; every row ✅, a header with no body row, no table, and no file all pass; `not drained yet`, one ✅ beside one bare row, and `drained` inside a table cell all refuse. Mutation: removing the `drained` rule turns 24 cases red, removing the ✅ rule turns 1 red | 2026-09-02 | The four-step rule in `spec.md` §"The rule for an open evidence-todo row", written so a person can apply it by hand; all three files in this tree, this work item's included, are closed by the `drained` line |
 | Lines are split on `\n` alone, so a cell holding U+2028, U+0085 or a form feed before the word `drained` does not close the file | `.github/scripts/fold_ledger.py#open_rows@9bec3304` | **Executed**: a row whose cell carries U+2028 followed by `drained` reads as one open row and refuses the fold | 2026-09-02 | Round 1's 🟡 4, probe E: `splitlines()` read the cell's tail as a line of its own, which closed the file — the silent direction for a guard |
-| Every `seal/specs/*/evidence-todo.md` in the tree is read, and one open row refuses the fold before anything is written or removed, naming the file and the count | `.github/scripts/fold_ledger.py#open_items@b2ff3354`, `.github/scripts/fold_ledger.py#report_open@6c7b8ee7`, `.github/scripts/fold_ledger.py#main@895bd15b` | **Executed**: an open row in a work item with no fragment left (`1600000000-released-long-ago`) refuses the fold; the ledger is byte-identical and every fragment still there. Mutation: skipping the guard at the fold turns 5 cases red | 2026-09-02 | "Released" and "present" are the same set on a branch cut from the release branch (`questions.md` Q1). **Re-read 2026-09-24 by work item 1790206437 (#540), phase 2:** the open-row refusal still runs before `section_heading` is asked and before anything is written or removed, and the claim holds |
+| Every `seal/specs/*/evidence-todo.md` in the tree is read, and one open row refuses the fold before anything is written or removed, naming the file and the count | `.github/scripts/fold_ledger.py#open_items@b2ff3354`, `.github/scripts/fold_ledger.py#report_open@6c7b8ee7`, `.github/scripts/fold_ledger.py#main@2c95f1a6` | **Executed**: an open row in a work item with no fragment left (`1600000000-released-long-ago`) refuses the fold; the ledger is byte-identical and every fragment still there. Mutation: skipping the guard at the fold turns 5 cases red | 2026-09-02 | "Released" and "present" are the same set on a branch cut from the release branch (`questions.md` Q1). **Re-read 2026-09-24 by work item 1790206437 (#540), phase 2:** the open-row refusal still runs before `section_heading` is asked and before anything is written or removed, and the claim holds **Re-read 2026-09-24 by work item 1790208593 (#547, #553), phases 2 and 3:** `main` now writes a release file and `--check` has three more arms; the open-row guard still runs first and refuses before anything is written or removed, so the claim holds |
 | The release pull request runs `--check`, which fails for a fragment left behind or an open row and otherwise says how many work items it saw marked | `.github/workflows/hygiene.yml#"echo \"base is ${{ github.base_ref }} — fragments are folded when the release reaches main\"; exit 0"@31c3f233`, `docs/branch-and-release.md#"**The fold refuses while a verified fact has not reached the ledger.** A"@44b10fe7`, `CONTRIBUTING.md#"The fold refuses, naming the file, while any `seal/specs/<id>/evidence-todo.md`"@4018ec30` | **Executed** for the script: `--check` exits 1 naming each fragment before the fold and an open file after it, exits 0 with `6 work items marked` on the folded copy of this repository (`7` once this fragment existed, round 1). **Read** for the workflow: the step exits 0 with a message on a pull request whose base is not `main` and runs `fold_ledger.py --check` only when it is, the same shape as the changelog step above it | 2026-09-23 | No release pull request has run the step yet; `overview.md` §Not verified names the owner. **Re-read 2026-09-23 by work item 1790154761 (#520).** The anchor is a line-block unit inside `## House rules`, and #520 widened the README rule a few lines above it; the sentence this row cites is unchanged, so the hash moved and the claim did not |
 
 <!-- specs/1788331011-two-roots-hold-three-lifetimes -->
@@ -1214,8 +1214,6 @@ on behalf of a session that never read it. -->
 <!-- specs/1788691941-an-unwritable-venv-turns-the-refusal-into-a-traceback -->
 ### 1788691941-an-unwritable-venv-turns-the-refusal-into-a-traceback
 
-<!-- specs/1788691941-an-unwritable-venv-turns-the-refusal-into-a-traceback -->
-
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
 
@@ -1257,8 +1255,6 @@ cites, so it drifted nothing there and stamped nothing by hand. -->
 
 <!-- specs/1788700685-two-value-shaped-odd-rows-end-the-report -->
 ### 1788700685-two-value-shaped-odd-rows-end-the-report
-
-<!-- specs/1788700685-two-value-shaped-odd-rows-end-the-report -->
 
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
@@ -1332,8 +1328,6 @@ by reading the two files. -->
 <!-- specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer -->
 ### 1788735085-a-loaded-file-naming-a-real-version-is-a-timer
 
-<!-- specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer -->
-
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
 
@@ -1369,8 +1363,6 @@ is R2 here.
 <!-- specs/1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row -->
 ### 1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row
 
-<!-- specs/1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row -->
-
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
 
@@ -1396,8 +1388,6 @@ carries the claim the code grounds today. -->
 
 <!-- specs/1788761915-a-record-states-what-nothing-reads -->
 ### 1788761915-a-record-states-what-nothing-reads
-
-<!-- specs/1788761915-a-record-states-what-nothing-reads -->
 
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
@@ -1432,8 +1422,6 @@ through `display_name` — were left where they are. -->
 
 <!-- specs/1788789329-a-git-call-that-fails-reads-as-no-remote -->
 ### 1788789329-a-git-call-that-fails-reads-as-no-remote
-
-<!-- specs/1788789329-a-git-call-that-fails-reads-as-no-remote -->
 
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
@@ -1524,8 +1512,6 @@ fixed it.
 <!-- specs/1788789985-round-record-dies-on-python-3-9 -->
 ### 1788789985-round-record-dies-on-python-3-9
 
-<!-- specs/1788789985-round-record-dies-on-python-3-9 -->
-
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
 
@@ -1588,8 +1574,6 @@ ticket named. -->
 <!-- specs/1788826000-a-stamp-names-content-not-a-commit -->
 ### 1788826000-a-stamp-names-content-not-a-commit
 
-<!-- specs/1788826000-a-stamp-names-content-not-a-commit -->
-
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
 
@@ -1626,8 +1610,6 @@ missing: what a re-stamp may move. -->
 
 <!-- specs/1788844200-the-refusal-text-is-unobserved-and-an-uppercase-v-is-invisible -->
 ### 1788844200-the-refusal-text-is-unobserved-and-an-uppercase-v-is-invisible
-
-<!-- specs/1788844200-the-refusal-text-is-unobserved-and-an-uppercase-v-is-invisible -->
 
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
@@ -1773,8 +1755,6 @@ The last three are this work item's own. -->
 <!-- specs/1788846800-an-exited-session-reads-as-live-for-five-minutes -->
 ### 1788846800-an-exited-session-reads-as-live-for-five-minutes
 
-<!-- specs/1788846800-an-exited-session-reads-as-live-for-five-minutes -->
-
 <!-- One work item's rows, two tickets. No header — `fold_ledger.py` writes
 the `###` at the release and moves this file into `seal/ledger.md`.
 
@@ -1792,8 +1772,6 @@ issue — and would otherwise be re-proposed from it. -->
 
 <!-- specs/1788904490-every-published-reading-carries-three-wrong-rows -->
 ### 1788904490-every-published-reading-carries-three-wrong-rows
-
-<!-- specs/1788904490-every-published-reading-carries-three-wrong-rows -->
 
 <!-- One work item's rows, three tickets. No header — `fold_ledger.py` writes
 the `###` at the release and moves this file into `seal/ledger.md`.
@@ -2446,10 +2424,10 @@ re-pointed (`CLAUDE.md` §*a change writes fragments, never the shared file*).
 | R6 · `settle.py#coordinates` sections the shared ledger and reads a fragment by the same rule: a marker inside a commented-out draft opens no section, an opener quoted inside a code span parks nothing, a fragment's fenced or parked example row is not the fragment's own, and this repository's ledger sections the ids the fence-only reading sections | `skills/settle/scripts/settle.py#coordinates@c8ec101f`, `tests/test_settle_reads_before_it_removes.py#test_a_parked_marker_in_the_ledger_opens_no_section@68b0d487`, `tests/test_settle_reads_before_it_removes.py#test_an_opener_quoted_inside_a_code_span_parks_nothing@eba644ad`, `tests/test_settle_reads_before_it_removes.py#test_the_rule_over_this_repositorys_ledger_loses_no_section@c2b3cd75`, `tests/test_settle_reads_before_it_removes.py#test_a_fragments_quoted_coordinates_are_not_the_fragments_own@a666209f` | **Executed** 2026-09-22. A2 and A5 red against `3cdfd8ad`: the parked row was attributed to a section, and the fragment's parked row was the fragment's own. A3 and A4 red with the span pass removed from `live_lines`, A4 naming three ids missing from the real ledger's sectioning — `1788472135-the-run-outlives-its-last-finding`, `1788613827-a-runs-report-carries-one-comparison-table`, `1788844127-the-reviewers-report-reaches-the-record-retyped` — which are the three markers round 3 measured lost. A5 red again under round 3's M7, the fragments loop back to a whole-file `finditer`, which had turned nothing red before. `bin/settle` at the build's tip: `released and unfolded: 81 work items in 37 segments, 16 ungrouped, 0 skipped`, exit 0 read with `echo $?` | 2026-09-22 | A2's fixture puts the draft's row BEFORE its marker. HTML comments do not nest, so a marker inside a draft closes the draft with its own `-->`, and a row after it is live again and falls to the section that was open — `comment_scan`'s rule, which `seal/ledger.md` pins, and the case pins that reading with the reason beside it. **Re-read 2026-09-22 in round 1's fix pass**: the docstring now also names the THIRD quotation it does not answer, markdown's indented code block, with the reason it is answered by convention rather than by the reader. No loop changed. **Re-read again 2026-09-22 in round 2's fix pass**, which corrected one ground in that paragraph: the refusal a widened fence reader actually meets is `tests/test_the_record_is_generated.py#test_a_continuation_that_looks_like_an_opener_is_still_joined`, executed, and NOT `reader_blanking_passes`, which stays green because it reads the calls `readable` makes by name. The decision to leave the door open is unchanged and the loops are untouched **Re-read 2026-09-24 (#547)**: the same loop now runs over each release file as well, because a release file is the section byte for byte; a marked section in `seal/releases/0.2.0.md` is attributed by the same rule (case red first). |
 | R7 · A closing delimiter quoted in prose still ends a parked draft, and an indented example row in a fragment is counted as the fragment's own — the first fixed, the second decided and pinned as it stands | `tests/test_settle_reads_before_it_removes.py#test_a_closer_quoted_in_prose_still_closes_a_parked_draft@fc05da6b`, `tests/test_settle_reads_before_it_removes.py#test_an_indented_example_row_is_counted_and_the_reader_says_so@2933d5fd`, `skills/verify/scripts/unverified_check.py#OPENER@d8752669` | **Executed** 2026-09-22 in round 1's fix pass. The first case was red against `adb5607d`'s parent on its first assertion, the row reported under `1700000003-gamma` instead of beta's section, and is red again under the mutation that drops `holding=OPENER`. The second is green by construction — it pins a door left open — and is red under a mutation that skips an indented line in the fragments loop, so it is not vacuous. A third mutation, the predicate blanking nothing, reddens seven cases including all five span shapes | 2026-09-22 | Round 1's findings 1 and 3. `folded_items` is unreachable through the indented door: `FOLD_MARKER` is line-anchored and an indented marker returns the empty set, executed the same day. Widening `blank_fences` would move `readable`, `check_text`, `round_record.py` and the review-history guard at once, which is why the third door is named in a docstring and a case rather than closed. **Re-read 2026-09-22 in round 2's fix pass**: the case docstring named the wrong guard and now names the measured one. What the case asserts is unchanged |
 | R11 · A line is live only where BOTH span readings call it live — the one where an unclosed backtick run is literal text and the one where it is a span reaching to its partner — so nothing has to decide where markdown's block ends, and a disagreement parks the line | `skills/verify/scripts/unverified_check.py#live_lines@d652bc38`, `skills/verify/scripts/unverified_check.py#_liveness@c1559757`, `skills/verify/scripts/unverified_check.py#_partner_ahead@00bac1d4`, `tests/test_unverified_rows_close.py#test_every_shape_five_review_rounds_named@8070335f`, `tests/test_unverified_rows_close.py#test_the_scan_never_reads_live_what_the_format_parks@b88a4350` | **Executed** 2026-09-22 in round 5's fix pass. Round 5's shape — a paragraph with an unclosed backtick, a draft opener on the next line, the partner after it, a marker below — read live at `62f58ea5` and parks here; verified at both ends, `release/v0.13.0` also parks it, so the defect was this branch's. All seven shapes the five rounds named answer as the design table says, and two of the seven are red against the shipped reader: round 5's shape and the safety fuzz. Five mutations, each applied alone and restored: the literal reading alone reddens the seven-shape family and the fuzz; the crossing reading alone reddens the family; dropping the table-row rule reddens the coordinate invariant, the fuzz and rounds 1 and 2's cases; dropping the block-quote rule reddens the fuzz alone; keeping backticks special inside a comment reddens eight. Four modules 249 passed exit 0, ruff clean, `/usr/bin/python3` 3.9.6 answers the round-5 shape correctly | 2026-09-22 | Rounds 1 to 4 guessed at the comment state from a stateless pass; round 4's scan fixed that and guessed instead at markdown's block structure, which round 5 caught. Computing both readings ends the class because there is no third thing left to be wrong about. **Two doors close together**: round 5's, which was ours, and the multi-line code span `overview.md` §*Not done* had carried since round 2 |
-| R12 · The crossing reading is bounded by where a paragraph ends, and the bound is a list of block starts rather than a guess at the grammar — because an incomplete list here cannot delete a directory, only park a line | `skills/verify/scripts/unverified_check.py#_paragraph_ends_at@3e49699d`, `tests/test_settle_reads_before_it_removes.py#test_no_section_of_this_repositorys_ledger_loses_a_coordinate@6d779d84`, `tests/test_unverified_rows_close.py#test_the_three_named_markers_are_live_in_this_repositorys_ledger@cfbd6731` | **Executed** 2026-09-22, and the bound was chosen by measurement rather than assumed. Unbounded, the crossing reading takes `seal/ledger.md` from 761 not-live lines to 1,829 and from 94 markers over 83 ids to 20 over 20, because in a table block a stray backtick finds a partner rows later. Bounded by a blank line alone — the one rule CommonMark states unconditionally — it keeps all 94 markers and all 83 ids at 778 not-live, and still takes three work items from 12, 57 and 29 coordinates to 5, 40 and 19. With the table row added every section matches the fence-only reading coordinate for coordinate, and the figures return to 761 / 94 / 83 | 2026-09-22 | The first draft of this row argued that reaching further could only park more, so an incomplete list was safe. **That argument is false and the fuzz disproved it**: reaching further changes which runs PAIR, and consuming a partner early can leave a later line live — minimised to three lines, where the crossing reading pairing across a block quote frees the line below. So the list has to end the paragraph where the format does, and what watches it is `test_the_scan_never_reads_live_what_the_format_parks` against an oracle written from the specification rather than from this module |
+| R12 · The crossing reading is bounded by where a paragraph ends, and the bound is a list of block starts rather than a guess at the grammar — because an incomplete list here cannot delete a directory, only park a line | `skills/verify/scripts/unverified_check.py#_paragraph_ends_at@3e49699d`, `tests/test_settle_reads_before_it_removes.py#test_no_section_of_this_repositorys_ledger_loses_a_coordinate@6d779d84`, `tests/test_unverified_rows_close.py#test_the_three_named_markers_are_live_in_this_repositorys_ledger@3ae9d409` | **Executed** 2026-09-22, and the bound was chosen by measurement rather than assumed. Unbounded, the crossing reading takes `seal/ledger.md` from 761 not-live lines to 1,829 and from 94 markers over 83 ids to 20 over 20, because in a table block a stray backtick finds a partner rows later. Bounded by a blank line alone — the one rule CommonMark states unconditionally — it keeps all 94 markers and all 83 ids at 778 not-live, and still takes three work items from 12, 57 and 29 coordinates to 5, 40 and 19. With the table row added every section matches the fence-only reading coordinate for coordinate, and the figures return to 761 / 94 / 83 | 2026-09-22 | The first draft of this row argued that reaching further could only park more, so an incomplete list was safe. **That argument is false and the fuzz disproved it**: reaching further changes which runs PAIR, and consuming a partner early can leave a later line live — minimised to three lines, where the crossing reading pairing across a block quote frees the line below. So the list has to end the paragraph where the format does, and what watches it is `test_the_scan_never_reads_live_what_the_format_parks` against an oracle written from the specification rather than from this module **Re-read 2026-09-24 by work item 1790208593 (#553):** the case's docstring alone changed — the ledger no longer doubles a marker line, and the reading stays per occurrence regardless |
 | R13 · The scan's precedence is fixed and pinned — a fence opener is decided before anything else on its line, and after that whichever of a comment opener and a backtick run comes first in the text wins — and `folded_items` asks `live_lines` for all of it | `skills/verify/scripts/unverified_check.py#folded_items@7a8d3c99`, `tests/test_unverified_rows_close.py#test_the_scan_decides_a_fence_before_a_comment_or_a_span@e61ea481`, `tests/test_unverified_rows_close.py#test_the_first_delimiter_on_the_line_wins@48805d40`, `tests/test_unverified_rows_close.py#test_a_code_span_closes_at_a_backtick_string_of_equal_length@2c7dc94b`, `tests/test_unverified_rows_close.py#test_strip_comments_reads_through_the_one_comment_scanner@5ad8cedb` | **Executed** 2026-09-22. Each is red under the mutation named for it, applied alone and restored: a scan that stops treating a fence opener as a fence, a comment opener that always beats a backtick run, a span closing at any run rather than an equal-length one, and a private copy of the comment walk inside `strip_comments`. The precedence pair and the span rule are unchanged by round 5's rewrite — both readings share them, and only the unclosed-run question differs | 2026-09-22 | Re-homed from rows this pass removed, whose anchors went with `is_block_boundary` and the renamed fuzz case. `comment_scan` has one reader left, so what the scanner case still pins is that the reader keeps no private copy of the walk, which is the shape #487 is open about |
 | R14 · A fence delimiter is bounded to three spaces of indentation, in the reader AND in the oracle that judges it, because a deeper one is an indented code block and reading it as a delimiter inverts the fence state for the rest of the file | `skills/verify/scripts/unverified_check.py#FENCE_RE@d82f872f`, `tests/test_unverified_rows_close.py#a_reading_from_the_commonmark_rules@15ba69c2`, `tests/test_unverified_rows_close.py#test_every_shape_five_review_rounds_named@8070335f` | **Executed** 2026-09-22 in round 6's fix pass, and the two bounds move together because moving one alone is a trap: with the reader bounded and the oracle still stripping the line, the safety case reports the CORRECTED reader unsafe on five lines of the fenced-example document. Both shapes were red against the shipped pair — a real fenced example under a phantom opener and a phantom pair straddling a draft, each taking `settle --retire` to exit 0 with the directory removed. Bounding `FENCE_RE` alone moves **0 lines in all 1,460 `.md` files** of the repository, re-derived rather than carried. `seal/ledger.md` stays at 761 not-live, 94 marker occurrences, 83 unique ids, the three named markers live at 767, 992 and 1619; the eleven-file corpus at 903 | 2026-09-22 | Round 6's findings 1 and 2, which are one fix. The laxness was inherited — `release/v0.13.0` deletes for this shape too — but `FENCE_RE` is a unit this branch created and the oracle is entirely this branch's, so the case that could not see the class it was written for is ours outright |
-| R15 · The paragraph rule stops where markdown stops and nowhere else, and the case that watches it can build the shapes it can be wrong about | `skills/verify/scripts/unverified_check.py#_paragraph_ends_at@3e49699d`, `tests/test_unverified_rows_close.py#documents_with_several_spans_on_a_line@05d2d9bb`, `tests/test_unverified_rows_close.py#test_the_three_named_markers_are_live_in_this_repositorys_ledger@cfbd6731` | **Executed** 2026-09-22. Four over-stops removed or bounded — a hash with no space, seven hashes, an ordered marker that is not 1 — and one missing stop added, the setext underline (CommonMark 4.3). The rules disagree on 944 lines of the repository's own `.md` files, and liveness changes on **6 lines across 4 files, every one under `seal/specs/` and none in `docs/`, `seal/ledger.md` or `seal/ledger/`**: five toward parked and one toward live, all of them prose beginning with an issue reference. **Reverting any of the three paragraph corrections reddened nothing until the generator was widened**, which is round 6's finding 2 one level over; with `#nospace`, seven hashes, `3. item`, `===` and an indented delimiter as tokens, and a quarter of lines emitted as a single token, each revert reddens `test_the_scan_never_reads_live_what_the_format_parks` | 2026-09-22 | Round 6's findings 3, 4 and 5. The docstring had stated *being incomplete here is safe* as the design's whole safety argument, which round 5's own fuzz disproved and which reached the ledger and not the sentence the next editor reads; it now says incomplete is CHEAP rather than safe and why. The corpus floor counts OCCURRENCES rather than keying a dictionary on the marker line — `seal/ledger.md` carries eleven marker lines twice, so a regression parking the first of a pair was invisible, and a mutation that parks exactly that now reddens the case |
+| R15 · The paragraph rule stops where markdown stops and nowhere else, and the case that watches it can build the shapes it can be wrong about | `skills/verify/scripts/unverified_check.py#_paragraph_ends_at@3e49699d`, `tests/test_unverified_rows_close.py#documents_with_several_spans_on_a_line@05d2d9bb`, `tests/test_unverified_rows_close.py#test_the_three_named_markers_are_live_in_this_repositorys_ledger@3ae9d409` | **Executed** 2026-09-22. Four over-stops removed or bounded — a hash with no space, seven hashes, an ordered marker that is not 1 — and one missing stop added, the setext underline (CommonMark 4.3). The rules disagree on 944 lines of the repository's own `.md` files, and liveness changes on **6 lines across 4 files, every one under `seal/specs/` and none in `docs/`, `seal/ledger.md` or `seal/ledger/`**: five toward parked and one toward live, all of them prose beginning with an issue reference. **Reverting any of the three paragraph corrections reddened nothing until the generator was widened**, which is round 6's finding 2 one level over; with `#nospace`, seven hashes, `3. item`, `===` and an indented delimiter as tokens, and a quarter of lines emitted as a single token, each revert reddens `test_the_scan_never_reads_live_what_the_format_parks` | 2026-09-22 | Round 6's findings 3, 4 and 5. The docstring had stated *being incomplete here is safe* as the design's whole safety argument, which round 5's own fuzz disproved and which reached the ledger and not the sentence the next editor reads; it now says incomplete is CHEAP rather than safe and why. The corpus floor counts OCCURRENCES rather than keying a dictionary on the marker line — `seal/ledger.md` carries eleven marker lines twice, so a regression parking the first of a pair was invisible, and a mutation that parks exactly that now reddens the case **Re-read 2026-09-24 by work item 1790208593 (#553):** docstring-only change to the cited case, as in R12; its assertions are untouched |
 
 ## 0.13.1 — 2026-09-22
 
@@ -2522,8 +2500,6 @@ fragment>'`, the scoped WRITE form, never by an unscoped run. -->
 <!-- specs/1790076080-every-orchestrator-rule-is-a-sentence -->
 ### 1790076080-every-orchestrator-rule-is-a-sentence
 
-<!-- specs/1790076080-every-orchestrator-rule-is-a-sentence -->
-
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
 
@@ -2549,8 +2525,6 @@ carries a `Re-read` note there rather than a replacement here. -->
 <!-- specs/1790134781-a-label-description-past-100-characters-fails-every-release -->
 ### 1790134781-a-label-description-past-100-characters-fails-every-release
 
-<!-- specs/1790134781-a-label-description-past-100-characters-fails-every-release -->
-
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
 
@@ -2567,8 +2541,6 @@ still holds, so it carries a `Re-read` marker there and no row here. -->
 
 <!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
 ### 1790138190-settle-leaves-twelve-directories-with-no-way-out
-
-<!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
 
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
@@ -2599,8 +2571,6 @@ would keep this directory. -->
 <!-- specs/1790154759-the-review-arm-asks-where-no-reviewer-compares -->
 ### 1790154759-the-review-arm-asks-where-no-reviewer-compares
 
-<!-- specs/1790154759-the-review-arm-asks-where-no-reviewer-compares -->
-
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
 
@@ -2614,8 +2584,6 @@ comment above the constant is outside the unit — so it was left as it is. -->
 
 <!-- specs/1790154760-the-ledger-grows-and-nothing-takes-a-row-out -->
 ### 1790154760-the-ledger-grows-and-nothing-takes-a-row-out
-
-<!-- specs/1790154760-the-ledger-grows-and-nothing-takes-a-row-out -->
 
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
@@ -2634,8 +2602,6 @@ the `py_spans` row (anchors resolve through `ast`), and the two rows citing
 
 <!-- specs/1790154761-folded-statements-pile-into-one-spec -->
 ### 1790154761-folded-statements-pile-into-one-spec
-
-<!-- specs/1790154761-folded-statements-pile-into-one-spec -->
 
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
@@ -2656,8 +2622,6 @@ anchored there was removed. -->
 <!-- specs/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row -->
 ### 1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row
 
-<!-- specs/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row -->
-
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
 
@@ -2674,8 +2638,6 @@ decided while nothing read the row, and false once the floor's bound did. -->
 
 <!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
 ### 1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close
-
-<!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
 
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
@@ -2700,8 +2662,6 @@ case was seen red at the commit before its fix and the red output is quoted in
 
 <!-- specs/1790174138-the-report-the-record-and-the-cells-disagree-on-one-format -->
 ### 1790174138-the-report-the-record-and-the-cells-disagree-on-one-format
-
-<!-- specs/1790174138-the-report-the-record-and-the-cells-disagree-on-one-format -->
 
 <!-- One work item's rows. No header — `fold_ledger.py` writes the `###` at
 the release and moves this file into `seal/ledger.md`.
