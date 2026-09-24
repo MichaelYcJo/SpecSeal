@@ -45,6 +45,12 @@ written against step D's text of `docs/the-evidence-ledger.md`, `CLAUDE.md`,
 `CONTRIBUTING.md` and the release checklist, and D (#558) had not squashed
 when this build ran.
 
+Phase 4 found two ledger rows that phase 6 corrects beside G6 and G7, because
+they are ledger corrections written against D's shape of the file.
+`1789985781`'s G1 still says *Half a pin is #423's finding 4* (#474 item 3's
+class, a carrier the ticket did not list). A5's Clause says `seal` *keeps that
+run behind it* and does not name the same-run replace (#556's class).
+
 ## Fed back into the spec
 
 none

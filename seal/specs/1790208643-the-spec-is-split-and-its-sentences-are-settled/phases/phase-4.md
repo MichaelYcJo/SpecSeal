@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 4 |
-| Commit | recorded in `plan.md`'s Status cell for phase 4 — this file is part of that commit |
+| Commit | ddb580d1 |
 | Ran by | specseal:smith on Claude Opus 5.5 (1M context) — the agent as the spawn prompt's first line names it, the model as the commit trailer it prescribes names it |
 
 ## What this phase was asked
