@@ -300,9 +300,10 @@ checker that shrugged at that would go quiet exactly where the edit matters.
 A work item's rows go in `seal/ledger/<work-item-id>.md`, which the default
 globs already read. Two branches never queue at one file, because no two work
 items share an id. The release that ships the work item folds its fragment
-into `seal/ledger.md` and removes the file; a row is checked against the
-code it cites wherever it sits, so the fold changes nothing this check
-reports.
+into the ledger and removes the file — this plugin's own repository folds
+into one file per release, `seal/releases/<X.Y.Z>.md`, which the default
+globs read too. A row is checked against the code it cites wherever it
+sits, so the fold changes nothing this check reports.
 
 A row citing a range that spans several definitions becomes several
 coordinates, one per definition. That is not a loss: it is the row saying which
@@ -328,14 +329,14 @@ So a second command reads what the corrections carry in their prose:
 correction-check --range origin/<base>...HEAD
 ```
 
-It walks every merge commit in the range, reads `seal/ledger.md` and every
-`seal/ledger/*.md` fragment at the merge, at both parents and at the merge
-base, and names every `Corrected <date>` or `Re-read <date>` marker a parent
-carried that the result does not — while the row carrying it still stands. A
-marker that went **with** its row is `REMOVED` and correct, and a marker a
-parent deleted relative to the base is that parent's decision rather than the
-merge's. Exit 0 when nothing was dropped, 1 with each loss named, 2 for a
-range that does not resolve.
+It walks every merge commit in the range, reads `seal/ledger.md`, every
+`seal/ledger/*.md` fragment and every `seal/releases/*.md` file at the merge,
+at both parents and at the merge base, and names every `Corrected <date>` or
+`Re-read <date>` marker a parent carried that the result does not — while the
+row carrying it still stands. A marker that went **with** its row is `REMOVED`
+and correct, and a marker a parent deleted relative to the base is that
+parent's decision rather than the merge's. Exit 0 when nothing was dropped, 1
+with each loss named, 2 for a range that does not resolve.
 
 **Its moment is the pull request, and it has no other.** A feature branch
 squashes into its release branch, so the merges it reads stop existing the
@@ -398,8 +399,10 @@ until #217 it silenced every claim under it while the arm said nothing. The
 
 **What counts as the tree.** Every identifier-shaped token in every file the
 walk reaches, prose and file names included, outside `seal/specs/` and
-`seal/ledger/`. Caches, build output and `.git` are skipped, because a
-`__pycache__` carries the identifiers of a module the tree has since lost.
+`seal/ledger/`. `seal/ledger.md` and `seal/releases/` are inside it: a shipped
+row's names are the tree's. Caches, build output and `.git` are skipped,
+because a `__pycache__` carries the identifiers of a module the tree has since
+lost.
 
 **An untracked or `.gitignore`d file still counts**, and that is a known
 hole: a scratch note holding a name silences a refusal with no committed

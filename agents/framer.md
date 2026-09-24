@@ -137,7 +137,8 @@ delegated build.
 - **`docs/` first.** These are the ratified norms, and they outrank the
   ticket and the code alike. A ticket asking for what policy forbids is a
   row in `questions.md`, never an instruction to carry out.
-- **`seal/ledger.md` and every `seal/ledger/*.md` fragment.** What somebody
+- **`seal/ledger.md`, every `seal/releases/*.md` and every `seal/ledger/*.md`
+  fragment.** What somebody
   already opened and verified, and the date they read it. A claim with a row
   is not a claim to re-establish.
 - **`seal/follow-up.md`.** Items whose answer exists and which waited on

@@ -275,7 +275,9 @@ way.
 **An answer for every check that reads the corpus** (§3), and for every row
 `settle` names as anchored (§4).
 
-**`seal/ledger.md` changes only by removal and re-verification.** A fold
+**`seal/ledger.md` changes only by removal and re-verification.** So does
+every `seal/releases/<X.Y.Z>.md`, where this repository's fold writes a
+release's rows. A fold
 appends nothing: it has no work item, so it has no fragment to append under.
 It removes a row the guard named REMOVED, drops the dead anchor from a row it
 named narrow, and re-reads and re-verifies — `evidence-check --reverify` — a

@@ -113,8 +113,11 @@ seal/
 ├── ledger.md         spec clause ↔ code coordinates, as they stood before
 │                     work items wrote fragments
 ├── ledger/
-│   └── <work-item-id>.md   one work item's rows, no header — folded into
-│                           ledger.md by the release that ships the work item
+│   └── <work-item-id>.md   one work item's rows, no header — folded by the
+│                           release that ships the work item
+├── releases/
+│   └── <X.Y.Z>.md    one release's rows, where this repository's fold
+│                     writes them
 ├── parity.md         migration config, only when declared
 ├── follow-up.md      schedulable items in a repository with no tracker
 └── specs/<work-item-id>/
@@ -259,9 +262,10 @@ rows on unrelated edits. Re-verifying is re-reading and running
 not appended to `seal/ledger.md`. Two branches cannot collide there, because
 no two work items share an id, and the checker reads the whole
 `seal/ledger/*.md` glob. The fragment lives until the release that ships
-the work item, whose preparation step folds it into `seal/ledger.md` and
-removes it; a row is a content anchor, so the move changes nothing the
-checker measures.
+the work item, whose preparation step folds it — in this plugin's own
+repository into `seal/releases/<X.Y.Z>.md` — and removes it; a row is a
+content anchor, so the move changes nothing the checker measures, and the
+checker reads `seal/releases/*.md` beside the other two.
 
 **Draft as you go, write in one pass.** The recording is cheap and the round
 trip is not: one session made twenty-six separate edits to its ledger and

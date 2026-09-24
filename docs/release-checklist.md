@@ -69,16 +69,31 @@ this branch and a squash merge like any other work.
 
 ```bash
 python3 .github/scripts/gather_changelog.py --dry-run --version X.Y.Z
+python3 .github/scripts/fold_ledger.py --split --dry-run    # see below
 python3 .github/scripts/fold_ledger.py --dry-run --version X.Y.Z
 ```
 
-Read both. Then:
+Read them. Then:
 
 ```bash
 python3 .github/scripts/gather_changelog.py --version X.Y.Z
+python3 .github/scripts/fold_ledger.py --split              # see below
 python3 .github/scripts/fold_ledger.py --version X.Y.Z
 sed -i '' 's/"version": "A.B.C"/"version": "X.Y.Z"/' .claude-plugin/plugin.json
 ```
+
+**The fold writes the release's own file, and the split runs once.** Since
+#547 the fold writes `seal/releases/X.Y.Z.md` and never `seal/ledger.md`.
+The release that ships #547 finds `seal/ledger.md` still heading every
+release folded before it, and `--split` moves each of those sections into its
+own file byte for byte, rewriting the one row anchored into a moved section.
+Run it before the fold, with its `--dry-run` read first: the dry run names
+each section with its line range and row count, and each anchor it rewrites.
+After that release `seal/ledger.md` heads no release, `--split` says
+`nothing to split` and exits 1, and `--check` refuses a `seal/ledger.md`
+that heads one again, naming `--split` as the repair. The split does not
+remove the same-row conflict two branches meet when each re-stamps one row;
+it moves it into a smaller file.
 
 The fold refuses while any `seal/specs/<id>/evidence-todo.md` has an open
 row; that is a review that never drained, not a release problem, and the
@@ -92,9 +107,10 @@ releases. Run the same command again: the new entries join the existing
 section, the section keeps the first gather's date, and
 `tests/test_release_hygiene.py` refuses a file that heads a version twice.
 The fold answers the same way (#540): a second `fold_ledger.py --version
-X.Y.Z` joins the section `seal/ledger.md` already heads and keeps its date,
-`fold_ledger.py --check` refuses a ledger that heads a version twice, and the
-same hygiene module refuses the ledger as it refuses the changelog.
+X.Y.Z` joins the release's file, `seal/releases/X.Y.Z.md`, and keeps its
+date; `fold_ledger.py --check` refuses a release file that heads a version
+twice or is not named for the version it heads, and the same hygiene module
+refuses the ledger as it refuses the changelog.
 
 ## 2b. Settle what the release leaves behind — by hand, and not in that commit
 
@@ -129,7 +145,13 @@ the survivor sweep leaves a retired directory out of its range.
 
 The preparation commit is the first time a fragment's prose is read by the
 tests that scan `CHANGELOG.md`, and the first time `seal/ledger/` is empty.
-Both found something the first time. So the whole gate runs on this tree, and
+Both found something the first time. At the release that runs `--split` it
+is also the first time `seal/releases/` exists, and three readings are that
+release's to take (the #547 work item's `questions.md` Q6): the marker census
+case in `tests/test_a_merge_cannot_silently_drop_a_correction.py` stays
+green, `evidence_check.py --strict .` reports the same totals before and
+after the split, and `correction-check` over the next release's merges stays
+silent across the moved rows. So the whole gate runs on this tree, and
 every exit code is read directly rather than through a `| tail`.
 
 <!-- specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep -->
