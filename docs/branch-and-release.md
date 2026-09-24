@@ -59,10 +59,13 @@ act, fires the note, because a note has to name a tag.
   republishes a release that exists, and falls back to the tag name when that
   line is missing or carries no symptoms. The red it exists to raise is a
   changelog with no section for the tag, which is the release shipping
-  unexplained. Under the section it writes `### 🙌 Thanks to`, one line per
-  outside contributor — every author of a pull request merged into
-  `release/vX.Y.Z` other than the repository owner and bots — and writes
-  nothing there for a release with none (#572).
+  unexplained. The note opens with a summary read from the pull requests
+  merged into `release/vX.Y.Z` — counts, one line per pull request under its
+  conventional-commit type with the issues it closed, a `### 🙌 Thanks to`
+  line for every author other than the repository owner and bots, how to
+  update — and keeps the gathered section beneath it, folded (#572). A
+  pull request title is therefore a line of the release note: write it as
+  one.
 - **The plugin directory is read by a command that never fails a release.**
   `.github/scripts/plugin_directory_check.py` says, per directory, whether the
   plugin is listed, which commit the entry pins and whether that commit is on

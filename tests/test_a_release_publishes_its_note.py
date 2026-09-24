@@ -9,8 +9,10 @@ so the four directions that matter are the four this module holds:
   A3  a tag with no changelog section goes RED, naming the tag and the file
   A4  the title is the `release: X.Y.Z — <symptoms>` line, and where no such
       line is readable it is the tag name and the log says which was used
-  A5  every outside contributor is thanked under the body, by handle, and a
-      release with none reads as it did before (#572)
+  A5  the note is a summary read from the release's pull requests -- counts,
+      one line per change under its type with the issues it closed, every
+      outside contributor thanked by handle -- over the gathered section,
+      folded; with no pull request to read it is the section alone (#572)
 
 **Nothing here reaches GitHub.** `gh` is replaced at the module's own `run`
 and `release_exists`, following `tests/test_a_merged_ticket_says_so_on_the_tracker.py`'s
@@ -274,18 +276,30 @@ def test_without_that_line_the_title_is_the_tag_and_the_log_says_so(
     )
 
 
-# --- A5: the release thanks its outside contributors ---------------------
+# --- A5: the note is a summary over the section --------------------------
 
 
-def pull(number, login, title="docs: a sentence", is_bot=False):
+def pull(number, login, title="docs: a sentence", body="", is_bot=False):
     return {
         "number": number,
         "title": title,
+        "body": body,
         "author": {"login": login, "is_bot": is_bot},
     }
 
 
 OWNER = REPO.split("/")[0]
+
+RELEASE = [
+    pull(9, OWNER, f"chore: release {VERSION} — the gathering", "Closes #1"),
+    pull(10, OWNER, "fix: the owner's own change", "Closes #100 and fixes #101"),
+    pull(11, "someone", "docs: explain a thing", "Closes #102"),
+    pull(12, "dependabot[bot]", "chore: bump", is_bot=True),
+    pull(13, "app/renovate", "chore: bump again"),
+    pull(14, "someone", "fix(gate): and a second thing (#103)", "Closes #103"),
+    pull(15, "another", "feat: a third", "Quotes `Closes #999` and closes #100"),
+    pull(16, OWNER, "an untyped title"),
+]
 
 
 def body_of(tracker):
@@ -293,52 +307,114 @@ def body_of(tracker):
     return args[args.index("--notes") + 1]
 
 
-def test_an_outside_contributor_is_thanked_under_the_body(monkeypatch, tmp_path):
-    """A5. The owner's pull requests and a bot's are the release's own work;
-    anybody else's is a contribution, and the note names who made it."""
-    pulls = [
-        pull(10, OWNER, "fix: the owner's own change"),
-        pull(11, "someone", "docs: explain a thing"),
-        pull(12, "dependabot[bot]", "chore: bump", is_bot=True),
-        pull(13, "app/renovate", "chore: bump again"),
-        pull(14, "someone", "fix: and a second thing"),
-        pull(15, "another", "feat: a third"),
-    ]
+def published(monkeypatch, tmp_path, pulls):
     mod, tracker = wire(monkeypatch, tmp_path, message=title_line(), pulls=pulls)
     assert mod.main() == 0
-    body = body_of(tracker)
-    assert body.startswith(mod.section_body(CHANGELOG, VERSION)), (
-        "the credit displaced the gathered section"
-    )
-    section = body[body.index(mod.THANKS_HEADING) :]
-    assert section.splitlines()[2:] == [
-        "- **@someone** — docs: explain a thing (#11); fix: and a second thing (#14)",
-        "- **@another** — feat: a third (#15)",
-    ], section
+    return mod, body_of(tracker)
+
+
+def lines_under(body, heading):
+    """The `- ` lines between `heading` and the next heading or fold."""
+    rest = body[body.index(heading) + len(heading) :]
+    out = []
+    for line in rest.splitlines()[1:]:
+        if line.startswith(("### ", "<details>")):
+            break
+        if line.startswith("- "):
+            out.append(line)
+    return out
+
+
+def test_every_change_is_one_line_under_its_type(monkeypatch, tmp_path):
+    """A5. The list is a partition of the release: every pull request but the
+    preparation lands under exactly one heading, an unknown or missing type
+    under Other, and each line names the issues its body closes -- read the
+    way the closer reads them, so a quoted keyword closes nothing."""
+    _, body = published(monkeypatch, tmp_path, RELEASE)
+    assert lines_under(body, "### 🐛 Fixes") == [
+        "- The owner's own change (#10) · closes #100, #101",
+        "- And a second thing (#14) · closes #103 — thanks @someone",
+    ]
+    assert lines_under(body, "### ✨ Features") == [
+        "- A third (#15) · closes #100 — thanks @another"
+    ]
+    assert lines_under(body, "### 📚 Docs") == [
+        "- Explain a thing (#11) · closes #102 — thanks @someone"
+    ]
+    assert lines_under(body, "### 🧹 Chores") == ["- Bump (#12)", "- Bump again (#13)"]
+    assert lines_under(body, "### 📦 Other") == ["- An untyped title (#16)"]
+    assert "#9)" not in body, "the preparation pull request is listed as a change"
+    assert "#999" not in body, "a keyword inside a code span was read as a claim"
+    assert (
+        body.index("### ✨ Features")
+        < body.index("### 🐛 Fixes")
+        < body.index("### 📚 Docs")
+    ), "the headings are not in the order the note is meant to read in"
+
+
+def test_the_glance_counts_the_release(monkeypatch, tmp_path):
+    """A5. Seven changes, four distinct issues closed (#100 twice counts
+    once), two outside people however many pull requests they made."""
+    mod, body = published(monkeypatch, tmp_path, RELEASE)
+    glance = body[: body.index("### ✨ Features")]
+    assert glance.startswith(mod.GLANCE_HEADING)
+    assert "| 🔀 Pull requests | **7** |" in glance
+    assert "| ✅ Issues closed | **4** |" in glance
+    assert "| 🙌 Outside contributors | **2** |" in glance
+
+
+def test_an_outside_contributor_is_thanked_by_handle(monkeypatch, tmp_path):
+    """A5. The owner's pull requests and a bot's are the release's own work;
+    anybody else's is a contribution, and the note names who made it."""
+    mod, body = published(monkeypatch, tmp_path, RELEASE)
+    assert lines_under(body, mod.THANKS_HEADING) == [
+        "- **@someone** — Explain a thing (#11); And a second thing (#14)",
+        "- **@another** — A third (#15)",
+    ]
     for excluded in (OWNER, "dependabot", "renovate"):
-        assert f"@{excluded}" not in section, f"{excluded} is thanked for its own work"
+        assert f"@{excluded}" not in body, f"{excluded} is thanked for its own work"
 
 
-def test_a_release_with_no_outside_contribution_has_no_section(monkeypatch, tmp_path):
-    """A5, the other direction. Most releases carry only the owner's work, and
-    for them the note is exactly the gathered section, as before #572."""
-    mod, tracker = wire(
-        monkeypatch, tmp_path, message=title_line(), pulls=[pull(10, OWNER)]
-    )
-    assert mod.main() == 0
-    assert body_of(tracker) == mod.section_body(CHANGELOG, VERSION)
+def test_the_section_is_kept_folded_under_the_summary(monkeypatch, tmp_path):
+    """A5. The gathered section is the reasoning, and none of it is lost: it
+    follows the summary whole, inside a fold, with a link to the file."""
+    mod, body = published(monkeypatch, tmp_path, RELEASE)
+    section = mod.section_body(CHANGELOG, VERSION)
+    fold = body[body.index("<details>") :]
+    assert f"<summary>{mod.FULL_SUMMARY}</summary>\n\n{section}\n\n</details>" in fold
+    assert f"https://github.com/{REPO}/blob/{TAG}/CHANGELOG.md" in fold
+    assert body.index(mod.UPDATE_HEADING) < body.index("<details>")
+    assert "/specseal:update" in body
 
 
-def test_a_list_that_cannot_be_read_still_publishes(monkeypatch, tmp_path, capsys):
-    """A5 adds no way to fail the tag's job: a missing credit is fixable in
-    one edit, and a job that stops at the tag is a release that stops after
-    `main` has moved."""
-    mod, tracker = wire(monkeypatch, tmp_path, message=title_line(), pulls=None)
-    assert mod.main() == 0
-    assert body_of(tracker) == mod.section_body(CHANGELOG, VERSION)
-    assert "no outside contribution" not in capsys.readouterr().out, (
-        "a list that could not be read is reported as a release nobody helped with"
-    )
+def test_a_release_with_no_outside_contribution_thanks_nobody(monkeypatch, tmp_path):
+    """A5, the other direction. Most releases carry only the owner's work:
+    the summary is there, and no credit line or count is invented."""
+    mod, body = published(monkeypatch, tmp_path, [pull(10, OWNER, "fix: a thing")])
+    assert mod.THANKS_HEADING not in body
+    assert "Outside contributors" not in body
+    assert "thanks @" not in body
+
+
+@pytest.mark.parametrize(
+    "pulls",
+    [
+        pytest.param(None, id="the list could not be read"),
+        pytest.param([], id="no pull request"),
+        pytest.param([RELEASE[0]], id="only the preparation"),
+    ],
+)
+def test_with_nothing_to_summarise_the_note_is_the_section(
+    monkeypatch, tmp_path, capsys, pulls
+):
+    """A5 adds no way to fail the tag's job: a summary that cannot be built
+    leaves the note the section alone, as it was before #572."""
+    mod, body = published(monkeypatch, tmp_path, pulls)
+    assert body == mod.section_body(CHANGELOG, VERSION)
+    if pulls is None:
+        assert "no outside contribution" not in capsys.readouterr().out, (
+            "a list that could not be read is reported as a release nobody helped"
+        )
 
 
 def test_the_list_is_read_from_the_release_branch(monkeypatch):
@@ -359,6 +435,9 @@ def test_the_list_is_read_from_the_release_branch(monkeypatch):
     assert mod.merged_pulls(REPO, VERSION)[0]["number"] == 1
     args = seen[0]
     assert args[args.index("--base") + 1] == f"release/v{VERSION}"
+    assert "body" in args[args.index("--json") + 1].split(","), (
+        "the body is not fetched, so no line can say which issues it closed"
+    )
     assert args[args.index("--state") + 1] == "merged"
     assert args[args.index("--repo") + 1] == REPO
 
