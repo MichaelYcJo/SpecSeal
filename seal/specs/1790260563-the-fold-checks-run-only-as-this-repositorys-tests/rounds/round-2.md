@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 587 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `ff3d26cdd3f3f913550548dd6d1c326f9ae982eb..ff3d26cdd3f3f913550548dd6d1c326f9ae982eb`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -32,10 +32,10 @@ Round 2 of work item 1790260563 is the verifying round: the diff of round 1's fi
 | 🟢 | round 1's note 6 is closed: the cutoff statement names the real-tree case | `docs/the-evidence-ledger.md:193` | confirmed | executed: `bin/fold-check` reports no problem for it |
 | 🟢 | round 1's note 7 is closed: each `load` site names its purpose | `skills/settle/scripts/fold_check.py:141` | confirmed | read at three call sites; the case is red at `e9dfe623` |
 | 🟢 | round 1's note 8 is closed: the real-tree case walks the command's own listing | `tests/test_a_folded_statement_names_what_enforces_it.py:76` | confirmed | executed: the two modules pass 60 cases |
-| ⬜ 1 | `why` prints `SyntaxError at line None` for a target holding a null byte | `skills/settle/scripts/fold_check.py:361` | open | executed; exit 2 and the file are right, and only the reason reads badly |
-| ⬜ 2 | a missing sibling script exits 1, which the reworded docstring now covers as exit 2, and the new case pins only `!= 0` | `skills/settle/scripts/fold_check.py:146` | open | executed: exit 1 with and without `--root`; the same `SystemExit(str)` is in `settle.py`, `chain_check.py` and `round_record.py`; only a copy taken out of the plugin reaches it |
-| ⬜ 3 | on a case-insensitive filesystem a listing spelled `docs/A.md` for `docs/a.md` is called "not a top-level docs/*.md" | `skills/settle/scripts/fold_check.py:384` | open | executed on this macOS volume; the old "does not exist" was false there too |
-| ⬜ 4 | the opted-out sentence reads "so its seal/config.md is not read, so nothing was checked" | `skills/settle/scripts/fold_check.py:469` | open | read; the new case pins the doubled "so" at `tests/test_a_document_has_room_for_the_next_fold.py:472` |
+| ⬜ 1 | `why` prints `SyntaxError at line None` for a target holding a null byte | `skills/settle/scripts/fold_check.py:361` | answered | Python 3.12 gives a null-byte SyntaxError no line number; the exit code (2) and the named file are right, and the line is what the interpreter knows; executed; exit 2 and the file are right, and only the reason reads badly |
+| ⬜ 2 | a missing sibling script exits 1, which the reworded docstring now covers as exit 2, and the new case pins only `!= 0` | `skills/settle/scripts/fold_check.py:146` | deferred #590 | #590 — the missing-sibling exit is shared by settle.py, chain_check.py and round_record.py, so the fix belongs to the class across four scripts, not to this file; executed: exit 1 with and without `--root`; the same `SystemExit(str)` is in `settle.py`, `chain_check.py` and `round_record.py`; only a copy taken out of the plugin reaches it |
+| ⬜ 3 | on a case-insensitive filesystem a listing spelled `docs/A.md` for `docs/a.md` is called "not a top-level docs/*.md" | `skills/settle/scripts/fold_check.py:384` | answered | on a case-insensitive filesystem a listing spelled with another case names a path the tree does not hold; the old message was false there too, and the listing is written by the repository, which spells its own files; executed on this macOS volume; the old "does not exist" was false there too |
+| ⬜ 4 | the opted-out sentence reads "so its seal/config.md is not read, so nothing was checked" | `skills/settle/scripts/fold_check.py:469` | answered | the doubled 'so' is style in a pinned message; the reviewer judged it needs no fix, and rewording a pinned line reopens the run for no reader's benefit; read; the new case pins the doubled "so" at `tests/test_a_document_has_room_for_the_next_fold.py:472` |
 
 ## Paste-ready fixes
 
