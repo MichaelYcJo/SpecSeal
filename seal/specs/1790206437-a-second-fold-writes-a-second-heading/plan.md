@@ -76,9 +76,12 @@ convention sentence is pinned across the three reviewer-facing carriers
 sentence so the three files and the case cannot drift apart.
 
 **The ledger rows this work moves** (S15): in §0.4.0 of `seal/ledger.md`,
-the rows anchored on `fold_ledger.py#section@1b72e077` and `#main@2e8fcb28`
-(lines 297, 302, 303, 311, 312 at `9f846733`) and `#append@e091419b` if
-`append` changes; in §0.15.0, A9 on `kept_broad_gate@c2a4e86c`. Each claim
+the rows anchored on `.github/scripts/fold_ledger.py`'s `section` and `main`
+(lines 297, 302, 303, 311, 312 at `9f846733`) and on `append` if `append`
+changes; in §0.15.0, A9 on `skills/code-review/scripts/round_record.py`'s
+`kept_broad_gate`. The stamps those rows carry are the ledger's and are not
+repeated here: `evidence-check`'s records arm reads a short path beside a
+hash as a file it cannot find, once the work item has a fragment. Each claim
 still holds after the edit and is re-read, given a dated note and re-stamped
 with `evidence-check --reverify .`; none is re-pointed or removed. Work items
 A and B of this milestone also re-stamp rows in this file; a conflict is
