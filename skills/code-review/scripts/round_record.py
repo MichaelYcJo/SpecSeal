@@ -362,10 +362,12 @@ def kept_broad_gate(reader, rows, value):
     1's ⬜ 8, narrowed by round 2's 🟡 1). It is the same claim about the
     same comparison — the sealer re-run over an unchanged checkout — and
     two entries for one claim would make the count of entries stop being
-    the count of runs. A run at that commit against ANOTHER base is another
-    comparison and is kept behind the new entry like any earlier run, which
-    is what `agents/sealer.md` and the `broad-gate.md` comment promise: a
-    second run never erases the first. Keyed on the SHA alone, the replace
+    the count of distinct comparisons — commit and base — which is what
+    the run-level table reads off the cell. A run at that commit against
+    ANOTHER base is another comparison and is kept behind the new entry
+    like any earlier run, which is what `agents/sealer.md` and the
+    `broad-gate.md` comment promise: a second run never erases the first.
+    Keyed on the SHA alone, the replace
     erased the first base. The comparison is `same_run`'s, by prefix per
     SHA-shaped word, so an abbreviated entry and a full-length flag name one
     commit; nothing here asks git: `seal` has already refused a flag that
@@ -4275,9 +4277,11 @@ def new_broad_gate_file(item, value):
         "records the commit the run happened at and the base it was compared\n"
         "against, so an edit after the run spends it — which is the whole of\n"
         "what a broad-gate cell asserts, and none of it depends on a round\n"
-        "having run. One entry per run, newest first: a run taken again is\n"
-        "written in front, and the earlier one stays behind it as\n"
-        "`earlier run`, so the reader takes the first SHA as the run. -->\n"
+        "having run. One entry per run, newest first: a run at a new commit,\n"
+        "or at this one against another base, is written in front and the\n"
+        "earlier one stays behind it as `earlier run`; a run the newest entry\n"
+        "already records — the same commit against the same base — replaces\n"
+        "it. The reader takes the first SHA as the run. -->\n"
         "\n"
         "| Field | Value |\n"
         "|---|---|\n"
