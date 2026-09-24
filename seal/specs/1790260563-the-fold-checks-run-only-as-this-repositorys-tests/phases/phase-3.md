@@ -64,8 +64,8 @@ the config-template modules narrow.
 
 | Removed item | Where it must land |
 |---|---|
-| `SHAPE_CUTOFF` in `tests/test_a_folded_statement_names_what_enforces_it.py` | `seal/config.md`'s `Fold shape from` row; the planted cases keep their own `CUTOFF`, one below `BOUND` and one above `OLD`, commented as not this repository's value |
-| `LINE_CEILING`, `OVER_CEILING`, `FROZEN_IDS_DIGEST` in `tests/test_a_document_has_room_for_the_next_fold.py` | `seal/config.md`'s `Document line ceiling` and `Over the ceiling` rows |
-| `test_the_evidence_ledger_states_the_values_these_constants_hold` | `test_the_evidence_ledger_states_the_values_the_config_rows_hold`, same module |
-| `test_this_repository_has_the_shape_through_the_command` | `test_this_repository_passes_the_command_with_no_flags` in the ceiling module, which runs both checks from the rows |
+| `SHAPE_CUTOFF` in `tests/test_a_folded_statement_names_what_enforces_it.py` | `seal/config.md`'s `Fold shape from` row; the planted cases keep their own `CUTOFF`, one below `BOUND` and one above `OLD`, commented as not this repository's value · NAME NOT IN TREE |
+| `LINE_CEILING`, `OVER_CEILING`, `FROZEN_IDS_DIGEST` in `tests/test_a_document_has_room_for_the_next_fold.py` | `seal/config.md`'s `Document line ceiling` and `Over the ceiling` rows · NAME NOT IN TREE |
+| `test_the_evidence_ledger_states_the_values_these_constants_hold` | `test_the_evidence_ledger_states_the_values_the_config_rows_hold`, same module · NAME NOT IN TREE |
+| `test_this_repository_has_the_shape_through_the_command` | `test_this_repository_passes_the_command_with_no_flags` in the ceiling module, which runs both checks from the rows · NAME NOT IN TREE |
 | `seal/releases/0.15.1.md` row S1 | fragment row F6, and a note in 0.15.1's comment |

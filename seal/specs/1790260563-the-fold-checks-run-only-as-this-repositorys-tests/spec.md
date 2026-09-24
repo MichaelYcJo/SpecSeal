@@ -54,10 +54,10 @@ observed in PR #581's fold on 2026-09-24).
    pins over the shipped command.** Each loads `fold_check.py`, runs it over
    this tree with the values its `seal/config.md` holds, and keeps every
    planted-tree case (now calling the shipped functions). The prose pin
-   (`test_the_evidence_ledger_states_the_values_these_constants_hold`) reads
+   (`test_the_evidence_ledger_states_the_values_these_constants_hold`) reads · NAME NOT IN TREE
    the three values from `seal/config.md` instead of from module constants,
    so the prose, the config and the check are one set of numbers.
-   `SHAPE_CUTOFF`, `LINE_CEILING`, `OVER_CEILING` and `FROZEN_IDS_DIGEST`
+   `SHAPE_CUTOFF`, `LINE_CEILING`, `OVER_CEILING` and `FROZEN_IDS_DIGEST` · NAME NOT IN TREE
    stop being constants; a third copy of each value is what the pin would
    otherwise have to hold equal.
 4. **The documents that describe it**: `skills/settle/SKILL.md` §2 (the

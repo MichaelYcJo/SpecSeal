@@ -97,10 +97,14 @@ def test_settle_owns_the_shape_rule():
         "enforces\nit.**",
         "Enforced by: nothing — <why>",
         "**Stacked markers share one statement.**",
-        "It ships no checker for the shape",
+        "**What this plugin checks, and what it does not.** It ships\n`fold-check`",
+        "a row a repository does not write is a check it does not\nrun",
         "it is review's to find",
     ):
         assert phrase in section, f"settle §2 no longer says: {phrase!r}"
+    assert "ships no checker for the shape" not in section, (
+        "settle §2 still says the plugin ships no checker, beside the one it ships"
+    )
 
 
 # --- planted statements ------------------------------------------------------
