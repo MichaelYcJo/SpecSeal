@@ -2608,6 +2608,31 @@ def test_a_first_seal_is_byte_identical_to_a_cell_that_was_never_a_list(repo):
     assert generator.EARLIER_RUN.strip(" ;:") not in cell, cell
 
 
+def test_the_written_broad_gate_file_says_a_same_run_re_seal_replaces_its_entry(
+    repo,
+):
+    """#542. The comment `seal` writes into every `broad-gate.md` described
+    the cell's rule as it stood before `same_run`: *a run taken again is
+    written in front, and the earlier one stays behind it*. No test read the
+    written file for that sentence, so a third rewording of the rule would
+    reach every `broad-gate.md` unpinned. The file a person opens says what
+    the writer does: a run the newest entry already records — the same
+    commit against the same base — replaces it."""
+    write(repo, f"{ITEM}/routing.md", declaration(review="straight to the PR"))
+    commit(repo, "declare direct")
+    head = short(repo, "HEAD")
+    code, out = run_seal(repo, f"{head} against base")
+    assert code == 0, out
+    text = " ".join((repo / ITEM / GATE_FILE).read_text(encoding="utf-8").split())
+    assert (
+        "a run the newest entry already records — the same commit against the "
+        "same base — replaces it"
+    ) in text, f"the written comment does not state the same-run replace:\n{text}"
+    assert "a run taken again is written in front" not in text, (
+        f"the written comment still states the rule `same_run` replaced:\n{text}"
+    )
+
+
 def test_the_direct_home_takes_the_same_shape_on_a_re_seal(repo):
     """A14 of #174. `broad-gate.md` is the whole record of a `straight to the
     PR` work item and `direct_seal` reads it through `broad_gate`, so one
