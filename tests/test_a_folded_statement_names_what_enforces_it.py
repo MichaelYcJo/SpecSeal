@@ -7,7 +7,8 @@ sentence, its grounds, and exactly one line `Enforced by: <target>[, …]` or
 repository's pin over it — the planted statements below call the shipped
 functions, and the real-tree case runs them over this repository's `docs/`.
 
-**It binds only markers whose work-item id is at or above `SHAPE_CUTOFF`.**
+**It binds only markers whose work-item id is at or above the cutoff**, which
+is this repository's `Fold shape from` row in `seal/config.md`.
 The statements folded before #520 carry no such line, and retrofitting them
 is MichaelYcJo/SpecSeal#565. Work-item ids are epoch-prefixed, so the cutoff
 is a comparison and needs no list of exemptions.
@@ -31,7 +32,10 @@ DOCS = os.path.join(ROOT, "docs")
 SCRIPT = os.path.join(ROOT, "skills", "settle", "scripts", "fold_check.py")
 SETTLE = os.path.join(ROOT, "skills", "settle", "SKILL.md")
 
-SHAPE_CUTOFF = 1790154761
+# The planted markers' own cutoff: `BOUND` below sits one above it and `OLD`
+# one below. It is not this repository's value, which is its `Fold shape from`
+# row and is read by the real-tree case through the command's own reader.
+CUTOFF = 1790154761
 
 
 def _load():
@@ -46,8 +50,8 @@ statements = fold_check.statements
 target_problem = fold_check.target_problem
 
 
-def shape_problems(root, name, text, cutoff=SHAPE_CUTOFF):
-    """The shipped check, at this repository's cutoff unless a case names one."""
+def shape_problems(root, name, text, cutoff=CUTOFF):
+    """The shipped check, at the planted markers' cutoff unless a case names one."""
     return fold_check.shape_problems(root, name, text, cutoff)
 
 
@@ -70,12 +74,14 @@ def read(path):
 def test_every_bound_statement_in_docs_has_the_shape():
     """A7. The walk has to have read markers, so a broken reader cannot pass
     on an empty walk; the ones folded before the cutoff are read and skipped."""
+    cutoff = fold_check.declared(fold_check.seal_home(ROOT))[0]
+    assert cutoff is not None, "this repository's seal/config.md declares no cutoff"
     problems = []
     groups = 0
     for name in docs_documents():
         text = read(os.path.join(DOCS, name))
         groups += len(statements(text))
-        problems += shape_problems(ROOT, "docs/" + name, text)
+        problems += shape_problems(ROOT, "docs/" + name, text, cutoff)
     assert groups, "no fold marker was read under docs/"
     assert not problems, "\n".join(problems)
 
@@ -265,29 +271,31 @@ def planted_docs(tmp_path, body, marker=BOUND):
 def test_the_command_names_a_bound_statement_with_no_line_and_exits_1(tmp_path):
     """S2: the problem the module pins, printed by the command, at exit 1."""
     root = planted_docs(tmp_path, "**Rule.** Grounds.\n")
-    code, out, err = command("--root", root, "--shape-from", str(SHAPE_CUTOFF))
+    code, out, err = command("--root", root, "--shape-from", str(CUTOFF))
     assert code == 1, (code, out, err)
     assert (
         "docs/d.md: the statement under ['1790154762-a-later-fold'] carries 0 "
         "`Enforced by:` lines, not one\n"
     ) in out, out
     assert (
-        f"read 1 statement in 1 document under docs/; the cutoff {SHAPE_CUTOFF} "
-        "binds 1\n"
+        f"read 1 statement in 1 document under docs/; the cutoff {CUTOFF} binds 1\n"
     ) in out, out
 
 
 def test_the_command_exits_0_over_a_statement_with_the_shape(tmp_path):
     root = planted_docs(tmp_path, "**Rule.**\nEnforced by: nothing — a reader\n")
-    code, out, err = command("--root", root, "--shape-from", str(SHAPE_CUTOFF))
+    code, out, err = command("--root", root, "--shape-from", str(CUTOFF))
     assert code == 0, (code, out, err)
-    assert "no ceiling is declared, so no document's length was checked" in out
+    assert (
+        f"fold-check: `Document line ceiling` is not declared in {root}, which has "
+        "no seal/ root at either place, so no document's length was checked\n"
+    ) in out, out
 
 
 def test_shape_from_0_binds_a_statement_folded_before_any_cutoff(tmp_path):
     """S6: the worklist #565 runs — every statement is bound, the old one too."""
     root = planted_docs(tmp_path, "Rule, with no line.\n", marker=OLD)
-    code, out, _ = command("--root", root, "--shape-from", str(SHAPE_CUTOFF))
+    code, out, _ = command("--root", root, "--shape-from", str(CUTOFF))
     assert code == 0, out
     code, out, _ = command("--root", root, "--shape-from", "0")
     assert code == 1, out
@@ -299,9 +307,3 @@ def test_the_command_exits_2_with_nothing_checked_on_an_unusable_root(tmp_path):
     assert code == 2 and "is not a directory — nothing was checked" in err, err
     code, _, err = command("--root", str(tmp_path), "--shape-from", "0")
     assert code == 2 and "has no docs/ directory — nothing was checked" in err, err
-
-
-def test_this_repository_has_the_shape_through_the_command():
-    """S1 at this phase: the flags this repository's values would give."""
-    code, out, err = command("--root", ROOT, "--shape-from", str(SHAPE_CUTOFF))
-    assert code == 0, (out, err)

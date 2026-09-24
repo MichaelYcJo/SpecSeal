@@ -6,9 +6,9 @@ a ceiling. Both checks lived in this plugin's own test suite, so a repository
 that folds with `settle` had the rules and nothing that reads them (#566). This
 is that reader, shipped.
 
-  fold-check                     both checks, over this repository's docs/
-  fold-check --shape-from ID     bind the shape from this work-item id on
-  fold-check --ceiling N         hold every document to N lines
+  fold-check                     both checks, with the values seal/config.md states
+  fold-check --shape-from ID     bind the shape from this work-item id on, this run
+  fold-check --ceiling N         hold every document to N lines, this run
   fold-check --root DIR          a repository other than this one
 
 **The shape.** Every statement whose marker group holds a work-item id at or
@@ -29,8 +29,15 @@ cannot tell whether a target really enforces the rule, whether a statement is
 true, or whether two statements contradict each other; those stay review's.
 
 **It sets no value.** The plugin ships the reader and the repository states
-the cutoff and the ceiling. A check nobody declared is not run, and the
-output says so.
+the values, as three rows of `seal/config.md` read through
+`hooks/config.py#config_rows`: `Fold shape from` (the cutoff),
+`Document line ceiling`, and `Over the ceiling` (`none`, or `;`-separated
+entries `<path> frozen at <n> markers <12-hex digest> until <home>`). An
+absent row means *not declared*, as every optional row of that file does: the
+check it governs is not run, and the output says so in one line rather than
+refusing, because a repository that never folds has not asked for either. A
+flag overrides its row for one run, which is how a retrofit lists every
+statement still missing the shape without editing the config first.
 
 Markers and live lines come from the fold's own reader,
 `skills/verify/scripts/unverified_check.py#live_lines` and `#FOLD_MARKER`,
@@ -94,8 +101,30 @@ if _refusal:
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
+CONFIG_READER = os.path.join(HERE, "..", "..", "..", "hooks", "config.py")
+OPTIN = os.path.join(HERE, "..", "..", "..", "hooks", "optin.py")
 
 DOCS = "docs"
+CONFIG = "config.md"
+
+# The three `seal/config.md` rows this reads. Each is optional, and an absent
+# one means *not declared*, which is what every optional row in
+# `templates/config.md` means: the check it governs is not run, and the
+# output says so in one line.
+SHAPE_ROW = "Fold shape from"
+CEILING_ROW = "Document line ceiling"
+OVER_ROW = "Over the ceiling"
+NONE_LISTED = "none"
+
+# One `Over the ceiling` entry, as a person writes it. The digest is printed
+# by this command when the count or the ids disagree, so nobody computes it
+# by hand.
+OVER_ENTRY = re.compile(
+    r"^(?P<path>\S+) frozen at (?P<count>[0-9]+) markers (?P<digest>[0-9a-f]{12}) "
+    r"until (?P<home>\S+)$"
+)
+WHOLE = re.compile(r"[0-9]+")
+OVER_SHAPE = "<path> frozen at <n> markers <12-hex digest> until <home>"
 
 HEADING = re.compile(r"^ {0,3}#{1,6}(?:[ \t]|$)")
 BOLD_OPENING = re.compile(r"^\*{2,3}[^*\s]")
@@ -325,27 +354,110 @@ def ceiling_problems(root, ceiling, over, digests=None):
                 f"{ceiling}. Remove its entry; {home} was its home"
             )
         found = markers(text)
+        now = marker_digest(text)
         if found != frozen:
             problems.append(
                 f"{rel} carries {found} fold markers and is frozen at {frozen} "
                 f"until {home} splits it. A new fold goes to the document for "
                 "the rule's own sub-subject; a removed marker lowers the frozen "
-                "count, so the room it made is not refilled, and recomputes "
-                "FROZEN_IDS_DIGEST with marker_digest() in the same commit"
+                "count, so the room it made is not refilled, and sets the "
+                f"entry's digest in the `{OVER_ROW}` row to {now}, the file's "
+                "marker_digest() now, in the same commit"
             )
             continue
         want = (digests or {}).get(rel)
-        if want is not None and marker_digest(text) != want:
+        if want is not None and now != want:
             problems.append(
                 f"{rel} carries {frozen} fold markers, but not the ones frozen "
-                f"until {home} splits it: their ids no longer match "
-                "FROZEN_IDS_DIGEST. If a fold added a statement here and "
-                "removed another, the new rule goes to the document for its own "
-                "sub-subject. If a marker was removed on purpose, set the digest "
-                "to marker_digest() of the file in the commit that lowered the "
-                "count"
+                f"until {home} splits it: their ids no longer match the entry's "
+                f"digest in the `{OVER_ROW}` row. If a fold added a statement "
+                "here and removed another, the new rule goes to the document "
+                "for its own sub-subject. If a marker was removed on purpose, "
+                f"set the entry's digest to {now}, the file's marker_digest() "
+                "now, in the commit that lowered the count"
             )
     return problems
+
+
+# --- the rows --------------------------------------------------------------
+
+
+class Unusable(Exception):
+    """A row whose value will not parse (exit 2, nothing checked)."""
+
+
+def seal_home(root):
+    """The `seal/` root of the repository at `root`, or "" where it has none.
+
+    Through the one resolver, `hooks/optin.py#home_at`, loaded by path the
+    way `settle.py#main` loads it: `<root>/seal/`, else the common git
+    directory's `seal/`, and "" for a repository that opted out."""
+    optin = load(OPTIN, "specseal_optin_for_folds")
+    return optin.home_at(root)
+
+
+def config_rows(home):
+    """Every `| Item | Value |` row of `<home>/config.md`, through the one
+    table reader, `hooks/config.py#config_rows`. No root, no file or a file
+    that will not read is no row at all, as every reader of it fails."""
+    if not home:
+        return []
+    try:
+        with open(os.path.join(home, CONFIG), encoding="utf-8") as f:
+            text = f.read()
+    except (OSError, ValueError):
+        return []
+    return load(CONFIG_READER, "specseal_config_for_folds").config_rows(text)
+
+
+def row_value(rows, item):
+    """The row's value, or None where it is absent or empty."""
+    for name, value in rows:
+        if name == item:
+            return value or None
+    return None
+
+
+def parse_over(value):
+    """`(over, digests)` from an `Over the ceiling` value, or `Unusable`."""
+    over, digests = {}, {}
+    if value is None or value.lower() == NONE_LISTED:
+        return over, digests
+    for entry in value.split(";"):
+        match = OVER_ENTRY.match(entry.strip())
+        if not match:
+            raise Unusable(
+                f"the `{OVER_ROW}` row holds `{entry.strip()}`, which is not "
+                f"`{NONE_LISTED}` and not an entry `{OVER_SHAPE}`"
+            )
+        over[match["path"]] = (int(match["count"]), match["home"])
+        digests[match["path"]] = match["digest"]
+    return over, digests
+
+
+def declared(home):
+    """`(cutoff, ceiling, over, digests)` as the root's `config.md` states
+    them, None for a row that is absent, or `Unusable` naming the row."""
+    rows = config_rows(home)
+    cutoff = row_value(rows, SHAPE_ROW)
+    if cutoff is not None:
+        if not WHOLE.fullmatch(cutoff):
+            raise Unusable(
+                f"the `{SHAPE_ROW}` row holds `{cutoff}`, which is not a "
+                "work-item id's epoch prefix (a whole number; `0` binds every "
+                "statement)"
+            )
+        cutoff = int(cutoff)
+    ceiling = row_value(rows, CEILING_ROW)
+    if ceiling is not None:
+        if not WHOLE.fullmatch(ceiling) or int(ceiling) < 1:
+            raise Unusable(
+                f"the `{CEILING_ROW}` row holds `{ceiling}`, which is not a "
+                "positive whole number of lines"
+            )
+        ceiling = int(ceiling)
+    over, digests = parse_over(row_value(rows, OVER_ROW))
+    return cutoff, ceiling, over, digests
 
 
 # --- the command -----------------------------------------------------------
@@ -369,12 +481,19 @@ def plural(count, word):
     return f"{count} {word}" if count == 1 else f"{count} {word}s"
 
 
-def run(root, cutoff, ceiling, over, digests, out):
-    """Both checks over `root`, the lines they print, and the problems."""
+def run(root, values, where, out):
+    """Both checks over `root`, the lines they print, and the problems.
+
+    `where` names what the values were read from, for the line that says a
+    check was not run because nothing declared its value."""
+    cutoff, ceiling, over, digests = values
     names = documents(root)
     problems = []
     if cutoff is None:
-        out.write("fold-check: no cutoff is declared, so the shape was not checked\n")
+        out.write(
+            f"fold-check: `{SHAPE_ROW}` is not declared in {where}, so the "
+            "shape was not checked\n"
+        )
     else:
         groups = bound_groups = 0
         for rel in names:
@@ -390,7 +509,8 @@ def run(root, cutoff, ceiling, over, digests, out):
         )
     if ceiling is None:
         out.write(
-            "fold-check: no ceiling is declared, so no document's length was checked\n"
+            f"fold-check: `{CEILING_ROW}` is not declared in {where}, so no "
+            "document's length was checked\n"
         )
     else:
         problems += ceiling_problems(root, ceiling, over, digests)
@@ -405,20 +525,22 @@ def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="fold-check",
         description="Hold the fold's statement shape and document ceiling "
-        "over the top level of docs/.",
+        "over the top level of docs/, with the values seal/config.md states.",
     )
     ap.add_argument("--root", help="the repository to read (default: cwd)")
     ap.add_argument(
         "--shape-from",
         type=not_negative,
         metavar="ID",
-        help="bind the shape from this work-item id prefix on; 0 binds every statement",
+        help=f"bind the shape from this work-item id prefix on, for this run "
+        f"only, over the `{SHAPE_ROW}` row; 0 binds every statement",
     )
     ap.add_argument(
         "--ceiling",
         type=positive,
         metavar="N",
-        help="hold every top-level docs/*.md to N lines",
+        help=f"hold every top-level docs/*.md to N lines, for this run only, "
+        f"over the `{CEILING_ROW}` row",
     )
     args = ap.parse_args(argv)
 
@@ -428,11 +550,25 @@ def main(argv=None):
             f"fold-check: {root} is not a directory — nothing was checked\n"
         )
         return 2
-    cutoff, ceiling = args.shape_from, args.ceiling
+    home = seal_home(root)
+    where = (
+        os.path.join(home, CONFIG)
+        if home
+        else f"{root}, which has no seal/ root at either place"
+    )
+    try:
+        cutoff, ceiling, over, digests = declared(home)
+    except Unusable as refused:
+        sys.stderr.write(f"fold-check: in {where}, {refused} — nothing was checked\n")
+        return 2
+    if args.shape_from is not None:
+        cutoff = args.shape_from
+    if args.ceiling is not None:
+        ceiling = args.ceiling
     if cutoff is None and ceiling is None:
         sys.stdout.write(
-            "fold-check: neither a cutoff nor a ceiling is declared, so nothing "
-            "was checked\n"
+            f"fold-check: neither `{SHAPE_ROW}` nor `{CEILING_ROW}` is declared "
+            f"in {where}, so nothing was checked\n"
         )
         return 0
     if not os.path.isdir(os.path.join(root, DOCS)):
@@ -440,7 +576,7 @@ def main(argv=None):
             f"fold-check: {root} has no {DOCS}/ directory — nothing was checked\n"
         )
         return 2
-    problems = run(root, cutoff, ceiling, {}, {}, sys.stdout)
+    problems = run(root, (cutoff, ceiling, over, digests), where, sys.stdout)
     for problem in problems:
         sys.stdout.write(problem + "\n")
     return 1 if problems else 0
