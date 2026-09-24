@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 595 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `4144f81919664ca2136661221e8e43bdac8293d2..4144f81919664ca2136661221e8e43bdac8293d2`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 3 of work item 1790260567 is the last, verifying round: the diff of round 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | Operational impact keeps "so no row that works today changes behaviour" while the correction appended to the same bullet says a non-builtin's switch row stops running; `spec.md:154` likewise opens with "allows more" over a bullet that now names a deny | `seal/specs/1790260567-the-broad-gate-hands-cmd-a-forward-slash/plan.md:135` | open | read; a record correction under `seal/specs/`, so not counted in `Needs a fix` |
-| ⬜ 2 | PR #595's body at `5732e9af` still says a name after a redirection is a command name, still says the conftest removes the token variables, carries no A7 answer, and does not name the documented bound or #596 | PR #595 body | open | read via `gh pr view` at head `5732e9af`; round 2 closed it as `answered` on a promise the orchestrator rewrites the body before ready, and the pull request is still a draft |
+| ⬜ 1 | Operational impact keeps "so no row that works today changes behaviour" while the correction appended to the same bullet says a non-builtin's switch row stops running; `spec.md:154` likewise opens with "allows more" over a bullet that now names a deny | `seal/specs/1790260567-the-broad-gate-hands-cmd-a-forward-slash/plan.md:135` | answered | a record correction, corrected at 666acc16; read; a record correction under `seal/specs/`, so not counted in `Needs a fix` |
+| ⬜ 2 | PR #595's body at `5732e9af` still says a name after a redirection is a command name, still says the conftest removes the token variables, carries no A7 answer, and does not name the documented bound or #596 | PR #595 body | answered | the orchestrator rewrote PR #595's body before ready: command names after a redirection are left, the conftest sets two token variables and removes two, the xcopy bound and #596 are named, and A7 is answered; read via `gh pr view` at head `5732e9af`; round 2 closed it as `answered` on a promise the orchestrator rewrites the body before ready, and the pull request is still a draft |
 | 🟢 | round 2's finding 1 is closed as commissioned — the template, the scan's docstring, `spec.md`, `plan.md` and the changelog fragment name the non-builtin switch bound, the blank that avoids it, and #596 | `templates/config.md:207` | confirmed | executed: each of the three new template sentences cut in turn, the template case red each time; nine neighbouring rows through `handed_to_shell` match the documents; the behaviour is deferred to #596, below |
 | 🟢 | round 2's finding 2 is closed — both notes have their escaped pipe back | `seal/releases/0.12.0.md:109` | confirmed | read: `1cbae560`'s word diff restores one character in each row and nothing else; also `seal/releases/0.5.0.md:107`; executed: `evidence-check` 2221 ok |
 | 🟢 | The new unit pins the documented bound correctly and can fail | `tests/test_the_gate_hands_cmd_a_path_it_can_run.py:208` | verified | executed: the module, 54 passed; with `xcopy` and `findstr` added to `CMD_BUILTINS`, 2 failed and the blank-spelling row passed |
