@@ -35,8 +35,8 @@ merge in range.
 #509, N1–N4 the sentences, P1 is #466, and C1–C2 are #561 and #562. Each is
 written with a placeholder hash and stamped by `--reverify` (34 rows, then 0).
 `evidence-check --strict .` exit 0. **The records arm refused one stamp at
-first**: `spec.md`'s #222 row wrote `round_record.py#depth_two@8c7bfa47`, a
-short path. Once the work item had a fragment, the arm read the spec as a
+first**: `spec.md`'s #222 row wrote the file's basename, `#depth_two` and an
+eight-digit hash, which is a short path. Once the work item had a fragment, the arm read the spec as a
 record, found the short path, and found no such file. The sentence names the
 unit in words now, the way `1790206437`'s overview records the same finding.
 
