@@ -84,12 +84,12 @@ believe.
 ## A correction a merge dropped
 
 <!-- specs/1789969379-a-conflict-resolved-by-side-reverts-the-other-sides-corrections -->
-**When the shared ledger or a release file conflicts, resolve it hunk by
-hunk and read both sides.** Never *ours* and never *theirs*. A whole-file choice is wrong by
-construction once both branches have been correcting: the measured instance
-resolved two hunks in opposite directions, because each side was the superset
-in one of them, and taking a side reverted three corrections that had each
-turned a false claim true.
+**When the shared ledger or a release file conflicts, resolve it hunk by hunk
+and read both sides.** Never *ours* and never *theirs*. A whole-file choice is
+wrong by construction once both branches have been correcting: the measured
+instance resolved two hunks in opposite directions, because each side was the
+superset in one of them, and taking a side reverted three corrections that had
+each turned a false claim true.
 
 **Nothing downstream can see that, which is why the reading is a person's.**
 A row reverted to a superseded state is byte-identical to a row nobody
