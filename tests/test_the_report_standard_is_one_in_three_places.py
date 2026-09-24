@@ -35,6 +35,27 @@ CARRIERS = (
 
 WARDEN = ("agents", "warden.md")
 
+# The three carriers the reviewer copies from, by name: the two files the
+# reviewer holds and the specification both cite. The template's comment is
+# the record's shape, not the reviewer's rule for writing a `Location`.
+REVIEWER_CARRIERS = (
+    ("agents", "warden.md"),
+    ("skills", "code-review", "SKILL.md"),
+    ("docs", "review-chain-spec.md"),
+)
+
+# #366's second half, one text. `round_record.py#depth_two` keys on a
+# finding's `Location` and refuses every unit that finding's fix commit added
+# in that file, so a finding whose coordinates sit at two depths has its
+# depth-1 units refused beside the depth-2 one. The convention is the
+# reviewer's, and the three carriers say it in the same words.
+SPLIT_AT_TWO_DEPTHS = (
+    "a finding whose coordinates sit at two depths — one inside a unit an "
+    "earlier round's fixes created, another not — is written as two findings, "
+    "so each verdict carries one depth and the fix of one does not refuse the "
+    "units the other's fix adds"
+)
+
 # The five markers the findings format names, in the order it names them.
 MARKERS = ("🔴", "🟡", "⬜", "🟢", "❓")
 
@@ -72,6 +93,20 @@ def test_the_row_meets_its_own_three_requirements():
     assert "fixed" not in CARRIED_CLOSURE
     assert "🔴" not in CARRIED_CLOSURE, "the inherited severity is written in words"
     assert "blocking" in cells[1]
+
+
+def test_every_carrier_tells_the_reviewer_to_split_a_finding_that_sits_at_two_depths():
+    """#366's second half. The depth in `New units` is declared per entry and
+    `depth_two` refuses per finding, so a finding straddling two depths is
+    the one shape the two cannot both be right about. The reviewer splits
+    it, and the sentence saying so is one text in the three places the
+    reviewer copies from — seen red with it deleted from any one of them."""
+    for parts in REVIEWER_CARRIERS:
+        assert SPLIT_AT_TWO_DEPTHS in flat(*parts), (
+            f"{'/'.join(parts)} does not tell the reviewer to split a finding "
+            "whose coordinates sit at two depths, in the words the other "
+            "carriers use"
+        )
 
 
 def test_the_warden_names_the_five_markers_and_the_tick_as_not_one():
