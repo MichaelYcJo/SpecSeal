@@ -1,9 +1,9 @@
 # 1790260563-the-fold-checks-run-only-as-this-repositorys-tests — overview
 
 📋 implement applied
-· spec:     (filled when the work item closes)
-· evidence: (filled when the work item closes)
-· verified: (filled when the work item closes)
+· spec:     this work item's spec.md (Scope 1–6, S1–S11, Data & interfaces), plan.md (phases 1–5, Alternatives), questions.md; skills/settle/SKILL.md §2 and §What a fold branch owes; docs/the-evidence-ledger.md §The fold, and what tells it from a deletion; templates/config.md; skills/config/SKILL.md §Procedure; hooks/config.py#config_rows; hooks/optin.py#home_at; CLAUDE.md §fragments, §commit early
+· evidence: seal/ledger/1790260563-the-fold-checks-run-only-as-this-repositorys-tests.md R1, F1–F8 added; seal/releases/0.14.0.md S1 and P1 and seal/releases/0.15.1.md S1 removed; 0.14.0 D1, 0.13.1's marker row, 0.12.0's front-door row, 0.5.0 S8, S1, S2 re-read and re-stamped
+· verified: executed — each phase's modules narrow, 53 modules at phase 5, every new case seen red, a mutation pass per phase, bin/fold-check on this tree, evidence-check and correction-check; unverified — the full suite, lint and typecheck, the sealer's
 
 ## Why this work exists
 
@@ -33,6 +33,12 @@ none — every claim this work item makes was executed or is labelled read in th
   added, and the mutation record 0.14.0's P1 carried did not list it either.
   A case that reorders two markers in a listed document and expects no
   problem would pin it.
+- **The issue for #583 was filed before the build**, so `spec.md`
+  §*Data & interfaces*' *Issue to file for item 6* was already done when the
+  build started; this work item filed nothing.
+- **Nothing pins the release checklist's `fold-check` step or settle's
+  fold-branch paragraph by text.** Both are instructions a person follows at
+  a fold, and review reads them.
 
 ## Fed back into the spec
 
