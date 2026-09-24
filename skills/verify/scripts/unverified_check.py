@@ -116,12 +116,15 @@ FOLD_MARKER = re.compile(r"^<!-- specs/(\S+) -->$", re.M)
 # inside a fence or a code span, and nothing blanks either one out of the text.
 OPENER = "<!--"
 CLOSER = "-->"
-# A run of backticks, and a fence opener. `live_lines` needs both as it
-# scans; `blank_fences` keeps its own copy of the fence pattern because it
-# serves the other gates and this scan may not move it.
+# A run of backticks. `live_lines` needs it as it scans for code spans.
 BACKTICKS = re.compile(r"`+")
-# **Three spaces, not `\\s*`.** CommonMark 4.5 bounds an opening fence to
-# three spaces of indentation; four is an indented code block, or a lazy
+# A fence delimiter line, as CommonMark 4.5 spells one: at most three spaces
+# of indentation, a run of three or more backticks or three or more tildes,
+# then the info string. `fence_opener` and `fence_closes` below are the one
+# rule every reader in this repository that walks a fence asks, and this
+# pattern is only their first half.
+#
+# **Three spaces, not `\\s*`.** Four is an indented code block, or a lazy
 # continuation line inside an open paragraph. Reading one as a delimiter does
 # not merely park lines — it INVERTS the fence state for the rest of the file,
 # so a real fenced block's content reads live and its delimiters read as
@@ -129,9 +132,10 @@ BACKTICKS = re.compile(r"`+")
 # record. `skills/settle/SKILL.md` §2 shows the marker inside a fence with a
 # real released id, which is the quotation this would have read (round 6,
 # finding 1; executed on a throwaway git repository, `settle --retire` at
-# exit 0 with the directory removed). `blank_fences` keeps the old spelling
-# because it serves the other gates and this scan may not move it.
-FENCE_RE = re.compile(r"^ {0,3}(`{3,}|~{3,})")
+# exit 0 with the directory removed). `blank_fences` used to keep an
+# unbounded spelling of its own, and #491 is what that cost: the bound had
+# landed here and not one function over in the same file.
+FENCE_RE = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})(?P<info>.*)$")
 SKIP_DIRS = {
     ".git",
     ".venv",
@@ -220,6 +224,98 @@ def strip_comments(lines):
     return [kept for _, kept in comment_scan(lines)]
 
 
+def fence_opener(line):
+    """The fence `line` opens, as `(character, length)`, or None.
+
+    **The fence delimiter rule, and the one place it is written** (#491,
+    #444). CommonMark 4.5: at most three spaces of indentation, then three or
+    more backticks or three or more tildes. A BACKTICK opener's info string
+    may not itself hold a backtick, so ``` ```x` ``` on its own line opens
+    nothing; a tilde opener's info string is unrestricted. `fence_closes`
+    below is the other half.
+
+    Every reader that walks a fence asks these two functions rather than a
+    pattern of its own, because five spellings of this rule is what five
+    readers had. The readers that ask it: `fence_spans` and through it
+    `blank_fences` and `closed_fence_lines`, and `_liveness` and
+    `_paragraph_ends_at`, all in this module. **A new reader that decides by
+    line whether it stands inside a fence belongs on this list**, and a
+    reviewer of one has this docstring to check it against — nothing else
+    can reach a reader that does not exist yet.
+
+    `hooks/config.py#FENCE` is the one deliberate second copy: it runs on the
+    hook path, where loading a skill module would cost every hook call.
+    `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
+    holds the two in step, shape by shape.
+    """
+    m = FENCE_RE.match(line.rstrip("\r\n"))
+    if not m:
+        return None
+    run = m.group("run")
+    if run[0] == "`" and "`" in m.group("info"):
+        return None
+    return run[0], len(run)
+
+
+def fence_closes(line, opener):
+    """Whether `line` closes the fence `opener` (a `fence_opener` value).
+
+    CommonMark 4.5: the same character as the opener, a run at least as
+    long, the same three-space bound, and nothing after the run but spaces
+    or tabs. So ```` ```python ```` inside an open ```` ``` ```` block is
+    content, and so is ```` ``` ```` inside a ```` ```` ```` block.
+    """
+    m = FENCE_RE.match(line.rstrip("\r\n"))
+    return bool(
+        m
+        and m.group("run")[0] == opener[0]
+        and len(m.group("run")) >= opener[1]
+        and not m.group("info").strip()
+    )
+
+
+def fence_spans(lines):
+    """`[(first, last)]` for each fenced block in `lines`, delimiters
+    included, with `last` None for a block that is never closed.
+
+    The walk for a reader with no comment or code-span state of its own. A
+    reader that has either — `_liveness`, `claim_lines` — walks with
+    `fence_opener` and `fence_closes` directly, because whether a line can
+    open a fence at all depends on the state it began in.
+
+    **An unclosed block is reported, not decided.** `blank_fences` blanks it
+    to the end, because a gate reading a record treats it as quoted and
+    `round_record.py` refuses the record with a named message. A reader of a
+    line that HOLDS something — a ledger anchor, an open row — reads it,
+    because only a block that closes is certainly a quotation
+    (`docs/the-evidence-ledger.md` §*A marker counts only on a live line*).
+    """
+    spans, opener, first = [], None, None
+    for n, line in enumerate(lines):
+        if opener is None:
+            opener = fence_opener(line)
+            if opener is not None:
+                first = n
+        elif fence_closes(line, opener):
+            spans.append((first, n))
+            opener = None
+    if opener is not None:
+        spans.append((first, None))
+    return spans
+
+
+def closed_fence_lines(lines):
+    """The indices of `lines` inside a fenced block that CLOSES, delimiters
+    included — the lines a reader of something a line holds may skip."""
+    lines = list(lines)
+    return {
+        n
+        for first, last in fence_spans(lines)
+        if last is not None
+        for n in range(first, last + 1)
+    }
+
+
 def blank_fences(lines):
     """The same lines with fenced blocks blanked out, indices intact.
 
@@ -227,20 +323,13 @@ def blank_fences(lines):
     as a second section. Blanking rather than truncating matters: the working
     tree and the base revision have to agree about where the table is, or
     adding an example reads as a deletion and rows after an example read as
-    absent."""
-    out, marker = [], None
-    for line in lines:
-        opener = re.match(r"^\s*(`{3,}|~{3,})", line)
-        if opener and marker is None:
-            marker = opener.group(1)
-            out.append("")
-            continue
-        if opener and marker and opener.group(1)[0] == marker[0]:
-            if len(opener.group(1)) >= len(marker):
-                marker = None
-            out.append("")
-            continue
-        out.append("" if marker else line)
+    absent. A block that is never closed is blanked to the end, and the
+    delimiter rule is `fence_opener`'s."""
+    lines = list(lines)
+    out = list(lines)
+    for first, last in fence_spans(lines):
+        for n in range(first, len(lines) if last is None else last + 1):
+            out[n] = ""
     return out
 
 
@@ -266,18 +355,12 @@ def _liveness(lines, spans_cross_lines):
         out.append(fence is None and not comment and span is None)
 
         if fence is not None:
-            closing = FENCE_RE.match(line)
-            if (
-                closing
-                and closing.group(1)[0] == fence[0]
-                and len(closing.group(1)) >= len(fence)
-            ):
+            if fence_closes(line, fence):
                 fence = None
             continue
         if not comment and span is None:
-            opening = FENCE_RE.match(line)
-            if opening:
-                fence = opening.group(1)
+            fence = fence_opener(line)
+            if fence is not None:
                 continue
 
         pos = 0
@@ -354,20 +437,26 @@ def _paragraph_ends_at(line):
     s = line.strip()
     if not s:
         return True
+    indent = len(line) - len(line.lstrip(" "))
     # `|` is a deliberate over-stop — GFM parses a table row's cells
     # independently and it is what keeps three work items' coordinates.
     # `>` is the format's own rule (CommonMark 5.1).
     if s.startswith(("|", ">")):
         return True
-    # CommonMark 4.2: one to six hashes, then a space, a tab or end of line.
-    # `s.startswith("#")` alone stopped on `#hello` and on `####### seven`,
-    # which are paragraph text — and on the issue references this repository
-    # writes constantly, 944 lines of them (round 6, finding 4).
-    if s.startswith("#"):
+    # CommonMark 4.2: at most three spaces of indentation, then one to six
+    # hashes, then a space, a tab or end of line. `s.startswith("#")` alone
+    # stopped on `#hello` and on `####### seven`, which are paragraph text —
+    # and on the issue references this repository writes constantly, 944
+    # lines of them (round 6, finding 4). Four spaces is paragraph text too,
+    # a lazy continuation line, and the oracle
+    # `tests/test_unverified_rows_close.py#block_ends_at` has bounded it all
+    # along (#491's round-7 comment).
+    if indent <= 3 and s.startswith("#"):
         n = len(s) - len(s.lstrip("#"))
         if 1 <= n <= 6 and (len(s) == n or s[n] in " \t"):
             return True
-    if FENCE_RE.match(line):
+    # Only an OPENER interrupts a paragraph, and `fence_opener` is the rule.
+    if fence_opener(line) is not None:
         return True
     if s[0] in "*-_" and len(s) >= 3 and set(s.replace(" ", "")) == {s[0]}:
         return True
@@ -462,7 +551,10 @@ def live_lines(lines):
     `round_record.py`, `chain_check.py`, the review-history guard — and
     `seal/ledger.md` pins `strip_comments`'s exact output while
     `tests/test_chain_hooks.py#reader_blanking_passes` pins the passes
-    `readable` makes. None of them is on this path and none of them moved.
+    `readable` makes. None of them is on this path. What this scan and
+    `blank_fences` DO share is the fence delimiter, `fence_opener` and
+    `fence_closes`, because two spellings of it is what #491 found: the
+    three-space bound had landed here and not one function over.
 
     No `zip`. Ruff's B905 requires the strictness keyword on every such call,
     that keyword arrived in python 3.10, and this script carries no

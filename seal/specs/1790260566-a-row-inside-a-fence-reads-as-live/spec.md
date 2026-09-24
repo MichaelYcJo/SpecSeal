@@ -114,7 +114,7 @@ loads, and each walk keeps the state its own question needs.
 
 | Scenario | Given / When / Then | Verifiable how |
 |---|---|---|
-| S1 · a ledger that explains its own format | Given `seal/ledger.md` with a closed fenced block holding a row `\| X \| … \| nosuchfile.py#nothing@deadbeef \| …` above the live table, when `evidence-check` runs, then nothing is reported for the fenced coordinate and the exit code is what the live rows alone give | a case in the phase-2 module, seen red against `c52e8350` (the #444 reproduction) |
+| S1 · a ledger that explains its own format | Given `seal/ledger.md` with a closed fenced block holding a row `\| X \| … \| nosuchfile.py#nothing@deadbeef \| …` above the live table, when `evidence-check` runs, then nothing is reported for the fenced coordinate and the exit code is what the live rows alone give | a case in the phase-2 module, seen red against `c52e8350` (the #444 reproduction) · NAME NOT IN TREE |
 | S2 · the writers leave an example alone | Given S1's file with a drifted live row and a fenced example, when `--reverify` and `--migrate` run, then the bytes of the fenced block are unchanged | a case asserting the fenced span is byte-identical after each writer, seen red |
 | S3 · an unclosed fence still holds | Given a ledger whose fence never closes above a row with a missing file, when the check runs, then that row is BROKEN | a case, which passes before and after (it pins the direction) |
 | S4 · an indented delimiter is not a fence | Given a record with a line indented four spaces holding ```` ``` ````, when `readable` reads it, then the line is not a delimiter and the table after it is read | a case on `readable`, seen red against `blank_fences`'s `^\s*` |
@@ -124,7 +124,7 @@ loads, and each walk keeps the state its own question needs.
 | S8 · one open-rows rule | When `fold_ledger.py#open_rows` is read, then it is `unverified_check.py#todo_open_rows` | a case asserting identity, red while the copy stands |
 | S9 · a quoted marker gathers nothing | Given `CHANGELOG.md` with `<!-- specs/<real id> -->` only inside a fenced block, when the survivor sweep asks `gathered_fragments`, then that id is not gathered | a case, seen red |
 | S10 · a claim after `-->` | Given the record lines `<!-- note` / `end --> gone_helper is used`, when the records arm reads them, then `gone_helper` is read | #220's first shape as a case, seen red |
-| S11 · a comment reopened on its closing line | Given `<!-- a` / `b --> <!-- c` / `secret_name` / `-->`, when the records arm reads them, then no claim is read from lines 2 to 4 | #220's second shape as a case, seen red |
+| S11 · a comment reopened on its closing line | Given `<!-- a` / `b --> <!-- c` / `secret_name` / `-->`, when the records arm reads them, then no claim is read from lines 2 to 4 | #220's second shape as a case, seen red · NAME NOT IN TREE |
 | S12 · a longer fence is not closed by a shorter one | Given a record with a ```` ```` ```` block quoting ```` ``` ````, when `claim_lines` reads it, then the inner delimiter does not close the block | a case, seen red |
 
 ## Data & interfaces

@@ -321,10 +321,11 @@ def coordinates(root):
     docstring carries why a sequence could not answer it.
 
     **A THIRD quotation is out of scope, and it is named here so it is not
-    met as a surprise:** markdown's indented code block. `blank_fences` knows
-    the two fenced forms only, so a fragment that shows its example row
-    indented four spaces has that example counted as its own coordinate.
-    Widening the fence reader would move `readable`, `check_text`,
+    met as a surprise:** markdown's indented code block. The fence delimiter
+    rule every reader shares, `unverified_check.py#fence_opener`, knows the
+    two fenced forms only, so a fragment that shows its example row indented
+    four spaces has that example counted as its own coordinate. Teaching the
+    shared rule an indented block would move `readable`, `check_text`,
     `round_record.py` and the review-history guard at once — measured
     2026-09-22, one such widening reddens
     `tests/test_the_record_is_generated.py#test_a_continuation_that_looks_like_an_opener_is_still_joined`,
