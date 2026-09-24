@@ -151,6 +151,26 @@ too. What this gives up is the one shape the pool caught only because these
 records were in it -- a correction inside an HTML comment while the false
 claim rendered in bold -- and `seal/follow-up.md` names whose that loss is.
 
+**A released changelog section, and a gathered fragment.** Every line under
+a heading that names a version in the root `CHANGELOG.md` -- `## 0.15.0 —
+2026-09-23`, up to the next `## ` heading -- is out of the **pool** and out
+of the **range**, on both sides of the range's path list; and so is a
+`seal/specs/<id>/changelog.md` whose `<!-- specs/<id> -->` marker stands in
+`CHANGELOG.md` at the range's tip, because a gathered fragment is that
+released entry one file over (#307). A released section records what a past
+release did, in that release's words, and a released entry is not rewritten
+(`CLAUDE.md` §*Repo rule — a change writes fragments, never the shared
+file*): reported against one, the branch that changed the behaviour it
+describes could correct nothing, and two of the four ranges the 0.15.0
+release was measured on carried exactly that report. The region is read off
+the heading rather than the file being left out by path, so an
+`## Unreleased` section and an ungathered fragment stay in -- they are this
+release's own prose, the thing the sweep is for. In the range, a release's
+gathering commit deletes each fragment and writes its text under a heading
+that is blanked, so without this the fragments' every sentence would count
+as removed and the work items' own `spec.md` and `overview.md` would be
+reported at the release.
+
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
 inside one is by definition not a standing sentence.
@@ -483,6 +503,41 @@ def blank_struck(text):
     return STRUCK.sub(blank, text)
 
 
+# The changelog the gatherer writes, at the repository root and under this
+# name. A changelog kept elsewhere or under another name keeps the reading
+# every other document has (#307's *Out*).
+CHANGELOG = "CHANGELOG.md"
+
+# A heading that opens a RELEASED section: `## 0.15.0 — 2026-09-23`, and the
+# `## [1.2.0]` and `## v1.2.0` spellings other changelogs use. `## Unreleased`
+# matches nothing here, and that is the whole reason the region is read off
+# the heading rather than the file being left out by path: a repository
+# following `agents/smith.md`'s *let the entry accumulate unreleased* keeps
+# live prose in this file, above the first version, and that prose is this
+# release's own.
+VERSION_HEADING = re.compile(r"^##\s+\[?v?\d+\.\d+(?:\.\d+)?")
+# Any `## ` heading, which is where a section ends.
+SECTION_HEADING = re.compile(r"^##\s")
+
+
+def blank_released(text):
+    """`text` with every released section of a changelog blanked, line
+    numbers intact -- the heading naming a version and every line under it,
+    up to the next `## ` heading.
+
+    A released section records what a past release did, in that release's
+    words, and a released entry is not rewritten. Reported against one, a
+    branch that changed the behaviour the entry describes could correct
+    nothing, and two of the four ranges the 0.15.0 release was measured on
+    carried exactly that report (#307)."""
+    out, released = [], False
+    for line in text.split("\n"):
+        if SECTION_HEADING.match(line):
+            released = VERSION_HEADING.match(line) is not None
+        out.append("" if released else line)
+    return "\n".join(out)
+
+
 # What a Python file SAYS, as opposed to what it does. Its prose is its
 # comments, its docstrings and its string literals; every other token -- a
 # name, an operator, a number, a keyword -- is code, and a line of code
@@ -639,6 +694,8 @@ def sentences(path, text):
     in the pool by construction."""
     if path.endswith(".py"):
         text = python_prose(text)
+    elif path == CHANGELOG:
+        text = blank_released(text)
     return [
         Sentence(path, line, raw) for line, raw in segments(blank_struck(text)) if raw
     ]
@@ -696,6 +753,44 @@ def records_a_past_state(path):
     return inside == ["survivors.md"] or (len(inside) > 1 and inside[0] == "phases")
 
 
+# The marker a gathered changelog fragment leaves in `CHANGELOG.md`, in the
+# shape `unverified_check.py#FOLD_MARKER` already spells for the fold's
+# marker in `docs/`. Spelled here rather than imported from the gatherer:
+# `.github/scripts/gather_changelog.py` is this repository's release
+# automation, and a shipped script does not depend on it.
+MARKER = re.compile(r"^<!-- specs/(\S+) -->$", re.M)
+
+
+def gathered_fragments(root, rev):
+    """The work item ids whose changelog fragment the tip's `CHANGELOG.md`
+    has gathered -- read off the marker each gather writes, at `rev`.
+
+    One `read_blobs` call and no path list: the question is what one file
+    says, never which files exist."""
+    text = read_blobs(root, rev, [CHANGELOG]).get(CHANGELOG, "")
+    return set(MARKER.findall(text))
+
+
+def a_gathered_fragment(path, gathered):
+    """True for `seal/specs/<id>/changelog.md` whose `<id>` is in `gathered`.
+
+    A gathered fragment is the released entry one file over: its text stands
+    verbatim under a version heading of `CHANGELOG.md`, and the release that
+    gathered it is what retires the file. So it is out of the pool and out of
+    the range on both sides, the way a released section is -- and an
+    ungathered fragment is in, because it is this release's own prose.
+
+    A sibling of `records_a_past_state` rather than a parameter on it,
+    because that predicate is a pure function of the path and this one is
+    not: it needs the tip's `CHANGELOG.md`, so it carries its own argument
+    and is applied beside the other in `corrected` and `corpus`."""
+    parts = path.replace("\\", "/").split("/")
+    if "specs" not in parts:
+        return False
+    inside = parts[parts.index("specs") + 1 :]
+    return len(inside) == 2 and inside[1] == "changelog.md" and inside[0] in gathered
+
+
 # The fold record's one reader, loaded by path the way `chain_check.py#load`
 # loads it from this same directory. It answers both arms of what a
 # retirement is: the marker (`folded_items`) and the rule (`retired_by_rule`).
@@ -750,8 +845,15 @@ def retired_directories(root, a, b, paths):
 
 
 def corpus(root, rev):
-    """`{path: [Sentence]}` for the tree at `rev`, less what is excluded."""
-    paths = [p for p in tracked(root, rev) if not records_a_past_state(p)]
+    """`{path: [Sentence]}` for the tree at `rev`, less what is excluded --
+    what `records_a_past_state` names, and the changelog fragments the tip's
+    `CHANGELOG.md` has gathered."""
+    gathered = gathered_fragments(root, rev)
+    paths = [
+        p
+        for p in tracked(root, rev)
+        if not records_a_past_state(p) and not a_gathered_fragment(p, gathered)
+    ]
     return {
         path: sentences(path, text)
         for path, text in read_blobs(root, rev, paths).items()
@@ -798,8 +900,18 @@ def corrected(root, a, b):
     names = git(root, "diff", "--name-only", "-z", a, b)
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
+    # A fragment gathered at the tip is out on both sides too (#307): the
+    # range that gathers it deletes it and writes its text under a version
+    # heading, which is blanked, so left in the list every sentence of the
+    # fragment would count as removed and its live copies -- the work item's
+    # own `spec.md` and `overview.md` -- would be reported at the release.
+    gathered = gathered_fragments(root, b)
     paths = [
-        path for path in names.split("\0") if path and not records_a_past_state(path)
+        path
+        for path in names.split("\0")
+        if path
+        and not records_a_past_state(path)
+        and not a_gathered_fragment(path, gathered)
     ]
     # A retired directory is out of the range on both sides too (#517), for
     # the reason the round records are: its sentences stand in `docs/` by

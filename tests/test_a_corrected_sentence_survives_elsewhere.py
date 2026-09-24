@@ -1024,6 +1024,7 @@ EXCLUSIONS = (
     "**A record of a past round.**",
     "**The work item's own exemption file.**",
     "**A phase record.**",
+    "**A released changelog section, and a gathered fragment.**",
 )
 
 
@@ -2417,16 +2418,22 @@ RELEASE_RANGES = {
         "seal/ledger.md:820",
         "skills/code-review/scripts/chain_check.py:2370",
     },
-    # C · #538: `fold_ledger.py:358`, a `main` body against the gatherer's, gone
-    "cc49ae64": {"CHANGELOG.md:2252"},
+    # C · #538: `fold_ledger.py:358`, a `main` body against the gatherer's,
+    # gone; then `CHANGELOG.md:2252`, a released entry, gone too
+    "cc49ae64": set(),
     # B · #539: no code idiom in the POOL on this range, and one in the range
     # itself. The whole-file reading named `seal/ledger.md:2053` at 2.47
     # against a "sentence" that was a test's docstring and three of its
     # assert messages joined by the code between them; read one literal per
     # sentence, the best of those sources shares one run at 1.00, under the
-    # floor. The eight prose places stand.
+    # floor. Then `CHANGELOG.md:2090`, a released entry, gone -- and with
+    # nine gathered fragments out of the pool the weight of every phrase
+    # they held rose, and `survivor_check.py:142` (the module's own *quote
+    # is the anchor* sentence) crossed the floor at 1.61 against the
+    # `seal/follow-up.md` row the range deleted. The weighting moving, as
+    # `plan.md` §*Operational impact* says it can; seven stand and one joins.
     "3dd24073": {
-        "CHANGELOG.md:2090",
+        "skills/code-review/scripts/survivor_check.py:142",
         "seal/follow-up.md:65",
         "tests/test_chain_check_at_the_pull_request.py:1506",
         "seal/follow-up.md:80",
@@ -2471,3 +2478,180 @@ def test_the_docstring_states_what_a_sentence_is_in_a_python_file():
     section = " ".join(section[: section.index("\n## ")].split())
     for word in ("comment", "docstring", "string literal", "code"):
         assert word in section, f"the section does not mention {word!r}:\n{section}"
+
+
+# --- #307: a released changelog section and a gathered fragment are records --
+#
+# A released section records what a past release did, in that release's
+# words, and a released entry is not rewritten (`CLAUDE.md` §*Repo rule — a
+# change writes fragments, never the shared file*). So the branch that changes
+# the behaviour it describes was reported against it and could correct
+# nothing; two of the four measured ranges carried exactly that report. The
+# region is read off the HEADING rather than the file whole, because a
+# repository following `agents/smith.md`'s *let the entry accumulate
+# unreleased* keeps live prose under `## Unreleased` in the same file. A
+# fragment counts as gathered when its `<!-- specs/<id> -->` marker stands in
+# `CHANGELOG.md` at the range's tip, which is the rule the gatherer pins.
+
+RELEASED_HEADINGS = ("## 1.0.0 — 2026-01-01", "## [1.2.0] - 2026-01-01", "## v1.2.0")
+SHIPPED = "seal/specs/1700000003-a-shipped-item"
+FRAGMENT = f"{SHIPPED}/changelog.md"
+
+
+def changelog(heading, body, marker=None):
+    mark = f"<!-- specs/{os.path.basename(SHIPPED)} -->\n" if marker else ""
+    return f"# Changelog\n\n{heading}\n{mark}\n### Fixed\n\n- {body}\n"
+
+
+@pytest.mark.parametrize("heading", RELEASED_HEADINGS)
+def test_a_released_changelog_section_is_not_a_carrier(tmp_path, heading):
+    """S7. The claim corrected in `docs/a.md` stands under a version heading
+    of `CHANGELOG.md`, and the range is clean: that section is the record of
+    a release, and nobody may correct it."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": changelog(heading, FOUND),
+            **FILLER,
+        },
+        "the claim, and the release that recorded it",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        f"a released changelog section under {heading!r} was reported as a "
+        f"survivor; a released entry is not rewritten. exit {code}\n{text}"
+    )
+    assert "CHANGELOG.md" not in text.split("examined", 1)[-1], text
+
+
+def test_an_unreleased_changelog_section_is_a_carrier(tmp_path):
+    """S8. The same sentence under `## Unreleased` is this release's own
+    prose, and it is reported. Green before and after: the half that must
+    not move."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": changelog("## Unreleased", FOUND),
+            **FILLER,
+        },
+        "the claim, and an unreleased entry carrying it",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"the unreleased entry went unreported; exit {code}\n{text}"
+    assert "CHANGELOG.md" in text, text
+
+
+def test_a_range_that_edits_only_a_released_section_removes_no_sentence(tmp_path):
+    """S9. The source side. A line changed under `## 1.0.0` is not a
+    correction anybody has to chase into `docs/`, and the count of removed
+    sentences says so."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND),
+            **FILLER,
+        },
+        "the claim, and the release that recorded it",
+    )
+    head = build(
+        repo,
+        {"CHANGELOG.md": changelog(RELEASED_HEADINGS[0], REPAIRED)},
+        "reflowed a released entry and nothing else",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "a range that touched only a released section was read as a "
+        f"correction somebody has to chase into docs/a.md; exit {code}\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), (
+        f"wording removed from a released section still counts as removed:\n{text}"
+    )
+
+
+def test_a_gathered_fragment_standing_in_the_pool_is_not_a_survivor(tmp_path):
+    """S10, the pool side. The fragment's marker is in `CHANGELOG.md` at the
+    tip, so the fragment is the released entry one file over and is not
+    reported.
+
+    The released section itself carries an unrelated entry here, on
+    purpose: with the same sentence in both, the two carriers halve each
+    other's weight and the fragment falls under the floor unreported, and
+    this case was green against the unchanged reader for that reason alone."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0], "An unrelated entry.", marker=True
+            ),
+            **FILLER,
+        },
+        "the claim, its fragment, and the release that gathered it",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        f"a gathered fragment was reported as a survivor; exit {code}\n{text}"
+    )
+    assert FRAGMENT not in text, text
+
+
+def test_a_gathered_fragment_the_range_edited_is_not_a_source(tmp_path):
+    """S10, the range side. A sentence removed from a gathered fragment is
+    not corrected wording, for the reason a round record's is not."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND, marker=True),
+            **FILLER,
+        },
+        "the claim, its fragment, and the release that gathered it",
+    )
+    head = build(
+        repo, {FRAGMENT: f"### Fixed\n\n- {REPAIRED}\n"}, "reflowed the fragment"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "a range that edited a gathered fragment and nothing else was read as "
+        f"a correction to chase into docs/a.md; exit {code}\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), text
+
+
+def test_an_ungathered_fragment_is_still_a_carrier(tmp_path):
+    """S10, the half that must not move. With no marker in `CHANGELOG.md` the
+    fragment is this release's own prose, and it is reported."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], "An unrelated entry."),
+            **FILLER,
+        },
+        "the claim, and a fragment nothing has gathered",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"an ungathered fragment went unreported; exit {code}\n{text}"
+    assert FRAGMENT in text, text
