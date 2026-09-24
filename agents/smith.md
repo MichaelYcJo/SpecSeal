@@ -113,7 +113,7 @@ incorporation. This file only adds what the skill does not carry.
         `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
         nothing-looks/questions.md` Q4 is where the question is open, and
         this paragraph is evidence for it rather than an answer to it.
-        Verified 2026-09-24 against "## Phases"@ccacfcc7. -->
+        Verified 2026-09-25 against "## Phases"@22daeeed. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
@@ -222,7 +222,8 @@ incorporation. This file only adds what the skill does not carry.
    none of them a defect — and 153 written rows is not an escape anybody
    takes. That row is anchored on the range **and** on the work item it lives
    in: it stops holding the moment the check runs over a different range, and
-   it never reaches a range that touches nothing in your own work item. The
+   it never reaches a range that touches nothing in your own work item (in
+   local mode, one whose tip is off the branch your `routing.md` names). The
    spelling CI passes, `origin/<base>...HEAD`, is a relation rather than a
    range and re-resolves on every checkout, so without the second anchor one
    merged row turned the step off for every later branch cut from the same

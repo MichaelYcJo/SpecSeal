@@ -61,8 +61,8 @@ that the model never sees, and declining is a bare "No".
 ### Which repository, and what happens when it cannot be read
 
 <!-- specs/1788305134-the-reader-stops-where-it-need-not -->
-The repository judged is the one the command commits **into**, not the one the
-shell sits in. `git -C <path> commit` moves git without moving the shell, so
+**The repository judged is the one the command commits *into*, not the one the
+shell sits in.** `git -C <path> commit` moves git without moving the shell, so
 the directory comes from the command and falls back to `cwd` only when the
 command names none. Repeated `-C` compose. A command committing into two
 repositories is judged for both.
@@ -119,6 +119,7 @@ and dropped every line after it looking for a match no line makes — so a
 commit written below it did not arrive misjudged, it did not arrive at all.
 This is a JUDGMENT read; the scan for a waiver token still sees the command as
 written.
+Enforced by: tests/test_gate_judges_the_repo_it_commits_to.py::test_a_commit_aimed_elsewhere_is_judged_there, tests/test_gate_judges_the_repo_it_commits_to.py::test_a_cd_reaches_the_repository_the_commit_lands_in
 
 <!-- specs/1788184145-the-gate-stops-the-session-editing-its-tests -->
 **A file edit goes through the `Edit` tool, because a shell command that only
@@ -136,6 +137,7 @@ the shell. So a session that searched its patch for a commit and found none
 has not cleared it, and an edit the `Edit` tool makes leaves no command line
 to read. Skipping a body that is only being written to a file would reopen
 #75, and that trade is the repository owner's to make.
+Enforced by: tests/test_edits_go_through_the_edit_tool.py::test_the_rule_names_the_tool_and_pairs_its_two_reasons, tests/test_gate_judges_the_repo_it_commits_to.py::test_an_interpreter_fed_heredoc_body_that_commits_stops
 
 <!-- specs/1788305134-the-reader-stops-where-it-need-not -->
 
@@ -220,6 +222,7 @@ would answer for a repository the commit may never touch, which is the defect
 The two ways on are ordered deliberately. The first is to write the path out,
 because that is what lets the gate reach a verdict at all; `[no-review]` is
 second and works exactly as everywhere else.
+Enforced by: tests/test_gate_judges_the_repo_it_commits_to.py::test_a_failure_branch_survives_an_intervening_segment
 
 #### A `cd` the gate cannot read
 
@@ -318,6 +321,7 @@ exactly the work the chain exists to serve.
 Approving is still per commit and the marker still per command. What changed
 is that the routing answer now has somewhere to live, and the check it
 silences now happens at the pull request instead. See below.
+Enforced by: tests/test_chain_hooks_hardening.py::test_the_review_arm_asks_on_a_document_only_commit
 
 #### Where the marker goes, which is not where it is read
 
@@ -350,8 +354,8 @@ needs a tty and sources a user's rc.
 #### The declaration, and where the check went instead
 
 <!-- specs/1789518345-who-asks-the-routing-question-and-what-checks-the-answer -->
-The gate reads `seal/specs/<work-item-id>/routing.md` before it reads anything
-else. Where a declaration is in force the review arm stays silent — for
+**The gate reads `seal/specs/<work-item-id>/routing.md` before it reads anything
+else.** Where a declaration is in force the review arm stays silent — for
 **either** answer, because the routing question was answered before the first
 edit and asking for `[no-review]` as well is asking for the same answer twice.
 
@@ -365,6 +369,7 @@ What the check reads of each round record under the first answer, and what
 each refusal costs, is `docs/round-record-spec.md` for the record's rows, and
 `docs/review-chain-spec.md` for the floor, `Needs a fix`, the reopening and
 when the record was written.
+Enforced by: tests/test_routing_is_recorded.py::test_a_declared_chain_item_commits_without_a_prompt, tests/test_routing_is_recorded.py::test_a_declared_direct_item_commits_without_a_prompt
 
 <!-- specs/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row -->
 **`straight to the PR` owes the sealer's `broad-gate.md` and turns off the
@@ -466,6 +471,8 @@ What it costs, stated rather than buried:
 - Deleting the routing file restores today's behavior exactly, because the
   fallback for a missing declaration is today's decision table.
 
+Enforced by: tests/test_chain_check_at_the_pull_request.py::test_a_declaration_this_branch_retired_is_not_one_it_made, tests/test_chain_check_at_the_pull_request.py::test_a_declaration_the_rule_arm_retired_is_not_one_it_made
+
 ### Parity arm — opt-in: `seal/parity.md` at the repo root
 
 Ported behavior follows the original where policy is silent, so a commit that
@@ -509,6 +516,8 @@ options, and an `ask` never gives the model the turn.
 ## review-history-guard (PostToolUse, Bash)
 
 <!-- specs/1788844300-the-guards-cases-cannot-observe-what-they-guard -->
+**A session that posts a review is reminded to write the round record, and
+one that reads a review is reminded to read the record first.**
 Two branches with **opposite conditions** — the failure modes differ:
 
 | Trigger | Condition | Reminder |
@@ -525,10 +534,13 @@ reminder the case where `gh pr merge` runs from a branch that declared
 nothing. What replaced the deadline is the pull-request check in CI, not this.
 
 Reminder-only (PostToolUse cannot block). Same `seal/` opt-in as the gate.
+Enforced by: tests/test_chain_hooks.py::test_history_guard_reminds_posting_without_record, tests/test_chain_hooks.py::test_history_guard_reminds_reading_with_record
 
 ## implementer-mark · implementer-notice (PreToolUse Agent|Task · PostToolUse Bash)
 
 <!-- specs/1788310269-the-implementer-leaves-a-mark -->
+**A `framer` or `smith` spawn leaves a mark, and a commit on a branch whose
+declaration names that agent, with no mark standing, gets one line saying so.**
 The routing declaration has two axes that name an agent — `Planning`, who
 draws the frame, and `Implementation`, who builds the work item — each
 answered by that agent's name or by `the session`, and until these two hooks
@@ -553,3 +565,4 @@ session could not also write. Everything fails toward "no mark", which is toward
 reminder: a mark gate that quietly stops running turns the notice on, not off,
 so a dead gate produces a line somebody reads rather than a silence nobody
 does. The commit gate's decision is byte-identical with the row and without it.
+Enforced by: tests/test_the_implementer_is_recorded.py::test_spawning_smith_leaves_a_mark, tests/test_the_implementer_is_recorded.py::test_a_declared_smith_with_no_mark_is_noticed_after_a_commit

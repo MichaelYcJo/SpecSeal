@@ -92,9 +92,10 @@ are supposed to survive a deletion, and #293's range reported 153 of them,
 all correct as reports and none a defect. That row is anchored on the range
 **and** on the work item it lives in — it stops holding over a different
 range, and it never reaches a range that touches nothing in its own work
-item, because `origin/<base>...HEAD` re-resolves per checkout and one merged
-row would otherwise excuse every later branch cut from the same base. The
-grounds are still a written sentence somebody reads.
+item (in local mode, one whose tip is off the branch that work item's
+`routing.md` names), because `origin/<base>...HEAD` re-resolves per
+checkout and one merged row would otherwise excuse every later branch cut
+from the same base. The grounds are still a written sentence somebody reads.
 
 **The half of a prompt that does not change between rounds is not yours to
 type.** `skills/agent-contract/SKILL.md` reaches every agent you spawn at

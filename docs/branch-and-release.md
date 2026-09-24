@@ -34,11 +34,13 @@ git describe --tags   # must name the release, not "<tag>-N-g<sha>"
 ```
 
 <!-- specs/1788302682-the-release-check-never-watched-bin -->
-Two checks enforce the half that can be: `tests/test_chain_hooks_hardening.py`
+**A release pull request that changes what the plugin ships moves the
+version.** Two checks enforce the half that can be: `tests/test_chain_hooks_hardening.py`
 binds the changelog to whatever `plugin.json` says, and the `hygiene` workflow
 fails a release PR — one whose base is `main` — that changes `skills/`,
 `agents/`, `hooks/`, `templates/`, `bin/` or `.claude-plugin/` without moving
 the version. The tag is still yours to push — nothing in CI can do it for you.
+Enforced by: tests/test_the_release_check_watches_what_ships.py::test_every_shipping_root_is_watched, tests/test_the_release_check_watches_what_ships.py::test_the_refusal_still_fails_the_run, .github/workflows/hygiene.yml
 
 <!-- specs/1790076050-the-release-tail-is-three-acts-no-document-names -->
 **Every act the release performs once it reaches `main` belongs to a machine or
@@ -84,6 +86,7 @@ act, fires the note, because a note has to name a tag.
 `docs/release-checklist.md` §6 carries a box for each of the first two. The
 first confirms the workflow fired and is not where the note gets written; the
 second is where the command is run.
+Enforced by: tests/test_a_release_publishes_its_note.py::test_the_workflow_fires_on_the_tag_and_writes_nothing_else, tests/test_the_release_tail_does_not_end_at_the_tag.py::test_the_label_acts_are_fired_by_the_merge_to_main_not_the_tag
 
 ### Work accumulates on a release branch
 
@@ -125,15 +128,19 @@ and no round record named its commits — which is a condition nobody should
 have to check at the merge button, so the ruleset does not offer the choice.
 
 **What breaks when the last row is squashed** — measured. A squash
-discards every commit the release branch wrote, and two things point at those
+discards every commit the release branch wrote, and anything naming one of
+them by SHA stops resolving.
 <!-- specs/1788826000-a-stamp-names-content-not-a-commit -->
-commits by SHA: the `Verified … at <sha>` stamp on every `# RIDER:` comment,
-and the `Target SHA` field in every `round-N.md`. After the squash the stamp
-resolves for nobody, which removes the one way a reader has to tell a live
-rider from a spent one; `tests/test_a_rider_reaches_its_file.py` went red for
-exactly that, and the patch release after it exists to fix one line. The
-round records survived only
+**A `# RIDER:` comment's stamp names content, never a commit, and the
+`Target SHA` field in every `round-N.md` is what still names one.** The stamp
+used to read `Verified … at <sha>`, and after a squash it resolved for nobody,
+which removed the one way a reader has to tell a live rider from a spent one;
+`tests/test_a_rider_reaches_its_file.py` went red for exactly that, and the
+patch release after it exists to fix one line. Work item `1788826000` moved
+every stamp to an anchor and a hash, so a squash can no longer orphan one.
+The round records survived only
 because their feature branches had been restored to the remote first.
+Enforced by: tests/test_a_rider_reaches_its_file.py::test_no_rider_stamp_names_a_commit, tests/test_a_rider_reaches_its_file.py::test_every_rider_stamp_resolves_and_reproduces_its_hash
 
 <!-- specs/1790076050-the-release-tail-is-three-acts-no-document-names -->
 **A third reader points at those commits now, and it is outside this
@@ -349,6 +356,7 @@ and not a safe one: GitHub sends the SHA the push displaced, and where the
 runner cannot reach it the range fails and the run stops — which is the right
 direction, and not the same as being harmless. `DRY_RUN=1` prints what it
 would do and writes nothing.
+Enforced by: nothing — a record rather than a rule: it measures that a plugin directory pins a commit of this repository. The rule it supports, that anything reaching `main` is a merge commit, is held outside the tree by the `main` ruleset.
 
 <!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
 **One issue the tracker refuses does not leave the rest open.** The run used

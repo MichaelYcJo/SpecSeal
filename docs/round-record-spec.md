@@ -43,7 +43,7 @@ commit gate has always carried.
 ## `Fixes checked by` has to name a checker the repository can confirm
 
 <!-- specs/1788212517-the-last-rounds-fixes-are-reviewed-by-nobody -->
-The draft excuse does not reach this row. `Pass` is excused in a draft because
+**The draft excuse does not reach this row.** `Pass` is excused in a draft because
 a review still running has not reached its verdict; a record naming a checker
 it does not have is wrong at every stage of a run.
 
@@ -125,6 +125,7 @@ Reading only the last record makes `round-N` unreachable — a checker has to be
 later, and the last record has none. What that costs is a repository updating
 the plugin: every record in a work item whose declaration the pull request
 touches needs the row, not just the newest.
+Enforced by: tests/test_the_last_rounds_fixes_are_checked.py::test_a_draft_pull_request_is_excused_the_pass_and_not_this, tests/test_the_last_rounds_fixes_are_checked.py::test_a_round_cannot_check_its_own_fixes
 
 ## The finding id — a bare integer, behind an optional severity marker
 
@@ -394,8 +395,8 @@ and the rule would then pass or fail on what somebody else had created.
 ## The fix surface — `Contract changes` and `New units`
 
 <!-- specs/1788272986-the-fixes-are-what-open-the-next-round -->
-Two more rows, read on every record the same way `Fixes checked by` is, and
-for the same reason: every round has its own fixes. Issue #57 measured ten
+**Two more rows are read on every record the same way `Fixes checked by` is,
+and for the same reason: every round has its own fixes.** Issue #57 measured ten
 regressions each traced to the fix that opened it, and the largest class —
 four of ten — was a fix that changed a unit's contract while not every place
 that contract reaches was revisited. The diff names the changed signature and
@@ -599,6 +600,7 @@ the fix diff open, so their prompt budget is zero. What `New units` buys sits
 with the verifying round: what it names is a finding surface — *is this
 correct* — rather than a verification surface, because a unit the fixes
 created has been reviewed by nobody.
+Enforced by: tests/test_the_fixes_name_their_surface.py::test_a_record_without_the_contract_row_fails, tests/test_the_fixes_name_their_surface.py::test_a_record_without_the_new_units_row_fails
 
 ## The depth in `New units`
 
@@ -766,6 +768,7 @@ orchestrator writes one thing by hand, the round paragraph, and no
 orchestrator prose ever sits in a parsed cell. Both halves run
 `chain_check --worktree` on the work item before they return, so the check
 sees the cell that was just written rather than the one at `HEAD`.
+Enforced by: tests/test_the_record_is_generated.py::test_the_three_tables_are_copied_row_for_row, tests/test_the_record_is_generated.py::test_the_exit_code_is_chain_checks_and_the_record_stays
 
 <!-- specs/1788844127-the-reviewers-report-reaches-the-record-retyped -->
 **The record and the report are different artifacts with different owners,
@@ -774,6 +777,7 @@ and neither is retyped into the other.** The reviewer writes its report to
 `new` reads `--report` from that location when the flag is absent. A report
 that reaches the record through a person's hands is a copy nobody can check
 against its original.
+Enforced by: tests/test_the_reviewers_report_reaches_the_record.py::test_the_default_reads_the_report_the_reviewer_left
 
 <!-- specs/1789338080-the-one-script-an-agent-is-told-to-run-cannot-be-typed -->
 **A script a shipped document tells an agent to run is reachable by a
@@ -785,6 +789,7 @@ flag to type. Every document naming a script also names a form that can be
 typed — the wrapper, or the script's repository-relative path. A document
 that names a script and no way to reach it is an instruction with no
 executable spelling.
+Enforced by: tests/test_a_document_that_names_a_script_says_how_to_reach_it.py::test_every_script_a_shipped_document_names_is_wrapped_or_classified, tests/test_a_document_that_names_a_script_says_how_to_reach_it.py::test_a_document_naming_a_wrapped_script_says_how_to_reach_it
 
 <!-- specs/1790174138-the-report-the-record-and-the-cells-disagree-on-one-format -->
 **A cell the generator writes holds what its readers read, not what was
@@ -810,6 +815,7 @@ old interpreter does not know tells the reader about the construct rather
 than about the floor, and the floor is the fact they need. The repository's
 supported floor is stated once, in `.github/scripts/run_tests.py`, and the
 guard names that number rather than a second copy of it.
+Enforced by: skills/code-review/scripts/round_record.py::below_floor, tests/test_a_script_says_which_interpreter_it_needs.py::test_the_script_refuses_at_entry_on_a_below_floor_interpreter, tests/test_a_script_says_which_interpreter_it_needs.py::test_the_floor_is_the_number_the_runner_and_the_linter_hold
 
 <!-- specs/1788817290-the-derivation-misreads-and-the-record-refuses-the-id -->
 **A finding id is a bare integer, behind an optional severity marker, in both
@@ -820,6 +826,7 @@ fixed what `Contract changes` compares: a unit's contract carries the set of
 constant literals it returns, so gaining or losing one reads as a contract
 change — and the document states the hole that leaves, a changed
 input-to-value mapping, rather than implying there is none.
+Enforced by: tests/test_a_finding_id_is_a_bare_integer.py::test_a_round_prefixed_verdict_id_is_refused_naming_the_format, tests/test_a_finding_id_is_a_bare_integer.py::test_a_round_prefixed_fix_table_id_is_refused_naming_the_format, tests/test_a_finding_id_is_a_bare_integer.py::test_a_duplicate_verdict_id_quotes_both_rows
 
 <!-- specs/1789356180-the-two-halves-of-one-generator-refuse-each-other -->
 **A verdict row that commissions nothing takes no fix row.** `close` stops
@@ -828,6 +835,7 @@ verdict word over it; a row with no finding id and a row whose verdict is
 `❓ out of verified scope` are both members. A refusal names **every**
 offending row rather than the first, because a message naming one costs a
 round trip per repair, and five were measured in one record.
+Enforced by: tests/test_the_fixes_close_the_record.py::test_a_scope_marker_keeps_its_own_word, tests/test_a_finding_id_is_a_bare_integer.py::test_six_rows_with_no_id_stand_beside_one_finding_and_commission_nothing
 
 <!-- specs/1789296200-the-record-before-the-fix-sequence-has-no-arm -->
 **`new` says when the reviewer's target is no longer the branch's HEAD.** It
@@ -837,6 +845,7 @@ since the reviewer read it, and says what that can mean. There is one escape,
 state that used to leave no trace leaves one, and `chain_check`'s
 `written_late` arm prints for a record carrying that reason instead of
 failing. A gate with no honest way past it is a gate people route around.
+Enforced by: tests/test_new_says_when_head_is_not_the_target.py::test_a_round_whose_fixes_already_landed_is_told_which_commits
 
 ### What it copies, and what copying costs
 
@@ -849,6 +858,7 @@ row: every column of the verdicts table, `## Executed probes`,
 The distinction is who wrote the pipe. A value the generator composes with a
 pipe in it is a defect in the generator and stays refused; a copied cell is
 the reviewer's own text, and truncating it silently loses the finding.
+Enforced by: tests/test_the_record_is_generated.py::test_a_paste_ready_fix_reaches_the_record, tests/test_the_record_is_generated.py::test_a_bare_pipe_in_a_grounds_cell_keeps_the_row_at_its_header_width
 
 <!-- specs/1788873610-every-copy-out-of-raw-meets-the-hider-question -->
 **Every record the generator writes is asked the hider question before the
@@ -858,6 +868,7 @@ fenced block and closes outside it is refused by a message naming the
 comment, on every text the question is asked of. A record that hides part of
 itself from the next reader is the one failure the whole chain rests on not
 happening.
+Enforced by: tests/test_the_record_is_generated.py::test_every_record_this_writes_is_read_back_before_it_is_written, tests/test_the_record_is_generated.py::test_a_comment_that_crosses_a_fence_names_the_comment
 
 <!-- specs/1788668335-a-fence-under-the-probes-table-closes-after-a-later-heading -->
 **A fenced block that closes after a later heading is refused, naming the
@@ -866,6 +877,7 @@ below `## Deferred` takes the Deferred section into the probes block, and the
 record then reads as though the section were empty. The message names what
 the fence ate, so the writer is told what to fix rather than that something
 is wrong.
+Enforced by: tests/test_the_record_is_generated.py::test_a_fence_closed_after_the_deferred_table_is_refused
 
 <!-- specs/1789347354-a-wrapped-terminal-line-is-not-one-value -->
 **A wrapped terminal line is one value, and the join stops at a blank line.**
@@ -878,6 +890,7 @@ indented run of prose is joined, because its first characters cannot tell it
 from prose. The blank line is the only stop that covers every shape, and
 that sentence is the one that keeps the next reader from widening the marker
 list instead of trusting the blank line.
+Enforced by: tests/test_the_record_is_generated.py::test_a_terminal_line_that_wraps_is_one_value, tests/test_the_record_is_generated.py::test_prose_below_the_terminal_block_is_not_swallowed
 
 <!-- specs/1790174138-the-report-the-record-and-the-cells-disagree-on-one-format -->
 **A section ends at the first heading of its own level or shallower, and every
@@ -901,6 +914,7 @@ already does for the ledger over content anchors, and the records were left
 out of. In the same class: `close` does not prefix a `Grounds` cell it has
 already prefixed, for any of the three verdict words, because all three reach
 the same line and all three join rather than overwrite.
+Enforced by: tests/test_chain_check_at_the_pull_request.py::test_a_fix_range_the_tree_contradicts_is_named
 
 <!-- specs/1789455558-the-record-chain-disagrees-with-itself-in-five-places -->
 **Where two rows share a coordinate, the forward map takes the first**, the
@@ -911,6 +925,7 @@ round's inherited table accounts for this round's coordinates, rather than
 unconditional; and a row's severity is read from its `#` cell, with an
 unrecognised verdict word getting a message of its own instead of falling
 into the nearest branch.
+Enforced by: tests/test_the_fixes_close_the_record.py::test_a_repeated_coordinate_resolves_to_one_row_on_both_sides
 
 <!-- specs/1789425391-the-checker-is-wrong-about-itself-and-nothing-goes-red -->
 **A checker's own cases have to be able to fail, and several of these could
@@ -923,3 +938,4 @@ enclosing unit named the wrong finding while refusing correctly. The standing
 rule is the one `skills/agent-contract/SKILL.md` §15 states for new cases,
 applied to the checkers themselves: a case nobody has seen fail is a case
 nobody has seen.
+Enforced by: tests/test_the_agent_contract_holds_the_universal_rules.py::test_each_section_holds_its_rule
