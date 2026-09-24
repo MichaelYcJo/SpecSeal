@@ -115,6 +115,8 @@ def test_an_unset_comspec_on_windows_is_cmd_exe(monkeypatch):
         ("@dir/b tests & bin/test", r"@dir/b tests & bin\test"),
         ("CD/D x && bin/test", r"CD/D x && bin\test"),
         ("echo/ && bin/test", r"echo/ && bin\test"),
+        # The same after a separator: the built-in is the name that began there.
+        ("bin/test && rd/s/q out", r"bin\test && rd/s/q out"),
         # A block that opens after `if`, `else` or `for … in` is not in
         # command position, which the template names as left as written.
         ("if exist x (bin/a) else (bin/b)", "if exist x (bin/a) else (bin/b)"),
