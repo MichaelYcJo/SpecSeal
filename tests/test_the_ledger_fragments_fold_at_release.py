@@ -290,6 +290,133 @@ def test_a_fragment_whose_marker_is_already_in_the_ledger_is_refused(tree):
     assert fragments_left(tree) == ["1788229400-later.md"], "the refusal removed it"
 
 
+# --- a second fold for one version (#540) ---------------------------------
+
+
+LATE = "1788300000-late"
+
+
+def late_fragment(tree):
+    """A fragment landing after the release pull request went red: the
+    ordinary shape a second fold for the same version answers."""
+    (tree / "seal" / "ledger").mkdir(exist_ok=True)
+    (tree / "seal" / "ledger" / f"{LATE}.md").write_text(
+        fragment(
+            LATE,
+            "Landed after the preparation commit.",
+            [row("the late claim", unit_hash("parse"), anchor="parse")],
+        ),
+        encoding="utf-8",
+    )
+
+
+def test_a_second_fold_for_the_same_version_joins_its_section(tree):
+    """#540. `seal/ledger.md` headed `0.9.3` twice for six releases: the
+    first fold ran at the preparation commit, the pull request went red, a
+    fragment landed the next day, and the second fold wrote a second
+    `## 0.9.3` heading below everything — one release's rows split across
+    two sections that read as two releases. The section is joined now, it
+    keeps the first fold's date over `--date`, and the file heads the
+    version once. The gather's case is the pattern (#289)."""
+    fold(tree)
+    late_fragment(tree)
+    second = run("--version", "0.4.0", "--date", "2026-09-16", root=tree)
+    assert second.returncode == 0, second.stdout + second.stderr
+    text = ledger(tree)
+    headings = re.findall(r"^## (.+)$", text, re.M)
+    assert headings == [
+        "Coordinates",
+        "An area from before the fragments",
+        "0.4.0 — 2026-09-15",
+    ], f"the second fold wrote a second heading, or re-dated the first: {headings}"
+    assert "2026-09-16" not in text, text
+    assert f"<!-- specs/{LATE} -->\n### {LATE}" in text, text
+    # Under the heading, after the work item the first fold wrote.
+    assert text.index("### 1788229400-later") < text.index(f"### {LATE}"), text
+    assert "| the late claim |" in text, text
+    assert "\n\n\n" not in text, f"a run of blank lines:\n{text}"
+    assert fragments_left(tree) == [], fragments_left(tree)
+    assert (
+        "folded 1 fragments into seal/ledger.md under ## 0.4.0 — 2026-09-15 "
+        "(appended into the existing section)"
+    ) in second.stdout, second.stdout
+    assert f"seal/ledger/{LATE}.md" in second.stdout, second.stdout
+    check = run("--check", root=tree)
+    assert check.returncode == 0, check.stdout
+    assert "3 work items marked in seal/ledger.md" in check.stdout, check.stdout
+
+
+def test_the_kept_date_wins_over_today_as_well(tree):
+    """S5's second half: with no `--date` at all, today's date is not written
+    either — the heading a reader sees is the release date, which is the
+    first fold's (Q5, measured here)."""
+    fold(tree)
+    late_fragment(tree)
+    second = run("--version", "0.4.0", root=tree)
+    assert second.returncode == 0, second.stdout + second.stderr
+    headings = re.findall(r"^## (.+)$", ledger(tree), re.M)
+    assert headings[-1] == "0.4.0 — 2026-09-15", headings
+    assert headings.count("0.4.0 — 2026-09-15") == 1, headings
+
+
+def test_the_joined_section_is_one_section_wherever_it_stands(tree):
+    """S4. The real ledger's version section is the last `## ` in the file
+    today, and the join must not depend on it: with an area heading appended
+    after the section, the late work item lands before that next `## `, one
+    blank line each side."""
+    fold(tree)
+    text = ledger(tree) + "\n## An area added after the release\n\nProse.\n"
+    (tree / "seal" / "ledger.md").write_text(text, encoding="utf-8")
+    late_fragment(tree)
+    second = run("--version", "0.4.0", "--date", "2026-09-16", root=tree)
+    assert second.returncode == 0, second.stdout + second.stderr
+    text = ledger(tree)
+    assert text.index(f"### {LATE}") < text.index("## An area added after"), text
+    assert "\n\n\n" not in text, f"a run of blank lines:\n{text}"
+    late_row = next(ln for ln in text.split("\n") if "| the late claim |" in ln)
+    assert f"{late_row}\n\n## An area added after the release\n" in text, text
+    assert text.endswith("Prose.\n"), repr(text[-40:])
+
+
+def test_a_dry_run_of_a_second_fold_shows_the_section_it_appends_into(tree):
+    """S6. The preview a person reads before the write says which heading
+    the rows join, dated as the file has it — not a fresh heading with a new
+    date that the write then does not make."""
+    fold(tree)
+    late_fragment(tree)
+    before = ledger(tree)
+    left = fragments_left(tree)
+    r = run("--version", "0.4.0", "--date", "2026-09-16", "--dry-run", root=tree)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "appending into the existing section:" in r.stdout, r.stdout
+    assert "## 0.4.0 — 2026-09-15" in r.stdout, r.stdout
+    assert "2026-09-16" not in r.stdout, r.stdout
+    assert f"<!-- specs/{LATE} -->" in r.stdout, r.stdout
+    assert ledger(tree) == before, "--dry-run wrote to the ledger"
+    assert fragments_left(tree) == left, "--dry-run removed a fragment"
+
+
+def test_check_refuses_a_ledger_that_heads_a_version_twice(tree):
+    """S8. A doubled heading is a state `--check` could see and did not
+    refuse — the real ledger carried one from `4ac9bf35` to `9f846733` with
+    `--check` green on every release in between. It names the version and
+    both lines, and the fragment report is still printed beside it."""
+    fold(tree)
+    text = ledger(tree) + "\n## 0.4.0 — 2026-09-16\n\nRows under a second heading.\n"
+    (tree / "seal" / "ledger.md").write_text(text, encoding="utf-8")
+    lines = text.split("\n")
+    first = lines.index("## 0.4.0 — 2026-09-15") + 1
+    second = lines.index("## 0.4.0 — 2026-09-16") + 1
+    late_fragment(tree)
+    r = run("--check", root=tree)
+    assert r.returncode == 1, r.stdout
+    assert "0.4.0" in r.stdout, r.stdout
+    assert str(first) in r.stdout and str(second) in r.stdout, (first, second, r.stdout)
+    assert "one release, one section" in r.stdout, r.stdout
+    assert f"seal/ledger/{LATE}.md" in r.stdout, r.stdout
+    assert "\\" not in r.stdout, r.stdout
+
+
 def test_a_marker_quoted_in_the_ledgers_prose_is_not_a_folded_work_item(tree):
     """Round 1, 🟡 3. A substring test read the marker's shape in prose as a
     fold that had happened, and refused with advice to remove the fragment —
