@@ -69,7 +69,7 @@ chosen approach.
 - `skills/verify/scripts/broad_gate.py#main` — parses, asks `pick_shape`,
   calls `gate(args, …)` inside `try/except Refused`. The redirect goes
   between `parse_args` and `gate`: `root = repo_root(abspath(args.root or
-  cwd))`; where `shipped_gate(root)` names a file, print the gate line and NAME NOT IN TREE
+  cwd))`; where `shipped_gate(root)` names a file, print the gate line and
   `return subprocess.run([sys.executable, path, *argv]).returncode` with
   inherited streams (`argv` is `sys.argv[1:]` where `main` was given none).
   `HERE`/`PLUGIN` are the running copy's; `os.path.realpath(__file__)`

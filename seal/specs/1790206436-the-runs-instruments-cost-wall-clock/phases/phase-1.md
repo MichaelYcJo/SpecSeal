@@ -70,7 +70,7 @@ through `bin/test <module> -q <flag>` against the built environment, so
 under a stale `lastfailed` entry exited 5 with no summary line, re-run exit
 0; observed and not explained). None is refused, so none joins the list.
 `--pdb` is on the list and the reason the frame gave for it was half right:
-pytest-xdist 3.8.0's `pytest_cmdline_main` raises its `UsageError` (`--pdb
+pytest-xdist 3.8.0's `pytest_cmdline_main` raises its `UsageError` (`--pdb NAME NOT IN TREE
 is incompatible with distributing tests`, exit 4) for `-n 2 --pdb`, and for
 `-n auto --pdb` it sets `numprocesses = 0` and `dist = "no"` itself — a
 failing probe under `-n auto --pdb` reached the `(Pdb)` prompt in-process
