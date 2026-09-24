@@ -879,6 +879,87 @@ def test_the_split_names_only_the_anchors_it_cannot_place(split_tree):
     assert after_rc == 0 and "0 broken" in after_line, after_line
 
 
+def test_a_line_the_standing_area_also_holds_is_named_not_moved(split_tree):
+    """#547, round 2's ⬜ 3. A line in the standing area and in a moved
+    section is two places to the checker, which the row's hash decides; the
+    split reads no hash, so it names the anchor and moves nothing."""
+    path = split_tree / "seal" / "ledger.md"
+    text = (
+        path.read_text(encoding="utf-8")
+        .replace(
+            "## An area from before the fragments\n\n",
+            "## An area from before the fragments\n\nShared line.\nMore standing text.\n\n",
+        )
+        .replace("### 1700000002-beta\n\n", "### 1700000002-beta\n\nShared line.\n\n")
+    )
+    a, b = ec.resolve("seal/ledger.md", '"Shared line."', text)[0]
+    h = ec.content_hash(text.splitlines()[a - 1 : b])
+    row = f'| a standing line | `seal/ledger.md#"Shared line."@{h}` | read | 2026-09-01 | |\n'
+    at = text.index("\n", text.index("| the old claim |")) + 1
+    path.write_text(text[:at] + row + text[at:], encoding="utf-8")
+    r = run("--split", root=split_tree)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert 'seal/ledger.md  seal/ledger.md#"Shared line."' in r.stdout, r.stdout
+    after_line, after_rc = check(split_tree)
+    assert after_rc == 0 and "0 drifted" in after_line, after_line
+
+
+def test_a_line_two_moved_sections_and_the_standing_area_hold_is_named(split_tree):
+    """#547, round 2's ⬜ 3, its second shape. A line two moved sections share
+    drops out of `moved`; if the standing area holds it too, keeping the
+    anchor is a guess the row's hash may contradict. Here the row's hash is
+    beta's copy, so keeping it would leave it pointing at the standing one."""
+    path = split_tree / "seal" / "ledger.md"
+    text = (
+        path.read_text(encoding="utf-8")
+        .replace(
+            "## An area from before the fragments\n\n",
+            "## An area from before the fragments\n\nShared line.\nMore standing text.\n\n",
+        )
+        .replace("### 1700000001-alpha\n\n", "### 1700000001-alpha\n\nShared line.\n\n")
+        .replace(
+            "### 1700000002-beta\n\n",
+            "### 1700000002-beta\n\nShared line.\nBeta's own.\n\n",
+        )
+    )
+    beta = text.split("\n").index("### 1700000002-beta") + 1
+    regions = ec.resolve("seal/ledger.md", '"Shared line."', text)
+    a, b = next((a, b) for a, b in regions if a > beta)
+    h = ec.content_hash(text.splitlines()[a - 1 : b])
+    row = f'| beta\'s line | `seal/ledger.md#"Shared line."@{h}` | read | 2026-09-01 | |\n'
+    at = text.index("\n", text.index("| the old claim |")) + 1
+    path.write_text(text[:at] + row + text[at:], encoding="utf-8")
+    r = run("--split", "--dry-run", root=split_tree)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "could not place" in r.stdout, r.stdout
+    assert 'seal/ledger.md  seal/ledger.md#"Shared line."' in r.stdout, r.stdout
+
+
+def test_the_split_reads_an_escaped_quote_the_way_the_checker_does(split_tree):
+    """#547, round 1's 🟡 1, its fourth symptom. A locator holding `\\"` is
+    one locator to the checker; the split reads it whole and rewrites it."""
+    path = split_tree / "seal" / "ledger.md"
+    said = 'A sentence beta wrote, "quoted" inside.'
+    text = path.read_text(encoding="utf-8").replace(
+        "### 1700000002-beta\n\n", f"### 1700000002-beta\n\n{said}\n\n"
+    )
+    h = ledger_hash(text, said)
+    escaped = said.replace('"', '\\"')
+    row = (
+        f'| a quoted line | `seal/ledger.md#"{escaped}"@{h}` | read | 2026-09-01 | |\n'
+    )
+    at = text.index("\n", text.index("| the old claim |")) + 1
+    path.write_text(text[:at] + row + text[at:], encoding="utf-8")
+    before_line, before_rc = check(split_tree)
+    assert before_rc == 0 and "0 broken" in before_line, before_line
+    r = run("--split", root=split_tree)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "could not place" not in r.stdout, r.stdout
+    assert f'`seal/releases/0.2.0.md#"{escaped}"@{h}`' in ledger(split_tree), r.stdout
+    after_line, after_rc = check(split_tree)
+    assert after_rc == 0 and "0 broken" in after_line, after_line
+
+
 def test_each_identical_rewrite_prints_its_own_line(split_tree):
     """#547, round 1's ⬜ 9. Two rows in one file citing the same moved
     heading are two rewrites at two lines; the first occurrence's line was

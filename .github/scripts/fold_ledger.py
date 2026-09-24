@@ -50,7 +50,8 @@ keeps the hash — the class `hooks/root-migrate.py` rewrites for the root
 move, and not a row whose content went (`CLAUDE.md`, *REMOVED, not
 re-pointed*). The rewrite runs over the shared file, every release file and
 every fragment, and reads a locator by the checker's own rule; an anchor
-whose line or heading is in no section the split moved or kept is named and
+whose line or heading is in no section the split moved or kept, or stands in
+more than one place so that only the row's hash could choose, is named and
 left, for a person. The split refuses a version the ledger heads
 twice (C's reader: joining two sections is a person's call), any target
 that exists (a join is the fold's, and a file there before the split is a
@@ -506,7 +507,9 @@ def rewrite_self_anchors(text, moved, kept):
     (`evidence_check.py#resolve_unit`): the first part of a heading path when
     that part is a heading, the one whole line otherwise. An anchor whose
     line or heading is in no section the split moved or kept is `left`: the
-    split cannot say where it points, so a person does. `rewritten` is
+    split cannot say where it points, so a person does. `split` leaves a
+    line out of both maps when it stands in more than one place, so such an
+    anchor is `left` too. `rewritten` is
     `[(old, new, line)]`, the line of that anchor's own occurrence — a
     rewrite adds no newline, so a line in `text` is the same line after."""
     rewritten, left = [], []
@@ -576,9 +579,17 @@ def split(root, text, dry_run):
             key = " ".join(line.split())
             if key:
                 moved[key] = None if key in moved else version
+    twice = {k for k, v in moved.items() if v is None}
     moved = {k: v for k, v in moved.items() if v is not None}
     rest = [line for n, line in enumerate(lines) if n not in inside]
     kept = {" ".join(line.split()) for line in rest if line.strip()}
+    # A line that stands in more than one place is several places to the
+    # checker, and the row's own hash picks between them
+    # (`evidence_check.py#check_text`). The split reads no hash, so an anchor
+    # to such a line is named for a person rather than moved or kept by guess.
+    both = (kept & moved.keys()) | (kept & twice)
+    moved = {k: v for k, v in moved.items() if k not in both}
+    kept -= both
     files[LEDGER] = "\n".join(rest).rstrip("\n") + "\n"
     # Every other ledger an anchor can stand in: release files from before,
     # and fragments. The split's own files are rewritten with them.
