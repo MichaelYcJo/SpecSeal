@@ -675,7 +675,23 @@ def test_every_exclusion_says_what_the_gate_cannot_reach():
 # --- A7: a repository with no such workflow is untouched --------------------
 
 
-HISTORICAL_ROWS = ("SEALED", "tree", "base", "from", "suite", "row", "ledger", "chain")
+# The panel of a run with no workflow, as it has stood release to release.
+# `gate` joined it in 0.15.1 (#475): which copy of the gate drew the stamp,
+# `tree <version>` or `plugin <version>`, because a branch that changes the
+# gate used to be measured by the installed copy and the stamp could not say
+# which one. It is the one row this partition's A7 admits, for every
+# repository — nothing else about a run without a workflow changed.
+HISTORICAL_ROWS = (
+    "SEALED",
+    "tree",
+    "base",
+    "from",
+    "gate",
+    "suite",
+    "row",
+    "ledger",
+    "chain",
+)
 
 
 def test_a_repository_with_no_hygiene_workflow_is_sealed_exactly_as_before(tmp_path):

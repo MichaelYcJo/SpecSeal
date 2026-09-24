@@ -648,6 +648,159 @@ def crown_of():
     return next(line.strip() for line in twin if line.strip())
 
 
+# --- which copy of the gate runs, and the stamp says which (#475) -----------
+#
+# `bin/broad-gate` on PATH is the installed plugin's, and the script resolves
+# every arm relative to itself, so a branch that changes the gate was measured
+# by the copy that predates the change and the stamp could not say so. Where
+# the gated tree ships `skills/verify/scripts/broad_gate.py` and it is not the
+# running file, `main` runs that copy in its place with the same argument
+# vector and says so on stderr; every run carries a `gate` row and a line
+# naming the running copy's absolute path.
+
+STUB_GATE = "import sys\nprint('STUB GATE RAN', sys.argv[1:])\nsys.exit(3)\n"
+
+
+def plugin_json_version():
+    with open(
+        os.path.join(ROOT, ".claude-plugin", "plugin.json"), encoding="utf-8"
+    ) as f:
+        return json.load(f)["version"]
+
+
+def test_the_gate_runs_the_copy_the_tree_ships_with_the_same_arguments(repo, tmp_path):
+    """A7. The fixture ships a stub at the gate's path that prints a marker
+    and its arguments and exits 3. The real gate over that root exits 3,
+    prints the marker, hands the stub the argument vector it was given, and
+    writes one stderr line naming both absolute paths — the copy it ran and
+    the copy it was invoked as. Red at `9f846733`: the installed-style run
+    ignored the stub and sealed the fixture (exit 0, no marker)."""
+    stub = repo / "skills" / "verify" / "scripts" / "broad_gate.py"
+    stub.parent.mkdir(parents=True)
+    stub.write_text(STUB_GATE, encoding="utf-8")
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 3, f"{out.stdout}\n{out.stderr}"
+    assert out.stdout.count("STUB GATE RAN") == 1, out.stdout
+    assert "'--base', 'base'" in out.stdout and f"'{repo}'" in out.stdout, (
+        f"the tree's copy was not handed the argument vector as given:\n{out.stdout}"
+    )
+    assert "SEALED" not in out.stdout, (
+        "the invoking copy went on to seal after handing over"
+    )
+    line = next(
+        (line for line in out.stderr.splitlines() if "ships its own gate" in line),
+        None,
+    )
+    assert line, f"no stderr line says the tree's copy ran:\n{out.stderr}"
+    assert str(stub) in line and os.path.realpath(GATE) in line, (
+        f"the line does not name both copies by absolute path: {line}"
+    )
+
+
+def test_the_trees_own_copy_does_not_redirect_to_itself():
+    """A8, first half. Over this repository the running script IS the file
+    the tree ships, by realpath, so there is nothing to hand over to and no
+    loop."""
+    assert gate_module().shipped_gate(ROOT) is None
+
+
+@pytest.mark.skipif(os.name == "nt", reason="a symlink needs a privilege on Windows")
+def test_a_shipped_copy_that_is_this_file_by_realpath_is_not_a_redirect(repo):
+    """A8, second half. A fixture whose gate path is a symlink to the running
+    file: the two paths differ as typed and are one file by realpath, so no
+    redirect — which is the check that stops a tree's copy running itself
+    forever."""
+    link = repo / "skills" / "verify" / "scripts" / "broad_gate.py"
+    link.parent.mkdir(parents=True)
+    os.symlink(GATE, link)
+    assert gate_module().shipped_gate(str(repo)) is None
+
+
+def test_a_repository_shipping_no_gate_runs_the_invoked_copy(repo, tmp_path):
+    """A9 and A10 together, on a sealed run. The fixture ships no gate, so the
+    invoked copy runs as before with two additions: the panel's `gate` row
+    reads `plugin <version>` — this tree's script is not under the fixture
+    root — and stderr carries one line naming the running copy's absolute
+    path. Red at `9f846733`: no `gate` row, no such line."""
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert re.search(
+        rf"\bgate\s+[^\n|]*plugin {re.escape(plugin_json_version())}", out.stdout
+    ), f"the panel does not carry `gate plugin {plugin_json_version()}`:\n{out.stdout}"
+    assert f"broad-gate: gate {os.path.realpath(GATE)} (plugin " in out.stderr, (
+        f"no stderr line names the running copy's path:\n{out.stderr}"
+    )
+    assert "ships its own gate" not in out.stderr
+
+
+def test_a_refusal_after_the_root_resolved_still_names_the_running_copy(tmp_path):
+    """A10's other outcome. A repository with no `Broad gate` row is refused
+    with nothing run, and the line still prints, because which copy refused
+    is a fact a reader learns nowhere else."""
+    repo = build_repo(tmp_path / "repo", row=False)
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 2, f"{out.stdout}\n{out.stderr}"
+    assert f"broad-gate: gate {os.path.realpath(GATE)} (" in out.stderr, out.stderr
+
+
+def test_the_gate_row_says_tree_under_the_gated_root_and_plugin_elsewhere(tmp_path):
+    """A10's value. `tree <version>` where the running copy's realpath lies
+    under the gated root, `plugin <version>` otherwise; the version is the
+    running copy's own `plugin.json`, and `?` where it cannot be read."""
+    gate = gate_module()
+    version = plugin_json_version()
+    assert gate.gate_copy(ROOT) == f"tree {version}"
+    assert gate.gate_copy(str(tmp_path)) == f"plugin {version}"
+    assert gate.gate_copy(None) == f"plugin {version}"
+    assert gate.gate_copy(str(tmp_path), plugin=str(tmp_path)) == "plugin ?"
+
+
+def test_the_gate_row_fits_the_panel_for_a_nine_character_version(tmp_path):
+    """A10's width. `plugin ` is seven columns and `PANEL_VALUE_WIDTH` is 23,
+    so a nine-character version fits with room; a version that would not is
+    cut at the frame the way the `from` row is, never widening the row."""
+    gate = gate_module()
+    fake = tmp_path / "plugin"
+    (fake / ".claude-plugin").mkdir(parents=True)
+    for version in ("1.2.3-rc4", "1.2.3-rc4" * 4):
+        (fake / ".claude-plugin" / "plugin.json").write_text(
+            json.dumps({"version": version}), encoding="utf-8"
+        )
+        value = gate.gate_copy(str(tmp_path), plugin=str(fake))
+        assert len(value) <= gate.PANEL_VALUE_WIDTH, value
+        assert value.startswith("plugin "), value
+    assert gate.gate_copy(str(tmp_path), plugin=str(fake)).endswith(gate.ELISION)
+    rows = gate.panel(
+        "ccccccc",
+        gate.Base("base", "cccccccc", "base", "cccccccc"),
+        {
+            n: gate.Check(n, 0, "", "")
+            for n in (gate.SUITE, gate.LEDGER, gate.CHAIN_NAME)
+        },
+        None,
+        copy="tree 1.2.3-rc4",
+    )
+    assert ("gate", "tree 1.2.3-rc4") in rows
+
+
+def test_the_sealer_is_told_the_gate_says_which_copy_ran():
+    """A11. The gate line is the same kind of line as the moved-base one: a
+    fact about the run a reader learns nowhere else, quoted by the sealer and
+    judged by nobody. The definition says the gate prints which copy ran,
+    what a `tree` value means, and that the line is quoted in the report."""
+    text = " ".join(sealer_text().split())
+    assert "which copy of itself ran" in text, (
+        "the sealer's definition does not say the gate reports which copy ran"
+    )
+    assert "measured by the gate it ships" in text, (
+        "the definition does not say what a `tree` value on the stamp means"
+    )
+    assert "Quote the gate line" in text, (
+        "the definition does not tell the sealer to quote the gate line the "
+        "way it quotes the moved-base line"
+    )
+
+
 # --- S3 no row ---------------------------------------------------------------
 
 

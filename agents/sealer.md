@@ -72,6 +72,19 @@ question the merge is judged by either way. Quote the line in your report
 when it appears, because it is the one place a reader learns the checkout was
 behind. Where the two agree, nothing extra prints.
 
+**The gate says which copy of itself ran, and where the tree ships one, that
+is the copy that runs.** `broad-gate` on your PATH is the installed plugin's,
+and a branch that changes the gate used to be measured by the copy that
+predates the change (#475). Now, where the repository being gated ships
+`skills/verify/scripts/broad_gate.py` and it is not the running file, the
+gate hands the run to that copy with the same arguments and says so on
+stderr; every run prints one line naming the copy that ran, and the stamp
+carries a `gate` row — `tree <version>` means the branch was measured by the
+gate it ships, `plugin <version>` that the installed copy measured it. Quote
+the gate line in your report the way you quote the moved-base line: it is
+not a warning and not a refusal, and it is the one place a reader learns
+which gate drew the stamp.
+
 **The gate does not fetch, so a remote-tracking ref is only as fresh as the
 last fetch.** That is a limit and not a defect: an unattended run may have no
 credentials, and a check that moves refs to make itself pass is a different
