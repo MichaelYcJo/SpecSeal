@@ -906,8 +906,8 @@ out is left out by its shape, never by a list of files. A file under a work
 item that records a past state is out: a round record, the work item's own
 `survivors.md`, and everything under its `phases/`. A released section of
 the root `CHANGELOG.md` — every line under a heading that names a version —
-is out, and so is a fragment whose `<!-- specs/<id> -->` marker stands in
-`CHANGELOG.md` at the tip, because a released entry is not rewritten;
+is out, and so is a fragment whose fold marker stands in `CHANGELOG.md` at
+the tip, because a released entry is not rewritten;
 `## Unreleased` and an ungathered fragment stay in. In a `.py` file only
 comments, docstrings and string literals are wording, every other token ends
 a sentence, and a file the tokenizer refuses is read whole. Each of these
