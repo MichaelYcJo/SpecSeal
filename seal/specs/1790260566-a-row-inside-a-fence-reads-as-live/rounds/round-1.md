@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 593 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `70fe19ca9f84a6d3fcc9c04a17406eb96d452d2c..91fcb4e56bdb58ea5a76035833d95836d67176f9`, 2 commits |
+| Contract changes | none |
+| New units | test_a_fence_line_with_an_info_string_inside_a_fix_does_not_end_it (depth 1); test_a_fenced_example_row_is_left_byte_for_byte (depth 1) |
 | Needs a fix | yes — 🟡 1 (the record generator's fence walk), 🟡 2 (the migration writer rewrites a fenced example), 🟡 3 (three sentences claim a completeness the tree does not have) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,14 +24,14 @@ Round 1 of work item 1790260566 reviews the build at f754eafb against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The record generator's verbatim-fence walk keeps the old delimiter rule (any indent, a closer may carry text); it is named in neither the class table nor #584, and a nested info-closer drops fix lines and copies prose into the record | `skills/code-review/scripts/round_record.py:1319` | open | executed P6: same output at base and target, and after this branch the only unshared fence walk on the record path |
-| 🟡 2 | `repoint` rewrites anchors inside a closed fence, and its docstring says it reads exactly what the check reads | `hooks/root-migrate.py:419` | open | read; executed on a scratch text, where the fenced example was rewritten |
-| 🟡 3 | Three sentences claim every reader asks the shared fence rule, and at least four readers do not | `skills/verify/scripts/unverified_check.py:123`, `skills/verify/scripts/unverified_check.py:237`, `skills/evidence-check/SKILL.md:295`, `skills/evidence-check/SKILL.md:427` | open | read; the class table above lists the readers |
-| ⬜ 4 | The correction check reads a fenced example row as a row, which is loud only | `skills/evidence-check/scripts/correction_check.py:356` | open | read; suggested home #584 |
-| ⬜ 5 | The release fold's demote walk keeps its three-character fence rule while the script now loads the shared one | `.github/scripts/fold_ledger.py:276` | open | read; suggested home #584 |
-| ⬜ 6 | The empty comment `&lt;!-->` opens an aside in the records arm and drops claims to the next closer | `skills/evidence-check/scripts/evidence_check.py:2242` | open | executed P1; no instance in the tree |
-| ⬜ 7 | The ledger fence walks split with splitlines, not on the newline alone | `skills/evidence-check/scripts/evidence_check.py:229` | open | read; contrived |
-| ⬜ 8 | Phase 1's failure direction omits that the closer rule makes the gate reader blank more | `seal/specs/1790260566-a-row-inside-a-fence-reads-as-live/phases/phase-1.md` | open | read; a correction to paperwork |
+| 🟡 1 | The record generator's verbatim-fence walk keeps the old delimiter rule (any indent, a closer may carry text); it is named in neither the class table nor #584, and a nested info-closer drops fix lines and copies prose into the record | `skills/code-review/scripts/round_record.py:1319` | **fixed** `fd16c522` | fixed at fd16c522; executed P6: same output at base and target, and after this branch the only unshared fence walk on the record path |
+| 🟡 2 | `repoint` rewrites anchors inside a closed fence, and its docstring says it reads exactly what the check reads | `hooks/root-migrate.py:419` | **fixed** `fd16c522` | fixed at fd16c522; read; executed on a scratch text, where the fenced example was rewritten |
+| 🟡 3 | Three sentences claim every reader asks the shared fence rule, and at least four readers do not | `skills/verify/scripts/unverified_check.py:123`, `skills/verify/scripts/unverified_check.py:237`, `skills/evidence-check/SKILL.md:295`, `skills/evidence-check/SKILL.md:427` | **fixed** `fd16c522` | fixed at fd16c522; read; the class table above lists the readers |
+| ⬜ 4 | The correction check reads a fenced example row as a row, which is loud only | `skills/evidence-check/scripts/correction_check.py:356` | deferred #584 | #584 — added to #584's table by the orchestrator; read; suggested home #584 |
+| ⬜ 5 | The release fold's demote walk keeps its three-character fence rule while the script now loads the shared one | `.github/scripts/fold_ledger.py:276` | deferred #584 | #584 — added to #584's table by the orchestrator; read; suggested home #584 |
+| ⬜ 6 | The empty comment `&lt;!-->` opens an aside in the records arm and drops claims to the next closer | `skills/evidence-check/scripts/evidence_check.py:2242` | answered | no empty comment of that shape is in the tree; recorded so a positional scanner does not inherit it; executed P1; no instance in the tree |
+| ⬜ 7 | The ledger fence walks split with splitlines, not on the newline alone | `skills/evidence-check/scripts/evidence_check.py:229` | answered | it takes a contrived input with U+2028 in two cells; the repository's files split on newline only, and the two walks agree, so offsets hold; read; contrived |
+| ⬜ 8 | Phase 1's failure direction omits that the closer rule makes the gate reader blank more | `seal/specs/1790260566-a-row-inside-a-fence-reads-as-live/phases/phase-1.md` | answered | a record correction, corrected at 91fcb4e5; read; a correction to paperwork |
 | ❓ | Behaviour on Linux and Windows | the whole diff | ❓ out of verified scope | macOS only here; CI's matrix answers it at the pull request |
 
 ## Paste-ready fixes
