@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | warden on Opus 5.5 |
 | PR | 550 |
-| Broad gate | 34d15ce3 against 9f846733 |
+| Broad gate | fd6640fe against 6b912e66; earlier run: 34d15ce3 against 9f846733 |
 | Fixes checked by | no fixes to check |
 | Fix range | none |
 | Contract changes | none |
