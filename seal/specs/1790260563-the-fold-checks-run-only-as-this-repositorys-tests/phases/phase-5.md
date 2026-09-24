@@ -32,8 +32,8 @@ edited document runs; the count of such modules is the count run.
   - `test_settle_owns_the_shape_rule`, because its new phrase did not carry
     the line break the document has;
   - `test_a_record_states_what_the_tree_has`, because this work item's own
-    records name units it removed (`SHAPE_CUTOFF`, `LINE_CEILING`, the old
-    prose pin, the old command case). Each such line in `spec.md`,
+    records name units it removed — the two test constants, the old prose
+    pin, the old command case. Each such line in `spec.md`,
     `plan.md`, `overview.md` and `phases/phase-3.md` now ends
     ` · NAME NOT IN TREE`, which is the checker's own exemption for a record
     that means a name the tree no longer has. `spec.md` and `plan.md` are
