@@ -716,18 +716,23 @@ CONFLICT_SENTENCES = (
     "byte-identical to a row nobody touched",
     "correction-check",
     # #488: the exception is an edit as well as a removal, and both are the
-    # one write a branch owes the file the row is in.
+    # one write a branch owes the file the row is in; a claim the edit made
+    # false is corrected in place first, with a dated note.
     "removes or edits code an existing",
     "keeping an existing claim true",
+    "`Corrected <date>` note",
     # #509: of a conflicted row only the notes are a union; the hash is the
-    # side's that edited the unit, and the checker says which after the fact.
+    # side's that edited the unit and neither side's where both did, and the
+    # row the checker names is re-read against every edit the merge carries.
     "the side that edited the anchored unit",
+    "to neither side where both did",
+    "re-read against every edit the merged unit carries",
     "run `evidence-check` after the resolution",
 )
 
 # The owner of the two rules the needles above end with. The guides carry
 # them and link here; the policy document states them first (#488, #509).
-OWNED_SENTENCES = CONFLICT_SENTENCES[-4:]
+OWNED_SENTENCES = CONFLICT_SENTENCES[-7:]
 
 
 def read(path):
@@ -759,6 +764,11 @@ def test_the_policy_document_owns_the_exception_and_the_halves():
     text = read(os.path.join("docs", "the-evidence-ledger.md"))
     for needle in OWNED_SENTENCES:
         assert needle in text, f"the ledger policy does not say: {needle}"
+    # #488's third outcome, in the owner's words. The shared needle above is
+    # not enough here: the halves paragraph's `Corrected <date>` notes carry it.
+    assert "the edit made false is corrected there first" in text, (
+        "the ledger policy does not say an edit that falsified a claim corrects it first"
+    )
     assert "docs/the-evidence-ledger.md` §*A correction a merge dropped*" in read(
         os.path.join("docs", "release-checklist.md")
     ), "the squash step does not name where the conflict's rule lives"

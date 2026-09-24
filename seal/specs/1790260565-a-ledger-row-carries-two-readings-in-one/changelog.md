@@ -13,3 +13,9 @@
   `templates/ledger.md` declares for a ledger row. A branch whose fragment
   row carries a stray `|` is refused on its own pull request rather than at
   the release that folds it.
+- The clauses the ledger's edit and conflict rules gained in 0.15.1's review
+  are held by a case (#569): a claim an edit made false is corrected first
+  with a `Corrected <date>` note, a conflicted row's hash goes to neither side
+  where both edited the unit, and the row is re-read against every edit the
+  merge carries. Deleting any of them from `CLAUDE.md`, `CONTRIBUTING.md` or
+  the ledger policy now fails the build.
