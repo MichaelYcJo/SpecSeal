@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Fold each work item's ledger fragment into the gathered ledger.
+"""Fold each work item's ledger fragment into the release's own ledger file.
 
 A work item writes its evidence rows to `seal/ledger/<work-item-id>.md` and
 leaves `seal/ledger.md` alone, so two branches never queue at one file
@@ -9,38 +9,55 @@ one file per work item forever and almost every pull request touched it
 the rows fold rather than stay (`docs/one-root-by-lifetime.md`, "What happens
 at a release", step 1).
 
+**The layout** (#547). `seal/ledger.md` holds what is nobody's release: its
+header, the coordinate notation and the rows from before the fragments
+existed. A release's rows are `seal/releases/<X.Y.Z>.md`, one file per
+release, and that file IS the section the fold used to append to the shared
+file, byte for byte — first line `## X.Y.Z — <date>`, then each work item's
+marker, `### <id>` heading and rows. Every reader of the ledger reads the
+three addresses alike (`evidence_check.py#default_patterns`), so where a row
+sits changes nothing a check measures; the shared file stops growing, and a
+re-stamp's diff lands in the file of the release the row belongs to. The
+sections that were folded into `seal/ledger.md` before this layout move once,
+at the release-preparation commit that ships it (`--split`, below).
+
 This is the other half of that layout, the way `gather_changelog.py` is the
 other half of the changelog fragments. Release preparation runs both, in the
 same commit:
 
-  fold_ledger.py --version 0.4.0            move the fragments into ledger.md
+  fold_ledger.py --version 0.4.0            move the fragments into
+                                            seal/releases/0.4.0.md
   fold_ledger.py --version 0.4.0 --dry-run  print the section, write nothing
   fold_ledger.py --check                    no fragment left, no open row,
-                                            no version headed twice
+                                            no release left in ledger.md,
+                                            every release file named for the
+                                            one version it heads once
 
-**A second fold for one version joins its section** (#540). The release pull
+**A second fold for one version joins its file** (#540). The release pull
 request going red and a fragment landing after the preparation commit is the
 ordinary shape, and the fold used to write a second `## X.Y.Z` heading for
 it, below everything: `seal/ledger.md` headed `0.9.3` twice for six releases.
-Where the ledger already heads `--version`, the new work items go at the end
-of that section, before the next `## `, the section keeps the first fold's
-date over `--date` and over today, and `--dry-run` prints the heading it
-joins. `--check` refuses a ledger that heads a version twice, naming both
-lines — the same three answers `gather_changelog.py` gives for `CHANGELOG.md`
-(#289).
+Where `seal/releases/X.Y.Z.md` already exists, the new work items go at the
+end of it, the file keeps the first fold's date over `--date` and over today,
+and `--dry-run` prints the heading it joins. `--check` refuses a release file
+that heads a version twice, or one not named for the version it heads,
+naming the lines — the same three answers `gather_changelog.py` gives for
+`CHANGELOG.md` (#289). It also refuses a `seal/ledger.md` that heads any
+release at all: after the split that is a fold written to the old place or a
+split not run, and the refusal names `--split` as the repair.
 
 **A fold is a move, not a deletion.** Every table row of a fragment is copied
-into `ledger.md` byte for byte, under a heading for the release and one for the
-work item, and only then is the fragment removed. Nothing is written until
-every fragment has been read, and nothing is removed until the ledger has
-been written.
+into the release file byte for byte, under a heading for the release and one
+for the work item, and only then is the fragment removed. Nothing is written
+until every fragment has been read, and nothing is removed until the release
+file is on disk. `seal/ledger.md` is never written by a fold.
 
 **A folded work item is marked, not matched.** Each section is written under
 an HTML comment naming the work item, the same comment `gather_changelog.py`
 writes in `CHANGELOG.md`. A fragment that turns up while its marker is already
-in `ledger.md` is refused rather than folded twice: the same claim in the file
-twice, with no way to tell which is current, is worse than a stop that names
-the work item.
+in `ledger.md` or in any release file is refused rather than folded twice: the
+same claim in the corpus twice, with no way to tell which is current, is
+worse than a stop that names the work item and the file.
 
 **The guard.** A sentence in a work item's `spec.md` that must outlive the
 release has to have moved into a `docs/` policy or a ledger row before the
@@ -60,16 +77,17 @@ Every `seal/specs/*/evidence-todo.md` in the tree is read. The step runs on a
 branch cut from the release branch, which holds merged work only, so "every
 released work item" and "every work item present" are the same set.
 
-**A new section is appended**, where the changelog gather inserts at the top.
-A changelog is read newest-first; a ledger is read by area and by coordinate,
-and its top holds the notation a reader needs before any row. The checker
-(`evidence_check.py`) scans a ledger for anchors and reads no headings, so
-nothing measures from where a row sits.
+**A new release is a new file**, where the changelog gather inserts at the
+top of one file. A changelog is read newest-first; a ledger is read by area
+and by coordinate. The checker (`evidence_check.py`) scans a ledger for
+anchors and reads no headings, so nothing measures from where a row sits.
 
 Exit codes: 0 done · 1 for nothing to fold, an open evidence-todo row, a
-fragment whose marker is already in the ledger, a fragment left at `--check`,
-a version headed twice at `--check`, or a missing `seal/ledger.md`. Every one
-is a failure a release pull request should stop on.
+fragment whose marker is already in a ledger, a release file that does not
+head the version it is named for, a fragment left at `--check`, a release
+heading left in `seal/ledger.md` at `--check`, a release file headed twice or
+misnamed at `--check`, or a missing `seal/ledger.md`. Every one is a failure
+a release pull request should stop on.
 """
 
 import argparse
@@ -90,8 +108,11 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 # (round 1, 🔴 1). Disk paths are built from them through `under()`.
 LEDGER = "seal/ledger.md"
 FRAGMENTS = "seal/ledger"
+RELEASES = "seal/releases"
 
 HEADING_RE = re.compile(r"^(#{1,6})(\s)")
+VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
+VERSION_HEADING_RE = re.compile(r"^## (\d+\.\d+\.\d+)\b")
 SEPARATOR_RE = re.compile(r"^\|(\s*:?-+:?\s*\|)+\s*$")
 DRAINED_RE = re.compile(r"^[\s*_]*drained\b", re.IGNORECASE)
 MARKER_LINE_RE = re.compile(r"^<!-- specs/\S+ -->$", re.M)
@@ -100,6 +121,35 @@ MARKER_LINE_RE = re.compile(r"^<!-- specs/\S+ -->$", re.M)
 def under(root, rel):
     """The disk path of a `/`-joined repository-relative path."""
     return os.path.join(root, *rel.split("/"))
+
+
+def release_path(version):
+    """The `/`-joined path of one release's ledger file (#547)."""
+    return f"{RELEASES}/{version}.md"
+
+
+def version_key(name):
+    """Sort key: releases in version order, anything else after, by name."""
+    return (
+        (0, tuple(int(n) for n in name.split(".")))
+        if VERSION_RE.match(name)
+        else (1, name)
+    )
+
+
+def release_files(root):
+    """`[(name, path, text)]` for every `seal/releases/*.md`, in version order.
+
+    The name is the file's, read off the file name and not off its heading:
+    `--check` is what holds the two together, and a reader that trusted the
+    heading would file a misnamed release under the wrong version silently.
+    """
+    out = []
+    for disk in glob.glob(os.path.join(under(root, RELEASES), "*.md")):
+        name = os.path.basename(disk)[: -len(".md")]
+        with open(disk, encoding="utf-8") as f:
+            out.append((name, release_path(name), f.read()))
+    return sorted(out, key=lambda entry: version_key(entry[0]))
 
 
 def marker(work_item_id):
@@ -134,9 +184,19 @@ def fragments(root):
     return sorted(out)
 
 
-def folded(ledger_text, frags):
-    """The fragments whose marker is already in the ledger, on its own line."""
-    return [(i, text) for i, text in frags if is_marked(ledger_text, i)]
+def folded(ledgers, frags):
+    """`[(work item id, text, ledger path)]` for every fragment whose marker
+    already stands, on a line of its own, in one of `ledgers` — `[(path,
+    text)]`: `seal/ledger.md` and every release file (#547). The path is
+    what the refusal names, because a person comparing by hand has to know
+    which file to open."""
+    out = []
+    for work_item_id, text in frags:
+        for path, ledger_text in ledgers:
+            if is_marked(ledger_text, work_item_id):
+                out.append((work_item_id, text, path))
+                break
+    return out
 
 
 def demote(text, work_item_id):
@@ -270,20 +330,53 @@ def insert(ledger_text, block, version):
     return joined.rstrip("\n") + "\n"
 
 
+def version_headings(text):
+    """`[(version, [line numbers])]` for every version a `## ` line heads.
+
+    The one reader of `## X.Y.Z` lines (#547, Q3). `--check` asks it of
+    `seal/ledger.md`, where any answer is a release left in the shared file,
+    and of each release file, where the answer has to be the file's own
+    version once; `--split` asks it for the sections to move.
+    """
+    lines = {}
+    for number, line in enumerate(text.split("\n"), 1):
+        found = VERSION_HEADING_RE.match(line)
+        if found:
+            lines.setdefault(found.group(1), []).append(number)
+    return list(lines.items())
+
+
 def doubled_versions(text):
     """`[(version, [line numbers])]` for every version `## ` heads twice.
 
     `tests/test_release_hygiene.py#duplicated_version_headings` is the same
     reader over the real tree on every pull request; this one is `--check`'s,
     at the release, and is spelled here because a script cannot import a
-    test.
+    test. `version_headings` filtered (#547).
     """
-    lines = {}
-    for number, line in enumerate(text.split("\n"), 1):
-        found = re.match(r"^## (\d+\.\d+\.\d+)\b", line)
-        if found:
-            lines.setdefault(found.group(1), []).append(number)
-    return [(version, at) for version, at in lines.items() if len(at) > 1]
+    return [(version, at) for version, at in version_headings(text) if len(at) > 1]
+
+
+def misnamed(name, text):
+    """Why a release file is not the one version its name says, or None.
+
+    A release file heads exactly the version it is named for, once: the name
+    is what the fold and every reader key on, and the heading is what a
+    person reads. Two spellings of one fact, held together here.
+    """
+    headed = version_headings(text)
+    if not VERSION_RE.match(name):
+        return "is not named X.Y.Z"
+    if not headed:
+        return "heads no version"
+    if len(headed) > 1 or len(headed[0][1]) > 1:
+        lines = ", ".join(str(n) for _, at in headed for n in at)
+        versions = ", ".join(v for v, _ in headed)
+        return f"heads {versions} at lines {lines} — one release, one file"
+    version, at = headed[0]
+    if version != name:
+        return f"heads {version} at line {at[0]}"
+    return None
 
 
 def open_rows(text):
@@ -356,7 +449,8 @@ def main(argv=None):
         "--check",
         action="store_true",
         help="report fragments left in seal/ledger/, open evidence-todo "
-        "rows and a version the ledger heads twice, and exit 1",
+        "rows, a release left in seal/ledger.md and a release file not "
+        "named for the one version it heads once, and exit 1",
     )
     ap.add_argument("--dry-run", action="store_true", help="print, write nothing")
     ap.add_argument("--root", default=ROOT, help="repository root (default: this one)")
@@ -368,23 +462,26 @@ def main(argv=None):
     root = os.path.abspath(args.root)
     ledger = under(root, LEDGER)
     if not os.path.isfile(ledger):
-        print(f"{LEDGER} is not there — nothing to fold into")
+        print(f"{LEDGER} is not there — not a ledger root, nothing folded")
         return 1
     with open(ledger, encoding="utf-8") as f:
         text = f.read()
+    releases = release_files(root)
+    ledgers = [(LEDGER, text), *[(path, body) for _, path, body in releases]]
     frags = fragments(root)
-    already = folded(text, frags)
+    already = folded(ledgers, frags)
     items = open_items(root)
 
     if args.check:
         bad = False
         if frags:
             bad = True
-            print(f"ledger fragments that never folded into {LEDGER}:")
+            print(f"ledger fragments that never folded into {RELEASES}/:")
+            marked = {i: path for i, _, path in already}
             for work_item_id, _ in frags:
                 line = f"  {FRAGMENTS}/{work_item_id}.md"
-                if is_marked(text, work_item_id):
-                    line += "  (its marker is already in the ledger — compare by hand)"
+                if work_item_id in marked:
+                    line += f"  (its marker is already in {marked[work_item_id]} — compare by hand)"
                 print(line)
             print(
                 "\nRelease preparation folds them:\n"
@@ -395,48 +492,94 @@ def main(argv=None):
             if frags:
                 print()
             report_open(items)
-        doubled = doubled_versions(text)
-        if doubled:
-            # A second fold for one version joins its section now (#540); a
-            # heading standing twice is a fold from before, or a hand edit.
+        headed = version_headings(text)
+        if headed:
+            # A release's rows are its own file (#547). A section standing
+            # in the shared file is a fold written to the old place, or the
+            # one-time split not run; either way the repair is the split.
             bad = True
             if frags or items:
                 print()
-            print(f"{LEDGER} heads a version twice — one release, one section:")
-            for version, at in doubled:
-                print(f"  {version}  at lines {', '.join(str(n) for n in at)}")
             print(
-                "\nMove the later heading's work items under the first heading "
-                "and delete the later one"
+                f"{LEDGER} still heads a release — a release's rows live in "
+                f"{RELEASES}/<X.Y.Z>.md:"
+            )
+            for version, at in headed:
+                for number in at:
+                    print(f"  {version}  at line {number}")
+            print(
+                "\nRun once, at the release-preparation commit "
+                "(its --dry-run first):\n"
+                "  python3 .github/scripts/fold_ledger.py --split"
+            )
+        wrong = [(path, misnamed(name, body)) for name, path, body in releases]
+        wrong = [(path, why) for path, why in wrong if why]
+        if wrong:
+            # A second fold for one version joins its file now (#540); a
+            # heading standing twice is a fold from before, or a hand edit,
+            # and a file not named for what it heads is one nothing reads
+            # under the right version.
+            bad = True
+            if frags or items or headed:
+                print()
+            print("release files that are not the one version their name says:")
+            for path, why in wrong:
+                print(f"  {path}  {why}")
+            print(
+                "\nA release file heads exactly the version it is named for, "
+                "once: rename it, or move a later heading's work items under "
+                "the first and delete the later one"
             )
         if bad:
             return 1
         # Markers on a line of their own. The ledger's own header quotes the
         # marker's shape inline, and a bare substring count read that as a
         # work item (measured: 7 where 6 had been folded).
-        marked = len(MARKER_LINE_RE.findall(text))
+        marked = sum(len(MARKER_LINE_RE.findall(body)) for _, body in ledgers)
+        files = len(releases)
         print(
             f"no ledger fragment left in {FRAGMENTS}/; "
-            f"{marked} work items marked in {LEDGER}; no open evidence-todo row"
+            f"{marked} work items marked across {LEDGER} and "
+            f"{files} release file{'' if files == 1 else 's'}; "
+            "no open evidence-todo row"
         )
         return 0
 
     if not re.fullmatch(r"\d+\.\d+\.\d+", args.version):
         ap.error(f"--version must be X.Y.Z, not {args.version!r}")
 
+    target = release_path(args.version)
+    disk = under(root, target)
+    existing = None
+    if os.path.isfile(disk):
+        with open(disk, encoding="utf-8") as f:
+            existing = f.read()
+
     if items:
         report_open(items)
-        print(f"\nnothing folded: {LEDGER} and {FRAGMENTS}/ are untouched")
+        print(f"\nnothing folded: {RELEASES}/ and {FRAGMENTS}/ are untouched")
         return 1
 
     if already:
-        print(f"fragments whose marker is already in {LEDGER}:")
-        for work_item_id, _ in already:
-            print(f"  {FRAGMENTS}/{work_item_id}.md")
+        print("fragments whose marker is already in a ledger:")
+        for work_item_id, _, path in already:
+            print(f"  {FRAGMENTS}/{work_item_id}.md  (in {path})")
         print(
-            "\nFolding one twice would put the same rows in the file twice. "
+            "\nFolding one twice would put the same rows in the corpus twice. "
             "Compare the fragment against its folded section by hand, then "
-            f"remove the fragment.\nnothing folded: {LEDGER} is untouched"
+            f"remove the fragment.\nnothing folded: {RELEASES}/ is untouched"
+        )
+        return 1
+
+    if existing is not None and section_heading(existing, args.version) is None:
+        # A file at the release's path that does not head the release is a
+        # tree a person should look at; joining it would put the rows under
+        # a heading nobody looks for. `--check` refuses the same file.
+        print(
+            f"{target} exists and does not head {args.version} — a release "
+            "file is the section it is named for, first line "
+            f"`## {args.version} — <date>`.\nnothing folded: {RELEASES}/ and "
+            f"{FRAGMENTS}/ are untouched"
         )
         return 1
 
@@ -450,26 +593,32 @@ def main(argv=None):
 
     date = args.date or datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
     block, empty = section(args.version, date, frags)
-    # The heading a reader sees is the file's own where the section exists
-    # — dated or not — and the block's only where this run writes one. The
-    # date a joined section keeps is the first fold's, because `insert`
-    # drops the block's heading and this line prints the file's (#540); a
-    # `date` override here was measured dead by mutation and is not kept.
-    found = section_heading(text, args.version)
+    # The heading a reader sees is the file's own where the file exists —
+    # dated or not — and the block's only where this run writes one. The
+    # date a joined file keeps is the first fold's, because `insert` drops
+    # the block's heading and this line prints the file's (#540); a `date`
+    # override here was measured dead by mutation and is not kept.
+    found = section_heading(existing, args.version) if existing else None
     heading = found.group(0) if found else block.split("\n")[0]
     if args.dry_run:
         if found:
-            print("appending into the existing section:\n")
+            print("appending into the existing file:\n")
         print("\n".join([heading, *block.split("\n")[1:]]))
         for work_item_id in empty:
             print(f"(empty, would be removed) {FRAGMENTS}/{work_item_id}.md")
         return 0
 
     if len(empty) < len(frags):
-        with open(ledger, "w", encoding="utf-8") as f:
-            f.write(insert(text, block, args.version))
-    # Removed only after the ledger is on disk, so a failed write leaves every
-    # fragment where it was.
+        # A new release is a new file; a second fold for one release joins
+        # its file through C's `insert`, whose walk to the next `## ` reaches
+        # EOF because the file is the section (#547). `seal/ledger.md` is
+        # never written here.
+        written = insert(existing, block, args.version) if found else block
+        os.makedirs(under(root, RELEASES), exist_ok=True)
+        with open(disk, "w", encoding="utf-8") as f:
+            f.write(written.rstrip("\n") + "\n")
+    # Removed only after the release file is on disk, so a failed write
+    # leaves every fragment where it was.
     for work_item_id, _ in frags:
         os.remove(under(root, f"{FRAGMENTS}/{work_item_id}.md"))
     try:
@@ -478,8 +627,8 @@ def main(argv=None):
         pass  # something else is in it, or it is already gone; both are fine
     moved = len(frags) - len(empty)
     print(
-        f"folded {moved} fragments into {LEDGER} under {heading}"
-        + (" (appended into the existing section)" if found else "")
+        f"folded {moved} fragments into {target} under {heading}"
+        + (" (appended into the existing file)" if found else "")
     )
     for work_item_id, _ in frags:
         note = "  (empty, removed)" if work_item_id in empty else ""

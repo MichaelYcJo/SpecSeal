@@ -19,6 +19,7 @@ shape of `test_the_changelog_is_gathered_at_release.py`, because the script is
 the shape of `gather_changelog.py`.
 """
 
+import glob
 import importlib.util
 import os
 import re
@@ -167,6 +168,15 @@ def ledger(tree):
     return (tree / "seal" / "ledger.md").read_text(encoding="utf-8")
 
 
+def release_file(tree, version="0.4.0"):
+    return tree / "seal" / "releases" / f"{version}.md"
+
+
+def released(tree, version="0.4.0"):
+    """The release file the fold wrote — the section, byte for byte (#547)."""
+    return release_file(tree, version).read_text(encoding="utf-8")
+
+
 def fragments_left(tree):
     d = tree / "seal" / "ledger"
     return sorted(p.name for p in d.iterdir()) if d.exists() else []
@@ -179,11 +189,19 @@ def fold(tree, version="0.4.0", date="2026-09-15"):
     fragment leaving the directory are — so every case that depends on a fold
     having happened goes through this.
     """
+    shared = ledger(tree)
     r = run("--version", version, "--date", date, root=tree)
     assert r.returncode == 0, r.stdout + r.stderr
-    text = ledger(tree)
-    assert f"## {version} — {date}" in text, f"exited 0 and wrote no section:\n{text}"
+    assert release_file(tree, version).is_file(), (
+        f"exited 0 and wrote no release file:\n{r.stdout}"
+    )
+    text = released(tree, version)
+    assert text.startswith(f"## {version} — "), (
+        f"the file does not begin with the heading:\n{text}"
+    )
     assert "<!-- specs/" in text, f"exited 0 and wrote no marker:\n{text}"
+    assert ledger(tree) == shared, "a fold wrote to seal/ledger.md (#547)"
+    assert f"into seal/releases/{version}.md" in r.stdout, r.stdout
     return r
 
 
@@ -209,7 +227,7 @@ def test_every_row_reaches_the_ledger_byte_for_byte_and_the_fragment_is_gone(tre
         for name in fragments_left(tree)
     }
     fold(tree)
-    text = ledger(tree)
+    text = released(tree)
     for name, frag in before.items():
         rows = [line for line in frag.splitlines() if line.startswith("| ")]
         assert rows, f"the fixture fragment {name} has no rows to move"
@@ -230,7 +248,7 @@ def test_the_rows_that_were_already_in_the_ledger_stay(tree):
 
 def test_each_work_item_is_marked_and_headed(tree):
     fold(tree)
-    text = ledger(tree)
+    text = released(tree)
     assert "<!-- specs/1788229400-later -->\n### 1788229400-later" in text, text
     assert "<!-- specs/1700000000-earlier -->\n### 1700000000-earlier" in text, text
 
@@ -239,42 +257,47 @@ def test_the_fragment_headings_sit_under_the_work_item(tree):
     """The fragment's `## area` becomes `####`, its `# <id>` title is the
     `###` heading above, and the preamble survives between them."""
     fold(tree)
-    text = ledger(tree)
+    text = released(tree)
     assert "#### The area this work item wrote" in text, text
     assert "\n# 1788229400-later\n" not in text, text
     assert "Rows for the later work item." in text, text
 
 
-def test_the_section_is_appended_below_the_existing_areas(tree):
-    """Q2: a ledger is read by area and its top holds the notation a reader
-    needs first, so the release section goes at the end — where the changelog
-    gather puts its section at the top."""
+def test_the_release_file_is_the_section_and_the_shared_ledger_is_untouched(tree):
+    """#547, S5. The release file begins with the version heading, heads
+    nothing else, and `seal/ledger.md` keeps its areas and gains no section:
+    a release's rows are its own file, and the shared file holds what is
+    nobody's release."""
     fold(tree)
+    assert re.findall(r"^## (.+)$", released(tree), re.M) == ["0.4.0 — 2026-09-15"]
+    assert released(tree).startswith("## 0.4.0 — 2026-09-15\n\n<!-- specs/")
+    assert released(tree).endswith("|\n"), repr(released(tree)[-40:])
+    assert "\n\n\n" not in released(tree)
     headings = re.findall(r"^## (.+)$", ledger(tree), re.M)
-    assert headings[-1].startswith("0.4.0"), headings
-    assert headings[0] == "Coordinates", headings
+    assert headings == ["Coordinates", "An area from before the fragments"], headings
 
 
 def test_the_work_items_are_in_id_order(tree):
     fold(tree)
-    text = ledger(tree)
+    text = released(tree)
     assert text.index("1700000000-earlier") < text.index("1788229400-later"), text
 
 
 def test_folding_twice_finds_nothing_and_writes_nothing(tree):
     fold(tree)
-    once = ledger(tree)
+    once = released(tree)
     second = run("--version", "0.4.0", "--date", "2026-09-15", root=tree)
     assert second.returncode == 1, second.stdout
     assert "nothing to fold" in second.stdout, second.stdout
-    assert ledger(tree) == once
+    assert released(tree) == once
 
 
 def test_a_fragment_whose_marker_is_already_in_the_ledger_is_refused(tree):
     """Folding it again would put the same rows in the file twice with no way
-    to tell which is current. A stop naming the file is cheaper."""
+    to tell which is current. A stop naming the file is cheaper. #547, S8:
+    the marker stands in a release file now, and the refusal names it."""
     fold(tree)
-    once = ledger(tree)
+    once = released(tree)
     (tree / "seal" / "ledger").mkdir()
     (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
         fragment(
@@ -286,7 +309,11 @@ def test_a_fragment_whose_marker_is_already_in_the_ledger_is_refused(tree):
     assert r.returncode == 1, r.stdout
     assert "seal/ledger/1788229400-later.md" in r.stdout, r.stdout
     assert "already" in r.stdout, r.stdout
-    assert ledger(tree) == once, "the refusal wrote to the ledger"
+    assert "seal/releases/0.4.0.md" in r.stdout, (
+        "the file the marker stands in is not named"
+    )
+    assert released(tree) == once, "the refusal wrote to the release file"
+    assert not release_file(tree, "0.4.1").exists(), "the refusal wrote a release file"
     assert fragments_left(tree) == ["1788229400-later.md"], "the refusal removed it"
 
 
@@ -320,15 +347,15 @@ def test_a_second_fold_for_the_same_version_joins_its_section(tree):
     version once. The gather's case is the pattern (#289)."""
     fold(tree)
     late_fragment(tree)
+    shared = ledger(tree)
     second = run("--version", "0.4.0", "--date", "2026-09-16", root=tree)
     assert second.returncode == 0, second.stdout + second.stderr
-    text = ledger(tree)
+    text = released(tree)
     headings = re.findall(r"^## (.+)$", text, re.M)
-    assert headings == [
-        "Coordinates",
-        "An area from before the fragments",
-        "0.4.0 — 2026-09-15",
-    ], f"the second fold wrote a second heading, or re-dated the first: {headings}"
+    assert headings == ["0.4.0 — 2026-09-15"], (
+        f"the second fold wrote a second heading, or re-dated the first: {headings}"
+    )
+    assert ledger(tree) == shared, "the second fold wrote to seal/ledger.md"
     assert "2026-09-16" not in text, text
     assert f"<!-- specs/{LATE} -->\n### {LATE}" in text, text
     # Under the heading, after the work item the first fold wrote.
@@ -337,13 +364,15 @@ def test_a_second_fold_for_the_same_version_joins_its_section(tree):
     assert "\n\n\n" not in text, f"a run of blank lines:\n{text}"
     assert fragments_left(tree) == [], fragments_left(tree)
     assert (
-        "folded 1 fragments into seal/ledger.md under ## 0.4.0 — 2026-09-15 "
-        "(appended into the existing section)"
+        "folded 1 fragments into seal/releases/0.4.0.md under ## 0.4.0 — 2026-09-15 "
+        "(appended into the existing file)"
     ) in second.stdout, second.stdout
     assert f"seal/ledger/{LATE}.md" in second.stdout, second.stdout
     check = run("--check", root=tree)
     assert check.returncode == 0, check.stdout
-    assert "3 work items marked in seal/ledger.md" in check.stdout, check.stdout
+    assert (
+        "3 work items marked across seal/ledger.md and 1 release file" in check.stdout
+    ), check.stdout
 
 
 def test_the_kept_date_wins_over_today_as_well(tree):
@@ -354,28 +383,8 @@ def test_the_kept_date_wins_over_today_as_well(tree):
     late_fragment(tree)
     second = run("--version", "0.4.0", root=tree)
     assert second.returncode == 0, second.stdout + second.stderr
-    headings = re.findall(r"^## (.+)$", ledger(tree), re.M)
-    assert headings[-1] == "0.4.0 — 2026-09-15", headings
-    assert headings.count("0.4.0 — 2026-09-15") == 1, headings
-
-
-def test_the_joined_section_is_one_section_wherever_it_stands(tree):
-    """S4. The real ledger's version section is the last `## ` in the file
-    today, and the join must not depend on it: with an area heading appended
-    after the section, the late work item lands before that next `## `, one
-    blank line each side."""
-    fold(tree)
-    text = ledger(tree) + "\n## An area added after the release\n\nProse.\n"
-    (tree / "seal" / "ledger.md").write_text(text, encoding="utf-8")
-    late_fragment(tree)
-    second = run("--version", "0.4.0", "--date", "2026-09-16", root=tree)
-    assert second.returncode == 0, second.stdout + second.stderr
-    text = ledger(tree)
-    assert text.index(f"### {LATE}") < text.index("## An area added after"), text
-    assert "\n\n\n" not in text, f"a run of blank lines:\n{text}"
-    late_row = next(ln for ln in text.split("\n") if "| the late claim |" in ln)
-    assert f"{late_row}\n\n## An area added after the release\n" in text, text
-    assert text.endswith("Prose.\n"), repr(text[-40:])
+    headings = re.findall(r"^## (.+)$", released(tree), re.M)
+    assert headings == ["0.4.0 — 2026-09-15"], headings
 
 
 def test_a_dry_run_of_a_second_fold_shows_the_section_it_appends_into(tree):
@@ -384,37 +393,85 @@ def test_a_dry_run_of_a_second_fold_shows_the_section_it_appends_into(tree):
     date that the write then does not make."""
     fold(tree)
     late_fragment(tree)
-    before = ledger(tree)
+    before = released(tree)
     left = fragments_left(tree)
     r = run("--version", "0.4.0", "--date", "2026-09-16", "--dry-run", root=tree)
     assert r.returncode == 0, r.stdout + r.stderr
-    assert "appending into the existing section:" in r.stdout, r.stdout
+    assert "appending into the existing file:" in r.stdout, r.stdout
     assert "## 0.4.0 — 2026-09-15" in r.stdout, r.stdout
     assert "2026-09-16" not in r.stdout, r.stdout
     assert f"<!-- specs/{LATE} -->" in r.stdout, r.stdout
-    assert ledger(tree) == before, "--dry-run wrote to the ledger"
+    assert released(tree) == before, "--dry-run wrote to the release file"
     assert fragments_left(tree) == left, "--dry-run removed a fragment"
 
 
-def test_check_refuses_a_ledger_that_heads_a_version_twice(tree):
-    """S8. A doubled heading is a state `--check` could see and did not
-    refuse — the real ledger carried one from `4ac9bf35` to `9f846733` with
-    `--check` green on every release in between. It names the version and
-    both lines, and the fragment report is still printed beside it."""
+def test_check_refuses_a_release_file_that_heads_its_version_twice(tree):
+    """#540's S8, re-pointed to the release file (#547, S10). A doubled
+    heading is a state `--check` could see and did not refuse — the real
+    ledger carried one from `4ac9bf35` to `9f846733` with `--check` green on
+    every release in between. It names the file, the version and both lines,
+    and the fragment report is still printed beside it."""
     fold(tree)
-    text = ledger(tree) + "\n## 0.4.0 — 2026-09-16\n\nRows under a second heading.\n"
-    (tree / "seal" / "ledger.md").write_text(text, encoding="utf-8")
+    text = released(tree) + "\n## 0.4.0 — 2026-09-16\n\nRows under a second heading.\n"
+    release_file(tree).write_text(text, encoding="utf-8")
     lines = text.split("\n")
     first = lines.index("## 0.4.0 — 2026-09-15") + 1
     second = lines.index("## 0.4.0 — 2026-09-16") + 1
     late_fragment(tree)
     r = run("--check", root=tree)
     assert r.returncode == 1, r.stdout
-    assert "0.4.0" in r.stdout, r.stdout
+    assert "seal/releases/0.4.0.md" in r.stdout, r.stdout
     assert str(first) in r.stdout and str(second) in r.stdout, (first, second, r.stdout)
-    assert "one release, one section" in r.stdout, r.stdout
+    assert "one release, one file" in r.stdout, r.stdout
     assert f"seal/ledger/{LATE}.md" in r.stdout, r.stdout
     assert "\\" not in r.stdout, r.stdout
+
+
+def test_check_refuses_a_release_file_named_for_another_version(tree):
+    """#547, S10's second half: the file's name and its heading are two
+    spellings of one fact, and the fold and every reader key on the name."""
+    fold(tree)
+    release_file(tree).rename(release_file(tree, "0.4.1"))
+    r = run("--check", root=tree)
+    assert r.returncode == 1, r.stdout
+    assert "seal/releases/0.4.1.md" in r.stdout, r.stdout
+    assert "heads 0.4.0" in r.stdout, r.stdout
+
+
+def test_check_refuses_a_release_left_in_the_shared_ledger(tree):
+    """#547, S10. After the split `seal/ledger.md` heads no release; a
+    section standing there is a fold written to the old place or a split
+    not run, and the refusal names the version, the line and the repair.
+    The fragment and open-row reports still print beside it."""
+    fold(tree)
+    shared = ledger(tree) + "\n## 0.4.1 — 2026-09-16\n\nRows folded to the old place.\n"
+    (tree / "seal" / "ledger.md").write_text(shared, encoding="utf-8")
+    line = shared.split("\n").index("## 0.4.1 — 2026-09-16") + 1
+    late_fragment(tree)
+    evidence_todo(tree, "1600000000-released-long-ago", OPEN_FILE)
+    r = run("--check", root=tree)
+    assert r.returncode == 1, r.stdout
+    assert "seal/ledger.md still heads a release" in r.stdout, r.stdout
+    assert f"0.4.1  at line {line}" in r.stdout, r.stdout
+    assert "fold_ledger.py --split" in r.stdout, r.stdout
+    assert f"seal/ledger/{LATE}.md" in r.stdout, r.stdout
+    assert "1600000000-released-long-ago/evidence-todo.md" in r.stdout, r.stdout
+
+
+def test_a_fold_refuses_a_release_file_that_does_not_head_its_version(tree):
+    """#547. A file at `seal/releases/<version>.md` that does not head that
+    version is a tree a person should look at, and joining it would write
+    the rows under a heading nobody can find. Nothing is written."""
+    release_file(tree).parent.mkdir()
+    release_file(tree).write_text(
+        "## 0.3.9 — 2026-09-01\n\nWrong file.\n", encoding="utf-8"
+    )
+    left = fragments_left(tree)
+    r = run("--version", "0.4.0", "--date", "2026-09-15", root=tree)
+    assert r.returncode == 1, r.stdout
+    assert "seal/releases/0.4.0.md" in r.stdout and "0.4.0" in r.stdout, r.stdout
+    assert released(tree).startswith("## 0.3.9"), "the refusal wrote to the file"
+    assert fragments_left(tree) == left, "the refusal removed a fragment"
 
 
 def test_a_marker_quoted_in_the_ledgers_prose_is_not_a_folded_work_item(tree):
@@ -429,7 +486,7 @@ def test_a_marker_quoted_in_the_ledgers_prose_is_not_a_folded_work_item(tree):
     assert "<!-- specs/1788229400-later -->" in text
     (tree / "seal" / "ledger.md").write_text(text, encoding="utf-8")
     fold(tree)
-    assert "| the later claim |" in ledger(tree)
+    assert "| the later claim |" in released(tree)
     r = run("--check", root=tree)
     assert r.returncode == 0, r.stdout
     assert "2 work items marked" in r.stdout, r.stdout
@@ -465,7 +522,7 @@ def test_a_row_holding_a_line_separator_arrives_as_one_row(tree):
         fragment("1788229400-later", "Odd bytes.", [U2028_ROW]), encoding="utf-8"
     )
     fold(tree)
-    assert U2028_ROW in ledger(tree).split("\n"), ledger(tree)
+    assert U2028_ROW in released(tree).split("\n"), released(tree)
 
 
 def test_the_last_row_keeps_its_trailing_whitespace_and_a_fenced_hash_is_text(tree):
@@ -481,7 +538,7 @@ def test_the_last_row_keeps_its_trailing_whitespace_and_a_fenced_hash_is_text(tr
         body, encoding="utf-8"
     )
     fold(tree)
-    lines = ledger(tree).split("\n")
+    lines = released(tree).split("\n")
     assert last in lines, "the trailing whitespace was stripped"
     assert "# not a heading" in lines, "the fenced line was demoted"
     assert "#### The area" in lines
@@ -501,7 +558,7 @@ def test_a_blank_line_above_the_title_and_a_tilde_fence_are_read_right(tree):
         body, encoding="utf-8"
     )
     fold(tree)
-    lines = ledger(tree).split("\n")
+    lines = released(tree).split("\n")
     assert lines.count("### 1788229400-later") == 1, "the title was demoted twice"
     assert "# not a heading" in lines, "the ~~~ fence was not recognised"
     assert "# still not a heading" in lines, "a ``` inside ~~~ closed the fence"
@@ -516,6 +573,7 @@ def test_dry_run_writes_and_removes_nothing(tree):
     assert "## 0.4.0 — 2026-09-15" in r.stdout, r.stdout
     assert "<!-- specs/1700000000-earlier -->" in r.stdout, r.stdout
     assert ledger(tree) == before, "--dry-run wrote to the ledger"
+    assert not (tree / "seal" / "releases").exists(), "--dry-run wrote a release file"
     assert fragments_left(tree) == left, "--dry-run removed a fragment"
 
 
@@ -527,7 +585,7 @@ def test_an_empty_fragment_is_removed_and_named_and_gets_no_marker(tree):
     )
     r = fold(tree)
     assert "1788300000-empty.md  (empty, removed)" in r.stdout, r.stdout
-    assert "1788300000-empty" not in ledger(tree)
+    assert "1788300000-empty" not in released(tree)
     assert fragments_left(tree) == []
 
 
@@ -553,11 +611,13 @@ def test_the_checker_reports_the_same_totals_before_and_after(tree):
     assert (after, after_rc) == (before, before_rc), (before, after)
 
 
-def test_the_one_thing_a_fold_changes_is_a_duplicate_counted_once(tree):
-    """`check_ledger` de-duplicates on (coordinate, hash) within one file, so
-    a row a fragment repeats from `map.md` counts twice before the fold and
-    once after. No finding changes; the spec's S6 names this so a release
-    reading a smaller total does not go looking for a lost row."""
+def test_a_row_a_fragment_repeats_from_the_shared_ledger_is_still_counted_twice(tree):
+    """`check_ledger` de-duplicates on (coordinate, hash) within one file.
+    Before #547 a row a fragment repeated from `seal/ledger.md` counted
+    twice before the fold and once after, because the fold put it in the
+    same file; the fold writes a release file now, so the repeat stays in a
+    file of its own and the total does not move. The one thing a fold used
+    to change is gone, and a release reading the same total is the shape."""
     (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
         fragment(
             "1788229400-later",
@@ -570,7 +630,7 @@ def test_the_one_thing_a_fold_changes_is_a_duplicate_counted_once(tree):
     assert "4 ok" in before, before
     fold(tree)
     after, rc = check(tree)
-    assert "3 ok" in after and rc == 0, after
+    assert "4 ok" in after and rc == 0, after
 
 
 # --- the guard --------------------------------------------------------------
@@ -706,15 +766,17 @@ def test_check_passes_once_folded_and_says_what_it_counted(tree):
     r = run("--check", root=tree)
     assert r.returncode == 0, r.stdout
     # A `--check` that exits 0 because it found nothing at all would satisfy
-    # the line above. It has to say it saw both work items in the ledger.
-    assert "2 work items marked in seal/ledger.md" in r.stdout, r.stdout
+    # the line above. It has to say it saw both work items, and where.
+    assert "2 work items marked across seal/ledger.md and 1 release file" in r.stdout, (
+        r.stdout
+    )
 
 
 def test_a_copy_edit_to_a_folded_section_does_not_reopen_it(tree):
     """Marked, not matched: re-wording a folded note leaves `--check` green."""
     fold(tree)
-    text = ledger(tree).replace("the later claim", "the later claim, reworded")
-    (tree / "seal" / "ledger.md").write_text(text, encoding="utf-8")
+    text = released(tree).replace("the later claim", "the later claim, reworded")
+    release_file(tree).write_text(text, encoding="utf-8")
     r = run("--check", root=tree)
     assert r.returncode == 0, r.stdout
 
@@ -799,8 +861,22 @@ def test_the_release_sequence_names_the_fold_beside_the_gather():
 THIS_WORK_ITEM = "1788326734-the-ledger-fragments-are-never-gathered"
 
 
+def folded_ledgers(root):
+    """`seal/ledger.md` and every release file, where a folded section can
+    stand: in the shared file until `--split` moves it, in
+    `seal/releases/<X.Y.Z>.md` after (#547)."""
+    paths = [os.path.join(root, "seal", "ledger.md")]
+    paths += sorted(glob.glob(os.path.join(root, "seal", "releases", "*.md")))
+    out = []
+    for path in paths:
+        if os.path.isfile(path):
+            with open(path, encoding="utf-8") as f:
+                out.append(f.read())
+    return out
+
+
 def this_work_items_rows_are_in_the_ledger(root):
-    """The fragment while it exists, its folded section in `map.md` after.
+    """The fragment while it exists, its folded section in a ledger after.
 
     Round 1, 🔴 2: reading the fragment alone is a permanent test of a file
     that lives between releases, which is the shape the dependency rule names
@@ -813,13 +889,10 @@ def this_work_items_rows_are_in_the_ledger(root):
             text = f.read()
         where = "the fragment"
     else:
-        with open(os.path.join(root, "seal", "ledger.md"), encoding="utf-8") as f:
-            text = f.read()
-        lines = text.split("\n")
-        assert f"<!-- specs/{THIS_WORK_ITEM} -->" in lines, (
-            "this work item wrote no ledger fragment, and no fold marked it"
-        )
-        text = text.split(f"<!-- specs/{THIS_WORK_ITEM} -->", 1)[1]
+        marker = f"<!-- specs/{THIS_WORK_ITEM} -->"
+        holding = [t for t in folded_ledgers(root) if marker in t.split("\n")]
+        assert holding, "this work item wrote no ledger fragment, and no fold marked it"
+        text = holding[0].split(marker, 1)[1]
         where = "the folded section"
     assert "fold_ledger.py#" in text, f"{where} cites nothing in the script"
 
