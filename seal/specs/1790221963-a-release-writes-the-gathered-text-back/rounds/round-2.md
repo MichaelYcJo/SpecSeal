@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | 560 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `ab9b026b16ff41b4f4b11a2ff680ba50206620ea..e5dc540d4d730da0331977dd64f6b046c93e5ab0`, 2 commits |
 | Contract changes | corrected → round-1-report.md, round-1.md, spec.md, round-3-report.md, round-3.md, round-2-report.md, round-2.md, examine; score → round-2-report.md, round-2.md, examine |
 | New units | test_a_gathered_fragment_cannot_subtract_a_survivor_through_a_lost_entry (depth 1) |
