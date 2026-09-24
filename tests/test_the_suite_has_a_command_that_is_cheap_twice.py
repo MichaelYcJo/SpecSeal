@@ -64,13 +64,24 @@ def posix_entries():
     return sorted(n for n in os.listdir(BIN) if not n.endswith(".cmd"))
 
 
-def fake_venv(root):
-    """A directory that looks to `has_pytest` like a built environment."""
+def fake_venv(root, xdist=True):
+    """A directory that looks to `has_pytest` like a built environment, and
+    to `has_xdist` like one that carries pytest-xdist (#337) -- the `xdist`
+    package directory under site-packages, at the path each platform uses.
+    `xdist=False` is the `.venv` built before #337, which the runner adopts
+    and repairs."""
     venv = root / ".venv"
     python = rt.venv_python(venv)
     python.parent.mkdir(parents=True)
     python.write_text("")
     (python.parent / ("pytest.exe" if os.name == "nt" else "pytest")).write_text("")
+    if xdist:
+        site = (
+            venv / "Lib" / "site-packages"
+            if os.name == "nt"
+            else venv / "lib" / f"python{rt.FLOOR_TEXT}" / "site-packages"
+        )
+        (site / "xdist").mkdir(parents=True)
     return venv
 
 
@@ -168,7 +179,7 @@ def test_the_runner_behind_the_wrapper_says_the_same_thing():
 
 
 def test_the_wrapper_points_at_the_contract_rather_than_inviting_a_full_run():
-    """`bin/test` with no arguments runs a five-minute suite that
+    """`bin/test` with no arguments runs the whole suite, which
     `skills/agent-contract/SKILL.md` §2 forbids to smith and warden. The file
     a session reads before typing it says so, and names where the rule is.
 
@@ -578,6 +589,8 @@ def test_the_unwritable_sentence_is_the_same_on_every_platform(
 
 
 def test_arguments_pass_through(tmp_path, monkeypatch):
+    """A5. The narrow form stays the narrow form: the file the caller named
+    and nothing wider, with the parallel default appended after it."""
     (tmp_path / "tests").mkdir()
     venv = fake_venv(tmp_path)
     recorder = Recorder()
@@ -585,7 +598,15 @@ def test_arguments_pass_through(tmp_path, monkeypatch):
     monkeypatch.setattr(rt.subprocess, "run", recorder)
     assert rt.main(["tests/test_session_cost.py", "-q"]) == 0
     assert recorder.calls == [
-        [str(rt.venv_python(venv)), "-m", "pytest", "tests/test_session_cost.py", "-q"]
+        [
+            str(rt.venv_python(venv)),
+            "-m",
+            "pytest",
+            "tests/test_session_cost.py",
+            "-q",
+            "-n",
+            "auto",
+        ]
     ]
 
 
@@ -596,22 +617,164 @@ def test_no_arguments_runs_the_whole_suite(tmp_path, monkeypatch):
     monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(rt.subprocess, "run", recorder)
     rt.main([])
-    assert recorder.calls[0][-1] == "tests"
+    assert recorder.calls[0][3] == "tests", (
+        f"no arguments means `tests`, and it comes first: {recorder.calls[0]}"
+    )
 
 
-def test_it_does_not_pass_n_auto(tmp_path, monkeypatch):
-    """pytest-xdist is installed by `.github/workflows/test.yml`, not by this
-    virtualenv. `-n auto` would fail on every freshly built one, and the fix
-    for a caller who wants it is to install xdist and pass it."""
+def test_the_whole_suite_runs_in_parallel_by_default(tmp_path, monkeypatch):
+    """A1, inverted from `test_it_does_not_pass_n_auto` (#337). That pin held
+    the serial default in place: the environment was built with pytest alone,
+    so the flag failed on every fresh build, so the runner withheld it, so
+    nothing installed xdist. The build carries xdist now, and the default is
+    the configuration CI has run on three platforms for every release."""
     (tmp_path / "tests").mkdir()
     fake_venv(tmp_path)
     recorder = Recorder()
     monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
     monkeypatch.setattr(rt.subprocess, "run", recorder)
     rt.main([])
-    assert "-n" not in recorder.calls[0], (
-        "the built environment has no xdist, so -n auto fails on the first run"
+    command = recorder.calls[0]
+    assert "-n" in command and command[command.index("-n") + 1] == "auto", (
+        f"the suite runs serially by default: {command}"
     )
+
+
+@pytest.mark.parametrize("uv", ["/usr/bin/uv", None])
+def test_a_fresh_build_installs_xdist_beside_pytest(tmp_path, monkeypatch, uv):
+    """A1's other half. Both build strategies -- `uv pip install` and
+    `python -m pip install` -- name `pytest-xdist` in the install step, or the
+    first call of a fresh clone refuses the default the case above pins."""
+    recorder = Recorder()
+    monkeypatch.setattr(rt.shutil, "which", lambda _: uv)
+    monkeypatch.setattr(rt.subprocess, "run", recorder)
+    assert rt.build(tmp_path / ".venv") is None
+    install = recorder.calls[1]
+    assert "install" in install, f"the second step is not the install: {install}"
+    assert "pytest" in install and "pytest-xdist" in install, (
+        f"the {'uv' if uv else 'pip'} strategy builds an environment without "
+        f"xdist: {install}"
+    )
+
+
+@pytest.mark.parametrize("uv", ["/usr/bin/uv", None])
+def test_an_adopted_environment_without_xdist_is_given_it_once(
+    tmp_path, monkeypatch, uv
+):
+    """A2. A `.venv` built before #337 has pytest and no xdist, and the runner
+    adopts it. One install step, by the same tool order `build` uses, then the
+    suite under `-n auto`. Not refused: a missing speed-up is not a wrong
+    interpreter, and the below-floor refusal exists because the suite is
+    WRONG there, which it is not here."""
+    (tmp_path / "tests").mkdir()
+    venv = fake_venv(tmp_path, xdist=False)
+    recorder = Recorder()
+    monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(rt.shutil, "which", lambda _: uv)
+    monkeypatch.setattr(rt.subprocess, "run", recorder)
+    assert rt.main([]) == 0
+    assert len(recorder.calls) == 2, recorder.calls
+    install, run = recorder.calls
+    if uv:
+        assert install == [
+            uv,
+            "pip",
+            "install",
+            "--python",
+            str(rt.venv_python(venv)),
+            "pytest-xdist",
+        ]
+    else:
+        assert install == [
+            str(rt.venv_python(venv)),
+            "-m",
+            "pip",
+            "install",
+            "--quiet",
+            "pytest-xdist",
+        ]
+    assert run[:3] == [str(rt.venv_python(venv)), "-m", "pytest"]
+    assert run[-2:] == ["-n", "auto"], f"the repaired environment ran serially: {run}"
+
+
+def test_an_environment_with_xdist_takes_no_install_step(tmp_path, monkeypatch):
+    """A2's second call. The marker is found by the filesystem alone -- the
+    `xdist` package directory under site-packages, never a subprocess -- so a
+    warm call reaches pytest first. `test_a_built_environment_is_reused_and_
+    never_rebuilt`'s rule, extended to the one step this work adds."""
+    (tmp_path / "tests").mkdir()
+    fake_venv(tmp_path)
+    recorder = Recorder()
+    monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(rt.subprocess, "run", recorder)
+    rt.main([])
+    assert len(recorder.calls) == 1, f"a warm call ran an install: {recorder.calls}"
+    assert recorder.calls[0][2] == "pytest"
+
+
+def test_a_failed_xdist_install_is_a_sentence_and_the_suite_still_runs(
+    tmp_path, monkeypatch, capsys
+):
+    """A3. No network, a broken uv: the install step exits non-zero. One
+    sentence names the package, says the run is serial and names the remedy;
+    the suite then runs without `-n auto`, and the exit code is pytest's, not
+    the install's."""
+    (tmp_path / "tests").mkdir()
+    fake_venv(tmp_path, xdist=False)
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(list(command))
+        return subprocess.CompletedProcess(command, 1 if "install" in command else 0)
+
+    monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(rt.shutil, "which", lambda _: "/usr/bin/uv")
+    monkeypatch.setattr(rt.subprocess, "run", run)
+    assert rt.main([]) == 0, "the exit code is pytest's, and pytest passed"
+    err = capsys.readouterr().err
+    assert "pytest-xdist" in err, "the sentence does not name the package"
+    assert "serial" in err, "the reader is not told the run is serial"
+    assert "run bin/test again" in err, "the reader is not told the remedy"
+    assert "Traceback" not in err, err
+    assert len(calls) == 2 and calls[1][2] == "pytest", calls
+    assert "-n" not in calls[1], (
+        f"the flag was passed into an environment without xdist: {calls[1]}"
+    )
+
+
+@pytest.mark.parametrize(
+    "own",
+    [
+        ["-n", "2"],
+        ["-n2"],
+        ["-nauto"],
+        ["--numprocesses", "2"],
+        ["--numprocesses=2"],
+        ["-p", "no:xdist"],
+        ["-pno:xdist"],
+        ["-p=no:xdist"],
+        ["--pdb"],
+    ],
+)
+def test_the_callers_own_choice_wins(tmp_path, monkeypatch, own):
+    """A4. A worker count of the caller's own, the plugin switched off, or
+    `--pdb`, and the runner adds nothing: the arguments pass through as
+    typed. `--pdb` is there because a debugger and distribution do not mix --
+    measured with pytest-xdist 3.8.0: `-n 2 --pdb` exits 4 with xdist's
+    `UsageError`, and `-n auto --pdb` is collapsed by xdist to zero workers,
+    so withholding reaches the serial run by the shorter route. W1 of the
+    work item tried `--sw`, `--lf -x`, `-s`, `-x` and `--trace` beside
+    `-n auto` against the built environment and pytest accepted each, so
+    none joins the list."""
+    (tmp_path / "tests").mkdir()
+    venv = fake_venv(tmp_path)
+    recorder = Recorder()
+    monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(rt.subprocess, "run", recorder)
+    rt.main(["tests/test_x.py", *own])
+    assert recorder.calls == [
+        [str(rt.venv_python(venv)), "-m", "pytest", "tests/test_x.py", *own]
+    ], f"the runner added to arguments the caller had already settled: {recorder.calls}"
 
 
 def test_pytest_runs_from_the_repository_root(tmp_path, monkeypatch):
@@ -753,7 +916,7 @@ def test_the_section_keeps_the_broad_once_rule():
 
 
 def test_the_section_says_the_full_run_is_the_sealers():
-    """`bin/test` with no arguments runs a five-minute suite that
+    """`bin/test` with no arguments runs the whole suite, which
     §2 forbids to smith and warden. The section that makes it cheap is the
     section that has to say who it is for, and name the form a segment
     types.
@@ -792,7 +955,7 @@ def test_the_protocol_says_a_shipped_runner_is_found_not_typed():
 
 
 def test_the_protocol_hands_over_the_narrow_form():
-    """The requirement points a segment at a command that runs a five-minute
+    """The requirement points a segment at a command that runs the whole
     suite. Naming it without naming which form is how §2 gets widened by a
     document that never mentions it."""
     protocol = flat("docs", "review-handoff-protocol.md")
@@ -875,7 +1038,7 @@ def test_the_cheat_sheet_does_not_offer_the_runner():
     rows = [line for line in sheet.splitlines() if line.startswith("| `")]
     assert not [row for row in rows if "bin/test" in row or "`test" in row], (
         "the cheat sheet offers a command a plugin user cannot type, and "
-        "whose runner is this repository's own five-minute suite"
+        "whose runner is this repository's own suite"
     )
 
 
@@ -893,3 +1056,23 @@ def test_the_placement_stands_on_what_it_actually_buys():
         "the runner does not say what actually keeps a plugin user from "
         "running this suite, so its placement reads as the guard"
     )
+
+
+def test_no_loaded_document_states_the_serial_figure():
+    """A6 (#337). Four carriers stated the suite's cost as *about five
+    minutes* with no moment -- the serial figure, and the class
+    `seal/follow-up.md` names as *a figure about a corpus, stated with no
+    moment*. The measured before-and-after lives in the work item's changelog
+    fragment with its date and machine; no loaded document states a figure.
+    And the runner's comment no longer WITHHOLDS the flag: it says why it
+    used to, which is the record a reader needs when the next flag arrives."""
+    runner = " ".join(read(SCRIPT).split())
+    assert "No `-n auto`" not in runner, (
+        "the runner's comment still withholds the parallel default"
+    )
+    for name, text in (
+        ("bin/test", flat("bin", "test")),
+        (".github/scripts/run_tests.py", runner),
+        ("CONTRIBUTING.md §Running the checks", " ".join(running_the_checks().split())),
+    ):
+        assert "five minutes" not in text, f"{name} states the serial figure"

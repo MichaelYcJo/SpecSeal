@@ -60,6 +60,37 @@ twelve-word test needle and a three-thousand-word ledger cell be judged on the
 same scale. Its unit is **one phrase that occurs nowhere else**, so the number
 means the same thing in a repository of twenty files and one of a thousand.
 
+## What a sentence is in a Python file
+
+**The prose of a `.py` file is its comments, its docstrings and its string
+literals, and nothing else** (#543). A line of code normalises to the same
+words in every file that walks a list the same way -- `for i in range(start,
+len(lines))` is the same four-word run wherever it stands -- so under the
+whole-file reading a branch that rewrote one loop was told that every other
+loop of that shape still stood: four of one branch's five exemption rows,
+and six of the twenty-one places the 0.15.0 release's four ranges reported,
+were function bodies matched on loop, assignment and `if` shapes. None of
+them was wording, and none could be corrected.
+
+So the standard library's tokenizer reads every `.py` file first, on both
+sides of the range and in the pool, and keeps COMMENT, STRING and
+FSTRING_MIDDLE text where it stands. Every other token is blanked to spaces
+with a sentence end where it stood, line numbers intact -- so a code token
+between two literals ends the sentence (`"a", x, "b"` is two), and two
+literals with only a line break between them are one, which is the shape
+#269's pin has and the reason the file kind is not simply skipped: a
+docstring is exactly where a removed rule survives, and the one real
+survivor on the fourth of those four ranges is a `#` comment. A comment keeps
+its `#`, so a comment block is still read one line per sentence and this
+reading is subtractive: code gone, nothing joined that was not joined
+before. A file the tokenizer refuses -- an unterminated string, a bad
+dedent -- is read whole, as it always was.
+
+Code in any other kind of file -- a workflow's `run:` block, a shell script,
+a `bin/` wrapper -- is read as it always was. Not one measured instance is
+in one, and no line-oriented reader exists for them the way the tokenizer
+exists for Python.
+
 ## What is excluded, by construction rather than by list
 
 **A record of a past round.** Everything under a work item's `rounds/` is out
@@ -119,6 +150,26 @@ record's `Deferred` and `Fixes checked by` cells are filled after the fact
 too. What this gives up is the one shape the pool caught only because these
 records were in it -- a correction inside an HTML comment while the false
 claim rendered in bold -- and `seal/follow-up.md` names whose that loss is.
+
+**A released changelog section, and a gathered fragment.** Every line under
+a heading that names a version in the root `CHANGELOG.md` -- `## 0.15.0 —
+2026-09-23`, up to the next `## ` heading -- is out of the **pool** and out
+of the **range**, on both sides of the range's path list; and so is a
+`seal/specs/<id>/changelog.md` whose `<!-- specs/<id> -->` marker stands in
+`CHANGELOG.md` at the range's tip, because a gathered fragment is that
+released entry one file over (#307). A released section records what a past
+release did, in that release's words, and a released entry is not rewritten
+(`CLAUDE.md` §*Repo rule — a change writes fragments, never the shared
+file*): reported against one, the branch that changed the behaviour it
+describes could correct nothing, and two of the four ranges the 0.15.0
+release was measured on carried exactly that report. The region is read off
+the heading rather than the file being left out by path, so an
+`## Unreleased` section and an ungathered fragment stay in -- they are this
+release's own prose, the thing the sweep is for. In the range, a release's
+gathering commit deletes each fragment and writes its text under a heading
+that is blanked, so without this the fragments' every sentence would count
+as removed and the work items' own `spec.md` and `overview.md` would be
+reported at the release.
 
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
@@ -218,11 +269,13 @@ the tree consistent now*, which is why the report prints what it examined.
 
 import argparse
 import importlib.util
+import io
 import math
 import os
 import re
 import subprocess
 import sys
+import tokenize
 from collections import Counter
 
 # Words per n-gram. Three is the smallest that carries word order, and order is
@@ -450,6 +503,164 @@ def blank_struck(text):
     return STRUCK.sub(blank, text)
 
 
+# The changelog the gatherer writes, at the repository root and under this
+# name. A changelog kept elsewhere or under another name keeps the reading
+# every other document has (#307's *Out*).
+CHANGELOG = "CHANGELOG.md"
+
+# A heading that opens a RELEASED section: `## 0.15.0 — 2026-09-23`, and the
+# `## [1.2.3]` and `## v1.2.3` spellings other changelogs use. `## Unreleased`
+# matches nothing here, and that is the whole reason the region is read off
+# the heading rather than the file being left out by path: a repository
+# following `agents/smith.md`'s *let the entry accumulate unreleased* keeps
+# live prose in this file, above the first version, and that prose is this
+# release's own.
+VERSION_HEADING = re.compile(r"^##\s+\[?v?\d+\.\d+(?:\.\d+)?")
+# Any `## ` heading, which is where a section ends.
+SECTION_HEADING = re.compile(r"^##\s")
+
+
+def blank_released(text):
+    """`text` with every released section of a changelog blanked, line
+    numbers intact -- the heading naming a version and every line under it,
+    up to the next `## ` heading.
+
+    A released section records what a past release did, in that release's
+    words, and a released entry is not rewritten. Reported against one, a
+    branch that changed the behaviour the entry describes could correct
+    nothing, and two of the four ranges the 0.15.0 release was measured on
+    carried exactly that report (#307)."""
+    out, released = [], False
+    for line in text.split("\n"):
+        if SECTION_HEADING.match(line):
+            released = VERSION_HEADING.match(line) is not None
+        out.append("" if released else line)
+    return "\n".join(out)
+
+
+def only_released(text):
+    """The complement of `blank_released`: every line of a released section
+    kept, line numbers intact, every other line blanked.
+
+    Read by `newly_released` at both ends of the range, so a sentence a
+    release moved from `## Unreleased` under a version heading is counted
+    as still held rather than as removed (round 1's 🟡 1). What is held,
+    and when its wording is written, is `corrected`'s to decide."""
+    out, released = [], False
+    for line in text.split("\n"):
+        if SECTION_HEADING.match(line):
+            released = VERSION_HEADING.match(line) is not None
+        out.append(line if released else "")
+    return "\n".join(out)
+
+
+def newly_released(path, before, after):
+    """`[Sentence]` standing under a version heading at `after` beyond what
+    stood under one at `before` -- what the range itself moved or wrote into
+    a released section, counted per sentence."""
+
+    def released(text):
+        return [
+            Sentence(path, line, raw)
+            for line, raw in segments(blank_struck(only_released(text)))
+            if raw
+        ]
+
+    prior = Counter(s.key for s in released(before))
+    out = []
+    for sentence in released(after):
+        if prior[sentence.key] > 0:
+            prior[sentence.key] -= 1
+        else:
+            out.append(sentence)
+    return out
+
+
+# What a Python file SAYS, as opposed to what it does. Its prose is its
+# comments, its docstrings and its string literals; every other token -- a
+# name, an operator, a number, a keyword -- is code, and a line of code
+# normalises to the same words in every file that walks a list the same way.
+# #543: `for i in range(start, len(lines))` scored 2.77 against another
+# module's copy of the same loop, four of one branch's five exemption rows
+# were that shape, and the six instances on the 0.15.0 release's four ranges
+# were function bodies matched on loop, assignment and `if` shapes.
+#
+# The kinds are read off the tokenizer by name. On 3.12 an f-string is
+# FSTRING_START, FSTRING_MIDDLE and FSTRING_END with its expressions as
+# ordinary tokens, and the middle is the prose; below 3.12 the whole f-string
+# is one STRING, which the set already holds. A kind the interpreter does not
+# know is left out rather than named, so the set is right on every version.
+PROSE_TOKENS = {tokenize.COMMENT, tokenize.STRING} | {
+    getattr(tokenize, name)
+    for name in ("FSTRING_MIDDLE", "TSTRING_MIDDLE")
+    if hasattr(tokenize, name)
+}
+# Tokens that stand for no text and are blanked WITHOUT a sentence end. The
+# delimiters of an f-string are its quotes, and a plain string's quotes end
+# nothing, so `f"a {x} b" "c"` reads `b c` as one sentence the way `"b" "c"`
+# does; INDENT is the run of spaces at the head of a block, where a `|`
+# would be a wordless sentence per indented block -- noise, never a claim.
+#
+# **Line structure is not listed, and that was measured rather than
+# assumed.** NL and NEWLINE stand at the end of a line, past its text, and
+# DEDENT and ENDMARKER stand on the next token's own column or past the last
+# line; the position guard in `python_prose` writes nothing for any of them,
+# so naming them here changed no output under mutation. A member that cannot
+# change the answer tells a reader the joining of two literals across a line
+# break lives here, and it lives in the guard.
+STRUCTURE_TOKENS = {
+    getattr(tokenize, name)
+    for name in (
+        "INDENT",
+        "FSTRING_START",
+        "FSTRING_END",
+        "TSTRING_START",
+        "TSTRING_END",
+    )
+    if hasattr(tokenize, name)
+}
+# What a blanked code token leaves behind: a cell boundary, which `END`
+# already splits on. So `segments` needs no second rule to read
+# `"first half", name, "second half"` as two sentences -- the code between
+# the literals is where each one ends.
+CODE_STOOD_HERE = "|"
+
+
+def python_prose(text):
+    """`text` with every code token of a Python file blanked, line numbers
+    intact the way `blank_struck` keeps them.
+
+    A comment, a docstring or a string literal stays where it stands. Every
+    other token becomes spaces with a `|` at its first character, so a
+    sentence ends where the code stood: `"a", x, "b"` is two sentences, and
+    two adjacent literals across a line break are one, because nothing but
+    line structure stands between them.
+
+    **A file the tokenizer refuses is returned as it is** -- an unterminated
+    string, a bad dedent, a byte the reader cannot place -- which is the
+    whole-file reading every `.py` file had before this function existed.
+    That fallback reports MORE rather than less, and more is the direction a
+    checker of claims may fail in: a survivor missed inside a file nobody
+    can parse costs what the unanswered finding was worth."""
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
+    except (tokenize.TokenError, SyntaxError, ValueError):
+        return text
+    lines = text.split("\n")
+    out = [[" "] * len(line) for line in lines]
+    for token in tokens:
+        (row, col), _end = token.start, token.end
+        if row < 1 or row > len(out):
+            continue
+        if token.type in PROSE_TOKENS:
+            for offset, part in enumerate(token.string.split("\n")):
+                at = col if offset == 0 else 0
+                out[row - 1 + offset][at : at + len(part)] = part
+        elif token.type not in STRUCTURE_TOKENS and col < len(out[row - 1]):
+            out[row - 1][col] = CODE_STOOD_HERE
+    return "\n".join("".join(row) for row in out)
+
+
 def words(text):
     """`text` as a list of normalised words."""
     return WORD.findall(text.lower())
@@ -513,7 +724,16 @@ class Sentence:
 
 
 def sentences(path, text):
-    """Every sentence in `text`, struck-through spans already gone."""
+    """Every sentence in `text`, struck-through spans already gone -- and in
+    a Python file, every code token gone too (`python_prose`).
+
+    Both `corrected` and `corpus` build every sentence through this
+    function, so a reader placed here holds on both sides of the range and
+    in the pool by construction."""
+    if path.endswith(".py"):
+        text = python_prose(text)
+    elif path == CHANGELOG:
+        text = blank_released(text)
     return [
         Sentence(path, line, raw) for line, raw in segments(blank_struck(text)) if raw
     ]
@@ -571,6 +791,44 @@ def records_a_past_state(path):
     return inside == ["survivors.md"] or (len(inside) > 1 and inside[0] == "phases")
 
 
+# The marker a gathered changelog fragment leaves in `CHANGELOG.md`, in the
+# shape `unverified_check.py#FOLD_MARKER` already spells for the fold's
+# marker in `docs/`. Spelled here rather than imported from the gatherer:
+# `.github/scripts/gather_changelog.py` is this repository's release
+# automation, and a shipped script does not depend on it.
+MARKER = re.compile(r"^<!-- specs/(\S+) -->$", re.M)
+
+
+def gathered_fragments(root, rev):
+    """The work item ids whose changelog fragment the tip's `CHANGELOG.md`
+    has gathered -- read off the marker each gather writes, at `rev`.
+
+    One `read_blobs` call and no path list: the question is what one file
+    says, never which files exist."""
+    text = read_blobs(root, rev, [CHANGELOG]).get(CHANGELOG, "")
+    return set(MARKER.findall(text))
+
+
+def a_gathered_fragment(path, gathered):
+    """True for `seal/specs/<id>/changelog.md` whose `<id>` is in `gathered`.
+
+    A gathered fragment is the released entry one file over: its text stands
+    verbatim under a version heading of `CHANGELOG.md`, and the release that
+    gathered it is what retires the file. So it is out of the pool and out of
+    the range on both sides, the way a released section is -- and an
+    ungathered fragment is in, because it is this release's own prose.
+
+    A sibling of `records_a_past_state` rather than a parameter on it,
+    because that predicate is a pure function of the path and this one is
+    not: it needs the tip's `CHANGELOG.md`, so it carries its own argument
+    and is applied beside the other in `corrected` and `corpus`."""
+    parts = path.replace("\\", "/").split("/")
+    if "specs" not in parts:
+        return False
+    inside = parts[parts.index("specs") + 1 :]
+    return len(inside) == 2 and inside[1] == "changelog.md" and inside[0] in gathered
+
+
 # The fold record's one reader, loaded by path the way `chain_check.py#load`
 # loads it from this same directory. It answers both arms of what a
 # retirement is: the marker (`folded_items`) and the rule (`retired_by_rule`).
@@ -625,8 +883,15 @@ def retired_directories(root, a, b, paths):
 
 
 def corpus(root, rev):
-    """`{path: [Sentence]}` for the tree at `rev`, less what is excluded."""
-    paths = [p for p in tracked(root, rev) if not records_a_past_state(p)]
+    """`{path: [Sentence]}` for the tree at `rev`, less what is excluded --
+    what `records_a_past_state` names, and the changelog fragments the tip's
+    `CHANGELOG.md` has gathered."""
+    gathered = gathered_fragments(root, rev)
+    paths = [
+        p
+        for p in tracked(root, rev)
+        if not records_a_past_state(p) and not a_gathered_fragment(p, gathered)
+    ]
     return {
         path: sentences(path, text)
         for path, text in read_blobs(root, rev, paths).items()
@@ -669,12 +934,50 @@ def corrected(root, a, b):
     sentence REMOVED from a record is not corrected wording either, and
     filtering the added side alone would leave this function naming a
     coordinate inside a record of a past state as the place a claim was
-    corrected."""
-    names = git(root, "diff", "--name-only", "-z", a, b)
+    corrected.
+
+    **A rename is read as a deletion plus an addition** (`--no-renames`,
+    #551), and that is what makes a pure move silent for the right reason.
+    A file moved whole to another path loses every sentence at the old path
+    and writes every one back verbatim at the new one, so `wanted` subtracts
+    them all and nothing is looked for. With git's rename detection on, the
+    same move was silent because the old path was never listed at all --
+    and so was a move with one sentence reworded, which git calls a rename
+    too (`R096` when measured on a forty-paragraph file): the reworded
+    sentence never became a source, and its copy standing in another file
+    was never reported. Read as a deletion plus an addition, that sentence
+    is removed, is not written back, and is looked for.
+
+    **The release commit is held, not removed** (round 1's 🟡 1, round 2's
+    🟡 1 and 🟡 2). In a repository that lets the entry accumulate under
+    `## Unreleased`, the release moves that section under a version heading.
+    The section is live at `a` and blanked at `b`, so counted as any other
+    file it reads as every sentence removed, and a document restating an
+    entry is reported at the release with nothing anybody may correct. So
+    for `CHANGELOG.md` the sentences this range put under a version heading
+    -- the released sentences at `b` beyond those at `a` -- are added to the
+    held count before the difference is taken; a sentence standing in an
+    older release holds nothing. And where the file lost a sentence, their
+    fresh wording is written, as any file's is: an entry reworded as it is
+    released splits the removed sentence into the runs it no longer shares,
+    and withholding it would merge them into one that never clears the
+    floor. A release that removes no live sentence writes nothing, which
+    keeps a gathered release's text out of `written`."""
+    names = git(root, "diff", "--name-only", "--no-renames", "-z", a, b)
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
+    # A fragment gathered at the tip is out on both sides too (#307): the
+    # range that gathers it deletes it and writes its text under a version
+    # heading, which is blanked, so left in the list every sentence of the
+    # fragment would count as removed and its live copies -- the work item's
+    # own `spec.md` and `overview.md` -- would be reported at the release.
+    gathered = gathered_fragments(root, b)
     paths = [
-        path for path in names.split("\0") if path and not records_a_past_state(path)
+        path
+        for path in names.split("\0")
+        if path
+        and not records_a_past_state(path)
+        and not a_gathered_fragment(path, gathered)
     ]
     # A retired directory is out of the range on both sides too (#517), for
     # the reason the round records are: its sentences stand in `docs/` by
@@ -690,15 +993,26 @@ def corrected(root, a, b):
     for path in paths:
         was = sentences(path, before[path]) if path in before else []
         now = sentences(path, after[path]) if path in after else []
-        counted = Counter(s.key for s in now)
-        seen = Counter()
+        moved = []
+        if path == CHANGELOG and path in after:
+            # A release moves `## Unreleased` under a version heading. What
+            # THIS range put under one is held, never a heading the file
+            # already had: a sentence standing in an older release is not
+            # what a correction to the live section kept.
+            moved = newly_released(path, before.get(path, ""), after[path])
+        counted = Counter(s.key for s in now + moved)
+        seen, lost = Counter(), len(gone)
         for sentence in was:
             seen[sentence.key] += 1
             if seen[sentence.key] > counted[sentence.key]:
                 gone.append(sentence)
+        if len(gone) == lost:
+            # Nothing of this file was removed, so there is nothing the moved
+            # section's wording could split; a gathered release writes none.
+            moved = []
         old = Counter(s.key for s in was)
         fresh = Counter()
-        for sentence in now:
+        for sentence in now + moved:
             fresh[sentence.key] += 1
             if fresh[sentence.key] > old[sentence.key]:
                 written.update(sentence.grams())
@@ -1012,6 +1326,21 @@ def whole_range(root, ranges, a, b):
     refs its range names -- a release branch -- get deleted. Refusing the run
     then would turn every later range's check into exit 2 over a row that has
     nothing to do with it.
+
+    **And it is reported to the run it addresses, which the second anchor
+    decides** (#439). A declaration that resolves nowhere and belongs to a
+    work item this range touches nothing of is the *not this run's range*
+    case one step over: it could not have excused this run whether or not
+    it resolved, so the line would be addressed to nobody -- and it was, on
+    every pull request into a release branch and every seal, three times per
+    run for one release, because every shipped `survivors.md` in the tree
+    names a release branch that is deleted at the release. So ownership is
+    asked of an unresolved declaration before it is printed, with the same
+    lazily computed `changed` list: one with no owner -- an `--exempt` file
+    passed from anywhere -- or owned by a work item this range touches is a
+    declaration this run could have used, and prints under `unresolved` as
+    before. The wrong allow is empty, because an unresolved row excuses
+    nothing whether printed or not.
     """
     match, unresolved, foreign = None, [], []
     changed = None
@@ -1019,21 +1348,32 @@ def whole_range(root, ranges, a, b):
         try:
             left, right = parse_range(root, spec)
         except Refused:
-            unresolved.append((spec, grounds))
-            continue
-        if (left, right) != (a, b):
+            left = right = None
+        if left is not None and (left, right) != (a, b):
             # Not this run's range at all, which needs no line: the row is
             # honest and says so itself. Only a row that resolved ONTO this
             # range and is then refused has something a reader must be told.
             continue
         owner = OWNER_DIR.match(source.replace("\\", "/"))
+        mine = True
         if owner is not None:
             if changed is None:
-                names = git(root, "diff", "--name-only", "-z", a, b)
+                # `--no-renames` for the reason `corrected` gives: a file
+                # moved out of a work item's directory is a change to that
+                # directory, and rename detection would list only where it
+                # went.
+                names = git(root, "diff", "--name-only", "--no-renames", "-z", a, b)
                 changed = [path for path in (names or "").split("\0") if path]
-            if not any(path.startswith(owner.group(1) + "/") for path in changed):
-                foreign.append((spec, grounds, owner.group(1)))
-                continue
+            mine = any(path.startswith(owner.group(1) + "/") for path in changed)
+        if left is None:
+            # Unresolved: printed to a run that could have used it, and to
+            # no other. Nothing is silenced either way.
+            if mine:
+                unresolved.append((spec, grounds))
+            continue
+        if not mine:
+            foreign.append((spec, grounds, owner.group(1)))
+            continue
         if match is None:
             match = (spec, grounds)
     return match, unresolved, foreign
@@ -1083,9 +1423,12 @@ def report(
 
     `whole` is the `(range_spec, grounds)` declaration covering this exact
     range, and it excuses every candidate. `unresolved` is the declarations
-    whose range does not resolve here; they silence nothing and are printed,
-    because a declaration that quietly stopped applying is the one failure a
-    rotting anchor must not have. `foreign` is the same failure one step
+    whose range does not resolve here and that this run could have used --
+    which `whole_range` decides by the second anchor, so one owned by a work
+    item the range touches nothing of never arrives (#439); they silence
+    nothing and are printed, because a declaration that quietly stopped
+    applying is the one failure a rotting anchor must not have. `foreign` is
+    the same failure one step
     over: a declaration that resolved onto this exact range and belongs to a
     work item the range does not touch, refused and printed with the work
     item it came from.

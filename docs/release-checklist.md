@@ -91,6 +91,10 @@ it (#289) — one release's entries split across two sections that read as two
 releases. Run the same command again: the new entries join the existing
 section, the section keeps the first gather's date, and
 `tests/test_release_hygiene.py` refuses a file that heads a version twice.
+The fold answers the same way (#540): a second `fold_ledger.py --version
+X.Y.Z` joins the section `seal/ledger.md` already heads and keeps its date,
+`fold_ledger.py --check` refuses a ledger that heads a version twice, and the
+same hygiene module refuses the ledger as it refuses the changelog.
 
 ## 2b. Settle what the release leaves behind — by hand, and not in that commit
 
@@ -145,7 +149,7 @@ python3 .github/scripts/gather_changelog.py --check
 python3 .github/scripts/fold_ledger.py --check
 python3 skills/evidence-check/scripts/evidence_check.py --strict .
 uvx ruff check . && uvx ruff format --check .
-uv run --quiet --with pytest --with pytest-xdist pytest tests/ -q -n auto
+bin/test -q
 python3 skills/verify/scripts/unverified_check.py --baseline origin/main seal/specs/
 git fetch origin '+refs/pull/*/head:refs/remotes/pull/*/head'
 python3 skills/code-review/scripts/chain_check.py --baseline origin/main

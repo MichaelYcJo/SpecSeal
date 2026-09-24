@@ -72,6 +72,19 @@ question the merge is judged by either way. Quote the line in your report
 when it appears, because it is the one place a reader learns the checkout was
 behind. Where the two agree, nothing extra prints.
 
+**The gate says which copy of itself ran, and where the tree ships one, that
+is the copy that runs.** `broad-gate` on your PATH is the installed plugin's,
+and a branch that changes the gate used to be measured by the copy that
+predates the change (#475). Now, where the repository being gated ships
+`skills/verify/scripts/broad_gate.py` and it is not the running file, the
+gate hands the run to that copy with the same arguments and says so on
+stderr; every run prints one line naming the copy that ran, and the stamp
+carries a `gate` row — `tree <version>` means the branch was measured by the
+gate it ships, `plugin <version>` that the installed copy measured it. Quote
+the gate line in your report the way you quote the moved-base line: it is
+not a warning and not a refusal, and it is the one place a reader learns
+which gate drew the stamp.
+
 **The gate does not fetch, so a remote-tracking ref is only as fresh as the
 last fetch.** That is a limit and not a defect: an unattended run may have no
 credentials, and a check that moves refs to make itself pass is a different
@@ -124,7 +137,17 @@ this refusal after the rounds had settled, ran four candidates, wrote the row
 and mentioned it afterwards.
 
 Your stdout is a pipe, so the drawing arrives as letters rather than blocks.
-That is the intended form there; pass it through as it came.
+That is the intended form there; pass it through as it came. Where you
+redirect the gate's output to a file to read it, the file is
+`<scratchpad>/<work-item-id>/broad-gate.log`, its directory made first
+(`mkdir -p`, since nothing guarantees it exists on a fresh session) — a
+name carrying the work item id, never a bare `broad-gate.out`: agents of
+one session share one
+scratchpad, and two sealers of the 0.15.0 run wrote one file over each
+other (#544). Quote the gate's own `outputs kept under broad-gate-<random>/`
+line in your report as well; that directory is the one name per run the
+gate itself makes, and it is how a capture that was overwritten can still be
+told apart.
 
 ## The one write, and why it is yours
 
@@ -138,8 +161,10 @@ whole of it — a write not below is a write you do not make.
 orchestrator types as `round-record` — which
 sets that cell and leaves every other line of the file byte for byte as it
 was — the new run written first, and a run the cell already held kept after
-it as `earlier run`, so a second broad run never erases the record of the
-first (#174) — and which refuses outright on three things — the last record's `Pass` box
+it as `earlier run` unless the newest is the same commit against the same base,
+which the new entry replaces, so a second broad run at a new commit or
+against another base never erases the record of the first (#174) — and
+which refuses outright on three things — the last record's `Pass` box
 unticked, which is a finding still open in its verdict table; its `Fixes
 checked by` reading anything but `no fixes to check`, which says the run has
 not ended; or a commit the record's own target already descends from, which
