@@ -681,7 +681,7 @@ def test_the_gate_runs_the_copy_the_tree_ships_with_the_same_arguments(repo, tmp
     out = run_gate(repo, keep=tmp_path / "out")
     assert out.returncode == 3, f"{out.stdout}\n{out.stderr}"
     assert out.stdout.count("STUB GATE RAN") == 1, out.stdout
-    assert "'--base', 'base'" in out.stdout and f"'{repo}'" in out.stdout, (
+    assert "'--base', 'base'" in out.stdout and repr(str(repo)) in out.stdout, (
         f"the tree's copy was not handed the argument vector as given:\n{out.stdout}"
     )
     assert "SEALED" not in out.stdout, (
