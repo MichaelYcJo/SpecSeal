@@ -31,3 +31,7 @@ original stays.
 | `CHANGELOG.md` | `<!-- specs/1788761915-a-record-states-what-nothing-reads -->` | the gathered changelog's marker for the same work item; nothing doubled it there |
 | `docs/the-evidence-ledger.md` | `<!-- specs/1788761915-a-record-states-what-nothing-reads -->` | a folded statement's provenance marker, `settle`'s; unrelated to the ledger's doubled line |
 | `skills/implement/scripts/seal.py` | `if kind == "none" and not args.check:` | unrelated code sharing two words with the fold's old argument check |
+| `seal/ledger.md` | `<!-- specs/1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row -->` | the one marker line that stays for that work item; #553 removed its duplicate. Reported only after `release/v0.15.1` (#550's sweep) was merged in at 1ec9f040, which scores this pair above the floor where the branch's earlier sweep did not; excused by the orchestrator at that merge |
+| `seal/ledger.md` | `### 1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row` | that work item's heading, under its one remaining marker |
+| `docs/review-chain-spec.md` | `<!-- specs/1788749195-the-record-drops-the-fix-and-a-pipe-truncates-the-row -->` | the policy document's own origin marker for the section that work item folded in; it names the work item, not the removed duplicate line |
+| `tests/test_a_runner_reached_unit_reads_pytest_only.py` | `of \`1788749195-the-record-drops-the-fix-and-a-pipe-` | a docstring naming that work item's round record as where the case was seen; it names the work item, not the removed duplicate line |
