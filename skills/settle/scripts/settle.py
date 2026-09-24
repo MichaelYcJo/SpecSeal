@@ -438,17 +438,30 @@ def write_rule_kept(kept, out):
             )
 
 
+# What may stand before a row's first pipe without being part of the row: any
+# run of blockquote markers, bullet markers, ordered-list markers and comment
+# openers, in any combination and spaced or not. The class and not a list of
+# its instances (#530): round 3's paste-ready fix named five single tokens and
+# missed `> - |`, `> > |`, `1. |` and `>|`, which is how one class gets closed
+# three times (`agent-contract` §12). The empty run is in it too, so the
+# ordinary `| claim |` row takes the same arm.
+CONTAINER_RE = re.compile(r"(?:\s*(?:>|[-*+]|\d{1,9}[.)]|<!--))*\s*")
+
+
 def first_cell(line):
     """The first cell of a table row, which names the row's claim.
 
     A row commented out on its own line still carries an anchor the checker
     reads, so the guard names it; the comment opener in front of it is not
-    the claim (round 2's finding 7)."""
+    the claim (round 2's finding 7). Nor is a blockquote or a list marker in
+    front of it (#530): what stands before the first pipe is dropped when it
+    is container syntax and nothing else, and kept as the label when it holds
+    anything else, which is what this did before."""
     text = line.strip()
     if text.startswith("<!--"):
         text = text[len("<!--") :].strip()
     cells = CELL_RE.split(text)
-    if len(cells) > 1 and not cells[0].strip():
+    if len(cells) > 1 and CONTAINER_RE.fullmatch(cells[0]):
         cells = cells[1:]
     return cells[0].strip() if cells else ""
 
