@@ -41,9 +41,13 @@ Nothing else in reach was left.
 
 ## Fed back into the spec
 
-- *Inferred during implementation*: a `seal/ledger.md#"<locator>"` anchor
-  whose first part is not a heading line the split moved or kept is printed
-  under *could not place — open them by hand* and left (`fold_ledger.py#split`).
-  The real tree has none.
+- *Inferred during implementation*, corrected by round 1's 🟡 1: a
+  `seal/ledger.md#"<locator>"@<hash>` anchor is read by the checker's rule —
+  a heading path when its first part is a heading, one whole line otherwise —
+  and one whose line or heading is in no section the split moved or kept is
+  printed under *could not place — open them by hand* and left
+  (`fold_ledger.py#split`). At `577f1671` the real-tree dry run named two
+  such anchors, both false (a kept header line and a hashless prose mention);
+  on the fix it names none.
 - *Inferred during implementation*: the doubled-marker refusal is over the
   whole ledger corpus, not per file (phase 3).

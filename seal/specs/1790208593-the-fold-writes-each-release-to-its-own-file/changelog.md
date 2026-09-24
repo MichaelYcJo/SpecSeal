@@ -5,7 +5,8 @@
   reader of the ledger reads the new glob: `evidence-check` (and its
   `--reverify`, `--migrate` and narrowing notice), the commit-time advisor,
   the session-start migration, `correction-check` and `settle`. A row is a
-  content anchor, so where it sits changes nothing a check reports.
+  content anchor, so where it sits changes no row's status; the checker's
+  `ok` total counts a row cited in two files once per file, so it can rise.
   `fold_ledger.py --split` moves the sections already folded into
   `seal/ledger.md` into their own files once, byte for byte, and rewrites the
   one row anchored into a moved section. It runs at the release that ships

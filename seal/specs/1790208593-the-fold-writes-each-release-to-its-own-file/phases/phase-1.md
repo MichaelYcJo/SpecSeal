@@ -66,6 +66,21 @@ nothing is built on the numbers.
 (concatenation); rewritten as unpacking. `ruff format` reflowed two test
 assertions.
 
+**The four answers `CONTRIBUTING.md` §*What a change to a gate must carry*
+asks** (added by round 1's ⬜ 10; this phase recorded only the first):
+
+- Seen red: the nine cases above.
+- Failure direction: blocks more. Every reader reads one more glob, so a row
+  in a release file that used to be unread is now checked, re-stamped,
+  advised on at the commit, migrated, watched for a lost correction and
+  attributed by `settle`. A repository with no `seal/releases/` reads exactly
+  what it read before.
+- Prompt budget: zero; no reader asks a person anything.
+- Platform honesty: every new path is joined with `os.path.join` under the
+  resolved root (the hooks through `optin.home_at`), `correction_check.py`
+  passes `/`-joined repository paths to `git ls-tree` as it already did, and
+  no reader depends on glob order (`settle.py#coordinates` sorts).
+
 ## What this phase removes
 
 | Removed item | Where it must land |

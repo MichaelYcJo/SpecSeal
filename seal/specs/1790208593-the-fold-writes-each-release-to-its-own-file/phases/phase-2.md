@@ -95,6 +95,22 @@ phase: `grep '^<!-- specs/' seal/ledger.md | sort | uniq -d` names **20**
 work items, not the ticket's two — the coordinator's correction arrived
 with the same twenty. Phases 3–5 of the frame are 4–6 now.
 
+**The four answers `CONTRIBUTING.md` §*What a change to a gate must carry*
+asks** for this phase's two `--check` arms and the fold's refusal of a
+misheaded release file (added by round 1's ⬜ 10):
+
+- Seen red: the cases above, and the mutations.
+- Failure direction: blocks more. A release left in `seal/ledger.md`, a
+  release file headed twice or not named for its version, and a fold into a
+  file that does not head its version are refused where they used to pass
+  or be written. The wrong direction is a refusal on a hand-edited ledger,
+  and each message names the file, the version, the line and the repair.
+- Prompt budget: zero.
+- Platform honesty: every printed path is a `/`-joined constant
+  (`RELEASES`, `release_path`), disk paths go through `under()`, lines are
+  split on `\n` alone, and `release_files` sorts by version rather than
+  trusting glob order.
+
 ## What this phase removes
 
 | Removed item | Where it must land |
