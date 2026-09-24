@@ -8,8 +8,10 @@
   operators and escaped characters reach the shell as written, and every
   other shell gets the row unchanged. When the two differ, the gate prints
   one line saying what `cmd.exe` was handed, and the check's kept output
-  carries it under the row as written. `templates/config.md` §*Broad gate*
-  names the positions that are rewritten and the two that are not.
+  carries it under the row as written. A `/` written straight after one of
+  `cmd.exe`'s own commands, as in `rd/s/q`, is that command's switch and is
+  left as written. `templates/config.md` §*Broad gate* states which
+  positions are rewritten and names examples of those that are not.
 - **A failing suite whose output holds no pytest summary says so (issue
   #448).** The failure form now adds one line where the `suite` check failed
   without printing a summary: its exit code is not a count of failing tests,

@@ -1292,6 +1292,58 @@ def handed_to_shell(command, windows=None, comspec=None):
     return command_names_backslashed(command)
 
 
+# `cmd.exe`'s own commands. Written straight against one of them, a `/` is
+# that command's switch -- `rd/s/q`, `dir/b`, `cd/d` -- and `cmd.exe` runs the
+# row as written. Turned into `\` it stops being a switch, so it is left.
+CMD_BUILTINS = frozenset(
+    {
+        "assoc",
+        "break",
+        "call",
+        "cd",
+        "chdir",
+        "cls",
+        "color",
+        "copy",
+        "date",
+        "del",
+        "dir",
+        "echo",
+        "endlocal",
+        "erase",
+        "exit",
+        "for",
+        "ftype",
+        "goto",
+        "if",
+        "md",
+        "mkdir",
+        "mklink",
+        "move",
+        "path",
+        "pause",
+        "popd",
+        "prompt",
+        "pushd",
+        "rd",
+        "rem",
+        "ren",
+        "rename",
+        "rmdir",
+        "set",
+        "setlocal",
+        "shift",
+        "start",
+        "time",
+        "title",
+        "type",
+        "ver",
+        "verify",
+        "vol",
+    }
+)
+
+
 def command_names_backslashed(command):
     """`command` with `/` written `\\` inside each word `cmd.exe` reads as a
     command name, and every other character exactly where it was.
@@ -1310,7 +1362,10 @@ def command_names_backslashed(command):
         and that character is copied as written, so `^&` is never a
         separator and `^/` is never rewritten — in command position it is
         the name's first character, so `^a b/c` keeps `b/c` an argument;
-      - a `<` or `>` ends command position until the next separator.
+      - a `<` or `>` ends command position until the next separator;
+      - a `/` written straight after one of `cmd.exe`'s own commands
+        (`CMD_BUILTINS`, a leading `@` aside) is that command's switch, so
+        `rd/s/q` and `dir/b` stay as written and the name ends there.
 
     Three things `cmd.exe` does are left unmodelled because modelling them
     changes no output, and a branch that changes no output is one nothing
@@ -1322,17 +1377,20 @@ def command_names_backslashed(command):
     run.py` holds that last one to what it hands over.
 
     **Not rewritten, and named rather than claimed:** a path after `call`,
-    `start` or `if`, which `cmd.exe` reads as an argument of those words and
-    then splits exactly as it did before this existed; and a command name
-    after a redirection at the start of a command (`>out bin/test`), where
-    this scan stops treating the rest as command position. Neither is worse
-    than the row handed as written, and `templates/config.md` §*Broad gate*
-    says which positions are rewritten.
+    `start`, `if`, `else`, `for … do` or `cmd /c`, which `cmd.exe` reads as
+    an argument of those words and then splits exactly as it did before this
+    existed; and a command name after a redirection at the start of a
+    command (`>out bin/test`), where this scan stops treating the rest as
+    command position. None is worse than the row handed as written, and
+    `templates/config.md` §*Broad gate* states the rule and these examples.
     """
     out = []
     at_command = True  # the next word read is a command name
     in_name = False  # inside that command name now
     quoted = False
+    # Where the current command name began. Only a bare name can be a
+    # built-in, so a name opened by `"` or `^` never needs it set.
+    start = 0
     i, n = 0, len(command)
     while i < n:
         c = command[i]
@@ -1371,9 +1429,13 @@ def command_names_backslashed(command):
             in_name = False
         else:
             if at_command:
-                at_command, in_name = False, True
+                at_command, in_name, start = False, True, i
             if c == "/" and in_name:
-                c = "\\"
+                if command[start:i].lstrip("@").lower() in CMD_BUILTINS:
+                    # A built-in's switch, written against it: as written.
+                    in_name = False
+                else:
+                    c = "\\"
         out.append(c)
         i += 1
     return "".join(out)

@@ -198,9 +198,13 @@ else. A command name is the word at the start of the line, or the first word
 after `&&`, `||`, `&`, `|` or a `(` that opens a block. `bin/test` then runs
 as `bin\test`, which `cmd.exe` resolves to `bin/test.cmd`. Arguments, quoted
 paths, `%VAR%`, operators and `^`-escaped characters reach the shell as
-written. Two positions are not rewritten, and `cmd.exe` splits them exactly
-as before: a path after `call`, `start` or `if`, and a command name after a
-redirection that opens its command (`>out.txt bin/test`). Any other
+written. Every other position is handed as written, and `cmd.exe` reads it
+exactly as before — the definition above is the rule, and these are
+examples of it rather than the whole list: a path after `call`, `start` or
+`if`, or after `else`, `for … do` and `cmd /c`; a command name after a
+redirection that opens its command (`>out.txt bin/test`); and a `/` written
+straight after one of `cmd.exe`'s own commands, which is that command's
+switch (`rd/s/q build`). Any other
 `COMSPEC`, and every POSIX shell, is handed the row as written. Where the
 two differ, the gate prints one line saying what `cmd.exe` was handed, and
 that check's kept output carries it under the row as written.

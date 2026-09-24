@@ -109,8 +109,18 @@ def test_an_unset_comspec_on_windows_is_cmd_exe(monkeypatch):
         ("echo (a/b)", "echo (a/b)"),
         ("echo(a/b)", "echo(a/b)"),
         ("cmd /c bin/x", "cmd /c bin/x"),
-        # The two positions named as not rewritten, pinned so the gap stays
-        # the one `templates/config.md` states.
+        # A `/` written against one of `cmd.exe`'s own commands is that
+        # command's switch, which runs as written today.
+        ("rd/s/q build && bin/test", r"rd/s/q build && bin\test"),
+        ("@dir/b tests & bin/test", r"@dir/b tests & bin\test"),
+        ("CD/D x && bin/test", r"CD/D x && bin\test"),
+        ("echo/ && bin/test", r"echo/ && bin\test"),
+        # A block that opens after `if`, `else` or `for … in` is not in
+        # command position, which the template names as left as written.
+        ("if exist x (bin/a) else (bin/b)", "if exist x (bin/a) else (bin/b)"),
+        ("for %i in (x/y) do tools/x %i", "for %i in (x/y) do tools/x %i"),
+        # Positions `templates/config.md` names as not rewritten, pinned so
+        # the gap stays the one it states.
         ("call bin/test", "call bin/test"),
         (">out.txt bin/test", ">out.txt bin/test"),
         # The redirection's target is not a command name, blank or not.
@@ -187,8 +197,9 @@ def test_the_one_shell_site_is_run_and_it_applies_the_rewrite():
 def test_the_template_says_which_positions_are_rewritten():
     """A2, the reader's half (§14). `templates/config.md` §*Broad gate* is
     where a person writing the row learns what `cmd.exe` is handed, and it
-    names the two positions the scan leaves as written — the gap the cases
-    above pin is only a gap nobody is surprised by while it is written down."""
+    states the rule and names the positions the scan leaves as written —
+    the gap the cases above pin is only a gap nobody is surprised by while
+    it is written down. It must not read as a complete count of them."""
     path = os.path.join(ROOT, "templates", "config.md")
     with open(path, encoding="utf-8") as handle:
         text = handle.read()
@@ -198,12 +209,20 @@ def test_the_template_says_which_positions_are_rewritten():
         "the gate hands it the row with `/` written `\\` inside each command "
         "name, and nowhere else",
         "`bin/test` then runs as `bin\\test`",
-        "a path after `call`, `start` or `if`",
+        "a path after `call`, `start` or `if`, or after `else`, `for … do` and "
+        "`cmd /c`",
+        "the definition above is the rule, and these are examples of it "
+        "rather than the whole list",
+        "a `/` written straight after one of `cmd.exe`'s own commands, which "
+        "is that command's switch (`rd/s/q build`)",
         "a command name after a redirection that opens its command "
         "(`>out.txt bin/test`)",
         "the gate prints one line saying what `cmd.exe` was handed",
     ):
         assert needle in prose, f"templates/config.md §Broad gate lacks: {needle}"
+    assert "Two positions are not rewritten" not in prose, (
+        "the template still counts the positions it leaves as written"
+    )
 
 
 # --- A3: what ran is on record ------------------------------------------------
