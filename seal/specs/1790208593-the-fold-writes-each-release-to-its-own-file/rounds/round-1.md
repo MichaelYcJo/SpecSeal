@@ -7,14 +7,15 @@
 | Ran by | warden on Opus 5.5 |
 | PR | 558 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `635627c70b6c16dc0c1e9428efa47687e7ebc70e..47ca9ce68ab744c4d249aa25e66d6650f02c5097`, 6 commits |
+| Contract changes | none |
+| New units | test_the_split_names_only_the_anchors_it_cannot_place (depth 1); test_each_identical_rewrite_prints_its_own_line (depth 1) |
 | Needs a fix | yes — 🟡 1 (the split's anchor reading), 🟡 2 and 🟡 3 (the totals claim in the checklist, the policy document and the docstring), 🟡 4 and 🟡 5 (documents and comments naming the old fold target) |
 | Loses a record or crashes | no |
+<!-- New units: .github/workflows/hygiene.yml read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,16 +25,16 @@ Round 1 was asked to review the branch at 577f1671 against step C's built tip 9f
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `--split` reads an anchor by a looser rule than the checker, so its dry run names a kept header-line anchor and a hashless prose mention as unplaceable, truncates an escaped quote, and leaves a line anchor into a moved section unrewritten | `.github/scripts/fold_ledger.py:460` | open | Executed: the real-tree dry run at the target prints two *could not place* entries, both false; the proposed case is red at the target and green on the fix |
-| 🟡 2 | The release checklist says the checker reports the same totals before and after the split; it reports 1736 then 1932 ok | `docs/release-checklist.md:152` | open | Executed on a copy of the tree; `check_text` de-duplicates per file. Same claim at `docs/the-evidence-ledger.md:44`, `skills/evidence-check/SKILL.md:306`, `skills/implement/SKILL.md:267` |
-| 🟡 3 | `fold_ledger.py`'s docstring says where a row sits changes nothing a check measures | `.github/scripts/fold_ledger.py:18` | open | The same measurement as finding 2, one depth down |
-| 🟡 4 | The policy document says `correction-check` reads the shared file and the fragments because a fragment becomes part of the shared file | `docs/the-evidence-ledger.md:108` | open | Read against `correction_check.py#ledger_listing`, which lists `seal/releases` too |
-| 🟡 5 | Three code comments and one workflow comment still name `seal/ledger.md` as the default or the fold's target | `skills/evidence-check/scripts/evidence_check.py:4` | open | Read; also `evidence_check.py:2139`, `correction_check.py:232`, `.github/workflows/hygiene.yml:122` |
-| ⬜ 6 | `overview.md` says the real tree has no unplaceable anchor; it has two | `seal/specs/1790208593-the-fold-writes-each-release-to-its-own-file/overview.md:47` | open | Paperwork correction; executed dry run at the target |
-| ⬜ 7 | The changelog fragment says where a row sits changes nothing a check reports | `seal/specs/1790208593-the-fold-writes-each-release-to-its-own-file/changelog.md:8` | open | Paperwork correction; gathered into `CHANGELOG.md` at the release, so the fix is worth making |
-| ⬜ 8 | A past incident narrated in the present tense names the shared file as where the fold copies | `docs/review-chain-spec.md:1423` | open | Read |
-| ⬜ 9 | The split prints the first occurrence's line for every identical rewrite in one file | `.github/scripts/fold_ledger.py:574` | open | Read; the real tree has one such row |
-| ⬜ 10 | The failure direction, prompt budget and platform answers are recorded for phase 3's arm only | `seal/specs/1790208593-the-fold-writes-each-release-to-its-own-file/phases/phase-2.md` | open | Read; PR #558's body carries none of the three |
+| 🟡 1 | `--split` reads an anchor by a looser rule than the checker, so its dry run names a kept header-line anchor and a hashless prose mention as unplaceable, truncates an escaped quote, and leaves a line anchor into a moved section unrewritten | `.github/scripts/fold_ledger.py:460` | **fixed** `63fbfa52` | fixed at 63fbfa52 — `SELF_ANCHOR_RE` reads an anchor by the checker's rule (the `@hash` look-ahead, `\"` inside the quotes); the heading path is taken only when its first part is a heading; `moved` and `kept` are built from every non-blank line; the reviewer's case, with a ` / ` added so the one-line-key branch is pinned too, red at 577f1671 and green after; the real-tree dry run prints no *could not place* entry; Executed: the real-tree dry run at the target prints two *could not place* entries, both false; the proposed case is red at the target and green on the fix |
+| 🟡 2 | The release checklist says the checker reports the same totals before and after the split; it reports 1736 then 1932 ok | `docs/release-checklist.md:152` | **fixed** `20059cce` | fixed at 20059cce — the release checklist, the evidence ledger policy and the two skills say a row's status does not change and the `ok` count may rise because a pair is counted once per file; the checklist's comparison is 0 drifted, 0 broken and the count of distinct (status, coordinate) pairs; `check_text` untouched; Executed on a copy of the tree; `check_text` de-duplicates per file. Same claim at `docs/the-evidence-ledger.md:44`, `skills/evidence-check/SKILL.md:306`, `skills/implement/SKILL.md:267` |
+| 🟡 3 | `fold_ledger.py`'s docstring says where a row sits changes nothing a check measures | `.github/scripts/fold_ledger.py:18` | **fixed** `63fbfa52` | fixed at 63fbfa52 — `fold_ledger.py`'s docstring says the same; The same measurement as finding 2, one depth down |
+| 🟡 4 | The policy document says `correction-check` reads the shared file and the fragments because a fragment becomes part of the shared file | `docs/the-evidence-ledger.md:108` | **fixed** `20059cce` | fixed at 20059cce — `docs/the-evidence-ledger.md` names the release files `correction-check` reads and the reason that holds; Read against `correction_check.py#ledger_listing`, which lists `seal/releases` too |
+| 🟡 5 | Three code comments and one workflow comment still name `seal/ledger.md` as the default or the fold's target | `skills/evidence-check/scripts/evidence_check.py:4` | **fixed** `20059cce` | fixed at 20059cce — the four comments naming the old default or fold target, `.github/workflows/hygiene.yml`'s included; the step names unchanged; Read; also `evidence_check.py:2139`, `correction_check.py:232`, `.github/workflows/hygiene.yml:122` |
+| ⬜ 6 | `overview.md` says the real tree has no unplaceable anchor; it has two | `seal/specs/1790208593-the-fold-writes-each-release-to-its-own-file/overview.md:47` | answered | corrected at 898c3bad — `overview.md` is this work item's record; Paperwork correction; executed dry run at the target |
+| ⬜ 7 | The changelog fragment says where a row sits changes nothing a check reports | `seal/specs/1790208593-the-fold-writes-each-release-to-its-own-file/changelog.md:8` | answered | corrected at 898c3bad — the changelog fragment's wording, which ships into `CHANGELOG.md`; Paperwork correction; gathered into `CHANGELOG.md` at the release, so the fix is worth making |
+| ⬜ 8 | A past incident narrated in the present tense names the shared file as where the fold copies | `docs/review-chain-spec.md:1423` | **fixed** `20059cce` | fixed at 20059cce — `docs/review-chain-spec.md`'s past incident in the past tense; Read |
+| ⬜ 9 | The split prints the first occurrence's line for every identical rewrite in one file | `.github/scripts/fold_ledger.py:574` | **fixed** `63fbfa52` | fixed at 63fbfa52 — each identical rewrite prints its own line; a case pins it; Read; the real tree has one such row |
+| ⬜ 10 | The failure direction, prompt budget and platform answers are recorded for phase 3's arm only | `seal/specs/1790208593-the-fold-writes-each-release-to-its-own-file/phases/phase-2.md` | answered | corrected at 898c3bad — the failure direction, prompt budget and platform answers for phases 1 and 2 in their phase records; Read; PR #558's body carries none of the three |
 | 🟢 | Every row of the real ledger lands in exactly one file, a second split refuses, and no row changes status | `.github/scripts/fold_ledger.py#split` | confirmed | Executed on a copy at `577f1671`: 1006 pipe lines before and after, same multiset once the two rewrites are undone; exit 1 `nothing to split`; 0 drifted, 0 broken after |
 | 🟢 | S18's unchanged units are unchanged and the changed ones are the four `overview.md` names | `.github/scripts/fold_ledger.py` | confirmed | Executed: AST comparison against `9f5902e5` |
 
