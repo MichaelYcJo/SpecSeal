@@ -2731,3 +2731,97 @@ def test_an_ungathered_fragment_is_still_a_carrier(tmp_path):
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 1, f"an ungathered fragment went unreported; exit {code}\n{text}"
     assert FRAGMENT in text, text
+
+
+# --- #551: a file moved and reworded in one commit is a rename to git ------
+#
+# `git diff --name-only` runs with rename detection, so a file moved whole is
+# listed under its new path alone and the range removed nothing the sweep
+# could see. Right for a pure move -- and identical for a move with one
+# sentence reworded, which git calls a rename too (`R096` when measured): the
+# reworded sentence never entered `wanted`, and its copy standing in another
+# file was never reported. Read with `--no-renames`, a rename is a deletion
+# plus an addition, the old path's sentences are removed, and a pure move is
+# silent because every one of them is written back verbatim.
+
+# Long enough that git reads the move as a rename even with one sentence
+# changed; the case asserts that it did, so the fixture cannot quietly turn
+# into the delete-plus-add shape the sweep already handled.
+LONG_SECTION = "## The verdict cell\n\n{claim}\n\n" + "".join(
+    f"Paragraph {n} of the section says something nobody else repeats, at length.\n\n"
+    for n in range(40)
+)
+
+
+def name_status(repo, head):
+    out = subprocess.run(
+        ["git", "-C", str(repo), "diff", "--name-status", f"{head}^", head],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    )
+    return out.stdout
+
+
+def moved_section(repo, moved_claim):
+    """`a.md` with a long section and its claim quoted in `notes.md`, then the
+    section moved to `b.md` in one commit carrying `moved_claim`."""
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "a.md": f"# a\n\n{LONG_SECTION.format(claim=FOUND)}",
+            "notes.md": f"# notes\n\nQuoted here: {FOUND}\n",
+            **FILLER,
+        },
+        "the section, and a note quoting its claim",
+    )
+    os.remove(os.path.join(str(repo), "a.md"))
+    return build(
+        repo,
+        {"b.md": f"# b\n\n{LONG_SECTION.format(claim=moved_claim)}"},
+        "the section moved to b.md",
+    )
+
+
+def test_a_file_moved_as_a_rename_with_one_sentence_reworded_is_still_measured(
+    tmp_path,
+):
+    """S17 (#551). Probe 3's shape: git reports the move as a rename, and the
+    reworded claim's copy in `notes.md` has to be reported all the same.
+    Red against rename detection at exit 0 and `against 0 sentence(s)`."""
+    repo = tmp_path / "probe"
+    head = moved_section(repo, REPAIRED)
+    status = name_status(repo, head)
+    assert status.startswith("R"), (
+        f"git did not read the move as a rename, so this case measures the "
+        f"delete-plus-add shape instead:\n{status}"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "notes.md still carries the claim the moved section reworded, and the "
+        f"range was read as removing nothing because git called the move a "
+        f"rename; exit {code}\n{text}"
+    )
+    assert "notes.md" in text, f"the report does not name the survivor:\n{text}"
+
+
+def test_a_file_moved_verbatim_is_silent_because_its_wording_is_written_back(
+    tmp_path,
+):
+    """S18 (#551). The half that must not move, and the reason it holds.
+
+    A pure move is still silent -- but because every sentence the old path
+    lost is written back verbatim at the new one and `wanted` subtracts it,
+    not because the old path was never read. The removed-sentence count is
+    what tells the two apart: under rename detection it was 0."""
+    repo = tmp_path / "probe"
+    head = moved_section(repo, FOUND)
+    assert name_status(repo, head).startswith("R")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"a verbatim move was reported; exit {code}\n{text}"
+    assert "no removed wording is still standing" in text, text
+    assert re.search(r"against [1-9]\d* sentence\(s\)", text), (
+        "the range removed no sentence at all, so the old path was never read "
+        f"and the silence is rename detection rather than `wanted`:\n{text}"
+    )

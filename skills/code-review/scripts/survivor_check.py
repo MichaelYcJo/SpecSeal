@@ -896,8 +896,20 @@ def corrected(root, a, b):
     sentence REMOVED from a record is not corrected wording either, and
     filtering the added side alone would leave this function naming a
     coordinate inside a record of a past state as the place a claim was
-    corrected."""
-    names = git(root, "diff", "--name-only", "-z", a, b)
+    corrected.
+
+    **A rename is read as a deletion plus an addition** (`--no-renames`,
+    #551), and that is what makes a pure move silent for the right reason.
+    A file moved whole to another path loses every sentence at the old path
+    and writes every one back verbatim at the new one, so `wanted` subtracts
+    them all and nothing is looked for. With git's rename detection on, the
+    same move was silent because the old path was never listed at all --
+    and so was a move with one sentence reworded, which git calls a rename
+    too (`R096` when measured on a forty-paragraph file): the reworded
+    sentence never became a source, and its copy standing in another file
+    was never reported. Read as a deletion plus an addition, that sentence
+    is removed, is not written back, and is looked for."""
+    names = git(root, "diff", "--name-only", "--no-renames", "-z", a, b)
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
     # A fragment gathered at the tip is out on both sides too (#307): the
@@ -1281,7 +1293,11 @@ def whole_range(root, ranges, a, b):
         mine = True
         if owner is not None:
             if changed is None:
-                names = git(root, "diff", "--name-only", "-z", a, b)
+                # `--no-renames` for the reason `corrected` gives: a file
+                # moved out of a work item's directory is a change to that
+                # directory, and rename detection would list only where it
+                # went.
+                names = git(root, "diff", "--name-only", "--no-renames", "-z", a, b)
                 changed = [path for path in (names or "").split("\0") if path]
             mine = any(path.startswith(owner.group(1) + "/") for path in changed)
         if left is None:
