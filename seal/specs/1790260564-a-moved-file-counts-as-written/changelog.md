@@ -24,6 +24,7 @@
   where nothing is committed, so no range ever touched the work item's
   directory, and every local declaration printed `not yours` on the branch
   it was written for. There the owner is the `Branch` row of the work item's
-  `routing.md`: the row holds over a range whose tip is on that branch, and
-  another branch's range still refuses it. A refused row's `not yours` line
+  `routing.md`: the row holds over a range whose tip is on that branch and
+  on no local branch that one was cut from, and another branch's range
+  still refuses it. A refused row's `not yours` line
   now names the test that refused it. Shared mode is unchanged.
