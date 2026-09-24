@@ -3664,8 +3664,8 @@ def broad_gate(
     run in front of what the cell already held and keeps the earlier entry
     behind it as `earlier run`, so a re-seal at a new commit after a
     pre-existing failure or a late fix records a second run instead of
-    erasing the first, while the same comparison taken again -- the same
-    commit against the same base -- replaces its own entry. Every
+    erasing the first, while the same comparison as the newest entry -- the
+    same commit against the same base -- replaces that entry. Every
     question below is asked of `named[0]` alone -- the newest run is the one
     that has to be at or after the round it seals -- and a first seal is one
     entry, so a record written before the cell could hold two reads exactly

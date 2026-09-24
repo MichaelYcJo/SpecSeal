@@ -16,8 +16,9 @@ instrument the run uses on itself: no design, no new gate.
   class in `gather_changelog.py` one file over. **The ticket says nobody has
   run the fold twice on this tree, and that is false: `seal/ledger.md` heads
   `0.9.3` twice today**, at lines 1673 and 1764 (the same date, adjacent
-  sections), the second written by `4ac9bf35` the day after the 0.9.3
-  preparation commit bee7ae99 — a fragment landing after the release
+  sections), the second written by `4ac9bf35` thirty-one minutes after the
+  0.9.3 preparation commit bee7ae99 (02:35:35 and 02:04:21 on 2026-09-09,
+  +0900) — a fragment landing after the release
   pull request went red, exactly #289's shape.
 - **#542.** Two sentences in `skills/code-review/scripts/round_record.py`
   describe the `Broad gate` cell's rule as it stood before round 2's `same_run`
