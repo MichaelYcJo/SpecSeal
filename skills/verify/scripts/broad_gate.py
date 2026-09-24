@@ -98,6 +98,7 @@ import argparse
 import glob
 import importlib.util
 import json
+import ntpath
 import os
 import re
 import shlex
@@ -1200,11 +1201,26 @@ class Check:
         return lines[:n]
 
 
-def run(name, command, root, keep, shell=False, env=None):
+def run(name, command, root, keep, shell=False, env=None, windows=None, comspec=None):
     """Run one check from the repository root, keep its output under
-    `keep/<name>.txt`, and return it with the exit code read directly."""
+    `keep/<name>.txt`, and return it with the exit code read directly.
+
+    **A shell string is handed over through `handed_to_shell`**, which is the
+    one place this module's shell sites meet: `gate`'s `SUITE` and
+    `compare_at_base`'s `suite-at-base` both arrive here, so neither needed a
+    change of its own (#448). Where what the shell is handed differs from what
+    the row says, one stderr line says so before the run, and the kept file
+    carries both lines above the exit code — the row as written first, because
+    that is the line a reader retypes. `windows` and `comspec` are the
+    platform, passed through, so a case can drive the `cmd.exe` branch from
+    any machine the way `quote` is driven.
+    """
+    handed = handed_to_shell(command, windows, comspec) if shell else command
+    rewritten = shell and handed != command
+    if rewritten:
+        sys.stderr.write(handed_line(name, handed) + "\n")
     r = subprocess.run(
-        command,
+        handed,
         cwd=root,
         shell=shell,
         capture_output=True,
@@ -1216,9 +1232,150 @@ def run(name, command, root, keep, shell=False, env=None):
     path = os.path.join(keep, f"{name}.txt")
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(f"$ {command if shell else shlex.join(command)}\n")
+        if rewritten:
+            handle.write(f"{HANDED} {handed}\n")
         handle.write(f"exit {r.returncode}\n\n")
         handle.write(text)
     return Check(name, r.returncode, text, path)
+
+
+# --- what `cmd.exe` is handed ------------------------------------------------
+#
+# `subprocess.run(..., shell=True)` on Windows runs `%COMSPEC% /c "<string>"`,
+# and `COMSPEC` is `cmd.exe` unless somebody changed it. `cmd.exe` reads a `/`
+# in a command NAME as the start of a switch, so the row `bin/test -q && …`
+# runs a command called `bin` with the argument `/test`, prints "not
+# recognized" in the machine's own language, and exits 1 — which the failure
+# form then reports as the suite failing (#448). `bin/test.cmd` exists so that
+# `cmd.exe` can call the runner, and it is reached as `bin\test`.
+
+CMD_EXE = "cmd.exe"
+# The kept file's second line where the shell was handed something else.
+HANDED = "cmd.exe was handed:"
+
+
+def handed_line(name, handed):
+    """The one stderr line a rewritten check prints before it runs."""
+    return (
+        f"broad-gate: {name} — cmd.exe reads a `/` in a command name as the "
+        f"start of a switch, so each command name's `/` is handed to it as "
+        f"`\\`: {handed}"
+    )
+
+
+def handed_to_shell(command, windows=None, comspec=None):
+    """The string `subprocess.run(command, shell=True)` should be given.
+
+    `command` unchanged everywhere but one place: Windows, where the shell
+    `COMSPEC` names is `cmd.exe` — or `COMSPEC` is unset, which Python
+    answers with `cmd.exe` too. There each COMMAND NAME has its `/` written
+    `\\`, and nothing else changes (`command_names_backslashed`).
+
+    Keyed on the shell and not on `os.name` alone, because a Windows machine
+    can name a POSIX shell in `COMSPEC` (`tests/conftest.py#
+    posix_row_shell_or_skip` exists for that machine), and a POSIX shell
+    runs `bin/test` as written. `windows` and `comspec` default to this
+    machine's, and are arguments so that both branches can be driven from
+    either platform — `quote`'s docstring says what reading `os.name` in the
+    body cost the last time.
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    if not windows:
+        return command
+    if comspec is None:
+        comspec = os.environ.get("COMSPEC")
+    # `ntpath` whatever this machine is: `C:\Windows\System32\cmd.exe` has no
+    # `/` in it for `posixpath.basename` to split at.
+    if comspec and ntpath.basename(comspec.strip().strip('"')).lower() != CMD_EXE:
+        return command
+    return command_names_backslashed(command)
+
+
+def command_names_backslashed(command):
+    """`command` with `/` written `\\` inside each word `cmd.exe` reads as a
+    command name, and every other character exactly where it was.
+
+    **A position scan over the string, never a tokenise-and-re-render**,
+    because re-rendering is how quoting gets lost. The part of `cmd.exe`'s
+    lexer it models:
+
+      - a word is in COMMAND POSITION at the start of the line and after
+        `&&`, `||`, `&` or `|`; blanks, a leading `@` and a `(` that opens a
+        block are passed over there, and the word begins at the next
+        character;
+      - the command name runs from there to the first unquoted blank, `<`,
+        `>`, `&`, `|`, `(` or `)`. Inside it, a `/` becomes `\\` — inside a
+        quoted stretch of it too, since a quoted Windows path takes `\\`;
+      - `"` is the only quote; outside one, `^` escapes the next character,
+        and that character is copied as written, so `^&` is never a
+        separator and `^/` is never rewritten;
+      - `>`, `>>`, `<`, and a `>&`/`<&` handle redirection are passed over
+        whole, so the `&` in `2>&1` is not read as a separator.
+
+    **Not rewritten, and named rather than claimed:** a path after `call`,
+    `start` or `if`, which `cmd.exe` reads as an argument of those words and
+    then splits exactly as it did before this existed; and a command name
+    after a redirection at the start of a command (`>out bin/test`), where
+    this scan stops treating the rest as command position. Neither is worse
+    than the row handed as written, and `templates/config.md` §*Broad gate*
+    says which positions are rewritten.
+    """
+    out = []
+    at_command = True  # the next word read is a command name
+    in_name = False  # inside that command name now
+    quoted = False
+    i, n = 0, len(command)
+    while i < n:
+        c = command[i]
+        if quoted:
+            if c == '"':
+                quoted = False
+            elif c == "/" and in_name:
+                c = "\\"
+            out.append(c)
+            i += 1
+            continue
+        if c == '"':
+            quoted = True
+            if at_command:
+                at_command, in_name = False, True
+            out.append(c)
+            i += 1
+            continue
+        if c == "^":
+            if at_command:
+                at_command, in_name = False, True
+            out.append(command[i : i + 2])
+            i += 2
+            continue
+        if c in "&|":
+            step = 2 if command[i + 1 : i + 2] == c else 1
+            out.append(command[i : i + step])
+            at_command, in_name = True, False
+            i += step
+            continue
+        if c in "<>":
+            step = 2 if command[i + 1 : i + 2] in (">", "&") else 1
+            out.append(command[i : i + step])
+            at_command, in_name = False, False
+            i += step
+            continue
+        if c in " \t)":
+            in_name = False
+        elif c == "(":
+            # Opens a block in command position; ends a name anywhere else.
+            in_name = False
+        elif c == "@" and at_command:
+            pass
+        else:
+            if at_command:
+                at_command, in_name = False, True
+            if c == "/" and in_name:
+                c = "\\"
+        out.append(c)
+        i += 1
+    return "".join(out)
 
 
 def draft_env(keep):
