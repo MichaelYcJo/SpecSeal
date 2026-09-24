@@ -161,8 +161,10 @@ whole of it — a write not below is a write you do not make.
 orchestrator types as `round-record` — which
 sets that cell and leaves every other line of the file byte for byte as it
 was — the new run written first, and a run the cell already held kept after
-it as `earlier run`, so a second broad run never erases the record of the
-first (#174) — and which refuses outright on three things — the last record's `Pass` box
+it as `earlier run` unless the newest is the same commit against the same base,
+which the new entry replaces, so a second broad run at a new commit or
+against another base never erases the record of the first (#174) — and
+which refuses outright on three things — the last record's `Pass` box
 unticked, which is a finding still open in its verdict table; its `Fixes
 checked by` reading anything but `no fixes to check`, which says the run has
 not ended; or a commit the record's own target already descends from, which

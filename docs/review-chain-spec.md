@@ -339,9 +339,11 @@ Then the `sealer` takes the broad gate once — spawned with the base and the
 work item, running `broad-gate` and writing the last record's `Broad gate`
 cell — and the change opens as a pull request. Where the gate has to be taken
 again, the cell keeps every run: the newest entry first, each `<sha> against
-<base>`, the earlier ones behind it as `earlier run` — so a re-seal records a
-second run rather than erasing the first, and the reader still takes the
-first SHA-shaped word as the run (#174).
+<base>`, the earlier ones behind it as `earlier run` — so a run at a new
+commit, or at the same commit against another base, is recorded beside the
+first rather than over it, while the same comparison as the newest entry
+replaces that entry — and the reader still takes the first SHA-shaped word as
+the run (#174).
 
 **The chain ends at a PR, never at a merge.** Those are two mistakes at the
 same spot. A run that stops at a report leaves finished work where nobody
@@ -1623,7 +1625,14 @@ structurally unable to state what the record is required to state.
 
 What no check can see is a depth declared wrong — `(depth 1)` on a unit that
 is really second-level. The rule is a declaration, and the verifying round
-reading the `New units` surface is what looks at it.
+reading the `New units` surface is what looks at it. The declaration is per
+finding as well as per entry: a finding whose coordinates sit at two depths
+— one inside a unit an earlier round's fixes created, another not — is
+written as two findings, so each verdict carries one depth and the fix of
+one does not refuse the units the other's fix adds. `round_record.py close`
+keys its refusal on the finding's `Location` and names the finding whose
+fix added the unit, so a reviewer who did not split reads which finding to
+split next round (#366).
 
 One limit is recorded rather than parsed away, the mirror of the arrow's above:
 the comma that marks a crowded entry is found by substring, so a comma anywhere

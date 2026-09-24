@@ -133,6 +133,13 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   the round's job done rather than scope creep: the one measured fix commit
   that created eight new units carried defects in four.
 
+  Write one depth per finding: a finding whose coordinates sit at two depths
+  — one inside a unit an earlier round's fixes created, another not — is
+  written as two findings, so each verdict carries one depth and the fix of
+  one does not refuse the units the other's fix adds. `round_record.py close`
+  keys its depth refusal on a finding's `Location` and names the finding
+  whose fix added the unit, which is the one to split (#366).
+
   A finding whose `Location` is under `seal/specs/`, `seal/ledger/` or
   `seal/ledger.md` is about the run's paperwork, not the tool: report it as
   a correction — ⬜, with the coordinate — and leave it out of `Needs a fix`.

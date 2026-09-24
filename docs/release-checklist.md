@@ -91,6 +91,10 @@ it (#289) — one release's entries split across two sections that read as two
 releases. Run the same command again: the new entries join the existing
 section, the section keeps the first gather's date, and
 `tests/test_release_hygiene.py` refuses a file that heads a version twice.
+The fold answers the same way (#540): a second `fold_ledger.py --version
+X.Y.Z` joins the section `seal/ledger.md` already heads and keeps its date,
+`fold_ledger.py --check` refuses a ledger that heads a version twice, and the
+same hygiene module refuses the ledger as it refuses the changelog.
 
 ## 2b. Settle what the release leaves behind — by hand, and not in that commit
 
