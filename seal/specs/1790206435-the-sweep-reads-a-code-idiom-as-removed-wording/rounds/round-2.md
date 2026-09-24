@@ -7,14 +7,14 @@
 | Ran by | warden on Opus 5.5 |
 | PR | 550 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `e6783db14ad7d4bec7ff3c580cabe367ce3948d5..9a2e200bcd5c98f8b4f79d3da91a7c9ff69981f7`, 1 commit |
+| Contract changes | none |
+| New units | newly_released (depth 1); two_sections (depth 1); test_a_release_that_rewords_an_entry_still_reports_its_verbatim_copy (depth 1); test_a_sentence_in_an_older_release_does_not_hold_the_unreleased_one (depth 1) |
 | Needs a fix | yes — 🟡 1 and 🟡 2, one change to `corrected`'s held count in `skills/code-review/scripts/survivor_check.py`, with the gate row at `plan.md:170` and ledger row F1 rewritten to match |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 2, the verifying round, reviewed at 1f8cdcda: round 1's fix range `dceb647
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | a release commit that rewords an entry while moving it under a version heading leaves a verbatim copy of the old wording unreported: the new wording never reaches `written`, so the removed sentence is one run at 1.00 against the base's two at 2.00 | `skills/code-review/scripts/survivor_check.py:981` | open | executed: base exit 1 naming `docs/a.md:3`, tip exit 0, both `against 2 sentence(s)`; the docstring at `:939` names withholding `written` as safe, and in this scorer it merges runs; regression against the base in the silencing direction |
-| 🟡 2 | the held count reads every version section at the tip rather than what the range moved, so a sentence that also stands in an older release holds its unreleased copy through any range, and the gate row and ledger row F1 state a narrower wrong allow than the code has | `skills/code-review/scripts/survivor_check.py:981` | open | executed: tip exit 0 `against 0 sentence(s)`, the fix exit 1 naming `docs/a.md:3`; the base was silent too, for another reason, so not a regression; the unit is round 1's and was reviewed by nobody until now |
+| 🟡 1 | a release commit that rewords an entry while moving it under a version heading leaves a verbatim copy of the old wording unreported: the new wording never reaches `written`, so the removed sentence is one run at 1.00 against the base's two at 2.00 | `skills/code-review/scripts/survivor_check.py:981` | **fixed** `9a2e200b` | fixed at 9a2e200b — the report's paste-ready fix landed whole: `newly_released` after `only_released`, and `corrected` writes the released sentences' wording back when the file lost a sentence, so a reworded release splits the removed sentence into its runs again; `test_a_release_that_rewords_an_entry_still_reports_its_verbatim_copy` red at 1f8cdcda's script (exit 0, `against 2 sentence(s)`), green after; `only_released`'s docstring, a fifth carrier of *never written back*, corrected; executed: base exit 1 naming `docs/a.md:3`, tip exit 0, both `against 2 sentence(s)`; the docstring at `:939` names withholding `written` as safe, and in this scorer it merges runs; regression against the base in the silencing direction |
+| 🟡 2 | the held count reads every version section at the tip rather than what the range moved, so a sentence that also stands in an older release holds its unreleased copy through any range, and the gate row and ledger row F1 state a narrower wrong allow than the code has | `skills/code-review/scripts/survivor_check.py:981` | **fixed** `9a2e200b` | fixed at 9a2e200b — `corrected` holds only `newly_released`, the released sentences at `b` beyond those at `a`; `test_a_sentence_in_an_older_release_does_not_hold_the_unreleased_one` red at 1f8cdcda's script (exit 0, `against 0 sentence(s)`), green after; the gate row in `plan.md` and fragment row F1 rewritten to the bound the code has, each with a `Corrected 2026-09-24` marker; the four real-range counts unchanged; executed: tip exit 0 `against 0 sentence(s)`, the fix exit 1 naming `docs/a.md:3`; the base was silent too, for another reason, so not a regression; the unit is round 1's and was reviewed by nobody until now |
 | 🟢 | round 1's finding 1 is closed for the pure release — the unreleased section moved verbatim under a version heading removes nothing | `tests/test_a_corrected_sentence_survives_elsewhere.py:2658` | verified | executed: red with the `dceb647b` script (exit 1, `against 3 sentence(s)`), green at the tip; the reworded variant is 🟡 1 above |
 | 🟢 | round 1's ⬜ 2 — `report`'s docstring says which unresolved declarations arrive | `skills/code-review/scripts/survivor_check.py:1404` | verified | read |
 | 🟢 | round 1's ⬜ 3 — `phases/phase-3.md`'s removal row cites `whole_range`'s own docstring | `seal/specs/1790206435-the-sweep-reads-a-code-idiom-as-removed-wording/phases/phase-3.md:92` | verified | read; the cited paragraph exists at `survivor_check.py:1301` |
