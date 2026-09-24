@@ -151,7 +151,12 @@ that case red.
   A wrong allow here would need the rewrite to make `cmd.exe` run something
   other than the command the row reads as. The rewrite only ever turns `/`
   into `\` inside a command word, and `cmd.exe` has no reading in which a
-  `/` inside a command name is part of the name.
+  `/` inside a command name is part of the name. The exception is a `/`
+  written straight after one of `cmd.exe`'s own commands (`rd/s/q`,
+  `dir/b`), which is that command's switch and is left as written.
+  **Corrected 2026-09-25** in round 1's fix pass: without that exception
+  the rewrite turned a built-in's switch into a path, denying or changing
+  a row that ran before (round 1's 🟡 2).
 - #448's label changes no verdict.
 - #510's scrub **blocks more**: a case that reached a live `gh` now fails
   locally. That case already fails on CI, so the only new deny is the one

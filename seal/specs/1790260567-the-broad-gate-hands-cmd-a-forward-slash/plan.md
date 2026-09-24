@@ -129,7 +129,11 @@ phase closes. After any rebase, re-read this column.
   migrations.
 - On Windows, a plugin user's row whose command words contain `/` is now
   handed to `cmd.exe` with `\`. Before this change such a row could not run
-  on `cmd.exe` at all, so no row that works today changes behaviour.
+  on `cmd.exe` at all, so no row that works today changes behaviour. A `/`
+  written straight after one of `cmd.exe`'s own commands (`rd/s/q`, `dir/b`)
+  is that command's switch, runs today, and is left as written. **Corrected
+  2026-09-25** in round 1's fix pass, which added that exception (round 1's
+  🟡 2).
 - Contributors running the suite with `gh` authenticated now get CI's answer
   for any case that reaches `gh`. That is the intended new red, and
   `CONTRIBUTING.md` says why.
