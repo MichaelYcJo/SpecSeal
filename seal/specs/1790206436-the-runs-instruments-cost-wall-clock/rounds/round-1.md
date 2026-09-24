@@ -7,7 +7,7 @@
 | Ran by | warden on Fable 5.1 |
 | PR | 549 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `c698def6c8a90e886201f4278ca3d4f924c9a4e9..5bf1716fb060b5bb460812267a9d8fa733f03d73`, 1 commit |
 | Contract changes | none |
 | New units | test_a_flag_only_the_trees_copy_knows_still_reaches_it (depth 1) |
