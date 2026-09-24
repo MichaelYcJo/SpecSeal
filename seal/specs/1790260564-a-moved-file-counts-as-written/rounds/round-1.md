@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 589 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `1839acd6a35e7fe749b09ff6ca8bc921f1bda18a..065ab7b67249c6df9968cb561a4ceb724776b371`, 3 commits |
 | Contract changes | on_its_branch → round-1-report.md, round-1.md, whole_range, pytest; test_a_local_mode_declaration_nobody_can_place_is_not_yours → round-1-report.md, round-1.md |
 | New units | OPTIN (depth 1); hook (depth 1); test_a_stacked_childs_declaration_does_not_reach_its_parents_range (depth 1) |
@@ -29,7 +29,7 @@ Round 1 of work item 1790260564 reviews the build at 6e48cb5f against spec.md an
 | ⬜ 3 | the unresolved arm's docstring carriers still describe ownership by the diff alone | `skills/code-review/scripts/survivor_check.py:1547` | **fixed** `c315e8c3` | fixed at c315e8c3; read; ledger 0.15.1 U1 was corrected for the same sentence |
 | ⬜ 4 | a key removed at two paths and arriving at one keeps the later path as the source, so the `corrected` line can name a move's origin | `skills/code-review/scripts/survivor_check.py:1140` | deferred #592 | #592 — reproduced by a probe in the fix pass: the verdict and the coordinates are right, the corrected line names the moved-only path; read, not probed; the survivor coordinate and the score are unaffected |
 | ⬜ 5 | the predicate's docstring and the module docstring spell the gathered fragment's path one way while G7 pins the other | `skills/code-review/scripts/survivor_check.py:856` | **fixed** `c315e8c3` | fixed at c315e8c3 — 0313a669; read |
-| ⬜ 6 | `local_specs` restates the common-dir reader in `hooks/optin.py`, and `routing.py` is executed once per declaration | `skills/code-review/scripts/survivor_check.py:1353` | **fixed** `c315e8c3` | fixed at c315e8c3; read; the plan's technical context names the existing reader |
+| ⬜ 6 | `local_specs` restates the common-dir reader in `hooks/optin.py`, and `routing.py` is executed once per declaration | `skills/code-review/scripts/survivor_check.py:1353` | **fixed** `c315e8c3` | fixed at c315e8c3 for the first half (`local_specs` reads `hooks/optin.py#git_common_dir`); the second half, `routing.py` executed once per declaration, was answered and left as it is on the orchestrator's instruction. Corrected 2026-09-25 by the orchestrator after round 2's ⬜ 2 |
 | 🟢 | #563 pairing: a moved sentence is neither removed nor written, pairing meets only across paths, and `wanted` only grows | `skills/code-review/scripts/survivor_check.py:1120` | confirmed | read the unit and the loop; executed the module, 119 passed |
 | 🟢 | #564: CRLF at the read boundary, one region rule, and the fragment reader asking the predicate | `skills/code-review/scripts/survivor_check.py:544` | confirmed | read every reader of committed text in the module; executed G7-G10 within the module run |
 | 🟢 | #554 local-mode ownership for the work item's own range, in the main and the linked worktree and through a symlink | `skills/code-review/scripts/survivor_check.py:1566` | confirmed | executed O1's three parameters within the module run |
