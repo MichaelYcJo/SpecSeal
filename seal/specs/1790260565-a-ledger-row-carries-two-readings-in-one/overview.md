@@ -5,8 +5,8 @@ show goes here, and each part is written when it happens. -->
 
 📋 implement applied
 · spec:     `spec.md`, `plan.md`, `questions.md` of this work item; `docs/the-evidence-ledger.md` §*A row is a content anchor* (edit-arm and escaped-pipe paragraphs) and §*A correction a merge dropped* (halves paragraph)
-· evidence: in place — S4 (`seal/releases/0.9.2.md`), G5 (`seal/releases/0.8.2.md`), the eleven-modules row (`seal/releases/0.9.3.md`)
-· verified: see each phase's record under `phases/`
+· evidence: in place — S4 (`seal/releases/0.9.2.md`), G5 (`seal/releases/0.8.2.md`), the eleven-modules row (`seal/releases/0.9.3.md`), C2, D1, E1 and E2 (`seal/releases/0.15.1.md`), R4 (`seal/releases/0.9.1.md`); added — L1 and X1 in `seal/ledger/1790260565-a-ledger-row-carries-two-readings-in-one.md`
+· verified: executed — each phase's narrow modules, `evidence-check --strict .` unscoped, every new case seen red, the added units mutated; read — the claims re-read against their anchors. Each phase's record under `phases/` has the runs
 
 ## Why this work exists
 
