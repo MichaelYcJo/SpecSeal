@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | recorded in `plan.md`'s Status cell for phase 3 — this file is part of that commit |
+| Commit | 6ddc9e7c |
 | Ran by | smith on Opus 5.5 |
 
 ## What this phase was asked

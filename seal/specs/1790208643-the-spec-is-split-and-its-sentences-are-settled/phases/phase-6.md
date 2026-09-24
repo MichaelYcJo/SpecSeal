@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 6 |
-| Commit | recorded in `plan.md`'s Status cell for phase 6 |
+| Commit | 03896403 |
 | Ran by | smith on Opus 5.5 |
 
 ## What this phase was asked
