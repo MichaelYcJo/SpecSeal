@@ -28,3 +28,12 @@
   touches nothing of prints nothing and silences nothing; one with no owner,
   or owned by a work item the range touches, prints under `unresolved` as
   before.
+- `survivor-check` reads a renamed file as a deletion plus an addition
+  (#551). With git's rename detection on, a file moved whole was listed
+  under its new path alone, so the range removed nothing the sweep could
+  see — right for a pure move, and identical for a move with one sentence
+  reworded, which git calls a rename too: the reworded sentence never became
+  a source and its copy standing in another file was never reported. Now
+  the old path's sentences are removed, a pure move stays silent because
+  every one of them is written back verbatim, and the reworded one is
+  looked for.
