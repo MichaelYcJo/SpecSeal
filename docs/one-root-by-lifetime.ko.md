@@ -17,12 +17,12 @@
 ## 무엇이 바뀌는가, 네 줄로
 
 <!-- specs/1788331011-two-roots-hold-three-lifetimes -->
-지금은 커밋되는 루트 둘에 사는 기간이 세 가지로 다른 파일이 섞여 있고, 어느
-루트도 그 기간으로 자리를 나누지 않습니다. `specs/<id>/` 에는 작업 항목의
-문서와 리뷰 기록이 함께 있는데 둘은 없어지는 시점이 다릅니다.
-`.specseal/` 에는 근거 대조표(스펙 조항과 코드 좌표를 짝지어 둔 표)가 있는데,
-그 행은 자기를 쓴 작업 항목보다 오래 삽니다. 바뀐 뒤에는 플러그인이 관리하는
-루트 하나가 전부를 담고, 얼마나 오래 사는지에 따라 자리를 나눕니다. 그 루트를
+**바뀐 뒤에는 플러그인이 관리하는 루트 하나가 전부를 담고, 얼마나 오래 사는지에
+따라 자리를 나눕니다.** 지금은 커밋되는 루트 둘에 사는 기간이 세 가지로 다른
+파일이 섞여 있고, 어느 루트도 그 기간으로 자리를 나누지 않습니다.
+`specs/<id>/` 에는 작업 항목의 문서와 리뷰 기록이 함께 있는데 둘은 없어지는
+시점이 다릅니다. `.specseal/` 에는 근거 대조표(스펙 조항과 코드 좌표를 짝지어
+둔 표)가 있는데, 그 행은 자기를 쓴 작업 항목보다 오래 삽니다. 그 루트를
 어디에 둘지는 저장소마다 고릅니다. shared 면 커밋하고, local 이면 `.git/`
 아래에 두어 커밋하지 않습니다. 그 자리에 루트가 있다는 것이 곧 옵트인입니다.
 `specs/` 는 더 이상 SpecSeal 의 디렉터리가 아닙니다. 작업 항목의 디렉터리는
@@ -38,6 +38,8 @@ specs/<id>/   spec plan questions overview   seal/specs/<id>/     작업 항목 
               follow-up.md parity.md         seal/follow-up.md seal/parity.md
 (.specseal/ 가 있다)  = 옵트인               모드의 자리에 seal/ 이 있다  = 옵트인
 ```
+
+Enforced by: tests/test_no_document_names_the_old_roots.py::test_no_shipped_document_names_the_old_roots, tests/test_optin_home.py::test_the_legacy_directory_is_not_an_opt_in
 
 ## 문제를 숫자로 보면
 
@@ -276,11 +278,12 @@ SDD > 코드)와 대조표의 행입니다. 행은 코드 좌표 옆에 조항 �
 
 실패 방향은 그대로입니다. 두 자리 어디에도 폴더가 없으면 옵트인하지 않은
 것이고, 판단할 수 없는 훅은 아무것도 하지 않습니다.
+Enforced by: tests/test_optin_home.py::test_new_home_opts_in, tests/test_optin_home.py::test_the_git_directory_is_the_second_place, tests/test_optin_home.py::test_the_shared_root_wins_when_both_exist
 
 ## 처음 설정에서 무엇을 묻는가
 
 <!-- specs/1788354065-the-tree-that-must-stay-clean-has-no-way-to-opt-in -->
-이 프로젝트가 질문을 허용하는 유일한 순간이 처음 설정입니다. 스레드는 거기서
+**이 프로젝트가 질문을 허용하는 유일한 순간이 처음 설정입니다.** 스레드는 거기서
 모드와 보존 두 가지를 물으려 했는데, 보존은 `settle` 규칙으로 사라졌으니
 하나만 남습니다.
 
@@ -296,13 +299,14 @@ SDD > 코드)와 대조표의 행입니다. 행은 코드 좌표 옆에 조항 �
 
 두 자리 중 어디든 이미 `seal/` 이 있는 저장소는 이 과정을 거친 것이므로 다시
 묻지 않습니다. 모드는 폴더가 있는 자리로 읽습니다.
+Enforced by: tests/test_first_setup_asks_once.py::test_a_repository_with_the_root_at_either_place_is_never_asked, tests/test_first_setup_asks_once.py::test_the_two_options_are_named_in_order_with_shared_as_the_default
 
 ### shared 인가 local 인가
 
 <!-- specs/1788411058-the-mode-is-two-shell-lines-in-a-readme -->
 <!-- specs/1788398967-local-modes-records-never-leave-the-clone -->
-"폴더를 커밋할 것인가" 가 아니라 "CI 와 협업자가 이 워크플로를 보는가" 를
-묻는 것입니다. 어느 쪽이 맞는지는 대개 누구의 저장소인가로 정해집니다.
+**"폴더를 커밋할 것인가" 가 아니라 "CI 와 협업자가 이 워크플로를 보는가" 를
+묻는 것입니다.** 어느 쪽이 맞는지는 대개 누구의 저장소인가로 정해집니다.
 
 | | local 모드 | shared 모드 |
 |---|---|---|
@@ -398,6 +402,8 @@ smith 표시와 워크트리 선택 기록이 이미 있는 자리입니다. 그
   이후 작업 항목 N 개가 바뀌었습니다" 한 줄을 보게 됩니다. 어디에도 올리지
   않습니다. 사본을 어디에 둘지는 사용자의 일이고, 플러그인이 묻는 질문이
   아닙니다.
+
+Enforced by: tests/test_first_setup_asks_once.py::test_each_option_says_what_it_creates_and_what_it_installs, tests/test_optin_home.py::test_the_local_root_is_never_a_commit_candidate_and_needs_no_gitignore
 
 ### 보존: 잰 것, 그리고 `settle` 이 답한 것
 
@@ -552,6 +558,7 @@ CI 경로는 아래 순서의 3 단계에서 루트와 함께 바뀝니다.
 스크립트로 보내고, 그냥 행일 뿐인 것은 바로 씁니다. 스킬 안의 논리는
 스크립트처럼 변이 테스트를 할 수 없고, 경계가 어디에 그어지는지는 그것으로
 정해집니다.
+Enforced by: tests/test_the_settings_have_a_front_door.py::test_the_skill_names_every_row_the_template_ships, tests/test_the_settings_have_a_front_door.py::test_the_skill_shows_rows_that_are_absent
 
 <!-- specs/1788360817-the-pull-request-language-is-fixed-inside-a-skill -->
 **이 플러그인이 어떤 언어로 쓰는지는 플러그인이 아니라 저장소가 답합니다.**
@@ -559,6 +566,7 @@ CI 경로는 아래 순서의 3 단계에서 루트와 함께 바뀝니다.
 없는 파일 안에서 내려진 결정입니다. 그래서 언어는 설정 행에 둡니다. 번역된
 PR 본문이 들어가는 사본 파일의 이름도 특정 언어 하나가 아니라 그 안에 담긴
 언어를 따릅니다.
+Enforced by: tests/test_the_pull_request_language_is_the_repositorys.py::test_the_skill_names_the_file_and_the_row, tests/test_the_pull_request_language_is_the_repositorys.py::test_the_mirror_is_named_for_its_own_language
 
 <!-- specs/1788420760-a-language-row-that-governs-four-things -->
 **행이 둘인 이유는 행 하나로는 중간 답을 적을 수 없어서입니다.** 사람들이
@@ -576,6 +584,7 @@ PR 제목과 본문을 맡고, `Record language` 는 작업 항목이 쓰는 문
 이름, 판정 낱말, 표시 주석, 근거 대조표의 앵커, 그리고 모든 코드가
 그렇습니다. 필드 이름을 옮기는 것은 번역이 아니라 검사기가 읽기를 멈추게
 하는 일입니다.
+Enforced by: tests/test_the_pull_request_language_is_the_repositorys.py::test_the_template_is_one_item_value_table_whose_first_row_is_the_language, tests/test_the_pull_request_language_is_the_repositorys.py::test_every_document_that_names_a_language_row_names_the_shipped_one
 
 <!-- specs/1789598366-a-piped-broad-gate-row-takes-every-config-row-below-it -->
 **칸에는 이스케이프한 파이프가 들어갈 수 있고, 해석되지 않는 줄 하나는 표의
@@ -584,6 +593,7 @@ PR 제목과 본문을 맡고, `Record language` 는 작업 항목이 쓰는 문
 소리 없이 빼 버렸습니다. 읽는 쪽과 쓰는 쪽은 행 하나를 설명하는 상수를 함께
 씁니다. 어느 줄이 주어진 행인지 둘의 판단이 갈리면, 고친 것 하나가 사람의
 파일에 행을 하나 더 만들기 때문입니다.
+Enforced by: tests/test_the_mode_question_is_asked_once.py::test_an_escaped_pipe_is_one_row_and_the_rows_below_it_still_arrive, tests/test_the_mode_question_is_asked_once.py::test_a_line_that_will_not_parse_is_named_and_the_hook_still_says_nothing
 
 <!-- specs/1788789329-a-git-call-that-fails-reads-as-no-remote -->
 **실패한 git 호출은 "없음" 이라고 답한 git 호출이 아닙니다.** 무엇이 없어서
@@ -592,6 +602,7 @@ PR 제목과 본문을 맡고, `Record language` 는 작업 항목이 쓰는 문
 없다, 다른 작업 트리가 없다, 추적되는 파일이 없다는 식입니다. 그 구분이
 필요한 호출자를 둔 호출 자리는 모두 그 구분을 돌려주고, 거부할 때는 자신
 있게 없다고 말하는 대신 어느 호출이 실패했는지를 밝힙니다.
+Enforced by: tests/test_the_records_can_be_carried_out_and_in.py::test_the_export_omits_a_remote_it_could_not_read, tests/test_the_records_can_be_carried_out_and_in.py::test_an_unreadable_remote_here_refuses_the_import, tests/test_the_mode_is_a_row_and_a_command.py::test_a_git_that_cannot_answer_does_not_report_no_submodule
 
 ## 범위 밖
 
