@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 588 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `8eb708407f042fdb5fb4a0c0afd26d843543dbd5..4a3e46351ff50a644eb3acb2d299adb33147ceab`, 3 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 2 of work item 1790260565 is the verifying round: the diff of round 1's fi
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | `CONTRIBUTING.md`'s re-stamp needle in `EDIT_OUTCOMES` holds the bullet's premise, and the act (`evidence-check --reverify .`) can be deleted with every case green | `tests/test_a_merge_cannot_silently_drop_a_correction.py:754` | open | Executed: clause deleted from `CONTRIBUTING.md` in the clone, guides' case 1 passed |
-| ⬜ 2 | Correction: E1's note cites `EDIT_OUTCOMES` as what holds the outcomes, and the row does not anchor it | `seal/releases/0.15.1.md` | open | Read. The owner's case anchor hashes the function, not the dictionary; `CONFLICT_SENTENCES` is anchored for this reason. Hash `f810196e` computed by `--reverify` on a scratch ledger (executed) |
-| ⬜ 3 | Correction: E1's and E2's new notes cite `rounds/round-1.md` for red runs it does not record | `seal/releases/0.15.1.md` | open | Read. `round-1.md` carries no deletion run; the runs appear only in commit 950db9ef's message |
+| ⬜ 1 | `CONTRIBUTING.md`'s re-stamp needle in `EDIT_OUTCOMES` holds the bullet's premise, and the act (`evidence-check --reverify .`) can be deleted with every case green | `tests/test_a_merge_cannot_silently_drop_a_correction.py:754` | **fixed** `d7320980` | fixed at d7320980; Executed: clause deleted from `CONTRIBUTING.md` in the clone, guides' case 1 passed |
+| ⬜ 2 | Correction: E1's note cites `EDIT_OUTCOMES` as what holds the outcomes, and the row does not anchor it | `seal/releases/0.15.1.md` | answered | corrected at 135efd8a: E1 anchors EDIT_OUTCOMES, stamped after ⬜ 1 so the hash is the final unit's; Read. The owner's case anchor hashes the function, not the dictionary; `CONFLICT_SENTENCES` is anchored for this reason. Hash `f810196e` computed by `--reverify` on a scratch ledger (executed) |
+| ⬜ 3 | Correction: E1's and E2's new notes cite `rounds/round-1.md` for red runs it does not record | `seal/releases/0.15.1.md` | answered | corrected at 4a3e4635: E1's and E2's notes cite commit 950db9ef's message and round-2.md for the red runs; Read. `round-1.md` carries no deletion run; the runs appear only in commit 950db9ef's message |
 | 🟢 | round 1's ⬜ 1 is closed — the union clause, the edit rule's other two outcomes and the guides' two arguments are held by needles | `tests/test_a_merge_cannot_silently_drop_a_correction.py:711` | confirmed | Executed: each of 13 needle-carrier pairs occurs once; each deletion red in the right case, needle named |
 | 🟢 | round 1's ⬜ 2 is closed — the unit case's comment names what goes red and what does not | `tests/test_release_hygiene.py:1296` | confirmed | Executed: width dropped inside `ledger_overwide` → 1 failed; corpus calling `overwide_rows` bare → 3 passed |
 | 🟢 | round 1's ⬜ 3 is answered — none of the four shapes is in a ledger file, and the two deferred shapes have homes | `tests/test_release_hygiene.py:1255` | confirmed | Carried: the fix range touches neither `overwide_rows` nor any ledger file's table shape, so round 1's executed count still stands |

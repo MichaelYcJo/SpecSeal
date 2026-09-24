@@ -83,7 +83,7 @@ deletion stayed green (executed: the proposed needle is found in
 
 ## Facts for the evidence ledger
 
-- E1 should anchor `tests/test_a_merge_cannot_silently_drop_a_correction.py#EDIT_OUTCOMES@f810196e` (⬜ 2).
+- E1 should anchor `tests/test_a_merge_cannot_silently_drop_a_correction.py#EDIT_OUTCOMES@69099dff` (⬜ 2). Corrected by the orchestrator: this round's ⬜ 1 fix (d7320980) changed the unit after the report was written, so the hash is the final unit's, the one E1 carries since 135efd8a.
 
 ## Verdicts
 
