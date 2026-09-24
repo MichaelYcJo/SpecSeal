@@ -153,8 +153,10 @@ claim rendered in bold -- and `seal/follow-up.md` names whose that loss is.
 
 **A released changelog section, and a gathered fragment.** Every line under
 a heading that names a version in the root `CHANGELOG.md` -- `## 0.15.0 —
-2026-09-23`, up to the next `## ` heading -- is out of the **pool** and out
-of the **range**, on both sides of the range's path list; and so is a
+2026-09-23`, up to the next heading that names a version or `Unreleased`,
+so a `## ` line a gathered fragment carries does not end it (#564) -- is out
+of the **pool** and out of the **range**, on both sides of the range's path
+list; and so is a
 `seal/specs/<id>/changelog.md` whose `<!-- specs/<id> -->` marker stands in
 `CHANGELOG.md` at the range's tip, because a gathered fragment is that
 released entry one file over (#307). A released section records what a past
@@ -409,7 +411,14 @@ def read_blobs(root, rev, paths):
 
     A path missing at `rev`, a blob over the size cap, and a blob holding a NUL
     byte all come back absent rather than empty -- an empty string would read
-    as a file with no sentences in it, which is a different fact."""
+    as a file with no sentences in it, which is a different fact.
+
+    **`\\r\\n` comes back as `\\n`, here and nowhere else** (#564). Every
+    committed text reaches every reader through this function, and a `$`
+    under `re.M` stands before `\\n` and never before `\\r\\n`: a changelog
+    committed with CRLF had no gathered ids at all. One boundary rather than
+    one pattern, so the next `$`-anchored reader inherits it. Line counts are
+    unchanged; a lone `\\r` is left alone."""
     if not paths:
         return {}
     request = "".join(f"{rev}:{path}\n" for path in paths).encode("utf-8")
@@ -440,7 +449,7 @@ def read_blobs(root, rev, paths):
         body, at = data[at : at + size], at + size + 1
         if size > SIZE_CAP or b"\0" in body:
             continue
-        found[path] = body.decode("utf-8", "replace")
+        found[path] = body.decode("utf-8", "replace").replace("\r\n", "\n")
     return found
 
 
@@ -522,26 +531,46 @@ CHANGELOG = "CHANGELOG.md"
 # live prose in this file, above the first version, and that prose is this
 # release's own.
 VERSION_HEADING = re.compile(r"^##\s+\[?v?\d+\.\d+(?:\.\d+)?")
-# Any `## ` heading, which is where a section ends.
-SECTION_HEADING = re.compile(r"^##\s")
+# The one other heading that ends a released section: `## Unreleased`, and the
+# `## [Unreleased]` Keep a Changelog spells. No other `## ` line does (#564): a
+# gathered fragment carrying `## Notes` is still the released entry, and read
+# as live after its heading it was written as the release's own wording.
+UNRELEASED_HEADING = re.compile(r"^##\s+\[?unreleased\b", re.I)
+
+
+def released_lines(text):
+    """`[(line, released)]` for every line of a changelog -- the one region
+    rule `blank_released` and `only_released` both read, so the two stay
+    exact complements.
+
+    A version heading opens a released region, and after it only another
+    version heading or an `Unreleased` heading changes it. The rule reads
+    headings and never the gather's marker, so a misspelled marker cannot
+    reopen the region; and `## Unreleased` directly after a gathered body,
+    where a gatherer inserting above the first `## ` leaves it, stays live."""
+    out, released = [], False
+    for line in text.split("\n"):
+        if VERSION_HEADING.match(line):
+            released = True
+        elif UNRELEASED_HEADING.match(line):
+            released = False
+        out.append((line, released))
+    return out
 
 
 def blank_released(text):
     """`text` with every released section of a changelog blanked, line
     numbers intact -- the heading naming a version and every line under it,
-    up to the next `## ` heading.
+    up to the next version or `Unreleased` heading (`released_lines`).
 
     A released section records what a past release did, in that release's
     words, and a released entry is not rewritten. Reported against one, a
     branch that changed the behaviour the entry describes could correct
     nothing, and two of the four ranges the 0.15.0 release was measured on
     carried exactly that report (#307)."""
-    out, released = [], False
-    for line in text.split("\n"):
-        if SECTION_HEADING.match(line):
-            released = VERSION_HEADING.match(line) is not None
-        out.append("" if released else line)
-    return "\n".join(out)
+    return "\n".join(
+        "" if released else line for line, released in released_lines(text)
+    )
 
 
 def only_released(text):
@@ -552,12 +581,9 @@ def only_released(text):
     release moved from `## Unreleased` under a version heading is counted
     as still held rather than as removed (round 1's 🟡 1). What is held,
     and when its wording is written, is `corrected`'s to decide."""
-    out, released = [], False
-    for line in text.split("\n"):
-        if SECTION_HEADING.match(line):
-            released = VERSION_HEADING.match(line) is not None
-        out.append(line if released else "")
-    return "\n".join(out)
+    return "\n".join(
+        line if released else "" for line, released in released_lines(text)
+    )
 
 
 def newly_released(path, before, after):
@@ -1021,10 +1047,16 @@ def corrected(root, a, b):
     after = read_blobs(root, b, paths)
     # A gathered fragment's text stands under a version heading at `b`, and
     # this range did not write it -- the fragment's own branch did. Read at
-    # `a` by the path the gatherer globs, where it stands whether the release
-    # leaves the fragment or deletes it, so `moved` below can hold that text
-    # without writing it as this range's.
-    fragments = [f"seal/specs/{item}/changelog.md" for item in sorted(gathered)]
+    # `a`, where it stands whether the release leaves the fragment or deletes
+    # it, so `moved` below can hold that text without writing it as this
+    # range's. The paths are the ones `a_gathered_fragment` accepts, never a
+    # second spelling of them (#564): a fragment that predicate kept out of
+    # the range and this reader did not find was written all the same.
+    fragments = (
+        [path for path in tracked(root, a) if a_gathered_fragment(path, gathered)]
+        if gathered
+        else []
+    )
     shipped = {
         sentence.key
         for path, text in read_blobs(root, a, fragments).items()

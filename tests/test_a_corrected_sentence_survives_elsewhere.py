@@ -1095,7 +1095,14 @@ def test_the_docstring_names_both_sides_of_the_round_record_exclusion():
 # failure scenario -- a second range, a cache of changed files -- passed it.
 PREDICATE = "records_a_past_state"
 FILTERS_ITS_OWN_LIST = {"corrected"}
-FILTERED_BY_ITS_ONLY_CALLER = {"tracked": "corpus"}
+# `tracked` returns an unfiltered list, so every caller is named with the
+# filter it applies. `corrected` reads it at the range's left end for the
+# gathered fragments alone (#564): `a_gathered_fragment` keeps only
+# `<x>/specs/<id>/changelog.md`, which `records_a_past_state` can never name,
+# and the text read there is held, never a source and never written.
+FILTERED_BY_ITS_CALLERS = {
+    "tracked": {"corpus": PREDICATE, "corrected": "a_gathered_fragment"},
+}
 NAMED_EXCEPTION = {
     "whole_range": (
         "asks whether the range belongs to the work item that WROTE a "
@@ -1197,15 +1204,15 @@ def test_every_path_list_this_module_derives_from_git_is_filtered_or_named():
     nothing measured it.
 
     So this case measures it: every function that asks git for a list of
-    paths is either filtered by the predicate, filtered by its only caller,
-    or named above with grounds a reader can weigh. Add a fourth and it goes
+    paths is either filtered by the predicate, filtered by each caller that
+    reaches it, or named above with grounds a reader can weigh. Add a fourth and it goes
     red until it is classified -- which is the only thing that stops the same
     defect happening one function over."""
     source = open(SCRIPT, encoding="utf-8").read()
     tree = ast.parse(source)
     derivers = _derives_a_path_list(tree)
     declared = (
-        FILTERS_ITS_OWN_LIST | set(FILTERED_BY_ITS_ONLY_CALLER) | set(NAMED_EXCEPTION)
+        FILTERS_ITS_OWN_LIST | set(FILTERED_BY_ITS_CALLERS) | set(NAMED_EXCEPTION)
     )
     assert set(derivers) == declared, (
         f"the module derives a path list from git in {sorted(derivers)} and "
@@ -1229,15 +1236,16 @@ def test_every_path_list_this_module_derives_from_git_is_filtered_or_named():
             "survivor it quotes -- on exactly the branches that went through "
             "review"
         )
-    for name, caller in FILTERED_BY_ITS_ONLY_CALLER.items():
-        assert _mentions(tree, caller, PREDICATE), (
-            f"{name}'s list is declared filtered by {caller}, and {caller} no "
-            f"longer applies `{PREDICATE}`"
-        )
-        assert _callers_of(tree, name) == {caller}, (
+    for name, callers in FILTERED_BY_ITS_CALLERS.items():
+        for caller, applies in callers.items():
+            assert _mentions(tree, caller, applies), (
+                f"{name}'s list is declared filtered by {caller}, and {caller} "
+                f"no longer applies `{applies}`"
+            )
+        assert _callers_of(tree, name) == set(callers), (
             f"{name} is reached from {sorted(_callers_of(tree, name))} and "
-            f"only {caller} filters its result, so the list now leaves this "
-            "module unfiltered by one of those paths"
+            f"only {sorted(callers)} are declared filtering its result, so the "
+            "list now leaves this module unfiltered by one of those paths"
         )
     for name, grounds in NAMED_EXCEPTION.items():
         assert not _mentions(tree, name, PREDICATE), (
@@ -3299,3 +3307,162 @@ def test_a_file_moved_verbatim_is_silent_because_its_wording_is_written_back(
         "the range removed no sentence at all, so the old path was never read "
         f"and the silence is rename detection rather than `wanted`:\n{text}"
     )
+
+
+# --- #564: the gathered reading reads one path, past a heading, over CRLF ---
+#
+# Three assumptions the gathered-text reading made, each a way the released
+# region or the gathered fragment is misread by its shape rather than a policy
+# choice. The shape is round 3's 🟡 1: a release renames `## Unreleased`,
+# gathers a fragment quoting the claim, and corrects `docs/a.md` in the same
+# commit, so a gathered text that is written rather than held subtracts the
+# survivor standing in `docs/b.md`.
+
+ENTRY = "The frobnicator now rejects a negative width with a plain message."
+OLDER = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+GATHER_MARK = f"<!-- specs/{os.path.basename(SHIPPED)} -->"
+
+
+def renamed_and_gathered(repo, fragment, body, released_body, write=None):
+    """Round 3's 🟡 1 at `fragment`, with `body` as the fragment's text and
+    `released_body` as what the release writes under its marker. `write`
+    lays `CHANGELOG.md` down itself when the bytes matter (G10)."""
+    before = f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {ENTRY}\n\n{OLDER}"
+    after = (
+        f"# Changelog\n\n{RELEASED_HEADINGS[0]}\n{GATHER_MARK}\n{released_body}\n"
+        f"### Fixed\n\n- {ENTRY}\n\n{OLDER}"
+    )
+    files = {
+        "docs/a.md": f"# a\n\n{FOUND}\n",
+        "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+        fragment: body,
+        **FILLER,
+    }
+    if write is None:
+        files["CHANGELOG.md"] = before
+    else:
+        write(before)
+    build(repo, files, "an unreleased entry, a fragment quoting the claim, two docs")
+    files = {"docs/a.md": f"# a\n\n{REPAIRED}\n"}
+    if write is None:
+        files["CHANGELOG.md"] = after
+    else:
+        write(after)
+    return build(repo, files, "release 1.0.0: rename Unreleased, gather, correct a.md")
+
+
+def test_a_gathered_fragment_at_the_other_spelling_is_held(tmp_path):
+    """G7 (#564 ⬜5). `a_gathered_fragment` accepts `specs/<id>/changelog.md`
+    and the reader in `corrected` spelled `seal/specs/<id>/changelog.md`
+    alone, so a fragment at the pre-0.4.0 root was out of the pool and the
+    range and its gathered text was written all the same. One predicate
+    spells the path now. Red at c52e8350: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    fragment = f"specs/{os.path.basename(SHIPPED)}/changelog.md"
+    head = renamed_and_gathered(
+        repo, fragment, f"### Fixed\n\n- {FOUND}\n", f"### Fixed\n\n- {FOUND}\n"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        f"the fragment at {fragment} was out of the range and still not held, "
+        f"so its gathered text subtracted the survivor in docs/b.md; exit {code}\n"
+        f"{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_gathered_fragment_carrying_a_heading_stays_released(tmp_path):
+    """G8 (#564 ⬜6). A fragment with a `## Notes` line before its quoting
+    sentence: under the old region rule any `## ` ended the released
+    section, so the gathered text after it read as live prose the release
+    wrote, and it subtracted the survivor in `docs/b.md`. After a version
+    heading only another version heading or `Unreleased` changes the region.
+    Red at c52e8350: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    body = f"## Notes\n\n- {FOUND}\n"
+    head = renamed_and_gathered(repo, FRAGMENT, body, body)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered text after the fragment's own heading was read as live "
+        f"and written, subtracting the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+    assert "CHANGELOG.md:" not in text, (
+        f"the released text after the fragment's heading was reported:\n{text}"
+    )
+
+
+def test_an_unreleased_section_below_a_release_is_still_a_carrier(tmp_path):
+    """G9, the half that must not move. A changelog that keeps
+    `## Unreleased` below a version section -- where this repository's
+    gatherer leaves it when it inserts a release above the first `## ` --
+    holds live prose there, and its entry restating a corrected claim is
+    reported. Green at c52e8350; red against the region rule with the
+    `Unreleased` exception deleted."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n{RELEASED_HEADINGS[0]}\n\n### Fixed\n\n"
+                f"- An older entry.\n\n## [Unreleased]\n\n### Fixed\n\n- {FOUND}\n"
+            ),
+            **FILLER,
+        },
+        "a release, then an unreleased entry carrying the claim",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"the unreleased entry went unreported; exit {code}\n{text}"
+    assert "CHANGELOG.md" in text.split("examined", 1)[-1], text
+
+
+def test_a_crlf_changelog_still_has_its_gathered_ids(tmp_path):
+    """G10 (#564 ⬜7). `MARKER` is `$`-anchored under `re.M`, and `$` stands
+    before `\\n`, never before `\\r\\n`, so a changelog committed with CRLF
+    had no gathered ids: the fragment stayed in the pool and the range, and
+    its text was written. Normalised where every text is read. Red at
+    c52e8350: exit 0.
+
+    The fixture sets `core.autocrlf=false` and asserts the committed blob
+    holds `\\r\\n` (`agent-contract` §13): a runner whose git converts line
+    endings would otherwise commit LF and this case would pass measuring
+    nothing."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    for command in (
+        ["init", "-q", "-b", "main"],
+        ["config", "user.email", "probe@example.com"],
+        ["config", "user.name", "probe"],
+        ["config", "commit.gpgsign", "false"],
+        ["config", "core.autocrlf", "false"],
+    ):
+        probe_git(repo, *command)
+
+    def write(text):
+        with open(repo / "CHANGELOG.md", "wb") as handle:
+            handle.write(text.replace("\n", "\r\n").encode("utf-8"))
+
+    head = renamed_and_gathered(
+        repo, FRAGMENT, f"### Fixed\n\n- {FOUND}\n", f"### Fixed\n\n- {FOUND}\n", write
+    )
+    blob = subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "-p", f"{head}:CHANGELOG.md"],
+        capture_output=True,
+        check=True,
+    ).stdout
+    assert b"\r\n" in blob and GATHER_MARK.encode() + b"\r\n" in blob, (
+        "the committed CHANGELOG.md holds no CRLF, so this case measures an LF "
+        "file and proves nothing about line endings"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the CRLF changelog's marker was not read, so the fragment's gathered "
+        f"text was written and subtracted the survivor in docs/b.md; exit {code}\n"
+        f"{text}"
+    )
+    assert "docs/b.md" in text, text
