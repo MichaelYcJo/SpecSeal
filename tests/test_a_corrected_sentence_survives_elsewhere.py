@@ -1785,6 +1785,9 @@ def test_a_declaration_one_directory_deeper_still_has_an_owner(tmp_path, depth):
         "the declaration was refused without saying so, or without naming the "
         f"work item it belongs to, at depth {depth!r}:\n{text}"
     )
+    assert "this range touches nothing in it" in text, (
+        f"a shared-mode refusal no longer names the diff test as its reason:\n{text}"
+    )
 
 
 def test_a_range_row_that_does_not_resolve_silences_nothing_and_says_so(tmp_path):
@@ -3477,6 +3480,185 @@ def test_a_copy_written_beyond_the_ones_moved_is_the_ranges_writing(tmp_path):
     assert re.search(r"against 1 sentence\(s\)", text), (
         f"only a.md's corrected sentence is removed; the move removes nothing:\n{text}"
     )
+
+
+# --- #554: a local-mode declaration owns the range on its own branch --------
+#
+# In local mode the `seal/` root is `<git-common-dir>/seal/` and nothing under
+# it is committed (`agent-contract` §16), so a work item's own directory is
+# never in a range's diff, and the ownership test the second anchor asks --
+# does the range touch the directory the file sits in -- refused the work
+# item's own range row as `not yours`. There the owner is read from the work
+# item's `routing.md` `Branch` row: the row holds over a range whose tip is on
+# that branch. Shared mode is unchanged.
+
+LOCAL_ITEM = "1799000001-work-item-a"
+
+
+def local_mode_items(repo):
+    """A base carrying two claims twice over, and two branches each
+    correcting the first statement of one. Work item A's declaration and
+    routing name `work-item-a` and live under the common git directory.
+    Leaves `release` checked out and answers A's `survivors.md`."""
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "a-notes.md": f"# a\n\nFirst. {CLAIM_A}\n\nSecond. {CLAIM_A}\n",
+            "b-notes.md": f"# b\n\nFirst. {CLAIM_B}\n\nSecond. {CLAIM_B}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "both claims, each stated twice",
+    )
+    probe_git(repo, "branch", "-M", "release")
+    probe_git(repo, "switch", "-qc", "work-item-a")
+    build(
+        repo,
+        {
+            "a-notes.md": (
+                "# a\n\nFirst. The verdict cell is written by the generator and "
+                f"the orchestrator leaves it untouched afterwards.\n\nSecond. {CLAIM_A}\n"
+            )
+        },
+        "work item A corrects its claim",
+    )
+    probe_git(repo, "switch", "-q", "release")
+    probe_git(repo, "switch", "-qc", "work-item-b")
+    build(
+        repo,
+        {
+            "b-notes.md": (
+                "# b\n\nFirst. The exemption row is anchored by the work item and "
+                f"the checker leaves that reach untouched afterwards.\n\nSecond. {CLAIM_B}\n"
+            )
+        },
+        "work item B corrects its claim",
+    )
+    probe_git(repo, "switch", "-q", "release")
+    item = os.path.join(str(repo), ".git", "seal", "specs", LOCAL_ITEM)
+    os.makedirs(item)
+    with open(os.path.join(item, "routing.md"), "w", encoding="utf-8") as handle:
+        handle.write(
+            "| Axis | Answer |\n|---|---|\n| Review | through the review chain |\n"
+            "| Destination | open the pull request |\n| Branch | work-item-a |\n"
+        )
+    survivors = os.path.join(item, "survivors.md")
+    with open(survivors, "w", encoding="utf-8") as handle:
+        handle.write(
+            f"| Range | Grounds |\n|---|---|\n| `release...HEAD` | {GROUNDS} |\n"
+        )
+    return survivors
+
+
+def checkout(repo, branch, linked):
+    """`branch` checked out in `repo` itself, or in a linked worktree of it.
+
+    Both, because `git rev-parse --git-common-dir` answers `.git`, relative
+    to the directory it ran in, in the main worktree and an absolute path in
+    a linked one -- the two spellings `whole_range` has to place a file
+    against."""
+    if not linked:
+        probe_git(repo, "switch", "-q", branch)
+        return str(repo)
+    where = os.path.join(os.path.dirname(str(repo)), f"linked-{branch}")
+    probe_git(repo, "worktree", "add", "-q", where, branch)
+    return where
+
+
+@pytest.mark.parametrize(
+    "linked, aliased",
+    [(False, False), (True, False), (False, True)],
+    ids=["main", "linked", "symlinked"],
+)
+def test_a_local_mode_work_item_owns_its_own_range_row(tmp_path, linked, aliased):
+    """O1 (#554). Work item A's range row, read on A's own branch over A's
+    own range, excuses the run -- in the main worktree, in a linked one, and
+    with `--exempt` spelled through a symlink to the repository, which git
+    never answers with (`agent-contract` §13: the real-path comparison is
+    shown to be what places the file, not a temporary directory that happens
+    to be spelled one way). Red at c52e8350: exit 1, the row printed under
+    `not yours` because the range's diff can never hold a file under the git
+    directory."""
+    repo = tmp_path / "probe"
+    survivors = local_mode_items(repo)
+    root = checkout(repo, "work-item-a", linked)
+    if aliased:
+        alias = tmp_path / "alias"
+        try:
+            os.symlink(str(repo), str(alias), target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            pytest.skip(f"this platform will not make a symlink here: {exc}")
+        survivors = os.path.join(str(alias), os.path.relpath(survivors, str(repo)))
+    code, text = run("--range", "release...HEAD", "--root", root, "--exempt", survivors)
+    assert "not yours" not in text, (
+        f"a local-mode work item's own range row was refused as foreign:\n{text}"
+    )
+    assert code == 0, f"the declaration did not excuse its own range\n{text}"
+    assert "a-notes.md" in text and "every survivor is excused" in text, (
+        f"the run was clean rather than declared, which measures nothing:\n{text}"
+    )
+
+
+def test_a_local_mode_declaration_does_not_reach_another_branch(tmp_path):
+    """O2, the bound. Local `survivors.md` files are shared by every worktree
+    of the clone, and `release...HEAD` re-resolves on each checkout, so on
+    work item B's branch A's row resolves onto B's own range. B's tip is not
+    on `work-item-a`, so the row is refused and printed with its work item,
+    and B's survivor is reported. Red against an ownership test reduced to
+    `True`."""
+    repo = tmp_path / "probe"
+    survivors = local_mode_items(repo)
+    root = checkout(repo, "work-item-b", linked=False)
+    code, text = run("--range", "release...HEAD", "--root", root, "--exempt", survivors)
+    assert code == 1, (
+        f"work item A's local declaration excused work item B's run\n{text}"
+    )
+    assert "b-notes.md" in text, f"B's own survivor was not reported\n{text}"
+    assert "not yours" in text and LOCAL_ITEM in text, (
+        f"the refused declaration was not printed with its work item:\n{text}"
+    )
+    # §14: the reason printed is the test that refused the row, so the reader
+    # opens `routing.md`, not a diff that could never hold the file.
+    assert "tip is not on the branch its routing.md names" in text, text
+    assert "touches nothing in it" not in text, text
+
+
+@pytest.mark.parametrize(
+    "routing",
+    [None, "| Axis | Answer |\n|---|---|\n| Review | through the review chain |\n"],
+    ids=["missing", "no-branch"],
+)
+def test_a_local_mode_declaration_nobody_can_place_is_not_yours(tmp_path, routing):
+    """O4. A local-mode work item whose `routing.md` is missing, or names no
+    branch, cannot say whose its declaration is, so the row excuses nothing
+    and prints under `not yours` -- on the very branch it was written for,
+    which is the loud direction. Red with either read answering True."""
+    repo = tmp_path / "probe"
+    survivors = local_mode_items(repo)
+    where = os.path.join(os.path.dirname(survivors), "routing.md")
+    if routing is None:
+        os.remove(where)
+    else:
+        with open(where, "w", encoding="utf-8") as handle:
+            handle.write(routing)
+    root = checkout(repo, "work-item-a", linked=False)
+    code, text = run("--range", "release...HEAD", "--root", root, "--exempt", survivors)
+    assert code == 1, f"a declaration nobody can place excused the run\n{text}"
+    assert "not yours" in text and LOCAL_ITEM in text, (
+        f"the declaration stopped applying without saying so:\n{text}"
+    )
+    assert "tip is not on the branch its routing.md names" in text, text
+
+
+def test_a_missing_routing_reader_refuses_rather_than_placing_nothing(tmp_path):
+    """O5. `hooks/routing.py` ships in the plugin beside this script; a copy
+    without it cannot say whose a local-mode declaration is, and that is
+    unusable input (exit 2's `Refused`), the way a missing retirement reader
+    is -- never a quiet `not yours` that looks like a judgment."""
+    loaded = module()
+    loaded.ROUTING = str(tmp_path / "gone" / "routing.py")
+    with pytest.raises(loaded.Refused, match=r"routing\.py"):
+        loaded.on_its_branch(str(tmp_path), str(tmp_path), "HEAD")
 
 
 # --- #564: the gathered reading reads one path, past a heading, over CRLF ---

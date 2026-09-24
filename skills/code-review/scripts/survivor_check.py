@@ -231,7 +231,10 @@ is handed to every run, and a `survivors.md` lives until the release that ships
 it, so one merged row in that spelling matched every later branch cut from the
 same base and excused its whole run. So the second anchor is the directory the
 row lives in: a declaration holds only over a range that touches its own work
-item, which a work item's own range always does.
+item, which a work item's own range always does. In local mode nothing under
+the root is committed, so no range touches it, and the `Branch` row of the
+work item's `routing.md` stands in: the declaration holds over a range whose
+tip is on that branch (#554).
 
 Both anchors degrade the way the quote above does -- loudly. A spec that no
 longer resolves prints under `unresolved`; a declaration refused for belonging
@@ -1335,7 +1338,70 @@ RANGE_CELL = re.compile(r"^[^\s|]+\.\.\.?[^\s|]+$")
 # may be absolute; a file outside any `seal/specs/<id>/` keeps the hand-run
 # reach `whole_range` documents, and the pre-0.4.0 top-level `specs/` root is
 # left out on purpose (`spec.md` §*Out* of work item 1790174139).
+#
+# A local-mode file matches too, `<git-common-dir>/seal/specs/<id>/`, and its
+# owner is never in a range's diff because nothing there is committed; so
+# `whole_range` asks that work item's `routing.md` instead (#554).
 OWNER_DIR = re.compile(r"(?:^|.*/)(seal/specs/[^/]+)/.+$")
+
+# The routing declaration's one reader, loaded by path the way
+# `chain_check.py` loads it. Its `Branch` row is who owns a local-mode
+# declaration.
+ROUTING = os.path.join(HERE, "..", "..", "..", "hooks", "routing.py")
+
+
+def local_specs(root):
+    """The real path of local mode's `specs/` directory, or "".
+
+    `<git-common-dir>/seal/specs`, where `agent-contract` §16 puts the local
+    root. `--git-common-dir` answers relative to the directory git ran in --
+    `.git` in a main worktree -- so it is joined onto `root`. Real paths and
+    `normcase`, because a temporary directory on macOS sits behind a
+    symlink, and Windows spells one drive two ways."""
+    out = git(root, "rev-parse", "--git-common-dir")
+    if out is None or not out.strip():
+        return ""
+    common = os.path.join(root, out.strip())
+    return os.path.normcase(os.path.realpath(os.path.join(common, "seal", "specs")))
+
+
+def local_item(source, local):
+    """The local-mode work item directory `source` sits in, or None."""
+    if not local:
+        return None
+    where = os.path.normcase(os.path.realpath(source))
+    if not where.startswith(local + os.sep):
+        return None
+    return os.path.join(local, os.path.relpath(where, local).split(os.sep)[0])
+
+
+def on_its_branch(root, item, b):
+    """True when the range's tip `b` is on the branch `item`'s `routing.md`
+    names -- `refs/heads/<Branch>` or an ancestor of it.
+
+    Asked of the range's tip rather than of the checkout, because ownership
+    is a question about the range: a detached HEAD at the branch's tip is
+    the same range. A `routing.md` that is missing, will not parse or names
+    no branch, and a branch that does not resolve, all answer False -- the
+    declaration then prints under `not yours`, which is the loud direction."""
+    if not os.path.isfile(ROUTING):
+        raise Refused(
+            f"cannot read {ROUTING}, which says whose a local-mode declaration "
+            "is. This script ships beside it in the plugin."
+        )
+    try:
+        with open(os.path.join(item, "routing.md"), encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return False
+    spec = importlib.util.spec_from_file_location("specseal_routing", ROUTING)
+    routing = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(routing)
+    declared = routing.parse(text)
+    if not declared:
+        return False
+    ref = f"refs/heads/{declared['branch']}"
+    return git(root, "merge-base", "--is-ancestor", b, ref) is not None
 
 
 def read_exemptions(paths):
@@ -1446,6 +1512,15 @@ def whole_range(root, ranges, a, b):
     there is nothing to scope it to, and refusing it would break running the
     check by hand.
 
+    **In local mode the directory is never in a range** (#554): the root is
+    `<git-common-dir>/seal/` and nothing under it is committed, so the test
+    above refused every work item its own range row. There a declaration is
+    its work item's when the range's tip is on the branch that work item's
+    `routing.md` names (`on_its_branch`). Local files are shared by every
+    worktree of the clone, so the branch is what keeps a relation-spelled
+    row off another branch's range. Shared mode keeps the diff test: a pull
+    request's CI checkout is a detached merge commit with no branch ref.
+
     **Ownership is asked only of a declaration that WOULD have matched**, and
     a refused one is returned in `foreign` so the report prints it. A row that
     quietly stopped applying is the one failure a rotting anchor must not
@@ -1477,7 +1552,7 @@ def whole_range(root, ranges, a, b):
     nothing whether printed or not.
     """
     match, unresolved, foreign = None, [], []
-    changed = None
+    changed = local = None
     for spec, grounds, source in ranges:
         try:
             left, right = parse_range(root, spec)
@@ -1489,8 +1564,16 @@ def whole_range(root, ranges, a, b):
             # range and is then refused has something a reader must be told.
             continue
         owner = OWNER_DIR.match(source.replace("\\", "/"))
-        mine = True
+        mine, item = True, None
         if owner is not None:
+            if local is None:
+                local = local_specs(root)
+            item = local_item(source, local)
+        if owner is not None and item is not None:
+            # Local mode: nothing under the root is committed, so the owner
+            # is never in `changed`, and the work item's branch answers.
+            mine = on_its_branch(root, item, b)
+        elif owner is not None:
             if changed is None:
                 # `--no-renames` for the reason `corrected` gives: a file
                 # moved out of a work item's directory is a change to that
@@ -1506,7 +1589,14 @@ def whole_range(root, ranges, a, b):
                 unresolved.append((spec, grounds))
             continue
         if not mine:
-            foreign.append((spec, grounds, owner.group(1)))
+            # The reason is the test that refused it, so a person reading
+            # the line knows which file to open.
+            why = (
+                "this range's tip is not on the branch its routing.md names"
+                if item is not None
+                else "this range touches nothing in it"
+            )
+            foreign.append((spec, grounds, owner.group(1), why))
             continue
         if match is None:
             match = (spec, grounds)
@@ -1564,8 +1654,9 @@ def report(
     applying is the one failure a rotting anchor must not have. `foreign` is
     the same failure one step
     over: a declaration that resolved onto this exact range and belongs to a
-    work item the range does not touch, refused and printed with the work
-    item it came from.
+    work item the range does not touch -- in local mode, one whose branch
+    the range's tip is not on -- refused and printed with the work item it
+    came from and the test that refused it.
     """
     standing, excused = [], []
     for score, candidate, source, shared in rows:
@@ -1585,11 +1676,10 @@ def report(
             f"nothing -- {trim(grounds, 80)}",
             file=out,
         )
-    for spec, grounds, owner in foreign:
+    for spec, grounds, owner, why in foreign:
         print(
-            f"  not yours   {spec} was written by {owner} and this range "
-            f"touches nothing in it, so it silences nothing -- "
-            f"{trim(grounds, 80)}",
+            f"  not yours   {spec} was written by {owner} and {why}, so it "
+            f"silences nothing -- {trim(grounds, 80)}",
             file=out,
         )
     if whole:

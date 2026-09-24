@@ -19,3 +19,11 @@
   corrected claim. A pure move is still silent, now because it removes
   nothing: the report reads `against 0 sentence(s)`, and any range that
   moves text reports a lower count than before.
+- A `survivors.md` range row in local mode now holds over its own work
+  item's range (#554). Local mode keeps `seal/` under the git directory,
+  where nothing is committed, so no range ever touched the work item's
+  directory, and every local declaration printed `not yours` on the branch
+  it was written for. There the owner is the `Branch` row of the work item's
+  `routing.md`: the row holds over a range whose tip is on that branch, and
+  another branch's range still refuses it. A refused row's `not yours` line
+  now names the test that refused it. Shared mode is unchanged.
