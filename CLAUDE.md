@@ -143,8 +143,8 @@ used to disagree: one forbade editing the file at all while the other forbade
 appending to it, which left a branch in this position with no reading that
 permits the only correct act.
 
-**When `seal/ledger.md` conflicts, resolve it hunk by hunk and read both
-sides.** Never `--ours` and never `--theirs`. A whole-file choice is wrong by
+**When a ledger file conflicts — `seal/ledger.md` or a
+`seal/releases/<X.Y.Z>.md` — resolve it hunk by hunk and read both sides.** Never `--ours` and never `--theirs`. A whole-file choice is wrong by
 construction once both branches have been correcting, and the measured
 instance is the argument: in #424 the two hunks resolved in opposite
 directions, because each side was the superset in one of them. Taking a side
@@ -173,11 +173,13 @@ sentence they no longer carry.
 **Both kinds of fragment are gathered at the release, by two commands in one
 commit.** `.github/scripts/gather_changelog.py --version X.Y.Z` concatenates
 every ungathered changelog fragment into the released section;
-`.github/scripts/fold_ledger.py --version X.Y.Z` moves every ledger fragment
-into `seal/ledger.md` under a heading for the release and removes the file.
-A fragment lives from the work item's first row to the release that ships it.
-The checker reads both `seal/ledger.md` and the `seal/ledger/*.md` glob,
-and a row is a content anchor, so the move changes nothing it measures. The
+`.github/scripts/fold_ledger.py --version X.Y.Z` moves every ledger
+fragment into that release's own file, `seal/releases/X.Y.Z.md`, and removes
+the fragment; `seal/ledger.md` keeps the notation and the rows from before
+the fragments existed. A fragment lives from the work item's first row to the
+release that ships it. The checker reads `seal/ledger.md`, the
+`seal/releases/*.md` glob and the `seal/ledger/*.md` glob alike, and a row is
+a content anchor, so the move changes no row's status. The
 fold refuses while any `seal/specs/<id>/evidence-todo.md` in the tree has an open
 row — a fact a reviewer verified that never reached the ledger — and the
 hygiene workflow runs `fold_ledger.py --check` on every pull request into
