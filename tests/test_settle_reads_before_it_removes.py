@@ -393,6 +393,57 @@ def test_a_commented_out_row_is_named_by_its_claim(tree):
     assert "  <!--\n" not in text, text
 
 
+@pytest.mark.parametrize(
+    "line",
+    [
+        "> | claim | `a.py#b@11111111` |",
+        "- | claim | `a.py#b@11111111` |",
+        "> - | claim | `a.py#b@11111111` |",
+        "> > | claim | `a.py#b@11111111` |",
+        "1. | claim | `a.py#b@11111111` |",
+        ">| claim | `a.py#b@11111111` |",
+        "* + 2) | claim | `a.py#b@11111111` |",
+        "<!-- > | claim | `a.py#b@11111111` |",
+    ],
+)
+def test_a_row_inside_container_syntax_is_named_by_its_claim(line):
+    """#530. Whatever stands before a row's first pipe as blockquote, list or
+    comment syntax is the container, not the claim — the class, in any
+    combination and spaced or not, rather than the five single tokens round
+    3's paste-ready fix named (`agent-contract` §12)."""
+    assert settle.first_cell(line) == "claim", line
+
+
+def test_a_quoted_list_row_is_named_by_its_claim_in_the_report(tree):
+    """#530, through the command: the line a person reads names the claim, and
+    not the `> -` the row happens to stand behind."""
+    fold(tree, "1700000001-alpha")
+    ledger = tree / "seal" / "ledger.md"
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + f"\n> - {INSIDE_ROW}\n",
+        encoding="utf-8",
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert "a claim read in a round record" in text, text
+    assert "  > -\n" not in text and "  >\n" not in text, text
+
+
+@pytest.mark.parametrize(
+    "line, label",
+    [
+        # Green before and after: today's comment-opener arm, and a prefix
+        # that holds prose, which is left exactly as it was.
+        ("<!-- | claim | `a.py#b@11111111` |", "claim"),
+        ("see this row | claim | `a.py#b@11111111` |", "see this row"),
+        ("> note - | claim | `a.py#b@11111111` |", "> note -"),
+        ("1.5 | claim | `a.py#b@11111111` |", "1.5"),
+    ],
+)
+def test_a_prefix_that_is_not_container_syntax_keeps_todays_label(line, label):
+    assert settle.first_cell(line) == label, line
+
+
 def test_a_row_at_the_old_evidence_address_keeps_the_directory(tree):
     """The checker's third address, `docs/**/_evidence.md`, is still read, so
     a row there anchored inside a retiring directory is BROKEN after the

@@ -8,3 +8,6 @@ row and what an absent one means. -->
 |---|---|
 | Mode | shared |
 | Broad gate | bin/test -q && uvx ruff check . && uvx ruff format --check . |
+| Fold shape from | 1790154761 |
+| Document line ceiling | 1000 |
+| Over the ceiling | none |

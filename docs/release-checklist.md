@@ -132,7 +132,16 @@ settle
 
 It names the released work items whose `spec.md` no `docs/` policy has
 absorbed yet, grouped by the file their ledger rows anchor in. Read it, write
-one standing statement per segment into `docs/`, and then:
+one standing statement per segment into `docs/`, and hold what you wrote to
+the fold's two rules:
+
+```bash
+fold-check
+```
+
+It reads this repository's cutoff and ceiling from `seal/config.md` and names
+every statement out of shape and every document over the ceiling. Fix what it
+names while the specs are still on disk, and then:
 
 ```bash
 settle --retire

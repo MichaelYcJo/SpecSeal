@@ -2,155 +2,58 @@
 
 `skills/settle/SKILL.md` §2 gives a standing statement one shape: a bold rule
 sentence, its grounds, and exactly one line `Enforced by: <target>[, …]` or
-`Enforced by: nothing — <why>`. The plugin ships no checker for that shape;
-this module is this repository's own.
+`Enforced by: nothing — <why>`. The reader ships, as
+`skills/settle/scripts/fold_check.py` (`fold-check`); this module is this
+repository's pin over it — the planted statements below call the shipped
+functions, and the real-tree case runs them over this repository's `docs/`.
 
-**It binds only markers whose work-item id is at or above `SHAPE_CUTOFF`.**
-The 101 statements folded before #520 carry no such line, and retrofitting
-them is MichaelYcJo/SpecSeal#526's second item. Work-item ids are
-epoch-prefixed, so the cutoff is a comparison and needs no list of
-exemptions. `docs/the-evidence-ledger.md` states the value in prose, and
+**It binds only markers whose work-item id is at or above the cutoff**, which
+is this repository's `Fold shape from` row in `seal/config.md`.
+The statements folded before #520 carry no such line, and retrofitting them
+is MichaelYcJo/SpecSeal#565. Work-item ids are epoch-prefixed, so the cutoff
+is a comparison and needs no list of exemptions.
+`docs/the-evidence-ledger.md` states the value in prose, and
 `tests/test_a_document_has_room_for_the_next_fold.py` pins the prose against
-this constant.
+that row.
 
 What the check reads is presence, count and resolution: the bold opening, one
 live `Enforced by:` line, and that every target names a file that exists and,
 with `::name`, a `def` or `class` in it. It cannot read whether the target
 really enforces the rule, or whether the statement is true.
-
-Markers and live lines come from the fold's own reader,
-`skills/verify/scripts/unverified_check.py#live_lines` and `#FOLD_MARKER`.
 """
 
-import ast
 import importlib.util
 import os
-import re
+import subprocess
+import sys
+
+import pytest
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
-DOCS = os.path.join(ROOT, "docs")
-READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
+SCRIPT = os.path.join(ROOT, "skills", "settle", "scripts", "fold_check.py")
 SETTLE = os.path.join(ROOT, "skills", "settle", "SKILL.md")
 
-SHAPE_CUTOFF = 1790154761
-
-HEADING = re.compile(r"^ {0,3}#{1,6}(?:[ \t]|$)")
-BOLD_OPENING = re.compile(r"^\*{2,3}[^*\s]")
-ENFORCED = "Enforced by: "
-NOTHING = "nothing — "
+# The planted markers' own cutoff: `BOUND` below sits one above it and `OLD`
+# one below. It is not this repository's value, which is its `Fold shape from`
+# row and is read by the real-tree case through the command's own reader.
+CUTOFF = 1790154761
 
 
-def _reader():
-    spec = importlib.util.spec_from_file_location("unverified_check", READER)
+def _load():
+    spec = importlib.util.spec_from_file_location("specseal_fold_check", SCRIPT)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
 
 
-uc = _reader()
+fold_check = _load()
+statements = fold_check.statements
+target_problem = fold_check.target_problem
 
 
-def statements(text):
-    """`[(marker ids, the statement's live lines)]`, in document order.
-
-    Consecutive marker lines are one group. A statement runs from its markers
-    to the next marker, the next heading or the end of the file."""
-    found = []
-    current = None
-    previous_was_marker = False
-    for line, live in uc.live_lines(text.splitlines()):
-        if not live:
-            previous_was_marker = False
-            continue
-        ids = uc.FOLD_MARKER.findall(line)
-        if ids:
-            if previous_was_marker:
-                current[0].extend(ids)
-            else:
-                current = (list(ids), [])
-                found.append(current)
-            previous_was_marker = True
-            continue
-        previous_was_marker = False
-        if HEADING.match(line):
-            current = None
-            continue
-        if current is not None:
-            current[1].append(line)
-    return found
-
-
-def bound(ids):
-    """Whether any id in the group is at or above the cutoff."""
-    for work_item in ids:
-        prefix = work_item.split("-", 1)[0]
-        if prefix.isdigit() and int(prefix) >= SHAPE_CUTOFF:
-            return True
-    return False
-
-
-def target_problem(root, target):
-    """Why `target` does not resolve under `root`, or None when it does."""
-    target = target.strip().strip("`")
-    if not target:
-        return "an empty target"
-    path, _, name = target.partition("::")
-    # Both sides through `realpath`, so a symlink inside the root that opens
-    # a file outside it is outside, and a root reached through one is itself.
-    base = os.path.realpath(root)
-    full = os.path.realpath(os.path.join(base, *path.split("/")))
-    if os.path.commonpath([full, base]) != base:
-        return f"{path} is not a path inside the repository"
-    if not os.path.exists(full):
-        return f"{path} does not exist"
-    if not os.path.isfile(full):
-        return f"{path} is not a file in the repository"
-    if not name:
-        return None
-    if not path.endswith(".py"):
-        return f"{target}: `::name` needs a Python file"
-    with open(full, encoding="utf-8") as f:
-        tree = ast.parse(f.read())
-    kinds = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
-    if any(isinstance(n, kinds) and n.name == name for n in ast.walk(tree)):
-        return None
-    return f"{target}: no def or class named {name} in {path}"
-
-
-def shape_problems(root, name, text):
-    """What is wrong with the shape of each bound statement in `text`."""
-    problems = []
-    for ids, lines in statements(text):
-        if not bound(ids):
-            continue
-        where = f"{name}: the statement under {ids}"
-        body = [line for line in lines if line.strip()]
-        if not body or not BOLD_OPENING.match(body[0]):
-            problems.append(f"{where} does not open with a bold rule sentence")
-        enforced = [line for line in lines if line.startswith(ENFORCED)]
-        if len(enforced) != 1:
-            problems.append(
-                f"{where} carries {len(enforced)} `Enforced by:` lines, not one"
-            )
-            continue
-        value = enforced[0][len(ENFORCED) :].strip()
-        if value.startswith(NOTHING.strip()):
-            if not value[len(NOTHING.strip()) :].strip():
-                problems.append(f"{where} says `nothing` and gives no reason")
-            continue
-        for target in value.split(","):
-            problem = target_problem(root, target)
-            if problem:
-                problems.append(f"{where}: {problem}")
-    return problems
-
-
-def docs_documents():
-    return [
-        name
-        for name in sorted(os.listdir(DOCS))
-        if name.endswith(".md") and os.path.isfile(os.path.join(DOCS, name))
-    ]
+def shape_problems(root, name, text, cutoff=CUTOFF):
+    """The shipped check, at the planted markers' cutoff unless a case names one."""
+    return fold_check.shape_problems(root, name, text, cutoff)
 
 
 def read(path):
@@ -164,12 +67,16 @@ def read(path):
 def test_every_bound_statement_in_docs_has_the_shape():
     """A7. The walk has to have read markers, so a broken reader cannot pass
     on an empty walk; the ones folded before the cutoff are read and skipped."""
+    cutoff = fold_check.declared(fold_check.seal_home(ROOT))[0]
+    assert cutoff is not None, "this repository's seal/config.md declares no cutoff"
     problems = []
     groups = 0
-    for name in docs_documents():
-        text = read(os.path.join(DOCS, name))
+    # The shipped command's own listing, not a second spelling of it (round
+    # 1, note 8): what this case walks is what `fold-check` walks.
+    for rel in fold_check.documents(ROOT):
+        text = read(os.path.join(ROOT, *rel.split("/")))
         groups += len(statements(text))
-        problems += shape_problems(ROOT, "docs/" + name, text)
+        problems += shape_problems(ROOT, rel, text, cutoff)
     assert groups, "no fold marker was read under docs/"
     assert not problems, "\n".join(problems)
 
@@ -185,10 +92,14 @@ def test_settle_owns_the_shape_rule():
         "enforces\nit.**",
         "Enforced by: nothing — <why>",
         "**Stacked markers share one statement.**",
-        "It ships no checker for the shape",
+        "**What this plugin checks, and what it does not.** It ships\n`fold-check`",
+        "a row a repository does not write is a check it does not\nrun",
         "it is review's to find",
     ):
         assert phrase in section, f"settle §2 no longer says: {phrase!r}"
+    assert "ships no checker for the shape" not in section, (
+        "settle §2 still says the plugin ships no checker, beside the one it ships"
+    )
 
 
 # --- planted statements ------------------------------------------------------
@@ -332,3 +243,134 @@ def test_a_symlink_inside_the_root_that_leaves_it_is_named(tmp_path):
     symlink_or_skip(str(tmp_path / "outside.txt"), str(sub / "docs" / "link.txt"))
     found = planted(sub, "**Rule.**\nEnforced by: docs/link.txt\n")
     assert len(found) == 1 and "inside the repository" in found[0], found
+
+
+# --- the command -------------------------------------------------------------
+
+
+def command(*args):
+    """`fold-check` as a person types it, run on this interpreter."""
+    done = subprocess.run(
+        [sys.executable, SCRIPT, *args],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return done.returncode, done.stdout, done.stderr
+
+
+def planted_docs(tmp_path, body, marker=BOUND):
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "d.md").write_text(
+        f"# D\n\n## S\n\n{marker}\n{body}", encoding="utf-8"
+    )
+    return str(tmp_path)
+
+
+def test_the_command_names_a_bound_statement_with_no_line_and_exits_1(tmp_path):
+    """S2: the problem the module pins, printed by the command, at exit 1."""
+    root = planted_docs(tmp_path, "**Rule.** Grounds.\n")
+    code, out, err = command("--root", root, "--shape-from", str(CUTOFF))
+    assert code == 1, (code, out, err)
+    assert (
+        "docs/d.md: the statement under ['1790154762-a-later-fold'] carries 0 "
+        "`Enforced by:` lines, not one\n"
+    ) in out, out
+    assert (
+        f"read 1 statement in 1 document under docs/; the cutoff {CUTOFF} binds 1\n"
+    ) in out, out
+
+
+def test_the_command_exits_0_over_a_statement_with_the_shape(tmp_path):
+    root = planted_docs(tmp_path, "**Rule.**\nEnforced by: nothing — a reader\n")
+    code, out, err = command("--root", root, "--shape-from", str(CUTOFF))
+    assert code == 0, (code, out, err)
+    assert (
+        f"fold-check: `Document line ceiling` is not declared in {root}, which has "
+        "no seal/ root at either place, so no document's length was checked\n"
+    ) in out, out
+
+
+def test_shape_from_0_binds_a_statement_folded_before_any_cutoff(tmp_path):
+    """S6: the worklist #565 runs — every statement is bound, the old one too."""
+    root = planted_docs(tmp_path, "Rule, with no line.\n", marker=OLD)
+    code, out, _ = command("--root", root, "--shape-from", str(CUTOFF))
+    assert code == 0, out
+    code, out, _ = command("--root", root, "--shape-from", "0")
+    assert code == 1, out
+    assert "['1790154760-an-earlier-fold'] carries 0 `Enforced by:` lines" in out
+
+
+def test_the_command_exits_2_with_nothing_checked_on_an_unusable_root(tmp_path):
+    code, _, err = command("--root", str(tmp_path / "gone"), "--shape-from", "0")
+    assert code == 2 and "is not a directory — nothing was checked" in err, err
+    code, _, err = command("--root", str(tmp_path), "--shape-from", "0")
+    assert code == 2 and "has no docs/ directory — nothing was checked" in err, err
+
+
+# --- round 1 -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "content, reason",
+    [(b"def (:\n", "SyntaxError at line 1"), (b"x = 'caf\xe9'\n", "not UTF-8")],
+)
+def test_a_target_file_that_will_not_parse_exits_2_naming_it(tmp_path, content, reason):
+    """Round 1, finding 2: a target the reader cannot parse is not a result, so
+    it may not use exit 1, and it is no traceback either."""
+    root = planted_docs(tmp_path, "**Rule.**\nEnforced by: tests/bad.py::x\n")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "bad.py").write_bytes(content)
+    code, out, err = command("--root", root, "--shape-from", str(CUTOFF))
+    assert code == 2 and not out and "Traceback" not in err, (code, out, err)
+    assert err == (
+        "fold-check: docs/d.md: the statement under ['1790154762-a-later-fold'] "
+        f"names `tests/bad.py::x`, and tests/bad.py could not be read as Python "
+        f"({reason}) — no result was printed\n"
+    ), err
+
+
+@pytest.mark.parametrize("flag", [["--shape-from", "0"], ["--ceiling", "5"]])
+def test_a_document_that_is_not_utf8_exits_2_naming_it(tmp_path, flag):
+    """Round 1, finding 2, from each check that reads the document."""
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "d.md").write_bytes(b"caf\xe9\n")
+    code, out, err = command("--root", str(tmp_path), *flag)
+    assert code == 2 and not out and "Traceback" not in err, (code, out, err)
+    assert err == (
+        "fold-check: docs/d.md could not be read as text (not UTF-8) — no result "
+        "was printed\n"
+    ), err
+
+
+def test_a_script_copied_on_its_own_says_which_sibling_it_misses(tmp_path):
+    """Round 1, note 7: the refusal names what the missing file is for."""
+    copy = tmp_path / "fold_check.py"
+    copy.write_text(read(SCRIPT), encoding="utf-8")
+    (tmp_path / "docs").mkdir()
+    done = subprocess.run(
+        [sys.executable, str(copy), "--root", str(tmp_path)],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert done.returncode != 0 and "Traceback" not in done.stderr, done.stderr
+    assert "it is what finds the repository's seal/ root" in done.stderr, done.stderr
+    assert "fold's markers" not in done.stderr, done.stderr
+
+
+def test_the_refusal_reaches_a_hostile_console_as_utf8(tmp_path):
+    """Post-seal, CI's `windows-latest` leg: stderr was written in the
+    console's encoding, so the em dash arrived as cp1252 and read back as
+    `\\ufffd`. `PYTHONIOENCODING=ascii` is the sharpest such console and
+    reproduces it anywhere. The entry reconfigures stdio to UTF-8 before
+    `main()`, as every other shipped script does."""
+    done = subprocess.run(
+        [sys.executable, SCRIPT, "--root", str(tmp_path / "gone"), "--ceiling", "1"],
+        capture_output=True,
+        env={**os.environ, "PYTHONIOENCODING": "ascii"},
+    )
+    assert done.returncode == 2, done.stderr
+    assert "is not a directory — nothing was checked".encode() in done.stderr, (
+        done.stderr
+    )
