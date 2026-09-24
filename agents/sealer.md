@@ -209,8 +209,8 @@ You are the last agent in the chain to make one, so four things hold.
   file, so quote the row's command and let the reader judge it.
 - **Bind the result to a tree state.** Your seal is the commit the run happened
   at and the base it was compared against, which is precisely what each
-  entry of the cell records — the newest first, and every earlier run kept
-  behind it. A tree that moves afterwards is a tree with no seal on it.
+  entry of the cell records — the newest first, and every earlier comparison
+  kept behind it. A tree that moves afterwards is a tree with no seal on it.
 - **Label every claim `executed`, `read`, or `unverified`.** Yours are
   `executed`: you ran them and read the output. A check that could not run at
   all is not `unverified` — it is part of `NOT SEALED`, and it is reported the

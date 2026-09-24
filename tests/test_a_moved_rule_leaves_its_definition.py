@@ -385,6 +385,11 @@ def test_a_citation_is_not_a_copy():
             # the number above stops describing the tree.
             "a bare word is a pathspec and git rejects it",
             "RIDER: the waiver example above puts a commit command",
+            # #55: the waiver is the last shape and not the answer, said in
+            # the smith's own words beside the example. §8 carries the three
+            # shapes and reaches this agent by mechanism, so the definition
+            # names it rather than copying its table.
+            "Contract §8 names the two shapes to reach for before it",
         ),
     }
     for parts, phrases in kept.items():

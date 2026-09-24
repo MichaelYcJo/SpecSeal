@@ -3723,6 +3723,18 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     finding and the wrong enclosing unit, which is worse than firing wrongly:
     the reader is sent to a row that did not add the unit.
 
+    **Candidates are the units the range added in the file the finding's
+    Location resolves in, and no others** (#222). A case planted in another
+    file -- a test pinning a fix made inside an earlier round's unit -- is
+    never a candidate, so it is never at depth 2. That scoping is what keeps
+    this rule and `skills/agent-contract/SKILL.md` §15 consistent: every new
+    case has to be seen red, which means it has to exist, and measured by
+    unit alone, no fix inside a unit an earlier round added could ever be
+    pinned by a case. It is not an exemption for tests. A finding located
+    inside a unit an earlier round added to a test file still refuses a new
+    unit added in that test file, because the rule is about the finding's
+    file and not about what kind of file it is.
+
     **A unit whose adder resolves to no candidate row is at depth 1**, and
     this rule has nothing to say about it (round 1's 🟡 3). `unit_adders`
     resolves every `fixed` commit's units, including those added by findings
@@ -3953,7 +3965,9 @@ def close(args):
         [units_entry(n, 1) for n in dict.fromkeys(n for _r, n in added)],
     )
     # Through the same path as `seal` (round 1's 🟡 1): a run the cell
-    # already holds is kept behind the new entry by either writer.
+    # already holds is kept behind the new entry by either writer, and the
+    # newest, where it is the same commit against the same base, is replaced
+    # by either (`same_run`).
     gate = (
         cell(
             BROAD_GATE,
@@ -4517,6 +4531,8 @@ def seal(args):
     # kept behind the new one as `earlier run`, because a second broad run --
     # after a pre-existing failure, or after the last fixes landed -- used to
     # REPLACE the first and the run-level table was then filled from memory.
+    # The newest entry alone is replaced, where it is the same commit against
+    # the same base (`same_run`).
     # `kept_broad_gate` is the one path, shared with `close --broad-gate`.
     value = kept_broad_gate(reader, rows, args.broad_gate)
     if n is None:

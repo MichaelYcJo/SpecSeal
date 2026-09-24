@@ -74,6 +74,17 @@ kills — restoring the module from held bytes and comparing the sha256 after
 every mutation, never with `git checkout`, which reaches the uncommitted work
 in the rest of the tree.
 
+**`--timeout` bounds the wait, and not the work.** Each operator's command is
+waited for at most 900 seconds by default (`--timeout 0` removes the bound),
+and an arm asks two operators, so one arm can take twice that. When the bound
+is reached, only the command's own process is killed. The wrapper form above is
+the one that leaks: `bin/test` execs `.github/scripts/run_tests.py`, which runs
+pytest as a child of its own, so a timed-out pair leaves that suite running,
+unbounded and unreported, beside every arm after it. Against a module whose
+suite can approach the bound, name the pytest command in `--tests` directly
+rather than the wrapper. Whether the bound should reach the whole process group
+is #313.
+
 **There are two ways to be wrong and the counts differ by a lot**, so the
 report keeps them apart and the number you quote has to say which one it is:
 
@@ -352,12 +363,13 @@ sees neither, and nothing else about its run changes.
 **What the count does not say** is whether a mirrored arm asks the same
 question its step asks. The partition says a step is on the list; two readers
 of one question can still disagree about what they are checking. **#473 is
-the work item about that class**, opened with the one live instance this
-repository has: the gate runs the `survivors` and `corrections` arms
-unconditionally where the workflow skips both steps on a `main` base.
+the work item about that class**, opened with the one live instance in the
+repository this plugin is developed in: the gate runs the `survivors` and
+`corrections` arms unconditionally where SpecSeal's own workflow skips both
+steps on a `main` base.
 
 **The arms the plugin ships are the arms the gate can run.** Four steps of
-this repository's `release` job have a local answer and no arm: three run a
+SpecSeal's own `release` job have a local answer and no arm: three run a
 script under `.github/scripts/`, which no plugin ships, and one is shell
 written inline in the workflow with no script either side can share. A
 repository that wants checks of its own sealed names them in the `Broad gate`

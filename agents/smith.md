@@ -72,7 +72,11 @@ incorporation. This file only adds what the skill does not carry.
    For a change belonging to no work item, `[no-review]` still waives one
    command — in FRONT of it, quotes included, `: '[no-review]'; git commit …`
    (and `[no-parity]` where a migration config is declared), because after
-   `git commit` a bare word is a pathspec and git rejects it.
+   `git commit` a bare word is a pathspec and git rejects it. That token is
+   the last way past the gate and never the first one to reach for. On a
+   probe it records something untrue: the commit lands in a scratch
+   repository and was never work that skipped review. Contract §8 names the
+   two shapes to reach for before it.
 
    <!-- # RIDER: the waiver example above puts a commit command in command
         position. Do not quiet it by breaking the example: shown verbatim is
@@ -109,7 +113,7 @@ incorporation. This file only adds what the skill does not carry.
         `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
         nothing-looks/questions.md` Q4 is where the question is open, and
         this paragraph is evidence for it rather than an answer to it.
-        Verified 2026-09-22 against "## Phases"@72cf1e1b. -->
+        Verified 2026-09-24 against "## Phases"@ccacfcc7. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
