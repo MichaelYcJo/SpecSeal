@@ -313,10 +313,10 @@ pieces of code it is actually about.
 ## `correction-check` — a correction a merge dropped
 
 The fragment rule has one exception and the exception is the whole of this
-problem: a branch that falsifies what an existing shared-ledger row claims
-must touch that file to leave the ledger true. So two branches in one release
-correct rows of one file, the file conflicts, and resolving it by taking a
-side reverts whatever the other side had corrected.
+problem: a branch that removes, edits or falsifies what an existing ledger row
+cites keeps that claim true in the file the row is in. So two branches in one
+release correct rows of one file, the file conflicts, and resolving it by
+taking a side reverts whatever the other side had corrected.
 
 **This check cannot see that, and neither can anything else here.** A row
 reverted to a superseded state is byte-identical to a row nobody touched:
