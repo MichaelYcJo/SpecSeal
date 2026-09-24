@@ -210,7 +210,7 @@ refuses it once the fold has emptied `seal/ledger/`.
 ```
 
 
-**Orchestrator's note on 🟡 1's verdict, 2026-09-24.** The reviewer wrote `deferred` because the spawn prompt said to defer anything this last round opened. That instruction contradicted `docs/review-chain-spec.md` §*The cap bounds rounds, and not the fixes of the round it stopped*: the paragraph at `docs/release-checklist.md:155` was written inside this run's own fix range (3f5e9d75), so the branch owns it and fixes it whatever round it surfaced in, and one verifying round reads the fix. The verdict is therefore `open`; the reviewer's own text above already named that section as the question.
+**Orchestrator's note on 🟡 1's verdict, 2026-09-24, corrected the same day.** An earlier version of this note reopened the finding as the branch's under `docs/review-chain-spec.md` §*The cap bounds rounds, and not the fixes of the round it stopped*. That was wrong: the table in that section gives the fix permission to the round cap alone, and this run ended at the reopening bound (round 2 reopened it), whose terminal record commissions nothing — the reviewer's `deferred` was right. The fix written on the strength of the wrong note (24f997b4) was taken back off the branch, kept under `refs/backup/547-before-cap-revert`, and carried whole by MichaelYcJo/SpecSeal#561, which the 0.15.1 document item takes before the release runs step 2. The finding closes as `deferred #561`.
 
 Needs a fix: yes — 🟡 1 (the release checklist's before-and-after table-line comparison has no step before the split and misfires in zsh after the fold)
 Loses a record or crashes: no
