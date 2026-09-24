@@ -68,9 +68,14 @@ rule.
 **A `|` inside a ledger cell is escaped, and a row with more cells than its
 table's header fails.** An unescaped pipe splits the row, and the text after it
 lands in the next column, so a claim runs into its grounds and a date into its
-notes. At `31937b9f`, 22 rows stood split that way, three of them a second
-date-and-notes pair written into one Notes cell (#562). The case reads the
-shared file, every release file and every fragment.
+notes. At `31937b9f`, 22 rows stood split that way: two of them carried a
+second date-and-notes pair in one Notes cell, and one a Notes cell split in
+three (#562; #568 joined each into one reading). A row under no header is
+counted against the five columns `templates/ledger.md` declares for a ledger
+row, because a fragment has no header by rule and the fold copies it into its
+release file as it stands — without that width, every fragment row was read
+and none was counted (#501). The case reads the shared file, every release
+file and every fragment.
 Enforced by: tests/test_release_hygiene.py::overwide_rows
 
 ## What the checker refuses, and what it says while refusing
@@ -189,7 +194,7 @@ comparison rather than a list. Statements from earlier work items carry no
 those of work items released with it or still waiting from before it. Those
 101 were written with no line naming what reads any of them, and review found
 one of them false.
-Enforced by: tests/test_a_folded_statement_names_what_enforces_it.py::bound
+Enforced by: skills/settle/scripts/fold_check.py::bound, tests/test_a_folded_statement_names_what_enforces_it.py::test_every_bound_statement_in_docs_has_the_shape
 
 <!-- specs/1790154761-folded-statements-pile-into-one-spec -->
 <!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
@@ -202,9 +207,11 @@ document is over the ceiling now, so none is listed. The one that was,
 MichaelYcJo/SpecSeal#526 into itself, `docs/commit-review-gate-spec.md` and
 `docs/round-record-spec.md`, its fold markers carried across whole. A
 document the next fold would take past the ceiling is split the same way
-first, or the rule goes to the document for its own sub-subject. The check
-also pins the cutoff, the ceiling and the empty list against its constants.
-Enforced by: tests/test_a_document_has_room_for_the_next_fold.py::ceiling_problems
+first, or the rule goes to the document for its own sub-subject. The cutoff,
+the ceiling and the empty list are rows of this repository's `seal/config.md`,
+which `fold-check` reads, and a pin holds the rows and this section to the same
+numbers.
+Enforced by: skills/settle/scripts/fold_check.py::ceiling_problems, tests/test_a_document_has_room_for_the_next_fold.py::test_the_evidence_ledger_states_the_values_the_config_rows_hold
 
 <!-- specs/1790154761-folded-statements-pile-into-one-spec -->
 **A fold into a document with a `.ko.md` edition is a fold into both, under the

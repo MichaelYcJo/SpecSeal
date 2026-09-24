@@ -175,12 +175,18 @@ Enforced by: tests/test_config_rows.py::test_an_escaped_pipe_is_content
 - `Enforced by:` is a field name, so it stays English in every edition of a
   document, like every other name a checker matches.
 
-**What this plugin does not check.** It ships no checker for the shape, the
-same way it ships none for *only what is still true*; a repository that wants
-the shape held writes its own check, and says where the shape starts to bind,
-because statements folded before it will not carry the line. Nor can any check
-tell that two standing statements contradict each other. That takes a reader
-who knows what both mean, and it is review's to find.
+**What this plugin checks, and what it does not.** It ships
+`fold-check` (`skills/settle/scripts/fold_check.py`), which reads the shape
+over the top level of `docs/`: the bold opening, one `Enforced by:` line, and
+that each target names a file, and a `def` or `class` where it says `::name`.
+It sets no value. A repository says where the shape starts to bind, because
+statements folded before it will not carry the line, as a `Fold shape from`
+row in `seal/config.md`; `templates/config.md` §*The fold's values* says what
+each row accepts, and a row a repository does not write is a check it does not
+run. Whether a target really enforces the rule is not read, the same way
+*only what is still true* is not. Nor can any check tell that two standing
+statements contradict each other. That takes a reader who knows what both
+mean, and it is review's to find.
 
 **One subject, one document, and a document over its ceiling takes no new
 statement.** A rule goes into the document that owns its subject, so a reader
@@ -189,8 +195,11 @@ file. A repository may set a ceiling on how large a document grows. A document
 above that ceiling takes no new standing statement: the fold either splits it
 first, along the headings it already has, or places the rule in the document
 for the rule's own sub-subject, created only where none exists. The plugin sets
-no ceiling; the repository states its value and the check that holds it, in
-the document that describes its own fold.
+no ceiling; the repository states its value as a `Document line ceiling` row,
+which `fold-check` holds every top-level `docs/*.md` to, and says what the
+value is in the document that describes its own fold. A document already over
+it is listed in an `Over the ceiling` row with its fold markers frozen until
+the home it names splits it.
 
 ### 3. Answer every check that reads the corpus
 
@@ -276,6 +285,13 @@ way.
 
 **An answer for every check that reads the corpus** (§3), and for every row
 `settle` names as anchored (§4).
+
+**A clean `fold-check` where either row is declared.** Run it after the prose
+is written and before `settle --retire`: it reads the statements this fold
+just wrote, and a statement out of shape or a document the fold took past its
+ceiling is cheaper to fix while the spec it came from is still on disk. Where
+the repository declares neither row, the command says so and checks nothing,
+which is not a finding.
 
 **`seal/ledger.md` changes only by removal and re-verification.** So does
 every `seal/releases/<X.Y.Z>.md`, where this repository's fold writes a
