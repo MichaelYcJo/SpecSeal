@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 589 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `34bee5dbe22315fbeb947778b96019ef6e16b58d..cc0a2c7cbc5c26b203c6f058a175fcdf3cb32a6c`, 2 commits |
+| Contract changes | hook → round-2-report.md, round-2.md, local_specs, on_its_branch, pytest |
+| New units | test_a_missing_common_dir_reader_refuses_rather_than_placing_nothing (depth 1) |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -32,10 +32,10 @@ Round 2 of work item 1790260564 is the verifying round: the diff of round 1's fi
 | 🟢 | round 1's note 6, first half, is closed — `local_specs` reads the common directory through `hooks/optin.py` | `skills/code-review/scripts/survivor_check.py:1382` | confirmed | read against `hooks/optin.py:99-127`; O1 main, linked and symlinked pass; the second half is this round's ⬜ 2 |
 | 🟢 | the fix pass's `survivors.md` row for `hooks/review-skill-gate.py:104` | `seal/specs/1790260564-a-moved-file-counts-as-written/survivors.md` | confirmed | read the comment, true of `git_dir`; executed the fix range: exit 1 without the row, exit 0 with it |
 | ❓ | round 1's question on the settle fold's verbatim arrival in `docs/` | `skills/code-review/scripts/survivor_check.py:1047` | ❓ out of verified scope | carried from round 1: not in the fix diff and not answered by the fix pass; the orchestrator answers whether it is #563's class and where it goes |
-| ⬜ 1 | two parentheticals in `whole_range` and `report` state the pre-cut rule, a 121-character line, and the #554 test comment | `skills/code-review/scripts/survivor_check.py:1589` | open | executed: an unresolved stacked-child row prints nothing on the parent's run although its branch holds the tip; behaviour matches U1, the prose does not |
-| ⬜ 2 | `routing.py` is still executed once per declaration; round 1's note 6 is recorded fixed as a whole | `skills/code-review/scripts/survivor_check.py:1413` | open | read: `hook(ROUTING, …)` is `on_its_branch`'s first line |
-| ⬜ 3 | the `hook` refusal says `optin.py` decides whose a declaration is, and no case pins the `optin.py` refusal | `skills/code-review/scripts/survivor_check.py:1366` | open | executed: `OPTIN` pointed at a missing file refuses with that sentence, in shared mode too |
-| ⬜ 4 | a parent run from a detached HEAD with no local head is excused by a stacked child's row | `skills/code-review/scripts/survivor_check.py:1432` | open | executed: exit 0, excused; the same range as the child's own older-tip run, so the documented *no local branch* bound; the orchestrator answers whether O1's residual names it |
+| ⬜ 1 | two parentheticals in `whole_range` and `report` state the pre-cut rule, a 121-character line, and the #554 test comment | `skills/code-review/scripts/survivor_check.py:1589` | **fixed** `d81e801f` | fixed at d81e801f — cc0a2c7c; executed: an unresolved stacked-child row prints nothing on the parent's run although its branch holds the tip; behaviour matches U1, the prose does not |
+| ⬜ 2 | `routing.py` is still executed once per declaration; round 1's note 6 is recorded fixed as a whole | `skills/code-review/scripts/survivor_check.py:1413` | answered | no code change; round 1's sixth verdict was corrected in the record at 34bee5db, and routing.py's per-declaration load stays as instructed; read: `hook(ROUTING, …)` is `on_its_branch`'s first line |
+| ⬜ 3 | the `hook` refusal says `optin.py` decides whose a declaration is, and no case pins the `optin.py` refusal | `skills/code-review/scripts/survivor_check.py:1366` | **fixed** `d81e801f` | fixed at d81e801f; executed: `OPTIN` pointed at a missing file refuses with that sentence, in shared mode too |
+| ⬜ 4 | a parent run from a detached HEAD with no local head is excused by a stacked child's row | `skills/code-review/scripts/survivor_check.py:1432` | answered | no code change; overview.md's Not done names the detached-HEAD parent run as the documented no-local-branch bound, added at d81e801f; executed: exit 0, excused; the same range as the child's own older-tip run, so the documented *no local branch* bound; the orchestrator answers whether O1's residual names it |
 
 ## Paste-ready fixes
 
