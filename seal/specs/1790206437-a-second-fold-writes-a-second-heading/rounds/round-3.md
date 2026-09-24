@@ -7,14 +7,14 @@
 | Ran by | warden on Opus 5.5 |
 | PR | 552 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `74a93fea352de078ad7540a994d0367ee60a3d21..013a5278afcf878e868e0fc1c7b1a0a2cecd1670`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 9, the two `round_record.py` comments that state the pre-`same_run` rule; deferred to #556 because the run is capped |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -25,7 +25,7 @@ Round 3, the last round of the run — round 2 opened a 🟡 and spent the one r
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
 | 🟡 9 | two comments above the `kept_broad_gate` call say a held run is kept, with no same-run replace — #542's class in #542's file, which phase 3's grep terms did not match | `skills/code-review/scripts/round_record.py:3955-3956`, `:4516-4519` (and `agents/sealer.md:189`, weaker) | deferred #556 | read — `kept_broad_gate` drops `entries[0]` on `same_run`; `:3955-3956` is word for word the `orchestration.md` sentence phase 3 judged *same falsehood* and reworded; phase 3's grep terms (`phases/phase-3.md`) do not match *is kept behind*; the enclosing units `close` and `seal` predate the work item, so the cap defers it; a new issue the orchestrator files |
-| ⬜ 10 | #553's correcting comment gives the target's twenty pairs as *at 9f846733* | issue #553, the comment of 2026-09-24T00:53:35Z | open | executed — pairs recounted at 9f846733 and 74a93fea; the comment's update time equals its creation time; the body is correct; the orchestrator's, outside the tree, out of `Needs a fix` |
+| ⬜ 10 | #553's correcting comment gives the target's twenty pairs as *at 9f846733* | issue #553, the comment of 2026-09-24T00:53:35Z | answered | corrected outside the tree by the orchestrator: #553's correcting comment no longer lists the tip's pair lines under *at 9f846733*; it points at the issue body, which lists them at 9f846733 and names the two-line shift; executed — pairs recounted at 9f846733 and 74a93fea; the comment's update time equals its creation time; the body is correct; the orchestrator's, outside the tree, out of `Needs a fix` |
 | 🟢 | round 2's 🟡 5 is closed — every in-tree carrier states the measured thirty-one minutes, with `bee7ae99` as the preparation commit | `tests/test_release_hygiene.py:1117-1123`, `tests/test_the_ledger_fragments_fold_at_release.py:314-318`, fragment row F3, `spec.md:16-22`, `questions.md:13-15` | verified | executed — `git log -1 --date=iso-strict` and `TZ=UTC` on both commits (02:04:21 and 02:35:35 +0900; 17:04:21 and 17:35:35 UTC on 2026-09-08); `4ac9bf35` the child of `bee7ae99`; both headings `2026-09-08`; no *day after*, *next day* or similar on this subject in the tree outside the round records |
 | 🟢 | round 2's ⬜ 6 is closed — the five rewordings name the newest entry as the one a same comparison replaces | `agents/sealer.md:139-143`, `docs/review-chain-spec.md:341-346`, `skills/code-review/scripts/chain_check.py:3662-3669`, `skills/code-review/orchestration.md:527-529`, `:536-539` | verified | read against `kept_broad_gate` and `same_run(entries[0], value)`; the handoff-protocol row, the template row, the written comment and the docstring were already precise; executed — `survivor-check` over the fix range, 24 removed sentences, none standing; the narrow modules green |
 | 🟢 | round 2's ⬜ 7 is answered — #553's title and body say twenty and list 9f846733's pairs | issue #553 | answered | executed — `gh issue view 553`; the twenty pairs recounted at 9f846733 match the body; the comment's leftover is ⬜ 10 |
