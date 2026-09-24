@@ -354,6 +354,15 @@ def test_a_root_that_declares_neither_value_checks_nothing_and_says_so(tmp_path)
     ), out
 
 
+def test_a_row_with_an_empty_value_is_not_declared(tmp_path):
+    """The template writes a row it leaves open with an empty cell, as it does
+    `Mode` and `Broad gate`; an empty cell is no value, not a bad one."""
+    root = config_root(tmp_path, [("Fold shape from", ""), ("Over the ceiling", "")])
+    code, out, err = command("--root", root)
+    assert code == 0, (out, err)
+    assert "neither `Fold shape from` nor `Document line ceiling` is declared" in out
+
+
 def test_one_absent_row_skips_its_check_and_says_which(tmp_path):
     root = config_root(tmp_path, [("Document line ceiling", "10")])
     code, out, _ = command("--root", root)
