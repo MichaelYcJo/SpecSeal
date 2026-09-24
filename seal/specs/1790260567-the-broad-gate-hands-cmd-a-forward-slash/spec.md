@@ -163,7 +163,7 @@ that case red.
   `COMSPEC` as arguments, following `quote(path, windows=None)`. `run` calls
   it when `shell=True`. `Check` may carry what was handed. `failure_lines`
   gains the no-summary line. **`gate` is not edited.** Five ledger rows cite
-  `broad_gate.py#gate@79c16119` (`seal/releases/0.10.0.md` S7 and S12,
+  `skills/verify/scripts/broad_gate.py#gate@79c16119` (`seal/releases/0.10.0.md` S7 and S12,
   `0.12.0.md`, `0.12.2.md` R2 and G3), and nothing in scope needs it to
   change. `run`, `failure_lines` and `Check` have no row. If `compare_at_base`,
   `first_command` or `quote` is edited after all, the rows citing them in
