@@ -166,10 +166,13 @@ release was measured on carried exactly that report. The region is read off
 the heading rather than the file being left out by path, so an
 `## Unreleased` section and an ungathered fragment stay in -- they are this
 release's own prose, the thing the sweep is for. In the range, a release's
-gathering commit deletes each fragment and writes its text under a heading
-that is blanked, so without this the fragments' every sentence would count
-as removed and the work items' own `spec.md` and `overview.md` would be
-reported at the release.
+gathering commit writes each fragment's text under a heading that is
+blanked. This repository's gatherer leaves the fragment in place; one that
+deletes it, or a range that edits a gathered one, would without this count
+the fragment's sentences as removed, and the work items' own `spec.md` and
+`overview.md` would be reported at the release. The gathered text is held
+at the release and never written (#557): the fragment's own branch wrote
+it, so it may not subtract a survivor the same commit's correction left.
 
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
@@ -813,10 +816,12 @@ def a_gathered_fragment(path, gathered):
     """True for `seal/specs/<id>/changelog.md` whose `<id>` is in `gathered`.
 
     A gathered fragment is the released entry one file over: its text stands
-    verbatim under a version heading of `CHANGELOG.md`, and the release that
-    gathered it is what retires the file. So it is out of the pool and out of
-    the range on both sides, the way a released section is -- and an
-    ungathered fragment is in, because it is this release's own prose.
+    verbatim under a version heading of `CHANGELOG.md`, whether the release
+    that gathered it leaves the file standing, as this repository's gatherer
+    does until `settle` retires the work item, or deletes it. So it is out
+    of the pool and out of the range on both sides, the way a released
+    section is -- and an ungathered fragment is in, because it is this
+    release's own prose.
 
     A sibling of `records_a_past_state` rather than a parameter on it,
     because that predicate is a pure function of the path and this one is
@@ -961,16 +966,22 @@ def corrected(root, a, b):
     fresh wording is written, as any file's is: an entry reworded as it is
     released splits the removed sentence into the runs it no longer shares,
     and withholding it would merge them into one that never clears the
-    floor. A release that removes no live sentence writes nothing, which
-    keeps a gathered release's text out of `written`."""
+    floor. A gathered fragment's text is held and never written, because
+    the fragment's own branch wrote it, not this range: a release that
+    renames `## Unreleased` or rewords an entry loses a sentence, and
+    the gathered wording would then subtract the survivor a correction
+    in the same commit left standing in another file (round 3's 🟡 1,
+    #557). A release that removes no live sentence writes nothing at all."""
     names = git(root, "diff", "--name-only", "--no-renames", "-z", a, b)
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
     # A fragment gathered at the tip is out on both sides too (#307): the
-    # range that gathers it deletes it and writes its text under a version
-    # heading, which is blanked, so left in the list every sentence of the
-    # fragment would count as removed and its live copies -- the work item's
-    # own `spec.md` and `overview.md` -- would be reported at the release.
+    # range that gathers it writes its text under a version heading, which
+    # is blanked. This repository's gatherer leaves the fragment where it
+    # is, and one that deletes it, or a range that edits a gathered one,
+    # would otherwise put the fragment's sentences in the list as removed,
+    # and their live copies -- the work item's own `spec.md` and
+    # `overview.md` -- would be reported at the release.
     gathered = gathered_fragments(root, b)
     paths = [
         path
@@ -989,6 +1000,17 @@ def corrected(root, a, b):
     ]
     before = read_blobs(root, a, paths)
     after = read_blobs(root, b, paths)
+    # A gathered fragment's text stands under a version heading at `b`, and
+    # this range did not write it -- the fragment's own branch did. Read at
+    # `a` by the path the gatherer globs, where it stands whether the release
+    # leaves the fragment or deletes it, so `moved` below can hold that text
+    # without writing it.
+    fragments = [f"seal/specs/{item}/changelog.md" for item in sorted(gathered)]
+    shipped = {
+        sentence.key
+        for path, text in read_blobs(root, a, fragments).items()
+        for sentence in sentences(path, text)
+    }
     gone, written = [], set()
     for path in paths:
         was = sentences(path, before[path]) if path in before else []
@@ -1010,6 +1032,11 @@ def corrected(root, a, b):
             # Nothing of this file was removed, so there is nothing the moved
             # section's wording could split; a gathered release writes none.
             moved = []
+        # Held above like any released sentence, never written: a release
+        # that renames `## Unreleased` or rewords an entry loses a sentence,
+        # and the gathered text would then subtract the survivor a
+        # correction in the same commit left standing in another file.
+        moved = [sentence for sentence in moved if sentence.key not in shipped]
         old = Counter(s.key for s in was)
         fresh = Counter()
         for sentence in now + moved:

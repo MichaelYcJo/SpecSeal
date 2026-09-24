@@ -2756,6 +2756,142 @@ def test_a_sentence_in_an_older_release_does_not_hold_the_unreleased_one(tmp_pat
     assert "docs/a.md" in text, text
 
 
+def test_a_release_that_renames_unreleased_and_gathers_still_reports(tmp_path):
+    """Round 3's 🟡 1. The release renames `## Unreleased` to a version and
+    gathers a fragment into the same section, and the same commit corrects
+    `docs/a.md`. The renamed heading is a lost sentence, so the moved
+    section's fresh wording is written -- and the gathered fragment's text,
+    which quotes the old wording, must not be written with it, or it
+    subtracts the survivor standing in `docs/b.md`. The fragment stays, as
+    the gatherer leaves it. Red at 0c335744: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a fragment quoting the claim, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0], f"{FOUND}\n\n- {entry}", marker=True
+            )
+            + f"\n{older}",
+        },
+        "release 1.0.0: rename Unreleased, gather the fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered fragment's text was written back with the renamed "
+        f"section and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_release_that_gathers_and_deletes_the_fragment_still_reports(tmp_path):
+    """H1. The release above, by a gatherer that deletes the fragment it
+    gathered. Nothing of the fragment stands at the range's tip, so the text
+    to hold is read where it still stands, at the range's left end. Read at
+    the tip instead, the held set is empty, the gathered wording is written
+    and the survivor in `docs/b.md` is subtracted: exit 0. Red at 61f0d0d8
+    (exit 0, `against 2 sentence(s)`), and red under that mutation."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a fragment quoting the claim, two documents",
+    )
+    os.remove(repo / FRAGMENT)
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0], f"{FOUND}\n\n- {entry}", marker=True
+            )
+            + f"\n{older}",
+        },
+        "release 1.0.0: rename Unreleased, gather and delete the fragment",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the deleted fragment's gathered text was written back with the "
+        f"renamed section and subtracted the survivor in docs/b.md; exit {code}\n"
+        f"{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_release_that_rewords_an_entry_and_gathers_still_reports(tmp_path):
+    """H2k. `## Unreleased` stays, its entry is reworded as it is released
+    under a new version heading, and a fragment is gathered into the same
+    section and left in place. The reworded entry is a lost sentence, so the
+    released wording is written, as round 2's reworded-release case needs --
+    all of it but the gathered fragment's, which quotes the wording the same
+    commit corrected in `docs/a.md`. Red at 61f0d0d8: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    reworded = "The frobnicator now refuses a negative width and names the flag."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    marker = f"<!-- specs/{os.path.basename(SHIPPED)} -->"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a fragment quoting the claim, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n{RELEASED_HEADINGS[0]}\n{marker}\n\n"
+                f"### Fixed\n\n- {FOUND}\n\n- {reworded}\n\n{older}"
+            ),
+        },
+        "release 1.0.0: keep Unreleased, reword its entry, gather the fragment",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered fragment's text was written back with the reworded "
+        f"release and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
 def test_a_gathered_fragment_standing_in_the_pool_is_not_a_survivor(tmp_path):
     """S10, the pool side. The fragment's marker is in `CHANGELOG.md` at the
     tip, so the fragment is the released entry one file over and is not
