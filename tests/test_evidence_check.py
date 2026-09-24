@@ -436,3 +436,105 @@ def test_the_ledger_flag_overrides_the_resolver_either_way(proj):
     r = run(["--ledger", "SPEC.md", "."], proj)
     assert "SPEC.md" in r.stdout and "1 ok" in r.stdout and r.returncode == 0
     assert "gone" not in r.stdout, "the resolved default was read beside --ledger"
+
+
+# --- #444: a row inside a closed fence is an example, not a claim ----------
+
+FENCED_EXAMPLE = (
+    "A row looks like this:\n\n"
+    "```markdown\n"
+    "| X | `nosuchfile.py#nothing@deadbeef` | read | 2026-01-01 | |\n"
+    "| Y | `src/service.py#handler@00000000` | old `src/service.py:1-2` 2026-01-01 abcdef1 | |\n"
+    "```\n\n"
+)
+
+
+def test_a_fenced_example_row_is_not_checked(proj):
+    """S1, #444's reproduction. A ledger that explains its own row format
+    shows an example row in a fenced block, and nobody wrote that row. Seen
+    red against `c52e8350`: `BROKEN  nosuchfile.py#nothing  file not found`
+    and exit 2 — the broad gate failing over an example."""
+    ledger(proj, FENCED_EXAMPLE + f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    r = run(["--strict", "."], proj)
+    assert "nosuchfile" not in r.stdout, r.stdout
+    assert "OLD-FORMAT" not in r.stdout, r.stdout
+    assert "1 ok · 0 drifted · 0 broken" in r.stdout and r.returncode == 0, r.stdout
+
+
+def test_the_writers_leave_a_fenced_example_byte_for_byte(proj):
+    """S2. `--reverify` rewrites a hash by position and `--migrate` rewrites an
+    old `path:line` row, and neither may touch an example: a person's example
+    that `--reverify` rewrote would stop showing the shape it was written to
+    show. Seen red against `c52e8350`: `--reverify` rewrote the fenced
+    `00000000` and `--migrate` rewrote the fenced `src/service.py:1-2`."""
+    path = ledger(
+        proj,
+        FENCED_EXAMPLE
+        + "| POL-1 | `src/service.py#handler@00000000` |\n"
+        + "| POL-2 | old `src/service.py:1-2` 2026-01-01 |\n",
+    )
+    fenced = FENCED_EXAMPLE
+    r = run(["--reverify", "."], proj)
+    assert r.returncode == 0, r.stdout
+    after = path.read_text()
+    assert fenced in after, after
+    assert f"`src/service.py#handler@{GOOD}` |\n| POL-2" in after, after
+    r = run(["--migrate", "."], proj)
+    after = path.read_text()
+    assert fenced in after, after
+    assert "| POL-2 | old `src/service.py#handler@" in after, after
+
+
+def test_an_unclosed_fence_still_holds_its_rows(proj):
+    """S3, which pins the direction rather than a change: only a block that
+    closes is certainly a quotation. A fence the author never closed runs to
+    the end of the file, and reading nothing from there on would pass a
+    broken row in silence. Passes before and after #444."""
+    ledger(
+        proj,
+        "```markdown\nan example the author never closed\n\n"
+        "| POL-1 | `src/gone.py#handler@00000000` |\n",
+    )
+    r = run(["."], proj)
+    assert "BROKEN   src/gone.py#handler" in r.stdout and r.returncode == 2, r.stdout
+
+
+def test_a_vendored_copy_skips_a_fenced_example_too(proj, tmp_path):
+    """The copy `evidence-ci` puts alone in `tools/` has no shared reader
+    beside it, so it asks its own pair of delimiter functions. The verdict
+    must be the plugin's."""
+    copy = vendored_copy(tmp_path)
+    ledger(proj, FENCED_EXAMPLE + f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    r = subprocess.run(
+        [sys.executable, str(copy), "--strict", "."],
+        cwd=str(proj),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert "nosuchfile" not in r.stdout and r.returncode == 0, r.stdout
+
+
+def test_the_vendored_fence_rule_agrees_with_the_shared_one():
+    """The vendored pair is a second copy of `unverified_check.py`'s
+    delimiter rule, kept for the one reason `hooks/config.py#FENCE` keeps its
+    own: the copy cannot load the reader. This holds the two in step over the
+    shape table the config reader's agreement case walks, opener and closer
+    alike."""
+    import importlib.util
+
+    from test_unverified_rows_close import FENCE_SHAPES, uc
+
+    spec = importlib.util.spec_from_file_location("ec_vendored_rule", SCRIPT)
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
+    assert ec.fence_rule()[0].__module__ == "specseal_unverified_reader", (
+        "the plugin's copy must ask the shared reader, not its vendored pair"
+    )
+    lines = {line for shape in FENCE_SHAPES for line in shape}
+    for line in lines:
+        assert ec.vendored_fence_opener(line) == uc.fence_opener(line), line
+        for opener in {uc.fence_opener(o) for o in lines} - {None}:
+            assert ec.vendored_fence_closes(line, opener) == uc.fence_closes(
+                line, opener
+            ), (line, opener)

@@ -238,7 +238,12 @@ def fence_opener(line):
     pattern of its own, because five spellings of this rule is what five
     readers had. The readers that ask it: `fence_spans` and through it
     `blank_fences` and `closed_fence_lines`, and `_liveness` and
-    `_paragraph_ends_at`, all in this module. **A new reader that decides by
+    `_paragraph_ends_at`, all in this module; and
+    `skills/evidence-check/scripts/evidence_check.py#quoted_lines`, which
+    the checker's four ledger walks read through, by way of its `fence_rule`.
+    That file keeps a vendored copy of these two functions for the copy
+    `evidence-ci` puts alone in a user repository, where this module is not
+    beside it. **A new reader that decides by
     line whether it stands inside a fence belongs on this list**, and a
     reviewer of one has this docstring to check it against — nothing else
     can reach a reader that does not exist yet.

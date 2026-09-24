@@ -472,15 +472,15 @@ def anchored_rows(root, work_item_ids):
     `seal/ledger/*.md`, every `seal/releases/*.md`, and the pre-0.10
     `docs/**/_evidence.md`), with the one coordinate shape, `COORDINATE_RE`.
 
-    **Every line, a fenced or commented one included.** The checker's
-    `check_text` runs its anchor pattern over the whole text, so a row shown
-    inside a fence is BROKEN after the removal like any other. This used to
-    read through `unverified_check.py#live_lines`, whose ambiguous line is
-    settled as *not live*: that bias keeps a directory for the marker reader
-    and removed one here, which was #511 again one step narrower (round 1's
-    finding 1). A guard that reads fewer lines or fewer files than the checker
-    keeps fewer directories than the checker will report broken. When #444
-    teaches the checker to skip a fenced row, this still reads one, which
+    **Every line, a fenced or commented one included.** The checker reads a
+    commented row and a row inside a fence that never closes, so either is
+    BROKEN after the removal like any other. This used to read through
+    `unverified_check.py#live_lines`, whose ambiguous line is settled as *not
+    live*: that bias keeps a directory for the marker reader and removed one
+    here, which was #511 again one step narrower (round 1's finding 1). A
+    guard that reads fewer lines or fewer files than the checker keeps fewer
+    directories than the checker will report broken. Since #444 the checker
+    skips a row inside a fence that closes, and this still reads one, which
     keeps a directory the checker would not break — the direction to be wrong
     in, since a kept directory is a sentence and a removed one is not.
 

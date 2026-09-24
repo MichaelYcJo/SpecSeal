@@ -276,6 +276,30 @@ is a separate command: a check that refreshed what it was checking would
 report `OK` for ever. A row whose anchor is gone is left alone — silently
 renaming its hash would hide the one row somebody has to look at.
 
+## A row inside a fence is an example, not a claim
+
+A ledger that explains its own row format shows an example row in a fenced
+code block, and nobody wrote that row as a claim. So the check, `--reverify`
+and `--migrate` all skip every line of a fenced block that **closes**: the
+example is not reported, and neither writer changes a byte of it (#444).
+
+Three things are still read, each because skipping it would be silent:
+
+- **A fence that never closes.** It runs to the end of the file, and reading
+  nothing from there on would pass a broken row on a file whose author made
+  a mistake. Its rows are checked as rows.
+- **An HTML comment.** A commented-out row is a claim somebody parked, and
+  dropping it is the silent direction.
+- **An indented code block.** Only a fence is a quotation here.
+
+What counts as a fence is CommonMark's rule, and the one every reader in this
+plugin shares: at most three spaces of indentation, three or more backticks or
+tildes, a backtick opener whose info string holds no backtick, and a closer of
+the same character, at least as long, with nothing after it.
+
+**A ledger row you mean as a claim does not belong inside a fence.** Before
+this rule, one there was checked. Now it is not, and nothing says so.
+
 ## What the region is
 
 | Anchor | Region |

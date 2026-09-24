@@ -133,6 +133,107 @@ SKIP_DIRS = frozenset(
     }
 )
 
+# --- which lines of a ledger are a quotation ---------------------------------
+#
+# A ledger that explains its own row format shows an example row in a fenced
+# block, and a row nobody wrote must not fail the build or be rewritten by
+# `--reverify` (#444). The delimiter rule is the shared reader's,
+# `skills/verify/scripts/unverified_check.py#fence_opener` and `#fence_closes`,
+# which every fence walk in this plugin asks.
+HERE = os.path.dirname(os.path.abspath(__file__))
+READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
+# The vendored copy's rule, and nothing else's. `evidence-ci` puts this file
+# alone in a user repository's `tools/`, where the shared reader is not beside
+# it, and a checker that stopped loading there would stop every CI run that
+# vendored it. So the copy holds the same two functions, and
+# `tests/test_evidence_check.py#test_the_vendored_fence_rule_agrees_with_the_shared_one`
+# holds it in step with the shared rule shape by shape — the arrangement
+# `hooks/config.py#FENCE` already has, for the same reason: a copy that
+# cannot load the reader.
+VENDORED_FENCE_RE = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})(?P<info>.*)$")
+
+
+def vendored_fence_opener(line):
+    """`unverified_check.py#fence_opener`, for a copy with no reader beside it."""
+    m = VENDORED_FENCE_RE.match(line.rstrip("\r\n"))
+    if not m or (m.group("run")[0] == "`" and "`" in m.group("info")):
+        return None
+    return m.group("run")[0], len(m.group("run"))
+
+
+def vendored_fence_closes(line, opener):
+    """`unverified_check.py#fence_closes`, for a copy with no reader beside it."""
+    m = VENDORED_FENCE_RE.match(line.rstrip("\r\n"))
+    return bool(
+        m
+        and m.group("run")[0] == opener[0]
+        and len(m.group("run")) >= opener[1]
+        and not m.group("info").strip()
+    )
+
+
+@functools.cache
+def fence_rule():
+    """`(fence_opener, fence_closes)`: the shared reader's where this is the
+    plugin's own copy, and the vendored pair where it is not.
+
+    The plugin's copy is told apart the way `seal_home` tells it: the reader
+    file AND this skill's `SKILL.md` beside it. A reader that is there and
+    will not load raises, because a plugin whose shared reader is broken has
+    every other gate broken too, and a fallback would hide that here alone.
+    """
+    if os.path.isfile(READER) and os.path.isfile(os.path.join(HERE, "..", "SKILL.md")):
+        spec = importlib.util.spec_from_file_location(
+            "specseal_unverified_reader", READER
+        )
+        reader = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(reader)
+        return reader.fence_opener, reader.fence_closes
+    return vendored_fence_opener, vendored_fence_closes
+
+
+def quoted_lines(lines):
+    """The indices of LINES inside a fenced block that CLOSES, delimiters
+    included — the lines a ledger walk skips.
+
+    **Only a block that closes is a quotation.** A ledger line holds a claim,
+    and a claim is skipped only when it is certainly quoted: an unclosed fence
+    runs to the end of the file, and reading nothing from there on is the
+    silent direction on a file whose author made a mistake. So an unclosed
+    block's lines are read, as they were before #444
+    (`docs/the-evidence-ledger.md` §*A marker counts only on a live line*
+    carries the direction rule). An HTML comment is read too: a commented-out
+    row is a claim somebody parked, and dropping it is silent.
+    """
+    opens, closes = fence_rule()
+    out, opener, first = set(), None, None
+    for n, line in enumerate(lines):
+        if opener is None:
+            opener, first = opens(line), n
+        elif closes(line, opener):
+            out.update(range(first, n + 1))
+            opener = None
+    return out
+
+
+BLANK_RE = re.compile(r"[^\r\n]")
+
+
+def unquoted(text):
+    """TEXT with every line inside a closed fence blanked to spaces.
+
+    **Every character offset is kept**, because `reverify` rewrites a hash by
+    its match position in the original text: a blanked line is the same
+    length, so a position found in this text is the same position there.
+    """
+    lines = text.splitlines(keepends=True)
+    quoted = quoted_lines([line.rstrip("\r\n") for line in lines])
+    if not quoted:
+        return text
+    return "".join(
+        BLANK_RE.sub(" ", line) if n in quoted else line for n, line in enumerate(lines)
+    )
+
 
 def normalise(lines):
     """The region as the hash sees it.
@@ -1212,7 +1313,10 @@ def check_ledger(ledger, root, maps, default_repo=None):
         # traceback for that silence, and a traceback is at least a broken
         # build (round 5, 🔴 B).
         return [("BROKEN", display_name(ledger, root), "ledger unreadable")]
-    findings = check_text(text, root, maps, default_repo)
+    # A row inside a fenced block that closes is an example, not a claim
+    # (#444). `unquoted` blanks those lines and nothing else, and
+    # `old_format_rows` asks the same of the text it is given.
+    findings = check_text(unquoted(text), root, maps, default_repo)
     findings.extend(old_format_rows(text))
     return findings
 
@@ -1404,7 +1508,11 @@ def old_format_rows(text):
     to mention an old coordinate cannot trip this forever.
     """
     findings, seen = [], set()
-    for line in text.splitlines():
+    # An example row in a fenced block that closes is not a row (#444), and
+    # `hooks/ledger-migrate.py` asks this function whether to migrate at all,
+    # so a quoted old coordinate must not offer a migration that `migrate`
+    # then leaves alone.
+    for line in unquoted(text).splitlines():
         if not line.lstrip().startswith("|"):
             continue
         for m in OLD_COORD_RE.finditer(ANCHOR_RE.sub(" ", line)):
@@ -1492,8 +1600,12 @@ def migrate(ledgers, root, maps=None, default_repo=None):
             left.append((display_name(ledger, root), "ledger unreadable"))
             continue
         out_lines = []
-        for line in text.splitlines(keepends=True):
-            if not line.lstrip().startswith("|"):
+        # An example row in a fenced block that closes is left byte for byte
+        # (#444): it is not a row, so there is nothing to migrate.
+        split = text.splitlines(keepends=True)
+        quoted = quoted_lines([line.rstrip("\r\n") for line in split])
+        for n, line in enumerate(split):
+            if n in quoted or not line.lstrip().startswith("|"):
                 out_lines.append(line)
                 continue
             blanked = ANCHOR_RE.sub(lambda m: " " * len(m.group(0)), line)
@@ -1621,7 +1733,7 @@ def reverify(ledgers, root, maps, default_repo=None):
     # `Checked` still predates the hash it is about to replace, or print the
     # ones it left; the fix pass that found this could add neither without
     # adding mechanism.
-    # Verified 2026-09-10 against reverify@ed9d3079.
+    # Verified 2026-09-25 against reverify@36d8a548.
     changed = 0
     unreadable = []
     scan_cache = {}
@@ -1631,7 +1743,10 @@ def reverify(ledgers, root, maps, default_repo=None):
             unreadable.append(display_name(ledger, root))
             continue
         out, at = [], 0
-        for m in ANCHOR_RE.finditer(text):
+        # Matched in `unquoted(text)` and spliced from `text`: the two have
+        # the same offsets, and an example row in a closed fence is never
+        # rewritten (#444).
+        for m in ANCHOR_RE.finditer(unquoted(text)):
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
             repo, rel = place(root, maps, default_repo, raw_path)

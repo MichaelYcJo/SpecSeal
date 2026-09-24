@@ -297,9 +297,12 @@ removes, so the retirement refuses that directory first.** An anchor into a
 work item's `spec.md` or its round records is a file path like any other, and
 after a removal the checker reports it broken. So `settle` reads every ledger
 the checker reads — `seal/ledger.md`, every `seal/ledger/*.md`, every
-`seal/releases/*.md` and any `docs/**/_evidence.md` — and every line of each,
-the rows above the first section marker and the rows inside a fence included,
-because the checker reads those too, and names each one anchored inside a
+`seal/releases/*.md` and any `docs/**/_evidence.md` — and every line of each.
+The rows above the first section marker are included because the checker
+reads those too. The rows inside a fence are included although the checker
+skips a fence that closes (#444), because a guard that reads more than the
+checker keeps a directory the checker would not break, which is the
+direction to be wrong in. It names each row anchored inside a
 released directory, and `settle --retire` keeps every directory such a row
 anchors into, removes the rest, and exits 1 naming each row (#511). It says
 per row what `CLAUDE.md` requires: a row whose every anchor goes is REMOVED,

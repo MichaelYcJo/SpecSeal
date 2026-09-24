@@ -363,9 +363,12 @@ def test_the_report_names_an_anchored_row_before_anything_is_removed(tree):
 
 
 def test_a_fenced_anchor_still_keeps_the_directory(tree):
-    """evidence-check reads an anchor inside a fence as a coordinate like any
-    other, so the guard has to as well: a fenced row's directory removed is a
-    BROKEN row found after the fact, which is #511 (round 1's finding 1)."""
+    """The guard reads an anchor inside a fence although evidence-check no
+    longer does (#444), because the two mistakes cost differently: a fenced
+    row's directory kept is a sentence somebody answers, and a directory
+    removed under a row the checker does read — one in a fence nobody closed
+    — is a BROKEN row found after the fact, which is #511 (round 1's finding
+    1). `settle.py#anchored_rows`'s docstring carries the decision."""
     fold(tree, "1700000001-alpha")
     ledger = tree / "seal" / "ledger.md"
     ledger.write_text(
@@ -439,9 +442,9 @@ def test_the_documents_say_the_retirement_keeps_an_anchored_directory():
         "the skill does not name the checker's third ledger address"
     )
     policy = document("docs", "the-evidence-ledger.md")
-    assert "the rows inside a fence included, because the checker" in flat(policy), (
-        "the policy still says the guard reads only live rows"
-    )
+    assert "The rows inside a fence are included although the checker" in flat(
+        policy
+    ), "the policy no longer says the guard reads a fenced row the checker skips"
     assert "nothing refuses the removal first" not in policy, (
         "the policy still says nothing refuses the removal"
     )
