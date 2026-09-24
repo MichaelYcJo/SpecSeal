@@ -414,7 +414,7 @@ outright, and a `cd` earlier in the command moves the shell to it — this guard
 is the reason a session is in that shape at all, since it refuses a switch and
 tells the user to work in a separate worktree, so the session stays where it
 was while the commands do not. Both are read the same way the commit gate
-reads them (`review-chain-spec.md` §Which repository).
+reads them (`commit-review-gate-spec.md` §Which repository).
 
 Two kinds of destination fall back to the session's own directory, which is
 this guard's answer from before it could read a `cd` at all:

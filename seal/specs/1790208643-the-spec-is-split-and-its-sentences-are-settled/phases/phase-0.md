@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 0 |
-| Commit | PHASE0SHA |
+| Commit | 23d46e81 |
 | Ran by | specseal:smith on Claude Opus 5.5 (1M context) — the agent as the spawn prompt's first line names it, the model as the commit trailer it prescribes names it |
 
 ## What this phase was asked

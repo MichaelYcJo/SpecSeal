@@ -375,7 +375,7 @@ arities or returnable literals moved*, never *nothing a caller depends on
 moved*: a unit that keeps returning exactly the values it already returned
 and changes which inputs reach which one is invisible here by construction.
 That residual is the reviewer's and belongs in the round's own verdicts.
-`docs/review-chain-spec.md` §*The fix surface* carries both with their
+`docs/round-record-spec.md` §*The fix surface* carries both with their
 measurements.
 
 **`New units` names the verifying round's finding surface.** A verifying

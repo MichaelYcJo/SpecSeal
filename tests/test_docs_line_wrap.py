@@ -120,6 +120,12 @@ COVERED = [
     "docs/the-broad-gate.md",
     "docs/measuring-a-run.md",
     "docs/the-agent-set.md",
+    # Two of the three documents #526 split `docs/review-chain-spec.md` into.
+    # The file they were cut from never joined this list; the two new ones
+    # arrive measured under the limit, so they go in at birth with no sweep
+    # to owe.
+    "docs/commit-review-gate-spec.md",
+    "docs/round-record-spec.md",
 ]
 
 

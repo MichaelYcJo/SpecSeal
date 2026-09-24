@@ -206,6 +206,11 @@ SEAL_SWEPT = (
     ("skills", "implement", "SKILL.md"),
     ("templates", "config.md"),
     ("docs", "review-chain-spec.md"),
+    # The two documents #526 split out of the one above. Each carries text
+    # that instructed somebody while it sat there, so the split does not
+    # take it out of the sweep.
+    ("docs", "commit-review-gate-spec.md"),
+    ("docs", "round-record-spec.md"),
     ("docs", "review-handoff-protocol.md"),
     ("CONTRIBUTING.md",),
     ("README.md",),

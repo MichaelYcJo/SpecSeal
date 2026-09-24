@@ -139,10 +139,12 @@ segment* states both rules, and this paragraph holds only the values.
   line whenever they are folded: the 101 folded before it, and those of work
   items released with it or still waiting from before it.
 - A top-level document under `docs/` stays at or under 1000 lines.
-- One document is over that ceiling and listed: `docs/review-chain-spec.md`,
-  frozen at 29 fold markers until MichaelYcJo/SpecSeal#526 splits it. Until
-  then a fold places a chain rule in the document for the rule's own
-  sub-subject.
+- No document is over that ceiling, so none is listed. The one that was,
+  `docs/review-chain-spec.md`, was split along its own headings by
+  MichaelYcJo/SpecSeal#526 into itself, `docs/commit-review-gate-spec.md`
+  and `docs/round-record-spec.md`, its fold markers carried across whole. A
+  document the next fold would take past the ceiling is split the same way
+  first, or the rule goes to the document for its own sub-subject.
 
 `tests/test_a_folded_statement_names_what_enforces_it.py` reads the shape and
 `tests/test_a_document_has_room_for_the_next_fold.py` reads the ceiling. The
@@ -259,5 +261,6 @@ a lowering. `skills/settle/SKILL.md` §3 gives the three answers.
 marker is matched whole, so wrapping a long work item id stops it being a fold
 record, and `tests/test_docs_line_wrap.py` skips a line that is exactly one
 marker rather than asking a document to choose between the two. The chain
-checker's reading of a retired declaration is `docs/review-chain-spec.md`'s,
-under *The declaration, and where the check went instead*.
+checker's reading of a retired declaration is
+`docs/commit-review-gate-spec.md`'s, under *The declaration, and where the
+check went instead*.

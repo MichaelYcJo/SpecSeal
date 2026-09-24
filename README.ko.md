@@ -169,8 +169,9 @@ BROKEN 이 아니라 그 단위 전체를 놓고 DRIFTED 로 알려 줍니다. B
 사용자 컴퓨터에서 실행됩니다. 한 이벤트에 걸린 게이트들은 게이트마다 하나씩이
 아니라 프로세스 하나가 묶어서 처리합니다 — Bash 호출 한 번에 파이썬을 네 번
 띄우는 것이 게이트를 두는 비용의 대부분이었습니다(실측: Bash 호출 전 220ms →
-104ms, 후 323ms → 120ms). 판정표 전문은 다음 두 문서에 있습니다.
+104ms, 후 323ms → 120ms). 판정표 전문은 다음 세 문서에 있습니다.
 [docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) ·
+[docs/commit-review-gate-spec.md](./docs/commit-review-gate-spec.md) ·
 [docs/review-chain-spec.md](./docs/review-chain-spec.md)
 
 | 게이트 | 언제 | 무엇을 | 어디서 |

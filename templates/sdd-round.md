@@ -160,7 +160,7 @@ stopped, and not the one that filled nothing.** Leaving all three cells at
 their starting values escapes it, and `no fixes to check` beside a pending
 row escapes it too — for a round that commissioned no fixes, *not yet
 written* is false the moment it is written. Both are printed rather than
-refused, and `docs/review-chain-spec.md` says why. Filling these rows is the
+refused, and `docs/round-record-spec.md` says why. Filling these rows is the
 same reach-back that sets `Fixes checked by`: do all three in one pass, with
 the fix diff open.
 

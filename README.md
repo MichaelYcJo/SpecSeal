@@ -173,6 +173,7 @@ gate — four interpreter startups per Bash call was most of the cost of having
 them (measured: 220ms → 104ms before a Bash call, 323ms → 120ms after). Full
 decision tables:
 [docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) ·
+[docs/commit-review-gate-spec.md](./docs/commit-review-gate-spec.md) ·
 [docs/review-chain-spec.md](./docs/review-chain-spec.md).
 
 | Gate | Fires | Does | Where |

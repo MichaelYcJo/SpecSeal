@@ -301,7 +301,7 @@ into a record whose fix table closed nothing on a fix — a capped run's last
 record, whose every verdict reads `deferred <home>` and which has no next
 round to set the cell. Every record carries the row, not only the newest —
 `Pass` is a verdict on the whole review and the last round's speaks for it,
-while this is a fact about one round's own fixes. `docs/review-chain-spec.md`
+while this is a fact about one round's own fixes. `docs/round-record-spec.md`
 holds the rule and what each refusal costs.
 
 ### And name the fix surface, in the same record
@@ -345,7 +345,7 @@ their starting values escape it, and so does `no fixes to check` beside a
 pending row — for a round that commissioned no fixes, *not yet written* is
 false the moment it is written. Both states print instead, and a reworded
 cell is not the only thing that escapes: three spellings carry the template's
-words unchanged. `docs/review-chain-spec.md` names them and says why the
+words unchanged. `docs/round-record-spec.md` names them and says why the
 answer was to write the limit down rather than widen the match. What makes all
 of it moot is the generator: `close` writes the two surface rows from the fix
 diff, and `new` for the next round sets the checker cell.

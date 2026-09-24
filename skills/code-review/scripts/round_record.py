@@ -3048,7 +3048,7 @@ def return_literals(node):
     to test.
 
     What this does NOT catch is a changed input→value mapping, and that hole
-    is stated in `docs/review-chain-spec.md` rather than closed. Widening it
+    is stated in `docs/round-record-spec.md` rather than closed. Widening it
     to reach that is not a small step: it is asking which inputs reach which
     return, which is the function.
     """
@@ -3735,7 +3735,7 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     **Where the range cannot resolve one, it still refuses and says so.**
     A single commit answering two findings resolves to nothing at any cost,
     and the direction every verdict the checker cannot read takes is the one
-    that blocks: `docs/review-chain-spec.md`'s own depth table fails an entry
+    that blocks: `docs/round-record-spec.md`'s own depth table fails an entry
     below depth 1 for the neighbouring reason, and the asymmetry is
     `CONTRIBUTING.md`'s — a wrong deny costs a prompt, and a wrong allow here
     ships a unit that is read by nobody. What changes on the fallback is the
