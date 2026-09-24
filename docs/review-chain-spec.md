@@ -1420,7 +1420,8 @@ different questions: `Needs a fix` is the reviewer's, *what did I open*; the
 bound needs *were fixes written that owe a reader*. They come apart in one
 sequence, and it happened: the reviewer answers `no`, judging a 🟡 answerable
 with grounds, and the orchestrator fixes it anyway because it ships — a false
-count in a ledger fragment that `fold_ledger.py` copies into the shared file.
+count in a ledger fragment that `fold_ledger.py` copied into the shared ledger
+at the release.
 The row still reads `no`, the fixes exist, and a walk reading only that row
 has no terminal record it accepts: the verifying round that reads the fixes
 is a second uncounted record after the floor, and ending without it is

@@ -264,8 +264,8 @@ no two work items share an id, and the checker reads the whole
 `seal/ledger/*.md` glob. The fragment lives until the release that ships
 the work item, whose preparation step folds it — in this plugin's own
 repository into `seal/releases/<X.Y.Z>.md` — and removes it; a row is a
-content anchor, so the move changes nothing the checker measures, and the
-checker reads `seal/releases/*.md` beside the other two.
+content anchor, so the move changes no row's status, and the checker reads
+`seal/releases/*.md` beside the other two.
 
 **Draft as you go, write in one pass.** The recording is cheap and the round
 trip is not: one session made twenty-six separate edits to its ledger and

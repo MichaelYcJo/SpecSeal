@@ -41,7 +41,8 @@ after the broad gate has run, which forces it to run again. No two work items
 share an id, so no two branches share a fragment. The checker reads
 `seal/ledger.md`, the `seal/releases/*.md` glob and the `seal/ledger/*.md`
 glob alike, and a row is a content anchor, so the release that folds a
-fragment into its release file changes nothing any of them measures.
+fragment into its release file changes no row's status. The `ok` total
+counts a `(coordinate, hash)` pair once per file, so a move can change it.
 
 **Appended is the word, and a removal is not one.** A branch that removes
 code an existing shared-file row cites must touch that file to leave the
@@ -105,9 +106,9 @@ that vanishes with its whole row is a removal and is correct; a marker that
 vanishes while its row stands is the defect. It reports the loss after the
 fact and cannot prevent it.
 
-It reads the shared file and every fragment, because a fragment becomes part
-of the shared file at the release and a check that skipped fragments would go
-blind exactly while the rows are being written.
+It reads the shared file, every release file and every fragment, because a
+fragment becomes part of a release file at the release and a check that
+skipped fragments would go blind exactly while the rows are being written.
 
 <!-- specs/1789996780-the-census-and-the-tie-that-nothing-holds -->
 **A bound over the corpus is stated with its instrument and the moment it was

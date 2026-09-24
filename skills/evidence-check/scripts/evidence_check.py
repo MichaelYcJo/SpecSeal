@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """evidence_check — does the evidence ledger still point at what it claims?
 
-Scans the evidence ledger (default: seal/ledger.md, seal/ledger/*.md, and
-the pre-0.10 docs/**/_evidence.md) for coordinates of the form
+Scans the evidence ledger (default: seal/ledger.md, seal/ledger/*.md,
+seal/releases/*.md, and the pre-0.10 docs/**/_evidence.md) for coordinates
+of the form
 
     path#anchor@hash
 
@@ -2136,9 +2137,9 @@ def tree_names(root, home):
     arm was being built — writing this work item's own rows put four names
     into the corpus and silenced four refusals in its own `phase-2.md`, so a
     work item could clear the check on its records by naming the unit in its
-    own ledger file. The fold moves the fragment into `seal/ledger.md` at the
-    release, which is the same moment the work item stops being live, so
-    nothing changes hands at the boundary.
+    own ledger file. The fold moves the fragment into its release's file,
+    `seal/releases/<X.Y.Z>.md`, at the release, which is the same moment the
+    work item stops being live, so nothing changes hands at the boundary.
 
     **A name in ANY other file is a name the tree has, prose included**, and
     that is the claim rather than a loophole in it: the check says nothing

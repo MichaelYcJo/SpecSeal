@@ -303,7 +303,8 @@ items share an id. The release that ships the work item folds its fragment
 into the ledger and removes the file — this plugin's own repository folds
 into one file per release, `seal/releases/<X.Y.Z>.md`, which the default
 globs read too. A row is checked against the code it cites wherever it
-sits, so the fold changes nothing this check reports.
+sits, so the fold changes no row's status. The `ok` total counts a
+`(coordinate, hash)` pair once per file, so a fold can change the count.
 
 A row citing a range that spans several definitions becomes several
 coordinates, one per definition. That is not a loss: it is the row saying which

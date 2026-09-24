@@ -231,10 +231,11 @@ SIZE_CAP = 8 * 1024 * 1024
 #
 #   corpus       `seal/ledger.md` alone. Not because a branch cannot move it
 #                -- a branch CAN, and the one that wrote this comment moved it
-#                twice, correcting rows C1 and C2 -- but because it is the
-#                file a release folds the fragments INTO, so it is the part of
-#                the corpus that survives a release instead of vanishing at
-#                one. A figure spanning `seal/ledger/*.md` is invalidated by
+#                twice, correcting rows C1 and C2 -- but because it was, on
+#                the day below, the file a release folded the fragments INTO,
+#                so it was the part of the corpus that survives a release. A
+#                release now folds into `seal/releases/<X.Y.Z>.md` (#547), so
+#                a figure taken today spans those files too. A figure spanning `seal/ledger/*.md` is invalidated by
 #                any work item recording a correction in its own fragment, and
 #                by the fold itself.
 #   instrument   the unbounded walk above, never `MARKER`.
