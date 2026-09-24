@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 594 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `ab177e63a4a95a4cacd1739c826cabe3d258773e..ab177e63a4a95a4cacd1739c826cabe3d258773e`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,7 +24,7 @@ Round 2 of work item 1790263216 is the verifying round: the diff of round 1's fi
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | Four phase rows (D13, D14, D32, D33) still state the decision round 1's fixes replaced, and only D6's row carries a correction note | `seal/specs/1790263216-the-older-statements-name-what-enforces-them/phases/phase-1.md:51` | open | read; also `phase-1.md:52`, `phase-2.md:39`, `phase-3.md:22`; a correction to the run's paperwork, the overview's *Not done* already names the moves |
+| ⬜ 1 | Four phase rows (D13, D14, D32, D33) still state the decision round 1's fixes replaced, and only D6's row carries a correction note | `seal/specs/1790263216-the-older-statements-name-what-enforces-them/phases/phase-1.md:51` | answered | a record correction, corrected at ab177e63; read; also `phase-1.md:52`, `phase-2.md:39`, `phase-3.md:22`; a correction to the run's paperwork, the overview's *Not done* already names the moves |
 | 🟢 | round 1's finding 1 is closed — D6 names the pin on its instruction | `docs/the-evidence-ledger.md:153` | confirmed | executed: the target red with CONTRIBUTING.md's instruction reworded and red with CLAUDE.md's; read: no `continue-on-error` in any workflow; the owner's own opening reworded leaves it green, and nothing in `tests/` reads that sentence |
 | 🟢 | round 1's finding 2 is closed — D13 names two pins | `docs/the-evidence-ledger.md:346` | confirmed | executed: the first target red with the settle skill's sentence reworded; the second red with the policy's own bold opening reworded |
 | 🟢 | round 1's finding 3 is closed — D14 names the pin on settle's three answers | `docs/the-evidence-ledger.md:359` | confirmed | executed: red with *retire the case* reworded; the owner's opening reworded leaves it green |
