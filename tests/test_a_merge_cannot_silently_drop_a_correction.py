@@ -478,9 +478,10 @@ F_REREAD = (
 
 
 def test_a_marker_lost_from_a_fragment_is_reported(tmp_path):
-    """A4. `fold_ledger.py` moves every fragment into the shared file at the
-    release, so a check watching only `seal/ledger.md` would go blind exactly
-    when the rows become shared. Both are watched from the first commit."""
+    """A4. `fold_ledger.py` moves every fragment into a ledger file at the
+    release (`seal/releases/<X.Y.Z>.md` since #547), so a check watching only
+    the gathered files would go blind exactly while the rows are being
+    written. Fragments are watched from the first commit."""
     root, _start, head = merged(
         tmp_path,
         base=ledger(F_ROW),
