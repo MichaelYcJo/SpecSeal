@@ -31,7 +31,7 @@ The survivor sweep wrote a moved file's text as the range's own and misread a ga
 
 ## Not done
 
-`questions.md` Q1 is built on its default: `.github/scripts/gather_changelog.py` and `publish_release_note.py` still end a section at any `## `, so a fragment carrying one breaks the second gather and the release note; filed as #586 for the owner. Narrowing `a_gathered_fragment` to an anchored path and a lone `\r` line ending stay out, per `spec.md` §*Out*. A local-mode declaration on a reused branch name reaches that branch's ranges, which `plan.md`'s failure scenario states and nothing measures.
+`questions.md` Q1 is built on its default: `.github/scripts/gather_changelog.py` and `publish_release_note.py` still end a section at any `## `, so a fragment carrying one breaks the second gather and the release note; filed as #586 for the owner. Narrowing `a_gathered_fragment` to an anchored path and a lone `\r` line ending stay out, per `spec.md` §*Out*. A local-mode declaration on a reused branch name reaches that branch's ranges, which `plan.md`'s failure scenario states and nothing measures. A parent branch's run from a detached HEAD, with no local head naming the parent, is still excused by a stacked child's row (round 2's ⬜ 4, executed by the reviewer): it is the same range as the child's own older-tip run, and it is the documented *no local branch* bound of `on_its_branch`.
 
 ## Fed back into the spec
 

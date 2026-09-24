@@ -3490,7 +3490,8 @@ def test_a_copy_written_beyond_the_ones_moved_is_the_ranges_writing(tmp_path):
 # does the range touch the directory the file sits in -- refused the work
 # item's own range row as `not yours`. There the owner is read from the work
 # item's `routing.md` `Branch` row: the row holds over a range whose tip is on
-# that branch. Shared mode is unchanged.
+# that branch and on no local branch that one was cut from. Shared mode is
+# unchanged.
 
 LOCAL_ITEM = "1799000001-work-item-a"
 
@@ -3704,6 +3705,15 @@ def test_a_missing_routing_reader_refuses_rather_than_placing_nothing(tmp_path):
     loaded.ROUTING = str(tmp_path / "gone" / "routing.py")
     with pytest.raises(loaded.Refused, match=r"routing\.py"):
         loaded.on_its_branch(str(tmp_path), str(tmp_path), "HEAD")
+
+
+def test_a_missing_common_dir_reader_refuses_rather_than_placing_nothing(tmp_path):
+    """O5's twin for `hooks/optin.py`: a copy without it cannot say where
+    local mode's root is, and refuses (exit 2's `Refused`) naming that."""
+    loaded = module()
+    loaded.OPTIN = str(tmp_path / "gone" / "optin.py")
+    with pytest.raises(loaded.Refused, match=r"optin\.py, which says where"):
+        loaded.local_specs(str(tmp_path))
 
 
 # --- #564: the gathered reading reads one path, past a heading, over CRLF ---

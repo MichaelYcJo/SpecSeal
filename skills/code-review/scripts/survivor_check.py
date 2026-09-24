@@ -1355,16 +1355,16 @@ ROUTING = os.path.join(HERE, "..", "..", "..", "hooks", "routing.py")
 OPTIN = os.path.join(HERE, "..", "..", "..", "hooks", "optin.py")
 
 
-def hook(path, name):
+def hook(path, name, what):
     """A module under `hooks/`, loaded by path, or `Refused` saying which.
 
     The hooks ship beside this script in the plugin; a copy without one
-    cannot say whose a local-mode declaration is, and that is unusable
-    input rather than a judgment."""
+    cannot place a local-mode declaration, and that is unusable input
+    rather than a judgment. `what` is what the missing file answers."""
     if not os.path.isfile(path):
         raise Refused(
-            f"cannot read {path}, which says whose a local-mode declaration "
-            "is. This script ships beside it in the plugin."
+            f"cannot read {path}, which {what}. "
+            "This script ships beside it in the plugin."
         )
     spec = importlib.util.spec_from_file_location(name, path)
     module = importlib.util.module_from_spec(spec)
@@ -1379,7 +1379,9 @@ def local_specs(root):
     root, the common directory read by `hooks/optin.py#git_common_dir`.
     Real paths and `normcase`, because a temporary directory on macOS sits
     behind a symlink, and Windows spells one drive two ways."""
-    common = hook(OPTIN, "specseal_optin").git_common_dir(root)
+    common = hook(
+        OPTIN, "specseal_optin", "says where local mode's seal/ root is"
+    ).git_common_dir(root)
     if not common:
         return ""
     return os.path.normcase(os.path.realpath(os.path.join(common, "seal", "specs")))
@@ -1410,7 +1412,9 @@ def on_its_branch(root, item, b):
     names no branch, and a branch that does not resolve, each answer with
     their own reason -- the declaration then prints under `not yours`,
     which is the loud direction."""
-    routing = hook(ROUTING, "specseal_routing")
+    routing = hook(
+        ROUTING, "specseal_routing", "says whose a local-mode declaration is"
+    )
     try:
         with open(os.path.join(item, "routing.md"), encoding="utf-8") as handle:
             text = handle.read()
@@ -1586,9 +1590,10 @@ def whole_range(root, ranges, a, b):
     test a resolved one gets -- the lazily computed `changed` list in shared
     mode, `on_its_branch` in local mode: one with no owner -- an `--exempt`
     file passed from anywhere -- or owned by a work item this range touches
-    (in local mode, whose branch holds the tip) is a declaration this run
-    could have used, and prints under `unresolved` as before. The wrong allow is empty, because an unresolved row excuses
-    nothing whether printed or not.
+    (in local mode, one `on_its_branch` accepts) is a declaration this run
+    could have used, and prints under `unresolved` as before. The wrong
+    allow is empty, because an unresolved row excuses nothing whether
+    printed or not.
     """
     match, unresolved, foreign = None, [], []
     changed = local = None
@@ -1685,8 +1690,8 @@ def report(
     range, and it excuses every candidate. `unresolved` is the declarations
     whose range does not resolve here and that this run could have used --
     which `whole_range` decides by the second anchor, so one owned by a work
-    item the range touches nothing of (in local mode, one whose branch the
-    range's tip is off) never arrives (#439); they silence
+    item the range touches nothing of (in local mode, one `on_its_branch`
+    refuses) never arrives (#439); they silence
     nothing and are printed, because a declaration that quietly stopped
     applying is the one failure a rotting anchor must not have. `foreign` is
     the same failure one step
