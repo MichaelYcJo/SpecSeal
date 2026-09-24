@@ -131,24 +131,31 @@ again.
 | Instead of | Write |
 |---|---|
 | an entry under `CHANGELOG.md`'s `## Unreleased` | `seal/specs/<work-item-id>/changelog.md` |
-| rows appended to `seal/ledger.md` | `seal/ledger/<work-item-id>.md` |
+| rows appended to `seal/ledger.md` or a `seal/releases/<X.Y.Z>.md` | `seal/ledger/<work-item-id>.md` |
 
 No two work items share an id, so no two branches share a file.
 
-**Appended is the word, and a removal is not one.** A branch that removes code
-an existing `seal/ledger.md` row cites must touch that file to leave the
-ledger true — the row is removed there, and the new claim is written into the
-branch's own fragment. `CONTRIBUTING.md` carries the same sentence, and the two
-used to disagree: one forbade editing the file at all while the other forbade
-appending to it, which left a branch in this position with no reading that
-permits the only correct act.
+**Appended is the word, and a removal is not one — nor is an edit.** A branch
+that removes or edits code an existing ledger row cites — in `seal/ledger.md`
+or a `seal/releases/<X.Y.Z>.md` — must touch the file the row is in to leave
+the ledger true. A removal takes the row out there and writes the new claim
+into the branch's own fragment; an edit drifts the row, which is re-read
+against that edit and re-stamped there with a dated note, its claim first
+corrected in place with a `Corrected <date>` note where the edit made it
+false. Both are keeping an existing claim true, which is not appending.
+`CONTRIBUTING.md` carries the same sentence, and the two used to disagree: one
+forbade editing the file at all while the other forbade appending to it, which
+left a branch in this position with no reading that permits the only correct
+act.
 
-**When `seal/ledger.md` conflicts, resolve it hunk by hunk and read both
-sides.** Never `--ours` and never `--theirs`. A whole-file choice is wrong by
-construction once both branches have been correcting, and the measured
-instance is the argument: in #424 the two hunks resolved in opposite
-directions, because each side was the superset in one of them. Taking a side
-reverted three corrections that had each turned a false claim true.
+**When a ledger file conflicts — `seal/ledger.md`, a
+`seal/releases/<X.Y.Z>.md`, or a fragment two stacked branches both edited —
+resolve it hunk by hunk and read both sides.** Never `--ours` and never
+`--theirs`. A whole-file choice is wrong by construction once both branches
+have been correcting, and the measured instance is the argument: in #424 the
+two hunks resolved in opposite directions, because each side was the superset
+in one of them. Taking a side reverted three corrections that had each turned
+a false claim true.
 
 **Nothing downstream can see that, which is why the reading is yours.** A row
 reverted to a superseded state is byte-identical to a row nobody touched —
@@ -159,7 +166,16 @@ dropped from a row that still stands; the hygiene workflow runs it on every
 pull request into a release branch. It reports the loss after the fact and
 cannot prevent it.
 
-`CONTRIBUTING.md` carries both paragraphs, and
+**Hunk by hunk has two halves, and only the notes are a union.** A row's
+`Re-read` and `Corrected` notes are both sides', because each records a
+reading somebody performed; the anchor's hash belongs to the side that edited
+the anchored unit, and to neither side where both did. `correction-check`
+cannot see a union that kept a stale hash, because no marker was dropped, so
+run `evidence-check` after the resolution: a drifted anchor is the tool naming
+the row, which is re-read against every edit the merged unit carries.
+`docs/the-evidence-ledger.md` §*A correction a merge dropped* owns the rule.
+
+`CONTRIBUTING.md` carries both paragraphs and the halves rule, and
 `tests/test_a_merge_cannot_silently_drop_a_correction.py` holds the two
 against each other.
 
@@ -173,11 +189,13 @@ sentence they no longer carry.
 **Both kinds of fragment are gathered at the release, by two commands in one
 commit.** `.github/scripts/gather_changelog.py --version X.Y.Z` concatenates
 every ungathered changelog fragment into the released section;
-`.github/scripts/fold_ledger.py --version X.Y.Z` moves every ledger fragment
-into `seal/ledger.md` under a heading for the release and removes the file.
-A fragment lives from the work item's first row to the release that ships it.
-The checker reads both `seal/ledger.md` and the `seal/ledger/*.md` glob,
-and a row is a content anchor, so the move changes nothing it measures. The
+`.github/scripts/fold_ledger.py --version X.Y.Z` moves every ledger
+fragment into that release's own file, `seal/releases/X.Y.Z.md`, and removes
+the fragment; `seal/ledger.md` keeps the notation and the rows from before
+the fragments existed. A fragment lives from the work item's first row to the
+release that ships it. The checker reads `seal/ledger.md`, the
+`seal/releases/*.md` glob and the `seal/ledger/*.md` glob alike, and a row is
+a content anchor, so the move changes no row's status. The
 fold refuses while any `seal/specs/<id>/evidence-todo.md` in the tree has an open
 row — a fact a reviewer verified that never reached the ledger — and the
 hygiene workflow runs `fold_ledger.py --check` on every pull request into

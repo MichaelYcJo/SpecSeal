@@ -478,9 +478,10 @@ F_REREAD = (
 
 
 def test_a_marker_lost_from_a_fragment_is_reported(tmp_path):
-    """A4. `fold_ledger.py` moves every fragment into the shared file at the
-    release, so a check watching only `seal/ledger.md` would go blind exactly
-    when the rows become shared. Both are watched from the first commit."""
+    """A4. `fold_ledger.py` moves every fragment into a ledger file at the
+    release (`seal/releases/<X.Y.Z>.md` since #547), so a check watching only
+    the gathered files would go blind exactly while the rows are being
+    written. Fragments are watched from the first commit."""
     root, _start, head = merged(
         tmp_path,
         base=ledger(F_ROW),
@@ -492,6 +493,29 @@ def test_a_marker_lost_from_a_fragment_is_reported(tmp_path):
     code, text = check(root, f"{head}~2..{head}")
     assert code == 1, text
     assert FRAGMENT in text
+    assert "Re-read 2026-09-05" in text
+
+
+RELEASE_FILE = "seal/releases/0.4.0.md"
+
+
+def test_a_marker_lost_from_a_release_file_is_reported(tmp_path):
+    """#547, S3. The fold writes each release's rows to
+    `seal/releases/<X.Y.Z>.md`, so the rows that used to become shared in
+    `seal/ledger.md` become shared there instead, and a check that does not
+    list that directory goes blind at exactly the release. Red before
+    `ledger_listing` passed `RELEASES` to `ls-tree`."""
+    root, _start, head = merged(
+        tmp_path,
+        base=ledger(F_ROW),
+        ours=ledger(F_REREAD),
+        theirs=ledger(F_ROW),
+        resolution=ledger(F_ROW),
+        path=RELEASE_FILE,
+    )
+    code, text = check(root, f"{head}~2..{head}")
+    assert code == 1, text
+    assert RELEASE_FILE in text
     assert "Re-read 2026-09-05" in text
 
 
@@ -691,7 +715,19 @@ CONFLICT_SENTENCES = (
     "resolved in opposite directions",
     "byte-identical to a row nobody touched",
     "correction-check",
+    # #488: the exception is an edit as well as a removal, and both are the
+    # one write a branch owes the file the row is in.
+    "removes or edits code an existing",
+    "keeping an existing claim true",
+    # #509: of a conflicted row only the notes are a union; the hash is the
+    # side's that edited the unit, and the checker says which after the fact.
+    "the side that edited the anchored unit",
+    "run `evidence-check` after the resolution",
 )
+
+# The owner of the two rules the needles above end with. The guides carry
+# them and link here; the policy document states them first (#488, #509).
+OWNED_SENTENCES = CONFLICT_SENTENCES[-4:]
 
 
 def read(path):
@@ -714,6 +750,18 @@ def test_a8_both_rule_documents_say_what_to_do_at_the_conflict():
         text = read(document)
         for needle in CONFLICT_SENTENCES:
             assert needle in text, f"{document} does not say: {needle}"
+
+
+def test_the_policy_document_owns_the_exception_and_the_halves():
+    """#488 and #509. `docs/the-evidence-ledger.md` is the owner the two
+    guides carry: the exception widened to an edit, and the halves of a
+    conflicted row. Seen red with each sentence removed from the owner."""
+    text = read(os.path.join("docs", "the-evidence-ledger.md"))
+    for needle in OWNED_SENTENCES:
+        assert needle in text, f"the ledger policy does not say: {needle}"
+    assert "docs/the-evidence-ledger.md` §*A correction a merge dropped*" in read(
+        os.path.join("docs", "release-checklist.md")
+    ), "the squash step does not name where the conflict's rule lives"
 
 
 def test_a8_each_document_points_at_the_other():
@@ -1106,12 +1154,13 @@ def ledger_text(path, from_index=False):
 def ledger_corpus():
     """`{path: text}` for every ledger file the check watches.
 
-    Read through the module's own `LEDGER` and `FRAGMENTS` rather than a list
-    written here, because a hard-coded list goes blind exactly when the
-    fragments are folded into the shared file -- which `fold_ledger.py` does
-    at every release and did at 0.12.2, leaving `seal/ledger/` an empty glob
-    in this tree. Tracked files only, which is what `ledger_listing` reads
-    through `git ls-tree` at each commit.
+    Read through the module's own `LEDGER`, `FRAGMENTS` and `RELEASES` rather
+    than a list written here, because a hard-coded list goes blind exactly
+    when the fragments are folded at a release -- into the shared file until
+    #547, into that release's own file since -- which `fold_ledger.py` did at
+    0.12.2, leaving `seal/ledger/` an empty glob in this tree. Tracked files
+    only, which is what `ledger_listing` reads through `git ls-tree` at each
+    commit.
 
     **The listing is split by `conftest.on_disk`**, the predicate five other
     helpers in this suite share, and
@@ -1126,7 +1175,17 @@ def ledger_corpus():
     that used to truncate it.
     """
     listed = subprocess.run(
-        ["git", "-C", ROOT, "ls-files", "-z", "--", cc.LEDGER, cc.FRAGMENTS],
+        [
+            "git",
+            "-C",
+            ROOT,
+            "ls-files",
+            "-z",
+            "--",
+            cc.LEDGER,
+            cc.FRAGMENTS,
+            cc.RELEASES,
+        ],
         check=True,
         capture_output=True,
         encoding="utf-8",

@@ -10,8 +10,9 @@ for it.
 
 The repair is a declared partition: every step of that job is either mirrored
 by a named arm or excluded with a reason a person wrote. This module is what
-keeps the partition total, and it is driven RED FROM BOTH SIDES, which is the
-half #423's finding 4 was about:
+keeps the partition total, and it is driven RED FROM BOTH SIDES. #423's
+finding 4 was a narrow reader, one that saw three of four base spellings, and
+it named both directions, which the two rows below hold:
 
   A1   a step added to the workflow and left unclassified fails here, so the
        seventh arm cannot arrive in silence
@@ -675,7 +676,23 @@ def test_every_exclusion_says_what_the_gate_cannot_reach():
 # --- A7: a repository with no such workflow is untouched --------------------
 
 
-HISTORICAL_ROWS = ("SEALED", "tree", "base", "from", "suite", "row", "ledger", "chain")
+# The panel of a run with no workflow, as it has stood release to release.
+# `gate` joined it in 0.15.1 (#475): which copy of the gate drew the stamp,
+# `tree <version>` or `plugin <version>`, because a branch that changes the
+# gate used to be measured by the installed copy and the stamp could not say
+# which one. It is the one row this partition's A7 admits, for every
+# repository — nothing else about a run without a workflow changed.
+HISTORICAL_ROWS = (
+    "SEALED",
+    "tree",
+    "base",
+    "from",
+    "gate",
+    "suite",
+    "row",
+    "ledger",
+    "chain",
+)
 
 
 def test_a_repository_with_no_hygiene_workflow_is_sealed_exactly_as_before(tmp_path):
@@ -696,7 +713,10 @@ def test_a_repository_with_no_hygiene_workflow_is_sealed_exactly_as_before(tmp_p
         f"the stamp of a repository with no hygiene workflow says something "
         f"about that workflow's steps:\n{result.stdout}"
     )
-    assert "release" not in result.stderr.replace(str(repo), ""), result.stderr
+    said = result.stderr
+    for echoed in (str(tmp_path), os.path.realpath(GATE), sys.executable):
+        said = said.replace(echoed, "")
+    assert "release" not in said, result.stderr
     assert gate.WORKFLOW not in result.stderr, result.stderr
 
     labels = tuple(

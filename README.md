@@ -114,7 +114,9 @@ seal/
 ├── ledger.md         spec clause ↔ code coordinates, from before work items
 │                     started writing fragments
 ├── ledger/
-│   └── <work-item-id>.md   one work item's rows — no header, folded into ledger.md at release
+│   └── <work-item-id>.md   one work item's rows — no header, folded at release
+├── releases/
+│   └── <X.Y.Z>.md    one release's rows, where the fold writes them
 ├── config.md         what this repository says about itself — two languages
 │                     and the mode. Optional, and an absent row is not an
 │                     error
@@ -173,6 +175,7 @@ gate — four interpreter startups per Bash call was most of the cost of having
 them (measured: 220ms → 104ms before a Bash call, 323ms → 120ms after). Full
 decision tables:
 [docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) ·
+[docs/commit-review-gate-spec.md](./docs/commit-review-gate-spec.md) ·
 [docs/review-chain-spec.md](./docs/review-chain-spec.md).
 
 | Gate | Fires | Does | Where |

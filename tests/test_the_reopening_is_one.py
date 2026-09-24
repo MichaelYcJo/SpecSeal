@@ -43,9 +43,12 @@ NOT_THE_COUNT = "at most one more"
 # absence is about the check having nothing to say and not about wording.
 GRANDFATHERED = "prints instead of failing"
 
-HEADING = "##### The reopening — one, and then the run is capped"
-NEXT_HEADING = "##### The depth in `New units`"
-PREVIOUS_HEADING = "##### `Needs a fix` — the row the bound"
+# The reopening sits under the bound it checks since #526 moved it up a
+# level, between `Needs a fix` and the leftover ladder.
+HEADING = "### The reopening — one, and then the run is capped"
+NEXT_HEADING = "### Where a leftover goes — the ladder"
+PREVIOUS_HEADING = "### `Needs a fix` — the row the bound"
+GATE_SPEC = ("docs", "commit-review-gate-spec.md")
 
 
 def _load(name, path):
@@ -590,7 +593,7 @@ def subsection():
     return text[start : text.index(NEXT_HEADING, start)]
 
 
-def test_the_subsection_sits_between_needs_a_fix_and_the_depth():
+def test_the_subsection_sits_between_needs_a_fix_and_the_ladder():
     text = flat(*SPEC)
     assert text.index(PREVIOUS_HEADING) < text.index(HEADING) < text.index(NEXT_HEADING)
 
@@ -634,9 +637,9 @@ def test_the_spec_says_worktree_is_local_only():
     """Phase 1 added the flag and left the sentence to this phase: the check
     reads `HEAD`, `--worktree` reads the working tree, and CI keeps the
     default because a tree that differs from `HEAD` is what CI never sees."""
-    text = flat(*SPEC)
+    text = flat(*GATE_SPEC)
     arm = text[text.index("#### The declaration, and where the check went") :]
-    arm = arm[: arm.index("##### `Pass` has to be checked")]
+    arm = arm[: arm.index("### Parity arm")]
     assert "`--worktree`" in arm, "the review arm does not mention the flag"
     assert "CI keeps the default" in arm, "the arm does not say CI never passes it"
 

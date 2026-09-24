@@ -244,15 +244,16 @@ the reviewer verified has not reached the ledger yet.
 with its file, its line and its claim. Removing the directory would leave the
 row BROKEN, and the checker would say so only after the directory was gone.
 Every ledger `evidence-check` reads is read — `seal/ledger.md`, every
-`seal/ledger/*.md` and any `docs/**/_evidence.md` — and every line of each,
-the ones above the first section marker and the ones inside a fence included,
-because the checker reports a fenced anchor broken too. `settle` alone names
-them for every released directory before you write any prose. Each row
-carries what `CLAUDE.md` requires of it: **REMOVED** when every anchor it
-cites goes, and its claim written anew where it still stands; **narrow** when
-it keeps a live anchor, with the dead one dropped — and whether such a row is
-removed instead is the repository owner's question. The command edits no row.
-Answer them, and the next `settle --retire` takes the directory.
+`seal/ledger/*.md`, every `seal/releases/*.md` and any `docs/**/_evidence.md`
+— and every line of each, the ones above the first section marker and the
+ones inside a fence included, because the checker reports a fenced anchor
+broken too. `settle` alone names them for every released directory before
+you write any prose. Each row carries what `CLAUDE.md` requires of it:
+**REMOVED** when every anchor it cites goes, and its claim written anew where
+it still stands; **narrow** when it keeps a live anchor, with the dead one
+dropped — and whether such a row is removed instead is the repository owner's
+question. The command edits no row. Answer them, and the next
+`settle --retire` takes the directory.
 
 **The retirement is the second half of the fold and never its own act.** A
 directory removed before a policy document absorbed it takes the reasoning
@@ -274,7 +275,9 @@ way.
 **An answer for every check that reads the corpus** (§3), and for every row
 `settle` names as anchored (§4).
 
-**`seal/ledger.md` changes only by removal and re-verification.** A fold
+**`seal/ledger.md` changes only by removal and re-verification.** So does
+every `seal/releases/<X.Y.Z>.md`, where this repository's fold writes a
+release's rows. A fold
 appends nothing: it has no work item, so it has no fragment to append under.
 It removes a row the guard named REMOVED, drops the dead anchor from a row it
 named narrow, and re-reads and re-verifies — `evidence-check --reverify` — a

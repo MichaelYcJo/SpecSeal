@@ -205,7 +205,8 @@ else about the sequence below changes.
   which is the only place the reason it was not merged is written down.
 - **The release branch merges into `main` as a merge commit**, carrying one
   commit of its own: the one that gathers the changelog fragments into
-  `## X.Y.Z — <date>`, folds the ledger fragments into `seal/ledger.md`, and
+  `## X.Y.Z — <date>`, folds the ledger fragments into
+  `seal/releases/X.Y.Z.md`, and
   moves `plugin.json`. Then the tag. It is also the moment every
   issue this release closes gets closed, by a workflow rather than by
   anybody's hand — the paragraphs below say how, and what to keep writing in
@@ -251,13 +252,17 @@ no branch left to queue at the file, so release preparation also runs:
 python3 .github/scripts/fold_ledger.py --version X.Y.Z
 ```
 
-which moves every fragment into `seal/ledger.md` under `## X.Y.Z — <date>`,
+which moves every fragment into `seal/releases/X.Y.Z.md`, the release's own
+file under `## X.Y.Z — <date>`,
 one `###` section per work item marked with `<!-- specs/<work-item-id> -->`,
-and removes the fragment. Every row is copied byte for byte; a row is a content
-anchor, so `evidence-check` reports the same thing before and after. `--dry-run`
-prints the section and writes nothing; `--check` reports a fragment left
-behind, and the hygiene workflow runs it beside the changelog check on every
-pull request into `main`.
+and removes the fragment. `seal/ledger.md` keeps the notation and the rows
+from before the fragments existed, and stops growing; the sections folded into
+it before #547 move once, by `fold_ledger.py --split` at the release that
+ships that change (`docs/release-checklist.md` §2). Every row is copied byte
+for byte; a row is a content anchor, so `evidence-check` reports the same
+thing before and after. `--dry-run` prints the section and writes nothing;
+`--check` reports a fragment left behind, and the hygiene workflow runs it
+beside the changelog check on every pull request into `main`.
 
 **The fold refuses while a verified fact has not reached the ledger.** A
 reviewer lists such facts in `seal/specs/<work-item-id>/evidence-todo.md`, and a

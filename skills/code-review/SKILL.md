@@ -281,7 +281,15 @@ it (`🔴 1`, `⬜ 13`); nothing else may. `R2-1`, `1-1`, `1b` and `A2` are
 refused by `round_record.py`, which names the format and quotes every row that
 carries one. Do not put the round in the id: `rounds/round-N.md`'s own file
 name carries it, and a prefixed id used to collapse eight findings toward one
-key in silence (#227, `docs/review-chain-spec.md` §*The finding id*).
+key in silence (#227, `docs/round-record-spec.md` §*The finding id*).
+
+**One depth per finding:** a finding whose coordinates sit at two depths —
+one inside a unit an earlier round's fixes created, another not — is written
+as two findings, so each verdict carries one depth and the fix of one does
+not refuse the units the other's fix adds. `round_record.py close` keys its
+depth refusal on the finding's `Location` (`docs/round-record-spec.md`
+§*The depth in `New units`*), so a finding left unsplit has its depth-1
+units refused beside the depth-2 one (#366).
 
 **A row that commissions nothing takes no id at all**, and its `#` cell says
 so — `carried`, `🟢 fix-surface`. Three kinds of row are that: something this

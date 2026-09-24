@@ -549,7 +549,7 @@ SEPARATORS = " " + chr(0x2014) + chr(0x2013) + "-:,"
 # (#344). The class the field closes: a fix table states its range in prose,
 # in whatever words its author chose, and one of those words is `HEAD` -- which
 # resolves, so the sentence stays readable while meaning a different set of
-# commits every day. `docs/review-chain-spec.md` §*The fix range* names the
+# commits every day. `docs/round-record-spec.md` §*The fix range* names the
 # command that counts the corpus and both tree states it was run at, because a
 # count over prose depends on what counts and a number quoted without its
 # method produced three different answers from three readers.
@@ -2421,7 +2421,7 @@ def says_not_yet(value):
     Only the first of the three is punctuation, so widening `SEPARATORS`
     would close one, leave this paragraph false about the other two, and
     move a constant four other readers in this file share. The limit is
-    written down instead, here and in `docs/review-chain-spec.md`, and
+    written down instead, here and in `docs/round-record-spec.md`, and
     `test_a_reason_the_checker_does_not_recognise_passes` runs all three.
     What *this record passed* means is *its cell does not carry the
     template's own pending words*, never *its fix surface is complete*.
@@ -3662,8 +3662,10 @@ def broad_gate(
     keeps rather than one this arm assumes (#174). The cell holds one entry
     per full-suite run, NEWEST FIRST: `round_record.py seal` writes a new
     run in front of what the cell already held and keeps the earlier entry
-    behind it as `earlier run`, so a re-seal after a pre-existing failure or
-    a late fix records a second run instead of erasing the first. Every
+    behind it as `earlier run`, so a re-seal at a new commit after a
+    pre-existing failure or a late fix records a second run instead of
+    erasing the first, while the same comparison as the newest entry -- the
+    same commit against the same base -- replaces that entry. Every
     question below is asked of `named[0]` alone -- the newest run is the one
     that has to be at or after the round it seals -- and a first seal is one
     entry, so a record written before the cell could hold two reads exactly

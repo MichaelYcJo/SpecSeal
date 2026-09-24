@@ -74,6 +74,17 @@ kills — restoring the module from held bytes and comparing the sha256 after
 every mutation, never with `git checkout`, which reaches the uncommitted work
 in the rest of the tree.
 
+**`--timeout` bounds the wait, and not the work.** Each operator's command is
+waited for at most 900 seconds by default (`--timeout 0` removes the bound),
+and an arm asks two operators, so one arm can take twice that. When the bound
+is reached, only the command's own process is killed. A wrapper command is the
+one that leaks: where `--tests` names a runner that starts pytest as a child of
+its own, as the example above does, a timed-out pair leaves that suite running,
+unbounded and unreported, beside every arm after it. Against a module whose
+suite can approach the bound, name the pytest command in `--tests` directly
+rather than a wrapper. Whether the bound should reach the whole process group
+is #313.
+
 **There are two ways to be wrong and the counts differ by a lot**, so the
 report keeps them apart and the number you quote has to say which one it is:
 
@@ -352,12 +363,13 @@ sees neither, and nothing else about its run changes.
 **What the count does not say** is whether a mirrored arm asks the same
 question its step asks. The partition says a step is on the list; two readers
 of one question can still disagree about what they are checking. **#473 is
-the work item about that class**, opened with the one live instance this
-repository has: the gate runs the `survivors` and `corrections` arms
-unconditionally where the workflow skips both steps on a `main` base.
+the work item about that class**, opened with the one live instance in the
+repository this plugin is developed in: the gate runs the `survivors` and
+`corrections` arms unconditionally where SpecSeal's own workflow skips both
+steps on a `main` base.
 
 **The arms the plugin ships are the arms the gate can run.** Four steps of
-this repository's `release` job have a local answer and no arm: three run a
+SpecSeal's own `release` job have a local answer and no arm: three run a
 script under `.github/scripts/`, which no plugin ships, and one is shell
 written inline in the workflow with no script either side can share. A
 repository that wants checks of its own sealed names them in the `Broad gate`
@@ -427,11 +439,16 @@ session: the same test scope ran at 194s piped through `tail`, then again at
 view of a result already produced. Redirect to a file and read the file:
 
 ```
-uv run pytest <scope> > /tmp/run.txt 2>&1; tail -8 /tmp/run.txt
-grep '^FAILED' /tmp/run.txt          # same run, second question
+out=<scratchpad>/<work-item-id>/run.txt; mkdir -p "$(dirname "$out")"
+uv run pytest <scope> > "$out" 2>&1; tail -8 "$out"
+grep '^FAILED' "$out"                # same run, second question
 ```
 
 The tell is a second invocation whose only difference is after the pipe.
+The file is under the scratchpad and carries the work item id, never a name
+every session on the machine would also pick: agents of one session share
+one scratchpad, and a generic name was overwritten mid-round by a sibling
+work item's three times in one run (#544).
 
 `session-cost` reads a finished transcript and reports the split — command
 time, model time between calls, the repeats, and how many tools went out per
@@ -743,7 +760,7 @@ gathers up.
 | Wall clock, routing commit to last record, build and chain apart | `git log` of the branch |
 | Commits, by kind | `git log --format=%s` |
 | Findings by severity | the records' verdict tables |
-| Findings by `Location`: record · code or tests · docs | the records' `Location` column. A record is anything under `seal/specs/`, `seal/ledger/` or `seal/ledger.md` — the work item's own documents, the ledger and its fragments alike — because a finding in any of them is about the run's own paperwork rather than about the tool. Those three paths, not the whole of `seal/`: the root also holds `config.md`, `follow-up.md` and `README.md`, which are the repository's own and belong under `docs` |
+| Findings by `Location`: record · code or tests · docs | the records' `Location` column. A record is anything under `seal/specs/`, `seal/ledger/`, `seal/releases/` or `seal/ledger.md` — the work item's own documents, the ledger, its release files and its fragments alike — because a finding in any of them is about the run's own paperwork rather than about the tool. Those four paths, not the whole of `seal/`: the root also holds `config.md`, `follow-up.md` and `README.md`, which are the repository's own and belong under `docs` |
 | Records' share of the diff | `git diff --numstat` against the base, the record paths above counted apart |
 | Model turns · output tokens · cache write · cache read | `session_cost.py`'s token line over the run's main transcript |
 | Segments: count, minutes and tokens per kind | the agent completion notices, or the subagent transcripts |

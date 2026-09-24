@@ -5,14 +5,17 @@ subject, and says a document over the repository's ceiling takes no new
 standing statement. This module is this repository's ceiling and its reader.
 
 Two fold runs put 29 of the 101 folded statements into
-`docs/review-chain-spec.md`, which is 2,159 lines, while the next largest
-document is 839. Splitting it is MichaelYcJo/SpecSeal#526. Until then its
-fold-marker count is frozen, and the entry cannot outlive the split: once the
-file is back under the ceiling, the listing itself fails.
+`docs/review-chain-spec.md`, which reached 2,246 lines while the next largest
+document was 839. Its fold-marker count was frozen until
+MichaelYcJo/SpecSeal#526 split it along its own headings into three
+documents, each under the ceiling, and the entry could not outlive the split:
+once the file was back under the ceiling, the listing itself failed, which is
+how the entry below came to be removed. The listing stays, empty, for the
+next document a fold takes past the ceiling before it can be split.
 
 The marker count is frozen, not the line count, because a marker is the one
-thing only a fold adds. A sibling that edits the chain spec's prose moves its
-line count and folds nothing.
+thing only a fold adds. A sibling that edits a listed document's prose moves
+its line count and folds nothing.
 
 `docs/the-evidence-ledger.md` §*The fold, and what tells it from a deletion*
 states the three values in prose. The last case here pins that prose against
@@ -32,16 +35,12 @@ SHAPE = os.path.join(
 )
 
 LINE_CEILING = 1000
-OVER_CEILING = {
-    "docs/review-chain-spec.md": (29, "MichaelYcJo/SpecSeal#526"),
-}
+OVER_CEILING = {}
 # WHICH markers each listed document holds, not only how many: a fold that
 # adds a statement there and removes another keeps the count and changes this
 # (round 1, finding 1). A marker removed on purpose recomputes it with
 # `marker_digest` in the same commit that lowers the count.
-FROZEN_IDS_DIGEST = {
-    "docs/review-chain-spec.md": "8f8c4d85f213",
-}
+FROZEN_IDS_DIGEST = {}
 
 
 def _load(name, path):

@@ -362,10 +362,12 @@ def kept_broad_gate(reader, rows, value):
     1's ⬜ 8, narrowed by round 2's 🟡 1). It is the same claim about the
     same comparison — the sealer re-run over an unchanged checkout — and
     two entries for one claim would make the count of entries stop being
-    the count of runs. A run at that commit against ANOTHER base is another
-    comparison and is kept behind the new entry like any earlier run, which
-    is what `agents/sealer.md` and the `broad-gate.md` comment promise: a
-    second run never erases the first. Keyed on the SHA alone, the replace
+    the count of distinct comparisons — commit and base — which is what
+    the run-level table reads off the cell. A run at that commit against
+    ANOTHER base is another comparison and is kept behind the new entry
+    like any earlier run, which is what `agents/sealer.md` and the
+    `broad-gate.md` comment promise: a second run never erases the first.
+    Keyed on the SHA alone, the replace
     erased the first base. The comparison is `same_run`'s, by prefix per
     SHA-shaped word, so an abbreviated entry and a full-length flag name one
     commit; nothing here asks git: `seal` has already refused a flag that
@@ -3046,7 +3048,7 @@ def return_literals(node):
     to test.
 
     What this does NOT catch is a changed input→value mapping, and that hole
-    is stated in `docs/review-chain-spec.md` rather than closed. Widening it
+    is stated in `docs/round-record-spec.md` rather than closed. Widening it
     to reach that is not a small step: it is asking which inputs reach which
     return, which is the function.
     """
@@ -3714,6 +3716,14 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     every file the range touched that holds the unit at `a`, which is the
     widest honest reading of a name with no path beside it.
 
+    The candidate scope is the finding's file, not every file changed by its
+    fix. A regression case added in a separate test file is therefore not
+    depth 2 merely because it pins a fix inside an earlier round's new unit.
+    This keeps `skills/agent-contract/SKILL.md` §15 satisfiable: a new case
+    must exist to be seen failing before the fix. It is not a test-file
+    exemption; a finding inside an earlier round's new unit in a test file
+    still makes additions in that same file candidates for this refusal.
+
     **The finding is named from `adders`, not from the file** (#333). The
     walk used to compare the FILE — `inside = [n for r, n in added if r == f]`
     — so every unit added to a file was attributed to whichever candidate
@@ -3733,7 +3743,7 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     **Where the range cannot resolve one, it still refuses and says so.**
     A single commit answering two findings resolves to nothing at any cost,
     and the direction every verdict the checker cannot read takes is the one
-    that blocks: `docs/review-chain-spec.md`'s own depth table fails an entry
+    that blocks: `docs/round-record-spec.md`'s own depth table fails an entry
     below depth 1 for the neighbouring reason, and the asymmetry is
     `CONTRIBUTING.md`'s — a wrong deny costs a prompt, and a wrong allow here
     ships a unit that is read by nobody. What changes on the fallback is the
@@ -3951,7 +3961,9 @@ def close(args):
         [units_entry(n, 1) for n in dict.fromkeys(n for _r, n in added)],
     )
     # Through the same path as `seal` (round 1's 🟡 1): a run the cell
-    # already holds is kept behind the new entry by either writer.
+    # already holds is kept behind the new entry by either writer, and the
+    # newest, where it is the same commit against the same base, is replaced
+    # by either (`same_run`).
     gate = (
         cell(
             BROAD_GATE,
@@ -4275,9 +4287,11 @@ def new_broad_gate_file(item, value):
         "records the commit the run happened at and the base it was compared\n"
         "against, so an edit after the run spends it — which is the whole of\n"
         "what a broad-gate cell asserts, and none of it depends on a round\n"
-        "having run. One entry per run, newest first: a run taken again is\n"
-        "written in front, and the earlier one stays behind it as\n"
-        "`earlier run`, so the reader takes the first SHA as the run. -->\n"
+        "having run. One entry per run, newest first: a run at a new commit,\n"
+        "or at this one against another base, is written in front and the\n"
+        "earlier one stays behind it as `earlier run`; a run the newest entry\n"
+        "already records — the same commit against the same base — replaces\n"
+        "it. The reader takes the first SHA as the run. -->\n"
         "\n"
         "| Field | Value |\n"
         "|---|---|\n"
@@ -4513,6 +4527,8 @@ def seal(args):
     # kept behind the new one as `earlier run`, because a second broad run --
     # after a pre-existing failure, or after the last fixes landed -- used to
     # REPLACE the first and the run-level table was then filled from memory.
+    # The newest entry alone is replaced, where it is the same commit against
+    # the same base (`same_run`).
     # `kept_broad_gate` is the one path, shared with `close --broad-gate`.
     value = kept_broad_gate(reader, rows, args.broad_gate)
     if n is None:

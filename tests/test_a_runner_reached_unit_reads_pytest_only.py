@@ -475,7 +475,7 @@ def test_a_unit_with_real_callers_still_names_them(reach):
 
 def test_no_reach_value_was_added():
     """`PYTEST_ONLY` already existed for a unit reached only from `tests/`.
-    Adding a sixth word would move `docs/review-chain-spec.md`'s enumeration
+    Adding a sixth word would move `docs/round-record-spec.md`'s enumeration
     and the test that derives it, for a distinction no reader of the row
     needs."""
     generator = generator_module()
@@ -488,7 +488,7 @@ def test_the_section_says_when_the_runner_is_the_reach():
     alone. A unit the runner reaches has no callers at all, so a reader
     checking the row against the section found the value undefined for the
     case it is now written in."""
-    with open(f"{ROOT}/docs/review-chain-spec.md", encoding="utf-8") as f:
+    with open(f"{ROOT}/docs/round-record-spec.md", encoding="utf-8") as f:
         text = " ".join(f.read().split())
     assert "pytest itself reaches" in text or "the runner reaches" in text, (
         "the section defines `pytest only` by its callers alone"

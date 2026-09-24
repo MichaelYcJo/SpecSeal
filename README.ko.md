@@ -108,7 +108,9 @@ seal/
 ├── README.md         인계 규칙 — 작업 항목을 닫기 전에 무엇을 어디로 옮기는지
 ├── ledger.md         조항 ↔ 코드 좌표. 작업 항목별 파일이 생기기 전에 쌓인 것
 ├── ledger/
-│   └── <작업항목-id>.md   그 작업 항목의 행. 머리글이 없고, 릴리스 때 ledger.md 로 합친다
+│   └── <작업항목-id>.md   그 작업 항목의 행. 머리글이 없고, 릴리스 때 합친다
+├── releases/
+│   └── <X.Y.Z>.md    릴리스 하나의 행. 릴리스 때 합친 행이 여기에 쓰인다
 ├── config.md         이 저장소가 자기에 대해 말하는 것. 언어 두 행과 모드.
 │                     선택이고, 행이 없는 것은 오류가 아니다
 ├── parity.md         이관 설정, 선언했을 때만
@@ -169,8 +171,9 @@ BROKEN 이 아니라 그 단위 전체를 놓고 DRIFTED 로 알려 줍니다. B
 사용자 컴퓨터에서 실행됩니다. 한 이벤트에 걸린 게이트들은 게이트마다 하나씩이
 아니라 프로세스 하나가 묶어서 처리합니다 — Bash 호출 한 번에 파이썬을 네 번
 띄우는 것이 게이트를 두는 비용의 대부분이었습니다(실측: Bash 호출 전 220ms →
-104ms, 후 323ms → 120ms). 판정표 전문은 다음 두 문서에 있습니다.
+104ms, 후 323ms → 120ms). 판정표 전문은 다음 세 문서에 있습니다.
 [docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) ·
+[docs/commit-review-gate-spec.md](./docs/commit-review-gate-spec.md) ·
 [docs/review-chain-spec.md](./docs/review-chain-spec.md)
 
 | 게이트 | 언제 | 무엇을 | 어디서 |

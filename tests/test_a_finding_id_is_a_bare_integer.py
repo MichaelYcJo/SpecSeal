@@ -1122,7 +1122,7 @@ def test_the_documents_say_where_the_reviewer_picks_the_number():
     where reviewers pick numbers, not only at the point of refusal."""
     for rel in (
         "skills/code-review/SKILL.md",
-        "docs/review-chain-spec.md",
+        "docs/round-record-spec.md",
         "templates/sdd-round.md",
     ):
         with open(f"{ROOT}/{rel}", encoding="utf-8") as f:
@@ -1137,7 +1137,7 @@ def test_the_documents_say_that_a_row_commissioning_nothing_takes_no_id():
     as a mechanism and kept as this obligation."""
     for rel in (
         "skills/code-review/SKILL.md",
-        "docs/review-chain-spec.md",
+        "docs/round-record-spec.md",
         "templates/sdd-round.md",
     ):
         with open(f"{ROOT}/{rel}", encoding="utf-8") as f:

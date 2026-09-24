@@ -407,6 +407,24 @@ def test_a_row_at_the_old_evidence_address_keeps_the_directory(tree):
     assert "docs/area/_evidence.md:1" in text, text
 
 
+def test_a_row_in_a_release_file_is_read_by_the_guard(tree):
+    """#547, S4's second half. The fold writes each release's rows to
+    `seal/releases/<X.Y.Z>.md`; the guard follows the checker's list, so a
+    row there anchored inside a retiring directory keeps it. Asserted once,
+    here, because `anchored_rows` reads `default_patterns` and does not
+    spell the list itself."""
+    fold(tree, "1700000001-alpha")
+    release = tree / "seal" / "releases" / "0.4.0.md"
+    release.parent.mkdir()
+    release.write_text(
+        "## 0.4.0 — 2026-01-02\n\n" + INSIDE_ROW + "\n", encoding="utf-8"
+    )
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert "seal/releases/0.4.0.md:3" in text, text
+
+
 def test_the_documents_say_the_retirement_keeps_an_anchored_directory():
     """§14's half of #511: the skill a fold session reads and the policy it
     folds under both say the guard exists, and neither still says nothing
@@ -747,6 +765,32 @@ def test_rows_above_the_first_marker_belong_to_no_work_item(tree):
     never wrote a row about."""
     rows = settle.coordinates(str(tree))
     assert "hooks/old.py" not in [p for paths in rows.values() for p in paths]
+
+
+RELEASE_SECTION = """## 0.2.0 — 2026-01-02
+
+<!-- specs/1700000002-beta -->
+### 1700000002-beta
+
+| Clause | Code grounds | Verified behavior | Checked | Notes |
+|---|---|---|---|---|
+| c | `hooks/b.py#thing@ffffffff` | read | 2026-01-01 | |
+"""
+
+
+def test_a_release_file_is_read_as_well_as_the_gathered_ledger(tree):
+    """#547, S4. A release file is the section byte for byte — one `## `
+    line, then the markers — so the loop that attributes `seal/ledger.md`'s
+    rows attributes a release file's rows the same way. Red before
+    `coordinates` opened `seal/releases/*.md`: beta stayed tests-only."""
+    release = tree / "seal" / "releases" / "0.2.0.md"
+    release.parent.mkdir()
+    release.write_text(RELEASE_SECTION, encoding="utf-8")
+    rows = settle.coordinates(str(tree))
+    assert rows["1700000002-beta"] == ["tests/test_b.py", "hooks/b.py"], rows
+    _, text = run(tree)
+    assert "hooks/b.py" in text, text
+    assert "1700000002-beta  (tests only)" not in text, text
 
 
 def test_a_fragment_is_read_as_well_as_the_gathered_ledger(tree):
@@ -1363,6 +1407,15 @@ def test_an_opener_quoted_inside_a_code_span_parks_nothing(tree):
     assert "docs/x.md" in rows["1700000003-gamma"], rows["1700000003-gamma"]
 
 
+def real_ledgers():
+    """`seal/ledger.md` and every `seal/releases/*.md` — where a folded
+    section stands, before the one-time split and after it (#547)."""
+    return [
+        os.path.join(ROOT, "seal", "ledger.md"),
+        *sorted(glob.glob(os.path.join(ROOT, "seal", "releases", "*.md"))),
+    ]
+
+
 def test_the_rule_over_this_repositorys_ledger_loses_no_section():
     """The same fact over the real corpus: the ids `coordinates` sections are
     the ids `blank_fences` alone would section, and there are some. Set
@@ -1371,9 +1424,11 @@ def test_the_rule_over_this_repositorys_ledger_loses_no_section():
     `skills/settle/SKILL.md` §3 names as the expensive one. With the span pass
     removed this reports three ids missing."""
     reader = settle.load(settle.READER, "specseal_unverified_reader_a4")
-    with open(os.path.join(ROOT, "seal", "ledger.md"), encoding="utf-8") as f:
-        fenced = reader.blank_fences(f.read().split("\n"))
-    sectioned = {m.group(1) for m in map(settle.MARKER_LINE_RE.match, fenced) if m}
+    sectioned = set()
+    for path in real_ledgers():
+        with open(path, encoding="utf-8") as f:
+            fenced = reader.blank_fences(f.read().split("\n"))
+        sectioned |= {m.group(1) for m in map(settle.MARKER_LINE_RE.match, fenced) if m}
     fragments = {
         os.path.basename(path)[: -len(".md")]
         for path in glob.glob(os.path.join(ROOT, "seal", "ledger", "*.md"))
@@ -1397,8 +1452,6 @@ def test_no_section_of_this_repositorys_ledger_loses_a_coordinate():
     still takes three work items from 12, 57 and 29 coordinates to 5, 40 and
     19."""
     reader = settle.load(settle.READER, "specseal_unverified_reader_coords")
-    with open(os.path.join(ROOT, "seal", "ledger.md"), encoding="utf-8") as f:
-        lines = f.read().split("\n")
 
     def sectioned(pairs):
         out, current = {}, None
@@ -1417,8 +1470,16 @@ def test_no_section_of_this_repositorys_ledger_loses_a_coordinate():
                 )
         return out
 
-    fence_only = sectioned([(line, True) for line in reader.blank_fences(lines)])
-    assert sectioned(reader.live_lines(lines)) == fence_only
+    fence_only, live = {}, {}
+    for path in real_ledgers():
+        with open(path, encoding="utf-8") as f:
+            lines = f.read().split("\n")
+        pairs = [(line, True) for line in reader.blank_fences(lines)]
+        for key, paths in sectioned(pairs).items():
+            fence_only.setdefault(key, []).extend(paths)
+        for key, paths in sectioned(reader.live_lines(lines)).items():
+            live.setdefault(key, []).extend(paths)
+    assert live == fence_only
     assert sum(len(v) for v in fence_only.values()) > 1000, "the ledger went empty"
 
 

@@ -246,7 +246,7 @@ def test_the_documents_that_explain_say_the_old_directory_is_gone():
     half that stops someone moving it back. They have to mark it as past."""
     for parts in (
         ("docs", "review-handoff-protocol.md"),
-        ("docs", "review-chain-spec.md"),
+        ("docs", "commit-review-gate-spec.md"),
     ):
         text = read(*parts)
         assert ".specseal/handoff" in text, "/".join(parts)

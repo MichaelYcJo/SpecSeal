@@ -1024,6 +1024,7 @@ EXCLUSIONS = (
     "**A record of a past round.**",
     "**The work item's own exemption file.**",
     "**A phase record.**",
+    "**A released changelog section, and a gathered fragment.**",
 )
 
 
@@ -1803,6 +1804,82 @@ def test_a_range_row_that_does_not_resolve_silences_nothing_and_says_so(tmp_path
     )
 
 
+UNRESOLVED_ROW = (
+    f"| Range | Grounds |\n|---|---|\n| `origin/gone..HEAD` | {GROUNDS} |\n"
+)
+
+
+def test_an_unresolved_declaration_of_another_work_item_prints_nothing(tmp_path):
+    """S13 (#439). A shipped work item's `survivors.md` names a release
+    branch that was deleted at the release, and every later run was handed
+    it and printed `unresolved` for a declaration that could never have
+    applied to it -- three lines on every seal of one release. The second
+    anchor is asked first: this range touches nothing in that work item's
+    directory, so the row could not have excused this run whether or not it
+    resolved, and the line is addressed to nobody. The exit is the case
+    above's, because an unresolved row excuses nothing either way."""
+    repo = tmp_path / "probe"
+    head = one_survivor(repo)
+    where = os.path.join(str(repo), *f"{ITEM_A}/survivors.md".split("/"))
+    os.makedirs(os.path.dirname(where), exist_ok=True)
+    with open(where, "w", encoding="utf-8") as handle:
+        handle.write(UNRESOLVED_ROW)
+    code, text = run(
+        "--range", f"{head}^..{head}", "--root", str(repo), "--exempt", where
+    )
+    assert code == 1, f"an unresolvable declaration silenced the run\n{text}"
+    assert "notes.md" in text, f"the survivor itself was not reported\n{text}"
+    assert "unresolved" not in text and "origin/gone..HEAD" not in text, (
+        "a declaration belonging to a work item this range touches nothing of "
+        f"was printed to this run, which could never have used it:\n{text}"
+    )
+
+
+def test_an_unresolved_declaration_of_the_work_item_the_range_touches_prints(
+    tmp_path,
+):
+    """S14, the half that must not move. The same row under a work item this
+    range does touch is a declaration this run could have used, and a row
+    that quietly stopped applying is the one failure a rotting anchor must
+    not have -- so it prints, as it did before #439."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst. {CLAIM_A}\n\nSecond. {CLAIM_A}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the claim, stated twice",
+    )
+    fixed = (
+        "The verdict cell is written by the generator and the "
+        "orchestrator leaves it untouched afterwards."
+    )
+    head = build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst. {fixed}\n\nSecond. {CLAIM_A}\n",
+            f"{ITEM_A}/routing.md": "# routing\n\nDeclared before the first edit.\n",
+            f"{ITEM_A}/survivors.md": UNRESOLVED_ROW,
+        },
+        "work item A corrects its claim and declares a range that is gone",
+    )
+    code, text = run(
+        "--range",
+        f"{head}^..{head}",
+        "--root",
+        str(repo),
+        "--exempt",
+        os.path.join(str(repo), *f"{ITEM_A}/survivors.md".split("/")),
+    )
+    assert code == 1, f"an unresolvable declaration silenced the run\n{text}"
+    assert "unresolved" in text and "origin/gone..HEAD" in text, (
+        "the work item's own unresolved declaration was not printed to its "
+        f"own run, so the row rotted in silence:\n{text}"
+    )
+
+
 def test_a_file_holding_only_a_range_row_is_not_refused_as_empty(tmp_path):
     """A range row IS a row.
 
@@ -2214,3 +2291,1011 @@ def test_a_spec_less_directory_that_stays_is_still_in_the_range(tmp_path):
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 1, text
     assert "docs/policy.md" in text, text
+
+
+# --- #543: a Python file's prose is its comments, docstrings and literals ---
+#
+# A line of code normalises to the same words in every file that walks a list
+# the same way, so a branch that rewrote one loop was told that every other
+# loop of that shape still stood: four of one branch's five exemption rows,
+# and the fourth arrived from another work item's merge as a red hygiene job.
+# The fix is a narrower reading of what a `.py` file SAYS, never a file kind
+# skipped -- #269's pin is a string literal in a test, and the real survivor
+# on the 0.15.0 release's fourth range is a `#` comment.
+
+
+def coordinates_in(text):
+    """The `path:line` coordinates a report names, one per reported survivor."""
+    return {
+        line.strip()
+        for line in text.splitlines()
+        if line and not line.startswith((" ", "survivor-check")) and ":" in line
+    }
+
+
+# Two generic line-list walks, shaped after `round_record.py`'s removed
+# `section_body` scan and the four carriers #543 names. They share three
+# stretches of code tokens -- `end next i for i in range`, `len lines if
+# lines i` and `startswith len lines` -- and no sentence.
+WALK = (
+    "def section_body(lines, heading):\n"
+    '    """The lines of one section."""\n'
+    "    starts = sections(lines, heading)\n"
+    "    start = starts[0]\n"
+    "    end = next(\n"
+    '        (i for i in range(start + 1, len(lines)) if lines[i].startswith("#")),\n'
+    "        len(lines),\n"
+    "    )\n"
+    "    return lines[start:end]\n"
+)
+OTHER_WALK = (
+    "def table_lines(lines, header_idx):\n"
+    '    """The rows of one table."""\n'
+    "    end = next(\n"
+    "        (i for i in range(header_idx + 1, len(lines))"
+    ' if lines[i].strip().startswith("## ")),\n'
+    "        len(lines),\n"
+    "    )\n"
+    "    return lines[header_idx + 1 : end]\n"
+)
+REWRITTEN_WALK = (
+    "def section_body(lines, heading):\n"
+    '    """The lines of one section."""\n'
+    "    starts = sections(lines, heading)\n"
+    "    start = starts[0]\n"
+    "    end = start + 1\n"
+    '    while end < len(lines) and not lines[end].startswith("#"):\n'
+    "        end += 1\n"
+    "    return lines[start:end]\n"
+)
+
+
+def test_a_loop_rewritten_in_one_file_is_not_reported_at_every_other_loop(
+    tmp_path,
+):
+    """S1. Two modules walk a list the same way; the range rewrites one.
+
+    Under the whole-file reading the other module's loop shares three runs
+    of code tokens with the removed one and scores over the floor -- which
+    is the report #543 quotes at 2.77. A loop is not wording, so the range
+    is clean."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(repo, {"walker.py": WALK, "other.py": OTHER_WALK, **FILLER}, "two walks")
+    head = build(repo, {"walker.py": REWRITTEN_WALK}, "rewrote one of them")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "the other module's loop was reported as wording this range removed; "
+        f"a line of code is not a sentence. exit {code}\n{text}"
+    )
+    assert "other.py" not in text.split("examined", 1)[-1], text
+
+
+# A claim stated in a docstring, and the same claim carried by a comment or by
+# another docstring one file over. Both are what a `.py` file SAYS, so a
+# correction to the first has to be reported at the second.
+CARRIERS_OF_PROSE = {
+    "comment": f"# {FOUND}\n\n\ndef reader():\n    return None\n",
+    "docstring": f'def reader():\n    """{FOUND}"""\n    return None\n',
+}
+
+
+@pytest.mark.parametrize("carrier", sorted(CARRIERS_OF_PROSE))
+def test_a_docstring_corrected_in_one_file_is_reported_where_prose_carries_it(
+    tmp_path, carrier
+):
+    """S2. The direction that would break if the reader took too much.
+
+    A docstring is exactly where a removed rule survives, and the real
+    survivor on one of the four measured ranges is a `#` comment. Skipping
+    `.py` files would lose both; this case is green before the reader and
+    has to stay green after it."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "stated.py": f'def writer():\n    """{FOUND}"""\n    return None\n',
+            "carrier.py": CARRIERS_OF_PROSE[carrier],
+            **FILLER,
+        },
+        "the claim in a docstring, and once more in another module",
+    )
+    head = build(
+        repo,
+        {"stated.py": f'def writer():\n    """{REPAIRED}"""\n    return None\n'},
+        "corrected the docstring only",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        f"carrier.py still carries the claim in a {carrier}, and the range was "
+        f"called clean; exit {code}\n{text}"
+    )
+    assert "carrier.py" in text, f"the report does not name the {carrier}:\n{text}"
+
+
+def test_a_code_token_between_two_literals_ends_the_sentence():
+    """S4. `"first half", name, "second half"` is two sentences.
+
+    Under the whole-file reading the line normalises to `first half name
+    second half`, one sentence carrying both halves. A code token between
+    two literals is where the sentence ends; two literals with only a line
+    break between them -- Python's implicit concatenation, #269's pin --
+    are still one, and the case above this section holds that side."""
+    reader = module()
+    keys = [
+        s.key for s in reader.sentences("probe.py", '"first half", name, "second half"')
+    ]
+    assert not any("first half" in k and "second half" in k for k in keys), (
+        f"the two literals read as one sentence across a code token: {keys!r}"
+    )
+    assert any("first half" in k for k in keys) and any(
+        "second half" in k for k in keys
+    ), f"a literal was lost rather than separated: {keys!r}"
+
+
+def test_an_fstring_expression_ends_the_sentence_and_its_quotes_do_not():
+    """On 3.12 an f-string is FSTRING_START, FSTRING_MIDDLE and FSTRING_END
+    with its expressions as ordinary tokens. The expression is code, so it
+    ends the sentence; the quotes are the literal's delimiters, so a plain
+    string beside them is implicitly concatenated and reads as one."""
+    reader = module()
+    keys = [
+        s.key
+        for s in reader.sentences("probe.py", 'x = f"hello {name} world" "and more"\n')
+    ]
+    assert any("world and more" in k for k in keys), (
+        f"the f-string's closing quote ended the sentence before `and more`: {keys!r}"
+    )
+    assert not any("hello" in k and "world" in k for k in keys), (
+        f"the expression between `hello` and `world` did not end the sentence: {keys!r}"
+    )
+
+
+def test_a_file_the_tokenizer_refuses_is_read_whole_as_before(tmp_path):
+    """S5. An unterminated triple-quoted string is a file the tokenizer
+    cannot read, and the fallback is today's whole-file reading -- the
+    direction that reports more, which is the one a checker of claims may
+    fail in. The claim stands twice in the file, once as a comment and once
+    inside the unterminated string; the range corrects the comment, and the
+    second copy is reported as it is today."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    unterminated = f'x = 1\n# {FOUND}\n\n\ndef f():\n    """{FOUND}\n'
+    build(repo, {"bad.py": unterminated, **FILLER}, "a file python cannot parse")
+    head = build(
+        repo,
+        {"bad.py": unterminated.replace(f"# {FOUND}", f"# {REPAIRED}")},
+        "corrected the comment only",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the unterminated file's second copy of the claim went unreported, so "
+        f"the tokenizer's refusal read as a file with no sentences; exit {code}\n{text}"
+    )
+    assert "bad.py" in text, text
+    assert "Traceback" not in text, text
+
+
+# S6: the four squash commits of the 0.15.0 release as they stand on `main`,
+# each over its own range -- exactly the range its pull request was checked
+# over -- and what each reports once code is not wording. Every coordinate
+# below is prose; the six places the whole-file reading named beside them
+# were function bodies matched on loop, assignment and `if` shapes, and
+# `spec.md` §*The measured state* holds the table they came from. The
+# commits are reachable from `main` and from `release/v0.15.1` in every
+# clone, and the case skips rather than fails when one is gone, in the
+# pattern of the two fixture tags above.
+RELEASE_RANGES = {
+    # 0 · #537: `chain_check.py:2960`, one function body against another's, gone
+    "576fe39d": {
+        "docs/review-chain-spec.md:1418",
+        "skills/code-review/scripts/chain_check.py:2374",
+        "seal/ledger.md:820",
+        "skills/code-review/scripts/chain_check.py:2370",
+    },
+    # C · #538: `fold_ledger.py:358`, a `main` body against the gatherer's,
+    # gone; then `CHANGELOG.md:2252`, a released entry, gone too
+    "cc49ae64": set(),
+    # B · #539: no code idiom in the POOL on this range, and one in the range
+    # itself. The whole-file reading named `seal/ledger.md:2053` at 2.47
+    # against a "sentence" that was a test's docstring and three of its
+    # assert messages joined by the code between them; read one literal per
+    # sentence, the best of those sources shares one run at 1.00, under the
+    # floor. Then `CHANGELOG.md:2090`, a released entry, gone -- and with
+    # nine gathered fragments out of the pool the weight of every phrase
+    # they held rose, and `survivor_check.py:142` (the module's own *quote
+    # is the anchor* sentence) crossed the floor at 1.61 against the
+    # `seal/follow-up.md` row the range deleted. The weighting moving, as
+    # `plan.md` §*Operational impact* says it can; seven stand and one joins.
+    "3dd24073": {
+        "skills/code-review/scripts/survivor_check.py:142",
+        "seal/follow-up.md:65",
+        "tests/test_chain_check_at_the_pull_request.py:1506",
+        "seal/follow-up.md:80",
+        "seal/follow-up.md:81",
+        "skills/verify/scripts/broad_gate.py:549",
+        "seal/follow-up.md:59",
+        "seal/follow-up.md:82",
+    },
+    # A · #541: the four #543 names gone; the one real survivor, a ledger row
+    # carrying a `#` comment the range removed, stays
+    "d2f2c0dc": {"seal/ledger.md:2041"},
+}
+
+
+@pytest.mark.parametrize("commit", sorted(RELEASE_RANGES))
+def test_the_four_real_ranges_report_their_prose_and_none_of_their_code(commit):
+    """S6. The measured state, pinned coordinate for coordinate.
+
+    A set rather than a count, because dropping code carriers raises the
+    weight of every phrase they held and a prose coordinate that moves is
+    the weighting moving -- which this case exists to see rather than
+    assume."""
+    if not resolves(commit):
+        pytest.skip(f"{commit} is not in this clone")
+    code, text = over(commit)
+    expected = RELEASE_RANGES[commit]
+    assert coordinates_in(text) == expected, (
+        f"over {commit}^..{commit} the report names "
+        f"{sorted(coordinates_in(text))} where the measured prose is "
+        f"{sorted(expected)}:\n{text}"
+    )
+    assert code == (1 if expected else 0), f"exit {code}\n{text}"
+
+
+def test_the_docstring_states_what_a_sentence_is_in_a_python_file():
+    """`agent-contract` §14 -- the rule that changed the verdict is stated
+    where a reader looks for the module's account of itself."""
+    source = open(SCRIPT, encoding="utf-8").read()
+    heading = "## What a sentence is in a Python file"
+    assert heading in source, "the module docstring does not state the rule"
+    section = source[source.index(heading) + len(heading) :]
+    section = " ".join(section[: section.index("\n## ")].split())
+    for word in ("comment", "docstring", "string literal", "code"):
+        assert word in section, f"the section does not mention {word!r}:\n{section}"
+
+
+# --- #307: a released changelog section and a gathered fragment are records --
+#
+# A released section records what a past release did, in that release's
+# words, and a released entry is not rewritten (`CLAUDE.md` §*Repo rule — a
+# change writes fragments, never the shared file*). So the branch that changes
+# the behaviour it describes was reported against it and could correct
+# nothing; two of the four measured ranges carried exactly that report. The
+# region is read off the HEADING rather than the file whole, because a
+# repository following `agents/smith.md`'s *let the entry accumulate
+# unreleased* keeps live prose under `## Unreleased` in the same file. A
+# fragment counts as gathered when its `<!-- specs/<id> -->` marker stands in
+# `CHANGELOG.md` at the range's tip, which is the rule the gatherer pins.
+
+RELEASED_HEADINGS = ("## 1.0.0 — 2026-01-01", "## [1.2.0] - 2026-01-01", "## v1.2.0")
+SHIPPED = "seal/specs/1700000003-a-shipped-item"
+FRAGMENT = f"{SHIPPED}/changelog.md"
+
+
+def changelog(heading, body, marker=None):
+    mark = f"<!-- specs/{os.path.basename(SHIPPED)} -->\n" if marker else ""
+    return f"# Changelog\n\n{heading}\n{mark}\n### Fixed\n\n- {body}\n"
+
+
+@pytest.mark.parametrize("heading", RELEASED_HEADINGS)
+def test_a_released_changelog_section_is_not_a_carrier(tmp_path, heading):
+    """S7. The claim corrected in `docs/a.md` stands under a version heading
+    of `CHANGELOG.md`, and the range is clean: that section is the record of
+    a release, and nobody may correct it."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": changelog(heading, FOUND),
+            **FILLER,
+        },
+        "the claim, and the release that recorded it",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        f"a released changelog section under {heading!r} was reported as a "
+        f"survivor; a released entry is not rewritten. exit {code}\n{text}"
+    )
+    assert "CHANGELOG.md" not in text.split("examined", 1)[-1], text
+
+
+def test_an_unreleased_changelog_section_is_a_carrier(tmp_path):
+    """S8. The same sentence under `## Unreleased` is this release's own
+    prose, and it is reported. Green before and after: the half that must
+    not move."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": changelog("## Unreleased", FOUND),
+            **FILLER,
+        },
+        "the claim, and an unreleased entry carrying it",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"the unreleased entry went unreported; exit {code}\n{text}"
+    assert "CHANGELOG.md" in text, text
+
+
+def test_a_range_that_edits_only_a_released_section_removes_no_sentence(tmp_path):
+    """S9. The source side. A line changed under `## 1.0.0` is not a
+    correction anybody has to chase into `docs/`, and the count of removed
+    sentences says so."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND),
+            **FILLER,
+        },
+        "the claim, and the release that recorded it",
+    )
+    head = build(
+        repo,
+        {"CHANGELOG.md": changelog(RELEASED_HEADINGS[0], REPAIRED)},
+        "reflowed a released entry and nothing else",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "a range that touched only a released section was read as a "
+        f"correction somebody has to chase into docs/a.md; exit {code}\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), (
+        f"wording removed from a released section still counts as removed:\n{text}"
+    )
+
+
+def test_a_release_that_moves_the_unreleased_section_under_a_version_removes_nothing(
+    tmp_path,
+):
+    """Round 1's 🟡 1. The release commit of a repository that lets the entry
+    accumulate unreleased: `## Unreleased` takes a version heading and
+    nothing else changes. The section is live at `a` and blanked at `b`, so
+    without the held-count every sentence of it reads as removed and the
+    document restating an entry is reported at the release with nothing
+    anybody may correct. Two disjoint runs in the restatement, because one
+    run scores 1.00 and never clears the floor."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    restated = FOUND.replace("itself and the", "itself and, from then on, the")
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{restated}\n",
+            "CHANGELOG.md": changelog("## Unreleased", FOUND),
+            **FILLER,
+        },
+        "the entry under Unreleased, and a document restating it",
+    )
+    head = build(
+        repo,
+        {"CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND)},
+        "release 1.0.0: the unreleased section takes a version heading",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "a release that only moved the unreleased section under a version "
+        f"heading was read as a correction to chase into docs/a.md; exit {code}\n{text}"
+    )
+    assert "docs/a.md" not in text.split("examined", 1)[-1], text
+
+
+def two_sections(unreleased, older):
+    return (
+        f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {unreleased}\n\n"
+        f"## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- {older}\n"
+    )
+
+
+def test_a_release_that_rewords_an_entry_still_reports_its_verbatim_copy(tmp_path):
+    """Round 2's 🟡 1. The release rewords the entry as it moves it under a
+    version heading, and a document quotes the old wording verbatim. The new
+    wording has to reach `written`, or the removed sentence is one run at
+    1.00 and never clears the floor. Red at 1f8cdcda: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": changelog("## Unreleased", FOUND),
+            **FILLER,
+        },
+        "the entry under Unreleased, and a document quoting it verbatim",
+    )
+    head = build(
+        repo,
+        {"CHANGELOG.md": changelog(RELEASED_HEADINGS[0], REPAIRED)},
+        "release 1.0.0, rewording the entry as it is released",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the release reworded the entry and docs/a.md still quotes the old "
+        f"wording verbatim; exit {code}\n{text}"
+    )
+    assert "docs/a.md" in text, text
+
+
+def test_a_sentence_in_an_older_release_does_not_hold_the_unreleased_one(tmp_path):
+    """Round 2's 🟡 2. Only what the range put under a version heading is
+    held. A sentence that also stands in an older release must not keep its
+    unreleased copy from counting as removed. Red at 1f8cdcda: exit 0,
+    `against 0 sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": two_sections(FOUND, FOUND),
+            **FILLER,
+        },
+        "an unreleased entry repeating an older release's sentence",
+    )
+    head = build(
+        repo,
+        {"CHANGELOG.md": two_sections(REPAIRED, FOUND)},
+        "reword the unreleased entry; no release",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the unreleased entry was reworded and its copy in docs/a.md went "
+        f"unreported because 0.9.0 carries the same sentence; exit {code}\n{text}"
+    )
+    assert "docs/a.md" in text, text
+
+
+def test_a_release_that_renames_unreleased_and_gathers_still_reports(tmp_path):
+    """Round 3's 🟡 1. The release renames `## Unreleased` to a version and
+    gathers a fragment into the same section, and the same commit corrects
+    `docs/a.md`. The renamed heading is a lost sentence, so the moved
+    section's fresh wording is written -- and the gathered fragment's text,
+    which quotes the old wording, must not be written with it, or it
+    subtracts the survivor standing in `docs/b.md`. The fragment stays, as
+    the gatherer leaves it. Red at 0c335744: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a fragment quoting the claim, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0], f"{FOUND}\n\n- {entry}", marker=True
+            )
+            + f"\n{older}",
+        },
+        "release 1.0.0: rename Unreleased, gather the fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered fragment's text was written back with the renamed "
+        f"section and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_release_that_gathers_and_deletes_the_fragment_still_reports(tmp_path):
+    """H1. The release above, by a gatherer that deletes the fragment it
+    gathered. Nothing of the fragment stands at the range's tip, so the text
+    to hold is read where it still stands, at the range's left end. Read at
+    the tip instead, the held set is empty, the gathered wording is written
+    and the survivor in `docs/b.md` is subtracted: exit 0. Red at 61f0d0d8
+    (exit 0, `against 2 sentence(s)`), and red under that mutation."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a fragment quoting the claim, two documents",
+    )
+    os.remove(repo / FRAGMENT)
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0], f"{FOUND}\n\n- {entry}", marker=True
+            )
+            + f"\n{older}",
+        },
+        "release 1.0.0: rename Unreleased, gather and delete the fragment",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the deleted fragment's gathered text was written back with the "
+        f"renamed section and subtracted the survivor in docs/b.md; exit {code}\n"
+        f"{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_release_that_rewords_an_entry_and_gathers_still_reports(tmp_path):
+    """H2k. `## Unreleased` stays, its entry is reworded as it is released
+    under a new version heading, and a fragment is gathered into the same
+    section and left in place. The reworded entry is a lost sentence, so the
+    released wording is written, as round 2's reworded-release case needs --
+    all of it but the gathered fragment's, which quotes the wording the same
+    commit corrected in `docs/a.md`. Red at 61f0d0d8: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    reworded = "The frobnicator now refuses a negative width and names the flag."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    marker = f"<!-- specs/{os.path.basename(SHIPPED)} -->"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a fragment quoting the claim, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n{RELEASED_HEADINGS[0]}\n{marker}\n\n"
+                f"### Fixed\n\n- {FOUND}\n\n- {reworded}\n\n{older}"
+            ),
+        },
+        "release 1.0.0: keep Unreleased, reword its entry, gather the fragment",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered fragment's text was written back with the reworded "
+        f"release and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+GATHERER = os.path.join(ROOT, ".github", "scripts", "gather_changelog.py")
+
+
+def gathered_section(version, date, entries):
+    """The released section exactly as the gatherer lays it down: its own
+    `section`, loaded by path, so the layout follows the gatherer if it ever
+    changes. A test may depend on this repository's release automation; the
+    shipped script may not, which is why the sweep spells `MARKER` itself."""
+    spec = importlib.util.spec_from_file_location("specseal_gatherer", GATHERER)
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded.section(version, date, entries)
+
+
+def test_a_gathered_fragment_that_opens_with_prose_is_still_held(tmp_path):
+    """G4, `agent-contract` §12's member of the class above. The gatherer
+    writes the marker line and the fragment's body directly under it, with no
+    blank line between, and a marker line starts no block. So a fragment
+    whose first line is prose has its first sentence joined to the marker's
+    words, a key that matches nothing in the fragment, and that one sentence
+    escapes the held set. Every fragment in this tree opens with `###` or
+    `- `, which starts a block, and no template fixes the shape. Red with
+    the gathered text held and the marker read as prose: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    body = f"{FOUND} A second sentence says what else changed.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: body,
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a prose fragment quoting the claim, two documents",
+    )
+    released = gathered_section(
+        "1.0.0", "2026-01-01", [(os.path.basename(SHIPPED), body.strip())]
+    )
+    assert f"-->\n{FOUND}" in released, (
+        f"the gatherer no longer writes the body directly under the marker:\n{released}"
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n{released}\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+        },
+        "release 1.0.0: rename Unreleased, gather a prose fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the prose fragment's first sentence, joined to its marker line, was "
+        f"written back and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_release_that_writes_its_entry_directly_and_loses_nothing_reports(
+    tmp_path,
+):
+    """#555's pin, the `lost` guard alone. The release writes a new version
+    section whose entry quotes the claim, with no marker and no fragment,
+    and `CHANGELOG.md` loses no sentence; the same commit corrects
+    `docs/a.md`. Nothing of the file was removed, so there is nothing the
+    released wording could split, and it is not written. The fragment
+    filter cannot protect this shape -- nothing here was gathered -- so the
+    guard is the only thing between the entry's wording and the survivor in
+    `docs/b.md`. Red with the guard replaced by `if False:` and the filter
+    in place: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            "CHANGELOG.md": f"# Changelog\n\n{older}",
+            **FILLER,
+        },
+        "an older release and two documents carrying the claim",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND) + f"\n{older}",
+        },
+        "release 1.0.0: an entry written in place, and docs/a.md corrected",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "a release that lost no sentence wrote its entry's wording back and "
+        f"subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_gathered_release_that_loses_nothing_reports(tmp_path):
+    """#555's own shape (P6), and the pair's pin. The release gathers a
+    fragment quoting the claim under a new version heading, `CHANGELOG.md`
+    loses no sentence, and the same commit corrects `docs/a.md`. Two things
+    each keep the gathered text out of `written` here: the `lost` guard,
+    because the file lost nothing, and the fragment filter, because the text
+    is gathered. So this case goes red only with both removed (exit 0), and
+    stays green with either one removed alone -- which is why the guard's
+    own pin is the case above and the filter's are the gathered releases
+    that lose a sentence."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": f"# Changelog\n\n{older}",
+            **FILLER,
+        },
+        "an older release, a fragment quoting the claim, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND, marker=True)
+            + f"\n{older}",
+        },
+        "release 1.0.0: gather the fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "a gathered release that lost no sentence wrote the gathered text "
+        f"back and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_release_that_replaces_an_entry_with_a_gathered_rewording_reports(
+    tmp_path,
+):
+    """The gathered-text filter's other side (round 1's 🟡 1). The release
+    replaces the live entry `FOUND` with a gathered fragment whose text
+    rewords it, and `docs/b.md` quotes `FOUND`. The fragment's rewording is
+    withheld from `written`, but it must still split the sentence
+    `CHANGELOG.md` itself lost into the runs it no longer shares, as a
+    reworded release does; withheld whole, `FOUND` is one run under the
+    floor and its copy goes silent. Red at bf7ba905: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": "# a\n\nUnrelated.\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {REPAIRED}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {FOUND}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "a live entry, a fragment rewording it, a document quoting the entry",
+    )
+    head = build(
+        repo,
+        {
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], REPAIRED, marker=True)
+            + f"\n{older}",
+        },
+        "release: the live entry replaced by the gathered rewording",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered rewording was withheld whole, so the lost entry never "
+        f"split and its copy in docs/b.md went silent; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_gathered_fragment_cannot_subtract_a_survivor_through_a_lost_entry(
+    tmp_path,
+):
+    """Round 2's 🟡 1. The release rewords a live entry that quotes the claim,
+    gathers a fragment quoting it verbatim, and corrects `docs/a.md`. What the
+    fragment shares with the lost entry splits that entry and nothing else:
+    written for every file, it subtracts the claim from `docs/a.md`'s
+    corrected sentence too, and the survivor in `docs/b.md` goes silent. The
+    same release without the fragment reports. Red at e6c85df6: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    quoting = f"The docs no longer say that {FOUND[0].lower()}{FOUND[1:]}"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {quoting}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "a live entry quoting the claim, a fragment quoting it, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0],
+                f"{FOUND}\n\n- The docs now name the generator as its writer.",
+                marker=True,
+            )
+            + f"\n{older}",
+        },
+        "release 1.0.0: reword the entry, gather the fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered text shared with the lost entry was written for every "
+        f"file and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_gathered_fragment_standing_in_the_pool_is_not_a_survivor(tmp_path):
+    """S10, the pool side. The fragment's marker is in `CHANGELOG.md` at the
+    tip, so the fragment is the released entry one file over and is not
+    reported.
+
+    The released section itself carries an unrelated entry here, on
+    purpose: with the same sentence in both, the two carriers halve each
+    other's weight and the fragment falls under the floor unreported, and
+    this case was green against the unchanged reader for that reason alone."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0], "An unrelated entry.", marker=True
+            ),
+            **FILLER,
+        },
+        "the claim, its fragment, and the release that gathered it",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        f"a gathered fragment was reported as a survivor; exit {code}\n{text}"
+    )
+    assert FRAGMENT not in text, text
+
+
+def test_a_gathered_fragment_the_range_edited_is_not_a_source(tmp_path):
+    """S10, the range side. A sentence removed from a gathered fragment is
+    not corrected wording, for the reason a round record's is not."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND, marker=True),
+            **FILLER,
+        },
+        "the claim, its fragment, and the release that gathered it",
+    )
+    head = build(
+        repo, {FRAGMENT: f"### Fixed\n\n- {REPAIRED}\n"}, "reflowed the fragment"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "a range that edited a gathered fragment and nothing else was read as "
+        f"a correction to chase into docs/a.md; exit {code}\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), text
+
+
+def test_an_ungathered_fragment_is_still_a_carrier(tmp_path):
+    """S10, the half that must not move. With no marker in `CHANGELOG.md` the
+    fragment is this release's own prose, and it is reported."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], "An unrelated entry."),
+            **FILLER,
+        },
+        "the claim, and a fragment nothing has gathered",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"an ungathered fragment went unreported; exit {code}\n{text}"
+    assert FRAGMENT in text, text
+
+
+# --- #551: a file moved and reworded in one commit is a rename to git ------
+#
+# `git diff --name-only` runs with rename detection, so a file moved whole is
+# listed under its new path alone and the range removed nothing the sweep
+# could see. Right for a pure move -- and identical for a move with one
+# sentence reworded, which git calls a rename too (`R096` when measured): the
+# reworded sentence never entered `wanted`, and its copy standing in another
+# file was never reported. Read with `--no-renames`, a rename is a deletion
+# plus an addition, the old path's sentences are removed, and a pure move is
+# silent because every one of them is written back verbatim.
+
+# Long enough that git reads the move as a rename even with one sentence
+# changed; the case asserts that it did, so the fixture cannot quietly turn
+# into the delete-plus-add shape the sweep already handled.
+LONG_SECTION = "## The verdict cell\n\n{claim}\n\n" + "".join(
+    f"Paragraph {n} of the section says something nobody else repeats, at length.\n\n"
+    for n in range(40)
+)
+
+
+def name_status(repo, head):
+    out = subprocess.run(
+        ["git", "-C", str(repo), "diff", "--name-status", f"{head}^", head],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    )
+    return out.stdout
+
+
+def moved_section(repo, moved_claim):
+    """`a.md` with a long section and its claim quoted in `notes.md`, then the
+    section moved to `b.md` in one commit carrying `moved_claim`."""
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "a.md": f"# a\n\n{LONG_SECTION.format(claim=FOUND)}",
+            "notes.md": f"# notes\n\nQuoted here: {FOUND}\n",
+            **FILLER,
+        },
+        "the section, and a note quoting its claim",
+    )
+    os.remove(os.path.join(str(repo), "a.md"))
+    return build(
+        repo,
+        {"b.md": f"# b\n\n{LONG_SECTION.format(claim=moved_claim)}"},
+        "the section moved to b.md",
+    )
+
+
+def test_a_file_moved_as_a_rename_with_one_sentence_reworded_is_still_measured(
+    tmp_path,
+):
+    """S17 (#551). Probe 3's shape: git reports the move as a rename, and the
+    reworded claim's copy in `notes.md` has to be reported all the same.
+    Red against rename detection at exit 0 and `against 0 sentence(s)`."""
+    repo = tmp_path / "probe"
+    head = moved_section(repo, REPAIRED)
+    status = name_status(repo, head)
+    assert status.startswith("R"), (
+        f"git did not read the move as a rename, so this case measures the "
+        f"delete-plus-add shape instead:\n{status}"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "notes.md still carries the claim the moved section reworded, and the "
+        f"range was read as removing nothing because git called the move a "
+        f"rename; exit {code}\n{text}"
+    )
+    assert "notes.md" in text, f"the report does not name the survivor:\n{text}"
+
+
+def test_a_file_moved_verbatim_is_silent_because_its_wording_is_written_back(
+    tmp_path,
+):
+    """S18 (#551). The half that must not move, and the reason it holds.
+
+    A pure move is still silent -- but because every sentence the old path
+    lost is written back verbatim at the new one and `wanted` subtracts it,
+    not because the old path was never read. The removed-sentence count is
+    what tells the two apart: under rename detection it was 0."""
+    repo = tmp_path / "probe"
+    head = moved_section(repo, FOUND)
+    assert name_status(repo, head).startswith("R")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"a verbatim move was reported; exit {code}\n{text}"
+    assert "no removed wording is still standing" in text, text
+    assert re.search(r"against [1-9]\d* sentence\(s\)", text), (
+        "the range removed no sentence at all, so the old path was never read "
+        f"and the silence is rename detection rather than `wanted`:\n{text}"
+    )

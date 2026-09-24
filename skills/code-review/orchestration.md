@@ -181,12 +181,13 @@ it was considered and rejected. A verifying round that raises a 🟡 the smith
 answers with grounds has opened nothing needing a fix, and the run ends there.
 
 **A finding located in a record is a correction, not a round.** A finding
-whose `Location` is under `seal/specs/`, `seal/ledger/` or `seal/ledger.md`
-owes no fix pass and no reader: what `chain_check` or `evidence_check` refuses
-is corrected in the closing commit, and what neither reads is prose, corrected
-in passing or not at all. `Needs a fix` does not count it.
-`docs/review-chain-spec.md` §*The last round verifies* owns the rule and the
-count behind it — 33 of the last branch's 65 findings were located in records.
+whose `Location` is under `seal/specs/`, `seal/ledger/`, `seal/releases/` or
+`seal/ledger.md` owes no fix pass and no reader: what `chain_check` or
+`evidence_check` refuses is corrected in the closing commit, and what neither
+reads is prose, corrected in passing or not at all. `Needs a fix` does not
+count it. `docs/review-chain-spec.md` §*The last round verifies* owns the rule
+and the count behind it — 33 of the last branch's 65 findings were located in
+records.
 
 ### The cap is a ceiling, and this is the floor it never had
 
@@ -301,7 +302,7 @@ into a record whose fix table closed nothing on a fix — a capped run's last
 record, whose every verdict reads `deferred <home>` and which has no next
 round to set the cell. Every record carries the row, not only the newest —
 `Pass` is a verdict on the whole review and the last round's speaks for it,
-while this is a fact about one round's own fixes. `docs/review-chain-spec.md`
+while this is a fact about one round's own fixes. `docs/round-record-spec.md`
 holds the rule and what each refusal costs.
 
 ### And name the fix surface, in the same record
@@ -345,7 +346,7 @@ their starting values escape it, and so does `no fixes to check` beside a
 pending row — for a round that commissioned no fixes, *not yet written* is
 false the moment it is written. Both states print instead, and a reworded
 cell is not the only thing that escapes: three spellings carry the template's
-words unchanged. `docs/review-chain-spec.md` names them and says why the
+words unchanged. `docs/round-record-spec.md` names them and says why the
 answer was to write the limit down rather than widen the match. What makes all
 of it moot is the generator: `close` writes the two surface rows from the fix
 diff, and `new` for the next round sets the checker cell.
@@ -525,8 +526,9 @@ item's directory.** It runs `broad-gate --base <base> --record <item>`, which
 takes the one broad pass now that the rounds have settled and, on a green
 run, writes the SHA it ran at and the base it was compared against into that
 cell through `round_record.py seal` — in front of any run the cell already
-held, which stays behind it as `earlier run` (#174). You read what it
-returns; you do not take the run yourself. A cell still reading `not yet`
+held, which stays behind it as `earlier run`, unless the newest is the same
+commit against the same base, which the new entry replaces (#174). You read
+what it returns; you do not take the run yourself. A cell still reading `not yet`
 fails the pull request, and so does a newest entry the record's own
 `Target SHA` descends from — a run spent before the round it was meant to
 seal. Work items begun before
@@ -534,7 +536,8 @@ seal. Work items begun before
 
 `close --broad-gate` still writes the same cell, through the same
 newest-first path — a run the cell already holds is kept behind the new
-entry by either writer — and it is for the one case `seal` refuses by
+entry by either writer, and the newest, where it is the same commit against
+the same base, is replaced by either — and it is for the one case `seal` refuses by
 design: fixes and the gate landing in the same pass, where the fix table and
 the cell are one write. Where the rounds have settled and
 nothing is being fixed, the sealer's spawn is the route.

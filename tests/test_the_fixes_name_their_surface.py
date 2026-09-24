@@ -452,7 +452,7 @@ def test_the_arrow_limit_is_recorded_where_the_rule_lives():
     exact shape rule 6 refuses. `→` is named as the spelling that avoids
     the limit, in the check and in the document that carries its refusals."""
     for parts in (
-        ("docs", "review-chain-spec.md"),
+        ("docs", "round-record-spec.md"),
         ("skills", "code-review", "scripts", "chain_check.py"),
     ):
         text = flat(*parts)
@@ -466,7 +466,7 @@ def test_the_section_names_the_words_the_writer_can_put_in_a_reach():
     the grounds that nothing is called `pytest`. It was the generator's own
     output, re-derived at the record's SHA. A reach word the document does not
     carry is a correct cell somebody will spend a round on."""
-    spec = flat("docs", "review-chain-spec.md")
+    spec = flat("docs", "round-record-spec.md")
     generator = _load("specseal_round_record_for_reach_words", RECORD)
     for word in (generator.PYTEST, generator.PYTEST_ONLY, generator.NO_SITE):
         assert f"`{word}`" in spec, f"the section does not name `{word}`"
@@ -820,7 +820,7 @@ def test_the_section_names_every_reach_value_the_generator_fixes():
     name — round 1's finding 1, which is what this paragraph used to get
     wrong, and getting it wrong here is what would have licensed deleting the
     named case. `reach_values`' docstring carries what neither reaches."""
-    spec = flat("docs", "review-chain-spec.md")
+    spec = flat("docs", "round-record-spec.md")
     generator = _load("specseal_round_record_for_derived_reach", RECORD)
     values = reach_values()
     floor = {generator.PYTEST, generator.PYTEST_ONLY, generator.NO_SITE}
@@ -854,7 +854,7 @@ def test_a_row_inside_a_comment_is_not_the_row(repo):
 CARRIERS = (
     ("templates", "sdd-round.md"),
     ("docs", "review-handoff-protocol.md"),
-    ("docs", "review-chain-spec.md"),
+    ("docs", "round-record-spec.md"),
     ("skills", "code-review", "SKILL.md"),
     ("skills", "code-review", "orchestration.md"),
     ("skills", "code-review", "scripts", "chain_check.py"),
@@ -962,7 +962,7 @@ def test_the_documents_say_why_older_records_are_excused():
     the reason as well, which a deletion actually removes.
     """
     for parts, reason in (
-        (("docs", "review-chain-spec.md"), "deriving a depth now for"),
+        (("docs", "round-record-spec.md"), "deriving a depth now for"),
         (
             ("skills", "code-review", "scripts", "chain_check.py"),
             "nobody re-read fabricates a review",
@@ -978,7 +978,7 @@ def test_the_documents_say_why_older_records_are_excused():
             f"{'/'.join(parts)} does not carry the reason exactly once "
             "beside `SURFACE_FROM`"
         )
-    spec = flat("docs", "review-chain-spec.md")
+    spec = flat("docs", "round-record-spec.md")
     assert "print" in spec and "grandfather" in spec
 
 

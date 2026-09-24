@@ -86,12 +86,13 @@ check reported, and say why the text it found is correct where it stands. A
 maintainer then either corrects those places or records the exemption on their
 side.
 
-**The evidence ledger is the other one.** `seal/ledger.md` pins claims to
-units of code and prose by name, and the `ledger` job fails when one of those
-names stops resolving — a heading you renamed, a function you removed. Drift
-under a name that still resolves is only a warning; a name that is gone is
-exit 2. The repair is a maintainer's, for the same reason: the row is removed
-from `seal/ledger.md` and the new claim written into a work item's fragment,
+**The evidence ledger is the other one.** `seal/ledger.md` and the release
+files under `seal/releases/` pin claims to units of code and prose by name,
+and the `ledger` job fails when one of those names stops resolving — a
+heading you renamed, a function you removed. Drift under a name that still
+resolves is only a warning; a name that is gone is exit 2. The repair is a
+maintainer's, for the same reason: the row is removed from the file it
+stands in and the new claim written into a work item's fragment,
 which is a convention a contribution does not have. Say on the pull request
 which name your change moved, and leave the ledger alone.
 
@@ -105,10 +106,15 @@ prints the interpreter it used.
 
 ```bash
 bin/test tests/test_session_cost.py -q   # one module — the form to type
-bin/test                                 # everything, about five minutes
+bin/test                                 # everything, in parallel — the sealer's run
 uvx ruff check . && uvx ruff format .    # the linter this plugin runs on your code
 python3 skills/evidence-check/scripts/evidence_check.py .
 ```
+
+Both forms run under `-n auto` unless you pass your own `-n`, `-p no:xdist`
+or `--pdb`, and the runner installs `pytest-xdist` into a `.venv` that lacks
+it (#337). What the whole run costs is a figure with a date and a machine,
+recorded in the work item that measured it, not here.
 
 **The last of those is the lenient reader.** `broad-gate` runs the same script
 with `--strict`, where drift is exit 2 and the branch comes back `NOT SEALED`;
@@ -194,35 +200,51 @@ when it arrives.
 - **A change writes a fragment, never a shared registry.** Its changelog
   entry goes in `seal/specs/<work-item-id>/changelog.md` and its evidence rows in
   `seal/ledger/<work-item-id>.md`. A feature branch **appends** to neither
-  `CHANGELOG.md` nor `seal/ledger.md`. Three branches running in parallel
+  `CHANGELOG.md` nor a ledger file — `seal/ledger.md` or a release's
+  `seal/releases/<X.Y.Z>.md`. Three branches running in parallel
   shared exactly one file between them and it was the changelog; the conflict
   is three lines, and it arrives after the broad gate has run, where nothing
   may be edited. Both kinds of fragment are gathered at the release
   (`docs/branch-and-release.md`): the changelog fragments into the released
-  section, the ledger fragments into `seal/ledger.md`, where the rows stay.
+  section, the ledger fragments into that release's own file,
+  `seal/releases/<X.Y.Z>.md`, where the rows stay. `seal/ledger.md` keeps
+  the notation and the rows from before the fragments existed, and stops
+  growing.
 
   **Changing cited code is the case the rule has to answer, and it is not an
-  append.** Change what an existing `seal/ledger.md` row cites and the
-  checker reports DRIFTED, which needs that row touched in the file this rule
-  covers. Two answers, and which one applies is about the claim rather than
-  the code:
+  append.** Change what an existing ledger row cites — in `seal/ledger.md`
+  or a `seal/releases/` file — and the checker reports DRIFTED, which needs
+  that row touched in the file this rule covers. Three answers, and which one
+  applies is about the claim rather than the code:
 
   - the claim still holds and you have re-read it — run
     `evidence-check --reverify .`, which recomputes the hash and names what it
     changed;
+  - the code still stands and your edit made the claim false — correct the
+    claim in place first, with a `Corrected <date>` note, then run
+    `--reverify`;
   - the claim went with the code — **remove the row and write the new claim
     into your own fragment.** A row is not re-pointed at whatever now sits
     nearest to where it used to look.
 
-  So a claim leaves `seal/ledger.md` when the code it was about does, and
-  comes back at the release, folded in from the fragment that replaced it.
+  All three are writes to the file the row is in, and none is an append. A
+  branch that removes or edits code an existing row cites is keeping an
+  existing claim true, which can only happen where the row stands; adding a
+  claim is what goes in your fragment, and always did.
 
-  **When `seal/ledger.md` conflicts, resolve it hunk by hunk and read both
-  sides.** Never `--ours` and never `--theirs`. A whole-file choice is wrong
-  by construction once both branches have been correcting, and the measured
-  instance is the argument: in #424 the two hunks resolved in opposite
-  directions, because each side was the superset in one of them. Taking a
-  side reverted three corrections that had each turned a false claim true.
+  So a claim leaves the ledger when the code it was about does, and comes
+  back at the release, folded in from the fragment that replaced it.
+
+  **When a ledger file conflicts — `seal/ledger.md`, a
+  `seal/releases/<X.Y.Z>.md`, or a fragment two stacked branches both edited —
+  resolve it hunk by hunk and read both sides.** The split into release files
+  made the files smaller, not the conflict rarer: two branches that re-stamp
+  one row still meet on it. Never `--ours` and never `--theirs`. A whole-file
+  choice is wrong by construction once both branches have been correcting, and
+  the measured instance is the argument: in #424 the two hunks resolved in
+  opposite directions, because each side was the superset in one of them.
+  Taking a side reverted three corrections that had each turned a false claim
+  true.
 
   **Nothing downstream can see that, which is why the reading is yours.** A
   row reverted to a superseded state is byte-identical to a row nobody
@@ -233,7 +255,17 @@ when it arrives.
   stands; the hygiene workflow runs it on every pull request into a release
   branch. It reports the loss after the fact and cannot prevent it.
 
-  `CLAUDE.md` carries both paragraphs, and
+  **Hunk by hunk has two halves, and only the notes are a union.** A row's
+  `Re-read` and `Corrected` notes are both sides', because each records a
+  reading somebody performed; the anchor's hash belongs to the side that
+  edited the anchored unit, and to neither side where both did.
+  `correction-check` cannot see a union that kept a stale hash, because no
+  marker was dropped, so run `evidence-check` after the resolution: a drifted
+  anchor is the tool naming the row, which is re-read against every edit the
+  merged unit carries. `docs/the-evidence-ledger.md` §*A correction a merge
+  dropped* owns the rule.
+
+  `CLAUDE.md` carries both paragraphs and the halves rule, and
   `tests/test_a_merge_cannot_silently_drop_a_correction.py` holds the two
   against each other.
 
@@ -250,6 +282,7 @@ when it arrives.
 
   ```bash
   python3 .github/scripts/gather_changelog.py --version X.Y.Z   # --dry-run first
+  python3 .github/scripts/fold_ledger.py --split                # once; checklist §2
   python3 .github/scripts/fold_ledger.py --version X.Y.Z        # --dry-run first
   python3 .github/scripts/gather_changelog.py --check           # what the workflow runs
   python3 .github/scripts/fold_ledger.py --check                # and this

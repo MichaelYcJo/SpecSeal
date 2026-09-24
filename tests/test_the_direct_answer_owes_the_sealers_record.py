@@ -26,6 +26,7 @@ split across lines, which a whole-file substring cannot read.
 import os
 
 import pytest
+from conftest import REVIEW_CHAIN_DOCS, review_chain_text
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -37,7 +38,7 @@ STANDS = "the sealer's `broad-gate.md`"
 # R12: a whole-file substring pin is evidence only where the words occur
 # nowhere else).
 DIRECT_REQUIRES = {
-    ("docs", "review-chain-spec.md"): (
+    ("docs", "commit-review-gate-spec.md"): (
         "nothing required; the declaration is printed",
         STANDS,
     ),
@@ -82,6 +83,10 @@ def test_each_carrier_says_what_the_direct_answer_requires(parts):
         "record, so the absence below is a search that found nothing rather "
         "than a file that says nothing"
     )
+    if parts in REVIEW_CHAIN_DOCS:
+        # The sentence left the spec when the spec was split (#526); it must
+        # not come back in either sibling.
+        text = review_chain_text(ROOT)
     if gone is not None:
         assert gone not in text, (
             f"{'/'.join(parts)} still tells a reader `straight to the PR` "
@@ -108,7 +113,7 @@ def test_the_specification_says_why_two_answers_and_not_three():
     """Item 8 of the frame: the sentence a later reader of #241 finds beside
     the declaration table instead of the ticket's proposal — what a
     session's own check leaves that CI can read, and where it lives."""
-    text = flat("docs", "review-chain-spec.md")
+    text = flat("docs", "commit-review-gate-spec.md")
     assert "Two answers, and not three" in text, (
         "the specification does not say why there is no third `Review` answer"
     )

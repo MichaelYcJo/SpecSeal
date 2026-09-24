@@ -39,10 +39,23 @@ pytest runs with the repository root as its working directory, so a path
 argument is read relative to the root from whichever directory the command
 was typed in.
 
-The full suite takes about five minutes and is the sealer's, run once after
-the review rounds settle: `skills/agent-contract/SKILL.md` forbids it to smith
-and warden, and `agents/sealer.md` is the agent it is assigned to, which is
-why naming one module is the ordinary use.
+The full suite is the sealer's, run once after the review rounds settle:
+`skills/agent-contract/SKILL.md` forbids it to smith and warden, and
+`agents/sealer.md` is the agent it is assigned to, which is why naming one
+module is the ordinary use.
+
+The suite runs in parallel by default (#337). `pytest-xdist` is installed
+beside `pytest` on both build strategies and added to an adopted `.venv` that
+lacks it, and `main` passes `-n auto` unless the caller's own arguments settle
+the question (`caller_decided`) or the install step failed, in which case one
+sentence says so and the run is serial. This suite is a process-spawn
+benchmark rather than a computation -- `.github/workflows/test.yml` has run it
+`-n auto` on three platforms for every release -- and the runner ran it
+serially for ten releases because the environment it built had no xdist and
+the flag would have failed on every fresh build. What a figure for the run
+costs is measured, with its date and machine, in the work item that made it
+parallel; no figure is stated here because a figure with no moment is the
+class `seal/follow-up.md` already names.
 """
 
 import os
@@ -56,6 +69,11 @@ from pathlib import Path
 # constant rather than a literal ruff would read as always-false at py312.
 FLOOR = (3, 12)
 FLOOR_TEXT = ".".join(str(part) for part in FLOOR)
+
+# What a built environment holds. `pytest-xdist` is here because the suite
+# runs `-n auto` by default (#337): a build without it is the build whose
+# first call refused the flag.
+PACKAGES = ("pytest", "pytest-xdist")
 
 
 def repo_root():
@@ -82,6 +100,116 @@ def has_pytest(venv):
     """
     scripts = venv / ("Scripts" if os.name == "nt" else "bin")
     return venv_python(venv).exists() and any(scripts.glob("pytest*"))
+
+
+def site_packages(venv):
+    """Every `site-packages` directory inside `venv`, wherever this platform
+    puts it: `Lib/site-packages` on Windows, `lib/python*/site-packages`
+    elsewhere. A list, because the POSIX spelling carries the interpreter's
+    version and a glob answers it without starting one."""
+    if os.name == "nt":
+        return [venv / "Lib" / "site-packages"]
+    return sorted((venv / "lib").glob("python*/site-packages"))
+
+
+def has_xdist(venv):
+    """True when `venv` holds pytest-xdist: the `xdist` package directory
+    under its site-packages.
+
+    Filesystem only, for the same reason `has_pytest` is: this runs on every
+    warm call, and a warm call decides by the filesystem alone. The marker is
+    the package directory rather than the `.dist-info` entry because the
+    directory is what pytest imports.
+    """
+    return any((site / "xdist").is_dir() for site in site_packages(venv))
+
+
+def add_xdist(venv):
+    """Install pytest-xdist into `venv` where it is missing. Returns a
+    sentence, or None when the environment has it -- found, or just added.
+
+    An adopted `.venv` built before #337 has pytest and no xdist, and the
+    ticket's middle row is what that costs: the same command meaning three
+    things in one repository. It is repaired rather than refused, because a
+    missing speed-up is not a wrong interpreter -- the suite runs correctly
+    without it -- so the failure mode is a sentence and a serial run, never
+    a suite nobody can run. One step, by the same tool order `build` uses.
+    """
+    if has_xdist(venv):
+        return None
+    uv = shutil.which("uv")
+    if uv:
+        step = [
+            uv,
+            "pip",
+            "install",
+            "--python",
+            str(venv_python(venv)),
+            "pytest-xdist",
+        ]
+    else:
+        step = [
+            str(venv_python(venv)),
+            "-m",
+            "pip",
+            "install",
+            "--quiet",
+            "pytest-xdist",
+        ]
+    print(
+        f"bin/test: adding pytest-xdist to {venv}. This run pays for it; every "
+        "run after it finds it there.",
+        file=sys.stderr,
+    )
+    if subprocess.run(step).returncode != 0:
+        return (
+            f"bin/test: could not install pytest-xdist into {venv} (the command "
+            "above exited non-zero), so this run is serial. Remove that "
+            "directory and run bin/test again to build it afresh with "
+            "pytest-xdist in it."
+        )
+    return None
+
+
+def caller_decided(argv):
+    """True when the caller's own arguments settle whether the suite
+    distributes, so `-n auto` is withheld and theirs pass through as typed.
+
+    A worker count of their own (`-n 4`, `-n4`, `-nauto`, `--numprocesses`),
+    the plugin switched off (`-p no:xdist`, `-pno:xdist`), and `--pdb`. That
+    last is on the list because a debugger and distribution do not mix, not
+    because it is a spelling of `-n`: measured with pytest-xdist 3.8.0 on
+    2026-09-24, `-n 2 --pdb` exits 4 with its `UsageError` ("--pdb is
+    incompatible with distributing tests"), and `-n auto --pdb` is collapsed
+    by xdist itself to zero workers, so withholding the flag and passing it
+    reach the same serial run and withholding is the shorter route. The same
+    measurement tried `--sw`, `--lf -x`, `-s`, `-x` and `--trace` beside
+    `-n auto` and pytest accepted each, so none joins the list. The list is
+    what bounds the failure scenario of a default: a flag pytest refuses
+    beside `-n auto` would be the ticket's middle row (exit 4) arriving from
+    the other side, and the remedy, `-p no:xdist`, is on the list too.
+
+    A short option clustered behind another, `-qn 2`, is outside the list
+    and stays undetected on purpose: reading a `-n` out of every cluster
+    would also read one out of `-rn` (a value of `-r`), and a count the
+    caller clusters is then overridden by `-n auto` rather than refused —
+    the same suite at the machine's worker count instead of the caller's
+    (round 1's ⬜ 2). `-p=no:xdist` is on the list although pytest 9.1.1
+    refuses that spelling itself (measured 2026-09-24: `Error importing
+    plugin "=no:xdist"`, exit 1): the caller's intent is settled either way,
+    and a runner that appended `-n auto` to it would put a second reason
+    into a failure that already has one.
+    """
+    for index, arg in enumerate(argv):
+        if arg.startswith("-n") and not arg.startswith("--"):
+            return True
+        if arg.startswith("--numprocesses") or arg == "--pdb":
+            return True
+        if arg in ("-pno:xdist", "-p=no:xdist"):
+            return True
+        if arg == "-p" and argv[index + 1 : index + 2] == ["no:xdist"]:
+            return True
+    return False
 
 
 def venv_version(venv):
@@ -186,13 +314,13 @@ def build(venv):
         how = "uv"
         steps = [
             [uv, "venv", "--python", ">=" + FLOOR_TEXT, str(venv)],
-            [uv, "pip", "install", "--python", str(venv_python(venv)), "pytest"],
+            [uv, "pip", "install", "--python", str(venv_python(venv)), *PACKAGES],
         ]
     elif sys.version_info[:2] >= FLOOR:
         how = "python -m venv"
         steps = [
             [sys.executable, "-m", "venv", str(venv)],
-            [str(venv_python(venv)), "-m", "pip", "install", "--quiet", "pytest"],
+            [str(venv_python(venv)), "-m", "pip", "install", "--quiet", *PACKAGES],
         ]
     else:
         return (
@@ -291,10 +419,22 @@ def main(argv=None):
     if python is None:
         return 2
     print(f"bin/test: {python}", file=sys.stderr)
-    # No `-n auto`: pytest-xdist is installed by `.github/workflows/test.yml`,
-    # not by this virtualenv, so passing it would fail on every fresh build.
-    # Arguments pass through, so add xdist and pass it yourself if you want it.
+    # After `ensure` returned, into a directory that already carries its
+    # ignore, so `hide_from_git`'s guarantee over exits is not widened by a
+    # second write path. A failed install is a sentence and a serial run.
+    problem = add_xdist(root / ".venv")
+    if problem:
+        print(problem, file=sys.stderr)
+    # `-n auto` by default (#337). The comment that stood here withheld it,
+    # because this virtualenv was built with pytest alone and the flag failed
+    # on every fresh build -- so the runner ran serially for ten releases
+    # while CI ran the same suite `-n auto` on three platforms, and the recipe
+    # for parallel sat in this comment as *add xdist and pass it yourself*.
+    # The build now carries xdist, an adopted environment is given it above,
+    # and the caller's own `-n`, `-p no:xdist` or `--pdb` still wins.
     command = [str(python), "-m", "pytest", *(argv or ["tests"])]
+    if not problem and not caller_decided(argv):
+        command += ["-n", "auto"]
     return subprocess.run(command, cwd=str(root)).returncode
 
 

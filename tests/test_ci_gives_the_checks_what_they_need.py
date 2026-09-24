@@ -30,7 +30,7 @@ WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
 
 # Events GitHub does NOT include by default and that this repository needs,
 # because a draft is the documented way past `chain_check.py`'s `Pass`
-# requirement (`docs/review-chain-spec.md` §`Pass` has to be checked).
+# requirement (`docs/round-record-spec.md` §`Pass` has to be checked).
 DRAFT_EVENTS = ("ready_for_review", "converted_to_draft")
 
 

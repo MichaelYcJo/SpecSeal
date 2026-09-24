@@ -305,8 +305,9 @@ def commit_targets(cwd, invocations, root_of=None):
     `cd` in front of the commit reaches the target the same way a `-C` does.
     A base the walk could not identify stays unidentified through the join
     unless an absolute `-C` replaces it, and the caller stops rather than
-    judging it — `docs/review-chain-spec.md` gives an unresolvable target that
-    treatment already, and this is that partition rather than a second one.
+    judging it — `docs/commit-review-gate-spec.md` gives an unresolvable
+    target that treatment already, and this is that partition rather than a
+    second one.
 
     What makes two directories the SAME target is `root_of`, not the string:
     `git commit && git -C <repo>/sub commit` names two directories and one
@@ -484,7 +485,7 @@ def changed_paths(cwd, invocations):
 # The line is the PARITY arm's alone. The review arm reads no paths, on
 # purpose: it asks whether anybody reads the change, and `docs/` here is the
 # policy the code conforms to. #518 measured it and kept the asymmetry --
-# `docs/review-chain-spec.md` §*Review arm* holds the grounds, and
+# `docs/commit-review-gate-spec.md` §*Review arm* holds the grounds, and
 # `test_the_review_arm_asks_on_a_document_only_commit` fails if this line
 # ever reaches the review arm.
 DOC_ROOTS = ("docs/", "seal/")
@@ -499,7 +500,8 @@ def touches_code(cwd, invocations):
 
     Only the parity arm calls this. The review arm's question is not about an
     original, and `docs/` is where a measured share of the review chain's
-    fixed findings sit (`docs/review-chain-spec.md` §*Review arm*, #518).
+    fixed findings sit (`docs/commit-review-gate-spec.md` §*Review arm*,
+    #518).
     """
     paths = changed_paths(cwd, invocations)
     return any(not path.startswith(DOC_ROOTS) for path in paths)

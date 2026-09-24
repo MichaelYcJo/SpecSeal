@@ -13,8 +13,8 @@ sixth found here: `WRAPPERS` is read past when looking for `git` and not when
 looking for `cd`.
 
 The reader now enumerates what it UNDERSTANDS and routes everything else to
-`Unresolved`, which `docs/review-chain-spec.md` already treats as a stop
-rather than a pass. The tests below are in two halves, and both are load
+`Unresolved`, which `docs/commit-review-gate-spec.md` already treats as a
+stop rather than a pass. The tests below are in two halves, and both are load
 bearing: the constructs that must now stop, and the two ordinary shapes that
 must not have gained a single candidate.
 """
