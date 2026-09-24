@@ -432,7 +432,7 @@ def repoint(root):
         if new_text == text:
             continue
         # The same line count on both sides: only a path changed, never a
-        # newline, so a mismatch here would be a defect in `follow`.
+        # newline, so a mismatch here would be a defect in the splice above.
         rows += sum(
             1
             for a, b in zip(text.split("\n"), new_text.split("\n"), strict=True)

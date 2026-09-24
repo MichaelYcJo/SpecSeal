@@ -2011,6 +2011,19 @@ def test_a_fence_line_with_an_info_string_inside_a_fix_does_not_end_it(repo):
     assert "prose that is not a fence" not in section, text
 
 
+def test_a_backtick_line_whose_info_holds_a_backtick_opens_no_fix(repo):
+    """Round 2's ⬜ 2 of work item 1790260566: the opener half of round 1's
+    fix. CommonMark 4.5 says a backtick run whose info string holds a
+    backtick opens no fence, so the prose after it is not a fix."""
+    declared(repo)
+    fixes = "```x`\nprose between\n\n```text\na\n```\n"
+    code, out, text = generate(repo, report_text=report(fixes=fixes))
+    assert code == 0, out
+    section = paste_ready(text)
+    assert "```text\na\n```" in section, text
+    assert "prose between" not in section, text
+
+
 def test_paste_ready_fixes_under_subheadings_are_carried_in_order(repo):
     """A1 of #505. Six fixes, one `### <n> — <file>` entry each, which is
     how a reviewer writes six readably — and the record read `no paste-ready
