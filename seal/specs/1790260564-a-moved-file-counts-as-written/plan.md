@@ -1,6 +1,7 @@
 # Implementation Plan: the survivor sweep's moved text, gathered reading, and local ownership (#563, #564, #554)
 
-Approved 2026-09-24 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned. Q1 builds on its default and is filed as #586.
+Approved 2026-09-24 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
+Q1 builds on its default and is filed as #586.
 
 ## Summary
 
