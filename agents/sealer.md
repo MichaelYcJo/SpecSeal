@@ -100,6 +100,9 @@ Three outcomes, and they are not two:
   code, its first lines, and, per failing test file, `new` or `failing on
   base too`. No stamp is drawn, on purpose: a picture saying *sealed* beside
   a word saying *not* is two things disagreeing where one answer is needed.
+  A failing `suite` also carries pytest's counts, or, where its output has no
+  pytest summary, a line saying the exit code is not a count of failing
+  tests. That line is the gate's words too, and it goes on unedited.
 - **Exit 2, refused, and nothing ran** — the repository declares no `Broad
   gate` row, or its row is one the gate would not run as the command it
   reads as; or the base does not resolve; or, with `--record`, the record

@@ -918,6 +918,28 @@ def refusal_of(repo, value, keep):
     return out.stderr
 
 
+@pytest.mark.parametrize(
+    "row, said",
+    [
+        # Nothing ran, and the exit is the same 1 a failing test gives.
+        ("exit 1", True),
+        # A summary was printed, so the form shows the count instead.
+        ("echo 1 failed in 0.01s && exit 1", False),
+    ],
+)
+def test_a_failing_row_with_no_summary_says_so_on_the_form(repo, tmp_path, row, said):
+    """#448's A5, end to end. Both rows read the same under `/bin/sh` and
+    `cmd.exe`, so this runs on every leg. The exit code stays 1 either way;
+    what changes is one line on the failure form."""
+    out = run_gate(set_row(repo, row), keep=tmp_path / "out")
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert "NOT SEALED" in out.stdout, out.stdout
+    line = "no pytest summary in this output, so this exit code is not a count of"
+    assert (line in out.stdout) is said, out.stdout
+    if not said:
+        assert "1 failed" in out.stdout, out.stdout
+
+
 def test_a_row_wrapped_in_backticks_is_refused_and_shown_rewritten(repo, tmp_path):
     """A1. The reported mistake. The message names the form, quotes the value
     as written, and shows the row as meant — it does not strip anything: a

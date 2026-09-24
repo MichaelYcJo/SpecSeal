@@ -188,6 +188,32 @@ row's command does is the repository's own claim: a command that exits 0
 without running anything gets a stamp over nothing, and *the narrow command
 still has to be able to fail* is the reader's rule, not the gate's.
 
+**Which shell runs the row, and what it is handed.** `/bin/sh` on macOS and
+Linux. On Windows it is whatever `%COMSPEC%` names, which is `cmd.exe` unless
+somebody changed it, and `cmd.exe` reads a `/` inside a command name as the
+start of a switch: handed `bin/test -q`, it runs a command called `bin` and
+fails before any test does (#448). So where the shell is `cmd.exe`, the gate
+hands it the row with `/` written `\` inside each command name, and nowhere
+else. A command name is the word at the start of the line, or the first word
+after `&&`, `||`, `&`, `|` or a `(` that opens a block. `bin/test` then runs
+as `bin\test`, which `cmd.exe` resolves to `bin/test.cmd`. Arguments, quoted
+paths, `%VAR%`, operators and `^`-escaped characters reach the shell as
+written. Every other position is handed as written, and `cmd.exe` reads it
+exactly as before — the definition above is the rule, and these are
+examples of it rather than the whole list: a path after `call`, `start` or
+`if`, or after `else`, `for … do` and `cmd /c`; a command name after a
+redirection that opens its command (`>out.txt bin/test`); and a `/` written
+straight after one of `cmd.exe`'s own commands, which is that command's
+switch (`rd/s/q build`). A `/` written straight after any other program's
+name is read as part of a path and rewritten, because the scan cannot tell a
+program from a directory: `xcopy/e` is handed over as `xcopy\e`, which
+`cmd.exe` cannot find. Write a switch with a blank before it (`xcopy /e`),
+which `cmd.exe` reads the same way and the scan leaves as written. Telling
+the two apart is #596. Any other
+`COMSPEC`, and every POSIX shell, is handed the row as written. Where the
+two differ, the gate prints one line saying what `cmd.exe` was handed, and
+that check's kept output carries it under the row as written.
+
 ### What is refused, and what stays allowed
 
 **A value that would not run as the command it reads as is refused, not
