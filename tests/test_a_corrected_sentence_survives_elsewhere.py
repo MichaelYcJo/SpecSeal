@@ -1804,6 +1804,82 @@ def test_a_range_row_that_does_not_resolve_silences_nothing_and_says_so(tmp_path
     )
 
 
+UNRESOLVED_ROW = (
+    f"| Range | Grounds |\n|---|---|\n| `origin/gone..HEAD` | {GROUNDS} |\n"
+)
+
+
+def test_an_unresolved_declaration_of_another_work_item_prints_nothing(tmp_path):
+    """S13 (#439). A shipped work item's `survivors.md` names a release
+    branch that was deleted at the release, and every later run was handed
+    it and printed `unresolved` for a declaration that could never have
+    applied to it -- three lines on every seal of one release. The second
+    anchor is asked first: this range touches nothing in that work item's
+    directory, so the row could not have excused this run whether or not it
+    resolved, and the line is addressed to nobody. The exit is the case
+    above's, because an unresolved row excuses nothing either way."""
+    repo = tmp_path / "probe"
+    head = one_survivor(repo)
+    where = os.path.join(str(repo), *f"{ITEM_A}/survivors.md".split("/"))
+    os.makedirs(os.path.dirname(where), exist_ok=True)
+    with open(where, "w", encoding="utf-8") as handle:
+        handle.write(UNRESOLVED_ROW)
+    code, text = run(
+        "--range", f"{head}^..{head}", "--root", str(repo), "--exempt", where
+    )
+    assert code == 1, f"an unresolvable declaration silenced the run\n{text}"
+    assert "notes.md" in text, f"the survivor itself was not reported\n{text}"
+    assert "unresolved" not in text and "origin/gone..HEAD" not in text, (
+        "a declaration belonging to a work item this range touches nothing of "
+        f"was printed to this run, which could never have used it:\n{text}"
+    )
+
+
+def test_an_unresolved_declaration_of_the_work_item_the_range_touches_prints(
+    tmp_path,
+):
+    """S14, the half that must not move. The same row under a work item this
+    range does touch is a declaration this run could have used, and a row
+    that quietly stopped applying is the one failure a rotting anchor must
+    not have -- so it prints, as it did before #439."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst. {CLAIM_A}\n\nSecond. {CLAIM_A}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "the claim, stated twice",
+    )
+    fixed = (
+        "The verdict cell is written by the generator and the "
+        "orchestrator leaves it untouched afterwards."
+    )
+    head = build(
+        repo,
+        {
+            "notes.md": f"# notes\n\nFirst. {fixed}\n\nSecond. {CLAIM_A}\n",
+            f"{ITEM_A}/routing.md": "# routing\n\nDeclared before the first edit.\n",
+            f"{ITEM_A}/survivors.md": UNRESOLVED_ROW,
+        },
+        "work item A corrects its claim and declares a range that is gone",
+    )
+    code, text = run(
+        "--range",
+        f"{head}^..{head}",
+        "--root",
+        str(repo),
+        "--exempt",
+        os.path.join(str(repo), *f"{ITEM_A}/survivors.md".split("/")),
+    )
+    assert code == 1, f"an unresolvable declaration silenced the run\n{text}"
+    assert "unresolved" in text and "origin/gone..HEAD" in text, (
+        "the work item's own unresolved declaration was not printed to its "
+        f"own run, so the row rotted in silence:\n{text}"
+    )
+
+
 def test_a_file_holding_only_a_range_row_is_not_refused_as_empty(tmp_path):
     """A range row IS a row.
 

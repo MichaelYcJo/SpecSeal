@@ -1249,6 +1249,21 @@ def whole_range(root, ranges, a, b):
     refs its range names -- a release branch -- get deleted. Refusing the run
     then would turn every later range's check into exit 2 over a row that has
     nothing to do with it.
+
+    **And it is reported to the run it addresses, which the second anchor
+    decides** (#439). A declaration that resolves nowhere and belongs to a
+    work item this range touches nothing of is the *not this run's range*
+    case one step over: it could not have excused this run whether or not
+    it resolved, so the line would be addressed to nobody -- and it was, on
+    every pull request into a release branch and every seal, three times per
+    run for one release, because every shipped `survivors.md` in the tree
+    names a release branch that is deleted at the release. So ownership is
+    asked of an unresolved declaration before it is printed, with the same
+    lazily computed `changed` list: one with no owner -- an `--exempt` file
+    passed from anywhere -- or owned by a work item this range touches is a
+    declaration this run could have used, and prints under `unresolved` as
+    before. The wrong allow is empty, because an unresolved row excuses
+    nothing whether printed or not.
     """
     match, unresolved, foreign = None, [], []
     changed = None
@@ -1256,21 +1271,28 @@ def whole_range(root, ranges, a, b):
         try:
             left, right = parse_range(root, spec)
         except Refused:
-            unresolved.append((spec, grounds))
-            continue
-        if (left, right) != (a, b):
+            left = right = None
+        if left is not None and (left, right) != (a, b):
             # Not this run's range at all, which needs no line: the row is
             # honest and says so itself. Only a row that resolved ONTO this
             # range and is then refused has something a reader must be told.
             continue
         owner = OWNER_DIR.match(source.replace("\\", "/"))
+        mine = True
         if owner is not None:
             if changed is None:
                 names = git(root, "diff", "--name-only", "-z", a, b)
                 changed = [path for path in (names or "").split("\0") if path]
-            if not any(path.startswith(owner.group(1) + "/") for path in changed):
-                foreign.append((spec, grounds, owner.group(1)))
-                continue
+            mine = any(path.startswith(owner.group(1) + "/") for path in changed)
+        if left is None:
+            # Unresolved: printed to a run that could have used it, and to
+            # no other. Nothing is silenced either way.
+            if mine:
+                unresolved.append((spec, grounds))
+            continue
+        if not mine:
+            foreign.append((spec, grounds, owner.group(1)))
+            continue
         if match is None:
             match = (spec, grounds)
     return match, unresolved, foreign
