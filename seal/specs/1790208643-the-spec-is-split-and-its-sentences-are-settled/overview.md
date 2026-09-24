@@ -9,7 +9,7 @@ evidence ledger, not here. -->
 📋 implement applied
 · spec:     `seal/specs/1790208643-…/{routing,spec,plan,questions}.md`; `docs/the-evidence-ledger.md` §*The fold, and what tells it from a deletion*, §*A row is a content anchor*, §*A correction a merge dropped*; `CLAUDE.md` §*Repo rule — a change writes fragments*, §*commit early*; `CONTRIBUTING.md` §*House rules*, §*What a change to a gate must carry*; `docs/release-checklist.md` §0–§3; `docs/branch-and-release.md` (D's fold paragraphs); `skills/settle/SKILL.md` §2; `skills/agent-contract/SKILL.md` §1–§16; `templates/sdd-phase.md`, `templates/sdd-overview.md`; MichaelYcJo/SpecSeal#526, #488, #509, #466, #474, #55, #316, #222, #268, #556, #561, #562
 · evidence: `seal/ledger/1790208643-the-spec-is-split-and-its-sentences-are-settled.md` S1–S3, E1–E2, N1–N4, P1, C1–C2 (stamped by `--reverify`); in `seal/ledger.md` and three sibling fragments: 18 rows re-pointed for the split, every row a phase drifted re-read with a dated note, G6, G7, G1 and A5 corrected in place, 22 rows' cell pipes escaped
-· verified: executed — each phase's modules, the red runs the phase records quote, the mutation and planting probes, `evidence-check --strict .` at every phase, the survivor sweep, `correction-check`, `unverified-check`, `rider_check.py`, ruff over every edited `.py`, #561's zsh measurement, and at hand-back every module that reads an edited document or script; read — each ledger row's claim against its edit, the citations against the section map; unverified — the broad gate (the sealer), the `CLAUDE.md` paste (the orchestrator)
+· verified: executed — each phase's modules, the red runs the phase records quote, the mutation and planting probes, `evidence-check --strict .` at every phase, the survivor sweep, `correction-check`, `unverified-check`, `rider_check.py`, ruff over every edited `.py`, #561's zsh measurement, and at hand-back every module that reads an edited document or script; read — each ledger row's claim against its edit, the citations against the section map; unverified — the broad gate (the sealer)
 
 ## Why this work exists
 
@@ -42,12 +42,12 @@ met at step 2 are fixed before it runs.
 |---|---|
 | The full suite, the repository-wide lint and the typecheck over the branch | the sealer, once, after the review rounds settle (`agents/sealer.md`) |
 | ✅ Where #558's per-release ledger file leaves the rows phase 1 re-pointed in `seal/ledger.md` | answered at phase 3: `seal/releases/` does not exist until the 0.15.1 release runs `--split`, so the rows stand in `seal/ledger.md` and the split carries them byte for byte, measured on a scratch clone (`phases/phase-3.md`, `phases/phase-7.md`) |
-| The `CLAUDE.md` copy of #488 and #509 — `phases/phase-3.md`'s two replacements; `test_a8_both_rule_documents_say_what_to_do_at_the_conflict` is red on `CLAUDE.md` until they land | the orchestrator, who edits `CLAUDE.md`; then `evidence-check --reverify .` for row C8 |
+| ✅ The `CLAUDE.md` copy of #488 and #509 — `phases/phase-3.md`'s two replacements; `test_a8_both_rule_documents_say_what_to_do_at_the_conflict` is red on `CLAUDE.md` until they land | landed at `233d1a13` by the orchestrator, and round 1's two corrections to it at `577676b2`; row C8 re-stamped there and `test_a8…` green (executed in round 1's fix pass) |
 
 ## Not done
 
-`CLAUDE.md` is not edited by this item; its copy of #488 and #509 is the
-orchestrator's paste (`phases/phase-3.md`).
+`CLAUDE.md` is not edited by this item's implementer. Its copy of #488 and
+#509 is the orchestrator's, pasted at `233d1a13` and corrected at `577676b2`.
 
 #526's items 2 and 3 (the `Enforced by:` retrofit and the shape and ceiling
 checks as plugin commands) moved to #565 and #566, filed by the orchestrator
@@ -55,7 +55,8 @@ so #526 closes with what this item shipped. #331 is deferred to the next
 milestone. The three ledger rows #562 found carrying a second date-and-notes
 pair in one Notes cell (G5 and S4 of #386's section, and *The eleven modules
 that pin the path*) are escaped and not rewritten as one note each, because
-merging them is a reading of each claim. `docs/round-record-spec.md` stays
+merging them is a reading of each claim; that reading is #568, filed by the
+orchestrator. `docs/round-record-spec.md` stays
 out of the wrap list for the reason `phases/phase-1.md` gives.
 
 ## Fed back into the spec

@@ -48,9 +48,11 @@ counts a `(coordinate, hash)` pair once per file, so a move can change it.
 branch that removes or edits code an existing shared-file row cites must touch
 the file the row is in to leave the ledger true. A removal takes the row out
 there, and the new claim goes in the branch's own fragment. An edit drifts the
-row, and the branch re-reads it against that edit and re-stamps it there with
-a dated note. Both are keeping an existing claim true, which is not appending;
-adding a claim is what belongs in the fragment, and always did.
+row, and the branch re-reads it against that edit: a claim that still holds is
+re-stamped there with a dated note, and one the edit made false is corrected
+there first, with a `Corrected <date>` note. Both are keeping an existing
+claim true, which is not appending; adding a claim is what belongs in the
+fragment, and always did.
 
 <!-- specs/1788761915-a-record-states-what-nothing-reads -->
 **A work item whose ledger fragment still exists has not shipped.** The fold
@@ -95,15 +97,6 @@ instance resolved two hunks in opposite directions, because each side was the
 superset in one of them, and taking a side reverted three corrections that had
 each turned a false claim true.
 
-**Hunk by hunk has two halves, and only the notes are a union.** A row's
-`Re-read <date>` and `Corrected <date>` notes are both sides', because each
-records a reading somebody performed. The anchor's hash belongs to exactly one
-side: the side that edited the anchored unit. A union that keeps the other
-side's hash names content that no longer exists anywhere, and the marker check
-below cannot see it, because no marker was dropped. So run `evidence-check`
-after the resolution: a drifted anchor is the tool naming which side that was,
-and the row is re-read against that side's edit before it is re-stamped.
-
 **Nothing downstream can see that, which is why the reading is a person's.**
 A row reverted to a superseded state is byte-identical to a row nobody
 touched. There is no marker on it, and the hash the checker reads is correct
@@ -121,6 +114,17 @@ fact and cannot prevent it.
 It reads the shared file, every release file and every fragment, because a
 fragment becomes part of a release file at the release and a check that
 skipped fragments would go blind exactly while the rows are being written.
+
+**Hunk by hunk has two halves, and only the notes are a union.** A row's
+`Re-read <date>` and `Corrected <date>` notes are both sides', because each
+records a reading somebody performed. The anchor's hash is not a union: it
+belongs to the side that edited the anchored unit, and to neither side where
+both did, because the merged unit is then content neither side hashed. A
+resolution that keeps a hash the merge made stale names content that no
+longer exists anywhere, and the marker check above cannot see it, because no
+marker was dropped. So run `evidence-check` after the resolution: a drifted
+anchor is the tool naming the row, and the row is re-read against every edit
+the merged unit carries, one side's or both, before it is re-stamped.
 
 <!-- specs/1789996780-the-census-and-the-tie-that-nothing-holds -->
 **A bound over the corpus is stated with its instrument and the moment it was

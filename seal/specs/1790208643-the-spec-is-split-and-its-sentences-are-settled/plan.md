@@ -4,7 +4,7 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
-Approved 2026-09-24 by the orchestrating session on the owner's `automation` answer, when `smith` was spawned; phases 3 and 6 wait for step D (#558) to squash.
+Approved 2026-09-24 by the orchestrating session on the owner's `automation` answer, when `smith` was spawned.
 
 <!-- The line above is the record that the gate happened. Fill it in at the
 spawn: reading this plan and spawning the builder IS the approval, so nothing
@@ -25,7 +25,8 @@ fact. -->
 ## Summary
 
 Six phases, the split first and the sentences after it, so that nothing is
-moved and then edited. Phase 1 makes the three documents, re-points the 20
+moved and then edited. Phases 3 and 6 wait for step D (#558) to squash,
+because both are written against D's text. Phase 1 makes the three documents, re-points the 20
 shipped citations and the 23 ledger anchors, and retires the ceiling entry.
 Phase 2 re-points the 28 test modules. Phase 3 writes #488's and #509's
 sentences into the three ledger-rule carriers and the release checklist,

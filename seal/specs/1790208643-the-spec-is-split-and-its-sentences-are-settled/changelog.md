@@ -19,13 +19,15 @@
   case that arrives most is an edit, which drifts the row, and the only
   correct act was a write two documents forbade. The evidence-ledger policy
   and `CONTRIBUTING.md` now say a removal or an edit is kept true in the file
-  the row is in, which is keeping an existing claim true rather than
-  appending, and adding a claim is what goes in the fragment.
+  the row is in: a claim that still holds is re-stamped, and one the edit made
+  false is corrected in place first. That is keeping an existing claim true
+  rather than appending, and adding a claim is what goes in the fragment.
 - **Of a conflicted ledger row, only the notes are a union (issue #509).**
   Each side's `Re-read` and `Corrected` notes record a reading somebody did,
   so both stay. The anchor's hash belongs to the side that edited the
-  anchored unit, and a union that keeps the other side's hash names content
-  that exists nowhere, which `correction-check` cannot see. The
+  anchored unit, and to neither where both did, and a union that keeps a
+  stale hash names content that exists nowhere, which `correction-check`
+  cannot see. The
   evidence-ledger policy and `CONTRIBUTING.md` say so and say to run
   `evidence-check` after the resolution, and the release checklist's squash
   step names where the rule lives.

@@ -337,8 +337,10 @@ edit and asking for `[no-review]` as well is asking for the same answer twice.
 | straight to the PR | silent | the sealer's `broad-gate.md` in the work item's directory, for a work item begun at or after `chain_check.py`'s `DIRECT_GATE_FROM` — the one broad run, at a SHA the tree can see, against the base — and nothing else: the answer turns off the reviewer alone. A draft pull request is excused the file, an earlier work item is excused and prints, and the declaration is printed either way, because a decision nobody sees is not a record |
 | nothing readable, or no file | today's behavior — deny once, then ask | pass, with a notice saying nothing was checked |
 
-What the check reads of each round record under the first answer — every row,
-and what each refusal costs — is `docs/round-record-spec.md`.
+What the check reads of each round record under the first answer, and what
+each refusal costs, is `docs/round-record-spec.md` for the record's rows, and
+`docs/review-chain-spec.md` for the floor, `Needs a fix`, the reopening and
+when the record was written.
 
 **Two answers, and not three.** A session that wrote a change and then checked
 it itself has asked for a third — *reviewed by the session* — with a record of

@@ -77,12 +77,12 @@ in the rest of the tree.
 **`--timeout` bounds the wait, and not the work.** Each operator's command is
 waited for at most 900 seconds by default (`--timeout 0` removes the bound),
 and an arm asks two operators, so one arm can take twice that. When the bound
-is reached, only the command's own process is killed. The wrapper form above is
-the one that leaks: `bin/test` execs `.github/scripts/run_tests.py`, which runs
-pytest as a child of its own, so a timed-out pair leaves that suite running,
+is reached, only the command's own process is killed. A wrapper command is the
+one that leaks: where `--tests` names a runner that starts pytest as a child of
+its own, as the example above does, a timed-out pair leaves that suite running,
 unbounded and unreported, beside every arm after it. Against a module whose
 suite can approach the bound, name the pytest command in `--tests` directly
-rather than the wrapper. Whether the bound should reach the whole process group
+rather than a wrapper. Whether the bound should reach the whole process group
 is #313.
 
 **There are two ways to be wrong and the counts differ by a lot**, so the

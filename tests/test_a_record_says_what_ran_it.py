@@ -436,11 +436,12 @@ def test_a_row_inside_a_comment_is_not_the_row(repo):
 
 
 def test_the_behaviour_spec_carries_a_subsection_for_this_refusal():
-    """Round 1's 🟡 1. `docs/round-record-spec.md` owns every refusal the
-    checker makes of a record's rows at the pull request (#526 split them out
-    of `docs/review-chain-spec.md`, which keeps the floor and the reopening), and this one arrived without a
-    subsection while `Pass`, `Fixes checked by`, the fix-surface rows, the
-    floor, `Needs a fix` and the depth each have one.
+    """Round 1's 🟡 1. The behaviour spec owns every refusal the checker makes
+    at the pull request, and this one arrived without a subsection while
+    `Pass`, `Fixes checked by`, the fix-surface rows, the floor, `Needs a fix`
+    and the depth each have one. Since #526 the row subsections, this one
+    among them, are in `docs/round-record-spec.md`, and the floor and `Needs a
+    fix` stay in `docs/review-chain-spec.md` with the bound they serve.
 
     The grounds first offered for leaving it out — *that file owns the cap
     and the floor, and `Ran by` is neither* — do not survive reading it:
