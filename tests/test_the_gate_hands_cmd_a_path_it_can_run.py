@@ -184,6 +184,28 @@ def test_the_one_shell_site_is_run_and_it_applies_the_rewrite():
     )
 
 
+def test_the_template_says_which_positions_are_rewritten():
+    """A2, the reader's half (§14). `templates/config.md` §*Broad gate* is
+    where a person writing the row learns what `cmd.exe` is handed, and it
+    names the two positions the scan leaves as written — the gap the cases
+    above pin is only a gap nobody is surprised by while it is written down."""
+    path = os.path.join(ROOT, "templates", "config.md")
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+    section = text.split("## Broad gate", 1)[1].split("\n## ", 1)[0]
+    prose = " ".join(section.split())
+    for needle in (
+        "the gate hands it the row with `/` written `\\` inside each command "
+        "name, and nowhere else",
+        "`bin/test` then runs as `bin\\test`",
+        "a path after `call`, `start` or `if`",
+        "a command name after a redirection that opens its command "
+        "(`>out.txt bin/test`)",
+        "the gate prints one line saying what `cmd.exe` was handed",
+    ):
+        assert needle in prose, f"templates/config.md §Broad gate lacks: {needle}"
+
+
 # --- A3: what ran is on record ------------------------------------------------
 
 
