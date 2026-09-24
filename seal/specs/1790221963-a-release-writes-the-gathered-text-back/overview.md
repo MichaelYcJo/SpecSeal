@@ -56,7 +56,14 @@ fix-pass probe, exit 1 at `61f0d0d8` and 0 at the tip). By the sweep's rule
 the rewording is the fragment's branch's wording and not this range's; the
 repository owner decides whether a gathered rewording should count as
 written by the release that gathers it. `plan.md` §*Operational impact*
-phase 1 and ledger row H1 state it.
+phase 1 and ledger row H1 state it. Round 2 judged it the rule working: a
+gathered rewording behaves like wording that stood before the range, not
+like wording the range wrote.
+
+Round 2 found round 1's fix too wide (its 🟡 1): the shared n-grams were
+written for every file, so a gathered fragment again subtracted another
+file's survivor. Its paste-ready fix was applied whole at `d66b9632`; the
+n-grams now split `CHANGELOG.md`'s own removed sentences and nothing else.
 
 ## Fed back into the spec
 
