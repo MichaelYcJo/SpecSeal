@@ -47,7 +47,7 @@ rows were written with `@00000000` in every anchor and `--reverify` rewrote
 read `1702 ok · 0 drifted · 0 broken`.
 
 **The records arm reads this work item once the fragment exists**, and it
-found two things. `phases/phase-1.md` named `pytest_cmdline_main`, an xdist
+found two things. `phases/phase-1.md` named `pytest_cmdline_main`, an xdist NAME NOT IN TREE
 function the tree does not carry, so that line took the `NAME NOT IN TREE`
 marker. `overview.md`'s divergence row quoted the R6 anchor with an ellipsis
 inside the locator, which the arm read as a stamp and reported BROKEN
