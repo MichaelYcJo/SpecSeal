@@ -20,8 +20,11 @@ answered*, numbered the same way.
 5. The `lost` guard stays, because P6d goes silent without it.
 6. Step E (#526) needs no sentence. `docs/review-chain-spec.md` §*The
    survivor sweep* states nothing at the altitude this work changes.
-7. Step A's F1, C2 and `plan.md` gate row are corrected in place, with dated
-   notes. Its round records are not edited.
+7. Step A's F1 and C2 are corrected in place, with dated notes. Its
+   `plan.md` gate row is left as written, on the orchestrator's
+   instruction, and the gate row lives in this work item's `plan.md`
+   (corrected 2026-09-24 in round 1's fix pass). Its round records are not
+   edited.
 8. Nothing in `seal/follow-up.md` waits on this work.
 
 No row below is a person's. The build does not wait on this file.

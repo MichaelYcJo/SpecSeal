@@ -23,7 +23,7 @@ guard that covers the other release shapes had no case behind it.
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | The paste-ready comment above `shipped` | #557: *Read at `a` by the path the gatherer globs, which the release does not delete* / written: the fragment stands at `a` *whether the release leaves the fragment or deletes it* | the code | The sentence was false for a deleting gatherer, the case G2 pins; `spec.md` §Scope asks for the sentences to be true of both gatherers. The code itself is #557's verbatim |
-| Step A's `plan.md` gate row | `spec.md` §Scope and `plan.md` phase 4: *Step A's `plan.md` gate row gains the clause #557 supplies* / not edited | the spawn prompt | The orchestrator's spawn prompt: step A's `plan.md` is a shipped work item's record of what it planned, and the gate row #557 gives lives in this work item's `plan.md` gate table, which already carries it. F1's corrected note says where the corrected bound is |
+| Step A's `plan.md` gate row | `spec.md` §Scope and `plan.md` phase 4: *Step A's `plan.md` gate row gains the clause #557 supplies* / not edited | the spawn prompt | The orchestrator's spawn prompt: step A's `plan.md` is a finished work item's record of what it planned, squashed into `release/v0.15.1` (#550) and not yet released (corrected 2026-09-24 in round 1's fix pass, which found *shipped* here untrue: `CHANGELOG.md` carries no marker for it), and the gate row #557 gives lives in this work item's `plan.md` gate table, which already carries it. F1's corrected note says where the corrected bound is |
 | Step A's ledger row C3 | `spec.md` §*Data & interfaces* names F1 and C2 as the rows to correct / C3 corrected too | the code | C3's note repeated *a release's gathering commit deletes each fragment*, one of the three sentences phase 1 removed from the docstring (`agent-contract` §12). Its anchors did not drift, which is why the table did not predict it |
 | The module docstring's released-changelog paragraph | `spec.md` §*Data & interfaces*: its sentence saying the gathering commit deletes each fragment is changed / that sentence reworded, and one sentence added saying the gathered text is held and never written | the code | The module docstring is where a reader looks for the module's account of an exclusion; the new rule belongs in it beside the reworded sentence |
 | Q4's premise | *as `tests/test_the_changelog_is_gathered_at_release.py` loads the gatherer* / that module runs it as a subprocess | the default, import by path | The import works because the gatherer puts `hooks/` on `sys.path` itself; G4 also asserts the body still sits directly under the marker |
@@ -46,6 +46,17 @@ owner, with the guard refinement that would close it in `plan.md`
 
 The guard's own comment, *a gathered release writes none*, is left as it
 is: inside the branch it guards, where the file lost nothing, it is true.
+
+One shape reports less than the base after round 1's fix, and it is left
+open: a range that deletes a sentence from another file with no rewording of
+its own, where the only rewording is a gathered fragment's. The rewording
+shares nothing with what `CHANGELOG.md` lost, so it is held and not written,
+the deleted sentence stays one run, and its verbatim copy goes silent (a
+fix-pass probe, exit 1 at `61f0d0d8` and 0 at the tip). By the sweep's rule
+the rewording is the fragment's branch's wording and not this range's; the
+repository owner decides whether a gathered rewording should count as
+written by the release that gathers it. `plan.md` §*Operational impact*
+phase 1 and ledger row H1 state it.
 
 ## Fed back into the spec
 
