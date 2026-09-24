@@ -43,6 +43,7 @@ share an id, so no two branches share a fragment. The checker reads
 glob alike, and a row is a content anchor, so the release that folds a
 fragment into its release file changes no row's status. The `ok` total
 counts a `(coordinate, hash)` pair once per file, so a move can change it.
+Enforced by: tests/test_a_row_points_by_content.py::test_no_ledger_row_carries_a_line_number_or_a_commit, tests/test_a_row_points_by_content.py::test_the_checker_asks_git_for_nothing
 
 <!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
 **Appended is the word, and a removal is not one — nor is an edit.** A
@@ -63,6 +64,7 @@ boundary — and it is the one a check over unshipped work items uses, rather
 than a date or a branch name. A released work item's records are records of a
 moment, and holding them to a rule written later is holding them to nobody's
 rule.
+Enforced by: tests/test_a_record_states_what_the_tree_has.py::test_a_work_item_with_a_ledger_fragment_has_not_shipped, tests/test_a_record_states_what_the_tree_has.py::test_a_work_item_whose_fragment_was_folded_away_has_shipped
 
 <!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
 **A `|` inside a ledger cell is escaped, and a row with more cells than its
@@ -83,6 +85,7 @@ refuse this tree, so every reader gets it: both wrappers, the CI job, and a
 bare invocation of the script. A tool whose two callers disagree about the
 verdict, and which tells neither caller so, is a tool that reports clean to
 whoever asked first.
+Enforced by: tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py::test_a_drifted_tree_is_told_what_the_gate_would_say
 
 <!-- specs/1788686494-the-printed-ledger-name-collapses-through-relpath -->
 **A name a person reads is the file that was actually opened.** Turning a
@@ -97,6 +100,7 @@ and a silent partial answer is not right for reading. The checker names what
 it skipped, because guidance binds a session that reads the guidance and a
 session that narrows on its own initiative still gets an answer it will
 believe.
+Enforced by: tests/test_the_printed_ledger_name_is_the_file_that_was_read.py::test_no_ledger_path_reaches_relpath, tests/test_a_narrowed_ledger_read_says_what_it_skipped.py::test_a_narrowed_run_names_the_shared_ledger_it_did_not_read
 
 <!-- specs/1790154760-the-ledger-grows-and-nothing-takes-a-row-out -->
 **The checker parses each Python file once per process, so a file that many
@@ -112,6 +116,7 @@ parses of 126 files (`cProfile` and `/usr/bin/time -p` over `--strict .` on
 this repository, 2026-09-23). Parsed once per file, the same commit waits
 about 1.7 s. The cost was the parse and not the rows, so no row left: a row
 still leaves the ledger only with its code.
+Enforced by: tests/test_a_row_points_by_content.py::test_rows_citing_one_file_cost_one_parse, tests/test_a_row_points_by_content.py::test_a_file_edited_between_two_reads_gets_its_new_spans
 
 ## A correction a merge dropped
 
@@ -140,6 +145,9 @@ fact and cannot prevent it.
 It reads the shared file, every release file and every fragment, because a
 fragment becomes part of a release file at the release and a check that
 skipped fragments would go blind exactly while the rows are being written.
+Enforced by: nothing — a person's act: resolving a ledger conflict hunk by hunk is
+read by review at the pull request, and `correction-check` reports a dropped marker
+only after the merge, as a leg allowed to fail.
 
 <!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
 **Hunk by hunk has two halves, and only the notes are a union.** A row's
@@ -165,6 +173,9 @@ arithmetically false about the module's own corpus.
 
 **Where a merge has two parents and both could be named, the tie falls to the
 first.** A rule that leaves a tie unstated is a rule with a case nobody wrote.
+Enforced by: nothing — no case reads it yet. A case that read every census-taking
+case for the instrument beside its count would; the tie rule is held by
+`test_a_tie_falls_to_the_first_parent`.
 
 ## The unverified record, and the baseline it is read against
 
@@ -175,6 +186,7 @@ is open, so two arms reading it a second apart can compare against two
 different trees. The report names the revision it actually compared against,
 and a reference sharing no history with the head is exit 2 — a comparison
 against nothing is not a comparison.
+Enforced by: tests/test_unverified_rows_close.py::test_a_row_the_base_gained_after_the_fork_is_not_a_deletion, tests/test_unverified_rows_close.py::test_a_work_item_squashed_after_the_fork_is_not_this_branchs_removal
 
 ## The fold, and what tells it from a deletion
 
@@ -236,6 +248,7 @@ directory picks up where it left off. The removal of a directory and a branch
 deleting one are otherwise byte-identical to every reader; the marker is what
 tells them apart, which is why a reader of removed work reports a fold rather
 than a deletion.
+Enforced by: tests/test_settle_reads_before_it_removes.py::test_retire_removes_only_what_docs_records
 
 <!-- specs/1790039346-settle-reads-a-marker-inside-a-commented-out-draft -->
 **A marker counts only on a live line, and one function decides what live
@@ -258,6 +271,7 @@ and that is the cheaper of the two mistakes.
 a flat policy directory — merge into a document that exists, create one only
 for an area with none — so a marker below the top level is somebody's notes,
 and a scratch file quoting one excused a removal nothing had absorbed.
+Enforced by: tests/test_unverified_rows_close.py::test_a_marker_inside_a_commented_out_draft_is_not_a_fold_record, tests/test_unverified_rows_close.py::test_a_marker_inside_a_fenced_block_is_not_a_fold_record
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 <!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
@@ -291,6 +305,7 @@ and let the next `settle --retire` take the directory. For `1788184145`, the
 one directory held this way when the guard below shipped, that trade was
 taken (#517): the row was removed, and its claim stands in
 `docs/review-chain-spec.md` §*Two records, and what each of them says*.
+Enforced by: tests/test_settle_reads_before_it_removes.py::test_the_rule_arm_removes_it_with_no_marker
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 <!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
@@ -311,6 +326,7 @@ one, and whether it should be removed instead is the repository owner's
 question, recorded against the ledger row that first met it. The command names
 the rows and edits none of them, because which row goes is a judgment about a
 claim.
+Enforced by: tests/test_settle_reads_before_it_removes.py::test_a_row_anchored_inside_a_candidate_keeps_that_directory
 
 <!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
 **A fold is not a work item, and it adds nothing to the ledger.** It opens
@@ -323,6 +339,9 @@ judgment is reviewed at its pull request (#517). What it leaves already has a
 home — the marker, the pull request, git history — so it keeps no log of its
 own. A fold that opened a work item left a directory for the next fold to
 retire, and that fold opened one of its own, so no fold could ever finish.
+Enforced by: nothing — a session's act: a fold branch that opens a directory or
+appends a ledger row is read by review at the fold's pull request (#517), and no
+check reads a branch as a fold.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 <!-- specs/1790119502-four-shipped-work-items-wait-unfolded -->
@@ -335,6 +354,9 @@ compares the walk against an independent listing of the same tree —
 longer exercises moves to a record built in `tmp_path`. A repair is green
 before the fold and after it; one green only once the directories are gone is
 a lowering. `skills/settle/SKILL.md` §3 gives the three answers.
+Enforced by: nothing — no case reads it yet. A scan of `tests/` for an assertion
+comparing a listing's length with a literal would. The guard that replaced the
+floors it names is `_the_walk_found_every_committed_record`.
 
 <!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
 **A `seal/` root with no work item under it is the state a complete fold ends
@@ -346,6 +368,7 @@ unusable, `settle` exited 2 on its own finished work, and `unverified-check
 pull request after a complete fold red, the shipped `templates/hygiene.yml`
 included. Only that one path is settled; any other missing path is still
 refused, which keeps a misspelt path from passing in silence.
+Enforced by: tests/test_settle_reads_before_it_removes.py::test_a_settled_root_is_green_and_says_so, tests/test_unverified_rows_close.py::test_the_roots_own_specs_path_is_settled_when_nothing_is_under_it
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 **A fold marker on a line of its own is exempt from the wrap limit.** The
@@ -355,3 +378,4 @@ marker rather than asking a document to choose between the two. The chain
 checker's reading of a retired declaration is
 `docs/commit-review-gate-spec.md`'s, under *The declaration, and where the
 check went instead*.
+Enforced by: tests/test_docs_line_wrap.py::test_a_fold_marker_is_skipped_and_the_line_beside_it_is_not
