@@ -50,7 +50,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import gathered_entry
+from conftest import gathered_entry, review_chain_text
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -868,7 +868,7 @@ def test_a_forgotten_checker_cell_leaves_the_arm_nothing_to_key_on(repo):
         "nothing at all reports a record that forgot all three cells:\n" + out
     )
     for where in (
-        ("docs", "review-chain-spec.md"),
+        ("docs", "round-record-spec.md"),
         ("templates", "sdd-round.md"),
         ("skills", "code-review", "orchestration.md"),
     ):
@@ -893,7 +893,7 @@ def test_the_terminal_value_is_in_the_specs_table_with_what_it_costs(repo):
     code, out = surface_run(repo, NEW_ITEM, "no fixes to check", units=PENDING)
     assert code == 0, out
     assert "still says the fixes are not yet written" not in out, out
-    spec = flat("docs", "review-chain-spec.md")
+    spec = flat("docs", "round-record-spec.md")
     assert "`Fixes checked by` reads `no fixes to check`" in spec, (
         "the spec's table still enumerates two of the three legal values"
     )
@@ -903,9 +903,10 @@ def test_the_terminal_value_is_in_the_specs_table_with_what_it_costs(repo):
 
 
 def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
-    """Round 3's 🟡 5, on the document side. `docs/review-chain-spec.md`, the
-    ledger row and the changelog fragment all declared the escape as **a
-    rewording**, and three spellings escape with the template's words
+    """Round 3's 🟡 5, on the document side. The spec (the section is in
+    `docs/round-record-spec.md` since #526's split), the ledger row and the
+    changelog fragment all declared the escape as **a rewording**, and three
+    spellings escape with the template's words
     untouched. The case above runs them; this is the claim about them.
 
     **Pinned in all FIVE copies, and it used to pin three of them** (round
@@ -935,7 +936,7 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
     """
     item = "1788501054-a-check-reports-clean-while-something-is-missing"
     copies = (
-        ("docs", "review-chain-spec.md"),
+        ("docs", "round-record-spec.md"),
         ("skills", "code-review", "scripts", "chain_check.py"),
         ("seal", "ledger", f"{item}.md"),
         ("seal", "specs", item, "changelog.md"),
@@ -1094,7 +1095,8 @@ def test_the_check_reads_every_record_not_only_the_last(repo):
 
 def test_the_spec_carries_the_subsection():
     """Every refusal `chain_check.py` makes at the pull request has a
-    subsection in `docs/review-chain-spec.md` saying what it costs. A fifth
+    subsection saying what it costs — this one in `docs/review-chain-spec.md`,
+    its neighbours in `docs/round-record-spec.md` since #526. A fifth
     cutoff owes one, and round 2 of the last work item found that copying a
     neighbouring table row is how a false claim travels."""
     spec = flat("docs", "review-chain-spec.md")
@@ -1271,11 +1273,10 @@ def test_every_description_of_which_add_is_read_says_the_latest():
     # That is the shape `seal/ledger.md` records as a case green against its
     # own mutation, met from the inside.
     stale = "oldest commit " + "that touched"
-    for parts in (
-        ("docs", "review-chain-spec.md"),
-        ("tests", "test_a_record_precedes_the_fixes_it_commissions.py"),
-    ):
-        assert stale not in flat(*parts), "/".join(parts)
+    assert stale not in review_chain_text(ROOT), "the review chain documents"
+    assert stale not in flat(
+        "tests", "test_a_record_precedes_the_fixes_it_commissions.py"
+    )
 
 
 def test_the_docstring_says_what_the_flag_now_protects():
@@ -1299,7 +1300,7 @@ def test_the_spec_points_at_the_row_it_means():
     assert "the bolded row above" in spec, (
         "the sentence still counts rows, and no third row is the one it means"
     )
-    assert "the third style above" not in spec
+    assert "the third style above" not in review_chain_text(ROOT)
 
 
 def test_the_spec_carries_the_delete_and_re_add_state():

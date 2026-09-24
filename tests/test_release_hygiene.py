@@ -1715,8 +1715,8 @@ def test_the_pull_request_checks_the_chain_it_was_routed_to():
 
     Moving enforcement off the commit and onto the pull request is only
     honest while the pull request actually checks. A workflow with the
-    declaration and no step is the standing waiver `docs/review-chain-spec.md`
-    refuses to build — quieter than the one it replaced, because a declaration
+    declaration and no step is the standing waiver
+    `docs/commit-review-gate-spec.md` refuses to build — quieter than the one it replaced, because a declaration
     that nothing reads leaves no trace at all.
     """
     workflow = open(

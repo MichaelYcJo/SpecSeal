@@ -37,6 +37,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import review_chain_text
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -435,8 +436,9 @@ def test_a_row_inside_a_comment_is_not_the_row(repo):
 
 
 def test_the_behaviour_spec_carries_a_subsection_for_this_refusal():
-    """Round 1's 🟡 1. `docs/review-chain-spec.md` owns every refusal the
-    checker makes at the pull request, and this one arrived without a
+    """Round 1's 🟡 1. `docs/round-record-spec.md` owns every refusal the
+    checker makes of a record's rows at the pull request (#526 split them out
+    of `docs/review-chain-spec.md`, which keeps the floor and the reopening), and this one arrived without a
     subsection while `Pass`, `Fixes checked by`, the fix-surface rows, the
     floor, `Needs a fix` and the depth each have one.
 
@@ -445,8 +447,8 @@ def test_the_behaviour_spec_carries_a_subsection_for_this_refusal():
     `Contract changes` and `New units` make no claim about when a run stops
     either, and they have a subsection with their cutoff named beside them.
     """
-    text = read("docs", "review-chain-spec.md")
-    assert "##### What ran the round" in text, (
+    text = read("docs", "round-record-spec.md")
+    assert "## What ran the round" in text, (
         "the behaviour spec has a subsection for every other refusal the "
         "checker makes and none for this one, so the only statement of what "
         "it refuses is the code that does the refusing"
@@ -472,7 +474,7 @@ def test_the_documents_say_why_older_records_are_excused():
     """
     reason = "nobody can recover what ran a segment whose session is over"
     for parts in (
-        ("docs", "review-chain-spec.md"),
+        ("docs", "round-record-spec.md"),
         ("skills", "code-review", "scripts", "chain_check.py"),
     ):
         text = flat(*parts)
@@ -492,8 +494,12 @@ def test_the_documents_say_why_older_records_are_excused():
 
 def test_the_spec_states_the_two_halves_and_the_unknown_answer():
     """A table a session reads instead of the template has to teach the same
-    vocabulary, or a record written from THIS document is refused."""
-    text = flat("docs", "review-chain-spec.md")
+    vocabulary, or a record written from THIS document is refused.
+
+    Read across the three documents #526 split the spec into: the count below
+    is one copy in the floor's subsection and one in this one's, and they now
+    sit in two files."""
+    text = review_chain_text(ROOT)
     for needle in ("agent on model", "unknown — <why>", "bare `unknown`"):
         assert needle in text, (
             f"the spec's `Ran by` subsection does not state `{needle}`, so a "

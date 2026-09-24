@@ -46,7 +46,7 @@ E         docs/review-chain-spec.md carries 9 fold markers and is frozen at 29 u
 It is green once `OVER_CEILING` and `FROZEN_IDS_DIGEST` are empty and the
 evidence ledger's bullet says no document is listed.
 
-**The rewordings: the plan's list, one row corrected, and five more the build
+**The rewordings: the plan's list, one row corrected, and six more the build
 met.** Each is a positional reference that dangles in its new file.
 
 | Where | What changed | Plan row |

@@ -17,6 +17,8 @@ half-edited; the rows naming it are in this work item's overview.
 import os
 import re
 
+from conftest import review_chain_text
+
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
 # Python joins adjacent string literals at parse time and a flattened read of
@@ -128,7 +130,7 @@ def test_the_worktree_spec_is_still_the_model():
 
 
 def test_the_two_prompts_are_named_by_who_they_address():
-    spec = flat("docs", "review-chain-spec.md")
+    spec = flat("docs", "commit-review-gate-spec.md")
     assert "instructs the model to put the choice up" in spec
     assert "putting two buttons to the user" in spec
     assert "A `deny` addresses the **model**" in spec
@@ -145,7 +147,7 @@ def test_the_spec_separates_the_cycle_from_the_review_run():
     assert "## The review run has a bound, and an end" in read(
         "docs", "review-chain-spec.md"
     )
-    assert "## The cycle has a bound" not in read("docs", "review-chain-spec.md"), (
+    assert "## The cycle has a bound" not in review_chain_text(ROOT), (
         "the bound is on the review run; stated on the cycle it reads as a "
         "bound on commits"
     )
