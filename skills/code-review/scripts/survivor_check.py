@@ -153,9 +153,11 @@ claim rendered in bold -- and `seal/follow-up.md` names whose that loss is.
 
 **A released changelog section, and a gathered fragment.** Every line under
 a heading that names a version in the root `CHANGELOG.md` -- `## 0.15.0 —
-2026-09-23`, up to the next `## ` heading -- is out of the **pool** and out
-of the **range**, on both sides of the range's path list; and so is a
-`seal/specs/<id>/changelog.md` whose `<!-- specs/<id> -->` marker stands in
+2026-09-23`, up to the next heading that names a version or `Unreleased`,
+so a `## ` line a gathered fragment carries does not end it (#564) -- is out
+of the **pool** and out of the **range**, on both sides of the range's path
+list; and so is a `<x>/specs/<id>/changelog.md` -- `seal/specs/<id>/` or the
+pre-0.4.0 `specs/<id>/` -- whose `<!-- specs/<id> -->` marker stands in
 `CHANGELOG.md` at the range's tip, because a gathered fragment is that
 released entry one file over (#307). A released section records what a past
 release did, in that release's words, and a released entry is not rewritten
@@ -229,7 +231,10 @@ is handed to every run, and a `survivors.md` lives until the release that ships
 it, so one merged row in that spelling matched every later branch cut from the
 same base and excused its whole run. So the second anchor is the directory the
 row lives in: a declaration holds only over a range that touches its own work
-item, which a work item's own range always does.
+item, which a work item's own range always does. In local mode nothing under
+the root is committed, so no range touches it, and the `Branch` row of the
+work item's `routing.md` stands in: the declaration holds over a range whose
+tip is on that branch and on no local branch that one was cut from (#554).
 
 Both anchors degrade the way the quote above does -- loudly. A spec that no
 longer resolves prints under `unresolved`; a declaration refused for belonging
@@ -409,7 +414,14 @@ def read_blobs(root, rev, paths):
 
     A path missing at `rev`, a blob over the size cap, and a blob holding a NUL
     byte all come back absent rather than empty -- an empty string would read
-    as a file with no sentences in it, which is a different fact."""
+    as a file with no sentences in it, which is a different fact.
+
+    **`\\r\\n` comes back as `\\n`, here and nowhere else** (#564). Every
+    committed text reaches every reader through this function, and a `$`
+    under `re.M` stands before `\\n` and never before `\\r\\n`: a changelog
+    committed with CRLF had no gathered ids at all. One boundary rather than
+    one pattern, so the next `$`-anchored reader inherits it. Line counts are
+    unchanged; a lone `\\r` is left alone."""
     if not paths:
         return {}
     request = "".join(f"{rev}:{path}\n" for path in paths).encode("utf-8")
@@ -440,7 +452,7 @@ def read_blobs(root, rev, paths):
         body, at = data[at : at + size], at + size + 1
         if size > SIZE_CAP or b"\0" in body:
             continue
-        found[path] = body.decode("utf-8", "replace")
+        found[path] = body.decode("utf-8", "replace").replace("\r\n", "\n")
     return found
 
 
@@ -522,26 +534,46 @@ CHANGELOG = "CHANGELOG.md"
 # live prose in this file, above the first version, and that prose is this
 # release's own.
 VERSION_HEADING = re.compile(r"^##\s+\[?v?\d+\.\d+(?:\.\d+)?")
-# Any `## ` heading, which is where a section ends.
-SECTION_HEADING = re.compile(r"^##\s")
+# The one other heading that ends a released section: `## Unreleased`, and the
+# `## [Unreleased]` Keep a Changelog spells. No other `## ` line does (#564): a
+# gathered fragment carrying `## Notes` is still the released entry, and read
+# as live after its heading it was written as the release's own wording.
+UNRELEASED_HEADING = re.compile(r"^##\s+\[?unreleased\b", re.I)
+
+
+def released_lines(text):
+    """`[(line, released)]` for every line of a changelog -- the one region
+    rule `blank_released` and `only_released` both read, so the two stay
+    exact complements.
+
+    A version heading opens a released region, and after it only another
+    version heading or an `Unreleased` heading changes it. The rule reads
+    headings and never the gather's marker, so a misspelled marker cannot
+    reopen the region; and `## Unreleased` directly after a gathered body,
+    where a gatherer inserting above the first `## ` leaves it, stays live."""
+    out, released = [], False
+    for line in text.split("\n"):
+        if VERSION_HEADING.match(line):
+            released = True
+        elif UNRELEASED_HEADING.match(line):
+            released = False
+        out.append((line, released))
+    return out
 
 
 def blank_released(text):
     """`text` with every released section of a changelog blanked, line
     numbers intact -- the heading naming a version and every line under it,
-    up to the next `## ` heading.
+    up to the next version or `Unreleased` heading (`released_lines`).
 
     A released section records what a past release did, in that release's
     words, and a released entry is not rewritten. Reported against one, a
     branch that changed the behaviour the entry describes could correct
     nothing, and two of the four ranges the 0.15.0 release was measured on
     carried exactly that report (#307)."""
-    out, released = [], False
-    for line in text.split("\n"):
-        if SECTION_HEADING.match(line):
-            released = VERSION_HEADING.match(line) is not None
-        out.append("" if released else line)
-    return "\n".join(out)
+    return "\n".join(
+        "" if released else line for line, released in released_lines(text)
+    )
 
 
 def only_released(text):
@@ -552,12 +584,9 @@ def only_released(text):
     release moved from `## Unreleased` under a version heading is counted
     as still held rather than as removed (round 1's 🟡 1). What is held,
     and when its wording is written, is `corrected`'s to decide."""
-    out, released = [], False
-    for line in text.split("\n"):
-        if SECTION_HEADING.match(line):
-            released = VERSION_HEADING.match(line) is not None
-        out.append(line if released else "")
-    return "\n".join(out)
+    return "\n".join(
+        line if released else "" for line, released in released_lines(text)
+    )
 
 
 def newly_released(path, before, after):
@@ -824,7 +853,9 @@ def gathered_fragments(root, rev):
 
 
 def a_gathered_fragment(path, gathered):
-    """True for `seal/specs/<id>/changelog.md` whose `<id>` is in `gathered`.
+    """True for `<x>/specs/<id>/changelog.md` whose `<id>` is in `gathered` --
+    `seal/specs/<id>/changelog.md`, and the pre-0.4.0 `specs/<id>/changelog.md`
+    as well; `corrected` reads the held text at exactly the paths this accepts.
 
     A gathered fragment is the released entry one file over: its text stands
     verbatim under a version heading of `CHANGELOG.md`, whether the release
@@ -954,16 +985,18 @@ def corrected(root, a, b):
     corrected.
 
     **A rename is read as a deletion plus an addition** (`--no-renames`,
-    #551), and that is what makes a pure move silent for the right reason.
-    A file moved whole to another path loses every sentence at the old path
-    and writes every one back verbatim at the new one, so `wanted` subtracts
-    them all and nothing is looked for. With git's rename detection on, the
-    same move was silent because the old path was never listed at all --
-    and so was a move with one sentence reworded, which git calls a rename
-    too (`R096` when measured on a forty-paragraph file): the reworded
-    sentence never became a source, and its copy standing in another file
-    was never reported. Read as a deletion plus an addition, that sentence
-    is removed, is not written back, and is looked for.
+    #551), **and a sentence that arrives verbatim at another path is held,
+    not written** (#563, `paired_across_paths`). With git's rename
+    detection on, a move with one sentence reworded -- a rename to git too,
+    `R096` when measured on a forty-paragraph file -- never listed the old
+    path, so the reworded sentence never became a source and its copy in
+    another file was never reported. Read as a deletion plus an addition,
+    that sentence is removed and looked for. The rest of the moved text was
+    then written back as the range's own, and it subtracted every n-gram it
+    shared with a correction made elsewhere in the same range, so a quote
+    the move carried along hid itself and every other copy of the claim.
+    Paired across paths it is neither removed nor written, and a pure move
+    removes nothing, which is why it is silent.
 
     **The release commit is held, not removed** (round 1's 🟡 1, round 2's
     🟡 1 and 🟡 2). In a repository that lets the entry accumulate under
@@ -1021,16 +1054,22 @@ def corrected(root, a, b):
     after = read_blobs(root, b, paths)
     # A gathered fragment's text stands under a version heading at `b`, and
     # this range did not write it -- the fragment's own branch did. Read at
-    # `a` by the path the gatherer globs, where it stands whether the release
-    # leaves the fragment or deletes it, so `moved` below can hold that text
-    # without writing it as this range's.
-    fragments = [f"seal/specs/{item}/changelog.md" for item in sorted(gathered)]
+    # `a`, where it stands whether the release leaves the fragment or deletes
+    # it, so `moved` below can hold that text without writing it as this
+    # range's. The paths are the ones `a_gathered_fragment` accepts, never a
+    # second spelling of them (#564): a fragment that predicate kept out of
+    # the range and this reader did not find was written all the same.
+    fragments = (
+        [path for path in tracked(root, a) if a_gathered_fragment(path, gathered)]
+        if gathered
+        else []
+    )
     shipped = {
         sentence.key
         for path, text in read_blobs(root, a, fragments).items()
         for sentence in sentences(path, text)
     }
-    gone, written, split = [], set(), set()
+    gone, fresh, split = [], [], set()
     for path in paths:
         was = sentences(path, before[path]) if path in before else []
         now = sentences(path, after[path]) if path in after else []
@@ -1068,13 +1107,51 @@ def corrected(root, a, b):
         lost_here = {gram for sentence in gone[lost:] for gram in sentence.grams()}
         for sentence in held:
             split.update(gram for gram in sentence.grams() if gram in lost_here)
-        old = Counter(s.key for s in was)
-        fresh = Counter()
+        old, new = Counter(s.key for s in was), Counter()
         for sentence in now + moved:
-            fresh[sentence.key] += 1
-            if fresh[sentence.key] > old[sentence.key]:
-                written.update(sentence.grams())
+            new[sentence.key] += 1
+            if new[sentence.key] > old[sentence.key]:
+                fresh.append(sentence)
+    # Only after every path is counted: a sentence that left one path and
+    # arrived at another is a move, and neither side of it is this range's.
+    gone, fresh = paired_across_paths(gone, fresh)
+    written = {gram for sentence in fresh for gram in sentence.grams()}
     return gone, written, split
+
+
+def paired_across_paths(gone, fresh):
+    """`(gone, fresh)` less every sentence the range moved between paths.
+
+    A sentence removed at one path and added verbatim at another -- the same
+    key, paired one for one -- is neither removed nor written (#563). It is
+    the counting rule `corrected` already applies inside one file, where a
+    reordered sentence is neither, applied across files: a move changes no
+    sentence's author, so the moved text is held the way a gathered
+    fragment's is. A file moved whole, a rename and a document split into
+    two that both remain are all this shape; no whole-file rule sees the
+    split.
+
+    The two lists can only meet across paths: within one path, a key is
+    either counted down or counted up, never both. A pair leaves `gone`
+    only when every n-gram it has is in `written` anyway, so `wanted` can
+    only grow -- and a larger `wanted` can join two runs into one, which
+    `weigh` scores by its rarest n-gram. That is the score the same text
+    gets had it not moved."""
+    arrived = Counter(sentence.key for sentence in fresh)
+    left, kept = Counter(), []
+    for sentence in gone:
+        if arrived[sentence.key] > 0:
+            arrived[sentence.key] -= 1
+            left[sentence.key] += 1
+        else:
+            kept.append(sentence)
+    written = []
+    for sentence in fresh:
+        if left[sentence.key] > 0:
+            left[sentence.key] -= 1
+        else:
+            written.append(sentence)
+    return kept, written
 
 
 def wanted(gone, written):
@@ -1263,7 +1340,108 @@ RANGE_CELL = re.compile(r"^[^\s|]+\.\.\.?[^\s|]+$")
 # may be absolute; a file outside any `seal/specs/<id>/` keeps the hand-run
 # reach `whole_range` documents, and the pre-0.4.0 top-level `specs/` root is
 # left out on purpose (`spec.md` §*Out* of work item 1790174139).
+#
+# A local-mode file matches too, `<git-common-dir>/seal/specs/<id>/`, and its
+# owner is never in a range's diff because nothing there is committed; so
+# `whole_range` asks that work item's `routing.md` instead (#554).
 OWNER_DIR = re.compile(r"(?:^|.*/)(seal/specs/[^/]+)/.+$")
+
+# The routing declaration's one reader, loaded by path the way
+# `chain_check.py` loads it. Its `Branch` row is who owns a local-mode
+# declaration.
+ROUTING = os.path.join(HERE, "..", "..", "..", "hooks", "routing.py")
+# Where the common git directory is, and so local mode's root: the one reader
+# `hooks/optin.py` keeps for every gate, never a second copy of it here.
+OPTIN = os.path.join(HERE, "..", "..", "..", "hooks", "optin.py")
+
+
+def hook(path, name, what):
+    """A module under `hooks/`, loaded by path, or `Refused` saying which.
+
+    The hooks ship beside this script in the plugin; a copy without one
+    cannot place a local-mode declaration, and that is unusable input
+    rather than a judgment. `what` is what the missing file answers."""
+    if not os.path.isfile(path):
+        raise Refused(
+            f"cannot read {path}, which {what}. "
+            "This script ships beside it in the plugin."
+        )
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def local_specs(root):
+    """The real path of local mode's `specs/` directory, or "".
+
+    `<git-common-dir>/seal/specs`, where `agent-contract` §16 puts the local
+    root, the common directory read by `hooks/optin.py#git_common_dir`.
+    Real paths and `normcase`, because a temporary directory on macOS sits
+    behind a symlink, and Windows spells one drive two ways."""
+    common = hook(
+        OPTIN, "specseal_optin", "says where local mode's seal/ root is"
+    ).git_common_dir(root)
+    if not common:
+        return ""
+    return os.path.normcase(os.path.realpath(os.path.join(common, "seal", "specs")))
+
+
+def local_item(source, local):
+    """The local-mode work item directory `source` sits in, or None."""
+    if not local:
+        return None
+    where = os.path.normcase(os.path.realpath(source))
+    if not where.startswith(local + os.sep):
+        return None
+    return os.path.join(local, os.path.relpath(where, local).split(os.sep)[0])
+
+
+def on_its_branch(root, item, b):
+    """None when the range's tip `b` is on the branch `item`'s `routing.md`
+    names -- `refs/heads/<Branch>` or an ancestor of it -- and on no local
+    branch that one was cut from; otherwise the reason it is not, as the
+    `not yours` line prints it.
+
+    Asked of the range's tip rather than of the checkout, because ownership
+    is a question about the range: a detached HEAD at the branch's tip is
+    the same range. A branch cut from another carries that branch's history,
+    so a tip on it may be the other branch's tip, and that range is the
+    other branch's run: a stacked child's row would otherwise excuse its
+    parent's whole range. A `routing.md` that is missing, will not parse or
+    names no branch, and a branch that does not resolve, each answer with
+    their own reason -- the declaration then prints under `not yours`,
+    which is the loud direction."""
+    routing = hook(
+        ROUTING, "specseal_routing", "says whose a local-mode declaration is"
+    )
+    try:
+        with open(os.path.join(item, "routing.md"), encoding="utf-8") as handle:
+            text = handle.read()
+    except OSError:
+        return "it has no routing.md this run can read"
+    declared = routing.parse(text)
+    if not declared:
+        return "its routing.md is not a declaration naming a branch"
+    ref = f"refs/heads/{declared['branch']}"
+    tip = resolves(root, ref)
+    if tip is None:
+        return f"the branch its routing.md names, {declared['branch']}, is not here"
+    if git(root, "merge-base", "--is-ancestor", b, ref) is None:
+        return "this range's tip is not on the branch its routing.md names"
+    # A branch cut from another carries that branch's history, so a tip on
+    # it can be the tip of a branch it was cut from -- that branch's run, and
+    # a stacked child's row would otherwise excuse its parent's whole range.
+    heads = git(
+        root, "for-each-ref", "--contains", b, "--format=%(objectname)", "refs/heads"
+    )
+    for head in set((heads or "").split()) - {tip}:
+        if git(root, "merge-base", "--is-ancestor", head, ref) is not None:
+            return (
+                "this range's tip is on a branch the one its routing.md names "
+                "was cut from"
+            )
+    return None
 
 
 def read_exemptions(paths):
@@ -1374,6 +1552,17 @@ def whole_range(root, ranges, a, b):
     there is nothing to scope it to, and refusing it would break running the
     check by hand.
 
+    **In local mode the directory is never in a range** (#554): the root is
+    `<git-common-dir>/seal/` and nothing under it is committed, so the test
+    above refused every work item its own range row. There a declaration is
+    its work item's when the range's tip is on the branch that work item's
+    `routing.md` names and on no local branch that one was cut from
+    (`on_its_branch`), which also says why when it is not. Local files are
+    shared by every
+    worktree of the clone, so the branch is what keeps a relation-spelled
+    row off another branch's range. Shared mode keeps the diff test: a pull
+    request's CI checkout is a detached merge commit with no branch ref.
+
     **Ownership is asked only of a declaration that WOULD have matched**, and
     a refused one is returned in `foreign` so the report prints it. A row that
     quietly stopped applying is the one failure a rotting anchor must not
@@ -1397,15 +1586,17 @@ def whole_range(root, ranges, a, b):
     every pull request into a release branch and every seal, three times per
     run for one release, because every shipped `survivors.md` in the tree
     names a release branch that is deleted at the release. So ownership is
-    asked of an unresolved declaration before it is printed, with the same
-    lazily computed `changed` list: one with no owner -- an `--exempt` file
-    passed from anywhere -- or owned by a work item this range touches is a
-    declaration this run could have used, and prints under `unresolved` as
-    before. The wrong allow is empty, because an unresolved row excuses
-    nothing whether printed or not.
+    asked of an unresolved declaration before it is printed, by the same
+    test a resolved one gets -- the lazily computed `changed` list in shared
+    mode, `on_its_branch` in local mode: one with no owner -- an `--exempt`
+    file passed from anywhere -- or owned by a work item this range touches
+    (in local mode, one `on_its_branch` accepts) is a declaration this run
+    could have used, and prints under `unresolved` as before. The wrong
+    allow is empty, because an unresolved row excuses nothing whether
+    printed or not.
     """
     match, unresolved, foreign = None, [], []
-    changed = None
+    changed = local = None
     for spec, grounds, source in ranges:
         try:
             left, right = parse_range(root, spec)
@@ -1417,8 +1608,18 @@ def whole_range(root, ranges, a, b):
             # range and is then refused has something a reader must be told.
             continue
         owner = OWNER_DIR.match(source.replace("\\", "/"))
-        mine = True
+        mine, item, why = True, None, "this range touches nothing in it"
         if owner is not None:
+            if local is None:
+                local = local_specs(root)
+            item = local_item(source, local)
+        if owner is not None and item is not None:
+            # Local mode: nothing under the root is committed, so the owner
+            # is never in `changed`, and the work item's branch answers --
+            # with the reason it refused, when it does.
+            why = on_its_branch(root, item, b)
+            mine = why is None
+        elif owner is not None:
             if changed is None:
                 # `--no-renames` for the reason `corrected` gives: a file
                 # moved out of a work item's directory is a change to that
@@ -1434,7 +1635,9 @@ def whole_range(root, ranges, a, b):
                 unresolved.append((spec, grounds))
             continue
         if not mine:
-            foreign.append((spec, grounds, owner.group(1)))
+            # The reason is the test that refused it, so a person reading
+            # the line knows which file to open.
+            foreign.append((spec, grounds, owner.group(1), why))
             continue
         if match is None:
             match = (spec, grounds)
@@ -1487,13 +1690,15 @@ def report(
     range, and it excuses every candidate. `unresolved` is the declarations
     whose range does not resolve here and that this run could have used --
     which `whole_range` decides by the second anchor, so one owned by a work
-    item the range touches nothing of never arrives (#439); they silence
+    item the range touches nothing of (in local mode, one `on_its_branch`
+    refuses) never arrives (#439); they silence
     nothing and are printed, because a declaration that quietly stopped
     applying is the one failure a rotting anchor must not have. `foreign` is
     the same failure one step
     over: a declaration that resolved onto this exact range and belongs to a
-    work item the range does not touch, refused and printed with the work
-    item it came from.
+    work item the range does not touch -- in local mode, one `on_its_branch`
+    refused -- printed with the work item it came from and the reason that
+    refused it.
     """
     standing, excused = [], []
     for score, candidate, source, shared in rows:
@@ -1513,11 +1718,10 @@ def report(
             f"nothing -- {trim(grounds, 80)}",
             file=out,
         )
-    for spec, grounds, owner in foreign:
+    for spec, grounds, owner, why in foreign:
         print(
-            f"  not yours   {spec} was written by {owner} and this range "
-            f"touches nothing in it, so it silences nothing -- "
-            f"{trim(grounds, 80)}",
+            f"  not yours   {spec} was written by {owner} and {why}, so it "
+            f"silences nothing -- {trim(grounds, 80)}",
             file=out,
         )
     if whole:
