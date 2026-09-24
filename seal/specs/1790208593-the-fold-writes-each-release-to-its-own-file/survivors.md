@@ -5,7 +5,7 @@ branch's own range (it is cut from step C's tip), reported twenty places.
 Each was opened. One was corrected: the evidence-ledger policy's conflict
 paragraph, which is a copy of the rule this branch widened in
 `CONTRIBUTING.md`. One `seal/ledger.md` row was narrowed by a dated
-`Corrected` note. The rest are right where they stand, for one of four
+`Corrected` note and is no longer reported. The rest are right where they stand, for one of four
 reasons: the changelog gather's own code, which this branch was told to
 leave alone and which shares shapes with the fold; a sibling's record; the
 owner's `CLAUDE.md`; or a marker line whose duplicate #553 removed while the
@@ -26,7 +26,6 @@ original stays.
 | `CLAUDE.md` | ``When `seal/ledger.md` conflicts, resolve it hunk by hunk`` | the owner's file, not edited (`agents/smith.md`); paste-ready text in `phases/phase-5.md`, named in `overview.md` §*Not verified* |
 | `CLAUDE.md` | ``an existing `seal/ledger.md` row cites must touch that file`` | the same: the owner's file |
 | `seal/ledger.md` | ``its text moved into `ledger.md` under `## X.Y.Z — <date>` `` | a §0.4.0 row's claim as it was verified; the dated *Re-read 2026-09-24 … phase 2* note on the same row says the text now moves into the release file |
-| `seal/ledger.md` | `A release reading a smaller total after the fold should look here` | the row carries a *Corrected 2026-09-24* note narrowing the claim to rows two fragments of one release cite identically |
 | `seal/ledger.md` | `<!-- specs/1788761915-a-record-states-what-nothing-reads -->` | the one marker line that stays for that work item; #553 removed its duplicate |
 | `seal/ledger.md` | `### 1788761915-a-record-states-what-nothing-reads` | that work item's heading, under its one remaining marker |
 | `CHANGELOG.md` | `<!-- specs/1788761915-a-record-states-what-nothing-reads -->` | the gathered changelog's marker for the same work item; nothing doubled it there |
