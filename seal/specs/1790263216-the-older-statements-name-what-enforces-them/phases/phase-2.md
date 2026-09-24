@@ -36,7 +36,7 @@ The format is phase 1's.
 | D29 | same § · `1789347354` | a wrapped terminal line is one value; the join stops at a blank line | the join stopping at a line end, or running past a blank line | `test_a_terminal_line_that_wraps_is_one_value`, `test_prose_below_the_terminal_block_is_not_swallowed` | read |
 | D30 | §What `close` derives · `1789621028` | a record is read against the tree | `chain_check` not comparing the `Fix range` count with the tree | `test_a_fix_range_the_tree_contradicts_is_named` | read: plants 7 commits where the tree holds 1 |
 | D31 | same § · `1789455558` | where two rows share a coordinate, the forward map takes the first | the map built by plain assignment, so the last row wins | `test_a_repeated_coordinate_resolves_to_one_row_on_both_sides` | mutated (M7) |
-| D32 | same § · `1789425391` | a checker's own cases have to be able to fail | a case planted without anybody seeing it red | nothing (case 1): seeing a case fail is a session's act; the phase record reports it and review reads it | — |
+| D32 | same § · `1789425391` | a checker's own cases have to be able to fail | a case planted without anybody seeing it red | nothing (case 1): seeing a case fail is a session's act; the phase record reports it and review reads it **Corrected in round 1's fix pass:** the line now names `test_each_section_holds_its_rule`, the pin on the contract's §15. | — |
 
 Fifteen decisions name targets, and one says `nothing`, of case 1.
 
