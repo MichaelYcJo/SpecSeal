@@ -145,7 +145,7 @@ python3 .github/scripts/gather_changelog.py --check
 python3 .github/scripts/fold_ledger.py --check
 python3 skills/evidence-check/scripts/evidence_check.py --strict .
 uvx ruff check . && uvx ruff format --check .
-uv run --quiet --with pytest --with pytest-xdist pytest tests/ -q -n auto
+bin/test -q
 python3 skills/verify/scripts/unverified_check.py --baseline origin/main seal/specs/
 git fetch origin '+refs/pull/*/head:refs/remotes/pull/*/head'
 python3 skills/code-review/scripts/chain_check.py --baseline origin/main
