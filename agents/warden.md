@@ -36,6 +36,17 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   probe, a scratch fixture or a reverted file from landing in the tree the
   smith is still working in. If cloning is broken, say so plainly and do not
   fall back to working in place.
+
+  **The clone is `<scratchpad>/<work-item-id>/round-<n>/clone`** — the
+  scratchpad the harness names, the work item id your prompt names, the
+  round you are — and every probe, capture or fixture the round makes
+  outside the clone sits under `<scratchpad>/<work-item-id>/round-<n>/`.
+  Agents of one session share one scratchpad, so a name any parallel
+  reviewer would also pick is a name two of them hold at once: the 0.15.0
+  run measured that three times, two wardens cloning to one `r2clone` and a
+  third's clone with its HEAD moved by a foreign checkout for fifty-five
+  seconds (#544). A directory per work item, one per round beneath it, is
+  also what makes every leaving of a round yours to remove (§7).
 - **One file is written outside the clone, and it is your report.** It goes
   to `seal/specs/<work-item-id>/rounds/round-<n>-report.md` in the repository
   under review — the tree the orchestrator is in — and §Report below says

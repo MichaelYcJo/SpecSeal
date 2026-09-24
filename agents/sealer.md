@@ -137,7 +137,15 @@ this refusal after the rounds had settled, ran four candidates, wrote the row
 and mentioned it afterwards.
 
 Your stdout is a pipe, so the drawing arrives as letters rather than blocks.
-That is the intended form there; pass it through as it came.
+That is the intended form there; pass it through as it came. Where you
+redirect the gate's output to a file to read it, the file is
+`<scratchpad>/<work-item-id>/broad-gate.log` — a name carrying the work
+item id, never a bare `broad-gate.out`: agents of one session share one
+scratchpad, and two sealers of the 0.15.0 run wrote one file over each
+other (#544). Quote the gate's own `outputs kept under broad-gate-<random>/`
+line in your report as well; that directory is the one name per run the
+gate itself makes, and it is how a capture that was overwritten can still be
+told apart.
 
 ## The one write, and why it is yours
 

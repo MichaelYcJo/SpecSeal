@@ -427,11 +427,16 @@ session: the same test scope ran at 194s piped through `tail`, then again at
 view of a result already produced. Redirect to a file and read the file:
 
 ```
-uv run pytest <scope> > /tmp/run.txt 2>&1; tail -8 /tmp/run.txt
-grep '^FAILED' /tmp/run.txt          # same run, second question
+out=<scratchpad>/<work-item-id>/run.txt
+uv run pytest <scope> > "$out" 2>&1; tail -8 "$out"
+grep '^FAILED' "$out"                # same run, second question
 ```
 
 The tell is a second invocation whose only difference is after the pipe.
+The file is under the scratchpad and carries the work item id, never a name
+every session on the machine would also pick: agents of one session share
+one scratchpad, and a generic name was overwritten mid-round by a sibling
+work item's three times in one run (#544).
 
 `session-cost` reads a finished transcript and reports the split — command
 time, model time between calls, the repeats, and how many tools went out per
