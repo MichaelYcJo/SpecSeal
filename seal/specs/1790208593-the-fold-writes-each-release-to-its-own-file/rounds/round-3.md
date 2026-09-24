@@ -7,14 +7,14 @@
 | Ran by | warden on Opus 5.5 |
 | PR | 558 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `18e7f43382c645f4a992b435a46c50f9d8d6bc3d..24f997b4479df0a86215298c3f556e50ebf8b32c`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (the release checklist's before-and-after table-line comparison has no step before the split and misfires in zsh after the fold) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,7 +24,7 @@ Round 3, the last round of the run — round 2 opened two 🟡 and spent the one
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | §3's table-line comparison cannot be taken as written. The before-count and the before `--strict` run have no step before §2's `--split`. At §3 the after-command globs `seal/ledger/*.md`, which the fold has emptied, so zsh refuses the glob and `grep -c` prints `0` | `docs/release-checklist.md:155` | open | executed — archive of `ccf9ee26`, split then fold: zsh prints `no matches found` and `0` (exit 1), bash prints `1027` with a `cat` warning; the proposed `find` form prints `1027` in every state in both shells; the paragraph was written at `3f5e9d75`, so §*The cap bounds rounds* may make it the branch's; the answerer is the orchestrator |
+| 🟡 1 | §3's table-line comparison cannot be taken as written. The before-count and the before `--strict` run have no step before §2's `--split`. At §3 the after-command globs `seal/ledger/*.md`, which the fold has emptied, so zsh refuses the glob and `grep -c` prints `0` | `docs/release-checklist.md:155` | **fixed** `24f997b4` | fixed at 24f997b4 — step 2's second block takes the two before-readings ahead of `--split` (the table-line count by `find seal/ledger.md seal/releases seal/ledger -name '*.md' -exec cat {} + 2>/dev/null \| grep -c '^\|'`, and the strict exit code); §3 compares against them with the same `find` form, which names no glob, set in a fence so the line-wrap check reads the sentence around it. Measured in zsh 5.9 on a scratch archive: 1027 before the split, after it, and after the fold, where the old glob form printed `no matches found` and `0`. Two unescaped pipes in rows R5 and P2 that round 2's notes had split into extra cells are escaped; executed — archive of `ccf9ee26`, split then fold: zsh prints `no matches found` and `0` (exit 1), bash prints `1027` with a `cat` warning; the proposed `find` form prints `1027` in every state in both shells; the paragraph was written at `3f5e9d75`, so §*The cap bounds rounds* may make it the branch's; the answerer is the orchestrator |
 | ⬜ 2 | The heading of `CLAUDE.md`'s fragment rule still says *the shared file* while its table and removal rule now cover the release files too | `CLAUDE.md:123` | deferred the owner | read — the rule under the heading holds for the release files, so nothing is false; renaming it re-anchors row C8; `CLAUDE.md` is the owner's |
 | 🟢 | round 2's should-fix finding 1 is closed — `CLAUDE.md`'s table and removal rule name `seal/releases/<X.Y.Z>.md` | `CLAUDE.md:134`, `CLAUDE.md:139` | verified | read — against `CONTRIBUTING.md:196-213`; C8 re-stamped and OK under `--strict` |
 | 🟢 | round 2's should-fix finding 2 is closed — a command prints the comparison, and the two numbers are equal | `docs/release-checklist.md:155` | verified | executed — `1027` before and `1027` after `--split`, bash and zsh; where the sentence places it is 🟡 1 |
