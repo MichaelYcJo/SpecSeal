@@ -1301,17 +1301,24 @@ def command_names_backslashed(command):
     lexer it models:
 
       - a word is in COMMAND POSITION at the start of the line and after
-        `&&`, `||`, `&` or `|`; blanks, a leading `@` and a `(` that opens a
-        block are passed over there, and the word begins at the next
-        character;
-      - the command name runs from there to the first unquoted blank, `<`,
-        `>`, `&`, `|`, `(` or `)`. Inside it, a `/` becomes `\\` — inside a
+        `&&`, `||`, `&` or `|`; blanks and a `(` that opens a block are
+        passed over there, and the word begins at the next character;
+      - the command name runs from there to the first unquoted blank, tab,
+        `<`, `>`, `&`, `|` or `(`. Inside it, a `/` becomes `\\` — inside a
         quoted stretch of it too, since a quoted Windows path takes `\\`;
       - `"` is the only quote; outside one, `^` escapes the next character,
         and that character is copied as written, so `^&` is never a
         separator and `^/` is never rewritten;
-      - `>`, `>>`, `<`, and a `>&`/`<&` handle redirection are passed over
-        whole, so the `&` in `2>&1` is not read as a separator.
+      - a `<` or `>` ends command position until the next separator.
+
+    Three things `cmd.exe` does are left unmodelled because modelling them
+    changes no output, and a branch that changes no output is one nothing
+    can hold: a leading `@` is read as the first character of the name,
+    which has no `/` in it; a `)` does not end a name, which only matters
+    for a `/` written straight after one; and the `&` of `2>&1` is read as
+    a separator, which makes the handle digit after it a "name" with no `/`
+    in it. The `2>&1` case in `tests/test_the_gate_hands_cmd_a_path_it_can_
+    run.py` holds that last one to what it hands over.
 
     **Not rewritten, and named rather than claimed:** a path after `call`,
     `start` or `if`, which `cmd.exe` reads as an argument of those words and
@@ -1356,18 +1363,12 @@ def command_names_backslashed(command):
             i += step
             continue
         if c in "<>":
-            step = 2 if command[i + 1 : i + 2] in (">", "&") else 1
-            out.append(command[i : i + step])
             at_command, in_name = False, False
-            i += step
-            continue
-        if c in " \t)":
+        elif c in " \t(":
+            # A `(` opens a block in command position, which stays command
+            # position; anywhere else it ends the name, so `echo(a/b)` keeps
+            # its argument as written.
             in_name = False
-        elif c == "(":
-            # Opens a block in command position; ends a name anywhere else.
-            in_name = False
-        elif c == "@" and at_command:
-            pass
         else:
             if at_command:
                 at_command, in_name = False, True

@@ -97,10 +97,13 @@ def test_an_unset_comspec_on_windows_is_cmd_exe(monkeypatch):
             r"bin\test 2>&1 | tools\tee out/log.txt",
         ),
         ("bin/test>out/log.txt", r"bin\test>out/log.txt"),
+        ("bin/test<in/x.txt", r"bin\test<in/x.txt"),
+        ("bin/test\tx/y", "bin\\test\tx/y"),
         ("@bin/test -q", r"@bin\test -q"),
         ("  bin/test", r"  bin\test"),
         ("echo a/b", "echo a/b"),
         ("echo (a/b)", "echo (a/b)"),
+        ("echo(a/b)", "echo(a/b)"),
         ("cmd /c bin/x", "cmd /c bin/x"),
         # The two positions named as not rewritten, pinned so the gap stays
         # the one `templates/config.md` states.
