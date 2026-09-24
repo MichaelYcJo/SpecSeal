@@ -839,6 +839,61 @@ def test_the_split_rewrites_an_anchor_into_a_moved_section(split_tree):
     assert "rewrote 1 anchor" in r.stdout, r.stdout
 
 
+def test_the_split_names_only_the_anchors_it_cannot_place(split_tree):
+    """#547, round 1's 🟡 1. The split reads an anchor the way the checker
+    does: a quoted locator whose first part is a heading is a heading path,
+    anything else is one whole line, and only a coordinate with a hash is an
+    anchor. So a line the standing area keeps is left and not named, a
+    backticked mention with no hash is prose, and a line inside a moved
+    section follows it to the release file — keyed on the whole line, since
+    a ` / ` in it does not make it a heading path."""
+    path = split_tree / "seal" / "ledger.md"
+    text = path.read_text(encoding="utf-8").replace(
+        "### 1700000002-beta\n\n",
+        "### 1700000002-beta\n\nA sentence beta wrote / with a slash in it.\n\n",
+    )
+    kept = ledger_hash(text, "> The gathered ledger.")
+    line = ledger_hash(text, "A sentence beta wrote / with a slash in it.")
+    rows = (
+        f'| a header line | `seal/ledger.md#"> The gathered ledger."@{kept}` '
+        "| read | 2026-09-01 | |\n"
+        f'| a moved line | `seal/ledger.md#"A sentence beta wrote / with a slash in it."@{line}` '
+        '| read | 2026-09-01 | the shape `seal/ledger.md#"<heading>"` |\n'
+    )
+    at = text.index("\n", text.index("| the old claim |")) + 1
+    path.write_text(text[:at] + rows + text[at:], encoding="utf-8")
+    before_line, before_rc = check(split_tree)
+    assert before_rc == 0 and "0 broken" in before_line, before_line
+    r = run("--split", root=split_tree)
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "could not place" not in r.stdout, r.stdout
+    shared = ledger(split_tree)
+    assert f'`seal/ledger.md#"> The gathered ledger."@{kept}`' in shared, shared
+    assert (
+        f'`seal/releases/0.2.0.md#"A sentence beta wrote / with a slash in it."@{line}`'
+        in shared
+    ), shared
+    after_line, after_rc = check(split_tree)
+    assert after_rc == 0 and "0 broken" in after_line, after_line
+
+
+def test_each_identical_rewrite_prints_its_own_line(split_tree):
+    """#547, round 1's ⬜ 9. Two rows in one file citing the same moved
+    heading are two rewrites at two lines; the first occurrence's line was
+    printed for both."""
+    path = split_tree / "seal" / "ledger.md"
+    text = path.read_text(encoding="utf-8")
+    row = next(ln for ln in text.split("\n") if "gamma cites alpha" in ln)
+    path.write_text(
+        text.replace(row, row + "\n" + row.replace("gamma cites", "gamma again cites")),
+        encoding="utf-8",
+    )
+    r = run("--split", "--dry-run", root=split_tree)
+    assert r.returncode == 0, r.stdout + r.stderr
+    printed = re.findall(r"^  seal/releases/0\.3\.0\.md:(\d+)  ", r.stdout, re.M)
+    assert len(printed) == 2 and printed[0] != printed[1], r.stdout
+
+
 def test_a_dry_run_of_the_split_says_what_would_move_and_writes_nothing(split_tree):
     """#547, S13. The preview a person reads at the release: each version,
     its line range and row count, and each anchor it would rewrite."""

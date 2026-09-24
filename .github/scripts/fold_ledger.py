@@ -16,7 +16,8 @@ release, and that file IS the section the fold used to append to the shared
 file, byte for byte — first line `## X.Y.Z — <date>`, then each work item's
 marker, `### <id>` heading and rows. Every reader of the ledger reads the
 three addresses alike (`evidence_check.py#default_patterns`), so where a row
-sits changes nothing a check measures; the shared file stops growing, and a
+sits changes no row's status — the `ok` total counts a pair once per file,
+so a move can change the count; the shared file stops growing, and a
 re-stamp's diff lands in the file of the release the row belongs to. The
 sections that were folded into `seal/ledger.md` before this layout move once,
 at the release-preparation commit that ships it (`--split`, below).
@@ -42,14 +43,15 @@ same commit:
 `seal/ledger.md` — from its heading to the next `## ` line or the end —
 into `seal/releases/<X.Y.Z>.md` byte for byte, ending in one newline, and
 leaves the header and the standing areas as `seal/ledger.md`. One kind of row
-points INTO the shared file: an anchor `seal/ledger.md#"<heading path>"`
-whose first heading is a line the split moves. Its content moves with the
+points INTO the shared file: an anchor `seal/ledger.md#"<locator>"@<hash>`
+whose heading or line the split moves. Its content moves with the
 file byte for byte, so the split rewrites the path to the release file and
 keeps the hash — the class `hooks/root-migrate.py` rewrites for the root
 move, and not a row whose content went (`CLAUDE.md`, *REMOVED, not
 re-pointed*). The rewrite runs over the shared file, every release file and
-every fragment; an anchor into a moved section that is not a heading path is
-named and left, for a person. The split refuses a version the ledger heads
+every fragment, and reads a locator by the checker's own rule; an anchor
+whose line or heading is in no section the split moved or kept is named and
+left, for a person. The split refuses a version the ledger heads
 twice (C's reader: joining two sections is a person's call), any target
 that exists (a join is the fold's, and a file there before the split is a
 state nobody planned), and a ledger with nothing to move.
@@ -455,9 +457,15 @@ def misnamed(name, text):
     return None
 
 
-# An anchor whose path is exactly `seal/ledger.md`, with a quoted locator.
-# The look-behind keeps `x/seal/ledger.md` — some other file — out.
-SELF_ANCHOR_RE = re.compile(r'(?<![A-Za-z0-9_.@/-])seal/ledger\.md#"((?:[^"\n]|\\")+)"')
+# An anchor whose path is exactly `seal/ledger.md`, with a quoted locator and
+# the `@hash` every coordinate carries (`evidence_check.py#ANCHOR_RE`). The
+# look-behind keeps `x/seal/ledger.md` — some other file — out; the
+# look-ahead keeps a backticked mention with no hash out, and makes the
+# locator backtrack over an escaped `\"` rather than stop at its backslash.
+SELF_ANCHOR_RE = re.compile(
+    r'(?<![A-Za-z0-9_.@/-])seal/ledger\.md#"((?:[^"\n]|\\")+)"'
+    r'(?=(?:>"(?:[^"\n]|\\")+")?@[0-9a-f]{6,12})'
+)
 HEADING_SEP = " / "  # `evidence_check.py#HEADING_SEP`
 
 
@@ -490,23 +498,32 @@ def body_rows(lines):
 
 
 def rewrite_self_anchors(text, moved, kept):
-    """`(text, rewritten, left)` — every `seal/ledger.md#"<heading path>"`
-    whose first heading is in `moved` (`{heading line: version}`) points at
-    that release's file, hash untouched. An anchor whose first part is not a
-    heading the standing areas keep, and was not rewritten, is `left`: its
-    target moved and the split cannot say where to, so a person does."""
+    """`(text, rewritten, left)` — every `seal/ledger.md#"<locator>"@<hash>`
+    whose target is in `moved` (`{line: version}`) points at that release's
+    file, hash untouched. The target is read by the checker's rule
+    (`evidence_check.py#resolve_unit`): the first part of a heading path when
+    that part is a heading, the one whole line otherwise. An anchor whose
+    line or heading is in no section the split moved or kept is `left`: the
+    split cannot say where it points, so a person does. `rewritten` is
+    `[(old, new, line)]`, the line of that anchor's own occurrence — a
+    rewrite adds no newline, so a line in `text` is the same line after."""
     rewritten, left = [], []
 
     def one(match):
         body = match.group(1).replace('\\"', '"').replace("\\|", "|")
-        first = " ".join(body.split(HEADING_SEP)[0].split())
+        parts = [p for p in body.split(HEADING_SEP) if p.strip()]
+        if parts and HEADING_RE.match(parts[0].strip()):
+            first = " ".join(parts[0].split())
+        else:
+            first = " ".join(body.split())
         version = moved.get(first)
         if version is None:
             if first not in kept:
                 left.append(match.group(0))
             return match.group(0)
         new = f'{release_path(version)}#"{match.group(1)}"'
-        rewritten.append((match.group(0), new))
+        line = text.count("\n", 0, match.start()) + 1
+        rewritten.append((match.group(0), new, line))
         return new
 
     return SELF_ANCHOR_RE.sub(one, text), rewritten, left
@@ -551,13 +568,15 @@ def split(root, text, dry_run):
         inside.update(range(start, end))
         body = lines[start:end]
         files[release_path(version)] = "\n".join(body).rstrip("\n") + "\n"
+        # Every non-blank line, not headings only: a line anchor into a
+        # moved section moves with it exactly as a heading does.
         for line in body:
-            if HEADING_RE.match(line):
-                key = " ".join(line.split())
+            key = " ".join(line.split())
+            if key:
                 moved[key] = None if key in moved else version
     moved = {k: v for k, v in moved.items() if v is not None}
     rest = [line for n, line in enumerate(lines) if n not in inside]
-    kept = {" ".join(line.split()) for line in rest if HEADING_RE.match(line)}
+    kept = {" ".join(line.split()) for line in rest if line.strip()}
     files[LEDGER] = "\n".join(rest).rstrip("\n") + "\n"
     # Every other ledger an anchor can stand in: release files from before,
     # and fragments. The split's own files are rewritten with them.
@@ -570,8 +589,7 @@ def split(root, text, dry_run):
         new, rewritten, left = rewrite_self_anchors(files[path], moved, kept)
         if new != files[path]:
             files[path] = new
-        for old, fresh in rewritten:
-            number = new[: new.index(fresh)].count("\n") + 1
+        for old, fresh, number in rewritten:
             rewrites.append((path, number, old, fresh.split("#", 1)[0]))
         lefts += [(path, anchor) for anchor in left]
 
