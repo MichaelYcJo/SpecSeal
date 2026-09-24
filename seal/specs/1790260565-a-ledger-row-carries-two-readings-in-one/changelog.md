@@ -19,3 +19,9 @@
   where both edited the unit, and the row is re-read against every edit the
   merge carries. Deleting any of them from `CLAUDE.md`, `CONTRIBUTING.md` or
   the ledger policy now fails the build.
+- The round-record specification names the same rule as the code for the
+  one refusal that lets an unrecognised reason pass (#569). It said the
+  exception was to the reopening check's failure direction, which is a
+  different rule; it now says, as `chain_check.py` does, that the exception
+  is to the direction every other refusal in that file takes. A case holds
+  the two statements to one referent. The check's behaviour is unchanged.
