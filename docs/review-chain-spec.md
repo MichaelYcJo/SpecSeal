@@ -867,9 +867,10 @@ work item. Every shipped `survivors.md` names a release branch deleted at
 the release, and three such lines printed on every pull request and every
 sealer run of one release, addressed to nobody. An unresolved row excuses
 nothing whether printed or not, so leaving the line out costs no allow. In
-local mode the owner is never in the range's diff, which is
-MichaelYcJo/SpecSeal#554, open.
-Enforced by: skills/code-review/scripts/survivor_check.py::whole_range, tests/test_a_corrected_sentence_survives_elsewhere.py
+local mode, where the owner is never in a range's diff, it is the `Branch`
+row of the work item's `routing.md`: the row holds where the tip is on that
+branch and on no local branch it was cut from.
+Enforced by: skills/code-review/scripts/survivor_check.py::whole_range, skills/code-review/scripts/survivor_check.py::on_its_branch, tests/test_a_corrected_sentence_survives_elsewhere.py
 
 <!-- specs/1789211172-a-round-record-disarms-survivor-check -->
 **A round record is outside the sweep's corpus on both sides.** A record is
@@ -923,9 +924,10 @@ Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state,
 <!-- specs/1790221963-a-release-writes-the-gathered-text-back -->
 **Only wording the range itself wrote is subtracted from what it removed.**
 That subtraction is what makes the score mean *removed*, so the question is
-always whose writing a sentence is. A file moved to another path is read as
-a deletion plus an addition: a pure move writes every sentence back and is
-silent for that reason, and a move that rewords one sentence measures it,
+always whose writing a sentence is. A sentence moved verbatim to another
+path, by a file moved whole or a document split, is held and never written,
+because a move changes no sentence's author: a pure move removes nothing and
+is silent for that reason, and a move that rewords one sentence measures it,
 where git's rename detection hid both. A fragment's text gathered by a
 release is held and never written, because the fragment's own branch wrote
 it. Written, it subtracted the survivor a correction in the same commit left
@@ -935,7 +937,7 @@ still splits a sentence `CHANGELOG.md` itself lost, and nothing else. A
 release that loses no live sentence writes nothing it put under a version
 heading, and that guard and the gathered-text filter are pinned by separate
 cases, because either alone kept the shape the ticket first named green.
-Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released
+Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released, skills/code-review/scripts/survivor_check.py::paired_across_paths
 
 ## Non-goals
 

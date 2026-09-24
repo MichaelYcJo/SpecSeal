@@ -1095,7 +1095,14 @@ def test_the_docstring_names_both_sides_of_the_round_record_exclusion():
 # failure scenario -- a second range, a cache of changed files -- passed it.
 PREDICATE = "records_a_past_state"
 FILTERS_ITS_OWN_LIST = {"corrected"}
-FILTERED_BY_ITS_ONLY_CALLER = {"tracked": "corpus"}
+# `tracked` returns an unfiltered list, so every caller is named with the
+# filter it applies. `corrected` reads it at the range's left end for the
+# gathered fragments alone (#564): `a_gathered_fragment` keeps only
+# `<x>/specs/<id>/changelog.md`, which `records_a_past_state` can never name,
+# and the text read there is held, never a source and never written.
+FILTERED_BY_ITS_CALLERS = {
+    "tracked": {"corpus": PREDICATE, "corrected": "a_gathered_fragment"},
+}
 NAMED_EXCEPTION = {
     "whole_range": (
         "asks whether the range belongs to the work item that WROTE a "
@@ -1197,15 +1204,15 @@ def test_every_path_list_this_module_derives_from_git_is_filtered_or_named():
     nothing measured it.
 
     So this case measures it: every function that asks git for a list of
-    paths is either filtered by the predicate, filtered by its only caller,
-    or named above with grounds a reader can weigh. Add a fourth and it goes
+    paths is either filtered by the predicate, filtered by each caller that
+    reaches it, or named above with grounds a reader can weigh. Add a fourth and it goes
     red until it is classified -- which is the only thing that stops the same
     defect happening one function over."""
     source = open(SCRIPT, encoding="utf-8").read()
     tree = ast.parse(source)
     derivers = _derives_a_path_list(tree)
     declared = (
-        FILTERS_ITS_OWN_LIST | set(FILTERED_BY_ITS_ONLY_CALLER) | set(NAMED_EXCEPTION)
+        FILTERS_ITS_OWN_LIST | set(FILTERED_BY_ITS_CALLERS) | set(NAMED_EXCEPTION)
     )
     assert set(derivers) == declared, (
         f"the module derives a path list from git in {sorted(derivers)} and "
@@ -1229,15 +1236,16 @@ def test_every_path_list_this_module_derives_from_git_is_filtered_or_named():
             "survivor it quotes -- on exactly the branches that went through "
             "review"
         )
-    for name, caller in FILTERED_BY_ITS_ONLY_CALLER.items():
-        assert _mentions(tree, caller, PREDICATE), (
-            f"{name}'s list is declared filtered by {caller}, and {caller} no "
-            f"longer applies `{PREDICATE}`"
-        )
-        assert _callers_of(tree, name) == {caller}, (
+    for name, callers in FILTERED_BY_ITS_CALLERS.items():
+        for caller, applies in callers.items():
+            assert _mentions(tree, caller, applies), (
+                f"{name}'s list is declared filtered by {caller}, and {caller} "
+                f"no longer applies `{applies}`"
+            )
+        assert _callers_of(tree, name) == set(callers), (
             f"{name} is reached from {sorted(_callers_of(tree, name))} and "
-            f"only {caller} filters its result, so the list now leaves this "
-            "module unfiltered by one of those paths"
+            f"only {sorted(callers)} are declared filtering its result, so the "
+            "list now leaves this module unfiltered by one of those paths"
         )
     for name, grounds in NAMED_EXCEPTION.items():
         assert not _mentions(tree, name, PREDICATE), (
@@ -1776,6 +1784,9 @@ def test_a_declaration_one_directory_deeper_still_has_an_owner(tmp_path, depth):
     assert "not yours" in text and "1799000001-work-item-a" in text, (
         "the declaration was refused without saying so, or without naming the "
         f"work item it belongs to, at depth {depth!r}:\n{text}"
+    )
+    assert "this range touches nothing in it" in text, (
+        f"a shared-mode refusal no longer names the diff test as its reason:\n{text}"
     )
 
 
@@ -3215,8 +3226,8 @@ def test_an_ungathered_fragment_is_still_a_carrier(tmp_path):
 # sentence reworded, which git calls a rename too (`R096` when measured): the
 # reworded sentence never entered `wanted`, and its copy standing in another
 # file was never reported. Read with `--no-renames`, a rename is a deletion
-# plus an addition, the old path's sentences are removed, and a pure move is
-# silent because every one of them is written back verbatim.
+# plus an addition, so the old path is read; and since #563 a sentence that
+# arrives verbatim at the new path is held, so a pure move removes nothing.
 
 # Long enough that git reads the move as a rename even with one sentence
 # changed; the case asserts that it did, so the fixture cannot quietly turn
@@ -3280,22 +3291,585 @@ def test_a_file_moved_as_a_rename_with_one_sentence_reworded_is_still_measured(
     assert "notes.md" in text, f"the report does not name the survivor:\n{text}"
 
 
-def test_a_file_moved_verbatim_is_silent_because_its_wording_is_written_back(
-    tmp_path,
-):
-    """S18 (#551). The half that must not move, and the reason it holds.
+def test_a_file_moved_verbatim_is_silent_because_it_removes_nothing(tmp_path):
+    """S18 (#551, rewritten for #563). The half that must not move.
 
-    A pure move is still silent -- but because every sentence the old path
-    lost is written back verbatim at the new one and `wanted` subtracts it,
-    not because the old path was never read. The removed-sentence count is
-    what tells the two apart: under rename detection it was 0."""
+    A pure move is silent because a sentence the range moved to another
+    path is held, never removed and never written: the count of removed
+    sentences is 0. It used to be positive, every sentence removed and
+    written back, and that count was this case's proof that the old path
+    was read at all. That proof is S17's now -- a rename that rewords one
+    sentence can only be measured if the old path is read."""
     repo = tmp_path / "probe"
-    head = moved_section(repo, FOUND)
+    os.makedirs(repo, exist_ok=True)
+    body = f"# a\n\n{LONG_SECTION.format(claim=FOUND)}"
+    build(
+        repo,
+        {"a.md": body, "notes.md": f"# notes\n\nQuoted here: {FOUND}\n", **FILLER},
+        "the section, and a note quoting its claim",
+    )
+    os.remove(os.path.join(str(repo), "a.md"))
+    head = build(repo, {"b.md": body}, "a.md moved whole to b.md")
     assert name_status(repo, head).startswith("R")
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 0, f"a verbatim move was reported; exit {code}\n{text}"
     assert "no removed wording is still standing" in text, text
-    assert re.search(r"against [1-9]\d* sentence\(s\)", text), (
-        "the range removed no sentence at all, so the old path was never read "
-        f"and the silence is rename detection rather than `wanted`:\n{text}"
+    assert re.search(r"against 0 sentence\(s\)", text), (
+        "a verbatim move still counts its sentences as removed, so the moved "
+        f"text is written and subtracts whatever it shares:\n{text}"
     )
+
+
+# --- #563: a sentence moved to another path is held, never written ---------
+#
+# Read as a deletion plus an addition, a move wrote its whole text back as the
+# range's own, and that text subtracted every n-gram it shared with a
+# correction made elsewhere in the same range. So a quote the move carried
+# along hid itself and every other copy of the corrected claim. A move changes
+# no sentence's author: a sentence removed at one path and added verbatim at
+# another is neither removed nor written, the in-file counting rule applied
+# across paths. Two quoting copies halve each other's weight, so the pool is
+# made large enough that two independent runs still clear the floor.
+
+MORE_FILLER = {
+    f"filler/more-{n}.md": f"# more filler {n}\n\nAnother unrelated line {n}.\n"
+    for n in range(48)
+}
+
+
+def test_a_file_moved_whole_still_reports_the_quote_it_carried(tmp_path):
+    """M1, #563's probe. `c.md` quotes `docs/a.md`'s claim and is moved
+    whole to `d.md` in the commit that corrects `docs/a.md`. Written as the
+    range's own, the moved quote subtracted the correction's removed
+    wording and neither copy was reported. Red at c52e8350: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    quote = f"# c\n\nQuoted here: {FOUND}\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            "docs/c.md": quote,
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "the claim, and two documents quoting it",
+    )
+    os.remove(os.path.join(str(repo), "docs", "c.md"))
+    head = build(
+        repo,
+        {"docs/a.md": f"# a\n\n{REPAIRED}\n", "docs/d.md": quote},
+        "move c.md to d.md, and correct a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the moved quote was written as the range's own and subtracted the "
+        f"corrected claim; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text and "docs/d.md" in text, (
+        f"both copies of the corrected claim stand and the report names:\n{text}"
+    )
+
+
+def test_a_split_document_still_reports_the_quote_it_moved(tmp_path):
+    """M2, the split #563 names as reachable here: `docs/c.md` keeps one of
+    its sections and the other, which quotes the claim, moves to `docs/d.md`
+    in the commit that corrects `docs/a.md`. Both files remain, so no
+    whole-file rule sees a move. Red at c52e8350: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    one = f"## One\n\nQuoted here: {FOUND}\n"
+    two = "## Two\n\nThe second section says something else entirely.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            "docs/c.md": f"# c\n\n{one}\n{two}",
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "the claim, a document quoting it, and a two-section document",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "docs/c.md": f"# c\n\n{two}",
+            "docs/d.md": f"# d\n\n{one}",
+        },
+        "split c.md's first section into d.md, and correct a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the split's moved section was written as the range's own and "
+        f"subtracted the corrected claim; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text and "docs/d.md" in text, (
+        f"both copies of the corrected claim stand and the report names:\n{text}"
+    )
+
+
+def test_a_move_holds_only_as_many_copies_as_it_carried(tmp_path):
+    """M6, the pairing is one for one. `docs/a.md` states the claim twice;
+    the range moves one statement to `docs/d.md` and corrects the other.
+    One copy arrived, so one is held and the other is still removed --
+    paired by key alone, both were held and the correction measured
+    nothing. Red at c52e8350 (exit 0, the moved copy written), and red with
+    the pairing's count left undecremented."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\nFirst. {FOUND}\n\nSecond. {FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "the claim stated twice, and a document quoting it",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\nFirst. {REPAIRED}\n",
+            "docs/d.md": f"# d\n\nSecond. {FOUND}\n",
+        },
+        "move the second statement to d.md, and correct the first",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "one copy of the claim moved and the other was corrected, and the "
+        f"move held both; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text and "docs/d.md" in text, text
+
+
+def test_a_copy_written_beyond_the_ones_moved_is_the_ranges_writing(tmp_path):
+    """M7, the other side of one for one. `docs/c.md`'s quote moves to
+    `docs/d.md`, and the same range writes a second copy of it into
+    `docs/e.md`. One copy arrived by the move and is held; the other is
+    wording this range wrote, and it is subtracted as any written wording
+    is, so the run is silent. Holding every copy of a key that was moved
+    once reported both files -- red with the pairing's second count left
+    undecremented."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    quote = f"# c\n\nQuoted here: {FOUND}\n"
+    build(
+        repo,
+        {"docs/a.md": f"# a\n\n{FOUND}\n", "docs/c.md": quote, **FILLER, **MORE_FILLER},
+        "the claim, and a document quoting it",
+    )
+    os.remove(os.path.join(str(repo), "docs", "c.md"))
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "docs/d.md": quote,
+            "docs/e.md": f"# e\n\nQuoted here: {FOUND}\n",
+        },
+        "move c.md to d.md, write a second copy into e.md, correct a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "the copy this range wrote into e.md was held with the moved one, so "
+        f"wording the range wrote was not subtracted; exit {code}\n{text}"
+    )
+    assert re.search(r"against 1 sentence\(s\)", text), (
+        f"only a.md's corrected sentence is removed; the move removes nothing:\n{text}"
+    )
+
+
+# --- #554: a local-mode declaration owns the range on its own branch --------
+#
+# In local mode the `seal/` root is `<git-common-dir>/seal/` and nothing under
+# it is committed (`agent-contract` §16), so a work item's own directory is
+# never in a range's diff, and the ownership test the second anchor asks --
+# does the range touch the directory the file sits in -- refused the work
+# item's own range row as `not yours`. There the owner is read from the work
+# item's `routing.md` `Branch` row: the row holds over a range whose tip is on
+# that branch and on no local branch that one was cut from. Shared mode is
+# unchanged.
+
+LOCAL_ITEM = "1799000001-work-item-a"
+
+
+def local_mode_items(repo):
+    """A base carrying two claims twice over, and two branches each
+    correcting the first statement of one. Work item A's declaration and
+    routing name `work-item-a` and live under the common git directory.
+    Leaves `release` checked out and answers A's `survivors.md`."""
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "a-notes.md": f"# a\n\nFirst. {CLAIM_A}\n\nSecond. {CLAIM_A}\n",
+            "b-notes.md": f"# b\n\nFirst. {CLAIM_B}\n\nSecond. {CLAIM_B}\n",
+            "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+        },
+        "both claims, each stated twice",
+    )
+    probe_git(repo, "branch", "-M", "release")
+    probe_git(repo, "switch", "-qc", "work-item-a")
+    build(
+        repo,
+        {
+            "a-notes.md": (
+                "# a\n\nFirst. The verdict cell is written by the generator and "
+                f"the orchestrator leaves it untouched afterwards.\n\nSecond. {CLAIM_A}\n"
+            )
+        },
+        "work item A corrects its claim",
+    )
+    probe_git(repo, "switch", "-q", "release")
+    probe_git(repo, "switch", "-qc", "work-item-b")
+    build(
+        repo,
+        {
+            "b-notes.md": (
+                "# b\n\nFirst. The exemption row is anchored by the work item and "
+                f"the checker leaves that reach untouched afterwards.\n\nSecond. {CLAIM_B}\n"
+            )
+        },
+        "work item B corrects its claim",
+    )
+    probe_git(repo, "switch", "-q", "release")
+    item = os.path.join(str(repo), ".git", "seal", "specs", LOCAL_ITEM)
+    os.makedirs(item)
+    with open(os.path.join(item, "routing.md"), "w", encoding="utf-8") as handle:
+        handle.write(
+            "| Axis | Answer |\n|---|---|\n| Review | through the review chain |\n"
+            "| Destination | open the pull request |\n| Branch | work-item-a |\n"
+        )
+    survivors = os.path.join(item, "survivors.md")
+    with open(survivors, "w", encoding="utf-8") as handle:
+        handle.write(
+            f"| Range | Grounds |\n|---|---|\n| `release...HEAD` | {GROUNDS} |\n"
+        )
+    return survivors
+
+
+def checkout(repo, branch, linked):
+    """`branch` checked out in `repo` itself, or in a linked worktree of it.
+
+    Both, because `git rev-parse --git-common-dir` answers `.git`, relative
+    to the directory it ran in, in the main worktree and an absolute path in
+    a linked one -- the two spellings `whole_range` has to place a file
+    against."""
+    if not linked:
+        probe_git(repo, "switch", "-q", branch)
+        return str(repo)
+    where = os.path.join(os.path.dirname(str(repo)), f"linked-{branch}")
+    probe_git(repo, "worktree", "add", "-q", where, branch)
+    return where
+
+
+@pytest.mark.parametrize(
+    "linked, aliased",
+    [(False, False), (True, False), (False, True)],
+    ids=["main", "linked", "symlinked"],
+)
+def test_a_local_mode_work_item_owns_its_own_range_row(tmp_path, linked, aliased):
+    """O1 (#554). Work item A's range row, read on A's own branch over A's
+    own range, excuses the run -- in the main worktree, in a linked one, and
+    with `--exempt` spelled through a symlink to the repository, which git
+    never answers with (`agent-contract` §13: the real-path comparison is
+    shown to be what places the file, not a temporary directory that happens
+    to be spelled one way). Red at c52e8350: exit 1, the row printed under
+    `not yours` because the range's diff can never hold a file under the git
+    directory."""
+    repo = tmp_path / "probe"
+    survivors = local_mode_items(repo)
+    root = checkout(repo, "work-item-a", linked)
+    if aliased:
+        alias = tmp_path / "alias"
+        try:
+            os.symlink(str(repo), str(alias), target_is_directory=True)
+        except (OSError, NotImplementedError) as exc:
+            pytest.skip(f"this platform will not make a symlink here: {exc}")
+        survivors = os.path.join(str(alias), os.path.relpath(survivors, str(repo)))
+    code, text = run("--range", "release...HEAD", "--root", root, "--exempt", survivors)
+    assert "not yours" not in text, (
+        f"a local-mode work item's own range row was refused as foreign:\n{text}"
+    )
+    assert code == 0, f"the declaration did not excuse its own range\n{text}"
+    assert "a-notes.md" in text and "every survivor is excused" in text, (
+        f"the run was clean rather than declared, which measures nothing:\n{text}"
+    )
+
+
+def test_a_local_mode_declaration_does_not_reach_another_branch(tmp_path):
+    """O2, the bound. Local `survivors.md` files are shared by every worktree
+    of the clone, and `release...HEAD` re-resolves on each checkout, so on
+    work item B's branch A's row resolves onto B's own range. B's tip is not
+    on `work-item-a`, so the row is refused and printed with its work item,
+    and B's survivor is reported. Red against an ownership test reduced to
+    `True`."""
+    repo = tmp_path / "probe"
+    survivors = local_mode_items(repo)
+    root = checkout(repo, "work-item-b", linked=False)
+    code, text = run("--range", "release...HEAD", "--root", root, "--exempt", survivors)
+    assert code == 1, (
+        f"work item A's local declaration excused work item B's run\n{text}"
+    )
+    assert "b-notes.md" in text, f"B's own survivor was not reported\n{text}"
+    assert "not yours" in text and LOCAL_ITEM in text, (
+        f"the refused declaration was not printed with its work item:\n{text}"
+    )
+    # §14: the reason printed is the test that refused the row, so the reader
+    # opens `routing.md`, not a diff that could never hold the file.
+    assert "tip is not on the branch its routing.md names" in text, text
+    assert "touches nothing in it" not in text, text
+
+
+def test_a_stacked_childs_declaration_does_not_reach_its_parents_range(tmp_path):
+    """O6. Work item A's branch is cut from work item B's, so B's tip is an
+    ancestor of A's branch; on B's checkout A's `release...HEAD` row
+    resolves onto B's own range. The tip being on A's branch is not enough:
+    it is on B's, which A's was cut from, and the range is B's run. Red at
+    6e48cb5f: exit 0, B's survivor excused by A's row."""
+    repo = tmp_path / "probe"
+    survivors = local_mode_items(repo)
+    probe_git(repo, "switch", "-q", "work-item-b")
+    probe_git(repo, "switch", "-qc", "work-item-a-stacked")
+    item = os.path.dirname(survivors)
+    with open(os.path.join(item, "routing.md"), "w", encoding="utf-8") as handle:
+        handle.write(
+            "| Axis | Answer |\n|---|---|\n| Review | through the review chain |\n"
+            "| Destination | open the pull request |\n| Branch | work-item-a-stacked |\n"
+        )
+    build(repo, {"filler.md": "# filler\n\nA's own later change.\n"}, "A on top of B")
+    root = checkout(repo, "work-item-b", linked=False)
+    code, text = run("--range", "release...HEAD", "--root", root, "--exempt", survivors)
+    assert code == 1, f"a stacked child's declaration excused its parent\n{text}"
+    assert "b-notes.md" in text and "not yours" in text, text
+    # §14: the reason names the cut, not a branch the tip is off.
+    assert (
+        "this range's tip is on a branch the one its routing.md names was cut from"
+        in text
+    ), text
+
+
+@pytest.mark.parametrize(
+    "routing, reason",
+    [
+        (None, "it has no routing.md this run can read"),
+        (
+            "| Axis | Answer |\n|---|---|\n| Review | through the review chain |\n",
+            "its routing.md is not a declaration naming a branch",
+        ),
+        (
+            "| Axis | Answer |\n|---|---|\n| Review | through the review chain |\n"
+            "| Destination | open the pull request |\n| Branch | no-such-branch |\n",
+            "the branch its routing.md names, no-such-branch, is not here",
+        ),
+    ],
+    ids=["missing", "no-branch", "unknown-branch"],
+)
+def test_a_local_mode_declaration_nobody_can_place_is_not_yours(
+    tmp_path, routing, reason
+):
+    """O4. A local-mode work item whose `routing.md` is missing, names no
+    branch, or names a branch this repository does not have, cannot say
+    whose its declaration is, so the row excuses nothing and prints under
+    `not yours` -- on the very branch it was written for, which is the loud
+    direction -- with the reason that refused it (§14). Red at 6e48cb5f,
+    where all three printed one sentence naming a branch."""
+    repo = tmp_path / "probe"
+    survivors = local_mode_items(repo)
+    where = os.path.join(os.path.dirname(survivors), "routing.md")
+    if routing is None:
+        os.remove(where)
+    else:
+        with open(where, "w", encoding="utf-8") as handle:
+            handle.write(routing)
+    root = checkout(repo, "work-item-a", linked=False)
+    code, text = run("--range", "release...HEAD", "--root", root, "--exempt", survivors)
+    assert code == 1, f"a declaration nobody can place excused the run\n{text}"
+    assert "not yours" in text and LOCAL_ITEM in text, (
+        f"the declaration stopped applying without saying so:\n{text}"
+    )
+    # §14: the reason is what refused the row, never a branch nobody named.
+    assert reason in text, text
+    assert "tip is not on the branch" not in text, text
+
+
+def test_a_missing_routing_reader_refuses_rather_than_placing_nothing(tmp_path):
+    """O5. `hooks/routing.py` ships in the plugin beside this script; a copy
+    without it cannot say whose a local-mode declaration is, and that is
+    unusable input (exit 2's `Refused`), the way a missing retirement reader
+    is -- never a quiet `not yours` that looks like a judgment."""
+    loaded = module()
+    loaded.ROUTING = str(tmp_path / "gone" / "routing.py")
+    with pytest.raises(loaded.Refused, match=r"routing\.py"):
+        loaded.on_its_branch(str(tmp_path), str(tmp_path), "HEAD")
+
+
+def test_a_missing_common_dir_reader_refuses_rather_than_placing_nothing(tmp_path):
+    """O5's twin for `hooks/optin.py`: a copy without it cannot say where
+    local mode's root is, and refuses (exit 2's `Refused`) naming that."""
+    loaded = module()
+    loaded.OPTIN = str(tmp_path / "gone" / "optin.py")
+    with pytest.raises(loaded.Refused, match=r"optin\.py, which says where"):
+        loaded.local_specs(str(tmp_path))
+
+
+# --- #564: the gathered reading reads one path, past a heading, over CRLF ---
+#
+# Three assumptions the gathered-text reading made, each a way the released
+# region or the gathered fragment is misread by its shape rather than a policy
+# choice. The shape is round 3's 🟡 1: a release renames `## Unreleased`,
+# gathers a fragment quoting the claim, and corrects `docs/a.md` in the same
+# commit, so a gathered text that is written rather than held subtracts the
+# survivor standing in `docs/b.md`.
+
+ENTRY = "The frobnicator now rejects a negative width with a plain message."
+OLDER = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+GATHER_MARK = f"<!-- specs/{os.path.basename(SHIPPED)} -->"
+
+
+def renamed_and_gathered(repo, fragment, body, released_body, write=None):
+    """Round 3's 🟡 1 at `fragment`, with `body` as the fragment's text and
+    `released_body` as what the release writes under its marker. `write`
+    lays `CHANGELOG.md` down itself when the bytes matter (G10)."""
+    before = f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {ENTRY}\n\n{OLDER}"
+    after = (
+        f"# Changelog\n\n{RELEASED_HEADINGS[0]}\n{GATHER_MARK}\n{released_body}\n"
+        f"### Fixed\n\n- {ENTRY}\n\n{OLDER}"
+    )
+    files = {
+        "docs/a.md": f"# a\n\n{FOUND}\n",
+        "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+        fragment: body,
+        **FILLER,
+    }
+    if write is None:
+        files["CHANGELOG.md"] = before
+    else:
+        write(before)
+    build(repo, files, "an unreleased entry, a fragment quoting the claim, two docs")
+    files = {"docs/a.md": f"# a\n\n{REPAIRED}\n"}
+    if write is None:
+        files["CHANGELOG.md"] = after
+    else:
+        write(after)
+    return build(repo, files, "release 1.0.0: rename Unreleased, gather, correct a.md")
+
+
+def test_a_gathered_fragment_at_the_other_spelling_is_held(tmp_path):
+    """G7 (#564 ⬜5). `a_gathered_fragment` accepts `specs/<id>/changelog.md`
+    and the reader in `corrected` spelled `seal/specs/<id>/changelog.md`
+    alone, so a fragment at the pre-0.4.0 root was out of the pool and the
+    range and its gathered text was written all the same. One predicate
+    spells the path now. Red at c52e8350: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    fragment = f"specs/{os.path.basename(SHIPPED)}/changelog.md"
+    head = renamed_and_gathered(
+        repo, fragment, f"### Fixed\n\n- {FOUND}\n", f"### Fixed\n\n- {FOUND}\n"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        f"the fragment at {fragment} was out of the range and still not held, "
+        f"so its gathered text subtracted the survivor in docs/b.md; exit {code}\n"
+        f"{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_gathered_fragment_carrying_a_heading_stays_released(tmp_path):
+    """G8 (#564 ⬜6). A fragment with a `## Notes` line before its quoting
+    sentence: under the old region rule any `## ` ended the released
+    section, so the gathered text after it read as live prose the release
+    wrote, and it subtracted the survivor in `docs/b.md`. After a version
+    heading only another version heading or `Unreleased` changes the region.
+    Red at c52e8350: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    body = f"## Notes\n\n- {FOUND}\n"
+    head = renamed_and_gathered(repo, FRAGMENT, body, body)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered text after the fragment's own heading was read as live "
+        f"and written, subtracting the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+    assert "CHANGELOG.md:" not in text, (
+        f"the released text after the fragment's heading was reported:\n{text}"
+    )
+
+
+def test_an_unreleased_section_below_a_release_is_still_a_carrier(tmp_path):
+    """G9, the half that must not move. A changelog that keeps
+    `## Unreleased` below a version section -- where this repository's
+    gatherer leaves it when it inserts a release above the first `## ` --
+    holds live prose there, and its entry restating a corrected claim is
+    reported. Green at c52e8350; red against the region rule with the
+    `Unreleased` exception deleted."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n{RELEASED_HEADINGS[0]}\n\n### Fixed\n\n"
+                f"- An older entry.\n\n## [Unreleased]\n\n### Fixed\n\n- {FOUND}\n"
+            ),
+            **FILLER,
+        },
+        "a release, then an unreleased entry carrying the claim",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"the unreleased entry went unreported; exit {code}\n{text}"
+    assert "CHANGELOG.md" in text.split("examined", 1)[-1], text
+
+
+def test_a_crlf_changelog_still_has_its_gathered_ids(tmp_path):
+    """G10 (#564 ⬜7). `MARKER` is `$`-anchored under `re.M`, and `$` stands
+    before `\\n`, never before `\\r\\n`, so a changelog committed with CRLF
+    had no gathered ids: the fragment stayed in the pool and the range, and
+    its text was written. Normalised where every text is read. Red at
+    c52e8350: exit 0.
+
+    The fixture sets `core.autocrlf=false` and asserts the committed blob
+    holds `\\r\\n` (`agent-contract` §13): a runner whose git converts line
+    endings would otherwise commit LF and this case would pass measuring
+    nothing."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    for command in (
+        ["init", "-q", "-b", "main"],
+        ["config", "user.email", "probe@example.com"],
+        ["config", "user.name", "probe"],
+        ["config", "commit.gpgsign", "false"],
+        ["config", "core.autocrlf", "false"],
+    ):
+        probe_git(repo, *command)
+
+    def write(text):
+        with open(repo / "CHANGELOG.md", "wb") as handle:
+            handle.write(text.replace("\n", "\r\n").encode("utf-8"))
+
+    head = renamed_and_gathered(
+        repo, FRAGMENT, f"### Fixed\n\n- {FOUND}\n", f"### Fixed\n\n- {FOUND}\n", write
+    )
+    blob = subprocess.run(
+        ["git", "-C", str(repo), "cat-file", "-p", f"{head}:CHANGELOG.md"],
+        capture_output=True,
+        check=True,
+    ).stdout
+    assert b"\r\n" in blob and GATHER_MARK.encode() + b"\r\n" in blob, (
+        "the committed CHANGELOG.md holds no CRLF, so this case measures an LF "
+        "file and proves nothing about line endings"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the CRLF changelog's marker was not read, so the fragment's gathered "
+        f"text was written and subtracted the survivor in docs/b.md; exit {code}\n"
+        f"{text}"
+    )
+    assert "docs/b.md" in text, text
