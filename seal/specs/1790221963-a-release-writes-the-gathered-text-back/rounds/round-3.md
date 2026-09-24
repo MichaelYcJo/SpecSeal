@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | warden on Opus 5.5 |
 | PR | 560 |
-| Broad gate | not yet |
+| Broad gate | 25904591 against 61f0d0d8 |
 | Fixes checked by | no fixes to check |
 | Fix range | none |
 | Contract changes | none |
