@@ -68,6 +68,8 @@ this branch and a squash merge like any other work.
 ## 2. Gather, fold, bump
 
 <!-- specs/1788326734-the-ledger-fragments-are-never-gathered -->
+**The preparation commit gathers the changelog fragments and folds the ledger
+fragments, both.**
 
 ```bash
 python3 .github/scripts/gather_changelog.py --dry-run --version X.Y.Z
@@ -90,6 +92,7 @@ sed -i '' 's/"version": "A.B.C"/"version": "X.Y.Z"/' .claude-plugin/plugin.json
 The fold refuses while any `seal/specs/<id>/evidence-todo.md` has an open
 row; that is a review that never drained, not a release problem, and the
 row's work item is where it is closed.
+Enforced by: tests/test_the_ledger_fragments_fold_at_release.py::test_check_fails_while_a_fragment_is_left, tests/test_the_ledger_fragments_fold_at_release.py::test_the_release_pull_request_runs_the_check, .github/workflows/hygiene.yml
 
 <!-- specs/1790208593-the-fold-writes-each-release-to-its-own-file -->
 **The fold writes the release's own file, and the split has run.** Since
@@ -188,16 +191,16 @@ moved rows. So the whole gate runs on this tree, and
 every exit code is read directly rather than through a `| tail`.
 
 <!-- specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep -->
-It is also a tree where git lists tracked files the disk does not have: the
-fold removes each fragment and nothing has staged the removal yet. The sweeps
-that walk a git listing judge what remains instead of stopping at the first of
-them, and a case whose verdict needs the whole corpus says so — so a count line
-reading `… passed, N skipped` with reasons naming paths is that state rather
-than something to debug. A fold alone produces no skipped case, because the
-paths it removes are under `seal/ledger/` and no such case reads a corpus that
-reaches there; one appears when the tree is also mid-edit somewhere a check
-like that reads, under `docs/`, `skills/`, `templates/`, `tests/` or a shipped
-`.py`.
+**A sweep that walks a git listing judges what remains instead of stopping at
+the first tracked file the disk lacks, and a case whose verdict needs the
+whole corpus says so.** This is also a tree where git lists tracked files the
+disk does not have: the fold removes each fragment and nothing has staged the
+removal yet. So a count line reading `… passed, N skipped` with reasons naming
+paths is that state rather than something to debug. A fold alone produces no
+skipped case, because the paths it removes are under `seal/ledger/` and no
+such case reads a corpus that reaches there; one appears when the tree is also
+mid-edit somewhere a check like that reads, under `docs/`, `skills/`,
+`templates/`, `tests/` or a shipped `.py`.
 
 ```bash
 python3 .github/scripts/gather_changelog.py --check
@@ -218,6 +221,8 @@ What each one has caught, so a failure is recognised rather than debugged:
 | the full suite | a gathered entry prescribed a `git mv` whose destination nothing creates; a layout test asserted `seal/ledger/` exists, and git keeps no empty directory once the fold removes the last fragment |
 | `test_no_loaded_file_names_a_version_at_or_above_the_running_one` | living prose that named the release by number the moment it became the running one. Since #179 it also names one written *ahead* of the release, which used to be green until the day it shipped — a document had carried an unshipped version for three releases that way. Records of a moment are listed in the test; everything else is reworded to name the change, or to the illustrative version the test's own message points at. Since #363 a version this repository has *tagged* is history and may be named — the shipped set is read from the root's `v*` tags, never from this file, because this commit writes the heading and the bump together and the version being cut is the timer |
 | `chain_check --baseline origin/main` | exit 1 in a checkout that never fetched `refs/pull/*/head` — the fetch line above is the fix, not a lost commit. CI fetches it itself |
+
+Enforced by: tests/test_a_shrunken_corpus_declines_to_judge.py::test_no_scope_in_the_suite_lists_paths_from_git_without_a_guard, tests/test_a_shrunken_corpus_declines_to_judge.py::test_declining_raises_the_skip_carrying_that_reason
 
 ## 4. Commit, push, open the first pull request
 
@@ -269,6 +274,7 @@ reported and not one of them a survivor of the range that removed the
 wording. So the step passes on that base and **prints why**: a job-level skip
 reads as *did not run*, and that is the state where the next reader deletes a
 guard nobody can explain.
+Enforced by: tests/test_a_corrected_sentence_survives_elsewhere.py::test_the_workflow_step_skips_a_release_range_and_says_why, .github/workflows/hygiene.yml
 
 <!-- specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer -->
 **A loaded file naming a version at or above the running one is a timer.** A
@@ -281,6 +287,7 @@ already shipped, and a tag is what says so (#363). Three exemptions, each
 argued where the rule is: the illustrative version this repository already
 writes, records of a moment under `docs/experiments/`, and a version
 belonging to another product.
+Enforced by: tests/test_release_hygiene.py::test_no_loaded_file_names_a_version_at_or_above_the_running_one
 
 <!-- specs/1789919879-the-outside-contributor-has-no-procedure -->
 **A contributor whose base is wrong is told the base is wrong.** The
@@ -290,6 +297,7 @@ what they are not asked to do. A pull request template carries the
 base-branch fact itself rather than only a link, because its whole advantage
 is that it reaches somebody who opened no document — and the refusal message
 of the check that fires on a wrong base says which fact is wrong.
+Enforced by: tests/test_the_release_check_watches_what_ships.py::test_the_refusal_names_the_wrong_base_as_one_of_the_two_causes, tests/test_the_contributor_has_a_procedure.py::test_the_procedure_is_the_first_section_of_the_guide
 
 ## 6. After the merge
 
@@ -386,3 +394,5 @@ leave.
 - [ ] Local `release/vX.Y.Z` and `main` fast-forwarded; the preparation
       branch deleted or left, either is fine.
 - [ ] The next release branch is cut from `main`, not from this one.
+
+Enforced by: tests/test_version_check.py::test_the_warning_names_the_cheap_move_before_the_expensive_one, tests/test_version_check.py::test_the_warning_names_both_commands_in_order
