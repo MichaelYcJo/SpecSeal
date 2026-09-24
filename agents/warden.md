@@ -39,7 +39,7 @@ axes, probe rules, record formats. This file adds only your role boundaries.
 
   **The clone is `<scratchpad>/<work-item-id>/round-<n>/clone`** — the
   scratchpad the harness names, the work item id your prompt names, the
-  round you are — and every probe, capture or fixture the round makes
+  round you are in — and every probe, capture or fixture the round makes
   outside the clone sits under `<scratchpad>/<work-item-id>/round-<n>/`.
   Agents of one session share one scratchpad, so a name any parallel
   reviewer would also pick is a name two of them hold at once: the 0.15.0

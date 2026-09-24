@@ -1981,21 +1981,28 @@ def main(argv=None, console_wants_letters=None):
         metavar="DIR",
         help="where each check's output is kept (default: a temp dir)",
     )
-    args = parser.parse_args(argv)
-    # The gated tree's own copy runs in place of this one where the tree ships
-    # one (#475), with the same argument vector, under the same interpreter,
-    # with inherited streams; its exit code is this run's. Before `gate()` and
-    # before anything runs, so `gate` — five ledger rows anchor it — is not
-    # entered by the copy that hands over. `args.base` is not read here: the
-    # one read stays in `gate`, and the child resolves it for itself. A root
-    # that is not a repository takes `gate`'s own refusal below, unchanged.
-    root = repo_root(os.path.abspath(args.root or os.getcwd()))
+    # The redirect is decided from `parse_known_args`, before this copy's
+    # parser can refuse an argument only the tree's copy knows: a flag added
+    # to the gate is a change to the gate, and the copy that predates it must
+    # not be the one that answers (#475; round 1's 🟡 1). `--base` is still
+    # required here, so a call with no base is refused by the same parser as
+    # before. The gated tree's own copy runs in place of this one with the
+    # same argument vector, under the same interpreter, with inherited
+    # streams; its exit code is this run's. Before `gate()` and before
+    # anything runs, so `gate` is not entered by the copy that hands over.
+    # `args.base` is not read here: the one read stays in `gate`, and the
+    # child resolves it for itself. A root that is not a repository takes
+    # `gate`'s own refusal below, unchanged.
+    known, _unknown = parser.parse_known_args(argv)
+    root = repo_root(os.path.abspath(known.root or os.getcwd()))
     if root is not None:
         shipped = shipped_gate(root)
         if shipped is not None:
             sys.stderr.write(redirect_line(root, shipped) + "\n")
             handed = sys.argv[1:] if argv is None else list(argv)
             return subprocess.run([sys.executable, shipped, *handed]).returncode
+    args = parser.parse_args(argv)
+    if root is not None:
         sys.stderr.write(running_line(root) + "\n")
     if console_wants_letters is None:
         stamp = load(STAMP, "specseal_seal_stamp_for_broad_gate")

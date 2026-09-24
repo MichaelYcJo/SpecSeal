@@ -427,7 +427,7 @@ session: the same test scope ran at 194s piped through `tail`, then again at
 view of a result already produced. Redirect to a file and read the file:
 
 ```
-out=<scratchpad>/<work-item-id>/run.txt
+out=<scratchpad>/<work-item-id>/run.txt; mkdir -p "$(dirname "$out")"
 uv run pytest <scope> > "$out" 2>&1; tail -8 "$out"
 grep '^FAILED' "$out"                # same run, second question
 ```

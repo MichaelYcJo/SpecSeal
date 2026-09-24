@@ -188,13 +188,24 @@ def caller_decided(argv):
     what bounds the failure scenario of a default: a flag pytest refuses
     beside `-n auto` would be the ticket's middle row (exit 4) arriving from
     the other side, and the remedy, `-p no:xdist`, is on the list too.
+
+    A short option clustered behind another, `-qn 2`, is outside the list
+    and stays undetected on purpose: reading a `-n` out of every cluster
+    would also read one out of `-rn` (a value of `-r`), and a count the
+    caller clusters is then overridden by `-n auto` rather than refused —
+    the same suite at the machine's worker count instead of the caller's
+    (round 1's ⬜ 2). `-p=no:xdist` is on the list although pytest 9.1.1
+    refuses that spelling itself (measured 2026-09-24: `Error importing
+    plugin "=no:xdist"`, exit 1): the caller's intent is settled either way,
+    and a runner that appended `-n auto` to it would put a second reason
+    into a failure that already has one.
     """
     for index, arg in enumerate(argv):
         if arg.startswith("-n") and not arg.startswith("--"):
             return True
         if arg.startswith("--numprocesses") or arg == "--pdb":
             return True
-        if arg == "-pno:xdist":
+        if arg in ("-pno:xdist", "-p=no:xdist"):
             return True
         if arg == "-p" and argv[index + 1 : index + 2] == ["no:xdist"]:
             return True

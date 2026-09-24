@@ -752,6 +752,7 @@ def test_a_failed_xdist_install_is_a_sentence_and_the_suite_still_runs(
         ["--numprocesses=2"],
         ["-p", "no:xdist"],
         ["-pno:xdist"],
+        ["-p=no:xdist"],
         ["--pdb"],
     ],
 )

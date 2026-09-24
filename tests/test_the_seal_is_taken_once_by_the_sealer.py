@@ -697,6 +697,23 @@ def test_the_gate_runs_the_copy_the_tree_ships_with_the_same_arguments(repo, tmp
     )
 
 
+def test_a_flag_only_the_trees_copy_knows_still_reaches_it(repo, tmp_path):
+    """A7's other half. A branch whose gate grows an argument is inside
+    #475's class — measured by the copy that predates the change — so the
+    redirect is decided before this copy's parser can refuse what only the
+    tree's copy accepts. Red at 01e5a25f: exit 2, `unrecognized arguments`,
+    and the stub never ran."""
+    stub = repo / "skills" / "verify" / "scripts" / "broad_gate.py"
+    stub.parent.mkdir(parents=True)
+    stub.write_text(STUB_GATE, encoding="utf-8")
+    out = run_gate(repo, "--new-flag-only-the-tree-knows", keep=tmp_path / "out")
+    assert out.returncode == 3, f"{out.stdout}\n{out.stderr}"
+    assert "'--new-flag-only-the-tree-knows'" in out.stdout, (
+        f"the tree's copy was not handed the flag only it knows:\n{out.stdout}"
+    )
+    assert "unrecognized arguments" not in out.stderr, out.stderr
+
+
 def test_the_trees_own_copy_does_not_redirect_to_itself():
     """A8, first half. Over this repository the running script IS the file
     the tree ships, by realpath, so there is nothing to hand over to and no
