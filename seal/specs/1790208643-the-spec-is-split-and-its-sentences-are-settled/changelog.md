@@ -10,9 +10,9 @@
   the other two, 22 shipped citations name the file that now holds their
   section, and both READMEs link the gate document. The ceiling's listing
   is empty. A test that forbids a sentence in the specification now forbids
-  it in all three documents. The split's own two items stay open on #526:
-  the `Enforced by:` retrofit of older folds, and the shape and ceiling
-  checks as plugin commands.
+  it in all three documents. The split's own two other items are issues of
+  their own: the `Enforced by:` retrofit of older folds (#565), and the shape
+  and ceiling checks as plugin commands (#566).
 - **A branch that edits cited code re-stamps the row where it stands, and
   that is not an append (issue #488).** The rule that a branch writes
   fragments and never the shared ledger named one exception, a removal. The

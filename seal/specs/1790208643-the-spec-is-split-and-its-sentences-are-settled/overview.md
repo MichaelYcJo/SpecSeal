@@ -50,7 +50,8 @@ met at step 2 are fixed before it runs.
 orchestrator's paste (`phases/phase-3.md`).
 
 #526's items 2 and 3 (the `Enforced by:` retrofit and the shape and ceiling
-checks as plugin commands) stay open on #526. #331 is deferred to the next
+checks as plugin commands) moved to #565 and #566, filed by the orchestrator
+so #526 closes with what this item shipped. #331 is deferred to the next
 milestone. The three ledger rows #562 found carrying a second date-and-notes
 pair in one Notes cell (G5 and S4 of #386's section, and *The eleven modules
 that pin the path*) are escaped and not rewritten as one note each, because
