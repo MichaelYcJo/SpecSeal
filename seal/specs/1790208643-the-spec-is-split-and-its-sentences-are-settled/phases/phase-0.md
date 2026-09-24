@@ -15,7 +15,8 @@ survivor sweep, the broad gate and sealer sections, the `Broad gate` cell and
 `same_run` sentences, the depth convention, `agents/warden.md` §*Where you
 work* and its two-depth sentence, `docs/release-checklist.md` §2–3 — and
 re-measure the heading tree of `docs/review-chain-spec.md` (M1's inputs).
-D's half (#558, not squashed at the spawn) is left for the resumed phase 3.
+D's half (#558, not squashed at the spawn) is left for the resumed phase 3, and
+`phases/phase-3.md` carries it.
 
 ## What this phase found
 

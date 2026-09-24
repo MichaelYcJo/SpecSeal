@@ -79,6 +79,9 @@ Read them. Then:
 
 ```bash
 python3 .github/scripts/gather_changelog.py --version X.Y.Z
+# At the release that splits: the two readings §3 compares against, before --split.
+find seal/ledger.md seal/releases seal/ledger -name '*.md' -exec cat {} + 2>/dev/null | grep -c '^|'
+python3 skills/evidence-check/scripts/evidence_check.py --strict . >/dev/null 2>&1; echo $?
 python3 .github/scripts/fold_ledger.py --split              # see below
 python3 .github/scripts/fold_ledger.py --version X.Y.Z
 sed -i '' 's/"version": "A.B.C"/"version": "X.Y.Z"/' .claude-plugin/plugin.json
@@ -151,14 +154,19 @@ Both found something the first time. At the release that runs `--split` it
 is also the first time `seal/releases/` exists, and three readings are that
 release's to take (the #547 work item's `questions.md` Q6): the marker census
 case in `tests/test_a_merge_cannot_silently_drop_a_correction.py` stays
-green; `evidence_check.py --strict .` exits 0 before and after the split,
-with no drifted and no broken row. Its `ok` total rises, because the checker
-counts a `(coordinate, hash)` pair once per file and the split puts pairs two
-releases shared into two files, so the total is not the comparison. The
-table lines are: `cat seal/ledger.md seal/ledger/*.md | grep -c '^|'` before
-the split prints the number that
-`cat seal/ledger.md seal/releases/*.md seal/ledger/*.md | grep -c '^|'`
-prints after it, which is every row in exactly one file. And
+green; `evidence_check.py --strict .` exits 0 here as it did in step 2
+before the split, with no drifted and no broken row. Its `ok` total rises,
+because the checker counts a `(coordinate, hash)` pair once per file and the
+split puts pairs two releases shared into two files, so the total is not the
+comparison. The table lines are the third reading:
+
+```bash
+find seal/ledger.md seal/releases seal/ledger -name '*.md' -exec cat {} + 2>/dev/null | grep -c '^|'
+```
+
+This command prints here the number it printed in step 2 before the split,
+which is every row in exactly one file, the fold's included. It names no glob,
+so no shell refuses it once the fold has emptied `seal/ledger/`. And
 `correction-check` over the next release's merges stays silent across the
 moved rows. So the whole gate runs on this tree, and
 every exit code is read directly rather than through a `| tail`.
