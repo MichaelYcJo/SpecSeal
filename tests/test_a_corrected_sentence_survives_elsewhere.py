@@ -2958,6 +2958,88 @@ def test_a_gathered_fragment_that_opens_with_prose_is_still_held(tmp_path):
     assert "docs/b.md" in text, text
 
 
+def test_a_release_that_writes_its_entry_directly_and_loses_nothing_reports(
+    tmp_path,
+):
+    """#555's pin, the `lost` guard alone. The release writes a new version
+    section whose entry quotes the claim, with no marker and no fragment,
+    and `CHANGELOG.md` loses no sentence; the same commit corrects
+    `docs/a.md`. Nothing of the file was removed, so there is nothing the
+    released wording could split, and it is not written. The fragment
+    filter cannot protect this shape -- nothing here was gathered -- so the
+    guard is the only thing between the entry's wording and the survivor in
+    `docs/b.md`. Red with the guard replaced by `if False:` and the filter
+    in place: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            "CHANGELOG.md": f"# Changelog\n\n{older}",
+            **FILLER,
+        },
+        "an older release and two documents carrying the claim",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND) + f"\n{older}",
+        },
+        "release 1.0.0: an entry written in place, and docs/a.md corrected",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "a release that lost no sentence wrote its entry's wording back and "
+        f"subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_gathered_release_that_loses_nothing_reports(tmp_path):
+    """#555's own shape (P6), and the pair's pin. The release gathers a
+    fragment quoting the claim under a new version heading, `CHANGELOG.md`
+    loses no sentence, and the same commit corrects `docs/a.md`. Two things
+    each keep the gathered text out of `written` here: the `lost` guard,
+    because the file lost nothing, and the fragment filter, because the text
+    is gathered. So this case goes red only with both removed (exit 0), and
+    stays green with either one removed alone -- which is why the guard's
+    own pin is the case above and the filter's are the gathered releases
+    that lose a sentence."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": f"# Changelog\n\n{older}",
+            **FILLER,
+        },
+        "an older release, a fragment quoting the claim, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND, marker=True)
+            + f"\n{older}",
+        },
+        "release 1.0.0: gather the fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "a gathered release that lost no sentence wrote the gathered text "
+        f"back and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
 def test_a_gathered_fragment_standing_in_the_pool_is_not_a_survivor(tmp_path):
     """S10, the pool side. The fragment's marker is in `CHANGELOG.md` at the
     tip, so the fragment is the released entry one file over and is not
