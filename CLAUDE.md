@@ -140,12 +140,13 @@ that removes or edits code an existing ledger row cites — in `seal/ledger.md`
 or a `seal/releases/<X.Y.Z>.md` — must touch the file the row is in to leave
 the ledger true. A removal takes the row out there and writes the new claim
 into the branch's own fragment; an edit drifts the row, which is re-read
-against that edit and re-stamped there with a dated note. Both are keeping an
-existing claim true, which is not appending. `CONTRIBUTING.md` carries the
-same sentence, and the two
-used to disagree: one forbade editing the file at all while the other forbade
-appending to it, which left a branch in this position with no reading that
-permits the only correct act.
+against that edit and re-stamped there with a dated note, its claim first
+corrected in place with a `Corrected <date>` note where the edit made it
+false. Both are keeping an existing claim true, which is not appending.
+`CONTRIBUTING.md` carries the same sentence, and the two used to disagree: one
+forbade editing the file at all while the other forbade appending to it, which
+left a branch in this position with no reading that permits the only correct
+act.
 
 **When a ledger file conflicts — `seal/ledger.md`, a
 `seal/releases/<X.Y.Z>.md`, or a fragment two stacked branches both edited —
@@ -167,12 +168,12 @@ cannot prevent it.
 
 **Hunk by hunk has two halves, and only the notes are a union.** A row's
 `Re-read` and `Corrected` notes are both sides', because each records a
-reading somebody performed; the anchor's hash belongs to exactly one side, the
-side that edited the anchored unit. `correction-check` cannot see a union that
-kept the other side's hash, because no marker was dropped, so run
-`evidence-check` after the resolution: a drifted anchor is the tool naming
-which side that was. `docs/the-evidence-ledger.md` §*A correction a merge
-dropped* owns the rule.
+reading somebody performed; the anchor's hash belongs to the side that edited
+the anchored unit, and to neither side where both did. `correction-check`
+cannot see a union that kept a stale hash, because no marker was dropped, so
+run `evidence-check` after the resolution: a drifted anchor is the tool naming
+the row, which is re-read against every edit the merged unit carries.
+`docs/the-evidence-ledger.md` §*A correction a merge dropped* owns the rule.
 
 `CONTRIBUTING.md` carries both paragraphs and the halves rule, and
 `tests/test_a_merge_cannot_silently_drop_a_correction.py` holds the two
