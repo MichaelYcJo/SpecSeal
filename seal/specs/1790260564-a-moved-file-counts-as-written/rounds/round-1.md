@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 589 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `1839acd6a35e7fe749b09ff6ca8bc921f1bda18a..065ab7b67249c6df9968cb561a4ceb724776b371`, 3 commits |
+| Contract changes | on_its_branch → round-1-report.md, round-1.md, whole_range, pytest; test_a_local_mode_declaration_nobody_can_place_is_not_yours → round-1-report.md, round-1.md |
+| New units | OPTIN (depth 1); hook (depth 1); test_a_stacked_childs_declaration_does_not_reach_its_parents_range (depth 1) |
 | Needs a fix | yes — 🟡 1 (a stacked child's local declaration excuses its parent branch's run) and 🟡 2 (the local-mode `not yours` reason names a branch that `routing.md` does not name) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,12 +24,12 @@ Round 1 of work item 1790260564 reviews the build at 6e48cb5f against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | a stacked child's local-mode declaration excuses its parent branch's whole run, because the parent's tip is an ancestor of the child's branch | `skills/code-review/scripts/survivor_check.py:1404` | open | executed: the parent's run excused at exit 0 on `6e48cb5f`, and exit 1 without the row; O2 pins a sibling only; the proposed fix was run green over the whole module |
-| 🟡 2 | the `not yours` reason in local mode is one fixed sentence for four refusals, and it names a branch that a missing or branchless `routing.md` does not name; O4 pins the false sentence | `skills/code-review/scripts/survivor_check.py:1594` | open | read, and executed: the three O4 parameters print the fixed sentence on `6e48cb5f` |
-| ⬜ 3 | the unresolved arm's docstring carriers still describe ownership by the diff alone | `skills/code-review/scripts/survivor_check.py:1547` | open | read; ledger 0.15.1 U1 was corrected for the same sentence |
-| ⬜ 4 | a key removed at two paths and arriving at one keeps the later path as the source, so the `corrected` line can name a move's origin | `skills/code-review/scripts/survivor_check.py:1140` | open | read, not probed; the survivor coordinate and the score are unaffected |
-| ⬜ 5 | the predicate's docstring and the module docstring spell the gathered fragment's path one way while G7 pins the other | `skills/code-review/scripts/survivor_check.py:856` | open | read |
-| ⬜ 6 | `local_specs` restates the common-dir reader in `hooks/optin.py`, and `routing.py` is executed once per declaration | `skills/code-review/scripts/survivor_check.py:1353` | open | read; the plan's technical context names the existing reader |
+| 🟡 1 | a stacked child's local-mode declaration excuses its parent branch's whole run, because the parent's tip is an ancestor of the child's branch | `skills/code-review/scripts/survivor_check.py:1404` | **fixed** `c315e8c3` | fixed at c315e8c3; executed: the parent's run excused at exit 0 on `6e48cb5f`, and exit 1 without the row; O2 pins a sibling only; the proposed fix was run green over the whole module |
+| 🟡 2 | the `not yours` reason in local mode is one fixed sentence for four refusals, and it names a branch that a missing or branchless `routing.md` does not name; O4 pins the false sentence | `skills/code-review/scripts/survivor_check.py:1594` | **fixed** `c315e8c3` | fixed at c315e8c3; read, and executed: the three O4 parameters print the fixed sentence on `6e48cb5f` |
+| ⬜ 3 | the unresolved arm's docstring carriers still describe ownership by the diff alone | `skills/code-review/scripts/survivor_check.py:1547` | **fixed** `c315e8c3` | fixed at c315e8c3; read; ledger 0.15.1 U1 was corrected for the same sentence |
+| ⬜ 4 | a key removed at two paths and arriving at one keeps the later path as the source, so the `corrected` line can name a move's origin | `skills/code-review/scripts/survivor_check.py:1140` | deferred #592 | #592 — reproduced by a probe in the fix pass: the verdict and the coordinates are right, the corrected line names the moved-only path; read, not probed; the survivor coordinate and the score are unaffected |
+| ⬜ 5 | the predicate's docstring and the module docstring spell the gathered fragment's path one way while G7 pins the other | `skills/code-review/scripts/survivor_check.py:856` | **fixed** `c315e8c3` | fixed at c315e8c3 — 0313a669; read |
+| ⬜ 6 | `local_specs` restates the common-dir reader in `hooks/optin.py`, and `routing.py` is executed once per declaration | `skills/code-review/scripts/survivor_check.py:1353` | **fixed** `c315e8c3` | fixed at c315e8c3; read; the plan's technical context names the existing reader |
 | 🟢 | #563 pairing: a moved sentence is neither removed nor written, pairing meets only across paths, and `wanted` only grows | `skills/code-review/scripts/survivor_check.py:1120` | confirmed | read the unit and the loop; executed the module, 119 passed |
 | 🟢 | #564: CRLF at the read boundary, one region rule, and the fragment reader asking the predicate | `skills/code-review/scripts/survivor_check.py:544` | confirmed | read every reader of committed text in the module; executed G7-G10 within the module run |
 | 🟢 | #554 local-mode ownership for the work item's own range, in the main and the linked worktree and through a symlink | `skills/code-review/scripts/survivor_check.py:1566` | confirmed | executed O1's three parameters within the module run |
