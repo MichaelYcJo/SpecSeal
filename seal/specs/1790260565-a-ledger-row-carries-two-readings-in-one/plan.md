@@ -2,7 +2,8 @@
 
 <!-- seal/specs/1790260565-a-ledger-row-carries-two-readings-in-one/plan.md — HOW, in phases. -->
 
-Approved 2026-09-24 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned. Q1 builds on its default (a) and is filed for the owner as #585.
+Approved 2026-09-24 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
+Q1 builds on its default (a) and is filed for the owner as #585.
 
 ## Summary
 
