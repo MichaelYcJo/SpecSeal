@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | not yet opened |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `7e9bf98fc0c0a0c33e7ba211d53f0e49e211efa2..c231af284b2be3832ab79e32fc31aa14fc45f6aa`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 to 🟡 6: four `nothing` lines whose case is wrong (D6's also states a falsehood about the workflow), D33's target that does not hold its rule, and the release checklist's two rider-stamp sentences |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,14 +24,14 @@ Round 1 of work item 1790263216 reviews the retrofit at 2f24d6a4, range e9dfe623
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | D6's line says `nothing — a person's act` for a rule whose instruction is pinned, and its reason says the correction-check leg is allowed to fail, which the workflow and `test_a9_the_leg_runs_the_check_and_is_allowed_to_fail` contradict | `docs/the-evidence-ledger.md:148` | open | executed: the pin `test_a8_both_rule_documents_say_what_to_do_at_the_conflict` goes red when CONTRIBUTING.md's instruction is reworded; read: no `continue-on-error` in any workflow |
-| 🟡 2 | D13's line says `nothing` for a rule whose settle instruction is pinned | `docs/the-evidence-ledger.md:343` | open | executed: `test_the_skill_says_a_fold_is_not_a_work_item_and_owes_no_range_row` red when the skill's sentence is reworded |
-| 🟡 3 | D14's line says `no case reads it yet`, and a case reads settle's three answers | `docs/the-evidence-ledger.md:358` | open | executed: `test_the_skill_names_the_floors_a_fold_has_to_answer` red when *retire the case* is reworded |
-| 🟡 4 | D32's line says `nothing — a session's act` for the rule the statement itself locates in the contract's §15, which is pinned | `docs/round-record-spec.md:941` | open | executed: `test_each_section_holds_its_rule` red (1 of 16) when §15's phrase is reworded |
-| 🟡 5 | D33's targets pin the statement's third bold sentence, not its bold opening *Three and five count rounds* | `docs/review-chain-spec.md:112` | open | executed: the opening reworded to say the numbers bound fixes, both targets green (26 passed) |
-| 🟡 6 | The release checklist still says rider stamps name commits by SHA, the half D89 corrected; the survivor sweep cannot see a differently-worded carrier | `docs/release-checklist.md:30` | open | also `docs/release-checklist.md:261`; executed: `test_no_rider_stamp_names_a_commit` red on an old-form stamp, and survivor-check exits 0 over the range |
-| ⬜ 7 | D90's *A third reader* counts a reader D89's correction removed, and its pin's docstring still enumerates the rider stamps | `docs/branch-and-release.md:146` | open | disclosed in the overview's *Not done*; the fact about the plugin directory stays right; the pin is `tests/test_the_release_tail_does_not_end_at_the_tag.py:188` |
-| ⬜ 8 | Phase records: phase 2 says the 7 skips are not targets, and they are D21's target parametrised; phase 1's D6 row repeats *allowed to fail* | `seal/specs/1790263216-the-older-statements-name-what-enforces-them/phases/phase-2.md:82` | open | a correction to the run's paperwork; executed with `-rs` |
+| 🟡 1 | D6's line says `nothing — a person's act` for a rule whose instruction is pinned, and its reason says the correction-check leg is allowed to fail, which the workflow and `test_a9_the_leg_runs_the_check_and_is_allowed_to_fail` contradict | `docs/the-evidence-ledger.md:148` | **fixed** `6826f53f` | fixed at 6826f53f; executed: the pin `test_a8_both_rule_documents_say_what_to_do_at_the_conflict` goes red when CONTRIBUTING.md's instruction is reworded; read: no `continue-on-error` in any workflow |
+| 🟡 2 | D13's line says `nothing` for a rule whose settle instruction is pinned | `docs/the-evidence-ledger.md:343` | **fixed** `6826f53f` | fixed at 6826f53f; executed: `test_the_skill_says_a_fold_is_not_a_work_item_and_owes_no_range_row` red when the skill's sentence is reworded |
+| 🟡 3 | D14's line says `no case reads it yet`, and a case reads settle's three answers | `docs/the-evidence-ledger.md:358` | **fixed** `6826f53f` | fixed at 6826f53f; executed: `test_the_skill_names_the_floors_a_fold_has_to_answer` red when *retire the case* is reworded |
+| 🟡 4 | D32's line says `nothing — a session's act` for the rule the statement itself locates in the contract's §15, which is pinned | `docs/round-record-spec.md:941` | **fixed** `6826f53f` | fixed at 6826f53f; executed: `test_each_section_holds_its_rule` red (1 of 16) when §15's phrase is reworded |
+| 🟡 5 | D33's targets pin the statement's third bold sentence, not its bold opening *Three and five count rounds* | `docs/review-chain-spec.md:112` | **fixed** `6826f53f` | fixed at 6826f53f; executed: the opening reworded to say the numbers bound fixes, both targets green (26 passed) |
+| 🟡 6 | The release checklist still says rider stamps name commits by SHA, the half D89 corrected; the survivor sweep cannot see a differently-worded carrier | `docs/release-checklist.md:30` | **fixed** `6826f53f` | fixed at 6826f53f; also `docs/release-checklist.md:261`; executed: `test_no_rider_stamp_names_a_commit` red on an old-form stamp, and survivor-check exits 0 over the range |
+| ⬜ 7 | D90's *A third reader* counts a reader D89's correction removed, and its pin's docstring still enumerates the rider stamps | `docs/branch-and-release.md:146` | answered | D90's A third reader is a dated measurement; the fact about the plugin directory still holds, and the overview's Not done carries it; disclosed in the overview's *Not done*; the fact about the plugin directory stays right; the pin is `tests/test_the_release_tail_does_not_end_at_the_tag.py:188` |
+| ⬜ 8 | Phase records: phase 2 says the 7 skips are not targets, and they are D21's target parametrised; phase 1's D6 row repeats *allowed to fail* | `seal/specs/1790263216-the-older-statements-name-what-enforces-them/phases/phase-2.md:82` | answered | a record correction, corrected at c231af28; a correction to the run's paperwork; executed with `-rs` |
 | 🟢 | The retrofit is complete: `fold-check` reads 136 statements, binds 136 at cutoff `0`, and holds 14 documents under the ceiling | `seal/config.md` | confirmed | executed at 2f24d6a4, with no flag and with `--shape-from 0`, both exit 0 |
 | 🟢 | Every named test target is collected and passes | the 116 added `Enforced by:` lines | confirmed | executed: 174 node ids, 256 passed, 7 skipped, exit 0 (the skips are finding 8's) |
 | 🟢 | The Korean edition carries byte-identical targets, and the editions case compares them | `docs/one-root-by-lifetime.ko.md` | confirmed | executed: the two editions' lines diff empty; the editions module passes; read: `enforcement` reads the span and value through the shape check's own functions |
