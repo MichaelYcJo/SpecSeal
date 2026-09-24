@@ -113,6 +113,8 @@ def test_an_unset_comspec_on_windows_is_cmd_exe(monkeypatch):
         # the one `templates/config.md` states.
         ("call bin/test", "call bin/test"),
         (">out.txt bin/test", ">out.txt bin/test"),
+        # The redirection's target is not a command name, blank or not.
+        ("> out/log.txt bin/test", "> out/log.txt bin/test"),
     ],
 )
 def test_only_the_command_names_have_their_slash_turned(row, expected):
