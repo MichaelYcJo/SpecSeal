@@ -308,6 +308,31 @@ os.environ["GIT_CONFIG_COUNT"] = "1"
 os.environ["GIT_CONFIG_KEY_0"] = "maintenance.auto"
 os.environ["GIT_CONFIG_VALUE_0"] = "false"
 
+# The suite runs with `gh` logged out, on every machine (#510). CI's pytest job
+# has no token, so a case that falls through its stubs onto a live `gh` fails
+# there -- and passed on every developer's machine and under the broad gate,
+# because `gh` is logged in on both. Nothing local could see that class; CI
+# found it after the branch was sealed.
+#
+# `gh` finds its login in two places: a token variable, and `hosts.yml` under
+# its config directory. Both are taken away here, at import, so every entry
+# point (`bin/test`, bare `pytest`, the `uvx` fallback, each xdist worker) and
+# every child that inherits `os.environ` sees what CI sees. Measured on
+# 2026-09-25 with `gh` 2.100.0 logged in through `hosts.yml`: an empty
+# `GH_CONFIG_DIR` and no token variable made `gh auth status` exit 1, "You are
+# not logged into any GitHub hosts". A case that needs `gh` stubs it.
+GH_CREDENTIALS = (
+    "GH_TOKEN",
+    "GITHUB_TOKEN",
+    "GH_ENTERPRISE_TOKEN",
+    "GITHUB_ENTERPRISE_TOKEN",
+)
+_EMPTY_GH_CONFIG = tempfile.mkdtemp(prefix="specseal-empty-gh-config-")
+os.environ["GH_CONFIG_DIR"] = _EMPTY_GH_CONFIG
+atexit.register(shutil.rmtree, _EMPTY_GH_CONFIG, True)
+for _name in GH_CREDENTIALS:
+    os.environ.pop(_name, None)
+
 
 def load_hook_module(filename, name):
     spec = importlib.util.spec_from_file_location(name, os.path.join(HOOKS, filename))
