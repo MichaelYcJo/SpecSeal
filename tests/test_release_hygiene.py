@@ -1293,8 +1293,10 @@ def test_a_row_under_no_header_is_counted_against_the_width_it_is_given():
     assert overwide_rows(fragment) == []
     beside = "| Item | Value |\n|---|---|\n| a | b |\n\n" + fragment
     assert overwide_rows(beside, width=5) == [(5, 5, 6)]
-    # What the corpus case calls, so a width it stopped passing goes red here:
-    # no row in the tree is overwide, so the corpus alone would stay green.
+    # `ledger_overwide` is what the corpus case calls, so a width dropped
+    # inside it goes red here, in this case. A corpus case that stops calling
+    # it and calls `overwide_rows` bare goes red nowhere: no row in the tree is
+    # overwide, so the corpus case alone stays green, and so does this one.
     assert ledger_overwide(fragment) == [(1, 5, 6)]
 
 
