@@ -7,7 +7,7 @@ of the build did, written by the implementer when the phase closes. -->
 |---|---|
 | Phase | 3 |
 | Commit | 6ac7a028 |
-| Ran by | unknown — the spawn prompt did not hand the value over, and the template forbids the segment naming itself; the orchestrator fills it |
+| Ran by | smith on Opus 5.5 — filled by the orchestrator, which spawned the segment after the session model changed |
 
 ## What this phase was asked
 
