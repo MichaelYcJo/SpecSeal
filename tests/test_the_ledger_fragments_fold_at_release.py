@@ -311,7 +311,8 @@ def late_fragment(tree):
 
 
 def test_a_second_fold_for_the_same_version_joins_its_section(tree):
-    """#540. `seal/ledger.md` headed `0.9.3` twice for six releases: the
+    """#540. `seal/ledger.md` headed `0.9.3` twice through seventeen ledger
+    sections (`0.9.4` to `0.15.0`, counted after the second heading): the
     first fold ran at the preparation commit, the pull request went red, a
     fragment landed the next day, and the second fold wrote a second
     `## 0.9.3` heading below everything — one release's rows split across

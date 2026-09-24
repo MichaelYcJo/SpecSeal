@@ -21,8 +21,10 @@ same commit:
 **A second fold for one version joins its section** (#540). The release pull
 request going red and a fragment landing after the preparation commit is the
 ordinary shape, and the fold used to write a second `## X.Y.Z` heading for
-it, below everything: `seal/ledger.md` headed `0.9.3` twice for six releases.
-Where the ledger already heads `--version`, the new work items go at the end
+it, below everything: `seal/ledger.md` headed `0.9.3` twice through the
+seventeen ledger sections from `0.9.4` to `0.15.0` (eighteen tags after
+`v0.9.3`; `0.13.2` folded no section). Where the ledger already heads
+`--version`, the new work items go at the end
 of that section, before the next `## `, the section keeps the first fold's
 date over `--date` and over today, and `--dry-run` prints the heading it
 joins. `--check` refuses a ledger that heads a version twice, naming both

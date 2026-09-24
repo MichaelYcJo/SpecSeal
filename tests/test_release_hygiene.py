@@ -1116,9 +1116,11 @@ def test_no_version_heads_two_sections_of_this_changelog():
 def test_no_version_heads_two_sections_of_this_ledger():
     """The gathered ledger, the same way. #540: `fold_ledger.py` wrote a
     second `## 0.9.3` heading when a fragment landed the day after the
-    release-preparation commit (`4ac9bf35`), and the file carried both for
-    six releases while the ticket said nobody had run the fold twice. Seen
-    red against that tree: `0.9.3 twice, at lines [1673, 1764]`."""
+    release-preparation commit (`4ac9bf35`), and the file carried both
+    through seventeen ledger sections (`0.9.4` to `0.15.0`, counted after
+    the second heading; eighteen tags after `v0.9.3`) while the ticket said
+    nobody had run the fold twice. Seen red against that tree: `0.9.3
+    twice, at lines [1673, 1764]`."""
     found = duplicated_version_headings(read_text("seal", "ledger.md"))
     assert not found, "\n".join(
         f"seal/ledger.md heads {version} twice, at lines {at}. One release, "

@@ -3,8 +3,9 @@
   again for a version `seal/ledger.md` already heads used to write a second
   `## X.Y.Z` heading below everything — the ordinary shape when a release
   pull request goes red and a fragment lands after the preparation commit,
-  and `seal/ledger.md` carried a second `## 0.9.3` from exactly that for six
-  releases while the ticket said nobody had run the fold twice. The second
+  and `seal/ledger.md` carried a second `## 0.9.3` from exactly that through
+  seventeen ledger sections (`0.9.4` to `0.15.0`) while the ticket said
+  nobody had run the fold twice. The second
   heading is removed, the fold now appends the late work items into the
   section the ledger already heads and keeps that section's first date over
   `--date` and today, `--dry-run` prints the heading it joins, and

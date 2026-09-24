@@ -23,11 +23,14 @@ run, not a sample.
 **The fragment's first line.** The two 0.15.0 fragments this branch's
 neighbours wrote began with their own `<!-- specs/<id> -->` line, and the
 fold copied it under the marker it writes: `grep -c` of each marker line in
-`seal/ledger.md` reads 2 for `1790173106` and for `1790174138`, so
-`--check`'s *118 work items marked* is two above the folded sections. This
-fragment carries no marker line and its comment says why. The two standing
-duplicates are outside the three tickets and go to the hand-back
-(`overview.md` §Not done).
+`seal/ledger.md` reads 2 for `1790173106` and for `1790174138`. This
+fragment carries no marker line and its comment says why. **Corrected in
+the round-1 fix pass (⬜ 2):** the two were the two fragments this phase
+opened, not the class — over the whole file the marker lines number 118
+and 98 are distinct, so twenty folded work items stand with their marker
+twice (`grep -c '^<!-- specs/[^ ]* -->$'`, then `sort -u | wc -l`). The
+duplicates and the fold's handling of a fragment's own marker line are
+MichaelYcJo/SpecSeal#553, filed by the orchestrator and taken by step D.
 
 **The frame's own stamps broke the records arm.** `spec.md` S15 and
 `plan.md` §Technical context wrote four coordinates as a short path beside

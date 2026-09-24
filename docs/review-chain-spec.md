@@ -339,9 +339,11 @@ Then the `sealer` takes the broad gate once — spawned with the base and the
 work item, running `broad-gate` and writing the last record's `Broad gate`
 cell — and the change opens as a pull request. Where the gate has to be taken
 again, the cell keeps every run: the newest entry first, each `<sha> against
-<base>`, the earlier ones behind it as `earlier run` — so a re-seal records a
-second run rather than erasing the first, and the reader still takes the
-first SHA-shaped word as the run (#174).
+<base>`, the earlier ones behind it as `earlier run` — so a run at a new
+commit, or at the same commit against another base, is recorded beside the
+first rather than over it, while the same comparison taken again replaces
+its own entry — and the reader still takes the first SHA-shaped word as the
+run (#174).
 
 **The chain ends at a PR, never at a merge.** Those are two mistakes at the
 same spot. A run that stops at a report leaves finished work where nobody
