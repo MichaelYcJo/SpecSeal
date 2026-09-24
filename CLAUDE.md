@@ -131,24 +131,27 @@ again.
 | Instead of | Write |
 |---|---|
 | an entry under `CHANGELOG.md`'s `## Unreleased` | `seal/specs/<work-item-id>/changelog.md` |
-| rows appended to `seal/ledger.md` | `seal/ledger/<work-item-id>.md` |
+| rows appended to `seal/ledger.md` or a `seal/releases/<X.Y.Z>.md` | `seal/ledger/<work-item-id>.md` |
 
 No two work items share an id, so no two branches share a file.
 
 **Appended is the word, and a removal is not one.** A branch that removes code
-an existing `seal/ledger.md` row cites must touch that file to leave the
-ledger true — the row is removed there, and the new claim is written into the
-branch's own fragment. `CONTRIBUTING.md` carries the same sentence, and the two
+an existing ledger row cites — in `seal/ledger.md` or a
+`seal/releases/<X.Y.Z>.md` — must touch that file to leave the ledger true:
+the row is removed there, and the new claim is written into the branch's own
+fragment. `CONTRIBUTING.md` carries the same sentence, and the two
 used to disagree: one forbade editing the file at all while the other forbade
 appending to it, which left a branch in this position with no reading that
 permits the only correct act.
 
-**When a ledger file conflicts — `seal/ledger.md` or a
-`seal/releases/<X.Y.Z>.md` — resolve it hunk by hunk and read both sides.** Never `--ours` and never `--theirs`. A whole-file choice is wrong by
-construction once both branches have been correcting, and the measured
-instance is the argument: in #424 the two hunks resolved in opposite
-directions, because each side was the superset in one of them. Taking a side
-reverted three corrections that had each turned a false claim true.
+**When a ledger file conflicts — `seal/ledger.md`, a
+`seal/releases/<X.Y.Z>.md`, or a fragment two stacked branches both edited —
+resolve it hunk by hunk and read both sides.** Never `--ours` and never
+`--theirs`. A whole-file choice is wrong by construction once both branches
+have been correcting, and the measured instance is the argument: in #424 the
+two hunks resolved in opposite directions, because each side was the superset
+in one of them. Taking a side reverted three corrections that had each turned
+a false claim true.
 
 **Nothing downstream can see that, which is why the reading is yours.** A row
 reverted to a superseded state is byte-identical to a row nobody touched —
