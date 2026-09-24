@@ -1383,6 +1383,15 @@ def command_names_backslashed(command):
     command (`>out bin/test`), where this scan stops treating the rest as
     command position. None is worse than the row handed as written, and
     `templates/config.md` §*Broad gate* states the rule and these examples.
+
+    **Rewritten, and named rather than claimed:** a switch written straight
+    against a program that is not one of `CMD_BUILTINS` (`xcopy/e`). The
+    scan cannot tell a program's name from a directory's by its spelling,
+    so the `/` is read as part of a path and `xcopy/e` is handed over as
+    `xcopy\\e`, which does not run. This one is worse than the row as
+    written. `templates/config.md` §*Broad gate* says so and names the
+    spelling that avoids it, a blank before the switch (`xcopy /e`), and
+    telling a program from a directory is #596.
     """
     out = []
     at_command = True  # the next word read is a command name

@@ -10,7 +10,10 @@
   one line saying what `cmd.exe` was handed, and the check's kept output
   carries it under the row as written. A `/` written straight after one of
   `cmd.exe`'s own commands, as in `rd/s/q`, is that command's switch and is
-  left as written. `templates/config.md` §*Broad gate* states which
+  left as written. A `/` written straight after any other program, as in
+  `xcopy/e`, is read as part of a path and rewritten, so that row stops
+  running; write the switch with a blank before it (`xcopy /e`). Telling
+  the two apart is issue #596. `templates/config.md` §*Broad gate* states which
   positions are rewritten and names examples of those that are not.
 - **A failing suite whose output holds no pytest summary says so (issue
   #448).** The failure form now adds one line where the `suite` check failed

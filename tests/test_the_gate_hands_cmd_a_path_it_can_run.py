@@ -196,6 +196,29 @@ def test_the_one_shell_site_is_run_and_it_applies_the_rewrite():
     )
 
 
+@pytest.mark.parametrize(
+    "row, handed",
+    [
+        ("xcopy/e/i a b && bin/test", r"xcopy\e\i a b && bin\test"),
+        ("findstr/s x *.py", r"findstr\s x *.py"),
+        # The spelling the template names, which reaches `cmd.exe` as written.
+        ("xcopy /e /i a b && bin/test", r"xcopy /e /i a b && bin\test"),
+    ],
+)
+def test_a_switch_against_another_program_is_rewritten_the_documented_bound_not_the_goal(
+    row, handed
+):
+    """Round 2's 🟡 1, pinned as the bound it is and not as what is wanted.
+    The scan cannot tell a program's name from a directory's by its
+    spelling, so a `/` written straight after a program other than one of
+    `CMD_BUILTINS` is read as part of a path: `xcopy/e` is handed over as
+    `xcopy\\e`, which `cmd.exe` cannot find. `templates/config.md` says so
+    and names the blank that avoids it. Telling the two apart is #596, and
+    the change that does it turns this case red on purpose."""
+    gate = gate_module()
+    assert gate.handed_to_shell(row, windows=True, comspec=CMD) == handed
+
+
 def test_the_template_says_which_positions_are_rewritten():
     """A2, the reader's half (§14). `templates/config.md` §*Broad gate* is
     where a person writing the row learns what `cmd.exe` is handed, and it
@@ -220,6 +243,11 @@ def test_the_template_says_which_positions_are_rewritten():
         "a command name after a redirection that opens its command "
         "(`>out.txt bin/test`)",
         "the gate prints one line saying what `cmd.exe` was handed",
+        # The bound below, written where the person typing the row reads it.
+        "A `/` written straight after any other program's name is read as "
+        "part of a path and rewritten",
+        "Write a switch with a blank before it (`xcopy /e`)",
+        "#596",
     ):
         assert needle in prose, f"templates/config.md §Broad gate lacks: {needle}"
     assert "Two positions are not rewritten" not in prose, (

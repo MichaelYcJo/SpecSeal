@@ -160,7 +160,13 @@ that case red.
   `dir/b`), which is that command's switch and is left as written.
   **Corrected 2026-09-25** in round 1's fix pass: without that exception
   the rewrite turned a built-in's switch into a path, denying or changing
-  a row that ran before (round 1's 🟡 2).
+  a row that ran before (round 1's 🟡 2). A `/` written straight after any
+  other program (`xcopy/e`) is read as part of a path and rewritten, so
+  that row is **denied**: it ran before and now fails to find `xcopy\e`.
+  A switch written with a blank before it (`xcopy /e`) is left as written,
+  and the template says so; telling a program from a directory is #596.
+  **Corrected 2026-09-25** in round 2's fix pass, which found the
+  exception named only the built-ins (round 2's 🟡 1).
 - #448's label changes no verdict.
 - #510's scrub **blocks more**: a case that reached a live `gh` now fails
   locally. That case already fails on CI, so the only new deny is the one
