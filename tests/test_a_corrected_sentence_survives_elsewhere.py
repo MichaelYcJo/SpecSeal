@@ -3223,8 +3223,8 @@ def test_an_ungathered_fragment_is_still_a_carrier(tmp_path):
 # sentence reworded, which git calls a rename too (`R096` when measured): the
 # reworded sentence never entered `wanted`, and its copy standing in another
 # file was never reported. Read with `--no-renames`, a rename is a deletion
-# plus an addition, the old path's sentences are removed, and a pure move is
-# silent because every one of them is written back verbatim.
+# plus an addition, so the old path is read; and since #563 a sentence that
+# arrives verbatim at the new path is held, so a pure move removes nothing.
 
 # Long enough that git reads the move as a rename even with one sentence
 # changed; the case asserts that it did, so the fixture cannot quietly turn
@@ -3288,24 +3288,194 @@ def test_a_file_moved_as_a_rename_with_one_sentence_reworded_is_still_measured(
     assert "notes.md" in text, f"the report does not name the survivor:\n{text}"
 
 
-def test_a_file_moved_verbatim_is_silent_because_its_wording_is_written_back(
-    tmp_path,
-):
-    """S18 (#551). The half that must not move, and the reason it holds.
+def test_a_file_moved_verbatim_is_silent_because_it_removes_nothing(tmp_path):
+    """S18 (#551, rewritten for #563). The half that must not move.
 
-    A pure move is still silent -- but because every sentence the old path
-    lost is written back verbatim at the new one and `wanted` subtracts it,
-    not because the old path was never read. The removed-sentence count is
-    what tells the two apart: under rename detection it was 0."""
+    A pure move is silent because a sentence the range moved to another
+    path is held, never removed and never written: the count of removed
+    sentences is 0. It used to be positive, every sentence removed and
+    written back, and that count was this case's proof that the old path
+    was read at all. That proof is S17's now -- a rename that rewords one
+    sentence can only be measured if the old path is read."""
     repo = tmp_path / "probe"
-    head = moved_section(repo, FOUND)
+    os.makedirs(repo, exist_ok=True)
+    body = f"# a\n\n{LONG_SECTION.format(claim=FOUND)}"
+    build(
+        repo,
+        {"a.md": body, "notes.md": f"# notes\n\nQuoted here: {FOUND}\n", **FILLER},
+        "the section, and a note quoting its claim",
+    )
+    os.remove(os.path.join(str(repo), "a.md"))
+    head = build(repo, {"b.md": body}, "a.md moved whole to b.md")
     assert name_status(repo, head).startswith("R")
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 0, f"a verbatim move was reported; exit {code}\n{text}"
     assert "no removed wording is still standing" in text, text
-    assert re.search(r"against [1-9]\d* sentence\(s\)", text), (
-        "the range removed no sentence at all, so the old path was never read "
-        f"and the silence is rename detection rather than `wanted`:\n{text}"
+    assert re.search(r"against 0 sentence\(s\)", text), (
+        "a verbatim move still counts its sentences as removed, so the moved "
+        f"text is written and subtracts whatever it shares:\n{text}"
+    )
+
+
+# --- #563: a sentence moved to another path is held, never written ---------
+#
+# Read as a deletion plus an addition, a move wrote its whole text back as the
+# range's own, and that text subtracted every n-gram it shared with a
+# correction made elsewhere in the same range. So a quote the move carried
+# along hid itself and every other copy of the corrected claim. A move changes
+# no sentence's author: a sentence removed at one path and added verbatim at
+# another is neither removed nor written, the in-file counting rule applied
+# across paths. Two quoting copies halve each other's weight, so the pool is
+# made large enough that two independent runs still clear the floor.
+
+MORE_FILLER = {
+    f"filler/more-{n}.md": f"# more filler {n}\n\nAnother unrelated line {n}.\n"
+    for n in range(48)
+}
+
+
+def test_a_file_moved_whole_still_reports_the_quote_it_carried(tmp_path):
+    """M1, #563's probe. `c.md` quotes `docs/a.md`'s claim and is moved
+    whole to `d.md` in the commit that corrects `docs/a.md`. Written as the
+    range's own, the moved quote subtracted the correction's removed
+    wording and neither copy was reported. Red at c52e8350: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    quote = f"# c\n\nQuoted here: {FOUND}\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            "docs/c.md": quote,
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "the claim, and two documents quoting it",
+    )
+    os.remove(os.path.join(str(repo), "docs", "c.md"))
+    head = build(
+        repo,
+        {"docs/a.md": f"# a\n\n{REPAIRED}\n", "docs/d.md": quote},
+        "move c.md to d.md, and correct a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the moved quote was written as the range's own and subtracted the "
+        f"corrected claim; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text and "docs/d.md" in text, (
+        f"both copies of the corrected claim stand and the report names:\n{text}"
+    )
+
+
+def test_a_split_document_still_reports_the_quote_it_moved(tmp_path):
+    """M2, the split #563 names as reachable here: `docs/c.md` keeps one of
+    its sections and the other, which quotes the claim, moves to `docs/d.md`
+    in the commit that corrects `docs/a.md`. Both files remain, so no
+    whole-file rule sees a move. Red at c52e8350: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    one = f"## One\n\nQuoted here: {FOUND}\n"
+    two = "## Two\n\nThe second section says something else entirely.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            "docs/c.md": f"# c\n\n{one}\n{two}",
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "the claim, a document quoting it, and a two-section document",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "docs/c.md": f"# c\n\n{two}",
+            "docs/d.md": f"# d\n\n{one}",
+        },
+        "split c.md's first section into d.md, and correct a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the split's moved section was written as the range's own and "
+        f"subtracted the corrected claim; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text and "docs/d.md" in text, (
+        f"both copies of the corrected claim stand and the report names:\n{text}"
+    )
+
+
+def test_a_move_holds_only_as_many_copies_as_it_carried(tmp_path):
+    """M6, the pairing is one for one. `docs/a.md` states the claim twice;
+    the range moves one statement to `docs/d.md` and corrects the other.
+    One copy arrived, so one is held and the other is still removed --
+    paired by key alone, both were held and the correction measured
+    nothing. Red at c52e8350 (exit 0, the moved copy written), and red with
+    the pairing's count left undecremented."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\nFirst. {FOUND}\n\nSecond. {FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "the claim stated twice, and a document quoting it",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\nFirst. {REPAIRED}\n",
+            "docs/d.md": f"# d\n\nSecond. {FOUND}\n",
+        },
+        "move the second statement to d.md, and correct the first",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "one copy of the claim moved and the other was corrected, and the "
+        f"move held both; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text and "docs/d.md" in text, text
+
+
+def test_a_copy_written_beyond_the_ones_moved_is_the_ranges_writing(tmp_path):
+    """M7, the other side of one for one. `docs/c.md`'s quote moves to
+    `docs/d.md`, and the same range writes a second copy of it into
+    `docs/e.md`. One copy arrived by the move and is held; the other is
+    wording this range wrote, and it is subtracted as any written wording
+    is, so the run is silent. Holding every copy of a key that was moved
+    once reported both files -- red with the pairing's second count left
+    undecremented."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    quote = f"# c\n\nQuoted here: {FOUND}\n"
+    build(
+        repo,
+        {"docs/a.md": f"# a\n\n{FOUND}\n", "docs/c.md": quote, **FILLER, **MORE_FILLER},
+        "the claim, and a document quoting it",
+    )
+    os.remove(os.path.join(str(repo), "docs", "c.md"))
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "docs/d.md": quote,
+            "docs/e.md": f"# e\n\nQuoted here: {FOUND}\n",
+        },
+        "move c.md to d.md, write a second copy into e.md, correct a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "the copy this range wrote into e.md was held with the moved one, so "
+        f"wording the range wrote was not subtracted; exit {code}\n{text}"
+    )
+    assert re.search(r"against 1 sentence\(s\)", text), (
+        f"only a.md's corrected sentence is removed; the move removes nothing:\n{text}"
     )
 
 

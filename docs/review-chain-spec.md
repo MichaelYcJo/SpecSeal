@@ -923,9 +923,10 @@ Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state,
 <!-- specs/1790221963-a-release-writes-the-gathered-text-back -->
 **Only wording the range itself wrote is subtracted from what it removed.**
 That subtraction is what makes the score mean *removed*, so the question is
-always whose writing a sentence is. A file moved to another path is read as
-a deletion plus an addition: a pure move writes every sentence back and is
-silent for that reason, and a move that rewords one sentence measures it,
+always whose writing a sentence is. A sentence moved verbatim to another
+path, by a file moved whole or a document split, is held and never written,
+because a move changes no sentence's author: a pure move removes nothing and
+is silent for that reason, and a move that rewords one sentence measures it,
 where git's rename detection hid both. A fragment's text gathered by a
 release is held and never written, because the fragment's own branch wrote
 it. Written, it subtracted the survivor a correction in the same commit left
@@ -935,7 +936,7 @@ still splits a sentence `CHANGELOG.md` itself lost, and nothing else. A
 release that loses no live sentence writes nothing it put under a version
 heading, and that guard and the gathered-text filter are pinned by separate
 cases, because either alone kept the shape the ticket first named green.
-Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released
+Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released, skills/code-review/scripts/survivor_check.py::paired_across_paths
 
 ## Non-goals
 

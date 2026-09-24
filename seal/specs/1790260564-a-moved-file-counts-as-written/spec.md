@@ -56,7 +56,7 @@ by reopening the same sources. None of them is in `questions.md`.
    away.
 3. **A pure move now reports `against 0 sentence(s)`.** Today it reports a
    positive count, because every sentence is removed and then written back.
-   S18 (`test_a_file_moved_verbatim_is_silent_because_its_wording_is_written_back`)
+   S18 (`test_a_file_moved_verbatim_is_silent_because_its_wording_is_written_back`, NAME NOT IN TREE since phase 2 renamed it)
    pins the positive count as proof that the old path was read. That proof
    changes hands. S17 (a rename with one reworded sentence is measured) can
    only pass if the old path is read. S18 is rewritten to pin silence at a

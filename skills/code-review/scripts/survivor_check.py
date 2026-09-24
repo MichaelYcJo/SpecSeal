@@ -980,16 +980,18 @@ def corrected(root, a, b):
     corrected.
 
     **A rename is read as a deletion plus an addition** (`--no-renames`,
-    #551), and that is what makes a pure move silent for the right reason.
-    A file moved whole to another path loses every sentence at the old path
-    and writes every one back verbatim at the new one, so `wanted` subtracts
-    them all and nothing is looked for. With git's rename detection on, the
-    same move was silent because the old path was never listed at all --
-    and so was a move with one sentence reworded, which git calls a rename
-    too (`R096` when measured on a forty-paragraph file): the reworded
-    sentence never became a source, and its copy standing in another file
-    was never reported. Read as a deletion plus an addition, that sentence
-    is removed, is not written back, and is looked for.
+    #551), **and a sentence that arrives verbatim at another path is held,
+    not written** (#563, `paired_across_paths`). With git's rename
+    detection on, a move with one sentence reworded -- a rename to git too,
+    `R096` when measured on a forty-paragraph file -- never listed the old
+    path, so the reworded sentence never became a source and its copy in
+    another file was never reported. Read as a deletion plus an addition,
+    that sentence is removed and looked for. The rest of the moved text was
+    then written back as the range's own, and it subtracted every n-gram it
+    shared with a correction made elsewhere in the same range, so a quote
+    the move carried along hid itself and every other copy of the claim.
+    Paired across paths it is neither removed nor written, and a pure move
+    removes nothing, which is why it is silent.
 
     **The release commit is held, not removed** (round 1's 🟡 1, round 2's
     🟡 1 and 🟡 2). In a repository that lets the entry accumulate under
@@ -1062,7 +1064,7 @@ def corrected(root, a, b):
         for path, text in read_blobs(root, a, fragments).items()
         for sentence in sentences(path, text)
     }
-    gone, written, split = [], set(), set()
+    gone, fresh, split = [], [], set()
     for path in paths:
         was = sentences(path, before[path]) if path in before else []
         now = sentences(path, after[path]) if path in after else []
@@ -1100,13 +1102,51 @@ def corrected(root, a, b):
         lost_here = {gram for sentence in gone[lost:] for gram in sentence.grams()}
         for sentence in held:
             split.update(gram for gram in sentence.grams() if gram in lost_here)
-        old = Counter(s.key for s in was)
-        fresh = Counter()
+        old, new = Counter(s.key for s in was), Counter()
         for sentence in now + moved:
-            fresh[sentence.key] += 1
-            if fresh[sentence.key] > old[sentence.key]:
-                written.update(sentence.grams())
+            new[sentence.key] += 1
+            if new[sentence.key] > old[sentence.key]:
+                fresh.append(sentence)
+    # Only after every path is counted: a sentence that left one path and
+    # arrived at another is a move, and neither side of it is this range's.
+    gone, fresh = paired_across_paths(gone, fresh)
+    written = {gram for sentence in fresh for gram in sentence.grams()}
     return gone, written, split
+
+
+def paired_across_paths(gone, fresh):
+    """`(gone, fresh)` less every sentence the range moved between paths.
+
+    A sentence removed at one path and added verbatim at another -- the same
+    key, paired one for one -- is neither removed nor written (#563). It is
+    the counting rule `corrected` already applies inside one file, where a
+    reordered sentence is neither, applied across files: a move changes no
+    sentence's author, so the moved text is held the way a gathered
+    fragment's is. A file moved whole, a rename and a document split into
+    two that both remain are all this shape; no whole-file rule sees the
+    split.
+
+    The two lists can only meet across paths: within one path, a key is
+    either counted down or counted up, never both. A pair leaves `gone`
+    only when every n-gram it has is in `written` anyway, so `wanted` can
+    only grow -- and a larger `wanted` can join two runs into one, which
+    `weigh` scores by its rarest n-gram. That is the score the same text
+    gets had it not moved."""
+    arrived = Counter(sentence.key for sentence in fresh)
+    left, kept = Counter(), []
+    for sentence in gone:
+        if arrived[sentence.key] > 0:
+            arrived[sentence.key] -= 1
+            left[sentence.key] += 1
+        else:
+            kept.append(sentence)
+    written = []
+    for sentence in fresh:
+        if left[sentence.key] > 0:
+            left[sentence.key] -= 1
+        else:
+            written.append(sentence)
+    return kept, written
 
 
 def wanted(gone, written):
