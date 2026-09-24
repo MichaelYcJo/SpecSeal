@@ -2655,6 +2655,41 @@ def test_a_range_that_edits_only_a_released_section_removes_no_sentence(tmp_path
     )
 
 
+def test_a_release_that_moves_the_unreleased_section_under_a_version_removes_nothing(
+    tmp_path,
+):
+    """Round 1's 🟡 1. The release commit of a repository that lets the entry
+    accumulate unreleased: `## Unreleased` takes a version heading and
+    nothing else changes. The section is live at `a` and blanked at `b`, so
+    without the held-count every sentence of it reads as removed and the
+    document restating an entry is reported at the release with nothing
+    anybody may correct. Two disjoint runs in the restatement, because one
+    run scores 1.00 and never clears the floor."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    restated = FOUND.replace("itself and the", "itself and, from then on, the")
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{restated}\n",
+            "CHANGELOG.md": changelog("## Unreleased", FOUND),
+            **FILLER,
+        },
+        "the entry under Unreleased, and a document restating it",
+    )
+    head = build(
+        repo,
+        {"CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND)},
+        "release 1.0.0: the unreleased section takes a version heading",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "a release that only moved the unreleased section under a version "
+        f"heading was read as a correction to chase into docs/a.md; exit {code}\n{text}"
+    )
+    assert "docs/a.md" not in text.split("examined", 1)[-1], text
+
+
 def test_a_gathered_fragment_standing_in_the_pool_is_not_a_survivor(tmp_path):
     """S10, the pool side. The fragment's marker is in `CHANGELOG.md` at the
     tip, so the fragment is the released entry one file over and is not

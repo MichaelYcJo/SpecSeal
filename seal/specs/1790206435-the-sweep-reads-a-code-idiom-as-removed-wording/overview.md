@@ -43,6 +43,13 @@ unresolved declaration prints only to the run it addresses.
   after Q5's third probe as outside the item's three tickets~~ — the owner
   filed it as #551 and added it to this work item; taken as phase 5, with
   its gate-table row in `plan.md` and its cases (ledger row R1).
+- **In local mode a `survivors.md` can never own its own range** (#554,
+  filed by the orchestrator from round 1's ⬜ 5): `OWNER_DIR` names
+  `seal/specs/<id>` under the git directory, and `changed` is a diff of
+  tracked files that cannot contain it, so a resolved declaration is
+  `not yours` for its own run there (the base's behaviour) and an unresolved
+  one now prints nothing. The wrong allow is empty either way; what is lost
+  is the line a person reads. Pre-existing in its cause, deferred to #554.
 - **Joining a `#` comment block into one paragraph**, and **code in files
   that are not `.py`** — `spec.md` §*Out*, both the repository owner's.
 - **The twenty `survivors.md` rows of the two classes** — 17 code-idiom, 3

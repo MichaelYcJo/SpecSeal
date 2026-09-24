@@ -538,6 +538,23 @@ def blank_released(text):
     return "\n".join(out)
 
 
+def only_released(text):
+    """The complement of `blank_released`: every line of a released section
+    kept, line numbers intact, every other line blanked.
+
+    Read by `corrected` for the tip's changelog, so a sentence a release
+    moved from `## Unreleased` under a version heading is counted as still
+    held rather than as removed (round 1's 🟡 1). Counted, never written
+    back: a released section subtracts nothing from what the range is
+    looking for."""
+    out, released = [], False
+    for line in text.split("\n"):
+        if SECTION_HEADING.match(line):
+            released = VERSION_HEADING.match(line) is not None
+        out.append(line if released else "")
+    return "\n".join(out)
+
+
 # What a Python file SAYS, as opposed to what it does. Its prose is its
 # comments, its docstrings and its string literals; every other token -- a
 # name, an operator, a number, a keyword -- is code, and a line of code
@@ -908,7 +925,21 @@ def corrected(root, a, b):
     too (`R096` when measured on a forty-paragraph file): the reworded
     sentence never became a source, and its copy standing in another file
     was never reported. Read as a deletion plus an addition, that sentence
-    is removed, is not written back, and is looked for."""
+    is removed, is not written back, and is looked for.
+
+    **The release commit is held, not removed** (round 1's 🟡 1). In a
+    repository that lets the entry accumulate under `## Unreleased`, the
+    release moves that section under a version heading and changes nothing
+    else. The section is live at `a` and blanked at `b`, so counted as any
+    other file it reads as every sentence removed, and a document restating
+    an entry is reported at the release with nothing anybody may correct --
+    a regression against the whole-file reading, in exactly the shape the
+    heading-based reading was chosen to serve. So for `CHANGELOG.md` the
+    sentences standing under a version heading at `b` are added to the held
+    count before the difference is taken. Counted and never written: nothing
+    from a released section reaches `written`, so it subtracts nothing from
+    what the range is looking for, and the gathered-fragment shape of the
+    same event was already silent by the predicate above."""
     names = git(root, "diff", "--name-only", "--no-renames", "-z", a, b)
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
@@ -940,6 +971,18 @@ def corrected(root, a, b):
         was = sentences(path, before[path]) if path in before else []
         now = sentences(path, after[path]) if path in after else []
         counted = Counter(s.key for s in now)
+        if path == CHANGELOG and path in after:
+            # A release moves `## Unreleased` under a version heading. The
+            # section is blanked at `b`, so without this every sentence of
+            # it would count as removed and the documents restating an entry
+            # would be reported at the release with nothing to correct -- the
+            # gathered-fragment shape, one heading over. Held, not written:
+            # nothing here reaches `written`.
+            counted.update(
+                Sentence(path, line, raw).key
+                for line, raw in segments(blank_struck(only_released(after[path])))
+                if raw
+            )
         seen = Counter()
         for sentence in was:
             seen[sentence.key] += 1
@@ -1358,9 +1401,12 @@ def report(
 
     `whole` is the `(range_spec, grounds)` declaration covering this exact
     range, and it excuses every candidate. `unresolved` is the declarations
-    whose range does not resolve here; they silence nothing and are printed,
-    because a declaration that quietly stopped applying is the one failure a
-    rotting anchor must not have. `foreign` is the same failure one step
+    whose range does not resolve here and that this run could have used --
+    which `whole_range` decides by the second anchor, so one owned by a work
+    item the range touches nothing of never arrives (#439); they silence
+    nothing and are printed, because a declaration that quietly stopped
+    applying is the one failure a rotting anchor must not have. `foreign` is
+    the same failure one step
     over: a declaration that resolved onto this exact range and belongs to a
     work item the range does not touch, refused and printed with the work
     item it came from.

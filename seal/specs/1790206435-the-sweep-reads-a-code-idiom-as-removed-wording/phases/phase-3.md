@@ -89,4 +89,4 @@ byte-identical each time:**
 
 | Removed item | Where it must land |
 |---|---|
-| the `unresolved` line for a declaration of a work item the range touches nothing of | nowhere — the line was addressed to nobody, and the row it printed for still says what it says in its own `survivors.md`; `docs/review-chain-spec.md` §*The survivor sweep* still says a spec that will not resolve is printed, which is true of the run it addresses |
+| the `unresolved` line for a declaration of a work item the range touches nothing of | nowhere — the line was addressed to nobody, and the row it printed for still says what it says in its own `survivors.md`; `whole_range`'s own docstring (`survivor_check.py`, *A spec that will not resolve is REPORTED, never exit 2*) still says a spec that will not resolve is printed, which is true of the run it addresses — corrected 2026-09-24 by round 1's fix pass (⬜ 3): the sentence was first cited to `docs/review-chain-spec.md` §*The survivor sweep*, which states the second anchor and says nothing about printing |
