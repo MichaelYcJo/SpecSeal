@@ -59,15 +59,17 @@ state nobody planned), and a ledger with nothing to move.
 **A second fold for one version joins its file** (#540). The release pull
 request going red and a fragment landing after the preparation commit is the
 ordinary shape, and the fold used to write a second `## X.Y.Z` heading for
-it, below everything: `seal/ledger.md` headed `0.9.3` twice for six releases.
-Where `seal/releases/X.Y.Z.md` already exists, the new work items go at the
-end of it, the file keeps the first fold's date over `--date` and over today,
-and `--dry-run` prints the heading it joins. `--check` refuses a release file
-that heads a version twice, or one not named for the version it heads,
-naming the lines — the same three answers `gather_changelog.py` gives for
-`CHANGELOG.md` (#289). It also refuses a `seal/ledger.md` that heads any
-release at all: after the split that is a fold written to the old place or a
-split not run, and the refusal names `--split` as the repair.
+it, below everything: `seal/ledger.md` headed `0.9.3` twice through the
+seventeen ledger sections from `0.9.4` to `0.15.0` (eighteen tags after
+`v0.9.3`; `0.13.2` folded no section). Where `seal/releases/X.Y.Z.md` already
+exists, the new work items go at the end of it, the file keeps the first
+fold's date over `--date` and over today, and `--dry-run` prints the heading
+it joins. `--check` refuses a release file that heads a version twice, or one
+not named for the version it heads, naming the lines — the same three answers
+`gather_changelog.py` gives for `CHANGELOG.md` (#289). It also refuses a
+`seal/ledger.md` that heads any release at all: after the split that is a fold
+written to the old place or a split not run, and the refusal names `--split`
+as the repair.
 
 **A fold is a move, not a deletion.** Every table row of a fragment is copied
 into the release file byte for byte, under a heading for the release and one

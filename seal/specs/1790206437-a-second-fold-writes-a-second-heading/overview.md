@@ -37,15 +37,17 @@ reads it, and the reviewer splits the finding.
 
 ## Not done
 
-**Two folded work items stand in `seal/ledger.md` with their marker line
-twice.** `1790173106`'s and `1790174138`'s fragments each began with their
-own `<!-- specs/<id> -->` line, and the 0.15.0 fold copied it under the
-marker it writes, so `fold_ledger.py --check` counts 118 work items marked
-where the folded sections number fewer (executed: `grep -c` of each marker
-line reads 2). This item's fragment carries no marker line and its comment
-says why; the two standing duplicates, and whether the fold should drop a
-marker line from a fragment's body, are outside the three tickets and are
-named in the hand-back for the reviewer.
+**Twenty folded work items stand in `seal/ledger.md` with their marker line
+twice.** A fragment that began with its own `<!-- specs/<id> -->` line was
+folded with it under the marker the fold writes, so `fold_ledger.py --check`
+counts 118 work items marked where 98 are distinct (executed by round 1's
+⬜ 2 and re-measured in the fix pass: `grep -c '^<!-- specs/[^ ]* -->$'`
+reads 118, the same lines through `sort -u | wc -l` read 98). The hand-back
+had counted two, having measured only the two 0.15.0 fragments it opened.
+This item's fragment carries no marker line and its comment says why; the
+twenty standing duplicates, and whether the fold should drop a fragment's
+own marker line, are MichaelYcJo/SpecSeal#553, filed by the orchestrator,
+which step D (#547) takes with the fold's restructure.
 
 **Q4 measured none.** `survivor-check --range origin/release/v0.15.1...HEAD`
 at `1c6e82d4` examined 396 files against 30 removed sentences and found no

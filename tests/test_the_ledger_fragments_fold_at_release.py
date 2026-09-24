@@ -338,9 +338,11 @@ def late_fragment(tree):
 
 
 def test_a_second_fold_for_the_same_version_joins_its_section(tree):
-    """#540. `seal/ledger.md` headed `0.9.3` twice for six releases: the
+    """#540. `seal/ledger.md` headed `0.9.3` twice through seventeen ledger
+    sections (`0.9.4` to `0.15.0`, counted after the second heading): the
     first fold ran at the preparation commit, the pull request went red, a
-    fragment landed the next day, and the second fold wrote a second
+    fragment landed thirty-one minutes later (`bee7ae99` at 02:04, then
+    `4ac9bf35` at 02:35, 2026-09-09 +0900), and the second fold wrote a second
     `## 0.9.3` heading below everything — one release's rows split across
     two sections that read as two releases. The section is joined now, it
     keeps the first fold's date over `--date`, and the file heads the

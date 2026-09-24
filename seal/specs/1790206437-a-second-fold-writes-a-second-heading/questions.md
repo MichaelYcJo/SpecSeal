@@ -11,8 +11,8 @@ Listed so nobody reopens them; the grounds are in `spec.md` §*Judgments the
 tree answered*, one number each.
 
 1. #540's claim that nobody has run the fold twice on this tree is false:
-   `seal/ledger.md` heads `0.9.3` twice, written by `4ac9bf35` the day after
-   the 0.9.3 preparation commit (1).
+   `seal/ledger.md` heads `0.9.3` twice, written by `4ac9bf35` thirty-one
+   minutes after the 0.9.3 preparation commit `bee7ae99` (1).
 2. A second fold joins the section and keeps its date; it is not refused (2).
 3. The doubled-heading refusal lives in `fold_ledger.py --check` AND as a
    real-tree case in `tests/test_release_hygiene.py` (3).
