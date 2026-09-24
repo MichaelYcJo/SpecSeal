@@ -76,11 +76,12 @@ prescribed test unplanted, a verified fact unmerged.
 ```
 seal/
 ├── README.md            this file
-├── ledger.md            spec clause ↔ code coordinates: the gathered ledger,
-│                        which each release folds the fragments into
+├── ledger.md            spec clause ↔ code coordinates: the shared ledger
+│                        every fragment is read beside
 ├── ledger/
 │   └── <work-item-id>.md  one work item's rows while it is in development —
-│                          folded into ledger.md at the release, then removed
+│                          gathered at a release by the repository's own
+│                          fold, then removed
 ├── config.md            what this repository says about itself, one row per
 │                        item — `Commit and pull request language`,
 │                        `Record language`, and `Mode`, which `seal mode`
