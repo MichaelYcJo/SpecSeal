@@ -56,7 +56,7 @@ inside the locator, which the arm read as a stamp and reported BROKEN
 `tests/test_a_record_states_what_the_tree_has.py`'s real-corpus case, which
 had failed on the same quote, passes. The frame's own markers came off the
 seven lines whose names the work created (`has_xdist`, `shipped_gate`, the
-inverted pin, the new module); the two on `with_xdist` — the frame's
+inverted pin, the new module); the two on `with_xdist` — the frame's NAME NOT IN TREE
 placeholder for a name the phase chose differently — and on the
 `pytest_xdist-3.8.0.dist-info` directory entry stay, because neither is in
 the tree.
