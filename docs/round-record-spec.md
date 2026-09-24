@@ -541,8 +541,8 @@ read exactly like a finished one — a check reporting clean while something is
 missing, which is the title of the work item that produced it.
 
 **Its direction is `allow` for a reason the checker does not recognise, and
-that is a deliberate exception to the `blocks more` direction
-`docs/review-chain-spec.md` §*The reopening* states.** The
+that is a deliberate exception to the direction every other refusal in
+`chain_check.py` takes, which treats what it cannot read as failing.** The
 alternative is refusing an honest custom reason for its wording, and a rule
 about which English sentences mean *not yet* is the enumeration over an
 unbounded domain the arrow's and the comma's limits already decline. What is

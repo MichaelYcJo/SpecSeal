@@ -70,9 +70,14 @@ Enforced by: tests/test_a_record_states_what_the_tree_has.py::test_a_work_item_w
 **A `|` inside a ledger cell is escaped, and a row with more cells than its
 table's header fails.** An unescaped pipe splits the row, and the text after it
 lands in the next column, so a claim runs into its grounds and a date into its
-notes. At `31937b9f`, 22 rows stood split that way, three of them a second
-date-and-notes pair written into one Notes cell (#562). The case reads the
-shared file, every release file and every fragment.
+notes. At `31937b9f`, 22 rows stood split that way: two of them carried a
+second date-and-notes pair in one Notes cell, and one a Notes cell split in
+three (#562; #568 joined each into one reading). A row under no header is
+counted against the five columns `templates/ledger.md` declares for a ledger
+row, because a fragment has no header by rule and the fold copies it into its
+release file as it stands — without that width, every fragment row was read
+and none was counted (#501). The case reads the shared file, every release
+file and every fragment.
 Enforced by: tests/test_release_hygiene.py::overwide_rows
 
 ## What the checker refuses, and what it says while refusing

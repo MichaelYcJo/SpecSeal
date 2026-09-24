@@ -432,3 +432,67 @@ def test_a_flag_overrides_its_row_for_one_run(tmp_path):
     assert (tmp_path / "seal" / "config.md").read_text(encoding="utf-8").count(
         "| Document line ceiling | 10 |"
     ) == 1
+
+
+# --- round 1 -----------------------------------------------------------------
+
+
+def git_init(root):
+    subprocess.run(["git", "init", "-q", root], check=True, capture_output=True)
+
+
+def test_the_command_typed_in_a_subdirectory_reads_the_repository(tmp_path):
+    """Round 1, finding 1: typed in `docs/`, the rows and the documents are the
+    repository's, so a run one directory too deep does not pass unchecked."""
+    root = config_root(tmp_path, [("Document line ceiling", "10")])
+    git_init(root)
+    (tmp_path / "docs" / "long.md").write_text("x\n" * 11, encoding="utf-8")
+    done = subprocess.run(
+        [sys.executable, SCRIPT],
+        cwd=str(tmp_path / "docs"),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "docs/long.md is 11 lines, over the ceiling of 10" in done.stdout
+
+
+def test_an_opted_out_repository_is_told_it_opted_out(tmp_path):
+    """Round 1, finding 3: it has a root, so "no seal/ root" would be false.
+    Both of the states `home_at` answers "" for are pinned whole (§14)."""
+    root = config_root(tmp_path, [("Document line ceiling", "10")])
+    git_init(root)
+    (tmp_path / ".git" / "specseal-scratch").write_text("", encoding="utf-8")
+    code, out, err = command("--root", root)
+    assert code == 0, (out, err)
+    assert out == (
+        "fold-check: neither `Fold shape from` nor `Document line ceiling` is "
+        f"declared in {root}, which has opted out — `specseal-scratch` is under "
+        "its git directory, so its seal/config.md is not read, so nothing was "
+        "checked\n"
+    ), out
+
+
+def test_a_repository_with_no_root_is_told_it_has_none(tmp_path):
+    (tmp_path / "docs").mkdir()
+    git_init(str(tmp_path))
+    code, out, err = command("--root", str(tmp_path))
+    assert code == 0, (out, err)
+    assert out == (
+        "fold-check: neither `Fold shape from` nor `Document line ceiling` is "
+        f"declared in {tmp_path}, which has no seal/ root at either place, so "
+        "nothing was checked\n"
+    ), out
+
+
+def test_a_listed_document_below_the_top_level_is_named_as_outside_it(tmp_path):
+    """Round 1, finding 4: it exists, so "does not exist" is false."""
+    root = tree(tmp_path, {"small.md": body(3)})
+    (tmp_path / "docs" / "deep").mkdir()
+    (tmp_path / "docs" / "deep" / "big.md").write_text(body(12, 1), encoding="utf-8")
+    found = ceiling_problems(root, 10, {"docs/deep/big.md": (1, "#1")})
+    assert found == [
+        "docs/deep/big.md is listed over the ceiling and is not a top-level "
+        "docs/*.md, the only documents the ceiling holds"
+    ], found
