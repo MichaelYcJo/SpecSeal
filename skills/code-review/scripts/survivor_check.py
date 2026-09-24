@@ -60,6 +60,37 @@ twelve-word test needle and a three-thousand-word ledger cell be judged on the
 same scale. Its unit is **one phrase that occurs nowhere else**, so the number
 means the same thing in a repository of twenty files and one of a thousand.
 
+## What a sentence is in a Python file
+
+**The prose of a `.py` file is its comments, its docstrings and its string
+literals, and nothing else** (#543). A line of code normalises to the same
+words in every file that walks a list the same way -- `for i in range(start,
+len(lines))` is the same four-word run wherever it stands -- so under the
+whole-file reading a branch that rewrote one loop was told that every other
+loop of that shape still stood: four of one branch's five exemption rows,
+and six of the twenty-one places the 0.15.0 release's four ranges reported,
+were function bodies matched on loop, assignment and `if` shapes. None of
+them was wording, and none could be corrected.
+
+So the standard library's tokenizer reads every `.py` file first, on both
+sides of the range and in the pool, and keeps COMMENT, STRING and
+FSTRING_MIDDLE text where it stands. Every other token is blanked to spaces
+with a sentence end where it stood, line numbers intact -- so a code token
+between two literals ends the sentence (`"a", x, "b"` is two), and two
+literals with only a line break between them are one, which is the shape
+#269's pin has and the reason the file kind is not simply skipped: a
+docstring is exactly where a removed rule survives, and the one real
+survivor on the fourth of those four ranges is a `#` comment. A comment keeps
+its `#`, so a comment block is still read one line per sentence and this
+reading is subtractive: code gone, nothing joined that was not joined
+before. A file the tokenizer refuses -- an unterminated string, a bad
+dedent -- is read whole, as it always was.
+
+Code in any other kind of file -- a workflow's `run:` block, a shell script,
+a `bin/` wrapper -- is read as it always was. Not one measured instance is
+in one, and no line-oriented reader exists for them the way the tokenizer
+exists for Python.
+
 ## What is excluded, by construction rather than by list
 
 **A record of a past round.** Everything under a work item's `rounds/` is out
@@ -218,11 +249,13 @@ the tree consistent now*, which is why the report prints what it examined.
 
 import argparse
 import importlib.util
+import io
 import math
 import os
 import re
 import subprocess
 import sys
+import tokenize
 from collections import Counter
 
 # Words per n-gram. Three is the smallest that carries word order, and order is
@@ -450,6 +483,91 @@ def blank_struck(text):
     return STRUCK.sub(blank, text)
 
 
+# What a Python file SAYS, as opposed to what it does. Its prose is its
+# comments, its docstrings and its string literals; every other token -- a
+# name, an operator, a number, a keyword -- is code, and a line of code
+# normalises to the same words in every file that walks a list the same way.
+# #543: `for i in range(start, len(lines))` scored 2.77 against another
+# module's copy of the same loop, four of one branch's five exemption rows
+# were that shape, and the six instances on the 0.15.0 release's four ranges
+# were function bodies matched on loop, assignment and `if` shapes.
+#
+# The kinds are read off the tokenizer by name. On 3.12 an f-string is
+# FSTRING_START, FSTRING_MIDDLE and FSTRING_END with its expressions as
+# ordinary tokens, and the middle is the prose; below 3.12 the whole f-string
+# is one STRING, which the set already holds. A kind the interpreter does not
+# know is left out rather than named, so the set is right on every version.
+PROSE_TOKENS = {tokenize.COMMENT, tokenize.STRING} | {
+    getattr(tokenize, name)
+    for name in ("FSTRING_MIDDLE", "TSTRING_MIDDLE")
+    if hasattr(tokenize, name)
+}
+# Tokens that stand for no text and are blanked WITHOUT a sentence end. The
+# delimiters of an f-string are its quotes, and a plain string's quotes end
+# nothing, so `f"a {x} b" "c"` reads `b c` as one sentence the way `"b" "c"`
+# does; INDENT is the run of spaces at the head of a block, where a `|`
+# would be a wordless sentence per indented block -- noise, never a claim.
+#
+# **Line structure is not listed, and that was measured rather than
+# assumed.** NL and NEWLINE stand at the end of a line, past its text, and
+# DEDENT and ENDMARKER stand on the next token's own column or past the last
+# line; the position guard in `python_prose` writes nothing for any of them,
+# so naming them here changed no output under mutation. A member that cannot
+# change the answer tells a reader the joining of two literals across a line
+# break lives here, and it lives in the guard.
+STRUCTURE_TOKENS = {
+    getattr(tokenize, name)
+    for name in (
+        "INDENT",
+        "FSTRING_START",
+        "FSTRING_END",
+        "TSTRING_START",
+        "TSTRING_END",
+    )
+    if hasattr(tokenize, name)
+}
+# What a blanked code token leaves behind: a cell boundary, which `END`
+# already splits on. So `segments` needs no second rule to read
+# `"first half", name, "second half"` as two sentences -- the code between
+# the literals is where each one ends.
+CODE_STOOD_HERE = "|"
+
+
+def python_prose(text):
+    """`text` with every code token of a Python file blanked, line numbers
+    intact the way `blank_struck` keeps them.
+
+    A comment, a docstring or a string literal stays where it stands. Every
+    other token becomes spaces with a `|` at its first character, so a
+    sentence ends where the code stood: `"a", x, "b"` is two sentences, and
+    two adjacent literals across a line break are one, because nothing but
+    line structure stands between them.
+
+    **A file the tokenizer refuses is returned as it is** -- an unterminated
+    string, a bad dedent, a byte the reader cannot place -- which is the
+    whole-file reading every `.py` file had before this function existed.
+    That fallback reports MORE rather than less, and more is the direction a
+    checker of claims may fail in: a survivor missed inside a file nobody
+    can parse costs what the unanswered finding was worth."""
+    try:
+        tokens = list(tokenize.generate_tokens(io.StringIO(text).readline))
+    except (tokenize.TokenError, SyntaxError, ValueError):
+        return text
+    lines = text.split("\n")
+    out = [[" "] * len(line) for line in lines]
+    for token in tokens:
+        (row, col), _end = token.start, token.end
+        if row < 1 or row > len(out):
+            continue
+        if token.type in PROSE_TOKENS:
+            for offset, part in enumerate(token.string.split("\n")):
+                at = col if offset == 0 else 0
+                out[row - 1 + offset][at : at + len(part)] = part
+        elif token.type not in STRUCTURE_TOKENS and col < len(out[row - 1]):
+            out[row - 1][col] = CODE_STOOD_HERE
+    return "\n".join("".join(row) for row in out)
+
+
 def words(text):
     """`text` as a list of normalised words."""
     return WORD.findall(text.lower())
@@ -513,7 +631,14 @@ class Sentence:
 
 
 def sentences(path, text):
-    """Every sentence in `text`, struck-through spans already gone."""
+    """Every sentence in `text`, struck-through spans already gone -- and in
+    a Python file, every code token gone too (`python_prose`).
+
+    Both `corrected` and `corpus` build every sentence through this
+    function, so a reader placed here holds on both sides of the range and
+    in the pool by construction."""
+    if path.endswith(".py"):
+        text = python_prose(text)
     return [
         Sentence(path, line, raw) for line, raw in segments(blank_struck(text)) if raw
     ]

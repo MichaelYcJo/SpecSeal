@@ -2214,3 +2214,260 @@ def test_a_spec_less_directory_that_stays_is_still_in_the_range(tmp_path):
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 1, text
     assert "docs/policy.md" in text, text
+
+
+# --- #543: a Python file's prose is its comments, docstrings and literals ---
+#
+# A line of code normalises to the same words in every file that walks a list
+# the same way, so a branch that rewrote one loop was told that every other
+# loop of that shape still stood: four of one branch's five exemption rows,
+# and the fourth arrived from another work item's merge as a red hygiene job.
+# The fix is a narrower reading of what a `.py` file SAYS, never a file kind
+# skipped -- #269's pin is a string literal in a test, and the real survivor
+# on the 0.15.0 release's fourth range is a `#` comment.
+
+
+def coordinates_in(text):
+    """The `path:line` coordinates a report names, one per reported survivor."""
+    return {
+        line.strip()
+        for line in text.splitlines()
+        if line and not line.startswith((" ", "survivor-check")) and ":" in line
+    }
+
+
+# Two generic line-list walks, shaped after `round_record.py`'s removed
+# `section_body` scan and the four carriers #543 names. They share three
+# stretches of code tokens -- `end next i for i in range`, `len lines if
+# lines i` and `startswith len lines` -- and no sentence.
+WALK = (
+    "def section_body(lines, heading):\n"
+    '    """The lines of one section."""\n'
+    "    starts = sections(lines, heading)\n"
+    "    start = starts[0]\n"
+    "    end = next(\n"
+    '        (i for i in range(start + 1, len(lines)) if lines[i].startswith("#")),\n'
+    "        len(lines),\n"
+    "    )\n"
+    "    return lines[start:end]\n"
+)
+OTHER_WALK = (
+    "def table_lines(lines, header_idx):\n"
+    '    """The rows of one table."""\n'
+    "    end = next(\n"
+    "        (i for i in range(header_idx + 1, len(lines))"
+    ' if lines[i].strip().startswith("## ")),\n'
+    "        len(lines),\n"
+    "    )\n"
+    "    return lines[header_idx + 1 : end]\n"
+)
+REWRITTEN_WALK = (
+    "def section_body(lines, heading):\n"
+    '    """The lines of one section."""\n'
+    "    starts = sections(lines, heading)\n"
+    "    start = starts[0]\n"
+    "    end = start + 1\n"
+    '    while end < len(lines) and not lines[end].startswith("#"):\n'
+    "        end += 1\n"
+    "    return lines[start:end]\n"
+)
+
+
+def test_a_loop_rewritten_in_one_file_is_not_reported_at_every_other_loop(
+    tmp_path,
+):
+    """S1. Two modules walk a list the same way; the range rewrites one.
+
+    Under the whole-file reading the other module's loop shares three runs
+    of code tokens with the removed one and scores over the floor -- which
+    is the report #543 quotes at 2.77. A loop is not wording, so the range
+    is clean."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(repo, {"walker.py": WALK, "other.py": OTHER_WALK, **FILLER}, "two walks")
+    head = build(repo, {"walker.py": REWRITTEN_WALK}, "rewrote one of them")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        "the other module's loop was reported as wording this range removed; "
+        f"a line of code is not a sentence. exit {code}\n{text}"
+    )
+    assert "other.py" not in text.split("examined", 1)[-1], text
+
+
+# A claim stated in a docstring, and the same claim carried by a comment or by
+# another docstring one file over. Both are what a `.py` file SAYS, so a
+# correction to the first has to be reported at the second.
+CARRIERS_OF_PROSE = {
+    "comment": f"# {FOUND}\n\n\ndef reader():\n    return None\n",
+    "docstring": f'def reader():\n    """{FOUND}"""\n    return None\n',
+}
+
+
+@pytest.mark.parametrize("carrier", sorted(CARRIERS_OF_PROSE))
+def test_a_docstring_corrected_in_one_file_is_reported_where_prose_carries_it(
+    tmp_path, carrier
+):
+    """S2. The direction that would break if the reader took too much.
+
+    A docstring is exactly where a removed rule survives, and the real
+    survivor on one of the four measured ranges is a `#` comment. Skipping
+    `.py` files would lose both; this case is green before the reader and
+    has to stay green after it."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "stated.py": f'def writer():\n    """{FOUND}"""\n    return None\n',
+            "carrier.py": CARRIERS_OF_PROSE[carrier],
+            **FILLER,
+        },
+        "the claim in a docstring, and once more in another module",
+    )
+    head = build(
+        repo,
+        {"stated.py": f'def writer():\n    """{REPAIRED}"""\n    return None\n'},
+        "corrected the docstring only",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        f"carrier.py still carries the claim in a {carrier}, and the range was "
+        f"called clean; exit {code}\n{text}"
+    )
+    assert "carrier.py" in text, f"the report does not name the {carrier}:\n{text}"
+
+
+def test_a_code_token_between_two_literals_ends_the_sentence():
+    """S4. `"first half", name, "second half"` is two sentences.
+
+    Under the whole-file reading the line normalises to `first half name
+    second half`, one sentence carrying both halves. A code token between
+    two literals is where the sentence ends; two literals with only a line
+    break between them -- Python's implicit concatenation, #269's pin --
+    are still one, and the case above this section holds that side."""
+    reader = module()
+    keys = [
+        s.key for s in reader.sentences("probe.py", '"first half", name, "second half"')
+    ]
+    assert not any("first half" in k and "second half" in k for k in keys), (
+        f"the two literals read as one sentence across a code token: {keys!r}"
+    )
+    assert any("first half" in k for k in keys) and any(
+        "second half" in k for k in keys
+    ), f"a literal was lost rather than separated: {keys!r}"
+
+
+def test_an_fstring_expression_ends_the_sentence_and_its_quotes_do_not():
+    """On 3.12 an f-string is FSTRING_START, FSTRING_MIDDLE and FSTRING_END
+    with its expressions as ordinary tokens. The expression is code, so it
+    ends the sentence; the quotes are the literal's delimiters, so a plain
+    string beside them is implicitly concatenated and reads as one."""
+    reader = module()
+    keys = [
+        s.key
+        for s in reader.sentences("probe.py", 'x = f"hello {name} world" "and more"\n')
+    ]
+    assert any("world and more" in k for k in keys), (
+        f"the f-string's closing quote ended the sentence before `and more`: {keys!r}"
+    )
+    assert not any("hello" in k and "world" in k for k in keys), (
+        f"the expression between `hello` and `world` did not end the sentence: {keys!r}"
+    )
+
+
+def test_a_file_the_tokenizer_refuses_is_read_whole_as_before(tmp_path):
+    """S5. An unterminated triple-quoted string is a file the tokenizer
+    cannot read, and the fallback is today's whole-file reading -- the
+    direction that reports more, which is the one a checker of claims may
+    fail in. The claim stands twice in the file, once as a comment and once
+    inside the unterminated string; the range corrects the comment, and the
+    second copy is reported as it is today."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    unterminated = f'x = 1\n# {FOUND}\n\n\ndef f():\n    """{FOUND}\n'
+    build(repo, {"bad.py": unterminated, **FILLER}, "a file python cannot parse")
+    head = build(
+        repo,
+        {"bad.py": unterminated.replace(f"# {FOUND}", f"# {REPAIRED}")},
+        "corrected the comment only",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the unterminated file's second copy of the claim went unreported, so "
+        f"the tokenizer's refusal read as a file with no sentences; exit {code}\n{text}"
+    )
+    assert "bad.py" in text, text
+    assert "Traceback" not in text, text
+
+
+# S6: the four squash commits of the 0.15.0 release as they stand on `main`,
+# each over its own range -- exactly the range its pull request was checked
+# over -- and what each reports once code is not wording. Every coordinate
+# below is prose; the six places the whole-file reading named beside them
+# were function bodies matched on loop, assignment and `if` shapes, and
+# `spec.md` §*The measured state* holds the table they came from. The
+# commits are reachable from `main` and from `release/v0.15.1` in every
+# clone, and the case skips rather than fails when one is gone, in the
+# pattern of the two fixture tags above.
+RELEASE_RANGES = {
+    # 0 · #537: `chain_check.py:2960`, one function body against another's, gone
+    "576fe39d": {
+        "docs/review-chain-spec.md:1418",
+        "skills/code-review/scripts/chain_check.py:2374",
+        "seal/ledger.md:820",
+        "skills/code-review/scripts/chain_check.py:2370",
+    },
+    # C · #538: `fold_ledger.py:358`, a `main` body against the gatherer's, gone
+    "cc49ae64": {"CHANGELOG.md:2252"},
+    # B · #539: no code idiom in the POOL on this range, and one in the range
+    # itself. The whole-file reading named `seal/ledger.md:2053` at 2.47
+    # against a "sentence" that was a test's docstring and three of its
+    # assert messages joined by the code between them; read one literal per
+    # sentence, the best of those sources shares one run at 1.00, under the
+    # floor. The eight prose places stand.
+    "3dd24073": {
+        "CHANGELOG.md:2090",
+        "seal/follow-up.md:65",
+        "tests/test_chain_check_at_the_pull_request.py:1506",
+        "seal/follow-up.md:80",
+        "seal/follow-up.md:81",
+        "skills/verify/scripts/broad_gate.py:549",
+        "seal/follow-up.md:59",
+        "seal/follow-up.md:82",
+    },
+    # A · #541: the four #543 names gone; the one real survivor, a ledger row
+    # carrying a `#` comment the range removed, stays
+    "d2f2c0dc": {"seal/ledger.md:2041"},
+}
+
+
+@pytest.mark.parametrize("commit", sorted(RELEASE_RANGES))
+def test_the_four_real_ranges_report_their_prose_and_none_of_their_code(commit):
+    """S6. The measured state, pinned coordinate for coordinate.
+
+    A set rather than a count, because dropping code carriers raises the
+    weight of every phrase they held and a prose coordinate that moves is
+    the weighting moving -- which this case exists to see rather than
+    assume."""
+    if not resolves(commit):
+        pytest.skip(f"{commit} is not in this clone")
+    code, text = over(commit)
+    expected = RELEASE_RANGES[commit]
+    assert coordinates_in(text) == expected, (
+        f"over {commit}^..{commit} the report names "
+        f"{sorted(coordinates_in(text))} where the measured prose is "
+        f"{sorted(expected)}:\n{text}"
+    )
+    assert code == (1 if expected else 0), f"exit {code}\n{text}"
+
+
+def test_the_docstring_states_what_a_sentence_is_in_a_python_file():
+    """`agent-contract` §14 -- the rule that changed the verdict is stated
+    where a reader looks for the module's account of itself."""
+    source = open(SCRIPT, encoding="utf-8").read()
+    heading = "## What a sentence is in a Python file"
+    assert heading in source, "the module docstring does not state the rule"
+    section = source[source.index(heading) + len(heading) :]
+    section = " ".join(section[: section.index("\n## ")].split())
+    for word in ("comment", "docstring", "string literal", "code"):
+        assert word in section, f"the section does not mention {word!r}:\n{section}"
