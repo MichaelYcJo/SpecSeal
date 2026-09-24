@@ -314,24 +314,32 @@ os.environ["GIT_CONFIG_VALUE_0"] = "false"
 # because `gh` is logged in on both. Nothing local could see that class; CI
 # found it after the branch was sealed.
 #
-# `gh` finds its login in two places: a token variable, and `hosts.yml` under
-# its config directory. Both are taken away here, at import, so every entry
-# point (`bin/test`, bare `pytest`, the `uvx` fallback, each xdist worker) and
-# every child that inherits `os.environ` sees what CI sees. Measured on
-# 2026-09-25 with `gh` 2.100.0 logged in through `hosts.yml`: an empty
-# `GH_CONFIG_DIR` and no token variable made `gh auth status` exit 1, "You are
-# not logged into any GitHub hosts". A case that needs `gh` stubs it.
+# `gh` looks for its login in three places, in this order: a token variable,
+# `hosts.yml` under its config directory, and the OS keyring. It reads the
+# keyring even where no `hosts.yml` exists: `ActiveToken` falls back to the
+# host's active-account slot, which `gh auth login` fills by default. Emptying
+# the config directory hides only the second place. So the two variables `gh`
+# reads first are SET, to a value no server accepts, and `gh` never reaches
+# the keyring; the other two are removed. This happens at import, so every
+# entry point (`bin/test`, bare `pytest`, the `uvx` fallback, each xdist
+# worker) and every child that inherits `os.environ` sees it -- CI included,
+# where a stray call now fails the same way it fails here: with a 401 from the
+# server, instead of "gh auth login". A case that needs `gh` stubs it.
 GH_CREDENTIALS = (
     "GH_TOKEN",
     "GITHUB_TOKEN",
     "GH_ENTERPRISE_TOKEN",
     "GITHUB_ENTERPRISE_TOKEN",
 )
+# Not a credential: what `gh` finds in place of one.
+NOT_A_GH_TOKEN = "specseal-suite-runs-with-gh-logged-out"
 _EMPTY_GH_CONFIG = tempfile.mkdtemp(prefix="specseal-empty-gh-config-")
 os.environ["GH_CONFIG_DIR"] = _EMPTY_GH_CONFIG
 atexit.register(shutil.rmtree, _EMPTY_GH_CONFIG, True)
 for _name in GH_CREDENTIALS:
     os.environ.pop(_name, None)
+os.environ["GH_TOKEN"] = NOT_A_GH_TOKEN
+os.environ["GH_ENTERPRISE_TOKEN"] = NOT_A_GH_TOKEN
 
 
 def load_hook_module(filename, name):
