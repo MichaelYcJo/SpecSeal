@@ -715,6 +715,11 @@ CONFLICT_SENTENCES = (
     "resolved in opposite directions",
     "byte-identical to a row nobody touched",
     "correction-check",
+    # The arguments behind the two rules, in the guides' words: what taking a
+    # side cost, and why the marker check cannot see a stale hash. The owner
+    # words both differently, so they stand outside its slice.
+    "Taking a side reverted three corrections",
+    "cannot see a union that kept a stale hash",
     # #488: the exception is an edit as well as a removal, and both are the
     # one write a branch owes the file the row is in; a claim the edit made
     # false is corrected in place first, with a dated note.
@@ -724,6 +729,7 @@ CONFLICT_SENTENCES = (
     # #509: of a conflicted row only the notes are a union; the hash is the
     # side's that edited the unit and neither side's where both did, and the
     # row the checker names is re-read against every edit the merge carries.
+    "only the notes are a union",
     "the side that edited the anchored unit",
     "to neither side where both did",
     "re-read against every edit the merged unit carries",
@@ -732,7 +738,28 @@ CONFLICT_SENTENCES = (
 
 # The owner of the two rules the needles above end with. The guides carry
 # them and link here; the policy document states them first (#488, #509).
-OWNED_SENTENCES = CONFLICT_SENTENCES[-7:]
+OWNED_SENTENCES = CONFLICT_SENTENCES[-8:]
+
+# #488's other two outcomes: a claim that still holds is re-stamped with a
+# dated note, and a claim that went with the code leaves its row for the
+# fragment. Each carrier words them its own way (a sentence, a bulleted list,
+# the owner's paragraph), so no needle is shared and each carrier has its own.
+EDIT_OUTCOMES = {
+    "CLAUDE.md": (
+        "re-read against that edit and re-stamped there with a dated note",
+        "A removal takes the row out there and writes the new claim into the "
+        "branch's own fragment",
+    ),
+    "CONTRIBUTING.md": (
+        "the claim still holds and you have re-read it",
+        "remove the row and write the new claim into your own fragment",
+    ),
+    os.path.join("docs", "the-evidence-ledger.md"): (
+        "a claim that still holds is re-stamped there with a dated note",
+        "A removal takes the row out there, and the new claim goes in the "
+        "branch's own fragment",
+    ),
+}
 
 
 def read(path):
@@ -753,7 +780,7 @@ def test_a8_both_rule_documents_say_what_to_do_at_the_conflict():
     falsifies a row is REQUIRED to repair it in the shared file."""
     for document in ("CLAUDE.md", "CONTRIBUTING.md"):
         text = read(document)
-        for needle in CONFLICT_SENTENCES:
+        for needle in CONFLICT_SENTENCES + EDIT_OUTCOMES[document]:
             assert needle in text, f"{document} does not say: {needle}"
 
 
@@ -761,8 +788,9 @@ def test_the_policy_document_owns_the_exception_and_the_halves():
     """#488 and #509. `docs/the-evidence-ledger.md` is the owner the two
     guides carry: the exception widened to an edit, and the halves of a
     conflicted row. Seen red with each sentence removed from the owner."""
-    text = read(os.path.join("docs", "the-evidence-ledger.md"))
-    for needle in OWNED_SENTENCES:
+    owner = os.path.join("docs", "the-evidence-ledger.md")
+    text = read(owner)
+    for needle in OWNED_SENTENCES + EDIT_OUTCOMES[owner]:
         assert needle in text, f"the ledger policy does not say: {needle}"
     # #488's third outcome, in the owner's words. The shared needle above is
     # not enough here: the halves paragraph's `Corrected <date>` notes carry it.
