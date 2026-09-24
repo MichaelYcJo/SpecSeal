@@ -2690,6 +2690,72 @@ def test_a_release_that_moves_the_unreleased_section_under_a_version_removes_not
     assert "docs/a.md" not in text.split("examined", 1)[-1], text
 
 
+def two_sections(unreleased, older):
+    return (
+        f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {unreleased}\n\n"
+        f"## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- {older}\n"
+    )
+
+
+def test_a_release_that_rewords_an_entry_still_reports_its_verbatim_copy(tmp_path):
+    """Round 2's 🟡 1. The release rewords the entry as it moves it under a
+    version heading, and a document quotes the old wording verbatim. The new
+    wording has to reach `written`, or the removed sentence is one run at
+    1.00 and never clears the floor. Red at 1f8cdcda: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": changelog("## Unreleased", FOUND),
+            **FILLER,
+        },
+        "the entry under Unreleased, and a document quoting it verbatim",
+    )
+    head = build(
+        repo,
+        {"CHANGELOG.md": changelog(RELEASED_HEADINGS[0], REPAIRED)},
+        "release 1.0.0, rewording the entry as it is released",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the release reworded the entry and docs/a.md still quotes the old "
+        f"wording verbatim; exit {code}\n{text}"
+    )
+    assert "docs/a.md" in text, text
+
+
+def test_a_sentence_in_an_older_release_does_not_hold_the_unreleased_one(tmp_path):
+    """Round 2's 🟡 2. Only what the range put under a version heading is
+    held. A sentence that also stands in an older release must not keep its
+    unreleased copy from counting as removed. Red at 1f8cdcda: exit 0,
+    `against 0 sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "CHANGELOG.md": two_sections(FOUND, FOUND),
+            **FILLER,
+        },
+        "an unreleased entry repeating an older release's sentence",
+    )
+    head = build(
+        repo,
+        {"CHANGELOG.md": two_sections(REPAIRED, FOUND)},
+        "reword the unreleased entry; no release",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the unreleased entry was reworded and its copy in docs/a.md went "
+        f"unreported because 0.9.0 carries the same sentence; exit {code}\n{text}"
+    )
+    assert "docs/a.md" in text, text
+
+
 def test_a_gathered_fragment_standing_in_the_pool_is_not_a_survivor(tmp_path):
     """S10, the pool side. The fragment's marker is in `CHANGELOG.md` at the
     tip, so the fragment is the released entry one file over and is not

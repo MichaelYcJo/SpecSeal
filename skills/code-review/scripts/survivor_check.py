@@ -542,17 +542,38 @@ def only_released(text):
     """The complement of `blank_released`: every line of a released section
     kept, line numbers intact, every other line blanked.
 
-    Read by `corrected` for the tip's changelog, so a sentence a release
-    moved from `## Unreleased` under a version heading is counted as still
-    held rather than as removed (round 1's 🟡 1). Counted, never written
-    back: a released section subtracts nothing from what the range is
-    looking for."""
+    Read by `newly_released` at both ends of the range, so a sentence a
+    release moved from `## Unreleased` under a version heading is counted
+    as still held rather than as removed (round 1's 🟡 1). What is held,
+    and when its wording is written, is `corrected`'s to decide."""
     out, released = [], False
     for line in text.split("\n"):
         if SECTION_HEADING.match(line):
             released = VERSION_HEADING.match(line) is not None
         out.append(line if released else "")
     return "\n".join(out)
+
+
+def newly_released(path, before, after):
+    """`[Sentence]` standing under a version heading at `after` beyond what
+    stood under one at `before` -- what the range itself moved or wrote into
+    a released section, counted per sentence."""
+
+    def released(text):
+        return [
+            Sentence(path, line, raw)
+            for line, raw in segments(blank_struck(only_released(text)))
+            if raw
+        ]
+
+    prior = Counter(s.key for s in released(before))
+    out = []
+    for sentence in released(after):
+        if prior[sentence.key] > 0:
+            prior[sentence.key] -= 1
+        else:
+            out.append(sentence)
+    return out
 
 
 # What a Python file SAYS, as opposed to what it does. Its prose is its
@@ -927,19 +948,21 @@ def corrected(root, a, b):
     was never reported. Read as a deletion plus an addition, that sentence
     is removed, is not written back, and is looked for.
 
-    **The release commit is held, not removed** (round 1's 🟡 1). In a
-    repository that lets the entry accumulate under `## Unreleased`, the
-    release moves that section under a version heading and changes nothing
-    else. The section is live at `a` and blanked at `b`, so counted as any
-    other file it reads as every sentence removed, and a document restating
-    an entry is reported at the release with nothing anybody may correct --
-    a regression against the whole-file reading, in exactly the shape the
-    heading-based reading was chosen to serve. So for `CHANGELOG.md` the
-    sentences standing under a version heading at `b` are added to the held
-    count before the difference is taken. Counted and never written: nothing
-    from a released section reaches `written`, so it subtracts nothing from
-    what the range is looking for, and the gathered-fragment shape of the
-    same event was already silent by the predicate above."""
+    **The release commit is held, not removed** (round 1's 🟡 1, round 2's
+    🟡 1 and 🟡 2). In a repository that lets the entry accumulate under
+    `## Unreleased`, the release moves that section under a version heading.
+    The section is live at `a` and blanked at `b`, so counted as any other
+    file it reads as every sentence removed, and a document restating an
+    entry is reported at the release with nothing anybody may correct. So
+    for `CHANGELOG.md` the sentences this range put under a version heading
+    -- the released sentences at `b` beyond those at `a` -- are added to the
+    held count before the difference is taken; a sentence standing in an
+    older release holds nothing. And where the file lost a sentence, their
+    fresh wording is written, as any file's is: an entry reworded as it is
+    released splits the removed sentence into the runs it no longer shares,
+    and withholding it would merge them into one that never clears the
+    floor. A release that removes no live sentence writes nothing, which
+    keeps a gathered release's text out of `written`."""
     names = git(root, "diff", "--name-only", "--no-renames", "-z", a, b)
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
@@ -970,27 +993,26 @@ def corrected(root, a, b):
     for path in paths:
         was = sentences(path, before[path]) if path in before else []
         now = sentences(path, after[path]) if path in after else []
-        counted = Counter(s.key for s in now)
+        moved = []
         if path == CHANGELOG and path in after:
-            # A release moves `## Unreleased` under a version heading. The
-            # section is blanked at `b`, so without this every sentence of
-            # it would count as removed and the documents restating an entry
-            # would be reported at the release with nothing to correct -- the
-            # gathered-fragment shape, one heading over. Held, not written:
-            # nothing here reaches `written`.
-            counted.update(
-                Sentence(path, line, raw).key
-                for line, raw in segments(blank_struck(only_released(after[path])))
-                if raw
-            )
-        seen = Counter()
+            # A release moves `## Unreleased` under a version heading. What
+            # THIS range put under one is held, never a heading the file
+            # already had: a sentence standing in an older release is not
+            # what a correction to the live section kept.
+            moved = newly_released(path, before.get(path, ""), after[path])
+        counted = Counter(s.key for s in now + moved)
+        seen, lost = Counter(), len(gone)
         for sentence in was:
             seen[sentence.key] += 1
             if seen[sentence.key] > counted[sentence.key]:
                 gone.append(sentence)
+        if len(gone) == lost:
+            # Nothing of this file was removed, so there is nothing the moved
+            # section's wording could split; a gathered release writes none.
+            moved = []
         old = Counter(s.key for s in was)
         fresh = Counter()
-        for sentence in now:
+        for sentence in now + moved:
             fresh[sentence.key] += 1
             if fresh[sentence.key] > old[sentence.key]:
                 written.update(sentence.grams())
