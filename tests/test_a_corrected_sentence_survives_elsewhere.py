@@ -2756,6 +2756,379 @@ def test_a_sentence_in_an_older_release_does_not_hold_the_unreleased_one(tmp_pat
     assert "docs/a.md" in text, text
 
 
+def test_a_release_that_renames_unreleased_and_gathers_still_reports(tmp_path):
+    """Round 3's 🟡 1. The release renames `## Unreleased` to a version and
+    gathers a fragment into the same section, and the same commit corrects
+    `docs/a.md`. The renamed heading is a lost sentence, so the moved
+    section's fresh wording is written -- and the gathered fragment's text,
+    which quotes the old wording, must not be written with it, or it
+    subtracts the survivor standing in `docs/b.md`. The fragment stays, as
+    the gatherer leaves it. Red at 0c335744: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a fragment quoting the claim, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0], f"{FOUND}\n\n- {entry}", marker=True
+            )
+            + f"\n{older}",
+        },
+        "release 1.0.0: rename Unreleased, gather the fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered fragment's text was written back with the renamed "
+        f"section and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_release_that_gathers_and_deletes_the_fragment_still_reports(tmp_path):
+    """H1. The release above, by a gatherer that deletes the fragment it
+    gathered. Nothing of the fragment stands at the range's tip, so the text
+    to hold is read where it still stands, at the range's left end. Read at
+    the tip instead, the held set is empty, the gathered wording is written
+    and the survivor in `docs/b.md` is subtracted: exit 0. Red at 61f0d0d8
+    (exit 0, `against 2 sentence(s)`), and red under that mutation."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a fragment quoting the claim, two documents",
+    )
+    os.remove(repo / FRAGMENT)
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0], f"{FOUND}\n\n- {entry}", marker=True
+            )
+            + f"\n{older}",
+        },
+        "release 1.0.0: rename Unreleased, gather and delete the fragment",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the deleted fragment's gathered text was written back with the "
+        f"renamed section and subtracted the survivor in docs/b.md; exit {code}\n"
+        f"{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_release_that_rewords_an_entry_and_gathers_still_reports(tmp_path):
+    """H2k. `## Unreleased` stays, its entry is reworded as it is released
+    under a new version heading, and a fragment is gathered into the same
+    section and left in place. The reworded entry is a lost sentence, so the
+    released wording is written, as round 2's reworded-release case needs --
+    all of it but the gathered fragment's, which quotes the wording the same
+    commit corrected in `docs/a.md`. Red at 61f0d0d8: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    reworded = "The frobnicator now refuses a negative width and names the flag."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    marker = f"<!-- specs/{os.path.basename(SHIPPED)} -->"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a fragment quoting the claim, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n{RELEASED_HEADINGS[0]}\n{marker}\n\n"
+                f"### Fixed\n\n- {FOUND}\n\n- {reworded}\n\n{older}"
+            ),
+        },
+        "release 1.0.0: keep Unreleased, reword its entry, gather the fragment",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered fragment's text was written back with the reworded "
+        f"release and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+GATHERER = os.path.join(ROOT, ".github", "scripts", "gather_changelog.py")
+
+
+def gathered_section(version, date, entries):
+    """The released section exactly as the gatherer lays it down: its own
+    `section`, loaded by path, so the layout follows the gatherer if it ever
+    changes. A test may depend on this repository's release automation; the
+    shipped script may not, which is why the sweep spells `MARKER` itself."""
+    spec = importlib.util.spec_from_file_location("specseal_gatherer", GATHERER)
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded.section(version, date, entries)
+
+
+def test_a_gathered_fragment_that_opens_with_prose_is_still_held(tmp_path):
+    """G4, `agent-contract` §12's member of the class above. The gatherer
+    writes the marker line and the fragment's body directly under it, with no
+    blank line between, and a marker line starts no block. So a fragment
+    whose first line is prose has its first sentence joined to the marker's
+    words, a key that matches nothing in the fragment, and that one sentence
+    escapes the held set. Every fragment in this tree opens with `###` or
+    `- `, which starts a block, and no template fixes the shape. Red with
+    the gathered text held and the marker read as prose: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    body = f"{FOUND} A second sentence says what else changed.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: body,
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a prose fragment quoting the claim, two documents",
+    )
+    released = gathered_section(
+        "1.0.0", "2026-01-01", [(os.path.basename(SHIPPED), body.strip())]
+    )
+    assert f"-->\n{FOUND}" in released, (
+        f"the gatherer no longer writes the body directly under the marker:\n{released}"
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n{released}\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+        },
+        "release 1.0.0: rename Unreleased, gather a prose fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the prose fragment's first sentence, joined to its marker line, was "
+        f"written back and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_release_that_writes_its_entry_directly_and_loses_nothing_reports(
+    tmp_path,
+):
+    """#555's pin, the `lost` guard alone. The release writes a new version
+    section whose entry quotes the claim, with no marker and no fragment,
+    and `CHANGELOG.md` loses no sentence; the same commit corrects
+    `docs/a.md`. Nothing of the file was removed, so there is nothing the
+    released wording could split, and it is not written. The fragment
+    filter cannot protect this shape -- nothing here was gathered -- so the
+    guard is the only thing between the entry's wording and the survivor in
+    `docs/b.md`. Red with the guard replaced by `if False:` and the filter
+    in place: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            "CHANGELOG.md": f"# Changelog\n\n{older}",
+            **FILLER,
+        },
+        "an older release and two documents carrying the claim",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND) + f"\n{older}",
+        },
+        "release 1.0.0: an entry written in place, and docs/a.md corrected",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "a release that lost no sentence wrote its entry's wording back and "
+        f"subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_gathered_release_that_loses_nothing_reports(tmp_path):
+    """#555's own shape (P6), and the pair's pin. The release gathers a
+    fragment quoting the claim under a new version heading, `CHANGELOG.md`
+    loses no sentence, and the same commit corrects `docs/a.md`. Two things
+    each keep the gathered text out of `written` here: the `lost` guard,
+    because the file lost nothing, and the fragment filter, because the text
+    is gathered. So this case goes red only with both removed (exit 0), and
+    stays green with either one removed alone -- which is why the guard's
+    own pin is the case above and the filter's are the gathered releases
+    that lose a sentence."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": f"# Changelog\n\n{older}",
+            **FILLER,
+        },
+        "an older release, a fragment quoting the claim, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], FOUND, marker=True)
+            + f"\n{older}",
+        },
+        "release 1.0.0: gather the fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "a gathered release that lost no sentence wrote the gathered text "
+        f"back and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_release_that_replaces_an_entry_with_a_gathered_rewording_reports(
+    tmp_path,
+):
+    """The gathered-text filter's other side (round 1's 🟡 1). The release
+    replaces the live entry `FOUND` with a gathered fragment whose text
+    rewords it, and `docs/b.md` quotes `FOUND`. The fragment's rewording is
+    withheld from `written`, but it must still split the sentence
+    `CHANGELOG.md` itself lost into the runs it no longer shares, as a
+    reworded release does; withheld whole, `FOUND` is one run under the
+    floor and its copy goes silent. Red at bf7ba905: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": "# a\n\nUnrelated.\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {REPAIRED}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {FOUND}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "a live entry, a fragment rewording it, a document quoting the entry",
+    )
+    head = build(
+        repo,
+        {
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], REPAIRED, marker=True)
+            + f"\n{older}",
+        },
+        "release: the live entry replaced by the gathered rewording",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered rewording was withheld whole, so the lost entry never "
+        f"split and its copy in docs/b.md went silent; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
+def test_a_gathered_fragment_cannot_subtract_a_survivor_through_a_lost_entry(
+    tmp_path,
+):
+    """Round 2's 🟡 1. The release rewords a live entry that quotes the claim,
+    gathers a fragment quoting it verbatim, and corrects `docs/a.md`. What the
+    fragment shares with the lost entry splits that entry and nothing else:
+    written for every file, it subtracts the claim from `docs/a.md`'s
+    corrected sentence too, and the survivor in `docs/b.md` goes silent. The
+    same release without the fragment reports. Red at e6c85df6: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    quoting = f"The docs no longer say that {FOUND[0].lower()}{FOUND[1:]}"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {quoting}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "a live entry quoting the claim, a fragment quoting it, two documents",
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": changelog(
+                RELEASED_HEADINGS[0],
+                f"{FOUND}\n\n- The docs now name the generator as its writer.",
+                marker=True,
+            )
+            + f"\n{older}",
+        },
+        "release 1.0.0: reword the entry, gather the fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered text shared with the lost entry was written for every "
+        f"file and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
 def test_a_gathered_fragment_standing_in_the_pool_is_not_a_survivor(tmp_path):
     """S10, the pool side. The fragment's marker is in `CHANGELOG.md` at the
     tip, so the fragment is the released entry one file over and is not

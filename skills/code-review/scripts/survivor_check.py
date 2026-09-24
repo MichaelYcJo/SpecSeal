@@ -166,10 +166,16 @@ release was measured on carried exactly that report. The region is read off
 the heading rather than the file being left out by path, so an
 `## Unreleased` section and an ungathered fragment stay in -- they are this
 release's own prose, the thing the sweep is for. In the range, a release's
-gathering commit deletes each fragment and writes its text under a heading
-that is blanked, so without this the fragments' every sentence would count
-as removed and the work items' own `spec.md` and `overview.md` would be
-reported at the release.
+gathering commit writes each fragment's text under a heading that is
+blanked. This repository's gatherer leaves the fragment in place; one that
+deletes it, or a range that edits a gathered one, would without this count
+the fragment's sentences as removed, and the work items' own `spec.md` and
+`overview.md` would be reported at the release. The gathered text is held
+at the release and not written as the range's own (#557): the fragment's
+own branch wrote it, so it may not subtract a survivor the same commit's
+correction left. Only its n-grams that also occur in a sentence
+`CHANGELOG.md` itself lost count, and against that file's sentences alone,
+so a gathered rewording of a lost entry still splits that entry into runs.
 
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
@@ -560,9 +566,17 @@ def newly_released(path, before, after):
     a released section, counted per sentence."""
 
     def released(text):
+        # A gather's marker line is blanked, so it ends a block here. The
+        # gatherer writes a fragment's body directly under its marker, and a
+        # marker line starts no block, so a fragment opening with prose had
+        # its first sentence joined to the marker's words: a key nothing in
+        # the fragment has, which `corrected` then wrote instead of holding.
+        # Blanked on both ends of the range, and never by widening `BLOCK`,
+        # which two other scripts spell alike on purpose.
+        text = MARKER.sub("", only_released(text))
         return [
             Sentence(path, line, raw)
-            for line, raw in segments(blank_struck(only_released(text)))
+            for line, raw in segments(blank_struck(text))
             if raw
         ]
 
@@ -813,10 +827,12 @@ def a_gathered_fragment(path, gathered):
     """True for `seal/specs/<id>/changelog.md` whose `<id>` is in `gathered`.
 
     A gathered fragment is the released entry one file over: its text stands
-    verbatim under a version heading of `CHANGELOG.md`, and the release that
-    gathered it is what retires the file. So it is out of the pool and out of
-    the range on both sides, the way a released section is -- and an
-    ungathered fragment is in, because it is this release's own prose.
+    verbatim under a version heading of `CHANGELOG.md`, whether the release
+    that gathered it leaves the file standing, as this repository's gatherer
+    does until `settle` retires the work item, or deletes it. So it is out
+    of the pool and out of the range on both sides, the way a released
+    section is -- and an ungathered fragment is in, because it is this
+    release's own prose.
 
     A sibling of `records_a_past_state` rather than a parameter on it,
     because that predicate is a pure function of the path and this one is
@@ -902,7 +918,8 @@ def corpus(root, rev):
 
 
 def corrected(root, a, b):
-    """`[Sentence]` -- what the range removed -- and the n-grams it wrote.
+    """`[Sentence]` -- what the range removed -- the n-grams it wrote, and
+    the gathered n-grams that split `CHANGELOG.md`'s removed sentences alone.
 
     A sentence counts as corrected when the file holds it FEWER times at `b`
     than at `a`. Counted rather than tested for membership, so a sentence
@@ -961,16 +978,29 @@ def corrected(root, a, b):
     fresh wording is written, as any file's is: an entry reworded as it is
     released splits the removed sentence into the runs it no longer shares,
     and withholding it would merge them into one that never clears the
-    floor. A release that removes no live sentence writes nothing, which
-    keeps a gathered release's text out of `written`."""
+    floor. A gathered fragment's text is held and not written as the
+    range's own, because the fragment's own branch wrote it, not this
+    range: a release that renames `## Unreleased` or rewords an entry loses
+    a sentence, and the gathered wording would then subtract the survivor a
+    correction in the same commit left standing in another file (round 3's
+    🟡 1, #557). Of a gathered sentence, only the n-grams that also occur in a
+    sentence THIS file lost count, and they are the third return rather than
+    part of `written`: `score` subtracts them from `CHANGELOG.md`'s removed
+    sentences alone, so a live entry the release replaced with a gathered
+    fragment rewording it is still split into the runs it no longer shares,
+    as a reworded release is, while no gathered text subtracts another
+    file's sentence. A release that removes no live sentence writes nothing
+    at all."""
     names = git(root, "diff", "--name-only", "--no-renames", "-z", a, b)
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
     # A fragment gathered at the tip is out on both sides too (#307): the
-    # range that gathers it deletes it and writes its text under a version
-    # heading, which is blanked, so left in the list every sentence of the
-    # fragment would count as removed and its live copies -- the work item's
-    # own `spec.md` and `overview.md` -- would be reported at the release.
+    # range that gathers it writes its text under a version heading, which
+    # is blanked. This repository's gatherer leaves the fragment where it
+    # is, and one that deletes it, or a range that edits a gathered one,
+    # would otherwise put the fragment's sentences in the list as removed,
+    # and their live copies -- the work item's own `spec.md` and
+    # `overview.md` -- would be reported at the release.
     gathered = gathered_fragments(root, b)
     paths = [
         path
@@ -989,7 +1019,18 @@ def corrected(root, a, b):
     ]
     before = read_blobs(root, a, paths)
     after = read_blobs(root, b, paths)
-    gone, written = [], set()
+    # A gathered fragment's text stands under a version heading at `b`, and
+    # this range did not write it -- the fragment's own branch did. Read at
+    # `a` by the path the gatherer globs, where it stands whether the release
+    # leaves the fragment or deletes it, so `moved` below can hold that text
+    # without writing it as this range's.
+    fragments = [f"seal/specs/{item}/changelog.md" for item in sorted(gathered)]
+    shipped = {
+        sentence.key
+        for path, text in read_blobs(root, a, fragments).items()
+        for sentence in sentences(path, text)
+    }
+    gone, written, split = [], set(), set()
     for path in paths:
         was = sentences(path, before[path]) if path in before else []
         now = sentences(path, after[path]) if path in after else []
@@ -1010,13 +1051,30 @@ def corrected(root, a, b):
             # Nothing of this file was removed, so there is nothing the moved
             # section's wording could split; a gathered release writes none.
             moved = []
+        # Held above like any released sentence, never written whole: a
+        # release that renames `## Unreleased` or rewords an entry loses a
+        # sentence, and the gathered text would then subtract the survivor a
+        # correction in the same commit left standing in another file.
+        held = [sentence for sentence in moved if sentence.key in shipped]
+        moved = [sentence for sentence in moved if sentence.key not in shipped]
+        # ...except against what THIS file lost: a live entry the release
+        # replaced with a gathered fragment rewording it is still split by
+        # that rewording, as a reworded release is (step A's round 2 🟡 1).
+        # Those n-grams are kept apart from `written`, which every file's
+        # removed sentences are scored against, and `score` subtracts them
+        # from this file's alone: written for every file, a fragment quoting
+        # wording the same commit corrected elsewhere would subtract that
+        # survivor again (round 2's 🟡 1).
+        lost_here = {gram for sentence in gone[lost:] for gram in sentence.grams()}
+        for sentence in held:
+            split.update(gram for gram in sentence.grams() if gram in lost_here)
         old = Counter(s.key for s in was)
         fresh = Counter()
         for sentence in now + moved:
             fresh[sentence.key] += 1
             if fresh[sentence.key] > old[sentence.key]:
                 written.update(sentence.grams())
-    return gone, written
+    return gone, written, split
 
 
 def wanted(gone, written):
@@ -1111,7 +1169,7 @@ def weigh(sequence, shared, weight_of):
     return total, named
 
 
-def score(gone, keep, where, weight_of, floor):
+def score(gone, keep, where, weight_of, floor, split=frozenset()):
     """`[(score, candidate, source, shared)]`, worst first.
 
     `shared` is the phrases a candidate has in common with the sentence it
@@ -1126,6 +1184,10 @@ def score(gone, keep, where, weight_of, floor):
     for source in gone:
         sequence = source.grams()
         mine = set(sequence) & keep
+        if source.path == CHANGELOG:
+            # What a gathered rewording shares with the entry it replaced
+            # splits that entry, and no other file's sentence (`corrected`).
+            mine -= split
         reached = {}
         for gram in mine:
             if weight_of.get(gram, 0.0) <= 0:
@@ -1162,12 +1224,12 @@ def examine(root, a, b, floor=FLOOR):
     Every caller goes through this. It returns the two counts as well as the
     rows because the report line names what was examined -- a check that says
     only what it found cannot be told apart from one that looked at nothing."""
-    gone, written = corrected(root, a, b)
+    gone, written, split = corrected(root, a, b)
     keep = wanted(gone, written)
     pool = corpus(root, b)
     where, files = carriers(pool, keep)
     return (
-        score(gone, keep, where, weights(len(pool), files), floor),
+        score(gone, keep, where, weights(len(pool), files), floor, split),
         len(pool),
         len(gone),
     )
