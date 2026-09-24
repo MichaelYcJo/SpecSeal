@@ -208,6 +208,45 @@ def test_a_drained_line_closes_the_file(tree):
     assert not settle.open_rows(OPEN_TODO + "\ndrained — every row is in the ledger\n")
 
 
+QUOTED_DRAINED = (
+    "\nThe file closes with a line like this:\n\n"
+    "```markdown\ndrained — every row is in the ledger\n```\n"
+    "\n<!-- a draft of the closing line\ndrained — not yet\n-->\n"
+)
+
+
+def test_a_quoted_drained_line_closes_nothing(tree):
+    """S7, the `settle` half (#487). `drained` EXCUSES a whole file, so it
+    counts only on a live line: one quoted in a fence or parked in a comment
+    closes nothing, and gamma's open row still keeps its directory. Seen red
+    against `c52e8350`, where either quotation closed the file and gamma was
+    offered for the fold."""
+    assert settle.open_rows(OPEN_TODO + QUOTED_DRAINED)
+    todo = tree / "seal" / "specs" / "1700000003-gamma" / "evidence-todo.md"
+    todo.write_text(OPEN_TODO + QUOTED_DRAINED, encoding="utf-8")
+    git(tree, "commit", "-qam", "a quoted drained line")
+    _, text = run(tree)
+    assert "1700000003-gamma" in text.split("\nskipped —")[1], text
+
+
+def test_a_fenced_example_row_is_not_an_open_row():
+    """The other half of the direction rule: a ROW holds a fact, so it is
+    skipped only when it is certainly quoted — inside a fence that closes.
+    One in a fence nobody closed, or parked in a comment, is still open."""
+    example = (
+        "# evidence-todo\n\nA row looks like this:\n\n```markdown\n"
+        "| Fact | Where it goes |\n|---|---|\n| an example | nowhere |\n```\n"
+    )
+    assert settle.open_rows(example) == []
+    unclosed = example[: -len("```\n")]
+    assert unclosed.endswith("| an example | nowhere |\n"), unclosed
+    assert len(settle.open_rows(unclosed)) == 1
+    parked = (
+        "# evidence-todo\n\n<!--\n| Fact | Where |\n|---|---|\n| parked | x |\n-->\n"
+    )
+    assert len(settle.open_rows(parked)) == 1
+
+
 # --- A4: a second run folds nothing twice ----------------------------------
 
 
@@ -363,9 +402,12 @@ def test_the_report_names_an_anchored_row_before_anything_is_removed(tree):
 
 
 def test_a_fenced_anchor_still_keeps_the_directory(tree):
-    """evidence-check reads an anchor inside a fence as a coordinate like any
-    other, so the guard has to as well: a fenced row's directory removed is a
-    BROKEN row found after the fact, which is #511 (round 1's finding 1)."""
+    """The guard reads an anchor inside a fence although evidence-check no
+    longer does (#444), because the two mistakes cost differently: a fenced
+    row's directory kept is a sentence somebody answers, and a directory
+    removed under a row the checker does read — one in a fence nobody closed
+    — is a BROKEN row found after the fact, which is #511 (round 1's finding
+    1). `settle.py#anchored_rows`'s docstring carries the decision."""
     fold(tree, "1700000001-alpha")
     ledger = tree / "seal" / "ledger.md"
     ledger.write_text(
@@ -490,9 +532,9 @@ def test_the_documents_say_the_retirement_keeps_an_anchored_directory():
         "the skill does not name the checker's third ledger address"
     )
     policy = document("docs", "the-evidence-ledger.md")
-    assert "the rows inside a fence included, because the checker" in flat(policy), (
-        "the policy still says the guard reads only live rows"
-    )
+    assert "The rows inside a fence are included although the checker" in flat(
+        policy
+    ), "the policy no longer says the guard reads a fenced row the checker skips"
     assert "nothing refuses the removal first" not in policy, (
         "the policy still says nothing refuses the removal"
     )

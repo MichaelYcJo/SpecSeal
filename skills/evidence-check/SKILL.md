@@ -276,6 +276,31 @@ is a separate command: a check that refreshed what it was checking would
 report `OK` for ever. A row whose anchor is gone is left alone — silently
 renaming its hash would hide the one row somebody has to look at.
 
+## A row inside a fence is an example, not a claim
+
+A ledger that explains its own row format shows an example row in a fenced
+code block, and nobody wrote that row as a claim. So the check, `--reverify`
+and `--migrate` all skip every line of a fenced block that **closes**: the
+example is not reported, and neither writer changes a byte of it (#444).
+
+Three things are still read, each because skipping it would be silent:
+
+- **A fence that never closes.** It runs to the end of the file, and reading
+  nothing from there on would pass a broken row on a file whose author made
+  a mistake. Its rows are checked as rows.
+- **An HTML comment.** A commented-out row is a claim somebody parked, and
+  dropping it is the silent direction.
+- **An indented code block.** Only a fence is a quotation here.
+
+What counts as a fence is CommonMark's rule, and the one the ledger and record
+readers share: at most three spaces of indentation, three or more backticks or
+tildes, a backtick opener whose info string holds no backtick, and a closer of
+the same character, at least as long, with nothing after it. Some readers
+elsewhere in the plugin still keep a rule of their own, and #584 tracks them.
+
+**A ledger row you mean as a claim does not belong inside a fence.** Before
+this rule, one there was checked. Now it is not, and nothing says so.
+
 ## What the region is
 
 | Anchor | Region |
@@ -385,12 +410,25 @@ opened*, so the count is on the line either way.
 and an anchor stamp `path#unit@hash` resolved exactly as a ledger row's is. A
 single word in backticks is prose far more often than it is a unit. A FENCED
 line is a quotation — a paste-ready fix is code the tree does not have yet —
-and an HTML comment is an aside; neither is read.
+and an HTML comment that begins a line is an aside; neither is read.
+
+**A comment is an aside only where it begins a line**, or begins what is left
+of a line after a `-->`. One that opens part-way along text is read with the
+text, so a name inside it is read and can be refused. Put the marker on that
+line, or start the comment on a line of its own. Treating a mid-line comment
+as an aside would need a scanner that knows code spans, because records quote
+`<!--` inside backticks all the time, and each such quotation would otherwise
+hide every claim up to the next `-->` without a word (#220).
 
 **Both of those are REGIONS, and each runs to its own end.** A comment is an
 aside to its `-->`, so a template's two-line comment is an aside on both
-lines. A fence runs to a close carrying the marker that opened it, so a `~~~`
-quoted inside a ```-block does not end the quotation. And a fence the record
+lines. **The `-->` ends the aside where it stands, not at the end of its
+line**: a name written after it is read, and a `<!--` right after it opens
+an aside again. A fence runs to a close of the same character that is at
+least as long as the opener and carries nothing after it, the rule the
+ledger and record readers share. So a `~~~` quoted inside a ```-block does not
+end the quotation, and neither does a ```` ``` ```` quoted inside a
+```` ```` ```` block. And a fence the record
 never closes reads as a malformed record rather than as a quotation of
 everything left: its lines are read as claims, because an author's missing
 backticks must not be the thing that makes the rest of a record pass in

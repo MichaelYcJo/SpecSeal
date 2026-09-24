@@ -373,6 +373,26 @@ def test_rows_citing_a_moved_file_are_re_pointed_with_their_hashes_untouched(
     assert "0 broken" in totals_after and "0 drifted" in totals_after, totals_after
 
 
+def test_a_fenced_example_row_is_left_byte_for_byte(hook, repo):
+    """#444, one writer over. The check skips a row inside a fenced block
+    that closes, so the re-point must not rewrite one either: an example
+    that followed the move would stop showing the layout it was written to
+    show. Seen red at `f754eafb`, where the fenced `.specseal/` path became
+    `seal/`."""
+    example = (
+        "A row looks like this:\n\n```markdown\n"
+        '| X | `.specseal/follow-up.md#"# Follow-up"@deadbeef` |\n```\n\n'
+    )
+    ledger = repo / ".specseal" / "map.md"
+    text = ledger.read_text(encoding="utf-8")
+    ledger.write_text(text.replace("# map\n\n", "# map\n\n" + example, 1), "utf-8")
+    git(repo, "commit", "-qam", "a fenced example in the ledger")
+    start(hook, repo)
+    after = (repo / "seal" / "ledger.md").read_text(encoding="utf-8")
+    assert example in after, after
+    assert "`seal/follow-up.md#" in after, "the live row did not follow the move"
+
+
 def test_the_re_pointed_ledgers_are_staged_with_the_move(hook, repo):
     start(hook, repo)
     assert git(repo, "diff", "--name-only").stdout.strip() == ""

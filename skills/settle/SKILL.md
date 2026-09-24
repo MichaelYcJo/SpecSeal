@@ -255,10 +255,12 @@ row BROKEN, and the checker would say so only after the directory was gone.
 Every ledger `evidence-check` reads is read — `seal/ledger.md`, every
 `seal/ledger/*.md`, every `seal/releases/*.md` and any `docs/**/_evidence.md`
 — and every line of each, the ones above the first section marker and the
-ones inside a fence included, because the checker reports a fenced anchor
-broken too. `settle` alone names them for every released directory before
-you write any prose. Each row carries what `CLAUDE.md` requires of it:
-**REMOVED** when every anchor it cites goes, and its claim written anew where
+ones inside a fence included. The checker skips a fence that closes (#444),
+and the guard reads it anyway, because keeping a directory the checker would
+not break is the cheaper mistake. `settle` alone names them for every
+released directory before you write any prose. Each row carries what
+`CLAUDE.md` requires of it: **REMOVED** when every anchor it cites goes, and
+its claim written anew where
 it still stands; **narrow** when it keeps a live anchor, with the dead one
 dropped — and whether such a row is removed instead is the repository owner's
 question. The command edits no row. Answer them, and the next

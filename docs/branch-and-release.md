@@ -283,8 +283,9 @@ sentence that must outlive the release has to have moved into a `docs/` policy
 or a ledger row before the merge (`docs/one-root-by-lifetime.md`, "What
 happens at a release", step 3). So the fold, and `--check`, stop while any such
 file in the tree has an open row, naming the file. A row is open unless the
-file carries a line beginning `drained`, or the row's first cell begins with
-✅. Every work item in the tree is read: the step runs on a branch cut from the
+file carries a live line beginning `drained` — not one quoted in a fence, a
+comment or a code span — or the row's first cell begins with ✅. A row inside
+a fenced example that closes is not a row (#487). Every work item in the tree is read: the step runs on a branch cut from the
 release branch, which holds merged work only, so "released" and "present" are
 the same set — and a work item released earlier whose file was never drained
 stops this release too. The remedy is one commit that drains it.

@@ -1577,9 +1577,13 @@ def a_reading_from_the_commonmark_rules(lines):
     module under test.
 
     - **Fenced code blocks** (CommonMark 4.5): a line whose first non-space
-      run is three or more backticks or tildes opens one; a line whose run is
-      the same character and at least as long closes it. Nothing inside is
-      parsed.
+      run is three or more backticks or tildes opens one, unless a backtick
+      run's info string holds a backtick; a line whose run is the same
+      character and at least as long, with nothing after it but spaces,
+      closes it. Nothing inside is parsed. The two info-string clauses
+      arrived with #491: before them this reading closed a block on
+      ```` ```python ```` and opened one on ```` ```x` ````, which the format
+      does neither of.
     - **HTML comments** (CommonMark 6.6, raw HTML): `<!--` opens and the next
       `-->` closes, and between them the document is not markdown at all, so
       backticks are ordinary characters.
@@ -1619,7 +1623,9 @@ def a_reading_from_the_commonmark_rules(lines):
                 return True
         if set(s) == {"="}:
             return True
-        if indent <= 3 and len(s) >= 3 and s[0] in "`~" and s[:3] == s[0] * 3:
+        # Only an opener interrupts a paragraph (CommonMark 4.5), and `opens`
+        # below is this reading's opener rule, bound and info string included.
+        if opens(line) is not None:
             return True
         if len(s) >= 3 and s[0] in "*-_" and set(s.replace(" ", "")) == {s[0]}:
             return True
@@ -1657,13 +1663,31 @@ def a_reading_from_the_commonmark_rules(lines):
         # the line first was the one rule this reading still took from
         # `live_lines`, and while it did, this case agreed with the scan on
         # the very shape that removed a directory (round 6, finding 2).
+        # Returns (the run, what follows it), and the two info-string
+        # clauses are asked by the caller, because one is an opener's and
+        # the other a closer's.
         if len(line) - len(line.lstrip(" ")) > 3:
             return None
         s = line.strip()
         if len(s) < 3 or s[0] not in "`~":
             return None
         n = runs(s, 0) if s[0] == "`" else len(s) - len(s.lstrip("~"))
-        return s[0] * n if n >= 3 else None
+        return (s[0] * n, s[n:]) if n >= 3 else None
+
+    def opens(line):
+        found = fence_of(line)
+        if found is None or (found[0][0] == "`" and "`" in found[1]):
+            return None
+        return found[0]
+
+    def closes(line, run):
+        found = fence_of(line)
+        return (
+            found is not None
+            and found[0][0] == run[0]
+            and len(found[0]) >= len(run)
+            and not found[1].strip()
+        )
 
     fence = None
     in_comment = False
@@ -1672,12 +1696,11 @@ def a_reading_from_the_commonmark_rules(lines):
     for n, line in enumerate(lines):
         verdict.append(fence is None and not in_comment and open_span is None)
         if fence is not None:
-            closing = fence_of(line)
-            if closing and closing[0] == fence[0] and len(closing) >= len(fence):
+            if closes(line, fence):
                 fence = None
             continue
-        if not in_comment and open_span is None and fence_of(line) is not None:
-            fence = fence_of(line)
+        if not in_comment and open_span is None and opens(line) is not None:
+            fence = opens(line)
             continue
         i = 0
         while i < len(line):
@@ -2140,3 +2163,115 @@ def test_any_other_missing_path_is_still_a_typo(tmp_path, capsys, baseline):
     argv = [str(d / "seal" / "spces")] + (["--baseline", "HEAD"] if baseline else [])
     assert run(argv) == 2
     assert "no such path" in capsys.readouterr().err
+
+
+# --- #491: one fence-delimiter rule ---------------------------------------
+#
+# `fence_opener` and `fence_closes` are the rule, and every reader of this
+# module that walks a fence asks them. Before #491 `blank_fences` read a
+# delimiter at any indentation while `_liveness` bounded it to three spaces,
+# and neither refused a closer carrying an info string.
+
+
+def fenced_by_the_shared_rule(lines):
+    """The indices `uc.fence_spans` puts inside a block, unclosed ones to the
+    end — the same question `hooks/config.py#fence_map` answers."""
+    out = set()
+    for first, last in uc.fence_spans(lines):
+        out.update(range(first, len(lines) if last is None else last + 1))
+    return out
+
+
+def test_an_indented_delimiter_is_not_a_fence_for_the_gates_reader():
+    """S4. Four spaces before a run of backticks is an indented code block or
+    a lazy continuation line, never a delimiter (CommonMark 4.5). Read as one,
+    it opens a fence nobody closes and every row below it disappears from
+    `check_text`, `chain_check.py` and `round_record.py` at once. Seen red
+    against `c52e8350`'s `blank_fences`, whose `^\\s*` took the line as an
+    opener and blanked the table."""
+    text = "A fence opens with\n\n    ```\n\n| a | b |\n|---|---|\n| c | d |\n"
+    kept = uc.readable(text)
+    assert "| c | d |" in kept, kept
+
+
+@pytest.mark.parametrize(
+    "lines, fenced",
+    [
+        # S5: a closer carries nothing after its run.
+        (["```", "inside", "```python", "quoted", "```", "after"], {0, 1, 2, 3, 4}),
+        # A backtick opener whose info string holds a backtick opens nothing.
+        (["```x`", "quoted", "after"], set()),
+        # A tilde opener's info string is unrestricted, which is the format.
+        (["~~~ `x`", "quoted", "~~~", "after"], {0, 1, 2}),
+    ],
+)
+def test_each_reader_asks_the_one_delimiter_rule(lines, fenced):
+    """S5, asked of both readers. `readable` blanks exactly the fenced lines,
+    and `live_lines` calls exactly those not live. Seen red against
+    `c52e8350`: both closed the first block on ```` ```python ````, so the
+    quoted line read live and the final ```` ``` ```` opened a second block
+    that swallowed `after`; and both opened a block on ```` ```x` ````.
+
+    `live_lines` answers whether a line BEGINS live, so an opener's own line
+    is live and every other line of the block is not."""
+    blanked = {n for n, line in enumerate(uc.readable("\n".join(lines))) if not line}
+    assert blanked == fenced, blanked
+    openers = {first for first, _ in uc.fence_spans(lines)}
+    parked = {n for n, (_, live) in enumerate(uc.live_lines(lines)) if not live}
+    assert parked == fenced - openers, parked
+
+
+FENCE_SHAPES = [
+    ["```", "x", "```"],
+    ["~~~", "x", "~~~"],
+    ["   ```", "x", "   ```"],
+    ["    ```", "x", "    ```"],
+    ["```", "x", "    ```", "y", "```"],
+    ["```python", "x", "```"],
+    ["```", "x", "```python", "y", "```"],
+    ["```", "x", "```   ", "y"],
+    ["````", "```", "x", "````"],
+    ["```", "x", "``````", "y"],
+    ["```", "x", "~~~", "y", "```"],
+    ["~~~", "```", "x", "~~~"],
+    ["```x`", "y", "```"],
+    ["``` `x`", "y"],
+    ["~~~ `x`", "y", "~~~", "z"],
+    ["``", "x", "``"],
+    ["```", "x", "y"],
+    ["a", "```\r", "x\r", "```\r", "b\r"],
+    ["| a |", "```", "| b |", "```", "| c |"],
+]
+
+
+@pytest.mark.parametrize("lines", FENCE_SHAPES, ids=range(len(FENCE_SHAPES)))
+def test_the_fence_rule_agrees_with_the_config_reader(lines):
+    """S6. `hooks/config.py#FENCE` is the one deliberate second copy of the
+    delimiter rule — it runs on the hook path, where loading a skill module
+    would cost every hook call — so this holds the two in step, shape by
+    shape, over which lines are fenced and where an unclosed block opened.
+    Seen red against `c52e8350`'s `blank_fences` rule on shapes 3, 4, 6, 12
+    and 13 — the indentation bound, the closer's info string and the opener's
+    backtick."""
+    spec = importlib.util.spec_from_file_location(
+        "specseal_config_for_fence_agreement", os.path.join(ROOT, "hooks", "config.py")
+    )
+    config = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config)
+    shown, opened_at = config.fence_map(lines)
+    theirs = set(range(len(lines))) - {n for n, _ in shown}
+    assert fenced_by_the_shared_rule(lines) == theirs
+    unclosed = [first for first, last in uc.fence_spans(lines) if last is None]
+    assert unclosed == ([] if opened_at is None else [opened_at])
+
+
+@pytest.mark.parametrize(
+    "line, ends",
+    [("   # a heading", True), ("    # four spaces is paragraph text", False)],
+)
+def test_an_atx_heading_ends_a_paragraph_only_within_three_spaces(line, ends):
+    """#491's round-7 comment. CommonMark 4.2 bounds an ATX heading to three
+    spaces of indentation, and the oracle `block_ends_at` above has always
+    said so. Seen red against `c52e8350`, whose `line.strip()` stopped the
+    paragraph on the four-space line."""
+    assert uc._paragraph_ends_at(line) is ends
