@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 595 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `1cbae560b5972f0ae9c242f0d74227d798c8e17f..473892da98077b332171e1004ef65ef296235b98`, 3 commits |
+| Contract changes | none |
+| New units | test_a_switch_against_another_program_is_rewritten_the_documented_bound_not_the_goal (depth 1) |
 | Needs a fix | yes — 🟡 1 (a switch written against a program other than a built-in is still rewritten into a path, and the documents name only the built-ins) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 2 of work item 1790260567 is the verifying round: the diff of round 1's fi
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A `/` written straight after any program other than a built-in (`xcopy/e/i`, `findstr/s`, `timeout/t`) is still rewritten into a path, so a row that runs today stops running; `spec.md:157` and the template name the built-ins as the only switch left as written | `skills/verify/scripts/broad_gate.py:1298` | open | executed: `handed_to_shell` with `windows=True` gives `xcopy\e\i`, `findstr\s`, `timeout\t`, `ipconfig\all`; what `cmd.exe` does with them is read from the module's own premise, and the `windows-latest` leg answers it |
-| ⬜ 2 | Correction: the merge at 974c64a0 took the `\|` out of one note in each of two rows, and 9f493c56 repaired the cells but not the character, so each note now says something false about the template | `seal/releases/0.12.0.md:109` | open | executed: word-level comparison of all 98 side-edited rows against both parents; also `seal/releases/0.5.0.md:107` |
-| ⬜ 3 | Correction: PR #595's body says the conftest removes the token variables, says a name after a redirection is rewritten, and carries no A7 answer | PR #595 body | open | read via `gh pr view`; the orchestrator owns the body before ready |
+| 🟡 1 | A `/` written straight after any program other than a built-in (`xcopy/e/i`, `findstr/s`, `timeout/t`) is still rewritten into a path, so a row that runs today stops running; `spec.md:157` and the template name the built-ins as the only switch left as written | `skills/verify/scripts/broad_gate.py:1298` | **fixed** `1b6dcf5b` | fixed at 1b6dcf5b — ee085b9b, 473892da; executed: `handed_to_shell` with `windows=True` gives `xcopy\e\i`, `findstr\s`, `timeout\t`, `ipconfig\all`; what `cmd.exe` does with them is read from the module's own premise, and the `windows-latest` leg answers it |
+| ⬜ 2 | Correction: the merge at 974c64a0 took the `\|` out of one note in each of two rows, and 9f493c56 repaired the cells but not the character, so each note now says something false about the template | `seal/releases/0.12.0.md:109` | answered | a record correction, corrected at 1cbae560; executed: word-level comparison of all 98 side-edited rows against both parents; also `seal/releases/0.5.0.md:107` |
+| ⬜ 3 | Correction: PR #595's body says the conftest removes the token variables, says a name after a redirection is rewritten, and carries no A7 answer | PR #595 body | answered | the PR body is the orchestrator's, rewritten before the pull request goes ready; read via `gh pr view`; the orchestrator owns the body before ready |
 | 🟢 | round 1's blocking finding 1 is closed — the suite's `gh` finds a placeholder before `hosts.yml` or the keyring | `tests/conftest.py:341` | confirmed | executed: both cases red with the block cut out, green with it in; the keyring half is read, since this machine keeps no keyring login |
 | 🟢 | round 1's finding 2 is closed for `cmd.exe`'s own commands — the five cases pin a built-in's switch as written | `tests/test_the_gate_hands_cmd_a_path_it_can_run.py:114` | confirmed | executed: all five went red with `CMD_BUILTINS` emptied; the rest of the class is 🟡 1 |
 | 🟢 | round 1's finding 3 is closed — the template states the rule and names examples, and a case refuses the old count | `templates/config.md:201` | confirmed | read; the case passed |
