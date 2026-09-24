@@ -167,7 +167,7 @@ from" for whichever path is missing. That includes `hooks/config.py` and
 ### ⬜ 8 — The shape test re-lists `docs/` instead of asking the command
 
 `tests/test_a_folded_statement_names_what_enforces_it.py:58-63`,
-`docs_documents`, is `fold_check.documents` spelled a second time. The
+`docs_documents`, is `fold_check.documents` spelled a second time. The · NAME NOT IN TREE
 ceiling module already calls the shipped one.
 
 ## Classes enumerated (§12)
@@ -226,7 +226,7 @@ is the smith's to write. Each should be seen red against `e9dfe623` first.
 | ⬜ 5 | the shape module's docstring says the prose is pinned "against this constant" | `tests/test_a_folded_statement_names_what_enforces_it.py:15` | open | read; the pin reads the `Fold shape from` row, and no constant remains |
 | ⬜ 6 | the cutoff statement's `Enforced by:` names only `fold_check.py::bound`, which holds no value | `docs/the-evidence-ledger.md:195` | open | read; the spec asked for the re-point, and the real-tree case is what holds the value |
 | ⬜ 7 | `load`'s refusal gives the markers reason for the config reader and the resolver too | `skills/settle/scripts/fold_check.py:137` | open | read |
-| ⬜ 8 | `docs_documents` re-spells `fold_check.documents` | `tests/test_a_folded_statement_names_what_enforces_it.py:58` | open | read |
+| ⬜ 8 | `docs_documents` re-spells `fold_check.documents` | `tests/test_a_folded_statement_names_what_enforces_it.py:58` | open | read | · NAME NOT IN TREE
 | 🟢 | S1 to S11 hold as the spec states them | `skills/settle/scripts/fold_check.py`, the six touched test modules | confirmed | executed: `bin/fold-check` exit 0 with the S1 line; `--shape-from 0` exit 1 binding 136; the six touched modules and the script-reach module pass narrow |
 | 🟢 | #530 is closed as the class, not the five tokens | `skills/settle/scripts/settle.py:447` | confirmed | executed: the old rule restored in memory fails every container case; probe edges drop or keep as the spec enumerates |
 | 🟢 | the wrap skip is no wider than the shape reader | `tests/test_docs_line_wrap.py:186` | confirmed | read: one predicate, `names_targets`, decides both |

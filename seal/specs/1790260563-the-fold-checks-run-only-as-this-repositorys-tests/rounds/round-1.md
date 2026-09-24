@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 587 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `f181e30abd4539320446d17dd5cbc0eee6f20b68..d32c365a843cecb12bc20b9a1a84c94b9655252f`, 2 commits |
+| Contract changes | load → plugin_name, read_version, hygiene.yml, CHANGELOG.md, main, running, load_input, dead_session_ids, fresh_leases, 0.9.1.md, round-1-report.md, round-1.md, load, pull_request_state, chain, where, orchestration.md, read_state, plugin_version, reader, optin, config_rows, open_rows, coordinates, anchored_rows, survey, retire, SKILL.md, broad_command, refusal, rows_read, fenced_row_at, fence_left_open, gate, broad_gate.py, measure, segment_slices, pytest |
+| New units | why (depth 1); optin (depth 1); located (depth 1); git_init (depth 1); test_the_command_typed_in_a_subdirectory_reads_the_repository (depth 1); test_an_opted_out_repository_is_told_it_opted_out (depth 1); test_a_repository_with_no_root_is_told_it_has_none (depth 1); test_a_listed_document_below_the_top_level_is_named_as_outside_it (depth 1); test_a_target_file_that_will_not_parse_exits_2_naming_it (depth 1); test_a_document_that_is_not_utf8_exits_2_naming_it (depth 1); test_a_script_copied_on_its_own_says_which_sibling_it_misses (depth 1) |
 | Needs a fix | yes — 🟡 1 (a subdirectory run passes having checked nothing), 🟡 2 (a crash at exit 1 on an unparseable target or an undecodable document), 🟡 3 (the opted-out sentence is false), 🟡 4 (a listed file that exists is reported missing) |
 | Loses a record or crashes | yes — 🟡 2: `fold-check` crashes with a traceback on a `::name` target that will not parse and on a `docs/*.md` that is not UTF-8 |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,14 +24,14 @@ Round 1 of work item 1790260563 reviews the build at e9dfe623 against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | typed in a subdirectory, `fold-check` reads no row and exits 0 having checked nothing | `skills/settle/scripts/fold_check.py:547` | open | executed in the clone's `docs/` and in a planted repository: exit 0, "nothing was checked"; the other shipped readers resolve the repository through `hooks/optin.py#repo_root` |
-| 🟡 2 | a `::name` target that will not parse, or a `docs/*.md` that will not decode, crashes the command with a traceback at exit 1 | `skills/settle/scripts/fold_check.py:254` | open | executed: `SyntaxError` and `UnicodeDecodeError` tracebacks, both at exit 1, which is the code for "problems found"; `read` at `:325` is the second site |
-| 🟡 3 | an opted-out repository is told it "has no seal/ root at either place" | `skills/settle/scripts/fold_check.py:553` | open | executed with the scratch marker under `.git/`: that sentence, exit 0; `settle.py#main` splits the two states `home_at` folds into `""` |
-| 🟡 4 | a listed document below the top level of `docs/` is reported as not existing | `skills/settle/scripts/fold_check.py:337` | open | executed: `docs/deep/big.md is listed over the ceiling and does not exist` for a file that exists |
-| ⬜ 5 | the shape module's docstring says the prose is pinned "against this constant" | `tests/test_a_folded_statement_names_what_enforces_it.py:15` | open | read; the pin reads the `Fold shape from` row, and no constant remains |
-| ⬜ 6 | the cutoff statement's `Enforced by:` names only `fold_check.py::bound`, which holds no value | `docs/the-evidence-ledger.md:195` | open | read; the spec asked for the re-point, and the real-tree case is what holds the value |
-| ⬜ 7 | `load`'s refusal gives the markers reason for the config reader and the resolver too | `skills/settle/scripts/fold_check.py:137` | open | read |
-| ⬜ 8 | `docs_documents` re-spells `fold_check.documents` | `tests/test_a_folded_statement_names_what_enforces_it.py:58` | open | read |
+| 🟡 1 | typed in a subdirectory, `fold-check` reads no row and exits 0 having checked nothing | `skills/settle/scripts/fold_check.py:547` | **fixed** `0bbf219f` | fixed at 0bbf219f; executed in the clone's `docs/` and in a planted repository: exit 0, "nothing was checked"; the other shipped readers resolve the repository through `hooks/optin.py#repo_root` |
+| 🟡 2 | a `::name` target that will not parse, or a `docs/*.md` that will not decode, crashes the command with a traceback at exit 1 | `skills/settle/scripts/fold_check.py:254` | **fixed** `0bbf219f` | fixed at 0bbf219f; executed: `SyntaxError` and `UnicodeDecodeError` tracebacks, both at exit 1, which is the code for "problems found"; `read` at `:325` is the second site |
+| 🟡 3 | an opted-out repository is told it "has no seal/ root at either place" | `skills/settle/scripts/fold_check.py:553` | **fixed** `0bbf219f` | fixed at 0bbf219f; executed with the scratch marker under `.git/`: that sentence, exit 0; `settle.py#main` splits the two states `home_at` folds into `""` |
+| 🟡 4 | a listed document below the top level of `docs/` is reported as not existing | `skills/settle/scripts/fold_check.py:337` | **fixed** `0bbf219f` | fixed at 0bbf219f; executed: `docs/deep/big.md is listed over the ceiling and does not exist` for a file that exists |
+| ⬜ 5 | the shape module's docstring says the prose is pinned "against this constant" | `tests/test_a_folded_statement_names_what_enforces_it.py:15` | **fixed** `0bbf219f` | fixed at 0bbf219f; read; the pin reads the `Fold shape from` row, and no constant remains |
+| ⬜ 6 | the cutoff statement's `Enforced by:` names only `fold_check.py::bound`, which holds no value | `docs/the-evidence-ledger.md:195` | **fixed** `0bbf219f` | fixed at 0bbf219f; read; the spec asked for the re-point, and the real-tree case is what holds the value |
+| ⬜ 7 | `load`'s refusal gives the markers reason for the config reader and the resolver too | `skills/settle/scripts/fold_check.py:137` | **fixed** `0bbf219f` | fixed at 0bbf219f; read |
+| ⬜ 8 | `docs_documents` re-spells `fold_check.documents` | `tests/test_a_folded_statement_names_what_enforces_it.py:58` | **fixed** `0bbf219f` | fixed at 0bbf219f; read \| · NAME NOT IN TREE |
 | 🟢 | S1 to S11 hold as the spec states them | `skills/settle/scripts/fold_check.py`, the six touched test modules | confirmed | executed: `bin/fold-check` exit 0 with the S1 line; `--shape-from 0` exit 1 binding 136; the six touched modules and the script-reach module pass narrow |
 | 🟢 | #530 is closed as the class, not the five tokens | `skills/settle/scripts/settle.py:447` | confirmed | executed: the old rule restored in memory fails every container case; probe edges drop or keep as the spec enumerates |
 | 🟢 | the wrap skip is no wider than the shape reader | `tests/test_docs_line_wrap.py:186` | confirmed | read: one predicate, `names_targets`, decides both |
