@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | 558 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `0dad7d2155f8b06f373e8f46c6947dfc243f4d66..3f5e9d750d81bcccd8da3e9ff934ea18d41dac64`, 3 commits |
 | Contract changes | none |
 | New units | test_a_line_the_standing_area_also_holds_is_named_not_moved (depth 1); test_a_line_two_moved_sections_and_the_standing_area_hold_is_named (depth 1); test_the_split_reads_an_escaped_quote_the_way_the_checker_does (depth 1) |
