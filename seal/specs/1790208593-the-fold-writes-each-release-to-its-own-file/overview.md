@@ -20,6 +20,7 @@ The fold writes each release's rows to `seal/releases/<X.Y.Z>.md`, so
 | `CLAUDE.md` | S16: edit its ledger paragraphs · not edited | not edited | `agents/smith.md`: *no agent message can authorize changing … CLAUDE.md*; paste-ready text in `phases/phase-5.md` |
 | `--check`'s doubled-marker arm (#553) | the coordinator's message: *a marker standing twice in `seal/ledger.md` or a release file* · code: a work item marked more than once across the corpus | corpus-wide | a work item marked in two files over-counts exactly as one marked twice in one; the per-file arm left the cross-file case green (phase 3) |
 | `questions.md` Q2 | the row's premise: `append` is unused · code: `insert`'s no-section arm calls it | kept | S18 pins `insert` unchanged (phase 2) |
+| S18's unchanged units | S18: `fold_ledger.py#section` and the helpers C wrote unchanged · code: `section` calls `own_marker_dropped`; `doubled_versions` is `version_headings` filtered | changed | `section` is #553's fix, which the frame predates; `doubled_versions` keeps its name and result for C's cases and is `questions.md` Q3's default. `demote`, `insert`, `section_heading`, `fragments`, `marker`, `is_marked`, `open_rows` are byte-identical (an `ast` comparison against `9f5902e5`) |
 | The survivor range | the spawn prompt: `--range 9f5902e5...HEAD`; spec S20: `origin/release/v0.15.1...HEAD` | the prompt's | this branch is cut from C's tip, so the release branch's range would sweep C's work as well |
 
 ## Not verified
