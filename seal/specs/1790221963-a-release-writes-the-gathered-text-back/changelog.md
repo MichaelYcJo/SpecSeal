@@ -8,9 +8,11 @@
   wording that a correction in the same commit removed, the copy still
   standing in another file was subtracted and the sweep exited 0. A gathered
   fragment's text is now read where it stood before the release and is held
-  but never counted as written, whether the release leaves the fragment in
-  place or deletes it, and a fragment whose body opens with prose is held
-  the same way. Releases with no `## Unreleased` section, which is this
+  rather than counted as the range's writing, whether the release leaves the
+  fragment in place or deletes it, and a fragment whose body opens with
+  prose is held the same way. Only the wording it shares with an entry the
+  release itself removed is still counted, so a gathered rewording of a
+  removed entry is looked for as a reworded release is. Releases with no `## Unreleased` section, which is this
   repository's shape, never reached it.
 - The release write-back's `lost` guard is pinned by a case of its own
   (#555). Removing it used to leave the module green; now a release that

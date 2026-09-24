@@ -171,8 +171,11 @@ blanked. This repository's gatherer leaves the fragment in place; one that
 deletes it, or a range that edits a gathered one, would without this count
 the fragment's sentences as removed, and the work items' own `spec.md` and
 `overview.md` would be reported at the release. The gathered text is held
-at the release and never written (#557): the fragment's own branch wrote
-it, so it may not subtract a survivor the same commit's correction left.
+at the release and not written as the range's own (#557): the fragment's
+own branch wrote it, so it may not subtract a survivor the same commit's
+correction left. Only its n-grams that also occur in a sentence
+`CHANGELOG.md` itself lost are written, so a gathered rewording of a lost
+entry still splits that entry into runs.
 
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
@@ -974,12 +977,12 @@ def corrected(root, a, b):
     fresh wording is written, as any file's is: an entry reworded as it is
     released splits the removed sentence into the runs it no longer shares,
     and withholding it would merge them into one that never clears the
-    floor. A gathered fragment's text is held and never written, because
-    the fragment's own branch wrote it, not this range: a release that
-    renames `## Unreleased` or rewords an entry loses a sentence, and
-    the gathered wording would then subtract the survivor a correction
-    in the same commit left standing in another file (round 3's 🟡 1,
-    #557). Of a gathered sentence, only the n-grams that also occur in a
+    floor. A gathered fragment's text is held and not written as the
+    range's own, because the fragment's own branch wrote it, not this
+    range: a release that renames `## Unreleased` or rewords an entry loses
+    a sentence, and the gathered wording would then subtract the survivor a
+    correction in the same commit left standing in another file (round 3's
+    🟡 1, #557). Of a gathered sentence, only the n-grams that also occur in a
     sentence THIS file lost are written: a live entry the release replaced
     with a gathered fragment rewording it is still split into the runs it
     no longer shares, as a reworded release is, while gathered text that
@@ -1017,7 +1020,7 @@ def corrected(root, a, b):
     # this range did not write it -- the fragment's own branch did. Read at
     # `a` by the path the gatherer globs, where it stands whether the release
     # leaves the fragment or deletes it, so `moved` below can hold that text
-    # without writing it.
+    # without writing it as this range's.
     fragments = [f"seal/specs/{item}/changelog.md" for item in sorted(gathered)]
     shipped = {
         sentence.key
