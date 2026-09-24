@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 595 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `29678169a0fc5bf5e57e6dedb9af23dc13ed9f93..371206af7e8355846f9394978f82d97dbff7a7c9`, 7 commits |
+| Contract changes | none |
+| New units | CMD_BUILTINS (depth 1); NOT_A_GH_TOKEN (depth 1); test_the_token_gh_would_send_is_not_a_login (depth 1) |
 | Needs a fix | yes — 🟡 1 (the keyring login escapes the suite's scrub, and the case built to catch it cannot) and 🟡 2 (a built-in's switch is rewritten into a path) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 1 of work item 1790260567 reviews the build at 7dab2a17 against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | On a machine whose `gh` login is in the OS keyring (the default), an empty `GH_CONFIG_DIR` does not hide it: `ActiveToken` falls back to the keyring's active-account slot. The behavioural case asks `gh auth status`, the one command that does not take that fallback, and Q2 was ticked on a `hosts.yml` probe | `tests/conftest.py:324` | open | read from the upstream `gh` source; executed here only for the `hosts.yml` half (`auth status` 1, `auth token` 1) |
-| 🟡 2 | A `/` written against a `cmd.exe` built-in (`rd/s/q`, `dir/b`, `del/q`, `cd/d`) is that command's switch, and the scan hands it over as `\`, which breaks or changes a row that runs today | `skills/verify/scripts/broad_gate.py:1375` | open | rewrite output executed on macOS with the platform passed in; what `cmd.exe` does with it is read, and the Windows leg is the answerer |
-| ⬜ 3 | The template says two positions are not rewritten; `for … do`, `cmd /c` and `else` are also left as written | `templates/config.md:201` | open | read; the positive definition beside it is correct |
-| ⬜ 4 | Two re-stamped rows lost their first `Checked` date, and no note carries it; no Notes cell lost anything | `seal/releases/0.10.0.md:62` | open | executed: a cell-by-cell comparison of all 13 rows; also `seal/releases/0.12.2.md:14` |
-| ⬜ 5 | Correction: the failure-direction sentences are false for a built-in's switch until 🟡 2 is fixed | `seal/specs/1790260567-the-broad-gate-hands-cmd-a-forward-slash/spec.md:150` | open | read; also `plan.md:132`, and the PR body's A7 answer |
+| 🟡 1 | On a machine whose `gh` login is in the OS keyring (the default), an empty `GH_CONFIG_DIR` does not hide it: `ActiveToken` falls back to the keyring's active-account slot. The behavioural case asks `gh auth status`, the one command that does not take that fallback, and Q2 was ticked on a `hosts.yml` probe | `tests/conftest.py:324` | **fixed** `554536af` | fixed at 554536af — 1ae6b42f, 371206af; read from the upstream `gh` source; executed here only for the `hosts.yml` half (`auth status` 1, `auth token` 1) |
+| 🟡 2 | A `/` written against a `cmd.exe` built-in (`rd/s/q`, `dir/b`, `del/q`, `cd/d`) is that command's switch, and the scan hands it over as `\`, which breaks or changes a row that runs today | `skills/verify/scripts/broad_gate.py:1375` | **fixed** `660d8e09` | fixed at 660d8e09 — edfb96af; rewrite output executed on macOS with the platform passed in; what `cmd.exe` does with it is read, and the Windows leg is the answerer |
+| ⬜ 3 | The template says two positions are not rewritten; `for … do`, `cmd /c` and `else` are also left as written | `templates/config.md:201` | **fixed** `660d8e09` | fixed at 660d8e09; read; the positive definition beside it is correct |
+| ⬜ 4 | Two re-stamped rows lost their first `Checked` date, and no note carries it; no Notes cell lost anything | `seal/releases/0.10.0.md:62` | answered | a record correction, corrected at c88b007f; executed: a cell-by-cell comparison of all 13 rows; also `seal/releases/0.12.2.md:14` |
+| ⬜ 5 | Correction: the failure-direction sentences are false for a built-in's switch until 🟡 2 is fixed | `seal/specs/1790260567-the-broad-gate-hands-cmd-a-forward-slash/spec.md:150` | answered | a record correction, corrected at 69158f60; read; also `plan.md:132`, and the PR body's A7 answer |
 | 🟢 | The rewrite is applied at the one shell site, and both `shell=True` callers reach it | `skills/verify/scripts/broad_gate.py:1204` | confirmed | read, and the AST case passed |
 | 🟢 | The kept file and stderr say what `cmd.exe` was handed; an argv check and a row with nothing to rewrite add nothing | `skills/verify/scripts/broad_gate.py:1236` | confirmed | executed: the A3 cases passed |
 | 🟢 | A failing `suite` with no pytest summary gets the no-summary line, and one with a summary gets the count | `skills/verify/scripts/broad_gate.py:1922` | confirmed | executed: unit cases and the end-to-end gate case passed |
