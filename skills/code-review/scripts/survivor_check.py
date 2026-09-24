@@ -979,7 +979,12 @@ def corrected(root, a, b):
     renames `## Unreleased` or rewords an entry loses a sentence, and
     the gathered wording would then subtract the survivor a correction
     in the same commit left standing in another file (round 3's 🟡 1,
-    #557). A release that removes no live sentence writes nothing at all."""
+    #557). Of a gathered sentence, only the n-grams that also occur in a
+    sentence THIS file lost are written: a live entry the release replaced
+    with a gathered fragment rewording it is still split into the runs it
+    no longer shares, as a reworded release is, while gathered text that
+    shares nothing with what the file lost stays held. A release that
+    removes no live sentence writes nothing at all."""
     names = git(root, "diff", "--name-only", "--no-renames", "-z", a, b)
     if names is None:
         raise Refused(f"cannot diff {a[:7]}..{b[:7]} in {root}")
@@ -1040,11 +1045,20 @@ def corrected(root, a, b):
             # Nothing of this file was removed, so there is nothing the moved
             # section's wording could split; a gathered release writes none.
             moved = []
-        # Held above like any released sentence, never written: a release
-        # that renames `## Unreleased` or rewords an entry loses a sentence,
-        # and the gathered text would then subtract the survivor a
+        # Held above like any released sentence, never written whole: a
+        # release that renames `## Unreleased` or rewords an entry loses a
+        # sentence, and the gathered text would then subtract the survivor a
         # correction in the same commit left standing in another file.
+        held = [sentence for sentence in moved if sentence.key in shipped]
         moved = [sentence for sentence in moved if sentence.key not in shipped]
+        # ...except against what THIS file lost: a live entry the release
+        # replaced with a gathered fragment rewording it is still split by
+        # that rewording, as a reworded release is (step A's round 2 🟡 1).
+        # Only the grams the lost sentences carry are written, so gathered
+        # text still cannot subtract another file's corrected wording.
+        lost_here = {gram for sentence in gone[lost:] for gram in sentence.grams()}
+        for sentence in held:
+            written.update(gram for gram in sentence.grams() if gram in lost_here)
         old = Counter(s.key for s in was)
         fresh = Counter()
         for sentence in now + moved:

@@ -3040,6 +3040,48 @@ def test_a_gathered_release_that_loses_nothing_reports(tmp_path):
     assert "docs/b.md" in text, text
 
 
+def test_a_release_that_replaces_an_entry_with_a_gathered_rewording_reports(
+    tmp_path,
+):
+    """The gathered-text filter's other side (round 1's 🟡 1). The release
+    replaces the live entry `FOUND` with a gathered fragment whose text
+    rewords it, and `docs/b.md` quotes `FOUND`. The fragment's rewording is
+    withheld from `written`, but it must still split the sentence
+    `CHANGELOG.md` itself lost into the runs it no longer shares, as a
+    reworded release does; withheld whole, `FOUND` is one run under the
+    floor and its copy goes silent. Red at bf7ba905: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": "# a\n\nUnrelated.\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {REPAIRED}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {FOUND}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "a live entry, a fragment rewording it, a document quoting the entry",
+    )
+    head = build(
+        repo,
+        {
+            "CHANGELOG.md": changelog(RELEASED_HEADINGS[0], REPAIRED, marker=True)
+            + f"\n{older}",
+        },
+        "release: the live entry replaced by the gathered rewording",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the gathered rewording was withheld whole, so the lost entry never "
+        f"split and its copy in docs/b.md went silent; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
 def test_a_gathered_fragment_standing_in_the_pool_is_not_a_survivor(tmp_path):
     """S10, the pool side. The fragment's marker is in `CHANGELOG.md` at the
     tip, so the fragment is the released entry one file over and is not
