@@ -349,6 +349,7 @@ runner cannot reach it the range fails and the run stops — which is the right
 direction, and not the same as being harmless. `DRY_RUN=1` prints what it
 would do and writes nothing.
 
+<!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
 **One issue the tracker refuses does not leave the rest open.** The run used
 to die on the first `gh issue close` that failed, with every issue sorted
 after it still open — measured on the release before #536, where one GraphQL
@@ -362,6 +363,7 @@ many took it, and the run exits non-zero only at the end, naming each issue
 both routes refused with both errors. A partial close is repaired by
 re-running the script with the run's `BEFORE`, `AFTER` and `REPO`: it skips
 what is already closed and reaches the rest.
+Enforced by: tests/test_the_closer_carries_on_past_a_refusal.py
 
 ```
 Closes #88

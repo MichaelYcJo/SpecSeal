@@ -75,6 +75,23 @@ that own their subjects, with the cases that pin them moving too rather than
 being deleted — a case deleted with its document is coverage nobody decided
 to give up.
 
+<!-- specs/1790206436-the-runs-instruments-cost-wall-clock -->
+**What an agent leaves in the scratchpad is named for the work item it
+serves, so two agents alive at once cannot pick the same name.** Every agent
+of one session shares one scratchpad, and a name any parallel agent would
+also pick is a file somebody else can overwrite. In the 0.15.0 run four work
+items ran their chains from one session: two wardens cloned into the same
+directory, a third's clone had its HEAD moved by a foreign checkout for
+fifty-five seconds, and two sealers wrote one capture file over each other
+(#544). So the warden's clone is `<scratchpad>/<work-item-id>/round-<n>/clone`
+with every probe of the round beside it, the sealer's capture carries the
+work item id, and the verify skill's capture example is no longer a path
+every session on the machine shares. The name lives in the definitions,
+where a rule arrives by mechanism, and not in a spawn prompt, which is where
+it had gone missing; one directory per work item and round is also what lets
+the agent that made a leaving say that every one of them is gone.
+Enforced by: tests/test_a_parallel_agent_names_its_scratch_after_the_work_item.py
+
 ## What a spawn costs
 
 <!-- specs/1788993115-a-payload-is-written-again-on-every-spawn -->

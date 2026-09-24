@@ -87,23 +87,29 @@ python3 .github/scripts/fold_ledger.py --version X.Y.Z
 sed -i '' 's/"version": "A.B.C"/"version": "X.Y.Z"/' .claude-plugin/plugin.json
 ```
 
-**The fold writes the release's own file, and the split runs once.** Since
-#547 the fold writes `seal/releases/X.Y.Z.md` and never `seal/ledger.md`.
-The release that ships #547 finds `seal/ledger.md` still heading every
-release folded before it, and `--split` moves each of those sections into its
-own file byte for byte, rewriting the one row anchored into a moved section.
-Run it before the fold, with its `--dry-run` read first: the dry run names
-each section with its line range and row count, and each anchor it rewrites.
-After that release `seal/ledger.md` heads no release, `--split` says
-`nothing to split` and exits 1, and `--check` refuses a `seal/ledger.md`
-that heads one again, naming `--split` as the repair. The split does not
-remove the same-row conflict two branches meet when each re-stamps one row;
-it moves it into a smaller file.
-
 The fold refuses while any `seal/specs/<id>/evidence-todo.md` has an open
 row; that is a review that never drained, not a release problem, and the
 row's work item is where it is closed.
 
+<!-- specs/1790208593-the-fold-writes-each-release-to-its-own-file -->
+**The fold writes the release's own file, and the split has run.** Since
+#547 the fold writes `seal/releases/X.Y.Z.md` and never `seal/ledger.md`,
+which keeps the notation and the rows from before the fragments and stops
+growing. It had reached 2,736 lines, and every re-stamp's diff and every
+conflict's hunks landed in it. `--split` moved the releases folded into it
+before #547 into their own files once, byte for byte, at the release that
+shipped #547, and rewrote the one row anchored into a moved section. It now
+says `nothing to split` and exits 1, so the `--split` lines in the block
+above belong to that release. `--check` refuses a `seal/ledger.md` that heads
+a release again, naming `--split` as the repair. A fragment that begins with
+its own marker line is folded with one marker, and `--check` refuses a work
+item marked twice across the ledger files: twenty stood twice when #553
+measured it. The split did not remove the same-row conflict two branches
+meet when each re-stamps one row; it moved it into a smaller file.
+Enforced by: .github/scripts/fold_ledger.py::main, tests/test_release_hygiene.py
+
+<!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
+<!-- specs/1790206437-a-second-fold-writes-a-second-heading -->
 **A second gather for the same version appends into its section.** The
 release pull request going red and a fragment landing after this step is the
 ordinary shape, and the gather used to write a second `## X.Y.Z` heading for
@@ -116,6 +122,7 @@ X.Y.Z` joins the release's file, `seal/releases/X.Y.Z.md`, and keeps its
 date; `fold_ledger.py --check` refuses a release file that heads a version
 twice or is not named for the version it heads, and the same hygiene module
 refuses the ledger as it refuses the changelog.
+Enforced by: tests/test_release_hygiene.py, .github/scripts/fold_ledger.py::insert
 
 ## 2b. Settle what the release leaves behind — by hand, and not in that commit
 

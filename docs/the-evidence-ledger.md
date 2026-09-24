@@ -44,6 +44,7 @@ glob alike, and a row is a content anchor, so the release that folds a
 fragment into its release file changes no row's status. The `ok` total
 counts a `(coordinate, hash)` pair once per file, so a move can change it.
 
+<!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
 **Appended is the word, and a removal is not one — nor is an edit.** A
 branch that removes or edits code an existing shared-file row cites must touch
 the file the row is in to leave the ledger true. A removal takes the row out
@@ -53,6 +54,7 @@ re-stamped there with a dated note, and one the edit made false is corrected
 there first, with a `Corrected <date>` note. Both are keeping an existing
 claim true, which is not appending; adding a claim is what belongs in the
 fragment, and always did.
+Enforced by: tests/test_a_merge_cannot_silently_drop_a_correction.py
 
 <!-- specs/1788761915-a-record-states-what-nothing-reads -->
 **A work item whose ledger fragment still exists has not shipped.** The fold
@@ -61,6 +63,15 @@ boundary — and it is the one a check over unshipped work items uses, rather
 than a date or a branch name. A released work item's records are records of a
 moment, and holding them to a rule written later is holding them to nobody's
 rule.
+
+<!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
+**A `|` inside a ledger cell is escaped, and a row with more cells than its
+table's header fails.** An unescaped pipe splits the row, and the text after it
+lands in the next column, so a claim runs into its grounds and a date into its
+notes. At `31937b9f`, 22 rows stood split that way, three of them a second
+date-and-notes pair written into one Notes cell (#562). The case reads the
+shared file, every release file and every fragment.
+Enforced by: tests/test_release_hygiene.py::overwide_rows
 
 ## What the checker refuses, and what it says while refusing
 
@@ -86,6 +97,21 @@ and a silent partial answer is not right for reading. The checker names what
 it skipped, because guidance binds a session that reads the guidance and a
 session that narrows on its own initiative still gets an answer it will
 believe.
+
+<!-- specs/1790154760-the-ledger-grows-and-nothing-takes-a-row-out -->
+**The checker parses each Python file once per process, so a file that many
+rows cite costs one parse.** The answer is memoised on the file's text and
+never on its path, because `--reverify` and the suite read one path twice
+with different content in one process, and a path key would hand the second
+read the first read's spans. Each caller gets a fresh copy, so no caller can
+change the answer the next one gets. #519 asked whether a ledger that only
+grows should take rows out, and measured before choosing: every anchor
+resolved, the release sections mostly do not repeat what `docs/` states, and
+the 15.2 to 15.4 s that every `git commit` paid in the evidence advisor was 1,328
+parses of 126 files (`cProfile` and `/usr/bin/time -p` over `--strict .` on
+this repository, 2026-09-23). Parsed once per file, the same commit waits
+about 1.7 s. The cost was the parse and not the rows, so no row left: a row
+still leaves the ledger only with its code.
 
 ## A correction a merge dropped
 
@@ -115,6 +141,7 @@ It reads the shared file, every release file and every fragment, because a
 fragment becomes part of a release file at the release and a check that
 skipped fragments would go blind exactly while the rows are being written.
 
+<!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
 **Hunk by hunk has two halves, and only the notes are a union.** A row's
 `Re-read <date>` and `Corrected <date>` notes are both sides', because each
 records a reading somebody performed. The anchor's hash is not a union: it
@@ -125,6 +152,7 @@ longer exists anywhere, and the marker check above cannot see it, because no
 marker was dropped. So run `evidence-check` after the resolution: a drifted
 anchor is the tool naming the row, and the row is re-read against every edit
 the merged unit carries, one side's or both, before it is re-stamped.
+Enforced by: tests/test_a_merge_cannot_silently_drop_a_correction.py
 
 <!-- specs/1789996780-the-census-and-the-tie-that-nothing-holds -->
 **A bound over the corpus is stated with its instrument and the moment it was
@@ -150,25 +178,44 @@ against nothing is not a comparison.
 
 ## The fold, and what tells it from a deletion
 
-**This repository holds the fold's shape and placement rules with three
-values.** `skills/settle/SKILL.md` §*2. Write one standing statement per
-segment* states both rules, and this paragraph holds only the values.
+<!-- specs/1790154761-folded-statements-pile-into-one-spec -->
+**A statement folded from work item `1790154761` on has the fold's shape, and
+one folded before it has not.** The shape and the placement rule are stated in
+`skills/settle/SKILL.md` §*2. Write one standing statement per
+segment*, and this section holds only this repository's values for them. The
+cutoff is the id in the marker, and ids are epoch-prefixed, so it is a
+comparison rather than a list. Statements from earlier work items carry no
+`Enforced by:` line whenever they are folded: the 101 folded before it, and
+those of work items released with it or still waiting from before it. Those
+101 were written with no line naming what reads any of them, and review found
+one of them false.
+Enforced by: tests/test_a_folded_statement_names_what_enforces_it.py::bound
 
-- The shape binds statements from work item `1790154761` on, by the id in
-  the marker. Statements from earlier work items carry no `Enforced by:`
-  line whenever they are folded: the 101 folded before it, and those of work
-  items released with it or still waiting from before it.
-- A top-level document under `docs/` stays at or under 1000 lines.
-- No document is over that ceiling, so none is listed. The one that was,
-  `docs/review-chain-spec.md`, was split along its own headings by
-  MichaelYcJo/SpecSeal#526 into itself, `docs/commit-review-gate-spec.md`
-  and `docs/round-record-spec.md`, its fold markers carried across whole. A
-  document the next fold would take past the ceiling is split the same way
-  first, or the rule goes to the document for its own sub-subject.
+<!-- specs/1790154761-folded-statements-pile-into-one-spec -->
+<!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
+**A top-level document under `docs/` stays at or under 1000 lines, and one
+over that ceiling takes no new statement.** Two folds had put 29 of the 101
+statements into `docs/review-chain-spec.md`, 2,159 lines long while the next
+largest document was 839, because nothing said where a fold lands. No
+document is over the ceiling now, so none is listed. The one that was,
+`docs/review-chain-spec.md`, was split along its own headings by
+MichaelYcJo/SpecSeal#526 into itself, `docs/commit-review-gate-spec.md` and
+`docs/round-record-spec.md`, its fold markers carried across whole. A
+document the next fold would take past the ceiling is split the same way
+first, or the rule goes to the document for its own sub-subject. The check
+also pins the cutoff, the ceiling and the empty list against its constants.
+Enforced by: tests/test_a_document_has_room_for_the_next_fold.py::ceiling_problems
 
-`tests/test_a_folded_statement_names_what_enforces_it.py` reads the shape and
-`tests/test_a_document_has_room_for_the_next_fold.py` reads the ceiling. The
-second also pins these three values against its constants.
+<!-- specs/1790154761-folded-statements-pile-into-one-spec -->
+**A fold into a document with a `.ko.md` edition is a fold into both, under the
+same heading position.** The first fold wrote a section and ten markers into
+`docs/one-root-by-lifetime.md` and nothing into its Korean edition, and nothing
+noticed, because the one pin compared a single section's cell count. The two
+editions are prose in two languages, so the check compares what is
+language-neutral: the sequence of heading levels, and the fold-marker ids under
+each heading position. Whether a Korean paragraph says what its English one
+says is review's to read. `CONTRIBUTING.md` §*House rules* owns the rule.
+Enforced by: tests/test_both_editions_carry_the_same_folds.py::disagreements
 
 <!-- specs/1790027178-a-shipped-spec-waits-for-a-settle-that-was-never-built -->
 **A released work item's directory is folded into a policy document and then
@@ -211,6 +258,7 @@ for an area with none — so a marker below the top level is somebody's notes,
 and a scratch file quoting one excused a removal nothing had absorbed.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
+<!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
 **A released work item that wrote no `spec.md` states no rule, and it is
 retired by that rule, with no marker.** Such an item was below the SDD
 ladder: a release entry, a renumbering, a CI repair, a pull request's record.
@@ -224,9 +272,14 @@ is kept and named with its rows, and closing each row — a row re-homed is
 closed too, ✅ naming where it went — in a pull request merged before the one
 that retires the directory is what lets the next retirement take it. The CI
 readers ask the rule of the merge base, so a closure in the same pull request
-as the removal is still open where they look. That condition is a judgment the
-repository owner may overturn. An ungrouped item that did write a `spec.md` is
-folded where that spec's rule belongs. One more reason keeps a directory: **a permanent
+as the removal is still open where they look. One predicate decides the rule,
+and `settle`, `unverified-check`, `chain-check` and the survivor sweep all ask
+it, so the four cannot disagree about one tree. Whether the item wrote a
+`spec.md` is asked of its history, so a spec deleted in one commit, or in an
+earlier pull request, and the directory in the next is still a deletion. That
+condition is a judgment the repository owner may overturn. An ungrouped item
+that did write a `spec.md` is folded where that spec's rule belongs. One more
+reason keeps a directory: **a permanent
 ledger row anchored inside it**, which holds the directory until the row is
 answered — so a work item with a row anchored in its `rounds/` stays on disk,
 and the fold does not remove it to tidy the list. Keeping the directory rather
@@ -238,6 +291,7 @@ taken (#517): the row was removed, and its claim stands in
 `docs/review-chain-spec.md` §*Two records, and what each of them says*.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
+<!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
 **A retirement would break every ledger row anchored inside the directory it
 removes, so the retirement refuses that directory first.** An anchor into a
 work item's `spec.md` or its round records is a file path like any other, and
@@ -256,6 +310,7 @@ question, recorded against the ledger row that first met it. The command names
 the rows and edits none of them, because which row goes is a judgment about a
 claim.
 
+<!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
 **A fold is not a work item, and it adds nothing to the ledger.** It opens
 no directory under `seal/specs/`, so it has no fragment to append under, and
 a ledger file changes on a fold branch only by removal and re-verification:
@@ -264,9 +319,11 @@ anchor, and a row whose anchored unit the fold's own prose edited is re-read
 and re-verified. Its commits are waived one command at a time and its
 judgment is reviewed at its pull request (#517). What it leaves already has a
 home — the marker, the pull request, git history — so it keeps no log of its
-own.
+own. A fold that opened a work item left a directory for the next fold to
+retire, and that fold opened one of its own, so no fold could ever finish.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
+<!-- specs/1790119502-four-shipped-work-items-wait-unfolded -->
 **A population floor over the records is replaced, never lowered.** A check
 asserting that a sweep of `seal/specs/` read *enough* — `len(records) > 200` —
 is answering *did the walk read anything* with a literal that stops being true
@@ -276,6 +333,17 @@ compares the walk against an independent listing of the same tree —
 longer exercises moves to a record built in `tmp_path`. A repair is green
 before the fold and after it; one green only once the directories are gone is
 a lowering. `skills/settle/SKILL.md` §3 gives the three answers.
+
+<!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
+**A `seal/` root with no work item under it is the state a complete fold ends
+in, and it reads as settled, never as unusable.** Git keeps no empty
+directory, so the state is two: the tree that ran `settle --retire` holds an
+empty `seal/specs/`, and a fresh checkout of that commit holds none. Read as
+unusable, `settle` exited 2 on its own finished work, and `unverified-check
+--baseline` read the root's own `specs` path as a typo, which would turn every
+pull request after a complete fold red, the shipped `templates/hygiene.yml`
+included. Only that one path is settled; any other missing path is still
+refused, which keeps a misspelt path from passing in silence.
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 **A fold marker on a line of its own is exempt from the wrap limit.** The

@@ -1608,9 +1608,10 @@ def test_a_four_space_indented_block_is_still_read_as_a_claim():
 
 def test_an_html_comment_is_still_read_as_a_claim():
     """Deliberately unmasked, and for a different reason: whether GitHub
-    acts on a keyword inside a comment is unmeasured (`questions.md` Q1 of
-    work item 1790173209), and a measurement needs a scratch pull request on
-    a tracker. Until it is taken the shape stays as it was."""
+    acts on a keyword inside a comment is unmeasured
+    (`docs/issues-and-milestones.md` §*A keyword claims the one number after
+    it*), and a measurement needs a scratch pull request on a tracker. Until
+    it is taken the shape stays as it was."""
     m = _closer()
     assert m.keywords_in("<!-- Closes #6 -->") == ["6"]
 
