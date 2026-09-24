@@ -292,10 +292,11 @@ Three things are still read, each because skipping it would be silent:
   dropping it is the silent direction.
 - **An indented code block.** Only a fence is a quotation here.
 
-What counts as a fence is CommonMark's rule, and the one every reader in this
-plugin shares: at most three spaces of indentation, three or more backticks or
+What counts as a fence is CommonMark's rule, and the one the ledger and record
+readers share: at most three spaces of indentation, three or more backticks or
 tildes, a backtick opener whose info string holds no backtick, and a closer of
-the same character, at least as long, with nothing after it.
+the same character, at least as long, with nothing after it. Some readers
+elsewhere in the plugin still keep a rule of their own, and #584 tracks them.
 
 **A ledger row you mean as a claim does not belong inside a fence.** Before
 this rule, one there was checked. Now it is not, and nothing says so.
@@ -424,8 +425,8 @@ aside to its `-->`, so a template's two-line comment is an aside on both
 lines. **The `-->` ends the aside where it stands, not at the end of its
 line**: a name written after it is read, and a `<!--` right after it opens
 an aside again. A fence runs to a close of the same character that is at
-least as long as the opener and carries nothing after it, the rule every
-reader in this plugin shares. So a `~~~` quoted inside a ```-block does not
+least as long as the opener and carries nothing after it, the rule the
+ledger and record readers share. So a `~~~` quoted inside a ```-block does not
 end the quotation, and neither does a ```` ``` ```` quoted inside a
 ```` ```` ```` block. And a fence the record
 never closes reads as a malformed record rather than as a quotation of

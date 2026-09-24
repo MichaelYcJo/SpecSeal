@@ -120,8 +120,9 @@ CLOSER = "-->"
 BACKTICKS = re.compile(r"`+")
 # A fence delimiter line, as CommonMark 4.5 spells one: at most three spaces
 # of indentation, a run of three or more backticks or three or more tildes,
-# then the info string. `fence_opener` and `fence_closes` below are the one
-# rule every reader in this repository that walks a fence asks, and this
+# then the info string. `fence_opener` and `fence_closes` below are the rule
+# the ledger readers and the record readers ask — `fence_opener`'s docstring
+# lists them, and the readers that still keep a rule of their own — and this
 # pattern is only their first half.
 #
 # **Three spaces, not `\\s*`.** Four is an indented code block, or a lazy
@@ -234,24 +235,35 @@ def fence_opener(line):
     nothing; a tilde opener's info string is unrestricted. `fence_closes`
     below is the other half.
 
-    Every reader that walks a fence asks these two functions rather than a
-    pattern of its own, because five spellings of this rule is what five
-    readers had. The readers that ask it: `fence_spans` and through it
+    The readers below ask these two functions rather than a pattern of their
+    own, because five spellings of this rule is what five readers had. **It
+    is not every fence walk in the repository.** `hooks/config.py#FENCE` is a
+    deliberate copy, below. `payload_meter.py#FENCE`,
+    `.github/scripts/fold_ledger.py#demote`,
+    `.github/scripts/close_issues_on_release.py`,
+    `skills/evidence-check/scripts/correction_check.py#rows` and the other
+    readers #584 names still keep their own, and #584 is where each is
+    brought here or answered. The readers that ask it: `fence_spans` and
+    through it
     `blank_fences` and `closed_fence_lines`, and `_liveness` and
     `_paragraph_ends_at`, all in this module, and `todo_open_rows` through
     `closed_fence_lines` — which `settle.py#open_rows` and
     `.github/scripts/fold_ledger.py#open_rows` both are; and
     `skills/evidence-check/scripts/evidence_check.py#quoted_lines`, which
     the checker's four ledger walks read through, and `#claim_lines`, the
-    records arm's walk, both by way of its `fence_rule`.
-    That file keeps a vendored copy of these two functions for the copy
+    records arm's walk, both by way of its `fence_rule`; and
+    `hooks/root-migrate.py#repoint` through `evidence_check.py#unquoted`.
+    `skills/code-review/scripts/round_record.py#fenced_after` applies the
+    closer rule and the backtick-info rule by its own pattern and keeps a
+    wider opener on purpose, so a fix fenced inside a list item still
+    reaches the record. That file keeps a vendored copy of these two functions for the copy
     `evidence-ci` puts alone in a user repository, where this module is not
     beside it. **A new reader that decides by
     line whether it stands inside a fence belongs on this list**, and a
     reviewer of one has this docstring to check it against — nothing else
     can reach a reader that does not exist yet.
 
-    `hooks/config.py#FENCE` is the one deliberate second copy: it runs on the
+    `hooks/config.py#FENCE` is a deliberate copy: it runs on the
     hook path, where loading a skill module would cost every hook call.
     `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
     holds the two in step, shape by shape.

@@ -323,7 +323,7 @@ def coordinates(root):
 
     **A THIRD quotation is out of scope, and it is named here so it is not
     met as a surprise:** markdown's indented code block. The fence delimiter
-    rule every reader shares, `unverified_check.py#fence_opener`, knows the
+    rule the ledger readers share, `unverified_check.py#fence_opener`, knows the
     two fenced forms only, so a fragment that shows its example row indented
     four spaces has that example counted as its own coordinate. Teaching the
     shared rule an indented block would move `readable`, `check_text`,

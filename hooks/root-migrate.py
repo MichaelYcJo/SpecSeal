@@ -400,8 +400,9 @@ def repoint_path(path):
 def repoint(root):
     """Step 6. Every anchor under a moved prefix follows it; the hash stays.
 
-    The checker's own `ANCHOR_RE` finds the coordinates, so the rewrite reads
-    exactly what the check reads and nothing in prose. The count is of lines
+    The checker's own `ANCHOR_RE` finds the coordinates over the text the
+    check reads, `unquoted`, so the rewrite reads exactly what the check
+    reads, nothing in prose and nothing in a fenced example that closes. The count is of lines
     changed — rows — not of anchors, since a row may cite two.
     """
     ec = checker()
@@ -411,12 +412,23 @@ def repoint(root):
         if text is None:
             continue
 
-        def follow(m):
+        # A row inside a fenced block that closes is an example, and the
+        # check skips it (#444), so the rewrite leaves it byte for byte.
+        # Matched in the unquoted text and spliced from the original: the
+        # two have the same offsets, as in `reverify`.
+        view = ec.unquoted(text)
+        pieces, at = [], 0
+        for m in ec.ANCHOR_RE.finditer(view):
             path = m.group("path")
             new = repoint_path(path)
-            return m.group(0) if new == path else new + m.group(0)[len(path) :]
-
-        new_text = ec.ANCHOR_RE.sub(follow, text)
+            if new != path:
+                pieces += [
+                    text[at : m.start()],
+                    new,
+                    text[m.start() + len(path) : m.end()],
+                ]
+                at = m.end()
+        new_text = "".join(pieces) + text[at:]
         if new_text == text:
             continue
         # The same line count on both sides: only a path changed, never a

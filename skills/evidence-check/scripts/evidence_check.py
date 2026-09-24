@@ -139,7 +139,8 @@ SKIP_DIRS = frozenset(
 # block, and a row nobody wrote must not fail the build or be rewritten by
 # `--reverify` (#444). The delimiter rule is the shared reader's,
 # `skills/verify/scripts/unverified_check.py#fence_opener` and `#fence_closes`,
-# which every fence walk in this plugin asks.
+# which the ledger and record readers ask; `fence_opener`'s docstring lists
+# them and names the readers #584 has not brought over yet.
 HERE = os.path.dirname(os.path.abspath(__file__))
 READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
 # The vendored copy's rule, and nothing else's. `evidence-ci` puts this file
