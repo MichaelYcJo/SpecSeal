@@ -509,7 +509,7 @@ def blank_struck(text):
 CHANGELOG = "CHANGELOG.md"
 
 # A heading that opens a RELEASED section: `## 0.15.0 — 2026-09-23`, and the
-# `## [1.2.0]` and `## v1.2.0` spellings other changelogs use. `## Unreleased`
+# `## [1.2.3]` and `## v1.2.3` spellings other changelogs use. `## Unreleased`
 # matches nothing here, and that is the whole reason the region is read off
 # the heading rather than the file being left out by path: a repository
 # following `agents/smith.md`'s *let the entry accumulate unreleased* keeps
