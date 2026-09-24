@@ -90,6 +90,10 @@ def test_an_unset_comspec_on_windows_is_cmd_exe(monkeypatch):
         ('"tools/run tests" -q "a/b"', r'"tools\run tests" -q "a/b"'),
         ("bin/test %OUT%/x & tools/lint", r"bin\test %OUT%/x & tools\lint"),
         ("bin/test ^& not/a/command", r"bin\test ^& not/a/command"),
+        # An escaped character opens the command name it stands in, so the
+        # word after the next blank is an argument and keeps its `/`: a
+        # one-character name that is escaped is still the name.
+        ("^a b/c", "^a b/c"),
         ('bin/test "a & b/c" && x/y', r'bin\test "a & b/c" && x\y'),
         ("(bin/a && bin/b) || bin/c", r"(bin\a && bin\b) || bin\c"),
         (

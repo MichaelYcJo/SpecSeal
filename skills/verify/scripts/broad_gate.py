@@ -1308,7 +1308,8 @@ def command_names_backslashed(command):
         quoted stretch of it too, since a quoted Windows path takes `\\`;
       - `"` is the only quote; outside one, `^` escapes the next character,
         and that character is copied as written, so `^&` is never a
-        separator and `^/` is never rewritten;
+        separator and `^/` is never rewritten — in command position it is
+        the name's first character, so `^a b/c` keeps `b/c` an argument;
       - a `<` or `>` ends command position until the next separator.
 
     Three things `cmd.exe` does are left unmodelled because modelling them
@@ -1351,18 +1352,17 @@ def command_names_backslashed(command):
             i += 1
             continue
         if c == "^":
+            # The escaped character is the name's first one where it stands
+            # in command position, so the next blank ends that name.
             if at_command:
                 at_command, in_name = False, True
             out.append(command[i : i + 2])
             i += 2
             continue
         if c in "&|":
-            step = 2 if command[i + 1 : i + 2] == c else 1
-            out.append(command[i : i + step])
+            # `&&` and `||` are two of these in a row, which is the same state.
             at_command, in_name = True, False
-            i += step
-            continue
-        if c in "<>":
+        elif c in "<>":
             at_command, in_name = False, False
         elif c in " \t(":
             # A `(` opens a block in command position, which stays command
