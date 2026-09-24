@@ -51,8 +51,12 @@ run say something other than what happened.
    platform or on the shell's locale.
 3. **#510, the suite's environment.** At import, `tests/conftest.py` takes
    away `gh`'s credentials from the suite's own environment. It points
-   `GH_CONFIG_DIR` at an empty directory and removes `GH_TOKEN`,
-   `GITHUB_TOKEN`, `GH_ENTERPRISE_TOKEN` and `GITHUB_ENTERPRISE_TOKEN`. A
+   `GH_CONFIG_DIR` at an empty directory, removes `GITHUB_TOKEN` and
+   `GITHUB_ENTERPRISE_TOKEN`, and sets `GH_TOKEN` and `GH_ENTERPRISE_TOKEN`
+   to a value no server accepts, so `gh` never falls back to a login kept in
+   the OS keyring. **Corrected 2026-09-25** in round 1's fix pass: this item
+   said all four were removed, which leaves the keyring login reachable
+   (round 1's 🟡 1). A
    case that reaches a live `gh` then fails on a developer's machine the same
    way it fails on CI. That holds for every entry point: `bin/test`, bare
    `pytest`, the `uvx` fallback, xdist workers, and every child process that
@@ -142,7 +146,7 @@ that case red.
 | A3 | What ran is on record | Given the rewrite changed the string, when the check runs, then the kept `<name>.txt` names both the row as written and the line `cmd.exe` was handed, and one stderr line says the same. Given no change, nothing extra is printed or kept | Unit case on `run` with the platform forced and `subprocess.run` stubbed. It asserts the kept header and the stderr line (§14) |
 | A4 | The Windows half is executed where Windows exists | Given a fixture repository with the pair `bin/probe` (sh) and `bin/probe.cmd`, and the row `bin/probe`, when `run(..., shell=True)` runs on the real platform, then it exits 0 and the probe's output is in the kept file | An executed case on all three CI legs. On macOS and ubuntu it passes through `sh`. Only `windows-latest` executes the `cmd.exe` path. Its red on Windows without the fix is #448's measurement (the four-spellings table), which is the ticket's claim and not a run in this work item |
 | A5 | A failing row with no test result says so | Given the `suite` check exits non-zero and its output holds no pytest summary line, when the failure form is printed, then one line says the output carries no pytest summary, so this is not a count of failing tests. Given the output holds a summary (`1 failed in 0.01s`), the line is absent. The exit code is still 1 in both cases | Unit case on `failure_lines` with a `Check`, plus one end-to-end gate run with the row `exit 1`, which reads the same under `sh` and `cmd.exe`. Red when the line is deleted (§14, §15) |
-| A6 | The suite cannot see a developer's `gh` credentials | Given the suite is imported, then `GH_CONFIG_DIR` names an empty directory and none of the four token variables is set. Where `gh` is on PATH, `gh auth status` under the suite's environment exits non-zero | Structural case, red on any machine when the conftest block is removed. Behavioural case, which skips where `gh` is absent and can be seen red only on a machine where `gh` is authenticated (the builder's; CI is unauthenticated either way, which is the point). Q2 settles whether `GH_CONFIG_DIR` alone is enough |
+| A6 | The suite cannot see a developer's `gh` credentials | Given the suite is imported, then `GH_CONFIG_DIR` names an empty directory, `GITHUB_TOKEN` and `GITHUB_ENTERPRISE_TOKEN` are unset, and `GH_TOKEN` and `GH_ENTERPRISE_TOKEN` hold a placeholder no server accepts. Where `gh` is on PATH, `gh auth token` under the suite's environment exits non-zero or prints that placeholder. **Corrected 2026-09-25** in round 1's fix pass: this said no token variable is set and asked `gh auth status`, which does not read the keyring (round 1's 🟡 1) | Structural case, red on any machine when the conftest block is removed. Behavioural case, which skips where `gh` is absent and can be seen red only on a machine where `gh` is authenticated (the builder's; CI is unauthenticated either way, which is the point). Q2 settles whether `GH_CONFIG_DIR` alone is enough |
 | A7 | The PR answers the gate contract | The PR body states, for each fix, the test seen red, the failure direction, the prompt budget (zero for both) and platform honesty (what ran on macOS, and what only `windows-latest` executes) | Read at review. `CONTRIBUTING.md` §*What a change to a gate must carry* |
 
 **Failure directions, decided here:**

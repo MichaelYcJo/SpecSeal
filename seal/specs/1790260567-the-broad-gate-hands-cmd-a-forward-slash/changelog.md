@@ -22,6 +22,7 @@
   (issue #510).** A case that fell through its stubs onto a live `gh` passed
   wherever `gh` was logged in, which included the broad gate, and failed only
   on CI, whose pytest job has no token. `tests/conftest.py` now points
-  `GH_CONFIG_DIR` at an empty directory and removes the four token variables
-  when it is imported, so a local run gives CI's answer.
+  `GH_CONFIG_DIR` at an empty directory and sets `GH_TOKEN` to a value no
+  server accepts when it is imported, so `gh` reaches neither `hosts.yml` nor
+  a login kept in the OS keyring, and a local run gives CI's answer.
   `CONTRIBUTING.md` §*Running the checks* says so.

@@ -64,11 +64,14 @@ sealer's one broad run the whole-tree enumeration of such cases.
   it exactly as it does today. The gate is no worse than now, and Phase 2's
   line makes the failure readable. `templates/config.md` names the positions
   that are rewritten, so the gap is written down.
-- **#510.** A future `gh` release could read its keyring token without
-  looking at `GH_CONFIG_DIR`. The structural case stays green while
-  `gh auth status` goes red on an authenticated machine. The behavioural case
-  exists for exactly that, and Q2 measures today's behaviour before the
-  block is written.
+- **#510.** A future `gh` release could find a login somewhere the block
+  does not reach. The structural case stays green while `gh auth token`
+  returns a real token on an authenticated machine. The behavioural case
+  exists for exactly that. **Corrected 2026-09-25** in round 1's fix pass:
+  today's `gh` already reads its keyring without `GH_CONFIG_DIR`, which the
+  block now closes by setting `GH_TOKEN`, and the behavioural case asks
+  `gh auth token` because `gh auth status` does not take that path (round
+  1's 🟡 1).
 
 ## Alternatives considered
 
