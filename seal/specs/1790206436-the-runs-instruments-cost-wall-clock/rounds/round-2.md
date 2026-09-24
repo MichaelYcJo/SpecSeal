@@ -7,14 +7,14 @@
 | Ran by | warden on Fable 5.1 |
 | PR | 549 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `424b097c656c8d2336356b6f047c2d7dfcec2b88..23dc3ad00c934a42e60b503d179ee31b3bb49df9`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,8 +30,8 @@ Round 2, the verifying round at round 1's fixes: the range `c698def6..5bf1716f` 
 | 🟢 | round 1's finding 4 is closed — *the round you are in* | `agents/warden.md:42` | verified | read |
 | 🟢 | round 1's finding 5 — the root resolved twice — stays answered | `skills/verify/scripts/broad_gate.py:1997` | answered | read: `gate`'s signature unchanged; executed: `test_the_gate_asks_the_range_ci_will_ask.py` green |
 | 🟢 | the five drifted units re-stamped, and the four shared rows carry a second dated sentence that matches the diff | `seal/ledger.md`, `seal/ledger/1790206436-the-runs-instruments-cost-wall-clock.md` | verified | read against the word diff; executed: `bin/evidence-check --strict` exit 0, `1702 ok · 0 drifted · 0 broken` |
-| ⬜ 6 | the pre-parse is the full parser, so `-h`, a missing `--base`, an ambiguous abbreviation and a known flag's value type are still judged by the invoking copy before the redirect | `skills/verify/scripts/broad_gate.py:1996` | open | executed: over a stub-gate fixture, `-h` exits 0 with this copy's usage, no `--base` exits 2, `--r` exits 2 ambiguous, the stub never runs; the sealer's pinned command reaches none of them |
-| ⬜ 7 | `spec.md` and `plan.md` still say the redirect comes after `parse_args`, and `overview.md`'s divergence table has no row for the change | `seal/specs/1790206436-the-runs-instruments-cost-wall-clock/spec.md:127`, `plan.md:71`, `overview.md` §*Where spec and implementation diverged* | open | read; paperwork correction, not counted in `Needs a fix` |
+| ⬜ 6 | the pre-parse is the full parser, so `-h`, a missing `--base`, an ambiguous abbreviation and a known flag's value type are still judged by the invoking copy before the redirect | `skills/verify/scripts/broad_gate.py:1996` | answered | the pre-parse uses this copy's full parser, so `-h`, a missing `--base` and an ambiguous prefix are answered by the invoking copy before any redirect; the sealer's pinned command `broad-gate --base <base> --record <item>` meets none of the three, a missing `--base` is refused identically by every copy that has ever shipped, and a `--root`-only pre-parser is a second parser to keep in step for no call anybody types. No change; executed: over a stub-gate fixture, `-h` exits 0 with this copy's usage, no `--base` exits 2, `--r` exits 2 ambiguous, the stub never runs; the sealer's pinned command reaches none of them |
+| ⬜ 7 | `spec.md` and `plan.md` still say the redirect comes after `parse_args`, and `overview.md`'s divergence table has no row for the change | `seal/specs/1790206436-the-runs-instruments-cost-wall-clock/spec.md:127`, `plan.md:71`, `overview.md` §*Where spec and implementation diverged* | answered | corrected at 23dc3ad0 — the overview's divergence table gains the row for the redirect's move to `parse_known_args`; `spec.md` and `plan.md` stay as the frame that was approved, and the divergence row is where the difference is recorded; read; paperwork correction, not counted in `Needs a fix` |
 | ❓ | the full suite, the repository-wide lint and the typecheck over this branch, and M1's second reading | the sealer's run | ❓ out of verified scope | not this round's to run (§2); the sealer, spawned with this tree's absolute `bin/broad-gate` |
 | ❓ | the Windows paths — `Lib/site-packages/xdist`, the `.cmd` twin passing `%*`, `under()` across drives | `.github/scripts/run_tests.py:106`, `skills/verify/scripts/broad_gate.py:302` | ❓ out of verified scope | built for and not executed; CI's `windows-latest` leg at the pull request |
 
