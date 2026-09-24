@@ -45,10 +45,14 @@ Every sentence here was seen red with the sentence stashed (§15).
 import os
 
 import pytest
+from conftest import REVIEW_CHAIN_DOCS, review_chain_text
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 SPEC = ("docs", "review-chain-spec.md")
+# The record's rows and the generator, split out of `SPEC` by #526. The five
+# rules above keep their owner; the verdict-row and depth cases read here.
+RECORD_SPEC = ("docs", "round-record-spec.md")
 SKILL = ("skills", "code-review", "SKILL.md")
 # The orchestrator's half of the review skill (#265). The five sections the
 # file prefixed `Orchestrator:` live here; the reviewer's half stays in SKILL.
@@ -364,9 +368,9 @@ def test_a_correction_row_closes_answered_and_never_fixed():
     # what it cost. What it may not do is prescribe it — so the assertion is
     # on the prescribing clause and not on the string, which is the
     # distinction a blunter pin would erase along with the history.
-    assert "such a row closes `answered \N{EM DASH} corrected at <sha>`" not in spec, (
-        "the owner prescribes the one-cell spelling `close` refuses"
-    )
+    assert "such a row closes `answered \N{EM DASH} corrected at <sha>`" not in (
+        review_chain_text(ROOT)
+    ), "the owner prescribes the one-cell spelling `close` refuses"
     assert "Two cells, not one" in spec, "the correction the pair needed"
     assert "§*The last round verifies* owns the rule" in smith
 
@@ -384,10 +388,10 @@ def test_the_verdict_ruling_is_against_a_vocabulary_test_not_against_reading():
     removed the sentence nowhere, so there is nothing for the range check to
     match. This case is what a grep of the claim leaves behind.
     """
-    spec = flat(*SPEC)
+    spec = flat(*RECORD_SPEC)
     assert "the ruling was too wide" in spec
     assert "argument against a VOCABULARY test and not against reading" in spec
-    assert "**The verdict word cannot do this job.**" not in spec
+    assert "**The verdict word cannot do this job.**" not in review_chain_text(ROOT)
 
 
 def test_the_open_verdicts_boundary_is_not_the_shared_separators():
@@ -399,7 +403,7 @@ def test_the_open_verdicts_boundary_is_not_the_shared_separators():
     open verdict and the refusal named a word the cell does not carry. The
     boundary is spelled out now, and the owner says which constant it is not.
     """
-    spec = flat(*SPEC)
+    spec = flat(*RECORD_SPEC)
     assert "ended by a space, a comma, or nothing" in spec
     assert "rather than borrowed from `chain.SEPARATORS`" in spec
 
@@ -413,7 +417,7 @@ def test_the_depth_refusal_attributes_per_finding_and_says_when_it_cannot():
     code: it still refuses on a file-level attribution, and only the sentence
     changes.
     """
-    spec = flat(*SPEC)
+    spec = flat(*RECORD_SPEC)
     assert "names the finding whose fix commit added the unit" in spec
     assert (
         "it still refuses, and the message says the attribution is file-level" in spec
@@ -654,7 +658,7 @@ def test_the_count_rules_sentence_is_the_owners_and_its_links():
         )
     # SKILL keeps its place in the absence half: #265 moved the phrase to
     # ORCH, and the half it left must not grow a copy of the exception.
-    for carrier in (SPEC, SKILL, ORCH, TEMPLATE):
+    for carrier in (*REVIEW_CHAIN_DOCS, SKILL, ORCH, TEMPLATE):
         assert UNLESS not in flat(*carrier), (
             f"{'/'.join(carrier)} still states the exception as an *unless*, "
             "which is the unbounded reading"

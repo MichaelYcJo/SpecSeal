@@ -10,8 +10,9 @@ for it.
 
 The repair is a declared partition: every step of that job is either mirrored
 by a named arm or excluded with a reason a person wrote. This module is what
-keeps the partition total, and it is driven RED FROM BOTH SIDES, which is the
-half #423's finding 4 was about:
+keeps the partition total, and it is driven RED FROM BOTH SIDES. #423's
+finding 4 was a narrow reader, one that saw three of four base spellings, and
+it named both directions, which the two rows below hold:
 
   A1   a step added to the workflow and left unclassified fails here, so the
        seventh arm cannot arrive in silence

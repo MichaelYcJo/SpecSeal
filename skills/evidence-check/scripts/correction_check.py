@@ -20,7 +20,7 @@ that a reviewer grepped for the marker the corrections carried and found **0**
 occurrences of `Corrected 2026-09-15` in a file that had had three.
 
   correction-check --range A..B
-  correction-check --range origin/release/v1.2.3...HEAD    at the pull request
+  correction-check --range origin/release/vX.Y.Z...HEAD    at the pull request
 
 Exit codes: **0** no merge in the range dropped a marker -- including the
 common case of a range with no merge in it at all, which the report says in

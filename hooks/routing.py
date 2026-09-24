@@ -23,8 +23,8 @@ half of them keep the old answer.
 
 Everything here fails toward "no declaration". A file that cannot be read is
 not an answer somebody gave, so the gate goes back to asking. Silence would
-make a corrupt file into the standing waiver `docs/review-chain-spec.md`
-refuses to build.
+make a corrupt file into the standing waiver
+`docs/commit-review-gate-spec.md` refuses to build.
 
 Four of the rows are exceptions and none of them is a loophole. Nothing decides
 a commit on `Implementation`, `Planning`, `Automation` or `Answer pressed` --

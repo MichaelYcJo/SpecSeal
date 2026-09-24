@@ -1,6 +1,6 @@
 """A unit that gains a returnable value has changed its contract.
 
-#194. `docs/review-chain-spec.md` §*The fix surface* says `Contract changes`
+#194. `docs/round-record-spec.md` §*The fix surface* says `Contract changes`
 exists for *a fix that changed a unit's contract while not every place that
 contract reaches was revisited*, and names it the largest regression class
 #57 measured — four findings of ten. The derivation compared **parameters and
@@ -273,7 +273,7 @@ def test_the_document_states_the_hole_it_does_not_catch():
     undocumented one, and the paragraph is what keeps the row from reading as
     a guarantee it cannot give.
     """
-    with open(f"{ROOT}/docs/review-chain-spec.md", encoding="utf-8") as f:
+    with open(f"{ROOT}/docs/round-record-spec.md", encoding="utf-8") as f:
         text = " ".join(f.read().split())
     # The shape it does not catch, named as a shape rather than as an excuse.
     assert "input" in text, "the paragraph does not name the shape"

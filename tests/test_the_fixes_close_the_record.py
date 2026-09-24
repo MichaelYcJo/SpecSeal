@@ -1376,7 +1376,7 @@ def test_a_depth_two_refusal_it_cannot_attribute_says_so_and_names_every_candida
     unit resolves to a single row at any cost — `measure` compares two ends
     and a commit is one of them.
 
-    It still refuses. `docs/review-chain-spec.md` takes that direction for
+    It still refuses. `docs/round-record-spec.md` takes that direction for
     every verdict the checker cannot read, and `CONTRIBUTING.md` supplies the
     asymmetry: a wrong deny costs a prompt, and a wrong allow here ships a
     depth-2 unit that is read by nobody. What changes is the MESSAGE — a
@@ -1449,7 +1449,7 @@ def test_a_unit_added_by_a_fix_outside_every_earlier_unit_is_depth_one(repo):
     not resolve which fix added it* about a range that just had.
 
     Red against the tree before the fix: exit 2, FILE-LEVEL, and that
-    sentence — which `docs/review-chain-spec.md` reserves for a range that
+    sentence — which `docs/round-record-spec.md` reserves for a range that
     resolved nothing.
     """
     a = one_finding_inside_one_earlier_unit(repo)
@@ -2535,7 +2535,7 @@ def test_a_record_with_no_fix_range_row_is_told_which_row_to_add(repo):
     template's, and a `close` that inserted would put the row wherever it
     happened to look. `chain_check` grandfathers those records behind
     `RANGE_FROM`; the generator has no equivalent, which the changelog and
-    `docs/review-chain-spec.md` now say rather than describing only the
+    `docs/round-record-spec.md` now say rather than describing only the
     checker's half.
     """
     a = round_one(repo, verdicts=OPEN_1)

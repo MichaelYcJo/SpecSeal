@@ -1294,7 +1294,8 @@ def understood(tokens):
     What is enumerated here is what the reader UNDERSTANDS. A segment passes
     when it is a simple command — a literal command word and its arguments —
     and `walk_directories` turns everything else into `Unresolved`, which
-    `docs/review-chain-spec.md` already treats as a stop rather than a pass.
+    `docs/commit-review-gate-spec.md` already treats as a stop rather than a
+    pass.
 
     The direction of the remaining error is what matters: a construct nobody
     added to `RESERVED` reads as not understood, and stops. The old default
@@ -1372,10 +1373,11 @@ class Unresolved(str):
 
     It is a `str` so the prompt can print it — a target that cannot be named
     is one the user cannot go and look at — and it is a distinct type so that
-    nothing judges a repository against it by accident. `docs/review-chain-spec.md`
-    gives it the treatment an unresolvable `git -C` already had: not silence,
-    which is indistinguishable from a repository checked and found clean, but
-    a stop in a session whose own repository opted in.
+    nothing judges a repository against it by accident.
+    `docs/commit-review-gate-spec.md` gives it the treatment an unresolvable
+    `git -C` already had: not silence, which is indistinguishable from a
+    repository checked and found clean, but a stop in a session whose own
+    repository opted in.
 
     `why` says which of two things happened, because the way out differs and
     a prompt that offers the wrong one leaves the user with no way out at all.

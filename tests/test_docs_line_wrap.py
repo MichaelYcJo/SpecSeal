@@ -120,6 +120,13 @@ COVERED = [
     "docs/the-broad-gate.md",
     "docs/measuring-a-run.md",
     "docs/the-agent-set.md",
+    # One of the three documents #526 split `docs/review-chain-spec.md` into.
+    # The file it was cut from never joined this list. This one fits at birth
+    # once two moved lines are re-wrapped with no word changed, so it goes in
+    # with no sweep to owe. `docs/round-record-spec.md` does not: its widest
+    # line is a path and its comma at 89 columns, and fitting it means
+    # rewording a sentence a ledger row quotes.
+    "docs/commit-review-gate-spec.md",
 ]
 
 

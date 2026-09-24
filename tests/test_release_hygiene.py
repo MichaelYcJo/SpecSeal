@@ -1209,6 +1209,78 @@ def test_no_version_heads_two_sections_of_this_ledger():
         )
 
 
+# A cell boundary is a `|` no backslash escapes, inside a code span as well as
+# outside it: GitHub splits a table row there either way (#562).
+CELL_BOUNDARY = re.compile(r"(?<!\\)\|")
+TABLE_RULE = re.compile(r"\|(\s*:?-+:?\s*\|)+")
+
+
+def overwide_rows(text):
+    """`(line number, header cells, row cells)` for every table row that
+    splits into more cells than its table's header, fenced blocks skipped."""
+    found = []
+    lines = text.split("\n")
+    header = None
+    fence = False
+
+    def cells(line):
+        parts = CELL_BOUNDARY.split(line.rstrip())
+        return len(parts) - (2 if line.rstrip().endswith("|") else 1)
+
+    for n, line in enumerate(lines, 1):
+        if line.startswith("```"):
+            fence = not fence
+            continue
+        if fence or not line.startswith("|"):
+            header = None if not fence else header
+            continue
+        if n < len(lines) and TABLE_RULE.fullmatch(lines[n].strip()):
+            header = cells(line)
+            continue
+        if TABLE_RULE.fullmatch(line.strip()) or header is None:
+            continue
+        if cells(line) != header:
+            found.append((n, header, cells(line)))
+    return found
+
+
+def test_an_unescaped_pipe_in_a_ledger_cell_is_named():
+    """#562. A shell pipe quoted in a note splits the row, the `Checked`
+    column shifts, and the anchor cell the checker reads still parses, so
+    nothing else says so. Escaped, the same text is one cell."""
+    table = (
+        "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+        "|---|---|---|---|---|\n"
+        "| a | `x.py#f@00000000` | ran `cat f | grep -c x` | 2026-01-01 | n |\n"
+        "| b | `x.py#f@00000000` | ran `cat f \\| grep -c x` | 2026-01-01 | n |\n"
+    )
+    assert overwide_rows(table) == [(3, 5, 6)]
+
+
+def test_no_ledger_row_splits_into_more_cells_than_its_header():
+    """#562, over this repository's own ledger, every release file and every
+    fragment. Seen red against the ledger at `31937b9f`: 22 rows, two of them
+    written by #547's notes and twenty older."""
+    fragments = os.path.join(ROOT, "seal", "ledger")
+    rels = ledger_files() + (
+        [
+            os.path.join("seal", "ledger", n)
+            for n in sorted(os.listdir(fragments))
+            if n.endswith(".md")
+        ]
+        if os.path.isdir(fragments)
+        else []
+    )
+    found = [
+        f"{rel}:{n} has {row} cells under a {header}-cell header"
+        for rel in rels
+        for n, header, row in overwide_rows(read_text(*rel.split(os.sep)))
+    ]
+    assert not found, (
+        "a `|` inside a cell splits the row; write it as `\\|`:\n" + "\n".join(found)
+    )
+
+
 def test_the_newest_changelog_entry_is_the_version_being_shipped():
     """`test_plugin_version_is_in_changelog` accepts the version appearing
     anywhere, and an older entry satisfies that forever. What has to hold is
@@ -1793,8 +1865,8 @@ def test_the_pull_request_checks_the_chain_it_was_routed_to():
 
     Moving enforcement off the commit and onto the pull request is only
     honest while the pull request actually checks. A workflow with the
-    declaration and no step is the standing waiver `docs/review-chain-spec.md`
-    refuses to build — quieter than the one it replaced, because a declaration
+    declaration and no step is the standing waiver
+    `docs/commit-review-gate-spec.md` refuses to build — quieter than the one it replaced, because a declaration
     that nothing reads leaves no trace at all.
     """
     workflow = open(

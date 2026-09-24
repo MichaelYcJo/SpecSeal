@@ -44,10 +44,15 @@ glob alike, and a row is a content anchor, so the release that folds a
 fragment into its release file changes no row's status. The `ok` total
 counts a `(coordinate, hash)` pair once per file, so a move can change it.
 
-**Appended is the word, and a removal is not one.** A branch that removes
-code an existing shared-file row cites must touch that file to leave the
-ledger true: the row is removed there, and the new claim goes in the branch's
-own fragment.
+**Appended is the word, and a removal is not one — nor is an edit.** A
+branch that removes or edits code an existing shared-file row cites must touch
+the file the row is in to leave the ledger true. A removal takes the row out
+there, and the new claim goes in the branch's own fragment. An edit drifts the
+row, and the branch re-reads it against that edit: a claim that still holds is
+re-stamped there with a dated note, and one the edit made false is corrected
+there first, with a `Corrected <date>` note. Both are keeping an existing
+claim true, which is not appending; adding a claim is what belongs in the
+fragment, and always did.
 
 <!-- specs/1788761915-a-record-states-what-nothing-reads -->
 **A work item whose ledger fragment still exists has not shipped.** The fold
@@ -110,6 +115,17 @@ It reads the shared file, every release file and every fragment, because a
 fragment becomes part of a release file at the release and a check that
 skipped fragments would go blind exactly while the rows are being written.
 
+**Hunk by hunk has two halves, and only the notes are a union.** A row's
+`Re-read <date>` and `Corrected <date>` notes are both sides', because each
+records a reading somebody performed. The anchor's hash is not a union: it
+belongs to the side that edited the anchored unit, and to neither side where
+both did, because the merged unit is then content neither side hashed. A
+resolution that keeps a hash the merge made stale names content that no
+longer exists anywhere, and the marker check above cannot see it, because no
+marker was dropped. So run `evidence-check` after the resolution: a drifted
+anchor is the tool naming the row, and the row is re-read against every edit
+the merged unit carries, one side's or both, before it is re-stamped.
+
 <!-- specs/1789996780-the-census-and-the-tie-that-nothing-holds -->
 **A bound over the corpus is stated with its instrument and the moment it was
 taken.** A case that asserts a bound covers every candidate site takes its own
@@ -143,10 +159,12 @@ segment* states both rules, and this paragraph holds only the values.
   line whenever they are folded: the 101 folded before it, and those of work
   items released with it or still waiting from before it.
 - A top-level document under `docs/` stays at or under 1000 lines.
-- One document is over that ceiling and listed: `docs/review-chain-spec.md`,
-  frozen at 29 fold markers until MichaelYcJo/SpecSeal#526 splits it. Until
-  then a fold places a chain rule in the document for the rule's own
-  sub-subject.
+- No document is over that ceiling, so none is listed. The one that was,
+  `docs/review-chain-spec.md`, was split along its own headings by
+  MichaelYcJo/SpecSeal#526 into itself, `docs/commit-review-gate-spec.md`
+  and `docs/round-record-spec.md`, its fold markers carried across whole. A
+  document the next fold would take past the ceiling is split the same way
+  first, or the rule goes to the document for its own sub-subject.
 
 `tests/test_a_folded_statement_names_what_enforces_it.py` reads the shape and
 `tests/test_a_document_has_room_for_the_next_fold.py` reads the ceiling. The
@@ -264,5 +282,6 @@ a lowering. `skills/settle/SKILL.md` §3 gives the three answers.
 marker is matched whole, so wrapping a long work item id stops it being a fold
 record, and `tests/test_docs_line_wrap.py` skips a line that is exactly one
 marker rather than asking a document to choose between the two. The chain
-checker's reading of a retired declaration is `docs/review-chain-spec.md`'s,
-under *The declaration, and where the check went instead*.
+checker's reading of a retired declaration is
+`docs/commit-review-gate-spec.md`'s, under *The declaration, and where the
+check went instead*.

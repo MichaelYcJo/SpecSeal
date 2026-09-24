@@ -3048,7 +3048,7 @@ def return_literals(node):
     to test.
 
     What this does NOT catch is a changed input→value mapping, and that hole
-    is stated in `docs/review-chain-spec.md` rather than closed. Widening it
+    is stated in `docs/round-record-spec.md` rather than closed. Widening it
     to reach that is not a small step: it is asking which inputs reach which
     return, which is the function.
     """
@@ -3743,7 +3743,7 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     **Where the range cannot resolve one, it still refuses and says so.**
     A single commit answering two findings resolves to nothing at any cost,
     and the direction every verdict the checker cannot read takes is the one
-    that blocks: `docs/review-chain-spec.md`'s own depth table fails an entry
+    that blocks: `docs/round-record-spec.md`'s own depth table fails an entry
     below depth 1 for the neighbouring reason, and the asymmetry is
     `CONTRIBUTING.md`'s — a wrong deny costs a prompt, and a wrong allow here
     ships a unit that is read by nobody. What changes on the fallback is the
@@ -3961,7 +3961,9 @@ def close(args):
         [units_entry(n, 1) for n in dict.fromkeys(n for _r, n in added)],
     )
     # Through the same path as `seal` (round 1's 🟡 1): a run the cell
-    # already holds is kept behind the new entry by either writer.
+    # already holds is kept behind the new entry by either writer, and the
+    # newest, where it is the same commit against the same base, is replaced
+    # by either (`same_run`).
     gate = (
         cell(
             BROAD_GATE,
@@ -4525,6 +4527,8 @@ def seal(args):
     # kept behind the new one as `earlier run`, because a second broad run --
     # after a pre-existing failure, or after the last fixes landed -- used to
     # REPLACE the first and the run-level table was then filled from memory.
+    # The newest entry alone is replaced, where it is the same commit against
+    # the same base (`same_run`).
     # `kept_broad_gate` is the one path, shared with `close --broad-gate`.
     value = kept_broad_gate(reader, rows, args.broad_gate)
     if n is None:

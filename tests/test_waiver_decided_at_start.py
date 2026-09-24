@@ -853,13 +853,13 @@ def test_the_skill_refuses_a_standing_waiver_and_says_why_this_is_not_one():
         "without this the declaration reads as exactly the switch the sentence "
         "above it forbids"
     )
-    spec = flat(read("docs", "review-chain-spec.md"))
+    spec = flat(read("docs", "commit-review-gate-spec.md"))
     assert "no standing waiver" in spec
     assert "per command" in spec
 
 
 def test_the_gate_has_no_path_from_an_unreadable_declaration_to_silence():
-    spec = flat(read("docs", "review-chain-spec.md"))
+    spec = flat(read("docs", "commit-review-gate-spec.md"))
     assert "resolves to *no declaration*" in spec
     assert "therefore to **asking**" in spec, (
         "a fail-open here is a gate that a corrupt file switches off"

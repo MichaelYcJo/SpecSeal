@@ -204,7 +204,7 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   wrote that row's word over your marker — which is a settled verdict on a
   check nobody ran. A row that commissions nothing takes no id at all, and so
   does a confirmation you verified and an earlier round's closure you carried
-  forward (`docs/review-chain-spec.md` §*A verdict row that commissions
+  forward (`docs/round-record-spec.md` §*A verdict row that commissions
   nothing*). *No id* means the number and not the cell: the cell holds a
   bare marker or a word — `🟢`, `❓`, `carried` — and an empty cell is the one
   shape refused (#437).

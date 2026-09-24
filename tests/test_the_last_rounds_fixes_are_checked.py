@@ -37,6 +37,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import REVIEW_CHAIN_DOCS, review_chain_text
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -851,7 +852,7 @@ def test_the_three_values_are_spelled_the_same_everywhere():
     for parts in (
         ("templates", "sdd-round.md"),
         ("docs", "review-handoff-protocol.md"),
-        ("docs", "review-chain-spec.md"),
+        ("docs", "round-record-spec.md"),
         ("skills", "code-review", "scripts", "chain_check.py"),
     ):
         text = read(*parts)
@@ -1027,8 +1028,9 @@ def test_the_verifying_round_is_spawned_after_the_fixes(parts):
     reviewed — the round happens, costs a spawn, and reads nothing new."""
     text = flat(*parts)
     assert WHEN_SPAWNED[parts] in text, "/".join(parts)
+    absent = review_chain_text(ROOT) if parts in REVIEW_CHAIN_DOCS else text
     for backwards in SPAWNED_BACKWARDS:
-        assert backwards not in text, f"{'/'.join(parts)}: {backwards}"
+        assert backwards not in absent, f"{'/'.join(parts)}: {backwards}"
 
 
 @pytest.mark.parametrize("parts", sorted(WHAT_IT_TARGETS))
@@ -1039,8 +1041,9 @@ def test_the_verifying_rounds_target_is_the_previous_rounds_fixes(parts):
     promised it would not pay for."""
     text = flat(*parts)
     assert WHAT_IT_TARGETS[parts] in text, "/".join(parts)
+    absent = review_chain_text(ROOT) if parts in REVIEW_CHAIN_DOCS else text
     for backwards in TARGETED_BACKWARDS:
-        assert backwards not in text, f"{'/'.join(parts)}: {backwards}"
+        assert backwards not in absent, f"{'/'.join(parts)}: {backwards}"
 
 
 @pytest.mark.parametrize("parts", sorted(CAP_RULE))
@@ -1051,8 +1054,9 @@ def test_the_cap_counts_rounds_that_found_something(parts):
     replace comes straight back."""
     text = flat(*parts)
     assert CAP_RULE[parts] in text, "/".join(parts)
+    absent = review_chain_text(ROOT) if parts in REVIEW_CHAIN_DOCS else text
     for backwards in CAP_BACKWARDS:
-        assert backwards not in text, f"{'/'.join(parts)}: {backwards}"
+        assert backwards not in absent, f"{'/'.join(parts)}: {backwards}"
 
 
 def test_the_spec_says_the_verifying_round_cannot_loop():
@@ -1065,7 +1069,7 @@ def test_the_spec_says_the_verifying_round_cannot_loop():
     assert "Nothing here can loop more than once" in spec
     assert "by definition the last one" in spec
     assert "the run ends `capped`" in spec
-    assert "There is no third case to run away" not in spec
+    assert "There is no third case to run away" not in review_chain_text(ROOT)
 
 
 def test_the_condition_is_not_that_the_round_found_nothing():

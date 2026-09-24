@@ -214,15 +214,23 @@ when it arrives.
   **Changing cited code is the case the rule has to answer, and it is not an
   append.** Change what an existing ledger row cites — in `seal/ledger.md`
   or a `seal/releases/` file — and the checker reports DRIFTED, which needs
-  that row touched in the file this rule covers. Two answers, and which one
+  that row touched in the file this rule covers. Three answers, and which one
   applies is about the claim rather than the code:
 
   - the claim still holds and you have re-read it — run
     `evidence-check --reverify .`, which recomputes the hash and names what it
     changed;
+  - the code still stands and your edit made the claim false — correct the
+    claim in place first, with a `Corrected <date>` note, then run
+    `--reverify`;
   - the claim went with the code — **remove the row and write the new claim
     into your own fragment.** A row is not re-pointed at whatever now sits
     nearest to where it used to look.
+
+  All three are writes to the file the row is in, and none is an append. A
+  branch that removes or edits code an existing row cites is keeping an
+  existing claim true, which can only happen where the row stands; adding a
+  claim is what goes in your fragment, and always did.
 
   So a claim leaves the ledger when the code it was about does, and comes
   back at the release, folded in from the fragment that replaced it.
@@ -247,7 +255,17 @@ when it arrives.
   stands; the hygiene workflow runs it on every pull request into a release
   branch. It reports the loss after the fact and cannot prevent it.
 
-  `CLAUDE.md` carries both paragraphs, and
+  **Hunk by hunk has two halves, and only the notes are a union.** A row's
+  `Re-read` and `Corrected` notes are both sides', because each records a
+  reading somebody performed; the anchor's hash belongs to the side that
+  edited the anchored unit, and to neither side where both did.
+  `correction-check` cannot see a union that kept a stale hash, because no
+  marker was dropped, so run `evidence-check` after the resolution: a drifted
+  anchor is the tool naming the row, which is re-read against every edit the
+  merged unit carries. `docs/the-evidence-ledger.md` §*A correction a merge
+  dropped* owns the rule.
+
+  `CLAUDE.md` carries both paragraphs and the halves rule, and
   `tests/test_a_merge_cannot_silently_drop_a_correction.py` holds the two
   against each other.
 

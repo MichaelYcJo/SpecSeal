@@ -549,7 +549,7 @@ SEPARATORS = " " + chr(0x2014) + chr(0x2013) + "-:,"
 # (#344). The class the field closes: a fix table states its range in prose,
 # in whatever words its author chose, and one of those words is `HEAD` -- which
 # resolves, so the sentence stays readable while meaning a different set of
-# commits every day. `docs/review-chain-spec.md` §*The fix range* names the
+# commits every day. `docs/round-record-spec.md` §*The fix range* names the
 # command that counts the corpus and both tree states it was run at, because a
 # count over prose depends on what counts and a number quoted without its
 # method produced three different answers from three readers.
@@ -2421,7 +2421,7 @@ def says_not_yet(value):
     Only the first of the three is punctuation, so widening `SEPARATORS`
     would close one, leave this paragraph false about the other two, and
     move a constant four other readers in this file share. The limit is
-    written down instead, here and in `docs/review-chain-spec.md`, and
+    written down instead, here and in `docs/round-record-spec.md`, and
     `test_a_reason_the_checker_does_not_recognise_passes` runs all three.
     What *this record passed* means is *its cell does not carry the
     template's own pending words*, never *its fix surface is complete*.

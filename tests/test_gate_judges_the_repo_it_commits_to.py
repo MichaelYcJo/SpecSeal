@@ -1073,7 +1073,7 @@ def test_a_cd_the_gate_cannot_read_stops_the_commit(tmp_path):
     """S4. The gate reads the command before the shell expands it, so `cd
     "$WT"` names a directory it cannot identify. That is not a repository
     checked and found clean; it joins the partition an unresolvable `-C`
-    already has (docs/review-chain-spec.md)."""
+    already has (docs/commit-review-gate-spec.md)."""
     here = make_repo(tmp_path / "opted-in", opted_in=True)
     out = run('cd "$WT" && git commit -m x', here, session="s1")
     # The parent commit ALSO denies here, for the ordinary reason — it judged
@@ -1210,7 +1210,7 @@ def test_a_subshell_commit_with_no_trailing_argument_is_still_a_commit(tmp_path)
 
     Silent before this change as well, so it is not a regression. It is fixed rather
     than documented as an exception because `spec.md` S5 and
-    `docs/review-chain-spec.md` both claim the subshell case is closed, and a
+    `docs/commit-review-gate-spec.md` both claim the subshell case is closed, and a
     commit inside a subshell commits for real.
     """
     here = make_repo(tmp_path / "opted-in", opted_in=True)

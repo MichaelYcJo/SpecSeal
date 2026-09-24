@@ -7,6 +7,6 @@
 # Resolves the script relative to this file, not the caller's cwd, so it works
 # from any directory. Arguments pass straight through:
 #   correction-check --range a1b2c3d..HEAD
-#   correction-check --range origin/release/v1.2.3...HEAD
+#   correction-check --range origin/release/vX.Y.Z...HEAD
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 exec python3 "$here/../skills/evidence-check/scripts/correction_check.py" "$@"

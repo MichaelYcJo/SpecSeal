@@ -1,6 +1,6 @@
 """The reviewer-facing report standard is one text in the three places a
 reviewer copies from — `agents/warden.md`, `skills/code-review/SKILL.md`
-and `docs/review-chain-spec.md` — and in the fourth carrier, the round
+and `docs/round-record-spec.md` — and in the fourth carrier, the round
 template's comment beside the verdict table, which the record itself holds;
 each is held to it (#503, #437, the comment-opener rule). The module's name
 counts the reviewer's three; `CARRIERS` lists all four (round 1's ⬜ 7).
@@ -29,7 +29,7 @@ CARRIED_CLOSURE = (
 CARRIERS = (
     ("agents", "warden.md"),
     ("skills", "code-review", "SKILL.md"),
-    ("docs", "review-chain-spec.md"),
+    ("docs", "round-record-spec.md"),
     ("templates", "sdd-round.md"),
 )
 
@@ -41,7 +41,7 @@ WARDEN = ("agents", "warden.md")
 REVIEWER_CARRIERS = (
     ("agents", "warden.md"),
     ("skills", "code-review", "SKILL.md"),
-    ("docs", "review-chain-spec.md"),
+    ("docs", "round-record-spec.md"),
 )
 
 # #366's second half, one text. `round_record.py#depth_two` keys on a

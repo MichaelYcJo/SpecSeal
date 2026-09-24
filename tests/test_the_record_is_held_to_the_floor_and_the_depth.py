@@ -37,7 +37,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import cutoff_item_is_traceable
+from conftest import cutoff_item_is_traceable, review_chain_text
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 CHECK = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
@@ -276,7 +276,8 @@ def test_a_no_prefix_item_is_excused_all_four_refusals_not_only_the_absent_row(r
     other way, and None is below every cutoff — so the depth, the run-length
     bound and the missing rows are all excused, permanently and for every
     record. That follows from the recorded reasoning and is not disputed; a
-    reader of the two tables in `docs/review-chain-spec.md` had no way to
+    reader of the floor's table in `docs/review-chain-spec.md` or the depth's
+    in `docs/round-record-spec.md` had no way to
     learn it, which the prose case below now pins.
     """
     declared(
@@ -1109,7 +1110,7 @@ def test_the_recorded_limits_are_recorded_where_the_rule_lives(limit):
     here: the branch recorded the arrow's limit and the comma's and said
     nothing about the separator that runs before both, so the record naming
     the fix surface was cut in half by the row it was describing."""
-    for parts in (SPEC, CHECKER):
+    for parts in (RECORD_SPEC, CHECKER):
         assert limit in flat(*parts), "/".join(parts)
 
 
@@ -1173,40 +1174,53 @@ def test_a_second_level_unit_prints_for_an_item_begun_before_the_rule(repo):
 # --- what the check does is written down where the check lives --------------
 
 SPEC = ("docs", "review-chain-spec.md")
+# The depth's subsection moved here with the record's other rows (#526);
+# the floor stayed with the bound it checks.
+RECORD_SPEC = ("docs", "round-record-spec.md")
 CHECKER = ("skills", "code-review", "scripts", "chain_check.py")
 
 
-@pytest.mark.parametrize("cutoff", ("FLOOR_FROM", "DEPTH_FROM"))
-def test_the_document_says_why_older_records_are_excused(cutoff):
+@pytest.mark.parametrize(
+    "cutoff, spec_parts", (("FLOOR_FROM", SPEC), ("DEPTH_FROM", RECORD_SPEC))
+)
+def test_the_document_says_why_older_records_are_excused(cutoff, spec_parts):
     """A cutoff with no reason beside it reads as a leftover constant, and
     deleting one turns a release pull request red on merged history. The
     sibling case for `SURFACE_FROM` is the precedent, and it is in
     `tests/test_the_fixes_name_their_surface.py`."""
-    for parts in (SPEC, CHECKER):
+    for parts in (spec_parts, CHECKER):
         assert cutoff in flat(*parts), (
             f"{'/'.join(parts)} does not name `{cutoff}`, so a reader who "
             "meets a record printing instead of failing cannot find out why"
         )
-    spec = flat(*SPEC)
+    spec = flat(*spec_parts)
     assert "print" in spec and "grandfather" in spec
 
 
-# Each new subsection of `docs/review-chain-spec.md`, bounded by the heading
-# that follows it, so a claim about one table cannot be answered by the other.
+# Each new subsection, in the file that holds it since #526's split, bounded
+# by the heading that follows it, so a claim about one table cannot be
+# answered by the other.
 SUBSECTIONS = {
     "the floor": (
-        "##### The floor — `Loses a record or crashes`",
-        "##### `Needs a fix` — the row the bound",
+        SPEC,
+        "### The floor — `Loses a record or crashes`",
+        "### `Needs a fix` — the row the bound",
     ),
     "needs a fix": (
-        "##### `Needs a fix` — the row the bound",
-        "##### The reopening — one, and then the run is capped",
+        SPEC,
+        "### `Needs a fix` — the row the bound",
+        "### The reopening — one, and then the run is capped",
     ),
     "the reopening": (
-        "##### The reopening — one, and then the run is capped",
-        "##### The depth in `New units`",
+        SPEC,
+        "### The reopening — one, and then the run is capped",
+        "### Where a leftover goes — the ladder",
     ),
-    "the depth": ("##### The depth in `New units`", "Which declaration applies"),
+    "the depth": (
+        RECORD_SPEC,
+        "## The depth in `New units`",
+        "## What ran the round",
+    ),
 }
 
 
@@ -1221,8 +1235,8 @@ def test_each_table_says_a_no_prefix_work_item_is_excused(which):
     `test_the_exit_is_stated_before_the_rule` slices: one table carrying the
     sentence would answer a whole-file search for both.
     """
-    text = flat(*SPEC)
-    opening, closing = SUBSECTIONS[which]
+    parts, opening, closing = SUBSECTIONS[which]
+    text = flat(*parts)
     assert opening in text, f"the subsection opening moved: {opening!r}"
     assert closing in text, f"the subsection closing moved: {closing!r}"
     table = text[text.index(opening) : text.index(closing, text.index(opening))]
@@ -1236,14 +1250,14 @@ def test_the_document_states_what_each_refusal_does():
     """The gate's verdict is what a person reads and acts on, so the two
     tables that say which shapes fail and which print are part of the change
     rather than a description of it."""
-    spec = flat(*SPEC)
+    spec = review_chain_text(ROOT)
     for phrase in (
         "with two or more later round records",
         "an entry at depth 2 or above",
         "deferred with a named answerer, or an issue",
     ):
         assert phrase in spec, (
-            f"`docs/review-chain-spec.md` does not say what the check makes "
+            f"the review chain documents do not say what the check makes "
             f"of {phrase!r}, which leaves the refusal readable only in the "
             "failure it prints"
         )
