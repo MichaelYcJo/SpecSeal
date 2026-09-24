@@ -25,3 +25,11 @@
   instead of keeping its own copy. The survivor sweep likewise takes a
   changelog marker only from a live line of `CHANGELOG.md`, so a quoted one
   no longer excuses a fragment.
+- The records arm of `evidence-check` now ends an HTML comment at its `-->`
+  rather than at the end of that line (#220). A name written after the closer
+  is read, and a `<!--` right after it starts a new aside. A comment that
+  opens part-way along a line was never an aside, and the skill now says so:
+  a name inside one is read, so put the `NAME NOT IN TREE` marker on that
+  line or start the comment on its own line. The arm also recognises fences
+  by the shared CommonMark rule, so a ```` ``` ```` quoted inside a
+  ```` ```` ```` block no longer ends the quotation.

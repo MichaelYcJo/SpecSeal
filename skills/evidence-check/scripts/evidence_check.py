@@ -2058,6 +2058,8 @@ def record_files(directory):
 # by whoever is annoyed by a refusal; a marker is written by the person who
 # knows the name is absent, in the record where the claim is.
 NOT_IN_TREE = "NAME NOT IN TREE"
+# The two delimiters of an HTML comment, as `claim_lines` scans for them.
+COMMENT_OPENER, COMMENT_CLOSER = "<!--", "-->"
 # A backticked identifier, with an optional call suffix — the shape a record
 # names a unit in. `round_record.py`'s `IDENTIFIER_RE` reads the same thing
 # for the fix surface; the two are separate because that one measures a diff
@@ -2120,7 +2122,8 @@ def compound(name):
 
 
 def claim_lines(lines):
-    """[(line number, line)] for the record lines that are read as claims.
+    """[(line number, text)] for the record lines that are read as claims,
+    the text being what the line holds outside every aside and quotation.
 
     Three kinds of line are not. A line carrying `NAME NOT IN TREE` is the
     writer's own statement that the name on it is one the tree does not have,
@@ -2151,9 +2154,29 @@ def claim_lines(lines):
       read as a claim, a false refusal at exit 2 on a record using a template
       the way `templates/` writes them (round 2, 🟡 2). `aside` is now a
       state that ends at `-->`.
+    - **The `-->` is a position, not a line** (#220). The whole line holding
+      it used to be skipped, so a claim written after a closer was never
+      read, and a comment reopened on that line was never noticed. What
+      follows the closer is read by the line's own rules: a remainder that
+      BEGINS with `<!--` opens an aside again, and anything else is text.
+      The text handed back is what lies outside the asides; `NAME NOT IN
+      TREE` is still asked of the whole line.
+    - **An aside opens only where a line, or such a remainder, begins with
+      `<!--`.** A comment opening part-way along text is read with the text:
+      a false refusal at exit 2, which a person sees and answers with the
+      marker. Reading it as an aside needs a positional scanner with
+      code-span state, because this repository's records quote `<!--` in
+      backticks constantly and each such quotation would otherwise drop every
+      claim to the next `-->` in silence. `questions.md` Q1 of work item
+      1790260566 is where a person may choose that instead.
     - A fence continues to a matching close, and one flag for both markers
       let ``` and ~~~ close each other, so a `~~~` quoted inside a ```-block
-      re-opened prose. `opener` remembers which marker opened the region.
+      re-opened prose. `opener` remembers which run opened the region, and
+      what opens and closes one is the shared delimiter rule (`fence_rule`):
+      at most three spaces of indentation, a closer of the same character at
+      least as long as its opener and with nothing after it. So a ```` ``` ````
+      quoted inside a ```` ```` ```` block no longer closes it, and neither
+      does a ```` ```python ```` line inside a ```-block.
 
     **A fence the record never closes is a malformed record, not a licence
     to read nothing** (round 2, 🟡 3). A toggle took every remaining line of
@@ -2182,17 +2205,10 @@ def claim_lines(lines):
     rather than to drop, and the marker is one comment away.
     """
     out, opener, held, aside, aside_held = [], None, [], False, []
+    opens, closes = fence_rule()
     for number, line in enumerate(lines, 1):
-        stripped = line.lstrip()
-        mark = (
-            "```"
-            if stripped.startswith("```")
-            else "~~~"
-            if stripped.startswith("~~~")
-            else None
-        )
         if opener is not None:
-            if mark == opener:
+            if closes(line, opener):
                 opener, held = None, []
             elif NOT_IN_TREE not in line:
                 # The marker exempts the LINE, and a line a never-closed
@@ -2200,25 +2216,39 @@ def claim_lines(lines):
                 # where `held` is spent keeps one rule for the marker.
                 held.append((number, line))
             continue
+        rest = line
         if aside:
-            if "-->" in line:
-                aside, aside_held = False, []
-            elif NOT_IN_TREE not in line:
-                # The same rule as `held` above: a comment the record never
-                # closes is malformed, and an author's missing `-->` must
-                # not be what makes the rest of a record pass in silence.
-                aside_held.append((number, line))
+            end = rest.find(COMMENT_CLOSER)
+            if end == -1:
+                if NOT_IN_TREE not in line:
+                    # The same rule as `held` above: a comment the record
+                    # never closes is malformed, and an author's missing
+                    # `-->` must not be what makes the rest of a record pass
+                    # in silence.
+                    aside_held.append((number, line))
+                continue
+            # A closer is a POSITION (#220): what follows it on the line is
+            # read by the line's own rules, below.
+            aside, aside_held = False, []
+            rest = rest[end + len(COMMENT_CLOSER) :]
+        elif opens(line) is not None:
+            opener = opens(line)
             continue
-        if mark is not None:
-            opener = mark
+        # An aside opens where the line, or what a closer left of it, BEGINS
+        # with `<!--`, and one closing on this line hands its remainder back
+        # to the same rule. A comment opening part-way along text is read
+        # with the text: `questions.md` Q1 of work item 1790260566 is where a
+        # person may choose the positional scanner instead.
+        while rest.lstrip().startswith(COMMENT_OPENER):
+            at = rest.index(COMMENT_OPENER) + len(COMMENT_OPENER)
+            end = rest.find(COMMENT_CLOSER, at)
+            if end == -1:
+                aside, rest = True, ""
+                break
+            rest = rest[end + len(COMMENT_CLOSER) :]
+        if NOT_IN_TREE in line or not rest.strip():
             continue
-        if stripped.startswith("<!--"):
-            if "-->" not in line:
-                aside = True
-            continue
-        if NOT_IN_TREE in line:
-            continue
-        out.append((number, line))
+        out.append((number, rest))
     return sorted(out + held + aside_held)
 
 

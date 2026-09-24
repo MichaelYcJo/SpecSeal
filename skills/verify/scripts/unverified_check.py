@@ -242,7 +242,8 @@ def fence_opener(line):
     `closed_fence_lines` — which `settle.py#open_rows` and
     `.github/scripts/fold_ledger.py#open_rows` both are; and
     `skills/evidence-check/scripts/evidence_check.py#quoted_lines`, which
-    the checker's four ledger walks read through, by way of its `fence_rule`.
+    the checker's four ledger walks read through, and `#claim_lines`, the
+    records arm's walk, both by way of its `fence_rule`.
     That file keeps a vendored copy of these two functions for the copy
     `evidence-ci` puts alone in a user repository, where this module is not
     beside it. **A new reader that decides by
