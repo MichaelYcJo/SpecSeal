@@ -7,7 +7,7 @@
 | Ran by | warden on Fable 5.1 |
 | PR | 550 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `dceb647bd921c5a2d72eb34283c1b97ab3f48acb..c83e33fcc69d32aa842882167864f490b484780d`, 1 commit |
 | Contract changes | none |
 | New units | only_released (depth 1); test_a_release_that_moves_the_unreleased_section_under_a_version_removes_nothing (depth 1) |
