@@ -62,6 +62,8 @@ def test_the_conftest_takes_every_gh_login_away(tmp_path):
     assert seen["tokens"] == [], f"left in the suite's environment: {seen['tokens']}"
     assert seen["home"] != str(held), "GH_CONFIG_DIR still names the login's home"
     assert seen["empty"], f"GH_CONFIG_DIR is not an empty directory: {seen['home']}"
+    # The directory is the run's own, and it goes when the run does.
+    assert not os.path.exists(seen["home"]), f"left behind: {seen['home']}"
 
 
 def test_gh_reports_no_login_under_the_suites_environment():
