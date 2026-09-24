@@ -47,6 +47,17 @@ release that stops after `main` has already moved.
 direction on purpose. That is the release shipping unexplained, and the body
 is the whole of what this publishes.
 
+**It thanks every outside contributor, by handle, under the body** (#572).
+An outside contribution carries no work item and so no changelog fragment,
+so a release that carried one credited it only when somebody remembered to
+write a sentence about it. So the set is read, not remembered: the pull
+requests merged into `release/vX.Y.Z`, less the repository owner's and any
+bot's, one line per person naming each pull request. A release with no such
+pull request gets no section, and reads exactly as it did before. It adds no
+way to fail: a `gh` call that cannot list the pull requests publishes the
+note without the section and says so in the job log, because a missing
+credit is fixable in one edit and a failed job at the tag is not.
+
 `DRY_RUN=1` prints what it would create and writes nothing, for the reason
 `close_issues_on_release.py`'s docstring gives: a tool whose only mode has
 side effects gets run for its output sooner or later, and the first person to
@@ -58,6 +69,7 @@ Exit codes: 0 published, or already published, or a dry run -- 1 the tag is
 not `vX.Y.Z`, or `CHANGELOG.md` carries no section for it.
 """
 
+import json
 import os
 import re
 import subprocess
@@ -176,6 +188,74 @@ def release_exists(repo, tag):
     return True
 
 
+THANKS_HEADING = "### 🙌 Thanks to"
+
+
+def merged_pulls(repo, version):
+    """The pull requests merged into `release/v<version>`, or None.
+
+    Each is `{"number", "title", "author": {"login", "is_bot"}}` as
+    `gh pr list --json` prints it. None means the list could not be read, and
+    the caller publishes without a credit rather than failing the tag's job.
+    """
+    out = subprocess.run(
+        [
+            "gh",
+            "pr",
+            "list",
+            "--repo",
+            repo,
+            "--base",
+            f"release/v{version}",
+            "--state",
+            "merged",
+            "--limit",
+            "500",
+            "--json",
+            "number,title,author",
+        ],
+        capture_output=True,
+        text=True,
+    )
+    if out.returncode:
+        print(f"gh pr list failed, so the note carries no credit: {out.stderr.strip()}")
+        return None
+    try:
+        return json.loads(out.stdout)
+    except ValueError:
+        print(
+            "gh pr list printed something that is not JSON, so the note carries no credit"
+        )
+        return None
+
+
+def thanks_section(pulls, owner):
+    """`### 🙌 Thanks to` and one line per outside contributor, or "".
+
+    Outside means neither `owner` -- the repository's, read from `REPO` and
+    never written down here -- nor a bot, whether `gh` marks it one or its
+    login carries the `[bot]` suffix. A person with several pull requests gets
+    one line naming them all, oldest first; the lines are ordered by the
+    contributor's first pull request, so the order is the release's own.
+    """
+    by_login = {}
+    for pull in sorted(pulls or (), key=lambda p: p["number"]):
+        author = pull.get("author") or {}
+        login = author.get("login") or ""
+        if not login or login.lower() == owner.lower():
+            continue
+        if author.get("is_bot") or login.endswith("[bot]") or login.startswith("app/"):
+            continue
+        by_login.setdefault(login, []).append(pull)
+    if not by_login:
+        return ""
+    lines = [THANKS_HEADING, ""]
+    for login, mine in by_login.items():
+        named = "; ".join(f"{p['title'].strip()} (#{p['number']})" for p in mine)
+        lines.append(f"- **@{login}** — {named}")
+    return "\n".join(lines)
+
+
 def create(repo, tag, title, body):
     run(
         "gh",
@@ -231,6 +311,13 @@ def main(argv=None):
 
     title, source = title_from(commit_message(tag), version, tag)
     print(f"title {title!r}, from {source}")
+    pulls = merged_pulls(repo, version)
+    thanks = thanks_section(pulls, repo.split("/")[0])
+    if thanks:
+        body = f"{body}\n\n{thanks}"
+        print(thanks)
+    elif pulls is not None:
+        print("no outside contribution in this release, so no Thanks to section")
     if dry:
         print(f"would create the release at {tag} with {len(body)} characters of notes")
         return 0

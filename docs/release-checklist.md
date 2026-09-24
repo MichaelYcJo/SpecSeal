@@ -307,7 +307,11 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
       fails for a tag whose version `CHANGELOG.md` carries no section for,
       which is step 2 not having happened; for a `v*` tag that is not
       `vX.Y.Z`; and when a `gh` call it makes fails. A missing title line is
-      not one of them — it falls back to the tag name.
+      not one of them — it falls back to the tag name. A release that
+      merged an outside contributor's pull request carries a
+      `### 🙌 Thanks to` line for them under the notes; the job log prints
+      the section, or says the list could not be read and the note went out
+      without it, which one `gh release edit` repairs.
 - [ ] **The plugin directory's answer has been read** —
       `python3 .github/scripts/plugin_directory_check.py`. It says, per
       directory, whether this plugin is listed, which commit the entry pins,

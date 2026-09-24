@@ -9,6 +9,8 @@ so the four directions that matter are the four this module holds:
   A3  a tag with no changelog section goes RED, naming the tag and the file
   A4  the title is the `release: X.Y.Z — <symptoms>` line, and where no such
       line is readable it is the tag name and the log says which was used
+  A5  every outside contributor is thanked under the body, by handle, and a
+      release with none reads as it did before (#572)
 
 **Nothing here reaches GitHub.** `gh` is replaced at the module's own `run`
 and `release_exists`, following `tests/test_a_merged_ticket_says_so_on_the_tracker.py`'s
@@ -114,9 +116,16 @@ class Releases:
         return [a for a in self.calls if a[:3] == ("gh", "release", "create")]
 
 
-def wire(monkeypatch, tmp_path, changelog=CHANGELOG, message="", existing=(), **env):
+def wire(
+    monkeypatch, tmp_path, changelog=CHANGELOG, message="", existing=(), pulls=(), **env
+):
     """The script, with a fixture changelog and no route to GitHub."""
     mod = publisher()
+    monkeypatch.setattr(
+        mod,
+        "merged_pulls",
+        lambda repo, version: None if pulls is None else list(pulls),
+    )
     tracker = Releases(existing)
     tracker.message = message
     (tmp_path / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
@@ -263,6 +272,100 @@ def test_without_that_line_the_title_is_the_tag_and_the_log_says_so(
     assert "the tag name" in out and "no `release:` line" in out, (
         "the fallback is silent, so a title nobody chose reads as one somebody did"
     )
+
+
+# --- A5: the release thanks its outside contributors ---------------------
+
+
+def pull(number, login, title="docs: a sentence", is_bot=False):
+    return {
+        "number": number,
+        "title": title,
+        "author": {"login": login, "is_bot": is_bot},
+    }
+
+
+OWNER = REPO.split("/")[0]
+
+
+def body_of(tracker):
+    args = tracker.creates()[0]
+    return args[args.index("--notes") + 1]
+
+
+def test_an_outside_contributor_is_thanked_under_the_body(monkeypatch, tmp_path):
+    """A5. The owner's pull requests and a bot's are the release's own work;
+    anybody else's is a contribution, and the note names who made it."""
+    pulls = [
+        pull(10, OWNER, "fix: the owner's own change"),
+        pull(11, "someone", "docs: explain a thing"),
+        pull(12, "dependabot[bot]", "chore: bump", is_bot=True),
+        pull(13, "app/renovate", "chore: bump again"),
+        pull(14, "someone", "fix: and a second thing"),
+        pull(15, "another", "feat: a third"),
+    ]
+    mod, tracker = wire(monkeypatch, tmp_path, message=title_line(), pulls=pulls)
+    assert mod.main() == 0
+    body = body_of(tracker)
+    assert body.startswith(mod.section_body(CHANGELOG, VERSION)), (
+        "the credit displaced the gathered section"
+    )
+    section = body[body.index(mod.THANKS_HEADING) :]
+    assert section.splitlines()[2:] == [
+        "- **@someone** — docs: explain a thing (#11); fix: and a second thing (#14)",
+        "- **@another** — feat: a third (#15)",
+    ], section
+    for excluded in (OWNER, "dependabot", "renovate"):
+        assert f"@{excluded}" not in section, f"{excluded} is thanked for its own work"
+
+
+def test_a_release_with_no_outside_contribution_has_no_section(monkeypatch, tmp_path):
+    """A5, the other direction. Most releases carry only the owner's work, and
+    for them the note is exactly the gathered section, as before #572."""
+    mod, tracker = wire(
+        monkeypatch, tmp_path, message=title_line(), pulls=[pull(10, OWNER)]
+    )
+    assert mod.main() == 0
+    assert body_of(tracker) == mod.section_body(CHANGELOG, VERSION)
+
+
+def test_a_list_that_cannot_be_read_still_publishes(monkeypatch, tmp_path, capsys):
+    """A5 adds no way to fail the tag's job: a missing credit is fixable in
+    one edit, and a job that stops at the tag is a release that stops after
+    `main` has moved."""
+    mod, tracker = wire(monkeypatch, tmp_path, message=title_line(), pulls=None)
+    assert mod.main() == 0
+    assert body_of(tracker) == mod.section_body(CHANGELOG, VERSION)
+    assert "no outside contribution" not in capsys.readouterr().out, (
+        "a list that could not be read is reported as a release nobody helped with"
+    )
+
+
+def test_the_list_is_read_from_the_release_branch(monkeypatch):
+    """The set is the pull requests merged into `release/vX.Y.Z` — the base
+    every feature branch squashes into — and a failed `gh` call is None."""
+    mod = publisher()
+    seen = []
+
+    class Done:
+        def __init__(self, code, out="", err=""):
+            self.returncode, self.stdout, self.stderr = code, out, err
+
+    def fake(args, **_):
+        seen.append(args)
+        return Done(0, '[{"number": 1, "title": "t", "author": {"login": "x"}}]')
+
+    monkeypatch.setattr(mod.subprocess, "run", fake)
+    assert mod.merged_pulls(REPO, VERSION)[0]["number"] == 1
+    args = seen[0]
+    assert args[args.index("--base") + 1] == f"release/v{VERSION}"
+    assert args[args.index("--state") + 1] == "merged"
+    assert args[args.index("--repo") + 1] == REPO
+
+    monkeypatch.setattr(
+        mod.subprocess, "run", lambda args, **_: Done(1, err="HTTP 502")
+    )
+    assert mod.merged_pulls(REPO, VERSION) is None
 
 
 # --- the seam with the script that writes the section ----------------------

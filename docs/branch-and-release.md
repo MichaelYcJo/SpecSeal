@@ -59,7 +59,10 @@ act, fires the note, because a note has to name a tag.
   republishes a release that exists, and falls back to the tag name when that
   line is missing or carries no symptoms. The red it exists to raise is a
   changelog with no section for the tag, which is the release shipping
-  unexplained.
+  unexplained. Under the section it writes `### 🙌 Thanks to`, one line per
+  outside contributor — every author of a pull request merged into
+  `release/vX.Y.Z` other than the repository owner and bots — and writes
+  nothing there for a release with none (#572).
 - **The plugin directory is read by a command that never fails a release.**
   `.github/scripts/plugin_directory_check.py` says, per directory, whether the
   plugin is listed, which commit the entry pins and whether that commit is on
