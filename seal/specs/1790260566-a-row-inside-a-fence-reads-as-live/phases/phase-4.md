@@ -116,6 +116,32 @@ beside that run printed exit 2 for the one self-drift above, and it was
 re-stamped before the commit. `uvx ruff check` and `format --check` over
 the three edited Python files are clean.
 
+**Every unit the build added was mutated before hand-over (executed).**
+Twenty breaks were made, one at a time, after this phase's commit. Each file
+was restored from a saved copy and checked byte for byte, and
+`tests/__pycache__` was cleared each time. The covering cases went red for
+every one:
+
+- `fence_opener`: the backtick info rule and the three-space bound;
+- `fence_closes`: the empty info;
+- `fence_spans`: the unclosed block;
+- `closed_fence_lines`: closed only;
+- `_paragraph_ends_at`: the ATX bound;
+- `todo_open_rows`: the live `drained` and the fence skip;
+- `vendored_fence_closes`;
+- `fence_rule`: the plugin copy asks the reader;
+- `quoted_lines`, `unquoted`, and the fence skips in `migrate`,
+  `old_format_rows` and `reverify`;
+- `claim_lines`: the remainder after a closer, the reopen loop and the
+  shared fence rule;
+- the fold's load of the shipped rule;
+- `gathered_fragments`: live lines only.
+
+The first break of `todo_open_rows`' fence skip removed the outer skip
+alone. The inner loop then never advanced on a quoted `|` line, and the run
+hung. It was stopped and replaced with `quoted = set()`, which went red in 2
+cases. `vendored_fence_opener`'s break was phase 2's.
+
 **What `CONTRIBUTING.md` §*What a change to a gate must carry* asks:**
 
 - **The case seen red:** the table above.
