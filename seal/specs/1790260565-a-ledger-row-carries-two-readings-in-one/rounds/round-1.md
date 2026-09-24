@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 588 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `db544d4f66514bc1496f010ea2f8abe1c9f6dd6d..938edc684af7da36a968e53b993020bd8be33a1e`, 2 commits |
+| Contract changes | none |
+| New units | EDIT_OUTCOMES (depth 1) |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 1 of work item 1790260565 reviews the build at 59012e5d against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | The halves rule's union clause, the edit rule's re-stamp and removal outcomes, and the two arguments behind them are held by no needle, although #569 pinned their neighbours | `tests/test_a_merge_cannot_silently_drop_a_correction.py:711` | open | Needle counts in the three carriers (executed). *only the notes are a union* is in all three exactly once, so a needle for it goes in green |
-| ⬜ 2 | The unit case's comment says a corpus case that stops passing the width goes red, but reverting the call site to `overwide_rows` keeps every case green | `tests/test_release_hygiene.py:1296` | open | Executed a mutation at `tests/test_release_hygiene.py:1325`: 3 passed |
-| ⬜ 3 | Shapes still uncounted: an indented row, a row in a `~~~` or indented fence, a trailing `\|`, a header wider than the template | `tests/test_release_hygiene.py:1255` | open | None is in any ledger file at 59012e5d (executed). The fence and trailing-pipe shapes are already in the spec's *Out* |
-| ⬜ 4 | Correction: the plan's approval line carries a second sentence after *was spawned.*, so the approval regex misses it and the chain check reports the line absent | `seal/specs/1790260565-a-ledger-row-carries-two-readings-in-one/plan.md:5` | open | Executed a dry run of `round_record.py new` in the clone. `APPROVED_RE` at `skills/code-review/scripts/chain_check.py:3806` is anchored at the end of the line. Reported, not refused |
+| ⬜ 1 | The halves rule's union clause, the edit rule's re-stamp and removal outcomes, and the two arguments behind them are held by no needle, although #569 pinned their neighbours | `tests/test_a_merge_cannot_silently_drop_a_correction.py:711` | **fixed** `950db9ef` | fixed at 950db9ef; Needle counts in the three carriers (executed). *only the notes are a union* is in all three exactly once, so a needle for it goes in green |
+| ⬜ 2 | The unit case's comment says a corpus case that stops passing the width goes red, but reverting the call site to `overwide_rows` keeps every case green | `tests/test_release_hygiene.py:1296` | **fixed** `938edc68` | fixed at 938edc68; Executed a mutation at `tests/test_release_hygiene.py:1325`: 3 passed |
+| ⬜ 3 | Shapes still uncounted: an indented row, a row in a `~~~` or indented fence, a trailing `\|`, a header wider than the template | `tests/test_release_hygiene.py:1255` | answered | none of the four shapes is in any ledger file at 59012e5d (executed by the reviewer); a tilde or indented fence is #444's, in work item 1790260566; a trailing escaped pipe is in the spec's Out; a header wider than the template is a shape the rule permits; None is in any ledger file at 59012e5d (executed). The fence and trailing-pipe shapes are already in the spec's *Out* |
+| ⬜ 4 | Correction: the plan's approval line carries a second sentence after *was spawned.*, so the approval regex misses it and the chain check reports the line absent | `seal/specs/1790260565-a-ledger-row-carries-two-readings-in-one/plan.md:5` | answered | a correction to the plan's approval line, made by the orchestrator in db544d4f, the record's own commit; not a fix in the range; Executed a dry run of `round_record.py new` in the clone. `APPROVED_RE` at `skills/code-review/scripts/chain_check.py:3806` is anchored at the end of the line. Reported, not refused |
 | 🟢 | #568 — S4 and G5 are lossless unions of one merge's two sides under one Checked date, and the eleven-modules row's Notes is joined | `seal/releases/0.9.2.md:31`, `seal/releases/0.8.2.md:145`, `seal/releases/0.9.3.md` | confirmed | Byte comparison of each side's opening, marker multisets before and after, and no two-date row left in any ledger file (executed) |
 | 🟢 | S4's claim is corrected to carry the tagged half | `seal/releases/0.9.2.md:31` | confirmed | `docs/issues-and-milestones.md:129-131` (read) |
 | 🟢 | #501 — a row under no header is counted against the template's five columns, and the policy paragraph and C2 say so | `tests/test_release_hygiene.py:1233` | confirmed | Unit case seen red against the header-only function and green after; corpus green over 769 rows (executed) |
