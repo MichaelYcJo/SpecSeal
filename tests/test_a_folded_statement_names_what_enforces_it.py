@@ -7,14 +7,15 @@ sentence, its grounds, and exactly one line `Enforced by: <target>[, …]` or
 repository's pin over it — the planted statements below call the shipped
 functions, and the real-tree case runs them over this repository's `docs/`.
 
-**It binds only markers whose work-item id is at or above the cutoff**, which
-is this repository's `Fold shape from` row in `seal/config.md`.
-The statements folded before #520 carry no such line, and retrofitting them
-is MichaelYcJo/SpecSeal#565. Work-item ids are epoch-prefixed, so the cutoff
-is a comparison and needs no list of exemptions.
+**It binds the markers whose work-item id is at or above the cutoff**, which
+is this repository's `Fold shape from` row in `seal/config.md`. The row is
+`0`: MichaelYcJo/SpecSeal#565 gave every statement folded before #520 its
+line, so the real-tree case below binds every statement under `docs/`.
+Work-item ids are epoch-prefixed, so the cutoff is a comparison and needs no
+list of exemptions.
 `docs/the-evidence-ledger.md` states the value in prose, and
 `tests/test_a_document_has_room_for_the_next_fold.py` pins the prose against
-this constant.
+that row.
 
 What the check reads is presence, count and resolution: the bold opening, one
 live `Enforced by:` line, and that every target names a file that exists and,

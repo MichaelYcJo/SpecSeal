@@ -191,23 +191,24 @@ Enforced by: tests/test_unverified_rows_close.py::test_a_row_the_base_gained_aft
 ## The fold, and what tells it from a deletion
 
 <!-- specs/1790154761-folded-statements-pile-into-one-spec -->
-**A statement folded from work item `1790154761` on has the fold's shape, and
-one folded before it has not.** The shape and the placement rule are stated in
+**Every folded statement has the fold's shape: the cutoff binds every statement
+from work item `0` on.** The shape and the placement rule are stated in
 `skills/settle/SKILL.md` §*2. Write one standing statement per
 segment*, and this section holds only this repository's values for them. The
 cutoff is the id in the marker, and ids are epoch-prefixed, so it is a
-comparison rather than a list. Statements from earlier work items carry no
-`Enforced by:` line whenever they are folded: the 101 folded before it, and
-those of work items released with it or still waiting from before it. Those
-101 were written with no line naming what reads any of them, and review found
-one of them false.
-Enforced by: skills/settle/scripts/fold_check.py::bound
+comparison rather than a list. It was `1790154761`, the work item that gave the
+fold its shape, and the statements it did not bind had been written with no
+line naming what reads any of them; review found one of them false. #565 gave
+each of them its `Enforced by:` line and lowered the cutoff to `0`. Counted
+by `fold-check --shape-from 0` on 2026-09-25, before the lines were written:
+136 statements under `docs/`, 115 of them without the line.
+Enforced by: skills/settle/scripts/fold_check.py::bound, tests/test_a_folded_statement_names_what_enforces_it.py::test_every_bound_statement_in_docs_has_the_shape
 
 <!-- specs/1790154761-folded-statements-pile-into-one-spec -->
 <!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
 **A top-level document under `docs/` stays at or under 1000 lines, and one
-over that ceiling takes no new statement.** Two folds had put 29 of the 101
-statements into `docs/review-chain-spec.md`, 2,159 lines long while the next
+over that ceiling takes no new statement.** Two folds had put 29 statements
+into `docs/review-chain-spec.md`, 2,159 lines long while the next
 largest document was 839, because nothing said where a fold lands. No
 document is over the ceiling now, so none is listed. The one that was,
 `docs/review-chain-spec.md`, was split along its own headings by
