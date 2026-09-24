@@ -189,7 +189,7 @@ comparison rather than a list. Statements from earlier work items carry no
 those of work items released with it or still waiting from before it. Those
 101 were written with no line naming what reads any of them, and review found
 one of them false.
-Enforced by: tests/test_a_folded_statement_names_what_enforces_it.py::bound
+Enforced by: skills/settle/scripts/fold_check.py::bound
 
 <!-- specs/1790154761-folded-statements-pile-into-one-spec -->
 <!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
@@ -204,7 +204,7 @@ MichaelYcJo/SpecSeal#526 into itself, `docs/commit-review-gate-spec.md` and
 document the next fold would take past the ceiling is split the same way
 first, or the rule goes to the document for its own sub-subject. The check
 also pins the cutoff, the ceiling and the empty list against its constants.
-Enforced by: tests/test_a_document_has_room_for_the_next_fold.py::ceiling_problems
+Enforced by: skills/settle/scripts/fold_check.py::ceiling_problems
 
 <!-- specs/1790154761-folded-statements-pile-into-one-spec -->
 **A fold into a document with a `.ko.md` edition is a fold into both, under the

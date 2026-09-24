@@ -2,7 +2,8 @@
 
 `skills/settle/SKILL.md` §2 places a folded rule in the document that owns its
 subject, and says a document over the repository's ceiling takes no new
-standing statement. This module is this repository's ceiling and its reader.
+standing statement. The reader ships, as `skills/settle/scripts/fold_check.py`
+(`fold-check`); this module is this repository's ceiling and its pin over it.
 
 Two fold runs put 29 of the 101 folded statements into
 `docs/review-chain-spec.md`, which reached 2,246 lines while the next largest
@@ -23,13 +24,14 @@ the constants below, `SHAPE_CUTOFF` included, which lives in
 `tests/test_a_folded_statement_names_what_enforces_it.py`.
 """
 
-import hashlib
 import importlib.util
 import os
 import re
+import subprocess
+import sys
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
-READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
+SCRIPT = os.path.join(ROOT, "skills", "settle", "scripts", "fold_check.py")
 SHAPE = os.path.join(
     os.path.dirname(__file__), "test_a_folded_statement_names_what_enforces_it.py"
 )
@@ -50,84 +52,11 @@ def _load(name, path):
     return module
 
 
-uc = _load("unverified_check", READER)
-
-
-def markers(text):
-    """How many fold markers the fold itself would read in `text`."""
-    return sum(
-        len(uc.FOLD_MARKER.findall(line))
-        for line, live in uc.live_lines(text.splitlines())
-        if live
-    )
-
-
-def marker_digest(text):
-    """The first 12 hex digits of a SHA-256 over the sorted live marker ids."""
-    ids = sorted(
-        found
-        for line, live in uc.live_lines(text.splitlines())
-        if live
-        for found in uc.FOLD_MARKER.findall(line)
-    )
-    return hashlib.sha256("\n".join(ids).encode()).hexdigest()[:12]
-
-
-def documents(root):
-    top = os.path.join(root, "docs")
-    return [
-        "docs/" + name
-        for name in sorted(os.listdir(top))
-        if name.endswith(".md") and os.path.isfile(os.path.join(top, name))
-    ]
-
-
-def ceiling_problems(root, ceiling, over, digests=None):
-    """Every way the tree at `root` breaks the ceiling or its listing."""
-    problems = []
-    names = documents(root)
-    for rel in sorted(set(over) - set(names)):
-        problems.append(f"{rel} is listed over the ceiling and does not exist")
-    for rel in names:
-        with open(os.path.join(root, *rel.split("/")), encoding="utf-8") as f:
-            text = f.read()
-        lines = len(text.splitlines())
-        if rel not in over:
-            if lines > ceiling:
-                problems.append(
-                    f"{rel} is {lines} lines, over the ceiling of {ceiling}. "
-                    "Split it along its own headings, or place the rule in the "
-                    "document for its own sub-subject"
-                )
-            continue
-        frozen, home = over[rel]
-        if lines <= ceiling:
-            problems.append(
-                f"{rel} is {lines} lines, no longer over the ceiling of "
-                f"{ceiling}. Remove its entry; {home} was its home"
-            )
-        found = markers(text)
-        if found != frozen:
-            problems.append(
-                f"{rel} carries {found} fold markers and is frozen at {frozen} "
-                f"until {home} splits it. A new fold goes to the document for "
-                "the rule's own sub-subject; a removed marker lowers the frozen "
-                "count, so the room it made is not refilled, and recomputes "
-                "FROZEN_IDS_DIGEST with marker_digest() in the same commit"
-            )
-            continue
-        want = (digests or {}).get(rel)
-        if want is not None and marker_digest(text) != want:
-            problems.append(
-                f"{rel} carries {frozen} fold markers, but not the ones frozen "
-                f"until {home} splits it: their ids no longer match "
-                "FROZEN_IDS_DIGEST. If a fold added a statement here and "
-                "removed another, the new rule goes to the document for its own "
-                "sub-subject. If a marker was removed on purpose, set the digest "
-                "to marker_digest() of the file in the commit that lowered the "
-                "count"
-            )
-    return problems
+fold_check = _load("specseal_fold_check", SCRIPT)
+markers = fold_check.markers
+marker_digest = fold_check.marker_digest
+documents = fold_check.documents
+ceiling_problems = fold_check.ceiling_problems
 
 
 def test_every_document_in_docs_is_under_the_ceiling_or_frozen():
@@ -302,3 +231,42 @@ def test_a_count_that_moved_is_told_to_recompute_the_digest_too(tmp_path):
     )
     assert len(found) == 1, found
     assert "recomputes FROZEN_IDS_DIGEST with marker_digest()" in found[0], found
+
+
+# --- the command -------------------------------------------------------------
+
+
+def command(*args):
+    """`fold-check` as a person types it, run on this interpreter."""
+    done = subprocess.run(
+        [sys.executable, SCRIPT, *args],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return done.returncode, done.stdout, done.stderr
+
+
+def test_the_command_names_a_document_over_the_ceiling_and_exits_1(tmp_path):
+    """S3: the message the module pins, printed by the command, at exit 1."""
+    root = tree(tmp_path, {"other.md": body(11), "small.md": body(10)})
+    code, out, err = command("--root", root, "--ceiling", "10")
+    assert code == 1, (code, out, err)
+    assert (
+        "docs/other.md is 11 lines, over the ceiling of 10. Split it along its "
+        "own headings, or place the rule in the document for its own "
+        "sub-subject\n"
+    ) in out, out
+    assert "held 2 documents under docs/ to 10 lines, 0 listed over it\n" in out
+
+
+def test_the_command_refuses_a_ceiling_that_is_not_a_positive_integer(tmp_path):
+    root = tree(tmp_path, {"small.md": body(3)})
+    for value in ("0", "ten"):
+        code, out, err = command("--root", root, "--ceiling", value)
+        assert code == 2 and not out, (value, out, err)
+
+
+def test_this_repository_is_under_the_ceiling_through_the_command():
+    code, out, err = command("--root", ROOT, "--ceiling", str(LINE_CEILING))
+    assert code == 0, (out, err)
