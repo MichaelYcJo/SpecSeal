@@ -7,14 +7,14 @@
 | Ran by | warden on Opus 5.5 |
 | PR | 560 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `ab9b026b16ff41b4f4b11a2ff680ba50206620ea..e5dc540d4d730da0331977dd64f6b046c93e5ab0`, 2 commits |
+| Contract changes | corrected → round-1-report.md, round-1.md, spec.md, round-3-report.md, round-3.md, round-2-report.md, round-2.md, examine; score → round-2-report.md, round-2.md, examine |
+| New units | test_a_gathered_fragment_cannot_subtract_a_survivor_through_a_lost_entry (depth 1) |
 | Needs a fix | yes — 🟡 1, the round-1 split writes gathered n-grams for every file, so a gathered fragment again subtracts another file's survivor (Z1, Z2 silent at the tip) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,7 +24,7 @@ Round 2, the verifying round at round 1's fixes (`0b094396..1e2905cc`), reviewed
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | the round-1 split writes a gathered sentence's n-grams into `written`, which every file's removed sentences are scored against, so where the lost changelog entry shares a claim's wording, a gathered fragment quoting it subtracts the survivor that a correction in another file left, which is #557's defect back through the fix, and the code comment, module docstring and ledger H1 each say it cannot happen | `skills/code-review/scripts/survivor_check.py:1062` | open | executed: Z1 and Z2 exit 1 at `bf7ba905`, exit 0 at `e6c85df6`; Z1n (no fragment) exit 1 at all four states; the per-source fix below trialled: module 104 passed, the new case red at the tip, X5 alone red with the split removed, X5W kept at 1 where the set-level patch loses it |
+| 🟡 1 | the round-1 split writes a gathered sentence's n-grams into `written`, which every file's removed sentences are scored against, so where the lost changelog entry shares a claim's wording, a gathered fragment quoting it subtracts the survivor that a correction in another file left, which is #557's defect back through the fix, and the code comment, module docstring and ledger H1 each say it cannot happen | `skills/code-review/scripts/survivor_check.py:1062` | **fixed** `d66b9632` | fixed at d66b9632 — and e5dc540d — the reviewer's paste-ready fix, whole: the split is `corrected`'s third return value and `score` subtracts it from a `CHANGELOG.md` source alone, `examine` passing it; the reviewer's case red at e6c85df6 (exit 0, `against 3 sentence(s)`), green after; six mutations isolate it — removing the subtraction fails X5 alone, writing the split back or scoring every source with it fails the new case alone; the comment, both docstrings and ledger H1 and F1 state the source-scoped bound; executed: Z1 and Z2 exit 1 at `bf7ba905`, exit 0 at `e6c85df6`; Z1n (no fragment) exit 1 at all four states; the per-source fix below trialled: module 104 passed, the new case red at the tip, X5 alone red with the split removed, X5W kept at 1 where the set-level patch loses it |
 | 🟢 | round 1's finding 1 is closed: a gathered rewording of a lost live entry splits it again | `skills/code-review/scripts/survivor_check.py:1062` | confirmed | executed: X5 failed (1 failed, 102 deselected) with `bf7ba905`'s script swapped in, restored with `git checkout`; module 103 passed at the tip; X5 exit 1 naming `docs/b.md` at the tip, 0 at `bf7ba905`, 1 at the base |
 | 🟢 | round 1's shapes answer as recorded at the tip: P6, P6d, H1k, H1, H1c, H2k, H2 exit 1 naming `docs/b.md`; X1–X4 exit 0; X6 exit 1 | `skills/code-review/scripts/survivor_check.py:1047` | confirmed | executed at four script states; H1k, H1, H2k, H2 exit 0 at `61f0d0d8`; unchanged from round 1's table |
 | 🟢 | round 1's finding 2 is closed: the records state the failure direction after the fix, and the one report-less shape they name is the rule working | `seal/specs/1790221963-a-release-writes-the-gathered-text-back/plan.md:144` | confirmed | read at `plan.md:144`, `spec.md` §Out, ledger H1; executed: W exit 1 at the base, 0 at `bf7ba905` and the tip; controls Wc exit 0 and Ww exit 1 at every state, so the tip treats gathered wording as wording that predates the range |
