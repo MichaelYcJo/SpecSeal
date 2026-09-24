@@ -1904,16 +1904,31 @@ def panel(tree, base, checks, item, workflow=None, copy=None):
 def failure_lines(check, verdicts=None):
     """What the failure form quotes for one check: its first lines, the
     FAILED lines with their base verdict where there are any, the exit code,
-    and the file holding the rest."""
+    and the file holding the rest.
+
+    **A failing `suite` whose output holds no pytest summary says so** (#448).
+    Its exit code alone reads as tests failing, and it is equally what a
+    shell prints when the row never reached the suite — `cmd.exe` exits 1
+    with a "not recognized" line in the machine's own language. The exit
+    code cannot tell those apart on either shell, so the line reads what is
+    actually missing: `suite_counts` found no summary with a wall clock.
+    """
     lines = [f"exit {check.code}", *check.first_lines()]
     if verdicts:
         lines.append("failing test files, compared at the base:")
         lines.extend(f"  {f}  {word}" for f, word in verdicts.items())
-    counts = suite_counts(check.text) if check.name == SUITE else None
-    if counts:
-        lines.append(counts)
+    if check.name == SUITE:
+        counts = suite_counts(check.text)
+        lines.append(counts or NO_SUMMARY)
     lines.append(f"full output: {check.path}")
     return lines
+
+
+# The line a failing `suite` gets where its output carries no pytest summary.
+NO_SUMMARY = (
+    "no pytest summary in this output, so this exit code is not a count of "
+    "failing tests: the row may have stopped before any test ran"
+)
 
 
 # --- the command -------------------------------------------------------------

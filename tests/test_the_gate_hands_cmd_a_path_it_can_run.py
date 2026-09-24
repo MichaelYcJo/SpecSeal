@@ -321,3 +321,44 @@ def test_the_row_runs_on_the_real_platform(tmp_path):
     under = "cmd" if gate.handed_to_shell("bin/probe") != "bin/probe" else "sh"
     assert f"probe ran under {under}" in check.text, kept
     assert f"probe ran under {under}" in kept, kept
+
+
+# --- A5: a failing row with no test result says so ----------------------------
+
+# Pinned verbatim, because a person reads it on the failure form and decides
+# from it whether to open the kept file (`agent-contract` §14).
+NO_SUMMARY = (
+    "no pytest summary in this output, so this exit code is not a count of "
+    "failing tests: the row may have stopped before any test ran"
+)
+
+
+@pytest.mark.parametrize(
+    "name, text, said",
+    [
+        # #448's case: the shell never reached the suite. The wording is
+        # the machine's own language, which is why the line does not read it.
+        (
+            "suite",
+            "'bin' is not recognized as an internal or external command,\n",
+            True,
+        ),
+        ("suite", "", True),
+        # A summary is a count, and the count is what the form shows instead.
+        ("suite", "F\n1 failed in 0.01s\n", False),
+        ("suite", "E\n1 error in 0.02s\n", False),
+        # Any other check's output was never a pytest run.
+        ("ledger", "BROKEN a#b@c\n", False),
+    ],
+)
+def test_a_failing_suite_with_no_summary_says_it_is_not_a_count(name, text, said):
+    """A5. The line is keyed on what is missing, pytest's summary with its
+    wall clock, and not on an exit code: `cmd.exe` exits 1 for a command it
+    cannot find, which is pytest's own 1."""
+    gate = gate_module()
+    lines = gate.failure_lines(gate.Check(name, 1, text, "/x/out.txt"))
+    assert (NO_SUMMARY in lines) is said, lines
+    assert lines[0] == "exit 1", lines
+    assert lines[-1] == "full output: /x/out.txt", lines
+    if name == "suite" and not said:
+        assert gate.suite_counts(text) in lines, lines
