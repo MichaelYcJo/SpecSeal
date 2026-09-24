@@ -1,9 +1,9 @@
 # 1790260566-a-row-inside-a-fence-reads-as-live — overview
 
 📋 implement applied
-· spec:     see the proof block of the hand-back for each phase
-· evidence: `seal/ledger/1790260566-a-row-inside-a-fence-reads-as-live.md`
-· verified: see each `phases/phase-N.md`
+· spec:     `spec.md`, `plan.md`, `questions.md`; `CONTRIBUTING.md` §*What a change to a gate must carry*; `docs/the-evidence-ledger.md`; `skills/evidence-check/SKILL.md`; `seal/follow-up.md`
+· evidence: `seal/ledger/1790260566-a-row-inside-a-fence-reads-as-live.md` P1-1 to P4-2; re-read notes, three corrections and two removals in `seal/releases/`
+· verified: executed per `phases/phase-N.md`; the full suite is the sealer's
 
 ## Why this work exists
 
@@ -22,11 +22,18 @@ The ledger readers disagreed about where a fenced block starts and ends, so a qu
 | Item | Who must answer |
 |---|---|
 | The full suite, lint and typecheck over the finished branch | the sealer, once the review rounds settle |
-| Behaviour on Linux and Windows. The phases are pure text processing and were run on macOS only | CI's Linux leg; nobody for Windows |
+| Behaviour on Linux and Windows. The phases are pure text processing and were run on macOS only | CI's test matrix, whose Linux and Windows legs run at the pull request |
 
 ## Not done
 
 The readers `spec.md` leaves out are filed as #584 and are not touched here.
+
+No case pins #220's fence half, a name after a closing run on its own line.
+Under the shared delimiter rule that line is fence content rather than a
+closer, which `phases/phase-4.md` records. S12 exercises the same closer
+rule, and the spec asked for no case of its own.
+
+`questions.md` Q1 and Q6 are open for a person, each with its default built.
 
 ## Fed back into the spec
 
