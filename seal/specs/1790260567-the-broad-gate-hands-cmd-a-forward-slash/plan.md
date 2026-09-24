@@ -131,8 +131,9 @@ phase closes. After any rebase, re-read this column.
 - There are no new dependencies, environment variables for users, or
   migrations.
 - On Windows, a plugin user's row whose command words contain `/` is now
-  handed to `cmd.exe` with `\`. Before this change such a row could not run
-  on `cmd.exe` at all, so no row that works today changes behaviour. A `/`
+  handed to `cmd.exe` with `\`. Before this change such a row could not run on `cmd.exe` at all, so a
+  row whose command words are paths changes only from failing to running.
+  A row whose command word carries a switch is the exception below. A `/`
   written straight after one of `cmd.exe`'s own commands (`rd/s/q`, `dir/b`)
   is that command's switch, runs today, and is left as written. **Corrected
   2026-09-25** in round 1's fix pass, which added that exception (round 1's

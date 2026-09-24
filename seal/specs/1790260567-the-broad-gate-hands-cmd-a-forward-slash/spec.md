@@ -151,7 +151,9 @@ that case red.
 
 **Failure directions, decided here:**
 
-- #448's rewrite **allows more**: a row that failed on `cmd.exe` now runs.
+- #448's rewrite **allows more**, and in one spelling **blocks more**: a row
+  that failed on `cmd.exe` now runs, and a switch written straight after a
+  program other than a built-in (below) no longer does.
   A wrong allow here would need the rewrite to make `cmd.exe` run something
   other than the command the row reads as. The rewrite only ever turns `/`
   into `\` inside a command word, and `cmd.exe` has no reading in which a
