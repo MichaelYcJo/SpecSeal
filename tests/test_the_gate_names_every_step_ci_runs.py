@@ -712,7 +712,10 @@ def test_a_repository_with_no_hygiene_workflow_is_sealed_exactly_as_before(tmp_p
         f"the stamp of a repository with no hygiene workflow says something "
         f"about that workflow's steps:\n{result.stdout}"
     )
-    assert "release" not in result.stderr.replace(str(repo), ""), result.stderr
+    said = result.stderr
+    for echoed in (str(tmp_path), os.path.realpath(GATE), sys.executable):
+        said = said.replace(echoed, "")
+    assert "release" not in said, result.stderr
     assert gate.WORKFLOW not in result.stderr, result.stderr
 
     labels = tuple(
