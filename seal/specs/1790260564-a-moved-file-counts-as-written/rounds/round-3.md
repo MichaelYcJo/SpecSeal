@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 589 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `e2a798f485b2b7a40195264dec2aa897b762b338..e2a798f485b2b7a40195264dec2aa897b762b338`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,9 +31,9 @@ Round 3 of work item 1790260564 is the last, verifying round: the diff of round 
 | 🟢 | round 2's note 4 is closed — the detached-HEAD bound is recorded as not done | `seal/specs/1790260564-a-moved-file-counts-as-written/overview.md` | confirmed | read `overview.md:34` against round 2's executed probe; the O1 residual it left is this round's ⬜ 3 |
 | carried | round 1's note 4 — the `corrected` line can name a move's origin | `skills/code-review/scripts/survivor_check.py:1140` | deferred #592 | already deferred in round 1; not in the fix diff |
 | ❓ | round 1's question on the settle fold's verbatim arrival in `docs/` | `skills/code-review/scripts/survivor_check.py:1047` | ❓ out of verified scope | carried from rounds 1 and 2: not in the fix diff and not answered by either fix pass; the orchestrator answers whether it is #563's class and where it goes |
-| ⬜ 1 | two plugin documents state the local-mode refusal as the tip being off the branch, without the cut | `agents/smith.md:226` | open | read; also `skills/code-review/orchestration.md:95`; true as a *never*, the same reading E4 and G5 got, and incomplete beside `docs/review-chain-spec.md:870-872` |
-| ⬜ 2 | the changelog fragment still says the row holds over a range whose tip is on that branch | `seal/specs/1790260564-a-moved-file-counts-as-written/changelog.md:27` | open | read; paperwork correction; the wording round 2's ⬜ 1 corrected in the test comment |
-| ⬜ 3 | O1's residual names the reused branch name as the only exposure left | `seal/ledger/1790260564-a-moved-file-counts-as-written.md` | open | read; paperwork correction; round 2's ⬜ 4 executed a second exposure, now written only in `overview.md` |
+| ⬜ 1 | two plugin documents state the local-mode refusal as the tip being off the branch, without the cut | `agents/smith.md:226` | answered | both sentences are never-statements that stay true with the narrower condition; the full set of refusals is stated in whole_range, report and docs/review-chain-spec.md, which round 2 corrected; read; also `skills/code-review/orchestration.md:95`; true as a *never*, the same reading E4 and G5 got, and incomplete beside `docs/review-chain-spec.md:870-872` |
+| ⬜ 2 | the changelog fragment still says the row holds over a range whose tip is on that branch | `seal/specs/1790260564-a-moved-file-counts-as-written/changelog.md:27` | answered | a record correction, corrected at e2a798f4; read; paperwork correction; the wording round 2's ⬜ 1 corrected in the test comment |
+| ⬜ 3 | O1's residual names the reused branch name as the only exposure left | `seal/ledger/1790260564-a-moved-file-counts-as-written.md` | answered | a record correction, corrected at e2a798f4; read; paperwork correction; round 2's ⬜ 4 executed a second exposure, now written only in `overview.md` |
 
 ## Paste-ready fixes
 
