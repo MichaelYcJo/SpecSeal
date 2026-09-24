@@ -449,15 +449,13 @@ def main(argv=None):
         return 1
 
     date = args.date or datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
-    # The section's own date where the ledger already heads this version:
-    # the release date is the first fold's, and a later fold joins that
-    # section (#540). Decided beside the line above rather than in it.
-    found = section_heading(text, args.version)
-    if found is not None and found.group(1):
-        date = found.group(1)
     block, empty = section(args.version, date, frags)
     # The heading a reader sees is the file's own where the section exists
-    # — dated or not — and the block's only where this run writes one.
+    # — dated or not — and the block's only where this run writes one. The
+    # date a joined section keeps is the first fold's, because `insert`
+    # drops the block's heading and this line prints the file's (#540); a
+    # `date` override here was measured dead by mutation and is not kept.
+    found = section_heading(text, args.version)
     heading = found.group(0) if found else block.split("\n")[0]
     if args.dry_run:
         if found:
