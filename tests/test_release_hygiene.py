@@ -1113,6 +1113,72 @@ def test_no_version_heads_two_sections_of_this_changelog():
     )
 
 
+def duplicated_markers(text, every=False):
+    """`[(work item id, [line numbers])]` for every `<!-- specs/<id> -->`
+    standing on a line of its own more than once.
+
+    #553: twenty fragments began with their own marker line, the fold wrote
+    its marker in front and copied the fragment whole, and each of the
+    twenty stood twice in `seal/ledger.md` — `--check` counted 118 work
+    items over 98 folded sections. The fold drops the leading line now and
+    `--check` refuses a doubled marker; this is the half that keeps it
+    closed on every pull request.
+    """
+    lines = {}
+    for number, line in enumerate(text.split("\n"), 1):
+        found = re.match(r"^<!-- specs/(\S+) -->$", line)
+        if found:
+            lines.setdefault(found.group(1), []).append(number)
+    if every:
+        return list(lines.items())
+    return [(work_item_id, at) for work_item_id, at in lines.items() if len(at) > 1]
+
+
+def test_a_marker_appears_once_in_a_ledger():
+    """The reader, against a file that has the defect and one that does not."""
+    doubled = (
+        "## 0.2.0 — d\n\n<!-- specs/1700000000-a -->\n### 1700000000-a\n\n"
+        "<!-- specs/1700000000-a -->\n\n| a | b |\n"
+    )
+    assert duplicated_markers(doubled) == [("1700000000-a", [3, 6])]
+    assert (
+        duplicated_markers(
+            doubled.replace("\n<!-- specs/1700000000-a -->\n\n| a", "\n| a")
+        )
+        == []
+    )
+
+
+def ledger_files():
+    """`seal/ledger.md` and every `seal/releases/*.md`, as repository paths."""
+    out = [os.path.join("seal", "ledger.md")]
+    releases = os.path.join(ROOT, "seal", "releases")
+    if os.path.isdir(releases):
+        out += [
+            os.path.join("seal", "releases", n) for n in sorted(os.listdir(releases))
+        ]
+    return out
+
+
+def test_no_marker_stands_twice_in_this_ledger():
+    """This repository's own ledger, and every release file once the split
+    has run, as one corpus: a work item marked in two files is the same
+    over-count as one marked twice in one. Seen red against `seal/ledger.md`
+    as it stood at `f3ec093a`: twenty work items, each marked twice."""
+    where = {}
+    for rel in ledger_files():
+        for work_item_id, at in duplicated_markers(
+            read_text(*rel.split(os.sep)), every=True
+        ):
+            where.setdefault(work_item_id, []).extend(f"{rel}:{n}" for n in at)
+    found = {i: at for i, at in where.items() if len(at) > 1}
+    assert not found, "\n".join(
+        f"{work_item_id} is marked more than once, at {', '.join(at)}. One work "
+        "item, one marker: delete the later line and the blank under it"
+        for work_item_id, at in found.items()
+    )
+
+
 def test_no_version_heads_two_sections_of_this_ledger():
     """The gathered ledger, the same way. #540: `fold_ledger.py` wrote a
     second `## 0.9.3` heading when a fragment landed thirty-one minutes
@@ -1129,6 +1195,18 @@ def test_no_version_heads_two_sections_of_this_ledger():
         "and delete it"
         for version, at in found
     )
+    # #547: once the split has run, each release is its own file, and the
+    # file heads exactly the version its name says, once. Green on both
+    # shapes: before the split there is no `seal/releases/` to read.
+    for rel in ledger_files()[1:]:
+        name = os.path.basename(rel)[: -len(".md")]
+        headed = re.findall(
+            r"^## (\d+\.\d+\.\d+)\b", read_text(*rel.split(os.sep)), re.M
+        )
+        assert headed == [name], (
+            f"{rel} heads {headed or 'no version'}; a release file heads its own "
+            "version once"
+        )
 
 
 def test_the_newest_changelog_entry_is_the_version_being_shipped():
@@ -1761,6 +1839,16 @@ def test_this_repository_has_one_root_laid_out_by_lifetime():
         stray = [n for n in os.listdir(ledger_dir) if not n.endswith(".md")]
         assert not stray, (
             f"seal/ledger/ holds something that is not a fragment: {stray}"
+        )
+    # `seal/releases/` holds one ledger file per release, written by the
+    # fold (#547); it is absent until the first release that runs the split.
+    releases = os.path.join(seal, "releases")
+    if os.path.isdir(releases):
+        stray = [
+            n for n in os.listdir(releases) if not re.fullmatch(r"\d+\.\d+\.\d+\.md", n)
+        ]
+        assert not stray, (
+            f"seal/releases/ holds something that is not <X.Y.Z>.md: {stray}"
         )
     # `seal/specs/` is absent after a complete fold for the same reason
     # `seal/ledger/` is absent after a release, and that is the laid-out

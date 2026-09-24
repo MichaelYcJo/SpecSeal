@@ -140,14 +140,15 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   keys its depth refusal on a finding's `Location` and names the finding
   whose fix added the unit, which is the one to split (#366).
 
-  A finding whose `Location` is under `seal/specs/`, `seal/ledger/` or
-  `seal/ledger.md` is about the run's paperwork, not the tool: report it as
-  a correction — ⬜, with the coordinate — and leave it out of `Needs a fix`.
-  `docs/review-chain-spec.md` §*The last round verifies* owns the rule. And
-  the run reopens at most once: a verifying round spawned after a reopening
-  reports what it finds as `deferred <home>` candidates rather than as fixes to
-  commission, because `docs/review-chain-spec.md` §*The reopening — one, and
-  then the run is capped* owns the bound and the exit it ends in.
+  A finding whose `Location` is under `seal/specs/`, `seal/ledger/`,
+  `seal/releases/` or `seal/ledger.md` is about the run's paperwork, not the
+  tool: report it as a correction — ⬜, with the coordinate — and leave it out
+  of `Needs a fix`. `docs/review-chain-spec.md` §*The last round verifies*
+  owns the rule. And the run reopens at most once: a verifying round spawned
+  after a reopening reports what it finds as `deferred <home>` candidates
+  rather than as fixes to commission, because `docs/review-chain-spec.md`
+  §*The reopening — one, and then the run is capped* owns the bound and the
+  exit it ends in.
 
   **A round told the run is capped still reports what it finds, at the
   severity it finds it.** What a cap decides is whether another round is

@@ -109,12 +109,13 @@ def failing_rows(root, home=None):
     line most — one made in a repository whose ledger predates anchors — got
     silence from this hook when only BROKEN was read (round 4, 🟡 6).
 
-    `ledger.md` and `ledger/*.md` are under `home` — the `seal/` that
-    `optin.home_at(root)` resolves, which in local mode is under the git
-    directory (#80) — and `docs/**/_evidence.md` stays under the repository
-    root, because it is a committed file at an old address and not part of
-    the root that moved. Spelling `seal/` under `root` here is what left a
-    local-mode ledger unread at every commit.
+    `ledger.md`, `ledger/*.md` and `releases/*.md` (one file per release,
+    where the fold writes a release's rows — #547) are under `home` — the
+    `seal/` that `optin.home_at(root)` resolves, which in local mode is under
+    the git directory (#80) — and `docs/**/_evidence.md` stays under the
+    repository root, because it is a committed file at an old address and not
+    part of the root that moved. Spelling `seal/` under `root` here is what
+    left a local-mode ledger unread at every commit.
     """
     spec = importlib.util.spec_from_file_location("specseal_evidence", CHECKER)
     ec = importlib.util.module_from_spec(spec)
@@ -127,6 +128,7 @@ def failing_rows(root, home=None):
         patterns = [
             os.path.join(home, "ledger.md"),
             os.path.join(home, "ledger", "*.md"),
+            os.path.join(home, "releases", "*.md"),
             *patterns,
         ]
     out = []

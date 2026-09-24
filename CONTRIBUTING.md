@@ -86,12 +86,13 @@ check reported, and say why the text it found is correct where it stands. A
 maintainer then either corrects those places or records the exemption on their
 side.
 
-**The evidence ledger is the other one.** `seal/ledger.md` pins claims to
-units of code and prose by name, and the `ledger` job fails when one of those
-names stops resolving — a heading you renamed, a function you removed. Drift
-under a name that still resolves is only a warning; a name that is gone is
-exit 2. The repair is a maintainer's, for the same reason: the row is removed
-from `seal/ledger.md` and the new claim written into a work item's fragment,
+**The evidence ledger is the other one.** `seal/ledger.md` and the release
+files under `seal/releases/` pin claims to units of code and prose by name,
+and the `ledger` job fails when one of those names stops resolving — a
+heading you renamed, a function you removed. Drift under a name that still
+resolves is only a warning; a name that is gone is exit 2. The repair is a
+maintainer's, for the same reason: the row is removed from the file it
+stands in and the new claim written into a work item's fragment,
 which is a convention a contribution does not have. Say on the pull request
 which name your change moved, and leave the ledger alone.
 
@@ -199,18 +200,22 @@ when it arrives.
 - **A change writes a fragment, never a shared registry.** Its changelog
   entry goes in `seal/specs/<work-item-id>/changelog.md` and its evidence rows in
   `seal/ledger/<work-item-id>.md`. A feature branch **appends** to neither
-  `CHANGELOG.md` nor `seal/ledger.md`. Three branches running in parallel
+  `CHANGELOG.md` nor a ledger file — `seal/ledger.md` or a release's
+  `seal/releases/<X.Y.Z>.md`. Three branches running in parallel
   shared exactly one file between them and it was the changelog; the conflict
   is three lines, and it arrives after the broad gate has run, where nothing
   may be edited. Both kinds of fragment are gathered at the release
   (`docs/branch-and-release.md`): the changelog fragments into the released
-  section, the ledger fragments into `seal/ledger.md`, where the rows stay.
+  section, the ledger fragments into that release's own file,
+  `seal/releases/<X.Y.Z>.md`, where the rows stay. `seal/ledger.md` keeps
+  the notation and the rows from before the fragments existed, and stops
+  growing.
 
   **Changing cited code is the case the rule has to answer, and it is not an
-  append.** Change what an existing `seal/ledger.md` row cites and the
-  checker reports DRIFTED, which needs that row touched in the file this rule
-  covers. Two answers, and which one applies is about the claim rather than
-  the code:
+  append.** Change what an existing ledger row cites — in `seal/ledger.md`
+  or a `seal/releases/` file — and the checker reports DRIFTED, which needs
+  that row touched in the file this rule covers. Two answers, and which one
+  applies is about the claim rather than the code:
 
   - the claim still holds and you have re-read it — run
     `evidence-check --reverify .`, which recomputes the hash and names what it
@@ -219,15 +224,19 @@ when it arrives.
     into your own fragment.** A row is not re-pointed at whatever now sits
     nearest to where it used to look.
 
-  So a claim leaves `seal/ledger.md` when the code it was about does, and
-  comes back at the release, folded in from the fragment that replaced it.
+  So a claim leaves the ledger when the code it was about does, and comes
+  back at the release, folded in from the fragment that replaced it.
 
-  **When `seal/ledger.md` conflicts, resolve it hunk by hunk and read both
-  sides.** Never `--ours` and never `--theirs`. A whole-file choice is wrong
-  by construction once both branches have been correcting, and the measured
-  instance is the argument: in #424 the two hunks resolved in opposite
-  directions, because each side was the superset in one of them. Taking a
-  side reverted three corrections that had each turned a false claim true.
+  **When a ledger file conflicts — `seal/ledger.md`, a
+  `seal/releases/<X.Y.Z>.md`, or a fragment two stacked branches both edited —
+  resolve it hunk by hunk and read both sides.** The split into release files
+  made the files smaller, not the conflict rarer: two branches that re-stamp
+  one row still meet on it. Never `--ours` and never `--theirs`. A whole-file
+  choice is wrong by construction once both branches have been correcting, and
+  the measured instance is the argument: in #424 the two hunks resolved in
+  opposite directions, because each side was the superset in one of them.
+  Taking a side reverted three corrections that had each turned a false claim
+  true.
 
   **Nothing downstream can see that, which is why the reading is yours.** A
   row reverted to a superseded state is byte-identical to a row nobody
@@ -255,6 +264,7 @@ when it arrives.
 
   ```bash
   python3 .github/scripts/gather_changelog.py --version X.Y.Z   # --dry-run first
+  python3 .github/scripts/fold_ledger.py --split                # once; checklist §2
   python3 .github/scripts/fold_ledger.py --version X.Y.Z        # --dry-run first
   python3 .github/scripts/gather_changelog.py --check           # what the workflow runs
   python3 .github/scripts/fold_ledger.py --check                # and this

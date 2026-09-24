@@ -1038,6 +1038,7 @@ def test_no_ledger_row_carries_a_line_number_or_a_commit(repo):
     for path in sorted(
         glob.glob(os.path.join(ROOT, "seal", "ledger.md"))
         + glob.glob(os.path.join(ROOT, "seal", "ledger", "*.md"))
+        + glob.glob(os.path.join(ROOT, "seal", "releases", "*.md"))
     ):
         for n, line in enumerate(open(path, encoding="utf-8").read().splitlines(), 1):
             if not line.strip().startswith("|"):
