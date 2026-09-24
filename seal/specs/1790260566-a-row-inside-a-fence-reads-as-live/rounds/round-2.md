@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 593 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `ff112c0d0dc52f6a333b31c8d859dfc1ff88ce3f..e8fbe7b9a166f575f4dae60f1659d764245b630e`, 1 commit |
+| Contract changes | none |
+| New units | test_a_backtick_line_whose_info_holds_a_backtick_opens_no_fix (depth 1) |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -34,9 +34,9 @@ Round 2 of work item 1790260566 is the verifying round: the diff of round 1's fi
 | 🟢 | round 1's ⬜ 8 is closed — phase 1's failure direction names both directions | `seal/specs/1790260566-a-row-inside-a-fence-reads-as-live/phases/phase-1.md` | confirmed | read; the refusal it cites is `NEVER_CLOSED` at `round_record.py:457` |
 | 🟢 | The merge composes `first_cell`'s container class with this branch's `settle.py` docstrings | `skills/settle/scripts/settle.py:450` | confirmed | read: no common line; executed: the settle module passes on the merged tree |
 | 🟢 | The merge keeps both sides' notes on D1 and E1, and each anchor's hash is the editing side's | `seal/releases/0.15.1.md` | confirmed | executed: a row-by-row compare over base, both parents and merge; `correction-check` over the merge reports no dropped marker; `evidence-check` 0 drifted |
-| ⬜ 1 | `repoint`'s line-count comment names `follow`, which the fix removed | `hooks/root-migrate.py:435` | open | read; a stale name in a comment and no behaviour change |
-| ⬜ 2 | The opener half of `fenced_after`'s fix has no case; R1-1 claims it | `tests/test_the_record_is_generated.py:1995` | open | executed: with that half removed, 129 of 129 pass; the proposed case is red there and green at the target |
-| ⬜ 3 | The merge note on D1 and E1 says one unit carries both sides' edits; each unit carries one side's edit | `seal/releases/0.15.1.md` | open | a correction to paperwork; read: this branch's hunk is in `CONTRIBUTING.md`, and the release side's is at `docs/the-evidence-ledger.md:71` |
+| ⬜ 1 | `repoint`'s line-count comment names `follow`, which the fix removed | `hooks/root-migrate.py:435` | **fixed** `e8fbe7b9` | fixed at e8fbe7b9; read; a stale name in a comment and no behaviour change |
+| ⬜ 2 | The opener half of `fenced_after`'s fix has no case; R1-1 claims it | `tests/test_the_record_is_generated.py:1995` | **fixed** `e8fbe7b9` | fixed at e8fbe7b9; executed: with that half removed, 129 of 129 pass; the proposed case is red there and green at the target |
+| ⬜ 3 | The merge note on D1 and E1 says one unit carries both sides' edits; each unit carries one side's edit | `seal/releases/0.15.1.md` | answered | a record correction, corrected at ff112c0d; a correction to paperwork; read: this branch's hunk is in `CONTRIBUTING.md`, and the release side's is at `docs/the-evidence-ledger.md:71` |
 | ❓ | Behaviour on Linux and Windows | the fix diff | ❓ out of verified scope | macOS only here; CI's matrix answers it at the pull request |
 
 ## Paste-ready fixes
