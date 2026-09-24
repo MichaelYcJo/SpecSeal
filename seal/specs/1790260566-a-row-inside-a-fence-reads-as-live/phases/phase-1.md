@@ -105,9 +105,16 @@ files, both clean. The full suite was not run, which is the sealer's act.
 
 - **The case seen red:** the table above. Each case was run against
   `c52e8350`'s reader from a saved copy.
-- **Failure direction:** `readable` blanks fewer lines, so `check_text`,
-  `chain_check.py` and `round_record.py` read more. A misread there is a
-  refusal a person sees, which is the cheaper mistake. `live_lines` extends a
+- **Failure direction:** `readable` moves both ways. It blanks fewer
+  lines where a four-space run or a backtick opener holding a backtick no
+  longer opens a fence, so `check_text`, `chain_check.py` and
+  `round_record.py` read more. A misread there is a refusal a person sees,
+  which is the cheaper mistake. It blanks MORE where a closer carrying an
+  info string, such as ```` ```python ````, no longer ends an open block.
+  That is the format's reading, and an unclosed result is refused by
+  `round_record.py` with a named message rather than read in silence.
+  **Corrected 2026-09-25 in round 1's fix pass (⬜ 8):** this bullet named
+  only the first direction. `live_lines` extends a
   fence where a closer carries an info string, so fewer lines are live. That
   is the safe direction for the fold and for `settle`, which keep a
   directory. `live_lines` stops opening a fence on a backtick opener holding
