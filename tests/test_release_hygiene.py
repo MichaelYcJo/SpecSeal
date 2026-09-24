@@ -1230,6 +1230,12 @@ def ledger_row_width():
     raise AssertionError("templates/ledger.md declares no `| Clause |` header")
 
 
+def ledger_overwide(text):
+    """`overwide_rows` as a ledger file is read: a row under no header is a
+    ledger row, and is counted against the template's width."""
+    return overwide_rows(text, ledger_row_width())
+
+
 def overwide_rows(text, width=None):
     """`(line number, header cells, row cells)` for every table row that
     splits into more cells than its table's header, fenced blocks skipped.
@@ -1287,6 +1293,9 @@ def test_a_row_under_no_header_is_counted_against_the_width_it_is_given():
     assert overwide_rows(fragment) == []
     beside = "| Item | Value |\n|---|---|\n| a | b |\n\n" + fragment
     assert overwide_rows(beside, width=5) == [(5, 5, 6)]
+    # What the corpus case calls, so a width it stopped passing goes red here:
+    # no row in the tree is overwide, so the corpus alone would stay green.
+    assert ledger_overwide(fragment) == [(1, 5, 6)]
 
 
 def test_no_ledger_row_splits_into_more_cells_than_its_header():
@@ -1310,11 +1319,10 @@ def test_no_ledger_row_splits_into_more_cells_than_its_header():
         if os.path.isdir(fragments)
         else []
     )
-    width = ledger_row_width()
     found = [
         f"{rel}:{n} has {row} cells under a {header}-cell header"
         for rel in rels
-        for n, header, row in overwide_rows(read_text(*rel.split(os.sep)), width)
+        for n, header, row in ledger_overwide(read_text(*rel.split(os.sep)))
     ]
     assert not found, (
         "a `|` inside a cell splits the row; write it as `\\|`:\n" + "\n".join(found)
