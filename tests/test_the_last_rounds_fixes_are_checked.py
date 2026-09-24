@@ -658,11 +658,11 @@ def test_pass_beside_nobody_fails_a_work_item_begun_after_the_cutoff(repo):
 
 def test_the_same_record_only_prints_for_an_item_begun_before_it(repo):
     """The grandfathering, which is the whole of what makes the refusal
-    shippable. `seal/specs/1788184145-…/rounds/round-3.md` is in exactly this
-    state
-    in this repository, it is merged, and there is no honest repair: writing a
-    `round-4.md` for a review nobody ran fabricates one, and unchecking its
-    `Pass` fails the ready-pull-request rule instead."""
+    shippable. `seal/specs/1788184145-…/rounds/round-3.md` was in exactly this
+    state in this repository until the 0.15.3 fold retired it (#579), merged
+    and with no honest repair: writing a `round-4.md` for a review nobody ran
+    fabricates one, and unchecking its `Pass` fails the ready-pull-request
+    rule instead."""
     declared(repo, round1=lambda sha: record(sha, "nobody — the run ended here"))
     code, out = run(repo)
     assert code == 0, out
