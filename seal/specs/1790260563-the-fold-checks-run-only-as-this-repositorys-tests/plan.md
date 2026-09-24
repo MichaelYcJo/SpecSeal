@@ -1,6 +1,6 @@
 # Implementation Plan: the fold checks run only as this repository's tests
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-09-24 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned. The wrap item is #583.
 
 ## Summary
 
