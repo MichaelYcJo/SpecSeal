@@ -37,8 +37,6 @@ one case here that derives its expectation instead of restating it.
 import os
 import re
 
-from conftest import REVIEW_CHAIN_DOCS, review_chain_text
-
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 SPEC = ("docs", "review-chain-spec.md")
@@ -312,8 +310,7 @@ def test_needs_a_fix_no_longer_claims_to_be_the_only_ending():
             "absence below is a search that found nothing rather than a file "
             "that says nothing"
         )
-        absent = review_chain_text(ROOT) if parts in REVIEW_CHAIN_DOCS else text
-        assert gone not in absent, (
+        assert gone not in text, (
             f"{'/'.join(parts)} still presents `Needs a fix` as the run's only "
             "terminal condition, beside a second one"
         )
