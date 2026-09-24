@@ -7,14 +7,14 @@
 | Ran by | warden on Opus 5.5 |
 | PR | 567 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `5e00373f67d69f280e9b00e39ae10fa38d7fc1bc..aa2afb71f4adc740d131c5b754435ef6904dc8bf`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 2, the verifying round at round 1's fixes (`28baec83..091bcde8`), reviewed
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | the clauses round 1's fixes added — neither side where both did, re-read against every edit, the edit arm's corrected-in-place outcome — are held by no case in any carrier | `tests/test_a_merge_cannot_silently_drop_a_correction.py:711` | open | executed: each clause deleted from each carrier, module `52 passed` every time; round 1's regression test not planted; the proposed block green at the target and red per carrier |
-| ⬜ 2 | the record document names the reopening's own failure direction as the rule the unrecognised `not yet` reason is an exception to; the checker names its own refusals | `docs/round-record-spec.md:529` | open | read: `docs/review-chain-spec.md:447` is the reopening check's direction; `chain_check.py:2394` states the exception against the file's refusals |
-| ⬜ 3 | this item's `spec.md` keeps *exactly one side* and a single-outcome edit arm; the fix-range sweep exits 1 on it with the exemptions applied | `seal/specs/1790208643-the-spec-is-split-and-its-sentences-are-settled/spec.md:137` | open | executed: `survivor-check --range 28baec83..091bcde8 --exempt` exit 1, one place; also `:136`; the PR range exits 0; a record, so a correction |
-| ⬜ 4 | rows E1 and E2 label clauses no case holds as executed, and E2's note keeps *which side edited* | `seal/ledger/1790208643-the-spec-is-split-and-its-sentences-are-settled.md:13` | open | the Result cells describe phase 3's two needles; finding 1's probe; a record, so a correction |
+| ⬜ 1 | the clauses round 1's fixes added — neither side where both did, re-read against every edit, the edit arm's corrected-in-place outcome — are held by no case in any carrier | `tests/test_a_merge_cannot_silently_drop_a_correction.py:711` | deferred #569 | #569 — a case pinning the clauses round 1 added is a fix, and this verifying round follows a round that met the floor, so it commissions none; the reviewer's executed case and probes are carried whole by #569; executed: each clause deleted from each carrier, module `52 passed` every time; round 1's regression test not planted; the proposed block green at the target and red per carrier |
+| ⬜ 2 | the record document names the reopening's own failure direction as the rule the unrecognised `not yet` reason is an exception to; the checker names its own refusals | `docs/round-record-spec.md:529` | deferred #569 | #569 — the same issue: `docs/round-record-spec.md` and `chain_check.py` state the `not yet` exception against two different rules; the reviewer's paste-ready sentence is in #569; read: `docs/review-chain-spec.md:447` is the reopening check's direction; `chain_check.py:2394` states the exception against the file's refusals |
+| ⬜ 3 | this item's `spec.md` keeps *exactly one side* and a single-outcome edit arm; the fix-range sweep exits 1 on it with the exemptions applied | `seal/specs/1790208643-the-spec-is-split-and-its-sentences-are-settled/spec.md:137` | answered | corrected at c1ed5f35 — `spec.md`'s #488 and #509 rows carry dated `Corrected` notes stating the rules the carriers now state, `overview.md` §Fed back into the spec names them, and the frame's #509 sentence is excused in `survivors.md` as a record of what was asked; executed: `survivor-check --range 28baec83..091bcde8 --exempt` exit 1, one place; also `:136`; the PR range exits 0; a record, so a correction |
+| ⬜ 4 | rows E1 and E2 label clauses no case holds as executed, and E2's note keeps *which side edited* | `seal/ledger/1790208643-the-spec-is-split-and-its-sentences-are-settled.md:13` | answered | corrected at c1ed5f35 — fragment rows E1 and E2 mark the clauses round 1 added as read, not executed, until #569's case lands, and E2's note says the drift names the row; the Result cells describe phase 3's two needles; finding 1's probe; a record, so a correction |
 | 🟢 | round 1's finding 1 is closed — the owner's halves rule gives the hash to neither side where both edited and re-reads against every edit | `docs/the-evidence-ledger.md:118` | confirmed | read; the needle it keeps turns the owner's case red when deleted, executed |
 | 🟢 | round 1's finding 2 is closed — both guides carry the same halves rule | `CONTRIBUTING.md:258`, `CLAUDE.md:169` | confirmed | read; the kept needle red in `test_a8_both_rule_documents_say_what_to_do_at_the_conflict` per guide, executed |
 | 🟢 | round 1's finding 3 is closed — the owner's edit arm names both outcomes, and `CONTRIBUTING.md`'s third answer bullet agrees with it | `docs/the-evidence-ledger.md:47`, `CONTRIBUTING.md:223` | confirmed | read: correct first with a `Corrected <date>` note, then re-stamp, in both |
