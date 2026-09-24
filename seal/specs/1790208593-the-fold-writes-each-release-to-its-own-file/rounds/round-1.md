@@ -7,7 +7,7 @@
 | Ran by | warden on Opus 5.5 |
 | PR | 558 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `635627c70b6c16dc0c1e9428efa47687e7ebc70e..47ca9ce68ab744c4d249aa25e66d6650f02c5097`, 6 commits |
 | Contract changes | none |
 | New units | test_the_split_names_only_the_anchors_it_cannot_place (depth 1); test_each_identical_rewrite_prints_its_own_line (depth 1) |
