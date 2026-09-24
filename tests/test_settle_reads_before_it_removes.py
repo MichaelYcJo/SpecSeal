@@ -208,6 +208,45 @@ def test_a_drained_line_closes_the_file(tree):
     assert not settle.open_rows(OPEN_TODO + "\ndrained — every row is in the ledger\n")
 
 
+QUOTED_DRAINED = (
+    "\nThe file closes with a line like this:\n\n"
+    "```markdown\ndrained — every row is in the ledger\n```\n"
+    "\n<!-- a draft of the closing line\ndrained — not yet\n-->\n"
+)
+
+
+def test_a_quoted_drained_line_closes_nothing(tree):
+    """S7, the `settle` half (#487). `drained` EXCUSES a whole file, so it
+    counts only on a live line: one quoted in a fence or parked in a comment
+    closes nothing, and gamma's open row still keeps its directory. Seen red
+    against `c52e8350`, where either quotation closed the file and gamma was
+    offered for the fold."""
+    assert settle.open_rows(OPEN_TODO + QUOTED_DRAINED)
+    todo = tree / "seal" / "specs" / "1700000003-gamma" / "evidence-todo.md"
+    todo.write_text(OPEN_TODO + QUOTED_DRAINED, encoding="utf-8")
+    git(tree, "commit", "-qam", "a quoted drained line")
+    _, text = run(tree)
+    assert "1700000003-gamma" in text.split("\nskipped —")[1], text
+
+
+def test_a_fenced_example_row_is_not_an_open_row():
+    """The other half of the direction rule: a ROW holds a fact, so it is
+    skipped only when it is certainly quoted — inside a fence that closes.
+    One in a fence nobody closed, or parked in a comment, is still open."""
+    example = (
+        "# evidence-todo\n\nA row looks like this:\n\n```markdown\n"
+        "| Fact | Where it goes |\n|---|---|\n| an example | nowhere |\n```\n"
+    )
+    assert settle.open_rows(example) == []
+    unclosed = example[: -len("```\n")]
+    assert unclosed.endswith("| an example | nowhere |\n"), unclosed
+    assert len(settle.open_rows(unclosed)) == 1
+    parked = (
+        "# evidence-todo\n\n<!--\n| Fact | Where |\n|---|---|\n| parked | x |\n-->\n"
+    )
+    assert len(settle.open_rows(parked)) == 1
+
+
 # --- A4: a second run folds nothing twice ----------------------------------
 
 

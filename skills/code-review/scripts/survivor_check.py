@@ -818,9 +818,21 @@ def gathered_fragments(root, rev):
     has gathered -- read off the marker each gather writes, at `rev`.
 
     One `read_blobs` call and no path list: the question is what one file
-    says, never which files exist."""
+    says, never which files exist.
+
+    **A marker counts only on a live line**, read through
+    `unverified_check.py#live_lines` as `folded_items` reads `docs/`. A
+    gathered fragment is EXCUSED from the sweep, so a marker quoted in a fence,
+    an HTML comment or a code span must not excuse one — that is the silent
+    direction, a removal nobody is told about. A marker the reader parks by
+    mistake keeps a fragment in the sweep, which a person sees."""
     text = read_blobs(root, rev, [CHANGELOG]).get(CHANGELOG, "")
-    return set(MARKER.findall(text))
+    return {
+        marker
+        for line, live in reader().live_lines(text.splitlines())
+        if live
+        for marker in MARKER.findall(line)
+    }
 
 
 def a_gathered_fragment(path, gathered):

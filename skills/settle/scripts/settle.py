@@ -251,12 +251,13 @@ def open_rows(text):
     predicate began reading `evidence-todo.md` too: the guard here and the
     predicate every CI reader asks are one rule, not two copies of it.
 
-    **The same rule is spelled in `.github/scripts/fold_ledger.py#open_rows`,
-    and the two are not one reader.** That script is this repository's own
-    release automation under `.github/`, which is not on the list of what the
-    plugin ships (`tests/test_the_release_check_watches_what_ships.py#SHIPS`),
-    so a shipped command may not depend on it: a user's repository has the
-    ledger fold nowhere. The guard travels with the command that enforces it.
+    **`.github/scripts/fold_ledger.py#open_rows` is the same function**,
+    loaded by path from the shipped reader (#487). The direction that is
+    closed is the other one: that script is this repository's own release
+    automation, not on the list of what the plugin ships
+    (`tests/test_the_release_check_watches_what_ships.py#SHIPS`), so a shipped
+    command may not depend on IT — a user's repository has the ledger fold
+    nowhere. The guard travels with the command that enforces it.
     """
     return load(READER, "specseal_unverified_reader").todo_open_rows(text)
 

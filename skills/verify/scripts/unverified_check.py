@@ -238,7 +238,9 @@ def fence_opener(line):
     pattern of its own, because five spellings of this rule is what five
     readers had. The readers that ask it: `fence_spans` and through it
     `blank_fences` and `closed_fence_lines`, and `_liveness` and
-    `_paragraph_ends_at`, all in this module; and
+    `_paragraph_ends_at`, all in this module, and `todo_open_rows` through
+    `closed_fence_lines` — which `settle.py#open_rows` and
+    `.github/scripts/fold_ledger.py#open_rows` both are; and
     `skills/evidence-check/scripts/evidence_check.py#quoted_lines`, which
     the checker's four ledger walks read through, by way of its `fence_rule`.
     That file keeps a vendored copy of these two functions for the copy
@@ -1072,35 +1074,49 @@ DRAINED_RE = re.compile(r"^[\s*_]*drained\b", re.IGNORECASE)
 def todo_open_rows(text):
     """Table body rows of an evidence-todo file that are still open.
 
-    The rule, so a person can apply it by hand: a line outside a table whose
-    first word is `drained` closes the whole file; otherwise every body row is
-    open unless its first cell begins with ✅. A table is a run of lines
-    starting with `|`; its first line is the header when the second is a
-    separator, and neither is a body row.
+    The rule, so a person can apply it by hand: a LIVE line outside a table
+    whose first word is `drained` closes the whole file; otherwise every body
+    row is open unless its first cell begins with ✅, and a row inside a
+    fenced block that closes is an example and is not a row. A table is a run
+    of lines starting with `|`; its first line is the header when the second
+    is a separator, and neither is a body row.
+
+    **The two halves read by opposite rules, and that is the direction rule**
+    (#487). `drained` EXCUSES a file, so it counts only on a line
+    `live_lines` calls live: one quoted in a fence, in an HTML comment or in
+    a code span closes nothing, because closing a file on a quotation is the
+    silent direction for a guard. A row HOLDS something, so it is skipped
+    only when it is certainly quoted, which for a line is a fenced block that
+    closes (`closed_fence_lines`). A row in a fence nobody closed, or in a
+    comment, is read: a parked row is still somebody's open fact.
 
     Split on `\\n` alone: `splitlines()` also breaks on U+2028, U+0085 and
     form feed, so a cell holding one of those followed by `drained` closed the
     file — the silent direction for a guard.
 
-    **It lives here because the rule arm's predicate reads it.**
-    `skills/settle/scripts/settle.py#open_rows` asks this function, so the
-    command's guard and the predicate every CI reader asks are one rule. The
-    same rule is spelled once more in `.github/scripts/fold_ledger.py#open_rows`,
-    which is this repository's release automation and not a shipped script, so
-    a shipped command may not depend on it and it may not depend on this.
+    **It lives here because the rule arm's predicate reads it, and it is the
+    one spelling there is.** `skills/settle/scripts/settle.py#open_rows` asks
+    this function, and so does `.github/scripts/fold_ledger.py#open_rows`,
+    which loads this module by path the way `.github/scripts/rider_check.py`
+    loads the shipped checker. That script used to keep a copy on the ground
+    that release automation and a shipped script may not depend on each
+    other; `rider_check.py` had already taken that direction, and nothing
+    held the two copies in step (#487).
     """
     lines = text.split("\n")
+    live = [flag for _, flag in live_lines(lines)]
+    quoted = closed_fence_lines(lines)
     rows = []
     n = 0
     while n < len(lines):
         line = lines[n]
-        if not line.lstrip().startswith("|"):
-            if DRAINED_RE.match(line):
+        if n in quoted or not line.lstrip().startswith("|"):
+            if live[n] and DRAINED_RE.match(line):
                 return []
             n += 1
             continue
         table = []
-        while n < len(lines) and lines[n].lstrip().startswith("|"):
+        while n < len(lines) and n not in quoted and lines[n].lstrip().startswith("|"):
             table.append(lines[n])
             n += 1
         if len(table) >= 2 and TODO_SEPARATOR_RE.match(table[1].strip()):

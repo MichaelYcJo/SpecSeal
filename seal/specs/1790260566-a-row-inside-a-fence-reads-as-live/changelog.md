@@ -16,3 +16,12 @@
   fence is no longer checked either**, and nothing reports that, so a ledger
   row meant as a claim belongs outside any fence. A copy of the checker
   vendored alone into `tools/` applies the same rule.
+- A `drained` line in an `evidence-todo.md` closes the file only where it is
+  live (#487). One quoted in a fenced block, an HTML comment or a code span no
+  longer closes it, so `settle` and the release fold no longer pass over an
+  open row because a quotation said `drained`. A row inside a fenced example
+  that closes is not counted as open, and a row in an unclosed fence or a
+  comment still is. The release fold now asks the same rule `settle` asks,
+  instead of keeping its own copy. The survivor sweep likewise takes a
+  changelog marker only from a live line of `CHANGELOG.md`, so a quoted one
+  no longer excuses a fragment.

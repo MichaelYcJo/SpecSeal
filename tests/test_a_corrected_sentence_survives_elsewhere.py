@@ -3207,6 +3207,36 @@ def test_an_ungathered_fragment_is_still_a_carrier(tmp_path):
     assert FRAGMENT in text, text
 
 
+def test_a_marker_quoted_in_a_fence_gathers_nothing(tmp_path):
+    """S9 (#487's class, one reader over). A gathered fragment is EXCUSED
+    from the sweep, so its marker counts only on a live line, as
+    `folded_items` reads `docs/`. A `CHANGELOG.md` that shows the marker
+    inside a fenced example has gathered nothing, and the fragment is still
+    this release's own prose. Seen red against `c52e8350`, whose
+    `MARKER.findall` over the whole file excused the fragment: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    quoted = (
+        changelog(RELEASED_HEADINGS[0], "An unrelated entry.")
+        + "\nThe gather writes a line like this:\n\n```markdown\n"
+        + f"<!-- specs/{os.path.basename(SHIPPED)} -->\n```\n"
+    )
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            FRAGMENT: f"### Fixed\n\n- {FOUND}\n",
+            "CHANGELOG.md": quoted,
+            **FILLER,
+        },
+        "the claim, and a fragment whose marker is only quoted",
+    )
+    head = build(repo, {"docs/a.md": f"# a\n\n{REPAIRED}\n"}, "corrected docs/a.md")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a quoted marker excused the fragment; exit {code}\n{text}"
+    assert FRAGMENT in text, text
+
+
 # --- #551: a file moved and reworded in one commit is a rename to git ------
 #
 # `git diff --name-only` runs with rename detection, so a file moved whole is
