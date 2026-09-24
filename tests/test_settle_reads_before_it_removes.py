@@ -1407,6 +1407,15 @@ def test_an_opener_quoted_inside_a_code_span_parks_nothing(tree):
     assert "docs/x.md" in rows["1700000003-gamma"], rows["1700000003-gamma"]
 
 
+def real_ledgers():
+    """`seal/ledger.md` and every `seal/releases/*.md` — where a folded
+    section stands, before the one-time split and after it (#547)."""
+    return [
+        os.path.join(ROOT, "seal", "ledger.md"),
+        *sorted(glob.glob(os.path.join(ROOT, "seal", "releases", "*.md"))),
+    ]
+
+
 def test_the_rule_over_this_repositorys_ledger_loses_no_section():
     """The same fact over the real corpus: the ids `coordinates` sections are
     the ids `blank_fences` alone would section, and there are some. Set
@@ -1415,9 +1424,11 @@ def test_the_rule_over_this_repositorys_ledger_loses_no_section():
     `skills/settle/SKILL.md` §3 names as the expensive one. With the span pass
     removed this reports three ids missing."""
     reader = settle.load(settle.READER, "specseal_unverified_reader_a4")
-    with open(os.path.join(ROOT, "seal", "ledger.md"), encoding="utf-8") as f:
-        fenced = reader.blank_fences(f.read().split("\n"))
-    sectioned = {m.group(1) for m in map(settle.MARKER_LINE_RE.match, fenced) if m}
+    sectioned = set()
+    for path in real_ledgers():
+        with open(path, encoding="utf-8") as f:
+            fenced = reader.blank_fences(f.read().split("\n"))
+        sectioned |= {m.group(1) for m in map(settle.MARKER_LINE_RE.match, fenced) if m}
     fragments = {
         os.path.basename(path)[: -len(".md")]
         for path in glob.glob(os.path.join(ROOT, "seal", "ledger", "*.md"))
@@ -1441,8 +1452,6 @@ def test_no_section_of_this_repositorys_ledger_loses_a_coordinate():
     still takes three work items from 12, 57 and 29 coordinates to 5, 40 and
     19."""
     reader = settle.load(settle.READER, "specseal_unverified_reader_coords")
-    with open(os.path.join(ROOT, "seal", "ledger.md"), encoding="utf-8") as f:
-        lines = f.read().split("\n")
 
     def sectioned(pairs):
         out, current = {}, None
@@ -1461,8 +1470,16 @@ def test_no_section_of_this_repositorys_ledger_loses_a_coordinate():
                 )
         return out
 
-    fence_only = sectioned([(line, True) for line in reader.blank_fences(lines)])
-    assert sectioned(reader.live_lines(lines)) == fence_only
+    fence_only, live = {}, {}
+    for path in real_ledgers():
+        with open(path, encoding="utf-8") as f:
+            lines = f.read().split("\n")
+        pairs = [(line, True) for line in reader.blank_fences(lines)]
+        for key, paths in sectioned(pairs).items():
+            fence_only.setdefault(key, []).extend(paths)
+        for key, paths in sectioned(reader.live_lines(lines)).items():
+            live.setdefault(key, []).extend(paths)
+    assert live == fence_only
     assert sum(len(v) for v in fence_only.values()) > 1000, "the ledger went empty"
 
 

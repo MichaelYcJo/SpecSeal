@@ -31,7 +31,28 @@ same commit:
   fold_ledger.py --check                    no fragment left, no open row,
                                             no release left in ledger.md,
                                             every release file named for the
-                                            one version it heads once
+                                            one version it heads once, no
+                                            work item marked twice
+  fold_ledger.py --split                    once: move every release section
+                                            of ledger.md into its own file
+  fold_ledger.py --split --dry-run          print what would move, write
+                                            nothing
+
+**The split runs once** (#547). `--split` cuts every `## X.Y.Z` section of
+`seal/ledger.md` — from its heading to the next `## ` line or the end —
+into `seal/releases/<X.Y.Z>.md` byte for byte, ending in one newline, and
+leaves the header and the standing areas as `seal/ledger.md`. One kind of row
+points INTO the shared file: an anchor `seal/ledger.md#"<heading path>"`
+whose first heading is a line the split moves. Its content moves with the
+file byte for byte, so the split rewrites the path to the release file and
+keeps the hash — the class `hooks/root-migrate.py` rewrites for the root
+move, and not a row whose content went (`CLAUDE.md`, *REMOVED, not
+re-pointed*). The rewrite runs over the shared file, every release file and
+every fragment; an anchor into a moved section that is not a heading path is
+named and left, for a person. The split refuses a version the ledger heads
+twice (C's reader: joining two sections is a person's call), any target
+that exists (a join is the fold's, and a file there before the split is a
+state nobody planned), and a ledger with nothing to move.
 
 **A second fold for one version joins its file** (#540). The release pull
 request going red and a fragment landing after the preparation commit is the
@@ -96,8 +117,9 @@ Exit codes: 0 done · 1 for nothing to fold, an open evidence-todo row, a
 fragment whose marker is already in a ledger, a release file that does not
 head the version it is named for, a fragment left at `--check`, a release
 heading left in `seal/ledger.md` at `--check`, a release file headed twice or
-misnamed at `--check`, a marker standing twice in any ledger at `--check`, or
-a missing `seal/ledger.md`. Every one is a failure a release pull request
+misnamed at `--check`, a marker standing twice in any ledger at `--check`, a
+`--split` refused (a version headed twice, a target that exists, nothing to
+move), or a missing `seal/ledger.md`. Every one is a failure a release pull request
 should stop on.
 """
 
@@ -433,6 +455,162 @@ def misnamed(name, text):
     return None
 
 
+# An anchor whose path is exactly `seal/ledger.md`, with a quoted locator.
+# The look-behind keeps `x/seal/ledger.md` — some other file — out.
+SELF_ANCHOR_RE = re.compile(r'(?<![A-Za-z0-9_.@/-])seal/ledger\.md#"((?:[^"\n]|\\")+)"')
+HEADING_SEP = " / "  # `evidence_check.py#HEADING_SEP`
+
+
+def release_sections(text):
+    """`[(version, start, end)]`, 0-based `[start, end)` line ranges of every
+    `## X.Y.Z` section: from its heading to the next `## ` line or the end."""
+    lines = text.split("\n")
+    out = []
+    for n, line in enumerate(lines):
+        found = VERSION_HEADING_RE.match(line)
+        if found:
+            end = next(
+                (k for k in range(n + 1, len(lines)) if lines[k].startswith("## ")),
+                len(lines),
+            )
+            out.append((found.group(1), n, end))
+    return out
+
+
+def body_rows(lines):
+    """Table body rows: `| ` lines that are not a header over a separator."""
+    rows = 0
+    for n, line in enumerate(lines):
+        if not line.startswith("| "):
+            continue
+        following = lines[n + 1].strip() if n + 1 < len(lines) else ""
+        if not SEPARATOR_RE.match(following):
+            rows += 1
+    return rows
+
+
+def rewrite_self_anchors(text, moved, kept):
+    """`(text, rewritten, left)` — every `seal/ledger.md#"<heading path>"`
+    whose first heading is in `moved` (`{heading line: version}`) points at
+    that release's file, hash untouched. An anchor whose first part is not a
+    heading the standing areas keep, and was not rewritten, is `left`: its
+    target moved and the split cannot say where to, so a person does."""
+    rewritten, left = [], []
+
+    def one(match):
+        body = match.group(1).replace('\\"', '"').replace("\\|", "|")
+        first = " ".join(body.split(HEADING_SEP)[0].split())
+        version = moved.get(first)
+        if version is None:
+            if first not in kept:
+                left.append(match.group(0))
+            return match.group(0)
+        new = f'{release_path(version)}#"{match.group(1)}"'
+        rewritten.append((match.group(0), new))
+        return new
+
+    return SELF_ANCHOR_RE.sub(one, text), rewritten, left
+
+
+def split(root, text, dry_run):
+    """`--split`. Returns the exit code; prints what moved or would."""
+    doubled = doubled_versions(text)
+    if doubled:
+        print(f"{LEDGER} heads a version twice — one release, one file:")
+        for version, at in doubled:
+            print(f"  {version}  at lines {', '.join(str(n) for n in at)}")
+        print(
+            "\nMove the later heading's work items under the first heading and "
+            f"delete the later one, then split.\nnothing split: {LEDGER} is untouched"
+        )
+        return 1
+    sections = release_sections(text)
+    if not sections:
+        print(f"nothing to split: {LEDGER} heads no release")
+        return 1
+    present = [
+        release_path(v)
+        for v, _, _ in sections
+        if os.path.exists(under(root, release_path(v)))
+    ]
+    if present:
+        print("release files that already exist — the split writes new files only:")
+        for path in present:
+            print(f"  {path}  exists")
+        print(
+            "\nA release file before the split is a state nobody planned; compare "
+            f"it with its section by hand.\nnothing split: {LEDGER} is untouched"
+        )
+        return 1
+
+    lines = text.split("\n")
+    inside = set()
+    moved = {}
+    files = {}
+    for version, start, end in sections:
+        inside.update(range(start, end))
+        body = lines[start:end]
+        files[release_path(version)] = "\n".join(body).rstrip("\n") + "\n"
+        for line in body:
+            if HEADING_RE.match(line):
+                key = " ".join(line.split())
+                moved[key] = None if key in moved else version
+    moved = {k: v for k, v in moved.items() if v is not None}
+    rest = [line for n, line in enumerate(lines) if n not in inside]
+    kept = {" ".join(line.split()) for line in rest if HEADING_RE.match(line)}
+    files[LEDGER] = "\n".join(rest).rstrip("\n") + "\n"
+    # Every other ledger an anchor can stand in: release files from before,
+    # and fragments. The split's own files are rewritten with them.
+    for _, path, body in release_files(root):
+        files.setdefault(path, body)
+    for work_item_id, body in fragments(root):
+        files[f"{FRAGMENTS}/{work_item_id}.md"] = body
+    rewrites, lefts = [], []
+    for path in list(files):
+        new, rewritten, left = rewrite_self_anchors(files[path], moved, kept)
+        if new != files[path]:
+            files[path] = new
+        for old, fresh in rewritten:
+            number = new[: new.index(fresh)].count("\n") + 1
+            rewrites.append((path, number, old, fresh.split("#", 1)[0]))
+        lefts += [(path, anchor) for anchor in left]
+
+    verb = "would move" if dry_run else "moved"
+    print(f"{verb} {len(sections)} release sections out of {LEDGER}:")
+    for version, start, end in sections:
+        last = end
+        while last > start + 1 and not lines[last - 1].strip():
+            last -= 1
+        rows = body_rows(lines[start:end])
+        print(
+            f"  {version}  lines {start + 1}-{last}  -> {release_path(version)}  "
+            f"({rows} row{'' if rows == 1 else 's'})"
+        )
+    verb = "would rewrite" if dry_run else "rewrote"
+    print(
+        f"{verb} {len(rewrites)} anchor{'' if len(rewrites) == 1 else 's'} into a moved section:"
+    )
+    for path, number, old, target in rewrites:
+        print(f"  {path}:{number}  {old} -> {target}")
+    if lefts:
+        print(
+            "anchors into seal/ledger.md the split could not place — open them by hand:"
+        )
+        for path, anchor in lefts:
+            print(f"  {path}  {anchor}")
+    if dry_run:
+        print("nothing written")
+        return 0
+    # The release files first and the shared file last: an interruption
+    # leaves every row in the shared file still, and the next split refuses
+    # on the files it already wrote rather than losing a section.
+    os.makedirs(under(root, RELEASES), exist_ok=True)
+    for path, body in sorted(files.items(), key=lambda item: item[0] == LEDGER):
+        with open(under(root, path), "w", encoding="utf-8") as f:
+            f.write(body)
+    return 0
+
+
 def open_rows(text):
     """Table body rows of an evidence-todo file that are still open.
 
@@ -507,12 +685,18 @@ def main(argv=None):
         "named for the one version it heads once and a marker standing "
         "twice, and exit 1",
     )
+    ap.add_argument(
+        "--split",
+        action="store_true",
+        help="once: move every release section of seal/ledger.md into "
+        "seal/releases/<X.Y.Z>.md and rewrite the anchors into them",
+    )
     ap.add_argument("--dry-run", action="store_true", help="print, write nothing")
     ap.add_argument("--root", default=ROOT, help="repository root (default: this one)")
     args = ap.parse_args(argv)
 
-    if not args.check and not args.version:
-        ap.error("pass --version to fold, or --check to verify")
+    if sum(bool(a) for a in (args.check, args.version, args.split)) != 1:
+        ap.error("pass one of --version to fold, --check to verify, --split to move")
 
     root = os.path.abspath(args.root)
     ledger = under(root, LEDGER)
@@ -521,6 +705,8 @@ def main(argv=None):
         return 1
     with open(ledger, encoding="utf-8") as f:
         text = f.read()
+    if args.split:
+        return split(root, text, args.dry_run)
     releases = release_files(root)
     ledgers = [(LEDGER, text), *[(path, body) for _, path, body in releases]]
     frags = fragments(root)

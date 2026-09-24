@@ -1192,6 +1192,18 @@ def test_no_version_heads_two_sections_of_this_ledger():
         "and delete it"
         for version, at in found
     )
+    # #547: once the split has run, each release is its own file, and the
+    # file heads exactly the version its name says, once. Green on both
+    # shapes: before the split there is no `seal/releases/` to read.
+    for rel in ledger_files()[1:]:
+        name = os.path.basename(rel)[: -len(".md")]
+        headed = re.findall(
+            r"^## (\d+\.\d+\.\d+)\b", read_text(*rel.split(os.sep)), re.M
+        )
+        assert headed == [name], (
+            f"{rel} heads {headed or 'no version'}; a release file heads its own "
+            "version once"
+        )
 
 
 def test_the_newest_changelog_entry_is_the_version_being_shipped():
@@ -1824,6 +1836,16 @@ def test_this_repository_has_one_root_laid_out_by_lifetime():
         stray = [n for n in os.listdir(ledger_dir) if not n.endswith(".md")]
         assert not stray, (
             f"seal/ledger/ holds something that is not a fragment: {stray}"
+        )
+    # `seal/releases/` holds one ledger file per release, written by the
+    # fold (#547); it is absent until the first release that runs the split.
+    releases = os.path.join(seal, "releases")
+    if os.path.isdir(releases):
+        stray = [
+            n for n in os.listdir(releases) if not re.fullmatch(r"\d+\.\d+\.\d+\.md", n)
+        ]
+        assert not stray, (
+            f"seal/releases/ holds something that is not <X.Y.Z>.md: {stray}"
         )
     # `seal/specs/` is absent after a complete fold for the same reason
     # `seal/ledger/` is absent after a release, and that is the laid-out

@@ -660,6 +660,298 @@ def test_check_refuses_a_marker_that_stands_twice(tree, where):
     assert f"seal/ledger/{LATE}.md" in r.stdout, r.stdout
 
 
+# --- --split: the sections folded before #547 move once --------------------
+
+
+def ledger_hash(text, heading):
+    """The hash a row citing `seal/ledger.md#"<heading>"` carries."""
+    a, b = ec.resolve("seal/ledger.md", f'"{heading}"', text)[0]
+    return ec.content_hash(text.splitlines()[a - 1 : b])
+
+
+SPLIT_HEAD = (
+    "# spec-to-code map\n\n> The gathered ledger.\n\n## Coordinates\n\n"
+    "| Item | Value |\n|---|---|\n| Coordinate notation | `path#anchor@hash` |\n\n"
+    "## An area from before the fragments\n\n"
+    "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+    "|---|---|---|---|---|\n"
+    "| the old claim | `src/service.py#handler@{h}` | read | 2026-09-01 | |\n"
+    "{standing}"
+)
+SECTION_A = (
+    "## 0.1.0 — 2026-01-01\n\n<!-- specs/1700000001-alpha -->\n### 1700000001-alpha\n\n"
+    "#### An area alpha wrote\n\n```\n# a fenced line, not a heading\n```\n\n"
+    "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+    "|---|---|---|---|---|\n"
+    "| alpha's claim | `src/service.py#parse@{p}` | read | 2026-01-01 | |\n\n"
+)
+SECTION_B = (
+    "## 0.2.0 — 2026-02-01\n\n<!-- specs/1700000002-beta -->\n### 1700000002-beta\n\n"
+    "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+    "|---|---|---|---|---|\n"
+    "| beta's claim | `src/service.py#Box@{b}` | read | 2026-02-01 | |\n\n"
+)
+SECTION_C = (
+    "## 0.3.0 — 2026-03-01\n\n<!-- specs/1700000003-gamma -->\n### 1700000003-gamma\n\n"
+    "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+    "|---|---|---|---|---|\n"
+    "| gamma cites alpha's folded rows | {self_anchor} | read | 2026-03-01 | |\n"
+)
+
+
+@pytest.fixture
+def split_tree(tmp_path):
+    """A ledger in the pre-#547 shape: a header, the standing areas, three
+    folded release sections — one with a `####` heading and a fenced `#`
+    line — and a row in the last section anchored into the first, the shape
+    of this repository's one self-anchored row. No fragment is left."""
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+    head = SPLIT_HEAD.format(h=handler_hash(), standing="")
+    a = SECTION_A.format(p=unit_hash("parse"))
+    b = SECTION_B.format(b=unit_hash("Box"))
+    draft = head + "\n" + a + b + SECTION_C.format(self_anchor="`x`")
+    h_alpha = ledger_hash(draft, "### 1700000001-alpha")
+    h_area = ledger_hash(draft, "## Coordinates")
+    standing = (
+        f'| the notation is read first | `seal/ledger.md#"## Coordinates"@{h_area}` '
+        "| read | 2026-09-01 | |\n"
+    )
+    anchor = f'`seal/ledger.md#"### 1700000001-alpha"@{h_alpha}`'
+    text = (
+        SPLIT_HEAD.format(h=handler_hash(), standing=standing)
+        + "\n"
+        + a
+        + b
+        + SECTION_C.format(self_anchor=anchor)
+    )
+    (tmp_path / "seal").mkdir()
+    (tmp_path / "seal" / "ledger.md").write_text(text, encoding="utf-8")
+    return tmp_path
+
+
+def table_rows(text):
+    return [line for line in text.split("\n") if line.startswith("| ")]
+
+
+def test_the_split_moves_every_release_section_byte_for_byte(split_tree):
+    """#547, S11. Each `## X.Y.Z` section of `seal/ledger.md` becomes
+    `seal/releases/<X.Y.Z>.md`, its text from the heading to the next `## `
+    ending in one newline; `seal/ledger.md` keeps the header and the
+    standing areas; every table row of the file before is in exactly one
+    file after, and the rewritten anchor is the only row whose bytes moved."""
+    before = ledger(split_tree)
+    r = run("--split", root=split_tree)
+    assert r.returncode == 0, r.stdout + r.stderr
+    names = sorted(p.name for p in (split_tree / "seal" / "releases").iterdir())
+    assert names == ["0.1.0.md", "0.2.0.md", "0.3.0.md"], names
+    lines = before.split("\n")
+    for version in ("0.1.0", "0.2.0"):
+        start = next(n for n, ln in enumerate(lines) if ln.startswith(f"## {version} "))
+        end = next(
+            n for n in range(start + 1, len(lines)) if lines[n].startswith("## ")
+        )
+        want = "\n".join(lines[start:end]).rstrip("\n") + "\n"
+        assert released(split_tree, version) == want, version
+    assert "# a fenced line, not a heading" in released(split_tree, "0.1.0")
+    shared = ledger(split_tree)
+    assert re.findall(r"^## (.+)$", shared, re.M) == [
+        "Coordinates",
+        "An area from before the fragments",
+    ], shared
+    assert shared.endswith("| read | 2026-09-01 | |\n"), repr(shared[-60:])
+    assert not shared.endswith("\n\n"), repr(shared[-60:])
+    after = table_rows(shared)
+    for version in ("0.1.0", "0.2.0", "0.3.0"):
+        after += table_rows(released(split_tree, version))
+    moved = [row.replace("seal/releases/0.1.0.md#", "seal/ledger.md#") for row in after]
+    assert sorted(moved) == sorted(table_rows(before)), (
+        "a row was lost, added or changed"
+    )
+    check = run("--check", root=split_tree)
+    assert check.returncode == 0, check.stdout
+    assert (
+        "3 work items marked across seal/ledger.md and 3 release files" in check.stdout
+    )
+
+
+def test_a_second_split_has_nothing_to_move(split_tree):
+    assert run("--split", root=split_tree).returncode == 0
+    shared = ledger(split_tree)
+    r = run("--split", root=split_tree)
+    assert r.returncode == 1, r.stdout
+    assert "nothing to split" in r.stdout, r.stdout
+    assert ledger(split_tree) == shared
+
+
+def test_the_split_refuses_a_target_that_exists_and_writes_nothing(split_tree):
+    """#547, judgment 7: a target present before the split is a tree in a
+    state nobody planned, and joining it would hide that. The join is the
+    fold's; the split refuses and names the file."""
+    before = ledger(split_tree)
+    target = release_file(split_tree, "0.2.0")
+    target.parent.mkdir()
+    target.write_text("## 0.2.0 — 2026-02-01\n\nAlready here.\n", encoding="utf-8")
+    r = run("--split", root=split_tree)
+    assert r.returncode == 1, r.stdout
+    assert "seal/releases/0.2.0.md" in r.stdout and "exists" in r.stdout, r.stdout
+    assert ledger(split_tree) == before, "the refusal wrote to seal/ledger.md"
+    assert sorted(p.name for p in target.parent.iterdir()) == ["0.2.0.md"]
+    assert target.read_text(encoding="utf-8").endswith("Already here.\n")
+
+
+def test_the_split_refuses_a_version_the_ledger_heads_twice(split_tree):
+    """C's reader (#540), asked before anything moves: two sections for one
+    version would need joining, which is a person's call."""
+    text = ledger(split_tree) + "\n## 0.2.0 — 2026-02-02\n\nA second section.\n"
+    (split_tree / "seal" / "ledger.md").write_text(text, encoding="utf-8")
+    r = run("--split", root=split_tree)
+    assert r.returncode == 1, r.stdout
+    assert "0.2.0" in r.stdout and "twice" in r.stdout, r.stdout
+    assert ledger(split_tree) == text
+    assert not (split_tree / "seal" / "releases").exists()
+
+
+def test_the_split_rewrites_an_anchor_into_a_moved_section(split_tree):
+    """#547, S12. A row citing `seal/ledger.md#"### <id>"@<h>` whose heading
+    moved cites `seal/releases/<X.Y.Z>.md#"### <id>"@<h>` after, the same
+    hash, because the anchored region is byte-identical in its new file. An
+    anchor into the standing area is left as it is. The checker reports
+    both OK before and after."""
+    before_line, before_rc = check(split_tree)
+    assert (
+        before_rc == 0 and "0 drifted" in before_line and "0 broken" in before_line
+    ), before_line
+    old = re.search(
+        r'seal/ledger\.md#"### 1700000001-alpha"@([0-9a-f]+)', ledger(split_tree)
+    )
+    r = run("--split", root=split_tree)
+    assert r.returncode == 0, r.stdout
+    moved = released(split_tree, "0.3.0")
+    assert f'`seal/releases/0.1.0.md#"### 1700000001-alpha"@{old.group(1)}`' in moved, (
+        moved
+    )
+    assert 'seal/ledger.md#"### 1700000001-alpha"' not in moved, moved
+    assert 'seal/ledger.md#"## Coordinates"@' in ledger(split_tree)
+    after_line, after_rc = check(split_tree)
+    assert after_rc == 0, after_line
+    assert "0 drifted" in after_line and "0 broken" in after_line, after_line
+    assert "rewrote 1 anchor" in r.stdout, r.stdout
+
+
+def test_a_dry_run_of_the_split_says_what_would_move_and_writes_nothing(split_tree):
+    """#547, S13. The preview a person reads at the release: each version,
+    its line range and row count, and each anchor it would rewrite."""
+    before = ledger(split_tree)
+    r = run("--split", "--dry-run", root=split_tree)
+    assert r.returncode == 0, r.stdout + r.stderr
+    lines = before.split("\n")
+    start = next(n for n, ln in enumerate(lines) if ln.startswith("## 0.1.0 ")) + 1
+    assert f"0.1.0  lines {start}-" in r.stdout, r.stdout
+    assert "seal/releases/0.1.0.md  (1 row)" in r.stdout, r.stdout
+    assert "seal/releases/0.3.0.md  (1 row)" in r.stdout, r.stdout
+    assert 'seal/ledger.md#"### 1700000001-alpha"' in r.stdout, r.stdout
+    assert "-> seal/releases/0.1.0.md" in r.stdout, r.stdout
+    assert "nothing written" in r.stdout, r.stdout
+    assert ledger(split_tree) == before
+    assert not (split_tree / "seal" / "releases").exists()
+
+
+SELF_ANCHORED = {
+    "### 1788331011-two-roots-hold-three-lifetimes": "0.4.0",
+    "### 1788398967-local-modes-records-never-leave-the-clone": "0.5.0",
+}
+
+
+def test_the_split_rehearsed_over_this_repositorys_ledger(tmp_path):
+    """#547, S14. The real split runs once, at the release-preparation commit
+    that ships this work; this is the rehearsal, over a copy of this
+    repository's `seal/ledger.md`, every run.
+
+    Every release section becomes a file named for its version; every table
+    row of the copy stands in exactly one file after, the self-anchored row's
+    two anchors excepted, which move to the release files their headings
+    moved to with the same hash and resolve OK there; and `check_ledger`
+    gives the same `(status, coordinate)` set before and after, in process,
+    for every other anchor.
+
+    Once the real split has run, `seal/ledger.md` heads no release and there
+    is nothing left to rehearse, so the case asserts the result instead:
+    release files are there, and the two anchors point into them. Green on
+    both shapes of the tree, and vacuous on neither."""
+    real = read("seal", "ledger.md")
+    if not re.search(r"^## \d+\.\d+\.\d+", real, re.M):
+        releases = os.path.join(ROOT, "seal", "releases")
+        assert os.path.isdir(releases) and os.listdir(releases), (
+            "seal/ledger.md heads no release and seal/releases/ is empty"
+        )
+        corpus = "\n".join(
+            read("seal", "releases", n) for n in sorted(os.listdir(releases))
+        )
+        for heading, version in SELF_ANCHORED.items():
+            assert f'seal/releases/{version}.md#"{heading}"@' in corpus, heading
+        return
+    (tmp_path / "seal").mkdir()
+    copy = tmp_path / "seal" / "ledger.md"
+    copy.write_text(real, encoding="utf-8")
+    versions = re.findall(r"^## (\d+\.\d+\.\d+)", real, re.M)
+    assert len(versions) == len(set(versions)), (
+        f"the ledger heads a version twice: {versions}"
+    )
+    hashes = {
+        h: re.search(rf'seal/ledger\.md#"{re.escape(h)}"@([0-9a-f]+)', real).group(1)
+        for h in SELF_ANCHORED
+    }
+    before = {
+        (status, coord)
+        for status, coord, _ in ec.check_ledger(str(copy), ROOT, {})
+        if not coord.startswith("seal/ledger.md#")
+    }
+    assert before, "the checker found nothing in the copy"
+
+    r = run("--split", root=tmp_path)
+    assert r.returncode == 0, r.stdout + r.stderr
+    releases = tmp_path / "seal" / "releases"
+    assert sorted(p.name for p in releases.iterdir()) == sorted(
+        f"{v}.md" for v in versions
+    )
+    files = [copy, *sorted(releases.iterdir())]
+    texts = {p: p.read_text(encoding="utf-8") for p in files}
+    assert not re.search(r"^## \d+\.\d+\.\d+", texts[copy], re.M)
+    assert "rewrote 2 anchors" in r.stdout, r.stdout
+
+    rows_after = [row for p in files for row in table_rows(texts[p])]
+    for heading, version in SELF_ANCHORED.items():
+        rows_after = [
+            row.replace(
+                f'seal/releases/{version}.md#"{heading}"', f'seal/ledger.md#"{heading}"'
+            )
+            for row in rows_after
+        ]
+    assert sorted(rows_after) == sorted(table_rows(real)), (
+        "a row was lost, added or changed"
+    )
+
+    after = set()
+    for p in files:
+        for status, coord, _ in ec.check_ledger(str(p), ROOT, {}):
+            if not coord.startswith(("seal/ledger.md#", "seal/releases/")):
+                after.add((status, coord))
+    assert after == before, (sorted(before - after)[:5], sorted(after - before)[:5])
+
+    moved = "\n".join(texts.values())
+    for heading, version in SELF_ANCHORED.items():
+        new = f'seal/releases/{version}.md#"{heading}"@{hashes[heading]}'
+        assert new in moved, f"the anchor was not rewritten to {new}"
+        row = next(ln for ln in moved.split("\n") if new in ln)
+        found = {
+            (status, coord)
+            for status, coord, _ in ec.check_text(row, str(tmp_path), {})
+            if coord.startswith("seal/releases/")
+        }
+        assert ("OK", f'seal/releases/{version}.md#"{heading}"') in found, found
+
+
 # --- the checker cannot tell ------------------------------------------------
 
 
