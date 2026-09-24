@@ -222,15 +222,15 @@ nobody read*, which is narrower than *this round was silent* and is what keeps
 the bound a bound.
 
 **A finding located in a record is a correction, not a round.** A finding
-whose `Location` is under `seal/specs/`, `seal/ledger/` or `seal/ledger.md`
-is about the run's own paperwork rather than about the tool, and it owes no
-fix pass and no reader. What `chain_check` or `evidence_check` refuses is
-corrected in the closing commit; what neither reads is prose, corrected in
-passing or not at all. `Needs a fix` does not count it, so a verifying round
-that finds only such things has opened nothing needing a fix. In the fix
-table such a row closes `answered` with `corrected at <sha>` as its grounds,
-never `fixed`: `fixed` is a fix word, and a fix word commissions the reader a
-correction does not owe.
+whose `Location` is under `seal/specs/`, `seal/ledger/`, `seal/releases/` or
+`seal/ledger.md` is about the run's own paperwork rather than about the tool,
+and it owes no fix pass and no reader. What `chain_check` or `evidence_check`
+refuses is corrected in the closing commit; what neither reads is prose,
+corrected in passing or not at all. `Needs a fix` does not count it, so a
+verifying round that finds only such things has opened nothing needing a fix.
+In the fix table such a row closes `answered` with `corrected at <sha>` as its
+grounds, never `fixed`: `fixed` is a fix word, and a fix word commissions the
+reader a correction does not owe.
 
 **Two cells, not one.** The Verdict cell holds the word alone and the
 correcting commit goes in `Commit or grounds` beside it. This section
@@ -304,7 +304,8 @@ different questions: `Needs a fix` is the reviewer's, *what did I open*; the
 bound needs *were fixes written that owe a reader*. They come apart in one
 sequence, and it happened: the reviewer answers `no`, judging a 🟡 answerable
 with grounds, and the orchestrator fixes it anyway because it ships — a false
-count in a ledger fragment that `fold_ledger.py` copies into the shared file.
+count in a ledger fragment that `fold_ledger.py` copied into the shared ledger
+at the release.
 The row still reads `no`, the fixes exist, and a walk reading only that row
 has no terminal record it accepts: the verifying round that reads the fixes
 is a second uncounted record after the floor, and ending without it is

@@ -3716,24 +3716,20 @@ def depth_two(reader, root, a, rows, fixes, added, at_a, earlier, adders=None):
     every file the range touched that holds the unit at `a`, which is the
     widest honest reading of a name with no path beside it.
 
+    The candidate scope is the finding's file, not every file changed by its
+    fix. A regression case added in a separate test file is therefore not
+    depth 2 merely because it pins a fix inside an earlier round's new unit.
+    This keeps `skills/agent-contract/SKILL.md` §15 satisfiable: a new case
+    must exist to be seen failing before the fix. It is not a test-file
+    exemption; a finding inside an earlier round's new unit in a test file
+    still makes additions in that same file candidates for this refusal.
+
     **The finding is named from `adders`, not from the file** (#333). The
     walk used to compare the FILE — `inside = [n for r, n in added if r == f]`
     — so every unit added to a file was attributed to whichever candidate
     row the loop reached first. It fired correctly on #30 and named the wrong
     finding and the wrong enclosing unit, which is worse than firing wrongly:
     the reader is sent to a row that did not add the unit.
-
-    **Candidates are the units the range added in the file the finding's
-    Location resolves in, and no others** (#222). A case planted in another
-    file -- a test pinning a fix made inside an earlier round's unit -- is
-    never a candidate, so it is never at depth 2. That scoping is what keeps
-    this rule and `skills/agent-contract/SKILL.md` §15 consistent: every new
-    case has to be seen red, which means it has to exist, and measured by
-    unit alone, no fix inside a unit an earlier round added could ever be
-    pinned by a case. It is not an exemption for tests. A finding located
-    inside a unit an earlier round added to a test file still refuses a new
-    unit added in that test file, because the rule is about the finding's
-    file and not about what kind of file it is.
 
     **A unit whose adder resolves to no candidate row is at depth 1**, and
     this rule has nothing to say about it (round 1's 🟡 3). `unit_adders`

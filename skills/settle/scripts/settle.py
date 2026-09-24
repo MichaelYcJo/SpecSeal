@@ -151,6 +151,7 @@ OPTIN = os.path.join(HERE, "..", "..", "..", "hooks", "optin.py")
 SPECS = "seal/specs"
 LEDGER = "seal/ledger.md"
 FRAGMENTS = "seal/ledger"
+RELEASES = "seal/releases"
 TESTS = "tests/"
 
 # `path#anchor@hash`, narrowed to the one group this reads. The full shape is
@@ -279,15 +280,20 @@ def open_items(root):
 def coordinates(root):
     """{work item id: [the path of each ledger coordinate it wrote]}.
 
-    Two addresses hold the rows and both are read, which is what the checker
-    does: `seal/ledger.md`, where a release folded each work item's section
-    under its own `<!-- specs/<id> -->` marker, and `seal/ledger/<id>.md`,
-    the fragment of a work item whose release has not folded it yet.
+    Three addresses hold the rows and all are read, which is what the checker
+    does: `seal/ledger.md`, the rows from before the fragments existed and,
+    until `fold_ledger.py --split` moves them, the sections a release folded
+    there; `seal/releases/<X.Y.Z>.md`, one file per release, where the fold
+    writes each work item's section under its own `<!-- specs/<id> -->`
+    marker (#547); and `seal/ledger/<id>.md`, the fragment of a work item
+    whose release has not folded it yet.
 
     A section runs from its marker to the next marker or the next `##`
-    heading, which is exactly what `fold_ledger.py#section` writes. Rows above
-    the first marker belong to no work item — they are the rows from before
-    the fragments existed, and the ledger's own header says so.
+    heading, which is exactly what `fold_ledger.py#section` writes, and a
+    release file is that section byte for byte — one `## ` line, then the
+    markers — so one loop reads the shared ledger and every release file.
+    Rows above the first marker belong to no work item — they are the rows
+    from before the fragments existed, and the ledger's own header says so.
 
     **A line has to be live, by the one rule the reader owns.** A line anchor
     is not a test that the line is live — round 1's finding 1, met here twice:
@@ -336,8 +342,13 @@ def coordinates(root):
     """
     out = collections.defaultdict(list)
     live_lines = load(READER, "specseal_unverified_reader").live_lines
-    ledger = under(root, LEDGER)
-    if os.path.isfile(ledger):
+    ledgers = [
+        under(root, LEDGER),
+        *sorted(glob.glob(os.path.join(under(root, RELEASES), "*.md"))),
+    ]
+    for ledger in ledgers:
+        if not os.path.isfile(ledger):
+            continue
         with open(ledger, encoding="utf-8") as f:
             current = None
             for line, live in live_lines(f.read().split("\n")):
@@ -457,8 +468,8 @@ def anchored_rows(root, work_item_ids):
     anchor's PATH lies under `seal/specs/<id>/`, whoever wrote the row, so it
     reads every ledger the checker reads, asked of the checker itself
     (`evidence_check.py#default_patterns` — `seal/ledger.md`, every
-    `seal/ledger/*.md`, and the pre-0.10 `docs/**/_evidence.md`), with the one
-    coordinate shape, `COORDINATE_RE`.
+    `seal/ledger/*.md`, every `seal/releases/*.md`, and the pre-0.10
+    `docs/**/_evidence.md`), with the one coordinate shape, `COORDINATE_RE`.
 
     **Every line, a fenced or commented one included.** The checker's
     `check_text` runs its anchor pattern over the whole text, so a row shown

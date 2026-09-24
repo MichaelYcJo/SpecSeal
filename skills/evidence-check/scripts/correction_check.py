@@ -148,15 +148,25 @@ carries it in none.
 
 ## What it reads
 
-`seal/ledger.md` and every `seal/ledger/*.md` fragment, from the first commit
-rather than the shared file alone. `.github/scripts/fold_ledger.py` moves
-every fragment into the shared file at the release, so a check watching one of
-them goes blind exactly when the rows become shared. Both are read at each
-commit through `git cat-file --batch`, because `seal/ledger.md` here runs to
-thousands of lines and about a megabyte, with single rows running to thousands
-of characters, and a process spawn per file per commit is most of the run. No
-digit stands in that sentence on purpose: the file grows at every release, so
-a measured size written here is a figure nothing would ever re-take.
+`seal/ledger.md`, every `seal/ledger/*.md` fragment and every
+`seal/releases/*.md` release file, from the first commit rather than the
+shared file alone. `.github/scripts/fold_ledger.py` moves every fragment into
+`seal/releases/<X.Y.Z>.md` at the release (#547; into `seal/ledger.md` before
+it), so a check watching one of them goes blind exactly when the rows become
+shared. All three are read at each commit through `git cat-file --batch`,
+because the ledger corpus here runs to thousands of lines and about a
+megabyte, with single rows running to thousands of characters, and a process
+spawn per file per commit is most of the run. No digit stands in that
+sentence on purpose: the corpus grows at every release, so a measured size
+written here is a figure nothing would ever re-take.
+
+**A row that moves between two of those paths at a merge is not identified
+on either.** The survival test identifies a row within one path, so a merge
+that moves a row from `seal/ledger.md` to a release file — the one-time
+`fold_ledger.py --split` at the release that ships #547 — is silent about
+that row's markers: the bias toward silence above, stated rather than met as
+a surprise. The split runs at a release-preparation commit with no merge in
+its range, which is what keeps that silence from hiding a loss.
 
 Only the committed root is readable at all. A repository in local mode keeps
 `seal/` under the git common directory and commits nothing, so it has no
@@ -176,12 +186,14 @@ import subprocess
 import sys
 from collections import Counter
 
-# The two addresses a ledger lives at. The fragment glob is watched from the
+# The three addresses a ledger lives at. The fragment glob is watched from the
 # first commit rather than added later, because `fold_ledger.py` moves every
-# fragment into the shared file at the release and a check watching one of
-# them goes blind exactly when the rows become shared.
+# fragment into a release file at the release and a check watching one of
+# them goes blind exactly when the rows become shared. The release directory
+# is the third (#547): one file per release, written by the fold.
 LEDGER = "seal/ledger.md"
 FRAGMENTS = "seal/ledger"
+RELEASES = "seal/releases"
 
 # A blob bigger than this is not a ledger anybody wrote by hand. The shared
 # file in this repository is around a megabyte, so the cap has room and is not
@@ -219,12 +231,14 @@ SIZE_CAP = 8 * 1024 * 1024
 #
 #   corpus       `seal/ledger.md` alone. Not because a branch cannot move it
 #                -- a branch CAN, and the one that wrote this comment moved it
-#                twice, correcting rows C1 and C2 -- but because it is the
-#                file a release folds the fragments INTO, so it is the part of
-#                the corpus that survives a release instead of vanishing at
-#                one. A figure spanning `seal/ledger/*.md` is invalidated by
-#                any work item recording a correction in its own fragment, and
-#                by the fold itself.
+#                twice, correcting rows C1 and C2 -- but because it was, on
+#                the day below, the file a release folded the fragments INTO,
+#                so it was the part of the corpus that survives a release. A
+#                release now folds into `seal/releases/<X.Y.Z>.md` (#547), so
+#                a figure taken today spans those files too. A figure
+#                spanning `seal/ledger/*.md` is invalidated by any work item
+#                recording a correction in its own fragment, and by the fold
+#                itself.
 #   instrument   the unbounded walk above, never `MARKER`.
 #   moment       2026-09-22, at the tip of the branch for #469, #470 and #471,
 #                taken after both of that branch's own ledger edits. THESE
@@ -559,7 +573,9 @@ def ledger_listing(root, revs):
     """
     listing = {}
     for rev in revs:
-        out = git(root, "ls-tree", "-r", "--name-only", rev, "--", LEDGER, FRAGMENTS)
+        out = git(
+            root, "ls-tree", "-r", "--name-only", rev, "--", LEDGER, FRAGMENTS, RELEASES
+        )
         listing[rev] = {p for p in (out or "").split("\n") if p.endswith(".md")}
     return listing
 

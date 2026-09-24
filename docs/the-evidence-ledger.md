@@ -1,8 +1,11 @@
 # The evidence ledger — what a row claims, and what reads it
 
-A ledger row pairs a claim with the code that makes it true. `seal/ledger.md`
-holds the rows a release has gathered; `seal/ledger/<work-item-id>.md` holds
-the rows one branch is still writing. This document is the standing account
+A ledger row pairs a claim with the code that makes it true.
+`seal/releases/<X.Y.Z>.md` holds the rows one release gathered;
+`seal/ledger.md` holds the notation and the rows from before the fragments
+existed, and until the one-time `fold_ledger.py --split` the releases folded
+into it before #547; `seal/ledger/<work-item-id>.md` holds the rows one
+branch is still writing. This document is the standing account
 of what a row is, what each checker over it refuses, and what a merge can
 take out of one without anybody noticing.
 
@@ -36,9 +39,10 @@ removes. **A row whose anchor a change removes is `REMOVED`, not re-pointed**
 an append from every branch, and both cost a conflict at the worst moment,
 after the broad gate has run, which forces it to run again. No two work items
 share an id, so no two branches share a fragment. The checker reads
-`seal/ledger.md` and the `seal/ledger/*.md` glob alike, and a row is a
-content anchor, so the release that folds a fragment into the shared file
-changes nothing either one measures.
+`seal/ledger.md`, the `seal/releases/*.md` glob and the `seal/ledger/*.md`
+glob alike, and a row is a content anchor, so the release that folds a
+fragment into its release file changes no row's status. The `ok` total
+counts a `(coordinate, hash)` pair once per file, so a move can change it.
 
 **Appended is the word, and a removal is not one.** A branch that removes
 code an existing shared-file row cites must touch that file to leave the
@@ -81,12 +85,12 @@ believe.
 ## A correction a merge dropped
 
 <!-- specs/1789969379-a-conflict-resolved-by-side-reverts-the-other-sides-corrections -->
-**When the shared ledger conflicts, resolve it hunk by hunk and read both
-sides.** Never *ours* and never *theirs*. A whole-file choice is wrong by
-construction once both branches have been correcting: the measured instance
-resolved two hunks in opposite directions, because each side was the superset
-in one of them, and taking a side reverted three corrections that had each
-turned a false claim true.
+**When the shared ledger or a release file conflicts, resolve it hunk by hunk
+and read both sides.** Never *ours* and never *theirs*. A whole-file choice is
+wrong by construction once both branches have been correcting: the measured
+instance resolved two hunks in opposite directions, because each side was the
+superset in one of them, and taking a side reverted three corrections that had
+each turned a false claim true.
 
 **Nothing downstream can see that, which is why the reading is a person's.**
 A row reverted to a superseded state is byte-identical to a row nobody
@@ -102,9 +106,9 @@ that vanishes with its whole row is a removal and is correct; a marker that
 vanishes while its row stands is the defect. It reports the loss after the
 fact and cannot prevent it.
 
-It reads the shared file and every fragment, because a fragment becomes part
-of the shared file at the release and a check that skipped fragments would go
-blind exactly while the rows are being written.
+It reads the shared file, every release file and every fragment, because a
+fragment becomes part of a release file at the release and a check that
+skipped fragments would go blind exactly while the rows are being written.
 
 <!-- specs/1789996780-the-census-and-the-tie-that-nothing-holds -->
 **A bound over the corpus is stated with its instrument and the moment it was
@@ -222,22 +226,23 @@ taken (#517): the row was removed, and its claim stands in
 removes, so the retirement refuses that directory first.** An anchor into a
 work item's `spec.md` or its round records is a file path like any other, and
 after a removal the checker reports it broken. So `settle` reads every ledger
-the checker reads — `seal/ledger.md`, every `seal/ledger/*.md` and any
-`docs/**/_evidence.md` — and every line of each, the rows above the first
-section marker and the rows inside a fence included, because the checker
-reads those too, and names each one anchored inside a released
-directory, and `settle --retire` keeps every directory such a row anchors
-into, removes the rest, and exits 1 naming each row (#511). It says per row
-what `CLAUDE.md` requires: a row whose every anchor goes is REMOVED, never
-re-pointed, and its claim is written anew where a work item still holds it; a
-row that keeps a live anchor beside the dead one loses only the dead one, and
-whether it should be removed instead is the repository owner's question,
-recorded against the ledger row that first met it. The command names the rows
-and edits none of them, because which row goes is a judgment about a claim.
+the checker reads — `seal/ledger.md`, every `seal/ledger/*.md`, every
+`seal/releases/*.md` and any `docs/**/_evidence.md` — and every line of each,
+the rows above the first section marker and the rows inside a fence included,
+because the checker reads those too, and names each one anchored inside a
+released directory, and `settle --retire` keeps every directory such a row
+anchors into, removes the rest, and exits 1 naming each row (#511). It says
+per row what `CLAUDE.md` requires: a row whose every anchor goes is REMOVED,
+never re-pointed, and its claim is written anew where a work item still holds
+it; a row that keeps a live anchor beside the dead one loses only the dead
+one, and whether it should be removed instead is the repository owner's
+question, recorded against the ledger row that first met it. The command names
+the rows and edits none of them, because which row goes is a judgment about a
+claim.
 
 **A fold is not a work item, and it adds nothing to the ledger.** It opens
 no directory under `seal/specs/`, so it has no fragment to append under, and
-`seal/ledger.md` changes on a fold branch only by removal and re-verification:
+a ledger file changes on a fold branch only by removal and re-verification:
 a row the guard named REMOVED goes, a row it named narrow loses its dead
 anchor, and a row whose anchored unit the fold's own prose edited is re-read
 and re-verified. Its commits are waived one command at a time and its

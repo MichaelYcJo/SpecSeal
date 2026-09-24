@@ -170,11 +170,19 @@ def test_the_implementer_notice_names_the_local_path(local):
 # --- the evidence advisor: globs the ledger under the resolved root ---------
 
 
-@pytest.mark.parametrize("at", ["ledger.md", os.path.join("ledger", "f.md")])
+@pytest.mark.parametrize(
+    "at",
+    [
+        "ledger.md",
+        os.path.join("ledger", "f.md"),
+        os.path.join("releases", "0.4.0.md"),
+    ],
+)
 def test_the_evidence_advisor_reports_a_broken_row_from_the_local_ledger(local, at):
     """S6. The advisory globbed `seal/ledger.md` and `seal/ledger/*.md` under
     the repository root, so a local-mode ledger was never read and a commit
-    that broke an anchor was told nothing."""
+    that broke an anchor was told nothing. The third address is #547's:
+    the fold writes each release's rows to `releases/<X.Y.Z>.md`."""
     repo, home = local
     write(home / at, BROKEN_ROW)
     out = run_hook("evidence-advisor.py", bash(repo))

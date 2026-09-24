@@ -963,7 +963,13 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
         elif where[:2] == ("seal", "ledger") and not os.path.exists(
             os.path.join(ROOT, *where)
         ):
-            folded = read("seal", "ledger.md")
+            # `seal/ledger.md` until the one-time split, the release's own
+            # file under `seal/releases/` after it (#547).
+            releases = os.path.join(ROOT, "seal", "releases")
+            names = sorted(os.listdir(releases)) if os.path.isdir(releases) else []
+            corpus = [read("seal", "ledger.md")]
+            corpus += [read("seal", "releases", n) for n in names]
+            folded = next(t for t in corpus if f"### {item}" in t)
             start = folded.index(f"### {item}")
             rest = folded[start + 4 :]
             end = rest.find("\n### ")

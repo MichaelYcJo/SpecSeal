@@ -181,12 +181,13 @@ it was considered and rejected. A verifying round that raises a 🟡 the smith
 answers with grounds has opened nothing needing a fix, and the run ends there.
 
 **A finding located in a record is a correction, not a round.** A finding
-whose `Location` is under `seal/specs/`, `seal/ledger/` or `seal/ledger.md`
-owes no fix pass and no reader: what `chain_check` or `evidence_check` refuses
-is corrected in the closing commit, and what neither reads is prose, corrected
-in passing or not at all. `Needs a fix` does not count it.
-`docs/review-chain-spec.md` §*The last round verifies* owns the rule and the
-count behind it — 33 of the last branch's 65 findings were located in records.
+whose `Location` is under `seal/specs/`, `seal/ledger/`, `seal/releases/` or
+`seal/ledger.md` owes no fix pass and no reader: what `chain_check` or
+`evidence_check` refuses is corrected in the closing commit, and what neither
+reads is prose, corrected in passing or not at all. `Needs a fix` does not
+count it. `docs/review-chain-spec.md` §*The last round verifies* owns the rule
+and the count behind it — 33 of the last branch's 65 findings were located in
+records.
 
 ### The cap is a ceiling, and this is the floor it never had
 

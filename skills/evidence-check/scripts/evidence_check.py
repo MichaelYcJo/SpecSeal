@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """evidence_check — does the evidence ledger still point at what it claims?
 
-Scans the evidence ledger (default: seal/ledger.md, seal/ledger/*.md, and
-the pre-0.10 docs/**/_evidence.md) for coordinates of the form
+Scans the evidence ledger (default: seal/ledger.md, seal/ledger/*.md,
+seal/releases/*.md, and the pre-0.10 docs/**/_evidence.md) for coordinates
+of the form
 
     path#anchor@hash
 
@@ -946,16 +947,18 @@ def seal_home(root):
 def default_patterns(root):
     """Where a run with NO `--ledger` looks for ledgers.
 
-    Three locations. `seal/ledger.md` is the gathered ledger; `ledger/*.md` is
-    one fragment per work item; `docs/**/_evidence.md` is the pre-0.10 address,
-    still read because a repository that never moved it keeps working.
-    `.specseal/map.md` is NOT read: the root moved to `seal/` and
-    `hooks/root-migrate.py` moves it, so a ledger left there is a file in the
-    wrong place, not a second address.
+    Four locations. `seal/ledger.md` is the gathered ledger, the rows from
+    before the fragments existed; `ledger/*.md` is one fragment per work item;
+    `releases/*.md` is one file per release, where the fold writes a release's
+    rows (#547); `docs/**/_evidence.md` is the pre-0.10 address, still read
+    because a repository that never moved it keeps working. `.specseal/map.md`
+    is NOT read: the root moved to `seal/` and `hooks/root-migrate.py` moves
+    it, so a ledger left there is a file in the wrong place, not a second
+    address.
 
-    The first two are joined under the `seal/` that `seal_home` resolves —
-    under the git directory in local mode (#80) — and the third under the root,
-    a committed file at an old address.
+    The first three are joined under the `seal/` that `seal_home` resolves —
+    under the git directory in local mode (#80) — and the fourth under the
+    root, a committed file at an old address.
 
     A function rather than a list inside `main`, because `--ledger` now has to
     say what it SKIPPED and the skipped set is this list minus what was given.
@@ -967,6 +970,7 @@ def default_patterns(root):
     return [
         os.path.join(home, "ledger.md"),
         os.path.join(home, "ledger", "*.md"),
+        os.path.join(home, "releases", "*.md"),
         os.path.join(root, "docs", "**", "_evidence.md"),
     ]
 
@@ -2133,9 +2137,9 @@ def tree_names(root, home):
     arm was being built — writing this work item's own rows put four names
     into the corpus and silenced four refusals in its own `phase-2.md`, so a
     work item could clear the check on its records by naming the unit in its
-    own ledger file. The fold moves the fragment into `seal/ledger.md` at the
-    release, which is the same moment the work item stops being live, so
-    nothing changes hands at the boundary.
+    own ledger file. The fold moves the fragment into its release's file,
+    `seal/releases/<X.Y.Z>.md`, at the release, which is the same moment the
+    work item stops being live, so nothing changes hands at the boundary.
 
     **A name in ANY other file is a name the tree has, prose included**, and
     that is the claim rather than a loophole in it: the check says nothing

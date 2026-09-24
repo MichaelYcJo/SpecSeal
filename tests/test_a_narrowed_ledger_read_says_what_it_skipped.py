@@ -120,6 +120,44 @@ def test_every_skipped_ledger_is_named_not_counted(proj):
     assert os.path.join("seal", "ledger", "1788486395-other.md") in r.stdout, r.stdout
 
 
+RELEASE = os.path.join("seal", "releases", "0.4.0.md")
+
+
+def test_a_row_in_a_release_file_is_read_by_the_default_run(proj):
+    """#547, S1. The fold writes each release's rows to
+    `seal/releases/<X.Y.Z>.md`, so the default list reads that glob beside
+    `seal/ledger.md` and the fragments. Red before the glob widened: `1 ok`
+    where two rows stand, and the release file never printed as a ledger."""
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    ledger(proj, f"| POL-2 | `src/service.py#handler@{GOOD}` |\n", at=RELEASE)
+    r = run(["."], proj)
+    assert r.returncode == 0, r.stdout
+    assert "2 ok" in r.stdout, r.stdout
+    assert RELEASE in r.stdout, (
+        f"the release file was read and never named:\n{r.stdout}"
+    )
+
+
+def test_a_narrowed_run_names_the_release_file_it_did_not_read(proj):
+    """#547, S1's second half: a run narrowed to the shared ledger says it
+    skipped the release file, the way it says it skipped a fragment."""
+    ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
+    ledger(proj, f"| POL-2 | `src/service.py#handler@{GOOD}` |\n", at=RELEASE)
+    r = run(["--ledger", "seal/ledger.md", "."], proj)
+    assert r.returncode == 0, r.stdout
+    assert "1 ledger " in r.stdout and RELEASE in r.stdout, r.stdout
+
+
+def test_reverify_re_stamps_a_drifted_row_in_a_release_file(proj):
+    """#547, S1's third half: the write reaches the release file too, because
+    `reverify` takes the same list `main` resolves."""
+    ledger(proj, "| POL-2 | `src/service.py#handler@00000000` |\n", at=RELEASE)
+    r = run(["--reverify", "."], proj)
+    assert r.returncode == 0, r.stdout
+    text = (proj / RELEASE).read_text(encoding="utf-8")
+    assert f"handler@{GOOD}" in text, f"the release file was not re-stamped:\n{text}"
+
+
 def test_the_notice_counts_one_ledger_in_the_singular(proj):
     """`1 ledgers` is the tell that nobody read the line they shipped."""
     ledger(proj, f"| POL-1 | `src/service.py#handler@{GOOD}` |\n")
