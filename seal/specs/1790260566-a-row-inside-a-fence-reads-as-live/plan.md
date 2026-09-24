@@ -1,6 +1,7 @@
 # Implementation Plan: a reader's fence and comment state (#444, #491, #487, #220)
 
-Approved 2026-09-24 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned. Q1 builds on its default (a). The readers left out are #584.
+Approved 2026-09-24 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
+Q1 builds on its default (a). The readers left out are #584.
 
 ## Summary
 
