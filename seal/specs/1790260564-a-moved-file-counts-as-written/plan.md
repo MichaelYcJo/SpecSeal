@@ -65,7 +65,12 @@ read at `c52e8350`.
   work item, and the first item's local `survivors.md` is still on disk, both
   items claim ranges on that branch. The first anchor still applies: the
   range must resolve to the row's own range. So the exposure is a relation
-  spelling, re-resolved on a reused branch name.
+  spelling, re-resolved on a reused branch name. Round 1 measured a second
+  exposure the ancestor test alone left open: a stacked child's row excused
+  its parent branch's whole run, because the parent's tip is an ancestor of
+  the child's branch. It is closed by refusing a tip that is also on a local
+  branch the declared one was cut from (O6), so once the cut is refused the
+  reused branch name is the exposure that remains.
 
 ## Alternatives considered
 

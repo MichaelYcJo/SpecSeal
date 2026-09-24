@@ -3623,16 +3623,59 @@ def test_a_local_mode_declaration_does_not_reach_another_branch(tmp_path):
     assert "touches nothing in it" not in text, text
 
 
+def test_a_stacked_childs_declaration_does_not_reach_its_parents_range(tmp_path):
+    """O6. Work item A's branch is cut from work item B's, so B's tip is an
+    ancestor of A's branch; on B's checkout A's `release...HEAD` row
+    resolves onto B's own range. The tip being on A's branch is not enough:
+    it is on B's, which A's was cut from, and the range is B's run. Red at
+    6e48cb5f: exit 0, B's survivor excused by A's row."""
+    repo = tmp_path / "probe"
+    survivors = local_mode_items(repo)
+    probe_git(repo, "switch", "-q", "work-item-b")
+    probe_git(repo, "switch", "-qc", "work-item-a-stacked")
+    item = os.path.dirname(survivors)
+    with open(os.path.join(item, "routing.md"), "w", encoding="utf-8") as handle:
+        handle.write(
+            "| Axis | Answer |\n|---|---|\n| Review | through the review chain |\n"
+            "| Destination | open the pull request |\n| Branch | work-item-a-stacked |\n"
+        )
+    build(repo, {"filler.md": "# filler\n\nA's own later change.\n"}, "A on top of B")
+    root = checkout(repo, "work-item-b", linked=False)
+    code, text = run("--range", "release...HEAD", "--root", root, "--exempt", survivors)
+    assert code == 1, f"a stacked child's declaration excused its parent\n{text}"
+    assert "b-notes.md" in text and "not yours" in text, text
+    # §14: the reason names the cut, not a branch the tip is off.
+    assert (
+        "this range's tip is on a branch the one its routing.md names was cut from"
+        in text
+    ), text
+
+
 @pytest.mark.parametrize(
-    "routing",
-    [None, "| Axis | Answer |\n|---|---|\n| Review | through the review chain |\n"],
-    ids=["missing", "no-branch"],
+    "routing, reason",
+    [
+        (None, "it has no routing.md this run can read"),
+        (
+            "| Axis | Answer |\n|---|---|\n| Review | through the review chain |\n",
+            "its routing.md is not a declaration naming a branch",
+        ),
+        (
+            "| Axis | Answer |\n|---|---|\n| Review | through the review chain |\n"
+            "| Destination | open the pull request |\n| Branch | no-such-branch |\n",
+            "the branch its routing.md names, no-such-branch, is not here",
+        ),
+    ],
+    ids=["missing", "no-branch", "unknown-branch"],
 )
-def test_a_local_mode_declaration_nobody_can_place_is_not_yours(tmp_path, routing):
-    """O4. A local-mode work item whose `routing.md` is missing, or names no
-    branch, cannot say whose its declaration is, so the row excuses nothing
-    and prints under `not yours` -- on the very branch it was written for,
-    which is the loud direction. Red with either read answering True."""
+def test_a_local_mode_declaration_nobody_can_place_is_not_yours(
+    tmp_path, routing, reason
+):
+    """O4. A local-mode work item whose `routing.md` is missing, names no
+    branch, or names a branch this repository does not have, cannot say
+    whose its declaration is, so the row excuses nothing and prints under
+    `not yours` -- on the very branch it was written for, which is the loud
+    direction -- with the reason that refused it (§14). Red at 6e48cb5f,
+    where all three printed one sentence naming a branch."""
     repo = tmp_path / "probe"
     survivors = local_mode_items(repo)
     where = os.path.join(os.path.dirname(survivors), "routing.md")
@@ -3647,7 +3690,9 @@ def test_a_local_mode_declaration_nobody_can_place_is_not_yours(tmp_path, routin
     assert "not yours" in text and LOCAL_ITEM in text, (
         f"the declaration stopped applying without saying so:\n{text}"
     )
-    assert "tip is not on the branch its routing.md names" in text, text
+    # §14: the reason is what refused the row, never a branch nobody named.
+    assert reason in text, text
+    assert "tip is not on the branch" not in text, text
 
 
 def test_a_missing_routing_reader_refuses_rather_than_placing_nothing(tmp_path):

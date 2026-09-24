@@ -156,8 +156,8 @@ a heading that names a version in the root `CHANGELOG.md` -- `## 0.15.0 —
 2026-09-23`, up to the next heading that names a version or `Unreleased`,
 so a `## ` line a gathered fragment carries does not end it (#564) -- is out
 of the **pool** and out of the **range**, on both sides of the range's path
-list; and so is a
-`seal/specs/<id>/changelog.md` whose `<!-- specs/<id> -->` marker stands in
+list; and so is a `<x>/specs/<id>/changelog.md` -- `seal/specs/<id>/` or the
+pre-0.4.0 `specs/<id>/` -- whose `<!-- specs/<id> -->` marker stands in
 `CHANGELOG.md` at the range's tip, because a gathered fragment is that
 released entry one file over (#307). A released section records what a past
 release did, in that release's words, and a released entry is not rewritten
@@ -234,7 +234,7 @@ row lives in: a declaration holds only over a range that touches its own work
 item, which a work item's own range always does. In local mode nothing under
 the root is committed, so no range touches it, and the `Branch` row of the
 work item's `routing.md` stands in: the declaration holds over a range whose
-tip is on that branch (#554).
+tip is on that branch and on no local branch that one was cut from (#554).
 
 Both anchors degrade the way the quote above does -- loudly. A spec that no
 longer resolves prints under `unresolved`; a declaration refused for belonging
@@ -853,7 +853,9 @@ def gathered_fragments(root, rev):
 
 
 def a_gathered_fragment(path, gathered):
-    """True for `seal/specs/<id>/changelog.md` whose `<id>` is in `gathered`.
+    """True for `<x>/specs/<id>/changelog.md` whose `<id>` is in `gathered` --
+    `seal/specs/<id>/changelog.md`, and the pre-0.4.0 `specs/<id>/changelog.md`
+    as well; `corrected` reads the held text at exactly the paths this accepts.
 
     A gathered fragment is the released entry one file over: its text stands
     verbatim under a version heading of `CHANGELOG.md`, whether the release
@@ -1348,20 +1350,38 @@ OWNER_DIR = re.compile(r"(?:^|.*/)(seal/specs/[^/]+)/.+$")
 # `chain_check.py` loads it. Its `Branch` row is who owns a local-mode
 # declaration.
 ROUTING = os.path.join(HERE, "..", "..", "..", "hooks", "routing.py")
+# Where the common git directory is, and so local mode's root: the one reader
+# `hooks/optin.py` keeps for every gate, never a second copy of it here.
+OPTIN = os.path.join(HERE, "..", "..", "..", "hooks", "optin.py")
+
+
+def hook(path, name):
+    """A module under `hooks/`, loaded by path, or `Refused` saying which.
+
+    The hooks ship beside this script in the plugin; a copy without one
+    cannot say whose a local-mode declaration is, and that is unusable
+    input rather than a judgment."""
+    if not os.path.isfile(path):
+        raise Refused(
+            f"cannot read {path}, which says whose a local-mode declaration "
+            "is. This script ships beside it in the plugin."
+        )
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
 
 
 def local_specs(root):
     """The real path of local mode's `specs/` directory, or "".
 
     `<git-common-dir>/seal/specs`, where `agent-contract` §16 puts the local
-    root. `--git-common-dir` answers relative to the directory git ran in --
-    `.git` in a main worktree -- so it is joined onto `root`. Real paths and
-    `normcase`, because a temporary directory on macOS sits behind a
-    symlink, and Windows spells one drive two ways."""
-    out = git(root, "rev-parse", "--git-common-dir")
-    if out is None or not out.strip():
+    root, the common directory read by `hooks/optin.py#git_common_dir`.
+    Real paths and `normcase`, because a temporary directory on macOS sits
+    behind a symlink, and Windows spells one drive two ways."""
+    common = hook(OPTIN, "specseal_optin").git_common_dir(root)
+    if not common:
         return ""
-    common = os.path.join(root, out.strip())
     return os.path.normcase(os.path.realpath(os.path.join(common, "seal", "specs")))
 
 
@@ -1376,32 +1396,48 @@ def local_item(source, local):
 
 
 def on_its_branch(root, item, b):
-    """True when the range's tip `b` is on the branch `item`'s `routing.md`
-    names -- `refs/heads/<Branch>` or an ancestor of it.
+    """None when the range's tip `b` is on the branch `item`'s `routing.md`
+    names -- `refs/heads/<Branch>` or an ancestor of it -- and on no local
+    branch that one was cut from; otherwise the reason it is not, as the
+    `not yours` line prints it.
 
     Asked of the range's tip rather than of the checkout, because ownership
     is a question about the range: a detached HEAD at the branch's tip is
-    the same range. A `routing.md` that is missing, will not parse or names
-    no branch, and a branch that does not resolve, all answer False -- the
-    declaration then prints under `not yours`, which is the loud direction."""
-    if not os.path.isfile(ROUTING):
-        raise Refused(
-            f"cannot read {ROUTING}, which says whose a local-mode declaration "
-            "is. This script ships beside it in the plugin."
-        )
+    the same range. A branch cut from another carries that branch's history,
+    so a tip on it may be the other branch's tip, and that range is the
+    other branch's run: a stacked child's row would otherwise excuse its
+    parent's whole range. A `routing.md` that is missing, will not parse or
+    names no branch, and a branch that does not resolve, each answer with
+    their own reason -- the declaration then prints under `not yours`,
+    which is the loud direction."""
+    routing = hook(ROUTING, "specseal_routing")
     try:
         with open(os.path.join(item, "routing.md"), encoding="utf-8") as handle:
             text = handle.read()
     except OSError:
-        return False
-    spec = importlib.util.spec_from_file_location("specseal_routing", ROUTING)
-    routing = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(routing)
+        return "it has no routing.md this run can read"
     declared = routing.parse(text)
     if not declared:
-        return False
+        return "its routing.md is not a declaration naming a branch"
     ref = f"refs/heads/{declared['branch']}"
-    return git(root, "merge-base", "--is-ancestor", b, ref) is not None
+    tip = resolves(root, ref)
+    if tip is None:
+        return f"the branch its routing.md names, {declared['branch']}, is not here"
+    if git(root, "merge-base", "--is-ancestor", b, ref) is None:
+        return "this range's tip is not on the branch its routing.md names"
+    # A branch cut from another carries that branch's history, so a tip on
+    # it can be the tip of a branch it was cut from -- that branch's run, and
+    # a stacked child's row would otherwise excuse its parent's whole range.
+    heads = git(
+        root, "for-each-ref", "--contains", b, "--format=%(objectname)", "refs/heads"
+    )
+    for head in set((heads or "").split()) - {tip}:
+        if git(root, "merge-base", "--is-ancestor", head, ref) is not None:
+            return (
+                "this range's tip is on a branch the one its routing.md names "
+                "was cut from"
+            )
+    return None
 
 
 def read_exemptions(paths):
@@ -1516,7 +1552,9 @@ def whole_range(root, ranges, a, b):
     `<git-common-dir>/seal/` and nothing under it is committed, so the test
     above refused every work item its own range row. There a declaration is
     its work item's when the range's tip is on the branch that work item's
-    `routing.md` names (`on_its_branch`). Local files are shared by every
+    `routing.md` names and on no local branch that one was cut from
+    (`on_its_branch`), which also says why when it is not. Local files are
+    shared by every
     worktree of the clone, so the branch is what keeps a relation-spelled
     row off another branch's range. Shared mode keeps the diff test: a pull
     request's CI checkout is a detached merge commit with no branch ref.
@@ -1544,11 +1582,12 @@ def whole_range(root, ranges, a, b):
     every pull request into a release branch and every seal, three times per
     run for one release, because every shipped `survivors.md` in the tree
     names a release branch that is deleted at the release. So ownership is
-    asked of an unresolved declaration before it is printed, with the same
-    lazily computed `changed` list: one with no owner -- an `--exempt` file
-    passed from anywhere -- or owned by a work item this range touches is a
-    declaration this run could have used, and prints under `unresolved` as
-    before. The wrong allow is empty, because an unresolved row excuses
+    asked of an unresolved declaration before it is printed, by the same
+    test a resolved one gets -- the lazily computed `changed` list in shared
+    mode, `on_its_branch` in local mode: one with no owner -- an `--exempt`
+    file passed from anywhere -- or owned by a work item this range touches
+    (in local mode, whose branch holds the tip) is a declaration this run
+    could have used, and prints under `unresolved` as before. The wrong allow is empty, because an unresolved row excuses
     nothing whether printed or not.
     """
     match, unresolved, foreign = None, [], []
@@ -1564,15 +1603,17 @@ def whole_range(root, ranges, a, b):
             # range and is then refused has something a reader must be told.
             continue
         owner = OWNER_DIR.match(source.replace("\\", "/"))
-        mine, item = True, None
+        mine, item, why = True, None, "this range touches nothing in it"
         if owner is not None:
             if local is None:
                 local = local_specs(root)
             item = local_item(source, local)
         if owner is not None and item is not None:
             # Local mode: nothing under the root is committed, so the owner
-            # is never in `changed`, and the work item's branch answers.
-            mine = on_its_branch(root, item, b)
+            # is never in `changed`, and the work item's branch answers --
+            # with the reason it refused, when it does.
+            why = on_its_branch(root, item, b)
+            mine = why is None
         elif owner is not None:
             if changed is None:
                 # `--no-renames` for the reason `corrected` gives: a file
@@ -1591,11 +1632,6 @@ def whole_range(root, ranges, a, b):
         if not mine:
             # The reason is the test that refused it, so a person reading
             # the line knows which file to open.
-            why = (
-                "this range's tip is not on the branch its routing.md names"
-                if item is not None
-                else "this range touches nothing in it"
-            )
             foreign.append((spec, grounds, owner.group(1), why))
             continue
         if match is None:
@@ -1649,14 +1685,15 @@ def report(
     range, and it excuses every candidate. `unresolved` is the declarations
     whose range does not resolve here and that this run could have used --
     which `whole_range` decides by the second anchor, so one owned by a work
-    item the range touches nothing of never arrives (#439); they silence
+    item the range touches nothing of (in local mode, one whose branch the
+    range's tip is off) never arrives (#439); they silence
     nothing and are printed, because a declaration that quietly stopped
     applying is the one failure a rotting anchor must not have. `foreign` is
     the same failure one step
     over: a declaration that resolved onto this exact range and belongs to a
-    work item the range does not touch -- in local mode, one whose branch
-    the range's tip is not on -- refused and printed with the work item it
-    came from and the test that refused it.
+    work item the range does not touch -- in local mode, one `on_its_branch`
+    refused -- printed with the work item it came from and the reason that
+    refused it.
     """
     standing, excused = [], []
     for score, candidate, source, shared in rows:

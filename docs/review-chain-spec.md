@@ -868,7 +868,8 @@ the release, and three such lines printed on every pull request and every
 sealer run of one release, addressed to nobody. An unresolved row excuses
 nothing whether printed or not, so leaving the line out costs no allow. In
 local mode, where the owner is never in a range's diff, it is the `Branch`
-row of the work item's `routing.md`: the row holds where the tip is on it.
+row of the work item's `routing.md`: the row holds where the tip is on that
+branch and on no local branch it was cut from.
 Enforced by: skills/code-review/scripts/survivor_check.py::whole_range, skills/code-review/scripts/survivor_check.py::on_its_branch, tests/test_a_corrected_sentence_survives_elsewhere.py
 
 <!-- specs/1789211172-a-round-record-disarms-survivor-check -->
