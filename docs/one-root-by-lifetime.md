@@ -221,10 +221,10 @@ replaced the position with a content anchor (`path#unit@hash`), and a row
 now changes state only when the code it is about changes. `settle` rewrites
 `docs/` and removes directories on every release, so anything coupled to a
 path or a position inside a work item would break the same way. What still
-carries such a coupling is short: the `Verified at <sha>` stamp on a
-`# RIDER:` comment (held together by the merge-method rulesets, and untouched
-by `settle`), and a round record's `Target SHA` (resolved through
-`refs/pull/<N>/head`, and gone with the record).
+carries such a coupling is short: a round record's `Target SHA` (resolved
+through `refs/pull/<N>/head`, and gone with the record). A `# RIDER:`
+comment's stamp named a commit too, until work item `1788826000` moved every
+stamp to a content anchor.
 
 **What keeps `settle` light**, since it is the heaviest step this design
 adds:
