@@ -15,7 +15,21 @@ same commit:
 
   fold_ledger.py --version 0.4.0            move the fragments into ledger.md
   fold_ledger.py --version 0.4.0 --dry-run  print the section, write nothing
-  fold_ledger.py --check                    no fragment left, no open row
+  fold_ledger.py --check                    no fragment left, no open row,
+                                            no version headed twice
+
+**A second fold for one version joins its section** (#540). The release pull
+request going red and a fragment landing after the preparation commit is the
+ordinary shape, and the fold used to write a second `## X.Y.Z` heading for
+it, below everything: `seal/ledger.md` headed `0.9.3` twice through the
+seventeen ledger sections from `0.9.4` to `0.15.0` (eighteen tags after
+`v0.9.3`; `0.13.2` folded no section). Where the ledger already heads
+`--version`, the new work items go at the end
+of that section, before the next `## `, the section keeps the first fold's
+date over `--date` and over today, and `--dry-run` prints the heading it
+joins. `--check` refuses a ledger that heads a version twice, naming both
+lines — the same three answers `gather_changelog.py` gives for `CHANGELOG.md`
+(#289).
 
 **A fold is a move, not a deletion.** Every table row of a fragment is copied
 into `ledger.md` byte for byte, under a heading for the release and one for the
@@ -48,7 +62,7 @@ Every `seal/specs/*/evidence-todo.md` in the tree is read. The step runs on a
 branch cut from the release branch, which holds merged work only, so "every
 released work item" and "every work item present" are the same set.
 
-**The section is appended**, where the changelog gather inserts at the top.
+**A new section is appended**, where the changelog gather inserts at the top.
 A changelog is read newest-first; a ledger is read by area and by coordinate,
 and its top holds the notation a reader needs before any row. The checker
 (`evidence_check.py`) scans a ledger for anchors and reads no headings, so
@@ -56,8 +70,8 @@ nothing measures from where a row sits.
 
 Exit codes: 0 done · 1 for nothing to fold, an open evidence-todo row, a
 fragment whose marker is already in the ledger, a fragment left at `--check`,
-or a missing `seal/ledger.md`. Every one is a failure a release pull request
-should stop on.
+a version headed twice at `--check`, or a missing `seal/ledger.md`. Every one
+is a failure a release pull request should stop on.
 """
 
 import argparse
@@ -207,6 +221,73 @@ def append(ledger_text, block):
     return ledger_text.rstrip("\n") + "\n\n" + block.rstrip("\n") + "\n"
 
 
+def section_heading(ledger_text, version):
+    """The match for the `## <version>` line the ledger already has, or None.
+
+    The one predicate for *is there a section*, asked by `main` for the date
+    and the heading it prints and by `insert` when it places the work items
+    — `gather_changelog.py#section_heading`, name for name, so a reader of
+    one script knows the other. Group 1 is the date the heading carries, or
+    None where it carries none.
+    """
+    return re.compile(rf"^## {re.escape(version)}\b(?: — (\S+))?.*$", re.M).search(
+        ledger_text
+    )
+
+
+def insert(ledger_text, block, version):
+    """Into the section `version` already heads, or below everything (#540).
+
+    Where the ledger already heads `version`, `block`'s heading is dropped
+    and its work items go at the end of that section, before the next `## `,
+    with one blank line each side: the section is one release however many
+    folds wrote it, and `--check` refuses a file that heads a version twice,
+    so this arm is the one a red release pull request has to take. The
+    section is normally the last `## ` in the file, and the walk to the next
+    heading is what keeps an area appended later from breaking the join.
+
+    Lines are split on `\\n` alone, as `demote` splits them: `splitlines()`
+    also breaks a row on U+2028, and a row the first fold moved byte for
+    byte would leave the second fold as two lines.
+    """
+    found = section_heading(ledger_text, version)
+    if found is None:
+        return append(ledger_text, block)
+    lines = ledger_text.split("\n")
+    at = ledger_text.count("\n", 0, found.start())
+    end = next(
+        (n for n in range(at + 1, len(lines)) if lines[n].startswith("## ")),
+        len(lines),
+    )
+    while end > at + 1 and not lines[end - 1].strip():
+        end -= 1
+    # `section()` writes the heading, a blank line, then the work items; the
+    # heading is the file's already and the blank line is re-added. The
+    # tail's own blank lines go too, or the one re-added here joins them.
+    entries = block.rstrip("\n").split("\n")[2:]
+    tail = lines[end:]
+    while tail and not tail[0].strip():
+        tail.pop(0)
+    joined = "\n".join([*lines[:end], "", *entries, "", *tail])
+    return joined.rstrip("\n") + "\n"
+
+
+def doubled_versions(text):
+    """`[(version, [line numbers])]` for every version `## ` heads twice.
+
+    `tests/test_release_hygiene.py#duplicated_version_headings` is the same
+    reader over the real tree on every pull request; this one is `--check`'s,
+    at the release, and is spelled here because a script cannot import a
+    test.
+    """
+    lines = {}
+    for number, line in enumerate(text.split("\n"), 1):
+        found = re.match(r"^## (\d+\.\d+\.\d+)\b", line)
+        if found:
+            lines.setdefault(found.group(1), []).append(number)
+    return [(version, at) for version, at in lines.items() if len(at) > 1]
+
+
 def open_rows(text):
     """Table body rows of an evidence-todo file that are still open.
 
@@ -276,8 +357,8 @@ def main(argv=None):
     ap.add_argument(
         "--check",
         action="store_true",
-        help="report fragments left in seal/ledger/ and open evidence-todo "
-        "rows, and exit 1",
+        help="report fragments left in seal/ledger/, open evidence-todo "
+        "rows and a version the ledger heads twice, and exit 1",
     )
     ap.add_argument("--dry-run", action="store_true", help="print, write nothing")
     ap.add_argument("--root", default=ROOT, help="repository root (default: this one)")
@@ -316,6 +397,20 @@ def main(argv=None):
             if frags:
                 print()
             report_open(items)
+        doubled = doubled_versions(text)
+        if doubled:
+            # A second fold for one version joins its section now (#540); a
+            # heading standing twice is a fold from before, or a hand edit.
+            bad = True
+            if frags or items:
+                print()
+            print(f"{LEDGER} heads a version twice — one release, one section:")
+            for version, at in doubled:
+                print(f"  {version}  at lines {', '.join(str(n) for n in at)}")
+            print(
+                "\nMove the later heading's work items under the first heading "
+                "and delete the later one"
+            )
         if bad:
             return 1
         # Markers on a line of their own. The ledger's own header quotes the
@@ -357,15 +452,24 @@ def main(argv=None):
 
     date = args.date or datetime.datetime.now(datetime.UTC).strftime("%Y-%m-%d")
     block, empty = section(args.version, date, frags)
+    # The heading a reader sees is the file's own where the section exists
+    # — dated or not — and the block's only where this run writes one. The
+    # date a joined section keeps is the first fold's, because `insert`
+    # drops the block's heading and this line prints the file's (#540); a
+    # `date` override here was measured dead by mutation and is not kept.
+    found = section_heading(text, args.version)
+    heading = found.group(0) if found else block.split("\n")[0]
     if args.dry_run:
-        print(block)
+        if found:
+            print("appending into the existing section:\n")
+        print("\n".join([heading, *block.split("\n")[1:]]))
         for work_item_id in empty:
             print(f"(empty, would be removed) {FRAGMENTS}/{work_item_id}.md")
         return 0
 
     if len(empty) < len(frags):
         with open(ledger, "w", encoding="utf-8") as f:
-            f.write(append(text, block))
+            f.write(insert(text, block, args.version))
     # Removed only after the ledger is on disk, so a failed write leaves every
     # fragment where it was.
     for work_item_id, _ in frags:
@@ -375,7 +479,10 @@ def main(argv=None):
     except OSError:
         pass  # something else is in it, or it is already gone; both are fine
     moved = len(frags) - len(empty)
-    print(f"folded {moved} fragments into {LEDGER} under ## {args.version} — {date}")
+    print(
+        f"folded {moved} fragments into {LEDGER} under {heading}"
+        + (" (appended into the existing section)" if found else "")
+    )
     for work_item_id, _ in frags:
         note = "  (empty, removed)" if work_item_id in empty else ""
         print(f"  {FRAGMENTS}/{work_item_id}.md{note}")
