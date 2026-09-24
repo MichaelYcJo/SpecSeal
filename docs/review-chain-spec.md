@@ -109,6 +109,7 @@ against ownership, the unit one of them named had been created by round 4 of
 that same work item and the character-level oracle another named was the
 branch's outright, so all five were fixed on the branch, the record was
 corrected in place, and one verifying round read them.
+Enforced by: nothing — no case reads the opening yet. A pin on *Three and five count rounds* beside rule 13 in `tests/test_the_rules_have_one_owner.py` would; the ownership rule after it is held by `test_the_owner_states_the_rule` and `test_every_link_names_the_owner`.
 
 <!-- specs/1790076060-the-cap-is-read-as-bounding-fixes-and-the-pile-is-nobodys -->
 **Two bounds end a run `capped`, and only one of them permits a fix.** Say
@@ -128,6 +129,7 @@ refuses to write `Broad gate` on a last record whose cell reads anything else,
 so the reader is required by the generator and not by this document alone.
 Both shapes are in the tree, in the same work item named above: its round 6
 wrote fixes and reads `round-7`, and its round 7 commissioned nothing.
+Enforced by: tests/test_the_reopening_is_one.py::test_a_second_fix_closing_record_after_the_floor_is_refused, tests/test_the_reopening_is_one.py::test_a_capped_run_has_a_legal_end
 
 ### The bound has a floor, and a quiet round is where it stops
 
@@ -264,11 +266,11 @@ own paperwork, with a reader spawned for every correction.
 ### The floor — `Loses a record or crashes`, and what may follow it
 
 <!-- specs/1788472135-the-run-outlives-its-last-finding -->
-The floor is stated at the top of this document, and this is what the check
-makes of it. The row is read on every record, like `Fixes checked by` and the
-fix surface's two rows in `docs/round-record-spec.md`, and for the same
-reason: every round has its own answer, and the run's stopping point is a
-fact about the round that met the floor rather than about the last one.
+**The row is read on every record**, like `Fixes checked by` and the fix
+surface's two rows in `docs/round-record-spec.md`, and for the same reason:
+every round has its own answer, and the run's stopping point is a fact about
+the round that met the floor rather than about the last one. The floor is
+stated at the top of this document, and this is what the check makes of it.
 
 | The row | The check |
 |---|---|
@@ -315,6 +317,7 @@ already carries the fact in its verdict column, and the walk reads it there.
 The direction is ALLOW, one record wider in that one sequence, and it is the
 cheaper mistake: the other way to satisfy the old walk was rewriting `fixed`
 to `answered` over fixes that exist.
+Enforced by: tests/test_the_record_is_held_to_the_floor_and_the_depth.py::test_a_record_without_the_floor_row_fails, tests/test_the_record_is_held_to_the_floor_and_the_depth.py::test_three_quiet_rounds_after_the_floor_are_still_refused
 
 ### `Needs a fix` — the row the bound above rests on
 
@@ -514,6 +517,7 @@ the work item's directory at a later release — after which the pull request
 body is what carries it. `seal/follow-up.md` made that trade for its own file
 first, on the grounds that an unowned row is not a plan, and the repository
 owner is who overturns it.
+Enforced by: tests/test_the_rules_have_one_owner.py::test_the_owner_states_the_rule, tests/test_the_rules_have_one_owner.py::test_every_link_names_the_owner
 
 <!-- specs/1790076060-the-cap-is-read-as-bounding-fixes-and-the-pile-is-nobodys -->
 **Two refusal messages still say a refused finding becomes an issue, and the
@@ -575,6 +579,7 @@ A PR opened with open items named is the correct end state, not a failure to
 finish. What makes it correct is that the items are *named* — an unresolved
 finding written into `follow-up.md` and quoted in the PR body has been handed
 over. The same finding left only in a session's memory has not.
+Enforced by: nothing — a record rather than a rule: it states that two refusal messages lag the ladder above, which is the rule, and that rewording them is the repository owner's decision.
 
 ## Two records, and what each of them says
 
@@ -643,6 +648,7 @@ above.
 ### When the record was written — before the fixes it commissioned
 
 <!-- specs/1788501054-a-check-reports-clean-while-something-is-missing -->
+**A round record is committed before the fixes it commissions.**
 `templates/sdd-round.md` says a record is written *right after it posts*, and
 until this check nothing observed it. Measured twice in one release, four
 minutes and two minutes after the fix commits those records commissioned, and
@@ -769,6 +775,7 @@ What no check can see is a record committed on time that carries nothing: the
 file exists before the fixes and says only what the round found. This refusal
 is about ORDER alone, and issue #150's own comment asks the narrower question
 beside it. The next subsection answers it.
+Enforced by: tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_added_after_its_own_fix_fails_after_the_cutoff, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_updated_in_place_when_the_fixes_landed_passes
 
 ### What the record carries — a declaration, and why no check reads it
 
@@ -843,6 +850,7 @@ downstream can run it for somebody else's range. A survivor that is a
 deliberate carrier is exempted by a content-anchored row in the work item's
 own `seal/specs/<id>/survivors.md`, so the exemption stops holding the moment
 that text changes.
+Enforced by: tests/test_a_corrected_sentence_survives_elsewhere.py::test_a_reworded_sentence_reports_the_pin_it_left_behind, tests/test_a_corrected_sentence_survives_elsewhere.py::test_the_report_names_the_sentence_that_was_corrected_too
 
 <!-- specs/1788912166-red-for-following-the-documents-green-for-ignoring-one -->
 **A range that removes a shipped section whole takes one row for the range
@@ -853,6 +861,7 @@ reports all of them and every report is correct — one real range reported
 a range row is turning the check off. The row is anchored on the range **and**
 on the work item whose `survivors.md` holds it, so it cannot become a
 standing *check nothing*.
+Enforced by: tests/test_a_corrected_sentence_survives_elsewhere.py::test_a_whole_range_row_excuses_the_survivors_of_that_range, tests/test_a_corrected_sentence_survives_elsewhere.py::test_a_whole_range_row_does_not_reach_a_different_range
 
 <!-- specs/1790174139-survivors-md-silences-what-it-quotes -->
 <!-- specs/1790206435-the-sweep-reads-a-code-idiom-as-removed-wording -->
@@ -879,6 +888,7 @@ the write-up of a finding rather than a carrier of the claim, so a sentence
 surviving in one is an uncorrected copy. Excluding only the added side left
 the check able to name a coordinate nobody should be asked to correct, which
 is worse than not looking: a false name spends a round.
+Enforced by: tests/test_a_corrected_sentence_survives_elsewhere.py::test_a_record_of_a_past_round_is_not_a_survivor, tests/test_a_corrected_sentence_survives_elsewhere.py::test_a_round_record_the_range_edited_does_not_become_a_source
 
 ### What a draft is excused, and what it is not
 

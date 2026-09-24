@@ -5,7 +5,7 @@ subject, and says a document over the repository's ceiling takes no new
 standing statement. The reader ships, as `skills/settle/scripts/fold_check.py`
 (`fold-check`); this module is this repository's ceiling and its pin over it.
 
-Two fold runs put 29 of the 101 folded statements into
+Two fold runs put 29 folded statements into
 `docs/review-chain-spec.md`, which reached 2,246 lines while the next largest
 document was 839. Its fold-marker count was frozen until
 MichaelYcJo/SpecSeal#526 split it along its own headings into three
