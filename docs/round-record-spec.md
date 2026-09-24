@@ -306,9 +306,8 @@ being pointed at the prose.
 **The measurement, as a command rather than as a number.** A count over prose
 depends entirely on what counts, and this paragraph first stated one with a
 date and no method — three readers then produced three different answers from
-it, which is the rule in
-`seal/ledger/1789621028-nothing-reads-a-record-against-the-tree.md` R7 broken
-in the document that states it. So the method is the claim:
+it, which is the rule in `seal/ledger/1789621028-nothing-reads-a-record-against-the-tree.md`
+R7 broken in the document that states it. So the method is the claim:
 
 ```sh
 for f in seal/specs/*/rounds/*-fixes.md; do
@@ -484,10 +483,10 @@ none of the three reaches is a changed **input→value mapping**: a unit that
 keeps returning exactly the values it already returned, and changes which
 inputs reach which one.
 
-The measured instance is
-`tests/test_release_hygiene.py#is_a_record_of_a_moment`, as finding 11 of
-`seal/specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer/rounds/round-2.md`
-confirmed. Its fix made it answer `False` where it had answered `True` —
+The measured instance is `tests/test_release_hygiene.py#is_a_record_of_a_moment`,
+confirmed at
+`seal/specs/1788735085-a-loaded-file-naming-a-real-version-is-a-timer/rounds/round-2.md`,
+finding 11. Its fix made it answer `False` where it had answered `True` —
 narrowing the exemption from any file under a dated directory to a file whose
 own name begins with the date. Signature unchanged, arity unchanged, return
 type unchanged, and the returnable set is `{True, False}` at both ends. The
