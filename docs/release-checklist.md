@@ -22,7 +22,9 @@ running.
       (#272). Nothing has to be merged into a stale branch for that reason and
       nothing has to be re-gated. Merge the release branch in only when a
       branch actually needs something the release branch holds; the squash
-      discards the merge commit either way.
+      discards the merge commit either way. A ledger file that conflicts at
+      that merge is resolved as `docs/the-evidence-ledger.md` §*A correction a
+      merge dropped* says, and `evidence-check` runs after the resolution.
       **Never rebase a work item's branch, for any reason** — every round
       record names its branch's commits by `Target SHA` and every `# RIDER:`
       carries a `Verified … at <sha>` stamp, a rebase orphans both, and that

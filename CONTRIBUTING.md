@@ -224,6 +224,11 @@ when it arrives.
     into your own fragment.** A row is not re-pointed at whatever now sits
     nearest to where it used to look.
 
+  Both are writes to the file the row is in, and neither is an append. A
+  branch that removes or edits code an existing row cites is keeping an
+  existing claim true, which can only happen where the row stands; adding a
+  claim is what goes in your fragment, and always did.
+
   So a claim leaves the ledger when the code it was about does, and comes
   back at the release, folded in from the fragment that replaced it.
 
@@ -247,7 +252,16 @@ when it arrives.
   stands; the hygiene workflow runs it on every pull request into a release
   branch. It reports the loss after the fact and cannot prevent it.
 
-  `CLAUDE.md` carries both paragraphs, and
+  **Hunk by hunk has two halves, and only the notes are a union.** A row's
+  `Re-read` and `Corrected` notes are both sides', because each records a
+  reading somebody performed; the anchor's hash belongs to exactly one side,
+  the side that edited the anchored unit. `correction-check` cannot see a
+  union that kept the other side's hash, because no marker was dropped, so
+  run `evidence-check` after the resolution: a drifted anchor is the tool
+  naming which side that was. `docs/the-evidence-ledger.md` §*A correction a
+  merge dropped* owns the rule.
+
+  `CLAUDE.md` carries both paragraphs and the halves rule, and
   `tests/test_a_merge_cannot_silently_drop_a_correction.py` holds the two
   against each other.
 

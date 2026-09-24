@@ -715,7 +715,19 @@ CONFLICT_SENTENCES = (
     "resolved in opposite directions",
     "byte-identical to a row nobody touched",
     "correction-check",
+    # #488: the exception is an edit as well as a removal, and both are the
+    # one write a branch owes the file the row is in.
+    "removes or edits code an existing",
+    "keeping an existing claim true",
+    # #509: of a conflicted row only the notes are a union; the hash is the
+    # side's that edited the unit, and the checker says which after the fact.
+    "the side that edited the anchored unit",
+    "run `evidence-check` after the resolution",
 )
+
+# The owner of the two rules the needles above end with. The guides carry
+# them and link here; the policy document states them first (#488, #509).
+OWNED_SENTENCES = CONFLICT_SENTENCES[-4:]
 
 
 def read(path):
@@ -738,6 +750,18 @@ def test_a8_both_rule_documents_say_what_to_do_at_the_conflict():
         text = read(document)
         for needle in CONFLICT_SENTENCES:
             assert needle in text, f"{document} does not say: {needle}"
+
+
+def test_the_policy_document_owns_the_exception_and_the_halves():
+    """#488 and #509. `docs/the-evidence-ledger.md` is the owner the two
+    guides carry: the exception widened to an edit, and the halves of a
+    conflicted row. Seen red with each sentence removed from the owner."""
+    text = read(os.path.join("docs", "the-evidence-ledger.md"))
+    for needle in OWNED_SENTENCES:
+        assert needle in text, f"the ledger policy does not say: {needle}"
+    assert "docs/the-evidence-ledger.md` §*A correction a merge dropped*" in read(
+        os.path.join("docs", "release-checklist.md")
+    ), "the squash step does not name where the conflict's rule lives"
 
 
 def test_a8_each_document_points_at_the_other():

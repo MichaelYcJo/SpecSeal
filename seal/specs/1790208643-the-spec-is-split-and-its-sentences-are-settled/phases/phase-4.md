@@ -79,7 +79,11 @@ in the file the finding's Location resolves in, that a case in another file
 is never a candidate, that this is what keeps the rule consistent with
 `skills/agent-contract/SKILL.md` §15, and that it is not an exemption for
 tests. The walk still reads `[n for r, n in added if r == f]` (read), which
-is judgment 11.
+is judgment 11. **Withdrawn after this phase closed.** #559, an outside
+contribution, squashed an equivalent paragraph first; the owner chose it, and
+the orchestrator removed this one at the merge of `release/v0.15.1`
+(`4a077852`). The re-read notes on the `depth_two` rows name #559's paragraph
+since `75b226a7`.
 
 **#268** (executed, `grep -rn` over `agents`, `skills`, `templates`, `docs`,
 `hooks`, both READMEs, `CONTRIBUTING.md`, `CLAUDE.md`, `.github` and
@@ -119,7 +123,7 @@ Then `evidence-check --strict .` exit 0, `1767 ok · 0 drifted · 0 broken`.
 
 **For the fragment, drafted and written at phase 6**: #55's sentence on
 `agents/smith.md#"## Phases"` with the kept-phrase case, #316's paragraph on
-the `arm-check` heading, #222's paragraph on `depth_two`, and #556's two
+the `arm-check` heading, and #556's two
 comments on `close` and `seal`.
 
 **What `CLAUDE.md` needs: nothing from this phase.**

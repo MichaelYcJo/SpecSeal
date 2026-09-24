@@ -44,10 +44,13 @@ glob alike, and a row is a content anchor, so the release that folds a
 fragment into its release file changes no row's status. The `ok` total
 counts a `(coordinate, hash)` pair once per file, so a move can change it.
 
-**Appended is the word, and a removal is not one.** A branch that removes
-code an existing shared-file row cites must touch that file to leave the
-ledger true: the row is removed there, and the new claim goes in the branch's
-own fragment.
+**Appended is the word, and a removal is not one — nor is an edit.** A
+branch that removes or edits code an existing shared-file row cites must touch
+the file the row is in to leave the ledger true. A removal takes the row out
+there, and the new claim goes in the branch's own fragment. An edit drifts the
+row, and the branch re-reads it against that edit and re-stamps it there with
+a dated note. Both are keeping an existing claim true, which is not appending;
+adding a claim is what belongs in the fragment, and always did.
 
 <!-- specs/1788761915-a-record-states-what-nothing-reads -->
 **A work item whose ledger fragment still exists has not shipped.** The fold
@@ -91,6 +94,15 @@ wrong by construction once both branches have been correcting: the measured
 instance resolved two hunks in opposite directions, because each side was the
 superset in one of them, and taking a side reverted three corrections that had
 each turned a false claim true.
+
+**Hunk by hunk has two halves, and only the notes are a union.** A row's
+`Re-read <date>` and `Corrected <date>` notes are both sides', because each
+records a reading somebody performed. The anchor's hash belongs to exactly one
+side: the side that edited the anchored unit. A union that keeps the other
+side's hash names content that no longer exists anywhere, and the marker check
+below cannot see it, because no marker was dropped. So run `evidence-check`
+after the resolution: a drifted anchor is the tool naming which side that was,
+and the row is re-read against that side's edit before it is re-stamped.
 
 **Nothing downstream can see that, which is why the reading is a person's.**
 A row reverted to a superseded state is byte-identical to a row nobody
