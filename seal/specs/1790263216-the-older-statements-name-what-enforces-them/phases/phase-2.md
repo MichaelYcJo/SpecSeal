@@ -79,7 +79,11 @@ not a check of this rule.
   that name `round-record-spec`, the 7 that read the review-chain document
   set through `conftest.review_chain_text` (overlapping), the 18 ledger and
   `docs/` walkers phase 1 ran, and the modules holding the targets. The 7
-  skips are cases that skip themselves; none is a target.
+  skips are all parametrisations of D21's target,
+  `test_every_script_a_shipped_document_names_is_wrapped_or_classified`,
+  for scripts no shipped document names; the case as a whole runs, so the
+  target holds. (Corrected in round 1's fix pass: this sentence said none of
+  the skips was a target, and round 1 ran them with `-rs`.)
 
 ## What this phase removes
 

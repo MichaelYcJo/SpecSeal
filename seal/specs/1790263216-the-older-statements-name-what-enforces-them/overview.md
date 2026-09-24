@@ -25,15 +25,19 @@ none — every decision is labelled `mutated` or `read` in the phase record that
 
 ## Not done
 
-- **Twelve lines say `nothing`**: 7 of case 1 (a person's or a session's
+- **Nine lines say `nothing`**: 4 of case 1 (a person's or a session's
   act), 0 of case 2, 2 of case 3 (a record rather than a rule) and 3 of
-  case 4 (no case reads it yet). `grep -rn '^Enforced by: nothing' docs/`
+  case 4 (no case reads it yet). Round 1's fix pass moved four lines from
+  `nothing` to the pin on the rule's instruction (D6, D13, D14, D32) and one
+  from a target to `nothing` (D33). `grep -rn '^Enforced by: nothing' docs/`
   lists them. The three of case 4 are the rules a check could hold, and each
   line names what would hold it:
   - `docs/the-evidence-ledger.md`: *A bound over the corpus is stated with
     its instrument and the moment it was taken*;
-  - `docs/the-evidence-ledger.md`: *A population floor over the records is
-    replaced, never lowered*;
+  - `docs/review-chain-spec.md`: *Three and five count rounds*. Rule 13 of
+    `tests/test_the_rules_have_one_owner.py` pins the statement's third bold
+    sentence and not this opening, which round 1 reworded with both cases
+    green;
   - `docs/measuring-a-run.md`: *A network write only a person's typing
     starts is not a hook*.
 
