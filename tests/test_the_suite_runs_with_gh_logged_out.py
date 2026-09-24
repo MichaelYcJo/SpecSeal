@@ -87,3 +87,21 @@ def test_gh_reports_no_login_under_the_suites_environment():
         "case that reaches a live `gh` passes here and fails on CI:\n"
         f"{r.stdout}{r.stderr}"
     )
+
+
+def test_contributing_says_the_suite_runs_logged_out():
+    """A6, the reader's half (`agent-contract` §14). A contributor whose case
+    goes red on a machine where `gh` works everywhere else needs to find why
+    in the section that tells them how to run the suite."""
+    path = os.path.join(HERE, "..", "CONTRIBUTING.md")
+    with open(path, encoding="utf-8") as handle:
+        text = handle.read()
+    section = text.split("## Running the checks", 1)[1].split("\n## ", 1)[0]
+    prose = " ".join(section.split())
+    for needle in (
+        "The suite runs with `gh` logged out, on your machine as on CI.",
+        "it points `GH_CONFIG_DIR` at an empty directory",
+        *(f"`{name}`" for name in TOKENS),
+        "A case that needs `gh` stubs it.",
+    ):
+        assert needle in prose, f"CONTRIBUTING.md §Running the checks lacks: {needle}"

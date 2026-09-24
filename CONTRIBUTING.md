@@ -152,6 +152,15 @@ ubuntu, macOS and Windows at the floor stated above, the evidence ledger
 against this repository, and the hygiene workflow that guards releases. A change to any
 hook needs a test that fails without it — see the counterfeit rule below.
 
+**The suite runs with `gh` logged out, on your machine as on CI.** CI's
+pytest job has no token, so `tests/conftest.py` makes the same true locally
+when it is imported: it points `GH_CONFIG_DIR` at an empty directory and
+removes `GH_TOKEN`, `GITHUB_TOKEN`, `GH_ENTERPRISE_TOKEN` and
+`GITHUB_ENTERPRISE_TOKEN`. A case that falls through its stubs onto a live
+`gh` then fails where you run it, instead of passing because you happen to be
+logged in and failing only on CI after the branch was sealed (#510). A case
+that needs `gh` stubs it.
+
 Two steps of the hygiene workflow ship to user repositories as well, as
 `templates/hygiene.yml`: the unverified-rows tally and the chain check, run
 from a clone of this repository at the release the user installed. The
