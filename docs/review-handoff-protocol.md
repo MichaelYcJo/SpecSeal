@@ -439,6 +439,7 @@ first read it, so a value written earlier was held to no vocabulary.
 #### Ran by — what executed this segment
 
 <!-- specs/1788491830-a-segments-record-says-what-it-cost -->
+**A record's `Ran by` row names what executed its segment.**
 A record says what its segment was asked, what it found, and which commit it
 looked at. It does not say what ran it, and that fact survives nowhere else:
 the model is a spawn-time argument, and once the session ends it exists only
@@ -469,6 +470,7 @@ Records predating a project's adoption print rather than fail when the row is
 ABSENT, the same grandfathering `Fixes checked by` carries. A row that is
 present and unreadable is refused at any age: formatting is always the
 author's, which is the split `Contract changes` already makes.
+Enforced by: tests/test_a_record_says_what_ran_it.py::test_an_absent_row_fails_after_the_cutoff, tests/test_a_record_says_what_ran_it.py::test_the_row_is_read_on_every_record_not_only_the_last
 
 #### Paste-ready fixes — the artefact, not a description of it
 
@@ -517,6 +519,7 @@ worker findings are pre-verification.
 ## The handoff before round 1
 
 <!-- specs/1788224363-a-subagent-rediscovers-what-the-session-established -->
+**The orchestrator hands the implementer coordinates rather than prose.**
 Everything above hands one round's state to the next. The same boundary
 exists one step earlier and had no rule: the session that decides the work
 hands it to the session that does it, in a spawn prompt whose format nothing
@@ -581,6 +584,7 @@ request is already open when round 1 is spawned, opened when the build's
 last phase closes, because `skills/code-review/orchestration.md` §*Orchestrator:
 the pull request opens before round 1, and a phase is re-run* owns that rule and
 the platform legs it exists for.
+Enforced by: tests/test_the_handoff_before_round_one.py::test_the_protocol_carries_the_handoff_before_round_one, tests/test_the_handoff_before_round_one.py::test_the_implementer_documents_point_at_the_section
 
 ### While the implementer runs
 
@@ -616,8 +620,8 @@ the work item that added the rule was checked that way from its first phase
 ### After the run — the per-segment bars
 
 <!-- specs/1788277657-one-bar-misreads-two-of-the-three-segment-kinds -->
-The meter's numbers mean nothing without a bar, and the bar depends on
-which kind of segment produced the transcript. One bar misreads two of the
+**The meter's numbers mean nothing without a bar, and the bar depends on
+which kind of segment produced the transcript.** One bar misreads two of the
 three kinds: a ratio that is the right question for a reviewer is the wrong
 one for an edit-test loop, and asking it there is a demand the work cannot
 meet (issue #51, whose transcripts these numbers come from).
@@ -653,6 +657,7 @@ Its rows and where each one is taken from are `skills/verify/SKILL.md`
 §*Measure the segment, and feed the flow log*, which is also where it goes.
 That is **not a destination of its own** — the table joins the segment
 readings in the rolling log that section already names.
+Enforced by: tests/test_the_handoff_before_round_one.py::test_the_protocol_names_a_bar_per_segment_kind, tests/test_the_handoff_before_round_one.py::test_the_bars_and_the_run_level_table_judge_different_things
 
 ## What every spawn prompt used to carry
 
@@ -701,6 +706,7 @@ and the records it must not write. The list under *The smith* is
 Nothing that was a rule here reaches an agent by being typed any more. A
 prompt that repeats one is redundant rather than wrong, and a prompt that
 forgets one changes nothing — which is the whole of what this move bought.
+Enforced by: tests/test_a_section_marked_for_one_role_reaches_only_that_role.py::test_no_agent_preloads_a_section_marked_for_the_orchestrator, tests/test_a_section_marked_for_one_role_reaches_only_that_role.py::test_a_marked_heading_in_an_injected_skill_names_agent_file_and_heading
 
 ### What a prompt is left holding
 
