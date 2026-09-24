@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 595 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `29678169a0fc5bf5e57e6dedb9af23dc13ed9f93..371206af7e8355846f9394978f82d97dbff7a7c9`, 7 commits |
 | Contract changes | none |
 | New units | CMD_BUILTINS (depth 1); NOT_A_GH_TOKEN (depth 1); test_the_token_gh_would_send_is_not_a_login (depth 1) |
