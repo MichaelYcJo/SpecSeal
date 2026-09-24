@@ -253,6 +253,101 @@ def repo_root(start):
     return os.path.normpath(out.strip()) if out and out.strip() else None
 
 
+# --- which copy of the gate runs, and the stamp says which ------------------
+#
+# `bin/broad-gate` on the Bash tool's PATH is the installed plugin's, and this
+# script resolves every arm relative to itself (`PLUGIN`, above). So a branch
+# that changes the gate was measured by the copy that predates the change,
+# and the stamp could not say which copy drew it — #475, measured twice: seven
+# arms in the tree against five installed, and a chain refusal from the
+# released copy over a state the branch had repaired. CI runs the checkout's
+# scripts (`.github/workflows/hygiene.yml`), and the gate exists to say what CI
+# will say (`docs/the-broad-gate.md`), so the checkout's copy is the one that
+# asks the question the merge is judged by. Where the gated tree ships one,
+# `main` runs it in place of this file, with the same argument vector, and
+# says so; and the panel's `gate` row says which copy ran, `tree` or `plugin`,
+# with the running copy's version beside it. A tree that breaks an arm seals
+# itself — that is the stated cost, named on the stamp by `tree` and caught at
+# the pull request by the same scripts.
+
+GATE_REL = os.path.join("skills", "verify", "scripts", "broad_gate.py")
+PLUGIN_JSON = os.path.join(".claude-plugin", "plugin.json")
+
+
+def shipped_gate(root):
+    """The gate the tree at `root` ships, or None.
+
+    None where the tree has no `skills/verify/scripts/broad_gate.py`, which is
+    every repository that installs the plugin rather than developing it — for
+    them nothing about the run changes. None too where that file IS this one
+    by `os.path.realpath`, which is what keeps the tree's own copy from
+    re-running itself: the redirected-to copy finds itself under the root and
+    goes on to `gate()`.
+    """
+    candidate = os.path.join(root, GATE_REL)
+    if not os.path.isfile(candidate):
+        return None
+    if os.path.realpath(candidate) == os.path.realpath(__file__):
+        return None
+    return candidate
+
+
+def plugin_version(plugin):
+    """`version` from `<plugin>/.claude-plugin/plugin.json`, or `?` where the
+    file cannot be read or does not say -- a run never stops on a label."""
+    try:
+        with open(os.path.join(plugin, PLUGIN_JSON), encoding="utf-8") as handle:
+            version = json.load(handle).get("version")
+    except (OSError, ValueError, AttributeError):
+        return "?"
+    return str(version) if version else "?"
+
+
+def under(path, root):
+    """Whether `path` lies under `root`, both taken by realpath."""
+    if root is None:
+        return False
+    path, root = os.path.realpath(path), os.path.realpath(root)
+    try:
+        return os.path.commonpath([path, root]) == root
+    except ValueError:  # different drives on Windows
+        return False
+
+
+def gate_copy(root, plugin=PLUGIN):
+    """The `gate` row's value: `tree <version>` where the running copy lies
+    under the gated root, `plugin <version>` otherwise, the version read from
+    the running copy's own `plugin.json`.
+
+    A path does not fit `PANEL_VALUE_WIDTH`; a version alone does not tell a
+    branch cut from the tag apart from the tag. The pair says where the copy
+    came from and which release it belongs to, and the line `main` writes to
+    stderr carries the path in full, the way `moved_line` and `coverage_line`
+    carry what the panel cannot. Cut at the frame the way `panel` cuts the
+    `from` row, so a long version is a shorter label and never a wider row.
+    """
+    origin = "tree" if under(__file__, root) else "plugin"
+    value = f"{origin} {plugin_version(plugin)}"
+    if len(value) > PANEL_VALUE_WIDTH:
+        value = value[: PANEL_VALUE_WIDTH - len(ELISION)] + ELISION
+    return value
+
+
+def running_line(root):
+    """The one stderr line every run carries once the root has resolved:
+    the running copy's absolute path and the `gate` row's value."""
+    return f"broad-gate: gate {os.path.realpath(__file__)} ({gate_copy(root)})"
+
+
+def redirect_line(root, shipped):
+    """What `main` writes before handing the run to the tree's own copy."""
+    return (
+        f"broad-gate: {root} ships its own gate; running {shipped} "
+        f"(tree {plugin_version(root)}) in place of "
+        f"{os.path.realpath(__file__)} (plugin {plugin_version(PLUGIN)})"
+    )
+
+
 # --- which base, and it is the one CI will read ----------------------------
 #
 # `.github/workflows/hygiene.yml` spells every base it takes
@@ -1575,9 +1670,11 @@ def round_count(item):
     return sum(1 for n in names if ROUND_RE.match(n))
 
 
-def panel(tree, base, checks, item, workflow=None):
+def panel(tree, base, checks, item, workflow=None, copy=None):
     """The stamp's rows. `base` is a `Base`, so the panel can say WHICH ref
-    the commit beside it came from.
+    the commit beside it came from. `copy` is the `gate` row's value from
+    `gate_copy` — which copy of this script drew the stamp (#475) — and None
+    asks the running copy with no root, which reads `plugin`.
 
     A bare SHA is what #423 found on the stamp of a branch CI then refused:
     the evidence was right there and a reader still could not tell a base the
@@ -1610,6 +1707,11 @@ def panel(tree, base, checks, item, workflow=None):
         ("tree", tree),
         ("base", base.commit),
         ("from", shown),
+        # Which copy of the gate drew this (#475): `tree <version>` where the
+        # running script lies under the gated root, `plugin <version>` where
+        # it is the installed copy. Beside `from` because it is the same kind
+        # of fact — what this run was measured against, and by what.
+        ("gate", copy if copy is not None else gate_copy(None)),
         None,
         (SUITE, suite_counts(checks[SUITE].text) or "exit 0"),
         # NOT `("lint", "clean")`. The row is one shell command line and
@@ -1848,7 +1950,7 @@ def gate(args, console_wants_letters):
             )
             return 2
     shape = args.shape or console_wants_letters
-    rows = panel(tree, base, checks, item, workflow)
+    rows = panel(tree, base, checks, item, workflow, gate_copy(root))
     sys.stdout.write("\n" + "\n".join(stamp.stamp(rows, args.scale, shape)) + "\n\n")
     return 0
 
@@ -1879,7 +1981,29 @@ def main(argv=None, console_wants_letters=None):
         metavar="DIR",
         help="where each check's output is kept (default: a temp dir)",
     )
+    # The redirect is decided from `parse_known_args`, before this copy's
+    # parser can refuse an argument only the tree's copy knows: a flag added
+    # to the gate is a change to the gate, and the copy that predates it must
+    # not be the one that answers (#475; round 1's 🟡 1). `--base` is still
+    # required here, so a call with no base is refused by the same parser as
+    # before. The gated tree's own copy runs in place of this one with the
+    # same argument vector, under the same interpreter, with inherited
+    # streams; its exit code is this run's. Before `gate()` and before
+    # anything runs, so `gate` is not entered by the copy that hands over.
+    # `args.base` is not read here: the one read stays in `gate`, and the
+    # child resolves it for itself. A root that is not a repository takes
+    # `gate`'s own refusal below, unchanged.
+    known, _unknown = parser.parse_known_args(argv)
+    root = repo_root(os.path.abspath(known.root or os.getcwd()))
+    if root is not None:
+        shipped = shipped_gate(root)
+        if shipped is not None:
+            sys.stderr.write(redirect_line(root, shipped) + "\n")
+            handed = sys.argv[1:] if argv is None else list(argv)
+            return subprocess.run([sys.executable, shipped, *handed]).returncode
     args = parser.parse_args(argv)
+    if root is not None:
+        sys.stderr.write(running_line(root) + "\n")
     if console_wants_letters is None:
         stamp = load(STAMP, "specseal_seal_stamp_for_broad_gate")
         console_wants_letters = stamp.pick_shape(sys.stdout)
