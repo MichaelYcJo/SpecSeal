@@ -61,4 +61,4 @@ out of the wrap list for the reason `phases/phase-1.md` gives.
 
 ## Fed back into the spec
 
-none
+- `spec.md`'s #488 and #509 rows, corrected in place on 2026-09-24 (round 2's ⬜ 3): each states the rule round 1 found incomplete, and now carries the rule the carriers state.
