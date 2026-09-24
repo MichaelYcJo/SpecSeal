@@ -42,23 +42,23 @@ phase 4.
 `test_a_dry_run_of_a_second_fold_shows_the_section_it_appends_into`,
 `test_a_fragment_whose_marker_is_already_in_the_ledger_is_refused`,
 `test_check_passes_once_folded_and_says_what_it_counted`.
-`test_check_refuses_a_ledger_that_heads_a_version_twice` became
+`test_check_refuses_a_ledger_that_heads_a_version_twice` became · NAME NOT IN TREE
 `test_check_refuses_a_release_file_that_heads_its_version_twice` (the
 second half the plan named). Retired:
-`test_the_joined_section_is_one_section_wherever_it_stands` — its premise, an
+`test_the_joined_section_is_one_section_wherever_it_stands` — its premise, an · NAME NOT IN TREE
 area `## ` appended after the version section, cannot occur in a release file,
 and `--check` refuses a second version heading there. Its anchor is dropped
 from C's F1 row in `seal/ledger/1790206437-….md` (narrowed, not
 re-pointed), and the renamed case's anchor from C's F2 the same way.
 
 **One case of the original fold work item changed premise, not only
-target.** `test_the_one_thing_a_fold_changes_is_a_duplicate_counted_once`
+target.** `test_the_one_thing_a_fold_changes_is_a_duplicate_counted_once` · NAME NOT IN TREE
 relied on the fold putting a fragment's repeat of a shared-ledger row into
 the SAME file, where `check_ledger` de-duplicates on `(coordinate, hash)`.
 The fold writes a release file now, so the repeat stays in a file of its own
 and the total does not move: `4 ok` before and after, executed. Renamed
 `test_a_row_a_fragment_repeats_from_the_shared_ledger_is_still_counted_twice`.
-`test_the_section_is_appended_below_the_existing_areas` became
+`test_the_section_is_appended_below_the_existing_areas` became · NAME NOT IN TREE
 `test_the_release_file_is_the_section_and_the_shared_ledger_is_untouched`; C's
 `spec.md` line 92 names the old name, so that line carries `NAME NOT IN TREE`
 now, because the records arm refused it (`--strict` exit 2 with `0 drifted ·
@@ -99,5 +99,5 @@ with the same twenty. Phases 3–5 of the frame are 4–6 now.
 
 | Removed item | Where it must land |
 |---|---|
-| `test_the_joined_section_is_one_section_wherever_it_stands` (C's S4 case) | nowhere — its premise cannot occur in a release file, and `--check`'s per-file arm refuses the state it guarded; recorded here and in C's F1 row's note |
+| `test_the_joined_section_is_one_section_wherever_it_stands` (C's S4 case) | nowhere — its premise cannot occur in a release file, and `--check`'s per-file arm refuses the state it guarded; recorded here and in C's F1 row's note · NAME NOT IN TREE — renamed or retired by phase 2 |
 | the fold writing to `seal/ledger.md` | `seal/releases/<X.Y.Z>.md`, which `fold()` in the module now asserts on every fold |

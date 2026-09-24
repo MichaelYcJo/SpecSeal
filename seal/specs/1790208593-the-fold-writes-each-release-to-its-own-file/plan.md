@@ -50,12 +50,12 @@ so the reviewer can open them):
 `test_a_second_fold_for_the_same_version_joins_its_section`,
 `test_the_kept_date_wins_over_today_as_well`,
 `test_a_dry_run_of_a_second_fold_shows_the_section_it_appends_into`,
-`test_check_refuses_a_ledger_that_heads_a_version_twice` (its second half:
+`test_check_refuses_a_ledger_that_heads_a_version_twice` (its second half · NAME NOT IN TREE:
 a release file headed twice), `test_a_fragment_whose_marker_is_already_in_the_ledger_is_refused`,
 `test_check_passes_once_folded_and_says_what_it_counted`,
 `test_no_version_heads_two_sections_of_this_ledger` (widened to both
 shapes). **One C case is retired**:
-`test_the_joined_section_is_one_section_wherever_it_stands` — its premise, an
+`test_the_joined_section_is_one_section_wherever_it_stands` — its premise, an · NAME NOT IN TREE
 area heading appended after the version section, cannot occur in a release
 file, and `--check`'s per-file arm refuses a second `## ` version heading;
 the phase record says so.

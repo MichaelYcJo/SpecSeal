@@ -1,7 +1,8 @@
 <!-- One work item's rows. No header and no marker line — `fold_ledger.py`
-writes the marker and the `###` at the release and moves this file into
-`seal/ledger.md`; a fragment carrying its own marker line is folded with it,
-and the ledger then counts that work item twice.
+writes the marker and the `###` at the release and moves this file into the
+release's ledger file (`seal/releases/<X.Y.Z>.md` since #547); a fragment
+carrying its own marker line was folded with it before #553, and the ledger
+then counted that work item twice.
 
 F1–F3 are #540 (phases 1 and 2), B1–B2 are #542 (phase 3), D1 is #366's
 second half (phase 4). Every case named was seen red before it was planted;
