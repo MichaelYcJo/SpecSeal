@@ -563,9 +563,17 @@ def newly_released(path, before, after):
     a released section, counted per sentence."""
 
     def released(text):
+        # A gather's marker line is blanked, so it ends a block here. The
+        # gatherer writes a fragment's body directly under its marker, and a
+        # marker line starts no block, so a fragment opening with prose had
+        # its first sentence joined to the marker's words: a key nothing in
+        # the fragment has, which `corrected` then wrote instead of holding.
+        # Blanked on both ends of the range, and never by widening `BLOCK`,
+        # which two other scripts spell alike on purpose.
+        text = MARKER.sub("", only_released(text))
         return [
             Sentence(path, line, raw)
-            for line, raw in segments(blank_struck(only_released(text)))
+            for line, raw in segments(blank_struck(text))
             if raw
         ]
 

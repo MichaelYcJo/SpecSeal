@@ -2892,6 +2892,72 @@ def test_a_release_that_rewords_an_entry_and_gathers_still_reports(tmp_path):
     assert "docs/b.md" in text, text
 
 
+GATHERER = os.path.join(ROOT, ".github", "scripts", "gather_changelog.py")
+
+
+def gathered_section(version, date, entries):
+    """The released section exactly as the gatherer lays it down: its own
+    `section`, loaded by path, so the layout follows the gatherer if it ever
+    changes. A test may depend on this repository's release automation; the
+    shipped script may not, which is why the sweep spells `MARKER` itself."""
+    spec = importlib.util.spec_from_file_location("specseal_gatherer", GATHERER)
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded.section(version, date, entries)
+
+
+def test_a_gathered_fragment_that_opens_with_prose_is_still_held(tmp_path):
+    """G4, `agent-contract` §12's member of the class above. The gatherer
+    writes the marker line and the fragment's body directly under it, with no
+    blank line between, and a marker line starts no block. So a fragment
+    whose first line is prose has its first sentence joined to the marker's
+    words, a key that matches nothing in the fragment, and that one sentence
+    escapes the held set. Every fragment in this tree opens with `###` or
+    `- `, which starts a block, and no template fixes the shape. Red with
+    the gathered text held and the marker read as prose: exit 0, `against 2
+    sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    entry = "The frobnicator now rejects a negative width with a plain message."
+    older = "## 0.9.0 — 2025-01-01\n\n### Fixed\n\n- An older entry.\n"
+    body = f"{FOUND} A second sentence says what else changed.\n"
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\nQuoted here: {FOUND}\n",
+            FRAGMENT: body,
+            "CHANGELOG.md": (
+                f"# Changelog\n\n## Unreleased\n\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+            **FILLER,
+        },
+        "an unreleased entry, a prose fragment quoting the claim, two documents",
+    )
+    released = gathered_section(
+        "1.0.0", "2026-01-01", [(os.path.basename(SHIPPED), body.strip())]
+    )
+    assert f"-->\n{FOUND}" in released, (
+        f"the gatherer no longer writes the body directly under the marker:\n{released}"
+    )
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "CHANGELOG.md": (
+                f"# Changelog\n\n{released}\n### Fixed\n\n- {entry}\n\n{older}"
+            ),
+        },
+        "release 1.0.0: rename Unreleased, gather a prose fragment, correct docs/a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the prose fragment's first sentence, joined to its marker line, was "
+        f"written back and subtracted the survivor in docs/b.md; exit {code}\n{text}"
+    )
+    assert "docs/b.md" in text, text
+
+
 def test_a_gathered_fragment_standing_in_the_pool_is_not_a_survivor(tmp_path):
     """S10, the pool side. The fragment's marker is in `CHANGELOG.md` at the
     tip, so the fragment is the released entry one file over and is not
