@@ -286,6 +286,20 @@ so does `templates/sdd-round.md` where the column is defined — because the
 refusal lands at the orchestrator, one hop from either agent that could have
 avoided it.
 
+<!-- specs/1790174138-the-report-the-record-and-the-cells-disagree-on-one-format -->
+**The standard is shown where the reviewer copies from, and the generator
+accepts the example as written.** `agents/warden.md` §Report's fenced skeleton
+carries a numbered 🟡, the carried-closure row above and a bare ❓, names the
+five markers with `✅` outside them, and allows a `###` per finding under
+`## Paste-ready fixes` and `## Executed probes`; a case assembles a report from
+that skeleton and runs `new` on it, so the example and the reader cannot drift.
+Two of three reviewers in one release wrote an empty `#` cell beside a rule
+that already forbade it (#503), which is why the repair is an example and not
+another rule. A comment opener is written `&lt;!--`, a code span included: the
+generator reads the report with comments stripped, and code-span-aware parsing
+is declined twice in the tree.
+Enforced by: tests/test_the_report_standard_is_one_in_three_places.py, tests/test_the_record_is_generated.py::test_the_reviewers_skeleton_is_a_report_the_generator_accepts
+
 ## The fix range — `Fix range`
 
 A row that states the commits a round's fixes were measured over, written by
@@ -772,6 +786,19 @@ typed — the wrapper, or the script's repository-relative path. A document
 that names a script and no way to reach it is an instruction with no
 executable spelling.
 
+<!-- specs/1790174138-the-report-the-record-and-the-cells-disagree-on-one-format -->
+**A cell the generator writes holds what its readers read, not what was
+typed.** `Target SHA` holds the commit `--target` resolved to. Written as
+typed, `HEAD~1` was a cell `chain_check` then reported as naming no commit
+(#382); the spelling a person typed is the printed line's to show. `Broad gate`
+holds one entry per comparison, newest first: every writer goes through
+`kept_broad_gate`, which puts the new `<sha> against <base>` in front and keeps
+the earlier one behind it as `earlier run`, and replaces the newest entry only
+where it is the same commit against the same base (#174, #556). The checker
+takes the cell's first SHA as the run, so the order keeps its read unchanged,
+and a second run no longer erases the first.
+Enforced by: skills/code-review/scripts/round_record.py::kept_broad_gate
+
 ### What it refuses before anything is written
 
 <!-- specs/1788789985-round-record-dies-on-python-3-9 -->
@@ -851,6 +878,18 @@ indented run of prose is joined, because its first characters cannot tell it
 from prose. The blank line is the only stop that covers every shape, and
 that sentence is the one that keeps the next reader from widening the marker
 list instead of trusting the blank line.
+
+<!-- specs/1790174138-the-report-the-record-and-the-cells-disagree-on-one-format -->
+**A section ends at the first heading of its own level or shallower, and every
+reader of a section's end asks one definition.** It used to end at any line
+starting with `#`, so a `## Paste-ready fixes` written as one `###` per finding
+read as empty and the record said *no paste-ready fix in the report* over six
+(#505). The checker read `## Verdicts` by the same loop, so a `###` a hand edit
+put above an open 🔴 row took the row out of `open_blocking`'s sight and a
+checked `Pass` beside it passed. `chain_check.section_end` is the definition:
+the generator's `section_body` and its `swallowed` scan reach it, and so does
+the checker's `verdict_table`.
+Enforced by: skills/code-review/scripts/chain_check.py::section_end, tests/test_chain_check_at_the_pull_request.py::test_a_blocking_finding_below_a_subheading_is_still_in_the_table
 
 ### What `close` derives, and the arithmetic it must not double
 

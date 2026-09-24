@@ -110,9 +110,9 @@ MERGED_PR = re.compile(r"\(#(\d+)\)\s*$")
 # code block to CommonMark and is ALSO how this repository's pull request
 # bodies continue a bullet onto the next line, so masking it would drop real
 # claims -- the wrong direction for a closer. Whether GitHub acts on a keyword
-# inside an HTML comment is unmeasured (`questions.md` Q1 of work item
-# 1790173209); until somebody measures it on a scratch pull request the shape
-# is read as it always was.
+# inside an HTML comment is unmeasured (`docs/issues-and-milestones.md`
+# §*A keyword claims the one number after it*); until somebody measures it on a
+# scratch pull request the shape is read as it always was.
 #
 # A fence is three backticks or three tildes, indented or not, closed by the
 # same delimiter; `\1` is what keeps a tilde fence from ending at a backtick

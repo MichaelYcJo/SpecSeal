@@ -319,6 +319,24 @@ this section says a release *acted on* one number rather than using the verb
 this section is about, and a sentence that used it with a second number beside
 it would earn the warning like any body.
 
+<!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
+**A keyword inside a fence or a code span claims nothing, whatever the fence
+or the span is made of.** A fence opens with backticks or tildes at any
+indent and closes on its own delimiter; a span is one backtick or two. The
+closer used to mask a backtick fence at column 0 and a one-backtick span
+alone, so a keyword quoted in a tilde fence, in a fence indented under a list
+item or in a double-backtick span was read as a claim (#266). Masking more
+closes fewer, and that is the safe direction: an issue left open is visible
+and a re-run reaches it, while a wrong close is a false record. Two shapes are
+still read as claims, each pinned by a case so a later widening is a
+deliberate red: a four-space indented block, because this repository's pull
+request bodies indent a bullet's continuation that way and masking it would
+drop a real `Closes #N`, and an HTML comment, because whether GitHub reads a
+keyword inside one is unmeasured. `.github/scripts/issue_claims_check.py`
+imports the closer's two patterns rather than spelling its own, so the check
+and the closer read one body the same way.
+Enforced by: tests/test_release_hygiene.py
+
 ## An issue is its body and its comments together
 
 Corrections, measurements and improvements land as comments, and the question

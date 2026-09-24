@@ -78,6 +78,26 @@ writer that disagree about which line is the row leave a file two rows deep
 that no command can bring into agreement, so a repair landing in the reader
 alone is half a repair.
 
+<!-- specs/1790206436-the-runs-instruments-cost-wall-clock -->
+**The gate that measures a tree is the copy that tree ships, and the stamp
+says which copy drew it.** A gate found on PATH is the installed plugin's, so
+a branch that changed the gate was measured by the copy that predated the
+change: seven arms in the tree against five installed on one sealer's run,
+and a chain refusal from the 0.13.0 copy over a state the branch repaired,
+which stopped an unattended run until a person re-spawned the sealer with a
+path (#475). CI runs the checkout's scripts, and the gate exists to say what
+CI will say, so where the gated root carries
+`skills/verify/scripts/broad_gate.py` and that file is not the running one by
+realpath, the running copy hands it the whole argument vector before judging
+anything. Its exit code is the run's, and a flag only the tree's copy knows
+still reaches it. A repository that ships no gate — every repository that
+installs the plugin — runs exactly as before. The symmetric cost, a tree
+that breaks an arm and passes itself, is named rather than dismissed: the
+panel's `gate` row reads `tree <version>` or `plugin <version>`, one stderr
+line names the running copy's path, and the pull request asks the same
+scripts again.
+Enforced by: tests/test_the_seal_is_taken_once_by_the_sealer.py
+
 ## What the runner owes the person who typed it
 
 <!-- specs/1788632199-the-repository-ships-no-way-to-run-its-own-suite -->
@@ -96,6 +116,25 @@ tells the reader about the directory rather than about the thing they typed.
 A read-only environment directory is the operator's; the runner says what it
 could not do, names the path and what it means for `git status`, and carries
 on.
+
+<!-- specs/1790206436-the-runs-instruments-cost-wall-clock -->
+**The runner runs the suite in parallel by default, in every environment it
+builds or adopts, and the caller's own choice wins.** A runner that withheld
+`-n auto` because the environment it built had no `pytest-xdist` made one
+command mean three things in one repository — serial on one checkout,
+parallel where somebody had installed xdist by hand, `unrecognized arguments:
+-n` in a fresh worktree — while CI ran the same suite `-n auto` on three
+platforms for every release (#337). Measured on the 0.15.0 run: six sealer
+runs at about thirteen minutes each, against `4397 passed in 3m04s` for the
+same suite run parallel by hand. So a build installs `pytest-xdist` beside
+`pytest`, and an adopted environment without it takes one install step,
+found by the filesystem so that a warm call still reaches no builder. A
+missing speed-up is repaired rather than refused, because the suite is
+correct without it: an install that fails is one sentence naming the remedy,
+then a serial run with pytest's exit code. `-n auto` is withheld where the
+caller already decided — any spelling of `-n` or `--numprocesses`,
+`-p no:xdist`, or `--pdb`.
+Enforced by: tests/test_the_suite_has_a_command_that_is_cheap_twice.py
 
 ## A check that cannot fail is not a check
 

@@ -120,6 +120,25 @@ commit written below it did not arrive misjudged, it did not arrive at all.
 This is a JUDGMENT read; the scan for a waiver token still sees the command as
 written.
 
+<!-- specs/1788184145-the-gate-stops-the-session-editing-its-tests -->
+**A file edit goes through the `Edit` tool, because a shell command that only
+edits a file is still a command line this gate reads.** Dropping a heredoc
+body from the walk decides where a commit lands; whether the command commits
+at all is asked of every body separately, as shell, on purpose, because a
+commit hidden in a body used to walk straight past (legacy #75). Two kinds of
+segment count there. One is a segment whose command word is `git` with the
+`commit` subcommand, so what counts is the position and never the presence of
+the word: a whole fixture file of shell commands held in Python strings is
+clean, while an eight-line patch of that file trips (#34). The other has no
+commit in it at all — an `eval` whose argument the reader cannot expand
+stops the session, since nothing can tell what it reduces to without running
+the shell. So a session that searched its patch for a commit and found none
+has not cleared it, and an edit the `Edit` tool makes leaves no command line
+to read. Skipping a body that is only being written to a file would reopen
+#75, and that trade is the repository owner's to make.
+
+<!-- specs/1788305134-the-reader-stops-where-it-need-not -->
+
 **A failure branch waits for the operator that runs it.** `cd X && make \|\|
 git commit` commits where the shell is when the `cd` fails, and that is the
 directory the session started in. Reading only the operator immediately after
@@ -266,6 +285,11 @@ still costs one interruption.
 | the change confined to `docs/`, `seal/` | no different from any other change — this arm reads no paths. The parity arm's silence on the same roots is that arm's alone, and the paragraph below says why |
 | otherwise | contributes an ask |
 
+<!-- specs/1790154759-the-review-arm-asks-where-no-reviewer-compares -->
+**The review arm reads no paths: a change confined to `docs/` and `seal/`
+meets it as any other change does, and a lighter tier is declared, never
+inferred.**
+
 **Why this arm has no document-root line.** The two arms ask different
 questions. The parity arm asks whether the original was consulted, and a
 `docs/` file has no original, so its silence there is right. This arm asks
@@ -342,6 +366,10 @@ each refusal costs, is `docs/round-record-spec.md` for the record's rows, and
 `docs/review-chain-spec.md` for the floor, `Needs a fix`, the reopening and
 when the record was written.
 
+<!-- specs/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row -->
+**`straight to the PR` owes the sealer's `broad-gate.md` and turns off the
+reviewer alone, and `Review` has two answers, not three.**
+
 **Two answers, and not three.** A session that wrote a change and then checked
 it itself has asked for a third — *reviewed by the session* — with a record of
 its own (#241). There is none, and the reason is what the chain's record is
@@ -359,7 +387,9 @@ to the PR` and takes the broad run; what that answer turns off is the reviewer,
 and nothing else. A change belonging to no work item at all is the routing
 question's third answer, `no work item`, whose recorded form is `[no-review]`
 in front of each commit — there is no value meaning no enforcement anywhere.
+Enforced by: skills/code-review/scripts/chain_check.py::direct_seal
 
+<!-- specs/1789518345-who-asks-the-routing-question-and-what-checks-the-answer -->
 **A declaration the pull request RETIRED is not one it made**, and neither is
 one it only renamed. Both are ways a `routing.md` leaves a diff without
 anybody declaring anything, and both are excluded: the rename because the

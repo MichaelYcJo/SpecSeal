@@ -345,6 +345,19 @@ grandfathering here exists to prevent.
 above would rest on a row no record was required to carry, which is a run
 failed for a cell nobody asked its author for.
 
+<!-- specs/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row -->
+**A bare `yes` is refused at both ends of the record, and one reader says what
+the cell means.** The table's bare-`yes` row is the checker's end.
+`round_record.py new` is the writer's: it refuses a bare `yes` on either
+terminal line, `Needs a fix` and `Loses a record or crashes`, before the record
+exists, naming the label and that the line carries no reason. The printed
+bound reads the cell through `chain_check.says_reopened`, the reader both count
+walks use, so the line a session reads before spawning and the gate cannot
+disagree about one cell. The ruling this replaced called the row's leniency
+deliberate, its reason being the verdict table below it; that was decided while
+nothing read the row, and stopped being true once the floor's bound did.
+Enforced by: skills/code-review/scripts/chain_check.py::says_reopened, skills/code-review/scripts/round_record.py::terminal_value
+
 ### The reopening — one, and then the run is capped
 
 The floor's count leaves one door open, and the last branch went through it
@@ -841,6 +854,23 @@ a range row is turning the check off. The row is anchored on the range **and**
 on the work item whose `survivors.md` holds it, so it cannot become a
 standing *check nothing*.
 
+<!-- specs/1790174139-survivors-md-silences-what-it-quotes -->
+<!-- specs/1790206435-the-sweep-reads-a-code-idiom-as-removed-wording -->
+**A declaration in `survivors.md` speaks to its own work item's runs and to
+no other.** A file anywhere under `seal/specs/<id>/` belongs to that work
+item, so a range row filed one directory deeper than the layout is printed
+as `not yours` over a range that touches nothing there, instead of keeping
+the unbounded reach the owner check exists to refuse. A range row that no
+longer resolves prints `unresolved` only to a run that could have used it —
+one whose range touches its work item, or one handed a file from outside any
+work item. Every shipped `survivors.md` names a release branch deleted at
+the release, and three such lines printed on every pull request and every
+sealer run of one release, addressed to nobody. An unresolved row excuses
+nothing whether printed or not, so leaving the line out costs no allow. In
+local mode the owner is never in the range's diff, which is
+MichaelYcJo/SpecSeal#554, open.
+Enforced by: skills/code-review/scripts/survivor_check.py::whole_range, tests/test_a_corrected_sentence_survives_elsewhere.py
+
 <!-- specs/1789211172-a-round-record-disarms-survivor-check -->
 **A round record is outside the sweep's corpus on both sides.** A record is
 the write-up of a finding rather than a carrier of the claim, so a sentence
@@ -865,6 +895,47 @@ reading `not yet` or whose newest entry names a SHA that precedes that
 record's own `Target SHA`, are both refused on a ready pull request and each says which of
 the two it is — one is the run that never happened, the other the run spent
 before the round it was meant to seal.
+
+### What the sweep reads, and what it counts as written
+
+<!-- specs/1790174139-survivors-md-silences-what-it-quotes -->
+<!-- specs/1790206435-the-sweep-reads-a-code-idiom-as-removed-wording -->
+**The sweep reads only wording that still instructs somebody, and it reads
+it the same way on both sides of the range and in the pool.** What is left
+out is left out by its shape, never by a list of files. A file under a work
+item that records a past state is out: a round record, the work item's own
+`survivors.md`, and everything under its `phases/`. A released section of
+the root `CHANGELOG.md` — every line under a heading that names a version —
+is out, and so is a fragment whose `<!-- specs/<id> -->` marker stands in
+`CHANGELOG.md` at the tip, because a released entry is not rewritten;
+`## Unreleased` and an ungathered fragment stay in. In a `.py` file only
+comments, docstrings and string literals are wording, every other token ends
+a sentence, and a file the tokenizer refuses is read whole. Each of these
+cost a check that went green by finding nothing or red over something
+nobody could correct. A committed `survivors.md` subtracted the survivors
+it quoted before `--exempt` was read and diluted the rest under the floor:
+on three pull requests of one release, 36 rows were written and 7 were
+consulted. Six of the twenty-one places the next release's four ranges
+reported were function bodies matched on loop and `if` shapes.
+Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state, skills/code-review/scripts/survivor_check.py::a_gathered_fragment, skills/code-review/scripts/survivor_check.py::python_prose
+
+<!-- specs/1790206435-the-sweep-reads-a-code-idiom-as-removed-wording -->
+<!-- specs/1790221963-a-release-writes-the-gathered-text-back -->
+**Only wording the range itself wrote is subtracted from what it removed.**
+That subtraction is what makes the score mean *removed*, so the question is
+always whose writing a sentence is. A file moved to another path is read as
+a deletion plus an addition: a pure move writes every sentence back and is
+silent for that reason, and a move that rewords one sentence measures it,
+where git's rename detection hid both. A fragment's text gathered by a
+release is held and never written, because the fragment's own branch wrote
+it. Written, it subtracted the survivor a correction in the same commit left
+in another file whenever the release also lost a sentence, and renaming
+`## Unreleased` or rewording an entry as it is released both lose one. It
+still splits a sentence `CHANGELOG.md` itself lost, and nothing else. A
+release that loses no live sentence writes nothing it put under a version
+heading, and that guard and the gathered-text filter are pinned by separate
+cases, because either alone kept the shape the ticket first named green.
+Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released
 
 ## Non-goals
 
