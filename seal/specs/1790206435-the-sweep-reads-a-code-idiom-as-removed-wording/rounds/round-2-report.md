@@ -390,7 +390,7 @@ Files opened this round, in the clone at `1f8cdcda` unless noted:
 - `skills/code-review/scripts/chain_check.py:395-440` (the closing vocabulary, main checkout); `bin/test`; `CHANGELOG.md:1-20`
 - the `--name-only` / `--name-status` callers under `skills/`, `.github/` and `hooks/` (grep)
 
-The probe file (one `test_tmp` file under the clone's `tests/`) and the three temporary script
+The probe file (one `test_tmp` file under the clone's `tests/`) and the three temporary script NAME NOT IN TREE
 copies it wrote were deleted. The clone's tree was restored with
 `git checkout` after each swap, and `git status --short` was empty at the
 end. The clone and its runner venv are removed at hand-over.
