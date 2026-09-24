@@ -189,7 +189,7 @@ comparison rather than a list. Statements from earlier work items carry no
 those of work items released with it or still waiting from before it. Those
 101 were written with no line naming what reads any of them, and review found
 one of them false.
-Enforced by: skills/settle/scripts/fold_check.py::bound
+Enforced by: skills/settle/scripts/fold_check.py::bound, tests/test_a_folded_statement_names_what_enforces_it.py::test_every_bound_statement_in_docs_has_the_shape
 
 <!-- specs/1790154761-folded-statements-pile-into-one-spec -->
 <!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->

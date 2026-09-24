@@ -44,15 +44,21 @@ Markers and live lines come from the fold's own reader,
 loaded rather than re-spelled: a marker this counted and the fold did not, or
 the reverse, would be two answers about one document.
 
+Typed with no `--root`, it reads the repository the current directory is in,
+so a run from a subdirectory checks that repository and not nothing.
+
 Exit codes: 0 nothing found, including the run where nothing is declared ·
-1 at least one problem, each on a line of its own · 2 the root or a value was
-unusable and nothing was checked, or the interpreter is below the floor.
+1 at least one problem, each on a line of its own · 2 the root, a value or a
+file it had to read was unusable — a document that is not UTF-8, a `::name`
+target that will not parse — and no result was printed, or the interpreter is
+below the floor.
 """
 
 import argparse
 import ast
 import hashlib
 import importlib.util
+import io
 import os
 import re
 import sys
@@ -132,13 +138,15 @@ ENFORCED = "Enforced by: "
 NOTHING = "nothing — "
 
 
-def load(path, name):
-    """Import a sibling script by path, or refuse with a sentence."""
+def load(path, name, purpose):
+    """Import a sibling script by path, or refuse with a sentence that says
+    what the missing file is for — `purpose` — rather than one reason for
+    every file (round 1, note 7)."""
     if not os.path.isfile(path):
         raise SystemExit(
-            f"fold-check: cannot read {path}, and it is where the fold's "
-            "markers are read from. This command ships beside it under "
-            "`skills/`; a copy of one script taken on its own is not a plugin."
+            f"fold-check: cannot read {path}, and {purpose}. This command "
+            "ships beside it in the plugin; a copy of one script taken on its "
+            "own is not a plugin."
         )
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
@@ -154,8 +162,17 @@ _loaded = {}
 def reader():
     """`unverified_check.py`, loaded once on first use."""
     if "reader" not in _loaded:
-        _loaded["reader"] = load(READER, "specseal_unverified_reader_for_folds")
+        _loaded["reader"] = load(
+            READER,
+            "specseal_unverified_reader_for_folds",
+            "it is where the fold's markers are read from",
+        )
     return _loaded["reader"]
+
+
+class Unusable(Exception):
+    """A row whose value will not parse, or a file the run had to read and
+    could not (exit 2, no result printed)."""
 
 
 # --- the shape -------------------------------------------------------------
@@ -251,8 +268,19 @@ def target_problem(root, target):
         return None
     if not path.endswith(".py"):
         return f"{target}: `::name` needs a Python file"
-    with open(full, encoding="utf-8") as f:
-        tree = ast.parse(f.read())
+    try:
+        with open(full, encoding="utf-8") as f:
+            tree = ast.parse(f.read())
+    except (OSError, ValueError, SyntaxError) as unreadable:
+        # Not a problem with the statement and not a result: a target written
+        # for a newer Python than this one does not parse here, and a file
+        # that is not UTF-8 does not decode. Exit 1 means problems found, so
+        # this goes to exit 2 by `Unusable`, never as a traceback (round 1,
+        # finding 2).
+        raise Unusable(
+            f"names `{target}`, and {path} could not be read as Python "
+            f"({why(unreadable)})"
+        ) from unreadable
     kinds = (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)
     if any(isinstance(n, kinds) and n.name == name for n in ast.walk(tree)):
         return None
@@ -281,7 +309,10 @@ def shape_problems(root, name, text, cutoff):
                 problems.append(f"{where} says `nothing` and gives no reason")
             continue
         for target in value.split(","):
-            problem = target_problem(root, target)
+            try:
+                problem = target_problem(root, target)
+            except Unusable as refused:
+                raise Unusable(f"{where} {refused}") from refused
             if problem:
                 problems.append(f"{where}: {problem}")
     return problems
@@ -322,9 +353,24 @@ def documents(root):
     ]
 
 
+def why(error):
+    """A reader's reason, in the few words a person acts on."""
+    if isinstance(error, UnicodeDecodeError):
+        return "not UTF-8"
+    if isinstance(error, SyntaxError):
+        return f"SyntaxError at line {error.lineno}"
+    return type(error).__name__
+
+
 def read(root, rel):
-    with open(os.path.join(root, *rel.split("/")), encoding="utf-8") as f:
-        return f.read()
+    """A document's text, or `Unusable` naming it (round 1, finding 2)."""
+    try:
+        with open(os.path.join(root, *rel.split("/")), encoding="utf-8") as f:
+            return f.read()
+    except (OSError, ValueError) as unreadable:
+        raise Unusable(
+            f"{rel} could not be read as text ({why(unreadable)})"
+        ) from unreadable
 
 
 def ceiling_problems(root, ceiling, over, digests=None):
@@ -335,7 +381,16 @@ def ceiling_problems(root, ceiling, over, digests=None):
     problems = []
     names = documents(root)
     for rel in sorted(set(over) - set(names)):
-        problems.append(f"{rel} is listed over the ceiling and does not exist")
+        if os.path.exists(os.path.join(root, *rel.split("/"))):
+            # It exists, so "does not exist" would send a person looking for a
+            # deleted file; the cause is that the ceiling reads only the top
+            # level (round 1, finding 4).
+            problems.append(
+                f"{rel} is listed over the ceiling and is not a top-level "
+                f"{DOCS}/*.md, the only documents the ceiling holds"
+            )
+        else:
+            problems.append(f"{rel} is listed over the ceiling and does not exist")
     for rel in names:
         text = read(root, rel)
         lines = len(text.splitlines())
@@ -382,18 +437,44 @@ def ceiling_problems(root, ceiling, over, digests=None):
 # --- the rows --------------------------------------------------------------
 
 
-class Unusable(Exception):
-    """A row whose value will not parse (exit 2, nothing checked)."""
+def optin():
+    """`hooks/optin.py`, the one resolver, loaded once on first use."""
+    if "optin" not in _loaded:
+        _loaded["optin"] = load(
+            OPTIN,
+            "specseal_optin_for_folds",
+            "it is what finds the repository's seal/ root",
+        )
+    return _loaded["optin"]
+
+
+def located(root):
+    """`(home, where)`: the `seal/` root of the repository at `root`, or ""
+    where it has none, and the words that name where its rows were read.
+
+    Through `hooks/optin.py#home_at`, the way `settle.py#main` reaches it:
+    `<root>/seal/`, else the common git directory's `seal/`. `home_at`
+    answers "" for two states, and they are given two sentences, because
+    one was false for the other: a repository that opted out HAS a root, and
+    settle met the same defect as its own round 2 finding 7 (round 1,
+    finding 3)."""
+    resolver = optin()
+    common = resolver.git_common_dir(root)
+    home = resolver.home_at(root, common)
+    if home:
+        return home, os.path.join(home, CONFIG)
+    if common and os.path.isfile(os.path.join(common, resolver.SCRATCH)):
+        return "", (
+            f"{root}, which has opted out — `{resolver.SCRATCH}` is under its "
+            "git directory, so its seal/config.md is not read"
+        )
+    return "", f"{root}, which has no seal/ root at either place"
 
 
 def seal_home(root):
-    """The `seal/` root of the repository at `root`, or "" where it has none.
-
-    Through the one resolver, `hooks/optin.py#home_at`, loaded by path the
-    way `settle.py#main` loads it: `<root>/seal/`, else the common git
-    directory's `seal/`, and "" for a repository that opted out."""
-    optin = load(OPTIN, "specseal_optin_for_folds")
-    return optin.home_at(root)
+    """The `seal/` root of the repository at `root`, or "" where it has none
+    or opted out."""
+    return located(root)[0]
 
 
 def config_rows(home):
@@ -407,7 +488,11 @@ def config_rows(home):
             text = f.read()
     except (OSError, ValueError):
         return []
-    return load(CONFIG_READER, "specseal_config_for_folds").config_rows(text)
+    return load(
+        CONFIG_READER,
+        "specseal_config_for_folds",
+        "it is what reads the rows of seal/config.md",
+    ).config_rows(text)
 
 
 def row_value(rows, item):
@@ -550,12 +635,14 @@ def main(argv=None):
             f"fold-check: {root} is not a directory — nothing was checked\n"
         )
         return 2
-    home = seal_home(root)
-    where = (
-        os.path.join(home, CONFIG)
-        if home
-        else f"{root}, which has no seal/ root at either place"
-    )
+    if args.root is None:
+        # Typed anywhere inside a repository, the command reads that
+        # repository, the way `seal.py` and `chain_check.py` resolve theirs.
+        # Read from the directory it was typed in, a subdirectory has no
+        # `seal/` and no `docs/`, and the run passed having checked nothing
+        # (round 1, finding 1).
+        root = optin().repo_root(root) or root
+    home, where = located(root)
     try:
         cutoff, ceiling, over, digests = declared(home)
     except Unusable as refused:
@@ -576,7 +663,15 @@ def main(argv=None):
             f"fold-check: {root} has no {DOCS}/ directory — nothing was checked\n"
         )
         return 2
-    problems = run(root, (cutoff, ceiling, over, digests), where, sys.stdout)
+    # The run's lines are held until it has a result, so a file it cannot read
+    # stops it with nothing on stdout that reads as one (round 1, finding 2).
+    out = io.StringIO()
+    try:
+        problems = run(root, (cutoff, ceiling, over, digests), where, out)
+    except Unusable as refused:
+        sys.stderr.write(f"fold-check: {refused} — no result was printed\n")
+        return 2
+    sys.stdout.write(out.getvalue())
     for problem in problems:
         sys.stdout.write(problem + "\n")
     return 1 if problems else 0

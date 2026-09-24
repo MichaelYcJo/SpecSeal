@@ -14,7 +14,7 @@ is MichaelYcJo/SpecSeal#565. Work-item ids are epoch-prefixed, so the cutoff
 is a comparison and needs no list of exemptions.
 `docs/the-evidence-ledger.md` states the value in prose, and
 `tests/test_a_document_has_room_for_the_next_fold.py` pins the prose against
-this constant.
+that row.
 
 What the check reads is presence, count and resolution: the bold opening, one
 live `Enforced by:` line, and that every target names a file that exists and,
@@ -27,8 +27,9 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
-DOCS = os.path.join(ROOT, "docs")
 SCRIPT = os.path.join(ROOT, "skills", "settle", "scripts", "fold_check.py")
 SETTLE = os.path.join(ROOT, "skills", "settle", "SKILL.md")
 
@@ -55,14 +56,6 @@ def shape_problems(root, name, text, cutoff=CUTOFF):
     return fold_check.shape_problems(root, name, text, cutoff)
 
 
-def docs_documents():
-    return [
-        name
-        for name in sorted(os.listdir(DOCS))
-        if name.endswith(".md") and os.path.isfile(os.path.join(DOCS, name))
-    ]
-
-
 def read(path):
     with open(path, encoding="utf-8") as f:
         return f.read()
@@ -78,10 +71,12 @@ def test_every_bound_statement_in_docs_has_the_shape():
     assert cutoff is not None, "this repository's seal/config.md declares no cutoff"
     problems = []
     groups = 0
-    for name in docs_documents():
-        text = read(os.path.join(DOCS, name))
+    # The shipped command's own listing, not a second spelling of it (round
+    # 1, note 8): what this case walks is what `fold-check` walks.
+    for rel in fold_check.documents(ROOT):
+        text = read(os.path.join(ROOT, *rel.split("/")))
         groups += len(statements(text))
-        problems += shape_problems(ROOT, "docs/" + name, text, cutoff)
+        problems += shape_problems(ROOT, rel, text, cutoff)
     assert groups, "no fold marker was read under docs/"
     assert not problems, "\n".join(problems)
 
@@ -311,3 +306,54 @@ def test_the_command_exits_2_with_nothing_checked_on_an_unusable_root(tmp_path):
     assert code == 2 and "is not a directory — nothing was checked" in err, err
     code, _, err = command("--root", str(tmp_path), "--shape-from", "0")
     assert code == 2 and "has no docs/ directory — nothing was checked" in err, err
+
+
+# --- round 1 -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "content, reason",
+    [(b"def (:\n", "SyntaxError at line 1"), (b"x = 'caf\xe9'\n", "not UTF-8")],
+)
+def test_a_target_file_that_will_not_parse_exits_2_naming_it(tmp_path, content, reason):
+    """Round 1, finding 2: a target the reader cannot parse is not a result, so
+    it may not use exit 1, and it is no traceback either."""
+    root = planted_docs(tmp_path, "**Rule.**\nEnforced by: tests/bad.py::x\n")
+    (tmp_path / "tests").mkdir()
+    (tmp_path / "tests" / "bad.py").write_bytes(content)
+    code, out, err = command("--root", root, "--shape-from", str(CUTOFF))
+    assert code == 2 and not out and "Traceback" not in err, (code, out, err)
+    assert err == (
+        "fold-check: docs/d.md: the statement under ['1790154762-a-later-fold'] "
+        f"names `tests/bad.py::x`, and tests/bad.py could not be read as Python "
+        f"({reason}) — no result was printed\n"
+    ), err
+
+
+@pytest.mark.parametrize("flag", [["--shape-from", "0"], ["--ceiling", "5"]])
+def test_a_document_that_is_not_utf8_exits_2_naming_it(tmp_path, flag):
+    """Round 1, finding 2, from each check that reads the document."""
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "d.md").write_bytes(b"caf\xe9\n")
+    code, out, err = command("--root", str(tmp_path), *flag)
+    assert code == 2 and not out and "Traceback" not in err, (code, out, err)
+    assert err == (
+        "fold-check: docs/d.md could not be read as text (not UTF-8) — no result "
+        "was printed\n"
+    ), err
+
+
+def test_a_script_copied_on_its_own_says_which_sibling_it_misses(tmp_path):
+    """Round 1, note 7: the refusal names what the missing file is for."""
+    copy = tmp_path / "fold_check.py"
+    copy.write_text(read(SCRIPT), encoding="utf-8")
+    (tmp_path / "docs").mkdir()
+    done = subprocess.run(
+        [sys.executable, str(copy), "--root", str(tmp_path)],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert done.returncode != 0 and "Traceback" not in done.stderr, done.stderr
+    assert "it is what finds the repository's seal/ root" in done.stderr, done.stderr
+    assert "fold's markers" not in done.stderr, done.stderr
