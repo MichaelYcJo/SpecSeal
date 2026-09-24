@@ -1316,9 +1316,14 @@ def fenced_after(reader, raw, lines, heading):
     out, marker = [], None
     for i, _ in found[1]:
         line = raw[i].rstrip()
-        opener = re.match(r"^\s*(`{3,}|~{3,})", line)
+        # The opener keeps any indentation on purpose: a fix written as a
+        # fenced block inside a list item is still a fix, and copying it is
+        # the direction to be wrong in. Where a block ENDS is the shared
+        # rule's (#491): a closer carries nothing after its run, and a
+        # backtick opener's info string holds no backtick.
+        opener = re.match(r"^\s*(`{3,}|~{3,})(.*)$", line)
         if marker is None:
-            if opener:
+            if opener and not (opener.group(1)[0] == "`" and "`" in opener.group(2)):
                 marker = opener.group(1)
                 out.append(line)
             continue
@@ -1327,6 +1332,7 @@ def fenced_after(reader, raw, lines, heading):
             opener
             and opener.group(1)[0] == marker[0]
             and len(opener.group(1)) >= len(marker)
+            and not opener.group(2).strip()
         ):
             marker = None
     # This is NOT the refusal `swallowed` already made, and it is not dead.

@@ -31,7 +31,16 @@ def flat(*parts):
     return " ".join(read(*parts).split())
 
 
-ROWS = ("Commit and pull request language", "Record language", "Mode", "Broad gate")
+ROWS = (
+    "Commit and pull request language",
+    "Record language",
+    "Mode",
+    "Broad gate",
+    # The fold's three values, read by `fold-check` (#566).
+    "Fold shape from",
+    "Document line ceiling",
+    "Over the ceiling",
+)
 
 
 @pytest.mark.parametrize("row", ROWS)
@@ -55,7 +64,7 @@ def test_the_skill_shows_rows_that_are_absent():
     # negation — `never including the ones the file does not carry` left the
     # first spelling of this green (round 2).
     assert (
-        "print all four with their current values — including the ones the "
+        "print all seven with their current values — including the ones the "
         "file does not carry"
     ) in flat(*SKILL), (
         "the skill no longer tells the session to print the rows the file "

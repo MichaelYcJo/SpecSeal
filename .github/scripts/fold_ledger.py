@@ -104,10 +104,16 @@ the same section). What an open row is:
 
   1. a file that does not exist has no open row;
   2. a line outside a table whose first word is `drained` closes the whole
-     file, wherever it stands;
+     file, but only on a live line — one quoted in a fence, an HTML comment
+     or a code span closes nothing;
   3. otherwise every table body row is open unless its first cell begins
-     with a check mark (✅) — a header and its separator are not body rows;
+     with a check mark (✅) — a header and its separator are not body rows,
+     and a row inside a fenced block that closes is an example;
   4. a file with a header and no body row is not open.
+
+The rule is `skills/verify/scripts/unverified_check.py#todo_open_rows`, which
+this script loads rather than copies (#487), and whose docstring says why the
+two halves read by opposite rules.
 
 Every `seal/specs/*/evidence-todo.md` in the tree is read. The step runs on a
 branch cut from the release branch, which holds merged work only, so "every
@@ -152,7 +158,6 @@ HEADING_RE = re.compile(r"^(#{1,6})(\s)")
 VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 VERSION_HEADING_RE = re.compile(r"^## (\d+\.\d+\.\d+)\b")
 SEPARATOR_RE = re.compile(r"^\|(\s*:?-+:?\s*\|)+\s*$")
-DRAINED_RE = re.compile(r"^[\s*_]*drained\b", re.IGNORECASE)
 MARKER_LINE_RE = re.compile(r"^<!-- specs/\S+ -->$", re.M)
 
 
@@ -642,42 +647,28 @@ def split(root, text, dry_run):
     return 0
 
 
-def open_rows(text):
-    """Table body rows of an evidence-todo file that are still open.
+# The open-rows rule is the shipped one, loaded by path the way
+# `.github/scripts/rider_check.py` loads the shipped checker (#487). This file
+# used to keep a copy on the ground that release automation may not depend on
+# a shipped script, and nothing held the two in step; `rider_check.py` had
+# already taken that direction. A reader that is moved or renamed stops the
+# fold at load with a traceback, at the release, which is the loud direction.
+READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
 
-    The rule, so a person can apply it by hand: a line outside a table whose
-    first word is `drained` closes the whole file; otherwise every body row is
-    open unless its first cell begins with ✅. A table is a run of lines
-    starting with `|`; its first line is the header when the second is a
-    separator, and neither is a body row.
 
-    Split on `\\n` alone: `splitlines()` also breaks on U+2028, U+0085 and
-    form feed, so a cell holding one of those followed by `drained` closed the
-    file — the silent direction for a guard (round 1, 🟡 4).
-    """
-    lines = text.split("\n")
-    rows = []
-    n = 0
-    while n < len(lines):
-        line = lines[n]
-        if not line.lstrip().startswith("|"):
-            if DRAINED_RE.match(line):
-                return []
-            n += 1
-            continue
-        table = []
-        while n < len(lines) and lines[n].lstrip().startswith("|"):
-            table.append(lines[n])
-            n += 1
-        if len(table) >= 2 and SEPARATOR_RE.match(table[1].strip()):
-            table = table[2:]
-        for row in table:
-            if SEPARATOR_RE.match(row.strip()):
-                continue
-            first = row.strip().strip("|").split("|", 1)[0].strip()
-            if not first.startswith("✅"):
-                rows.append(row)
-    return rows
+def load_reader(path=READER):
+    """`unverified_check.py` as a module."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("specseal_unverified_reader", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# `unverified_check.py#todo_open_rows`, the one rule, under the name this
+# script's callers and cases already use.
+open_rows = load_reader().todo_open_rows
 
 
 def open_items(root):

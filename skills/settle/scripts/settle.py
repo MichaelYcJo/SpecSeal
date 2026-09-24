@@ -251,12 +251,13 @@ def open_rows(text):
     predicate began reading `evidence-todo.md` too: the guard here and the
     predicate every CI reader asks are one rule, not two copies of it.
 
-    **The same rule is spelled in `.github/scripts/fold_ledger.py#open_rows`,
-    and the two are not one reader.** That script is this repository's own
-    release automation under `.github/`, which is not on the list of what the
-    plugin ships (`tests/test_the_release_check_watches_what_ships.py#SHIPS`),
-    so a shipped command may not depend on it: a user's repository has the
-    ledger fold nowhere. The guard travels with the command that enforces it.
+    **`.github/scripts/fold_ledger.py#open_rows` is the same function**,
+    loaded by path from the shipped reader (#487). The direction that is
+    closed is the other one: that script is this repository's own release
+    automation, not on the list of what the plugin ships
+    (`tests/test_the_release_check_watches_what_ships.py#SHIPS`), so a shipped
+    command may not depend on IT — a user's repository has the ledger fold
+    nowhere. The guard travels with the command that enforces it.
     """
     return load(READER, "specseal_unverified_reader").todo_open_rows(text)
 
@@ -321,10 +322,11 @@ def coordinates(root):
     docstring carries why a sequence could not answer it.
 
     **A THIRD quotation is out of scope, and it is named here so it is not
-    met as a surprise:** markdown's indented code block. `blank_fences` knows
-    the two fenced forms only, so a fragment that shows its example row
-    indented four spaces has that example counted as its own coordinate.
-    Widening the fence reader would move `readable`, `check_text`,
+    met as a surprise:** markdown's indented code block. The fence delimiter
+    rule the ledger readers share, `unverified_check.py#fence_opener`, knows the
+    two fenced forms only, so a fragment that shows its example row indented
+    four spaces has that example counted as its own coordinate. Teaching the
+    shared rule an indented block would move `readable`, `check_text`,
     `round_record.py` and the review-history guard at once — measured
     2026-09-22, one such widening reddens
     `tests/test_the_record_is_generated.py#test_a_continuation_that_looks_like_an_opener_is_still_joined`,
@@ -438,17 +440,30 @@ def write_rule_kept(kept, out):
             )
 
 
+# What may stand before a row's first pipe without being part of the row: any
+# run of blockquote markers, bullet markers, ordered-list markers and comment
+# openers, in any combination and spaced or not. The class and not a list of
+# its instances (#530): round 3's paste-ready fix named five single tokens and
+# missed `> - |`, `> > |`, `1. |` and `>|`, which is how one class gets closed
+# three times (`agent-contract` §12). The empty run is in it too, so the
+# ordinary `| claim |` row takes the same arm.
+CONTAINER_RE = re.compile(r"(?:\s*(?:>|[-*+]|\d{1,9}[.)]|<!--))*\s*")
+
+
 def first_cell(line):
     """The first cell of a table row, which names the row's claim.
 
     A row commented out on its own line still carries an anchor the checker
     reads, so the guard names it; the comment opener in front of it is not
-    the claim (round 2's finding 7)."""
+    the claim (round 2's finding 7). Nor is a blockquote or a list marker in
+    front of it (#530): what stands before the first pipe is dropped when it
+    is container syntax and nothing else, and kept as the label when it holds
+    anything else, which is what this did before."""
     text = line.strip()
     if text.startswith("<!--"):
         text = text[len("<!--") :].strip()
     cells = CELL_RE.split(text)
-    if len(cells) > 1 and not cells[0].strip():
+    if len(cells) > 1 and CONTAINER_RE.fullmatch(cells[0]):
         cells = cells[1:]
     return cells[0].strip() if cells else ""
 
@@ -471,15 +486,15 @@ def anchored_rows(root, work_item_ids):
     `seal/ledger/*.md`, every `seal/releases/*.md`, and the pre-0.10
     `docs/**/_evidence.md`), with the one coordinate shape, `COORDINATE_RE`.
 
-    **Every line, a fenced or commented one included.** The checker's
-    `check_text` runs its anchor pattern over the whole text, so a row shown
-    inside a fence is BROKEN after the removal like any other. This used to
-    read through `unverified_check.py#live_lines`, whose ambiguous line is
-    settled as *not live*: that bias keeps a directory for the marker reader
-    and removed one here, which was #511 again one step narrower (round 1's
-    finding 1). A guard that reads fewer lines or fewer files than the checker
-    keeps fewer directories than the checker will report broken. When #444
-    teaches the checker to skip a fenced row, this still reads one, which
+    **Every line, a fenced or commented one included.** The checker reads a
+    commented row and a row inside a fence that never closes, so either is
+    BROKEN after the removal like any other. This used to read through
+    `unverified_check.py#live_lines`, whose ambiguous line is settled as *not
+    live*: that bias keeps a directory for the marker reader and removed one
+    here, which was #511 again one step narrower (round 1's finding 1). A
+    guard that reads fewer lines or fewer files than the checker keeps fewer
+    directories than the checker will report broken. Since #444 the checker
+    skips a row inside a fence that closes, and this still reads one, which
     keeps a directory the checker would not break — the direction to be wrong
     in, since a kept directory is a sentence and a removed one is not.
 

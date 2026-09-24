@@ -287,3 +287,41 @@ Rules 1 and 2 were derived under pressure by the session that met the gate's
 refusal after its review rounds had settled, and were written nowhere until
 #401. Rule 3 was already here and in the config skill, and it is folded into
 this table rather than copied into a third place.
+
+## The fold's values
+
+Three rows, read by `fold-check`, which holds `settle`'s two fold rules over
+the top level of `docs/` (`skills/settle/SKILL.md` §2). The plugin sets no
+value for either rule; these rows are where a repository states its own.
+
+```markdown
+| Fold shape from | 1790154761 |
+| Document line ceiling | 1000 |
+| Over the ceiling | none |
+```
+
+| Row | Value | Absent |
+|---|---|---|
+| `Fold shape from` | a work-item id's epoch prefix. A statement whose marker holds an id at or above it has the fold's shape; `0` binds every statement | the shape is not checked |
+| `Document line ceiling` | a positive whole number of lines, which no top-level `docs/*.md` may exceed unless it is listed below | no length is checked |
+| `Over the ceiling` | `none`, or entries separated by `;`, each `<path> frozen at <n> markers <digest> until <home>` | nothing is listed |
+
+**An absent row means not declared, and the command says so rather than
+refusing.** That is what every other optional row here means, and a
+repository that never folds has not asked for either check. The cost is
+stated rather than hidden: a row deleted while tidying this file turns its
+check off, and the only trace is the one line `fold-check` prints about it.
+
+**A value that will not parse is refused.** A cutoff or a ceiling that is not
+a whole number, or an entry out of shape, exits 2 naming the row, and nothing
+is checked. A flag, `--shape-from` or `--ceiling`, overrides its row for one
+run.
+
+**A listed document's markers are frozen, not its length.** The count is how
+many fold markers it may carry, and the digest is which ones: the first 12 hex
+digits of a SHA-256 over its sorted live marker ids. Nobody computes it by
+hand. When the count or the ids disagree, `fold-check` prints the digest the
+file has now, to be written into the entry in the commit that changed them.
+The entry names its home, the issue or document that will split the file,
+and it fails once the file is back under the ceiling, so it cannot outlive the
+split.

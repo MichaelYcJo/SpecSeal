@@ -1215,32 +1215,53 @@ CELL_BOUNDARY = re.compile(r"(?<!\\)\|")
 TABLE_RULE = re.compile(r"\|(\s*:?-+:?\s*\|)+")
 
 
-def overwide_rows(text):
+def cell_count(line):
+    """The cells a table row splits into, a missing closing `|` allowed."""
+    parts = CELL_BOUNDARY.split(line.rstrip())
+    return len(parts) - (2 if line.rstrip().endswith("|") else 1)
+
+
+def ledger_row_width():
+    """The cells `templates/ledger.md` declares for a ledger row, read from
+    its `| Clause |` header rather than written here as a literal."""
+    for line in read_text("templates", "ledger.md").split("\n"):
+        if line.startswith("| Clause |"):
+            return cell_count(line)
+    raise AssertionError("templates/ledger.md declares no `| Clause |` header")
+
+
+def ledger_overwide(text):
+    """`overwide_rows` as a ledger file is read: a row under no header is a
+    ledger row, and is counted against the template's width."""
+    return overwide_rows(text, ledger_row_width())
+
+
+def overwide_rows(text, width=None):
     """`(line number, header cells, row cells)` for every table row that
-    splits into more cells than its table's header, fenced blocks skipped."""
+    splits into more cells than its table's header, fenced blocks skipped.
+
+    A row with no header above it is counted against `width` (#501). A
+    ledger fragment has no header by rule, so without a width every fragment
+    row was read and none was counted. `None` keeps such a row uncounted."""
     found = []
     lines = text.split("\n")
-    header = None
+    header = width
     fence = False
-
-    def cells(line):
-        parts = CELL_BOUNDARY.split(line.rstrip())
-        return len(parts) - (2 if line.rstrip().endswith("|") else 1)
 
     for n, line in enumerate(lines, 1):
         if line.startswith("```"):
             fence = not fence
             continue
         if fence or not line.startswith("|"):
-            header = None if not fence else header
+            header = width if not fence else header
             continue
         if n < len(lines) and TABLE_RULE.fullmatch(lines[n].strip()):
-            header = cells(line)
+            header = cell_count(line)
             continue
         if TABLE_RULE.fullmatch(line.strip()) or header is None:
             continue
-        if cells(line) != header:
-            found.append((n, header, cells(line)))
+        if cell_count(line) != header:
+            found.append((n, header, cell_count(line)))
     return found
 
 
@@ -1257,10 +1278,39 @@ def test_an_unescaped_pipe_in_a_ledger_cell_is_named():
     assert overwide_rows(table) == [(3, 5, 6)]
 
 
+def test_a_row_under_no_header_is_counted_against_the_width_it_is_given():
+    """#501. A fragment has no header by rule, and the fold copies it into
+    its release file as it stands, so a row under no header is counted
+    against the width its caller gives. A table with its own header keeps
+    its own width, and a caller that gives none keeps the old skip. Seen red
+    against the header-only `overwide_rows`, which returned `[]` for the
+    headerless row."""
+    fragment = (
+        "| a | `x.py#f@00000000` | ran `cat f | grep -c x` | 2026-01-01 | n |\n"
+        "| b | `x.py#f@00000000` | ran `cat f \\| grep -c x` | 2026-01-01 | n |\n"
+    )
+    assert overwide_rows(fragment, width=5) == [(1, 5, 6)]
+    assert overwide_rows(fragment) == []
+    beside = "| Item | Value |\n|---|---|\n| a | b |\n\n" + fragment
+    assert overwide_rows(beside, width=5) == [(5, 5, 6)]
+    # `ledger_overwide` is what the corpus case calls, so a width dropped
+    # inside it goes red here, in this case. A corpus case that stops calling
+    # it and calls `overwide_rows` bare goes red nowhere: no row in the tree is
+    # overwide, so the corpus case alone stays green, and so does this one.
+    assert ledger_overwide(fragment) == [(1, 5, 6)]
+
+
 def test_no_ledger_row_splits_into_more_cells_than_its_header():
     """#562, over this repository's own ledger, every release file and every
     fragment. Seen red against the ledger at `31937b9f`: 22 rows, two of them
-    written by #547's notes and twenty older."""
+    written by #547's notes and twenty older.
+
+    A row under no header is counted against the ledger row's width from
+    `templates/ledger.md` (#501): every fragment row, and the released rows a
+    fold copied in without one. Counted 2026-09-24 by a script walking this
+    function's header logic over the shared file and every release file: 767
+    table body rows, 25 of them under no header (5 in `0.15.0.md`, 20 in
+    `0.15.1.md`), all five cells wide. None was counted before."""
     fragments = os.path.join(ROOT, "seal", "ledger")
     rels = ledger_files() + (
         [
@@ -1274,7 +1324,7 @@ def test_no_ledger_row_splits_into_more_cells_than_its_header():
     found = [
         f"{rel}:{n} has {row} cells under a {header}-cell header"
         for rel in rels
-        for n, header, row in overwide_rows(read_text(*rel.split(os.sep)))
+        for n, header, row in ledger_overwide(read_text(*rel.split(os.sep)))
     ]
     assert not found, (
         "a `|` inside a cell splits the row; write it as `\\|`:\n" + "\n".join(found)

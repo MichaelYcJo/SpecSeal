@@ -305,8 +305,10 @@ when it arrives.
 
   The fold refuses, naming the file, while any `seal/specs/<id>/evidence-todo.md`
   in the tree still has an open row: a row in a file with no `drained` line,
-  whose first cell does not begin with ✅. Merge the fact into the fragment
-  and drain the file; that is one commit on the release branch.
+  whose first cell does not begin with ✅. A `drained` line quoted in a fence
+  or a comment does not count, and a row inside a fenced example that closes
+  is not a row. Merge the fact into the fragment and drain the file; that is
+  one commit on the release branch.
 - **No real identifiers.** Examples, fixtures, and docs use `example.com`
   and `/Users/x/` only. `tests/test_no_real_identifiers.py` enforces it in
   CI — extend its allowlist deliberately, never to make a test pass.

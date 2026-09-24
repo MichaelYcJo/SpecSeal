@@ -840,6 +840,32 @@ def test_a_reason_the_checker_does_not_recognise_passes(repo):
     )
 
 
+def test_the_exception_names_the_direction_the_code_names():
+    """#569 ⬜ 2. `says_not_yet`'s `allow` is an exception to the direction
+    every other refusal in `chain_check.py` takes, and the docstring says so.
+    The spec's paragraph named §*The reopening*'s `blocks more` instead,
+    which is the reopening check's own failure direction and a different
+    rule. Both statements of the exception name the code's rule now. Seen red
+    against the paragraph as it stood before the sentence changed."""
+    spec = flat("docs", "round-record-spec.md")
+    opening = "**Its direction is `allow`"
+    assert opening in spec, "the fix-surface paragraph on `allow` is gone"
+    paragraph = spec.split(opening, 1)[1].split("**", 2)[:2]
+    sentence = "**".join(paragraph)
+    assert "every other refusal in `chain_check.py` takes" in sentence, (
+        "the spec's exception does not name the direction chain_check.py's "
+        "other refusals take"
+    )
+    assert "§*The reopening*" not in sentence, (
+        "the spec's exception points at the reopening check's failure "
+        "direction, which is a different rule"
+    )
+    doc = " ".join(check_module().says_not_yet.__doc__.split())
+    assert (
+        "Every other refusal here treats what it cannot read as the failing case" in doc
+    ), "says_not_yet's docstring no longer names the rule its exception is to"
+
+
 def test_a_forgotten_checker_cell_leaves_the_arm_nothing_to_key_on(repo):
     """Round 3's 🟡 1. The arm reads `Fixes checked by`, so the session that
     forgets the reach-back ENTIRELY — all three cells left where the template
