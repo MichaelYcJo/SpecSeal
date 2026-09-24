@@ -8,7 +8,7 @@
 | PR | 593 |
 | Broad gate | not yet |
 | Fixes checked by | no fixes to check |
-| Fix range | none |
+| Fix range | `1df2947930bcc15a50c59de8ed86526b7291c59c..1df2947930bcc15a50c59de8ed86526b7291c59c`, 0 commits |
 | Contract changes | none |
 | New units | none |
 | Needs a fix | no |
