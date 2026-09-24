@@ -149,12 +149,16 @@ Both found something the first time. At the release that runs `--split` it
 is also the first time `seal/releases/` exists, and three readings are that
 release's to take (the #547 work item's `questions.md` Q6): the marker census
 case in `tests/test_a_merge_cannot_silently_drop_a_correction.py` stays
-green; `evidence_check.py --strict .` reports no drifted and no broken row
-before and after the split, and the same count of distinct `(status,
-coordinate)` pairs — the `ok` total rises, because the checker counts a
-`(coordinate, hash)` pair once per file and the split puts pairs two releases
-shared into two files; and `correction-check` over the next release's merges
-stays silent across the moved rows. So the whole gate runs on this tree, and
+green; `evidence_check.py --strict .` exits 0 before and after the split,
+with no drifted and no broken row. Its `ok` total rises, because the checker
+counts a `(coordinate, hash)` pair once per file and the split puts pairs two
+releases shared into two files, so the total is not the comparison. The
+table lines are: `cat seal/ledger.md seal/ledger/*.md | grep -c '^|'` before
+the split prints the number that
+`cat seal/ledger.md seal/releases/*.md seal/ledger/*.md | grep -c '^|'`
+prints after it, which is every row in exactly one file. And
+`correction-check` over the next release's merges stays silent across the
+moved rows. So the whole gate runs on this tree, and
 every exit code is read directly rather than through a `| tail`.
 
 <!-- specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep -->

@@ -120,8 +120,9 @@ jobs:
 
       # The other fragment a change writes is `seal/ledger/<work-item-id>.md`,
       # its evidence rows. The release folds those into that release's own
-      # file, `seal/releases/<X.Y.Z>.md`, and removes the fragment; a fragment left behind is a directory that
-      # grows by one file per work item forever, which is issue #78. The same
+      # file, `seal/releases/<X.Y.Z>.md`, and removes the fragment; a fragment
+      # left behind is a directory that grows by one file per work item
+      # forever, which is issue #78. The same
       # step refuses while any `seal/specs/<id>/evidence-todo.md` has an open row —
       # a fact a reviewer verified that never reached the ledger — so the
       # check reads those too: a fold done by hand still meets the guard here.

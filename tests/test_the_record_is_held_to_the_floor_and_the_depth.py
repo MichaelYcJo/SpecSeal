@@ -501,7 +501,8 @@ def test_a_round_that_fixed_over_a_no_is_where_the_count_stops(repo):
     Round 1 meets the floor. Round 2 is its verifying round; the reviewer
     answers `Needs a fix: no`, judging its one 🟡 answerable with grounds. The
     orchestrator fixes it anyway — the finding was a false count that
-    `fold_ledger.py` ships into the shared ledger — commits the fix, and sets
+    `fold_ledger.py` copied into the shared ledger at the release — commits
+    the fix, and sets
     the verdict to `**fixed**`. Those fixes owe a reader, so round 3 reads
     them and opens nothing.
 

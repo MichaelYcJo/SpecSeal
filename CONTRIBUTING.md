@@ -222,15 +222,16 @@ when it arrives.
   So a claim leaves the ledger when the code it was about does, and comes
   back at the release, folded in from the fragment that replaced it.
 
-  **When a ledger file conflicts — `seal/ledger.md` or a
-  `seal/releases/<X.Y.Z>.md` — resolve it hunk by hunk and read both
-  sides.** The split into release files made the files smaller, not the
-  conflict rarer: two branches that re-stamp one row still meet on it.
-  Never `--ours` and never `--theirs`. A whole-file choice is wrong
-  by construction once both branches have been correcting, and the measured
-  instance is the argument: in #424 the two hunks resolved in opposite
-  directions, because each side was the superset in one of them. Taking a
-  side reverted three corrections that had each turned a false claim true.
+  **When a ledger file conflicts — `seal/ledger.md`, a
+  `seal/releases/<X.Y.Z>.md`, or a fragment two stacked branches both edited —
+  resolve it hunk by hunk and read both sides.** The split into release files
+  made the files smaller, not the conflict rarer: two branches that re-stamp
+  one row still meet on it. Never `--ours` and never `--theirs`. A whole-file
+  choice is wrong by construction once both branches have been correcting, and
+  the measured instance is the argument: in #424 the two hunks resolved in
+  opposite directions, because each side was the superset in one of them.
+  Taking a side reverted three corrections that had each turned a false claim
+  true.
 
   **Nothing downstream can see that, which is why the reading is yours.** A
   row reverted to a superseded state is byte-identical to a row nobody

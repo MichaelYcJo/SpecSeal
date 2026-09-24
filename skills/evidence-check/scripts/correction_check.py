@@ -235,9 +235,10 @@ SIZE_CAP = 8 * 1024 * 1024
 #                the day below, the file a release folded the fragments INTO,
 #                so it was the part of the corpus that survives a release. A
 #                release now folds into `seal/releases/<X.Y.Z>.md` (#547), so
-#                a figure taken today spans those files too. A figure spanning `seal/ledger/*.md` is invalidated by
-#                any work item recording a correction in its own fragment, and
-#                by the fold itself.
+#                a figure taken today spans those files too. A figure
+#                spanning `seal/ledger/*.md` is invalidated by any work item
+#                recording a correction in its own fragment, and by the fold
+#                itself.
 #   instrument   the unbounded walk above, never `MARKER`.
 #   moment       2026-09-22, at the tip of the branch for #469, #470 and #471,
 #                taken after both of that branch's own ledger edits. THESE

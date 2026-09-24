@@ -1130,12 +1130,13 @@ def ledger_text(path, from_index=False):
 def ledger_corpus():
     """`{path: text}` for every ledger file the check watches.
 
-    Read through the module's own `LEDGER`, `FRAGMENTS` and `RELEASES` rather than a list
-    written here, because a hard-coded list goes blind exactly when the
-    fragments are folded into the shared file -- which `fold_ledger.py` does
-    at every release and did at 0.12.2, leaving `seal/ledger/` an empty glob
-    in this tree. Tracked files only, which is what `ledger_listing` reads
-    through `git ls-tree` at each commit.
+    Read through the module's own `LEDGER`, `FRAGMENTS` and `RELEASES` rather
+    than a list written here, because a hard-coded list goes blind exactly
+    when the fragments are folded at a release -- into the shared file until
+    #547, into that release's own file since -- which `fold_ledger.py` did at
+    0.12.2, leaving `seal/ledger/` an empty glob in this tree. Tracked files
+    only, which is what `ledger_listing` reads through `git ls-tree` at each
+    commit.
 
     **The listing is split by `conftest.on_disk`**, the predicate five other
     helpers in this suite share, and
