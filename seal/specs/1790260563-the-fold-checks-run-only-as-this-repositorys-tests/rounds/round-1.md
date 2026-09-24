@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 587 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `f181e30abd4539320446d17dd5cbc0eee6f20b68..d32c365a843cecb12bc20b9a1a84c94b9655252f`, 2 commits |
 | Contract changes | load → plugin_name, read_version, hygiene.yml, CHANGELOG.md, main, running, load_input, dead_session_ids, fresh_leases, 0.9.1.md, round-1-report.md, round-1.md, load, pull_request_state, chain, where, orchestration.md, read_state, plugin_version, reader, optin, config_rows, open_rows, coordinates, anchored_rows, survey, retire, SKILL.md, broad_command, refusal, rows_read, fenced_row_at, fence_left_open, gate, broad_gate.py, measure, segment_slices, pytest |
 | New units | why (depth 1); optin (depth 1); located (depth 1); git_init (depth 1); test_the_command_typed_in_a_subdirectory_reads_the_repository (depth 1); test_an_opted_out_repository_is_told_it_opted_out (depth 1); test_a_repository_with_no_root_is_told_it_has_none (depth 1); test_a_listed_document_below_the_top_level_is_named_as_outside_it (depth 1); test_a_target_file_that_will_not_parse_exits_2_naming_it (depth 1); test_a_document_that_is_not_utf8_exits_2_naming_it (depth 1); test_a_script_copied_on_its_own_says_which_sibling_it_misses (depth 1) |
