@@ -7,14 +7,14 @@
 | Ran by | warden on Opus 5.5 |
 | PR | 552 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `9da6a30355a5589461eec306e62ea43c4626f586..fd6a8fd3161dd6fc5f82399774ba42f505a6e914`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 5, *the day after* in the two test docstrings and fragment row F3 (with `spec.md` and `questions.md`) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 2, the verifying round at round 1's fixes: the range `0c72d956..44146cf3` 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 5 | *the day after* the preparation commit is false — `bee7ae99` 02:04:21 and `4ac9bf35` 02:35:35 on 2026-09-09 (+0900), thirty-one minutes apart and one date in either zone; the hygiene docstring also reads `4ac9bf35` as the preparation commit | `tests/test_release_hygiene.py:1118-1119`, `tests/test_the_ledger_fragments_fold_at_release.py:317`, fragment row F3's Notes (and `spec.md:19`, `questions.md:14-15`) | open | executed — `git log -S'## 0.9.3 — ' -- seal/ledger.md` and `git log -1 --date=iso-strict` on both commits; the frame's measured-state table records no *day after*; the same class as round 1's 🟡 1, and F3 ships in `seal/ledger.md` |
-| ⬜ 6 | three rewordings say a held run at the same commit and base is replaced, where `same_run` is asked of the newest entry alone | `agents/sealer.md:140-142`, `docs/review-chain-spec.md:343-344`, `skills/code-review/scripts/chain_check.py:3667-3668` (and `skills/code-review/orchestration.md:527-529`, `:537-539`) | open | read — `round_record.py:382` compares `entries[0]` only; A/B1, A/B2, A/B1 keeps two entries for one comparison; rare and prose-only, so ⬜ |
-| ⬜ 7 | #553's title and body still say two, and its correcting comment gives the twenty pairs as *at 9f846733* where the eleven after line 1764 are the tip's numbers | issue #553 | open | executed — the pair lines at 9f846733, 9f5902e5 and 9951af3b; step D reads the body; the orchestrator's, outside the tree, out of `Needs a fix` |
-| ⬜ 8 | the pull request body's gate table says `--check` is green over this tree, and its #540 row carries *the day after* | pull request #552 body | open | executed — `fold_ledger.py --check --root .` exits 1 on the unfolded fragment at the target; the orchestrator's, out of `Needs a fix` |
+| 🟡 5 | *the day after* the preparation commit is false — `bee7ae99` 02:04:21 and `4ac9bf35` 02:35:35 on 2026-09-09 (+0900), thirty-one minutes apart and one date in either zone; the hygiene docstring also reads `4ac9bf35` as the preparation commit | `tests/test_release_hygiene.py:1118-1119`, `tests/test_the_ledger_fragments_fold_at_release.py:317`, fragment row F3's Notes (and `spec.md:19`, `questions.md:14-15`) | **fixed** `fd6a8fd3` | fixed at fd6a8fd3 — every in-tree carrier states the measured gap: `bee7ae99` at 02:04:21 and `4ac9bf35` at 02:35:35 on 2026-09-09 +0900, thirty-one minutes apart (17:04:21 and 17:35:35 UTC on 2026-09-08); the hygiene docstring names `bee7ae99` as the preparation commit; the two test docstrings, fragment row F3, `spec.md` and `questions.md`; no *day after* or *next day* left on this subject; executed — `git log -S'## 0.9.3 — ' -- seal/ledger.md` and `git log -1 --date=iso-strict` on both commits; the frame's measured-state table records no *day after*; the same class as round 1's 🟡 1, and F3 ships in `seal/ledger.md` |
+| ⬜ 6 | three rewordings say a held run at the same commit and base is replaced, where `same_run` is asked of the newest entry alone | `agents/sealer.md:140-142`, `docs/review-chain-spec.md:343-344`, `skills/code-review/scripts/chain_check.py:3667-3668` (and `skills/code-review/orchestration.md:527-529`, `:537-539`) | **fixed** `fd6a8fd3` | fixed at fd6a8fd3 — `agents/sealer.md`, `docs/review-chain-spec.md`, `chain_check.py#broad_gate`'s docstring and both `skills/code-review/orchestration.md` paragraphs name the newest entry as the one a same comparison replaces, matching `same_run(entries[0], value)`; no code changed; four round-1 ledger notes narrowed in place; read — `round_record.py:382` compares `entries[0]` only; A/B1, A/B2, A/B1 keeps two entries for one comparison; rare and prose-only, so ⬜ |
+| ⬜ 7 | #553's title and body still say two, and its correcting comment gives the twenty pairs as *at 9f846733* where the eleven after line 1764 are the tip's numbers | issue #553 | answered | corrected outside the tree by the orchestrator: #553's title and body say twenty, list the pairs at 9f846733 and name the two-line shift on a branch carrying #540's repair; executed — the pair lines at 9f846733, 9f5902e5 and 9951af3b; step D reads the body; the orchestrator's, outside the tree, out of `Needs a fix` |
+| ⬜ 8 | the pull request body's gate table says `--check` is green over this tree, and its #540 row carries *the day after* | pull request #552 body | answered | corrected outside the tree by the orchestrator: PR #552's body no longer says *the day after* and says the doubled-version arm is silent over this tree while `--check` as a whole exits 1 on the branch's own unfolded fragment; executed — `fold_ledger.py --check --root .` exits 1 on the unfolded fragment at the target; the orchestrator's, out of `Needs a fix` |
 | 🟢 | round 1's 🟡 1 is closed — the five carriers state the measured figure | `.github/scripts/fold_ledger.py:23-26`, `tests/test_release_hygiene.py:1119-1123`, `tests/test_the_ledger_fragments_fold_at_release.py:314-315`, the changelog fragment, F3 | verified | executed — seventeen `## 0.9.4`…`## 0.15.0` sections after line 1764 at 9f846733 and after 1673 at the target; eighteen tags after `v0.9.3`, `v0.13.2` sectionless; no *six release* outside the round records; the `v0.9.3` tag itself heads `0.9.3` twice, which no carrier contradicts |
 | 🟢 | round 1's ⬜ 2 is closed — twenty doubled markers, 118 and 98, #553 named | `overview.md` §Not done, `phases/phase-5.md` | verified | executed — `grep -c` 118, `sort -u` 98, `uniq -d` 20 at the target |
 | 🟢 | round 1's ⬜ 3 is closed — the two rewordings and the tenth carrier state the same-commit-same-base replace, `GATE_CARRIERS` intact | `agents/sealer.md:139-143`, `docs/review-chain-spec.md:341-346`, `skills/code-review/scripts/chain_check.py:3662-3669` | verified | read against `kept_broad_gate` and `same_run`; executed — the cell module green in the narrow run; the one qualifier they drop is ⬜ 6 |
