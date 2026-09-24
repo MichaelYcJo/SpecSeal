@@ -33,6 +33,8 @@ import os
 import re
 
 import pytest
+from conftest import build_tracked_tree
+from test_release_hygiene import LOADED, tracked
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 GUIDE = os.path.join(ROOT, "CONTRIBUTING.md")
@@ -194,4 +196,87 @@ def test_no_contributor_facing_surface_names_a_concrete_release_branch(surface):
     assert not stale, (
         f"{surface} names {sorted(set(stale))} — a concrete release branch is "
         "deleted after its release. Name the convention instead"
+    )
+
+
+# --- the same rule, one population wider (#466) -----------------------------
+
+# The four surfaces above were the population the convention was WRITTEN on.
+# A concrete branch name goes stale wherever a reader meets it, so the rule
+# reaches every file the hygiene timer rule already reads — the tuple
+# `tests/test_release_hygiene.py#LOADED` names, through that module's own
+# `tracked` — and not a list of its own that would rot the way the four did.
+RELEASE_BRANCH = re.compile(r"release/v\d+\.\d+\.\d+")
+
+# A concrete name that is history rather than a timer: a dated measurement, a
+# branch that shipped under another version, and a merge the correction
+# checker's own history walk found. Each is the sentence that carries the
+# name, whitespace-collapsed, so the name is allowed where that sentence
+# stands and nowhere else in the file — the shape `test_release_hygiene.py`
+# gives *the branch `release/v0.3.0` shipped as 0.2.0*.
+RELEASE_BRANCH_HISTORY = {
+    "agents/smith.md": "measurement was taken at `release/v0.9.3`",
+    "docs/issues-and-milestones.md": "the branch `release/v0.3.0` shipped as 0.2.0",
+    "skills/evidence-check/scripts/correction_check.py": (
+        "opening it showed correct work: `release/v0.9.3` re-anchored a row"
+    ),
+}
+
+
+def concrete_release_branches(root, history=RELEASE_BRANCH_HISTORY):
+    """{file: the concrete release branches it names outside its history}."""
+    files, _missing = tracked(*LOADED, root=root)
+    found = {}
+    for rel in files:
+        try:
+            text = " ".join(read(os.path.join(root, rel)).split())
+        except UnicodeDecodeError:
+            continue
+        phrase = history.get(rel)
+        if phrase is not None:
+            text = text.replace(phrase, "")
+        names = RELEASE_BRANCH.findall(text)
+        if names:
+            found[rel] = sorted(set(names))
+    return found
+
+
+def test_no_loaded_file_names_a_concrete_release_branch():
+    found = concrete_release_branches(ROOT)
+    assert not found, (
+        "a concrete release branch is deleted after its release, so a file "
+        "that ships naming one is false on a schedule. Name the convention "
+        "(`release/vX.Y.Z`) instead, or, where the name is history, add the "
+        "sentence that carries it to RELEASE_BRANCH_HISTORY: "
+        + "; ".join(f"{rel}: {', '.join(n)}" for rel, n in sorted(found.items()))
+    )
+
+
+def test_the_widened_pin_reads_a_file_the_four_surfaces_never_held(tmp_path):
+    """S16. A shipped skill outside the original four surfaces, naming a
+    concrete branch in a usage line, is refused; the history sentence beside
+    it in the same tree is not."""
+    root = build_tracked_tree(
+        tmp_path / "tree",
+        {
+            "skills/x/SKILL.md": "Run `x --range origin/release/v1.2.3...HEAD`.\n",
+            "docs/issues-and-milestones.md": (
+                "Here the branch `release/v0.3.0` shipped as 0.2.0, once.\n"
+            ),
+        },
+    )
+    assert concrete_release_branches(str(root)) == {
+        "skills/x/SKILL.md": ["release/v1.2.3"]
+    }
+
+
+@pytest.mark.parametrize("rel", sorted(RELEASE_BRANCH_HISTORY))
+def test_each_history_sentence_still_stands(rel):
+    """An allowance whose sentence is gone allows nothing and reads as if it
+    did. It is removed with its sentence, so the list stays the set of names
+    that are history in the tree as it stands."""
+    text = " ".join(read(os.path.join(ROOT, rel)).split())
+    assert RELEASE_BRANCH_HISTORY[rel] in text, (
+        f"{rel} no longer carries the history sentence the allowance names; "
+        "remove the entry"
     )
