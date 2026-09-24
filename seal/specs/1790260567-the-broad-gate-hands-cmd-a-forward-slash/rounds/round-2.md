@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 595 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `1cbae560b5972f0ae9c242f0d74227d798c8e17f..473892da98077b332171e1004ef65ef296235b98`, 3 commits |
 | Contract changes | none |
 | New units | test_a_switch_against_another_program_is_rewritten_the_documented_bound_not_the_goal (depth 1) |
