@@ -1,5 +1,256 @@
 # Changelog
 
+## 0.15.1 — 2026-09-24
+
+<!-- specs/1790206435-the-sweep-reads-a-code-idiom-as-removed-wording -->
+### Fixed
+
+- `survivor-check` reads a Python file's prose — its comments, docstrings
+  and string literals — and nothing else (#543). Every other token is a
+  separator, so a code token between two literals ends the sentence and two
+  literals across a line break are still one; a file the tokenizer refuses
+  is read whole, as before. A generic list walk used to normalise to the
+  same words in every module that has one, so a branch rewriting one loop
+  was told every other loop still stood: four of one branch's five
+  exemption rows, and six of the twenty-one places the 0.15.0 release's four
+  ranges reported, were function bodies. Over those four ranges the sweep
+  now reports 4, 0, 8 and 1 places, every one of them prose.
+- A released changelog section and a gathered fragment are records the
+  sweep leaves out on both sides (#307): every line under a heading naming a
+  version in the root `CHANGELOG.md`, up to the next `## ` heading, and a
+  `seal/specs/<id>/changelog.md` whose marker stands in `CHANGELOG.md` at
+  the range's tip. An `## Unreleased` section and an ungathered fragment
+  stay in, because they are this release's own prose. A released entry is
+  not rewritten, so being reported against one cost a `survivors.md` row for
+  a sentence nobody may correct; two of the four measured ranges carried
+  that report.
+- An unresolved `survivors.md` declaration prints only to the run it
+  addresses (#439). Every shipped work item's declaration names a release
+  branch deleted at the release, and the line for it printed on every pull
+  request into a release branch and every seal — three per run for one
+  release — for a declaration that could never have applied. The second
+  anchor is now asked first: a declaration owned by a work item the range
+  touches nothing of prints nothing and silences nothing; one with no owner,
+  or owned by a work item the range touches, prints under `unresolved` as
+  before.
+- `survivor-check` reads a renamed file as a deletion plus an addition
+  (#551). With git's rename detection on, a file moved whole was listed
+  under its new path alone, so the range removed nothing the sweep could
+  see — right for a pure move, and identical for a move with one sentence
+  reworded, which git calls a rename too: the reworded sentence never became
+  a source and its copy standing in another file was never reported. Now
+  the old path's sentences are removed, a pure move stays silent because
+  every one of them is written back verbatim, and the reworded one is
+  looked for.
+
+<!-- specs/1790206436-the-runs-instruments-cost-wall-clock -->
+### Fixed
+
+- **`bin/test` runs the suite in parallel by default, in every environment
+  it builds or adopts (#337).** The runner built its virtualenv with `pytest`
+  alone, so `-n auto` failed on every fresh build and the runner withheld it,
+  while CI ran the same suite `-n auto` on three platforms for every release.
+  Now `pytest-xdist` is installed beside `pytest` on both build strategies,
+  an adopted `.venv` that lacks it takes one install step by the same tool
+  order (found by the filesystem, never a subprocess, so a warm call still
+  runs no builder), and the command carries `-n auto` unless the caller
+  passed `-n…`, `--numprocesses…`, `-p no:xdist` or `--pdb`. A failed install
+  is one sentence — the package, that the run is serial, the remedy — and
+  the suite still runs, with pytest's exit code. Measured on the 0.15.0 run
+  (macOS, 10 logical CPUs, 2026-09-24): six sealer runs of the serial suite
+  at about thirteen minutes each, against `4397 passed in 3m04s` for the
+  same suite run `-n auto` by hand during the release preparation, which is
+  the configuration that is now the default; a cold build of the parallel
+  environment in a scratch clone took 1.6 s with `uv`'s cache warm and the
+  warm call after it 0.9 s. The serial figure (*about five minutes*) is
+  gone from `bin/test`, the runner, `CONTRIBUTING.md` §*Running the checks*
+  and the test module, and `docs/release-checklist.md` §3's suite line is
+  `bin/test -q` rather than a second spelling of the run.
+
+<!-- specs/1790206437-a-second-fold-writes-a-second-heading -->
+- **A second fold for one version joins its section, and the ledger heads
+  each version once (issue #540).** `fold_ledger.py --version X.Y.Z` run
+  again for a version `seal/ledger.md` already heads used to write a second
+  `## X.Y.Z` heading below everything — the ordinary shape when a release
+  pull request goes red and a fragment lands after the preparation commit,
+  and `seal/ledger.md` carried a second `## 0.9.3` from exactly that through
+  seventeen ledger sections (`0.9.4` to `0.15.0`) while the ticket said
+  nobody had run the fold twice. The second
+  heading is removed, the fold now appends the late work items into the
+  section the ledger already heads and keeps that section's first date over
+  `--date` and today, `--dry-run` prints the heading it joins, and
+  `fold_ledger.py --check` refuses a ledger that heads a version twice,
+  naming both lines; `tests/test_release_hygiene.py` refuses the same on
+  every pull request, as it already did for `CHANGELOG.md`. The release
+  checklist says the fold answers as the gather does.
+- **The comment every `broad-gate.md` is written with states the rule the
+  writer follows (issue #542).** The comment `round-record seal` writes into
+  a `straight to the PR` work item's `broad-gate.md`, and `kept_broad_gate`'s
+  docstring, described the `Broad gate` cell as it stood before 0.15.0's
+  same-run fix — *a run taken again is written in front, and the earlier one
+  stays behind it*; *the count of runs*. Both now say what the code does: a
+  run at a new commit, or at this one against another base, is written in
+  front and the earlier stays behind it as `earlier run`; a run the newest
+  entry already records — the same commit against the same base — replaces
+  it, and the count of entries is the count of distinct comparisons. A case
+  reads the written file for the sentence, so a third rewording cannot reach
+  every `broad-gate.md` unpinned, and the two further documents that stated
+  the replaced rule — the handoff protocol's `Broad gate` row and the
+  orchestration skill's sealer paragraph — say the same in one clause each.
+- **A finding whose coordinates sit at two depths is written as two findings
+  (issue #366, second half).** `round-record close` keys its depth-2 refusal
+  on a finding's `Location` and refuses every unit that finding's fix commit
+  added in the file, so a finding with one coordinate inside a unit an
+  earlier round's fixes created and another outside had its depth-1 units
+  refused beside the depth-2 one. The reviewer splits it, one depth per
+  finding: the sentence is one text in `agents/warden.md`,
+  `skills/code-review/SKILL.md` and `docs/review-chain-spec.md`, pinned to
+  each other, and `depth_two` is unchanged — its refusal already names the
+  finding whose fix added the unit, which is the one to split next round.
+  The three cases of the first half shipped in 0.15.0; the owner chose the
+  convention over a finer check, and #366 closes.
+
+<!-- specs/1790208593-the-fold-writes-each-release-to-its-own-file -->
+- **The fold writes each release's ledger rows to a file of its own
+  (issue #547).** `fold_ledger.py --version X.Y.Z` writes
+  `seal/releases/X.Y.Z.md` instead of appending to `seal/ledger.md`, and a
+  second fold for one release joins that file and keeps its date. Every
+  reader of the ledger reads the new glob: `evidence-check` (and its
+  `--reverify`, `--migrate` and narrowing notice), the commit-time advisor,
+  the session-start migration, `correction-check` and `settle`. A row is a
+  content anchor, so where it sits changes no row's status; the checker's
+  `ok` total counts a row cited in two files once per file, so it can rise.
+  `fold_ledger.py --split` moves the sections already folded into
+  `seal/ledger.md` into their own files once, byte for byte, and rewrites the
+  one row anchored into a moved section. It runs at the release that ships
+  this change, after its `--dry-run` is read, and `fold_ledger.py --check`
+  refuses a `seal/ledger.md` that still heads a release, naming `--split`.
+  What this buys: `seal/ledger.md` shrinks to about 100 lines and stops
+  growing, a release adds a file, and a re-stamp's diff or a conflict's hunks
+  land in the 10–307-line file of the release the row belongs to. **What it
+  does not buy:** the ticket expected it to remove the ledger's merge
+  conflicts, and it does not. Every conflict in the merge that prompted it
+  was two branches re-stamping the same row, and that row still conflicts
+  wherever it stands. Removing that conflict means changing where a
+  re-verification is recorded, which is a 0.16.0 question.
+- **A ledger fragment's own marker line is folded once (issue #553).** Twenty
+  work items' fragments began with their own `<!-- specs/<id> -->` line, and
+  the fold wrote its marker in front of each, so `seal/ledger.md` marked
+  twenty work items twice and `fold_ledger.py --check` counted 118 over 98
+  folded sections. The fold drops a fragment's own leading marker. `--check`
+  refuses a work item marked more than once anywhere in the ledger, naming
+  each file and line, and so does `tests/test_release_hygiene.py` on every
+  pull request. The twenty doubled lines are removed, every row
+  byte-identical.
+
+<!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
+- **The review chain's specification is three documents, and each fits under
+  the ceiling (issue #526).** `docs/review-chain-spec.md` was 2,246 lines, the
+  one document over the 1,000-line ceiling, so no fold could place a rule in
+  it. It keeps the review run: the cycle, the bound with the floor, `Needs a
+  fix` and the reopening under it, the two records, and the survivor sweep.
+  `docs/commit-review-gate-spec.md` takes the hooks and the routing
+  declaration, and `docs/round-record-spec.md` takes the round record's rows
+  as the pull-request check reads them, with the generator. Every section
+  moved whole, and every fold marker with it. Each document opens by naming
+  the other two, 22 shipped citations name the file that now holds their
+  section, and both READMEs link the gate document. The ceiling's listing
+  is empty. A test that forbids a sentence in the specification now forbids
+  it in all three documents. The split's own two other items are issues of
+  their own: the `Enforced by:` retrofit of older folds (#565), and the shape
+  and ceiling checks as plugin commands (#566).
+- **A branch that edits cited code re-stamps the row where it stands, and
+  that is not an append (issue #488).** The rule that a branch writes
+  fragments and never the shared ledger named one exception, a removal. The
+  case that arrives most is an edit, which drifts the row, and the only
+  correct act was a write two documents forbade. The evidence-ledger policy
+  and `CONTRIBUTING.md` now say a removal or an edit is kept true in the file
+  the row is in: a claim that still holds is re-stamped, and one the edit made
+  false is corrected in place first. That is keeping an existing claim true
+  rather than appending, and adding a claim is what goes in the fragment.
+- **Of a conflicted ledger row, only the notes are a union (issue #509).**
+  Each side's `Re-read` and `Corrected` notes record a reading somebody did,
+  so both stay. The anchor's hash belongs to the side that edited the
+  anchored unit, and to neither where both did, and a union that keeps a
+  stale hash names content that exists nowhere, which `correction-check`
+  cannot see. The
+  evidence-ledger policy and `CONTRIBUTING.md` say so and say to run
+  `evidence-check` after the resolution, and the release checklist's squash
+  step names where the rule lives.
+- **No shipped file names a concrete release branch outside a sentence of
+  history (issue #466).** The pin covered the four files the convention was
+  first written on. It now reads every file the hygiene rule reads, with
+  three history sentences allowed by name, and `correction-check`'s usage
+  line spells `release/vX.Y.Z` rather than an example branch.
+- **Three statements about statements are corrected (issue #474).** Two
+  ledger rows name the four cases their widened claims rest on. The shipped
+  verify skill names SpecSeal where it described SpecSeal's own CI as *this
+  repository*, which every installation read as its own. And #423's finding
+  4 is called what it was, a narrow reader that named both directions, in
+  the gate-steps module and the ledger row that called it *half a pin*.
+- **The smith's waiver example says it is the last way past the gate
+  (issue #55).** The implementer's definition showed `[no-review]` as the one
+  way past the commit gate. It now says the token records something untrue
+  of a probe, and that contract §8, which every agent receives, names the two
+  shapes to reach for first.
+- **`arm-check`'s documentation says what its timeout does not reach (issue
+  #316).** The bound is on how long each command is waited for, 900 seconds
+  per operator and twice that per arm, and only the command's own process is
+  killed. The wrapper form the section prescribes leaves a timed-out suite
+  running, so a module whose suite can approach the bound names the pytest
+  command directly.
+- **The two comments above `kept_broad_gate`'s calls, and the sealer's seal
+  sentence, say the newest entry of a same comparison is replaced (issue
+  #556).** `round_record.py close` and `seal` each carried a comment saying a
+  run the cell already holds is always kept behind the new entry, and
+  `agents/sealer.md` said every earlier run is. The call they describe
+  replaces the newest entry where it is the same commit against the same
+  base, which is the ordinary case of a sealer re-run over an unchanged
+  checkout. Both comments now name that replace (`same_run`), and the sealer
+  says every earlier comparison is kept. Comments and one definition
+  sentence; no behaviour moved.
+- **The release checklist's ledger count reads the same before and after the
+  split, in zsh as in bash (issue #561).** Step 2 now takes the table-line
+  count and the strict checker's exit before `--split`. §3 compares against
+  them with one `find` command naming no glob. The old after-command globbed
+  the fragment directory the fold had just emptied, and zsh printed `0`.
+- **A pipe inside a ledger cell no longer splits the row (issue #562).**
+  Twenty-two rows had more cells than their table's header, from a shell pipe
+  quoted in a note, which moved the `Checked` column a reader opens. Each is
+  escaped with its text otherwise unchanged, and the hygiene module refuses
+  such a row in the shared ledger, every release file and every fragment.
+- **Confirmed, and nothing to write (issue #268).** The three statements its
+  round corrected stand corrected, and a search of the shipped tree finds
+  none of them standing.
+- **#222 is #559's.** The paragraph saying `depth_two`'s candidates are the
+  finding's own file, and why that keeps contract §15 satisfiable, is the
+  outside contribution's (#559). This item wrote one too and withdrew it.
+- **#331 is deferred.** The census and the tree-wide contradiction check are
+  a new instrument, left for the milestone after this one.
+
+<!-- specs/1790221963-a-release-writes-the-gathered-text-back -->
+### Fixed
+
+- `survivor-check` no longer lets a gathered changelog fragment silence a
+  survivor at a release (#557). A release that renames `## Unreleased` to a
+  version, or rewords an entry as it releases it, loses a sentence, and the
+  sweep then counted every newly released sentence as wording the range
+  wrote, the gathered fragments' text included. Where a fragment quoted
+  wording that a correction in the same commit removed, the copy still
+  standing in another file was subtracted and the sweep exited 0. A gathered
+  fragment's text is now read where it stood before the release and is held
+  rather than counted as the range's writing, whether the release leaves the
+  fragment in place or deletes it, and a fragment whose body opens with
+  prose is held the same way. Only the wording it shares with an entry the
+  release itself removed is still counted, so a gathered rewording of a
+  removed entry is looked for as a reworded release is. Releases with no `## Unreleased` section, which is this
+  repository's shape, never reached it.
+- The release write-back's `lost` guard is pinned by a case of its own
+  (#555). Removing it used to leave the module green; now a release that
+  writes its entry in place and loses nothing goes red without it, and the
+  gathered-release case #555 described goes red only when both the guard and
+  the new fragment filter are removed.
+
 ## 0.15.0 — 2026-09-23
 
 <!-- specs/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row -->
