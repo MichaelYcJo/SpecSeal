@@ -74,10 +74,11 @@ CHECKER = os.path.join(
     "scripts",
     "evidence_check.py",
 )
-# Two of the three live under the root `optin.home_at` resolves — under the
+# Three of the four live under the root `optin.home_at` resolves — under the
 # git directory in local mode (#80) — and the pre-0.10 address stays under the
-# repository root, a committed file at an old address.
-HOME_GLOBS = ("ledger.md", "ledger/*.md")
+# repository root, a committed file at an old address. `releases/*.md` is one
+# file per release, where the fold writes a release's rows (#547).
+HOME_GLOBS = ("ledger.md", "ledger/*.md", "releases/*.md")
 ROOT_GLOBS = ("docs/**/_evidence.md",)
 
 

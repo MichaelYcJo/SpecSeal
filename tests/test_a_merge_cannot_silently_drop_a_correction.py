@@ -495,6 +495,29 @@ def test_a_marker_lost_from_a_fragment_is_reported(tmp_path):
     assert "Re-read 2026-09-05" in text
 
 
+RELEASE_FILE = "seal/releases/0.4.0.md"
+
+
+def test_a_marker_lost_from_a_release_file_is_reported(tmp_path):
+    """#547, S3. The fold writes each release's rows to
+    `seal/releases/<X.Y.Z>.md`, so the rows that used to become shared in
+    `seal/ledger.md` become shared there instead, and a check that does not
+    list that directory goes blind at exactly the release. Red before
+    `ledger_listing` passed `RELEASES` to `ls-tree`."""
+    root, _start, head = merged(
+        tmp_path,
+        base=ledger(F_ROW),
+        ours=ledger(F_REREAD),
+        theirs=ledger(F_ROW),
+        resolution=ledger(F_ROW),
+        path=RELEASE_FILE,
+    )
+    code, text = check(root, f"{head}~2..{head}")
+    assert code == 1, text
+    assert RELEASE_FILE in text
+    assert "Re-read 2026-09-05" in text
+
+
 def test_a_range_with_no_merge_says_it_looked_at_none(tmp_path):
     """A5. The common case is a range with no merge in it, and it has to SAY
     it looked at none: a check that prints nothing cannot be told from one
@@ -1106,7 +1129,7 @@ def ledger_text(path, from_index=False):
 def ledger_corpus():
     """`{path: text}` for every ledger file the check watches.
 
-    Read through the module's own `LEDGER` and `FRAGMENTS` rather than a list
+    Read through the module's own `LEDGER`, `FRAGMENTS` and `RELEASES` rather than a list
     written here, because a hard-coded list goes blind exactly when the
     fragments are folded into the shared file -- which `fold_ledger.py` does
     at every release and did at 0.12.2, leaving `seal/ledger/` an empty glob
@@ -1126,7 +1149,17 @@ def ledger_corpus():
     that used to truncate it.
     """
     listed = subprocess.run(
-        ["git", "-C", ROOT, "ls-files", "-z", "--", cc.LEDGER, cc.FRAGMENTS],
+        [
+            "git",
+            "-C",
+            ROOT,
+            "ls-files",
+            "-z",
+            "--",
+            cc.LEDGER,
+            cc.FRAGMENTS,
+            cc.RELEASES,
+        ],
         check=True,
         capture_output=True,
         encoding="utf-8",

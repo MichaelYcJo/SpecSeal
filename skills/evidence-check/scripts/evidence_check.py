@@ -946,16 +946,18 @@ def seal_home(root):
 def default_patterns(root):
     """Where a run with NO `--ledger` looks for ledgers.
 
-    Three locations. `seal/ledger.md` is the gathered ledger; `ledger/*.md` is
-    one fragment per work item; `docs/**/_evidence.md` is the pre-0.10 address,
-    still read because a repository that never moved it keeps working.
-    `.specseal/map.md` is NOT read: the root moved to `seal/` and
-    `hooks/root-migrate.py` moves it, so a ledger left there is a file in the
-    wrong place, not a second address.
+    Four locations. `seal/ledger.md` is the gathered ledger, the rows from
+    before the fragments existed; `ledger/*.md` is one fragment per work item;
+    `releases/*.md` is one file per release, where the fold writes a release's
+    rows (#547); `docs/**/_evidence.md` is the pre-0.10 address, still read
+    because a repository that never moved it keeps working. `.specseal/map.md`
+    is NOT read: the root moved to `seal/` and `hooks/root-migrate.py` moves
+    it, so a ledger left there is a file in the wrong place, not a second
+    address.
 
-    The first two are joined under the `seal/` that `seal_home` resolves —
-    under the git directory in local mode (#80) — and the third under the root,
-    a committed file at an old address.
+    The first three are joined under the `seal/` that `seal_home` resolves —
+    under the git directory in local mode (#80) — and the fourth under the
+    root, a committed file at an old address.
 
     A function rather than a list inside `main`, because `--ledger` now has to
     say what it SKIPPED and the skipped set is this list minus what was given.
@@ -967,6 +969,7 @@ def default_patterns(root):
     return [
         os.path.join(home, "ledger.md"),
         os.path.join(home, "ledger", "*.md"),
+        os.path.join(home, "releases", "*.md"),
         os.path.join(root, "docs", "**", "_evidence.md"),
     ]
 

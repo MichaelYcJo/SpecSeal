@@ -166,7 +166,7 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 
 | Flag | Meaning |
 |---|---|
-| `--ledger GLOB` | ledgers to scan (default `seal/ledger.md` and `seal/ledger/*.md`). A run given this prints which ledgers it did not read, and how to read them |
+| `--ledger GLOB` | ledgers to scan (default `seal/ledger.md`, `seal/ledger/*.md` and `seal/releases/*.md`). A run given this prints which ledgers it did not read, and how to read them |
 | `--default-repo PATH` | migration ledgers cite the ORIGINAL repo with unprefixed paths — resolve them against this checkout |
 | `--map NAME=PATH` | resolve `NAME/...` prefixed coordinates against another checkout |
 | `--strict` | drift exits 2, the broken-coordinate code, instead of 1. This is the form `broad-gate` runs |

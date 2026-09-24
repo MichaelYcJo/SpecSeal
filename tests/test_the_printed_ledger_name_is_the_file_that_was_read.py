@@ -127,6 +127,7 @@ def test_the_defaults_render_the_names_they_have_always_rendered():
     assert names == [
         os.path.join("seal", "ledger.md"),
         os.path.join("seal", "ledger", "*.md"),
+        os.path.join("seal", "releases", "*.md"),
         os.path.join("docs", "**", "_evidence.md"),
     ], names
 

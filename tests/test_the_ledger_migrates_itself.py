@@ -85,6 +85,31 @@ def test_the_first_session_start_migrates_and_says_so_in_one_line(hook, repo):
     assert "`9829412`" not in ledger, "the stamp survived on the migrated row"
 
 
+def test_an_old_format_row_in_a_release_file_is_migrated_too(hook, repo):
+    """#547, S2. The fold writes each release's rows to
+    `seal/releases/<X.Y.Z>.md`, and a ledger that predates anchors can hold
+    one; `ledgers()` reads the same three addresses under the root the
+    checker reads. Red before `HOME_GLOBS` gained the glob: the file was
+    left as it was and the hook counted one row where two migrated."""
+    release = repo / "seal" / "releases" / "0.4.0.md"
+    release.parent.mkdir()
+    release.write_text("# 0.4.0\n\n| R | `src/service.py:1-2` | 2026-08-31 |\n")
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True
+    )
+    subprocess.run(
+        ["git", "-C", str(repo), "commit", "-qm", "a release file, old format"],
+        check=True,
+        capture_output=True,
+    )
+    out = start(hook, repo)
+    assert "ledger migrated to anchor format" in out, out
+    assert "2 rows" in out, out
+    text = release.read_text()
+    assert "src/service.py#handler@" in text, text
+    assert "src/service.py:1-2" not in text, text
+
+
 def test_the_second_session_start_is_silent(hook, repo):
     """Once per repo. The attempt stamps a marker, so a repository whose left
     rows persist is not re-nagged every morning — the ordinary check's
