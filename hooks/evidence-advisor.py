@@ -31,8 +31,8 @@ learn to skip; drift is not reported here for the same reason — a branch
 mid-flight legitimately drifts. Three verdicts name something a person must
 touch either way and all three are printed: BROKEN; OLD-FORMAT, whose block
 carries the migration command instead of the re-anchor one; and MALFORMED, a
-row whose coordinate does not parse or cites nothing (#299), whose block says
-how to write one.
+Code grounds text that does not parse or a row that cites nothing (#299),
+whose block counts those texts and prints each with its own remedy.
 
 No success check on the commit: no hook here reads exit codes, and the trade
 is safe in both directions — after a failed commit the tree is unchanged, so
@@ -183,15 +183,14 @@ def main():
         lines.append("`bin/evidence-check --migrate .` rewrites what it can prove.")
     if malformed:
         n = len(malformed)
+        # Texts, not rows: the checker counts one per text as written. Each
+        # line's detail is already the remedy for that text, so no closing
+        # line repeats one that is wrong for a bare quote (round 1, ⬜ 3).
         lines.append(
-            f"evidence-check: {n} ledger row{'s'[: n != 1]} whose coordinate "
-            "does not parse — nothing checks them"
+            f"evidence-check: {n} malformed Code grounds text{'s'[: n != 1]} — "
+            f"nothing checks what {'it stands' if n == 1 else 'they stand'} for"
         )
         lines += [f"  MALFORMED  {coord}  {detail}" for coord, detail in malformed]
-        lines.append(
-            "Write each as `path#anchor@hash`, the hash as `@00000000`, then "
-            "`bin/evidence-check --reverify .` fills it."
-        )
     print("\n".join(lines))
 
 

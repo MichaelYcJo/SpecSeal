@@ -1598,9 +1598,21 @@ RULE_CELL_RE = re.compile(r"^:?-+:?$")
 # A code span, CommonMark's way: a run of backticks closed by a run of the
 # same length, so ``a`b`` is one span holding a backtick.
 CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
-# A quoted locator closed by its second `"` and then not followed by the `>`
-# or `@` that must come next: the quote inside it was bare.
-BARE_QUOTE_RE = re.compile(r'[#>]"[^"\n]*"(?![>@])')
+# A quoted locator closed by its second `"` and then followed by something
+# other than the `>` or `@` that must come next: the quote inside it was bare.
+# At the end of the text the hash is what is missing, not a quote.
+BARE_QUOTE_RE = re.compile(r'[#>]"[^"\n]*"(?=[^>@])')
+# A leftover is a coordinate somebody wrote, not prose, when it holds both
+# marks, or a `#` that opens a locator: a name, a quoted line, `<module>`.
+# `#299` is an issue number and `@cache` a decorator, in a span or out of one.
+LOCATOR_OPEN_RE = re.compile(r'#[A-Za-z_"<]')
+
+
+def refused_coordinate(s):
+    """True where S, left over after both patterns, is a coordinate."""
+    if "://" in s:
+        return False
+    return ("#" in s and "@" in s) or bool(LOCATOR_OPEN_RE.search(s))
 
 
 def grounds_cells(text):
@@ -1658,9 +1670,10 @@ def malformed_rows(text):
     like OLD-FORMAT. Two ways in:
 
     - a coordinate the patterns refused: what is left of the cell once every
-      `ANCHOR_RE` and `OLD_COORD_RE` match is blanked still holds a code span
-      with a `#` or `@` in it, or a word holding both. An issue number beside
-      a good anchor, `(#299)`, is prose and holds no `@`;
+      `ANCHOR_RE` and `OLD_COORD_RE` match is blanked still holds a span or a
+      word that holds both marks or a `#` opening a locator. An issue number
+      `#299` and a decorator `@cache` are prose, in a span or out of one, and
+      so is a URL;
     - no coordinate at all: the cell is not empty, nothing in it matches
       either pattern, and some other cell of the row is not empty either. A
       row that claims something and cites nothing reads as covered and is
@@ -1679,10 +1692,8 @@ def malformed_rows(text):
         cell = cells[column]
         left = OLD_COORD_RE.sub(" ", ANCHOR_RE.sub(" ", cell))
         spans = [m.group(2).strip() for m in CODE_SPAN_RE.finditer(left)]
-        refused = [s for s in spans if "#" in s or "@" in s]
-        refused += [
-            w for w in CODE_SPAN_RE.sub(" ", left).split() if "#" in w and "@" in w
-        ]
+        words = CODE_SPAN_RE.sub(" ", left).split()
+        refused = [s for s in spans + words if refused_coordinate(s)]
         if refused:
             for coord in refused:
                 found(coord, malformed_remedy(coord))

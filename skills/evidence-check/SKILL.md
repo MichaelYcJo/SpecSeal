@@ -494,7 +494,9 @@ absent, or the record is wrong, and the marker is one comment away.
   Scanning every cell was measured on this plugin's own ledgers and refused
   seven correct things in eight — the template's notation row, `#unit@hash`
   shorthand, a quoted example of the bug — which is why the arm keys on the
-  template's column name.
+  template's column name. A claim row whose `Code grounds` cell is empty is
+  not read either: a row citing nothing is named only when the cell holds
+  text.
 - A nested `def` is anchored by its qualified name — `outer.inner` — and the
   short name alone resolves to nothing. Such a row reads `BROKEN` with the
   qualified unit named on the same line, and `--reverify` re-anchors it.

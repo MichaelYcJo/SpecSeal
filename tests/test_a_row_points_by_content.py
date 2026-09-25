@@ -890,7 +890,7 @@ def test_a_coordinate_that_will_not_parse_is_malformed_under_both_readings(repo,
     `seal/follow-up.md` measured on 2026-09-13, and `<module>` is the shape
     `seal/releases/0.12.0.md` carried until this work item repaired it."""
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f"| CLAUSE | `{coord}` | read | 2026-09-25 | n |\n"
+        f"| CLAUSE | `{coord}` | read | 2026-09-25 | n |\n", encoding="utf-8"
     )
     for args in (["."], ["--strict", "."]):
         r = run(args, str(repo))
@@ -908,14 +908,18 @@ def test_a_bare_quote_in_a_quoted_locator_is_malformed_and_the_escape_repairs_it
     """S4, and the live shape: four of the five rows this repository carried
     unread were quoted locators with a bare `"` inside. The finding names
     the escape, and the escape is the repair `unescape` already reads."""
-    (repo / "src" / "names.py").write_text('LABEL = "ok"\n')
+    (repo / "src" / "names.py").write_text('LABEL = "ok"\n', encoding="utf-8")
     h = ec.content_hash(['LABEL = "ok"'])
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text(f'| CLAUSE | `src/names.py#"LABEL = "ok""@{h}` |\n')
+    ledger.write_text(
+        f'| CLAUSE | `src/names.py#"LABEL = "ok""@{h}` |\n', encoding="utf-8"
+    )
     r = run(["."], str(repo))
     assert "MALFORMED" in r.stdout and r.returncode == 2, r.stdout
     assert '`\\"`' in r.stdout, f"the line does not name the escape:\n{r.stdout}"
-    ledger.write_text(f'| CLAUSE | `src/names.py#"LABEL = \\"ok\\""@{h}` |\n')
+    ledger.write_text(
+        f'| CLAUSE | `src/names.py#"LABEL = \\"ok\\""@{h}` |\n', encoding="utf-8"
+    )
     r = run(["."], str(repo))
     assert "MALFORMED" not in r.stdout.replace("0 malformed", ""), r.stdout
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
@@ -926,8 +930,10 @@ def test_a_good_and_a_malformed_coordinate_in_one_cell_are_counted_apart(repo):
     pattern refused is left over to be named."""
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
-    good = re.search(r"`[^`]+`", ledger.read_text()).group(0)
-    ledger.write_text(f"| CLAUSE | {good}, `src/service.py#Box@0` |\n")
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(
+        f"| CLAUSE | {good}, `src/service.py#Box@0` |\n", encoding="utf-8"
+    )
     r = run(["."], str(repo))
     assert (
         "  1 ok · 0 drifted · 0 broken · 0 external · 0 old-format · 1 malformed"
@@ -942,7 +948,7 @@ def test_a_claim_whose_grounds_cite_nothing_is_malformed(repo):
     that claims something and cites nothing a reader can check reads as
     covered and is not."""
     (repo / "seal" / "ledger" / "f.md").write_text(
-        "| A claim | none — policy only | read | 2026-09-25 | n |\n"
+        "| A claim | none — policy only | read | 2026-09-25 | n |\n", encoding="utf-8"
     )
     r = run(["."], str(repo))
     assert "MALFORMED none — policy only" in r.stdout, r.stdout
@@ -981,11 +987,14 @@ def test_what_is_not_a_claim_is_not_refused(repo):
     a, b = write_row(repo, "src/service.py", "handler")
     h = ec.content_hash(SERVICE.splitlines()[a - 1 : b])
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text(NOT_A_CLAIM.format(h=h))
+    ledger.write_text(NOT_A_CLAIM.format(h=h), encoding="utf-8")
     r = run(["."], str(repo))
     assert "0 old-format · 0 malformed" in r.stdout, r.stdout
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
-    ledger.write_text(NOT_A_CLAIM.format(h=h) + "```\n| B | `src/service.py#Box@0` |\n")
+    ledger.write_text(
+        NOT_A_CLAIM.format(h=h) + "```\n| B | `src/service.py#Box@0` |\n",
+        encoding="utf-8",
+    )
     r = run(["."], str(repo))
     assert "MALFORMED src/service.py#Box@0" in r.stdout, r.stdout
     assert "MALFORMED src/service.py#handler@0 " not in r.stdout, r.stdout
@@ -994,22 +1003,31 @@ def test_what_is_not_a_claim_is_not_refused(repo):
 
 def test_what_is_left_of_a_cell_is_read_span_by_span(repo):
     """Beside a good anchor, what the patterns refused is still named: a
-    coordinate with no hash, one written without backticks, and one in a
+    coordinate with no hash, one written without backticks, one in a
     double-backtick span because it holds a backtick itself, the shape of the
-    live `EXPANDS` row. Each is named whole, as written."""
+    live `EXPANDS` row, and one whose locator opens with a digit, which holds
+    both marks and no `#` opening a locator. Each is named whole, as
+    written."""
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
-    good = re.search(r"`[^`]+`", ledger.read_text()).group(0)
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
     ticked = 'src/service.py#"X = "$`""@00000000'
     ledger.write_text(
         f"| A | {good}, `src/service.py#Box` |\n"
         f"| B | {good}, src/service.py#Box.open@0 |\n"
         f"| C | {good}, `` {ticked} `` |\n"
+        f"| D | {good}, `src/service.py#1x@00000000` |\n",
+        encoding="utf-8",
     )
     r = run(["."], str(repo))
-    for coord in ("src/service.py#Box", "src/service.py#Box.open@0", ticked):
+    for coord in (
+        "src/service.py#Box",
+        "src/service.py#Box.open@0",
+        ticked,
+        "src/service.py#1x@00000000",
+    ):
         assert f"MALFORMED {coord}  " in r.stdout, f"{coord}:\n{r.stdout}"
-    assert "1 ok · 0 drifted · 0 broken · 0 external · 0 old-format · 3 malformed" in (
+    assert "1 ok · 0 drifted · 0 broken · 0 external · 0 old-format · 4 malformed" in (
         r.stdout
     ), r.stdout
 
@@ -1020,17 +1038,64 @@ def test_a_fragment_row_after_a_headed_table_is_still_read(repo):
     from an `Item | Value` table would take them out of the arm."""
     (repo / "seal" / "ledger" / "f.md").write_text(
         "| Item | Value |\n|---|---|\n| a | b |\n\n"
-        "| CLAUSE | `src/service.py#handler@0` |\n"
+        "| CLAUSE | `src/service.py#handler@0` |\n",
+        encoding="utf-8",
     )
     r = run(["."], str(repo))
     assert "MALFORMED src/service.py#handler@0" in r.stdout, r.stdout
+
+
+def test_prose_marks_beside_a_good_anchor_are_not_refused(repo):
+    """Round 1's 🟡 1. An issue number, a decorator, an annotation, an address
+    and a URL fragment in a code span are prose, exactly as `(#299)` outside
+    one is; refusing them exits 2 on prose. A leftover is a coordinate only
+    when it holds both marks or a `#` that opens a locator, and never in a
+    URL."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(
+        f"| A | {good} (`#299`), the `@cache` decorator, `@Transactional`, "
+        "owner `ops@example.com`, `https://example.com/doc#section` |\n",
+        encoding="utf-8",
+    )
+    r = run(["."], str(repo))
+    assert "0 old-format · 0 malformed" in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
+
+
+@pytest.mark.parametrize("bare", ["src/service.py#Box", "b.py#g>h"])
+def test_an_unticked_coordinate_with_one_mark_is_named(repo, bare):
+    """Round 1's 🟡 1, the other half: outside backticks a coordinate with
+    no hash held one mark and went unnamed, which is #299's silence."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, {bare} |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert f"MALFORMED {bare}  " in r.stdout, r.stdout
+
+
+@pytest.mark.parametrize(
+    "coord", ['src/service.py#"def handler"', 'src/service.py#handler>"y"']
+)
+def test_a_quoted_locator_with_no_hash_is_not_told_about_a_bare_quote(repo, coord):
+    """Round 1's 🟡 2. The hash is what is missing, and the line must say
+    so rather than send the reader to escape a quote that is not there."""
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        f"| A | `{coord}` |\n", encoding="utf-8"
+    )
+    r = run(["."], str(repo))
+    assert f"MALFORMED {coord}  " in r.stdout, r.stdout
+    assert "bare" not in r.stdout and "@00000000" in r.stdout, r.stdout
 
 
 def test_the_same_malformed_text_is_counted_once(repo):
     """Counted once per text as written, the way OLD-FORMAT and the anchor
     reading count, so the total says how many distinct things to repair."""
     (repo / "seal" / "ledger" / "f.md").write_text(
-        "| A | `src/service.py#handler@0` |\n| B | `src/service.py#handler@0` |\n"
+        "| A | `src/service.py#handler@0` |\n| B | `src/service.py#handler@0` |\n",
+        encoding="utf-8",
     )
     r = run(["."], str(repo))
     assert "0 old-format · 1 malformed" in r.stdout, r.stdout
@@ -1055,11 +1120,11 @@ def test_reverify_names_a_malformed_row_and_leaves_it(repo):
     for a ledger it could not read. It does not heal the row: which reading
     of a coordinate the parser refused was meant is not the checker's call."""
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text("| CLAUSE | `src/service.py#handler@0` |\n")
-    before = ledger.read_text()
+    ledger.write_text("| CLAUSE | `src/service.py#handler@0` |\n", encoding="utf-8")
+    before = ledger.read_text(encoding="utf-8")
     rr = run(["--reverify", "."], str(repo))
     assert "LEFT  src/service.py#handler@0" in rr.stdout, rr.stdout
-    assert ledger.read_text() == before, "a malformed row was rewritten"
+    assert ledger.read_text(encoding="utf-8") == before, "a malformed row was rewritten"
     assert rr.returncode == 1, rr.stdout
 
 
@@ -1768,6 +1833,8 @@ def test_the_advisory_docstring_names_what_it_prints(repo):
     assert "OLD-FORMAT" in doc, "the docstring still says BROKEN is the whole filter"
     # #299 joined the filter the same way, and the docstring says so too.
     assert "MALFORMED" in doc, "the docstring does not name the MALFORMED block"
+    # Round 1's ⬜ 3: the block counts texts and carries each one's own remedy.
+    assert "Code grounds text" in doc and "its own remedy" in doc, doc
 
 
 def test_known_limits_names_what_this_round_added_to_them(repo):
