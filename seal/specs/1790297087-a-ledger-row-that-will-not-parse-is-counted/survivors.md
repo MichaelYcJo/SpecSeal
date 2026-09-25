@@ -25,3 +25,12 @@ statements the removal leaves standing on purpose.
 | `skills/evidence-check/SKILL.md` | the hash as `@00000000` until `--reverify` fills it | the `MALFORMED` verdict row's action cell, which gives each shape its own remedy; it is the rule the removed line restated for every row alike |
 | `skills/evidence-check/scripts/evidence_check.py` | does not parse as `path#anchor@hash`, so nothing checks it | `malformed_remedy`'s remedy for a coordinate that does not parse; each advisor row now prints it for its own text |
 | `skills/evidence-check/scripts/evidence_check.py` | cites no coordinate, so nothing checks the claim | `malformed_rows`' remedy for a row that cites nothing; each advisor row prints it for its own text |
+
+Round 2's fix pass ran the sweep over the whole branch against its base,
+`survivor-check --range origin/release/v0.15.4...HEAD` at `c003fee9`, and it
+reported one more place. It is the test file's own copy of the pre-#239 stamp
+pattern, which the removed rider-stamp row quoted.
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `tests/test_a_rider_reaches_its_file.py` | r"Verified \d{4}-\d{2}-\d{2} at ([0-9a-f]{7,40})\b" | `OLD_STAMP` in the rider cases, kept so a case can name the pre-#239 form and refuse it (`test_no_rider_stamp_names_a_commit`); it is the line the removed row quoted, and it states the opposite of that row's claim |
