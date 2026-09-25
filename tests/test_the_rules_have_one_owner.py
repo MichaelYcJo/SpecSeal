@@ -484,23 +484,26 @@ def test_the_release_leg_is_no_longer_red_until_round_ones_record_commits():
     assert "Nothing that can reach `main` is exempt" in flat(*ORCH)
 
 
-def test_the_release_leg_is_red_again_until_the_verifying_rounds_record_commits():
-    """Round 2's ⬜ 12: the leg has a second red window, from `close`
-    ticking `Pass` until the verifying round's record commits, and the
-    ⬜ 8 sentence named one. The owner names both.
+def test_the_release_leg_is_not_red_until_the_verifying_rounds_record_commits():
+    """Round 2's ⬜ 12 found the leg's second red window, from `close`
+    ticking `Pass` until the verifying round's record commits, and the owner
+    named both windows. #296 closed the first and #598 closed the second, so
+    the owner now says neither is red on a draft and names where the refusal
+    landed instead.
 
-    Asserted through the sentence's LAST WORD since round 1's ⬜ 5 of work
-    item 1788912166. It ended `expected too` — the `too` pointing at the
-    first red window — and #296 closed that window, so the word was dropped.
-    Dropping it is right and it is an EDIT, which is what the phase record
-    that called it a restoration got wrong. The clause stopped at `record
-    commits` here, so nothing was watching the half where the word lived.
+    Asserted through the whole sentence, to its last word. Round 1's ⬜ 5 of
+    work item 1788912166 found a clause that stopped short of the word that
+    changed, and nothing was watching the half where it lived.
     """
+    text = flat(*ORCH)
     assert (
-        "It is red once more from `close` ticking `Pass` until the verifying "
-        "round's record commits, for the reason the check prints — `Pass` "
-        "beside `nobody` on the last record — and that window is expected."
-    ) in flat(*ORCH)
+        "The window from `close` ticking `Pass` until the verifying round's "
+        "record commits is not red either (#598). `Pass` beside `nobody` on "
+        "the last record prints on a draft and names the verifying round, and "
+        "*Ready for review* fails the pull request if the cell still says "
+        "`nobody`."
+    ) in text
+    assert "that window is expected" not in text
 
 
 def test_the_generator_carries_the_fenced_blocks_under_the_probes_table():

@@ -637,7 +637,10 @@ is not a contradiction inside one file, and a check that fails for an honest
 disclosure teaches people to write none — the reasoning `unverified_check.py`
 already runs on. On the run's LAST record beside a checked `Pass` it does
 fail, for a work item begun on or after the cutoff, because that pair is the
-review claiming to have passed rather than disclosing anything. The refusal
+review claiming to have passed rather than disclosing anything. It fails at a
+ready pull request, and wherever the state cannot be read. In a draft it
+prints, because the draft is where the pair stands between `close` and the
+verifying round's record, and *Ready for review* re-runs the check. The refusal
 table under `docs/round-record-spec.md` §`Fixes checked by` holds both halves
 and what each costs.
 
@@ -901,7 +904,9 @@ count is one of those, the way `Pass` already was. Pressing *Ready for
 review* fires the event, the workflow re-runs, and the arm applies, so nothing
 that can reach the default branch is exempt.
 
-What a draft does **not** excuse is a claim that is wrong at every stage. A
+What a draft does **not** excuse is a claim that is wrong at every stage.
+`Pass` beside `nobody — <why>` on the last record is excused because its
+refusable half is `Pass`. A
 record naming a checker the repository does not have, and a `Broad gate` cell
 reading `not yet` or whose newest entry names a SHA that precedes that
 record's own `Target SHA`, are both refused on a ready pull request and each says which of

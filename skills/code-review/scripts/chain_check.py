@@ -148,9 +148,13 @@ Nothing after the cutoff is stuck, and the message says so. One verifying
 round at the diff of those fixes closes it, and a round that opens nothing
 needing a fix does not consume the cap.
 
-The draft excuse does NOT reach this row. `Pass` is excused in a draft because
-a review still running has not reached its verdict; a record naming a checker
-it does not have is wrong at every stage.
+The draft excuse reaches ONE refusal in this row: `Pass` beside `nobody` on
+the last record, which prints in a draft and fails at ready (#598 instance 4).
+`Pass` is excused in a draft because a review still running has not reached
+its verdict, and `Pass` is the half of that pair that makes it refusable --
+`nobody — <why>` is the honest cell between `close` ticking the box and the
+verifying round's record committing. Every other refusal here is a record
+naming a checker it does not have, which is wrong at every stage.
 
 THE FIX SURFACE, two rows read the same way. Issue #57 traced ten regressions
 on one work item to the fixes that opened them, and the largest class -- four
@@ -2189,7 +2193,7 @@ def nobody_reason(value):
     return rest.strip(SEPARATORS)
 
 
-def checked_by(reader, routing, root, rel, siblings, last=False):
+def checked_by(reader, routing, root, rel, siblings, last=False, strict=True):
     """(errors, notices) for one record's `Fixes checked by` row.
 
     `siblings` maps every `round-N.md` git carries in this work item to its
@@ -2201,6 +2205,17 @@ def checked_by(reader, routing, root, rel, siblings, last=False):
     and it is what makes the refusal for `Pass` beside `nobody` reachable. On
     an earlier record `Pass` says nothing about the whole review, so a checked
     box there is not the claim this refuses.
+
+    `strict` is false only for a draft pull request, and it reaches ONE
+    refusal here: that same pair (#598 instance 4). Between `close` ticking
+    `Pass` and the verifying round's record committing, `nobody — <why>` is
+    the honest cell, since no later round exists yet to name, and the
+    orchestration document orders the verifying round next. What makes the
+    pair refusable is the `Pass` half, and `Pass` is what a draft is excused,
+    so in a draft it prints and names what re-arms it. Every other refusal
+    below is a checker the record does not have, which is wrong at every
+    stage, and none of them reads `strict`. `unknown` is judged as ready, as
+    it is everywhere `strict` is read.
 
     EVERY record, where `Pass` is read on the last one alone, and the two
     scopes are different for a reason that is not symmetry. `Pass` is a
@@ -2310,6 +2325,22 @@ def checked_by(reader, routing, root, rel, siblings, last=False):
         ], []
     began = item_began(rel)
     if last and pass_checked(lines) and began is not None and began >= STRICT_FROM:
+        if not strict:
+            return [], [
+                (
+                    rel,
+                    0,
+                    f"`Pass` is checked beside `{CHECKED_BY}: {cell.strip()}` "
+                    "on the last record — the state a draft is in between "
+                    "`close` ticking `Pass` and the verifying round's record "
+                    "committing. It prints because a draft is not a request "
+                    "to merge. It is still owed: spawn one verifying round at "
+                    "the diff of these fixes, and this cell names it. "
+                    "Pressing *Ready for review* fires `ready_for_review`, "
+                    "re-runs this check, and fails the pull request if the "
+                    f"cell still says `{NOBODY}`",
+                )
+            ]
         return [
             (
                 rel,
@@ -4154,9 +4185,11 @@ def check_round(reader, root, rel, strict=True, refs=None):
     is the wrong place for a question every round has its own answer to.
 
     `strict` is false only for a draft pull request, where an unchecked
-    `Pass` is the honest state of a review still running. It does not reach
-    `Fixes checked by`: a record naming a checker it does not have is wrong at
-    every stage of a run, where an unchecked box is merely early.
+    `Pass` is the honest state of a review still running. In `Fixes checked
+    by` it reaches one refusal, the `Pass`-beside-`nobody` pair `checked_by`
+    reads, because that pair's refusable half is `Pass`. A record naming a
+    checker it does not have is wrong at every stage of a run, where an
+    unchecked box is merely early.
 
     `refs` is None for a record this pull request does not touch, or restores
     byte-for-byte from the base's own history (`restored_from`), and then no
@@ -4593,7 +4626,13 @@ def main(argv=None):
         siblings = {os.path.basename(p): p for p in records}
         for index, record in enumerate(records):
             who_errors, who_notices = checked_by(
-                reader, routing, root, record, siblings, last=record == last
+                reader,
+                routing,
+                root,
+                record,
+                siblings,
+                last=record == last,
+                strict=strict,
             )
             errors.extend(who_errors)
             notices.extend(who_notices)

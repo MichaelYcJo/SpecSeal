@@ -516,9 +516,10 @@ review* fires `ready_for_review`, re-runs the check and fails the pull
 request if the record is still missing. Nothing that can reach `main` is
 exempt.
 
-It is red once more from `close` ticking `Pass` until the verifying
-round's record commits, for the reason the check prints — `Pass` beside
-`nobody` on the last record — and that window is expected.
+The window from `close` ticking `Pass` until the verifying round's record
+commits is not red either (#598). `Pass` beside `nobody` on the last record
+prints on a draft and names the verifying round, and *Ready for review* fails
+the pull request if the cell still says `nobody`.
 
 **The last record's `Broad gate` cell is read at a READY pull request
 (#295).** So the sequence has one more step before the draft goes ready, and
