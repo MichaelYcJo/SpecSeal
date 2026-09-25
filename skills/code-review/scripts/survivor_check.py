@@ -263,13 +263,22 @@ directories `settle --retire` removes hold specs whose sentences stand in
 a fold branch owed the range row above. Under #517 a fold is not a work item
 and has no directory to hold a `survivors.md`, so the row had nowhere to live.
 
-So a directory the range retired is left out of it on both sides, the way a
-round record is: gone at the right end, and either folded — its
-`<!-- specs/<id> -->` marker in `docs/` — or retired by the rule, which is
+So a directory the range retired is left out of it, the way a round record
+is: gone at the right end, and either folded — its `<!-- specs/<id> -->`
+marker in `docs/` — or retired by the rule, which is
 `unverified_check.py#retired_by_rule` asked of the left end. It is the same
 predicate `settle` and the other two readers ask, loaded rather than spelled
 here. A sentence the same range removes from anywhere else is measured as
 before.
+
+**It leaves after the pairing across paths, not before it** (#591). A
+sentence a fold carries verbatim from the retired `spec.md` into `docs/` is a
+move, and the range is not its author. Dropped first, the retired side left
+that arrival unpaired, so it paired with a correction the same range made
+elsewhere and held it, and the correction's other copies went unreported. So
+the retired side is read at the left end and takes part in the pairing, and
+only its departures that paired with nothing are then dropped. It is gone at
+the right end, so it adds nothing written.
 
 ## What it does not answer
 
@@ -1054,14 +1063,14 @@ def corrected(root, a, b):
         and not records_a_past_state(path)
         and not a_gathered_fragment(path, gathered)
     ]
-    # A retired directory is out of the range on both sides too (#517), for
-    # the reason the round records are: its sentences stand in `docs/` by
-    # design, because that is what a fold is, and the removed spec is not a
-    # place that still instructs anybody.
+    # A retired directory is out of the range too (#517), for the reason the
+    # round records are: its sentences stand in `docs/` by design, because
+    # that is what a fold is, and the removed spec is not a place that still
+    # instructs anybody. It leaves AFTER the pairing below and not here
+    # (#591): a sentence a fold carries verbatim into `docs/` is a move, and
+    # dropped before the pairing its arrival paired with a correction the
+    # same range made elsewhere, and held it.
     retired = retired_directories(root, a, b, paths)
-    paths = [
-        path for path in paths if not any(path.startswith(d + "/") for d in retired)
-    ]
     before = read_blobs(root, a, paths)
     after = read_blobs(root, b, paths)
     # A gathered fragment's text stands under a version heading at `b`, and
@@ -1127,6 +1136,12 @@ def corrected(root, a, b):
     # Only after every path is counted: a sentence that left one path and
     # arrived at another is a move, and neither side of it is this range's.
     gone, fresh = paired_across_paths(gone, fresh, set(after))
+    # A retired directory is gone at `b`, so it added nothing to `fresh`.
+    gone = [
+        sentence
+        for sentence in gone
+        if not any(sentence.path.startswith(d + "/") for d in retired)
+    ]
     written = {gram for sentence in fresh for gram in sentence.grams()}
     return gone, written, split
 

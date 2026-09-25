@@ -940,7 +940,9 @@ because a move changes no sentence's author: a pure move removes nothing and
 is silent for that reason, and a move that rewords one sentence measures it,
 where git's rename detection hid both. A move pairs with its own origin, the
 path it shares the most sentences with, so a report names the correction and
-never the path that only moved. A fragment's text gathered by a
+never the path that only moved. A fold's text carried verbatim from a retired
+work item is a move too, and the retired side leaves the range after the
+pairing. A fragment's text gathered by a
 release is held and never written, because the fragment's own branch wrote
 it. Written, it subtracted the survivor a correction in the same commit left
 in another file whenever the release also lost a sentence, and renaming
@@ -949,7 +951,7 @@ still splits a sentence `CHANGELOG.md` itself lost, and nothing else. A
 release that loses no live sentence writes nothing it put under a version
 heading, and that guard and the gathered-text filter are pinned by separate
 cases, because either alone kept the shape the ticket first named green.
-Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released, skills/code-review/scripts/survivor_check.py::paired_across_paths
+Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released, skills/code-review/scripts/survivor_check.py::paired_across_paths, skills/code-review/scripts/survivor_check.py::retired_directories
 
 ## Non-goals
 

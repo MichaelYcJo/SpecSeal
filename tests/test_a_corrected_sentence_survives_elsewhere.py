@@ -2232,6 +2232,51 @@ def test_a_sentence_the_same_range_removes_from_docs_is_still_measured(tmp_path)
     assert "docs/notes.md" in text, text
 
 
+def test_a_verbatim_fold_hides_no_correction_the_same_range_made(tmp_path):
+    """S4 (#591). A range retires a directory whose `spec.md` states FOUND,
+    folds FOUND verbatim into `docs/b.md`, and corrects FOUND in `docs/a.md`.
+    Dropped before the pairing, the retired side left the fold's arrival to
+    pair with the correction, and the correction was held rather than
+    removed. The retired side now takes part in the pairing and leaves the
+    range after it, so the fold's text is held and the correction is the
+    source. Red at 4665def0: exit 0, `against 0 sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            f"{MARKED}/spec.md": f"# spec\n\n{FOUND}\n",
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "the claim, and a work item stating it",
+    )
+    shutil.rmtree(os.path.join(repo, *MARKED.split("/")))
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "docs/a-segment.md": (
+                f"# a segment\n\n<!-- specs/{os.path.basename(MARKED)} -->\n"
+                "The standing statement.\n"
+            ),
+            "docs/b.md": f"# b\n\n{FOUND}\n",
+        },
+        "fold the work item verbatim into b.md, and correct a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the fold's verbatim text was written as the range's own and held the "
+        f"correction; exit {code}\n{text}"
+    )
+    assert coordinates_in(text) == {"docs/b.md:3"}, text
+    assert set(corrected_lines(text)) == {"docs/a.md:3"}, text
+    assert re.search(r"against 1 sentence\(s\)", text), (
+        f"the retired spec's sentences are still counted as removed:\n{text}"
+    )
+
+
 def test_a_spec_less_directory_with_an_open_row_stays_in_the_range(tmp_path):
     """The rule arm's condition, asked of the range's left end through the
     one predicate: a directory whose record held an open row was not retired
