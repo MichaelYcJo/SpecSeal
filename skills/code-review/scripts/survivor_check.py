@@ -287,7 +287,7 @@ import re
 import subprocess
 import sys
 import tokenize
-from collections import Counter
+from collections import Counter, deque
 
 # Words per n-gram. Three is the smallest that carries word order, and order is
 # what separates `an argument to an operand` from `an operand to an argument`.
@@ -1126,12 +1126,12 @@ def corrected(root, a, b):
                 fresh.append(sentence)
     # Only after every path is counted: a sentence that left one path and
     # arrived at another is a move, and neither side of it is this range's.
-    gone, fresh = paired_across_paths(gone, fresh)
+    gone, fresh = paired_across_paths(gone, fresh, set(after))
     written = {gram for sentence in fresh for gram in sentence.grams()}
     return gone, written, split
 
 
-def paired_across_paths(gone, fresh):
+def paired_across_paths(gone, fresh, present=frozenset()):
     """`(gone, fresh)` less every sentence the range moved between paths.
 
     A sentence removed at one path and added verbatim at another -- the same
@@ -1143,27 +1143,65 @@ def paired_across_paths(gone, fresh):
     two that both remain are all this shape; no whole-file rule sees the
     split.
 
+    **Which departure an arrival pairs with is the move's own origin**
+    (#592). A key removed at two paths and added at one -- a correction at
+    one, a move at the other -- used to pair with the first in path order,
+    and the report's `corrected` line then named the path that only moved.
+    So the pairs are taken by the departure path's affinity to the arrival
+    path -- the distinct keys that left the one and arrived at the other --
+    then by the departure's path being gone at `b` (not in `present`), then
+    by path order. A file moved whole or a section split off shares every
+    key it carried with its destination, and a correction shares the one.
+    The verdict is the same whichever departure pairs, because the key and
+    so its n-grams are; only the source's coordinate moves.
+
     The two lists can only meet across paths: within one path, a key is
     either counted down or counted up, never both. A pair leaves `gone`
     only when every n-gram it has is in `written` anyway, so `wanted` can
     only grow -- and a larger `wanted` can join two runs into one, which
     `weigh` scores by its rarest n-gram. That is the score the same text
     gets had it not moved."""
-    arrived = Counter(sentence.key for sentence in fresh)
-    left, kept = Counter(), []
-    for sentence in gone:
-        if arrived[sentence.key] > 0:
-            arrived[sentence.key] -= 1
-            left[sentence.key] += 1
-        else:
-            kept.append(sentence)
-    written = []
-    for sentence in fresh:
-        if left[sentence.key] > 0:
-            left[sentence.key] -= 1
-        else:
-            written.append(sentence)
-    return kept, written
+    departures, arrivals = {}, {}
+    for at, sentence in enumerate(gone):
+        departures.setdefault(sentence.key, {}).setdefault(sentence.path, [])
+        departures[sentence.key][sentence.path].append(at)
+    for at, sentence in enumerate(fresh):
+        if sentence.key in departures:
+            arrivals.setdefault(sentence.key, {}).setdefault(sentence.path, [])
+            arrivals[sentence.key][sentence.path].append(at)
+    # Counted per path rather than per sentence, so a fold moving three
+    # hundred rows that share a date cell is three hundred pairs, not
+    # ninety thousand candidates.
+    affinity = Counter(
+        (origin, destination)
+        for key, found in arrivals.items()
+        for origin in departures[key]
+        for destination in found
+    )
+    held, moved = set(), set()
+    for key, found in arrivals.items():
+        origins = {path: deque(at) for path, at in departures[key].items()}
+        destinations = {path: deque(at) for path, at in found.items()}
+        order = sorted(
+            (
+                -affinity[(origin, destination)],
+                origin in present,
+                departures[key][origin][0],
+                found[destination][0],
+                origin,
+                destination,
+            )
+            for origin in origins
+            for destination in destinations
+        )
+        for *_rank, origin, destination in order:
+            while origins[origin] and destinations[destination]:
+                held.add(origins[origin].popleft())
+                moved.add(destinations[destination].popleft())
+    return (
+        [sentence for at, sentence in enumerate(gone) if at not in held],
+        [sentence for at, sentence in enumerate(fresh) if at not in moved],
+    )
 
 
 def wanted(gone, written):

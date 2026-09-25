@@ -938,7 +938,9 @@ always whose writing a sentence is. A sentence moved verbatim to another
 path, by a file moved whole or a document split, is held and never written,
 because a move changes no sentence's author: a pure move removes nothing and
 is silent for that reason, and a move that rewords one sentence measures it,
-where git's rename detection hid both. A fragment's text gathered by a
+where git's rename detection hid both. A move pairs with its own origin, the
+path it shares the most sentences with, so a report names the correction and
+never the path that only moved. A fragment's text gathered by a
 release is held and never written, because the fragment's own branch wrote
 it. Written, it subtracted the survivor a correction in the same commit left
 in another file whenever the release also lost a sentence, and renaming

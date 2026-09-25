@@ -3512,6 +3512,110 @@ def test_a_copy_written_beyond_the_ones_moved_is_the_ranges_writing(tmp_path):
     )
 
 
+# --- #592: a move pairs with its own origin, and the correction is named ----
+#
+# A key removed at two paths and added at one used to pair with whichever
+# departure came first in path order. When one departure was a correction and
+# the other a move, the report's `corrected` line could name the path that
+# only moved. The verdict and the score are the same either way -- the key,
+# and so its n-grams, is identical -- so what these cases pin is the line a
+# person follows to find the correction.
+
+
+def corrected_lines(text):
+    """The `path:line` each report's `corrected` line names."""
+    return [
+        line.split()[1]
+        for line in text.splitlines()
+        if line.startswith("  corrected   ")
+    ]
+
+
+def moved_and_corrected(repo, corrected, moved, before, remains, arrived):
+    """`corrected` states FOUND and is corrected to REPAIRED; in the same
+    commit `moved` goes from `before` to `remains` (None: removed) and
+    `arrived` lands at `docs/z.md`. `docs/b.md` keeps FOUND throughout."""
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            corrected: f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\n{FOUND}\n",
+            moved: before,
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "the claim, a copy of it, and a document carrying it too",
+    )
+    if remains is None:
+        os.remove(os.path.join(str(repo), *moved.split("/")))
+        files = {}
+    else:
+        files = {moved: remains}
+    files.update({corrected: f"# a\n\n{REPAIRED}\n", "docs/z.md": arrived})
+    return build(repo, files, "correct one copy and move the other")
+
+
+def test_a_move_pairs_with_its_own_origin_and_the_correction_is_named(tmp_path):
+    """S1. `docs/a.md` corrects FOUND, and `docs/m.md` -- the same sentence
+    under a heading of its own -- moves whole to `docs/z.md`. The arrival
+    shares two keys with `docs/m.md` and one with `docs/a.md`, so it pairs
+    with the move, and the correction is the source every report names.
+    Red at 2e0e2fa7: `corrected` named `docs/m.md:3`, the path that moved."""
+    repo = tmp_path / "probe"
+    moved = f"# m\n\n{FOUND}\n"
+    head = moved_and_corrected(repo, "docs/a.md", "docs/m.md", moved, None, moved)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"exit {code}\n{text}"
+    assert coordinates_in(text) == {"docs/b.md:3", "docs/z.md:3"}, text
+    assert set(corrected_lines(text)) == {"docs/a.md:3"}, (
+        f"the report names the path that only moved as the correction:\n{text}"
+    )
+
+
+def test_a_split_pairs_with_its_own_origin_while_both_files_remain(tmp_path):
+    """S1's split. `docs/m.md` keeps one section and the other, carrying
+    FOUND, moves to `docs/z.md`; both files remain, so nothing is gone at `b`
+    and only the shared keys tell the move from the correction. Red at
+    2e0e2fa7, and red with affinity dropped from the order."""
+    repo = tmp_path / "probe"
+    section, kept = (
+        f"## Moved\n\n{FOUND}\n",
+        "## Kept\n\nThe kept section says little.\n",
+    )
+    head = moved_and_corrected(
+        repo, "docs/a.md", "docs/m.md", f"{section}\n{kept}", kept, section
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"exit {code}\n{text}"
+    assert set(corrected_lines(text)) == {"docs/a.md:3"}, text
+
+
+def test_path_order_does_not_decide_which_departure_is_the_source(tmp_path):
+    """S2. The moved file sorts first, so path order alone already names the
+    correction; the case holds the answer under an order that would favour
+    the other file, which a reversed order turns red."""
+    repo = tmp_path / "probe"
+    moved = f"# m\n\n{FOUND}\n"
+    head = moved_and_corrected(repo, "docs/q.md", "docs/0.md", moved, None, moved)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"exit {code}\n{text}"
+    assert set(corrected_lines(text)) == {"docs/q.md:3"}, text
+
+
+def test_a_one_sentence_move_pairs_with_the_path_gone_at_the_tip(tmp_path):
+    """S3. `docs/m.md` holds only the sentence, so both departures share one
+    key with the arrival. The tie goes to the departure whose path is gone
+    at `b`: the moved file. Red at 2e0e2fa7 (`docs/m.md:1`)."""
+    repo = tmp_path / "probe"
+    head = moved_and_corrected(
+        repo, "docs/a.md", "docs/m.md", f"{FOUND}\n", None, f"{FOUND}\n"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"exit {code}\n{text}"
+    assert set(corrected_lines(text)) == {"docs/a.md:3"}, text
+
+
 # --- #554: a local-mode declaration owns the range on its own branch --------
 #
 # In local mode the `seal/` root is `<git-common-dir>/seal/` and nothing under
