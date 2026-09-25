@@ -139,6 +139,12 @@ commit in it for a rebase to orphan.
   names each row and its remedy. The changelog fragment says this in its
   first line, because it is what an updating user meets.
 - No migration, no new dependency, no new environment variable.
+- **`evidence_check.py#ANCHOR_RE` and `#resolve_unit` stay as they are**:
+  names, pattern, signature, return shape. Work item B (#603) loads this
+  file by path and calls both, so a change to either breaks a sibling chain
+  at its squash. No phase here needs to touch them. A build that finds it
+  must adds a new unit beside the old one, leaves the old one in place, and
+  records that here.
 - The `total:` line gains a trailing field. `broad_gate.py#LEDGER_RE` reads
   only the unchanged prefix. Any outside parser anchored to the line's end
   would see the change.

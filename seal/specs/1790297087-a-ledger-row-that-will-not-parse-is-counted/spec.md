@@ -204,6 +204,14 @@ repository starts from:
 - Totals line, whole: `total: N ok · D drifted · B broken · E external · O old-format · M malformed`.
 - `exit_code(totals, refused, drifted, strict)`: returns 2 when
   `totals["MALFORMED"]` is non-zero, whatever `strict` is.
+- **`ANCHOR_RE` and `resolve_unit` do not change** — neither name, nor
+  `ANCHOR_RE`'s pattern, nor `resolve_unit`'s signature and return shape.
+  Work item B of this milestone (#603, `survivor_check.py`) loads
+  `evidence_check.py` by path and calls both (constraint from the
+  orchestrator, 2026-09-25). Nothing in this frame needs either to change: the
+  arm reads what `ANCHOR_RE` refuses without altering what it accepts. If the
+  build finds it must, it adds a new unit beside the old one and leaves the
+  old one in place, and says so in `plan.md` *Operational impact*.
 - The column name `Code grounds` becomes vocabulary the checker reads.
 - `evidence_check.py` stays loadable alone. `evidence-ci` vendors it into a
   user repository's `tools/` with no sibling beside it, which is why its
