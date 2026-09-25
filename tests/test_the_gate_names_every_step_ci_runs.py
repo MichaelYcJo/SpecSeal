@@ -882,8 +882,12 @@ def test_the_two_clauses_render_together_and_hold_the_right_names():
 # The one line a run that leaves the two arms out prints, pinned verbatim
 # because a person reads it to learn why two arms they expected did not run
 # (`agent-contract` §14).
+#
+# The path is the gate's own `WORKFLOW`, built with `os.path.join`, so the
+# pin holds on every leg of the matrix: on `windows-latest` the line reads
+# `.github\workflows\hygiene.yml` (round 1, 🔴 2).
 SKIPPED_LINE = (
-    "broad-gate: the base is `main`, and .github/workflows/hygiene.yml skips "
+    f"broad-gate: the base is `main`, and {gate.WORKFLOW} skips "
     "the steps the `survivors` and `corrections` arms mirror on a pull request "
     "into `main`, so this run does not run them either"
 )
