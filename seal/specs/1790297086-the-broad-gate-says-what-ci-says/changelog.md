@@ -20,3 +20,12 @@
   those six cases read through them. A `BASE:` counts as a base only under
   `env:`, and an empty base fails the spelling check by name instead of
   raising `TypeError`.
+- **The broad gate no longer asks two questions that CI skips on a release
+  pull request (issue #473).** SpecSeal's own workflow skips the survivor
+  step and the correction step when a pull request goes into `main`, and the
+  gate still ran both arms there. The gate now leaves them out when the base
+  it was given names `main` and the repository's `hygiene.yml` carries those
+  two steps, and it prints one line saying so. A repository with no such
+  workflow runs both arms against `main` exactly as before. A case holds the
+  gate's list against the workflow's own guards, so a guard added to a third
+  step, or dropped from one of the two, fails the suite.
