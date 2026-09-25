@@ -119,7 +119,7 @@ Three outcomes, and they are not two:
   `Fixes checked by` reads anything but `no fixes to check`. On the last
   record that is the only value `seal` accepts: a `round-N` names a later
   round and the last record has none, and `nobody — <why>` beside a checked
-  `Pass` is what fails the pull request. Either way the refusal says to
+  `Pass` is what fails a ready pull request. Either way the refusal says to
   spawn the verifying round first, and that round's record is the one the
   cell belongs on.
 

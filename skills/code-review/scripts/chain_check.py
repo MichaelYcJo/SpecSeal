@@ -55,7 +55,9 @@ needed, and they answer different questions.
 
   is anything required of this record at all?   only if the pull request adds
       or changes it. A record that arrived in an earlier merge is history, and
-      a check has no business asserting a property of it now
+      a check has no business asserting a property of it now. Neither is a
+      record the pull request RESTORES byte-for-byte from the base's own
+      history, which is in the diff and not its claim (`restored_from`)
 
   which commits count as reachable?             an ancestor of HEAD, of the
       branch `routing.md` names, or of a pull request head. The first two need
@@ -119,8 +121,9 @@ round that opened them:
                        verdict cell reading one, which is the same
                        contradiction-inside-one-file the `Pass` rule refuses
   nobody -- <why>      the gap, written down. Prints on every run, and FAILS
-                       beside a checked `Pass` on the last record -- see the
-                       cutoff below
+                       a ready pull request beside a checked `Pass` on the
+                       last record, where a draft prints it -- see the cutoff
+                       below
 
 `nobody` is a disclosure rather than a claim, and a check that failed for an
 honest disclosure would teach people to write none, which is the reasoning
@@ -146,9 +149,13 @@ Nothing after the cutoff is stuck, and the message says so. One verifying
 round at the diff of those fixes closes it, and a round that opens nothing
 needing a fix does not consume the cap.
 
-The draft excuse does NOT reach this row. `Pass` is excused in a draft because
-a review still running has not reached its verdict; a record naming a checker
-it does not have is wrong at every stage.
+The draft excuse reaches ONE refusal in this row: `Pass` beside `nobody` on
+the last record, which prints in a draft and fails at ready (#598 instance 4).
+`Pass` is excused in a draft because a review still running has not reached
+its verdict, and `Pass` is the half of that pair that makes it refusable --
+`nobody — <why>` is the honest cell between `close` ticking the box and the
+verifying round's record committing. Every other refusal here is a record
+naming a checker it does not have, which is wrong at every stage.
 
 THE FIX SURFACE, two rows read the same way. Issue #57 traced ten regressions
 on one work item to the fixes that opened them, and the largest class -- four
@@ -2187,7 +2194,7 @@ def nobody_reason(value):
     return rest.strip(SEPARATORS)
 
 
-def checked_by(reader, routing, root, rel, siblings, last=False):
+def checked_by(reader, routing, root, rel, siblings, last=False, strict=True):
     """(errors, notices) for one record's `Fixes checked by` row.
 
     `siblings` maps every `round-N.md` git carries in this work item to its
@@ -2199,6 +2206,17 @@ def checked_by(reader, routing, root, rel, siblings, last=False):
     and it is what makes the refusal for `Pass` beside `nobody` reachable. On
     an earlier record `Pass` says nothing about the whole review, so a checked
     box there is not the claim this refuses.
+
+    `strict` is false only for a draft pull request, and it reaches ONE
+    refusal here: that same pair (#598 instance 4). Between `close` ticking
+    `Pass` and the verifying round's record committing, `nobody — <why>` is
+    the honest cell, since no later round exists yet to name, and the
+    orchestration document orders the verifying round next. What makes the
+    pair refusable is the `Pass` half, and `Pass` is what a draft is excused,
+    so in a draft it prints and names what re-arms it. Every other refusal
+    below is a checker the record does not have, which is wrong at every
+    stage, and none of them reads `strict`. `unknown` is judged as ready, as
+    it is everywhere `strict` is read.
 
     EVERY record, where `Pass` is read on the last one alone, and the two
     scopes are different for a reason that is not symmetry. `Pass` is a
@@ -2308,6 +2326,22 @@ def checked_by(reader, routing, root, rel, siblings, last=False):
         ], []
     began = item_began(rel)
     if last and pass_checked(lines) and began is not None and began >= STRICT_FROM:
+        if not strict:
+            return [], [
+                (
+                    rel,
+                    0,
+                    f"`Pass` is checked beside `{CHECKED_BY}: {cell.strip()}` "
+                    "on the last record — the state a draft is in between "
+                    "`close` ticking `Pass` and the verifying round's record "
+                    "committing. It prints because a draft is not a request "
+                    "to merge. It is still owed: spawn one verifying round at "
+                    "the diff of these fixes, and this cell names it. "
+                    "Pressing *Ready for review* fires `ready_for_review`, "
+                    "re-runs this check, and fails the pull request if the "
+                    f"cell still says `{NOBODY}`",
+                )
+            ]
         return [
             (
                 rel,
@@ -2969,8 +3003,28 @@ def added_on_branch(root, base, rel):
       passing and never a passing one failing -- the safe direction, stated
       in `docs/review-chain-spec.md` rather than left to be found.
 
-    `git log` prints newest first, so the FIRST line is the LATEST add, and
-    that is the one taken. More than one add means the file was deleted and
+    The FIRST line is the LATEST add, and that is the one taken. Two flags
+    make that sentence true, and each closes a separate way it was false
+    (#529, both measured in scratch repositories):
+
+      `--full-history`, because git's default simplification follows ONE
+      parent of a merge that matches it at the path. A side branch that
+      deletes the record, re-adds the same bytes and merges back leaves the
+      merge matching the first parent, so the late add is never walked and
+      the early one comes back -- the unsafe direction
+
+      `--topo-order`, because the default order is the commit date. A side
+      branch whose clock is behind the early add lists the early add first
+      even once both are walked. Topological order shows a descendant before
+      its ancestor, and a re-add descends from the add it replaces in every
+      delete-and-re-add shape
+
+    A merge is never itself an `A` here, with either flag or without: `git
+    log` does not diff a merge unless `-m` asks it to, so `--diff-filter=A`
+    never matches one. A record added on a side branch and merged `--no-ff`
+    is read at the side's own adding commit.
+
+    More than one add means the file was deleted and
     re-added, and the version anybody reads was authored at the last of them:
     a stub committed on time, removed, and the real record written after the
     fixes is exactly the shape that makes a late record look early. Taking the
@@ -2995,15 +3049,85 @@ def added_on_branch(root, base, rel):
     where round 1's battery saw one.
 
     What it costs, stated rather than hidden: a record accidentally deleted
-    and restored after the fixes is refused, and the failure names the
-    restoring commit. The declared failure direction is *blocks more*, and a
+    and restored WITHIN THE BRANCH after the fixes is refused, and the
+    failure names the restoring commit. Bytes the base's own history carried
+    are `restored_from`'s, and `written_late` asks it before this. The declared failure direction is *blocks more*, and a
     repair that is visible in the message is the cheaper mistake here.
     """
-    out = git(root, "log", "--diff-filter=A", "--format=%H", f"{base}..HEAD", "--", rel)
+    out = git(
+        root,
+        "log",
+        "--full-history",
+        "--topo-order",
+        "--diff-filter=A",
+        "--format=%H",
+        f"{base}..HEAD",
+        "--",
+        rel,
+    )
     if not out:
         return None
     found = [line.strip() for line in out.splitlines() if line.strip()]
     return found[0] if found else None
+
+
+def restored_from(root, fork, rel):
+    """A commit in the merge base's history carrying `rel`'s current bytes at
+    `rel`, or None.
+
+    The one predicate for a record this pull request RESTORED rather than
+    wrote (#598 instance 1). Asked by the two arms whose claim is about the
+    pull request's own add, and by no other: reachability in `main`, and
+    `written_late`. Everything else is read on a restored record exactly as
+    it is on one the pull request never touched.
+
+    A directory the base retired and this pull request puts back is an `A` in
+    `base...HEAD` whatever its content, so the diff alone calls it new. But
+    bytes the base's own history already held at this path were added there,
+    by an earlier pull request, and the review they record was enforced at
+    that one (`docs/commit-review-gate-spec.md`). #597 went red on four such
+    records, every one byte-identical to `main`'s.
+
+    ANY version in that history counts, not only the one the base retired:
+    every version it holds was added by an earlier pull request. One byte
+    changed and the bytes are this pull request's, so the claim comes back.
+
+    The bytes are HEAD's, or the working tree's under `--worktree`, the same
+    rule `read_record` follows. The commit returned is the last of those git
+    lists, and `--topo-order` makes that an ancestor-most change, which is
+    where the bytes entered: in date order a clock that ran ahead on the add
+    names the commit that retired them instead.
+
+    No `--full-history`, and that is measured rather than forgotten.
+    `--find-object` already walks both parents of a merge: bytes that stood
+    only on a side line which changed the record and changed it back before
+    merging are found without the flag, where a plain path-limited `git log`
+    simplifies that side line away. The case beside B1 holds it.
+
+    None when `fork` is None or git fails, which is the strict direction:
+    nothing is relaxed on an answer nobody could compute.
+    """
+    if not fork:
+        return None
+    if WORKTREE:
+        blob = git(root, "hash-object", "--", os.path.join(root, *rel.split("/")))
+    else:
+        blob = git(root, "rev-parse", "--verify", "-q", f"HEAD:{rel}")
+    blob = (blob or "").strip()
+    if not blob:
+        return None
+    out = git(
+        root,
+        "log",
+        "--topo-order",
+        f"--find-object={blob}",
+        "--format=%H",
+        fork,
+        "--",
+        rel,
+    )
+    found = [line.strip() for line in (out or "").splitlines() if line.strip()]
+    return found[-1] if found else None
 
 
 def commissioned_fixes(reader, root, rel):
@@ -3064,7 +3188,7 @@ def written_late_reason(reader, root, rel):
     return reason if word == FLOOR_YES and reason else None
 
 
-def written_late(reader, root, base, rel):
+def written_late(reader, root, base, rel, fork=None):
     """(errors, notices) -- was this record committed after its own fixes.
 
     `templates/sdd-round.md` says a record is written right after the round
@@ -3097,9 +3221,19 @@ def written_late(reader, root, base, rel):
     `checked_by` and `verdict_table`'s own caller already report those states,
     and a second error naming a different cause would name a cause that is not
     the cause.
+
+    A record RESTORED byte-for-byte from the merge base's history (`fork`,
+    through `restored_from`) returns nothing too, and silently. Its add in
+    `<baseline>..HEAD` is a restore, not the pull request's own add, and this
+    arm's *no claim* for a record with no adding commit here is defined by
+    pointing at the reachability arm's, which a restored record already gets.
+    Asked after the fixes are found and before the add is, so an ordinary
+    record with no fix verdict pays no extra `git log`.
     """
     named = commissioned_fixes(reader, root, rel)
     if not named:
+        return [], []
+    if restored_from(root, fork, rel):
         return [], []
     adding = added_on_branch(root, base, rel)
     if adding is None:
@@ -4052,11 +4186,14 @@ def check_round(reader, root, rel, strict=True, refs=None):
     is the wrong place for a question every round has its own answer to.
 
     `strict` is false only for a draft pull request, where an unchecked
-    `Pass` is the honest state of a review still running. It does not reach
-    `Fixes checked by`: a record naming a checker it does not have is wrong at
-    every stage of a run, where an unchecked box is merely early.
+    `Pass` is the honest state of a review still running. In `Fixes checked
+    by` it reaches one refusal, the `Pass`-beside-`nobody` pair `checked_by`
+    reads, because that pair's refusable half is `Pass`. A record naming a
+    checker it does not have is wrong at every stage of a run, where an
+    unchecked box is merely early.
 
-    `refs` is None for a record this pull request does not touch, and then no
+    `refs` is None for a record this pull request does not touch, or restores
+    byte-for-byte from the base's own history (`restored_from`), and then no
     claim is made about where its commits are. Everything else is still read:
     a `Target SHA` row has to be THERE either way, because "which commit did
     this round review" is answerable after a squash even when the commit is
@@ -4437,7 +4574,15 @@ def main(argv=None):
             )
             continue
         last = records[-1]
-        refs = target_refs(reader, root, declared) if last in touched else None
+        # A last record the pull request RESTORED is in the diff and is not
+        # its claim (#598 instance 1): `restored_from` holds why, and the
+        # same predicate is what `written_late` asks below.
+        restored = restored_from(root, fork, last) if last in touched else None
+        refs = (
+            target_refs(reader, root, declared)
+            if last in touched and not restored
+            else None
+        )
         print(
             f"{item}: through the review chain — {len(records)} round "
             f"record(s), last is {os.path.basename(last)}, "
@@ -4445,6 +4590,12 @@ def main(argv=None):
                 f"its target must be reachable from {' or '.join(refs)}, "
                 f"or from the `{PULL_HEADS}<N>/head` that carried it"
                 if refs
+                # The path IS in the diff here, so the sentence below would
+                # be false. What this established is where the bytes were.
+                else f"restored byte-for-byte from the base's own history, "
+                f"which carries the same bytes at this path from "
+                f"{restored[:7]} — no claim made about where its commits are"
+                if restored
                 # What this established, not what it concluded. `already merged`
                 # was the claim here, and it is one the code cannot make -- it
                 # knows the path was not in the diff and nothing more. Saying it
@@ -4476,7 +4627,13 @@ def main(argv=None):
         siblings = {os.path.basename(p): p for p in records}
         for index, record in enumerate(records):
             who_errors, who_notices = checked_by(
-                reader, routing, root, record, siblings, last=record == last
+                reader,
+                routing,
+                root,
+                record,
+                siblings,
+                last=record == last,
+                strict=strict,
             )
             errors.extend(who_errors)
             notices.extend(who_notices)
@@ -4524,7 +4681,7 @@ def main(argv=None):
             # commission anything, so a check reading it alone would read the
             # one record the defect cannot reach.
             late_errors, late_notices = written_late(
-                reader, root, args.baseline, record
+                reader, root, args.baseline, record, fork
             )
             errors.extend(late_errors)
             notices.extend(late_notices)

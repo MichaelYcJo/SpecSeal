@@ -111,15 +111,18 @@ only what the checker never reads: the headings and headers of the two tables
 it does not parse, and the honest starting values of the cells it does.
 
 Exit codes: 0 and 1 are `chain_check`'s own, after the record is written ·
-2 the input was unusable, or the interpreter is below the floor — either way
-nothing was read and nothing was written · a sibling script that will not
-load is 1, before anything is read.
+2 the input was unusable, a sibling script this loads is not beside it, or
+the interpreter is below the floor — any way, nothing was read and nothing
+was written.
 
-Those are all three exits, enumerated from this module's own AST rather than
-remembered: `SystemExit(2)` at the guard, `SystemExit(<sentence>)` in `load`,
-and `sys.exit(main())` at the bottom. `SystemExit` carrying a string exits 1
-— only an int argument sets the code — so `load` is 1 either way, and this
-paragraph said 2 until #226's review round asked what actually happens.
+Those are all the exits, enumerated from this module's own AST rather than
+remembered: `SystemExit(2)` at the guard and in `load`, and
+`sys.exit(main())` at the bottom. `load` used to raise
+`SystemExit(<sentence>)`, which exits 1 — only an int argument sets the code
+— and a missing `chain_check.py` never reached even that, dying in
+`exec_module` with a traceback. #590 made it a sentence on stderr and 2,
+because 1 is the checker's verdict and a copy missing its checker has not
+judged anything.
 """
 
 import argparse
@@ -208,36 +211,43 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 CHAIN = os.path.join(HERE, "chain_check.py")
 
 
-# RIDER: this function's refusal is the shape #226 fixed one file over, and
-# it is still the old shape here. A missing `chain_check.py` reaches
-# `exec_module` and raises `FileNotFoundError` -- a bare traceback, exit 1 --
-# because `spec_from_file_location` hands back a spec for any path ending in
-# `.py`, present or not, so the `SystemExit` sentence below is unreachable
-# from this call site. Whoever next opens this function: make the missing
-# case a sentence naming `path` and what to do, the way `below_floor` does,
-# and give it the same exit code the docstring promises. Measured, not read:
-# the real script with `chain_check.py` deleted exits 1 with a traceback.
-# Verified 2026-09-08 against load@643ea575.
+# What each sibling is for, in the sentence `load` prints when it is missing.
+# Keyed by file name rather than path, because two of the three paths are
+# `chain_check.py`'s and are known only once that file has loaded.
+PURPOSES = {
+    "chain_check.py": "it is the checker this command writes records for",
+    "unverified_check.py": "it is where the work item's records are read from",
+    "routing.py": "it is what reads the work item's routing.md",
+}
+
+
 def load(path, name):
-    """Import a sibling script by path, or die — either way exit 1.
+    """Import a sibling script by path, or refuse with a sentence naming the
+    path and what it is for — its `PURPOSES` entry — and exit 2.
 
-    This said `exit 2`, and 2 is the one code this module documents as meaning
-    nothing was read and nothing was written. Both ways out are 1: a
-    `SystemExit` carrying a string prints it and exits 1, since only an int
-    argument sets the code.
+    The file is checked for first. `spec_from_file_location` returns a spec
+    for a path ending in `.py` whether or not the file is there, so a missing
+    `CHAIN` used to reach `exec_module` and raise `FileNotFoundError` — an
+    uncaught traceback, exit 1, the shape #226 fixed one file over. A rider
+    stood here asking for this until #590 answered it.
 
-    Which way out a missing checker takes is not the one the sentence below
-    suggests, and it was measured rather than read. `spec_from_file_location`
-    returns a spec for a path ending in `.py` whether or not the file is
-    there, so `CHAIN` missing reaches `exec_module` and raises
-    `FileNotFoundError` — an uncaught traceback, exit 1. The `SystemExit`
-    branch fires only for a path with no loader at all, a directory or an
-    unrecognised suffix, which a literal `chain_check.py` cannot be. So a
-    missing sibling still arrives as the bare traceback #226 is about, one
-    file over. The rider above says what that would take."""
+    Exit 2 and not 1, because nothing was read and nothing was written, which
+    is what 2 means in this module; 1 is `chain_check`'s own verdict about a
+    record. A `SystemExit` carrying a string exits 1, so the sentence goes to
+    stderr and the code is the int."""
+    purpose = PURPOSES.get(os.path.basename(path), "this command cannot run without it")
+    if not os.path.isfile(path):
+        sys.stderr.write(
+            f"round-record: cannot read {path}, and {purpose}. This command "
+            "ships beside it under `skills/`; a copy of one script taken on "
+            "its own is not a plugin. Nothing was read and nothing was "
+            "written.\n"
+        )
+        raise SystemExit(2)
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
-        raise SystemExit(f"round-record: cannot load {path}")
+        sys.stderr.write(f"round-record: cannot load {path}, and {purpose}.\n")
+        raise SystemExit(2)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
@@ -4493,8 +4503,9 @@ def seal(args):
             f"`seal` accepts. {why}. `{chain.NOBODY} {DASH} <why>` is "
             "allowed on a last record by the protocol and refused here for "
             "its own reason: `seal` runs with `Pass` ticked, and "
-            "`skills/code-review/orchestration.md` fails a pull request whose "
-            f"last record reads `{chain.NOBODY}` beside a checked `Pass`. "
+            "`skills/code-review/orchestration.md` fails a ready pull request "
+            f"whose last record reads `{chain.NOBODY}` beside a checked "
+            "`Pass`. "
             "Spawn the verifying round first, before the sealer runs; its "
             "record is the one this cell "
             f"belongs on, and its own row then reads `{chain.NO_FIXES}`; no "

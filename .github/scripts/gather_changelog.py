@@ -36,9 +36,17 @@ reporting it as *all gathered* is a pass over an empty set. So the check also
 counts the markers `CHANGELOG.md` carries and prints both numbers, and a
 corpus with neither a fragment nor a marker is refused rather than passed.
 
+**A fragment carries no line starting `## `** (#586). The released section
+ends at the next such line, for `insert` below and for
+`publish_release_note.py#section_body`, so a fragment carrying one would ship
+every entry after it under no version and cut the release note short. The
+gather refuses, among the fragments it would write, before anything is
+written or printed, naming the fragment, the line number and the line.
+
 Exit codes: 0 done · 1 nothing to gather, a fragment is missing from the file,
-or `--check` found neither a fragment nor a marker and so examined nothing.
-All three are failures a release pull request should stop on.
+`--check` found neither a fragment nor a marker and so examined nothing, or
+a fragment carries a line starting `## `. All four are failures a release
+pull request should stop on.
 """
 
 import argparse
@@ -87,6 +95,29 @@ def fragments(root):
 
 def ungathered(changelog_text, frags):
     return [(i, body) for i, body in frags if marker(i) not in changelog_text]
+
+
+# What ends a released section for both of its readers: `insert` below and
+# `publish_release_note.py#section_body`. Not a markdown heading rule — neither
+# reader knows a fence or an indent — so this is exactly their predicate.
+SECTION_LINE = "## "
+
+
+def section_lines(root, work_item_id):
+    """`[(1-based line number, line)]` for every line of the fragment on disk
+    that starts `## `.
+
+    #586: such a line ends the released section early for the gatherer and
+    for the release note alike, so every entry after it ships under no
+    version. The numbers are the file's own, read again rather than taken
+    from `fragments`, whose body is stripped and so counts from the first
+    line with text on it."""
+    path = os.path.join(root, "seal", "specs", work_item_id, "changelog.md")
+    with open(path, encoding="utf-8") as f:
+        lines = f.read().splitlines()
+    return [
+        (n, line) for n, line in enumerate(lines, 1) if line.startswith(SECTION_LINE)
+    ]
 
 
 def section(version, date, entries):
@@ -241,6 +272,29 @@ def main(argv=None):
             f"nothing to gather: all {len(frags)} fragments are already in "
             "CHANGELOG.md. A release with no entries is one nobody can read — "
             "check that the branches you meant to ship are merged"
+        )
+        return 1
+
+    # #586: refused before anything is written or printed, among the
+    # fragments this run would gather only. One already in the file cannot be
+    # un-shipped by refusing the release, and refusing over it would leave no
+    # remedy but editing prose that has shipped.
+    headed = [
+        (work_item_id, n, line)
+        for work_item_id, _ in missing
+        for n, line in section_lines(root, work_item_id)
+    ]
+    if headed:
+        print(
+            "changelog fragments carrying a line that starts `## `, which "
+            "ends the released section for this gather and for the release "
+            "note alike, so every entry after it would ship under no version:"
+        )
+        for work_item_id, n, line in headed:
+            print(f"  seal/specs/{work_item_id}/changelog.md:{n}: {line}")
+        print(
+            "\nDemote each to `###` or lower in a pull request into the release "
+            "branch, then gather again. Nothing was written."
         )
         return 1
 

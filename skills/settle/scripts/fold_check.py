@@ -50,8 +50,8 @@ so a run from a subdirectory checks that repository and not nothing.
 Exit codes: 0 nothing found, including the run where nothing is declared ·
 1 at least one problem, each on a line of its own · 2 the root, a value or a
 file it had to read was unusable — a document that is not UTF-8, a `::name`
-target that will not parse — and no result was printed, or the interpreter is
-below the floor.
+target that will not parse — and no result was printed, or a sibling script it
+loads is not beside it, or the interpreter is below the floor.
 """
 
 import argparse
@@ -141,16 +141,23 @@ NOTHING = "nothing — "
 def load(path, name, purpose):
     """Import a sibling script by path, or refuse with a sentence that says
     what the missing file is for — `purpose` — rather than one reason for
-    every file (round 1, note 7)."""
+    every file (round 1, note 7).
+
+    The refusal is exit 2, written to stderr: nothing about the tree has been
+    read, which is what 2 means here, and 1 is a problem found in `docs/`.
+    It used to be `SystemExit(<sentence>)`, and a string argument exits 1, so
+    a copy missing its sibling read as a finding (#590)."""
     if not os.path.isfile(path):
-        raise SystemExit(
+        sys.stderr.write(
             f"fold-check: cannot read {path}, and {purpose}. This command "
             "ships beside it in the plugin; a copy of one script taken on its "
-            "own is not a plugin."
+            "own is not a plugin. Nothing was read.\n"
         )
+        raise SystemExit(2)
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
-        raise SystemExit(f"fold-check: cannot load {path}")
+        sys.stderr.write(f"fold-check: cannot load {path}, and {purpose}.\n")
+        raise SystemExit(2)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

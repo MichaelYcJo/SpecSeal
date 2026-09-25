@@ -14,6 +14,10 @@ and classifies each:
   OK       the anchor is there and the content is what the row recorded
   EXTERNAL path not in this repo and no --map given — cannot judge here
 
+and names what it cannot classify: OLD-FORMAT for a pre-anchor `path:line`
+row, and MALFORMED for a `Code grounds` cell whose coordinate does not parse
+or that cites none (#299).
+
 **A coordinate names a place by content, never by position.** A line number
 moves for edits that have nothing to do with the claim, so a coordinate made of
 one rots on contact: the row gets re-anchored, which resets whatever the row
@@ -32,8 +36,8 @@ blank lines removed, so reformatting is not a change and reindenting is: in
 Python indentation carries meaning, and a checker that shrugged at a dedent
 would go quiet exactly where it should complain.
 
-Exit codes: 0 clean · 1 drift only · 2 broken coordinates (or drift with
---strict). Designed for CI: a spec-code link that stops resolving should fail
+Exit codes: 0 clean · 1 drift only · 2 broken, old-format or malformed
+coordinates (or drift with --strict). Designed for CI: a spec-code link that stops resolving should fail
 the build the same way a broken test does.
 
 Usage:
@@ -62,7 +66,9 @@ import tempfile
 
 # `path#anchor@hash`. The anchor is either a dotted symbol name or a quoted
 # line of text; `\|` inside the quotes is an escaped pipe, so a row anchored to
-# a markdown table line does not split the table it lives in.
+# a markdown table line does not split the table it lives in, and `\"` is an
+# escaped double quote, because a bare one ends the quoted line and the whole
+# coordinate stops matching.
 ANCHOR_RE = re.compile(
     r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
     r"#(?P<locator>\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)"
@@ -140,7 +146,8 @@ SKIP_DIRS = frozenset(
 # `--reverify` (#444). The delimiter rule is the shared reader's,
 # `skills/verify/scripts/unverified_check.py#fence_opener` and `#fence_closes`,
 # which the ledger and record readers ask; `fence_opener`'s docstring lists
-# them and names the readers #584 has not brought over yet.
+# them and names the readers #584 has not brought over yet. The row rule,
+# `#split_row`, is asked the same way by the `MALFORMED` arm (#299).
 HERE = os.path.dirname(os.path.abspath(__file__))
 READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
 # The vendored copy's rule, and nothing else's. `evidence-ci` puts this file
@@ -173,10 +180,27 @@ def vendored_fence_closes(line, opener):
     )
 
 
+def vendored_split_row(line):
+    """`unverified_check.py#split_row`, for a copy with no reader beside it.
+
+    The `MALFORMED` arm reads one cell of a ledger row (#299), so the vendored
+    copy needs the row rule the way it needs the fence rule, and
+    `tests/test_evidence_check.py#test_the_vendored_cell_rule_agrees_with_the_shared_one`
+    holds the two in step.
+    """
+    s = line.strip()
+    if not s.startswith("|"):
+        return None
+    s = s[1:]
+    if s.endswith("|") and not s.endswith("\\|"):
+        s = s[:-1]
+    return [c.strip().replace("\\|", "|") for c in re.split(r"(?<!\\)\|", s)]
+
+
 @functools.cache
-def fence_rule():
-    """`(fence_opener, fence_closes)`: the shared reader's where this is the
-    plugin's own copy, and the vendored pair where it is not.
+def shared_reader():
+    """The shared reader's module where this is the plugin's own copy, and
+    None where it is not.
 
     The plugin's copy is told apart the way `seal_home` tells it: the reader
     file AND this skill's `SKILL.md` beside it. A reader that is there and
@@ -189,8 +213,26 @@ def fence_rule():
         )
         reader = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(reader)
+        return reader
+    return None
+
+
+@functools.cache
+def fence_rule():
+    """`(fence_opener, fence_closes)`: the shared reader's where this is the
+    plugin's own copy, and the vendored pair where it is not."""
+    reader = shared_reader()
+    if reader is not None:
         return reader.fence_opener, reader.fence_closes
     return vendored_fence_opener, vendored_fence_closes
+
+
+@functools.cache
+def cell_rule():
+    """`split_row`: the shared reader's where this is the plugin's own copy,
+    and the vendored one where it is not."""
+    reader = shared_reader()
+    return reader.split_row if reader is not None else vendored_split_row
 
 
 def quoted_lines(lines):
@@ -1319,6 +1361,7 @@ def check_ledger(ledger, root, maps, default_repo=None):
     # `old_format_rows` asks the same of the text it is given.
     findings = check_text(unquoted(text), root, maps, default_repo)
     findings.extend(old_format_rows(text))
+    findings.extend(malformed_rows(text))
     return findings
 
 
@@ -1532,6 +1575,163 @@ def old_format_rows(text):
     return findings
 
 
+# --- a coordinate nothing can parse (#299) -----------------------------------
+#
+# `ANCHOR_RE` and `OLD_COORD_RE` decide what a coordinate IS, and one both of
+# them refuse reached no finding list at all: a placeholder hash, a bare `"`
+# inside a quoted locator, a path left off. The row entered no count, the
+# totals read clean, and the claim had left the ledger without a word -- five
+# rows of this repository's own ledgers were in that state when #299 was
+# built. Widening the patterns would only move the boundary, so the rows they
+# refuse are read here instead.
+#
+# Only the `Code grounds` cell is read: the column whose header cell says so,
+# or the second cell of a row under no header, which is every fragment row
+# (`templates/ledger.md` declares the five columns). Scanning whole rows was
+# measured over this repository's ledgers and refused seven correct things in
+# eight -- the template's own notation row, `#analyse@…` shorthand in a Notes
+# cell, a quoted example of this very bug -- so a table whose header names no
+# `Code grounds` column is not read, and a renamed column takes its table out
+# of this arm. That is the trade, stated in `SKILL.md`'s *Known limits*.
+CODE_GROUNDS = "Code grounds"
+RULE_CELL_RE = re.compile(r"^:?-+:?$")
+# A code span, CommonMark's way: a run of backticks closed by a run of the
+# same length, so ``a`b`` is one span holding a backtick.
+CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
+# A quoted locator closed by its second `"` and then followed by something
+# other than the `>` or `@` that must come next: the quote inside it was bare.
+# At the end of the text the hash is what is missing, not a quote.
+BARE_QUOTE_RE = re.compile(r'[#>]"[^"\n]*"(?=[^>@])')
+# A URL is prose, `#fragment` and all, but only the URL: a quoted locator is a
+# line of text and may quote one, so the URL is blanked and the rest is read.
+URL_RE = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*://[^\s"`]*')
+# A hash after a path with no anchor between them: `src/a.py@abcdef12`. An
+# address ends in a domain, so a hex run followed by `.` is not one.
+PATH_HASH_RE = re.compile(r"[0-9a-f]+(?![\w.])")
+
+
+def refused_coordinate(s):
+    """True where S, left over after both patterns, is a coordinate: both
+    marks, or a `#` glued to a path or a file name, or a hash after a path.
+    `#299`, `org/repo#299`, `#ifdef`, `C#` and `@cache` are prose."""
+    s = URL_RE.sub(" ", s)
+    if "#" in s and "@" in s:
+        return True
+    # A word's closing punctuation is the sentence's, not the word's, so
+    # `org/repo#299,` is an issue number like `org/repo#299`.
+    for token in (word.rstrip(".,;:!?)]") for word in s.split()):
+        head, mark, tail = token.partition("#")
+        if mark and not tail.isdigit():
+            if "/" in head or "." in head:
+                return True
+            if head[-1:].isalnum() and tail[:1].isalpha():
+                return True
+            if not head and tail[:1] in ('"', "<"):
+                return True
+        head, mark, tail = token.partition("@")
+        if mark and ("/" in head or "." in head) and PATH_HASH_RE.match(tail):
+            return True
+    return False
+
+
+def grounds_cells(text):
+    """`(cells, column)` for every table row of TEXT that has a `Code
+    grounds` cell, with COLUMN its index.
+
+    Read through `unquoted`, so a row in a fenced block that closes is an
+    example (#444). A table is a run of `|` lines; a line followed by a rule
+    line is its header, and a run with no header is a fragment's.
+    """
+    split = cell_rule()
+    rows = [split(line) for line in unquoted(text).splitlines()]
+
+    def rule(cells):
+        return bool(cells) and all(RULE_CELL_RE.match(c) for c in cells)
+
+    column = None
+    for n, cells in enumerate(rows):
+        if cells is None:
+            column = None
+            continue
+        if rule(cells):
+            continue
+        if n + 1 < len(rows) and rows[n + 1] is not None and rule(rows[n + 1]):
+            column = cells.index(CODE_GROUNDS) if CODE_GROUNDS in cells else -1
+            continue
+        if column is None:
+            column = 1
+        if 0 <= column < len(cells):
+            yield cells, column
+
+
+def malformed_remedy(coord):
+    """What to write instead of COORD, for a coordinate the patterns refused."""
+    if BARE_QUOTE_RE.search(coord):
+        return (
+            'a bare `"` ends a quoted locator — write each one inside it as '
+            '`\\"`, then run `evidence-check --reverify .`'
+        )
+    return (
+        "does not parse as `path#anchor@hash`, so nothing checks it — name the "
+        "file, write the anchor as a name or a quoted line (a minor one after "
+        "`>` is quoted), and the hash as `@00000000`, then run "
+        "`evidence-check --reverify .`"
+    )
+
+
+def malformed_rows(text):
+    """("MALFORMED", text as written, remedy) for every `Code grounds` cell
+    that holds a coordinate nothing can parse, or that cites nothing at all.
+
+    Its own verdict and not BROKEN, for the reason `old_format_rows` gives:
+    BROKEN means *the unit is not there*, and a coordinate nobody can read
+    names no unit to look for. It fails the run with or without `--strict`,
+    like OLD-FORMAT. Two ways in:
+
+    - a coordinate the patterns refused: what is left of the cell once every
+      `ANCHOR_RE` and `OLD_COORD_RE` match is blanked, and every URL in it,
+      still holds both marks, a `#` glued to a path or a file name, or a path
+      followed by `@` and a hash. An issue number `#299` or `org/repo#299`, a
+      directive `#ifdef`, a decorator `@cache` and an address are prose, in a
+      span or out of one;
+    - no coordinate at all: the cell is not empty, nothing in it matches
+      either pattern, and some other cell of the row is not empty either. A
+      row that claims something and cites nothing reads as covered and is
+      not. The template's all-empty row claims nothing.
+
+    Counted once per text as written, as OLD-FORMAT is.
+    """
+    findings, seen = [], set()
+
+    def found(coord, remedy):
+        if coord not in seen:
+            seen.add(coord)
+            findings.append(("MALFORMED", coord, remedy))
+
+    for cells, column in grounds_cells(text):
+        cell = cells[column]
+        left = OLD_COORD_RE.sub(" ", ANCHOR_RE.sub(" ", cell))
+        spans = [m.group(2).strip() for m in CODE_SPAN_RE.finditer(left)]
+        words = CODE_SPAN_RE.sub(" ", left).split()
+        refused = [s for s in spans + words if refused_coordinate(s)]
+        if refused:
+            for coord in refused:
+                found(coord, malformed_remedy(coord))
+        elif (
+            cell
+            and not ANCHOR_RE.search(cell)
+            and not OLD_COORD_RE.search(cell)
+            and any(c for i, c in enumerate(cells) if i != column)
+        ):
+            found(
+                cell,
+                "cites no coordinate, so nothing checks the claim — write "
+                "`path#anchor@hash` in the Code grounds cell, the hash as "
+                "`@00000000`, then run `evidence-check --reverify .`",
+            )
+    return findings
+
+
 def content_at(root, sha, rel):
     """The file as the stamped commit held it — or None where git cannot say.
 
@@ -1734,15 +1934,21 @@ def reverify(ledgers, root, maps, default_repo=None):
     # `Checked` still predates the hash it is about to replace, or print the
     # ones it left; the fix pass that found this could add neither without
     # adding mechanism.
-    # Verified 2026-09-25 against reverify@36d8a548.
+    # Verified 2026-09-25 against reverify@90289e25.
     changed = 0
     unreadable = []
+    malformed = []
     scan_cache = {}
     for ledger in ledgers:
         text = read(ledger)
         if text is None:
             unreadable.append(display_name(ledger, root))
             continue
+        # Named and left, never healed (#299): which reading of a coordinate
+        # the parser refused was meant is not this command's call, and the
+        # remedy the line carries is the placeholder workflow this command
+        # already completes.
+        malformed.extend((coord, why) for _, coord, why in malformed_rows(text))
         out, at = [], 0
         # Matched in `unquoted(text)` and spliced from `text`: the two have
         # the same offsets, and an example row in a closed fence is never
@@ -1870,7 +2076,9 @@ def reverify(ledgers, root, maps, default_repo=None):
     print(f"{changed} row{'' if changed == 1 else 's'} re-verified")
     for path in unreadable:
         print(f"  LEFT  {path}  ledger unreadable")
-    return 1 if unreadable else 0
+    for coord, why in malformed:
+        print(f"  LEFT  {coord}  MALFORMED — {why}")
+    return 1 if unreadable or malformed else 0
 
 
 # --- the records arm: what a work item's records state about the tree -------
@@ -2516,6 +2724,12 @@ def exit_code(totals, refused, drifted, strict):
     """
     if totals["OLD-FORMAT"]:
         return 2
+    # Graded like OLD-FORMAT, the other coordinate nothing can parse: exit 2
+    # under both readings. Its own branch because it is the one the owner may
+    # move to DRIFTED's grading (`questions.md` Q1 of work item
+    # 1790297087-a-ledger-row-that-will-not-parse-is-counted).
+    if totals["MALFORMED"]:
+        return 2
     if totals["BROKEN"] or refused:
         return 2
     if totals["DRIFTED"] or drifted:
@@ -2625,7 +2839,14 @@ def main():
     if not ledgers:
         print("no evidence ledgers found — nothing to check")
 
-    totals = {"OK": 0, "DRIFTED": 0, "BROKEN": 0, "EXTERNAL": 0, "OLD-FORMAT": 0}
+    totals = {
+        "OK": 0,
+        "DRIFTED": 0,
+        "BROKEN": 0,
+        "EXTERNAL": 0,
+        "OLD-FORMAT": 0,
+        "MALFORMED": 0,
+    }
     for ledger in ledgers:
         findings = check_ledger(ledger, root, maps, default_repo)
         print(f"\n{display_name(ledger, root)}")
@@ -2635,17 +2856,19 @@ def main():
                 print(f"  {status:8} {coord}  {detail}")
         counts = {k: sum(1 for s, _, _ in findings if s == k) for k in totals}
         # old-format is on the line even at zero: a red build whose summary
-        # read all zeros is what round 4's 🟡 6 measured.
+        # read all zeros is what round 4's 🟡 6 measured. malformed follows it
+        # for the same reason (#299), and after it, so the text up to
+        # old-format is what every reader matching it already reads.
         print(
             f"  {counts['OK']} ok · {counts['DRIFTED']} drifted · "
             f"{counts['BROKEN']} broken · {counts['EXTERNAL']} external · "
-            f"{counts['OLD-FORMAT']} old-format"
+            f"{counts['OLD-FORMAT']} old-format · {counts['MALFORMED']} malformed"
         )
 
     print(
         f"\ntotal: {totals['OK']} ok · {totals['DRIFTED']} drifted · "
         f"{totals['BROKEN']} broken · {totals['EXTERNAL']} external · "
-        f"{totals['OLD-FORMAT']} old-format"
+        f"{totals['OLD-FORMAT']} old-format · {totals['MALFORMED']} malformed"
     )
 
     # The second arm. A ledger row is a claim about the tree that something

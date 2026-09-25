@@ -345,7 +345,9 @@ def test_a_document_that_is_not_utf8_exits_2_naming_it(tmp_path, flag):
 
 
 def test_a_script_copied_on_its_own_says_which_sibling_it_misses(tmp_path):
-    """Round 1, note 7: the refusal names what the missing file is for."""
+    """Round 1, note 7: the refusal names what the missing file is for. And it
+    is exit 2, the code for *nothing was read*, not 1, which is a problem
+    found in `docs/` (#590)."""
     copy = tmp_path / "fold_check.py"
     copy.write_text(read(SCRIPT), encoding="utf-8")
     (tmp_path / "docs").mkdir()
@@ -355,7 +357,7 @@ def test_a_script_copied_on_its_own_says_which_sibling_it_misses(tmp_path):
         encoding="utf-8",
         errors="replace",
     )
-    assert done.returncode != 0 and "Traceback" not in done.stderr, done.stderr
+    assert done.returncode == 2 and "Traceback" not in done.stderr, done.stderr
     assert "it is what finds the repository's seal/ root" in done.stderr, done.stderr
     assert "fold's markers" not in done.stderr, done.stderr
 

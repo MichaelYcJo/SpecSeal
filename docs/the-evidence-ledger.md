@@ -292,7 +292,11 @@ is kept and named with its rows, and closing each row — a row re-homed is
 closed too, ✅ naming where it went — in a pull request merged before the one
 that retires the directory is what lets the next retirement take it. The CI
 readers ask the rule of the merge base, so a closure in the same pull request
-as the removal is still open where they look. One predicate decides the rule,
+as the removal is still open where they look. `settle` asks it at the merge
+base of `--released-at` and `HEAD`, which is where they look until the base
+moves past the fork and earlier after, and keeps a directory whose closure
+has reached the working branch and not that base (#602). One predicate
+decides the rule,
 and `settle`, `unverified-check`, `chain-check` and the survivor sweep all ask
 it, so the four cannot disagree about one tree. Whether the item wrote a
 `spec.md` is asked of its history, so a spec deleted in one commit, or in an
@@ -309,7 +313,7 @@ and let the next `settle --retire` take the directory. For `1788184145`, the
 one directory held this way when the guard below shipped, that trade was
 taken (#517): the row was removed, and its claim stands in
 `docs/review-chain-spec.md` §*Two records, and what each of them says*.
-Enforced by: tests/test_settle_reads_before_it_removes.py::test_the_rule_arm_removes_it_with_no_marker
+Enforced by: tests/test_settle_reads_before_it_removes.py::test_the_rule_arm_removes_it_with_no_marker, tests/test_settle_reads_before_it_removes.py::test_a_closure_the_base_has_not_seen_keeps_the_directory
 
 <!-- specs/1790076070-the-fold-ships-and-the-corpus-is-still-on-disk -->
 <!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
