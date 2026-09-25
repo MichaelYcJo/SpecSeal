@@ -4,6 +4,8 @@
 The approval line is written by the orchestrating session when it spawns
 `smith`; the framer leaves it out on purpose. -->
 
+Approved 2026-09-25 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
+
 ## Summary
 
 Three instrument fixes, one phase each, smallest first. Phase 1 makes three
