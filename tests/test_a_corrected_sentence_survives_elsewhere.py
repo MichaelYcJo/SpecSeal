@@ -4176,6 +4176,28 @@ def test_a_row_corrected_in_place_while_an_anchor_is_renamed_is_a_correction(
     assert set(corrected_lines(text)) == {f"{LEDGER}:5"}, text
 
 
+def test_a_removed_row_sharing_one_live_anchor_with_another_row_takes_the_exit(
+    tmp_path,
+):
+    """The other side of the re-pointed row. A removed row keeps two live
+    anchors beside the one that left, and another row of the file still
+    cites one of them, as ledger rows citing a shared test often do. It does
+    not cite both, so it is not this row re-pointed, and the row takes the
+    exit. Red with "cites every live anchor" read as "cites any"."""
+    repo = tmp_path / "probe"
+    three = ("pkg/mod.py#helper", "pkg/mod.py#other", "pkg/mod.py#spare")
+    module = MODULE + "\n\ndef spare(width):\n    return width\n"
+    neighbour = ledger_row("A neighbouring claim.", ("pkg/mod.py#other",))
+    head = ledger_range(
+        repo,
+        neighbour,
+        module.replace("def helper(width):\n    return width\n\n\n", ""),
+        LEDGER_HEAD + ledger_row(FOUND, three) + neighbour,
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"a removed row was read as re-pointed:\n{text}"
+
+
 def test_a_row_whose_anchor_never_resolved_here_stays_measured(tmp_path):
     """Condition (c)'s first half. A row anchored on a path this repository
     never held -- a cross-repository row, read with `--map` -- resolves at
