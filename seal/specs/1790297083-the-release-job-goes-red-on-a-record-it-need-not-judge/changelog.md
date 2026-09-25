@@ -1,5 +1,5 @@
-- **The pull-request check stops going red on three records it had no claim
-  to judge (issues #598 and #529).** A pull request that puts back a work
+- **The pull-request check stops going red on three shapes of record it had
+  no claim to judge (issues #598 and #529).** A pull request that puts back a work
   item the base had retired, byte for byte, is no longer held to where the
   restored records' reviewed commits are. Those bytes were added, and their
   review enforced, by an earlier pull request. The check says where they
