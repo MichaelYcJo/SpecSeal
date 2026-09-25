@@ -1278,7 +1278,10 @@ def handed_to_shell(command, windows=None, comspec=None, root=None):
     where the row runs — `run`'s own `root`, which is the repository for
     `gate` and the scratch worktree for `compare_at_base` — and a name's
     first part is a directory where `os.path.isdir(os.path.join(root,
-    part))` says so. `None` is the current directory, which is where
+    part))` says so, once any `%VAR%` in it is expanded from this process's
+    environment the way `cmd.exe` expands it before it reads the name; a
+    variable that names nothing stays as written and names no directory.
+    `None` is the current directory, which is where
     `subprocess.run` with `cwd=None` would run the row. The read happens
     here because this function already reads `COMSPEC` from the
     environment; the scan takes the answer as an argument (#596).
@@ -1302,8 +1305,12 @@ def handed_to_shell(command, windows=None, comspec=None, root=None):
     if comspec and ntpath.basename(comspec.strip().strip('"')).lower() != CMD_EXE:
         return command
     here = os.curdir if root is None else root
+    # `cmd.exe` expands `%VAR%` before it reads the name, so the part is
+    # expanded the same way before it is asked. `ntpath` reads `%VAR%` on
+    # every platform, so a case can drive it from any machine.
     return command_names_backslashed(
-        command, lambda part: os.path.isdir(os.path.join(here, part))
+        command,
+        lambda part: os.path.isdir(os.path.join(here, ntpath.expandvars(part))),
     )
 
 
@@ -1366,7 +1373,8 @@ def command_names_backslashed(command, is_directory):
 
     **Which names start in a directory is asked, not read.** `is_directory`
     is called with the part of a name before its first `/`, with its `"`
-    and `^` removed and one leading `@` dropped, and answers whether that
+    and `^` removed and every leading `@` dropped, as the built-in check
+    drops them, and answers whether that
     part names a directory. The scan does no I/O of its own:
     `handed_to_shell` asks the filesystem where the row runs, and a case
     can answer from any machine. An empty part is a name that begins with
@@ -1442,9 +1450,7 @@ def command_names_backslashed(command, is_directory):
         nonlocal turned
         if turned is None:
             part = command[start:at]
-            if part.startswith("@"):
-                part = part[1:]
-            part = part.replace('"', "").replace("^", "")
+            part = part.lstrip("@").replace('"', "").replace("^", "")
             turned = part == "" or bool(is_directory(part))
         return turned
 

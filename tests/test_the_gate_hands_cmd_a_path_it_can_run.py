@@ -173,6 +173,9 @@ def only_slashes_turned(row, got):
         ('"nothere/run tests" -q', '"nothere/run tests" -q'),
         ("^nothere/x", "^nothere/x"),
         ("@nothere/x", "@nothere/x"),
+        # Every leading `@` is dropped, as the built-in check drops them
+        # (round 1, ⬜ 9).
+        ("@@bin/test", r"@@bin\test"),
         # The same shapes, starting in a directory that exists.
         ("^bin/x", r"^bin\x"),
         ('@"tools/run tests"', r'@"tools\run tests"'),
@@ -205,6 +208,26 @@ def test_a_name_that_starts_in_no_directory_is_handed_over_as_written(
     got = gate.handed_to_shell(row, windows=True, comspec=CMD, root=tree)
     assert got == expected, f"{row!r} was handed as {got!r}"
     only_slashes_turned(row, got)
+
+
+def test_a_name_rooted_in_a_variable_is_judged_where_the_variable_points(
+    tree, monkeypatch
+):
+    """#596, round 1's 🟡 3. `cmd.exe` expands `%VAR%` before it reads a
+    command name, so the part is expanded before it is asked whether it is a
+    directory. 0.15.3 rewrote `%CD%/bin/test`, and a literal `%CD%` directory
+    never exists, so without the expansion that row stopped running."""
+    gate = gate_module()
+    monkeypatch.setenv("SPECSEAL_PROBE_TREE", tree)
+    monkeypatch.delenv("SPECSEAL_PROBE_NOWHERE", raising=False)
+    for row, expected in (
+        ("%SPECSEAL_PROBE_TREE%/bin/test -q", r"%SPECSEAL_PROBE_TREE%\bin\test -q"),
+        ("%SPECSEAL_PROBE_NOWHERE%/bin/x", "%SPECSEAL_PROBE_NOWHERE%/bin/x"),
+        ("xcopy/e/i a b", "xcopy/e/i a b"),
+    ):
+        got = gate.handed_to_shell(row, windows=True, comspec=CMD, root=tree)
+        assert got == expected, got
+        only_slashes_turned(row, got)
 
 
 @pytest.mark.parametrize(
@@ -340,8 +363,10 @@ def test_the_template_says_which_positions_are_rewritten():
         "the gate hands it the row with `/` written `\\` inside a command name "
         "that starts in a directory, and nowhere else",
         "It starts in a directory where the part before its first `/`, with its "
-        "quotes and carets removed and a leading `@` dropped, names a directory "
-        "that exists where the row runs",
+        "quotes and carets removed and every leading `@` dropped, names a "
+        "directory that exists where the row runs",
+        # Round 1's 🟡 3, where the person typing the row reads it.
+        "A `%VAR%` in that part is expanded from the gate's own environment first",
         "`bin/test` then runs as `bin\\test`",
         "a path after `call`, `start` or `if`, or after `else`, `for … do` and "
         "`cmd /c`",
