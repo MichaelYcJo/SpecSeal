@@ -582,7 +582,7 @@ state and the row above says why it cannot be refused — so the arm reaches
 the session that filled the checker cell and stopped, and not the one that
 filled nothing. What covers the second is `Fixes checked by`'s own check: it
 prints a notice for `nobody` on every record, and refuses it on the LAST
-record beside a checked `Pass`. A non-terminal record carrying `nobody` is
+record beside a checked `Pass` at a ready pull request. A non-terminal record carrying `nobody` is
 false by construction — a later record exists, and round N+1 reviews round
 N's fixes — and nothing refuses that today. Keying the arm on the sibling
 records instead would give it a second source of truth, which is the property

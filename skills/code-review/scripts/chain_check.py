@@ -121,8 +121,9 @@ round that opened them:
                        verdict cell reading one, which is the same
                        contradiction-inside-one-file the `Pass` rule refuses
   nobody -- <why>      the gap, written down. Prints on every run, and FAILS
-                       beside a checked `Pass` on the last record -- see the
-                       cutoff below
+                       a ready pull request beside a checked `Pass` on the
+                       last record, where a draft prints it -- see the cutoff
+                       below
 
 `nobody` is a disclosure rather than a claim, and a check that failed for an
 honest disclosure would teach people to write none, which is the reasoning

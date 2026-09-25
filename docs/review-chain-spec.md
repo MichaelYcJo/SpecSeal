@@ -312,7 +312,7 @@ The row still reads `no`, the fixes exist, and a walk reading only that row
 has no terminal record it accepts: the verifying round that reads the fixes
 is a second uncounted record after the floor, and ending without it is
 refused both ways, `no fixes to check` beside `fixed` and `nobody` beside a
-ticked `Pass`. Measured on this repository's own seventh round. The record
+ticked `Pass` at a ready pull request. Measured on this repository's own seventh round. The record
 already carries the fact in its verdict column, and the walk reads it there.
 The direction is ALLOW, one record wider in that one sequence, and it is the
 cheaper mistake: the other way to satisfy the old walk was rewriting `fixed`
