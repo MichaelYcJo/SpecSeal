@@ -1816,9 +1816,67 @@ PARTITION = (
 )
 
 
+# The branch a pull request into which is a release, spelled once.
+MAIN = "main"
+
+# The mirrored arms whose steps skip a pull request into `main`. In
+# `hygiene.yml` each of the two steps opens its `run:` with `if [ "${{
+# github.base_ref }}" = "main" ]; then … exit 0`, because a release branch
+# carries squashed commits and every work item was already read at its own
+# pull request. An arm that asks where its step does not ask is a second
+# reading of one question, which is what `PARTITION` exists to stop (#473).
+#
+# Held against the workflow by
+# `tests/test_the_gate_names_every_step_ci_runs.py`: for each mirrored arm,
+# its step skips at `main` exactly where this names it, so a guard added to a
+# third step, or dropped from one of these, fails the suite.
+SKIPPED_AT_MAIN = (SURVIVORS_NAME, CORRECTIONS_NAME)
+
+
 def mirrored():
     """The arm each classified step is mirrored by, by step name."""
     return {name: arm for name, arm, _ in PARTITION if arm}
+
+
+def skipped_at_main(given, workflow):
+    """The arms this run leaves out because CI skips their steps, in
+    `PARTITION` order. Empty unless BOTH hold:
+
+      - the base the caller gave names `main`: `given`, with one leading
+        `origin/` removed, is `main`. That is this gate's reading of the
+        workflow's `github.base_ref == "main"`, keyed on what the caller
+        said the pull request merges into, as `agents/sealer.md` tells the
+        sealer to pass it; and
+      - the gated repository's workflow carries that arm's step in its
+        `release` job.
+
+    The second half is what keeps a repository with no such workflow exactly
+    as it was (`workflow_text`'s docstring): many of them merge feature
+    branches straight into `main`, and skipping there would drop two arms
+    from every run, which is the unsafe direction.
+    """
+    if not workflow or given is None:
+        return []
+    if given.startswith("origin/"):
+        given = given[len("origin/") :]
+    if given != MAIN:
+        return []
+    steps = set(job_steps(workflow, RELEASE_JOB))
+    return [
+        arm for name, arm, _ in PARTITION if arm in SKIPPED_AT_MAIN and name in steps
+    ]
+
+
+def skipped_line(arms):
+    """The one stderr line a run that leaves arms out prints before the
+    checks run."""
+    named = " and ".join(f"`{arm}`" for arm in arms)
+    return (
+        f"broad-gate: the base is `{MAIN}`, and {WORKFLOW} skips the steps the "
+        f"{named} {'arms mirror' if len(arms) > 1 else 'arm mirrors'} on a pull "
+        f"request into `{MAIN}`, so this run does not run "
+        f"{'them' if len(arms) > 1 else 'it'} either"
+    )
 
 
 def workflow_text(root):
@@ -2157,6 +2215,13 @@ def gate(args, console_wants_letters):
     coverage = coverage_line(workflow) if workflow else None
     if coverage:
         sys.stderr.write(coverage + "\n")
+    # The arms CI's own steps skip at this base, where this repository's
+    # workflow carries those steps (#473). Neither has a panel row, and a step
+    # both sides skip is agreed rather than unanswered, so the line is the
+    # whole of what a reader sees change.
+    skipped = skipped_at_main(base.given, workflow)
+    if skipped:
+        sys.stderr.write(skipped_line(skipped) + "\n")
     checks[SUITE] = run(SUITE, command, root, keep, shell=True)
     checks[LEDGER] = run(LEDGER, [py, EVIDENCE, "--strict", root], root, keep)
     checks[UNVERIFIED_NAME] = run(
@@ -2172,20 +2237,29 @@ def gate(args, console_wants_letters):
         keep,
         env=draft_env(keep),
     )
-    survivor_args = [py, SURVIVOR, "--range", f"{base.commit}...HEAD", "--root", root]
-    for path in exemptions(home):
-        survivor_args += ["--exempt", path]
-    checks[SURVIVORS_NAME] = run(SURVIVORS_NAME, survivor_args, root, keep)
+    if SURVIVORS_NAME not in skipped:
+        survivor_args = [
+            py,
+            SURVIVOR,
+            "--range",
+            f"{base.commit}...HEAD",
+            "--root",
+            root,
+        ]
+        for path in exemptions(home):
+            survivor_args += ["--exempt", path]
+        checks[SURVIVORS_NAME] = run(SURVIVORS_NAME, survivor_args, root, keep)
     # The two arms #468 added, and `PARTITION` is where each says which step
     # of the workflow it stands for. The range is the survivor arm's, spelled
     # the same way for the same reason: both walk what this branch did
     # relative to the commit CI will compare against.
-    checks[CORRECTIONS_NAME] = run(
-        CORRECTIONS_NAME,
-        [py, CORRECTION, "--range", f"{base.commit}...HEAD", "--root", root],
-        root,
-        keep,
-    )
+    if CORRECTIONS_NAME not in skipped:
+        checks[CORRECTIONS_NAME] = run(
+            CORRECTIONS_NAME,
+            [py, CORRECTION, "--range", f"{base.commit}...HEAD", "--root", root],
+            root,
+            keep,
+        )
     # No `--root`: `seal.py mode` resolves the repository from the working
     # directory, which `run` already sets to the tree being gated.
     checks[MODE_NAME] = run(MODE_NAME, [py, SEAL_SCRIPT, "mode", "--check"], root, keep)
