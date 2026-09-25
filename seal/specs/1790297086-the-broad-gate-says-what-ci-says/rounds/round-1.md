@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 607 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `4ac0b271df272d55a317a632cadf0138b4e2a877..063cf18cc7a5ec185993a0d95602859f5837651f`, 9 commits |
+| Contract changes | none |
+| New units | test_a_name_rooted_in_a_variable_is_judged_where_the_variable_points (depth 1); test_the_template_and_the_docstring_state_the_skips_bound (depth 1); test_the_sealer_is_told_to_quote_the_skip_line (depth 1) |
 | Needs a fix | yes — 🔴 1 (the survivor step is red at CI), 🔴 2 (C1's pinned line on `windows-latest`), 🟡 3 (a `%VAR%`-rooted command name regressed) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,15 +24,15 @@ Round 1 of work item 1790297086 reviews the build at 8f5ae44f against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | CI's `release` job is red at the target: the survivor step reports three removed sentences still standing, and no `survivors.md` row covers them | `seal/releases/0.15.3.md:60` | open | executed: CI run 36084469701 at `8f5ae44f` failed that step; `survivor_check.py --range 7b557144...HEAD` exit 1 with the same three; with the fenced rows it exits 0 |
-| 🔴 2 | C1 pins the skip line with `/`, but the gate builds the path with `os.path.join`, so the exact-line assertion should fail on `windows-latest` | `tests/test_the_gate_names_every_step_ci_runs.py:885` | open | read, plus executed `ntpath.join` giving `.github\workflows\hygiene.yml`; the Windows leg was in progress at the target and answers it |
-| 🟡 3 | A command name rooted in `%VAR%` (`%CD%/bin/test`) was rewritten in 0.15.3 and is now handed over as written; no bound names it | `skills/verify/scripts/broad_gate.py:1306` | open | executed against `7b557144` and `8f5ae44f` in a root holding `bin/`; the fenced predicate tried and gives `%TREE%\bin\test` |
-| ⬜ 4 | `gate`'s comment says everything below takes `base.commit`, and the new guard takes `base.given` | `skills/verify/scripts/broad_gate.py:2175` | open | read |
-| ⬜ 5 | R2's claim (*every consumer takes the resolved COMMIT*) got a Re-read note, not a correction, though the guard now consumes the given spelling | `seal/releases/0.12.2.md` | open | read; a correction to the run's paperwork |
-| ⬜ 6 | The skip is keyed on a spelling (`refs/heads/main`, `upstream/main` run both arms) and on the step's name rather than its guard | `skills/verify/scripts/broad_gate.py:1841` | open | executed over eight spellings; no live instance: the sealer passes the plain name and the shipped template has no `release` job |
-| ⬜ 7 | The comment rule tracks quotes per line and ignores `\"`, so it can drop code, which its docstring says it never does | `tests/conftest.py:48` | open | executed over six lines and a spanning string; no workflow line has either shape |
-| ⬜ 8 | `agents/sealer.md` names the stderr lines to relay and not the skip line, the only trace that two arms did not run | `agents/sealer.md:71` | open | read |
-| ⬜ 9 | The directory part drops one `@`, and the built-in check drops all of them | `skills/verify/scripts/broad_gate.py:1491` | open | executed: `@@bin/test` handed over as written |
+| 🔴 1 | CI's `release` job is red at the target: the survivor step reports three removed sentences still standing, and no `survivors.md` row covers them | `seal/releases/0.15.3.md:60` | **fixed** `bd5311a5f99fbd6639f6d2021b2fbea3f0bafcd7` | fixed at bd5311a5f99fbd6639f6d2021b2fbea3f0bafcd7; executed: CI run 36084469701 at `8f5ae44f` failed that step; `survivor_check.py --range 7b557144...HEAD` exit 1 with the same three; with the fenced rows it exits 0 |
+| 🔴 2 | C1 pins the skip line with `/`, but the gate builds the path with `os.path.join`, so the exact-line assertion should fail on `windows-latest` | `tests/test_the_gate_names_every_step_ci_runs.py:885` | **fixed** `4cce232190f776aa0064bd3b80cc0656fd2c4315` | fixed at 4cce232190f776aa0064bd3b80cc0656fd2c4315; read, plus executed `ntpath.join` giving `.github\workflows\hygiene.yml`; the Windows leg was in progress at the target and answers it |
+| 🟡 3 | A command name rooted in `%VAR%` (`%CD%/bin/test`) was rewritten in 0.15.3 and is now handed over as written; no bound names it | `skills/verify/scripts/broad_gate.py:1306` | **fixed** `833c21def974abaae228ca6b7ef15d46e11222d5` | fixed at 833c21def974abaae228ca6b7ef15d46e11222d5; executed against `7b557144` and `8f5ae44f` in a root holding `bin/`; the fenced predicate tried and gives `%TREE%\bin\test` |
+| ⬜ 4 | `gate`'s comment says everything below takes `base.commit`, and the new guard takes `base.given` | `skills/verify/scripts/broad_gate.py:2175` | **fixed** `68514b07d792380ab0bae9d3d8b06f6d55e13fbd` | fixed at 68514b07d792380ab0bae9d3d8b06f6d55e13fbd; read |
+| ⬜ 5 | R2's claim (*every consumer takes the resolved COMMIT*) got a Re-read note, not a correction, though the guard now consumes the given spelling | `seal/releases/0.12.2.md` | answered | corrected at f109847797c6e5c783cb838bc0cdfacf2d786948: `seal/releases/0.12.2.md` R2 names the one consumer that reads the given spelling, with a Corrected note, then `--reverify`; read; a correction to the run's paperwork |
+| ⬜ 6 | The skip is keyed on a spelling (`refs/heads/main`, `upstream/main` run both arms) and on the step's name rather than its guard | `skills/verify/scripts/broad_gate.py:1841` | answered | b9b1e91a7b8493686a6f99142daf3906b0038e96 states the bound in `skipped_at_main`'s docstring and in `templates/config.md`; no code; executed over eight spellings; no live instance: the sealer passes the plain name and the shipped template has no `release` job |
+| ⬜ 7 | The comment rule tracks quotes per line and ignores `\"`, so it can drop code, which its docstring says it never does | `tests/conftest.py:48` | **fixed** `2d18a4b979ed0382ebb294e5fc43d74247f8b329` | fixed at 2d18a4b979ed0382ebb294e5fc43d74247f8b329; executed over six lines and a spanning string; no workflow line has either shape |
+| ⬜ 8 | `agents/sealer.md` names the stderr lines to relay and not the skip line, the only trace that two arms did not run | `agents/sealer.md:71` | **fixed** `4437562b079263d0720abb80e3fe6f4b2bdcb676` | fixed at 4437562b079263d0720abb80e3fe6f4b2bdcb676; read |
+| ⬜ 9 | The directory part drops one `@`, and the built-in check drops all of them | `skills/verify/scripts/broad_gate.py:1491` | **fixed** `833c21def974abaae228ca6b7ef15d46e11222d5` | fixed at 833c21def974abaae228ca6b7ef15d46e11222d5; executed: `@@bin/test` handed over as written |
 | 🟢 | #596's predicate is asked where the row runs, `compare_at_base` included | `skills/verify/scripts/broad_gate.py:1220` | confirmed | read: `run` passes `root`, `compare_at_base` passes `scratch`; every caller of both changed functions enumerated by grep |
 | 🟢 | The 0.15.3 A2 correction: claim amended, dead anchor dropped, dated Corrected note | `seal/releases/0.15.3.md:60` | confirmed | read; `evidence_check.py --strict` 2269 ok · 0 drifted · 0 broken (executed) |
 | 🟢 | The 0.12.2 G4 correction: the note is true and the claim still holds | `seal/releases/0.12.2.md:39` | confirmed | read: the G4 case runs `run_gate` with the default `base="base"` |
