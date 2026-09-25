@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 605 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `4c7fb0b35f1e264e9b1a152b6bdf652c8716eadd..a20a02a3e531c1434ec9860104403dad163215d9`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (both README rows and the settle skill still say CI asks where `--released-at` and `HEAD` meet) and 🟡 2 (settle.py's "keeps more and never less", broken by an executed counter-case) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 2 of work item 1790297085 is the verifying round over round 1's fixes (329
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | Both README cheat-sheet rows and the settle skill still say CI asks where `--released-at` and `HEAD` meet, which is false once the base has moved past the fork; the skill names no merge for that case | `README.md` settle row; `README.ko.md` settle row; `skills/settle/SKILL.md#"### 1. Read what is waiting"` | open | Read; same class as round 1's paperwork finding, missed by both the original and the widened correction lists |
-| 🟡 2 | settle.py says asking at the fork keeps more and never less than CI; a record file the base adds to the directory after the fork is retired here and refused by CI on the merge ref | `skills/settle/scripts/settle.py` module docstring #602 paragraph; `skills/settle/scripts/settle.py#main` | open | Executed: settle --retire exit 0 and removed; clean merge; `unverified_check.py --baseline main` exit 1 on the merge |
-| ⬜ 3 | The same two claims under seal: never less in the changelog fragment, plan.md chosen row, 0.14.0 D3 and ledger M2; CI compares at the fork in spec.md | `changelog.md` #602 entry; `plan.md` Alternatives chosen row; `seal/releases/0.14.0.md` D3; `seal/ledger/1790297085-settle-retires-a-directory-main-has-not-seen-closed.md` M2; `spec.md` Data and interfaces | open | Paperwork correction, outside Needs a fix |
-| ⬜ 4 | The moved heading opens with waiting for the closure to reach a fixed past commit, which never happens; the remedy sentence after it is right | `skills/settle/scripts/settle.py#RULE_MOVED_HEADING` | open | Read; nothing to paste |
-| ⬜ 5 | The documents case splits a flattened README on a newline, so its row is the rest of the file and the row assertion pins nothing | `tests/test_settle_reads_before_it_removes.py#test_the_documents_say_the_closure_has_to_reach_the_base` | open | Read; predates the range, closed by the 🟡 1 fence |
+| 🟡 1 | Both README cheat-sheet rows and the settle skill still say CI asks where `--released-at` and `HEAD` meet, which is false once the base has moved past the fork; the skill names no merge for that case | `README.md` settle row; `README.ko.md` settle row; `skills/settle/SKILL.md#"### 1. Read what is waiting"` | **fixed** `bc63b91de6fe38c4b48828be4284f20425fe231f` | fixed at bc63b91de6fe38c4b48828be4284f20425fe231f; Read; same class as round 1's paperwork finding, missed by both the original and the widened correction lists |
+| 🟡 2 | settle.py says asking at the fork keeps more and never less than CI; a record file the base adds to the directory after the fork is retired here and refused by CI on the merge ref | `skills/settle/scripts/settle.py` module docstring #602 paragraph; `skills/settle/scripts/settle.py#main` | **fixed** `bc63b91de6fe38c4b48828be4284f20425fe231f` | fixed at bc63b91de6fe38c4b48828be4284f20425fe231f; Executed: settle --retire exit 0 and removed; clean merge; `unverified_check.py --baseline main` exit 1 on the merge |
+| ⬜ 3 | The same two claims under seal: never less in the changelog fragment, plan.md chosen row, 0.14.0 D3 and ledger M2; CI compares at the fork in spec.md | `changelog.md` #602 entry; `plan.md` Alternatives chosen row; `seal/releases/0.14.0.md` D3; `seal/ledger/1790297085-settle-retires-a-directory-main-has-not-seen-closed.md` M2; `spec.md` Data and interfaces | answered | corrected at a20a02a3e531c1434ec9860104403dad163215d9: the changelog fragment's #602 entry, plan.md's chosen row, `seal/releases/0.14.0.md` D3, ledger fragment M2 and spec.md's first Data & interfaces item; Paperwork correction, outside Needs a fix |
+| ⬜ 4 | The moved heading opens with waiting for the closure to reach a fixed past commit, which never happens; the remedy sentence after it is right | `skills/settle/scripts/settle.py#RULE_MOVED_HEADING` | **fixed** `bc63b91de6fe38c4b48828be4284f20425fe231f` | fixed at bc63b91de6fe38c4b48828be4284f20425fe231f; Read; nothing to paste |
+| ⬜ 5 | The documents case splits a flattened README on a newline, so its row is the rest of the file and the row assertion pins nothing | `tests/test_settle_reads_before_it_removes.py#test_the_documents_say_the_closure_has_to_reach_the_base` | **fixed** `bc63b91de6fe38c4b48828be4284f20425fe231f` | fixed at bc63b91de6fe38c4b48828be4284f20425fe231f; Read; predates the range, closed by the 🟡 1 fence |
 | 🟢 | round 1's finding 1 is closed — a moved base prints the heading that names merging the ref into this branch | `skills/settle/scripts/settle.py#base_heading`, `#survey`, `#report`, `#retire` | verified | Executed: case green at 6576a226, red with `base_heading` ignoring `base_moved`; `base_moved` compares two full SHAs |
 | 🟢 | round 1's finding 2 is closed at its four coordinates — each now says when the fork is CI's revision | changelog fragment #602; ledger M2; 0.14.0 D3; plan.md Alternatives | answered | Read; the never-less clause added beside them is finding 3 of this round |
 | 🟢 | round 1's finding 3 is closed — the no-merge-base refusal names a too-shallow clone and the unshallow fetch | `skills/settle/scripts/settle.py#main` | verified | Executed: shallow case green in this round's run |
