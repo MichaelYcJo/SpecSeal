@@ -61,11 +61,12 @@ nothing in its record may be open, because an open `## Not verified` or
 `evidence-todo.md` row is a claim with an answerer, not a rule. Whether a
 directory qualifies is `unverified_check.py#retired_by_rule`, the predicate
 every CI reader asks of the merge-base, asked here of the working tree AND of
-the merge base of `--released-at` and `HEAD` (#602). A row closed on the
-working branch and still open at that base passes the tree and fails the
-release pull request, so the directory is kept, under a heading of its own
-naming the base, until the closure has merged to the branch the release
-merges to.
+the merge base of `--released-at` and `HEAD` (#602). A CI reader on a pull
+request stands on the merge ref, so its merge base is the base branch's tip:
+the same commit as this one until the base moves past the fork, and a later
+one after, where this keeps more and never less. A row closed on the working
+branch and still open at that base is kept, under a heading of its own
+naming the base and, where the base has moved, the merge that moves it.
 
 **Local mode is refused rather than reported on.** A root under the common
 git directory is never committed, so no ref holds the work item directories,
@@ -83,7 +84,8 @@ and something refused it — a guard held a directory, or a spec-less
 directory's closure has not reached the merge base of `--released-at` and
 `HEAD` · 2 the arguments or the tree were unusable, which is seven states: a
 `--released-at` ref that does not resolve, a `--released-at` ref sharing no
-commit with `HEAD`, a root at neither place, a root in local mode, a
+commit with `HEAD` or a clone too shallow to reach the one they share, a root
+at neither place, a root in local mode, a
 repository that opted out, a sibling script it loads that is not beside it,
 and an interpreter below the floor.
 """
@@ -446,13 +448,44 @@ RULE_KEPT_HEADING = (
 )
 # #602: nothing is open in the tree, and the base still holds a row open.
 # `{base}` is `unverified_check.py#base_label`'s spelling of the merge base of
-# `--released-at` and `HEAD`, the revision both CI readers ask the rule of.
+# `--released-at` and `HEAD`. It is the revision the CI readers ask at when
+# the ref has not moved since the fork; `RULE_MOVED_HEADING` is the other case.
 RULE_BASE_HEADING = (
     "kept until the closure reaches {base} — no `spec.md` and nothing open "
     "here, but\nthe record there still holds an open row, and the CI readers "
     "ask the rule there.\nMerge the closure to the branch the release merges "
     "to first; the directory goes\nin a later pull request:"
 )
+# #602, round 1: `--released-at` has moved past the fork. The CI readers ask
+# at its tip (a pull request is checked out as the merge ref), and this asks
+# at the fork, so a closure already merged there is not read here until the
+# ref is merged into this branch.
+RULE_MOVED_HEADING = (
+    "kept until the closure reaches {base} — no `spec.md` and nothing open "
+    "here, but\nthe record there still holds an open row. {ref} has moved past "
+    "that commit: where\n{ref} already holds the closure, merge {ref} into this "
+    "branch and run `settle`\nagain; otherwise merge the closure to {ref} "
+    "first. The directory goes in a later\npull request:"
+)
+
+
+# What `report` and `retire` print for a survey that carries no base, one
+# sentence for both readers of it.
+NO_BASE_SAYS = (
+    "nothing read and nothing removed: no merge base between --released-at "
+    "and HEAD was handed to this, and the rule arm asks its predicate there.\n"
+)
+
+
+def base_heading(found):
+    """The heading for a directory kept at the base, true of both label forms:
+    the ref's own commit, where the CI readers ask too, or a fork the ref has
+    moved past, where they do not."""
+    if found.get("base_moved"):
+        return RULE_MOVED_HEADING.format(base=found["base_label"], ref=found["ref"])
+    return RULE_BASE_HEADING.format(base=found["base_label"])
+
+
 TAKES_HEADING = (
     "what a retirement here would take with it — read each before `settle --retire`:"
 )
@@ -673,9 +706,12 @@ def survey(root, ref):
     held = open_items(root)
     rows = coordinates(root)
 
+    ref_commit = reader.commit_of(root, ref)
     survey = {
         "base": base,
-        "base_label": reader.base_label(ref, reader.commit_of(root, ref), base),
+        "base_label": reader.base_label(ref, ref_commit, base),
+        "base_moved": base != ref_commit,
+        "ref": ref,
         "released": [i for i in present if i in on_base],
         "unreleased": [i for i in present if i not in on_base],
         "folded": [],
@@ -712,9 +748,10 @@ def survey(root, ref):
         # D3: a released work item with no `spec.md` states no rule, so there
         # is nothing to place and it is not "ungrouped". Whether the rule arm
         # takes it is the predicate's answer, the one every CI reader asks of
-        # the merge-base, and since #602 this asks it there too: a closure on
-        # the working branch that the base has not seen passes the tree and
-        # fails the release pull request. The tree is asked first, so a
+        # the merge-base, and since #602 this asks it of the merge base of the
+        # ref and `HEAD` as well: a closure on the working branch that the base
+        # has not seen passes the tree and, while the base has not moved since
+        # the fork, fails the release pull request. The tree is asked first, so a
         # directory with a row open on disk stays under *kept by the rule*.
         if not has_spec(root, work_item_id):
             directory = f"{SPECS}/{work_item_id}"
@@ -828,7 +865,14 @@ def citations(root, work_item_ids):
 
 
 def report(found, ref, out=sys.stdout):
-    """What a session reads before it writes one statement per segment."""
+    """What a session reads before it writes one statement per segment.
+
+    A survey with no base is refused at exit 2 with `retire`'s sentence, for
+    `retire`'s reason: a caller that skips `main` would otherwise meet a
+    `KeyError` on the keys such a survey does not carry (round 1, ⬜ 4)."""
+    if not found.get("base"):
+        out.write(NO_BASE_SAYS)
+        return 2
     write = out.write
     foldable = sum(len(v) for v in found["grouped"].values())
     write(
@@ -890,7 +934,7 @@ def report(found, ref, out=sys.stdout):
         write_rule_kept(found["rule_kept"], out)
 
     if found["rule_base_kept"]:
-        write(f"\n{RULE_BASE_HEADING.format(base=found['base_label'])}\n")
+        write(f"\n{base_heading(found)}\n")
         write_rule_kept(found["rule_base_kept"], out, base=found["base_label"])
 
     if found["retiring"]:
@@ -964,11 +1008,7 @@ def retire(found, root, out=sys.stdout):
     """
     base = found.get("base")
     if not base:
-        out.write(
-            "nothing removed: no merge base between --released-at and HEAD "
-            "was handed to the retirement, and the rule arm asks its "
-            "predicate there.\n"
-        )
+        out.write(NO_BASE_SAYS)
         return 2
     label = found.get("base_label") or base
     reader = load(READER, "specseal_unverified_reader")
@@ -980,8 +1020,10 @@ def retire(found, root, out=sys.stdout):
     # same reason: a released directory with no `spec.md` whose record holds
     # nothing open is a candidate with no marker, and one whose record does
     # is kept and named. The predicate is the one every CI reader asks, and it
-    # is asked where they ask it as well as here (#602): a directory whose
-    # closure the base has not seen is kept and named with the rows open there.
+    # is asked at the merge base of the ref and `HEAD` as well as here (#602),
+    # which is where they ask until the base moves past the fork and earlier
+    # than they do after: a directory whose closure that base has not seen is
+    # kept and named with the rows open there.
     spec_less = sorted(
         i for i in (present & released_at_base) - marked if not has_spec(root, i)
     )
@@ -1074,7 +1116,7 @@ def retire(found, root, out=sys.stdout):
         out.write(f"\n{RULE_KEPT_HEADING}\n")
         write_rule_kept(rule_kept, out)
     if base_kept:
-        out.write(f"\n{RULE_BASE_HEADING.format(base=label)}\n")
+        out.write(f"\n{base_heading(found)}\n")
         write_rule_kept(base_kept, out, base=label)
     kept = len(refused) + len(rule_kept) + len(base_kept)
     out.write(
@@ -1199,17 +1241,22 @@ def main(argv=None):
         )
         return 2
     # #602: the rule arm asks its predicate of the merge base of the ref and
-    # `HEAD`, the revision both CI readers compare against. Two histories that
-    # share no commit have none, and the predicate asked of nothing would be
-    # asked of the working tree alone — the answer that let a closure the base
-    # had not seen retire its directory. Refused in both arms, so the report
-    # never lists what the retirement then refuses.
+    # `HEAD`. The CI readers compute the same merge base from their own
+    # `HEAD`, which on a pull request is the merge ref, so theirs is the
+    # base's tip: the same commit while the base has not moved since the
+    # fork, and a later one when it has, where this keeps more and never
+    # less. Two histories that share no commit have none, and neither does a
+    # clone too shallow to reach the commit they share; the predicate asked
+    # of nothing would be asked of the working tree alone — the answer that
+    # let a closure the base had not seen retire its directory. Refused in
+    # both arms, so the report never lists what the retirement then refuses.
     if found["base"] is None:
         sys.stderr.write(
             f"settle: --released-at {args.released_at} and HEAD share no commit "
-            f"in {root} — nothing was read. The rule arm asks whether a record "
-            "is closed at their merge base, the revision the CI readers compare "
-            "against, and there is none to ask.\n"
+            f"in {root}, or this clone is too shallow to reach the one they "
+            "share (`git fetch --unshallow`) — nothing was read. The rule arm "
+            "asks whether a record is closed at their merge base, and there is "
+            "none to ask.\n"
         )
         return 2
 

@@ -292,10 +292,11 @@ is kept and named with its rows, and closing each row — a row re-homed is
 closed too, ✅ naming where it went — in a pull request merged before the one
 that retires the directory is what lets the next retirement take it. The CI
 readers ask the rule of the merge base, so a closure in the same pull request
-as the removal is still open where they look. `settle` asks it there too, at
-the merge base of `--released-at` and `HEAD`, and keeps a directory whose
-closure has reached the working branch and not the branch the release merges
-to (#602). One predicate decides the rule,
+as the removal is still open where they look. `settle` asks it at the merge
+base of `--released-at` and `HEAD`, which is where they look until the base
+moves past the fork and earlier after, and keeps a directory whose closure
+has reached the working branch and not that base (#602). One predicate
+decides the rule,
 and `settle`, `unverified-check`, `chain-check` and the survivor sweep all ask
 it, so the four cannot disagree about one tree. Whether the item wrote a
 `spec.md` is asked of its history, so a spec deleted in one commit, or in an
