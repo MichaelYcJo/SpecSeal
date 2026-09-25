@@ -4152,6 +4152,33 @@ def test_one_anchor_leaving_a_file_that_remains_is_enough(tmp_path):
     assert code == 0, f"a row one of whose anchors left was measured:\n{text}"
 
 
+def test_a_row_whose_anchor_never_resolved_here_stays_measured(tmp_path):
+    """Condition (c)'s first half. A row anchored on a path this repository
+    never held -- a cross-repository row, read with `--map` -- resolves at
+    neither end, so nothing shows its anchor LEFT, and its removal is read
+    as any other. Red with the left-end half of the condition dropped."""
+    repo = tmp_path / "probe"
+    elsewhere = LEDGER_HEAD + ledger_row(FOUND, ("vendor/other.py#helper",))
+    head = ledger_range(repo, None, KEPT_MODULE, elsewhere)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a row whose anchor never resolved took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+
+
+def test_a_row_whose_line_still_stands_takes_no_exit(tmp_path):
+    """Condition (b). The row stood twice and one copy is removed with its
+    anchor; the other still stands at the tip, so the row was not removed
+    and the removed copy is measured as any removed line is. A ledger in this
+    state has a BROKEN row `evidence-check` refuses, which is why the loud
+    direction is the one kept. Red with the standing-line test dropped."""
+    repo = tmp_path / "probe"
+    twice = LEDGER_HEAD + ledger_row(FOUND) + ledger_row(FOUND)
+    head = ledger_range(repo, ledger_row(FOUND), KEPT_MODULE, twice)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a row still standing at the tip took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+
+
 @pytest.mark.parametrize(
     "open_, close",
     [("```text\n", "```\n"), ("<!--\n", "-->\n")],
