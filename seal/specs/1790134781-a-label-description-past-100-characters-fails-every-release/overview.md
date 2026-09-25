@@ -25,9 +25,9 @@ The first release to reach `main` after `size: now` was declared failed the clos
 | Item | Who must answer |
 |---|---|
 | ✅ GitHub's cap is 100 characters. Taken from the 422 quoted in #515's body; the cited run `35796513013` returns 404 on this repository, so the log itself was not opened | read 2026-09-23: GitHub's REST reference for *Create a label* says `description` "Must be 100 characters or fewer" — read by round 1's reviewer and re-read in the fix pass; ledger row C1 |
-| GitHub evaluates `if: ${{ !cancelled() }}` so that the label step and the roll run after an earlier step fails | the first close-issues run in which a step fails; the repository owner reads the job log. Nothing forces such a run |
-| `size: now` gets created on the live tracker and #496 rolls to the next version | the same run; the repository owner |
-| The full suite, the repository-wide lint and the typecheck | the sealer, spawned by the orchestrator after the review rounds |
+| ✅ GitHub evaluates `if: ${{ !cancelled() }}` so that the label step and the roll run after an earlier step fails | read 2026-09-24: run `35871516188`, the 0.14.0 merge to `main`: `close every issue this release's pull requests claimed` failed, then `create the labels …` and `roll the flow-measurement issue …` both succeeded |
+| ✅ `size: now` gets created on the live tracker and #496 rolls to the next version | read 2026-09-24: `gh label list` shows `size: now`; #496 is closed and #535 (*after 0.14.0*) was opened by that run |
+| ✅ The full suite, the repository-wide lint and the typecheck | `rounds/round-3.md`'s `Broad gate` row: the sealer's run at c4e005b against 1bafeb7 |
 
 ## Not done
 

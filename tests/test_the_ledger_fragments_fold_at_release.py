@@ -1228,6 +1228,61 @@ def test_a_line_separator_in_a_cell_does_not_close_the_file(tree):
     assert "1700000000-earlier/evidence-todo.md  (1 open row)" in r.stdout, r.stdout
 
 
+@pytest.mark.parametrize(
+    "shape, text",
+    [
+        (
+            "drained quoted in a fence",
+            OPEN_FILE
+            + "\nThe file closes with:\n\n```markdown\ndrained — all merged.\n```\n",
+        ),
+        (
+            "drained parked in a comment",
+            OPEN_FILE + "\n<!-- a draft\ndrained — not yet\n-->\n",
+        ),
+    ],
+)
+def test_a_quoted_drained_line_closes_nothing(tree, shape, text):
+    """S7, the fold's half (#487). A `drained` line excuses the whole file,
+    so it counts only on a live line; a quoted one used to close the file
+    and let the fold run over a fact nobody merged. Seen red against
+    `c52e8350`'s copy of the rule, exit 0 on both shapes."""
+    fold(tree)
+    evidence_todo(tree, "1600000000-released-long-ago", text)
+    r = run("--check", root=tree)
+    assert r.returncode == 1, f"{shape}:\n{r.stdout}"
+    assert "1600000000-released-long-ago/evidence-todo.md" in r.stdout, r.stdout
+
+
+def test_a_fenced_example_row_does_not_refuse_the_fold(tree):
+    """A row inside a fenced block that closes is an example of the format,
+    not a fact waiting for the ledger (#487)."""
+    evidence_todo(
+        tree,
+        "1700000000-earlier",
+        "# facts\n\nA row looks like:\n\n```markdown\n"
+        "| Claim | Grounds | Label |\n|---|---|---|\n| an example | b | c |\n```\n",
+    )
+    r = run("--version", "0.4.0", "--date", "2026-09-15", root=tree)
+    assert r.returncode == 0, r.stdout
+
+
+def test_the_fold_asks_the_shipped_open_rows_rule():
+    """S8. One rule, not two copies held in step by nothing: the fold's
+    `open_rows` IS `unverified_check.py#todo_open_rows`, loaded by path from
+    the shipped reader. Red while the copy stood — its own `open_rows`,
+    defined in this script."""
+    spec = importlib.util.spec_from_file_location("fold_ledger_open_rows", SCRIPT)
+    fl = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(fl)
+    code = fl.open_rows.__code__
+    assert fl.open_rows.__name__ == "todo_open_rows", fl.open_rows.__name__
+    assert os.path.samefile(
+        code.co_filename,
+        os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py"),
+    ), code.co_filename
+
+
 def test_a_work_item_without_the_file_has_no_open_row(tree):
     """The fixture's second work item has no `seal/specs/` directory at all."""
     assert not (tree / "seal" / "specs" / "1700000000-earlier").exists()

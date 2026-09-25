@@ -1,0 +1,39 @@
+# a reader's fence and comment state — questions for the planner
+
+## Decided from the tree, so nobody reopens them
+
+The tickets left these judgments open, and the tree answered each one. Each
+answer is a judgment a person may overturn by opening the grounds named here.
+
+| # | Judgment | Grounds |
+|---|---|---|
+| D1 | `live_lines` is the one definition of liveness for a line that EXCUSES something (a fold marker, `drained`). It is not the definition for a line that HOLDS something (an anchor, an open row, a claim). What is made single is the fence delimiter | `live_lines`'s docstring states its bias ("toward keeping a work item's directory"). `settle.py#anchored_rows`'s docstring records leaving `live_lines` for the holding direction (#511 round 1, finding 1). `claim_lines`'s `held` is the same rule for records |
+| D2 | `settle.py#anchored_rows` keeps reading fenced rows after #444 | its own docstring decided this ahead of #444, and `tests/test_settle_reads_before_it_removes.py#test_a_fenced_anchor_still_keeps_the_directory` pins it |
+| D3 | #487 is answered by one definition (a load), not by a walk comparing two copies | `.github/scripts/rider_check.py` already loads the shipped `evidence_check.py`, so the direction from `.github/` to a shipped script is taken. The ground for the copy covered only the reverse direction (`tests/test_the_release_check_watches_what_ships.py#SHIPS`) |
+| D4 | The ledger's and the evidence-todo table's HTML comments stay read | dropping a parked row is the silent direction. `settle.py#first_cell`'s docstring relies on the checker reading a commented row. No ticket reports a false refusal from one |
+| D5 | `_paragraph_ends_at` stays a list of shapes (#491's last question) | `live_lines` ANDs two readings, so the list only leans a disagreement and never decides a verdict alone. `_paragraph_ends_at`'s docstring says *cheap, not safe*. A block model is a markdown parser, which would be a dependency or a large new mechanism for a lean |
+| D6 | `close_issues_on_release.py` keeps its any-indent fence | `docs/issues-and-milestones.md` §*A keyword inside a fence or a code span claims nothing* chooses it, because there, masking more is the safe direction |
+| D7 | #220's fence half ("a name after a closing fence on its own line") is answered by the delimiter rule, not by positional reading | CommonMark 4.5: a closing fence may be followed only by spaces or tabs, so that line is fence content. `hooks/config.py#fence_map` already applies the rule (`not info.strip()`) |
+| D8 | `hooks/config.py#FENCE` stays its own definition, held in step by an agreement case | it runs on the hook path, and loading a skill module from it would make every hook call pay for that. `review-history-guard.py` loading the reader is a single hook, not the config module every hook imports |
+
+## Rows
+
+| # | Question | Who can answer | Options & what each implies | Default until answered | Status |
+|---|---|---|---|---|---|
+| Q1 | In the records arm, is an HTML comment that opens part-way along a line an aside? The tree cannot settle it: `skills/evidence-check/SKILL.md` §*What counts as a claim* says yes, without qualification, and `claim_lines` says no. `seal/follow-up.md`'s records-arm row names the repository owner as the one who decides which side is wrong | a person | **(a) Narrow the sentence**: an aside is a comment that begins a line, or begins the remainder after a closer. Names in a mid-line comment are read, which is a loud false refusal the marker answers. No new scanner. **(b) Widen the reader**: `claim_lines` reads through a positional scanner with code-span state. A `<!--` quoted in backticks must not open an aside, or claims are silently dropped. That costs what `live_lines` cost (five rounds), and it changes more of what a gate reads | **(a)**. Phase 4 builds it and deletes the follow-up row. Answering (b) later is a new work item that widens the reader, and nothing built under (a) has to be undone | ⬜ |
+| Q2 | Across every tracked `.md` file, which lines change their `readable` output or their `live_lines` flag under phase 1's rule, and is each change correct? | a measurement | one script over `git ls-files '*.md'`, comparing the old functions (from `c52e8350`) with the new, and listing each moved line. #490 measured zero moved lines for the bound alone over 1,460 files | proceed. Record the list in `phases/phase-1.md` and judge each line. A line judged wrong reverts the sub-rule that moved it (the bound, the info rule or the closer rule), and the phase records that as a divergence | ✅ measured in `phases/phase-1.md`: 10 `readable` lines in 3 files, 0 `live_lines` flags; the bound kept, `overview.md` records why |
+| Q3 | How many anchors in `seal/ledger.md` and `seal/releases/*.md` sit inside a closed fence, and so stop being checked after phase 2? Is any of them a real claim rather than an example? | a measurement | a count of `ANCHOR_RE` matches inside closed fences, by file (fences exist in 11 of these files, counted with `grep` on 2026-09-24) | proceed. A real claim found inside a fence is moved out of the fence in the same phase, as an edit that keeps a claim true | ✅ measured in `phases/phase-2.md`: 0 anchors, because no ledger file carries a fence line |
+| Q4 | Does `fold_ledger.py` loading `unverified_check.py` trip a check on `.github/` scripts (the interpreter floor list in `tests/test_a_script_says_which_interpreter_it_needs.py`, where `fold_ledger.py` is listed as *deferred*)? | a measurement | the narrow run of that module after phase 3 | proceed on `rider_check.py`'s precedent. A red case is the phase's to answer | ✅ measured in `phases/phase-3.md`: the interpreter-floor module is green with the load |
+| Q5 | Does phase 4 change the records arm's verdict on this tree's own records (a new NOT-IN-TREE refusal, or a names-read count that moves)? | the work | known only once `claim_lines` changes. The phase runs the arm before and after | a new refusal that is a true claim after a closer is corrected in the record, or marked with `NAME NOT IN TREE`. The phase judges each one and records it | ✅ measured in `phases/phase-4.md`: 158 names and 0 refused on this tree before and after; one of 1,711 historical record files reads differently, by the format |
+| Q6 | `evidence_check.py` is also vendored: `skills/evidence-ci/SKILL.md` has an adopter copy it alone into `tools/`, where `unverified_check.py` is not beside it. `plan.md` §*Operational impact* named the installed plugin only. What should a copy with no reader beside it use for the fence rule? | a person | **(a) A vendored pair of the two delimiter functions inside `evidence_check.py`**, used only where the reader is not beside it and held in step by an agreement case, the arrangement `hooks/config.py#FENCE` has for the same reason. **(b) No fence rule in a vendored copy**: it reads every line as it did before #444, so an example row there is still reported BROKEN (loud), and a vendored copy and the plugin give different verdicts on one ledger. **(c) Tell adopters to vendor both files**: a copy updated without the second file still needs (a) or (b) | **(a)**, built in phase 2 and phase 4 uses it too. Answering (b) deletes the pair and its case. Answering (c) is a change to `skills/evidence-ci/SKILL.md` that keeps (a) as the fallback | ⬜ |
+
+**`Who can answer` takes one of three values and nothing else.** They are
+*a person* (only this kind blocks the build, and Q1 does not block it,
+because its default is buildable), *a measurement* (a probe, a command or a
+count), and *the work* (a question that cannot be known at framing time).
+
+**The framer opens rows and does not own their answers.** The `Status` column
+is ticked by whoever answered, never by whoever asked.
+
+Answered rows feed back into `docs/`, or into the skill document they concern,
+before this directory's work merges.

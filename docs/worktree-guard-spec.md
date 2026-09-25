@@ -63,6 +63,8 @@ actually has: call the Agent again without `isolation: "worktree"`.
 ## Creation consent — the first creation is the question, not every one
 
 <!-- specs/1788817291-the-guard-asks-once-per-worktree-not-once-per-session -->
+**The first worktree creation in a session is the question, and a later one in
+the same session is allowed.**
 The guard used to answer creation with `ask` at every site that reached it, so
 no path through it cost zero prompts and the cost grew with the number of
 worktrees. Measured on the release run that opened #237, on 2026-09-08: six work items on six branches
@@ -229,6 +231,7 @@ about taking another session's branch out from under it.
 **The prompt budget.** One per session, from one per worktree unbounded — for a creation written on its own, which is the form the measured six took. Re-measured after round 2's fixes, six creations in one session on a clean single-stream tree: **deny, allow, allow, allow, allow, allow**.
 A creation written as one segment of a compound still costs one
 prompt each time, and so does one carrying an expansion, a redirection, a wrapper or a **path-qualified command word**, because that is exactly what the bound above refuses to speak for. The last of those is what round 2's second fix added to the list, and it moves nothing in the budget: `git worktree add …`, the same backgrounded, and the `\git` spelling all still allow.
+Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed
 
 ## Choice sites
 
@@ -358,7 +361,7 @@ is a safety net, never a blocker.
 ## Activity: what makes a session ACTIVE (heuristics, for sessions without a lease)
 
 <!-- specs/1788846800-an-exited-session-reads-as-live-for-five-minutes -->
-Active = ANY signal within `WORKTREE_GUARD_IDLE_MIN` minutes (default 5):
+**Active = ANY signal within `WORKTREE_GUARD_IDLE_MIN` minutes (default 5):**
 
 | Signal | Detects | Measured grounds (2026-05-06, live sessions) |
 |---|---|---|
@@ -369,6 +372,7 @@ Active = ANY signal within `WORKTREE_GUARD_IDLE_MIN` minutes (default 5):
 The 5-minute default is safe only because of the second and third signals —
 keyboard input alone cannot distinguish "forgotten" from "autonomous turn in
 progress", which is why the earlier input-only design needed 60 minutes.
+Enforced by: tests/test_worktree_guard_signals.py::test_fresh_active_event_counts, tests/test_worktree_guard_signals.py::test_transcript_scan_reaches_background_agents
 
 ### Passive-event filtering
 

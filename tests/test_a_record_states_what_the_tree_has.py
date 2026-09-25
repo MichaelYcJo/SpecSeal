@@ -779,6 +779,90 @@ def test_a_fenced_stamp_is_a_quotation_too(tmp_path):
     assert refusals(tmp_path) == ([], 0)
 
 
+# --- a closer is a position (#220), and the fence rule is the shared one --
+
+
+def test_a_claim_after_a_closing_delimiter_is_read(tmp_path):
+    """S10, #220's first shape. The whole line holding `-->` used to be
+    skipped, so a name written after the closer was never read. What follows
+    a closer is read by the line's own rules. Seen red against `c52e8350`:
+    no name read, exit 0."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\n<!-- note\nend --> `gone_helper` is used\n"},
+    )
+    found, read = refusals(tmp_path)
+    assert read == 1, (found, read)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+    assert "`gone_helper`" in found[0][2]
+
+
+def test_a_comment_reopened_on_its_closing_line_is_an_aside_again(tmp_path):
+    """S11, #220's second shape. A remainder that BEGINS with `<!--` opens an
+    aside again, so the name inside the reopened comment is not a claim.
+    Seen red against `c52e8350`, which ended the aside at the whole closing
+    line and then read the reopened comment's name as prose."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\n<!-- a\nb --> <!-- c\n`gone_helper`\n-->\n"},
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+def test_a_claim_after_a_one_line_comment_is_read(tmp_path):
+    """The same position rule on one line: a comment that opens at the start
+    and closes on the line hands its remainder back as text. The comment's
+    own name stays an aside."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\n<!-- `inside_a_note` --> then `gone_helper`\n"},
+    )
+    found, read = refusals(tmp_path)
+    assert read == 1, (found, read)
+    assert "`gone_helper`" in found[0][2]
+
+
+def test_a_shorter_fence_does_not_close_a_longer_one(tmp_path):
+    """S12. A ```` ```` ```` block quoting a ```` ``` ```` block is one
+    quotation: the inner delimiter is shorter than the opener, so it closes
+    nothing (CommonMark 4.5, and the shared rule `fence_rule` asks). Seen red
+    against `c52e8350`, whose three-character mark closed the outer block on
+    the inner ```` ```markdown ```` and read the quoted name as prose."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "rounds__round-1.md": "# r\n\n````\n```markdown\n`gone_helper`\n```\n"
+            "````\n\nprose after the fence\n"
+        },
+    )
+    assert refusals(tmp_path) == ([], 0)
+
+
+def test_a_mid_line_comment_is_read_with_its_text(tmp_path):
+    """`questions.md` Q1 of work item 1790260566, pinned at its default: a
+    comment that opens part-way along text is NOT an aside, so a name in it
+    is read — a false refusal a person sees and answers with the marker.
+    Reading it as an aside needs a positional scanner with code-span state,
+    and `skills/evidence-check/SKILL.md` §*What counts as a claim* says so."""
+    h = home(tmp_path)
+    work_item(
+        h,
+        "1780000000-live",
+        **{"plan.md": "# p\n\n| a row | text <!-- `gone_helper` --> |\n"},
+    )
+    found, read = refusals(tmp_path)
+    assert read == 1, (found, read)
+    assert [s for s, _, _ in found] == ["NOT-IN-TREE"], found
+
+
 # --- the boundary says what it did not read (round 1, 🟡 6) ------------------
 
 

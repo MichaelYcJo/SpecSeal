@@ -24,8 +24,8 @@ pull request by number now names what happened instead.
 
 | Item | Who must answer |
 |---|---|
-| whether the hooks fire on Windows from this tree | a maintainer with a Windows machine |
-| the conformance evals | `claude plugin eval` is early access; the suite awaits enablement |
+| ✅ whether the hooks fire on Windows from this tree | moved 2026-09-24 to MichaelYcJo/SpecSeal#578, which names the same answerer; no tree state answers it |
+| ✅ the conformance evals | moved 2026-09-24 to MichaelYcJo/SpecSeal#578; `claude plugin eval` still awaits enablement |
 
 ## Not done
 

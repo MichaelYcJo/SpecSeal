@@ -98,6 +98,7 @@ import argparse
 import glob
 import importlib.util
 import json
+import ntpath
 import os
 import re
 import shlex
@@ -1200,11 +1201,26 @@ class Check:
         return lines[:n]
 
 
-def run(name, command, root, keep, shell=False, env=None):
+def run(name, command, root, keep, shell=False, env=None, windows=None, comspec=None):
     """Run one check from the repository root, keep its output under
-    `keep/<name>.txt`, and return it with the exit code read directly."""
+    `keep/<name>.txt`, and return it with the exit code read directly.
+
+    **A shell string is handed over through `handed_to_shell`**, which is the
+    one place this module's shell sites meet: `gate`'s `SUITE` and
+    `compare_at_base`'s `suite-at-base` both arrive here, so neither needed a
+    change of its own (#448). Where what the shell is handed differs from what
+    the row says, one stderr line says so before the run, and the kept file
+    carries both lines above the exit code — the row as written first, because
+    that is the line a reader retypes. `windows` and `comspec` are the
+    platform, passed through, so a case can drive the `cmd.exe` branch from
+    any machine the way `quote` is driven.
+    """
+    handed = handed_to_shell(command, windows, comspec) if shell else command
+    rewritten = shell and handed != command
+    if rewritten:
+        sys.stderr.write(handed_line(name, handed) + "\n")
     r = subprocess.run(
-        command,
+        handed,
         cwd=root,
         shell=shell,
         capture_output=True,
@@ -1216,9 +1232,222 @@ def run(name, command, root, keep, shell=False, env=None):
     path = os.path.join(keep, f"{name}.txt")
     with open(path, "w", encoding="utf-8") as handle:
         handle.write(f"$ {command if shell else shlex.join(command)}\n")
+        if rewritten:
+            handle.write(f"{HANDED} {handed}\n")
         handle.write(f"exit {r.returncode}\n\n")
         handle.write(text)
     return Check(name, r.returncode, text, path)
+
+
+# --- what `cmd.exe` is handed ------------------------------------------------
+#
+# `subprocess.run(..., shell=True)` on Windows runs `%COMSPEC% /c "<string>"`,
+# and `COMSPEC` is `cmd.exe` unless somebody changed it. `cmd.exe` reads a `/`
+# in a command NAME as the start of a switch, so the row `bin/test -q && …`
+# runs a command called `bin` with the argument `/test`, prints "not
+# recognized" in the machine's own language, and exits 1 — which the failure
+# form then reports as the suite failing (#448). `bin/test.cmd` exists so that
+# `cmd.exe` can call the runner, and it is reached as `bin\test`.
+
+CMD_EXE = "cmd.exe"
+# The kept file's second line where the shell was handed something else.
+HANDED = "cmd.exe was handed:"
+
+
+def handed_line(name, handed):
+    """The one stderr line a rewritten check prints before it runs."""
+    return (
+        f"broad-gate: {name} — cmd.exe reads a `/` in a command name as the "
+        f"start of a switch, so each command name's `/` is handed to it as "
+        f"`\\`: {handed}"
+    )
+
+
+def handed_to_shell(command, windows=None, comspec=None):
+    """The string `subprocess.run(command, shell=True)` should be given.
+
+    `command` unchanged everywhere but one place: Windows, where the shell
+    `COMSPEC` names is `cmd.exe` — or `COMSPEC` is unset, which Python
+    answers with `cmd.exe` too. There each COMMAND NAME has its `/` written
+    `\\`, and nothing else changes (`command_names_backslashed`).
+
+    Keyed on the shell and not on `os.name` alone, because a Windows machine
+    can name a POSIX shell in `COMSPEC` (`tests/conftest.py#
+    posix_row_shell_or_skip` exists for that machine), and a POSIX shell
+    runs `bin/test` as written. `windows` and `comspec` default to this
+    machine's, and are arguments so that both branches can be driven from
+    either platform — `quote`'s docstring says what reading `os.name` in the
+    body cost the last time.
+    """
+    if windows is None:
+        windows = os.name == "nt"
+    if not windows:
+        return command
+    if comspec is None:
+        comspec = os.environ.get("COMSPEC")
+    # `ntpath` whatever this machine is: `C:\Windows\System32\cmd.exe` has no
+    # `/` in it for `posixpath.basename` to split at.
+    if comspec and ntpath.basename(comspec.strip().strip('"')).lower() != CMD_EXE:
+        return command
+    return command_names_backslashed(command)
+
+
+# `cmd.exe`'s own commands. Written straight against one of them, a `/` is
+# that command's switch -- `rd/s/q`, `dir/b`, `cd/d` -- and `cmd.exe` runs the
+# row as written. Turned into `\` it stops being a switch, so it is left.
+CMD_BUILTINS = frozenset(
+    {
+        "assoc",
+        "break",
+        "call",
+        "cd",
+        "chdir",
+        "cls",
+        "color",
+        "copy",
+        "date",
+        "del",
+        "dir",
+        "echo",
+        "endlocal",
+        "erase",
+        "exit",
+        "for",
+        "ftype",
+        "goto",
+        "if",
+        "md",
+        "mkdir",
+        "mklink",
+        "move",
+        "path",
+        "pause",
+        "popd",
+        "prompt",
+        "pushd",
+        "rd",
+        "rem",
+        "ren",
+        "rename",
+        "rmdir",
+        "set",
+        "setlocal",
+        "shift",
+        "start",
+        "time",
+        "title",
+        "type",
+        "ver",
+        "verify",
+        "vol",
+    }
+)
+
+
+def command_names_backslashed(command):
+    """`command` with `/` written `\\` inside each word `cmd.exe` reads as a
+    command name, and every other character exactly where it was.
+
+    **A position scan over the string, never a tokenise-and-re-render**,
+    because re-rendering is how quoting gets lost. The part of `cmd.exe`'s
+    lexer it models:
+
+      - a word is in COMMAND POSITION at the start of the line and after
+        `&&`, `||`, `&` or `|`; blanks and a `(` that opens a block are
+        passed over there, and the word begins at the next character;
+      - the command name runs from there to the first unquoted blank, tab,
+        `<`, `>`, `&`, `|` or `(`. Inside it, a `/` becomes `\\` — inside a
+        quoted stretch of it too, since a quoted Windows path takes `\\`;
+      - `"` is the only quote; outside one, `^` escapes the next character,
+        and that character is copied as written, so `^&` is never a
+        separator and `^/` is never rewritten — in command position it is
+        the name's first character, so `^a b/c` keeps `b/c` an argument;
+      - a `<` or `>` ends command position until the next separator;
+      - a `/` written straight after one of `cmd.exe`'s own commands
+        (`CMD_BUILTINS`, a leading `@` aside) is that command's switch, so
+        `rd/s/q` and `dir/b` stay as written and the name ends there.
+
+    Three things `cmd.exe` does are left unmodelled because modelling them
+    changes no output, and a branch that changes no output is one nothing
+    can hold: a leading `@` is read as the first character of the name,
+    which has no `/` in it; a `)` does not end a name, which only matters
+    for a `/` written straight after one; and the `&` of `2>&1` is read as
+    a separator, which makes the handle digit after it a "name" with no `/`
+    in it. The `2>&1` case in `tests/test_the_gate_hands_cmd_a_path_it_can_
+    run.py` holds that last one to what it hands over.
+
+    **Not rewritten, and named rather than claimed:** a path after `call`,
+    `start`, `if`, `else`, `for … do` or `cmd /c`, which `cmd.exe` reads as
+    an argument of those words and then splits exactly as it did before this
+    existed; and a command name after a redirection at the start of a
+    command (`>out bin/test`), where this scan stops treating the rest as
+    command position. None is worse than the row handed as written, and
+    `templates/config.md` §*Broad gate* states the rule and these examples.
+
+    **Rewritten, and named rather than claimed:** a switch written straight
+    against a program that is not one of `CMD_BUILTINS` (`xcopy/e`). The
+    scan cannot tell a program's name from a directory's by its spelling,
+    so the `/` is read as part of a path and `xcopy/e` is handed over as
+    `xcopy\\e`, which does not run. This one is worse than the row as
+    written. `templates/config.md` §*Broad gate* says so and names the
+    spelling that avoids it, a blank before the switch (`xcopy /e`), and
+    telling a program from a directory is #596.
+    """
+    out = []
+    at_command = True  # the next word read is a command name
+    in_name = False  # inside that command name now
+    quoted = False
+    # Where the current command name began. Only a bare name can be a
+    # built-in, so a name opened by `"` or `^` never needs it set.
+    start = 0
+    i, n = 0, len(command)
+    while i < n:
+        c = command[i]
+        if quoted:
+            if c == '"':
+                quoted = False
+            elif c == "/" and in_name:
+                c = "\\"
+            out.append(c)
+            i += 1
+            continue
+        if c == '"':
+            quoted = True
+            if at_command:
+                at_command, in_name = False, True
+            out.append(c)
+            i += 1
+            continue
+        if c == "^":
+            # The escaped character is the name's first one where it stands
+            # in command position, so the next blank ends that name.
+            if at_command:
+                at_command, in_name = False, True
+            out.append(command[i : i + 2])
+            i += 2
+            continue
+        if c in "&|":
+            # `&&` and `||` are two of these in a row, which is the same state.
+            at_command, in_name = True, False
+        elif c in "<>":
+            at_command, in_name = False, False
+        elif c in " \t(":
+            # A `(` opens a block in command position, which stays command
+            # position; anywhere else it ends the name, so `echo(a/b)` keeps
+            # its argument as written.
+            in_name = False
+        else:
+            if at_command:
+                at_command, in_name, start = False, True, i
+            if c == "/" and in_name:
+                if command[start:i].lstrip("@").lower() in CMD_BUILTINS:
+                    # A built-in's switch, written against it: as written.
+                    in_name = False
+                else:
+                    c = "\\"
+        out.append(c)
+        i += 1
+    return "".join(out)
 
 
 def draft_env(keep):
@@ -1746,16 +1975,31 @@ def panel(tree, base, checks, item, workflow=None, copy=None):
 def failure_lines(check, verdicts=None):
     """What the failure form quotes for one check: its first lines, the
     FAILED lines with their base verdict where there are any, the exit code,
-    and the file holding the rest."""
+    and the file holding the rest.
+
+    **A failing `suite` whose output holds no pytest summary says so** (#448).
+    Its exit code alone reads as tests failing, and it is equally what a
+    shell prints when the row never reached the suite — `cmd.exe` exits 1
+    with a "not recognized" line in the machine's own language. The exit
+    code cannot tell those apart on either shell, so the line reads what is
+    actually missing: `suite_counts` found no summary with a wall clock.
+    """
     lines = [f"exit {check.code}", *check.first_lines()]
     if verdicts:
         lines.append("failing test files, compared at the base:")
         lines.extend(f"  {f}  {word}" for f, word in verdicts.items())
-    counts = suite_counts(check.text) if check.name == SUITE else None
-    if counts:
-        lines.append(counts)
+    if check.name == SUITE:
+        counts = suite_counts(check.text)
+        lines.append(counts or NO_SUMMARY)
     lines.append(f"full output: {check.path}")
     return lines
+
+
+# The line a failing `suite` gets where its output carries no pytest summary.
+NO_SUMMARY = (
+    "no pytest summary in this output, so this exit code is not a count of "
+    "failing tests: the row may have stopped before any test ran"
+)
 
 
 # --- the command -------------------------------------------------------------

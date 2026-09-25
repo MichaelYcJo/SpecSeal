@@ -152,6 +152,16 @@ ubuntu, macOS and Windows at the floor stated above, the evidence ledger
 against this repository, and the hygiene workflow that guards releases. A change to any
 hook needs a test that fails without it — see the counterfeit rule below.
 
+**The suite runs with `gh` logged out, on your machine as on CI.** CI's
+pytest job has no token, so `tests/conftest.py` makes the same true locally
+when it is imported: it points `GH_CONFIG_DIR` at an empty directory,
+removes `GITHUB_TOKEN` and `GITHUB_ENTERPRISE_TOKEN`, and sets `GH_TOKEN` and
+`GH_ENTERPRISE_TOKEN` to a value no server accepts — because without a token
+variable, `gh` reads the login it keeps in your OS keyring. A case that falls
+through its stubs onto a live `gh` then fails where you run it, instead of
+passing because you happen to be logged in and failing only on CI after the
+branch was sealed (#510). A case that needs `gh` stubs it.
+
 Two steps of the hygiene workflow ship to user repositories as well, as
 `templates/hygiene.yml`: the unverified-rows tally and the chain check, run
 from a clone of this repository at the release the user installed. The
@@ -295,8 +305,10 @@ when it arrives.
 
   The fold refuses, naming the file, while any `seal/specs/<id>/evidence-todo.md`
   in the tree still has an open row: a row in a file with no `drained` line,
-  whose first cell does not begin with ✅. Merge the fact into the fragment
-  and drain the file; that is one commit on the release branch.
+  whose first cell does not begin with ✅. A `drained` line quoted in a fence
+  or a comment does not count, and a row inside a fenced example that closes
+  is not a row. Merge the fact into the fragment and drain the file; that is
+  one commit on the release branch.
 - **No real identifiers.** Examples, fixtures, and docs use `example.com`
   and `/Users/x/` only. `tests/test_no_real_identifiers.py` enforces it in
   CI — extend its allowlist deliberately, never to make a test pass.

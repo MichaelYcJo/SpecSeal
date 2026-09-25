@@ -2,9 +2,10 @@
 
 `skills/settle/SKILL.md` §2 places a folded rule in the document that owns its
 subject, and says a document over the repository's ceiling takes no new
-standing statement. This module is this repository's ceiling and its reader.
+standing statement. The reader ships, as `skills/settle/scripts/fold_check.py`
+(`fold-check`); this module is this repository's ceiling and its pin over it.
 
-Two fold runs put 29 of the 101 folded statements into
+Two fold runs put 29 folded statements into
 `docs/review-chain-spec.md`, which reached 2,246 lines while the next largest
 document was 839. Its fold-marker count was frozen until
 MichaelYcJo/SpecSeal#526 split it along its own headings into three
@@ -17,30 +18,24 @@ The marker count is frozen, not the line count, because a marker is the one
 thing only a fold adds. A sibling that edits a listed document's prose moves
 its line count and folds nothing.
 
-`docs/the-evidence-ledger.md` §*The fold, and what tells it from a deletion*
-states the three values in prose. The last case here pins that prose against
-the constants below, `SHAPE_CUTOFF` included, which lives in
-`tests/test_a_folded_statement_names_what_enforces_it.py`.
+The three values are rows of `seal/config.md` — `Fold shape from`,
+`Document line ceiling`, `Over the ceiling` — which is where the shipped
+command reads them. `docs/the-evidence-ledger.md` §*The fold, and what tells
+it from a deletion* states them in prose, and the prose pin below reads the
+rows through the command's own reader and holds the two equal, so the prose,
+the config and the check are one set of numbers.
 """
 
-import hashlib
 import importlib.util
 import os
 import re
+import subprocess
+import sys
+
+import pytest
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
-READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
-SHAPE = os.path.join(
-    os.path.dirname(__file__), "test_a_folded_statement_names_what_enforces_it.py"
-)
-
-LINE_CEILING = 1000
-OVER_CEILING = {}
-# WHICH markers each listed document holds, not only how many: a fold that
-# adds a statement there and removes another keeps the count and changes this
-# (round 1, finding 1). A marker removed on purpose recomputes it with
-# `marker_digest` in the same commit that lowers the count.
-FROZEN_IDS_DIGEST = {}
+SCRIPT = os.path.join(ROOT, "skills", "settle", "scripts", "fold_check.py")
 
 
 def _load(name, path):
@@ -50,96 +45,35 @@ def _load(name, path):
     return module
 
 
-uc = _load("unverified_check", READER)
+fold_check = _load("specseal_fold_check", SCRIPT)
+markers = fold_check.markers
+marker_digest = fold_check.marker_digest
+documents = fold_check.documents
+ceiling_problems = fold_check.ceiling_problems
 
 
-def markers(text):
-    """How many fold markers the fold itself would read in `text`."""
-    return sum(
-        len(uc.FOLD_MARKER.findall(line))
-        for line, live in uc.live_lines(text.splitlines())
-        if live
-    )
+def declared():
+    """`(cutoff, ceiling, over, digests)` as this repository's
+    `seal/config.md` states them, read by the shipped command's own reader.
 
-
-def marker_digest(text):
-    """The first 12 hex digits of a SHA-256 over the sorted live marker ids."""
-    ids = sorted(
-        found
-        for line, live in uc.live_lines(text.splitlines())
-        if live
-        for found in uc.FOLD_MARKER.findall(line)
-    )
-    return hashlib.sha256("\n".join(ids).encode()).hexdigest()[:12]
-
-
-def documents(root):
-    top = os.path.join(root, "docs")
-    return [
-        "docs/" + name
-        for name in sorted(os.listdir(top))
-        if name.endswith(".md") and os.path.isfile(os.path.join(top, name))
-    ]
-
-
-def ceiling_problems(root, ceiling, over, digests=None):
-    """Every way the tree at `root` breaks the ceiling or its listing."""
-    problems = []
-    names = documents(root)
-    for rel in sorted(set(over) - set(names)):
-        problems.append(f"{rel} is listed over the ceiling and does not exist")
-    for rel in names:
-        with open(os.path.join(root, *rel.split("/")), encoding="utf-8") as f:
-            text = f.read()
-        lines = len(text.splitlines())
-        if rel not in over:
-            if lines > ceiling:
-                problems.append(
-                    f"{rel} is {lines} lines, over the ceiling of {ceiling}. "
-                    "Split it along its own headings, or place the rule in the "
-                    "document for its own sub-subject"
-                )
-            continue
-        frozen, home = over[rel]
-        if lines <= ceiling:
-            problems.append(
-                f"{rel} is {lines} lines, no longer over the ceiling of "
-                f"{ceiling}. Remove its entry; {home} was its home"
-            )
-        found = markers(text)
-        if found != frozen:
-            problems.append(
-                f"{rel} carries {found} fold markers and is frozen at {frozen} "
-                f"until {home} splits it. A new fold goes to the document for "
-                "the rule's own sub-subject; a removed marker lowers the frozen "
-                "count, so the room it made is not refilled, and recomputes "
-                "FROZEN_IDS_DIGEST with marker_digest() in the same commit"
-            )
-            continue
-        want = (digests or {}).get(rel)
-        if want is not None and marker_digest(text) != want:
-            problems.append(
-                f"{rel} carries {frozen} fold markers, but not the ones frozen "
-                f"until {home} splits it: their ids no longer match "
-                "FROZEN_IDS_DIGEST. If a fold added a statement here and "
-                "removed another, the new rule goes to the document for its own "
-                "sub-subject. If a marker was removed on purpose, set the digest "
-                "to marker_digest() of the file in the commit that lowered the "
-                "count"
-            )
-    return problems
+    `over` holds WHICH markers each listed document holds through its digest,
+    not only how many: a fold that adds a statement there and removes another
+    keeps the count and changes the digest (round 1, finding 1)."""
+    return fold_check.declared(fold_check.seal_home(ROOT))
 
 
 def test_every_document_in_docs_is_under_the_ceiling_or_frozen():
+    _, ceiling, over, digests = declared()
+    assert ceiling, "this repository's seal/config.md declares no ceiling"
     assert documents(ROOT), "no document under docs/ was read"
-    problems = ceiling_problems(ROOT, LINE_CEILING, OVER_CEILING, FROZEN_IDS_DIGEST)
+    problems = ceiling_problems(ROOT, ceiling, over, digests)
     assert not problems, "\n".join(problems)
 
 
 def test_the_listed_document_still_holds_markers():
     """A frozen count of zero would freeze nothing; the reader has to have
     read the markers it freezes."""
-    for rel, (frozen, _) in OVER_CEILING.items():
+    for rel, (frozen, _) in declared()[2].items():
         with open(os.path.join(ROOT, *rel.split("/")), encoding="utf-8") as f:
             assert markers(f.read()) == frozen > 0, rel
 
@@ -240,27 +174,66 @@ def test_settle_owns_the_placement_rule():
         assert phrase in section, f"settle §2 no longer says: {phrase!r}"
 
 
-def test_the_evidence_ledger_states_the_values_these_constants_hold():
-    """A11. The values are stated once in prose, for a reader, and held here,
-    for the check; this case is what keeps the two the same numbers."""
+def ledger_prose():
     with open(
         os.path.join(ROOT, "docs", "the-evidence-ledger.md"), encoding="utf-8"
     ) as f:
-        text = f.read()
+        return f.read()
+
+
+def prose_disagreements(text, values):
+    """How the evidence-ledger prose and the declared values differ, or []."""
+    cutoff, ceiling, over, _ = values
+    section = text.split("## The fold, and what tells it from a deletion")[1]
+    stated_cutoff = re.search(r"from work item `(\d+)` on", section)
+    stated_ceiling = re.search(r"at or under ([\d,]+) lines", section)
+    listed = re.findall(
+        r"`(docs/[^`]+)`,\s+frozen at (\d+) fold markers until (\S+#\d+)", section
+    )
+    found = []
+    if not stated_cutoff or int(stated_cutoff.group(1)) != cutoff:
+        found.append(f"the prose states the cutoff {stated_cutoff}, the row {cutoff}")
+    if not stated_ceiling or int(stated_ceiling.group(1).replace(",", "")) != ceiling:
+        found.append(
+            f"the prose states the ceiling {stated_ceiling}, the row {ceiling}"
+        )
+    if {rel: (int(n), home) for rel, n, home in listed} != over:
+        found.append(f"the prose lists {listed}, the row {over}")
+    return found
+
+
+def test_the_evidence_ledger_states_the_values_the_config_rows_hold():
+    """A11 and S10. The values are stated once in prose, for a reader, and
+    once as `seal/config.md` rows, for the command; this case is what keeps
+    the two the same numbers. The rows are read by the command's own reader,
+    so a row it would not read fails here too."""
+    text = ledger_prose()
     section = text.split("## The fold, and what tells it from a deletion")[1]
     assert (
         "`skills/settle/SKILL.md` §*2. Write one standing statement per\nsegment*"
         in section
     ), "the evidence ledger no longer links to settle §2, the rules' owner"
-    cutoff = re.search(r"from work item `(\d+)` on", section)
-    ceiling = re.search(r"at or under ([\d,]+) lines", section)
-    listed = re.findall(
-        r"`(docs/[^`]+)`,\s+frozen at (\d+) fold markers until (\S+#\d+)", section
+    assert not prose_disagreements(text, declared()), prose_disagreements(
+        text, declared()
     )
-    shape = _load("shape_check", SHAPE)
-    assert cutoff and int(cutoff.group(1)) == shape.SHAPE_CUTOFF, cutoff
-    assert ceiling and int(ceiling.group(1).replace(",", "")) == LINE_CEILING, ceiling
-    assert {rel: (int(n), home) for rel, n, home in listed} == OVER_CEILING, listed
+
+
+def test_the_prose_pin_fails_when_either_side_moves_alone():
+    """S10, from both sides: the rows edited with the prose left alone, and
+    the prose edited with the rows left alone."""
+    text, values = ledger_prose(), declared()
+    cutoff, ceiling, over, digests = values
+    assert prose_disagreements(text, (cutoff + 1, ceiling, over, digests))
+    assert prose_disagreements(text, (cutoff, ceiling + 1, over, digests))
+    listed = {"docs/big.md": (29, "owner/repo#1")}
+    assert prose_disagreements(text, (cutoff, ceiling, listed, digests))
+    edited = text.replace(f"from work item `{cutoff}` on", "from work item `1` on")
+    assert edited != text, "the prose no longer states the cutoff this way"
+    assert prose_disagreements(edited, values)
+    edited = text.replace(f"at or under {ceiling:,} lines", "at or under 1 lines")
+    edited = edited.replace(f"at or under {ceiling} lines", "at or under 1 lines")
+    assert edited != text, "the prose no longer states the ceiling this way"
+    assert prose_disagreements(edited, values)
 
 
 def test_a_marker_swapped_into_the_listed_document_is_named(tmp_path):
@@ -275,8 +248,9 @@ def test_a_marker_swapped_into_the_listed_document_is_named(tmp_path):
 
 def test_the_frozen_digest_is_the_listed_document_s_markers():
     """Every listed document has a digest, and it is the one on disk."""
-    assert set(FROZEN_IDS_DIGEST) == set(OVER_CEILING)
-    for rel, digest in FROZEN_IDS_DIGEST.items():
+    _, _, over, digests = declared()
+    assert set(digests) == set(over)
+    for rel, digest in digests.items():
         with open(os.path.join(ROOT, *rel.split("/")), encoding="utf-8") as f:
             assert marker_digest(f.read()) == digest, rel
 
@@ -290,7 +264,10 @@ def test_a_marker_removed_on_purpose_is_told_to_recompute_the_digest(tmp_path):
         root, 10, {"docs/big.md": (1, "#1")}, {"docs/big.md": marker_digest(frozen)}
     )
     assert len(found) == 1, found
-    assert "set the digest to marker_digest() of the file" in found[0], found
+    assert (
+        f"set the entry's digest to {marker_digest(body(12, 1))}, the file's "
+        "marker_digest() now, in the commit that lowered the count"
+    ) in found[0], found
     assert "keeps the count" not in found[0], found
 
 
@@ -301,4 +278,221 @@ def test_a_count_that_moved_is_told_to_recompute_the_digest_too(tmp_path):
         root, 10, OVER, {"docs/big.md": marker_digest(body(12, 2))}
     )
     assert len(found) == 1, found
-    assert "recomputes FROZEN_IDS_DIGEST with marker_digest()" in found[0], found
+    assert (
+        "sets the entry's digest in the `Over the ceiling` row to "
+        f"{marker_digest(body(12, 1))}, the file's marker_digest() now"
+    ) in found[0], found
+
+
+# --- the command -------------------------------------------------------------
+
+
+def command(*args):
+    """`fold-check` as a person types it, run on this interpreter."""
+    done = subprocess.run(
+        [sys.executable, SCRIPT, *args],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return done.returncode, done.stdout, done.stderr
+
+
+def test_the_command_names_a_document_over_the_ceiling_and_exits_1(tmp_path):
+    """S3: the message the module pins, printed by the command, at exit 1."""
+    root = tree(tmp_path, {"other.md": body(11), "small.md": body(10)})
+    code, out, err = command("--root", root, "--ceiling", "10")
+    assert code == 1, (code, out, err)
+    assert (
+        "docs/other.md is 11 lines, over the ceiling of 10. Split it along its "
+        "own headings, or place the rule in the document for its own "
+        "sub-subject\n"
+    ) in out, out
+    assert "held 2 documents under docs/ to 10 lines, 0 listed over it\n" in out
+
+
+def test_the_command_refuses_a_ceiling_that_is_not_a_positive_integer(tmp_path):
+    root = tree(tmp_path, {"small.md": body(3)})
+    for value in ("0", "ten"):
+        code, out, err = command("--root", root, "--ceiling", value)
+        assert code == 2 and not out, (value, out, err)
+
+
+def test_this_repository_passes_the_command_with_no_flags():
+    """S1: the values come from `seal/config.md`, and both checks run."""
+    code, out, err = command("--root", ROOT)
+    assert code == 0, (out, err)
+    cutoff, ceiling, _, _ = declared()
+    assert f"; the cutoff {cutoff} binds " in out, out
+    assert f" to {ceiling} lines, 0 listed over it\n" in out, out
+
+
+def config_root(tmp_path, rows):
+    """A planted repository whose `seal/config.md` carries `rows` under the
+    table header, with one short document under `docs/`."""
+    (tmp_path / "docs").mkdir()
+    (tmp_path / "docs" / "a.md").write_text("# A\n", encoding="utf-8")
+    (tmp_path / "seal").mkdir()
+    table = "".join(f"| {item} | {value} |\n" for item, value in rows)
+    (tmp_path / "seal" / "config.md").write_text(
+        f"# Repository config\n\n| Item | Value |\n|---|---|\n{table}",
+        encoding="utf-8",
+    )
+    return str(tmp_path)
+
+
+def test_a_root_that_declares_neither_value_checks_nothing_and_says_so(tmp_path):
+    """S4. Absent means not declared, as every optional row does; the line
+    names both rows and the file they were looked for in (§14)."""
+    root = config_root(tmp_path, [("Mode", "shared")])
+    code, out, err = command("--root", root)
+    config = os.path.join(root, "seal", "config.md")
+    assert code == 0, (out, err)
+    assert out == (
+        "fold-check: neither `Fold shape from` nor `Document line ceiling` is "
+        f"declared in {config}, so nothing was checked\n"
+    ), out
+
+
+def test_a_row_with_an_empty_value_is_not_declared(tmp_path):
+    """The template writes a row it leaves open with an empty cell, as it does
+    `Mode` and `Broad gate`; an empty cell is no value, not a bad one."""
+    root = config_root(tmp_path, [("Fold shape from", ""), ("Over the ceiling", "")])
+    code, out, err = command("--root", root)
+    assert code == 0, (out, err)
+    assert "neither `Fold shape from` nor `Document line ceiling` is declared" in out
+
+
+def test_one_absent_row_skips_its_check_and_says_which(tmp_path):
+    root = config_root(tmp_path, [("Document line ceiling", "10")])
+    code, out, _ = command("--root", root)
+    config = os.path.join(root, "seal", "config.md")
+    assert code == 0, out
+    assert (
+        f"fold-check: `Fold shape from` is not declared in {config}, so the "
+        "shape was not checked\n"
+    ) in out, out
+    assert "held 1 document under docs/ to 10 lines, 0 listed over it\n" in out
+
+
+@pytest.mark.parametrize(
+    "row, value, says",
+    [
+        (
+            "Fold shape from",
+            "17x",
+            "the `Fold shape from` row holds `17x`, which is not a work-item "
+            "id's epoch prefix (a whole number; `0` binds every statement)",
+        ),
+        (
+            "Document line ceiling",
+            "ten",
+            "the `Document line ceiling` row holds `ten`, which is not a "
+            "positive whole number of lines",
+        ),
+        (
+            "Over the ceiling",
+            "docs/a.md frozen at some markers",
+            "the `Over the ceiling` row holds `docs/a.md frozen at some markers`, "
+            "which is not `none` and not an entry `<path> frozen at <n> markers "
+            "<12-hex digest> until <home>`",
+        ),
+    ],
+)
+def test_a_row_that_will_not_parse_is_named_and_nothing_is_checked(
+    tmp_path, row, value, says
+):
+    """S5, one case per row, each message pinned (§14)."""
+    root = config_root(tmp_path, [(row, value)])
+    code, out, err = command("--root", root)
+    config = os.path.join(root, "seal", "config.md")
+    assert code == 2 and not out, (out, err)
+    assert err == f"fold-check: in {config}, {says} — nothing was checked\n", err
+
+
+def test_an_over_the_ceiling_entry_is_read_with_its_digest(tmp_path):
+    """The entry shape `spec.md` fixes, read into the listing the check uses."""
+    over, digests = fold_check.parse_over(
+        "docs/big.md frozen at 29 markers 0123456789ab until owner/repo#1; "
+        "docs/b.md frozen at 2 markers aaaaaaaaaaaa until #7"
+    )
+    assert over == {"docs/big.md": (29, "owner/repo#1"), "docs/b.md": (2, "#7")}
+    assert digests == {"docs/big.md": "0123456789ab", "docs/b.md": "aaaaaaaaaaaa"}
+    assert fold_check.parse_over("none") == ({}, {})
+    assert fold_check.parse_over(None) == ({}, {})
+
+
+def test_a_flag_overrides_its_row_for_one_run(tmp_path):
+    root = config_root(tmp_path, [("Document line ceiling", "10")])
+    (tmp_path / "docs" / "long.md").write_text("x\n" * 11, encoding="utf-8")
+    code, out, _ = command("--root", root)
+    assert code == 1 and "docs/long.md is 11 lines" in out, out
+    code, out, _ = command("--root", root, "--ceiling", "11")
+    assert code == 0, out
+    assert (tmp_path / "seal" / "config.md").read_text(encoding="utf-8").count(
+        "| Document line ceiling | 10 |"
+    ) == 1
+
+
+# --- round 1 -----------------------------------------------------------------
+
+
+def git_init(root):
+    subprocess.run(["git", "init", "-q", root], check=True, capture_output=True)
+
+
+def test_the_command_typed_in_a_subdirectory_reads_the_repository(tmp_path):
+    """Round 1, finding 1: typed in `docs/`, the rows and the documents are the
+    repository's, so a run one directory too deep does not pass unchecked."""
+    root = config_root(tmp_path, [("Document line ceiling", "10")])
+    git_init(root)
+    (tmp_path / "docs" / "long.md").write_text("x\n" * 11, encoding="utf-8")
+    done = subprocess.run(
+        [sys.executable, SCRIPT],
+        cwd=str(tmp_path / "docs"),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert done.returncode == 1, done.stdout + done.stderr
+    assert "docs/long.md is 11 lines, over the ceiling of 10" in done.stdout
+
+
+def test_an_opted_out_repository_is_told_it_opted_out(tmp_path):
+    """Round 1, finding 3: it has a root, so "no seal/ root" would be false.
+    Both of the states `home_at` answers "" for are pinned whole (§14)."""
+    root = config_root(tmp_path, [("Document line ceiling", "10")])
+    git_init(root)
+    (tmp_path / ".git" / "specseal-scratch").write_text("", encoding="utf-8")
+    code, out, err = command("--root", root)
+    assert code == 0, (out, err)
+    assert out == (
+        "fold-check: neither `Fold shape from` nor `Document line ceiling` is "
+        f"declared in {root}, which has opted out — `specseal-scratch` is under "
+        "its git directory, so its seal/config.md is not read, so nothing was "
+        "checked\n"
+    ), out
+
+
+def test_a_repository_with_no_root_is_told_it_has_none(tmp_path):
+    (tmp_path / "docs").mkdir()
+    git_init(str(tmp_path))
+    code, out, err = command("--root", str(tmp_path))
+    assert code == 0, (out, err)
+    assert out == (
+        "fold-check: neither `Fold shape from` nor `Document line ceiling` is "
+        f"declared in {tmp_path}, which has no seal/ root at either place, so "
+        "nothing was checked\n"
+    ), out
+
+
+def test_a_listed_document_below_the_top_level_is_named_as_outside_it(tmp_path):
+    """Round 1, finding 4: it exists, so "does not exist" is false."""
+    root = tree(tmp_path, {"small.md": body(3)})
+    (tmp_path / "docs" / "deep").mkdir()
+    (tmp_path / "docs" / "deep" / "big.md").write_text(body(12, 1), encoding="utf-8")
+    found = ceiling_problems(root, 10, {"docs/deep/big.md": (1, "#1")})
+    assert found == [
+        "docs/deep/big.md is listed over the ceiling and is not a top-level "
+        "docs/*.md, the only documents the ceiling holds"
+    ], found

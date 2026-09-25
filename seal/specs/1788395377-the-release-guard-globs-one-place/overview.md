@@ -44,8 +44,8 @@ Nothing. The ticket's three done-when rows are the whole of the work.
 
 | Item | Who must answer |
 |---|---|
-| The guard refusing a real release with a real open row — every file in the tree is drained, so the refusal path is exercised only by fixtures | the repository owner, at the first release that meets one |
-| The broad gate | the orchestrator, after the review round |
+| ✅ The guard refusing a real release with a real open row — every file in the tree is drained, so the refusal path is exercised only by fixtures | moved 2026-09-24 to MichaelYcJo/SpecSeal#578, which names the same answerer |
+| ✅ The broad gate | `rounds/round-4.md`'s `Broad gate` row: 171cfc0 against `origin/release/v0.5.0`, 1438 passed, lint, format, evidence, unverified and chain checks clean |
 
 ## Fed back into the spec
 

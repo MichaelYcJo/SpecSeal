@@ -769,3 +769,50 @@ def test_the_guard_block_is_the_one_round_record_says_to_copy():
     assert "round-record: needs python" not in copy, (
         "the copied block still names the script it was copied from"
     )
+
+
+# --- the third guarded script ----------------------------------------------
+
+# #566. `fold-check` copies the same block by way of `settle.py`. Below the
+# floor the guard answers before `HERE` is computed, so the copy alone is
+# enough to run.
+FOLD_CHECK = os.path.join(ROOT, "skills", "settle", "scripts", "fold_check.py")
+
+
+def fold_check_source():
+    with open(FOLD_CHECK, encoding="utf-8") as f:
+        return f.read()
+
+
+def test_fold_check_refuses_before_anything_is_read_below_a_raised_floor(tmp_path):
+    """Never skips. Every line of the guard is the shipped line and one
+    constant moved; a junk `--root` must not be reached."""
+    text = fold_check_source()
+    old = "FLOOR = (3, 12)"
+    assert old in text, f"fold_check.py no longer spells the floor as `{old}`"
+    copy = tmp_path / "fold_check.py"
+    copy.write_text(text.replace(old, "FLOOR = (99, 0)"), encoding="utf-8")
+    out = subprocess.run(
+        [sys.executable, str(copy), "--root", JUNK_ITEM, "--ceiling", "1"],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert out.returncode == 2, out.stdout + out.stderr
+    assert "fold-check: needs python 99.0 or newer" in out.stderr, out.stderr
+    assert "Traceback" not in out.stderr, out.stderr
+    assert JUNK_ITEM not in out.stderr + out.stdout, out.stderr
+
+
+def test_fold_checks_guard_block_is_the_one_round_record_says_to_copy():
+    original, copy = source(), fold_check_source()
+    for line in (
+        "version = tuple(sys.version_info[:3]) if version is None else tuple(version)",
+        "    if version[:2] >= FLOOR:",
+        "        return None",
+        "_refusal = below_floor()",
+    ):
+        assert line in original and line in copy, line
+    assert copy.count("fold-check: needs python {floor} or newer") == 1
+    assert "settle: needs python" not in copy
+    assert copy.index("_refusal = below_floor()") < copy.index("\nHERE = ")
