@@ -2211,11 +2211,12 @@ def gate(args, console_wants_letters):
     # The one read of `args.base` in this file, and the count is held by a
     # case: a seventh consumer written later cannot take the unresolved value
     # without that case going red (`spec.md` §*The class, enumerated by
-    # construction*). Everything below asks `base.commit`, which is the
-    # commit CI will compare against, with one exception: `skipped_at_main`
-    # reads `base.given`, the caller's spelling. It has to, because the
-    # workflow's guard compares a branch NAME (`github.base_ref`), and a
-    # resolved commit carries no name to compare (#473).
+    # construction*). Every check below asks `base.commit`, which is the
+    # commit CI will compare against. Two readers take `base.given`, the
+    # caller's spelling, and neither is a check: `moved_line`, which exists
+    # to say how that spelling differs from what it resolved to, and
+    # `skipped_at_main`, because the workflow's guard compares a branch NAME
+    # (`github.base_ref`) and a resolved commit carries no name (#473).
     base = resolve_base(root, args.base)
     if base.commit is None:
         raise Refused(
