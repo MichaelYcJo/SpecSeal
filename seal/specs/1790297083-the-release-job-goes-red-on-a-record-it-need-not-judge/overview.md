@@ -18,6 +18,8 @@ the window the orchestration document orders (#598 instance 4).
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | A1's fixture clock | `spec.md` A1 describes the merged side-branch shape with no date; the test's own clock puts every commit in one second | A1 dates the side branch ahead of the early add | In one second the date order is a tie, which is A2's failure and not A1's. `phases/phase-1.md` has the measurement |
+| `--full-history` in the restoration predicate | `spec.md` Scope 2: *"answered by one `git log --full-history --find-object=<blob> <fork> -- <rel>`"*; the code drops `--full-history` | the code | Every case stayed green without it, and a probe showed `--find-object` already walks the side line a plain path-limited log simplifies away. A flag with no case behind it was taken out rather than kept unpinned. `phases/phase-2.md` |
+| C4, what `close` does in the window | `plan.md` *Technical context*: *"`round_record.py close` runs the check with no payload, so it keeps reporting the refusal after ticking `Pass`"*. `round_record.py#run_check` writes a draft payload unless `gh` says the pull request is ready | the code as it stood; the C4 case now asserts exit 0 and the notice naming the verifying round | The frame's premise is false against `run_check`. Keeping exit 1 would need a second, strict path through the check for one pair. No document states the exit code. `phases/phase-3.md` |
 
 ## Not verified
 
