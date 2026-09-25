@@ -113,7 +113,7 @@ incorporation. This file only adds what the skill does not carry.
         `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
         nothing-looks/questions.md` Q4 is where the question is open, and
         this paragraph is evidence for it rather than an answer to it.
-        Verified 2026-09-25 against "## Phases"@22daeeed. -->
+        Verified 2026-09-25 against "## Phases"@035903e4. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
@@ -299,8 +299,10 @@ not yours to write — `round_record.py new` sets it on the previous record
 when the next round posts — but it is what your
 fixes are answering to, and a run whose last cell reads `nobody` is one whose
 last fixes nobody opened. That pair, `nobody` beside a checked `Pass` on the
-last record, **fails the pull request** for any work item begun after the rule
-landed; the way out is the verifying round above, which costs no round.
+last record, **fails a ready pull request** for any work item begun after the
+rule landed. On a draft it prints and names the verifying round, and *Ready
+for review* re-runs the check; the way out is the verifying round above,
+which costs no round.
 
 **A capped run does not end your fixes.** What the cap bounds is rounds: a
 finding inside a unit this run's own fixes created is yours to fix whatever

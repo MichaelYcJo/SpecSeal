@@ -475,3 +475,82 @@ def test_a_marker_quoted_inline_is_not_a_gathered_work_item(tmp_path):
     r = run("--check", root=tmp_path)
     assert r.returncode == 1, r.stdout
     assert "examined nothing" in r.stdout, r.stdout
+
+
+# --- #586: a fragment's own `## ` line ends the released section -------------
+
+HEADED = "1788250000-headed"
+
+
+def headed(tree, body):
+    """A third fragment, between the fixture's two in id order."""
+    d = tree / "seal" / "specs" / HEADED
+    d.mkdir(parents=True)
+    (d / "changelog.md").write_text(body, encoding="utf-8")
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_a_fragment_carrying_its_own_section_line_is_refused(tree, dry_run):
+    """S9. The gatherer ends a section at the next line starting `## `, and so
+    does `publish_release_note.py#section_body`. A fragment carrying one
+    would ship every entry after it under no version and cut the release
+    note short, so the gather refuses before it writes or prints a section,
+    naming the fragment, the line number and the line, and what to do."""
+    headed(tree, "- **an entry.** What it changes.\n\n## A heading of its own\n")
+    before = changelog(tree)
+    args = ["--version", "0.2.0", "--date", "2026-09-15"]
+    r = run(*args, *(["--dry-run"] if dry_run else []), root=tree)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert changelog(tree) == before, "the refused gather wrote to the file"
+    assert "## 0.2.0" not in r.stdout, "the refused gather printed a section"
+    out = " ".join(r.stdout.split())
+    assert f"seal/specs/{HEADED}/changelog.md:3: ## A heading of its own" in out, out
+    assert "Demote each to `###` or lower" in out, out
+    assert "a pull request into the release branch, then gather again" in out, out
+
+
+@pytest.mark.parametrize(
+    "line",
+    ["### a subheading", "##", "  ## indented", "#### deeper", "##no space"],
+)
+def test_a_line_that_ends_no_section_is_gathered(tree, line):
+    """S10. The refusal is exactly the predicate both release readers end a
+    section with, `line.startswith("## ")`, and nothing wider: a deeper
+    heading, a bare `##` and an indented one end no section there."""
+    headed(tree, f"- **an entry.** What it changes.\n\n{line}\n")
+    gather(tree)
+    assert f"<!-- specs/{HEADED} -->" in changelog(tree)
+
+
+def test_a_section_line_inside_a_fence_is_refused_too(tree):
+    """Neither release reader knows a fence, so a `## ` line inside one ends
+    their section all the same, and it is refused all the same."""
+    headed(tree, "- **an entry.**\n\n  ```\n## inside a fence\n  ```\n")
+    r = run("--version", "0.2.0", "--date", "2026-09-15", root=tree)
+    assert r.returncode == 1, r.stdout
+    assert f"seal/specs/{HEADED}/changelog.md:4: ## inside a fence" in r.stdout
+
+
+def test_a_gathered_fragment_is_not_refused_again(tree):
+    """Only what this run would gather is read. A fragment already in the
+    file cannot be un-shipped by refusing the release."""
+    gather(tree)
+    (tree / "seal" / "specs" / "1788229400-later" / "changelog.md").write_text(
+        "- **the later one.**\n\n## edited after it shipped\n", encoding="utf-8"
+    )
+    d = tree / "seal" / "specs" / "1788300001-next"
+    d.mkdir(parents=True)
+    (d / "changelog.md").write_text("- **the next one.**\n", encoding="utf-8")
+    r = run("--version", "0.3.0", "--date", "2026-09-16", root=tree)
+    assert r.returncode == 0, r.stdout
+
+
+def test_the_documents_say_a_fragment_carries_no_section_line():
+    """S11 for #586: the fragment convention's home and the house rule a
+    session meets when it writes one both say it, and the module docstring
+    lists the exit."""
+    for parts in (("docs", "branch-and-release.md"), ("CONTRIBUTING.md",)):
+        text = flat(*parts)
+        assert "no line starting `## `" in text, "/".join(parts)
+    head = flat(".github", "scripts", "gather_changelog.py").split('"""')[1]
+    assert "a fragment carries a line starting `## `" in head, head

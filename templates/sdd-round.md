@@ -116,12 +116,14 @@ reading `no fixes to check`. `docs/review-chain-spec.md` §*The cap bounds
 rounds, and not the fixes of the round it stopped* owns the rule and the test
 that decides which findings get a fix.
 
-`nobody` prints on every run. On the run's LAST record it also FAILS the pull
-request when `Pass` is checked beside it, because that pair is the review
-claiming to have passed while its own fixes went unread. Work items begun
-before the rule landed are excused and only print. The way out costs no round:
-one verifying round at the diff of those fixes, and a round that opens nothing
-needing a fix does not consume the cap.
+`nobody` prints on every run. On the run's LAST record it also FAILS a ready
+pull request when `Pass` is checked beside it, because that pair is the review
+claiming to have passed while its own fixes went unread. On a draft the pair
+prints and names the verifying round, because that is where it stands between
+`close` and the verifying round's record, and *Ready for review* re-runs the
+check. Work items begun before the rule landed are excused and only print. The
+way out costs no round: one verifying round at the diff of those fixes, and a
+round that opens nothing needing a fix does not consume the cap.
 
 `Contract changes` and `New units` are the fix surface, filled in when the
 fixes land — the same reach-back that sets `Fixes checked by`, written by the

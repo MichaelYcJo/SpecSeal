@@ -667,6 +667,260 @@ def test_a_closed_row_is_told_to_merge_before_its_directory_goes(tree):
     )
 
 
+# --- #602: the closure has to reach the release's base first ----------------
+
+# The branch the release merges to, in the fixtures below. A name that
+# appears nowhere else in the output, so the assertions on it read the base
+# and nothing else.
+BASE = "release-target"
+
+
+def at(repo, ref, *args):
+    """`(exit code, what a person reads)` for `survey` at `ref`, the way
+    `main` reaches it with `--released-at ref`."""
+    out = io.StringIO()
+    found = settle.survey(str(repo), ref)
+    assert found is not None, f"{ref} does not resolve in the fixture"
+    if "--retire" in args:
+        code = settle.retire(found, str(repo), out=out)
+    else:
+        code = settle.report(found, ref, out=out)
+    return code, out.getvalue()
+
+
+def closed_after_base(repo):
+    """S4's tree: the moment released with its row open at `BASE`, and a
+    later commit on the working branch closing it — the 0.15.3 shape, where
+    the closure reached the release branch and not `main`."""
+    moment(repo, overview=OVERVIEW_OPEN)
+    git(repo, "branch", BASE)
+    (repo / "seal" / "specs" / MOMENT / "overview.md").write_text(
+        OVERVIEW_CLOSED, encoding="utf-8"
+    )
+    git(repo, "add", "--", f"seal/specs/{MOMENT}")
+    git(repo, "commit", "-qm", "close the row")
+
+
+def test_a_closure_the_base_has_not_seen_keeps_the_directory(tree):
+    """S4. The row is closed on the working branch and open at the base the
+    release merges to. Both CI readers ask the rule of the merge base, so a
+    retirement here would turn the release pull request red (#602, #598's
+    second instance). It is kept, and the output names the base and the row
+    open there."""
+    closed_after_base(tree)
+    code, text = at(tree, BASE, "--retire")
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert code == 1, text
+    assert settle.RULE_BASE_HEADING.format(base=BASE) in text, text
+    kept = text.split(settle.RULE_BASE_HEADING.format(base=BASE))[1]
+    assert MOMENT in kept and "a claim nobody ran" in kept, text
+    assert f"removed seal/specs/{MOMENT}/" not in text, text
+
+
+def test_an_uncommitted_closure_keeps_the_directory(tree):
+    """S5. The same shape with the closure only on disk: the base is `HEAD`
+    itself, where the row is still open."""
+    moment(tree, overview=OVERVIEW_OPEN)
+    (tree / "seal" / "specs" / MOMENT / "overview.md").write_text(
+        OVERVIEW_CLOSED, encoding="utf-8"
+    )
+    code, text = at(tree, "HEAD", "--retire")
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert code == 1, text
+    assert "a claim nobody ran" in text, text
+
+
+def test_a_closure_the_base_has_seen_lets_the_directory_go(tree):
+    """S6, the counter-case that keeps S4 from passing by refusing
+    everything: once the closure has merged into the base, the rule holds at
+    both and the directory goes with no marker."""
+    closed_after_base(tree)
+    git(tree, "branch", "-f", BASE, "HEAD")
+    code, text = at(tree, BASE, "--retire")
+    assert not (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert f"removed seal/specs/{MOMENT}/" in text, text
+    assert code == 0, text
+
+
+def test_the_report_does_not_promise_what_the_retirement_refuses(tree):
+    """S7. The report used to list the directory under *retired by the rule*,
+    the heading that says `settle --retire` removes what it lists, while the
+    CI readers would refuse the removal."""
+    closed_after_base(tree)
+    code, text = at(tree, BASE)
+    assert code == 0, text
+    assert settle.RULE_HEADING not in text, text
+    assert "0 to retire by the rule" in text, text
+    assert settle.RULE_BASE_HEADING.format(base=BASE) in text, text
+    kept = text.split(settle.RULE_BASE_HEADING.format(base=BASE))[1]
+    assert MOMENT in kept and "a claim nobody ran" in kept, text
+
+
+def test_the_base_heading_says_where_the_closure_has_to_go():
+    """§14: the sentence a person acts on is pinned, not only its presence."""
+    heading = flat(settle.RULE_BASE_HEADING.format(base="origin/main"))
+    assert "origin/main" in heading, heading
+    assert "the branch the release merges to" in heading, heading
+    assert "a later pull request" in heading, heading
+
+
+def test_the_documents_say_the_closure_has_to_reach_the_base():
+    """S11, §14's half of #602: the skill, the policy, both cheat-sheet rows,
+    the kept heading and the module docstring say the rule is asked at the
+    merge base of `--released-at` and `HEAD`, and what a person does about a
+    directory kept there."""
+    text = flat(skill())
+    assert "*kept until the closure reaches <base>*" in text, text
+    assert "Merged first means merged to the branch the release merges to" in text
+    assert "the merge base of `--released-at` and `HEAD`" in text
+    policy = flat(document("docs", "the-evidence-ledger.md"))
+    assert "`settle` asks it at the merge base of `--released-at` and `HEAD`" in policy
+    # Round 1, 🟡 1: that merge base is CI's only until the base moves.
+    assert "until the base moves past the fork" in policy, policy
+    # Round 2, ⬜ 5: `document` flattens, so a split on a newline took the rest
+    # of the file as the row. The raw file is read, so the row is the row.
+    for edition, phrase in (
+        ("README.md", "until `--released-at` moves on past that commit"),
+        ("README.ko.md", "앞으로 나아가기 전까지는"),
+    ):
+        with open(os.path.join(ROOT, edition), encoding="utf-8") as f:
+            row = f.read().split("`settle [--retire]`")[1].split("\n")[0]
+        assert "`--released-at`" in row and "`HEAD`" in row, (
+            f"{edition}'s cheat-sheet row does not say the base is asked"
+        )
+        # Round 2, 🟡 1: CI's revision is the fork only until the base moves.
+        assert phrase in row, row
+        assert "because that is where CI asks" not in row, row
+        assert "CI 가 그 지점에서 확인하기 때문입니다" not in row, row
+    assert "which is the base's tip" in text, text
+    assert "merging it into this branch and running `settle`" in text, text
+    assert "to the branch the release merges to" in flat(settle.RULE_KEPT_HEADING)
+    with open(SCRIPT, encoding="utf-8") as f:
+        head = flat(f.read().split('"""')[1])
+    assert "sharing no commit with `HEAD`" in head, "exit 2's seventh state is missing"
+    assert "closure has not reached the merge base" in head, "exit 1's cause is missing"
+
+
+def test_a_base_that_moved_past_the_fork_names_the_merge_that_moves_it(tree):
+    """Round 1, 🟡 1. `main` took the closure after this branch forked, and
+    this branch never merged it back. CI asks at `main`'s tip and would pass;
+    `settle` asks at the fork and keeps the directory. That keeps more than
+    it must, which is the safe direction, but the remedy it prints has to be
+    the one that works: merge `main` in."""
+    moment(tree, overview=OVERVIEW_OPEN)
+    git(tree, "branch", "-M", "main")
+    git(tree, "switch", "-qc", "work")
+    ov = tree / "seal" / "specs" / MOMENT / "overview.md"
+    ov.write_text(OVERVIEW_CLOSED, encoding="utf-8")
+    git(tree, "add", "--", f"seal/specs/{MOMENT}")
+    git(tree, "commit", "-qm", "close on work")
+    git(tree, "switch", "-q", "main")
+    ov.write_text(OVERVIEW_CLOSED, encoding="utf-8")
+    git(tree, "add", "--", f"seal/specs/{MOMENT}")
+    git(tree, "commit", "-qm", "hotfix: close on main")
+    git(tree, "switch", "-q", "work")
+    code, text = at(tree, "main", "--retire")
+    assert (tree / "seal" / "specs" / MOMENT).exists(), text
+    assert code == 1, text
+    flat_text = " ".join(text.split())
+    assert "merge main into this branch" in flat_text, text
+    # Round 2, ⬜ 4: the fork is a fixed past commit, so nothing waits for a
+    # closure to reach it; the heading says it has not.
+    assert "kept: the closure has not reached the merge-base of main" in flat_text
+    assert "kept until the closure reaches the merge-base" not in flat_text, text
+    assert "the CI readers ask the rule there" not in flat_text, text
+
+
+def test_the_report_refuses_a_survey_with_no_base(tree):
+    """Round 1, ⬜ 4. `report` is the third reader of `survey`'s dict, and it
+    refuses a base-less one the way `retire` does rather than raising
+    `KeyError` on the keys that dict does not carry."""
+    moment(tree, overview=OVERVIEW_CLOSED)
+    out = io.StringIO()
+    code = settle.report({"base": None, "base_label": None}, "HEAD", out=out)
+    assert code == 2, out.getvalue()
+    assert "no merge base" in out.getvalue(), out.getvalue()
+
+
+def test_a_shallow_clone_is_not_told_the_refs_share_no_commit(tree, tmp_path, capsys):
+    """Round 1, ⬜ 3. A depth-1 clone of related history has no merge base
+    either, and the refusal names that state too, the way `chain_check.py`'s
+    does, so the reader looks at the clone's depth rather than at the ref."""
+    moment(tree, overview=OVERVIEW_CLOSED)
+    git(tree, "branch", "-M", "main")
+    git(tree, "switch", "-qc", "work")
+    (tree / "docs" / "later.md").write_text("# later\n", encoding="utf-8")
+    git(tree, "add", "--", "docs")
+    git(tree, "commit", "-qm", "on work")
+    git(tree, "switch", "-q", "main")
+    (tree / "docs" / "main.md").write_text("# on main\n", encoding="utf-8")
+    git(tree, "add", "--", "docs")
+    git(tree, "commit", "-qm", "on main")
+    shallow = tmp_path / "shallow"
+    subprocess.run(
+        [
+            "git",
+            "clone",
+            "-q",
+            "--depth",
+            "1",
+            "--no-single-branch",
+            "-b",
+            "work",
+            f"file://{tree}",
+            str(shallow),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    code = settle.main(["--root", str(shallow), "--released-at", "origin/main"])
+    err = " ".join(capsys.readouterr().err.split())
+    assert code == 2, err
+    assert "too shallow" in err and "git fetch --unshallow" in err, err
+    assert (shallow / "seal" / "specs" / MOMENT).exists()
+
+
+def test_the_retirement_refuses_a_survey_with_no_base(tree):
+    """`retire`'s own guard, for a caller that hands it a survey `main` would
+    have refused: the predicate asked of `None` is asked of the tree alone,
+    which is the answer #602 removed, so nothing is read and nothing goes."""
+    moment(tree, overview=OVERVIEW_CLOSED)
+    found = settle.survey(str(tree), "HEAD")
+    found["base"] = None
+    out = io.StringIO()
+    assert settle.retire(found, str(tree), out=out) == 2, out.getvalue()
+    assert (tree / "seal" / "specs" / MOMENT).exists(), out.getvalue()
+    assert "no merge base" in out.getvalue(), out.getvalue()
+
+
+@pytest.mark.parametrize("retire", [False, True])
+def test_no_merge_base_is_refused_and_nothing_is_removed(tree, retire, capsys):
+    """S8. A `--released-at` sharing no history with `HEAD` has no merge
+    base, so there is no revision to ask the rule of. Exit 2, the ref named,
+    nothing read — never the working tree's answer alone."""
+    moment(tree, overview=OVERVIEW_CLOSED)
+    empty = subprocess.run(
+        ["git", "-C", str(tree), "mktree"],
+        input="",
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout.strip()
+    lone = subprocess.run(
+        ["git", "-C", str(tree), "commit-tree", empty, "-m", "unrelated"],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    ).stdout.strip()
+    git(tree, "branch", "unrelated", lone)
+    argv = ["--root", str(tree), "--released-at", "unrelated"]
+    code = settle.main(argv + (["--retire"] if retire else []))
+    err = capsys.readouterr().err
+    assert code == 2, err
+    assert "--released-at unrelated" in err and "share no commit" in err, err
+    assert (tree / "seal" / "specs" / MOMENT).exists()
+
+
 def test_an_open_evidence_todo_row_keeps_a_spec_less_directory(tree):
     moment(tree, todo=OPEN_TODO)
     code, text = run(tree, "--retire")
@@ -920,17 +1174,48 @@ def test_the_command_is_reachable_by_the_name_a_document_gives_it():
     )
 
 
-def test_a_missing_sibling_reader_is_a_sentence_and_not_a_traceback(tmp_path):
+@pytest.mark.parametrize(
+    "which, phrase",
+    [
+        ("READER", "it is where the fold record is read from"),
+        ("CHECKER", "it is what resolves a ledger row's anchor"),
+        ("OPTIN", "it is what finds the repository's seal/ root"),
+    ],
+)
+def test_each_sibling_is_refused_with_its_own_purpose(
+    which, phrase, monkeypatch, capsys
+):
+    """Round 1, ⬜ 5 — #590's second half, per file: the table entry for each
+    real sibling, not an entry the case put there itself. A copy taken alone
+    stops at `OPTIN` first, so the class case never reaches the other two."""
+    path = getattr(settle, which)
+    real = os.path.isfile
+    monkeypatch.setattr(os.path, "isfile", lambda p: False if p == path else real(p))
+    with pytest.raises(SystemExit) as raised:
+        settle.load(path, "absent")
+    assert raised.value.code == 2
+    assert phrase in capsys.readouterr().err
+
+
+def test_a_missing_sibling_reader_is_a_sentence_and_not_a_traceback(
+    tmp_path, monkeypatch, capsys
+):
     """`spec_from_file_location` hands back a spec for any path ending in
     `.py`, present or not, so a missing sibling reaches `exec_module` and dies
-    with `FileNotFoundError` — which is what the rider on
-    `skills/code-review/scripts/round_record.py#load` is still waiting for
-    somebody to fix. This copy arrives repaired, and this is the case that
-    keeps it repaired."""
+    with `FileNotFoundError`. `skills/code-review/scripts/round_record.py#load`
+    had that shape until #590; this copy arrived repaired, and this is the
+    case that keeps it repaired. Since #590 the refusal is exit 2 on stderr,
+    and it names what the missing file is for, per file."""
+    missing = str(tmp_path / "not-here.py")
+    monkeypatch.setitem(
+        settle.PURPOSES, missing, "it is where the fold record is read from"
+    )
     with pytest.raises(SystemExit) as raised:
-        settle.load(str(tmp_path / "not-here.py"), "absent")
-    assert "not-here.py" in str(raised.value), raised.value
-    assert "fold record" in str(raised.value), (
+        settle.load(missing, "absent")
+    err = capsys.readouterr().err
+    assert raised.value.code == 2, raised.value
+    assert "not-here.py" in err, err
+    assert "fold record" in err, (
         "the refusal does not say what the missing file was for"
     )
 

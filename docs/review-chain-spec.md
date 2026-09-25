@@ -312,7 +312,7 @@ The row still reads `no`, the fixes exist, and a walk reading only that row
 has no terminal record it accepts: the verifying round that reads the fixes
 is a second uncounted record after the floor, and ending without it is
 refused both ways, `no fixes to check` beside `fixed` and `nobody` beside a
-ticked `Pass`. Measured on this repository's own seventh round. The record
+ticked `Pass` at a ready pull request. Measured on this repository's own seventh round. The record
 already carries the fact in its verdict column, and the walk reads it there.
 The direction is ALLOW, one record wider in that one sequence, and it is the
 cheaper mistake: the other way to satisfy the old walk was rewriting `fixed`
@@ -637,7 +637,10 @@ is not a contradiction inside one file, and a check that fails for an honest
 disclosure teaches people to write none — the reasoning `unverified_check.py`
 already runs on. On the run's LAST record beside a checked `Pass` it does
 fail, for a work item begun on or after the cutoff, because that pair is the
-review claiming to have passed rather than disclosing anything. The refusal
+review claiming to have passed rather than disclosing anything. It fails at a
+ready pull request, and wherever the state cannot be read. In a draft it
+prints, because the draft is where the pair stands between `close` and the
+verifying round's record, and *Ready for review* re-runs the check. The refusal
 table under `docs/round-record-spec.md` §`Fixes checked by` holds both halves
 and what each costs.
 
@@ -685,7 +688,8 @@ the one record the defect cannot reach.
 | a fix commit that is an ancestor of this record's own `Target SHA` | passes — the round already reviewed that commit, so it is a fix this round did not commission. Round N+1's record is committed after round N's fixes by construction, and reading those as commissioned would fail the second round of every run |
 | a fix commit this repository cannot resolve | passes — after a squash that is the ordinary state of a reviewed commit, the reading `resolves_to` gives every other consumer |
 | **a `fixed` verdict that names no commit at all** | passes, and this is the commonest of the pass states rather than an edge — measured across this repository's own records, 235 cells close with a fix word, 215 name a commit and **20 do not**. `\| fixed \|` and `\| fixed — round-2 read it \|` are house style, not malformed |
-| a record DELETED and re-added on the branch | judged on the **latest** add, which is the only shape producing more than one. A stub committed on time, removed, and the real record written after the fixes is what makes a late record look early, and the version anybody reads was authored at the last add. What it costs: a record accidentally deleted and restored after the fixes is refused, and the failure names the restoring commit |
+| a record DELETED and re-added on the branch | judged on the **latest** add, which is the only shape producing more than one. A stub committed on time, removed, and the real record written after the fixes is what makes a late record look early, and the version anybody reads was authored at the last add. The latest add is found across a merge and under a skewed clock: a side branch that re-adds the same bytes and merges back, and one whose commits are dated before the early add, both read the re-add. A merge is never itself the add. What it costs: a record accidentally deleted and restored within the branch after the fixes is refused, and the failure names the restoring commit |
+| **a record restored byte-for-byte from the base's history** | passes — the same *no claim*. The directory is an add in `<baseline>..HEAD` because the base retired it, but its bytes stand at this path in a commit the merge base reaches, so an earlier pull request added them. Any version the base's history held counts, and one byte changed makes the record this pull request's again. A restore of bytes that only ever stood on the branch is the row above. This arm asks it of a record the pull request does not touch as well: a branch whose own record was squashed into the base, and which then merged the base in, still has that record's add in `<baseline>..HEAD`, and those bytes are the base's claim now, whichever pull request put them there |
 | a record with no adding commit in `<baseline>..HEAD` | passes — it arrived before the base, and nothing is claimed about it. The same *no claim* the reachability requirement already makes for a record the pull request does not touch. This is also what a base moving under a long branch produces: the record's own adding commit leaves the range and the commit that UPDATED its verdicts stays inside it, so reading *any commit that touched the file* would refuse a record for doing exactly what a correct record does |
 
 **So the refusal's reach is the commit a cell happens to carry, and that is a
@@ -775,7 +779,7 @@ What no check can see is a record committed on time that carries nothing: the
 file exists before the fixes and says only what the round found. This refusal
 is about ORDER alone, and issue #150's own comment asks the narrower question
 beside it. The next subsection answers it.
-Enforced by: tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_added_after_its_own_fix_fails_after_the_cutoff, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_updated_in_place_when_the_fixes_landed_passes
+Enforced by: tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_added_after_its_own_fix_fails_after_the_cutoff, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_updated_in_place_when_the_fixes_landed_passes, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_re_add_merged_back_from_a_side_branch_is_the_latest_add, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_re_add_on_a_side_branch_with_an_older_clock_is_the_latest_add, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_restored_from_the_bases_history_makes_no_claim
 
 ### What the record carries — a declaration, and why no check reads it
 
@@ -900,7 +904,9 @@ count is one of those, the way `Pass` already was. Pressing *Ready for
 review* fires the event, the workflow re-runs, and the arm applies, so nothing
 that can reach the default branch is exempt.
 
-What a draft does **not** excuse is a claim that is wrong at every stage. A
+What a draft does **not** excuse is a claim that is wrong at every stage.
+`Pass` beside `nobody — <why>` on the last record is excused because its
+refusable half is `Pass`. A
 record naming a checker the repository does not have, and a `Broad gate` cell
 reading `not yet` or whose newest entry names a SHA that precedes that
 record's own `Target SHA`, are both refused on a ready pull request and each says which of
