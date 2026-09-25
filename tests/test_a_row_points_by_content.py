@@ -1766,6 +1766,8 @@ def test_the_advisory_docstring_names_what_it_prints(repo):
     path = os.path.join(ROOT, "hooks", "evidence-advisor.py")
     doc = ast_mod.get_docstring(ast_mod.parse(open(path, encoding="utf-8").read()))
     assert "OLD-FORMAT" in doc, "the docstring still says BROKEN is the whole filter"
+    # #299 joined the filter the same way, and the docstring says so too.
+    assert "MALFORMED" in doc, "the docstring does not name the MALFORMED block"
 
 
 def test_known_limits_names_what_this_round_added_to_them(repo):

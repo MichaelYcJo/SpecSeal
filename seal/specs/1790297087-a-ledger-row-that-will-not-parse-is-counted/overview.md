@@ -2,8 +2,8 @@
 
 📋 implement applied
 · spec:     this work item's `spec.md`, `plan.md`, `questions.md`; `docs/the-evidence-ledger.md` as `spec.md` §*Grounding* cites it; `skills/evidence-check/SKILL.md` §*A coordinate names content, never a position*, §*Verdicts and what to do*, §*Re-verifying is recomputing the hash*, §*Known limits*; `templates/ledger.md` §*Coordinates*; `CLAUDE.md` §*a change writes fragments, never the shared file*; `seal/follow-up.md`'s #299 row; #299, #322
-· evidence: `seal/ledger/1790297087-a-ledger-row-that-will-not-parse-is-counted.md`, six rows (the rider-stamp claim and five for the arm); corrected in place with a `Corrected 2026-09-25` note — `seal/ledger.md` (the eval row, the separator row; the rider-stamp row removed), `seal/releases/0.4.0.md` (the hygiene-step row), `seal/releases/0.12.0.md` (the `claude_block.py` row); re-read and re-stamped with a dated `Re-read` note — `seal/releases/0.4.0.md` (five rows: re-verifying is separate, re-anchoring, an unreadable ledger, never silent, the fix-pass run), `seal/releases/0.15.3.md` (P2-1, P2-2), `seal/releases/0.11.3.md` (the lenient line's condition), `seal/releases/0.8.3.md` (`display_name`), `seal/releases/0.9.0.md` (R5), `seal/releases/0.14.0.md` (C3), `seal/releases/0.8.0.md` (R6), `seal/releases/0.13.1.md` (the retired-`spec.md` anchors row)
-· verified: filled in as each phase closes
+· evidence: `seal/ledger/1790297087-a-ledger-row-that-will-not-parse-is-counted.md`, seven rows (the rider-stamp claim, five for the arm, one for the advisor); corrected in place with a `Corrected 2026-09-25` note — `seal/ledger.md` (the eval row, the separator row; the rider-stamp row removed), `seal/releases/0.4.0.md` (the hygiene-step row), `seal/releases/0.12.0.md` (the `claude_block.py` row); re-read and re-stamped with a dated `Re-read` note — `seal/releases/0.4.0.md` (five rows: re-verifying is separate, re-anchoring, an unreadable ledger, never silent, the fix-pass run), `seal/releases/0.15.3.md` (P2-1, P2-2), `seal/releases/0.11.3.md` (the lenient line's condition), `seal/releases/0.8.3.md` (`display_name`), `seal/releases/0.9.0.md` (R5), `seal/releases/0.14.0.md` (C3), `seal/releases/0.8.0.md` (R6), `seal/releases/0.13.1.md` (the retired-`spec.md` anchors row), `seal/releases/0.5.0.md` (S6, S12), `seal/releases/0.15.1.md` (R2); the fragment's seventh row is the advisor's
+· verified: executed — every new case seen red (S1–S10 and the vendored cell rule against the phase-1 checker, S11 and the docstring pin against the phase-2 advisor, the mutation-driven cases under their mutations), each added unit mutated one at a time, `evidence_check.py --strict .` before and after each phase, the arm over the `ca2afdb9` ledgers, the modules reading each edited document, `tests/test_dispatch.py` whole, ruff on the changed files, and #322's `-W error` compile of every tracked `.py` file; read — the claims of every re-stamped row
 
 ## Why this work exists
 
@@ -29,8 +29,39 @@ A ledger row whose coordinate the checker could not parse was counted nowhere, s
 
 ## Not done
 
-Nothing yet.
+**#322 is closed as already fixed, and nothing was built for it.** The
+docstring the issue cites became `r"""` in `97e29b7a` (#531, first shipped
+in 0.14.0). Executed 2026-09-25: every tracked `.py` file (176) compiles with
+warnings as errors under Python 3.12.11, with no error. `questions.md` Q2's
+default (a) adds no lint guard for the class. The pull request can say
+`Closes #322` on those grounds.
+
+**A malformed coordinate outside the `Code grounds` cell is still silent.**
+The arm reads one cell by design (`spec.md` §*Out*, `plan.md`
+*Alternatives*). Phase 1 found two such coordinates, both in Notes cells, by
+scanning every cell, and repaired them. Nothing will name the next one. The
+same holds for a table whose header renamed the column. Both are stated in
+`skills/evidence-check/SKILL.md` §*Known limits*.
+
+**The records arm, `rider_check.py`, and a lint guard for #322's class stay
+out**, as `spec.md` §*Out* sets. The records arm and `rider_check.py` read the
+same coordinate shapes with the same silence over prose. The orchestrator
+files an issue for them if the owner wants one.
+
+**The advisor docstring's cost figure is not re-measured.** It is dated
+2026-09-23 (1.7 s per commit). The new arm adds about 55 ms over this
+repository's 33 ledger files. That is `malformed_rows` alone, in process,
+beside `old_format_rows`' 318 ms, executed 2026-09-25. The figure is still
+true as the dated measurement it states.
 
 ## Fed back into the spec
 
-None yet.
+Inferred during implementation, for `docs/the-evidence-ledger.md` when
+`settle` folds this item:
+
+- Only a leftover the patterns refused is `MALFORMED`: a code span holding a
+  `#` or `@`, or a word outside a span holding both. An issue number beside
+  a good anchor is not.
+- A malformed text counts once per ledger file, like OLD-FORMAT.
+- A table ends where its run of `|` lines ends. A header does not carry over
+  a blank line.

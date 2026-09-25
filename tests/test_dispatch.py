@@ -251,3 +251,17 @@ def test_a_commit_with_a_pre_anchor_ledger_is_pointed_at_the_migrator(repo):
     out = run_dispatch("post-bash", payload("git commit -m x", repo))
     assert "OLD-FORMAT" in out, out
     assert "--migrate" in out, out
+
+
+def test_a_commit_with_a_malformed_ledger_row_is_told_so(repo):
+    """S11 of #299. `failing_rows` filtered to BROKEN and OLD-FORMAT, so a
+    MALFORMED row the checker names would have been dropped one reader
+    further on, and the commit that wrote a placeholder hash got silence."""
+    (repo / "app.py").write_text("def handler(x):\n    return x + 1\n")
+    (repo / "seal" / "ledger").mkdir(parents=True)
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        "# frag\n\n| CLAUSE | `app.py#handler@0` | 2026-09-25 |\n"
+    )
+    out = run_dispatch("post-bash", payload("git commit -m x", repo))
+    assert "MALFORMED  app.py#handler@0" in out, out
+    assert "@00000000" in out and "--reverify" in out, out
