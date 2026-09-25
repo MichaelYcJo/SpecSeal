@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 609 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `166ceb652ac6e5814205269a1991a72304b84c1c..a98929d31645d6a2ede84876a0d849c17d4e70eb`, 4 commits |
+| Contract changes | none |
+| New units | ROW_ID (depth 1); ledger_rows (depth 1); test_places_tied_on_score_print_in_path_order_whatever_the_hash_seed (depth 1); test_a_row_corrected_in_place_while_its_only_anchor_is_renamed_is_a_correction (depth 1); test_a_row_corrected_in_place_while_its_heading_is_retitled_is_a_correction (depth 1); test_a_removed_rows_id_standing_in_another_section_is_another_row (depth 1) |
 | Needs a fix | yes — 🟡 1, a row corrected in place and re-pointed at a renamed unit or a retitled heading takes the removed-row exit and its correction goes unreported. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 1 of work item 1790297084 reviews the build at 8f70ca94 against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A row corrected in place goes silent when no anchor it had still resolves at `b`: one anchor renamed, every anchor renamed, or a retitled heading | `skills/code-review/scripts/survivor_check.py:1083` | open | Executed: three probe cases exit 0 at 8f70ca94 and 1 at 7b557144. Contradicts the docstring, ledger P3, the changelog fragment and the `docs/review-chain-spec.md` clause. The id-in-section fix was executed: the three exit 1, the module is green with one fixture id changed, and the six Q2 squashes are unchanged |
-| ⬜ 2 | A row moved to the fragment with its claim reworded and one anchor gone takes the exit | `skills/code-review/scripts/survivor_check.py:1083` | open | Executed: exit 0 at target, 1 at base. Consistent with `CLAUDE.md` (*REMOVED, not re-pointed … write the new claim as a new row*). A sentence for `plan.md`'s *What breaks* is the whole fix |
-| ⬜ 3 | Report entries tied on score print in hash-seed order | `skills/code-review/scripts/survivor_check.py:1501` | open | Read. Pre-existing, noted in `overview.md`. No test depends on the order |
-| ⬜ 4 | Ledger P3 and the changelog fragment claim 🟡 1's shapes are measured | `seal/ledger/1790297084-the-sweep-reads-removed-and-moved-text-as-a-correction.md` | open | Correction to the run's paperwork. It becomes true with 🟡 1's fix, and P3 is re-read and re-stamped with it |
+| 🟡 1 | A row corrected in place goes silent when no anchor it had still resolves at `b`: one anchor renamed, every anchor renamed, or a retitled heading | `skills/code-review/scripts/survivor_check.py:1083` | **fixed** `7e615359a4f9fe21731d830f7b5651942575580e` | fixed at 7e615359a4f9fe21731d830f7b5651942575580e; Executed: three probe cases exit 0 at 8f70ca94 and 1 at 7b557144. Contradicts the docstring, ledger P3, the changelog fragment and the `docs/review-chain-spec.md` clause. The id-in-section fix was executed: the three exit 1, the module is green with one fixture id changed, and the six Q2 squashes are unchanged |
+| ⬜ 2 | A row moved to the fragment with its claim reworded and one anchor gone takes the exit | `skills/code-review/scripts/survivor_check.py:1083` | answered | a98929d31645d6a2ede84876a0d849c17d4e70eb adds the report's sentence to plan.md's *What breaks*; no code; Executed: exit 0 at target, 1 at base. Consistent with `CLAUDE.md` (*REMOVED, not re-pointed … write the new claim as a new row*). A sentence for `plan.md`'s *What breaks* is the whole fix |
+| ⬜ 3 | Report entries tied on score print in hash-seed order | `skills/code-review/scripts/survivor_check.py:1501` | **fixed** `7e615359a4f9fe21731d830f7b5651942575580e` | fixed at 7e615359a4f9fe21731d830f7b5651942575580e; Read. Pre-existing, noted in `overview.md`. No test depends on the order |
+| ⬜ 4 | Ledger P3 and the changelog fragment claim 🟡 1's shapes are measured | `seal/ledger/1790297084-the-sweep-reads-removed-and-moved-text-as-a-correction.md` | answered | corrected at a98929d31645d6a2ede84876a0d849c17d4e70eb: ledger fragment P3 takes the report's clause with a Corrected note and is re-stamped; the changelog's #603 entry holds once 🟡 1 is fixed; Correction to the run's paperwork. It becomes true with 🟡 1's fix, and P3 is re-read and re-stamped with it |
 | 🟢 | #591: retired departures only move the verdict toward reporting | `skills/code-review/scripts/survivor_check.py:1273` | confirmed | Read. Traced both effects of a retired departure. The module passes at target (executed) |
 | 🟢 | #592: the pairing's order is total and does not depend on the hash seed | `skills/code-review/scripts/survivor_check.py:1341` | confirmed | Read. The sort tuple ends in both path strings, and `arrivals` iterates in `fresh` order |
 | 🟢 | A missing `evidence_check.py` is refused at exit 2 | `skills/code-review/scripts/survivor_check.py:1003` | confirmed | Read and executed (the refusal case passes in the module run). Matches C's #590 class, and E keeps the three names |
