@@ -62,7 +62,9 @@ import tempfile
 
 # `path#anchor@hash`. The anchor is either a dotted symbol name or a quoted
 # line of text; `\|` inside the quotes is an escaped pipe, so a row anchored to
-# a markdown table line does not split the table it lives in.
+# a markdown table line does not split the table it lives in, and `\"` is an
+# escaped double quote, because a bare one ends the quoted line and the whole
+# coordinate stops matching.
 ANCHOR_RE = re.compile(
     r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
     r"#(?P<locator>\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)"

@@ -41,7 +41,8 @@ edit that does not change what the unit *is*.
 ```
 
 Escape a pipe inside a quoted anchor as `\|`, or the row splits the table it
-lives in.
+lives in, and a double quote as `\"`, or the coordinate does not parse and
+nothing checks it.
 
 ### The rule that decides everything else
 
