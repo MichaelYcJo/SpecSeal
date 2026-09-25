@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 607 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `bafaede2b6c3dc31bb629714d17a83271f80890c..174ad801aabac186d6109f41698c9c2109718fb5`, 6 commits |
+| Contract changes | none |
+| New units | CMD_VARIABLE (depth 1); as_cmd_expands (depth 1) |
 | Needs a fix | yes — 🟡 1 (`%CD%/bin/test` is still handed over as written, and the template, the changelog fragment and the case's docstring say otherwise) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 2 of work item 1790297086 is the verifying round over round 1's fixes (4ac
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | Round 1's 🟡 3 is not closed for the row it named: `%CD%/bin/test` is still handed over as written, because `CD` is computed by `cmd.exe` and is in no environment `ntpath.expandvars` reads; the template, the changelog fragment and the new case's docstring say it is rewritten. The same reader also expands `$NAME`, honours `'…'` and collapses `%%`, which `cmd.exe` does not | `skills/verify/scripts/broad_gate.py:1313` | open | executed on macOS with `CD` unset (absent on Windows too: read); the fenced helper tried in the clone, module 97 passed, 1 skipped, then reverted |
-| ⬜ 2 | `gate`'s comment says `skipped_at_main` is the one reader of `base.given` below the resolution; `moved_line`, called at `:2221`, also reads it and hands it to `git rev-list` | `skills/verify/scripts/broad_gate.py:2187` | open | read; behaviour correct, the count in the sentence is not |
-| ⬜ 3 | `survivors.md`'s 0.12.2 row says R2 is "on the line above" G3; R2 is row 9, G2 is above G3 | `seal/specs/1790297086-the-broad-gate-says-what-ci-says/survivors.md:10` | open | read; a correction to the run's paperwork, outside `Needs a fix` |
+| 🟡 1 | Round 1's 🟡 3 is not closed for the row it named: `%CD%/bin/test` is still handed over as written, because `CD` is computed by `cmd.exe` and is in no environment `ntpath.expandvars` reads; the template, the changelog fragment and the new case's docstring say it is rewritten. The same reader also expands `$NAME`, honours `'…'` and collapses `%%`, which `cmd.exe` does not | `skills/verify/scripts/broad_gate.py:1313` | **fixed** `f68c61fee06f120a4d19838133fad387e27bfb5d` | fixed at f68c61fee06f120a4d19838133fad387e27bfb5d; executed on macOS with `CD` unset (absent on Windows too: read); the fenced helper tried in the clone, module 97 passed, 1 skipped, then reverted |
+| ⬜ 2 | `gate`'s comment says `skipped_at_main` is the one reader of `base.given` below the resolution; `moved_line`, called at `:2221`, also reads it and hands it to `git rev-list` | `skills/verify/scripts/broad_gate.py:2187` | **fixed** `bad843421c3cbb118486e4f72aa3bf73d3928e87` | fixed at bad843421c3cbb118486e4f72aa3bf73d3928e87; read; behaviour correct, the count in the sentence is not |
+| ⬜ 3 | `survivors.md`'s 0.12.2 row says R2 is "on the line above" G3; R2 is row 9, G2 is above G3 | `seal/specs/1790297086-the-broad-gate-says-what-ci-says/survivors.md:10` | answered | corrected at 5440f1cb2d981a0509e04f52629d344cc7f4378c: `survivors.md`'s 0.12.2 row places R2 at row 9 of that file; read; a correction to the run's paperwork, outside `Needs a fix` |
 | 🟢 | round 1's blocking finding 1 is closed — the three survivors are excused, each with true grounds | `seal/specs/1790297086-the-broad-gate-says-what-ci-says/survivors.md` | verified | executed: `survivor_check.py` over the PR range, exit 0 with exemptions and exit 1 without; CI did not reach the step at `5b236208` |
 | 🟢 | round 1's blocking finding 2 is closed — the skip-line pin interpolates `gate.WORKFLOW` | `tests/test_the_gate_names_every_step_ci_runs.py:889` | verified | read; CI at `8f5ae44f` failed on exactly this line with backslashes; the Windows leg at `5b236208` — see the row below |
 | 🟢 | round 1's ⬜ 4 — the comment names `skipped_at_main` and why it reads the spelling | `skills/verify/scripts/broad_gate.py:2187` | verified | read; the count it now makes is this round's ⬜ 2 |
