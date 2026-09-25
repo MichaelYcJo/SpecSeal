@@ -94,7 +94,7 @@ that state the rule without the draft half, other than this one and ⬜ 2:
 - No `.ko.md` file other than `README.ko.md` mentions `Fixes checked by`.
 
 The fix drifts four ledger rows anchored at
-`agents/smith.md#"## Phases"@12c56e52`: `seal/releases/0.6.0.md:18`,
+`agents/smith.md#"## Phases"`: `seal/releases/0.6.0.md:18`,
 `seal/releases/0.8.1.md:37`, `seal/releases/0.12.0.md:64` and
 `seal/releases/0.15.1.md:94`. Each is re-read against the edit and
 re-stamped in place with a dated `Re-read` note, as the fix pass did for the
@@ -203,7 +203,7 @@ for review* re-runs the check. The way out is the verifying round above,
 which costs no round.
 ```
 
-Then re-read the four rows anchored at `agents/smith.md#"## Phases"@12c56e52`
+Then re-read the four rows anchored at `agents/smith.md#"## Phases"`
 (`seal/releases/0.6.0.md:18`, `0.8.1.md:37`, `0.12.0.md:64`, `0.15.1.md:94`)
 and re-stamp each with a note in this shape:
 

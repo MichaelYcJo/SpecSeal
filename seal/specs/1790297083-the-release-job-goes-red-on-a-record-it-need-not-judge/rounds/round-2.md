@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 608 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `e58b62d3d32459ebf99fac349edebb390edc8be6..bc6f4a4ce62c2a18074a6e97a3976fd27072d408`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1, the ninth copy of the `Pass`-beside-`nobody` rule in `agents/smith.md` that still says it fails the pull request at every stage |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 2 of work item 1790297083 is the verifying round over round 1's fixes (1f2
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | the ninth copy of the `Pass`-beside-`nobody` rule says the pair fails the pull request with no draft exception; round 1's 🟡 1 class, missed by the widening | `agents/smith.md:301` | open | read. Contradicts `checked_by`'s `strict` branch and the eight fixed copies. Worded differently, so survivor-check could not match it. Found by the enumerating grep (executed) |
-| ⬜ 2 | `seal`'s refusal says the orchestration document fails a pull request, without "ready" | `skills/code-review/scripts/round_record.py:4496` | open | read. The refusal and its instruction are right in either state, so ⬜. A change needs a pin (§14) |
+| 🟡 1 | the ninth copy of the `Pass`-beside-`nobody` rule says the pair fails the pull request with no draft exception; round 1's 🟡 1 class, missed by the widening | `agents/smith.md:301` | **fixed** `bc6f4a4ce62c2a18074a6e97a3976fd27072d408` | fixed at bc6f4a4ce62c2a18074a6e97a3976fd27072d408; read. Contradicts `checked_by`'s `strict` branch and the eight fixed copies. Worded differently, so survivor-check could not match it. Found by the enumerating grep (executed) |
+| ⬜ 2 | `seal`'s refusal says the orchestration document fails a pull request, without "ready" | `skills/code-review/scripts/round_record.py:4496` | **fixed** `bc6f4a4ce62c2a18074a6e97a3976fd27072d408` | fixed at bc6f4a4ce62c2a18074a6e97a3976fd27072d408; read. The refusal and its instruction are right in either state, so ⬜. A change needs a pin (§14) |
 | 🟢 | round 1's 🟡 1: the eight copies it names or widened to now match the code | `README.md:213`, `README.md:610`, `README.ko.md:210`, `README.ko.md:605`, `skills/code-review/orchestration.md:295`, `skills/implement/orchestration.md:547`, `agents/sealer.md:113`, `templates/sdd-round.md:119` | verified | read, each against `chain_check.checked_by`'s `strict` branch. Executed: 14 draft and `nobody` cases passed. The class stays open through 🟡 1 of this round |
 | 🟢 | round 1's ⬜ 2 is closed: the handoff protocol names the restored record | `docs/review-handoff-protocol.md:190` | verified | read |
 | 🟢 | round 1's ⬜ 3 is closed: the `written_late` qualifier is the true one | `skills/code-review/scripts/chain_check.py#written_late` | verified | read, the early return on empty `commissioned_fixes` precedes `restored_from` |
