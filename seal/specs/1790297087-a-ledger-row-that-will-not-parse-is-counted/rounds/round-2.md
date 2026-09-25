@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 606 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `eeadbfeb30e3e286bdfaff73a26e28b942ab074f..c8218c815deecdefbc3702099201fba5b05a186d`, 2 commits |
 | Contract changes | refused_coordinate → round-1-report.md, round-1.md, round-2-report.md, round-2.md, malformed_rows |
 | New units | URL_RE (depth 1); PATH_HASH_RE (depth 1); test_a_coordinate_the_opener_list_misses_is_named (depth 1); test_a_directive_or_a_string_holding_a_hash_is_prose (depth 1) |
