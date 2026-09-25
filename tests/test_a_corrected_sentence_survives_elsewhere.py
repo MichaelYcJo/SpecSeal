@@ -3618,6 +3618,36 @@ def test_a_move_pairs_with_its_own_origin_and_the_correction_is_named(tmp_path):
     )
 
 
+def test_places_tied_on_score_print_in_path_order_whatever_the_hash_seed(
+    tmp_path,
+):
+    """Round 1's ⬜ 3. S1's two places score the same, and `score` reached
+    them through a set of n-grams, so their order followed the interpreter's
+    hash seed. Ties now print by path and line. Run under several seeds, the
+    order is one order. Red with the tie-break reverted."""
+    repo = tmp_path / "probe"
+    moved = f"# m\n\n{FOUND}\n"
+    head = moved_and_corrected(repo, "docs/a.md", "docs/m.md", moved, None, moved)
+    orders = set()
+    for seed in range(8):
+        out = subprocess.run(
+            [
+                sys.executable,
+                SCRIPT,
+                "--range",
+                f"{head}^..{head}",
+                "--root",
+                str(repo),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            encoding="utf-8",
+            env={**os.environ, "PYTHONHASHSEED": str(seed)},
+        )
+        orders.add(tuple(paths_in(out.stdout)))
+    assert orders == {("docs/b.md", "docs/z.md")}, orders
+
+
 def test_a_split_pairs_with_its_own_origin_while_both_files_remain(tmp_path):
     """S1's split. `docs/m.md` keeps one section and the other, carrying
     FOUND, moves to `docs/z.md`; both files remain, so nothing is gone at `b`
@@ -4252,6 +4282,38 @@ def test_a_row_corrected_in_place_while_its_heading_is_retitled_is_a_correction(
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 1, f"a row re-pointed at a new heading took the exit:\n{text}"
     assert coordinates_in(text) == {"docs/x.md:3"}, text
+
+
+def test_a_removed_rows_id_standing_in_another_section_is_another_row(tmp_path):
+    """A release file holds one section per work item, and ids repeat across
+    them. The range removes section A's `R1` with the unit it cited, and
+    section B's `R1`, a different claim, still stands. Only the same id
+    under the same heading is the same row, so A's row takes the exit. Red
+    with the heading left out of the id's key."""
+    repo = tmp_path / "probe"
+    other = ledger_row("A claim of another work item.", ("pkg/mod.py#other",))
+    sections = "### item-a\n\n{a}\n### item-b\n\n" + LEDGER_HEAD.split("\n\n", 1)[1]
+    head_a = LEDGER_HEAD.split("\n\n", 1)[1]
+    before = "# ledger\n\n" + sections.format(a=head_a + ledger_row(FOUND)) + other
+    after = "# ledger\n\n" + sections.format(a=head_a) + other
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            LEDGER: before,
+            "pkg/mod.py": MODULE,
+            "docs/x.md": f"# x\n\n{RESTATED}\n",
+            **FILLER,
+        },
+        "two sections, each with its own R1",
+    )
+    head = build(
+        repo,
+        {LEDGER: after, "pkg/mod.py": KEPT_MODULE},
+        "remove section A's R1 with its unit",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"another section's R1 kept a removed row measured:\n{text}"
 
 
 def test_a_row_whose_anchor_never_resolved_here_stays_measured(tmp_path):
