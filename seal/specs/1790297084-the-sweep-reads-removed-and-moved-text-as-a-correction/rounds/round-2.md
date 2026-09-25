@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 609 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `dc9fb40c19b0440ffe23cb5bee27c7f97bcc4eab..6ffa4aef7efc433ece92ec41b1db625952693feb`, 2 commits |
 | Contract changes | none |
 | New units | test_two_tied_sentences_on_one_line_print_in_one_order_whatever_the_hash_seed (depth 1); test_a_hyphenated_id_corrected_while_its_anchor_is_renamed_is_a_correction (depth 1) |
