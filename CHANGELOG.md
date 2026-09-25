@@ -1,5 +1,192 @@
 # Changelog
 
+## 0.15.3 — 2026-09-24
+
+<!-- specs/1790260563-the-fold-checks-run-only-as-this-repositorys-tests -->
+- **The fold's two checks ship as `fold-check`, and a repository states their
+  values as `seal/config.md` rows (issue #566).** The statement shape and the
+  document line ceiling were checked only by this repository's own tests, so
+  a repository folding with `settle` had the rules and nothing that read
+  them. `fold-check` reads the top level of `docs/` and names every statement
+  from the cutoff on that does not open with a bold rule sentence or does not
+  carry one `Enforced by:` line whose targets exist, and every document over
+  the ceiling that is not listed with its fold markers frozen. The values are
+  three optional rows: `Fold shape from`, `Document line ceiling` and
+  `Over the ceiling`. An absent row is a check that does not run, and the
+  output says so in one line. A value that will not parse exits 2 naming the
+  row. `--shape-from` and `--ceiling` replace a row for one run, and
+  `--shape-from 0` lists every statement still missing the shape. This
+  repository declares `1790154761`, `1000` and `none`, and its two test
+  modules now pin the shipped command, reading the same rows as the policy
+  prose. When a listed document's markers move, the message prints the
+  digest the file has now, to be copied into the row. `settle`'s procedure
+  and the release checklist run it after the prose is written and before
+  `settle --retire`.
+- **A folded statement's `Enforced by:` line may be as wide as its targets
+  (issue #583).** The wrap limit on the hand-wrapped documents left room for
+  one short target, while most `path::test` targets in this repository are
+  wider than 88 columns on their own. The limit now skips exactly the lines
+  `fold-check` reads as a statement's line of targets. A
+  `nothing — <why>` line, whose reason is prose, and an `Enforced by:` line
+  outside any statement are still held to it.
+- **`settle` names a ledger row written inside a blockquote or a list by its
+  claim (issue #530).** A row written behind `>` or `-` was reported by its
+  marker, because only a comment opener was dropped from before the first
+  pipe. Any run of blockquote, bullet, ordered-list and comment markers is
+  dropped now, in any combination and spaced or not. A prefix that holds
+  anything else is kept as the label, as before.
+
+<!-- specs/1790260564-a-moved-file-counts-as-written -->
+### Fixed
+
+- `survivor-check` reads a gathered changelog fragment the way it leaves one
+  out (#564). The text it holds at a release is read at every path it
+  already keeps out of the range, not at one spelling of that path. A
+  released section ends only at another version heading or an `Unreleased`
+  heading, so a `## ` line inside a gathered fragment no longer turns the
+  rest of the fragment into live prose. Text is read with CRLF line endings
+  turned into LF, so a `CHANGELOG.md` committed with CRLF still has its
+  gathered ids. Each of the three let a release's gathered text subtract a
+  survivor that a correction in the same commit left standing.
+- `survivor-check` holds text a range moved to another path instead of
+  counting it as the range's own writing (#563). A sentence removed at one
+  path and added unchanged at another, one copy for one, is neither removed
+  nor written. This covers a file moved whole, a rename, and a document
+  split into two files that both remain. Before, the moved text subtracted
+  everything it shared with a correction made elsewhere in the same range,
+  so a quote the move carried hid itself and every other copy of the
+  corrected claim. A pure move is still silent, now because it removes
+  nothing: the report reads `against 0 sentence(s)`, and any range that
+  moves text reports a lower count than before.
+- A `survivors.md` range row in local mode now holds over its own work
+  item's range (#554). Local mode keeps `seal/` under the git directory,
+  where nothing is committed, so no range ever touched the work item's
+  directory, and every local declaration printed `not yours` on the branch
+  it was written for. There the owner is the `Branch` row of the work item's
+  `routing.md`: the row holds over a range whose tip is on that branch and
+  on no local branch that one was cut from, and another branch's range
+  still refuses it. A refused row's `not yours` line
+  now names the test that refused it. Shared mode is unchanged.
+
+<!-- specs/1790260565-a-ledger-row-carries-two-readings-in-one -->
+### Fixed
+
+- Three ledger rows each state one reading (#568). Two of them carried a
+  second Checked date and Notes cell behind an escaped separator: one merge's
+  two sides, kept whole. Their notes are now one union, with every dated
+  marker from both sides, under one Checked date. The third row's Notes cell
+  was split in three and is joined. One row's claim still described the
+  version check without the tagged half #363 added, and is corrected.
+- The ledger's cell-count case now counts fragment rows (#501). It named a
+  row wider than its table's header, and a fragment has no header by rule,
+  so every row a branch wrote was read and none was counted. A row with no
+  header above it is now counted against the five columns
+  `templates/ledger.md` declares for a ledger row. A branch whose fragment
+  row carries a stray `|` is refused on its own pull request rather than at
+  the release that folds it.
+- The clauses the ledger's edit and conflict rules gained in 0.15.1's review
+  are held by a case (#569): a claim an edit made false is corrected first
+  with a `Corrected <date>` note, a conflicted row's hash goes to neither side
+  where both edited the unit, and the row is re-read against every edit the
+  merge carries. Deleting any of them from `CLAUDE.md`, `CONTRIBUTING.md` or
+  the ledger policy now fails the build.
+- The round-record specification names the same rule as the code for the
+  one refusal that lets an unrecognised reason pass (#569). It said the
+  exception was to the reopening check's failure direction, which is a
+  different rule; it now says, as `chain_check.py` does, that the exception
+  is to the direction every other refusal in that file takes. A case holds
+  the two statements to one referent. The check's behaviour is unchanged.
+
+<!-- specs/1790260566-a-row-inside-a-fence-reads-as-live -->
+### Fixed
+
+- Every gate that reads a record through the shared reader now recognises a
+  fenced code block the way CommonMark does (#491). A run of backticks or
+  tildes indented four spaces or more is no longer read as a fence, so it no
+  longer hides every table row below it. A line such as ```` ```python ````
+  inside an open block no longer closes the block. A backtick line whose info
+  string holds a backtick no longer opens one. The review-record generator,
+  the pull-request chain check, the unverified-record check and the
+  review-history guard all read through this reader.
+- `evidence-check` no longer checks a ledger row shown inside a fenced code
+  block that closes (#444). A ledger that explains its own row format can show
+  an example row without failing the build, and `--reverify` and `--migrate`
+  leave the example byte for byte. A row in a fence that never closes, or in
+  an HTML comment, is still checked. **A real claim written inside a closed
+  fence is no longer checked either**, and nothing reports that, so a ledger
+  row meant as a claim belongs outside any fence. A copy of the checker
+  vendored alone into `tools/` applies the same rule.
+- A `drained` line in an `evidence-todo.md` closes the file only where it is
+  live (#487). One quoted in a fenced block, an HTML comment or a code span no
+  longer closes it, so `settle` and the release fold no longer pass over an
+  open row because a quotation said `drained`. A row inside a fenced example
+  that closes is not counted as open, and a row in an unclosed fence or a
+  comment still is. The release fold now asks the same rule `settle` asks,
+  instead of keeping its own copy. The survivor sweep likewise takes a
+  changelog marker only from a live line of `CHANGELOG.md`, so a quoted one
+  no longer excuses a fragment.
+- The records arm of `evidence-check` now ends an HTML comment at its `-->`
+  rather than at the end of that line (#220). A name written after the closer
+  is read, and a `<!--` right after it starts a new aside. A comment that
+  opens part-way along a line was never an aside, and the skill now says so:
+  a name inside one is read, so put the `NAME NOT IN TREE` marker on that
+  line or start the comment on its own line. The arm also recognises fences
+  by the shared CommonMark rule, so a three-backtick line quoted inside a
+  four-backtick fenced block no longer ends the quotation.
+
+<!-- specs/1790260567-the-broad-gate-hands-cmd-a-forward-slash -->
+- **The broad gate hands `cmd.exe` a command name it can run (issue #448).**
+  On Windows the gate's shell is `cmd.exe`, which reads a `/` inside a
+  command name as the start of a switch. The row `bin/test -q` therefore ran
+  a command called `bin`, and a suite that never started was reported as a
+  suite that failed. Where the shell is `cmd.exe`, the gate now writes `/`
+  as `\` inside each command name and nowhere else, so `bin/test` runs as
+  `bin\test` and reaches `bin/test.cmd`. Arguments, quoted paths, `%VAR%`,
+  operators and escaped characters reach the shell as written, and every
+  other shell gets the row unchanged. When the two differ, the gate prints
+  one line saying what `cmd.exe` was handed, and the check's kept output
+  carries it under the row as written. A `/` written straight after one of
+  `cmd.exe`'s own commands, as in `rd/s/q`, is that command's switch and is
+  left as written. A `/` written straight after any other program, as in
+  `xcopy/e`, is read as part of a path and rewritten, so that row stops
+  running; write the switch with a blank before it (`xcopy /e`). Telling
+  the two apart is issue #596. `templates/config.md` §*Broad gate* states which
+  positions are rewritten and names examples of those that are not.
+- **A failing suite whose output holds no pytest summary says so (issue
+  #448).** The failure form now adds one line where the `suite` check failed
+  without printing a summary: its exit code is not a count of failing tests,
+  and the row may have stopped before any test ran. `cmd.exe` exits 1 for a
+  command it cannot find, which is pytest's own 1, so the line reads the
+  missing summary rather than the exit code. The exit code is unchanged.
+- **This repository's suite runs with `gh` logged out, on every machine
+  (issue #510).** A case that fell through its stubs onto a live `gh` passed
+  wherever `gh` was logged in, which included the broad gate, and failed only
+  on CI, whose pytest job has no token. `tests/conftest.py` now points
+  `GH_CONFIG_DIR` at an empty directory and sets `GH_TOKEN` to a value no
+  server accepts when it is imported, so `gh` reaches neither `hosts.yml` nor
+  a login kept in the OS keyring, and a local run gives CI's answer.
+  `CONTRIBUTING.md` §*Running the checks* says so.
+
+<!-- specs/1790263216-the-older-statements-name-what-enforces-them -->
+- **Every folded statement under `docs/` names what enforces it, and the
+  fold's shape binds all of them (issue #565).** 115 statements folded before
+  the shape existed carried no line saying what reads them, and review had
+  already found one of them false. Each now ends in one `Enforced by:` line.
+  106 name what reads the rule: the case that plants the violating input,
+  the pin on a text a session acts on, or the workflow CI runs. Nine say
+  `nothing — <why>`, and the reason says which kind of rule it is: a
+  person's or a session's act (4), a record rather than a rule (2), or a
+  rule no case reads yet (3). `grep -rn 'Enforced by: nothing' docs/` lists
+  all nine. The 26 that did not open with a bold rule
+  sentence now do. This repository's `Fold shape from` row is `0`, so the
+  suite's real-tree case holds every statement, and a later edit that drops
+  a line or renames a function one names fails it. The Korean edition of the
+  one-root design carries the English targets byte for byte, and the editions
+  test now compares each paired statement's line. One statement was false
+  against the code: `docs/branch-and-release.md` said a rider's stamp names a
+  commit. It is now corrected, along with the same sentence in both editions
+  of the one-root design and the two in the release checklist.
+
 ## 0.15.2 — 2026-09-24
 
 <!-- specs/1790254165-the-release-note-is-a-summary -->

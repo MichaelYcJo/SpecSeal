@@ -31,5 +31,5 @@
   opens part-way along a line was never an aside, and the skill now says so:
   a name inside one is read, so put the `NAME NOT IN TREE` marker on that
   line or start the comment on its own line. The arm also recognises fences
-  by the shared CommonMark rule, so a ```` ``` ```` quoted inside a
-  ```` ```` ```` block no longer ends the quotation.
+  by the shared CommonMark rule, so a three-backtick line quoted inside a
+  four-backtick fenced block no longer ends the quotation.
