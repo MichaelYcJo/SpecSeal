@@ -2969,8 +2969,28 @@ def added_on_branch(root, base, rel):
       passing and never a passing one failing -- the safe direction, stated
       in `docs/review-chain-spec.md` rather than left to be found.
 
-    `git log` prints newest first, so the FIRST line is the LATEST add, and
-    that is the one taken. More than one add means the file was deleted and
+    The FIRST line is the LATEST add, and that is the one taken. Two flags
+    make that sentence true, and each closes a separate way it was false
+    (#529, both measured in scratch repositories):
+
+      `--full-history`, because git's default simplification follows ONE
+      parent of a merge that matches it at the path. A side branch that
+      deletes the record, re-adds the same bytes and merges back leaves the
+      merge matching the first parent, so the late add is never walked and
+      the early one comes back -- the unsafe direction
+
+      `--topo-order`, because the default order is the commit date. A side
+      branch whose clock is behind the early add lists the early add first
+      even once both are walked. Topological order shows a descendant before
+      its ancestor, and a re-add descends from the add it replaces in every
+      delete-and-re-add shape
+
+    A merge is never itself an `A` here, with either flag or without: `git
+    log` does not diff a merge unless `-m` asks it to, so `--diff-filter=A`
+    never matches one. A record added on a side branch and merged `--no-ff`
+    is read at the side's own adding commit.
+
+    More than one add means the file was deleted and
     re-added, and the version anybody reads was authored at the last of them:
     a stub committed on time, removed, and the real record written after the
     fixes is exactly the shape that makes a late record look early. Taking the
@@ -2999,7 +3019,17 @@ def added_on_branch(root, base, rel):
     restoring commit. The declared failure direction is *blocks more*, and a
     repair that is visible in the message is the cheaper mistake here.
     """
-    out = git(root, "log", "--diff-filter=A", "--format=%H", f"{base}..HEAD", "--", rel)
+    out = git(
+        root,
+        "log",
+        "--full-history",
+        "--topo-order",
+        "--diff-filter=A",
+        "--format=%H",
+        f"{base}..HEAD",
+        "--",
+        rel,
+    )
     if not out:
         return None
     found = [line.strip() for line in out.splitlines() if line.strip()]

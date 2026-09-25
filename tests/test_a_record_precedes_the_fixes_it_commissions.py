@@ -629,6 +629,163 @@ def test_a_record_deleted_and_re_added_after_the_fix_is_judged_on_the_later_add(
     assert early[:7] not in out, out
 
 
+def dated_commit(repo, message, date):
+    """`commit`, with both dates pinned — the clock a side branch ran on."""
+    git(repo, "add", "-A")
+    env = dict(os.environ, GIT_AUTHOR_DATE=date, GIT_COMMITTER_DATE=date)
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(repo),
+            "-c",
+            "user.email=e@example.com",
+            "-c",
+            "user.name=e",
+            "commit",
+            "-qm",
+            message,
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+        env=env,
+    )
+    return git(repo, "rev-parse", "HEAD").stdout.strip()
+
+
+def merged_re_add(repo, side_date=None):
+    """#529's shape: the record is added on time, and a side branch that has
+    the fix deletes it and re-adds the SAME bytes after the fix, then merges
+    back with `--no-ff`.
+
+    At the merge the record is byte-identical to the early add on the first
+    parent, so git's default history simplification follows that parent
+    alone and never sees the late add. `side_date` dates the side branch's
+    commits — the fix among them — so a case can put them before the early
+    add and meet the second failure: a date order that lists the early add
+    first.
+
+    Returns (early add, late add).
+    """
+    item = NEW_ITEM
+    stamp = (
+        (lambda message: dated_commit(repo, message, side_date))
+        if side_date
+        else (lambda message: commit(repo, message))
+    )
+    write(repo, f"{item}/routing.md", declaration(item))
+    reviewed = commit(repo, "declare")
+    git(repo, "switch", "-qc", "fixline")
+    write(repo, "f.py", "x = 2\n")
+    fix = stamp("the fix, on a parallel line")
+    git(repo, "switch", "-q", "feature")
+    body = record(reviewed, verdict=f"**fixed** `{fix}`", checked_by="round-2")
+    write(repo, f"{item}/rounds/round-1.md", body)
+    early = commit(repo, "round 1, added before the fix reached this line")
+    git(repo, "switch", "-qc", "side")
+    git(repo, "merge", "-q", "--no-ff", "--no-edit", "fixline")
+    if side_date:
+        # The merge commit is the side branch's too, and a merge is dated
+        # by the clock it ran under. Amend it onto the side's clock.
+        env = dict(os.environ, GIT_AUTHOR_DATE=side_date, GIT_COMMITTER_DATE=side_date)
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-q", "--amend", "--no-edit"],
+            capture_output=True,
+            check=True,
+            env=env,
+        )
+    (repo / item / "rounds" / "round-1.md").unlink()
+    stamp("round 1 removed")
+    write(repo, f"{item}/rounds/round-1.md", body)
+    late = stamp("round 1, the same bytes, re-added after the fix")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "merge", "-q", "--no-ff", "--no-edit", "side")
+    merged = git(repo, "rev-parse", "HEAD").stdout.strip()
+    write(repo, f"{item}/rounds/round-2.md", record(merged))
+    commit(repo, "round 2")
+    return early, late
+
+
+# A clock ahead of every commit the test's own clock makes.
+LATER = "2099-01-01T00:00:00+0000"
+# A clock behind the early add.
+EARLIER = "2001-01-01T00:00:00+0000"
+
+
+def test_a_re_add_merged_back_from_a_side_branch_is_the_latest_add(repo):
+    """#529, A1. The record's content at the merge matches the first parent,
+    so git's default simplification walks that parent alone and returns the
+    early add — the unsafe direction, a late record judged on a commit that
+    predates its fix.
+
+    The side branch runs on a clock AHEAD of the early add, as a real one
+    does. Left to the test's own clock every commit lands in the same second,
+    and a date tie is the second failure below rather than this one.
+
+    Seen red against `git log --diff-filter=A` with no history flag: exit 0,
+    and neither add named. Green under `--full-history` alone.
+    """
+    early, late = merged_re_add(repo, side_date=LATER)
+    code, out = run(repo)
+    assert code == 1, out
+    assert late[:7] in out, (
+        "the refusal did not read the re-add the side branch merged back, "
+        "so the record was judged on the early add"
+    )
+    assert early[:7] not in out, out
+
+
+def test_a_re_add_on_a_side_branch_with_an_older_clock_is_the_latest_add(repo):
+    """#529, A2, found in framing. Under `--full-history` alone git lists
+    commits by date, so a side branch whose commits carry an older date than
+    the early add puts the early add FIRST, and `found[0]` takes it.
+    `--topo-order` lists a descendant before its ancestor, and the late
+    re-add descends from the early add in every delete-and-re-add shape.
+
+    Seen red with `--full-history` and no `--topo-order`: exit 0.
+    """
+    early, late = merged_re_add(repo, side_date=EARLIER)
+    code, out = run(repo)
+    assert code == 1, out
+    assert late[:7] in out, (
+        "the date order put the early add first, and the refusal read it"
+    )
+    assert early[:7] not in out, out
+
+
+def test_a_record_added_on_a_merged_side_branch_is_read_at_its_own_add(repo):
+    """#529, A3, and the answer to its *not measured* clause. A `--no-ff`
+    merge of a side branch that added the record is not itself an add:
+    `git log` does not diff a merge without `-m`, so `--diff-filter=A` never
+    matches one, with `--full-history` or without it.
+
+    Green at the old line and the new one alike, which is what it pins. Seen
+    red under the mutation that adds `--first-parent`, which diffs the merge
+    against its first parent and names the merge as the add.
+    """
+    item = NEW_ITEM
+    write(repo, f"{item}/routing.md", declaration(item))
+    reviewed = commit(repo, "declare")
+    git(repo, "switch", "-qc", "side")
+    fix = touch(repo, "x = 2\n")
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        record(reviewed, verdict=f"**fixed** `{fix}`", checked_by="round-2"),
+    )
+    added = commit(repo, "round 1, written after its own fixes, on the side")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "merge", "-q", "--no-ff", "--no-edit", "side")
+    merged = git(repo, "rev-parse", "HEAD").stdout.strip()
+    write(repo, f"{item}/rounds/round-2.md", record(merged))
+    commit(repo, "round 2")
+    code, out = run(repo)
+    assert code == 1, out
+    assert f"ADDED by {added[:7]}" in out, out
+    assert merged[:7] not in out, "the merge commit was read as the add"
+
+
 def test_a_fix_sha_this_repository_cannot_see_makes_no_claim(repo):
     """After a squash or a rebase the commit a verdict names is gone, and a
     gone commit is `no claim` rather than a fault — the reading

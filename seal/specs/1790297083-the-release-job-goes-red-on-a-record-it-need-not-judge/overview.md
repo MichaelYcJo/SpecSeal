@@ -1,0 +1,34 @@
+# 1790297083-the-release-job-goes-red-on-a-record-it-need-not-judge — overview
+
+📋 implement applied
+· spec:     this work item's spec.md, plan.md and questions.md; docs/review-chain-spec.md §When the record was written; skills/code-review/scripts/chain_check.py#added_on_branch
+· evidence: written at phase 4
+· verified: phase 1 — executed; later phases fill this line
+
+## Why this work exists
+
+`chain_check` went red on records it had no claim to judge: a record deleted
+and re-added on a side branch was read at its early add (#529), a record a
+pull request restored byte-for-byte from the base's history was held to
+reachability (#598 instance 1), and `Pass` beside `nobody` failed a draft in
+the window the orchestration document orders (#598 instance 4).
+
+## Where spec and implementation diverged
+
+| Divergence | Spec says / code did | Chosen | Grounds |
+|---|---|---|---|
+| A1's fixture clock | `spec.md` A1 describes the merged side-branch shape with no date; the test's own clock puts every commit in one second | A1 dates the side branch ahead of the early add | In one second the date order is a tie, which is A2's failure and not A1's. `phases/phase-1.md` has the measurement |
+
+## Not verified
+
+| Item | Who must answer |
+|---|---|
+| the full suite, lint and typecheck over the whole tree | the sealer, once, after the review rounds settle |
+
+## Not done
+
+Written at phase 4.
+
+## Fed back into the spec
+
+Written at phase 4.
