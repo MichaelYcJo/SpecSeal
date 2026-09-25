@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | 3c1be03a |
-| Ran by | unknown — the spawn prompt named no value; the orchestrator fills this row |
+| Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
 
