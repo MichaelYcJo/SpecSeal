@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 606 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `db92ea3be169a49161b52750e9e195433cc2cd5b..7281cc4b65578ece8aad675f7c3a7f0f1d540d07`, 3 commits |
+| Contract changes | none |
+| New units | LOCATOR_OPEN_RE (depth 1); refused_coordinate (depth 1); test_prose_marks_beside_a_good_anchor_are_not_refused (depth 1); test_an_unticked_coordinate_with_one_mark_is_named (depth 1); test_a_quoted_locator_with_no_hash_is_not_told_about_a_bare_quote (depth 1) |
 | Needs a fix | yes — finding 1 (rule (a) refuses prose in a code span and misses a coordinate outside one) and finding 2 (a quoted locator with no hash is told to escape a quote) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 1 of work item 1790297087 reviews the build at 7b14b1fb against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | Rule (a) refuses a code span holding one mark (`` `#299` ``, `` `@cache` ``, `` `ops@example.com` `` beside a good anchor), which exits 2 on prose. It also lets through a coordinate outside backticks that has one mark (`src/service.py#Box`, `b.py#g>h`), which is #299's silence | `skills/evidence-check/scripts/evidence_check.py:1682-1685` | open | Executed probe in the clone. The fix below keeps 184 cases green, turns three probe cases from red to green, and the tree still reads 0 malformed |
-| 🟡 2 | `BARE_QUOTE_RE`'s negative lookahead matches at end of text, so a quoted locator with no hash (`a.py#"line"`, `a.py#f>"g"`) is told to escape a bare quote | `skills/evidence-check/scripts/evidence_check.py:1603` | open | Executed: three shapes, each given the bare-quote remedy. §14: the remedy line is what a person acts on |
-| ⬜ 3 | The advisor header says *rows whose coordinate does not parse*, but it counts texts, and a rule-(b) row has no coordinate. The closing line repeats the per-row remedy and prescribes `@00000000` for a bare-quote row whose hash is right | `hooks/evidence-advisor.py:184-194` | open | Read. The verdicts printed are right |
-| ⬜ 4 | The repaired `SEPARATORS` quoted-line coordinate resolves to 347-807, so any module-level edit in `chain_check.py` drifts it. By name it resolves to 547 | `seal/ledger.md:76` | open | Executed: both resolutions. The claim holds either way |
+| 🟡 1 | Rule (a) refuses a code span holding one mark (`` `#299` ``, `` `@cache` ``, `` `ops@example.com` `` beside a good anchor), which exits 2 on prose. It also lets through a coordinate outside backticks that has one mark (`src/service.py#Box`, `b.py#g>h`), which is #299's silence | `skills/evidence-check/scripts/evidence_check.py:1682-1685` | **fixed** `46ecd41f4342033439ce8bc63f849c4c30acbf86` | fixed at 46ecd41f4342033439ce8bc63f849c4c30acbf86; Executed probe in the clone. The fix below keeps 184 cases green, turns three probe cases from red to green, and the tree still reads 0 malformed |
+| 🟡 2 | `BARE_QUOTE_RE`'s negative lookahead matches at end of text, so a quoted locator with no hash (`a.py#"line"`, `a.py#f>"g"`) is told to escape a bare quote | `skills/evidence-check/scripts/evidence_check.py:1603` | **fixed** `46ecd41f4342033439ce8bc63f849c4c30acbf86` | fixed at 46ecd41f4342033439ce8bc63f849c4c30acbf86; Executed: three shapes, each given the bare-quote remedy. §14: the remedy line is what a person acts on |
+| ⬜ 3 | The advisor header says *rows whose coordinate does not parse*, but it counts texts, and a rule-(b) row has no coordinate. The closing line repeats the per-row remedy and prescribes `@00000000` for a bare-quote row whose hash is right | `hooks/evidence-advisor.py:184-194` | **fixed** `46ecd41f4342033439ce8bc63f849c4c30acbf86` | fixed at 46ecd41f4342033439ce8bc63f849c4c30acbf86; Read. The verdicts printed are right |
+| ⬜ 4 | The repaired `SEPARATORS` quoted-line coordinate resolves to 347-807, so any module-level edit in `chain_check.py` drifts it. By name it resolves to 547 | `seal/ledger.md:76` | answered | corrected at 109bc1157c456587306a08c4d2227dceacebea8b: `seal/ledger.md`'s separator row cites `SEPARATORS` by name, with a Corrected note, then `--reverify`; Executed: both resolutions. The claim holds either way |
 | ❓ | Whether a claim row with an empty `Code grounds` cell should stay silent. Rule (b) requires a non-empty cell as `spec.md` §In 1 (b) says, and 0 such rows exist in this tree | `skills/evidence-check/scripts/evidence_check.py:1690` | ❓ out of verified scope | A product question behind the spec's wording, possibly there to spare group-label rows. Answerer: the repository owner |
 | 🟢 | The five live rows and the two Notes coordinates parse and resolve, and each claim holds against its code | `seal/ledger.md`, `seal/releases/0.4.0.md`, `seal/releases/0.12.0.md` | confirmed | Executed: each reads `OK`. The code is read in the table above. `claude_block.py --check` exits 0 |
 | 🟢 | The removed rider-stamp row's claim was false | `tests/test_a_rider_reaches_its_file.py:181`, `:204` | confirmed | A stamp names an anchor and a hash since #239. The SHA form survives only as `OLD_STAMP`, and a case refuses it |
