@@ -55,7 +55,9 @@ needed, and they answer different questions.
 
   is anything required of this record at all?   only if the pull request adds
       or changes it. A record that arrived in an earlier merge is history, and
-      a check has no business asserting a property of it now
+      a check has no business asserting a property of it now. Neither is a
+      record the pull request RESTORES byte-for-byte from the base's own
+      history, which is in the diff and not its claim (`restored_from`)
 
   which commits count as reachable?             an ancestor of HEAD, of the
       branch `routing.md` names, or of a pull request head. The first two need
@@ -3015,8 +3017,9 @@ def added_on_branch(root, base, rel):
     where round 1's battery saw one.
 
     What it costs, stated rather than hidden: a record accidentally deleted
-    and restored after the fixes is refused, and the failure names the
-    restoring commit. The declared failure direction is *blocks more*, and a
+    and restored WITHIN THE BRANCH after the fixes is refused, and the
+    failure names the restoring commit. Bytes the base's own history carried
+    are `restored_from`'s, and `written_late` asks it before this. The declared failure direction is *blocks more*, and a
     repair that is visible in the message is the cheaper mistake here.
     """
     out = git(
@@ -3034,6 +3037,65 @@ def added_on_branch(root, base, rel):
         return None
     found = [line.strip() for line in out.splitlines() if line.strip()]
     return found[0] if found else None
+
+
+def restored_from(root, fork, rel):
+    """A commit in the merge base's history carrying `rel`'s current bytes at
+    `rel`, or None.
+
+    The one predicate for a record this pull request RESTORED rather than
+    wrote (#598 instance 1). Asked by the two arms whose claim is about the
+    pull request's own add, and by no other: reachability in `main`, and
+    `written_late`. Everything else is read on a restored record exactly as
+    it is on one the pull request never touched.
+
+    A directory the base retired and this pull request puts back is an `A` in
+    `base...HEAD` whatever its content, so the diff alone calls it new. But
+    bytes the base's own history already held at this path were added there,
+    by an earlier pull request, and the review they record was enforced at
+    that one (`docs/commit-review-gate-spec.md`). #597 went red on four such
+    records, every one byte-identical to `main`'s.
+
+    ANY version in that history counts, not only the one the base retired:
+    every version it holds was added by an earlier pull request. One byte
+    changed and the bytes are this pull request's, so the claim comes back.
+
+    The bytes are HEAD's, or the working tree's under `--worktree`, the same
+    rule `read_record` follows. The commit returned is the last of those git
+    lists, and `--topo-order` makes that an ancestor-most change, which is
+    where the bytes entered: in date order a clock that ran ahead on the add
+    names the commit that retired them instead.
+
+    No `--full-history`, and that is measured rather than forgotten.
+    `--find-object` already walks both parents of a merge: bytes that stood
+    only on a side line which changed the record and changed it back before
+    merging are found without the flag, where a plain path-limited `git log`
+    simplifies that side line away. The case beside B1 holds it.
+
+    None when `fork` is None or git fails, which is the strict direction:
+    nothing is relaxed on an answer nobody could compute.
+    """
+    if not fork:
+        return None
+    if WORKTREE:
+        blob = git(root, "hash-object", "--", os.path.join(root, *rel.split("/")))
+    else:
+        blob = git(root, "rev-parse", "--verify", "-q", f"HEAD:{rel}")
+    blob = (blob or "").strip()
+    if not blob:
+        return None
+    out = git(
+        root,
+        "log",
+        "--topo-order",
+        f"--find-object={blob}",
+        "--format=%H",
+        fork,
+        "--",
+        rel,
+    )
+    found = [line.strip() for line in (out or "").splitlines() if line.strip()]
+    return found[-1] if found else None
 
 
 def commissioned_fixes(reader, root, rel):
@@ -3094,7 +3156,7 @@ def written_late_reason(reader, root, rel):
     return reason if word == FLOOR_YES and reason else None
 
 
-def written_late(reader, root, base, rel):
+def written_late(reader, root, base, rel, fork=None):
     """(errors, notices) -- was this record committed after its own fixes.
 
     `templates/sdd-round.md` says a record is written right after the round
@@ -3127,9 +3189,19 @@ def written_late(reader, root, base, rel):
     `checked_by` and `verdict_table`'s own caller already report those states,
     and a second error naming a different cause would name a cause that is not
     the cause.
+
+    A record RESTORED byte-for-byte from the merge base's history (`fork`,
+    through `restored_from`) returns nothing too, and silently. Its add in
+    `<baseline>..HEAD` is a restore, not the pull request's own add, and this
+    arm's *no claim* for a record with no adding commit here is defined by
+    pointing at the reachability arm's, which a restored record already gets.
+    Asked after the fixes are found and before the add is, so an ordinary
+    record pays no extra `git log`.
     """
     named = commissioned_fixes(reader, root, rel)
     if not named:
+        return [], []
+    if restored_from(root, fork, rel):
         return [], []
     adding = added_on_branch(root, base, rel)
     if adding is None:
@@ -4086,7 +4158,8 @@ def check_round(reader, root, rel, strict=True, refs=None):
     `Fixes checked by`: a record naming a checker it does not have is wrong at
     every stage of a run, where an unchecked box is merely early.
 
-    `refs` is None for a record this pull request does not touch, and then no
+    `refs` is None for a record this pull request does not touch, or restores
+    byte-for-byte from the base's own history (`restored_from`), and then no
     claim is made about where its commits are. Everything else is still read:
     a `Target SHA` row has to be THERE either way, because "which commit did
     this round review" is answerable after a squash even when the commit is
@@ -4467,7 +4540,15 @@ def main(argv=None):
             )
             continue
         last = records[-1]
-        refs = target_refs(reader, root, declared) if last in touched else None
+        # A last record the pull request RESTORED is in the diff and is not
+        # its claim (#598 instance 1): `restored_from` holds why, and the
+        # same predicate is what `written_late` asks below.
+        restored = restored_from(root, fork, last) if last in touched else None
+        refs = (
+            target_refs(reader, root, declared)
+            if last in touched and not restored
+            else None
+        )
         print(
             f"{item}: through the review chain — {len(records)} round "
             f"record(s), last is {os.path.basename(last)}, "
@@ -4475,6 +4556,12 @@ def main(argv=None):
                 f"its target must be reachable from {' or '.join(refs)}, "
                 f"or from the `{PULL_HEADS}<N>/head` that carried it"
                 if refs
+                # The path IS in the diff here, so the sentence below would
+                # be false. What this established is where the bytes were.
+                else f"restored byte-for-byte from the base's own history, "
+                f"which carries the same bytes at this path from "
+                f"{restored[:7]} — no claim made about where its commits are"
+                if restored
                 # What this established, not what it concluded. `already merged`
                 # was the claim here, and it is one the code cannot make -- it
                 # knows the path was not in the diff and nothing more. Saying it
@@ -4554,7 +4641,7 @@ def main(argv=None):
             # commission anything, so a check reading it alone would read the
             # one record the defect cannot reach.
             late_errors, late_notices = written_late(
-                reader, root, args.baseline, record
+                reader, root, args.baseline, record, fork
             )
             errors.extend(late_errors)
             notices.extend(late_notices)

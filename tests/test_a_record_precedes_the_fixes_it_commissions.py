@@ -595,8 +595,8 @@ def test_a_record_deleted_and_re_added_after_the_fix_is_judged_on_the_later_add(
     one add either way.
 
     What it costs, stated rather than hidden: a record accidentally deleted
-    and restored after the fixes is refused, and the message names the
-    restoring commit. The declared failure direction is *blocks more*, and
+    and restored within the branch after the fixes is refused, and the
+    message names the restoring commit. The declared failure direction is *blocks more*, and
     the repair is visible in the failure.
     """
     item = NEW_ITEM
@@ -784,6 +784,46 @@ def test_a_record_added_on_a_merged_side_branch_is_read_at_its_own_add(repo):
     assert code == 1, out
     assert f"ADDED by {added[:7]}" in out, out
     assert merged[:7] not in out, "the merge commit was read as the add"
+
+
+def test_a_record_restored_from_the_bases_history_makes_no_claim(repo):
+    """#598 instance 1, B4. A record the base's own history carried, byte for
+    byte, was added by an earlier pull request. This pull request's restore
+    is an add in `<baseline>..HEAD`, and it descends from every fix the
+    record names, because those fixes were on the base before it retired the
+    record. The arm's *no claim* for a record with no adding commit here is
+    defined by pointing at reachability's, so the restore joins it.
+
+    Seen red on the pre-phase code: exit 1, naming the restoring commit.
+    """
+    item = NEW_ITEM
+    write(repo, f"{item}/routing.md", declaration(item))
+    reviewed = commit(repo, "declare")
+    write(
+        repo,
+        f"{item}/rounds/round-1.md",
+        record(reviewed, verdict="open", checked_by="round-2"),
+    )
+    commit(repo, "round 1, on time")
+    fix = touch(repo, "x = 2\n")
+    body = record(reviewed, verdict=f"**fixed** `{fix}`", checked_by="round-2")
+    write(repo, f"{item}/rounds/round-1.md", body)
+    updated = commit(repo, "round 1's verdicts, once the fixes landed")
+    later = record(updated)
+    write(repo, f"{item}/rounds/round-2.md", later)
+    commit(repo, "round 2")
+    shutil.rmtree(repo / item)
+    commit(repo, "the base retires the work item")
+    git(repo, "branch", "-qf", "base")
+    write(repo, f"{item}/routing.md", declaration(item))
+    write(repo, f"{item}/rounds/round-1.md", body)
+    write(repo, f"{item}/rounds/round-2.md", later)
+    restoring = commit(repo, "this pull request restores it")
+    code, out = run(repo)
+    assert code == 0, out
+    assert "was ADDED by" not in out and restoring[:7] not in out, (
+        "the restore was read as this pull request's own add"
+    )
 
 
 def test_a_fix_sha_this_repository_cannot_see_makes_no_claim(repo):
