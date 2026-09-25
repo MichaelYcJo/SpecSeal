@@ -1265,6 +1265,35 @@ def handed_line(name, handed):
     )
 
 
+CMD_VARIABLE = re.compile(r"%([^%]+)%")
+
+
+def as_cmd_expands(part, here):
+    """`part` with each `%NAME%` replaced the way `cmd /c` replaces it before
+    it reads a command name (#596).
+
+    A name defined in this process's environment takes its value, which is
+    the environment `run` hands the shell. `CD` and `__CD__` are in no
+    environment: `cmd.exe` computes them, and both name the directory the
+    row runs in, which is `here`. Any other name is left as written, as
+    `cmd /c` leaves an undefined one, and so is `%%`. Nothing else is
+    expanded: `$NAME` and `'…'` mean nothing to `cmd.exe`, which is why this
+    is not `ntpath.expandvars`.
+    """
+
+    def value(match):
+        name = match.group(1)
+        if name in os.environ:
+            return os.environ[name]
+        if name.upper() == "CD":
+            return os.path.abspath(here)
+        if name.upper() == "__CD__":
+            return os.path.join(os.path.abspath(here), "")
+        return match.group(0)
+
+    return CMD_VARIABLE.sub(value, part)
+
+
 def handed_to_shell(command, windows=None, comspec=None, root=None):
     """The string `subprocess.run(command, shell=True)` should be given.
 
@@ -1278,9 +1307,9 @@ def handed_to_shell(command, windows=None, comspec=None, root=None):
     where the row runs — `run`'s own `root`, which is the repository for
     `gate` and the scratch worktree for `compare_at_base` — and a name's
     first part is a directory where `os.path.isdir(os.path.join(root,
-    part))` says so, once any `%VAR%` in it is expanded from this process's
-    environment the way `cmd.exe` expands it before it reads the name; a
-    variable that names nothing stays as written and names no directory.
+    part))` says so, once any `%VAR%` in it is expanded the way `cmd.exe`
+    expands it before it reads the name (`as_cmd_expands`); a variable that
+    names nothing stays as written and names no directory.
     `None` is the current directory, which is where
     `subprocess.run` with `cwd=None` would run the row. The read happens
     here because this function already reads `COMSPEC` from the
@@ -1306,11 +1335,10 @@ def handed_to_shell(command, windows=None, comspec=None, root=None):
         return command
     here = os.curdir if root is None else root
     # `cmd.exe` expands `%VAR%` before it reads the name, so the part is
-    # expanded the same way before it is asked. `ntpath` reads `%VAR%` on
-    # every platform, so a case can drive it from any machine.
+    # expanded the same way before it is asked (`as_cmd_expands`).
     return command_names_backslashed(
         command,
-        lambda part: os.path.isdir(os.path.join(here, ntpath.expandvars(part))),
+        lambda part: os.path.isdir(os.path.join(here, as_cmd_expands(part, here))),
     )
 
 

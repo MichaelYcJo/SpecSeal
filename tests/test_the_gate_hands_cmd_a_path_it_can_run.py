@@ -213,17 +213,31 @@ def test_a_name_that_starts_in_no_directory_is_handed_over_as_written(
 def test_a_name_rooted_in_a_variable_is_judged_where_the_variable_points(
     tree, monkeypatch
 ):
-    """#596, round 1's 🟡 3. `cmd.exe` expands `%VAR%` before it reads a
-    command name, so the part is expanded before it is asked whether it is a
-    directory. 0.15.3 rewrote `%CD%/bin/test`, and a literal `%CD%` directory
-    never exists, so without the expansion that row stopped running."""
+    """#596, round 1's 🟡 3 and round 2's 🟡 1. `cmd.exe` expands `%VAR%`
+    before it reads a command name, so the part is expanded the same way
+    before it is asked whether it is a directory: a name from the
+    environment takes its value, and `%CD%` and `%__CD__%`, which `cmd.exe`
+    computes and no environment holds, name the directory the row runs in.
+    0.15.3 rewrote `%CD%/bin/test`, and a literal `%CD%` directory never
+    exists, so without the expansion that row stopped running. `$HOME` means
+    nothing to `cmd.exe` and is not expanded."""
     gate = gate_module()
     monkeypatch.setenv("SPECSEAL_PROBE_TREE", tree)
     monkeypatch.delenv("SPECSEAL_PROBE_NOWHERE", raising=False)
+    monkeypatch.delenv("CD", raising=False)
+    monkeypatch.delenv("__CD__", raising=False)
+    # A `$HOME` that names the tree, so only the expansion's rule can leave
+    # it as written.
+    monkeypatch.setenv("HOME", tree)
     for row, expected in (
         ("%SPECSEAL_PROBE_TREE%/bin/test -q", r"%SPECSEAL_PROBE_TREE%\bin\test -q"),
         ("%SPECSEAL_PROBE_NOWHERE%/bin/x", "%SPECSEAL_PROBE_NOWHERE%/bin/x"),
         ("xcopy/e/i a b", "xcopy/e/i a b"),
+        # `CD` is computed by cmd.exe and is in no environment (round 2, 🟡 1).
+        ("%CD%/bin/test -q", r"%CD%\bin\test -q"),
+        ("%cd%/bin/test -q", r"%cd%\bin\test -q"),
+        ("%__CD__%bin/test", r"%__CD__%bin\test"),
+        ("$HOME/x", "$HOME/x"),
     ):
         got = gate.handed_to_shell(row, windows=True, comspec=CMD, root=tree)
         assert got == expected, got
@@ -366,7 +380,9 @@ def test_the_template_says_which_positions_are_rewritten():
         "quotes and carets removed and every leading `@` dropped, names a "
         "directory that exists where the row runs",
         # Round 1's 🟡 3, where the person typing the row reads it.
-        "A `%VAR%` in that part is expanded from the gate's own environment first",
+        "A `%VAR%` in that part is expanded first, as `cmd.exe` expands it "
+        "before it reads the name",
+        "`%CD%` as the directory the row runs in",
         "`bin/test` then runs as `bin\\test`",
         "a path after `call`, `start` or `if`, or after `else`, `for … do` and "
         "`cmd /c`",

@@ -7,8 +7,9 @@
   `bin/test` is still handed over as `bin\test`, and `xcopy/e/i`,
   `findstr/s` and `ipconfig/all` reach `cmd.exe` as written. A name that
   begins with `/` still counts, because the drive's root always exists, and
-  a `%VAR%` at the start of a name is expanded first, so `%CD%/bin/test` is
-  still rewritten.
+  a `%VAR%` at the start of a name is expanded first, the way `cmd.exe`
+  expands it: from the environment, and `%CD%` as the directory the row
+  runs in, so `%CD%/bin/test` is still rewritten.
   `templates/config.md` §*Broad gate* states the rule and its two bounds. A
   directory that an earlier command in the row makes or enters is not seen.
   A directory at the root named like a program makes that program's glued

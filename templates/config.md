@@ -206,9 +206,10 @@ line, or the first word after `&&`, `||`, `&`, `|` or a `(` that opens a
 block. It starts in a directory where the part before its first `/`, with its
 quotes and carets removed and every leading `@` dropped, names a directory
 that exists where the row runs; a name that begins with `/` starts at the
-drive's root, which always exists. A `%VAR%` in that part is expanded from the
-gate's own environment first, as `cmd.exe` expands it before it reads the
-name, so `%CD%/bin/test` is still rewritten. `bin/test` then runs as `bin\test`, which
+drive's root, which always exists. A `%VAR%` in that part is expanded
+first, as `cmd.exe` expands it before it reads the name: from the gate's own
+environment, and `%CD%` as the directory the row runs in, so `%CD%/bin/test`
+is still rewritten. `bin/test` then runs as `bin\test`, which
 `cmd.exe` resolves to `bin/test.cmd`. Arguments, quoted
 paths, `%VAR%`, operators and `^`-escaped characters reach the shell as
 written. Every other position is handed as written, and `cmd.exe` reads it
