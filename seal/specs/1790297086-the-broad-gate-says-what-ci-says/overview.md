@@ -3,7 +3,7 @@
 📋 implement applied
 · spec:     this work item's spec.md (Grounding, S1–S4, Out, A1–D1, Data & interfaces), plan.md (Technical context, Alternatives, phases 1–4), questions.md T1–T11, M1, M2; templates/config.md §Broad gate; skills/verify/SKILL.md §What the count does not say; docs/the-evidence-ledger.md §Appended is the word; CLAUDE.md §fragments, §commit early; agent-contract §2, §7–§9, §12–§15
 · evidence: seal/ledger/1790297086-the-broad-gate-says-what-ci-says.md, eleven rows (S1 ×3, S2 ×4, S3 ×2, C4, D1). Corrected in place: seal/releases/0.15.3.md A2 (its dead anchor dropped) and seal/releases/0.12.2.md G4's note. Re-read and re-stamped where they live: 0.15.3.md A1, A3, A4; 0.10.0.md S4, S7, S12; 0.12.0.md ×4; 0.12.2.md R2, R6, G3, G7; 0.15.1.md N3, G2 (prose only); 0.5.0.md S8
-· verified: executed — each phase's narrow modules and every module reading a file it edited (29, 56, 58 and 90 modules), every new case seen red, a mutation pass per phase, M2 before and after, evidence-check; read — C4, A5's reachability; unverified — M1 (CI's windows-latest leg), the full suite, lint and typecheck (the sealer's)
+· verified: executed — each phase's narrow modules and every module reading a file it edited (29, 56, 58 and 79 modules; the last, 3547 passed and 8 skipped after phase 4), every new case seen red, a mutation pass per phase, M2 before and after, evidence-check; read — C4, A5's reachability; unverified — M1 (CI's windows-latest leg), the full suite, lint and typecheck (the sealer's)
 
 ## Why this work exists
 
