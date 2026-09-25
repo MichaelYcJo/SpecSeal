@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | <the phase's closing commit, as `plan.md`'s Status cell for phase 3 names it> |
+| Commit | 73f8fded |
 | Ran by | unknown — the spawn prompt did not name the agent and model, and this segment does not source that value from its own idea of itself |
 
 ## What this phase was asked

@@ -29,3 +29,10 @@
   workflow runs both arms against `main` exactly as before. A case holds the
   gate's list against the workflow's own guards, so a guard added to a third
   step, or dropped from one of the two, fails the suite.
+- **A checkout under a `release/` directory no longer turns one case red
+  (issue #499).** The case that holds a repository with no hygiene workflow
+  to its old output cut the paths it knew about out of the gate's messages,
+  then searched the rest for the word `release`. Any path it had not cut
+  could carry that word. It now asserts that the messages name none of the
+  things that name the release job: the job as the gate spells it, the
+  workflow's path, and each step name the gate classifies.
