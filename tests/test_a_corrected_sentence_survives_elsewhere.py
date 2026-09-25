@@ -4152,6 +4152,30 @@ def test_one_anchor_leaving_a_file_that_remains_is_enough(tmp_path):
     assert code == 0, f"a row one of whose anchors left was measured:\n{text}"
 
 
+def test_a_row_corrected_in_place_while_an_anchor_is_renamed_is_a_correction(
+    tmp_path,
+):
+    """The shape #589's squash has (`seal/releases/0.15.1.md` R1): the claim
+    is corrected in place, and the same range renames one of the row's
+    units, so the old name resolves at the left end and not at the right.
+    The row still stands, re-pointed, because a live row of the same file
+    cites every anchor of it that still resolves; its old claim is a
+    correction and stays measured. Red at afb03a4c: exit 0."""
+    repo = tmp_path / "probe"
+    both = ("pkg/mod.py#helper", "pkg/mod.py#other")
+    renamed = MODULE.replace("def helper(", "def helper_renamed(")
+    head = ledger_range(
+        repo,
+        ledger_row(REPAIRED, ("pkg/mod.py#helper_renamed", "pkg/mod.py#other")),
+        renamed,
+        LEDGER_HEAD + ledger_row(FOUND, both),
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a row corrected in place took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+    assert set(corrected_lines(text)) == {f"{LEDGER}:5"}, text
+
+
 def test_a_row_whose_anchor_never_resolved_here_stays_measured(tmp_path):
     """Condition (c)'s first half. A row anchored on a path this repository
     never held -- a cross-repository row, read with `--map` -- resolves at

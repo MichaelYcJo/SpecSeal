@@ -188,9 +188,11 @@ removed. A row takes this exit when it is a live table row of a ledger file
 at the left end -- one of the four locations `evidence_check.py` reads -- its
 line is gone at the right end, and at least one of its anchors resolves at
 the left end and not at the right (`removed_ledger_rows`, asking the ledger
-checker's own `resolve_unit`). A row corrected in place keeps its anchors
-and stays measured, because that is the one ledger act that IS a
-correction; so does a row whose anchors all still resolve, which no rule
+checker's own `resolve_unit`), unless a live row of that file at the right
+end still cites every anchor of it that resolves there. A row corrected in
+place stays measured, because that is the one ledger act that IS a
+correction -- even where the same range renamed one of its units, as #589's
+did -- and so does a row whose anchors all still resolve, which no rule
 removes. It leaves after the pairing across paths, like a retirement, so its
 claim carried verbatim into a new row is held rather than written.
 
@@ -1020,50 +1022,67 @@ def removed_ledger_rows(root, a, b, before, after):
     an HTML comment is an example and never counts), its line is not in that
     file at `b`, and at least one of its `path#locator` anchors resolves at
     `a` and does not at `b` -- `evidence_check.py#resolve_unit`, the ledger
-    checker's own answer, asked of each end's blob.
+    checker's own answer, asked of each end's blob -- and no live row of
+    that file at `b` cites every one of its anchors that still resolves.
 
     **At least one anchor, never every one.** The two removals the ledger's
     rules permit both follow an anchor leaving: every anchor gone, or some
     gone and the owner choosing removal over narrowing. A false claim is
     corrected in place, never removed, so a row whose anchors all still
     resolve stays measured -- and a row corrected in place, which is a
-    removed line beside an added one, is exactly that shape."""
+    removed line beside an added one, is exactly that shape.
+
+    **A row that still stands, re-pointed, is not removed.** #589's range
+    corrected `seal/releases/0.15.1.md` R1 in place and renamed one of its
+    tests in the same commit, so the old name left and the corrected claim
+    took the exit. The new line cited every anchor of the old one that still
+    resolved, and no row the range removed outright did. A row whose every
+    anchor left has nothing to be cited by, and takes the exit."""
     ledgers = [path for path in before if LEDGER_PATH.match(path)]
     if not ledgers:
         return set()
     loaded = evidence()
     live_lines = reader().live_lines
-    rows = []
+
+    def cited(line):
+        return {
+            (match.group("path"), match.group("locator"))
+            for match in loaded.ANCHOR_RE.finditer(line)
+        }
+
+    rows, standing = [], {}
     for path in ledgers:
-        standing = set(after.get(path, "").splitlines())
+        lines = after.get(path, "").splitlines()
+        standing[path] = [
+            cited(line)
+            for line, live in live_lines(lines)
+            if live and line.lstrip().startswith("|")
+        ]
+        kept = set(lines)
         for number, (line, live) in enumerate(
             live_lines(before[path].splitlines()), start=1
         ):
-            if not live or not line.lstrip().startswith("|") or line in standing:
+            if not live or not line.lstrip().startswith("|") or line in kept:
                 continue
-            anchors = [
-                (match.group("path"), match.group("locator"))
-                for match in loaded.ANCHOR_RE.finditer(line)
-            ]
+            anchors = cited(line)
             if anchors:
                 rows.append((path, number, anchors))
     if not rows:
         return set()
-    cited = sorted({cited for _path, _line, anchors in rows for cited, _ in anchors})
-    at_a, at_b = read_blobs(root, a, cited), read_blobs(root, b, cited)
+    files = sorted({file for _path, _line, anchors in rows for file, _ in anchors})
+    at_a, at_b = read_blobs(root, a, files), read_blobs(root, b, files)
 
-    def resolves(blobs, path, locator):
-        text = blobs.get(path)
-        return text is not None and bool(loaded.resolve_unit(path, locator, text)[0])
+    def resolves(blobs, anchor):
+        text = blobs.get(anchor[0])
+        return text is not None and bool(loaded.resolve_unit(*anchor, text)[0])
 
-    return {
-        (path, number)
-        for path, number, anchors in rows
-        if any(
-            resolves(at_a, cited, locator) and not resolves(at_b, cited, locator)
-            for cited, locator in anchors
-        )
-    }
+    out = set()
+    for path, number, anchors in rows:
+        left = {x for x in anchors if resolves(at_a, x) and not resolves(at_b, x)}
+        live = {x for x in anchors if resolves(at_b, x)}
+        if left and not (live and any(live <= row for row in standing[path])):
+            out.add((path, number))
+    return out
 
 
 def corpus(root, rev):
