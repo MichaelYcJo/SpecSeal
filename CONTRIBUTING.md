@@ -219,7 +219,9 @@ when it arrives.
   section, the ledger fragments into that release's own file,
   `seal/releases/<X.Y.Z>.md`, where the rows stay. `seal/ledger.md` keeps
   the notation and the rows from before the fragments existed, and stops
-  growing.
+  growing. A changelog fragment has no line starting `## `, because that
+  line ends the released section, and the gather refuses a fragment that
+  has one.
 
   **Changing cited code is the case the rule has to answer, and it is not an
   append.** Change what an existing ledger row cites — in `seal/ledger.md`
