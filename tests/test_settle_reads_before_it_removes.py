@@ -920,17 +920,25 @@ def test_the_command_is_reachable_by_the_name_a_document_gives_it():
     )
 
 
-def test_a_missing_sibling_reader_is_a_sentence_and_not_a_traceback(tmp_path):
+def test_a_missing_sibling_reader_is_a_sentence_and_not_a_traceback(
+    tmp_path, monkeypatch, capsys
+):
     """`spec_from_file_location` hands back a spec for any path ending in
     `.py`, present or not, so a missing sibling reaches `exec_module` and dies
-    with `FileNotFoundError` — which is what the rider on
-    `skills/code-review/scripts/round_record.py#load` is still waiting for
-    somebody to fix. This copy arrives repaired, and this is the case that
-    keeps it repaired."""
+    with `FileNotFoundError`. `skills/code-review/scripts/round_record.py#load`
+    had that shape until #590; this copy arrived repaired, and this is the
+    case that keeps it repaired. Since #590 the refusal is exit 2 on stderr,
+    and it names what the missing file is for, per file."""
+    missing = str(tmp_path / "not-here.py")
+    monkeypatch.setitem(
+        settle.PURPOSES, missing, "it is where the fold record is read from"
+    )
     with pytest.raises(SystemExit) as raised:
-        settle.load(str(tmp_path / "not-here.py"), "absent")
-    assert "not-here.py" in str(raised.value), raised.value
-    assert "fold record" in str(raised.value), (
+        settle.load(missing, "absent")
+    err = capsys.readouterr().err
+    assert raised.value.code == 2, raised.value
+    assert "not-here.py" in err, err
+    assert "fold record" in err, (
         "the refusal does not say what the missing file was for"
     )
 

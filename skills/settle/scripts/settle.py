@@ -75,9 +75,10 @@ Exit codes: 0 the report was produced, or the retirement ran, or the root
 holds no work item at all — an empty or absent `seal/specs/` under a present
 `seal/` is the state a complete fold reaches · 1 a retirement was asked for
 and something refused it · 2 the arguments or the tree were unusable, which
-is five states: a `--released-at` ref that does not resolve,
+is six states: a `--released-at` ref that does not resolve,
 a root at neither place, a root in local mode, a repository that opted out,
-and an interpreter below the floor.
+a sibling script it loads that is not beside it, and an interpreter below the
+floor.
 """
 
 import argparse
@@ -148,6 +149,13 @@ CHECKER = os.path.join(
 )
 OPTIN = os.path.join(HERE, "..", "..", "..", "hooks", "optin.py")
 
+# What each sibling is for, in the sentence `load` prints when it is missing.
+PURPOSES = {
+    READER: "it is where the fold record is read from",
+    CHECKER: "it is what resolves a ledger row's anchor",
+    OPTIN: "it is what finds the repository's seal/ root",
+}
+
 SPECS = "seal/specs"
 LEDGER = "seal/ledger.md"
 FRAGMENTS = "seal/ledger"
@@ -179,24 +187,33 @@ def plural(count):
 
 
 def load(path, name):
-    """Import a sibling script by path, or refuse with a sentence.
+    """Import a sibling script by path, or refuse with a sentence saying what
+    the missing file is for — its `PURPOSES` entry — and exit 2.
 
     Not a bare `exec_module`: `spec_from_file_location` hands back a spec for
     any path ending in `.py`, present or not, so a missing reader reaches the
     loader and raises `FileNotFoundError` — a traceback where this file's
-    whole contract is that every failure is a sentence. That is the shape the
-    rider on `round_record.py#load` is still waiting for somebody to fix; it
-    arrives written here rather than copied broken.
+    whole contract is that every failure is a sentence. `round_record.py#load`
+    had that shape until #590 gave all three loaders this one.
+
+    Exit 2 and not 1, because nothing about the tree has been read and 1 here
+    means a retirement was refused. It used to be `SystemExit(<sentence>)`,
+    which exits 1, and it gave every file the fold record's purpose, which is
+    false of `hooks/optin.py` (#590). The purpose is looked up by path rather
+    than passed by each caller, so no call site can name the wrong one.
     """
+    purpose = PURPOSES.get(path, "this command cannot run without it")
     if not os.path.isfile(path):
-        raise SystemExit(
-            f"settle: cannot read {path}, and it is where the fold record is "
-            "read from. This command ships beside it under `skills/`; a copy "
-            "of one script taken on its own is not a plugin."
+        sys.stderr.write(
+            f"settle: cannot read {path}, and {purpose}. This command ships "
+            "beside it under `skills/`; a copy of one script taken on its own "
+            "is not a plugin. Nothing was read.\n"
         )
+        raise SystemExit(2)
     spec = importlib.util.spec_from_file_location(name, path)
     if spec is None or spec.loader is None:
-        raise SystemExit(f"settle: cannot load {path}")
+        sys.stderr.write(f"settle: cannot load {path}, and {purpose}.\n")
+        raise SystemExit(2)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module

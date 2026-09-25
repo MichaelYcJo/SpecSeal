@@ -1,0 +1,95 @@
+"""A shipped script copied without its sibling exits 2, with a sentence (#590).
+
+Four shipped scripts import a sibling by file path: `fold_check.py`,
+`settle.py`, `round_record.py` and `chain_check.py`. In each of them 1 means
+a finding or a refusal the command made about the tree, and 2 means the
+input or the tree was unusable and nothing was read or written. A sibling
+that is not beside the command is the second kind: nothing about the tree
+has been read yet.
+
+Before #590 three of the four said 1 for it. `fold_check.py` and
+`settle.py` raised `SystemExit(<sentence>)`, and a string argument exits 1;
+`round_record.py` did not check at all, so `spec_from_file_location` handed
+back a spec for the absent path and `exec_module` died with a
+`FileNotFoundError` traceback. `chain_check.py` already said 2, because its
+`main` catches the load, and it is here so the class stays one shape.
+
+The invocation per script is the smallest one that reaches its loader
+(`seal/specs/1790297085-settle-retires-a-directory-main-has-not-seen-closed/
+questions.md` Q1): `round_record.py` loads at import, `settle.py` and
+`fold_check.py` load `hooks/optin.py` before they read the root, and
+`chain_check.py` loads its readers after argument parsing, so it needs its
+one required flag.
+"""
+
+import os
+import subprocess
+import sys
+
+import pytest
+
+ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+
+# (script, arguments after the copy's path, a phrase naming what the missing
+# file is for, a phrase that must NOT appear). The last column is #590's
+# second half for `settle.py`: its loader used to give every file the fold
+# record's purpose, which is false of `hooks/optin.py`.
+CASES = [
+    (
+        "skills/settle/scripts/fold_check.py",
+        ["--root", "{root}"],
+        "it is what finds the repository's seal/ root",
+        "fold's markers",
+    ),
+    (
+        "skills/settle/scripts/settle.py",
+        ["--root", "{root}"],
+        "it is what finds the repository's seal/ root",
+        "fold record",
+    ),
+    (
+        "skills/code-review/scripts/round_record.py",
+        [],
+        "it is the checker this command writes records for",
+        None,
+    ),
+    (
+        "skills/code-review/scripts/chain_check.py",
+        ["--baseline", "HEAD", "--root", "{root}"],
+        "the shared reader",
+        None,
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "script, args, purpose, absent", CASES, ids=[c[0].rsplit("/", 1)[1] for c in CASES]
+)
+def test_a_script_copied_alone_exits_2_and_names_what_it_misses(
+    tmp_path, script, args, purpose, absent
+):
+    name = script.rsplit("/", 1)[1]
+    alone = tmp_path / "alone"
+    alone.mkdir()
+    copy = alone / name
+    with open(os.path.join(ROOT, *script.split("/")), encoding="utf-8") as f:
+        copy.write_text(f.read(), encoding="utf-8")
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    done = subprocess.run(
+        [sys.executable, str(copy), *(a.format(root=repo) for a in args)],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        cwd=str(repo),
+    )
+    assert done.returncode == 2, (done.returncode, done.stderr)
+    assert "Traceback" not in done.stderr, done.stderr
+    assert str(alone) in done.stderr, (
+        f"the refusal does not name the missing path: {done.stderr}"
+    )
+    assert purpose in done.stderr, (
+        f"the refusal does not say what the missing file is for: {done.stderr}"
+    )
+    if absent:
+        assert absent not in done.stderr, done.stderr
