@@ -4,8 +4,7 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
-<!-- The approval line is written by the session that spawns `smith`, at the
-spawn. The framer does not write it. -->
+Approved 2026-09-25 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
 
 ## Summary
 
