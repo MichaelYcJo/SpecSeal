@@ -246,9 +246,14 @@ def test_each_verdict_shape_is_written_and_read_back(repo):
 
 def test_pass_is_ticked_when_nothing_is_open_and_the_gate_is_the_flag(repo):
     """After the table every row is closed, so `Pass` is ticked -- and the
-    check the generator runs then refuses `Pass` beside `nobody` on the last
+    check the generator runs then reports `Pass` beside `nobody` on the last
     record, which is the state that makes the verifying round mandatory.
-    The exit is the check's; the record stands."""
+    The exit is the check's; the record stands.
+
+    The check is told `draft`, as `round_record.run_check` tells it on every
+    local run unless `gh` says the pull request is ready, so since #598 the
+    pair prints there rather than failing, and the line names the verifying
+    round. At a ready pull request the same run exits 1."""
     a = round_one(repo)
     write(repo, "mod.py", MOD_CHANGED)
     b = commit(repo, "fix")
@@ -267,9 +272,10 @@ def test_pass_is_ticked_when_nothing_is_open_and_the_gate_is_the_flag(repo):
     cells = fields(record)
     assert cells["Broad gate"] == "abc1234 vs base"
     assert cells["Fixes checked by"].startswith("nobody"), "left as it stands"
-    assert code == 1, out
+    assert code == 0, out
     assert "chain-check:" in out
     assert "`Pass` is checked beside" in out
+    assert "spawn one verifying round at the diff of these fixes" in out, out
 
 
 def test_close_broad_gate_keeps_a_run_the_cell_already_holds(repo):
