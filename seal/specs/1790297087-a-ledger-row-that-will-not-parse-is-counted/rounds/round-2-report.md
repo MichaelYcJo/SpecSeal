@@ -19,7 +19,7 @@ except this file.
 
 ## 🟡 1 — `refused_coordinate` looks at the character after a `#`, not at the path before it
 
-`skills/evidence-check/scripts/evidence_check.py:1605-1615`. This is `LOCATOR_OPEN_RE` and `refused_coordinate`, both units that round 1's fixes created. The code is round 1's own paste-ready fix, copied exactly.
+`skills/evidence-check/scripts/evidence_check.py:1605-1615`. This is `LOCATOR_OPEN_RE` and `refused_coordinate`, both units that round 1's fixes created. The code is round 1's own paste-ready fix, copied exactly. · NAME NOT IN TREE
 
 **What is wrong (executed).** Rule (a) now names a leftover only when it holds both marks, or when a `#` in it is followed by an ASCII letter, `_`, `"` or `<`. It also skips the whole leftover when `://` appears anywhere in it. I probed that boundary in both directions, with each shape beside a good anchor.
 
@@ -103,7 +103,7 @@ Destination: `tests/test_a_row_points_by_content.py`, after `test_an_unticked_co
 
 ### 🟡 1
 
-Replaces lines 1605–1615 of `skills/evidence-check/scripts/evidence_check.py` (`LOCATOR_OPEN_RE` and `refused_coordinate`):
+Replaces lines 1605–1615 of `skills/evidence-check/scripts/evidence_check.py` (`LOCATOR_OPEN_RE` and `refused_coordinate`) · NAME NOT IN TREE:
 
 ```python
 # A URL is prose, `#fragment` and all, but only the URL: a quoted locator is a

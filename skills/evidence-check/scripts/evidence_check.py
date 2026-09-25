@@ -1602,17 +1602,36 @@ CODE_SPAN_RE = re.compile(r"(?<!`)(`+)(?!`)(.+?)(?<!`)\1(?!`)")
 # other than the `>` or `@` that must come next: the quote inside it was bare.
 # At the end of the text the hash is what is missing, not a quote.
 BARE_QUOTE_RE = re.compile(r'[#>]"[^"\n]*"(?=[^>@])')
-# A leftover is a coordinate somebody wrote, not prose, when it holds both
-# marks, or a `#` that opens a locator: a name, a quoted line, `<module>`.
-# `#299` is an issue number and `@cache` a decorator, in a span or out of one.
-LOCATOR_OPEN_RE = re.compile(r'#[A-Za-z_"<]')
+# A URL is prose, `#fragment` and all, but only the URL: a quoted locator is a
+# line of text and may quote one, so the URL is blanked and the rest is read.
+URL_RE = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*://[^\s"`]*')
+# A hash after a path with no anchor between them: `src/a.py@abcdef12`. An
+# address ends in a domain, so a hex run followed by `.` is not one.
+PATH_HASH_RE = re.compile(r"[0-9a-f]+(?![\w.])")
 
 
 def refused_coordinate(s):
-    """True where S, left over after both patterns, is a coordinate."""
-    if "://" in s:
-        return False
-    return ("#" in s and "@" in s) or bool(LOCATOR_OPEN_RE.search(s))
+    """True where S, left over after both patterns, is a coordinate: both
+    marks, or a `#` glued to a path or a file name, or a hash after a path.
+    `#299`, `org/repo#299`, `#ifdef`, `C#` and `@cache` are prose."""
+    s = URL_RE.sub(" ", s)
+    if "#" in s and "@" in s:
+        return True
+    # A word's closing punctuation is the sentence's, not the word's, so
+    # `org/repo#299,` is an issue number like `org/repo#299`.
+    for token in (word.rstrip(".,;:!?)]") for word in s.split()):
+        head, mark, tail = token.partition("#")
+        if mark and not tail.isdigit():
+            if "/" in head or "." in head:
+                return True
+            if head[-1:].isalnum() and tail[:1].isalpha():
+                return True
+            if not head and tail[:1] in ('"', "<"):
+                return True
+        head, mark, tail = token.partition("@")
+        if mark and ("/" in head or "." in head) and PATH_HASH_RE.match(tail):
+            return True
+    return False
 
 
 def grounds_cells(text):
@@ -1670,10 +1689,11 @@ def malformed_rows(text):
     like OLD-FORMAT. Two ways in:
 
     - a coordinate the patterns refused: what is left of the cell once every
-      `ANCHOR_RE` and `OLD_COORD_RE` match is blanked still holds a span or a
-      word that holds both marks or a `#` opening a locator. An issue number
-      `#299` and a decorator `@cache` are prose, in a span or out of one, and
-      so is a URL;
+      `ANCHOR_RE` and `OLD_COORD_RE` match is blanked, and every URL in it,
+      still holds both marks, a `#` glued to a path or a file name, or a path
+      followed by `@` and a hash. An issue number `#299` or `org/repo#299`, a
+      directive `#ifdef`, a decorator `@cache` and an address are prose, in a
+      span or out of one;
     - no coordinate at all: the cell is not empty, nothing in it matches
       either pattern, and some other cell of the row is not empty either. A
       row that claims something and cites nothing reads as covered and is

@@ -1005,8 +1005,8 @@ def test_what_is_left_of_a_cell_is_read_span_by_span(repo):
     """Beside a good anchor, what the patterns refused is still named: a
     coordinate with no hash, one written without backticks, one in a
     double-backtick span because it holds a backtick itself, the shape of the
-    live `EXPANDS` row, and one whose locator opens with a digit, which holds
-    both marks and no `#` opening a locator. Each is named whole, as
+    live `EXPANDS` row, and one whose locator opens with a digit, which is
+    named whether it holds one mark or both. Each is named whole, as
     written."""
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
@@ -1048,9 +1048,9 @@ def test_a_fragment_row_after_a_headed_table_is_still_read(repo):
 def test_prose_marks_beside_a_good_anchor_are_not_refused(repo):
     """Round 1's 🟡 1. An issue number, a decorator, an annotation, an address
     and a URL fragment in a code span are prose, exactly as `(#299)` outside
-    one is; refusing them exits 2 on prose. A leftover is a coordinate only
-    when it holds both marks or a `#` that opens a locator, and never in a
-    URL."""
+    one is; refusing them exits 2 on prose. A leftover is a coordinate when
+    it holds both marks, a `#` glued to a path or a file name, or a path
+    followed by `@` and a hash, and a URL is blanked first."""
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
     good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
@@ -1074,6 +1074,55 @@ def test_an_unticked_coordinate_with_one_mark_is_named(repo, bare):
     ledger.write_text(f"| A | {good}, {bare} |\n", encoding="utf-8")
     r = run(["."], str(repo))
     assert f"MALFORMED {bare}  " in r.stdout, r.stdout
+
+
+@pytest.mark.parametrize(
+    "coord",
+    [
+        'src/service.py#"X = "https://example.com""@abcdef12',
+        "src/service.py@abcdef12",
+        "src/service.py#1x",
+        "docs/a.ko.md#개요",
+        "docs/a.md#Überblick",
+        "src/a.py#",
+        "Makefile#build",
+        '#"def handler"',
+        "#handler@abcdef12",
+    ],
+)
+def test_a_coordinate_the_opener_list_misses_is_named(repo, coord):
+    """Round 2's finding 1. A `#` is a coordinate's when a path precedes it,
+    not when an ASCII letter follows it, and a URL inside a quoted line is
+    blanked rather than excusing the whole text: the first shape is #299's
+    own, and it had gone silent beside a good anchor. A path followed by `@`
+    and a hash is a coordinate with its anchor left off, and a locator may
+    open with a digit, a letter outside ASCII, or nothing at all. A file name
+    with no dot glued to a name, a quoted line with no path, and a path-less
+    coordinate holding both marks are named beside a good anchor too."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, `{coord}` |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert f"MALFORMED {coord}  " in r.stdout, r.stdout
+
+
+def test_a_directive_or_a_string_holding_a_hash_is_prose(repo):
+    """Round 2's finding 1, the other half: a `#` that opens a word is not a
+    locator, outside backticks or in a span, and a digits-only locator after a
+    path is an issue number. An address whose domain opens with hex letters
+    is not a path followed by a hash."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(
+        f"| A | {good}, guarded by #ifdef DEBUG and #define MAX, "
+        '`#include <x.h>`, `"#"`, org/repo#299, C#, jane.doe@cafe.example.com |\n',
+        encoding="utf-8",
+    )
+    r = run(["."], str(repo))
+    assert "0 old-format · 0 malformed" in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
 
 
 @pytest.mark.parametrize(
