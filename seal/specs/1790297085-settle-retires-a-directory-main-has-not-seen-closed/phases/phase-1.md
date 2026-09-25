@@ -73,8 +73,8 @@ Answer `questions.md` Q1 where the phase meets it.
 - **Writing the fragment turned `plan.md` into a record `evidence-check`
   reads**, because a work item with a fragment has not shipped and its
   records' names are resolved. The plan's ledger list spelled G1's anchor as
-  `fold_check.py#load@9b6d4b98`, a path relative to nothing, which read as
-  BROKEN. It now names the full path without a hash; the run exits 0 with
+  the script's bare file name with its old hash, a path relative to nothing,
+  which read as BROKEN. It now names the full path without a hash; the run exits 0 with
   11 names read in this work item.
 
 ## What this phase removes

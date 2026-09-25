@@ -60,7 +60,12 @@ retires it by that rule rather than by a record. One condition narrows it:
 nothing in its record may be open, because an open `## Not verified` or
 `evidence-todo.md` row is a claim with an answerer, not a rule. Whether a
 directory qualifies is `unverified_check.py#retired_by_rule`, the predicate
-every CI reader asks of the merge-base, asked here of the working tree.
+every CI reader asks of the merge-base, asked here of the working tree AND of
+the merge base of `--released-at` and `HEAD` (#602). A row closed on the
+working branch and still open at that base passes the tree and fails the
+release pull request, so the directory is kept, under a heading of its own
+naming the base, until the closure has merged to the branch the release
+merges to.
 
 **Local mode is refused rather than reported on.** A root under the common
 git directory is never committed, so no ref holds the work item directories,
@@ -74,11 +79,13 @@ it; a directory of that name is not one, and is refused as no root.
 Exit codes: 0 the report was produced, or the retirement ran, or the root
 holds no work item at all — an empty or absent `seal/specs/` under a present
 `seal/` is the state a complete fold reaches · 1 a retirement was asked for
-and something refused it · 2 the arguments or the tree were unusable, which
-is six states: a `--released-at` ref that does not resolve,
-a root at neither place, a root in local mode, a repository that opted out,
-a sibling script it loads that is not beside it, and an interpreter below the
-floor.
+and something refused it — a guard held a directory, or a spec-less
+directory's closure has not reached the merge base of `--released-at` and
+`HEAD` · 2 the arguments or the tree were unusable, which is seven states: a
+`--released-at` ref that does not resolve, a `--released-at` ref sharing no
+commit with `HEAD`, a root at neither place, a root in local mode, a
+repository that opted out, a sibling script it loads that is not beside it,
+and an interpreter below the floor.
 """
 
 import argparse
@@ -434,7 +441,17 @@ RULE_HEADING = (
 RULE_KEPT_HEADING = (
     "kept by the rule — no `spec.md`, but the record still holds an open "
     "row, which\nleaves by being closed (✅ with what closed it) in a pull "
-    "request merged before the\none that retires the directory, never with it:"
+    "request merged before the\none that retires the directory, and merged "
+    "to the branch the release merges to,\nnever with it:"
+)
+# #602: nothing is open in the tree, and the base still holds a row open.
+# `{base}` is `unverified_check.py#base_label`'s spelling of the merge base of
+# `--released-at` and `HEAD`, the revision both CI readers ask the rule of.
+RULE_BASE_HEADING = (
+    "kept until the closure reaches {base} — no `spec.md` and nothing open "
+    "here, but\nthe record there still holds an open row, and the CI readers "
+    "ask the rule there.\nMerge the closure to the branch the release merges "
+    "to first; the directory goes\nin a later pull request:"
 )
 TAKES_HEADING = (
     "what a retirement here would take with it — read each before `settle --retire`:"
@@ -445,13 +462,24 @@ READERS_HEADING = (
 )
 
 
-def write_rule_kept(kept, out):
-    """Each spec-less directory the rule arm keeps, with every open row."""
+def write_rule_kept(kept, out, base=None):
+    """Each spec-less directory the rule arm keeps, with every open row.
+
+    With `base`, the rows are the ones open at that revision rather than in
+    the tree, and each line says so. A directory kept there with no row open
+    is absent at the base or wrote a `spec.md` in its history there, and the
+    line says that rather than printing no reason."""
+    where = f" at {base}" if base else ""
     for work_item_id, rows in kept:
         out.write(f"    {work_item_id}\n")
         for name, item in rows:
-            out.write(f"        open in {name}: {item}\n")
-        if not rows:
+            out.write(f"        open in {name}{where}: {item}\n")
+        if not rows and base:
+            out.write(
+                f"        the rule does not hold at {base}: the directory is "
+                "absent there, or its history there wrote a `spec.md`\n"
+            )
+        elif not rows:
             out.write(
                 "        the rule's predicate refused it with nothing open read\n"
             )
@@ -624,18 +652,30 @@ def survey(root, ref):
     which is exactly the mutation that reopens that finding.
 
     What the retirement does take from here is `released`, which only git can
-    answer and which this has already asked.
+    answer and which this has already asked, and `base`, the merge base of
+    `ref` and `HEAD` (#602), for the same reason.
+
+    None where `ref` does not resolve. Where it resolves and shares no commit
+    with `HEAD`, the dict holds `base` None and nothing else is classified:
+    the rule arm asks its predicate of the base, and asking it of `None`
+    would ask the working tree instead, which is the one answer #602 exists
+    to stop `settle` from giving alone.
     """
     present = work_items(root)
     on_base = released(root, ref)
     if on_base is None:
         return None
     reader = load(READER, "specseal_unverified_reader")
+    base = reader.merge_base(root, ref)
+    if base is None:
+        return {"base": None, "base_label": None}
     folded = reader.folded_items(root)
     held = open_items(root)
     rows = coordinates(root)
 
     survey = {
+        "base": base,
+        "base_label": reader.base_label(ref, reader.commit_of(root, ref), base),
         "released": [i for i in present if i in on_base],
         "unreleased": [i for i in present if i not in on_base],
         "folded": [],
@@ -645,6 +685,7 @@ def survey(root, ref):
         "anchored": [],
         "rule": [],
         "rule_kept": [],
+        "rule_base_kept": [],
         "retiring": [],
         "takes": {},
         "citations": {},
@@ -671,15 +712,22 @@ def survey(root, ref):
         # D3: a released work item with no `spec.md` states no rule, so there
         # is nothing to place and it is not "ungrouped". Whether the rule arm
         # takes it is the predicate's answer, the one every CI reader asks of
-        # the merge-base; this only asks it of the working tree.
+        # the merge-base, and since #602 this asks it there too: a closure on
+        # the working branch that the base has not seen passes the tree and
+        # fails the release pull request. The tree is asked first, so a
+        # directory with a row open on disk stays under *kept by the rule*.
         if not has_spec(root, work_item_id):
             directory = f"{SPECS}/{work_item_id}"
-            if reader.retired_by_rule(root, None, directory):
-                survey["rule"].append(work_item_id)
-            else:
+            if not reader.retired_by_rule(root, None, directory):
                 survey["rule_kept"].append(
                     (work_item_id, reader.open_record_rows(root, None, directory))
                 )
+            elif not reader.retired_by_rule(root, base, directory):
+                survey["rule_base_kept"].append(
+                    (work_item_id, reader.open_record_rows(root, base, directory))
+                )
+            else:
+                survey["rule"].append(work_item_id)
             continue
         segment, reason = segment_of(rows.get(work_item_id, []))
         if segment is None:
@@ -794,7 +842,9 @@ def report(found, ref, out=sys.stdout):
     )
     write(
         f"no spec.md: {len(found['rule'])} to retire by the rule, "
-        f"{len(found['rule_kept'])} kept by it\n"
+        f"{len(found['rule_kept'])} kept by it, "
+        f"{len(found['rule_base_kept'])} kept until the closure reaches "
+        f"{found['base_label']}\n"
     )
 
     for segment in sorted(found["grouped"]):
@@ -838,6 +888,10 @@ def report(found, ref, out=sys.stdout):
     if found["rule_kept"]:
         write(f"\n{RULE_KEPT_HEADING}\n")
         write_rule_kept(found["rule_kept"], out)
+
+    if found["rule_base_kept"]:
+        write(f"\n{RULE_BASE_HEADING.format(base=found['base_label'])}\n")
+        write_rule_kept(found["rule_base_kept"], out, base=found["base_label"])
 
     if found["retiring"]:
         write(f"\n{TAKES_HEADING}\n")
@@ -901,7 +955,22 @@ def retire(found, root, out=sys.stdout):
     function at another moment, which is the coupling the paragraph above is
     about. It also has a second reader now — `stranded` is `marked & present`,
     and that one is not inert at all.
+
+    **The rule arm asks its predicate twice (#602)**: of the tree, and of
+    `found["base"]`, the merge base of `--released-at` and `HEAD`. It takes
+    the base from `found` as it takes *released*, and asks the predicate
+    itself. A `found` with no base is refused at exit 2 before anything is
+    read, because the predicate asked of `None` is asked of the tree alone.
     """
+    base = found.get("base")
+    if not base:
+        out.write(
+            "nothing removed: no merge base between --released-at and HEAD "
+            "was handed to the retirement, and the rule arm asks its "
+            "predicate there.\n"
+        )
+        return 2
+    label = found.get("base_label") or base
     reader = load(READER, "specseal_unverified_reader")
     marked = reader.folded_items(root)
     present = set(work_items(root))
@@ -910,16 +979,24 @@ def retire(found, root, out=sys.stdout):
     # The rule arm (D3), read from the tree like the marker arm and for the
     # same reason: a released directory with no `spec.md` whose record holds
     # nothing open is a candidate with no marker, and one whose record does
-    # is kept and named. The predicate is the one every CI reader asks.
+    # is kept and named. The predicate is the one every CI reader asks, and it
+    # is asked where they ask it as well as here (#602): a directory whose
+    # closure the base has not seen is kept and named with the rows open there.
     spec_less = sorted(
         i for i in (present & released_at_base) - marked if not has_spec(root, i)
     )
-    by_rule = [
+    by_tree = [
         i for i in spec_less if reader.retired_by_rule(root, None, f"{SPECS}/{i}")
     ]
+    by_rule = [i for i in by_tree if reader.retired_by_rule(root, base, f"{SPECS}/{i}")]
     rule_kept = [
         (i, reader.open_record_rows(root, None, f"{SPECS}/{i}"))
         for i in spec_less
+        if i not in by_tree
+    ]
+    base_kept = [
+        (i, reader.open_record_rows(root, base, f"{SPECS}/{i}"))
+        for i in by_tree
         if i not in by_rule
     ]
     candidates = sorted((marked & present & released_at_base) | set(by_rule))
@@ -930,7 +1007,7 @@ def retire(found, root, out=sys.stdout):
     holding = {i for row in anchored for i in row.items}
     refused = [i for i in candidates if i in held or i in holding]
     removable = [i for i in candidates if i not in held and i not in holding]
-    if not removable and not refused and not rule_kept:
+    if not removable and not refused and not rule_kept and not base_kept:
         # THREE states, and they are told apart by what the sentence asserts
         # rather than by what happens to be empty. Round 1 split one of them
         # out of the other; round 2's finding 2 is that the split fired on
@@ -996,7 +1073,10 @@ def retire(found, root, out=sys.stdout):
     if rule_kept:
         out.write(f"\n{RULE_KEPT_HEADING}\n")
         write_rule_kept(rule_kept, out)
-    kept = len(refused) + len(rule_kept)
+    if base_kept:
+        out.write(f"\n{RULE_BASE_HEADING.format(base=label)}\n")
+        write_rule_kept(base_kept, out, base=label)
+    kept = len(refused) + len(rule_kept) + len(base_kept)
     out.write(
         f"\nretired {len(removable)} work item{plural(len(removable))}; {kept} kept\n"
     )
@@ -1017,7 +1097,9 @@ def main(argv=None):
         default="origin/main",
         metavar="REF",
         help="the branch a release merges to. A work item is released when "
-        "its directory is present there (default: origin/main)",
+        "its directory is present there, and a directory with no spec.md is "
+        "retired only when its record is closed at the merge base of this "
+        "and HEAD too (default: origin/main)",
     )
     ap.add_argument(
         "--retire",
@@ -1114,6 +1196,20 @@ def main(argv=None):
             "read. Without it every work item reads as unreleased and this "
             "would report nothing to fold, which is the one answer it must "
             "not give by accident.\n"
+        )
+        return 2
+    # #602: the rule arm asks its predicate of the merge base of the ref and
+    # `HEAD`, the revision both CI readers compare against. Two histories that
+    # share no commit have none, and the predicate asked of nothing would be
+    # asked of the working tree alone — the answer that let a closure the base
+    # had not seen retire its directory. Refused in both arms, so the report
+    # never lists what the retirement then refuses.
+    if found["base"] is None:
+        sys.stderr.write(
+            f"settle: --released-at {args.released_at} and HEAD share no commit "
+            f"in {root} — nothing was read. The rule arm asks whether a record "
+            "is closed at their merge base, the revision the CI readers compare "
+            "against, and there is none to ask.\n"
         )
         return 2
 
