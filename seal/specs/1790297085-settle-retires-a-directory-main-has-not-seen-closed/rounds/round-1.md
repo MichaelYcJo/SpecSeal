@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 605 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `32993c08dc67018f808d73dd1a44509478dbf339..9b5f7be9028c95184feb0a3221c76d89fed5a241`, 4 commits |
 | Contract changes | report → report, main, round-2-report.md, round-3-report.md, pytest |
 | New units | RULE_MOVED_HEADING (depth 1); NO_BASE_SAYS (depth 1); base_heading (depth 1); names_path (depth 1); test_the_path_is_found_as_a_windows_oserror_spells_it (depth 1); test_a_base_that_moved_past_the_fork_names_the_merge_that_moves_it (depth 1); test_the_report_refuses_a_survey_with_no_base (depth 1); test_a_shallow_clone_is_not_told_the_refs_share_no_commit (depth 1); test_each_sibling_is_refused_with_its_own_purpose (depth 1) |
