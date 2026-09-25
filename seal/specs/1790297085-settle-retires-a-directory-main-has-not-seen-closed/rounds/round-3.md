@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 605 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `fea1aefa0a275cf3d5a0b63e1fdb4d198f0cfc4e..2ae2b3959a6967186f14ee70f42cec0421f000b2`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 3 of work item 1790297085 is the verifying round after the run's one reope
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | The skill names *kept until the closure reaches <base>* as the heading for every directory kept at the base; since bc63b91d the moved case prints *kept: the closure has not reached <base>* | `skills/settle/SKILL.md#"### 1. Read what is waiting"` | open | Read. The directory is still kept and the remedy printed, so behaviour is unaffected. Capped run: candidate `deferred` to a new from-review issue the orchestrator files (with ⬜ 3), answered by the repository owner |
-| ⬜ 2 | 0.14.0 D3's re-read note says both heading wordings open *kept until the closure reaches <base>*; ledger M2's claim names that heading for the moved case | `seal/releases/0.14.0.md` D3; `seal/ledger/1790297085-settle-retires-a-directory-main-has-not-seen-closed.md` M2 | open | Read. Paperwork correction, outside Needs a fix; the stale clause comes from round 2's ⬜ 4 fix and not from round 2's ⬜ 3 |
-| ⬜ 3 | bc63b91d reworded the report's summary line and pinned nothing on it | `skills/settle/scripts/settle.py#report` | open | Read: no case asserts either wording; agent-contract §14. Capped run: candidate `deferred` to the same new issue as ⬜ 1, answered by the repository owner |
-| ⬜ 4 | The unverified-check documents say CI compares at the fork; on the merge ref it compares at the base's tip | `.github/workflows/hygiene.yml` unverified step comment; `templates/hygiene.yml` same; `skills/verify/scripts/unverified_check.py` module docstring, `#merge_base`, `#main` help; `README.md` and `README.ko.md` unverified-check rows; `docs/one-root-by-lifetime.md` and `.ko.md`; `skills/verify/SKILL.md` baseline paragraph | open | Read. Predates this run (#272), and every conclusion holds on the merge ref. Capped run: candidate `deferred` to a new from-review issue, answered by the repository owner |
+| ⬜ 1 | The skill names *kept until the closure reaches <base>* as the heading for every directory kept at the base; since bc63b91d the moved case prints *kept: the closure has not reached <base>* | `skills/settle/SKILL.md#"### 1. Read what is waiting"` | deferred #611 | #611 — the skill's second kept-at-base heading, filed with the round's paste-ready text; Read. The directory is still kept and the remedy printed, so behaviour is unaffected. Capped run: candidate `deferred` to a new from-review issue the orchestrator files (with ⬜ 3), answered by the repository owner |
+| ⬜ 2 | 0.14.0 D3's re-read note says both heading wordings open *kept until the closure reaches <base>*; ledger M2's claim names that heading for the moved case | `seal/releases/0.14.0.md` D3; `seal/ledger/1790297085-settle-retires-a-directory-main-has-not-seen-closed.md` M2 | answered | corrected at 2ae2b3959a6967186f14ee70f42cec0421f000b2: `seal/releases/0.14.0.md` D3's re-read note and ledger fragment M2 name both heading wordings; Read. Paperwork correction, outside Needs a fix; the stale clause comes from round 2's ⬜ 4 fix and not from round 2's ⬜ 3 |
+| ⬜ 3 | bc63b91d reworded the report's summary line and pinned nothing on it | `skills/settle/scripts/settle.py#report` | deferred #611 | #611 — the summary line's pin, filed with the round's assertion; Read: no case asserts either wording; agent-contract §14. Capped run: candidate `deferred` to the same new issue as ⬜ 1, answered by the repository owner |
+| ⬜ 4 | The unverified-check documents say CI compares at the fork; on the merge ref it compares at the base's tip | `.github/workflows/hygiene.yml` unverified step comment; `templates/hygiene.yml` same; `skills/verify/scripts/unverified_check.py` module docstring, `#merge_base`, `#main` help; `README.md` and `README.ko.md` unverified-check rows; `docs/one-root-by-lifetime.md` and `.ko.md`; `skills/verify/SKILL.md` baseline paragraph | deferred #612 | #612 — the pre-existing unverified-check sentences, filed as a documents issue; Read. Predates this run (#272), and every conclusion holds on the merge ref. Capped run: candidate `deferred` to a new from-review issue, answered by the repository owner |
 | 🟢 | round 2's finding 1 is closed — both README rows and the skill say CI asks at the fork only until `--released-at` moves past it, and the skill names the merge | `README.md` and `README.ko.md` settle rows; `skills/settle/SKILL.md#"### 1. Read what is waiting"` | verified | Executed: each of the four new pins red with its sentence reverted, green restored; read against `base_heading` |
 | 🟢 | round 2's finding 2 is closed — settle.py says the fork and CI can disagree in either direction | `skills/settle/scripts/settle.py` module docstring; `#main` comment | verified | Read against round 2's executed probe; a grep for the clause finds it nowhere it is false |
 | 🟢 | round 2's finding 3 is closed at its five coordinates | changelog fragment #602; plan.md chosen row; 0.14.0 D3; ledger M2; spec.md Data and interfaces | answered | Read; the heading clause D3 and M2 still carry is this round's ⬜ 2 |
