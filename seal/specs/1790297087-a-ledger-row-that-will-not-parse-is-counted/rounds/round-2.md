@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 606 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `eeadbfeb30e3e286bdfaff73a26e28b942ab074f..c8218c815deecdefbc3702099201fba5b05a186d`, 2 commits |
+| Contract changes | refused_coordinate → round-1-report.md, round-1.md, round-2-report.md, round-2.md, malformed_rows |
+| New units | URL_RE (depth 1); PATH_HASH_RE (depth 1); test_a_coordinate_the_opener_list_misses_is_named (depth 1); test_a_directive_or_a_string_holding_a_hash_is_prose (depth 1) |
 | Needs a fix | yes — finding 1 (rule (a)'s new boundary misses #299's bare-quote shape when the quoted line holds a URL, as well as `path@hash` and non-ASCII or digit-opening locators beside a good anchor, and it refuses `#ifdef` in prose) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 2 of work item 1790297087 is the verifying round over round 1's fixes (db9
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `refused_coordinate` looks at the character after a `#`, not at the path before the mark. Beside a good anchor it misses a bare-quote coordinate whose quoted line holds a URL, a `path@hash` with no anchor, and a locator opening with a digit, a non-ASCII letter or nothing. Outside backticks, `#ifdef` exits 2 | `skills/evidence-check/scripts/evidence_check.py:1605-1615` | open | Executed: five probe cases red at aca4f283 and green with the fix below. The checker at db92ea3b named each missed shape. The unit was created by round 1's fixes |
-| ⬜ 2 | The *Rule (a)'s reach* row still states the build's rule, which round 1's fix replaced | `seal/specs/1790297087-a-ledger-row-that-will-not-parse-is-counted/overview.md:19` | open | Read. A correction to the run's paperwork, not counted in Needs a fix |
+| 🟡 1 | `refused_coordinate` looks at the character after a `#`, not at the path before the mark. Beside a good anchor it misses a bare-quote coordinate whose quoted line holds a URL, a `path@hash` with no anchor, and a locator opening with a digit, a non-ASCII letter or nothing. Outside backticks, `#ifdef` exits 2 | `skills/evidence-check/scripts/evidence_check.py:1605-1615` | **fixed** `c003fee90d51cf62d1da6187521474017f58091a` | fixed at c003fee90d51cf62d1da6187521474017f58091a; Executed: five probe cases red at aca4f283 and green with the fix below. The checker at db92ea3b named each missed shape. The unit was created by round 1's fixes |
+| ⬜ 2 | The *Rule (a)'s reach* row still states the build's rule, which round 1's fix replaced | `seal/specs/1790297087-a-ledger-row-that-will-not-parse-is-counted/overview.md:19` | answered | corrected at c003fee90d51cf62d1da6187521474017f58091a: `overview.md`'s *Rule (a)'s reach* row and the first *Fed back into the spec* bullet state the rule as it now is; Read. A correction to the run's paperwork, not counted in Needs a fix |
 | 🟢 | round 1's finding 1 is closed for the shapes it named: issue number, decorator, address and URL beside a good anchor are prose, and a bare `src/service.py#Box` and `b.py#g>h` are named | `skills/evidence-check/scripts/evidence_check.py:1696` | verified | Executed: both new cases red at db92ea3b and green at aca4f283. The class is still open, which is this round's finding 1 |
 | 🟢 | round 1's finding 2 is closed: a quoted locator with no hash gets the missing-hash remedy | `skills/evidence-check/scripts/evidence_check.py:1604` | verified | Executed: four shapes get the missing-hash remedy, two bare-quote shapes keep theirs, and both parametrized cases were red at db92ea3b |
 | 🟢 | round 1's finding 3 is closed: the advisor header counts texts and the closing line is gone | `hooks/evidence-advisor.py:190` | verified | Executed: the S11 case and the docstring pin were red against the advisor at db92ea3b and are green at aca4f283 |
