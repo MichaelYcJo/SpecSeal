@@ -4084,7 +4084,7 @@ def ledger_row(claim, anchors=("pkg/mod.py#helper",)):
     return f"| R1 · {claim} | {cited} | **Executed** 2026-01-01 | 2026-01-01 | |\n"
 
 
-def ledger_range(repo, row_after, module_after, ledger_before=None):
+def ledger_range(repo, row_after, module_after, ledger_before=None, pool=FILLER):
     """A ledger row anchored on `pkg/mod.py#helper` whose claim `docs/x.md`
     restates, then one commit taking the ledger to `row_after` (None: the
     row removed) and `pkg/mod.py` to `module_after`."""
@@ -4095,7 +4095,7 @@ def ledger_range(repo, row_after, module_after, ledger_before=None):
             LEDGER: ledger_before or LEDGER_HEAD + ledger_row(FOUND),
             "pkg/mod.py": MODULE,
             "docs/x.md": f"# x\n\n{RESTATED}\n",
-            **FILLER,
+            **pool,
         },
         "a ledger row, its code, and a document stating its claim",
     )
@@ -4170,10 +4170,14 @@ def test_a_row_whose_line_still_stands_takes_no_exit(tmp_path):
     anchor; the other still stands at the tip, so the row was not removed
     and the removed copy is measured as any removed line is. A ledger in this
     state has a BROKEN row `evidence-check` refuses, which is why the loud
-    direction is the one kept. Red with the standing-line test dropped."""
+    direction is the one kept. Red with the standing-line test dropped.
+    The standing copy is a second carrier of every phrase, which halves each
+    one's weight, so the pool is `MORE_FILLER`'s size, as #563's cases are."""
     repo = tmp_path / "probe"
     twice = LEDGER_HEAD + ledger_row(FOUND) + ledger_row(FOUND)
-    head = ledger_range(repo, ledger_row(FOUND), KEPT_MODULE, twice)
+    head = ledger_range(
+        repo, ledger_row(FOUND), KEPT_MODULE, twice, {**FILLER, **MORE_FILLER}
+    )
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 1, f"a row still standing at the tip took the exit:\n{text}"
     assert coordinates_in(text) == {"docs/x.md:3"}, text
