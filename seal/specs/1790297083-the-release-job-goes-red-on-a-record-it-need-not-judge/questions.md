@@ -29,7 +29,7 @@ Alternatives table. Anyone can overturn one by opening what the frame opened.
 |---|---|---|---|---|---|
 | Q1 | Which `chain_check.py#main` and `#checked_by` ledger rows drift, and does each claim still hold after the edit? | the work | Re-stamp with a dated note where the claim holds; correct it in place with a `Corrected <date>` note where the edit made it false | Phase 4 runs `evidence_check.py`, re-reads each DRIFTED row, and records what it found in `phases/phase-4.md` | ⬜ |
 | Q2 | How does `written_late` learn the restoration: a `fork` argument, or a restored set computed once in `main`? | the work | A `fork` argument keeps the function self-contained. A set computed once saves one `git log` per record | Whichever keeps one predicate with one definition; phase 2 lists the call sites it changed | ⬜ |
-| Q3 | Does any existing case already build a merge on the branch, so that A3 needs no new case? | the work | If one does, name it in `phases/phase-1.md`. If none does, add the S3 case | Add the S3 case | ⬜ |
+| Q3 | Does any existing case already build a merge on the branch, so that A3 needs no new case? | the work | If one does, name it in `phases/phase-1.md`. If none does, add the S3 case | Add the S3 case | ✅ none does — the five merges in `test_chain_check_at_the_pull_request.py` are retirement fixtures that never reach `written_late`, so the S3 case was added as A3 (`phases/phase-1.md`) |
 | Q4 | Does work item C's edit to `main` collide textually with A's? | the work | A leaves `load` and the `try`/`except` around it alone. Any remaining conflict is resolved when C merges the release branch in | C resolves after A squashes (milestone order) | ⬜ |
 
 Answered rows feed back into docs/ (policy clause or open-questions section)
