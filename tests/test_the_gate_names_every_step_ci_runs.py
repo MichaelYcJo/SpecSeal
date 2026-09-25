@@ -34,8 +34,12 @@ is partial (#424's finding 4).
 import ast
 import importlib.util
 import os
+import re
 import subprocess
 import sys
+
+import pytest
+from conftest import workflow_step
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 GATE = os.path.join(ROOT, "skills", "verify", "scripts", "broad_gate.py")
@@ -423,13 +427,13 @@ def sealable_repo(tmp_path, resolution):
     return repo
 
 
-def run_gate(repo, keep):
+def run_gate(repo, keep, base="base"):
     return subprocess.run(
         [
             sys.executable,
             GATE,
             "--base",
-            "base",
+            base,
             "--root",
             str(repo),
             "--shape",
@@ -713,11 +717,21 @@ def test_a_repository_with_no_hygiene_workflow_is_sealed_exactly_as_before(tmp_p
         f"the stamp of a repository with no hygiene workflow says something "
         f"about that workflow's steps:\n{result.stdout}"
     )
-    said = result.stderr
-    for echoed in (str(tmp_path), os.path.realpath(GATE), sys.executable):
-        said = said.replace(echoed, "")
-    assert "release" not in said, result.stderr
-    assert gate.WORKFLOW not in result.stderr, result.stderr
+    # What names the release job, and nothing a path can carry by accident:
+    # the job as `coverage_line` spells it, the workflow's path, and every
+    # step name the partition holds. A bare `release` used to be searched
+    # for once the echoed paths were cut out of the stream, and a checkout
+    # under a `release/` directory then went red for a path nobody had cut
+    # yet (#499).
+    for names_the_job in (
+        f"`{gate.RELEASE_JOB}`",
+        gate.WORKFLOW,
+        *(name for name, _, _ in gate.PARTITION),
+    ):
+        assert names_the_job not in result.stderr, (
+            f"the gate names {names_the_job!r} for a repository with no "
+            f"hygiene workflow:\n{result.stderr}"
+        )
 
     labels = tuple(
         row[0]
@@ -861,3 +875,174 @@ def test_the_two_clauses_render_together_and_hold_the_right_names():
     assert "a declared review chain has the round record it claimed" not in said, (
         f"a step the gate DOES mirror is named as unanswered:\n{said}"
     )
+
+
+# --- #473: the arms CI skips on a release pull request ------------------------
+
+# The one line a run that leaves the two arms out prints, pinned verbatim
+# because a person reads it to learn why two arms they expected did not run
+# (`agent-contract` §14).
+#
+# The path is the gate's own `WORKFLOW`, built with `os.path.join`, so the
+# pin holds on every leg of the matrix: on `windows-latest` the line reads
+# `.github\workflows\hygiene.yml` (round 1, 🔴 2).
+SKIPPED_LINE = (
+    f"broad-gate: the base is `main`, and {gate.WORKFLOW} skips "
+    "the steps the `survivors` and `corrections` arms mirror on a pull request "
+    "into `main`, so this run does not run them either"
+)
+
+# A `release` job carrying the two steps whose arms skip at `main`, as
+# `hygiene.yml` names them.
+WORKFLOW_WITH_THE_SKIPPED_STEPS = """\
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: wording this branch removed is not still standing elsewhere
+        run: true
+      - name: no merge on this branch dropped a correction the ledger had made
+        run: true
+"""
+
+
+def with_the_skipped_steps(repo):
+    """The fixture, given the two steps and a `main` branch at its base."""
+    write(repo, ".github/workflows/hygiene.yml", WORKFLOW_WITH_THE_SKIPPED_STEPS)
+    commit(repo, "the repository gains the two steps that skip at main")
+    git(repo, "branch", "main", "base")
+    return repo
+
+
+@pytest.mark.parametrize(
+    "given, workflow, arms",
+    [
+        ("main", WORKFLOW_WITH_THE_SKIPPED_STEPS, ["survivors", "corrections"]),
+        ("origin/main", WORKFLOW_WITH_THE_SKIPPED_STEPS, ["survivors", "corrections"]),
+        # One `origin/` is the remote's; a second is part of the name.
+        ("origin/origin/main", WORKFLOW_WITH_THE_SKIPPED_STEPS, []),
+        ("base", WORKFLOW_WITH_THE_SKIPPED_STEPS, []),
+        ("release/v1.0.0", WORKFLOW_WITH_THE_SKIPPED_STEPS, []),
+        ("mains", WORKFLOW_WITH_THE_SKIPPED_STEPS, []),
+        ("main", None, []),
+        ("main", "", []),
+        # Only the arm whose step the workflow carries is left out.
+        (
+            "main",
+            WORKFLOW_WITH_THE_SKIPPED_STEPS.replace(
+                "      - name: wording this branch removed is not still standing "
+                "elsewhere\n        run: true\n",
+                "",
+            ),
+            ["corrections"],
+        ),
+        # The steps in another job are not the `release` job's.
+        ("main", WORKFLOW_WITH_THE_SKIPPED_STEPS.replace("release:", "other:"), []),
+    ],
+)
+def test_the_arms_are_left_out_only_at_main_where_the_workflow_carries_them(
+    given, workflow, arms
+):
+    """S3's two conditions, driven apart. The base the caller gave names
+    `main` once one leading `origin/` is off, AND the gated repository's
+    `release` job carries the arm's step."""
+    assert gate.skipped_at_main(given, workflow) == arms
+
+
+def test_a_release_pull_request_is_sealed_as_ci_would_judge_it(tmp_path):
+    """C1, #473. A branch whose merge dropped a correction, in a repository
+    whose workflow carries both steps, gated against `main`: CI skips both
+    steps there, so the gate runs neither arm, says why on one line before
+    the checks, and draws the stamp. Neither arm leaves a kept output,
+    because neither ran."""
+    repo = with_the_skipped_steps(sealable_repo(tmp_path, resolution="dropped"))
+    keep = tmp_path / "out"
+    result = run_gate(repo, keep, base="main")
+    assert result.returncode == 0, result.stdout + result.stderr
+    assert "NOT SEALED" not in result.stdout, result.stdout
+    assert "SEALED" in result.stdout, result.stdout
+    assert SKIPPED_LINE in result.stderr.splitlines(), result.stderr
+    for arm in gate.SKIPPED_AT_MAIN:
+        assert not (keep / f"{arm}.txt").exists(), f"the `{arm}` arm ran"
+
+
+def test_the_same_branch_against_its_release_branch_is_not_sealed(tmp_path):
+    """C1's red twin, and what makes C1 mean anything: the same fixture with
+    a base that is not `main` runs both arms, and the dropped correction
+    refuses the seal. A gate that skipped everywhere would pass C1."""
+    repo = with_the_skipped_steps(sealable_repo(tmp_path, resolution="dropped"))
+    keep = tmp_path / "out"
+    result = run_gate(repo, keep, base="base")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "NOT SEALED" in result.stdout, result.stdout
+    assert gate.CORRECTIONS_NAME in result.stdout, result.stdout
+    assert SKIPPED_LINE not in result.stderr, result.stderr
+
+
+def test_a_repository_with_no_workflow_runs_both_arms_at_main(tmp_path):
+    """C2. With no `hygiene.yml` nothing about the run changes, `main` or
+    not: plenty of repositories merge feature branches straight into `main`,
+    and skipping there would drop two arms from every one of their runs."""
+    repo = sealable_repo(tmp_path, resolution="dropped")
+    git(repo, "branch", "main", "base")
+    assert not (repo / ".github").exists()
+    keep = tmp_path / "out"
+    result = run_gate(repo, keep, base="main")
+    assert result.returncode == 1, result.stdout + result.stderr
+    assert "NOT SEALED" in result.stdout, result.stdout
+    assert gate.CORRECTIONS_NAME in result.stdout, result.stdout
+    assert "does not run" not in result.stderr, result.stderr
+    for arm in gate.SKIPPED_AT_MAIN:
+        assert (keep / f"{arm}.txt").exists(), f"the `{arm}` arm did not run"
+
+
+# A step's shell guard that ends it on a pull request into `main`, as
+# `hygiene.yml` writes it: the test, then an `exit 0` before its `fi`.
+SKIPS_AT_MAIN = re.compile(
+    r'if \[ "\$\{\{ github\.base_ref \}\}" = "main" \]; then\n'
+    r"(?:(?!\s*fi\b).*\n)*?.*\bexit 0\b"
+)
+
+
+def test_the_arms_left_out_at_main_are_the_arms_whose_steps_skip_there():
+    """C3, the drift pin #473 asks for. For each mirrored arm, its step in
+    the real workflow skips at `main` exactly where `SKIPPED_AT_MAIN` holds
+    the arm. Total over every mirrored step, so a guard added to a third
+    step, or dropped from one of the two, fails here. It reads a guard on
+    the base and no other kind of condition, which is why
+    `skills/verify/SKILL.md` keeps the class named."""
+    text = read(HYGIENE)
+    skipping = {
+        arm
+        for name, arm, _ in gate.PARTITION
+        if arm and SKIPS_AT_MAIN.search(workflow_step(text, name))
+    }
+    mirrored_arms = {arm for _, arm, _ in gate.PARTITION if arm}
+    assert skipping, "no mirrored step skips at main, so the reader found nothing"
+    assert skipping == set(gate.SKIPPED_AT_MAIN), (
+        f"the workflow skips these mirrored steps at main: {sorted(skipping)}, "
+        f"and `SKIPPED_AT_MAIN` holds {sorted(gate.SKIPPED_AT_MAIN)}, of the "
+        f"mirrored arms {sorted(mirrored_arms)}"
+    )
+
+
+def test_the_template_and_the_docstring_state_the_skips_bound():
+    """Round 1's ⬜ 6. The skip is keyed on a spelling and on the step being
+    present, not on the step's own guard, and both places a reader learns of
+    the skip say so in one sentence (`agent-contract` §14)."""
+    template = " ".join(read(os.path.join(ROOT, "templates", "config.md")).split())
+    section = template.split("## Broad gate", 1)[1].split(" ## ", 1)[0]
+    docstring = " ".join((gate.skipped_at_main.__doc__ or "").split())
+    for where, text in (("templates/config.md", section), ("the docstring", docstring)):
+        assert "keyed on the spelling `main` or `origin/main`" in text, where
+        assert "not on the guard the step carries" in text, where
+
+
+def test_the_sealer_is_told_to_quote_the_skip_line():
+    """Round 1's ⬜ 8. The panel has no row for either skipped arm, so the
+    line is the only trace that they did not run, and the sealer relays a
+    stderr line only where its definition names it."""
+    sealer = " ".join(read(os.path.join(ROOT, "agents", "sealer.md")).split())
+    assert "the gate does not run the `survivors` and `corrections` arms" in sealer
+    assert "Quote that line in your report when it appears" in sealer

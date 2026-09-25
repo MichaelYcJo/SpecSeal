@@ -33,6 +33,7 @@ import os
 import sys
 
 import pytest
+from conftest import step_running
 
 ROOT = os.path.join(os.path.dirname(__file__), "..")
 
@@ -409,7 +410,7 @@ def test_the_body_reaches_the_script_through_the_environment():
         os.path.join(ROOT, ".github", "workflows", "hygiene.yml"), encoding="utf-8"
     ) as f:
         workflow = f.read()
-    step = workflow.split("issue_claims_check.py")[0].rsplit("- name:", 1)[1]
+    step = step_running(workflow, "issue_claims_check.py")
     assert "PR_BODY: ${{ github.event.pull_request.body }}" in step
     assert "${{ github.event.pull_request.body }}" not in workflow.split("run:")[-1], (
         "the body is interpolated into a shell line"

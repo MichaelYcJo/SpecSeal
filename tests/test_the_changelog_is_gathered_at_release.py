@@ -21,7 +21,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import gathered_entry
+from conftest import gathered_entry, workflow_step
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, ".github", "scripts", "gather_changelog.py")
@@ -323,8 +323,7 @@ def test_the_check_only_runs_for_a_release():
     """On a feature pull request every fragment on the branch is legitimately
     ungathered — running it there would fail every branch that writes one."""
     workflow = read(".github", "workflows", "hygiene.yml")
-    step = workflow.split("every changelog fragment reached the released file")[1]
-    step = step.split("- name:")[0]
+    step = workflow_step(workflow, "every changelog fragment reached the released file")
     assert 'github.base_ref }}" != "main"' in step, (
         "the step no longer skips itself outside a release pull request"
     )

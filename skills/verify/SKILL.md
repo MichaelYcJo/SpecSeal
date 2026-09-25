@@ -363,10 +363,14 @@ sees neither, and nothing else about its run changes.
 **What the count does not say** is whether a mirrored arm asks the same
 question its step asks. The partition says a step is on the list; two readers
 of one question can still disagree about what they are checking. **#473 is
-the work item about that class**, opened with the one live instance in the
-repository this plugin is developed in: the gate runs the `survivors` and
-`corrections` arms unconditionally where SpecSeal's own workflow skips both
-steps on a `main` base.
+the work item about that class**, and it opened with one live instance in the
+repository this plugin is developed in. The gate ran the `survivors` and
+`corrections` arms on a `main` base, where SpecSeal's own workflow skips both
+steps. That instance is closed: where the base names `main` and the gated
+repository's workflow carries those steps, the gate leaves both arms out and
+says so (`broad_gate.py#SKIPPED_AT_MAIN`). A case holds that list against the
+workflow's guards. The case reads a guard on the base and no other kind of
+condition, so the class stays open for the next kind.
 
 **The arms the plugin ships are the arms the gate can run.** Four steps of
 SpecSeal's own `release` job have a local answer and no arm: three run a

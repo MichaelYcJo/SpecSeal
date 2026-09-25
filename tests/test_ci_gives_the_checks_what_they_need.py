@@ -25,6 +25,8 @@ asking the next editor to remember.
 import os
 import re
 
+from conftest import code_lines
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 WORKFLOWS = os.path.join(ROOT, ".github", "workflows")
 
@@ -42,10 +44,12 @@ def strip_comments(text):
     the raw trigger passes with the `types:` line itself deleted -- measured:
     dropping the real line and keeping the comment left both checks green,
     which is exactly the edit that reopens the defect they were written for.
+
+    What a comment is belongs to `tests/conftest.py#code_line`, the one rule
+    every workflow reader in the suite uses, so a trailing comment is off
+    the line here too (#482).
     """
-    return "\n".join(
-        line for line in text.splitlines() if not line.lstrip().startswith("#")
-    )
+    return "\n".join(code_lines(text))
 
 
 def read(name):

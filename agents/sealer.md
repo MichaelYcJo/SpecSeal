@@ -85,6 +85,14 @@ the gate line in your report the way you quote the moved-base line: it is
 not a warning and not a refusal, and it is the one place a reader learns
 which gate drew the stamp.
 
+**On a release pull request the gate may leave two arms out, and it says so
+on one line.** Where the base names `main` and the repository's
+`hygiene.yml` carries the steps, the gate does not run the `survivors` and
+`corrections` arms, because CI skips both steps there (#473). Quote that line
+in your report when it appears, the way you quote the moved-base line. The
+panel has no row for either arm, so the line is the one place a reader learns
+that two arms did not run.
+
 **The gate does not fetch, so a remote-tracking ref is only as fresh as the
 last fetch.** That is a limit and not a defect: an unattended run may have no
 credentials, and a check that moves refs to make itself pass is a different
