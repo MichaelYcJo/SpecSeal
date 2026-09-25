@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 609 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `dc9fb40c19b0440ffe23cb5bee27c7f97bcc4eab..6ffa4aef7efc433ece92ec41b1db625952693feb`, 2 commits |
+| Contract changes | none |
+| New units | test_two_tied_sentences_on_one_line_print_in_one_order_whatever_the_hash_seed (depth 1); test_a_hyphenated_id_corrected_while_its_anchor_is_renamed_is_a_correction (depth 1) |
 | Needs a fix | yes — 🟡 1 (a shared id keeps a removed row measured), 🟡 2 (the `P1-1` id shape is not read), 🟡 3 (the silent set is stated narrower than it is, and not at all in the module docstring or `docs/review-chain-spec.md`). |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 2 of work item 1790297084 is the verifying round over round 1's fixes (166
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | An id several rows share in one section (a split claim) keeps a removed row of the group measured; regression from `8f70ca94`, and the one case of the shape had its fixture changed to pass | `skills/code-review/scripts/survivor_check.py:1103` | open | Executed: shared-id probe exits 1 at target, 0 at `8f70ca94`; 13 such groups in `seal/releases/0.14.0.md` and `seal/releases/0.5.0.md`; the comment at line 1019 claims uniqueness |
-| 🟡 2 | `ROW_ID` does not read the `P1-1 ·` id shape of `seal/releases/0.15.3.md` (14 rows), so those rows go silent when corrected in place with their anchor renamed | `skills/code-review/scripts/survivor_check.py:1021` | open | Executed: probe exits 0 at target, 1 with the widened pattern; no such id repeats in its section |
-| 🟡 3 | The silent set is wider than the function docstring's stated bound, and the module docstring and `docs/review-chain-spec.md:924` state the correction as always measured | `skills/code-review/scripts/survivor_check.py:194` | open | Executed: section retitled, row moved section, id-less row renamed and narrowed each exit 0 at target and at `8f70ca94`; 298 anchored rows carry no id the pattern reads |
-| ⬜ 4 | Two tied sentences on one line still print in hash-seed order | `skills/code-review/scripts/survivor_check.py:1539` | open | Executed: 16 seeds, two outputs at target, one with `row[1].raw` in the key; places and scores unchanged |
-| ⬜ 5 | P3's closing *so* clause states the correction as always measured | `seal/ledger/1790297084-the-sweep-reads-removed-and-moved-text-as-a-correction.md` | open | Read; correction to the run's paperwork, not counted in Needs a fix |
+| 🟡 1 | An id several rows share in one section (a split claim) keeps a removed row of the group measured; regression from `8f70ca94`, and the one case of the shape had its fixture changed to pass | `skills/code-review/scripts/survivor_check.py:1103` | **fixed** `14546dd3260167bb5c8c367aa843bc5ef66fa377` | fixed at 14546dd3260167bb5c8c367aa843bc5ef66fa377; Executed: shared-id probe exits 1 at target, 0 at `8f70ca94`; 13 such groups in `seal/releases/0.14.0.md` and `seal/releases/0.5.0.md`; the comment at line 1019 claims uniqueness |
+| 🟡 2 | `ROW_ID` does not read the `P1-1 ·` id shape of `seal/releases/0.15.3.md` (14 rows), so those rows go silent when corrected in place with their anchor renamed | `skills/code-review/scripts/survivor_check.py:1021` | **fixed** `14546dd3260167bb5c8c367aa843bc5ef66fa377` | fixed at 14546dd3260167bb5c8c367aa843bc5ef66fa377; Executed: probe exits 0 at target, 1 with the widened pattern; no such id repeats in its section |
+| 🟡 3 | The silent set is wider than the function docstring's stated bound, and the module docstring and `docs/review-chain-spec.md:924` state the correction as always measured | `skills/code-review/scripts/survivor_check.py:194` | **fixed** `6ffa4aef7efc433ece92ec41b1db625952693feb` | fixed at 6ffa4aef7efc433ece92ec41b1db625952693feb; Executed: section retitled, row moved section, id-less row renamed and narrowed each exit 0 at target and at `8f70ca94`; 298 anchored rows carry no id the pattern reads |
+| ⬜ 4 | Two tied sentences on one line still print in hash-seed order | `skills/code-review/scripts/survivor_check.py:1539` | **fixed** `14546dd3260167bb5c8c367aa843bc5ef66fa377` | fixed at 14546dd3260167bb5c8c367aa843bc5ef66fa377; Executed: 16 seeds, two outputs at target, one with `row[1].raw` in the key; places and scores unchanged |
+| ⬜ 5 | P3's closing *so* clause states the correction as always measured | `seal/ledger/1790297084-the-sweep-reads-removed-and-moved-text-as-a-correction.md` | answered | corrected at 6ffa4aef7efc433ece92ec41b1db625952693feb: ledger fragment P3 takes the counted clause and its narrowed "so" clause, with a Corrected note, then `--reverify`; Read; correction to the run's paperwork, not counted in Needs a fix |
 | 🟢 | round 1's finding 1 is closed for rows whose id the pattern reads under an unchanged heading | `skills/code-review/scripts/survivor_check.py:1103` | verified | Executed: five new-unit cases pass at target; the heading half of the key red when removed |
 | 🟢 | round 1's finding 2 is answered by the plan sentence | `seal/specs/1790297084-the-sweep-reads-removed-and-moved-text-as-a-correction/plan.md` | answered | Read; matches `CLAUDE.md`'s REMOVED-not-re-pointed rule |
 | 🟢 | round 1's finding 3 is closed for ties at distinct coordinates | `skills/code-review/scripts/survivor_check.py:1539` | verified | Executed: the 16-seed case red with the tie-break reverted; the same-line residual is ⬜ 4 |
