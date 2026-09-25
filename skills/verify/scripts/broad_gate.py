@@ -1213,9 +1213,11 @@ def run(name, command, root, keep, shell=False, env=None, windows=None, comspec=
     carries both lines above the exit code — the row as written first, because
     that is the line a reader retypes. `windows` and `comspec` are the
     platform, passed through, so a case can drive the `cmd.exe` branch from
-    any machine the way `quote` is driven.
+    any machine the way `quote` is driven. `root` is passed through too,
+    because it is where the row runs, and so where a command name's first
+    part is asked whether it is a directory (#596).
     """
-    handed = handed_to_shell(command, windows, comspec) if shell else command
+    handed = handed_to_shell(command, windows, comspec, root) if shell else command
     rewritten = shell and handed != command
     if rewritten:
         sys.stderr.write(handed_line(name, handed) + "\n")
@@ -1258,18 +1260,28 @@ def handed_line(name, handed):
     """The one stderr line a rewritten check prints before it runs."""
     return (
         f"broad-gate: {name} — cmd.exe reads a `/` in a command name as the "
-        f"start of a switch, so each command name's `/` is handed to it as "
-        f"`\\`: {handed}"
+        f"start of a switch, so a command name that starts in a directory has "
+        f"its `/` handed to it as `\\`: {handed}"
     )
 
 
-def handed_to_shell(command, windows=None, comspec=None):
+def handed_to_shell(command, windows=None, comspec=None, root=None):
     """The string `subprocess.run(command, shell=True)` should be given.
 
     `command` unchanged everywhere but one place: Windows, where the shell
     `COMSPEC` names is `cmd.exe` — or `COMSPEC` is unset, which Python
-    answers with `cmd.exe` too. There each COMMAND NAME has its `/` written
-    `\\`, and nothing else changes (`command_names_backslashed`).
+    answers with `cmd.exe` too. There a COMMAND NAME that starts in a
+    directory has its `/` written `\\`, and nothing else changes
+    (`command_names_backslashed`).
+
+    **The directory is asked here, and the scan stays pure.** `root` is
+    where the row runs — `run`'s own `root`, which is the repository for
+    `gate` and the scratch worktree for `compare_at_base` — and a name's
+    first part is a directory where `os.path.isdir(os.path.join(root,
+    part))` says so. `None` is the current directory, which is where
+    `subprocess.run` with `cwd=None` would run the row. The read happens
+    here because this function already reads `COMSPEC` from the
+    environment; the scan takes the answer as an argument (#596).
 
     Keyed on the shell and not on `os.name` alone, because a Windows machine
     can name a POSIX shell in `COMSPEC` (`tests/conftest.py#
@@ -1289,7 +1301,10 @@ def handed_to_shell(command, windows=None, comspec=None):
     # `/` in it for `posixpath.basename` to split at.
     if comspec and ntpath.basename(comspec.strip().strip('"')).lower() != CMD_EXE:
         return command
-    return command_names_backslashed(command)
+    here = os.curdir if root is None else root
+    return command_names_backslashed(
+        command, lambda part: os.path.isdir(os.path.join(here, part))
+    )
 
 
 # `cmd.exe`'s own commands. Written straight against one of them, a `/` is
@@ -1344,9 +1359,19 @@ CMD_BUILTINS = frozenset(
 )
 
 
-def command_names_backslashed(command):
+def command_names_backslashed(command, is_directory):
     """`command` with `/` written `\\` inside each word `cmd.exe` reads as a
-    command name, and every other character exactly where it was.
+    command name and that starts in a directory, and every other character
+    exactly where it was.
+
+    **Which names start in a directory is asked, not read.** `is_directory`
+    is called with the part of a name before its first `/`, with its `"`
+    and `^` removed and one leading `@` dropped, and answers whether that
+    part names a directory. The scan does no I/O of its own:
+    `handed_to_shell` asks the filesystem where the row runs, and a case
+    can answer from any machine. An empty part is a name that begins with
+    `/`, which starts at the drive's root; that always exists, so it is
+    answered here without asking.
 
     **A position scan over the string, never a tokenise-and-re-render**,
     because re-rendering is how quoting gets lost. The part of `cmd.exe`'s
@@ -1356,8 +1381,12 @@ def command_names_backslashed(command):
         `&&`, `||`, `&` or `|`; blanks and a `(` that opens a block are
         passed over there, and the word begins at the next character;
       - the command name runs from there to the first unquoted blank, tab,
-        `<`, `>`, `&`, `|` or `(`. Inside it, a `/` becomes `\\` — inside a
-        quoted stretch of it too, since a quoted Windows path takes `\\`;
+        `<`, `>`, `&`, `|` or `(`. At its first `/` one decision is made for
+        the whole name: where the part before it names a directory, that
+        `/` and every later one in the name become `\\` — inside a quoted
+        stretch too, since a quoted Windows path takes `\\`; where it does
+        not, every `/` in the name is handed over as written, because
+        `bin/test` is a path and `xcopy/e` is a program and its switch;
       - `"` is the only quote; outside one, `^` escapes the next character,
         and that character is copied as written, so `^&` is never a
         separator and `^/` is never rewritten — in command position it is
@@ -1365,15 +1394,18 @@ def command_names_backslashed(command):
       - a `<` or `>` ends command position until the next separator;
       - a `/` written straight after one of `cmd.exe`'s own commands
         (`CMD_BUILTINS`, a leading `@` aside) is that command's switch, so
-        `rd/s/q` and `dir/b` stay as written and the name ends there.
+        `rd/s/q` and `dir/b` stay as written and the name ends there. This
+        is asked first, before any directory, so a `dir/` directory in the
+        tree does not turn `dir/b` into a path.
 
     Three things `cmd.exe` does are left unmodelled because modelling them
     changes no output, and a branch that changes no output is one nothing
     can hold: a leading `@` is read as the first character of the name,
-    which has no `/` in it; a `)` does not end a name, which only matters
-    for a `/` written straight after one; and the `&` of `2>&1` is read as
-    a separator, which makes the handle digit after it a "name" with no `/`
-    in it. The `2>&1` case in `tests/test_the_gate_hands_cmd_a_path_it_can_
+    which has no `/` in it, and is dropped only where the name is asked
+    about — the built-in check and the directory part; a `)` does not end
+    a name, which only matters for a `/` written straight after one; and
+    the `&` of `2>&1` is read as a separator, which makes the handle digit
+    after it a "name" with no `/` in it. The `2>&1` case in `tests/test_the_gate_hands_cmd_a_path_it_can_
     run.py` holds that last one to what it hands over.
 
     **Not rewritten, and named rather than claimed:** a path after `call`,
@@ -1384,29 +1416,45 @@ def command_names_backslashed(command):
     command position. None is worse than the row handed as written, and
     `templates/config.md` §*Broad gate* states the rule and these examples.
 
-    **Rewritten, and named rather than claimed:** a switch written straight
-    against a program that is not one of `CMD_BUILTINS` (`xcopy/e`). The
-    scan cannot tell a program's name from a directory's by its spelling,
-    so the `/` is read as part of a path and `xcopy/e` is handed over as
-    `xcopy\\e`, which does not run. This one is worse than the row as
-    written. `templates/config.md` §*Broad gate* says so and names the
-    spelling that avoids it, a blank before the switch (`xcopy /e`), and
-    telling a program from a directory is #596.
+    **Judged where the row starts, and bounded there, named rather than
+    claimed:** a directory an earlier command in the same row makes, or
+    one a `cd` earlier in the row enters, is not seen, so that name is
+    handed over as written — which is what `cmd.exe` got before #448, and
+    no worse than the row itself. And a directory at the root named like a
+    program the row calls with a glued switch (an `xcopy/` directory)
+    makes `xcopy/e` read as a path; `cmd.exe` itself is ambiguous in that
+    tree, and a blank before the switch (`xcopy /e`) is never rewritten.
+    `templates/config.md` §*Broad gate* states both.
     """
     out = []
     at_command = True  # the next word read is a command name
     in_name = False  # inside that command name now
     quoted = False
-    # Where the current command name began. Only a bare name can be a
-    # built-in, so a name opened by `"` or `^` never needs it set.
-    start = 0
+    start = 0  # where the current command name began
+    turned = None  # the name's one decision, taken at its first `/`
+
+    def opens_name(at):
+        nonlocal at_command, in_name, start, turned
+        at_command, in_name, start, turned = False, True, at, None
+
+    def turn(at):
+        """Whether the name's `/` at `at` is written `\\`."""
+        nonlocal turned
+        if turned is None:
+            part = command[start:at]
+            if part.startswith("@"):
+                part = part[1:]
+            part = part.replace('"', "").replace("^", "")
+            turned = part == "" or bool(is_directory(part))
+        return turned
+
     i, n = 0, len(command)
     while i < n:
         c = command[i]
         if quoted:
             if c == '"':
                 quoted = False
-            elif c == "/" and in_name:
+            elif c == "/" and in_name and turn(i):
                 c = "\\"
             out.append(c)
             i += 1
@@ -1414,7 +1462,7 @@ def command_names_backslashed(command):
         if c == '"':
             quoted = True
             if at_command:
-                at_command, in_name = False, True
+                opens_name(i)
             out.append(c)
             i += 1
             continue
@@ -1422,7 +1470,7 @@ def command_names_backslashed(command):
             # The escaped character is the name's first one where it stands
             # in command position, so the next blank ends that name.
             if at_command:
-                at_command, in_name = False, True
+                opens_name(i)
             out.append(command[i : i + 2])
             i += 2
             continue
@@ -1438,12 +1486,14 @@ def command_names_backslashed(command):
             in_name = False
         else:
             if at_command:
-                at_command, in_name, start = False, True, i
+                opens_name(i)
             if c == "/" and in_name:
-                if command[start:i].lstrip("@").lower() in CMD_BUILTINS:
+                if turned is None and (
+                    command[start:i].lstrip("@").lower() in CMD_BUILTINS
+                ):
                     # A built-in's switch, written against it: as written.
                     in_name = False
-                else:
+                elif turn(i):
                     c = "\\"
         out.append(c)
         i += 1

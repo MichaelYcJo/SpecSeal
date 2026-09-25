@@ -39,6 +39,21 @@ def gate_module():
     return mod
 
 
+# Every directory a row in this module starts a command name in. A name is
+# rewritten only where it starts in a directory that exists where the row
+# runs (#596), so each case says where that is rather than leaning on
+# whatever pytest's working directory happens to hold.
+DIRECTORIES = ("bin", "tools", "x")
+
+
+@pytest.fixture
+def tree(tmp_path):
+    root = tmp_path / "tree"
+    for name in DIRECTORIES:
+        (root / name).mkdir(parents=True)
+    return str(root)
+
+
 # --- A1: which shell gets the rewrite ----------------------------------------
 
 
@@ -57,24 +72,24 @@ def gate_module():
     ],
 )
 def test_only_cmd_exe_on_windows_is_handed_the_backslashed_row(
-    windows, comspec, expected
+    tree, windows, comspec, expected
 ):
     """A1. Windows and a `COMSPEC` naming `cmd.exe` get `bin\\test`; POSIX,
     and a Windows `COMSPEC` naming any other shell, get the row as written.
     Keyed on the shell rather than `os.name`, because a POSIX shell in
     `COMSPEC` runs `bin/test` as written."""
     gate = gate_module()
-    got = gate.handed_to_shell(ROW, windows=windows, comspec=comspec)
+    got = gate.handed_to_shell(ROW, windows=windows, comspec=comspec, root=tree)
     assert got == expected, f"windows={windows} comspec={comspec!r}: {got!r}"
 
 
-def test_an_unset_comspec_on_windows_is_cmd_exe(monkeypatch):
+def test_an_unset_comspec_on_windows_is_cmd_exe(tree, monkeypatch):
     """A1, the default. `subprocess` falls back to `cmd.exe` where `COMSPEC`
     is unset, so the rewrite must too — read from the environment when the
     argument is not given."""
     monkeypatch.delenv("COMSPEC", raising=False)
     gate = gate_module()
-    assert gate.handed_to_shell(ROW, windows=True) == HANDED
+    assert gate.handed_to_shell(ROW, windows=True, root=tree) == HANDED
 
 
 # --- A2: only command names change ------------------------------------------
@@ -129,17 +144,104 @@ def test_an_unset_comspec_on_windows_is_cmd_exe(monkeypatch):
         ("> out/log.txt bin/test", "> out/log.txt bin/test"),
     ],
 )
-def test_only_the_command_names_have_their_slash_turned(row, expected):
+def test_only_the_command_names_have_their_slash_turned(tree, row, expected):
     """A2. Arguments, quoted arguments, `%VAR%`, `^&`, `2>&1`, blocks and
     every operator reach `cmd.exe` as written; only `/` inside a command
     name changes. And the rewrite moves no character: the only difference
-    anywhere is `/` → `\\`, position for position."""
+    anywhere is `/` → `\\`, position for position. Driven from a root in
+    which every name here starts in a directory (`DIRECTORIES`), so each
+    row is handed over exactly as it was before #596."""
     gate = gate_module()
-    got = gate.handed_to_shell(row, windows=True, comspec=CMD)
+    got = gate.handed_to_shell(row, windows=True, comspec=CMD, root=tree)
     assert got == expected, f"{row!r} was handed as {got!r}"
+    only_slashes_turned(row, got)
+
+
+def only_slashes_turned(row, got):
+    """A3. Every character but `/` → `\\` stays where it was."""
     assert len(got) == len(row)
     moved = [(a, b) for a, b in zip(row, got, strict=True) if a != b]
     assert all(pair == ("/", "\\") for pair in moved), moved
+
+
+@pytest.mark.parametrize(
+    "row, expected",
+    [
+        # A program with a switch written against it: no directory carries
+        # the program's name, so the name and its switch reach `cmd.exe`.
+        ("nothere/x -q", "nothere/x -q"),
+        ('"nothere/run tests" -q', '"nothere/run tests" -q'),
+        ("^nothere/x", "^nothere/x"),
+        ("@nothere/x", "@nothere/x"),
+        # The same shapes, starting in a directory that exists.
+        ("^bin/x", r"^bin\x"),
+        ('@"tools/run tests"', r'@"tools\run tests"'),
+        ('"bin"/x', r'"bin"\x'),
+        # `.` and `..` are directories wherever the row runs.
+        ("./bin/test", r".\bin\test"),
+        ("../x/y", r"..\x\y"),
+        # An empty part is the drive's root, which always exists.
+        ("/abs/x -q", r"\abs\x -q"),
+        # One decision per name: every later `/` goes the way the first did.
+        ("bin/nothere/x", r"bin\nothere\x"),
+        ("nothere/bin/x", "nothere/bin/x"),
+        # Each name after a separator is judged on its own.
+        ("bin/test && nothere/x a/b", r"bin\test && nothere/x a/b"),
+        ("nothere/x & bin/test", r"nothere/x & bin\test"),
+        ("(nothere/a && bin/b)", r"(nothere/a && bin\b)"),
+    ],
+)
+def test_a_name_that_starts_in_no_directory_is_handed_over_as_written(
+    tree, row, expected
+):
+    """#596, the other side of A2's table. A command name whose part before
+    its first `/` names no directory where the row runs is handed over as
+    written, and one that does is rewritten, whatever opened it."""
+    gate = gate_module()
+    got = gate.handed_to_shell(row, windows=True, comspec=CMD, root=tree)
+    assert got == expected, f"{row!r} was handed as {got!r}"
+    only_slashes_turned(row, got)
+
+
+@pytest.mark.parametrize(
+    "row, asked",
+    [
+        ("bin/test -q", ["bin"]),
+        ('"tools/run tests" -q', ["tools"]),
+        ("^bin/x", ["bin"]),
+        ("@bin/test", ["bin"]),
+        ('@"a b"/c', ["a b"]),
+        ("./bin/x", ["."]),
+        # One question per name, at its first `/`.
+        ("a/b/c && d/e", ["a", "d"]),
+        # An empty part is answered without asking.
+        ("/abs/x", []),
+        # A built-in is asked about first, and is never a directory.
+        ("rd/s/q x && y/z", ["y"]),
+        # Only command names are asked about.
+        ("echo a/b", []),
+    ],
+)
+@pytest.mark.parametrize("answer", [True, False])
+def test_the_scan_asks_about_a_name_and_reads_nothing_itself(row, asked, answer):
+    """A4. The scan takes the directory question as an argument and does no
+    I/O: a predicate here answers from no filesystem at all, and records
+    what it was asked — the part before a name's first `/`, with `"`, `^`
+    and a leading `@` removed. Both answers are driven, and the answer is
+    what decides."""
+    gate = gate_module()
+    heard = []
+
+    def is_directory(part):
+        heard.append(part)
+        return answer
+
+    got = gate.command_names_backslashed(row, is_directory)
+    assert heard == asked, heard
+    only_slashes_turned(row, got)
+    if asked:
+        # Every asked name's `/` follows the answer.
+        assert ("\\" in got) is answer, got
 
 
 def test_the_one_shell_site_is_run_and_it_applies_the_rewrite():
@@ -199,24 +301,24 @@ def test_the_one_shell_site_is_run_and_it_applies_the_rewrite():
 @pytest.mark.parametrize(
     "row, handed",
     [
-        ("xcopy/e/i a b && bin/test", r"xcopy\e\i a b && bin\test"),
-        ("findstr/s x *.py", r"findstr\s x *.py"),
-        # The spelling the template names, which reaches `cmd.exe` as written.
+        ("xcopy/e/i a b && bin/test", r"xcopy/e/i a b && bin\test"),
+        ("findstr/s x *.py", "findstr/s x *.py"),
+        ("timeout/t 5 && bin/test", r"timeout/t 5 && bin\test"),
+        ("ipconfig/all", "ipconfig/all"),
+        # The blank the template also names, which was never rewritten.
         ("xcopy /e /i a b && bin/test", r"xcopy /e /i a b && bin\test"),
     ],
 )
-def test_a_switch_against_another_program_is_rewritten_the_documented_bound_not_the_goal(
-    row, handed
-):
-    """Round 2's 🟡 1, pinned as the bound it is and not as what is wanted.
-    The scan cannot tell a program's name from a directory's by its
-    spelling, so a `/` written straight after a program other than one of
-    `CMD_BUILTINS` is read as part of a path: `xcopy/e` is handed over as
-    `xcopy\\e`, which `cmd.exe` cannot find. `templates/config.md` says so
-    and names the blank that avoids it. Telling the two apart is #596, and
-    the change that does it turns this case red on purpose."""
+def test_a_switch_against_another_program_reaches_cmd_exe_as_written(tree, row, handed):
+    """A1, #596. A `/` written straight after a program that is not one of
+    `CMD_BUILTINS` is that program's switch: no directory carries the
+    program's name where the row runs, so `xcopy/e/i` reaches `cmd.exe` as
+    written, and the `bin/test` after it is still rewritten. Before #596
+    this case pinned the opposite, `xcopy\\e\\i`, as a documented bound."""
     gate = gate_module()
-    assert gate.handed_to_shell(row, windows=True, comspec=CMD) == handed
+    got = gate.handed_to_shell(row, windows=True, comspec=CMD, root=tree)
+    assert got == handed, got
+    only_slashes_turned(row, got)
 
 
 def test_the_template_says_which_positions_are_rewritten():
@@ -231,8 +333,11 @@ def test_the_template_says_which_positions_are_rewritten():
     section = text.split("## Broad gate", 1)[1].split("\n## ", 1)[0]
     prose = " ".join(section.split())
     for needle in (
-        "the gate hands it the row with `/` written `\\` inside each command "
-        "name, and nowhere else",
+        "the gate hands it the row with `/` written `\\` inside a command name "
+        "that starts in a directory, and nowhere else",
+        "It starts in a directory where the part before its first `/`, with its "
+        "quotes and carets removed and a leading `@` dropped, names a directory "
+        "that exists where the row runs",
         "`bin/test` then runs as `bin\\test`",
         "a path after `call`, `start` or `if`, or after `else`, `for … do` and "
         "`cmd /c`",
@@ -243,16 +348,22 @@ def test_the_template_says_which_positions_are_rewritten():
         "a command name after a redirection that opens its command "
         "(`>out.txt bin/test`)",
         "the gate prints one line saying what `cmd.exe` was handed",
-        # The bound below, written where the person typing the row reads it.
-        "A `/` written straight after any other program's name is read as "
-        "part of a path and rewritten",
-        "Write a switch with a blank before it (`xcopy /e`)",
-        "#596",
+        # #596, written where the person typing the row reads it.
+        "A `/` written straight after any other program's name reaches "
+        "`cmd.exe` as written too",
+        "`xcopy/e/i` stays `xcopy/e/i`",
+        "A blank before the switch (`xcopy /e`) works as well",
+        # And its two bounds, named rather than claimed away.
+        "A directory an earlier command in the row makes, or one a `cd` "
+        "earlier in the row enters, is not seen",
+        "a directory at the root named like a program the row calls with a "
+        "glued switch (an `xcopy/` directory) makes `xcopy/e` read as a path",
     ):
         assert needle in prose, f"templates/config.md §Broad gate lacks: {needle}"
     assert "Two positions are not rewritten" not in prose, (
         "the template still counts the positions it leaves as written"
     )
+    assert "#596" not in prose, "the template still names #596 as open"
 
 
 # --- A3: what ran is on record ------------------------------------------------
@@ -270,18 +381,19 @@ class _Ran:
 
 
 def test_a_rewritten_row_is_kept_and_said_beside_the_row_as_written(
-    tmp_path, monkeypatch, capsys
+    tree, tmp_path, monkeypatch, capsys
 ):
     """A3. The shell is handed `bin\\test`; the kept file's first line is the
     row as written and its second is what `cmd.exe` was handed; and one
-    stderr line, pinned verbatim here (§14), says the same before the run."""
+    stderr line, pinned verbatim here (§14), says the same before the run.
+    `run` asks about the directory where the row runs, its own `root`."""
     gate = gate_module()
     ran = _Ran()
     monkeypatch.setattr(gate.subprocess, "run", ran)
     check = gate.run(
         "suite",
         ROW,
-        str(tmp_path),
+        tree,
         str(tmp_path),
         shell=True,
         windows=True,
@@ -292,10 +404,25 @@ def test_a_rewritten_row_is_kept_and_said_beside_the_row_as_written(
     assert kept[:3] == [f"$ {ROW}", f"cmd.exe was handed: {HANDED}", "exit 0"], kept
     assert capsys.readouterr().err == (
         "broad-gate: suite — cmd.exe reads a `/` in a command name as the start "
-        "of a switch, so each command name's `/` is handed to it as `\\`: "
-        f"{HANDED}\n"
+        "of a switch, so a command name that starts in a directory has its `/` "
+        f"handed to it as `\\`: {HANDED}\n"
     )
     assert check.code == 0
+
+
+def test_run_judges_the_directory_where_the_row_runs(tmp_path, monkeypatch):
+    """A5. The same row, run from a root with no `bin/`, is handed over as
+    written: `run` passes its own `root` on, and the directory is asked
+    there and not in the caller's working directory."""
+    gate = gate_module()
+    ran = _Ran()
+    monkeypatch.setattr(gate.subprocess, "run", ran)
+    bare = tmp_path / "bare"
+    bare.mkdir()
+    gate.run(
+        "suite", ROW, str(bare), str(tmp_path), shell=True, windows=True, comspec=CMD
+    )
+    assert ran.handed == [(ROW, True)], ran.handed
 
 
 @pytest.mark.parametrize(
@@ -367,9 +494,37 @@ def test_the_row_runs_on_the_real_platform(tmp_path):
     check = gate.run("suite", "bin/probe", str(repo), str(keep), shell=True)
     kept = (keep / "suite.txt").read_text(encoding="utf-8")
     assert check.code == 0, kept
-    under = "cmd" if gate.handed_to_shell("bin/probe") != "bin/probe" else "sh"
+    under = "cmd" if runs_under_cmd_exe(gate, repo) else "sh"
     assert f"probe ran under {under}" in check.text, kept
     assert f"probe ran under {under}" in kept, kept
+
+
+def runs_under_cmd_exe(gate, repo):
+    """Whether this machine's shell is `cmd.exe`, read from what the gate
+    would hand it. `repo` holds `bin/`, so the probe's answer does not rest
+    on what pytest's working directory happens to hold (#596)."""
+    return gate.handed_to_shell("bin/probe", root=str(repo)) != "bin/probe"
+
+
+def test_a_switch_against_a_program_runs_on_the_real_platform(tmp_path):
+    """A6, #596. `where/q cmd` — a program that ships with Windows and is not
+    one of `CMD_BUILTINS`, with a switch written straight against it —
+    run through `run(..., shell=True)` from a root with no `where`
+    directory, exits 0: `/q` prints nothing and `where` finds `cmd`. Only
+    CI's `windows-latest` leg executes it; elsewhere the shell is not
+    `cmd.exe` and the row means nothing there (`questions.md` M1)."""
+    gate = gate_module()
+    repo = tmp_path / "repo"
+    (repo / "bin").mkdir(parents=True)
+    if not runs_under_cmd_exe(gate, repo):
+        pytest.skip("the shell here is not cmd.exe")
+    keep = tmp_path / "keep"
+    keep.mkdir()
+    row = "where/q cmd"
+    assert gate.handed_to_shell(row, root=str(repo)) == row
+    check = gate.run("suite", row, str(repo), str(keep), shell=True)
+    kept = (keep / "suite.txt").read_text(encoding="utf-8")
+    assert check.code == 0, kept
 
 
 # --- A5: a failing row with no test result says so ----------------------------
