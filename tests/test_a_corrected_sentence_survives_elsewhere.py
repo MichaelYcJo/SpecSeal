@@ -3621,15 +3621,31 @@ def test_a_move_pairs_with_its_own_origin_and_the_correction_is_named(tmp_path):
 def test_places_tied_on_score_print_in_path_order_whatever_the_hash_seed(
     tmp_path,
 ):
-    """Round 1's ⬜ 3. S1's two places score the same, and `score` reached
-    them through a set of n-grams, so their order followed the interpreter's
-    hash seed. Ties now print by path and line. Run under several seeds, the
-    order is one order. Red with the tie-break reverted."""
+    """Round 1's ⬜ 3. A removed sentence whose four stretches stand in two
+    files, two stretches each, every one unique in the pool: two places tied
+    at 2.00, each reached through different n-grams. `score` walks them
+    through a set, so their order followed the interpreter's hash seed. Ties
+    now print by path and line, one order under every seed. Red with the
+    tie-break reverted."""
     repo = tmp_path / "probe"
-    moved = f"# m\n\n{FOUND}\n"
-    head = moved_and_corrected(repo, "docs/a.md", "docs/m.md", moved, None, moved)
+    os.makedirs(repo)
+    removed = (
+        "Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo "
+        "lima mike november oscar papa."
+    )
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{removed}\n",
+            "docs/c.md": "# c\n\nAlpha bravo charlie zulu india juliet kilo.\n",
+            "docs/y.md": "# y\n\nEcho foxtrot golf zulu mike november oscar.\n",
+            **FILLER,
+        },
+        "a sentence, and two files each carrying half of it",
+    )
+    head = build(repo, {"docs/a.md": "# a\n\nNothing here now.\n"}, "remove it")
     orders = set()
-    for seed in range(8):
+    for seed in range(16):
         out = subprocess.run(
             [
                 sys.executable,
@@ -3644,8 +3660,9 @@ def test_places_tied_on_score_print_in_path_order_whatever_the_hash_seed(
             encoding="utf-8",
             env={**os.environ, "PYTHONHASHSEED": str(seed)},
         )
+        assert out.returncode == 1, out.stdout + out.stderr
         orders.add(tuple(paths_in(out.stdout)))
-    assert orders == {("docs/b.md", "docs/z.md")}, orders
+    assert orders == {("docs/c.md", "docs/y.md")}, orders
 
 
 def test_a_split_pairs_with_its_own_origin_while_both_files_remain(tmp_path):
