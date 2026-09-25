@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 608 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `1f21376f2271f834d5a16f1c9dc69631ca732d00..8decc62cb3fb43ab22b51bd41a9ee4800361af2f`, 5 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1, the three copies of the `Pass`-beside-`nobody` rule that still say it fails at every stage |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 1 of work item 1790297083 reviews the build at c575695e against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | three copies still say `Pass` beside `nobody` on the last record fails the pull request, with no draft exception | `skills/code-review/orchestration.md:295`, `templates/sdd-round.md:119`, `README.md:609` | open | read. The same class Scope 4 enumerated. Line 519 of the same orchestration file now says the opposite for a draft |
-| ⬜ 2 | the handoff protocol's no-claim sentence names the untouched record and not the restored one | `docs/review-handoff-protocol.md:190` | open | read. Incomplete, not false |
-| ⬜ 3 | `written_late` docstring: "an ordinary record pays no extra `git log`" is true only of a record naming no fix | `skills/code-review/scripts/chain_check.py#written_late` | open | read. `phases/phase-2.md` carries the right qualifier |
-| ⬜ 4 | `written_late`'s restoration exit reaches untouched records whose add is still in range; right answer, unnamed shape | `skills/code-review/scripts/chain_check.py#written_late` | open | executed, probe 3 Q2 |
-| ⬜ 5 | changelog says "three records" for three shapes | `seal/specs/1790297083-the-release-job-goes-red-on-a-record-it-need-not-judge/changelog.md:1` | open | read |
+| 🟡 1 | three copies still say `Pass` beside `nobody` on the last record fails the pull request, with no draft exception | `skills/code-review/orchestration.md:295`, `templates/sdd-round.md:119`, `README.md:609` | **fixed** `cfb2b745e86415c8381bfb8b8eb96c2ff0f5df6d` | fixed at cfb2b745e86415c8381bfb8b8eb96c2ff0f5df6d; read. The same class Scope 4 enumerated. Line 519 of the same orchestration file now says the opposite for a draft |
+| ⬜ 2 | the handoff protocol's no-claim sentence names the untouched record and not the restored one | `docs/review-handoff-protocol.md:190` | **fixed** `2381b8dcce9507b193127576a246ec36cc3ac56b` | fixed at 2381b8dcce9507b193127576a246ec36cc3ac56b; read. Incomplete, not false |
+| ⬜ 3 | `written_late` docstring: "an ordinary record pays no extra `git log`" is true only of a record naming no fix | `skills/code-review/scripts/chain_check.py#written_late` | **fixed** `c50e47c73a5280bfa471179b185e9f5135f1d758` | fixed at c50e47c73a5280bfa471179b185e9f5135f1d758; read. `phases/phase-2.md` carries the right qualifier |
+| ⬜ 4 | `written_late`'s restoration exit reaches untouched records whose add is still in range; right answer, unnamed shape | `skills/code-review/scripts/chain_check.py#written_late` | answered | de623df41df217c00a389607f26e69cc1ba19cc2 states in spec.md Scope 2 and in the review-chain-spec row that a restored record is the base's claim whichever pull request restored it; no code; executed, probe 3 Q2 |
+| ⬜ 5 | changelog says "three records" for three shapes | `seal/specs/1790297083-the-release-job-goes-red-on-a-record-it-need-not-judge/changelog.md:1` | **fixed** `8decc62cb3fb43ab22b51bd41a9ee4800361af2f` | fixed at 8decc62cb3fb43ab22b51bd41a9ee4800361af2f; read |
 | 🟢 | `--find-object` walks both parents without `--full-history`; dropping the flag from `restored_from` is safe | `skills/code-review/scripts/chain_check.py#restored_from` | confirmed | executed, probe 1 (a)(b)(c), including the second-parent-treesame shape that a plain log simplifies |
 | 🟢 | no route found by which a pull request's own new record reads as restored | `skills/code-review/scripts/chain_check.py#restored_from` | confirmed | executed, probe 3 Q1 and M1. read: same path plus same bytes in the fork's history is required, and the fork is the base tip in CI |
 | 🟢 | `--topo-order` gives the late add under a skewed clock | `skills/code-review/scripts/chain_check.py#added_on_branch` | confirmed | executed, probe S7, M5 and M6 |
