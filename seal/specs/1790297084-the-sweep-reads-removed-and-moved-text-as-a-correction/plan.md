@@ -103,6 +103,10 @@ them. The spec's *judgments* section says why each was chosen.
   (`CLAUDE.md` §*a change writes fragments*). And `evidence-check` refuses a
   BROKEN row a branch leaves standing, so condition (c) sees only rows a
   person removed.
+  The same holds for a row removed from a shared file whose claim is
+  rewritten, reworded, as a new row in the work item's fragment: the old
+  row's wording takes the exit, because `CLAUDE.md` makes the new row a new
+  claim. A document still stating the old wording is not reported.
 - **#591.** None beyond #563's own: a larger `wanted` can merge two runs into
   one, which `paired_across_paths`' docstring already states.
 

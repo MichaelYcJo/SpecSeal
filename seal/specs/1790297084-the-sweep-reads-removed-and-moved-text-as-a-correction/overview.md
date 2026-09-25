@@ -42,10 +42,11 @@ no issue names it, so it was left as found.
 
 ## Fed back into the spec
 
-- *Inferred during implementation* (phase 3, from Q2's measurement): a
-  ledger row that a live row of the same file still cites by every anchor
-  that resolves at the tip still stands, re-pointed, and is not a removed
-  row. `docs/review-chain-spec.md`'s first statement carries it as "a row
+- *Inferred during implementation* (phase 3, from Q2's measurement;
+  narrowed by round 1's 🟡 1): a ledger row whose id still stands under the
+  same heading at the tip, or, for a row with no id, that a live row of the
+  same file still cites by every anchor that resolves at the tip, still
+  stands, re-pointed, and is not a removed row. `docs/review-chain-spec.md`'s first statement carries it as "a row
   corrected in place is still read", and the module docstring and
   `removed_ledger_rows` state it in full. A planner may overturn it; without
   it, #589's corrected row goes silent.

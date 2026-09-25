@@ -188,11 +188,13 @@ removed. A row takes this exit when it is a live table row of a ledger file
 at the left end -- one of the four locations `evidence_check.py` reads -- its
 line is gone at the right end, and at least one of its anchors resolves at
 the left end and not at the right (`removed_ledger_rows`, asking the ledger
-checker's own `resolve_unit`), unless a live row of that file at the right
-end still cites every anchor of it that resolves there. A row corrected in
-place stays measured, because that is the one ledger act that IS a
-correction -- even where the same range renamed one of its units, as #589's
-did -- and so does a row whose anchors all still resolve, which no rule
+checker's own `resolve_unit`), unless the row still stands at the right
+end: its id -- `R1 ·` at the head of its first cell -- under the same
+heading, or, for a row with no id, a live row of the file citing every
+anchor of it that resolves there. A row corrected in place stays measured,
+because that is the one ledger act that IS a correction -- even where the
+same range renamed its units or retitled a heading it cites, as #589's did
+-- and so does a row whose anchors all still resolve, which no rule
 removes. It leaves after the pairing across paths, like a retirement, so its
 claim carried verbatim into a new row is held rather than written.
 
