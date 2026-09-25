@@ -71,7 +71,11 @@ and by no other:
   mistake.
 - **`written_late`.** A restored record returns `[], []` before
   `added_on_branch` is asked. The pass is silent, like the table row it joins
-  (*"no adding commit in `<baseline>..HEAD`"*).
+  (*"no adding commit in `<baseline>..HEAD`"*). It asks this of a record the
+  pull request does not touch as well, because a branch whose own record was
+  squashed into the base and which then merged the base in still has that
+  record's add in range, and those bytes are the base's claim now, whichever
+  pull request put them there (round 1, ⬜ 4).
 
 Everything else is still read on a restored record, just as it is on an
 untouched one (`test_a_merged_record_is_still_read_for_everything_else`):
