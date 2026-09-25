@@ -538,3 +538,35 @@ def test_the_vendored_fence_rule_agrees_with_the_shared_one():
             assert ec.vendored_fence_closes(line, opener) == uc.fence_closes(
                 line, opener
             ), (line, opener)
+
+
+def test_the_vendored_cell_rule_agrees_with_the_shared_one():
+    """The `MALFORMED` arm (#299) reads a ledger row's `Code grounds` cell,
+    so the checker splits table rows, and a copy `evidence-ci` vendors alone
+    cannot load the shared reader's `split_row` any more than its fence rule.
+    The plugin's copy asks the shared reader; this holds the vendored split
+    in step with it over the shapes a ledger row takes."""
+    import importlib.util
+
+    from test_unverified_rows_close import uc
+
+    spec = importlib.util.spec_from_file_location("ec_vendored_cells", SCRIPT)
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
+    assert ec.cell_rule().__module__ == "specseal_unverified_reader", (
+        "the plugin's copy must ask the shared reader, not its vendored split"
+    )
+    for line in (
+        "| a | b |",
+        "|a|b",
+        "  | indented | row |  ",
+        "| a \\| b | c |",
+        '| `x.py#"p \\| q"@00000000` | c |',
+        "| ends on an escape \\|",
+        "| | | |",
+        "|---|:-:|",
+        "|",
+        "not a row",
+        "",
+    ):
+        assert ec.vendored_split_row(line) == uc.split_row(line), line

@@ -254,6 +254,7 @@ branch had touched.
 |---|---|---|
 | `BROKEN` (exit 2) | the MAJOR unit — or its whole file — is not there, or the unit is there more than once | fix the coordinate now. Where the content still exists the line names the destination, graded by proof: `identical content at <where> (renamed?/moved?)` is content identity across a repo-wide scan and `--reverify` acts on it; `same name at <path> (content differs)` is a labelled fact only; several matches are counted, never named |
 | `OLD-FORMAT` (exit 2, `--strict` or not) | an old `path:line` row from before content anchoring, which nothing measures any more | run `evidence-check --migrate .` — a red build naming the migrator beats a green build checking nothing |
+| `MALFORMED` (exit 2, `--strict` or not) | a row's `Code grounds` cell holds a coordinate that does not parse — a placeholder or short hash, no path, a bare `"` inside a quoted locator, a minor anchor that is not quoted — or cites no coordinate at all while the row claims something. Before this verdict such a row entered no count and the totals read clean | write it as `path#anchor@hash`: a `"` inside a quoted locator as `\"`, the hash as `@00000000` until `--reverify` fills it. `--reverify` names the row and leaves it, because which reading of an unparseable coordinate was meant is not the checker's call |
 | `DRIFTED` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify`. This is the one verdict the readers grade differently — see *Which reader graded your tree* |
 | `EXTERNAL` (exit 0) | the path resolves in no known checkout, in a repository that has DECLARED cross-repo intent — a parity config, `--map`, or `--default-repo` | pass `--map`/`--default-repo`, or accept as out of scope. Without such a declaration a missing path is `BROKEN` instead: a deleted or renamed directory must fail the build, not read as somebody else's repo |
 | `NOT-IN-TREE` (exit 2, records arm) | a record of a work item that has not shipped names a compound backticked identifier that nothing git carries outside `seal/specs/` and `seal/ledger/` | correct the record, or append ` · NAME NOT IN TREE` on the line where the record means a name the tree does not have (placed before any trailing colon introducing a block). The marker exempts the LINE, not the name |
@@ -275,7 +276,9 @@ It rewrites the hash of every row whose anchor resolves, and names each one it
 changed. That is a person saying they have re-read the code, which is why it
 is a separate command: a check that refreshed what it was checking would
 report `OK` for ever. A row whose anchor is gone is left alone — silently
-renaming its hash would hide the one row somebody has to look at.
+renaming its hash would hide the one row somebody has to look at. A
+`MALFORMED` row is left too, with a `LEFT` line naming it and the remedy, and
+the run exits 1.
 
 ## A row inside a fence is an example, not a claim
 
@@ -480,9 +483,18 @@ absent, or the record is wrong, and the marker is one comment away.
   content changed in place and no destination is provable, both commands leave
   the row and print the hash to record by hand. Accepting it instead is how a
   call site left behind by a move becomes the row's permanent anchor.
-- Every row the check calls `BROKEN` or `DRIFTED` gets a line back from
-  `--reverify`, whether or not it could heal it. Silence there reads as a heal
-  that happened.
+- Every row the check calls `BROKEN`, `DRIFTED` or `MALFORMED` gets a line
+  back from `--reverify`, whether or not it could heal it. Silence there reads
+  as a heal that happened.
+- `MALFORMED` reads one cell of a row: the column headed `Code grounds`, or
+  the second cell of a row under no header, which is every fragment row. A
+  table whose header names no such column is not read, so a ledger that
+  renamed the column takes that table out of the verdict, and a coordinate
+  that does not parse in a Notes or Verified-behavior cell is not named.
+  Scanning every cell was measured on this plugin's own ledgers and refused
+  seven correct things in eight — the template's notation row, `#unit@hash`
+  shorthand, a quoted example of the bug — which is why the arm keys on the
+  template's column name.
 - A nested `def` is anchored by its qualified name — `outer.inner` — and the
   short name alone resolves to nothing. Such a row reads `BROKEN` with the
   qualified unit named on the same line, and `--reverify` re-anchors it.

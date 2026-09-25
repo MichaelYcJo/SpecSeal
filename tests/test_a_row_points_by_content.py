@@ -811,8 +811,12 @@ def test_past_the_file_cap_the_scan_degrades_and_says_so(repo):
 # --- the 0.1.0 format ---------------------------------------------------------
 
 
+# The Baseline row sits under `Item | Value`, where 0.1.0's `templates/map.md`
+# put it. Under no header it would be a claim citing nothing, which is what
+# `MALFORMED` names (#299), and no 0.1.0 ledger held it that way.
 OLD_LEDGER = (
     "# map\n\n"
+    "| Item | Value |\n|---|---|\n"
     "| Baseline commit | `9829412277fa11f81b61df7850183ae3fa9d8a05` (2026-08-31) |\n\n"
     "| CLAUSE | `src/service.py:4-6` | read | 2026-08-31 `9829412` | notes |\n"
     "| OTHER | `src/service.py:10-11` | read | 2026-08-31 | notes |\n"
@@ -862,6 +866,155 @@ def test_a_quoted_anchor_naming_an_old_coordinate_is_not_old_format(repo):
     r = run(["."], str(repo))
     assert "OLD-FORMAT" not in r.stdout, r.stdout
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
+
+
+# --- a coordinate that will not parse (#299) ----------------------------------
+
+MALFORMED_SHAPES = {
+    "placeholder hash": "src/service.py#handler@0",
+    "short hash": "src/service.py#handler@abcde",
+    "no path": "#handler@abcdef12",
+    "bare minor anchor": "src/service.py#handler>y@abcdef12",
+    "unit that is not a name": "src/service.py#<module>@00000000",
+}
+
+
+@pytest.mark.parametrize(
+    "coord", list(MALFORMED_SHAPES.values()), ids=list(MALFORMED_SHAPES)
+)
+def test_a_coordinate_that_will_not_parse_is_malformed_under_both_readings(repo, coord):
+    """S1-S3. Each of these matched neither `ANCHOR_RE` nor `OLD_COORD_RE`,
+    so it reached no finding list: `0 ok · 0 drifted · 0 broken`, exit 0,
+    with a claim in the ledger that nothing had ever checked. The first two
+    are the hash end of #299, the bare minor anchor is the locator end
+    `seal/follow-up.md` measured on 2026-09-13, and `<module>` is the shape
+    `seal/releases/0.12.0.md` carried until this work item repaired it."""
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        f"| CLAUSE | `{coord}` | read | 2026-09-25 | n |\n"
+    )
+    for args in (["."], ["--strict", "."]):
+        r = run(args, str(repo))
+        assert f"MALFORMED {coord}" in r.stdout, f"{args}: the silence\n{r.stdout}"
+        assert "@00000000" in r.stdout and "--reverify" in r.stdout, (
+            f"the line names no remedy:\n{r.stdout}"
+        )
+        assert "0 old-format · 1 malformed" in r.stdout, r.stdout
+        assert r.returncode == 2, f"{args}: exit {r.returncode}\n{r.stdout}"
+
+
+def test_a_bare_quote_in_a_quoted_locator_is_malformed_and_the_escape_repairs_it(
+    repo,
+):
+    """S4, and the live shape: four of the five rows this repository carried
+    unread were quoted locators with a bare `"` inside. The finding names
+    the escape, and the escape is the repair `unescape` already reads."""
+    (repo / "src" / "names.py").write_text('LABEL = "ok"\n')
+    h = ec.content_hash(['LABEL = "ok"'])
+    ledger = repo / "seal" / "ledger" / "f.md"
+    ledger.write_text(f'| CLAUSE | `src/names.py#"LABEL = "ok""@{h}` |\n')
+    r = run(["."], str(repo))
+    assert "MALFORMED" in r.stdout and r.returncode == 2, r.stdout
+    assert '`\\"`' in r.stdout, f"the line does not name the escape:\n{r.stdout}"
+    ledger.write_text(f'| CLAUSE | `src/names.py#"LABEL = \\"ok\\""@{h}` |\n')
+    r = run(["."], str(repo))
+    assert "MALFORMED" not in r.stdout.replace("0 malformed", ""), r.stdout
+    assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
+
+
+def test_a_good_and_a_malformed_coordinate_in_one_cell_are_counted_apart(repo):
+    """S5. The cell's good anchor is checked as it always was; only what the
+    pattern refused is left over to be named."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text()).group(0)
+    ledger.write_text(f"| CLAUSE | {good}, `src/service.py#Box@0` |\n")
+    r = run(["."], str(repo))
+    assert (
+        "  1 ok · 0 drifted · 0 broken · 0 external · 0 old-format · 1 malformed"
+        in (r.stdout)
+    ), r.stdout
+    assert "MALFORMED src/service.py#Box@0" in r.stdout, r.stdout
+
+
+def test_a_claim_whose_grounds_cite_nothing_is_malformed(repo):
+    """S6. The owner's second comment on #299 puts it in the class: *any
+    coordinate cell the anchor pattern rejects, whatever the reason*. A row
+    that claims something and cites nothing a reader can check reads as
+    covered and is not."""
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        "| A claim | none — policy only | read | 2026-09-25 | n |\n"
+    )
+    r = run(["."], str(repo))
+    assert "MALFORMED none — policy only" in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+
+
+NOT_A_CLAIM = (
+    "# map\n\n"
+    "| Item | Value |\n|---|---|\n"
+    "| Coordinate notation | `path#anchor@hash` from the repo root |\n\n"
+    "## Scope decisions\n\n"
+    "| Decision | Content | Grounds |\n|---|---|---|\n"
+    "| | | |\n"
+    "| d | `src/x.py#y@0` in the content | g |\n\n"
+    "## area\n\n"
+    "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+    "|---|---|---|---|---|\n"
+    "| | | | | |\n"
+    "| `path#unit@hash` is the notation | `src/service.py#handler@{h}` (#299) "
+    "| shorthand `#handler@abcdef12` | 2026-09-25 "
+    '| a quoted example, `src/service.py#"a "b""@00000000` |\n\n'
+    "```\n| A | `src/service.py#handler@0` |\n```\n"
+)
+
+
+def test_what_is_not_a_claim_is_not_refused(repo):
+    """S7, one ledger holding every shape `spec.md` *Must not be refused*
+    lists: the template's notation row under `Item | Value`, its empty rows,
+    a scope-decisions table, notation in a Clause cell, shorthand and a quoted
+    example in the other cells, and a row inside a fence that closes. Every
+    one of them is in this repository's ledgers or in the template. An issue
+    number beside a good anchor is prose, not a coordinate. A fence that does
+    NOT close is read (#444), so the same row there is named."""
+    a, b = write_row(repo, "src/service.py", "handler")
+    h = ec.content_hash(SERVICE.splitlines()[a - 1 : b])
+    ledger = repo / "seal" / "ledger" / "f.md"
+    ledger.write_text(NOT_A_CLAIM.format(h=h))
+    r = run(["."], str(repo))
+    assert "0 old-format · 0 malformed" in r.stdout, r.stdout
+    assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
+    ledger.write_text(NOT_A_CLAIM.format(h=h) + "```\n| B | `src/service.py#Box@0` |\n")
+    r = run(["."], str(repo))
+    assert "MALFORMED src/service.py#Box@0" in r.stdout, r.stdout
+    assert "MALFORMED src/service.py#handler@0 " not in r.stdout, r.stdout
+    assert r.returncode == 2, r.stdout
+
+
+def test_malformed_is_on_both_totals_lines_even_at_zero(repo):
+    """S9. A red build whose summary read all zeros is what put `old-format`
+    on the line at zero (round 4, 🟡 6); the new count follows it for the
+    same reason, after it, so the text before it is unchanged for the readers
+    matching it."""
+    write_row(repo, "src/service.py", "handler")
+    r = run(["."], str(repo))
+    tail = "1 ok · 0 drifted · 0 broken · 0 external · 0 old-format · 0 malformed"
+    assert f"  {tail}" in r.stdout, r.stdout
+    assert f"total: {tail}" in r.stdout, r.stdout
+
+
+def test_reverify_names_a_malformed_row_and_leaves_it(repo):
+    """S10. `--reverify` answered a malformed row with `0 rows re-verified`,
+    exit 0 — the silence `Known limits` says must never follow a row the check
+    refuses. It names the row, writes nothing and returns 1, as it already did
+    for a ledger it could not read. It does not heal the row: which reading
+    of a coordinate the parser refused was meant is not the checker's call."""
+    ledger = repo / "seal" / "ledger" / "f.md"
+    ledger.write_text("| CLAUSE | `src/service.py#handler@0` |\n")
+    before = ledger.read_text()
+    rr = run(["--reverify", "."], str(repo))
+    assert "LEFT  src/service.py#handler@0" in rr.stdout, rr.stdout
+    assert ledger.read_text() == before, "a malformed row was rewritten"
+    assert rr.returncode == 1, rr.stdout
 
 
 def test_migrate_rewrites_an_old_row_to_its_enclosing_unit(repo):
