@@ -24,7 +24,7 @@ Round 3 of work item 1790297083 is the verifying round after the run's one reope
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | `fix_surface`'s docstring says `checked_by` refuses `nobody` beside `Pass` on the last record without "at a ready pull request", while its twin in the round-record spec was widened by the fix pass | `skills/code-review/scripts/chain_check.py:2623` | deferred #598 | read. True at ready, and the module states the draft half at `:123`, `:152` and `:2210`, so no defect ships. Survivor-check does not reach it (executed). Deferred because the run is capped. The branch did not create the unit, and #598 owns the draft/`nobody` state (instance 4) |
+| ⬜ 1 | `fix_surface`'s docstring says `checked_by` refuses `nobody` beside `Pass` on the last record without "at a ready pull request", while its twin in the round-record spec was widened by the fix pass | `skills/code-review/scripts/chain_check.py:2623` | deferred #613 | read. True at ready, and the module states the draft half at `:123`, `:152` and `:2210`, so no defect ships. Survivor-check does not reach it (executed). Deferred because the run is capped. The branch did not create the unit, and #598 owns the draft/`nobody` state (instance 4) |
 | 🟢 | round 2's 🟡 1 is closed — `agents/smith.md` states the draft half | `agents/smith.md:301` | verified | read against `checked_by`'s `strict` branch. The semicolon join keeps the meaning, and `tests/test_a_fix_pass_may_add_a_unit.py` passes (executed) |
 | 🟢 | round 2's ⬜ 2 is closed — `seal`'s refusal says "a ready pull request", pinned twice | `skills/code-review/scripts/round_record.py:4496` | verified | read. Executed: both pinning cases pass at the target and fail at the new assertion with the `e58b62d3` message (§15) |
 | 🟢 | the widening to the module docstring's cell table is correct | `skills/code-review/scripts/chain_check.py:124` | verified | read against `checked_by` |
@@ -80,4 +80,4 @@ Round 3 of work item 1790297083 is the verifying round after the run's one reope
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| ⬜ 1, `fix_surface`'s docstring twin of the widened spec paragraph | #598, as a comment carrying the paste-ready fix below | the orchestrator of this run, who posts the comment before the release closes #598, or files a `from-review` issue instead if the change should outlive that close |
+| ⬜ 1, `fix_surface`'s docstring twin of the widened spec paragraph | #613, filed with the paste-ready fix below, because #598 closes with this pull request | the orchestrator of this run, who posts the comment before the release closes #598, or files a `from-review` issue instead if the change should outlive that close |
