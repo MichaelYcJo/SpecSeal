@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 607 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `4ac0b271df272d55a317a632cadf0138b4e2a877..063cf18cc7a5ec185993a0d95602859f5837651f`, 9 commits |
 | Contract changes | none |
 | New units | test_a_name_rooted_in_a_variable_is_judged_where_the_variable_points (depth 1); test_the_template_and_the_docstring_state_the_skips_bound (depth 1); test_the_sealer_is_told_to_quote_the_skip_line (depth 1) |
