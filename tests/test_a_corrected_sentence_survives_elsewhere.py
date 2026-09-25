@@ -3665,6 +3665,50 @@ def test_places_tied_on_score_print_in_path_order_whatever_the_hash_seed(
     assert orders == {("docs/c.md", "docs/y.md")}, orders
 
 
+def test_two_tied_sentences_on_one_line_print_in_one_order_whatever_the_hash_seed(
+    tmp_path,
+):
+    """Round 2's ⬜ 4. Two tied candidates on the same line of one file share
+    a path and a line, so only their text orders them. Red at 66df04df: two
+    outputs over 16 seeds."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    removed = (
+        "Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo "
+        "lima mike november oscar papa."
+    )
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{removed}\n",
+            "docs/c.md": "# c\n\nAlpha bravo charlie zulu india juliet kilo. "
+            "Echo foxtrot golf zulu mike november oscar.\n",
+            **FILLER,
+        },
+        "a sentence, and one line carrying both halves of it",
+    )
+    head = build(repo, {"docs/a.md": "# a\n\nNothing here now.\n"}, "remove it")
+    outputs = set()
+    for seed in range(16):
+        out = subprocess.run(
+            [
+                sys.executable,
+                SCRIPT,
+                "--range",
+                f"{head}^..{head}",
+                "--root",
+                str(repo),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            encoding="utf-8",
+            env={**os.environ, "PYTHONHASHSEED": str(seed)},
+        )
+        assert out.returncode == 1, out.stdout + out.stderr
+        outputs.add(out.stdout)
+    assert len(outputs) == 1, outputs
+
+
 def test_a_split_pairs_with_its_own_origin_while_both_files_remain(tmp_path):
     """S1's split. `docs/m.md` keeps one section and the other, carrying
     FOUND, moves to `docs/z.md`; both files remain, so nothing is gone at `b`
@@ -4230,13 +4274,17 @@ def test_a_removed_row_sharing_one_live_anchor_with_another_row_takes_the_exit(
     anchors beside the one that left, and another row of the file still
     cites one of them, as ledger rows citing a shared test often do. It does
     not cite both, so it is not this row re-pointed, and the row takes the
-    exit. Red with "cites every live anchor" read as "cites any"."""
+    exit. Red with "cites every live anchor" read as "cites any".
+
+    The neighbour carries the same id, `R1`, on purpose: a claim split
+    across rows repeats its id in one section (`seal/releases/0.14.0.md`'s
+    G5 is four rows), so an id standing at the tip names this row only when
+    as many rows carry it as before. Red at 66df04df, where the neighbour's
+    id kept the removed row measured (round 2's 🟡 1)."""
     repo = tmp_path / "probe"
     three = ("pkg/mod.py#helper", "pkg/mod.py#other", "pkg/mod.py#spare")
     module = MODULE + "\n\ndef spare(width):\n    return width\n"
-    neighbour = ledger_row("A neighbouring claim.", ("pkg/mod.py#other",)).replace(
-        "R1 ·", "R2 ·"
-    )
+    neighbour = ledger_row("A neighbouring claim.", ("pkg/mod.py#other",))
     head = ledger_range(
         repo,
         neighbour,
@@ -4331,6 +4379,25 @@ def test_a_removed_rows_id_standing_in_another_section_is_another_row(tmp_path):
     )
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 0, f"another section's R1 kept a removed row measured:\n{text}"
+
+
+def test_a_hyphenated_id_corrected_while_its_anchor_is_renamed_is_a_correction(
+    tmp_path,
+):
+    """`seal/releases/0.15.3.md` writes ids as `P1-1 ·`. A row with that id,
+    corrected in place and re-pointed at the renamed unit, is the same row.
+    Red at 66df04df: exit 0."""
+    repo = tmp_path / "probe"
+    renamed = MODULE.replace("def helper(", "def helper_renamed(")
+    head = ledger_range(
+        repo,
+        ledger_row(REPAIRED, ("pkg/mod.py#helper_renamed",)).replace("R1 ·", "P1-1 ·"),
+        renamed,
+        ledger_before=LEDGER_HEAD + ledger_row(FOUND).replace("R1 ·", "P1-1 ·"),
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a hyphenated id did not keep its row measured:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
 
 
 def test_a_row_whose_anchor_never_resolved_here_stays_measured(tmp_path):

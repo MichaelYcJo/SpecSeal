@@ -307,6 +307,7 @@ the tree consistent now*, which is why the report prints what it examined.
 """
 
 import argparse
+import collections
 import importlib.util
 import io
 import math
@@ -1015,10 +1016,13 @@ def evidence():
     return module
 
 
-# A row's own id -- `R1`, `S3`, `G5` -- heads its first cell, before the ` · `
-# that opens the claim, and is unique inside its section. A row corrected in
-# place keeps it under the same heading, whatever its anchors did.
-ROW_ID = re.compile(r"^\s*\|\s*([A-Z][A-Za-z]*\d+[a-z]?)\s*·")
+# A row's own id -- `R1`, `S3`, `G5`, `P1-1` -- heads its first cell, before
+# the ` · ` that opens the claim. A row corrected in place keeps it under the
+# same heading, whatever its anchors did. It is not always unique inside its
+# section: a claim split across rows repeats it (`seal/releases/0.14.0.md`'s
+# G5 is four rows), so an id names a row only while as many rows carry it at
+# `b` as did at `a`.
+ROW_ID = re.compile(r"^\s*\|\s*([A-Z][A-Za-z]*\d+[a-z]?(?:-\d+)?)\s*·")
 
 
 def ledger_rows(lines, live_lines):
@@ -1086,21 +1090,26 @@ def removed_ledger_rows(root, a, b, before, after):
             for line, live in live_lines(lines)
             if live and line.lstrip().startswith("|")
         ]
-        named[path] = {
+        named[path] = collections.Counter(
             (heading, row_id)
             for _number, heading, row_id, _line in ledger_rows(lines, live_lines)
             if row_id
-        }
+        )
+        at_left = ledger_rows(before[path].splitlines(), live_lines)
+        held = collections.Counter(
+            (heading, row_id) for _number, heading, row_id, _line in at_left if row_id
+        )
         kept = set(lines)
-        for number, heading, row_id, line in ledger_rows(
-            before[path].splitlines(), live_lines
-        ):
+        for number, heading, row_id, line in at_left:
             if line in kept:
                 continue
-            # The same id under the same heading at `b` is this row, corrected
-            # in place -- measured whatever its anchors did, so a correction
-            # re-pointed at a renamed unit or a retitled heading stays loud.
-            if row_id and (heading, row_id) in named[path]:
+            # The same id under the same heading at `b`, carried by as many
+            # rows as at `a`, is this row corrected in place -- measured
+            # whatever its anchors did. A key standing fewer times at `b` lost
+            # a row, and the id cannot say which, so its rows fall back to
+            # their anchors.
+            key = (heading, row_id)
+            if row_id and named[path][key] >= held[key]:
                 continue
             anchors = cited(line)
             if anchors:
@@ -1536,7 +1545,9 @@ def score(gone, keep, where, weight_of, floor, split=frozenset()):
             best = found.get(id(candidate))
             if best is None or total > best[0]:
                 found[id(candidate)] = (total, candidate, source, named)
-    return sorted(found.values(), key=lambda row: (-row[0], row[1].path, row[1].line))
+    return sorted(
+        found.values(), key=lambda row: (-row[0], row[1].path, row[1].line, row[1].raw)
+    )
 
 
 def examine(root, a, b, floor=FLOOR):
