@@ -11,3 +11,12 @@
   directory that an earlier command in the row makes or enters is not seen.
   A directory at the root named like a program makes that program's glued
   switch read as a path, and a blank before the switch avoids both.
+- **The suite reads a workflow's text one way (issues #482, #462 and
+  #463).** Cases that read `.github/workflows/hygiene.yml` each had their own
+  idea of what a comment is. One counted a flag written in a comment as a
+  base, and six cut the file at the first place a script's name appeared,
+  which a comment could move. `tests/conftest.py` now holds one comment rule,
+  a step found by its name, and the one step whose code runs a script, and
+  those six cases read through them. A `BASE:` counts as a base only under
+  `env:`, and an empty base fails the spelling check by name instead of
+  raising `TypeError`.
