@@ -165,9 +165,10 @@ def load_checker(path=CHECKER):
 
     A missing file is a sentence naming the path rather than the
     `FileNotFoundError` `spec_from_file_location` hands back for any name
-    ending in `.py`, present or not. That shape is `round_record.py`'s own
-    open rider, and copying the defect into a new file to keep the two
-    matching would be the wrong half to be consistent with.
+    ending in `.py`, present or not. `round_record.py#load` had that shape
+    and a rider asking for this one, and #590 gave it this one; copying the
+    defect here to keep the two matching would have been the wrong half to be
+    consistent with.
     """
     if not os.path.isfile(path):
         sys.stderr.write(
