@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 2 |
 | Commit | d78a73ad |
-| Ran by | unknown — the spawn prompt did not name the agent and model; the orchestrator fills this row |
+| Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
 
