@@ -15,12 +15,12 @@
   remove the directory in the same release, and the release pull request
   into `main` then failed. `settle` now asks where the branch forked from
   `--released-at` as well, which is the same commit as the base's tip unless
-  the base has moved since, and keeps more, never less, when it has. A
-  directory closed here and still open there is listed under its own
-  heading, naming the base and the rows open there, and `--retire` keeps it
-  and exits 1. Where the base has moved, the heading says to merge it into
-  this branch. A `--released-at` that shares no commit with `HEAD`, or a
-  clone too shallow to reach the one they share, is refused at exit 2.
+  the base has moved since. A directory closed here and still open there is
+  listed under its own heading, naming the base and the rows open there, and
+  `--retire` keeps it and exits 1. Where the base has moved, the heading says
+  to merge it into this branch. A `--released-at` that shares no commit with
+  `HEAD`, or a clone too shallow to reach the one they share, is refused at
+  exit 2.
 - **The changelog gather refuses a fragment that carries a line starting
   `## ` (issue #586).** Such a line ends the released section, for the
   gather and for the release note alike, so every entry after it shipped
