@@ -921,7 +921,11 @@ is out, and so is a fragment whose fold marker stands in `CHANGELOG.md` at
 the tip, because a released entry is not rewritten;
 `## Unreleased` and an ungathered fragment stay in. A ledger row the range
 removed because one of its anchors left the code is out, since its claim
-went with the code; a row corrected in place is still read. In a `.py` file only
+went with the code; a row corrected in place is still read where its id
+stands under the same heading, and otherwise only while a live row cites
+every anchor it kept. So one whose correction renamed an anchor goes silent
+if it has no id (about 37% of rows), lost a sibling of its id, dropped an
+anchor, or changed section. In a `.py` file only
 comments, docstrings and string literals are wording, every other token ends
 a sentence, and a file the tokenizer refuses is read whole. Each of these
 cost a check that went green by finding nothing or red over something
