@@ -65,5 +65,5 @@ the new claim goes in this work item's fragment.
 
 | Removed item | Where it must land |
 |---|---|
-| `test_a_switch_against_another_program_is_rewritten_the_documented_bound_not_the_goal`, which pinned `xcopy/e` → `xcopy\e` as a bound | inverted as `test_a_switch_against_another_program_reaches_cmd_exe_as_written`. The 0.15.3 row A2's anchor on it was dropped as dead, and the claim is in `seal/ledger/1790297086-the-broad-gate-says-what-ci-says.md` |
+| `test_a_switch_against_another_program_is_rewritten_the_documented_bound_not_the_goal` — NAME NOT IN TREE — which pinned `xcopy/e` → `xcopy\e` as a bound | inverted as `test_a_switch_against_another_program_reaches_cmd_exe_as_written`. The 0.15.3 row A2's anchor on it was dropped as dead, and the claim is in `seal/ledger/1790297086-the-broad-gate-says-what-ci-says.md` |
 | the template's sentences "A `/` written straight after any other program's name is read as part of a path and rewritten … Telling the two apart is #596" | `templates/config.md` §*Broad gate*, as the directory rule and its two bounds |

@@ -34,6 +34,117 @@ def review_chain_text(root):
     return "\n".join(texts)
 
 
+# --- a workflow's text, read the one way -------------------------------------
+#
+# No YAML parser is installed anywhere this suite runs, so every case that
+# reads `.github/workflows/*.yml` reads text. Each one that re-derived what a
+# comment is got it slightly differently: a flag in a comment counted as a
+# base (#462), and a comment naming a script moved the region a case sliced
+# out (#482). These three helpers are the one reading, driven over fixtures
+# in `tests/test_a_workflow_is_read_the_one_way.py`. They are a test helper
+# and refuse nothing.
+
+
+def code_line(line):
+    """`line` with any comment taken off, or `None` where all of it is one.
+
+    A line whose first non-blank character is `#` is a comment. So is the
+    rest of a line from a `#` that follows a blank and stands outside `"…"`
+    and `'…'`: YAML ends a plain scalar there, and inside a `run:` block the
+    shell ignores the rest of the line there, so both layers agree it does
+    not run. A quote is tracked from wherever it stands, so a stray
+    apostrophe in a plain scalar keeps a later ` #` as text: that errs
+    toward reading a comment as code, which is loud in every case built on
+    this, rather than toward dropping code.
+    """
+    if line.lstrip().startswith("#"):
+        return None
+    quote = None
+    for i, c in enumerate(line):
+        if quote:
+            if c == quote:
+                quote = None
+        elif c in "\"'":
+            quote = c
+        elif c == "#" and i > 0 and line[i - 1] in " \t":
+            return line[:i].rstrip()
+    return line
+
+
+def code_lines(text):
+    """`text` with every comment removed, one line per line that is code."""
+    return [kept for kept in map(code_line, text.splitlines()) if kept is not None]
+
+
+def _indent(line):
+    return len(line) - len(line.lstrip(" "))
+
+
+def _unquote(value):
+    """A YAML scalar with its matching quotes off, as `broad_gate.py#unquote`
+    reads a step's name."""
+    for mark in ('"', "'"):
+        if len(value) >= 2 and value.startswith(mark) and value.endswith(mark):
+            return value[1:-1]
+    return value
+
+
+_STEP_NAME = re.compile(r"^\s*-\s+name:\s*(\S.*?)\s*$")
+
+
+def workflow_steps(text):
+    """Every step of every job's `steps:` list: `(name, code lines)` pairs.
+
+    A step runs from its `- ` at the list's own indentation to the next item
+    at that indentation, or to the first code line shallower than the list,
+    which is the next key of its job or the next job. A step's code lines
+    keep their blank ones. `name` is the step's
+    `- name:` value, read the way `broad_gate.py#STEP_RE` and `#unquote` read
+    it, or `None` for a step with no name (`- uses: …`).
+    """
+    lines = code_lines(text)
+    steps, i = [], 0
+    while i < len(lines):
+        if lines[i].strip() != "steps:":
+            i += 1
+            continue
+        floor, i, level = _indent(lines[i]), i + 1, None
+        # A blank line ends nothing: `run: |` blocks and the gaps between
+        # steps both carry them.
+        while i < len(lines) and (not lines[i].strip() or _indent(lines[i]) > floor):
+            line = lines[i]
+            if level is None and line.lstrip().startswith("- "):
+                level = _indent(line)
+            if (
+                level is not None
+                and _indent(line) == level
+                and line.lstrip()[:2] == "- "
+            ):
+                steps.append([None, []])
+                named = _STEP_NAME.match(line)
+                if named:
+                    steps[-1][0] = _unquote(named.group(1))
+            if steps and level is not None:
+                steps[-1][1].append(line)
+            i += 1
+    return [(name, "\n".join(block)) for name, block in steps]
+
+
+def workflow_step(text, name):
+    """The code lines of the one step called `name`. Asserts there is one."""
+    found = [block for called, block in workflow_steps(text) if called == name]
+    assert len(found) == 1, f"{len(found)} steps are called {name!r}"
+    return found[0]
+
+
+def step_running(text, script):
+    """The code lines of the one step whose code names `script`. Asserts
+    there is one, so a comment naming it can never move the region."""
+    found = [block for _, block in workflow_steps(text) if script in block]
+    assert len(found) == 1, f"{len(found)} steps run {script!r}"
+    return found[0]
+
+
 def _build_repo(d):
     """`git init` a repo at `d`, with one committed file and a feature branch."""
     git = lambda *a: subprocess.run(

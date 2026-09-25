@@ -79,7 +79,7 @@ drive's root always exists, and this keeps today's output for that shape.
   - `test_the_template_says_which_positions_are_rewritten` pins the new
     sentences, and its `#596` needle goes.
 - **Cases.**
-  - `test_a_switch_against_another_program_is_rewritten_the_documented_bound_not_the_goal`
+  - `test_a_switch_against_another_program_is_rewritten_the_documented_bound_not_the_goal` — NAME NOT IN TREE, renamed in phase 1
     inverts, which its own docstring predicted. It gets a name that says the
     new behaviour: `xcopy/e/i`, `findstr/s`, `timeout/t` and `ipconfig/all`
     are handed over as written where no such directory exists.

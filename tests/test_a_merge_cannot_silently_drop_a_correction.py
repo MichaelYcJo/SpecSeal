@@ -43,7 +43,7 @@ import pathlib
 import re
 import subprocess
 
-from conftest import on_disk
+from conftest import on_disk, step_running
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(
@@ -663,7 +663,7 @@ def test_a9_the_leg_runs_the_check_and_is_allowed_to_fail():
     and A3 exists so the check does not fire on correct work."""
     text = workflow()
     assert "correction_check.py" in text, "the leg does not run the check"
-    leg = text.split("correction_check.py")[0].split("- name:")[-1]
+    leg = step_running(text, "correction_check.py")
     assert "continue-on-error" not in leg, "the leg is allowed to pass while red"
     assert "::warning::" not in leg, "a warning is not a gate"
 
@@ -672,8 +672,7 @@ def test_a9_the_leg_asks_the_range_the_pull_request_is_about():
     """The range is `origin/<base>...HEAD`, the same spelling the survivor
     leg uses. Anything narrower misses the branch's own merge, which is the
     one M2 showed is the merge #424 is about."""
-    text = workflow()
-    step = text.split("correction_check.py")[1].split("- name:")[0]
+    step = step_running(workflow(), "correction_check.py")
     assert "origin/${{ github.base_ref }}...HEAD" in step, step
 
 
@@ -683,14 +682,7 @@ def test_a9_the_leg_skips_a_release_pull_request_and_says_why():
     there holds merges of `main` back into the release branch, which is a
     different question, and each work item was checked at its own pull
     request. The skip prints its reason rather than exiting quietly."""
-    text = workflow()
-    step = text.split("- name:")[
-        next(
-            i
-            for i, part in enumerate(text.split("- name:"))
-            if "correction_check.py" in part
-        )
-    ]
+    step = step_running(workflow(), "correction_check.py")
     assert 'github.base_ref }}" = "main"' in step, step
     assert "exit 0" in step, step
 
