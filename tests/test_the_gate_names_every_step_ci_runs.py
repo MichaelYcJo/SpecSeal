@@ -717,11 +717,21 @@ def test_a_repository_with_no_hygiene_workflow_is_sealed_exactly_as_before(tmp_p
         f"the stamp of a repository with no hygiene workflow says something "
         f"about that workflow's steps:\n{result.stdout}"
     )
-    said = result.stderr
-    for echoed in (str(tmp_path), os.path.realpath(GATE), sys.executable):
-        said = said.replace(echoed, "")
-    assert "release" not in said, result.stderr
-    assert gate.WORKFLOW not in result.stderr, result.stderr
+    # What names the release job, and nothing a path can carry by accident:
+    # the job as `coverage_line` spells it, the workflow's path, and every
+    # step name the partition holds. A bare `release` used to be searched
+    # for once the echoed paths were cut out of the stream, and a checkout
+    # under a `release/` directory then went red for a path nobody had cut
+    # yet (#499).
+    for names_the_job in (
+        f"`{gate.RELEASE_JOB}`",
+        gate.WORKFLOW,
+        *(name for name, _, _ in gate.PARTITION),
+    ):
+        assert names_the_job not in result.stderr, (
+            f"the gate names {names_the_job!r} for a repository with no "
+            f"hygiene workflow:\n{result.stderr}"
+        )
 
     labels = tuple(
         row[0]
