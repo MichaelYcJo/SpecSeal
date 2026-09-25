@@ -13,7 +13,10 @@ reopens them:**
   `origin/main`, compared at the merge base of that ref and `HEAD`.
   `skills/settle/SKILL.md` §1 already defines `--released-at` as the branch
   the release merges to, and both CI readers compare at that merge base
-  (`unverified_check.py#main`, `chain_check.py#main`).
+  (`unverified_check.py#main`, `chain_check.py#main`). *Corrected
+  2026-09-25 in round 1's fix pass:* they compute it from their own `HEAD`,
+  which on a pull request is the merge ref, so theirs is the base's tip; the
+  two are the same commit until the base moves past the fork.
   `docs/one-root-by-lifetime.md`'s decision row already says the predicate is
   asked of the merge base for `settle`, which is false today and true after
   this work. No new flag.

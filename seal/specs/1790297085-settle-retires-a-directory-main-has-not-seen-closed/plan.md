@@ -62,9 +62,13 @@ file this work item edits.
   directory with `reader.retired_by_rule(root, None, directory)`, and
   `#retire` re-asks the same of the tree. Both gain the second question,
   `reader.retired_by_rule(root, base, directory)`, where `base` is
-  `reader.merge_base(root, ref)` — the revision both CI readers use
+  `reader.merge_base(root, ref)` — the call both CI readers make
   (`unverified_check.py#main` around `base = merge_base(root, args.baseline)`,
   `chain_check.py#main` around `fork = reader.merge_base(root, args.baseline)`).
+  *Corrected 2026-09-25 in round 1's fix pass:* this said "the revision both
+  CI readers use". Their `HEAD` on a pull request is the merge ref, so their
+  merge base is the base's tip, which is this revision only until the base
+  moves past the fork.
   Name it with `reader.base_label(ref, reader.commit_of(root, ref), base)`.
 - Order matters: a directory the tree already keeps (an open row on disk)
   stays under *kept by the rule* as today; only one that passes the tree and
@@ -141,8 +145,8 @@ also sets the base, so there is no second value to keep in step.
 
 | Approach | Failure scenario | Verdict |
 |---|---|---|
-| #602: ask the predicate at the merge base of `--released-at` and `HEAD` | A stale `origin/main` keeps more than it must, and says which ref it read | **Chosen.** It is the revision both CI readers compare against, so `settle` and CI cannot disagree about one tree |
-| #602: ask it at the tip of `--released-at` | The base moved past the fork (a hotfix merged the closure straight to `main`); `settle` retires, the release pull request's CI asks the merge base, finds the row open, and goes red — #602 again | Rejected |
+| #602: ask the predicate at the merge base of `--released-at` and `HEAD` | A stale `origin/main` keeps more than it must, and says which ref it read | **Chosen.** It is the revision the CI readers ask at until the base moves past the fork, and an earlier one after, so where `settle` and CI disagree `settle` keeps more and never less. *Corrected 2026-09-25 in round 1's fix pass:* this said it is the revision both CI readers compare against; on a pull request they stand on the merge ref and ask at the base's tip |
+| #602: ask it at the tip of `--released-at` | It agrees with CI on a pull request, whose merge ref puts CI's merge base at the base's tip. It reads the local ref, so where `main` reopened a row or wrote a `spec.md` after the fork it asks a tree this branch has not merged, and it gives up the fork point's property of keeping more, never less, in every flow this repository uses. *Corrected 2026-09-25 in round 1's fix pass:* the failure written here was that a hotfix closing the row on `main` would make the release pull request's CI find it open at the merge base; on the merge ref CI asks at the tip, where that closure is present, so that failure does not happen | Rejected |
 | #602: a new `--base REF` flag | Two flags naming one branch invite two values; `SKILL.md` already defines `--released-at` as the branch the release merges to | Rejected |
 | #602: read the pull request's base from GitHub | A fold runs before its pull request exists, and `settle` works offline | Rejected |
 | #602: leave it in the skill's prose | The 0.15.3 run followed the prose on both pull requests and still cost #597 | Rejected — the state #602 was filed against |
