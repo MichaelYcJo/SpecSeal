@@ -3227,7 +3227,7 @@ def written_late(reader, root, base, rel, fork=None):
     arm's *no claim* for a record with no adding commit here is defined by
     pointing at the reachability arm's, which a restored record already gets.
     Asked after the fixes are found and before the add is, so an ordinary
-    record pays no extra `git log`.
+    record with no fix verdict pays no extra `git log`.
     """
     named = commissioned_fixes(reader, root, rel)
     if not named:
