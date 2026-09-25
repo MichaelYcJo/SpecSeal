@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 606 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `db92ea3be169a49161b52750e9e195433cc2cd5b..7281cc4b65578ece8aad675f7c3a7f0f1d540d07`, 3 commits |
 | Contract changes | none |
 | New units | LOCATOR_OPEN_RE (depth 1); refused_coordinate (depth 1); test_prose_marks_beside_a_good_anchor_are_not_refused (depth 1); test_an_unticked_coordinate_with_one_mark_is_named (depth 1); test_a_quoted_locator_with_no_hash_is_not_told_about_a_bare_quote (depth 1) |
