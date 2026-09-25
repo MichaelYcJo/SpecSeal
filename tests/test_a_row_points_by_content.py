@@ -961,6 +961,7 @@ NOT_A_CLAIM = (
     "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
     "|---|---|---|---|---|\n"
     "| | | | | |\n"
+    "| | nothing but the grounds cell holds text | | | |\n"
     "| `path#unit@hash` is the notation | `src/service.py#handler@{h}` (#299) "
     "| shorthand `#handler@abcdef12` | 2026-09-25 "
     '| a quoted example, `src/service.py#"a "b""@00000000` |\n\n'
@@ -974,8 +975,9 @@ def test_what_is_not_a_claim_is_not_refused(repo):
     a scope-decisions table, notation in a Clause cell, shorthand and a quoted
     example in the other cells, and a row inside a fence that closes. Every
     one of them is in this repository's ledgers or in the template. An issue
-    number beside a good anchor is prose, not a coordinate. A fence that does
-    NOT close is read (#444), so the same row there is named."""
+    number beside a good anchor is prose, not a coordinate, and a row whose
+    only text is in the grounds cell claims nothing. A fence that does NOT
+    close is read (#444), so the same row there is named."""
     a, b = write_row(repo, "src/service.py", "handler")
     h = ec.content_hash(SERVICE.splitlines()[a - 1 : b])
     ledger = repo / "seal" / "ledger" / "f.md"
@@ -988,6 +990,50 @@ def test_what_is_not_a_claim_is_not_refused(repo):
     assert "MALFORMED src/service.py#Box@0" in r.stdout, r.stdout
     assert "MALFORMED src/service.py#handler@0 " not in r.stdout, r.stdout
     assert r.returncode == 2, r.stdout
+
+
+def test_what_is_left_of_a_cell_is_read_span_by_span(repo):
+    """Beside a good anchor, what the patterns refused is still named: a
+    coordinate with no hash, one written without backticks, and one in a
+    double-backtick span because it holds a backtick itself, the shape of the
+    live `EXPANDS` row. Each is named whole, as written."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text()).group(0)
+    ticked = 'src/service.py#"X = "$`""@00000000'
+    ledger.write_text(
+        f"| A | {good}, `src/service.py#Box` |\n"
+        f"| B | {good}, src/service.py#Box.open@0 |\n"
+        f"| C | {good}, `` {ticked} `` |\n"
+    )
+    r = run(["."], str(repo))
+    for coord in ("src/service.py#Box", "src/service.py#Box.open@0", ticked):
+        assert f"MALFORMED {coord}  " in r.stdout, f"{coord}:\n{r.stdout}"
+    assert "1 ok · 0 drifted · 0 broken · 0 external · 0 old-format · 3 malformed" in (
+        r.stdout
+    ), r.stdout
+
+
+def test_a_fragment_row_after_a_headed_table_is_still_read(repo):
+    """A table ends where its run of `|` lines ends. A fold appends headerless
+    rows under a heading after tables of every kind, and a header carried over
+    from an `Item | Value` table would take them out of the arm."""
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        "| Item | Value |\n|---|---|\n| a | b |\n\n"
+        "| CLAUSE | `src/service.py#handler@0` |\n"
+    )
+    r = run(["."], str(repo))
+    assert "MALFORMED src/service.py#handler@0" in r.stdout, r.stdout
+
+
+def test_the_same_malformed_text_is_counted_once(repo):
+    """Counted once per text as written, the way OLD-FORMAT and the anchor
+    reading count, so the total says how many distinct things to repair."""
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        "| A | `src/service.py#handler@0` |\n| B | `src/service.py#handler@0` |\n"
+    )
+    r = run(["."], str(repo))
+    assert "0 old-format · 1 malformed" in r.stdout, r.stdout
 
 
 def test_malformed_is_on_both_totals_lines_even_at_zero(repo):
