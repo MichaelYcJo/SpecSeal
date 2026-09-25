@@ -1037,3 +1037,12 @@ def test_the_template_and_the_docstring_state_the_skips_bound():
     for where, text in (("templates/config.md", section), ("the docstring", docstring)):
         assert "keyed on the spelling `main` or `origin/main`" in text, where
         assert "not on the guard the step carries" in text, where
+
+
+def test_the_sealer_is_told_to_quote_the_skip_line():
+    """Round 1's ⬜ 8. The panel has no row for either skipped arm, so the
+    line is the only trace that they did not run, and the sealer relays a
+    stderr line only where its definition names it."""
+    sealer = " ".join(read(os.path.join(ROOT, "agents", "sealer.md")).split())
+    assert "the gate does not run the `survivors` and `corrections` arms" in sealer
+    assert "Quote that line in your report when it appears" in sealer
