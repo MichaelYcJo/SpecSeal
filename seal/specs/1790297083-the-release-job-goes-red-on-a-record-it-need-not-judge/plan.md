@@ -2,9 +2,7 @@
 
 <!-- seal/specs/1790297083-the-release-job-goes-red-on-a-record-it-need-not-judge/plan.md -->
 
-<!-- The approval line goes here. The orchestrating session writes it when it
-spawns `smith`, in the template's shape: `Approved <date> by <who>, when
-`smith` was spawned.` The framer does not write it. -->
+Approved 2026-09-25 by the orchestrating session under the owner's `automation` answer, when `smith` was spawned.
 
 ## Summary
 
