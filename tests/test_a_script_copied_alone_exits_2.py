@@ -62,6 +62,33 @@ CASES = [
 ]
 
 
+def names_path(path, text):
+    """Whether `text` names `path`, as written or as an `OSError` spells it.
+
+    `str(OSError)` quotes the filename with `repr`, which doubles every
+    backslash, so on Windows the path a refusal quotes from one is not the
+    path as written. `chain_check.py` quotes one; the three loaders #590
+    fixed write the path themselves."""
+    return path in text or repr(path)[1:-1] in text
+
+
+def test_the_path_is_found_as_a_windows_oserror_spells_it():
+    """CI's windows-latest leg on PR #605: `chain_check.py` quotes the
+    `OSError`, whose filename is repr-escaped on Windows, so every backslash
+    of the path arrives doubled and the plain path is not a substring. Shown
+    here with a Windows-shaped path, since a POSIX path has no separator for
+    the escape to double."""
+    path = "C:\\Users\\x\\alone"
+    oserror = FileNotFoundError(2, "No such file or directory", path + "\\..\\r.py")
+    text = f"chain-check: the shared reader would not load ({oserror})"
+    assert path not in text, "the fixture no longer has the Windows shape"
+    assert names_path(path, text), text
+    assert names_path(path, f"cannot read {path}\\..\\r.py, and it is ...")
+    assert not names_path(path, "cannot read C:\\Users\\y\\alone"), (
+        "matched another path"
+    )
+
+
 @pytest.mark.parametrize(
     "script, args, purpose, absent", CASES, ids=[c[0].rsplit("/", 1)[1] for c in CASES]
 )
@@ -85,7 +112,7 @@ def test_a_script_copied_alone_exits_2_and_names_what_it_misses(
     )
     assert done.returncode == 2, (done.returncode, done.stderr)
     assert "Traceback" not in done.stderr, done.stderr
-    assert str(alone) in done.stderr, (
+    assert names_path(str(alone), done.stderr), (
         f"the refusal does not name the missing path: {done.stderr}"
     )
     assert purpose in done.stderr, (
