@@ -52,17 +52,29 @@ def code_line(line):
     rest of a line from a `#` that follows a blank and stands outside `"…"`
     and `'…'`: YAML ends a plain scalar there, and inside a `run:` block the
     shell ignores the rest of the line there, so both layers agree it does
-    not run. A quote is tracked from wherever it stands, so a stray
-    apostrophe in a plain scalar keeps a later ` #` as text: that errs
-    toward reading a comment as code, which is loud in every case built on
-    this, rather than toward dropping code.
+    not run. Inside `"…"` a backslash escapes the next character, so `\"`
+    does not close the string, as in YAML and the shell alike; `'…'` has no
+    escape. A quote is tracked from wherever it stands, so a stray
+    apostrophe in a plain scalar keeps a later ` #` as text, which reads a
+    comment as code.
+
+    **Not tracked, and named rather than claimed:** quotes are read one line
+    at a time, so a double-quoted string that spans lines of a `run: |`
+    block is not seen, and a line inside it whose first non-blank character
+    is `#` is dropped as a comment. That one drops code. No workflow line in
+    this repository had the shape when round 1 of work item 1790297086
+    looked for it.
     """
     if line.lstrip().startswith("#"):
         return None
-    quote = None
+    quote, escaped = None, False
     for i, c in enumerate(line):
-        if quote:
-            if c == quote:
+        if escaped:
+            escaped = False
+        elif quote:
+            if quote == '"' and c == "\\":
+                escaped = True
+            elif c == quote:
                 quote = None
         elif c in "\"'":
             quote = c

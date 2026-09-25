@@ -68,6 +68,9 @@ jobs:
         ('run: echo "a # b"', 'run: echo "a # b"'),
         ("run: echo 'a # b'", "run: echo 'a # b'"),
         ('run: echo "a # b" # c', 'run: echo "a # b"'),
+        # An escaped quote does not close a double-quoted string (round 1, ⬜ 7).
+        ('run: echo "a \\" # b"', 'run: echo "a \\" # b"'),
+        ('run: echo "a \\"" # b', 'run: echo "a \\""'),
         ("name: plain", "name: plain"),
     ],
 )
