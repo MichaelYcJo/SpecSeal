@@ -166,6 +166,13 @@ root by `broad-gate` once the review rounds settle. The plugin's own checks
 (`evidence-check`, `unverified-check`, `chain_check.py`, `survivor-check`)
 follow it and are not part of the row.
 
+Two of those checks, the survivor arm and the correction arm, are left out
+where the base names `main` and the repository's `.github/workflows/hygiene.yml`
+carries their steps in its `release` job, because that workflow skips both
+steps on a pull request into `main`; the gate prints one line saying so. The
+skip is keyed on the spelling `main` or `origin/main` and on the step being
+present in the workflow, not on the guard the step carries.
+
 ```markdown
 | Broad gate | bin/test -q && uvx ruff check . && uvx ruff format --check . |
 ```

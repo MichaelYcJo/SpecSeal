@@ -1025,3 +1025,15 @@ def test_the_arms_left_out_at_main_are_the_arms_whose_steps_skip_there():
         f"and `SKIPPED_AT_MAIN` holds {sorted(gate.SKIPPED_AT_MAIN)}, of the "
         f"mirrored arms {sorted(mirrored_arms)}"
     )
+
+
+def test_the_template_and_the_docstring_state_the_skips_bound():
+    """Round 1's ⬜ 6. The skip is keyed on a spelling and on the step being
+    present, not on the step's own guard, and both places a reader learns of
+    the skip say so in one sentence (`agent-contract` §14)."""
+    template = " ".join(read(os.path.join(ROOT, "templates", "config.md")).split())
+    section = template.split("## Broad gate", 1)[1].split(" ## ", 1)[0]
+    docstring = " ".join((gate.skipped_at_main.__doc__ or "").split())
+    for where, text in (("templates/config.md", section), ("the docstring", docstring)):
+        assert "keyed on the spelling `main` or `origin/main`" in text, where
+        assert "not on the guard the step carries" in text, where

@@ -1860,6 +1860,11 @@ def skipped_at_main(given, workflow):
     as it was (`workflow_text`'s docstring): many of them merge feature
     branches straight into `main`, and skipping there would drop two arms
     from every run, which is the unsafe direction.
+
+    **The bound, named rather than claimed:** the skip is keyed on the
+    spelling `main` or `origin/main` and on the step being present in the
+    workflow, not on the guard the step carries, so `refs/heads/main` or
+    `upstream/main` runs both arms, the direction that over-asks.
     """
     if not workflow or given is None:
         return []
