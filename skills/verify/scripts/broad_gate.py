@@ -1488,9 +1488,7 @@ def command_names_backslashed(command, is_directory):
             if at_command:
                 opens_name(i)
             if c == "/" and in_name:
-                if turned is None and (
-                    command[start:i].lstrip("@").lower() in CMD_BUILTINS
-                ):
+                if command[start:i].lstrip("@").lower() in CMD_BUILTINS:
                     # A built-in's switch, written against it: as written.
                     in_name = False
                 elif turn(i):
