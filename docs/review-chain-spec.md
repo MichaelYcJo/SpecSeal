@@ -925,7 +925,13 @@ item that records a past state is out: a round record, the work item's own
 the root `CHANGELOG.md` — every line under a heading that names a version —
 is out, and so is a fragment whose fold marker stands in `CHANGELOG.md` at
 the tip, because a released entry is not rewritten;
-`## Unreleased` and an ungathered fragment stay in. In a `.py` file only
+`## Unreleased` and an ungathered fragment stay in. A ledger row the range
+removed because one of its anchors left the code is out, since its claim
+went with the code; a row corrected in place is still read where its id
+stands under the same heading, and otherwise only while a live row cites
+every anchor it kept. So one whose correction renamed an anchor goes silent
+if it has no id (about 37% of rows), lost a sibling of its id, dropped an
+anchor, or changed section. In a `.py` file only
 comments, docstrings and string literals are wording, every other token ends
 a sentence, and a file the tokenizer refuses is read whole. Each of these
 cost a check that went green by finding nothing or red over something
@@ -934,7 +940,7 @@ it quoted before `--exempt` was read and diluted the rest under the floor:
 on three pull requests of one release, 36 rows were written and 7 were
 consulted. Six of the twenty-one places the next release's four ranges
 reported were function bodies matched on loop and `if` shapes.
-Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state, skills/code-review/scripts/survivor_check.py::a_gathered_fragment, skills/code-review/scripts/survivor_check.py::python_prose
+Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state, skills/code-review/scripts/survivor_check.py::a_gathered_fragment, skills/code-review/scripts/survivor_check.py::python_prose, skills/code-review/scripts/survivor_check.py::removed_ledger_rows
 
 <!-- specs/1790206435-the-sweep-reads-a-code-idiom-as-removed-wording -->
 <!-- specs/1790221963-a-release-writes-the-gathered-text-back -->
@@ -944,7 +950,11 @@ always whose writing a sentence is. A sentence moved verbatim to another
 path, by a file moved whole or a document split, is held and never written,
 because a move changes no sentence's author: a pure move removes nothing and
 is silent for that reason, and a move that rewords one sentence measures it,
-where git's rename detection hid both. A fragment's text gathered by a
+where git's rename detection hid both. A move pairs with its own origin, the
+path it shares the most sentences with, so a report names the correction and
+never the path that only moved. A fold's text carried verbatim from a retired
+work item is a move too, and the retired side leaves the range after the
+pairing. A fragment's text gathered by a
 release is held and never written, because the fragment's own branch wrote
 it. Written, it subtracted the survivor a correction in the same commit left
 in another file whenever the release also lost a sentence, and renaming
@@ -953,7 +963,7 @@ still splits a sentence `CHANGELOG.md` itself lost, and nothing else. A
 release that loses no live sentence writes nothing it put under a version
 heading, and that guard and the gathered-text filter are pinned by separate
 cases, because either alone kept the shape the ticket first named green.
-Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released, skills/code-review/scripts/survivor_check.py::paired_across_paths
+Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released, skills/code-review/scripts/survivor_check.py::paired_across_paths, skills/code-review/scripts/survivor_check.py::retired_directories
 
 ## Non-goals
 
