@@ -1,0 +1,73 @@
+# Feature Specification: settle refuses a retirement the release's base has not seen closed; a missing sibling exits 2; the gatherer refuses a fragment's own `## ` line
+
+<!-- seal/specs/1790297085-settle-retires-a-directory-main-has-not-seen-closed/spec.md
+Work item C of `release: 0.15.4` (milestone 46): #602, #590, #586. A patch
+release: fixes to instruments, no new gate. Every refusal below enforces a
+rule a document already states, or one the owner decided (#586). -->
+
+## Grounding
+
+| Policy clause | What it fixes for this work |
+|---|---|
+| `docs/one-root-by-lifetime.md` §*Decided when the fold stopped being a work item (2026-09-23)*, row *A released work item that wrote no `spec.md`* | "One predicate beside the fold record decides it for `settle` and for every CI reader, **asked of the merge base**." Today `settle` asks it of the working tree only (`skills/settle/scripts/settle.py#survey`, `#retire`: `reader.retired_by_rule(root, None, …)`). #602 makes that sentence true for `settle`. |
+| `docs/the-evidence-ledger.md`, the statement under `<!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->` (*A released work item that wrote no `spec.md` states no rule…*) | Closing each open row "in a pull request merged before the one that retires the directory is what lets the next retirement take it. The CI readers ask the rule of the merge base." The command does not enforce it; this work does. |
+| `skills/settle/SKILL.md` §1, *Close it in a pull request of its own, and let that one merge first* | The same rule, in the procedure. It says "merge first" and does not say *to which base*. The 0.15.3 run merged both halves to `release/v0.15.3`, each correct against that base, and the release pull request into `main` then saw both in one range (#602, #598 instance 2). |
+| `skills/settle/SKILL.md` §1, *A work item is released when its directory is present on the branch the release merges to. `--released-at` names that branch.* | Fixes what "the release pull request's base" is from inside `settle`: `--released-at`, default `origin/main`. No new flag. |
+| `skills/verify/scripts/unverified_check.py#merge_base` docstring | "None for two states, and both are exit 2 rather than a degraded pass." `settle` inherits that answer where the merge base cannot be computed. |
+| The exit-code paragraphs of `skills/settle/scripts/fold_check.py` (module docstring), `skills/settle/scripts/settle.py` (module docstring) and `skills/code-review/scripts/round_record.py` (module docstring) | In all three, 1 means *problems found / a retirement was refused / chain_check's own verdict*, and 2 means *the input or the tree was unusable, nothing was read or written*. A sibling script that is not beside the command is the second kind (#590). |
+| `docs/branch-and-release.md` §*The changelog entries arrive as fragments, and the release gathers them* | The fragment convention's home. It states no format beyond *a file per work item*; the owner's decision on #586 (default (a), accepted 2026-09-25 per the spawn prompt) adds the one rule this work documents there. |
+| `CLAUDE.md` §*Repo rule — a change writes fragments, never the shared file*; §*commit early*; the ledger paragraphs | This work writes `seal/specs/<id>/changelog.md` and `seal/ledger/<id>.md`, and re-reads in place every existing row whose anchor it edits. |
+
+## Scope
+
+**In.**
+
+1. **#590 — a sibling script that is not beside the command exits 2, with a sentence.** The loader functions only, in the scripts whose exit 1 means something else:
+   - `skills/settle/scripts/fold_check.py#load` — today a `SystemExit(<sentence>)`, which is exit 1 (measured below).
+   - `skills/settle/scripts/settle.py#load` — the same, exit 1. Its sentence also names the wrong purpose for every file but one: copied alone, it says `hooks/optin.py` "is where the fold record is read from" (measured). The loader takes a per-file purpose, the shape `fold_check.py#load` already has.
+   - `skills/code-review/scripts/round_record.py#load` — a missing `chain_check.py` reaches `exec_module` and dies with a `FileNotFoundError` traceback, exit 1 (measured). The `# RIDER:` above that function asks for exactly this fix, so it is discharged and removed, and every sentence elsewhere saying the rider is still open is corrected in the same phase: `skills/settle/scripts/settle.py#load`'s docstring, `tests/test_settle_reads_before_it_removes.py#test_a_missing_sibling_reader_is_a_sentence_and_not_a_traceback`'s docstring, and `.github/scripts/rider_check.py#load_checker`'s docstring.
+   - **`skills/code-review/scripts/chain_check.py` is NOT edited.** The ticket names it at `~812`, and the claim does not hold at the process level: `chain_check.py#main` wraps both `load` calls in `except (OSError, SyntaxError, ImportError, SystemExit)` and returns 2 with a sentence. Measured below. It is pinned by the class case instead, and leaving the file untouched removes the merge with work item A entirely.
+2. **#602 — `settle --retire` keeps a spec-less directory whose record is still open at the release's base.** The rule arm asks `unverified_check.py#retired_by_rule` of the merge base of `--released-at` and `HEAD` as well as of the working tree, and retires only where both say yes. A directory that passes the tree and fails the base is kept, exit 1, and the refusal names the base and every row open there. The report arm (`settle` without `--retire`) lists it under its own heading rather than under *retired by the rule*, so the listing never promises a removal the retirement refuses. A merge base that cannot be computed is exit 2, nothing read.
+3. **#586 — the gatherer refuses a fragment carrying a line that starts `## `.** `.github/scripts/gather_changelog.py`, in the `--version` arm (and so `--dry-run`), before anything is written. The owner accepted default (a); `publish_release_note.py` is not edited, because a fragment that cannot reach the file cannot reach the note.
+4. The documents that describe each changed behaviour (§14 of the contract): `skills/settle/SKILL.md`, `docs/the-evidence-ledger.md`'s rule-arm statement, both README editions' `settle [--retire]` row, `docs/branch-and-release.md`'s fragment section, `CONTRIBUTING.md`'s *A change writes a fragment* house rule, and each script's own module docstring.
+5. This work item's `changelog.md` and `seal/ledger/1790297085-settle-retires-a-directory-main-has-not-seen-closed.md`, and the in-place re-read of every existing ledger row whose anchored unit it edits.
+
+**Out, and why.**
+
+- **`chain_check.py`, any function.** Measured to exit 2 already (item 1). Work item A owns its other functions this release.
+- **The marker arm of `settle --retire`.** A folded directory is excused by both CI readers whatever its record held (`unverified_check.py#main`'s `folded_ids` arm and `chain_check.py#main`'s `retired` arm both `continue` before asking about rows), so a folded directory's retirement cannot turn the release pull request red this way. Only the rule arm asks the base.
+- **Other by-path loaders.** Enumerated by construction (`grep -rn spec_from_file_location` over `skills hooks bin .github`, 2026-09-25): `broad_gate.py#load` and `survivor_check.py#reader`/`#hook` already refuse at 2; `evidence_check.py#fence_rule` falls back to a vendored copy; `payload_meter.py#_session_cost` dies with a traceback at exit 1, but the meter has no *problems found* exit — its 1 is *could not measure* — so it is outside #590's class; the five `hooks/*.py` loaders run under the hook exit contract, where 2 blocks a tool call, which is a different class; the six `.github/scripts/*.py` loaders are this repository's release automation, not shipped (`tests/test_the_release_check_watches_what_ships.py#SHIPS`), and `rider_check.py` already exits 2. Named in the report for the orchestrator to file or leave.
+- **A sibling that is present and will not import** (a `SyntaxError` inside it). Still a traceback. #590 is about a missing file; a broken shipped file is loud already.
+- **`gather_changelog.py --check` and the hygiene step.** The refusal lands at release preparation, where the gather runs. Catching it at the feature pull request would need a new check over every fragment in the tree, and this release adds no gate. `questions.md` Q3 carries it for a later release.
+- **#584 (the markdown readers' fence rule)** — left out by the milestone; C edits `gather_changelog.py` in a different function.
+
+## User scenarios & acceptance *(mandatory)*
+
+| Scenario | Given / When / Then | Verifiable how |
+|---|---|---|
+| S1 · a copy of a script missing its sibling | **Given** `fold_check.py`, `settle.py`, `round_record.py` or `chain_check.py` copied alone into an empty directory, **when** it is run with the smallest arguments that reach its loader, **then** it exits **2**, stderr carries no `Traceback`, and stderr names the missing path and what that file is for | One parametrized case over all four, run as a subprocess. Red first against today's code for three of the four (exit 1); `chain_check` green, pinning what already holds |
+| S2 · `settle`'s refusal names the right purpose | **Given** `settle.py` copied alone, **when** it runs, **then** the sentence names `hooks/optin.py` by what it is for, and does not say "the fold record" of it | Same case, or a sibling assertion; red first (measured today) |
+| S3 · the rider is discharged | **Given** the fix, **then** no `# RIDER:` stands above `round_record.py#load`, and no sentence in the tree says that rider is still open | `tests/test_a_rider_reaches_its_file.py` stays green; a grep for `rider on .round_record.py#load. is still waiting` and `own open rider` finds nothing |
+| S4 · the 0.15.3 shape is kept | **Given** a released spec-less directory whose `overview.md` has an open `## Not verified` row at a base branch, and a later commit on the working branch that closes the row (✅), **when** `settle --retire --released-at <base>` runs, **then** the directory stays, the exit is 1, and the output names `<base>` (as `base_label` spells it) and the row open there | Fixture repository in `tests/test_settle_reads_before_it_removes.py`; red first (today it removes the directory and exits 0) |
+| S5 · an uncommitted closure is the same shape | **Given** the row closed only in the working tree, **when** `settle --retire` runs with `--released-at HEAD`, **then** the directory stays | Same module |
+| S6 · the closure reached the base | **Given** S4's closure merged into the base, **when** `settle --retire` runs, **then** the directory is removed with no marker, exit 0 | Same module; the counter-case that keeps S4 from passing by refusing everything |
+| S7 · the report does not promise it | **Given** S4's tree, **when** `settle` (no `--retire`) runs, **then** the directory is not under *retired by the rule*, is under its own heading naming the base, and the rows open there are printed | Same module |
+| S8 · no merge base | **Given** `--released-at` names a commit sharing no history with `HEAD`, **when** `settle` or `settle --retire` runs, **then** exit 2, a sentence naming the ref, nothing removed | Same module |
+| S9 · a fragment with its own `## ` | **Given** an ungathered `seal/specs/<id>/changelog.md` with a line starting `## `, **when** `gather_changelog.py --version X.Y.Z` (or `--dry-run`) runs, **then** exit 1, `CHANGELOG.md` byte-identical, and the output names the fragment path, the line number and the line, and says what to do (demote it to `###` or lower, in a pull request into the release branch, then gather again) | `tests/test_the_changelog_is_gathered_at_release.py`; red first |
+| S10 · what does not end a section is not refused | **Given** a fragment with a `### ` line, a line `##` alone, or `  ## ` indented, **when** it is gathered, **then** it is gathered | Same module. The predicate is the one both release readers use to end a section — `line.startswith("## ")` in `gather_changelog.py#insert`, `^## ` in `publish_release_note.py#section_body` — and nothing wider |
+| S11 · the documents say it | `skills/settle/SKILL.md`, `docs/the-evidence-ledger.md`, both READMEs, `docs/branch-and-release.md` and `CONTRIBUTING.md` state the new behaviour | Text cases in the two modules above, extending the existing document pins |
+
+## Data & interfaces
+
+- **`settle`'s CLI does not change.** `--released-at REF` keeps its default, `origin/main`, and gains a second meaning, which is the same branch: the base the closure has to have reached. The comparison point is `unverified_check.py#merge_base(root, REF)` — the same revision `unverified_check.py --baseline` and `chain_check.py --baseline` compare against — named in output through `unverified_check.py#base_label`.
+- **`settle` exit codes.** 1 gains a cause (a directory kept until its closure reaches the base). 2 gains a sixth state (no merge base between `--released-at` and `HEAD`). The module docstring's list is updated with both.
+- **`survey`'s dict** carries what the base is (the merge-base commit and its label) so `retire` does not ask git twice; `retire` still re-asks the predicate itself, because its docstring's rule is that a destructive act is not guarded by a classification made for a printed list.
+- **A new heading constant** in `settle.py` beside `RULE_KEPT_HEADING`, for the directory kept until its closure reaches the base. Pinned by text, as the other headings are.
+- **Loader exits.** `fold_check.py#load`, `settle.py#load` and `round_record.py#load` write their sentence to stderr and raise `SystemExit(2)`, the shape `.github/scripts/rider_check.py#load_checker` already has. `round_record.py`'s `chain = load(CHAIN, …)` stays a module-level assignment after the floor guard (`tests/test_a_script_says_which_interpreter_it_needs.py#test_the_guard_precedes_every_other_module_level_act`).
+- **`gather_changelog.py` exit codes.** 1 gains a fourth cause (a fragment carrying a `## ` line), which is the kind of failure the docstring already says a release pull request should stop on.
+
+**Measured by the framer, 2026-09-25** (each script copied alone into a scratch directory, `python3.12`, exit read with `; echo $?`): `fold_check.py --root <empty>` → 1, sentence naming `hooks/optin.py`; `settle.py --root <empty>` → 1, sentence naming `hooks/optin.py` as "where the fold record is read from"; `chain_check.py --baseline HEAD --root <repo>` → **2**, "the shared reader would not load ([Errno 2] …)"; `round_record.py new` → 1, `FileNotFoundError` traceback. `grep -l '^## \|^##$' seal/specs/*/changelog.md` → no file, so no fragment in the tree is refused by #586's fix today.
+
+## Open questions → questions.md
+
+Framed 2026-09-25 by framer, before the build.
