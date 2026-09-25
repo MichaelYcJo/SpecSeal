@@ -361,7 +361,7 @@ edit and asking for `[no-review]` as well is asking for the same answer twice.
 
 | The declaration says | At the commit | At the pull request |
 |---|---|---|
-| through the review chain | silent | a committed `rounds/round-N.md` is required, every commit its `Target SHA` names being REACHABLE — an ancestor of HEAD, or of the branch `routing.md` declares — its last round's `Pass` **checked**, that claim consistent with its own verdict table, and its `Fixes checked by` naming a checker the repository can confirm. A record this pull request does not touch keeps every requirement except reachability: its commits are expected to be gone, and the review it records was enforced at the pull request that added it |
+| through the review chain | silent | a committed `rounds/round-N.md` is required, every commit its `Target SHA` names being REACHABLE — an ancestor of HEAD, or of the branch `routing.md` declares — its last round's `Pass` **checked**, that claim consistent with its own verdict table, and its `Fixes checked by` naming a checker the repository can confirm. A record this pull request does not touch keeps every requirement except reachability: its commits are expected to be gone, and the review it records was enforced at the pull request that added it. A record it RESTORES byte-for-byte from the merge base's own history — the same bytes at the same path in any commit the merge base reaches — is judged the same way, because an earlier pull request added those bytes. One byte changed and the record is this pull request's claim again |
 | straight to the PR | silent | the sealer's `broad-gate.md` in the work item's directory, for a work item begun at or after `chain_check.py`'s `DIRECT_GATE_FROM` — the one broad run, at a SHA the tree can see, against the base — and nothing else: the answer turns off the reviewer alone. A draft pull request is excused the file, an earlier work item is excused and prints, and the declaration is printed either way, because a decision nobody sees is not a record |
 | nothing readable, or no file | today's behavior — deny once, then ask | pass, with a notice saying nothing was checked |
 
@@ -369,7 +369,7 @@ What the check reads of each round record under the first answer, and what
 each refusal costs, is `docs/round-record-spec.md` for the record's rows, and
 `docs/review-chain-spec.md` for the floor, `Needs a fix`, the reopening and
 when the record was written.
-Enforced by: tests/test_routing_is_recorded.py::test_a_declared_chain_item_commits_without_a_prompt, tests/test_routing_is_recorded.py::test_a_declared_direct_item_commits_without_a_prompt
+Enforced by: tests/test_routing_is_recorded.py::test_a_declared_chain_item_commits_without_a_prompt, tests/test_routing_is_recorded.py::test_a_declared_direct_item_commits_without_a_prompt, tests/test_chain_check_at_the_pull_request.py::test_a_record_restored_from_the_bases_history_makes_no_reachability_claim
 
 <!-- specs/1790173106-a-bare-yes-sets-the-run-length-and-a-session-review-has-no-row -->
 **`straight to the PR` owes the sealer's `broad-gate.md` and turns off the

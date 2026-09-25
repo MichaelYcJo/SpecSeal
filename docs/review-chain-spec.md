@@ -312,7 +312,7 @@ The row still reads `no`, the fixes exist, and a walk reading only that row
 has no terminal record it accepts: the verifying round that reads the fixes
 is a second uncounted record after the floor, and ending without it is
 refused both ways, `no fixes to check` beside `fixed` and `nobody` beside a
-ticked `Pass`. Measured on this repository's own seventh round. The record
+ticked `Pass` at a ready pull request. Measured on this repository's own seventh round. The record
 already carries the fact in its verdict column, and the walk reads it there.
 The direction is ALLOW, one record wider in that one sequence, and it is the
 cheaper mistake: the other way to satisfy the old walk was rewriting `fixed`
@@ -637,7 +637,10 @@ is not a contradiction inside one file, and a check that fails for an honest
 disclosure teaches people to write none — the reasoning `unverified_check.py`
 already runs on. On the run's LAST record beside a checked `Pass` it does
 fail, for a work item begun on or after the cutoff, because that pair is the
-review claiming to have passed rather than disclosing anything. The refusal
+review claiming to have passed rather than disclosing anything. It fails at a
+ready pull request, and wherever the state cannot be read. In a draft it
+prints, because the draft is where the pair stands between `close` and the
+verifying round's record, and *Ready for review* re-runs the check. The refusal
 table under `docs/round-record-spec.md` §`Fixes checked by` holds both halves
 and what each costs.
 
@@ -685,7 +688,8 @@ the one record the defect cannot reach.
 | a fix commit that is an ancestor of this record's own `Target SHA` | passes — the round already reviewed that commit, so it is a fix this round did not commission. Round N+1's record is committed after round N's fixes by construction, and reading those as commissioned would fail the second round of every run |
 | a fix commit this repository cannot resolve | passes — after a squash that is the ordinary state of a reviewed commit, the reading `resolves_to` gives every other consumer |
 | **a `fixed` verdict that names no commit at all** | passes, and this is the commonest of the pass states rather than an edge — measured across this repository's own records, 235 cells close with a fix word, 215 name a commit and **20 do not**. `\| fixed \|` and `\| fixed — round-2 read it \|` are house style, not malformed |
-| a record DELETED and re-added on the branch | judged on the **latest** add, which is the only shape producing more than one. A stub committed on time, removed, and the real record written after the fixes is what makes a late record look early, and the version anybody reads was authored at the last add. What it costs: a record accidentally deleted and restored after the fixes is refused, and the failure names the restoring commit |
+| a record DELETED and re-added on the branch | judged on the **latest** add, which is the only shape producing more than one. A stub committed on time, removed, and the real record written after the fixes is what makes a late record look early, and the version anybody reads was authored at the last add. The latest add is found across a merge and under a skewed clock: a side branch that re-adds the same bytes and merges back, and one whose commits are dated before the early add, both read the re-add. A merge is never itself the add. What it costs: a record accidentally deleted and restored within the branch after the fixes is refused, and the failure names the restoring commit |
+| **a record restored byte-for-byte from the base's history** | passes — the same *no claim*. The directory is an add in `<baseline>..HEAD` because the base retired it, but its bytes stand at this path in a commit the merge base reaches, so an earlier pull request added them. Any version the base's history held counts, and one byte changed makes the record this pull request's again. A restore of bytes that only ever stood on the branch is the row above. This arm asks it of a record the pull request does not touch as well: a branch whose own record was squashed into the base, and which then merged the base in, still has that record's add in `<baseline>..HEAD`, and those bytes are the base's claim now, whichever pull request put them there |
 | a record with no adding commit in `<baseline>..HEAD` | passes — it arrived before the base, and nothing is claimed about it. The same *no claim* the reachability requirement already makes for a record the pull request does not touch. This is also what a base moving under a long branch produces: the record's own adding commit leaves the range and the commit that UPDATED its verdicts stays inside it, so reading *any commit that touched the file* would refuse a record for doing exactly what a correct record does |
 
 **So the refusal's reach is the commit a cell happens to carry, and that is a
@@ -775,7 +779,7 @@ What no check can see is a record committed on time that carries nothing: the
 file exists before the fixes and says only what the round found. This refusal
 is about ORDER alone, and issue #150's own comment asks the narrower question
 beside it. The next subsection answers it.
-Enforced by: tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_added_after_its_own_fix_fails_after_the_cutoff, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_updated_in_place_when_the_fixes_landed_passes
+Enforced by: tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_added_after_its_own_fix_fails_after_the_cutoff, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_updated_in_place_when_the_fixes_landed_passes, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_re_add_merged_back_from_a_side_branch_is_the_latest_add, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_re_add_on_a_side_branch_with_an_older_clock_is_the_latest_add, tests/test_a_record_precedes_the_fixes_it_commissions.py::test_a_record_restored_from_the_bases_history_makes_no_claim
 
 ### What the record carries — a declaration, and why no check reads it
 
@@ -900,7 +904,9 @@ count is one of those, the way `Pass` already was. Pressing *Ready for
 review* fires the event, the workflow re-runs, and the arm applies, so nothing
 that can reach the default branch is exempt.
 
-What a draft does **not** excuse is a claim that is wrong at every stage. A
+What a draft does **not** excuse is a claim that is wrong at every stage.
+`Pass` beside `nobody — <why>` on the last record is excused because its
+refusable half is `Pass`. A
 record naming a checker the repository does not have, and a `Broad gate` cell
 reading `not yet` or whose newest entry names a SHA that precedes that
 record's own `Target SHA`, are both refused on a ready pull request and each says which of
@@ -919,7 +925,13 @@ item that records a past state is out: a round record, the work item's own
 the root `CHANGELOG.md` — every line under a heading that names a version —
 is out, and so is a fragment whose fold marker stands in `CHANGELOG.md` at
 the tip, because a released entry is not rewritten;
-`## Unreleased` and an ungathered fragment stay in. In a `.py` file only
+`## Unreleased` and an ungathered fragment stay in. A ledger row the range
+removed because one of its anchors left the code is out, since its claim
+went with the code; a row corrected in place is still read where its id
+stands under the same heading, and otherwise only while a live row cites
+every anchor it kept. So one whose correction renamed an anchor goes silent
+if it has no id (about 37% of rows), lost a sibling of its id, dropped an
+anchor, or changed section. In a `.py` file only
 comments, docstrings and string literals are wording, every other token ends
 a sentence, and a file the tokenizer refuses is read whole. Each of these
 cost a check that went green by finding nothing or red over something
@@ -928,7 +940,7 @@ it quoted before `--exempt` was read and diluted the rest under the floor:
 on three pull requests of one release, 36 rows were written and 7 were
 consulted. Six of the twenty-one places the next release's four ranges
 reported were function bodies matched on loop and `if` shapes.
-Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state, skills/code-review/scripts/survivor_check.py::a_gathered_fragment, skills/code-review/scripts/survivor_check.py::python_prose
+Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state, skills/code-review/scripts/survivor_check.py::a_gathered_fragment, skills/code-review/scripts/survivor_check.py::python_prose, skills/code-review/scripts/survivor_check.py::removed_ledger_rows
 
 <!-- specs/1790206435-the-sweep-reads-a-code-idiom-as-removed-wording -->
 <!-- specs/1790221963-a-release-writes-the-gathered-text-back -->
@@ -938,7 +950,11 @@ always whose writing a sentence is. A sentence moved verbatim to another
 path, by a file moved whole or a document split, is held and never written,
 because a move changes no sentence's author: a pure move removes nothing and
 is silent for that reason, and a move that rewords one sentence measures it,
-where git's rename detection hid both. A fragment's text gathered by a
+where git's rename detection hid both. A move pairs with its own origin, the
+path it shares the most sentences with, so a report names the correction and
+never the path that only moved. A fold's text carried verbatim from a retired
+work item is a move too, and the retired side leaves the range after the
+pairing. A fragment's text gathered by a
 release is held and never written, because the fragment's own branch wrote
 it. Written, it subtracted the survivor a correction in the same commit left
 in another file whenever the release also lost a sentence, and renaming
@@ -947,7 +963,7 @@ still splits a sentence `CHANGELOG.md` itself lost, and nothing else. A
 release that loses no live sentence writes nothing it put under a version
 heading, and that guard and the gathered-text filter are pinned by separate
 cases, because either alone kept the shape the ticket first named green.
-Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released, skills/code-review/scripts/survivor_check.py::paired_across_paths
+Enforced by: skills/code-review/scripts/survivor_check.py::corrected, skills/code-review/scripts/survivor_check.py::newly_released, skills/code-review/scripts/survivor_check.py::paired_across_paths, skills/code-review/scripts/survivor_check.py::retired_directories
 
 ## Non-goals
 

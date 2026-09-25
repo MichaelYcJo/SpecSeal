@@ -43,9 +43,13 @@ commit gate has always carried.
 ## `Fixes checked by` has to name a checker the repository can confirm
 
 <!-- specs/1788212517-the-last-rounds-fixes-are-reviewed-by-nobody -->
-**The draft excuse does not reach this row.** `Pass` is excused in a draft because
-a review still running has not reached its verdict; a record naming a checker
-it does not have is wrong at every stage of a run.
+**The draft excuse reaches one refusal in this row: `Pass` beside `nobody` on
+the last record.** `Pass` is excused in a draft because a review still running
+has not reached its verdict, and `Pass` is what makes that pair refusable:
+between `close` ticking the box and the verifying round's record committing,
+`nobody — <why>` is the honest cell, because no later round exists yet to
+name. Every other refusal here is a record naming a checker it does not have,
+which is wrong at every stage of a run.
 
 | The cell says | The check |
 |---|---|
@@ -56,7 +60,7 @@ it does not have is wrong at every stage of a run.
 | `round-N` naming a record git does not carry | **fails** — a claim git contradicts |
 | `no fixes to check`, with no verdict cell closing on a fix | passes |
 | `no fixes to check` beside a verdict cell reading a fix word | **fails** — a contradiction inside one file, the shape already refused for `Pass` beside an open 🔴 |
-| `nobody — <why>` | prints on every run. **Fails** beside a checked `Pass` on the run's last record, for a work item begun on or after the cutoff below; passes everywhere else |
+| `nobody — <why>` | prints on every run. **Fails** beside a checked `Pass` on the run's last record, for a work item begun on or after the cutoff below, at a ready pull request and wherever the state cannot be read. In a draft that pair prints, names the verifying round, and says *Ready for review* re-runs the check and fails if the cell still says `nobody`. Passes everywhere else |
 | `nobody` with nothing after it | **fails.** The reason is what makes the state readable; without it the cell records that something is missing and not what |
 | anything else, `the session that wrote them` included | **fails**, naming the three values. Read loosely, a session's own name would pass as an answer, and that is precisely the state this field exists to refuse — the direction `CLOSED_WORDS` already takes for a verdict cell |
 
@@ -125,7 +129,7 @@ Reading only the last record makes `round-N` unreachable — a checker has to be
 later, and the last record has none. What that costs is a repository updating
 the plugin: every record in a work item whose declaration the pull request
 touches needs the row, not just the newest.
-Enforced by: tests/test_the_last_rounds_fixes_are_checked.py::test_a_draft_pull_request_is_excused_the_pass_and_not_this, tests/test_the_last_rounds_fixes_are_checked.py::test_a_round_cannot_check_its_own_fixes
+Enforced by: tests/test_the_last_rounds_fixes_are_checked.py::test_a_draft_pull_request_is_excused_the_pass_and_not_this, tests/test_the_last_rounds_fixes_are_checked.py::test_a_round_cannot_check_its_own_fixes, tests/test_the_last_rounds_fixes_are_checked.py::test_pass_beside_nobody_prints_on_a_draft_and_names_what_re_arms_it
 
 ## The finding id — a bare integer, behind an optional severity marker
 
@@ -578,7 +582,7 @@ state and the row above says why it cannot be refused — so the arm reaches
 the session that filled the checker cell and stopped, and not the one that
 filled nothing. What covers the second is `Fixes checked by`'s own check: it
 prints a notice for `nobody` on every record, and refuses it on the LAST
-record beside a checked `Pass`. A non-terminal record carrying `nobody` is
+record beside a checked `Pass` at a ready pull request. A non-terminal record carrying `nobody` is
 false by construction — a later record exists, and round N+1 reviews round
 N's fixes — and nothing refuses that today. Keying the arm on the sibling
 records instead would give it a second source of truth, which is the property

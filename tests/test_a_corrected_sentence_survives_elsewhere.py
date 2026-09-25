@@ -2232,6 +2232,51 @@ def test_a_sentence_the_same_range_removes_from_docs_is_still_measured(tmp_path)
     assert "docs/notes.md" in text, text
 
 
+def test_a_verbatim_fold_hides_no_correction_the_same_range_made(tmp_path):
+    """S4 (#591). A range retires a directory whose `spec.md` states FOUND,
+    folds FOUND verbatim into `docs/b.md`, and corrects FOUND in `docs/a.md`.
+    Dropped before the pairing, the retired side left the fold's arrival to
+    pair with the correction, and the correction was held rather than
+    removed. The retired side now takes part in the pairing and leaves the
+    range after it, so the fold's text is held and the correction is the
+    source. Red at 4665def0: exit 0, `against 0 sentence(s)`."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            f"{MARKED}/spec.md": f"# spec\n\n{FOUND}\n",
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "the claim, and a work item stating it",
+    )
+    shutil.rmtree(os.path.join(repo, *MARKED.split("/")))
+    head = build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+            "docs/a-segment.md": (
+                f"# a segment\n\n<!-- specs/{os.path.basename(MARKED)} -->\n"
+                "The standing statement.\n"
+            ),
+            "docs/b.md": f"# b\n\n{FOUND}\n",
+        },
+        "fold the work item verbatim into b.md, and correct a.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, (
+        "the fold's verbatim text was written as the range's own and held the "
+        f"correction; exit {code}\n{text}"
+    )
+    assert coordinates_in(text) == {"docs/b.md:3"}, text
+    assert set(corrected_lines(text)) == {"docs/a.md:3"}, text
+    assert re.search(r"against 1 sentence\(s\)", text), (
+        f"the retired spec's sentences are still counted as removed:\n{text}"
+    )
+
+
 def test_a_spec_less_directory_with_an_open_row_stays_in_the_range(tmp_path):
     """The rule arm's condition, asked of the range's left end through the
     one predicate: a directory whose record held an open row was not retired
@@ -3512,6 +3557,201 @@ def test_a_copy_written_beyond_the_ones_moved_is_the_ranges_writing(tmp_path):
     )
 
 
+# --- #592: a move pairs with its own origin, and the correction is named ----
+#
+# A key removed at two paths and added at one used to pair with whichever
+# departure came first in path order. When one departure was a correction and
+# the other a move, the report's `corrected` line could name the path that
+# only moved. The verdict and the score are the same either way -- the key,
+# and so its n-grams, is identical -- so what these cases pin is the line a
+# person follows to find the correction.
+
+
+def corrected_lines(text):
+    """The `path:line` each report's `corrected` line names."""
+    return [
+        line.split()[1]
+        for line in text.splitlines()
+        if line.startswith("  corrected   ")
+    ]
+
+
+def moved_and_corrected(repo, corrected, moved, before, remains, arrived):
+    """`corrected` states FOUND and is corrected to REPAIRED; in the same
+    commit `moved` goes from `before` to `remains` (None: removed) and
+    `arrived` lands at `docs/z.md`. `docs/b.md` keeps FOUND throughout."""
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            corrected: f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\n{FOUND}\n",
+            moved: before,
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "the claim, a copy of it, and a document carrying it too",
+    )
+    if remains is None:
+        os.remove(os.path.join(str(repo), *moved.split("/")))
+        files = {}
+    else:
+        files = {moved: remains}
+    files.update({corrected: f"# a\n\n{REPAIRED}\n", "docs/z.md": arrived})
+    return build(repo, files, "correct one copy and move the other")
+
+
+def test_a_move_pairs_with_its_own_origin_and_the_correction_is_named(tmp_path):
+    """S1. `docs/a.md` corrects FOUND, and `docs/m.md` -- the same sentence
+    under a heading of its own -- moves whole to `docs/z.md`. The arrival
+    shares two keys with `docs/m.md` and one with `docs/a.md`, so it pairs
+    with the move, and the correction is the source every report names.
+    Red at 2e0e2fa7: `corrected` named `docs/m.md:3`, the path that moved."""
+    repo = tmp_path / "probe"
+    moved = f"# m\n\n{FOUND}\n"
+    head = moved_and_corrected(repo, "docs/a.md", "docs/m.md", moved, None, moved)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"exit {code}\n{text}"
+    assert coordinates_in(text) == {"docs/b.md:3", "docs/z.md:3"}, text
+    assert set(corrected_lines(text)) == {"docs/a.md:3"}, (
+        f"the report names the path that only moved as the correction:\n{text}"
+    )
+
+
+def test_places_tied_on_score_print_in_path_order_whatever_the_hash_seed(
+    tmp_path,
+):
+    """Round 1's ⬜ 3. A removed sentence whose four stretches stand in two
+    files, two stretches each, every one unique in the pool: two places tied
+    at 2.00, each reached through different n-grams. `score` walks them
+    through a set, so their order followed the interpreter's hash seed. Ties
+    now print by path and line, one order under every seed. Red with the
+    tie-break reverted."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    removed = (
+        "Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo "
+        "lima mike november oscar papa."
+    )
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{removed}\n",
+            "docs/c.md": "# c\n\nAlpha bravo charlie zulu india juliet kilo.\n",
+            "docs/y.md": "# y\n\nEcho foxtrot golf zulu mike november oscar.\n",
+            **FILLER,
+        },
+        "a sentence, and two files each carrying half of it",
+    )
+    head = build(repo, {"docs/a.md": "# a\n\nNothing here now.\n"}, "remove it")
+    orders = set()
+    for seed in range(16):
+        out = subprocess.run(
+            [
+                sys.executable,
+                SCRIPT,
+                "--range",
+                f"{head}^..{head}",
+                "--root",
+                str(repo),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            encoding="utf-8",
+            env={**os.environ, "PYTHONHASHSEED": str(seed)},
+        )
+        assert out.returncode == 1, out.stdout + out.stderr
+        orders.add(tuple(paths_in(out.stdout)))
+    assert orders == {("docs/c.md", "docs/y.md")}, orders
+
+
+def test_two_tied_sentences_on_one_line_print_in_one_order_whatever_the_hash_seed(
+    tmp_path,
+):
+    """Round 2's ⬜ 4. Two tied candidates on the same line of one file share
+    a path and a line, so only their text orders them. Red at 66df04df: two
+    outputs over 16 seeds."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    removed = (
+        "Alpha bravo charlie delta echo foxtrot golf hotel india juliet kilo "
+        "lima mike november oscar papa."
+    )
+    build(
+        repo,
+        {
+            "docs/a.md": f"# a\n\n{removed}\n",
+            "docs/c.md": "# c\n\nAlpha bravo charlie zulu india juliet kilo. "
+            "Echo foxtrot golf zulu mike november oscar.\n",
+            **FILLER,
+        },
+        "a sentence, and one line carrying both halves of it",
+    )
+    head = build(repo, {"docs/a.md": "# a\n\nNothing here now.\n"}, "remove it")
+    outputs = set()
+    for seed in range(16):
+        out = subprocess.run(
+            [
+                sys.executable,
+                SCRIPT,
+                "--range",
+                f"{head}^..{head}",
+                "--root",
+                str(repo),
+            ],
+            cwd=ROOT,
+            capture_output=True,
+            encoding="utf-8",
+            env={**os.environ, "PYTHONHASHSEED": str(seed)},
+        )
+        assert out.returncode == 1, out.stdout + out.stderr
+        outputs.add(out.stdout)
+    assert len(outputs) == 1, outputs
+
+
+def test_a_split_pairs_with_its_own_origin_while_both_files_remain(tmp_path):
+    """S1's split. `docs/m.md` keeps one section and the other, carrying
+    FOUND, moves to `docs/z.md`; both files remain, so nothing is gone at `b`
+    and only the shared keys tell the move from the correction. Red at
+    2e0e2fa7, and red with affinity dropped from the order."""
+    repo = tmp_path / "probe"
+    section, kept = (
+        f"## Moved\n\n{FOUND}\n",
+        "## Kept\n\nThe kept section says little.\n",
+    )
+    head = moved_and_corrected(
+        repo, "docs/a.md", "docs/m.md", f"{section}\n{kept}", kept, section
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"exit {code}\n{text}"
+    assert set(corrected_lines(text)) == {"docs/a.md:3"}, text
+
+
+def test_path_order_does_not_decide_which_departure_is_the_source(tmp_path):
+    """S2. The moved file sorts first, so path order alone already names the
+    correction; the case holds the answer under an order that would favour
+    the other file, which a reversed order turns red."""
+    repo = tmp_path / "probe"
+    moved = f"# m\n\n{FOUND}\n"
+    head = moved_and_corrected(repo, "docs/q.md", "docs/0.md", moved, None, moved)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"exit {code}\n{text}"
+    assert set(corrected_lines(text)) == {"docs/q.md:3"}, text
+
+
+def test_a_one_sentence_move_pairs_with_the_path_gone_at_the_tip(tmp_path):
+    """S3. `docs/m.md` holds only the sentence, so both departures share one
+    key with the arrival. The tie goes to the departure whose path is gone
+    at `b`: the moved file. Red at 2e0e2fa7 (`docs/m.md:1`)."""
+    repo = tmp_path / "probe"
+    head = moved_and_corrected(
+        repo, "docs/a.md", "docs/m.md", f"{FOUND}\n", None, f"{FOUND}\n"
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"exit {code}\n{text}"
+    assert set(corrected_lines(text)) == {"docs/a.md:3"}, text
+
+
 # --- #554: a local-mode declaration owns the range on its own branch --------
 #
 # In local mode the `seal/` root is `<git-common-dir>/seal/` and nothing under
@@ -3903,3 +4143,425 @@ def test_a_crlf_changelog_still_has_its_gathered_ids(tmp_path):
         f"{text}"
     )
     assert "docs/b.md" in text, text
+
+
+# --- #603: a ledger row removed because its anchor left is no correction ---
+#
+# `CLAUDE.md`: *a row whose anchor a change removes is REMOVED, not
+# re-pointed. Its claim went with the code.* So a range that deletes a unit
+# and the row anchored on it has corrected nothing, and a document still
+# stating the rule is not a survivor of it. Measured on #587: exit 1, eight
+# places, every one sourced from the three removed rows. A row corrected in
+# place is a removed line beside an added one, and it IS a correction, so the
+# exit is narrower than "a removed row": at least one anchor must resolve at
+# the range's left end and not at its right.
+
+LEDGER = "seal/ledger.md"
+LEDGER_HEAD = (
+    "# ledger\n\n| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+    "|---|---|---|---|---|\n"
+)
+# FOUND with one word changed between its two corrected stretches, so it
+# shares two runs with FOUND and with what REPAIRED removed from it alike.
+RESTATED = FOUND.replace("itself and the", "itself while the")
+MODULE = (
+    "def helper(width):\n    return width\n\n\ndef other(width):\n    return width\n"
+)
+KEPT_MODULE = "def other(width):\n    return width\n"
+
+
+def ledger_row(claim, anchors=("pkg/mod.py#helper",)):
+    cited = ", ".join(f"`{anchor}@0123abcd`" for anchor in anchors)
+    return f"| R1 · {claim} | {cited} | **Executed** 2026-01-01 | 2026-01-01 | |\n"
+
+
+def ledger_range(repo, row_after, module_after, ledger_before=None, pool=FILLER):
+    """A ledger row anchored on `pkg/mod.py#helper` whose claim `docs/x.md`
+    restates, then one commit taking the ledger to `row_after` (None: the
+    row removed) and `pkg/mod.py` to `module_after`."""
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            LEDGER: ledger_before or LEDGER_HEAD + ledger_row(FOUND),
+            "pkg/mod.py": MODULE,
+            "docs/x.md": f"# x\n\n{RESTATED}\n",
+            **pool,
+        },
+        "a ledger row, its code, and a document stating its claim",
+    )
+    return build(
+        repo,
+        {LEDGER: LEDGER_HEAD + (row_after or ""), "pkg/mod.py": module_after},
+        "the range",
+    )
+
+
+def test_a_row_removed_with_its_anchor_is_not_a_correction(tmp_path):
+    """S7 (#603). The range deletes `helper` and removes the row anchored on
+    it. The row's claim went with its code, so `docs/x.md` stating the same
+    rule survived nothing. Red at 4910e445: exit 1, `docs/x.md:3`."""
+    head = ledger_range(tmp_path / "probe", None, KEPT_MODULE)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(tmp_path / "probe"))
+    assert code == 0, f"a removed row's claim was read as a correction:\n{text}"
+
+
+def test_a_row_corrected_in_place_is_still_a_correction(tmp_path):
+    """S8. The claim cell is reworded and re-stamped with `helper` still
+    there: a removed line beside an added one, and the one ledger act that
+    IS a correction. Green before this work, and red against an exit taken
+    by every removed row line."""
+    head = ledger_range(
+        tmp_path / "probe",
+        ledger_row(REPAIRED).replace("0123abcd", "4567cdef"),
+        MODULE,
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(tmp_path / "probe"))
+    assert code == 1, f"a row corrected in place went silent:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+    assert set(corrected_lines(text)) == {f"{LEDGER}:5"}, text
+
+
+def test_a_row_removed_while_its_anchors_resolve_stays_measured(tmp_path):
+    """S9. The row goes and `helper` stays. No rule removes a row whose
+    anchors all still resolve, so the removal is read as any other and the
+    restatement is reported. Red with the anchor condition dropped."""
+    head = ledger_range(tmp_path / "probe", None, MODULE)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(tmp_path / "probe"))
+    assert code == 1, f"a row removed with its anchor standing was excused:\n{text}"
+    assert set(corrected_lines(text)) == {f"{LEDGER}:5"}, text
+
+
+def test_one_anchor_leaving_a_file_that_remains_is_enough(tmp_path):
+    """S10, the shape of `seal/releases/0.15.1.md` S1 on #587's range: two
+    anchors, and only one unit is removed, from a file that stays. The row
+    takes the exit on the one that left."""
+    repo = tmp_path / "probe"
+    both = ("pkg/mod.py#helper", "pkg/mod.py#other")
+    head = ledger_range(repo, None, KEPT_MODULE, LEDGER_HEAD + ledger_row(FOUND, both))
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"a row one of whose anchors left was measured:\n{text}"
+
+
+def test_a_row_corrected_in_place_while_an_anchor_is_renamed_is_a_correction(
+    tmp_path,
+):
+    """The shape #589's squash has (`seal/releases/0.15.1.md` R1): the claim
+    is corrected in place, and the same range renames one of the row's
+    units, so the old name resolves at the left end and not at the right.
+    The row still stands, re-pointed, because a live row of the same file
+    cites every anchor of it that still resolves; its old claim is a
+    correction and stays measured. Red at afb03a4c: exit 0."""
+    repo = tmp_path / "probe"
+    both = ("pkg/mod.py#helper", "pkg/mod.py#other")
+    renamed = MODULE.replace("def helper(", "def helper_renamed(")
+    head = ledger_range(
+        repo,
+        ledger_row(REPAIRED, ("pkg/mod.py#helper_renamed", "pkg/mod.py#other")),
+        renamed,
+        LEDGER_HEAD + ledger_row(FOUND, both),
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a row corrected in place took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+    assert set(corrected_lines(text)) == {f"{LEDGER}:5"}, text
+
+
+def test_a_removed_row_sharing_one_live_anchor_with_another_row_takes_the_exit(
+    tmp_path,
+):
+    """The other side of the re-pointed row. A removed row keeps two live
+    anchors beside the one that left, and another row of the file still
+    cites one of them, as ledger rows citing a shared test often do. It does
+    not cite both, so it is not this row re-pointed, and the row takes the
+    exit. Red with "cites every live anchor" read as "cites any".
+
+    The neighbour carries the same id, `R1`, on purpose: a claim split
+    across rows repeats its id in one section (`seal/releases/0.14.0.md`'s
+    G5 is four rows), so an id standing at the tip names this row only when
+    as many rows carry it as before. Red at 66df04df, where the neighbour's
+    id kept the removed row measured (round 2's 🟡 1)."""
+    repo = tmp_path / "probe"
+    three = ("pkg/mod.py#helper", "pkg/mod.py#other", "pkg/mod.py#spare")
+    module = MODULE + "\n\ndef spare(width):\n    return width\n"
+    neighbour = ledger_row("A neighbouring claim.", ("pkg/mod.py#other",))
+    head = ledger_range(
+        repo,
+        neighbour,
+        module.replace("def helper(width):\n    return width\n\n\n", ""),
+        LEDGER_HEAD + ledger_row(FOUND, three) + neighbour,
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"a removed row was read as re-pointed:\n{text}"
+
+
+def test_a_row_corrected_in_place_while_its_only_anchor_is_renamed_is_a_correction(
+    tmp_path,
+):
+    """A row with one anchor, corrected in place and re-pointed at the
+    renamed unit. No anchor of the old row resolves at the tip, so the
+    anchor rule has nothing to match; the row's id standing under the same
+    heading is what says it is the same row. Red at 8f70ca94: exit 0."""
+    repo = tmp_path / "probe"
+    renamed = MODULE.replace("def helper(", "def helper_renamed(")
+    head = ledger_range(
+        repo, ledger_row(REPAIRED, ("pkg/mod.py#helper_renamed",)), renamed
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a one-anchor row corrected in place took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+    assert set(corrected_lines(text)) == {f"{LEDGER}:5"}, text
+
+
+def test_a_row_corrected_in_place_while_its_heading_is_retitled_is_a_correction(
+    tmp_path,
+):
+    """A row anchored on a document heading. The range retitles the heading
+    and corrects the row in place, re-pointed at the new title. Red at
+    8f70ca94: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+
+    def row(claim, title):
+        anchor = f'`docs/p.md#"## {title}"@0123abcd`'
+        return f"| R1 · {claim} | {anchor} | **Read** 2026-01-01 | 2026-01-01 | |\n"
+
+    build(
+        repo,
+        {
+            LEDGER: LEDGER_HEAD + row(FOUND, "Old title"),
+            "docs/p.md": "# p\n\n## Old title\n\nBody.\n",
+            "docs/x.md": f"# x\n\n{RESTATED}\n",
+            **FILLER,
+        },
+        "a row anchored on a heading, and a document stating its claim",
+    )
+    head = build(
+        repo,
+        {
+            LEDGER: LEDGER_HEAD + row(REPAIRED, "New title"),
+            "docs/p.md": "# p\n\n## New title\n\nBody.\n",
+        },
+        "retitle the heading and correct the row in place",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a row re-pointed at a new heading took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+
+
+def test_a_removed_rows_id_standing_in_another_section_is_another_row(tmp_path):
+    """A release file holds one section per work item, and ids repeat across
+    them. The range removes section A's `R1` with the unit it cited, and
+    section B's `R1`, a different claim, still stands. Only the same id
+    under the same heading is the same row, so A's row takes the exit. Red
+    with the heading left out of the id's key."""
+    repo = tmp_path / "probe"
+    other = ledger_row("A claim of another work item.", ("pkg/mod.py#other",))
+    sections = "### item-a\n\n{a}\n### item-b\n\n" + LEDGER_HEAD.split("\n\n", 1)[1]
+    head_a = LEDGER_HEAD.split("\n\n", 1)[1]
+    before = "# ledger\n\n" + sections.format(a=head_a + ledger_row(FOUND)) + other
+    after = "# ledger\n\n" + sections.format(a=head_a) + other
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            LEDGER: before,
+            "pkg/mod.py": MODULE,
+            "docs/x.md": f"# x\n\n{RESTATED}\n",
+            **FILLER,
+        },
+        "two sections, each with its own R1",
+    )
+    head = build(
+        repo,
+        {LEDGER: after, "pkg/mod.py": KEPT_MODULE},
+        "remove section A's R1 with its unit",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"another section's R1 kept a removed row measured:\n{text}"
+
+
+def test_a_hyphenated_id_corrected_while_its_anchor_is_renamed_is_a_correction(
+    tmp_path,
+):
+    """`seal/releases/0.15.3.md` writes ids as `P1-1 ·`. A row with that id,
+    corrected in place and re-pointed at the renamed unit, is the same row.
+    Red at 66df04df: exit 0."""
+    repo = tmp_path / "probe"
+    renamed = MODULE.replace("def helper(", "def helper_renamed(")
+    head = ledger_range(
+        repo,
+        ledger_row(REPAIRED, ("pkg/mod.py#helper_renamed",)).replace("R1 ·", "P1-1 ·"),
+        renamed,
+        ledger_before=LEDGER_HEAD + ledger_row(FOUND).replace("R1 ·", "P1-1 ·"),
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a hyphenated id did not keep its row measured:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+
+
+def test_a_row_whose_anchor_never_resolved_here_stays_measured(tmp_path):
+    """Condition (c)'s first half. A row anchored on a path this repository
+    never held -- a cross-repository row, read with `--map` -- resolves at
+    neither end, so nothing shows its anchor LEFT, and its removal is read
+    as any other. Red with the left-end half of the condition dropped."""
+    repo = tmp_path / "probe"
+    elsewhere = LEDGER_HEAD + ledger_row(FOUND, ("vendor/other.py#helper",))
+    head = ledger_range(repo, None, KEPT_MODULE, elsewhere)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a row whose anchor never resolved took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+
+
+def test_a_row_whose_line_still_stands_takes_no_exit(tmp_path):
+    """Condition (b). The row stood twice and one copy is removed with its
+    anchor; the other still stands at the tip, so the row was not removed
+    and the removed copy is measured as any removed line is. A ledger in this
+    state has a BROKEN row `evidence-check` refuses, which is why the loud
+    direction is the one kept. Red with the standing-line test dropped.
+    The standing copy is a second carrier of every phrase, which halves each
+    one's weight, so the pool is `MORE_FILLER`'s size, as #563's cases are."""
+    repo = tmp_path / "probe"
+    twice = LEDGER_HEAD + ledger_row(FOUND) + ledger_row(FOUND)
+    head = ledger_range(
+        repo, ledger_row(FOUND), KEPT_MODULE, twice, {**FILLER, **MORE_FILLER}
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a row still standing at the tip took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+
+
+@pytest.mark.parametrize(
+    "open_, close",
+    [("```text\n", "```\n"), ("<!--\n", "-->\n")],
+    ids=["fence", "comment"],
+)
+def test_a_row_quoted_in_a_fence_or_a_comment_stays_measured(tmp_path, open_, close):
+    """S11. A "row" inside a fenced block or an HTML comment of a ledger
+    file is an example, not a claim, so it takes no exit, the way a quoted
+    fold marker gathers nothing. Red with the live-line test dropped."""
+    repo = tmp_path / "probe"
+    quoted = LEDGER_HEAD + "\n" + open_ + ledger_row(FOUND) + close
+    head = ledger_range(repo, None, KEPT_MODULE, quoted)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a quoted row took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+
+
+def test_a_removed_rows_claim_carried_to_a_new_row_is_held_not_written(tmp_path):
+    """S12. The row goes with its anchor, and its claim cell arrives
+    verbatim in a work item's fragment row with a new anchor. The arrival is
+    a move, so it is held rather than written, and a correction of the same
+    claim in `docs/a.md` stays measured: `docs/b.md` is reported. The removed
+    row leaves AFTER the pairing; dropped before it, the fragment's copy was
+    written and subtracted the correction -- red that way (exit 0)."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            LEDGER: LEDGER_HEAD + ledger_row(FOUND),
+            "pkg/mod.py": MODULE,
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\n{FOUND}\n",
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "a ledger row, its code, and two documents stating its claim",
+    )
+    head = build(
+        repo,
+        {
+            LEDGER: LEDGER_HEAD,
+            "pkg/mod.py": KEPT_MODULE,
+            "seal/ledger/1700000004-a-new-home.md": ledger_row(
+                FOUND, ("pkg/mod.py#other",)
+            ),
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+        },
+        "the row moves to a fragment on a new anchor, and a.md is corrected",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"the fragment's copy was written and hid a.md:\n{text}"
+    assert "docs/b.md:3" in coordinates_in(text), text
+    assert set(corrected_lines(text)) == {"docs/a.md:3"}, text
+
+
+def test_a_removed_rows_cells_are_the_lines_the_row_stood_on(tmp_path):
+    """`removed_ledger_rows` keys a row by the line it stood on at the
+    range's left end, and `corrected` drops the removed sentences read from
+    that line. The two numberings have to agree: 1-based, the way `segments`
+    counts. A sentence of the row carries the line the predicate names."""
+    loaded = module()
+    text = LEDGER_HEAD + ledger_row(FOUND)
+    row = next(s for s in loaded.sentences(LEDGER, text) if "verdict" in s.words)
+    repo = tmp_path / "probe"
+    head = ledger_range(repo, None, KEPT_MODULE)
+    base = resolves_in(repo, f"{head}^")
+    removed = loaded.removed_ledger_rows(
+        str(repo), base, head, {LEDGER: text}, {LEDGER: LEDGER_HEAD}
+    )
+    assert removed == {(LEDGER, row.line)}, (removed, row.line)
+
+
+def resolves_in(repo, rev):
+    out = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", rev],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    )
+    return out.stdout.strip()
+
+
+def test_the_ledger_shapes_are_the_ones_the_ledger_checker_reads():
+    """The sweep spells the four ledger locations as git path shapes, and
+    `evidence_check.py#default_patterns` is where they are decided. Held
+    against that function's own answer, in shared mode, so a fifth location
+    added there turns this red rather than leaving the sweep reading four."""
+    loaded = module()
+    checker = loaded.evidence()
+    tails = {
+        os.path.relpath(pattern, ROOT).replace(os.sep, "/")
+        for pattern in checker.default_patterns(ROOT)
+    }
+    assert tails == set(loaded.LEDGER_SHAPES), (tails, loaded.LEDGER_SHAPES)
+    for path, ledger in (
+        ("seal/ledger.md", True),
+        ("seal/ledger/1700000004-a-new-home.md", True),
+        ("seal/releases/0.15.3.md", True),
+        ("docs/_evidence.md", True),
+        ("docs/policy/deep/_evidence.md", True),
+        ("seal/ledger/nested/x.md", False),
+        ("docs/ledger.md", False),
+        ("seal/specs/1700000004-a-new-home/ledger.md", False),
+    ):
+        assert bool(loaded.LEDGER_PATH.match(path)) is ledger, path
+
+
+def test_a_missing_ledger_checker_refuses_rather_than_measuring(tmp_path):
+    """`evidence_check.py` ships beside this script under `skills/`. A copy
+    without it cannot say which rows left with their code, and that is
+    unusable input (exit 2's `Refused`), the way a missing retirement reader
+    is -- never a quiet reading of every removed row as a correction."""
+    loaded = module()
+    loaded.EVIDENCE = str(tmp_path / "gone" / "evidence_check.py")
+    with pytest.raises(loaded.Refused, match=r"evidence_check\.py, which says"):
+        loaded.removed_ledger_rows(
+            str(tmp_path), "HEAD", "HEAD", {LEDGER: LEDGER_HEAD}, {}
+        )
+
+
+# #587's squash on `release/v0.15.3`: it removed three ledger rows whose
+# anchors left `tests/test_a_document_has_room_for_the_next_fold.py` and the
+# fold checker's old home, and every one of the eight places it reported was
+# sourced from those rows.
+REMOVED_ROWS_RANGE = "58629718"
+
+
+def test_the_measured_range_that_removed_three_rows_reports_nothing():
+    """S13. Red at 4910e445: exit 1, eight places."""
+    if not resolves(REMOVED_ROWS_RANGE):
+        pytest.skip(f"{REMOVED_ROWS_RANGE} is not in this clone")
+    code, text = over(REMOVED_ROWS_RANGE)
+    assert code == 0, f"the removed rows' claims were read as corrections:\n{text}"

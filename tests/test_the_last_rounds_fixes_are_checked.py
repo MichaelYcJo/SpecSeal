@@ -803,6 +803,54 @@ def test_a_draft_pull_request_is_excused_the_pass_and_not_this(repo):
     assert "round-9" in out
 
 
+def test_pass_beside_nobody_prints_on_a_draft_and_names_what_re_arms_it(repo):
+    """#598 instance 4, C1. `close` ticks `Pass` and writes `nobody — <why>`,
+    and the verifying round's record is the next commit the orchestration
+    document orders. Every pull request in that window is a draft, so a
+    refusal there is red for following the document beside it. The `Pass`
+    half is what makes the pair refusable, and `Pass` is what a draft is
+    excused.
+
+    Seen red on the pre-phase code: exit 1 on a draft payload."""
+    declared(
+        repo,
+        item=STRICT_ITEM,
+        round1=lambda sha: record(sha, "nobody — the run ended here"),
+    )
+    code, out = run(repo, draft=True)
+    assert code == 0, out
+    assert "spawn one verifying round at the diff of these fixes" in out, out
+    assert (
+        "Pressing *Ready for review* fires `ready_for_review`, re-runs this "
+        "check, and fails the pull request if the cell still says `nobody`"
+    ) in out, out
+
+
+def test_pass_beside_nobody_still_fails_a_ready_pull_request(repo):
+    """C2, the ready half. The owner's answer to Q1 of work item `1788212517`
+    stands at ready: the pair is refused for a work item begun after the
+    cutoff. The payload-less half is
+    `test_pass_beside_nobody_fails_a_work_item_begun_after_the_cutoff`."""
+    declared(
+        repo,
+        item=STRICT_ITEM,
+        round1=lambda sha: record(sha, "nobody — the run ended here"),
+    )
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "costs no round" in out, out
+
+
+@pytest.mark.parametrize("cell", ["nobody", "the session that wrote them"])
+def test_a_draft_is_excused_the_pass_half_and_no_vocabulary_refusal(repo, cell):
+    """C3. What the draft relaxes is the one pair whose refusable half is
+    `Pass`. A bare `nobody` and a word outside the vocabulary are wrong at
+    every stage, draft included — the S11 case holds the absent checker."""
+    declared(repo, item=STRICT_ITEM, round1=lambda sha: record(sha, cell))
+    code, out = run(repo, draft=True)
+    assert code == 1, out
+
+
 def test_the_row_is_read_from_git_not_from_the_working_tree(repo):
     """The property the whole file was hardened for: a record committed with
     a bad cell and edited on disk to read well must still fail."""

@@ -1,5 +1,151 @@
 # Changelog
 
+## 0.15.4 — 2026-09-25
+
+<!-- specs/1790297083-the-release-job-goes-red-on-a-record-it-need-not-judge -->
+- **The pull-request check stops going red on three shapes of record it had
+  no claim to judge (issues #598 and #529).** A pull request that puts back a work
+  item the base had retired, byte for byte, is no longer held to where the
+  restored records' reviewed commits are. Those bytes were added, and their
+  review enforced, by an earlier pull request. The check says where they
+  came from, and one byte changed makes the record the pull request's claim
+  again. On a draft, `Pass` beside `Fixes checked by: nobody — <why>` on the
+  last record now prints and names the verifying round, because that is the
+  state between `round_record.py close` and the verifying round's record.
+  *Ready for review* still fails the pull request if the cell says `nobody`.
+  `close` itself now exits 0 in that window. A record deleted and re-added
+  on a side branch that merged back is judged on its latest add, as the
+  review-chain spec already said, including when that branch's clock ran
+  behind.
+
+<!-- specs/1790297084-the-sweep-reads-removed-and-moved-text-as-a-correction -->
+### Fixed
+
+- `survivor-check` no longer reports a ledger row's claim as corrected
+  wording when the row was removed because its code was (#603). A row whose
+  anchor a change removes is removed with it, so a document still stating
+  the rule survived nothing. A row counts as removed that way when at least
+  one of its anchors resolved before the range and does not after it. A row
+  reworded in place, or removed while all its anchors still resolve, is
+  still measured. The range that removed three such rows in 0.15.3 reported
+  eight places and now reports none.
+- `survivor-check` holds text a fold carries verbatim from a retired work
+  item into `docs/` (#591). The retired directory used to leave the range
+  before moved text was paired, so the fold's copy could pair with a
+  correction the same range made elsewhere and hide it. The retired side now
+  takes part in the pairing and leaves the range after it.
+- `survivor-check` names the correction, not the file that only moved, on
+  each report's `corrected` line (#592). When the same sentence was
+  corrected in one file and moved out of another, the moved copy used to
+  pair with whichever file came first in path order. It now pairs with the
+  file it shares the most sentences with, then with a file gone at the tip.
+  The places reported and their scores are unchanged.
+
+<!-- specs/1790297085-settle-retires-a-directory-main-has-not-seen-closed -->
+- **A script copied without the sibling it loads exits 2 and says which file
+  is missing (issue #590).** `fold-check`, `settle` and `round-record` each
+  load another shipped script by path. Copied on their own, the first two
+  exited 1, the code each uses for a problem found or a retirement refused,
+  and `round-record` died with a Python traceback. All three now print one
+  sentence naming the missing file and what it is for, and exit 2, the code
+  for an input nothing could be read from. `settle` used to describe every
+  missing file as the fold record's reader; each file now has its own
+  description. `chain-check` already behaved this way.
+- **`settle --retire` keeps a directory whose closure has not reached the
+  branch the release merges to (issue #602).** A work item with no `spec.md`
+  is retired once nothing in its record is open, and `settle` asked that of
+  the working tree only. The checks on a pull request ask it at the base
+  branch's tip. So a row closed on a release branch let `settle --retire`
+  remove the directory in the same release, and the release pull request
+  into `main` then failed. `settle` now asks where the branch forked from
+  `--released-at` as well, which is the same commit as the base's tip unless
+  the base has moved since. A directory closed here and still open there is
+  listed under its own heading, naming the base and the rows open there, and
+  `--retire` keeps it and exits 1. Where the base has moved, the heading says
+  to merge it into this branch. A `--released-at` that shares no commit with
+  `HEAD`, or a clone too shallow to reach the one they share, is refused at
+  exit 2.
+- **The changelog gather refuses a fragment that carries a line starting
+  `## ` (issue #586).** Such a line ends the released section, for the
+  gather and for the release note alike, so every entry after it shipped
+  under no version and the note stopped short. `gather_changelog.py
+  --version`, with or without `--dry-run`, now stops before it writes or
+  prints a section and names each such fragment, the line number and the
+  line. The remedy is to demote the line to `###` or lower in a pull request
+  into the release branch, then gather again. A fragment already gathered is
+  not read again.
+
+<!-- specs/1790297086-the-broad-gate-says-what-ci-says -->
+- **On `cmd.exe`, a switch written straight after a program runs again
+  (issue #596).** Since 0.15.3 the broad gate wrote `/` as `\` inside every
+  command name it hands `cmd.exe`, so `bin/test` could reach `bin/test.cmd`.
+  That also turned `xcopy/e/i` into `xcopy\e\i`, which `cmd.exe` cannot find,
+  so a row that ran before stopped running. The gate now rewrites a name only
+  where the part before its first `/` names a directory where the row runs.
+  `bin/test` is still handed over as `bin\test`, and `xcopy/e/i`,
+  `findstr/s` and `ipconfig/all` reach `cmd.exe` as written. A name that
+  begins with `/` still counts, because the drive's root always exists, and
+  a `%VAR%` at the start of a name is expanded first, the way `cmd.exe`
+  expands it: from the environment, and `%CD%` as the directory the row
+  runs in, so `%CD%/bin/test` is still rewritten.
+  `templates/config.md` §*Broad gate* states the rule and its two bounds. A
+  directory that an earlier command in the row makes or enters is not seen.
+  A directory at the root named like a program makes that program's glued
+  switch read as a path, and a blank before the switch avoids both.
+- **The suite reads a workflow's text one way (issues #482, #462 and
+  #463).** Cases that read `.github/workflows/hygiene.yml` each had their own
+  idea of what a comment is. One counted a flag written in a comment as a
+  base, and six cut the file at the first place a script's name appeared,
+  which a comment could move. `tests/conftest.py` now holds one comment rule,
+  a step found by its name, and the one step whose code runs a script, and
+  those six cases read through them. A `BASE:` counts as a base only under
+  `env:`, and an empty base fails the spelling check by name instead of
+  raising `TypeError`.
+- **The broad gate no longer asks two questions that CI skips on a release
+  pull request (issue #473).** SpecSeal's own workflow skips the survivor
+  step and the correction step when a pull request goes into `main`, and the
+  gate still ran both arms there. The gate now leaves them out when the base
+  it was given names `main` and the repository's `hygiene.yml` carries those
+  two steps, and it prints one line saying so. A repository with no such
+  workflow runs both arms against `main` exactly as before. A case holds the
+  gate's list against the workflow's own guards, so a guard added to a third
+  step, or dropped from one of the two, fails the suite.
+- **A checkout under a `release/` directory no longer turns one case red
+  (issue #499).** The case that holds a repository with no hygiene workflow
+  to its old output cut the paths it knew about out of the gate's messages,
+  then searched the rest for the word `release`. Any path it had not cut
+  could carry that word. It now asserts that the messages name none of the
+  things that name the release job: the job as the gate spells it, the
+  workflow's path, and each step name the gate classifies.
+
+<!-- specs/1790297087-a-ledger-row-that-will-not-parse-is-counted -->
+### Fixed
+
+- **A ledger row whose coordinate does not parse now fails `evidence-check`,
+  so a ledger that passed before this update can fail after it (issue #299).**
+  A coordinate that matched neither the anchor pattern nor the old
+  `path:line` one was counted nowhere. A placeholder or short hash, a missing
+  path, a bare `"` inside a quoted locator, or an unquoted minor anchor took
+  the claim out of the ledger, and the totals still read clean. The check now
+  reads each row's `Code grounds` cell, or the second cell of a row with no
+  header, and gives it a new verdict, `MALFORMED`. That covers a coordinate
+  neither pattern parses, and a cell that cites nothing while the row claims
+  something. The finding names the text as written and says what to write
+  instead. It fails the run with or without `--strict`, the way `OLD-FORMAT`
+  does. Both totals lines end `· N malformed`, printed at zero too.
+  `--reverify` names each such row with a `LEFT` line, writes nothing to it
+  and exits 1. The commit advisor prints a `MALFORMED` block. The ledger
+  template and the skill now say a `"` inside a quoted anchor is written
+  `\"`. This repository's own ledgers held seven such coordinates, five of
+  them in a `Code grounds` cell. Each was re-read against its code: six are
+  corrected, and one claim that was no longer true is removed. A table whose
+  header has no `Code grounds` column is not read, so a ledger that renamed
+  the column keeps that table out of the verdict.
+- **An invalid escape sequence in a Python string no longer stands anywhere
+  in the tree (issue #322).** The docstring the issue cited became a raw
+  string in 0.14.0, and every tracked `.py` file compiles under
+  `python3 -W error` with no warning. Nothing was changed for it here.
+
 ## 0.15.3 — 2026-09-24
 
 <!-- specs/1790260563-the-fold-checks-run-only-as-this-repositorys-tests -->

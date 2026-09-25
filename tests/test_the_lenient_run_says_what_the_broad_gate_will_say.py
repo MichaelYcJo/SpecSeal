@@ -154,6 +154,20 @@ def test_an_old_format_row_is_silent(tmp_path):
     assert NOTICE not in r.stdout, r.stdout
 
 
+def test_a_malformed_row_is_silent(tmp_path):
+    """S8 of #299. MALFORMED exits 2 with or without the flag, as OLD-FORMAT
+    does, so both readers agree and the lenient line has nothing to say."""
+    d = repo(tmp_path)
+    (d / "seal" / "ledger" / "f.md").write_text(
+        "# frag\n\n| CLAUSE | `src/service.py#handler@0` |\n", encoding="utf-8"
+    )
+    for args in (["."], ["--strict", "."]):
+        r = run(args, d)
+        assert r.returncode == 2, r.stdout + r.stderr
+        assert "MALFORMED" in r.stdout, r.stdout
+        assert NOTICE not in r.stdout, r.stdout
+
+
 def test_the_line_is_the_last_thing_an_exit_1_run_prints(tmp_path):
     """It is appended after the totals a reader compares it against, so a
     caller asserting on those lines by substring keeps working."""
@@ -167,7 +181,9 @@ def test_the_line_is_the_last_thing_an_exit_1_run_prints(tmp_path):
 def test_the_grading_is_one_function_and_the_line_reads_its_answer():
     """The condition for the line is *this run is about to return 1*, not a
     predicate written beside the grading that can drift from it."""
-    zero = dict.fromkeys(("OK", "DRIFTED", "BROKEN", "EXTERNAL", "OLD-FORMAT"), 0)
+    zero = dict.fromkeys(
+        ("OK", "DRIFTED", "BROKEN", "EXTERNAL", "OLD-FORMAT", "MALFORMED"), 0
+    )
 
     def code(strict=False, **totals):
         return ec.exit_code({**zero, **totals}, 0, 0, strict)
@@ -179,6 +195,10 @@ def test_the_grading_is_one_function_and_the_line_reads_its_answer():
     assert code(BROKEN=1, strict=True) == 2
     assert ec.exit_code({**zero, "OLD-FORMAT": 1}, 0, 0, False) == 2
     assert ec.exit_code({**zero, "OLD-FORMAT": 1}, 0, 0, True) == 2
+    # S8 of #299: a coordinate nothing can parse is graded like OLD-FORMAT,
+    # exit 2 under both readings (`questions.md` Q1, default (a)).
+    assert ec.exit_code({**zero, "MALFORMED": 1}, 0, 0, False) == 2
+    assert ec.exit_code({**zero, "MALFORMED": 1}, 0, 0, True) == 2
     # The records arm reaches the same grading through its own two counts.
     assert ec.exit_code(zero, 1, 0, False) == 2, "a refused record is exit 2"
     assert ec.exit_code(zero, 0, 1, False) == 1, "a drifted record is exit 1"

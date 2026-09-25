@@ -27,6 +27,7 @@ import subprocess
 import sys
 
 import pytest
+from conftest import workflow_step
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, ".github", "scripts", "fold_ledger.py")
@@ -1358,8 +1359,9 @@ def test_the_check_only_runs_for_a_release():
     """On a feature pull request every fragment on the branch is legitimately
     unfolded — running it there would fail every branch that writes one."""
     workflow = read(".github", "workflows", "hygiene.yml")
-    step = workflow.split("every ledger fragment folded into the gathered ledger")[1]
-    step = step.split("- name:")[0]
+    step = workflow_step(
+        workflow, "every ledger fragment folded into the gathered ledger"
+    )
     assert 'github.base_ref }}" != "main"' in step, (
         "the step no longer skips itself outside a release pull request"
     )

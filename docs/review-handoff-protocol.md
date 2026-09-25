@@ -187,7 +187,8 @@ did not exist when the round ran.
 What holds instead is that the commit is still on the branch the work item
 declared. `chain_check.py` reads `routing.md`'s `| Branch |` row and accepts an
 ancestor of HEAD **or** of that branch, and it makes no claim at all about a
-record the pull request does not touch. Two consequences, both load-bearing:
+record the pull request does not touch, or restores byte-for-byte from the
+base's own history. Two consequences, both load-bearing:
 
 - **Keep the feature branch until its release reaches `main`.** Deleting it
   earlier turns that one pull request red. The window is a single pull request

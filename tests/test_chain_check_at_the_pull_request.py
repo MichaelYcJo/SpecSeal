@@ -158,7 +158,7 @@ def record(
     )
 
 
-def run(repo, draft=None, payload=None, branch=None):
+def run(repo, draft=None, payload=None, branch=None, worktree=False):
     """`draft=True/False` writes the event payload GitHub hands a workflow.
 
     `None` is the local run: no payload, so the check cannot see a pull
@@ -169,7 +169,8 @@ def run(repo, draft=None, payload=None, branch=None):
     payload that will not parse, one with no pull request in it, and one whose
     `draft` is the STRING `"false"`. `branch` sets `GITHUB_HEAD_REF`, which is
     where the branch comes from in a workflow because a pull-request checkout
-    is a detached merge commit.
+    is a detached merge commit. `worktree` passes `--worktree`, the local run
+    `round_record.py` makes before a record's commit.
     """
     env = dict(os.environ)
     env.pop("GITHUB_EVENT_PATH", None)
@@ -185,7 +186,15 @@ def run(repo, draft=None, payload=None, branch=None):
         path.write_text(json.dumps({"pull_request": {"draft": draft}}), "utf-8")
         env["GITHUB_EVENT_PATH"] = str(path)
     r = subprocess.run(
-        [sys.executable, CHECK, "--baseline", "base", "--root", str(repo)],
+        [
+            sys.executable,
+            CHECK,
+            "--baseline",
+            "base",
+            "--root",
+            str(repo),
+            *(["--worktree"] if worktree else []),
+        ],
         capture_output=True,
         encoding="utf-8",
         errors="replace",
@@ -1352,6 +1361,154 @@ def test_a_merged_record_is_still_read_for_everything_else(repo):
     code, out = run(repo, draft=False)
     assert code == 1, out
     assert "still looking" in out
+
+
+def restored(repo, body, edit=None, added_at=None):
+    """#598 instance 1, as #597 met it: an earlier pull request added the
+    work item and the base later retired it, so the base's own history holds
+    the record's bytes at this path. This pull request puts the directory
+    back, which is an `A` in `base...HEAD` whatever its content.
+
+    `edit` is applied to the record's text before the restore commits, for
+    the case where the pull request restores it and then changes it.
+    `added_at` dates the earlier pull request's commit, for a clock that ran
+    ahead of the commit that retired it.
+
+    Returns (the commit that added the record on the base, the restoring
+    commit).
+    """
+    write(repo, f"{ITEM}/routing.md", declaration())
+    write(repo, f"{ROUNDS}/round-1.md", body)
+    added = commit(repo, "an earlier pull request adds the work item")
+    if added_at:
+        env = dict(os.environ, GIT_AUTHOR_DATE=added_at, GIT_COMMITTER_DATE=added_at)
+        subprocess.run(
+            ["git", "-C", str(repo), "commit", "-q", "--amend", "--no-edit"],
+            capture_output=True,
+            check=True,
+            env=env,
+        )
+        added = git(repo, "rev-parse", "HEAD").stdout.strip()
+    shutil.rmtree(repo / ITEM)
+    commit(repo, "the base retires it")
+    git(repo, "branch", "-f", "base", "HEAD")
+    write(repo, f"{ITEM}/routing.md", declaration())
+    write(repo, f"{ROUNDS}/round-1.md", edit(body) if edit else body)
+    return added, commit(repo, "this pull request restores it")
+
+
+def test_a_record_restored_from_the_bases_history_makes_no_reachability_claim(repo):
+    """B1. The bytes at HEAD are bytes the base's own history carried at this
+    path, so an earlier pull request added them and its review was enforced
+    there — the same *no claim* an untouched record gets. #597 went red on
+    exactly this, four records, every one byte-identical to `main`'s.
+
+    Seen red on the pre-phase code: exit 1, `not an ancestor of`."""
+    added, _restoring = restored(repo, record("0" * 40, passed=True))
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert "restored byte-for-byte from the base's own history" in out, out
+    assert added[:7] in out, "the line has to name where the bytes were"
+    assert "not changed by this pull request" not in out, (
+        "the path IS in the diff; saying otherwise is the mistake the "
+        "comment above that line warns about"
+    )
+
+
+def test_the_named_commit_is_where_the_bytes_entered_whatever_the_clock(repo):
+    """The line names where the restored bytes entered the base's history.
+    Here a side line retired them and merged back, and the add's clock ran
+    ahead. In date order git lists the add first — its date is the newest
+    once the walk reaches it — so the last line is the commit that RETIRED
+    the bytes, a commit that does not carry them. Topological order lists a
+    descendant first, whatever the dates."""
+    body = record("0" * 40, passed=True)
+    added, _restoring = restored(repo, body, added_at="2099-01-01T00:00:00+0000")
+    # `restored` retired the item on a straight line. Rebuild the retirement
+    # as a side line merged back, which is the shape where the order counts.
+    git(repo, "reset", "-q", "--hard", added)
+    git(repo, "switch", "-qc", "retire")
+    shutil.rmtree(repo / ITEM)
+    commit(repo, "a side line retires it")
+    git(repo, "switch", "-q", "feature")
+    write(repo, "g.py", "y = 2\n")
+    commit(repo, "unrelated work on the base line")
+    git(repo, "merge", "-q", "--no-ff", "--no-edit", "retire")
+    git(repo, "branch", "-f", "base", "HEAD")
+    write(repo, f"{ITEM}/routing.md", declaration())
+    write(repo, f"{ROUNDS}/round-1.md", body)
+    commit(repo, "this pull request restores it")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert f"at this path from {added[:7]}" in out, out
+
+
+def test_a_restore_not_yet_committed_is_read_from_the_working_tree(repo):
+    """Under `--worktree` the bytes are the working tree's, the rule
+    `read_record` follows, because that is the run `round_record.py` makes
+    before the commit. Read from HEAD instead, an uncommitted restore has no
+    bytes to find and is held to reachability."""
+    restored(repo, record("0" * 40, passed=True))
+    git(repo, "reset", "-q", "--soft", "HEAD~1")
+    git(repo, "reset", "-q")
+    code, out = run(repo, draft=False, worktree=True)
+    assert code == 0, out
+    assert "restored byte-for-byte from the base's own history" in out, out
+
+
+def test_bytes_the_base_held_only_on_a_merged_side_line_are_found(repo):
+    """The base's history includes every parent of its merges. Here the
+    restored bytes stood only on a side line that changed the record and
+    changed it back before merging, so the merge matches its first parent at
+    the path and git's default simplification never walks the side. Those
+    bytes were on the base's history all the same, and the rule is *any
+    version the base's history held*."""
+    body = record("0" * 40, passed=True)
+    other = body + "\nThe version the side line held for a while.\n"
+    write(repo, f"{ITEM}/routing.md", declaration())
+    write(repo, f"{ROUNDS}/round-1.md", body)
+    commit(repo, "an earlier pull request adds the work item")
+    git(repo, "switch", "-qc", "side")
+    write(repo, f"{ROUNDS}/round-1.md", other)
+    held = commit(repo, "a side line changes the record")
+    write(repo, f"{ROUNDS}/round-1.md", body)
+    commit(repo, "and changes it back")
+    git(repo, "switch", "-q", "feature")
+    git(repo, "merge", "-q", "--no-ff", "--no-edit", "side")
+    shutil.rmtree(repo / ITEM)
+    commit(repo, "the base retires it")
+    git(repo, "branch", "-f", "base", "HEAD")
+    write(repo, f"{ITEM}/routing.md", declaration())
+    write(repo, f"{ROUNDS}/round-1.md", other)
+    commit(repo, "this pull request restores the side line's version")
+    code, out = run(repo, draft=False)
+    assert code == 0, out
+    assert held[:7] in out, out
+
+
+def test_a_restored_record_the_pull_request_then_edits_is_its_own_claim(repo):
+    """B2. One byte changed and the bytes are this pull request's, so the
+    reachability claim is back."""
+    restored(
+        repo,
+        record("0" * 40, passed=True),
+        edit=lambda text: text + "\nOne more line.\n",
+    )
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "not an ancestor of" in out, out
+    assert "restored byte-for-byte" not in out, out
+
+
+def test_a_restored_record_is_still_read_for_everything_else(repo):
+    """B3, beside `test_a_merged_record_is_still_read_for_everything_else`.
+    Only reachability is dropped: a restored `Pass` beside an open 🔴 is a
+    contradiction inside one file, and the pull request can still fix it."""
+    restored(repo, record("0" * 40, passed=True, verdict="still looking"))
+    code, out = run(repo, draft=False)
+    assert code == 1, out
+    assert "still looking" in out, out
+    assert "not an ancestor of" not in out, out
 
 
 def test_a_record_new_in_the_pull_request_naming_a_foreign_commit_still_fails(repo):

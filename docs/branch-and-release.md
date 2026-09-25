@@ -252,6 +252,15 @@ the hygiene workflow runs it on every pull request into `main`, so a release
 cannot go out with a change that ships unexplained. `--dry-run` prints the
 section and writes nothing.
 
+A fragment carries no line starting `## ` (#586). The released section ends
+at the next such line, for the gather and for the release note alike, so
+every entry after it would ship under no version and the note would stop
+short. The gather refuses such a fragment, with or without `--dry-run`,
+before it writes or prints a section, and names the fragment, the line
+number and the line. Demote the line to `###` or lower in a pull request
+into the release branch, then gather again. A fragment already in the file
+is not read again.
+
 There is no accumulation section any more. `## Unreleased` was the shared
 region, and the fragments are what replaced it.
 

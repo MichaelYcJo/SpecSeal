@@ -24,7 +24,8 @@ The major level is the enclosing unit: a function or class for code, a heading
 path for a document (`"## Verify / ### Scope"`). An optional minor level after
 `>` narrows to the statement a claim is about. The hash is eight hex characters
 over whichever region applies. Escape a pipe inside a quoted anchor as `\|`, or
-the row splits the table it lives in.
+the row splits the table it lives in, and a double quote as `\"`, or the
+coordinate does not parse and nothing checks it.
 
 **An anchor degrades to DRIFTED, never to BROKEN.** Only the major level can be
 BROKEN. A minor anchor that stops matching means that place changed, so the row

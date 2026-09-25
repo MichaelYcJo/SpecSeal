@@ -1,0 +1,37 @@
+# 1790297086-the-broad-gate-says-what-ci-says — overview
+
+📋 implement applied
+· spec:     this work item's spec.md (Grounding, S1–S4, Out, A1–D1, Data & interfaces), plan.md (Technical context, Alternatives, phases 1–4), questions.md T1–T11, M1, M2; templates/config.md §Broad gate; skills/verify/SKILL.md §What the count does not say; docs/the-evidence-ledger.md §Appended is the word; CLAUDE.md §fragments, §commit early; agent-contract §2, §7–§9, §12–§15
+· evidence: seal/ledger/1790297086-the-broad-gate-says-what-ci-says.md, eleven rows (S1 ×3, S2 ×4, S3 ×2, C4, D1). Corrected in place: seal/releases/0.15.3.md A2 (its dead anchor dropped) and seal/releases/0.12.2.md G4's note. Re-read and re-stamped where they live: 0.15.3.md A1, A3, A4; 0.10.0.md S4, S7, S12; 0.12.0.md ×4; 0.12.2.md R2, R6, G3, G7; 0.15.1.md N3, G2 (prose only); 0.5.0.md S8
+· verified: executed — each phase's narrow modules and every module reading a file it edited (29, 56, 58 and 79 modules; the last, 3547 passed and 8 skipped after phase 4), every new case seen red, a mutation pass per phase, M2 before and after, evidence-check; read — C4, A5's reachability; unverified — M1 (CI's windows-latest leg), the full suite, lint and typecheck (the sealer's)
+
+## Why this work exists
+
+The broad gate and the cases that read the workflow it mirrors said things CI
+does not say. `cmd.exe` got `xcopy\e`, a release pull request met two arms CI
+skips, and the workflow's readers counted comments. After this work each of
+them reads the way CI does.
+
+## Where spec and implementation diverged
+
+| Divergence | Spec says / code did | Chosen | Grounds |
+|---|---|---|---|
+| The order of the three removals that make a name's part | `spec.md` S1: "with `"` and `^` removed and one leading `@` dropped", with no order | every leading `@` is dropped first, then `"` and `^` are removed, and a `%VAR%` is expanded before the directory is asked | `cmd.exe` reads only an unescaped, unquoted `@` as the echo-off prefix. The built-in check strips every `@` from the raw name (`lstrip("@")`), and round 1's ⬜ 9 made the part do the same, where the build had dropped one. The expansion is round 1's 🟡 3: `cmd.exe` expands `%VAR%` before it reads the name, and 0.15.3 rewrote `%CD%/bin/test` |
+| The empty part | `spec.md` S1: "An empty part … counts as a directory" | answered inside the scan, and the predicate is never asked | The drive's root always exists, so there is nothing to ask. A4's recording case pins that `/abs/x` asks nothing |
+| The existing `WORKFLOW_SHAPES` row for `BASE:` | a bare `BASE: origin/…` line was read as a base on its own | the row now carries the `env:` line it stands under | `spec.md` S2 #462: a `BASE:` counts only as a key of `env:`. A line with no mapping above it is not one |
+| When `overview.md` opens | `plan.md` phase 4: "`overview.md` written" | opened in phase 2 | The implement skill opens it at the first unverified item, and M1 is one from phase 1. `tests/test_chain_hooks_hardening.py#test_every_spec_directory_that_reached_the_ladder_has_an_overview` refuses a phase record without it |
+
+## Not verified
+
+| Item | Who must answer |
+|---|---|
+| `cmd.exe` runs `where/q cmd` as `where` plus its switch and exits 0 (A6, `questions.md` M1) | CI's `windows-latest` leg at the pull request |
+| The full suite, lint and typecheck over the finished branch | the sealer's one broad run, after the review rounds settle |
+
+## Not done
+
+nothing
+
+## Fed back into the spec
+
+none

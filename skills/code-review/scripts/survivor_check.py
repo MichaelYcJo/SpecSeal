@@ -179,6 +179,30 @@ correction left. Only its n-grams that also occur in a sentence
 `CHANGELOG.md` itself lost count, and against that file's sentences alone,
 so a gathered rewording of a lost entry still splits that entry into runs.
 
+**A ledger row removed because its anchor left the code** (#603). `CLAUDE.md`
+says a row whose anchor a change removes is REMOVED, not re-pointed, because
+its claim went with the code. So its cells are not wording the range
+corrected, and a document still stating the rule survived nothing: #587's
+range reported eight places, every one sourced from the three rows it
+removed. A row takes this exit when it is a live table row of a ledger file
+at the left end -- one of the four locations `evidence_check.py` reads -- its
+line is gone at the right end, and at least one of its anchors resolves at
+the left end and not at the right (`removed_ledger_rows`, asking the ledger
+checker's own `resolve_unit`), unless the row still stands at the right
+end: its id -- `R1 ·` at the head of its first cell -- under the same
+heading, carried by as many rows as before, or, for a row the id does not
+name, a live row of the file citing every anchor of it that resolves there.
+A row corrected in place stays measured, because that is the one ledger act
+that IS a correction -- even where the same range renamed its units or
+retitled a heading it cites, as #589's did, provided its id stands under the
+same heading. A row the id does not name falls back to its anchors, and goes
+silent when the correction renamed every anchor it kept, dropped one along
+with a rename, renamed its own section heading, or moved it to another
+section (`removed_ledger_rows` states the whole set). About 37% of anchored
+rows here carry no id, so that is not a rare corner. A row whose anchors all
+still resolve stays measured too, since no rule removes it. It leaves after the pairing across paths, like a retirement, so its
+claim carried verbatim into a new row is held rather than written.
+
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
 inside one is by definition not a standing sentence.
@@ -263,13 +287,22 @@ directories `settle --retire` removes hold specs whose sentences stand in
 a fold branch owed the range row above. Under #517 a fold is not a work item
 and has no directory to hold a `survivors.md`, so the row had nowhere to live.
 
-So a directory the range retired is left out of it on both sides, the way a
-round record is: gone at the right end, and either folded — its
-`<!-- specs/<id> -->` marker in `docs/` — or retired by the rule, which is
+So a directory the range retired is left out of it, the way a round record
+is: gone at the right end, and either folded — its `<!-- specs/<id> -->`
+marker in `docs/` — or retired by the rule, which is
 `unverified_check.py#retired_by_rule` asked of the left end. It is the same
 predicate `settle` and the other two readers ask, loaded rather than spelled
 here. A sentence the same range removes from anywhere else is measured as
 before.
+
+**It leaves after the pairing across paths, not before it** (#591). A
+sentence a fold carries verbatim from the retired `spec.md` into `docs/` is a
+move, and the range is not its author. Dropped first, the retired side left
+that arrival unpaired, so it paired with a correction the same range made
+elsewhere and held it, and the correction's other copies went unreported. So
+the retired side is read at the left end and takes part in the pairing, and
+only its departures that paired with nothing are then dropped. It is gone at
+the right end, so it adds nothing written.
 
 ## What it does not answer
 
@@ -279,6 +312,7 @@ the tree consistent now*, which is why the report prints what it examined.
 """
 
 import argparse
+import collections
 import importlib.util
 import io
 import math
@@ -287,7 +321,7 @@ import re
 import subprocess
 import sys
 import tokenize
-from collections import Counter
+from collections import Counter, deque
 
 # Words per n-gram. Three is the smallest that carries word order, and order is
 # what separates `an argument to an operand` from `an operand to an argument`.
@@ -941,6 +975,178 @@ def retired_directories(root, a, b, paths):
     return out
 
 
+# Where a ledger lives, as committed path shapes: the four locations
+# `evidence_check.py#default_patterns` reads, spelled for git paths rather
+# than for the disk, because the sweep reads blobs. Local mode is never
+# committed, so its root under the git directory never reaches a range, as
+# `WORK_ITEM_DIR`'s comment already says. A case holds this spelling against
+# `default_patterns`' own tails.
+LEDGER_SHAPES = (
+    "seal/ledger.md",
+    "seal/ledger/*.md",
+    "seal/releases/*.md",
+    "docs/**/_evidence.md",
+)
+
+
+def shape_pattern(shape):
+    """A committed path shape as a regex: `**/` is any run of directories,
+    none included, and `*` stays inside one directory."""
+    out = re.escape(shape).replace(r"\*\*/", "(?:[^/]+/)*").replace(r"\*", "[^/]*")
+    return out
+
+
+LEDGER_PATH = re.compile(
+    "^(?:" + "|".join(shape_pattern(shape) for shape in LEDGER_SHAPES) + ")$"
+)
+
+# The ledger checker, loaded by path the way `reader()` loads the fold
+# record's reader. It owns what an anchor is (`ANCHOR_RE`) and when one
+# resolves (`resolve_unit`); the sweep asks it rather than spelling either.
+EVIDENCE = os.path.join(
+    HERE, "..", "..", "evidence-check", "scripts", "evidence_check.py"
+)
+
+
+def evidence():
+    """`evidence_check.py`, or a sentence saying why it cannot be read."""
+    if not os.path.isfile(EVIDENCE):
+        raise Refused(
+            f"cannot read {EVIDENCE}, which says when a ledger row's anchor "
+            "left the code. This script ships beside it under `skills/`."
+        )
+    spec = importlib.util.spec_from_file_location("specseal_evidence_check", EVIDENCE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# A row's own id -- `R1`, `S3`, `G5`, `P1-1` -- heads its first cell, before
+# the ` · ` that opens the claim. A row corrected in place keeps it under the
+# same heading, whatever its anchors did. It is not always unique inside its
+# section: a claim split across rows repeats it (`seal/releases/0.14.0.md`'s
+# G5 is four rows), so an id names a row only while as many rows carry it at
+# `b` as did at `a`.
+ROW_ID = re.compile(r"^\s*\|\s*([A-Z][A-Za-z]*\d+[a-z]?(?:-\d+)?)\s*·")
+
+
+def ledger_rows(lines, live_lines):
+    """`[(line number, heading, row id or None, line)]` for the live table
+    rows of `lines`, 1-based, each under the last live heading above it."""
+    out, heading = [], None
+    for number, (line, live) in enumerate(live_lines(lines), start=1):
+        if not live:
+            continue
+        if line.startswith("#"):
+            heading = line.strip()
+        elif line.lstrip().startswith("|"):
+            match = ROW_ID.match(line)
+            out.append((number, heading, match and match.group(1), line))
+    return out
+
+
+def removed_ledger_rows(root, a, b, before, after):
+    """`{(path, line)}` -- the ledger rows this range removed because an
+    anchor of theirs left the code, keyed by the line each stood on at `a`.
+
+    A row counts when it is a live table row of a ledger file at `a` (read
+    through `unverified_check.py#live_lines`, so a row quoted in a fence or
+    an HTML comment is an example and never counts), its line is not in that
+    file at `b`, and at least one of its `path#locator` anchors resolves at
+    `a` and does not at `b` -- `evidence_check.py#resolve_unit`, the ledger
+    checker's own answer, asked of each end's blob -- and no live row of
+    that file at `b` cites every one of its anchors that still resolves.
+
+    **At least one anchor, never every one.** The two removals the ledger's
+    rules permit both follow an anchor leaving: every anchor gone, or some
+    gone and the owner choosing removal over narrowing. A false claim is
+    corrected in place, never removed, so a row whose anchors all still
+    resolve stays measured -- and a row corrected in place, which is a
+    removed line beside an added one, is exactly that shape.
+
+    **A row that still stands, re-pointed, is not removed.** #589's range
+    corrected `seal/releases/0.15.1.md` R1 in place and renamed one of its
+    tests in the same commit, so the old name left and the corrected claim
+    took the exit. A row keeps its id -- `R1 ·` at the head of its first
+    cell -- when it is corrected in place, so a removed row whose id still
+    stands under the same heading at `b`, carried by as many rows as at `a`,
+    is that row, and it stays measured whatever its anchors did: one anchor
+    renamed, every anchor renamed, or a heading it cites retitled. A row the
+    id does not name falls back to its anchors: it still stands where a live
+    row of the file cites every anchor of it that still resolves.
+
+    **What stays silent is a row corrected in place, with an anchor renamed
+    or gone, that the id does not name.** That is four shapes: its own
+    section heading renamed in the same range; the row moved to another
+    section; a row with no id `ROW_ID` reads, or whose id lost a sibling
+    row, that dropped a still-resolving anchor along with the rename; and a
+    row with no id whose every anchor was renamed. It is not a rare corner:
+    about 37% of the anchored rows in this repository's ledger (298 of about
+    800) carry no id the pattern reads. Pairing a removed line with the
+    added line that replaced it would close it, and that is a design choice
+    beyond this branch (round 2's 🟡 3)."""
+    ledgers = [path for path in before if LEDGER_PATH.match(path)]
+    if not ledgers:
+        return set()
+    loaded = evidence()
+    live_lines = reader().live_lines
+
+    def cited(line):
+        return {
+            (match.group("path"), match.group("locator"))
+            for match in loaded.ANCHOR_RE.finditer(line)
+        }
+
+    rows, standing, named = [], {}, {}
+    for path in ledgers:
+        lines = after.get(path, "").splitlines()
+        standing[path] = [
+            cited(line)
+            for line, live in live_lines(lines)
+            if live and line.lstrip().startswith("|")
+        ]
+        named[path] = collections.Counter(
+            (heading, row_id)
+            for _number, heading, row_id, _line in ledger_rows(lines, live_lines)
+            if row_id
+        )
+        at_left = ledger_rows(before[path].splitlines(), live_lines)
+        held = collections.Counter(
+            (heading, row_id) for _number, heading, row_id, _line in at_left if row_id
+        )
+        kept = set(lines)
+        for number, heading, row_id, line in at_left:
+            if line in kept:
+                continue
+            # The same id under the same heading at `b`, carried by as many
+            # rows as at `a`, is this row corrected in place -- measured
+            # whatever its anchors did. A key standing fewer times at `b` lost
+            # a row, and the id cannot say which, so its rows fall back to
+            # their anchors.
+            key = (heading, row_id)
+            if row_id and named[path][key] >= held[key]:
+                continue
+            anchors = cited(line)
+            if anchors:
+                rows.append((path, number, anchors))
+    if not rows:
+        return set()
+    files = sorted({file for _path, _line, anchors in rows for file, _ in anchors})
+    at_a, at_b = read_blobs(root, a, files), read_blobs(root, b, files)
+
+    def resolves(blobs, anchor):
+        text = blobs.get(anchor[0])
+        return text is not None and bool(loaded.resolve_unit(*anchor, text)[0])
+
+    out = set()
+    for path, number, anchors in rows:
+        left = {x for x in anchors if resolves(at_a, x) and not resolves(at_b, x)}
+        live = {x for x in anchors if resolves(at_b, x)}
+        if left and not (live and any(live <= row for row in standing[path])):
+            out.add((path, number))
+    return out
+
+
 def corpus(root, rev):
     """`{path: [Sentence]}` for the tree at `rev`, less what is excluded --
     what `records_a_past_state` names, and the changelog fragments the tip's
@@ -1054,14 +1260,14 @@ def corrected(root, a, b):
         and not records_a_past_state(path)
         and not a_gathered_fragment(path, gathered)
     ]
-    # A retired directory is out of the range on both sides too (#517), for
-    # the reason the round records are: its sentences stand in `docs/` by
-    # design, because that is what a fold is, and the removed spec is not a
-    # place that still instructs anybody.
+    # A retired directory is out of the range too (#517), for the reason the
+    # round records are: its sentences stand in `docs/` by design, because
+    # that is what a fold is, and the removed spec is not a place that still
+    # instructs anybody. It leaves AFTER the pairing below and not here
+    # (#591): a sentence a fold carries verbatim into `docs/` is a move, and
+    # dropped before the pairing its arrival paired with a correction the
+    # same range made elsewhere, and held it.
     retired = retired_directories(root, a, b, paths)
-    paths = [
-        path for path in paths if not any(path.startswith(d + "/") for d in retired)
-    ]
     before = read_blobs(root, a, paths)
     after = read_blobs(root, b, paths)
     # A gathered fragment's text stands under a version heading at `b`, and
@@ -1126,12 +1332,24 @@ def corrected(root, a, b):
                 fresh.append(sentence)
     # Only after every path is counted: a sentence that left one path and
     # arrived at another is a move, and neither side of it is this range's.
-    gone, fresh = paired_across_paths(gone, fresh)
+    gone, fresh = paired_across_paths(gone, fresh, set(after))
+    # A retired directory is gone at `b`, so it added nothing to `fresh`.
+    # A ledger row the range removed because its anchor left the code leaves
+    # here too, for the same reason and in the same order (#603): its claim
+    # went with its code, and its cells arriving verbatim in a new row were
+    # paired above as the move they are.
+    removed = removed_ledger_rows(root, a, b, before, after)
+    gone = [
+        sentence
+        for sentence in gone
+        if not any(sentence.path.startswith(d + "/") for d in retired)
+        and (sentence.path, sentence.line) not in removed
+    ]
     written = {gram for sentence in fresh for gram in sentence.grams()}
     return gone, written, split
 
 
-def paired_across_paths(gone, fresh):
+def paired_across_paths(gone, fresh, present=frozenset()):
     """`(gone, fresh)` less every sentence the range moved between paths.
 
     A sentence removed at one path and added verbatim at another -- the same
@@ -1143,27 +1361,65 @@ def paired_across_paths(gone, fresh):
     two that both remain are all this shape; no whole-file rule sees the
     split.
 
+    **Which departure an arrival pairs with is the move's own origin**
+    (#592). A key removed at two paths and added at one -- a correction at
+    one, a move at the other -- used to pair with the first in path order,
+    and the report's `corrected` line then named the path that only moved.
+    So the pairs are taken by the departure path's affinity to the arrival
+    path -- the distinct keys that left the one and arrived at the other --
+    then by the departure's path being gone at `b` (not in `present`), then
+    by path order. A file moved whole or a section split off shares every
+    key it carried with its destination, and a correction shares the one.
+    The verdict is the same whichever departure pairs, because the key and
+    so its n-grams are; only the source's coordinate moves.
+
     The two lists can only meet across paths: within one path, a key is
     either counted down or counted up, never both. A pair leaves `gone`
     only when every n-gram it has is in `written` anyway, so `wanted` can
     only grow -- and a larger `wanted` can join two runs into one, which
     `weigh` scores by its rarest n-gram. That is the score the same text
     gets had it not moved."""
-    arrived = Counter(sentence.key for sentence in fresh)
-    left, kept = Counter(), []
-    for sentence in gone:
-        if arrived[sentence.key] > 0:
-            arrived[sentence.key] -= 1
-            left[sentence.key] += 1
-        else:
-            kept.append(sentence)
-    written = []
-    for sentence in fresh:
-        if left[sentence.key] > 0:
-            left[sentence.key] -= 1
-        else:
-            written.append(sentence)
-    return kept, written
+    departures, arrivals = {}, {}
+    for at, sentence in enumerate(gone):
+        departures.setdefault(sentence.key, {}).setdefault(sentence.path, [])
+        departures[sentence.key][sentence.path].append(at)
+    for at, sentence in enumerate(fresh):
+        if sentence.key in departures:
+            arrivals.setdefault(sentence.key, {}).setdefault(sentence.path, [])
+            arrivals[sentence.key][sentence.path].append(at)
+    # Counted per path rather than per sentence, so a fold moving three
+    # hundred rows that share a date cell is three hundred pairs, not
+    # ninety thousand candidates.
+    affinity = Counter(
+        (origin, destination)
+        for key, found in arrivals.items()
+        for origin in departures[key]
+        for destination in found
+    )
+    held, moved = set(), set()
+    for key, found in arrivals.items():
+        origins = {path: deque(at) for path, at in departures[key].items()}
+        destinations = {path: deque(at) for path, at in found.items()}
+        order = sorted(
+            (
+                -affinity[(origin, destination)],
+                origin in present,
+                departures[key][origin][0],
+                found[destination][0],
+                origin,
+                destination,
+            )
+            for origin in origins
+            for destination in destinations
+        )
+        for *_rank, origin, destination in order:
+            while origins[origin] and destinations[destination]:
+                held.add(origins[origin].popleft())
+                moved.add(destinations[destination].popleft())
+    return (
+        [sentence for at, sentence in enumerate(gone) if at not in held],
+        [sentence for at, sentence in enumerate(fresh) if at not in moved],
+    )
 
 
 def wanted(gone, written):
@@ -1304,7 +1560,9 @@ def score(gone, keep, where, weight_of, floor, split=frozenset()):
             best = found.get(id(candidate))
             if best is None or total > best[0]:
                 found[id(candidate)] = (total, candidate, source, named)
-    return sorted(found.values(), key=lambda row: -row[0])
+    return sorted(
+        found.values(), key=lambda row: (-row[0], row[1].path, row[1].line, row[1].raw)
+    )
 
 
 def examine(root, a, b, floor=FLOOR):
