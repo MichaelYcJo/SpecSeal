@@ -562,6 +562,13 @@ def test_a_switch_against_a_program_runs_on_the_real_platform(tmp_path):
     repo = tmp_path / "repo"
     (repo / "bin").mkdir(parents=True)
     if not runs_under_cmd_exe(gate, repo):
+        # On Windows this case exists to run, and a skip there would let the
+        # leg's green say nothing about M1: so it fails instead, and a pass on
+        # `windows-latest` means it ran (round 2, M1).
+        assert os.name != "nt", (
+            "this is Windows and the shell the gate hands the row to is not "
+            "cmd.exe, so the case cannot answer M1"
+        )
         pytest.skip("the shell here is not cmd.exe")
     keep = tmp_path / "keep"
     keep.mkdir()
