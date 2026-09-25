@@ -64,7 +64,11 @@ every CI reader asks of the merge-base, asked here of the working tree AND of
 the merge base of `--released-at` and `HEAD` (#602). A CI reader on a pull
 request stands on the merge ref, so its merge base is the base branch's tip:
 the same commit as this one until the base moves past the fork, and a later
-one after, where this keeps more and never less. A row closed on the working
+one after. Past the fork the two can disagree either way. A closure the base
+took after the fork is read by CI and not here, so this keeps a directory CI
+would pass. A record file the base added to the directory after the fork, an
+open `evidence-todo.md` or a `spec.md`, is read by CI and not here, so this
+retires a directory CI refuses. A row closed on the working
 branch and still open at that base is kept, under a heading of its own
 naming the base and, where the base has moved, the merge that moves it.
 
@@ -461,7 +465,7 @@ RULE_BASE_HEADING = (
 # at the fork, so a closure already merged there is not read here until the
 # ref is merged into this branch.
 RULE_MOVED_HEADING = (
-    "kept until the closure reaches {base} — no `spec.md` and nothing open "
+    "kept: the closure has not reached {base} — no `spec.md` and nothing open "
     "here, but\nthe record there still holds an open row. {ref} has moved past "
     "that commit: where\n{ref} already holds the closure, merge {ref} into this "
     "branch and run `settle`\nagain; otherwise merge the closure to {ref} "
@@ -887,8 +891,8 @@ def report(found, ref, out=sys.stdout):
     write(
         f"no spec.md: {len(found['rule'])} to retire by the rule, "
         f"{len(found['rule_kept'])} kept by it, "
-        f"{len(found['rule_base_kept'])} kept until the closure reaches "
-        f"{found['base_label']}\n"
+        f"{len(found['rule_base_kept'])} kept because the closure has not "
+        f"reached {found['base_label']}\n"
     )
 
     for segment in sorted(found["grouped"]):
@@ -1244,12 +1248,13 @@ def main(argv=None):
     # `HEAD`. The CI readers compute the same merge base from their own
     # `HEAD`, which on a pull request is the merge ref, so theirs is the
     # base's tip: the same commit while the base has not moved since the
-    # fork, and a later one when it has, where this keeps more and never
-    # less. Two histories that share no commit have none, and neither does a
-    # clone too shallow to reach the commit they share; the predicate asked
-    # of nothing would be asked of the working tree alone — the answer that
-    # let a closure the base had not seen retire its directory. Refused in
-    # both arms, so the report never lists what the retirement then refuses.
+    # fork, and a later one when it has, where the two can disagree in either
+    # direction (the module docstring says how). Two histories that share no
+    # commit have none, and neither does a clone too shallow to reach the
+    # commit they share; the predicate asked of nothing would be asked of the
+    # working tree alone — the answer that let a closure the base had not
+    # seen retire its directory. Refused in both arms, so the report never
+    # lists what the retirement then refuses.
     if found["base"] is None:
         sys.stderr.write(
             f"settle: --released-at {args.released_at} and HEAD share no commit "

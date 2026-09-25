@@ -777,11 +777,23 @@ def test_the_documents_say_the_closure_has_to_reach_the_base():
     assert "`settle` asks it at the merge base of `--released-at` and `HEAD`" in policy
     # Round 1, 🟡 1: that merge base is CI's only until the base moves.
     assert "until the base moves past the fork" in policy, policy
-    for edition in ("README.md", "README.ko.md"):
-        row = document(edition).split("`settle [--retire]`")[1].split("\n")[0]
+    # Round 2, ⬜ 5: `document` flattens, so a split on a newline took the rest
+    # of the file as the row. The raw file is read, so the row is the row.
+    for edition, phrase in (
+        ("README.md", "until `--released-at` moves on past that commit"),
+        ("README.ko.md", "앞으로 나아가기 전까지는"),
+    ):
+        with open(os.path.join(ROOT, edition), encoding="utf-8") as f:
+            row = f.read().split("`settle [--retire]`")[1].split("\n")[0]
         assert "`--released-at`" in row and "`HEAD`" in row, (
             f"{edition}'s cheat-sheet row does not say the base is asked"
         )
+        # Round 2, 🟡 1: CI's revision is the fork only until the base moves.
+        assert phrase in row, row
+        assert "because that is where CI asks" not in row, row
+        assert "CI 가 그 지점에서 확인하기 때문입니다" not in row, row
+    assert "which is the base's tip" in text, text
+    assert "merging it into this branch and running `settle`" in text, text
     assert "to the branch the release merges to" in flat(settle.RULE_KEPT_HEADING)
     with open(SCRIPT, encoding="utf-8") as f:
         head = flat(f.read().split('"""')[1])
@@ -812,6 +824,10 @@ def test_a_base_that_moved_past_the_fork_names_the_merge_that_moves_it(tree):
     assert code == 1, text
     flat_text = " ".join(text.split())
     assert "merge main into this branch" in flat_text, text
+    # Round 2, ⬜ 4: the fork is a fixed past commit, so nothing waits for a
+    # closure to reach it; the heading says it has not.
+    assert "kept: the closure has not reached the merge-base of main" in flat_text
+    assert "kept until the closure reaches the merge-base" not in flat_text, text
     assert "the CI readers ask the rule there" not in flat_text, text
 
 
