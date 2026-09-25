@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on Opus 5.5 |
 | PR | 609 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `166ceb652ac6e5814205269a1991a72304b84c1c..a98929d31645d6a2ede84876a0d849c17d4e70eb`, 4 commits |
 | Contract changes | none |
 | New units | ROW_ID (depth 1); ledger_rows (depth 1); test_places_tied_on_score_print_in_path_order_whatever_the_hash_seed (depth 1); test_a_row_corrected_in_place_while_its_only_anchor_is_renamed_is_a_correction (depth 1); test_a_row_corrected_in_place_while_its_heading_is_retitled_is_a_correction (depth 1); test_a_removed_rows_id_standing_in_another_section_is_another_row (depth 1) |
