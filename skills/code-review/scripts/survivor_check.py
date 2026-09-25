@@ -179,6 +179,21 @@ correction left. Only its n-grams that also occur in a sentence
 `CHANGELOG.md` itself lost count, and against that file's sentences alone,
 so a gathered rewording of a lost entry still splits that entry into runs.
 
+**A ledger row removed because its anchor left the code** (#603). `CLAUDE.md`
+says a row whose anchor a change removes is REMOVED, not re-pointed, because
+its claim went with the code. So its cells are not wording the range
+corrected, and a document still stating the rule survived nothing: #587's
+range reported eight places, every one sourced from the three rows it
+removed. A row takes this exit when it is a live table row of a ledger file
+at the left end -- one of the four locations `evidence_check.py` reads -- its
+line is gone at the right end, and at least one of its anchors resolves at
+the left end and not at the right (`removed_ledger_rows`, asking the ledger
+checker's own `resolve_unit`). A row corrected in place keeps its anchors
+and stays measured, because that is the one ledger act that IS a
+correction; so does a row whose anchors all still resolve, which no rule
+removes. It leaves after the pairing across paths, like a retirement, so its
+claim carried verbatim into a new row is held rather than written.
+
 **Struck-through text.** A `~~...~~` span is this repository's own mark for a
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
 inside one is by definition not a standing sentence.
@@ -950,6 +965,107 @@ def retired_directories(root, a, b, paths):
     return out
 
 
+# Where a ledger lives, as committed path shapes: the four locations
+# `evidence_check.py#default_patterns` reads, spelled for git paths rather
+# than for the disk, because the sweep reads blobs. Local mode is never
+# committed, so its root under the git directory never reaches a range, as
+# `WORK_ITEM_DIR`'s comment already says. A case holds this spelling against
+# `default_patterns`' own tails.
+LEDGER_SHAPES = (
+    "seal/ledger.md",
+    "seal/ledger/*.md",
+    "seal/releases/*.md",
+    "docs/**/_evidence.md",
+)
+
+
+def shape_pattern(shape):
+    """A committed path shape as a regex: `**/` is any run of directories,
+    none included, and `*` stays inside one directory."""
+    out = re.escape(shape).replace(r"\*\*/", "(?:[^/]+/)*").replace(r"\*", "[^/]*")
+    return out
+
+
+LEDGER_PATH = re.compile(
+    "^(?:" + "|".join(shape_pattern(shape) for shape in LEDGER_SHAPES) + ")$"
+)
+
+# The ledger checker, loaded by path the way `reader()` loads the fold
+# record's reader. It owns what an anchor is (`ANCHOR_RE`) and when one
+# resolves (`resolve_unit`); the sweep asks it rather than spelling either.
+EVIDENCE = os.path.join(
+    HERE, "..", "..", "evidence-check", "scripts", "evidence_check.py"
+)
+
+
+def evidence():
+    """`evidence_check.py`, or a sentence saying why it cannot be read."""
+    if not os.path.isfile(EVIDENCE):
+        raise Refused(
+            f"cannot read {EVIDENCE}, which says when a ledger row's anchor "
+            "left the code. This script ships beside it under `skills/`."
+        )
+    spec = importlib.util.spec_from_file_location("specseal_evidence_check", EVIDENCE)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def removed_ledger_rows(root, a, b, before, after):
+    """`{(path, line)}` -- the ledger rows this range removed because an
+    anchor of theirs left the code, keyed by the line each stood on at `a`.
+
+    A row counts when it is a live table row of a ledger file at `a` (read
+    through `unverified_check.py#live_lines`, so a row quoted in a fence or
+    an HTML comment is an example and never counts), its line is not in that
+    file at `b`, and at least one of its `path#locator` anchors resolves at
+    `a` and does not at `b` -- `evidence_check.py#resolve_unit`, the ledger
+    checker's own answer, asked of each end's blob.
+
+    **At least one anchor, never every one.** The two removals the ledger's
+    rules permit both follow an anchor leaving: every anchor gone, or some
+    gone and the owner choosing removal over narrowing. A false claim is
+    corrected in place, never removed, so a row whose anchors all still
+    resolve stays measured -- and a row corrected in place, which is a
+    removed line beside an added one, is exactly that shape."""
+    ledgers = [path for path in before if LEDGER_PATH.match(path)]
+    if not ledgers:
+        return set()
+    loaded = evidence()
+    live_lines = reader().live_lines
+    rows = []
+    for path in ledgers:
+        standing = set(after.get(path, "").splitlines())
+        for number, (line, live) in enumerate(
+            live_lines(before[path].splitlines()), start=1
+        ):
+            if not live or not line.lstrip().startswith("|") or line in standing:
+                continue
+            anchors = [
+                (match.group("path"), match.group("locator"))
+                for match in loaded.ANCHOR_RE.finditer(line)
+            ]
+            if anchors:
+                rows.append((path, number, anchors))
+    if not rows:
+        return set()
+    cited = sorted({cited for _path, _line, anchors in rows for cited, _ in anchors})
+    at_a, at_b = read_blobs(root, a, cited), read_blobs(root, b, cited)
+
+    def resolves(blobs, path, locator):
+        text = blobs.get(path)
+        return text is not None and bool(loaded.resolve_unit(path, locator, text)[0])
+
+    return {
+        (path, number)
+        for path, number, anchors in rows
+        if any(
+            resolves(at_a, cited, locator) and not resolves(at_b, cited, locator)
+            for cited, locator in anchors
+        )
+    }
+
+
 def corpus(root, rev):
     """`{path: [Sentence]}` for the tree at `rev`, less what is excluded --
     what `records_a_past_state` names, and the changelog fragments the tip's
@@ -1137,10 +1253,16 @@ def corrected(root, a, b):
     # arrived at another is a move, and neither side of it is this range's.
     gone, fresh = paired_across_paths(gone, fresh, set(after))
     # A retired directory is gone at `b`, so it added nothing to `fresh`.
+    # A ledger row the range removed because its anchor left the code leaves
+    # here too, for the same reason and in the same order (#603): its claim
+    # went with its code, and its cells arriving verbatim in a new row were
+    # paired above as the move they are.
+    removed = removed_ledger_rows(root, a, b, before, after)
     gone = [
         sentence
         for sentence in gone
         if not any(sentence.path.startswith(d + "/") for d in retired)
+        and (sentence.path, sentence.line) not in removed
     ]
     written = {gram for sentence in fresh for gram in sentence.grams()}
     return gone, written, split

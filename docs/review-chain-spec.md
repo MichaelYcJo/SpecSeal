@@ -919,7 +919,9 @@ item that records a past state is out: a round record, the work item's own
 the root `CHANGELOG.md` — every line under a heading that names a version —
 is out, and so is a fragment whose fold marker stands in `CHANGELOG.md` at
 the tip, because a released entry is not rewritten;
-`## Unreleased` and an ungathered fragment stay in. In a `.py` file only
+`## Unreleased` and an ungathered fragment stay in. A ledger row the range
+removed because one of its anchors left the code is out, since its claim
+went with the code; a row corrected in place is still read. In a `.py` file only
 comments, docstrings and string literals are wording, every other token ends
 a sentence, and a file the tokenizer refuses is read whole. Each of these
 cost a check that went green by finding nothing or red over something
@@ -928,7 +930,7 @@ it quoted before `--exempt` was read and diluted the rest under the floor:
 on three pull requests of one release, 36 rows were written and 7 were
 consulted. Six of the twenty-one places the next release's four ranges
 reported were function bodies matched on loop and `if` shapes.
-Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state, skills/code-review/scripts/survivor_check.py::a_gathered_fragment, skills/code-review/scripts/survivor_check.py::python_prose
+Enforced by: skills/code-review/scripts/survivor_check.py::records_a_past_state, skills/code-review/scripts/survivor_check.py::a_gathered_fragment, skills/code-review/scripts/survivor_check.py::python_prose, skills/code-review/scripts/survivor_check.py::removed_ledger_rows
 
 <!-- specs/1790206435-the-sweep-reads-a-code-idiom-as-removed-wording -->
 <!-- specs/1790221963-a-release-writes-the-gathered-text-back -->

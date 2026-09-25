@@ -4052,3 +4052,237 @@ def test_a_crlf_changelog_still_has_its_gathered_ids(tmp_path):
         f"{text}"
     )
     assert "docs/b.md" in text, text
+
+
+# --- #603: a ledger row removed because its anchor left is no correction ---
+#
+# `CLAUDE.md`: *a row whose anchor a change removes is REMOVED, not
+# re-pointed. Its claim went with the code.* So a range that deletes a unit
+# and the row anchored on it has corrected nothing, and a document still
+# stating the rule is not a survivor of it. Measured on #587: exit 1, eight
+# places, every one sourced from the three removed rows. A row corrected in
+# place is a removed line beside an added one, and it IS a correction, so the
+# exit is narrower than "a removed row": at least one anchor must resolve at
+# the range's left end and not at its right.
+
+LEDGER = "seal/ledger.md"
+LEDGER_HEAD = (
+    "# ledger\n\n| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+    "|---|---|---|---|---|\n"
+)
+# FOUND with one word changed between its two corrected stretches, so it
+# shares two runs with FOUND and with what REPAIRED removed from it alike.
+RESTATED = FOUND.replace("itself and the", "itself while the")
+MODULE = (
+    "def helper(width):\n    return width\n\n\ndef other(width):\n    return width\n"
+)
+KEPT_MODULE = "def other(width):\n    return width\n"
+
+
+def ledger_row(claim, anchors=("pkg/mod.py#helper",)):
+    cited = ", ".join(f"`{anchor}@0123abcd`" for anchor in anchors)
+    return f"| R1 · {claim} | {cited} | **Executed** 2026-01-01 | 2026-01-01 | |\n"
+
+
+def ledger_range(repo, row_after, module_after, ledger_before=None):
+    """A ledger row anchored on `pkg/mod.py#helper` whose claim `docs/x.md`
+    restates, then one commit taking the ledger to `row_after` (None: the
+    row removed) and `pkg/mod.py` to `module_after`."""
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            LEDGER: ledger_before or LEDGER_HEAD + ledger_row(FOUND),
+            "pkg/mod.py": MODULE,
+            "docs/x.md": f"# x\n\n{RESTATED}\n",
+            **FILLER,
+        },
+        "a ledger row, its code, and a document stating its claim",
+    )
+    return build(
+        repo,
+        {LEDGER: LEDGER_HEAD + (row_after or ""), "pkg/mod.py": module_after},
+        "the range",
+    )
+
+
+def test_a_row_removed_with_its_anchor_is_not_a_correction(tmp_path):
+    """S7 (#603). The range deletes `helper` and removes the row anchored on
+    it. The row's claim went with its code, so `docs/x.md` stating the same
+    rule survived nothing. Red at 4910e445: exit 1, `docs/x.md:3`."""
+    head = ledger_range(tmp_path / "probe", None, KEPT_MODULE)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(tmp_path / "probe"))
+    assert code == 0, f"a removed row's claim was read as a correction:\n{text}"
+
+
+def test_a_row_corrected_in_place_is_still_a_correction(tmp_path):
+    """S8. The claim cell is reworded and re-stamped with `helper` still
+    there: a removed line beside an added one, and the one ledger act that
+    IS a correction. Green before this work, and red against an exit taken
+    by every removed row line."""
+    head = ledger_range(
+        tmp_path / "probe",
+        ledger_row(REPAIRED).replace("0123abcd", "4567cdef"),
+        MODULE,
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(tmp_path / "probe"))
+    assert code == 1, f"a row corrected in place went silent:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+    assert set(corrected_lines(text)) == {f"{LEDGER}:5"}, text
+
+
+def test_a_row_removed_while_its_anchors_resolve_stays_measured(tmp_path):
+    """S9. The row goes and `helper` stays. No rule removes a row whose
+    anchors all still resolve, so the removal is read as any other and the
+    restatement is reported. Red with the anchor condition dropped."""
+    head = ledger_range(tmp_path / "probe", None, MODULE)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(tmp_path / "probe"))
+    assert code == 1, f"a row removed with its anchor standing was excused:\n{text}"
+    assert set(corrected_lines(text)) == {f"{LEDGER}:5"}, text
+
+
+def test_one_anchor_leaving_a_file_that_remains_is_enough(tmp_path):
+    """S10, the shape of `seal/releases/0.15.1.md` S1 on #587's range: two
+    anchors, and only one unit is removed, from a file that stays. The row
+    takes the exit on the one that left."""
+    repo = tmp_path / "probe"
+    both = ("pkg/mod.py#helper", "pkg/mod.py#other")
+    head = ledger_range(repo, None, KEPT_MODULE, LEDGER_HEAD + ledger_row(FOUND, both))
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"a row one of whose anchors left was measured:\n{text}"
+
+
+@pytest.mark.parametrize(
+    "open_, close",
+    [("```text\n", "```\n"), ("<!--\n", "-->\n")],
+    ids=["fence", "comment"],
+)
+def test_a_row_quoted_in_a_fence_or_a_comment_stays_measured(tmp_path, open_, close):
+    """S11. A "row" inside a fenced block or an HTML comment of a ledger
+    file is an example, not a claim, so it takes no exit, the way a quoted
+    fold marker gathers nothing. Red with the live-line test dropped."""
+    repo = tmp_path / "probe"
+    quoted = LEDGER_HEAD + "\n" + open_ + ledger_row(FOUND) + close
+    head = ledger_range(repo, None, KEPT_MODULE, quoted)
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a quoted row took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+
+
+def test_a_removed_rows_claim_carried_to_a_new_row_is_held_not_written(tmp_path):
+    """S12. The row goes with its anchor, and its claim cell arrives
+    verbatim in a work item's fragment row with a new anchor. The arrival is
+    a move, so it is held rather than written, and a correction of the same
+    claim in `docs/a.md` stays measured: `docs/b.md` is reported. The removed
+    row leaves AFTER the pairing; dropped before it, the fragment's copy was
+    written and subtracted the correction -- red that way (exit 0)."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+    build(
+        repo,
+        {
+            LEDGER: LEDGER_HEAD + ledger_row(FOUND),
+            "pkg/mod.py": MODULE,
+            "docs/a.md": f"# a\n\n{FOUND}\n",
+            "docs/b.md": f"# b\n\n{FOUND}\n",
+            **FILLER,
+            **MORE_FILLER,
+        },
+        "a ledger row, its code, and two documents stating its claim",
+    )
+    head = build(
+        repo,
+        {
+            LEDGER: LEDGER_HEAD,
+            "pkg/mod.py": KEPT_MODULE,
+            "seal/ledger/1700000004-a-new-home.md": ledger_row(
+                FOUND, ("pkg/mod.py#other",)
+            ),
+            "docs/a.md": f"# a\n\n{REPAIRED}\n",
+        },
+        "the row moves to a fragment on a new anchor, and a.md is corrected",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"the fragment's copy was written and hid a.md:\n{text}"
+    assert "docs/b.md:3" in coordinates_in(text), text
+    assert set(corrected_lines(text)) == {"docs/a.md:3"}, text
+
+
+def test_a_removed_rows_cells_are_the_lines_the_row_stood_on(tmp_path):
+    """`removed_ledger_rows` keys a row by the line it stood on at the
+    range's left end, and `corrected` drops the removed sentences read from
+    that line. The two numberings have to agree: 1-based, the way `segments`
+    counts. A sentence of the row carries the line the predicate names."""
+    loaded = module()
+    text = LEDGER_HEAD + ledger_row(FOUND)
+    row = next(s for s in loaded.sentences(LEDGER, text) if "verdict" in s.words)
+    repo = tmp_path / "probe"
+    head = ledger_range(repo, None, KEPT_MODULE)
+    base = resolves_in(repo, f"{head}^")
+    removed = loaded.removed_ledger_rows(
+        str(repo), base, head, {LEDGER: text}, {LEDGER: LEDGER_HEAD}
+    )
+    assert removed == {(LEDGER, row.line)}, (removed, row.line)
+
+
+def resolves_in(repo, rev):
+    out = subprocess.run(
+        ["git", "-C", str(repo), "rev-parse", rev],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+    )
+    return out.stdout.strip()
+
+
+def test_the_ledger_shapes_are_the_ones_the_ledger_checker_reads():
+    """The sweep spells the four ledger locations as git path shapes, and
+    `evidence_check.py#default_patterns` is where they are decided. Held
+    against that function's own answer, in shared mode, so a fifth location
+    added there turns this red rather than leaving the sweep reading four."""
+    loaded = module()
+    checker = loaded.evidence()
+    tails = {
+        os.path.relpath(pattern, ROOT).replace(os.sep, "/")
+        for pattern in checker.default_patterns(ROOT)
+    }
+    assert tails == set(loaded.LEDGER_SHAPES), (tails, loaded.LEDGER_SHAPES)
+    for path, ledger in (
+        ("seal/ledger.md", True),
+        ("seal/ledger/1700000004-a-new-home.md", True),
+        ("seal/releases/0.15.3.md", True),
+        ("docs/_evidence.md", True),
+        ("docs/policy/deep/_evidence.md", True),
+        ("seal/ledger/nested/x.md", False),
+        ("docs/ledger.md", False),
+        ("seal/specs/1700000004-a-new-home/ledger.md", False),
+    ):
+        assert bool(loaded.LEDGER_PATH.match(path)) is ledger, path
+
+
+def test_a_missing_ledger_checker_refuses_rather_than_measuring(tmp_path):
+    """`evidence_check.py` ships beside this script under `skills/`. A copy
+    without it cannot say which rows left with their code, and that is
+    unusable input (exit 2's `Refused`), the way a missing retirement reader
+    is -- never a quiet reading of every removed row as a correction."""
+    loaded = module()
+    loaded.EVIDENCE = str(tmp_path / "gone" / "evidence_check.py")
+    with pytest.raises(loaded.Refused, match=r"evidence_check\.py, which says"):
+        loaded.removed_ledger_rows(
+            str(tmp_path), "HEAD", "HEAD", {LEDGER: LEDGER_HEAD}, {}
+        )
+
+
+# #587's squash on `release/v0.15.3`: it removed three ledger rows whose
+# anchors left `tests/test_a_document_has_room_for_the_next_fold.py` and the
+# fold checker's old home, and every one of the eight places it reported was
+# sourced from those rows.
+REMOVED_ROWS_RANGE = "58629718"
+
+
+def test_the_measured_range_that_removed_three_rows_reports_nothing():
+    """S13. Red at 4910e445: exit 1, eight places."""
+    if not resolves(REMOVED_ROWS_RANGE):
+        pytest.skip(f"{REMOVED_ROWS_RANGE} is not in this clone")
+    code, text = over(REMOVED_ROWS_RANGE)
+    assert code == 0, f"the removed rows' claims were read as corrections:\n{text}"
