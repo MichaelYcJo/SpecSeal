@@ -29,7 +29,8 @@ absorbed.
 ```
 settle                            what would fold, grouped by segment
 settle --retire                   remove the directories whose fold docs/ records
-settle --released-at REF          what counts as released (default origin/main)
+settle --released-at REF          what counts as released, and the base the rule is
+                                  asked at (default origin/main)
 ```
 
 The script is `skills/settle/scripts/settle.py`, and `bin/settle` is on the
@@ -102,6 +103,24 @@ retired in one pull request is still open where they look, and
 just made. Merged first, the ✅ also stays in the release branch's history,
 where a closure made and removed in one squash would leave nothing. Once the
 closure has merged, the next `settle --retire` takes the directory.
+
+**Merged first means merged to the branch the release merges to, and `settle`
+holds you to it.** The CI readers on the release pull request ask the rule of
+the merge base of that pull request's base and its merge ref, which is the
+base's tip. A closure merged only into the release branch is not there yet, so
+a retirement in the same release turns the release pull request red. That is
+what happened in 0.15.3 (#602). So `settle` asks the predicate of the merge
+base of `--released-at` and `HEAD` as well as of the working tree. That is the
+same commit as CI's until `--released-at` moves past the commit this branch
+forked from. Once it has, the heading says so, and where `--released-at`
+already holds the closure, merging it into this branch and running `settle`
+again is what lets the directory go. A directory whose record is closed in the
+tree and open at that base is listed under *kept until the closure reaches
+<base>*, with every row open there, and `settle --retire` keeps it and exits 1.
+It goes in a later pull request, once the closure has reached the branch
+`--released-at` names, which for a closure made on a release branch is the
+next release. A `--released-at` that shares no commit with `HEAD` has no merge
+base, and both arms refuse it at exit 2 rather than asking the tree alone.
 
 For every directory a retirement would take, by either arm, the report also
 lists what would go with it: the open `## Not verified` rows in its overview,

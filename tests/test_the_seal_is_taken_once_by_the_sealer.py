@@ -2934,6 +2934,7 @@ def test_seal_refuses_while_the_fixes_have_been_read_by_nobody(repo):
     assert CHECKED_BY in out and "no cell was written" in out, out
     assert "read by no LATER round" in out, out
     assert "Spawn the verifying round first" in out, out
+    assert "fails a ready pull request" in out, out
     assert read_bytes(path) == before, "the record was written under a refusal"
 
 
@@ -3052,6 +3053,7 @@ def test_the_refusal_says_which_value_the_last_record_may_hold(repo):
     assert "no fixes to check" in out, out
     assert "nobody" in out, out
     assert "Spawn the verifying round first" in out, out
+    assert "fails a ready pull request" in out, out
     # §14 for the reworded exit, and the opposite direction of #406: this
     # spelling names whose seal it is, and it is the spelling the deleted
     # assertion turned red.
