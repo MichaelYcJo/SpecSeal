@@ -292,7 +292,7 @@ open. This says who opened the work that closed them. Three values, and
 |---|---|
 | `round-N` | a **later** round opened these fixes and reported on them. It has to exist, a round can never name itself, and its own `Target SHA` has to be later than this record's — a number is cheap and a round is not, so two records sitting at one commit are refused however they are numbered |
 | `no fixes to check` | nothing here closed with a fix. This is the verifying round's own terminal value |
-| `nobody — <why>` | the gap, written down. It prints on every CI run, and on the run's **last** record beside a checked `Pass` it fails the pull request — a review cannot have passed while its own fixes went unread. Work items begun before the rule landed are excused and only print |
+| `nobody — <why>` | the gap, written down. It prints on every CI run, and on the run's **last** record beside a checked `Pass` it fails a ready pull request — a review cannot have passed while its own fixes went unread. On a draft that pair prints and names the verifying round, because the draft is where it stands between `close` and that round's record, and *Ready for review* re-runs the check. Work items begun before the rule landed are excused and only print |
 
 `round_record.py new --item <dir> --round N …` sets it: when it writes round
 N's record it sets round N-1's cell to `round-N`, touches nothing else, and

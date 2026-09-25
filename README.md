@@ -213,8 +213,9 @@ that opens nothing needing a fix does not spend one of the three.
 The record's `Fixes checked by` row is where that lands. It names a later
 round, or says there was nothing to check, or says `nobody` and why. The last
 of those prints on every run, and on the run's last record beside a checked
-`Pass` it fails the pull request — a review cannot have passed while the fixes
-that closed its findings went unread. Work items begun before the rule landed
+`Pass` it fails a ready pull request — a review cannot have passed while the
+fixes that closed its findings went unread. On a draft that pair prints and
+names the verifying round. Work items begun before the rule landed
 are excused and only print, so a run that already shipped that way says so in
 the diff instead of in a session that has ended.
 
@@ -607,12 +608,14 @@ What this does not do is as load-bearing as what it does.
   makes a repeat visible. A hook could not tell the difference anyway —
   whether the rounds have settled is not a property of the command being run.
 - **`Fixes checked by: nobody` prints everywhere and fails in one place.** On
-  the run's last record, beside a checked `Pass`, it fails the pull request: a
-  review cannot have passed while the fixes that closed its findings went
-  unread. Anywhere else it only prints. Work items begun before this rule
-  landed are excused entirely, because a check whose first act is red on merged
-  history nobody can repair is a check people learn to skip. The way out costs
-  no round — one verifying round at the diff of those fixes.
+  the run's last record, beside a checked `Pass`, it fails a ready pull
+  request: a review cannot have passed while the fixes that closed its
+  findings went unread. On a draft that pair prints and names the verifying
+  round, and *Ready for review* re-runs the check. Anywhere else it only
+  prints. Work items begun before this rule landed are excused entirely,
+  because a check whose first act is red on merged history nobody can repair
+  is a check people learn to skip. The way out costs no round — one verifying
+  round at the diff of those fixes.
 - **A parity mark says someone compared, not that they compared well.** The
   gate checks that a comparison was recorded for this HEAD; the quality of
   that comparison is the reviewer's, and writing the mark for work you did not
