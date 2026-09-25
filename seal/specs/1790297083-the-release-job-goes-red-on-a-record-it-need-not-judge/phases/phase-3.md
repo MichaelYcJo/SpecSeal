@@ -48,7 +48,7 @@ that, because it needs `gh` to answer. The rewritten assertion is red on the
 pre-phase code, shown by swapping in the kept pre-phase `chain_check.py`.
 Recorded in `overview.md` as a divergence.
 
-**The pin was renamed.** `test_the_release_leg_is_red_again_until_the_verifying_rounds_record_commits`
+**The pin was renamed.** `test_the_release_leg_is_red_again_until_the_verifying_rounds_record_commits` (the old name: NAME NOT IN TREE)
 is now `test_the_release_leg_is_not_red_until_the_verifying_rounds_record_commits`,
 because the old name asserts what the sentence no longer says. `spec.md`
 Scope 4 names it by the old name. Nothing else in the tree does.

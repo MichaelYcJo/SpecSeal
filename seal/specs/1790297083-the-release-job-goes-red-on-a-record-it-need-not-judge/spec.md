@@ -211,8 +211,8 @@ commits as the code (§14):
   last record, and the draft notice for `Pass` beside `nobody`.
 - Ledger coordinates this work touches. Each is DRIFTED by the edit and
   re-read, never re-pointed:
-  - `seal/ledger.md`: the `chain_check.py#checked_by@62c3bd1b` rows and the
-    `chain_check.py#main@47efa0ab` row
+  - `seal/ledger.md`: the `chain_check.py#checked_by` rows and the
+    `chain_check.py#main` row
   - `seal/releases/0.8.0.md`: `#added_on_branch@5461cc08` and
     `#written_late@1b8af05f`
   - `seal/releases/0.11.3.md`: `#written_late@1b8af05f`
