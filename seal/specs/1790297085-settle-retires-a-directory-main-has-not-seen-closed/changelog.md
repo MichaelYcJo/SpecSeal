@@ -18,3 +18,12 @@
   open there is listed under its own heading, naming the base and the rows
   open there, and `--retire` keeps it and exits 1. A `--released-at` that
   shares no commit with `HEAD` is refused at exit 2.
+- **The changelog gather refuses a fragment that carries a line starting
+  `## ` (issue #586).** Such a line ends the released section, for the
+  gather and for the release note alike, so every entry after it shipped
+  under no version and the note stopped short. `gather_changelog.py
+  --version`, with or without `--dry-run`, now stops before it writes or
+  prints a section and names each such fragment, the line number and the
+  line. The remedy is to demote the line to `###` or lower in a pull request
+  into the release branch, then gather again. A fragment already gathered is
+  not read again.

@@ -25,6 +25,10 @@
 
 `questions.md` Q3, catching a fragment's `## ` line at the fragment's own pull request, is not built: the milestone adds no gate.
 
+`skills/verify/scripts/payload_meter.py#_session_cost` still dies with a traceback at exit 1 when its sibling is missing. `spec.md` §Scope *Out* puts it outside #590's class, because the meter's 1 already means *could not measure* rather than a finding; the orchestrator files it or leaves it.
+
+`chain_check.py` was not edited (work item A owns it this release); its exit 2 for a missing reader is pinned by this work item's class case alone.
+
 ## Fed back into the spec
 
 none
