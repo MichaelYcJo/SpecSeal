@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 2 |
 | Commit | 6d66fced |
-| Ran by | unknown — the spawn prompt named no runner, and the template refuses a value the segment sources from itself; the orchestrator fills this row |
+| Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
 
