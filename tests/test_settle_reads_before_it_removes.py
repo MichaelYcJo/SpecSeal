@@ -790,6 +790,19 @@ def test_the_documents_say_the_closure_has_to_reach_the_base():
     assert "closure has not reached the merge base" in head, "exit 1's cause is missing"
 
 
+def test_the_retirement_refuses_a_survey_with_no_base(tree):
+    """`retire`'s own guard, for a caller that hands it a survey `main` would
+    have refused: the predicate asked of `None` is asked of the tree alone,
+    which is the answer #602 removed, so nothing is read and nothing goes."""
+    moment(tree, overview=OVERVIEW_CLOSED)
+    found = settle.survey(str(tree), "HEAD")
+    found["base"] = None
+    out = io.StringIO()
+    assert settle.retire(found, str(tree), out=out) == 2, out.getvalue()
+    assert (tree / "seal" / "specs" / MOMENT).exists(), out.getvalue()
+    assert "no merge base" in out.getvalue(), out.getvalue()
+
+
 @pytest.mark.parametrize("retire", [False, True])
 def test_no_merge_base_is_refused_and_nothing_is_removed(tree, retire, capsys):
     """S8. A `--released-at` sharing no history with `HEAD` has no merge
