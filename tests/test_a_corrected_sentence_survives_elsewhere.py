@@ -4187,7 +4187,9 @@ def test_a_removed_row_sharing_one_live_anchor_with_another_row_takes_the_exit(
     repo = tmp_path / "probe"
     three = ("pkg/mod.py#helper", "pkg/mod.py#other", "pkg/mod.py#spare")
     module = MODULE + "\n\ndef spare(width):\n    return width\n"
-    neighbour = ledger_row("A neighbouring claim.", ("pkg/mod.py#other",))
+    neighbour = ledger_row("A neighbouring claim.", ("pkg/mod.py#other",)).replace(
+        "R1 ·", "R2 ·"
+    )
     head = ledger_range(
         repo,
         neighbour,
@@ -4196,6 +4198,60 @@ def test_a_removed_row_sharing_one_live_anchor_with_another_row_takes_the_exit(
     )
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 0, f"a removed row was read as re-pointed:\n{text}"
+
+
+def test_a_row_corrected_in_place_while_its_only_anchor_is_renamed_is_a_correction(
+    tmp_path,
+):
+    """A row with one anchor, corrected in place and re-pointed at the
+    renamed unit. No anchor of the old row resolves at the tip, so the
+    anchor rule has nothing to match; the row's id standing under the same
+    heading is what says it is the same row. Red at 8f70ca94: exit 0."""
+    repo = tmp_path / "probe"
+    renamed = MODULE.replace("def helper(", "def helper_renamed(")
+    head = ledger_range(
+        repo, ledger_row(REPAIRED, ("pkg/mod.py#helper_renamed",)), renamed
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a one-anchor row corrected in place took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+    assert set(corrected_lines(text)) == {f"{LEDGER}:5"}, text
+
+
+def test_a_row_corrected_in_place_while_its_heading_is_retitled_is_a_correction(
+    tmp_path,
+):
+    """A row anchored on a document heading. The range retitles the heading
+    and corrects the row in place, re-pointed at the new title. Red at
+    8f70ca94: exit 0."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo)
+
+    def row(claim, title):
+        anchor = f'`docs/p.md#"## {title}"@0123abcd`'
+        return f"| R1 · {claim} | {anchor} | **Read** 2026-01-01 | 2026-01-01 | |\n"
+
+    build(
+        repo,
+        {
+            LEDGER: LEDGER_HEAD + row(FOUND, "Old title"),
+            "docs/p.md": "# p\n\n## Old title\n\nBody.\n",
+            "docs/x.md": f"# x\n\n{RESTATED}\n",
+            **FILLER,
+        },
+        "a row anchored on a heading, and a document stating its claim",
+    )
+    head = build(
+        repo,
+        {
+            LEDGER: LEDGER_HEAD + row(REPAIRED, "New title"),
+            "docs/p.md": "# p\n\n## New title\n\nBody.\n",
+        },
+        "retitle the heading and correct the row in place",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a row re-pointed at a new heading took the exit:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
 
 
 def test_a_row_whose_anchor_never_resolved_here_stays_measured(tmp_path):

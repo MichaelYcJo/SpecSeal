@@ -1013,6 +1013,27 @@ def evidence():
     return module
 
 
+# A row's own id -- `R1`, `S3`, `G5` -- heads its first cell, before the ` · `
+# that opens the claim, and is unique inside its section. A row corrected in
+# place keeps it under the same heading, whatever its anchors did.
+ROW_ID = re.compile(r"^\s*\|\s*([A-Z][A-Za-z]*\d+[a-z]?)\s*·")
+
+
+def ledger_rows(lines, live_lines):
+    """`[(line number, heading, row id or None, line)]` for the live table
+    rows of `lines`, 1-based, each under the last live heading above it."""
+    out, heading = [], None
+    for number, (line, live) in enumerate(live_lines(lines), start=1):
+        if not live:
+            continue
+        if line.startswith("#"):
+            heading = line.strip()
+        elif line.lstrip().startswith("|"):
+            match = ROW_ID.match(line)
+            out.append((number, heading, match and match.group(1), line))
+    return out
+
+
 def removed_ledger_rows(root, a, b, before, after):
     """`{(path, line)}` -- the ledger rows this range removed because an
     anchor of theirs left the code, keyed by the line each stood on at `a`.
@@ -1035,9 +1056,14 @@ def removed_ledger_rows(root, a, b, before, after):
     **A row that still stands, re-pointed, is not removed.** #589's range
     corrected `seal/releases/0.15.1.md` R1 in place and renamed one of its
     tests in the same commit, so the old name left and the corrected claim
-    took the exit. The new line cited every anchor of the old one that still
-    resolved, and no row the range removed outright did. A row whose every
-    anchor left has nothing to be cited by, and takes the exit."""
+    took the exit. A row keeps its id -- `R1 ·` at the head of its first
+    cell -- when it is corrected in place, so a removed row whose id still
+    stands under the same heading at `b` is that row, and it stays measured
+    whatever its anchors did: one anchor renamed, every anchor renamed, or a
+    heading retitled. A row with no id falls back to its anchors: it still
+    stands where a live row of the file cites every anchor of it that still
+    resolves. What stays silent is a row with no id whose every anchor was
+    renamed as it was corrected."""
     ledgers = [path for path in before if LEDGER_PATH.match(path)]
     if not ledgers:
         return set()
@@ -1050,7 +1076,7 @@ def removed_ledger_rows(root, a, b, before, after):
             for match in loaded.ANCHOR_RE.finditer(line)
         }
 
-    rows, standing = [], {}
+    rows, standing, named = [], {}, {}
     for path in ledgers:
         lines = after.get(path, "").splitlines()
         standing[path] = [
@@ -1058,11 +1084,21 @@ def removed_ledger_rows(root, a, b, before, after):
             for line, live in live_lines(lines)
             if live and line.lstrip().startswith("|")
         ]
+        named[path] = {
+            (heading, row_id)
+            for _number, heading, row_id, _line in ledger_rows(lines, live_lines)
+            if row_id
+        }
         kept = set(lines)
-        for number, (line, live) in enumerate(
-            live_lines(before[path].splitlines()), start=1
+        for number, heading, row_id, line in ledger_rows(
+            before[path].splitlines(), live_lines
         ):
-            if not live or not line.lstrip().startswith("|") or line in kept:
+            if line in kept:
+                continue
+            # The same id under the same heading at `b` is this row, corrected
+            # in place -- measured whatever its anchors did, so a correction
+            # re-pointed at a renamed unit or a retitled heading stays loud.
+            if row_id and (heading, row_id) in named[path]:
                 continue
             anchors = cited(line)
             if anchors:
@@ -1498,7 +1534,7 @@ def score(gone, keep, where, weight_of, floor, split=frozenset()):
             best = found.get(id(candidate))
             if best is None or total > best[0]:
                 found[id(candidate)] = (total, candidate, source, named)
-    return sorted(found.values(), key=lambda row: -row[0])
+    return sorted(found.values(), key=lambda row: (-row[0], row[1].path, row[1].line))
 
 
 def examine(root, a, b, floor=FLOOR):
