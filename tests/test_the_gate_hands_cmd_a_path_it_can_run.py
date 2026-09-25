@@ -189,6 +189,10 @@ def only_slashes_turned(row, got):
         ("bin/test && nothere/x a/b", r"bin\test && nothere/x a/b"),
         ("nothere/x & bin/test", r"nothere/x & bin\test"),
         ("(nothere/a && bin/b)", r"(nothere/a && bin\b)"),
+        # A quoted or escaped name after a separator starts where it stands,
+        # not where the name before it did.
+        ('nothere/x && "bin/run tests"', r'nothere/x && "bin\run tests"'),
+        ("bin/test && ^nothere/x", r"bin\test && ^nothere/x"),
     ],
 )
 def test_a_name_that_starts_in_no_directory_is_handed_over_as_written(
