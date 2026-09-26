@@ -899,7 +899,8 @@ def test_a_coordinate_that_will_not_parse_is_malformed_under_both_readings(repo,
             f"the line names no remedy:\n{r.stdout}"
         )
         assert "0 old-format · 1 malformed" in r.stdout, r.stdout
-        assert r.returncode == 2, f"{args}: exit {r.returncode}\n{r.stdout}"
+        want = 2 if "--strict" in args else 1
+        assert r.returncode == want, f"{args}: exit {r.returncode}\n{r.stdout}"
 
 
 def test_a_bare_quote_in_a_quoted_locator_is_malformed_and_the_escape_repairs_it(
@@ -915,7 +916,7 @@ def test_a_bare_quote_in_a_quoted_locator_is_malformed_and_the_escape_repairs_it
         f'| CLAUSE | `src/names.py#"LABEL = "ok""@{h}` |\n', encoding="utf-8"
     )
     r = run(["."], str(repo))
-    assert "MALFORMED" in r.stdout and r.returncode == 2, r.stdout
+    assert "MALFORMED" in r.stdout and r.returncode == 1, r.stdout
     assert '`\\"`' in r.stdout, f"the line does not name the escape:\n{r.stdout}"
     ledger.write_text(
         f'| CLAUSE | `src/names.py#"LABEL = \\"ok\\""@{h}` |\n', encoding="utf-8"
@@ -952,7 +953,7 @@ def test_a_claim_whose_grounds_cite_nothing_is_malformed(repo):
     )
     r = run(["."], str(repo))
     assert "MALFORMED none — policy only" in r.stdout, r.stdout
-    assert r.returncode == 2, r.stdout
+    assert r.returncode == 1, r.stdout
 
 
 NOT_A_CLAIM = (
@@ -998,7 +999,7 @@ def test_what_is_not_a_claim_is_not_refused(repo):
     r = run(["."], str(repo))
     assert "MALFORMED src/service.py#Box@0" in r.stdout, r.stdout
     assert "MALFORMED src/service.py#handler@0 " not in r.stdout, r.stdout
-    assert r.returncode == 2, r.stdout
+    assert r.returncode == 1, r.stdout
 
 
 def test_what_is_left_of_a_cell_is_read_span_by_span(repo):
@@ -1048,9 +1049,10 @@ def test_a_fragment_row_after_a_headed_table_is_still_read(repo):
 def test_prose_marks_beside_a_good_anchor_are_not_refused(repo):
     """Round 1's 🟡 1. An issue number, a decorator, an annotation, an address
     and a URL fragment in a code span are prose, exactly as `(#299)` outside
-    one is; refusing them exits 2 on prose. A leftover is a coordinate when
-    it holds both marks, a `#` glued to a path or a file name, or a path
-    followed by `@` and a hash, and a URL is blanked first."""
+    one is; refusing them fails a `--strict` run on prose. A leftover is a
+    coordinate when it holds an `@` glued after a `#`, a `#` glued to a path
+    or a file name, or a path followed by `@` and a hash, and a URL is
+    blanked first."""
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
     good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
@@ -1088,6 +1090,10 @@ def test_an_unticked_coordinate_with_one_mark_is_named(repo, bare):
         "Makefile#build",
         '#"def handler"',
         "#handler@abcdef12",
+        'src/a.py#"x = 1  # c"@0',
+        '#handler>"a b"@abcdef12',
+        '#handler>"a \\"b c\\""@abcdef12',
+        'see #handler>"a b"@abcdef12',
     ],
 )
 def test_a_coordinate_the_opener_list_misses_is_named(repo, coord):
@@ -1098,7 +1104,15 @@ def test_a_coordinate_the_opener_list_misses_is_named(repo, coord):
     and a hash is a coordinate with its anchor left off, and a locator may
     open with a digit, a letter outside ASCII, or nothing at all. A file name
     with no dot glued to a name, a quoted line with no path, and a path-less
-    coordinate holding both marks are named beside a good anchor too."""
+    coordinate holding both marks are named beside a good anchor too.
+
+    The last four shapes are #614's glued-marks rule read from the other
+    side: in a code span, a `#` and an `@` stay glued through a quoted
+    string, whitespace and escaped quotes inside it included. The first of them is a guard, green
+    before that change and after it, because its path names it word by word
+    anyway. The three with no path and a space inside the quotes are named by
+    the quoted string alone, and the last holds prose before its `#`, so
+    every `#` in a span is tried rather than only one opening it."""
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
     good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
@@ -1123,6 +1137,144 @@ def test_a_directive_or_a_string_holding_a_hash_is_prose(repo):
     r = run(["."], str(repo))
     assert "0 old-format · 0 malformed" in r.stdout, r.stdout
     assert r.returncode == 0, r.stdout
+
+
+@pytest.mark.parametrize(
+    "coord", ['Makefile#"all: build"', "Makefile#<module>", "Makefile#_private"]
+)
+def test_a_file_name_with_no_dot_takes_any_locator(repo, coord):
+    """#614 item 1. A file name with no dot glued to a quoted line,
+    `<module>` or `_name` is a coordinate as `Makefile#build` is."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, `{coord}` |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert f"MALFORMED {coord}  " in r.stdout, r.stdout
+
+
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "org/repo#299's",
+        "org/repo#299—see",
+        "“org/repo#299”",
+        "org/repo#299에서",
+        "[org/repo#299](https://example.com/org/repo/issues/299)",
+        "chart.js@4",
+        "`vue.js@3`",
+        "jane.doe@beef",
+    ],
+)
+def test_an_issue_number_or_a_version_glued_to_a_word_is_prose(repo, prose):
+    """#614 items 2 and 3. Digits that no ASCII word character continues are
+    an issue number whatever the sentence glues after them, and a path
+    followed by `@` takes a hash only as long as a hash is."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, {prose} |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert "0 old-format · 0 malformed" in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
+
+
+@pytest.mark.parametrize("prose", ["`@lru_cache  # memoized`", "`x = 1  # see @jane`"])
+def test_a_decorated_line_holding_both_marks_apart_is_prose(repo, prose):
+    """#614's fourth observation, and the second shape round 3 named for the
+    same rule. A code span holding a `#` and an `@` is a coordinate only where
+    the `@` follows the `#` with no whitespace between them outside a quoted
+    string; a decorator beside a comment, or a mention inside one, is prose.
+    The quoted locator holding `# c` in the opener-list case is this rule's
+    guard in the other direction."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, {prose} |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert "0 old-format · 0 malformed" in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
+
+
+# One or two examples of each rule `refused_coordinate`'s docstring states for
+# the verdicts #614 moved. The rules were read off every cell whose verdict
+# differs between 0.15.4's checker and this one, over a generated shape space
+# (heads x locators x hash endings, in a code span and as bare words), and
+# every such cell falls under one of them (round 2's fix pass of work item
+# 1790381328, `seal/ledger/` row S8-S12). A new rule takes an example here.
+GIVEN_UP = {
+    "a short hash after a path": ["src/a.py@abc"],
+    "a digit-first locator is an issue number": [
+        "docs/a.md#1-scope",
+        "docs/a.md#1장",
+    ],
+    "marks that are not glued are judged word by word": [
+        "#handler @abcdef12",
+        "docs/a.md#1-scope @abcdef12",
+        '#handler>"a"b"@abcdef12',
+    ],
+}
+TAKEN_UP = {
+    'a dotless name takes `_`, `"` and `<`': ['C#"hello"', "vector#<T>"],
+    "a digit that is not a decimal digit opens a locator": [
+        "docs/a.md#²",
+        "docs/a.md#①",
+    ],
+}
+
+
+def examples(rules):
+    return [
+        pytest.param(shape, id=f"{rule}: {shape}")
+        for rule, shapes in rules.items()
+        for shape in shapes
+    ]
+
+
+@pytest.mark.parametrize("shape", examples(GIVEN_UP))
+def test_what_rule_a_gives_up_is_silent_and_says_so(repo, shape):
+    """Rounds 1 and 2's 🟡 1 of work item 1790381328. Each example of a rule
+    `refused_coordinate` states as given up is silent in a code span beside a
+    good anchor, and the docstring names it. Round 1 closed the list example
+    by example and round 2 found the next family, so the list is now a set of
+    rules read off every flipped cell, and this case holds one or two
+    examples of each."""
+    assert f"`{shape}`" in ec.refused_coordinate.__doc__, "the list omits it"
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, `{shape}` |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert "0 old-format · 0 malformed" in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
+
+
+@pytest.mark.parametrize("shape", examples(TAKEN_UP))
+def test_what_the_dotless_openers_take_up_is_named_and_says_so(repo, shape):
+    """Rounds 1 and 2's ⬜ 4. The other direction of the same list: a `"` or
+    `<` after a name with no dot is a locator's opener, so `C#"hello"` and
+    `vector#<T>` are named; and a locator opening with a digit that is not a
+    decimal digit is not an issue number, so `docs/a.md#²` is named. The
+    docstring says so."""
+    assert f"`{shape}`" in ec.refused_coordinate.__doc__, "the list omits it"
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, `{shape}` |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert f"MALFORMED {shape}  " in r.stdout, r.stdout
+
+
+def test_a_glued_mark_attempt_stops_at_the_next_hash():
+    """Round 1's ⬜ 5. `GLUED_MARKS_RE` read a span of `#`s with no
+    whitespace in quadratic time, because every attempt ran on across the
+    `#`s after it: 2.7 s at 20 000 characters. With `#` out of the unquoted
+    class each attempt stops at the next `#`, and the match of `###@` is the
+    attempt that starts at the last one. Timing-free on purpose: the span of
+    the match is what the fix changes, and it does not depend on a clock."""
+    assert ec.GLUED_MARKS_RE.search("###@").group(0) == "#@"
+    assert ec.GLUED_MARKS_RE.search('#"a # b"@').group(0) == '#"a # b"@'
+    assert ec.refused_coordinate("#" * 20_000) is False
 
 
 @pytest.mark.parametrize(
