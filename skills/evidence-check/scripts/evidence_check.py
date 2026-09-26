@@ -1617,8 +1617,13 @@ PATH_HASH_RE = re.compile(r"[0-9a-f]{6,}(?![\w.])")
 ISSUE_TAIL_RE = re.compile(r"\d+(?![A-Za-z0-9_])")
 # Both marks of one coordinate: an `@` after a `#` with no whitespace between
 # them outside a quoted string, so `#"x = 1  # c"@0` holds them glued and
-# `@lru_cache  # memoized` does not. Searched, so every `#` is tried.
-GLUED_MARKS_RE = re.compile(r'#(?:"(?:[^"\\\n]|\\.)*"|[^\s"])*@')
+# `@lru_cache  # memoized` does not. Searched, so every `#` is tried. The
+# quoted string holds its whitespace only in a code span: outside one,
+# `malformed_rows` has split the text into words before this reads it.
+# `#` is out of the unquoted class so each attempt stops at the next one:
+# the attempt that starts there finds the same match, and the search stays
+# linear rather than rescanning the span from every `#`.
+GLUED_MARKS_RE = re.compile(r'#(?:"(?:[^"\\\n]|\\.)*"|[^\s"#])*@')
 
 
 def refused_coordinate(s):
@@ -1628,12 +1633,16 @@ def refused_coordinate(s):
     `chart.js@4` and `@lru_cache  # memoized` are prose.
 
     What each edge gives up (#614): `src/a.py@abc`, a path followed by fewer
-    than six hex characters, is silent; `docs/a.md#1장` with no hash reads as
-    an issue number; `Makefile#1x` is silent, since a dotless file name takes
-    a locator opening with a letter, `_`, `"` or `<` and never a digit; and a
-    path-less coordinate with unquoted whitespace between its marks,
-    `#handler @abcdef12`, is silent. With a path the per-word rule still
-    names it."""
+    than six hex characters, is silent. A locator that opens with digits and
+    goes on with anything but an ASCII letter, digit or `_` reads as an
+    issue number when no hash follows: `docs/a.md#1장`, `docs/a.md#1-scope`,
+    `docs/a.md#1.2`, `src/a.py#1>"x"`. A dotless file name takes a locator
+    opening with a letter, `_`, `"` or `<` and never a digit, so
+    `Makefile#1x` is silent and `C#"hello"` or `vector#<T>` is named. A
+    path-less coordinate is silent where unquoted whitespace, or a `"` no
+    second `"` closes, stands between its marks: `#handler @abcdef12`,
+    `#handler>"a"b"@abcdef12`. With a path, the per-word rule still names
+    those last two."""
     s = URL_RE.sub(" ", s)
     if GLUED_MARKS_RE.search(s):
         return True
@@ -1715,8 +1724,9 @@ def malformed_rows(text):
     - a coordinate the patterns refused: what is left of the cell once every
       `ANCHOR_RE` and `OLD_COORD_RE` match is blanked, and every URL in it,
       still holds an `@` glued after a `#` (no whitespace between them
-      outside a quoted string), a `#` glued to a path or a file name, or a
-      path followed by `@` and a hash of six or more hex characters. An
+      outside a quoted string, which holds whitespace only in a code span),
+      a `#` glued to a path or a file name, or a path followed by `@` and a
+      hash of six or more hex characters. An
       issue number `#299`, `org/repo#299` or `org/repo#299's`, a directive
       `#ifdef`, a decorator `@cache` beside a comment, a version
       `chart.js@4` and an address are prose, in a span or out of one. A

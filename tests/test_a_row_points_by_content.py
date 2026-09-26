@@ -1196,6 +1196,62 @@ def test_a_decorated_line_holding_both_marks_apart_is_prose(repo, prose):
     assert r.returncode == 0, r.stdout
 
 
+GIVEN_UP = [
+    "src/a.py@abc",
+    "docs/a.md#1장",
+    "docs/a.md#1-scope",
+    "docs/a.md#1.2",
+    'src/a.py#1>"x"',
+    "Makefile#1x",
+    "#handler @abcdef12",
+    '#handler>"a"b"@abcdef12',
+]
+TAKEN_UP = ['C#"hello"', "vector#<T>"]
+
+
+@pytest.mark.parametrize("shape", GIVEN_UP)
+def test_what_rule_a_gives_up_is_silent_and_says_so(repo, shape):
+    """Round 1's 🟡 1 of work item 1790381328. Each shape `refused_coordinate`
+    lists as given up is silent in a code span beside a good anchor, and the
+    list names it, so the list cannot go narrower than the code: a shape the
+    code silences and the docstring leaves out was how the round found two
+    classes the release note did not mention."""
+    assert f"`{shape}`" in ec.refused_coordinate.__doc__, "the list omits it"
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, `{shape}` |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert "0 old-format · 0 malformed" in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
+
+
+@pytest.mark.parametrize("shape", TAKEN_UP)
+def test_what_the_dotless_openers_take_up_is_named_and_says_so(repo, shape):
+    """Round 1's ⬜ 4. The other direction of the same list: a `"` or `<`
+    after a name with no dot is a locator's opener, so `C#"hello"` and
+    `vector#<T>` are named, and the list says they are."""
+    assert f"`{shape}`" in ec.refused_coordinate.__doc__, "the list omits it"
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, `{shape}` |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert f"MALFORMED {shape}  " in r.stdout, r.stdout
+
+
+def test_a_glued_mark_attempt_stops_at_the_next_hash():
+    """Round 1's ⬜ 5. `GLUED_MARKS_RE` read a span of `#`s with no
+    whitespace in quadratic time, because every attempt ran on across the
+    `#`s after it: 2.7 s at 20 000 characters. With `#` out of the unquoted
+    class each attempt stops at the next `#`, and the match of `###@` is the
+    attempt that starts at the last one. Timing-free on purpose: the span of
+    the match is what the fix changes, and it does not depend on a clock."""
+    assert ec.GLUED_MARKS_RE.search("###@").group(0) == "#@"
+    assert ec.GLUED_MARKS_RE.search('#"a # b"@').group(0) == '#"a # b"@'
+    assert ec.refused_coordinate("#" * 20_000) is False
+
+
 @pytest.mark.parametrize(
     "coord", ['src/service.py#"def handler"', 'src/service.py#handler>"y"']
 )

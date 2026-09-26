@@ -443,3 +443,23 @@ def test_the_ci_warning_names_every_verdict_the_lenient_reading_softens():
     for verdict in softened:
         assert stems[verdict] in warnings[0], f"{verdict}: {warnings[0]}"
     assert "re-verify the rows above" not in warnings[0], warnings[0]
+
+
+def test_every_other_page_that_grades_the_flag_names_malformed():
+    """Round 1's 🟡 2 of work item 1790381328. Four more places state what
+    `--strict` softens, and each is held against `exit_code` rather than
+    against a number written here, so the next change to the grading moves
+    them or goes red."""
+    lenient, strict = grading("MALFORMED")
+    skill = read(os.path.join(ROOT, "skills", "evidence-check", "SKILL.md"))
+    flag = table_row(skill, "`--strict`")[1]
+    assert "malformed" in flag and f"exit {strict}" in flag, flag
+    ci = " ".join(read(os.path.join(ROOT, "skills", "evidence-ci", "SKILL.md")).split())
+    want = (
+        f"`MALFORMED`, follows the flag the way drift does: exit {lenient} "
+        f"without it, {strict} with it"
+    )
+    assert want in ci, "evidence-ci's step 4 no longer grades MALFORMED"
+    template = read(os.path.join(ROOT, "templates", "evidence-check.yml"))
+    assert "softens drift\n          # and MALFORMED, and nothing else" in template
+    assert f"{lenient} drift or malformed only" in ec.__doc__, "the module docstring"
