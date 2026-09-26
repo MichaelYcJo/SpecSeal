@@ -78,10 +78,10 @@ jobs:
   #
   # This job is the LENIENT reader, and it is not the one that decides.
   # `broad-gate` runs the same script with `--strict`, where DRIFTED and
-  # MALFORMED are exit 2 and the branch comes back NOT SEALED. The step below needs nothing for
-  # that: it reads the exit code and never the text, and the script prints the
-  # difference itself on exit 1, so the sentence lands in this log directly
-  # above the warning (#354).
+  # MALFORMED are exit 2 and the branch comes back NOT SEALED. The step below
+  # needs nothing for that: it reads the exit code and never the text, and the
+  # script prints the difference itself on exit 1, so the sentence lands in
+  # this log directly above the warning (#354).
   ledger:
     runs-on: ubuntu-latest
     steps:

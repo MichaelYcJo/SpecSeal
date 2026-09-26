@@ -37,8 +37,9 @@ Python indentation carries meaning, and a checker that shrugged at a dedent
 would go quiet exactly where it should complain.
 
 Exit codes: 0 clean · 1 drift or malformed only · 2 broken or old-format
-coordinates (or drift or malformed with --strict). Designed for CI: a spec-code link that stops resolving should fail
-the build the same way a broken test does.
+coordinates (or drift or malformed with --strict).
+Designed for CI: a spec-code link that stops resolving should fail the build
+the same way a broken test does.
 
 Usage:
   evidence_check.py [--ledger GLOB]... [--map NAME=PATH]... [--strict] [ROOT]

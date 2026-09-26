@@ -1049,9 +1049,10 @@ def test_a_fragment_row_after_a_headed_table_is_still_read(repo):
 def test_prose_marks_beside_a_good_anchor_are_not_refused(repo):
     """Round 1's 🟡 1. An issue number, a decorator, an annotation, an address
     and a URL fragment in a code span are prose, exactly as `(#299)` outside
-    one is; refusing them exits 2 on prose. A leftover is a coordinate when
-    it holds both marks, a `#` glued to a path or a file name, or a path
-    followed by `@` and a hash, and a URL is blanked first."""
+    one is; refusing them fails a `--strict` run on prose. A leftover is a
+    coordinate when it holds an `@` glued after a `#`, a `#` glued to a path
+    or a file name, or a path followed by `@` and a hash, and a URL is
+    blanked first."""
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
     good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
