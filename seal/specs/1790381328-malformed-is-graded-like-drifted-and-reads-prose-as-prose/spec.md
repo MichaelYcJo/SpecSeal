@@ -135,7 +135,9 @@ All in `evidence_check.py`, around `refused_coordinate`:
     word): `GLUED_MARKS_RE = re.compile(r'#(?:"(?:[^"\\\n]|\\.)*"|[^\s"#])*@')`,
     tested with `.search` so every `#` in the text is tried. The `#` in the
     unquoted class was added by round 1 of this work item, so each attempt
-    stops at the next `#` and the search stays linear. Every
+    stops at the next `#` outside a quote and a run of them is read in
+    linear time; a chain of quoted strings holding escaped quotes (`#"\"`
+    repeated) is still quadratic (round 2). Every
     malformed shape the suite names today keeps its name (see *Must still be
     named*).
 
@@ -167,22 +169,34 @@ Part 1, accepted by the owner before answering:
 - `MALFORMED`'s grading departs from `OLD-FORMAT`'s, the precedent 0.15.4
   followed. `OLD-FORMAT` stays exit 2 under both readings.
 
-Part 2, measured by round 3 of work item 1790297087 or read here:
+Part 2, measured by round 3 of work item 1790297087, then rebuilt by round 2
+of this work item as the rules every moved verdict falls under. Round 2's fix
+pass generated 2 426 shapes (ten heads, thirty locators, eight hash endings,
+and twenty-six prose and edge shapes), read each in a code span and as bare
+words beside a good anchor with the checker at 47e32d57 and at the fix, and
+sorted all 484 cells whose verdict moved into these five rules:
 
-- `src/a.py@abc`, a path followed by fewer than six hex characters and no
-  anchor, goes silent. `src/a.py#f@abc` is still named by the glued marks.
-- A locator that opens with digits and goes on with anything but an ASCII
-  letter, digit or `_`, with no hash, reads as an issue number:
-  `docs/a.md#1장`, and (added by round 1 of this work item, which measured
-  them) `docs/a.md#1-scope`, `docs/a.md#1.2` and `src/a.py#1>"x"`. With a
-  hash (`docs/a.md#1장@abcdef12`) the glued marks name it.
-- `Makefile#1x` stays silent, as it is today (read: at 47e32d57 its tail opens
-  with a digit, which the dotless branch has never taken). The dotless
-  branch's `"` and `<` openers name `C#"hello"` and `vector#<T>` (round 1).
-- A path-less coordinate with unquoted whitespace, or a `"` no second `"`
-  closes, between `#` and `@` (`#handler @abcdef12`, and from round 1
-  `#handler>"a"b"@abcdef12`) goes silent. With a path, the per-word rule
-  still names it (`src/a.py#handler` is a `#` glued to a path).
+- A path followed by `@` takes a hash only of six or more hex characters:
+  `src/a.py@abc` goes silent. `src/a.py#f@abc` is still named by the glued
+  marks.
+- The per-word rule reads a locator opening with digits that no ASCII
+  letter, digit or `_` continues as an issue number, whatever follows the
+  digits: `docs/a.md#1장`, `docs/a.md#1-scope`, `docs/a.md#1.2` and
+  `src/a.py#1>"x"` go silent. Glued to its hash (`docs/a.md#1장@abcdef12`)
+  the glued marks name it.
+- Both marks count only where they are glued: no whitespace between them
+  outside a quoted string, which holds whitespace only in a code span, and
+  no `"` left unclosed. Otherwise each word is judged alone, so
+  `#handler @abcdef12`, `docs/a.md#1-scope @abcdef12` and
+  `#handler>"a"b"@abcdef12` go silent, and `src/a.py#handler @abcdef12` is
+  still named (`src/a.py#handler` is a `#` glued to a path).
+- A dotless file name takes a locator opening with a letter, `_`, `"` or
+  `<`, never a digit: `C#"hello"` and `vector#<T>` are named, and
+  `Makefile#1x` stays silent, as it is today (at 47e32d57 its tail opens
+  with a digit, which the dotless branch has never taken).
+- A locator opening with a digit that is not a decimal digit is not an issue
+  number (`str.isdigit` is true for `²` and `①`, a decimal-digit match is
+  not), so `docs/a.md#²` and `docs/a.md#①` are named.
 - `org/repo@abcdef12` and a schemeless `example.com/page#section` stay
   refused. Round 3 judged both genuinely ambiguous with a coordinate, and
   nothing here changes that.

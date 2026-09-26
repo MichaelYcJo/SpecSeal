@@ -8,8 +8,9 @@
 ## Why this work exists
 
 A 0.15.4 update turned lenient `evidence-check` runs red on prose and on a
-malformed coordinate alike; now prose is silent at #614's four edges, one
-missed coordinate shape is named, and `MALFORMED` fails only a `--strict` run,
+malformed coordinate alike; now prose is silent at #614's four edges, the
+coordinates it used to miss after a dotless name or a non-decimal digit are
+named, and `MALFORMED` fails only a `--strict` run,
 which is what the owner answered for #606's Q1.
 
 ## Where spec and implementation diverged

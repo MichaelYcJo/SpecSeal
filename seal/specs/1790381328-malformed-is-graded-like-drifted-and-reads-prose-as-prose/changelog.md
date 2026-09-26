@@ -18,22 +18,29 @@
 ### Fixed
 
 - **`evidence-check` stops reading prose as a broken coordinate at four
-  edges, and names one coordinate it used to miss (issue #614).** A version
-  after a dotted name (`chart.js@4`) was read as a path followed by a hash;
-  a hash is now six hex characters or more. An issue number followed by a
-  possessive, a dash, a curly quote, a Korean particle or a link's `](`
-  (`org/repo#299's`, `org/repo#299에서`) was refused; digits that no ASCII
-  letter, digit or underscore continues are an issue number now. A code span
-  holding a decorator and a comment (`` `@lru_cache  # memoized` ``) or a
-  mention inside a comment was refused for holding both marks; they now
-  count only where the `@` follows the `#` with no space between them
-  outside quotes, and a quoted part keeps its spaces only inside a code span.
-  And a file name with no dot followed by a quoted line, `<module>` or an
-  `_name` (`Makefile#"all: build"`) was silent; it is named now, and so are
-  `C#"hello"` and `vector#<T>`. What this gives up: `src/a.py@abc` with a
-  hash shorter than six characters; a locator opening with digits and
-  followed by anything but an ASCII letter, digit or underscore, when no hash
-  follows (`docs/a.md#1장`, `docs/a.md#1-scope`, `docs/a.md#1.2`,
-  `src/a.py#1>"x"`); `Makefile#1x`; and a path-less `#handler @abcdef12` or
-  `#handler>"a"b"@abcdef12` are not named. A span of many `#` characters no
-  longer takes seconds to read.
+  edges, and names coordinates it used to miss (issue #614).** Five rules
+  changed, and every verdict that moved from 0.15.4, over a generated set of
+  2 426 shapes read in a code span and as bare words, falls under one of
+  them. Each rule gives up some coordinates along with the prose it was
+  written for:
+  - A path followed by `@` takes a hash only of six hex characters or more.
+    `chart.js@4` is prose now, and so is `src/a.py@abc`.
+  - A locator opening with digits that no ASCII letter, digit or underscore
+    continues is an issue number, whatever follows the digits.
+    `org/repo#299's` and `org/repo#299에서` are prose now, and so are
+    `docs/a.md#1-scope`, `docs/a.md#1장` and `src/a.py#1>"x"`. Such a
+    coordinate is still named when its `@` is glued to it
+    (`docs/a.md#1장@abcdef12`).
+  - `#` and `@` count as one coordinate only where they are glued: no space
+    between them outside quotes, a quoted part keeping its spaces only
+    inside a code span, and no quote left unclosed. Otherwise each word is
+    judged alone. `` `@lru_cache  # memoized` `` is prose now, and so are
+    `#handler @abcdef12`, `docs/a.md#1-scope @abcdef12` and
+    `#handler>"a"b"@abcdef12`; `src/a.py#handler @abcdef12` is still named.
+  - A file name with no dot followed by a quoted line, `<module>` or an
+    `_name` is a coordinate: `Makefile#"all: build"` is named now, and so
+    are `C#"hello"` and `vector#<T>`. `Makefile#1x` is still not named.
+  - A locator opening with a digit that is not a decimal digit (`²`, `①`)
+    is not an issue number, so `docs/a.md#²` is named now.
+
+  A run of `#` characters outside quotes no longer takes seconds to read.
