@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 621 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `d05cc2c3771aeb646432d502cb8a37b5766ac387..6c260d34b2177d92f400717b8194ddfab4cc3118`, 2 commits |
 | Contract changes | none |
 | New units | GIVEN_UP (depth 1); TAKEN_UP (depth 1); test_what_rule_a_gives_up_is_silent_and_says_so (depth 1); test_what_the_dotless_openers_take_up_is_named_and_says_so (depth 1); test_a_glued_mark_attempt_stops_at_the_next_hash (depth 1); test_every_other_page_that_grades_the_flag_names_malformed (depth 1) |
