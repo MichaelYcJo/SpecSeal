@@ -900,6 +900,9 @@ def test_the_silent_arm_emits_nothing_at_all(monkeypatch, capsys, repo):
 
 ROUTING_QUESTION = "How should this work be routed?"
 ROUTING_OPTIONS = ("automation (Recommended)", "per axis", "no work item")
+# A transcript line cut off mid-write: not JSON, and it carries both words the
+# reader's prefilter looks for, so it reaches the parser.
+TRUNCATED = '{"type": "user", "toolUseResult": {"answers": {"AskUserQuestion'
 
 
 def ask_entries(
@@ -1132,7 +1135,13 @@ def test_an_unreadable_transcript_is_no_consent(projects, repo):
     d.mkdir(parents=True)  # a directory where the file would be
     assert not wc.automation_answered(str(repo), "me")
     d.rmdir()
-    write_transcript(projects, "me", ["{not json", "[1, 2]", '"a string"', "null"])
+    # A line cut off mid-write carries the words the prefilter looks for, so
+    # it reaches the parser; the others show the parser's non-object answers.
+    write_transcript(
+        projects,
+        "me",
+        [TRUNCATED, "{not json", "[1, 2]", '"a string"', "null", '["AskUserQuestion"]'],
+    )
     assert not wc.automation_answered(str(repo), "me")
     use, result = ask_entries(repo)
     del result["toolUseResult"]["answers"]
@@ -1146,7 +1155,7 @@ def test_an_unreadable_transcript_is_no_consent(projects, repo):
 
 
 def test_a_malformed_line_does_not_hide_a_later_answer(projects, repo):
-    write_transcript(projects, "me", ["{not json", *ask_entries(repo)])
+    write_transcript(projects, "me", [TRUNCATED, *ask_entries(repo)])
     assert wc.automation_answered(str(repo), "me")
 
 
@@ -1295,7 +1304,7 @@ def test_an_unreadable_transcript_leaves_the_old_verdict(
     monkeypatch, capsys, projects, repo
 ):
     """S8 through the guard: no traceback, and the verdict it gave before."""
-    write_transcript(projects, "me", ["{not json", "null"])
+    write_transcript(projects, "me", [TRUNCATED, "null"])
     decision, reason = decide(monkeypatch, capsys, repo, "git worktree add ../wt f")
     assert decision == "deny" and "git switch" in reason
     use, result = ask_entries(repo, answer="per axis")

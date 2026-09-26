@@ -375,10 +375,11 @@ def only_creates_a_worktree(command: str, cwd: str, windows=None) -> bool:
     The bound on the allow, and the reason there is one.
     `permissionDecision: "allow"` bypasses the user's own permission settings
     for the WHOLE tool call, and a creation is routinely written as one segment
-    of a compound. What the consent record establishes is that this session may
-    create worktrees, so the guard may speak for a command that is worktree
-    creation and nothing else; for anything more it says `ask`, which is one
-    prompt about the rest of the command line rather than a deny about the
+    of a compound. What consent establishes -- the record, or the person's
+    `automation` answer -- is that this session may create worktrees, so the
+    guard may speak for a command that is worktree creation and nothing else;
+    for anything more it stays silent, which leaves the rest of the command
+    line to the harness's own permission flow rather than denying the
     worktree.
 
     A command the lexer gave up on is not vouched for either -- what it could
