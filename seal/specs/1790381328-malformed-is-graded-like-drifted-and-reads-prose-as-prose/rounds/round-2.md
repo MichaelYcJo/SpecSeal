@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 621 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `e9e23deb12106f977374b00adf76874da93c4248..9bd0cbed9e9a711762f6d83e482b6a4c52559ba4`, 3 commits |
+| Contract changes | none |
+| New units | examples (depth 1) |
 | Needs a fix | yes — 🟡 1 (the list of what rule (a) gives up still omits a digit-opening locator whose hash follows after whitespace, in the docstring, `GIVEN_UP` and the release note) and 🟡 2 (the flag row's and the template's pins stay green when the grading changes) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 2 of work item 1790381328 is the verifying round. It opens round 1's fixes
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | the list of what rule (a) gives up says a digit-opening locator is silent "when no hash follows" and that a path keeps a spaced hash named; with a path and a hash after whitespace (`docs/a.md#1-scope @abcdef12`, `src/a.py#12 @abcdef12`, in a span) the base names it and the target is silent | `skills/evidence-check/scripts/evidence_check.py:1638` | open | Executed: 2 425 shapes at `47e32d57` and `eb30a068`; 96 cells of this class named then silent, all other 493 given-up cells fit a stated class; the paste-ready `GIVEN_UP` entry is red against the current docstring and green with the new one. Same wording at `changelog.md:35` and `spec.md:175` |
-| 🟡 2 | two of the four grading pins do not follow `exit_code`: the flag row is checked for `exit {strict}` only and the template comment against a fixed string, so a grading change leaves both stale and green, although the case's docstring says it goes red | `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py:456` | open | Executed: mutant M12 (grading back to (a), step 4 and the module docstring moved) leaves the case green; with the two paste-ready assertions it is red, and green at the target |
-| ⬜ 3 | "the search stays linear" holds for `#` outside quotes only; `#"\"` repeated still costs quadratic time (1.48 s at 20 000 characters, 5.94 s at 40 000) | `skills/evidence-check/scripts/evidence_check.py:1624` | open | Executed: timing before and after the fix; no verdict differs across 4 850 cells. Same claim in the S8–S12 ledger row, `spec.md:137-138` and the changelog, each a correction to this run's own records |
-| ⬜ 4 | `docs/a.md#²` and `docs/a.md#①` are silent at the base (`str.isdigit`) and named at the target (`\d`); `TAKEN_UP` and the docstring do not say so | `skills/evidence-check/scripts/evidence_check.py:1617` | open | Executed beside a good anchor, in a span and as a word; no such shape occurs in a `Code grounds` cell |
+| 🟡 1 | the list of what rule (a) gives up says a digit-opening locator is silent "when no hash follows" and that a path keeps a spaced hash named; with a path and a hash after whitespace (`docs/a.md#1-scope @abcdef12`, `src/a.py#12 @abcdef12`, in a span) the base names it and the target is silent | `skills/evidence-check/scripts/evidence_check.py:1638` | **fixed** `1c33e360db0669e3d57611844f3af0ba1b01a0f5` | fixed at 1c33e360db0669e3d57611844f3af0ba1b01a0f5; Executed: 2 425 shapes at `47e32d57` and `eb30a068`; 96 cells of this class named then silent, all other 493 given-up cells fit a stated class; the paste-ready `GIVEN_UP` entry is red against the current docstring and green with the new one. Same wording at `changelog.md:35` and `spec.md:175` |
+| 🟡 2 | two of the four grading pins do not follow `exit_code`: the flag row is checked for `exit {strict}` only and the template comment against a fixed string, so a grading change leaves both stale and green, although the case's docstring says it goes red | `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py:456` | **fixed** `1c33e360db0669e3d57611844f3af0ba1b01a0f5` | fixed at 1c33e360db0669e3d57611844f3af0ba1b01a0f5; Executed: mutant M12 (grading back to (a), step 4 and the module docstring moved) leaves the case green; with the two paste-ready assertions it is red, and green at the target |
+| ⬜ 3 | "the search stays linear" holds for `#` outside quotes only; `#"\"` repeated still costs quadratic time (1.48 s at 20 000 characters, 5.94 s at 40 000) | `skills/evidence-check/scripts/evidence_check.py:1624` | **fixed** `1c33e360db0669e3d57611844f3af0ba1b01a0f5` | fixed at 1c33e360db0669e3d57611844f3af0ba1b01a0f5; Executed: timing before and after the fix; no verdict differs across 4 850 cells. Same claim in the S8–S12 ledger row, `spec.md:137-138` and the changelog, each a correction to this run's own records |
+| ⬜ 4 | `docs/a.md#²` and `docs/a.md#①` are silent at the base (`str.isdigit`) and named at the target (`\d`); `TAKEN_UP` and the docstring do not say so | `skills/evidence-check/scripts/evidence_check.py:1617` | **fixed** `1c33e360db0669e3d57611844f3af0ba1b01a0f5` | fixed at 1c33e360db0669e3d57611844f3af0ba1b01a0f5; Executed beside a good anchor, in a span and as a word; no such shape occurs in a `Code grounds` cell |
 | 🟢 | round 1's finding 1 is closed for its own shapes — `docs/a.md#1-scope`, `docs/a.md#1.2`, `src/a.py#1>"x"`, `#handler>"a"b"@abcdef12` are silent, listed and pinned | `skills/evidence-check/scripts/evidence_check.py:1635` | confirmed | Executed: mutants M1, M3, M7 each turn the matching `GIVEN_UP` parameters red; the rest of the class is this round's finding 1 |
 | 🟢 | round 1's finding 2 is closed against removal — each of the four sentences restored to its base wording turns the new case red, and `overview.md`'s row is corrected | `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py:448` | confirmed | Executed: mutants M8–M11, each red; the part that does not follow the grading is this round's finding 2 |
 | 🟢 | round 1's finding 3 is closed — the code-span condition is stated in the comment, `malformed_rows`' docstring, the opener-list case and the S8–S12 claim | `skills/evidence-check/scripts/evidence_check.py:1622` | confirmed | Read at `eb30a068`; executed: the unticked shape is silent and the ticked one named |
