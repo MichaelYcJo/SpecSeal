@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 623 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `e195cf09b8ad35330e14ca0e2e427097591ec40b..fd22baee76fdec4db6295b37b2668fe90601d1b4`, 2 commits |
+| Contract changes | none |
+| New units | test_the_baseline_help_names_both_places (depth 1) |
 | Needs a fix | yes — 🟡 1 (the `config.py` purpose sentence and its pin), 🟡 2 (the `--baseline` help pin) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,13 +24,13 @@ Round 1 of work item 1790381329 reviews the build at 79b6626f against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `seal`'s missing-sibling sentence says `hooks/config.py` reads and writes `config.md`; it only reads, and the sentence is unpinned | `skills/implement/scripts/seal.py:104` | open | `hooks/config.py`'s docstring names `seal.py` as the writer; `fold_check.py:501` says *reads*; M2 green |
-| 🟡 2 | the `--baseline` help the documents case was extended for is not held by it: the tip phrase stands three times in the file | `tests/test_unverified_rows_close.py:1238` | open | M7: help reverted alone, case green; the proposed help case red under M7 |
-| ⬜ 3 | three test sentences state the `Pass`-beside-`nobody` refusal with no timing; one fixture exits 0 | `tests/test_the_fixes_close_the_record.py:709` | open | executed: `assert _code == 0` passes in that case; the other two at `tests/test_the_fixes_close_the_record.py:469` and `tests/test_the_rules_have_one_owner.py:346`, read |
-| ⬜ 4 | the variable case's docstring still says the part is *expanded the same way* | `tests/test_the_gate_hands_cmd_a_path_it_can_run.py:217` | open | read; the phrase phase 6 removed from `handed_to_shell` |
-| ⬜ 5 | the copied-alone module says six shipped scripts load a sibling; nine do | `tests/test_a_script_copied_alone_exits_2.py:4` | open | read; `survivor_check.py`, `broad_gate.py`, `evidence_check.py` load siblings too |
-| ⬜ 6 | `seal.py`'s exit-code line gives 2 one meaning; `parser.error` at `:2466` is also 2 | `skills/implement/scripts/seal.py:77` | open | read |
-| ⬜ 7 | A2's re-read note describes `handed_to_shell`, which A2 does not cite, and runs two sentences together | `seal/releases/0.15.3.md:60` | open | read; correction, not counted in `Needs a fix` |
+| 🟡 1 | `seal`'s missing-sibling sentence says `hooks/config.py` reads and writes `config.md`; it only reads, and the sentence is unpinned | `skills/implement/scripts/seal.py:104` | **fixed** `4379b60aaa05bc5cb58eb4836355e36c248eadb9` | fixed at 4379b60aaa05bc5cb58eb4836355e36c248eadb9; `hooks/config.py`'s docstring names `seal.py` as the writer; `fold_check.py:501` says *reads*; M2 green |
+| 🟡 2 | the `--baseline` help the documents case was extended for is not held by it: the tip phrase stands three times in the file | `tests/test_unverified_rows_close.py:1238` | **fixed** `4379b60aaa05bc5cb58eb4836355e36c248eadb9` | fixed at 4379b60aaa05bc5cb58eb4836355e36c248eadb9; M7: help reverted alone, case green; the proposed help case red under M7 |
+| ⬜ 3 | three test sentences state the `Pass`-beside-`nobody` refusal with no timing; one fixture exits 0 | `tests/test_the_fixes_close_the_record.py:709` | **fixed** `4379b60aaa05bc5cb58eb4836355e36c248eadb9` | fixed at 4379b60aaa05bc5cb58eb4836355e36c248eadb9; executed: `assert _code == 0` passes in that case; the other two at `tests/test_the_fixes_close_the_record.py:469` and `tests/test_the_rules_have_one_owner.py:346`, read |
+| ⬜ 4 | the variable case's docstring still says the part is *expanded the same way* | `tests/test_the_gate_hands_cmd_a_path_it_can_run.py:217` | **fixed** `4379b60aaa05bc5cb58eb4836355e36c248eadb9` | fixed at 4379b60aaa05bc5cb58eb4836355e36c248eadb9; read; the phrase phase 6 removed from `handed_to_shell` |
+| ⬜ 5 | the copied-alone module says six shipped scripts load a sibling; nine do | `tests/test_a_script_copied_alone_exits_2.py:4` | **fixed** `4379b60aaa05bc5cb58eb4836355e36c248eadb9` | fixed at 4379b60aaa05bc5cb58eb4836355e36c248eadb9; read; `survivor_check.py`, `broad_gate.py`, `evidence_check.py` load siblings too |
+| ⬜ 6 | `seal.py`'s exit-code line gives 2 one meaning; `parser.error` at `:2466` is also 2 | `skills/implement/scripts/seal.py:77` | **fixed** `4379b60aaa05bc5cb58eb4836355e36c248eadb9` | fixed at 4379b60aaa05bc5cb58eb4836355e36c248eadb9; read |
+| ⬜ 7 | A2's re-read note describes `handed_to_shell`, which A2 does not cite, and runs two sentences together | `seal/releases/0.15.3.md:60` | answered | corrected at 4379b60aaa05bc5cb58eb4836355e36c248eadb9: A2's note now concerns what A2 cites (`templates/config.md` §*Broad gate* and the template case's needle); the `handed_to_shell` note already stands on A1, which cites it; read; correction, not counted in `Needs a fix` |
 | 🟢 | #610: both scripts exit 2 with a sentence for a missing sibling and do not swallow a real `ImportError` in a present one | `skills/implement/scripts/seal.py:112`, `skills/verify/scripts/payload_meter.py:145` | confirmed | P1–P4, M1, M4; class re-enumerated by construction under `skills/` |
 | 🟢 | #611: both headings named, summary line pinned | `skills/settle/SKILL.md:118` | confirmed | M5, M6 red |
 | 🟢 | #612: every sentence placing the comparison names both places; the frame's non-twins are true | `docs/one-root-by-lifetime.md:197` | confirmed | tree-wide search in both languages; M8, M9 red |
