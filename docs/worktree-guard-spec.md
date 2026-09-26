@@ -35,12 +35,31 @@ actually live on the tree.
 | detection unusable | **choice** — the same two |
 | `[worktree-ok]` given (Bash only) | ask — the token IS a completed confirmation coming back through the guard, so putting the question again asks what the user already answered. Declining withdraws the token, which is the other way on |
 | single stream, **Bash** | deny — steer to `git switch`; `[worktree-ok]` in a retry reaches the row above |
-| single stream, **Agent/Task** | ask — see below |
+| **Agent/Task**, no consent, any tree state | ask — the agent runs beside this session, so the call is concurrent by construction. No session is counted, no choice site is reached, and declining cancels the spawn. See below |
 
-#### Why the Agent path ends at `ask` and reads no token
+Every row between the consent row and the Agent/Task row is the Bash path's.
 
-The two entry points part company at exactly one row, and the reason is that
-one of them has no command line.
+#### Why the Agent path counts nothing, asks once, and reads no token
+
+**An isolated agent is concurrent work by construction, so the Agent path does
+not count sessions (#8).** The agent runs beside the session that spawned it,
+and that session's tree is not switched: two work streams, which is what the
+Premise counts. The session count cannot see it. A subagent's tool call renews
+its parent's lease and has no id of its own (measured), so an agent spawned in
+a one-session tree read as single-stream work. The verdict that reading
+produced told the model to call the Agent again without `isolation:
+"worktree"`, which puts the agent in the parent's tree while the parent works
+there — the mixing this guard exists to prevent.
+
+So the path has two outcomes. Consent is silence, for the reason §Creation
+consent gives: the call is a creation plus an agent with a prompt, and consent
+answers the first half. Otherwise it asks, once per session, because the
+first creation of a session is one confirmation and a spawn that ran writes the
+record. What changed is what the path measures, not that floor: lowering it for
+supervised sessions is not something #8 asked for.
+
+The token is a separate matter, and the reason the path reads none is that it
+has no command line.
 
 `[worktree-ok]` is a bare word in a command: a shell command is tokens, so
 "the user asked for this" and "a sentence about the token" are distinguishable
@@ -55,10 +74,9 @@ prompt was tried and taken back after both halves failed:
   prompt. It already had.
 
 What the token was buying was one step, `deny` to `ask`, because worktree
-creation ends at a human confirmation on both paths regardless. Taking that
-step outright costs nothing and removes the guessing. So the Agent verdict
-does not depend on the prompt at all, and its reason names the only way on it
-actually has: call the Agent again without `isolation: "worktree"`.
+creation ends at a human confirmation on both paths regardless. The path now
+asks outright, so the verdict does not depend on the prompt at all.
+Enforced by: tests/test_worktree_guard.py::test_an_isolated_agent_asks_without_counting_sessions, tests/test_worktree_guard.py::test_the_agent_verdict_does_not_depend_on_the_prompt
 
 ## Creation consent — the first creation is the question, not every one
 
@@ -355,7 +373,7 @@ residual and not a property.
 
 **Where the token is read from.** The command, and only the command. The
 Agent/Task path has no command line and reads no token at all — see §B's
-"Why the Agent path ends at `ask`".
+"Why the Agent path counts nothing, asks once, and reads no token".
 
 | Token | Answer it carries | Effect |
 |---|---|---|
