@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 621 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `d05cc2c3771aeb646432d502cb8a37b5766ac387..6c260d34b2177d92f400717b8194ddfab4cc3118`, 2 commits |
+| Contract changes | none |
+| New units | GIVEN_UP (depth 1); TAKEN_UP (depth 1); test_what_rule_a_gives_up_is_silent_and_says_so (depth 1); test_what_the_dotless_openers_take_up_is_named_and_says_so (depth 1); test_a_glued_mark_attempt_stops_at_the_next_hash (depth 1); test_every_other_page_that_grades_the_flag_names_malformed (depth 1) |
 | Needs a fix | yes — 🟡 1 (the list of what rule (a) gives up omits two shapes the branch silenced, in the docstring and the release note) and 🟡 2 (four statements of the new grading are unpinned, and `overview.md` claims a pin for step 4 that does not exist) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 1 of work item 1790381328 reviews the build at 591c6cdf against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | rule (a)'s list of what each edge gives up leaves out two shapes the branch silenced: a digit-opening locator continued by ASCII punctuation with no hash (`docs/a.md#1-scope`, `docs/a.md#1.2`, `src/a.py#1>"x"`), and a path-less coordinate holding an unclosed `"` between its marks (`#handler>"a"b"@abcdef12`) | `skills/evidence-check/scripts/evidence_check.py:1630` | open | Executed: `malformed_rows` over 66 shapes at 47e32d57 and 591c6cdf; both classes are named at the base and silent at the target, and the docstring, `changelog.md:32-34`, `spec.md` and the ledger note list neither |
-| 🟡 2 | the grading stated in `evidence-ci`'s step 4, `SKILL.md`'s `--strict` row, the template's comment and the module docstring is pinned by nothing; `overview.md` claims step 4 is pinned | `skills/evidence-ci/SKILL.md:65` | open | Executed: with the base's three documents over the new code, only the S6 and S7 pins fail and nothing fails for step 4; a planted case goes red for each document restored alone. Read: no test holds the flag row, the template comment or the docstring line |
-| ⬜ 3 | "glued through a quoted string" holds only inside a code span; an unticked `#handler>"a b"@abcdef12` is silent, and the comment and the S8–S12 ledger claim omit the condition | `skills/evidence-check/scripts/evidence_check.py:1618` | open | Executed: named in a span, silent out of one, at both SHAs. Not a regression; the ledger half is a correction to this run's own fragment |
-| ⬜ 4 | the dotless-name openers `"` and `<` now name `C#"hello"` and `vector#<T>`; the list of what each edge gives up does not say so | `skills/evidence-check/scripts/evidence_check.py:1647` | open | Executed for the two shapes; read for `PR#<n>`. Rare in a Code grounds cell, and a lenient run only warns |
-| ⬜ 5 | `GLUED_MARKS_RE` is quadratic in a span of many `#` with no whitespace | `skills/evidence-check/scripts/evidence_check.py:1621` | open | Executed: 0.43 s at 8 000 characters and 2.7 s at 20 000; with `#` out of the unquoted class, 0.0006 s, 215 passed and identical probe results |
+| 🟡 1 | rule (a)'s list of what each edge gives up leaves out two shapes the branch silenced: a digit-opening locator continued by ASCII punctuation with no hash (`docs/a.md#1-scope`, `docs/a.md#1.2`, `src/a.py#1>"x"`), and a path-less coordinate holding an unclosed `"` between its marks (`#handler>"a"b"@abcdef12`) | `skills/evidence-check/scripts/evidence_check.py:1630` | **fixed** `a0624b6323ad20a85206c94f16a48343f8900720` | fixed at a0624b6323ad20a85206c94f16a48343f8900720; Executed: `malformed_rows` over 66 shapes at 47e32d57 and 591c6cdf; both classes are named at the base and silent at the target, and the docstring, `changelog.md:32-34`, `spec.md` and the ledger note list neither |
+| 🟡 2 | the grading stated in `evidence-ci`'s step 4, `SKILL.md`'s `--strict` row, the template's comment and the module docstring is pinned by nothing; `overview.md` claims step 4 is pinned | `skills/evidence-ci/SKILL.md:65` | **fixed** `a0624b6323ad20a85206c94f16a48343f8900720` | fixed at a0624b6323ad20a85206c94f16a48343f8900720; Executed: with the base's three documents over the new code, only the S6 and S7 pins fail and nothing fails for step 4; a planted case goes red for each document restored alone. Read: no test holds the flag row, the template comment or the docstring line |
+| ⬜ 3 | "glued through a quoted string" holds only inside a code span; an unticked `#handler>"a b"@abcdef12` is silent, and the comment and the S8–S12 ledger claim omit the condition | `skills/evidence-check/scripts/evidence_check.py:1618` | **fixed** `a0624b6323ad20a85206c94f16a48343f8900720` | fixed at a0624b6323ad20a85206c94f16a48343f8900720; Executed: named in a span, silent out of one, at both SHAs. Not a regression; the ledger half is a correction to this run's own fragment |
+| ⬜ 4 | the dotless-name openers `"` and `<` now name `C#"hello"` and `vector#<T>`; the list of what each edge gives up does not say so | `skills/evidence-check/scripts/evidence_check.py:1647` | **fixed** `a0624b6323ad20a85206c94f16a48343f8900720` | fixed at a0624b6323ad20a85206c94f16a48343f8900720; Executed for the two shapes; read for `PR#<n>`. Rare in a Code grounds cell, and a lenient run only warns |
+| ⬜ 5 | `GLUED_MARKS_RE` is quadratic in a span of many `#` with no whitespace | `skills/evidence-check/scripts/evidence_check.py:1621` | **fixed** `a0624b6323ad20a85206c94f16a48343f8900720` | fixed at a0624b6323ad20a85206c94f16a48343f8900720; Executed: 0.43 s at 8 000 characters and 2.7 s at 20 000; with `#` out of the unquoted class, 0.0006 s, 215 passed and identical probe results |
 | 🟢 | `MALFORMED` is graded like `DRIFTED`: 1 on a lenient run, 2 under `--strict`, 2 beside `BROKEN`, a refused record or `OLD-FORMAT`; `OLD-FORMAT` is 2 under both readings | `skills/evidence-check/scripts/evidence_check.py:2750` | confirmed | Executed: `exit_code` over every pairing; the malformed-only lenient run carries the notice as its last line and the strict run does not |
 | 🟢 | #614's four observations and the shapes round 3 of work item 1790297087 already had right hold on both sides | `skills/evidence-check/scripts/evidence_check.py:1624` | confirmed | Executed: every #614 parameter and every `MALFORMED_SHAPES` value, the bare-quote shape, the opener-list shapes, `#ifdef`, `C#`, `@cache` and `org/repo#299` as expected, in a span and out |
 | 🟢 | every new or moved case is red against the base checker, and the S6 and S7 pins are red against the base documents | `tests/test_a_row_points_by_content.py`, `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py`, `tests/test_evidence_check.py` | confirmed | Executed: base checker over the three modules, 30 failed and 169 passed; base documents over the new code, the S6 and S7 pins failed |
