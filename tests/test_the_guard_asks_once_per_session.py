@@ -36,7 +36,8 @@ import pathlib
 import subprocess
 import sys
 
-from conftest import load_hook_module, run_hook
+import pytest
+from conftest import decision_of, load_hook_module, run_hook
 
 wg = load_hook_module("worktree-guard.py", "wg_consent")
 wc = load_hook_module("worktree_consent.py", "wc_consent")
@@ -83,21 +84,21 @@ def decide(
     sessions=([], [], True),
     session_id="me",
     cwd=None,
+    transcript_path=None,
 ):
     """`cwd` is where the SHELL is, which is not always `repo`: a `git -C
     <repo> worktree add` issued from outside any repository is the one shape
     that reaches the guard's second silent exit."""
     monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": sessions)
-    monkeypatch.setattr(
-        wg,
-        "load_input",
-        lambda: {
-            "tool_name": "Bash",
-            "session_id": session_id,
-            "tool_input": {"command": command},
-            "cwd": str(cwd or repo),
-        },
-    )
+    payload = {
+        "tool_name": "Bash",
+        "session_id": session_id,
+        "tool_input": {"command": command},
+        "cwd": str(cwd or repo),
+    }
+    if transcript_path is not None:
+        payload["transcript_path"] = str(transcript_path)
+    monkeypatch.setattr(wg, "load_input", lambda: payload)
     try:
         wg.main()
     except SystemExit:
@@ -110,19 +111,24 @@ def decide(
 
 
 def agent_decide(
-    monkeypatch, capsys, repo, tool_input, sessions=([], [], True), session_id="me"
+    monkeypatch,
+    capsys,
+    repo,
+    tool_input,
+    sessions=([], [], True),
+    session_id="me",
+    transcript_path=None,
 ):
     monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": sessions)
-    monkeypatch.setattr(
-        wg,
-        "load_input",
-        lambda: {
-            "tool_name": "Agent",
-            "session_id": session_id,
-            "tool_input": tool_input,
-            "cwd": str(repo),
-        },
-    )
+    payload = {
+        "tool_name": "Agent",
+        "session_id": session_id,
+        "tool_input": tool_input,
+        "cwd": str(repo),
+    }
+    if transcript_path is not None:
+        payload["transcript_path"] = str(transcript_path)
+    monkeypatch.setattr(wg, "load_input", lambda: payload)
     try:
         wg.main()
     except SystemExit:
@@ -880,3 +886,574 @@ def test_the_silent_arm_emits_nothing_at_all(monkeypatch, capsys, repo):
     except SystemExit:
         pass
     assert capsys.readouterr().out == "", "the silent arm printed a decision"
+
+
+# --- the routing answer: the second consent source (#604) ------------------
+#
+# An automation run creates its worktrees before any of them has run, so the
+# record cannot exist at the first one. The person's `automation` answer to the
+# routing question can: the harness writes it into the session's transcript
+# from the click, and the model writes the question and never which option was
+# pressed. The fixtures below build transcript lines in the shape measured on
+# 2026-09-26 (`spec.md` §*Data & interfaces*), under a projects root the case
+# owns, so no case reads a transcript of whoever runs the suite.
+
+ROUTING_QUESTION = "How should this work be routed?"
+ROUTING_OPTIONS = ("automation (Recommended)", "per axis", "no work item")
+# A transcript line cut off mid-write: not JSON, and it carries both words the
+# reader's prefilter looks for, so it reaches the parser.
+TRUNCATED = '{"type": "user", "toolUseResult": {"answers": {"AskUserQuestion'
+
+
+def ask_entries(
+    cwd,
+    answer="automation (Recommended)",
+    options=ROUTING_OPTIONS,
+    multi=False,
+    tool="AskUserQuestion",
+    tool_id="toolu_01routing",
+    result_id=None,
+    question=ROUTING_QUESTION,
+):
+    """One question put and answered: the assistant's `tool_use`, then the
+    `user` entry the harness writes with the structured `toolUseResult`."""
+    asked = {
+        "questions": [
+            {
+                "question": question,
+                "header": "Routing",
+                "multiSelect": multi,
+                "options": [{"label": o, "description": "d"} for o in options],
+            }
+        ]
+    }
+    use = {
+        "type": "assistant",
+        "cwd": str(cwd),
+        "message": {
+            "role": "assistant",
+            "content": [
+                {"type": "tool_use", "id": tool_id, "name": tool, "input": asked}
+            ],
+        },
+    }
+    result = {
+        "type": "user",
+        "cwd": str(cwd),
+        "isSidechain": False,
+        "message": {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": result_id or tool_id,
+                    "content": f'The user answered: "{question}"="{answer}".',
+                }
+            ],
+        },
+        "toolUseResult": {
+            "questions": [dict(asked["questions"][0])],
+            "answers": {question: answer},
+        },
+    }
+    return [use, result]
+
+
+def write_transcript(root, session, entries, slug="-Users-x-repo"):
+    """`<root>/<slug>/<session>.jsonl`, one JSON object (or raw line) each."""
+    d = pathlib.Path(root) / slug
+    d.mkdir(parents=True, exist_ok=True)
+    path = d / f"{session}.jsonl"
+    with open(path, "w", encoding="utf-8") as f:
+        for e in entries:
+            f.write((e if isinstance(e, str) else json.dumps(e)) + "\n")
+    return path
+
+
+def other_clone(tmp_path):
+    d = tmp_path / "other"
+    d.mkdir()
+    subprocess.run(["git", "init", "-q", str(d)], check=True, capture_output=True)
+    return d
+
+
+@pytest.fixture
+def projects(monkeypatch, tmp_path):
+    """A projects root this case owns, seen by the unit copy and the guard's."""
+    root = tmp_path / "projects"
+    root.mkdir()
+    monkeypatch.setattr(wc, "PROJECTS_ROOT", str(root))
+    monkeypatch.setattr(wg.worktree_consent, "PROJECTS_ROOT", str(root))
+    return root
+
+
+def test_the_routing_preset_is_consent(projects, repo):
+    """The measured answer, and the three decorations measured beside it --
+    each on the pressed option's label, which is where a decoration lives. A
+    pressed option's answer IS its label: 184 of 184 on disk."""
+    for answer in (
+        "automation",
+        "automation (Recommended)",
+        "automation (권장)",
+        "automation — 안 멈추고 끝까지",
+    ):
+        options = (answer, "per axis", "no work item")
+        write_transcript(
+            projects, "me", ask_entries(repo, answer=answer, options=options)
+        )
+        assert wc.automation_answered(str(repo), "me"), answer
+        assert wc.consent(str(repo), "me") == "answer", answer
+
+
+def test_a_typed_answer_that_qualifies_the_preset_is_not_consent(projects, repo):
+    """Round 1, finding 1. An `Other` answer is the person's own text, which
+    the harness writes into `answers` verbatim, so cutting it at a decoration
+    read *automation - but ask me before each worktree* as the preset -- the
+    opposite of what the person wrote. Only a pressed option's label is an
+    answer the guard reads."""
+    for typed in (
+        "automation - but ask me before each worktree",
+        "automation (stop before creating worktrees)",
+        "automation — 단, worktree 는 물어봐",
+    ):
+        write_transcript(projects, "me", ask_entries(repo, answer=typed))
+        assert not wc.automation_answered(str(repo), "me"), typed
+
+
+def test_a_sidechain_entry_is_not_consent(projects, repo):
+    """A subagent has no `AskUserQuestion`, so no real click can carry
+    `isSidechain: true`, and no local main transcript held one when this was
+    written. Refusing it costs no measured case and closes the direction."""
+    use, result = ask_entries(repo)
+    result["isSidechain"] = True
+    write_transcript(projects, "me", [use, result])
+    assert not wc.automation_answered(str(repo), "me")
+
+
+def test_the_payloads_transcript_path_is_read_when_it_names_this_session(
+    projects, repo, tmp_path
+):
+    """Rule 1's first form. The file sits outside the projects root, so only
+    the payload's path can have found it."""
+    elsewhere = write_transcript(tmp_path / "elsewhere", "me", ask_entries(repo))
+    assert wc.automation_answered(str(repo), "me", str(elsewhere))
+    assert not wc.automation_answered(str(repo), "me")
+    # A path naming another session's file is not this session's transcript.
+    theirs = write_transcript(tmp_path / "elsewhere", "them", ask_entries(repo))
+    assert not wc.automation_answered(str(repo), "me", str(theirs))
+
+
+def test_a_subagents_own_path_falls_back_to_the_parents_transcript(projects, repo):
+    """A subagent's call carries its parent's session id, so the glob finds
+    the parent's file whatever path the subagent's own payload names."""
+    write_transcript(projects, "me", ask_entries(repo))
+    sub = projects / "-Users-x-repo" / "me" / "subagents" / "agent-a1.jsonl"
+    sub.parent.mkdir(parents=True)
+    sub.write_text("")
+    assert wc.automation_answered(str(repo), "me", str(sub))
+
+
+def test_an_assistant_message_saying_automation_is_not_consent(projects, repo):
+    """S6 (a). The model writes its own messages."""
+    said = {
+        "type": "assistant",
+        "cwd": str(repo),
+        "message": {
+            "role": "assistant",
+            "content": [{"type": "text", "text": 'The user answered: "automation"'}],
+        },
+    }
+    write_transcript(projects, "me", [said])
+    assert not wc.automation_answered(str(repo), "me")
+
+
+def test_a_result_not_linked_to_an_ask_is_not_consent(projects, repo):
+    """S6 (b). A Bash result can echo *The user answered: "automation"*, and
+    even carry the answer's shape, but its `tool_use_id` names a Bash call.
+    Seen red by dropping the id link from `automation_answered`."""
+    bash = ask_entries(repo, tool="Bash", tool_id="toolu_01bash")
+    # An AskUserQuestion elsewhere in the file, so the link is what decides.
+    other = ask_entries(repo, answer="per axis", tool_id="toolu_01other")
+    write_transcript(projects, "me", other + bash)
+    assert not wc.automation_answered(str(repo), "me")
+    echo = {
+        "type": "user",
+        "cwd": str(repo),
+        "message": {
+            "role": "user",
+            "content": [
+                {
+                    "type": "tool_result",
+                    "tool_use_id": "toolu_01bash",
+                    "content": 'The user answered: "automation"',
+                }
+            ],
+        },
+        "toolUseResult": {"stdout": 'The user answered: "automation"'},
+    }
+    write_transcript(projects, "me", [*other, bash[0], echo])
+    assert not wc.automation_answered(str(repo), "me")
+
+
+def test_the_other_routing_answers_are_not_consent(projects, repo):
+    """S6 (c). `per axis` is the boxes, which this work does not read (Q1)."""
+    for answer in ("per axis", "no work item"):
+        write_transcript(projects, "me", ask_entries(repo, answer=answer))
+        assert not wc.automation_answered(str(repo), "me"), answer
+
+
+def test_automation_on_another_question_is_not_consent(projects, repo):
+    """S6 (d). The model writes the question and its options, so a question
+    it made up with an `automation` option is the model's, not the routing
+    batch. Seen red by dropping the option-set check."""
+    for options in (
+        ("automation", "manual"),
+        ("automation", "per axis", "no work item", "something else"),
+        ("automation", "per axis"),
+    ):
+        write_transcript(
+            projects, "me", ask_entries(repo, answer="automation", options=options)
+        )
+        assert not wc.automation_answered(str(repo), "me"), options
+
+
+def test_a_multi_select_routing_shape_is_not_consent(projects, repo):
+    write_transcript(projects, "me", ask_entries(repo, multi=True))
+    assert not wc.automation_answered(str(repo), "me")
+
+
+def test_a_result_before_its_question_is_not_consent(projects, repo):
+    use, result = ask_entries(repo)
+    write_transcript(projects, "me", [result, use])
+    assert not wc.automation_answered(str(repo), "me")
+
+
+def test_another_sessions_answer_is_not_consent(projects, repo):
+    """S7. The answer belongs to the session the person was talking to."""
+    write_transcript(projects, "them", ask_entries(repo))
+    assert not wc.automation_answered(str(repo), "me")
+
+
+def test_an_answer_given_in_another_clone_is_not_consent(projects, repo, tmp_path):
+    """S7. The same session, answering from a different repository, said
+    nothing about splitting this one. Seen red by dropping the clone check."""
+    write_transcript(projects, "me", ask_entries(other_clone(tmp_path)))
+    assert not wc.automation_answered(str(repo), "me")
+    write_transcript(projects, "me", ask_entries(tmp_path / "no-such-dir"))
+    assert not wc.automation_answered(str(repo), "me")
+    use, result = ask_entries(repo)
+    del result["cwd"]
+    write_transcript(projects, "me", [use, result])
+    assert not wc.automation_answered(str(repo), "me")
+
+
+def test_an_answer_from_a_linked_worktree_is_the_same_clone(projects, repo, tmp_path):
+    linked = tmp_path / "linked"
+    subprocess.run(
+        ["git", "-C", str(repo), "worktree", "add", "-q", str(linked), "feature/x"],
+        check=True,
+        capture_output=True,
+    )
+    write_transcript(projects, "me", ask_entries(linked))
+    assert wc.automation_answered(str(repo), "me")
+
+
+def test_an_unreadable_transcript_is_no_consent(projects, repo):
+    """S8. Every way of not finding the answer lands on the old behaviour."""
+    assert not wc.automation_answered(str(repo), "me")  # no transcript at all
+    d = projects / "-Users-x-repo" / "me.jsonl"
+    d.mkdir(parents=True)  # a directory where the file would be
+    assert not wc.automation_answered(str(repo), "me")
+    d.rmdir()
+    # A line cut off mid-write carries the words the prefilter looks for, so
+    # it reaches the parser; the others show the parser's non-object answers.
+    write_transcript(
+        projects,
+        "me",
+        [TRUNCATED, "{not json", "[1, 2]", '"a string"', "null", '["AskUserQuestion"]'],
+    )
+    assert not wc.automation_answered(str(repo), "me")
+    use, result = ask_entries(repo)
+    del result["toolUseResult"]["answers"]
+    write_transcript(projects, "me", [use, result])
+    assert not wc.automation_answered(str(repo), "me")
+    use, result = ask_entries(repo)
+    result["toolUseResult"] = "a string"
+    result["message"]["content"] = "a string"
+    write_transcript(projects, "me", [use, result])
+    assert not wc.automation_answered(str(repo), "me")
+
+
+def test_a_malformed_line_does_not_hide_a_later_answer(projects, repo):
+    write_transcript(projects, "me", [TRUNCATED, *ask_entries(repo)])
+    assert wc.automation_answered(str(repo), "me")
+
+
+def test_two_transcripts_for_one_session_are_none(projects, repo):
+    """Choosing one of two would be a guess about which the harness meant."""
+    write_transcript(projects, "me", ask_entries(repo), slug="-a")
+    write_transcript(projects, "me", ask_entries(repo), slug="-b")
+    assert not wc.automation_answered(str(repo), "me")
+
+
+def test_a_session_id_that_reduces_to_nothing_has_no_transcript(projects, repo):
+    for session in ("", ".", "..", "/"):
+        assert wc.transcript_for(session) == "", session
+
+
+def test_the_labels_match_the_routing_question_the_orchestrator_asks():
+    """The reader's constants against `skills/implement/orchestration.md`
+    §*Question 1 — single-select*. Relabelling the question there turns this
+    red instead of quietly bringing the guard's prompt back. Seen red by
+    editing a constant."""
+    root = pathlib.Path(__file__).resolve().parent.parent
+    text = (root / "skills" / "implement" / "orchestration.md").read_text(
+        encoding="utf-8"
+    )
+    section = text.split("### Question 1 — single-select", 1)[1].split("\n### ", 1)[0]
+    labels = [
+        row.split("|")[2].strip().strip("*")
+        for row in section.splitlines()
+        if row.startswith("| ") and row.split("|")[1].strip().isdigit()
+    ]
+    assert tuple(labels) == wc.ROUTING_LABELS
+    assert labels[0] == wc.PRESET
+
+
+# --- the guard reads the routing answer (phase 2) ---------------------------
+
+MEASURED_RUN = (
+    "git worktree add ../wt-a -b fix/a feature/x\n"
+    "git worktree add ../wt-b -b fix/b feature/x\n"
+    "git switch -c fix/c  # [worktree-ok] each branch carries its own routing.md"
+)
+
+
+def test_the_measured_automation_run_is_not_stopped(
+    monkeypatch, capsys, projects, repo
+):
+    """S1, the run #604 measured: the person pressed `automation`, no creation
+    had run yet, and one call created two worktrees and a branch. The guard
+    asked there. The stream is read raw: `silent` means nothing printed."""
+    write_transcript(projects, "me", ask_entries(repo))
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": ([], [], True))
+    monkeypatch.setattr(
+        wg,
+        "load_input",
+        lambda: {
+            "tool_name": "Bash",
+            "session_id": "me",
+            "tool_input": {"command": MEASURED_RUN},
+            "cwd": str(repo),
+        },
+    )
+    try:
+        wg.main()
+    except SystemExit:
+        pass
+    assert capsys.readouterr().out == ""
+    assert not consent_dir(repo).exists(), "the reader must not write the record"
+
+
+def test_a_bare_creation_after_the_automation_answer_is_allowed(
+    monkeypatch, capsys, projects, repo
+):
+    """S2. The same bound on the allow as the record's: a command that is
+    worktree creation and nothing else."""
+    write_transcript(projects, "me", ask_entries(repo))
+    decision, reason = decide(monkeypatch, capsys, repo, "git worktree add ../wt f")
+    assert decision == "allow", reason
+
+
+def test_the_answer_outranks_every_row_below_it(monkeypatch, capsys, projects, repo):
+    """The same placement as the record: above ACTIVE, both choice rows and
+    the `[worktree-ok]` row."""
+    write_transcript(projects, "me", ask_entries(repo))
+    for sessions in ((ACTIVE, [], True), ([], IDLE, True), ([], [], False)):
+        assert (
+            decide(
+                monkeypatch, capsys, repo, "git worktree add ../wt f", sessions=sessions
+            )[0]
+            == "allow"
+        ), sessions
+    assert (
+        decide(monkeypatch, capsys, repo, "git worktree add ../wt f | tail -2")[0]
+        == "silent"
+    )
+
+
+def test_the_agent_path_is_silent_after_the_automation_answer(
+    monkeypatch, capsys, projects, repo
+):
+    """S3. The same decision arriving through the other tool."""
+    write_transcript(projects, "me", ask_entries(repo))
+    assert (
+        agent_decide(
+            monkeypatch, capsys, repo, {"prompt": "x", "isolation": "worktree"}
+        )[0]
+        == "silent"
+    )
+
+
+def test_the_guard_reads_the_path_the_payload_names(
+    monkeypatch, capsys, projects, repo, tmp_path
+):
+    """`main` hands the payload's `transcript_path` down to the reader."""
+    path = write_transcript(tmp_path / "elsewhere", "me", ask_entries(repo))
+    assert decide(monkeypatch, capsys, repo, "git worktree add ../wt f")[0] == "deny"
+    decision, _ = decide(
+        monkeypatch, capsys, repo, "git worktree add ../wt f", transcript_path=path
+    )
+    assert decision == "allow"
+    assert (
+        agent_decide(
+            monkeypatch,
+            capsys,
+            repo,
+            {"prompt": "x", "isolation": "worktree"},
+            transcript_path=path,
+        )[0]
+        == "silent"
+    )
+
+
+def test_the_answer_does_not_reach_the_switch_direction(
+    monkeypatch, capsys, projects, repo
+):
+    """S9. That the run should not stop says nothing about taking another
+    session's branch out from under it."""
+    write_transcript(projects, "me", ask_entries(repo))
+    decision, reason = decide(
+        monkeypatch, capsys, repo, "git switch feature/x", sessions=(ACTIVE, [], True)
+    )
+    assert decision == "deny"
+    assert "actively working" in reason
+
+
+def test_an_unreadable_transcript_leaves_the_old_verdict(
+    monkeypatch, capsys, projects, repo
+):
+    """S8 through the guard: no traceback, and the verdict it gave before."""
+    write_transcript(projects, "me", [TRUNCATED, "null"])
+    decision, reason = decide(monkeypatch, capsys, repo, "git worktree add ../wt f")
+    assert decision == "deny" and "git switch" in reason
+    use, result = ask_entries(repo, answer="per axis")
+    write_transcript(projects, "me", [use, result])
+    assert decide(monkeypatch, capsys, repo, "git worktree add ../wt f")[0] == "deny"
+    assert capsys.readouterr().err == ""
+
+
+def test_the_allow_says_which_consent_it_read(monkeypatch, capsys, projects, repo):
+    """§14: the two sources are two different sentences, in both languages."""
+    write_transcript(projects, "me", ask_entries(repo))
+    _, reason = decide(monkeypatch, capsys, repo, "git worktree add ../wt f")
+    assert "The user pressed `automation` on this session's routing question" in reason
+    assert "already ran" not in reason
+    grant(repo)
+    _, reason = decide(monkeypatch, capsys, repo, "git worktree add ../wt f")
+    assert "A worktree creation already ran in this repository" in reason
+    assert "`automation`" not in reason
+    (consent_dir(repo) / "me").unlink()
+
+    monkeypatch.setenv("SPECSEAL_LANG", "ko")
+    wko = load_hook_module("worktree-guard.py", "wg_consent_ko")
+    monkeypatch.setattr(wko, "sessions_in_tree", lambda top, own="": ([], [], True))
+    monkeypatch.setattr(
+        wko,
+        "load_input",
+        lambda: {
+            "tool_name": "Bash",
+            "session_id": "me",
+            "tool_input": {"command": "git worktree add ../wt f"},
+            "cwd": str(repo),
+        },
+    )
+    try:
+        wko.main()
+    except SystemExit:
+        pass
+    reason = json.loads(capsys.readouterr().out)["hookSpecificOutput"][
+        "permissionDecisionReason"
+    ]
+    assert "라우팅 질문에서 `automation` 을 눌렀고" in reason
+
+
+def test_no_case_reads_the_real_projects_root():
+    """`tests/conftest.py`'s autouse fixture points the guard's copy of the
+    reader at an empty directory, so a case that builds no transcript cannot
+    find one belonging to whoever runs the suite. Seen red by deleting the
+    fixture's `setattr`."""
+    real = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+    assert real != wg.worktree_consent.PROJECTS_ROOT
+    assert not os.listdir(wg.worktree_consent.PROJECTS_ROOT)
+
+
+# --- round 1, finding 2: the consent read never raises ----------------------
+
+
+def dispatch_pre_bash(repo, session, transcript_path):
+    """The group the harness actually runs, as a subprocess, so a gate that
+    raises is skipped exactly the way `hooks/dispatch.py` skips it."""
+    r = subprocess.run(
+        [sys.executable, os.path.join(HOOKS, "dispatch.py"), "pre-bash"],
+        input=json.dumps(
+            {
+                "tool_name": "Bash",
+                "session_id": session,
+                "transcript_path": transcript_path,
+                "tool_input": {"command": "git worktree add ../wt f"},
+                "cwd": str(repo),
+            }
+        ),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+    )
+    return r.stdout
+
+
+def test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny(repo, tmp_path):
+    """Round 1, finding 2. `dispatch.py` skips a gate that raises, so a
+    consent read that raised turned the guard's deny into no decision at all.
+    Two inputs raised: a `tool_use_id` that is a list (unhashable) and a NUL in
+    `transcript_path`. Each is run through `dispatch.py pre-bash` beside a
+    well-formed control, and each must reach the same stop the control does.
+    A fresh session id per call, so the guard's own per-session memory is not
+    what differs."""
+    use, result = ask_entries(repo, answer="per axis")
+    control = write_transcript(tmp_path / "t", "s-ok", [use, result])
+    use, result = ask_entries(repo)
+    result["message"]["content"][0]["tool_use_id"] = ["toolu_01routing"]
+    listed = write_transcript(tmp_path / "t", "s-list", [use, result])
+    outs = {
+        "control": dispatch_pre_bash(repo, "s-ok", str(control)),
+        "list id": dispatch_pre_bash(repo, "s-list", str(listed)),
+        "NUL path": dispatch_pre_bash(repo, "s-nul", "/x/\x00y/s-nul.jsonl"),
+    }
+    assert decision_of(outs["control"]) == "deny", outs["control"]
+    for name, out in outs.items():
+        assert decision_of(out) == "deny", (name, out)
+
+
+def test_the_reader_itself_answers_both_shapes_without_raising(projects, repo):
+    """The two narrow repairs, pinned below `consent`'s catch-all, which would
+    otherwise hide either one coming undone."""
+    use, result = ask_entries(repo)
+    result["message"]["content"][0]["tool_use_id"] = ["toolu_01routing"]
+    write_transcript(projects, "me", [use, result])
+    assert wc.automation_answered(str(repo), "me") is False
+    assert wc.automation_answered(str(repo), "me", "/x/\x00y/me.jsonl") is False
+
+
+def test_consent_fails_closed_on_any_exception(monkeypatch, repo):
+    """The class, not the two instances: both call sites go through
+    `consent`, so whatever the reader raises next is *no consent* there."""
+
+    def boom(*a, **k):
+        raise RuntimeError("a shape nobody measured")
+
+    monkeypatch.setattr(wc, "automation_answered", boom)
+    assert wc.consent(str(repo), "me") == ""
+    grant(repo)
+    assert wc.consent(str(repo), "me") == "record"
