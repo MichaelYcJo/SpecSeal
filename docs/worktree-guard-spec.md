@@ -144,19 +144,26 @@ the guard's behaviour before the answer was read:
    form. No other session's file is read, and no `subagents/` file.
 2. **A harness-written `AskUserQuestion` result**: a `user` entry whose
    `tool_result` names, by `tool_use_id`, an earlier `AskUserQuestion` call,
-   read from its structured `toolUseResult.answers`. A Bash result echoing
-   *The user answered: "automation"* has no such link.
+   read from its structured `toolUseResult.answers`, and not marked
+   `isSidechain: true`. A Bash result echoing *The user answered:
+   "automation"* has no such link, and a subagent has no `AskUserQuestion`.
 3. **The routing question**: one single-select question whose options' leading
    phrases are exactly `automation`, `per axis` and `no work item`
    (`skills/implement/orchestration.md` §*Question 1 — single-select*),
-   answered `automation`. A leading phrase is the label casefolded and cut at
-   the first ` (`, ` —` or ` -`, so `automation (Recommended)` counts.
+   answered with the option labelled `automation`. The answer must equal one
+   of the question's option labels verbatim, because that is what a pressed
+   option writes; a typed `Other` answer is the person's own text and is not
+   read, so *automation - but ask me before each worktree* is not consent. A
+   leading phrase is the label casefolded and cut at the first ` (`, ` —` or
+   ` -`, so an option labelled `automation (Recommended)` counts.
 4. **The same clone**: the result entry's own `cwd` resolves to the same common
    git directory as the creation's repository.
 
 A `per axis` answer is not read, even with its first box ticked: in every
 measured instance the box label had been reworded or translated, so a rule
-matching the prescribed label would never fire. The record is read first,
+matching the prescribed label would never fire. A read that raises is no
+consent too: `hooks/dispatch.py` skips a gate that raises, which would turn
+the guard's deny into no decision at all. The record is read first,
 because it is one `stat`; the transcript is scanned only while there is no
 record, and the first creation writes one.
 
@@ -299,7 +306,7 @@ another session's branch out from under it.
 **The prompt budget.** Zero for a session whose person pressed `automation`. One per session otherwise, from one per worktree unbounded — for a creation written on its own, which is the form the measured six took. Re-measured after round 2's fixes, six creations in one session on a clean single-stream tree: **deny, allow, allow, allow, allow, allow**.
 Before consent, a creation written as one segment of a compound still costs one
 prompt each time, and so does one carrying an expansion, a redirection, a wrapper or a **path-qualified command word**, because that is exactly what the bound above refuses to speak for. The last of those is what round 2's second fix added to the list, and it moves nothing in the budget: `git worktree add …`, the same backgrounded, and the `\git` spelling all still allow.
-Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed, tests/test_the_guard_asks_once_per_session.py::test_the_measured_automation_run_is_not_stopped, tests/test_the_guard_asks_once_per_session.py::test_a_result_not_linked_to_an_ask_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_automation_on_another_question_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_an_answer_given_in_another_clone_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_the_labels_match_the_routing_question_the_orchestrator_asks
+Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed, tests/test_the_guard_asks_once_per_session.py::test_the_measured_automation_run_is_not_stopped, tests/test_the_guard_asks_once_per_session.py::test_a_result_not_linked_to_an_ask_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_automation_on_another_question_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_an_answer_given_in_another_clone_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_the_labels_match_the_routing_question_the_orchestrator_asks, tests/test_the_guard_asks_once_per_session.py::test_a_typed_answer_that_qualifies_the_preset_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny
 
 ## Choice sites
 

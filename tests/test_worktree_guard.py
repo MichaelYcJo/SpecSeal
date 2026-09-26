@@ -933,9 +933,9 @@ def test_the_two_reworded_reasons_are_pinned_in_both_languages(
     monkeypatch, capsys, repo
 ):
     """S10, §14. The Agent reason is pinned whole. The `[worktree-ok]` row's
-    first sentence now starts from what was counted -- no other Claude
-    session -- instead of asserting *single-stream work*, which a worktree a
-    subagent chain will use is not."""
+    first sentence starts from what was counted -- no other Claude session --
+    where a count was taken, instead of asserting *single-stream work*, which
+    a worktree a subagent chain will use is not."""
     agent, token = _reasons(monkeypatch, capsys, repo, wg)
     assert agent == AGENT_REASON_EN
     assert "No other Claude session is working in this tree, but [worktree-ok]" in token
@@ -947,3 +947,42 @@ def test_the_two_reworded_reasons_are_pinned_in_both_languages(
     assert agent == AGENT_REASON_KO
     assert "이 트리에서 작업 중인 다른 Claude 세션은 없지만 [worktree-ok]" in token
     assert "단건 작업이지만" not in token
+
+
+def test_the_token_rows_count_sentence_is_said_only_where_a_count_was_taken(
+    monkeypatch, capsys, repo
+):
+    """Round 1, finding 4. The `[worktree-ok]` row is reached before the
+    choice rows, so the detection-unusable state reaches it, and there nothing
+    was counted. *No other Claude session is working in this tree* is a
+    measurement, and it is printed only where the measurement was made."""
+    cmd = "git worktree add ../wt f  # [worktree-ok]"
+    for module, sentence in (
+        (wg, "No other Claude session is working in this tree"),
+        (None, "이 트리에서 작업 중인 다른 Claude 세션은 없지만"),
+    ):
+        if module is None:
+            monkeypatch.setenv("SPECSEAL_LANG", "ko")
+            module = load_hook_module("worktree-guard.py", "wg_f4_ko")
+        for sessions, said in ((([], [], True)), True), ((([], [], False)), False):
+            monkeypatch.setattr(
+                module, "sessions_in_tree", lambda t, o="", s=sessions: s
+            )
+            monkeypatch.setattr(
+                module,
+                "load_input",
+                lambda: {
+                    "tool_name": "Bash",
+                    "session_id": "f4",
+                    "tool_input": {"command": cmd},
+                    "cwd": str(repo),
+                },
+            )
+            try:
+                module.main()
+            except SystemExit:
+                pass
+            out = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
+            assert out["permissionDecision"] == "ask", sessions
+            assert (sentence in out["permissionDecisionReason"]) is said, sessions
+            assert "[worktree-ok]" in out["permissionDecisionReason"]

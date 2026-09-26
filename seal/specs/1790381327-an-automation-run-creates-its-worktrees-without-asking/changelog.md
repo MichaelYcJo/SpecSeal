@@ -6,9 +6,11 @@
   guard now reads that answer as consent, beside the record a creation that
   already ran leaves. It reads the answer from this session's own
   transcript, where the harness wrote it from the click, and only when it is
-  the real `AskUserQuestion` result for the routing question, given from this
-  clone. A message, a command's output or a `routing.md` saying `automation`
-  does not count, because the model writes those. A `per axis` answer still
+  the real `AskUserQuestion` result for the routing question, the option
+  labelled `automation` was pressed, and it was given from this clone. A
+  message, a command's output or a `routing.md` saying `automation` does not
+  count, because the model writes those, and neither does a typed answer
+  such as "automation - but ask me first". A `per axis` answer still
   meets one prompt per session. An Agent call with `isolation: "worktree"`
   is now judged as concurrent work, because the agent runs beside the session
   that spawned it: without consent it asks once, and its reason no longer

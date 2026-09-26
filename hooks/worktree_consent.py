@@ -194,8 +194,9 @@ def _routing_preset(result) -> bool:
     """True when a structured `AskUserQuestion` result pressed the preset.
 
     One single-select question whose options' leading phrases are exactly the
-    three of `ROUTING_LABELS`, answered with a label whose leading phrase is
-    `PRESET`. `answers` maps a question's text to the chosen label. A
+    three of `ROUTING_LABELS`, answered with one of those option labels,
+    verbatim, whose leading phrase is `PRESET`. A typed `Other` answer matches
+    no label and is not read, whatever it starts with. `answers` maps a question's text to the chosen label. A
     multi-select answer is the chosen labels joined by `, `, and the routing
     question is not one, so `multiSelect` must be `False` rather than merely
     absent: an absent field is a shape nobody measured.
@@ -211,15 +212,20 @@ def _routing_preset(result) -> bool:
         options = q.get("options")
         if not isinstance(options, list):
             continue
-        phrases = sorted(
-            leading_phrase(o.get("label")) if isinstance(o, dict) else ""
-            for o in options
-        )
-        if phrases != sorted(ROUTING_LABELS):
+        labels = [o.get("label") if isinstance(o, dict) else None for o in options]
+        if sorted(leading_phrase(label) for label in labels) != sorted(ROUTING_LABELS):
             continue
         text = q.get("question")
-        if isinstance(text, str) and leading_phrase(answers.get(text)) == PRESET:
-            return True
+        if not isinstance(text, str):
+            continue
+        # A pressed option's answer IS its label, verbatim. An `Other` answer is
+        # the person's own text, and cutting it at a decoration read
+        # "automation - but ask me before each worktree" as the preset -- so
+        # the answer must be one of the labels before its phrase is read.
+        answer = answers.get(text)
+        if isinstance(answer, str) and answer in labels:
+            if leading_phrase(answer) == PRESET:
+                return True
     return False
 
 
@@ -258,11 +264,15 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
          (`_routing_preset`);
       4. the result entry's own `cwd` is in the same clone as `top`.
 
-    A line is parsed only when it could matter to one of the two roles, so a
-    long transcript costs a substring test per line. Every read error, every
-    malformed line and every missing field is skipped or answered False;
-    nothing here raises, because a hook that raises dies with stdout empty,
-    which reads as "nothing to see here".
+    A line is parsed only when it carries `AskUserQuestion` or `toolUseResult`.
+    That skips assistant text and progress lines, but every tool result
+    carries `toolUseResult`, so most user lines are parsed: 0.09 s on the
+    largest local transcript (17.3 MB) when round 1 measured it. Every read
+    error, every malformed line and every missing field is skipped or answered
+    False. The two shapes round 1 found raising -- a `tool_use_id` that is not
+    a string, a NUL in the path -- are handled here, and `consent` catches
+    whatever else might, because `hooks/dispatch.py` skips a gate that raises
+    and the guard's deny would become no decision at all.
     """
     path = transcript_for(session, transcript_path)
     if not path:
@@ -296,10 +306,15 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
                     continue
                 if kind != "user" or not asked:
                     continue
+                # A subagent has no `AskUserQuestion`, so no real click
+                # carries this mark; refusing it costs no measured case.
+                if entry.get("isSidechain") is True:
+                    continue
                 linked = any(
                     isinstance(item, dict)
                     and item.get("type") == "tool_result"
-                    and item.get("tool_use_id") in asked
+                    and isinstance(item.get("tool_use_id"), str)
+                    and item["tool_use_id"] in asked
                     for item in _content(entry)
                 )
                 if not linked or not _routing_preset(entry.get("toolUseResult")):
@@ -310,7 +325,7 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
                     clones[key] = _clone_of(key) if key else ""
                 if clones[key] == want:
                     return True
-    except OSError:
+    except (OSError, ValueError):
         return False
     return False
 
@@ -326,9 +341,15 @@ def consent(top: str, session: str, transcript_path: str = "") -> str:
     """
     if granted(top, session):
         return "record"
-    if automation_answered(top, session, transcript_path):
-        return "answer"
-    return ""
+    # Both call sites go through here, and `hooks/dispatch.py` skips a gate
+    # that raises, which turns the guard's deny into no decision at all. So
+    # every exception from the read is "no consent", the verdict from before
+    # the answer was read.
+    try:
+        answered = automation_answered(top, session, transcript_path)
+    except Exception:
+        answered = False
+    return "answer" if answered else ""
 
 
 def record(top: str, session: str) -> bool:

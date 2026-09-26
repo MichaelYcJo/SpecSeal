@@ -1744,15 +1744,23 @@ def guard_worktree_creation(
             "ask",
             (
                 f"{origin}\n"
+                # Reached before the choice rows, detection-unusable included,
+                # so the count is named only where one was taken.
+                + (
+                    tr(
+                        "No other Claude session is working in this tree, but ",
+                        "이 트리에서 작업 중인 다른 Claude 세션은 없지만 ",
+                    )
+                    if reliable
+                    else ""
+                )
                 + tr(
-                    "No other Claude session is working in this tree, but [worktree-ok] "
-                    "was given — treating this as the user's explicit intent. Confirm "
-                    "the worktree creation. Declining withdraws [worktree-ok] and "
-                    "proceeds in the shared tree instead:\n",
-                    "이 트리에서 작업 중인 다른 Claude 세션은 없지만 [worktree-ok] 가 "
-                    "지정되어 사용자 의사로 판단합니다. worktree 를 생성할지 확인해 "
-                    "주세요. 거부하면 [worktree-ok] 선언을 철회하고 공유 트리에서 그대로 "
-                    "진행합니다:\n",
+                    "[worktree-ok] was given — treating this as the user's explicit "
+                    "intent. Confirm the worktree creation. Declining withdraws "
+                    "[worktree-ok] and proceeds in the shared tree instead:\n",
+                    "[worktree-ok] 가 지정되어 사용자 의사로 판단합니다. worktree 를 "
+                    "생성할지 확인해 주세요. 거부하면 [worktree-ok] 선언을 철회하고 공유 "
+                    "트리에서 그대로 진행합니다:\n",
                 )
                 + steer_to_switch()
             ),

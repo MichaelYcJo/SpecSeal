@@ -37,7 +37,7 @@ import subprocess
 import sys
 
 import pytest
-from conftest import load_hook_module, run_hook
+from conftest import decision_of, load_hook_module, run_hook
 
 wg = load_hook_module("worktree-guard.py", "wg_consent")
 wc = load_hook_module("worktree_consent.py", "wc_consent")
@@ -988,16 +988,46 @@ def projects(monkeypatch, tmp_path):
 
 
 def test_the_routing_preset_is_consent(projects, repo):
-    """The measured answer, and the three decorations measured beside it."""
+    """The measured answer, and the three decorations measured beside it --
+    each on the pressed option's label, which is where a decoration lives. A
+    pressed option's answer IS its label: 184 of 184 on disk."""
     for answer in (
         "automation",
         "automation (Recommended)",
         "automation (권장)",
         "automation — 안 멈추고 끝까지",
     ):
-        write_transcript(projects, "me", ask_entries(repo, answer=answer))
+        options = (answer, "per axis", "no work item")
+        write_transcript(
+            projects, "me", ask_entries(repo, answer=answer, options=options)
+        )
         assert wc.automation_answered(str(repo), "me"), answer
         assert wc.consent(str(repo), "me") == "answer", answer
+
+
+def test_a_typed_answer_that_qualifies_the_preset_is_not_consent(projects, repo):
+    """Round 1, finding 1. An `Other` answer is the person's own text, which
+    the harness writes into `answers` verbatim, so cutting it at a decoration
+    read *automation - but ask me before each worktree* as the preset -- the
+    opposite of what the person wrote. Only a pressed option's label is an
+    answer the guard reads."""
+    for typed in (
+        "automation - but ask me before each worktree",
+        "automation (stop before creating worktrees)",
+        "automation — 단, worktree 는 물어봐",
+    ):
+        write_transcript(projects, "me", ask_entries(repo, answer=typed))
+        assert not wc.automation_answered(str(repo), "me"), typed
+
+
+def test_a_sidechain_entry_is_not_consent(projects, repo):
+    """A subagent has no `AskUserQuestion`, so no real click can carry
+    `isSidechain: true`, and no local main transcript held one when this was
+    written. Refusing it costs no measured case and closes the direction."""
+    use, result = ask_entries(repo)
+    result["isSidechain"] = True
+    write_transcript(projects, "me", [use, result])
+    assert not wc.automation_answered(str(repo), "me")
 
 
 def test_the_payloads_transcript_path_is_read_when_it_names_this_session(
@@ -1356,3 +1386,74 @@ def test_no_case_reads_the_real_projects_root():
     real = os.path.join(os.path.expanduser("~"), ".claude", "projects")
     assert real != wg.worktree_consent.PROJECTS_ROOT
     assert not os.listdir(wg.worktree_consent.PROJECTS_ROOT)
+
+
+# --- round 1, finding 2: the consent read never raises ----------------------
+
+
+def dispatch_pre_bash(repo, session, transcript_path):
+    """The group the harness actually runs, as a subprocess, so a gate that
+    raises is skipped exactly the way `hooks/dispatch.py` skips it."""
+    r = subprocess.run(
+        [sys.executable, os.path.join(HOOKS, "dispatch.py"), "pre-bash"],
+        input=json.dumps(
+            {
+                "tool_name": "Bash",
+                "session_id": session,
+                "transcript_path": transcript_path,
+                "tool_input": {"command": "git worktree add ../wt f"},
+                "cwd": str(repo),
+            }
+        ),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+    )
+    return r.stdout
+
+
+def test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny(repo, tmp_path):
+    """Round 1, finding 2. `dispatch.py` skips a gate that raises, so a
+    consent read that raised turned the guard's deny into no decision at all.
+    Two inputs raised: a `tool_use_id` that is a list (unhashable) and a NUL in
+    `transcript_path`. Each is run through `dispatch.py pre-bash` beside a
+    well-formed control, and each must reach the same stop the control does.
+    A fresh session id per call, so the guard's own per-session memory is not
+    what differs."""
+    use, result = ask_entries(repo, answer="per axis")
+    control = write_transcript(tmp_path / "t", "s-ok", [use, result])
+    use, result = ask_entries(repo)
+    result["message"]["content"][0]["tool_use_id"] = ["toolu_01routing"]
+    listed = write_transcript(tmp_path / "t", "s-list", [use, result])
+    outs = {
+        "control": dispatch_pre_bash(repo, "s-ok", str(control)),
+        "list id": dispatch_pre_bash(repo, "s-list", str(listed)),
+        "NUL path": dispatch_pre_bash(repo, "s-nul", "/x/\x00y/s-nul.jsonl"),
+    }
+    assert decision_of(outs["control"]) == "deny", outs["control"]
+    for name, out in outs.items():
+        assert decision_of(out) == "deny", (name, out)
+
+
+def test_the_reader_itself_answers_both_shapes_without_raising(projects, repo):
+    """The two narrow repairs, pinned below `consent`'s catch-all, which would
+    otherwise hide either one coming undone."""
+    use, result = ask_entries(repo)
+    result["message"]["content"][0]["tool_use_id"] = ["toolu_01routing"]
+    write_transcript(projects, "me", [use, result])
+    assert wc.automation_answered(str(repo), "me") is False
+    assert wc.automation_answered(str(repo), "me", "/x/\x00y/me.jsonl") is False
+
+
+def test_consent_fails_closed_on_any_exception(monkeypatch, repo):
+    """The class, not the two instances: both call sites go through
+    `consent`, so whatever the reader raises next is *no consent* there."""
+
+    def boom(*a, **k):
+        raise RuntimeError("a shape nobody measured")
+
+    monkeypatch.setattr(wc, "automation_answered", boom)
+    assert wc.consent(str(repo), "me") == ""
+    grant(repo)
+    assert wc.consent(str(repo), "me") == "record"
