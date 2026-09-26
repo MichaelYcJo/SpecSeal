@@ -36,8 +36,8 @@ blank lines removed, so reformatting is not a change and reindenting is: in
 Python indentation carries meaning, and a checker that shrugged at a dedent
 would go quiet exactly where it should complain.
 
-Exit codes: 0 clean · 1 drift only · 2 broken, old-format or malformed
-coordinates (or drift with --strict). Designed for CI: a spec-code link that stops resolving should fail
+Exit codes: 0 clean · 1 drift or malformed only · 2 broken or old-format
+coordinates (or drift or malformed with --strict). Designed for CI: a spec-code link that stops resolving should fail
 the build the same way a broken test does.
 
 Usage:
@@ -1706,8 +1706,10 @@ def malformed_rows(text):
 
     Its own verdict and not BROKEN, for the reason `old_format_rows` gives:
     BROKEN means *the unit is not there*, and a coordinate nobody can read
-    names no unit to look for. It fails the run with or without `--strict`,
-    like OLD-FORMAT. Two ways in:
+    names no unit to look for. It is graded like DRIFTED, not like
+    OLD-FORMAT: exit 1 on a lenient run and exit 2 under `--strict`, which
+    is what `broad-gate` passes (`exit_code` says who decided it). Two ways
+    in:
 
     - a coordinate the patterns refused: what is left of the cell once every
       `ANCHOR_RE` and `OLD_COORD_RE` match is blanked, and every URL in it,
@@ -2717,15 +2719,20 @@ def check_records(root, home, maps=None, default_repo=None):
 # **The one exit code this checker's readers grade differently.** Three of them
 # run this script over one tree: `bin/evidence-check`, the command every
 # document names, takes the answer as it comes; CI's `ledger` job renders exit
-# 1 as a `::warning::`; and `broad-gate` passes `--strict`, where drift is
-# exit 2 and the branch comes back `NOT SEALED`. A session that runs the
-# documented command more often never meets the reading that decides, because
-# the documented command is not the deciding one (#354).
+# 1 as a `::warning::`; and `broad-gate` passes `--strict`, where DRIFTED and
+# MALFORMED are exit 2 and the branch comes back `NOT SEALED`. A session that
+# runs the documented command more often never meets the reading that decides,
+# because the documented command is not the deciding one (#354).
 #
 # Printed on exit 1 and nowhere else. Exit 0 and exit 2 are states every
 # reader grades alike, so there is no disagreement to report — and a line that
 # prints on every run is a line people learn to skip, which is the shape
 # `hooks/evidence-advisor.py` already measured.
+#
+# Exit 1 has two causes, and the sentence names both verdict words: the rows
+# above it carry one of them, which is how a reader tells *re-read* from *fix
+# the coordinate*. One sentence rather than one per cause, because choosing
+# between two would need a predicate restating the grading beside `exit_code`.
 #
 # `NOT SEALED` is `seal_stamp`'s word and this is borrowing it.
 # `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py` holds the
@@ -2734,7 +2741,8 @@ def check_records(root, home, maps=None, default_repo=None):
 # in silence.
 LENIENT_NOTICE = (
     "exit 1 is the lenient reading. `broad-gate` runs this same check with "
-    "`--strict`, where drift is exit 2, and this tree would come back NOT SEALED."
+    "`--strict`, where DRIFTED and MALFORMED are exit 2, and this tree would "
+    "come back NOT SEALED."
 )
 
 
@@ -2749,15 +2757,17 @@ def exit_code(totals, refused, drifted, strict):
     """
     if totals["OLD-FORMAT"]:
         return 2
-    # Graded like OLD-FORMAT, the other coordinate nothing can parse: exit 2
-    # under both readings. Its own branch because it is the one the owner may
-    # move to DRIFTED's grading (`questions.md` Q1 of work item
-    # 1790297087-a-ledger-row-that-will-not-parse-is-counted).
-    if totals["MALFORMED"]:
-        return 2
     if totals["BROKEN"] or refused:
         return 2
-    if totals["DRIFTED"] or drifted:
+    # Graded like DRIFTED: exit 1 leniently, 2 under `--strict`. The
+    # repository owner answered (b) to `questions.md` Q1 of work item
+    # 1790297087-a-ledger-row-that-will-not-parse-is-counted on 2026-09-26.
+    # It departs from OLD-FORMAT, the other coordinate nothing can parse,
+    # which stays exit 2 under both readings: a patch release does not start
+    # refusing rows in a repository's lenient run, and `broad-gate` and the
+    # vendored CI template both pass `--strict`, so the readers that decide
+    # still refuse. Below BROKEN so a tree holding both is still exit 2.
+    if totals["MALFORMED"] or totals["DRIFTED"] or drifted:
         return 2 if strict else 1
     return 0
 
@@ -2773,7 +2783,11 @@ def main():
         help="repo that unprefixed coordinates resolve against when "
         "absent from ROOT (migration ledgers cite the original repo)",
     )
-    ap.add_argument("--strict", action="store_true", help="drift also fails")
+    ap.add_argument(
+        "--strict",
+        action="store_true",
+        help="drift and malformed coordinates also fail",
+    )
     ap.add_argument(
         "--migrate",
         action="store_true",

@@ -71,11 +71,14 @@ jobs:
   # stopped resolving fails; drift is reported and does not. Drift means the
   # content under an anchor changed and nobody has said they re-read it, which
   # is a true statement about a branch mid-flight — failing on it would be red
-  # by construction, and a check that is always red gets ignored.
+  # by construction, and a check that is always red gets ignored. A malformed
+  # coordinate is reported and does not fail either: it is graded like drift,
+  # the repository owner's answer of 2026-09-26, and the warning below names
+  # both causes of exit 1 because the verdict on each row says which it is.
   #
   # This job is the LENIENT reader, and it is not the one that decides.
-  # `broad-gate` runs the same script with `--strict`, where drift is exit 2
-  # and the branch comes back NOT SEALED. The step below needs nothing for
+  # `broad-gate` runs the same script with `--strict`, where DRIFTED and
+  # MALFORMED are exit 2 and the branch comes back NOT SEALED. The step below needs nothing for
   # that: it reads the exit code and never the text, and the script prints the
   # difference itself on exit 1, so the sentence lands in this log directly
   # above the warning (#354).
@@ -96,5 +99,5 @@ jobs:
           set -e
           if [ "$code" -ge 2 ]; then exit "$code"; fi
           if [ "$code" -eq 1 ]; then
-            echo "::warning::evidence ledger reports drift — re-verify the rows above"
+            echo "::warning::evidence ledger reports drift or a malformed coordinate — each row above names its verdict and what to do"
           fi

@@ -899,7 +899,8 @@ def test_a_coordinate_that_will_not_parse_is_malformed_under_both_readings(repo,
             f"the line names no remedy:\n{r.stdout}"
         )
         assert "0 old-format · 1 malformed" in r.stdout, r.stdout
-        assert r.returncode == 2, f"{args}: exit {r.returncode}\n{r.stdout}"
+        want = 2 if "--strict" in args else 1
+        assert r.returncode == want, f"{args}: exit {r.returncode}\n{r.stdout}"
 
 
 def test_a_bare_quote_in_a_quoted_locator_is_malformed_and_the_escape_repairs_it(
@@ -915,7 +916,7 @@ def test_a_bare_quote_in_a_quoted_locator_is_malformed_and_the_escape_repairs_it
         f'| CLAUSE | `src/names.py#"LABEL = "ok""@{h}` |\n', encoding="utf-8"
     )
     r = run(["."], str(repo))
-    assert "MALFORMED" in r.stdout and r.returncode == 2, r.stdout
+    assert "MALFORMED" in r.stdout and r.returncode == 1, r.stdout
     assert '`\\"`' in r.stdout, f"the line does not name the escape:\n{r.stdout}"
     ledger.write_text(
         f'| CLAUSE | `src/names.py#"LABEL = \\"ok\\""@{h}` |\n', encoding="utf-8"
@@ -952,7 +953,7 @@ def test_a_claim_whose_grounds_cite_nothing_is_malformed(repo):
     )
     r = run(["."], str(repo))
     assert "MALFORMED none — policy only" in r.stdout, r.stdout
-    assert r.returncode == 2, r.stdout
+    assert r.returncode == 1, r.stdout
 
 
 NOT_A_CLAIM = (
@@ -998,7 +999,7 @@ def test_what_is_not_a_claim_is_not_refused(repo):
     r = run(["."], str(repo))
     assert "MALFORMED src/service.py#Box@0" in r.stdout, r.stdout
     assert "MALFORMED src/service.py#handler@0 " not in r.stdout, r.stdout
-    assert r.returncode == 2, r.stdout
+    assert r.returncode == 1, r.stdout
 
 
 def test_what_is_left_of_a_cell_is_read_span_by_span(repo):

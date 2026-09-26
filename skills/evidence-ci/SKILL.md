@@ -61,6 +61,12 @@ of this command, not something that arrives silently.
      the tree does not carry and for a record it cannot read, whatever this
      flag says, because neither has a mid-flight excuse. Drift in a record
      follows `--strict` the way drift in a ledger does.
+
+     **1 is not only drift.** A ledger coordinate that does not parse,
+     `MALFORMED`, follows the flag the way drift does: exit 1 without it, 2
+     with it. So the recipe above lets a malformed coordinate through with
+     the rest of exit 1, and the run's output names it with its remedy.
+     `OLD-FORMAT` is not softened: it exits 2 whatever this flag says.
    - **Path filters.** The template watches `docs/**`, `src/**`, and the
      checker. Replace `src/**` with this repo's actual source roots; a filter
      that never matches is a check that never runs.
