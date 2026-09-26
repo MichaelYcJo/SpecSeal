@@ -1089,6 +1089,9 @@ def test_an_unticked_coordinate_with_one_mark_is_named(repo, bare):
         '#"def handler"',
         "#handler@abcdef12",
         'src/a.py#"x = 1  # c"@0',
+        '#handler>"a b"@abcdef12',
+        '#handler>"a \\"b c\\""@abcdef12',
+        'see #handler>"a b"@abcdef12',
     ],
 )
 def test_a_coordinate_the_opener_list_misses_is_named(repo, coord):
@@ -1101,10 +1104,13 @@ def test_a_coordinate_the_opener_list_misses_is_named(repo, coord):
     with no dot glued to a name, a quoted line with no path, and a path-less
     coordinate holding both marks are named beside a good anchor too.
 
-    The last shape is a guard for #614's glued-marks rule, green before that
-    change and after it: a quoted locator whose line holds a comment keeps
-    its `#` and `@` glued through the quoted string, so the whitespace inside
-    the quotes does not excuse it."""
+    The last four shapes are #614's glued-marks rule read from the other
+    side: a `#` and an `@` stay glued through a quoted string, whitespace and
+    escaped quotes inside it included. The first of them is a guard, green
+    before that change and after it, because its path names it word by word
+    anyway. The three with no path and a space inside the quotes are named by
+    the quoted string alone, and the last holds prose before its `#`, so
+    every `#` in a span is tried rather than only one opening it."""
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
     good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
