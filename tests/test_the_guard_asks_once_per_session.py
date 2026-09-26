@@ -1346,3 +1346,13 @@ def test_the_allow_says_which_consent_it_read(monkeypatch, capsys, projects, rep
         "permissionDecisionReason"
     ]
     assert "라우팅 질문에서 `automation` 을 눌렀고" in reason
+
+
+def test_no_case_reads_the_real_projects_root():
+    """`tests/conftest.py`'s autouse fixture points the guard's copy of the
+    reader at an empty directory, so a case that builds no transcript cannot
+    find one belonging to whoever runs the suite. Seen red by deleting the
+    fixture's `setattr`."""
+    real = os.path.join(os.path.expanduser("~"), ".claude", "projects")
+    assert real != wg.worktree_consent.PROJECTS_ROOT
+    assert not os.listdir(wg.worktree_consent.PROJECTS_ROOT)

@@ -156,7 +156,7 @@ issue, and #237's invariant stays whole.
 - **The `routing.md` reading.** Rejected above; not a fallback either,
   because a fallback the model can satisfy by writing a file is the
   `[worktree-ok]` standing under another name.
-- **`permission_mode` in the payload** (auto or bypass mode as consent). It is
+- **`permission_mode` in the payload** (auto or bypass mode as consent; NAME NOT IN TREE, a harness payload field). It is
   the person's setting, but it answers *who judges permissions*, not *may this
   run split the clone*; it would silence the guard in every auto-mode
   session, supervised ones included. In `plan.md`'s Alternatives.

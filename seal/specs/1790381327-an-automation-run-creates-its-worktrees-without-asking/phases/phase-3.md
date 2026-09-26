@@ -25,7 +25,7 @@ now judged in `main` and never reaches `guard_worktree_creation`. It asks
 nothing about the tree: consent is silence, and anything else is one `ask`.
 
 **Three parameters of `guard_worktree_creation` lost their only caller.**
-`single_stream`, `shared_option` and `shared_steer` were set by the Agent path
+`single_stream`, `shared_option` and `shared_steer` were set by the Agent path (NAME NOT IN TREE: this phase removed them)
 alone, so each became a parameter nothing could set. They were removed, and
 the single-stream row now answers `deny` directly. The frame did not name
 this. It follows from routing the Agent path around the function, and the rule
@@ -69,5 +69,5 @@ which the plan required to pass unchanged. Mutations on the new tree:
 |---|---|
 | `main`'s `# RIDER:` on the Agent path (#8's open question) | answered in `main`'s Agent block and in `docs/worktree-guard-spec.md` §*Why the Agent path counts nothing, asks once, and reads no token* |
 | the Agent `ask` reason's steer to *call the Agent again without isolation*, and the shared-tree option that said the same | none — this work's point is that the steer was wrong |
-| `guard_worktree_creation`'s `single_stream`, `shared_option` and `shared_steer` parameters | none — no caller set them once the Agent path stopped calling the function |
+| `guard_worktree_creation`'s `single_stream`, `shared_option` and `shared_steer` parameters | NAME NOT IN TREE after this phase. none — no caller set them once the Agent path stopped calling the function |
 | the `[worktree-ok]` row's *Single-stream work, but* opening, in both languages | the row's new opening, *No other Claude session is working in this tree, but* |
