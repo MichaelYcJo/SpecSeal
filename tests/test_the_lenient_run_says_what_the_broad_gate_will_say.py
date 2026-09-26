@@ -454,6 +454,7 @@ def test_every_other_page_that_grades_the_flag_names_malformed():
     skill = read(os.path.join(ROOT, "skills", "evidence-check", "SKILL.md"))
     flag = table_row(skill, "`--strict`")[1]
     assert "malformed" in flag and f"exit {strict}" in flag, flag
+    assert f"instead of {lenient}" in flag, "the flag row's lenient exit"
     ci = " ".join(read(os.path.join(ROOT, "skills", "evidence-ci", "SKILL.md")).split())
     want = (
         f"`MALFORMED`, follows the flag the way drift does: exit {lenient} "
@@ -461,5 +462,6 @@ def test_every_other_page_that_grades_the_flag_names_malformed():
     )
     assert want in ci, "evidence-ci's step 4 no longer grades MALFORMED"
     template = read(os.path.join(ROOT, "templates", "evidence-check.yml"))
+    assert lenient < strict, "the template says dropping --strict softens it"
     assert "softens drift\n          # and MALFORMED, and nothing else" in template
     assert f"{lenient} drift or malformed only" in ec.__doc__, "the module docstring"

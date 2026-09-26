@@ -1620,9 +1620,11 @@ ISSUE_TAIL_RE = re.compile(r"\d+(?![A-Za-z0-9_])")
 # `@lru_cache  # memoized` does not. Searched, so every `#` is tried. The
 # quoted string holds its whitespace only in a code span: outside one,
 # `malformed_rows` has split the text into words before this reads it.
-# `#` is out of the unquoted class so each attempt stops at the next one:
-# the attempt that starts there finds the same match, and the search stays
-# linear rather than rescanning the span from every `#`.
+# `#` is out of the unquoted class so each attempt stops at the next `#`
+# outside a quote: the attempt that starts there finds the same match, and a
+# run of them is read in linear time. A `#` inside a quote does not stop
+# one, so a chain of quoted strings holding escaped quotes (`#"\"` repeated)
+# is still quadratic: 1.5 s at 20 000 characters, far past any real row.
 GLUED_MARKS_RE = re.compile(r'#(?:"(?:[^"\\\n]|\\.)*"|[^\s"#])*@')
 
 
@@ -1632,17 +1634,30 @@ def refused_coordinate(s):
     after a path. `#299`, `org/repo#299's`, `#ifdef`, `C#`, `@cache`,
     `chart.js@4` and `@lru_cache  # memoized` are prose.
 
-    What each edge gives up (#614): `src/a.py@abc`, a path followed by fewer
-    than six hex characters, is silent. A locator that opens with digits and
-    goes on with anything but an ASCII letter, digit or `_` reads as an
-    issue number when no hash follows: `docs/a.md#1장`, `docs/a.md#1-scope`,
-    `docs/a.md#1.2`, `src/a.py#1>"x"`. A dotless file name takes a locator
-    opening with a letter, `_`, `"` or `<` and never a digit, so
-    `Makefile#1x` is silent and `C#"hello"` or `vector#<T>` is named. A
-    path-less coordinate is silent where unquoted whitespace, or a `"` no
-    second `"` closes, stands between its marks: `#handler @abcdef12`,
-    `#handler>"a"b"@abcdef12`. With a path, the per-word rule still names
-    those last two."""
+    What #614 changed, as the rules that move a verdict against 0.15.4's
+    checker. Each gives up coordinates as well as prose, and every cell whose
+    verdict moved over a generated shape space falls under one of them:
+
+    - A path followed by `@` takes a hash only of six or more hex
+      characters: `chart.js@4` is prose, and so is `src/a.py@abc`.
+    - The per-word rule reads a locator opening with digits that no ASCII
+      letter, digit or `_` continues as an issue number, whatever follows
+      the digits: `org/repo#299's` is prose, and so are `docs/a.md#1-scope`,
+      `docs/a.md#1장`, `docs/a.md#1.2` and `src/a.py#1>"x"`. Such a
+      coordinate is named only where its `@` is glued to its `#`, as in
+      `docs/a.md#1장@abcdef12`.
+    - Both marks count only where they are glued: no whitespace between them
+      outside a quoted string, which holds whitespace only in a code span,
+      and no `"` left unclosed. Where they are not glued each word is
+      judged alone, so `src/a.py#handler @abcdef12` is still named, and
+      `@lru_cache  # memoized`, `#handler @abcdef12`,
+      `docs/a.md#1-scope @abcdef12` and `#handler>"a"b"@abcdef12` are not.
+    - A file name with no dot takes a locator opening with a letter, `_`,
+      `"` or `<`, and never a digit: `Makefile#"all: build"`, `C#"hello"`
+      and `vector#<T>` are named, and `Makefile#1x` is not.
+    - A locator opening with a digit that is not a decimal digit is not an
+      issue number, so after a path it is named: `docs/a.md#²`,
+      `docs/a.md#①`."""
     s = URL_RE.sub(" ", s)
     if GLUED_MARKS_RE.search(s):
         return True

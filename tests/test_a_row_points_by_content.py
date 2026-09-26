@@ -1196,26 +1196,49 @@ def test_a_decorated_line_holding_both_marks_apart_is_prose(repo, prose):
     assert r.returncode == 0, r.stdout
 
 
-GIVEN_UP = [
-    "src/a.py@abc",
-    "docs/a.md#1장",
-    "docs/a.md#1-scope",
-    "docs/a.md#1.2",
-    'src/a.py#1>"x"',
-    "Makefile#1x",
-    "#handler @abcdef12",
-    '#handler>"a"b"@abcdef12',
-]
-TAKEN_UP = ['C#"hello"', "vector#<T>"]
+# One or two examples of each rule `refused_coordinate`'s docstring states for
+# the verdicts #614 moved. The rules were read off every cell whose verdict
+# differs between 0.15.4's checker and this one, over a generated shape space
+# (heads x locators x hash endings, in a code span and as bare words), and
+# every such cell falls under one of them (round 2's fix pass of work item
+# 1790381328, `seal/ledger/` row S8-S12). A new rule takes an example here.
+GIVEN_UP = {
+    "a short hash after a path": ["src/a.py@abc"],
+    "a digit-first locator is an issue number": [
+        "docs/a.md#1-scope",
+        "docs/a.md#1장",
+    ],
+    "marks that are not glued are judged word by word": [
+        "#handler @abcdef12",
+        "docs/a.md#1-scope @abcdef12",
+        '#handler>"a"b"@abcdef12',
+    ],
+}
+TAKEN_UP = {
+    'a dotless name takes `_`, `"` and `<`': ['C#"hello"', "vector#<T>"],
+    "a digit that is not a decimal digit opens a locator": [
+        "docs/a.md#²",
+        "docs/a.md#①",
+    ],
+}
 
 
-@pytest.mark.parametrize("shape", GIVEN_UP)
+def examples(rules):
+    return [
+        pytest.param(shape, id=f"{rule}: {shape}")
+        for rule, shapes in rules.items()
+        for shape in shapes
+    ]
+
+
+@pytest.mark.parametrize("shape", examples(GIVEN_UP))
 def test_what_rule_a_gives_up_is_silent_and_says_so(repo, shape):
-    """Round 1's 🟡 1 of work item 1790381328. Each shape `refused_coordinate`
-    lists as given up is silent in a code span beside a good anchor, and the
-    list names it, so the list cannot go narrower than the code: a shape the
-    code silences and the docstring leaves out was how the round found two
-    classes the release note did not mention."""
+    """Rounds 1 and 2's 🟡 1 of work item 1790381328. Each example of a rule
+    `refused_coordinate` states as given up is silent in a code span beside a
+    good anchor, and the docstring names it. Round 1 closed the list example
+    by example and round 2 found the next family, so the list is now a set of
+    rules read off every flipped cell, and this case holds one or two
+    examples of each."""
     assert f"`{shape}`" in ec.refused_coordinate.__doc__, "the list omits it"
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
@@ -1226,11 +1249,13 @@ def test_what_rule_a_gives_up_is_silent_and_says_so(repo, shape):
     assert r.returncode == 0, r.stdout
 
 
-@pytest.mark.parametrize("shape", TAKEN_UP)
+@pytest.mark.parametrize("shape", examples(TAKEN_UP))
 def test_what_the_dotless_openers_take_up_is_named_and_says_so(repo, shape):
-    """Round 1's ⬜ 4. The other direction of the same list: a `"` or `<`
-    after a name with no dot is a locator's opener, so `C#"hello"` and
-    `vector#<T>` are named, and the list says they are."""
+    """Rounds 1 and 2's ⬜ 4. The other direction of the same list: a `"` or
+    `<` after a name with no dot is a locator's opener, so `C#"hello"` and
+    `vector#<T>` are named; and a locator opening with a digit that is not a
+    decimal digit is not an issue number, so `docs/a.md#²` is named. The
+    docstring says so."""
     assert f"`{shape}`" in ec.refused_coordinate.__doc__, "the list omits it"
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
