@@ -930,8 +930,10 @@ removed because one of its anchors left the code is out, since its claim
 went with the code; a row corrected in place is still read where its id
 stands under the same heading, and otherwise only while a live row cites
 every anchor it kept. So one whose correction renamed an anchor goes silent
-if it has no id (about 37% of rows), lost a sibling of its id, dropped an
-anchor, or changed section. In a `.py` file only
+only when both fail: the id does not name it (it has no id, as about 35% of
+rows do; its id lost a sibling; or it changed section), and no live row cites
+what it kept (every anchor was renamed, or a kept one was dropped). In a
+`.py` file only
 comments, docstrings and string literals are wording, every other token ends
 a sentence, and a file the tokenizer refuses is read whole. Each of these
 cost a check that went green by finding nothing or red over something
