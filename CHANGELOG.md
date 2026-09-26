@@ -1,5 +1,119 @@
 # Changelog
 
+## 0.15.5 — 2026-09-26
+
+<!-- specs/1790381327-an-automation-run-creates-its-worktrees-without-asking -->
+- **An automation run creates its worktrees without the worktree guard
+  stopping it, and an isolated agent is no longer told to drop isolation
+  (issues #604 and #8).** A session whose person pressed `automation` on the
+  routing question used to meet a guard prompt at its first `git worktree
+  add`, one call after the answer that says nothing stops to ask again. The
+  guard now reads that answer as consent, beside the record a creation that
+  already ran leaves. It reads the answer from this session's own
+  transcript, where the harness wrote it from the click, and only when it is
+  the real `AskUserQuestion` result for the routing question, the option
+  labelled `automation` was pressed, and it was given from this clone. A
+  message, a command's output or a `routing.md` saying `automation` does not
+  count, because the model writes those, and neither does a typed answer
+  such as "automation - but ask me first". A `per axis` answer still
+  meets one prompt per session. An Agent call with `isolation: "worktree"`
+  is now judged as concurrent work, because the agent runs beside the session
+  that spawned it: without consent it asks once, and its reason no longer
+  says the tree is single-stream or suggests calling the agent again without
+  isolation, which would have put it in the parent's tree. The switch
+  direction reads neither consent.
+
+<!-- specs/1790381328-malformed-is-graded-like-drifted-and-reads-prose-as-prose -->
+### Changed
+
+- **A ledger coordinate that does not parse no longer fails a lenient
+  `evidence-check` run: `MALFORMED` now exits 1, like drift, and exits 2 only
+  under `--strict`.** In 0.15.4 it exited 2 either way, so a repository
+  running the check without the flag, or through `evidence-ci`'s lenient
+  recipe, went red on update. The row is still named with what to write
+  instead, and a lenient run still ends by saying that `broad-gate` runs the
+  same check with `--strict`, where `DRIFTED` and `MALFORMED` are exit 2. The
+  readers that decide still refuse it: `broad-gate` and the vendored CI
+  template both pass `--strict`. `OLD-FORMAT` is unchanged at exit 2 either
+  way. This is the repository owner's answer to #606's open question. The
+  skill's verdict and reader tables, `evidence-ci`'s step on `--strict`, the
+  template's comment and this repository's CI warning now say so, and the
+  warning names both causes of exit 1 instead of sending a malformed row to
+  `--reverify`.
+
+### Fixed
+
+- **`evidence-check` stops reading prose as a broken coordinate at four
+  edges, and names coordinates it used to miss (issue #614).** Five rules
+  changed, and every verdict that moved from 0.15.4, over a generated set of
+  2 426 shapes read in a code span and as bare words, falls under one of
+  them. Each rule gives up some coordinates along with the prose it was
+  written for:
+  - A path followed by `@` takes a hash only of six hex characters or more.
+    `chart.js@4` is prose now, and so is `src/a.py@abc`.
+  - A locator opening with digits that no ASCII letter, digit or underscore
+    continues is an issue number, whatever follows the digits.
+    `org/repo#299's` and `org/repo#299에서` are prose now, and so are
+    `docs/a.md#1-scope`, `docs/a.md#1장` and `src/a.py#1>"x"`. Such a
+    coordinate is still named when its `@` is glued to it
+    (`docs/a.md#1장@abcdef12`).
+  - `#` and `@` count as one coordinate only where they are glued: no space
+    between them outside quotes, a quoted part keeping its spaces only
+    inside a code span, and no quote left unclosed. Otherwise each word is
+    judged alone. `` `@lru_cache  # memoized` `` is prose now, and so are
+    `#handler @abcdef12`, `docs/a.md#1-scope @abcdef12` and
+    `#handler>"a"b"@abcdef12`; `src/a.py#handler @abcdef12` is still named.
+  - A file name with no dot followed by a quoted line, `<module>` or an
+    `_name` is a coordinate: `Makefile#"all: build"` is named now, and so
+    are `C#"hello"` and `vector#<T>`. `Makefile#1x` is still not named.
+  - A locator opening with a digit that is not a decimal digit (`²`, `①`)
+    is not an issue number, so `docs/a.md#²` is named now.
+
+  A run of `#` characters outside quotes no longer takes seconds to read.
+
+<!-- specs/1790381329-the-deferred-sentences-and-pins -->
+- **`seal` and `payload-meter` copied without their siblings exit 2 with a
+  sentence (issue #610).** `seal` imports two files from the plugin's
+  `hooks/` directory, and `payload-meter --calibrate` loads
+  `session_cost.py` from beside it. Copied on their own, both died with a
+  Python traceback at exit 1, which reads as a finding rather than a broken
+  copy. Each now names the missing file's path and what it is for, and
+  exits 2, the code 0.15.4 gave the other shipped scripts for the same
+  case. `seal`'s documented exit codes gain the 2. A caller testing for a
+  non-zero exit is unaffected.
+- **The settle skill names both headings a kept directory can appear under
+  (issue #611).** Once `--released-at` has moved past the commit your
+  branch started from, `settle` lists a directory whose closure has not
+  reached the base under *kept: the closure has not reached <base>*. The
+  skill named only the other wording, *kept until the closure reaches
+  <base>*. Both are named now, and the report's summary line is held by a
+  case.
+- **`unverified-check --baseline` says where its comparison lands in CI
+  (issue #612).** It reads `git merge-base <ref> HEAD`. On a branch
+  checkout, such as a local run or the broad gate's, that is where the
+  branch started. In CI it is the tip of the base branch, because a pull
+  request is checked out already merged into the base. The command's help,
+  its docstrings, both hygiene workflows, the verify skill, both READMEs
+  and both editions of `docs/one-root-by-lifetime` said only the first and
+  placed it in CI. Two of them said CI never compares at the tip, which was
+  false. What the check refuses is unchanged.
+- **The survivor sweep states which corrected ledger rows it leaves silent
+  (issue #615).** Its docstrings and `docs/review-chain-spec.md` described
+  the two rules that keep a corrected row measured as alternatives. That
+  called rows silent that the sweep reports. They now say a row goes silent
+  only when both fail: its id does not name it, and no live row cites what
+  it kept. About 35% of this repository's ledger rows carry no id, measured
+  at this branch. A case now holds the id rule's direction: a row corrected
+  and split into two rows under its id stays measured.
+- **The broad gate's `cmd.exe` expansion says what it models (issue
+  #616).** Before it decides whether a command name starts in a directory,
+  the gate expands a plain `%VAR%`. It takes an environment variable named
+  `CD` over the directory it would compute, as `cmd.exe` does. It leaves a
+  substring or substitution such as `%VAR:~0,2%` as written. Its docstrings
+  and `templates/config.md` §*Broad gate* claimed to expand the way
+  `cmd.exe` does, which covered neither. They now name the plain form, the
+  `CD` precedence and the substring limit, and cases hold all three.
+
 ## 0.15.4 — 2026-09-25
 
 <!-- specs/1790297083-the-release-job-goes-red-on-a-record-it-need-not-judge -->

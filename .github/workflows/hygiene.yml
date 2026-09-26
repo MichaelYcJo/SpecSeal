@@ -145,12 +145,18 @@ jobs:
       # So the tally is printed on every PR. It never fails for an open item —
       # a red build for an honest row teaches sessions to write none, which
       # voids the condition. It fails only for what the author can always fix:
-      # a section that cannot be read, a table with fewer rows than where this
-      # branch forked from the base, a file that was there and is gone, and a
+      # a section that cannot be read, a table with fewer rows than at the
+      # base revision read below, a file that was there and is gone, and a
       # base ref that either does not resolve or shares no history with HEAD
       # (exit 2, because nothing was compared).
       #
-      # The ref goes in and `git merge-base <ref> HEAD` is what gets read.
+      # The ref goes in and `git merge-base <ref> HEAD` is what gets read. In
+      # this job that is the base's tip: the checkout above has no `ref:`, so a
+      # pull request is checked out as its head already merged into the base.
+      # On a branch checkout -- a local run, the broad gate's -- the same
+      # command answers the fork point. Either way a work item that landed on
+      # the base after this branch was cut is not this branch's removal: here
+      # HEAD holds it too, and there the fork point never had it.
       # `github.base_ref` names a branch that MOVES, and on a release branch it
       # moves by one squash per work item: the moment one item landed, every
       # sibling branch cut before it read the squashed item's `overview.md` as

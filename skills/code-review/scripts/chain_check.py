@@ -2620,9 +2620,10 @@ def fix_surface(reader, root, rel):
       `nobody — <why>` beside a pending row, which is the state `ORDER_FROM`
       REQUIRES at the moment a record lands, so it cannot be refused here.
       `checked_by` prints a notice for it on every record and refuses it on
-      the LAST record beside a checked `Pass`. A non-terminal record carrying
-      it is false by construction — a later record exists, and round N+1
-      reviews round N's fixes — and nothing refuses that today
+      the LAST record beside a checked `Pass` at a ready pull request. A
+      non-terminal record carrying it is false by construction — a later
+      record exists, and round N+1 reviews round N's fixes — and nothing
+      refuses that today
 
       `no fixes to check` beside a pending row, which the TERMINAL record of
       every run carries. There the pair is not merely unrefused but wrong: a

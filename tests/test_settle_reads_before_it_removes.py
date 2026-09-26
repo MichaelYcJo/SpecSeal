@@ -754,6 +754,9 @@ def test_the_report_does_not_promise_what_the_retirement_refuses(tree):
     assert settle.RULE_BASE_HEADING.format(base=BASE) in text, text
     kept = text.split(settle.RULE_BASE_HEADING.format(base=BASE))[1]
     assert MOMENT in kept and "a claim nobody ran" in kept, text
+    # #611, round 3 of 1790297085 ⬜ 3: bc63b91d reworded the summary line and
+    # nothing pinned the new words (contract §14).
+    assert f"1 kept because the closure has not reached {BASE}" in text, text
 
 
 def test_the_base_heading_says_where_the_closure_has_to_go():
@@ -771,6 +774,10 @@ def test_the_documents_say_the_closure_has_to_reach_the_base():
     directory kept there."""
     text = flat(skill())
     assert "*kept until the closure reaches <base>*" in text, text
+    # #611: `base_heading` prints `RULE_MOVED_HEADING` instead once
+    # `--released-at` has moved past the fork, and the skill named only the
+    # first of the two wordings.
+    assert "*kept: the closure has not reached <base>*" in text, text
     assert "Merged first means merged to the branch the release merges to" in text
     assert "the merge base of `--released-at` and `HEAD`" in text
     policy = flat(document("docs", "the-evidence-ledger.md"))

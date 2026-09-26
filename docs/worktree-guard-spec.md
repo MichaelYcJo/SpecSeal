@@ -29,18 +29,37 @@ actually live on the tree.
 
 | Tree state | Decision |
 |---|---|
-| **this session already created a worktree in this clone** | **allow** where the tool call is worktree creation and nothing else · **ask** where the command does more · **silent** on the Agent/Task path. Read before every row below it — see §Creation consent |
+| **consent: this session already created a worktree in this clone, or its person pressed `automation` on the routing question** | **allow** where the tool call is worktree creation and nothing else · **silent** where the command does more, and on the Agent/Task path. Read before every row below it — see §Creation consent |
 | ACTIVE session present | ask — separation justified, creation still needs a human. Declining leads to "use the worktree that session opened, or wait for it", neither of which is a command this session issues, so there is nothing to offer |
 | only IDLE sessions | **choice** — create it, or switch in the shared tree; likely single-stream |
 | detection unusable | **choice** — the same two |
 | `[worktree-ok]` given (Bash only) | ask — the token IS a completed confirmation coming back through the guard, so putting the question again asks what the user already answered. Declining withdraws the token, which is the other way on |
 | single stream, **Bash** | deny — steer to `git switch`; `[worktree-ok]` in a retry reaches the row above |
-| single stream, **Agent/Task** | ask — see below |
+| **Agent/Task**, no consent, any tree state | ask — the agent runs beside this session, so the call is concurrent by construction. No session is counted, no choice site is reached, and declining cancels the spawn. See below |
 
-#### Why the Agent path ends at `ask` and reads no token
+Every row between the consent row and the Agent/Task row is the Bash path's.
 
-The two entry points part company at exactly one row, and the reason is that
-one of them has no command line.
+#### Why the Agent path counts nothing, asks once, and reads no token
+
+**An isolated agent is concurrent work by construction, so the Agent path does
+not count sessions (#8).** The agent runs beside the session that spawned it,
+and that session's tree is not switched: two work streams, which is what the
+Premise counts. The session count cannot see it. A subagent's tool call renews
+its parent's lease and has no id of its own (measured), so an agent spawned in
+a one-session tree read as single-stream work. The verdict that reading
+produced told the model to call the Agent again without `isolation:
+"worktree"`, which puts the agent in the parent's tree while the parent works
+there — the mixing this guard exists to prevent.
+
+So the path has two outcomes. Consent is silence, for the reason §Creation
+consent gives: the call is a creation plus an agent with a prompt, and consent
+answers the first half. Otherwise it asks, once per session, because the
+first creation of a session is one confirmation and a spawn that ran writes the
+record. What changed is what the path measures, not that floor: lowering it for
+supervised sessions is not something #8 asked for.
+
+The token is a separate matter, and the reason the path reads none is that it
+has no command line.
 
 `[worktree-ok]` is a bare word in a command: a shell command is tokens, so
 "the user asked for this" and "a sentence about the token" are distinguishable
@@ -55,16 +74,16 @@ prompt was tried and taken back after both halves failed:
   prompt. It already had.
 
 What the token was buying was one step, `deny` to `ask`, because worktree
-creation ends at a human confirmation on both paths regardless. Taking that
-step outright costs nothing and removes the guessing. So the Agent verdict
-does not depend on the prompt at all, and its reason names the only way on it
-actually has: call the Agent again without `isolation: "worktree"`.
+creation ends at a human confirmation on both paths regardless. The path now
+asks outright, so the verdict does not depend on the prompt at all.
+Enforced by: tests/test_worktree_guard.py::test_an_isolated_agent_asks_without_counting_sessions, tests/test_worktree_guard.py::test_the_agent_verdict_does_not_depend_on_the_prompt
 
 ## Creation consent — the first creation is the question, not every one
 
 <!-- specs/1788817291-the-guard-asks-once-per-worktree-not-once-per-session -->
 **The first worktree creation in a session is the question, and a later one in
-the same session is allowed.**
+the same session is allowed — and where the person pressed `automation`, not
+even the first is asked.**
 The guard used to answer creation with `ask` at every site that reached it, so
 no path through it cost zero prompts and the cost grew with the number of
 worktrees. Measured on the release run that opened #237, on 2026-09-08: six work items on six branches
@@ -92,7 +111,61 @@ command text cannot forge.
 `hooks/worktree_consent.py` writes it, on both entry points, and
 `guard_worktree_creation` reads it. What changes is one invariant: *creating a
 worktree always takes one confirmation* becomes *the first creation of a
-session takes one*.
+session takes one*, and the routing answer below makes that zero for a session
+whose person pressed `automation`.
+
+**The routing answer is the second consent, and it covers the creation the
+record cannot: the first.** An automation run creates its worktrees before any
+of them has run, so no record exists at the first `git worktree add`, and the
+guard stopped a run whose person had pressed `automation` one minute earlier
+(#604). That answer is on disk when the first creation arrives, and the model
+did not write it: the harness writes an `AskUserQuestion` result into the
+session's transcript from the person's click. The model writes the question
+and its options, never which one was pressed.
+
+| | `[worktree-ok]` | a `routing.md` reading `Automation \| yes` | the consent record | the routing answer in the transcript |
+|---|---|---|---|---|
+| written by | whoever issues the command | the model, with `Write` | the `PostToolUse` hook | the harness, from the person's click |
+| written when | before the question | after the answer, but the answer it records is the model's account of it | after a creation ran | when the person answers |
+| present at the first creation of an automation run | yes | no — measured twice, the worktrees came first so each branch could carry its own | no | **yes** |
+| forgeable by the model by habit | yes | yes | no | no |
+| forgeable by editing a file on purpose | — | — | yes (`touch`) | yes (an appended line) — the record's standing |
+
+A `routing.md` is not read, not even as a fallback: a fallback the model can
+satisfy by writing a file is `[worktree-ok]`'s standing under another name.
+
+**What exactly is read**, and every way of failing it is *no consent*, which is
+the guard's behaviour before the answer was read:
+
+1. **This session's own main transcript** — the payload's `transcript_path`
+   where its basename is `<session-id>.jsonl`, otherwise the one file matching
+   `~/.claude/projects/*/<session-id>.jsonl`. A subagent's call carries its
+   parent's session id, so it reaches the parent's answer through the second
+   form. No other session's file is read, and no `subagents/` file.
+2. **A harness-written `AskUserQuestion` result**: a `user` entry whose
+   `tool_result` names, by `tool_use_id`, an earlier `AskUserQuestion` call,
+   read from its structured `toolUseResult.answers`, and not marked
+   `isSidechain: true`. A Bash result echoing *The user answered:
+   "automation"* has no such link, and a subagent has no `AskUserQuestion`.
+3. **The routing question**: one single-select question whose options' leading
+   phrases are exactly `automation`, `per axis` and `no work item`
+   (`skills/implement/orchestration.md` §*Question 1 — single-select*),
+   answered with the option labelled `automation`. The answer must equal one
+   of the question's option labels verbatim, because that is what a pressed
+   option writes; a typed `Other` answer is the person's own text and is not
+   read, so *automation - but ask me before each worktree* is not consent. A
+   leading phrase is the label casefolded and cut at the first ` (`, ` —` or
+   ` -`, so an option labelled `automation (Recommended)` counts.
+4. **The same clone**: the result entry's own `cwd` resolves to the same common
+   git directory as the creation's repository.
+
+A `per axis` answer is not read, even with its first box ticked: in every
+measured instance the box label had been reworded or translated, so a rule
+matching the prescribed label would never fire. A read that raises is no
+consent too: `hooks/dispatch.py` skips a gate that raises, which would turn
+the guard's deny into no decision at all. The record is read first,
+because it is one `stat`; the transcript is scanned only while there is no
+record, and the first creation writes one.
 
 **The record.** An empty file at
 `<git-common-dir>/specseal-worktree-consent/<session-id>`; its existence is the
@@ -122,10 +195,11 @@ whole fact, the way the choice marker's is.
 
 **Why the allow is bounded.** `permissionDecision: "allow"` bypasses the user's
 own permission settings for the **whole** tool call, and a creation is
-routinely written as one segment of a compound. The record is about worktree
+routinely written as one segment of a compound. Consent is about worktree
 creation, so the guard speaks for a command that is worktree creation and
-nothing else; anything more is an `ask` about the rest of the command line,
-never a deny about the worktree. A command the lexer gave up on is not vouched
+nothing else. For anything more it stays **silent**: it withdraws its
+objection, and the rest of the command line meets the harness's own permission
+flow rather than a deny about the worktree. A command the lexer gave up on is not vouched
 for either — what it could not read is what the allow would be covering.
 
 **And a segment is more than its command word.** *Nothing else* used to be
@@ -223,15 +297,16 @@ first half. Silence is the guard withdrawing its objection, which is the whole
 of what the record establishes; whatever the harness asks about running the
 agent is not the guard's to remove.
 
-**What does not change.** A session with no record still asks at every site,
-and the single-stream row still denies and steers to `git switch`. The switch
-direction never reads the record: a creation the user agreed to says nothing
-about taking another session's branch out from under it.
+**What does not change.** A session with neither the record nor the routing
+answer still asks at every site, and the single-stream row still denies and
+steers to `git switch`. The switch direction reads neither: a creation the user
+agreed to, or a run the user said should not stop, says nothing about taking
+another session's branch out from under it.
 
-**The prompt budget.** One per session, from one per worktree unbounded — for a creation written on its own, which is the form the measured six took. Re-measured after round 2's fixes, six creations in one session on a clean single-stream tree: **deny, allow, allow, allow, allow, allow**.
-A creation written as one segment of a compound still costs one
+**The prompt budget.** Zero for a session whose person pressed `automation`. One per session otherwise, from one per worktree unbounded — for a creation written on its own, which is the form the measured six took. Re-measured after round 2's fixes, six creations in one session on a clean single-stream tree: **deny, allow, allow, allow, allow, allow**.
+Before consent, a creation written as one segment of a compound still costs one
 prompt each time, and so does one carrying an expansion, a redirection, a wrapper or a **path-qualified command word**, because that is exactly what the bound above refuses to speak for. The last of those is what round 2's second fix added to the list, and it moves nothing in the budget: `git worktree add …`, the same backgrounded, and the `\git` spelling all still allow.
-Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed
+Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed, tests/test_the_guard_asks_once_per_session.py::test_the_measured_automation_run_is_not_stopped, tests/test_the_guard_asks_once_per_session.py::test_a_result_not_linked_to_an_ask_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_automation_on_another_question_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_an_answer_given_in_another_clone_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_the_labels_match_the_routing_question_the_orchestrator_asks, tests/test_the_guard_asks_once_per_session.py::test_a_typed_answer_that_qualifies_the_preset_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny
 
 ## Choice sites
 
@@ -305,7 +380,7 @@ residual and not a property.
 
 **Where the token is read from.** The command, and only the command. The
 Agent/Task path has no command line and reads no token at all — see §B's
-"Why the Agent path ends at `ask`".
+"Why the Agent path counts nothing, asks once, and reads no token".
 
 | Token | Answer it carries | Effect |
 |---|---|---|
