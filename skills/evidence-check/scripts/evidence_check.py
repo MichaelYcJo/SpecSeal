@@ -1606,25 +1606,46 @@ BARE_QUOTE_RE = re.compile(r'[#>]"[^"\n]*"(?=[^>@])')
 # line of text and may quote one, so the URL is blanked and the rest is read.
 URL_RE = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*://[^\s"`]*')
 # A hash after a path with no anchor between them: `src/a.py@abcdef12`. An
-# address ends in a domain, so a hex run followed by `.` is not one.
-PATH_HASH_RE = re.compile(r"[0-9a-f]+(?![\w.])")
+# address ends in a domain, so a hex run followed by `.` is not one, and a
+# run shorter than the six characters `ANCHOR_RE` takes is a version:
+# `chart.js@4`. No upper bound, so a full SHA pasted after a path is named.
+PATH_HASH_RE = re.compile(r"[0-9a-f]{6,}(?![\w.])")
+# An issue number: a run of digits that no ASCII word character continues.
+# What follows it is the sentence's -- a closing mark, a possessive, a dash,
+# a particle a language glues on, the `](` of a link whose URL was blanked.
+ISSUE_TAIL_RE = re.compile(r"\d+(?![A-Za-z0-9_])")
+# Both marks of one coordinate: an `@` after a `#` with no whitespace between
+# them outside a quoted string, so `#"x = 1  # c"@0` holds them glued and
+# `@lru_cache  # memoized` does not. Searched, so every `#` is tried.
+GLUED_MARKS_RE = re.compile(r'#(?:"(?:[^"\\\n]|\\.)*"|[^\s"])*@')
 
 
 def refused_coordinate(s):
-    """True where S, left over after both patterns, is a coordinate: both
-    marks, or a `#` glued to a path or a file name, or a hash after a path.
-    `#299`, `org/repo#299`, `#ifdef`, `C#` and `@cache` are prose."""
+    """True where S, left over after both patterns, is a coordinate: an `@`
+    glued after a `#`, or a `#` glued to a path or a file name, or a hash
+    after a path. `#299`, `org/repo#299's`, `#ifdef`, `C#`, `@cache`,
+    `chart.js@4` and `@lru_cache  # memoized` are prose.
+
+    What each edge gives up (#614): `src/a.py@abc`, a path followed by fewer
+    than six hex characters, is silent; `docs/a.md#1장` with no hash reads as
+    an issue number; `Makefile#1x` is silent, since a dotless file name takes
+    a locator opening with a letter, `_`, `"` or `<` and never a digit; and a
+    path-less coordinate with unquoted whitespace between its marks,
+    `#handler @abcdef12`, is silent. With a path the per-word rule still
+    names it."""
     s = URL_RE.sub(" ", s)
-    if "#" in s and "@" in s:
+    if GLUED_MARKS_RE.search(s):
         return True
     # A word's closing punctuation is the sentence's, not the word's, so
-    # `org/repo#299,` is an issue number like `org/repo#299`.
+    # `src/a.py@abcdef12.` is a path followed by a hash.
     for token in (word.rstrip(".,;:!?)]") for word in s.split()):
         head, mark, tail = token.partition("#")
-        if mark and not tail.isdigit():
+        if mark and not ISSUE_TAIL_RE.match(tail):
             if "/" in head or "." in head:
                 return True
-            if head[-1:].isalnum() and tail[:1].isalpha():
+            if head[-1:].isalnum() and (
+                tail[:1].isalpha() or tail[:1] in ("_", '"', "<")
+            ):
                 return True
             if not head and tail[:1] in ('"', "<"):
                 return True
@@ -1690,10 +1711,14 @@ def malformed_rows(text):
 
     - a coordinate the patterns refused: what is left of the cell once every
       `ANCHOR_RE` and `OLD_COORD_RE` match is blanked, and every URL in it,
-      still holds both marks, a `#` glued to a path or a file name, or a path
-      followed by `@` and a hash. An issue number `#299` or `org/repo#299`, a
-      directive `#ifdef`, a decorator `@cache` and an address are prose, in a
-      span or out of one;
+      still holds an `@` glued after a `#` (no whitespace between them
+      outside a quoted string), a `#` glued to a path or a file name, or a
+      path followed by `@` and a hash of six or more hex characters. An
+      issue number `#299`, `org/repo#299` or `org/repo#299's`, a directive
+      `#ifdef`, a decorator `@cache` beside a comment, a version
+      `chart.js@4` and an address are prose, in a span or out of one. A
+      file name with no dot takes a locator opening with a letter, `_`, `"`
+      or `<`; `refused_coordinate` states what each edge gives up;
     - no coordinate at all: the cell is not empty, nothing in it matches
       either pattern, and some other cell of the row is not empty either. A
       row that claims something and cites nothing reads as covered and is

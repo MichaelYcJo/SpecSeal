@@ -1088,6 +1088,7 @@ def test_an_unticked_coordinate_with_one_mark_is_named(repo, bare):
         "Makefile#build",
         '#"def handler"',
         "#handler@abcdef12",
+        'src/a.py#"x = 1  # c"@0',
     ],
 )
 def test_a_coordinate_the_opener_list_misses_is_named(repo, coord):
@@ -1098,7 +1099,12 @@ def test_a_coordinate_the_opener_list_misses_is_named(repo, coord):
     and a hash is a coordinate with its anchor left off, and a locator may
     open with a digit, a letter outside ASCII, or nothing at all. A file name
     with no dot glued to a name, a quoted line with no path, and a path-less
-    coordinate holding both marks are named beside a good anchor too."""
+    coordinate holding both marks are named beside a good anchor too.
+
+    The last shape is a guard for #614's glued-marks rule, green before that
+    change and after it: a quoted locator whose line holds a comment keeps
+    its `#` and `@` glued through the quoted string, so the whitespace inside
+    the quotes does not excuse it."""
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
     good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
@@ -1120,6 +1126,63 @@ def test_a_directive_or_a_string_holding_a_hash_is_prose(repo):
         '`#include <x.h>`, `"#"`, org/repo#299, C#, jane.doe@cafe.example.com |\n',
         encoding="utf-8",
     )
+    r = run(["."], str(repo))
+    assert "0 old-format · 0 malformed" in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
+
+
+@pytest.mark.parametrize(
+    "coord", ['Makefile#"all: build"', "Makefile#<module>", "Makefile#_private"]
+)
+def test_a_file_name_with_no_dot_takes_any_locator(repo, coord):
+    """#614 item 1. A file name with no dot glued to a quoted line,
+    `<module>` or `_name` is a coordinate as `Makefile#build` is."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, `{coord}` |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert f"MALFORMED {coord}  " in r.stdout, r.stdout
+
+
+@pytest.mark.parametrize(
+    "prose",
+    [
+        "org/repo#299's",
+        "org/repo#299—see",
+        "“org/repo#299”",
+        "org/repo#299에서",
+        "[org/repo#299](https://example.com/org/repo/issues/299)",
+        "chart.js@4",
+        "`vue.js@3`",
+        "jane.doe@beef",
+    ],
+)
+def test_an_issue_number_or_a_version_glued_to_a_word_is_prose(repo, prose):
+    """#614 items 2 and 3. Digits that no ASCII word character continues are
+    an issue number whatever the sentence glues after them, and a path
+    followed by `@` takes a hash only as long as a hash is."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, {prose} |\n", encoding="utf-8")
+    r = run(["."], str(repo))
+    assert "0 old-format · 0 malformed" in r.stdout, r.stdout
+    assert r.returncode == 0, r.stdout
+
+
+@pytest.mark.parametrize("prose", ["`@lru_cache  # memoized`", "`x = 1  # see @jane`"])
+def test_a_decorated_line_holding_both_marks_apart_is_prose(repo, prose):
+    """#614's fourth observation, and the second shape round 3 named for the
+    same rule. A code span holding a `#` and an `@` is a coordinate only where
+    the `@` follows the `#` with no whitespace between them outside a quoted
+    string; a decorator beside a comment, or a mention inside one, is prose.
+    The quoted locator holding `# c` in the opener-list case is this rule's
+    guard in the other direction."""
+    write_row(repo, "src/service.py", "handler")
+    ledger = repo / "seal" / "ledger" / "f.md"
+    good = re.search(r"`[^`]+`", ledger.read_text(encoding="utf-8")).group(0)
+    ledger.write_text(f"| A | {good}, {prose} |\n", encoding="utf-8")
     r = run(["."], str(repo))
     assert "0 old-format · 0 malformed" in r.stdout, r.stdout
     assert r.returncode == 0, r.stdout
