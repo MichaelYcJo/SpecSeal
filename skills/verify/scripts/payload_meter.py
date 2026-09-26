@@ -41,6 +41,12 @@ left is the agent's own files, and dividing their bytes by it is the ratio.
 A transcript that never spawned the baseline agent is refused rather than
 subtracted from by zero.
 
+Exit codes: 0 measured · 1 the input could not be measured -- a transcript
+the calibration refuses, or no `agents/*.md` under the root · 2 nothing ran:
+the interpreter is below the floor, `--calibrate` was given and
+`session_cost.py`, the sibling it loads, is not beside this script, or the
+arguments were unusable (argparse's usage error).
+
 Two things the ratio has to know about the machine it was measured on. A
 skill name resolves to `~/.claude/skills/<name>/SKILL.md` when the user has
 one, shadowing the plugin's — measured here for `writing-style`, 25,834 B
@@ -128,8 +134,24 @@ AGENT_ID = re.compile(r"\bagentId:\s*([0-9a-f]+)")
 def _session_cost():
     """The transcript helpers, imported from the sibling script rather than
     re-derived: how a delegating call names what it spawned, and where a
-    run's subagent transcripts are."""
+    run's subagent transcripts are.
+
+    The file is checked for first, because `spec_from_file_location` hands
+    back a spec for a missing `.py` path and `exec_module` then dies with a
+    `FileNotFoundError` traceback at exit 1 -- which reads as *this
+    transcript could not be measured* and sends the reader to the transcript
+    (#610). A copy of this script taken without its sibling is a broken
+    plugin copy, the interpreter floor's kind of failure, so it exits 2 the
+    way the floor does: the sentence to stderr, then the int."""
     path = os.path.join(HERE, "session_cost.py")
+    if not os.path.isfile(path):
+        sys.stderr.write(
+            f"payload-meter: cannot read {path}, and it is what reads a "
+            "transcript's spawns and finds their subagent transcripts. This "
+            "command ships beside it under `skills/`; a copy of one script "
+            "taken on its own is not a plugin. Nothing was measured.\n"
+        )
+        raise SystemExit(2)
     spec = importlib.util.spec_from_file_location("specseal_session_cost", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
