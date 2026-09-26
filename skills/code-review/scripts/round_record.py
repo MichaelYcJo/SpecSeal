@@ -1533,8 +1533,8 @@ def landing_values(words):
     **`close` used to write only `no fixes to check`**, for the record whose
     every verdict closed on `deferred <home>` or `answered` — a capped run's
     last record has no next round to set the cell, and the check refuses
-    `Pass` beside `nobody` there (`questions.md` A6 of the work item that
-    added this). The other answer was left standing on the grounds that a fix
+    `Pass` beside `nobody` there at a ready pull request (`questions.md` A6
+    of the work item that added this). The other answer was left standing on the grounds that a fix
     was written and a later round owes it a reading, which is true of WHO and
     false of WHAT: the landing value says the fixes are not yet WRITTEN, and
     at this point they are written and named in the record's own verdict
