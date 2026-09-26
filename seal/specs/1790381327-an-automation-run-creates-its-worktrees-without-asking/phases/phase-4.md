@@ -54,9 +54,10 @@ IN TREE`.
 carries two riders where the release base carried four: the two this work
 item answered are gone, and nothing new was added.
 
-**`survivor-check` over `origin/release/v0.15.5...HEAD` reported five
-places.** Each still holds, and each went into `survivors.md` with a quote and
-its grounds: two docstrings of cases that pass unchanged, two passages of the
+**`survivor-check` over `origin/release/v0.15.5...HEAD` reported six
+places**, five at the phase-4 commit and a sixth once this phase's records were
+committed. Each still holds, and each went into `survivors.md` with a quote and
+its grounds: three docstrings of cases that pass unchanged, two passages of the
 spec whose facts still hold, and a dated ledger note that a later
 **Corrected** note on the same row answers.
 
