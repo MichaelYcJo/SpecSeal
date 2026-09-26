@@ -1,10 +1,12 @@
 """A shipped script copied without its sibling exits 2, with a sentence (#590, #610).
 
-Six shipped scripts load a sibling, in one of two shapes. Five import it by
-file path: `fold_check.py`, `settle.py`, `round_record.py`, `chain_check.py`
-and `payload_meter.py`. One, `seal.py`, puts `hooks/` on `sys.path` with
-`sys.path.insert` and then runs a plain `import`, which a search for the
-first shape does not find. In the first four 1 means a finding or a refusal
+Not every shipped script that loads a sibling is held here:
+`survivor_check.py` and `broad_gate.py` raise a refusal of their own, and
+`evidence_check.py` falls back by design. The ones held here load it in one
+of two shapes. `fold_check.py`, `settle.py`, `round_record.py`,
+`chain_check.py` and `payload_meter.py` import it by file path; `seal.py`
+puts `hooks/` on `sys.path` with `sys.path.insert` and then runs a plain
+`import`, which a search for the first shape does not find. In the first four 1 means a finding or a refusal
 the command made about the tree, and in `payload_meter.py` it means an input
 that could not be measured; 2 means the input or the tree was unusable and
 nothing was read or written. A sibling that is not beside the command is the
@@ -42,10 +44,11 @@ import pytest
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
 # (script, arguments after the copy's path, a phrase naming what the missing
-# file is for, a phrase that must NOT appear), for the six scripts in both
-# loader shapes: by file path, and `sys.path.insert` + `import`. The last
-# column is #590's second half for `settle.py`: its loader used to give every
-# file the fold record's purpose, which is false of `hooks/optin.py`.
+# file is for, a phrase that must NOT appear), for the scripts in both loader
+# shapes: by file path, and `sys.path.insert` + `import`. The last column is
+# #590's second half: `settle.py`'s loader used to give every file the fold
+# record's purpose, which is false of `hooks/optin.py`, and `seal.py`'s said
+# `hooks/config.py` writes the file it only reads (round 1's 🟡 1).
 CASES = [
     (
         "skills/settle/scripts/fold_check.py",
@@ -76,6 +79,15 @@ CASES = [
         ["mode", "--check"],
         "it is what finds the repository's seal/ root",
         None,
+    ),
+    # Round 1's 🟡 1: `hooks/config.py` reads `config.md` and never writes it
+    # (its docstring: the reader moved there and the writer stayed here), so
+    # a purpose saying it writes is #590's wrong-purpose defect again.
+    (
+        "skills/implement/scripts/seal.py",
+        ["mode", "--check"],
+        "it is what reads the root's config.md",
+        "reads and writes",
     ),
     (
         "skills/verify/scripts/payload_meter.py",

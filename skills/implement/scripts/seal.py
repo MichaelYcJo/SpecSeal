@@ -75,8 +75,10 @@ is Q1 in the work item's `questions.md`, with the owner named; it is written
 here as well because this docstring is where the next reader meets the count.
 
 Exit codes: 0 done · 1 nothing was written, and the message says why · 2 a
-file this command loads from `hooks/` is not there, so nothing was read. Every
-refusal here names the file, the path, or the flag that gets past it.
+file this command loads from `hooks/` is not there, so nothing was read, or
+the arguments were unusable (argparse's usage error, and any two of a mode,
+`--check` and `--apply` given together). Every refusal here names the file,
+the path, or the flag that gets past it.
 """
 
 import argparse
@@ -100,8 +102,8 @@ HOOKS = os.path.join(
 # `ModuleNotFoundError` traceback at exit 1 (#610) -- and a search for
 # by-path loaders cannot see this shape, which is how #590 missed it.
 HOOK_PURPOSES = {
-    "config.py": "it is what reads and writes the root's config.md, the Mode "
-    "row this command keeps",
+    "config.py": "it is what reads the root's config.md, whose Mode row this "
+    "command keeps",
     "optin.py": "it is what finds the repository's seal/ root",
 }
 

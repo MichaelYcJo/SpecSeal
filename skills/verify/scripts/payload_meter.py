@@ -43,8 +43,9 @@ subtracted from by zero.
 
 Exit codes: 0 measured · 1 the input could not be measured -- a transcript
 the calibration refuses, or no `agents/*.md` under the root · 2 nothing ran:
-the interpreter is below the floor, or `--calibrate` was given and
-`session_cost.py`, the sibling it loads, is not beside this script.
+the interpreter is below the floor, `--calibrate` was given and
+`session_cost.py`, the sibling it loads, is not beside this script, or the
+arguments were unusable (argparse's usage error).
 
 Two things the ratio has to know about the machine it was measured on. A
 skill name resolves to `~/.claude/skills/<name>/SKILL.md` when the user has

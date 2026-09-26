@@ -1236,7 +1236,9 @@ TIP_KO = "base 브랜치의 끝"
         (os.path.join("skills", "verify", "SKILL.md"), TIP_EN, None),
         (os.path.join(".github", "workflows", "hygiene.yml"), TIP_EN, None),
         (os.path.join("templates", "hygiene.yml"), TIP_EN, None),
-        # The `--baseline` help is a rendered line (#612).
+        # The module's docstrings (#612). The phrase stands here three times,
+        # so this row cannot see the `--baseline` help alone go back to the
+        # fork point; `test_the_baseline_help_names_both_places` renders it.
         (
             os.path.join("skills", "verify", "scripts", "unverified_check.py"),
             TIP_EN,
@@ -1276,6 +1278,20 @@ def test_the_documents_state_the_merge_base_footing(doc, tip, false_sentence):
         assert false_sentence not in flat_text, (
             f"{doc} still says CI never compares at the base's tip"
         )
+
+
+def test_the_baseline_help_names_both_places(capsys):
+    """#612: the `--baseline` help is a rendered line (contract §14). The
+    documents case above reads the whole file, where the module docstring and
+    `merge_base`'s docstring carry the same phrase, so it cannot see the help
+    go back to the fork point. The help is rendered and read on its own. Red
+    with the tip dropped from the help alone (round 1's 🟡 2)."""
+    with pytest.raises(SystemExit):
+        uc.main(["--help"])
+    rendered = " ".join(capsys.readouterr().out.split())
+    assert "the fork point on a branch checkout and the base's tip in CI" in rendered, (
+        rendered
+    )
 
 
 # --- a fold is not this branch's deletion ----------------------------------
