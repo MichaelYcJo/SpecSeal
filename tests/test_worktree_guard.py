@@ -350,11 +350,15 @@ def test_the_agent_verdict_does_not_depend_on_the_prompt(monkeypatch, capsys, re
 
 
 def test_the_agent_prompt_names_the_way_on_an_agent_has(monkeypatch, capsys, repo):
-    """The verdict here steered to `git switch`, which an Agent call cannot
-    run, while the reason's own first line already named the right way on."""
+    """An isolated agent's one way on is the confirmation. The reason once
+    steered to `git switch`, which an Agent call cannot run, and then to
+    calling the Agent again without isolation, which puts the agent in this
+    session's tree while this session works there (#8). It names neither."""
     _, reason = agent_verdict(monkeypatch, capsys, repo, "review the diff")
-    assert "git switch -c" not in reason
-    assert "isolation" in reason
+    assert "git switch" not in reason
+    assert "without isolation" not in reason
+    assert "runs beside this session" in reason
+    assert "Declining cancels this spawn." in reason
 
 
 def test_the_agent_prompt_does_not_point_at_a_token_it_cannot_use(
@@ -824,3 +828,122 @@ def test_a_quoted_C_value_survives_an_apostrophe(repo):
         segments, _ = wg.split_command(cmd)
         assert wg.classify(segments[0], str(repo)) == "switch", cmd
         assert wg.segment_cwd(segments[0], "/base") == os.path.normpath(target), cmd
+
+
+# --- #8: the Agent path is judged as concurrent, not counted ----------------
+
+AGENT_STATES = {
+    "single-stream": ([], [], True),
+    "idle": ([], IDLE, True),
+    "unreliable": ([], [], False),
+    "active": (ACTIVE, [], True),
+}
+
+
+@pytest.mark.parametrize("state", sorted(AGENT_STATES))
+def test_an_isolated_agent_asks_without_counting_sessions(
+    monkeypatch, capsys, repo, state
+):
+    """S4. The agent runs beside this session, so the call is two work
+    streams by construction, and a count of Claude sessions cannot see a
+    subagent at all. At every tree state the answer is one confirmation with
+    one reason: no choice-site deny, no *single-stream*, no instruction to
+    drop `isolation`, and `sessions_in_tree` is never asked. `state` names the
+    tree the count WOULD report, so a guard that still counted would answer
+    differently across the four."""
+    counted = []
+
+    def count(top, own=""):
+        counted.append(top)
+        return AGENT_STATES[state]
+
+    monkeypatch.setattr(wg, "sessions_in_tree", count)
+    monkeypatch.setattr(
+        wg,
+        "load_input",
+        lambda: {
+            "tool_name": "Agent",
+            "session_id": f"s4-{state}",
+            "tool_input": {"isolation": "worktree", "prompt": "review the diff"},
+            "cwd": str(repo),
+        },
+    )
+    try:
+        wg.main()
+    except SystemExit:
+        pass
+    out = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
+    reason = out["permissionDecisionReason"]
+    assert out["permissionDecision"] == "ask", state
+    assert "runs beside this session" in reason
+    assert "single-stream" not in reason
+    assert "without isolation" not in reason
+    assert "AskUserQuestion" not in reason
+    assert counted == [], "the Agent path counted sessions"
+
+
+AGENT_REASON_EN = (
+    'The Agent tool was called with isolation: "worktree" (the harness creates a '
+    "worktree at <repo>/.claude/worktrees/<name>). The agent runs beside this "
+    "session, so it is concurrent work and a separate tree is the right shape "
+    "for it. Creating a worktree still takes the user's confirmation once per "
+    "session. Declining cancels this spawn."
+)
+AGENT_REASON_KO = (
+    'Agent 툴을 isolation: "worktree" 로 호출했습니다(하네스가 '
+    "<repo>/.claude/worktrees/<name> 에 worktree 를 만듭니다). 이 agent 는 이 "
+    "세션과 나란히 돌기 때문에 동시 작업이고, 별도 트리가 맞는 모양입니다. 다만 "
+    "worktree 생성은 세션마다 한 번 사용자 확인을 거칩니다. 거부하면 이번 호출이 "
+    "취소됩니다."
+)
+
+
+def _reasons(monkeypatch, capsys, repo, module):
+    """The Agent `ask` reason and the `[worktree-ok]` row's reason."""
+    monkeypatch.setattr(module, "sessions_in_tree", lambda top, own="": ([], [], True))
+    reasons = []
+    for payload in (
+        {
+            "tool_name": "Agent",
+            "session_id": "s10",
+            "tool_input": {"isolation": "worktree", "prompt": "x"},
+            "cwd": str(repo),
+        },
+        {
+            "tool_name": "Bash",
+            "session_id": "s10",
+            "tool_input": {"command": "git worktree add ../wt f  # [worktree-ok]"},
+            "cwd": str(repo),
+        },
+    ):
+        monkeypatch.setattr(module, "load_input", lambda payload=payload: payload)
+        try:
+            module.main()
+        except SystemExit:
+            pass
+        reasons.append(
+            json.loads(capsys.readouterr().out)["hookSpecificOutput"][
+                "permissionDecisionReason"
+            ]
+        )
+    return reasons
+
+
+def test_the_two_reworded_reasons_are_pinned_in_both_languages(
+    monkeypatch, capsys, repo
+):
+    """S10, §14. The Agent reason is pinned whole. The `[worktree-ok]` row's
+    first sentence now starts from what was counted -- no other Claude
+    session -- instead of asserting *single-stream work*, which a worktree a
+    subagent chain will use is not."""
+    agent, token = _reasons(monkeypatch, capsys, repo, wg)
+    assert agent == AGENT_REASON_EN
+    assert "No other Claude session is working in this tree, but [worktree-ok]" in token
+    assert "Single-stream work" not in token
+
+    monkeypatch.setenv("SPECSEAL_LANG", "ko")
+    wko = load_hook_module("worktree-guard.py", "wg_s10_ko")
+    agent, token = _reasons(monkeypatch, capsys, repo, wko)
+    assert agent == AGENT_REASON_KO
+    assert "이 트리에서 작업 중인 다른 Claude 세션은 없지만 [worktree-ok]" in token
+    assert "단건 작업이지만" not in token

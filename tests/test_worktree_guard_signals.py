@@ -154,10 +154,10 @@ def agent_decide(monkeypatch, capsys, repo, tool_input, sessions=([], [], True))
 
 
 def test_agent_isolation_worktree_single_stream_asks(monkeypatch, capsys, repo):
-    """`ask`, not `deny`. The Bash deny has a documented way past it — retry
-    with `[worktree-ok]` — and an Agent call has no command line to put one on.
-    Reading the token out of the prompt instead was tried and taken back, so
-    this path takes the one step the token was worth and asks outright."""
+    """`ask`, not `deny`, in a tree where this session is the only one. The
+    agent runs beside this session, so the call is concurrent work however
+    many sessions the count finds (#8), and the first creation of a session is
+    one confirmation."""
     assert (
         agent_decide(
             monkeypatch, capsys, repo, {"prompt": "x", "isolation": "worktree"}
@@ -167,9 +167,10 @@ def test_agent_isolation_worktree_single_stream_asks(monkeypatch, capsys, repo):
 
 
 def test_agent_isolation_worktree_concurrent_asks(monkeypatch, capsys, repo):
-    """Both this and the single-stream row answer `ask` now, so the decision
-    alone no longer says which branch ran. The reason does: only the concurrent
-    branch lists the other session."""
+    """Another session ACTIVE in the tree changes nothing on this path: it
+    counts no sessions, so the reason is the one a one-session tree gets and
+    lists nobody. It used to list the other session, back when this path
+    reached the creation ladder's ACTIVE row."""
     decision, reason = agent_decide(
         monkeypatch,
         capsys,
@@ -178,7 +179,8 @@ def test_agent_isolation_worktree_concurrent_asks(monkeypatch, capsys, repo):
         sessions=([(1, "/t", 0.1, 0.1, None)], [], True),
     )
     assert decision == "ask"
-    assert "actively working" in reason
+    assert "runs beside this session" in reason
+    assert "actively working" not in reason
     assert "single-stream" not in reason
 
 

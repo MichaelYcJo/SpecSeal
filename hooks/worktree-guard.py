@@ -43,6 +43,11 @@ B) Worktree creation, whichever path it takes:
     written before the question and the record after the answer
   - otherwise (single work stream)                  -> deny, steer to `git switch`
 
+  The rows after the consent row are the Bash path's. The Agent/Task path
+  counts no sessions: the agent runs beside this session, so the call is
+  concurrent work by construction, and a subagent has no session id the count
+  could see. It is silent under consent and asks once otherwise (#8).
+
 CHOICE sites: a hook decision renders as approve/decline and the model never
 gets the turn, so where declining has TWO destinations the user sees neither
 and has to retype the command they wanted. Those sites deny instead, and spend
@@ -1552,13 +1557,16 @@ def guard_worktree_creation(
     origin: str,
     user_ok: bool,
     session_id: str = "",
-    shared_option=None,
-    shared_steer=None,
-    single_stream="deny",
     consented="silent",
     transcript_path="",
 ):
-    """Worktrees are for CONCURRENT work only -- block the single-stream case."""
+    """Worktrees are for CONCURRENT work only -- block the single-stream case.
+
+    The Bash path's creation ladder. The Agent/Task path used to come through
+    here as well, with its own `single_stream` verdict and its own wording for
+    the shared-tree option; it is judged in `main` now, by a rule that counts
+    no sessions (#8), so those three parameters went with it.
+    """
     # Same reason as the switch path: without a repository there is no tree to
     # separate, and standing `cwd` in for one makes every session under it look
     # like concurrent work in it.
@@ -1593,9 +1601,9 @@ def guard_worktree_creation(
     # option was pressed -- so it has the record's standing, not the token's.
     # `worktree_consent.consent` reads both, record first, and holds the rules.
     #
-    # `consented` differs by entry point for the same reason `single_stream`
-    # does. `hooks/worktree_consent.py` holds the record and the rest of the
-    # reasoning.
+    # `consented` is the bound on the allow, computed by the caller from the
+    # command. `hooks/worktree_consent.py` holds the record, the answer and the
+    # rest of the reasoning.
     # No `session_id and` in front of it: `consent_path` and `transcript_for`
     # already answer "" for a missing or separator-only id, so a second test
     # here would be a
@@ -1603,7 +1611,7 @@ def guard_worktree_creation(
     # pin.
     # WHY `silent` AND NOT `ask` FOR A COMPOUND — the argument both entry
     # points rest on, kept here because a reader of the Bash path will not go
-    # looking at the Agent call site for it.
+    # looking at the Agent block in `main` for it.
     #
     # A call that is a creation PLUS something else -- an agent with a prompt,
     # a pipe, a `cd`, a redirection -- is two questions, and the consent
@@ -1670,9 +1678,7 @@ def guard_worktree_creation(
     active, idle, reliable = sessions_in_tree(top, session_id)
 
     # 두 방향의 목적지는 어느 자리에서 물어도 같다 — worktree 를 만들거나,
-    # 공용 트리에서 그대로 진행하거나. 다만 "그대로 진행"이 어떤 명령인지는
-    # 진입점마다 다르므로(Bash 는 git switch, Agent 는 isolation 없는 재호출)
-    # 호출부가 준다.
+    # 공용 트리에서 `git switch` 로 그대로 진행하거나.
     create_or_switch = (
         (
             tr('1. "Create the worktree"', '1. "worktree 를 만든다"'),
@@ -1683,8 +1689,7 @@ def guard_worktree_creation(
                 "확인을 한 번 거치므로 재시도 때 한 번 물어봅니다.",
             ),
         ),
-        shared_option
-        or (
+        (
             tr(
                 '2. "Switch in the shared tree"',
                 '2. "공용 트리에서 브랜치만 전환한다"',
@@ -1740,15 +1745,15 @@ def guard_worktree_creation(
             (
                 f"{origin}\n"
                 + tr(
-                    "Single-stream work, but [worktree-ok] was given — treating this as the "
-                    "user's explicit intent. Confirm the worktree creation. Declining "
-                    "withdraws [worktree-ok] and proceeds in the shared tree instead:\n",
-                    "단건 작업이지만 [worktree-ok] 가 지정되어 사용자 의사로 판단합니다. "
-                    "worktree 를 생성할지 확인해 주세요. 거부하면 [worktree-ok] 선언을 "
-                    "철회하고 공유 트리에서 그대로 진행합니다:\n",
+                    "No other Claude session is working in this tree, but [worktree-ok] "
+                    "was given — treating this as the user's explicit intent. Confirm "
+                    "the worktree creation. Declining withdraws [worktree-ok] and "
+                    "proceeds in the shared tree instead:\n",
+                    "이 트리에서 작업 중인 다른 Claude 세션은 없지만 [worktree-ok] 가 "
+                    "지정되어 사용자 의사로 판단합니다. worktree 를 생성할지 확인해 "
+                    "주세요. 거부하면 [worktree-ok] 선언을 철회하고 공유 트리에서 그대로 "
+                    "진행합니다:\n",
                 )
-                # Only the Bash path reaches here: `user_ok` comes from a
-                # command line, and the Agent path no longer derives one.
                 + steer_to_switch()
             ),
         )
@@ -1815,16 +1820,10 @@ def guard_worktree_creation(
             ),
         )
 
-    # `single_stream` differs by entry point. A Bash command can carry
-    # `[worktree-ok]` and come back through the block above, so the deny has a
-    # documented way past it. An Agent call has no command line to carry one,
-    # and reading the token out of its prompt was tried and taken back: the
-    # prompt is prose, so "mentioning" and "instructing" cannot be told apart,
-    # and one apostrophe in it decided the verdict. Both paths end at a human
-    # either way, so the token only ever bought deny -> ask; the Agent path
-    # takes that step directly instead.
+    # A Bash command can carry `[worktree-ok]` and come back through the block
+    # above, so this deny has a documented way past it.
     respond(
-        single_stream,
+        "deny",
         (
             f"{origin}\n"
             + tr(
@@ -1837,10 +1836,7 @@ def guard_worktree_creation(
                 "— 에디터 한 창에서 다 보여 코드 파악이 빠르고, 쓰다 만 worktree 폴더가 "
                 "쌓이지 않습니다.\n\n",
             )
-            # The Bash path can be told to run `git switch`; the Agent path
-            # cannot, and printing that here buried the one way on its own
-            # first line already names.
-            + (shared_steer or steer_to_switch())
+            + steer_to_switch()
         ),
     )
 
@@ -1947,98 +1943,57 @@ def main():
     # 하네스가 관리하는 worktree(Agent/Task `isolation: "worktree"`)는 Bash를 거치지
     # 않고 <repo>/.claude/worktrees/<name> 에 바로 생성되므로 툴 호출에서 잡는다.
     #
-    # RIDER: an Agent with isolation: "worktree" may be concurrent work this
-    # guard cannot see. It counts Claude sessions in the tree, and a subagent
-    # is not one -- measured: a subagent's tool call renews the PARENT's lease
-    # and creates no id of its own. So an Agent worktree in a single-stream
-    # tree reads as single-stream, even though the agent runs alongside its
-    # parent, which is this guard's own definition of concurrent. Nothing is
-    # blocked by it: `single_stream="ask"` below means the path asks. What is
-    # open is whether the Agent path should be judged by a different rule than
-    # counting sessions. Reading a token out of the Agent's prompt was tried
-    # and taken back for the reason the comment below gives.
+    # This path counts nothing (#8). An isolated agent runs BESIDE this
+    # session while this session's tree stays where it is, so the call is two
+    # work streams by construction -- the concurrency
+    # `docs/worktree-guard-spec.md` §Premise counts. Counting Claude sessions
+    # cannot see it: a subagent's tool call renews its PARENT's lease and has
+    # no id of its own (measured), so an agent in a one-session tree read as
+    # single-stream. The verdict that reading produced told the model to call
+    # the Agent again without isolation, which puts the agent in the parent's
+    # tree while the parent works there -- the mixing this guard exists to
+    # stop. So there is no `sessions_in_tree` call and no choice site here.
     #
-    # Re-read 2026-09-08 after #237 changed this function: the claim holds.
-    # `single_stream="ask"` is still what the Agent path passes, so nothing is
-    # blocked by it, and the `consented="silent"` #237 added is about a session
-    # that already answered the creation question rather than about the count
-    # this rider is open on.
+    # Two outcomes. Consent -- the record or the routing answer -- is silence,
+    # for the reason the `granted` block in `guard_worktree_creation` gives
+    # for a compound: this call is a creation PLUS an agent with a prompt, and
+    # consent answers the first half only. Otherwise one confirmation, which is
+    # #237's floor for the first creation of a session, unmoved.
     #
-    # Re-read again 2026-09-08 after #257 moved the Bash path to `silent` too:
-    # the claim still holds, and for the same reason. What changed on this
-    # path is the COMMENT only -- the argument for `silent` moved to the
-    # `granted` block where both entry points read it -- while
-    # `single_stream="ask"` and `consented="silent"` are the values they were.
-    # #257 is about a session that already has a consent record; this rider is
-    # about a subagent never being counted as a session in the first place,
-    # which no arm of either change touches.
-    # Verified 2026-09-08 against main@e3756daa.
+    # No token is read, deliberately. The Agent's prompt is prose, and prose
+    # cannot separate "the user asked for a worktree" from a sentence that
+    # merely mentions the token -- a prompt discussing it switched the guard
+    # off, and one apostrophe in a prompt that DID carry it dropped the call
+    # onto a deny telling it to add the token it already had. The answer here
+    # is an `ask` either way, so the token would buy nothing.
     if tool in ("Agent", "Task"):
         if str(tool_input.get("isolation", "")).lower() != "worktree":
             sys.exit(0)
         top, _ = repo_paths(cwd)
-        guard_worktree_creation(
-            top,
-            cwd,
+        # The same refusal `guard_worktree_creation` opens with: no repository,
+        # no tree to separate.
+        if not top:
+            sys.exit(0)
+        if worktree_consent.consent(
+            top, data.get("session_id", ""), data.get("transcript_path", "") or ""
+        ):
+            sys.exit(0)
+        respond(
+            "ask",
             tr(
-                'The Agent tool was called with isolation: "worktree" (the harness creates a '
-                "worktree at <repo>/.claude/worktrees/<name>). Re-invoking without isolation "
-                "proceeds in the shared tree.",
-                'Agent 툴을 isolation: "worktree" 로 호출했습니다 '
-                "(하네스가 <repo>/.claude/worktrees/<name> 에 worktree를 만듭니다). "
-                "isolation 없이 다시 호출하면 공유 트리에서 그대로 진행됩니다.",
-            ),
-            # No token is read here, deliberately. The Agent's prompt is prose,
-            # and prose cannot separate "the user asked for a worktree" from a
-            # sentence that merely mentions the token — a prompt discussing it
-            # switched the guard off, and one apostrophe in a prompt that DID
-            # carry it dropped the call onto a deny telling it to add the token
-            # it already had. Both paths end at a human anyway, so the token
-            # only ever bought deny -> ask, and `single_stream="ask"` below
-            # takes that step without the guessing.
-            user_ok=False,
-            session_id=data.get("session_id", ""),
-            transcript_path=data.get("transcript_path", "") or "",
-            single_stream="ask",
-            # Silent rather than `allow`: this call is a worktree creation
-            # PLUS an agent with a prompt, and the record is about the first
-            # half only. The argument in full now lives on the `granted` block
-            # in `guard_worktree_creation`, where the Bash path reads it too --
-            # it used to sit only here, which is the one place a reader of that
-            # path would not look. The record itself is shared with the Bash
-            # path in both directions -- this path writes one too -- because it
-            # is the same decision arriving through a different tool.
-            consented="silent",
-            # No command to re-issue and nowhere to put a token: the way on
-            # here is the one the origin line already names, and an option
-            # telling the model to run `git switch` would bury it.
-            shared_option=(
-                tr(
-                    '2. "Run it in the shared tree"',
-                    '2. "공용 트리에서 그대로 진행한다"',
-                ),
-                tr(
-                    'call the Agent again WITHOUT isolation: "worktree". It then '
-                    "works in this tree, and no token is involved.",
-                    'isolation: "worktree" 없이 Agent 를 다시 호출하세요. 그러면 이 '
-                    "트리에서 그대로 작업하며, 토큰도 필요 없습니다.",
-                ),
-            ),
-            # No `[worktree-ok]` guidance here: there is no such path on this
-            # entry point, and naming one sends the model knocking on a door
-            # that does not exist.
-            shared_steer=tr(
-                '  Call the Agent again without isolation: "worktree" — it then '
-                "works in this tree.\n\n"
-                "Approving this prompt creates the worktree anyway. On this path "
-                "the confirmation IS the decision; there is no token for it.",
-                '  isolation: "worktree" 없이 Agent 를 다시 호출하면 이 트리에서 '
-                "그대로 작업합니다.\n\n"
-                "이 확인창을 승인하면 worktree 를 그대로 만듭니다. 이 경로에서는 "
-                "확인 자체가 결정이며, 따로 붙일 토큰은 없습니다.",
+                'The Agent tool was called with isolation: "worktree" (the harness '
+                "creates a worktree at <repo>/.claude/worktrees/<name>). The agent "
+                "runs beside this session, so it is concurrent work and a separate "
+                "tree is the right shape for it. Creating a worktree still takes "
+                "the user's confirmation once per session. Declining cancels this "
+                "spawn.",
+                'Agent 툴을 isolation: "worktree" 로 호출했습니다(하네스가 '
+                "<repo>/.claude/worktrees/<name> 에 worktree 를 만듭니다). 이 agent 는 "
+                "이 세션과 나란히 돌기 때문에 동시 작업이고, 별도 트리가 맞는 "
+                "모양입니다. 다만 worktree 생성은 세션마다 한 번 사용자 확인을 "
+                "거칩니다. 거부하면 이번 호출이 취소됩니다.",
             ),
         )
-        sys.exit(0)
 
     if tool != "Bash":
         sys.exit(0)
