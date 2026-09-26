@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 622 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `cc48effe2b6af6a7736b1f40f2658e46dc9522dd..c6ee7a3ce36cdb2e01dd55f1315e90803e6c6c78`, 3 commits |
+| Contract changes | consent → guard_worktree_creation, main, round-1-report.md, round-1.md, pytest |
+| New units | test_a_typed_answer_that_qualifies_the_preset_is_not_consent (depth 1); test_a_sidechain_entry_is_not_consent (depth 1); dispatch_pre_bash (depth 1); test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny (depth 1); test_the_reader_itself_answers_both_shapes_without_raising (depth 1); test_consent_fails_closed_on_any_exception (depth 1); test_the_token_rows_count_sentence_is_said_only_where_a_count_was_taken (depth 1) |
 | Needs a fix | yes — 1 (typed answer read as the preset), 2 (the consent read raises and the deny is dropped), 3 (README guard row), 4 (the `[worktree-ok]` sentence in the unusable state) |
 | Loses a record or crashes | yes — 2: the consent read raises on a list-valued `tool_use_id` or a NUL in `transcript_path`, and the guard's deny is lost through `dispatch.py` |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,12 +24,12 @@ Round 1 of work item 1790381327 reviews the build at 8fe50348 against spec.md an
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A typed `Other` answer that qualifies the preset (*automation - but ask me first*) is read as the person pressing `automation` | `hooks/worktree_consent.py:220` | open | P1: three typed answers read as consent. 184/184 pressed answers on disk equal a label, so requiring a label match loses no measured case |
-| 🟡 2 | The consent read raises on an unhashable `tool_use_id` or a NUL in `transcript_path`, and the guard's deny becomes no decision through `dispatch.py` | `hooks/worktree_consent.py:299` | open | P2, P3 raise. P8: `deny` → none for the same command. Contradicts the docstring, spec S8 and ledger A1 |
-| 🟡 3 | The README guard row says the Agent path is denied or offered options and names neither consent source | `README.md:188` | open | Agent path now always asks without consent (A5). The row predates the change, and this branch made its Agent clause false. Same row in `README.ko.md:184` |
-| 🟡 4 | The `[worktree-ok]` row's first sentence asserts *no other Claude session is working* in the detection-unusable state, where nothing was counted | `hooks/worktree-guard.py:1757` | open | Worktree-ok probe with `reliable=False`. The row's own comment says that state reaches it |
-| ⬜ 5 | Reader docstring says a long transcript costs a substring test per line; nearly every tool-result line is parsed | `hooks/worktree_consent.py:261` | open | P9: 0.09 s on 17.3 MB, so a sentence fix only |
-| ⬜ 6 | Ledger row A1 says *nothing raises*, which finding 2 shows false | `seal/ledger/1790381327-an-automation-run-creates-its-worktrees-without-asking.md` | open | Correction to the run's paperwork. It follows finding 2's resolution |
+| 🟡 1 | A typed `Other` answer that qualifies the preset (*automation - but ask me first*) is read as the person pressing `automation` | `hooks/worktree_consent.py:220` | **fixed** `7edc628bf4627153d41346aacddaa0cad20ac86a` | fixed at 7edc628bf4627153d41346aacddaa0cad20ac86a; P1: three typed answers read as consent. 184/184 pressed answers on disk equal a label, so requiring a label match loses no measured case |
+| 🟡 2 | The consent read raises on an unhashable `tool_use_id` or a NUL in `transcript_path`, and the guard's deny becomes no decision through `dispatch.py` | `hooks/worktree_consent.py:299` | **fixed** `7edc628bf4627153d41346aacddaa0cad20ac86a` | fixed at 7edc628bf4627153d41346aacddaa0cad20ac86a; P2, P3 raise. P8: `deny` → none for the same command. Contradicts the docstring, spec S8 and ledger A1 |
+| 🟡 3 | The README guard row says the Agent path is denied or offered options and names neither consent source | `README.md:188` | **fixed** `7edc628bf4627153d41346aacddaa0cad20ac86a` | fixed at 7edc628bf4627153d41346aacddaa0cad20ac86a; Agent path now always asks without consent (A5). The row predates the change, and this branch made its Agent clause false. Same row in `README.ko.md:184` |
+| 🟡 4 | The `[worktree-ok]` row's first sentence asserts *no other Claude session is working* in the detection-unusable state, where nothing was counted | `hooks/worktree-guard.py:1757` | **fixed** `7edc628bf4627153d41346aacddaa0cad20ac86a` | fixed at 7edc628bf4627153d41346aacddaa0cad20ac86a; Worktree-ok probe with `reliable=False`. The row's own comment says that state reaches it |
+| ⬜ 5 | Reader docstring says a long transcript costs a substring test per line; nearly every tool-result line is parsed | `hooks/worktree_consent.py:261` | **fixed** `7edc628bf4627153d41346aacddaa0cad20ac86a` | fixed at 7edc628bf4627153d41346aacddaa0cad20ac86a; P9: 0.09 s on 17.3 MB, so a sentence fix only |
+| ⬜ 6 | Ledger row A1 says *nothing raises*, which finding 2 shows false | `seal/ledger/1790381327-an-automation-run-creates-its-worktrees-without-asking.md` | answered | corrected at 2eb566c1e58bd8489eebdf521eb072884036e26b: after 🟡 2's fix, A1's *nothing raises* and its *answered `automation`* were both false; the clause is corrected in place with a `Corrected 2026-09-26` note; Correction to the run's paperwork. It follows finding 2's resolution |
 | 🟢 | Forgery shapes the prompt named are refused: assistant look-alike, pasted block, unlinked result, fourth option, multiSelect, absent multiSelect, another clone, another session's file | `hooks/worktree_consent.py:238` | confirmed | P5a–c, P6a–c, P7, plus the suite's cases for order and clone |
 | 🟢 | Failure closed on a missing file, a directory in place of the file, and truncated or non-object lines; cost on 17.3 MB is under 0.1 s | `hooks/worktree_consent.py:267` | confirmed | P3b, P9, suite. The two exceptions are finding 2 |
 | 🟢 | The switch direction reads neither consent; §B's table matches the code row for row | `hooks/worktree-guard.py:1648` | confirmed | Two call sites only; seven rows compared |
