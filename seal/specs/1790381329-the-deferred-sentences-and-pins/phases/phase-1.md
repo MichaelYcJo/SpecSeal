@@ -21,7 +21,8 @@ scripts and both loader shapes.
 
 - **The frame holds.** The class under `skills/` was re-enumerated at the
   build tip by construction: every `spec_from_file_location`,
-  `sys.path.insert`/`append`, `import_module` and `runpy` in
+  `sys.path.insert`/`append`, `import_module` (NAME NOT IN TREE: nothing
+  calls it) and `runpy` in
   `skills/*/scripts/*.py`, and every bare `import` or `from` of a module
   named like a file in `skills/*/scripts/` or `hooks/`. The only bare imports
   are `seal.py`'s two; every other by-path loader already refuses at 2

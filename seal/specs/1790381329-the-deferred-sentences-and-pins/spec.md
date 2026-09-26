@@ -32,7 +32,7 @@ for, and no traceback. Two rows join `tests/test_a_script_copied_alone_exits_2.p
 shipped scripts* and *by file path* (the `seal.py` shape is not by path).
 
 The class was enumerated by construction for this frame, read 2026-09-26: every
-`spec_from_file_location`, `sys.path.insert|append`, `import_module` and
+`spec_from_file_location`, `sys.path.insert|append`, `import_module` (NAME NOT IN TREE: searched for, and nothing calls it) and
 `runpy` under `skills/`, plus every bare `import <sibling>` of a module in the
 same `scripts/` directory (none exist). Of the shipped `skills/` loaders,
 `survivor_check.py#reader`, `#evidence` and `#hook` and `broad_gate.py#load`
