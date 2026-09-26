@@ -1,11 +1,14 @@
-"""A shipped script copied without its sibling exits 2, with a sentence (#590).
+"""A shipped script copied without its sibling exits 2, with a sentence (#590, #610).
 
-Four shipped scripts import a sibling by file path: `fold_check.py`,
-`settle.py`, `round_record.py` and `chain_check.py`. In each of them 1 means
-a finding or a refusal the command made about the tree, and 2 means the
-input or the tree was unusable and nothing was read or written. A sibling
-that is not beside the command is the second kind: nothing about the tree
-has been read yet.
+Six shipped scripts load a sibling, in one of two shapes. Five import it by
+file path: `fold_check.py`, `settle.py`, `round_record.py`, `chain_check.py`
+and `payload_meter.py`. One, `seal.py`, puts `hooks/` on `sys.path` with
+`sys.path.insert` and then runs a plain `import`, which a search for the
+first shape does not find. In the first four 1 means a finding or a refusal
+the command made about the tree, and in `payload_meter.py` it means an input
+that could not be measured; 2 means the input or the tree was unusable and
+nothing was read or written. A sibling that is not beside the command is the
+second kind: nothing about the tree has been read yet.
 
 Before #590 three of the four said 1 for it. `fold_check.py` and
 `settle.py` raised `SystemExit(<sentence>)`, and a string argument exits 1;
@@ -20,6 +23,14 @@ questions.md` Q1): `round_record.py` loads at import, `settle.py` and
 `fold_check.py` load `hooks/optin.py` before they read the root, and
 `chain_check.py` loads its readers after argument parsing, so it needs its
 one required flag.
+
+The two #610 added (`seal/specs/1790381329-the-deferred-sentences-and-pins/
+questions.md` Q4): `seal.py` loads at import, so any invocation argparse
+accepts reaches it -- `mode --check`, and not an empty one, because
+argparse's own usage error is also exit 2 and would pass for the wrong
+reason. `payload_meter.py` loads `session_cost.py` only under `--calibrate`,
+and `measure` calls the loader before it opens the transcript, so the
+transcript named need not exist.
 """
 
 import os
@@ -31,9 +42,10 @@ import pytest
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
 
 # (script, arguments after the copy's path, a phrase naming what the missing
-# file is for, a phrase that must NOT appear). The last column is #590's
-# second half for `settle.py`: its loader used to give every file the fold
-# record's purpose, which is false of `hooks/optin.py`.
+# file is for, a phrase that must NOT appear), for the six scripts in both
+# loader shapes: by file path, and `sys.path.insert` + `import`. The last
+# column is #590's second half for `settle.py`: its loader used to give every
+# file the fold record's purpose, which is false of `hooks/optin.py`.
 CASES = [
     (
         "skills/settle/scripts/fold_check.py",
@@ -57,6 +69,18 @@ CASES = [
         "skills/code-review/scripts/chain_check.py",
         ["--baseline", "HEAD", "--root", "{root}"],
         "the shared reader",
+        None,
+    ),
+    (
+        "skills/implement/scripts/seal.py",
+        ["mode", "--check"],
+        "it is what finds the repository's seal/ root",
+        None,
+    ),
+    (
+        "skills/verify/scripts/payload_meter.py",
+        ["--root", "{root}", "--calibrate", "{root}/main.jsonl"],
+        "it is what reads a transcript's spawns",
         None,
     ),
 ]
