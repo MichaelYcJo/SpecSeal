@@ -105,14 +105,24 @@ HOOK_PURPOSES = {
     "optin.py": "it is what finds the repository's seal/ root",
 }
 
-_missing = [
-    name for name in HOOK_PURPOSES if not os.path.isfile(os.path.join(HOOKS, name))
-]
-if _missing:
-    for _name in _missing:
+
+def refuse_without_hooks(hooks=HOOKS):
+    """Exit 2 with one sentence per `HOOK_PURPOSES` module absent from
+    `hooks`, naming its path and what it is for; return where all are there.
+
+    2 and not 1, because 1 here means *nothing was written* about a root this
+    command read, and a missing sibling means nothing was read at all. A
+    `SystemExit` carrying a string exits 1, so the sentences go to stderr and
+    the code is the int -- the shape `settle.py#load` has."""
+    missing = [
+        name for name in HOOK_PURPOSES if not os.path.isfile(os.path.join(hooks, name))
+    ]
+    if not missing:
+        return
+    for name in missing:
         sys.stderr.write(
-            f"seal: cannot read {os.path.join(HOOKS, _name)}, and "
-            f"{HOOK_PURPOSES[_name]}.\n"
+            f"seal: cannot read {os.path.join(hooks, name)}, and "
+            f"{HOOK_PURPOSES[name]}.\n"
         )
     sys.stderr.write(
         "This command ships under `skills/`, in the plugin that holds "
@@ -121,6 +131,8 @@ if _missing:
     )
     raise SystemExit(2)
 
+
+refuse_without_hooks()
 sys.path.insert(0, HOOKS)
 import config as repo_config  # noqa: E402
 import optin  # noqa: E402
