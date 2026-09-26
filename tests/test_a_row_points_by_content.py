@@ -1107,8 +1107,8 @@ def test_a_coordinate_the_opener_list_misses_is_named(repo, coord):
     coordinate holding both marks are named beside a good anchor too.
 
     The last four shapes are #614's glued-marks rule read from the other
-    side: a `#` and an `@` stay glued through a quoted string, whitespace and
-    escaped quotes inside it included. The first of them is a guard, green
+    side: in a code span, a `#` and an `@` stay glued through a quoted
+    string, whitespace and escaped quotes inside it included. The first of them is a guard, green
     before that change and after it, because its path names it word by word
     anyway. The three with no path and a space inside the quotes are named by
     the quoted string alone, and the last holds prose before its `#`, so

@@ -27,8 +27,13 @@
   holding a decorator and a comment (`` `@lru_cache  # memoized` ``) or a
   mention inside a comment was refused for holding both marks; they now
   count only where the `@` follows the `#` with no space between them
-  outside quotes. And a file name with no dot followed by a quoted line,
-  `<module>` or an `_name` (`Makefile#"all: build"`) was silent; it is named
-  now. What this gives up: `src/a.py@abc` with a hash shorter than six
-  characters, `docs/a.md#1장` with no hash, `Makefile#1x`, and a path-less
-  `#handler @abcdef12` are not named.
+  outside quotes, and a quoted part keeps its spaces only inside a code span.
+  And a file name with no dot followed by a quoted line, `<module>` or an
+  `_name` (`Makefile#"all: build"`) was silent; it is named now, and so are
+  `C#"hello"` and `vector#<T>`. What this gives up: `src/a.py@abc` with a
+  hash shorter than six characters; a locator opening with digits and
+  followed by anything but an ASCII letter, digit or underscore, when no hash
+  follows (`docs/a.md#1장`, `docs/a.md#1-scope`, `docs/a.md#1.2`,
+  `src/a.py#1>"x"`); `Makefile#1x`; and a path-less `#handler @abcdef12` or
+  `#handler>"a"b"@abcdef12` are not named. A span of many `#` characters no
+  longer takes seconds to read.

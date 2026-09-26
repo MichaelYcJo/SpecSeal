@@ -130,9 +130,12 @@ All in `evidence_check.py`, around `refused_coordinate`:
     `"#" in s and "@" in s` refuses any code span holding both, so
     `` `@lru_cache  # memoized` `` and `` `x = 1  # see @jane` `` exit 2 (and
     exit 1 after part 1). Both marks count only where an `@` follows a `#`
-    with no whitespace between them outside a quoted string:
-    `GLUED_MARKS_RE = re.compile(r'#(?:"(?:[^"\\\n]|\\.)*"|[^\s"])*@')`,
-    tested with `.search` so every `#` in the text is tried. Every
+    with no whitespace between them outside a quoted string, which holds
+    whitespace only in a code span (outside one the cell is read word by
+    word): `GLUED_MARKS_RE = re.compile(r'#(?:"(?:[^"\\\n]|\\.)*"|[^\s"#])*@')`,
+    tested with `.search` so every `#` in the text is tried. The `#` in the
+    unquoted class was added by round 1 of this work item, so each attempt
+    stops at the next `#` and the search stays linear. Every
     malformed shape the suite names today keeps its name (see *Must still be
     named*).
 
@@ -168,14 +171,18 @@ Part 2, measured by round 3 of work item 1790297087 or read here:
 
 - `src/a.py@abc`, a path followed by fewer than six hex characters and no
   anchor, goes silent. `src/a.py#f@abc` is still named by the glued marks.
-- `docs/a.md#1장`, a heading locator that opens with a digit followed by a
-  non-ASCII letter, with no hash, reads as an issue number. With its hash
-  (`docs/a.md#1장@abcdef12`) the glued marks name it.
+- A locator that opens with digits and goes on with anything but an ASCII
+  letter, digit or `_`, with no hash, reads as an issue number:
+  `docs/a.md#1장`, and (added by round 1 of this work item, which measured
+  them) `docs/a.md#1-scope`, `docs/a.md#1.2` and `src/a.py#1>"x"`. With a
+  hash (`docs/a.md#1장@abcdef12`) the glued marks name it.
 - `Makefile#1x` stays silent, as it is today (read: at 47e32d57 its tail opens
-  with a digit, which the dotless branch has never taken).
-- A path-less coordinate with unquoted whitespace between `#` and `@`
-  (`#handler @abcdef12`) goes silent. With a path, the per-word rule still
-  names it (`src/a.py#handler` is a `#` glued to a path).
+  with a digit, which the dotless branch has never taken). The dotless
+  branch's `"` and `<` openers name `C#"hello"` and `vector#<T>` (round 1).
+- A path-less coordinate with unquoted whitespace, or a `"` no second `"`
+  closes, between `#` and `@` (`#handler @abcdef12`, and from round 1
+  `#handler>"a"b"@abcdef12`) goes silent. With a path, the per-word rule
+  still names it (`src/a.py#handler` is a `#` glued to a path).
 - `org/repo@abcdef12` and a schemeless `example.com/page#section` stay
   refused. Round 3 judged both genuinely ambiguous with a coordinate, and
   nothing here changes that.
