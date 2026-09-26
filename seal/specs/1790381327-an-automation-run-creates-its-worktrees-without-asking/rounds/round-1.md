@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 622 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `cc48effe2b6af6a7736b1f40f2658e46dc9522dd..c6ee7a3ce36cdb2e01dd55f1315e90803e6c6c78`, 3 commits |
 | Contract changes | consent → guard_worktree_creation, main, round-1-report.md, round-1.md, pytest |
 | New units | test_a_typed_answer_that_qualifies_the_preset_is_not_consent (depth 1); test_a_sidechain_entry_is_not_consent (depth 1); dispatch_pre_bash (depth 1); test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny (depth 1); test_the_reader_itself_answers_both_shapes_without_raising (depth 1); test_consent_fails_closed_on_any_exception (depth 1); test_the_token_rows_count_sentence_is_said_only_where_a_count_was_taken (depth 1) |
