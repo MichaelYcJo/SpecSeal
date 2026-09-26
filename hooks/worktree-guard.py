@@ -21,14 +21,16 @@ B) Worktree creation, whichever path it takes:
      - Agent/Task tool with `isolation: "worktree"` (harness-managed, lands in
        `<repo>/.claude/worktrees/<name>` and never goes through Bash)
 
-  - this session already created one in this clone  -> allow (Bash, where the
-    command is worktree creation and nothing else), ask (Bash, where it does
-    more), silent (Agent/Task). Read FIRST, above every row below it: each of
-    them asks something a person has already answered. The record is written
-    by hooks/worktree_consent.py AFTER a creation ran, which is why it is
+  - consent: this session already created one in this clone, or its person
+    pressed `automation` on the routing question    -> allow (Bash, where the
+    command is worktree creation and nothing else), silent (Bash, where it
+    does more, and Agent/Task). Read FIRST, above every row below it:
+    each of them asks something a person has already answered. The record is
+    written by hooks/worktree_consent.py AFTER a creation ran, and the routing
+    answer by the harness from the person's click, which is why both are
     evidence where `[worktree-ok]` is not -- that file holds the whole
-    argument, and the budget it buys is one prompt per SESSION rather than one
-    per worktree
+    argument, and the budget they buy is one prompt per SESSION rather than
+    one per worktree, and none for a session whose person pressed `automation`
   - another Claude session inside THIS working tree -> ask (concurrent:
     justified; declining leads only to "use that session's worktree or wait",
     which is not a command this session issues, so there is no choice to offer)
@@ -1552,7 +1554,8 @@ def guard_worktree_creation(
     shared_option=None,
     shared_steer=None,
     single_stream="deny",
-    consented="ask",
+    consented="silent",
+    transcript_path="",
 ):
     """Worktrees are for CONCURRENT work only -- block the single-stream case."""
     # Same reason as the switch path: without a repository there is no tree to
@@ -1561,14 +1564,17 @@ def guard_worktree_creation(
     if not top:
         return
 
-    # 0) 이 세션이 이 클론에서 이미 worktree 를 만들었다면, 아래 모든 자리는
-    #    사용자가 이미 답한 질문을 다시 내는 것이다.
+    # 0) 이 세션이 이 클론에서 이미 worktree 를 만들었거나, 사용자가 라우팅 질문에
+    #    `automation` 을 눌렀다면, 아래 모든 자리는 사용자가 이미 답한 질문을
+    #    다시 내는 것이다.
     #
     # This row goes ABOVE every other one, including the ACTIVE-session row.
-    # Each of them asks something the record has already answered: the ACTIVE
+    # Each of them asks something the consent has already answered: the ACTIVE
     # row asks for a confirmation, the two choice rows ask which way to go, and
     # the `[worktree-ok]` row asks whether the token was meant. A session that
-    # created a worktree with a person's answer has settled all four.
+    # created a worktree with a person's answer has settled all four, and so
+    # has a person who pressed `automation`, whose description says nothing
+    # stops to ask again.
     #
     # And it answers the `[worktree-ok]` docstring rather than stepping around
     # it. That site is right that the TOKEN is not evidence -- it is written
@@ -1579,11 +1585,19 @@ def guard_worktree_creation(
     # worktree always takes one confirmation", which becomes "the FIRST
     # creation of a session takes one". That is the whole behaviour change.
     #
+    # The routing answer is the second source, for the one creation the record
+    # cannot cover: the first, which in an automation run comes before any
+    # creation has run. The harness writes that answer into this session's
+    # transcript from the person's click, and the model never writes which
+    # option was pressed -- so it has the record's standing, not the token's.
+    # `worktree_consent.consent` reads both, record first, and holds the rules.
+    #
     # `consented` differs by entry point for the same reason `single_stream`
     # does. `hooks/worktree_consent.py` holds the record and the rest of the
     # reasoning.
-    # No `session_id and` in front of it: `consent_path` already answers ""
-    # for a missing or separator-only id, so a second test here would be a
+    # No `session_id and` in front of it: `consent_path` and `transcript_for`
+    # already answer "" for a missing or separator-only id, so a second test
+    # here would be a
     # condition nothing could make false — which is a condition no case can
     # pin.
     # WHY `silent` AND NOT `ask` FOR A COMPOUND — the argument both entry
@@ -1591,9 +1605,9 @@ def guard_worktree_creation(
     # looking at the Agent call site for it.
     #
     # A call that is a creation PLUS something else -- an agent with a prompt,
-    # a pipe, a `cd`, a redirection -- is two questions, and the record
+    # a pipe, a `cd`, a redirection -- is two questions, and the consent
     # answers only the first. Silence is the guard WITHDRAWING ITS OBJECTION,
-    # which is the whole of what the record establishes; whatever the harness
+    # which is the whole of what either consent establishes; whatever the harness
     # wants to ask about the rest of the command line is not the guard's to
     # remove, and it is equally not the guard's to ASK. `silent` grants
     # nothing: this function returns without responding, and the harness's own
@@ -1614,16 +1628,23 @@ def guard_worktree_creation(
     # call. The rule that shapes the command and the arm that stayed quiet for
     # it disagreed, and the session paid a stop for following the rule.
     #
-    # #237's invariant is untouched: the FIRST creation of a session is still
-    # a question. This arm is only reached once a record exists.
-    if worktree_consent.granted(top, session_id):
-        if consented == "silent":
+    # #237's invariant holds for every session whose person did not press
+    # `automation`: its FIRST creation is still a question, because without
+    # that answer this arm is reached only once a record exists.
+    #
+    # `consented` is `allow` or `silent` and nothing else. It used to default
+    # to `ask`, and an `ask` tail no production caller could reach sat under a
+    # rider; both went when the routing answer joined this row, because a
+    # message no caller can reach is a message nobody maintains.
+    source = worktree_consent.consent(top, session_id, transcript_path)
+    if source:
+        if consented != "allow":
             return
         respond(
-            consented,
-            (
-                f"{origin}\n"
-                + tr(
+            "allow",
+            f"{origin}\n"
+            + (
+                tr(
                     "A worktree creation already ran in this repository this session, "
                     "which means the user answered for it -- the harness only runs a "
                     "call that was permitted. It is the same decision, so it is not "
@@ -1632,29 +1653,15 @@ def guard_worktree_creation(
                     "허용된 호출만 실행되므로 사용자가 이미 답한 것입니다. 같은 "
                     "결정이라 다시 묻지 않습니다.\n",
                 )
-                # RIDER: this else branch is unreachable from either production
-                # caller since #257. The Bash path passes `allow` or `silent`
-                # and the Agent path passes `silent`, so no call arrives here
-                # with `ask` — only the default parameter and a direct caller
-                # in a test can produce it. Removing it, and with it the
-                # `consented` parameter's `ask` default, was outside the bound
-                # #257 was given ("the change is `ask` -> `silent` on the else
-                # arm, nothing else"), so it was deliberately left. If you are
-                # here to change this block, decide that first: a message no
-                # caller can reach is a message nobody maintains, and this
-                # repository's own rule is that a branch nothing can make true
-                # is a branch no case can pin.
-                # Verified 2026-09-08 against guard_worktree_creation@b8bdb94d.
-                + (
-                    ""
-                    if consented == "allow"
-                    else tr(
-                        "This command does more than create a worktree, so the "
-                        "confirmation covers the rest of the command line rather "
-                        "than the worktree.",
-                        "이 명령은 worktree 생성 외의 일도 합니다. 따라서 이 확인은 "
-                        "worktree 가 아니라 명령의 나머지 부분에 대한 것입니다.",
-                    )
+                if source == "record"
+                else tr(
+                    "The user pressed `automation` on this session's routing question, "
+                    "whose answer says nothing stops to ask again. The harness wrote "
+                    "that answer into this session's transcript, so the creation is "
+                    "not put to them.\n",
+                    "사용자가 이 세션의 라우팅 질문에서 `automation` 을 눌렀고, 그 답은 "
+                    "더는 멈춰서 묻지 않는다는 뜻입니다. 이 답은 하네스가 이 세션의 "
+                    "작업 기록에 적었으므로 생성을 다시 묻지 않습니다.\n",
                 )
             ),
         )
@@ -1837,7 +1844,9 @@ def guard_worktree_creation(
     )
 
 
-def judge_creation(command: str, cwd: str, top: str, session_id: str):
+def judge_creation(
+    command: str, cwd: str, top: str, session_id: str, transcript_path: str = ""
+):
     """Put the creation question for a `git worktree add` in `command`.
 
     Extracted because there are now two sites that reach it, and the second one
@@ -1922,6 +1931,9 @@ def judge_creation(command: str, cwd: str, top: str, session_id: str):
         # points now rest on. The bound on the ALLOW is unchanged -- a
         # compound still never earns one.
         consented=("allow" if only_creates_a_worktree(command, cwd) else "silent"),
+        # Where the routing answer is read from; `worktree_consent` falls back
+        # to this session's own file by id when the path names another one.
+        transcript_path=transcript_path,
     )
 
 
@@ -1985,6 +1997,7 @@ def main():
             # takes that step without the guessing.
             user_ok=False,
             session_id=data.get("session_id", ""),
+            transcript_path=data.get("transcript_path", "") or "",
             single_stream="ask",
             # Silent rather than `allow`: this call is a worktree creation
             # PLUS an agent with a prompt, and the record is about the first
@@ -2032,6 +2045,7 @@ def main():
     # Hoisted above the walk: both silent exits below now have a creation to
     # judge before they take, and each of them needs it.
     session_id = data.get("session_id", "")
+    transcript_path = data.get("transcript_path", "") or ""
 
     reason = None
     eff_cwd = cwd
@@ -2084,11 +2098,13 @@ def main():
         # recorded session-wide consent for it, because the writer resolves
         # the creation's OWN directory and finds a repository there.
         if creation_at:
-            judge_creation(command, cwd, repo_paths(creation_at)[0], session_id)
+            judge_creation(
+                command, cwd, repo_paths(creation_at)[0], session_id, transcript_path
+            )
         sys.exit(0)
 
     if reason == "worktree-add":
-        judge_creation(command, cwd, top, session_id)
+        judge_creation(command, cwd, top, session_id, transcript_path)
         sys.exit(0)
 
     active, idle, reliable = sessions_in_tree(top, session_id)
@@ -2157,7 +2173,11 @@ def main():
     # creation used to go unjudged. `choose`'s own docstring holds the
     # measurement.
     judge_the_creation = (
-        (lambda: judge_creation(command, cwd, repo_paths(creation_at)[0], session_id))
+        (
+            lambda: judge_creation(
+                command, cwd, repo_paths(creation_at)[0], session_id, transcript_path
+            )
+        )
         if creation_at
         else None
     )
@@ -2290,7 +2310,9 @@ def main():
     # The creation's own repository, not this switch's: they are not always the
     # same tree, and `guard_worktree_creation` refuses an empty one.
     if creation_at:
-        judge_creation(command, cwd, repo_paths(creation_at)[0], session_id)
+        judge_creation(
+            command, cwd, repo_paths(creation_at)[0], session_id, transcript_path
+        )
 
     # 3) 단건이지만 추적 중인 변경이 있으면 사용자에게 확인.
     entries = tracked_changes(cwd)

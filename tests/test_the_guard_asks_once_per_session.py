@@ -84,21 +84,21 @@ def decide(
     sessions=([], [], True),
     session_id="me",
     cwd=None,
+    transcript_path=None,
 ):
     """`cwd` is where the SHELL is, which is not always `repo`: a `git -C
     <repo> worktree add` issued from outside any repository is the one shape
     that reaches the guard's second silent exit."""
     monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": sessions)
-    monkeypatch.setattr(
-        wg,
-        "load_input",
-        lambda: {
-            "tool_name": "Bash",
-            "session_id": session_id,
-            "tool_input": {"command": command},
-            "cwd": str(cwd or repo),
-        },
-    )
+    payload = {
+        "tool_name": "Bash",
+        "session_id": session_id,
+        "tool_input": {"command": command},
+        "cwd": str(cwd or repo),
+    }
+    if transcript_path is not None:
+        payload["transcript_path"] = str(transcript_path)
+    monkeypatch.setattr(wg, "load_input", lambda: payload)
     try:
         wg.main()
     except SystemExit:
@@ -111,19 +111,24 @@ def decide(
 
 
 def agent_decide(
-    monkeypatch, capsys, repo, tool_input, sessions=([], [], True), session_id="me"
+    monkeypatch,
+    capsys,
+    repo,
+    tool_input,
+    sessions=([], [], True),
+    session_id="me",
+    transcript_path=None,
 ):
     monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": sessions)
-    monkeypatch.setattr(
-        wg,
-        "load_input",
-        lambda: {
-            "tool_name": "Agent",
-            "session_id": session_id,
-            "tool_input": tool_input,
-            "cwd": str(repo),
-        },
-    )
+    payload = {
+        "tool_name": "Agent",
+        "session_id": session_id,
+        "tool_input": tool_input,
+        "cwd": str(repo),
+    }
+    if transcript_path is not None:
+        payload["transcript_path"] = str(transcript_path)
+    monkeypatch.setattr(wg, "load_input", lambda: payload)
     try:
         wg.main()
     except SystemExit:
@@ -1174,3 +1179,161 @@ def test_the_labels_match_the_routing_question_the_orchestrator_asks():
     ]
     assert tuple(labels) == wc.ROUTING_LABELS
     assert labels[0] == wc.PRESET
+
+
+# --- the guard reads the routing answer (phase 2) ---------------------------
+
+MEASURED_RUN = (
+    "git worktree add ../wt-a -b fix/a feature/x\n"
+    "git worktree add ../wt-b -b fix/b feature/x\n"
+    "git switch -c fix/c  # [worktree-ok] each branch carries its own routing.md"
+)
+
+
+def test_the_measured_automation_run_is_not_stopped(
+    monkeypatch, capsys, projects, repo
+):
+    """S1, the run #604 measured: the person pressed `automation`, no creation
+    had run yet, and one call created two worktrees and a branch. The guard
+    asked there. The stream is read raw: `silent` means nothing printed."""
+    write_transcript(projects, "me", ask_entries(repo))
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda top, own="": ([], [], True))
+    monkeypatch.setattr(
+        wg,
+        "load_input",
+        lambda: {
+            "tool_name": "Bash",
+            "session_id": "me",
+            "tool_input": {"command": MEASURED_RUN},
+            "cwd": str(repo),
+        },
+    )
+    try:
+        wg.main()
+    except SystemExit:
+        pass
+    assert capsys.readouterr().out == ""
+    assert not consent_dir(repo).exists(), "the reader must not write the record"
+
+
+def test_a_bare_creation_after_the_automation_answer_is_allowed(
+    monkeypatch, capsys, projects, repo
+):
+    """S2. The same bound on the allow as the record's: a command that is
+    worktree creation and nothing else."""
+    write_transcript(projects, "me", ask_entries(repo))
+    decision, reason = decide(monkeypatch, capsys, repo, "git worktree add ../wt f")
+    assert decision == "allow", reason
+
+
+def test_the_answer_outranks_every_row_below_it(monkeypatch, capsys, projects, repo):
+    """The same placement as the record: above ACTIVE, both choice rows and
+    the `[worktree-ok]` row."""
+    write_transcript(projects, "me", ask_entries(repo))
+    for sessions in ((ACTIVE, [], True), ([], IDLE, True), ([], [], False)):
+        assert (
+            decide(
+                monkeypatch, capsys, repo, "git worktree add ../wt f", sessions=sessions
+            )[0]
+            == "allow"
+        ), sessions
+    assert (
+        decide(monkeypatch, capsys, repo, "git worktree add ../wt f | tail -2")[0]
+        == "silent"
+    )
+
+
+def test_the_agent_path_is_silent_after_the_automation_answer(
+    monkeypatch, capsys, projects, repo
+):
+    """S3. The same decision arriving through the other tool."""
+    write_transcript(projects, "me", ask_entries(repo))
+    assert (
+        agent_decide(
+            monkeypatch, capsys, repo, {"prompt": "x", "isolation": "worktree"}
+        )[0]
+        == "silent"
+    )
+
+
+def test_the_guard_reads_the_path_the_payload_names(
+    monkeypatch, capsys, projects, repo, tmp_path
+):
+    """`main` hands the payload's `transcript_path` down to the reader."""
+    path = write_transcript(tmp_path / "elsewhere", "me", ask_entries(repo))
+    assert decide(monkeypatch, capsys, repo, "git worktree add ../wt f")[0] == "deny"
+    decision, _ = decide(
+        monkeypatch, capsys, repo, "git worktree add ../wt f", transcript_path=path
+    )
+    assert decision == "allow"
+    assert (
+        agent_decide(
+            monkeypatch,
+            capsys,
+            repo,
+            {"prompt": "x", "isolation": "worktree"},
+            transcript_path=path,
+        )[0]
+        == "silent"
+    )
+
+
+def test_the_answer_does_not_reach_the_switch_direction(
+    monkeypatch, capsys, projects, repo
+):
+    """S9. That the run should not stop says nothing about taking another
+    session's branch out from under it."""
+    write_transcript(projects, "me", ask_entries(repo))
+    decision, reason = decide(
+        monkeypatch, capsys, repo, "git switch feature/x", sessions=(ACTIVE, [], True)
+    )
+    assert decision == "deny"
+    assert "actively working" in reason
+
+
+def test_an_unreadable_transcript_leaves_the_old_verdict(
+    monkeypatch, capsys, projects, repo
+):
+    """S8 through the guard: no traceback, and the verdict it gave before."""
+    write_transcript(projects, "me", ["{not json", "null"])
+    decision, reason = decide(monkeypatch, capsys, repo, "git worktree add ../wt f")
+    assert decision == "deny" and "git switch" in reason
+    use, result = ask_entries(repo, answer="per axis")
+    write_transcript(projects, "me", [use, result])
+    assert decide(monkeypatch, capsys, repo, "git worktree add ../wt f")[0] == "deny"
+    assert capsys.readouterr().err == ""
+
+
+def test_the_allow_says_which_consent_it_read(monkeypatch, capsys, projects, repo):
+    """§14: the two sources are two different sentences, in both languages."""
+    write_transcript(projects, "me", ask_entries(repo))
+    _, reason = decide(monkeypatch, capsys, repo, "git worktree add ../wt f")
+    assert "The user pressed `automation` on this session's routing question" in reason
+    assert "already ran" not in reason
+    grant(repo)
+    _, reason = decide(monkeypatch, capsys, repo, "git worktree add ../wt f")
+    assert "A worktree creation already ran in this repository" in reason
+    assert "`automation`" not in reason
+    (consent_dir(repo) / "me").unlink()
+
+    monkeypatch.setenv("SPECSEAL_LANG", "ko")
+    wko = load_hook_module("worktree-guard.py", "wg_consent_ko")
+    monkeypatch.setattr(wko, "sessions_in_tree", lambda top, own="": ([], [], True))
+    monkeypatch.setattr(
+        wko,
+        "load_input",
+        lambda: {
+            "tool_name": "Bash",
+            "session_id": "me",
+            "tool_input": {"command": "git worktree add ../wt f"},
+            "cwd": str(repo),
+        },
+    )
+    try:
+        wko.main()
+    except SystemExit:
+        pass
+    reason = json.loads(capsys.readouterr().out)["hookSpecificOutput"][
+        "permissionDecisionReason"
+    ]
+    assert "라우팅 질문에서 `automation` 을 눌렀고" in reason
