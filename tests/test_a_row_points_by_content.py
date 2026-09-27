@@ -1273,10 +1273,11 @@ def test_what_the_rules_still_name_is_named_and_says_so(repo, shape):
     same list: a `"` or `<` after a name with no dot is a locator's opener,
     so `C#"hello"` and `vector#<T>` are named; a locator opening with a digit
     that is not a decimal digit is not an issue number, so `docs/a.md#²` is
-    named; and the examples the rules name in spite of what they give up,
-    `docs/a.md#1장@abcdef12` and `@alice#299@abcdef12` by their glued marks
-    and `src/a.py#handler @abcdef12` by its first word, are named. The
-    docstring says so."""
+    named; and the examples the rules name in spite of what they give up are
+    named: `@alice#299@abcdef12` by its glued marks, `docs/a.md#1장@abcdef12`
+    by its glued marks and again by the path its `@` follows, and
+    `src/a.py#handler @abcdef12` by its first word alone. The docstring says
+    so."""
     assert f"`{shape}`" in ec.refused_coordinate.__doc__, "the list omits it"
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
