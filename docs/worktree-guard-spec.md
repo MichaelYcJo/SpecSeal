@@ -23,7 +23,10 @@ actually live on the tree.
 | single stream, clean | allow silently |
 
 `[shared-tree-ok]` in the command turns the two **choice** rows silent — see
-§Choice sites.
+§Choice sites. A dirty tree then reaches the tracked-changes row from those two
+states as well, and there its reason opens with the token carrying the user's
+answer rather than with *Single-stream tree*, because nothing was counted as
+single-stream.
 
 A command that also creates a worktree is judged by this table whichever of the
 two is written first, with the creation judged inside it — see §Creation
@@ -148,9 +151,12 @@ the guard's behaviour before the answer was read:
    form. No other session's file is read, and no `subagents/` file.
 2. **A harness-written `AskUserQuestion` result**: a `user` entry whose
    `tool_result` names, by `tool_use_id`, an earlier `AskUserQuestion` call,
-   read from its structured `toolUseResult.answers`, and not marked
-   `isSidechain: true`. A Bash result echoing *The user answered:
+   read from its structured `toolUseResult.answers`, and carrying
+   `isSidechain: false`. A Bash result echoing *The user answered:
    "automation"* has no such link, and a subagent has no `AskUserQuestion`.
+   Every main-transcript result measured carries `false`, so `true`, an
+   absent field and a value that is not a bool are all refused as shapes
+   nobody measured.
 3. **The routing question**: one single-select question whose options' leading
    phrases are exactly `automation`, `per axis` and `no work item`
    (`skills/implement/orchestration.md` §*Question 1 — single-select*),
