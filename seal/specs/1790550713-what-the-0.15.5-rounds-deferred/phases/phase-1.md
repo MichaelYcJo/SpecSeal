@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | 48c36b1 |
-| Ran by | unknown — the spawn prompt named no agent or model for this row, so the orchestrator fills it |
+| Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
 
