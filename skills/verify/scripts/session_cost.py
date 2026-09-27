@@ -176,13 +176,55 @@ def parse_time(value):
 # A heredoc body is data the command was handed, not a command that ran. The
 # delimiter has to be QUOTED or written in the upper case every convention
 # uses -- `<<EOF`, `<<'PY'`, `<<-"SQL"` -- because a bare `<<` followed by a
-# lowercase word is more often a quoted comparison than a heredoc, and cutting
-# there would charge a real run to `other`, which is the error this whole
-# change exists to remove. A heredoc with a lowercase unquoted delimiter is
-# left classified the way it is today: a smaller error than the one the
+# lowercase word is more often a quoted comparison than a heredoc, and
+# removing text there would charge a real run to `other`, which is the error
+# #200 existed to remove. A heredoc with a lowercase unquoted delimiter is
+# left classified as if it were not one: a smaller error than the one the
 # looser pattern would introduce, and the direction every funnel in this file
 # takes.
+#
+# What is removed is the BODY, up to the first line equal to the delimiter,
+# and not everything after the operator (#377): the command after the closing
+# line ran, and cutting to the end charged a `gh issue create` after a
+# `cat > body.md <<'EOF'` to `other`. A heredoc with no closing line is still
+# cut from the operator to the end, which is every flattened command.
 HEREDOC = re.compile(r"""<<-?\s*(?:'[^']*'|"[^"]*"|[A-Z_][A-Z0-9_]*)""")
+
+
+def without_heredoc_bodies(command):
+    """The command with every heredoc body removed, and what follows kept.
+
+    A body runs from the line after its operator to the first line equal to
+    its delimiter, which under `<<-` may carry leading tabs. The rest of the
+    operator's own line is kept, because it runs (`cat > f <<'EOF' && git add
+    f`), and so is everything after the closing line. Two operators on one
+    line have their bodies one after the other, which is the order the
+    search below meets them in. An operator with no closing line is cut from
+    the operator to the end."""
+    start = 0
+    while True:
+        opener = HEREDOC.search(command, start)
+        if not opener:
+            return command
+        operator = opener.group(0)
+        delimiter = re.sub(r"^<<-?\s*", "", operator).strip("'\"")
+        tabs = operator.startswith("<<-")
+        body = command.find("\n", opener.end())
+        closed = None
+        if body != -1:
+            at = body + 1
+            while at <= len(command):
+                end = command.find("\n", at)
+                end = len(command) if end == -1 else end
+                line = command[at:end]
+                if (line.lstrip("\t") if tabs else line) == delimiter:
+                    closed = end
+                    break
+                at = end + 1
+        if closed is None:
+            return command[: opener.start()]
+        command = command[:body] + command[closed:]
+        start = opener.end()
 
 
 # What the tokeniser returns as a token of its own, and which of those put
@@ -270,20 +312,23 @@ def runs_git(command):
 def family(command):
     """The family of the command that RAN, with any heredoc body removed.
 
-    `load` flattens a call's whitespace, so a `cat > file <<'EOF' … EOF`
-    writing a document arrives here as one line with the whole document in it,
-    and any runner named inside gets the call. That is the second half of
-    #200's *wrong in both directions*: the family missed every real
-    `./bin/test` run and charged one file write to `test`, in the same
-    reading. Cutting at the heredoc operator answers it for every family at
-    once and needs no list of the words a document might contain.
+    A `cat > file <<'EOF' … EOF` writing a document carries the whole
+    document in its command, and any runner named inside used to get the
+    call. That is the second half of #200's *wrong in both directions*: the
+    family missed every real `./bin/test` run and charged one file write to
+    `test`, in the same reading. Removing the body answers it for every
+    family at once and needs no list of the words a document might contain.
+
+    `analyse` hands this the command as the harness recorded it, newlines
+    kept (#377), so a command on a line of its own and one after a heredoc's
+    closing line are both read; `without_heredoc_bodies` says what is
+    removed. A flattened command has no closing line, so its heredoc is cut
+    from the operator to the end, as before.
 
     `git` is judged by `runs_git`, by command word, and the other three by
     their patterns anywhere on what is left. The order is `FAMILIES`', first
     match wins."""
-    opener = HEREDOC.search(command)
-    if opener:
-        command = command[: opener.start()]
+    command = without_heredoc_bodies(command)
     for name, pattern in FAMILIES:
         if runs_git(command) if name == "git" else pattern.search(command):
             return name
@@ -496,14 +541,17 @@ def load(path):
                     if not isinstance(payload, dict):
                         payload = {}
                     text = payload.get("command", "")
-                    if not isinstance(text, str) or not text:
+                    ran = text if isinstance(text, str) and text else None
+                    if ran is None:
                         text = json.dumps(payload, ensure_ascii=False)
+                    flat = " ".join(text.split())
                     pending[call_id] = (
                         stamp,
                         tool_name(block.get("name")),
-                        " ".join(text.split()),
+                        flat,
                         turn_key,
                         spawn_labels(payload),
+                        flat if ran is None else ran,
                     )
                 elif block.get("type") == "tool_result":
                     result_id = block.get("tool_use_id")
@@ -513,7 +561,7 @@ def load(path):
                         else None
                     )
                     if started:
-                        began, tool, text, turn, spawn = started
+                        began, tool, text, turn, spawn, ran = started
                         start, end = parse_time(began), parse_time(stamp)
                         if start and end:
                             calls.append(
@@ -522,6 +570,14 @@ def load(path):
                                     "end": end,
                                     "tool": tool,
                                     "command": text,
+                                    # The command as the harness recorded it,
+                                    # newlines kept, and what `family` reads
+                                    # (#377): flattening joins a line to the
+                                    # one before it and a heredoc's closing
+                                    # line to its body. Every PRINTED command
+                                    # reads `command`. A call with no command
+                                    # string holds the same flattened dump.
+                                    "ran": ran,
                                     "turn": turn,
                                     # Empty for every call that delegated
                                     # nothing, which is almost all of them.
@@ -590,12 +646,14 @@ def analyse(calls, turns, delegated=()):
     figure moves.
 
     The family split moved at #377: `family` reads `git` by
-    command word rather than at the start of the line, so a `git` call after
-    a `cd` stopped reading as `other`. That one DOES move published figures
-    -- `by_family` and `unnamed` -- and `report_segments` says so on the
-    page. The repeats figures do not move, because they keep only `test`,
-    `lint/type` and `build`, and the rule moves calls between `other` and
-    `git` alone. Both changes are carried
+    command word rather than at the start of the line, and reads the command
+    as the harness recorded it, with a heredoc's body removed rather than
+    everything after its operator. So a `git` call after a `cd`, on a line of
+    its own, or after a heredoc's closing line stopped reading as `other`,
+    and so did a test run after a closing line. That one DOES move published
+    figures -- `by_family`, `unnamed`, and the two repeats figures, which
+    keep only `test`, `lint/type` and `build` -- and `report_segments` says
+    so on the page. Both changes are carried
     in `skills/verify/SKILL.md`, where a person taking a reading meets them.
     Every other number here is untouched, `command_s` and `model_s`
     included.
@@ -659,7 +717,7 @@ def analyse(calls, turns, delegated=()):
     by_family = defaultdict(lambda: [0, 0.0])
     unnamed = defaultdict(float)
     for call in calls:
-        key = family(call["command"]) if call["tool"] == "Bash" else call["tool"]
+        key = family(call["ran"]) if call["tool"] == "Bash" else call["tool"]
         seconds = (call["end"] - call["start"]).total_seconds()
         by_family[key][0] += 1
         by_family[key][1] += seconds
@@ -678,7 +736,7 @@ def analyse(calls, turns, delegated=()):
             # rather than everywhere, because the whole-run reading passes no
             # `delegated` and must go on printing what it printed before.
             continue
-        if family(call["command"]) not in ("test", "lint/type", "build"):
+        if family(call["ran"]) not in ("test", "lint/type", "build"):
             continue
         exact[call["command"]].append(seconds)
         stripped[strip_pipe(call["command"])].append(seconds)
@@ -2089,10 +2147,12 @@ def report_segments(segments, path):
         "`other`, and #202 counted a\n  streamed message at its first partial "
         "row. Both are repaired in the numbers\n  above."
     )
-    # #377 moved the family split a second time and moved nothing else: a
-    # `git` call after a `cd` read as `other`. This page prints no family row
-    # of its own, but it is the page a run's readings are compared from, so
-    # the line names the rows it is about -- the `by family` block of the
+    # #377 moved the family split a second time: a `git` call after a `cd`,
+    # on a line of its own or after a heredoc read as `other`, and so did a
+    # test run after a heredoc. The repeats lines filter by family and moved
+    # with it; nothing else did. This page prints neither of its own, but it
+    # is the page a run's readings are compared from, so the line names the
+    # rows it is about -- the `by family` block and the repeats lines of the
     # run's own reading and of `--spawns` -- and the token column keeps the
     # 0.9.4 line above.
     #
@@ -2105,7 +2165,9 @@ def report_segments(segments, path):
         "\n  Family rows, in the run's own reading and in `--spawns`, are "
         "comparable only\n  with readings taken on a release that carries "
         "#377, which `CHANGELOG.md` names:\n  before it, a `git` or `gh` call "
-        "after a `cd` was charged to `other`."
+        "after a `cd`, on a line of its own or after\n  a heredoc was charged "
+        "to `other`, and so was a test run after a heredoc. The\n  repeats "
+        "lines filter by family and moved with them."
     )
 
 

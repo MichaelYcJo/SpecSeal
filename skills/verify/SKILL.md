@@ -691,14 +691,18 @@ finished, not as a follow-up someone might do later:
    The family was read by position, so `cd /x && git status` — the shape
    nearly every worktree session writes — was charged to `other`, and so was
    a `gh` call inside a loop or after a leading assignment. It is now read
-   by command word: the first word after any separator or reserved word,
-   never a word inside quotes or inside `$( … )`. What a reader comparing
-   readings across that change must know: in a reading taken before it,
-   `git` reads low and `other` reads high by the same calls, and the `other`
-   note may name a command that was a `git` run. Span, command, model,
-   idle, tokens, tools per turn, the `slowest` list and the two repeats
-   figures do not move: the repeats keep only `test`, `lint/type` and
-   `build`, and this moves calls between `other` and `git` alone.
+   by command word: the first word after any separator, newline or reserved
+   word, never a word inside quotes or inside `$( … )`. The family also
+   reads the command with its newlines kept and removes a heredoc's body up
+   to its closing line, where it used to drop everything after the
+   operator, so a `gh issue create` after `cat > body.md <<'EOF'` and a
+   `bin/test` after a `python3 - <<'EOF'` script are read. What a reader
+   comparing readings across that change must know: in a reading taken
+   before it, `git` and `test` read low and `other` reads high by the same
+   calls, the `other` note may name a command that was a `git` run, and the
+   two repeats figures, which keep only `test`, `lint/type` and `build`, may
+   read low. Span, command, model, idle, tokens, tools per turn and the
+   `slowest` list do not move.
 
    **Where the report gives no between-the-rows figure and prints the rows'
    spans against the run's own, a call outlived the cut its row ends at.**

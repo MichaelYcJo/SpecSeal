@@ -3,16 +3,27 @@
   pattern anchored at position 0, so `cd /x && git status`, a `gh` call in a
   `for` loop, `FOO=1 git …` and `(cd /x && git …)` were all charged to
   `other`. It is now read by command word, from a POSIX tokenisation of the
-  line: the first word after a separator, a subshell's `(`, a reserved word
-  or a leading assignment, by basename. A word inside quotes, inside a
-  command substitution or behind a wrapper such as `timeout` is not a
-  command word, so `grep -rn git`, `cat .git/config` and `echo 'a; git b'`
-  stay out. A line the tokeniser refuses, on an unmatched quote, is judged
-  by the old anchored pattern. A line that runs a test and a `git` is still
-  the test's. Measured over the 349 transcripts on the machine that found
-  it: 2,703 calls and 21,179 seconds were charged to `other` in this shape.
-  **Readings published before 0.15.6 are affected in their `by family` rows
-  and the `other` note**: `git` reads low and `other` reads high by the same
-  calls, and the note may name a command that was a `git` run. `--segments`
-  now says so on the page. Span, command time, model time, tokens, tools per
-  turn, the `slowest` list and the repeats figures do not move.
+  line: the first word after a separator, a newline, a subshell's `(`, a
+  reserved word or a leading assignment, by basename. A word inside quotes,
+  inside a command substitution or behind a wrapper such as `timeout` is not
+  a command word, so `grep -rn git`, `cat .git/config` and `echo 'a; git b'`
+  stay out. A line the tokeniser refuses, on an unmatched quote, is judged by
+  the words it read before refusing, and by the old anchored pattern where
+  it read none. A line that runs a test and a `git` is still the test's.
+- **The family reads the command as it ran, and a heredoc loses only its
+  body (issue #377).** `load` flattened every newline before the family was
+  judged, and the heredoc rule dropped everything from the operator to the
+  end. So a command on a line of its own was read as arguments of the line
+  before, and a `gh issue create` after `cat > body.md <<'EOF' … EOF`, or a
+  `bin/test` after a `python3 - <<'EOF'` script, was charged to `other`. The
+  body is now removed up to its closing line, which `<<-` lets carry leading
+  tabs, and what follows is read by every family. A heredoc with no closing
+  line is cut to the end as before. Every printed command still reads the
+  flattened text.
+- **Readings published before 0.15.6 are affected in their `by family`
+  rows, the `other` note and the two repeats figures.** In each, `git` and
+  `test` read low and `other` reads high by the same calls, the note may name
+  a command that was a `git` run, and the repeats figures may read low,
+  because a test run after a heredoc was not counted. Span, command time,
+  model time, idle, tokens, tools per turn and the `slowest` list do not
+  move. `--segments` now says so on the page, naming #377.

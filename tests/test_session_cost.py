@@ -1536,10 +1536,12 @@ def test_a_runner_named_inside_a_heredoc_is_not_a_run_of_it(tmp_path):
     reading: the one call the family did charge to `test` was a `cat > …`
     heredoc whose body contains the word `pytest`.
 
-    `load` flattens a call's whitespace, so a command that writes a document
-    arrives at the classifier as one line with the whole document in it.
-    Cutting at the heredoc operator answers it for every family at once and
-    needs no list of the words a document might contain.
+    These commands are flat, the shape `load`'s `command` has, so none has a
+    closing line and each is cut from the heredoc operator to the end. That
+    answers it for every family at once and needs no list of the words a
+    document might contain. A command with its newlines kept has its body
+    removed to the closing line instead, and the case after this one's #377
+    cases pins that.
 
     The last two are the bound. A `<<` followed by a lowercase unquoted word
     is more often a quoted comparison than a heredoc, so it is left alone:
@@ -1661,6 +1663,67 @@ def test_a_command_the_tokeniser_refuses_is_judged_as_before():
     assert module.family("cd /x && git log 'x") == "git"
     assert module.family("git'x") == "git"
     assert module.family("cd /x && echo 'unbalanced") == "other"
+
+
+def test_a_command_after_a_heredoc_is_read_and_its_body_is_not():
+    """A heredoc body runs from the line after its operator to the first line
+    equal to its delimiter, and what follows that line is a command the shell
+    ran. Cutting from the operator to the end charged the `gh issue create`
+    after a `cat > body.md <<'EOF'` to `other`, and a `bin/test` after a
+    `python3 - <<'EOF'` script too.
+
+    The body is still data, so a `git` written inside one is not a run of it.
+    The rest of the operator's own line runs, so it is kept. `<<-` lets the
+    closing line carry leading tabs. A heredoc with no closing line is cut to
+    the end as before, which is what every flattened command is."""
+    module = load_script()
+    for command, expected in (
+        ("cat > b.md <<'EOF'\nbody\nEOF\ngh issue create --body-file b.md", "git"),
+        ("python3 - <<'EOF'\nx=1\nEOF\nbin/test -q", "test"),
+        ("cat > f <<-'EOF'\n\tbody\n\tEOF\ngit add f", "git"),
+        ("cat > f <<'EOF' && git add f\nbody\nEOF", "git"),
+        ("cat <<'A' <<'B'\na\nA\nb\nB\ngit status", "git"),
+        ("cat > f <<'EOF'\ngit is here\nEOF", "other"),
+        ("cat > f <<'EOF'\npytest\n\tEOF\nls", "other"),
+        ("cat > f <<'EOF'\nbody\ngit status", "other"),
+    ):
+        assert module.family(command) == expected, command
+
+
+def test_a_command_on_a_line_of_its_own_is_a_command_word():
+    """A newline separates two commands the way `;` does, and a comment line
+    ends at one. `load` used to flatten every newline before `family` saw the
+    text, so `cd /x⏎git status` read as `cd` with three arguments."""
+    module = load_script()
+    for command in (
+        "cd /x\ngit status",
+        "# stage the record\ngit add a",
+        "cd /x\n\n  gh pr view 1",
+    ):
+        assert module.family(command) == "git", command
+
+
+def test_the_family_reads_the_command_as_the_harness_recorded_it(tmp_path):
+    """Both places `analyse` asks for a family read the command with its
+    newlines kept. The table's row is the first; the repeats figures are the
+    second, because they keep only `test`, `lint/type` and `build`, and a test
+    run after a heredoc is one of them only when the text is read unflattened.
+
+    What is PRINTED keeps reading the flattened text: the `slowest` entry and
+    the `other` note name a command on one line, as before."""
+    lines = []
+    lines += call("a", 0, 10, "cd /x\ngit status")
+    lines += call("b", 15, 23, "cat > f <<'EOF'\nx\nEOF\npytest -q")
+    lines += call("c", 28, 33, "cat > f <<'EOF'\nx\nEOF\npytest -q")
+    path = tmp_path / "raw.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["by_family"]["git"] == {"calls": 1, "seconds": 10}, data["by_family"]
+    assert data["by_family"]["test"] == {"calls": 2, "seconds": 13}, data["by_family"]
+    assert "other" not in data["by_family"], data["by_family"]
+    assert data["repeat_exact_s"] == 5, data
+    assert data["slowest"][0]["command"] == "cd /x git status", data["slowest"]
 
 
 def test_the_report_names_the_command_the_table_could_not(tmp_path):
@@ -2675,6 +2738,11 @@ def test_the_reading_says_its_family_rows_moved_at_377(run_with_segments):
         "only with readings taken on a release that carries #377" in out
     ), out
     assert "`CHANGELOG.md` names" in out, out
+    assert (
+        "on a line of its own or after a heredoc was charged to `other`, and so "
+        "was a test run after a heredoc. The repeats lines filter by family and "
+        "moved with them." in out
+    ), out
 
 
 def test_the_mode_exits_zero_whether_it_finds_a_segment_or_not(
