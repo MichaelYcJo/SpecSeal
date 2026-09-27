@@ -2011,39 +2011,52 @@ def main():
     session_id = data.get("session_id", "")
     transcript_path = data.get("transcript_path", "") or ""
 
-    reason = None
-    eff_cwd = cwd
-    # Where a `git worktree add` ANYWHERE in this command acts, if there is
-    # one. `reason` still takes the FIRST segment that classifies, because that
-    # is the verdict this call is about and every row it reaches has to keep
-    # working -- but a creation written BEHIND such a segment used to get no
-    # verdict at all, while `hooks/worktree_consent.py` reads every segment and
-    # recorded consent for it anyway. `judge_creation` holds the measurement
-    # and the reasoning; the switch ladder's one silent exit is where the two
-    # readings parted.
+    # The FIRST switch-kind segment and the FIRST creation, in whichever order
+    # they are written. A command carrying both is judged by the switch
+    # ladder, with the creation hooked in where that ladder already takes it
+    # (`choose`'s `before_ask`, and the `judge_creation` call above row 3).
+    #
+    # Keeping the first verdict of either kind was the walk before #620, and
+    # it was two defects of one cause. A creation written BEHIND a switch got
+    # no verdict, while `hooks/worktree_consent.py` reads every segment and
+    # recorded consent for it anyway -- `judge_creation` holds that
+    # measurement. A switch written behind a creation got none either: the
+    # creation took the verdict, consent made it silent for a compound, and
+    # `git worktree add ../x -b x && git switch y` ran the switch over a tree
+    # another session was ACTIVE in. `docs/worktree-guard-spec.md`
+    # §*Creation consent* says consent never reaches the switch direction.
+    #
+    # Only the first of each kind, which is what the writer records for a
+    # creation. A switch in a second tree or a creation in a second clone is
+    # still judged on the first (#630).
+    switch_reason = None
+    switch_at = cwd
     creation_at = None
     for tokens, wheres in walk_command(command, cwd):
         creates = cmdline.adds_a_worktree(tokens)
-        # Nothing left to learn here: the verdict is settled, and this segment
-        # is not the creation it may have walked past. Skipping keeps the
-        # second question free -- `classify` runs `git rev-parse` for a
-        # `checkout`, and this walk used to stop at the first verdict.
-        if reason is not None and not creates:
+        # Nothing left to learn from a segment of a kind already found.
+        # Skipping keeps the question cheap -- `classify` runs `git rev-parse`
+        # for a `checkout`, so a command is now classified up to its first
+        # switch-kind segment rather than up to its first verdict of any kind.
+        found_already = creation_at if creates else switch_reason
+        if found_already is not None:
             continue
         for where in wheres:
             here, target = judgeable(tokens, where, cwd)
             found = classify(tokens, here)
             if not found:
                 continue
-            if reason is None:
-                reason, eff_cwd = found, target
-            if creates and creation_at is None:
+            if creates:
                 creation_at = target
+            else:
+                switch_reason, switch_at = found, target
             break
-        if reason is not None and creation_at is not None:
+        if switch_reason is not None and creation_at is not None:
             break
+    reason = switch_reason or ("worktree-add" if creation_at is not None else None)
     if not reason:
         sys.exit(0)
+    eff_cwd = switch_at if switch_reason else creation_at
 
     top, wt_root = repo_paths(eff_cwd)
     # No repository at the effective directory means there is no tree to keep
