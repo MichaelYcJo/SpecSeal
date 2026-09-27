@@ -1684,21 +1684,26 @@ def test_a_command_after_a_heredoc_is_read_and_its_body_is_not():
         ("cat > f <<'EOF' && git add f\nbody\nEOF", "git"),
         ("cat <<'A' <<'B'\na\nA\nb\nB\ngit status", "git"),
         ("cat > f <<'EOF'\ngit is here\nEOF", "other"),
-        ("cat > f <<'EOF'\npytest\n\tEOF\nls", "other"),
+        ("cat > f <<'EOF'\n\tEOF\ngit add f\nEOF", "other"),
         ("cat > f <<'EOF'\nbody\ngit status", "other"),
     ):
         assert module.family(command) == expected, command
 
 
 def test_a_command_on_a_line_of_its_own_is_a_command_word():
-    """A newline separates two commands the way `;` does, and a comment line
-    ends at one. `load` used to flatten every newline before `family` saw the
-    text, so `cd /x⏎git status` read as `cd` with three arguments."""
+    """A newline separates two commands the way `;` does, and a comment ends
+    at one. `load` used to flatten every newline before `family` saw the
+    text, so `cd /x⏎git status` read as `cd` with three arguments.
+
+    The trailing comment is the tokeniser's own trap: its comment handling
+    consumes the newline that ends a comment, which would join the next
+    line's command onto the one before it."""
     module = load_script()
     for command in (
         "cd /x\ngit status",
         "# stage the record\ngit add a",
         "cd /x\n\n  gh pr view 1",
+        "cd /x  # into the tree\ngit status",
     ):
         assert module.family(command) == "git", command
 
