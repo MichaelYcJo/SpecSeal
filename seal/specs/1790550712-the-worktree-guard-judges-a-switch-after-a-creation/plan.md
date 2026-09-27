@@ -228,16 +228,25 @@ false.
 
 | Anchor | Rows |
 |---|---|
-| `hooks/worktree-guard.py#main@e59a08e1` | `seal/releases/0.15.5.md` A4, A5 · `seal/releases/0.9.1.md` *Whatever the writer would record for …* (also corrected, item 18) |
-| `hooks/worktree-guard.py#guard_worktree_creation@7aa6ef85` | `seal/releases/0.15.5.md` A3 · `seal/releases/0.9.1.md` *A session that already created a worktree …*, *The first creation of a session is unchanged* · `seal/releases/0.9.4.md` S3, S4 |
-| `hooks/worktree-guard.py#judge_creation@dac331f4` | `seal/releases/0.9.1.md` *A creation anywhere in the command is judged before it runs* |
-| `hooks/worktree_consent.py#automation_answered@d9bf2ddf` | `seal/releases/0.15.5.md` A1 (also corrected, item 9) |
-| `tests/test_the_guard_asks_once_per_session.py#test_a_sidechain_entry_is_not_consent@53a6a594` | `seal/releases/0.15.5.md` A1 |
-| `tests/test_worktree_guard.py#test_the_two_reworded_reasons_are_pinned_in_both_languages@6e5b2ee1` | `seal/releases/0.15.5.md` A5 |
+| `hooks/worktree-guard.py#main@cf55137d` | `seal/releases/0.15.5.md` A4, A5 · `seal/releases/0.9.1.md` *Whatever the writer would record for …* (also corrected, item 18) |
+| `hooks/worktree-guard.py#guard_worktree_creation@26618e2e` | `seal/releases/0.15.5.md` A3 · `seal/releases/0.9.1.md` *A session that already created a worktree …*, *The first creation of a session is unchanged* · `seal/releases/0.9.4.md` S3, S4 |
+| `hooks/worktree-guard.py#judge_creation@bc8a0654` | `seal/releases/0.9.1.md` *A creation anywhere in the command is judged before it runs* |
+| `hooks/worktree_consent.py#automation_answered@415ab3a7` | `seal/releases/0.15.5.md` A1 (also corrected, item 9) |
+| `tests/test_the_guard_asks_once_per_session.py#test_a_sidechain_entry_is_not_consent@d996dc32` | `seal/releases/0.15.5.md` A1 |
+| `tests/test_worktree_guard.py#test_the_two_reworded_reasons_are_pinned_in_both_languages@44ff0fa3` | `seal/releases/0.15.5.md` A5 |
 
-`hooks/worktree-guard.py#only_creates_a_worktree@78d05862` is not edited. The
+`hooks/worktree-guard.py#only_creates_a_worktree@279e226e` is not edited. The
 row citing it is corrected for its claim (item 17), and its anchor does not
 drift.
+
+Builder's note, 2026-09-28, phase 4. Every stamp above was the base's
+(`afcb3f7`) when this plan was approved, and each is re-stamped here to the
+state its rows were re-read against, because `evidence-check --strict` grades a
+drifted stamp in a live work item's record like a drifted ledger row. The
+sentence above is no longer true: phase 3 corrected `only_creates_a_worktree`'s
+docstring (*falling to `ask`*, which measured false), so its anchor drifted and
+its three rows (`seal/releases/0.9.1.md` items 17 and the row above it,
+`seal/releases/0.9.4.md` S3) were re-read with the others.
 
 New rows, in the fragment:
 - W1: order does not decide (`main`, the S2 case).
