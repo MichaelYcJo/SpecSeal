@@ -359,6 +359,62 @@ def test_a_path_qualified_git_carries_no_allow(monkeypatch, capsys, repo):
     )
 
 
+# #243. `docs/worktree-guard-spec.md` §*Creation consent* counted the spellings
+# the allow covers (*exactly five*) and gave everything else one verdict
+# (*falls to `ask`*). Both were a property of one enumeration, not of the
+# boundary. The boundary is a class, and this table pins members of each
+# verdict group so the paragraph can cite it instead of a count. Measured in
+# work item 1790550712's phase 3 over 58 command words: with a record, 20
+# allow and 38 silent, and no `ask` at all.
+COMMAND_WORD_GROUPS = {
+    # With a record: every spelling the lexer hands back as the word `git`,
+    # well past the five the paragraph used to name.
+    ("record", "allow"): ("git", "'git'", "g'i't", "''git", 'gi"t"', '"g"it'),
+    # With a record: everything else, whether or not `cmdline.parse_git`
+    # reads it as a git invocation. Consent withdraws the objection and the
+    # bound refuses the allow, so the guard says nothing.
+    ("record", "silent"): (
+        "/usr/bin/git",
+        "~/git",
+        "sudo git",
+        "VAR=1 git",
+        "nice git",
+        "$GIT",
+        "GIT",
+        "git/",
+    ),
+    # No record: a word `parse_git` reads as git is a creation, and meets the
+    # creation ladder like any other.
+    ("none", "deny"): ("git", "/usr/bin/git", "sudo git", "VAR=1 git"),
+    # No record: a word it does not read as git is not a git invocation to
+    # this guard at all.
+    ("none", "silent"): ("nice git", "$GIT", "GIT", "git/"),
+}
+
+
+def test_the_command_word_class_is_what_the_allow_covers(monkeypatch, capsys, repo):
+    """#243, S10. One or more members of each verdict group, on a clean
+    single-stream tree, one session id per word. Seen red by moving one word
+    to the wrong group, and by restoring the basename comparison in
+    `only_creates_a_worktree`."""
+    wrong = []
+    for (consent, want), words in COMMAND_WORD_GROUPS.items():
+        for n, word in enumerate(words):
+            sid = f"{consent}-{want}-{n}"
+            if consent == "record":
+                grant(repo, sid)
+            got = decide(
+                monkeypatch,
+                capsys,
+                repo,
+                f"{word} worktree add ../wt f",
+                session_id=sid,
+            )[0]
+            if got != want:
+                wrong.append((consent, word, want, got))
+    assert not wrong, wrong
+
+
 def test_a_backgrounded_creation_is_still_only_a_creation(monkeypatch, capsys, repo):
     """The one shape from that enumeration left allowed, pinned as a decision
     rather than left looking like an oversight. A trailing `&` backgrounds the
