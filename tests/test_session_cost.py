@@ -1559,6 +1559,102 @@ def test_a_runner_named_inside_a_heredoc_is_not_a_run_of_it(tmp_path):
     assert module.family("cat > x <<eof pytest eof") == "test"
 
 
+# --- #377: `git` is a command word, not a position ---
+#
+# The `git` family was the one pattern anchored at the start of the line, so a
+# `git` or `gh` call after `cd … &&` -- the shape nearly every worktree session
+# writes -- was charged to `other`. Measured over 349 transcripts on the
+# machine that found it: 2,703 calls and 21,179 seconds in that shape alone.
+
+
+def test_a_git_call_after_cd_is_charged_to_git():
+    """The finding's own instance, and the shapes #619's segment readings
+    printed. The two that stay `other` are the control: a line that runs no
+    `git` must not become one because a `cd` precedes it."""
+    module = load_script()
+    for command in (
+        "cd /x && git status",
+        "cd /x && gh issue view 1",
+        "cd /w; gh issue view 616 --json title",
+        "W=/w; cd $W; git grep -n x",
+        "cd /w && git -C /w grep x",
+        "git -C /w commit -q -F - <<'EOF'\ndocs: x\nEOF",
+    ):
+        assert module.family(command) == "git", command
+
+    for command in (
+        "W=/w; cd $W; for f in a b; do grep -c x $f; done",
+        "cd ~/p && python3 - <<'EOF'\nimport json\nEOF",
+    ):
+        assert module.family(command) == "other", command
+
+
+def test_git_is_read_at_every_command_word():
+    """A command word is the first word after any separator, a subshell's
+    `(`, a reserved word or a leading assignment -- not only after `&&`. A
+    rule that knew the separators and not the reserved words would still
+    charge a loop over issues to `other`."""
+    module = load_script()
+    for command in (
+        "for n in 1 2; do gh issue view $n; done",
+        "if git diff --quiet; then echo y; fi",
+        "FOO=1 git status",
+        "(cd /x && git status)",
+        "cat x | git apply",
+        "/usr/bin/git status",
+        "ls || gh pr list",
+        "sleep 1 & git fetch",
+        "while ! git pull; do sleep 1; done",
+        "{ gh pr view 1; }",
+        "time git log -1",
+    ):
+        assert module.family(command) == "git", command
+
+
+def test_git_named_anywhere_but_a_command_word_is_not_git():
+    """The other direction, and the one the anchor was buying. Un-anchoring
+    the pattern to a bare word boundary would charge every one of these to
+    `git`: a search for the word, a path through a `.git/` directory, a
+    message naming it, a quoted separator, a command substitution and a
+    wrapper. The last two are the rule's stated bounds, not oversights."""
+    module = load_script()
+    for command in (
+        'grep -rn "git" .',
+        "ls /a/git/b",
+        'x --message "git"',
+        "cat .git/config",
+        "echo git",
+        "rg gh docs/",
+        "echo 'a; git b'",
+        "cd $(git rev-parse --show-toplevel) && ls",
+        'echo "$(git log -1)"',
+        "x=$(git log -1) ; ls",
+        "diff <(git show HEAD:a) a",
+        "timeout 40 gh issue list",
+    ):
+        assert module.family(command) != "git", command
+
+
+def test_a_line_running_two_families_is_charged_by_their_order():
+    """`FAMILIES` is first-match in priority order and `git` is last, so a
+    compound that runs a test is charged to the test. Reading `git` by
+    command word must not jump it ahead of the families it follows."""
+    module = load_script()
+    assert module.family("cd x && git add . && pytest -q") == "test"
+    assert module.family("git stash && ruff check .") == "lint/type"
+
+
+def test_a_command_the_tokeniser_refuses_is_judged_as_before():
+    """An unmatched quote makes the tokeniser raise. The call is then judged
+    by the anchored pattern `family` used before #377, so the new rule never
+    answers worse than the old one did -- and never lets the error escape
+    into a reading, which would end the report on one odd call."""
+    module = load_script()
+    assert module.family("echo 'unbalanced git") == "other"
+    assert module.family("git log 'x") == "git"
+    assert module.family("cd /x && echo 'unbalanced") == "other"
+
+
 def test_the_report_names_the_command_the_table_could_not(tmp_path):
     """`other` leading the table means the rows above it describe a minority
     of the run, and nothing on the page said so — which is how #200 was
@@ -2555,6 +2651,22 @@ def test_the_reading_names_the_release_it_is_comparable_from(run_with_segments):
     will compare with one taken before the repair."""
     out = " ".join(segment_report(run_with_segments).split())
     assert "0.9.4" in out, out
+
+
+def test_the_reading_says_its_family_rows_moved_at_377(run_with_segments):
+    """#377 moved what a family row MEANS a second time: a `git` call after a
+    `cd` used to read as `other`. The token column did not move, so the page
+    names the family rows alone and where their release is written down.
+
+    The issue and not the version, because the line is written before the
+    release that carries it, and `tests/test_release_hygiene.py` refuses a
+    loaded file naming a version that has not shipped."""
+    out = " ".join(segment_report(run_with_segments).split())
+    assert (
+        "Family rows, in the run's own reading and in `--spawns`, are comparable "
+        "only with readings taken on a release that carries #377" in out
+    ), out
+    assert "`CHANGELOG.md` names" in out, out
 
 
 def test_the_mode_exits_zero_whether_it_finds_a_segment_or_not(

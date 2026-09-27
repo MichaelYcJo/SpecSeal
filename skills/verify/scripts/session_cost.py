@@ -70,6 +70,7 @@ import json
 import math
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -97,6 +98,18 @@ PROJECTS = os.path.join(HOME, ".claude", "projects")
 # name nobody outside that repository can guess — `bin/check`, `./run-suite` —
 # and that residual is why `report` prints the slowest command it could not
 # name rather than leaving the reader a `test` row that is quietly empty.
+#
+# **`git` is the one family read by command word, and its pattern below is
+# the fallback rather than the rule (#377).** It used to be the one pattern
+# anchored at the start of the line, so `cd /x && git status` -- the shape
+# nearly every worktree session writes -- was charged to `other`: 2,703 calls
+# and 21,179 seconds over the 349 transcripts it was measured on. `family`
+# now asks `runs_git`, which reads every command word on the line, and uses
+# the anchored pattern only where the tokeniser refuses the line. The other
+# three stay unanchored on purpose: `uv run --with pytest pytest` and
+# `uvx ruff check .` are #200's shapes, and their command words are `uv` and
+# `uvx`. The order is unchanged, so a line that runs a test and a `git` is
+# still the test's.
 FAMILIES = [
     (
         "test",
@@ -172,6 +185,86 @@ def parse_time(value):
 HEREDOC = re.compile(r"""<<-?\s*(?:'[^']*'|"[^"]*"|[A-Z_][A-Z0-9_]*)""")
 
 
+# What the tokeniser returns as a token of its own, and which of those put
+# the next word in command position. A redirection does not (`2>&1`, `<<`),
+# and neither does a process substitution's `<(`, which is a substitution.
+PUNCTUATION = ";&|()<>\n"
+REDIRECTION = frozenset("<>")
+SEPARATOR = frozenset(";&|\n(")
+
+# A word in command position that leaves the NEXT word in command position.
+RESERVED = frozenset(
+    ("if", "then", "elif", "else", "do", "while", "until", "!", "{", "time")
+)
+ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+
+
+def command_words(command):
+    """Each word the shell would run as a command, in order.
+
+    A command word is the first word of the line or the first after `&&`,
+    `||`, `;`, `|`, `&`, a newline, or a `(` that opens a subshell. Leading
+    `NAME=value` assignments and the reserved words in `RESERVED` are skipped
+    over, so `FOO=1 git status` and `do gh issue view $n` both reach the
+    `git`. The line is split by `shlex` in POSIX mode, so a separator or a
+    word inside quotes is not seen: `echo 'a; git b'` has one command word.
+
+    Raises `ValueError` where the tokeniser does, on an unmatched quote. The
+    words before the error have already been yielded, which is what lets
+    `git log 'x` answer from its first word."""
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=PUNCTUATION)
+    # A newline is a separator here, not whitespace, and `#` is an ordinary
+    # character: the tokeniser's own comment handling would swallow the
+    # newline that ends a comment, and the command on the next line with it.
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    position, previous = True, ""
+    for token in lexer:
+        if token and set(token) <= set(PUNCTUATION):
+            chars = set(token)
+            if token.startswith("(") and previous.endswith("$"):
+                # `$(` and `$((`: a command substitution, not a subshell.
+                position = False
+            else:
+                position = not (chars & REDIRECTION) and bool(chars & SEPARATOR)
+        elif position:
+            if token not in RESERVED and not ASSIGNMENT.match(token):
+                yield token
+                position = False
+        previous = token
+
+
+def runs_git(command):
+    """Whether any command word on the line is `git` or `gh`, by basename.
+
+    This is the `git` family's rule, and #377 is why it is not a pattern: the
+    pattern was anchored at the start of the line, so every `git` after a
+    `cd` read as `other`, and un-anchoring it would read `grep -rn git` and
+    `cat .git/config` as runs of it -- #200's *wrong in both directions* from
+    the other side.
+
+    Three bounds, each stated so a reader who meets one knows it is a bound:
+
+    - **A command substitution is not a command position.** `$(git …)` and
+      `` `git …` `` are not read, because the tokeniser cannot see into a
+      double-quoted one, and counting only the unquoted ones would make the
+      family depend on quoting nobody can see in the table.
+    - **A wrapper is not looked through.** `timeout 40 gh issue list`,
+      `env`, `xargs`, `sudo` and the like have their own command word.
+    - **Where the tokeniser refuses the line, the answer is the anchored
+      pattern `FAMILIES` still carries for `git`** -- the rule this family
+      had before #377 -- so an unmatched quote never answers worse than the
+      old rule did, and never ends a reading."""
+    try:
+        for word in command_words(command):
+            if word.replace("\\", "/").rsplit("/", 1)[-1] in ("git", "gh"):
+                return True
+        return False
+    except ValueError:
+        return bool(dict(FAMILIES)["git"].search(command))
+
+
 def family(command):
     """The family of the command that RAN, with any heredoc body removed.
 
@@ -181,12 +274,16 @@ def family(command):
     #200's *wrong in both directions*: the family missed every real
     `./bin/test` run and charged one file write to `test`, in the same
     reading. Cutting at the heredoc operator answers it for every family at
-    once and needs no list of the words a document might contain."""
+    once and needs no list of the words a document might contain.
+
+    `git` is judged by `runs_git`, by command word, and the other three by
+    their patterns anywhere on what is left. The order is `FAMILIES`', first
+    match wins."""
     opener = HEREDOC.search(command)
     if opener:
         command = command[: opener.start()]
     for name, pattern in FAMILIES:
-        if pattern.search(command):
+        if runs_git(command) if name == "git" else pattern.search(command):
             return name
     return "other"
 
@@ -483,13 +580,22 @@ def analyse(calls, turns, delegated=()):
     nothing on the page saying so — which is what #200 and #202 were, and
     what `plan.md`'s *no existing output changes shape* is protecting.
 
-    **`span_s` is the one exception and it is a measured one, not a licence.**
-    Its rule moved at #300, from the end of the last call to BEGIN to the end
-    of the last call to END, because the old one could return a window
-    shorter than a single call inside it. The comment at the arithmetic
-    carries the measurement that says no published figure moves;
-    `skills/verify/SKILL.md` carries it where a person taking a reading meets
-    it. Every other number here is untouched, `command_s` and `model_s`
+    **Two rules moved after readings were published, each a measured change
+    and neither a licence.** `span_s`'s moved at #300, from the end of the
+    last call to BEGIN to the end of the last call to END, because the old
+    one could return a window shorter than a single call inside it. The
+    comment at the arithmetic carries the measurement that says no published
+    figure moves.
+
+    The family split moved at #377: `family` reads `git` by
+    command word rather than at the start of the line, so a `git` call after
+    a `cd` stopped reading as `other`. That one DOES move published figures
+    -- `by_family` and `unnamed` -- and `report_segments` says so on the
+    page. The repeats figures do not move, because they keep only `test`,
+    `lint/type` and `build`, and the rule moves calls between `other` and
+    `git` alone. Both changes are carried
+    in `skills/verify/SKILL.md`, where a person taking a reading meets them.
+    Every other number here is untouched, `command_s` and `model_s`
     included.
 
     So `delegated_s` is 0.0 for the whole-run call, and it means exactly
@@ -1980,6 +2086,24 @@ def report_segments(segments, path):
         "taken before it:\n  #200 charged this repository's own test runner to "
         "`other`, and #202 counted a\n  streamed message at its first partial "
         "row. Both are repaired in the numbers\n  above."
+    )
+    # #377 moved the family split a second time and moved nothing else: a
+    # `git` call after a `cd` read as `other`. This page prints no family row
+    # of its own, but it is the page a run's readings are compared from, so
+    # the line names the rows it is about -- the `by family` block of the
+    # run's own reading and of `--spawns` -- and the token column keeps the
+    # 0.9.4 line above.
+    #
+    # It names the issue and not the release, because a loaded file may not
+    # name a version that has not shipped (`tests/test_release_hygiene.py`,
+    # the timer check), and this line is written before the release that
+    # carries it. `CHANGELOG.md` is where #377 is mapped to its version: the
+    # work item's fragment is gathered into that release's section.
+    print(
+        "\n  Family rows, in the run's own reading and in `--spawns`, are "
+        "comparable only\n  with readings taken on a release that carries "
+        "#377, which `CHANGELOG.md` names:\n  before it, a `git` or `gh` call "
+        "after a `cd` was charged to `other`."
     )
 
 

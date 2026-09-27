@@ -684,6 +684,22 @@ finished, not as a follow-up someone might do later:
    one machine, every second of overlap above a second came from calls
    batched into one message and none of it from a call that crossed a turn.
 
+   **A `git` call counts as `git` wherever it runs on the line, and that is
+   worth knowing because it used to count only at the start (#377).** The
+   release that carries #377 is the one `CHANGELOG.md` lists it under, and
+   `--segments` prints the same warning on the page.
+   The family was read by position, so `cd /x && git status` — the shape
+   nearly every worktree session writes — was charged to `other`, and so was
+   a `gh` call inside a loop or after a leading assignment. It is now read
+   by command word: the first word after any separator or reserved word,
+   never a word inside quotes or inside `$( … )`. What a reader comparing
+   readings across that change must know: in a reading taken before it,
+   `git` reads low and `other` reads high by the same calls, and the `other`
+   note may name a command that was a `git` run. Span, command, model,
+   idle, tokens, tools per turn, the `slowest` list and the two repeats
+   figures do not move: the repeats keep only `test`, `lint/type` and
+   `build`, and this moves calls between `other` and `git` alone.
+
    **Where the report gives no between-the-rows figure and prints the rows'
    spans against the run's own, a call outlived the cut its row ends at.**
    Assigning a call by its start is what makes the calls partition, and it
