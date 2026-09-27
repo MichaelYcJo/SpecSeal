@@ -1600,6 +1600,7 @@ def test_git_is_read_at_every_command_word():
         "if git diff --quiet; then echo y; fi",
         "FOO=1 git status",
         "(cd /x && git status)",
+        "(gh pr view 1)",
         "cat x | git apply",
         "/usr/bin/git status",
         "ls || gh pr list",
@@ -1645,13 +1646,20 @@ def test_a_line_running_two_families_is_charged_by_their_order():
 
 
 def test_a_command_the_tokeniser_refuses_is_judged_as_before():
-    """An unmatched quote makes the tokeniser raise. The call is then judged
-    by the anchored pattern `family` used before #377, so the new rule never
-    answers worse than the old one did -- and never lets the error escape
-    into a reading, which would end the report on one odd call."""
+    """An unmatched quote makes the tokeniser raise, and the error must never
+    escape into a reading, which would end the report on one odd call.
+
+    The words read before the refusal still count, so `git log 'x` and
+    `cd /x && git log 'x` answer from their `git`. A line refused before its
+    first word is finished is judged by the anchored pattern `family` used
+    before #377 -- `git'x` -- so the new rule never answers worse than the
+    old one did. Each arm has its own mutant: letting the error escape,
+    judging the whole line by the pattern, and answering `other` on refusal."""
     module = load_script()
     assert module.family("echo 'unbalanced git") == "other"
     assert module.family("git log 'x") == "git"
+    assert module.family("cd /x && git log 'x") == "git"
+    assert module.family("git'x") == "git"
     assert module.family("cd /x && echo 'unbalanced") == "other"
 
 

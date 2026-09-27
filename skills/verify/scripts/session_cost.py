@@ -252,10 +252,12 @@ def runs_git(command):
       family depend on quoting nobody can see in the table.
     - **A wrapper is not looked through.** `timeout 40 gh issue list`,
       `env`, `xargs`, `sudo` and the like have their own command word.
-    - **Where the tokeniser refuses the line, the answer is the anchored
-      pattern `FAMILIES` still carries for `git`** -- the rule this family
-      had before #377 -- so an unmatched quote never answers worse than the
-      old rule did, and never ends a reading."""
+    - **Where the tokeniser refuses the line, the words it read before
+      refusing still count, and a line refused before any of them is judged
+      by the anchored pattern `FAMILIES` still carries for `git`** -- the
+      rule this family had before #377. So `git log 'x` is `git` from its
+      first word, `git'x` from the pattern, and an unmatched quote never
+      answers worse than the old rule did, and never ends a reading."""
     try:
         for word in command_words(command):
             if word.replace("\\", "/").rsplit("/", 1)[-1] in ("git", "gh"):
