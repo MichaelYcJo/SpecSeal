@@ -1083,5 +1083,7 @@ def test_a_git_command_inside_a_heredoc_body_is_not_judged(monkeypatch, capsys, 
         except SystemExit:
             pass
         out = capsys.readouterr().out.strip()
-        got = json.loads(out)["hookSpecificOutput"]["permissionDecision"] if out else None
+        got = (
+            json.loads(out)["hookSpecificOutput"]["permissionDecision"] if out else None
+        )
         assert got == want, (command, out)
