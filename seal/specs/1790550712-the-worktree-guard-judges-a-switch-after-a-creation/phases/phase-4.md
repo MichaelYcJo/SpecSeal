@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 4 |
-| Commit | see `plan.md`'s Status cell for phase 4 |
+| Commit | d7a8f14 |
 | Ran by | unknown — the spawn prompt named no agent or model for this record; the orchestrator may fill this row |
 
 ## What this phase was asked
