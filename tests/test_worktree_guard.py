@@ -1054,3 +1054,34 @@ def test_the_dirty_tree_row_names_what_was_measured(monkeypatch, capsys, repo):
             if not counted:
                 first = reason.splitlines()[0]
                 assert first.startswith("[shared-tree-ok]"), first
+
+
+def test_a_git_command_inside_a_heredoc_body_is_not_judged(monkeypatch, capsys, repo):
+    """#243's phase 3 measured `docs/worktree-guard-spec.md` §*Known limits*'s
+    old first line -- *a heredoc line that IS exactly a git command still
+    matches* -- and found it closed: `_judgment_text` drops heredoc bodies, so
+    a body line is data. The line was deleted and this is what holds it, in a
+    tree where a real switch would be denied."""
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda t, o="": (ACTIVE, [], True))
+    for command, want in (
+        ("cat > notes.txt <<'EOF'\ngit switch feature/x\nEOF", None),
+        ("cat > notes.txt <<EOF\ngit worktree add ../wt f\nEOF", None),
+        ("git switch feature/x", "deny"),
+    ):
+        monkeypatch.setattr(
+            wg,
+            "load_input",
+            lambda command=command: {
+                "tool_name": "Bash",
+                "session_id": "hd",
+                "tool_input": {"command": command},
+                "cwd": str(repo),
+            },
+        )
+        try:
+            wg.main()
+        except SystemExit:
+            pass
+        out = capsys.readouterr().out.strip()
+        got = json.loads(out)["hookSpecificOutput"]["permissionDecision"] if out else None
+        assert got == want, (command, out)

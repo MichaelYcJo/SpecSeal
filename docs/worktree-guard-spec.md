@@ -242,14 +242,27 @@ user's own `permissions.deny`, does not stop at `sudo`.
 
 The boundary the code implements is *a command word carrying no separator, so
 the shell resolves it on `PATH`*. Anything with a `/` in it names a file this
-hook cannot identify. Re-enumerated by construction over 32 command-word
-shapes, exactly five are vouched for, and all five are the word `git` after
-lexing: `git`, `\git`, `'git'`, `"git"` and `g"i"t`. Every path, every
-expansion (`~/git`, `*/git`, `gi*`, `$GIT`, `` `which git` ``), a different
-case, a trailing slash, every wrapper and every leading assignment falls to
-`ask`. What that costs is one prompt on `/usr/bin/git worktree add …`, which is
-the trade already made for `$` and `>`: a wrong deny spends a prompt, a wrong
-allow signs for a binary nobody identified.
+hook cannot identify. What is vouched for is a **class**, not a list: every
+spelling the lexer hands back as the word `git` — `git`, `'git'`, `g'i't`,
+`''git`, `"g"it` and every other quoting of the same word — and each of them
+runs exactly what `git` runs.
+
+Nothing outside that class reaches `allow`, and with consent the guard is
+**silent** on all of it rather than asking: every path (`/usr/bin/git`,
+`~/git`), every wrapper and leading assignment (`sudo git`, `VAR=1 git`), an
+expansion (`$GIT`), a different case and a trailing slash. Consent withdraws
+the objection and the bound refuses to speak for the call, so the user's own
+permission settings decide it. Without consent the same words split two ways.
+One that `cmdline.parse_git` reads as a git invocation — a path, a wrapper it
+reads past, a leading assignment — is a creation and meets the ladder above
+like any other. One it does not read as git — an expansion, a different case,
+a trailing slash, a wrapper it does not read past such as `nice` — is not a git
+invocation to this guard, and it says nothing. What the class costs is the
+allow on `/usr/bin/git worktree add …`, which is the trade already made for `$`
+and `>`: a wrong silence leaves the call to the user's own settings, a wrong
+allow signs for a binary nobody identified. The case
+`test_the_command_word_class_is_what_the_allow_covers` pins members of each of
+the four groups, and it is where a new spelling is checked rather than a count.
 
 **A creation the guard never judged used to mint the record.** The guard's
 `PreToolUse` walk classified only the **first** segment it could read, while
@@ -302,15 +315,18 @@ The guard's other silent exit is earlier, at `if not top`, and it has the same
 hole: it is reached when the shell is outside any repository while a `git -C
 <repo> worktree add` in the same command is not. That one falls through too.
 
-**The property, measured rather than the shapes.** Whatever the writer would
-record for, the guard has either denied it — which stops the whole command
-line — or put the creation question in the text of its `ask`. Re-derived after
-the change over 21 command shapes × 5 tree states × 2 shell directories × 2
-record states × 3 attempts, which is **1260 combinations**: 230 of them are
-cells the writer records for, and **0** of those reach a verdict that lets the
-command run without the creation question. With both round-2 fixes reverted the
-same sweep finds **64**, all of them the second and third attempt at a
-switch-then-create in the idle or detection-unusable state.
+**The property, measured rather than the shapes.** For a session with no
+consent, whatever the writer would record for, the guard has either denied it —
+which stops the whole command line — or put the creation question in the text
+of its `ask`. The case `test_the_guard_is_never_silent_where_the_writer_records`
+walks it: every command shape it lists, switch-first and create-first, in four
+tree states and from two shell directories, three attempts per session so both
+choice budgets are spent inside a cell. The dirty tree is the fifth state, and
+`test_a_dirty_tree_does_not_decide_whether_the_creation_is_questioned` holds
+it. Removing `before_ask` from either choice row turns the sweep red. With
+consent the property is not the one to hold: the record the writer would write
+already exists, and silence for a compound is the designed answer (§*Why the
+allow is bounded*).
 
 **Why the Agent/Task path is silent rather than an allow.** That call is a
 worktree creation *plus* an agent with a prompt, and the record is about the
@@ -325,9 +341,9 @@ agreed to, or a run the user said should not stop, says nothing about taking
 another session's branch out from under it.
 
 **The prompt budget.** Zero for a session whose person pressed `automation`. One per session otherwise, from one per worktree unbounded — for a creation written on its own, which is the form the measured six took. Re-measured after round 2's fixes, six creations in one session on a clean single-stream tree: **deny, allow, allow, allow, allow, allow**.
-Before consent, a creation written as one segment of a compound still costs one
-prompt each time, and so does one carrying an expansion, a redirection, a wrapper or a **path-qualified command word**, because that is exactly what the bound above refuses to speak for. The last of those is what round 2's second fix added to the list, and it moves nothing in the budget: `git worktree add …`, the same backgrounded, and the `\git` spelling all still allow.
-Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed, tests/test_the_guard_asks_once_per_session.py::test_the_measured_automation_run_is_not_stopped, tests/test_the_guard_asks_once_per_session.py::test_a_result_not_linked_to_an_ask_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_automation_on_another_question_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_an_answer_given_in_another_clone_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_the_labels_match_the_routing_question_the_orchestrator_asks, tests/test_the_guard_asks_once_per_session.py::test_a_typed_answer_that_qualifies_the_preset_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny, tests/test_the_guard_asks_once_per_session.py::test_a_switch_written_after_a_creation_is_judged, tests/test_the_guard_asks_once_per_session.py::test_the_order_of_a_switch_and_a_creation_does_not_decide, tests/test_the_guard_asks_once_per_session.py::test_a_command_with_both_is_never_weaker_than_either_alone
+With consent, a creation written as one segment of a compound gets no allow,
+and neither does one carrying an expansion, a redirection, a wrapper or a **path-qualified command word**, because that is exactly what the bound above refuses to speak for. The guard is silent there, so what each one costs is whatever the user's own permission settings ask. The last of those is what round 2's second fix added to the list, and it moves nothing in the budget: `git worktree add …`, the same backgrounded, and the `\git` spelling all still allow.
+Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed, tests/test_the_guard_asks_once_per_session.py::test_the_measured_automation_run_is_not_stopped, tests/test_the_guard_asks_once_per_session.py::test_a_result_not_linked_to_an_ask_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_automation_on_another_question_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_an_answer_given_in_another_clone_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_the_labels_match_the_routing_question_the_orchestrator_asks, tests/test_the_guard_asks_once_per_session.py::test_a_typed_answer_that_qualifies_the_preset_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny, tests/test_the_guard_asks_once_per_session.py::test_a_switch_written_after_a_creation_is_judged, tests/test_the_guard_asks_once_per_session.py::test_the_order_of_a_switch_and_a_creation_does_not_decide, tests/test_the_guard_asks_once_per_session.py::test_a_command_with_both_is_never_weaker_than_either_alone, tests/test_the_guard_asks_once_per_session.py::test_the_command_word_class_is_what_the_allow_covers, tests/test_the_guard_asks_once_per_session.py::test_the_guard_is_never_silent_where_the_writer_records
 
 ## Choice sites
 
@@ -537,9 +553,6 @@ at one prompt against a wrong allow breaking another session's tree.
 
 ## Known limits
 
-- A heredoc line that IS exactly a git command still matches (segment
-  splitting cannot tell heredoc bodies from commands). Mentions inside
-  quoted strings or after other command words do not.
 - A switch into the worktree the same command creates is judged against the
   session's own tree: `git worktree add ../x -b x && cd ../x && git switch y`
   meets that tree's switch verdict, because `../x` does not exist yet when the

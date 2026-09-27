@@ -437,10 +437,15 @@ def only_creates_a_worktree(command: str, cwd: str, windows=None) -> bool:
          word `git`, and both run exactly what `git` runs. `GIT` does not, and
          `git/` does not.
 
-         What it costs is a prompt on `/usr/bin/git worktree add …`, which is
-         a legitimate command a person may type. Falling to `ask` there is the
-         trade this whole docstring already makes for `$` and `>`: a wrong
-         deny spends one prompt, a wrong allow signs for an arbitrary binary.
+         What it costs is the allow on `/usr/bin/git worktree add …`, which is
+         a legitimate command a person may type. With consent the guard is
+         silent there, not asking -- the caller passes `silent` for anything
+         this refuses -- so the user's own permission settings decide it.
+         That is the trade this whole docstring already makes for `$` and
+         `>`: a wrong silence leaves the call to the user's settings, a wrong
+         allow signs for an arbitrary binary.
+         `test_the_command_word_class_is_what_the_allow_covers` pins members
+         of each verdict group.
       2. no `ELSEWHERE` character in any token, which is the expansion and
          redirection family the first test does not reach.
 

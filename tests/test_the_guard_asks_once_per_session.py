@@ -326,10 +326,11 @@ def test_a_path_qualified_git_carries_no_allow(monkeypatch, capsys, repo):
     included -- the second of which the docstring already claimed was refused
     "one line below, where `git` has to be the word itself".
 
-    What the exact-equality test costs is a prompt on `/usr/bin/git worktree
-    add …`, and that is the trade the `$`/`>` refusals already make: a wrong
-    deny spends one prompt, a wrong allow signs for a binary nobody
-    identified."""
+    What the exact-equality test costs is the allow on `/usr/bin/git worktree
+    add …`: the guard is silent there, so the user's own permission settings
+    decide. That is the trade the `$`/`>` refusals already make: a wrong
+    silence leaves the call to the user's settings, a wrong allow signs for a
+    binary nobody identified."""
     grant(repo)
     for command in (
         "./git worktree add ../wt f",
@@ -363,9 +364,9 @@ def test_a_path_qualified_git_carries_no_allow(monkeypatch, capsys, repo):
 # the allow covers (*exactly five*) and gave everything else one verdict
 # (*falls to `ask`*). Both were a property of one enumeration, not of the
 # boundary. The boundary is a class, and this table pins members of each
-# verdict group so the paragraph can cite it instead of a count. Measured in
-# work item 1790550712's phase 3 over 58 command words: with a record, 20
-# allow and 38 silent, and no `ask` at all.
+# verdict group so the paragraph can cite it instead of a count. Work item
+# 1790550712's `phases/phase-3.md` holds the table this was drawn from: with a
+# record, no command word asks.
 COMMAND_WORD_GROUPS = {
     # With a record: every spelling the lexer hands back as the word `git`,
     # well past the five the paragraph used to name.
@@ -551,7 +552,7 @@ def test_the_switch_ladder_keeps_every_verdict_it_had(monkeypatch, capsys, repo)
 def test_a_spent_choose_budget_does_not_decide_whether_the_creation_is_questioned(
     monkeypatch, capsys, repo
 ):
-    """ "The three rows above the creation all deny" was true of two of them.
+    """ "The three rows above the creation all deny" was true of one of them.
 
     Rows 1-b and 2 are `choose` sites, and `choose` denies ONCE per session per
     direction and asks on every attempt after. Seen red first, in both the
