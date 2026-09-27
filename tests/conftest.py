@@ -465,6 +465,24 @@ os.environ["GH_TOKEN"] = NOT_A_GH_TOKEN
 os.environ["GH_ENTERPRISE_TOKEN"] = NOT_A_GH_TOKEN
 
 
+# The worktree guard reads the routing answer out of the session's transcript
+# under `worktree_consent.PROJECTS_ROOT`, which is `~/.claude/projects` -- the
+# real transcripts of whoever runs this suite. Every in-process case points it
+# at an empty directory instead, so none reads a real transcript: the guard
+# imports the module by its plain name, so one attribute on `sys.modules`
+# covers every copy of the guard a test module loaded. A case that needs a
+# transcript points it somewhere else itself.
+_NO_TRANSCRIPTS = tempfile.mkdtemp(prefix="specseal-no-transcripts-")
+atexit.register(shutil.rmtree, _NO_TRANSCRIPTS, True)
+
+
+@pytest.fixture(autouse=True)
+def _no_real_transcripts(monkeypatch):
+    consent = sys.modules.get("worktree_consent")
+    if consent is not None and hasattr(consent, "PROJECTS_ROOT"):
+        monkeypatch.setattr(consent, "PROJECTS_ROOT", _NO_TRANSCRIPTS)
+
+
 def load_hook_module(filename, name):
     spec = importlib.util.spec_from_file_location(name, os.path.join(HOOKS, filename))
     mod = importlib.util.module_from_spec(spec)

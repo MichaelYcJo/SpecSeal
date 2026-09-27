@@ -1207,32 +1207,90 @@ def test_a_ref_that_resolves_to_nothing_is_a_ref_that_does_not_resolve(
     assert "does not resolve" in capsys.readouterr().err
 
 
+# The phrase each language's files use for the base's tip, where CI's
+# comparison lands (#612).
+TIP_EN = "the base's tip"
+TIP_KO = "base 브랜치의 끝"
+
+
 @pytest.mark.parametrize(
-    "doc",
+    "doc, tip, false_sentence",
     [
-        "README.md",
-        "README.ko.md",
-        os.path.join("docs", "one-root-by-lifetime.md"),
-        os.path.join("docs", "one-root-by-lifetime.ko.md"),
-        os.path.join("docs", "release-checklist.md"),
-        os.path.join("skills", "verify", "SKILL.md"),
-        os.path.join(".github", "workflows", "hygiene.yml"),
-        os.path.join("templates", "hygiene.yml"),
+        ("README.md", TIP_EN, None),
+        ("README.ko.md", TIP_KO, None),
+        (
+            os.path.join("docs", "one-root-by-lifetime.md"),
+            TIP_EN,
+            "never the base branch's moving tip",
+        ),
+        (
+            os.path.join("docs", "one-root-by-lifetime.ko.md"),
+            TIP_KO,
+            "현재 끝이 아니라",
+        ),
+        # True at both places without naming either, and so not held to the tip
+        # (`seal/specs/1790381329-the-deferred-sentences-and-pins/spec.md`,
+        # *Out of scope*): a sibling squashed after this branch was cut is not
+        # its removal on a branch checkout or at the merge ref.
+        (os.path.join("docs", "release-checklist.md"), None, None),
+        (os.path.join("skills", "verify", "SKILL.md"), TIP_EN, None),
+        (os.path.join(".github", "workflows", "hygiene.yml"), TIP_EN, None),
+        (os.path.join("templates", "hygiene.yml"), TIP_EN, None),
+        # The module's docstrings (#612). The phrase stands here three times,
+        # so this row cannot see the `--baseline` help alone go back to the
+        # fork point; `test_the_baseline_help_names_both_places` renders it.
+        (
+            os.path.join("skills", "verify", "scripts", "unverified_check.py"),
+            TIP_EN,
+            None,
+        ),
     ],
 )
-def test_the_documents_state_the_merge_base_footing(doc):
+def test_the_documents_state_the_merge_base_footing(doc, tip, false_sentence):
     """Eight files told a reader that `--baseline` compares against the base
-    revision, and after #272 it compares against the fork point. A corrected
-    behaviour whose old sentence survives somewhere else is #180's class, and
-    eight places is where this one could survive.
+    revision; #272 made it compare against `git merge-base REF HEAD`. A
+    corrected behaviour whose old sentence survives somewhere else is #180's
+    class, and these files are where this one could survive.
 
-    A positive assertion, the way `test_the_skill_states_the_closing_convention`
-    is: the sentence has to be there, rather than the old wording having to be
-    absent. Nothing else in these files had reason to name a merge base."""
+    That commit is the fork point on a branch checkout -- a local run, the
+    broad gate's -- and the base's tip in CI, whose checkout of a pull request
+    is the head already merged into the base. The files said only the first
+    and placed it in CI (#612), and two of them said CI never compares at the
+    tip, which is false. So each file that places the comparison names the
+    base's tip too, in one phrase per language, and the false sentence is
+    asserted gone where it stood.
+
+    Positive assertions, the way `test_the_skill_states_the_closing_convention`
+    is: the sentence has to be there, rather than one old wording having to be
+    absent, because the old wording had several phrasings. Nothing else in
+    these files had reason to name a merge base."""
     text = open(os.path.join(ROOT, doc), encoding="utf-8").read()
     assert "merge-base" in text or "merge base" in text, (
         f"{doc} describes `unverified-check --baseline` and does not say the "
         "comparison is against the merge base"
+    )
+    flat_text = " ".join(text.replace("#", " ").split())
+    if tip:
+        assert tip in flat_text, (
+            f"{doc} does not say that in CI the merge base is the base's tip"
+        )
+    if false_sentence:
+        assert false_sentence not in flat_text, (
+            f"{doc} still says CI never compares at the base's tip"
+        )
+
+
+def test_the_baseline_help_names_both_places(capsys):
+    """#612: the `--baseline` help is a rendered line (contract §14). The
+    documents case above reads the whole file, where the module docstring and
+    `merge_base`'s docstring carry the same phrase, so it cannot see the help
+    go back to the fork point. The help is rendered and read on its own. Red
+    with the tip dropped from the help alone (round 1's 🟡 2)."""
+    with pytest.raises(SystemExit):
+        uc.main(["--help"])
+    rendered = " ".join(capsys.readouterr().out.split())
+    assert "the fork point on a branch checkout and the base's tip in CI" in rendered, (
+        rendered
     )
 
 

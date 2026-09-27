@@ -468,8 +468,8 @@ def test_a_capped_runs_last_record_reads_no_fixes_to_check_and_the_check_exits_z
     nothing on a fix word, so nobody will ever open fixes this record
     commissioned and no next round exists to set the cell -- `nobody -- the
     fixes are not yet written` is false the moment it is written, and the
-    check refuses `Pass` beside it on the last record (phase 3 measured exit 1
-    here). `close` derives `no fixes to check` the way `new` derives it for a
+    check refuses `Pass` beside it on the last record at a ready pull request
+    (phase 3 measured exit 1 here, before #598). `close` derives `no fixes to check` the way `new` derives it for a
     report whose every verdict closed without a fix word, and the run has the
     legal end the spec gives a capped run."""
     a = round_one(repo)
@@ -707,7 +707,8 @@ def test_a_fix_commit_carries_no_empty_code_span(repo):
         f"{a}..{b}",
     )
     # Not `code == 0`: a `fixed` verdict leaves `Pass` beside `nobody` on
-    # the last record, which the check refuses for reasons of its own.
+    # the last record, which the check refuses at a ready pull request; this
+    # run is judged as a draft, where it prints.
     assert "bare integer" not in out, out
     (one,) = verdict_cells(record)
     assert "``" not in one[4], (one, out)

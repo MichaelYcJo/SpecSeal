@@ -74,9 +74,11 @@ it. So a release whose only change was to `follow-up.md` reports 0. That gap
 is Q1 in the work item's `questions.md`, with the owner named; it is written
 here as well because this docstring is where the next reader meets the count.
 
-Exit codes: 0 done · 1 nothing was written, and the message says why. There
-is no third one; every refusal here names the file, the path, or the flag
-that gets past it.
+Exit codes: 0 done · 1 nothing was written, and the message says why · 2 a
+file this command loads from `hooks/` is not there, so nothing was read, or
+the arguments were unusable (argparse's usage error, and any two of a mode,
+`--check` and `--apply` given together). Every refusal here names the file,
+the path, or the flag that gets past it.
 """
 
 import argparse
@@ -90,12 +92,52 @@ import subprocess
 import sys
 import zipfile
 
-sys.path.insert(
-    0,
-    os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "hooks"),
+HOOKS = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)), "..", "..", "..", "hooks"
 )
-import config as repo_config
-import optin
+
+# What each module this command imports from `hooks/` is for, in the sentence
+# printed when it is missing. They are checked before the `import` lines,
+# because a plain `import` of an absent module dies with a
+# `ModuleNotFoundError` traceback at exit 1 (#610) -- and a search for
+# by-path loaders cannot see this shape, which is how #590 missed it.
+HOOK_PURPOSES = {
+    "config.py": "it is what reads the root's config.md, whose Mode row this "
+    "command keeps",
+    "optin.py": "it is what finds the repository's seal/ root",
+}
+
+
+def refuse_without_hooks(hooks=HOOKS):
+    """Exit 2 with one sentence per `HOOK_PURPOSES` module absent from
+    `hooks`, naming its path and what it is for; return where all are there.
+
+    2 and not 1, because 1 here means *nothing was written* about a root this
+    command read, and a missing sibling means nothing was read at all. A
+    `SystemExit` carrying a string exits 1, so the sentences go to stderr and
+    the code is the int -- the shape `settle.py#load` has."""
+    missing = [
+        name for name in HOOK_PURPOSES if not os.path.isfile(os.path.join(hooks, name))
+    ]
+    if not missing:
+        return
+    for name in missing:
+        sys.stderr.write(
+            f"seal: cannot read {os.path.join(hooks, name)}, and "
+            f"{HOOK_PURPOSES[name]}.\n"
+        )
+    sys.stderr.write(
+        "This command ships under `skills/`, in the plugin that holds "
+        "`hooks/`; a copy of one script taken on its own is not a plugin. "
+        "Nothing was read.\n"
+    )
+    raise SystemExit(2)
+
+
+refuse_without_hooks()
+sys.path.insert(0, HOOKS)
+import config as repo_config  # noqa: E402
+import optin  # noqa: E402
 
 # The manifest's shape. An import refuses a number it does not know rather
 # than guessing at fields: a zip whose fields moved, read by a build that

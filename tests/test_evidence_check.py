@@ -249,7 +249,9 @@ def test_letting_drift_warn_takes_both_halves(proj):
 
     Drift fails a `bash -e` step either way; the guard only lets it through
     once `--strict` is gone too, and a broken coordinate still fails through
-    that same guard."""
+    that same guard. A malformed coordinate follows the flag the way drift
+    does (work item 1790381328), so the guard lets it through as well, which
+    is what `evidence-ci`'s step 4 now says."""
     if not usable_bash():
         pytest.skip("no usable bash — the step under test runs on ubuntu CI")
     ledger(proj, "| POL-1 | `src/service.py#handler@00000000` |\n")
@@ -260,6 +262,10 @@ def test_letting_drift_warn_takes_both_halves(proj):
 
     ledger(proj, "| POL-1 | `src/service.py#gone@00000000` |\n")
     assert step(["."], proj) == 1, "the guard must not swallow a broken coordinate"
+
+    ledger(proj, "| POL-1 | `src/service.py#handler@0` |\n")
+    assert step(["."], proj) == 0, "the guard lets a malformed coordinate warn"
+    assert step(["--strict", "."], proj) == 1, "--strict still refuses it"
 
 
 def test_the_ci_skill_prints_the_step_that_matches_that_behavior():

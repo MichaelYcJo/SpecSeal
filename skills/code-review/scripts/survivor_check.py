@@ -190,16 +190,18 @@ line is gone at the right end, and at least one of its anchors resolves at
 the left end and not at the right (`removed_ledger_rows`, asking the ledger
 checker's own `resolve_unit`), unless the row still stands at the right
 end: its id -- `R1 ·` at the head of its first cell -- under the same
-heading, carried by as many rows as before, or, for a row the id does not
-name, a live row of the file citing every anchor of it that resolves there.
+heading, carried by at least as many rows as before, or, for a row the id
+does not name, a live row of the file citing every anchor of it that
+resolves there.
 A row corrected in place stays measured, because that is the one ledger act
 that IS a correction -- even where the same range renamed its units or
 retitled a heading it cites, as #589's did, provided its id stands under the
-same heading. A row the id does not name falls back to its anchors, and goes
-silent when the correction renamed every anchor it kept, dropped one along
-with a rename, renamed its own section heading, or moved it to another
-section (`removed_ledger_rows` states the whole set). About 37% of anchored
-rows here carry no id, so that is not a rare corner. A row whose anchors all
+same heading. A row the id does not name -- no id, a lost sibling, or a
+section retitled or changed -- falls back to its anchors, and goes silent
+only when no live row cites every anchor of it that still resolves: the
+correction renamed every anchor it kept, or dropped one along with a rename
+(`removed_ledger_rows` states the whole set). About 35% of anchored rows
+here carry no id, so that is not a rare corner. A row whose anchors all
 still resolve stays measured too, since no rule removes it. It leaves after the pairing across paths, like a retirement, so its
 claim carried verbatim into a new row is held rather than written.
 
@@ -1025,8 +1027,9 @@ def evidence():
 # the ` · ` that opens the claim. A row corrected in place keeps it under the
 # same heading, whatever its anchors did. It is not always unique inside its
 # section: a claim split across rows repeats it (`seal/releases/0.14.0.md`'s
-# G5 is four rows), so an id names a row only while as many rows carry it at
-# `b` as did at `a`.
+# G5 is four rows), so an id names a row only while at least as many rows
+# carry it at `b` as did at `a` -- a correction may split a row, never merge
+# two away.
 ROW_ID = re.compile(r"^\s*\|\s*([A-Z][A-Za-z]*\d+[a-z]?(?:-\d+)?)\s*·")
 
 
@@ -1069,22 +1072,24 @@ def removed_ledger_rows(root, a, b, before, after):
     tests in the same commit, so the old name left and the corrected claim
     took the exit. A row keeps its id -- `R1 ·` at the head of its first
     cell -- when it is corrected in place, so a removed row whose id still
-    stands under the same heading at `b`, carried by as many rows as at `a`,
-    is that row, and it stays measured whatever its anchors did: one anchor
+    stands under the same heading at `b`, carried by at least as many rows
+    as at `a`, is that row, and it stays measured whatever its anchors did: one anchor
     renamed, every anchor renamed, or a heading it cites retitled. A row the
     id does not name falls back to its anchors: it still stands where a live
     row of the file cites every anchor of it that still resolves.
 
     **What stays silent is a row corrected in place, with an anchor renamed
-    or gone, that the id does not name.** That is four shapes: its own
-    section heading renamed in the same range; the row moved to another
-    section; a row with no id `ROW_ID` reads, or whose id lost a sibling
-    row, that dropped a still-resolving anchor along with the rename; and a
-    row with no id whose every anchor was renamed. It is not a rare corner:
-    about 37% of the anchored rows in this repository's ledger (298 of about
-    800) carry no id the pattern reads. Pairing a removed line with the
-    added line that replaced it would close it, and that is a design choice
-    beyond this branch (round 2's 🟡 3)."""
+    or gone, that neither rule keeps.** The id does not name it -- it has no
+    id `ROW_ID` reads, its own section heading was retitled or it moved to
+    another section in the same range, or its id lost a sibling row -- and
+    no live row of the file cites every anchor of it that still resolves:
+    every anchor was renamed or gone, or the corrected line dropped one that
+    still resolves and no other row cites the rest. A row the id does not
+    name whose corrected line still cites each anchor it kept stays
+    measured. It is not a rare corner: 289 of the 833 anchored rows in this
+    repository's ledger (35%) carry no id the pattern reads. Pairing a
+    removed line with the added line that replaced it would close it, and
+    that is a design choice beyond this branch (round 2's 🟡 3)."""
     ledgers = [path for path in before if LEDGER_PATH.match(path)]
     if not ledgers:
         return set()
@@ -1118,8 +1123,8 @@ def removed_ledger_rows(root, a, b, before, after):
         for number, heading, row_id, line in at_left:
             if line in kept:
                 continue
-            # The same id under the same heading at `b`, carried by as many
-            # rows as at `a`, is this row corrected in place -- measured
+            # The same id under the same heading at `b`, carried by at least
+            # as many rows as at `a`, is this row corrected in place -- measured
             # whatever its anchors did. A key standing fewer times at `b` lost
             # a row, and the id cannot say which, so its rows fall back to
             # their anchors.

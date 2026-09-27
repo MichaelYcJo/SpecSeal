@@ -36,9 +36,10 @@ blank lines removed, so reformatting is not a change and reindenting is: in
 Python indentation carries meaning, and a checker that shrugged at a dedent
 would go quiet exactly where it should complain.
 
-Exit codes: 0 clean · 1 drift only · 2 broken, old-format or malformed
-coordinates (or drift with --strict). Designed for CI: a spec-code link that stops resolving should fail
-the build the same way a broken test does.
+Exit codes: 0 clean · 1 drift or malformed only · 2 broken or old-format
+coordinates (or drift or malformed with --strict).
+Designed for CI: a spec-code link that stops resolving should fail the build
+the same way a broken test does.
 
 Usage:
   evidence_check.py [--ledger GLOB]... [--map NAME=PATH]... [--strict] [ROOT]
@@ -1606,25 +1607,70 @@ BARE_QUOTE_RE = re.compile(r'[#>]"[^"\n]*"(?=[^>@])')
 # line of text and may quote one, so the URL is blanked and the rest is read.
 URL_RE = re.compile(r'[A-Za-z][A-Za-z0-9+.-]*://[^\s"`]*')
 # A hash after a path with no anchor between them: `src/a.py@abcdef12`. An
-# address ends in a domain, so a hex run followed by `.` is not one.
-PATH_HASH_RE = re.compile(r"[0-9a-f]+(?![\w.])")
+# address ends in a domain, so a hex run followed by `.` is not one, and a
+# run shorter than the six characters `ANCHOR_RE` takes is a version:
+# `chart.js@4`. No upper bound, so a full SHA pasted after a path is named.
+PATH_HASH_RE = re.compile(r"[0-9a-f]{6,}(?![\w.])")
+# An issue number: a run of digits that no ASCII word character continues.
+# What follows it is the sentence's -- a closing mark, a possessive, a dash,
+# a particle a language glues on, the `](` of a link whose URL was blanked.
+ISSUE_TAIL_RE = re.compile(r"\d+(?![A-Za-z0-9_])")
+# Both marks of one coordinate: an `@` after a `#` with no whitespace between
+# them outside a quoted string, so `#"x = 1  # c"@0` holds them glued and
+# `@lru_cache  # memoized` does not. Searched, so every `#` is tried. The
+# quoted string holds its whitespace only in a code span: outside one,
+# `malformed_rows` has split the text into words before this reads it.
+# `#` is out of the unquoted class so each attempt stops at the next `#`
+# outside a quote: the attempt that starts there finds the same match, and a
+# run of them is read in linear time. A `#` inside a quote does not stop
+# one, so a chain of quoted strings holding escaped quotes (`#"\"` repeated)
+# is still quadratic: 1.5 s at 20 000 characters, far past any real row.
+GLUED_MARKS_RE = re.compile(r'#(?:"(?:[^"\\\n]|\\.)*"|[^\s"#])*@')
 
 
 def refused_coordinate(s):
-    """True where S, left over after both patterns, is a coordinate: both
-    marks, or a `#` glued to a path or a file name, or a hash after a path.
-    `#299`, `org/repo#299`, `#ifdef`, `C#` and `@cache` are prose."""
+    """True where S, left over after both patterns, is a coordinate: an `@`
+    glued after a `#`, or a `#` glued to a path or a file name, or a hash
+    after a path. `#299`, `org/repo#299's`, `#ifdef`, `C#`, `@cache`,
+    `chart.js@4` and `@lru_cache  # memoized` are prose.
+
+    What #614 changed, as the rules that move a verdict against 0.15.4's
+    checker. Each gives up coordinates as well as prose, and every cell whose
+    verdict moved over a generated shape space falls under one of them:
+
+    - A path followed by `@` takes a hash only of six or more hex
+      characters: `chart.js@4` is prose, and so is `src/a.py@abc`.
+    - The per-word rule reads a locator opening with digits that no ASCII
+      letter, digit or `_` continues as an issue number, whatever follows
+      the digits: `org/repo#299's` is prose, and so are `docs/a.md#1-scope`,
+      `docs/a.md#1장`, `docs/a.md#1.2` and `src/a.py#1>"x"`. Such a
+      coordinate is named only where its `@` is glued to its `#`, as in
+      `docs/a.md#1장@abcdef12`.
+    - Both marks count only where they are glued: no whitespace between them
+      outside a quoted string, which holds whitespace only in a code span,
+      and no `"` left unclosed. Where they are not glued each word is
+      judged alone, so `src/a.py#handler @abcdef12` is still named, and
+      `@lru_cache  # memoized`, `#handler @abcdef12`,
+      `docs/a.md#1-scope @abcdef12` and `#handler>"a"b"@abcdef12` are not.
+    - A file name with no dot takes a locator opening with a letter, `_`,
+      `"` or `<`, and never a digit: `Makefile#"all: build"`, `C#"hello"`
+      and `vector#<T>` are named, and `Makefile#1x` is not.
+    - A locator opening with a digit that is not a decimal digit is not an
+      issue number, so after a path it is named: `docs/a.md#²`,
+      `docs/a.md#①`."""
     s = URL_RE.sub(" ", s)
-    if "#" in s and "@" in s:
+    if GLUED_MARKS_RE.search(s):
         return True
     # A word's closing punctuation is the sentence's, not the word's, so
-    # `org/repo#299,` is an issue number like `org/repo#299`.
+    # `src/a.py@abcdef12.` is a path followed by a hash.
     for token in (word.rstrip(".,;:!?)]") for word in s.split()):
         head, mark, tail = token.partition("#")
-        if mark and not tail.isdigit():
+        if mark and not ISSUE_TAIL_RE.match(tail):
             if "/" in head or "." in head:
                 return True
-            if head[-1:].isalnum() and tail[:1].isalpha():
+            if head[-1:].isalnum() and (
+                tail[:1].isalpha() or tail[:1] in ("_", '"', "<")
+            ):
                 return True
             if not head and tail[:1] in ('"', "<"):
                 return True
@@ -1685,15 +1731,22 @@ def malformed_rows(text):
 
     Its own verdict and not BROKEN, for the reason `old_format_rows` gives:
     BROKEN means *the unit is not there*, and a coordinate nobody can read
-    names no unit to look for. It fails the run with or without `--strict`,
-    like OLD-FORMAT. Two ways in:
+    names no unit to look for. It is graded like DRIFTED, not like
+    OLD-FORMAT: exit 1 on a lenient run and exit 2 under `--strict`, which
+    is what `broad-gate` passes (`exit_code` says who decided it). Two ways
+    in:
 
     - a coordinate the patterns refused: what is left of the cell once every
       `ANCHOR_RE` and `OLD_COORD_RE` match is blanked, and every URL in it,
-      still holds both marks, a `#` glued to a path or a file name, or a path
-      followed by `@` and a hash. An issue number `#299` or `org/repo#299`, a
-      directive `#ifdef`, a decorator `@cache` and an address are prose, in a
-      span or out of one;
+      still holds an `@` glued after a `#` (no whitespace between them
+      outside a quoted string, which holds whitespace only in a code span),
+      a `#` glued to a path or a file name, or a path followed by `@` and a
+      hash of six or more hex characters. An
+      issue number `#299`, `org/repo#299` or `org/repo#299's`, a directive
+      `#ifdef`, a decorator `@cache` beside a comment, a version
+      `chart.js@4` and an address are prose, in a span or out of one. A
+      file name with no dot takes a locator opening with a letter, `_`, `"`
+      or `<`; `refused_coordinate` states what each edge gives up;
     - no coordinate at all: the cell is not empty, nothing in it matches
       either pattern, and some other cell of the row is not empty either. A
       row that claims something and cites nothing reads as covered and is
@@ -2692,15 +2745,20 @@ def check_records(root, home, maps=None, default_repo=None):
 # **The one exit code this checker's readers grade differently.** Three of them
 # run this script over one tree: `bin/evidence-check`, the command every
 # document names, takes the answer as it comes; CI's `ledger` job renders exit
-# 1 as a `::warning::`; and `broad-gate` passes `--strict`, where drift is
-# exit 2 and the branch comes back `NOT SEALED`. A session that runs the
-# documented command more often never meets the reading that decides, because
-# the documented command is not the deciding one (#354).
+# 1 as a `::warning::`; and `broad-gate` passes `--strict`, where DRIFTED and
+# MALFORMED are exit 2 and the branch comes back `NOT SEALED`. A session that
+# runs the documented command more often never meets the reading that decides,
+# because the documented command is not the deciding one (#354).
 #
 # Printed on exit 1 and nowhere else. Exit 0 and exit 2 are states every
 # reader grades alike, so there is no disagreement to report — and a line that
 # prints on every run is a line people learn to skip, which is the shape
 # `hooks/evidence-advisor.py` already measured.
+#
+# Exit 1 has two causes, and the sentence names both verdict words: the rows
+# above it carry one of them, which is how a reader tells *re-read* from *fix
+# the coordinate*. One sentence rather than one per cause, because choosing
+# between two would need a predicate restating the grading beside `exit_code`.
 #
 # `NOT SEALED` is `seal_stamp`'s word and this is borrowing it.
 # `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py` holds the
@@ -2709,7 +2767,8 @@ def check_records(root, home, maps=None, default_repo=None):
 # in silence.
 LENIENT_NOTICE = (
     "exit 1 is the lenient reading. `broad-gate` runs this same check with "
-    "`--strict`, where drift is exit 2, and this tree would come back NOT SEALED."
+    "`--strict`, where DRIFTED and MALFORMED are exit 2, and this tree would "
+    "come back NOT SEALED."
 )
 
 
@@ -2724,15 +2783,17 @@ def exit_code(totals, refused, drifted, strict):
     """
     if totals["OLD-FORMAT"]:
         return 2
-    # Graded like OLD-FORMAT, the other coordinate nothing can parse: exit 2
-    # under both readings. Its own branch because it is the one the owner may
-    # move to DRIFTED's grading (`questions.md` Q1 of work item
-    # 1790297087-a-ledger-row-that-will-not-parse-is-counted).
-    if totals["MALFORMED"]:
-        return 2
     if totals["BROKEN"] or refused:
         return 2
-    if totals["DRIFTED"] or drifted:
+    # Graded like DRIFTED: exit 1 leniently, 2 under `--strict`. The
+    # repository owner answered (b) to `questions.md` Q1 of work item
+    # 1790297087-a-ledger-row-that-will-not-parse-is-counted on 2026-09-26.
+    # It departs from OLD-FORMAT, the other coordinate nothing can parse,
+    # which stays exit 2 under both readings: a patch release does not start
+    # refusing rows in a repository's lenient run, and `broad-gate` and the
+    # vendored CI template both pass `--strict`, so the readers that decide
+    # still refuse. Below BROKEN so a tree holding both is still exit 2.
+    if totals["MALFORMED"] or totals["DRIFTED"] or drifted:
         return 2 if strict else 1
     return 0
 
@@ -2748,7 +2809,11 @@ def main():
         help="repo that unprefixed coordinates resolve against when "
         "absent from ROOT (migration ledgers cite the original repo)",
     )
-    ap.add_argument("--strict", action="store_true", help="drift also fails")
+    ap.add_argument(
+        "--strict",
+        action="store_true",
+        help="drift and malformed coordinates also fail",
+    )
     ap.add_argument(
         "--migrate",
         action="store_true",

@@ -4279,8 +4279,8 @@ def test_a_removed_row_sharing_one_live_anchor_with_another_row_takes_the_exit(
     The neighbour carries the same id, `R1`, on purpose: a claim split
     across rows repeats its id in one section (`seal/releases/0.14.0.md`'s
     G5 is four rows), so an id standing at the tip names this row only when
-    as many rows carry it as before. Red at 66df04df, where the neighbour's
-    id kept the removed row measured (round 2's 🟡 1)."""
+    at least as many rows carry it as before. Red at 66df04df, where the
+    neighbour's id kept the removed row measured (round 2's 🟡 1)."""
     repo = tmp_path / "probe"
     three = ("pkg/mod.py#helper", "pkg/mod.py#other", "pkg/mod.py#spare")
     module = MODULE + "\n\ndef spare(width):\n    return width\n"
@@ -4397,6 +4397,24 @@ def test_a_hyphenated_id_corrected_while_its_anchor_is_renamed_is_a_correction(
     )
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 1, f"a hyphenated id did not keep its row measured:\n{text}"
+    assert coordinates_in(text) == {"docs/x.md:3"}, text
+
+
+def test_a_claim_split_into_two_rows_as_it_is_corrected_stays_measured(tmp_path):
+    """A row corrected in place and split across two rows under its id, its
+    anchor re-pointed at the renamed unit. The id stands more times at the
+    tip than at the left end, so it still names the row. Red with the count
+    guard read as equality: exit 0 (#615, round 3 of 1790297084, ⬜ 3)."""
+    repo = tmp_path / "probe"
+    renamed = MODULE.replace("def helper(", "def helper_renamed(")
+    half = ledger_row(REPAIRED, ("pkg/mod.py#helper_renamed",))
+    head = ledger_range(
+        repo,
+        half + ledger_row("The rest of the claim.", ("pkg/mod.py#other",)),
+        renamed,
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1, f"a split correction lost its row:\n{text}"
     assert coordinates_in(text) == {"docs/x.md:3"}, text
 
 

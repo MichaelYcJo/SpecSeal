@@ -53,7 +53,8 @@ ec = load()
 # the point: neither can move without the other going red.
 NOTICE = (
     "exit 1 is the lenient reading. `broad-gate` runs this same check with "
-    "`--strict`, where drift is exit 2, and this tree would come back NOT SEALED."
+    "`--strict`, where DRIFTED and MALFORMED are exit 2, and this tree would "
+    "come back NOT SEALED."
 )
 
 
@@ -154,18 +155,24 @@ def test_an_old_format_row_is_silent(tmp_path):
     assert NOTICE not in r.stdout, r.stdout
 
 
-def test_a_malformed_row_is_silent(tmp_path):
-    """S8 of #299. MALFORMED exits 2 with or without the flag, as OLD-FORMAT
-    does, so both readers agree and the lenient line has nothing to say."""
+def test_a_malformed_row_is_told_what_the_gate_would_say(tmp_path):
+    """S1 and S2 of work item 1790381328. MALFORMED is graded like DRIFTED
+    (the owner's answer to Q1 of work item 1790297087, 2026-09-26): exit 1 on
+    a lenient run, which carries the notice as its last line, and exit 2
+    under `--strict`, which is the form that decides and says nothing more.
+    The row is named with its remedy under both."""
     d = repo(tmp_path)
     (d / "seal" / "ledger" / "f.md").write_text(
         "# frag\n\n| CLAUSE | `src/service.py#handler@0` |\n", encoding="utf-8"
     )
-    for args in (["."], ["--strict", "."]):
-        r = run(args, d)
-        assert r.returncode == 2, r.stdout + r.stderr
-        assert "MALFORMED" in r.stdout, r.stdout
-        assert NOTICE not in r.stdout, r.stdout
+    r = run(["."], d)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert "MALFORMED src/service.py#handler@0" in r.stdout, r.stdout
+    assert r.stdout.rstrip().endswith(NOTICE), repr(r.stdout[-400:])
+    r = run(["--strict", "."], d)
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert "MALFORMED src/service.py#handler@0" in r.stdout, r.stdout
+    assert NOTICE not in r.stdout, r.stdout
 
 
 def test_the_line_is_the_last_thing_an_exit_1_run_prints(tmp_path):
@@ -195,10 +202,13 @@ def test_the_grading_is_one_function_and_the_line_reads_its_answer():
     assert code(BROKEN=1, strict=True) == 2
     assert ec.exit_code({**zero, "OLD-FORMAT": 1}, 0, 0, False) == 2
     assert ec.exit_code({**zero, "OLD-FORMAT": 1}, 0, 0, True) == 2
-    # S8 of #299: a coordinate nothing can parse is graded like OLD-FORMAT,
-    # exit 2 under both readings (`questions.md` Q1, default (a)).
-    assert ec.exit_code({**zero, "MALFORMED": 1}, 0, 0, False) == 2
-    assert ec.exit_code({**zero, "MALFORMED": 1}, 0, 0, True) == 2
+    # A coordinate nothing can parse is graded like DRIFTED: the owner's
+    # answer (b) to Q1 of work item 1790297087, 2026-09-26. Beside a BROKEN
+    # row or a refused record the run is still exit 2 on a lenient reading.
+    assert code(MALFORMED=1) == 1
+    assert code(MALFORMED=1, strict=True) == 2
+    assert code(MALFORMED=1, BROKEN=1) == 2
+    assert ec.exit_code({**zero, "MALFORMED": 1}, 1, 0, False) == 2
     # The records arm reaches the same grading through its own two counts.
     assert ec.exit_code(zero, 1, 0, False) == 2, "a refused record is exit 2"
     assert ec.exit_code(zero, 0, 1, False) == 1, "a drifted record is exit 1"
@@ -295,6 +305,8 @@ def test_the_notice_borrows_the_word_the_failing_gate_prints():
     assert "NOT SEALED" in read(SEAL_STAMP), "seal_stamp no longer prints it"
     assert "broad-gate" in ec.LENIENT_NOTICE, "the notice names no reader"
     assert "exit 2" in ec.LENIENT_NOTICE, "the notice names no grading"
+    for verdict in ("DRIFTED", "MALFORMED"):
+        assert verdict in ec.LENIENT_NOTICE, f"the notice does not name {verdict}"
 
 
 def test_a_failing_ledger_check_is_what_reaches_the_failure_form():
@@ -364,3 +376,92 @@ def test_no_document_describes_the_lenient_reader_alone():
         if not any("--strict" in b and "broad-gate" in b for b in blocks):
             missing.append(rel)
     assert not missing, f"these describe one reader alone: {missing}"
+
+
+def grading(verdict):
+    """`(lenient, strict)`: what `exit_code` returns for VERDICT alone."""
+    zero = dict.fromkeys(
+        ("OK", "DRIFTED", "BROKEN", "EXTERNAL", "OLD-FORMAT", "MALFORMED"), 0
+    )
+    totals = {**zero, verdict: 1}
+    return ec.exit_code(totals, 0, 0, False), ec.exit_code(totals, 0, 0, True)
+
+
+def table_row(text, first_cell):
+    """The cells of the one table row of TEXT whose first cell starts with
+    FIRST_CELL."""
+    rows = [
+        [c.strip() for c in line.strip().strip("|").split(" | ")]
+        for line in text.splitlines()
+        if line.startswith("| ")
+    ]
+    found = [r for r in rows if r[0].startswith(first_cell)]
+    assert len(found) == 1, f"{len(found)} rows start with {first_cell!r}"
+    return found[0]
+
+
+def test_the_skill_states_the_grading_exit_code_returns_for_malformed():
+    """S6 of work item 1790381328. `SKILL.md` tells a reader what MALFORMED
+    exits in two places, the verdict table and the reader table, and both
+    are held against `exit_code` here rather than against a number written
+    in this file. So the next change to the grading moves the page or goes
+    red, which is what the old row's `(exit 2, --strict or not)` never did
+    when the owner's answer moved it."""
+    lenient, strict = grading("MALFORMED")
+    skill = read(os.path.join(ROOT, "skills", "evidence-check", "SKILL.md"))
+    verdict = table_row(skill, "`MALFORMED` (")[0]
+    want = f"`MALFORMED` (exit {lenient}; {strict} under `--strict`"
+    assert verdict.startswith(want), f"{verdict!r} does not state {want!r}"
+    header = table_row(skill, "Reader")
+    assert header[-1] == "MALFORMED is", header
+    column = len(header) - 1
+    for reader, code in (
+        ("`evidence-check .`", lenient),
+        ("CI's `ledger` job", lenient),
+        ("`broad-gate`", strict),
+    ):
+        cell = table_row(skill, reader)[column]
+        assert cell.startswith(f"exit {code}"), f"{reader}: {cell!r}"
+    drifted = table_row(skill, "`DRIFTED` (")[-1]
+    assert "the one verdict" not in drifted, drifted
+
+
+def test_the_ci_warning_names_every_verdict_the_lenient_reading_softens():
+    """S7 of work item 1790381328. The `ledger` job prints one fixed warning
+    on exit 1 and reads no text, so the warning has to be true for every
+    verdict `exit_code` grades 1 on a lenient run. It said *drift — re-verify
+    the rows above*, which sends a reader holding a malformed row to
+    `--reverify`, a command that names the row and writes nothing."""
+    workflow = read(os.path.join(ROOT, ".github", "workflows", "test.yml"))
+    warnings = [
+        line for line in workflow.splitlines() if "::warning::evidence ledger" in line
+    ]
+    assert len(warnings) == 1, warnings
+    stems = {"DRIFTED": "drift", "MALFORMED": "malformed"}
+    softened = [v for v in stems if grading(v) == (1, 2)]
+    assert softened == ["DRIFTED", "MALFORMED"], softened
+    for verdict in softened:
+        assert stems[verdict] in warnings[0], f"{verdict}: {warnings[0]}"
+    assert "re-verify the rows above" not in warnings[0], warnings[0]
+
+
+def test_every_other_page_that_grades_the_flag_names_malformed():
+    """Round 1's 🟡 2 of work item 1790381328. Four more places state what
+    `--strict` softens, and each is held against `exit_code` rather than
+    against a number written here, so the next change to the grading moves
+    them or goes red."""
+    lenient, strict = grading("MALFORMED")
+    skill = read(os.path.join(ROOT, "skills", "evidence-check", "SKILL.md"))
+    flag = table_row(skill, "`--strict`")[1]
+    assert "malformed" in flag and f"exit {strict}" in flag, flag
+    assert f"instead of {lenient}" in flag, "the flag row's lenient exit"
+    ci = " ".join(read(os.path.join(ROOT, "skills", "evidence-ci", "SKILL.md")).split())
+    want = (
+        f"`MALFORMED`, follows the flag the way drift does: exit {lenient} "
+        f"without it, {strict} with it"
+    )
+    assert want in ci, "evidence-ci's step 4 no longer grades MALFORMED"
+    template = read(os.path.join(ROOT, "templates", "evidence-check.yml"))
+    assert lenient < strict, "the template says dropping --strict softens it"
+    assert "softens drift\n          # and MALFORMED, and nothing else" in template
+    assert f"{lenient} drift or malformed only" in ec.__doc__, "the module docstring"

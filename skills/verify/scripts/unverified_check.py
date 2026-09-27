@@ -33,15 +33,18 @@ It fails for what the author can always fix:
               HEAD. That is exit 2, not a pass: a comparison against nothing
               is not a comparison
 
-**The base is the merge base, not the ref's tip.** `--baseline REF` names the
+**The base is the merge base, not the ref.** `--baseline REF` names the
 branch a pull request merges into, and that branch moves: the moment one work
 item squashes into it, every sibling branch cut before that squash has the
 squashed item's `overview.md` at the base and never had it at all. So the ref
 is resolved once, to `git merge-base REF HEAD`, and every read below uses that
-commit. A row present at the fork point and absent here was removed by THIS
-branch, which is the only claim this makes; a row that arrived on the base
-after the fork is not this branch's business. `merge_base` carries what the
-old footing cost (#272).
+commit. On a branch checkout -- a local run, the broad gate's -- that is the
+fork point. In CI it is the base's tip, because a pull request is checked out
+as its head already merged into the base. Either way a row present at that
+commit and absent here was removed by THIS branch, which is the only claim
+this makes, and a row that arrived on the base after the branch was cut is not
+this branch's business: the fork point never had it, and the merge holds it
+too. `merge_base` carries what the old footing cost (#272).
 
 An item is closed by marking it, never by deleting it: prefix the Item cell
 with the check mark and say in the second cell what closed it. Anything
@@ -949,9 +952,12 @@ def merge_base(root, ref):
     of four branches were refused for exactly that, and the refusal was right
     about what it measured and wrong about what happened (#272).
 
-    The merge base is the fork point, so a file present there and absent here
-    was removed by THIS branch — which is the only claim this tool makes. A
-    file that arrived on the base after the fork is not this branch's business.
+    On a branch checkout the merge base is the fork point. In CI, whose
+    checkout of a pull request is the head already merged into the base, it is
+    the base's tip, and `base_label` names it by the ref there. Either way a
+    file present there and absent here was removed by THIS branch — which is
+    the only claim this tool makes — and a file that arrived on the base after
+    the branch was cut is not this branch's business.
 
     None for two states, and both are exit 2 rather than a degraded pass:
     unrelated histories (exit 1, empty output) and a `HEAD` that names no
@@ -1018,7 +1024,7 @@ def folded_items(root):
     The removal of a released work item's directory is `settle`'s last act,
     and until this read existed the arm below could not tell it from a branch
     deleting a record. It is not a distinction the removal itself carries:
-    both shapes are a directory present at the fork point and absent here.
+    both shapes are a directory present at the merge base and absent here.
     What tells them apart is whether a policy document absorbed the item, and
     the marker is that, written where the prose landed.
 
@@ -1365,12 +1371,13 @@ def main(argv=None):
         "--baseline",
         metavar="REF",
         help="the branch this pull request merges into. Also fail when a "
-        "table holds fewer rows than it did where this branch forked from "
-        "REF, or when an overview.md that existed there is gone — an item "
-        "leaves by being marked closed, not by the row or the file being "
-        "deleted. The comparison is against `git merge-base REF HEAD`, so a "
-        "work item squashed into REF after this branch forked is not this "
-        "branch's removal. Nor is a work item whose fold `docs/` records with "
+        "table holds fewer rows than it did at `git merge-base REF HEAD`, or "
+        "when an overview.md that existed there is gone — an item leaves by "
+        "being marked closed, not by the row or the file being deleted. That "
+        "commit is the fork point on a branch checkout and the base's tip in "
+        "CI, whose checkout of a pull request is the head already merged into "
+        "REF; either way a work item squashed into REF after this branch was "
+        "cut is not this branch's removal. Nor is a work item whose fold `docs/` records with "
         "its `<!-- specs/<id> -->` marker: that is `settle` retiring a "
         "released spec a policy document has absorbed, and it is named as "
         "folded rather than reported as a deletion. Nor is a directory "

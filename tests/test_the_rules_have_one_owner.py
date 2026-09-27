@@ -345,7 +345,8 @@ def test_the_skill_links_the_reopening_from_both_places_it_used_to_state_it():
 def test_a_correction_row_closes_answered_and_never_fixed():
     """Round 1's 🟡 2 of #161's own chain: `fixed <sha>` on a correction
     row leaves `nobody — the fixes are not yet written` beside a checked
-    `Pass`, and the check refuses that pair on the last record — a reader
+    `Pass`, and the check refuses that pair on the last record at a ready
+    pull request — a reader
     commissioned for a row rule 1 says owes none. The owner states the
     word, and the smith's fix-table paragraph names the owner.
 

@@ -214,10 +214,12 @@ def test_a_name_rooted_in_a_variable_is_judged_where_the_variable_points(
     tree, monkeypatch
 ):
     """#596, round 1's 🟡 3 and round 2's 🟡 1. `cmd.exe` expands `%VAR%`
-    before it reads a command name, so the part is expanded the same way
-    before it is asked whether it is a directory: a name from the
+    before it reads a command name, so the part is expanded before it is
+    asked whether it is a directory, as far as `as_cmd_expands` models it: a
+    name from the
     environment takes its value, and `%CD%` and `%__CD__%`, which `cmd.exe`
-    computes and no environment holds, name the directory the row runs in.
+    computes where the environment defines neither, name the directory the
+    row runs in. A defined `CD` wins, as it does in `cmd.exe` (#616).
     0.15.3 rewrote `%CD%/bin/test`, and a literal `%CD%` directory never
     exists, so without the expansion that row stopped running. `$HOME` means
     nothing to `cmd.exe` and is not expanded."""
@@ -233,15 +235,25 @@ def test_a_name_rooted_in_a_variable_is_judged_where_the_variable_points(
         ("%SPECSEAL_PROBE_TREE%/bin/test -q", r"%SPECSEAL_PROBE_TREE%\bin\test -q"),
         ("%SPECSEAL_PROBE_NOWHERE%/bin/x", "%SPECSEAL_PROBE_NOWHERE%/bin/x"),
         ("xcopy/e/i a b", "xcopy/e/i a b"),
-        # `CD` is computed by cmd.exe and is in no environment (round 2, 🟡 1).
+        # `CD` is computed by cmd.exe where the environment defines none, and
+        # the case deletes it above (round 2, 🟡 1).
         ("%CD%/bin/test -q", r"%CD%\bin\test -q"),
         ("%cd%/bin/test -q", r"%cd%\bin\test -q"),
         ("%__CD__%bin/test", r"%__CD__%bin\test"),
+        # A substring is not modelled, as `templates/config.md` says (#616):
+        # the name it starts is handed as written, although the variable it
+        # cuts from names the tree.
+        ("%SPECSEAL_PROBE_TREE:~0,500%/bin/test -q",) * 2,
         ("$HOME/x", "$HOME/x"),
     ):
         got = gate.handed_to_shell(row, windows=True, comspec=CMD, root=tree)
         assert got == expected, got
         only_slashes_turned(row, got)
+    # cmd.exe lets a defined `CD` override the one it computes (`set /?`),
+    # so the environment is asked first (#616, round 3 of 1790297086, note 1).
+    monkeypatch.setenv("CD", os.path.join(tree, "nowhere"))
+    got = gate.handed_to_shell("%CD%/bin/test -q", windows=True, comspec=CMD, root=tree)
+    assert got == "%CD%/bin/test -q", got
 
 
 @pytest.mark.parametrize(
@@ -379,10 +391,13 @@ def test_the_template_says_which_positions_are_rewritten():
         "It starts in a directory where the part before its first `/`, with its "
         "quotes and carets removed and every leading `@` dropped, names a "
         "directory that exists where the row runs",
-        # Round 1's 🟡 3, where the person typing the row reads it.
-        "A `%VAR%` in that part is expanded first, as `cmd.exe` expands it "
-        "before it reads the name",
-        "`%CD%` as the directory the row runs in",
+        # Round 1's 🟡 3, where the person typing the row reads it; #616
+        # narrowed it to the plain form and named what is not expanded.
+        "A plain `%VAR%` in that part is expanded first, because `cmd.exe` "
+        "expands it before it reads the name",
+        "`%CD%` as the directory the row runs in unless the environment defines `CD`",
+        "A substring or substitution (`%VAR:~0,2%`, `%VAR:a=b%`) is not "
+        "expanded, so a name that starts with one keeps its `/`",
         "`bin/test` then runs as `bin\\test`",
         "a path after `call`, `start` or `if`, or after `else`, `for … do` and "
         "`cmd /c`",

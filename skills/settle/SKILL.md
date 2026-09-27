@@ -116,7 +116,9 @@ forked from. Once it has, the heading says so, and where `--released-at`
 already holds the closure, merging it into this branch and running `settle`
 again is what lets the directory go. A directory whose record is closed in the
 tree and open at that base is listed under *kept until the closure reaches
-<base>*, with every row open there, and `settle --retire` keeps it and exits 1.
+<base>*, or, where `--released-at` has moved, *kept: the closure has not
+reached <base>*, with every row open there, and `settle --retire` keeps it
+and exits 1.
 It goes in a later pull request, once the closure has reached the branch
 `--released-at` names, which for a closure made on a release branch is the
 next release. A `--released-at` that shares no commit with `HEAD` has no merge
