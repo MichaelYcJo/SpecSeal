@@ -1749,11 +1749,15 @@ def guard_worktree_creation(
             (
                 f"{origin}\n"
                 # Reached before the choice rows, detection-unusable included,
-                # so the count is named only where one was taken.
+                # so the count is named only where one was taken. And above
+                # the idle row too, so *can be shown to be working*: a count
+                # that found only idle sessions found nobody shown working,
+                # and did not find nobody (#624).
                 + (
                     tr(
-                        "No other Claude session is working in this tree, but ",
-                        "이 트리에서 작업 중인 다른 Claude 세션은 없지만 ",
+                        "No other Claude session can be shown to be working in "
+                        "this tree, but ",
+                        "이 트리에서 작업 중임이 확인되는 다른 Claude 세션은 없지만 ",
                     )
                     if reliable
                     else ""
@@ -2301,8 +2305,15 @@ def main():
         )
 
     # 3) 단건이지만 추적 중인 변경이 있으면 사용자에게 확인.
+    #
+    # Reached in three states, and only the first is a count. Single stream is
+    # nothing idle with detection reliable; the other two are only-idle and
+    # detection-unusable under `[shared-tree-ok]`, where the choice rows above
+    # stood aside because the token carried the user's answer. The lead says
+    # which of the two made the switch allowable, and nothing else moves (#624).
     entries = tracked_changes(cwd)
     if entries:
+        single_stream = not idle and reliable
         listing = "\n".join(f"    {xy}  {path}" for xy, path in entries)
         phantoms = phantom_entries(entries, cwd)
         note = ""
@@ -2319,15 +2330,24 @@ def main():
                 f"아래 명령으로 정리하면 트리가 clean이 됩니다 "
                 f"(index에만 존재하는 내용을 살리려면 `git restore <path>` 를 먼저 실행):\n{fixes}\n",
             )
+        lead = (
+            tr("Single-stream tree", "이 트리는 단건 작업이라")
+            if single_stream
+            else tr(
+                "[shared-tree-ok] carries the user's answer to switch in this "
+                "shared tree",
+                "[shared-tree-ok] 가 공용 트리에서 전환한다는 사용자의 답을 담고 있어",
+            )
+        )
         respond(
             "ask",
             (
                 tr(
-                    f"Single-stream tree, so the switch is allowed — but there are "
+                    f"{lead}, so the switch is allowed — but there are "
                     f"{len(entries)} uncommitted tracked changes:\n{listing}\n{note}"
                     f"They will follow you onto the target branch. Confirm to proceed "
                     f"(commit/stash first is recommended).",
-                    f"이 트리는 단건 작업이라 브랜치 전환을 허용할 수 있지만, "
+                    f"{lead} 브랜치 전환을 허용할 수 있지만, "
                     f"커밋되지 않은 변경 {len(entries)}건이 있습니다:\n{listing}\n{note}"
                     f"전환하면 이 변경이 대상 브랜치로 따라갑니다. 진행할지 확인해 주세요 "
                     f"(커밋/스태시 후 전환을 권장).",

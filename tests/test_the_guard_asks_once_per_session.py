@@ -1234,12 +1234,23 @@ def test_a_typed_answer_that_qualifies_the_preset_is_not_consent(projects, repo)
 
 def test_a_sidechain_entry_is_not_consent(projects, repo):
     """A subagent has no `AskUserQuestion`, so no real click can carry
-    `isSidechain: true`, and no local main transcript held one when this was
-    written. Refusing it costs no measured case and closes the direction."""
+    `isSidechain: true`. Every main-transcript entry measured carries `false`
+    (round 2 of work item 1790381327: 136 of 136 linked results), so an absent
+    or non-bool value is refused as an unmeasured shape, the way
+    `_routing_preset` refuses an absent `multiSelect`. The `False` row is the
+    other half: without it, refusing everything would pass."""
+    for value in (True, "true", 1, None, "absent"):
+        use, result = ask_entries(repo)
+        if value == "absent":
+            del result["isSidechain"]
+        else:
+            result["isSidechain"] = value
+        write_transcript(projects, "me", [use, result])
+        assert not wc.automation_answered(str(repo), "me"), value
     use, result = ask_entries(repo)
-    result["isSidechain"] = True
+    assert result["isSidechain"] is False
     write_transcript(projects, "me", [use, result])
-    assert not wc.automation_answered(str(repo), "me")
+    assert wc.automation_answered(str(repo), "me")
 
 
 def test_the_payloads_transcript_path_is_read_when_it_names_this_session(

@@ -258,8 +258,9 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
       2. the answer is a harness-written `AskUserQuestion` result: a `user`
          entry whose `tool_result` names, by `tool_use_id`, an EARLIER
          assistant `tool_use` called `AskUserQuestion`, read from the entry's
-         structured `toolUseResult`. A Bash result echoing *The user answered:
-         "automation"* has no such link and no `answers` object;
+         structured `toolUseResult`, and carrying `isSidechain: false`. A Bash
+         result echoing *The user answered: "automation"* has no such link and
+         no `answers` object, and a subagent has no `AskUserQuestion`;
       3. the question is the routing question and the preset was pressed
          (`_routing_preset`);
       4. the result entry's own `cwd` is in the same clone as `top`.
@@ -306,9 +307,12 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
                     continue
                 if kind != "user" or not asked:
                     continue
-                # A subagent has no `AskUserQuestion`, so no real click
-                # carries this mark; refusing it costs no measured case.
-                if entry.get("isSidechain") is True:
+                # A subagent has no `AskUserQuestion`, and every main-transcript
+                # user entry measured carries `isSidechain: false`. Anything
+                # else -- true, absent, or not a bool -- is a shape nobody
+                # measured, refused the way `_routing_preset` refuses an absent
+                # `multiSelect`.
+                if entry.get("isSidechain") is not False:
                     continue
                 linked = any(
                     isinstance(item, dict)
