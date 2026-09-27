@@ -1534,14 +1534,14 @@ def landing_values(words):
     every verdict closed on `deferred <home>` or `answered` — a capped run's
     last record has no next round to set the cell, and the check refuses
     `Pass` beside `nobody` there at a ready pull request (`questions.md` A6
-    of the work item that added this). The other answer was left standing on the grounds that a fix
-    was written and a later round owes it a reading, which is true of WHO and
-    false of WHAT: the landing value says the fixes are not yet WRITTEN, and
-    at this point they are written and named in the record's own verdict
-    cells two rows below. `close` corrects the reason and keeps `nobody`
-    (#273 part 1). It corrects only the landing value it recognises — a cell
-    naming a `round-N` is a later round's reading and is not this pass's to
-    touch.
+    of the work item that added this). The other answer was left standing on
+    the grounds that a fix was written and a later round owes it a reading,
+    which is true of WHO and false of WHAT: the landing value says the fixes
+    are not yet WRITTEN, and at this point they are written and named in the
+    record's own verdict cells two rows below. `close` corrects the reason
+    and keeps `nobody` (#273 part 1). It corrects only the landing value it
+    recognises — a cell naming a `round-N` is a later round's reading and is
+    not this pass's to touch.
     """
     open_rows = [w for w in words if w not in chain.CLOSED_WORDS]
     fixed_rows = [w for w in words if w in chain.FIX_WORDS]

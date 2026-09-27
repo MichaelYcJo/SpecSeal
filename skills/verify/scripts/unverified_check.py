@@ -1377,13 +1377,13 @@ def main(argv=None):
         "commit is the fork point on a branch checkout and the base's tip in "
         "CI, whose checkout of a pull request is the head already merged into "
         "REF; either way a work item squashed into REF after this branch was "
-        "cut is not this branch's removal. Nor is a work item whose fold `docs/` records with "
-        "its `<!-- specs/<id> -->` marker: that is `settle` retiring a "
-        "released spec a policy document has absorbed, and it is named as "
-        "folded rather than reported as a deletion. Nor is a directory "
-        "removed whole that held no spec.md and nothing open at the merge "
-        "base: `settle` retires that by the rule, with no marker, and it is "
-        "named as retired by the rule",
+        "cut is not this branch's removal. Nor is a work item whose fold "
+        "`docs/` records with its `<!-- specs/<id> -->` marker: that is "
+        "`settle` retiring a released spec a policy document has absorbed, "
+        "and it is named as folded rather than reported as a deletion. Nor "
+        "is a directory removed whole that held no spec.md and nothing open "
+        "at the merge base: `settle` retires that by the rule, with no "
+        "marker, and it is named as retired by the rule",
     )
     args = ap.parse_args(argv)
 
