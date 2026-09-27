@@ -373,9 +373,10 @@ def record(top: str, session: str) -> bool:
 def creation_directory(command: str, cwd: str) -> str:
     """The directory a `git worktree add` in `command` acted on, or "".
 
-    EVERY segment is read, not just the first. The guard's own PreToolUse walk
-    stops at the first verdict because that is the one it has to decide, while
+    EVERY segment is read until the first creation, whatever comes before it:
     a creation anywhere in a command that ran is a creation that was approved.
+    The guard's own PreToolUse walk judges the same first creation, and the
+    first switch beside it in either order.
 
     Comments and heredoc bodies come out first, the pair the guard's
     `_judgment_text` uses, and for the same reason: this is a judgment read of

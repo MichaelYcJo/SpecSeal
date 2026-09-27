@@ -16,6 +16,10 @@ A) Branch switching (Bash: git checkout/switch of a branch, or a -b/-c variant)
     question is whether the uncommitted changes ride along)
   - otherwise (single work stream, clean)           -> allow the plain switch
 
+  A command that also creates a worktree is judged by these rows, whichever of
+  the two is written first, and the creation is judged where they would let the
+  command run (docs/worktree-guard-spec.md §Creation consent).
+
 B) Worktree creation, whichever path it takes:
      - Bash: `git worktree add ...`
      - Agent/Task tool with `isolation: "worktree"` (harness-managed, lands in
@@ -1854,11 +1858,13 @@ def judge_creation(
 ):
     """Put the creation question for a `git worktree add` in `command`.
 
-    Extracted because there are now two sites that reach it, and the second one
-    is why. `main` classifies the FIRST segment it can read, while
+    Extracted because more than one site reaches it, and the second one is
+    why. `main` classified only the FIRST segment it could read, while
     `hooks/worktree_consent.py` records for a creation ANYWHERE in a command
     that RAN -- its docstring says so on purpose. Those two readings disagreed,
     and the gap between them was writable by whoever composed the command.
+    `main` now reads up to its first switch and its first creation, in either
+    order, and its own comment on the walk says why.
 
     Executed at `d82a02c`, clean single-stream tree, no consent record:
 
@@ -1883,7 +1889,10 @@ def judge_creation(
     session is ACTIVE in denies today as a switch, and would become an `ask`
     about the creation -- the branch would still be taken out from under the
     other session, one approval later. The switch ladder keeps every verdict it
-    has; only its ONE silent exit falls through to here.
+    has, and the creation is judged at the places where that ladder would
+    otherwise let the command run: its two choice rows' `ask`, and above its
+    tracked-changes row and its silent exit. The same holds whichever of the
+    two segments is written first.
 
     `top` is the creation's own repository, which is not always the switch's --
     `git switch x && git -C /other worktree add ../wt f` acts on two. A `top`

@@ -438,8 +438,8 @@ def test_the_pre_tool_use_arm_records_nothing(monkeypatch, capsys, repo):
 
 # --- the walk: a creation behind another verdict ---------------------------
 #
-# `main` classifies the FIRST segment it can read, while the writer below
-# records for a creation ANYWHERE in a command that ran. Those two readings
+# `main` classified only the FIRST segment it could read, while the writer
+# below records for a creation ANYWHERE in a command that ran. Those two readings
 # disagreed, and the gap was writable by whoever composed the command: a
 # `git switch` in front of a creation took the verdict, the creation ladder
 # never ran, and `PostToolUse` then minted session-wide consent for a question
@@ -848,9 +848,9 @@ def test_a_command_that_creates_nothing_leaves_no_record(repo):
 
 
 def test_a_creation_anywhere_in_the_command_records(repo):
-    """The guard's PreToolUse walk stops at the first verdict because that is
-    the one it must decide. A creation ANYWHERE in a command that ran is a
-    creation that was approved, so the writer reads every segment."""
+    """A creation ANYWHERE in a command that ran is a creation that was
+    approved, so the writer reads every segment until it finds one. The
+    guard's PreToolUse walk judges that same first creation."""
     run_hook(
         "worktree_consent.py",
         post(repo, command="git status && git worktree add ../wt feature/x"),

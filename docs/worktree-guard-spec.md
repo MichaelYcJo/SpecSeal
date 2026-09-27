@@ -25,6 +25,10 @@ actually live on the tree.
 `[shared-tree-ok]` in the command turns the two **choice** rows silent — see
 §Choice sites.
 
+A command that also creates a worktree is judged by this table whichever of the
+two is written first, with the creation judged inside it — see §Creation
+consent, *So the creation is judged between the ladder's two halves*.
+
 ### B. Worktree creation (`git worktree add`, or Agent/Task `isolation: "worktree"`)
 
 | Tree state | Decision |
@@ -242,7 +246,7 @@ the trade already made for `$` and `>`: a wrong deny spends a prompt, a wrong
 allow signs for a binary nobody identified.
 
 **A creation the guard never judged used to mint the record.** The guard's
-`PreToolUse` walk classifies the **first** segment it can read, while
+`PreToolUse` walk classified only the **first** segment it could read, while
 `hooks/worktree_consent.py` records for a creation **anywhere** in a command
 that ran. Any first segment with a verdict of its own therefore took the
 decision and the creation ladder never ran. Executed at round 1, clean
@@ -258,7 +262,8 @@ The switch ladder keeps every verdict it had. Making the creation outrank the
 earlier verdict closes the same hole and costs a protection: a switch denied
 because another session is working in the tree would become an `ask` about the
 creation, and the branch would still be taken out from under that session one
-approval later. **So the creation is judged between the ladder's two halves.**
+approval later. **So the creation is judged between the ladder's two halves,
+whichever of the two is written first.**
 
 | Switch-ladder row | Order | Why |
 |---|---|---|
@@ -276,6 +281,16 @@ the same `git switch feature/x && git worktree add ../wt f` answered `deny`
 then `ask`, the `ask` read *Approve — switch branches in this shared tree*, and
 approving it created the worktree and minted session-wide consent with the
 creation question never put.
+
+**The same walk missed the other order (#620).** It kept the first verdict of
+any kind, so a switch written after a creation was never read. The creation
+took the verdict, consent made it silent for a compound, and `git worktree add
+../x -b x && git switch y` ran the switch over a tree another session was
+ACTIVE in — which *What does not change* below rules out. The walk now keeps
+the first switch and the first creation in either order and hands both to the
+table above. Both spellings get the same decision and the same reason in every
+tree state, consent state and attempt, and the combined verdict is never
+weaker than the switch's alone or the creation's alone.
 
 The guard's other silent exit is earlier, at `if not top`, and it has the same
 hole: it is reached when the shell is outside any repository while a `git -C
@@ -306,7 +321,7 @@ another session's branch out from under it.
 **The prompt budget.** Zero for a session whose person pressed `automation`. One per session otherwise, from one per worktree unbounded — for a creation written on its own, which is the form the measured six took. Re-measured after round 2's fixes, six creations in one session on a clean single-stream tree: **deny, allow, allow, allow, allow, allow**.
 Before consent, a creation written as one segment of a compound still costs one
 prompt each time, and so does one carrying an expansion, a redirection, a wrapper or a **path-qualified command word**, because that is exactly what the bound above refuses to speak for. The last of those is what round 2's second fix added to the list, and it moves nothing in the budget: `git worktree add …`, the same backgrounded, and the `\git` spelling all still allow.
-Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed, tests/test_the_guard_asks_once_per_session.py::test_the_measured_automation_run_is_not_stopped, tests/test_the_guard_asks_once_per_session.py::test_a_result_not_linked_to_an_ask_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_automation_on_another_question_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_an_answer_given_in_another_clone_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_the_labels_match_the_routing_question_the_orchestrator_asks, tests/test_the_guard_asks_once_per_session.py::test_a_typed_answer_that_qualifies_the_preset_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny
+Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed, tests/test_the_guard_asks_once_per_session.py::test_the_measured_automation_run_is_not_stopped, tests/test_the_guard_asks_once_per_session.py::test_a_result_not_linked_to_an_ask_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_automation_on_another_question_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_an_answer_given_in_another_clone_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_the_labels_match_the_routing_question_the_orchestrator_asks, tests/test_the_guard_asks_once_per_session.py::test_a_typed_answer_that_qualifies_the_preset_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny, tests/test_the_guard_asks_once_per_session.py::test_a_switch_written_after_a_creation_is_judged, tests/test_the_guard_asks_once_per_session.py::test_the_order_of_a_switch_and_a_creation_does_not_decide, tests/test_the_guard_asks_once_per_session.py::test_a_command_with_both_is_never_weaker_than_either_alone
 
 ## Choice sites
 
@@ -519,6 +534,12 @@ at one prompt against a wrong allow breaking another session's tree.
 - A heredoc line that IS exactly a git command still matches (segment
   splitting cannot tell heredoc bodies from commands). Mentions inside
   quoted strings or after other command words do not.
+- A switch into the worktree the same command creates is judged against the
+  session's own tree: `git worktree add ../x -b x && cd ../x && git switch y`
+  meets that tree's switch verdict, because `../x` does not exist yet when the
+  guard runs and §*Which tree* falls back. `git -C ../x switch y` is the
+  spelling that avoids the stop — it names no repository yet, so only the
+  creation is judged.
 - Transcript activity is per-project, not per-pid: one working session marks
   every session of that project active. Conservative by design.
 - tty atime also refreshes on in-turn stdin reads (a session listening for
