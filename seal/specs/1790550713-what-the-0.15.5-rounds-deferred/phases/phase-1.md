@@ -93,5 +93,5 @@ rows in the fragment.
 
 | Removed item | Where it must land |
 |---|---|
-| the case name `test_what_the_dotless_openers_take_up_is_named_and_says_so` | `test_what_the_rules_still_name_is_named_and_says_so`, the same case under a name for what it holds; S8–S12 of `seal/releases/0.15.5.md` cites the new name |
+| the case name `test_what_the_dotless_openers_take_up_is_named_and_says_so`, NAME NOT IN TREE since this phase renamed it | `test_what_the_rules_still_name_is_named_and_says_so`, the same case under a name for what it holds; S8–S12 of `seal/releases/0.15.5.md` cites the new name |
 | `GIVEN_UP`'s comment "One or two examples of each rule … for the verdicts #614 moved" | the rewritten comment above `GIVEN_UP`, which says every example the rules section gives |
