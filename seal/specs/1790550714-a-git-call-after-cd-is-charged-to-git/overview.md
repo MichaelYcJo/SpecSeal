@@ -36,11 +36,18 @@ because round 1 found the ordinary-`#` reading answers worse than 2037cf0 on
 a comment holding a separator. The `HEREDOC` pattern was not widened to a
 here-string or an escaped or lowercase delimiter. Its comment states both,
 and round 1 found neither moving a call. Three shapes round 2 found are
-stated as bounds rather than fixed, because each answers as the rule before
-#377 did and fixing it needs a parser this file does not have: a `)` inside
-a word read as a word start (`echo $(ls)#x`), quotes nested inside
-`"$( … )"`, and a heredoc operator inside a comment. The first two are in
-`without_comments`' docstring and the third in the `HEREDOC` comment.
+stated as bounds rather than fixed, because where each loses a `git` the
+rule before #377 lost it too, and fixing it needs a parser this file does
+not have: a `)` inside a word read as a word start (`echo $(ls)#x`), quotes
+nested inside `"$( … )"`, and a heredoc operator inside a comment. Each can
+also read a `git` bash does not run, which `without_comments`' docstring
+shows. The first two are in `without_comments`' docstring and the third in
+the `HEREDOC` comment.
+
+Corrected 2026-09-28 by #642's phase 1: the sentence said each bound
+*answers as the rule before #377 did*, which holds only for a `git` it
+loses. #635's round 3 found `x="$(echo "; git log")"` and
+`echo $(ls)#'⏎git push'` reading a `git` bash does not run.
 
 ## Fed back into the spec
 

@@ -129,7 +129,7 @@ So a run ends with a **verifying round**, and three things define it.
 | | What |
 |---|---|
 | When | **after the fixes** for the previous round are committed — never before, or it reviews what has already been reviewed |
-| Target | the **diff of those fixes**, not the branch. That is what keeps it bounded: it is the cheapest round of the run |
+| Target | the **diff of those fixes**, not the branch. That is what keeps it bounded, and bounded is not cheap: its cost is set by the frame, the inherited records and the probes, so it runs close to a finding round. `docs/review-chain-spec.md` §*The last round verifies* holds the measurement |
 | Job | the answers, not new findings. For each verdict the previous round recorded as closed, is it actually closed |
 
 One surface in that diff is exempt from *the answers, not new findings*: what
@@ -535,6 +535,24 @@ fails the pull request, and so does a newest entry the record's own
 `Target SHA` descends from — a run spent before the round it was meant to
 seal. Work items begun before
 `chain_check.GATE_FROM` print instead of failing.
+
+**The stamp is drawn for you at the end of your turn, and you never draw
+one (#400).** A green recorded run on the sealer's pipe draws nothing. It
+writes the stamp's values to a file and prints one `SEALED` line naming it,
+and the `Stop` hook draws that file after your text, when your turn ends.
+Only the gate's own write leaves a stamp: a cell written by `close
+--broad-gate` is sealed with no stamp, because the gate ran without
+`--record` there and wrote no values. So put the result text first: what was
+sealed, the lines worth quoting, and what happens next. Then end the turn,
+and the drawing lands last with nothing after it. Draw none yourself,
+neither with `seal-stamp` nor by relaying the sealer's log. The 0.15.6 run
+relayed the log, and the person saw the same stamp twice, the copy
+colourless and cut. On a red run relay the `NOT SEALED` lines, and nothing
+is drawn. Wherever the `SEALED` line names `seal-stamp --from`, quote it as
+it stands: that command is the person's to type, and never yours. Every line
+that names a values file names it, because the hook draws nothing and says
+nothing where it cannot: a `python3` under 3.12, a working directory outside
+the sealed clone, or a plugin older than the hook.
 
 `close --broad-gate` still writes the same cell, through the same
 newest-first path — a run the cell already holds is kept behind the new

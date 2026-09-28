@@ -1571,8 +1571,14 @@ def test_a_runner_named_inside_a_heredoc_is_not_a_run_of_it(tmp_path):
 
 def test_a_git_call_after_cd_is_charged_to_git():
     """The finding's own instance, and the shapes #619's segment readings
-    printed. The two that stay `other` are the control: a line that runs no
-    `git` must not become one because a `cd` precedes it."""
+    printed. The two after them are the control: a line that runs no `git`
+    must not become one because a `cd` precedes it.
+
+    The loop that only reads was `other` here until #642 gave reading a
+    family of its own, and it is `read` now. The `python3 -` heredoc stays
+    `other`: the owner answered that a script handed to an interpreter gets
+    no family, because a row counting it would move whenever agents switch
+    between the `Edit` tool and a shell edit."""
     module = load_script()
     for command in (
         "cd /x && git status",
@@ -1584,11 +1590,8 @@ def test_a_git_call_after_cd_is_charged_to_git():
     ):
         assert module.family(command) == "git", command
 
-    for command in (
-        "W=/w; cd $W; for f in a b; do grep -c x $f; done",
-        "cd ~/p && python3 - <<'EOF'\nimport json\nEOF",
-    ):
-        assert module.family(command) == "other", command
+    assert module.family("W=/w; cd $W; for f in a b; do grep -c x $f; done") == "read"
+    assert module.family("cd ~/p && python3 - <<'EOF'\nimport json\nEOF") == "other"
 
 
 def test_git_is_read_at_every_command_word():
@@ -1642,12 +1645,24 @@ def test_git_named_anywhere_but_a_command_word_is_not_git():
 
 
 def test_a_line_running_two_families_is_charged_by_their_order():
-    """`FAMILIES` is first-match in priority order and `git` is last, so a
+    """`FAMILIES` is first-match in priority order and `read` is last, so a
     compound that runs a test is charged to the test. Reading `git` by
-    command word must not jump it ahead of the families it follows."""
+    command word must not jump it ahead of the families it follows.
+
+    `read` is judged after all four (#642), so a line that reads and runs a
+    `git` is `git`, and a search naming a runner keeps the family it has had
+    since 0.9.4: `grep -rn pytest` is `test`. That is the mirror #377
+    recorded as out of scope, and #642 lists keeping it as what must not
+    break. A rule judging `read` first turns the two searches red. The lines
+    that also run `git` or `ruff` would keep their family even then, because
+    a line running either is not `read` at all."""
     module = load_script()
     assert module.family("cd x && git add . && pytest -q") == "test"
     assert module.family("git stash && ruff check .") == "lint/type"
+    assert module.family("ls && git status") == "git"
+    assert module.family("grep -rn pytest docs/") == "test"
+    assert module.family("cat tests/x/test.sh") == "test"
+    assert module.family("cat f && ruff check .") == "lint/type"
 
 
 def test_a_command_the_tokeniser_refuses_is_judged_as_before():
@@ -1689,6 +1704,26 @@ def test_a_command_after_a_heredoc_is_read_and_its_body_is_not():
         ("cat > f <<'EOF'\ngit is here\nEOF", "other"),
         ("cat > f <<'EOF'\n\tEOF\ngit add f\nEOF", "other"),
         ("cat > f <<'EOF'\nbody\ngit status", "other"),
+    ):
+        assert module.family(command) == expected, command
+
+
+def test_a_continued_line_in_an_unquoted_heredoc_body_closes_nothing():
+    """Bash removes `\\⏎` from an unquoted heredoc's body before it compares
+    a line with the delimiter, so a body line ending in one backslash joins
+    the next line, and that line closes nothing. #635's round 3 found the
+    body closing there instead, which charged the `git push` written inside
+    the body to `git`.
+
+    A quoted delimiter keeps the backslash, so its body closes where it did.
+    An even run of backslashes is an escaped backslash and joins nothing."""
+    module = load_script()
+    for command, expected in (
+        ("cat <<EOF\nbody \\\nEOF\ngit push", "other"),
+        ("cat <<EOF\nbody \\\nEOF\ngit push\nEOF", "other"),
+        ("cat <<'EOF'\nbody \\\nEOF\ngit push", "git"),
+        ("cat <<EOF\nbody \\\\\nEOF\ngit push", "git"),
+        ("cat <<EOF\nbody \\\nmore\nEOF\ngit push", "git"),
     ):
         assert module.family(command) == expected, command
 
@@ -1788,6 +1823,232 @@ def test_a_comment_runs_nothing_whatever_it_holds():
         "cd /x && \\\ngit status",
     ):
         assert module.family(command) == "git", command
+
+
+# --- #642: reading is charged to `read` ---
+#
+# A call that only read a file or listed a directory was `other`, so `other`
+# led nearly every reading and the note under it named a `sed -n`. A call is
+# `read` when every command it runs is a read word or a neutral one, at least
+# one reads, nothing writes and nothing is hidden from the walk.
+
+
+def test_a_call_that_only_reads_is_charged_to_read():
+    """The ticket's own instance first, then every shape of a line whose
+    commands only read: a pipe between two readers, a redirection into
+    `/dev/null` or onto a descriptor, a loop, a test, a subshell, a leading
+    assignment, a line of its own, a path to the binary, and a quoted
+    operator, which is part of a word and separates nothing."""
+    module = load_script()
+    for command in (
+        "cd /x && sed -n 1,5p f",
+        "grep -n x f | head -5",
+        "ls -la /x 2>/dev/null || echo none",
+        "cat f 2>&1 | tail -3",
+        "grep x f 2>&-",
+        "grep -q x f >/dev/null && echo y",
+        "sed -n 1p -- f",
+        "sort -- f",
+        "rg --pre-glob '*.gz' x f",
+        "ls & ls",
+        "(ls) <f",
+        "(cd /x && ls) 2>&1 | head",
+        "(ls) | head -5",
+        "for f in a b; do wc -l $f; done",
+        "[ -f x ] && cat x",
+        "if grep -q x f; then echo y; fi",
+        "(cd /x && ls)",
+        "{ ls; }",
+        "FOO=1 rg x",
+        "W=/w; cd $W; for f in a b; do grep -c x $f; done",
+        "while read l; do grep -c $l f; done < list",
+        "cd /x\nsed -n 1p f",
+        "/usr/bin/grep x f",
+        "grep -E 'a|b;c' f",
+        'rg "x > y" docs/',
+        "find . -name '*.py' | sort | nl",
+        "diff a b; awk '{print $1}' f",
+        "tail -n 20 log  # the last lines",
+        "(cd /x && ls) 2>/dev/null",
+        "{ ls; } 2>/dev/null",
+        "(ls)>/dev/null",
+        "ls &>/dev/null",
+        "cat ${f:-x}",
+        "[[ -f x ]] && cat x",
+    ):
+        assert module.family(command) == "read", command
+
+
+def test_a_write_is_never_read():
+    """#200's *wrong in both directions*, from the side a new family opens:
+    a write charged to reading is worse than a read left in `other`.
+
+    Every redirection into a file, `sed`'s in-place edit in each spelling
+    its option parser takes (a single-dash cluster is read wholesale, and a
+    long option may be abbreviated), `sort`'s output file, `find`'s actions
+    and `awk`'s in-place include. A heredoc writing a file is a write and a
+    heredoc at once."""
+    module = load_script()
+    for command in (
+        "sed -i s/a/b/ f",
+        "sed -i.bak s/a/b/ f",
+        "sed -ni 1p f",
+        "sed -Ei s/a/b/ f",
+        "sed -es/a/i/ f",
+        "sed --in-place s/a/b/ f",
+        "sed --in-place=.bak s/a/b/ f",
+        "sed --in s/a/b/ f",
+        "cat f > g",
+        "cat f >g",
+        "grep x f >> g",
+        "ls >| g",
+        "ls &> g",
+        "ls 2> err",
+        "ls > 2",
+        "cat f >&g",
+        "cat f <> g",
+        "grep x f 2>&1 >g",
+        "ls; echo hi > f",
+        "sort -o g f",
+        "sort -uo g f",
+        "sort --output=g f",
+        "sort --out g f",
+        "grep x f | sort -o g",
+        "find . -delete",
+        "find . -exec rm {} +",
+        "find . -execdir rm {} +",
+        "find . -okdir rm {} +",
+        "find . -fprint g",
+        "find . -fls g",
+        "awk -i inplace '{print}' f",
+        "awk --include=inplace '{print}' f",
+        "sed -I '' s/a/b/ f",
+        "sed -I.bak s/a/b/ f",
+        "rg --pre ./x.sh pat",
+        "rg --pre=sh pat",
+        "sort --compress-program=sh f",
+        "rg --hostname-bin ./x pat",
+        "rg --hostname-bin=./x pat",
+        "cat > f <<'EOF'\nx\nEOF",
+    ):
+        assert module.family(command) != "read", command
+
+
+def test_a_line_that_does_more_than_read_is_not_read():
+    """One read word is not enough, and neither is a read word first. A pipe
+    into `tail` sits behind nearly every kind of command, and `ls && rm -rf
+    x` begins by reading. A wrapper is not looked through, as it is not for
+    `git`: `timeout` is the command word."""
+    module = load_script()
+    for command in (
+        "./bin/deploy --wait | tail -3",
+        "cat f | python3 -c 'x'",
+        "ls; rm x",
+        "ls && rm -rf x",
+        "grep x f; python3 build.py",
+        "sleep 5; tail log",
+        "timeout 9 grep x f",
+        "xargs grep x < list",
+        "cat f | tee g",
+    ):
+        assert module.family(command) == "other", command
+
+
+def test_what_the_walk_cannot_see_is_not_read():
+    """A heredoc, a here-string, a command or process substitution, a line
+    the tokeniser refuses, a `case` arm, whose commands the walk does not
+    put in command position, and a leading redirection, which does not put
+    one there either. `runs_git` reads past a substitution; here the same
+    blindness would let `x=$(rm y); ls` read as reading, so each of these
+    keeps the line out. The heredocs are the owner's answer: a script handed
+    to an interpreter gets no family."""
+    module = load_script()
+    for command in (
+        "python3 - <<'EOF'\nx\nEOF",
+        "cat <<'EOF'\ntext\nEOF",
+        "cat <<eof\ntext\neof",
+        'grep x <<< "$y"',
+        "x=$(rm y); ls",
+        "cat $(ls)",
+        'cat "$(ls)"',
+        "cat `ls`",
+        "diff <(ls a) <(ls b)",
+        "echo $((1 + 2)); ls",
+        "cat 'x",
+        "case $x in a) rm f;; esac; ls",
+        "<f cat",
+        "ls; >/dev/null rm -rf x",
+        "ls && >/dev/null rm -rf x",
+        "ls;>/dev/null rm -rf x",
+        "ls&&>/dev/null rm x",
+        "</dev/null rm x; ls",
+        "(>/dev/null rm x); ls",
+        "ls; >&2 rm x",
+        "cat f\n</dev/null python3 build.py",
+        "if [[ -f a ]] rm a; ls",
+        "if [[ -f a ]] { rm a }; ls",
+        "{ ls; } always { rm a; }",
+        "{ ls } always { rm b }",
+        "cat ${ rm x; }",
+        "ls &</dev/null rm x",
+        "ls &\n>/dev/null rm x",
+        "ls &|>/dev/null rm x",
+        "if (( ! true )) rm a; ls",
+        "if (( ! true )) 2>/dev/null rm a; ls",
+        "for f (ls) rm $f; ls",
+    ):
+        assert module.family(command) == "other", command
+
+    # A stray `)` leaves the word after it in no command, and a line the
+    # shell refuses must not end the reading. `") 2"` is the one that
+    # reaches the no-command guard, because a descriptor number after a `)`
+    # is not zsh's short-form body.
+    assert module.family(") x") == "other"
+    assert module.family(") 2") == "other"
+
+
+def test_the_walk_yields_each_commands_arguments_and_nothing_inside_a_substitution():
+    """`shell_words` is the one walk both rules read: `command_words` takes
+    its command words, and `only_reads` its arguments and operators too. A
+    word inside `$( … )` is neither, and what is left of an operator token
+    once a substitution's parentheses are taken out is yielded only when
+    something is left."""
+    module = load_script()
+    assert list(module.shell_words("cd /x && ls -l $(rm f) y 2>&1")) == [
+        ("command", "cd"),
+        ("argument", "/x"),
+        ("operator", "&&"),
+        ("command", "ls"),
+        ("argument", "-l"),
+        ("argument", "$"),
+        ("argument", "y"),
+        ("argument", "2"),
+        ("operator", ">&"),
+        ("argument", "1"),
+    ]
+
+
+def test_a_line_of_neutral_words_alone_is_not_read():
+    """A neutral word neither reads a file nor writes one, so it keeps a
+    reading line `read` and makes nothing `read` on its own."""
+    module = load_script()
+    for command in ("cd /x", "echo hi", "W=1", "true", "cd /x && pwd"):
+        assert module.family(command) == "other", command
+
+
+def test_the_reading_charges_reading_to_its_own_row(tmp_path):
+    """Through a transcript, so the wiring from `load`'s `ran` to the table
+    is pinned and not only the rule. The write beside the read stays
+    `other`."""
+    lines = []
+    lines += call("a", 0, 4, "cd /x\nsed -n 1p f")
+    lines += call("b", 9, 12, "cat > f <<'EOF'\nx\nEOF")
+    path = tmp_path / "read.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["by_family"]["read"] == {"calls": 1, "seconds": 4}, data["by_family"]
+    assert data["by_family"]["other"] == {"calls": 1, "seconds": 3}, data["by_family"]
 
 
 def test_the_family_reads_the_command_as_the_harness_recorded_it(tmp_path):
@@ -2694,8 +2955,10 @@ def test_one_spawn_is_claimed_by_one_segment(tmp_path):
 
 def test_a_run_with_no_segments_reads_rather_than_raising(transcript):
     """A segment measured on its own has no `subagents/` directory beside it.
-    That is the ordinary case for this mode, not a failure — the reading is
-    empty and the exit code is 0."""
+    That is the ordinary case for this mode, not a failure — for a segment the
+    coordinator never restarted, the reading is empty and the exit code is 0.
+    A restarted one is read slice by slice (#637), and this fixture has no
+    coordinator message."""
     proc = run(["--json", str(transcript)])
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout)["segments"] == {
@@ -2829,6 +3092,20 @@ def test_the_reading_says_its_family_rows_moved_at_377(run_with_segments):
         "on a line of its own or after a heredoc was charged to `other`, and so "
         "was a test run after a heredoc. The repeats lines filter by family and "
         "moved with them." in out
+    ), out
+
+
+def test_the_reading_says_its_family_rows_moved_at_642(run_with_segments):
+    """#642 moved what a family row MEANS a third time: a call that only
+    read was `other`, and it is `read`. Only the `other` row and the note
+    under it move, so the line says the repeats lines did not, which is what
+    tells it apart from the #377 line above it."""
+    out = " ".join(segment_report(run_with_segments).split())
+    assert (
+        "Family rows are comparable only with readings taken on a release that "
+        "carries #642 as well: before it, a call that only read a file or listed "
+        "a directory was charged to `other`, and there was no `read` row. The "
+        "repeats lines did not move." in out
     ), out
 
 
@@ -3401,3 +3678,358 @@ def test_a_spawn_in_a_later_slice_is_named_by_that_slice(tmp_path):
     assert [row["spawns"] for row in rows] == [0, 1], rows
     out = " ".join(segment_report(path).split())
     assert "specseal:smith 2/2 made 1 `Agent` call" in out, out
+
+
+# --- #637: a resumed agent's own transcript is sliced ----------------------
+#
+# The orchestrator holds the path the harness's task output names, and that
+# path is the agent's own file. Given it, `--segments` found nothing beside it
+# and printed `0 segments found`, so every fix-pass reading since 0.14.0 was
+# either the harness's notice or the whole resumed file. The trigger is the
+# coordinator's marker in the file itself, not the directory it sits in, so a
+# marker-less file keeps the empty branch byte for byte.
+
+
+def own_file(run_path, name="agent-smith.jsonl"):
+    """The agent's own transcript inside a run `write_run` laid out."""
+    return run_path.parent / "main" / "subagents" / name
+
+
+def plain_of(path):
+    proc = run(["--json", str(path)])
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)
+
+
+def test_an_agents_own_resumed_transcript_is_one_row_per_slice(resumed_segment):
+    """The acceptance row. Given the agent's own file rather than the run's,
+    the mode prints the same two stretches of work it prints when it walks
+    the run, and their spans sum to well under the file's own.
+
+    Red at `ab116d1e`: no row at all, and the page reads `0 segments found`."""
+    path = own_file(resumed_segment)
+    rows = segments_of(path)["rows"]
+    assert [(row["slice"], row["slices"]) for row in rows] == [(1, 2), (2, 2)], rows
+    assert sum(row["numbers"]["calls"] for row in rows) == plain_of(path)["calls"]
+    spans = [row["numbers"]["span_s"] for row in rows]
+    assert sum(spans) < plain_of(path)["span_s"] / 100, spans
+    out = segment_report(path)
+    assert "agent-smith.jsonl  1/2" in out, out
+    assert "agent-smith.jsonl  2/2" in out, out
+    assert "0 segments found" not in out, out
+
+
+def test_an_own_file_with_three_stretches_is_three_rows(tmp_path):
+    """Two coordinator messages, each followed by work: three slices, and
+    every call of the file lands in one of them."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                *worked(9010, "s2"),
+                coordinator_message(20000),
+                *worked(20010, "s3"),
+                *worked(20030, "s4"),
+            ]
+        },
+    )
+    own = own_file(path)
+    rows = segments_of(own)["rows"]
+    assert [(row["slice"], row["slices"]) for row in rows] == [
+        (1, 3),
+        (2, 3),
+        (3, 3),
+    ], rows
+    assert [row["numbers"]["calls"] for row in rows] == [1, 1, 2], rows
+    assert sum(row["numbers"]["calls"] for row in rows) == plain_of(own)["calls"]
+
+
+def test_an_own_file_whose_messages_are_adjacent_invents_no_slice(tmp_path):
+    """`test_two_coordinator_messages_in_a_row_do_not_invent_a_slice` on the
+    own-file route: two messages and no work between them are two slices, and
+    the header counts the messages apart from the slices."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                coordinator_message(9005),
+                *worked(9010, "s2"),
+            ]
+        },
+    )
+    own = own_file(path)
+    rows = segments_of(own)["rows"]
+    assert [(row["slice"], row["slices"]) for row in rows] == [(1, 2), (2, 2)], rows
+    out = " ".join(segment_report(own).split())
+    assert "cut at 2 coordinator messages into 2 slices" in out, out
+    assert "no paired call" not in out, out
+
+
+def test_either_route_prints_the_same_slices(resumed_segment):
+    """The ticket's *the second must print the slices the third prints*, on a
+    fixture. Walked from the run's transcript or given the agent's own file,
+    each slice's span, calls, tools per turn, mean gap and tokens are the
+    same; only the label differs, because only the run's transcript holds
+    the spawn that names it."""
+
+    def numbers(rows):
+        labels = ("agent", "description", "named", "transcript")
+        return [{k: v for k, v in row.items() if k not in labels} for row in rows]
+
+    walked = segments_of(resumed_segment)["rows"]
+    own = segments_of(own_file(resumed_segment))["rows"]
+    assert len(own) == 2, own
+    assert numbers(own) == numbers(walked), (own, walked)
+
+
+def test_an_own_file_with_no_marker_keeps_the_empty_branch(tmp_path):
+    """The ticket's *must not break*. An agent's file the coordinator never
+    restarted has nothing to cut, and the directory it sits in is not the
+    trigger: its reading is exactly what it was, wherever it lives.
+
+    Green at the base; red under the mutant that slices every file under
+    `subagents/` whatever its markers."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {"agent-smith.jsonl": [*worked(625, "s1"), *worked(640, "s2")]},
+    )
+    own = own_file(path)
+    assert segments_of(own) == {
+        "tolerance_s": 1.0,
+        "transcripts": 0,
+        "spawns": 0,
+        "unnamed": 0,
+        "unclaimed": 0,
+        "rows": [],
+    }
+    elsewhere = tmp_path / "copied.jsonl"
+    elsewhere.write_text(own.read_text())
+    out = segment_report(own)
+    assert out.startswith(f"0 segments found beside {own}\n"), out
+    assert out.replace(str(own), "<t>") == segment_report(elsewhere).replace(
+        str(elsewhere), "<t>"
+    )
+
+
+def test_an_own_file_page_says_what_its_rows_are(resumed_segment):
+    """Nothing was joined, so the page does not print the join counts or a
+    legend claiming a spawn named each row. It names the file, how many
+    coordinator messages cut it and into how many slices.
+
+    Red at the base, which printed the empty branch."""
+    path = own_file(resumed_segment)
+    out = " ".join(segment_report(path).split())
+    assert (
+        f"{path}: an agent's own transcript, cut at 1 coordinator message "
+        "into 2 slices" in out
+    ), out
+    assert "No spawn was joined" in out, out
+    assert "the same slices carry its name" in out, out
+    for absent in (
+        "named by nobody",
+        "segment transcripts beside this one",
+        "the parent could not name",
+        "whose result this segment opened at",
+    ):
+        assert absent not in out, (absent, out)
+    # What the walked page prints about a resumed file prints here too.
+    assert "come from 1 segment the coordinator restarted" in out, out
+
+
+def test_a_spawn_inside_an_own_slice_is_named_without_a_reconciliation(tmp_path):
+    """The §6 list is exactly what an `Agent` call in an agent's own stretch
+    of work exists to name. Its reconciliation against the files the parent
+    could not name is not printed, because no parent is in view and a line
+    saying the two counts disagree would send a reader after a child
+    transcript nobody lost."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                *worked(9010, "s2"),
+                *spawn("N", 9100, 9200, "general-purpose", "search the tree"),
+            ]
+        },
+    )
+    out = " ".join(segment_report(own_file(path)).split())
+    assert "agent-smith.jsonl 2/2 made 1 `Agent` call" in out, out
+    assert "§6 binds the agents this plugin spawns" in out, out
+    assert "inside a segment, against" not in out, out
+    assert "agree" not in out, out
+    assert "One spawn arrives twice" not in out, out
+
+
+def test_an_own_files_json_carries_the_rows_the_page_prints(resumed_segment):
+    """`measure_segments` is the one place rows come from, so `--json` gains
+    them too. `unnamed` counts walked transcripts and the given file is not
+    one, so it stays 0; `own_file` is the one key added, and only here."""
+    segments = segments_of(own_file(resumed_segment))
+    assert segments["own_file"] is True, segments
+    assert (segments["transcripts"], segments["unnamed"]) == (0, 0), segments
+    assert [row["transcript"] for row in segments["rows"]] == [
+        "agent-smith.jsonl"
+    ] * 2, segments["rows"]
+    assert not any(row["named"] for row in segments["rows"]), segments["rows"]
+    assert "own_file" not in segments_of(resumed_segment), "walked run"
+
+
+def test_a_file_with_transcripts_beside_it_is_walked_whatever_its_markers(tmp_path):
+    """The walked route outranks the own-file one. A file carrying a
+    coordinator message AND transcripts beside it is a run's, and its rows
+    are the files it walks, joined to their spawns — not its own slices.
+
+    Found by the mutation pass: dropping the nothing-beside condition kept
+    every other case green, because no fixture's run transcript carried a
+    marker."""
+    main = [
+        *call("a", 0, 10, "git status --short"),
+        coordinator_message(15),
+        *spawn("A", 25, 625, "specseal:smith", "Build phase 1"),
+    ]
+    path = write_run(tmp_path, main, {"agent-smith.jsonl": worked(625, "s1")})
+    segments = segments_of(path)
+    assert "own_file" not in segments, segments
+    assert [row["agent"] for row in segments["rows"]] == ["specseal:smith"], segments
+    assert "an agent's own transcript" not in segment_report(path)
+
+
+# --- #637 option 3: the plain reading of a resumed file points at the mode --
+
+HINT = (
+    "coordinator message in this transcript, so the span below covers every "
+    "stretch of work and the waits between them — `--segments` prints one row "
+    "per stretch"
+)
+
+
+def test_the_plain_reading_of_a_resumed_file_adds_one_line_and_moves_nothing(
+    resumed_segment,
+):
+    """`analyse`'s docstring forbids changing what the plain reading prints,
+    and #601's whole-transcript readings are what that reading of a resumed
+    file produced. So it keeps every line and gains one, before the span that
+    gets quoted, saying why that span is not one stretch of work.
+
+    The rest is compared with the same file whose marker is reworded: the
+    two differ in nothing the numbers read, so every line but the hint must
+    match. Red at the base: no such line."""
+    own = own_file(resumed_segment)
+    out = run([str(own)]).stdout
+    assert out.startswith("1 " + HINT.split(", so")[0]), out
+    hint, rest = out.split("\n\n", 1)
+    assert HINT in " ".join(hint.split()), out
+    assert rest.startswith("span "), rest
+    reworded = own.parent / "reworded.jsonl"
+    reworded.write_text(
+        own.read_text().replace("The coordinator sent a message", "Somebody wrote")
+    )
+    assert run([str(reworded)]).stdout == rest
+
+
+def test_the_hint_counts_the_files_coordinator_messages(tmp_path):
+    """The count is the file's messages and not its slices: two adjacent
+    messages cut one file into two stretches, and the line says two."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                coordinator_message(9005),
+                *worked(9010, "s2"),
+            ]
+        },
+    )
+    out = run([str(own_file(path))]).stdout
+    assert out.startswith("2 coordinator messages in this transcript,"), out
+
+
+def test_no_hint_where_there_is_nothing_to_split(
+    tmp_path, run_with_segments, transcript
+):
+    """The condition is the own-file mode's: a coordinator message, and no
+    transcripts beside. A run's own transcript and a file nobody restarted
+    print exactly what they did — and so does a run's transcript carrying a
+    marker, because `--segments` walks that one rather than cutting it."""
+    marked = tmp_path / "marked"
+    marked.mkdir()
+    walked = write_run(
+        marked,
+        [*call("a", 0, 10, "git status --short"), coordinator_message(15)],
+        {"agent-smith.jsonl": worked(625, "s1")},
+    )
+    for path in (run_with_segments, transcript, own_file(run_with_segments), walked):
+        out = " ".join(run([str(path)]).stdout.split())
+        assert "coordinator message in this transcript" not in out, (path, out)
+
+
+def test_no_hint_where_every_call_sits_in_one_stretch(tmp_path):
+    """A coordinator message after the agent's last call cuts nothing: the
+    window after it holds no call, so the file is one stretch, its span covers
+    no wait, and `--segments` prints one slice with the same span. A line
+    saying the span covers the waits between stretches is false there.
+
+    Round 1's 🟡 1. Red at 7b4162fd: the hint printed, then `span 0.3m`."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                *worked(640, "s2"),
+                coordinator_message(9000),
+            ]
+        },
+    )
+    out = " ".join(run([str(own_file(path))]).stdout.split())
+    assert "coordinator message in this transcript" not in out, out
+    assert out.startswith("span "), out
+
+
+def test_no_hint_where_the_only_message_precedes_the_first_call(tmp_path):
+    """The other shape that cuts nothing: a coordinator message before the
+    agent's first call leaves every call in the window after it, so the file
+    is one stretch and `--segments` prints one slice with the same span. The
+    one-stretch case above builds only the message after the last call, and
+    a condition of *a call after the first message* is right there and wrong
+    here."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                coordinator_message(600),
+                *worked(625, "s1"),
+                *worked(640, "s2"),
+            ]
+        },
+    )
+    out = " ".join(run([str(own_file(path))]).stdout.split())
+    assert "coordinator message in this transcript" not in out, out
+    assert out.startswith("span "), out
+
+
+def test_a_resumed_file_copied_out_of_subagents_is_still_cut(resumed_segment, tmp_path):
+    """In 1: the trigger is the marker, never the directory. A resumed
+    agent's file copied anywhere else is cut the same way, and its plain
+    reading carries the same line. Every other own-file case sits under
+    `subagents/`, so a directory condition added to either trigger kept them
+    all green (round 1's ⬜ 2)."""
+    copied = tmp_path / "copied-agent.jsonl"
+    copied.write_text(own_file(resumed_segment).read_text())
+    rows = segments_of(copied)["rows"]
+    assert [(row["slice"], row["slices"]) for row in rows] == [(1, 2), (2, 2)], rows
+    assert segments_of(copied)["own_file"] is True
+    out = run([str(copied)]).stdout
+    assert out.startswith("1 coordinator message in this transcript,"), out

@@ -13,31 +13,49 @@ Two forms, one drawing. The block form is half-block characters in truecolour,
 emitted only where the colour changes (a code per cell was 282 KB for one
 seal). The letter twin is the same footprint as letters — `o O` rope, `l m`
 wax, `G W y Y` the lily's golds, `.` the field — for a console that cannot
-render half-blocks, and for an agent's report, which is a pipe. The twin is
-chosen when stdout is not a UTF-8 terminal, or on `--shape`.
+render half-blocks, and for `seal-stamp` on a pipe. The twin is chosen when
+stdout is not a UTF-8 terminal, or on `--shape`. An agent's report carries
+neither: since #400 the gate draws nothing on a pipe.
 
 The stamp prints on success only. The failure form, `not_sealed`, is the words
 `NOT SEALED`, the tree and the base, and the failing checks with their first
 lines — no drawing, because a picture that says *sealed* beside a word that
 says *not* is read picture first.
 
+**A sealed run is drawn where a person sees it, and that is rarely where it
+ran** (#400). The gate draws only on a terminal, and only over a written
+cell. A recorded seal on a pipe — which is every sealer's run — writes the
+panel's rows to a values file under the git common dir instead, keyed by the
+Claude Code session, and
+`hooks/sealer-stamp.py` draws each undrawn file once, at the end of that
+session's turn. This module owns the file: `write_values`, `read_values`,
+`pending` and `claim`. Drawing claims the file first, by renaming it to
+`.drawn.json`, so a file is drawn once whoever draws it.
+
 Usage:
   seal-stamp                      the stamp over sample rows, for a person
   seal-stamp --shape              the letter twin
   seal-stamp --scale 0.75         the chart shrunk; 0.75 is the floor
+  seal-stamp --from <file>        a sealed run's values file, drawn once
 
 The gate imports `stamp(rows, scale, shape)`, `not_sealed(tree, base,
-failures)` and `pick_shape(stream)`; the command exists so a person can see
-the drawing without running a gate.
+failures)`, `pick_shape(stream)`, `is_terminal(stream)` and `write_values`;
+the hook imports `pending`, `read_values`, `claim` and `stamp`. The command
+exists so a person can see the drawing without running a gate, and so a
+values file no hook drew can still be drawn by hand.
 
-Exit codes: 0 printed · 2 refused — a scale under the floor, or an
-interpreter under the floor; nothing was written on 2.
+Exit codes: 0 printed · 2 refused — a scale under the floor, an interpreter
+under the floor, or a values file that is unreadable or drawn already;
+nothing was written on 2.
 """
 
 import argparse
+import json
 import math
+import os
 import re
 import sys
+import time
 
 # --- the interpreter floor -----------------------------------------------
 #
@@ -143,6 +161,19 @@ KEY = {
 # a cross. Above 1.0 nothing enlarges — the chart is one cell per stitch.
 SCALE_FLOOR = 0.75
 SCALE_CEILING = 1.0
+# The scale both commands draw at unless told otherwise (#400 §*The size, and
+# why it is 0.90*). Six scales were rendered in colour and looked at by the
+# owner before the choice: at 0.90 the disc is 20 lines against the panel's
+# 16, the darkest gold that crowds the lily's foot at 0.95 has cleared, the
+# rope settles to two rows, and the highlight still runs the centre leaf.
+# The trade was the lily's legibility against the two blocks lining up, and
+# legibility won.
+#
+# 0.75 was the other candidate, passed over rather than missed: it is the only
+# legal scale where the disc (17 lines) and the panel end within one line of
+# each other, and it is the least detail of the band. Disc height moves in
+# whole cells, so a scale is not a continuous dial.
+DEFAULT_SCALE = 0.90
 SCALE_REFUSED = (
     "seal-stamp: scale {scale} is under the floor of {floor}; below it the "
     "lily is not legible (#30 measured 0.6 closing the band and 0.5 reading as "
@@ -401,18 +432,181 @@ def not_sealed(tree, base, failures):
 def pick_shape(stream):
     """True when `stream` gets the letter twin: anything that is not a UTF-8
     terminal. A console on another codepage draws UTF-8 half-blocks as
-    mojibake, and a pipe is an agent's report, which carries the twin
-    (`spec.md` §Out). Asked BEFORE the stream is reconfigured to UTF-8 — after
+    mojibake, and a pipe has no terminal to draw colour on, so `seal-stamp`
+    on one prints the twin; the gate asks `is_terminal` first and draws
+    nothing on a pipe at all (#400). Asked BEFORE the stream is reconfigured to UTF-8 — after
     that call every stream answers `utf-8`, and a cp949 console would get the
     blocks it cannot draw."""
     encoding = (getattr(stream, "encoding", None) or "").lower().replace("-", "")
     if encoding != "utf8":
         return True
+    return not is_terminal(stream)
+
+
+def is_terminal(stream):
+    """True when `stream` is a terminal, whatever its encoding.
+
+    The other half of what `pick_shape` used to fold into one answer, split
+    out because the gate asks two different questions (#400): whether to
+    draw at all — only a terminal has a person in front of it — and, where
+    it draws, which form. A cp949 terminal is a terminal that gets letters,
+    and a UTF-8 pipe is not a terminal. Asked with `pick_shape`, before the
+    streams are reconfigured, so both answers describe the stream as the
+    process found it."""
     isatty = getattr(stream, "isatty", None)
     try:
-        return not (isatty and isatty())
+        return bool(isatty and isatty())
     except (ValueError, OSError):
-        return True
+        return False
+
+
+# --- a sealed run's values, drawn by somebody else -----------------------
+#
+# The gate's stdout on a sealer's run is a pipe into a report nobody sees
+# unfolded (#400), so it writes the run's panel here and a `Stop` hook in the
+# session that spawned the sealer draws it. The directory is under the git
+# COMMON dir because the sealer's root and that session's cwd are different
+# worktrees of one clone, and the common dir is the one place both resolve
+# alike. It is keyed by session so that a concurrent session of the same
+# clone does not draw, and take, a stamp that is not its own.
+
+VALUES_DIR = "specseal-stamp"
+# The key of a run no Claude Code session was found for. No hook reads it;
+# `seal-stamp --from` is how such a file is drawn.
+NO_SESSION = "none"
+PENDING = ".json"
+DRAWN = ".drawn.json"
+
+VALUES_UNREADABLE = "seal-stamp: {path} cannot be read ({why}). Nothing was drawn."
+VALUES_MALFORMED = (
+    "seal-stamp: {path} is not a values file the broad gate wrote: {why}. "
+    "Nothing was drawn."
+)
+VALUES_DRAWN = (
+    "seal-stamp: {path} was drawn already, and a sealed run's values are drawn "
+    "once. Nothing was drawn; the values stay in {drawn}."
+)
+
+
+def session_key(session):
+    """The directory name for `session`: the id's last path part, or
+    `NO_SESSION` where there is none. The id names a directory, so a
+    separator in a malformed one must not become a path escape."""
+    name = os.path.basename(str(session or "").strip())
+    return name if name and name not in (".", "..") else NO_SESSION
+
+
+def values_dir(common, session):
+    """Where the runs of `session` wait to be drawn."""
+    return os.path.join(common, VALUES_DIR, session_key(session))
+
+
+def drawn_path(path):
+    """The name `path` takes once it has been claimed."""
+    stem = path[: -len(PENDING)] if path.endswith(PENDING) else path
+    return stem + DRAWN
+
+
+def write_values(common, session, values, now=None):
+    """Write one run's `values` for `session`; returns the file's path.
+
+    Written to a hidden temporary name and renamed into place, so a hook
+    listing the directory never reads half a file. The name leads with the
+    time in nanoseconds, so a name sort is oldest first. Raises `OSError`
+    where the directory cannot be made or the file cannot be written."""
+    directory = values_dir(common, session)
+    os.makedirs(directory, exist_ok=True)
+    moment = time.time_ns() if now is None else now
+    name = f"{moment}-{os.path.basename(str(values.get('tree') or 'tree'))}"
+    path = os.path.join(directory, name + PENDING)
+    temporary = os.path.join(directory, f".{name}.tmp")
+    with open(temporary, "w", encoding="utf-8") as handle:
+        json.dump(values, handle)
+    os.replace(temporary, path)
+    return path
+
+
+def read_values(path):
+    """A values file as the gate wrote it, with each row a `(label, value)`
+    pair or None. Raises `ValueError` with the refusal sentence for a file
+    that cannot be read or is not in that shape — which covers a scale the
+    band refuses too, because `stamp` checks it again when it draws."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            data = json.load(handle)
+    except OSError as exc:
+        raise ValueError(
+            VALUES_UNREADABLE.format(path=path, why=exc.strerror or exc)
+        ) from exc
+    except ValueError as exc:
+        raise ValueError(
+            VALUES_MALFORMED.format(path=path, why="it is not JSON")
+        ) from exc
+    if not isinstance(data, dict):
+        raise ValueError(VALUES_MALFORMED.format(path=path, why="it is not an object"))
+    rows = data.get("rows")
+    shaped = isinstance(rows, list) and all(
+        row is None
+        or (
+            isinstance(row, list)
+            and len(row) == 2
+            and all(isinstance(cell, str) for cell in row)
+        )
+        for row in rows
+    )
+    if not shaped:
+        raise ValueError(
+            VALUES_MALFORMED.format(
+                path=path, why="`rows` is not a list of label and value pairs"
+            )
+        )
+    scale = data.get("scale")
+    if isinstance(scale, bool) or not isinstance(scale, (int, float)):
+        raise ValueError(
+            VALUES_MALFORMED.format(path=path, why="`scale` is not a number")
+        )
+    return {**data, "rows": [None if row is None else tuple(row) for row in rows]}
+
+
+def pending(directory):
+    """The undrawn values files in `directory`, oldest first; empty where
+    the directory does not exist."""
+    try:
+        names = os.listdir(directory)
+    except OSError:
+        return []
+    return sorted(
+        os.path.join(directory, name)
+        for name in names
+        if name.endswith(PENDING)
+        and not name.endswith(DRAWN)
+        and not name.startswith(".")
+    )
+
+
+def claim(path):
+    """Mark `path` drawn by renaming it; the new path, or None where it was
+    not there to rename — somebody else claimed it first.
+
+    Called BEFORE anything is printed. Two drawers racing for one file both
+    reach `os.replace` and only one finds it, so the file is drawn at most
+    once; a crash between the rename and the print loses that one drawing
+    rather than repeating it."""
+    target = drawn_path(path)
+    try:
+        os.replace(path, target)
+    except OSError:
+        return None
+    return target
+
+
+def label(values):
+    """The line said above a drawn stamp: what was sealed, and for which
+    work item. The harness shows a hook message's first line as a dim label,
+    so this is the line that must not be blank."""
+    item = values.get("item")
+    where = f" · {os.path.basename(os.path.normpath(item))}" if item else ""
+    return f"SEALED {values.get('tree')} against {values.get('base')}{where}"
 
 
 # --- a person's command --------------------------------------------------
@@ -449,20 +643,55 @@ def main(argv=None, console_wants_letters=None):
     parser.add_argument(
         "--scale",
         type=float,
-        default=1.0,
-        help=f"the chart's scale; {SCALE_FLOOR} is the floor, {SCALE_CEILING} the size",
+        default=None,
+        help=f"the chart's scale; {SCALE_FLOOR} is the floor, {SCALE_CEILING} the "
+        f"size, {DEFAULT_SCALE} the default, and a values file's own scale with "
+        "--from",
+    )
+    parser.add_argument(
+        "--from",
+        dest="values",
+        default=None,
+        metavar="FILE",
+        help="draw a sealed run's values file, once, instead of the sample",
     )
     args = parser.parse_args(argv)
     if console_wants_letters is None:
         console_wants_letters = pick_shape(sys.stdout)
     shape = args.shape or console_wants_letters
     try:
-        lines = stamp(SAMPLE_ROWS, scale=args.scale, shape=shape)
+        if args.values is None:
+            scale = DEFAULT_SCALE if args.scale is None else args.scale
+            lines = stamp(SAMPLE_ROWS, scale=scale, shape=shape)
+        else:
+            lines = drawn_from(args.values, args.scale, shape)
     except ValueError as refused:
         sys.stderr.write(str(refused) + "\n")
         return 2
     sys.stdout.write("\n" + "\n".join(lines) + "\n\n")
     return 0
+
+
+def drawn_from(path, scale, shape):
+    """The lines for the values file at `path`, which is claimed before they
+    are returned. `scale` None takes the file's own. Raises `ValueError`
+    with a refusal for a file drawn already, unreadable, or out of shape —
+    and every refusal comes before the claim, so a file refused for its
+    content is still there to be drawn once it is repaired."""
+    if path.endswith(DRAWN) or (
+        not os.path.exists(path) and os.path.exists(drawn_path(path))
+    ):
+        # The drawn file's own name, where that is what was given:
+        # `drawn_path` of it is `X.drawn.drawn.json`, which does not exist,
+        # and this is the sentence a person recovers the values from (round
+        # 1's 🟡 3).
+        drawn = path if path.endswith(DRAWN) else drawn_path(path)
+        raise ValueError(VALUES_DRAWN.format(path=path, drawn=drawn))
+    values = read_values(path)
+    lines = stamp(values["rows"], values["scale"] if scale is None else scale, shape)
+    if claim(path) is None:
+        raise ValueError(VALUES_DRAWN.format(path=path, drawn=drawn_path(path)))
+    return lines
 
 
 if __name__ == "__main__":

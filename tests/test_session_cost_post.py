@@ -432,7 +432,8 @@ def test_the_posted_body_does_not_carry_the_transcripts_path(
 
     The branch that leaks is the documented one: `report_segments`' empty
     branch fires whenever the named transcript has no subagents beside it,
-    which is every segment measured on its own — the case
+    which is every segment measured on its own that the coordinator never
+    restarted — the case
     `skills/verify/SKILL.md` §*Measure the segment, and feed the flow log*
     is written for.
     """
@@ -468,6 +469,68 @@ def test_the_posted_body_does_not_carry_the_transcripts_path(
     # The basename stays, because a reading that names no file is a reading
     # nobody can place.
     assert os.path.basename(str(transcript)) in bodies["text"]
+
+
+def test_an_own_files_posted_body_does_not_carry_its_path(monkeypatch, tmp_path):
+    """#637. A resumed agent's own file now prints its slices instead of the
+    empty branch, under a header that names the file. That header reaches the
+    body through `emit` like every other line, so the body carries the
+    basename and neither the path nor the directories above it."""
+    marker = json.dumps(
+        {
+            "timestamp": "2026-09-22T00:30:00.000Z",
+            "type": "user",
+            "isMeta": True,
+            "message": {
+                "role": "user",
+                "content": "The coordinator sent a message while you were "
+                "working: fix round 1",
+            },
+        }
+    )
+    lines = []
+    for uid, second in (("a", 0), ("b", 1900)):
+        lines.append(
+            _row(
+                second,
+                {
+                    "type": "tool_use",
+                    "id": uid,
+                    "name": "Bash",
+                    "input": {"command": "pytest tests -q"},
+                },
+            )
+        )
+        lines.append(_row(second + 5, {"type": "tool_result", "tool_use_id": uid}))
+    lines.insert(2, marker)
+    own = tmp_path / "main" / "subagents" / "agent-x.jsonl"
+    own.parent.mkdir(parents=True)
+    own.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    module = _cost()
+    says = tmp_path / "says.md"
+    says.write_text("two stretches of work\n", encoding="utf-8")
+    _gh(monkeypatch, module, listing=_listing((42, "OPEN")))
+    bodies = {}
+    stub = module.run_gh
+
+    def capture(args):
+        if args[:2] == ["issue", "comment"]:
+            with open(args[args.index("--body-file") + 1], encoding="utf-8") as handle:
+                bodies["text"] = handle.read()
+        return stub(args)
+
+    monkeypatch.setattr(module, "run_gh", capture)
+    monkeypatch.setattr(
+        module.sys,
+        "argv",
+        ["session_cost.py", str(own), "--segments", "--post", "--says", str(says)],
+    )
+    assert module.main() == 0
+    # The own-file page, not the empty branch that carried the path before.
+    assert "an agent's own transcript" in bodies["text"], bodies["text"]
+    assert str(own) not in bodies["text"]
+    assert str(own.parent) not in bodies["text"]
+    assert "agent-x.jsonl" in bodies["text"]
 
 
 def test_the_spawns_report_leaks_no_path_either(monkeypatch, tmp_path, transcript):

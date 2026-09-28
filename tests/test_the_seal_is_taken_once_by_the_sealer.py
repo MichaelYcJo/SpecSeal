@@ -62,6 +62,15 @@ ROWS = [
 SGR = re.compile(r"\x1b\[[0-9;]*m")
 HALF_BLOCKS = ("▀", "▄")
 
+# Where a sealed run on a pipe leaves its panel for the hook to draw (#400),
+# and the variable naming the session it is left for. Spelled here rather
+# than read off the modules, and still held to them: the positive cases below
+# find their file through `values_files`, so a directory renamed in the
+# module and not here turns those red rather than turning the absence
+# checks quietly true.
+VALUES_DIR = "specseal-stamp"
+SESSION_VAR = "CLAUDE_CODE_SESSION_ID"
+
 
 def module():
     spec = importlib.util.spec_from_file_location("specseal_seal_stamp", SCRIPT)
@@ -341,15 +350,39 @@ def test_not_sealed_carries_no_disc_and_names_every_failure():
     "stream, why",
     [
         (Stream("cp949", tty=True), "a console that cannot render half-blocks"),
-        (Stream("utf-8", tty=False), "a pipe — an agent's report carries the twin"),
+        (Stream("utf-8", tty=False), "a pipe, where `seal-stamp` prints the twin"),
         (io.StringIO(), "a stream with no encoding and no terminal"),
     ],
 )
 def test_pick_shape_is_letters_off_a_utf8_terminal(stream, why):
-    """S5 and `spec.md` §Out — *the sealer's returned text carries the ASCII
-    twin; the colour form is for a person's terminal*. Blocks and colour are
-    for a UTF-8 tty and nothing else."""
+    """S5 — the colour form is for a person's terminal. Blocks and colour are
+    for a UTF-8 tty and nothing else. (#30's `spec.md` §Out said the sealer's
+    returned text carries the twin; since #400 it carries no drawing at all,
+    because the gate asks `is_terminal` and draws nothing on a pipe.)"""
     assert module().pick_shape(stream) is True, why
+
+
+class Raising(Stream):
+    def isatty(self):
+        raise ValueError("I/O operation on closed file")
+
+
+@pytest.mark.parametrize(
+    "stream, terminal",
+    [
+        (Stream("cp949", tty=True), True),
+        (Stream("utf-8", tty=True), True),
+        (Stream("utf-8", tty=False), False),
+        (io.StringIO(), False),
+        (Raising("utf-8", tty=True), False),
+    ],
+)
+def test_is_terminal_asks_the_tty_and_not_the_encoding(stream, terminal):
+    """#400. `pick_shape` folded *not a tty* and *not UTF-8* into one answer,
+    and the gate needs them apart: a cp949 terminal has a person in front of
+    it and gets letters, a UTF-8 pipe has nobody and gets nothing drawn. A
+    stream whose `isatty` raises is a stream nobody is looking at."""
+    assert module().is_terminal(stream) is terminal
 
 
 def test_pick_shape_is_blocks_on_a_utf8_terminal():
@@ -513,6 +546,10 @@ def env_without_a_pull_request():
     env = dict(os.environ)
     env.pop("GITHUB_EVENT_PATH", None)
     env.pop("GITHUB_HEAD_REF", None)
+    # The suite runs under Claude Code more often than not, and the live
+    # session's id would key every fixture's values file to it (1790562543's
+    # `questions.md` Q7). A case that wants a session sets one.
+    env.pop(SESSION_VAR, None)
     env["GH_PROMPT_DISABLED"] = "1"
     env["GH_NO_UPDATE_NOTIFIER"] = "1"
     return env
@@ -594,6 +631,9 @@ def _no_ambient_pull_request(monkeypatch):
     what the fixture holds. A case that wants one sets it back itself."""
     for name in GITHUB_VARS:
         monkeypatch.delenv(name, raising=False)
+    # And the live Claude Code session's id, for the in-process cases, for the
+    # reason `env_without_a_pull_request` gives.
+    monkeypatch.delenv(SESSION_VAR, raising=False)
 
 
 @pytest.fixture(scope="session")
@@ -608,10 +648,15 @@ def repo(tmp_path, _template):
     return d
 
 
-def run_gate(repo, *extra, keep=None, wrapper=False):
+def run_gate(repo, *extra, keep=None, wrapper=False, session=None):
     """`broad_gate.py --base base --root <repo> --shape`, its outputs kept
-    under `keep`; returns the completed process."""
+    under `keep`; returns the completed process. stdout is a pipe, so a
+    sealed run signals rather than draws; `session` is the Claude Code
+    session the run belongs to, and None runs it with no session at all."""
     keep = keep or repo.parent / "out"
+    env = env_without_a_pull_request()
+    if session is not None:
+        env[SESSION_VAR] = session
     tail = [
         "--base",
         "base",
@@ -633,12 +678,48 @@ def run_gate(repo, *extra, keep=None, wrapper=False):
         encoding="utf-8",
         errors="replace",
         timeout=300,
-        env=env_without_a_pull_request(),
+        env=env,
     )
 
 
 def short(repo, ref):
     return git(repo, "rev-parse", "--short", ref).stdout.strip()
+
+
+def values_files(repo):
+    """Every values file the gate has written for `repo`, drawn or not.
+
+    Read from the git dir rather than from what the gate printed: since #400
+    a sealed run on a pipe prints no disc at all, so a disc missing from
+    stdout proves nothing about a run that should not have been sealed. A
+    file here is what a hook would have drawn."""
+    found = []
+    for directory, _dirs, names in os.walk(repo / ".git" / VALUES_DIR):
+        found += [os.path.join(directory, n) for n in names if n.endswith(".json")]
+    return sorted(found)
+
+
+def signal_lines(text):
+    """The lines of `text` that are the gate's `SEALED` signal."""
+    return [line for line in text.splitlines() if line.startswith("SEALED")]
+
+
+def sealed_values(repo, tmp_path, session="s-1"):
+    """A settled item sealed through `--record` on a pipe, with `session` set:
+    the completed process and the one values file's contents."""
+    settled_item(repo)
+    out = run_gate(
+        repo, "--record", str(repo / ITEM), keep=tmp_path / "out", session=session
+    )
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    files = values_files(repo)
+    assert len(files) == 1, f"one values file expected, found {files}"
+    return out, module().read_values(files[0])
+
+
+def row_of(values, label):
+    """The value the panel carries beside `label`, or None."""
+    return next((row[1] for row in values["rows"] if row and row[0] == label), None)
 
 
 def crown_of():
@@ -738,12 +819,15 @@ def test_a_repository_shipping_no_gate_runs_the_invoked_copy(repo, tmp_path):
     invoked copy runs as before with two additions: the panel's `gate` row
     reads `plugin <version>` — this tree's script is not under the fixture
     root — and stderr carries one line naming the running copy's absolute
-    path. Red at `9f846733`: no `gate` row, no such line."""
-    out = run_gate(repo, keep=tmp_path / "out")
-    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
-    assert re.search(
-        rf"\bgate\s+[^\n|]*plugin {re.escape(plugin_json_version())}", out.stdout
-    ), f"the panel does not carry `gate plugin {plugin_json_version()}`:\n{out.stdout}"
+    path. Red at `9f846733`: no `gate` row, no such line.
+
+    The panel is read from the run's values file since #400, because a
+    sealed run on a pipe no longer draws it; so the run records."""
+    out, values = sealed_values(repo, tmp_path)
+    assert row_of(values, "gate") == f"plugin {plugin_json_version()}", (
+        f"the panel does not carry `gate plugin {plugin_json_version()}`:\n"
+        f"{values['rows']}"
+    )
     assert f"broad-gate: gate {os.path.realpath(GATE)} (plugin " in out.stderr, (
         f"no stderr line names the running copy's path:\n{out.stderr}"
     )
@@ -1092,16 +1176,20 @@ def test_the_forms_that_stay_allowed_are_sealed_exactly_as_today(
     the case passed, and the suite in the row had not run. Green for a reason
     that has nothing to do with what the case is named for — this release's
     own subject, in this module, on the platform nobody had looked at. CI
-    never reported it, because a vacuous pass is a pass. So the panel's suite
-    row is read too: the row's command has to have run the fixture's one test.
+    never reported it, because a vacuous pass is a pass. So the suite's own
+    output is read too: the row's command has to have run the fixture's one
+    test. It used to be read off the panel's `suite` row, which a piped run
+    no longer draws (#400); the row is `suite_counts` of this same kept text.
     """
     if needs_posix:
         posix_row_shell_or_skip()
-    out = run_gate(set_row(repo, value), keep=tmp_path / "out")
+    keep = tmp_path / "out"
+    out = run_gate(set_row(repo, value), keep=keep)
     assert out.returncode == 0, f"{why}\n{out.stdout}\n{out.stderr}"
     assert "SEALED" in out.stdout and "NOT SEALED" not in out.stdout
-    assert re.search(r"\bsuite\s+[^\n|]*1 passed", out.stdout), (
-        f"{why}\nthe gate sealed without the row's suite running:\n{out.stdout}"
+    suite = (keep / "suite.txt").read_text(encoding="utf-8")
+    assert gate_module().suite_counts(suite) == "1 passed", (
+        f"{why}\nthe gate sealed without the row's suite running:\n{suite}"
     )
 
 
@@ -2161,29 +2249,26 @@ def test_a_padded_value_is_read_as_the_value_it_pads(pad):
 
 
 def test_a_green_tree_is_sealed_with_every_check_run_in_order(repo, tmp_path):
-    """S1. Every check runs, its exit code is read off the process and kept
-    with its output, and the stamp prints with the panel: tree, base, the
-    suite's counts, the row's exit code, ledger, chain. No `rounds` row
-    without `--record`. The `row` label replaced a literal `lint  clean` in
-    round 1's 🟡 3 — the gate cannot tell which part of a shell line is a
-    linter, so it reports what it measured."""
+    """S1 of #30, and S9 of 1790562543. Every check runs, its exit code is
+    read off the process and kept with its output. Without `--record` a green
+    run on a pipe is sealed and draws nothing: one `SEALED` line naming the
+    tree and the base and saying nothing was recorded, no disc in either
+    form, and no values file for anyone to draw — drawing a stamp takes the
+    exit 0 AND the written cell (#400's Done-when). The panel's rows are
+    pinned where they are drawn from, in the recorded case below."""
     keep = tmp_path / "out"
-    out = run_gate(repo, keep=keep)
+    out = run_gate(repo, keep=keep, session="s-1")
     assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
-    assert "SEALED" in out.stdout and "NOT SEALED" not in out.stdout
-    assert crown_of() in out.stdout, "the disc is missing from a sealed run"
-    for label, value in (
-        ("tree", short(repo, "HEAD")),
-        ("base", short(repo, "base")),
-        ("suite", "1 passed"),
-        ("row", "exit 0"),
-        ("ledger", "0 broken"),
-        ("chain", "exit 0"),
-    ):
-        assert re.search(rf"\b{label}\s+[^\n|]*{re.escape(value)}", out.stdout), (
-            f"the panel does not carry `{label} {value}`:\n{out.stdout}"
-        )
+    assert "NOT SEALED" not in out.stdout
+    said = signal_lines(out.stdout)
+    assert len(said) == 1, f"one `SEALED` line expected:\n{out.stdout}"
+    assert f"{short(repo, 'HEAD')} against {short(repo, 'base')}" in said[0], said
+    assert "nothing was recorded" in said[0], said
+    assert crown_of() not in out.stdout, "a piped run drew the twin"
+    assert not SGR.search(out.stdout), "a piped run carries colour codes"
+    assert not any(c in out.stdout for c in HALF_BLOCKS), "a piped run drew blocks"
     assert not re.search(r"\brounds\b", out.stdout), "a rounds row without --record"
+    assert not values_files(repo), "a run with no cell written left a stamp to draw"
     gate = gate_module()
     order = [
         gate.SUITE,
@@ -2200,6 +2285,202 @@ def test_a_green_tree_is_sealed_with_every_check_run_in_order(repo, tmp_path):
         assert "\nexit 0\n" in text, f"{name}.txt does not carry its exit code"
     times = [os.stat(keep / f"{n}.txt").st_mtime_ns for n in order]
     assert times == sorted(times), f"the checks did not run in order: {times}"
+
+
+# --- 1790562543: a sealer's run signals, and the panel waits in a file -------
+
+
+def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(repo, tmp_path):
+    """S1 of 1790562543 (#400). A sealer's stdout is a pipe into a report
+    that arrives folded, so the gate draws nothing there — not the block
+    form, not the letter twin, even under the `--shape` `run_gate` passes.
+    It writes one values file under the git common dir, keyed by the
+    session, and prints one `SEALED` line naming the tree, the base commit
+    and that file. The hook draws the file; this line is what the report
+    carries.
+
+    Run under a directory whose name holds a space (round 2's ⬜ 3): with no
+    space the quoted and unquoted path are the same bytes, so the quoting
+    assertion below could not tell a quoted command from a bare one."""
+    spaced = tmp_path / "a checkout" / "repo"
+    # The parent first, so the move is a rename on every platform. Without
+    # it `shutil.move` falls back to a copy and an `rmtree`, which Windows
+    # refuses over git's read-only object files.
+    spaced.parent.mkdir(parents=True)
+    shutil.move(str(repo), str(spaced))
+    repo = spaced
+    out, _values = sealed_values(repo, tmp_path, session="s-1")
+    said = signal_lines(out.stdout)
+    assert len(said) == 1, f"one `SEALED` line expected:\n{out.stdout}"
+    (path,) = values_files(repo)
+    assert f"{short(repo, 'HEAD')} against {short(repo, 'base')}" in said[0], said
+    assert path in said[0], f"the line does not name the file {path}: {said}"
+    assert "session s-1" in said[0], said
+    # Round 1's 🟡 1. The hook draws nothing, and says nothing, where it
+    # cannot — a `python3` under the floor, a session outside this clone, a
+    # plugin older than the hook — so the common line names the recovery too.
+    assert f"`seal-stamp --from {gate_module().quote(path)}`" in said[0], said
+    assert " " in path and f"--from {path}`" not in said[0], said
+    assert os.path.dirname(path) == str(repo / ".git" / VALUES_DIR / "s-1"), path
+    assert not path.endswith(".drawn.json"), "the file was marked drawn by the gate"
+    assert crown_of() not in out.stdout, "a piped run drew the twin"
+    assert not SGR.search(out.stdout), "a piped run carries colour codes"
+    assert not any(c in out.stdout for c in HALF_BLOCKS), "a piped run drew blocks"
+
+
+def test_the_values_file_holds_this_runs_panel(repo, tmp_path):
+    """S2 and S13 of 1790562543. The file holds the rows `panel` returned for
+    this run — in `panel`'s order, with its blanks — and the scale the run
+    was given, which with no `--scale` is `seal_stamp.DEFAULT_SCALE`. Nothing
+    downstream re-derives a row: the drawing is these values."""
+    _out, values = sealed_values(repo, tmp_path)
+    labels = tuple(row[0] for row in values["rows"] if row)
+    assert labels == (
+        "SEALED",
+        "tree",
+        "base",
+        "from",
+        "gate",
+        "suite",
+        "row",
+        "ledger",
+        "chain",
+        "rounds",
+    ), labels
+    assert values["rows"][1] is None, "the blank under the heading is gone"
+    for label, value in (
+        ("tree", short(repo, "HEAD")),
+        ("base", short(repo, "base")),
+        ("from", "base"),
+        ("suite", "1 passed"),
+        ("row", "exit 0"),
+        ("chain", "exit 0"),
+        ("rounds", "2"),
+    ):
+        assert row_of(values, label) == value, (label, values["rows"])
+    assert row_of(values, "ledger").endswith("0 broken"), values["rows"]
+    assert values["scale"] == module().DEFAULT_SCALE == 0.90, values["scale"]
+    assert values["session"] == "s-1" and values["item"] == str(repo / ITEM)
+    assert (values["tree"], values["base"]) == (
+        short(repo, "HEAD"),
+        short(repo, "base"),
+    )
+
+
+def test_a_run_with_no_session_says_so_and_names_the_hand_command(repo, tmp_path):
+    """S14. With `CLAUDE_CODE_SESSION_ID` unset the run is still sealed and
+    its values still written, under `none/`, which no hook reads. The line
+    says no session was found and names `seal-stamp --from <path>`, so the
+    stamp is not lost and nothing claims it will appear.
+
+    Round 1's ⬜ 5: the path is quoted for the platform's shell, so a
+    checkout whose path holds a space prints a command that runs as typed.
+    The fixture is moved under such a directory to show it."""
+    spaced = tmp_path / "a checkout" / "repo"
+    # The parent first, so the move is a rename on every platform. Without
+    # it `shutil.move` falls back to a copy and an `rmtree`, which Windows
+    # refuses over git's read-only object files.
+    spaced.parent.mkdir(parents=True)
+    shutil.move(str(repo), str(spaced))
+    settled_item(spaced)
+    out = run_gate(spaced, "--record", str(spaced / ITEM), keep=tmp_path / "out")
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    (path,) = values_files(spaced)
+    assert " " in path, path
+    assert os.path.basename(os.path.dirname(path)) == module().NO_SESSION, path
+    (said,) = signal_lines(out.stdout)
+    assert "no Claude Code session was found" in said, said
+    assert f"`seal-stamp --from {gate_module().quote(path)}`" in said, said
+    assert f"--from {path}`" not in said, f"the path is unquoted: {said}"
+
+
+def test_values_that_cannot_be_written_leave_the_seal_standing(repo, tmp_path):
+    """S15. The values directory cannot be made — a FILE stands where it
+    goes, which refuses on every platform and under every user, where a
+    permission bit would not stop root. The checks passed and the cell was
+    written, so the run is still sealed, exit 0; stderr says why nothing
+    will be drawn and the `SEALED` line says nothing will be."""
+    _one, two = settled_item(repo)
+    (repo / ".git" / VALUES_DIR).write_text("in the way\n", encoding="utf-8")
+    out = run_gate(
+        repo, "--record", str(repo / ITEM), keep=tmp_path / "out", session="s-1"
+    )
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert "the stamp's values could not be written" in out.stderr, out.stderr
+    (said,) = signal_lines(out.stdout)
+    assert "nothing will be drawn" in said, said
+    assert fields(two.read_text(encoding="utf-8"))[ROW] != "not yet", (
+        "the cell was not written, so this is not the state S15 is about"
+    )
+
+
+def test_a_person_at_a_terminal_sees_the_stamp_drawn_once(repo, tmp_path):
+    """S10. A hand-run on a UTF-8 terminal draws the stamp there, once, in
+    the block form, and prints no `SEALED` signal line beside it: the
+    drawing IS the signal, and no values file is left for a hook to draw it
+    a second time. A tool call has no terminal to reach this path with
+    (#400, *The blocking measurement*), so it is a person's alone.
+
+    Driven through a pseudo-terminal, which POSIX has and Windows does not."""
+    settled_item(repo)
+    code, screen = on_a_terminal(repo, tmp_path, "--record", str(repo / ITEM))
+    assert code == 0, screen
+    assert screen.count("SEALED") == 1, f"the stamp was not drawn once:\n{screen}"
+    assert any(c in screen for c in HALF_BLOCKS), "a UTF-8 terminal got no blocks"
+    assert not signal_lines(SGR.sub("", screen).replace("\r", "")), screen
+    assert not values_files(repo), "a drawn run left a file for a hook to draw again"
+
+
+def test_a_terminal_run_with_no_record_draws_nothing(repo, tmp_path):
+    """#400's Done-when, on a terminal: drawing a stamp takes the exit 0 AND
+    the written cell, and no other path draws one. A green hand-run without
+    `--record` wrote no cell, so a person's terminal gets the `SEALED` line
+    saying nothing was recorded and no disc, the same as a pipe does (S9)."""
+    code, screen = on_a_terminal(repo, tmp_path)
+    assert code == 0, screen
+    assert not any(c in screen for c in HALF_BLOCKS), f"a disc was drawn:\n{screen}"
+    said = signal_lines(SGR.sub("", screen).replace("\r", ""))
+    assert len(said) == 1 and "nothing was recorded" in said[0], screen
+    assert not values_files(repo)
+
+
+def on_a_terminal(repo, tmp_path, *extra):
+    """The gate run with stdout a UTF-8 pseudo-terminal: its exit code and
+    everything the terminal received. Skipped where there is no `pty`."""
+    pty = pytest.importorskip("pty")
+    env = env_without_a_pull_request()
+    env[SESSION_VAR] = "s-1"
+    env["PYTHONIOENCODING"] = "utf-8"
+    main, child = pty.openpty()
+    proc = subprocess.Popen(
+        [
+            sys.executable,
+            GATE,
+            "--base",
+            "base",
+            "--root",
+            str(repo),
+            "--keep-output",
+            str(tmp_path / "out"),
+            *extra,
+        ],
+        stdin=subprocess.DEVNULL,
+        stdout=child,
+        stderr=subprocess.DEVNULL,
+        env=env,
+    )
+    os.close(child)
+    chunks = []
+    while True:
+        try:
+            chunk = os.read(main, 65536)
+        except OSError:
+            break
+        if not chunk:
+            break
+        chunks.append(chunk)
+    os.close(main)
+    return proc.wait(timeout=300), b"".join(chunks).decode("utf-8", "replace")
 
 
 def test_the_wrapper_runs_the_same_gate(repo):
@@ -2226,12 +2507,17 @@ def test_a_failing_test_is_not_sealed_and_is_new_when_the_base_passes(repo):
     worktree the comparison used is gone afterwards."""
     write(repo, "tests/test_two.py", FAILING_TEST)
     commit(repo, "plant a failure")
-    out = run_gate(repo)
+    out = run_gate(repo, session="s-1")
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     first = out.stdout.strip().splitlines()[0]
     assert first.startswith("NOT SEALED"), first
     assert short(repo, "HEAD") in first and short(repo, "base") in first, first
     assert crown_of() not in out.stdout, "the failure form drew the disc"
+    # S7 of 1790562543. A piped run draws no disc even when it seals, so the
+    # line above no longer proves the failure form drew nothing; what a hook
+    # would draw is a values file, and a red run leaves none.
+    assert not values_files(repo), "a red run left a stamp for a hook to draw"
+    assert not signal_lines(out.stdout), "a red run printed the `SEALED` signal"
     assert not any(c in out.stdout for c in HALF_BLOCKS)
     assert re.search(r"^\s+suite\s", out.stdout, re.M), "the failing check is unnamed"
     gate = gate_module()
@@ -3106,11 +3392,11 @@ def test_seal_refuses_a_cell_with_no_sha_in_it(repo):
 
 def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(repo, tmp_path):
     """S1 with `--record`: the checks pass, `seal` writes the last record's
-    cell with the tree and the base, and the panel carries `rounds 2`."""
-    _one, two = settled_item(repo)
-    out = run_gate(repo, "--record", str(repo / ITEM), keep=tmp_path / "out")
-    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
-    assert re.search(r"\brounds\s+2\b", out.stdout), out.stdout
+    cell with the tree and the base, and the panel carries `rounds 2` — read
+    from the values file since #400, which is where a piped run's panel is."""
+    _out, values = sealed_values(repo, tmp_path)
+    two = repo / ROUNDS / "round-2.md"
+    assert row_of(values, "rounds") == "2", values["rows"]
     cell = fields(two.read_text(encoding="utf-8"))[ROW]
     # The base half used to be the ref as the caller typed it -- `against
     # base`. #423 is that a ref re-resolves and a commit does not, so the
@@ -3133,11 +3419,12 @@ def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(repo, tmp_pa
     runner got a seal asserting a check that never ran, on the artifact a
     reader trusts BECAUSE it is drawn on success alone.
 
-    The fixture's row is a bare pytest call, with no linter in it at all."""
-    out = run_gate(repo, keep=tmp_path / "out")
-    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
-    assert re.search(r"\brow\s+exit 0\b", out.stdout), out.stdout
-    assert "clean" not in out.stdout, (
+    The fixture's row is a bare pytest call, with no linter in it at all.
+    Read from the values file since #400, which is where a piped run's panel
+    is."""
+    _out, values = sealed_values(repo, tmp_path)
+    assert row_of(values, "row") == "exit 0", values["rows"]
+    assert not any("clean" in cell for row in values["rows"] if row for cell in row), (
         "the seal still asserts a linter over a row that has none in it"
     )
 
@@ -3211,6 +3498,7 @@ def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(
         )
 
     monkeypatch.setattr(mod, "seal_record", sealed_then_the_chain_failed)
+    monkeypatch.setenv(SESSION_VAR, "s-1")
     code = mod.gate(
         argparse.Namespace(
             root=str(repo),
@@ -3226,6 +3514,8 @@ def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(
     assert reached, f"the checks failed before `seal` was reached\n{out.out}{out.err}"
     assert code == 2, f"exit {code}\n{out.out}{out.err}"
     assert crown_of() not in out.out, "a stamp printed over a failing chain check"
+    # S8 of 1790562543: the line above is vacuous on a pipe since #400.
+    assert not values_files(repo), "a stamp was left to draw over a failing chain"
     # Round 2's 🟡 11. The stub's text is a `round-record: sealed …` line,
     # which is what the real subcommand prints when the cell WAS written.
     # The message has to read it that way round, or the reader is told the
@@ -3244,9 +3534,13 @@ def test_the_gate_with_record_prints_no_stamp_when_the_record_refuses(repo, tmp_
     declared(repo)
     path = generate(repo, 1, OPEN_ROW, "yes — 🔴 1")
     before = read_bytes(path)
-    out = run_gate(repo, "--record", str(repo / ITEM), keep=tmp_path / "out")
+    out = run_gate(
+        repo, "--record", str(repo / ITEM), keep=tmp_path / "out", session="s-1"
+    )
     assert out.returncode == 2, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     assert crown_of() not in out.stdout, "a stamp printed over a refused record"
+    # S8 of 1790562543: the line above is vacuous on a pipe since #400.
+    assert not values_files(repo), "a stamp was left to draw over a refused record"
     assert "`Pass` is unchecked" in out.stdout + out.stderr
     # The other half of round 2's 🟡 11, and the one that makes the
     # discriminator worth having: this is the refusal side, so the gate has
@@ -3328,11 +3622,15 @@ def test_the_gate_reads_the_real_seals_two_endings_apart(repo, tmp_path):
     """
     two = a_record_the_chain_check_refuses_after_the_write(repo)
     before = read_bytes(two)
-    out = run_gate(repo, "--record", str(repo / ITEM), keep=tmp_path / "out")
+    out = run_gate(
+        repo, "--record", str(repo / ITEM), keep=tmp_path / "out", session="s-1"
+    )
     printed = out.stdout + out.stderr
 
     assert out.returncode == 2, f"exit {out.returncode}\n{printed}"
     assert crown_of() not in out.stdout, "a stamp printed over a failing chain check"
+    # S8 of 1790562543: the line above is vacuous on a pipe since #400.
+    assert not values_files(repo), "a stamp was left to draw over a failing chain"
     # The route reached the state it was written for, asserted rather than
     # assumed, so it cannot quietly stop reaching it.
     assert "round-record: sealed" in printed, (

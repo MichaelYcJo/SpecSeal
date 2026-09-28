@@ -43,6 +43,7 @@ from conftest import workflow_step
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 GATE = os.path.join(ROOT, "skills", "verify", "scripts", "broad_gate.py")
+STAMP = os.path.join(ROOT, "skills", "verify", "scripts", "seal_stamp.py")
 HYGIENE = os.path.join(ROOT, ".github", "workflows", "hygiene.yml")
 EVIDENCE = os.path.join(
     ROOT, "skills", "evidence-check", "scripts", "evidence_check.py"
@@ -556,15 +557,20 @@ def test_the_stamp_says_how_many_steps_the_seal_did_not_answer(tmp_path):
     step names do not fit in it, let alone thirteen. A reader given only a
     number would have to reconstruct WHICH from two files, which is the
     reconstruction this work item exists to remove, so both are printed and
-    neither alone."""
+    neither alone.
+
+    The rendered half is asked of `seal_stamp.stamp` over the run's rows
+    since #400: a piped run draws no panel, and the hook that draws it later
+    draws exactly these rows."""
     repo = with_workflow(sealable_repo(tmp_path, resolution="kept"))
     result = run_gate(repo, tmp_path / "out")
     assert result.returncode == 0, result.stdout + result.stderr
 
-    rendered = [line for line in result.stdout.splitlines() if "not answered" in line]
+    drawn = _load("specseal_seal_stamp", STAMP).stamp(panel_rows(repo), shape=True)
+    rendered = [line for line in drawn if "not answered" in line]
     assert len(rendered) == 1, (
-        f"the stamp says nothing about the steps this seal did not answer:\n"
-        f"{result.stdout}"
+        "the stamp says nothing about the steps this seal did not answer:\n"
+        + "\n".join(drawn)
     )
     # Whole, not cut. `seal_stamp.letter` truncates AT THE FRAME with no
     # marker, so a value one column too wide reads on the stamp as a shorter
@@ -713,9 +719,14 @@ def test_a_repository_with_no_hygiene_workflow_is_sealed_exactly_as_before(tmp_p
     assert not (repo / ".github").exists(), "the fixture has a workflow after all"
     result = run_gate(repo, tmp_path / "out")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "not answered" not in result.stdout, (
-        f"the stamp of a repository with no hygiene workflow says something "
-        f"about that workflow's steps:\n{result.stdout}"
+    # The stamp's rows are what the run read: `panel` is handed
+    # `workflow_text(root)`, and for this repository that is None, which is
+    # the input the labels below are computed over. It used to be asked of a
+    # drawing on stdout, and a piped run draws nothing since #400 — so that
+    # absence held for every repository, workflow or not.
+    assert gate.workflow_text(str(repo)) is None, (
+        "the run read a workflow in a repository that has none, so the stamp "
+        "would say something about that workflow's steps"
     )
     # What names the release job, and nothing a path can carry by accident:
     # the job as `coverage_line` spells it, the workflow's path, and every
@@ -771,7 +782,11 @@ def test_a_workflow_that_is_not_utf8_leaves_the_run_as_it_was(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
     assert "SEALED" in result.stdout, result.stdout
     assert "Traceback" not in result.stderr, result.stderr
-    assert "not answered" not in result.stdout, result.stdout
+    # No `workflow` row on the stamp is `workflow_text(root)` being None,
+    # asserted above: it is the one input `panel` takes the row from, and the
+    # case before this one pins the rows of a run given None. It used to be
+    # asked of a drawing on stdout as well, and a piped run draws nothing
+    # since #400, so that absence held whatever the run read.
 
 
 UNCLASSIFIED_WORKFLOW = """\

@@ -23,7 +23,9 @@ Usage:
   session_cost.py <transcript.jsonl>     one transcript
   session_cost.py --latest [DIR]         newest transcript for a repo (default: cwd)
   session_cost.py --spawns <transcript>  one row per spawn cycle, not one per run
-  session_cost.py --segments <transcript>  one row per segment this run spawned
+  session_cost.py --segments <transcript>  one row per segment this run spawned,
+                                         or per stretch of work in a resumed
+                                         agent's own transcript
   session_cost.py --json <transcript>    the same numbers, machine-readable
   session_cost.py --segments <t> --post --says <path|->
                                          post that reading, and what it says,
@@ -56,7 +58,9 @@ opens it.
 **A spawn cycle is not a segment**, which is the one thing to keep straight
 between the two modes. `--spawns` slices THIS transcript into bands over the
 orchestrator's own minutes; `--segments` opens the OTHER transcripts, one row
-per agent this run spawned. `skills/verify/SKILL.md` §*Measure the segment*
+per agent this run spawned, and given a resumed agent's own transcript it
+reads that one file, one row per stretch of work (#637) — each row one
+agent's own stretch either way. `skills/verify/SKILL.md` §*Measure the segment*
 owns that distinction and `tests/test_one_word_one_meaning.py` holds it.
 """
 
@@ -112,6 +116,15 @@ PROJECTS = os.path.join(HOME, ".claude", "projects")
 # `uvx ruff check .` are #200's shapes, and their command words are `uv` and
 # `uvx`. The order is unchanged, so a line that runs a test and a `git` is
 # still the test's.
+#
+# **`read` is the fifth family, judged last and by command word, and it has
+# no pattern (#642).** A call that only read a file or listed a directory
+# was `other`, so `other` led nearly every reading. `only_reads` holds the
+# rule: every command word a read word from `READ_WORDS` or a neutral one,
+# at least one read word, no write and nothing the walk cannot see. Judged
+# last, it takes no call from the four above, so `grep -rn pytest docs/`
+# stays `test` and `ls && git status` stays `git`, the mirror #377 recorded
+# as out of scope. `READ_WORDS` states the criterion a word is admitted by.
 FAMILIES = [
     (
         "test",
@@ -126,6 +139,7 @@ FAMILIES = [
     ("lint/type", re.compile(r"\b(ruff|mypy|eslint|tsc|flake8|black|lint-imports)\b")),
     ("build", re.compile(r"\b(make|cargo build|npm run build|tsc -b|docker build)\b")),
     ("git", re.compile(r"^\s*(git|gh)\b")),
+    ("read", None),
 ]
 
 # The token fields `token_totals` sums, and the `usage` key each is read from.
@@ -206,6 +220,10 @@ def parse_time(value):
 # `ls # see <<EOF⏎git push` is `other`, as it was before #377. The other
 # order would let an apostrophe in a heredoc body open a quote that hides
 # every command after it.
+#
+# A `\⏎` on the operator's own line is not joined here, so the body starts
+# one line early and takes the continued line with it:
+# `cat <<EOF \⏎&& git push⏎…⏎EOF` is `other`, as it was before #377.
 HEREDOC = re.compile(r"""<<-?\s*(?:'[^']*'|"[^"]*"|[A-Z_][A-Z0-9_]*)""")
 
 
@@ -218,7 +236,12 @@ def without_heredoc_bodies(command):
     f`), and so is everything after the closing line. Two operators on one
     line have their bodies one after the other, which is the order the
     search below meets them in. An operator with no closing line is cut from
-    the operator to the end."""
+    the operator to the end.
+
+    Under an unquoted delimiter a body line ending in an odd run of `\\` is
+    joined to the next before the comparison, as bash joins it, so
+    `cat <<EOF⏎body \\⏎EOF⏎git push` closes nothing and is `other`. A quoted
+    delimiter keeps its backslashes, and an even run is an escaped one."""
     start = 0
     while True:
         opener = HEREDOC.search(command, start)
@@ -227,14 +250,23 @@ def without_heredoc_bodies(command):
         operator = opener.group(0)
         delimiter = re.sub(r"^<<-?\s*", "", operator).strip("'\"")
         tabs = operator.startswith("<<-")
+        # An unquoted delimiter's body has `\⏎` removed before a line is
+        # compared with it, so a body line ending in `\` joins the next one
+        # and that line closes nothing. A quoted delimiter keeps the `\`.
+        joins = operator[-1] not in "'\""
         body = command.find("\n", opener.end())
         closed = None
         if body != -1:
-            at = body + 1
+            at, carried = body + 1, ""
             while at <= len(command):
                 end = command.find("\n", at)
                 end = len(command) if end == -1 else end
-                line = command[at:end]
+                line = carried + command[at:end]
+                trailing = len(line) - len(line.rstrip("\\"))
+                if joins and trailing % 2:
+                    carried, at = line[:-1], end + 1
+                    continue
+                carried = ""
                 if (line.lstrip("\t") if tabs else line) == delimiter:
                     closed = end
                     break
@@ -281,10 +313,13 @@ def without_comments(command):
     is removed, as bash removes it before it reads a word, so the word
     boundary before it still holds and `cd /x && \\⏎git status` is one line.
 
-    Two bounds, neither worse than the rule before #377: a `)` inside a word
-    starts a word boundary even when it closes a substitution
-    (`echo $(ls)#x` reads `#x` as a comment), and quotes nested inside
-    `"$( … )"` are read as closing the outer ones."""
+    Two bounds. A `)` inside a word starts a word boundary even when it
+    closes a substitution (`echo $(ls)#x` reads `#x` as a comment), and
+    quotes nested inside `"$( … )"` are read as closing the outer ones.
+    Where they lose a `git`, the rule before #377 lost it too. They can also
+    read one bash does not run, which that rule did not:
+    `x="$(echo "; git log")"` reads its `git`, and so does
+    `echo $(ls)#'⏎git push'`, whose `#'` removes the quote hiding it."""
     out, quote, at, boundary = [], None, 0, True
     while at < len(command):
         char = command[at]
@@ -344,7 +379,24 @@ def command_words(command):
 
     Raises `ValueError` where the tokeniser does, on an unmatched quote. The
     words before the error have already been yielded, which is what lets
-    `git log 'x` answer from its first word."""
+    `git log 'x` answer from its first word.
+
+    The walk itself is `shell_words`, and this is its command words alone."""
+    for kind, token in shell_words(command):
+        if kind == "command":
+            yield token
+
+
+def shell_words(command):
+    """The walk `command_words` describes, with every token it keeps.
+
+    Each is a pair: `command` for a command word, `argument` for any other
+    word of a command, a redirection's target included, and `operator` for
+    what is left of an operator token once a substitution's parentheses are
+    taken out of it. No word or operator inside a substitution is yielded.
+    The rules for what is a command word, and the bounds, are
+    `command_words`'; the arguments are what `only_reads` needs and the
+    command words alone do not carry. Raises where `command_words` does."""
     lexer = shlex.shlex(
         without_comments(command), posix=True, punctuation_chars=PUNCTUATION
     )
@@ -379,10 +431,16 @@ def command_words(command):
             token = "".join(left)
             chars = set(token)
             position = not (chars & REDIRECTION) and bool(chars & SEPARATOR)
+            if token:
+                yield "operator", token
+        elif nested:
+            pass
         elif position:
             if token not in RESERVED and not ASSIGNMENT.match(token):
-                yield token
+                yield "command", token
                 position = False
+        else:
+            yield "argument", token
         previous = token
 
 
@@ -416,8 +474,23 @@ def runs_git(command):
       refusing still count, and a line refused before any of them is judged
       by the anchored pattern `FAMILIES` still carries for `git`** -- the
       rule this family had before #377. So `git log 'x` is `git` from its
-      first word, `git'x` from the pattern, and an unmatched quote never
-      answers worse than the old rule did, and never ends a reading."""
+      first word, `git'x` from the pattern, and a quote the shell leaves
+      unmatched never answers worse than the old rule did, and never ends a
+      reading. A quote the walk sees unmatched only because a bound in
+      `without_comments` removed its opener can: `echo $(ls)#'⏎git push'`
+      is `git`.
+
+    `only_reads` walks the same words and meets the same bounds, each
+    turned toward `other` because a write charged to reading is the worse
+    error (#642): a substitution keeps the line out rather than being read
+    past, a wrapper is not a neutral word, a `case` is not one either
+    because its arms' commands are never in command position, a leading
+    redirection keeps the line out because the command after it is never
+    seen, and a refused line is `other` with no pattern to fall back to.
+    The harness runs the user's shell, zsh on the machine #642 measured,
+    and zsh's short forms hide a command the same way: `if [[ … ]] cmd`,
+    `if (( … )) cmd`, `for f (…) cmd` and an `always` block, so
+    `only_reads` keeps those out as well."""
     try:
         for word in command_words(command):
             if word.replace("\\", "/").rsplit("/", 1)[-1] in ("git", "gh"):
@@ -425,6 +498,212 @@ def runs_git(command):
         return False
     except ValueError:
         return bool(dict(FAMILIES)["git"].search(command))
+
+
+# The words that make a line `read` (#642), by basename. A word is admitted
+# when its only output is standard output, or when every option its manual
+# gives for writing a file or running a program is one `writes` refuses. That
+# is a reading of thirteen manuals, not a guarantee: `rg --hostname-bin` was
+# missed until round 2 of #642's review ran it, and an option missed the same
+# way is `read` until `writes` names it. `sed` and `awk`
+# are admitted under a stated bound: their programs can write and run, the
+# walk cannot read a quoted program, and `writes` says which commands do.
+# These thirteen are the list #642 measured, so its numbers can be set beside
+# the ticket's; the next word is added by that criterion, with a count behind
+# it, and `tee`, which writes the files it is given, never can be.
+READ_WORDS = frozenset(
+    [
+        "sed",
+        "grep",
+        "rg",
+        "cat",
+        "head",
+        "tail",
+        "ls",
+        "find",
+        "wc",
+        "awk",
+        "nl",
+        "sort",
+        "diff",
+    ]
+)
+
+# Words that neither read a file nor write one: they keep a reading line
+# `read` and make no line `read` on their own. The grammar words are the ones
+# the walk yields in command position (`for`, `done`, `fi`, `}`). `case` and
+# `esac` are left out, because a `case` arm's `)` does not put the next word
+# in command position, so the commands inside it are never seen.
+NEUTRAL_WORDS = frozenset(
+    [
+        "cd",
+        "pushd",
+        "popd",
+        "pwd",
+        "echo",
+        "printf",
+        "true",
+        ":",
+        "test",
+        "[",
+        "[[",
+        "read",
+        "for",
+        "select",
+        "done",
+        "fi",
+        "}",
+    ]
+)
+
+# What the walk cannot see into: a heredoc or here-string operator, a command
+# or arithmetic substitution, a backtick, a process substitution, and bash
+# 5.3's `${ … }` and `${| … }`, which run their commands in the current
+# shell. Matched on the text anywhere, a quoted or commented one included,
+# because the side that errs is `other`.
+HIDDEN_FROM_THE_WALK = re.compile(r"<<|\$\(|`|<\(|>\(|\$\{[\s|]")
+
+# An operator token that ends one command and opens a redirection before the
+# next one's first word, glued by the tokeniser: `;>`, `&&>`, `|<`, `(>`,
+# `⏎<`, and after a background `&`: `&<`, `&⏎>` and zsh's `&|>`. `&>` alone
+# is not one, because bash and zsh read it as a redirection of its own.
+SEPARATOR_THEN_REDIRECTION = re.compile(r"(?:[;|\n(]|&(?!>))+&?[<>]")
+
+# `find`'s actions that delete, run a command or write a file.
+FIND_WRITES = frozenset(
+    [
+        "-delete",
+        "-exec",
+        "-execdir",
+        "-ok",
+        "-okdir",
+        "-fprint",
+        "-fprint0",
+        "-fprintf",
+        "-fls",
+    ]
+)
+
+
+def abbreviates(word, option):
+    """Whether `word` is the long `option`, or a prefix of it the GNU option
+    parser takes for it, with or without an `=value`."""
+    name = word.split("=", 1)[0]
+    return len(name) > 2 and option.startswith(name)
+
+
+def writes(name, arguments):
+    """Whether a read word's arguments make it write a file.
+
+    `sed -i` in every spelling (`-i.bak`, `-ni`, `--in-place`, `--in`), and
+    the BSD and macOS `-I`, with a single-dash word read wholesale, so
+    `sed -es/a/i/ f` counts too; `sort`'s `-o` and `--output`, and its
+    `--compress-program`, which runs the program it names; `rg --pre`, which
+    runs its command on every file, and `rg --hostname-bin`, which runs its
+    program for the host name; `find`'s `FIND_WRITES`; and
+    `awk -i inplace` or `--include`.
+
+    What sits inside a quoted program is a bound, because the walk cannot
+    read it: a `sed` script's `w` and `W` commands and `w` flag write a file,
+    its `e` command and `e` flag run one, and an `awk` program's
+    `print > "f"`, `print | "cmd"`, `"cmd" | getline` and `system()` write or
+    run. Each is `read`. Reading the program would be a parser for two
+    languages, and the list of what they can do has no end this file could
+    reach."""
+    for word in arguments:
+        short = word.startswith("-") and not word.startswith("--")
+        if name == "sed" and (
+            (short and ("i" in word or "I" in word)) or abbreviates(word, "--in-place")
+        ):
+            return True
+        if name == "sort" and (
+            (short and "o" in word)
+            or abbreviates(word, "--output")
+            or abbreviates(word, "--compress-program")
+        ):
+            return True
+        if name == "rg" and (
+            word in ("--pre", "--hostname-bin")
+            or word.startswith(("--pre=", "--hostname-bin="))
+        ):
+            return True
+        if name == "find" and word in FIND_WRITES:
+            return True
+        if name == "awk" and (word.startswith("-i") or abbreviates(word, "--include")):
+            return True
+    return False
+
+
+def only_reads(command):
+    """Whether every command on the line only reads: the `read` family's rule.
+
+    Each command word is a read word or a neutral one, and at least one is a
+    read word. No read word writes (`writes`), no output is redirected into
+    anything but `/dev/null` or duplicated onto anything but a descriptor
+    (`2>&1` and `>&2` are fine), and nothing on the line is hidden from the
+    walk (`HIDDEN_FROM_THE_WALK`), which a refusal by the tokeniser counts
+    as. So `cd /x && sed -n 1,5p f` and `grep -n x f | head -5` are `read`,
+    and `./bin/deploy --wait | tail -3`, `ls; rm x` and `cat f > g` are not.
+
+    It reads the command as the harness recorded it, heredoc bodies kept,
+    because removing a here-string's `<<<` would leave the walk nothing to
+    refuse. Any `<<` keeps a line out, which is the owner's answer to #642:
+    a script handed to an interpreter gets no family of its own."""
+    if HIDDEN_FROM_THE_WALK.search(command):
+        return False
+    commands, redirect, started, closed, previous = [], None, False, False, ""
+    try:
+        for kind, token in shell_words(command):
+            if redirect is not None:
+                harmless = token == "/dev/null" or (
+                    redirect.endswith(">&") and (token.isdigit() or token == "-")
+                )
+                if not harmless:
+                    return False
+                redirect = None
+            elif kind == "command":
+                commands.append([token])
+                started = True
+            elif kind == "operator":
+                if set(token) & REDIRECTION:
+                    # A redirection before a command's first word keeps that
+                    # word out of command position (`runs_git`'s third
+                    # bound), so what the command runs is never seen:
+                    # `ls; >/dev/null rm -rf x`. Here the bound keeps the
+                    # line out.
+                    if not started or SEPARATOR_THEN_REDIRECTION.match(token):
+                        return False
+                    redirect = token if ">" in token else None
+                else:
+                    started = not (set(token) & SEPARATOR)
+                    closed = token.endswith(")")
+            elif closed and not (token.isdigit() or set(previous) & REDIRECTION):
+                # bash refuses a word after a closing `)`; zsh runs it as the
+                # body of a short form (`if (( x )) rm a`, `for f (a b) rm
+                # $f`). The walk reads it as an argument, so the command in
+                # it is never seen, and the line keeps out. A descriptor
+                # number and a redirection's target are not that word.
+                return False
+            elif commands:
+                commands[-1].append(token)
+            previous = token
+    except ValueError:
+        return False
+    reads = False
+    for word, *arguments in commands:
+        name = word.replace("\\", "/").rsplit("/", 1)[-1]
+        if (name == "[[" and "]]" in arguments[:-1]) or {"{", "}"} & set(arguments):
+            # zsh runs what follows `]]` as the body of a short `if` or
+            # `while` (`if [[ -f a ]] rm a`), a brace group after one, and an
+            # `always` block after a closing `}` (`{ ls } always { rm a }`).
+            # The walk models bash and reads each as arguments, so the
+            # command in it is never seen, and the line keeps out.
+            return False
+        if name in READ_WORDS and not writes(name, arguments):
+            reads = True
+        elif name not in NEUTRAL_WORDS:
+            return False
+    return reads
 
 
 def family(command):
@@ -443,12 +722,20 @@ def family(command):
     removed. A flattened command has no closing line, so its heredoc is cut
     from the operator to the end, as before.
 
-    `git` is judged by `runs_git`, by command word, and the other three by
-    their patterns anywhere on what is left. The order is `FAMILIES`', first
-    match wins."""
-    command = without_heredoc_bodies(command)
+    `git` is judged by `runs_git`, by command word, and `test`, `lint/type`
+    and `build` by their patterns anywhere on what is left. `read` is judged
+    last by `only_reads`, on the command as recorded, heredoc bodies kept,
+    because any heredoc keeps a line out of it (#642). The order is
+    `FAMILIES`', first match wins."""
+    recorded, command = command, without_heredoc_bodies(command)
     for name, pattern in FAMILIES:
-        if runs_git(command) if name == "git" else pattern.search(command):
+        if name == "git":
+            matched = runs_git(command)
+        elif name == "read":
+            matched = only_reads(recorded)
+        else:
+            matched = pattern.search(command)
+        if matched:
             return name
     return "other"
 
@@ -756,8 +1043,8 @@ def analyse(calls, turns, delegated=()):
     nothing on the page saying so — which is what #200 and #202 were, and
     what `plan.md`'s *no existing output changes shape* is protecting.
 
-    **Two rules moved after readings were published, each a measured change
-    and neither a licence.** `span_s`'s moved at #300, from the end of the
+    **Three rules moved after readings were published, each a measured change
+    and none a licence.** `span_s`'s moved at #300, from the end of the
     last call to BEGIN to the end of the last call to END, because the old
     one could return a window shorter than a single call inside it. The
     comment at the arithmetic carries the measurement that says no published
@@ -771,8 +1058,14 @@ def analyse(calls, turns, delegated=()):
     and so did a test run after a closing line. That one DOES move published
     figures -- `by_family`, `unnamed`, and the two repeats figures, which
     keep only `test`, `lint/type` and `build` -- and `report_segments` says
-    so on the page. Both changes are carried
-    in `skills/verify/SKILL.md`, where a person taking a reading meets them.
+    so on the page.
+
+    The family split moved again at #642: a call whose every command only
+    reads is `read`, where it was `other`. That moves `by_family` and
+    `unnamed` and nothing else. `read` is judged after `test`, `lint/type`
+    and `build`, so no call enters or leaves the repeats figures, and
+    `report_segments` says that too. The three changes are carried in
+    `skills/verify/SKILL.md`, where a person taking a reading meets them.
     Every other number here is untouched, `command_s` and `model_s`
     included.
 
@@ -1437,7 +1730,9 @@ def segment_slices(transcript, labels):
 
 def measure_segments(path, calls):
     """One row per spawned segment of this run, read from that segment's own
-    transcript rather than from the parent's columns.
+    transcript rather than from the parent's columns — or, where `path` is a
+    resumed agent's own transcript with nothing beside it, one row per
+    stretch of work in that file (#637, the branch at the end).
 
     **This is the number that is in no other column.** A cycle row's
     `delegated` is the `Agent` call's own tool_use-to-tool_result interval,
@@ -1458,7 +1753,8 @@ def measure_segments(path, calls):
 
     A row's numbers come from `analyse` with no `delegated`, which is the
     PLAIN reading — exactly what a person running this script against that
-    one transcript gets today. That is the point: the mode replaces the hand
+    one transcript gets today, taken over one slice's calls and turns where
+    the coordinator restarted it. That is the point: the mode replaces the hand
     method named in `skills/verify/SKILL.md`, so a row has to be the same
     number that method produced, not a second meter with its own rules.
 
@@ -1502,7 +1798,7 @@ def measure_segments(path, calls):
                 "transcript": os.path.relpath(transcript, beside),
             },
         )
-    return {
+    reading = {
         "tolerance_s": JOIN_TOLERANCE_S,
         "transcripts": len(found),
         "spawns": len(spawns),
@@ -1521,6 +1817,37 @@ def measure_segments(path, calls):
         "unclaimed": unclaimed,
         "rows": rows,
     }
+    # The agent's OWN file (#637). A harness writes every agent's transcript
+    # into its session's flat `subagents/` directory, so a file given here
+    # with nothing beside it is either a lone segment or an agent's own
+    # transcript -- and the path the orchestrator holds is the second, because
+    # that is the path the harness's task output names. Where the coordinator
+    # restarted it, the file is several stretches of work and `segment_slices`
+    # already cuts it; this is the call nothing made for the given file.
+    #
+    # **The trigger is the marker, never the directory.** A marker-less file
+    # keeps the empty branch byte for byte wherever it sits, and a resumed
+    # file copied out of `subagents/` is still cut. The file is read for
+    # markers only when nothing is beside it, so a run's own transcript pays
+    # nothing for this.
+    #
+    # `unnamed` stays 0 and is computed above, before this: it counts WALKED
+    # transcripts, and the given file is not one. Counted here, the §6
+    # reconciliation would print a disagreement for an agent that spawned
+    # nothing. `own_file` is present in this case alone, so every other
+    # reading's dict is what it was.
+    if not found and resume_cuts(path):
+        reading["rows"] = segment_slices(
+            path,
+            {
+                "agent": "",
+                "description": "",
+                "named": False,
+                "transcript": os.path.basename(path),
+            },
+        )
+        reading["own_file"] = True
+    return reading
 
 
 def token_totals(paths):
@@ -2095,6 +2422,12 @@ def report_breaches(segments):
             "segment and still worth\n  seeing, but which rule it answers to "
             "is for that agent's own definition\n  to say."
         )
+    # An agent's own file (#637) was read with no parent in view, so there is
+    # no second count to hold this one against: `unnamed` is 0 by
+    # construction, and printing the pair would call every spawn in the file
+    # a disagreement and send a reader after a child transcript nobody lost.
+    if segments.get("own_file"):
+        return
     print(
         f"\n  {plural(calls, '`Agent` call')} inside a segment, against "
         f"{plural(unnamed, 'segment')} the parent\n  could not name"
@@ -2114,7 +2447,13 @@ def report_breaches(segments):
 
 
 def report_segments(segments, path):
-    """One row per spawned segment, or the count and no table.
+    """One row per spawned segment, one row per stretch of work in a resumed
+    agent's own file, or the count and no table.
+
+    **The second shape is an agent's own transcript given on its own**
+    (#637): `measure_segments` sets `own_file`, nothing was walked or joined,
+    and the header says so in place of the join counts, which would be three
+    zeroes about a join nobody attempted.
 
     **This is the reading the hand method produced one transcript at a
     time.** `skills/verify/SKILL.md` §*Measure the segment* put a
@@ -2126,7 +2465,8 @@ def report_segments(segments, path):
     **A segment is one agent's own stretch of a chain, and a spawn cycle is
     not one.** `--spawns` slices THIS transcript into bands over the
     orchestrator's own minutes; this opens the OTHER transcripts, one row
-    each. The two modes answer different questions and sit beside each other.
+    each, or reads the one agent's file it was given a stretch at a time. The
+    two modes answer different questions and sit beside each other.
 
     The refusal is `report_spawns`' and it is here for the same reason: a
     harness that moves `<session-id>/subagents/`, or stops opening a segment
@@ -2154,18 +2494,34 @@ def report_segments(segments, path):
             "stops opening a segment at its spawn's result."
         )
         return
+    if segments.get("own_file"):
+        # An agent's own file (#637): nothing was walked and nothing joined,
+        # so the join counts above the table would be three zeroes about a
+        # join nobody attempted. The header says what the rows are instead.
+        print(
+            f"{path}: an agent's own transcript, cut at "
+            f"{plural(len(resume_cuts(path)), 'coordinator message')} into "
+            f"{plural(len(rows), 'slice')}"
+        )
+        agent = (
+            "this file's name. No spawn was joined: the transcript that\n"
+            "              spawned this agent is not the one given, so nothing "
+            "here can\n              name it. Given the run's own transcript, "
+            "the same slices\n              carry its name"
+        )
+    else:
+        print(
+            f"{plural(segments['transcripts'], 'segment transcript')} beside "
+            f"this one, {plural(segments['spawns'], 'spawn')} in it, joined "
+            f"within {segments['tolerance_s']:.1f}s"
+        )
+        print(
+            f"  {plural(segments['unnamed'], 'segment')} named by nobody, and "
+            f"{plural(segments['unclaimed'], 'spawn')} that claimed none"
+        )
+        agent = "the `subagent_type` of the spawn whose result this segment opened at"
     print(
-        f"{plural(segments['transcripts'], 'segment transcript')} beside this "
-        f"one, {plural(segments['spawns'], 'spawn')} in it, joined within "
-        f"{segments['tolerance_s']:.1f}s"
-    )
-    print(
-        f"  {plural(segments['unnamed'], 'segment')} named by nobody, and "
-        f"{plural(segments['unclaimed'], 'spawn')} that claimed none"
-    )
-    print(
-        "\n  agent       the `subagent_type` of the spawn whose result this "
-        "segment opened at\n  span        this segment's OWN wall clock — the "
+        f"\n  agent       {agent}\n  span        this segment's OWN wall clock — the "
         "number in no column of any\n              `--spawns` row, because "
         "that mode's `delegated` is the interval\n              until the spawn "
         "was ACCEPTED\n  tokens      output + cache write + cache read, over "
@@ -2286,6 +2642,18 @@ def report_segments(segments, path):
         "after a `cd`, on a line of its own or after\n  a heredoc was charged "
         "to `other`, and so was a test run after a heredoc. The\n  repeats "
         "lines filter by family and moved with them."
+    )
+    # #642 moved it a third time: a call that only read a file or listed a
+    # directory was `other`, and it is `read`. `read` is judged after the
+    # three families the repeats lines keep, so no call enters or leaves them,
+    # and the line says so, which is what a reader holding the #377 line
+    # above would otherwise assume moved again. It names the issue and not
+    # the release, for the same reason as the line above.
+    print(
+        "\n  Family rows are comparable only with readings taken on a release "
+        "that carries\n  #642 as well: before it, a call that only read a file "
+        "or listed a directory was\n  charged to `other`, and there was no "
+        "`read` row. The repeats lines did not\n  move."
     )
 
 
@@ -2525,7 +2893,9 @@ def emit(args, render, path=None):
     line never enters the buffer. `report_segments` and `report_spawns` print
     the path themselves, on the empty branch that fires whenever the named
     transcript has no subagents beside it — which is every segment measured on
-    its own, the case the documented invocation is for. This is that same rule
+    its own that the coordinator never restarted, the case the documented
+    invocation is for — and `report_segments` prints it again as the header of
+    a resumed agent's own file (#637). This is that same rule
     at the seam all three reports pass through: the captured body carries the
     basename, the printed report is untouched.
 
@@ -2536,8 +2906,8 @@ def emit(args, render, path=None):
     ONE path the reading was taken over. A future report line printing some
     other absolute path would not be covered, and today none does — a segment
     row's transcript is stored by `measure_segments` as `os.path.relpath`
-    against the file it was measured beside, so every row label is already
-    relative.
+    against the file it was measured beside, or as its basename where it is
+    the agent's own file, so every row label is already relative.
     """
     if not args.post:
         render()
@@ -2643,7 +3013,8 @@ def main():
             ),
             path,
         )
-    # The other transcripts of this run, one row each. Gated the way `spawns`
+    # The other transcripts of this run, one row each -- or a resumed agent's
+    # own file, one row per stretch of work (#637). Gated the way `spawns`
     # is — behind its own flag, and in `--json` regardless, so a
     # machine-readable reading is never missing it.
     #
@@ -2682,7 +3053,8 @@ def main():
     # tokens, and exiting there printed neither — while a segment that read
     # and thought is exactly what the run-level table's per-kind token row is
     # summed over.
-    tokens = token_totals([path, *subagent_transcripts(path)])
+    beside = subagent_transcripts(path)
+    tokens = token_totals([path, *beside])
     if timings is None and not tokens["turns"]:
         sys.exit("no tool calls in this transcript")
     data = {
@@ -2694,9 +3066,36 @@ def main():
     if args.json:
         print(json.dumps(data, indent=2))
         return 0
+    # #637, the ticket's option 3. The plain reading of a resumed agent's own
+    # file is a span covering every wait between its stretches of work, and
+    # that span is the number that gets quoted -- #601's fix passes posted
+    # exactly it. `analyse`'s docstring forbids moving any number here, so
+    # the reading keeps every line and gains one, before the span, pointing
+    # at the mode that splits the file. The condition is `measure_segments`'
+    # own-file trigger NARROWED to files whose calls those cuts put in two
+    # stretches or more, and the file is read for markers only when nothing
+    # is beside it.
+    #
+    # The line says the span covers a wait between stretches of work, so it
+    # needs two stretches. A marker does not guarantee them: a coordinator
+    # message after the agent's last call, or before its first, leaves one
+    # window with calls, the span covers no wait, and `--segments` prints one
+    # slice of the same figure (round 1's 🟡 1). So every file that gains the
+    # line is one `--segments` cuts into two rows or more, and some files the
+    # mode takes as an own file print no line here.
+    cuts = [] if beside else resume_cuts(path)
+    stretches = sum(1 for w in in_windows(cuts, calls, lambda c: c["start"]) if w)
+    restarted = len(cuts) if stretches > 1 else 0
 
     def render():
         if timings:
+            if restarted:
+                print(
+                    f"{plural(restarted, 'coordinator message')} in this "
+                    "transcript, so the span below covers every\nstretch of "
+                    "work and the waits between them — `--segments` prints one "
+                    "row\nper stretch\n"
+                )
             report(data)
         else:
             print(

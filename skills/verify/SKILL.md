@@ -163,8 +163,12 @@ they are the two to name rather than some new mark invented for it.
   covers a tree nobody is still editing — which is why *nothing edits between
   the broad seal and the PR* is a rule about that one seal and about no other.
 - **Form.** Every other seal is text. The sealer's is the only one drawn, and
-  `broad-gate` prints the disc on success alone, so seeing the drawing means
-  the last seal was earned.
+  only over a run that earned it: `broad-gate` draws the stamp, or writes the
+  values it is drawn from, when every check passed and the cell was written,
+  and on no other path. It draws on a person's terminal itself; anywhere
+  else the `Stop` hook draws those values at the end of the turn of the
+  session that spawned the sealer. So seeing the drawing means the last seal
+  was earned.
 
 **A bare "the seal" is ambiguous the moment more than one exists, so every
 reference to an INSTANCE names whose** — the smith's seal, the sealer's seal,
@@ -602,7 +606,12 @@ finished, not as a follow-up someone might do later:
    neither: read whole, a segment that worked for thirty-seven seconds
    reports a span over two hours. The cut is the coordinator's own message
    row. Where a file has an idle gap and no such row, the report prints one
-   row and names the gap rather than leaving it inside a span.
+   row and names the gap rather than leaving it inside a span. The split is
+   the same given the agent's own file: `--segments <agent-*.jsonl>` prints
+   that file's slices, named by the file, because the spawn that would name
+   them is in the run's transcript and not in view. That is the path a
+   harness's task output hands the orchestrator, so it is the file a session
+   holding a fix pass's result already has.
 
    **A §6 line means an agent spawned another agent**, which
    `skills/agent-contract/SKILL.md` §6 withholds from every agent whatever
@@ -617,11 +626,18 @@ finished, not as a follow-up someone might do later:
    it joined within, and how many went unmatched on each side — even when
    they agree. A join that silently matched nothing reads exactly like a run
    that spawned nothing, which is why the numbers are there to be seen
-   holding.
+   holding. Given a resumed agent's own file, nothing is walked or joined,
+   and a header naming the file and its coordinator messages stands in their
+   place.
 
    **One segment measured on its own is still `session_cost.py
-   <transcript>`** with no mode flag. That plain reading is unchanged, and
-   every row of the per-segment table is that same reading of another file.
+   <transcript>`** with no mode flag, unless the coordinator restarted it.
+   The plain reading keeps its numbers, and for a file those messages cut
+   into two stretches of work or more it adds one line saying how many
+   coordinator messages the file holds: its span then
+   covers every stretch of work and the waits between them, and `--segments
+   <transcript>` is the reading that splits it. A row of the per-segment
+   table is that plain reading of another file, or of one stretch of one.
 
    **A segment is one agent's own stretch of a chain, and a spawn cycle is
    not one.** Every segment has a transcript of its own: a smith's, a
@@ -632,7 +648,8 @@ finished, not as a follow-up someone might do later:
    later run can be read against while the most expensive one had none. The
    two modes follow the distinction: `--spawns` slices this transcript into
    those bands, and `--segments` opens the transcripts of the agents this run
-   spawned, one row each.
+   spawned, one row each, or reads one agent's own resumed file one stretch
+   of work at a time.
 
    **The orchestrator's own boundary is not a user line — `session_cost.py
    --spawns` is what takes it.** Every other segment is measured whole,
@@ -703,6 +720,27 @@ finished, not as a follow-up someone might do later:
    two repeats figures, which keep only `test`, `lint/type` and `build`, may
    read low. Span, command, model, idle, tokens, tools per turn and the
    `slowest` list do not move.
+
+   **A call that only reads counts as `read`, and that is worth knowing
+   because it used to count as `other` (#642).** The release that carries
+   #642 is the one `CHANGELOG.md` lists it under, and `--segments` prints
+   the same warning on the page. A call is `read` when every command on it
+   is a read word (`sed`, `grep`, `rg`, `cat`, `head`, `tail`, `ls`, `find`,
+   `wc`, `awk`, `nl`, `sort`, `diff`) or a word that touches no file (for
+   example `cd`, `echo`, `test`, `[[` and the words that close a loop or an
+   `if`; `session_cost.py`'s `NEUTRAL_WORDS` is the whole list), at least
+   one reads, nothing writes and nothing is hidden: `sed -i`, `sort -o`,
+   `find -delete`, a redirection into a file, a redirection before a
+   command's first word, a heredoc or a `$( … )` keeps it `other`, and so
+   does any command not on either list. What a `sed` or `awk` program
+   writes or runs from inside its quotes is not seen, and such a call is
+   `read`. It is judged after the other
+   four, so `grep -rn pytest` stays `test` and `ls && git status` stays
+   `git`. What a reader comparing readings across that change must know: in
+   a reading taken before it there is no `read` row, `other` holds those
+   calls, and the `other` note may fire where it would not now and name a
+   read command. Every other row, the two repeats figures, span, command,
+   model, idle, tokens, tools per turn and the `slowest` list do not move.
 
    **Where the report gives no between-the-rows figure and prints the rows'
    spans against the run's own, a call outlived the cut its row ends at.**

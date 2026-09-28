@@ -83,7 +83,7 @@ carries a `gate` row — `tree <version>` means the branch was measured by the
 gate it ships, `plugin <version>` that the installed copy measured it. Quote
 the gate line in your report the way you quote the moved-base line: it is
 not a warning and not a refusal, and it is the one place a reader learns
-which gate drew the stamp.
+which gate measured the tree and wrote the stamp's values.
 
 **On a release pull request the gate may leave two arms out, and it says so
 on one line.** Where the base names `main` and the repository's
@@ -101,9 +101,11 @@ freshness is a question somebody can ask.
 
 Three outcomes, and they are not two:
 
-- **Exit 0, sealed** — every check passed and the cell was written. The stamp
-  printed, and its panel carries `base` (the commit every check was asked
-  about) beside `from` (the ref that commit came from).
+- **Exit 0, sealed** — every check passed and the cell was written. The gate
+  printed one line beginning `SEALED`, naming the tree, the base commit every
+  check was asked about, and the file the stamp's values were written to. The
+  stamp itself, whose panel carries `base` beside `from` (the ref that commit
+  came from), is drawn later and not by you.
 - **Exit 1, not sealed** — a check failed. The gate printed which, its exit
   code, its first lines, and, per failing test file, `new` or `failing on
   base too`. No stamp is drawn, on purpose: a picture saying *sealed* beside
@@ -147,8 +149,21 @@ yourself would seal your own choice, and that is #401 — a session that met
 this refusal after the rounds had settled, ran four candidates, wrote the row
 and mentioned it afterwards.
 
-Your stdout is a pipe, so the drawing arrives as letters rather than blocks.
-That is the intended form there; pass it through as it came. Where you
+**The gate draws nothing in a sealer, and neither do you** (#400). Your
+stdout is a pipe, and a drawing made there reached the person folded behind
+`ctrl+o`, so the gate writes the stamp's values to a file under the git
+common dir and says so on the `SEALED` line. A hook in the session that
+spawned you draws that file once, after that session's text at the end of
+its turn. Do not draw it yourself, neither with `seal-stamp` nor from the
+file, because a drawing is taken once and yours would be the one that was
+never seen. Pass the `SEALED` line on as it came, whole. Wherever it names a
+values file it names `seal-stamp --from <path>` too, because the hook draws
+nothing and says nothing where it cannot — a `python3` under 3.12, a
+session whose working directory is outside this clone, a plugin older than
+the hook — and that command is how the person draws a stamp that did not
+appear. Where it says no Claude Code session was found, quote it as it
+stands: that line is where a reader learns the stamp will not appear by
+itself. Where you
 redirect the gate's output to a file to read it, the file is
 `<scratchpad>/<work-item-id>/broad-gate.log`, its directory made first
 (`mkdir -p`, since nothing guarantees it exists on a fresh session) — a
