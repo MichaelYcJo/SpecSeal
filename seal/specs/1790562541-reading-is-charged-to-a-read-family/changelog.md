@@ -13,14 +13,20 @@
   named a `sed -n` or a `cat`. A call is now `read` when every command on
   the line is a read word (`sed`, `grep`, `rg`, `cat`, `head`, `tail`, `ls`,
   `find`, `wc`, `awk`, `nl`, `sort`, `diff`) or a word that touches no file
-  (`cd`, `echo`, `printf`, `test`, `[`, `read`, the loop words), and at
-  least one is a read word. A line that writes is never `read`: a
-  redirection into anything but `/dev/null`, `sed -i` in any spelling,
-  `sort -o`, `find`'s `-delete` and `-exec` actions, and `awk -i inplace`
-  keep it `other`. So does anything the walk cannot see: a heredoc, a
-  here-string, a `$( … )`, a backtick, a process substitution, a `case` and
-  a line the tokeniser refuses. A script handed to `python3 -` by heredoc
-  gets no family, by the owner's answer. `read` is judged after the four
+  (for example `cd`, `echo`, `printf`, `test`, `[[`, `read`, and the words
+  that close a loop or an `if`), and at least one is a read word. A line
+  that writes or runs something else is never `read`: a redirection into
+  anything but `/dev/null`, `sed -i` and `sed -I` in any spelling,
+  `sort -o` and `sort --compress-program`, `rg --pre`, `find`'s `-delete`
+  and `-exec` actions, and `awk -i inplace` keep it `other`. So does
+  anything the walk cannot see: a heredoc, a here-string, a `$( … )`, a
+  backtick, a process substitution, bash 5.3's `${ …; }`, a `case`, a
+  redirection before a command's first word (`ls; >/dev/null rm x`), zsh's
+  short `if [[ … ]] cmd` and `always` blocks, and a line the tokeniser
+  refuses. What a `sed` or `awk` program writes or runs from inside its
+  quotes (`sed 's/x/y/w out'`, `awk '{system("…")}'`) is not seen, and
+  such a call is `read`. A script handed to `python3 -` by heredoc gets no
+  family, by the owner's answer. `read` is judged after the four
   families before it, so `grep -rn pytest docs/` stays `test` and
   `ls && git status` stays `git`.
 - **Readings published before the release carrying #642 are affected in

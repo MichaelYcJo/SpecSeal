@@ -722,11 +722,15 @@ finished, not as a follow-up someone might do later:
    #642 is the one `CHANGELOG.md` lists it under, and `--segments` prints
    the same warning on the page. A call is `read` when every command on it
    is a read word (`sed`, `grep`, `rg`, `cat`, `head`, `tail`, `ls`, `find`,
-   `wc`, `awk`, `nl`, `sort`, `diff`) or a word that touches no file (`cd`,
-   `echo`, `test` and the loop words), at least one reads, nothing writes
-   and nothing is hidden: `sed -i`, `sort -o`, `find -delete`, a
-   redirection into a file, a heredoc or a `$( … )` keeps it `other`, and
-   so does any command not on either list. It is judged after the other
+   `wc`, `awk`, `nl`, `sort`, `diff`) or a word that touches no file (for
+   example `cd`, `echo`, `test`, `[[` and the words that close a loop or an
+   `if`; `session_cost.py`'s `NEUTRAL_WORDS` is the whole list), at least
+   one reads, nothing writes and nothing is hidden: `sed -i`, `sort -o`,
+   `find -delete`, a redirection into a file, a redirection before a
+   command's first word, a heredoc or a `$( … )` keeps it `other`, and so
+   does any command not on either list. What a `sed` or `awk` program
+   writes or runs from inside its quotes is not seen, and such a call is
+   `read`. It is judged after the other
    four, so `grep -rn pytest` stays `test` and `ls && git status` stays
    `git`. What a reader comparing readings across that change must know: in
    a reading taken before it there is no `read` row, `other` holds those

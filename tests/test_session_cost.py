@@ -1864,6 +1864,12 @@ def test_a_call_that_only_reads_is_charged_to_read():
         "find . -name '*.py' | sort | nl",
         "diff a b; awk '{print $1}' f",
         "tail -n 20 log  # the last lines",
+        "(cd /x && ls) 2>/dev/null",
+        "{ ls; } 2>/dev/null",
+        "(ls)>/dev/null",
+        "ls &>/dev/null",
+        "cat ${f:-x}",
+        "[[ -f x ]] && cat x",
     ):
         assert module.family(command) == "read", command
 
@@ -1911,6 +1917,11 @@ def test_a_write_is_never_read():
         "find . -fls g",
         "awk -i inplace '{print}' f",
         "awk --include=inplace '{print}' f",
+        "sed -I '' s/a/b/ f",
+        "sed -I.bak s/a/b/ f",
+        "rg --pre ./x.sh pat",
+        "rg --pre=sh pat",
+        "sort --compress-program=sh f",
         "cat > f <<'EOF'\nx\nEOF",
     ):
         assert module.family(command) != "read", command
@@ -1959,6 +1970,19 @@ def test_what_the_walk_cannot_see_is_not_read():
         "cat 'x",
         "case $x in a) rm f;; esac; ls",
         "<f cat",
+        "ls; >/dev/null rm -rf x",
+        "ls && >/dev/null rm -rf x",
+        "ls;>/dev/null rm -rf x",
+        "ls&&>/dev/null rm x",
+        "</dev/null rm x; ls",
+        "(>/dev/null rm x); ls",
+        "ls; >&2 rm x",
+        "cat f\n</dev/null python3 build.py",
+        "if [[ -f a ]] rm a; ls",
+        "if [[ -f a ]] { rm a }; ls",
+        "{ ls; } always { rm a; }",
+        "{ ls } always { rm b }",
+        "cat ${ rm x; }",
     ):
         assert module.family(command) == "other", command
 

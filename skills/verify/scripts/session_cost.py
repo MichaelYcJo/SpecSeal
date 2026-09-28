@@ -480,12 +480,16 @@ def runs_git(command):
       `without_comments` removed its opener can: `echo $(ls)#'⏎git push'`
       is `git`.
 
-    `only_reads` walks the same words and meets the same four bounds, each
+    `only_reads` walks the same words and meets the same bounds, each
     turned toward `other` because a write charged to reading is the worse
     error (#642): a substitution keeps the line out rather than being read
     past, a wrapper is not a neutral word, a `case` is not one either
-    because its arms' commands are never in command position, and a refused
-    line is `other` with no pattern to fall back to."""
+    because its arms' commands are never in command position, a leading
+    redirection keeps the line out because the command after it is never
+    seen, and a refused line is `other` with no pattern to fall back to.
+    The harness runs the user's shell, zsh on the machine #642 measured,
+    and zsh's short `if [[ … ]] cmd` and `always` blocks hide a command
+    the same way, so `only_reads` keeps those out as well."""
     try:
         for word in command_words(command):
             if word.replace("\\", "/").rsplit("/", 1)[-1] in ("git", "gh"):
@@ -496,11 +500,13 @@ def runs_git(command):
 
 
 # The words that make a line `read` (#642), by basename. A word is admitted
-# when its only output is standard output, or when the option that makes it
-# write a file is one `writes` refuses. These thirteen are the list #642
-# measured, so its numbers can be set beside the ticket's; the next word is
-# added by that criterion, with a count behind it, and `tee`, which writes
-# the files it is given, never can be.
+# when its only output is standard output, or when every option that makes
+# it write a file or run a program is one `writes` refuses. `sed` and `awk`
+# are admitted under a stated bound: their programs can write and run, the
+# walk cannot read a quoted program, and `writes` says which commands do.
+# These thirteen are the list #642 measured, so its numbers can be set beside
+# the ticket's; the next word is added by that criterion, with a count behind
+# it, and `tee`, which writes the files it is given, never can be.
 READ_WORDS = frozenset(
     [
         "sed",
@@ -547,10 +553,17 @@ NEUTRAL_WORDS = frozenset(
 )
 
 # What the walk cannot see into: a heredoc or here-string operator, a command
-# or arithmetic substitution, a backtick and a process substitution. Matched
-# on the text anywhere, a quoted or commented one included, because the side
-# that errs is `other`.
-HIDDEN_FROM_THE_WALK = re.compile(r"<<|\$\(|`|<\(|>\(")
+# or arithmetic substitution, a backtick, a process substitution, and bash
+# 5.3's `${ … }` and `${| … }`, which run their commands in the current
+# shell. Matched on the text anywhere, a quoted or commented one included,
+# because the side that errs is `other`.
+HIDDEN_FROM_THE_WALK = re.compile(r"<<|\$\(|`|<\(|>\(|\$\{[\s|]")
+
+# An operator token that ends one command and opens a redirection before the
+# next one's first word, glued by the tokeniser: `;>`, `&&>`, `|<`, `(>`,
+# `⏎<`. `&>` alone is not one, because bash reads it as a redirection of its
+# own.
+SEPARATOR_THEN_REDIRECTION = re.compile(r"(?:[;|\n(]|&&)+&?[<>]")
 
 # `find`'s actions that delete, run a command or write a file.
 FIND_WRITES = frozenset(
@@ -578,21 +591,33 @@ def abbreviates(word, option):
 def writes(name, arguments):
     """Whether a read word's arguments make it write a file.
 
-    `sed -i` in every spelling (`-i.bak`, `-ni`, `--in-place`, `--in`), with
-    a single-dash word read wholesale, so `sed -es/a/i/ f` counts too; `sort`'s
-    `-o` and `--output`; `find`'s `FIND_WRITES`; and `awk -i inplace` or
-    `--include`. Two writes are bounds, because they sit inside a quoted
-    program the walk cannot read: `sed`'s `w` command and an `awk` program's
-    `print > "f"`."""
+    `sed -i` in every spelling (`-i.bak`, `-ni`, `--in-place`, `--in`), and
+    the BSD and macOS `-I`, with a single-dash word read wholesale, so
+    `sed -es/a/i/ f` counts too; `sort`'s `-o` and `--output`, and its
+    `--compress-program`, which runs the program it names; `rg --pre`, which
+    runs its command on every file; `find`'s `FIND_WRITES`; and
+    `awk -i inplace` or `--include`.
+
+    What sits inside a quoted program is a bound, because the walk cannot
+    read it: a `sed` script's `w` and `W` commands and `w` flag write a file,
+    its `e` command and `e` flag run one, and an `awk` program's
+    `print > "f"`, `print | "cmd"`, `"cmd" | getline` and `system()` write or
+    run. Each is `read`. Reading the program would be a parser for two
+    languages, and the list of what they can do has no end this file could
+    reach."""
     for word in arguments:
         short = word.startswith("-") and not word.startswith("--")
         if name == "sed" and (
-            (short and "i" in word) or abbreviates(word, "--in-place")
+            (short and ("i" in word or "I" in word)) or abbreviates(word, "--in-place")
         ):
             return True
         if name == "sort" and (
-            (short and "o" in word) or abbreviates(word, "--output")
+            (short and "o" in word)
+            or abbreviates(word, "--output")
+            or abbreviates(word, "--compress-program")
         ):
+            return True
+        if name == "rg" and (word == "--pre" or word.startswith("--pre=")):
             return True
         if name == "find" and word in FIND_WRITES:
             return True
@@ -618,7 +643,7 @@ def only_reads(command):
     a script handed to an interpreter gets no family of its own."""
     if HIDDEN_FROM_THE_WALK.search(command):
         return False
-    commands, redirect = [], None
+    commands, redirect, started = [], None, False
     try:
         for kind, token in shell_words(command):
             if redirect is not None:
@@ -630,8 +655,19 @@ def only_reads(command):
                 redirect = None
             elif kind == "command":
                 commands.append([token])
+                started = True
             elif kind == "operator":
-                redirect = token if ">" in token else None
+                if set(token) & REDIRECTION:
+                    # A redirection before a command's first word keeps that
+                    # word out of command position (`runs_git`'s third
+                    # bound), so what the command runs is never seen:
+                    # `ls; >/dev/null rm -rf x`. Here the bound keeps the
+                    # line out.
+                    if not started or SEPARATOR_THEN_REDIRECTION.match(token):
+                        return False
+                    redirect = token if ">" in token else None
+                else:
+                    started = not (set(token) & SEPARATOR)
             elif commands:
                 commands[-1].append(token)
     except ValueError:
@@ -639,6 +675,13 @@ def only_reads(command):
     reads = False
     for word, *arguments in commands:
         name = word.replace("\\", "/").rsplit("/", 1)[-1]
+        if (name == "[[" and "]]" in arguments[:-1]) or {"{", "}"} & set(arguments):
+            # zsh runs what follows `]]` as the body of a short `if` or
+            # `while` (`if [[ -f a ]] rm a`), a brace group after one, and an
+            # `always` block after a closing `}` (`{ ls } always { rm a }`).
+            # The walk models bash and reads each as arguments, so the
+            # command in it is never seen, and the line keeps out.
+            return False
         if name in READ_WORDS and not writes(name, arguments):
             reads = True
         elif name not in NEUTRAL_WORDS:
