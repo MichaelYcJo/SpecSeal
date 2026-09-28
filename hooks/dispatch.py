@@ -21,6 +21,13 @@ a gate that was overruled still has something the user needs to read.
 Failure is isolated and open: a gate that raises is skipped, and the others
 still decide. A crashing gate must not block a tool call, and must not take
 its neighbours down with it.
+
+And it is said (#28). A skipped gate used to read exactly like an allow, with
+nobody told. Now the skip writes a record under the git common dir, once per
+gate per session, and the `stop` group says every pending record at the end
+of the main session's turn as a `systemMessage`, placed before the sealer's
+stamp. Nothing the report adds decides anything, and a group whose gates all
+ran prints what it printed before.
 """
 
 import importlib.util
@@ -124,21 +131,14 @@ def run_gate(filename, payload):
         # Left uncaught, one module body calling `sys.exit` ended the whole
         # group, and the gates after it never decided.
         FAILED.append((filename, phase, exc))
-        # RIDER: this catch is deliberate -- a crashing gate must not block a
-        # tool call or take its neighbours down. What it costs is that an
-        # IMPORT failure reads exactly like an allow. Measured with
-        # `hooks/cmdline.py` deliberately broken: `pre-bash` and `pre-agent`
-        # both exit 0 with no output, and the worktree guard is the only gate
-        # in `pre-agent` that decides anything, so the Agent `isolation:
-        # "worktree"` path goes undefended with nobody told. The mark gate
-        # beside it does not import `cmdline.py` and prints nothing either
-        # way, so it neither widens nor narrows that silence (measured: with
-        # `cmdline.py` broken the group prints nothing and the mark is still
-        # written). Moving the shared reading into `cmdline.py` removed the
-        # likeliest trigger, not the silence. Whatever replaces this has to
-        # keep the isolation property `tests/test_dispatch.py` and
-        # `tests/test_the_implementer_is_recorded.py` assert.
-        # Verified 2026-09-02 against run_gate@fec67305.
+        # Deliberate, and still open: a crashing gate must not block a tool
+        # call or take its neighbours down, so the call goes ahead exactly as
+        # if the gate had printed nothing. What changed with #28 is that the
+        # failure no longer reads like an allow to NOBODY: `main()` writes it
+        # down and the `stop` group says it once per session. The isolation
+        # property `tests/test_dispatch.py` and
+        # `tests/test_the_implementer_is_recorded.py` assert is unchanged, and
+        # both cases pass unedited.
         return ""
     finally:
         sys.argv, sys.stdin = argv, stdin

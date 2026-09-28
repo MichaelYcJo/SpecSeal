@@ -40,10 +40,10 @@ a clean ledger stays silent and a broken one prints a line that is true
 anyway.
 
 This arm runs under `hooks/dispatch.py`'s crash isolation, where a raising
-gate is skipped silently (the rider at `run_gate` records what that silence
-costs a GATE). For this arm the cost does not bite: it never blocks, so a
-crash loses one reminder and defends nothing less — the same line prints
-again at the next commit, and CI still says it at the pull request.
+gate is skipped and the skip is said once per session at the end of the turn
+(#28). For this arm the skip costs little: it never blocks, so a crash loses
+one reminder and defends nothing less — the same line prints again at the
+next commit, and CI still says it at the pull request.
 
 What a change to a gate must carry (`CONTRIBUTING.md`), answered for an
 advisory: failure direction — wrong-silent misses one reminder that CI
