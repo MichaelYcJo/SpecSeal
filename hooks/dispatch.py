@@ -303,8 +303,12 @@ def record(group, failures, body):
         seen = [os.path.join(directory, name + end) for end in (PENDING, REPORTED)]
         if name and not any(os.path.exists(p) for p in seen):
             fresh.append((name, phase, exc))
-    # Asked only for a gate not yet written down, so a gate that stays broken
-    # costs one `stat` pair per call after its first.
+    # Asked only for a gate not yet written down. In an opted-in main
+    # checkout a gate that stays broken then costs one `stat` pair per call
+    # after its first. A linked worktree also pays `common_dir`'s `git
+    # rev-parse` on every call where a gate fails, and a repository not opted
+    # in, where nothing is ever written, loads `optin.py` once more on every
+    # such call (measured in round 1: its probe P7).
     if not fresh or not opted_in(top, common):
         return
     for name, phase, exc in fresh:
