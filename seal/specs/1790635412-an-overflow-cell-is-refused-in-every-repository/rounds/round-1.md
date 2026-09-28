@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #659 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `6bf504c3e9181791c45598b64a227dd0d55ff4ad..0659e395510378c72c7c63485bc56223456c3797`, 2 commits |
 | Contract changes | none |
 | New units | GFM_LINE_RE (depth 1); gfm_lines (depth 1); NOT_A_LINE_END (depth 1); test_a_character_gfm_does_not_end_a_line_at_does_not_cut_a_row (depth 1); test_a_character_gfm_does_not_end_a_line_at_does_not_open_a_fence (depth 1); test_an_old_coordinate_after_such_a_character_is_still_offered (depth 1); test_migrate_reads_the_fence_where_gfm_reads_it (depth 1); test_a_record_line_after_such_a_fence_run_is_read (depth 1) |
