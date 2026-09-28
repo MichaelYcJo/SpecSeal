@@ -104,7 +104,7 @@ cases exited 1:
 | #81: `SKILL.md` old sentence restored | both #81 cases |
 | #81: template old comment restored | both #81 cases, `test_the_round_sections_comment_names_81_and_the_measured_numbers` |
 | #81: `SKILL.md` yield phrase deleted | the #81 stands case |
-| #81: template `five defects` deleted | the #81 stands case, the `names_81` case |
+| #81: template `five defects` deleted | the #81 stands case, `test_the_round_sections_comment_names_81_and_the_measured_numbers` |
 
 **Narrow runs, executed, exit read directly:**
 

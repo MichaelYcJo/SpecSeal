@@ -129,13 +129,20 @@ executed answer, and it wins if the two disagree.
 
 | Row (file, first cell) | Anchor that drifts | Edited by | Claim still true after the edit? |
 |---|---|---|---|
-| `seal/releases/0.9.3.md`, "The verifying round treats what `New units` names as a finding surface, not a verification surface" | `skills/code-review/orchestration.md#"## Orchestrator: the run ends with a verifying round"@7a93e305` | C1 | yes. The `New units` paragraph is not touched. The row's second anchor, `agents/warden.md#"## Role">"judge them as code — …"`, is narrowed to a sentence C4 does not edit, so it should not drift |
-| `seal/releases/0.9.3.md`, "The seam is the one the file's own headings drew, and it is contiguous" | `skills/code-review/orchestration.md#"# code-review — the orchestrator's half"@447e8452` (H1, the whole file) | C1 | yes. No heading moves |
-| `seal/releases/0.11.4.md`, "The fix pass's Verdict cell holds the word alone …" | `docs/review-chain-spec.md#"### The last round verifies, and what it verifies is a diff"@963da078` | C3 | yes. The *Two cells, not one* paragraph is not touched |
-| `seal/releases/0.4.0.md`, "The bars are written beside the meter they interpret, one per segment kind … a verifying segment exempt" | `docs/review-handoff-protocol.md#"### After the run — the per-segment bars"@3c5a02e8` | C2 | yes. `exempt` stays |
-| `seal/releases/0.8.2.md`, "R4 · `docs/review-handoff-protocol.md` §*After the run — the per-segment bars* says the bars judge a segment against its kind …" | same anchor, `@3c5a02e8` | C2 | yes |
-| `seal/releases/0.15.0.md`, "A11 · the eight documents that describe the `Broad gate` cell …" | `agents/warden.md#"## Role"@466a9805` | C4 | yes. The `Broad gate` sentence is not touched |
-| `seal/releases/0.15.1.md`, "D1 · a finding whose coordinates sit at two depths …" | `agents/warden.md#"## Role"@466a9805` | C4 | yes. The one-depth-per-finding paragraph is not touched |
+| `seal/releases/0.9.3.md`, "The verifying round treats what `New units` names as a finding surface, not a verification surface" | `skills/code-review/orchestration.md#"## Orchestrator: the run ends with a verifying round"` | C1 | yes. The `New units` paragraph is not touched. The row's second anchor, `agents/warden.md#"## Role">"judge them as code — …"`, is narrowed to a sentence C4 does not edit, so it should not drift |
+| `seal/releases/0.9.3.md`, "The seam is the one the file's own headings drew, and it is contiguous" | `skills/code-review/orchestration.md#"# code-review — the orchestrator's half"` (H1, the whole file) | C1 | yes. No heading moves |
+| `seal/releases/0.11.4.md`, "The fix pass's Verdict cell holds the word alone …" | `docs/review-chain-spec.md#"### The last round verifies, and what it verifies is a diff"` | C3 | yes. The *Two cells, not one* paragraph is not touched |
+| `seal/releases/0.4.0.md`, "The bars are written beside the meter they interpret, one per segment kind … a verifying segment exempt" | `docs/review-handoff-protocol.md#"### After the run — the per-segment bars"` | C2 | yes. `exempt` stays |
+| `seal/releases/0.8.2.md`, "R4 · `docs/review-handoff-protocol.md` §*After the run — the per-segment bars* says the bars judge a segment against its kind …" | same anchor | C2 | yes |
+| `seal/releases/0.15.0.md`, "A11 · the eight documents that describe the `Broad gate` cell …" | `agents/warden.md#"## Role"` | C4 | yes. The `Broad gate` sentence is not touched |
+| `seal/releases/0.15.1.md`, "D1 · a finding whose coordinates sit at two depths …" | `agents/warden.md#"## Role"` | C4 | yes. The one-depth-per-finding paragraph is not touched |
+
+The anchors above carried the hashes they held at `97a30dc6` when this
+table was framed. Phase 2 took the hashes out, because `evidence-check`
+reads a stamp in a live work item's records as a claim about the tree now,
+and each of these was exactly the unit this branch edits. The executed list,
+with twelve drifted anchors in eleven rows where this table has seven rows,
+is in `phases/phase-2.md`.
 
 Expected **not** to drift, because each is narrowed to a sentence no edit
 touches: `seal/ledger.md` "The answer a run ends on had no field …"
