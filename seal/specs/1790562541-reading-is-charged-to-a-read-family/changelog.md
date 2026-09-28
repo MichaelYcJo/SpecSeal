@@ -5,8 +5,8 @@
   `body \` to the next line, so that line closes nothing and the `git push`
   is part of the document. The family now reads it the same way. A quoted
   delimiter keeps its backslashes, and so does an escaped one (`\\`).
-  Measured by #635's round 3, the fix moved no call in the corpus it was
-  read against.
+  Over the 374 transcripts on one machine, 2026-09-28, the fix moves no
+  call.
 - **`session-cost` charges a call that only reads to a `read` family
   (issue #642).** A call that read a file or listed a directory was charged
   to `other`, so `other` led nearly every reading and the note under it
@@ -23,3 +23,19 @@
   gets no family, by the owner's answer. `read` is judged after the four
   families before it, so `grep -rn pytest docs/` stays `test` and
   `ls && git status` stays `git`.
+- **Readings published before the release carrying #642 are affected in
+  their `by family` rows and the `other` note, and nowhere else.** In each,
+  there is no `read` row, `other` holds those calls, and the note under the
+  table may fire where it would not now and name a read command. The `git`,
+  `test`, `lint/type` and `build` rows, the two repeats figures, span,
+  command time, model time, idle, tokens, tools per turn, the `slowest` list
+  and every `--spawns` and `--segments` span do not move. `--segments` now
+  says so on the page, naming #642. Measured on 2026-09-28 over the 374
+  transcripts on one machine (24,223 Bash calls, 172,386 seconds): 7,819
+  calls and 5,221 seconds move from `other` to `read`, and no other call
+  moves. `other` falls from 57.0% of the Bash calls to 24.7%, and from 34.7%
+  of their seconds to 31.7%, because a read is fast. It led the Bash seconds
+  in 170 of the 363 transcripts holding a Bash call and leads in 123. The
+  words that most often keep an otherwise-read line in `other` are `cut`
+  (777 lines), `python3` (578) and this repository's own `evidence-check`
+  (429); a heredoc keeps 2,502 lines out and a substitution 630.
