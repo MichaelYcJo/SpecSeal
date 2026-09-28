@@ -163,8 +163,12 @@ they are the two to name rather than some new mark invented for it.
   covers a tree nobody is still editing — which is why *nothing edits between
   the broad seal and the PR* is a rule about that one seal and about no other.
 - **Form.** Every other seal is text. The sealer's is the only one drawn, and
-  `broad-gate` prints the disc on success alone, so seeing the drawing means
-  the last seal was earned.
+  only over a run that earned it: `broad-gate` draws the stamp, or writes the
+  values it is drawn from, when every check passed and the cell was written,
+  and on no other path. It draws on a person's terminal itself; anywhere
+  else the `Stop` hook draws those values at the end of the turn of the
+  session that spawned the sealer. So seeing the drawing means the last seal
+  was earned.
 
 **A bare "the seal" is ambiguous the moment more than one exists, so every
 reference to an INSTANCE names whose** — the smith's seal, the sealer's seal,

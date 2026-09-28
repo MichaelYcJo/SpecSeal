@@ -52,7 +52,16 @@ GROUPS = {
     # The root move precedes the ledger-format migration, because the second
     # reads the ledgers at the addresses the first creates.
     "session-start": ("version-check.py", "root-migrate.py", "ledger-migrate.py"),
+    # The end of a main-session turn, where a sealed run's stamp is drawn
+    # after the text it belongs under (#400). One gate, like `post-agent`,
+    # because nothing else here has anything to say when a turn ends.
+    "stop": ("sealer-stamp.py",),
 }
+
+# The event a group answers where its prefix does not say it. Read only on
+# the decision path, which a `Stop` hook never takes, but the group added for
+# one event must not report another.
+EVENTS = {"stop": "Stop"}
 
 RANK = {"deny": 3, "ask": 2, "allow": 1}
 
@@ -170,7 +179,9 @@ def main():
     if not gates:
         return
     payload = sys.stdin.read()
-    event_name = "PreToolUse" if group.startswith("pre-") else "PostToolUse"
+    event_name = EVENTS.get(group) or (
+        "PreToolUse" if group.startswith("pre-") else "PostToolUse"
+    )
     merged = merge([run_gate(g, payload) for g in gates], event_name)
     if merged.strip():
         print(merged)

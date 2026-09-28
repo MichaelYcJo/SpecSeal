@@ -104,7 +104,7 @@ Cross-session memory lives in the repo, not the session:
 
 | Root | Lifetime | Holds |
 |---|---|---|
-| `seal/` | permanent | everything this plugin maintains — the ledger, the follow-up list, the repository's own config (the two language rows and the mode live there), the migration config — and, beneath it, the work items. Its existence is also what opts the repository in, for the hooks that read it — the commit gate, the mode gate, the review-skill gate, the review-history guard, the two implementer hooks and the version check. worktree-guard and session-lease act in every git repo regardless, and lint-python follows ruff (see Where below) |
+| `seal/` | permanent | everything this plugin maintains — the ledger, the follow-up list, the repository's own config (the two language rows and the mode live there), the migration config — and, beneath it, the work items. Its existence is also what opts the repository in, for the hooks that read it — the commit gate, the mode gate, the review-skill gate, the review-history guard, the two implementer hooks, the stamp hook and the version check. worktree-guard and session-lease act in every git repo regardless, and lint-python follows ruff (see Where below) |
 | `seal/specs/<id>/` | one work item | SDD set: spec, plan, questions, and a closing memo holding only what the diff cannot show. A human approves `plan.md`, which is why this is a repository document and not tool state |
 | `docs/` | permanent | whatever policy documents the repository already keeps. A work item does not create one — the documentation convention is the project's. `settle` is the one writer that does: it folds a released work item's spec into a policy document here and then retires the directory |
 
@@ -189,6 +189,7 @@ decision tables:
 | session-lease | after repo-touching tool calls (Bash · file edits) | writes a timestamp, host, and owning session pid to `.git/specseal-leases/<session-id>`. The guard's process heuristics miss sessions not named `claude`; a lease says outright which session is working here. Nothing removes the file at session end, so the owner is recorded: a lease whose session has exited is retired rather than counted, and one that cannot be attributed becomes a question instead of a block | any git repo |
 | mode-gate | before a Bash call, so in practice the session's first one | names a root nobody chose a mode for: `seal/` exists and `seal/config.md` carries no `Mode` row, so nothing records whether this repository's review records travel with it or stay on this machine — and a root somebody chose is byte-identical to one that appeared because a session followed the routing rule. Denies once with the three ways on as options — `seal mode` records where the folder already is and moves nothing, `seal mode shared` / `seal mode local` move it — then the plain confirmation, where approving proceeds and records nothing. **Once per session per repository**, and nothing at all once the row exists. The repository judged is the one the SESSION sits in, not one a `-C` names: this is a fact about the workspace, not a verdict about a change | `seal/` at the root, or under the common git dir in local mode — silent elsewhere, and silent wherever the row is written. There is no waiver token: the way on is one command |
 | version-check | at session start | asks this repository for its newest release tag and, when the running plugin is behind, shows a short notice naming `/specseal:update` and the two moves that load a release. Once a day, and a lookup that fails retries about twenty minutes later. It never installs anything — telling you a release exists and installing it are different acts | `seal/` at the root, or under the common git dir in local mode — silent elsewhere |
+| sealer-stamp | when the main session's turn ends (`Stop`) | draws, once and after the turn's text, each sealed run's stamp the broad gate left for this session under `<git-common-dir>/specseal-stamp/<session>/`, and renames the file `.drawn.json`. Nothing at a subagent's end, for another session's file, or under a `python3` older than 3.12; `seal-stamp --from <file>` draws one by hand | `seal/` at the root, or under the common git dir in local mode — silent elsewhere |
 | lint-python | after Write/Edit/NotebookEdit on a `.py` file | runs `ruff check --fix` then `ruff format` on that file — autofixes included, so code changes, not just layout (uv → uvx → global ruff; skips silently if none). `SPECSEAL_LINT=off` disables it | **a project that configures ruff** — `ruff.toml`, `.ruff.toml`, or `[tool.ruff]` in `pyproject.toml`, searched up to the repo root. Silent everywhere else |
 
 The commit gate is not the only place the review chain is enforced any more,
@@ -219,10 +220,12 @@ names the verifying round. Work items begun before the rule landed
 are excused and only print, so a run that already shipped that way says so in
 the diff instead of in a session that has ended.
 
-No gate transmits your code, your paths, or your prompts anywhere. Three side
+No gate transmits your code, your paths, or your prompts anywhere. Four side
 effects are worth stating outright: session-lease writes a timestamp file under
 `.git/specseal-leases/`, version-check writes one under
-`~/.claude/specseal/`, and lint-python rewrites the `.py` file you just saved —
+`~/.claude/specseal/`, a sealed broad-gate run writes its stamp's values under
+`<git-common-dir>/specseal-stamp/`, which the stamp hook renames once drawn
+and nothing prunes, and lint-python rewrites the `.py` file you just saved —
 in ruff-configured projects only.
 
 Two hooks reach the network. lint-python falls back to `uvx ruff`, and uv
@@ -388,9 +391,9 @@ evidence-check --reverify .                  # re-points each row citing a moved
 
 ## First run
 
-Seven of the ten gates wake only under a condition: the commit gate, the mode
-gate, the review-history reminder, the two implementer hooks, the review-skill
-gate, and the version check act in a
+Eight of the eleven gates wake only under a condition: the commit gate, the
+mode gate, the review-history reminder, the two implementer hooks, the
+review-skill gate, the stamp hook and the version check act in a
 repo that has a `seal/` directory at its root or under its git directory, and
 stay silent everywhere else. You never create it by hand — the smith builds it
 the first time it works in a repo, after asking one question (*Shared or
