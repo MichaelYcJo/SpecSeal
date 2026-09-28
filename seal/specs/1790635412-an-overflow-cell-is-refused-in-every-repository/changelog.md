@@ -13,4 +13,6 @@
   `broad-gate` and the vendored CI template pass. A row with fewer cells than
   its header is not named, because nothing in it is hidden. Both summary
   lines end with `· N overflow`, printed at zero too, and `--reverify` names
-  such a row with a `LEFT` line and exits 1.
+  such a row with a `LEFT` line and exits 1. The commit advisor prints it
+  after the commit that wrote it, as its own block naming the ledger and the
+  line; it still never blocks a commit.
