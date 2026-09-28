@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 631 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `6094564b0a6159753502ed7b878e635f5f0fa71c..ef2bfdb177fe1849bcdcd85beff0bac85d3fda00`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 1 of the build, at the branch's tip after the smith's three phases. The ro
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | "An `@` before a `#` is not glued to it, so `@alice#299` is prose" reads as if the order alone silences it; `@alice#handler` has the same order and is named | `skills/evidence-check/scripts/evidence_check.py:1651-1653`, `seal/specs/1790381328-malformed-is-graded-like-drifted-and-reads-prose-as-prose/spec.md:189-190` | open | Executed: `refused_coordinate("@alice#handler")` is True. The bullet's next sentence covers it, so nothing stated is false |
-| ⬜ 2 | The 0.11.4 note says the re-wrapped line held three words; it held four | `seal/releases/0.11.4.md:61` | open | Read: the base line was `pull request — a reader`. A correction to paperwork, outside `Needs a fix` |
+| ⬜ 1 | "An `@` before a `#` is not glued to it, so `@alice#299` is prose" reads as if the order alone silences it; `@alice#handler` has the same order and is named | `skills/evidence-check/scripts/evidence_check.py:1651-1653`, `seal/specs/1790381328-malformed-is-graded-like-drifted-and-reads-prose-as-prose/spec.md:189-190` | answered | The round's own grounds hold: the bullet's next sentence covers `@alice#handler`, so no sentence in either copy is false. The paste makes the "so" clause more exact and changes no reading and no verdict. Taking it would drift `refused_coordinate`'s anchor and every row citing it, and would commission a verifying round for one clause. The paste stays in round-1-report.md for the next work item that edits the unit; Executed: `refused_coordinate("@alice#handler")` is True. The bullet's next sentence covers it, so nothing stated is false |
+| ⬜ 2 | The 0.11.4 note says the re-wrapped line held three words; it held four | `seal/releases/0.11.4.md:61` | answered | A correction to a record, not a fix: the 0.11.4 note now says the line held four words, corrected at ef2bfdb. `bin/evidence-check --strict` exits 0 after it; Read: the base line was `pull request — a reader`. A correction to paperwork, outside `Needs a fix` |
 | 🟢 | #626 item 1: every live statement of the glued rule states the order or only describes named shapes, and each is true of a second trailing `@` | `skills/evidence-check/scripts/evidence_check.py:1618-1657,1744`, the 1790381328 `spec.md:187-195` | confirmed | Executed: class grep and `refused_coordinate` on nine shapes. The released copies stay, with grounds at `docs/review-chain-spec.md:927` |
 | 🟢 | #626 item 2: all 21 rule examples are parameters, and each restored or new pin fails alone under its mutant | `tests/test_a_row_points_by_content.py:1209-1244` | confirmed | Executed: eight mutants, each applied alone over the module |
 | 🟢 | The completeness case reads the loaded docstring and fails on a new unpinned example | `tests/test_a_row_points_by_content.py:1290-1308` | confirmed | Executed: an added example turned this case alone red. The two escapes it has are the two its docstring names |
