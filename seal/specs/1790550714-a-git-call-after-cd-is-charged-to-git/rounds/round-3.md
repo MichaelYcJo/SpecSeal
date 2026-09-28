@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 635 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `9b595a263da50482567c4a00a2f179b12e83f925..9b595a263da50482567c4a00a2f179b12e83f925`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — findings 1 and 2: an unquoted heredoc's body line ending in `\` closes the body where bash does not, and two docstrings say the bounds are never worse than the rule before #377 when four shapes are |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ The verifying round after the run's one reopening, at the diff of round 2's fixe
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | an unquoted heredoc's body line ending in `\` closes the body at the next delimiter line, where bash joins the two, so `cat <<EOF⏎body \⏎EOF⏎git push` reads `git`; round 2's "`\⏎` as the shell reads it" is not true of the heredoc pass | `skills/verify/scripts/session_cost.py:237` | open | executed: two shapes read `git` at the target and ee72397, `other` at 2037cf0, not `git` in bash; the paste-ready fix reads them `other`, passes 116 cases, and moves 0 of 22,872 corpus calls |
-| 🟡 2 | "neither worse than the rule before #377" (`without_comments`) and "an unmatched quote never answers worse than the old rule did" (`runs_git`) are false: each bound also reads a `git` bash does not run | `skills/verify/scripts/session_cost.py:284` | open | executed: four shapes read `git` at the target and ee72397, `other` at 2037cf0, not `git` in bash; round 2's answers to its findings 6 and 7 probed only the direction that loses a `git` |
-| ⬜ 3 | `overview.md` §Not done says each bound "answers as the rule before #377 did" | `seal/specs/1790550714-a-git-call-after-cd-is-charged-to-git/overview.md:39` | open | read against finding 2's executed shapes; a correction, not counted in `Needs a fix` |
-| ⬜ 4 | ledger N2 says a refused line "never answers worse than the anchored rule"; `echo $(ls)#'⏎git push'` is refused and answers `git` | `seal/ledger/1790550714-a-git-call-after-cd-is-charged-to-git.md:13` | open | executed: the shape reads `git` at the target, `other` at 2037cf0; a correction, not counted in `Needs a fix` |
+| 🟡 1 | an unquoted heredoc's body line ending in `\` closes the body at the next delimiter line, where bash joins the two, so `cat <<EOF⏎body \⏎EOF⏎git push` reads `git`; round 2's "`\⏎` as the shell reads it" is not true of the heredoc pass | `skills/verify/scripts/session_cost.py:237` | deferred #642 | #642 — The run is capped at its one reopening, so this record commissions no fix. #642 owns how `session_cost.py` decides a command word and reuses this segmentation; the comment carries the round's paste-ready fix and the corpus figure (0 calls); executed: two shapes read `git` at the target and ee72397, `other` at 2037cf0, not `git` in bash; the paste-ready fix reads them `other`, passes 116 cases, and moves 0 of 22,872 corpus calls |
+| 🟡 2 | "neither worse than the rule before #377" (`without_comments`) and "an unmatched quote never answers worse than the old rule did" (`runs_git`) are false: each bound also reads a `git` bash does not run | `skills/verify/scripts/session_cost.py:284` | deferred #642 | #642 — Same grounds; the replacement sentences are in the comment on #642; executed: four shapes read `git` at the target and ee72397, `other` at 2037cf0, not `git` in bash; round 2's answers to its findings 6 and 7 probed only the direction that loses a `git` |
+| ⬜ 3 | `overview.md` §Not done says each bound "answers as the rule before #377 did" | `seal/specs/1790550714-a-git-call-after-cd-is-charged-to-git/overview.md:39` | deferred #642 | #642 — The same claim as 2, in `overview.md`; corrected with 2's docstrings so the copies stay in step; read against finding 2's executed shapes; a correction, not counted in `Needs a fix` |
+| ⬜ 4 | ledger N2 says a refused line "never answers worse than the anchored rule"; `echo $(ls)#'⏎git push'` is refused and answers `git` | `seal/ledger/1790550714-a-git-call-after-cd-is-charged-to-git.md:13` | deferred #642 | #642 — The same claim as 2, in ledger N2; corrected with 2's docstrings so the copies stay in step; executed: the shape reads `git` at the target, `other` at 2037cf0; a correction, not counted in `Needs a fix` |
 | 🟢 | round 2's finding 1 is closed as a class — a quoted or escaped operator character is a letter | `skills/verify/scripts/session_cost.py:307` | confirmed | executed: ten separator shapes through three copies read as bash does; read: the walk's quote parity equals the tokeniser's, so no separator the tokeniser saw is hidden; `$'\''` falls under `runs_git`'s refusal bound and reads as at ee72397 |
 | 🟢 | round 2's finding 2 is closed as a class — an operator token is walked a character at a time | `skills/verify/scripts/session_cost.py:370` | confirmed | executed: every multi-character operator and process-substitution shape the prompt named reads as bash does; `x=$(ls)\|\|(git x)` moves `other` → `git` against ee72397 |
 | 🟢 | round 2's finding 3 is closed where `without_comments` reads the command | `skills/verify/scripts/session_cost.py:294` | confirmed | executed: `ls \⏎# x; git push` reads `other` and `cd /x && \⏎git status` reads `git`; the heredoc pass is finding 1 |
