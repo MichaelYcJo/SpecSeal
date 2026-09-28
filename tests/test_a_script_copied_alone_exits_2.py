@@ -6,11 +6,12 @@ Not every shipped script that loads a sibling is held here:
 of two shapes. `fold_check.py`, `settle.py`, `round_record.py`,
 `chain_check.py` and `payload_meter.py` import it by file path; `seal.py`
 puts `hooks/` on `sys.path` with `sys.path.insert` and then runs a plain
-`import`, which a search for the first shape does not find. In the first four 1 means a finding or a refusal
-the command made about the tree, and in `payload_meter.py` it means an input
-that could not be measured; 2 means the input or the tree was unusable and
-nothing was read or written. A sibling that is not beside the command is the
-second kind: nothing about the tree has been read yet.
+`import`, which a search for the first shape does not find. In the first
+four 1 means a finding or a refusal the command made about the tree, and in
+`payload_meter.py` it means an input that could not be measured; 2 means the
+input or the tree was unusable and nothing was read or written. A sibling
+that is not beside the command is the second kind: nothing about the tree
+has been read yet.
 
 Before #590 three of the four said 1 for it. `fold_check.py` and
 `settle.py` raised `SystemExit(<sentence>)`, and a string argument exits 1;

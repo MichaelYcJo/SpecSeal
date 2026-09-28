@@ -11,6 +11,8 @@ repositories.
 import json
 import ntpath
 import os
+import re
+import shlex
 import subprocess
 
 from conftest import load_hook_module
@@ -508,3 +510,155 @@ def test_the_commit_gate_says_what_declining_does(tmp_path):
     assert "[no-review]" in reason and "review chain" in reason, (
         "both continuations have to be named, or the prompt is a yes/no"
     )
+
+
+def test_the_dirty_tree_row_reads_the_tree_the_switch_is_in(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 1 of work item 1790550712, finding 1. The tracked-changes row
+    asked `git status` in the session's own directory while every other row
+    judged the tree the switch acts on. So a dirty repository reached by `git
+    -C` or `cd` from elsewhere was silent, a clean clone switched from a dirty
+    session tree was asked about the session tree's changes, and a dirty clone
+    switched from a clean session tree was silent. Seen red at 77ad175 on all
+    four."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    other = tmp_path / "other"
+    subprocess.run(
+        ["git", "clone", "-q", str(repo), str(other)], check=True, capture_output=True
+    )
+    (repo / "f.txt").write_text("changed on purpose\n")
+    # A force-staged ignored path, which only the target tree's own
+    # `check-ignore` can name: `phantom_entries` reads the same tree.
+    (repo / ".gitignore").write_text("ign.txt\n")
+    (repo / "ign.txt").write_text("x\n")
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "-f", "ign.txt"],
+        check=True,
+        capture_output=True,
+    )
+    for command in (
+        f"git -C {repo} switch feature/x",
+        f"cd {repo} && git switch feature/x",
+    ):
+        decision, reason, _ = run(monkeypatch, capsys, command, outside)
+        assert decision == "ask", (command, decision, reason)
+        assert "f.txt" in reason, reason
+        assert "gitignored path force-staged" in reason, reason
+        # Round 2, finding 1: both commands in the note name the tree's root,
+        # because the shell is not in that tree and porcelain paths are
+        # relative to its root.
+        hint = [x.strip() for x in reason.splitlines() if "restore --staged" in x]
+        assert hint and hint[0].startswith("git -C "), hint
+        assert os.path.samefile(shlex.split(hint[0])[2], repo), hint
+        keep = re.search(r"`(git[^`]*) restore <path>`", reason)
+        assert keep and keep.group(1).startswith("git -C "), reason
+        assert os.path.samefile(shlex.split(keep.group(1))[2], repo), reason
+    decision, reason, _ = run(
+        monkeypatch, capsys, f"git -C {other} switch feature/x", repo
+    )
+    assert decision == "silent", (decision, reason)
+    (repo / "f.txt").write_text("one\ntwo\nthree\n")
+    subprocess.run(
+        ["git", "-C", str(repo), "reset", "-q", "ign.txt"],
+        check=True,
+        capture_output=True,
+    )
+    (other / "f.txt").write_text("changed in the other clone\n")
+    decision, reason, _ = run(
+        monkeypatch, capsys, f"git -C {other} switch feature/x", repo
+    )
+    assert decision == "ask", (decision, reason)
+    assert "f.txt" in reason, reason
+
+
+def test_the_force_staged_check_reads_from_the_root_of_the_tree(
+    monkeypatch, capsys, repo
+):
+    """Round 2 of work item 1790550712, finding 2. `git status --porcelain`
+    names paths from the root of the tree, and `git check-ignore` reads a path
+    from where it runs. Reached through a subdirectory, the check asked about
+    `sub/ign.txt`, and an anchored pattern named nothing. The third cell, a
+    session sitting in the subdirectory, missed it before this work item too."""
+    (repo / "sub").mkdir()
+    (repo / ".gitignore").write_text("/ign.txt\n")
+    (repo / "ign.txt").write_text("x\n")
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "-f", "ign.txt"],
+        check=True,
+        capture_output=True,
+    )
+    for command, cwd in (
+        (f"cd {repo / 'sub'} && git switch feature/x", repo),
+        (f"git -C {repo / 'sub'} switch feature/x", repo),
+        ("git switch feature/x", repo / "sub"),
+    ):
+        decision, reason, _ = run(monkeypatch, capsys, command, cwd)
+        assert decision == "ask", (command, decision, reason)
+        assert "gitignored path force-staged" in reason, (command, reason)
+
+
+# Round 2 of work item 1790550712, finding 1, as a class: every command a
+# reason tells the person to run acts on the shell's repository unless it names
+# another. Where the tree judged is not the shell's, each one carries `-C` and
+# the tree's root; where it is, the text is what it always was.
+PRINTED_COMMAND = re.compile(
+    r"git(?P<at> -C \S+)? (fetch origin|switch -c <|switch <branch>|worktree add [^`]"
+    r"|restore)"
+)
+
+
+def printed_commands(reason):
+    return [m for m in PRINTED_COMMAND.finditer(reason)]
+
+
+def test_every_printed_command_names_the_tree_it_is_about(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """From outside the judged tree, each row that hands the person a command
+    names that tree: the switch ladder's ACTIVE deny and idle choice, and the
+    creation ladder's single-stream deny and idle choice. From inside it, none
+    of them carries `-C`. Seen red before the fix: every command printed from
+    outside ran in the shell's own repository, or failed where the shell had
+    none."""
+    other = tmp_path / "other"
+    subprocess.run(["git", "init", "-q", str(other)], check=True, capture_output=True)
+    idle = [(222, "/tree", 400.0, 90.0, "Terminal")]
+    rows = (
+        ("switch", "ACTIVE", (ACTIVE, [], True)),
+        ("switch", "idle", ([], idle, True)),
+        ("worktree add ../wt f", "single", ([], [], True)),
+        ("worktree add ../wt f", "idle", ([], idle, True)),
+    )
+    for n, (verb, state, sessions) in enumerate(rows):
+        tail = "feature/x" if verb == "switch" else ""
+        for shell in (other, repo):
+            command = f"git -C {repo} {verb} {tail}".rstrip()
+            monkeypatch.setattr(wg, "sessions_in_tree", lambda t, o="", s=sessions: s)
+            monkeypatch.setattr(
+                wg,
+                "load_input",
+                lambda command=command, shell=shell, n=n: {
+                    "tool_name": "Bash",
+                    "session_id": f"p{n}-{shell.name}",
+                    "tool_input": {"command": command},
+                    "cwd": str(shell),
+                },
+            )
+            try:
+                wg.main()
+            except SystemExit:
+                pass
+            out = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
+            reason = out["permissionDecisionReason"]
+            found = printed_commands(reason)
+            assert found, (verb, state, reason)
+            for m in found:
+                if shell == repo:
+                    assert m.group("at") is None, (verb, state, m.group(0))
+                else:
+                    assert m.group("at"), (verb, state, m.group(0))
+                    assert os.path.samefile(shlex.split(m.group("at"))[1], repo), (
+                        m.group(0)
+                    )

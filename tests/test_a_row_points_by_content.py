@@ -1196,26 +1196,43 @@ def test_a_decorated_line_holding_both_marks_apart_is_prose(repo, prose):
     assert r.returncode == 0, r.stdout
 
 
-# One or two examples of each rule `refused_coordinate`'s docstring states for
-# the verdicts #614 moved. The rules were read off every cell whose verdict
-# differs between 0.15.4's checker and this one, over a generated shape space
-# (heads x locators x hash endings, in a code span and as bare words), and
-# every such cell falls under one of them (round 2's fix pass of work item
-# 1790381328, `seal/ledger/` row S8-S12). A new rule takes an example here.
+# Every example the rules section of `refused_coordinate`'s docstring gives,
+# under the rule that gives it: silent in `GIVEN_UP`, named in `TAKEN_UP`.
+# The rules were read off every cell whose verdict differs between 0.15.4's
+# checker and this one, over a generated shape space (heads x locators x
+# hash endings, in a code span and as bare words), and every such cell falls
+# under one of them (round 2's fix pass of work item 1790381328, row S8-S12
+# of `seal/releases/0.15.5.md`). Some examples are verdicts #614 left where
+# they were, such as `Makefile#1x`. A new example in that section takes a
+# parameter here, and `test_every_example_the_rules_give_is_a_parameter`
+# fails until it does.
 GIVEN_UP = {
-    "a short hash after a path": ["src/a.py@abc"],
+    "a short hash after a path": ["chart.js@4", "src/a.py@abc"],
     "a digit-first locator is an issue number": [
+        "org/repo#299's",
         "docs/a.md#1-scope",
         "docs/a.md#1장",
+        "docs/a.md#1.2",
+        'src/a.py#1>"x"',
     ],
+    "an `@` before a `#` is not glued to it": ["@alice#299"],
     "marks that are not glued are judged word by word": [
+        "@lru_cache  # memoized",
         "#handler @abcdef12",
         "docs/a.md#1-scope @abcdef12",
         '#handler>"a"b"@abcdef12',
     ],
+    "a dotless name never takes a digit": ["Makefile#1x"],
 }
 TAKEN_UP = {
-    'a dotless name takes `_`, `"` and `<`': ['C#"hello"', "vector#<T>"],
+    "a digit-first locator glued to its hash": ["docs/a.md#1장@abcdef12"],
+    "an `@` after its `#` is glued": ["@alice#299@abcdef12"],
+    "a word holding a path and a `#` is named alone": ["src/a.py#handler @abcdef12"],
+    'a dotless name takes `_`, `"` and `<`': [
+        'Makefile#"all: build"',
+        'C#"hello"',
+        "vector#<T>",
+    ],
     "a digit that is not a decimal digit opens a locator": [
         "docs/a.md#²",
         "docs/a.md#①",
@@ -1237,8 +1254,9 @@ def test_what_rule_a_gives_up_is_silent_and_says_so(repo, shape):
     `refused_coordinate` states as given up is silent in a code span beside a
     good anchor, and the docstring names it. Round 1 closed the list example
     by example and round 2 found the next family, so the list is now a set of
-    rules read off every flipped cell, and this case holds one or two
-    examples of each."""
+    rules read off every flipped cell, and this case holds every example the
+    rules give as silent (#626 restored the three round 2's rebuild
+    dropped)."""
     assert f"`{shape}`" in ec.refused_coordinate.__doc__, "the list omits it"
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
@@ -1250,12 +1268,16 @@ def test_what_rule_a_gives_up_is_silent_and_says_so(repo, shape):
 
 
 @pytest.mark.parametrize("shape", examples(TAKEN_UP))
-def test_what_the_dotless_openers_take_up_is_named_and_says_so(repo, shape):
-    """Rounds 1 and 2's ⬜ 4. The other direction of the same list: a `"` or
-    `<` after a name with no dot is a locator's opener, so `C#"hello"` and
-    `vector#<T>` are named; and a locator opening with a digit that is not a
-    decimal digit is not an issue number, so `docs/a.md#²` is named. The
-    docstring says so."""
+def test_what_the_rules_still_name_is_named_and_says_so(repo, shape):
+    """Rounds 1 and 2's ⬜ 4, widened by #626. The other direction of the
+    same list: a `"` or `<` after a name with no dot is a locator's opener,
+    so `C#"hello"` and `vector#<T>` are named; a locator opening with a digit
+    that is not a decimal digit is not an issue number, so `docs/a.md#²` is
+    named; and the examples the rules name in spite of what they give up are
+    named: `@alice#299@abcdef12` by its glued marks, `docs/a.md#1장@abcdef12`
+    by its glued marks and again by the path its `@` follows, and
+    `src/a.py#handler @abcdef12` by its first word alone. The docstring says
+    so."""
     assert f"`{shape}`" in ec.refused_coordinate.__doc__, "the list omits it"
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
@@ -1263,6 +1285,27 @@ def test_what_the_dotless_openers_take_up_is_named_and_says_so(repo, shape):
     ledger.write_text(f"| A | {good}, `{shape}` |\n", encoding="utf-8")
     r = run(["."], str(repo))
     assert f"MALFORMED {shape}  " in r.stdout, r.stdout
+
+
+def test_every_example_the_rules_give_is_a_parameter():
+    """#626. Every backticked shape holding a `#` or an `@` in the rules
+    section of `refused_coordinate`'s docstring, the text after "What #614
+    changed", is a parameter of `GIVEN_UP` or `TAKEN_UP`, so each example a
+    rule gives is held against the code as well as the page. Round 2's
+    rebuild of `GIVEN_UP` in work item 1790381328 dropped three examples the
+    docstring kept, and nothing noticed, because the two cases read the
+    dicts and nothing read the docstring. A lone `#` or `@` is notation, not
+    a shape. An example with neither mark, or one moved above that heading,
+    escapes this case."""
+    doc = ec.refused_coordinate.__doc__
+    rules = doc[doc.index("What #614 changed") :]
+    shapes = {
+        s
+        for s in re.findall(r"`([^`]+)`", rules)
+        if len(s) > 1 and ("#" in s or "@" in s)
+    }
+    pinned = {s for d in (GIVEN_UP, TAKEN_UP) for ss in d.values() for s in ss}
+    assert not shapes - pinned, f"no case holds {sorted(shapes - pinned)}"
 
 
 def test_a_glued_mark_attempt_stops_at_the_next_hash():

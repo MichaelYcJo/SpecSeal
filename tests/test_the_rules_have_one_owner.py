@@ -346,9 +346,9 @@ def test_a_correction_row_closes_answered_and_never_fixed():
     """Round 1's 🟡 2 of #161's own chain: `fixed <sha>` on a correction
     row leaves `nobody — the fixes are not yet written` beside a checked
     `Pass`, and the check refuses that pair on the last record at a ready
-    pull request — a reader
-    commissioned for a row rule 1 says owes none. The owner states the
-    word, and the smith's fix-table paragraph names the owner.
+    pull request — a reader commissioned for a row rule 1 says owes none.
+    The owner states the word, and the smith's fix-table paragraph names the
+    owner.
 
     **One spelling, asserted in both files.** This case used to assert two:
     the owner prescribed `answered — corrected at <sha>` as ONE cell while

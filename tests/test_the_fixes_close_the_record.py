@@ -469,9 +469,10 @@ def test_a_capped_runs_last_record_reads_no_fixes_to_check_and_the_check_exits_z
     commissioned and no next round exists to set the cell -- `nobody -- the
     fixes are not yet written` is false the moment it is written, and the
     check refuses `Pass` beside it on the last record at a ready pull request
-    (phase 3 measured exit 1 here, before #598). `close` derives `no fixes to check` the way `new` derives it for a
-    report whose every verdict closed without a fix word, and the run has the
-    legal end the spec gives a capped run."""
+    (phase 3 measured exit 1 here, before #598). `close` derives `no fixes
+    to check` the way `new` derives it for a report whose every verdict
+    closed without a fix word, and the run has the legal end the spec gives
+    a capped run."""
     a = round_one(repo)
     write(repo, "README.md", "# a fixture, untouched by any fix\n")
     b = commit(repo, "nothing that answers a finding")
@@ -706,9 +707,11 @@ def test_a_fix_commit_carries_no_empty_code_span(repo):
         fix_table(f"| 1 | fixed | `{b[:7]}` — widened, b defaults to None |\n"),
         f"{a}..{b}",
     )
-    # Not `code == 0`: a `fixed` verdict leaves `Pass` beside `nobody` on
-    # the last record, which the check refuses at a ready pull request; this
-    # run is judged as a draft, where it prints.
+    # The exit is not what this case judges. A `fixed` verdict leaves `Pass`
+    # beside `nobody` on the last record. Run here, the check judges it as a
+    # draft, where the pair prints and `close` exits 0. Judged as a ready pull
+    # request, this fixture exits 1, on the pair and on its `Broad gate`
+    # still reading `not yet`.
     assert "bare integer" not in out, out
     (one,) = verdict_cells(record)
     assert "``" not in one[4], (one, out)
@@ -2320,9 +2323,14 @@ def test_re_closing_a_half_restored_record_is_refused_for_every_word(repo, word)
     }[word]
     verdict = "deferred #427" if word == "deferred" else word
     table = fix_table(f"| 1 | {verdict} | {third} |\n")
-    # 0 or 1: a green `close` still exits 1 on the chain-check notice about
-    # `Pass` beside `Fixes checked by: nobody`, which is unrelated and is what
-    # #427's own reproduction reported. The refusal below is exit 2.
+    # 0 or 1, and the exit is not what this case judges. Run here, the check
+    # `close` ends with judges the record as a draft, because `gh` never says
+    # a fixture's pull request is ready, and all three words exit 0. Only
+    # `fixed` leaves `Pass` beside `Fixes checked by: nobody`, which a draft
+    # prints as a notice; `answered` and `deferred` land on `no fixes to
+    # check`, and nothing prints. Judged as a ready pull request, all three
+    # exit 1, because this fixture's `Broad gate` still reads `not yet`, and
+    # `fixed` fails on the pair as well. The refusal below is exit 2.
     code, out, _first = close(repo, 1, table, f"{a}..{b}")
     assert code in (0, 1), out
     reopen_verdicts(repo, 1)

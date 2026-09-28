@@ -216,13 +216,12 @@ def test_a_name_rooted_in_a_variable_is_judged_where_the_variable_points(
     """#596, round 1's 🟡 3 and round 2's 🟡 1. `cmd.exe` expands `%VAR%`
     before it reads a command name, so the part is expanded before it is
     asked whether it is a directory, as far as `as_cmd_expands` models it: a
-    name from the
-    environment takes its value, and `%CD%` and `%__CD__%`, which `cmd.exe`
-    computes where the environment defines neither, name the directory the
-    row runs in. A defined `CD` wins, as it does in `cmd.exe` (#616).
-    0.15.3 rewrote `%CD%/bin/test`, and a literal `%CD%` directory never
-    exists, so without the expansion that row stopped running. `$HOME` means
-    nothing to `cmd.exe` and is not expanded."""
+    name from the environment takes its value, and `%CD%` and `%__CD__%`,
+    which `cmd.exe` computes where the environment defines neither, name the
+    directory the row runs in. A defined `CD` wins, as it does in `cmd.exe`
+    (#616). 0.15.3 rewrote `%CD%/bin/test`, and a literal `%CD%` directory
+    never exists, so without the expansion that row stopped running. `$HOME`
+    means nothing to `cmd.exe` and is not expanded."""
     gate = gate_module()
     monkeypatch.setenv("SPECSEAL_PROBE_TREE", tree)
     monkeypatch.delenv("SPECSEAL_PROBE_NOWHERE", raising=False)

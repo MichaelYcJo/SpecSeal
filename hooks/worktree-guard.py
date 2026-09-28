@@ -16,6 +16,10 @@ A) Branch switching (Bash: git checkout/switch of a branch, or a -b/-c variant)
     question is whether the uncommitted changes ride along)
   - otherwise (single work stream, clean)           -> allow the plain switch
 
+  A command that also creates a worktree is judged by these rows, whichever of
+  the two is written first, and the creation is judged where they would let the
+  command run (docs/worktree-guard-spec.md §Creation consent).
+
 B) Worktree creation, whichever path it takes:
      - Bash: `git worktree add ...`
      - Agent/Task tool with `isolation: "worktree"` (harness-managed, lands in
@@ -433,10 +437,15 @@ def only_creates_a_worktree(command: str, cwd: str, windows=None) -> bool:
          word `git`, and both run exactly what `git` runs. `GIT` does not, and
          `git/` does not.
 
-         What it costs is a prompt on `/usr/bin/git worktree add …`, which is
-         a legitimate command a person may type. Falling to `ask` there is the
-         trade this whole docstring already makes for `$` and `>`: a wrong
-         deny spends one prompt, a wrong allow signs for an arbitrary binary.
+         What it costs is the allow on `/usr/bin/git worktree add …`, which is
+         a legitimate command a person may type. With consent the guard is
+         silent there, not asking -- the caller passes `silent` for anything
+         this refuses -- so the user's own permission settings decide it.
+         That is the trade this whole docstring already makes for `$` and
+         `>`: a wrong silence leaves the call to the user's settings, a wrong
+         allow signs for an arbitrary binary.
+         `test_the_command_word_class_is_what_the_allow_covers` pins members
+         of each verdict group.
       2. no `ELSEWHERE` character in any token, which is the expansion and
          redirection family the first test does not reach.
 
@@ -1401,23 +1410,40 @@ def repo_paths(cwd: str):
     return top, os.path.join(os.path.dirname(top), f"{os.path.basename(top)}-worktrees")
 
 
-def steer_to_switch() -> str:
+def git_at(top: str, cwd: str) -> str:
+    """The command word for a command a reason tells the person to run.
+
+    `git` where the shell already stands in `top`'s tree, and `git -C <top>`
+    where it does not: a `git -C <repo>` or a `cd <repo>` in the judged command
+    names a tree the shell never moved to, so an unqualified `git fetch` or
+    `git worktree add` in the advice ran in the shell's own repository, or
+    failed where the shell had none (round 2 of work item 1790550712, finding
+    1). A subdirectory of `top` is the same tree, and none of these commands
+    takes a path relative to the root, so the text there is what it was.
+    """
+    here = repo_paths(cwd)[0] if cwd else ""
+    if here and os.path.normcase(here) == os.path.normcase(top):
+        return "git"
+    return f"git -C {shlex.quote(top)}"
+
+
+def steer_to_switch(git: str = "git") -> str:
     return tr(
-        "  git fetch origin\n"
-        "  git switch -c <branch> origin/main   # new branch\n"
-        "  git switch <branch>                  # existing branch\n\n"
+        f"  {git} fetch origin\n"
+        f"  {git} switch -c <branch> origin/main   # new branch\n"
+        f"  {git} switch <branch>                  # existing branch\n\n"
         "If this genuinely is concurrent work needing separation, state why and get the "
         "user's confirmation first (if the user already asked for a worktree, retry with "
         "[worktree-ok] in the command).",
-        "  git fetch origin\n"
-        "  git switch -c <branch> origin/main   # 새 브랜치\n"
-        "  git switch <branch>                  # 기존 브랜치\n\n"
+        f"  {git} fetch origin\n"
+        f"  {git} switch -c <branch> origin/main   # 새 브랜치\n"
+        f"  {git} switch <branch>                  # 기존 브랜치\n\n"
         "정말 동시 작업이라 분리가 필요하면 그 이유를 밝히고 사용자 확인을 먼저 받으세요 "
         "(사용자가 이미 워크트리를 지시했다면 명령에 [worktree-ok] 를 붙여 다시 시도).",
     )
 
 
-def steer_to_shared() -> str:
+def steer_to_shared(git: str = "git") -> str:
     """The retry for the answer "switch in the shared tree".
 
     `[worktree-ok]` gave the worktree answer a way to come back through the
@@ -1433,10 +1459,10 @@ def steer_to_shared() -> str:
     option.
     """
     return tr(
-        "`git switch <branch>  # [shared-tree-ok]` for an existing branch, or "
-        "`git switch -c <branch> origin/main  # [shared-tree-ok]` for a new one",
-        "기존 브랜치면 `git switch <branch>  # [shared-tree-ok]`, 새 브랜치면 "
-        "`git switch -c <branch> origin/main  # [shared-tree-ok]`",
+        f"`{git} switch <branch>  # [shared-tree-ok]` for an existing branch, or "
+        f"`{git} switch -c <branch> origin/main  # [shared-tree-ok]` for a new one",
+        f"기존 브랜치면 `{git} switch <branch>  # [shared-tree-ok]`, 새 브랜치면 "
+        f"`{git} switch -c <branch> origin/main  # [shared-tree-ok]`",
     )
 
 
@@ -1676,6 +1702,9 @@ def guard_worktree_creation(
         )
 
     active, idle, reliable = sessions_in_tree(top, session_id)
+    # The command word for every command this ladder hands back: `-C <top>`
+    # where the shell is not in the creation's tree (`git_at`).
+    git = git_at(top, cwd)
 
     # 두 방향의 목적지는 어느 자리에서 물어도 같다 — worktree 를 만들거나,
     # 공용 트리에서 `git switch` 로 그대로 진행하거나.
@@ -1695,9 +1724,9 @@ def guard_worktree_creation(
                 '2. "공용 트리에서 브랜치만 전환한다"',
             ),
             tr(
-                f"run {steer_to_shared()} instead. The token carries this "
+                f"run {steer_to_shared(git)} instead. The token carries this "
                 "answer, so the switch is not questioned again.",
-                f"대신 {steer_to_shared()} 중 하나를 실행하세요. 이 토큰이 지금 "
+                f"대신 {steer_to_shared(git)} 중 하나를 실행하세요. 이 토큰이 지금 "
                 "고른 답을 담고 있어 전환할 때 다시 묻지 않습니다.",
             ),
         ),
@@ -1745,11 +1774,15 @@ def guard_worktree_creation(
             (
                 f"{origin}\n"
                 # Reached before the choice rows, detection-unusable included,
-                # so the count is named only where one was taken.
+                # so the count is named only where one was taken. And above
+                # the idle row too, so *can be shown to be working*: a count
+                # that found only idle sessions found nobody shown working,
+                # and did not find nobody (#624).
                 + (
                     tr(
-                        "No other Claude session is working in this tree, but ",
-                        "이 트리에서 작업 중인 다른 Claude 세션은 없지만 ",
+                        "No other Claude session can be shown to be working in "
+                        "this tree, but ",
+                        "이 트리에서 작업 중임이 확인되는 다른 Claude 세션은 없지만 ",
                     )
                     if reliable
                     else ""
@@ -1762,7 +1795,7 @@ def guard_worktree_creation(
                     "생성할지 확인해 주세요. 거부하면 [worktree-ok] 선언을 철회하고 공유 "
                     "트리에서 그대로 진행합니다:\n",
                 )
-                + steer_to_switch()
+                + steer_to_switch(git)
             ),
         )
 
@@ -1797,7 +1830,7 @@ def guard_worktree_creation(
                 "그래도 worktree 로 분리할지 확인해 주세요. 거부하면 공유 트리에서 "
                 "`git switch` 로 전환합니다:\n",
             )
-            + steer_to_switch(),
+            + steer_to_switch(git),
         )
 
     # 4) 동시 세션 판정 불가 -> 자동으로 만들지 말고 물어본다.
@@ -1844,7 +1877,7 @@ def guard_worktree_creation(
                 "— 에디터 한 창에서 다 보여 코드 파악이 빠르고, 쓰다 만 worktree 폴더가 "
                 "쌓이지 않습니다.\n\n",
             )
-            + steer_to_switch()
+            + steer_to_switch(git)
         ),
     )
 
@@ -1854,11 +1887,13 @@ def judge_creation(
 ):
     """Put the creation question for a `git worktree add` in `command`.
 
-    Extracted because there are now two sites that reach it, and the second one
-    is why. `main` classifies the FIRST segment it can read, while
+    Extracted because more than one site reaches it, and the second one is
+    why. `main` classified only the FIRST segment it could read, while
     `hooks/worktree_consent.py` records for a creation ANYWHERE in a command
     that RAN -- its docstring says so on purpose. Those two readings disagreed,
     and the gap between them was writable by whoever composed the command.
+    `main` now reads up to its first switch and its first creation, in either
+    order, and its own comment on the walk says why.
 
     Executed at `d82a02c`, clean single-stream tree, no consent record:
 
@@ -1883,7 +1918,10 @@ def judge_creation(
     session is ACTIVE in denies today as a switch, and would become an `ask`
     about the creation -- the branch would still be taken out from under the
     other session, one approval later. The switch ladder keeps every verdict it
-    has; only its ONE silent exit falls through to here.
+    has, and the creation is judged at the places where that ladder would
+    otherwise let the command run: its two choice rows' `ask`, and above its
+    tracked-changes row and its silent exit. The same holds whichever of the
+    two segments is written first.
 
     `top` is the creation's own repository, which is not always the switch's --
     `git switch x && git -C /other worktree add ../wt f` acts on two. A `top`
@@ -2011,39 +2049,52 @@ def main():
     session_id = data.get("session_id", "")
     transcript_path = data.get("transcript_path", "") or ""
 
-    reason = None
-    eff_cwd = cwd
-    # Where a `git worktree add` ANYWHERE in this command acts, if there is
-    # one. `reason` still takes the FIRST segment that classifies, because that
-    # is the verdict this call is about and every row it reaches has to keep
-    # working -- but a creation written BEHIND such a segment used to get no
-    # verdict at all, while `hooks/worktree_consent.py` reads every segment and
-    # recorded consent for it anyway. `judge_creation` holds the measurement
-    # and the reasoning; the switch ladder's one silent exit is where the two
-    # readings parted.
+    # The FIRST switch-kind segment and the FIRST creation, in whichever order
+    # they are written. A command carrying both is judged by the switch
+    # ladder, with the creation hooked in where that ladder already takes it
+    # (`choose`'s `before_ask`, and the `judge_creation` call above row 3).
+    #
+    # Keeping the first verdict of either kind was the walk before #620, and
+    # it was two defects of one cause. A creation written BEHIND a switch got
+    # no verdict, while `hooks/worktree_consent.py` reads every segment and
+    # recorded consent for it anyway -- `judge_creation` holds that
+    # measurement. A switch written behind a creation got none either: the
+    # creation took the verdict, consent made it silent for a compound, and
+    # `git worktree add ../x -b x && git switch y` ran the switch over a tree
+    # another session was ACTIVE in. `docs/worktree-guard-spec.md`
+    # §*Creation consent* says consent never reaches the switch direction.
+    #
+    # Only the first of each kind, which is what the writer records for a
+    # creation. A switch in a second tree or a creation in a second clone is
+    # still judged on the first (#630).
+    switch_reason = None
+    switch_at = cwd
     creation_at = None
     for tokens, wheres in walk_command(command, cwd):
         creates = cmdline.adds_a_worktree(tokens)
-        # Nothing left to learn here: the verdict is settled, and this segment
-        # is not the creation it may have walked past. Skipping keeps the
-        # second question free -- `classify` runs `git rev-parse` for a
-        # `checkout`, and this walk used to stop at the first verdict.
-        if reason is not None and not creates:
+        # Nothing left to learn from a segment of a kind already found.
+        # Skipping keeps the question cheap -- `classify` runs `git rev-parse`
+        # for a `checkout`, so a command is now classified up to its first
+        # switch-kind segment rather than up to its first verdict of any kind.
+        found_already = creation_at if creates else switch_reason
+        if found_already is not None:
             continue
         for where in wheres:
             here, target = judgeable(tokens, where, cwd)
             found = classify(tokens, here)
             if not found:
                 continue
-            if reason is None:
-                reason, eff_cwd = found, target
-            if creates and creation_at is None:
+            if creates:
                 creation_at = target
+            else:
+                switch_reason, switch_at = found, target
             break
-        if reason is not None and creation_at is not None:
+        if switch_reason is not None and creation_at is not None:
             break
+    reason = switch_reason or ("worktree-add" if creation_at is not None else None)
     if not reason:
         sys.exit(0)
+    eff_cwd = switch_at if switch_reason else creation_at
 
     top, wt_root = repo_paths(eff_cwd)
     # No repository at the effective directory means there is no tree to keep
@@ -2072,6 +2123,9 @@ def main():
         sys.exit(0)
 
     active, idle, reliable = sessions_in_tree(top, session_id)
+    # The command word for every command this ladder hands back: `-C <top>`
+    # where the shell is not in the switch's tree (`git_at`).
+    git = git_at(top, cwd)
 
     # The mirror of [worktree-ok]: the user has just chosen the shared tree,
     # and the token carries that answer back through the guard. Honoured only
@@ -2082,17 +2136,17 @@ def main():
 
     steer = tr(
         f"  # check an existing branch out into a worktree\n"
-        f"  git worktree add {wt_root}/<branch> <branch>\n\n"
+        f"  {git} worktree add {wt_root}/<branch> <branch>\n\n"
         f"  # or create a new branch off the latest origin/main\n"
-        f"  git fetch origin\n"
-        f"  git worktree add {wt_root}/<name> -b <branch> origin/main\n\n"
+        f"  {git} fetch origin\n"
+        f"  {git} worktree add {wt_root}/<name> -b <branch> origin/main\n\n"
         "Then work in that folder from a separate Claude Code session. "
         "`git worktree list` shows worktrees.",
         f"  # 기존 브랜치를 worktree로 꺼내기\n"
-        f"  git worktree add {wt_root}/<branch> <branch>\n\n"
+        f"  {git} worktree add {wt_root}/<branch> <branch>\n\n"
         f"  # 새 브랜치를 최신 origin/main 기준으로 생성 (저장소 정책)\n"
-        f"  git fetch origin\n"
-        f"  git worktree add {wt_root}/<name> -b <branch> origin/main\n\n"
+        f"  {git} fetch origin\n"
+        f"  {git} worktree add {wt_root}/<name> -b <branch> origin/main\n\n"
         "그런 다음 그 폴더에서 별도의 Claude Code 세션으로 작업하세요. "
         "worktree 목록은 `git worktree list`.",
     )
@@ -2114,15 +2168,15 @@ def main():
             tr('2. "Split into a worktree"', '2. "worktree 로 분리한다"'),
             tr(
                 f"keeps the branch of a session that IS still working. Run "
-                f"`git worktree add {wt_root}/<branch> <branch>  # [worktree-ok]` "
+                f"`{git} worktree add {wt_root}/<branch> <branch>  # [worktree-ok]` "
                 f"for a branch that already exists, or "
-                f"`git worktree add {wt_root}/<name> -b <branch> origin/main  "
+                f"`{git} worktree add {wt_root}/<name> -b <branch> origin/main  "
                 f"# [worktree-ok]` for a new one, then work there from a "
                 f"separate session. The token carries this answer, so creating "
                 f"it is confirmed rather than questioned again.",
                 f"아직 작업 중인 세션의 브랜치를 보존합니다. 이미 있는 브랜치면 "
-                f"`git worktree add {wt_root}/<branch> <branch>  # [worktree-ok]`, "
-                f"새로 만들 브랜치면 `git worktree add {wt_root}/<name> -b "
+                f"`{git} worktree add {wt_root}/<branch> <branch>  # [worktree-ok]`, "
+                f"새로 만들 브랜치면 `{git} worktree add {wt_root}/<name> -b "
                 f"<branch> origin/main  # [worktree-ok]` 를 실행하고, 그 폴더에서 "
                 f"별도 세션으로 작업하세요. 이 토큰이 지금 고른 답을 담고 있어 "
                 f"생성할 때 다시 묻지 않고 확인만 받습니다.",
@@ -2279,33 +2333,64 @@ def main():
         )
 
     # 3) 단건이지만 추적 중인 변경이 있으면 사용자에게 확인.
-    entries = tracked_changes(cwd)
+    #
+    # Reached in three states, and only the first is a count. Single stream is
+    # nothing idle with detection reliable; the other two are only-idle and
+    # detection-unusable under `[shared-tree-ok]`, where the choice rows above
+    # stood aside because the token carried the user's answer. The lead says
+    # which of the two made the switch allowable, and nothing else moves (#624).
+    #
+    # Read from the tree the switch acts on, the one every row above judged,
+    # not from where the shell started: `git -C <repo> switch x` or `cd <repo>
+    # && git switch x` from elsewhere carries <repo>'s changes, not the session
+    # directory's. Reading `cwd` here left a dirty <repo> silent and asked a
+    # clean one about changes that were not going anywhere. The force-staged
+    # check runs at that tree's root, `top`, not at `eff_cwd`: porcelain names
+    # each path from the root and `check-ignore` reads one from where it runs,
+    # so from a subdirectory an anchored pattern named nothing.
+    entries = tracked_changes(eff_cwd)
     if entries:
+        single_stream = not idle and reliable
         listing = "\n".join(f"    {xy}  {path}" for xy, path in entries)
-        phantoms = phantom_entries(entries, cwd)
+        phantoms = phantom_entries(entries, top)
         note = ""
         if phantoms:
             why = "\n".join(f"    {p} — {r}" for p, r in phantoms)
+            # Always the root, unlike `git_at`: porcelain names each path from
+            # the tree's root, so from a subdirectory of the same tree a bare
+            # `git restore <path>` names a different file (round 2 of work item
+            # 1790550712, finding 1). `git restore` can overwrite a working
+            # copy, which is why this one is not left to the shell's position.
+            at = f"git -C {shlex.quote(top)}"
             fixes = "\n".join(
-                f"    git restore --staged {shlex.quote(p)}" for p, _ in phantoms
+                f"    {at} restore --staged {shlex.quote(p)}" for p, _ in phantoms
             )
             note = tr(
                 f"\nIndex-only residue invisible in the working tree:\n{why}\n"
-                f"These commands clean the tree (run `git restore <path>` first to keep "
+                f"These commands clean the tree (run `{at} restore <path>` first to keep "
                 f"index-only content):\n{fixes}\n",
                 f"\n이 중 워크트리에서는 보이지 않는 index 잔재:\n{why}\n"
                 f"아래 명령으로 정리하면 트리가 clean이 됩니다 "
-                f"(index에만 존재하는 내용을 살리려면 `git restore <path>` 를 먼저 실행):\n{fixes}\n",
+                f"(index에만 존재하는 내용을 살리려면 `{at} restore <path>` 를 먼저 실행):\n{fixes}\n",
             )
+        lead = (
+            tr("Single-stream tree", "이 트리는 단건 작업이라")
+            if single_stream
+            else tr(
+                "[shared-tree-ok] carries the user's answer to switch in this "
+                "shared tree",
+                "[shared-tree-ok] 가 공용 트리에서 전환한다는 사용자의 답을 담고 있어",
+            )
+        )
         respond(
             "ask",
             (
                 tr(
-                    f"Single-stream tree, so the switch is allowed — but there are "
+                    f"{lead}, so the switch is allowed — but there are "
                     f"{len(entries)} uncommitted tracked changes:\n{listing}\n{note}"
                     f"They will follow you onto the target branch. Confirm to proceed "
                     f"(commit/stash first is recommended).",
-                    f"이 트리는 단건 작업이라 브랜치 전환을 허용할 수 있지만, "
+                    f"{lead} 브랜치 전환을 허용할 수 있지만, "
                     f"커밋되지 않은 변경 {len(entries)}건이 있습니다:\n{listing}\n{note}"
                     f"전환하면 이 변경이 대상 브랜치로 따라갑니다. 진행할지 확인해 주세요 "
                     f"(커밋/스태시 후 전환을 권장).",

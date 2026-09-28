@@ -326,10 +326,11 @@ def test_a_path_qualified_git_carries_no_allow(monkeypatch, capsys, repo):
     included -- the second of which the docstring already claimed was refused
     "one line below, where `git` has to be the word itself".
 
-    What the exact-equality test costs is a prompt on `/usr/bin/git worktree
-    add …`, and that is the trade the `$`/`>` refusals already make: a wrong
-    deny spends one prompt, a wrong allow signs for a binary nobody
-    identified."""
+    What the exact-equality test costs is the allow on `/usr/bin/git worktree
+    add …`: the guard is silent there, so the user's own permission settings
+    decide. That is the trade the `$`/`>` refusals already make: a wrong
+    silence leaves the call to the user's settings, a wrong allow signs for a
+    binary nobody identified."""
     grant(repo)
     for command in (
         "./git worktree add ../wt f",
@@ -357,6 +358,73 @@ def test_a_path_qualified_git_carries_no_allow(monkeypatch, capsys, repo):
     assert wg.only_creates_a_worktree(
         "git -C /elsewhere worktree add ../wt f", str(repo)
     )
+
+
+# #243. `docs/worktree-guard-spec.md` §*Creation consent* counted the spellings
+# the allow covers (*exactly five*) and gave everything else one verdict
+# (*falls to `ask`*). Both were a property of one enumeration, not of the
+# boundary. The boundary is a class, and this table pins members of each
+# verdict group so the paragraph can cite it instead of a count. Work item
+# 1790550712's `phases/phase-3.md` holds the table this was drawn from: with a
+# record, no command word asks.
+COMMAND_WORD_GROUPS = {
+    # With a record: every spelling the lexer hands back as the word `git`,
+    # well past the five the paragraph used to name.
+    ("record", "allow"): ("git", "'git'", "g'i't", "''git", 'gi"t"', '"g"it'),
+    # With a record: everything else, whether or not `cmdline.parse_git`
+    # reads it as a git invocation. Consent withdraws the objection and the
+    # bound refuses the allow, so the guard says nothing.
+    ("record", "silent"): (
+        "/usr/bin/git",
+        "~/git",
+        "sudo git",
+        "VAR=1 git",
+        "nice git",
+        "$GIT",
+        "GIT",
+        "git/",
+    ),
+    # No record: a word `parse_git` reads as git is a creation, and meets the
+    # creation ladder like any other.
+    # `parse_git` compares the command word's last path component as written,
+    # before any expansion, so `~/git`, `*/git` and `$HOME/git` sit here and
+    # not with `$GIT` below (round 1 finding 2, round 2 finding 3).
+    ("none", "deny"): (
+        "git",
+        "/usr/bin/git",
+        "sudo git",
+        "VAR=1 git",
+        "~/git",
+        "*/git",
+        "$HOME/git",
+    ),
+    # No record: a word it does not read as git is not a git invocation to
+    # this guard at all.
+    ("none", "silent"): ("nice git", "$GIT", "GIT", "git/"),
+}
+
+
+def test_the_command_word_class_is_what_the_allow_covers(monkeypatch, capsys, repo):
+    """#243, S10. One or more members of each verdict group, on a clean
+    single-stream tree, one session id per word. Seen red by moving one word
+    to the wrong group, and by restoring the basename comparison in
+    `only_creates_a_worktree`."""
+    wrong = []
+    for (consent, want), words in COMMAND_WORD_GROUPS.items():
+        for n, word in enumerate(words):
+            sid = f"{consent}-{want}-{n}"
+            if consent == "record":
+                grant(repo, sid)
+            got = decide(
+                monkeypatch,
+                capsys,
+                repo,
+                f"{word} worktree add ../wt f",
+                session_id=sid,
+            )[0]
+            if got != want:
+                wrong.append((consent, word, want, got))
+    assert not wrong, wrong
 
 
 def test_a_backgrounded_creation_is_still_only_a_creation(monkeypatch, capsys, repo):
@@ -438,8 +506,8 @@ def test_the_pre_tool_use_arm_records_nothing(monkeypatch, capsys, repo):
 
 # --- the walk: a creation behind another verdict ---------------------------
 #
-# `main` classifies the FIRST segment it can read, while the writer below
-# records for a creation ANYWHERE in a command that ran. Those two readings
+# `main` classified only the FIRST segment it could read, while the writer
+# below records for a creation ANYWHERE in a command that ran. Those two readings
 # disagreed, and the gap was writable by whoever composed the command: a
 # `git switch` in front of a creation took the verdict, the creation ladder
 # never ran, and `PostToolUse` then minted session-wide consent for a question
@@ -495,7 +563,7 @@ def test_the_switch_ladder_keeps_every_verdict_it_had(monkeypatch, capsys, repo)
 def test_a_spent_choose_budget_does_not_decide_whether_the_creation_is_questioned(
     monkeypatch, capsys, repo
 ):
-    """ "The three rows above the creation all deny" was true of two of them.
+    """ "The three rows above the creation all deny" was true of one of them.
 
     Rows 1-b and 2 are `choose` sites, and `choose` denies ONCE per session per
     direction and asks on every attempt after. Seen red first, in both the
@@ -595,6 +663,12 @@ def test_the_guard_is_never_silent_where_the_writer_records(
                     "git switch feature/x && git worktree add ../wt f &",
                     f"git switch feature/x && git -C {repo} worktree add ../wt f",
                     f"cd {repo} && git switch feature/x && git worktree add ../wt f",
+                    # #620: the switch written AFTER the creation. The walk
+                    # now reads both, and these rows are what fails if it
+                    # forgets the creation once it has found the switch.
+                    "git worktree add ../wt f && git switch feature/x",
+                    "git worktree add ../wt f; git switch feature/x",
+                    "git worktree add ../wt f && git checkout feature/x",
                 )
             ):
                 acted = wc.creation_directory(command, str(cwd))
@@ -621,6 +695,212 @@ def test_the_guard_is_never_silent_where_the_writer_records(
     assert not holes, holes
 
 
+# --- the walk: a switch written after a creation (#620) --------------------
+#
+# The walk stopped classifying once it had a verdict, unless the segment was a
+# creation. So in `git worktree add ../wt f && git switch feature/x` the
+# creation took the verdict and the switch was never read. With consent the
+# creation is silent for a compound, and that silence was the whole answer: the
+# switch ran over a tree another session was working in, which
+# `docs/worktree-guard-spec.md` §*Creation consent* says consent never reaches.
+# The walk now keeps the first switch and the first creation in whichever
+# order they are written, and a command carrying both goes to the switch
+# ladder with the creation hooked in where the switch-first shape has it.
+
+CREATE_FIRST = "git worktree add ../wt f && git switch feature/x"
+SWITCH_FIRST = "git switch feature/x && git worktree add ../wt f"
+
+# `docs/worktree-guard-spec.md` §A's five tree states: (name, sessions, dirty).
+TREE_STATES = (
+    ("active", (ACTIVE, [], True), False),
+    ("idle", ([], IDLE, True), False),
+    ("unusable", ([], [], False), False),
+    ("dirty", ([], [], True), True),
+    ("clean", ([], [], True), False),
+)
+
+# `spec.md` decision 1 of work item 1790550712: `allow` speaks for the whole
+# call, `silent` hands it to the user's own permission flow, `ask` puts it to
+# a person and `deny` stops it.
+STRICTNESS = {"allow": 0, "silent": 1, "ask": 2, "deny": 3}
+
+
+def make_dirty(repo, dirty):
+    """Tracked changes on or off, in the fixture's one committed file."""
+    (repo / "f.txt").write_text(
+        "changed on purpose\n" if dirty else "one\ntwo\nthree\n"
+    )
+
+
+def test_a_switch_written_after_a_creation_is_judged(monkeypatch, capsys, repo):
+    """#620, the ticket's shape. Seen red at the base: `silent` -- consent made
+    the creation silent for a compound, and the switch behind it was never
+    classified."""
+    grant(repo)
+    decision, reason = decide(
+        monkeypatch,
+        capsys,
+        repo,
+        "git worktree add ../wt -b x && git switch feature/x",
+        sessions=(ACTIVE, [], True),
+    )
+    assert decision == "deny", (decision, reason)
+    assert reason.startswith("Blocking this branch switch"), reason
+
+
+def test_a_switch_after_a_creation_is_judged_under_the_routing_answer_too(
+    monkeypatch, capsys, projects, repo
+):
+    """#620 through the other consent source. The `automation` answer says the
+    run should not stop; it says nothing about another session's branch. Seen
+    red at the base: `silent`."""
+    write_transcript(projects, "me", ask_entries(repo))
+    assert not consent_dir(repo).exists()
+    decision, reason = decide(
+        monkeypatch,
+        capsys,
+        repo,
+        "git worktree add ../wt -b x && git switch feature/x",
+        sessions=(ACTIVE, [], True),
+    )
+    assert decision == "deny", (decision, reason)
+    assert reason.startswith("Blocking this branch switch"), reason
+
+
+def test_the_order_of_a_switch_and_a_creation_does_not_decide(
+    monkeypatch, capsys, repo
+):
+    """The property that covers the class: once the order cannot change the
+    answer, the switch-first behaviour this guard already had reviewed covers
+    the create-first shape too. Every tree state, with and without a consent
+    record, three attempts per session so both `choose` budgets are spent
+    inside a cell. The two spellings get separate session ids, so neither
+    spends the other's budget.
+
+    The reason is compared byte for byte, not only the decision. Seen red at
+    the base: the create-first spelling was silent or asked where the
+    switch-first one denied."""
+    differs = []
+    for state, sessions, dirty in TREE_STATES:
+        make_dirty(repo, dirty)
+        for consented in (False, True):
+            runs = {}
+            for spelling, command in (
+                ("create-first", CREATE_FIRST),
+                ("switch-first", SWITCH_FIRST),
+            ):
+                sid = f"{state}-{consented}-{spelling}"
+                if consented:
+                    grant(repo, sid)
+                runs[spelling] = [
+                    decide(
+                        monkeypatch,
+                        capsys,
+                        repo,
+                        command,
+                        sessions=sessions,
+                        session_id=sid,
+                    )
+                    for _attempt in range(3)
+                ]
+            if runs["create-first"] != runs["switch-first"]:
+                differs.append(
+                    (
+                        state,
+                        consented,
+                        [d for d, _ in runs["create-first"]],
+                        [d for d, _ in runs["switch-first"]],
+                    )
+                )
+    assert not differs, differs
+
+
+def test_a_command_with_both_is_never_weaker_than_either_alone(
+    monkeypatch, capsys, repo
+):
+    """The combined verdict is at least as strict as the switch's alone and
+    the creation's alone, in each tree state and consent state, and it is
+    never `allow`: `only_creates_a_worktree` refuses a command with a switch
+    segment. The creation is written as a compound on its own too, because
+    that is the verdict it gets inside the combined command. A fresh session
+    per run, so every verdict is a first attempt. Seen red at the base: with a
+    record, create-first was silent where the switch alone denied."""
+    weaker = []
+    for state, sessions, dirty in TREE_STATES:
+        make_dirty(repo, dirty)
+        for consented in (False, True):
+            for both in (CREATE_FIRST, SWITCH_FIRST):
+                verdicts = {}
+                for part, command in (
+                    ("both", both),
+                    ("switch", "git switch feature/x"),
+                    ("creation", "git worktree add ../wt f && git status"),
+                ):
+                    sid = f"{state}-{consented}-{part}-{both == CREATE_FIRST}"
+                    if consented:
+                        grant(repo, sid)
+                    verdicts[part] = decide(
+                        monkeypatch,
+                        capsys,
+                        repo,
+                        command,
+                        sessions=sessions,
+                        session_id=sid,
+                    )[0]
+                floor = max(
+                    STRICTNESS[verdicts["switch"]], STRICTNESS[verdicts["creation"]]
+                )
+                if verdicts["both"] == "allow" or STRICTNESS[verdicts["both"]] < floor:
+                    weaker.append((state, consented, both, verdicts))
+    assert not weaker, weaker
+
+
+def test_a_switch_into_the_new_worktree_is_judged_where_the_shell_stands(
+    monkeypatch, capsys, repo
+):
+    """`spec.md` decision 5 of work item 1790550712. When the guard runs, the
+    worktree the command creates does not exist yet.
+
+    `cd ../x && git switch y` therefore falls back to the session's own tree,
+    per §*Which tree, when the command walks to it*, and meets that tree's
+    switch verdict. It is a stop the person pays for a switch that would
+    really happen in the new worktree, and it errs on the side a guard
+    should. Seen red at the base: the creation's `ask`, or silence under
+    consent.
+
+    `git -C ../x switch y` names no repository, so it keeps that section's
+    silence, and the creation's own verdict stands, as it did at the base.
+    That is the spelling `docs/worktree-guard-spec.md` §*Known limits* names
+    as the way to avoid the stop."""
+    for consented in (False, True):
+        sid = f"consented-{consented}"
+        if consented:
+            grant(repo, sid)
+        decision, reason = decide(
+            monkeypatch,
+            capsys,
+            repo,
+            "git worktree add ../x -b x && cd ../x && git switch y",
+            sessions=(ACTIVE, [], True),
+            session_id=sid,
+        )
+        assert decision == "deny", (consented, decision, reason)
+        assert reason.startswith("Blocking this branch switch"), reason
+        decision, reason = decide(
+            monkeypatch,
+            capsys,
+            repo,
+            "git worktree add ../x -b x && git -C ../x switch y",
+            sessions=(ACTIVE, [], True),
+            session_id=sid,
+        )
+        if consented:
+            assert decision == "silent", (decision, reason)
+        else:
+            assert decision == "ask", (decision, reason)
+            assert "a worktree split looks justified" in reason, reason
+
+
 # --- the writer: a creation that actually ran ------------------------------
 
 
@@ -636,9 +916,9 @@ def test_a_command_that_creates_nothing_leaves_no_record(repo):
 
 
 def test_a_creation_anywhere_in_the_command_records(repo):
-    """The guard's PreToolUse walk stops at the first verdict because that is
-    the one it must decide. A creation ANYWHERE in a command that ran is a
-    creation that was approved, so the writer reads every segment."""
+    """A creation ANYWHERE in a command that ran is a creation that was
+    approved, so the writer reads every segment until it finds one. The
+    guard's PreToolUse walk judges that same first creation."""
     run_hook(
         "worktree_consent.py",
         post(repo, command="git status && git worktree add ../wt feature/x"),
@@ -1022,12 +1302,23 @@ def test_a_typed_answer_that_qualifies_the_preset_is_not_consent(projects, repo)
 
 def test_a_sidechain_entry_is_not_consent(projects, repo):
     """A subagent has no `AskUserQuestion`, so no real click can carry
-    `isSidechain: true`, and no local main transcript held one when this was
-    written. Refusing it costs no measured case and closes the direction."""
+    `isSidechain: true`. Every main-transcript entry measured carries `false`
+    (round 2 of work item 1790381327: 136 of 136 linked results), so an absent
+    or non-bool value is refused as an unmeasured shape, the way
+    `_routing_preset` refuses an absent `multiSelect`. The `False` row is the
+    other half: without it, refusing everything would pass."""
+    for value in (True, "true", 1, None, "absent"):
+        use, result = ask_entries(repo)
+        if value == "absent":
+            del result["isSidechain"]
+        else:
+            result["isSidechain"] = value
+        write_transcript(projects, "me", [use, result])
+        assert not wc.automation_answered(str(repo), "me"), value
     use, result = ask_entries(repo)
-    result["isSidechain"] = True
+    assert result["isSidechain"] is False
     write_transcript(projects, "me", [use, result])
-    assert not wc.automation_answered(str(repo), "me")
+    assert wc.automation_answered(str(repo), "me")
 
 
 def test_the_payloads_transcript_path_is_read_when_it_names_this_session(

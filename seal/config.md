@@ -7,7 +7,7 @@ row and what an absent one means. -->
 | Item | Value |
 |---|---|
 | Mode | shared |
-| Broad gate | bin/test -q && uvx ruff check . && uvx ruff format --check . |
+| Broad gate | uvx ruff check . && uvx ruff format --check . && bin/test -q |
 | Fold shape from | 0 |
 | Document line ceiling | 1000 |
 | Over the ceiling | none |
