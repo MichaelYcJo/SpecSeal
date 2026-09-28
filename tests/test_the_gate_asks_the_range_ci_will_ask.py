@@ -49,6 +49,7 @@ from conftest import code_lines
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 GATE = os.path.join(ROOT, "skills", "verify", "scripts", "broad_gate.py")
+STAMP = os.path.join(ROOT, "skills", "verify", "scripts", "seal_stamp.py")
 HYGIENE = os.path.join(ROOT, ".github", "workflows", "hygiene.yml")
 
 
@@ -548,7 +549,12 @@ def test_a_base_with_no_local_commit_at_all_is_told_so_and_runs(tmp_path):
 def test_the_panel_names_the_ref_the_base_came_from(tmp_path):
     """A6, over `panel`'s rows and over what a reader actually sees.
     `seal_stamp.letter` cuts a value at the frame, so rows alone would not
-    show that the ref survives the rendering."""
+    show that the ref survives the rendering.
+
+    Since #400 a piped run draws no panel — the hook draws it later from the
+    rows — so the rendering is asked of `seal_stamp.stamp` over those rows,
+    and the run itself is asked what its `SEALED` line carries: the commit
+    the resolved ref names, never the local one behind it."""
     mod = gate_module()
     base = mod.Base("base", "aaaaaaa", "origin/base", "bbbbbbb")
     checks = {
@@ -558,13 +564,18 @@ def test_the_panel_names_the_ref_the_base_came_from(tmp_path):
     rows = mod.panel("ccccccc", base, checks, None)
     assert ("base", "bbbbbbb") in rows, rows
     assert ("from", "origin/base") in rows, rows
+    drawn = "\n".join(_load("specseal_seal_stamp", STAMP).stamp(rows, shape=True))
+    assert re.search(r"\bfrom\s+[^\n|]*origin/base", drawn), (
+        f"the rendered panel does not carry the ref:\n{drawn}"
+    )
 
     work = behind_gate_repo(tmp_path)
     out = run_gate(work, tmp_path / "out")
     assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
-    assert re.search(r"\bfrom\s+[^\n|]*origin/base", out.stdout), (
-        f"the rendered panel does not carry the ref:\n{out.stdout}"
-    )
+    said = [line for line in out.stdout.splitlines() if line.startswith("SEALED")]
+    assert len(said) == 1, out.stdout
+    assert f"against {short(work, 'origin/base')}" in said[0], said
+    assert short(work, "base") not in said[0], f"the line names the local ref: {said}"
 
 
 def test_the_failure_form_names_the_base_the_checks_were_asked_about(tmp_path):

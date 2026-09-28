@@ -65,12 +65,20 @@ files there, remove the worktree, and label each file `new` or `failing on
 base too`. It decides nothing about either word: both go in the report and
 the reader acts.
 
-**Printed on success only.** The stamp — the disc and a panel carrying the
-tree, the base, the suite's counts, the exit code the repository's row came
-back with, the ledger's counts, the chain's exit, and the round count when
-`--record` names a work item — is
-`seal_stamp.stamp`'s. The failure form is `NOT SEALED <tree> against <base>`
-and the failing checks with their first lines, no drawing.
+**Drawn on success only, and only where a person is looking** (#400). The
+stamp — the disc and a panel carrying the tree, the base, the suite's counts,
+the exit code the repository's row came back with, the ledger's counts, the
+chain's exit, and the round count when `--record` names a work item — is
+`seal_stamp.stamp`'s. On a terminal the gate draws it once, in the form
+`pick_shape` chooses. Anywhere else it draws nothing and prints one line
+beginning `SEALED`: on a recorded seal that line names the values file the
+panel's rows were written to, under `<git-common-dir>/specseal-stamp/
+<session>/`, and `hooks/sealer-stamp.py` draws it at the end of the turn of
+the session named by `CLAUDE_CODE_SESSION_ID`; without `--record` the line
+says nothing was recorded, and nothing is written or drawn. A sealer's stdout
+is a pipe, so a sealer's run never draws. The failure form is `NOT SEALED
+<tree> against <base>` and the failing checks with their first lines, no
+drawing and no file.
 
 `--record <item>` runs `round_record.py seal` on success, which sets the LAST
 record's `Broad gate` cell and nothing else. With `--record`, success is the
@@ -87,7 +95,7 @@ check refuses, is a stamp over a contradiction.
 
 Usage:
   broad-gate --base <ref> [--root DIR] [--record <item>] [--shape]
-             [--scale 1.0] [--keep-output DIR]
+             [--scale 0.9] [--keep-output DIR]
 
 Exit codes: 0 sealed · 1 not sealed · 2 refused — no row, no repository, a
 base that does not resolve, a scale outside the band, a `seal` the record
@@ -2185,7 +2193,11 @@ def seal_record(item, tree, root, base, keep):
     return check.code, check.text
 
 
-def gate(args, console_wants_letters):
+def gate(args, console_wants_letters, terminal=False):
+    """The run. `terminal` is whether stdout has a person in front of it:
+    only then is the stamp drawn here, and every other sealed run signals
+    instead (#400). Its default is the pipe, which is what every caller that
+    is not `__main__` — a case driving this in process — is writing to."""
     stamp = load(STAMP, "specseal_seal_stamp_for_broad_gate")
     root = repo_root(os.path.abspath(args.root or os.getcwd()))
     if root is None:
@@ -2366,15 +2378,97 @@ def gate(args, console_wants_letters):
                 + "\n"
             )
             return 2
-    shape = args.shape or console_wants_letters
     rows = panel(tree, base, checks, item, workflow, gate_copy(root))
-    sys.stdout.write("\n" + "\n".join(stamp.stamp(rows, args.scale, shape)) + "\n\n")
+    if terminal:
+        # A person is in front of this stream, and it is the one place the
+        # gate draws. Once, and no values file is left for anyone else to
+        # draw a second time (#400).
+        shape = args.shape or console_wants_letters
+        sys.stdout.write(
+            "\n" + "\n".join(stamp.stamp(rows, args.scale, shape)) + "\n\n"
+        )
+        return 0
+    sys.stdout.write(signal(stamp, root, tree, base, item, rows, args.scale) + "\n")
     return 0
 
 
-def main(argv=None, console_wants_letters=None):
+# The variable Claude Code sets in every Bash call, a subagent's included, to
+# the id of the MAIN session — the id a `Stop` payload carries as `session_id`
+# (`questions.md` Q2 of 1790562543, measured 2026-09-28). It is not
+# documented, and where it is absent the values land under `none/`, which no
+# hook reads, and the signal line says so.
+SESSION_VAR = "CLAUDE_CODE_SESSION_ID"
+
+NOTHING_RECORDED = (
+    " · nothing was recorded (no --record), so no stamp is written or drawn"
+)
+VALUES_UNWRITTEN = " · nothing will be drawn: the stamp's values could not be written"
+NO_SESSION_FOUND = (
+    " · no Claude Code session was found, so no hook draws the stamp; "
+    "`seal-stamp --from {path}` draws it"
+)
+DRAWN_AT_TURN_END = (
+    " · the stamp is drawn at the end of the turn of session {session}, from {path}"
+)
+
+
+def common_dir(root):
+    """The git common dir of `root`, absolute, or None."""
+    common = git(root, "rev-parse", "--git-common-dir")
+    if not (common and common.strip()):
+        return None
+    return os.path.normpath(os.path.join(root, common.strip()))
+
+
+def signal(stamp, root, tree, base, item, rows, scale):
+    """The one line a sealed run prints where nobody can see a drawing.
+
+    It starts with `SEALED` and carries `<tree> against <base commit>`, the
+    way the failure form starts `NOT SEALED`. On a recorded seal it writes the
+    panel's `rows` to a values file first and names it: the drawing is then
+    the hook's, in the session that spawned the run, and this line is what
+    reaches the report. A values file that cannot be written leaves the run
+    sealed — every check passed and the cell was written — and says on
+    stderr why nothing will be drawn."""
+    head = f"SEALED   {tree} against {base.commit}"
+    if item is None:
+        return head + NOTHING_RECORDED
+    session = os.environ.get(SESSION_VAR)
+    values = {
+        "tree": tree,
+        "base": base.commit,
+        "from": base.ref,
+        "item": item,
+        "session": session or None,
+        "scale": scale,
+        "rows": rows,
+    }
+    common = common_dir(root)
+    try:
+        if common is None:
+            raise OSError(f"{root} has no git common directory")
+        path = stamp.write_values(common, session, values)
+    except OSError as exc:
+        sys.stderr.write(
+            f"broad-gate: the stamp's values could not be written ({exc}), so "
+            "nothing will be drawn. The run is still sealed: every check passed "
+            "and the cell was written\n"
+        )
+        return head + VALUES_UNWRITTEN
+    if stamp.session_key(session) == stamp.NO_SESSION:
+        return head + NO_SESSION_FOUND.format(path=path)
+    return head + DRAWN_AT_TURN_END.format(session=session, path=path)
+
+
+def main(argv=None, console_wants_letters=None, console_is_terminal=None):
     """`console_wants_letters` is `pick_shape` asked of stdout as the process
-    found it — `__main__` asks before it reconfigures the streams."""
+    found it, and `console_is_terminal` is `is_terminal` asked of it —
+    `__main__` asks both before it reconfigures the streams."""
+    try:
+        stamp = load(STAMP, "specseal_seal_stamp_for_broad_gate")
+    except Refused as exc:
+        sys.stderr.write(str(exc) + "\n")
+        return 2
     parser = argparse.ArgumentParser(
         prog="broad-gate",
         description="The one broad run, after the rounds settle: the "
@@ -2391,7 +2485,12 @@ def main(argv=None, console_wants_letters=None):
     parser.add_argument(
         "--shape", action="store_true", help="the letter twin, whatever the console"
     )
-    parser.add_argument("--scale", type=float, default=1.0, help="the chart's scale")
+    parser.add_argument(
+        "--scale",
+        type=float,
+        default=stamp.DEFAULT_SCALE,
+        help=f"the chart's scale (default {stamp.DEFAULT_SCALE})",
+    )
     parser.add_argument(
         "--keep-output",
         default=None,
@@ -2422,25 +2521,27 @@ def main(argv=None, console_wants_letters=None):
     if root is not None:
         sys.stderr.write(running_line(root) + "\n")
     if console_wants_letters is None:
-        stamp = load(STAMP, "specseal_seal_stamp_for_broad_gate")
         console_wants_letters = stamp.pick_shape(sys.stdout)
+    if console_is_terminal is None:
+        console_is_terminal = stamp.is_terminal(sys.stdout)
     try:
-        return gate(args, console_wants_letters)
+        return gate(args, console_wants_letters, terminal=console_is_terminal)
     except Refused as exc:
         sys.stderr.write(str(exc) + "\n")
         return 2
 
 
 if __name__ == "__main__":
-    # Which form, asked of stdout as the process found it — before the loop
-    # below moves every stream to UTF-8 (`seal_stamp.py` measured why).
+    # Which form, and whether a person is looking at all, asked of stdout as
+    # the process found it — before the loop below moves every stream to
+    # UTF-8 (`seal_stamp.py` measured why).
     try:
-        _letters = load(STAMP, "specseal_seal_stamp_for_broad_gate").pick_shape(
-            sys.stdout
-        )
+        _stamp = load(STAMP, "specseal_seal_stamp_for_broad_gate")
     except Refused as _exc:
         sys.stderr.write(str(_exc) + "\n")
         sys.exit(2)
+    _letters = _stamp.pick_shape(sys.stdout)
+    _terminal = _stamp.is_terminal(sys.stdout)
     for _name, _errors in (
         ("stdin", "replace"),
         ("stdout", "replace"),
@@ -2449,4 +2550,4 @@ if __name__ == "__main__":
         _stream = getattr(sys, _name, None)
         if hasattr(_stream, "reconfigure"):
             _stream.reconfigure(encoding="utf-8", errors=_errors)
-    sys.exit(main(console_wants_letters=_letters))
+    sys.exit(main(console_wants_letters=_letters, console_is_terminal=_terminal))
