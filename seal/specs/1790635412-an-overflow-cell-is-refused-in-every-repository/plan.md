@@ -2,7 +2,7 @@
 
 <!-- seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/plan.md — HOW, in phases. -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-09-29 by the orchestrating session, when `smith` was spawned.
 
 ## Summary
 
