@@ -350,15 +350,39 @@ def test_not_sealed_carries_no_disc_and_names_every_failure():
     "stream, why",
     [
         (Stream("cp949", tty=True), "a console that cannot render half-blocks"),
-        (Stream("utf-8", tty=False), "a pipe — an agent's report carries the twin"),
+        (Stream("utf-8", tty=False), "a pipe, where `seal-stamp` prints the twin"),
         (io.StringIO(), "a stream with no encoding and no terminal"),
     ],
 )
 def test_pick_shape_is_letters_off_a_utf8_terminal(stream, why):
-    """S5 and `spec.md` §Out — *the sealer's returned text carries the ASCII
-    twin; the colour form is for a person's terminal*. Blocks and colour are
-    for a UTF-8 tty and nothing else."""
+    """S5 — the colour form is for a person's terminal. Blocks and colour are
+    for a UTF-8 tty and nothing else. (#30's `spec.md` §Out said the sealer's
+    returned text carries the twin; since #400 it carries no drawing at all,
+    because the gate asks `is_terminal` and draws nothing on a pipe.)"""
     assert module().pick_shape(stream) is True, why
+
+
+class Raising(Stream):
+    def isatty(self):
+        raise ValueError("I/O operation on closed file")
+
+
+@pytest.mark.parametrize(
+    "stream, terminal",
+    [
+        (Stream("cp949", tty=True), True),
+        (Stream("utf-8", tty=True), True),
+        (Stream("utf-8", tty=False), False),
+        (io.StringIO(), False),
+        (Raising("utf-8", tty=True), False),
+    ],
+)
+def test_is_terminal_asks_the_tty_and_not_the_encoding(stream, terminal):
+    """#400. `pick_shape` folded *not a tty* and *not UTF-8* into one answer,
+    and the gate needs them apart: a cp949 terminal has a person in front of
+    it and gets letters, a UTF-8 pipe has nobody and gets nothing drawn. A
+    stream whose `isatty` raises is a stream nobody is looking at."""
+    assert module().is_terminal(stream) is terminal
 
 
 def test_pick_shape_is_blocks_on_a_utf8_terminal():

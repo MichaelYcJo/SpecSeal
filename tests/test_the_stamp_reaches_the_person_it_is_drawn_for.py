@@ -302,6 +302,16 @@ def test_the_sealers_worktree_and_the_main_checkout_share_the_file(tmp_path):
     assert message(stop(tree))[0].endswith("1799000001-another"), "not from the tree"
 
 
+def test_a_turn_ending_in_a_subdirectory_still_draws(tmp_path):
+    """The payload's `cwd` is wherever the session last stood, which need not
+    be the repository's root. The hook walks up to the `.git` entry rather
+    than asking git, so a turn ending in a subdirectory draws the same."""
+    repo = opted_in(tmp_path)
+    (repo / "docs" / "deep").mkdir(parents=True)
+    pending_for(repo, "s-1")
+    assert message(stop(repo / "docs" / "deep"))[0].startswith("SEALED aaa1111")
+
+
 def test_a_repository_that_never_opted_in_is_not_drawn_for(tmp_path):
     """No `seal/` at either place, and the hook stays silent and takes
     nothing — even over a file that is there."""

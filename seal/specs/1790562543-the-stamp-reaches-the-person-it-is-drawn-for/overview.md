@@ -1,9 +1,9 @@
 # 1790562543-the-stamp-reaches-the-person-it-is-drawn-for — overview
 
 📋 implement applied
-· spec:     pending — written when the build closes
-· evidence: pending — written when the build closes
-· verified: pending — written when the build closes
+· spec:     this work item's spec.md (Grounding, measurements, Scope In 1–6 and Out, S1–S17, Data & interfaces, What cannot be checked), plan.md (Technical context and its three failure scenarios, Alternatives, both phases), questions.md Q1–Q7; issue #400's body (§*The size, and why it is 0.90*, §*What to build*, §*Done when*) and its 2026-09-28 comments; docs/the-broad-gate.md; skills/verify/SKILL.md §*Every agent seals what it verified*; agents/sealer.md §*The command*; skills/code-review/orchestration.md §*Orchestrator: the pull request opens before round 1*; templates/sdd-phase.md, sdd-overview.md; CLAUDE.md §fragments and §commit early; agent-contract §1–§3, §5, §7–§9, §12, §14, §15
+· evidence: seal/ledger/1790562543-the-stamp-reaches-the-person-it-is-drawn-for.md N1–N9 added; 0.10.0 S3 corrected in place; re-read and re-stamped where they live: seal/releases/0.4.0.md (three rows), 0.9.1.md, 0.9.3.md (the H1-anchored row), 0.10.0.md (five rows beside S3), 0.11.5.md, 0.12.0.md (three), 0.12.2.md (five), 0.13.1.md, 0.15.1.md (four), 0.15.3.md, 0.15.4.md (three)
+· verified: executed — every new case seen red (S1 against the gate at 30d75220; the rest under 40 single mutants, 19 in phase 1 and 21 in phase 2, each killed, the one first survivor killed by a case added for it), the modules that drive the gate, the stamp or the hook and every module naming a file either phase edited, run at each phase boundary, evidence-check --strict; read — the Q2 reading (executed by the orchestrating session, relayed); unverified — S17 and Q1, Q3, Q4 below, and the full suite, lint and typecheck (the sealer's)
 
 ## Why this work exists
 

@@ -13,8 +13,9 @@ Two forms, one drawing. The block form is half-block characters in truecolour,
 emitted only where the colour changes (a code per cell was 282 KB for one
 seal). The letter twin is the same footprint as letters — `o O` rope, `l m`
 wax, `G W y Y` the lily's golds, `.` the field — for a console that cannot
-render half-blocks, and for an agent's report, which is a pipe. The twin is
-chosen when stdout is not a UTF-8 terminal, or on `--shape`.
+render half-blocks, and for `seal-stamp` on a pipe. The twin is chosen when
+stdout is not a UTF-8 terminal, or on `--shape`. An agent's report carries
+neither: since #400 the gate draws nothing on a pipe.
 
 The stamp prints on success only. The failure form, `not_sealed`, is the words
 `NOT SEALED`, the tree and the base, and the failing checks with their first
@@ -430,8 +431,9 @@ def not_sealed(tree, base, failures):
 def pick_shape(stream):
     """True when `stream` gets the letter twin: anything that is not a UTF-8
     terminal. A console on another codepage draws UTF-8 half-blocks as
-    mojibake, and a pipe is an agent's report, which carries the twin
-    (`spec.md` §Out). Asked BEFORE the stream is reconfigured to UTF-8 — after
+    mojibake, and a pipe has no terminal to draw colour on, so `seal-stamp`
+    on one prints the twin; the gate asks `is_terminal` first and draws
+    nothing on a pipe at all (#400). Asked BEFORE the stream is reconfigured to UTF-8 — after
     that call every stream answers `utf-8`, and a cp949 console would get the
     blocks it cannot draw."""
     encoding = (getattr(stream, "encoding", None) or "").lower().replace("-", "")
