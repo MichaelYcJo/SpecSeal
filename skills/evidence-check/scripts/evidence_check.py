@@ -263,6 +263,25 @@ def quoted_lines(lines):
 
 
 BLANK_RE = re.compile(r"[^\r\n]")
+# Where GFM ends a line: LF, CR or CRLF, and nowhere else. `str.splitlines`
+# also ends one at U+2028, NEL, a form feed and five other characters, which
+# cut a table row in two -- hiding a split that fell after the cut -- opened a
+# fence GFM never sees, and moved every line number after it off the line an
+# editor shows (round 1 of 1790635412, 🟡 1).
+GFM_LINE_RE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+\Z")
+
+
+def gfm_lines(text, keepends=False):
+    """TEXT's lines as GFM reads them, the way `str.splitlines` returns them
+    otherwise: no trailing empty line, and each line's end kept only when
+    KEEPENDS asks.
+
+    For every walk of markdown lines that reads a table or a fence. The
+    lines a hash covers and an anchor spans are still `splitlines`', so no
+    recorded hash moves: which characters end a line there is a separate
+    question from where a table row or a fence ends."""
+    lines = GFM_LINE_RE.findall(text)
+    return lines if keepends else [line.rstrip("\r\n") for line in lines]
 
 
 def unquoted(text):
@@ -272,7 +291,7 @@ def unquoted(text):
     its match position in the original text: a blanked line is the same
     length, so a position found in this text is the same position there.
     """
-    lines = text.splitlines(keepends=True)
+    lines = gfm_lines(text, keepends=True)
     quoted = quoted_lines([line.rstrip("\r\n") for line in lines])
     if not quoted:
         return text
@@ -1560,7 +1579,7 @@ def old_format_rows(text):
     # `hooks/ledger-migrate.py` asks this function whether to migrate at all,
     # so a quoted old coordinate must not offer a migration that `migrate`
     # then leaves alone.
-    for line in unquoted(text).splitlines():
+    for line in gfm_lines(unquoted(text)):
         if not line.lstrip().startswith("|"):
             continue
         for m in OLD_COORD_RE.finditer(ANCHOR_RE.sub(" ", line)):
@@ -1711,7 +1730,7 @@ def ledger_table_rows(text):
     offset, so LINE_NUMBER is 1-based into TEXT as given.
     """
     split = cell_rule()
-    rows = [split(line) for line in unquoted(text).splitlines()]
+    rows = [split(line) for line in gfm_lines(unquoted(text))]
 
     def rule(cells):
         return bool(cells) and all(RULE_CELL_RE.match(c) for c in cells)
@@ -1935,7 +1954,7 @@ def migrate(ledgers, root, maps=None, default_repo=None):
         out_lines = []
         # An example row in a fenced block that closes is left byte for byte
         # (#444): it is not a row, so there is nothing to migrate.
-        split = text.splitlines(keepends=True)
+        split = gfm_lines(text, keepends=True)
         quoted = quoted_lines([line.rstrip("\r\n") for line in split])
         for n, line in enumerate(split):
             if n in quoted or not line.lstrip().startswith("|"):
@@ -2795,7 +2814,7 @@ def check_records(root, home, maps=None, default_repo=None):
                     (UNREADABLE_STATUS, shown, "the record could not be read")
                 )
                 continue
-            lines = body.splitlines()
+            lines = gfm_lines(body)
             for number, name in stated_names(lines):
                 names_read += 1
                 if name in known:

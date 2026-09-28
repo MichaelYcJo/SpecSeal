@@ -284,6 +284,72 @@ def test_a_clean_ledger_says_zero_overflow_on_both_lines(repo):
     assert gate.LEDGER_RE.search(total[0]), total[0]
 
 
+# --- a line ends where GFM ends one (round 1, 🟡 1) --------------------------
+#
+# GFM ends a line at LF, CR and CRLF only. `str.splitlines` also ends one at
+# U+2028, NEL, a form feed and five others, so every walk in the checker that
+# reads markdown lines for a table or a fence cut a line GFM keeps whole.
+# One case per walk.
+
+NOT_A_LINE_END = ["\u2028", "\x85", "\x0c"]
+
+
+@pytest.mark.parametrize("ch", NOT_A_LINE_END)
+def test_a_character_gfm_does_not_end_a_line_at_does_not_cut_a_row(ch):
+    """`ledger_table_rows`. Cut there, a split after the cut went unnamed and
+    every later row was one line off and read as under no header."""
+    c = "x.py#f@00000000"
+    hidden = f"| a | `{c}` | ran `a | b` more{ch}text | 2026-01-01 | n |\n"
+    assert lines(HEADER + hidden) == [3]
+    before = f"| a | `{c}` | b{ch}c | 2026-01-01 | n |\n"
+    text = HEADER + before + SPLIT.format(c=c)
+    assert lines(text) == [4]
+    assert "under a 5-cell header" in named(text)[0][1]
+
+
+@pytest.mark.parametrize("ch", NOT_A_LINE_END)
+def test_a_character_gfm_does_not_end_a_line_at_does_not_open_a_fence(ch):
+    """`unquoted`. A fence run after such a character is not at the start of
+    a line to GFM, so the row after it is live."""
+    assert lines(f"intro{ch}```\n{WIDE}```\n") == [2]
+
+
+@pytest.mark.parametrize("ch", NOT_A_LINE_END)
+def test_an_old_coordinate_after_such_a_character_is_still_offered(ch):
+    """`old_format_rows`. The rest of the row after the cut did not start with
+    a pipe, so an old coordinate there was not offered for migration."""
+    found = ec.old_format_rows(f"| a | x{ch}`src/a.py:1-2` |\n")
+    assert [coord for _, coord, _ in found] == ["src/a.py:1-2"], found
+
+
+@pytest.mark.parametrize("ch", NOT_A_LINE_END)
+def test_migrate_reads_the_fence_where_gfm_reads_it(repo, ch):
+    """`migrate`. It read fences on its own cut, so a row GFM shows live was
+    left as a fenced example and never migrated."""
+    path = fragment(repo, f"intro{ch}```\n| POL | old `src/service.py:1-2` |\n```\n")
+    run(["--migrate", "."], repo)
+    assert "`src/service.py#handler@" in path.read_text(encoding="utf-8")
+
+
+@pytest.mark.parametrize("ch", NOT_A_LINE_END)
+def test_a_record_line_after_such_a_fence_run_is_read(tmp_path, ch):
+    """`check_records`. A record is read a line at a time with fences
+    skipped, so a false fence there hid a name the tree does not have."""
+    h = tmp_path / "seal"
+    d = h / "specs" / "1780000000-live"
+    d.mkdir(parents=True)
+    (h / "ledger").mkdir()
+    (h / "ledger" / "1780000000-live.md").write_text("", encoding="utf-8")
+    (d / "overview.md").write_text(
+        f"# r\n\nintro{ch}```\nthe alias `gone_helper` has one call site\n```\n",
+        encoding="utf-8",
+    )
+    findings, _read, _stamps = ec.check_records(str(tmp_path), str(h))
+    assert [(s, c.rsplit("/", 1)[-1]) for s, c, _ in findings] == [
+        ("NOT-IN-TREE", "overview.md:4")
+    ], findings
+
+
 # --- A9 · `--reverify` does not go quiet -----------------------------------
 
 
