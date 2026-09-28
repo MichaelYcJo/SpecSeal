@@ -35,12 +35,9 @@ worktree process-free, by reading the `gitdir:` line and that directory's
 `commondir`. Nothing asked for it, `hooks/sealer-stamp.py` pays the same
 process there already, and one parser would want to serve both.
 
-**`merge()` raises on a gate that prints a JSON array, a number or `null`.**
-`classify` calls `.get` on whatever `json.loads` returned, so the dispatcher
-exits 1 and every decision in the group is lost. This predates the branch,
-is not one of the two `merge()` drops `spec.md` §*Scope* Out names, and no
-gate prints such a value today. It needs a home that names who will act,
-which is the orchestrator's to pick.
+**`merge()` raised on a gate that printed a JSON array, a number or `null`.**
+This was found in phase 3, predated the branch, and was filed as #661. The
+owner asked mid-run that it be fixed here, and phase 4 fixed it.
 
 ## Fed back into the spec
 

@@ -22,3 +22,11 @@
   every gate after it in the group never decided. It is caught now and
   recorded as a load failure. A `SystemExit` from a gate's `main()` is still
   a gate finishing, as `worktree-guard.py` uses it.
+- **A gate that prints JSON the dispatcher cannot read no longer ends its
+  whole hook group (issue #661).** `null`, a number, a string, `true`, an
+  array, or an object whose `hookSpecificOutput` is not an object or whose
+  decision, reason or message is not text raised inside the merge, after
+  every gate had run. The group exited 1, and a neighbour's `deny` or message
+  was lost with it. That output is now dropped, the rest of the group
+  decides, and the gate is named at the end of the turn like any gate that
+  failed while running.
