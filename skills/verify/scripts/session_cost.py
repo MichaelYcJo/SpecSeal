@@ -362,7 +362,9 @@ def command_words(command):
             # a command word, and only what follows the `)` that closes the
             # outermost one reaches the line. One operator token can close a
             # substitution and open a subshell (`);(`), so it is walked a
-            # character at a time rather than counted.
+            # character at a time rather than counted. The `<` or `>` of a
+            # process substitution stays in what is left, which keeps the
+            # first word inside it out of command position (`a;<(git s)`).
             opens = token.startswith("(") and previous.endswith("$")
             left = []
             for at, char in enumerate(token):
@@ -372,8 +374,6 @@ def command_words(command):
                     (at == 0 and opens) or token[at - 1 : at] in ("<", ">")
                 ):
                     nested = 1
-                    if left and left[-1] in "<>":
-                        left.pop()
                 else:
                     left.append(char)
             token = "".join(left)

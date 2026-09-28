@@ -1732,6 +1732,9 @@ def test_a_separator_inside_a_substitution_does_not_reach_the_line():
         "echo $(echo $(cd a; git s))",
         "x=$(printf ')'; cd a; git log)",
         'x=$(echo ")"; cd a; git log)',
+        "x=$(echo $(pwd); cd a; git log)",
+        "x=$( (ls); cd a; git log)",
+        "echo a;<(git s)",
     ):
         assert module.family(command) != "git", command
     for command in (
