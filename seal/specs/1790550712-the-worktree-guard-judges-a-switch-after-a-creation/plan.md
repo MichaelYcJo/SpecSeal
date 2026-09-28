@@ -228,8 +228,8 @@ false.
 
 | Anchor | Rows |
 |---|---|
-| `hooks/worktree-guard.py#main@286a1256` | `seal/releases/0.15.5.md` A4, A5 · `seal/releases/0.9.1.md` *Whatever the writer would record for …* (also corrected, item 18) |
-| `hooks/worktree-guard.py#guard_worktree_creation@26618e2e` | `seal/releases/0.15.5.md` A3 · `seal/releases/0.9.1.md` *A session that already created a worktree …*, *The first creation of a session is unchanged* · `seal/releases/0.9.4.md` S3, S4 |
+| `hooks/worktree-guard.py#main@d931be71` | `seal/releases/0.15.5.md` A4, A5 · `seal/releases/0.9.1.md` *Whatever the writer would record for …* (also corrected, item 18) |
+| `hooks/worktree-guard.py#guard_worktree_creation@5c370c45` | `seal/releases/0.15.5.md` A3 · `seal/releases/0.9.1.md` *A session that already created a worktree …*, *The first creation of a session is unchanged* · `seal/releases/0.9.4.md` S3, S4 |
 | `hooks/worktree-guard.py#judge_creation@bc8a0654` | `seal/releases/0.9.1.md` *A creation anywhere in the command is judged before it runs* |
 | `hooks/worktree_consent.py#automation_answered@415ab3a7` | `seal/releases/0.15.5.md` A1 (also corrected, item 9) |
 | `tests/test_the_guard_asks_once_per_session.py#test_a_sidechain_entry_is_not_consent@d996dc32` | `seal/releases/0.15.5.md` A1 |
@@ -250,6 +250,8 @@ its three rows (`seal/releases/0.9.1.md` items 17 and the row above it,
 
 The `main` stamp was re-stamped again on 2026-09-28 by round 1's fix pass,
 whose tracked-changes row fix moved `main`; its rows were re-read with notes.
+Round 2's fix pass moved `main` and `guard_worktree_creation` in turn, and
+both stamps were re-stamped the same way.
 
 New rows, in the fragment:
 - W1: order does not decide (`main`, the S2 case).
