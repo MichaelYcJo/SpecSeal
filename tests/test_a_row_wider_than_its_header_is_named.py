@@ -203,7 +203,8 @@ def test_a_row_the_shared_reader_calls_live_is_read(shape, body, line):
 )
 def test_an_escaped_pipe_and_a_missing_closer_count_exactly(row):
     """A3. `\\|` is inside the cell, and a row ending in `\\|` with no closing
-    pipe is not one cell short -- the old case's `cell_count` read it so."""
+    pipe is not one cell short, which is how this repository's own case
+    counted it before #585."""
     assert lines(row) == [], row
     assert lines(row.replace("| a |", "| a | z |", 1)) == [1], row
 

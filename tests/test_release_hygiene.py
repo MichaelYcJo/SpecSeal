@@ -1209,95 +1209,57 @@ def test_no_version_heads_two_sections_of_this_ledger():
         )
 
 
-# A cell boundary is a `|` no backslash escapes, inside a code span as well as
-# outside it: GitHub splits a table row there either way (#562).
-CELL_BOUNDARY = re.compile(r"(?<!\\)\|")
-TABLE_RULE = re.compile(r"\|(\s*:?-+:?\s*\|)+")
+def overflowing_rows(root):
+    """Every row `evidence_check.overflow_rows` names in the ledgers the
+    checker itself reads under ROOT, as `<ledger> line <n>: <detail>`.
 
+    The rule is the shipped checker's since #585, so this repository holds
+    its own ledgers to the reading every repository that installs the plugin
+    gets, rather than to a second implementation of it. The listing is the
+    checker's too, `resolve_patterns(default_patterns(root))`, so a ledger
+    location the checker gains is read here without an edit."""
+    import importlib.util
 
-def cell_count(line):
-    """The cells a table row splits into, a missing closing `|` allowed."""
-    parts = CELL_BOUNDARY.split(line.rstrip())
-    return len(parts) - (2 if line.rstrip().endswith("|") else 1)
-
-
-def ledger_row_width():
-    """The cells `templates/ledger.md` declares for a ledger row, read from
-    its `| Clause |` header rather than written here as a literal."""
-    for line in read_text("templates", "ledger.md").split("\n"):
-        if line.startswith("| Clause |"):
-            return cell_count(line)
-    raise AssertionError("templates/ledger.md declares no `| Clause |` header")
-
-
-def ledger_overwide(text):
-    """`overwide_rows` as a ledger file is read: a row under no header is a
-    ledger row, and is counted against the template's width."""
-    return overwide_rows(text, ledger_row_width())
-
-
-def overwide_rows(text, width=None):
-    """`(line number, header cells, row cells)` for every table row that
-    splits into more cells than its table's header, fenced blocks skipped.
-
-    A row with no header above it is counted against `width` (#501). A
-    ledger fragment has no header by rule, so without a width every fragment
-    row was read and none was counted. `None` keeps such a row uncounted."""
+    spec = importlib.util.spec_from_file_location(
+        "specseal_evidence_check_for_hygiene",
+        os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py"),
+    )
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
     found = []
-    lines = text.split("\n")
-    header = width
-    fence = False
-
-    for n, line in enumerate(lines, 1):
-        if line.startswith("```"):
-            fence = not fence
-            continue
-        if fence or not line.startswith("|"):
-            header = width if not fence else header
-            continue
-        if n < len(lines) and TABLE_RULE.fullmatch(lines[n].strip()):
-            header = cell_count(line)
-            continue
-        if TABLE_RULE.fullmatch(line.strip()) or header is None:
-            continue
-        if cell_count(line) != header:
-            found.append((n, header, cell_count(line)))
+    for path in ec.resolve_patterns(ec.default_patterns(root)):
+        with open(path, encoding="utf-8") as f:
+            text = f.read()
+        for _, coord, detail in ec.overflow_rows(text):
+            found.append(f"{ec.display_name(path, root)} {coord}: {detail}")
     return found
 
 
-def test_an_unescaped_pipe_in_a_ledger_cell_is_named():
-    """#562. A shell pipe quoted in a note splits the row, the `Checked`
-    column shifts, and the anchor cell the checker reads still parses, so
-    nothing else says so. Escaped, the same text is one cell."""
-    table = (
-        "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
-        "|---|---|---|---|---|\n"
-        "| a | `x.py#f@00000000` | ran `cat f | grep -c x` | 2026-01-01 | n |\n"
-        "| b | `x.py#f@00000000` | ran `cat f \\| grep -c x` | 2026-01-01 | n |\n"
-    )
-    assert overwide_rows(table) == [(3, 5, 6)]
-
-
-def test_a_row_under_no_header_is_counted_against_the_width_it_is_given():
-    """#501. A fragment has no header by rule, and the fold copies it into
-    its release file as it stands, so a row under no header is counted
-    against the width its caller gives. A table with its own header keeps
-    its own width, and a caller that gives none keeps the old skip. Seen red
-    against the header-only `overwide_rows`, which returned `[]` for the
-    headerless row."""
-    fragment = (
-        "| a | `x.py#f@00000000` | ran `cat f | grep -c x` | 2026-01-01 | n |\n"
-        "| b | `x.py#f@00000000` | ran `cat f \\| grep -c x` | 2026-01-01 | n |\n"
-    )
-    assert overwide_rows(fragment, width=5) == [(1, 5, 6)]
-    assert overwide_rows(fragment) == []
-    beside = "| Item | Value |\n|---|---|\n| a | b |\n\n" + fragment
-    assert overwide_rows(beside, width=5) == [(5, 5, 6)]
-    # `ledger_overwide` is what the corpus case calls, so a width dropped
-    # inside it goes red here, in this case. A corpus case that stops calling
-    # it and calls `overwide_rows` bare goes red nowhere: no row in the tree is
-    # overwide, so the corpus case alone stays green, and so does this one.
-    assert ledger_overwide(fragment) == [(1, 5, 6)]
+def test_a_planted_overflowing_row_is_named_in_every_ledger_the_checker_reads(
+    tmp_path,
+):
+    """A12 of #585. The corpus case below cannot be shown red by the tree,
+    because no row in it overflows, so the walk is a helper and this case
+    plants one split row in each place the checker reads. Seen red with the
+    helper's call to the arm replaced by `[]`."""
+    split = "| a | `x.py#f@00000000` | ran `cat f | grep -c x` | 2026-01-01 | n |\n"
+    clean = split.replace("f | grep", "f \\| grep")
+    for rel in (
+        ("seal", "ledger.md"),
+        ("seal", "ledger", "f.md"),
+        ("seal", "releases", "0.0.1.md"),
+        ("docs", "area", "_evidence.md"),
+    ):
+        path = tmp_path.joinpath(*rel)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(clean + split, encoding="utf-8")
+    found = [f.replace(os.sep, "/") for f in overflowing_rows(str(tmp_path))]
+    assert [f.split(":")[0] for f in found] == [
+        "docs/area/_evidence.md line 2",
+        "seal/ledger.md line 2",
+        "seal/ledger/f.md line 2",
+        "seal/releases/0.0.1.md line 2",
+    ], found
 
 
 def test_no_ledger_row_splits_into_more_cells_than_its_header():
@@ -1305,27 +1267,14 @@ def test_no_ledger_row_splits_into_more_cells_than_its_header():
     fragment. Seen red against the ledger at `31937b9f`: 22 rows, two of them
     written by #547's notes and twenty older.
 
-    A row under no header is counted against the ledger row's width from
-    `templates/ledger.md` (#501): every fragment row, and the released rows a
-    fold copied in without one. Counted 2026-09-24 by a script walking this
-    function's header logic over the shared file and every release file: 767
-    table body rows, 25 of them under no header (5 in `0.15.0.md`, 20 in
-    `0.15.1.md`), all five cells wide. None was counted before."""
-    fragments = os.path.join(ROOT, "seal", "ledger")
-    rels = ledger_files() + (
-        [
-            os.path.join("seal", "ledger", n)
-            for n in sorted(os.listdir(fragments))
-            if n.endswith(".md")
-        ]
-        if os.path.isdir(fragments)
-        else []
-    )
-    found = [
-        f"{rel}:{n} has {row} cells under a {header}-cell header"
-        for rel in rels
-        for n, header, row in ledger_overwide(read_text(*rel.split(os.sep)))
-    ]
+    A row under no header is counted against the five columns of a ledger
+    row (#501): every fragment row, and the released rows a fold copied in
+    without one. Since #585 the reading is the shipped checker's
+    (`overflowing_rows` above), which names only a row with MORE cells than
+    its header, reads fences and cells by the shared rule, and counts an
+    indented row. Measured 2026-09-29 after that change: `bin/evidence-check .`
+    over 36 ledger files, `0 overflow` on every one."""
+    found = overflowing_rows(ROOT)
     assert not found, (
         "a `|` inside a cell splits the row; write it as `\\|`:\n" + "\n".join(found)
     )
