@@ -84,9 +84,12 @@ that no command can bring into agreement, so a repair landing in the reader
 alone is half a repair. A row inside an HTML comment that closes is not a
 config row either, and the same one generator hides it from all three walks
 (#584): a row somebody commented out is not an answer they gave. A comment
-that never closes hides nothing, so no file that reads today stops reading,
-and where this gate's row stands only inside a comment the refusal names it
-as commented out rather than as fenced or absent.
+that never closes hides nothing. One shape that read before does stop
+reading: a comment opener and a closer each quoted in a code span, on lines
+either side of the table, read as a comment that closes, and the table
+between them is hidden; quote both on one line. Where this gate's row stands
+only inside a comment the refusal names it as commented out rather than as
+fenced or absent.
 Enforced by: tests/test_the_seal_is_taken_once_by_the_sealer.py::test_a_broad_gate_line_only_inside_a_fence_is_named_and_not_called_absent, tests/test_the_seal_is_taken_once_by_the_sealer.py::test_a_broad_gate_line_only_inside_a_comment_is_named_and_not_called_absent
 
 <!-- specs/1790206436-the-runs-instruments-cost-wall-clock -->

@@ -3,11 +3,13 @@
   row somebody commented out above the live one was the only row the gate
   got, and a whole old table parked inside a comment was read as the table.
   Every reader and the `seal mode` writer now skip a line that begins inside
-  a comment that closes; a comment that never closes hides nothing, so no
-  file that reads today stops reading. **This can change what a repository
-  declares**: a `Broad gate` or `Mode` row that stands only inside a closed
-  comment stops being read, and `broad-gate` then refuses naming the row as
-  *written inside an HTML comment*, or the mode question comes back once.
+  a comment that closes; a comment that never closes hides nothing. **This
+  can change what a repository declares**: a `Broad gate` or `Mode` row that
+  stands only inside a closed comment stops being read, and `broad-gate` then
+  refuses naming the row as *written inside an HTML comment*, or the mode
+  question comes back once. A comment delimiter quoted in a code span still
+  counts, so prose that quotes the opener above the table and the closer
+  below it hides the table between them; quote both on one line.
 - **Every markdown reader the release and the checks ship shares one fence
   rule (issue #584).** CommonMark's: at most three spaces of indentation, a
   backtick opener whose info string holds no backtick, and a close only on a

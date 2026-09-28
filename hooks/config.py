@@ -229,24 +229,32 @@ def unfenced(lines):
 COMMENT_OPENER, COMMENT_CLOSER = "<!--", "-->"
 
 
-def commented(lines):
+def commented(lines, shown=None):
     """The indices of LINES, outside every fence, that a closed HTML comment
-    hides (#584).
+    hides (#584). SHOWN is `fence_map(lines)[0]` where the caller already
+    has it, so `table_lines` walks the fences once per call.
 
     **A line is hidden when it BEGINS inside a comment and the run of such
     lines it belongs to returns to a line that begins outside every comment
     -- or the file ends outside one.** A row somebody commented out is not an
     answer they gave, which is the direction this module fails in. A comment
-    that never closes hides nothing, so no file that reads today stops
-    reading: an unclosed `<!--` above the live table leaves every row where
-    it was. The line that OPENS a comment begins outside it and is not
-    hidden; it holds `<!--` and so parses as no row of this table anyway.
+    that never closes hides nothing: an unclosed `<!--` above the live table
+    leaves every row where it was. The line that OPENS a comment begins
+    outside it and is not hidden; it holds `<!--` and so parses as no row of
+    this table anyway.
 
     The scan is `comment_scan`'s, over the lines `unfenced` shows: a
     delimiter inside a fence is neither an opener nor a closer, because the
     fence is decided first, and HTML comments do not nest, so the first
     `-->` closes. A `<!--` inside a code span is read as an opener, as
-    `comment_scan` and every reader through `readable` read it.
+    `comment_scan` and every reader through `readable` read it. **So one
+    shape that read before this rule does not now**: a comment opener and a
+    closer each quoted in a code span, on lines either side of the table,
+    read as a comment that closes, and hide the table between them (#584
+    round 1, finding 3). Prose that quotes both on one line hides nothing.
+    `tests/test_the_mode_question_is_asked_once.py#test_delimiters_quoted_in_code_spans_either_side_hide_the_table`
+    pins the reading; modelling a code span here would move this copy off
+    the oracle below, which does not model one either.
 
     **A copy, held to the shared functions.** Loading `unverified_check.py`
     here would be paid on every Bash call in every consumer's session, the
@@ -255,7 +263,7 @@ def commented(lines):
     alone, shape by shape.
     """
     hidden, run, inside = set(), [], False
-    for index, line in fence_map(lines)[0]:
+    for index, line in fence_map(lines)[0] if shown is None else shown:
         if inside:
             run.append(index)
         else:
@@ -292,9 +300,14 @@ def table_lines(lines):
     parked above the live one, is not this repository's answer, and before
     this it was read -- the first shape returned the parked row alone, and
     the second made the parked table THE table.
+
+    The fence walk runs once: its surviving lines are what `unfenced` would
+    yield, and `commented` is handed them rather than walking again (#584
+    round 1, ⬜ 5) -- this runs on every Bash call through `mode-gate`.
     """
-    hidden = commented(lines)
-    for index, line in unfenced(lines):
+    shown = fence_map(lines)[0]
+    hidden = commented(lines, shown)
+    for index, line in shown:
         if index not in hidden:
             yield index, line
 

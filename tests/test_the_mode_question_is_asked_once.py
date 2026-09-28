@@ -843,10 +843,9 @@ def test_a_commented_pipe_line_is_not_a_line_somebody_wrote_as_a_row(config):
 
 
 def test_an_unclosed_comment_hides_nothing(config):
-    """S14. Only a comment that closes hides the lines inside it, so no file
-    that reads today stops reading: a `<!--` somebody never closed leaves
-    every row where it was. Passes before and after: it pins the
-    direction."""
+    """S14. Only a comment that closes hides the lines inside it: a `<!--`
+    somebody never closed leaves every row where it was. Passes before and
+    after: it pins the direction."""
     for text in (
         "<!-- a note nobody closed\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n",
         "| Item | Value |\n|---|---|\n<!-- open\n| Mode | shared |\n"
@@ -855,6 +854,38 @@ def test_an_unclosed_comment_hides_nothing(config):
         rows = config.config_rows(text)
         assert ("Mode", "shared") in rows, rows
         assert len(rows) == text.count("| Mode |") + text.count("| Broad gate |")
+
+
+QUOTED_DELIMITERS = (
+    "To park a row, open it with `<!--`.\n\n"
+    "| Item | Value |\n|---|---|\n| Mode | shared |\n| Broad gate | bin/test -q |\n\n"
+    "and close it with `-->`.\n"
+)
+
+
+def test_delimiters_quoted_in_code_spans_either_side_hide_the_table(config):
+    """#584 round 1, finding 3. The comment half reads a delimiter inside a
+    code span as a delimiter, as `comment_scan` and every reader through
+    `readable` read it, so an opener quoted above the table and a closer
+    quoted below it hide the table between — a file that read before this
+    work and does not now. Three sentences promised that no such file
+    existed. This pins the reading and the sentences that now state it, so
+    the next edit to either has to change this case."""
+    assert config.config_rows(QUOTED_DELIMITERS) == []
+    one_line = QUOTED_DELIMITERS.replace(
+        "`<!--`.\n", "`<!--` and close it with `-->`.\n"
+    )
+    assert ("Mode", "shared") in config.config_rows(one_line)
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    for parts in (
+        ("hooks", "config.py"),
+        ("docs", "the-broad-gate.md"),
+        ("templates", "config.md"),
+    ):
+        with open(os.path.join(root, *parts), encoding="utf-8") as handle:
+            text = " ".join(handle.read().split())
+        assert "each quoted in a code span" in text, "/".join(parts)
+        assert "no file that reads today stops reading" not in text, "/".join(parts)
 
 
 def test_the_writer_leaves_a_commented_row_alone(config, tmp_path):

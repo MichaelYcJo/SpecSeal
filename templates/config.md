@@ -288,10 +288,12 @@ says where it has to move to, rather than reporting the row absent.
 reads it either.** A row kept for reference, or a whole old table parked
 above the live one, is not this repository's answer; the same rule that hides
 a fenced line hides a line that begins inside such a comment, for the reader
-and the writer alike. **A comment that is never closed hides nothing**, so a
-stray comment opener changes no row that reads today. Where this gate's row
-stands only inside a comment, `broad-gate` quotes it and says to take it out
-of the comment, rather than reporting it absent or fenced.
+and the writer alike. **A comment that is never closed hides nothing.** A
+delimiter inside a code span still counts: a comment opener and a closer each
+quoted in a code span, the opener in prose above the table and the closer
+below it, hide the table between them, so quote both on one line. Where this
+gate's row stands only inside a comment, `broad-gate` quotes it and says to
+take it out of the comment, rather than reporting it absent or fenced.
 
 **Everything else stays legal**, because the row is an arbitrary shell
 command line by design. A gate that could tell a status-discarding `;` from
