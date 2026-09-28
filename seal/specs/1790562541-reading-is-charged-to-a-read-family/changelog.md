@@ -17,13 +17,14 @@
   that close a loop or an `if`), and at least one is a read word. A line
   that writes or runs something else is never `read`: a redirection into
   anything but `/dev/null`, `sed -i` and `sed -I` in any spelling,
-  `sort -o` and `sort --compress-program`, `rg --pre`, `find`'s `-delete`
-  and `-exec` actions, and `awk -i inplace` keep it `other`. So does
-  anything the walk cannot see: a heredoc, a here-string, a `$( … )`, a
-  backtick, a process substitution, bash 5.3's `${ …; }`, a `case`, a
-  redirection before a command's first word (`ls; >/dev/null rm x`), zsh's
-  short `if [[ … ]] cmd` and `always` blocks, and a line the tokeniser
-  refuses. What a `sed` or `awk` program writes or runs from inside its
+  `sort -o` and `sort --compress-program`, `rg --pre` and
+  `rg --hostname-bin`, `find`'s `-delete` and `-exec` actions, and
+  `awk -i inplace` keep it `other`. So does anything the walk cannot see:
+  a heredoc, a here-string, a `$( … )`, a backtick, a process
+  substitution, bash 5.3's `${ …; }`, a `case`, a redirection before a
+  command's first word (`ls; >/dev/null rm x`, `ls &</dev/null rm x`),
+  zsh's short forms (`if [[ … ]] cmd`, `if (( … )) cmd`, `for f (…) cmd`)
+  and `always` blocks, and a line the tokeniser refuses. What a `sed` or `awk` program writes or runs from inside its
   quotes (`sed 's/x/y/w out'`, `awk '{system("…")}'`) is not seen, and
   such a call is `read`. A script handed to `python3 -` by heredoc gets no
   family, by the owner's answer. `read` is judged after the four

@@ -488,8 +488,9 @@ def runs_git(command):
     redirection keeps the line out because the command after it is never
     seen, and a refused line is `other` with no pattern to fall back to.
     The harness runs the user's shell, zsh on the machine #642 measured,
-    and zsh's short `if [[ … ]] cmd` and `always` blocks hide a command
-    the same way, so `only_reads` keeps those out as well."""
+    and zsh's short forms hide a command the same way: `if [[ … ]] cmd`,
+    `if (( … )) cmd`, `for f (…) cmd` and an `always` block, so
+    `only_reads` keeps those out as well."""
     try:
         for word in command_words(command):
             if word.replace("\\", "/").rsplit("/", 1)[-1] in ("git", "gh"):
@@ -500,8 +501,11 @@ def runs_git(command):
 
 
 # The words that make a line `read` (#642), by basename. A word is admitted
-# when its only output is standard output, or when every option that makes
-# it write a file or run a program is one `writes` refuses. `sed` and `awk`
+# when its only output is standard output, or when every option its manual
+# gives for writing a file or running a program is one `writes` refuses. That
+# is a reading of thirteen manuals, not a guarantee: `rg --hostname-bin` was
+# missed until round 2 of #642's review ran it, and an option missed the same
+# way is `read` until `writes` names it. `sed` and `awk`
 # are admitted under a stated bound: their programs can write and run, the
 # walk cannot read a quoted program, and `writes` says which commands do.
 # These thirteen are the list #642 measured, so its numbers can be set beside
@@ -561,9 +565,9 @@ HIDDEN_FROM_THE_WALK = re.compile(r"<<|\$\(|`|<\(|>\(|\$\{[\s|]")
 
 # An operator token that ends one command and opens a redirection before the
 # next one's first word, glued by the tokeniser: `;>`, `&&>`, `|<`, `(>`,
-# `⏎<`. `&>` alone is not one, because bash reads it as a redirection of its
-# own.
-SEPARATOR_THEN_REDIRECTION = re.compile(r"(?:[;|\n(]|&&)+&?[<>]")
+# `⏎<`, and after a background `&`: `&<`, `&⏎>` and zsh's `&|>`. `&>` alone
+# is not one, because bash and zsh read it as a redirection of its own.
+SEPARATOR_THEN_REDIRECTION = re.compile(r"(?:[;|\n(]|&&|&(?![>&]))+&?[<>]")
 
 # `find`'s actions that delete, run a command or write a file.
 FIND_WRITES = frozenset(
@@ -595,7 +599,8 @@ def writes(name, arguments):
     the BSD and macOS `-I`, with a single-dash word read wholesale, so
     `sed -es/a/i/ f` counts too; `sort`'s `-o` and `--output`, and its
     `--compress-program`, which runs the program it names; `rg --pre`, which
-    runs its command on every file; `find`'s `FIND_WRITES`; and
+    runs its command on every file, and `rg --hostname-bin`, which runs its
+    program for the host name; `find`'s `FIND_WRITES`; and
     `awk -i inplace` or `--include`.
 
     What sits inside a quoted program is a bound, because the walk cannot
@@ -617,7 +622,10 @@ def writes(name, arguments):
             or abbreviates(word, "--compress-program")
         ):
             return True
-        if name == "rg" and (word == "--pre" or word.startswith("--pre=")):
+        if name == "rg" and (
+            word in ("--pre", "--hostname-bin")
+            or word.startswith(("--pre=", "--hostname-bin="))
+        ):
             return True
         if name == "find" and word in FIND_WRITES:
             return True
@@ -643,7 +651,7 @@ def only_reads(command):
     a script handed to an interpreter gets no family of its own."""
     if HIDDEN_FROM_THE_WALK.search(command):
         return False
-    commands, redirect, started = [], None, False
+    commands, redirect, started, closed, previous = [], None, False, False, ""
     try:
         for kind, token in shell_words(command):
             if redirect is not None:
@@ -655,7 +663,7 @@ def only_reads(command):
                 redirect = None
             elif kind == "command":
                 commands.append([token])
-                started = True
+                started, closed = True, False
             elif kind == "operator":
                 if set(token) & REDIRECTION:
                     # A redirection before a command's first word keeps that
@@ -668,8 +676,17 @@ def only_reads(command):
                     redirect = token if ">" in token else None
                 else:
                     started = not (set(token) & SEPARATOR)
+                    closed = token.endswith(")")
+            elif closed and not (token.isdigit() or set(previous) & REDIRECTION):
+                # bash refuses a word after a closing `)`; zsh runs it as the
+                # body of a short form (`if (( x )) rm a`, `for f (a b) rm
+                # $f`). The walk reads it as an argument, so the command in
+                # it is never seen, and the line keeps out. A descriptor
+                # number and a redirection's target are not that word.
+                return False
             elif commands:
                 commands[-1].append(token)
+            previous = token
     except ValueError:
         return False
     reads = False

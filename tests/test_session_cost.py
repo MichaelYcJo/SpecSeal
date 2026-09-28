@@ -1850,6 +1850,9 @@ def test_a_call_that_only_reads_is_charged_to_read():
         "sed -n 1p -- f",
         "sort -- f",
         "rg --pre-glob '*.gz' x f",
+        "ls & ls",
+        "(ls) <f",
+        "(cd /x && ls) 2>&1 | head",
         "for f in a b; do wc -l $f; done",
         "[ -f x ] && cat x",
         "if grep -q x f; then echo y; fi",
@@ -1923,6 +1926,8 @@ def test_a_write_is_never_read():
         "rg --pre ./x.sh pat",
         "rg --pre=sh pat",
         "sort --compress-program=sh f",
+        "rg --hostname-bin ./x pat",
+        "rg --hostname-bin=./x pat",
         "cat > f <<'EOF'\nx\nEOF",
     ):
         assert module.family(command) != "read", command
@@ -1984,12 +1989,21 @@ def test_what_the_walk_cannot_see_is_not_read():
         "{ ls; } always { rm a; }",
         "{ ls } always { rm b }",
         "cat ${ rm x; }",
+        "ls &</dev/null rm x",
+        "ls &\n>/dev/null rm x",
+        "ls &|>/dev/null rm x",
+        "if (( ! true )) rm a; ls",
+        "if (( ! true )) 2>/dev/null rm a; ls",
+        "for f (ls) rm $f; ls",
     ):
         assert module.family(command) == "other", command
 
     # A stray `)` leaves the word after it in no command, and a line the
-    # shell refuses must not end the reading.
+    # shell refuses must not end the reading. `") 2"` is the one that
+    # reaches the no-command guard, because a descriptor number after a `)`
+    # is not zsh's short-form body.
     assert module.family(") x") == "other"
+    assert module.family(") 2") == "other"
 
 
 def test_the_walk_yields_each_commands_arguments_and_nothing_inside_a_substitution():
