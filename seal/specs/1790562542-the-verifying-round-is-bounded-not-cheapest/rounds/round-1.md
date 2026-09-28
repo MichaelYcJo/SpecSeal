@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #648 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `e062e3a77ce190641fd29f69db4a512dc5d2675f..1200940f23de70a221dde59f8ed0e20292b8ed6a`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (the #81 correction quotes an unsupported #82 comparison, and its pin requires it) and 🟡 2 (`agents/warden.md:110-112` still grounds scoping on price) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 1 of work item 1790562542 (#639, with #636 done outside the tree), a first
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The #81 correction states "#82's six rounds averaged three times the calls for fewer", and #89's own per-round readings for #82 (35, 38, 36, 29, ?, 30 calls) average about 1.2 × 29. The stands pin now requires the unsupported comparison | `skills/code-review/SKILL.md:231` | open | Read from #89's comments through `gh`. Deleting the comparison turned `test_81s_round_one_is_described_by_its_yield` red (executed). The same wording is at `templates/sdd-round.md:299` and in the module docstring |
-| 🟡 2 | The paragraph above C4 still grounds keeping a re-check round scoped on price ("turns every returned finding into the price of a first round"), which #456 and #639's data contradict, and it disagrees with C4's "the round's job, not its price" | `agents/warden.md:111` | open | Read. It is outside the tree-wide pin because it does not use the phrase. The spec's "upper bound" ground does not hold, because the sentence names widening as the cause of a price that scoped rounds already pay |
-| ⬜ 3 | The chain spec's median has no unit. The source says span | `docs/review-chain-spec.md:220` | open | Read #639 and #51. Both say "round 1's span" |
-| ⬜ 4 | 🟡 1's comparison is also in the changelog fragment, in ledger row V2's claim and anchor, and in phase 1's record (correction) | `seal/specs/1790562542-the-verifying-round-is-bounded-not-cheapest/changelog.md:28` | open | Paperwork under `seal/`, so not counted in `Needs a fix`. It follows 🟡 1's wording |
+| 🟡 1 | The #81 correction states "#82's six rounds averaged three times the calls for fewer", and #89's own per-round readings for #82 (35, 38, 36, 29, ?, 30 calls) average about 1.2 × 29. The stands pin now requires the unsupported comparison | `skills/code-review/SKILL.md:231` | **fixed** `14ddebd6` | fixed at 14ddebd6; Read from #89's comments through `gh`. Deleting the comparison turned `test_81s_round_one_is_described_by_its_yield` red (executed). The same wording is at `templates/sdd-round.md:299` and in the module docstring |
+| 🟡 2 | The paragraph above C4 still grounds keeping a re-check round scoped on price ("turns every returned finding into the price of a first round"), which #456 and #639's data contradict, and it disagrees with C4's "the round's job, not its price" | `agents/warden.md:111` | **fixed** `14ddebd6` | fixed at 14ddebd6; Read. It is outside the tree-wide pin because it does not use the phrase. The spec's "upper bound" ground does not hold, because the sentence names widening as the cause of a price that scoped rounds already pay |
+| ⬜ 3 | The chain spec's median has no unit. The source says span | `docs/review-chain-spec.md:220` | **fixed** `14ddebd6` | fixed at 14ddebd6; Read #639 and #51. Both say "round 1's span" |
+| ⬜ 4 | 🟡 1's comparison is also in the changelog fragment, in ledger row V2's claim and anchor, and in phase 1's record (correction) | `seal/specs/1790562542-the-verifying-round-is-bounded-not-cheapest/changelog.md:28` | answered | a correction to records, located under seal/, corrected at 1200940f; Paperwork under `seal/`, so not counted in `Needs a fix`. It follows 🟡 1's wording |
 | 🟢 | C1–C6 match spec *In* 1–6, and the #81 divergence is recorded in `overview.md` with its grounds | `skills/code-review/orchestration.md:132` | confirmed | Read against spec.md. Executed: the four touched modules pass, and restoring the old protocol Grounds cell turned all four new cases red |
 | 🟢 | The eleven re-stamped ledger rows left no claim false | `seal/releases/0.4.0.md:114` | confirmed | Read word by word against the edits. `evidence_check.py .` exits 0 (executed) |
 | 🟢 | The "not the cheapest when written" half of the #81 correction is true | `tests/test_a_segments_record_says_what_it_was_asked.py:8` | confirmed | Read #89's timestamps (#79's round 2 at 5.6 m and 28 calls, and round 3 at 4.6 m and 22 calls, both before 2026-09-03T02:26Z) and #51's first revision (#29 at 4.2 m and 10 calls) |
