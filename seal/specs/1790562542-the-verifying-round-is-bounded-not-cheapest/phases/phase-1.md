@@ -54,9 +54,13 @@ item below was read through `gh`, and none of it is re-derived:
   (6.4 m) is shorter. By calls, #79 round 1 (23) has fewer.
 
 What #89 did measure and support is the yield: "29 calls found five
-defects; #82's six rounds averaged three times the calls for fewer." That
-is the wording `skills/code-review/SKILL.md` and `templates/sdd-round.md`
-now carry. The pin moved in `tests/test_a_segments_record_says_what_it_was_asked.py`:
+defects". That is the wording `skills/code-review/SKILL.md` and
+`templates/sdd-round.md` now carry. (**Corrected 2026-09-28** by round 1's
+fix pass, 🟡 1 and ⬜ 4. This phase also copied #89's next clause, "#82's
+six rounds averaged three times the calls for fewer", into both carriers.
+#89's own readings of #82's rounds are 35, 38, 36, 29 and 30 calls, and
+round 2 found seven findings, so the clause was not supported and came out
+at `14ddebd6`.) The pin moved in `tests/test_a_segments_record_says_what_it_was_asked.py`:
 the probe `cheapest round` became `five defects`, and a gone/stands pair
 was added for both carriers. That module already owns #81's story, so the
 new verifying-round module stays about one claim.
