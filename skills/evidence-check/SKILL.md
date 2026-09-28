@@ -186,7 +186,7 @@ fourth never reaches the exit code at all.
 | `evidence-check .`, the command this page documents | exit 1, the lenient reading | exit 1, the lenient reading | exit 1, the lenient reading |
 | CI's `ledger` job, which runs the same script and adds no flag of its own | exit 1, rendered as a `::warning::` — the job still passes | exit 1, rendered as the same `::warning::` — the job still passes | exit 1, rendered as the same `::warning::` — the job still passes |
 | `broad-gate` | exit 2. It runs this same check with `--strict`, and the branch comes back `NOT SEALED` | exit 2, for the same reason | exit 2, for the same reason |
-| `hooks/evidence-advisor.py` | not reported at all. It imports this module in process rather than running the script, so it never reaches the exit code — and a line that prints on every commit is a line people learn to skip | printed as a block on the commit, never an exit code: the advisor keeps `MALFORMED` among the rows it names and drops drift | not reported: the advisor's filter keeps `BROKEN`, `OLD-FORMAT` and `MALFORMED` and drops the rest |
+| `hooks/evidence-advisor.py` | not reported at all. It imports this module in process rather than running the script, so it never reaches the exit code — and a line that prints on every commit is a line people learn to skip | printed as a block on the commit, never an exit code: the advisor keeps `MALFORMED` among the rows it names and drops drift | printed as a block on the commit, never an exit code: each row named with its ledger and line, because the commit that wrote the stray `\|` is the one to hear it |
 
 All four are right about the tree they are looking at. A branch mid-flight
 legitimately drifts, and the gate runs once at the end over a tree nobody is
