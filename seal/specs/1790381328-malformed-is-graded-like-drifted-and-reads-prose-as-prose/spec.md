@@ -184,12 +184,15 @@ sorted all 484 cells whose verdict moved into these five rules:
   digits: `docs/a.md#1장`, `docs/a.md#1-scope`, `docs/a.md#1.2` and
   `src/a.py#1>"x"` go silent. Glued to its hash (`docs/a.md#1장@abcdef12`)
   the glued marks name it.
-- Both marks count only where they are glued: no whitespace between them
-  outside a quoted string, which holds whitespace only in a code span, and
-  no `"` left unclosed. Otherwise each word is judged alone, so
-  `#handler @abcdef12`, `docs/a.md#1-scope @abcdef12` and
+- Both marks count only where they are glued: an `@` after a `#`, with no
+  whitespace between them outside a quoted string, which holds whitespace
+  only in a code span, and no `"` left unclosed. An `@` before a `#` is not
+  glued to it, so `@alice#299` is silent. Otherwise each word is judged
+  alone, so `#handler @abcdef12`, `docs/a.md#1-scope @abcdef12` and
   `#handler>"a"b"@abcdef12` go silent, and `src/a.py#handler @abcdef12` is
-  still named (`src/a.py#handler` is a `#` glued to a path).
+  still named (`src/a.py#handler` is a `#` glued to a path). *Corrected
+  2026-09-28 by work item 1790550713 (#626): this bullet left out that the
+  `@` must follow the `#`, which `GLUED_MARKS_RE` has always required.*
 - A dotless file name takes a locator opening with a letter, `_`, `"` or
   `<`, never a digit: `C#"hello"` and `vector#<T>` are named, and
   `Makefile#1x` stays silent, as it is today (at 47e32d57 its tail opens

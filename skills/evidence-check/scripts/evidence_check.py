@@ -1646,10 +1646,13 @@ def refused_coordinate(s):
       `docs/a.md#1장`, `docs/a.md#1.2` and `src/a.py#1>"x"`. Such a
       coordinate is named only where its `@` is glued to its `#`, as in
       `docs/a.md#1장@abcdef12`.
-    - Both marks count only where they are glued: no whitespace between them
-      outside a quoted string, which holds whitespace only in a code span,
-      and no `"` left unclosed. Where they are not glued each word is
-      judged alone, so `src/a.py#handler @abcdef12` is still named, and
+    - Both marks count only where they are glued: an `@` after a `#`, with
+      no whitespace between them outside a quoted string, which holds
+      whitespace only in a code span, and no `"` left unclosed. An `@`
+      before a `#` is not glued to it, so `@alice#299` is prose, and
+      `@alice#299@abcdef12` is named by the `@` that follows its `#`. Where
+      they are not glued each word is judged alone, so
+      `src/a.py#handler @abcdef12` is still named, and
       `@lru_cache  # memoized`, `#handler @abcdef12`,
       `docs/a.md#1-scope @abcdef12` and `#handler>"a"b"@abcdef12` are not.
     - A file name with no dot takes a locator opening with a letter, `_`,
