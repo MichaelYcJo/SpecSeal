@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #651 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `510621d114d39d20d0f3715823c1d82c29736708..1863aafdbd32f784506527bcbb7b5afa0a3aca18`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🔴 1 (a `)` glued before a separator and a leading redirection), 🔴 2 (zsh's short form closed by a `)` glued to a redirection) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 3 of work item 1790562541 (#642), the verifying round and the run's last: 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A `)` glued before a separator and a leading redirection hides the next command: `(ls);>/dev/null rm x`, `(ls)&</dev/null rm x`, `(ls)⏎>/dev/null rm x`, and three more are `read` | `skills/verify/scripts/session_cost.py#SEPARATOR_THEN_REDIRECTION` | open | Executed at 56894d9d: all six are `read`, and bash 3.2 and zsh 5.9 deleted the file in each. `.match` needs the token to begin with a separator, and `);>` begins with `)`. Spec In §1 says a write is never `read`. The class is round 2's finding 1 |
-| 🔴 2 | zsh's short form closed by a `)` glued to a redirection hides its body: `if (( ! true ))>/dev/null rm a; ls`, `for f (ls)</dev/null rm $f; ls` are `read` | `skills/verify/scripts/session_cost.py#only_reads` | open | Executed at 56894d9d: five spellings are `read`, and zsh 5.9 ran `rm` in each. `closed` is set only by an operator with no `<` or `>`, and `))>` is one token. The class is round 2's finding 2 |
-| ⬜ 3 | Ledger R3's note calls the dropped command-word reset an equivalent mutant no case could turn red | `seal/ledger/1790562541-reading-is-charged-to-a-read-family.md` R3 | open | Executed: `ls () cat f` is `other` without the reset and `read` with it, and zsh 5.9 accepts it (a function definition, exit 0). A correction to the run's paperwork, outside `Needs a fix` |
+| 🔴 1 | A `)` glued before a separator and a leading redirection hides the next command: `(ls);>/dev/null rm x`, `(ls)&</dev/null rm x`, `(ls)⏎>/dev/null rm x`, and three more are `read` | `skills/verify/scripts/session_cost.py#SEPARATOR_THEN_REDIRECTION` | deferred #652 | #652 — this record ends the run on the reopening bound; the one-line fix and planted rows are carried there, 0 corpus calls affected; Executed at 56894d9d: all six are `read`, and bash 3.2 and zsh 5.9 deleted the file in each. `.match` needs the token to begin with a separator, and `);>` begins with `)`. Spec In §1 says a write is never `read`. The class is round 2's finding 1 |
+| 🔴 2 | zsh's short form closed by a `)` glued to a redirection hides its body: `if (( ! true ))>/dev/null rm a; ls`, `for f (ls)</dev/null rm $f; ls` are `read` | `skills/verify/scripts/session_cost.py#only_reads` | deferred #652 | #652 — the same `closed` line closes it; carried with 🔴 1; Executed at 56894d9d: five spellings are `read`, and zsh 5.9 ran `rm` in each. `closed` is set only by an operator with no `<` or `>`, and `))>` is one token. The class is round 2's finding 2 |
+| ⬜ 3 | Ledger R3's note calls the dropped command-word reset an equivalent mutant no case could turn red | `seal/ledger/1790562541-reading-is-charged-to-a-read-family.md` R3 | answered | a correction to a record under seal/ledger/: R3 corrected in place at 1863aafd; Executed: `ls () cat f` is `other` without the reset and `read` with it, and zsh 5.9 accepts it (a function definition, exit 0). A correction to the run's paperwork, outside `Needs a fix` |
 | 🟢 | round 2's blocking finding 1 is closed for the three shapes it named — `&<`, `&⏎>`, zsh's `&\|>` | `skills/verify/scripts/session_cost.py#SEPARATOR_THEN_REDIRECTION` | confirmed | Executed: all three are `other` at 56894d9d, and `ls & ls` and `ls &>/dev/null` stay `read`. The `)`-prefixed member of the class is finding 1 |
 | 🟢 | round 2's blocking finding 2 is closed for the shapes it named — `if (( … )) cmd`, its `2>` spelling, `for f (…) cmd` | `skills/verify/scripts/session_cost.py#only_reads` | confirmed | Executed: all three are `other`, and the three new controls are `read`. `") 2"` reaches the guard. The glued-redirection member of the class is finding 2 |
 | 🟢 | round 2's finding 3 is closed — `rg --hostname-bin` | `skills/verify/scripts/session_cost.py#writes` | confirmed | Executed: both spellings and the bare flag are `other`. ripgrep 14.1.1 refuses `--hostn`, so the exact-word arm matches ripgrep's parser |
