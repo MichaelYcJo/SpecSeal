@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 633 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `537ee120df98a2346d99b2db53b6d2d08dd2d15e..b8c2adcf55ab53a1e82956dd29cc13a194bba99b`, 2 commits |
 | Contract changes | none |
 | New units | test_the_dirty_tree_row_reads_the_tree_the_switch_is_in (depth 1) |
