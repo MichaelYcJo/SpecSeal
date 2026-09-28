@@ -217,8 +217,8 @@ What it costs is one extra spawn per work item. Its surface is bounded to a
 diff rather than a branch, but that does not make the round cheap. What a
 round spends is the frame, the earlier records and the probes, and none of
 those shrink with the diff. Measured over 0.14.0–0.15.5, 29 verifying rounds
-ran at a median of 0.83 × their own work item's round 1, with a range of
-0.26–1.27, and five of the 29 were at or above round 1. #639 computed that
+ran at a median of 0.83 × the span of their own work item's round 1, with a
+range of 0.26–1.27, and five of the 29 were at or above round 1. #639 computed that
 over the metered blocks of #496, #535, #577, #601 and #619; at 0.12.2, #456
 had measured nine rounds over three work items at 13.8–17.8 minutes whatever
 their target. What it does not cost is a change to the numbers above.

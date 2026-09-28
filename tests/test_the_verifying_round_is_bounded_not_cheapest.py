@@ -2,10 +2,12 @@
 cheapest round of the run (#639).
 
 Three documents said it was, and a fourth said its surface was the whole
-reason it was affordable. The measurements did not hold that: #456 measured
-nine rounds over three work items at 13.8-17.8 minutes whatever their
-target, and over 0.14.0-0.15.5 twenty-nine verifying rounds ran at a median
-of 0.83 x their own round 1, five of them at or above it. What a round
+reason it was affordable; one paragraph above that, the fourth also said a
+re-check round widened to the whole diff pays the price of a first round.
+The measurements did not hold that: #456 measured nine rounds over three
+work items at 13.8-17.8 minutes whatever their target, and over
+0.14.0-0.15.5 twenty-nine verifying rounds ran at a median of 0.83 x the
+span of their own round 1, five of them at or above it. What a round
 spends is the frame, the earlier records and the probes, and none of those
 shrink with the diff. The diff target bounds the round; it does not make it
 cheap.
@@ -13,10 +15,10 @@ cheap.
 Each carrier is held to a phrase only the corrected wording uses, and to the
 absence of the sentence it used to carry: the gone/stands pair of
 `test_the_broad_gate_cell_keeps_every_run.py`. The tree-wide case turns
-#639's acceptance grep into a pin, so a fifth carrier that repeats the exact
-phrase is red here. A fifth carrier that says the same thing in other words
-("the least expensive round") is not: the meaning is guarded by the four
-pairs, and a new wording of it is a reviewer's catch.
+#639's acceptance grep into a pin, so a new carrier that repeats the exact
+phrase is red here. A new carrier that says the same thing in other words
+("the least expensive round") is not: the meaning is guarded by the five
+pairs, and a new wording of it is a reviewer's catch, as round 1's 🟡 2 was.
 
 Seen red by restoring each old sentence and by deleting each new phrase.
 """
@@ -44,7 +46,9 @@ CARRIERS = (
     ),
     (
         ("docs", "review-chain-spec.md"),
-        "29 verifying rounds ran at a median of 0.83",
+        # The multiplication sign is named because ruff's RUF001 refuses it.
+        "29 verifying rounds ran at a median of 0.83 \N{MULTIPLICATION SIGN} "
+        "the span of their own",
         ("on a surface that is a diff rather than a branch — the cheapest round",),
     ),
     (
@@ -53,6 +57,17 @@ CARRIERS = (
         (
             "That surface is the whole reason the round is affordable",
             "the shape of round this one exists to be cheaper than",
+        ),
+    ),
+    # The paragraph above the verifying-round bullet, which scoped a re-check
+    # round on price too (round 1's 🟡 2). Its gone half is the wording at
+    # `5a66666d`, which is also the wording at `1fa25931`.
+    (
+        ("agents", "warden.md"),
+        "instead of answering the finding that came back",
+        (
+            "turns every returned finding into the price of a first round",
+            "which is how a review loop costs more than the work it reviews",
         ),
     ),
 )
