@@ -40,7 +40,10 @@ transcript named need not exist.
 one that now loads `unverified_check.py` joins the list:
 `correction_check.py` loads it at import, so the one required flag is all an
 invocation needs, and a copy that reaches no git repository is still stopped
-at the loader first.
+at the loader first. `payload_meter.py` loads it only under `--sections`,
+and `measure` calls that loader before it reads the root, so its second row
+reaches it in a directory with no `agents/` at all; its purpose must not be
+the transcript sibling's.
 """
 
 import os
@@ -102,6 +105,12 @@ CASES = [
         ["--root", "{root}", "--calibrate", "{root}/main.jsonl"],
         "it is what reads a transcript's spawns",
         None,
+    ),
+    (
+        "skills/verify/scripts/payload_meter.py",
+        ["--root", "{root}", "--sections"],
+        "it is what says which lines of a skill stand inside a fenced example",
+        "transcript",
     ),
     (
         "skills/evidence-check/scripts/correction_check.py",
