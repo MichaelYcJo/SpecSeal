@@ -6,7 +6,7 @@
 |---|---|
 | Phase | 3 |
 | Commit | 43e05300 |
-| Ran by | unknown — the spawn prompt did not hand this value over, and the template forbids a segment to source it from its own idea of what it is; the orchestrator fills it |
+| Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
 
@@ -66,7 +66,7 @@ its pull-request lines drafted here.
   drops `spec.md` §*Scope* Out names. No gate prints such a value today. It
   is named in `overview.md` §*Not done*, and it is why `beside`'s non-object
   branch is pinned directly rather than through `main()`.
-- **`spec.md` named a harness attachment type,** `hook_non_blocking_error`,
+- **`spec.md` named a harness attachment type,** `hook_non_blocking_error` (NAME NOT IN TREE),
   and `evidence-check --strict` refused it as a name the tree does not
   carry. The line now says NAME NOT IN TREE.
 - **Survivors.** `survivor-check --range 2dc9a970..43e05300` reported one
