@@ -1,14 +1,16 @@
 # 1790550714-a-git-call-after-cd-is-charged-to-git — overview
 
 📋 implement applied
-· spec:     pending — filled when the build closes
-· evidence: pending — filled at phase 3
-· verified: pending — filled when the build closes
+· spec:     this work item's spec.md (Grounding, the class table, In §1–6, the statements table, Decided from the tree, Out, S1–S12, Data & interfaces), plan.md (phases 1–3, Technical context, Alternatives), questions.md Q1–Q3; docs/measuring-a-run.md §*A reading that was published is still wrong after it is published*; skills/verify/SKILL.md §*Measure the segment, and feed the flow log* (#300's paragraph); seal/releases/0.9.4.md S1, S2 and S4; CLAUDE.md §fragments and §commit early; agent-contract §1–§3, §7, §9, §12, §14, §15
+· evidence: seal/ledger/1790550714-a-git-call-after-cd-is-charged-to-git.md N1–N6 added; 0.9.4 S2 corrected in place; re-read and re-stamped where they live: seal/ledger.md (two rows), seal/releases/0.8.0.md F5, 0.8.2.md R2, R3 and G5, 0.8.3.md R1, 0.9.4.md S4, 0.9.5.md (eight rows), 0.11.3.md (three rows), 0.13.1.md O6
+· verified: executed — every new case seen red (against 2037cf0 or the phase before), 25 mutants across two phases each killed, the session_cost module and every module reading a file each phase edited, run at each phase boundary, evidence-check lenient and strict, correction-check over the range, the corpus measurement at the tip; read — Q2's call sites; unverified — Q1 (the 0.15.5 transcripts), the full suite, lint and typecheck (the sealer's)
 
 ## Why this work exists
 
 A `git` or `gh` call anywhere but the start of a Bash command read as `other`
-in every `session-cost` reading, and it now reads as `git`.
+in every `session-cost` reading, and it now reads as `git`. So does one after
+a heredoc's closing line or on a line of its own, and a test run after a
+heredoc now reads as `test`.
 
 ## Where spec and implementation diverged
 
@@ -16,6 +18,7 @@ in every `session-cost` reading, and it now reads as `git`.
 |---|---|---|---|
 | The version the comparability line names | `spec.md` S10: "`--segments` prints a comparability line naming 0.15.6 and #377". `tests/test_release_hygiene.py::test_no_loaded_file_names_a_version_at_or_above_the_running_one` failed on it, and on the same version in `session_cost.py`'s docstring and `SKILL.md` | the line names #377 and says `CHANGELOG.md` names its release | the check's docstring: "**at or above the running version is a timer and is refused; below it is history and is kept.**" The running version is 0.15.5, so neither 0.15.5 nor 0.15.6 can be written in a loaded file before the release |
 | What the tokeniser fallback decides | `spec.md` In §2: "That call is judged by today's anchored pattern". The walk is lazy, so words read before the refusal answer first | lazy walk, with the pattern for a line refused before its first word | an eager walk sends `cd /x && git log 'x` to the pattern, which answers `other`, and the spec's own grounds are that the new rule "never produces an answer worse than the old one" |
+| Which ledger rows drift | `questions.md` Q3's expected set: "`#analyse` ×7, `#load` ×4 if edited, `#FAMILIES`, `#family` and `#HEREDOC` through 0.9.4 S1 and S2". `evidence-check` found `#FAMILIES` and `#HEREDOC` clean, and the `SKILL.md` section anchor drifted in ten rows | all 21 named rows re-read | a row an edit drifts is re-read where it lives (`CLAUDE.md` §*Appended is the word*); the check names the rows, and the frame's set was a read |
 
 ## Not verified
 
@@ -26,8 +29,18 @@ in every `session-cost` reading, and it now reads as `git`.
 
 ## Not done
 
-Nothing yet.
+Nothing beyond the spec's own *Out* table. A word-start comment rule was
+within reach and was not taken: measured over 23,195 Bash calls, it would
+change the answer on one (`phases/phase-2.md`).
 
 ## Fed back into the spec
 
-None yet.
+Inferred during implementation, so a planner may overturn them:
+
+- The fallback decides only a line refused before its first word is
+  finished. Words read before a refusal count (ledger N2).
+- A call with no command string holds the flattened dump in `ran` as well as
+  in `command`, so the repeats filter's reading of non-Bash calls is exactly
+  what it was (ledger N4).
+- Two heredoc operators on one line have their bodies one after the other
+  (ledger N3).
