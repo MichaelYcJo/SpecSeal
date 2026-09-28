@@ -1571,8 +1571,14 @@ def test_a_runner_named_inside_a_heredoc_is_not_a_run_of_it(tmp_path):
 
 def test_a_git_call_after_cd_is_charged_to_git():
     """The finding's own instance, and the shapes #619's segment readings
-    printed. The two that stay `other` are the control: a line that runs no
-    `git` must not become one because a `cd` precedes it."""
+    printed. The two after them are the control: a line that runs no `git`
+    must not become one because a `cd` precedes it.
+
+    The loop that only reads was `other` here until #642 gave reading a
+    family of its own, and it is `read` now. The `python3 -` heredoc stays
+    `other`: the owner answered that a script handed to an interpreter gets
+    no family, because a row counting it would move whenever agents switch
+    between the `Edit` tool and a shell edit."""
     module = load_script()
     for command in (
         "cd /x && git status",
@@ -1584,11 +1590,8 @@ def test_a_git_call_after_cd_is_charged_to_git():
     ):
         assert module.family(command) == "git", command
 
-    for command in (
-        "W=/w; cd $W; for f in a b; do grep -c x $f; done",
-        "cd ~/p && python3 - <<'EOF'\nimport json\nEOF",
-    ):
-        assert module.family(command) == "other", command
+    assert module.family("W=/w; cd $W; for f in a b; do grep -c x $f; done") == "read"
+    assert module.family("cd ~/p && python3 - <<'EOF'\nimport json\nEOF") == "other"
 
 
 def test_git_is_read_at_every_command_word():
@@ -1642,12 +1645,24 @@ def test_git_named_anywhere_but_a_command_word_is_not_git():
 
 
 def test_a_line_running_two_families_is_charged_by_their_order():
-    """`FAMILIES` is first-match in priority order and `git` is last, so a
+    """`FAMILIES` is first-match in priority order and `read` is last, so a
     compound that runs a test is charged to the test. Reading `git` by
-    command word must not jump it ahead of the families it follows."""
+    command word must not jump it ahead of the families it follows.
+
+    `read` is judged after all four (#642), so a line that reads and runs a
+    `git` is `git`, and a search naming a runner keeps the family it has had
+    since 0.9.4: `grep -rn pytest` is `test`. That is the mirror #377
+    recorded as out of scope, and #642 lists keeping it as what must not
+    break. A rule judging `read` first turns the two searches red. The lines
+    that also run `git` or `ruff` would keep their family even then, because
+    a line running either is not `read` at all."""
     module = load_script()
     assert module.family("cd x && git add . && pytest -q") == "test"
     assert module.family("git stash && ruff check .") == "lint/type"
+    assert module.family("ls && git status") == "git"
+    assert module.family("grep -rn pytest docs/") == "test"
+    assert module.family("cat tests/x/test.sh") == "test"
+    assert module.family("cat f && ruff check .") == "lint/type"
 
 
 def test_a_command_the_tokeniser_refuses_is_judged_as_before():
@@ -1689,6 +1704,26 @@ def test_a_command_after_a_heredoc_is_read_and_its_body_is_not():
         ("cat > f <<'EOF'\ngit is here\nEOF", "other"),
         ("cat > f <<'EOF'\n\tEOF\ngit add f\nEOF", "other"),
         ("cat > f <<'EOF'\nbody\ngit status", "other"),
+    ):
+        assert module.family(command) == expected, command
+
+
+def test_a_continued_line_in_an_unquoted_heredoc_body_closes_nothing():
+    """Bash removes `\\⏎` from an unquoted heredoc's body before it compares
+    a line with the delimiter, so a body line ending in one backslash joins
+    the next line, and that line closes nothing. #635's round 3 found the
+    body closing there instead, which charged the `git push` written inside
+    the body to `git`.
+
+    A quoted delimiter keeps the backslash, so its body closes where it did.
+    An even run of backslashes is an escaped backslash and joins nothing."""
+    module = load_script()
+    for command, expected in (
+        ("cat <<EOF\nbody \\\nEOF\ngit push", "other"),
+        ("cat <<EOF\nbody \\\nEOF\ngit push\nEOF", "other"),
+        ("cat <<'EOF'\nbody \\\nEOF\ngit push", "git"),
+        ("cat <<EOF\nbody \\\\\nEOF\ngit push", "git"),
+        ("cat <<EOF\nbody \\\nmore\nEOF\ngit push", "git"),
     ):
         assert module.family(command) == expected, command
 
@@ -1788,6 +1823,232 @@ def test_a_comment_runs_nothing_whatever_it_holds():
         "cd /x && \\\ngit status",
     ):
         assert module.family(command) == "git", command
+
+
+# --- #642: reading is charged to `read` ---
+#
+# A call that only read a file or listed a directory was `other`, so `other`
+# led nearly every reading and the note under it named a `sed -n`. A call is
+# `read` when every command it runs is a read word or a neutral one, at least
+# one reads, nothing writes and nothing is hidden from the walk.
+
+
+def test_a_call_that_only_reads_is_charged_to_read():
+    """The ticket's own instance first, then every shape of a line whose
+    commands only read: a pipe between two readers, a redirection into
+    `/dev/null` or onto a descriptor, a loop, a test, a subshell, a leading
+    assignment, a line of its own, a path to the binary, and a quoted
+    operator, which is part of a word and separates nothing."""
+    module = load_script()
+    for command in (
+        "cd /x && sed -n 1,5p f",
+        "grep -n x f | head -5",
+        "ls -la /x 2>/dev/null || echo none",
+        "cat f 2>&1 | tail -3",
+        "grep x f 2>&-",
+        "grep -q x f >/dev/null && echo y",
+        "sed -n 1p -- f",
+        "sort -- f",
+        "rg --pre-glob '*.gz' x f",
+        "ls & ls",
+        "(ls) <f",
+        "(cd /x && ls) 2>&1 | head",
+        "(ls) | head -5",
+        "for f in a b; do wc -l $f; done",
+        "[ -f x ] && cat x",
+        "if grep -q x f; then echo y; fi",
+        "(cd /x && ls)",
+        "{ ls; }",
+        "FOO=1 rg x",
+        "W=/w; cd $W; for f in a b; do grep -c x $f; done",
+        "while read l; do grep -c $l f; done < list",
+        "cd /x\nsed -n 1p f",
+        "/usr/bin/grep x f",
+        "grep -E 'a|b;c' f",
+        'rg "x > y" docs/',
+        "find . -name '*.py' | sort | nl",
+        "diff a b; awk '{print $1}' f",
+        "tail -n 20 log  # the last lines",
+        "(cd /x && ls) 2>/dev/null",
+        "{ ls; } 2>/dev/null",
+        "(ls)>/dev/null",
+        "ls &>/dev/null",
+        "cat ${f:-x}",
+        "[[ -f x ]] && cat x",
+    ):
+        assert module.family(command) == "read", command
+
+
+def test_a_write_is_never_read():
+    """#200's *wrong in both directions*, from the side a new family opens:
+    a write charged to reading is worse than a read left in `other`.
+
+    Every redirection into a file, `sed`'s in-place edit in each spelling
+    its option parser takes (a single-dash cluster is read wholesale, and a
+    long option may be abbreviated), `sort`'s output file, `find`'s actions
+    and `awk`'s in-place include. A heredoc writing a file is a write and a
+    heredoc at once."""
+    module = load_script()
+    for command in (
+        "sed -i s/a/b/ f",
+        "sed -i.bak s/a/b/ f",
+        "sed -ni 1p f",
+        "sed -Ei s/a/b/ f",
+        "sed -es/a/i/ f",
+        "sed --in-place s/a/b/ f",
+        "sed --in-place=.bak s/a/b/ f",
+        "sed --in s/a/b/ f",
+        "cat f > g",
+        "cat f >g",
+        "grep x f >> g",
+        "ls >| g",
+        "ls &> g",
+        "ls 2> err",
+        "ls > 2",
+        "cat f >&g",
+        "cat f <> g",
+        "grep x f 2>&1 >g",
+        "ls; echo hi > f",
+        "sort -o g f",
+        "sort -uo g f",
+        "sort --output=g f",
+        "sort --out g f",
+        "grep x f | sort -o g",
+        "find . -delete",
+        "find . -exec rm {} +",
+        "find . -execdir rm {} +",
+        "find . -okdir rm {} +",
+        "find . -fprint g",
+        "find . -fls g",
+        "awk -i inplace '{print}' f",
+        "awk --include=inplace '{print}' f",
+        "sed -I '' s/a/b/ f",
+        "sed -I.bak s/a/b/ f",
+        "rg --pre ./x.sh pat",
+        "rg --pre=sh pat",
+        "sort --compress-program=sh f",
+        "rg --hostname-bin ./x pat",
+        "rg --hostname-bin=./x pat",
+        "cat > f <<'EOF'\nx\nEOF",
+    ):
+        assert module.family(command) != "read", command
+
+
+def test_a_line_that_does_more_than_read_is_not_read():
+    """One read word is not enough, and neither is a read word first. A pipe
+    into `tail` sits behind nearly every kind of command, and `ls && rm -rf
+    x` begins by reading. A wrapper is not looked through, as it is not for
+    `git`: `timeout` is the command word."""
+    module = load_script()
+    for command in (
+        "./bin/deploy --wait | tail -3",
+        "cat f | python3 -c 'x'",
+        "ls; rm x",
+        "ls && rm -rf x",
+        "grep x f; python3 build.py",
+        "sleep 5; tail log",
+        "timeout 9 grep x f",
+        "xargs grep x < list",
+        "cat f | tee g",
+    ):
+        assert module.family(command) == "other", command
+
+
+def test_what_the_walk_cannot_see_is_not_read():
+    """A heredoc, a here-string, a command or process substitution, a line
+    the tokeniser refuses, a `case` arm, whose commands the walk does not
+    put in command position, and a leading redirection, which does not put
+    one there either. `runs_git` reads past a substitution; here the same
+    blindness would let `x=$(rm y); ls` read as reading, so each of these
+    keeps the line out. The heredocs are the owner's answer: a script handed
+    to an interpreter gets no family."""
+    module = load_script()
+    for command in (
+        "python3 - <<'EOF'\nx\nEOF",
+        "cat <<'EOF'\ntext\nEOF",
+        "cat <<eof\ntext\neof",
+        'grep x <<< "$y"',
+        "x=$(rm y); ls",
+        "cat $(ls)",
+        'cat "$(ls)"',
+        "cat `ls`",
+        "diff <(ls a) <(ls b)",
+        "echo $((1 + 2)); ls",
+        "cat 'x",
+        "case $x in a) rm f;; esac; ls",
+        "<f cat",
+        "ls; >/dev/null rm -rf x",
+        "ls && >/dev/null rm -rf x",
+        "ls;>/dev/null rm -rf x",
+        "ls&&>/dev/null rm x",
+        "</dev/null rm x; ls",
+        "(>/dev/null rm x); ls",
+        "ls; >&2 rm x",
+        "cat f\n</dev/null python3 build.py",
+        "if [[ -f a ]] rm a; ls",
+        "if [[ -f a ]] { rm a }; ls",
+        "{ ls; } always { rm a; }",
+        "{ ls } always { rm b }",
+        "cat ${ rm x; }",
+        "ls &</dev/null rm x",
+        "ls &\n>/dev/null rm x",
+        "ls &|>/dev/null rm x",
+        "if (( ! true )) rm a; ls",
+        "if (( ! true )) 2>/dev/null rm a; ls",
+        "for f (ls) rm $f; ls",
+    ):
+        assert module.family(command) == "other", command
+
+    # A stray `)` leaves the word after it in no command, and a line the
+    # shell refuses must not end the reading. `") 2"` is the one that
+    # reaches the no-command guard, because a descriptor number after a `)`
+    # is not zsh's short-form body.
+    assert module.family(") x") == "other"
+    assert module.family(") 2") == "other"
+
+
+def test_the_walk_yields_each_commands_arguments_and_nothing_inside_a_substitution():
+    """`shell_words` is the one walk both rules read: `command_words` takes
+    its command words, and `only_reads` its arguments and operators too. A
+    word inside `$( … )` is neither, and what is left of an operator token
+    once a substitution's parentheses are taken out is yielded only when
+    something is left."""
+    module = load_script()
+    assert list(module.shell_words("cd /x && ls -l $(rm f) y 2>&1")) == [
+        ("command", "cd"),
+        ("argument", "/x"),
+        ("operator", "&&"),
+        ("command", "ls"),
+        ("argument", "-l"),
+        ("argument", "$"),
+        ("argument", "y"),
+        ("argument", "2"),
+        ("operator", ">&"),
+        ("argument", "1"),
+    ]
+
+
+def test_a_line_of_neutral_words_alone_is_not_read():
+    """A neutral word neither reads a file nor writes one, so it keeps a
+    reading line `read` and makes nothing `read` on its own."""
+    module = load_script()
+    for command in ("cd /x", "echo hi", "W=1", "true", "cd /x && pwd"):
+        assert module.family(command) == "other", command
+
+
+def test_the_reading_charges_reading_to_its_own_row(tmp_path):
+    """Through a transcript, so the wiring from `load`'s `ran` to the table
+    is pinned and not only the rule. The write beside the read stays
+    `other`."""
+    lines = []
+    lines += call("a", 0, 4, "cd /x\nsed -n 1p f")
+    lines += call("b", 9, 12, "cat > f <<'EOF'\nx\nEOF")
+    path = tmp_path / "read.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["by_family"]["read"] == {"calls": 1, "seconds": 4}, data["by_family"]
+    assert data["by_family"]["other"] == {"calls": 1, "seconds": 3}, data["by_family"]
 
 
 def test_the_family_reads_the_command_as_the_harness_recorded_it(tmp_path):
@@ -2831,6 +3092,20 @@ def test_the_reading_says_its_family_rows_moved_at_377(run_with_segments):
         "on a line of its own or after a heredoc was charged to `other`, and so "
         "was a test run after a heredoc. The repeats lines filter by family and "
         "moved with them." in out
+    ), out
+
+
+def test_the_reading_says_its_family_rows_moved_at_642(run_with_segments):
+    """#642 moved what a family row MEANS a third time: a call that only
+    read was `other`, and it is `read`. Only the `other` row and the note
+    under it move, so the line says the repeats lines did not, which is what
+    tells it apart from the #377 line above it."""
+    out = " ".join(segment_report(run_with_segments).split())
+    assert (
+        "Family rows are comparable only with readings taken on a release that "
+        "carries #642 as well: before it, a call that only read a file or listed "
+        "a directory was charged to `other`, and there was no `read` row. The "
+        "repeats lines did not move." in out
     ), out
 
 
