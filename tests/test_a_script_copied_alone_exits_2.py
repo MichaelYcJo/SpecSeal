@@ -4,7 +4,8 @@ Not every shipped script that loads a sibling is held here:
 `survivor_check.py` and `broad_gate.py` raise a refusal of their own, and
 `evidence_check.py` falls back by design. The ones held here load it in one
 of two shapes. `fold_check.py`, `settle.py`, `round_record.py`,
-`chain_check.py` and `payload_meter.py` import it by file path; `seal.py`
+`chain_check.py`, `payload_meter.py` and `correction_check.py` import it by
+file path; `seal.py`
 puts `hooks/` on `sys.path` with `sys.path.insert` and then runs a plain
 `import`, which a search for the first shape does not find. In the first
 four 1 means a finding or a refusal the command made about the tree, and in
@@ -34,6 +35,12 @@ argparse's own usage error is also exit 2 and would pass for the wrong
 reason. `payload_meter.py` loads `session_cost.py` only under `--calibrate`,
 and `measure` calls the loader before it opens the transcript, so the
 transcript named need not exist.
+
+#584 brought the fence rule to readers that had kept their own, and a shipped
+one that now loads `unverified_check.py` joins the list:
+`correction_check.py` loads it at import, so the one required flag is all an
+invocation needs, and a copy that reaches no git repository is still stopped
+at the loader first.
 """
 
 import os
@@ -94,6 +101,12 @@ CASES = [
         "skills/verify/scripts/payload_meter.py",
         ["--root", "{root}", "--calibrate", "{root}/main.jsonl"],
         "it is what reads a transcript's spawns",
+        None,
+    ),
+    (
+        "skills/evidence-check/scripts/correction_check.py",
+        ["--range", "HEAD..HEAD", "--root", "{root}"],
+        "it is what says which ledger rows stand inside a fenced example",
         None,
     ),
 ]
