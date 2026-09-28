@@ -40,9 +40,10 @@ run's values. That includes an interpreter under `seal_stamp.py`'s floor of
 3.12 — a hook runs under whatever `python3` the harness finds, 3.9 on a stock
 macOS — where this draws nothing and the `SEALED` line in the sealer's
 report, which names the file and `seal-stamp --from` wherever a values file
-was written, is what remains. The same line is what remains where the main session's working
-directory is outside the sealed clone, and where its plugin predates this
-hook; `docs/the-broad-gate.md` §*Where the stamp is drawn* states all three.
+was written, is what remains. The same line is what remains where the main
+session's working directory is outside the sealed clone, and where its
+plugin predates this hook; `docs/the-broad-gate.md` §*Where the stamp is
+drawn* states all three.
 
 It draws; it never stops anything. `hooks/implementer.py`'s stance holds: a
 values file somebody wrote by hand would be drawn, because this catches a

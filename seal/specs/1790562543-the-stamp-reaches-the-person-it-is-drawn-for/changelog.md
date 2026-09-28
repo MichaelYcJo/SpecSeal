@@ -11,12 +11,12 @@
   its own session once, as a JSON `systemMessage` whose first line names what
   was sealed, and draws nothing at a subagent's end. Every line that names a
   values file names `seal-stamp --from <path>` too, quoted for the shell,
-  because the hook draws nothing and says nothing where it cannot: a `python3` under 3.12, a
-  session outside the sealed clone, or a plugin older than the hook. A run
-  with no session says so; a values file that cannot be written leaves the
-  run sealed and says nothing will be drawn. The hook builds each stamp
-  whole before it claims the file, so a malformed values file is left
-  pending and takes no other file's drawing with it.
+  because the hook draws nothing and says nothing where it cannot: a
+  `python3` under 3.12, a session outside the sealed clone, or a plugin older
+  than the hook. A run with no session says so; a values file that cannot be
+  written leaves the run sealed and says nothing will be drawn. The hook
+  builds each stamp whole before it claims the file, so a malformed values
+  file is left pending and takes no other file's drawing with it.
 - **No stamp is drawn without a written cell (issue #400).** A green run
   without `--record`, on a terminal or off one, prints the `SEALED` line
   saying nothing was recorded, and draws and writes nothing. A red run, a

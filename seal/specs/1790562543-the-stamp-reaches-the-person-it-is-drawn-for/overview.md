@@ -36,7 +36,8 @@ there. Nothing was built around it: the frame's hook is silent on every
 failure, the `SEALED` line in the sealer's report names the file and
 `seal-stamp --from` wherever a values file was written — true since round
 1's fix pass, which added the command to the common line — and changing the
-floor is a decision about every script that copies it. The hook's docstring states it.
+floor is a decision about every script that copies it. The hook's docstring
+states it.
 
 `dispatch.py` now names the `Stop` event for the `stop` group, as `plan.md`
 asked. `session-start` still reports `PostToolUse` on the decision path it

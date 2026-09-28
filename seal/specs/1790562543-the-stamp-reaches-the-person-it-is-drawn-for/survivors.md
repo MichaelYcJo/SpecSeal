@@ -3,9 +3,9 @@
 Round 1's fix pass (`survivor-check --range a3b76a2f..23e75f53`) reported two
 places. Both share wording with the orchestrator's old sentence about the
 no-session line, which the range widened to every line naming a values
-file. Each place is about the no-session line alone, which still says no Claude Code session was
-found and still names `seal-stamp --from`, so neither is a claim the range
-corrected.
+file. Each place is about the no-session line alone, which still says no
+Claude Code session was found and still names `seal-stamp --from`, so
+neither is a claim the range corrected.
 
 | Path | Quote | Grounds |
 |---|---|---|
