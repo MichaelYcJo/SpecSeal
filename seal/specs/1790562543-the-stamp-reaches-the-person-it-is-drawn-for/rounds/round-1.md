@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #650 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `a3b76a2ff82516a27c725011411f12d0d16c849c..1d551500c854131425bd0fb10404e2960db08481`, 2 commits |
+| Contract changes | none |
+| New units | test_the_drawn_refusal_names_the_file_the_values_are_in (depth 1); test_a_malformed_later_file_does_not_take_the_earlier_ones (depth 1); test_both_readmes_list_the_stamp_hook (depth 1) |
 | Needs a fix | yes — 🟡 1 (the SEALED line and the policy do not say how to recover a stamp the hook cannot draw), 🟡 2 (one malformed file loses the drawings claimed before it), 🟡 3 (the drawn refusal names a file that does not exist), 🟡 4 (both READMEs omit the new hook) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,14 +24,14 @@ Round 1 of work item 1790562543 (#400), a first round against the whole branch `
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | Where the hook cannot draw (python3 under 3.12, cwd outside the clone, plugin predating the hook), the `SEALED` line promises a drawing and names no recovery; the docstring and overview say it names `seal-stamp --from`, which only the no-session line does | `skills/verify/scripts/broad_gate.py:2413`, `hooks/sealer-stamp.py:40`, `docs/the-broad-gate.md:124` | open | probe A executed (3.9.6: exit 0, silent, file pending); `DRAWN_AT_TURN_END` read |
-| 🟡 2 | A malformed values file raises after earlier files were claimed, so their drawings are lost and `--from` then refuses them | `hooks/sealer-stamp.py:92` | open | probe C executed: both files renamed, stdout empty, `--from` on the good file exit 2 |
-| 🟡 3 | `seal-stamp --from X.drawn.json` says the values stay in `X.drawn.drawn.json`, which does not exist | `skills/verify/scripts/seal_stamp.py:683` | open | probe B executed |
-| 🟡 4 | Neither README lists the `Stop` hook in its gate table, opt-in list, gate count or side effects | `README.md:107`, `README.md:181`, `README.md:390`, `README.ko.md:102`, `README.ko.md:383` | open | read |
-| ⬜ 5 | The no-session line's `seal-stamp --from {path}` is unquoted | `skills/verify/scripts/broad_gate.py:2409` | open | read |
-| ⬜ 6 | "which gate drew the stamp" and "which copy drew it" are now wrong in a sealer; "draws on a terminal only" omits the written cell | `agents/sealer.md:86`, `docs/the-broad-gate.md:88` | open | read |
-| ⬜ 7 | The orchestrator's rule says a stamp is drawn; the `close --broad-gate` path draws none | `skills/code-review/orchestration.md:539` | open | read |
-| ⬜ 8 | correction: spec, questions, plan and overview still state the terminal rule the build diverged from, and the overview says nothing was fed back | `seal/specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for/spec.md:48` | open | read; paperwork, not counted in Needs a fix |
+| 🟡 1 | Where the hook cannot draw (python3 under 3.12, cwd outside the clone, plugin predating the hook), the `SEALED` line promises a drawing and names no recovery; the docstring and overview say it names `seal-stamp --from`, which only the no-session line does | `skills/verify/scripts/broad_gate.py:2413`, `hooks/sealer-stamp.py:40`, `docs/the-broad-gate.md:124` | **fixed** `23e75f53` | fixed at 23e75f53; probe A executed (3.9.6: exit 0, silent, file pending); `DRAWN_AT_TURN_END` read |
+| 🟡 2 | A malformed values file raises after earlier files were claimed, so their drawings are lost and `--from` then refuses them | `hooks/sealer-stamp.py:92` | **fixed** `23e75f53` | fixed at 23e75f53; probe C executed: both files renamed, stdout empty, `--from` on the good file exit 2 |
+| 🟡 3 | `seal-stamp --from X.drawn.json` says the values stay in `X.drawn.drawn.json`, which does not exist | `skills/verify/scripts/seal_stamp.py:683` | **fixed** `23e75f53` | fixed at 23e75f53; probe B executed |
+| 🟡 4 | Neither README lists the `Stop` hook in its gate table, opt-in list, gate count or side effects | `README.md:107`, `README.md:181`, `README.md:390`, `README.ko.md:102`, `README.ko.md:383` | **fixed** `23e75f53` | fixed at 23e75f53; read |
+| ⬜ 5 | The no-session line's `seal-stamp --from {path}` is unquoted | `skills/verify/scripts/broad_gate.py:2409` | **fixed** `23e75f53` | fixed at 23e75f53; read |
+| ⬜ 6 | "which gate drew the stamp" and "which copy drew it" are now wrong in a sealer; "draws on a terminal only" omits the written cell | `agents/sealer.md:86`, `docs/the-broad-gate.md:88` | **fixed** `23e75f53` | fixed at 23e75f53; read |
+| ⬜ 7 | The orchestrator's rule says a stamp is drawn; the `close --broad-gate` path draws none | `skills/code-review/orchestration.md:539` | **fixed** `23e75f53` | fixed at 23e75f53; read |
+| ⬜ 8 | correction: spec, questions, plan and overview still state the terminal rule the build diverged from, and the overview says nothing was fed back | `seal/specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for/spec.md:48` | answered | a correction to records under seal/specs/: spec, questions, plan and overview corrected at 23e75f53; read; paperwork, not counted in Needs a fix |
 | 🟢 | The divergence (terminal without `--record` draws nothing) holds against #400 §*Done when* bullet 4 | `skills/verify/scripts/broad_gate.py:2383` | confirmed | issue body and both 2026-09-28 comments read; neither comment names a terminal exception; S10 is stated for `--record` |
 | 🟢 | No red, refused or chain-failing run reaches the values write or a draw | `skills/verify/scripts/broad_gate.py:2341` | confirmed | read: returns 1 and 2 precede `panel`; the S7 and S8 absences read `values_files` |
 | 🟢 | No path draws one run twice: the terminal leaves no file, and hook and `--from` both claim before they print | `skills/verify/scripts/seal_stamp.py#claim` | confirmed | read; probes B and C show the rename happens before output |
