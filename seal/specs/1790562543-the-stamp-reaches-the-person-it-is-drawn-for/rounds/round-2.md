@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #650 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `34a029c9249bd36aa784d5df106c7668df429565..f66eae080fd7baaea3a8821e558fe29ea71e8629`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 2 of work item 1790562543 (#400), the verifying round. Its target is the d
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | "Every sealed line names `seal-stamp --from`" is false for the `NOTHING_RECORDED` and `VALUES_UNWRITTEN` lines, and the orchestrator's paragraph contradicts its own `close --broad-gate` sentence | `docs/the-broad-gate.md:136`, `agents/sealer.md:160`, `skills/code-review/orchestration.md:553`, `hooks/sealer-stamp.py:42` | open | read: `signal`'s four endings, their constants from `skills/verify/scripts/broad_gate.py:2405`; no stamp is lost, the scope word overreaches |
-| ⬜ 2 | The README side-effects limb passes with the side-effects clause deleted, because the table row also carries `specseal-stamp/` | `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py:488` | open | probe H executed: clause deleted, count kept, case 1 passed exit 0 |
-| ⬜ 3 | The common line's quoting is asserted on a path with nothing to quote, so `command=path` on that branch survives | `tests/test_the_seal_is_taken_once_by_the_sealer.py:2311` | open | read; probe F executed shows the behaviour right today |
+| ⬜ 1 | "Every sealed line names `seal-stamp --from`" is false for the `NOTHING_RECORDED` and `VALUES_UNWRITTEN` lines, and the orchestrator's paragraph contradicts its own `close --broad-gate` sentence | `docs/the-broad-gate.md:136`, `agents/sealer.md:160`, `skills/code-review/orchestration.md:553`, `hooks/sealer-stamp.py:42` | **fixed** `f66eae08` | fixed at f66eae08; read: `signal`'s four endings, their constants from `skills/verify/scripts/broad_gate.py:2405`; no stamp is lost, the scope word overreaches |
+| ⬜ 2 | The README side-effects limb passes with the side-effects clause deleted, because the table row also carries `specseal-stamp/` | `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py:488` | **fixed** `f66eae08` | fixed at f66eae08; probe H executed: clause deleted, count kept, case 1 passed exit 0 |
+| ⬜ 3 | The common line's quoting is asserted on a path with nothing to quote, so `command=path` on that branch survives | `tests/test_the_seal_is_taken_once_by_the_sealer.py:2311` | **fixed** `f66eae08` | fixed at f66eae08; read; probe F executed shows the behaviour right today |
 | 🟢 | round 1's finding 1 is closed — every line that writes a values file names `seal-stamp --from`, and the three silent states are stated where a person looks | `skills/verify/scripts/broad_gate.py:2418` | confirmed | probe F executed; the case red at the pre-fix sources, executed; policy, orchestration and sealer paragraphs read |
 | 🟢 | round 1's finding 2 is closed — one malformed file no longer takes the others | `hooks/sealer-stamp.py#drawings` | confirmed | probe G executed: good drawn, three malformed pending; the case red at the pre-fix sources, executed; `drawn_from` read, it builds nothing after its claim |
 | 🟢 | round 1's finding 3 is closed — the drawn refusal names a file that exists | `skills/verify/scripts/seal_stamp.py:688` | confirmed | the case red at the pre-fix sources and green at 1bddf2ed, executed; the claim-failure branch read |
