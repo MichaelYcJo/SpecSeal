@@ -1535,6 +1535,18 @@ def _land(here, prev, target):
     return _step(here, operand)
 
 
+def _enters(landed):
+    """True when a `cd` that lands at `landed` cannot fail: a directory that
+    is there and that the shell may enter.
+
+    A `cd` fails only when its target is missing or cannot be entered (#662).
+    Asked of the filesystem when the hook runs, a moment before the shell
+    does. An `Unresolved` landing is asked like any other: where its text
+    happens to name a directory, the answer still carries the `Unresolved`
+    itself, so the commit is stopped either way."""
+    return os.path.isdir(landed) and os.access(landed, os.X_OK)
+
+
 def compose(base, chdirs):
     """`apply_chdir`, keeping an unreadable base unreadable.
 
@@ -1605,21 +1617,28 @@ def walk_directories(items, cwd):
     # `defined` is the fifth: the functions this string has defined so far, so
     # that a call to one -- a plain word `understood` accepts -- empties the
     # environment instead of keeping a value the body may have rewritten.
+    # `named` is the sixth: failures of a `cd` that cannot fail (`_enters`),
+    # from a shell the reader could name. Only a `||` runs anything from
+    # one, because `||` names the failure branch and a `;` or a newline
+    # reaches it only by sequence (#662). Kept apart from `parked` so a
+    # declaration in the target never answers for `cd <B> || git commit`.
     states, parked, walked, env = [(cwd, None)], [], [], {}
+    named = []
     stack, defined = [], set()
     for index, (joined, tokens) in enumerate(items):
         following = items[index + 1][0] if index + 1 < len(items) else ""
         tokens = _expanded(tokens, env)
 
-        if joined == "||" and parked:
+        if joined == "||" and (parked or named):
             # Only the failure branch runs a `||`. The live shells skip it —
             # and are still REPORTED, because `cd X || git commit` is judged
             # for X as well as for the directory the shell was in, which is
             # what spec.md S3 pins. What S3 does not ask for is the mirror of
             # that: a failure branch no consumer ever reaches is not reported,
             # which is what keeps `cd <repo> && git commit` costing nothing.
-            running, skipped, parked = parked, states, []
-        elif joined == ";" and parked:
+            running, skipped = _dedup(list(parked) + list(named)), states
+            parked, named = [], []
+        elif joined == ";" and (parked or named):
             # `;` — and a newline, which arrives here as one — runs what
             # follows whether the command before it succeeded or not, so BOTH
             # branches run this segment and neither is skipped. `cd <B> ; git
@@ -1632,6 +1651,7 @@ def walk_directories(items, cwd):
             # past this point nothing tells them apart: each is a live shell
             # whose own failure gets parked again by the segment it runs.
             running, skipped, parked = _dedup(list(states) + list(parked)), [], []
+            named = []
         else:
             running, skipped = states, []
 
@@ -1667,6 +1687,24 @@ def walk_directories(items, cwd):
                 if known
                 else [(Unresolved(str(h), Unresolved.CONSTRUCT), p) for h, p in running]
             )
+            # A `cd` into a directory that is there does not fail, so a `;`
+            # or a newline after it does not reach the shell it left. Without
+            # this, `cd <W> && make` with the commit on the NEXT line was
+            # judged in the session's directory as well as in W, and asked
+            # where W was declared and the session's directory was not
+            # (#662). Such a failure still waits for a `||`, which names it.
+            # A `cd` to a missing directory keeps both, which is #72's case,
+            # and so does a shell the reader could not name: after `alias
+            # cd=…` the unnamed shell is the only sign it could not follow.
+            if target is not None:
+                cannot_fail = [
+                    not isinstance(failed[i][0], Unresolved) and _enters(moved[i][0])
+                    for i in range(len(failed))
+                ]
+                named = _dedup(
+                    named + [failed[i] for i in range(len(failed)) if cannot_fail[i]]
+                )
+                failed = [failed[i] for i in range(len(failed)) if not cannot_fail[i]]
             parked = _dedup(parked + list(failed))
 
         carried = list(moved)
@@ -1678,8 +1716,8 @@ def walk_directories(items, cwd):
         carried += skipped
         states = _dedup(carried)
 
-        if len(states) + len(parked) > STATE_CAP:
-            here, prev = (states or parked)[0]
+        if len(states) + len(parked) + len(named) > STATE_CAP:
+            here, prev = (states or parked or named)[0]
             # CONSTRUCT when the collapse is what made this unreadable: the
             # command reached more directories than the reader will answer
             # for, and that is not a value anyone can write out either.
@@ -1687,6 +1725,7 @@ def walk_directories(items, cwd):
                 [(Unresolved(here, getattr(here, "why", Unresolved.CONSTRUCT)), prev)],
                 [],
             )
+            named = []
 
         # The names this segment leaves behind, for the segments after it.
         # `understood` is the same acceptance test the directory half uses: a

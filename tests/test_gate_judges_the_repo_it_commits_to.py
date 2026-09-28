@@ -21,6 +21,7 @@ unreviewed. An unresolvable target now stops the commit instead.
 
 import atexit
 import json
+import os
 import shlex
 import shutil
 import subprocess
@@ -253,6 +254,103 @@ def test_a_semicolon_carries_the_commit_to_both(tmp_path):
         str(tmp_path / "b"),
         str(tmp_path),
     ]
+
+
+def test_a_cd_into_a_directory_that_is_there_has_no_failure_branch(tmp_path):
+    """#662. The case above keeps the directory the shell started in because
+    a `cd` to a missing directory fails. A `cd` to a directory that is there
+    and can be entered does not, so a `;` or a newline after it reaches only
+    the directory it moved to, as the shell does. The `cd` above names a
+    directory nobody created, and still reaches both."""
+    b = tmp_path / "b"
+    b.mkdir()
+    for sep in (" ;", "\n", " && echo hi\n", " && echo hi ;"):
+        command = f"cd {sh(b)}{sep} git commit -m x"
+        assert commit_dirs(command, tmp_path) == [str(b)], repr(command)
+    # Only a `cd`'s own failure goes: a command that fails before the `cd`
+    # skips it, and the commit after the `;` runs where the shell started.
+    assert commit_dirs(f"false && cd {sh(b)} ; git commit -m x", tmp_path) == [
+        str(b),
+        str(tmp_path),
+    ]
+
+
+@pytest.mark.skipif(
+    sys.platform == "win32" or getattr(os, "geteuid", lambda: 1)() == 0,
+    reason="a mode that stops `cd` stops nothing for root, and Windows has no "
+    "execute bit on a directory",
+)
+def test_a_cd_into_a_directory_that_cannot_be_entered_keeps_both(tmp_path):
+    """A directory that is there but has no execute bit refuses `cd`, so the
+    shell stays where it was: that failure branch is real and both are
+    judged."""
+    b = tmp_path / "b"
+    b.mkdir()
+    b.chmod(0o600)
+    try:
+        assert commit_dirs(f"cd {sh(b)} ; git commit -m x", tmp_path) == [
+            str(b),
+            str(tmp_path),
+        ]
+    finally:
+        b.chmod(0o700)
+
+
+def test_a_cd_that_cannot_fail_still_waits_for_an_or_and_counts_to_the_cap(tmp_path):
+    """The failure of a `cd` into a directory that is there is kept for a
+    `||`, which names that branch, and it counts toward the reader's state
+    cap like any other: seventy `&&`-chained `cd`s into existing directories
+    before `|| git commit` come back as one unreadable answer, not seventy."""
+    dirs = [tmp_path / f"d{i}" for i in range(70)]
+    for d in dirs:
+        d.mkdir()
+    b = dirs[0]
+    assert commit_dirs(f"cd {sh(b)} || git commit -m x", tmp_path) == [
+        str(tmp_path),
+        str(b),
+    ]
+    command = " && ".join(f"cd {sh(d)}" for d in dirs) + " || git commit -m x"
+    got = commit_dirs(command, tmp_path)
+    assert len(got) <= reader.STATE_CAP, len(got)
+    assert any(isinstance(w, reader.Unresolved) for w in got)
+
+
+# The command shapes of #662. The first two prompted the person in an
+# `automation` run: a `cd` into a worktree, then the commit on the next line.
+NEWLINE_SHAPES = (
+    "cd {b} && python3 - <<'EOF'\nprint(1)\nEOF\ngit add -A && git commit -m x",
+    "cd {b} && echo hi\ngit commit -m x",
+    "cd {b} && python3 - <<'EOF' && git commit -m x\nprint(1)\nEOF",
+    "cd {b}\ngit commit -m x",
+)
+
+
+def test_a_cd_on_one_line_carries_the_commit_on_the_next_to_its_target(tmp_path):
+    """#662, the direction that was measured: the session sits in an opted-in
+    repository with no declaration for its branch, and the command moves to
+    one whose branch is declared. The commit lands there, so it is not asked.
+    Seen red at `e8e5f977` for every shape but the third, which never carried
+    the failure branch past its `&&`."""
+    here = make_repo(tmp_path / "session", opted_in=True)
+    there = make_repo(tmp_path / "declared", opted_in=True)
+    declare_routing(there)
+    for n, shape in enumerate(NEWLINE_SHAPES):
+        out = run(shape.format(b=sh(there)), here, session=f"s-{n}")
+        assert decision_of(out) == "silent", (shape, out)
+
+
+def test_a_cd_on_one_line_to_an_undeclared_target_is_still_asked(tmp_path):
+    """#662, the reverse direction: the session's repository is declared and
+    the `cd` target is not. Reading only the target must not let the
+    session's declaration answer for a commit landing elsewhere. This held
+    before the fix too, because both directories were judged; it is pinned so
+    the fix cannot trade one direction for the other."""
+    here = make_repo(tmp_path / "session", opted_in=True)
+    there = make_repo(tmp_path / "undeclared", opted_in=True)
+    declare_routing(here)
+    for n, shape in enumerate(NEWLINE_SHAPES):
+        out = run(shape.format(b=sh(there)), here, session=f"s-{n}")
+        assert fired(out), (shape, out)
 
 
 def test_a_relative_cd_composes_against_the_directory_the_shell_is_in(tmp_path):
