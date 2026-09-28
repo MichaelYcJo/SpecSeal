@@ -3722,6 +3722,29 @@ def test_no_hint_where_every_call_sits_in_one_stretch(tmp_path):
     assert out.startswith("span "), out
 
 
+def test_no_hint_where_the_only_message_precedes_the_first_call(tmp_path):
+    """The other shape that cuts nothing: a coordinator message before the
+    agent's first call leaves every call in the window after it, so the file
+    is one stretch and `--segments` prints one slice with the same span. The
+    one-stretch case above builds only the message after the last call, and
+    a condition of *a call after the first message* is right there and wrong
+    here."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                coordinator_message(600),
+                *worked(625, "s1"),
+                *worked(640, "s2"),
+            ]
+        },
+    )
+    out = " ".join(run([str(own_file(path))]).stdout.split())
+    assert "coordinator message in this transcript" not in out, out
+    assert out.startswith("span "), out
+
+
 def test_a_resumed_file_copied_out_of_subagents_is_still_cut(resumed_segment, tmp_path):
     """In 1: the trigger is the marker, never the directory. A resumed
     agent's file copied anywhere else is cut the same way, and its plain
