@@ -56,6 +56,7 @@ MESSAGE_CAP = 200
 # return value rather than inside it: `run_gate` returns a gate's stdout, and
 # a case replaces it with a function returning one
 # (`tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py#test_the_stop_group_reports_the_stop_event`).
+# One invocation is one process, so the list starts empty for each.
 FAILED = []
 
 LABEL = "SpecSeal: {count} failed and {verb} skipped"
@@ -211,15 +212,6 @@ def merge(outputs, event_name):
 # one inside a guard: a report must not depend on the module whose failure it
 # reports, and a broken `console.py` or `optin.py` is exactly the failure
 # that silences the most gates at once.
-
-
-def parse(payload):
-    """The payload as a dict, or {} where it is not a JSON object."""
-    try:
-        body = json.loads(payload)
-    except ValueError:
-        return {}
-    return body if isinstance(body, dict) else {}
 
 
 def path_part(value):
@@ -392,11 +384,7 @@ def draw(body):
     common = common_dir(top)
     directory = os.path.join(common, FAILURES_DIR, session) if common else ""
     try:
-        names = [
-            n
-            for n in os.listdir(directory)
-            if n.endswith(PENDING) and not n.startswith(".")
-        ]
+        names = [n for n in os.listdir(directory) if n.endswith(PENDING)]
     except OSError:
         return ""
     if not names or not opted_in(top, common):
@@ -451,7 +439,8 @@ def report(group, payload, merged):
     already carries, in the same message: `sealer-stamp.py`'s drawing stays
     the last thing on the screen, which #400 decided."""
     try:
-        body = parse(payload)
+        # A payload that is not a JSON object raises below, and is caught.
+        body = json.loads(payload)
         if FAILED:
             record(group, list(FAILED), body)
         if group == "stop":
@@ -477,7 +466,6 @@ def main():
     event_name = EVENTS.get(group) or (
         "PreToolUse" if group.startswith("pre-") else "PostToolUse"
     )
-    del FAILED[:]
     merged = merge([run_gate(g, payload) for g in gates], event_name)
     # A group whose gates all loaded and ran reads nothing more than it did
     # before, except `stop`, which draws.

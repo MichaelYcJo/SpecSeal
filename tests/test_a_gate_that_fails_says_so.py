@@ -51,14 +51,17 @@ def hooks_copy(tmp_path, files):
     return hooks
 
 
-def dispatch(hooks, group, body):
+def dispatch(hooks, group, body, cwd=None):
+    """`dispatch.py <group>` from `hooks`, as the harness spawns it. `body`
+    is sent as JSON, or as it is where it is already a string."""
     r = subprocess.run(
         [sys.executable, str(hooks / "dispatch.py"), group],
-        input=json.dumps(body),
+        input=body if isinstance(body, str) else json.dumps(body),
         capture_output=True,
         encoding="utf-8",
         errors="replace",
         timeout=60,
+        cwd=cwd,
     )
     assert r.returncode == 0, r.stderr
     return r.stdout
@@ -220,6 +223,26 @@ def test_a_session_id_cannot_name_a_directory_outside_the_records(repo, tmp_path
     assert not (repo / "escaped").exists()
     assert not (repo / ".git" / "escaped").exists()
     assert records(repo, "escaped") == ["commit-review-gate.py.pending"]
+    # `..` has no separator to strip, and would name the records directory's
+    # parent: the common dir itself.
+    dispatch(hooks, "pre-bash", bash(repo, ".."))
+    assert not (repo / ".git" / "commit-review-gate.py.pending").exists()
+
+
+def test_a_payload_the_report_cannot_read_records_nothing(repo, tmp_path):
+    """Not JSON, not an object, or an empty `cwd`: nothing is recorded,
+    nothing raises, and dispatch exits 0 with the group's own stdout. An
+    empty `cwd` must not fall back to the directory the process happens to
+    stand in, which is a repository here."""
+    opted_in(repo)
+    broken = hooks_copy(tmp_path / "a", {"commit-review-gate.py": BROKEN})
+    absent = hooks_copy(tmp_path / "b", {"commit-review-gate.py": None})
+    for payload in ("not json", "[1, 2]"):
+        assert dispatch(broken, "pre-bash", payload) == dispatch(
+            absent, "pre-bash", payload
+        )
+    dispatch(broken, "pre-bash", bash(repo, "s-x", cwd=""), cwd=str(repo))
+    assert not (repo / ".git" / RECORDS).exists()
 
 
 # --- S7: a `SystemExit` at load is isolated --------------------------------
@@ -343,9 +366,78 @@ def test_a_record_that_cannot_be_read_still_names_its_gate(repo, tmp_path):
     opted_in(repo)
     directory = repo / ".git" / RECORDS / "s-x"
     directory.mkdir(parents=True)
-    (directory / "lint-python.py.pending").write_text("not json", encoding="utf-8")
+    planted = {
+        "lint-python.py": "not json",
+        "mode-gate.py": "[1]",
+        "version-check.py": json.dumps({"group": 5, "phase": "load"}),
+        "session-lease.py": json.dumps({"error": "OSError"}),
+        "worktree-guard.py": json.dumps(
+            {"group": "pre-bash\nstop", "error": "E", "message": "a\n  b"}
+        ),
+    }
+    for n, (gate, body) in enumerate(planted.items()):
+        path = directory / (gate + ".pending")
+        path.write_text(body, encoding="utf-8")
+        os.utime(path, ns=(10**18 + n, 10**18 + n))
     lines = said(stop(hooks_copy(tmp_path, {}), repo, "s-x"))
-    assert lines[1] == "lint-python.py failed; calls went ahead without it.", lines
+    assert lines[1:-1] == [
+        "lint-python.py failed; calls went ahead without it.",
+        "mode-gate.py failed; calls went ahead without it.",
+        "version-check.py failed to load; calls went ahead without it.",
+        "session-lease.py failed (OSError); calls went ahead without it.",
+        "worktree-guard.py failed in pre-bash stop (E: a b); calls went ahead "
+        "without it.",
+    ], lines
+
+
+def test_a_record_that_cannot_be_claimed_is_not_said(repo, tmp_path):
+    """The rename to `.reported` comes before the line, so a record another
+    drawer took first — here, one whose `.reported` name is a directory the
+    rename cannot replace — is not said by this one."""
+    opted_in(repo)
+    directory = repo / ".git" / RECORDS / "s-x"
+    (directory / "mode-gate.py.reported").mkdir(parents=True)
+    (directory / "mode-gate.py.pending").write_text("{}", encoding="utf-8")
+    assert stop(hooks_copy(tmp_path, {}), repo, "s-x") == ""
+
+
+def test_records_in_a_repository_not_opted_in_are_not_said(repo, tmp_path):
+    """A record that is there in a repository that does not run the workflow
+    — left from before it opted out — is neither said nor taken."""
+    directory = repo / ".git" / RECORDS / "s-x"
+    directory.mkdir(parents=True)
+    (directory / "mode-gate.py.pending").write_text("{}", encoding="utf-8")
+    assert stop(hooks_copy(tmp_path, {}), repo, "s-x") == ""
+    assert records(repo, "s-x") == ["mode-gate.py.pending"]
+
+
+def test_a_record_is_created_once_and_asked_about_once(repo, monkeypatch):
+    """The opt-in is asked only for a gate not yet written down, so a gate
+    that stays broken costs no `optin.py` load after its first record. And
+    the file is created exclusively: a record that appears between the check
+    and the write — the race, forced here by blinding the check — is not
+    overwritten."""
+    opted_in(repo)
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_the_record")
+    asked = []
+    real = d.opted_in
+    monkeypatch.setattr(d, "opted_in", lambda *a: asked.append(a) or real(*a))
+    body = bash(repo, "s-x")
+    failure = [("mode-gate.py", "run", RuntimeError("first"))]
+    d.record("pre-bash", failure, body)
+    d.record("pre-bash", [("mode-gate.py", "run", RuntimeError("second"))], body)
+    assert len(asked) == 1, asked
+    monkeypatch.setattr(d.os.path, "exists", lambda _p: False)
+    d.record("pre-bash", [("mode-gate.py", "run", RuntimeError("third"))], body)
+    path = repo / ".git" / RECORDS / "s-x" / "mode-gate.py.pending"
+    assert json.loads(path.read_text(encoding="utf-8"))["message"] == "first"
+
+
+def test_a_message_is_its_first_line_and_capped():
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_the_cap")
+    assert d.first_line(RuntimeError("\n  one  \ntwo")) == "one"
+    assert d.first_line(RuntimeError("y" * 500)) == "y" * d.MESSAGE_CAP
+    assert d.MESSAGE_CAP == 200
 
 
 # --- S10: a subagent's failure reaches the main session ----------------------
@@ -463,6 +555,16 @@ def test_the_walk_agrees_with_its_twin_in_sealer_stamp(repo, tmp_path):
         assert d.common_dir(top) == optin.git_common_dir(top), cwd
     assert os.path.samefile(d.common_dir(d.toplevel(str(tree))), repo / ".git")
 
+    def no_process(*_a, **_k):
+        raise AssertionError("a main checkout started a process")
+
+    real_run = d.subprocess.run
+    d.subprocess.run = no_process
+    try:
+        assert d.common_dir(str(repo)) == str(repo / ".git")
+    finally:
+        d.subprocess.run = real_run
+
     # Local mode, so the worktree's branch, which has no `seal/`, is opted
     # in from both trees.
     (repo / ".git" / "seal").mkdir()
@@ -472,24 +574,60 @@ def test_the_walk_agrees_with_its_twin_in_sealer_stamp(repo, tmp_path):
     assert said(stop(hooks, repo, "s-x"))[0] == LABEL_ONE
 
 
+def stop_in_process(repo, monkeypatch, capsys, printed):
+    """`dispatch.main()` for `stop`, with the group's own output replaced by
+    `printed`; what it printed."""
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_the_join")
+    monkeypatch.setattr(d, "run_gate", lambda _gate, _payload: printed)
+    monkeypatch.setattr(sys, "argv", ["dispatch.py", "stop"])
+    body = {"hook_event_name": "Stop", "session_id": "s-x", "cwd": str(repo)}
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(body)))
+    d.main()
+    return capsys.readouterr().out
+
+
+def pending_record(repo):
+    directory = repo / ".git" / RECORDS / "s-x"
+    directory.mkdir(parents=True)
+    (directory / "mode-gate.py.pending").write_text("{}", encoding="utf-8")
+
+
 def test_plain_text_at_stop_is_left_alone_and_the_records_wait(
-    repo, tmp_path, monkeypatch, capsys
+    repo, monkeypatch, capsys
 ):
     """No gate in `stop` prints plain text, and plain `Stop` stdout reaches a
     different reader than a `systemMessage`. So such a turn end is printed
     as it was, and the records wait for one that can carry them."""
     opted_in(repo)
-    directory = repo / ".git" / RECORDS / "s-x"
-    directory.mkdir(parents=True)
-    (directory / "mode-gate.py.pending").write_text("{}", encoding="utf-8")
-    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_plain_text")
-    monkeypatch.setattr(d, "run_gate", lambda _gate, _payload: "plain words\n")
-    monkeypatch.setattr(sys, "argv", ["dispatch.py", "stop"])
-    body = {"hook_event_name": "Stop", "session_id": "s-x", "cwd": str(repo)}
-    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(body)))
-    d.main()
-    assert capsys.readouterr().out == "plain words\n"
+    pending_record(repo)
+    assert stop_in_process(repo, monkeypatch, capsys, "plain words\n") == (
+        "plain words\n"
+    )
     assert records(repo, "s-x") == ["mode-gate.py.pending"]
+
+
+def test_only_nothing_or_an_object_can_carry_the_report():
+    """JSON that is not an object has nowhere to put a message either. It
+    cannot reach `beside` through `main()` today — `merge()`'s own reader
+    raises on it first — so it is asked of `beside` directly."""
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_beside")
+    assert d.beside("  \n") == {}
+    assert d.beside('{"a": 1}') == {"a": 1}
+    assert d.beside("[1]") is None
+    assert d.beside("plain") is None
+
+
+def test_an_object_without_a_message_takes_the_report_as_its_message(
+    repo, monkeypatch, capsys
+):
+    """The group's own keys are kept, and the report is the whole message
+    where the group had none."""
+    opted_in(repo)
+    pending_record(repo)
+    out = json.loads(stop_in_process(repo, monkeypatch, capsys, '{"continue": true}'))
+    assert out["continue"] is True
+    assert out["systemMessage"].split("\n")[0] == LABEL_ONE
+    assert out["systemMessage"].endswith(CLOSING), out
 
 
 # --- S14: the policy says it, and names what enforces it -----------------------

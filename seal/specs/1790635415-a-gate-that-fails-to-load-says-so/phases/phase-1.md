@@ -30,8 +30,10 @@ fence/comment readers (work item B, #584).
   monkeypatches `run_gate` with `lambda _gate, _payload: decision`, a function
   returning a string. So the return shape stays a gate's stdout, and a
   failure leaves `run_gate` through a module-level list, `dispatch.FAILED`,
-  which `main()` clears at the start of each call and reads after the merge.
-  No existing case was edited to make room.
+  which `main()` reads after the merge. One invocation is one process, so
+  the list starts empty. Phase 1 also cleared it at the start of `main()`,
+  and the mutation pass at the end of phase 3 removed that line, because no
+  case could tell it was there. No existing case was edited to make room.
 - **The report path imports nothing under `hooks/` except `optin.py`, and
   that one is loaded by file path inside a guard.** `opted_in` catches
   `(Exception, SystemExit)` around the load and the call, and answers True,
