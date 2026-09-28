@@ -255,8 +255,9 @@ def fence_opener(line):
     read through, and its `#live_markers` through `live_lines`;
     `.github/scripts/gather_changelog.py#live_markers` through `live_lines`,
     which `#ungathered` and `--check`'s count read through;
-    `.github/scripts/rider_check.py#fenced_lines` through `fence_spans`,
-    which `#comment_blocks` asks of a markdown file;
+    `.github/scripts/rider_check.py#fenced_lines`, which asks the two
+    functions directly with a comment state of its own, and which
+    `#comment_blocks` asks of a markdown file;
     `skills/evidence-check/scripts/correction_check.py#rows` through
     `closed_fence_lines`; and `skills/verify/scripts/payload_meter.py#heading_starts`
     and `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py#headings`,
