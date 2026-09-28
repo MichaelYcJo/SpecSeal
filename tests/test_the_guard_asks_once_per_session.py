@@ -386,8 +386,9 @@ COMMAND_WORD_GROUPS = {
     ),
     # No record: a word `parse_git` reads as git is a creation, and meets the
     # creation ladder like any other.
-    # `~/git` and `*/git` expand to paths before `parse_git` reads them, so
-    # they sit here and not with the expansions below (round 1, finding 2).
+    # `parse_git` compares the command word's last path component as written,
+    # before any expansion, so `~/git`, `*/git` and `$HOME/git` sit here and
+    # not with `$GIT` below (round 1 finding 2, round 2 finding 3).
     ("none", "deny"): (
         "git",
         "/usr/bin/git",
@@ -395,6 +396,7 @@ COMMAND_WORD_GROUPS = {
         "VAR=1 git",
         "~/git",
         "*/git",
+        "$HOME/git",
     ),
     # No record: a word it does not read as git is not a git invocation to
     # this guard at all.

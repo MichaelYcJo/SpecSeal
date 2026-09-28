@@ -1410,23 +1410,40 @@ def repo_paths(cwd: str):
     return top, os.path.join(os.path.dirname(top), f"{os.path.basename(top)}-worktrees")
 
 
-def steer_to_switch() -> str:
+def git_at(top: str, cwd: str) -> str:
+    """The command word for a command a reason tells the person to run.
+
+    `git` where the shell already stands in `top`'s tree, and `git -C <top>`
+    where it does not: a `git -C <repo>` or a `cd <repo>` in the judged command
+    names a tree the shell never moved to, so an unqualified `git fetch` or
+    `git worktree add` in the advice ran in the shell's own repository, or
+    failed where the shell had none (round 2 of work item 1790550712, finding
+    1). A subdirectory of `top` is the same tree, and none of these commands
+    takes a path relative to the root, so the text there is what it was.
+    """
+    here = repo_paths(cwd)[0] if cwd else ""
+    if here and os.path.normcase(here) == os.path.normcase(top):
+        return "git"
+    return f"git -C {shlex.quote(top)}"
+
+
+def steer_to_switch(git: str = "git") -> str:
     return tr(
-        "  git fetch origin\n"
-        "  git switch -c <branch> origin/main   # new branch\n"
-        "  git switch <branch>                  # existing branch\n\n"
+        f"  {git} fetch origin\n"
+        f"  {git} switch -c <branch> origin/main   # new branch\n"
+        f"  {git} switch <branch>                  # existing branch\n\n"
         "If this genuinely is concurrent work needing separation, state why and get the "
         "user's confirmation first (if the user already asked for a worktree, retry with "
         "[worktree-ok] in the command).",
-        "  git fetch origin\n"
-        "  git switch -c <branch> origin/main   # 새 브랜치\n"
-        "  git switch <branch>                  # 기존 브랜치\n\n"
+        f"  {git} fetch origin\n"
+        f"  {git} switch -c <branch> origin/main   # 새 브랜치\n"
+        f"  {git} switch <branch>                  # 기존 브랜치\n\n"
         "정말 동시 작업이라 분리가 필요하면 그 이유를 밝히고 사용자 확인을 먼저 받으세요 "
         "(사용자가 이미 워크트리를 지시했다면 명령에 [worktree-ok] 를 붙여 다시 시도).",
     )
 
 
-def steer_to_shared() -> str:
+def steer_to_shared(git: str = "git") -> str:
     """The retry for the answer "switch in the shared tree".
 
     `[worktree-ok]` gave the worktree answer a way to come back through the
@@ -1442,10 +1459,10 @@ def steer_to_shared() -> str:
     option.
     """
     return tr(
-        "`git switch <branch>  # [shared-tree-ok]` for an existing branch, or "
-        "`git switch -c <branch> origin/main  # [shared-tree-ok]` for a new one",
-        "기존 브랜치면 `git switch <branch>  # [shared-tree-ok]`, 새 브랜치면 "
-        "`git switch -c <branch> origin/main  # [shared-tree-ok]`",
+        f"`{git} switch <branch>  # [shared-tree-ok]` for an existing branch, or "
+        f"`{git} switch -c <branch> origin/main  # [shared-tree-ok]` for a new one",
+        f"기존 브랜치면 `{git} switch <branch>  # [shared-tree-ok]`, 새 브랜치면 "
+        f"`{git} switch -c <branch> origin/main  # [shared-tree-ok]`",
     )
 
 
@@ -1685,6 +1702,9 @@ def guard_worktree_creation(
         )
 
     active, idle, reliable = sessions_in_tree(top, session_id)
+    # The command word for every command this ladder hands back: `-C <top>`
+    # where the shell is not in the creation's tree (`git_at`).
+    git = git_at(top, cwd)
 
     # 두 방향의 목적지는 어느 자리에서 물어도 같다 — worktree 를 만들거나,
     # 공용 트리에서 `git switch` 로 그대로 진행하거나.
@@ -1704,9 +1724,9 @@ def guard_worktree_creation(
                 '2. "공용 트리에서 브랜치만 전환한다"',
             ),
             tr(
-                f"run {steer_to_shared()} instead. The token carries this "
+                f"run {steer_to_shared(git)} instead. The token carries this "
                 "answer, so the switch is not questioned again.",
-                f"대신 {steer_to_shared()} 중 하나를 실행하세요. 이 토큰이 지금 "
+                f"대신 {steer_to_shared(git)} 중 하나를 실행하세요. 이 토큰이 지금 "
                 "고른 답을 담고 있어 전환할 때 다시 묻지 않습니다.",
             ),
         ),
@@ -1775,7 +1795,7 @@ def guard_worktree_creation(
                     "생성할지 확인해 주세요. 거부하면 [worktree-ok] 선언을 철회하고 공유 "
                     "트리에서 그대로 진행합니다:\n",
                 )
-                + steer_to_switch()
+                + steer_to_switch(git)
             ),
         )
 
@@ -1810,7 +1830,7 @@ def guard_worktree_creation(
                 "그래도 worktree 로 분리할지 확인해 주세요. 거부하면 공유 트리에서 "
                 "`git switch` 로 전환합니다:\n",
             )
-            + steer_to_switch(),
+            + steer_to_switch(git),
         )
 
     # 4) 동시 세션 판정 불가 -> 자동으로 만들지 말고 물어본다.
@@ -1857,7 +1877,7 @@ def guard_worktree_creation(
                 "— 에디터 한 창에서 다 보여 코드 파악이 빠르고, 쓰다 만 worktree 폴더가 "
                 "쌓이지 않습니다.\n\n",
             )
-            + steer_to_switch()
+            + steer_to_switch(git)
         ),
     )
 
@@ -2103,6 +2123,9 @@ def main():
         sys.exit(0)
 
     active, idle, reliable = sessions_in_tree(top, session_id)
+    # The command word for every command this ladder hands back: `-C <top>`
+    # where the shell is not in the switch's tree (`git_at`).
+    git = git_at(top, cwd)
 
     # The mirror of [worktree-ok]: the user has just chosen the shared tree,
     # and the token carries that answer back through the guard. Honoured only
@@ -2113,17 +2136,17 @@ def main():
 
     steer = tr(
         f"  # check an existing branch out into a worktree\n"
-        f"  git worktree add {wt_root}/<branch> <branch>\n\n"
+        f"  {git} worktree add {wt_root}/<branch> <branch>\n\n"
         f"  # or create a new branch off the latest origin/main\n"
-        f"  git fetch origin\n"
-        f"  git worktree add {wt_root}/<name> -b <branch> origin/main\n\n"
+        f"  {git} fetch origin\n"
+        f"  {git} worktree add {wt_root}/<name> -b <branch> origin/main\n\n"
         "Then work in that folder from a separate Claude Code session. "
         "`git worktree list` shows worktrees.",
         f"  # 기존 브랜치를 worktree로 꺼내기\n"
-        f"  git worktree add {wt_root}/<branch> <branch>\n\n"
+        f"  {git} worktree add {wt_root}/<branch> <branch>\n\n"
         f"  # 새 브랜치를 최신 origin/main 기준으로 생성 (저장소 정책)\n"
-        f"  git fetch origin\n"
-        f"  git worktree add {wt_root}/<name> -b <branch> origin/main\n\n"
+        f"  {git} fetch origin\n"
+        f"  {git} worktree add {wt_root}/<name> -b <branch> origin/main\n\n"
         "그런 다음 그 폴더에서 별도의 Claude Code 세션으로 작업하세요. "
         "worktree 목록은 `git worktree list`.",
     )
@@ -2145,15 +2168,15 @@ def main():
             tr('2. "Split into a worktree"', '2. "worktree 로 분리한다"'),
             tr(
                 f"keeps the branch of a session that IS still working. Run "
-                f"`git worktree add {wt_root}/<branch> <branch>  # [worktree-ok]` "
+                f"`{git} worktree add {wt_root}/<branch> <branch>  # [worktree-ok]` "
                 f"for a branch that already exists, or "
-                f"`git worktree add {wt_root}/<name> -b <branch> origin/main  "
+                f"`{git} worktree add {wt_root}/<name> -b <branch> origin/main  "
                 f"# [worktree-ok]` for a new one, then work there from a "
                 f"separate session. The token carries this answer, so creating "
                 f"it is confirmed rather than questioned again.",
                 f"아직 작업 중인 세션의 브랜치를 보존합니다. 이미 있는 브랜치면 "
-                f"`git worktree add {wt_root}/<branch> <branch>  # [worktree-ok]`, "
-                f"새로 만들 브랜치면 `git worktree add {wt_root}/<name> -b "
+                f"`{git} worktree add {wt_root}/<branch> <branch>  # [worktree-ok]`, "
+                f"새로 만들 브랜치면 `{git} worktree add {wt_root}/<name> -b "
                 f"<branch> origin/main  # [worktree-ok]` 를 실행하고, 그 폴더에서 "
                 f"별도 세션으로 작업하세요. 이 토큰이 지금 고른 답을 담고 있어 "
                 f"생성할 때 다시 묻지 않고 확인만 받습니다.",
@@ -2321,25 +2344,34 @@ def main():
     # not from where the shell started: `git -C <repo> switch x` or `cd <repo>
     # && git switch x` from elsewhere carries <repo>'s changes, not the session
     # directory's. Reading `cwd` here left a dirty <repo> silent and asked a
-    # clean one about changes that were not going anywhere.
+    # clean one about changes that were not going anywhere. The force-staged
+    # check runs at that tree's root, `top`, not at `eff_cwd`: porcelain names
+    # each path from the root and `check-ignore` reads one from where it runs,
+    # so from a subdirectory an anchored pattern named nothing.
     entries = tracked_changes(eff_cwd)
     if entries:
         single_stream = not idle and reliable
         listing = "\n".join(f"    {xy}  {path}" for xy, path in entries)
-        phantoms = phantom_entries(entries, eff_cwd)
+        phantoms = phantom_entries(entries, top)
         note = ""
         if phantoms:
             why = "\n".join(f"    {p} — {r}" for p, r in phantoms)
+            # Always the root, unlike `git_at`: porcelain names each path from
+            # the tree's root, so from a subdirectory of the same tree a bare
+            # `git restore <path>` names a different file (round 2 of work item
+            # 1790550712, finding 1). `git restore` can overwrite a working
+            # copy, which is why this one is not left to the shell's position.
+            at = f"git -C {shlex.quote(top)}"
             fixes = "\n".join(
-                f"    git restore --staged {shlex.quote(p)}" for p, _ in phantoms
+                f"    {at} restore --staged {shlex.quote(p)}" for p, _ in phantoms
             )
             note = tr(
                 f"\nIndex-only residue invisible in the working tree:\n{why}\n"
-                f"These commands clean the tree (run `git restore <path>` first to keep "
+                f"These commands clean the tree (run `{at} restore <path>` first to keep "
                 f"index-only content):\n{fixes}\n",
                 f"\n이 중 워크트리에서는 보이지 않는 index 잔재:\n{why}\n"
                 f"아래 명령으로 정리하면 트리가 clean이 됩니다 "
-                f"(index에만 존재하는 내용을 살리려면 `git restore <path>` 를 먼저 실행):\n{fixes}\n",
+                f"(index에만 존재하는 내용을 살리려면 `{at} restore <path>` 를 먼저 실행):\n{fixes}\n",
             )
         lead = (
             tr("Single-stream tree", "이 트리는 단건 작업이라")

@@ -255,11 +255,13 @@ the objection and the bound refuses to speak for the call, so the user's own
 permission settings decide it. Without consent the same words split two ways.
 One that `cmdline.parse_git` reads as a git invocation — a path, a wrapper it
 reads past, a leading assignment — is a creation and meets the ladder above
-like any other. One it does not read as git — an expansion the lexer leaves
-unexpanded (`$GIT`, `gi*`, a command substitution), a different case, a
-trailing slash, a wrapper it does not read past such as `nice` — is not a git
-invocation to this guard, and it says nothing. `~/git` and `*/git` are paths
-once expanded, and belong to the first group. What the class costs is the
+like any other. One it does not read as git — a command word whose last path
+component, as written and before the shell expands anything, is not `git`
+(`$GIT`, `gi*`, a command substitution, a different case, a trailing slash),
+or a wrapper it does not read past such as `nice` — is not a git invocation to
+this guard, and it says nothing. `parse_git` expands nothing and compares that
+last component, so `~/git`, `*/git` and `$HOME/git` belong to the first group.
+What the class costs is the
 allow on `/usr/bin/git worktree add …`, which is the trade already made for `$`
 and `>`: a wrong silence leaves the call to the user's own settings, a wrong
 allow signs for a binary nobody identified. The case
