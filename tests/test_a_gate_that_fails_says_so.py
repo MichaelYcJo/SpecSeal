@@ -320,6 +320,43 @@ def test_a_broken_shared_module_names_every_gate_that_imports_it(repo, tmp_path)
     assert lines[-1] == CLOSING
 
 
+def test_a_gate_that_fails_to_load_names_every_group_that_loads_it(repo, tmp_path):
+    """Round 1's 🟡 1. A load failure belongs to the file, so it fails in
+    every group that loads it, and the record is written once, by the first.
+    `worktree-guard.py` sits in `pre-bash` and `pre-agent`, and the
+    `pre-agent` half is the `isolation: "worktree"` spawn going unguarded:
+    one `pre-bash` failure must not read as a Bash-only gap. A group where
+    the gate stands alone, `post-agent` for `worktree_consent.py`, is named
+    among the failures and not among the groups whose other gates decided."""
+    opted_in(repo)
+    hooks = hooks_copy(tmp_path, {"cmdline.py": BROKEN})
+    dispatch(hooks, "pre-bash", bash(repo, "s-x"))
+    dispatch(
+        hooks,
+        "post-bash",
+        bash(repo, "s-x", command="ls", hook_event_name="PostToolUse"),
+    )
+    lines = said(stop(hooks, repo, "s-x"))
+    by_gate = {line.split(" ", 1)[0]: line for line in lines[1:-1]}
+    guard, consent = by_gate["worktree-guard.py"], by_gate["worktree_consent.py"]
+    assert guard.startswith(
+        "worktree-guard.py failed to load in pre-bash and pre-agent ("
+    ), guard
+    assert guard.endswith(
+        "; calls went ahead without it, and the other gates in pre-bash and "
+        "pre-agent still decided."
+    ), guard
+    assert consent.startswith(
+        "worktree_consent.py failed to load in post-bash and post-agent ("
+    ), consent
+    assert consent.endswith(
+        "; calls went ahead without it, and the other gates in post-bash still decided."
+    ), consent
+    assert by_gate["commit-review-gate.py"].startswith(
+        "commit-review-gate.py failed to load in pre-bash ("
+    ), by_gate
+
+
 def test_a_broken_opt_in_module_is_said_rather_than_read_as_not_opted_in(
     repo, tmp_path
 ):

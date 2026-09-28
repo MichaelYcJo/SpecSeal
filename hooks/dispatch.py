@@ -344,22 +344,33 @@ def flat(value):
 
 
 def describe(gate, body):
-    """The line said for one gate."""
+    """The line said for one gate.
+
+    A gate that failed to LOAD fails in every group that loads its file, and
+    its record is written once, by the first -- so each of those groups is
+    named: a broken `worktree-guard.py` is an unguarded `pre-agent` too, not
+    only an unguarded `pre-bash`. A failure while running depends on the
+    payload, so it names the group it was seen in. The closing clause names
+    only the groups where other gates were there to decide."""
     group = flat(body.get("group"))
-    how = {"load": "failed to load", "run": "failed while running"}.get(
-        body.get("phase"), "failed"
-    )
+    phase = body.get("phase")
+    how = {"load": "failed to load", "run": "failed while running"}.get(phase, "failed")
     error, message = flat(body.get("error")), flat(body.get("message"))
     cause = f"{error}: {message}" if error and message else error or message
-    others = [g for g in GROUPS.get(group, ()) if g != gate]
+    groups = [group] if group else []
+    if phase == "load" and group in GROUPS:
+        groups += [g for g, gates in GROUPS.items() if gate in gates and g != group]
+    decided = [g for g in groups if any(o != gate for o in GROUPS.get(g, ()))]
     return "".join(
         [
             gate,
             f" {how}",
-            f" in {group}" if group else "",
+            f" in {' and '.join(groups)}" if groups else "",
             f" ({cause})" if cause else "",
             "; calls went ahead without it",
-            f", and the other gates in {group} still decided" if others else "",
+            f", and the other gates in {' and '.join(decided)} still decided"
+            if decided
+            else "",
             ".",
         ]
     )
