@@ -228,7 +228,7 @@ false.
 
 | Anchor | Rows |
 |---|---|
-| `hooks/worktree-guard.py#main@cf55137d` | `seal/releases/0.15.5.md` A4, A5 · `seal/releases/0.9.1.md` *Whatever the writer would record for …* (also corrected, item 18) |
+| `hooks/worktree-guard.py#main@286a1256` | `seal/releases/0.15.5.md` A4, A5 · `seal/releases/0.9.1.md` *Whatever the writer would record for …* (also corrected, item 18) |
 | `hooks/worktree-guard.py#guard_worktree_creation@26618e2e` | `seal/releases/0.15.5.md` A3 · `seal/releases/0.9.1.md` *A session that already created a worktree …*, *The first creation of a session is unchanged* · `seal/releases/0.9.4.md` S3, S4 |
 | `hooks/worktree-guard.py#judge_creation@bc8a0654` | `seal/releases/0.9.1.md` *A creation anywhere in the command is judged before it runs* |
 | `hooks/worktree_consent.py#automation_answered@415ab3a7` | `seal/releases/0.15.5.md` A1 (also corrected, item 9) |
@@ -247,6 +247,9 @@ sentence above is no longer true: phase 3 corrected `only_creates_a_worktree`'s
 docstring (*falling to `ask`*, which measured false), so its anchor drifted and
 its three rows (`seal/releases/0.9.1.md` items 17 and the row above it,
 `seal/releases/0.9.4.md` S3) were re-read with the others.
+
+The `main` stamp was re-stamped again on 2026-09-28 by round 1's fix pass,
+whose tracked-changes row fix moved `main`; its rows were re-read with notes.
 
 New rows, in the fragment:
 - W1: order does not decide (`main`, the S2 case).
