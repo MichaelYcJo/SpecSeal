@@ -27,10 +27,35 @@ import importlib.util
 import io
 import json
 import os
+import subprocess
 import sys
 from contextlib import redirect_stderr, redirect_stdout
 
 HOOKS = os.path.dirname(os.path.abspath(__file__))
+
+# Where a gate that failed is written down: one file per gate per session
+# under `<git-common-dir>/<FAILURES_DIR>/<session>/`, named for the gate. It
+# waits as `<gate>.pending` until the `stop` group says it, and then stays as
+# `<gate>.reported`, which is what keeps it from being written or said again
+# in that session.
+FAILURES_DIR = "specseal-gate-failure"
+PENDING = ".pending"
+REPORTED = ".reported"
+# The longest first line of an exception's message a record keeps.
+MESSAGE_CAP = 200
+
+# What `run_gate` saw fail during this invocation, in order, as
+# `(gate, phase, exception)` where phase is "load" or "run". Kept beside the
+# return value rather than inside it: `run_gate` returns a gate's stdout, and
+# a case replaces it with a function returning one
+# (`tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py#test_the_stop_group_reports_the_stop_event`).
+FAILED = []
+
+LABEL = "SpecSeal: {count} failed and {verb} skipped"
+CLOSING = (
+    "Nothing was blocked, and each gate is said once per session. "
+    "Updating or reinstalling the plugin usually repairs it."
+)
 
 GROUPS = {
     "pre-bash": ("commit-review-gate.py", "worktree-guard.py", "mode-gate.py"),
@@ -76,6 +101,7 @@ def run_gate(filename, payload):
     path = os.path.join(HOOKS, filename)
     out = io.StringIO()
     argv, stdin = sys.argv, sys.stdin
+    phase = "load"
     try:
         spec = importlib.util.spec_from_file_location(
             f"specseal_gate_{filename.replace('-', '_')[:-3]}", path
@@ -85,13 +111,15 @@ def run_gate(filename, payload):
         sys.stdin = io.StringIO(payload)
         with redirect_stdout(out), redirect_stderr(io.StringIO()):
             spec.loader.exec_module(module)
+            phase = "run"
             # Import must not consume stdin; main() gets its own copy.
             sys.stdin = io.StringIO(payload)
             try:
                 module.main()
             except SystemExit:
                 pass
-    except Exception:
+    except Exception as exc:
+        FAILED.append((filename, phase, exc))
         # RIDER: this catch is deliberate -- a crashing gate must not block a
         # tool call or take its neighbours down. What it costs is that an
         # IMPORT failure reads exactly like an allow. Measured with
@@ -173,6 +201,244 @@ def merge(outputs, event_name):
     return "\n".join(texts)
 
 
+# --- a gate that failed is said (#28) ----------------------------------------
+#
+# Nothing below imports a module under `hooks/` except `optin.py`, and that
+# one inside a guard: a report must not depend on the module whose failure it
+# reports, and a broken `console.py` or `optin.py` is exactly the failure
+# that silences the most gates at once.
+
+
+def parse(payload):
+    """The payload as a dict, or {} where it is not a JSON object."""
+    try:
+        body = json.loads(payload)
+    except ValueError:
+        return {}
+    return body if isinstance(body, dict) else {}
+
+
+def path_part(value):
+    """`value` as one path component, or "" where it cannot be one. An id
+    that names a directory must not escape it -- the measured `../../escaped`
+    of `hooks/worktree-guard.py#already_asked`."""
+    part = os.path.basename(str(value or ""))
+    return "" if part in (".", "..") else part
+
+
+def toplevel(cwd):
+    """The nearest directory at or above `cwd` holding a `.git` entry, or "".
+
+    The twin of `hooks/sealer-stamp.py#toplevel`, and duplicated rather than
+    imported: that module imports `console` and `optin` at load, so reaching
+    it would make the report depend on the modules whose failure it reports.
+    `tests/test_a_gate_that_fails_says_so.py` holds the two to one answer."""
+    if not cwd:
+        return ""
+    here = os.path.abspath(cwd)
+    while True:
+        if os.path.exists(os.path.join(here, ".git")):
+            return here
+        parent = os.path.dirname(here)
+        if parent == here:
+            return ""
+        here = parent
+
+
+def common_dir(top):
+    """The git common dir of the repository at `top`, or "". A `.git`
+    directory IS it, with no process started; a `.git` file (a linked
+    worktree) is asked of git, the way `hooks/optin.py#git_common_dir` asks."""
+    if not top:
+        return ""
+    dotgit = os.path.join(top, ".git")
+    if os.path.isdir(dotgit):
+        return dotgit
+    try:
+        out = subprocess.run(
+            ["git", "-C", top, "rev-parse", "--git-common-dir"],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5,
+        ).stdout
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    out = (out or "").strip()
+    return os.path.normpath(os.path.join(top, out)) if out else ""
+
+
+def opted_in(top, common):
+    """Whether the repository at `top` runs the workflow, asked of
+    `optin.py` -- and True where `optin.py` cannot answer. A broken
+    `optin.py` silences thirteen of the fifteen gates, so "cannot tell" is
+    the one state that must not also silence the report of it."""
+    try:
+        spec = importlib.util.spec_from_file_location(
+            "specseal_optin_for_the_failure_report", os.path.join(HOOKS, "optin.py")
+        )
+        optin = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(optin)
+        return bool(optin.home_at(top, common))
+    except (Exception, SystemExit):
+        return True
+
+
+def first_line(exc):
+    """The first non-blank line of `exc`'s message, capped."""
+    lines = str(exc).strip().splitlines()
+    return lines[0].strip()[:MESSAGE_CAP] if lines else ""
+
+
+def record(group, failures, body):
+    """Write one pending record per gate in `failures` not yet recorded or
+    said in this session. Writes nothing without a session id, a common dir,
+    or an opted-in repository. Created exclusively, so two hook processes
+    racing for one gate write it once."""
+    session = path_part(body.get("session_id"))
+    top = toplevel(body.get("cwd"))
+    common = common_dir(top)
+    if not session or not common:
+        return
+    directory = os.path.join(common, FAILURES_DIR, session)
+    fresh = []
+    for gate, phase, exc in failures:
+        name = path_part(gate)
+        seen = [os.path.join(directory, name + end) for end in (PENDING, REPORTED)]
+        if name and not any(os.path.exists(p) for p in seen):
+            fresh.append((name, phase, exc))
+    # Asked only for a gate not yet written down, so a gate that stays broken
+    # costs one `stat` pair per call after its first.
+    if not fresh or not opted_in(top, common):
+        return
+    for name, phase, exc in fresh:
+        try:
+            os.makedirs(directory, exist_ok=True)
+            with open(
+                os.path.join(directory, name + PENDING), "x", encoding="utf-8"
+            ) as handle:
+                json.dump(
+                    {
+                        "group": group,
+                        "phase": phase,
+                        "error": type(exc).__name__,
+                        "message": first_line(exc),
+                    },
+                    handle,
+                )
+        except OSError:
+            continue
+
+
+def read_record(path):
+    """A record's body, or {} where it cannot be read -- an older or newer
+    plugin may have written it. The gate's name is in the file's name, so an
+    unreadable body still yields a line."""
+    try:
+        with open(path, encoding="utf-8") as handle:
+            body = json.load(handle)
+    except (OSError, ValueError):
+        return {}
+    return body if isinstance(body, dict) else {}
+
+
+def flat(value):
+    """A record's field as one line of text, or "" where it is not a string."""
+    return " ".join(value.split()) if isinstance(value, str) else ""
+
+
+def describe(gate, body):
+    """The line said for one gate."""
+    group = flat(body.get("group"))
+    how = {"load": "failed to load", "run": "failed while running"}.get(
+        body.get("phase"), "failed"
+    )
+    error, message = flat(body.get("error")), flat(body.get("message"))
+    cause = f"{error}: {message}" if error and message else error or message
+    others = [g for g in GROUPS.get(group, ()) if g != gate]
+    return "".join(
+        [
+            gate,
+            f" {how}",
+            f" in {group}" if group else "",
+            f" ({cause})" if cause else "",
+            "; calls went ahead without it",
+            f", and the other gates in {group} still decided" if others else "",
+            ".",
+        ]
+    )
+
+
+def draw(body):
+    """The report of every pending record of this session, oldest first, or
+    "". Each record is renamed to `.reported` before its line is returned,
+    the shape of `skills/verify/scripts/seal_stamp.py#claim` -- two drawers
+    racing for one record say it once, and a crash between the rename and
+    the print loses a line rather than repeating one.
+
+    Only the main session's `Stop`: `SubagentStop` carries the same
+    `session_id` and differs by `agent_id` alone, the reading
+    `hooks/sealer-stamp.py` acts on."""
+    if body.get("hook_event_name") != "Stop" or body.get("agent_id"):
+        return ""
+    session = path_part(body.get("session_id"))
+    top = toplevel(body.get("cwd"))
+    if not session or not top:
+        return ""
+    common = common_dir(top)
+    directory = os.path.join(common, FAILURES_DIR, session) if common else ""
+    try:
+        names = [
+            n
+            for n in os.listdir(directory)
+            if n.endswith(PENDING) and not n.startswith(".")
+        ]
+    except OSError:
+        return ""
+    if not names or not opted_in(top, common):
+        return ""
+    waiting = []
+    for name in names:
+        path = os.path.join(directory, name)
+        try:
+            waiting.append((os.stat(path).st_mtime_ns, name, path))
+        except OSError:
+            continue
+    lines = []
+    for _, name, path in sorted(waiting):
+        gate = name[: -len(PENDING)]
+        line = describe(gate, read_record(path))
+        try:
+            os.replace(path, os.path.join(directory, gate + REPORTED))
+        except OSError:
+            continue
+        lines.append(line)
+    if not lines:
+        return ""
+    one = len(lines) == 1
+    label = LABEL.format(
+        count=f"{len(lines)} gate{'' if one else 's'}", verb="was" if one else "were"
+    )
+    return "\n".join([label, *lines, CLOSING])
+
+
+def report(group, payload, merged):
+    """`merged`, after this call's failures are recorded -- and at `stop`,
+    with every pending record of the session said. Never raises: what cannot
+    be written or said is left as the silence it was before."""
+    try:
+        body = parse(payload)
+        if FAILED:
+            record(group, list(FAILED), body)
+        if group == "stop" and not merged.strip():
+            said = draw(body)
+            if said:
+                return json.dumps({"systemMessage": said})
+    except Exception:
+        pass
+    return merged
+
+
 def main():
     group = sys.argv[1] if len(sys.argv) > 1 else ""
     gates = GROUPS.get(group)
@@ -182,7 +448,12 @@ def main():
     event_name = EVENTS.get(group) or (
         "PreToolUse" if group.startswith("pre-") else "PostToolUse"
     )
+    del FAILED[:]
     merged = merge([run_gate(g, payload) for g in gates], event_name)
+    # A group whose gates all loaded and ran reads nothing more than it did
+    # before, except `stop`, which draws.
+    if FAILED or group == "stop":
+        merged = report(group, payload, merged)
     if merged.strip():
         print(merged)
 
