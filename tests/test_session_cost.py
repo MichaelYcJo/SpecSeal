@@ -1853,6 +1853,7 @@ def test_a_call_that_only_reads_is_charged_to_read():
         "ls & ls",
         "(ls) <f",
         "(cd /x && ls) 2>&1 | head",
+        "(ls) | head -5",
         "for f in a b; do wc -l $f; done",
         "[ -f x ] && cat x",
         "if grep -q x f; then echo y; fi",

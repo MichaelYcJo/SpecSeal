@@ -567,7 +567,7 @@ HIDDEN_FROM_THE_WALK = re.compile(r"<<|\$\(|`|<\(|>\(|\$\{[\s|]")
 # next one's first word, glued by the tokeniser: `;>`, `&&>`, `|<`, `(>`,
 # `⏎<`, and after a background `&`: `&<`, `&⏎>` and zsh's `&|>`. `&>` alone
 # is not one, because bash and zsh read it as a redirection of its own.
-SEPARATOR_THEN_REDIRECTION = re.compile(r"(?:[;|\n(]|&&|&(?![>&]))+&?[<>]")
+SEPARATOR_THEN_REDIRECTION = re.compile(r"(?:[;|\n(]|&(?!>))+&?[<>]")
 
 # `find`'s actions that delete, run a command or write a file.
 FIND_WRITES = frozenset(
@@ -663,7 +663,7 @@ def only_reads(command):
                 redirect = None
             elif kind == "command":
                 commands.append([token])
-                started, closed = True, False
+                started = True
             elif kind == "operator":
                 if set(token) & REDIRECTION:
                     # A redirection before a command's first word keeps that
