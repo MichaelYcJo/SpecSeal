@@ -69,14 +69,15 @@ the reader acts.
 stamp — the disc and a panel carrying the tree, the base, the suite's counts,
 the exit code the repository's row came back with, the ledger's counts, the
 chain's exit, and the round count when `--record` names a work item — is
-`seal_stamp.stamp`'s. On a terminal the gate draws it once, in the form
-`pick_shape` chooses. Anywhere else it draws nothing and prints one line
-beginning `SEALED`: on a recorded seal that line names the values file the
-panel's rows were written to, under `<git-common-dir>/specseal-stamp/
-<session>/`, and `hooks/sealer-stamp.py` draws it at the end of the turn of
-the session named by `CLAUDE_CODE_SESSION_ID`; without `--record` the line
-says nothing was recorded, and nothing is written or drawn. A sealer's stdout
-is a pipe, so a sealer's run never draws. The failure form is `NOT SEALED
+`seal_stamp.stamp`'s, and it is drawn only over a written cell. On a
+terminal a recorded seal draws it once, in the form `pick_shape` chooses.
+Anywhere else a recorded seal draws nothing and prints one line beginning
+`SEALED`, naming the values file the panel's rows were written to, under
+`<git-common-dir>/specseal-stamp/<session>/`; `hooks/sealer-stamp.py` draws
+it at the end of the turn of the session named by `CLAUDE_CODE_SESSION_ID`.
+Without `--record` there is no cell, so on a terminal or off one the line
+says nothing was recorded, and nothing is written or drawn. A sealer's
+stdout is a pipe, so a sealer's run never draws. The failure form is `NOT SEALED
 <tree> against <base>` and the failing checks with their first lines, no
 drawing and no file.
 
@@ -2195,8 +2196,8 @@ def seal_record(item, tree, root, base, keep):
 
 def gate(args, console_wants_letters, terminal=False):
     """The run. `terminal` is whether stdout has a person in front of it:
-    only then is the stamp drawn here, and every other sealed run signals
-    instead (#400). Its default is the pipe, which is what every caller that
+    only then, and only over a written cell, is the stamp drawn here, and
+    every other sealed run signals instead (#400). Its default is the pipe, which is what every caller that
     is not `__main__` — a case driving this in process — is writing to."""
     stamp = load(STAMP, "specseal_seal_stamp_for_broad_gate")
     root = repo_root(os.path.abspath(args.root or os.getcwd()))
@@ -2379,10 +2380,12 @@ def gate(args, console_wants_letters, terminal=False):
             )
             return 2
     rows = panel(tree, base, checks, item, workflow, gate_copy(root))
-    if terminal:
+    if terminal and item is not None:
         # A person is in front of this stream, and it is the one place the
         # gate draws. Once, and no values file is left for anyone else to
-        # draw a second time (#400).
+        # draw a second time (#400). Only over a written cell: #400's
+        # Done-when says no other path draws a stamp, so a run without
+        # `--record` signals on a terminal too.
         shape = args.shape or console_wants_letters
         sys.stdout.write(
             "\n" + "\n".join(stamp.stamp(rows, args.scale, shape)) + "\n\n"

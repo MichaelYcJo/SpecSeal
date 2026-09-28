@@ -104,6 +104,33 @@ line names the running copy's path, and the pull request asks the same
 scripts again.
 Enforced by: tests/test_the_seal_is_taken_once_by_the_sealer.py
 
+## Where the stamp is drawn
+
+<!-- specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for -->
+**The stamp is drawn once, where a person sees it, and only over a run that
+earned it.** A sealer's stdout is a pipe into a report that reaches the
+person folded, so a stamp drawn there was never seen. The 0.15.6 stopgap,
+re-printing the sealer's log, drew it twice, colourless and cut. So the gate
+draws on a terminal only. On a pipe, a recorded seal writes the panel's rows
+to a values file under the git common dir, keyed by the session that spawned
+the run, and prints one `SEALED` line naming it. A `Stop` hook draws each
+undrawn file of its own session once, after that turn's text, and a
+subagent's end draws nothing. The write sits on the gate's own code path,
+reached only when every check passed and the cell was written. No session's
+reading or act stands between the verdict and the drawing, and what is drawn
+is the run's values rather than a sample anybody can print.
+Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_main_sessions_stop_draws_each_undrawn_file_once, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_a_subagents_end_draws_nothing_and_leaves_the_file, tests/test_the_seal_is_taken_once_by_the_sealer.py::test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing
+
+<!-- specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for -->
+**What the person's screen shows is not checked, and neither is the order of
+the text above it.** The cases prove that the hook emits the right bytes for
+the right payload. A screenshot of the probe proved once that such bytes
+render unfolded, in colour, after the turn's final text. Whether a given
+run's stamp was seen, and whether the orchestrator wrote its result in the
+turn the stamp closed, are read by the person and by nobody else.
+Enforced by: nothing — no case, hook or workflow can observe a screen; the
+owner reads it on the first real run after a change to this surface.
+
 ## What the runner owes the person who typed it
 
 <!-- specs/1788632199-the-repository-ships-no-way-to-run-its-own-suite -->

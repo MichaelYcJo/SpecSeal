@@ -2370,8 +2370,32 @@ def test_a_person_at_a_terminal_sees_the_stamp_drawn_once(repo, tmp_path):
     (#400, *The blocking measurement*), so it is a person's alone.
 
     Driven through a pseudo-terminal, which POSIX has and Windows does not."""
-    pty = pytest.importorskip("pty")
     settled_item(repo)
+    code, screen = on_a_terminal(repo, tmp_path, "--record", str(repo / ITEM))
+    assert code == 0, screen
+    assert screen.count("SEALED") == 1, f"the stamp was not drawn once:\n{screen}"
+    assert any(c in screen for c in HALF_BLOCKS), "a UTF-8 terminal got no blocks"
+    assert not signal_lines(SGR.sub("", screen).replace("\r", "")), screen
+    assert not values_files(repo), "a drawn run left a file for a hook to draw again"
+
+
+def test_a_terminal_run_with_no_record_draws_nothing(repo, tmp_path):
+    """#400's Done-when, on a terminal: drawing a stamp takes the exit 0 AND
+    the written cell, and no other path draws one. A green hand-run without
+    `--record` wrote no cell, so a person's terminal gets the `SEALED` line
+    saying nothing was recorded and no disc, the same as a pipe does (S9)."""
+    code, screen = on_a_terminal(repo, tmp_path)
+    assert code == 0, screen
+    assert not any(c in screen for c in HALF_BLOCKS), f"a disc was drawn:\n{screen}"
+    said = signal_lines(SGR.sub("", screen).replace("\r", ""))
+    assert len(said) == 1 and "nothing was recorded" in said[0], screen
+    assert not values_files(repo)
+
+
+def on_a_terminal(repo, tmp_path, *extra):
+    """The gate run with stdout a UTF-8 pseudo-terminal: its exit code and
+    everything the terminal received. Skipped where there is no `pty`."""
+    pty = pytest.importorskip("pty")
     env = env_without_a_pull_request()
     env[SESSION_VAR] = "s-1"
     env["PYTHONIOENCODING"] = "utf-8"
@@ -2386,8 +2410,7 @@ def test_a_person_at_a_terminal_sees_the_stamp_drawn_once(repo, tmp_path):
             str(repo),
             "--keep-output",
             str(tmp_path / "out"),
-            "--record",
-            str(repo / ITEM),
+            *extra,
         ],
         stdin=subprocess.DEVNULL,
         stdout=child,
@@ -2405,12 +2428,7 @@ def test_a_person_at_a_terminal_sees_the_stamp_drawn_once(repo, tmp_path):
             break
         chunks.append(chunk)
     os.close(main)
-    assert proc.wait(timeout=300) == 0
-    screen = b"".join(chunks).decode("utf-8", "replace")
-    assert screen.count("SEALED") == 1, f"the stamp was not drawn once:\n{screen}"
-    assert any(c in screen for c in HALF_BLOCKS), "a UTF-8 terminal got no blocks"
-    assert not signal_lines(SGR.sub("", screen).replace("\r", "")), screen
-    assert not values_files(repo), "a drawn run left a file for a hook to draw again"
+    return proc.wait(timeout=300), b"".join(chunks).decode("utf-8", "replace")
 
 
 def test_the_wrapper_runs_the_same_gate(repo):
