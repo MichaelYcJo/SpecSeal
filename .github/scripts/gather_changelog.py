@@ -28,6 +28,16 @@ it is the only link from a released entry back to the work that produced it.
 
 Markdown comments do not render, so a reader never sees them.
 
+**A marker counts only on a live line** (#584). One quoted in a fenced
+example, a commented-out draft or a code span is text about the convention,
+and reading it as a gathered work item passes a release that never shipped
+the entry. Every marker reader here — `ungathered` and `--check`'s count —
+asks `live_markers`, which reads through `unverified_check.py#live_lines`,
+the one function `docs/the-evidence-ledger.md` §*A marker counts only on a
+live line* names. `survivor_check.py#gathered_fragments` reads this file's
+markers through the same function, so the two cannot disagree about which
+entries shipped.
+
 **`--check` judges by the markers, not only by the fragments.** A fragment
 glob goes empty two ways: every fragment reached the file, and there are no
 fragments left to reach it because `settle` retired the work items whole. The
@@ -69,6 +79,38 @@ TITLE = "# Changelog"
 # description as a gathered work item.
 MARKER_LINE_RE = re.compile(r"^<!-- specs/\S+ -->$", re.M)
 
+# The live-line rule is the shipped one, loaded by path the way
+# `fold_ledger.py#load_reader` loads it (#487, #584). A reader that is moved
+# or renamed stops the gather at load with a traceback, at the release, which
+# is the loud direction.
+READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
+
+
+def load_reader(path=READER):
+    """`unverified_check.py` as a module."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("specseal_unverified_reader", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+reader = load_reader()
+
+
+def live_markers(changelog_text):
+    """The work item ids whose marker stands on a live line of its own, in
+    file order (#584).
+
+    Lines are split by `splitlines()`, as `survivor_check.py#gathered_fragments`
+    splits them, so the two readers of this file see the same lines."""
+    return [
+        line[len("<!-- specs/") : -len(" -->")]
+        for line, live in reader.live_lines(changelog_text.splitlines())
+        if live and MARKER_LINE_RE.match(line)
+    ]
+
 
 def marker(work_item_id):
     """The comment that says this work item's entry is in the file."""
@@ -94,7 +136,12 @@ def fragments(root):
 
 
 def ungathered(changelog_text, frags):
-    return [(i, body) for i, body in frags if marker(i) not in changelog_text]
+    """The fragments whose marker stands on no live line (`live_markers`).
+
+    It used to be a substring test, so a marker quoted in prose, a fence or a
+    code span marked its fragment gathered (#584)."""
+    gathered = set(live_markers(changelog_text))
+    return [(i, body) for i, body in frags if i not in gathered]
 
 
 # What ends a released section for both of its readers: `insert` below and
@@ -246,7 +293,7 @@ def main(argv=None):
         # must not fail in (`unverified_check.py`'s own docstring argues it
         # one file over). The markers in the file are the record that survives
         # the directory, so they are what a folded corpus is judged by.
-        marked = len(MARKER_LINE_RE.findall(text))
+        marked = len(live_markers(text))
         if not frags and not marked:
             print(
                 "nothing to check: no changelog fragment under seal/specs/ "
