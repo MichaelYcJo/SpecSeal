@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #651 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `7be42f52864863dfa60beaefd9bf819bb3a53a0e..72ca4827ae1571c1fb465c4d2e44ed02a3250a24`, 4 commits |
+| Contract changes | none |
+| New units | SEPARATOR_THEN_REDIRECTION (depth 1) |
 | Needs a fix | yes — 🔴 1 (a hidden command is charged to `read`), 🟡 2 (three options that write or run), 🟡 3 (the program bound is unstated and contradicts the admission criterion) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 1 of work item 1790562541 (#642), a first round against the whole branch `
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A command the walk never puts in command position is read as the previous command's argument, so a line that runs `rm` or `python3` is `read`: bash leading redirection, zsh short `if`/`always` forms, bash 5.3 `${ cmd; }`; the `runs_git` docstring claims all four bounds turn toward `other` | `skills/verify/scripts/session_cost.py:604`, `:483`, `:635` | open | Executed: 13 shapes are `read` at 0ba42634, and zsh 5.9 deleted the file in each zsh shape. Spec In §1 and the grounding from #200 say a write is never `read`. The paste-ready fix passes the module (140) and moves 0 of 24,303 corpus calls |
-| 🟡 2 | `writes` does not refuse `sed -I` (BSD/macOS in-place), `rg --pre` or `sort --compress-program`, so each is `read` | `skills/verify/scripts/session_cost.py:578`, `:590` | open | Executed: darwin `sed -I ''` rewrote a file; the rule returns `read` for all five spellings. `READ_WORDS`' criterion requires such options to be refused |
-| 🟡 3 | `sed` `e`/`W`/`s///e` and `awk` `system()`/`print \|`/`getline` are `read`, the `writes` docstring states only `w` and `print >`, and sed and awk are admitted against the criterion `READ_WORDS`' comment states | `skills/verify/scripts/session_cost.py:584`, `:498` | open | Executed: six program shapes are `read`. Unbounded domain, so the fix states the bound rather than parsing programs |
-| ⬜ 4 | The published neutral-word list reads as complete and calls `fi`, `}` and `[[` loop words | `skills/verify/SKILL.md:726` | open | Read. Behaviour is right; the sentence is imprecise |
+| 🔴 1 | A command the walk never puts in command position is read as the previous command's argument, so a line that runs `rm` or `python3` is `read`: bash leading redirection, zsh short `if`/`always` forms, bash 5.3 `${ cmd; }`; the `runs_git` docstring claims all four bounds turn toward `other` | `skills/verify/scripts/session_cost.py:604`, `:483`, `:635` | **fixed** `078b4413` | fixed at 078b4413; Executed: 13 shapes are `read` at 0ba42634, and zsh 5.9 deleted the file in each zsh shape. Spec In §1 and the grounding from #200 say a write is never `read`. The paste-ready fix passes the module (140) and moves 0 of 24,303 corpus calls |
+| 🟡 2 | `writes` does not refuse `sed -I` (BSD/macOS in-place), `rg --pre` or `sort --compress-program`, so each is `read` | `skills/verify/scripts/session_cost.py:578`, `:590` | **fixed** `078b4413` | fixed at 078b4413; Executed: darwin `sed -I ''` rewrote a file; the rule returns `read` for all five spellings. `READ_WORDS`' criterion requires such options to be refused |
+| 🟡 3 | `sed` `e`/`W`/`s///e` and `awk` `system()`/`print \|`/`getline` are `read`, the `writes` docstring states only `w` and `print >`, and sed and awk are admitted against the criterion `READ_WORDS`' comment states | `skills/verify/scripts/session_cost.py:584`, `:498` | **fixed** `078b4413` | fixed at 078b4413; Executed: six program shapes are `read`. Unbounded domain, so the fix states the bound rather than parsing programs |
+| ⬜ 4 | The published neutral-word list reads as complete and calls `fi`, `}` and `[[` loop words | `skills/verify/SKILL.md:726` | **fixed** `078b4413` | fixed at 078b4413; Read. Behaviour is right; the sentence is imprecise |
 | 🟢 | Divergence: `case`/`esac` out of the neutral words | `skills/verify/scripts/session_cost.py:527` | verified | Read and pinned; keeping them would be finding 1's shape |
 | 🟢 | Divergence: hidden forms found by text match | `skills/verify/scripts/session_cost.py:553` | verified | Read; errs toward `other`, executed on a quoted `<<` |
 | 🟢 | Divergence: `read` judged on the recorded text | `skills/verify/scripts/session_cost.py#family` | verified | Read; the here-string arm pins it |
