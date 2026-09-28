@@ -116,6 +116,15 @@ PROJECTS = os.path.join(HOME, ".claude", "projects")
 # `uvx ruff check .` are #200's shapes, and their command words are `uv` and
 # `uvx`. The order is unchanged, so a line that runs a test and a `git` is
 # still the test's.
+#
+# **`read` is the fifth family, judged last and by command word, and it has
+# no pattern (#642).** A call that only read a file or listed a directory
+# was `other`, so `other` led nearly every reading. `only_reads` holds the
+# rule: every command word a read word from `READ_WORDS` or a neutral one,
+# at least one read word, no write and nothing the walk cannot see. Judged
+# last, it takes no call from the four above, so `grep -rn pytest docs/`
+# stays `test` and `ls && git status` stays `git`, the mirror #377 recorded
+# as out of scope. `READ_WORDS` states the criterion a word is admitted by.
 FAMILIES = [
     (
         "test",
@@ -130,6 +139,7 @@ FAMILIES = [
     ("lint/type", re.compile(r"\b(ruff|mypy|eslint|tsc|flake8|black|lint-imports)\b")),
     ("build", re.compile(r"\b(make|cargo build|npm run build|tsc -b|docker build)\b")),
     ("git", re.compile(r"^\s*(git|gh)\b")),
+    ("read", None),
 ]
 
 # The token fields `token_totals` sums, and the `usage` key each is read from.
@@ -369,7 +379,24 @@ def command_words(command):
 
     Raises `ValueError` where the tokeniser does, on an unmatched quote. The
     words before the error have already been yielded, which is what lets
-    `git log 'x` answer from its first word."""
+    `git log 'x` answer from its first word.
+
+    The walk itself is `shell_words`, and this is its command words alone."""
+    for kind, token in shell_words(command):
+        if kind == "command":
+            yield token
+
+
+def shell_words(command):
+    """The walk `command_words` describes, with every token it keeps.
+
+    Each is a pair: `command` for a command word, `argument` for any other
+    word of a command, a redirection's target included, and `operator` for
+    what is left of an operator token once a substitution's parentheses are
+    taken out of it. No word or operator inside a substitution is yielded.
+    The rules for what is a command word, and the bounds, are
+    `command_words`'; the arguments are what `only_reads` needs and the
+    command words alone do not carry. Raises where `command_words` does."""
     lexer = shlex.shlex(
         without_comments(command), posix=True, punctuation_chars=PUNCTUATION
     )
@@ -404,10 +431,16 @@ def command_words(command):
             token = "".join(left)
             chars = set(token)
             position = not (chars & REDIRECTION) and bool(chars & SEPARATOR)
+            if token:
+                yield "operator", token
+        elif nested:
+            pass
         elif position:
             if token not in RESERVED and not ASSIGNMENT.match(token):
-                yield token
+                yield "command", token
                 position = False
+        else:
+            yield "argument", token
         previous = token
 
 
@@ -445,7 +478,14 @@ def runs_git(command):
       unmatched never answers worse than the old rule did, and never ends a
       reading. A quote the walk sees unmatched only because a bound in
       `without_comments` removed its opener can: `echo $(ls)#'⏎git push'`
-      is `git`."""
+      is `git`.
+
+    `only_reads` walks the same words and meets the same four bounds, each
+    turned toward `other` because a write charged to reading is the worse
+    error (#642): a substitution keeps the line out rather than being read
+    past, a wrapper is not a neutral word, a `case` is not one either
+    because its arms' commands are never in command position, and a refused
+    line is `other` with no pattern to fall back to."""
     try:
         for word in command_words(command):
             if word.replace("\\", "/").rsplit("/", 1)[-1] in ("git", "gh"):
@@ -453,6 +493,159 @@ def runs_git(command):
         return False
     except ValueError:
         return bool(dict(FAMILIES)["git"].search(command))
+
+
+# The words that make a line `read` (#642), by basename. A word is admitted
+# when its only output is standard output, or when the option that makes it
+# write a file is one `writes` refuses. These thirteen are the list #642
+# measured, so its numbers can be set beside the ticket's; the next word is
+# added by that criterion, with a count behind it, and `tee`, which writes
+# the files it is given, never can be.
+READ_WORDS = frozenset(
+    [
+        "sed",
+        "grep",
+        "rg",
+        "cat",
+        "head",
+        "tail",
+        "ls",
+        "find",
+        "wc",
+        "awk",
+        "nl",
+        "sort",
+        "diff",
+    ]
+)
+
+# Words that neither read a file nor write one: they keep a reading line
+# `read` and make no line `read` on their own. The grammar words are the ones
+# the walk yields in command position (`for`, `done`, `fi`, `}`). `case` and
+# `esac` are left out, because a `case` arm's `)` does not put the next word
+# in command position, so the commands inside it are never seen.
+NEUTRAL_WORDS = frozenset(
+    [
+        "cd",
+        "pushd",
+        "popd",
+        "pwd",
+        "echo",
+        "printf",
+        "true",
+        ":",
+        "test",
+        "[",
+        "[[",
+        "read",
+        "for",
+        "select",
+        "done",
+        "fi",
+        "}",
+    ]
+)
+
+# What the walk cannot see into: a heredoc or here-string operator, a command
+# or arithmetic substitution, a backtick and a process substitution. Matched
+# on the text anywhere, a quoted or commented one included, because the side
+# that errs is `other`.
+HIDDEN_FROM_THE_WALK = re.compile(r"<<|\$\(|`|<\(|>\(")
+
+# `find`'s actions that delete, run a command or write a file.
+FIND_WRITES = frozenset(
+    [
+        "-delete",
+        "-exec",
+        "-execdir",
+        "-ok",
+        "-okdir",
+        "-fprint",
+        "-fprint0",
+        "-fprintf",
+        "-fls",
+    ]
+)
+
+
+def abbreviates(word, option):
+    """Whether `word` is the long `option`, or a prefix of it the GNU option
+    parser takes for it, with or without an `=value`."""
+    name = word.split("=", 1)[0]
+    return len(name) > 2 and option.startswith(name)
+
+
+def writes(name, arguments):
+    """Whether a read word's arguments make it write a file.
+
+    `sed -i` in every spelling (`-i.bak`, `-ni`, `--in-place`, `--in`), with
+    a single-dash word read wholesale, so `sed -es/a/i/ f` counts too; `sort`'s
+    `-o` and `--output`; `find`'s `FIND_WRITES`; and `awk -i inplace` or
+    `--include`. Two writes are bounds, because they sit inside a quoted
+    program the walk cannot read: `sed`'s `w` command and an `awk` program's
+    `print > "f"`."""
+    for word in arguments:
+        short = word.startswith("-") and not word.startswith("--")
+        if name == "sed" and (
+            (short and "i" in word) or abbreviates(word, "--in-place")
+        ):
+            return True
+        if name == "sort" and (
+            (short and "o" in word) or abbreviates(word, "--output")
+        ):
+            return True
+        if name == "find" and word in FIND_WRITES:
+            return True
+        if name == "awk" and (word.startswith("-i") or abbreviates(word, "--include")):
+            return True
+    return False
+
+
+def only_reads(command):
+    """Whether every command on the line only reads: the `read` family's rule.
+
+    Each command word is a read word or a neutral one, and at least one is a
+    read word. No read word writes (`writes`), no output is redirected into
+    anything but `/dev/null` or duplicated onto anything but a descriptor
+    (`2>&1` and `>&2` are fine), and nothing on the line is hidden from the
+    walk (`HIDDEN_FROM_THE_WALK`), which a refusal by the tokeniser counts
+    as. So `cd /x && sed -n 1,5p f` and `grep -n x f | head -5` are `read`,
+    and `./bin/deploy --wait | tail -3`, `ls; rm x` and `cat f > g` are not.
+
+    It reads the command as the harness recorded it, heredoc bodies kept,
+    because removing a here-string's `<<<` would leave the walk nothing to
+    refuse. Any `<<` keeps a line out, which is the owner's answer to #642:
+    a script handed to an interpreter gets no family of its own."""
+    if HIDDEN_FROM_THE_WALK.search(command):
+        return False
+    commands, redirect = [], None
+    try:
+        for kind, token in shell_words(command):
+            if redirect is not None:
+                harmless = token == "/dev/null" or (
+                    redirect.endswith(">&") and (token.isdigit() or token == "-")
+                )
+                if kind != "argument" or not harmless:
+                    return False
+                redirect = None
+            elif kind == "command":
+                commands.append([token])
+            elif kind == "operator":
+                redirect = token if ">" in token else None
+            elif commands:
+                commands[-1].append(token)
+    except ValueError:
+        return False
+    if redirect is not None:
+        return False
+    reads = False
+    for word, *arguments in commands:
+        name = word.replace("\\", "/").rsplit("/", 1)[-1]
+        if name in READ_WORDS and not writes(name, arguments):
+            reads = True
+        elif name not in NEUTRAL_WORDS:
+            return False
+    return reads
 
 
 def family(command):
@@ -471,12 +664,20 @@ def family(command):
     removed. A flattened command has no closing line, so its heredoc is cut
     from the operator to the end, as before.
 
-    `git` is judged by `runs_git`, by command word, and the other three by
-    their patterns anywhere on what is left. The order is `FAMILIES`', first
-    match wins."""
-    command = without_heredoc_bodies(command)
+    `git` is judged by `runs_git`, by command word, and `test`, `lint/type`
+    and `build` by their patterns anywhere on what is left. `read` is judged
+    last by `only_reads`, on the command as recorded, heredoc bodies kept,
+    because any heredoc keeps a line out of it (#642). The order is
+    `FAMILIES`', first match wins."""
+    recorded, command = command, without_heredoc_bodies(command)
     for name, pattern in FAMILIES:
-        if runs_git(command) if name == "git" else pattern.search(command):
+        if name == "git":
+            matched = runs_git(command)
+        elif name == "read":
+            matched = only_reads(recorded)
+        else:
+            matched = pattern.search(command)
+        if matched:
             return name
     return "other"
 
@@ -784,8 +985,8 @@ def analyse(calls, turns, delegated=()):
     nothing on the page saying so — which is what #200 and #202 were, and
     what `plan.md`'s *no existing output changes shape* is protecting.
 
-    **Two rules moved after readings were published, each a measured change
-    and neither a licence.** `span_s`'s moved at #300, from the end of the
+    **Three rules moved after readings were published, each a measured change
+    and none a licence.** `span_s`'s moved at #300, from the end of the
     last call to BEGIN to the end of the last call to END, because the old
     one could return a window shorter than a single call inside it. The
     comment at the arithmetic carries the measurement that says no published
@@ -799,8 +1000,14 @@ def analyse(calls, turns, delegated=()):
     and so did a test run after a closing line. That one DOES move published
     figures -- `by_family`, `unnamed`, and the two repeats figures, which
     keep only `test`, `lint/type` and `build` -- and `report_segments` says
-    so on the page. Both changes are carried
-    in `skills/verify/SKILL.md`, where a person taking a reading meets them.
+    so on the page.
+
+    The family split moved again at #642: a call whose every command only
+    reads is `read`, where it was `other`. That moves `by_family` and
+    `unnamed` and nothing else. `read` is judged after `test`, `lint/type`
+    and `build`, so no call enters or leaves the repeats figures, and
+    `report_segments` says that too. The three changes are carried in
+    `skills/verify/SKILL.md`, where a person taking a reading meets them.
     Every other number here is untouched, `command_s` and `model_s`
     included.
 
@@ -2377,6 +2584,18 @@ def report_segments(segments, path):
         "after a `cd`, on a line of its own or after\n  a heredoc was charged "
         "to `other`, and so was a test run after a heredoc. The\n  repeats "
         "lines filter by family and moved with them."
+    )
+    # #642 moved it a third time: a call that only read a file or listed a
+    # directory was `other`, and it is `read`. `read` is judged after the
+    # three families the repeats lines keep, so no call enters or leaves them,
+    # and the line says so, which is what a reader holding the #377 line
+    # above would otherwise assume moved again. It names the issue and not
+    # the release, for the same reason as the line above.
+    print(
+        "\n  Family rows are comparable only with readings taken on a release "
+        "that carries\n  #642 as well: before it, a call that only read a file "
+        "or listed a directory was\n  charged to `other`, and there was no "
+        "`read` row. The repeats lines did not\n  move."
     )
 
 

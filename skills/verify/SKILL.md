@@ -717,6 +717,23 @@ finished, not as a follow-up someone might do later:
    read low. Span, command, model, idle, tokens, tools per turn and the
    `slowest` list do not move.
 
+   **A call that only reads counts as `read`, and that is worth knowing
+   because it used to count as `other` (#642).** The release that carries
+   #642 is the one `CHANGELOG.md` lists it under, and `--segments` prints
+   the same warning on the page. A call is `read` when every command on it
+   is a read word (`sed`, `grep`, `rg`, `cat`, `head`, `tail`, `ls`, `find`,
+   `wc`, `awk`, `nl`, `sort`, `diff`) or a word that touches no file (`cd`,
+   `echo`, `test` and the loop words), at least one reads, nothing writes
+   and nothing is hidden: `sed -i`, `sort -o`, `find -delete`, a
+   redirection into a file, a heredoc or a `$( … )` keeps it `other`, and
+   so does any command not on either list. It is judged after the other
+   four, so `grep -rn pytest` stays `test` and `ls && git status` stays
+   `git`. What a reader comparing readings across that change must know: in
+   a reading taken before it there is no `read` row, `other` holds those
+   calls, and the `other` note may fire where it would not now and name a
+   read command. Every other row, the two repeats figures, span, command,
+   model, idle, tokens, tools per turn and the `slowest` list do not move.
+
    **Where the report gives no between-the-rows figure and prints the rows'
    spans against the run's own, a call outlived the cut its row ends at.**
    Assigning a call by its start is what makes the calls partition, and it
