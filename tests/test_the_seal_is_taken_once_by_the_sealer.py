@@ -2297,7 +2297,14 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(repo, tmp_path):
     It writes one values file under the git common dir, keyed by the
     session, and prints one `SEALED` line naming the tree, the base commit
     and that file. The hook draws the file; this line is what the report
-    carries."""
+    carries.
+
+    Run under a directory whose name holds a space (round 2's ⬜ 3): with no
+    space the quoted and unquoted path are the same bytes, so the quoting
+    assertion below could not tell a quoted command from a bare one."""
+    spaced = tmp_path / "a checkout" / "repo"
+    shutil.move(str(repo), str(spaced))
+    repo = spaced
     out, _values = sealed_values(repo, tmp_path, session="s-1")
     said = signal_lines(out.stdout)
     assert len(said) == 1, f"one `SEALED` line expected:\n{out.stdout}"
@@ -2309,6 +2316,7 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(repo, tmp_path):
     # cannot — a `python3` under the floor, a session outside this clone, a
     # plugin older than the hook — so the common line names the recovery too.
     assert f"`seal-stamp --from {gate_module().quote(path)}`" in said[0], said
+    assert " " in path and f"--from {path}`" not in said[0], said
     assert os.path.dirname(path) == str(repo / ".git" / VALUES_DIR / "s-1"), path
     assert not path.endswith(".drawn.json"), "the file was marked drawn by the gate"
     assert crown_of() not in out.stdout, "a piped run drew the twin"

@@ -34,9 +34,9 @@ nothing and says nothing. The hook runs under whatever `python3` the harness
 finds, which is 3.9 on a stock macOS, and `seal_stamp.py` refuses at import
 there. Nothing was built around it: the frame's hook is silent on every
 failure, the `SEALED` line in the sealer's report names the file and
-`seal-stamp --from` on every sealed run — true since round 1's fix pass,
-which added the command to the common line — and changing the floor is a decision about every script
-that copies it. The hook's docstring states it.
+`seal-stamp --from` wherever a values file was written — true since round
+1's fix pass, which added the command to the common line — and changing the
+floor is a decision about every script that copies it. The hook's docstring states it.
 
 `dispatch.py` now names the `Stop` event for the `stop` group, as `plan.md`
 asked. `session-start` still reports `PostToolUse` on the decision path it

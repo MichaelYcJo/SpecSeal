@@ -9,9 +9,9 @@
   the tree, the base commit and the file. A new `Stop` hook,
   `hooks/sealer-stamp.py` in a new `stop` group, draws each undrawn file of
   its own session once, as a JSON `systemMessage` whose first line names what
-  was sealed, and draws nothing at a subagent's end. Every sealed line names
-  `seal-stamp --from <path>`, quoted for the shell, because the hook draws
-  nothing and says nothing where it cannot: a `python3` under 3.12, a
+  was sealed, and draws nothing at a subagent's end. Every line that names a
+  values file names `seal-stamp --from <path>` too, quoted for the shell,
+  because the hook draws nothing and says nothing where it cannot: a `python3` under 3.12, a
   session outside the sealed clone, or a plugin older than the hook. A run
   with no session says so; a values file that cannot be written leaves the
   run sealed and says nothing will be drawn. The hook builds each stamp

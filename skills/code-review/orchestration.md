@@ -549,8 +549,9 @@ neither with `seal-stamp` nor by relaying the sealer's log. The 0.15.6 run
 relayed the log, and the person saw the same stamp twice, the copy
 colourless and cut. On a red run relay the `NOT SEALED` lines, and nothing
 is drawn. Wherever the `SEALED` line names `seal-stamp --from`, quote it as
-it stands: that command is the person's to type, and never yours. It is
-named on every sealed line, because the hook draws nothing and says nothing
+it stands: that command is the person's to type, and never yours. Every line
+that names a values file names it, because the hook draws nothing and says
+nothing
 where it cannot: a `python3` under 3.12, a working directory outside the
 sealed clone, or a plugin older than the hook.
 

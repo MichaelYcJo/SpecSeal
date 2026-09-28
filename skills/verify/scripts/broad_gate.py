@@ -2414,7 +2414,9 @@ NO_SESSION_FOUND = (
 # nothing, and says nothing, where it cannot: a `python3` under
 # `seal_stamp.py`'s 3.12 floor, a main session whose working directory is
 # outside this clone, or a plugin older than the hook. The gate cannot see any
-# of those, so it names the way to draw the stamp by hand on every sealed line.
+# of those, so it names the way to draw the stamp by hand on every line that
+# names a values file. `NOTHING_RECORDED` and `VALUES_UNWRITTEN` name none,
+# because neither run left a drawing to recover.
 DRAWN_AT_TURN_END = (
     " · the stamp is drawn at the end of the turn of session {session}, from "
     "{path}; where none appears, `seal-stamp --from {command}` draws it"

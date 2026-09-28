@@ -410,8 +410,8 @@ def test_the_orchestrator_is_told_the_stamp_is_drawn_for_it():
         "So put the result text first",
         "Draw none yourself, neither with `seal-stamp` nor by relaying the sealer's log.",
         "On a red run relay the `NOT SEALED` lines, and nothing is drawn.",
-        # Round 1's 🟡 1: the command is named on every sealed line now, and
-        # it stays the person's wherever it appears.
+        # Round 1's 🟡 1: the command is named on every line that points at a
+        # values file now, and it stays the person's wherever it appears.
         "Wherever the `SEALED` line names `seal-stamp --from`, quote it as it "
         "stands: that command is the person's to type, and never yours.",
         # Round 1's ⬜ 7: the one route that writes the cell without the gate.
@@ -452,7 +452,13 @@ def test_the_policy_names_what_enforces_the_drawing_and_what_nothing_does():
     # Round 1's 🟡 1: the hook's silence where it cannot draw is stated where
     # a person looks for why no stamp appeared, with the way to draw it.
     assert "**Nor is the hook's silence where it cannot draw.**" in unchecked
-    assert "every sealed `SEALED` line names `seal-stamp --from <path>`" in unchecked
+    # Round 2's ⬜ 1: not EVERY sealed line — a run with no `--record` and
+    # one whose values could not be written name no file and no command.
+    assert (
+        "every `SEALED` line that names a values file names `seal-stamp --from "
+        "<path>` too"
+    ) in unchecked
+    assert "every sealed `SEALED` line" not in text
     # Round 1's ⬜ 6: a terminal draws only over a written cell, and the
     # `gate` row names the copy that measured, since in a sealer none draws.
     assert "the gate draws only on a terminal, and only over a written cell" in rule
@@ -464,7 +470,7 @@ def test_both_readmes_list_the_stamp_hook():
     their machine did not list the `Stop` hook, in either edition: the gate
     table, the opt-in list, the count of gates that wake on a condition, and
     the side effects. The editions move together, so both are read."""
-    for edition, count, opt_in, effects in (
+    for edition, count, opt_in, effects, clause in (
         (
             "README.md",
             "Eight of the eleven gates",
@@ -472,12 +478,18 @@ def test_both_readmes_list_the_stamp_hook():
             # hook too, so the bare name would pass with the list unchanged.
             "the two implementer hooks, the stamp hook and the version check.",
             "Four side effects",
+            # The clause's own words (round 2's ⬜ 2): the gate-table row
+            # carries `specseal-stamp/` too, so the bare directory passed
+            # with the side effect deleted.
+            "`<git-common-dir>/specseal-stamp/`, which the stamp hook renames "
+            "once drawn and nothing prunes",
         ),
         (
             "README.ko.md",
             "게이트 열하나 중 여덟",
             "구현자 훅 둘, 도장 훅, 버전 확인이다.",
             "네 가지 부수 효과",
+            "도장 훅은 그린 뒤 그 파일의 이름을 바꿀 뿐 지우지 않습니다",
         ),
     ):
         text = flat(edition)
@@ -485,7 +497,7 @@ def test_both_readmes_list_the_stamp_hook():
         assert table, f"{edition}'s gate table has no `sealer-stamp` row"
         assert count in text, (edition, count)
         assert opt_in in text, (edition, opt_in)
-        assert effects in text and "specseal-stamp/" in text, (edition, effects)
+        assert effects in text and clause in text, (edition, effects, clause)
         assert "Seven of the ten" not in text and "게이트 열 중 일곱" not in text
 
 
