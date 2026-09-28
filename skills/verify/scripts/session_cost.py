@@ -625,7 +625,7 @@ def only_reads(command):
                 harmless = token == "/dev/null" or (
                     redirect.endswith(">&") and (token.isdigit() or token == "-")
                 )
-                if kind != "argument" or not harmless:
+                if not harmless:
                     return False
                 redirect = None
             elif kind == "command":
@@ -635,8 +635,6 @@ def only_reads(command):
             elif commands:
                 commands[-1].append(token)
     except ValueError:
-        return False
-    if redirect is not None:
         return False
     reads = False
     for word, *arguments in commands:

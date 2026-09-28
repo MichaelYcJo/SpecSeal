@@ -1845,7 +1845,10 @@ def test_a_call_that_only_reads_is_charged_to_read():
         "grep -n x f | head -5",
         "ls -la /x 2>/dev/null || echo none",
         "cat f 2>&1 | tail -3",
+        "grep x f 2>&-",
         "grep -q x f >/dev/null && echo y",
+        "sed -n 1p -- f",
+        "sort -- f",
         "for f in a b; do wc -l $f; done",
         "[ -f x ] && cat x",
         "if grep -q x f; then echo y; fi",
@@ -1890,6 +1893,7 @@ def test_a_write_is_never_read():
         "ls >| g",
         "ls &> g",
         "ls 2> err",
+        "ls > 2",
         "cat f >&g",
         "cat f <> g",
         "grep x f 2>&1 >g",
@@ -1934,11 +1938,12 @@ def test_a_line_that_does_more_than_read_is_not_read():
 
 def test_what_the_walk_cannot_see_is_not_read():
     """A heredoc, a here-string, a command or process substitution, a line
-    the tokeniser refuses, and a `case` arm, whose commands the walk does
-    not put in command position. `runs_git` reads past a substitution; here
-    the same blindness would let `x=$(rm y); ls` read as reading, so each
-    of these keeps the line out. The heredocs are the owner's answer: a
-    script handed to an interpreter gets no family."""
+    the tokeniser refuses, a `case` arm, whose commands the walk does not
+    put in command position, and a leading redirection, which does not put
+    one there either. `runs_git` reads past a substitution; here the same
+    blindness would let `x=$(rm y); ls` read as reading, so each of these
+    keeps the line out. The heredocs are the owner's answer: a script handed
+    to an interpreter gets no family."""
     module = load_script()
     for command in (
         "python3 - <<'EOF'\nx\nEOF",
@@ -1953,8 +1958,30 @@ def test_what_the_walk_cannot_see_is_not_read():
         "echo $((1 + 2)); ls",
         "cat 'x",
         "case $x in a) rm f;; esac; ls",
+        "<f cat",
     ):
         assert module.family(command) == "other", command
+
+
+def test_the_walk_yields_each_commands_arguments_and_nothing_inside_a_substitution():
+    """`shell_words` is the one walk both rules read: `command_words` takes
+    its command words, and `only_reads` its arguments and operators too. A
+    word inside `$( … )` is neither, and what is left of an operator token
+    once a substitution's parentheses are taken out is yielded only when
+    something is left."""
+    module = load_script()
+    assert list(module.shell_words("cd /x && ls -l $(rm f) y 2>&1")) == [
+        ("command", "cd"),
+        ("argument", "/x"),
+        ("operator", "&&"),
+        ("command", "ls"),
+        ("argument", "-l"),
+        ("argument", "$"),
+        ("argument", "y"),
+        ("argument", "2"),
+        ("operator", ">&"),
+        ("argument", "1"),
+    ]
 
 
 def test_a_line_of_neutral_words_alone_is_not_read():
