@@ -120,8 +120,9 @@ def fence_map(lines):
     """([(index, line)] outside every fenced block, the index of an opener
     that was never closed or None) -- the one fence rule, computed once.
 
-    `unfenced` below is the generator form all three walks read the file
-    through, and this is the same walk with the state it ENDS in kept. A fence
+    `unfenced` below is the generator form, which `table_lines` -- the one
+    all three walks read the file through -- reads, and this is the same walk
+    with the state it ENDS in kept. A fence
     that runs to the end of the file is the one thing about a fence a caller
     with somebody to tell has to be able to say: `broad-gate` quoting a live
     `| Broad gate |` row back as *written inside a code fence* and telling the
@@ -156,16 +157,20 @@ def unfenced(lines):
     """(index, line) for each of LINES that is outside every fenced code
     block, with the line's own ending removed and its index kept.
 
-    **One fence rule, in front of all three walks of this table.** A line
-    inside a fenced code block is not part of any `| Item | Value |` table:
-    not a header, not a separator, not a row, and not a line somebody wrote as
-    a row. `config_rows`'s walk below, `refusal`'s walk below that, and
-    `skills/implement/scripts/seal.py#table_span` -- the WRITER's walk, which
-    finds the line `with_row` overwrites -- all read the file through this
-    one generator. A fence rule that landed in one of them and not another
-    would leave the reader and the writer disagreeing about which row is the
-    row, which is the file two rows deep that `table_span`'s own comment says
-    no command can bring into agreement (#429).
+    **The fence half of what the three walks of this table are shown.** A
+    line inside a fenced code block is not part of any `| Item | Value |`
+    table: not a header, not a separator, not a row, and not a line somebody
+    wrote as a row. `table_lines` below takes these lines and drops the ones
+    inside an HTML comment that closes, and `config_rows`'s walk,
+    `refusal`'s walk and `skills/implement/scripts/seal.py#table_span` -- the
+    WRITER's walk, which finds the line `with_row` overwrites -- all read the
+    file through that one generator. A fence rule that landed in one of them
+    and not another would leave the reader and the writer disagreeing about
+    which row is the row, which is the file two rows deep that
+    `table_span`'s own comment says no command can bring into agreement
+    (#429). This one stays a question about fences alone, because
+    `skills/verify/scripts/broad_gate.py#fenced_row_at` asks it of the lines
+    a fence hides and must not be handed a commented line as a fenced one.
 
     **Why a table inside a fence is not the table.** `config.md`'s header
     comment points its reader at `templates/config.md`, a document of EXAMPLE
@@ -212,10 +217,86 @@ def unfenced(lines):
 
     **The walk itself is `fence_map` above**, and this is its surviving lines.
     One walk rather than two: the caller that needs to know whether a fence
-    was left open asks that function, and every walk of the table asks this
-    one, and neither reads the file by a rule of its own.
+    was left open asks that function, and every walk of the table asks
+    `table_lines`, which asks this one, and none reads the file by a rule of
+    its own.
     """
     yield from fence_map(lines)[0]
+
+
+# The two delimiters of an HTML comment, as `skills/verify/scripts/
+# unverified_check.py#comment_scan` looks for them.
+COMMENT_OPENER, COMMENT_CLOSER = "<!--", "-->"
+
+
+def commented(lines):
+    """The indices of LINES, outside every fence, that a closed HTML comment
+    hides (#584).
+
+    **A line is hidden when it BEGINS inside a comment and the run of such
+    lines it belongs to returns to a line that begins outside every comment
+    -- or the file ends outside one.** A row somebody commented out is not an
+    answer they gave, which is the direction this module fails in. A comment
+    that never closes hides nothing, so no file that reads today stops
+    reading: an unclosed `<!--` above the live table leaves every row where
+    it was. The line that OPENS a comment begins outside it and is not
+    hidden; it holds `<!--` and so parses as no row of this table anyway.
+
+    The scan is `comment_scan`'s, over the lines `unfenced` shows: a
+    delimiter inside a fence is neither an opener nor a closer, because the
+    fence is decided first, and HTML comments do not nest, so the first
+    `-->` closes. A `<!--` inside a code span is read as an opener, as
+    `comment_scan` and every reader through `readable` read it.
+
+    **A copy, held to the shared functions.** Loading `unverified_check.py`
+    here would be paid on every Bash call in every consumer's session, the
+    fence half's reason. `tests/test_unverified_rows_close.py#test_the_comment_rule_agrees_with_the_config_reader`
+    holds this to an oracle built from `comment_scan` and `blank_fences`
+    alone, shape by shape.
+    """
+    hidden, run, inside = set(), [], False
+    for index, line in fence_map(lines)[0]:
+        if inside:
+            run.append(index)
+        else:
+            hidden.update(run)
+            run = []
+        pos = 0
+        while True:
+            if inside:
+                at = line.find(COMMENT_CLOSER, pos)
+                if at == -1:
+                    break
+                pos, inside = at + len(COMMENT_CLOSER), False
+            else:
+                at = line.find(COMMENT_OPENER, pos)
+                if at == -1:
+                    break
+                pos, inside = at + len(COMMENT_OPENER), True
+    if not inside:
+        hidden.update(run)
+    return hidden
+
+
+def table_lines(lines):
+    """(index, line) for each of LINES that the three walks of this table
+    are shown: outside every fenced code block (`unfenced`) and outside every
+    HTML comment that closes (`commented`), with the line's own ending
+    removed and its index kept.
+
+    **One generator in front of all three walks** -- `config_rows`,
+    `refusal`, and `skills/implement/scripts/seal.py#table_span`, the writer
+    -- so the reader and the writer cannot disagree about which row is the
+    row (#429). The comment half is the second reason a line is not part of
+    any table (#584): a row a person commented out, or a whole old table
+    parked above the live one, is not this repository's answer, and before
+    this it was read -- the first shape returned the parked row alone, and
+    the second made the parked table THE table.
+    """
+    hidden = commented(lines)
+    for index, line in unfenced(lines):
+        if index not in hidden:
+            yield index, line
 
 
 def config_rows(text):
@@ -241,16 +322,17 @@ def config_rows(text):
     still ends the table when it will not parse -- `refused_row` below is
     what names such a line, for a caller that has somebody to tell.
 
-    **`unfenced` filters in FRONT of this walk and neither half of the stop
-    rule moves.** Both halves were arrived at over those two rounds, and a
-    repair that reached into the `if found: break` arms to special-case a
+    **`table_lines` filters in FRONT of this walk and neither half of the
+    stop rule moves.** Both halves were arrived at over those two rounds, and
+    a repair that reached into the `if found: break` arms to special-case a
     fence is the regression this docstring predicts. What changed is which
     lines the walk is shown: a line inside a code fence is not shown to it at
     all, so an example table pasted above the live one is no longer this
-    reader's table (#429).
+    reader's table (#429), and neither is a line inside an HTML comment that
+    closes, so a row somebody commented out is not a row either (#584).
     """
     found, seen_header = [], False
-    for _index, line in unfenced(text.splitlines()):
+    for _index, line in table_lines(text.splitlines()):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True
@@ -334,18 +416,19 @@ def refusal(text):
     `broad_gate` reported a piped `Broad gate` row as ABSENT, which is a true
     sentence about a cause that is not the real one (#415).
 
-    **A fenced line is not a line somebody wrote as a row of this table.**
-    This walk reads what `unfenced` shows it, exactly as `config_rows` above
-    does, so a pipe-line inside a code fence reaches neither `refused` nor
-    `below` and never becomes `stopper` -- which is what stops `broad-gate`'s
-    refusal from quoting a line out of an example block back at a person as
-    their own malformed row (#429). A caller that needs to speak about a
-    fenced line asks its own question of the file; `broad_gate.py#fenced_row`
-    is the one that does.
+    **A fenced or commented line is not a line somebody wrote as a row of
+    this table.** This walk reads what `table_lines` shows it, exactly as
+    `config_rows` above does, so a pipe-line inside a code fence, or inside an
+    HTML comment that closes, reaches neither `refused` nor `below` and never
+    becomes `stopper` -- which is what stops `broad-gate`'s refusal from
+    quoting a line out of an example block back at a person as their own
+    malformed row (#429). A caller that needs to speak about such a line asks
+    its own question of the file; `broad_gate.py#fenced_row_at` and
+    `#commented_row_at` are the ones that do.
     """
     seen_header, found = False, False
     refused, below, stopper = [], [], None
-    for _index, line in unfenced(text.splitlines()):
+    for _index, line in table_lines(text.splitlines()):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True

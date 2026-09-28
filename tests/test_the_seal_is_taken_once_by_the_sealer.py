@@ -1971,6 +1971,37 @@ def test_the_absent_row_refusal_still_reaches_a_file_with_no_such_line(tmp_path)
     assert FENCED not in said, said
 
 
+COMMENTED = "written inside an HTML comment"
+
+
+@pytest.mark.parametrize(
+    "table",
+    [
+        "| Item | Value |\n|---|---|\n| Mode | shared |\n"
+        f"<!--\n| {ROW} | bin/test -q |\n-->\n",
+        "| Item | Value |\n|---|---|\n| Mode | shared |\n\n"
+        f"<!-- parked until the suite is green\n| {ROW} | bin/test -q |\n-->\n",
+    ],
+    ids=["under the last row", "under a paragraph"],
+)
+def test_a_broad_gate_line_only_inside_a_comment_is_named_and_not_called_absent(
+    tmp_path, table
+):
+    """#584, S17. A row inside an HTML comment that closes is shown to no
+    walk of that table, which is what the comment half is for — and then the
+    refusal has to say so, or it is the absent-row message about a row the
+    person can see, or the fence message about a fence that is not there
+    (the #429 wrong-cause shape). The sentence names the comment and says
+    the row runs nothing until it is taken out of it."""
+    said = refusal_over(tmp_path, "commented_only", table)
+    assert COMMENTED in said, said
+    assert f"| {ROW} | bin/test -q |" in said, said
+    assert f"has no `{ROW}` row" not in said, said
+    assert FENCED not in said, said
+    assert "Take the row out of the comment" in said, said
+    assert "Nothing ran." in said, said
+
+
 def test_an_unclosed_fence_hides_the_live_table_and_the_gate_says_which_line(
     tmp_path,
 ):

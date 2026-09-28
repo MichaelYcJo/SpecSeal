@@ -779,6 +779,96 @@ def test_what_counts_as_a_fence_is_commonmarks_rule_as_far_as_it_goes(config):
     )
 
 
+# --- #584: a row inside an HTML comment that closes is not a row -------------
+#
+# The scenario ids are `seal/specs/1790635413-every-markdown-reader-shares-
+# one-fence-rule/spec.md`'s. The comment half goes through the same one
+# generator the fence half does, so all three walks — `config_rows`,
+# `refusal` and `seal.py#table_span` — are shown the same lines.
+
+COMMENTED_OLD_ROW = (
+    "| Item | Value |\n"
+    "|---|---|\n"
+    "<!-- the command before the move, kept for reference\n"
+    "| Broad gate | old -q |\n"
+    "-->\n"
+    "| Mode | shared |\n"
+    "| Broad gate | bin/test -q |\n"
+)
+
+COMMENTED_OLD_TABLE = (
+    "# Repository config\n\n"
+    "<!--\n"
+    "| Item | Value |\n"
+    "|---|---|\n"
+    "| Mode | local |\n"
+    "| Broad gate | old -q |\n"
+    "-->\n\n"
+    "| Item | Value |\n"
+    "|---|---|\n"
+    "| Mode | shared |\n"
+    "| Broad gate | bin/test -q |\n"
+)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [COMMENTED_OLD_ROW, COMMENTED_OLD_TABLE, crlf(COMMENTED_OLD_ROW)],
+    ids=["a row", "a table", "crlf"],
+)
+def test_a_row_inside_a_closed_comment_is_not_a_row(config, text):
+    """S13. The reader had no comment state, so a row a person commented out
+    — kept for reference, or a whole old table parked above the live one —
+    was read: the first shape returned `| Broad gate | old -q |` alone and
+    stopped at `-->`, and the second read the parked table as the table. A
+    commented row is not an answer somebody gave, which is the direction this
+    module fails in."""
+    assert config.config_rows(text) == [
+        ("Mode", "shared"),
+        ("Broad gate", "bin/test -q"),
+    ], config.config_rows(text)
+    assert config.refusal(text) == ([], [], None), config.refusal(text)
+
+
+def test_an_unclosed_comment_hides_nothing(config):
+    """S14. Only a comment that closes hides the lines inside it, so no file
+    that reads today stops reading: a `<!--` somebody never closed leaves
+    every row where it was. Passes before and after: it pins the
+    direction."""
+    for text in (
+        "<!-- a note nobody closed\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n",
+        "| Item | Value |\n|---|---|\n<!-- open\n| Mode | shared |\n"
+        "| Broad gate | bin/test -q |\n",
+    ):
+        rows = config.config_rows(text)
+        assert ("Mode", "shared") in rows, rows
+        assert len(rows) == text.count("| Mode |") + text.count("| Broad gate |")
+
+
+def test_the_writer_leaves_a_commented_row_alone(config, tmp_path):
+    """S15. `seal.py#table_span` is the third walk, and it located the FIRST
+    `Mode` line — the commented one — so `seal mode` rewrote a row nobody
+    reads while the live row kept its old value. Asserted on the bytes."""
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "skills", "implement", "scripts", "seal.py")
+    spec = importlib.util.spec_from_file_location("specseal_seal_for_584", path)
+    seal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seal)
+
+    before = (
+        "| Item | Value |\n|---|---|\n<!--\n| Mode | local |\n-->\n| Mode | local |\n"
+    )
+    home = tmp_path / "seal"
+    home.mkdir()
+    write_config(home, before)
+    assert seal.write_row(str(home), "shared") == ""
+    after = (home / "config.md").read_text(encoding="utf-8")
+    assert after == before.replace("-->\n| Mode | local |", "-->\n| Mode | shared |"), (
+        f"the writer rewrote the commented row, or more than one line:\n{after}"
+    )
+    assert config.declared_mode(str(home)) == ("mode", "shared")
+
+
 # --- S7-S10: the gate ------------------------------------------------------
 
 

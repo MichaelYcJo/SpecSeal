@@ -1409,12 +1409,14 @@ PLUGIN_ROOT = os.path.normpath(
 CONFIG_HEADER = repo_config.CONFIG_HEADER
 CONFIG_ROW = repo_config.CONFIG_ROW
 CONFIG_SEPARATOR = repo_config.CONFIG_SEPARATOR
-# The fence rule, taken from the reader rather than written again here. It is
-# an alias for the same reason the three above are: one implementation,
-# reached by the name each caller already spells. `fence_map` is the same walk
-# with the state it ENDS in kept, which is what lets `write_row` tell an
-# unclosed fence from every other reason a row would not read back.
-unfenced = repo_config.unfenced
+# The fence and comment rule, taken from the reader rather than written again
+# here. It is an alias for the same reason the three above are: one
+# implementation, reached by the name each caller already spells.
+# `table_lines` is the one generator the reader's walks read through (#584);
+# `fence_map` is the fence walk with the state it ENDS in kept, which is what
+# lets `write_row` tell an unclosed fence from every other reason a row would
+# not read back.
+table_lines = repo_config.table_lines
 fence_map = repo_config.fence_map
 
 NEW_CONFIG = """# Repository config
@@ -1465,17 +1467,18 @@ def table_span(lines):
     """(index of the `Mode` row or -1, index just past the first table's last
     row or -1) — one pass, reading exactly what `config_rows` reads.
 
-    **Including the fence rule**, which is why this walk goes through
-    `hooks/config.py#unfenced` rather than stripping each line for itself. A
-    table inside a code fence is not the reader's table, so it must not be
-    this writer's either: repair the reader alone and `seal mode shared`
-    rewrites the `Mode` row inside somebody's pasted example while every gate
-    reads the live one — the file two rows deep the comment below is about
-    (#429). `unfenced` hands back each surviving line's own index, which is
-    what this walk returns and what `with_row` overwrites.
+    **Including the fence and comment rule**, which is why this walk goes
+    through `hooks/config.py#table_lines` rather than stripping each line for
+    itself. A table inside a code fence is not the reader's table, so it must
+    not be this writer's either: repair the reader alone and `seal mode
+    shared` rewrites the `Mode` row inside somebody's pasted example while
+    every gate reads the live one — the file two rows deep the comment below
+    is about (#429). A row inside an HTML comment that closes is the same
+    case (#584). `table_lines` hands back each surviving line's own index,
+    which is what this walk returns and what `with_row` overwrites.
     """
     seen_header, mode_at, end = False, -1, -1
-    for i, line in unfenced(lines):
+    for i, line in table_lines(lines):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True

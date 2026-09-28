@@ -284,6 +284,15 @@ plausible command nobody chose (#429). **`broad-gate` says so by name**: where
 this gate's row exists only inside a fence, the refusal quotes that line and
 says where it has to move to, rather than reporting the row absent.
 
+**A row inside an HTML comment that closes is commented out, and no walk
+reads it either.** A row kept for reference, or a whole old table parked
+above the live one, is not this repository's answer; the same rule that hides
+a fenced line hides a line that begins inside such a comment, for the reader
+and the writer alike. **A comment that is never closed hides nothing**, so a
+stray comment opener changes no row that reads today. Where this gate's row
+stands only inside a comment, `broad-gate` quotes it and says to take it out
+of the comment, rather than reporting it absent or fenced.
+
 **Everything else stays legal**, because the row is an arbitrary shell
 command line by design. A gate that could tell a status-discarding `;` from
 one inside a quoted argument would need a shell parser, whose own failure

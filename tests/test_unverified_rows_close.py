@@ -2323,6 +2323,74 @@ def test_the_fence_rule_agrees_with_the_config_reader(lines):
     assert unclosed == ([] if opened_at is None else [opened_at])
 
 
+# --- #584: the config reader's comment half --------------------------------
+
+COMMENT_SHAPES = [
+    # a row inside a comment that closes
+    ["<!--", "| a | b |", "-->", "| c | d |"],
+    # never closed, so nothing is hidden
+    ["<!-- x", "| a | b |"],
+    # a comment on one line hides no later line
+    ["<!-- one line -->", "| a | b |"],
+    # a closed run, then an unclosed one
+    ["| a |", "<!--", "| b |", "-->", "<!--", "| c |"],
+    # an opener inside a fence opens nothing
+    ["```", "<!--", "```", "| a |", "-->"],
+    # a closer inside a fence closes nothing
+    ["<!--", "```", "-->", "```", "| a |"],
+    ["<!--\r", "| a |\r", "-->\r", "| b |\r"],
+    # an opener inside a code span is read as one, as every reader through
+    # `readable` reads it
+    ["text `<!--` more", "| a |", "`-->`", "| b |"],
+    # closed, reopened on the same line, closed again
+    ["<!-- a --> <!-- b", "| x |", "c -->", "| y |"],
+    # comments do not nest: the first `-->` closes
+    ["<!--", "<!-- nested", "-->", "| a |", "-->"],
+    # closed and reopened on one line, and the second never closes: the run
+    # never returns to a line that begins outside, so nothing is hidden
+    ["<!--", "| a |", "--> <!--", "| b |"],
+    ["<!-->", "| a |", "-->", "| b |"],
+]
+
+
+def hidden_by_the_shared_rule(lines):
+    """The lines the config walks must not be shown, from the shared
+    functions alone: every fenced line, and every line that BEGINS inside a
+    comment, by `comment_scan` over what `blank_fences` leaves, whose run
+    returns to a line beginning outside — the end of the file counts as one,
+    by a sentinel. An unclosed comment's run never returns, so it hides
+    nothing."""
+    began = [b for b, _ in uc.comment_scan([*uc.blank_fences(lines), ""])]
+    commented, run = set(), []
+    for n in range(len(lines)):
+        if began[n]:
+            commented.update(run)
+            run = []
+        else:
+            run.append(n)
+    if began[len(lines)]:
+        commented.update(run)
+    return fenced_by_the_shared_rule(lines) | commented
+
+
+@pytest.mark.parametrize("lines", COMMENT_SHAPES, ids=range(len(COMMENT_SHAPES)))
+def test_the_comment_rule_agrees_with_the_config_reader(lines):
+    """#584, S16. `hooks/config.py` grows a comment half, and it keeps its
+    own copy for the fence half's reason — the hook path. This holds the
+    copy to an oracle composed only of shared functions, shape by shape:
+    which lines the one generator the three table walks read through does
+    not show. What the copy does not model is exactly what the oracle does
+    not model, a `<!--` inside a code span among them."""
+    spec = importlib.util.spec_from_file_location(
+        "specseal_config_for_comment_agreement",
+        os.path.join(ROOT, "hooks", "config.py"),
+    )
+    config = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(config)
+    shown = {n for n, _ in config.table_lines(lines)}
+    assert set(range(len(lines))) - shown == hidden_by_the_shared_rule(lines)
+
+
 @pytest.mark.parametrize(
     "line, ends",
     [("   # a heading", True), ("    # four spaces is paragraph text", False)],

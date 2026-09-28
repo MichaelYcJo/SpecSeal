@@ -763,16 +763,49 @@ def fenced_row(home):
     only when it refuses.
 
     It reads the fence rule from the one reader and takes the complement of
-    what that reader shows — every line the walks were not shown — rather than
-    walking the file by a rule of its own. A second fence rule written here
-    would answer a different question about the same file, which is the split
-    `hooks/config.py` exists to prevent.
+    what `unfenced` shows — every line a fence hides — rather than walking the
+    file by a rule of its own. A second fence rule written here would answer a
+    different question about the same file, which is the split
+    `hooks/config.py` exists to prevent. It is a question about fences ALONE:
+    the walks are also not shown a line inside an HTML comment that closes
+    (#584), and calling that line fenced would send a person looking for a
+    fence that is not there. `commented_row_at` below asks about those.
 
     **The line alone**, which is what a message quotes. `fenced_row_at` above
     is the same answer with the index beside it, for the one caller that has
     to say where the line is relative to a fence.
     """
     return fenced_row_at(home)[1]
+
+
+def commented_row_at(home):
+    """(index, line) for this gate's row written inside an HTML comment that
+    closes, or (None, None) — `hooks/config.py#commented`'s lines, asked
+    which of them names this row (#584).
+
+    The sibling of `fenced_row_at`, and a question of its own rather than a
+    widening of that one, so each refusal names the cause it checked. A row
+    somebody commented out is shown to no walk of the table, which is the
+    comment half's whole purpose, and then it looks exactly like no row at
+    all: the absent-row refusal would send the person to write a row they can
+    see, and the fence refusal would send them to a fence that is not there
+    — the wrong-cause shape #415 and #429 were each opened about. A comment
+    that never closes hides nothing, so its lines never arrive here.
+    """
+    config = load(CONFIG_READER, "specseal_config_for_broad_gate")
+    text = config_text(home)
+    if text is None:
+        return None, None
+    lines = text.splitlines()
+    hidden = config.commented(lines)
+    return next(
+        (
+            (index, line)
+            for index, line in enumerate(lines)
+            if index in hidden and names_this_row(line)
+        ),
+        (None, None),
+    )
 
 
 def fence_left_open(home, above=None):
@@ -881,6 +914,13 @@ def missing_row(home):
     below would send a person to write a row they can already see — the
     wrong-cause message this whole work item exists to end. `fenced_row`
     above finds it and the refusal says where it has to move to.
+
+    **The fourth is the same cause one shape over: a row inside an HTML
+    comment that closes** (#584). `hooks/config.py#table_lines` hides it from
+    every walk, because a commented row is not an answer somebody gave, and
+    then it too looks like no row at all. `commented_row_at` finds it, and the
+    refusal names the comment rather than a fence nobody wrote, and says to
+    take the row out of the comment.
 
     Where there is no such line, the message is the absent-row refusal
     unchanged. It used to say *write the repository's own broad command into
@@ -1077,6 +1117,26 @@ def missing_row(home):
             "— not this gate's reader, not the mode gate's, and not "
             "`seal mode`'s writer. The row is not absent: it is written where "
             f"nothing reads it, and there is no command to seal over.\n{where}\n"
+            "`templates/config.md` §*What is refused, and what stays allowed* "
+            "is where the rule says so, and `/specseal:config` is the door to "
+            "the file. Nothing ran."
+        )
+    _at, commented = commented_row_at(home)
+    if commented is not None:
+        # The comment half's own sentence (#584). Its cause is neither an
+        # absent row nor a fence, and each of those sentences would send the
+        # person to do something that changes nothing.
+        return (
+            f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` line and "
+            "this is it, written inside an HTML comment:\n"
+            f"    {commented.strip()}\n"
+            "A row inside a comment is commented out — parked, and not this "
+            "repository's answer — so no walk of that table reads it: not "
+            "this gate's reader, not the mode gate's, and not `seal mode`'s "
+            "writer. The row is not absent: it is commented out, and there is "
+            "no command to seal over.\n"
+            "Take the row out of the comment if it is the answer, or write the "
+            "answer in the `| Item | Value |` table outside it. "
             "`templates/config.md` §*What is refused, and what stays allowed* "
             "is where the rule says so, and `/specseal:config` is the door to "
             "the file. Nothing ran."
