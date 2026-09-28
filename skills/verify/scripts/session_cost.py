@@ -2752,7 +2752,8 @@ def main():
     # tokens, and exiting there printed neither — while a segment that read
     # and thought is exactly what the run-level table's per-kind token row is
     # summed over.
-    tokens = token_totals([path, *subagent_transcripts(path)])
+    beside = subagent_transcripts(path)
+    tokens = token_totals([path, *beside])
     if timings is None and not tokens["turns"]:
         sys.exit("no tool calls in this transcript")
     data = {
@@ -2764,9 +2765,25 @@ def main():
     if args.json:
         print(json.dumps(data, indent=2))
         return 0
+    # #637, the ticket's option 3. The plain reading of a resumed agent's own
+    # file is a span covering every wait between its stretches of work, and
+    # that span is the number that gets quoted -- #601's fix passes posted
+    # exactly it. `analyse`'s docstring forbids moving any number here, so
+    # the reading keeps every line and gains one, before the span, pointing
+    # at the mode that splits the file. The condition is `measure_segments`'
+    # own-file trigger, so the line never promises a split the mode would not
+    # make, and the file is read for markers only when nothing is beside it.
+    restarted = 0 if beside else len(resume_cuts(path))
 
     def render():
         if timings:
+            if restarted:
+                print(
+                    f"{plural(restarted, 'coordinator message')} in this "
+                    "transcript, so the span below covers every\nstretch of "
+                    "work and the waits between them — `--segments` prints one "
+                    "row\nper stretch\n"
+                )
             report(data)
         else:
             print(

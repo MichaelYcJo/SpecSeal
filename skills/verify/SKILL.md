@@ -626,8 +626,12 @@ finished, not as a follow-up someone might do later:
    header naming the file and its coordinator messages stands in their place.
 
    **One segment measured on its own is still `session_cost.py
-   <transcript>`** with no mode flag. That plain reading is unchanged, and
-   every row of the per-segment table is that same reading of another file.
+   <transcript>`** with no mode flag, unless the coordinator restarted it.
+   The plain reading keeps its numbers, and for a restarted file it adds one
+   line saying how many coordinator messages the file holds: its span then
+   covers every stretch of work and the waits between them, and `--segments
+   <transcript>` is the reading that splits it. A row of the per-segment
+   table is that plain reading of another file, or of one stretch of one.
 
    **A segment is one agent's own stretch of a chain, and a spawn cycle is
    not one.** Every segment has a transcript of its own: a smith's, a

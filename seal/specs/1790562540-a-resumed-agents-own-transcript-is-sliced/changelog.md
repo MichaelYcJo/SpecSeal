@@ -16,6 +16,12 @@
   The trigger is the coordinator's message and not the directory, so a file
   the coordinator never restarted keeps the empty branch byte for byte,
   wherever it sits.
+- **The plain reading of such a file says it holds a restarted agent.**
+  `session-cost <transcript>` on a file with coordinator messages and
+  nothing beside it prints one added line before the span, counting the
+  messages and saying the span covers every stretch of work and the waits
+  between them, and that `--segments` prints one row per stretch. Every
+  number and every other line it prints is unchanged.
 - **Readings this bears on, none of which becomes wrong.** Fix-pass
   readings posted as the whole resumed transcript, build and fix together,
   because `--segments` could not split it: four in #577, four in #535 and

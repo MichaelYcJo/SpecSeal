@@ -3626,3 +3626,74 @@ def test_a_file_with_transcripts_beside_it_is_walked_whatever_its_markers(tmp_pa
     assert "own_file" not in segments, segments
     assert [row["agent"] for row in segments["rows"]] == ["specseal:smith"], segments
     assert "an agent's own transcript" not in segment_report(path)
+
+
+# --- #637 option 3: the plain reading of a resumed file points at the mode --
+
+HINT = (
+    "coordinator message in this transcript, so the span below covers every "
+    "stretch of work and the waits between them — `--segments` prints one row "
+    "per stretch"
+)
+
+
+def test_the_plain_reading_of_a_resumed_file_adds_one_line_and_moves_nothing(
+    resumed_segment,
+):
+    """`analyse`'s docstring forbids changing what the plain reading prints,
+    and #601's whole-transcript readings are what that reading of a resumed
+    file produced. So it keeps every line and gains one, before the span that
+    gets quoted, saying why that span is not one stretch of work.
+
+    The rest is compared with the same file whose marker is reworded: the
+    two differ in nothing the numbers read, so every line but the hint must
+    match. Red at the base: no such line."""
+    own = own_file(resumed_segment)
+    out = run([str(own)]).stdout
+    assert out.startswith("1 " + HINT.split(", so")[0]), out
+    assert HINT in " ".join(out.split()), out
+    hint, rest = out.split("\n\n", 1)
+    assert rest.startswith("span "), rest
+    reworded = own.parent / "reworded.jsonl"
+    reworded.write_text(
+        own.read_text().replace("The coordinator sent a message", "Somebody wrote")
+    )
+    assert run([str(reworded)]).stdout == rest
+
+
+def test_the_hint_counts_the_files_coordinator_messages(tmp_path):
+    """The count is the file's messages and not its slices: two adjacent
+    messages cut one file into two stretches, and the line says two."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                coordinator_message(9005),
+                *worked(9010, "s2"),
+            ]
+        },
+    )
+    out = run([str(own_file(path))]).stdout
+    assert out.startswith("2 coordinator messages in this transcript,"), out
+
+
+def test_no_hint_where_there_is_nothing_to_split(
+    tmp_path, run_with_segments, transcript
+):
+    """The condition is the own-file mode's: a coordinator message, and no
+    transcripts beside. A run's own transcript and a file nobody restarted
+    print exactly what they did — and so does a run's transcript carrying a
+    marker, because `--segments` walks that one rather than cutting it."""
+    marked = tmp_path / "marked"
+    marked.mkdir()
+    walked = write_run(
+        marked,
+        [*call("a", 0, 10, "git status --short"), coordinator_message(15)],
+        {"agent-smith.jsonl": worked(625, "s1")},
+    )
+    for path in (run_with_segments, transcript, own_file(run_with_segments), walked):
+        out = " ".join(run([str(path)]).stdout.split())
+        assert "coordinator message in this transcript" not in out, (path, out)
