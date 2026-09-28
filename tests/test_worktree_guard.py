@@ -933,19 +933,32 @@ def test_the_two_reworded_reasons_are_pinned_in_both_languages(
     monkeypatch, capsys, repo
 ):
     """S10, §14. The Agent reason is pinned whole. The `[worktree-ok]` row's
-    first sentence starts from what was counted -- no other Claude session --
-    where a count was taken, instead of asserting *single-stream work*, which
-    a worktree a subagent chain will use is not."""
+    first sentence starts from what was counted -- no Claude session shown to
+    be working -- where a count was taken, instead of asserting *single-stream
+    work*, which a worktree a subagent chain will use is not.
+
+    #624.3: *No other Claude session is working in this tree* was false where
+    the count found idle sessions, and that row is reached above the idle
+    choice row. *Can be shown to be working* is true with nobody counted and
+    with only idle sessions counted, so one sentence serves both."""
     agent, token = _reasons(monkeypatch, capsys, repo, wg)
     assert agent == AGENT_REASON_EN
-    assert "No other Claude session is working in this tree, but [worktree-ok]" in token
+    assert (
+        "No other Claude session can be shown to be working in this tree, but "
+        "[worktree-ok]" in token
+    )
+    assert "No other Claude session is working" not in token
     assert "Single-stream work" not in token
 
     monkeypatch.setenv("SPECSEAL_LANG", "ko")
     wko = load_hook_module("worktree-guard.py", "wg_s10_ko")
     agent, token = _reasons(monkeypatch, capsys, repo, wko)
     assert agent == AGENT_REASON_KO
-    assert "이 트리에서 작업 중인 다른 Claude 세션은 없지만 [worktree-ok]" in token
+    assert (
+        "이 트리에서 작업 중임이 확인되는 다른 Claude 세션은 없지만 [worktree-ok]"
+        in token
+    )
+    assert "작업 중인 다른 Claude 세션은 없지만" not in token
     assert "단건 작업이지만" not in token
 
 
@@ -954,17 +967,22 @@ def test_the_token_rows_count_sentence_is_said_only_where_a_count_was_taken(
 ):
     """Round 1, finding 4. The `[worktree-ok]` row is reached before the
     choice rows, so the detection-unusable state reaches it, and there nothing
-    was counted. *No other Claude session is working in this tree* is a
-    measurement, and it is printed only where the measurement was made."""
+    was counted. *No other Claude session can be shown to be working in this
+    tree* is a measurement, and it is printed only where the measurement was
+    made -- which includes a count that found only idle sessions (#624.3)."""
     cmd = "git worktree add ../wt f  # [worktree-ok]"
     for module, sentence in (
-        (wg, "No other Claude session is working in this tree"),
-        (None, "이 트리에서 작업 중인 다른 Claude 세션은 없지만"),
+        (wg, "No other Claude session can be shown to be working in this tree"),
+        (None, "이 트리에서 작업 중임이 확인되는 다른 Claude 세션은 없지만"),
     ):
         if module is None:
             monkeypatch.setenv("SPECSEAL_LANG", "ko")
             module = load_hook_module("worktree-guard.py", "wg_f4_ko")
-        for sessions, said in ((([], [], True)), True), ((([], [], False)), False):
+        for sessions, said in (
+            (([], [], True), True),
+            (([], IDLE, True), True),
+            (([], [], False), False),
+        ):
             monkeypatch.setattr(
                 module, "sessions_in_tree", lambda t, o="", s=sessions: s
             )
@@ -986,3 +1004,86 @@ def test_the_token_rows_count_sentence_is_said_only_where_a_count_was_taken(
             assert out["permissionDecision"] == "ask", sessions
             assert (sentence in out["permissionDecisionReason"]) is said, sessions
             assert "[worktree-ok]" in out["permissionDecisionReason"]
+
+
+def test_the_dirty_tree_row_names_what_was_measured(monkeypatch, capsys, repo):
+    """#624.2. The switch ladder's tracked-changes row is reached in three
+    states: single stream (nothing idle, detection reliable), and, under
+    `[shared-tree-ok]`, only-idle and detection-unusable. It opened *Single-
+    stream tree* in all three, which is a count the last two never took. There
+    the lead says the token carried the user's answer; the list of changes and
+    the verdict are unchanged. Both languages. Seen red at the base: the lead
+    was *Single-stream tree* and no `[shared-tree-ok]` was named."""
+    (repo / "f.txt").write_text("changed on purpose\n")
+    for module, single in (
+        (wg, "Single-stream tree, so the switch is allowed"),
+        (None, "이 트리는 단건 작업이라 브랜치 전환을 허용할 수 있지만"),
+    ):
+        if module is None:
+            monkeypatch.setenv("SPECSEAL_LANG", "ko")
+            module = load_hook_module("worktree-guard.py", "wg_624_2_ko")
+        for n, (sessions, command, counted) in enumerate(
+            (
+                (([], [], True), "git switch other", True),
+                (([], IDLE, True), "git switch other  # [shared-tree-ok]", False),
+                (([], [], False), "git switch other  # [shared-tree-ok]", False),
+            )
+        ):
+            monkeypatch.setattr(
+                module, "sessions_in_tree", lambda t, o="", s=sessions: s
+            )
+            monkeypatch.setattr(
+                module,
+                "load_input",
+                lambda command=command, n=n: {
+                    "tool_name": "Bash",
+                    "session_id": f"d{n}",
+                    "tool_input": {"command": command},
+                    "cwd": str(repo),
+                },
+            )
+            try:
+                module.main()
+            except SystemExit:
+                pass
+            out = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
+            reason = out["permissionDecisionReason"]
+            assert out["permissionDecision"] == "ask", (sessions, reason)
+            assert reason.startswith(single) is counted, (sessions, reason)
+            assert "f.txt" in reason, reason
+            if not counted:
+                first = reason.splitlines()[0]
+                assert first.startswith("[shared-tree-ok]"), first
+
+
+def test_a_git_command_inside_a_heredoc_body_is_not_judged(monkeypatch, capsys, repo):
+    """#243's phase 3 measured `docs/worktree-guard-spec.md` §*Known limits*'s
+    old first line -- *a heredoc line that IS exactly a git command still
+    matches* -- and found it closed: `_judgment_text` drops heredoc bodies, so
+    a body line is data. The line was deleted and this is what holds it, in a
+    tree where a real switch would be denied."""
+    monkeypatch.setattr(wg, "sessions_in_tree", lambda t, o="": (ACTIVE, [], True))
+    for command, want in (
+        ("cat > notes.txt <<'EOF'\ngit switch feature/x\nEOF", None),
+        ("cat > notes.txt <<EOF\ngit worktree add ../wt f\nEOF", None),
+        ("git switch feature/x", "deny"),
+    ):
+        monkeypatch.setattr(
+            wg,
+            "load_input",
+            lambda command=command: {
+                "tool_name": "Bash",
+                "session_id": "hd",
+                "tool_input": {"command": command},
+                "cwd": str(repo),
+            },
+        )
+        try:
+            wg.main()
+        except SystemExit:
+            pass
+        out = capsys.readouterr().out.strip()
+        got = (
+            json.loads(out)["hookSpecificOutput"]["permissionDecision"] if out else None
+        )
+        assert got == want, (command, out)

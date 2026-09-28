@@ -258,8 +258,9 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
       2. the answer is a harness-written `AskUserQuestion` result: a `user`
          entry whose `tool_result` names, by `tool_use_id`, an EARLIER
          assistant `tool_use` called `AskUserQuestion`, read from the entry's
-         structured `toolUseResult`. A Bash result echoing *The user answered:
-         "automation"* has no such link and no `answers` object;
+         structured `toolUseResult`, and carrying `isSidechain: false`. A Bash
+         result echoing *The user answered: "automation"* has no such link and
+         no `answers` object, and a subagent has no `AskUserQuestion`;
       3. the question is the routing question and the preset was pressed
          (`_routing_preset`);
       4. the result entry's own `cwd` is in the same clone as `top`.
@@ -306,9 +307,12 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
                     continue
                 if kind != "user" or not asked:
                     continue
-                # A subagent has no `AskUserQuestion`, so no real click
-                # carries this mark; refusing it costs no measured case.
-                if entry.get("isSidechain") is True:
+                # A subagent has no `AskUserQuestion`, and every main-transcript
+                # user entry measured carries `isSidechain: false`. Anything
+                # else -- true, absent, or not a bool -- is a shape nobody
+                # measured, refused the way `_routing_preset` refuses an absent
+                # `multiSelect`.
+                if entry.get("isSidechain") is not False:
                     continue
                 linked = any(
                     isinstance(item, dict)
@@ -373,9 +377,10 @@ def record(top: str, session: str) -> bool:
 def creation_directory(command: str, cwd: str) -> str:
     """The directory a `git worktree add` in `command` acted on, or "".
 
-    EVERY segment is read, not just the first. The guard's own PreToolUse walk
-    stops at the first verdict because that is the one it has to decide, while
+    EVERY segment is read until the first creation, whatever comes before it:
     a creation anywhere in a command that ran is a creation that was approved.
+    The guard's own PreToolUse walk judges the same first creation, and the
+    first switch beside it in either order.
 
     Comments and heredoc bodies come out first, the pair the guard's
     `_judgment_text` uses, and for the same reason: this is a judgment read of
