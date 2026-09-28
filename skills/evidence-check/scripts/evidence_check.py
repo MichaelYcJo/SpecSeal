@@ -15,8 +15,10 @@ and classifies each:
   EXTERNAL path not in this repo and no --map given — cannot judge here
 
 and names what it cannot classify: OLD-FORMAT for a pre-anchor `path:line`
-row, and MALFORMED for a `Code grounds` cell whose coordinate does not parse
-or that cites none (#299).
+row, MALFORMED for a `Code grounds` cell whose coordinate does not parse or
+that cites none (#299), and OVERFLOW for a table row that splits into more
+cells than its table's header, whose text past the last column no reader
+sees (#585).
 
 **A coordinate names a place by content, never by position.** A line number
 moves for edits that have nothing to do with the claim, so a coordinate made of
@@ -36,8 +38,8 @@ blank lines removed, so reformatting is not a change and reindenting is: in
 Python indentation carries meaning, and a checker that shrugged at a dedent
 would go quiet exactly where it should complain.
 
-Exit codes: 0 clean · 1 drift or malformed only · 2 broken or old-format
-coordinates (or drift or malformed with --strict).
+Exit codes: 0 clean · 1 drift, malformed or overflow only · 2 broken or
+old-format coordinates (or drift, malformed or overflow with --strict).
 Designed for CI: a spec-code link that stops resolving should fail the build
 the same way a broken test does.
 
@@ -1363,6 +1365,7 @@ def check_ledger(ledger, root, maps, default_repo=None):
     findings = check_text(unquoted(text), root, maps, default_repo)
     findings.extend(old_format_rows(text))
     findings.extend(malformed_rows(text))
+    findings.extend(overflow_rows(text))
     return findings
 
 
@@ -1595,6 +1598,15 @@ def old_format_rows(text):
 # `Code grounds` column is not read, and a renamed column takes its table out
 # of this arm. That is the trade, stated in `SKILL.md`'s *Known limits*.
 CODE_GROUNDS = "Code grounds"
+# The cells of a ledger row, as `templates/ledger.md`'s `| Clause |` header
+# declares them. A row under no header -- every fragment row, and a released
+# row a fold copied in without one -- is read against these: `grounds_cells`
+# takes its `Code grounds` index from here, and `overflow_rows` its width.
+# Written here rather than read from the template, because `evidence-ci` puts
+# this file alone in a user repository's `tools/`, where no template is
+# beside it. `tests/test_a_row_wider_than_its_header_is_named.py` holds the two
+# in step, so a column added to the template goes red until this moves too.
+LEDGER_COLUMNS = ("Clause", "Code grounds", "Verified behavior", "Checked", "Notes")
 RULE_CELL_RE = re.compile(r"^:?-+:?$")
 # A code span, CommonMark's way: a run of backticks closed by a run of the
 # same length, so ``a`b`` is one span holding a backtick.
@@ -1683,13 +1695,20 @@ def refused_coordinate(s):
     return False
 
 
-def grounds_cells(text):
-    """`(cells, column)` for every table row of TEXT that has a `Code
-    grounds` cell, with COLUMN its index.
+def ledger_table_rows(text):
+    """`(line_number, header, cells)` for every body row of every table in
+    TEXT, read through `unquoted`.
 
-    Read through `unquoted`, so a row in a fenced block that closes is an
-    example (#444). A table is a run of `|` lines; a line followed by a rule
-    line is its header, and a run with no header is a fragment's.
+    **The one table walk in this file**, which both cell arms read: `MALFORMED`
+    through `grounds_cells` and `OVERFLOW` through `overflow_rows`. Two walks
+    beside each other are how two readings of one table come apart, and a
+    third arm is meant to read this one rather than write its own (#585).
+
+    A table is a run of `|` lines. A line followed by a rule line is its
+    header, and a run with no header is a fragment's, whose rows come with
+    `header` None. Header and rule rows are not yielded. A row in a fenced
+    block that closes is an example (#444), and `unquoted` keeps every
+    offset, so LINE_NUMBER is 1-based into TEXT as given.
     """
     split = cell_rule()
     rows = [split(line) for line in unquoted(text).splitlines()]
@@ -1697,18 +1716,30 @@ def grounds_cells(text):
     def rule(cells):
         return bool(cells) and all(RULE_CELL_RE.match(c) for c in cells)
 
-    column = None
+    header = None
     for n, cells in enumerate(rows):
         if cells is None:
-            column = None
+            header = None
             continue
         if rule(cells):
             continue
         if n + 1 < len(rows) and rows[n + 1] is not None and rule(rows[n + 1]):
-            column = cells.index(CODE_GROUNDS) if CODE_GROUNDS in cells else -1
+            header = cells
             continue
-        if column is None:
-            column = 1
+        yield n + 1, header, cells
+
+
+def grounds_cells(text):
+    """`(cells, column)` for every table row of TEXT that has a `Code
+    grounds` cell, with COLUMN its index: the header's `Code grounds`
+    column, or the ledger row's under no header, which is every fragment
+    row. A table whose header names no such column yields nothing.
+    """
+    for _, header, cells in ledger_table_rows(text):
+        if header is None:
+            column = LEDGER_COLUMNS.index(CODE_GROUNDS)
+        else:
+            column = header.index(CODE_GROUNDS) if CODE_GROUNDS in header else -1
         if 0 <= column < len(cells):
             yield cells, column
 
@@ -1785,6 +1816,51 @@ def malformed_rows(text):
                 "`path#anchor@hash` in the Code grounds cell, the hash as "
                 "`@00000000`, then run `evidence-check --reverify .`",
             )
+    return findings
+
+
+# --- a row wider than its header (#585) --------------------------------------
+#
+# An unescaped `|` inside a cell splits the row, and the text after it lands in
+# the next column: a claim runs into its grounds, a date into its notes, and
+# whatever falls past the last column is in no column at all -- a marker
+# written there is read by nobody. Until #585 only this repository's own test
+# refused such a row, so a repository that installed the plugin could hold one.
+REMEDY_PIPE = "a `|` inside a cell splits the row; write it as `\\|`"
+
+
+def overflow_rows(text):
+    """("OVERFLOW", "line <n>", detail) for every table row of TEXT that
+    splits into more cells than its table's header.
+
+    Every table is read, not only a table with a `Code grounds` column: the
+    split is a defect of the row, whichever table it stands in. A row under no
+    header is counted against `LEDGER_COLUMNS`, because a fragment has no
+    header by rule and the fold copies it as it stands (#501). A table with
+    its own header keeps its own width, however wide.
+
+    **Only more cells.** A short row hides nothing -- every cell of it is
+    rendered -- and the rule in `docs/the-evidence-ledger.md` says *more*.
+
+    Its own verdict and not `MALFORMED`, which names a `Code grounds` text
+    nothing can parse: the coordinate in a split row usually parses, and the
+    remedy is to escape a pipe. Graded as `MALFORMED` is, for the reason
+    `exit_code` gives. One finding per line, so the coordinate is the line.
+    """
+    findings = []
+    for n, header, cells in ledger_table_rows(text):
+        width = len(LEDGER_COLUMNS) if header is None else len(header)
+        if len(cells) <= width:
+            continue
+        if header is None:
+            detail = (
+                f"{len(cells)} cells and no header above it, so counted against "
+                f"the {width} columns of a ledger row — {REMEDY_PIPE}, or give "
+                "a table that is not ledger rows a header of its own"
+            )
+        else:
+            detail = f"{len(cells)} cells under a {width}-cell header — {REMEDY_PIPE}"
+        findings.append(("OVERFLOW", f"line {n}", detail))
     return findings
 
 
@@ -1990,10 +2066,11 @@ def reverify(ledgers, root, maps, default_repo=None):
     # `Checked` still predates the hash it is about to replace, or print the
     # ones it left; the fix pass that found this could add neither without
     # adding mechanism.
-    # Verified 2026-09-25 against reverify@90289e25.
+    # Verified 2026-09-29 against reverify@69267bf1.
     changed = 0
     unreadable = []
     malformed = []
+    overflow = []
     scan_cache = {}
     for ledger in ledgers:
         text = read(ledger)
@@ -2005,6 +2082,14 @@ def reverify(ledgers, root, maps, default_repo=None):
         # remedy the line carries is the placeholder workflow this command
         # already completes.
         malformed.extend((coord, why) for _, coord, why in malformed_rows(text))
+        # The same for a row wider than its header (#585). Its coordinate is
+        # a line, and this command prints no per-ledger heading, so the line
+        # names the ledger too. The hashes in the row are still rewritten
+        # below where their anchors resolve: the hash is not what is wrong.
+        overflow.extend(
+            (f"{display_name(ledger, root)} {coord}", why)
+            for _, coord, why in overflow_rows(text)
+        )
         out, at = [], 0
         # Matched in `unquoted(text)` and spliced from `text`: the two have
         # the same offsets, and an example row in a closed fence is never
@@ -2134,7 +2219,9 @@ def reverify(ledgers, root, maps, default_repo=None):
         print(f"  LEFT  {path}  ledger unreadable")
     for coord, why in malformed:
         print(f"  LEFT  {coord}  MALFORMED — {why}")
-    return 1 if unreadable or malformed else 0
+    for where, why in overflow:
+        print(f"  LEFT  {where}  OVERFLOW — {why}")
+    return 1 if unreadable or malformed or overflow else 0
 
 
 # --- the records arm: what a work item's records state about the tree -------
@@ -2748,8 +2835,8 @@ def check_records(root, home, maps=None, default_repo=None):
 # **The one exit code this checker's readers grade differently.** Three of them
 # run this script over one tree: `bin/evidence-check`, the command every
 # document names, takes the answer as it comes; CI's `ledger` job renders exit
-# 1 as a `::warning::`; and `broad-gate` passes `--strict`, where DRIFTED and
-# MALFORMED are exit 2 and the branch comes back `NOT SEALED`. A session that
+# 1 as a `::warning::`; and `broad-gate` passes `--strict`, where DRIFTED,
+# MALFORMED and OVERFLOW are exit 2 and the branch comes back `NOT SEALED`. A session that
 # runs the documented command more often never meets the reading that decides,
 # because the documented command is not the deciding one (#354).
 #
@@ -2758,10 +2845,11 @@ def check_records(root, home, maps=None, default_repo=None):
 # prints on every run is a line people learn to skip, which is the shape
 # `hooks/evidence-advisor.py` already measured.
 #
-# Exit 1 has two causes, and the sentence names both verdict words: the rows
+# Exit 1 has three causes, and the sentence names every verdict word: the rows
 # above it carry one of them, which is how a reader tells *re-read* from *fix
-# the coordinate*. One sentence rather than one per cause, because choosing
-# between two would need a predicate restating the grading beside `exit_code`.
+# the coordinate* from *escape the pipe*. One sentence rather than one per
+# cause, because choosing between them would need a predicate restating the
+# grading beside `exit_code`.
 #
 # `NOT SEALED` is `seal_stamp`'s word and this is borrowing it.
 # `tests/test_the_lenient_run_says_what_the_broad_gate_will_say.py` holds the
@@ -2770,8 +2858,8 @@ def check_records(root, home, maps=None, default_repo=None):
 # in silence.
 LENIENT_NOTICE = (
     "exit 1 is the lenient reading. `broad-gate` runs this same check with "
-    "`--strict`, where DRIFTED and MALFORMED are exit 2, and this tree would "
-    "come back NOT SEALED."
+    "`--strict`, where DRIFTED, MALFORMED and OVERFLOW are exit 2, and this "
+    "tree would come back NOT SEALED."
 )
 
 
@@ -2796,7 +2884,12 @@ def exit_code(totals, refused, drifted, strict):
     # refusing rows in a repository's lenient run, and `broad-gate` and the
     # vendored CI template both pass `--strict`, so the readers that decide
     # still refuse. Below BROKEN so a tree holding both is still exit 2.
-    if totals["MALFORMED"] or totals["DRIFTED"] or drifted:
+    #
+    # OVERFLOW, a row wider than its header (#585), takes the same grading for
+    # the same reason: the owner's answer was that a release should not start
+    # refusing rows in a repository's lenient run while the readers that decide
+    # still refuse, and nothing in it was about which release that is.
+    if totals["MALFORMED"] or totals["OVERFLOW"] or totals["DRIFTED"] or drifted:
         return 2 if strict else 1
     return 0
 
@@ -2815,7 +2908,7 @@ def main():
     ap.add_argument(
         "--strict",
         action="store_true",
-        help="drift and malformed coordinates also fail",
+        help="drift, malformed coordinates and overflowing rows also fail",
     )
     ap.add_argument(
         "--migrate",
@@ -2914,6 +3007,7 @@ def main():
         "EXTERNAL": 0,
         "OLD-FORMAT": 0,
         "MALFORMED": 0,
+        "OVERFLOW": 0,
     }
     for ledger in ledgers:
         findings = check_ledger(ledger, root, maps, default_repo)
@@ -2926,17 +3020,20 @@ def main():
         # old-format is on the line even at zero: a red build whose summary
         # read all zeros is what round 4's 🟡 6 measured. malformed follows it
         # for the same reason (#299), and after it, so the text up to
-        # old-format is what every reader matching it already reads.
+        # old-format is what every reader matching it already reads. overflow
+        # follows malformed by the same rule (#585).
         print(
             f"  {counts['OK']} ok · {counts['DRIFTED']} drifted · "
             f"{counts['BROKEN']} broken · {counts['EXTERNAL']} external · "
             f"{counts['OLD-FORMAT']} old-format · {counts['MALFORMED']} malformed"
+            f" · {counts['OVERFLOW']} overflow"
         )
 
     print(
         f"\ntotal: {totals['OK']} ok · {totals['DRIFTED']} drifted · "
         f"{totals['BROKEN']} broken · {totals['EXTERNAL']} external · "
         f"{totals['OLD-FORMAT']} old-format · {totals['MALFORMED']} malformed"
+        f" · {totals['OVERFLOW']} overflow"
     )
 
     # The second arm. A ledger row is a claim about the tree that something
