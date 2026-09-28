@@ -538,6 +538,15 @@ tells the user to work in a separate worktree, so the session stays where it
 was while the commands do not. Both are read the same way the commit gate
 reads them (`commit-review-gate-spec.md` §Which repository).
 
+The advice follows the same tree. A command a reason tells the person to run —
+the worktree steer, a choice's option, the switch steer, the tracked-changes
+note's `git restore` — would otherwise run in the shell's own repository. So
+where the shell is not in the judged tree, each carries `git -C <root>`; where
+it is, the text is unchanged. The note's `git restore` commands carry it
+always, because the paths they take are relative to the root and the shell may
+stand in a subdirectory, and the force-staged check they follow runs at that
+root for the same reason.
+
 Two kinds of destination fall back to the session's own directory, which is
 this guard's answer from before it could read a `cd` at all:
 
