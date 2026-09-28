@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #650 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `a3b76a2ff82516a27c725011411f12d0d16c849c..1d551500c854131425bd0fb10404e2960db08481`, 2 commits |
 | Contract changes | none |
 | New units | test_the_drawn_refusal_names_the_file_the_values_are_in (depth 1); test_a_malformed_later_file_does_not_take_the_earlier_ones (depth 1); test_both_readmes_list_the_stamp_hook (depth 1) |
