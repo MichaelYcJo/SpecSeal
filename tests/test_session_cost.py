@@ -1536,10 +1536,12 @@ def test_a_runner_named_inside_a_heredoc_is_not_a_run_of_it(tmp_path):
     reading: the one call the family did charge to `test` was a `cat > …`
     heredoc whose body contains the word `pytest`.
 
-    `load` flattens a call's whitespace, so a command that writes a document
-    arrives at the classifier as one line with the whole document in it.
-    Cutting at the heredoc operator answers it for every family at once and
-    needs no list of the words a document might contain.
+    These commands are flat, the shape `load`'s `command` has, so none has a
+    closing line and each is cut from the heredoc operator to the end. That
+    answers it for every family at once and needs no list of the words a
+    document might contain. A command with its newlines kept has its body
+    removed to the closing line instead, and the case after this one's #377
+    cases pins that.
 
     The last two are the bound. A `<<` followed by a lowercase unquoted word
     is more often a quoted comparison than a heredoc, so it is left alone:
@@ -1557,6 +1559,258 @@ def test_a_runner_named_inside_a_heredoc_is_not_a_run_of_it(tmp_path):
 
     assert module.family("echo 'a << b' && pytest -q") == "test"
     assert module.family("cat > x <<eof pytest eof") == "test"
+
+
+# --- #377: `git` is a command word, not a position ---
+#
+# The `git` family was the one pattern anchored at the start of the line, so a
+# `git` or `gh` call after `cd … &&` -- the shape nearly every worktree session
+# writes -- was charged to `other`. Measured over 353 transcripts on one
+# machine, 2026-09-28: 2,734 calls and 21,147 seconds in that shape alone.
+
+
+def test_a_git_call_after_cd_is_charged_to_git():
+    """The finding's own instance, and the shapes #619's segment readings
+    printed. The two that stay `other` are the control: a line that runs no
+    `git` must not become one because a `cd` precedes it."""
+    module = load_script()
+    for command in (
+        "cd /x && git status",
+        "cd /x && gh issue view 1",
+        "cd /w; gh issue view 616 --json title",
+        "W=/w; cd $W; git grep -n x",
+        "cd /w && git -C /w grep x",
+        "git -C /w commit -q -F - <<'EOF'\ndocs: x\nEOF",
+    ):
+        assert module.family(command) == "git", command
+
+    for command in (
+        "W=/w; cd $W; for f in a b; do grep -c x $f; done",
+        "cd ~/p && python3 - <<'EOF'\nimport json\nEOF",
+    ):
+        assert module.family(command) == "other", command
+
+
+def test_git_is_read_at_every_command_word():
+    """A command word is the first word after any separator, a subshell's
+    `(`, a reserved word or a leading assignment -- not only after `&&`. A
+    rule that knew the separators and not the reserved words would still
+    charge a loop over issues to `other`."""
+    module = load_script()
+    for command in (
+        "for n in 1 2; do gh issue view $n; done",
+        "if git diff --quiet; then echo y; fi",
+        "FOO=1 git status",
+        "(cd /x && git status)",
+        "(gh pr view 1)",
+        "cat x | git apply",
+        "/usr/bin/git status",
+        "ls || gh pr list",
+        "sleep 1 & git fetch",
+        "while ! git pull; do sleep 1; done",
+        "{ gh pr view 1; }",
+        "time git log -1",
+    ):
+        assert module.family(command) == "git", command
+
+
+def test_git_named_anywhere_but_a_command_word_is_not_git():
+    """The other direction, and the one the anchor was buying. Un-anchoring
+    the pattern to a bare word boundary would charge every one of these to
+    `git`: a search for the word, a path through a `.git/` directory, a
+    message naming it, a quoted separator, a command substitution and a
+    wrapper. The last two are the rule's stated bounds, not oversights."""
+    module = load_script()
+    for command in (
+        'grep -rn "git" .',
+        "ls /a/git/b",
+        'x --message "git"',
+        "cat .git/config",
+        "echo git",
+        "rg gh docs/",
+        "echo 'a; git b'",
+        "cd $(git rev-parse --show-toplevel) && ls",
+        'echo "$(git log -1)"',
+        "x=$(git log -1) ; ls",
+        "diff <(git show HEAD:a) a",
+        "timeout 40 gh issue list",
+        "echo ';' git x",
+        'echo "&&" git x',
+        "echo \\; git x",
+    ):
+        assert module.family(command) != "git", command
+
+
+def test_a_line_running_two_families_is_charged_by_their_order():
+    """`FAMILIES` is first-match in priority order and `git` is last, so a
+    compound that runs a test is charged to the test. Reading `git` by
+    command word must not jump it ahead of the families it follows."""
+    module = load_script()
+    assert module.family("cd x && git add . && pytest -q") == "test"
+    assert module.family("git stash && ruff check .") == "lint/type"
+
+
+def test_a_command_the_tokeniser_refuses_is_judged_as_before():
+    """An unmatched quote makes the tokeniser raise, and the error must never
+    escape into a reading, which would end the report on one odd call.
+
+    The words read before the refusal still count, so `git log 'x` and
+    `cd /x && git log 'x` answer from their `git`. A line refused before its
+    first word is finished is judged by the anchored pattern `family` used
+    before #377 -- `git'x` -- so the new rule never answers worse than the
+    old one did. Each arm has its own mutant: letting the error escape,
+    judging the whole line by the pattern, and answering `other` on refusal."""
+    module = load_script()
+    assert module.family("echo 'unbalanced git") == "other"
+    assert module.family("git log 'x") == "git"
+    assert module.family("cd /x && git log 'x") == "git"
+    assert module.family("git'x") == "git"
+    assert module.family("cd /x && echo 'unbalanced") == "other"
+
+
+def test_a_command_after_a_heredoc_is_read_and_its_body_is_not():
+    """A heredoc body runs from the line after its operator to the first line
+    equal to its delimiter, and what follows that line is a command the shell
+    ran. Cutting from the operator to the end charged the `gh issue create`
+    after a `cat > body.md <<'EOF'` to `other`, and a `bin/test` after a
+    `python3 - <<'EOF'` script too.
+
+    The body is still data, so a `git` written inside one is not a run of it.
+    The rest of the operator's own line runs, so it is kept. `<<-` lets the
+    closing line carry leading tabs. A heredoc with no closing line is cut to
+    the end as before, which is what every flattened command is."""
+    module = load_script()
+    for command, expected in (
+        ("cat > b.md <<'EOF'\nbody\nEOF\ngh issue create --body-file b.md", "git"),
+        ("python3 - <<'EOF'\nx=1\nEOF\nbin/test -q", "test"),
+        ("cat > f <<-'EOF'\n\tbody\n\tEOF\ngit add f", "git"),
+        ("cat > f <<'EOF' && git add f\nbody\nEOF", "git"),
+        ("cat <<'A' <<'B'\na\nA\nb\nB\ngit status", "git"),
+        ("cat > f <<'EOF'\ngit is here\nEOF", "other"),
+        ("cat > f <<'EOF'\n\tEOF\ngit add f\nEOF", "other"),
+        ("cat > f <<'EOF'\nbody\ngit status", "other"),
+    ):
+        assert module.family(command) == expected, command
+
+
+def test_a_command_on_a_line_of_its_own_is_a_command_word():
+    """A newline separates two commands the way `;` does, and a comment ends
+    at one. `load` used to flatten every newline before `family` saw the
+    text, so `cd /x⏎git status` read as `cd` with three arguments.
+
+    The trailing comment is the tokeniser's own trap: its comment handling
+    consumes the newline that ends a comment, which would join the next
+    line's command onto the one before it."""
+    module = load_script()
+    for command in (
+        "cd /x\ngit status",
+        "# stage the record\ngit add a",
+        "cd /x\n\n  gh pr view 1",
+        "cd /x  # into the tree\ngit status",
+    ):
+        assert module.family(command) == "git", command
+
+
+def test_a_separator_inside_a_substitution_does_not_reach_the_line():
+    """A command substitution is not a command position, and neither is any
+    word inside one: a separator inside `$( … )`, `<( … )` or `>( … )`
+    separates the substitution's commands, not the line's. What follows the
+    `)` that closes the outermost one is the line's again.
+
+    Round 1 of #377's review found the first three reading `git` while the
+    rule four sentences state said they could not.
+
+    Round 2 found the count moved by a parenthesis bash reads as a letter --
+    a quoted `)` closing the substitution early, a quoted `(` keeping it open
+    to the end of the command -- and by a token that closes one and opens a
+    subshell at once (`);(`, `)&&(`, `)|(`), which counting cannot order."""
+    module = load_script()
+    for command in (
+        "x=$(cd /y && git log -1)",
+        "diff <(cd a; git show) b",
+        "echo x | tee >(cd a; git hash-object --stdin)",
+        "echo $(echo $(cd a; git s))",
+        "x=$(printf ')'; cd a; git log)",
+        'x=$(echo ")"; cd a; git log)',
+        "x=$(echo $(pwd); cd a; git log)",
+        "x=$( (ls); cd a; git log)",
+        "echo a;<(git s)",
+    ):
+        assert module.family(command) != "git", command
+    for command in (
+        "echo $(git a); git b",
+        "echo $(( 1 + 2 )); git s",
+        "x=$(cd /y && ls) && git status",
+        "x=$(echo '(') ; git s",
+        "n=$(grep -c '(' f)\ngit commit -m x",
+        "x=$(pwd);(cd a && git s)",
+        "echo $(date)&&(cd a; git x)",
+        "echo $(pwd)|(git c)",
+        "diff <(ls a)<(ls b); git s",
+    ):
+        assert module.family(command) == "git", command
+
+
+def test_a_comment_runs_nothing_whatever_it_holds():
+    """A `#` that begins a word starts a comment to the end of its line, so a
+    separator inside one separates nothing. A `#` inside a word or inside
+    quotes starts no comment, and a comment's apostrophe is not a quote.
+
+    Round 1 of #377's review found the first two reading `git`, where the
+    anchored rule before #377 read `other`.
+
+    Round 2 found a comment that opens a continuation line read as words,
+    because bash removes `\\⏎` before it reads a word and the walk did not.
+    The lines after it pin each character a comment may follow -- a newline,
+    a tab, `;`, `&`, `|`, `(` and `)` -- beside the space above, since
+    reducing that set to a space and a newline left every case green."""
+    module = load_script()
+    for command in (
+        "# cd x && git push\nls",
+        "ls  # then; git push",
+        "echo \\' # an escaped quote opens nothing; git push",
+        "ls \\\n# x; git push",
+        "ls\n# c; git push",
+        "ls\t# c; git push",
+        "ls;# c; git push",
+        "ls&# c; git push",
+        "ls|# c; git push",
+        "(# c; git push\nls)",
+        "(ls)# c; git push",
+    ):
+        assert module.family(command) != "git", command
+    for command in (
+        "# don't forget\ngit add a",
+        "echo '#'; git s",
+        "echo a#b; git s",
+        "echo ${#x}; git s",
+        'echo "a # b"; git s',
+        "cd /x && \\\ngit status",
+    ):
+        assert module.family(command) == "git", command
+
+
+def test_the_family_reads_the_command_as_the_harness_recorded_it(tmp_path):
+    """Both places `analyse` asks for a family read the command with its
+    newlines kept. The table's row is the first; the repeats figures are the
+    second, because they keep only `test`, `lint/type` and `build`, and a test
+    run after a heredoc is one of them only when the text is read unflattened.
+
+    What is PRINTED keeps reading the flattened text: the `slowest` entry and
+    the `other` note name a command on one line, as before."""
+    lines = []
+    lines += call("a", 0, 10, "cd /x\ngit status")
+    lines += call("b", 15, 23, "cat > f <<'EOF'\nx\nEOF\npytest -q")
+    lines += call("c", 28, 33, "cat > f <<'EOF'\nx\nEOF\npytest -q")
+    path = tmp_path / "raw.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert data["by_family"]["git"] == {"calls": 1, "seconds": 10}, data["by_family"]
+    assert data["by_family"]["test"] == {"calls": 2, "seconds": 13}, data["by_family"]
+    assert "other" not in data["by_family"], data["by_family"]
+    assert data["repeat_exact_s"] == 5, data
+    assert data["slowest"][0]["command"] == "cd /x git status", data["slowest"]
 
 
 def test_the_report_names_the_command_the_table_could_not(tmp_path):
@@ -2555,6 +2809,27 @@ def test_the_reading_names_the_release_it_is_comparable_from(run_with_segments):
     will compare with one taken before the repair."""
     out = " ".join(segment_report(run_with_segments).split())
     assert "0.9.4" in out, out
+
+
+def test_the_reading_says_its_family_rows_moved_at_377(run_with_segments):
+    """#377 moved what a family row MEANS a second time: a `git` call after a
+    `cd` used to read as `other`. The token column did not move, so the page
+    names the family rows alone and where their release is written down.
+
+    The issue and not the version, because the line is written before the
+    release that carries it, and `tests/test_release_hygiene.py` refuses a
+    loaded file naming a version that has not shipped."""
+    out = " ".join(segment_report(run_with_segments).split())
+    assert (
+        "Family rows, in the run's own reading and in `--spawns`, are comparable "
+        "only with readings taken on a release that carries #377" in out
+    ), out
+    assert "`CHANGELOG.md` names" in out, out
+    assert (
+        "on a line of its own or after a heredoc was charged to `other`, and so "
+        "was a test run after a heredoc. The repeats lines filter by family and "
+        "moved with them." in out
+    ), out
 
 
 def test_the_mode_exits_zero_whether_it_finds_a_segment_or_not(

@@ -70,6 +70,7 @@ import json
 import math
 import os
 import re
+import shlex
 import subprocess
 import sys
 import tempfile
@@ -97,6 +98,20 @@ PROJECTS = os.path.join(HOME, ".claude", "projects")
 # name nobody outside that repository can guess — `bin/check`, `./run-suite` —
 # and that residual is why `report` prints the slowest command it could not
 # name rather than leaving the reader a `test` row that is quietly empty.
+#
+# **`git` is the one family read by command word, and its pattern below is
+# the fallback rather than the rule (#377).** It used to be the one pattern
+# anchored at the start of the line, so `cd /x && git status` -- the shape
+# nearly every worktree session writes -- was charged to `other`: 2,734 calls
+# and 21,147 seconds over the 353 transcripts it was measured on, 2026-09-28,
+# and 3,691 calls and 32,257 seconds once a command's newlines and what follows
+# a heredoc's closing line are read as well. `family`
+# now asks `runs_git`, which reads every command word on the line, and uses
+# the anchored pattern only where the tokeniser refuses the line. The other
+# three stay unanchored on purpose: `uv run --with pytest pytest` and
+# `uvx ruff check .` are #200's shapes, and their command words are `uv` and
+# `uvx`. The order is unchanged, so a line that runs a test and a `git` is
+# still the test's.
 FAMILIES = [
     (
         "test",
@@ -163,30 +178,277 @@ def parse_time(value):
 # A heredoc body is data the command was handed, not a command that ran. The
 # delimiter has to be QUOTED or written in the upper case every convention
 # uses -- `<<EOF`, `<<'PY'`, `<<-"SQL"` -- because a bare `<<` followed by a
-# lowercase word is more often a quoted comparison than a heredoc, and cutting
-# there would charge a real run to `other`, which is the error this whole
-# change exists to remove. A heredoc with a lowercase unquoted delimiter is
-# left classified the way it is today: a smaller error than the one the
+# lowercase word is more often a quoted comparison than a heredoc, and
+# removing text there would charge a real run to `other`, which is the error
+# #200 existed to remove. A heredoc with a lowercase unquoted delimiter is
+# left classified as if it were not one: a smaller error than the one the
 # looser pattern would introduce, and the direction every funnel in this file
 # takes.
+#
+# What is removed is the BODY, up to the first line equal to the delimiter,
+# and not everything after the operator (#377): the command after the closing
+# line ran, and cutting to the end charged a `gh issue create` after a
+# `cat > body.md <<'EOF'` to `other`. A heredoc with no closing line is still
+# cut from the operator to the end, which is every flattened command.
+#
+# Reading the newlines changes what *as if it were not one* costs. A heredoc
+# the pattern does not know -- a lowercase delimiter, or an escaped one
+# (`<<\EOF`) -- now has its body lines read as command lines, so
+# `cat <<eof⏎git push⏎eof` is `git`, where the flattened reading made the
+# body arguments of the first line. And a here-string, `<<< "$x"`, is matched
+# from its second `<` as an operator whose delimiter is `$x`; no later line is
+# that, so the command is cut from there to its end, every later line with
+# it, as it was before #377. Round 1 of #377's review found neither moving a
+# call in 358 transcripts, and the pattern is left as 0.9.4 stated it.
+#
+# Bodies are removed before comments are (`without_comments` runs inside
+# `command_words`), so an operator written inside a comment still cuts:
+# `ls # see <<EOF⏎git push` is `other`, as it was before #377. The other
+# order would let an apostrophe in a heredoc body open a quote that hides
+# every command after it.
 HEREDOC = re.compile(r"""<<-?\s*(?:'[^']*'|"[^"]*"|[A-Z_][A-Z0-9_]*)""")
+
+
+def without_heredoc_bodies(command):
+    """The command with every heredoc body removed, and what follows kept.
+
+    A body runs from the line after its operator to the first line equal to
+    its delimiter, which under `<<-` may carry leading tabs. The rest of the
+    operator's own line is kept, because it runs (`cat > f <<'EOF' && git add
+    f`), and so is everything after the closing line. Two operators on one
+    line have their bodies one after the other, which is the order the
+    search below meets them in. An operator with no closing line is cut from
+    the operator to the end."""
+    start = 0
+    while True:
+        opener = HEREDOC.search(command, start)
+        if not opener:
+            return command
+        operator = opener.group(0)
+        delimiter = re.sub(r"^<<-?\s*", "", operator).strip("'\"")
+        tabs = operator.startswith("<<-")
+        body = command.find("\n", opener.end())
+        closed = None
+        if body != -1:
+            at = body + 1
+            while at <= len(command):
+                end = command.find("\n", at)
+                end = len(command) if end == -1 else end
+                line = command[at:end]
+                if (line.lstrip("\t") if tabs else line) == delimiter:
+                    closed = end
+                    break
+                at = end + 1
+        if closed is None:
+            return command[: opener.start()]
+        command = command[:body] + command[closed:]
+        start = opener.end()
+
+
+# What the tokeniser returns as a token of its own, and which of those put
+# the next word in command position. A redirection does not (`2>&1`, `<<`),
+# and neither does a process substitution's `<(`, which is a substitution.
+PUNCTUATION = ";&|()<>\n"
+REDIRECTION = frozenset("<>")
+SEPARATOR = frozenset(";&|\n(")
+
+# A word in command position that leaves the NEXT word in command position.
+RESERVED = frozenset(
+    ("if", "then", "elif", "else", "do", "while", "until", "!", "{", "time")
+)
+ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
+
+
+# A `#` that begins a word, outside quotes, starts a comment that runs to the
+# end of its line. It is bash's rule and not the tokeniser's, which starts one
+# inside a word and swallows the newline that ends it.
+COMMENT_AFTER = frozenset(" \t\n;&|()")
+
+
+def without_comments(command):
+    """The command with every shell comment removed, its newline kept.
+
+    So `# cd x && git push` loses its `&&` and its `git`, while `a#b`,
+    `${#x}` and `echo '#'` keep their `#`. A comment holding an apostrophe no
+    longer reaches the tokeniser, so it no longer makes the line refused.
+
+    Two more things are done here because this is the one pass that still
+    sees the quoting. A character the shell reads as part of a word because
+    it is quoted or escaped, and that the tokeniser would return as an
+    operator, is replaced by a letter: the tokeniser strips the quotes that
+    would say so, and `echo ';' git x` or a quoted `)` inside `$( … )` would
+    reach `command_words` as a bare operator. And a line continuation, `\\⏎`,
+    is removed, as bash removes it before it reads a word, so the word
+    boundary before it still holds and `cd /x && \\⏎git status` is one line.
+
+    Two bounds, neither worse than the rule before #377: a `)` inside a word
+    starts a word boundary even when it closes a substitution
+    (`echo $(ls)#x` reads `#x` as a comment), and quotes nested inside
+    `"$( … )"` are read as closing the outer ones."""
+    out, quote, at, boundary = [], None, 0, True
+    while at < len(command):
+        char = command[at]
+        if char == "\\" and quote != "'":
+            escaped = command[at + 1 : at + 2]
+            at += 2
+            if escaped == "\n":
+                # `\⏎` is a line continuation, which bash removes before it
+                # reads a word, so the boundary before it still holds.
+                continue
+            # An escaped operator is part of a word, and `shlex` would strip
+            # the backslash and hand the walk a bare `;`.
+            neutral = escaped and escaped in PUNCTUATION
+            out.append("\\" + ("_" if neutral else escaped))
+            boundary = False
+            continue
+        if quote:
+            if char == quote:
+                quote = None
+            elif char in PUNCTUATION:
+                # A quoted operator is part of a word, and `shlex` strips the
+                # quotes that would say so: `echo ';' git x` reached the walk
+                # as a bare `;`, and a quoted `(` inside `$( … )` left the
+                # substitution open to the end of the command.
+                char = "_"
+        elif char in "'\"":
+            quote = char
+        elif char == "#" and boundary:
+            end = command.find("\n", at)
+            at = len(command) if end == -1 else end
+            continue
+        out.append(char)
+        at += 1
+        boundary = quote is None and char in COMMENT_AFTER
+    return "".join(out)
+
+
+def command_words(command):
+    """Each word the shell would run as a command, in order.
+
+    A command word is the first word of the line or the first after `&&`,
+    `||`, `;`, `|`, `&`, a newline, or a `(` that opens a subshell. Leading
+    `NAME=value` assignments and the reserved words in `RESERVED` are skipped
+    over, so `FOO=1 git status` and `do gh issue view $n` both reach the
+    `git`. The line is split by `shlex` in POSIX mode, so a separator or a
+    word inside quotes is not seen: `echo 'a; git b'` has one command word.
+    Comments are removed first, by `without_comments`, so a separator inside
+    one separates nothing.
+
+    No word inside `$( … )`, `$(( … ))`, `<( … )` or `>( … )` is a command
+    word, however many commands the substitution holds, and only what follows
+    the `)` that closes the outermost one reaches the line again. A backtick
+    substitution is tracked only as far as its first word, which is glued to
+    the backtick and so is never `git`: the tokeniser strips the quotes that
+    would tell a backtick token from a quoted one, so a separator inside
+    backticks is read as the line's.
+
+    Raises `ValueError` where the tokeniser does, on an unmatched quote. The
+    words before the error have already been yielded, which is what lets
+    `git log 'x` answer from its first word."""
+    lexer = shlex.shlex(
+        without_comments(command), posix=True, punctuation_chars=PUNCTUATION
+    )
+    # A newline is a separator here, not whitespace. `without_comments` has
+    # already removed every comment, so `#` is an ordinary character to the
+    # tokeniser, whose own comment handling would swallow the newline that
+    # ends a comment and the command on the next line with it.
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    position, previous, nested = True, "", 0
+    for token in lexer:
+        if token and set(token) <= set(PUNCTUATION):
+            # `$( … )`, `$(( … ))`, `<( … )` and `>( … )`: no word inside is
+            # a command word, and only what follows the `)` that closes the
+            # outermost one reaches the line. One operator token can close a
+            # substitution and open a subshell (`);(`), so it is walked a
+            # character at a time rather than counted. The `<` or `>` of a
+            # process substitution stays in what is left, which keeps the
+            # first word inside it out of command position (`a;<(git s)`).
+            opens = token.startswith("(") and previous.endswith("$")
+            left = []
+            for at, char in enumerate(token):
+                if nested:
+                    nested += {"(": 1, ")": -1}.get(char, 0)
+                elif char == "(" and (
+                    (at == 0 and opens) or token[at - 1 : at] in ("<", ">")
+                ):
+                    nested = 1
+                else:
+                    left.append(char)
+            token = "".join(left)
+            chars = set(token)
+            position = not (chars & REDIRECTION) and bool(chars & SEPARATOR)
+        elif position:
+            if token not in RESERVED and not ASSIGNMENT.match(token):
+                yield token
+                position = False
+        previous = token
+
+
+def runs_git(command):
+    """Whether any command word on the line is `git` or `gh`, by basename.
+
+    This is the `git` family's rule, and #377 is why it is not a pattern: the
+    pattern was anchored at the start of the line, so every `git` after a
+    `cd` read as `other`, and un-anchoring it would read `grep -rn git` and
+    `cat .git/config` as runs of it -- #200's *wrong in both directions* from
+    the other side.
+
+    Four bounds, each stated so a reader who meets one knows it is a bound:
+
+    - **A command substitution is not a command position.** No word inside
+      `$( … )`, `<( … )` or `>( … )` is read, however many commands it
+      holds, because the tokeniser cannot see into a double-quoted one, and
+      counting only the unquoted ones would make the family depend on
+      quoting nobody can see in the table. `` `git …` `` is not read either,
+      but a separator inside backticks is, and `command_words` says why.
+    - **A wrapper is not looked through.** `timeout 40 gh issue list`,
+      `env`, `xargs`, `sudo` and the like have their own command word.
+    - **The walk models separators, subshells, reserved words and
+      assignments, and nothing else of the grammar.** A `case` arm's `)`,
+      the `{` after `function f`, and a leading redirection (`>out git
+      status`) do not put the next word in command position, an array
+      assignment's `(` does (`x=(git s)`), and the basename is `git` or `gh`
+      exactly, so `git-lfs` and `git.exe` are not. None of these shapes
+      occurs in the 358 transcripts round 1 of #377's review measured.
+    - **Where the tokeniser refuses the line, the words it read before
+      refusing still count, and a line refused before any of them is judged
+      by the anchored pattern `FAMILIES` still carries for `git`** -- the
+      rule this family had before #377. So `git log 'x` is `git` from its
+      first word, `git'x` from the pattern, and an unmatched quote never
+      answers worse than the old rule did, and never ends a reading."""
+    try:
+        for word in command_words(command):
+            if word.replace("\\", "/").rsplit("/", 1)[-1] in ("git", "gh"):
+                return True
+        return False
+    except ValueError:
+        return bool(dict(FAMILIES)["git"].search(command))
 
 
 def family(command):
     """The family of the command that RAN, with any heredoc body removed.
 
-    `load` flattens a call's whitespace, so a `cat > file <<'EOF' … EOF`
-    writing a document arrives here as one line with the whole document in it,
-    and any runner named inside gets the call. That is the second half of
-    #200's *wrong in both directions*: the family missed every real
-    `./bin/test` run and charged one file write to `test`, in the same
-    reading. Cutting at the heredoc operator answers it for every family at
-    once and needs no list of the words a document might contain."""
-    opener = HEREDOC.search(command)
-    if opener:
-        command = command[: opener.start()]
+    A `cat > file <<'EOF' … EOF` writing a document carries the whole
+    document in its command, and any runner named inside used to get the
+    call. That is the second half of #200's *wrong in both directions*: the
+    family missed every real `./bin/test` run and charged one file write to
+    `test`, in the same reading. Removing the body answers it for every
+    family at once and needs no list of the words a document might contain.
+
+    `analyse` hands this the command as the harness recorded it, newlines
+    kept (#377), so a command on a line of its own and one after a heredoc's
+    closing line are both read; `without_heredoc_bodies` says what is
+    removed. A flattened command has no closing line, so its heredoc is cut
+    from the operator to the end, as before.
+
+    `git` is judged by `runs_git`, by command word, and the other three by
+    their patterns anywhere on what is left. The order is `FAMILIES`', first
+    match wins."""
+    command = without_heredoc_bodies(command)
     for name, pattern in FAMILIES:
-        if pattern.search(command):
+        if runs_git(command) if name == "git" else pattern.search(command):
             return name
     return "other"
 
@@ -397,14 +659,17 @@ def load(path):
                     if not isinstance(payload, dict):
                         payload = {}
                     text = payload.get("command", "")
-                    if not isinstance(text, str) or not text:
+                    ran = text if isinstance(text, str) and text else None
+                    if ran is None:
                         text = json.dumps(payload, ensure_ascii=False)
+                    flat = " ".join(text.split())
                     pending[call_id] = (
                         stamp,
                         tool_name(block.get("name")),
-                        " ".join(text.split()),
+                        flat,
                         turn_key,
                         spawn_labels(payload),
+                        flat if ran is None else ran,
                     )
                 elif block.get("type") == "tool_result":
                     result_id = block.get("tool_use_id")
@@ -414,7 +679,7 @@ def load(path):
                         else None
                     )
                     if started:
-                        began, tool, text, turn, spawn = started
+                        began, tool, text, turn, spawn, ran = started
                         start, end = parse_time(began), parse_time(stamp)
                         if start and end:
                             calls.append(
@@ -423,6 +688,14 @@ def load(path):
                                     "end": end,
                                     "tool": tool,
                                     "command": text,
+                                    # The command as the harness recorded it,
+                                    # newlines kept, and what `family` reads
+                                    # (#377): flattening joins a line to the
+                                    # one before it and a heredoc's closing
+                                    # line to its body. Every PRINTED command
+                                    # reads `command`. A call with no command
+                                    # string holds the same flattened dump.
+                                    "ran": ran,
                                     "turn": turn,
                                     # Empty for every call that delegated
                                     # nothing, which is almost all of them.
@@ -483,13 +756,24 @@ def analyse(calls, turns, delegated=()):
     nothing on the page saying so — which is what #200 and #202 were, and
     what `plan.md`'s *no existing output changes shape* is protecting.
 
-    **`span_s` is the one exception and it is a measured one, not a licence.**
-    Its rule moved at #300, from the end of the last call to BEGIN to the end
-    of the last call to END, because the old one could return a window
-    shorter than a single call inside it. The comment at the arithmetic
-    carries the measurement that says no published figure moves;
-    `skills/verify/SKILL.md` carries it where a person taking a reading meets
-    it. Every other number here is untouched, `command_s` and `model_s`
+    **Two rules moved after readings were published, each a measured change
+    and neither a licence.** `span_s`'s moved at #300, from the end of the
+    last call to BEGIN to the end of the last call to END, because the old
+    one could return a window shorter than a single call inside it. The
+    comment at the arithmetic carries the measurement that says no published
+    figure moves.
+
+    The family split moved at #377: `family` reads `git` by
+    command word rather than at the start of the line, and reads the command
+    as the harness recorded it, with a heredoc's body removed rather than
+    everything after its operator. So a `git` call after a `cd`, on a line of
+    its own, or after a heredoc's closing line stopped reading as `other`,
+    and so did a test run after a closing line. That one DOES move published
+    figures -- `by_family`, `unnamed`, and the two repeats figures, which
+    keep only `test`, `lint/type` and `build` -- and `report_segments` says
+    so on the page. Both changes are carried
+    in `skills/verify/SKILL.md`, where a person taking a reading meets them.
+    Every other number here is untouched, `command_s` and `model_s`
     included.
 
     So `delegated_s` is 0.0 for the whole-run call, and it means exactly
@@ -551,7 +835,7 @@ def analyse(calls, turns, delegated=()):
     by_family = defaultdict(lambda: [0, 0.0])
     unnamed = defaultdict(float)
     for call in calls:
-        key = family(call["command"]) if call["tool"] == "Bash" else call["tool"]
+        key = family(call["ran"]) if call["tool"] == "Bash" else call["tool"]
         seconds = (call["end"] - call["start"]).total_seconds()
         by_family[key][0] += 1
         by_family[key][1] += seconds
@@ -570,7 +854,7 @@ def analyse(calls, turns, delegated=()):
             # rather than everywhere, because the whole-run reading passes no
             # `delegated` and must go on printing what it printed before.
             continue
-        if family(call["command"]) not in ("test", "lint/type", "build"):
+        if family(call["ran"]) not in ("test", "lint/type", "build"):
             continue
         exact[call["command"]].append(seconds)
         stripped[strip_pipe(call["command"])].append(seconds)
@@ -1980,6 +2264,28 @@ def report_segments(segments, path):
         "taken before it:\n  #200 charged this repository's own test runner to "
         "`other`, and #202 counted a\n  streamed message at its first partial "
         "row. Both are repaired in the numbers\n  above."
+    )
+    # #377 moved the family split a second time: a `git` call after a `cd`,
+    # on a line of its own or after a heredoc read as `other`, and so did a
+    # test run after a heredoc. The repeats lines filter by family and moved
+    # with it; nothing else did. This page prints neither of its own, but it
+    # is the page a run's readings are compared from, so the line names the
+    # rows it is about -- the `by family` block and the repeats lines of the
+    # run's own reading and of `--spawns` -- and the token column keeps the
+    # 0.9.4 line above.
+    #
+    # It names the issue and not the release, because a loaded file may not
+    # name a version that has not shipped (`tests/test_release_hygiene.py`,
+    # the timer check), and this line is written before the release that
+    # carries it. `CHANGELOG.md` is where #377 is mapped to its version: the
+    # work item's fragment is gathered into that release's section.
+    print(
+        "\n  Family rows, in the run's own reading and in `--spawns`, are "
+        "comparable only\n  with readings taken on a release that carries "
+        "#377, which `CHANGELOG.md` names:\n  before it, a `git` or `gh` call "
+        "after a `cd`, on a line of its own or after\n  a heredoc was charged "
+        "to `other`, and so was a test run after a heredoc. The\n  repeats "
+        "lines filter by family and moved with them."
     )
 
 
