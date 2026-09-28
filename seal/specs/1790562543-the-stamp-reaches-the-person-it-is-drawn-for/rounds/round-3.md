@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #650 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `a857c7913d28f01c5d1569ac17c95711b536ba10..eb331e57d77ab93d1ceeb96d51cdbd09e4f82e18`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 3 of work item 1790562543 (#400), the verifying round and the run's last: 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | The narrowing splice left `nothing` alone on a line in the orchestrator's paragraph and a 92-column line in the hook's docstring | `skills/code-review/orchestration.md:554`, `hooks/sealer-stamp.py:43` | open | read; ruff check and format --check exit 0 on the hook, executed; the wrap check measures width only; deferral candidate, see Deferred |
-| ⬜ 2 | Correction: three work-item files keep a line past 88 columns from the same splice | `seal/specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for/changelog.md:14`, `seal/specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for/overview.md:39`, `seal/specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for/survivors.md:6` | open | read; paperwork, outside Needs a fix; deferral candidate, see Deferred |
+| ⬜ 1 | The narrowing splice left `nothing` alone on a line in the orchestrator's paragraph and a 92-column line in the hook's docstring | `skills/code-review/orchestration.md:554`, `hooks/sealer-stamp.py:43` | answered | whitespace only, re-wrapped at eb331e57: each changed file's normalized word stream equals its parent's (compared by the orchestrator, exit 0), so there is no content for a round to read. The run's reopening was spent at round 2; read; ruff check and format --check exit 0 on the hook, executed; the wrap check measures width only; deferral candidate, see Deferred |
+| ⬜ 2 | Correction: three work-item files keep a line past 88 columns from the same splice | `seal/specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for/changelog.md:14`, `seal/specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for/overview.md:39`, `seal/specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for/survivors.md:6` | answered | a correction to records under seal/specs/, re-wrapped at eb331e57, whitespace only by the same comparison; read; paperwork, outside Needs a fix; deferral candidate, see Deferred |
 | 🟢 | round 2's note 1 is closed — the recovery is scoped to the lines that name a values file, in every copy | `docs/the-broad-gate.md:136`, `agents/sealer.md:159`, `skills/code-review/orchestration.md:553`, `hooks/sealer-stamp.py:42`, `skills/verify/scripts/broad_gate.py:2417` | confirmed | read, and the tree grepped for the old scope; probe M4 executed: the old sentence restored, the policy case red |
 | 🟢 | round 2's note 2 is closed — the README side-effects limb can fail on its own in both editions | `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py:500` | confirmed | probes M1 and M2 executed: each clause deleted with its count kept, the case red |
 | 🟢 | round 2's note 3 is closed — the common line's quoting is asserted on a path holding a space | `tests/test_the_seal_is_taken_once_by_the_sealer.py:2319` | confirmed | probe M3 executed: `command=path`, the case red; the class's other member already spaced |
