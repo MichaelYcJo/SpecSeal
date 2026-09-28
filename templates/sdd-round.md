@@ -295,9 +295,10 @@ never the boilerplate `agent-contract` and `agents/warden.md` already carry:
 what this round was told to attack, in what order, and which facts arrived
 as coordinates vs. which were left to verify>
 
-<!-- #81: round 1 of the work item that issue measured was the cheapest
-round measured — 7.6 minutes, 29 tool calls, one 🔴 and four 🟡 — because
-its spawn prompt named eight specific things to try to break, in order.
+<!-- #81: round 1 of that work item found five defects in 7.6 minutes and
+29 tool calls — one 🔴 and four 🟡, where #82's six rounds averaged three
+times the calls for fewer (#89 measured both) — because its spawn prompt
+named eight specific things to try to break, in order.
 That fact is recoverable today only from a transcript; this section is its
 durable, committed home instead. -->
 

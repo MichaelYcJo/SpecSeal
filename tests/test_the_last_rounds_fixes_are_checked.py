@@ -1032,7 +1032,10 @@ WHAT_IT_TARGETS = {
     ),
     ("skills", "code-review", "orchestration.md"): (
         "| Target | the **diff of those fixes**, not the branch. That is what "
-        "keeps it bounded: it is the cheapest round of the run |"
+        "keeps it bounded, and bounded is not cheap: its cost is set by the "
+        "frame, the inherited records and the probes, so it runs close to a "
+        "finding round. `docs/review-chain-spec.md` §*The last round "
+        "verifies* holds the measurement |"
     ),
     ("agents", "warden.md"): (
         "its target is the diff of those fixes rather than the branch"
@@ -1085,8 +1088,9 @@ def test_the_verifying_round_is_spawned_after_the_fixes(parts):
 def test_the_verifying_rounds_target_is_the_previous_rounds_fixes(parts):
     """Which is what makes it bounded, and the reason it is not option C of
     issue #33: the surface is a diff rather than a branch. Widened back to the
-    branch it is an ordinary round, and the run gains a full walk it was
-    promised it would not pay for."""
+    branch it is an ordinary round, re-reviewing what the earlier rounds
+    already reviewed instead of answering whether each closed verdict is
+    actually closed."""
     text = flat(*parts)
     assert WHAT_IT_TARGETS[parts] in text, "/".join(parts)
     absent = review_chain_text(ROOT) if parts in REVIEW_CHAIN_DOCS else text

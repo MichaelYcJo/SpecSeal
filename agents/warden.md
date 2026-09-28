@@ -119,9 +119,10 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   whether it is actually closed.
 
   Recognise it from the prompt, which hands you a fix diff instead of a
-  branch, and stay inside it. That surface is the whole reason the round is
-  affordable, and widening it back to the branch is the shape of round this
-  one exists to be cheaper than.
+  branch, and stay inside it. The reason is the round's job, not its price:
+  it answers whether each closed verdict is actually closed, and widened
+  back to the branch it re-reviews what the earlier rounds already reviewed
+  and becomes another finding round.
 
   Opening something anyway is allowed and is the point — the one round that
   ever looked at another round's fixes found seven defects in them. Report it
