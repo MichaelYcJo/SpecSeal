@@ -23,7 +23,9 @@ Usage:
   session_cost.py <transcript.jsonl>     one transcript
   session_cost.py --latest [DIR]         newest transcript for a repo (default: cwd)
   session_cost.py --spawns <transcript>  one row per spawn cycle, not one per run
-  session_cost.py --segments <transcript>  one row per segment this run spawned
+  session_cost.py --segments <transcript>  one row per segment this run spawned,
+                                         or per stretch of work in a resumed
+                                         agent's own transcript
   session_cost.py --json <transcript>    the same numbers, machine-readable
   session_cost.py --segments <t> --post --says <path|->
                                          post that reading, and what it says,
@@ -56,7 +58,9 @@ opens it.
 **A spawn cycle is not a segment**, which is the one thing to keep straight
 between the two modes. `--spawns` slices THIS transcript into bands over the
 orchestrator's own minutes; `--segments` opens the OTHER transcripts, one row
-per agent this run spawned. `skills/verify/SKILL.md` §*Measure the segment*
+per agent this run spawned, and given a resumed agent's own transcript it
+reads that one file, one row per stretch of work (#637) — each row one
+agent's own stretch either way. `skills/verify/SKILL.md` §*Measure the segment*
 owns that distinction and `tests/test_one_word_one_meaning.py` holds it.
 """
 
@@ -1437,7 +1441,9 @@ def segment_slices(transcript, labels):
 
 def measure_segments(path, calls):
     """One row per spawned segment of this run, read from that segment's own
-    transcript rather than from the parent's columns.
+    transcript rather than from the parent's columns — or, where `path` is a
+    resumed agent's own transcript with nothing beside it, one row per
+    stretch of work in that file (#637, the branch at the end).
 
     **This is the number that is in no other column.** A cycle row's
     `delegated` is the `Agent` call's own tool_use-to-tool_result interval,
@@ -1458,7 +1464,8 @@ def measure_segments(path, calls):
 
     A row's numbers come from `analyse` with no `delegated`, which is the
     PLAIN reading — exactly what a person running this script against that
-    one transcript gets today. That is the point: the mode replaces the hand
+    one transcript gets today, taken over one slice's calls and turns where
+    the coordinator restarted it. That is the point: the mode replaces the hand
     method named in `skills/verify/SKILL.md`, so a row has to be the same
     number that method produced, not a second meter with its own rules.
 
@@ -1502,7 +1509,7 @@ def measure_segments(path, calls):
                 "transcript": os.path.relpath(transcript, beside),
             },
         )
-    return {
+    reading = {
         "tolerance_s": JOIN_TOLERANCE_S,
         "transcripts": len(found),
         "spawns": len(spawns),
@@ -1521,6 +1528,37 @@ def measure_segments(path, calls):
         "unclaimed": unclaimed,
         "rows": rows,
     }
+    # The agent's OWN file (#637). A harness writes every agent's transcript
+    # into its session's flat `subagents/` directory, so a file given here
+    # with nothing beside it is either a lone segment or an agent's own
+    # transcript -- and the path the orchestrator holds is the second, because
+    # that is the path the harness's task output names. Where the coordinator
+    # restarted it, the file is several stretches of work and `segment_slices`
+    # already cuts it; this is the call nothing made for the given file.
+    #
+    # **The trigger is the marker, never the directory.** A marker-less file
+    # keeps the empty branch byte for byte wherever it sits, and a resumed
+    # file copied out of `subagents/` is still cut. The file is read for
+    # markers only when nothing is beside it, so a run's own transcript pays
+    # nothing for this.
+    #
+    # `unnamed` stays 0 and is computed above, before this: it counts WALKED
+    # transcripts, and the given file is not one. Counted here, the §6
+    # reconciliation would print a disagreement for an agent that spawned
+    # nothing. `own_file` is present in this case alone, so every other
+    # reading's dict is what it was.
+    if not found and resume_cuts(path):
+        reading["rows"] = segment_slices(
+            path,
+            {
+                "agent": "",
+                "description": "",
+                "named": False,
+                "transcript": os.path.basename(path),
+            },
+        )
+        reading["own_file"] = True
+    return reading
 
 
 def token_totals(paths):
@@ -2095,6 +2133,12 @@ def report_breaches(segments):
             "segment and still worth\n  seeing, but which rule it answers to "
             "is for that agent's own definition\n  to say."
         )
+    # An agent's own file (#637) was read with no parent in view, so there is
+    # no second count to hold this one against: `unnamed` is 0 by
+    # construction, and printing the pair would call every spawn in the file
+    # a disagreement and send a reader after a child transcript nobody lost.
+    if segments.get("own_file"):
+        return
     print(
         f"\n  {plural(calls, '`Agent` call')} inside a segment, against "
         f"{plural(unnamed, 'segment')} the parent\n  could not name"
@@ -2114,7 +2158,13 @@ def report_breaches(segments):
 
 
 def report_segments(segments, path):
-    """One row per spawned segment, or the count and no table.
+    """One row per spawned segment, one row per stretch of work in a resumed
+    agent's own file, or the count and no table.
+
+    **The second shape is an agent's own transcript given on its own**
+    (#637): `measure_segments` sets `own_file`, nothing was walked or joined,
+    and the header says so in place of the join counts, which would be three
+    zeroes about a join nobody attempted.
 
     **This is the reading the hand method produced one transcript at a
     time.** `skills/verify/SKILL.md` §*Measure the segment* put a
@@ -2126,7 +2176,8 @@ def report_segments(segments, path):
     **A segment is one agent's own stretch of a chain, and a spawn cycle is
     not one.** `--spawns` slices THIS transcript into bands over the
     orchestrator's own minutes; this opens the OTHER transcripts, one row
-    each. The two modes answer different questions and sit beside each other.
+    each, or reads the one agent's file it was given a stretch at a time. The
+    two modes answer different questions and sit beside each other.
 
     The refusal is `report_spawns`' and it is here for the same reason: a
     harness that moves `<session-id>/subagents/`, or stops opening a segment
@@ -2154,18 +2205,34 @@ def report_segments(segments, path):
             "stops opening a segment at its spawn's result."
         )
         return
+    if segments.get("own_file"):
+        # An agent's own file (#637): nothing was walked and nothing joined,
+        # so the join counts above the table would be three zeroes about a
+        # join nobody attempted. The header says what the rows are instead.
+        print(
+            f"{path}: an agent's own transcript, cut at "
+            f"{plural(len(resume_cuts(path)), 'coordinator message')} into "
+            f"{plural(len(rows), 'slice')}"
+        )
+        agent = (
+            "this file's name. No spawn was joined: the transcript that\n"
+            "              spawned this agent is not the one given, so nothing "
+            "here can\n              name it. Given the run's own transcript, "
+            "the same slices\n              carry its name"
+        )
+    else:
+        print(
+            f"{plural(segments['transcripts'], 'segment transcript')} beside "
+            f"this one, {plural(segments['spawns'], 'spawn')} in it, joined "
+            f"within {segments['tolerance_s']:.1f}s"
+        )
+        print(
+            f"  {plural(segments['unnamed'], 'segment')} named by nobody, and "
+            f"{plural(segments['unclaimed'], 'spawn')} that claimed none"
+        )
+        agent = "the `subagent_type` of the spawn whose result this segment opened at"
     print(
-        f"{plural(segments['transcripts'], 'segment transcript')} beside this "
-        f"one, {plural(segments['spawns'], 'spawn')} in it, joined within "
-        f"{segments['tolerance_s']:.1f}s"
-    )
-    print(
-        f"  {plural(segments['unnamed'], 'segment')} named by nobody, and "
-        f"{plural(segments['unclaimed'], 'spawn')} that claimed none"
-    )
-    print(
-        "\n  agent       the `subagent_type` of the spawn whose result this "
-        "segment opened at\n  span        this segment's OWN wall clock — the "
+        f"\n  agent       {agent}\n  span        this segment's OWN wall clock — the "
         "number in no column of any\n              `--spawns` row, because "
         "that mode's `delegated` is the interval\n              until the spawn "
         "was ACCEPTED\n  tokens      output + cache write + cache read, over "
@@ -2525,7 +2592,9 @@ def emit(args, render, path=None):
     line never enters the buffer. `report_segments` and `report_spawns` print
     the path themselves, on the empty branch that fires whenever the named
     transcript has no subagents beside it — which is every segment measured on
-    its own, the case the documented invocation is for. This is that same rule
+    its own that the coordinator never restarted, the case the documented
+    invocation is for — and `report_segments` prints it again as the header of
+    a resumed agent's own file (#637). This is that same rule
     at the seam all three reports pass through: the captured body carries the
     basename, the printed report is untouched.
 
@@ -2536,8 +2605,8 @@ def emit(args, render, path=None):
     ONE path the reading was taken over. A future report line printing some
     other absolute path would not be covered, and today none does — a segment
     row's transcript is stored by `measure_segments` as `os.path.relpath`
-    against the file it was measured beside, so every row label is already
-    relative.
+    against the file it was measured beside, or as its basename where it is
+    the agent's own file, so every row label is already relative.
     """
     if not args.post:
         render()
@@ -2643,7 +2712,8 @@ def main():
             ),
             path,
         )
-    # The other transcripts of this run, one row each. Gated the way `spawns`
+    # The other transcripts of this run, one row each -- or a resumed agent's
+    # own file, one row per stretch of work (#637). Gated the way `spawns`
     # is — behind its own flag, and in `--json` regardless, so a
     # machine-readable reading is never missing it.
     #
