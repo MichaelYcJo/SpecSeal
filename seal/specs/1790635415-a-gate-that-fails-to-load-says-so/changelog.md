@@ -7,9 +7,10 @@
   `<git-common-dir>/specseal-gate-failure/<session>/`, keyed by gate, in an
   opted-in repository. The `stop` group says every pending record once, at
   the end of the main session's turn, as a `systemMessage`. Its first line
-  counts the gates, and each gate gets a line naming the group, whether it
-  failed to load or while running, and the exception's class and first
-  line. It goes before the sealer's stamp when both arrive, so the stamp
+  counts the gates, and each gate gets a line naming whether it failed to
+  load or while running, where, and the exception's class and first line. A
+  gate that failed to load is named in every group that loads it, so a
+  broken worktree guard reads as `pre-bash` and `pre-agent` both. It goes before the sealer's stamp when both arrive, so the stamp
   stays last. A subagent's failure is said at the main session's turn end.
   A broken `optin.py` is reported rather than read as "not opted in". A
   failure the dispatcher cannot write down, in a git directory it cannot

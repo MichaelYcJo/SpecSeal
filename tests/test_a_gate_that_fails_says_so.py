@@ -356,6 +356,19 @@ def test_a_gate_that_fails_to_load_names_every_group_that_loads_it(repo, tmp_pat
         "commit-review-gate.py failed to load in pre-bash ("
     ), by_gate
 
+    # A failure while running depends on the payload, so the same two-group
+    # gate failing in `main()` names only the group it was seen in.
+    directory = repo / ".git" / RECORDS / "s-y"
+    directory.mkdir(parents=True)
+    (directory / "worktree-guard.py.pending").write_text(
+        json.dumps({"group": "pre-agent", "phase": "run", "error": "E"}),
+        encoding="utf-8",
+    )
+    assert said(stop(hooks, repo, "s-y"))[1] == (
+        "worktree-guard.py failed while running in pre-agent (E); calls went "
+        "ahead without it, and the other gates in pre-agent still decided."
+    )
+
 
 def test_a_broken_opt_in_module_is_said_rather_than_read_as_not_opted_in(
     repo, tmp_path
