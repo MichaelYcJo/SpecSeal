@@ -259,7 +259,9 @@ def fence_opener(line):
     which `#demote`, `#version_headings`, `#section_heading` and `#insert`
     read through, and `#live_markers` through `live_lines`; and
     `.github/scripts/gather_changelog.py#live_markers` through `live_lines`,
-    which `#ungathered` and `--check`'s count read through.
+    which `#ungathered` and `--check`'s count read through; and
+    `.github/scripts/rider_check.py#fenced_lines` through `fence_spans`,
+    which `#comment_blocks` asks for a markdown file.
     `skills/code-review/scripts/round_record.py#fenced_after` applies the
     closer rule and the backtick-info rule by its own pattern and keeps a
     wider opener on purpose, so a fix fenced inside a list item still

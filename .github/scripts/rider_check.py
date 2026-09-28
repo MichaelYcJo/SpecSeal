@@ -124,6 +124,11 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CHECKER = os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py")
+# The fence rule a markdown rider is read by (#584): `fence_spans`, over
+# `fence_opener` and `fence_closes`. Loaded by path rather than through the
+# checker's own `fence_rule`, so this script does not couple to a function of
+# the checker that another work item may be editing.
+READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
 
 # Where a rider may live. Every root that holds something this repository
 # executes or ships, and none that holds prose ABOUT riders -- `docs/`,
@@ -183,6 +188,41 @@ def load_checker(path=CHECKER):
     return module
 
 
+def load_reader(path=READER):
+    """`unverified_check` as a module, or a sentence and exit 2 — the shape
+    `load_checker` has, for the same reason."""
+    if not os.path.isfile(path):
+        sys.stderr.write(
+            f"rider_check: cannot find the fence rule at {path}. It is the "
+            "shipped `unverified_check.py`, which says which markdown lines "
+            "stand inside a fenced block; restore it\n"
+        )
+        raise SystemExit(2)
+    spec = importlib.util.spec_from_file_location("specseal_unverified_reader", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+_reader = None
+
+
+def fenced_lines(lines):
+    """0-based indices of `lines` inside a fenced block, delimiters included,
+    a block that never closes running to the end (#584).
+
+    The reader is loaded at the first markdown file that carries the marker,
+    so a run over a tree with none never needs it."""
+    global _reader
+    if _reader is None:
+        _reader = load_reader()
+    return {
+        n
+        for first, last in _reader.fence_spans(lines)
+        for n in range(first, len(lines) if last is None else last + 1)
+    }
+
+
 def comment_blocks(lines, rel=None):
     """[(start, end)] 1-based inclusive for every rider block in `lines`.
 
@@ -218,6 +258,17 @@ def comment_blocks(lines, rel=None):
     what a block is the moment one of them learns about markdown: the reader
     returns no rider for a heading and the hasher still cuts that line out of
     the region it hashes.
+
+    **In markdown, a line inside a fenced block opens no rider and changes no
+    comment state** (#584). A fenced example that quotes a rider is text
+    about the convention, and reading it made a rider with no stamp — BROKEN
+    at exit 2 for a line nobody wrote as one. The fence is
+    `unverified_check.py#fence_spans`'s, and a block that never closes runs
+    to the end: a rider written below a fence somebody forgot to close is not
+    read, which loses an alarm rather than inventing one. Only `.md` files
+    are asked, because the rule is markdown's and a `.py` file holding a line
+    of backticks is not fenced by it. A block already open runs to its
+    closing marker regardless, because inside a comment nothing is markdown.
     """
     out = []
     i, n = 0, len(lines)
@@ -232,8 +283,12 @@ def comment_blocks(lines, rel=None):
     # at a second marker rather than at `-->`. The marker line that opens the
     # next block is then inside a comment and carries no opener of its own.
     in_html = False
+    fenced = set() if hash_opens_a_comment else fenced_lines(lines)
     while i < n:
         line = lines[i]
+        if i in fenced:
+            i += 1
+            continue
         if MARKER not in line:
             in_html = in_html and "-->" not in line
             i += 1

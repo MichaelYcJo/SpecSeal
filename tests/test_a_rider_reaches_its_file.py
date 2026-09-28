@@ -486,6 +486,61 @@ def test_the_hasher_reads_a_markdown_heading_the_same_way_the_reader_does():
     )
 
 
+def test_a_rider_quoted_in_a_markdown_fence_is_not_a_rider(tmp_path, capsys):
+    """#584, S8. `comment_blocks` kept an HTML comment walk with no fence
+    state, so a `.md` file quoting a rider inside a fenced example carried a
+    rider with no stamp — BROKEN at exit 2, for a line nobody wrote as one.
+    A line inside a fenced block, an unclosed one to the end, opens no rider
+    and changes no comment state; the fence is `unverified_check.py`'s
+    rule. A rider after a fence that closes is still read."""
+    d = tmp_path / "skills" / "x"
+    d.mkdir(parents=True)
+    src = f"# X\n\nA rider looks like:\n\n```\n{HTML_MARK} the claim -->\n```\n"
+    (d / "SKILL.md").write_text(src, encoding="utf-8")
+    ok, drifted, problems = riders.check(str(tmp_path), checker=CHECKER)
+    assert (ok, drifted, problems) == (0, 0, []), problems
+    assert riders.main(["--root", str(tmp_path)]) == 0
+    assert "0 ok · 0 drifted · 0 broken" in capsys.readouterr().out
+
+    lines = (
+        f"````\n```\n{HTML_MARK} quoted -->\n```\n````\n\n"
+        f"{HTML_MARK} real\n     Verified 2026-01-01 against x@00000000 -->\n"
+    ).splitlines()
+    assert riders.comment_blocks(lines, "a.md") == [(7, 8)]
+    unclosed = f"```\n{HTML_MARK} below a fence left open -->\n".splitlines()
+    assert riders.comment_blocks(unclosed, "a.md") == []
+    # a rider block already open runs to its own `-->`: inside a comment
+    # nothing is markdown, so a fence there ends nothing
+    inside = (
+        f"{HTML_MARK} claim\n```\nexample\n```\n"
+        "     Verified 2026-01-01 against x@00000000 -->\n"
+    ).splitlines()
+    assert riders.comment_blocks(inside, "a.md") == [(1, 5)]
+
+
+def test_a_python_rider_after_a_line_of_backticks_is_still_read():
+    """#584, S9. The fence rule is markdown's, and a `.py` file holding a
+    line of three backticks — in a string, a docstring's example — is not
+    fenced by it. Passes before and after: it pins the rule's scope."""
+    src = f'X = """\n```\n"""\n\n\ndef u():\n    {MARK} claim\n    # stamp\n'
+    assert riders.comment_blocks(src.splitlines(), "hooks/m.py") == [(7, 8)]
+
+
+def test_a_missing_fence_reader_is_a_sentence_and_exit_2(tmp_path, capsys):
+    """#584. The fence rule is loaded by path the way `load_checker` loads
+    the anchor resolver, and a missing file is a sentence naming it rather
+    than the `FileNotFoundError` `spec_from_file_location` hands back."""
+    missing = str(tmp_path / "unverified_check.py")
+    try:
+        riders.load_reader(missing)
+    except SystemExit as stop:
+        assert stop.code == 2
+    else:
+        raise AssertionError("a missing reader did not stop the run")
+    err = capsys.readouterr().err
+    assert f"cannot find the fence rule at {missing}" in err, err
+
+
 def stamped_module(tmp_path, digest=None, date="2026-01-01"):
     """A rider file under `hooks/`, stamped with its own true hash by default."""
     d = tmp_path / "hooks"
