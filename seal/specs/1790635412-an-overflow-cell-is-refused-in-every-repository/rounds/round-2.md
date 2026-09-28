@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #659 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `b5a41796c072d686c94f55b6db80efd60f39bea2..b934c84758ae06e26af647ee2fe18a7ee512f537`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1, the new `gfm_lines` docstring gives a false reason for leaving the hash side on `splitlines` |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 2, verifying, over round 1's fix diff `6bf504c3..0659e395` at HEAD `853600
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The new `gfm_lines` docstring says the hash side's line ends are "a separate question" from GFM's; for a `.py` anchor `ast` numbers lines where GFM does, so a form feed above a unit shifts the hashed region and an edit to the unit's last line passes as OK | `skills/evidence-check/scripts/evidence_check.py:278` | open | Executed at `853600fa`: unit at lines 3 to 5, region hashed was lines 2 to 4, check said `1 ok` after the edit. The line the fix drew is right for this branch; the reason given for it is not |
-| ⬜ 2 | `round-1.md` still defers the `unquoted` fence item to work item B and the `old_format_rows` item to this branch's fix pass, both fixed in `17e8f667`; its 🟡 1 grounds say the hash-side change "moves every hash" | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/rounds/round-1.md` | open | Read against the fix diff; a correction to the run's paperwork, not counted in Needs a fix |
-| ⬜ 3 | `round-1.md`'s fenced case has a line break where the report has U+2028, so the record's case does not parse | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/rounds/round-1.md` | open | Executed: one U+2028 in the report, none in the record, a `"\n"` in its place. A correction to the run's paperwork; the tool cause is deferred |
+| 🟡 1 | The new `gfm_lines` docstring says the hash side's line ends are "a separate question" from GFM's; for a `.py` anchor `ast` numbers lines where GFM does, so a form feed above a unit shifts the hashed region and an edit to the unit's last line passes as OK | `skills/evidence-check/scripts/evidence_check.py:278` | **fixed** `b934c847` | fixed at b934c847 — the docstring says the hash side still splits with `splitlines` here, that this is a known defect, and that #664 fixes it; Executed at `853600fa`: unit at lines 3 to 5, region hashed was lines 2 to 4, check said `1 ok` after the edit. The line the fix drew is right for this branch; the reason given for it is not |
+| ⬜ 2 | `round-1.md` still defers the `unquoted` fence item to work item B and the `old_format_rows` item to this branch's fix pass, both fixed in `17e8f667`; its 🟡 1 grounds say the hash-side change "moves every hash" | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/rounds/round-1.md` | answered | a record correction, made by the orchestrator in `b5a41796` before the fix pass: round-1.md's two deferrals now say fixed at `17e8f667`, and the false reason is replaced by #664; Read against the fix diff; a correction to the run's paperwork, not counted in Needs a fix |
+| ⬜ 3 | `round-1.md`'s fenced case has a line break where the report has U+2028, so the record's case does not parse | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/rounds/round-1.md` | answered | a record correction in `b5a41796`: round-1.md's case carries U+2028 as the `\u2028` escape; Executed: one U+2028 in the report, none in the record, a `"\n"` in its place. A correction to the run's paperwork; the tool cause is deferred |
 | 🟢 | round 1's blocking finding is closed — the five walks split where GFM does, and each has a case that goes red when it alone is reverted | `skills/evidence-check/scripts/evidence_check.py:274` | confirmed | Executed: module 38 passed; 15 instances red against `6bf504c3`; five single-walk reverts each red on their own case; `gfm_lines` equals `splitlines` on 20,000 strings without the eight characters |
 | 🟢 | round 1's ⬜ 2 is answered on grounds that hold | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/spec.md:198` | confirmed | Read: A7 holds `MALFORMED` unchanged, which the proposed skip would break |
 | 🟢 | round 1's ⬜ 3 is answered on grounds that hold | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/spec.md:161` | confirmed | Read: the walk reads the shared `split_row`, the rule the reset comes from |
