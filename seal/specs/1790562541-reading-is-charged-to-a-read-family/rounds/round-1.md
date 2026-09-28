@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #651 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `7be42f52864863dfa60beaefd9bf819bb3a53a0e..72ca4827ae1571c1fb465c4d2e44ed02a3250a24`, 4 commits |
 | Contract changes | none |
 | New units | SEPARATOR_THEN_REDIRECTION (depth 1) |
