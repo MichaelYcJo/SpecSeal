@@ -255,9 +255,11 @@ the objection and the bound refuses to speak for the call, so the user's own
 permission settings decide it. Without consent the same words split two ways.
 One that `cmdline.parse_git` reads as a git invocation — a path, a wrapper it
 reads past, a leading assignment — is a creation and meets the ladder above
-like any other. One it does not read as git — an expansion, a different case,
-a trailing slash, a wrapper it does not read past such as `nice` — is not a git
-invocation to this guard, and it says nothing. What the class costs is the
+like any other. One it does not read as git — an expansion the lexer leaves
+unexpanded (`$GIT`, `gi*`, a command substitution), a different case, a
+trailing slash, a wrapper it does not read past such as `nice` — is not a git
+invocation to this guard, and it says nothing. `~/git` and `*/git` are paths
+once expanded, and belong to the first group. What the class costs is the
 allow on `/usr/bin/git worktree add …`, which is the trade already made for `$`
 and `>`: a wrong silence leaves the call to the user's own settings, a wrong
 allow signs for a binary nobody identified. The case
@@ -525,7 +527,9 @@ in an environment is no longer a cost, it is an outage.
 
 ### Which tree, when the command walks to it
 
-The tree judged is the one the command acts on. `git -C <path>` names it
+The tree judged is the one the command acts on, by every row of §A — the
+tracked-changes row included, which until round 1 of work item 1790550712 read
+the session's own directory instead. `git -C <path>` names it
 outright, and a `cd` earlier in the command moves the shell to it — this guard
 is the reason a session is in that shape at all, since it refuses a switch and
 tells the user to work in a separate worktree, so the session stays where it

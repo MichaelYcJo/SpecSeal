@@ -2316,11 +2316,17 @@ def main():
     # detection-unusable under `[shared-tree-ok]`, where the choice rows above
     # stood aside because the token carried the user's answer. The lead says
     # which of the two made the switch allowable, and nothing else moves (#624).
-    entries = tracked_changes(cwd)
+    #
+    # Read from the tree the switch acts on, the one every row above judged,
+    # not from where the shell started: `git -C <repo> switch x` or `cd <repo>
+    # && git switch x` from elsewhere carries <repo>'s changes, not the session
+    # directory's. Reading `cwd` here left a dirty <repo> silent and asked a
+    # clean one about changes that were not going anywhere.
+    entries = tracked_changes(eff_cwd)
     if entries:
         single_stream = not idle and reliable
         listing = "\n".join(f"    {xy}  {path}" for xy, path in entries)
-        phantoms = phantom_entries(entries, cwd)
+        phantoms = phantom_entries(entries, eff_cwd)
         note = ""
         if phantoms:
             why = "\n".join(f"    {p} — {r}" for p, r in phantoms)

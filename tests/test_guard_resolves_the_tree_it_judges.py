@@ -508,3 +508,55 @@ def test_the_commit_gate_says_what_declining_does(tmp_path):
     assert "[no-review]" in reason and "review chain" in reason, (
         "both continuations have to be named, or the prompt is a yes/no"
     )
+
+
+def test_the_dirty_tree_row_reads_the_tree_the_switch_is_in(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 1 of work item 1790550712, finding 1. The tracked-changes row
+    asked `git status` in the session's own directory while every other row
+    judged the tree the switch acts on. So a dirty repository reached by `git
+    -C` or `cd` from elsewhere was silent, a clean clone switched from a dirty
+    session tree was asked about the session tree's changes, and a dirty clone
+    switched from a clean session tree was silent. Seen red at 77ad175 on all
+    four."""
+    outside = tmp_path / "outside"
+    outside.mkdir()
+    other = tmp_path / "other"
+    subprocess.run(
+        ["git", "clone", "-q", str(repo), str(other)], check=True, capture_output=True
+    )
+    (repo / "f.txt").write_text("changed on purpose\n")
+    # A force-staged ignored path, which only the target tree's own
+    # `check-ignore` can name: `phantom_entries` reads the same tree.
+    (repo / ".gitignore").write_text("ign.txt\n")
+    (repo / "ign.txt").write_text("x\n")
+    subprocess.run(
+        ["git", "-C", str(repo), "add", "-f", "ign.txt"],
+        check=True,
+        capture_output=True,
+    )
+    for command in (
+        f"git -C {repo} switch feature/x",
+        f"cd {repo} && git switch feature/x",
+    ):
+        decision, reason, _ = run(monkeypatch, capsys, command, outside)
+        assert decision == "ask", (command, decision, reason)
+        assert "f.txt" in reason, reason
+        assert "gitignored path force-staged" in reason, reason
+    decision, reason, _ = run(
+        monkeypatch, capsys, f"git -C {other} switch feature/x", repo
+    )
+    assert decision == "silent", (decision, reason)
+    (repo / "f.txt").write_text("one\ntwo\nthree\n")
+    subprocess.run(
+        ["git", "-C", str(repo), "reset", "-q", "ign.txt"],
+        check=True,
+        capture_output=True,
+    )
+    (other / "f.txt").write_text("changed in the other clone\n")
+    decision, reason, _ = run(
+        monkeypatch, capsys, f"git -C {other} switch feature/x", repo
+    )
+    assert decision == "ask", (decision, reason)
+    assert "f.txt" in reason, reason
