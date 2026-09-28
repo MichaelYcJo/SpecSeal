@@ -1708,6 +1708,50 @@ def test_a_command_on_a_line_of_its_own_is_a_command_word():
         assert module.family(command) == "git", command
 
 
+def test_a_separator_inside_a_substitution_does_not_reach_the_line():
+    """A command substitution is not a command position, and neither is any
+    word inside one: a separator inside `$( … )`, `<( … )` or `>( … )`
+    separates the substitution's commands, not the line's. What follows the
+    `)` that closes the outermost one is the line's again.
+
+    Round 1 of #377's review found the first three reading `git` while the
+    rule four sentences state said they could not."""
+    module = load_script()
+    for command in (
+        "x=$(cd /y && git log -1)",
+        "diff <(cd a; git show) b",
+        "echo x | tee >(cd a; git hash-object --stdin)",
+        "echo $(echo $(cd a; git s))",
+    ):
+        assert module.family(command) != "git", command
+    for command in (
+        "echo $(git a); git b",
+        "echo $(( 1 + 2 )); git s",
+        "x=$(cd /y && ls) && git status",
+    ):
+        assert module.family(command) == "git", command
+
+
+def test_a_comment_runs_nothing_whatever_it_holds():
+    """A `#` that begins a word starts a comment to the end of its line, so a
+    separator inside one separates nothing. A `#` inside a word or inside
+    quotes starts no comment, and a comment's apostrophe is not a quote.
+
+    Round 1 of #377's review found the first two reading `git`, where the
+    anchored rule before #377 read `other`."""
+    module = load_script()
+    for command in ("# cd x && git push\nls", "ls  # then; git push"):
+        assert module.family(command) != "git", command
+    for command in (
+        "# don't forget\ngit add a",
+        "echo '#'; git s",
+        "echo a#b; git s",
+        "echo ${#x}; git s",
+        'echo "a # b"; git s',
+    ):
+        assert module.family(command) == "git", command
+
+
 def test_the_family_reads_the_command_as_the_harness_recorded_it(tmp_path):
     """Both places `analyse` asks for a family read the command with its
     newlines kept. The table's row is the first; the repeats figures are the

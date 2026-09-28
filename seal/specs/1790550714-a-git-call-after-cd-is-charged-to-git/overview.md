@@ -19,6 +19,7 @@ heredoc now reads as `test`.
 | The version the comparability line names | `spec.md` S10: "`--segments` prints a comparability line naming 0.15.6 and #377". `tests/test_release_hygiene.py::test_no_loaded_file_names_a_version_at_or_above_the_running_one` failed on it, and on the same version in `session_cost.py`'s docstring and `SKILL.md` | the line names #377 and says `CHANGELOG.md` names its release | the check's docstring: "**at or above the running version is a timer and is refused; below it is history and is kept.**" The running version is 0.15.5, so neither 0.15.5 nor 0.15.6 can be written in a loaded file before the release |
 | What the tokeniser fallback decides | `spec.md` In §2: "That call is judged by today's anchored pattern". The walk is lazy, so words read before the refusal answer first | lazy walk, with the pattern for a line refused before its first word | an eager walk sends `cd /x && git log 'x` to the pattern, which answers `other`, and the spec's own grounds are that the new rule "never produces an answer worse than the old one" |
 | Which ledger rows drift | `questions.md` Q3's expected set: "`#analyse` ×7, `#load` ×4 if edited, `#FAMILIES`, `#family` and `#HEREDOC` through 0.9.4 S1 and S2". `evidence-check` found `#FAMILIES` and `#HEREDOC` clean, and the `SKILL.md` section anchor drifted in ten rows | all 21 named rows re-read | a row an edit drifts is re-read where it lives (`CLAUDE.md` §*Appended is the word*); the check names the rows, and the frame's set was a read |
+| A backtick substitution | `spec.md` §*Decided from the tree*: "**A command substitution is not a command position.**" After round 1's fix it holds for `$( … )`, `<( … )` and `>( … )` whatever they contain, and for a backtick substitution only up to its first word: a separator inside backticks is read as the line's | `$(`-family nesting tracked; backticks narrowed in `command_words`' and `runs_git`'s docstrings, the changelog and ledger N1 | round 1's report: tracking backticks "turned 11 real `git` runs to `other` (every one of them a `grep -c '```'`)", because the tokeniser strips the quotes that would tell a backtick token from a quoted one |
 
 ## Not verified
 
@@ -29,9 +30,12 @@ heredoc now reads as `test`.
 
 ## Not done
 
-Nothing beyond the spec's own *Out* table. A word-start comment rule was
-within reach and was not taken: measured over 23,195 Bash calls, it would
-change the answer on one (`phases/phase-2.md`).
+Nothing beyond the spec's own *Out* table. The word-start comment rule
+phase 2 left out (`phases/phase-2.md`) was taken in round 1's fix pass,
+because round 1 found the ordinary-`#` reading answers worse than 2037cf0 on
+a comment holding a separator. The `HEREDOC` pattern was not widened to a
+here-string or an escaped or lowercase delimiter. Its comment states both,
+and round 1 found neither moving a call.
 
 ## Fed back into the spec
 
@@ -44,3 +48,6 @@ Inferred during implementation, so a planner may overturn them:
   what it was (ledger N4).
 - Two heredoc operators on one line have their bodies one after the other
   (ledger N3).
+- A comment is removed by bash's rule before the command words are read,
+  and no word anywhere inside `$( … )`, `<( … )` or `>( … )` is a command
+  word (ledger N1 and N4, round 1's fix pass).

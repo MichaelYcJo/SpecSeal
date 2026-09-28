@@ -190,6 +190,15 @@ def parse_time(value):
 # line ran, and cutting to the end charged a `gh issue create` after a
 # `cat > body.md <<'EOF'` to `other`. A heredoc with no closing line is still
 # cut from the operator to the end, which is every flattened command.
+#
+# Reading the newlines changes what *as if it were not one* costs. A heredoc
+# the pattern does not know -- a lowercase delimiter, or an escaped one
+# (`<<\EOF`) -- now has its body lines read as command lines, so
+# `cat <<eof⏎git push⏎eof` is `git`, where the flattened reading made the
+# body arguments of the first line. And a here-string, `<<< "$x"`, is matched
+# as an operator with no closing line, so the rest of its line is cut, as it
+# was before #377. Round 1 of #377's review found neither moving a call in 358
+# transcripts, and the pattern is left as 0.9.4 stated it.
 HEREDOC = re.compile(r"""<<-?\s*(?:'[^']*'|"[^"]*"|[A-Z_][A-Z0-9_]*)""")
 
 
@@ -243,6 +252,41 @@ RESERVED = frozenset(
 ASSIGNMENT = re.compile(r"[A-Za-z_][A-Za-z0-9_]*=")
 
 
+# A `#` that begins a word, outside quotes, starts a comment that runs to the
+# end of its line. It is bash's rule and not the tokeniser's, which starts one
+# inside a word and swallows the newline that ends it.
+COMMENT_AFTER = frozenset(" \t\n;&|()")
+
+
+def without_comments(command):
+    """The command with every shell comment removed, its newline kept.
+
+    So `# cd x && git push` loses its `&&` and its `git`, while `a#b`,
+    `${#x}` and `echo '#'` keep their `#`. A comment holding an apostrophe no
+    longer reaches the tokeniser, so it no longer makes the line refused."""
+    out, quote, at, boundary = [], None, 0, True
+    while at < len(command):
+        char = command[at]
+        if char == "\\" and quote != "'":
+            out.append(command[at : at + 2])
+            at += 2
+            boundary = False
+            continue
+        if quote:
+            if char == quote:
+                quote = None
+        elif char in "'\"":
+            quote = char
+        elif char == "#" and boundary:
+            end = command.find("\n", at)
+            at = len(command) if end == -1 else end
+            continue
+        out.append(char)
+        at += 1
+        boundary = quote is None and char in COMMENT_AFTER
+    return "".join(out)
+
+
 def command_words(command):
     """Each word the shell would run as a command, in order.
 
@@ -252,26 +296,42 @@ def command_words(command):
     over, so `FOO=1 git status` and `do gh issue view $n` both reach the
     `git`. The line is split by `shlex` in POSIX mode, so a separator or a
     word inside quotes is not seen: `echo 'a; git b'` has one command word.
+    Comments are removed first, by `without_comments`, so a separator inside
+    one separates nothing.
+
+    No word inside `$( … )`, `$(( … ))`, `<( … )` or `>( … )` is a command
+    word, however many commands the substitution holds, and only what follows
+    the `)` that closes the outermost one reaches the line again. A backtick
+    substitution is tracked only as far as its first word, which is glued to
+    the backtick and so is never `git`: the tokeniser strips the quotes that
+    would tell a backtick token from a quoted one, so a separator inside
+    backticks is read as the line's.
 
     Raises `ValueError` where the tokeniser does, on an unmatched quote. The
     words before the error have already been yielded, which is what lets
     `git log 'x` answer from its first word."""
-    lexer = shlex.shlex(command, posix=True, punctuation_chars=PUNCTUATION)
-    # A newline is a separator here, not whitespace, and `#` is an ordinary
-    # character: the tokeniser's own comment handling would swallow the
-    # newline that ends a comment, and the command on the next line with it.
+    lexer = shlex.shlex(
+        without_comments(command), posix=True, punctuation_chars=PUNCTUATION
+    )
+    # A newline is a separator here, not whitespace. `without_comments` has
+    # already removed every comment, so `#` is an ordinary character to the
+    # tokeniser, whose own comment handling would swallow the newline that
+    # ends a comment and the command on the next line with it.
     lexer.whitespace = " \t\r"
     lexer.whitespace_split = True
     lexer.commenters = ""
-    position, previous = True, ""
+    position, previous, nested = True, "", 0
     for token in lexer:
         if token and set(token) <= set(PUNCTUATION):
+            opens = token.startswith("(") and previous.endswith("$")
+            if nested or opens or token[:2] in ("<(", ">("):
+                # `$( … )`, `$(( … ))`, `<( … )` and `>( … )`: no word inside
+                # is a command word, and only what follows the `)` that
+                # closes the outermost one reaches the line.
+                nested = max(0, nested + token.count("(") - token.count(")"))
+                token = "" if nested else token[token.rfind(")") + 1 :]
             chars = set(token)
-            if token.startswith("(") and previous.endswith("$"):
-                # `$(` and `$((`: a command substitution, not a subshell.
-                position = False
-            else:
-                position = not (chars & REDIRECTION) and bool(chars & SEPARATOR)
+            position = not (chars & REDIRECTION) and bool(chars & SEPARATOR)
         elif position:
             if token not in RESERVED and not ASSIGNMENT.match(token):
                 yield token
@@ -288,14 +348,23 @@ def runs_git(command):
     `cat .git/config` as runs of it -- #200's *wrong in both directions* from
     the other side.
 
-    Three bounds, each stated so a reader who meets one knows it is a bound:
+    Four bounds, each stated so a reader who meets one knows it is a bound:
 
-    - **A command substitution is not a command position.** `$(git …)` and
-      `` `git …` `` are not read, because the tokeniser cannot see into a
-      double-quoted one, and counting only the unquoted ones would make the
-      family depend on quoting nobody can see in the table.
+    - **A command substitution is not a command position.** No word inside
+      `$( … )`, `<( … )` or `>( … )` is read, however many commands it
+      holds, because the tokeniser cannot see into a double-quoted one, and
+      counting only the unquoted ones would make the family depend on
+      quoting nobody can see in the table. `` `git …` `` is not read either,
+      but a separator inside backticks is, and `command_words` says why.
     - **A wrapper is not looked through.** `timeout 40 gh issue list`,
       `env`, `xargs`, `sudo` and the like have their own command word.
+    - **The walk models separators, subshells, reserved words and
+      assignments, and nothing else of the grammar.** A `case` arm's `)`,
+      the `{` after `function f`, and a leading redirection (`>out git
+      status`) do not put the next word in command position, an array
+      assignment's `(` does (`x=(git s)`), and the basename is `git` or `gh`
+      exactly, so `git-lfs` and `git.exe` are not. None of these shapes
+      occurs in the 358 transcripts round 1 of #377's review measured.
     - **Where the tokeniser refuses the line, the words it read before
       refusing still count, and a line refused before any of them is judged
       by the anchored pattern `FAMILIES` still carries for `git`** -- the

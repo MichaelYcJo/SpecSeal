@@ -5,9 +5,11 @@
   `other`. It is now read by command word, from a POSIX tokenisation of the
   line: the first word after a separator, a newline, a subshell's `(`, a
   reserved word or a leading assignment, by basename. A word inside quotes,
-  inside a command substitution or behind a wrapper such as `timeout` is not
-  a command word, so `grep -rn git`, `cat .git/config` and `echo 'a; git b'`
-  stay out. A line the tokeniser refuses, on an unmatched quote, is judged by
+  inside `$( … )`, `<( … )` or `>( … )`, inside a `#` comment or behind a
+  wrapper such as `timeout` is not a command word, so `grep -rn git`,
+  `cat .git/config`, `echo 'a; git b'` and `x=$(cd a && git log)` stay out.
+  A backtick substitution's first word is not one either, but a separator
+  inside backticks is read as the line's. A line the tokeniser refuses, on an unmatched quote, is judged by
   the words it read before refusing, and by the old anchored pattern where
   it read none. A line that runs a test and a `git` is still the test's.
 - **The family reads the command as it ran, and a heredoc loses only its
@@ -33,4 +35,7 @@
   `lint/type` and 9 to `build`, and 10 calls move to `test` from `git` or
   `build` because a test ran after a heredoc on the same command. 18,666
   calls do not move. `other` led the Bash seconds in 260 of the 342
-  transcripts holding a Bash call, and leads in 159.
+  transcripts holding a Bash call, and leads in 159. Keeping every word of
+  a `$( … )` out of command position, and removing comments first, moved
+  one more call, from `git` to `other`, over the 358 transcripts there were
+  by then.
