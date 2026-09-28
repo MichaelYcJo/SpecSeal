@@ -659,4 +659,6 @@ def test_every_printed_command_names_the_tree_it_is_about(
                     assert m.group("at") is None, (verb, state, m.group(0))
                 else:
                     assert m.group("at"), (verb, state, m.group(0))
-                    assert os.path.samefile(m.group("at").split()[1], repo), m.group(0)
+                    assert os.path.samefile(shlex.split(m.group("at"))[1], repo), (
+                        m.group(0)
+                    )
