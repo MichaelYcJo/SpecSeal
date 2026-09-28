@@ -103,6 +103,22 @@ def test_a_values_file_is_drawn_by_hand_once_and_then_refused(tmp_path):
     )
 
 
+def test_the_drawn_refusal_names_the_file_the_values_are_in(tmp_path):
+    """Round 1's 🟡 3. Naming the drawn file itself was refused — rightly —
+    with a sentence saying the values stay in `X.drawn.drawn.json`, which does
+    not exist, on the one path a person has to recover them from. The file
+    the refusal says holds the values exists, whichever name was given."""
+    mod = stamp_module()
+    path = mod.write_values(str(tmp_path), "s-1", values())
+    assert seal_stamp("--from", path).returncode == 0
+    drawn = mod.drawn_path(path)
+    for given in (path, drawn):
+        out = seal_stamp("--from", given)
+        assert out.returncode == 2, out.stdout + out.stderr
+        assert f"the values stay in {drawn}." in out.stderr, out.stderr
+        assert ".drawn.drawn.json" not in out.stderr, out.stderr
+
+
 def test_a_file_that_is_not_a_run_is_refused_and_left_for_a_repair(tmp_path):
     """A values file that is not in the gate's shape is refused before it is
     claimed, so it is still there to be drawn once somebody repairs it — and
@@ -284,6 +300,25 @@ def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
     assert not os.path.exists(first) and not os.path.exists(second)
 
 
+def test_a_malformed_later_file_does_not_take_the_earlier_ones(tmp_path):
+    """Round 1's 🟡 2. `drawings` claimed a file and only then built its
+    label, and `label` raises `TypeError` on an `item` that is not a string —
+    outside the guarded read, so the exception left the good file before it
+    claimed and never printed, and `--from` then refused it as drawn. Every
+    block is built whole before its file is claimed now: the good file is
+    drawn, and the bad one stays pending under its own name."""
+    mod = stamp_module()
+    repo = opted_in(tmp_path)
+    good = mod.write_values(str(repo / ".git"), "s-1", values(), now=1)
+    bad = mod.write_values(str(repo / ".git"), "s-1", {**values(), "item": 5}, now=2)
+    lines = message(stop(repo))
+    assert lines[0] == "SEALED aaa1111 against bbb2222 · 1799000000-an-item", lines
+    assert lines[1:] == mod.stamp(ROWS, 0.9, shape=False)
+    assert os.path.exists(mod.drawn_path(good)) and not os.path.exists(good)
+    assert os.path.exists(bad), "the malformed file was claimed"
+    assert not os.path.exists(mod.drawn_path(bad))
+
+
 def test_the_sealers_worktree_and_the_main_checkout_share_the_file(tmp_path):
     """The sealer's root is a linked worktree while the main session's `cwd`
     is the checkout (Q2's reading: the `Stop` payload's `cwd` was the main
@@ -375,6 +410,12 @@ def test_the_orchestrator_is_told_the_stamp_is_drawn_for_it():
         "So put the result text first",
         "Draw none yourself, neither with `seal-stamp` nor by relaying the sealer's log.",
         "On a red run relay the `NOT SEALED` lines, and nothing is drawn.",
+        # Round 1's 🟡 1: the command is named on every sealed line now, and
+        # it stays the person's wherever it appears.
+        "Wherever the `SEALED` line names `seal-stamp --from`, quote it as it "
+        "stands: that command is the person's to type, and never yours.",
+        # Round 1's ⬜ 7: the one route that writes the cell without the gate.
+        "a cell written by `close --broad-gate` is sealed with no stamp",
     ):
         assert said in section, said
 
@@ -408,6 +449,44 @@ def test_the_policy_names_what_enforces_the_drawing_and_what_nothing_does():
     assert "Enforced by: nothing — no case, hook or workflow can observe a screen" in (
         unchecked
     )
+    # Round 1's 🟡 1: the hook's silence where it cannot draw is stated where
+    # a person looks for why no stamp appeared, with the way to draw it.
+    assert "**Nor is the hook's silence where it cannot draw.**" in unchecked
+    assert "every sealed `SEALED` line names `seal-stamp --from <path>`" in unchecked
+    # Round 1's ⬜ 6: a terminal draws only over a written cell, and the
+    # `gate` row names the copy that measured, since in a sealer none draws.
+    assert "the gate draws only on a terminal, and only over a written cell" in rule
+    assert "the stamp says which copy drew it" not in text
+
+
+def test_both_readmes_list_the_stamp_hook():
+    """Round 1's 🟡 4. The hook inventory a user reads to learn what runs on
+    their machine did not list the `Stop` hook, in either edition: the gate
+    table, the opt-in list, the count of gates that wake on a condition, and
+    the side effects. The editions move together, so both are read."""
+    for edition, count, opt_in, effects in (
+        (
+            "README.md",
+            "Eight of the eleven gates",
+            # The opt-in list's own words: the count sentence names the stamp
+            # hook too, so the bare name would pass with the list unchanged.
+            "the two implementer hooks, the stamp hook and the version check.",
+            "Four side effects",
+        ),
+        (
+            "README.ko.md",
+            "게이트 열하나 중 여덟",
+            "구현자 훅 둘, 도장 훅, 버전 확인이다.",
+            "네 가지 부수 효과",
+        ),
+    ):
+        text = flat(edition)
+        table = [ln for ln in text.split("| ") if ln.startswith("sealer-stamp ")]
+        assert table, f"{edition}'s gate table has no `sealer-stamp` row"
+        assert count in text, (edition, count)
+        assert opt_in in text, (edition, opt_in)
+        assert effects in text and "specseal-stamp/" in text, (edition, effects)
+        assert "Seven of the ten" not in text and "게이트 열 중 일곱" not in text
 
 
 # --- S16: the sealer is told it draws nothing --------------------------------
@@ -435,6 +514,9 @@ def test_the_sealer_is_told_the_gate_draws_nothing_and_neither_does_it():
         assert said in text, said
     assert "the drawing arrives as letters" not in text
     assert "pass it through as it came" not in text
+    # Round 1's ⬜ 6: no gate draws in a sealer, so the `gate` row says which
+    # copy measured the tree, not which drew the stamp.
+    assert "which gate drew the stamp" not in text
 
 
 # --- S13: the scale --------------------------------------------------------

@@ -2064,7 +2064,7 @@ def round_count(item):
 def panel(tree, base, checks, item, workflow=None, copy=None):
     """The stamp's rows. `base` is a `Base`, so the panel can say WHICH ref
     the commit beside it came from. `copy` is the `gate` row's value from
-    `gate_copy` — which copy of this script drew the stamp (#475) — and None
+    `gate_copy` — which copy of this script measured the tree (#475) — and None
     asks the running copy with no root, which reads `plugin`.
 
     A bare SHA is what #423 found on the stamp of a branch CI then refused:
@@ -2098,7 +2098,7 @@ def panel(tree, base, checks, item, workflow=None, copy=None):
         ("tree", tree),
         ("base", base.commit),
         ("from", shown),
-        # Which copy of the gate drew this (#475): `tree <version>` where the
+        # Which copy of the gate measured this (#475): `tree <version>` where the
         # running script lies under the gated root, `plugin <version>` where
         # it is the installed copy. Beside `from` because it is the same kind
         # of fact — what this run was measured against, and by what.
@@ -2408,10 +2408,16 @@ NOTHING_RECORDED = (
 VALUES_UNWRITTEN = " · nothing will be drawn: the stamp's values could not be written"
 NO_SESSION_FOUND = (
     " · no Claude Code session was found, so no hook draws the stamp; "
-    "`seal-stamp --from {path}` draws it"
+    "`seal-stamp --from {command}` draws it"
 )
+# The recovery is named on this line too (round 1's 🟡 1). The hook draws
+# nothing, and says nothing, where it cannot: a `python3` under
+# `seal_stamp.py`'s 3.12 floor, a main session whose working directory is
+# outside this clone, or a plugin older than the hook. The gate cannot see any
+# of those, so it names the way to draw the stamp by hand on every sealed line.
 DRAWN_AT_TURN_END = (
-    " · the stamp is drawn at the end of the turn of session {session}, from {path}"
+    " · the stamp is drawn at the end of the turn of session {session}, from "
+    "{path}; where none appears, `seal-stamp --from {command}` draws it"
 )
 
 
@@ -2458,9 +2464,12 @@ def signal(stamp, root, tree, base, item, rows, scale):
             "and the cell was written\n"
         )
         return head + VALUES_UNWRITTEN
+    # Quoted for the shell the person types it into, so a checkout whose path
+    # holds a space prints a command that runs as printed (round 1's ⬜ 5).
+    command = quote(path)
     if stamp.session_key(session) == stamp.NO_SESSION:
-        return head + NO_SESSION_FOUND.format(path=path)
-    return head + DRAWN_AT_TURN_END.format(session=session, path=path)
+        return head + NO_SESSION_FOUND.format(command=command)
+    return head + DRAWN_AT_TURN_END.format(session=session, path=path, command=command)
 
 
 def main(argv=None, console_wants_letters=None, console_is_terminal=None):

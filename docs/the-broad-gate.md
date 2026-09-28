@@ -86,7 +86,7 @@ Enforced by: tests/test_the_seal_is_taken_once_by_the_sealer.py::test_a_broad_ga
 
 <!-- specs/1790206436-the-runs-instruments-cost-wall-clock -->
 **The gate that measures a tree is the copy that tree ships, and the stamp
-says which copy drew it.** A gate found on PATH is the installed plugin's, so
+says which copy measured it.** A gate found on PATH is the installed plugin's, so
 a branch that changed the gate was measured by the copy that predated the
 change: seven arms in the tree against five installed on one sealer's run,
 and a chain refusal from the 0.13.0 copy over a state the branch repaired,
@@ -111,7 +111,8 @@ Enforced by: tests/test_the_seal_is_taken_once_by_the_sealer.py
 earned it.** A sealer's stdout is a pipe into a report that reaches the
 person folded, so a stamp drawn there was never seen. The 0.15.6 stopgap,
 re-printing the sealer's log, drew it twice, colourless and cut. So the gate
-draws on a terminal only. On a pipe, a recorded seal writes the panel's rows
+draws only on a terminal, and only over a written cell. On a pipe, a recorded
+seal writes the panel's rows
 to a values file under the git common dir, keyed by the session that spawned
 the run, and prints one `SEALED` line naming it. A `Stop` hook draws each
 undrawn file of its own session once, after that turn's text, and a
@@ -128,6 +129,12 @@ the right payload. A screenshot of the probe proved once that such bytes
 render unfolded, in colour, after the turn's final text. Whether a given
 run's stamp was seen, and whether the orchestrator wrote its result in the
 turn the stamp closed, are read by the person and by nobody else.
+**Nor is the hook's silence where it cannot draw.** It draws nothing and
+says nothing where the main session's `python3` is under 3.12, the floor
+`seal_stamp.py` refuses below (macOS ships 3.9); where that session's
+working directory is outside the clone the run sealed; or where its plugin
+predates the hook. So every sealed `SEALED` line names `seal-stamp --from
+<path>`, and a stamp that did not appear is drawn by hand from it, once.
 Enforced by: nothing — no case, hook or workflow can observe a screen; the
 owner reads it on the first real run after a change to this surface.
 

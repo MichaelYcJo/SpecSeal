@@ -22,8 +22,10 @@ nobody reopens them as questions:
   `cwd` are different worktrees of one clone in this very run.
 - **Whether a piped run without `--record` draws.** It does not. The body's
   Done-when requires exit 0 and a written cell.
-- **Whether a hand-run in a real terminal draws.** It does, once. The
-  2026-09-15 rows still stand, and no tool call can reach that path.
+- **Whether a hand-run in a real terminal draws.** It does, once, and only
+  over a written cell (corrected 2026-09-28 by the build: a terminal run
+  without `--record` draws nothing, per #400's Done-when). The 2026-09-15
+  rows still stand, and no tool call can reach that path.
 - **Delete or keep a drawn file.** It is renamed to `.drawn.json` before
   printing, which gives at most one drawing and keeps the values.
 - **The per-turn cost of a `Stop` hook** (one Python start at each turn's

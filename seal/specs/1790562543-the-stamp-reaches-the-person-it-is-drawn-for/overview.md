@@ -33,8 +33,9 @@ A hook running under an interpreter below `seal_stamp.py`'s 3.12 floor draws
 nothing and says nothing. The hook runs under whatever `python3` the harness
 finds, which is 3.9 on a stock macOS, and `seal_stamp.py` refuses at import
 there. Nothing was built around it: the frame's hook is silent on every
-failure, the `SEALED` line in the sealer's report still names the file and
-`seal-stamp --from`, and changing the floor is a decision about every script
+failure, the `SEALED` line in the sealer's report names the file and
+`seal-stamp --from` on every sealed run — true since round 1's fix pass,
+which added the command to the common line — and changing the floor is a decision about every script
 that copies it. The hook's docstring states it.
 
 `dispatch.py` now names the `Stop` event for the `stop` group, as `plan.md`
@@ -43,5 +44,9 @@ never takes; correcting it was not asked for.
 
 ## Fed back into the spec
 
-none — the divergence row above carries the one rule this work settled that
-`spec.md` did not state.
+The terminal rule, *inferred during implementation*: a hand-run on a
+terminal draws only over a written cell. It was written back as corrections
+to `spec.md` §Scope In 2, `plan.md`'s Phase 1 row and Alternatives row, and
+`questions.md`'s list of settled judgments, each dated 2026-09-28 and
+pointing at the divergence row above. A planner may overturn it; #400's
+Done-when is its grounds.

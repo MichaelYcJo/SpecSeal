@@ -83,7 +83,7 @@ carries a `gate` row — `tree <version>` means the branch was measured by the
 gate it ships, `plugin <version>` that the installed copy measured it. Quote
 the gate line in your report the way you quote the moved-base line: it is
 not a warning and not a refusal, and it is the one place a reader learns
-which gate drew the stamp.
+which gate measured the tree and wrote the stamp's values.
 
 **On a release pull request the gate may leave two arms out, and it says so
 on one line.** Where the base names `main` and the repository's
@@ -156,9 +156,14 @@ common dir and says so on the `SEALED` line. A hook in the session that
 spawned you draws that file once, after that session's text at the end of
 its turn. Do not draw it yourself, neither with `seal-stamp` nor from the
 file, because a drawing is taken once and yours would be the one that was
-never seen. Pass the `SEALED` line on as it came. Where it says no Claude
-Code session was found, quote it as it stands: that line is where a reader
-learns the stamp will not appear by itself. Where you
+never seen. Pass the `SEALED` line on as it came, whole. It names
+`seal-stamp --from <path>` on every sealed run, because the hook draws
+nothing and says nothing where it cannot — a `python3` under 3.12, a
+session whose working directory is outside this clone, a plugin older than
+the hook — and that command is how the person draws a stamp that did not
+appear. Where it says no Claude Code session was found, quote it as it
+stands: that line is where a reader learns the stamp will not appear by
+itself. Where you
 redirect the gate's output to a file to read it, the file is
 `<scratchpad>/<work-item-id>/broad-gate.log`, its directory made first
 (`mkdir -p`, since nothing guarantees it exists on a fresh session) — a

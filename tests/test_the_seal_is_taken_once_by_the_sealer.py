@@ -2305,6 +2305,10 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(repo, tmp_path):
     assert f"{short(repo, 'HEAD')} against {short(repo, 'base')}" in said[0], said
     assert path in said[0], f"the line does not name the file {path}: {said}"
     assert "session s-1" in said[0], said
+    # Round 1's 🟡 1. The hook draws nothing, and says nothing, where it
+    # cannot — a `python3` under the floor, a session outside this clone, a
+    # plugin older than the hook — so the common line names the recovery too.
+    assert f"`seal-stamp --from {gate_module().quote(path)}`" in said[0], said
     assert os.path.dirname(path) == str(repo / ".git" / VALUES_DIR / "s-1"), path
     assert not path.endswith(".drawn.json"), "the file was marked drawn by the gate"
     assert crown_of() not in out.stdout, "a piped run drew the twin"
@@ -2355,15 +2359,23 @@ def test_a_run_with_no_session_says_so_and_names_the_hand_command(repo, tmp_path
     """S14. With `CLAUDE_CODE_SESSION_ID` unset the run is still sealed and
     its values still written, under `none/`, which no hook reads. The line
     says no session was found and names `seal-stamp --from <path>`, so the
-    stamp is not lost and nothing claims it will appear."""
-    settled_item(repo)
-    out = run_gate(repo, "--record", str(repo / ITEM), keep=tmp_path / "out")
+    stamp is not lost and nothing claims it will appear.
+
+    Round 1's ⬜ 5: the path is quoted for the platform's shell, so a
+    checkout whose path holds a space prints a command that runs as typed.
+    The fixture is moved under such a directory to show it."""
+    spaced = tmp_path / "a checkout" / "repo"
+    shutil.move(str(repo), str(spaced))
+    settled_item(spaced)
+    out = run_gate(spaced, "--record", str(spaced / ITEM), keep=tmp_path / "out")
     assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
-    (path,) = values_files(repo)
+    (path,) = values_files(spaced)
+    assert " " in path, path
     assert os.path.basename(os.path.dirname(path)) == module().NO_SESSION, path
     (said,) = signal_lines(out.stdout)
     assert "no Claude Code session was found" in said, said
-    assert f"`seal-stamp --from {path}`" in said, said
+    assert f"`seal-stamp --from {gate_module().quote(path)}`" in said, said
+    assert f"--from {path}`" not in said, f"the path is unquoted: {said}"
 
 
 def test_values_that_cannot_be_written_leave_the_seal_standing(repo, tmp_path):

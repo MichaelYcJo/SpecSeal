@@ -45,7 +45,10 @@ the screen.**
    writes the panel's rows to one values file and prints one `SEALED` line
    naming it. It draws no disc and no letter twin. This covers the sealer's
    run and every other piped run.
-2. **A hand-run in a real terminal draws exactly once, as today.** The form is
+2. **A hand-run in a real terminal draws exactly once, as today.** Corrected
+   2026-09-28 by the build (`overview.md`'s divergence row): it draws only over
+   a written cell, so a terminal run without `--record` signals as a pipe
+   does, because #400's Done-when says no other path draws one. The form is
    chosen by `pick_shape`, and no values file is left for anyone else to
    draw. This path cannot be reached from a tool call (measured above), so it
    cannot become an agent's cheap path.

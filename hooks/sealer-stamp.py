@@ -39,7 +39,10 @@ that is not JSON, a repository that is not opted in, a file that is not a
 run's values. That includes an interpreter under `seal_stamp.py`'s floor of
 3.12 — a hook runs under whatever `python3` the harness finds, 3.9 on a stock
 macOS — where this draws nothing and the `SEALED` line in the sealer's
-report, which names the file and `seal-stamp --from`, is what remains.
+report, which names the file and `seal-stamp --from` on every sealed run, is
+what remains. The same line is what remains where the main session's working
+directory is outside the sealed clone, and where its plugin predates this
+hook; `docs/the-broad-gate.md` §*Where the stamp is drawn* states all three.
 
 It draws; it never stops anything. `hooks/implementer.py`'s stance holds: a
 values file somebody wrote by hand would be drawn, because this catches a
@@ -91,18 +94,31 @@ def load_stamp():
 
 def drawings(stamp, directory):
     """The message block for every undrawn file in `directory`, oldest
-    first, each claimed before it is kept. A file that is not a run's values
-    is left where it is."""
+    first. Each block is built whole, label included, before its file is
+    claimed, so a file that is not a run's values — whatever it fails on — is
+    left where it is and takes no other file's drawing with it.
+
+    It used to catch `ValueError` alone and build the label after the claim,
+    and `label` raises `TypeError` on an `item` that is not a string. So one
+    bad file after a good one left both renamed and nothing printed (round
+    1's 🟡 2). The file is written by the gate the TREE ships and read by the
+    hook the INSTALLED plugin ships, so a format one side does not know is an
+    ordinary state, not only a hand-written file."""
     blocks = []
     for path in stamp.pending(directory):
         try:
             values = stamp.read_values(path)
-            lines = stamp.stamp(values["rows"], values["scale"], shape=False)
-        except ValueError:
+            block = "\n".join(
+                [
+                    stamp.label(values),
+                    *stamp.stamp(values["rows"], values["scale"], shape=False),
+                ]
+            )
+        except Exception:
             continue
         if stamp.claim(path) is None:
             continue
-        blocks.append("\n".join([stamp.label(values), *lines]))
+        blocks.append(block)
     return blocks
 
 

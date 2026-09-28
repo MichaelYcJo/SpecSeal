@@ -23,9 +23,10 @@ lines — no drawing, because a picture that says *sealed* beside a word that
 says *not* is read picture first.
 
 **A sealed run is drawn where a person sees it, and that is rarely where it
-ran** (#400). The gate draws on a terminal only. A recorded seal on a pipe —
-which is every sealer's run — writes the panel's rows to a values file under
-the git common dir instead, keyed by the Claude Code session, and
+ran** (#400). The gate draws only on a terminal, and only over a written
+cell. A recorded seal on a pipe — which is every sealer's run — writes the
+panel's rows to a values file under the git common dir instead, keyed by the
+Claude Code session, and
 `hooks/sealer-stamp.py` draws each undrawn file once, at the end of that
 session's turn. This module owns the file: `write_values`, `read_values`,
 `pending` and `claim`. Drawing claims the file first, by renaming it to
@@ -680,7 +681,12 @@ def drawn_from(path, scale, shape):
     if path.endswith(DRAWN) or (
         not os.path.exists(path) and os.path.exists(drawn_path(path))
     ):
-        raise ValueError(VALUES_DRAWN.format(path=path, drawn=drawn_path(path)))
+        # The drawn file's own name, where that is what was given:
+        # `drawn_path` of it is `X.drawn.drawn.json`, which does not exist,
+        # and this is the sentence a person recovers the values from (round
+        # 1's 🟡 3).
+        drawn = path if path.endswith(DRAWN) else drawn_path(path)
+        raise ValueError(VALUES_DRAWN.format(path=path, drawn=drawn))
     values = read_values(path)
     lines = stamp(values["rows"], values["scale"] if scale is None else scale, shape)
     if claim(path) is None:
