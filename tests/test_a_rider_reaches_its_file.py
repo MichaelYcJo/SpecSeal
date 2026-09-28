@@ -526,6 +526,21 @@ def test_a_python_rider_after_a_line_of_backticks_is_still_read():
     assert riders.comment_blocks(src.splitlines(), "hooks/m.py") == [(7, 8)]
 
 
+def test_a_fence_line_inside_a_rider_body_hides_no_rider_below():
+    """#584 round 1, finding 4. `fenced_lines` took `fence_spans` over the
+    whole file, which has no comment state, so a fence line in rider one's
+    own body opened a fence that ran on and swallowed rider two — never
+    resolved, never reported. Inside a comment nothing is markdown, so that
+    line opens nothing."""
+    text = (
+        "# doc\n\n"
+        f"{HTML_MARK} one\n```python\nsnippet\n"
+        "Verified 2026-01-01 against x@abcdef12. -->\n\nprose\n\n"
+        f"{HTML_MARK} two\nVerified 2026-01-01 against y@abcdef12. -->\n"
+    )
+    assert riders.comment_blocks(text.splitlines(), "doc.md") == [(3, 6), (10, 11)]
+
+
 def test_a_missing_fence_reader_is_a_sentence_and_exit_2(tmp_path, capsys):
     """#584. The fence rule is loaded by path the way `load_checker` loads
     the anchor resolver, and a missing file is a sentence naming it rather

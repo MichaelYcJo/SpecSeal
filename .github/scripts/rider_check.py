@@ -124,8 +124,8 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.dirname(os.path.dirname(HERE))
 CHECKER = os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py")
-# The fence rule a markdown rider is read by (#584): `fence_spans`, over
-# `fence_opener` and `fence_closes`. Loaded by path rather than through the
+# The fence rule a markdown rider is read by (#584): `fence_opener` and
+# `fence_closes`, which `fenced_lines` asks. Loaded by path rather than through the
 # checker's own `fence_rule`, so this script does not couple to a function of
 # the checker that another work item may be editing.
 READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
@@ -211,16 +211,40 @@ def fenced_lines(lines):
     """0-based indices of `lines` inside a fenced block, delimiters included,
     a block that never closes running to the end (#584).
 
+    **A delimiter line opens a fence only where it begins outside every HTML
+    comment.** Inside a comment nothing is markdown, so a ``` line in a
+    rider's own body opens nothing, and the riders below it are still read.
+    `fence_spans` has no comment state, and asked over the whole file it
+    opened a fence inside rider one's body that swallowed rider two (#584
+    round 1, finding 4). The delimiters are still `fence_opener` and
+    `fence_closes`; the fence is decided before the comment delimiters on its
+    line, and a delimiter inside a fence is neither, as `_liveness` has it.
+
     The reader is loaded at the first markdown file that carries the marker,
     so a run over a tree with none never needs it."""
     global _reader
     if _reader is None:
         _reader = load_reader()
-    return {
-        n
-        for first, last in _reader.fence_spans(lines)
-        for n in range(first, len(lines) if last is None else last + 1)
-    }
+    fenced, fence, comment = set(), None, False
+    for n, line in enumerate(lines):
+        if fence is not None:
+            fenced.add(n)
+            if _reader.fence_closes(line, fence):
+                fence = None
+            continue
+        if not comment:
+            fence = _reader.fence_opener(line)
+            if fence is not None:
+                fenced.add(n)
+                continue
+        pos = 0
+        while True:
+            token = _reader.CLOSER if comment else _reader.OPENER
+            at = line.find(token, pos)
+            if at == -1:
+                break
+            pos, comment = at + len(token), not comment
+    return fenced
 
 
 def comment_blocks(lines, rel=None):
@@ -262,8 +286,9 @@ def comment_blocks(lines, rel=None):
     **In markdown, a line inside a fenced block opens no rider and changes no
     comment state** (#584). A fenced example that quotes a rider is text
     about the convention, and reading it made a rider with no stamp — BROKEN
-    at exit 2 for a line nobody wrote as one. The fence is
-    `unverified_check.py#fence_spans`'s, and a block that never closes runs
+    at exit 2 for a line nobody wrote as one. The fence is `fenced_lines`',
+    whose delimiters are `unverified_check.py`'s and which opens no fence on a
+    line that begins inside a comment, and a block that never closes runs
     to the end: a rider written below a fence somebody forgot to close is not
     read, which loses an alarm rather than inventing one. Only `.md` files
     are asked, because the rule is markdown's and a `.py` file holding a line
