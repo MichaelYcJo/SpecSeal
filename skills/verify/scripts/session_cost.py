@@ -210,6 +210,10 @@ def parse_time(value):
 # `ls # see <<EOF⏎git push` is `other`, as it was before #377. The other
 # order would let an apostrophe in a heredoc body open a quote that hides
 # every command after it.
+#
+# A `\⏎` on the operator's own line is not joined here, so the body starts
+# one line early and takes the continued line with it:
+# `cat <<EOF \⏎&& git push⏎…⏎EOF` is `other`, as it was before #377.
 HEREDOC = re.compile(r"""<<-?\s*(?:'[^']*'|"[^"]*"|[A-Z_][A-Z0-9_]*)""")
 
 
@@ -222,7 +226,12 @@ def without_heredoc_bodies(command):
     f`), and so is everything after the closing line. Two operators on one
     line have their bodies one after the other, which is the order the
     search below meets them in. An operator with no closing line is cut from
-    the operator to the end."""
+    the operator to the end.
+
+    Under an unquoted delimiter a body line ending in an odd run of `\\` is
+    joined to the next before the comparison, as bash joins it, so
+    `cat <<EOF⏎body \\⏎EOF⏎git push` closes nothing and is `other`. A quoted
+    delimiter keeps its backslashes, and an even run is an escaped one."""
     start = 0
     while True:
         opener = HEREDOC.search(command, start)
@@ -231,14 +240,23 @@ def without_heredoc_bodies(command):
         operator = opener.group(0)
         delimiter = re.sub(r"^<<-?\s*", "", operator).strip("'\"")
         tabs = operator.startswith("<<-")
+        # An unquoted delimiter's body has `\⏎` removed before a line is
+        # compared with it, so a body line ending in `\` joins the next one
+        # and that line closes nothing. A quoted delimiter keeps the `\`.
+        joins = operator[-1] not in "'\""
         body = command.find("\n", opener.end())
         closed = None
         if body != -1:
-            at = body + 1
+            at, carried = body + 1, ""
             while at <= len(command):
                 end = command.find("\n", at)
                 end = len(command) if end == -1 else end
-                line = command[at:end]
+                line = carried + command[at:end]
+                trailing = len(line) - len(line.rstrip("\\"))
+                if joins and trailing % 2:
+                    carried, at = line[:-1], end + 1
+                    continue
+                carried = ""
                 if (line.lstrip("\t") if tabs else line) == delimiter:
                     closed = end
                     break
@@ -285,10 +303,13 @@ def without_comments(command):
     is removed, as bash removes it before it reads a word, so the word
     boundary before it still holds and `cd /x && \\⏎git status` is one line.
 
-    Two bounds, neither worse than the rule before #377: a `)` inside a word
-    starts a word boundary even when it closes a substitution
-    (`echo $(ls)#x` reads `#x` as a comment), and quotes nested inside
-    `"$( … )"` are read as closing the outer ones."""
+    Two bounds. A `)` inside a word starts a word boundary even when it
+    closes a substitution (`echo $(ls)#x` reads `#x` as a comment), and
+    quotes nested inside `"$( … )"` are read as closing the outer ones.
+    Where they lose a `git`, the rule before #377 lost it too. They can also
+    read one bash does not run, which that rule did not:
+    `x="$(echo "; git log")"` reads its `git`, and so does
+    `echo $(ls)#'⏎git push'`, whose `#'` removes the quote hiding it."""
     out, quote, at, boundary = [], None, 0, True
     while at < len(command):
         char = command[at]
@@ -420,8 +441,11 @@ def runs_git(command):
       refusing still count, and a line refused before any of them is judged
       by the anchored pattern `FAMILIES` still carries for `git`** -- the
       rule this family had before #377. So `git log 'x` is `git` from its
-      first word, `git'x` from the pattern, and an unmatched quote never
-      answers worse than the old rule did, and never ends a reading."""
+      first word, `git'x` from the pattern, and a quote the shell leaves
+      unmatched never answers worse than the old rule did, and never ends a
+      reading. A quote the walk sees unmatched only because a bound in
+      `without_comments` removed its opener can: `echo $(ls)#'⏎git push'`
+      is `git`."""
     try:
         for word in command_words(command):
             if word.replace("\\", "/").rsplit("/", 1)[-1] in ("git", "gh"):

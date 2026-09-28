@@ -1693,6 +1693,26 @@ def test_a_command_after_a_heredoc_is_read_and_its_body_is_not():
         assert module.family(command) == expected, command
 
 
+def test_a_continued_line_in_an_unquoted_heredoc_body_closes_nothing():
+    """Bash removes `\\⏎` from an unquoted heredoc's body before it compares
+    a line with the delimiter, so a body line ending in one backslash joins
+    the next line, and that line closes nothing. #635's round 3 found the
+    body closing there instead, which charged the `git push` written inside
+    the body to `git`.
+
+    A quoted delimiter keeps the backslash, so its body closes where it did.
+    An even run of backslashes is an escaped backslash and joins nothing."""
+    module = load_script()
+    for command, expected in (
+        ("cat <<EOF\nbody \\\nEOF\ngit push", "other"),
+        ("cat <<EOF\nbody \\\nEOF\ngit push\nEOF", "other"),
+        ("cat <<'EOF'\nbody \\\nEOF\ngit push", "git"),
+        ("cat <<EOF\nbody \\\\\nEOF\ngit push", "git"),
+        ("cat <<EOF\nbody \\\nmore\nEOF\ngit push", "git"),
+    ):
+        assert module.family(command) == expected, command
+
+
 def test_a_command_on_a_line_of_its_own_is_a_command_word():
     """A newline separates two commands the way `;` does, and a comment ends
     at one. `load` used to flatten every newline before `family` saw the
