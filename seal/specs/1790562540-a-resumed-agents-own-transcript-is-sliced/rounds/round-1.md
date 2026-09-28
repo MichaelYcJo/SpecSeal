@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #649 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `f37fe53ff2aef5e491a133c67d480f1ebad2b592..7291825ac4c8ee29cdbf2c1b0cccd5fe34b6e84c`, 2 commits |
 | Contract changes | none |
 | New units | test_no_hint_where_every_call_sits_in_one_stretch (depth 1); test_a_resumed_file_copied_out_of_subagents_is_still_cut (depth 1) |
