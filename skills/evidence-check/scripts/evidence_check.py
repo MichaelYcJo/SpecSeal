@@ -277,9 +277,13 @@ def gfm_lines(text, keepends=False):
     KEEPENDS asks.
 
     For every walk of markdown lines that reads a table or a fence. The
-    lines a hash covers and an anchor spans are still `splitlines`', so no
-    recorded hash moves: which characters end a line there is a separate
-    question from where a table row or a fence ends."""
+    lines a hash covers and an anchor spans are still `splitlines`' in this
+    branch, and that is a known defect, not a different answer: `ast` and
+    GFM number lines at LF, CR and CRLF alone, so after a form feed, NEL or
+    U+2028 the region hashed is not the unit the row names, and an edit to
+    the unit there passes without a DRIFTED. #664 fixes it; switching moves
+    the recorded hash of every region that holds or follows one of those
+    characters, so it is a change of its own."""
     lines = GFM_LINE_RE.findall(text)
     return lines if keepends else [line.rstrip("\r\n") for line in lines]
 
