@@ -27,3 +27,18 @@
   of the creation check as three figures from a probe nobody can re-run. Both
   paragraphs now name the committed cases that hold them, and the heredoc
   known limit, measured as closed, is removed.
+- **The uncommitted-changes prompt reads the tree being switched, not the
+  session's directory.** `git -C <repo> switch` or `cd <repo> && git switch`
+  into a dirty repository from elsewhere gave no prompt, and a switch into a
+  clean clone from a dirty session tree asked about the wrong tree's changes.
+  Found in review; it predates this release. The force-staged check behind the
+  prompt runs from the tree's root, so a switch through a subdirectory still
+  names an ignored path that was force-staged.
+- **Every command the worktree guard prints for a person to run names the tree
+  it is about.** Where the shell is outside the judged tree, the switch
+  steers, the worktree option and the `git restore` hints carry `git -C
+  <tree>`; inside it the text is unchanged. The `git restore` hints always
+  carry `-C <root>`, because their paths are root-relative, and followed from
+  another repository they would have unstaged or overwritten that repository's
+  files. Two printed commands still act on the shell's tree, and a repository
+  path with a space breaks the printed `worktree add` line; both are #643.
