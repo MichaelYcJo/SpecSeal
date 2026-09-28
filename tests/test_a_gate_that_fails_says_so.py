@@ -427,7 +427,12 @@ def test_a_record_is_created_once_and_asked_about_once(repo, monkeypatch):
     d.record("pre-bash", failure, body)
     d.record("pre-bash", [("mode-gate.py", "run", RuntimeError("second"))], body)
     assert len(asked) == 1, asked
-    monkeypatch.setattr(d.os.path, "exists", lambda _p: False)
+    # Blind only the records directory: `toplevel` asks `exists` too, and
+    # blinding that would stop the call before it reached the write.
+    real_exists = os.path.exists
+    monkeypatch.setattr(
+        d.os.path, "exists", lambda p: False if RECORDS in str(p) else real_exists(p)
+    )
     d.record("pre-bash", [("mode-gate.py", "run", RuntimeError("third"))], body)
     path = repo / ".git" / RECORDS / "s-x" / "mode-gate.py.pending"
     assert json.loads(path.read_text(encoding="utf-8"))["message"] == "first"
