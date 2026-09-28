@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 633 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `537ee120df98a2346d99b2db53b6d2d08dd2d15e..b8c2adcf55ab53a1e82956dd29cc13a194bba99b`, 2 commits |
+| Contract changes | none |
+| New units | test_the_dirty_tree_row_reads_the_tree_the_switch_is_in (depth 1) |
 | Needs a fix | yes — 🟡 1, the dirty-tree row reading the session directory; it predates this branch, and absorbing it here or deferring it to a new issue is the orchestrator's call |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 1 of the build, at the branch's tip after the smith's four phases. The rou
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The switch ladder's tracked-changes row reads `cwd`, not the switch's tree, so a dirty tree reached by `git -C` or `cd` is silent and a clean one is asked about the session tree's changes | `hooks/worktree-guard.py:2319` | open | Executed, identical at base and target. Not caused by this branch; the unit is one it edited, and `spec.md` decision 2's last row says each half is judged against its own tree |
-| ⬜ 2 | *an expansion* is filed under the no-consent silent group, but `~/git` and `*/git` deny | `docs/worktree-guard-spec.md:258` | open | Executed: 22 command words with and without a record |
+| 🟡 1 | The switch ladder's tracked-changes row reads `cwd`, not the switch's tree, so a dirty tree reached by `git -C` or `cd` is silent and a clean one is asked about the session tree's changes | `hooks/worktree-guard.py:2319` | **fixed** `16125e796b0c34f7d6786523b634b407a6574aee` | fixed at 16125e796b0c34f7d6786523b634b407a6574aee — row 3's `tracked_changes` and `phantom_entries` read `eff_cwd`, the tree the switch is in, where both read the session's `cwd`. Pinned by `tests/test_guard_resolves_the_tree_it_judges.py#test_the_dirty_tree_row_reads_the_tree_the_switch_is_in` (four cells, one of them a force-staged ignored path), red before the fix. Over 3,168 cells against 537ee12: no deny moved, 141 silent → ask, and 45 ask → silent, all of them a dirty session tree switching into a clean target, where the prompt named the wrong tree. `docs/worktree-guard-spec.md` §*Which tree* now names row 3 among the rows that read the command's tree; Executed, identical at base and target. Not caused by this branch; the unit is one it edited, and `spec.md` decision 2's last row says each half is judged against its own tree |
+| ⬜ 2 | *an expansion* is filed under the no-consent silent group, but `~/git` and `*/git` deny | `docs/worktree-guard-spec.md:258` | **fixed** `16125e796b0c34f7d6786523b634b407a6574aee` | fixed at 16125e796b0c34f7d6786523b634b407a6574aee — the report's replacement text; `~/git` and `*/git` join S10's no-record `deny` group, red when moved to the silent group; Executed: 22 command words with and without a record |
 | 🟢 | #620: both orders get the same decision and reason, the combined verdict is never weaker than either half and never `allow`, and nothing is looser than the base | `hooks/worktree-guard.py:2053` | confirmed | Executed over 4410 cells at target and base; the 48 differing cells are one shape that is not the same command in two orders |
 | 🟢 | #624.1: `isSidechain` must be literally `false`, and no malformed line raises | `hooks/worktree_consent.py:315` | confirmed | Executed, eight malformed shapes and seven values |
 | 🟢 | #624.2 and #624.3: both openings name what was counted, both languages | `hooks/worktree-guard.py:2338` | confirmed | Read against the ladder's exits; three mutations killed |
