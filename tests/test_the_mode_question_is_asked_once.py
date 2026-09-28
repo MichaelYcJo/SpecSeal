@@ -830,6 +830,18 @@ def test_a_row_inside_a_closed_comment_is_not_a_row(config, text):
     assert config.refusal(text) == ([], [], None), config.refusal(text)
 
 
+def test_a_commented_pipe_line_is_not_a_line_somebody_wrote_as_a_row(config):
+    """S13, `refusal`'s walk. A malformed pipe-line a person commented out
+    came back as `refused`, and `broad-gate` quotes a refused line back at
+    the person as their own malformed row."""
+    text = (
+        "| Item | Value |\n|---|---|\n<!--\n| Broad gate | a | b |\n-->\n"
+        "| Mode | shared |\n"
+    )
+    assert config.refusal(text) == ([], [], None), config.refusal(text)
+    assert config.config_rows(text) == [("Mode", "shared")]
+
+
 def test_an_unclosed_comment_hides_nothing(config):
     """S14. Only a comment that closes hides the lines inside it, so no file
     that reads today stops reading: a `<!--` somebody never closed leaves

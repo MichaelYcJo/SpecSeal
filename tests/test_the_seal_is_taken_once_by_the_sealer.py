@@ -1980,7 +1980,8 @@ COMMENTED = "written inside an HTML comment"
         "| Item | Value |\n|---|---|\n| Mode | shared |\n"
         f"<!--\n| {ROW} | bin/test -q |\n-->\n",
         "| Item | Value |\n|---|---|\n| Mode | shared |\n\n"
-        f"<!-- parked until the suite is green\n| {ROW} | bin/test -q |\n-->\n",
+        "<!-- parked until the suite is green\n| Mode | local |\n"
+        f"| {ROW} | bin/test -q |\n-->\n",
     ],
     ids=["under the last row", "under a paragraph"],
 )
