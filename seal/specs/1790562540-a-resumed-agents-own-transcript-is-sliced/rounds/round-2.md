@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #649 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `47fceb979870cc329b8e3f00455ec008392615c3..8ccb2b359d248b328001b80ed14d3b31b585bc24`, 2 commits |
+| Contract changes | none |
+| New units | test_no_hint_where_the_only_message_precedes_the_first_call (depth 1) |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,7 +24,7 @@ Round 2 of work item 1790562540 (#637), the verifying round. Its target is the d
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | The narrowed hint names two shapes that cut nothing (a message after the last call, one before the first); only the first is pinned, and a condition wrong for the second leaves both modules green | `tests/test_session_cost.py:3702` | open | executed: the mutant *a call starts at or after the first message* leaves 159 passed; the fenced case is green at d617b65c and red under it; the code is correct by reading and on a fixture |
+| ⬜ 1 | The narrowed hint names two shapes that cut nothing (a message after the last call, one before the first); only the first is pinned, and a condition wrong for the second leaves both modules green | `tests/test_session_cost.py:3702` | **fixed** `77365e87` | fixed at 77365e87; executed: the mutant *a call starts at or after the first message* leaves 159 passed; the fenced case is green at d617b65c and red under it; the code is correct by reading and on a fixture |
 | 🟢 | round 1's finding 1 is closed — the plain hint prints only where the messages cut the calls into two stretches or more | `skills/verify/scripts/session_cost.py:2785` | confirmed | executed: red at 7b4162fd's code, green now; 49 of 49 real own files print it exactly where `--segments` gives two rows or more; the equivalence with `segment_slices` holds by construction (read) |
 | 🟢 | round 1's finding 2 is closed — a resumed file copied out of `subagents/` is pinned | `tests/test_session_cost.py:3725` | confirmed | executed: directory mutants on the trigger, the hint, and both each turn this case alone red |
 | 🟢 | round 1's finding 3 is closed — the records count five readings in #535 | `seal/specs/1790562540-a-resumed-agents-own-transcript-is-sliced/changelog.md:29` | confirmed | read: changelog and overview say five; executed: `gh issue view 535` shows five whole-transcript comments |
