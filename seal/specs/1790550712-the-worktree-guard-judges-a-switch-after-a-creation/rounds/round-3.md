@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 633 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `d0a671669250df0cbddb7639970dd3498c60e5ba..d0a671669250df0cbddb7639970dd3498c60e5ba`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (`git worktree list` and the creation fallback's `git switch` name the shell's tree, against the spec paragraph and W10) and 🟡 2 (the worktree root unquoted in the printed `worktree add` lines, older than the work item) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ The verifying round after the run's one reopening, at the diff of round 2's fixe
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The worktree steer's `git worktree list`, and the creation ladder's detection-unusable fallback *use `git switch`*, carry no command word. From another repository they act on the shell's tree, and the spec paragraph and W10 say every printed command names the judged tree | `hooks/worktree-guard.py:2144` | open | Executed: from another repository, the ACTIVE deny and both choice fallbacks print every other command with `-C <top>` and this one bare. The creation fallback's reason carries no `-C` command at all. ML left every case green, and `PRINTED_COMMAND` has no `worktree list` alternative. Inside units the run's fixes edited (the steer, W10, the spec paragraph) |
-| 🟡 2 | `{wt_root}` is spliced unquoted into the eight printed `worktree add` lines while `top` beside it is quoted, so a path with a space or a quote prints a command that does not parse | `hooks/worktree-guard.py:2139` | open | Executed: with the repository at a path holding a space and an apostrophe, the `fetch` line splits correctly and both `worktree add` lines fail `shlex.split`. Older than the work item and not in a unit the run's fixes created; reported because this round was asked about quoting in every printed line |
-| ⬜ 3 | The class case reads four of six `git_at` call sites and only the first attempt of each choice row; its `restore` alternative never matches and would contradict its inside rule if it did | `tests/test_guard_resolves_the_tree_it_judges.py:606` | open | Executed: MU (token row) and MI (idle fallback) reverted to bare `git` leave all 185 cases green, and both rows print `-C` today, so this is a missing pin. The paste-ready case is red under MU, MI and the target hook, and green on the fixed hook |
-| ⬜ 4 | `git_at` spawns `git rev-parse` before row 1 on every switch, including the silent row that prints nothing | `hooks/worktree-guard.py:2128` | open | Read: rows 3 and 4 do not use `git`. Not measured |
+| 🟡 1 | The worktree steer's `git worktree list`, and the creation ladder's detection-unusable fallback *use `git switch`*, carry no command word. From another repository they act on the shell's tree, and the spec paragraph and W10 say every printed command names the judged tree | `hooks/worktree-guard.py:2144` | deferred #643 | #643 — The run is capped at its one reopening, so this record commissions no fix. #643 carries the two commands, the round's paste-ready fix and the extended class case; ledger W10 is narrowed in the closing commit so it states only what holds; Executed: from another repository, the ACTIVE deny and both choice fallbacks print every other command with `-C <top>` and this one bare. The creation fallback's reason carries no `-C` command at all. ML left every case green, and `PRINTED_COMMAND` has no `worktree list` alternative. Inside units the run's fixes edited (the steer, W10, the spec paragraph) |
+| 🟡 2 | `{wt_root}` is spliced unquoted into the eight printed `worktree add` lines while `top` beside it is quoted, so a path with a space or a quote prints a command that does not parse | `hooks/worktree-guard.py:2139` | deferred #643 | #643 — Predates the work item; same grounds, and #643 carries the `shlex.quote` fix; Executed: with the repository at a path holding a space and an apostrophe, the `fetch` line splits correctly and both `worktree add` lines fail `shlex.split`. Older than the work item and not in a unit the run's fixes created; reported because this round was asked about quoting in every printed line |
+| ⬜ 3 | The class case reads four of six `git_at` call sites and only the first attempt of each choice row; its `restore` alternative never matches and would contradict its inside rule if it did | `tests/test_guard_resolves_the_tree_it_judges.py:606` | deferred #643 | #643 — The class case's reach; #643 asks for it to derive its lines from what the guard prints; Executed: MU (token row) and MI (idle fallback) reverted to bare `git` leave all 185 cases green, and both rows print `-C` today, so this is a missing pin. The paste-ready case is red under MU, MI and the target hook, and green on the fixed hook |
+| ⬜ 4 | `git_at` spawns `git rev-parse` before row 1 on every switch, including the silent row that prints nothing | `hooks/worktree-guard.py:2128` | deferred #643 | #643 — Read, not measured; #643 names computing `git_at` only where a reason is printed; Read: rows 3 and 4 do not use `git`. Not measured |
 | 🟢 | round 2's finding 1 is closed for the note's two commands and for the steers the fix named | `hooks/worktree-guard.py:2364` | confirmed | Executed: the note carries `-C <root>` from another repository, a subdirectory and the root; M19 turns the tracked-changes case alone red. The class remainder is 🟡 1 |
 | 🟢 | round 2's finding 2 is closed as a class — the force-staged check runs at the root | `hooks/worktree-guard.py:2355` | confirmed | Executed: M18 turns the new case alone red, and fe24f07's hook turns it red. Read: no other root-relative path in the ladder runs elsewhere |
 | 🟢 | round 2's finding 3 is closed — the sentence states what `parse_git` compares | `docs/worktree-guard-spec.md:258` | confirmed | Read: `hooks/cmdline.py:1837` compares the basename as written. The six-word lexer probe was not re-run |
