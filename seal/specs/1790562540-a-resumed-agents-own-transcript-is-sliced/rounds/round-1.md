@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #649 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `f37fe53ff2aef5e491a133c67d480f1ebad2b592..7291825ac4c8ee29cdbf2c1b0cccd5fe34b6e84c`, 2 commits |
+| Contract changes | none |
+| New units | test_no_hint_where_every_call_sits_in_one_stretch (depth 1); test_a_resumed_file_copied_out_of_subagents_is_still_cut (depth 1) |
 | Needs a fix | yes — 1, the plain hint claims a wait inside the span of a file whose calls fall in one stretch |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 1 of work item 1790562540 (#637), a first round against the whole branch `
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The plain hint says the span covers the waits between stretches for a file whose calls all fall in one stretch, where the span covers no wait and `--segments` prints one slice of the same figure | `skills/verify/scripts/session_cost.py:2776` | open | executed on a fixture (C1); reachable, 0 of 47 real marker files; the causal clause is the builder's wording and In 4 did not ask for it |
-| ⬜ 2 | In 1's "a resumed file copied out of `subagents/` is still cut" is pinned by no case | `tests/test_session_cost.py:3418` | open | coverage probe: the trigger and hint gated on `/subagents/` leave 157 passed; code correct by reading |
-| ⬜ 3 | The changelog and overview count four whole-transcript fix-pass readings in #535; there are five | `seal/specs/1790562540-a-resumed-agents-own-transcript-is-sliced/changelog.md:27` | open | record correction; five comments opened with `gh issue view 535`; also `overview.md:19` |
-| ⬜ 4 | The counts paragraph says a header stands in for the counts given any agent's own file; only a resumed one gets it | `skills/verify/SKILL.md:625` | open | read; a marker-less agent file prints the empty branch |
-| ⬜ 5 | The resumed paragraph on an own-file page says only the file's opening could be joined | `skills/verify/scripts/session_cost.py:2261` | open | In 2 asks for it as on a walked page; the legend above says no spawn was joined; no change owed |
+| 🟡 1 | The plain hint says the span covers the waits between stretches for a file whose calls all fall in one stretch, where the span covers no wait and `--segments` prints one slice of the same figure | `skills/verify/scripts/session_cost.py:2776` | **fixed** `328b379d` | fixed at 328b379d; executed on a fixture (C1); reachable, 0 of 47 real marker files; the causal clause is the builder's wording and In 4 did not ask for it |
+| ⬜ 2 | In 1's "a resumed file copied out of `subagents/` is still cut" is pinned by no case | `tests/test_session_cost.py:3418` | **fixed** `328b379d` | fixed at 328b379d; coverage probe: the trigger and hint gated on `/subagents/` leave 157 passed; code correct by reading |
+| ⬜ 3 | The changelog and overview count four whole-transcript fix-pass readings in #535; there are five | `seal/specs/1790562540-a-resumed-agents-own-transcript-is-sliced/changelog.md:27` | answered | a correction to records under seal/: changelog.md and overview.md now read five in #535, corrected at 7291825a; record correction; five comments opened with `gh issue view 535`; also `overview.md:19` |
+| ⬜ 4 | The counts paragraph says a header stands in for the counts given any agent's own file; only a resumed one gets it | `skills/verify/SKILL.md:625` | **fixed** `7291825a` | fixed at 7291825a; read; a marker-less agent file prints the empty branch |
+| ⬜ 5 | The resumed paragraph on an own-file page says only the file's opening could be joined | `skills/verify/scripts/session_cost.py:2261` | answered | round-1-report.md §⬜ 5: In 2 asks for the resumed paragraph as it prints on a walked page, and the legend above it says no spawn was joined, so no change is owed; In 2 asks for it as on a walked page; the legend above says no spawn was joined; no change owed |
 | 🟢 | The trigger is the coordinator marker and not the directory | `skills/verify/scripts/session_cost.py:1550` | confirmed | read; the walked-whatever-its-markers case is planted |
 | 🟢 | No printed line or JSON shape moved for a file without the marker | `skills/verify/scripts/session_cost.py` | confirmed | executed, base against head, 316 real files by four modes; the 47 marker files differ by the hint and `own_file` rows only |
 | 🟢 | Own-file slices equal the walked slices for the same agent | `skills/verify/scripts/session_cost.py:1550` | confirmed | executed, 48 of 48 real marker files |
