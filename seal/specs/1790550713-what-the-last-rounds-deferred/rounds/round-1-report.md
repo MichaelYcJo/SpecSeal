@@ -257,7 +257,7 @@ fragment.
 | 🟢 | The completeness case reads the loaded docstring and fails on a new unpinned example | `tests/test_a_row_points_by_content.py:1290-1308` | confirmed | Executed: an added example turned this case alone red. The two escapes it has are the two its docstring names |
 | 🟢 | #625 item 1: both comments state the draft and ready outcomes as they are | `tests/test_the_fixes_close_the_record.py:710-714,2326-2333` | confirmed | Executed: the draft/ready probe over the four fixtures. `in (0, 1)` kept on the grounds at `plan.md:65` |
 | 🟢 | #625 item 2: six re-wraps change no word, and `--help` is byte-identical | `round_record.py:1537-1544`, `unverified_check.py:1380-1386`, four test docstrings | confirmed | Executed: word comparison per hunk, and `--help` at two widths |
-| 🟢 | The ledger re-stamps hold over the whole tree | the 11 `seal/releases/*.md` files, `seal/ledger/1790550713-what-the-0.15.5-rounds-deferred.md` | confirmed | Executed: `bin/evidence-check .` exit 0, 0 drifted. Each note was read against its edit (⬜ 2 aside) |
+| 🟢 | The ledger re-stamps hold over the whole tree | the 11 `seal/releases/*.md` files, `seal/ledger/1790550713-what-the-last-rounds-deferred.md` | confirmed | Executed: `bin/evidence-check .` exit 0, 0 drifted. Each note was read against its edit (⬜ 2 aside) |
 
 ## Executed probes
 
@@ -314,7 +314,7 @@ Opened this round, in the clone at `159d5d4` unless noted:
 - `tests/test_the_record_is_generated.py` (`env_without_a_pull_request`)
 - `tests/test_a_record_precedes_the_fixes_it_commissions.py` (lines 936-950, 1066-1080), `tests/test_the_record_is_held_to_the_floor_and_the_depth.py` (lines 505-525), `skills/code-review/scripts/chain_check.py` (lines 2166-2215), `skills/verify/scripts/broad_gate.py` (lines 74-86)
 - the branch diff of `tests/test_a_script_copied_alone_exits_2.py`, `tests/test_the_gate_hands_cmd_a_path_it_can_run.py`, `tests/test_the_rules_have_one_owner.py`
-- `seal/releases/*.md` (word diff of all 11), `seal/ledger/1790550713-what-the-0.15.5-rounds-deferred.md`
+- `seal/releases/*.md` (word diff of all 11), `seal/ledger/1790550713-what-the-last-rounds-deferred.md`
 - this work item's `spec.md`, `changelog.md`, `questions.md` (lines 20-35), `plan.md:65`, `phases/phase-1.md`, `phases/phase-2.md`, `phases/phase-3.md`
 - `seal/specs/1790381328-malformed-is-graded-like-drifted-and-reads-prose-as-prose/spec.md` (the corrected hunk)
 - `CHANGELOG.md` (lines 52-66), `docs/review-chain-spec.md` (lines 916-935)

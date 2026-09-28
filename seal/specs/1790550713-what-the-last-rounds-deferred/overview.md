@@ -1,11 +1,11 @@
-# 1790550713-what-the-0.15.5-rounds-deferred — overview
+# 1790550713-what-the-last-rounds-deferred — overview
 
 <!-- The closing memo (implement skill, step 4). Only what the diff cannot
 show. Written at phase 3 from what phases 1 and 2 recorded as they went. -->
 
 📋 implement applied
 · spec:     spec.md, plan.md, questions.md of this work item; `CLAUDE.md` (fragments, ledger rows, a merge's ledger conflicts); `skills/agent-contract/SKILL.md` §1, §2, §3, §5, §7, §9, §12, §14, §15; `docs/review-chain-spec.md` §*What the sweep reads* (a released entry is not rewritten); issues #625, #626; `seal/specs/1790381328-…/spec.md` *Part 2*
-· evidence: two rows in `seal/ledger/1790550713-what-the-0.15.5-rounds-deferred.md`; corrected in place: S8–S12 (`0.15.5.md`); re-read and re-stamped: `0.15.4.md` `MALFORMED`, `0.10.0.md` S13, `0.11.4.md` ×3, `0.12.1.md` R2, `0.13.1.md` (the section row), `0.14.0.md` G5, `0.15.5.md` C3 and C5, `0.4.0.md` (the fix-pass-checker row), `0.5.0.md` S7, `0.8.1.md` R2, `0.9.3.md` R1
+· evidence: two rows in `seal/ledger/1790550713-what-the-last-rounds-deferred.md`; corrected in place: S8–S12 (`0.15.5.md`); re-read and re-stamped: `0.15.4.md` `MALFORMED`, `0.10.0.md` S13, `0.11.4.md` ×3, `0.12.1.md` R2, `0.13.1.md` (the section row), `0.14.0.md` G5, `0.15.5.md` C3 and C5, `0.4.0.md` (the fix-pass-checker row), `0.5.0.md` S7, `0.8.1.md` R2, `0.9.3.md` R1
 · verified: executed — each phase's narrow modules, every new parameter and the completeness case seen red, round 3's three mutants and the named examples' branches, S7's tightened assertion and a `close`-only ready mutant, the re-wrap probe and `--help` byte comparison, `evidence-check`, the phase-3 sweeps; read — the enumerations' non-instances; unverified — the full suite (the sealer's)
 
 ## Why this work exists

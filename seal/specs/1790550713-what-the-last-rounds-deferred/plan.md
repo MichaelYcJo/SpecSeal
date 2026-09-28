@@ -1,6 +1,6 @@
 # Implementation Plan: what the 0.15.5 rounds deferred (#626, #625)
 
-<!-- seal/specs/1790550713-what-the-0.15.5-rounds-deferred/plan.md — HOW, in phases. This is the Design Gate's
+<!-- seal/specs/1790550713-what-the-last-rounds-deferred/plan.md — HOW, in phases. This is the Design Gate's
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
@@ -93,7 +93,7 @@ assert a present state that nobody can check. A commit hash asserts a past one
 beside the contract rather than in tool state.
 
 What a phase discovers while it is being built, and needs the next phase to
-know, goes to `seal/specs/1790550713-what-the-0.15.5-rounds-deferred/phases/phase-N.md`,
+know, goes to `seal/specs/1790550713-what-the-last-rounds-deferred/phases/phase-N.md`,
 from `templates/sdd-phase.md`, when the phase closes. Re-read the Status
 column after any rebase.
 

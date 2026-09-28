@@ -1,6 +1,6 @@
 # what the 0.15.5 rounds deferred — questions for the planner
 
-<!-- seal/specs/1790550713-what-the-0.15.5-rounds-deferred/questions.md — decisions only a human can make,
+<!-- seal/specs/1790550713-what-the-last-rounds-deferred/questions.md — decisions only a human can make,
 extracted so nothing ships on a silent assumption. Before adding a row,
 check the inheritance rule: if policy is silent but existing behavior
 answers it, inherit and record — only genuinely NEW rules belong here. -->

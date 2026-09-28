@@ -1,4 +1,4 @@
-# 1790550713-what-the-0.15.5-rounds-deferred — review round 1
+# 1790550713-what-the-last-rounds-deferred — review round 1
 
 | Field | Value |
 |---|---|
@@ -31,7 +31,7 @@ Round 1 of the build, at the branch's tip after the smith's three phases. The ro
 | 🟢 | The completeness case reads the loaded docstring and fails on a new unpinned example | `tests/test_a_row_points_by_content.py:1290-1308` | confirmed | Executed: an added example turned this case alone red. The two escapes it has are the two its docstring names |
 | 🟢 | #625 item 1: both comments state the draft and ready outcomes as they are | `tests/test_the_fixes_close_the_record.py:710-714,2326-2333` | confirmed | Executed: the draft/ready probe over the four fixtures. `in (0, 1)` kept on the grounds at `plan.md:65` |
 | 🟢 | #625 item 2: six re-wraps change no word, and `--help` is byte-identical | `round_record.py:1537-1544`, `unverified_check.py:1380-1386`, four test docstrings | confirmed | Executed: word comparison per hunk, and `--help` at two widths |
-| 🟢 | The ledger re-stamps hold over the whole tree | the 11 `seal/releases/*.md` files, `seal/ledger/1790550713-what-the-0.15.5-rounds-deferred.md` | confirmed | Executed: `bin/evidence-check .` exit 0, 0 drifted. Each note was read against its edit (⬜ 2 aside) |
+| 🟢 | The ledger re-stamps hold over the whole tree | the 11 `seal/releases/*.md` files, `seal/ledger/1790550713-what-the-last-rounds-deferred.md` | confirmed | Executed: `bin/evidence-check .` exit 0, 0 drifted. Each note was read against its edit (⬜ 2 aside) |
 
 ## Paste-ready fixes
 

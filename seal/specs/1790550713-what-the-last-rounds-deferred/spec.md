@@ -1,6 +1,6 @@
 # Feature Specification: what the 0.15.5 rounds deferred (#626, #625)
 
-<!-- seal/specs/1790550713-what-the-0.15.5-rounds-deferred/spec.md — WHAT this work delivers and how we'll know.
+<!-- seal/specs/1790550713-what-the-last-rounds-deferred/spec.md — WHAT this work delivers and how we'll know.
 The policy documents in docs/ outrank this file; cite them, don't restate. -->
 
 ## Grounding
@@ -10,7 +10,7 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 | `skills/agent-contract/SKILL.md` §12 | each item is fixed as a class. The copies and instances are enumerated below by construction, each with a coordinate, and the build re-runs the enumeration before editing |
 | `skills/agent-contract/SKILL.md` §14, §15 | a person-read sentence that states a verdict is pinned in the same commit, and every new parameter or case is seen red before it is planted |
 | `docs/review-chain-spec.md` §*What the sweep reads, and what it counts as written* — "a released entry is not rewritten" | `CHANGELOG.md`'s 0.15.5 section and the gathered fragment `seal/specs/1790381328-…/changelog.md` stay as they are. This work's own fragment says what the 0.15.5 entry left out |
-| `CLAUDE.md` *a change writes fragments, never the shared file* | the changelog entry goes in this work item's `changelog.md`, new ledger rows in `seal/ledger/1790550713-what-the-0.15.5-rounds-deferred.md`, and a row an edit drifts is re-read and re-stamped in the release file it lives in, with a dated `Re-read` note |
+| `CLAUDE.md` *a change writes fragments, never the shared file* | the changelog entry goes in this work item's `changelog.md`, new ledger rows in `seal/ledger/1790550713-what-the-last-rounds-deferred.md`, and a row an edit drifts is re-read and re-stamped in the release file it lives in, with a dated `Re-read` note |
 | `docs/the-evidence-ledger.md` §*A correction a merge dropped* | a release file that conflicts with chain A's or C's squash is resolved hunk by hunk, then `evidence-check` runs |
 | Milestone 48's description | a patch release: no new gate. Nothing here adds a refusal, and the completeness case below is a test of one docstring, not a check on anybody's build |
 
@@ -225,12 +225,12 @@ that range and are out.
   changes, except S8–S12's Notes. They say the rules are stated in
   "`changelog.md`", and "a case holds one or two examples of each". The
   re-read note says what changed.
-- **Ledger, new.** In `seal/ledger/1790550713-what-the-0.15.5-rounds-deferred.md`,
+- **Ledger, new.** In `seal/ledger/1790550713-what-the-last-rounds-deferred.md`,
   which does not exist yet:
   - the order condition as rule 3 now states it, with `@alice#299` silent;
   - the completeness case holding the rules' examples to the dicts.
 - **Changelog.** One fragment,
-  `seal/specs/1790550713-what-the-0.15.5-rounds-deferred/changelog.md`. It
+  `seal/specs/1790550713-what-the-last-rounds-deferred/changelog.md`. It
   says `evidence-check`'s statement of when `#` and `@` count as one
   coordinate now says the `@` must follow the `#`, and that 0.15.5's entry
   left that condition out.
