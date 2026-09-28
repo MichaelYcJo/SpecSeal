@@ -9,9 +9,12 @@
   wrapper such as `timeout` is not a command word, so `grep -rn git`,
   `cat .git/config`, `echo 'a; git b'` and `x=$(cd a && git log)` stay out.
   A backtick substitution's first word is not one either, but a separator
-  inside backticks is read as the line's. A line the tokeniser refuses, on an unmatched quote, is judged by
-  the words it read before refusing, and by the old anchored pattern where
-  it read none. A line that runs a test and a `git` is still the test's.
+  inside backticks is read as the line's. A quoted or escaped `;`, `&&`,
+  `(` or `)` is part of a word, so `echo ';' git x` stays out and a quoted
+  parenthesis does not end or extend a `$( … )`. A line the tokeniser
+  refuses, on an unmatched quote, is judged by the words it read before
+  refusing, and by the old anchored pattern where it read none. A line that
+  runs a test and a `git` is still the test's.
 - **The family reads the command as it ran, and a heredoc loses only its
   body (issue #377).** `load` flattened every newline before the family was
   judged, and the heredoc rule dropped everything from the operator to the
@@ -20,7 +23,8 @@
   `bin/test` after a `python3 - <<'EOF'` script, was charged to `other`. The
   body is now removed up to its closing line, which `<<-` lets carry leading
   tabs, and what follows is read by every family. A heredoc with no closing
-  line is cut to the end as before. Every printed command still reads the
+  line is cut to the end as before. A line continuation, `\⏎`, joins its two
+  lines, as it does in the shell. Every printed command still reads the
   flattened text.
 - **Readings published before 0.15.6 are affected in their `by family`
   rows, the `other` note and the two repeats figures.** In each, `git` and
@@ -38,4 +42,5 @@
   transcripts holding a Bash call, and leads in 159. Keeping every word of
   a `$( … )` out of command position, and removing comments first, moved
   one more call, from `git` to `other`, over the 358 transcripts there were
-  by then.
+  by then. Reading a line continuation as the shell does moved one call the
+  other way, a `git -C` after `&& \⏎`, over 360.

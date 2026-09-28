@@ -196,9 +196,16 @@ def parse_time(value):
 # (`<<\EOF`) -- now has its body lines read as command lines, so
 # `cat <<eof⏎git push⏎eof` is `git`, where the flattened reading made the
 # body arguments of the first line. And a here-string, `<<< "$x"`, is matched
-# as an operator with no closing line, so the rest of its line is cut, as it
-# was before #377. Round 1 of #377's review found neither moving a call in 358
-# transcripts, and the pattern is left as 0.9.4 stated it.
+# from its second `<` as an operator whose delimiter is `$x`; no later line is
+# that, so the command is cut from there to its end, every later line with
+# it, as it was before #377. Round 1 of #377's review found neither moving a
+# call in 358 transcripts, and the pattern is left as 0.9.4 stated it.
+#
+# Bodies are removed before comments are (`without_comments` runs inside
+# `command_words`), so an operator written inside a comment still cuts:
+# `ls # see <<EOF⏎git push` is `other`, as it was before #377. The other
+# order would let an apostrophe in a heredoc body open a quote that hides
+# every command after it.
 HEREDOC = re.compile(r"""<<-?\s*(?:'[^']*'|"[^"]*"|[A-Z_][A-Z0-9_]*)""")
 
 
@@ -263,18 +270,46 @@ def without_comments(command):
 
     So `# cd x && git push` loses its `&&` and its `git`, while `a#b`,
     `${#x}` and `echo '#'` keep their `#`. A comment holding an apostrophe no
-    longer reaches the tokeniser, so it no longer makes the line refused."""
+    longer reaches the tokeniser, so it no longer makes the line refused.
+
+    Two more things are done here because this is the one pass that still
+    sees the quoting. A character the shell reads as part of a word because
+    it is quoted or escaped, and that the tokeniser would return as an
+    operator, is replaced by a letter: the tokeniser strips the quotes that
+    would say so, and `echo ';' git x` or a quoted `)` inside `$( … )` would
+    reach `command_words` as a bare operator. And a line continuation, `\\⏎`,
+    is removed, as bash removes it before it reads a word, so the word
+    boundary before it still holds and `cd /x && \\⏎git status` is one line.
+
+    Two bounds, neither worse than the rule before #377: a `)` inside a word
+    starts a word boundary even when it closes a substitution
+    (`echo $(ls)#x` reads `#x` as a comment), and quotes nested inside
+    `"$( … )"` are read as closing the outer ones."""
     out, quote, at, boundary = [], None, 0, True
     while at < len(command):
         char = command[at]
         if char == "\\" and quote != "'":
-            out.append(command[at : at + 2])
+            escaped = command[at + 1 : at + 2]
             at += 2
+            if escaped == "\n":
+                # `\⏎` is a line continuation, which bash removes before it
+                # reads a word, so the boundary before it still holds.
+                continue
+            # An escaped operator is part of a word, and `shlex` would strip
+            # the backslash and hand the walk a bare `;`.
+            neutral = escaped and escaped in PUNCTUATION
+            out.append("\\" + ("_" if neutral else escaped))
             boundary = False
             continue
         if quote:
             if char == quote:
                 quote = None
+            elif char in PUNCTUATION:
+                # A quoted operator is part of a word, and `shlex` strips the
+                # quotes that would say so: `echo ';' git x` reached the walk
+                # as a bare `;`, and a quoted `(` inside `$( … )` left the
+                # substitution open to the end of the command.
+                char = "_"
         elif char in "'\"":
             quote = char
         elif char == "#" and boundary:
@@ -323,13 +358,25 @@ def command_words(command):
     position, previous, nested = True, "", 0
     for token in lexer:
         if token and set(token) <= set(PUNCTUATION):
+            # `$( … )`, `$(( … ))`, `<( … )` and `>( … )`: no word inside is
+            # a command word, and only what follows the `)` that closes the
+            # outermost one reaches the line. One operator token can close a
+            # substitution and open a subshell (`);(`), so it is walked a
+            # character at a time rather than counted.
             opens = token.startswith("(") and previous.endswith("$")
-            if nested or opens or token[:2] in ("<(", ">("):
-                # `$( … )`, `$(( … ))`, `<( … )` and `>( … )`: no word inside
-                # is a command word, and only what follows the `)` that
-                # closes the outermost one reaches the line.
-                nested = max(0, nested + token.count("(") - token.count(")"))
-                token = "" if nested else token[token.rfind(")") + 1 :]
+            left = []
+            for at, char in enumerate(token):
+                if nested:
+                    nested += {"(": 1, ")": -1}.get(char, 0)
+                elif char == "(" and (
+                    (at == 0 and opens) or token[at - 1 : at] in ("<", ">")
+                ):
+                    nested = 1
+                    if left and left[-1] in "<>":
+                        left.pop()
+                else:
+                    left.append(char)
+            token = "".join(left)
             chars = set(token)
             position = not (chars & REDIRECTION) and bool(chars & SEPARATOR)
         elif position:

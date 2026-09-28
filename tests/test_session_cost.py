@@ -1634,6 +1634,9 @@ def test_git_named_anywhere_but_a_command_word_is_not_git():
         "x=$(git log -1) ; ls",
         "diff <(git show HEAD:a) a",
         "timeout 40 gh issue list",
+        "echo ';' git x",
+        'echo "&&" git x',
+        "echo \\; git x",
     ):
         assert module.family(command) != "git", command
 
@@ -1715,19 +1718,32 @@ def test_a_separator_inside_a_substitution_does_not_reach_the_line():
     `)` that closes the outermost one is the line's again.
 
     Round 1 of #377's review found the first three reading `git` while the
-    rule four sentences state said they could not."""
+    rule four sentences state said they could not.
+
+    Round 2 found the count moved by a parenthesis bash reads as a letter --
+    a quoted `)` closing the substitution early, a quoted `(` keeping it open
+    to the end of the command -- and by a token that closes one and opens a
+    subshell at once (`);(`, `)&&(`, `)|(`), which counting cannot order."""
     module = load_script()
     for command in (
         "x=$(cd /y && git log -1)",
         "diff <(cd a; git show) b",
         "echo x | tee >(cd a; git hash-object --stdin)",
         "echo $(echo $(cd a; git s))",
+        "x=$(printf ')'; cd a; git log)",
+        'x=$(echo ")"; cd a; git log)',
     ):
         assert module.family(command) != "git", command
     for command in (
         "echo $(git a); git b",
         "echo $(( 1 + 2 )); git s",
         "x=$(cd /y && ls) && git status",
+        "x=$(echo '(') ; git s",
+        "n=$(grep -c '(' f)\ngit commit -m x",
+        "x=$(pwd);(cd a && git s)",
+        "echo $(date)&&(cd a; git x)",
+        "echo $(pwd)|(git c)",
+        "diff <(ls a)<(ls b); git s",
     ):
         assert module.family(command) == "git", command
 
@@ -1738,12 +1754,26 @@ def test_a_comment_runs_nothing_whatever_it_holds():
     quotes starts no comment, and a comment's apostrophe is not a quote.
 
     Round 1 of #377's review found the first two reading `git`, where the
-    anchored rule before #377 read `other`."""
+    anchored rule before #377 read `other`.
+
+    Round 2 found a comment that opens a continuation line read as words,
+    because bash removes `\\⏎` before it reads a word and the walk did not.
+    The lines after it pin each character a comment may follow -- a newline,
+    a tab, `;`, `&`, `|`, `(` and `)` -- beside the space above, since
+    reducing that set to a space and a newline left every case green."""
     module = load_script()
     for command in (
         "# cd x && git push\nls",
         "ls  # then; git push",
         "echo \\' # an escaped quote opens nothing; git push",
+        "ls \\\n# x; git push",
+        "ls\n# c; git push",
+        "ls\t# c; git push",
+        "ls;# c; git push",
+        "ls&# c; git push",
+        "ls|# c; git push",
+        "(# c; git push\nls)",
+        "(ls)# c; git push",
     ):
         assert module.family(command) != "git", command
     for command in (
@@ -1752,6 +1782,7 @@ def test_a_comment_runs_nothing_whatever_it_holds():
         "echo a#b; git s",
         "echo ${#x}; git s",
         'echo "a # b"; git s',
+        "cd /x && \\\ngit status",
     ):
         assert module.family(command) == "git", command
 

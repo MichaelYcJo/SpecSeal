@@ -35,7 +35,12 @@ phase 2 left out (`phases/phase-2.md`) was taken in round 1's fix pass,
 because round 1 found the ordinary-`#` reading answers worse than 2037cf0 on
 a comment holding a separator. The `HEREDOC` pattern was not widened to a
 here-string or an escaped or lowercase delimiter. Its comment states both,
-and round 1 found neither moving a call.
+and round 1 found neither moving a call. Three shapes round 2 found are
+stated as bounds rather than fixed, because each answers as the rule before
+#377 did and fixing it needs a parser this file does not have: a `)` inside
+a word read as a word start (`echo $(ls)#x`), quotes nested inside
+`"$( … )"`, and a heredoc operator inside a comment. The first two are in
+`without_comments`' docstring and the third in the `HEREDOC` comment.
 
 ## Fed back into the spec
 
