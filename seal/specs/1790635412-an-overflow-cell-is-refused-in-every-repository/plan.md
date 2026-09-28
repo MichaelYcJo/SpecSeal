@@ -147,7 +147,7 @@ and the milestone calls this class a minor release.
 | **`LEDGER_COLUMNS` as a constant, pinned to the template by a case** | A template change without a constant change goes red, which is the point | **chosen** |
 | Write `overflow_rows` with its own header walk beside `grounds_cells` | Two table walks in one file, which is the divergence this repository keeps undoing, and C would have two walks to choose from | rejected |
 | **Extract `ledger_table_rows` from `grounds_cells`; both arms read through it** | A slip in the extraction changes `MALFORMED`. Every existing `MALFORMED` case runs before and after, and A7 is the gate | **chosen** |
-| Keep this repository's `overwide_rows` beside the shipped arm | Two rules for one statement, already different in four places (`spec.md` *In* 6) | rejected |
+| Keep this repository's `overwide_rows` beside the shipped arm | Two rules for one statement, already different in four places (`spec.md` *In* 6) | rejected · NAME NOT IN TREE |
 | Delete this repository's corpus case, since the arm now covers the files | The `ledger` CI job is lenient, so an overflowing row on a contributor's pull request becomes a warning where it is a failing test today | rejected |
 | **The corpus case calls the shipped arm; a planted-tree case makes it red-able** | The planted case tests the helper, not the real tree's content. The real tree is covered by the checker itself as well | **chosen** |
 | Leave `--reverify` silent on an overflowing row, to keep out of C's function | `SKILL.md`'s *Known limits* says every verdict the check names gets a line back, because silence reads as a heal. A new verdict with no line breaks that sentence | rejected |
