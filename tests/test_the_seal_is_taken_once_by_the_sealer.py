@@ -2303,6 +2303,10 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(repo, tmp_path):
     space the quoted and unquoted path are the same bytes, so the quoting
     assertion below could not tell a quoted command from a bare one."""
     spaced = tmp_path / "a checkout" / "repo"
+    # The parent first, so the move is a rename on every platform. Without
+    # it `shutil.move` falls back to a copy and an `rmtree`, which Windows
+    # refuses over git's read-only object files.
+    spaced.parent.mkdir(parents=True)
     shutil.move(str(repo), str(spaced))
     repo = spaced
     out, _values = sealed_values(repo, tmp_path, session="s-1")
@@ -2373,6 +2377,10 @@ def test_a_run_with_no_session_says_so_and_names_the_hand_command(repo, tmp_path
     checkout whose path holds a space prints a command that runs as typed.
     The fixture is moved under such a directory to show it."""
     spaced = tmp_path / "a checkout" / "repo"
+    # The parent first, so the move is a rename on every platform. Without
+    # it `shutil.move` falls back to a copy and an `rmtree`, which Windows
+    # refuses over git's read-only object files.
+    spaced.parent.mkdir(parents=True)
     shutil.move(str(repo), str(spaced))
     settled_item(spaced)
     out = run_gate(spaced, "--record", str(spaced / ITEM), keep=tmp_path / "out")
