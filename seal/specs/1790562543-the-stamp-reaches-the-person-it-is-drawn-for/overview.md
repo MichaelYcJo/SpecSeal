@@ -21,8 +21,8 @@ file the gate writes only over a green run with a written cell.
 
 | Item | Who must answer |
 |---|---|
-| S17: on a real sealer run, the stamp appears after the orchestrator's text, unfolded, in colour, once | the owner, on the first real sealer run after this merges. The installed plugin is 0.15.6, so the new hook cannot fire in the session that built it |
-| Q1: whether a `Stop` hook's `systemMessage` enters the model's context on the next turn | a measurement, after the first real draw: search the session's transcript `.jsonl` for the label line |
+| ✅ S17: on a real sealer run, the stamp appears after the orchestrator's text, unfolded, in colour, once | seen on the owner's screen 2026-09-28, during the 0.15.7 run, with the branch's hook registered for that session: the stamp came after the reply's text, unfolded, in colour, once, with line 1 as `Stop says: SEALED b8898260 against d71265b9 · 1790562543-…` (PR #650's body carries the account) |
+| ✅ Q1: whether a `Stop` hook's `systemMessage` enters the model's context on the next turn | executed 2026-09-28 over this session's transcript: each draw is stored as an `attachment` of type `hook_success` whose model-facing `content` is empty and whose `stdout` holds the drawing, and no stamp text reached the model's context across three draws |
 | Q3: whether the early-draw window occurs, a stamp drawn above the text it belongs under | a measurement, by the orchestrator on the next release run |
 | Q4: the block form through the hook on Windows (Windows Terminal, and a cp949 console) | the owner, or whoever next runs a session on Windows |
 | The full suite, the repository-wide lint and the typecheck | the sealer, once, after the review rounds settle |
