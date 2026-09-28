@@ -49,3 +49,10 @@ turned into a `systemMessage`, and pending records wait for a turn end that
 can carry them. `hooks/dispatch.py#beside` holds it, and so does
 `tests/test_a_gate_that_fails_says_so.py#test_plain_text_at_stop_is_left_alone_and_the_records_wait`.
 A planner may overturn it.
+
+*Inferred in round 1's fix pass* (🟡 1): a gate that failed to load is named
+in every group that loads its file, and a run failure only in the group it
+was seen in. `spec.md` §*Scope* item 4 was corrected to say so;
+`hooks/dispatch.py#describe` and
+`tests/test_a_gate_that_fails_says_so.py#test_a_gate_that_fails_to_load_names_every_group_that_loads_it`
+hold it.

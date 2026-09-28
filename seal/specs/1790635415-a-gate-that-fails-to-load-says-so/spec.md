@@ -109,8 +109,11 @@ that stays broken for the rest of the session is not said again.
    - **line 1** is a label that names what this is and how many gates it
      covers, because the harness shows it as `Stop says: <line 1>`;
    - **one line per gate**, oldest record first. Each line names the gate
-     file, the group, load or run, and the exception's class and first line.
-     It says that the calls went ahead and that the other gates in the group
+     file, load or run, where it failed, and the exception's class and first
+     line. A load failure names every group that loads the gate's file, and a
+     run failure the group it was seen in (*inferred in round 1's fix pass*,
+     🟡 1). It says that the calls went ahead and that the other gates in the
+     group
      still decided;
    - **the closing sentence** says that this is said once per session and
      that nothing was blocked.
