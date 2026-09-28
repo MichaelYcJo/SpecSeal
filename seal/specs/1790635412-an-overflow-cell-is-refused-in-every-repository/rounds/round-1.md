@@ -24,7 +24,7 @@ Round 1, the first finding round, over the whole branch `551c7967...6670eb6f`. A
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `ledger_table_rows` splits lines with `str.splitlines`, which ends a line where GFM does not: a split row with U+2028, NEL or a form feed after the stray pipe is not named, and every row after such a character is reported one line off and as having no header | `skills/evidence-check/scripts/evidence_check.py:1714` | **fixed** `17e8f667` | fixed at 17e8f667 — with the rows it drifted re-read in `0659e395`. The class was fixed across every table or fence walk in `evidence_check.py` (`unquoted`, `old_format_rows`, `ledger_table_rows`, `migrate`, the records arm); the `splitlines` calls feeding `content_hash` stay, since changing them moves every hash; Executed at `6670eb6f`: three shapes each returned `[]` where the removed implementation counted six cells; a real split on editor line 4 was reported as `line 5`, "no header above it". Breaks `spec.md`'s "1-based, into the text as given" promise to work item C |
+| 🟡 1 | `ledger_table_rows` splits lines with `str.splitlines`, which ends a line where GFM does not: a split row with U+2028, NEL or a form feed after the stray pipe is not named, and every row after such a character is reported one line off and as having no header | `skills/evidence-check/scripts/evidence_check.py:1714` | **fixed** `17e8f667` | fixed at 17e8f667 — with the rows it drifted re-read in `0659e395`. The class was fixed across every table or fence walk in `evidence_check.py` (`unquoted`, `old_format_rows`, `ledger_table_rows`, `migrate`, the records arm); the `splitlines` calls feeding `content_hash` stay. Corrected 2026-09-29 by round 2 (⬜ 2): the reason first recorded here, that changing them moves every hash, is false (no tracked file holds such a character), and the hash side is its own defect, #664, taken by work item C; Executed at `6670eb6f`: three shapes each returned `[]` where the removed implementation counted six cells; a real split on editor line 4 was reported as `line 5`, "no header above it". Breaks `spec.md`'s "1-based, into the text as given" promise to work item C |
 | ⬜ 2 | A stray pipe in the Clause cell draws `OVERFLOW` and also `MALFORMED` "cites no coordinate", whose remedy is wrong for that row | `skills/evidence-check/scripts/evidence_check.py:1798` | answered | The one-line fix changes `MALFORMED`'s reading, which `spec.md` In 2 and A7 hold unchanged, and would drop a true `MALFORMED` where the split is in the Notes cell. It predates the branch; `OVERFLOW` now prints the right remedy beside it, and escaping the pipe clears both; Executed. Pre-existing for `MALFORMED`; the branch adds the correct verdict beside it, so nothing ships worse |
 | ⬜ 3 | A row with no leading `\|`, which GFM keeps in the table, resets the walk's header, so later rows of a table wider than five columns are named `OVERFLOW` with "no header above it" | `skills/evidence-check/scripts/evidence_check.py:1722` | answered | The reset comes from the shared reader's `split_row`, which the arm asks through `cell_rule()` and the spec keeps the arm off rewriting. The misreading is loud, predates the branch for `MALFORMED`, and no ledger this plugin writes has such a row; Executed. Shared `split_row` rule, and pre-existing for `MALFORMED`; no ledger this plugin writes has such a row |
 | 🟢 | The three interface names, the totals key, both summary lines and the `check_ledger` extension match `spec.md` *Data & interfaces* | `skills/evidence-check/scripts/evidence_check.py:1609` | confirmed | Read; the new module and the lenient-notice module executed green. The line-number clause is 🟡 1 |
@@ -50,8 +50,7 @@ GFM_LINE_END_RE = re.compile(r"\r\n|\r|\n")
     for line in GFM_LINE_END_RE.split(unquoted(text)):
 ```
 ```python
-@pytest.mark.parametrize("ch", ["
-", "\x85", "\x0c"])
+@pytest.mark.parametrize("ch", ["\u2028", "\x85", "\x0c"])
 def test_a_character_gfm_does_not_end_a_line_at_does_not_cut_a_row(ch):
     """GFM ends a line at LF, CR and CRLF only; `str.splitlines` also ends
     one at these. Cut there, a split after the cut went unnamed and every
@@ -88,5 +87,5 @@ def test_a_character_gfm_does_not_end_a_line_at_does_not_cut_a_row(ch):
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| `unquoted` finds fences on `str.splitlines` lines, so a U+2028 before a fence run can open or close a fence GFM never sees | work item B (#584), which owns fence reading this milestone | the orchestrator of milestone 49, by adding it to B's handoff; B's smith decides |
-| `old_format_rows` reads rows on `str.splitlines` lines, so an old coordinate after such a character is not offered for migration | this branch, if the smith takes 🟡 1's constant into it (the fix block says how); otherwise a new issue | the smith of this work item, at the fix pass |
+| `unquoted` finds fences on `str.splitlines` lines, so a U+2028 before a fence run can open or close a fence GFM never sees | not deferred: fixed in this branch at `17e8f667` (corrected 2026-09-29 by round 2, ⬜ 2) | nobody |
+| `old_format_rows` reads rows on `str.splitlines` lines, so an old coordinate after such a character is not offered for migration | not deferred: fixed in this branch at `17e8f667` (corrected 2026-09-29 by round 2, ⬜ 2) | nobody |
