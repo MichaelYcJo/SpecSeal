@@ -13,11 +13,16 @@ is what production spawns. A broken gate is one whose file is replaced by
 already uses. The live `hooks/` is never touched.
 """
 
+import contextlib
+import importlib.util
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
+
+from conftest import decision_of, load_hook_module
 
 HOOKS = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "hooks"))
 BROKEN = "def broken(:\n"
@@ -215,3 +220,273 @@ def test_a_session_id_cannot_name_a_directory_outside_the_records(repo, tmp_path
     assert not (repo / "escaped").exists()
     assert not (repo / ".git" / "escaped").exists()
     assert records(repo, "escaped") == ["commit-review-gate.py.pending"]
+
+
+# --- S7: a `SystemExit` at load is isolated --------------------------------
+
+
+def load(path, name):
+    spec = importlib.util.spec_from_file_location(name, str(path))
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_a_system_exit_at_load_does_not_take_the_group_down(
+    repo, tmp_path, monkeypatch
+):
+    """S7. A module body calling `sys.exit(0)` used to escape `run_gate`,
+    whose catch was `Exception` alone, and end the whole group: the commit
+    gate after it never decided. Seen red against the phase-1 tree, where
+    `main()` raised `SystemExit` and printed nothing. The shape of
+    `tests/test_dispatch.py#test_a_crashing_gate_does_not_take_the_group_down`,
+    run against a copy so the planted gate never enters the live `hooks/`."""
+    opted_in(repo)
+    hooks = hooks_copy(tmp_path, {"exits-at-load.py": "import sys\nsys.exit(0)\n"})
+    d = load(hooks / "dispatch.py", "dispatch_for_s7")
+    monkeypatch.setattr(
+        d, "GROUPS", {"g": ("exits-at-load.py", "commit-review-gate.py")}
+    )
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "argv", ["dispatch.py", "g"])
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(bash(repo, "s-x"))))
+    with contextlib.redirect_stdout(out):
+        d.main()
+    assert decision_of(out.getvalue()) == "deny", out.getvalue()
+    record = repo / ".git" / RECORDS / "s-x" / "exits-at-load.py.pending"
+    body = json.loads(record.read_text(encoding="utf-8"))
+    assert body == {
+        "group": "g",
+        "phase": "load",
+        "error": "SystemExit",
+        "message": "0",
+    }
+
+
+# --- S6, S6b: a shared module breaks several gates -------------------------
+
+
+def gates_said(lines):
+    """The gate each line of a report names, in the order said."""
+    return [line.split(" ", 1)[0] for line in lines[1:-1]]
+
+
+def test_a_broken_shared_module_names_every_gate_that_imports_it(repo, tmp_path):
+    """S6. `cmdline.py` is imported by two `pre-bash` gates and two
+    `post-bash` gates, and every one of them is said, once, with no gate
+    that does not import it. The `post-bash` call is not a commit: a copy of
+    `hooks/` has no `skills/` beside it, so `evidence-advisor.py` would fail
+    at run on a commit for want of its checker, which is the fixture and not
+    `cmdline.py`."""
+    opted_in(repo)
+    hooks = hooks_copy(tmp_path, {"cmdline.py": BROKEN})
+    dispatch(hooks, "pre-bash", bash(repo, "s-x"))
+    dispatch(
+        hooks,
+        "post-bash",
+        bash(repo, "s-x", command="ls", hook_event_name="PostToolUse"),
+    )
+    lines = said(stop(hooks, repo, "s-x"))
+    assert lines[0] == "SpecSeal: 4 gates failed and were skipped", lines
+    assert sorted(gates_said(lines)) == [
+        "commit-review-gate.py",
+        "implementer-notice.py",
+        "worktree-guard.py",
+        "worktree_consent.py",
+    ], lines
+    assert lines[-1] == CLOSING
+
+
+def test_a_broken_opt_in_module_is_said_rather_than_read_as_not_opted_in(
+    repo, tmp_path
+):
+    """S6b. `optin.py` is what the report asks whether to speak, and it is
+    the broken module: "cannot tell" writes the record. `sealer-stamp.py`
+    fails in the `stop` group itself and is said in the same invocation."""
+    opted_in(repo)
+    hooks = hooks_copy(tmp_path, {"optin.py": BROKEN})
+    dispatch(hooks, "pre-bash", bash(repo, "s-x"))
+    lines = said(stop(hooks, repo, "s-x"))
+    assert sorted(gates_said(lines)) == [
+        "commit-review-gate.py",
+        "mode-gate.py",
+        "sealer-stamp.py",
+        "worktree-guard.py",
+    ], lines
+    assert "sealer-stamp.py failed to load in stop (SyntaxError: " in "\n".join(
+        lines
+    ), lines
+    assert any(
+        line.startswith("sealer-stamp.py ")
+        and line.endswith("); calls went ahead without it.")
+        for line in lines
+    ), lines
+
+
+def test_records_are_said_oldest_first(repo, tmp_path):
+    """One line per record, in the order the gates failed — read from each
+    record's time, so a name that sorts first is not said first."""
+    opted_in(repo)
+    directory = repo / ".git" / RECORDS / "s-x"
+    directory.mkdir(parents=True)
+    for n, gate in enumerate(("worktree-guard.py", "commit-review-gate.py")):
+        path = directory / (gate + ".pending")
+        path.write_text(json.dumps({"group": "pre-bash"}), encoding="utf-8")
+        os.utime(path, ns=(10**18 + n, 10**18 + n))
+    lines = said(stop(hooks_copy(tmp_path, {}), repo, "s-x"))
+    assert gates_said(lines) == ["worktree-guard.py", "commit-review-gate.py"]
+
+
+def test_a_record_that_cannot_be_read_still_names_its_gate(repo, tmp_path):
+    """A record another plugin version wrote, or a half-written one: the
+    gate's name is the file's name, and that is the report's whole value."""
+    opted_in(repo)
+    directory = repo / ".git" / RECORDS / "s-x"
+    directory.mkdir(parents=True)
+    (directory / "lint-python.py.pending").write_text("not json", encoding="utf-8")
+    lines = said(stop(hooks_copy(tmp_path, {}), repo, "s-x"))
+    assert lines[1] == "lint-python.py failed; calls went ahead without it.", lines
+
+
+# --- S10: a subagent's failure reaches the main session ----------------------
+
+
+def test_a_subagents_failure_is_said_at_the_main_sessions_stop(repo, tmp_path):
+    """S10. A subagent's tool payload carries the parent's `session_id`, so
+    its failure is recorded under the main session. A `Stop`-shaped payload
+    naming an agent is a subagent's end, and draws nothing."""
+    opted_in(repo)
+    hooks = hooks_copy(tmp_path, {"session-lease.py": BROKEN})
+    dispatch(
+        hooks,
+        "post-bash",
+        bash(repo, "s-x", command="ls", hook_event_name="PostToolUse", agent_id="a-1"),
+    )
+    assert records(repo, "s-x") == ["session-lease.py.pending"]
+    assert stop(hooks, repo, "s-x", agent_id="a-1") == ""
+    assert stop(hooks, repo, "s-x", hook_event_name="SubagentStop") == ""
+    assert records(repo, "s-x") == ["session-lease.py.pending"]
+    assert said(stop(hooks, repo, "s-x"))[0] == LABEL_ONE
+
+
+# --- S9: beside the stamp ------------------------------------------------------
+
+STAMP = os.path.join(
+    os.path.dirname(HOOKS), "skills", "verify", "scripts", "seal_stamp.py"
+)
+STAMP_VALUES = {
+    "tree": "aaa1111",
+    "base": "bbb2222",
+    "from": "origin/base",
+    "item": "/x/seal/specs/1799000000-an-item",
+    "session": "s-1",
+    "scale": 0.9,
+    "rows": [("SEALED", ""), None, ("tree", "aaa1111"), ("suite", "3 passed")],
+}
+
+
+def test_the_report_goes_before_the_stamp_and_the_stamp_is_unchanged(repo, tmp_path):
+    """S9. One `systemMessage`: the report first, then a blank line, then
+    the stamp exactly as it is drawn with nothing pending — so the drawing
+    stays the last thing on the screen (#400). The live `hooks/` is run, not
+    a copy, because `sealer-stamp.py` reaches `seal_stamp.py` beside it; the
+    record is planted, which is also a record written by another process."""
+    opted_in(repo)
+    stamp = load(STAMP, "seal_stamp_for_s9")
+    for session in ("s-alone", "s-both"):
+        stamp.write_values(str(repo / ".git"), session, STAMP_VALUES)
+    directory = repo / ".git" / RECORDS / "s-both"
+    directory.mkdir(parents=True)
+    (directory / "mode-gate.py.pending").write_text(
+        json.dumps(
+            {"group": "pre-bash", "phase": "run", "error": "KeyError", "message": "'x'"}
+        ),
+        encoding="utf-8",
+    )
+    alone = said(stop_live(repo, "s-alone"))
+    both = said(stop_live(repo, "s-both"))
+    assert alone[0].startswith("SEALED aaa1111"), alone
+    assert both[: len(both) - len(alone) - 1] == [
+        LABEL_ONE,
+        "mode-gate.py failed while running in pre-bash (KeyError: 'x'); calls "
+        "went ahead without it, and the other gates in pre-bash still decided.",
+        CLOSING,
+    ], both
+    assert both[len(both) - len(alone) - 1] == "", both
+    assert both[len(both) - len(alone) :] == alone, "the stamp moved"
+
+
+def stop_live(repo, session):
+    r = subprocess.run(
+        [sys.executable, os.path.join(HOOKS, "dispatch.py"), "stop"],
+        input=json.dumps(
+            {"hook_event_name": "Stop", "session_id": session, "cwd": str(repo)}
+        ),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=60,
+    )
+    assert r.returncode == 0, r.stderr
+    return r.stdout
+
+
+# --- Q2: the walk is duplicated, and the twins agree -------------------------
+
+
+def git(repo, *args):
+    """git driven from Python, so no Bash line carries a commit (§8)."""
+    return subprocess.run(
+        ["git", "-C", str(repo), *args],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        check=True,
+    )
+
+
+def test_the_walk_agrees_with_its_twin_in_sealer_stamp(repo, tmp_path):
+    """`questions.md` Q2, answered duplicated: `dispatch.py` cannot import
+    `sealer-stamp.py` without importing `console` and `optin` with it. So the
+    two walks are held to one answer — in a subdirectory of the main
+    checkout, and in a linked worktree, where `.git` is a file and git is
+    asked. A failure recorded from the worktree is said from the checkout."""
+    d = load_hook_module("dispatch.py", "dispatch_for_the_twin")
+    sealer = load_hook_module("sealer-stamp.py", "sealer_stamp_for_the_twin")
+    optin = load_hook_module("optin.py", "optin_for_the_twin")
+    tree = tmp_path / "tree"
+    git(repo, "worktree", "add", "-q", str(tree), "feature/x")
+    (repo / "docs" / "deep").mkdir(parents=True)
+    for cwd in (repo / "docs" / "deep", tree):
+        top = d.toplevel(str(cwd))
+        assert top == sealer.toplevel(str(cwd)), cwd
+        assert d.common_dir(top) == optin.git_common_dir(top), cwd
+    assert os.path.samefile(d.common_dir(d.toplevel(str(tree))), repo / ".git")
+
+    # Local mode, so the worktree's branch, which has no `seal/`, is opted
+    # in from both trees.
+    (repo / ".git" / "seal").mkdir()
+    hooks = hooks_copy(tmp_path, {"commit-review-gate.py": BROKEN})
+    dispatch(hooks, "pre-bash", bash(tree, "s-x"))
+    assert records(repo, "s-x") == ["commit-review-gate.py.pending"]
+    assert said(stop(hooks, repo, "s-x"))[0] == LABEL_ONE
+
+
+def test_plain_text_at_stop_is_left_alone_and_the_records_wait(
+    repo, tmp_path, monkeypatch, capsys
+):
+    """No gate in `stop` prints plain text, and plain `Stop` stdout reaches a
+    different reader than a `systemMessage`. So such a turn end is printed
+    as it was, and the records wait for one that can carry them."""
+    opted_in(repo)
+    directory = repo / ".git" / RECORDS / "s-x"
+    directory.mkdir(parents=True)
+    (directory / "mode-gate.py.pending").write_text("{}", encoding="utf-8")
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_plain_text")
+    monkeypatch.setattr(d, "run_gate", lambda _gate, _payload: "plain words\n")
+    monkeypatch.setattr(sys, "argv", ["dispatch.py", "stop"])
+    body = {"hook_event_name": "Stop", "session_id": "s-x", "cwd": str(repo)}
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(body)))
+    d.main()
+    assert capsys.readouterr().out == "plain words\n"
+    assert records(repo, "s-x") == ["mode-gate.py.pending"]

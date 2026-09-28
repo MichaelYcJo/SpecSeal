@@ -118,7 +118,11 @@ def run_gate(filename, payload):
                 module.main()
             except SystemExit:
                 pass
-    except Exception as exc:
+    except (Exception, SystemExit) as exc:
+        # A `SystemExit` reaching here was raised at LOAD: `main()`'s own is
+        # caught above, because `worktree-guard.py` ends with `sys.exit(0)`.
+        # Left uncaught, one module body calling `sys.exit` ended the whole
+        # group, and the gates after it never decided.
         FAILED.append((filename, phase, exc))
         # RIDER: this catch is deliberate -- a crashing gate must not block a
         # tool call or take its neighbours down. What it costs is that an
@@ -422,18 +426,43 @@ def draw(body):
     return "\n".join([label, *lines, CLOSING])
 
 
+def beside(merged):
+    """The object a report is joined into: {} where the group printed
+    nothing, the group's own JSON object where it printed one, and None
+    where it printed anything else -- plain text at `Stop` reaches a
+    different reader than a `systemMessage`, so it is not converted into
+    one, and the records wait for a turn end that can carry them. No gate in
+    `stop` prints plain text today."""
+    if not merged.strip():
+        return {}
+    try:
+        out = json.loads(merged)
+    except ValueError:
+        return None
+    return out if isinstance(out, dict) else None
+
+
 def report(group, payload, merged):
     """`merged`, after this call's failures are recorded -- and at `stop`,
     with every pending record of the session said. Never raises: what cannot
-    be written or said is left as the silence it was before."""
+    be written or said is left as the silence it was before.
+
+    At `stop` the report goes BEFORE whatever `systemMessage` the group
+    already carries, in the same message: `sealer-stamp.py`'s drawing stays
+    the last thing on the screen, which #400 decided."""
     try:
         body = parse(payload)
         if FAILED:
             record(group, list(FAILED), body)
-        if group == "stop" and not merged.strip():
-            said = draw(body)
+        if group == "stop":
+            out = beside(merged)
+            said = draw(body) if out is not None else ""
             if said:
-                return json.dumps({"systemMessage": said})
+                own = out.get("systemMessage")
+                out["systemMessage"] = (
+                    f"{said}\n\n{own}" if isinstance(own, str) and own else said
+                )
+                return json.dumps(out)
     except Exception:
         pass
     return merged
