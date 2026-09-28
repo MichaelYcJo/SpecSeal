@@ -2771,9 +2771,20 @@ def main():
     # exactly it. `analyse`'s docstring forbids moving any number here, so
     # the reading keeps every line and gains one, before the span, pointing
     # at the mode that splits the file. The condition is `measure_segments`'
-    # own-file trigger, so the line never promises a split the mode would not
-    # make, and the file is read for markers only when nothing is beside it.
-    restarted = 0 if beside else len(resume_cuts(path))
+    # own-file trigger NARROWED to files whose calls those cuts put in two
+    # stretches or more, and the file is read for markers only when nothing
+    # is beside it.
+    #
+    # The line says the span covers a wait between stretches of work, so it
+    # needs two stretches. A marker does not guarantee them: a coordinator
+    # message after the agent's last call, or before its first, leaves one
+    # window with calls, the span covers no wait, and `--segments` prints one
+    # slice of the same figure (round 1's 🟡 1). So every file that gains the
+    # line is one `--segments` cuts into two rows or more, and some files the
+    # mode takes as an own file print no line here.
+    cuts = [] if beside else resume_cuts(path)
+    stretches = sum(1 for w in in_windows(cuts, calls, lambda c: c["start"]) if w)
+    restarted = len(cuts) if stretches > 1 else 0
 
     def render():
         if timings:

@@ -3697,3 +3697,41 @@ def test_no_hint_where_there_is_nothing_to_split(
     for path in (run_with_segments, transcript, own_file(run_with_segments), walked):
         out = " ".join(run([str(path)]).stdout.split())
         assert "coordinator message in this transcript" not in out, (path, out)
+
+
+def test_no_hint_where_every_call_sits_in_one_stretch(tmp_path):
+    """A coordinator message after the agent's last call cuts nothing: the
+    window after it holds no call, so the file is one stretch, its span covers
+    no wait, and `--segments` prints one slice with the same span. A line
+    saying the span covers the waits between stretches is false there.
+
+    Round 1's 🟡 1. Red at 7b4162fd: the hint printed, then `span 0.3m`."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                *worked(640, "s2"),
+                coordinator_message(9000),
+            ]
+        },
+    )
+    out = " ".join(run([str(own_file(path))]).stdout.split())
+    assert "coordinator message in this transcript" not in out, out
+    assert out.startswith("span "), out
+
+
+def test_a_resumed_file_copied_out_of_subagents_is_still_cut(resumed_segment, tmp_path):
+    """In 1: the trigger is the marker, never the directory. A resumed
+    agent's file copied anywhere else is cut the same way, and its plain
+    reading carries the same line. Every other own-file case sits under
+    `subagents/`, so a directory condition added to either trigger kept them
+    all green (round 1's ⬜ 2)."""
+    copied = tmp_path / "copied-agent.jsonl"
+    copied.write_text(own_file(resumed_segment).read_text())
+    rows = segments_of(copied)["rows"]
+    assert [(row["slice"], row["slices"]) for row in rows] == [(1, 2), (2, 2)], rows
+    assert segments_of(copied)["own_file"] is True
+    out = run([str(copied)]).stdout
+    assert out.startswith("1 coordinator message in this transcript,"), out
