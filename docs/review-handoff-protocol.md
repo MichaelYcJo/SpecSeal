@@ -631,7 +631,7 @@ meet (issue #51, whose transcripts these numbers come from).
 |---|---|---|
 | reviewing | tools per turn **≥ 1.8** | a review's reads are independent — coordinates inherited from earlier rounds, files named by one handoff — so they can go out together. The rounds that set the bar measured 1.29–1.89 — not the complete record: the same issue holds a 2.0 baseline and a later chain at 1.10–1.54 — and the one round instructed to batch (1.89) was the fastest measured |
 | implementing | **`repeats = 0`** and calls per deliverable — never tools per turn | an edit-test loop is inherently serial (measured 1.08–1.17): a call whose input depends on the last result cannot go out with it, so the ratio reports task shape, not waste. What does report waste: a command re-run unchanged, and how many calls one deliverable took |
-| verifying | exempt | it targets the diff of the last fixes and is the cheapest round of the run by design; a segment that small is the nuance below in its every case |
+| verifying | exempt | it targets the diff of the last fixes, and its job is the answers: whether each verdict the previous round closed is actually closed. That leaves fewer independent axes to open at once than a branch does, which is the ground #51 observation 1 recorded for the exemption |
 
 **At very small rounds the ratio has few independent batches to rise on** —
 a 23-call round read 1.64 while doing everything right. The bar is a lens
