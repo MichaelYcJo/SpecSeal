@@ -51,8 +51,8 @@ the answerer.
   and noted and re-stamped where they live. Appending those notes drifted one
   more row, 0.13.1's, which anchors a section of `seal/releases/0.4.0.md`
   itself; it was re-read and re-stamped the same way. `evidence-check
-  --strict` then also refused a name in `questions.md` Q2 — `scratchpad_dir`,
-  a field of the harness's payload — which now carries NAME NOT IN TREE.
+  --strict` then also refused a name in `questions.md` Q2, a field of the
+  harness's payload, which now carries the marker: `scratchpad_dir` · NAME NOT IN TREE
 - **`dispatch.py`'s event name is a table of one.** `EVENTS` maps `stop` to
   `Stop`, and `session-start` was deliberately left reporting `PostToolUse` on
   the decision path it never takes, because nothing asked for it.
