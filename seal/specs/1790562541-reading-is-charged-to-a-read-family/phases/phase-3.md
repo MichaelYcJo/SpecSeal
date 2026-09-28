@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | see `plan.md`'s Status cell for phase 3 |
+| Commit | e94461ea |
 | Ran by | unknown — the spawn prompt did not hand the value over, and a segment's own account of itself is the one filler the template refuses |
 
 ## What this phase was asked
@@ -26,8 +26,9 @@ contents. The changelog entry names which published family rows move.
 **The corpus movement (executed 2026-09-28, probe
 `test_tmp_read_corpus.py`, run once from the session's scratchpad and
 deleted with the two module copies it loaded).** d71265b9's `family`, which
-is the rebased base without this item, against b08670b6..c0cf72d5's, which
-is the tip's code, on the calls the tip's `load` returns. 374 transcripts,
+is the rebased base without this item, against c0cf72d5's, whose code is
+the tip's, on the calls the tip's `load` returns (this item does not touch
+`load`, so the base's returns the same calls). 374 transcripts,
 363 holding a Bash call, 24,223 Bash calls, 172,386 seconds.
 
 | base | tip | calls | seconds |
