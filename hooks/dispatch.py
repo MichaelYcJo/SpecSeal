@@ -146,8 +146,36 @@ def run_gate(filename, payload):
     return out.getvalue()
 
 
+def readable(parsed):
+    """Whether `merge` can read this JSON: an object, whose
+    `hookSpecificOutput` is an object and whose `permissionDecision`,
+    `permissionDecisionReason` and `systemMessage` are text, each wherever it
+    is present and not null. These are the fields `merge` reads, and each
+    other type raised there -- after every gate had run and outside
+    `run_gate`'s isolation, so one gate's odd output ended the group and a
+    neighbour's `deny` with it (#661)."""
+    if not isinstance(parsed, dict):
+        return False
+    hook_out = parsed.get("hookSpecificOutput")
+    if hook_out is None:
+        hook_out = {}
+    if not isinstance(hook_out, dict):
+        return False
+    fields = (
+        hook_out.get("permissionDecision"),
+        hook_out.get("permissionDecisionReason"),
+        parsed.get("systemMessage"),
+    )
+    return all(value is None or isinstance(value, str) for value in fields)
+
+
 def classify(text):
-    """('decision'|'json'|'text', value) for one gate's output."""
+    """('decision'|'json'|'text'|'unreadable', value) for one gate's output.
+
+    `unreadable` is JSON `merge` cannot read (`readable`), carried as the
+    stripped text. `merge` drops it, and `main()` records the gate as one that
+    failed while running, so it is said at the end of the turn rather than
+    ending the group."""
     stripped = text.strip()
     if not stripped:
         return None, None
@@ -155,8 +183,9 @@ def classify(text):
         parsed = json.loads(stripped)
     except ValueError:
         return "text", text.rstrip("\n")
-    hook_out = (parsed or {}).get("hookSpecificOutput") or {}
-    if isinstance(parsed, dict) and hook_out.get("permissionDecision"):
+    if not readable(parsed):
+        return "unreadable", stripped
+    if (parsed.get("hookSpecificOutput") or {}).get("permissionDecision"):
         return "decision", parsed
     return "json", parsed
 
@@ -481,7 +510,22 @@ def main():
     event_name = EVENTS.get(group) or (
         "PreToolUse" if group.startswith("pre-") else "PostToolUse"
     )
-    merged = merge([run_gate(g, payload) for g in gates], event_name)
+    # A loop rather than `zip(..., strict=True)`: a hook runs under whatever
+    # `python3` the harness finds, 3.9 on a stock macOS.
+    outputs = []
+    for gate in gates:
+        text = run_gate(gate, payload)
+        outputs.append(text)
+        kind, value = classify(text)
+        if kind == "unreadable":
+            FAILED.append(
+                (
+                    gate,
+                    "run",
+                    ValueError(f"printed JSON the dispatcher cannot read: {value}"),
+                )
+            )
+    merged = merge(outputs, event_name)
     # A group whose gates all loaded and ran reads nothing more than it did
     # before, except `stop`, which draws.
     if FAILED or group == "stop":

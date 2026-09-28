@@ -710,3 +710,74 @@ def test_the_registration_section_says_a_failure_is_said_and_names_its_case():
         "tests/test_a_gate_that_fails_says_so.py::"
         "test_a_broken_gate_is_said_at_the_end_of_the_turn_and_only_once"
     ) in enforced[0], enforced
+
+
+# --- #661: a gate's JSON the dispatcher cannot read ends nothing --------------
+
+# Every shape found to raise in `classify` or `merge` at `551c7967`, after the
+# gates had run and outside `run_gate`'s isolation, so the group exited 1.
+UNREADABLE = (
+    "null",
+    "0",
+    "3",
+    "[1]",
+    "[]",
+    '"words"',
+    "true",
+    '{"hookSpecificOutput": 3}',
+    '{"hookSpecificOutput": {"permissionDecision": 5}}',
+    '{"hookSpecificOutput": {"permissionDecision": "ask", '
+    '"permissionDecisionReason": 7}}',
+    '{"systemMessage": 3}',
+)
+
+
+def printing(text):
+    """A gate whose `main()` prints `text` and nothing else."""
+    return f"def main():\n    print({text!r})\n"
+
+
+def test_json_a_gate_prints_that_is_not_a_hooks_output_ends_nothing(repo, tmp_path):
+    """#661. A gate printing JSON the merge cannot read — not an object, or
+    an object whose decision, reason or message is not text — used to end
+    its whole group with exit 1, taking a neighbour's `deny` or `systemMessage`
+    with it. `null` and `0` survive beside a deny and end a group beside a
+    message, so each shape is planted beside both. The output is dropped, the
+    group decides as it would without it, and the gate is said at turn end."""
+    opted_in(repo)
+    for n, shape in enumerate(UNREADABLE):
+        hooks = hooks_copy(
+            tmp_path / f"h{n}",
+            {
+                "mode-gate.py": printing(shape),
+                "version-check.py": printing('{"systemMessage": "m"}'),
+                "root-migrate.py": printing(shape),
+                "ledger-migrate.py": printing(""),
+            },
+        )
+        session = f"s-{n}"
+        out = dispatch(hooks, "pre-bash", bash(repo, session))
+        assert decision_of(out) == "deny", (shape, out)
+        start = {"hook_event_name": "SessionStart", "session_id": session}
+        start["cwd"] = str(repo)
+        assert json.loads(dispatch(hooks, "session-start", start)) == {
+            "systemMessage": "m"
+        }, shape
+        lines = said(stop(hooks, repo, session))
+        assert lines[1].startswith(
+            "mode-gate.py failed while running in pre-bash (ValueError: printed "
+            "JSON the dispatcher cannot read: "
+        ), (shape, lines)
+        assert gates_said(lines) == ["mode-gate.py", "root-migrate.py"], lines
+
+
+def test_json_the_merge_can_read_is_merged_as_before():
+    """The shapes that were read before still are: an object with no
+    decision, one whose optional fields are null, and a decision."""
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_readable")
+    assert d.classify('{"a": 1}') == ("json", {"a": 1})
+    nulls = {"hookSpecificOutput": None, "systemMessage": None}
+    assert d.classify(json.dumps(nulls)) == ("json", nulls)
+    ask = {"hookSpecificOutput": {"permissionDecision": "ask"}}
+    assert d.classify(json.dumps(ask)) == ("decision", ask)
+    assert d.classify("plain\n") == ("text", "plain")
