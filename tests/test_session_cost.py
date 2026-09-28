@@ -3651,8 +3651,8 @@ def test_the_plain_reading_of_a_resumed_file_adds_one_line_and_moves_nothing(
     own = own_file(resumed_segment)
     out = run([str(own)]).stdout
     assert out.startswith("1 " + HINT.split(", so")[0]), out
-    assert HINT in " ".join(out.split()), out
     hint, rest = out.split("\n\n", 1)
+    assert HINT in " ".join(hint.split()), out
     assert rest.startswith("span "), rest
     reworded = own.parent / "reworded.jsonl"
     reworded.write_text(
