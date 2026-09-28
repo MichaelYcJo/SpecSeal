@@ -1740,7 +1740,11 @@ def test_a_comment_runs_nothing_whatever_it_holds():
     Round 1 of #377's review found the first two reading `git`, where the
     anchored rule before #377 read `other`."""
     module = load_script()
-    for command in ("# cd x && git push\nls", "ls  # then; git push"):
+    for command in (
+        "# cd x && git push\nls",
+        "ls  # then; git push",
+        "echo \\' # an escaped quote opens nothing; git push",
+    ):
         assert module.family(command) != "git", command
     for command in (
         "# don't forget\ngit add a",
