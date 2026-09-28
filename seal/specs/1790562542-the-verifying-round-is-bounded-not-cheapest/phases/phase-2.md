@@ -54,8 +54,8 @@ at exit 2:
   `97a30dc6`. Each is exactly a unit this branch edits, so each read as
   DRIFTED. The hashes were taken out of the table, and a sentence below it
   says why.
-- `phases/phase-1.md` shortened a test name to `names_81`, which is not in
-  the tree. The full name is written now, and in the fragment too.
+- `phases/phase-1.md` shortened a test name to `names_81`: NAME NOT IN TREE.
+  The full name is written now, and in the fragment too.
 
 **The new fragment's two rows narrow two coordinates to a sentence.** The
 warden's `## Role` and the review skill's `## Cross-session records` are
