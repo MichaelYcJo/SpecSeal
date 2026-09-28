@@ -3606,3 +3606,23 @@ def test_an_own_files_json_carries_the_rows_the_page_prints(resumed_segment):
     ] * 2, segments["rows"]
     assert not any(row["named"] for row in segments["rows"]), segments["rows"]
     assert "own_file" not in segments_of(resumed_segment), "walked run"
+
+
+def test_a_file_with_transcripts_beside_it_is_walked_whatever_its_markers(tmp_path):
+    """The walked route outranks the own-file one. A file carrying a
+    coordinator message AND transcripts beside it is a run's, and its rows
+    are the files it walks, joined to their spawns — not its own slices.
+
+    Found by the mutation pass: dropping the nothing-beside condition kept
+    every other case green, because no fixture's run transcript carried a
+    marker."""
+    main = [
+        *call("a", 0, 10, "git status --short"),
+        coordinator_message(15),
+        *spawn("A", 25, 625, "specseal:smith", "Build phase 1"),
+    ]
+    path = write_run(tmp_path, main, {"agent-smith.jsonl": worked(625, "s1")})
+    segments = segments_of(path)
+    assert "own_file" not in segments, segments
+    assert [row["agent"] for row in segments["rows"]] == ["specseal:smith"], segments
+    assert "an agent's own transcript" not in segment_report(path)
