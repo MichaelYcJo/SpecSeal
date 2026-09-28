@@ -16,10 +16,10 @@ prints for that agent from the run's transcript.
 
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
-| Which published readings the changelog names, and in which group | `spec.md` In 6: "The fix-pass readings posted as a whole resumed transcript: #577 (four passes) and #601 (ten). The ones taken from the harness's notice because `--segments` found nothing: #496, #535 and #619." Opened 2026-09-28 with `gh issue view`: #535's four fix-pass comments each say "The numbers below are the whole transcript" (or "Whole-transcript numbers below"), and six of #601's say whole transcript while its four round-2 passes quote the harness's figures | the changelog groups them as read: whole transcript in #577 (four), #535 (four) and #601 (six); the harness's figures in #496 (four) and #619 (three) | the comments themselves; contract §5, a fact from the handoff is opened before it is built on |
+| Which published readings the changelog names, and in which group | `spec.md` In 6: "The fix-pass readings posted as a whole resumed transcript: #577 (four passes) and #601 (ten). The ones taken from the harness's notice because `--segments` found nothing: #496, #535 and #619." Opened 2026-09-28 with `gh issue view`: #535's five fix-pass comments each say "The numbers below are the whole transcript" (or "Whole-transcript numbers below"), and six of #601's say whole transcript while its four round-2 passes quote the harness's figures | the changelog groups them as read: whole transcript in #577 (four), #535 (five) and #601 (six); the harness's figures in #496 (four) and #619 (three) | the comments themselves; contract §5, a fact from the handoff is opened before it is built on. Corrected 2026-09-28: the build counted four in #535 and round 1 (⬜ 3) found five, item A's round-2 pass being the one dropped |
 | The `SKILL.md` sentences in the class | `spec.md` *The class* lists D1–D3 in the section | D1–D3, plus the *Read the counts above the table* paragraph, which says the mode prints the join counts "even when they agree" and does not for an own file | §12: the paragraph states the current behaviour, and the own-file page prints a header in their place |
 | Code sentences outside the class table | `spec.md` D7 names `#measure_segments`' first line; D9 names `#emit`'s empty-branch sentence | also narrowed: `#measure_segments`' *exactly what a person running this script against that one transcript gets* (false for a slice since slicing shipped), `#emit`'s residual (*every row label is already relative*, now also a basename), and `#main`'s *The other transcripts of this run, one row each* comment | the same class; each sentence states the behaviour this change moves |
-| Where the plain hint prints | `spec.md` In 4: "The condition is exactly In 1's: markers, and no transcripts beside." | In 1's condition, and only where the reading has a span | the line says *the span below covers every stretch*; a file with no paired call prints no span for it to be about |
+| Where the plain hint prints | `spec.md` In 4: "The condition is exactly In 1's: markers, and no transcripts beside." | In 1's condition, narrowed twice: only where the reading has a span, and only where the coordinator's messages cut the calls into two stretches or more | the line says *the span below covers every stretch … and the waits between them*; a file with no paired call prints no span for it to be about, and one whose messages fall before its first call or after its last has one stretch and no wait (round 1's 🟡 1, 328b379d) |
 | `plan.md` phase 3's drifted set | "`seal/releases/0.13.1.md` (`#emit` with `test_the_posted_body_does_not_carry_the_transcripts_path`, plus two section rows)" | one section row there (O6); the other mention is prose above the table | `evidence-check` names the rows; the frame's set was a grep |
 
 ## Not verified
@@ -27,7 +27,7 @@ prints for that agent from the run's transcript.
 | Item | Who must answer |
 |---|---|
 | The full suite, the repository-wide lint and the format check | the sealer, once, after the review rounds settle |
-| The hint landing after `--latest`'s `# <path>` line — read, not run: `main` prints that line before `emit` and the hint is `render()`'s first print | the warden: whether a case is owed, which would need `newest` pointed at a fixture project directory |
+| ✅ The hint landing after `--latest`'s `# <path>` line — read, not run: `main` prints that line before `emit` and the hint is `render()`'s first print | executed by the warden in round 1 (probe C2, `rounds/round-1.md`): `# <path>`, blank, hint, and `# <path>`, blank, own-file header; the verdict says no case is owed |
 
 ## Not done
 
@@ -47,4 +47,6 @@ Inferred during implementation, so a planner may overturn them:
 
 - A file with transcripts beside it is walked whatever its markers, and
   never sliced as an own file (ledger A1, the case the mutation pass added).
-- The plain hint is printed only where the reading has a span (ledger A5).
+- The plain hint is printed only where the reading has a span, and only
+  where the coordinator's messages cut the calls into two stretches or more
+  (ledger A5).

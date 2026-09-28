@@ -622,13 +622,15 @@ finished, not as a follow-up someone might do later:
    it joined within, and how many went unmatched on each side — even when
    they agree. A join that silently matched nothing reads exactly like a run
    that spawned nothing, which is why the numbers are there to be seen
-   holding. Given an agent's own file, nothing is walked or joined, and a
-   header naming the file and its coordinator messages stands in their place.
+   holding. Given a resumed agent's own file, nothing is walked or joined,
+   and a header naming the file and its coordinator messages stands in their
+   place.
 
    **One segment measured on its own is still `session_cost.py
    <transcript>`** with no mode flag, unless the coordinator restarted it.
-   The plain reading keeps its numbers, and for a restarted file it adds one
-   line saying how many coordinator messages the file holds: its span then
+   The plain reading keeps its numbers, and for a file those messages cut
+   into two stretches of work or more it adds one line saying how many
+   coordinator messages the file holds: its span then
    covers every stretch of work and the waits between them, and `--segments
    <transcript>` is the reading that splits it. A row of the per-segment
    table is that plain reading of another file, or of one stretch of one.
