@@ -2694,8 +2694,10 @@ def test_one_spawn_is_claimed_by_one_segment(tmp_path):
 
 def test_a_run_with_no_segments_reads_rather_than_raising(transcript):
     """A segment measured on its own has no `subagents/` directory beside it.
-    That is the ordinary case for this mode, not a failure — the reading is
-    empty and the exit code is 0."""
+    That is the ordinary case for this mode, not a failure — for a segment the
+    coordinator never restarted, the reading is empty and the exit code is 0.
+    A restarted one is read slice by slice (#637), and this fixture has no
+    coordinator message."""
     proc = run(["--json", str(transcript)])
     assert proc.returncode == 0, proc.stderr
     assert json.loads(proc.stdout)["segments"] == {
@@ -3401,3 +3403,358 @@ def test_a_spawn_in_a_later_slice_is_named_by_that_slice(tmp_path):
     assert [row["spawns"] for row in rows] == [0, 1], rows
     out = " ".join(segment_report(path).split())
     assert "specseal:smith 2/2 made 1 `Agent` call" in out, out
+
+
+# --- #637: a resumed agent's own transcript is sliced ----------------------
+#
+# The orchestrator holds the path the harness's task output names, and that
+# path is the agent's own file. Given it, `--segments` found nothing beside it
+# and printed `0 segments found`, so every fix-pass reading since 0.14.0 was
+# either the harness's notice or the whole resumed file. The trigger is the
+# coordinator's marker in the file itself, not the directory it sits in, so a
+# marker-less file keeps the empty branch byte for byte.
+
+
+def own_file(run_path, name="agent-smith.jsonl"):
+    """The agent's own transcript inside a run `write_run` laid out."""
+    return run_path.parent / "main" / "subagents" / name
+
+
+def plain_of(path):
+    proc = run(["--json", str(path)])
+    assert proc.returncode == 0, proc.stderr
+    return json.loads(proc.stdout)
+
+
+def test_an_agents_own_resumed_transcript_is_one_row_per_slice(resumed_segment):
+    """The acceptance row. Given the agent's own file rather than the run's,
+    the mode prints the same two stretches of work it prints when it walks
+    the run, and their spans sum to well under the file's own.
+
+    Red at `ab116d1e`: no row at all, and the page reads `0 segments found`."""
+    path = own_file(resumed_segment)
+    rows = segments_of(path)["rows"]
+    assert [(row["slice"], row["slices"]) for row in rows] == [(1, 2), (2, 2)], rows
+    assert sum(row["numbers"]["calls"] for row in rows) == plain_of(path)["calls"]
+    spans = [row["numbers"]["span_s"] for row in rows]
+    assert sum(spans) < plain_of(path)["span_s"] / 100, spans
+    out = segment_report(path)
+    assert "agent-smith.jsonl  1/2" in out, out
+    assert "agent-smith.jsonl  2/2" in out, out
+    assert "0 segments found" not in out, out
+
+
+def test_an_own_file_with_three_stretches_is_three_rows(tmp_path):
+    """Two coordinator messages, each followed by work: three slices, and
+    every call of the file lands in one of them."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                *worked(9010, "s2"),
+                coordinator_message(20000),
+                *worked(20010, "s3"),
+                *worked(20030, "s4"),
+            ]
+        },
+    )
+    own = own_file(path)
+    rows = segments_of(own)["rows"]
+    assert [(row["slice"], row["slices"]) for row in rows] == [
+        (1, 3),
+        (2, 3),
+        (3, 3),
+    ], rows
+    assert [row["numbers"]["calls"] for row in rows] == [1, 1, 2], rows
+    assert sum(row["numbers"]["calls"] for row in rows) == plain_of(own)["calls"]
+
+
+def test_an_own_file_whose_messages_are_adjacent_invents_no_slice(tmp_path):
+    """`test_two_coordinator_messages_in_a_row_do_not_invent_a_slice` on the
+    own-file route: two messages and no work between them are two slices, and
+    the header counts the messages apart from the slices."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                coordinator_message(9005),
+                *worked(9010, "s2"),
+            ]
+        },
+    )
+    own = own_file(path)
+    rows = segments_of(own)["rows"]
+    assert [(row["slice"], row["slices"]) for row in rows] == [(1, 2), (2, 2)], rows
+    out = " ".join(segment_report(own).split())
+    assert "cut at 2 coordinator messages into 2 slices" in out, out
+    assert "no paired call" not in out, out
+
+
+def test_either_route_prints_the_same_slices(resumed_segment):
+    """The ticket's *the second must print the slices the third prints*, on a
+    fixture. Walked from the run's transcript or given the agent's own file,
+    each slice's span, calls, tools per turn, mean gap and tokens are the
+    same; only the label differs, because only the run's transcript holds
+    the spawn that names it."""
+
+    def numbers(rows):
+        labels = ("agent", "description", "named", "transcript")
+        return [{k: v for k, v in row.items() if k not in labels} for row in rows]
+
+    walked = segments_of(resumed_segment)["rows"]
+    own = segments_of(own_file(resumed_segment))["rows"]
+    assert len(own) == 2, own
+    assert numbers(own) == numbers(walked), (own, walked)
+
+
+def test_an_own_file_with_no_marker_keeps_the_empty_branch(tmp_path):
+    """The ticket's *must not break*. An agent's file the coordinator never
+    restarted has nothing to cut, and the directory it sits in is not the
+    trigger: its reading is exactly what it was, wherever it lives.
+
+    Green at the base; red under the mutant that slices every file under
+    `subagents/` whatever its markers."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {"agent-smith.jsonl": [*worked(625, "s1"), *worked(640, "s2")]},
+    )
+    own = own_file(path)
+    assert segments_of(own) == {
+        "tolerance_s": 1.0,
+        "transcripts": 0,
+        "spawns": 0,
+        "unnamed": 0,
+        "unclaimed": 0,
+        "rows": [],
+    }
+    elsewhere = tmp_path / "copied.jsonl"
+    elsewhere.write_text(own.read_text())
+    out = segment_report(own)
+    assert out.startswith(f"0 segments found beside {own}\n"), out
+    assert out.replace(str(own), "<t>") == segment_report(elsewhere).replace(
+        str(elsewhere), "<t>"
+    )
+
+
+def test_an_own_file_page_says_what_its_rows_are(resumed_segment):
+    """Nothing was joined, so the page does not print the join counts or a
+    legend claiming a spawn named each row. It names the file, how many
+    coordinator messages cut it and into how many slices.
+
+    Red at the base, which printed the empty branch."""
+    path = own_file(resumed_segment)
+    out = " ".join(segment_report(path).split())
+    assert (
+        f"{path}: an agent's own transcript, cut at 1 coordinator message "
+        "into 2 slices" in out
+    ), out
+    assert "No spawn was joined" in out, out
+    assert "the same slices carry its name" in out, out
+    for absent in (
+        "named by nobody",
+        "segment transcripts beside this one",
+        "the parent could not name",
+        "whose result this segment opened at",
+    ):
+        assert absent not in out, (absent, out)
+    # What the walked page prints about a resumed file prints here too.
+    assert "come from 1 segment the coordinator restarted" in out, out
+
+
+def test_a_spawn_inside_an_own_slice_is_named_without_a_reconciliation(tmp_path):
+    """The §6 list is exactly what an `Agent` call in an agent's own stretch
+    of work exists to name. Its reconciliation against the files the parent
+    could not name is not printed, because no parent is in view and a line
+    saying the two counts disagree would send a reader after a child
+    transcript nobody lost."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                *worked(9010, "s2"),
+                *spawn("N", 9100, 9200, "general-purpose", "search the tree"),
+            ]
+        },
+    )
+    out = " ".join(segment_report(own_file(path)).split())
+    assert "agent-smith.jsonl 2/2 made 1 `Agent` call" in out, out
+    assert "§6 binds the agents this plugin spawns" in out, out
+    assert "inside a segment, against" not in out, out
+    assert "agree" not in out, out
+    assert "One spawn arrives twice" not in out, out
+
+
+def test_an_own_files_json_carries_the_rows_the_page_prints(resumed_segment):
+    """`measure_segments` is the one place rows come from, so `--json` gains
+    them too. `unnamed` counts walked transcripts and the given file is not
+    one, so it stays 0; `own_file` is the one key added, and only here."""
+    segments = segments_of(own_file(resumed_segment))
+    assert segments["own_file"] is True, segments
+    assert (segments["transcripts"], segments["unnamed"]) == (0, 0), segments
+    assert [row["transcript"] for row in segments["rows"]] == [
+        "agent-smith.jsonl"
+    ] * 2, segments["rows"]
+    assert not any(row["named"] for row in segments["rows"]), segments["rows"]
+    assert "own_file" not in segments_of(resumed_segment), "walked run"
+
+
+def test_a_file_with_transcripts_beside_it_is_walked_whatever_its_markers(tmp_path):
+    """The walked route outranks the own-file one. A file carrying a
+    coordinator message AND transcripts beside it is a run's, and its rows
+    are the files it walks, joined to their spawns — not its own slices.
+
+    Found by the mutation pass: dropping the nothing-beside condition kept
+    every other case green, because no fixture's run transcript carried a
+    marker."""
+    main = [
+        *call("a", 0, 10, "git status --short"),
+        coordinator_message(15),
+        *spawn("A", 25, 625, "specseal:smith", "Build phase 1"),
+    ]
+    path = write_run(tmp_path, main, {"agent-smith.jsonl": worked(625, "s1")})
+    segments = segments_of(path)
+    assert "own_file" not in segments, segments
+    assert [row["agent"] for row in segments["rows"]] == ["specseal:smith"], segments
+    assert "an agent's own transcript" not in segment_report(path)
+
+
+# --- #637 option 3: the plain reading of a resumed file points at the mode --
+
+HINT = (
+    "coordinator message in this transcript, so the span below covers every "
+    "stretch of work and the waits between them — `--segments` prints one row "
+    "per stretch"
+)
+
+
+def test_the_plain_reading_of_a_resumed_file_adds_one_line_and_moves_nothing(
+    resumed_segment,
+):
+    """`analyse`'s docstring forbids changing what the plain reading prints,
+    and #601's whole-transcript readings are what that reading of a resumed
+    file produced. So it keeps every line and gains one, before the span that
+    gets quoted, saying why that span is not one stretch of work.
+
+    The rest is compared with the same file whose marker is reworded: the
+    two differ in nothing the numbers read, so every line but the hint must
+    match. Red at the base: no such line."""
+    own = own_file(resumed_segment)
+    out = run([str(own)]).stdout
+    assert out.startswith("1 " + HINT.split(", so")[0]), out
+    hint, rest = out.split("\n\n", 1)
+    assert HINT in " ".join(hint.split()), out
+    assert rest.startswith("span "), rest
+    reworded = own.parent / "reworded.jsonl"
+    reworded.write_text(
+        own.read_text().replace("The coordinator sent a message", "Somebody wrote")
+    )
+    assert run([str(reworded)]).stdout == rest
+
+
+def test_the_hint_counts_the_files_coordinator_messages(tmp_path):
+    """The count is the file's messages and not its slices: two adjacent
+    messages cut one file into two stretches, and the line says two."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                coordinator_message(9000),
+                coordinator_message(9005),
+                *worked(9010, "s2"),
+            ]
+        },
+    )
+    out = run([str(own_file(path))]).stdout
+    assert out.startswith("2 coordinator messages in this transcript,"), out
+
+
+def test_no_hint_where_there_is_nothing_to_split(
+    tmp_path, run_with_segments, transcript
+):
+    """The condition is the own-file mode's: a coordinator message, and no
+    transcripts beside. A run's own transcript and a file nobody restarted
+    print exactly what they did — and so does a run's transcript carrying a
+    marker, because `--segments` walks that one rather than cutting it."""
+    marked = tmp_path / "marked"
+    marked.mkdir()
+    walked = write_run(
+        marked,
+        [*call("a", 0, 10, "git status --short"), coordinator_message(15)],
+        {"agent-smith.jsonl": worked(625, "s1")},
+    )
+    for path in (run_with_segments, transcript, own_file(run_with_segments), walked):
+        out = " ".join(run([str(path)]).stdout.split())
+        assert "coordinator message in this transcript" not in out, (path, out)
+
+
+def test_no_hint_where_every_call_sits_in_one_stretch(tmp_path):
+    """A coordinator message after the agent's last call cuts nothing: the
+    window after it holds no call, so the file is one stretch, its span covers
+    no wait, and `--segments` prints one slice with the same span. A line
+    saying the span covers the waits between stretches is false there.
+
+    Round 1's 🟡 1. Red at 7b4162fd: the hint printed, then `span 0.3m`."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                *worked(625, "s1"),
+                *worked(640, "s2"),
+                coordinator_message(9000),
+            ]
+        },
+    )
+    out = " ".join(run([str(own_file(path))]).stdout.split())
+    assert "coordinator message in this transcript" not in out, out
+    assert out.startswith("span "), out
+
+
+def test_no_hint_where_the_only_message_precedes_the_first_call(tmp_path):
+    """The other shape that cuts nothing: a coordinator message before the
+    agent's first call leaves every call in the window after it, so the file
+    is one stretch and `--segments` prints one slice with the same span. The
+    one-stretch case above builds only the message after the last call, and
+    a condition of *a call after the first message* is right there and wrong
+    here."""
+    path = write_run(
+        tmp_path,
+        call("a", 0, 10, "git status --short"),
+        {
+            "agent-smith.jsonl": [
+                coordinator_message(600),
+                *worked(625, "s1"),
+                *worked(640, "s2"),
+            ]
+        },
+    )
+    out = " ".join(run([str(own_file(path))]).stdout.split())
+    assert "coordinator message in this transcript" not in out, out
+    assert out.startswith("span "), out
+
+
+def test_a_resumed_file_copied_out_of_subagents_is_still_cut(resumed_segment, tmp_path):
+    """In 1: the trigger is the marker, never the directory. A resumed
+    agent's file copied anywhere else is cut the same way, and its plain
+    reading carries the same line. Every other own-file case sits under
+    `subagents/`, so a directory condition added to either trigger kept them
+    all green (round 1's ⬜ 2)."""
+    copied = tmp_path / "copied-agent.jsonl"
+    copied.write_text(own_file(resumed_segment).read_text())
+    rows = segments_of(copied)["rows"]
+    assert [(row["slice"], row["slices"]) for row in rows] == [(1, 2), (2, 2)], rows
+    assert segments_of(copied)["own_file"] is True
+    out = run([str(copied)]).stdout
+    assert out.startswith("1 coordinator message in this transcript,"), out

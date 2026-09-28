@@ -227,9 +227,10 @@ right after posting the report, and it is the one thing you write by hand for
 the record: what the spawn prompt told this round, specifically, to attack,
 in what order, and which facts arrived as coordinates rather than as
 something still to verify. #81's round 1 is the
-measured reason — the cheapest round on record, because its prompt named
-eight specific things to try to break, and that fact today survives only in
-a transcript.
+measured reason — five defects, one 🔴 and four 🟡, in 29 tool calls,
+because its prompt named eight specific things to try to break, and that
+fact today survives only in a
+transcript.
 
 Skipping this step makes review round *n* cost *n* full walks — the next
 round re-finds every coordinate from scratch.

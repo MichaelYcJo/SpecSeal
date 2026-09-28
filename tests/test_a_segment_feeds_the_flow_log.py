@@ -648,6 +648,34 @@ def test_the_section_says_the_mode_takes_the_resume_split():
     )
 
 
+def test_the_section_says_the_split_holds_given_the_agents_own_file():
+    """#637. The orchestrator holds the path the harness's task output names,
+    which is the agent's own file, and five releases of fix-pass readings were
+    taken from that file whole. The section has to say the mode splits that
+    file too, or a session holding it goes on reading the plain span."""
+    body = " ".join(section_body().split())
+    assert (
+        "The split is the same given the agent's own file: `--segments "
+        "<agent-*.jsonl>` prints that file's slices" in body
+    ), (
+        "the section says the mode splits a resumed agent only when it walks "
+        "the run's transcript, so a session holding the agent's own file "
+        "measures it whole"
+    )
+
+
+def test_the_section_sends_a_resumed_lone_segment_to_the_mode():
+    """#637, option 3's half. The section sent every lone segment to the plain
+    reading, and the plain reading of a resumed file is a span covering every
+    wait between its stretches. It has to say where a resumed one goes."""
+    body = " ".join(section_body().split())
+    assert "with no mode flag, unless the coordinator restarted it" in body, (
+        "the section sends a resumed lone segment to the plain reading, whose "
+        "span covers the waits between its stretches"
+    )
+    assert "`--segments <transcript>` is the reading that splits it" in body
+
+
 def test_the_section_says_the_mode_notices_a_spawn_inside_a_segment():
     """#343's half of the same command. A session that runs `--segments` at
     every segment boundary meets the §6 line there, and the section is where
