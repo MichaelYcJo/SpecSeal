@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 635 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `3d49670e13cde1a1764c925d9aaa69d16f646f6c..fdc6fb883a7b381f80ea9098753f6a3983abd56e`, 3 commits |
+| Contract changes | none |
+| New units | COMMENT_AFTER (depth 1); without_comments (depth 1); test_a_separator_inside_a_substitution_does_not_reach_the_line (depth 1); test_a_comment_runs_nothing_whatever_it_holds (depth 1) |
 | Needs a fix | yes — findings 1 and 2: a separator inside a substitution or a comment is read as the line's, against the rule four sentences state |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 1 of the build, at the branch's tip after the smith's three phases. The ro
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | a separator inside `$( … )`, `<( … )` or `>( … )` puts the next word in command position, against the rule four sentences state | `skills/verify/scripts/session_cost.py:270` | open | executed: 3 shapes read `git` at the tip and `other` at 2037cf0; the fix moves 1 of 23,553 corpus calls |
-| 🟡 2 | a separator inside a `#` comment puts the next word in command position, where 2037cf0 answered `other` | `skills/verify/scripts/session_cost.py:265` | open | executed: 2 shapes worse than 2037cf0; 0 corpus calls; the fix cuts refusals 23 → 15 with no family change |
-| ⬜ 3 | a here-string `<<< "…"` is cut as a heredoc, dropping the rest of the line | `skills/verify/scripts/session_cost.py:193` | open | executed: same answer as 2037cf0; 43 corpus calls, none moves |
-| ⬜ 4 | a heredoc with a lowercase or escaped delimiter now has its body lines read as commands | `skills/verify/scripts/session_cost.py:184` | open | executed: 2 shapes worse than 2037cf0; no corpus call moves on this account |
-| ⬜ 5 | `git.exe`, `git-lfs`, a case arm, a function body after `function f`, a leading redirection and an array assignment read against their bash meaning | `skills/verify/scripts/session_cost.py:282` | open | executed as shapes; none in the corpus |
+| 🟡 1 | a separator inside `$( … )`, `<( … )` or `>( … )` puts the next word in command position, against the rule four sentences state | `skills/verify/scripts/session_cost.py:270` | **fixed** `bbedf36a5520498eba1612df6b12d28440cc9489` | fixed at bbedf36a5520498eba1612df6b12d28440cc9489 — the code moved to the sentences: `spec.md` §*Decided from the tree* states "A command substitution is not a command position", and the four sentences carry it. `command_words` tracks nesting from `$(`, `$((`, `<(` and `>(` and returns to the line only after the outermost `)`. Backticks cannot be tracked once the tokenizer strips quotes (the reviewer measured 11 real `git` calls turning `other`), so the backtick half of `command_words`' and `runs_git`'s docstrings, the changelog and ledger N1 is narrowed. The divergence is recorded in `overview.md`; executed: 3 shapes read `git` at the tip and `other` at 2037cf0; the fix moves 1 of 23,553 corpus calls |
+| 🟡 2 | a separator inside a `#` comment puts the next word in command position, where 2037cf0 answered `other` | `skills/verify/scripts/session_cost.py:265` | **fixed** `bbedf36a5520498eba1612df6b12d28440cc9489` | fixed at bbedf36a5520498eba1612df6b12d28440cc9489 — and 73af600801b46b2c3aff80207d2af08f6fe39bf8 — `without_comments` strips a comment by bash's rule before the tokenizer: a `#` outside quotes that starts a word, keeping the newline that ends it. 73af600 adds the shape that reaches the escape branch. Ledger N4 and `overview.md` §Not done are corrected; executed: 2 shapes worse than 2037cf0; 0 corpus calls; the fix cuts refusals 23 → 15 with no family change |
+| ⬜ 3 | a here-string `<<< "…"` is cut as a heredoc, dropping the rest of the line | `skills/verify/scripts/session_cost.py:193` | answered | `spec.md` In §4 fixes the `HEREDOC` pattern and its lowercase-delimiter bound; the answer is 2037cf0's, and 0 of the 43 corpus calls carrying `<<<` move. The here-string limit is now stated in the `HEREDOC` comment at bbedf36; executed: same answer as 2037cf0; 43 corpus calls, none moves |
+| ⬜ 4 | a heredoc with a lowercase or escaped delimiter now has its body lines read as commands | `skills/verify/scripts/session_cost.py:184` | answered | The same clause fixes the lowercase bound; 0 corpus calls move for this reason. The reviewer's sentence is now in the `HEREDOC` comment at bbedf36: a body under a delimiter the pattern does not know is read as command lines; executed: 2 shapes worse than 2037cf0; no corpus call moves on this account |
+| ⬜ 5 | `git.exe`, `git-lfs`, a case arm, a function body after `function f`, a leading redirection and an array assignment read against their bash meaning | `skills/verify/scripts/session_cost.py:282` | answered | `spec.md` In §1 makes the basename exactly `git` or `gh`; a case arm, `function f {`, a leading redirection and an array assignment are grammar the walk does not model, and the corpus holds 0 of them. `runs_git`'s docstring states them as a fourth bound at bbedf36; executed as shapes; none in the corpus |
 | 🟢 | every #377 case is the one that holds its property | `tests/test_session_cost.py:1572` | confirmed | executed: 20 mutants, each killed by at least one case |
 | 🟢 | the fallback never answers worse than 2037cf0's anchored rule | `skills/verify/scripts/session_cost.py:282` | confirmed | executed: about 95 shapes and the corpus; the only regressions are finding 5's basename shapes |
 | 🟢 | both family sites read `ran`, and every call dict reaches `analyse` through `load` | `skills/verify/scripts/session_cost.py:722` | confirmed | read: four callers, each a slice of `load`'s list; executed through the `--json` case |
