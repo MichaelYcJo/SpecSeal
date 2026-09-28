@@ -1,9 +1,17 @@
 """Neither a round record nor a build phase said what it was ASKED to do,
 only what it found. #81 is the measured cost on the review side: round 1 of
-the work item it names was the cheapest round measured — 7.6 minutes, 29
-tool calls, one 🔴 and four 🟡 — because its spawn prompt named eight
-specific things to try to break, in order. That fact survives today only in
-a transcript.
+the work item it names found five defects in 7.6 minutes and 29 tool calls —
+one 🔴 and four 🟡 — because its spawn prompt named eight specific things to
+try to break, in order. That fact survives today only in a transcript.
+
+It was once called the cheapest round measured, and it was not: #89, the log
+that measured it, already held #79's verifying round at 5.6 minutes and 28
+calls, and #51's baseline #29's at 4.2 minutes and 10. What #89 measured for
+it is five defects in 29 calls, so that is what the carriers say and what the
+gone/stands pairs at the foot of this module hold (#639). A comparison with
+#82's rounds went with the correction for one round and came out again: #89's
+own readings of those rounds are 35, 38, 36, 29 and 30 calls, and its second
+round found seven.
 
 Phase 3 of the "a phase hands the next one a record" work item adds the
 round-side half of the fix: `## What this round was asked` in
@@ -15,7 +23,7 @@ section `templates/sdd-phase.md` already ships
                      than a filled claim, placed after the field table's
                      comment and before `## Verdicts`
   the measured story  the section's own comment names #81 and the numbers
-                     that made round 1 the cheapest round measured
+                     behind round 1's yield per call
   the copy instruction `skills/code-review/SKILL.md` tells the orchestrator
                      to copy the round-specific spawn content in, right
                      after posting — beside "A round record starts from
@@ -142,11 +150,11 @@ def test_the_round_sections_comment_names_81_and_the_measured_numbers():
     assert "#81" in section, (
         "the new section's own comment does not name #81 — the measured gap it answers"
     )
-    for probe in ("7.6", "29", "cheapest round"):
+    for probe in ("7.6", "29", "five defects"):
         assert probe in section, (
             f"the section's comment lost `{probe}` — the measured reason "
-            "#81's round 1 was cheap, and the fact this section exists to "
-            "keep from surviving only in a transcript"
+            "#81's round 1 found so much for so few calls, and the fact this "
+            "section exists to keep from surviving only in a transcript"
         )
 
 
@@ -266,3 +274,46 @@ def test_the_round_and_phase_records_do_not_diverge_on_which_file_moves():
     assert "agents/smith.md" in implement_skill
     assert "agent-contract" in review_skill
     assert "the contract" in implement_skill
+
+
+# --- #81's round 1 is described by what it found, never as the cheapest ----
+#
+# (carrier, the phrase only the corrected wording uses, the claims it used to
+# carry). The first gone phrase is the carrier's own old wording at
+# `1fa25931`, the base #639 was cut from; the second is the #82 comparison
+# round 1 of that work item found unsupported. `CHANGELOG.md`'s released
+# 0.7.0 entry still says the first, and stays: a released entry is a record,
+# not a carrier.
+CHEAPEST_81_CARRIERS = (
+    (
+        REVIEW_SKILL,
+        "five defects, one 🔴 and four 🟡, in 29 tool calls",
+        ("the cheapest round on record", "averaged three times the calls"),
+    ),
+    (
+        ROUND_TEMPLATE,
+        "found five defects in 7.6 minutes and 29 tool calls",
+        ("was the cheapest round measured", "averaged three times the calls"),
+    ),
+)
+
+
+def test_81s_round_one_is_described_by_its_yield():
+    for path, phrase, _gone in CHEAPEST_81_CARRIERS:
+        assert phrase in flat(path), (
+            f"{os.path.relpath(path, ROOT)} no longer says what #81's round 1 "
+            f"found for its calls ({phrase!r} missing)"
+        )
+
+
+def test_81s_round_one_is_not_called_the_cheapest_again():
+    """The absent half, evidence only beside the present half above. #89
+    held #79's verifying round at 5.6 minutes and 28 calls before it wrote
+    7.6 and 29 up as the cheapest review round in the log, and its own
+    readings of #82's rounds do not give three times the calls."""
+    for path, _phrase, gones in CHEAPEST_81_CARRIERS:
+        for gone in gones:
+            assert gone not in flat(path), (
+                f"{os.path.relpath(path, ROOT)} carries a retracted claim "
+                f"about #81's round 1 again: {gone!r}"
+            )

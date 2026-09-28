@@ -129,7 +129,7 @@ So a run ends with a **verifying round**, and three things define it.
 | | What |
 |---|---|
 | When | **after the fixes** for the previous round are committed — never before, or it reviews what has already been reviewed |
-| Target | the **diff of those fixes**, not the branch. That is what keeps it bounded: it is the cheapest round of the run |
+| Target | the **diff of those fixes**, not the branch. That is what keeps it bounded, and bounded is not cheap: its cost is set by the frame, the inherited records and the probes, so it runs close to a finding round. `docs/review-chain-spec.md` §*The last round verifies* holds the measurement |
 | Job | the answers, not new findings. For each verdict the previous round recorded as closed, is it actually closed |
 
 One surface in that diff is exempt from *the answers, not new findings*: what

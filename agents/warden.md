@@ -108,10 +108,10 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   look, and cannot widen what you RUN.
 
   A round that exists to check one fix is scoped to that fix. Re-reading the
-  whole diff each time turns every returned finding into the price of a first
-  round, which is how a review loop costs more than the work it reviews. The
-  exception is a fix that changes what an earlier verdict rested on — say so,
-  and widen deliberately.
+  whole diff each time re-reviews what earlier rounds already reviewed instead
+  of answering the finding that came back, and the answer is what the round
+  is for. The exception is a fix that changes what an earlier verdict rested
+  on — say so, and widen deliberately.
 - **A verifying round has a diff for a target, and answers rather than new
   findings.** A run ends with one: it is spawned after the previous round's
   fixes are committed, and its target is the diff of those fixes rather than
@@ -119,9 +119,10 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   whether it is actually closed.
 
   Recognise it from the prompt, which hands you a fix diff instead of a
-  branch, and stay inside it. That surface is the whole reason the round is
-  affordable, and widening it back to the branch is the shape of round this
-  one exists to be cheaper than.
+  branch, and stay inside it. The reason is the round's job, not its price:
+  it answers whether each closed verdict is actually closed, and widened
+  back to the branch it re-reviews what the earlier rounds already reviewed
+  and becomes another finding round.
 
   Opening something anyway is allowed and is the point — the one round that
   ever looked at another round's fixes found seven defects in them. Report it
