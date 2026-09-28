@@ -2,7 +2,7 @@
 
 📋 implement applied
 · spec:     this work item's spec.md, plan.md, questions.md and routing.md; `docs/review-chain-spec.md` §*The last round verifies*; `docs/review-handoff-protocol.md` §*After the run — the per-segment bars*; `skills/code-review/orchestration.md` §*Orchestrator: the run ends with a verifying round*; `agents/warden.md` §*Role*; CLAUDE.md's fragment rule
-· evidence: `seal/ledger/1790562542-the-verifying-round-is-bounded-not-cheapest.md` (new), plus the rows re-read and re-stamped in phase 2 (`phases/phase-2.md`)
+· evidence: `seal/ledger/1790562542-the-verifying-round-is-bounded-not-cheapest.md` (new, rows V1 and V2). Eleven existing rows were re-read and re-stamped where they live, in `seal/ledger.md` and nine `seal/releases/*.md` files (`phases/phase-2.md`)
 · verified: executed are the narrow modules, 25 red-first mutations, lint on the changed test files, and `evidence-check` before and after. Read are #639's and #89's figures, from their issues
 
 ## Why this work exists
