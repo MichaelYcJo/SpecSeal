@@ -1849,6 +1849,7 @@ def test_a_call_that_only_reads_is_charged_to_read():
         "grep -q x f >/dev/null && echo y",
         "sed -n 1p -- f",
         "sort -- f",
+        "rg --pre-glob '*.gz' x f",
         "for f in a b; do wc -l $f; done",
         "[ -f x ] && cat x",
         "if grep -q x f; then echo y; fi",
@@ -1985,6 +1986,10 @@ def test_what_the_walk_cannot_see_is_not_read():
         "cat ${ rm x; }",
     ):
         assert module.family(command) == "other", command
+
+    # A stray `)` leaves the word after it in no command, and a line the
+    # shell refuses must not end the reading.
+    assert module.family(") x") == "other"
 
 
 def test_the_walk_yields_each_commands_arguments_and_nothing_inside_a_substitution():
