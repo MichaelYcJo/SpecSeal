@@ -242,7 +242,6 @@ def fence_opener(line):
     own, because five spellings of this rule is what five readers had. **It
     is not every fence walk in the repository.** `hooks/config.py#FENCE` is a
     deliberate copy, below. `payload_meter.py#FENCE`,
-    `.github/scripts/fold_ledger.py#demote`,
     `.github/scripts/close_issues_on_release.py`,
     `skills/evidence-check/scripts/correction_check.py#rows` and the other
     readers #584 names still keep their own, and #584 is where each is
@@ -255,7 +254,10 @@ def fence_opener(line):
     `skills/evidence-check/scripts/evidence_check.py#quoted_lines`, which
     the checker's four ledger walks read through, and `#claim_lines`, the
     records arm's walk, both by way of its `fence_rule`; and
-    `hooks/root-migrate.py#repoint` through `evidence_check.py#unquoted`.
+    `hooks/root-migrate.py#repoint` through `evidence_check.py#unquoted`;
+    and `.github/scripts/fold_ledger.py#fenced_lines` through `fence_spans`,
+    which `#demote`, `#version_headings`, `#section_heading` and `#insert`
+    read through, and `#live_markers` through `live_lines`.
     `skills/code-review/scripts/round_record.py#fenced_after` applies the
     closer rule and the backtick-info rule by its own pattern and keeps a
     wider opener on purpose, so a fix fenced inside a list item still

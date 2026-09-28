@@ -95,6 +95,19 @@ the way `demote` drops its `# <id>` title, and `--check` refuses a marker
 standing twice in `seal/ledger.md` or a release file, naming the file and
 both lines. A marker quoted elsewhere in a fragment is text and is copied.
 
+**A marker counts only on a live line, and a heading only outside a fence**
+(#584). Every reader of a marker here — the fold's refusal, `--check`'s
+doubled-marker report and its count — asks
+`unverified_check.py#live_lines`, the one function
+`docs/the-evidence-ledger.md` §*A marker counts only on a live line* names,
+so a marker quoted in a fenced example, a commented-out draft or a code span
+is not a fold. Every reader of a `## ` line — `version_headings`,
+`section_heading` and `insert`'s walk to the next section — skips a line
+inside a fenced block, an unclosed one to the end, because `demote` copies
+such a line byte for byte and a heading reader that read it as a heading
+would refuse the fold `demote` just wrote. The delimiters are that module's
+`fence_opener` and `fence_closes`, and `demote` asks them too.
+
 **The guard.** A sentence in a work item's `spec.md` that must outlive the
 release has to have moved into a `docs/` policy or a ledger row before the
 merge, and `seal/specs/<id>/evidence-todo.md` is where a reviewer lists the facts
@@ -200,15 +213,32 @@ def marker(work_item_id):
     return f"<!-- specs/{work_item_id} -->"
 
 
-def is_marked(ledger_text, work_item_id):
-    """Whether the ledger carries this work item's marker on a line of its own.
+def live_markers(ledger_text):
+    """`[(work item id, line number)]` for every marker standing on a live
+    line of its own, in file order.
 
     A substring test would read the marker's shape quoted in the ledger's own
     prose as a folded work item and refuse the fold, with advice that would
-    have a person remove the only copy of the rows (round 1, 🟡 3). One
-    line-anchored test serves the fold and `--check` alike.
+    have a person remove the only copy of the rows (round 1, 🟡 3). A
+    line-anchored test alone still read one quoted in a fenced example or a
+    commented-out draft (#584), so the line has to be live as well, by
+    `unverified_check.py#live_lines`. One reader serves the fold, `--check`'s
+    doubled markers and its count alike.
     """
-    return re.search(rf"^{re.escape(marker(work_item_id))}$", ledger_text, re.M)
+    return [
+        (found.group(0)[len("<!-- specs/") : -len(" -->")], number)
+        for number, (line, live) in enumerate(
+            reader.live_lines(ledger_text.split("\n")), 1
+        )
+        for found in [MARKER_LINE_RE.match(line)]
+        if live and found
+    ]
+
+
+def is_marked(ledger_text, work_item_id):
+    """Whether the ledger carries this work item's marker on a live line of
+    its own (`live_markers`)."""
+    return any(i == work_item_id for i, _ in live_markers(ledger_text))
 
 
 def fragments(root):
@@ -233,10 +263,11 @@ def folded(ledgers, frags):
     text)]`: `seal/ledger.md` and every release file (#547). The path is
     what the refusal names, because a person comparing by hand has to know
     which file to open."""
+    marked = [(path, {i for i, _ in live_markers(body)}) for path, body in ledgers]
     out = []
     for work_item_id, text in frags:
-        for path, ledger_text in ledgers:
-            if is_marked(ledger_text, work_item_id):
+        for path, ids in marked:
+            if work_item_id in ids:
                 out.append((work_item_id, text, path))
                 break
     return out
@@ -259,10 +290,13 @@ def demote(text, work_item_id):
 
     Two more from round 2 (🟡 4): blank lines above the title are skipped, so
     a title after one is still recognised rather than demoted into a second
-    `### <id>`; and a fence is ``` or ~~~, closed by the next line that
-    starts with the same three characters. That is looser than CommonMark,
-    which closes only on a run at least as long as the opener with nothing
-    after it; the rider below says what that misreads.
+    `### <id>`; and a fence is ``` or ~~~, closed only by its own kind.
+
+    The fence is the shared rule's (#584), `fenced_lines` over
+    `unverified_check.py#fence_spans`: a run at least as long as the opener
+    with nothing after it closes, so a ```` ```python ```` line inside a
+    ```` ``` ```` block, or a ```` ``` ```` line inside a ```` ```` ````
+    one, is content. A block that never closes runs to the end, as it did.
     """
     lines = text.strip("\n").split("\n")
     while lines and not lines[0].strip():
@@ -270,24 +304,9 @@ def demote(text, work_item_id):
     if lines and lines[0].strip() == f"# {work_item_id}":
         lines = lines[1:]
     out = []
-    fence = None
-    for line in lines:
-        head = line.lstrip()
-        if fence is None and (head.startswith("```") or head.startswith("~~~")):
-            fence = head[:3]
-        # RIDER: a ```python line, or a ``` line inside a ```` block, closes
-        # the fence here and CommonMark says neither does — so a `#` line
-        # after one is demoted where it should be copied. Round 3 of the work
-        # item that wrote this measured it on probes and found no fence line
-        # in any fragment or in map.md; a fold of today's ledger is untouched.
-        # If a fragment ever quotes a fenced block, close on a run of the
-        # same character at least as long as the opener with nothing after it
-        # (`^(`{3,}|~{3,})(.*)$` and `len(run) >= len(fence) and not
-        # rest.strip()`), and plant the case beside the tilde test.
-        # Verified 2026-09-08 against demote@8f967708.
-        elif fence is not None and head.startswith(fence):
-            fence = None
-        m = None if fence else HEADING_RE.match(line)
+    fenced = fenced_lines(lines)
+    for n, line in enumerate(lines):
+        m = None if n in fenced else HEADING_RE.match(line)
         if m:
             line = "#" * min(len(m.group(1)) + 2, 6) + line[len(m.group(1)) :]
         out.append(line)
@@ -324,16 +343,13 @@ def doubled_markers(ledgers):
     with its own marker) and one marked in two files (a fold to the old
     place after the split) both make the count say one work item is two.
     `tests/test_release_hygiene.py#duplicated_markers` is the same reader
-    over the real tree on every pull request.
+    over the real tree on every pull request. A marker counts only on a live
+    line (`live_markers`, #584).
     """
     where = {}
     for path, text in ledgers:
-        for number, line in enumerate(text.split("\n"), 1):
-            found = MARKER_LINE_RE.match(line)
-            if found:
-                where.setdefault(
-                    found.group(0)[len("<!-- specs/") : -len(" -->")], []
-                ).append((path, number))
+        for work_item_id, number in live_markers(text):
+            where.setdefault(work_item_id, []).append((path, number))
     return [(work_item_id, at) for work_item_id, at in where.items() if len(at) > 1]
 
 
@@ -365,6 +381,24 @@ def append(ledger_text, block):
     return ledger_text.rstrip("\n") + "\n\n" + block.rstrip("\n") + "\n"
 
 
+def fenced_lines(lines):
+    """The indices of `lines` inside a fenced block, delimiters included,
+    a block that never closes running to the end (#584).
+
+    The one helper every heading reader in this file asks — `demote`,
+    `version_headings`, `section_heading` and `insert` — so the line `demote`
+    copies as text is the line the others do not read as a heading.
+    `unverified_check.py#fence_spans` is the walk, and its delimiters are
+    `fence_opener` and `fence_closes`.
+    """
+    lines = list(lines)
+    return {
+        n
+        for first, last in reader.fence_spans(lines)
+        for n in range(first, len(lines) if last is None else last + 1)
+    }
+
+
 def section_heading(ledger_text, version):
     """The match for the `## <version>` line the ledger already has, or None.
 
@@ -372,11 +406,15 @@ def section_heading(ledger_text, version):
     and the heading it prints and by `insert` when it places the work items
     — `gather_changelog.py#section_heading`, name for name, so a reader of
     one script knows the other. Group 1 is the date the heading carries, or
-    None where it carries none.
+    None where it carries none. A line inside a fence is not one
+    (`fenced_lines`).
     """
-    return re.compile(rf"^## {re.escape(version)}\b(?: — (\S+))?.*$", re.M).search(
-        ledger_text
-    )
+    fenced = fenced_lines(ledger_text.split("\n"))
+    pattern = re.compile(rf"^## {re.escape(version)}\b(?: — (\S+))?.*$", re.M)
+    for found in pattern.finditer(ledger_text):
+        if ledger_text.count("\n", 0, found.start()) not in fenced:
+            return found
+    return None
 
 
 def insert(ledger_text, block, version):
@@ -399,8 +437,13 @@ def insert(ledger_text, block, version):
         return append(ledger_text, block)
     lines = ledger_text.split("\n")
     at = ledger_text.count("\n", 0, found.start())
+    fenced = fenced_lines(lines)
     end = next(
-        (n for n in range(at + 1, len(lines)) if lines[n].startswith("## ")),
+        (
+            n
+            for n in range(at + 1, len(lines))
+            if lines[n].startswith("## ") and n not in fenced
+        ),
         len(lines),
     )
     while end > at + 1 and not lines[end - 1].strip():
@@ -422,12 +465,15 @@ def version_headings(text):
     The one reader of `## X.Y.Z` lines (#547, Q3). `--check` asks it of
     `seal/ledger.md`, where any answer is a release left in the shared file,
     and of each release file, where the answer has to be the file's own
-    version once; `--split` asks it for the sections to move.
+    version once; `--split` asks it for the sections to move. A line inside
+    a fence is not a heading (`fenced_lines`, #584).
     """
     lines = {}
-    for number, line in enumerate(text.split("\n"), 1):
+    split_lines = text.split("\n")
+    fenced = fenced_lines(split_lines)
+    for number, line in enumerate(split_lines, 1):
         found = VERSION_HEADING_RE.match(line)
-        if found:
+        if found and number - 1 not in fenced:
             lines.setdefault(found.group(1), []).append(number)
     return list(lines.items())
 
@@ -653,6 +699,7 @@ def split(root, text, dry_run):
 # a shipped script, and nothing held the two in step; `rider_check.py` had
 # already taken that direction. A reader that is moved or renamed stops the
 # fold at load with a traceback, at the release, which is the loud direction.
+# The fence rule and the live-line rule come from the same module (#584).
 READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
 
 
@@ -666,9 +713,11 @@ def load_reader(path=READER):
     return module
 
 
+reader = load_reader()
+
 # `unverified_check.py#todo_open_rows`, the one rule, under the name this
 # script's callers and cases already use.
-open_rows = load_reader().todo_open_rows
+open_rows = reader.todo_open_rows
 
 
 def open_items(root):
@@ -811,10 +860,11 @@ def main(argv=None):
             )
         if bad:
             return 1
-        # Markers on a line of their own. The ledger's own header quotes the
-        # marker's shape inline, and a bare substring count read that as a
-        # work item (measured: 7 where 6 had been folded).
-        marked = sum(len(MARKER_LINE_RE.findall(body)) for _, body in ledgers)
+        # Markers on a live line of their own. The ledger's own header quotes
+        # the marker's shape inline, and a bare substring count read that as
+        # a work item (measured: 7 where 6 had been folded); a fenced or
+        # commented quotation is the same mistake one line down (#584).
+        marked = sum(len(live_markers(body)) for _, body in ledgers)
         files = len(releases)
         print(
             f"no ledger fragment left in {FRAGMENTS}/; "
