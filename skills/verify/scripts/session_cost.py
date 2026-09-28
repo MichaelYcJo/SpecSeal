@@ -102,8 +102,10 @@ PROJECTS = os.path.join(HOME, ".claude", "projects")
 # **`git` is the one family read by command word, and its pattern below is
 # the fallback rather than the rule (#377).** It used to be the one pattern
 # anchored at the start of the line, so `cd /x && git status` -- the shape
-# nearly every worktree session writes -- was charged to `other`: 2,703 calls
-# and 21,179 seconds over the 349 transcripts it was measured on. `family`
+# nearly every worktree session writes -- was charged to `other`: 2,734 calls
+# and 21,147 seconds over the 353 transcripts it was measured on, 2026-09-28,
+# and 3,691 calls and 32,257 seconds once a command's newlines and what follows
+# a heredoc's closing line are read as well. `family`
 # now asks `runs_git`, which reads every command word on the line, and uses
 # the anchored pattern only where the tokeniser refuses the line. The other
 # three stay unanchored on purpose: `uv run --with pytest pytest` and

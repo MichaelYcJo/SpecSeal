@@ -26,4 +26,11 @@
   a command that was a `git` run, and the repeats figures may read low,
   because a test run after a heredoc was not counted. Span, command time,
   model time, idle, tokens, tools per turn and the `slowest` list do not
-  move. `--segments` now says so on the page, naming #377.
+  move. `--segments` now says so on the page, naming #377. Measured on
+  2026-09-28 over the 353 transcripts on one machine (23,285 Bash calls,
+  165,888 seconds): 3,691 calls and 32,257 seconds move from `other` to
+  `git`, 819 calls and 10,649 seconds from `other` to `test`, 90 calls to
+  `lint/type` and 9 to `build`, and 10 calls move to `test` from `git` or
+  `build` because a test ran after a heredoc on the same command. 18,666
+  calls do not move. `other` led the Bash seconds in 260 of the 342
+  transcripts holding a Bash call, and leads in 159.

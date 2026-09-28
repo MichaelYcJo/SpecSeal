@@ -1565,8 +1565,8 @@ def test_a_runner_named_inside_a_heredoc_is_not_a_run_of_it(tmp_path):
 #
 # The `git` family was the one pattern anchored at the start of the line, so a
 # `git` or `gh` call after `cd … &&` -- the shape nearly every worktree session
-# writes -- was charged to `other`. Measured over 349 transcripts on the
-# machine that found it: 2,703 calls and 21,179 seconds in that shape alone.
+# writes -- was charged to `other`. Measured over 353 transcripts on one
+# machine, 2026-09-28: 2,734 calls and 21,147 seconds in that shape alone.
 
 
 def test_a_git_call_after_cd_is_charged_to_git():
