@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 633 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `e6435da5eee9074d3e6f011f813b317dfc31e97f..1c5dc5cf865129727ef9cc3282199d65c585a254`, 3 commits |
 | Contract changes | steer_to_switch → guard_worktree_creation, round-1-report.md, round-1.md; steer_to_shared → guard_worktree_creation |
 | New units | git_at (depth 1); test_the_force_staged_check_reads_from_the_root_of_the_tree (depth 1); PRINTED_COMMAND (depth 1); printed_commands (depth 1); test_every_printed_command_names_the_tree_it_is_about (depth 1) |
