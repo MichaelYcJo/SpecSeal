@@ -6,7 +6,7 @@
 |---|---|
 | Phase | 3 |
 | Commit | e1ea265f |
-| Ran by | unknown — the spawn prompt did not hand this value over, and the template forbids a segment to source it from its own idea of what it is; the orchestrator fills it |
+| Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
 
