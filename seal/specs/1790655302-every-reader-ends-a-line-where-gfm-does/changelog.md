@@ -46,6 +46,15 @@
   line end, so the repository's copy of the block gained a line break that
   `install.sh`'s copy does not have. The script now ends a line at LF alone,
   as `install.sh`'s `awk` does.
+- **The rider check reads no rider whose marker line follows one of the
+  eight characters mid-line** (#664). Such a rider was read and never cut
+  from the region its stamp hashes, so its own stamp was hashed and
+  `--reverify` could not make it read ok. A rider on a line of its own is
+  read as before. `rider_check.py` now loads `hooks/blocks.py` for a
+  Python file that carries a marker, as it already did for markdown.
+  `--migrate` infers a rider's anchor on the line numbers `ast` gives, so a
+  form feed inside a string above the rider no longer points it at the
+  wrong unit.
 - **The worktree guard reads a transcript record that carries a raw U+2028
   inside a string** (#664). The record used to split into two halves that
   each failed to parse, so the blocking prompt named an earlier message of

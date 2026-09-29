@@ -5,7 +5,7 @@ show. -->
 
 📋 implement applied
 · spec:     `spec.md` (Grounding, M1–M8, Scope 1–7 and Out, the class enumerated, S1–S20, Data & interfaces, Failure direction), `plan.md` (Technical context, Alternatives A–H, Phases 1–5, Operational impact), `questions.md` D1–D13 and Q1–Q3; `CLAUDE.md` §*a change writes fragments* and §*commit early*; `skills/agent-contract/SKILL.md` §9, §12, §14, §15; `templates/sdd-phase.md`; item C's `phases/phase-5.md` and ledger fragment
-· evidence: `seal/ledger/1790655302-every-reader-ends-a-line-where-gfm-does.md` G1–G12; 61 rows in `seal/releases/0.4.0` to `0.15.5` and in the fragments of items 1790635413 and 1790635414 re-read against each edit and re-stamped with a dated note; 1790635414's H2 removed and rewritten as G3
+· evidence: `seal/ledger/1790655302-every-reader-ends-a-line-where-gfm-does.md` G1–G13; F's P5-1 corrected and re-read, 0.9.1's S2 and S3 re-read in phase 6; before it, 61 rows in `seal/releases/0.4.0` to `0.15.5` and in the fragments of items 1790635413 and 1790635414 re-read against each edit and re-stamped with a dated note; 1790635414's H2 removed and rewritten as G3
 · verified: executed — every new case red at `2e392d46` (a `git archive` in the scratch directory) or against a planted mutant, one mutant per moved call site and per added unit, each phase's readers' modules, S20 for every moved gate, `evidence-check .`; read — the 61 re-read claims; unverified — the suite, lint and typecheck (the sealer's) and CI's legs
 
 ## Why this work exists
@@ -22,6 +22,7 @@ outside work item F's files ends a line where GFM, `ast` and git do.
 | One function changed its signature | *Data & interfaces*: "No existing function changes its signature." · `chain_check.py#frame_mark(text)` became `frame_mark(reader, text)` | code | It had no reader to split with, and its one caller, `frame`, already held one. Loading the reader inside it would be a second load path for one call site |
 | S8's scenario | "a ledger row with a U+2028 in its notes at `a` and `b` … the row is found standing" · a row unchanged at both ends is found standing at base too, because both ends cut it alike | the case is a row with no id, corrected in place, whose still-resolving anchor stands after the separator | That is the shape red at base: cut, the row lost the anchor, and the correction read as a removal (`phases/phase-2.md`) |
 | `survivor_check.py#reader` | spec silent · it now caches the loaded module by path | code | `segments` asks it for `gfm_lines` once per corpus file, 504 on this tree, and it executed the module on every call. A case holds the cache and the refusal of a moved path |
+| `rider_check.py` after F | spec §*Out*: F's files are exempt, and `inferred_anchor` waits for F · the orchestrator added phase 6 after F landed; `comment_blocks` steps over a marker line inside a GFM line in every file type, so a `.py` file with a marker now loads `hooks/blocks.py` | code, by the orchestrator's added phase | F's round 3, 🟡 3, was deferred to #664. The `#` form has the same defect in Python, where `ast` does not end a line at a form feed either (`phases/phase-6.md`) |
 | Readers #664 did not name, beyond the frame's list | the frame's phases · `gather_changelog.py#leaves_open`, `#section_lines`, `insert`'s fresh-section arm and `main`'s dry run got a case each; the spec named them only as moved | code | A moved call no case notices is a move nobody can check. Each was red at base |
 
 ## Not verified
@@ -33,15 +34,15 @@ outside work item F's files ends a line where GFM, `ast` and git do.
 
 ## Not done
 
-- **`rider_check.py#inferred_anchor` still slices `text.splitlines()`.** It
-  is F's file (#667, PR #672), and it compares that numbering with
-  `checker.py_spans`, which is `ast`'s. Once F lands it should slice
-  `checker.gfm_lines(text)`, the list `region_lines` slices since item C.
-  The milestone 49 orchestrator answers it (questions.md Q1).
-- **S17 does not hold `hooks/blocks.py#gfm_lines` equal yet.** F had not
-  landed at phase 5, so the copy is not in this tree. Whichever of F and G
-  lands second adds it to `test_every_copy_of_the_splitter_is_the_readers`.
-  The milestone 49 orchestrator answers it.
+- ~~`rider_check.py#inferred_anchor` still slices `text.splitlines()`~~ and
+  ~~S17 does not hold `hooks/blocks.py#gfm_lines` equal yet~~: both were
+  left at phase 5 for after F. F landed, the orchestrator added phase 6,
+  and phase 6 did both (`phases/phase-6.md`).
+- **F's round 3, ⬜ 4, is not taken here.** It asks for the old region half
+  of F's break case to be restored in
+  `tests/test_a_rider_reaches_its_file.py`. The phase 6 spawn named two
+  items, and that finding is F's round's own. The milestone 49 orchestrator
+  answers where it goes.
 - **`gather_changelog.py#main`'s heading line has no case.** It is
   `gfm_lines(block)[0]`, and `block`'s first line is `section`'s own
   `## <version> — <date>`, which cannot hold one of the eight. The mutant
