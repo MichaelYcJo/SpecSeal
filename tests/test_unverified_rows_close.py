@@ -2356,6 +2356,9 @@ COMMENT_SHAPES = [
     ["text `<!--` more", "| a |", "`-->`", "| b |"],
     ["a note quoting `<!--`", "```", "| a |", "```", "| b |"],
     ["<!-- a note with `-->` in it", "| a |", "-->", "| b |"],
+    # a backtick with no partner on its line is literal, so the opener after
+    # it opens a comment
+    ["a lone ` then <!-- x", "| a |", "-->", "| b |"],
     # closed, reopened on the same line, closed again
     ["<!-- a --> <!-- b", "| x |", "c -->", "| y |"],
     # comments do not nest: the first `-->` closes

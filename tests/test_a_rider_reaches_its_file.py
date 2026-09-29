@@ -539,6 +539,13 @@ def test_a_comment_opener_quoted_in_a_code_span_hides_no_rider():
         f"prose\n\n{HTML_MARK} real\nVerified 2026-01-01 against r@abcdef12. -->\n"
     )
     assert riders.comment_blocks(text.splitlines(), "doc.md") == [(12, 13)]
+    # a backtick with no partner on its line is literal, so the opener after
+    # it opens a comment, and the fence line inside that comment opens nothing
+    lone = (
+        "a lone ` then " + opener + " a note\n```\n-->\n\n"
+        f"{HTML_MARK} real\nVerified 2026-01-01 against r@abcdef12. -->\n"
+    )
+    assert riders.comment_blocks(lone.splitlines(), "doc.md") == [(5, 6)]
 
 
 def test_a_fence_line_inside_a_rider_body_hides_no_rider_below():
