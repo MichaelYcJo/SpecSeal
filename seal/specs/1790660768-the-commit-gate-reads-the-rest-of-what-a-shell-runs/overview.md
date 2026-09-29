@@ -27,20 +27,24 @@ reads each of them, and every command it stopped there it still stops.
 | Item | Who must answer |
 |---|---|
 | The cases on Windows | CI's `windows-latest` leg, at the pull request |
-| bash 4.1's `{fd}>` before a program word commits: read, not run. This machine has bash 3.2.57, which has no `{fd}>`, and zsh 5.9 answers a leading `{fd}>` with a parse error (executed, phase 1). zsh's `>!` and `>>!` in front of `git commit` did commit (executed, phase 1) | the orchestrator, where a bash 4.1 or later is at hand; until then the gate stops the shape, which costs a stop on a command zsh would refuse to parse |
 | The whole suite, the repository-wide lint and the typecheck | The sealer, once, after the review rounds settle |
-| Whether the harness cuts off a `PreToolUse` hook that runs long, which would turn a pathological nesting at `86256492` into silence (`questions.md` Q1) | The orchestrator: the frame assigned it there, and the bound is built either way |
+
+## Answered by the orchestrator
+
+On 2026-09-29, and so no longer open:
+
+- **bash 4.1's `{fd}>` before a program word commits.** Executed in the `bash:4.1` (4.1.17) and `bash:5.2` (5.2.37) images: `{fd}>/tmp/log git commit` and `{fd}>&2 git commit` each made a commit in a fresh repository. The branch's `commit_invocations` at `d6fe34c0` finds the commit in both shapes and none in `{fd}>f true`. zsh's parse error on the leading form stands (phase 1), so the stop costs a command zsh would refuse and saves one bash runs.
+- **Whether the harness cuts off a long `PreToolUse` hook** (`questions.md` Q1): it does at 600 s, and a timed-out hook does not block. Read from the hooks documentation. The bound only saves time.
 
 ## Not done
 
 - **A command word that expands at the top level** — `"$CMD"`, `"$SHELL"
   -c …`, `nohup "$CMD"`, and `sudo -s $CMD` unquoted — is still not asked.
   `spec.md` §*Scope* puts it out: it is a new rule with its own prompt cost,
-  not the rest of #670's class. The orchestrator decides whether to file it.
+  not the rest of #670's class. Filed as #678.
 - **`parallel`'s expansion question.** Its arguments are read for a commit
   written out. Placing its command word means parsing its options and its
-  `:::` inputs, which `spec.md` §*Scope* leaves out, for the orchestrator to
-  file or not.
+  `:::` inputs, which `spec.md` §*Scope* leaves out. Filed as #678.
 - **The worktree guard does not read the merged view.** `git 2>&1 worktree
   add` is not a creation to it, as at `86256492`. The frame put the view in
   the commit gate's three readers alone, and `docs/worktree-guard-spec.md`
