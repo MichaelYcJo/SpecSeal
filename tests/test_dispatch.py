@@ -289,12 +289,18 @@ def test_a_commit_with_a_ledger_row_wider_than_its_header_is_told_so(repo):
         encoding="utf-8",
     )
     out = run_dispatch("post-bash", payload("git commit -m x", repo))
-    out = out.replace(os.sep, "/")
     assert (
         "evidence-check: 1 ledger row wider than its header — the text past "
         "its last column is in no column" in out
     ), out
-    assert "  OVERFLOW  seal/ledger/f.md line 3  6 cells and no header" in out, out
-    assert "write it as `\\|`" in out, out
+    rows = [ln for ln in out.splitlines() if ln.lstrip().startswith("OVERFLOW")]
+    assert len(rows) == 1, out
+    # Only the path is normalised: the remedy carries a backslash of its own,
+    # which a `replace(os.sep, "/")` over the whole line turns into `/|` on
+    # Windows (CI's windows leg at 4a0ac81e).
+    path, _, rest = rows[0].partition(" line 3  ")
+    assert path.replace(os.sep, "/") == "  OVERFLOW  seal/ledger/f.md", rows[0]
+    assert rest.startswith("6 cells and no header"), rows[0]
+    assert "write it as `\\|`" in rest, rows[0]
     # Drift is still dropped: the placeholder hash drifts, and says nothing.
     assert "DRIFTED" not in out, out
