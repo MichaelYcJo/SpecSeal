@@ -49,8 +49,9 @@ history in shared mode, and in local mode is what `evidence-check .` reads
 next, so both fail toward a person seeing it; prompt budget — zero
 questions, one printed line once per repository; platform — pure Python plus
 one `git status --porcelain`, no process inspection. Under `dispatch.py`'s
-crash isolation a raising hook is skipped silently; here that loses one
-migration attempt, and the OLD-FORMAT failure still speaks.
+crash isolation a raising hook is skipped, and the skip is said once per
+session at the end of the turn (#28); here that loses one migration attempt,
+and the OLD-FORMAT failure still speaks.
 """
 
 import glob

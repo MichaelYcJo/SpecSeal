@@ -79,11 +79,12 @@ of this command, not something that arrives silently.
 
    The records arm is not trivial in the same way, and it is why "no ledger,
    nothing can fail" is no longer true. It reads the records of every work
-   item whose `seal/ledger/<id>.md` fragment is still on disk, so a
-   repository with records and no gathered ledger can go red on the first
-   run. Its counts print under their own heading, `N work items read · M
-   unread` first, so a run that opened nothing says so rather than reporting
-   a zero that reads as clean.
+   item whose `seal/ledger/<id>.md` fragment is still on disk, and
+   `seal/follow-up.md` on every run, so a repository with records and no
+   gathered ledger can go red on the first run. Its counts print under their
+   own heading, `N work items read · M unread` first, so a run that opened
+   nothing says so rather than reporting a zero that reads as clean, and the
+   line ends by saying whether `seal/follow-up.md` was read.
 
 6. **Do not commit for the user.** Show the two files and let them review.
    Adding a required check to someone's CI is their call to make in a diff.

@@ -165,15 +165,21 @@ orphan, and the check calls git for nothing — the one exception is
 `--migrate`, a one-shot writer that consults the old stamp's commit before it
 trusts a line number it is rewriting. Re-verifying a row is
 re-reading it and running `evidence-check --reverify`, which recomputes the
-hash and names what it changed.
+hash and names what it changed. Add `--checked <YYYY-MM-DD>` and it also
+writes the date of that reading into every row whose hash it moves; without
+it the dates stay and those rows are named. The flag says every such row was
+re-read, so read each row citing a drifted coordinate first, or narrow the
+write with `--ledger`.
 
 ## The gates
 
 Hooks are scripts the plugin auto-registers; they run on your machine at
 tool events. One process handles all the gates on an event rather than one per
 gate — four interpreter startups per Bash call was most of the cost of having
-them (measured: 220ms → 104ms before a Bash call, 323ms → 120ms after). Full
-decision tables:
+them (measured: 220ms → 104ms before a Bash call, 323ms → 120ms after). A gate
+that fails to load or crashes is skipped and the call goes ahead; at the end of
+the turn you are told which gate it was, once per session. Full decision
+tables:
 [docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) ·
 [docs/commit-review-gate-spec.md](./docs/commit-review-gate-spec.md) ·
 [docs/review-chain-spec.md](./docs/review-chain-spec.md).

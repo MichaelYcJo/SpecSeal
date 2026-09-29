@@ -22,6 +22,22 @@ that was overruled still has something the user needs to read. A gate that
 raises is skipped and the rest of the group still decides — a crashing gate
 must not block a tool call.
 
+<!-- specs/1790635415-a-gate-that-fails-to-load-says-so -->
+**A gate that fails is said once per session, at the end of the main
+session's turn, and the call it failed on still goes ahead.** A failure is an
+exception while loading the gate's file, a `SystemExit` included, or an
+`Exception` from its `main()`. A `SystemExit` from `main()` is a gate
+finishing. A load-time `SystemExit` used to end the whole group. The
+dispatcher writes a record under `<git-common-dir>/specseal-gate-failure/`,
+keyed by session and gate, in an opted-in repository, and also where
+`optin.py` is itself the broken module, because that one cannot tell. The
+`stop` group says each pending record once as a `systemMessage`, before the
+sealer's stamp where there is one, and nothing the report adds carries a
+decision. Before this, a skipped gate read exactly like an allow and nobody
+was told. What it still cannot say is a failure it had nowhere to write: a
+git directory it cannot write to is as silent as before.
+Enforced by: tests/test_a_gate_that_fails_says_so.py::test_a_broken_gate_is_said_at_the_end_of_the_turn_and_only_once, tests/test_a_gate_that_fails_says_so.py::test_a_system_exit_at_load_does_not_take_the_group_down, tests/test_a_gate_that_fails_says_so.py::test_the_report_goes_before_the_stamp_and_the_stamp_is_unchanged
+
 ## commit-review-gate (PreToolUse, Bash)
 
 The hook carries **two opt-ins, evaluated independently**. Each has its own

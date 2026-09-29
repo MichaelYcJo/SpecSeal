@@ -2304,13 +2304,20 @@ FENCE_SHAPES = [
 
 @pytest.mark.parametrize("lines", FENCE_SHAPES, ids=range(len(FENCE_SHAPES)))
 def test_the_fence_rule_agrees_with_the_config_reader(lines):
-    """S6. `hooks/config.py#FENCE` is the one deliberate second copy of the
+    """S6. `hooks/blocks.py#FENCE` is the one deliberate second copy of the
     delimiter rule — it runs on the hook path, where loading a skill module
     would cost every hook call — so this holds the two in step, shape by
     shape, over which lines are fenced and where an unclosed block opened.
     Seen red against `c52e8350`'s `blank_fences` rule on shapes 3, 4, 6, 12
     and 13 — the indentation bound, the closer's info string and the opener's
-    backtick."""
+    backtick.
+
+    Asked of the config reader and of the walk's fence half both (#667, the
+    frame's S3): the copy moved out of `hooks/config.py` into the walk the
+    hook-path readers share, and neither may drift from this rule on a file
+    that holds no comment. `blocks.fence_only` is the fence rule alone;
+    `blocks.walk` on these shapes, where it claims a line, hides the same
+    fenced lines."""
     spec = importlib.util.spec_from_file_location(
         "specseal_config_for_fence_agreement", os.path.join(ROOT, "hooks", "config.py")
     )
@@ -2321,6 +2328,14 @@ def test_the_fence_rule_agrees_with_the_config_reader(lines):
     assert fenced_by_the_shared_rule(lines) == theirs
     unclosed = [first for first, last in uc.fence_spans(lines) if last is None]
     assert unclosed == ([] if opened_at is None else [opened_at])
+
+    from conftest import load_hook_module
+
+    blocks = load_hook_module("blocks.py", "specseal_blocks_for_fence_agreement")
+    assert blocks.fence_only(lines) == (fenced_by_the_shared_rule(lines), opened_at)
+    walked = blocks.walk(lines)
+    claimed = {n for n in range(len(lines)) if not walked.uncertain[n]}
+    assert set(walked.hidden()) & claimed == fenced_by_the_shared_rule(lines) & claimed
 
 
 @pytest.mark.parametrize(

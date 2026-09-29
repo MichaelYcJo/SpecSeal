@@ -172,6 +172,17 @@ Only the committed root is readable at all. A repository in local mode keeps
 `seal/` under the git common directory and commits nothing, so it has no
 history for this to read -- and no workflow to run it from.
 
+**Which rows: the ones the checker reads, and no others** (#584). A row
+inside a fenced block that closes is an example, and
+`evidence_check.py#quoted_lines` skips it, so it is not a claim and has no
+correction to lose. A row under a fence that never closes, and a row inside
+an HTML comment, are read, because the checker reads both: a row the
+checker watches is a row whose correction a merge can drop, and not reading
+it is the silent direction for the one check that exists to see the drop.
+The fence rule is `unverified_check.py#closed_fence_lines`, loaded by path
+beside this script; a copy taken without it exits 2 with a sentence naming
+the path, before anything is examined.
+
 ## Markers in prose are out of scope, by construction
 
 The convention writes a marker into a row cell. Text outside a table row has
@@ -180,11 +191,42 @@ tell from a rewrite is not a loss this reports.
 """
 
 import argparse
+import importlib.util
 import os
 import re
 import subprocess
 import sys
 from collections import Counter
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+# The fence rule the checker's ledger walks read by (#584). Loaded at import,
+# so every invocation reaches the missing-file sentence before it reads
+# anything.
+READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
+
+
+def load_reader(path=READER):
+    """`unverified_check.py` as a module, or a sentence and exit 2.
+
+    The file is checked for first, because `spec_from_file_location` hands
+    back a spec for a missing `.py` path and `exec_module` then dies with a
+    `FileNotFoundError` traceback at exit 1 -- the shape
+    `payload_meter.py#_session_cost` gives the same refusal."""
+    if not os.path.isfile(path):
+        sys.stderr.write(
+            f"correction-check: cannot read {path}, and it is what says which "
+            "ledger rows stand inside a fenced example. This command ships "
+            "beside it under `skills/`; a copy of one script taken on its own "
+            "is not a plugin. Nothing was examined.\n"
+        )
+        raise SystemExit(2)
+    spec = importlib.util.spec_from_file_location("specseal_unverified_reader", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+reader = load_reader()
 
 # The three addresses a ledger lives at. The fragment glob is watched from the
 # first commit rather than added later, because `fold_ledger.py` moves every
@@ -354,9 +396,15 @@ class Row:
 
 
 def rows(text):
-    """Every table row of `text`, separators and blank lines dropped."""
+    """Every table row of `text`, separators and blank lines dropped, and the
+    rows inside a fenced block that closes (`unverified_check.py#
+    closed_fence_lines`, the rule `evidence_check.py#quoted_lines` applies)."""
+    lines = text.splitlines()
+    quoted = reader.closed_fence_lines(lines)
     found = []
-    for line in text.splitlines():
+    for n, line in enumerate(lines):
+        if n in quoted:
+            continue
         stripped = line.strip()
         if not stripped.startswith("|") or SEPARATOR.match(stripped):
             continue

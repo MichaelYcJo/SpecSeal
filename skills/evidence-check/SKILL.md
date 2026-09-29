@@ -163,6 +163,7 @@ verification state. Verified-ness lives in the ledger only.
 evidence-check [ROOT]          # on PATH while the plugin is enabled
 evidence-check --strict .
 evidence-check --reverify .    # after re-reading: rewrite each row's hash
+evidence-check --reverify --checked 2026-09-29 .   # and date every row it moved
 ```
 
 | Flag | Meaning |
@@ -172,6 +173,7 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 | `--map NAME=PATH` | resolve `NAME/...` prefixed coordinates against another checkout |
 | `--strict` | drift, a malformed coordinate and an overflowing row exit 2, the broken-coordinate code, instead of 1. This is the form `broad-gate` runs |
 | `--reverify` | rewrite every resolvable row's hash to what its anchor holds now — and re-anchor every BROKEN row that exactly one unit reconstructs, path and locator both |
+| `--checked YYYY-MM-DD` | with `--reverify` only: the date you re-read the rows on, written into the date cell of every row whose hash moves. It says every such row was re-read, so read each row citing a drifted coordinate first, or narrow the write with `--ledger`. A value that is not a calendar date in that form, a date later than today, and the flag without `--reverify` or beside `--migrate` exit 2 before any ledger is read |
 | `--migrate` | rewrite old `path:line` rows to `path#unit@hash`; what it cannot prove is left and named |
 
 ### Which reader graded your tree
@@ -269,8 +271,8 @@ branch had touched.
 | `OVERFLOW` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | a table row in a ledger file splits into more cells than its table's header, so the text past the last column is in no column and no reader sees it — usually an unescaped `\|` inside a cell. A row under no header, which is every fragment row, is counted against the five columns `templates/ledger.md` declares for a ledger row. The line is named with both counts | write a `\|` inside a cell as `\\|`; a table that is not ledger rows takes a header of its own. `--reverify` names the row and leaves it, and still rewrites the row's hashes where their anchors resolve, because the hash is not what is wrong. Exit 1 here means *escape the pipe*, not *re-read* |
 | `DRIFTED` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify`. This is one of the three verdicts the readers grade differently, `MALFORMED` and `OVERFLOW` being the others — see *Which reader graded your tree* |
 | `EXTERNAL` (exit 0) | the path resolves in no known checkout, in a repository that has DECLARED cross-repo intent — a parity config, `--map`, or `--default-repo` | pass `--map`/`--default-repo`, or accept as out of scope. Without such a declaration a missing path is `BROKEN` instead: a deleted or renamed directory must fail the build, not read as somebody else's repo |
-| `NOT-IN-TREE` (exit 2, records arm) | a record of a work item that has not shipped names a compound backticked identifier that nothing git carries outside `seal/specs/` and `seal/ledger/` | correct the record, or append ` · NAME NOT IN TREE` on the line where the record means a name the tree does not have (placed before any trailing colon introducing a block). The marker exempts the LINE, not the name |
-| `UNREADABLE` (exit 2, records arm) | a record under a live work item that could not be opened, or a directory the walk could not LIST — a work item's own folder, or `seal/ledger/` itself | a record nobody can read is indistinguishable from a record with nothing in it, which is the green build this refuses. The same holds a directory up, where it is worse: an unlistable `seal/ledger/` used to read as a repository with no live work item and take the whole arm quiet at exit 0. A directory that is ABSENT is still an empty answer — a repository that has not started is not a broken one |
+| `NOT-IN-TREE` (exit 2, records arm) | a record of a work item that has not shipped, or a row of `seal/follow-up.md`, names a compound backticked identifier that nothing carries outside `seal/specs/`, `seal/ledger/` and `seal/follow-up.md`, or writes a `path#name` whose path resolves to a file that does not carry the name | correct the record, or append ` · NAME NOT IN TREE` on the line where the record means a name the tree does not have (placed before any trailing colon introducing a block). The marker exempts the LINE, not the name |
+| `UNREADABLE` (exit 2, records arm) | a record under a live work item, or a `seal/follow-up.md` that is there, that could not be opened, or a directory the walk could not LIST — a work item's own folder, or `seal/ledger/` itself | a record nobody can read is indistinguishable from a record with nothing in it, which is the green build this refuses. The same holds a directory up, where it is worse: an unlistable `seal/ledger/` used to read as a repository with no live work item and take the whole arm quiet at exit 0. A directory that is ABSENT is still an empty answer — a repository that has not started is not a broken one |
 | `OK` | the content is what the row recorded — the current line numbers are printed for you to open |
 
 **An ambiguous MAJOR unit is BROKEN, loudly, and never a measurement.** With
@@ -294,6 +296,31 @@ the run exits 1. An `OVERFLOW` row gets the same `LEFT` line, naming the
 ledger and the line because this command prints no heading per ledger, and
 the run exits 1.
 
+**A new hash says somebody re-read the row, and the date cell says when**
+(#387). `--reverify` alone leaves every date as it stands and, after the
+count line, names each row whose hash it moved — its ledger and line, its
+first cell, and its date cell as it is — so the reading that nothing dated is
+in front of whoever ran it. `--checked YYYY-MM-DD` writes the date instead:
+` · YYYY-MM-DD` after the dates a cell holds, the date alone in an empty
+cell, and nothing where the cell already ends in it. A row is dated once
+however many of its coordinates moved. A rename healed by identical content
+moves the hash, so it is dated too; a file moved whole reconstructs with the
+recorded hash, so its row is re-pointed and neither dated nor named; and a
+row whose anchor still resolves at its recorded path and hash is never
+touched.
+
+The date cell is the column headed `Checked`, else the column headed `Date`,
+else — under no header — the fourth cell of a row exactly five cells wide.
+Under `--checked` a row whose hash moved and that has no date cell is **left
+whole**, hash included, with a `LEFT` line, and the run exits 1: writing the
+hash alone would make a row whose two halves disagree, which is what the flag
+exists to end.
+
+**The flag asserts every row whose hash it moves was re-read.** One drifted
+unit can be cited by several rows, and the check names the coordinate once.
+Read every row that cites a drifted coordinate before typing the date, or
+narrow the write with `--ledger` to the files you did read.
+
 ## A row inside a fence is an example, not a claim
 
 A ledger that explains its own row format shows an example row in a fenced
@@ -313,8 +340,11 @@ Three things are still read, each because skipping it would be silent:
 What counts as a fence is CommonMark's rule, and the one the ledger and record
 readers share: at most three spaces of indentation, three or more backticks or
 tildes, a backtick opener whose info string holds no backtick, and a closer of
-the same character, at least as long, with nothing after it. Some readers
-elsewhere in the plugin still keep a rule of their own, and #584 tracks them.
+the same character, at least as long, with nothing after it. The release
+scripts, the correction check and the payload meter ask it too (#584). The
+readers that keep a rule of their own, or none, are named in
+`skills/verify/scripts/unverified_check.py#fence_opener`'s docstring, each
+with its reason.
 
 **A ledger row you mean as a claim does not belong inside a fence.** Before
 this rule, one there was checked. Now it is not, and nothing says so.
@@ -405,9 +435,9 @@ Every run reads them, under its own heading and with its own counts, and no
 flag turns it on:
 
 ```
-records — what unreleased work items state about the tree
+records — what unreleased work items and seal/follow-up.md state about the tree
   NOT-IN-TREE  seal/specs/1780000000-x/plan.md:14  `gone_helper` — nothing outside …
-  1 work item read · 38 unread · 206 names read · 0 stamps read · 1 refused · 0 drifted · 0 external
+  1 work item read · 38 unread · 206 names read · 0 stamps read · 1 refused · 0 drifted · 0 external · seal/follow-up.md read
 ```
 
 **Whose records are read is decided by the ledger fragment.** A work item
@@ -417,6 +447,15 @@ is nothing else to keep true. A shipped work item's records are records of a
 moment — a plan from two releases ago proposing a helper that was built under
 another name is correct as history — and refusing those would be refusing the
 past.
+
+**`seal/follow-up.md` is read on every run, whatever is live** (#508). It
+is permanent and a row leaves it when its item is done, so every row in it is
+live, and its rows are unit names read by a person months later — a row once
+named a case in no file and was caught by grepping. It is read by the same
+claim rules as a record and it is **out of the corpus**, because a file both
+read and counted as the tree answers its own question. The summary line ends
+by saying which it was: `seal/follow-up.md read`, `no seal/follow-up.md`, or
+`seal/follow-up.md unreadable`, which is also `UNREADABLE` and exit 2.
 
 **`N unread` is the other half of that boundary**, because *has a fragment*
 answers *is live* and its converse does not: a work item that has not written
@@ -429,6 +468,24 @@ and an anchor stamp `path#unit@hash` resolved exactly as a ledger row's is. A
 single word in backticks is prose far more often than it is a unit. A FENCED
 line is a quotation — a paste-ready fix is code the tree does not have yet —
 and an HTML comment that begins a line is an aside; neither is read.
+
+**A name written the way a coordinate is written is a claim too** (#508):
+a backticked `path#name`, `path#name()` or `path#Class.method` with no hash.
+Where the path resolves to a readable file, the way a ledger row's path does,
+every segment of the name has to be a token of **that** file, so a case
+named under the wrong test file is refused though another file has it, and a
+one-word name is read, because the path is what makes it a claim. The
+refusal names the path. Where the path does not resolve — a bare file name,
+a missing file, a path out of the root — each segment is read the way the
+same name written bare is: an underscore, and the whole corpus. Three
+fragments are not refused: after a `.md` path, a GitHub heading anchor
+(`README.md#install`, `README.md#dont` for `## Don't`), read against the
+file's words lower-cased and the anchors GitHub builds from its rendered
+headings, setext and quoted ones included; a line
+anchor, `#L120`, which names no unit; and a path the stamp half calls
+`EXTERNAL`, which is not read at all. What it gives up: a name that survives
+only in a comment of the named file passes, and a bare file name paired with
+a name another file carries passes.
 
 **A comment is an aside only where it begins a line**, or begins what is left
 of a line after a `-->`. One that opens part-way along text is read with the
@@ -456,8 +513,8 @@ until #217 it silenced every claim under it while the arm said nothing. The
 `NAME NOT IN TREE` marker still exempts any line it sits on, held or not.
 
 **What counts as the tree.** Every identifier-shaped token in every file the
-walk reaches, prose and file names included, outside `seal/specs/` and
-`seal/ledger/`. `seal/ledger.md` and `seal/releases/` are inside it: a shipped
+walk reaches, prose and file names included, outside `seal/specs/`,
+`seal/ledger/` and `seal/follow-up.md`. `seal/ledger.md` and `seal/releases/` are inside it: a shipped
 row's names are the tree's. Caches, build output and `.git` are skipped,
 because a `__pycache__` carries the identifiers of a module the tree has since
 lost.
@@ -545,6 +602,11 @@ absent, or the record is wrong, and the marker is one comment away.
 - The generic unit rule stops AT a closing brace rather than including it. The
   brace carries no claim, and a language-aware rule for what closes a block is
   the per-language parser this deliberately does not have.
+- A `path#name` whose name holds a hyphen or starts with a digit is not read at
+  all, so a multi-word heading anchor such as `README.md#known-limits` is
+  checked by nobody. And a `#` line GitHub does not render as a heading — in
+  an unclosed fence, an HTML comment, front matter or `<pre>` — still gives the
+  file an anchor, so a record naming it passes.
 
 ## Migrating a pre-anchor ledger
 

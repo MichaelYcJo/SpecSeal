@@ -251,8 +251,8 @@ def test_check_does_not_pass_when_the_repository_cannot_be_resolved(
     when `optin.repo_root` times out or git is not on PATH, which is a shared
     root committed beside a row saying `local` going unchecked.
 
-    A gate that cannot tell reads exactly like an allow. That is issue #28's
-    shape.
+    A gate that cannot tell reads exactly like an allow. That is the shape
+    issue #28 was opened on.
     """
     outside = tmp_path / "not-a-repository"
     outside.mkdir()

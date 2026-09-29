@@ -183,7 +183,56 @@ def load_checker(path=CHECKER):
     return module
 
 
-def comment_blocks(lines, rel=None):
+# The walk the hook-path readers share (#667), loaded the way `load_checker`
+# loads the anchor resolver, at the first markdown file that carries the
+# marker, so a run over a tree with none never needs it.
+BLOCKS = os.path.join(ROOT, "hooks", "blocks.py")
+_blocks = None
+
+
+def load_blocks(path=BLOCKS):
+    """`hooks/blocks.py` as a module, or a sentence and exit 2 --
+    `load_checker`'s shape, for the same reason."""
+    if not os.path.isfile(path):
+        sys.stderr.write(
+            f"rider_check: cannot find the fence walk at {path}. It is the "
+            "shipped `hooks/blocks.py`, which says which lines of a markdown "
+            "file stand inside a fenced example; restore it or pass the checker "
+            "a different root\n"
+        )
+        raise SystemExit(2)
+    spec = importlib.util.spec_from_file_location("specseal_blocks_for_riders", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def quoted_lines(lines, text=None):
+    """0-based indices of `lines`, a markdown file's, that stand inside a
+    fenced block that closes, where `hooks/blocks.py#walk` is sure of it.
+    TEXT is the file LINES were split from: the walk reads it where GFM
+    breaks a line, so a fence run after a U+2028 or a form feed, which
+    `str.splitlines` breaks at, quotes no rider (#667 round 1, 🟡 1).
+
+    A marker line there is a rider QUOTED in an example -- a `SKILL.md`
+    showing what a rider looks like -- and reading it as one invented a rider
+    with no stamp, BROKEN at exit 2 in CI, for a line nobody wrote as a rider
+    (#667). Where the walk is not sure, the line is read as it always was, so
+    a fence nobody closed hides no rider below it, and a fence line inside a
+    rider's own comment is comment text and opens nothing.
+    """
+    global _blocks
+    if _blocks is None:
+        _blocks = load_blocks()
+    walked = _blocks.walk(lines) if text is None else _blocks.walk_text(text)
+    return {
+        index
+        for index, kind in enumerate(walked.kinds)
+        if kind == _blocks.FENCED and not walked.uncertain[index]
+    }
+
+
+def comment_blocks(lines, rel=None, text=None):
     """[(start, end)] 1-based inclusive for every rider block in `lines`.
 
     A block opens at a line that both carries the marker and IS a comment: a
@@ -218,9 +267,22 @@ def comment_blocks(lines, rel=None):
     what a block is the moment one of them learns about markdown: the reader
     returns no rider for a heading and the hasher still cuts that line out of
     the region it hashes.
+
+    **In markdown, a marker line inside a fenced example opens no rider**
+    (#667). `quoted_lines` says which lines those are, and such a line is
+    stepped over without touching the comment state below. Other file types
+    are read as before: a fence means nothing in Python or YAML. TEXT, where
+    LINES are `str.splitlines` of it, is what `quoted_lines` walks, and
+    `riders_in` passes it; `region_lines` hands over GFM lines already and
+    passes none.
     """
     out = []
     i, n = 0, len(lines)
+    quoted = (
+        quoted_lines(lines, text)
+        if (rel or "").endswith(".md") and any(MARKER in line for line in lines)
+        else set()
+    )
     # `#` opens a comment in Python, YAML, shell and TOML. In markdown it opens
     # a HEADING, so a heading naming the marker became a rider with no stamp --
     # BROKEN at exit 2 for a line nobody wrote as a rider. Markdown's rider
@@ -236,6 +298,9 @@ def comment_blocks(lines, rel=None):
         line = lines[i]
         if MARKER not in line:
             in_html = in_html and "-->" not in line
+            i += 1
+            continue
+        if i in quoted:
             i += 1
             continue
         stripped = line.lstrip()
@@ -278,7 +343,9 @@ class Rider:
 
 
 def riders_in(rel, text):
-    return [Rider(rel, a, b, text) for a, b in comment_blocks(text.splitlines(), rel)]
+    return [
+        Rider(rel, a, b, text) for a, b in comment_blocks(text.splitlines(), rel, text)
+    ]
 
 
 def tree_files(root, roots=RIDER_ROOTS):
@@ -341,7 +408,10 @@ def region_lines(checker, rel, locator, text):
             "than the unit. Pick a more distinctive anchor"
         )
     start, end = places[0]
-    lines = text.splitlines()
+    lines = checker.gfm_lines(text)  # the lines `resolve_unit` numbered (#664)
+    # No TEXT: these are already GFM lines, which the walk reads as given.
+    # Handed the text, `walk_text` answers by `str.splitlines` and the blocks
+    # land one line off past a break only that split makes (#667).
     blocks = comment_blocks(lines, rel)
     kept = [
         line

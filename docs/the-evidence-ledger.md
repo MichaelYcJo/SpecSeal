@@ -52,7 +52,10 @@ the file the row is in to leave the ledger true. A removal takes the row out
 there, and the new claim goes in the branch's own fragment. An edit drifts the
 row, and the branch re-reads it against that edit: a claim that still holds is
 re-stamped there with a dated note, and one the edit made false is corrected
-there first, with a `Corrected <date>` note. Both are keeping an existing
+there first, with a `Corrected <date>` note. `--reverify --checked <date>` is
+how the date of that reading lands in the row's date cell, and the flag says
+every row whose hash it moves was re-read, so the write is narrowed with
+`--ledger` to the files that were. Both are keeping an existing
 claim true, which is not appending; adding a claim is what belongs in the
 fragment, and always did.
 Enforced by: tests/test_a_merge_cannot_silently_drop_a_correction.py
