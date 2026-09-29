@@ -343,6 +343,8 @@ W1_PREFIXES = [
     "<<<x cd sub &&",
     "X=1 2>/dev/null cd sub &&",
     "time 2>/dev/null cd sub &&",
+    "2>/dev/null cd nosuch ||",
+    ">/dev/null source /dev/null ||",
 ]
 
 
@@ -360,6 +362,27 @@ def test_w1_keeps_the_directory_the_base_judged_under_a_waiver(
     (session / "a.py").write_text("x = 1\n")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     command = f": '[no-review]'; {prefix} {BODY}"
+    for which, got in with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    ).items():
+        assert "silent" not in got, (command, which, got)
+
+
+def test_w1_keeps_the_directory_a_parked_failure_came_from(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """Round 1 of 1790660768, red 1, the parked half. A failure the walk parks
+    carries the directory the shell came from, and `cd -` is what reads it:
+    `cd ..` leaves for no repository, the refused `cd` fails, and `cd -`
+    returns to the session, where bash commits. Parking that failure as
+    unresolved alone returned nowhere the gate could name, and `[no-review]`
+    waived it whole. No segment stands in front, because one would park the
+    session's directory with itself as the previous one and hide the loss."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    command = f"cd .. && 2>/dev/null cd nosuch || cd - && {BODY}  # [no-review]"
     for which, got in with_and_without_the_press(
         monkeypatch, capsys, projects, command, session
     ).items():
