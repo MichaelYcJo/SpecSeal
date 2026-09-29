@@ -21,7 +21,8 @@ this module at 3.12 alone, so the promise above held only on whichever machine
 happened to have 3.14. The two table cases now check the running Python's
 slice exactly, as `ONLY_ON_SOME_PYTHONS` declares it, and
 `test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at` holds
-`.github/workflows/test.yml` to running this module at every bound of it.
+`.github/workflows/test.yml` to running this module at every bound of it and
+at the Python just below each.
 """
 
 import ast
