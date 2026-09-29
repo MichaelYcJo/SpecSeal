@@ -33,8 +33,8 @@ and S18 red at base, the readers' modules, and S20 for `unverified-check`,
 - **The frame's own spec was a refused record.** At `b1ae8b65`
   `evidence-check .` read four work items and exited 0. Once this phase had
   written the item's records, it read five and exited 2: spec.md's *Out*
-  table names `hooks/blocks.py#walk_text`, which exists on F's branch and
-  not here. The line now carries `· NAME NOT IN TREE`, the convention the
+  table names `hooks/blocks.py#walk_text` · NAME NOT IN TREE, which exists
+  on F's branch and not here. The line now carries `· NAME NOT IN TREE`, the convention the
   records reader asks for, and nothing else in it changed.
 - **S20 on this tree is a one-file question.** Over every tracked file at
   `2e392d46`, `gfm_lines(text) == text.splitlines()` fails in exactly one,
@@ -73,5 +73,5 @@ and S18 red at base, the readers' modules, and S20 for `unverified-check`,
 | Removed item | Where it must land |
 |---|---|
 | `skills/settle/scripts/fold_check.py#gfm_lines` and `#GFM_LINE_RE` | `skills/verify/scripts/unverified_check.py#gfm_lines`, which `fold_check.py` loads |
-| `tests/test_a_document_has_room_for_the_next_fold.py#test_the_copy_of_the_line_rule_is_the_checkers` | `tests/test_every_reader_ends_a_line_where_gfm_does.py#test_every_copy_of_the_splitter_is_the_readers` (S17) |
+| `tests/test_a_document_has_room_for_the_next_fold.py#test_the_copy_of_the_line_rule_is_the_checkers` · NAME NOT IN TREE | `tests/test_every_reader_ends_a_line_where_gfm_does.py#test_every_copy_of_the_splitter_is_the_readers` (S17) |
 | H2 of `seal/ledger/1790635414-follow-up-names-are-checked-and-a-re-read-is-dated.md` | G3 of `seal/ledger/1790655302-every-reader-ends-a-line-where-gfm-does.md` |
