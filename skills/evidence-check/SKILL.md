@@ -476,7 +476,8 @@ refusal names the path. Where the path does not resolve — a bare file name,
 a missing file, a path out of the root — each segment is read the way the
 same name written bare is: an underscore, and the whole corpus. Three
 fragments are not refused: after a `.md` path, a GitHub heading anchor
-(`README.md#install`), read against the file's words lower-cased; a line
+(`README.md#install`, `README.md#dont` for `## Don't`), read against the
+file's words lower-cased and the anchors GitHub builds from its headings; a line
 anchor, `#L120`, which names no unit; and a path the stamp half calls
 `EXTERNAL`, which is not read at all. What it gives up: a name that survives
 only in a comment of the named file passes, and a bare file name paired with
