@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #681 — https://github.com/MichaelYcJo/SpecSeal/pull/681 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `80845d3829a289ad78a5c04860a5877d2bd732ec..bcbed21fa15393f66b1a6dc37d5b83dd6b0da1eb`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,8 +29,8 @@ Round 1 over the branch `cd56113c..2ee3e62f`. Spec compliance first, then qualit
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | The changelog fragment and three docstrings name the trigger as a line of only a Unicode space; U+001F, a C0 control, triggers the same false red and is fixed too, and one docstring says every row opens with such a line where two rows' paragraphs do | `seal/specs/1790666894-the-oracle-counts-dropped-lines-from-the-parser/changelog.md:4` | open | Executed: all 17 characters of the S4 set, U+001F among them, give `{}` at the base and `{3}` at the head on the S1a shape; also `tests/commonmark_oracle.py:84`, `:123` and `tests/test_the_hooks_hide_what_a_renderer_hides.py:262` |
-| ⬜ 2 | H's P1-1 keeps a round 2 `Re-read` note that the deletion made false, and the new `Corrected` note names only round 1's sentence | `seal/ledger/1790659274-the-walk-leaves-every-inline-html-construct-uncertain.md` P1-1 | open | Read: the round 2 note says the helper is told whether a line opens the paragraph and that R1-1 is the claim about both; the helper and R1-1 are gone. Paperwork, so not counted in `Needs a fix` |
+| ⬜ 1 | The changelog fragment and three docstrings name the trigger as a line of only a Unicode space; U+001F, a C0 control, triggers the same false red and is fixed too, and one docstring says every row opens with such a line where two rows' paragraphs do | `seal/specs/1790666894-the-oracle-counts-dropped-lines-from-the-parser/changelog.md:4` | answered | `328894c6` — the changelog fragment and three docstrings (`_recording_lines`, `_inline_html_lines`, `test_the_oracle_counts_the_lines_the_parsers_strip_dropped`) now name U+001F beside a no-break space and the other Unicode spaces as a trigger, and the case's docstring says every row's paragraph, not every row, opens with such a line; U+001F on S1a gives `{}` at `cd56113c` and `{3: 'inline html'}` at head. The two ledger rows the edit drifted are re-read and re-stamped; Executed: all 17 characters of the S4 set, U+001F among them, give `{}` at the base and `{3}` at the head on the S1a shape; also `tests/commonmark_oracle.py:84`, `:123` and `tests/test_the_hooks_hide_what_a_renderer_hides.py:262` |
+| ⬜ 2 | H's P1-1 keeps a round 2 `Re-read` note that the deletion made false, and the new `Corrected` note names only round 1's sentence | `seal/ledger/1790659274-the-walk-leaves-every-inline-html-construct-uncertain.md` P1-1 | answered | `bcbed21f` — H's P1-1 carries a `Corrected 2026-09-29` note saying its round 2 note no longer holds: `_behind_markers` and R1-1 went in phase 1, and round 2's nine rows stand in `test_the_oracle_names_each_kind_it_hides`; Read: the round 2 note says the helper is told whether a line opens the paragraph and that R1-1 is the claim about both; the helper and R1-1 are gone. Paperwork, so not counted in `Needs a fix` |
 | 🟢 | The wrapper reads the count the parser drops on every path through `paragraph` and `lheading`: setext, lazy lines, interruption by a list, fence, HTML block or heading, end of input, and nested containers | `tests/commonmark_oracle.py:73` | confirmed | Executed differential against a mark appended at a line's end: 117,206 line questions, 0 disagreements at the head and 26 at the base |
 | 🟢 | Every new case is red against the code it was written for, and the guard fails where its docstring says | `tests/test_the_hooks_hide_what_a_renderer_hides.py:186` | confirmed | Executed, seven mutations: base oracle 6 failed; `lheading` unwrapped 3; count 0 53, with the S4 second shape 17 of 17 run apart; set emptied and set of a space and a tab both red on the guard alone |
 | 🟢 | Wrapping leaks no state and changes no token | `tests/commonmark_oracle.py:100` | confirmed | Executed: a fresh parser keeps the library's rule functions; 30,000 documents give identical token streams; the module passes 129 of 129 on 3.12.11 and 3.14.3 |
