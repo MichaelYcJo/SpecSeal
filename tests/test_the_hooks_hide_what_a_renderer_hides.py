@@ -83,7 +83,10 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         (["<div>", "```", "x", "", "b"], {0: "html", 1: "html", 2: "html"}),
         # an inline comment hides the lines that begin inside it, and not the
         # line it opens on
-        (["x " + OPEN + " y", "z", CLOSE + " w", "v"], {1: "comment", 2: "comment"}),
+        (
+            ["x " + OPEN + " y", "z", CLOSE + " w", "v"],
+            {1: "inline html", 2: "inline html"},
+        ),
         # a blank line ends the paragraph, so the comment never closes
         (["x " + OPEN + " y", "", "z", CLOSE], {}),
         # inside a code span a delimiter is text
@@ -101,8 +104,18 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         # follows the specification, is never "fixed" toward the parser.
         (
             ["x " + OPEN + " a", "b ---> c", "d " + CLOSE + " e", "f"],
-            {1: "comment", 2: "comment"},
+            {1: "inline html", 2: "inline html"},
         ),
+        # #673: every other kind of inline raw HTML hides the lines that
+        # begin inside it the same way -- CDATA, a processing instruction, a
+        # declaration, an open tag inside either kind of quoted value, and an
+        # open tag between its attributes
+        (["x <![CDATA[ a", "b", "c ]]> d", "e"], {1: "inline html", 2: "inline html"}),
+        (["x <? a", "b", "c ?> d", "e"], {1: "inline html", 2: "inline html"}),
+        (["x <!DOCTYPE a", "b", "c> d", "e"], {1: "inline html", 2: "inline html"}),
+        (['x <span title="a', "b", 'c"> d', "e"], {1: "inline html", 2: "inline html"}),
+        (["x <span title='a", "b", "c'> d", "e"], {1: "inline html", 2: "inline html"}),
+        (["x <span", 'lang="en">', "e"], {1: "inline html"}),
     ],
     ids=[
         "fence",
@@ -116,13 +129,33 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         "list item",
         "crlf",
         "past the first closer",
+        "cdata",
+        "instruction",
+        "declaration",
+        "double-quoted value",
+        "single-quoted value",
+        "between attributes",
     ],
 )
 def test_the_oracle_names_each_kind_it_hides(lines, hidden):
     """What each of the four kinds is, one case each, so a reader of this
     module can see what "a renderer hides" means before any reader is held
-    to it."""
+    to it. `inline html` is all six kinds of CommonMark 6.6, one case each
+    but the closing tag's: a line ending inside one puts `>` at the next
+    line's start, which opens a block quote."""
     assert oracle.hidden(lines) == hidden
+
+
+# Inline raw HTML other than a comment that can run past a line ending, with
+# a closer that does not put `>` at a line's start (#673). A declaration's
+# closer is written `a>` for that reason.
+INLINE_KINDS = [
+    ("<![CDATA[ a", "]]>"),
+    ("<? a", "?>"),
+    ("<!DOCTYPE a", "a>"),
+    ('<span title="a', '">'),
+    ("<span title='a", "'>"),
+]
 
 
 @pytest.mark.parametrize("name", sorted(BREAKS))
@@ -138,10 +171,28 @@ def test_the_oracle_reads_the_text_not_a_readers_split(name):
     # round 2: a piece is asked where it starts, not where its line does --
     # inside a comment its own line opened, and just past one it closed
     assert oracle.hidden_text(f"x {OPEN} a{brk}| b |\n{CLOSE}\n") == {
-        1: "comment",
-        2: "comment",
+        1: "inline html",
+        2: "inline html",
     }
-    assert oracle.hidden_text(f"x {OPEN} a\nb {CLOSE}{brk}| c |\n") == {1: "comment"}
+    assert oracle.hidden_text(f"x {OPEN} a\nb {CLOSE}{brk}| c |\n") == {
+        1: "inline html"
+    }
+    # #673: every other kind of inline raw HTML, opened before the break and
+    # closed after it, holds the piece; closed before the break, it holds
+    # nothing after it
+    for opener, closer in INLINE_KINDS:
+        assert oracle.hidden_text(f"x {opener}{brk}| b |\n{closer}\n") == {
+            1: "inline html",
+            2: "inline html",
+        }, opener
+        assert oracle.hidden_text(f"x {opener} {closer}{brk}| c |\n") == {}, opener
+    # an open tag's piece between its attributes, and a closing tag's piece
+    # at its `>`, where no letter may stand
+    assert oracle.hidden_text(f'x <span{brk}lang="en">\n') == {1: "inline html"}
+    assert oracle.hidden_text(f"x </span{brk}>\n") == {1: "inline html"}
+    # inside an image description, whose tokens are the image's children: a
+    # renderer writes the description as the `alt` text and leaves HTML out
+    assert oracle.hidden_text(f'![x <span title="a{brk}b">](u)\n') == {1: "inline html"}
 
 
 # --- the corpus: the frame's shapes, the old cases, and a generated set -----
