@@ -24,6 +24,7 @@ Four things this file holds, in the order they can go wrong:
   the verdicts hold     and each is reachable, so none of them is decoration
 """
 
+import datetime
 import importlib.util
 import os
 import re
@@ -1526,6 +1527,249 @@ def test_reverify_leaves_an_unresolvable_row_alone(repo):
     assert "0 rows re-verified" in r.stdout, r.stdout
     assert ledger.read_text() == before
     assert run(["."], str(repo)).returncode == 2
+
+
+# --- a re-read is dated (#387) ------------------------------------------------
+#
+# A new hash says somebody re-read the row, and the date cell says when.
+# `--reverify` wrote the first and never the second, so six rows of
+# `seal/ledger.md` once carried new hashes under dates from before the content
+# moved. The owner's answer: `--checked <date>` writes that date on every row
+# whose hash moved; without it the date is left and those rows are named; a
+# row whose hash did not move is never touched.
+
+READ_ON = "2026-09-28"
+HEADER = "| Clause | Code grounds | Verified behavior | Checked | Notes |\n|---|---|---|---|---|\n"
+
+
+def anchor(repo, name):
+    """`src/service.py#NAME@hash` at the content the file holds now."""
+    body = (repo / "src" / "service.py").read_text()
+    (a, b) = ec.resolve("src/service.py", name, body)[0]
+    return f"src/service.py#{name}@{ec.content_hash(body.splitlines()[a - 1 : b])}"
+
+
+def ledger_of(repo, text):
+    path = repo / "seal" / "ledger" / "f.md"
+    path.write_text(text)
+    return path
+
+
+def drift_handler(repo):
+    (repo / "src" / "service.py").write_text(SERVICE.replace("x + 1", "x + 2"))
+
+
+@pytest.mark.parametrize(
+    "cell, becomes",
+    [
+        ("2026-09-01", f"2026-09-01 · {READ_ON}"),
+        ("", READ_ON),
+        (f"2026-09-01 · {READ_ON}", f"2026-09-01 · {READ_ON}"),
+    ],
+    ids=["appended", "empty", "already-dated"],
+)
+def test_checked_dates_the_row_whose_hash_moved(repo, cell, becomes):
+    """R1: ` · D` after the dates a cell holds, D in an empty cell, and a cell
+    already ending in D left as it is. The run names the row."""
+    ledger = ledger_of(
+        repo, f"| C1 | `{anchor(repo, 'handler')}` | read | {cell} | n |\n"
+    )
+    drift_handler(repo)
+    r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
+    assert r.returncode == 0, r.stdout + r.stderr
+    row = ledger.read_text()
+    assert row.split("|")[4].strip() == becomes, row
+    assert f"| {becomes} | n |" in row, row
+    assert f"  dated {READ_ON} — 1 row whose hash moved, each once:" in r.stdout
+    assert "    seal/ledger/f.md:1  C1\n" in r.stdout, r.stdout
+    assert run(["."], str(repo)).returncode == 0
+
+
+@pytest.mark.parametrize(
+    "flags", [[], ["--checked", READ_ON]], ids=["plain", "checked"]
+)
+def test_a_row_whose_hash_did_not_move_is_never_touched(repo, flags):
+    """R2: over a two-row ledger, one row moved and one not, run both ways."""
+    moved = f"| C1 | `{anchor(repo, 'handler')}` | read | 2026-09-01 | n |\n"
+    still = f"| C2 | `{anchor(repo, 'Box')}` | read | 2026-09-02 | n |\n"
+    ledger = ledger_of(repo, moved + still)
+    drift_handler(repo)
+    r = run(["--reverify", *flags, "."], str(repo))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert ledger.read_text().splitlines()[1] == still.rstrip("\n")
+    assert "C2" not in r.stdout, r.stdout
+
+
+def test_without_checked_the_date_is_left_and_the_row_named(repo):
+    """R3: the hash moves, the date cell is byte-identical, and after the
+    count line each such row is named with its date as it stands and a
+    remedy naming `--checked`. The exit code is what it was without it."""
+    before = f"| C1 | `{anchor(repo, 'handler')}` | read | 2026-09-01 | n |\n"
+    ledger = ledger_of(repo, before)
+    drift_handler(repo)
+    r = run(["--reverify", "."], str(repo))
+    assert r.returncode == 0, r.stdout + r.stderr
+    after = ledger.read_text()
+    assert after != before and after.split("|")[4] == before.split("|")[4]
+    assert r.stdout.endswith(
+        "1 row re-verified\n"
+        "  1 row took a new hash and kept its date — a new hash says somebody "
+        "re-read the row, and nothing here says when:\n"
+        "    seal/ledger/f.md:1  C1  (Checked: 2026-09-01)\n"
+        "  date each row you re-read in its own cell; `--reverify --checked "
+        "YYYY-MM-DD` writes that date on every row whose hash it moves\n"
+    ), r.stdout
+
+
+@pytest.mark.parametrize(
+    "table, column",
+    [
+        (HEADER + "| C1 | `{a}` | read | 2026-09-01 | n |\n", 4),
+        (
+            "| Claim | Code grounds | Verified behavior | Date | Notes |\n"
+            "|---|---|---|---|---|\n| C1 | `{a}` | read | 2026-09-01 | n |\n",
+            4,
+        ),
+        (
+            "| Checked | Clause | Code grounds |\n|---|---|---|\n"
+            "| 2026-09-01 | C1 | `{a}` |\n",
+            1,
+        ),
+        ("| C1 | `{a}` | read | 2026-09-01 | n |\n", 4),
+    ],
+    ids=["checked-header", "date-header", "checked-anywhere", "no-header"],
+)
+def test_the_date_cell_is_found_by_its_header_or_its_place(repo, table, column):
+    """R4: `Checked`, else `Date`, else the fourth cell of a row under no
+    header that is exactly as wide as a ledger row."""
+    ledger = ledger_of(repo, table.format(a=anchor(repo, "handler")))
+    drift_handler(repo)
+    r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
+    assert r.returncode == 0, r.stdout + r.stderr
+    row = ledger.read_text().splitlines()[-1]
+    assert row.split("|")[column].strip() == f"2026-09-01 · {READ_ON}", row
+
+
+@pytest.mark.parametrize(
+    "table",
+    [
+        "| Clause | Code grounds | Notes |\n|---|---|---|\n| C1 | `{a}` | n |\n",
+        "| C1 | `{a}` |\n",
+        "prose citing `{a}` outside any table\n",
+    ],
+    ids=["no-date-column", "short-headerless-row", "not-a-row"],
+)
+def test_checked_leaves_a_moved_row_with_no_date_cell_whole(repo, table):
+    """R4: writing the hash alone recreates the row whose two halves
+    disagree, which is what #387 reports. So the row keeps its old hash,
+    is named on a `LEFT` line, and the run exits 1."""
+    ledger = ledger_of(repo, table.format(a=anchor(repo, "handler")))
+    before = ledger.read_text()
+    drift_handler(repo)
+    r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert ledger.read_text() == before
+    assert "0 rows re-verified" in r.stdout, r.stdout
+    assert (
+        "  LEFT  seal/ledger/f.md:" in r.stdout
+        and "its hash moved and the row has no date cell — no `Checked` or "
+        "`Date` column, and not the five cells of a ledger row — so "
+        "`--checked` left it whole, hash included; give it a date cell"
+        in r.stdout
+    ), r.stdout
+
+
+def test_an_escaped_pipe_before_the_date_cell_does_not_move_the_date(repo):
+    """The splice counts unescaped pipes, the way `split_row` does, so a
+    `\\|` in an earlier cell is text and not a boundary."""
+    ledger = ledger_of(
+        repo, f"| C1 | `{anchor(repo, 'handler')}` | a \\| b | 2026-09-01 | n |\n"
+    )
+    drift_handler(repo)
+    run(["--reverify", "--checked", READ_ON, "."], str(repo))
+    assert f"| a \\| b | 2026-09-01 · {READ_ON} | n |" in ledger.read_text()
+
+
+def tomorrow():
+    return (datetime.date.today() + datetime.timedelta(days=1)).isoformat()
+
+
+# `2026` in fullwidth digits, which `str.isdigit` and `\d` both accept and a
+# date written for a ledger is not. Built from code points, because the
+# characters themselves are what the linter refuses in a source file.
+WIDE_YEAR = "".join(chr(0xFF10 + int(d)) for d in "2026")
+
+
+@pytest.mark.parametrize(
+    "args, says",
+    [
+        (["--reverify", "--checked", "2026-9-1"], "is not a calendar date"),
+        (["--reverify", "--checked", "20260929"], "is not a calendar date"),
+        (["--reverify", "--checked", "2026-02-30"], "is not a calendar date"),
+        (["--reverify", "--checked", "today"], "is not a calendar date"),
+        (["--reverify", "--checked", WIDE_YEAR + "-09-01"], "is not a calendar date"),
+        (["--reverify", "--checked", None], "is later than today"),
+        (["--checked", READ_ON], "this run has no `--reverify`"),
+        (["--migrate", "--reverify", "--checked", READ_ON], "`--migrate`"),
+    ],
+    ids=[
+        "short-month",
+        "no-dashes",
+        "no-such-day",
+        "a-word",
+        "wide-digits",
+        "tomorrow",
+        "without-reverify",
+        "beside-migrate",
+    ],
+)
+def test_a_checked_that_is_not_a_date_to_write_is_refused(repo, args, says):
+    """R5: exit 2, named, before any ledger is read, so the fixture ledger is
+    byte-identical."""
+    args = [a if a is not None else tomorrow() for a in args]
+    ledger = ledger_of(
+        repo, f"| C1 | `{anchor(repo, 'handler')}` | read | 2026-09-01 | n |\n"
+    )
+    before = ledger.read_text()
+    drift_handler(repo)
+    r = run([*args, "."], str(repo))
+    assert r.returncode == 2, r.stdout + r.stderr
+    assert r.stderr.startswith("evidence_check: `--checked"), r.stderr
+    assert says in r.stderr, r.stderr
+    assert r.stdout == ""
+    assert ledger.read_text() == before
+
+
+def test_a_healed_row_is_dated_under_checked_and_named_without(repo):
+    """R6: a re-anchor by identical content moves the hash, and the owner's
+    rule is every row whose hash moved."""
+    row = f"| C1 | `{anchor(repo, 'handler')}` | read | 2026-09-01 | n |\n"
+    renamed = SERVICE.replace("def handler", "def handle")
+    ledger = ledger_of(repo, row)
+    (repo / "src" / "service.py").write_text(renamed)
+    r = run(["--reverify", "."], str(repo))
+    assert "(identical content)" in r.stdout and "(Checked: 2026-09-01)" in r.stdout
+    ledger.write_text(row)
+    r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
+    assert "(identical content)" in r.stdout, r.stdout
+    assert f"| 2026-09-01 · {READ_ON} |" in ledger.read_text()
+    assert "#handle@" in ledger.read_text()
+
+
+def test_a_row_with_several_moved_coordinates_is_dated_once(repo):
+    """R7: one reading, one date, however many of its coordinates moved."""
+    ledger = ledger_of(
+        repo,
+        f"| C1 | `{anchor(repo, 'handler')}`, `{anchor(repo, 'Box')}` | read "
+        "| 2026-09-01 | n |\n",
+    )
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x + 1", "x + 2").replace("return 1", "return 2")
+    )
+    r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
+    assert "2 rows re-verified" in r.stdout, r.stdout
+    assert f"| 2026-09-01 · {READ_ON} | n |" in ledger.read_text()
+    assert "— 1 row whose hash moved, each once:" in r.stdout, r.stdout
 
 
 # --- this repository --------------------------------------------------------

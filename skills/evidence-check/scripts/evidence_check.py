@@ -48,6 +48,15 @@ Usage:
   evidence_check.py --reverify [ROOT]     rewrite the hash of every resolvable
                                           row — an explicit "I have re-read
                                           these", never something a check does
+                                          — and name each row whose hash moved
+                                          and whose date was left
+  evidence_check.py --reverify --checked YYYY-MM-DD [ROOT]
+                                          the same, and write that date into
+                                          the date cell of every row whose
+                                          hash moved. It says every such row
+                                          was re-read: read each row citing a
+                                          drifted coordinate first, or narrow
+                                          the write with --ledger
 
 --map resolves cross-repo coordinates (e.g. a migration's original repo):
   a coordinate `legacy-api/src/service.py#handler@a1b2c3d` with
@@ -56,6 +65,8 @@ Usage:
 
 import argparse
 import ast
+import bisect
+import datetime
 import functools
 import glob
 import hashlib
@@ -2076,31 +2087,130 @@ def migrate(ledgers, root, maps=None, default_repo=None):
     return migrated, left, unproven
 
 
-def reverify(ledgers, root, maps, default_repo=None):
+# --- the date a re-read is recorded under (#387) ------------------------------
+#
+# A new hash says somebody re-read the row, and the date cell says when. Until
+# #387 `--reverify` wrote the first and never the second: round 1 of #120
+# measured six rows of `seal/ledger.md` with new hashes and dates from before
+# the content moved, one of them anchored on the very section that branch
+# rewrote. The owner's answer: `--checked <date>` writes that date on every row
+# whose hash moved; without it the date is left alone and those rows are named;
+# a row whose hash did not move is never touched.
+#
+# The date cell is the column headed `Checked`, else the column headed `Date`
+# (the release files of 0.5.0 and 0.12.x use that header), else -- under no
+# header -- the fourth cell of a row exactly as wide as `LEDGER_COLUMNS`.
+DATE_HEADERS = ("Checked", "Date")
+CHECKED_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+# A cell boundary, as `split_row` reads one: a `|` with no `\` before it.
+PIPE_RE = re.compile(r"(?<!\\)\|")
+# How much of a row's first cell the naming block prints. The file and line
+# locate the row; the label is for the person reading the list.
+LABEL_WIDTH = 72
+
+
+def checked_refusal(value, reverifying, migrating, today):
+    """Why `--checked VALUE` is refused, or None where it is a date to write.
+
+    Refused before any ledger is read, so a refused run changes no byte:
+    beside `--migrate`, which re-stamps nothing a person re-read; without
+    `--reverify`, where there is nothing to date; a value that is not a
+    calendar date written `YYYY-MM-DD` in ASCII digits; and a date later than
+    TODAY, the local date the run is on. `today` is not taken: the value is
+    a statement typed by whoever did the reading.
+    """
+    if migrating:
+        return (
+            "`--checked` dates the rows `--reverify` re-stamps, and `--migrate` "
+            "re-stamps nothing a person re-read — run them apart"
+        )
+    if not reverifying:
+        return (
+            "`--checked` dates the rows `--reverify` re-stamps, and this run has "
+            "no `--reverify`, so there is nothing to date"
+        )
+    try:
+        when = CHECKED_RE.fullmatch(value) and datetime.date.fromisoformat(value)
+    except ValueError:
+        when = None
+    if not when:
+        return (
+            f"`--checked` takes the date you re-read the rows on, written "
+            f"YYYY-MM-DD, and `{value}` is not a calendar date in that form"
+        )
+    if when > today:
+        return (
+            f"`--checked {value}` is later than today, {today.isoformat()} — "
+            "a reading is not dated after the run that records it"
+        )
+    return None
+
+
+def date_column(header, cells):
+    """(index, name) of a table row's date cell, or None where it has none."""
+    if header is None:
+        if len(cells) != len(LEDGER_COLUMNS):
+            return None
+        index = LEDGER_COLUMNS.index(DATE_HEADERS[0])
+        return index, LEDGER_COLUMNS[index]
+    for name in DATE_HEADERS:
+        if name in header:
+            index = header.index(name)
+            return (index, name) if index < len(cells) else None
+    return None
+
+
+def dated_cell(line, index, date):
+    """(start, end, replacement) within LINE for the cell at INDEX with DATE
+    added, or None where the cell already ends in DATE.
+
+    The boundaries are the unescaped pipes, never a plain split: a Notes cell
+    holding `\\|` before the date cell must not move where the date lands.
+    A cell holding dates gets ` · DATE` appended, the separator all 34 date
+    lists in this repository's ledgers use; an empty cell becomes DATE.
+    """
+    body = line.rstrip("\r\n")
+    pipes = [m.start() for m in PIPE_RE.finditer(body)]
+    start = pipes[index] + 1
+    end = pipes[index + 1] if index + 1 < len(pipes) else len(body)
+    cell = body[start:end]
+    current = cell.strip()
+    if re.search(r"(?:^|\s)" + re.escape(date) + r"$", current):
+        return None
+    if not current:
+        return start, end, f" {date} "
+    lead = cell[: len(cell) - len(cell.lstrip())]
+    trail = cell[len(cell.rstrip()) :]
+    return start, end, f"{lead}{current} · {date}{trail}"
+
+
+def row_label(cells):
+    """A row's first cell, as far as the naming block prints it."""
+    label = cells[0] if cells else ""
+    return label if len(label) <= LABEL_WIDTH else label[: LABEL_WIDTH - 1] + "…"
+
+
+def reverify(ledgers, root, maps, default_repo=None, checked=None):
     """Rewrite the hash of every row whose anchor resolves. Explicit, by hand.
 
     Re-verifying is recomputing the hash, which is a person saying they have
     re-read the code. It is deliberately a separate command: a check that
     silently refreshed what it was checking would report OK forever.
+
+    **CHECKED is the date of that reading** (#387), and where it is given it
+    is written into the date cell of every row whose hash this moves, once
+    per row however many of its coordinates moved. A row with a moved hash
+    and no date cell is then LEFT WHOLE, hash included: writing the hash
+    alone recreates the row whose two halves disagree, which is what #387
+    reports. Without CHECKED the date cells are left alone and every row
+    whose hash moved is named, with its date as it stands. A row whose hash
+    did not move is never touched and never named.
     """
-    # RIDER: this rewrites the hash and never the `Checked` column, so the
-    # claim that somebody re-read the code is made by a person and recorded by
-    # nobody. Round 1 of #120 measured the gap: six rows of `seal/ledger.md`
-    # got new hashes on one branch and all six kept dates from before the
-    # content moved -- one of them anchored on the very section that branch
-    # rewrote, so the ledger recorded a claim about it as last read a week
-    # before the rewrite. `templates/ledger.md` states the rule the other way
-    # round: re-verifying IS re-reading and then running this. Nothing here
-    # reads the column, so nothing can report the half that was skipped. If
-    # you open this function, decide whether it should refuse a row whose
-    # `Checked` still predates the hash it is about to replace, or print the
-    # ones it left; the fix pass that found this could add neither without
-    # adding mechanism.
-    # Verified 2026-09-29 against reverify@69267bf1.
     changed = 0
     unreadable = []
     malformed = []
     overflow = []
+    dated, undated, undatable = [], [], []
     scan_cache = {}
     for ledger in ledgers:
         text = read(ledger)
@@ -2120,7 +2230,11 @@ def reverify(ledgers, root, maps, default_repo=None):
             (f"{display_name(ledger, root)} {coord}", why)
             for _, coord, why in overflow_rows(text)
         )
-        out, at = [], 0
+        # `(start, end, replacement, what to print)` for every hash this
+        # ledger's rows would take. Collected rather than spliced as found,
+        # because under `--checked` a row with no date cell is left WHOLE, and
+        # that is known only once every coordinate in the row has been read.
+        edits = []
         # Matched in `unquoted(text)` and spliced from `text`: the two have
         # the same offsets, and an example row in a closed fence is never
         # rewritten (#444).
@@ -2189,21 +2303,24 @@ def reverify(ledgers, root, maps, default_repo=None):
                         if path == rel
                         else (raw_path[: len(raw_path) - len(rel)] + path)
                     )
-                    out.append(text[at : m.start("path")])
-                    out.append(new_raw)
-                    out.append(text[m.end("path") : m.start("locator")])
-                    out.append(name)
-                    out.append(text[m.end("locator") : m.start("hash")])
-                    out.append(content_hash(target.splitlines()[a - 1 : b]))
-                    at = m.end("hash")
-                    changed += 1
                     shown = f"#{name}" if path == rel else f"{path}#{name}"
                     # "identical content", not "moved intact": identity is
                     # the whole of what reconstruction proved. A deletion
                     # beside a boilerplate twin reconstructs too, and that
                     # history is the reader's to judge from the diff
                     # (round 4, 🟡 7).
-                    print(f"  {raw_path}#{locator} -> {shown}  (identical content)")
+                    edits.append(
+                        (
+                            m.start("path"),
+                            m.end("hash"),
+                            new_raw
+                            + text[m.end("path") : m.start("locator")]
+                            + name
+                            + text[m.end("locator") : m.start("hash")]
+                            + content_hash(target.splitlines()[a - 1 : b]),
+                            f"  {raw_path}#{locator} -> {shown}  (identical content)",
+                        )
+                    )
                 else:
                     print(
                         f"  {left_as}  {left_because(places, resurrected)}, and "
@@ -2235,23 +2352,97 @@ def reverify(ledgers, root, maps, default_repo=None):
             got = content_hash(body.splitlines()[start - 1 : end])
             if got == m.group("hash"):
                 continue
-            out.append(text[at : m.start("hash")])
-            out.append(got)
-            at = m.end("hash")
-            changed += 1
             shown = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
-            print(f"  {shown}  {m.group('hash')} -> {got}")
+            edits.append(
+                (
+                    m.start("hash"),
+                    m.end("hash"),
+                    got,
+                    f"  {shown}  {m.group('hash')} -> {got}",
+                )
+            )
+        if not edits:
+            continue
+        name = display_name(ledger, root)
+        lines = gfm_lines(text, keepends=True)
+        starts = [0]
+        for line in lines:
+            starts.append(starts[-1] + len(line))
+        rows = {n: (header, cells) for n, header, cells in ledger_table_rows(text)}
+        by_row = {}
+        for edit in edits:
+            by_row.setdefault(bisect.bisect_right(starts, edit[0]), []).append(edit)
+        kept = []
+        for number, row_edits in sorted(by_row.items()):
+            header, cells = rows.get(number, (None, []))
+            column = date_column(header, cells) if cells else None
+            where = f"{name}:{number}"
+            if checked is not None:
+                if column is None:
+                    undatable.append(where)
+                    continue
+                cell = dated_cell(lines[number - 1], column[0], checked)
+                if cell is not None:
+                    at = starts[number - 1]
+                    kept.append((at + cell[0], at + cell[1], cell[2], None))
+                dated.append((where, row_label(cells)))
+            else:
+                undated.append(
+                    (
+                        where,
+                        row_label(cells),
+                        f"{column[1]}: {cells[column[0]] or '(empty)'}"
+                        if column
+                        else "no date cell",
+                    )
+                )
+            kept.extend(row_edits)
+        out, at = [], 0
+        for start, end, replacement, said in sorted(kept):
+            out.append(text[at:start])
+            out.append(replacement)
+            at = end
+            if said is not None:
+                changed += 1
+                print(said)
         if out:
             out.append(text[at:])
             write_atomic(ledger, "".join(out))
     print(f"{changed} row{'' if changed == 1 else 's'} re-verified")
+    if dated:
+        one = len(dated) == 1
+        print(
+            f"  dated {checked} — {len(dated)} row{'' if one else 's'} whose "
+            f"hash moved, each once:"
+        )
+        for where, label in dated:
+            print(f"    {where}  {label}")
+    if undated:
+        one = len(undated) == 1
+        print(
+            f"  {len(undated)} row{'' if one else 's'} took a new hash and "
+            f"kept {'its' if one else 'their'} date — a new hash says somebody "
+            "re-read the row, and nothing here says when:"
+        )
+        for where, label, date in undated:
+            print(f"    {where}  {label}  ({date})")
+        print(
+            "  date each row you re-read in its own cell; `--reverify --checked "
+            "YYYY-MM-DD` writes that date on every row whose hash it moves"
+        )
     for path in unreadable:
         print(f"  LEFT  {path}  ledger unreadable")
     for coord, why in malformed:
         print(f"  LEFT  {coord}  MALFORMED — {why}")
     for where, why in overflow:
         print(f"  LEFT  {where}  OVERFLOW — {why}")
-    return 1 if unreadable or malformed or overflow else 0
+    for where in undatable:
+        print(
+            f"  LEFT  {where}  its hash moved and the row has no date cell — no "
+            "`Checked` or `Date` column, and not the five cells of a ledger row "
+            "— so `--checked` left it whole, hash included; give it a date cell"
+        )
+    return 1 if unreadable or malformed or overflow or undatable else 0
 
 
 # --- the records arm: what a work item's records state about the tree -------
@@ -3130,7 +3321,25 @@ def main():
         action="store_true",
         help="rewrite each row's hash to what its anchor holds now",
     )
+    ap.add_argument(
+        "--checked",
+        metavar="YYYY-MM-DD",
+        help="with --reverify: the date you re-read the rows on, written into "
+        "the date cell of every row whose hash moves",
+    )
     args = ap.parse_args()
+
+    # Before anything is resolved or read, so a refused run changes no byte
+    # (#387). The precedent is `rider_check.py`'s refusal of `--only` without
+    # `--reverify`: an argument accepted and silently dropped reads as a run
+    # that did what was asked.
+    if args.checked is not None:
+        refusal = checked_refusal(
+            args.checked, args.reverify, args.migrate, datetime.date.today()
+        )
+        if refusal:
+            sys.stderr.write(f"evidence_check: {refusal}\n")
+            return 2
 
     root = os.path.abspath(args.root)
     default_repo = (
@@ -3204,7 +3413,7 @@ def main():
             print(f"  LEFT  {coord}  {why}")
         return 1 if left else 0
     if args.reverify:
-        return reverify(ledgers, root, maps, default_repo)
+        return reverify(ledgers, root, maps, default_repo, args.checked)
 
     if not ledgers:
         print("no evidence ledgers found — nothing to check")

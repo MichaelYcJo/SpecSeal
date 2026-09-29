@@ -163,6 +163,7 @@ verification state. Verified-ness lives in the ledger only.
 evidence-check [ROOT]          # on PATH while the plugin is enabled
 evidence-check --strict .
 evidence-check --reverify .    # after re-reading: rewrite each row's hash
+evidence-check --reverify --checked 2026-09-29 .   # and date every row it moved
 ```
 
 | Flag | Meaning |
@@ -172,6 +173,7 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 | `--map NAME=PATH` | resolve `NAME/...` prefixed coordinates against another checkout |
 | `--strict` | drift, a malformed coordinate and an overflowing row exit 2, the broken-coordinate code, instead of 1. This is the form `broad-gate` runs |
 | `--reverify` | rewrite every resolvable row's hash to what its anchor holds now — and re-anchor every BROKEN row that exactly one unit reconstructs, path and locator both |
+| `--checked YYYY-MM-DD` | with `--reverify` only: the date you re-read the rows on, written into the date cell of every row whose hash moves. It says every such row was re-read, so read each row citing a drifted coordinate first, or narrow the write with `--ledger`. A value that is not a calendar date in that form, a date later than today, and the flag without `--reverify` or beside `--migrate` exit 2 before any ledger is read |
 | `--migrate` | rewrite old `path:line` rows to `path#unit@hash`; what it cannot prove is left and named |
 
 ### Which reader graded your tree
@@ -293,6 +295,28 @@ renaming its hash would hide the one row somebody has to look at. A
 the run exits 1. An `OVERFLOW` row gets the same `LEFT` line, naming the
 ledger and the line because this command prints no heading per ledger, and
 the run exits 1.
+
+**A new hash says somebody re-read the row, and the date cell says when**
+(#387). `--reverify` alone leaves every date as it stands and, after the
+count line, names each row whose hash it moved — its ledger and line, its
+first cell, and its date cell as it is — so the reading that nothing dated is
+in front of whoever ran it. `--checked YYYY-MM-DD` writes the date instead:
+` · YYYY-MM-DD` after the dates a cell holds, the date alone in an empty
+cell, and nothing where the cell already ends in it. A row is dated once
+however many of its coordinates moved, a row re-anchored by identical content
+is dated too, and a row whose hash did not move is never touched.
+
+The date cell is the column headed `Checked`, else the column headed `Date`,
+else — under no header — the fourth cell of a row exactly five cells wide.
+Under `--checked` a row whose hash moved and that has no date cell is **left
+whole**, hash included, with a `LEFT` line, and the run exits 1: writing the
+hash alone would make a row whose two halves disagree, which is what the flag
+exists to end.
+
+**The flag asserts every row whose hash it moves was re-read.** One drifted
+unit can be cited by several rows, and the check names the coordinate once.
+Read every row that cites a drifted coordinate before typing the date, or
+narrow the write with `--ledger` to the files you did read.
 
 ## A row inside a fence is an example, not a claim
 

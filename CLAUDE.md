@@ -116,7 +116,11 @@ the stamp. Three review rounds went on the links of that chain.
 
 The `Checked` column holds the date somebody read the code. Re-verifying is
 re-reading and then running `evidence-check --reverify`, which recomputes the
-hash and names what it changed.
+hash and names what it changed. **`--checked <YYYY-MM-DD>` records the
+reading**: it writes that date into the date cell of every row whose hash it
+moves, and without it the dates are left and those rows are named. The flag
+says every one of those rows was re-read, so read each row citing a drifted
+coordinate first, or narrow the write with `--ledger` to the files you read.
 
 **A row whose anchor a change removes is REMOVED, not re-pointed.** Its claim
 went with the code. Write the new claim as a new row in the work item's own

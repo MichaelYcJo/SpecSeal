@@ -235,11 +235,13 @@ when it arrives.
   applies is about the claim rather than the code:
 
   - the claim still holds and you have re-read it — run
-    `evidence-check --reverify .`, which recomputes the hash and names what it
-    changed;
+    `evidence-check --reverify --checked <YYYY-MM-DD> .`, which recomputes
+    the hash, names what it changed and dates the reading in each row whose
+    hash moved. That date says every such row was read, so read each row
+    citing a drifted coordinate first, or narrow the write with `--ledger`;
   - the code still stands and your edit made the claim false — correct the
     claim in place first, with a `Corrected <date>` note, then run
-    `--reverify`;
+    `--reverify --checked <YYYY-MM-DD>`;
   - the claim went with the code — **remove the row and write the new claim
     into your own fragment.** A row is not re-pointed at whatever now sits
     nearest to where it used to look.

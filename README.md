@@ -165,7 +165,11 @@ orphan, and the check calls git for nothing — the one exception is
 `--migrate`, a one-shot writer that consults the old stamp's commit before it
 trusts a line number it is rewriting. Re-verifying a row is
 re-reading it and running `evidence-check --reverify`, which recomputes the
-hash and names what it changed.
+hash and names what it changed. Add `--checked <YYYY-MM-DD>` and it also
+writes the date of that reading into every row whose hash it moves; without
+it the dates stay and those rows are named. The flag says every such row was
+re-read, so read each row citing a drifted coordinate first, or narrow the
+write with `--ledger`.
 
 ## The gates
 

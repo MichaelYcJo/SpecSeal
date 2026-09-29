@@ -256,7 +256,10 @@ to the statement a claim is about. It carries no line number and no commit, so
 nothing in it goes stale for a reason unrelated to the claim. Cite the unit and
 leave the minor level off unless whole-unit hashing has been measured to drift
 rows on unrelated edits. Re-verifying is re-reading and running
-`evidence-check --reverify`.
+`evidence-check --reverify --checked <YYYY-MM-DD>`, which dates that reading in
+every row whose hash it moves. The date says each of those rows was read, so
+read every row citing a drifted coordinate first, or narrow the write with
+`--ledger`.
 
 **Rows a work item adds go in its own fragment**, `seal/ledger/<work-item-id>.md`,
 not appended to `seal/ledger.md`. Two branches cannot collide there, because
