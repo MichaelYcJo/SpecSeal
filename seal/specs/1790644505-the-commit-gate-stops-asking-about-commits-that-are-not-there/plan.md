@@ -4,7 +4,9 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
-Approved 2026-09-29 by the orchestrating session, when `smith` was spawned. The approval ratifies the reversal the frame names: under an `automation` press, `docs/commit-review-gate-spec.md`'s `ask` for an environment with nobody to ask becomes a `deny` addressed to the model. The owner had said, in this run, that an automation run stopping for the person to choose is the failure to avoid, which is what the reversal answers.
+Approved 2026-09-29 by the orchestrating session, when `smith` was spawned.
+
+The approval ratifies the reversal the frame names: under an `automation` press, `docs/commit-review-gate-spec.md`'s `ask` for an environment with nobody to ask becomes a `deny` addressed to the model. The owner had said, in this run, that an automation run stopping for the person to choose is the failure to avoid, which is what the reversal answers.
 
 <!-- The line above is the record that the gate happened. Fill it in at the
 spawn: reading this plan and spawning the builder IS the approval, so nothing
