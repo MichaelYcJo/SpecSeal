@@ -863,19 +863,20 @@ QUOTED_DELIMITERS = (
 )
 
 
-def test_delimiters_quoted_in_code_spans_either_side_hide_the_table(config):
-    """#584 round 1, finding 3. The comment half reads a delimiter inside a
-    code span as a delimiter, as `comment_scan` and every reader through
-    `readable` read it, so an opener quoted above the table and a closer
-    quoted below it hide the table between — a file that read before this
-    work and does not now. Three sentences promised that no such file
-    existed. This pins the reading and the sentences that now state it, so
-    the next edit to either has to change this case."""
-    assert config.config_rows(QUOTED_DELIMITERS) == []
-    one_line = QUOTED_DELIMITERS.replace(
-        "`<!--`.\n", "`<!--` and close it with `-->`.\n"
-    )
-    assert ("Mode", "shared") in config.config_rows(one_line)
+def test_delimiters_quoted_in_code_spans_hide_nothing(config):
+    """#584 round 1, finding 3, and round 2's finding 2 with its ❓. Round 1
+    kept the comment half reading a delimiter inside a code span as a
+    delimiter and documented the table it hid. Round 2 found the same class
+    in the routing reader and the rider check, and the fix puts the config
+    reader, the routing reader and the rider check on `_liveness`'s literal
+    reading: a comment delimiter inside a code span that closes on its own
+    line is text. So an opener quoted above the table and a closer quoted
+    below it hide nothing. This pins the reading and the sentences that state
+    it, so the next edit to either has to change this case."""
+    assert config.config_rows(QUOTED_DELIMITERS) == [
+        ("Mode", "shared"),
+        ("Broad gate", "bin/test -q"),
+    ]
     root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
     for parts in (
         ("hooks", "config.py"),
@@ -884,8 +885,24 @@ def test_delimiters_quoted_in_code_spans_either_side_hide_the_table(config):
     ):
         with open(os.path.join(root, *parts), encoding="utf-8") as handle:
             text = " ".join(handle.read().split())
-        assert "each quoted in a code span" in text, "/".join(parts)
-        assert "no file that reads today stops reading" not in text, "/".join(parts)
+        assert "inside a code span that closes on its own line" in text, "/".join(parts)
+        assert "each quoted in a code span" not in text, "/".join(parts)
+
+
+def test_a_fence_line_inside_a_comment_hides_no_table(config):
+    """#584 round 2's ❓, answered into finding 2's fix. `fence_map` opened a
+    fence on a line inside an HTML comment, so a note above the table that
+    held an example fence ran a fence to the end of the file and hid the
+    live table — and it did at `551c7967` too. A delimiter line opens a fence
+    only where it begins outside every comment."""
+    opener = "<" + "!--"
+    text = (
+        opener
+        + " a note, with an example:\n```\nan example\n-->\n\n"
+        + "| Item | Value |\n|---|---|\n| Mode | shared |\n"
+    )
+    assert config.config_rows(text) == [("Mode", "shared")]
+    assert config.fence_map(text.splitlines())[1] is None
 
 
 def test_the_writer_leaves_a_commented_row_alone(config, tmp_path):

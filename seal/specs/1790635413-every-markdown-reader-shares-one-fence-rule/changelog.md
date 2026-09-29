@@ -7,9 +7,18 @@
   can change what a repository declares**: a `Broad gate` or `Mode` row that
   stands only inside a closed comment stops being read, and `broad-gate` then
   refuses naming the row as *written inside an HTML comment*, or the mode
-  question comes back once. A comment delimiter quoted in a code span still
-  counts, so prose that quotes the opener above the table and the closer
-  below it hides the table between them; quote both on one line.
+  question comes back once. A comment delimiter inside a code span that
+  closes on its own line is text, and a code fence opens only on a line that
+  begins outside every comment, so a note above the table that quotes a
+  delimiter or holds an example fence hides nothing — one such note used to
+  hide the whole table.
+- **A routing row inside a closed HTML comment is no longer read as the
+  answer, and a comment above a declaration no longer hides it (issue
+  #584).** The commit gate's routing reader keeps the last row of each label,
+  so a `Review` row parked in a comment below the table answered for the
+  declaration; and a fence line inside a comment above the table hid the
+  declaration, which sent the gate back to asking. It reads by the config
+  reader's rule now.
 - **Every markdown reader the release and the checks ship shares one fence
   rule (issue #584).** CommonMark's: at most three spaces of indentation, a
   backtick opener whose info string holds no backtick, and a close only on a

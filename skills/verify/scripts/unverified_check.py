@@ -276,9 +276,12 @@ def fence_opener(line):
         `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
         and `#test_the_comment_rule_agrees_with_the_config_reader` hold the
         copy in step, shape by shape;
-      - `hooks/routing.py#fenced`, which `#table_rows` reads through, is a
-        second hook copy for the same reason (#658), with no comment half,
-        held by `#test_the_fence_rule_agrees_with_the_routing_reader`;
+      - `hooks/routing.py#hidden`, which `#table_rows` reads through, is a
+        second hook copy of the same walk as `hooks/config.py#walk`, for the
+        same reason (#658; #584 round 2) — a fence opens only on a line that
+        begins outside every comment, as `_liveness` has it — held by
+        `#test_the_fence_rule_agrees_with_the_routing_reader` and, with the
+        config copy, by `#test_the_comment_rule_agrees_with_the_config_reader`;
       - `.github/scripts/close_issues_on_release.py#FENCE`, and
         `issue_claims_check.py` and `label_merged_on_release_branch.py`
         through it, read a pull request body by GitHub's rule and open a

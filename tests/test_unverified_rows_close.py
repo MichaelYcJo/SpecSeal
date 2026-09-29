@@ -2347,12 +2347,15 @@ COMMENT_SHAPES = [
     ["| a |", "<!--", "| b |", "-->", "<!--", "| c |"],
     # an opener inside a fence opens nothing
     ["```", "<!--", "```", "| a |", "-->"],
-    # a closer inside a fence closes nothing
+    # a delimiter line inside a comment opens no fence (#584 round 2): the
+    # comment closes on line 2, and the fence opens on line 3
     ["<!--", "```", "-->", "```", "| a |"],
     ["<!--\r", "| a |\r", "-->\r", "| b |\r"],
-    # an opener inside a code span is read as one, as every reader through
-    # `readable` reads it
+    # a delimiter inside a code span that closes on its own line is text, as
+    # `_liveness` reads it (#584 round 2)
     ["text `<!--` more", "| a |", "`-->`", "| b |"],
+    ["a note quoting `<!--`", "```", "| a |", "```", "| b |"],
+    ["<!-- a note with `-->` in it", "| a |", "-->", "| b |"],
     # closed, reopened on the same line, closed again
     ["<!-- a --> <!-- b", "| x |", "c -->", "| y |"],
     # comments do not nest: the first `-->` closes
@@ -2366,22 +2369,38 @@ COMMENT_SHAPES = [
 
 def hidden_by_the_shared_rule(lines):
     """The lines the config walks must not be shown, from the shared
-    functions alone: every fenced line, and every line that BEGINS inside a
-    comment, by `comment_scan` over what `blank_fences` leaves, whose run
-    returns to a line beginning outside — the end of the file counts as one,
-    by a sentinel. An unclosed comment's run never returns, so it hides
-    nothing."""
-    began = [b for b, _ in uc.comment_scan([*uc.blank_fences(lines), ""])]
+    functions alone.
+
+    `_liveness`'s literal reading says whether each line BEGINS live —
+    outside every fence and comment, with a code span that closes on its own
+    line read as text — in its order: a fence opens only on a line that
+    begins outside every comment. A fence is then a line that begins live
+    and `fence_opener` reads as an opener, to the line `fence_closes` reads
+    as its closer or to the end. A line that begins neither live nor fenced
+    begins inside a comment, and it is hidden where its run returns to a
+    line that begins live — the end of the file counts as one, by a
+    sentinel. An unclosed comment's run never returns, so it hides nothing
+    (#584 round 2, which moved the order from fence-first)."""
+    live = uc._liveness([*lines, ""], spans_cross_lines=False)
+    fenced, opener = set(), None
+    for n, line in enumerate(lines):
+        if opener is not None:
+            fenced.add(n)
+            if uc.fence_closes(line, opener):
+                opener = None
+        elif live[n] and uc.fence_opener(line) is not None:
+            opener = uc.fence_opener(line)
+            fenced.add(n)
     commented, run = set(), []
     for n in range(len(lines)):
-        if began[n]:
+        if live[n]:
             commented.update(run)
             run = []
-        else:
+        elif n not in fenced:
             run.append(n)
-    if began[len(lines)]:
+    if live[len(lines)]:
         commented.update(run)
-    return fenced_by_the_shared_rule(lines) | commented
+    return fenced | commented
 
 
 @pytest.mark.parametrize("lines", COMMENT_SHAPES, ids=range(len(COMMENT_SHAPES)))
@@ -2390,8 +2409,10 @@ def test_the_comment_rule_agrees_with_the_config_reader(lines):
     own copy for the fence half's reason — the hook path. This holds the
     copy to an oracle composed only of shared functions, shape by shape:
     which lines the one generator the three table walks read through does
-    not show. What the copy does not model is exactly what the oracle does
-    not model, a `<!--` inside a code span among them."""
+    not show. The routing reader is held to the same oracle, so the two hook
+    copies are one rule (#584 round 2)."""
+    from conftest import load_hook_module
+
     spec = importlib.util.spec_from_file_location(
         "specseal_config_for_comment_agreement",
         os.path.join(ROOT, "hooks", "config.py"),
@@ -2400,6 +2421,8 @@ def test_the_comment_rule_agrees_with_the_config_reader(lines):
     spec.loader.exec_module(config)
     shown = {n for n, _ in config.table_lines(lines)}
     assert set(range(len(lines))) - shown == hidden_by_the_shared_rule(lines)
+    routing = load_hook_module("routing.py", "specseal_routing_for_comment_agreement")
+    assert set().union(*routing.hidden(lines)) == hidden_by_the_shared_rule(lines)
 
 
 @pytest.mark.parametrize(

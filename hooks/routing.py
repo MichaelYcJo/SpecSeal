@@ -127,21 +127,90 @@ def fenced(lines):
 
     An unclosed block runs to the end because everything here fails toward
     *no declaration*: the rows it swallows are not an answer, and the gate goes
-    back to asking."""
-    out, opener = set(), None
+    back to asking.
+
+    `hidden` is the walk, and this is its fence half; on a file with no
+    comment it is the shared rule's answer."""
+    return hidden(lines)[0]
+
+
+# The two delimiters of an HTML comment, and a backtick run, as
+# `skills/verify/scripts/unverified_check.py#_liveness` looks for them.
+COMMENT_OPENER, COMMENT_CLOSER = "<!--", "-->"
+BACKTICKS = re.compile(r"`+")
+
+
+def comment_after(line, comment):
+    """Whether LINE ends inside an HTML comment, given whether it began in
+    one. A comment delimiter inside a code span that closes on its own line
+    is text, as `_liveness` reads it in its literal reading. The same as
+    `hooks/config.py#comment_after`."""
+    pos = 0
+    while True:
+        if comment:
+            at = line.find(COMMENT_CLOSER, pos)
+            if at == -1:
+                return True
+            pos, comment = at + len(COMMENT_CLOSER), False
+            continue
+        at = line.find(COMMENT_OPENER, pos)
+        if at == -1:
+            return False
+        run = BACKTICKS.search(line, pos, at)
+        if run is not None:
+            width = run.end() - run.start()
+            closer = next(
+                (
+                    m
+                    for m in BACKTICKS.finditer(line, run.end())
+                    if m.end() - m.start() == width
+                ),
+                None,
+            )
+            pos = run.end() if closer is None else closer.end()
+            continue
+        pos, comment = at + len(COMMENT_OPENER), True
+
+
+def hidden(lines):
+    """(fenced, commented): the indices of LINES inside a fenced block, and
+    those that begin inside an HTML comment that closes (#584 round 2).
+
+    **The walk `hooks/config.py#walk` is, for the commit gate's reader** --
+    one rule for both hooks, held to the same oracle by
+    `tests/test_unverified_rows_close.py#test_the_comment_rule_agrees_with_the_config_reader`.
+    A delimiter line opens a fence only where it begins outside every
+    comment, as `unverified_check.py#_liveness` has it: fence-first, a note in
+    a comment above the table that held an example fence ran a fence to the
+    end of the file, and a declaration that read at `551c7967` was none. A
+    row inside a comment that closes is a withdrawn answer, and `parse` keeps
+    the LAST row of a label, so one parked below the table answered for it.
+    A comment that never closes hides nothing."""
+    fenced_at, commented, run_of = set(), set(), []
+    opener, comment = None, False
     for index, raw in enumerate(lines):
-        found = FENCE.match(raw.rstrip("\r\n"))
+        line = raw.rstrip("\r\n")
+        found = FENCE.match(line)
         run = found.group("run") if found else ""
         info = found.group("info") if found else ""
-        if opener is None:
+        if opener is not None:
+            fenced_at.add(index)
+            if run[:1] == opener[0] and len(run) >= opener[1] and not info.strip():
+                opener = None
+            continue
+        if comment:
+            run_of.append(index)
+        else:
+            commented.update(run_of)
+            run_of = []
             if run and not (run[0] == "`" and "`" in info):
                 opener = (run[0], len(run))
-                out.add(index)
-            continue
-        out.add(index)
-        if run[:1] == opener[0] and len(run) >= opener[1] and not info.strip():
-            opener = None
-    return out
+                fenced_at.add(index)
+                continue
+        comment = comment_after(line, comment)
+    if not comment:
+        commented.update(run_of)
+    return fenced_at, commented
 
 
 def table_rows(text):
@@ -160,13 +229,14 @@ def table_rows(text):
     **A row inside a fence is an example, not an answer** (#658). `parse`
     keeps the LAST row of a label, so a fenced example below the real table
     answered for it: a declared review chain read as *straight to the PR*, on
-    the commit gate's path. `fenced` is the rule.
+    the commit gate's path. A row inside an HTML comment that closes is a
+    withdrawn answer on the same terms (#584 round 2). `hidden` is the rule.
     """
     rows = []
     lines = text.splitlines()
-    hidden = fenced(lines)
+    skipped = set().union(*hidden(lines))
     for index, line in enumerate(lines):
-        if index in hidden:
+        if index in skipped:
             continue
         line = line.strip()
         if not line.startswith("|"):

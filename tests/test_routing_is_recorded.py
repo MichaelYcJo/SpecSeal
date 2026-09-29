@@ -700,6 +700,19 @@ def test_the_answer_pressed_row_is_read_when_it_is_there():
 # --- #658: a row quoted inside a fence is not a routing row ------------------
 
 
+def test_a_comment_hides_no_table_and_answers_for_none():
+    """#584 round 2, finding 2. A fence line inside an HTML comment above the
+    table opened a fence that hid the whole declaration — one that read at
+    `551c7967` — and a row parked in a closed comment below the table
+    answered for it, because `parse` keeps the last row of a label."""
+    opener = "<" + "!--"
+    above = opener + " a note, with an example:\n```\nan example\n-->\n\n"
+    parsed = routing.parse(above + two_axis_text())
+    assert parsed is not None and parsed["review"] == CHAIN, parsed
+    below = f"\n{opener} the answer before:\n| Review | {DIRECT} |\n-->\n"
+    assert routing.parse(two_axis_text() + below)["review"] == CHAIN
+
+
 def test_a_row_quoted_inside_a_fence_is_not_an_answer():
     """#658, phase 8 of work item 1790635413. `table_rows` had no fence state,
     and `parse` keeps the LAST row of a label, so an example quoted in a

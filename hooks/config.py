@@ -120,9 +120,9 @@ def fence_map(lines):
     """([(index, line)] outside every fenced block, the index of an opener
     that was never closed or None) -- the one fence rule, computed once.
 
-    `unfenced` below is the generator form, which `table_lines` -- the one
-    all three walks read the file through -- reads, and this is the same walk
-    with the state it ENDS in kept. A fence
+    `unfenced` below is the generator form, and `table_lines` -- the one all
+    three walks read the file through -- reads the same walk, and this keeps
+    the state it ENDS in. A fence
     that runs to the end of the file is the one thing about a fence a caller
     with somebody to tell has to be able to say: `broad-gate` quoting a live
     `| Broad gate |` row back as *written inside a code fence* and telling the
@@ -135,22 +135,89 @@ def fence_map(lines):
     about the file, for the one caller that has somebody to tell --
     `skills/verify/scripts/broad_gate.py#fence_left_open` -- exactly as
     `refusal` below is a fact about the table for the same caller.
+
+    The walk is `walk`'s, whose first two values these are.
     """
-    shown, opener, opened_at = [], None, None
+    shown, opened_at, _commented = walk(lines)
+    return shown, opened_at
+
+
+# The two delimiters of an HTML comment, and a backtick run, as
+# `skills/verify/scripts/unverified_check.py#_liveness` looks for them.
+COMMENT_OPENER, COMMENT_CLOSER = "<!--", "-->"
+BACKTICKS = re.compile(r"`+")
+
+
+def comment_after(line, comment):
+    """Whether LINE ends inside an HTML comment, given whether it began in
+    one. A comment delimiter inside a code span that closes on its own line
+    is text, as `_liveness` reads it in its literal reading, so prose quoting
+    the opener opens nothing (#584 round 2)."""
+    pos = 0
+    while True:
+        if comment:
+            at = line.find(COMMENT_CLOSER, pos)
+            if at == -1:
+                return True
+            pos, comment = at + len(COMMENT_CLOSER), False
+            continue
+        at = line.find(COMMENT_OPENER, pos)
+        if at == -1:
+            return False
+        run = BACKTICKS.search(line, pos, at)
+        if run is not None:
+            width = run.end() - run.start()
+            closer = next(
+                (
+                    m
+                    for m in BACKTICKS.finditer(line, run.end())
+                    if m.end() - m.start() == width
+                ),
+                None,
+            )
+            pos = run.end() if closer is None else closer.end()
+            continue
+        pos, comment = at + len(COMMENT_OPENER), True
+
+
+def walk(lines):
+    """(shown, opened_at, commented): the lines outside every fenced block as
+    (index, line), the index of an opener never closed or None, and the
+    indices of the shown lines a closed HTML comment hides -- the one walk
+    this module reads a file by (#584 round 2).
+
+    **A delimiter line opens a fence only where it begins outside every HTML
+    comment**, because inside a comment nothing is markdown, and a comment
+    delimiter inside a fence is text. That is `unverified_check.py#_liveness`'s
+    order. The fence was decided first until #584's round 2, so a note in a
+    comment above the table that held an example fence ran a fence to the end
+    of the file and hid the live table (and did at `551c7967` too).
+    `hooks/routing.py#hidden` is the same walk, for the commit gate's reader.
+    """
+    shown, commented, run_of = [], set(), []
+    opener, opened_at, comment = None, None, False
     for index, raw in enumerate(lines):
         line = raw.rstrip("\r\n")
-        fence = FENCE.match(line)
-        run = fence.group("run") if fence else ""
-        info = fence.group("info") if fence else ""
-        if opener is None:
+        found = FENCE.match(line)
+        run = found.group("run") if found else ""
+        info = found.group("info") if found else ""
+        if opener is not None:
+            if run[:1] == opener[0] and len(run) >= opener[1] and not info.strip():
+                opener, opened_at = None, None
+            continue
+        if comment:
+            run_of.append(index)
+        else:
+            commented.update(run_of)
+            run_of = []
             if run and not (run[0] == "`" and "`" in info):
                 opener, opened_at = (run[0], len(run)), index
                 continue
-            shown.append((index, line))
-            continue
-        if run[:1] == opener[0] and len(run) >= opener[1] and not info.strip():
-            opener, opened_at = None, None
-    return shown, opened_at
+        shown.append((index, line))
+        comment = comment_after(line, comment)
+    if not comment:
+        commented.update(run_of)
+    return shown, opened_at, commented
 
 
 def unfenced(lines):
@@ -214,25 +281,21 @@ def unfenced(lines):
     table, because this walk answers a question about the file and not about
     any one caller's state. The three walks hold different state at the same
     line, so a fence rule that consulted it would give them three answers.
+    The one state it does consult is the file's own: a line that begins
+    inside an HTML comment opens no fence (#584 round 2).
 
-    **The walk itself is `fence_map` above**, and this is its surviving lines.
+    **The walk itself is `walk` below**, and this is its surviving lines.
     One walk rather than two: the caller that needs to know whether a fence
-    was left open asks that function, and every walk of the table asks
-    `table_lines`, which asks this one, and none reads the file by a rule of
-    its own.
+    was left open asks `fence_map`, and every walk of the table asks
+    `table_lines`, and all three read `walk`; none reads the file by a rule
+    of its own.
     """
     yield from fence_map(lines)[0]
 
 
-# The two delimiters of an HTML comment, as `skills/verify/scripts/
-# unverified_check.py#comment_scan` looks for them.
-COMMENT_OPENER, COMMENT_CLOSER = "<!--", "-->"
-
-
-def commented(lines, shown=None):
+def commented(lines):
     """The indices of LINES, outside every fence, that a closed HTML comment
-    hides (#584). SHOWN is `fence_map(lines)[0]` where the caller already
-    has it, so `table_lines` walks the fences once per call.
+    hides (#584) -- `walk`'s third value.
 
     **A line is hidden when it BEGINS inside a comment and the run of such
     lines it belongs to returns to a line that begins outside every comment
@@ -243,47 +306,25 @@ def commented(lines, shown=None):
     outside it and is not hidden; it holds `<!--` and so parses as no row of
     this table anyway.
 
-    The scan is `comment_scan`'s, over the lines `unfenced` shows: a
-    delimiter inside a fence is neither an opener nor a closer, because the
-    fence is decided first, and HTML comments do not nest, so the first
-    `-->` closes. A `<!--` inside a code span is read as an opener, as
-    `comment_scan` and every reader through `readable` read it. **So one
-    shape that read before this rule does not now**: a comment opener and a
-    closer each quoted in a code span, on lines either side of the table,
-    read as a comment that closes, and hide the table between them (#584
-    round 1, finding 3). Prose that quotes both on one line hides nothing.
-    `tests/test_the_mode_question_is_asked_once.py#test_delimiters_quoted_in_code_spans_either_side_hide_the_table`
-    pins the reading; modelling a code span here would move this copy off
-    the oracle below, which does not model one either.
+    The scan is `_liveness`'s literal reading, in `walk`: a delimiter inside
+    a fence is neither an opener nor a closer, a fence opens only on a line
+    that begins outside every comment, HTML comments do not nest, so the
+    first `-->` closes, and a comment delimiter inside a code span that
+    closes on its own line is text. Round 1 kept reading a delimiter in a
+    code span as a delimiter, so a comment opener and a closer each quoted
+    in prose either side of the table hid it (finding 3); round 2 found the
+    same class in the routing reader and the rider check, and all three now
+    read the code span.
+    `tests/test_the_mode_question_is_asked_once.py#test_delimiters_quoted_in_code_spans_hide_nothing`
+    pins the reading.
 
     **A copy, held to the shared functions.** Loading `unverified_check.py`
     here would be paid on every Bash call in every consumer's session, the
     fence half's reason. `tests/test_unverified_rows_close.py#test_the_comment_rule_agrees_with_the_config_reader`
-    holds this to an oracle built from `comment_scan` and `blank_fences`
-    alone, shape by shape.
+    holds this to an oracle built from `_liveness`, `fence_opener` and
+    `fence_closes`, shape by shape.
     """
-    hidden, run, inside = set(), [], False
-    for index, line in fence_map(lines)[0] if shown is None else shown:
-        if inside:
-            run.append(index)
-        else:
-            hidden.update(run)
-            run = []
-        pos = 0
-        while True:
-            if inside:
-                at = line.find(COMMENT_CLOSER, pos)
-                if at == -1:
-                    break
-                pos, inside = at + len(COMMENT_CLOSER), False
-            else:
-                at = line.find(COMMENT_OPENER, pos)
-                if at == -1:
-                    break
-                pos, inside = at + len(COMMENT_OPENER), True
-    if not inside:
-        hidden.update(run)
-    return hidden
+    return walk(lines)[2]
 
 
 def table_lines(lines):
@@ -301,12 +342,10 @@ def table_lines(lines):
     this it was read -- the first shape returned the parked row alone, and
     the second made the parked table THE table.
 
-    The fence walk runs once: its surviving lines are what `unfenced` would
-    yield, and `commented` is handed them rather than walking again (#584
-    round 1, ⬜ 5) -- this runs on every Bash call through `mode-gate`.
+    The walk runs once (#584 round 1, ⬜ 5) -- this runs on every Bash call
+    through `mode-gate`.
     """
-    shown = fence_map(lines)[0]
-    hidden = commented(lines, shown)
+    shown, _opened_at, hidden = walk(lines)
     for index, line in shown:
         if index not in hidden:
             yield index, line
