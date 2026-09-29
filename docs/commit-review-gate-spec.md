@@ -391,8 +391,9 @@ adds a refusal, and a generated corpus of 11,393 commands across these
 positions found none silent where the release base stopped. The one answer
 replaced rather than kept is git's subcommand where it had been a redirection,
 which no reader acted on. Over 6,033 commands recorded in the milestone's
-runs, none changed its verdict.
-Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py::test_a_commit_behind_a_redirection_is_read_where_the_shell_is, tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py::test_header_end, tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py::test_merged_view, tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py::test_a_commit_the_splitter_already_found_is_not_found_twice, tests/test_no_shape_the_base_stops_reads_silent.py::test_a_cd_behind_a_redirection_is_not_read_as_staying_put, tests/test_no_shape_the_base_stops_reads_silent.py::test_a_deep_nesting_is_read_to_a_bound
+runs, none changed its verdict. The `cd` behind a redirection and the depth
+bound are held by `tests/test_no_shape_the_base_stops_reads_silent.py`.
+Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
 
 ### Why a deny, and why only once
 

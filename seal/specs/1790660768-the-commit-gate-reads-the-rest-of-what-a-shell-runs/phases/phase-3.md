@@ -39,8 +39,8 @@ loop, the `su`/`runuser`/`script`/`flock` picker and `env -S`'s picker in
   `-E`/`--conflict-exit-code`, `-w`/`--wait`/`--timeout`, `--start` and
   `--length`. None of them sits between `-c` and its command, and the picker
   takes the word after the flag, so none needs a skip. This machine has
-  `flock(2)` and no `flock(1)`, so the page was read at
-  `man7.org/linux/man-pages/man1/flock.1.html`.
+  `flock(2)` and no `flock(1)`, so util-linux's flock(1) page was read
+  online, on the Linux man-pages project's site.
 - *`sudo -s` and `sudo -i`: not as stated.* `man sudo` 1.9.17p2 on this
   machine says the command and its args are concatenated "after escaping each
   character (including white space) with a backslash … except for
