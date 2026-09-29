@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #675 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `81a770bb23a10f31f05ea84e8e9c6e5bc8c69184..0fd554dd8d3665161c791046e2bcda2a17135612`, 4 commits |
 | Contract changes | none |
 | New units | test_a_rider_the_hasher_cuts_is_read (depth 1); test_reverify_keeps_a_crlf_or_cr_file_byte_for_byte (depth 1) |
