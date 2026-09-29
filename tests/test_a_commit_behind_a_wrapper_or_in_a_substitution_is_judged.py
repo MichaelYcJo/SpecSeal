@@ -127,6 +127,14 @@ SUBSTITUTED = {
     "(sh -c)": f"(sh -c '{C}')",
     "(bash -c) after a list": f"true; (bash -c '{C}')",
     "a redirected commit in $( )": f"echo $(2>/dev/null {C})",
+    # #674, phase 3: the string past a redirection after `env -S`, and the
+    # hosts #670's enumeration did not mark. `parallel` runs its arguments
+    # through a shell and is read for a commit only (`spec.md` §*Scope*).
+    "env -S 2>/dev/null": f"env -S 2>/dev/null '{C}'",
+    "flock -c": f"flock /tmp/l -c '{C}'",
+    "flock --command": f"flock -w 5 /tmp/l --command '{C}'",
+    "parallel :::": f"parallel ::: '{C}'",
+    "parallel -j2 :::": f"parallel -j2 ::: '{C}'",
 }
 
 
@@ -295,6 +303,28 @@ STILL_HANDED = {
     "sh -c nice -n 5 $CMD": "sh -c 'nice -n 5 $CMD'",
     "sh -c timeout 5 $CMD": "sh -c 'timeout 5 $CMD'",
     "bash -c sudo -u x $CMD": "bash -c 'sudo -u x \"$CMD\"'",
+    # #674, phase 3: a redirection written after the flag that hands a host
+    # its string, glued or spaced. Round 3 of 1790644505 ran the four `bash`
+    # shapes and each landed a commit. Each is silent at `86256492`, where the
+    # redirection was taken for the string.
+    "bash -c 2>/dev/null $CMD": 'bash -c 2>/dev/null "$CMD"',
+    "bash -c 2> /dev/null $CMD": 'bash -c 2> /dev/null "$CMD"',
+    "bash -c >/dev/null $CMD": 'bash -c >/dev/null "$CMD"',
+    "bash -lc </dev/null $CMD": 'bash -lc </dev/null "$CMD"',
+    "watch -g 2>/dev/null $CMD": 'watch -g 2>/dev/null "$CMD"',
+    "watch -g 2> /dev/null $CMD": 'watch -g 2> /dev/null "$CMD"',
+    "su -c 2>/dev/null $CMD root": 'su -c 2>/dev/null "$CMD" root',
+    "su --command 2> /dev/null $CMD root": 'su --command 2> /dev/null "$CMD" root',
+    "runuser -c 2>/dev/null $CMD u": 'runuser -c 2>/dev/null "$CMD" u',
+    "script -c 2>/dev/null $CMD": 'script -q -c 2>/dev/null "$CMD" /dev/null',
+    "env -S 2>/dev/null $CMD": 'env -S 2>/dev/null "$CMD"',
+    "env --split-string 2> /dev/null $CMD": 'env --split-string 2> /dev/null "$CMD"',
+    # `flock -c` passes its command to the shell with `-c` (util-linux's
+    # flock(1), read for #674's Q4).
+    "flock -c $CMD": 'flock /tmp/l -c "$CMD"',
+    "flock -w 5 --command $CMD": 'flock -w 5 /tmp/l --command "$CMD"',
+    "flock --command=$CMD": 'flock /tmp/l --command="$CMD"',
+    "flock -c 2>/dev/null $CMD": 'flock /tmp/l -c 2>/dev/null "$CMD"',
 }
 
 # #674, phase 1: a commit behind a redirection written in front of `git`, or
@@ -443,6 +473,18 @@ def test_a_string_behind_a_runners_operand_stops_as_the_frame_chose(tmp_path):
     as a cost rather than a defect (`plan.md` Alternatives F)."""
     command = "sh -c 'timeout 5 wc -l \"$1\"' _ f"
     assert found(command, tmp_path), command
+
+
+def test_sudo_s_does_not_hand_a_quoted_string_to_its_shell_as_a_command_line(tmp_path):
+    """#674, `questions.md` Q4, answered *not as stated* from `man sudo`
+    (1.9.17p2): with `-s` or `-i`, "the command and any args are concatenated,
+    separated by spaces, after escaping each character (including white
+    space) with a backslash … except for alphanumerics, underscores, hyphens,
+    and dollar signs". So `sudo -s 'git commit -m x'` reaches the shell as one
+    word, not a command line, and `sudo` is not a string host. The argv form
+    does run a commit, and `sudo`'s runner reading already finds it."""
+    assert not found("sudo -s 'git commit -m x'", tmp_path)
+    assert found("sudo -s git commit -m x", tmp_path)
 
 
 def test_a_redirection_with_nothing_after_it_keeps_the_base_subcommand():
