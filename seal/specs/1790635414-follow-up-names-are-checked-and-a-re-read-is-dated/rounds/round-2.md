@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #668 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `ec002d243c8a4231ebfa6960576ed88041c2d0fd..0b3d107197da915d7d0b841cbfa4d552f348640c`, 2 commits |
 | Contract changes | none |
 | New units | GITHUB_HEADING_RE (depth 1); heading_slugs (depth 1); test_a_heading_anchor_github_strips_punctuation_from_is_not_refused (depth 1) |
