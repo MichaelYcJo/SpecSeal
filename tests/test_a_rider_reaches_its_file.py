@@ -531,12 +531,14 @@ def test_a_fence_line_inside_a_rider_body_hides_no_rider_below():
     whole file, which has no comment state, so a fence line in rider one's
     own body opened a fence that ran on and swallowed rider two — never
     resolved, never reported. Inside a comment nothing is markdown, so that
-    line opens nothing."""
+    line opens nothing. Once a rider's comment closes, a fence below it is a
+    fence again, so a rider quoted in one is still no rider."""
     text = (
         "# doc\n\n"
         f"{HTML_MARK} one\n```python\nsnippet\n"
         "Verified 2026-01-01 against x@abcdef12. -->\n\nprose\n\n"
-        f"{HTML_MARK} two\nVerified 2026-01-01 against y@abcdef12. -->\n"
+        f"{HTML_MARK} two\nVerified 2026-01-01 against y@abcdef12. -->\n\n"
+        f"```\n{HTML_MARK} quoted -->\n```\n"
     )
     assert riders.comment_blocks(text.splitlines(), "doc.md") == [(3, 6), (10, 11)]
 
