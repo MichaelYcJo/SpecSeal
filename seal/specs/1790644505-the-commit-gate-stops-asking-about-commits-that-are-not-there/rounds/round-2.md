@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #671 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `ed1c0132c803cba5e8f7e05cc3b3dca060e2363a..195d81765b54e011a72270ef8d918ee786608b4c`, 7 commits |
 | Contract changes | command_word → names_an_unknown_command, walk_directories, parse_git, _eval_argument, round-1-report.md, round-1.md, round-2-report.md, round-2.md |
 | New units | _is_the_program (depth 1); _reads_a_commit (depth 1); test_a_commit_found_before_a_nesting_too_deep_still_stops (depth 1) |
