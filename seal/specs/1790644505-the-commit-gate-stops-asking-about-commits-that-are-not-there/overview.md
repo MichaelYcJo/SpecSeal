@@ -16,7 +16,8 @@ refusal the model handles, and what the gate stops has not moved.
 
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
-| S3's loop shape | `spec.md` S3: "a commit inside a `for` loop over a variable". Written on one line, `for d in a b; do git -C $d commit -m x; done` reads NO commit at `release/v0.16.0`, so the base is silent there and there is nothing to refuse | The measured loop's own shape, `for w in …; do IFS=: read d n <<< "$w"; git -C $d commit -m x; done`, whose `git` follows a `;` | Executed: `commit_invocations` returns no invocation for `do git commit`, `then git commit` or `while …; do git commit` written on one line, and one for the multi-line form. The reading is out of this work item's scope (`spec.md` §*Scope*, Out), so the case uses the shape the frame measured. The base hole itself is under *Not done* |
+| S3's loop shape | `spec.md` S3: "a commit inside a `for` loop over a variable". Written on one line, `for d in a b; do git -C $d commit -m x; done` reads NO commit at `release/v0.16.0`, so the base is silent there and there is nothing to refuse | The measured loop's own shape, `for w in …; do IFS=: read d n <<< "$w"; git -C $d commit -m x; done`, whose `git` follows a `;` | Executed: `commit_invocations` returns no invocation for `do git commit`, `then git commit` or `while …; do git commit` written on one line, and one for the multi-line form. The reading is out of this work item's scope (`spec.md` §*Scope*, Out), so the case uses the shape the frame measured. The base hole itself is under *Not done* **Corrected 2026-09-29 by phase 4:** the hole became #669 and was fixed on this branch, so the reading is no longer out of scope in that one, stricter direction; the loop case keeps the measured shape, and the one-line shapes are `tests/test_a_commit_behind_a_reserved_word_is_judged.py`'s |
+| `hooks/cmdline.py` byte-identical | `spec.md` property 1 and S7 (a): `hooks/cmdline.py` untouched, `git diff release/v0.16.0 -- hooks/cmdline.py` empty | Phase 4 changes it: `command_word` added, `parse_git` and `walk_directories` call it (#669) | The owner's standing rule that a defect the branch finds is fixed where it arises, and the orchestrator's phase 4 in `plan.md`. The frame's reason for the file being untouched was that narrowing reads real commits silent; this change only widens, since every segment it reaches is one where the base found no command (`phases/phase-4.md`). `spec.md`'s three sentences carry dated corrections |
 | The two READMEs | `plan.md` names no README | Both gate rows gain one sentence saying an `automation` run meets no prompt | `README.md`'s row said "after that it is the plain confirmation", which is false under the press, and `CONTRIBUTING.md` moves the two editions together. `tests/test_one_word_one_meaning.py`'s grain phrases are kept |
 | How the reader is imported | `questions.md` Q3: import in place | Imported in place, inside a `try`, so a reader that fails to load reads as no press | Spec silent on the import's failure. An ImportError at module load leaves the gate with no verdict, which `hooks/dispatch.py` turns into silence; no press is the base's answer (contract §13) |
 | The marker under the press | Spec silent | Not written: under the press `already_asked` is not consulted | The press decides the answer before the budget matters, and a marker nobody reads would only change what a later, unpressed read of the same session sees first |
@@ -31,14 +32,22 @@ refusal the model handles, and what the gate stops has not moved.
 
 ## Not done
 
-- **A commit after a reserved word on the same line is read as no commit at
-  all, on the base as on this branch.** `for d in a; do git commit -m x; done`,
-  `while true; do git commit -m x; break; done` and `if true; then git commit
-  -m x; fi` each return no invocation from `commit_invocations` at
-  `release/v0.16.0` (executed). A shell runs each commit, so this is a silent
-  the base already has. It is a reading change, which this work item's owner
-  constraint and `spec.md` §*Scope* put out of scope, and no open issue owns
-  it. The orchestrator files it; the answerer is the repository owner.
+- **Done since, in phase 4 (#669):** a commit after a reserved word on the
+  same line — `for d in a; do git commit -m x; done`, `while true; do git
+  commit -m x; break; done`, `if true; then git commit -m x; fi` — returned no
+  invocation at `release/v0.16.0`. Phase 1 left it as a reading change out of
+  scope; the orchestrator filed it as #669 and put it on this branch as phase
+  4, which reads past the word. This bullet stays so the phase 1 record's
+  pointer here still lands.
+- **Wrappers the reader does not read past still hide a commit.** `exec git
+  commit`, `timeout 5 git commit`, `nice git commit` and `xargs git commit`
+  run a commit behind a word that is not reserved, so phase 4's rule does not
+  reach them, and neither does a commit inside `$( … )` or backticks. They
+  are the open list `docs/commit-review-gate-spec.md` refuses to chase, and
+  `docs/worktree-guard-spec.md` already names `nice`. Executed at phase 4's
+  reader: `commit_invocations` returns no invocation for any of the six. They
+  are silents the base already had, not this branch's; the orchestrator
+  decides whether they become an issue, and the owner answers it.
 - **A subprocess run of the gate can glob the real projects root.** The
   suite's autouse fixture points the reader at an empty directory for
   in-process cases only. A `run_hook` case that stops a commit now looks for

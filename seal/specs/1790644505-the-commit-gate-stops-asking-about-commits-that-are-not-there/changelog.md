@@ -10,12 +10,24 @@
   text names the ways on that need nobody: re-issue the commit as `git -C
   <absolute path> commit` in a command of its own, or after a `cd` joined by
   `&&` alone; make file edits through the `Edit` and `Write` tools; the waiver
-  only for a commit no work item owns; otherwise hand the commit back. What
-  the gate stops has not changed, so no commit it used to judge now passes
-  unjudged. The press is read from the session's transcript with the reader
-  the worktree guard already uses, and every way of not reading it is the old
-  behaviour. An attended session, and a `per axis` run, meet the same prompts
-  as before.
+  only for a commit no work item owns; otherwise hand the commit back. The
+  press changes nothing about what the gate stops, so no commit it used to
+  judge now passes unjudged. The press is read from the session's transcript
+  with the reader the worktree guard already uses, and every way of not
+  reading it is the old behaviour. An attended session, and a `per axis` run,
+  meet the same prompts as before.
+- The commit gate judges a commit written after a reserved word on the same
+  line (#669). `for d in a; do git commit -m x; done`, `while …; do git commit
+  …; done` and `if true; then git commit …; fi` reached it as no commit at
+  all, because the shell splits them at `;` and the commit arrived behind `do`
+  or `then`; the same commands written across lines were always judged. After
+  `do`, `then`, `else`, `elif`, `if`, `while`, `until` or `{` the next word is
+  now the command word, and the commit is stopped as one whose repository
+  cannot be read, as its multi-line spelling always was. Inside a `case` arm,
+  a function body or a coprocess, the first `git` word stands in for the
+  command word. The change only adds stops: nothing the gate used to read as a
+  commit reads differently. The worktree guard shares the reading, so a
+  branch switch or a worktree creation in a loop body is now read by it too.
 
 ### Added
 

@@ -254,6 +254,32 @@ which is where today's answer already was. What that guard protects is a tree
 two sessions would share, so stopping is not available to it and going silent
 would be a fail-open.
 
+**A commit behind a reserved word that begins a command list is a commit.**
+`for d in a; do git commit -m x; done`, `while …; do git commit …; done` and
+`if true; then git commit …; fi` reached the gate as no commit at all (#669):
+the shell splits them at `;`, the commit arrives in a segment whose first word
+is `do` or `then`, and the reader looked for `git` in that position alone. The
+same commands written across lines were always judged, because there the
+reserved word stands on its own line and the commit follows a segment the
+reader does not understand.
+
+So after `do`, `then`, `else`, `elif`, `if`, `while`, `until` or `{`, the next
+word is read as the command word, and the segment gets the directory its
+multi-line spelling has: unresolved, which is a stop wherever the session's
+own repository opted in, before any declaration is read. Inside a `case` arm,
+a function definition or a coprocess no position names the command word, so
+the first `git` word stands in for it — a wrong one is a stop, never a
+silence. `!` and `time` stand in front of a command without opening a list,
+and a commit behind them is judged where the shell is. `for`, `select`, `case`
+and `in` are followed by names and words rather than commands, so
+`for d in git commit` reads nothing.
+
+The reading can only have gained stops by this. Every segment the new reading
+reaches began with a word at which the old one found no command, so no commit
+the base read is read differently, and the directories it marks unresolved
+are those segments' own.
+Enforced by: tests/test_a_commit_behind_a_reserved_word_is_judged.py
+
 ### Why a deny, and why only once
 
 A hook returns allow/deny/ask and nothing else, and the harness renders an
@@ -319,8 +345,9 @@ commit for every one it was given: a flag after the `<<`, a bundled `-Bc`, a
 `$(…)` or `${…;…}` moving the boundary, a `#` glued to the delimiter, and an
 earlier segment or an assignment prefix moving the `cd` target. Each fix
 narrowed further than its proof, so the reading stays where it was, and what
-changed is who a stop is put to. Every one of those commands still stops,
-with the press and without.
+changed is who a stop is put to. The one change to the reading is the
+stricter one above, for a commit behind a reserved word (#669). Every one of
+those commands still stops, with the press and without.
 Enforced by: tests/test_no_shape_the_base_stops_reads_silent.py
 
 **Both arms, one call.** When both arms fire, the reason asks for two
