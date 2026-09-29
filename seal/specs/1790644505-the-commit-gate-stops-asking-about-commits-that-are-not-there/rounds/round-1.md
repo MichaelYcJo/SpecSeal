@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #671 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `3006eb8518f1f93b3ac5095d119932cee398e431..567069b62d80d74931bcef29f57f0d65ebe150ad`, 10 commits |
 | Contract changes | _string_hides_a_commit → _hides_a_commit, commit_invocations, round-1-report.md, round-1.md; automation_answered → automation_pressed, consent, round-1-report.md, round-1.md, round-2-report.md, round-2.md, questions.md, spec.md, pytest |
 | New units | VALUED (depth 1); command_strings (depth 1); _routing_answer (depth 1); EVALS (depth 1); test_an_eval_behind_the_same_words_is_read (depth 1); STILL_HANDED (depth 1); test_a_string_that_is_an_expansion_still_stops (depth 1); test_a_later_routing_answer_takes_the_press_back (depth 1); test_an_answer_to_another_question_leaves_the_press_standing (depth 1); test_a_parity_arm_is_not_waived_by_a_newly_read_commit (depth 1) |
