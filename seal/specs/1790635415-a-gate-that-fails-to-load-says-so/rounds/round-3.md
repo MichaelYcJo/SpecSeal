@@ -27,11 +27,11 @@ Round 3, verifying and the run's last: round 2 closed on its one reopening, so t
 | 🔴 1 | A `#` glued to the heredoc delimiter word is a shell comment to `shlex` but not to the shell, so an interpreter's program flag after the `<<` is dropped from `program_is_data` and the shell-run body reads as data | `hooks/cmdline.py#program_is_data` | deferred #665 | Executed: three shapes deny at `e8e5f977` and silent at HEAD, and each body ran as shell in a real bash. Round 2's 🔴 1 class, reopened. Fix verified at the tokenizer level, read-level for the gate (NAME NOT IN TREE, reverted with #662 and #665) |
 | 🔴 2 | A `cd` with an assignment-shaped prefix is trusted not to fail, so a `$(…)` side effect in the value or an invalid-identifier prefix drops the session directory and hides a commit in the session repository | `hooks/cmdline.py#_cd_target`, `hooks/cmdline.py#walk_directories` | deferred #662 | Executed: three shapes deny at `e8e5f977` and silent at HEAD, and bash lands the commit in the session repository. Round 2's 🟡 2 class, reopened. Contract §13 |
 | ⬜ 3 | A deny with a falsy non-text `permissionDecisionReason` is refused as unreadable, where pre-#661 forwarded it | `hooks/dispatch.py#readable` | answered | The deny with a falsy non-text `permissionDecisionReason` is refused as unreadable. That is pinned on purpose, and it degrades to the turn-end notice rather than losing enforcement, as the round itself notes; Unchanged from `02e47435`, test-pinned on purpose, degrades to an end-of-turn notice. Not blocking |
-| 🟢 | round 2's red 1 documented shapes are closed — the five heredoc shapes deny at HEAD | `hooks/cmdline.py#program_is_data`, `hooks/cmdline.py#_heredoc_split` | confirmed | Executed: the planted case passes and the round-2 shapes deny; the class gap is red 1 above |
+| 🟢 | round 2's red 1 documented shapes are closed — the five heredoc shapes deny at HEAD | `hooks/cmdline.py#program_is_data`, `hooks/cmdline.py#_heredoc_split` | confirmed | Executed: the planted case passes and the round-2 shapes deny; the class gap is red 1 above (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
 | 🟢 | round 2's yellow 2 documented shapes are closed — a move in a separate earlier segment denies at HEAD | `hooks/cmdline.py#walk_directories` | confirmed | Executed: the planted case passes; the class gap is red 2 above |
 | 🟢 | round 2's 🟡 3 is closed for what it named — a deny beside a non-text `systemMessage` stays a deny, and a falsy `hookSpecificOutput` is absent again | `hooks/dispatch.py#readable` | confirmed | Executed: the planted case passes and `merge` on those shapes was checked directly; the reason field is ⬜ 3 |
 | 🟢 | The new units are correct as code — `SEPARATORS`, `RUN_STDIN` and the four cases | `hooks/cmdline.py`, `tests/test_gate_judges_the_repo_it_commits_to.py`, `tests/test_a_gate_that_fails_says_so.py` | confirmed | Read, and executed in the narrow run (141 passed) (NAME NOT IN TREE, reverted with #662 and #665) |
-| ❓ | Whether a sandboxed `Bash` can refuse a `cd` that `os.access` in the unsandboxed hook allows, and what `os.access` answers on Windows | `hooks/cmdline.py#_enters` | ❓ out of verified scope | Carried from round 2. Nothing here ran the harness's sandbox or Windows. The owner answers the sandbox half, CI's `windows-latest` leg the cases |
+| ❓ | Whether a sandboxed `Bash` can refuse a `cd` that `os.access` in the unsandboxed hook allows, and what `os.access` answers on Windows | `hooks/cmdline.py#_enters` | ❓ out of verified scope | Carried from round 2. Nothing here ran the harness's sandbox or Windows. The owner answers the sandbox half, CI's `windows-latest` leg the cases (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
 
 ## Paste-ready fixes
 
@@ -98,13 +98,13 @@ Round 3, verifying and the run's last: round 2 closed on its one reopening, so t
 | round-1 | `hooks/dispatch.py#record`, `hooks/dispatch.py#draw` | round 1's 🟢 — confirmed |
 | round-1 | `tests/test_a_gate_that_fails_says_so.py` | round 1's 🟢 — confirmed |
 | round-1 | `hooks/dispatch.py#report` | round 1's ❓ — out of verified scope |
-| round-2 | `hooks/cmdline.py#program_is_data`, `hooks/cmdline.py#_heredoc_split` | round 2's 🔴 1 — fixed |
-| round-2 | `hooks/cmdline.py#walk_directories`, `hooks/cmdline.py#_enters` | round 2's 🟡 2 — fixed |
+| round-2 | `hooks/cmdline.py#program_is_data`, `hooks/cmdline.py#_heredoc_split` | round 2's 🔴 1 — fixed (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
+| round-2 | `hooks/cmdline.py#walk_directories`, `hooks/cmdline.py#_enters` | round 2's 🟡 2 — fixed (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
 | round-2 | `hooks/dispatch.py#readable` | round 2's 🟡 3 — fixed |
 | round-2 | `hooks/dispatch.py#describe` | round 2's 🟢 — confirmed |
 | round-2 | `hooks/ledger-migrate.py`, `hooks/routing.py#rounds`, `hooks/root-migrate.py#git_mv` | round 2's 🟢 — confirmed |
 | round-2 | `hooks/cmdline.py#walk_directories` | round 2's 🟢 — confirmed |
-| round-2 | `hooks/cmdline.py#_enters` | round 2's ❓ — out of verified scope |
+| round-2 | `hooks/cmdline.py#_enters` | round 2's ❓ — out of verified scope (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
 
 ## Deferred
 

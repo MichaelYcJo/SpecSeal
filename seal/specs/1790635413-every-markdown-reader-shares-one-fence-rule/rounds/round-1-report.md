@@ -272,7 +272,7 @@ prose that quotes the opener above the table and the closer below it hides
 the table, so quote both on one line.
 ```
 
-In `hooks/config.py#commented`'s docstring, replace the sentence that begins "A comment that never closes hides nothing, so no file that reads today stops reading:" and ends "leaves every row where it was." with:
+In `hooks/config.py#commented`'s docstring, replace the sentence that begins "A comment that never closes hides nothing, so no file that reads today stops reading:" and ends "leaves every row where it was." with: (NAME NOT IN TREE: the unit was removed or reverted after this was written)
 
 ```text
     A comment that never closes hides nothing: an unclosed opener above the
@@ -282,7 +282,7 @@ In `hooks/config.py#commented`'s docstring, replace the sentence that begins "A 
     which `tests/test_unverified_rows_close.py`'s shape 8 pins.
 ```
 
-### 🟡 4 — `.github/scripts/rider_check.py#fenced_lines`
+### 🟡 4 — `.github/scripts/rider_check.py#fenced_lines` (NAME NOT IN TREE: the unit was removed or reverted after this was written)
 
 ```python
 def fenced_lines(lines):

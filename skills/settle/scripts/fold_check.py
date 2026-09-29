@@ -136,6 +136,27 @@ HEADING = re.compile(r"^ {0,3}#{1,6}(?:[ \t]|$)")
 BOLD_OPENING = re.compile(r"^\*{2,3}[^*\s]")
 ENFORCED = "Enforced by: "
 NOTHING = "nothing — "
+# Where GFM ends a line: LF, CR or CRLF, and nowhere else (#664).
+GFM_LINE_RE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+\Z")
+
+
+def gfm_lines(text):
+    """TEXT's lines as GFM reads them, ends dropped: `str.splitlines` also
+    ends a line at a form feed, NEL, U+2028 and five more characters, which
+    counted a document's lines past the ceiling it is under.
+
+    **The ceiling's count reads these, and the marker readers do not yet.**
+    `markers`, `marker_digest` and `numbered_statements` count what the fold
+    itself would read, and the fold reads through the shared reader, which
+    still splits with `splitlines`; moving them alone would make this script
+    and the fold disagree about a marker. They move with the shared reader.
+
+    A copy of `evidence_check.py#gfm_lines`, because the one reader every
+    script shares is where a single copy belongs and it was being rewritten
+    on another branch when this one was written (#664's phase record says
+    so). `tests/test_a_document_has_room_for_the_next_fold.py` holds the two
+    equal over every character `splitlines` ends a line at."""
+    return [line.rstrip("\r\n") for line in GFM_LINE_RE.findall(text)]
 
 
 def load(path, name, purpose):
@@ -400,7 +421,7 @@ def ceiling_problems(root, ceiling, over, digests=None):
             problems.append(f"{rel} is listed over the ceiling and does not exist")
     for rel in names:
         text = read(root, rel)
-        lines = len(text.splitlines())
+        lines = len(gfm_lines(text))
         if rel not in over:
             if lines > ceiling:
                 problems.append(
