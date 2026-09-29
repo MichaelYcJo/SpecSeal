@@ -44,6 +44,7 @@ READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py"
 CHECKER = os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py")
 ARM_CHECK = os.path.join(ROOT, "skills", "verify", "scripts", "arm_check.py")
 FOLD_CHECK = os.path.join(ROOT, "skills", "settle", "scripts", "fold_check.py")
+BLOCKS = os.path.join(ROOT, "hooks", "blocks.py")
 
 # Every character `str.splitlines` ends a line at and GFM does not.
 SPLITLINES_ONLY = [chr(c) for c in (0x0B, 0x0C, 0x1C, 0x1D, 0x1E, 0x85, 0x2028, 0x2029)]
@@ -92,17 +93,23 @@ def test_the_splitter_is_splitlines_on_a_text_without_the_eight():
 
 def test_every_copy_of_the_splitter_is_the_readers():
     """S17. The checker keeps its own copy because `evidence-ci` runs it alone
-    in a user's `tools/`, and `arm_check._lines` splits Python source where
-    `ast` does, ends kept. All three are one rule, held equal here."""
+    in a user's `tools/`, `hooks/blocks.py` keeps work item F's because a hook
+    does not load a skill module on every call, and `arm_check._lines` splits
+    Python source where `ast` does, ends kept. All four are one rule, held
+    equal here."""
     checker = _load("specseal_checker_for_gfm_lines", CHECKER)
     arm_check = _load("specseal_arm_check_for_gfm_lines", ARM_CHECK)
+    blocks = _load("specseal_blocks_for_gfm_lines", BLOCKS)
     for text in texts():
         want = reader.gfm_lines(text)
         assert checker.gfm_lines(text) == want, repr(text)
+        assert blocks.gfm_lines(text) == want, repr(text)
         kept = reader.gfm_lines(text, keepends=True)
         assert checker.gfm_lines(text, keepends=True) == kept, repr(text)
+        assert blocks.gfm_lines(text, keepends=True) == kept, repr(text)
         assert arm_check._lines(text) == kept, repr(text)
     assert reader.GFM_LINE_RE.pattern == checker.GFM_LINE_RE.pattern
+    assert reader.GFM_LINE_RE.pattern == blocks.GFM_LINE_RE.pattern
 
 
 def test_fold_check_keeps_no_copy_of_its_own():
@@ -707,3 +714,91 @@ def test_the_class_case_sees_a_planted_call(tmp_path):
         ("skills/new.py", "reader"): 1,
         ("hooks/dispatch.py", "first_line"): 2,
     }
+
+
+# --- phase 6: the rider check, after work item F landed ------------------------
+
+RIDERS = os.path.join(ROOT, ".github", "scripts", "rider_check.py")
+RIDER_MARK = "<!-- " + "RIDER:"
+STAMP = "Verified 2026-01-01 against r@abcdef12."
+
+
+@pytest.mark.parametrize("char", SPLITLINES_ONLY, **BY_CODE_POINT)
+def test_a_rider_marker_after_a_break_gfm_does_not_honour_is_no_rider(char):
+    """F's round 3, 🟡 3. `riders_in` reads `str.splitlines` lines, and a
+    marker after one of the eight starts a line there and inside a GFM line
+    everywhere else. `region_lines` cuts blocks out of GFM lines, so it never
+    cut that one: the rider's own stamp was hashed into its region, and the
+    rider could not read ok after `--reverify`. The reader steps over it."""
+    riders = _load("specseal_riders_mid", RIDERS)
+    text = f"# doc\n\nbody{char}{RIDER_MARK} mid\n{STAMP} -->\n"
+    assert riders.riders_in("doc.md", text) == []
+
+
+@pytest.mark.parametrize("char", SPLITLINES_ONLY, **BY_CODE_POINT)
+def test_a_python_rider_after_such_a_break_is_no_rider(char):
+    """The `#` form, the same class: in Python a form feed or U+2028 is not
+    a line end to `ast`, so the comment after it is mid-line there."""
+    riders = _load("specseal_riders_mid_py", RIDERS)
+    text = f"x = 1  {char}# {'RIDER:'} mid, {STAMP}\ny = 2\n"
+    assert riders.riders_in("mod.py", text) == []
+
+
+def test_a_rider_on_a_line_of_its_own_below_such_a_break_is_read():
+    """The other side of the same rule: a break above the rider, on an
+    earlier line, leaves the rider at the head of its own GFM line, and it is
+    read and cut as before."""
+    riders = _load("specseal_riders_whole", RIDERS)
+    text = f"# doc\n\nbody{LS}more\n\n{RIDER_MARK} whole\n{STAMP} -->\n"
+    found = riders.riders_in("doc.md", text)
+    assert [(r.start, r.end) for r in found] == [(6, 7)]
+    assert found[0].new is not None
+
+
+def test_the_anchor_a_rider_is_about_is_numbered_where_ast_numbers_it():
+    """`--migrate`'s `inferred_anchor` compared a rider's `str.splitlines`
+    numbers with `py_spans`, which are `ast`'s. Two form feeds inside a
+    string above the rider put it two lines late, onto the unit after the one
+    directly below it, and that unit was inferred."""
+    riders = _load("specseal_riders_anchor", RIDERS)
+    checker = riders.load_checker()
+    text = (
+        "def g():\n"
+        f"    s = 'a{FF}b{FF}c'\n"
+        "    return s\n"
+        f"# {'RIDER:'} about x. Verified 2026-01-01 at abcdef1\n"
+        "x = 1\n"
+        "y = 2\n"
+    )
+    rider = riders.riders_in("mod.py", text)[0]
+    assert riders.inferred_anchor(checker, "mod.py", text, rider) == "x"
+
+
+def test_a_riders_last_piece_mid_line_is_on_the_line_it_sits_in():
+    """A `#` rider's continuation can be a piece after a form feed inside the
+    rider's own last line. That piece is on the line it sits in, so the unit
+    directly below is the one inferred."""
+    riders = _load("specseal_riders_tail", RIDERS)
+    checker = riders.load_checker()
+    text = (
+        "def g():\n"
+        "    return 1\n"
+        f"# {'RIDER:'} about x. Verified 2026-01-01 at abcdef1{FF}# more\n"
+        "x = 1\n"
+    )
+    rider = riders.riders_in("mod.py", text)[0]
+    assert (rider.start, rider.end) == (3, 4)
+    assert riders.inferred_anchor(checker, "mod.py", text, rider) == "x"
+
+
+def test_the_gap_below_a_rider_is_read_on_asts_lines():
+    """The lines between a rider and the unit below it are read from the
+    list the numbers index, so a blank line there is a blank line and the
+    unit below is still inferred."""
+    riders = _load("specseal_riders_gap", RIDERS)
+    checker = riders.load_checker()
+    text = (
+        f"s = 'a{FF}b'\n# {'RIDER:'} about x. Verified 2026-01-01 at abcdef1\n\nx = 1\n"
+    )
+    rider = riders.riders_in("mod.py", text)[0]
+    assert riders.inferred_anchor(checker, "mod.py", text, rider) == "x"

@@ -232,6 +232,29 @@ def quoted_lines(lines, text=None):
     }
 
 
+def gfm_places(gfm_lines, text):
+    """For each `str.splitlines` line of TEXT, in order: (the 1-based GFM
+    line it starts in, whether it starts that line). GFM_LINES is a
+    `gfm_lines` function -- `hooks/blocks.py`'s or the checker's, which
+    `tests/test_every_reader_ends_a_line_where_gfm_does.py` holds equal.
+
+    The reader numbers `str.splitlines` lines and the hasher and `ast` number
+    GFM lines, which end at LF, CR and CRLF alone. Below a U+2028, a form
+    feed or one of the six other characters only `str.splitlines` breaks at,
+    the two numberings part, and this is where one is read in the other's
+    terms (#664)."""
+    heads, at = {}, 0
+    for number, line in enumerate(gfm_lines(text, keepends=True), 1):
+        heads[at] = number
+        at += len(line)
+    out, at, current = [], 0, 0
+    for piece in text.splitlines(keepends=True):
+        current = heads.get(at, current)
+        out.append((current, at in heads))
+        at += len(piece)
+    return out
+
+
 def comment_blocks(lines, rel=None, text=None):
     """[(start, end)] 1-based inclusive for every rider block in `lines`.
 
@@ -275,7 +298,16 @@ def comment_blocks(lines, rel=None, text=None):
     LINES are `str.splitlines` of it, is what `quoted_lines` walks, and
     `riders_in` passes it; `region_lines` hands over GFM lines already and
     passes none.
+
+    **A marker line that starts inside a GFM line opens no rider**, in any
+    file type (#664, F's round 3, 🟡 3). It follows a break `str.splitlines`
+    makes and GFM and `ast` do not, so `region_lines`, which cuts blocks out
+    of GFM lines, never cut it: the rider's own stamp was hashed into the
+    region it names, and no `--reverify` could make it read ok. Such a line
+    is stepped over the way a quoted one is. Only TEXT can say which lines
+    those are, so `region_lines`, which passes none, has none to step over.
     """
+    global _blocks
     out = []
     i, n = 0, len(lines)
     quoted = (
@@ -283,6 +315,11 @@ def comment_blocks(lines, rel=None, text=None):
         if (rel or "").endswith(".md") and any(MARKER in line for line in lines)
         else set()
     )
+    if text is not None and any(MARKER in line for line in lines):
+        if _blocks is None:
+            _blocks = load_blocks()
+        places = gfm_places(_blocks.gfm_lines, text)
+        quoted = quoted | {k for k, (_n, head) in enumerate(places) if not head}
     # `#` opens a comment in Python, YAML, shell and TOML. In markdown it opens
     # a HEADING, so a heading naming the marker became a rider with no stamp --
     # BROKEN at exit 2 for a line nobody wrote as a rider. Markdown's rider
@@ -620,29 +657,37 @@ def inferred_anchor(checker, rel, text, rider):
     whole definition goes. Anything else is returned as None and written by
     hand: choosing what a rider is ABOUT is a judgment, and a migration that
     guessed it would put a hash behind a claim nobody made.
+
+    **On `ast`'s line numbers throughout** (#664). The rider's own numbers
+    are `str.splitlines`', and `py_spans` numbers the lines `ast` does, so
+    below a form feed inside a string the two parted and the rider was
+    judged a line or more late. `gfm_places` puts the rider on `ast`'s
+    lines, and the gap below it is read from the list those number.
     """
     if not rel.endswith(".py"):
         return None
     spans = checker.py_spans(text)
     if not spans:
         return None
+    places = gfm_places(checker.gfm_lines, text)
+    first_line, last_line = places[rider.start - 1][0], places[rider.end - 1][0]
     holding = []
-    for name, places in spans.items():
-        for start, end in places:
-            if start <= rider.start and rider.end <= end:
+    for name, spots in spans.items():
+        for start, end in spots:
+            if start <= first_line and last_line <= end:
                 holding.append((end - start, name))
     if holding:
         return sorted(holding)[0][1]
     below = []
-    for name, places in spans.items():
-        for start, _end in places:
-            if start > rider.end:
+    for name, spots in spans.items():
+        for start, _end in spots:
+            if start > last_line:
                 below.append((start, name))
     if not below:
         return None
     first = sorted(below)[0]
-    lines = text.splitlines()
-    between = lines[rider.end : first[0] - 1]
+    lines = checker.gfm_lines(text)
+    between = lines[last_line : first[0] - 1]
     return first[1] if not any(line.strip() for line in between) else None
 
 
