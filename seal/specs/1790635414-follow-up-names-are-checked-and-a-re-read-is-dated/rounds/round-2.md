@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #668 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `ec002d243c8a4231ebfa6960576ed88041c2d0fd..0b3d107197da915d7d0b841cbfa4d552f348640c`, 2 commits |
+| Contract changes | none |
+| New units | GITHUB_HEADING_RE (depth 1); heading_slugs (depth 1); test_a_heading_anchor_github_strips_punctuation_from_is_not_refused (depth 1) |
 | Needs a fix | yes — 🟡 7 (a heading anchor GitHub builds by dropping punctuation is refused as a name after a `.md` path) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 2, verifying, over round 1's fix diff `0cfbcb55..42cd6435` at HEAD `4dce9e
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 7 | A heading anchor GitHub builds by dropping punctuation (`## Don't`, a code-span file name, `## v1.2`) is refused as a name after a resolving `.md` path | `skills/evidence-check/scripts/evidence_check.py:2952` | open | executed: fixture exit 2 with three `NOT-IN-TREE`; the proposed fix's case red without it and green with it. Zero instances among 526 single-word heading anchors in this tree |
-| ⬜ 8 | `reverify`'s docstring and the SKILL.md clause after the new sentence still say a row whose hash did not move is never touched, and a moved-whole row is re-pointed | `skills/evidence-check/SKILL.md:309`, `skills/evidence-check/scripts/evidence_check.py:2216` | open | read. The behaviour is right and the adjacent SKILL.md clause states it. Not counted in `Needs a fix` |
+| 🟡 7 | A heading anchor GitHub builds by dropping punctuation (`## Don't`, a code-span file name, `## v1.2`) is refused as a name after a resolving `.md` path | `skills/evidence-check/scripts/evidence_check.py:2952` | **fixed** `981a78b8` | fixed at 981a78b8 — `heading_slugs` adds each ATX heading's GitHub anchor, taken with closed fences blanked, to a `.md` path's tokens; an invented anchor is still refused; executed: fixture exit 2 with three `NOT-IN-TREE`; the proposed fix's case red without it and green with it. Zero instances among 526 single-word heading anchors in this tree |
+| ⬜ 8 | `reverify`'s docstring and the SKILL.md clause after the new sentence still say a row whose hash did not move is never touched, and a moved-whole row is re-pointed | `skills/evidence-check/SKILL.md:309`, `skills/evidence-check/scripts/evidence_check.py:2216` | answered | corrected at `981a78b8`: `SKILL.md`'s re-verifying section and `reverify`'s docstring say a moved-whole row is re-pointed and an unmoved one is neither dated nor named; read. The behaviour is right and the adjacent SKILL.md clause states it. Not counted in `Needs a fix` |
 | 🟢 | round 1's finding 1 is closed — a move-only heal is re-pointed, neither dated nor named | `skills/evidence-check/scripts/evidence_check.py:2335`, `:2394` | confirmed | executed: both parametrizations of the moved-whole case pass, and both are red with the comparison replaced by `True`. read: mixed rows are dated once, and an undatable mixed row is left whole |
 | 🟢 | round 1's finding 2 is closed — a name is left unread exactly where `check_text` answers `EXTERNAL` | `skills/evidence-check/scripts/evidence_check.py:2960` | confirmed | read: the clauses match `check_text`'s, and `repo == root` excludes the escaped path. executed: the new case passes, and it is red with the branch removed |
 | 🟢 | round 1's finding 3 is closed for the shapes it named — a single-word heading anchor and a `#L<n>` line anchor | `skills/evidence-check/scripts/evidence_check.py:2952`, `:2956` | confirmed | executed: the new case passes, and it is red under each branch removed alone. The rest of the class is finding 7 |
