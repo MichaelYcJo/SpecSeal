@@ -294,14 +294,23 @@ def gfm_lines(text, keepends=False):
     otherwise: no trailing empty line, and each line's end kept only when
     KEEPENDS asks.
 
-    For every walk of markdown lines that reads a table or a fence. The
-    lines a hash covers and an anchor spans are still `splitlines`' in this
-    branch, and that is a known defect, not a different answer: `ast` and
-    GFM number lines at LF, CR and CRLF alone, so after a form feed, NEL or
-    U+2028 the region hashed is not the unit the row names, and an edit to
-    the unit there passes without a DRIFTED. #664 fixes it; switching moves
-    the recorded hash of every region that holds or follows one of those
-    characters, so it is a change of its own."""
+    **Every walk of lines in this file reads these**: the table and fence
+    walks, and since #664 the lines a hash covers and an anchor spans. `ast`
+    numbers a `.py` file's lines at LF, CR and CRLF alone, and so does GFM,
+    while `str.splitlines` also ends a line at a form feed, NEL, U+2028 and
+    five more characters. Where one stood mid-line, each kind of anchor went
+    wrong its own way, and each let an edit to the unit pass without a
+    DRIFTED: a `.py` unit below it was sliced one line off the lines `ast`
+    names; in a markdown section it could begin a line reading as a heading,
+    which ended the section there; in a generic unit it could begin a line
+    at column 0, which ended the block.
+
+    What the switch moved: the hash of a region holding one of those
+    characters mid-line, and of a `.py` unit below one. A region holding one
+    only at a line end or on a blank line keeps its hash, because all eight
+    are whitespace to `str.isspace` and `normalise` drops them. No tracked
+    file in this repository held any of the eight when the switch was made,
+    so no row's hash here moved."""
     lines = GFM_LINE_RE.findall(text)
     return lines if keepends else [line.rstrip("\r\n") for line in lines]
 
@@ -542,7 +551,7 @@ def resolve_unit(path, locator, text):
     being rewritten. The hash still reports the prose changing, so the row
     still says re-read this; it just stops saying go fix the ledger.
     """
-    lines = text.splitlines()
+    lines = gfm_lines(text)
     markdown = path.endswith(".md")
     if locator.startswith('"'):
         body = unescape(locator[1:-1])
@@ -770,7 +779,7 @@ def minor_region(path, text, region, minor):
 
     Ambiguity widens for the same reason: several matches is not a place.
     """
-    lines = text.splitlines()
+    lines = gfm_lines(text)
     if minor.startswith('"'):
         found = literal_statements(lines, region, unescape(minor[1:-1]))
     elif path.endswith(".py"):
@@ -794,7 +803,7 @@ def recorded_here(rel, body, place, want, claim):
         if not inside:
             return False
         place = inside[0]
-    return content_hash(body.splitlines()[place[0] - 1 : place[1]]) == want
+    return content_hash(gfm_lines(body)[place[0] - 1 : place[1]]) == want
 
 
 def left_because(places, resurrected):
@@ -824,7 +833,7 @@ def file_units(rel, body):
     destination scan below deliberately keeps them, because there the evidence
     is reconstruction against the row's recorded hash.
     """
-    lines = body.splitlines()
+    lines = gfm_lines(body)
     units = []
     if rel.endswith(".py"):
         for name, places in (py_spans(body) or {}).items():
@@ -936,7 +945,7 @@ def content_matches(repo, rel, locator, want, cache):
         body = read(os.path.join(repo, path))
         if body is None:
             continue
-        lines = body.splitlines()
+        lines = gfm_lines(body)
         for name, (a, b), _unsure in file_units(path, body):
             region = lines[a - 1 : b]
             if markdown:
@@ -1530,7 +1539,7 @@ def check_text(text, root, maps, default_repo=None, seen=None, scan_cache=None):
                 # to is what makes Known limits' *record it by hand* an act
                 # somebody can actually carry out (round 7, 🔴 M).
                 at = "; ".join(
-                    f"{a}-{b}@{content_hash(body.splitlines()[a - 1 : b])}"
+                    f"{a}-{b}@{content_hash(gfm_lines(body)[a - 1 : b])}"
                     for a, b in unsure
                 )
                 detail = (
@@ -1577,7 +1586,7 @@ def check_text(text, root, maps, default_repo=None, seen=None, scan_cache=None):
             unit = inside[0]
 
         start, end = unit
-        got = content_hash(body.splitlines()[start - 1 : end])
+        got = content_hash(gfm_lines(body)[start - 1 : end])
         if got != want:
             findings.append(
                 ("DRIFTED", coord, f"content changed at {start}-{end} — re-verify")
@@ -2007,7 +2016,7 @@ def migrate(ledgers, root, maps=None, default_repo=None):
                     left.append((m.group(0), "file not found"))
                     failed = True
                     continue
-                lines = body.splitlines()
+                lines = gfm_lines(body)
                 if e > len(lines):
                     left.append((m.group(0), f"line past EOF ({len(lines)} lines)"))
                     failed = True
@@ -2016,7 +2025,7 @@ def migrate(ledgers, root, maps=None, default_repo=None):
                 if repo == root and row_sha:
                     old_body = content_at(root, row_sha, rel)
                     if old_body is not None:
-                        old_lines = old_body.splitlines()
+                        old_lines = gfm_lines(old_body)
                         if e > len(old_lines) or normalise(
                             old_lines[s - 1 : e]
                         ) != normalise(lines[s - 1 : e]):
@@ -2317,7 +2326,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                             + text[m.end("path") : m.start("locator")]
                             + name
                             + text[m.end("locator") : m.start("hash")]
-                            + content_hash(target.splitlines()[a - 1 : b]),
+                            + content_hash(gfm_lines(target)[a - 1 : b]),
                             f"  {raw_path}#{locator} -> {shown}  (identical content)",
                         )
                     )
@@ -2349,7 +2358,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                     continue
                 places = inside
             start, end = places[0]
-            got = content_hash(body.splitlines()[start - 1 : end])
+            got = content_hash(gfm_lines(body)[start - 1 : end])
             if got == m.group("hash"):
                 continue
             shown = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")

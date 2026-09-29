@@ -250,6 +250,62 @@ def test_the_hash_does_not_ignore_indentation(repo):
     assert ec.content_hash(inside) != ec.content_hash(outside)
 
 
+# --- a line ends where `ast` and GFM end one (#664) ---------------------------
+#
+# `str.splitlines` also ends a line at a form feed, NEL, U+2028 and five more
+# characters. The hash side sliced its region out of those lines, so after
+# such a character mid-line the region was not the unit the row names, and an
+# edit to the unit passed as unchanged. Built from code points, because an
+# escape typed into an editing tool can come back as the character itself.
+FORM_FEED = chr(0x0C)
+LINE_SEPARATOR = chr(0x2028)
+
+
+def reverified_then_edited(repo, rel, anchor, before, after):
+    """A row recorded by `--reverify` over BEFORE, then the file rewritten as
+    AFTER: what the check says about it."""
+    (repo / rel).parent.mkdir(parents=True, exist_ok=True)
+    (repo / rel).write_text(before, encoding="utf-8")
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        f"| C1 | `{rel}#{anchor}@00000000` | read | 2026-09-01 | n |\n",
+        encoding="utf-8",
+    )
+    assert run(["--reverify", "."], str(repo)).returncode == 0
+    (repo / rel).write_text(after, encoding="utf-8")
+    return run(["."], str(repo))
+
+
+def test_an_edit_below_a_form_feed_in_python_drifts(repo):
+    """#664's executed instance: `ast` puts `unit` at lines 3-5, and the
+    form feed in the comment above it made the hashed region lines 2-4."""
+    before = f"import os\nx = 1  # a{FORM_FEED}b\n\n\ndef unit(x):\n    y = x + 1\n    return y\n"
+    r = reverified_then_edited(
+        repo, "src/ff.py", "unit", before, before.replace("return y", "return y + 1")
+    )
+    assert r.returncode == 1 and "DRIFTED  src/ff.py#unit" in r.stdout, r.stdout
+
+
+def test_an_edit_below_a_separator_that_looks_like_a_heading_drifts(repo):
+    """A markdown anchor is numbered and sliced on one list of lines, so it
+    is not shifted; but where the character stands before `## ` it made a
+    heading GFM never sees, and the section ended there."""
+    before = f"# Doc\n\n## Real\n\npara one{LINE_SEPARATOR}## Fake\npara two\n"
+    r = reverified_then_edited(
+        repo, "docs/a.md", '"## Real"', before, before.replace("two", "three")
+    )
+    assert r.returncode == 1 and 'DRIFTED  docs/a.md#"## Real"' in r.stdout, r.stdout
+
+
+def test_an_edit_below_a_form_feed_in_a_generic_unit_drifts(repo):
+    """The declaration rule ends a block at the first line indented no deeper
+    than the name, and the text after a form feed began a line at column 0."""
+    before = f"function unit(x) {{\n  let y = x; // a{FORM_FEED}b\n  return y;\n}}\n"
+    r = reverified_then_edited(
+        repo, "src/a.js", "unit", before, before.replace("return y;", "return y + 1;")
+    )
+    assert r.returncode == 1 and "DRIFTED  src/a.js#unit" in r.stdout, r.stdout
+
+
 # --- the region is right ----------------------------------------------------
 
 
