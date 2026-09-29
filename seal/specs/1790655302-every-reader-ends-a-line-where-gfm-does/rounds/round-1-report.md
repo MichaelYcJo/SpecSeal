@@ -119,7 +119,7 @@ named home.
 
 `tests/test_every_reader_ends_a_line_where_gfm_does.py:633–641` and `:681`.
 
-`F_FILES` exempts `hooks/config.py`, `hooks/routing.py`, `hooks/blocks.py`
+`F_FILES` (NAME NOT IN TREE after round 1's fixes) exempts `hooks/config.py`, `hooks/routing.py`, `hooks/blocks.py`
 and `.github/scripts/rider_check.py` by path. The reason in the comment,
 "a count pinned here would redden on F's merge", stopped being true when F
 merged at `3fc0c5bd`. The exemption now covers a file this item edited:
@@ -161,7 +161,7 @@ fix.
 | One mutant per moved call site, killed | True, but for seven sites the only killer is the S19 count case: `open_hider`, `hiders_close`, `inherited_rows`, `reach_forward`, `reach_back`, `close` and `seal` in `round_record.py`. With that case deselected, each revert to `splitlines` survived 265 cases (executed). I do not raise this as a finding: a `split("\n")` partner is equivalent on text read through `open()`, and the count case does catch the realistic regression |
 | `claude_block` and the transcript tails stay on LF alone | Confirmed by reading and by the S15 and S16 cases. `worktree-guard`'s tails decode bytes, so a CRLF record keeps a CR that `json.loads` accepts as whitespace |
 | The release scripts' counts and refusals do not change on a real release | The gatherer's dry run for 0.16.0, `fold-check` and `survivor-check` matched base on this tree (executed). The `insert` index fix is pinned by S5 and by the lone-CR case, and its mutant was killed (executed) |
-| The class case names every remaining `splitlines(` call | Outside the four `F_FILES`, yes (57 passed, executed). Inside them, no (finding 4) |
+| The class case names every remaining `splitlines(` call | Outside the four `F_FILES` (NAME NOT IN TREE after round 1's fixes), yes (57 passed, executed). Inside them, no (finding 4) |
 
 ## Regression tests to plant
 
@@ -324,7 +324,7 @@ finding 4's row for it reads `(1, F)`.
 ### 🟡 4 — name F's units instead of exempting F's files
 
 In `tests/test_every_reader_ends_a_line_where_gfm_does.py`, replace the
-`F_FILES` block:
+`F_FILES` block (NAME NOT IN TREE after round 1's fixes):
 
 ```python
 # Work item F's units, named one by one now that F has landed: exempting its
