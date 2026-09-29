@@ -27,6 +27,11 @@
   block that closes now opens no rider; a fence line inside a rider's own
   comment opens nothing, and a fence nobody closed hides no rider below it.
   Every file the check reads here gives the same riders as before.
+- All three readers above decide what is fenced or commented out by the
+  file's own lines, which end at LF, CR or CRLF alone, as a renderer's do
+  (#667). A line break only Python's `str.splitlines` makes — U+2028, a form
+  feed, NEL and five more — puts no `<!--` or fence run at the start of a
+  line, so it hides no routing table, `Mode` row or rider a renderer shows.
 
 ### Changed
 
@@ -35,4 +40,7 @@
   parser the hook readers are now checked against, so the check shares no code
   with what it checks. `bin/test` builds it into `.venv` and adds it to one it
   adopts, and CI installs the same pin. The gates stay stdlib-only, and a
-  repository that installs the plugin installs nothing new.
+  repository that installs the plugin installs nothing new. Where it cannot
+  be installed, `bin/test` says what pytest then does: a parallel run runs
+  every other case beside one collection error, and a serial run stops at
+  collection.
