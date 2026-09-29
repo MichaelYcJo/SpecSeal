@@ -148,7 +148,7 @@ missing is the guard for the next edit.
 
 ### ⬜ 2 — S6 counts a job that hands pytest `tests/` while ignoring this module
 
-The finding is at `tests/test_arm_check.py:233`. `_RUNS_THIS_MODULE` accepts
+The finding is at `tests/test_arm_check.py:233`. `_RUNS_THIS_MODULE` (NAME NOT IN TREE: the fix pass replaced it) accepts
 any `pytest … tests/` line.
 
 Executed: I rewrote the new job's run line to hand pytest `tests/` with an
