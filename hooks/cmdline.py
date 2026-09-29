@@ -2100,10 +2100,12 @@ def understood(tokens, redirections=True):
     A redirection among the words in front of the command (#674, W1) is read
     past and the rest asked again, and only a False is taken from that second
     asking (`_unreadable_past_leading_redirections`). `2>/dev/null cd W` moves
-    the shell, and `_cd_target` does not see a `cd` there, so it reads as
-    unreadable -- the answer a `cd` behind a prefix already gets below. The
+    the shell, and `_cd_target` does not see a `cd` there, so this function
+    answers False for it, as it does for a `cd` behind a prefix below. The
     same holds for a relocator, a reserved word or an expanding word reached
-    that way. Everything after that first line is this function as it stood
+    that way. The walk does not take that False in place of the directory it
+    read: it adds an unresolved one beside it (below, and `walk_directories`).
+    Everything after that first line is this function as it stood
     at `86256492`, and REDIRECTIONS=False asks that alone: `walk_directories`
     adds the refusal beside the answer it gives, and never lets the refusal
     replace it (round 1 of 1790660768, red 1).
