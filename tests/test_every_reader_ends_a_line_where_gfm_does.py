@@ -1033,8 +1033,8 @@ def test_every_rider_read_lies_inside_a_block_the_hasher_cuts(shape, char):
     Held as the property, over every shape the class has: every piece of
     every rider read lies inside one block `comment_blocks` returns over GFM
     lines, which is what `region_lines` cuts, and every marker piece starting
-    inside such a block starts exactly one rider, so two on one GFM line stay
-    two. The differential adds that a break with whitespace on either side of
+    inside such a block starts exactly one rider and lies in no other, so two
+    on one GFM line stay two. The differential adds that a break with whitespace on either side of
     it, before a rider at the head of its GFM line, leaves that rider read on
     that line. The characters are built from their code points."""
     riders = _load("specseal_riders_extent", RIDERS)
@@ -1052,12 +1052,18 @@ def test_every_rider_read_lies_inside_a_block_the_hasher_cuts(shape, char):
                 lines,
                 cut,
             )
+        pieces = text.splitlines()
         marked = [
             k + 1
-            for k, piece in enumerate(text.splitlines())
+            for k, piece in enumerate(pieces)
             if riders.MARKER in piece and any(a <= on[k] <= b for a, b in cut)
         ]
         assert [rider.start for rider in read] == marked, (rel, text, marked)
+        # And a rider stops at the next one's marker piece, or a stampless
+        # rider would read the stamp of the one after it.
+        for rider in read:
+            tail = pieces[rider.start : rider.end]
+            assert not any(riders.MARKER in piece for piece in tail), (rel, text)
         if shape == "differential":
             assert [on[rider.start - 1] for rider in read] == [2], (rel, text)
 
