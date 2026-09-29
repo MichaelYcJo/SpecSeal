@@ -468,12 +468,13 @@ START, END = "<!-- specseal:start -->", "<!-- specseal:end -->"
 def test_the_claude_md_block_is_cut_where_awk_cuts_it(tmp_path):
     """S15. `install.sh`'s `awk` ends a record at LF alone. A template line
     holding a U+2028 mid-line is one line to it, so `--write` copies that line
-    whole and `--check` then agrees."""
+    whole and `--check` then agrees. The target's last line has no line
+    end, and it is still a line: `awk` prints it, and `--write` keeps it."""
     template = tmp_path / "block.md"
     target = tmp_path / "CLAUDE.md"
     template.write_text(f"{START}\n## Rules\nalpha{LS}beta\n{END}\n", encoding="utf-8")
     target.write_text(
-        f"# repo\n\n{START}\n## Rules\nold\n{END}\n\ntail\n", encoding="utf-8"
+        f"# repo\n\n{START}\n## Rules\nold\n{END}\n\ntail", encoding="utf-8"
     )
     paths = ["--template", str(template), "--target", str(target)]
 
@@ -488,6 +489,6 @@ def test_the_claude_md_block_is_cut_where_awk_cuts_it(tmp_path):
     wrote = run("--write")
     assert wrote.returncode == 0, wrote.stdout + wrote.stderr
     written = target.read_text(encoding="utf-8")
-    assert written == f"# repo\n\n{START}\n## Rules\nalpha{LS}beta\n{END}\n\ntail\n"
+    assert written == f"# repo\n\n{START}\n## Rules\nalpha{LS}beta\n{END}\n\ntail"
     checked = run("--check")
     assert checked.returncode == 0, checked.stdout + checked.stderr
