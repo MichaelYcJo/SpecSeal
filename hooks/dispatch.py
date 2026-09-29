@@ -36,6 +36,7 @@ import json
 import os
 import subprocess
 import sys
+import time
 from contextlib import redirect_stderr, redirect_stdout
 
 HOOKS = os.path.dirname(os.path.abspath(__file__))
@@ -343,7 +344,12 @@ def record(group, failures, body):
     # such call (measured in round 1: its probe P7).
     if not fresh or not opted_in(top, common):
         return
-    for name, phase, exc in fresh:
+    # `at` is when and in what order this call's failures happened: the clock
+    # once, and each gate's place among them. `draw` orders by it, because a
+    # file's time can be equal for records written in one call (Windows CI
+    # gave two records one time), which would say them in name order.
+    now = time.time_ns()
+    for place, (name, phase, exc) in enumerate(fresh):
         try:
             os.makedirs(directory, exist_ok=True)
             with open(
@@ -355,6 +361,7 @@ def record(group, failures, body):
                         "phase": phase,
                         "error": type(exc).__name__,
                         "message": first_line(exc),
+                        "at": [now, place],
                     },
                     handle,
                 )
@@ -436,17 +443,28 @@ def draw(body):
         return ""
     if not names or not opted_in(top, common):
         return ""
+    # Oldest first by the `at` pair a record carries, and by the file's time,
+    # at place 0, for a record from a plugin that wrote none. Name order
+    # breaks what is still equal.
     waiting = []
     for name in names:
         path = os.path.join(directory, name)
+        body = read_record(path)
+        at = body.get("at")
         try:
-            waiting.append((os.stat(path).st_mtime_ns, name, path))
+            if not (
+                isinstance(at, list)
+                and len(at) == 2
+                and all(type(v) is int for v in at)
+            ):
+                at = [os.stat(path).st_mtime_ns, 0]
         except OSError:
             continue
+        waiting.append((at, name, path, body))
     lines = []
-    for _, name, path in sorted(waiting):
+    for _, name, path, body in sorted(waiting):
         gate = name[: -len(PENDING)]
-        line = describe(gate, read_record(path))
+        line = describe(gate, body)
         try:
             os.replace(path, os.path.join(directory, gate + REPORTED))
         except OSError:

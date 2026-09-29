@@ -278,12 +278,16 @@ def test_a_system_exit_at_load_does_not_take_the_group_down(
     assert decision_of(out.getvalue()) == "deny", out.getvalue()
     record = repo / ".git" / RECORDS / "s-x" / "exits-at-load.py.pending"
     body = json.loads(record.read_text(encoding="utf-8"))
+    at = body.pop("at")
     assert body == {
         "group": "g",
         "phase": "load",
         "error": "SystemExit",
         "message": "0",
     }
+    # When and in what order this call's failures happened: the writer's
+    # clock in nanoseconds, and this gate's place among them.
+    assert type(at[0]) is int and at[0] > 0 and at[1] == 0, at
 
 
 # --- S6, S6b: a shared module breaks several gates -------------------------
@@ -309,12 +313,17 @@ def test_a_broken_shared_module_names_every_gate_that_imports_it(repo, tmp_path)
         "post-bash",
         bash(repo, "s-x", command="ls", hook_event_name="PostToolUse"),
     )
+    # Every record gets one file time, as a file system with coarse times
+    # gives records written in one call (Windows CI did): the order said is
+    # the order the gates failed, which each record carries itself.
+    for path in (repo / ".git" / RECORDS / "s-x").iterdir():
+        os.utime(path, ns=(10**18, 10**18))
     lines = said(stop(hooks, repo, "s-x"))
     assert lines[0] == "SpecSeal: 4 gates failed and were skipped", lines
-    assert sorted(gates_said(lines)) == [
+    assert gates_said(lines) == [
         "commit-review-gate.py",
-        "implementer-notice.py",
         "worktree-guard.py",
+        "implementer-notice.py",
         "worktree_consent.py",
     ], lines
     assert lines[-1] == CLOSING
@@ -397,17 +406,35 @@ def test_a_broken_opt_in_module_is_said_rather_than_read_as_not_opted_in(
 
 
 def test_records_are_said_oldest_first(repo, tmp_path):
-    """One line per record, in the order the gates failed — read from each
-    record's time, so a name that sorts first is not said first."""
+    """One line per record, in the order the gates failed, so a name that
+    sorts first is not said first. The order is the `at` pair each record
+    carries — the writer's clock and its place in that call's failures — and
+    not the file's time, which Windows CI gave two records alike (NTFS keeps
+    100 ns, and a file time can be set at a coarser tick). A record with no
+    `at`, from another plugin version, falls back to its file time, set here
+    whole seconds apart so every file system keeps them distinct."""
     opted_in(repo)
     directory = repo / ".git" / RECORDS / "s-x"
     directory.mkdir(parents=True)
-    for n, gate in enumerate(("worktree-guard.py", "commit-review-gate.py")):
+    carried = (
+        ("worktree-guard.py", [10**18, 0]),
+        ("commit-review-gate.py", [10**18, 1]),
+        ("mode-gate.py", [10**18 + 5, 0]),
+    )
+    for gate, at in carried:
         path = directory / (gate + ".pending")
-        path.write_text(json.dumps({"group": "pre-bash"}), encoding="utf-8")
-        os.utime(path, ns=(10**18 + n, 10**18 + n))
+        path.write_text(json.dumps({"group": "pre-bash", "at": at}), encoding="utf-8")
+        os.utime(path, ns=(10**18, 10**18))
+    old = directory / "session-lease.py.pending"
+    old.write_text(json.dumps({"group": "post-bash"}), encoding="utf-8")
+    os.utime(old, ns=(10**18 + 2 * 10**9, 10**18 + 2 * 10**9))
     lines = said(stop(hooks_copy(tmp_path, {}), repo, "s-x"))
-    assert gates_said(lines) == ["worktree-guard.py", "commit-review-gate.py"]
+    assert gates_said(lines) == [
+        "worktree-guard.py",
+        "commit-review-gate.py",
+        "mode-gate.py",
+        "session-lease.py",
+    ], lines
 
 
 def test_a_record_that_cannot_be_read_still_names_its_gate(repo, tmp_path):
@@ -425,10 +452,13 @@ def test_a_record_that_cannot_be_read_still_names_its_gate(repo, tmp_path):
             {"group": "pre-bash\nstop", "error": "E", "message": "a\n  b"}
         ),
     }
+    # None of these carries an `at`, so their file times order them: whole
+    # seconds apart, which every file system keeps distinct. 1 ns apart was
+    # below NTFS's 100 ns, and Windows CI said them in name order.
     for n, (gate, body) in enumerate(planted.items()):
         path = directory / (gate + ".pending")
         path.write_text(body, encoding="utf-8")
-        os.utime(path, ns=(10**18 + n, 10**18 + n))
+        os.utime(path, ns=(10**18 + n * 10**9, 10**18 + n * 10**9))
     lines = said(stop(hooks_copy(tmp_path, {}), repo, "s-x"))
     assert lines[1:-1] == [
         "lint-python.py failed; calls went ahead without it.",
