@@ -739,9 +739,9 @@ def printing(text):
 
 def test_json_a_gate_prints_that_is_not_a_hooks_output_ends_nothing(repo, tmp_path):
     """#661. A gate printing JSON the merge cannot read — not an object, or
-    an object whose decision, reason or message is not text — used to end
-    its whole group with exit 1, taking a neighbour's `deny` or `systemMessage`
-    with it. `null` and `0` survive beside a deny and end a group beside a
+    an object whose decision or reason is not text, or with no decision a
+    message that is not text — used to end its whole group with exit 1,
+    taking a neighbour's `deny` or `systemMessage` with it. `null` and `0` survive beside a deny and end a group beside a
     message, so each shape is planted beside both. The output is dropped, the
     group decides as it would without it, and the gate is said at turn end."""
     opted_in(repo)
