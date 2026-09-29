@@ -72,9 +72,16 @@ import tempfile
 # a markdown table line does not split the table it lives in, and `\"` is an
 # escaped double quote, because a bare one ends the quoted line and the whole
 # coordinate stops matching.
+#
+# The path and the unquoted locator are named on their own, because the
+# records arm reads a name written the way a coordinate is written with the
+# same two pieces (`RECORD_COORD_RE`, #508): one grammar, so *a coordinate*
+# means one thing in both arms.
+ANCHOR_PATH = r"[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?"
+ANCHOR_NAME = r"[A-Za-z_][A-Za-z0-9_.]*"
 ANCHOR_RE = re.compile(
-    r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
-    r"#(?P<locator>\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)"
+    r"(?P<path>" + ANCHOR_PATH + r")"
+    r"#(?P<locator>\"(?:[^\"\n]|\\\")+\"|" + ANCHOR_NAME + r")"
     r"(?:>(?P<claim>\"(?:[^\"\n]|\\\")+\"))?"
     r"@(?P<hash>[0-9a-f]{6,12})"
 )
@@ -2454,6 +2461,16 @@ COMMENT_OPENER, COMMENT_CLOSER = "<!--", "-->"
 # for the fix surface; the two are separate because that one measures a diff
 # and this one reads prose, and folding them would give one pattern two jobs.
 RECORD_NAME_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
+# A backticked name written the way a coordinate is written, with no hash:
+# `path#name`, `path#name()` or `path#Class.method` (#508). `RECORD_NAME_RE`
+# needs the whole span to be an identifier, so this form was skipped inside
+# the very records that were read. The path and the name are `ANCHOR_RE`'s own
+# pieces. A span carrying `@hash` does not match, because it is a stamp and
+# the stamp half reads it; a quoted locator does not either, because a line of
+# text is not a name.
+RECORD_COORD_RE = re.compile(
+    r"`(?P<path>" + ANCHOR_PATH + r")#(?P<name>" + ANCHOR_NAME + r")(?:\(\))?`"
+)
 TOKEN_RE = re.compile(r"[A-Za-z_]\w*")
 # A file bigger than this is not read into the name corpus. A minified bundle
 # or a lockfile is megabytes of tokens that name nothing anyone claims, and
@@ -2654,6 +2671,63 @@ def stated_names(lines):
     return out
 
 
+def stated_coordinates(lines):
+    """[(line number, path, name)] for every name a record writes as
+    `path#name`, on the lines `claim_lines` reads.
+
+    Every such span, compound or not: whether its name is a claim depends on
+    whether its path resolves, which is `coordinate_misses`' question."""
+    return [
+        (number, match.group("path"), match.group("name"))
+        for number, line in claim_lines(lines)
+        for match in RECORD_COORD_RE.finditer(line)
+    ]
+
+
+def coordinate_misses(raw_path, name, root, maps, default_repo, known, file_tokens):
+    """(read, missing, resolved) for one `path#name` a record states.
+
+    **Where the path resolves to a readable file, every segment of the name
+    has to be a token of THAT file.** The claim is the arm's own -- *the tree
+    carries this name* -- narrowed to the file the record points at, so a
+    case named under the wrong test file is refused though another file has
+    it. The path is what makes the span a claim, so a one-word name is read
+    too. Resolution is the ledger's own `place`, so a record and a ledger row
+    cannot disagree about where a path points.
+
+    **By token, not by unit.** A name that survives only in a comment of the
+    file passes, which is the price: `resolve_unit` refused two nested
+    functions the file does define among 424 resolved spans in this
+    repository's records, and a record has no hash to break the tie with
+    (`plan.md` of work item 1790635414, *Alternatives*).
+
+    **Where it does not resolve -- a bare file name, a missing file, a path
+    escaping the root -- each segment is read as the same name written bare
+    would be:** the compound rule, against the whole corpus. 356 of 367 such
+    spans in this repository's records were bare file names, the spelling
+    `seal/follow-up.md` and the riders use, and skipping them left the
+    commonest form unchecked. A dotted name's segments are read one by one,
+    because a bare span holds no dot.
+
+    READ is False where nothing was read -- an unresolved path whose segments
+    carry no underscore -- and MISSING lists the segments refused. FILE_TOKENS
+    is a dict this fills, so a file cited from many lines is read once.
+    """
+    segments = [s for s in name.split(".") if s]
+    repo, rel = place(root, maps, default_repo, raw_path)
+    tokens = None
+    if repo is not None:
+        full = os.path.join(repo, rel)
+        if full not in file_tokens:
+            body = read(full)
+            file_tokens[full] = None if body is None else set(TOKEN_RE.findall(body))
+        tokens = file_tokens[full]
+    if tokens is not None:
+        return True, [s for s in segments if s not in tokens], True
+    claimed = [s for s in segments if compound(s)]
+    return bool(claimed), [s for s in claimed if s not in known], False
+
+
 def tree_names(root, home):
     """Every identifier-shaped token the repository carries outside its records.
 
@@ -2805,15 +2879,22 @@ def left_out_of_corpus(root, home):
     )
 
 
-def file_claims(lines, shown, root, known, outside, maps, default_repo, scan_cache):
+def file_claims(
+    lines, shown, root, known, outside, maps, default_repo, scan_cache, file_tokens
+):
     """(findings, names read, stamps read) for one file the arm reads.
 
     A work item's record and `seal/follow-up.md` are read by this one
     function, so the two cannot come to disagree about what a claim is:
     `claim_lines` decides which lines count, the name half reads a
-    backticked name and the stamp half is `check_text`.
+    backticked name and a name written as `path#name`, and the stamp half is
+    `check_text`.
     """
     findings, names_read, stamps_read = [], 0, 0
+    remedy = (
+        f"Correct the record, or write {NOT_IN_TREE} on the line where the "
+        "record means a name the tree does not have"
+    )
     for number, name in stated_names(lines):
         names_read += 1
         if name in known:
@@ -2822,11 +2903,30 @@ def file_claims(lines, shown, root, known, outside, maps, default_repo, scan_cac
             (
                 NOT_IN_TREE_STATUS,
                 f"{shown}:{number}",
-                f"`{name}` — nothing outside {outside} carries this name. "
-                f"Correct the record, or write {NOT_IN_TREE} on the line "
-                "where the record means a name the tree does not have",
+                f"`{name}` — nothing outside {outside} carries this name. {remedy}",
             )
         )
+    for number, raw_path, name in stated_coordinates(lines):
+        read_it, missing, resolved = coordinate_misses(
+            raw_path, name, root, maps, default_repo, known, file_tokens
+        )
+        names_read += read_it
+        if not missing:
+            continue
+        which = ", ".join(f"`{s}`" for s in missing)
+        one = len(missing) == 1
+        if resolved:
+            detail = (
+                f"`{raw_path}#{name}` — {which} {'is not a token' if one else 'are not tokens'} "
+                f"of {raw_path}, the file the path names. {remedy}"
+            )
+        else:
+            detail = (
+                f"`{raw_path}#{name}` — {raw_path} resolves to no file here, "
+                f"so {which} {'is read as a bare name' if one else 'are read as bare names'}, "
+                f"and nothing outside {outside} carries {'it' if one else 'them'}. {remedy}"
+            )
+        findings.append((NOT_IN_TREE_STATUS, f"{shown}:{number}", detail))
     for number, line in stated_stamps(lines):
         # The stamps on the line, counted from the line. Counting what
         # `check_text` RETURNS counts findings: it dedupes a repeated anchor,
@@ -2884,7 +2984,7 @@ def check_records(root, home, maps=None, default_repo=None):
     known = tree_names(root, home)
     outside = left_out_of_corpus(root, home)
     names_read, stamps_read = 0, 0
-    scan_cache = {}
+    scan_cache, file_tokens = {}, {}
     paths = []
     for _item, directory in sorted(live.items()):
         records, refused_dirs = record_files(directory)
@@ -2919,6 +3019,7 @@ def check_records(root, home, maps=None, default_repo=None):
             maps or {},
             default_repo,
             scan_cache,
+            file_tokens,
         )
         findings.extend(found)
         names_read += names

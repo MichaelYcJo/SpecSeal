@@ -269,7 +269,7 @@ branch had touched.
 | `OVERFLOW` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | a table row in a ledger file splits into more cells than its table's header, so the text past the last column is in no column and no reader sees it — usually an unescaped `\|` inside a cell. A row under no header, which is every fragment row, is counted against the five columns `templates/ledger.md` declares for a ledger row. The line is named with both counts | write a `\|` inside a cell as `\\|`; a table that is not ledger rows takes a header of its own. `--reverify` names the row and leaves it, and still rewrites the row's hashes where their anchors resolve, because the hash is not what is wrong. Exit 1 here means *escape the pipe*, not *re-read* |
 | `DRIFTED` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify`. This is one of the three verdicts the readers grade differently, `MALFORMED` and `OVERFLOW` being the others — see *Which reader graded your tree* |
 | `EXTERNAL` (exit 0) | the path resolves in no known checkout, in a repository that has DECLARED cross-repo intent — a parity config, `--map`, or `--default-repo` | pass `--map`/`--default-repo`, or accept as out of scope. Without such a declaration a missing path is `BROKEN` instead: a deleted or renamed directory must fail the build, not read as somebody else's repo |
-| `NOT-IN-TREE` (exit 2, records arm) | a record of a work item that has not shipped, or a row of `seal/follow-up.md`, names a compound backticked identifier that nothing carries outside `seal/specs/`, `seal/ledger/` and `seal/follow-up.md` | correct the record, or append ` · NAME NOT IN TREE` on the line where the record means a name the tree does not have (placed before any trailing colon introducing a block). The marker exempts the LINE, not the name |
+| `NOT-IN-TREE` (exit 2, records arm) | a record of a work item that has not shipped, or a row of `seal/follow-up.md`, names a compound backticked identifier that nothing carries outside `seal/specs/`, `seal/ledger/` and `seal/follow-up.md`, or writes a `path#name` whose path resolves to a file that does not carry the name | correct the record, or append ` · NAME NOT IN TREE` on the line where the record means a name the tree does not have (placed before any trailing colon introducing a block). The marker exempts the LINE, not the name |
 | `UNREADABLE` (exit 2, records arm) | a record under a live work item, or a `seal/follow-up.md` that is there, that could not be opened, or a directory the walk could not LIST — a work item's own folder, or `seal/ledger/` itself | a record nobody can read is indistinguishable from a record with nothing in it, which is the green build this refuses. The same holds a directory up, where it is worse: an unlistable `seal/ledger/` used to read as a repository with no live work item and take the whole arm quiet at exit 0. A directory that is ABSENT is still an empty answer — a repository that has not started is not a broken one |
 | `OK` | the content is what the row recorded — the current line numbers are printed for you to open |
 
@@ -438,6 +438,18 @@ and an anchor stamp `path#unit@hash` resolved exactly as a ledger row's is. A
 single word in backticks is prose far more often than it is a unit. A FENCED
 line is a quotation — a paste-ready fix is code the tree does not have yet —
 and an HTML comment that begins a line is an aside; neither is read.
+
+**A name written the way a coordinate is written is a claim too** (#508):
+a backticked `path#name`, `path#name()` or `path#Class.method` with no hash.
+Where the path resolves to a readable file, the way a ledger row's path does,
+every segment of the name has to be a token of **that** file, so a case
+named under the wrong test file is refused though another file has it, and a
+one-word name is read, because the path is what makes it a claim. The
+refusal names the path. Where the path does not resolve — a bare file name,
+a missing file, a path out of the root — each segment is read the way the
+same name written bare is: an underscore, and the whole corpus. What it
+gives up: a name that survives only in a comment of the named file passes,
+and a bare file name paired with a name another file carries passes.
 
 **A comment is an aside only where it begins a line**, or begins what is left
 of a line after a `-->`. One that opens part-way along text is read with the

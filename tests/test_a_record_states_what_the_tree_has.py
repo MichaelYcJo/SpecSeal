@@ -1258,6 +1258,133 @@ def test_the_summary_line_says_whether_the_follow_up_was_read(tmp_path):
     assert "0 external · seal/follow-up.md read\n" in got.stdout, got.stdout
 
 
+# --- a name written as `path#name` is checked (#508) --------------------------
+#
+# `RECORD_NAME_RE` needs the whole backticked span to be an identifier, so a
+# name written the way a coordinate is written was skipped inside the very
+# records that were read.
+
+MOD = (
+    "class Kept:\n"
+    "    def open(self):\n"
+    "        return kept_helper()\n"
+    "\n"
+    "\n"
+    "def kept_helper():\n"
+    "    return 1\n"
+)
+
+
+def coordinate_refusals(tmp_path, line, where="record"):
+    """(findings, names read, stamps read) for one line in a live record or
+    in `seal/follow-up.md`, over a tree holding `src/mod.py` and nothing
+    else."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"src__mod.py": MOD})
+    if where == "record":
+        work_item(h, "1780000000-live", **{"plan.md": f"# p\n\n{line}\n"})
+    else:
+        work_item(h, "1780000000-live", **{"plan.md": "# p\n"})
+        follow_up(h, f"# Follow-up\n\n{line}\n")
+    return module().check_records(str(tmp_path), str(h))
+
+
+@pytest.mark.parametrize("where", ["record", "follow-up"])
+@pytest.mark.parametrize(
+    "span, missing",
+    [
+        ("src/mod.py#invented_unit_name", "invented_unit_name"),
+        ("src/mod.py#invented_unit_name()", "invented_unit_name"),
+        ("src/mod.py#Kept.invented_method", "invented_method"),
+    ],
+    ids=["name", "call", "dotted"],
+)
+def test_a_coordinate_form_name_the_named_file_lacks_is_refused(
+    tmp_path, where, span, missing
+):
+    """P1 and P7: refused, the detail naming the path and the segment, and
+    the span counted in `names read`."""
+    findings, names, stamps = coordinate_refusals(tmp_path, f"see `{span}`", where)
+    assert (names, stamps) == (1, 0), findings
+    assert [s for s, _, _ in findings] == ["NOT-IN-TREE"], findings
+    assert findings[0][1].endswith(":3"), findings
+    assert findings[0][2].startswith(
+        f"`{span.rstrip('()')}` — `{missing}` is not a token of src/mod.py, "
+        "the file the path names. Correct the record, or write NAME NOT IN "
+        "TREE on the line"
+    ), findings
+
+
+def test_a_coordinate_form_name_the_named_file_carries_passes(tmp_path):
+    """P2, the passing direction, dotted and called forms included."""
+    line = "`src/mod.py#kept_helper` and `src/mod.py#Kept.open()`"
+    assert coordinate_refusals(tmp_path, line) == ([], 2, 0)
+
+
+def test_a_name_only_another_file_carries_is_refused_under_the_path(tmp_path):
+    """P2: #508's own instance was a case named under a file that has no such
+    case. Another file carrying the name is not evidence for this one."""
+    tree(tmp_path, **{"src__other.py": "def elsewhere_only():\n    return 2\n"})
+    findings, names, _ = coordinate_refusals(tmp_path, "`src/mod.py#elsewhere_only`")
+    assert names == 1
+    assert [s for s, _, _ in findings] == ["NOT-IN-TREE"], findings
+
+
+def test_a_one_word_name_under_a_resolving_path_is_a_claim(tmp_path):
+    """P3: the path is what makes the span a claim, so the underscore
+    narrowing that keeps a single backticked word out does not apply."""
+    findings, names, _ = coordinate_refusals(tmp_path, "`src/mod.py#Zork`")
+    assert names == 1
+    assert [s for s, _, _ in findings] == ["NOT-IN-TREE"], findings
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["mod.py", "src/gone.py", "../out.py"],
+    ids=["bare-file-name", "missing-file", "escapes-the-root"],
+)
+def test_an_unresolved_path_reads_its_name_as_a_bare_name(tmp_path, path):
+    """P4: the name half is read exactly as the same name written bare, the
+    compound rule against the whole corpus. A one-word name is not read."""
+    findings, names, _ = coordinate_refusals(
+        tmp_path, f"`{path}#invented_unit_name` and `{path}#Zork`"
+    )
+    assert names == 1, findings
+    assert [s for s, _, _ in findings] == ["NOT-IN-TREE"], findings
+    assert findings[0][2].startswith(
+        f"`{path}#invented_unit_name` — {path} resolves to no file here, so "
+        "`invented_unit_name` is read as a bare name, and nothing outside "
+    ), findings
+
+
+def test_an_unresolved_path_with_a_name_the_corpus_carries_passes(tmp_path):
+    """P4, the passing direction: a bare file name with a name some file has."""
+    assert coordinate_refusals(tmp_path, "`mod.py#kept_helper`") == ([], 1, 0)
+
+
+def test_a_stamped_span_is_a_stamp_and_not_a_name(tmp_path):
+    """P5: `@hash` makes the span the stamp half's, and it is counted once."""
+    findings, names, stamps = coordinate_refusals(
+        tmp_path, "`src/mod.py#kept_helper@00000000`"
+    )
+    assert (names, stamps) == (0, 1), findings
+    assert [s for s, _, _ in findings] == ["DRIFTED"], findings
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "`src/mod.py#invented_unit_name` NAME NOT IN TREE",
+        "```\n`src/mod.py#invented_unit_name`\n```",
+        "<!-- `src/mod.py#invented_unit_name` -->",
+    ],
+    ids=["marker", "closed-fence", "comment"],
+)
+def test_the_coordinate_form_takes_the_claim_rules(tmp_path, text):
+    """P6: the same lines `claim_lines` reads, and no others."""
+    assert coordinate_refusals(tmp_path, text)[0] == []
+
+
 # --- this repository's own records ------------------------------------------
 
 

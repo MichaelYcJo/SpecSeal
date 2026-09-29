@@ -52,8 +52,10 @@ are **re-read after the rebase** (phase 1).
   fragment row (column 1 for `Code grounds`), and it splits cells with the
   shared `cell_rule`. The date-cell finder is its sibling, and it follows the
   same header rule, and the same five-column rule for a row under no header
-  that `tests/test_release_hygiene.py#overwide_rows` counts against. A header
-  cell is `Checked`, else `Date` (M6).
+  that `skills/evidence-check/scripts/evidence_check.py#overflow_rows` counts
+  against `LEDGER_COLUMNS`. A header cell is `Checked`, else `Date` (M6).
+  *Corrected 2026-09-29 in phase 2: the frame named the test helper A's
+  squash replaced with that arm, and phase 2's reader refused the name.*
 - **Splicing.** A cell boundary is an unescaped `|`, and `\|` inside a cell
   is text. The date splice must find the fourth boundary by that rule and
   never by a plain split, or a Notes cell holding `\|` moves the date. A case
