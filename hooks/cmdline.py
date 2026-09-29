@@ -2358,6 +2358,58 @@ def _directories(states):
     return tuple(out)
 
 
+def _branches(joined, states, parked):
+    """(running, skipped, parked) for a segment the operator JOINED begins.
+
+    `walk_directories` asks it for each of its two threads, the walk and the
+    base's, so the two read an operator alike.
+    """
+    if joined == "||" and parked:
+        # Only the failure branch runs a `||`. The live shells skip it — and
+        # are still REPORTED, because `cd X || git commit` is judged for X as
+        # well as for the directory the shell was in, which is what spec.md S3
+        # pins. What S3 does not ask for is the mirror of that: a failure
+        # branch no consumer ever reaches is not reported, which is what keeps
+        # `cd <repo> && git commit` costing nothing.
+        return parked, states, []
+    if joined == ";" and parked:
+        # `;` — and a newline, which arrives here as one — runs what follows
+        # whether the command before it succeeded or not, so BOTH branches run
+        # this segment and neither is skipped. `cd <B> ; git commit` commits
+        # in B when the `cd` works and in the directory the shell was already
+        # in when it does not, and the reader offered only the first.
+        # Executed: `bash -c 'cd /no/such/dir ; pwd'` prints the directory it
+        # started in.
+        #
+        # The two branches merge here rather than staying apart, because past
+        # this point nothing tells them apart: each is a live shell whose own
+        # failure gets parked again by the segment it runs.
+        return _dedup(list(states) + list(parked)), [], []
+    return states, [], parked
+
+
+def _unplaced(wheres):
+    """WHERES with every readable directory made unresolved, a reason kept."""
+    return tuple(
+        w if isinstance(w, Unresolved) else Unresolved(str(w), Unresolved.CONSTRUCT)
+        for w in wheres
+    )
+
+
+def _capped(states, parked):
+    """(STATES, PARKED), or both collapsed into one unresolved state past
+    `STATE_CAP`.
+
+    CONSTRUCT when the collapse is what made this unreadable: the command
+    reached more directories than the reader will answer for, and that is
+    not a value anyone can write out either.
+    """
+    if len(states) + len(parked) <= STATE_CAP:
+        return states, parked
+    here, prev = (states or parked)[0]
+    return [(Unresolved(here, getattr(here, "why", Unresolved.CONSTRUCT)), prev)], []
+
+
 def _step(here, operand):
     """`here` after a `cd` to `operand`, as `git -C` would resolve it.
 
@@ -2473,6 +2525,17 @@ def walk_directories(items, cwd):
     # environment instead of keeping a value the body may have rewritten.
     states, parked, walked, env = [(cwd, None)], [], [], {}
     stack, defined = [], set()
+    # The sixth thread is `states` and `parked` again, as `86256492` read them
+    # (Q7 of 1790660768). Everything #674 reads beside the base -- the
+    # refusal `understood` adds, the `cd` landed past its redirections, the
+    # glued group -- is a directory more, and past `STATE_CAP` the walk
+    # collapses into one it cannot name, which `[no-review]` waives whole and
+    # a session that is not opted in reads as silence. So a chain the base
+    # walked in full collapsed here, and the base's stop was lost. This thread
+    # takes none of those additions, collapses at the base's own length, and
+    # its directories are added behind every segment's answer, so the cap can
+    # take only what #674 added.
+    base_states, base_parked = [(cwd, None)], []
     # A `cd` behind a redirection the splitter cut (`2>&1 cd W`) arrives as a
     # part whose first word is the descriptor, so the walk read a program
     # named `1` (round 1 of 1790660768, yellow 3). The group `merged_view`
@@ -2488,59 +2551,45 @@ def walk_directories(items, cwd):
         following = items[index + 1][0] if index + 1 < len(items) else ""
         tokens = _expanded(tokens, env)
 
-        if joined == "||" and parked:
-            # Only the failure branch runs a `||`. The live shells skip it —
-            # and are still REPORTED, because `cd X || git commit` is judged
-            # for X as well as for the directory the shell was in, which is
-            # what spec.md S3 pins. What S3 does not ask for is the mirror of
-            # that: a failure branch no consumer ever reaches is not reported,
-            # which is what keeps `cd <repo> && git commit` costing nothing.
-            running, skipped, parked = parked, states, []
-        elif joined == ";" and parked:
-            # `;` — and a newline, which arrives here as one — runs what
-            # follows whether the command before it succeeded or not, so BOTH
-            # branches run this segment and neither is skipped. `cd <B> ; git
-            # commit` commits in B when the `cd` works and in the directory
-            # the shell was already in when it does not, and the reader
-            # offered only the first. Executed: `bash -c 'cd /no/such/dir ;
-            # pwd'` prints the directory it started in.
-            #
-            # The two branches merge here rather than staying apart, because
-            # past this point nothing tells them apart: each is a live shell
-            # whose own failure gets parked again by the segment it runs.
-            running, skipped, parked = _dedup(list(states) + list(parked)), [], []
-        else:
-            running, skipped = states, []
+        running, skipped, parked = _branches(joined, states, parked)
+        base_running, base_skipped, base_parked = _branches(
+            joined, base_states, base_parked
+        )
 
         wheres = _directories(running + skipped)
+        base_wheres = _directories(base_running + base_skipped)
         # Asked as written and read past its redirections (#674), and either
         # one unplaces: `2>/dev/null nice -n 5 git commit` stands behind a
-        # runner's options that the first reading never reached.
-        unplaced = tuple(
-            w if isinstance(w, Unresolved) else Unresolved(str(w), Unresolved.CONSTRUCT)
-            for w in wheres
-        )
+        # runner's options that the first reading never reached. A command
+        # behind a reserved word that begins a list, or inside a construct
+        # whose command word is not found by position (#669), is unplaced by
+        # the first; written across lines it would follow a segment
+        # `understood` refuses, and that is the directory it gets here too.
+        # The base's thread is unplaced by the first reading, and by the second
+        # only where the first found no `git`. Where it did, that is the
+        # commit `86256492` judged, and its directory stays behind the
+        # unresolved one (round 2 of 1790660768): `nice 2>/x/git commit -m git`
+        # stopped on the parity arm at the base, and `[no-review]` waived the
+        # replacement whole. `2>/dev/null nice -n 5 git commit` found no `git`
+        # to the base and stays unresolved alone.
         first, first_unplaced = command_word(tokens)
-        if first_unplaced:
-            # A command behind a reserved word that begins a list, or inside a
-            # construct whose command word is not found by position (#669).
-            # Written across lines it would follow a segment `understood`
-            # refuses, and that is the directory it gets here too.
-            wheres = unplaced
-        elif command_word(tokens, redirections=True)[1]:
-            # Only the second reading unplaces. Where the first already found
-            # `git`, that is the commit `86256492` judged in WHERES, and the
-            # unresolved directory is added beside it rather than in its
-            # place (round 2 of 1790660768): `nice 2>/x/git commit -m git`
-            # stopped on the parity arm at the base, and `[no-review]` waived
-            # the replacement whole.
-            placed = bool(first) and os.path.basename(first[0]) == "git"
-            wheres = (
-                _directories([(w, None) for w in wheres + unplaced])
-                if placed
-                else unplaced
-            )
-        walked.append((tokens, wheres))
+        second_unplaced = command_word(tokens, redirections=True)[1]
+        placed = bool(first) and os.path.basename(first[0]) == "git"
+        if first_unplaced or second_unplaced:
+            wheres = _unplaced(wheres)
+        if first_unplaced or (second_unplaced and not placed):
+            base_wheres = _unplaced(base_wheres)
+        # The base's directories go behind the walk's, since the worktree
+        # guard and the consent writer take the first one -- and in front of
+        # a walk that names none, which is the collapse past `STATE_CAP` or a
+        # segment only the second reading unplaced. Behind it the guard would
+        # read the session's own tree there, where `86256492` judged the
+        # base's first directory.
+        if any(not isinstance(w, Unresolved) for w in wheres):
+            ordered = wheres + base_wheres
+        else:
+            ordered = base_wheres + wheres
+        walked.append((tokens, _directories([(w, None) for w in ordered])))
 
         target = _cd_target(tokens)
         moved = [
@@ -2616,17 +2665,32 @@ def walk_directories(items, cwd):
         if joined in SUBSHELL or following in SUBSHELL:
             carried = list(running) + carried
         carried += skipped
-        states = _dedup(carried)
+        states, parked = _capped(_dedup(carried), parked)
 
-        if len(states) + len(parked) > STATE_CAP:
-            here, prev = (states or parked)[0]
-            # CONSTRUCT when the collapse is what made this unreadable: the
-            # command reached more directories than the reader will answer
-            # for, and that is not a value anyone can write out either.
-            states, parked = (
-                [(Unresolved(here, getattr(here, "why", Unresolved.CONSTRUCT)), prev)],
-                [],
-            )
+        # The base's thread, step for step as `86256492` took it: its own
+        # landing and its own `understood`, which is AS_WRITTEN, with a
+        # refused segment's directories REPLACED as they were then, and the
+        # same collapse at the same cap -- over its own states alone.
+        base_moved = [
+            (here if target is None else _land(here, prev, target), here)
+            for here, prev in base_running
+        ]
+        base_refused = [
+            (Unresolved(str(h), Unresolved.CONSTRUCT), p) for h, p in base_running
+        ]
+        if not as_written:
+            base_moved = [
+                (Unresolved(str(here), Unresolved.CONSTRUCT), prev)
+                for here, prev in base_moved
+            ]
+        if any(sep in ("||", ";") for sep, _ in items[index + 1 :]):
+            base_failed = base_running if as_written else base_refused
+            base_parked = _dedup(base_parked + list(base_failed))
+        if joined in SUBSHELL or following in SUBSHELL:
+            base_moved = list(base_running) + base_moved
+        base_states, base_parked = _capped(
+            _dedup(base_moved + base_skipped), base_parked
+        )
 
         # The names this segment leaves behind, for the segments after it.
         # `understood` is the same acceptance test the directory half uses: a

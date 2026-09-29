@@ -691,3 +691,28 @@ def test_a_cd_behind_a_redirection_moves_the_tree_the_guard_judges(
         "2>/dev/null cd w && git worktree add ../wt", str(session)
     )
     assert os.path.samefile(acted, session / "w"), acted
+
+
+def test_a_chain_past_the_walks_cap_keeps_the_tree_the_base_judged(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Q7 of 1790660768, in the guard. Nine `cd`s landed past their
+    redirections carry the walk past `STATE_CAP`, and its collapse left one
+    unresolved directory, which the guard reads as the session's own clean
+    tree. `86256492`'s walk never reached the cap: every `cd nosuch` fails, so
+    the switch runs in the dirty `w`, and that is the tree it judged."""
+    session = tmp_path / "session"
+    session.mkdir()
+    subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
+    shutil.copytree(repo, session / "w")
+    (session / "w" / "f.txt").write_text("changed on purpose\n")
+    chain = "2>/dev/null cd nosuch; " * 9 + "cd w && "
+    decision, reason, _ = run(
+        monkeypatch, capsys, chain + "git switch feature/x", session
+    )
+    assert decision == "ask", (decision, reason)
+    assert "f.txt" in reason, reason
+    acted = wg.worktree_consent.creation_directory(
+        chain + "git worktree add ../wt", str(session)
+    )
+    assert os.path.samefile(acted, session / "w"), acted
