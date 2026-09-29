@@ -261,26 +261,44 @@ FORM_FEED = chr(0x0C)
 LINE_SEPARATOR = chr(0x2028)
 
 
-def reverified_then_edited(repo, rel, anchor, before, after):
-    """A row recorded by `--reverify` over BEFORE, then the file rewritten as
-    AFTER: what the check says about it."""
+# The body is not `SERVICE`'s `handler`, which the rename heal would find as a
+# second unit reconstructing the same content, and correctly refuse.
+PY_FF = f"import os\nx = 1  # a{FORM_FEED}b\n\n\ndef unit(x):\n    y = x * 3\n    return y\n"
+JS_FF = f"function unit(x) {{\n  let y = x; // a{FORM_FEED}b\n  return y;\n}}\n"
+
+
+def reverified(repo, rel, anchor, before):
+    """A row recorded by `--reverify` over BEFORE, and read back as `OK`:
+    the hash `--reverify` writes is the hash the check computes."""
     (repo / rel).parent.mkdir(parents=True, exist_ok=True)
     (repo / rel).write_text(before, encoding="utf-8")
-    (repo / "seal" / "ledger" / "f.md").write_text(
+    ledger = repo / "seal" / "ledger" / "f.md"
+    ledger.write_text(
         f"| C1 | `{rel}#{anchor}@00000000` | read | 2026-09-01 | n |\n",
         encoding="utf-8",
     )
     assert run(["--reverify", "."], str(repo)).returncode == 0
+    check = run(["."], str(repo))
+    assert check.returncode == 0 and "1 ok" in check.stdout, check.stdout
+    return ledger
+
+
+def reverified_then_edited(repo, rel, anchor, before, after):
+    """A row recorded by `--reverify` over BEFORE, then the file rewritten as
+    AFTER: what the check says about it."""
+    reverified(repo, rel, anchor, before)
     (repo / rel).write_text(after, encoding="utf-8")
     return run(["."], str(repo))
 
 
-def test_an_edit_below_a_form_feed_in_python_drifts(repo):
-    """#664's executed instance: `ast` puts `unit` at lines 3-5, and the
-    form feed in the comment above it made the hashed region lines 2-4."""
-    before = f"import os\nx = 1  # a{FORM_FEED}b\n\n\ndef unit(x):\n    y = x + 1\n    return y\n"
+@pytest.mark.parametrize("anchor", ["unit", 'unit>"return y"'], ids=["unit", "minor"])
+def test_an_edit_below_a_form_feed_in_python_drifts(repo, anchor):
+    """#664's executed instance: `ast` puts `unit` at lines 5-7, and the
+    form feed in the comment above it made the hashed region the lines one
+    above, so the edited last line was outside it. A minor anchor inside the
+    unit was found one line off the same way."""
     r = reverified_then_edited(
-        repo, "src/ff.py", "unit", before, before.replace("return y", "return y + 1")
+        repo, "src/ff.py", anchor, PY_FF, PY_FF.replace("return y", "return y + 1")
     )
     assert r.returncode == 1 and "DRIFTED  src/ff.py#unit" in r.stdout, r.stdout
 
@@ -299,11 +317,87 @@ def test_an_edit_below_a_separator_that_looks_like_a_heading_drifts(repo):
 def test_an_edit_below_a_form_feed_in_a_generic_unit_drifts(repo):
     """The declaration rule ends a block at the first line indented no deeper
     than the name, and the text after a form feed began a line at column 0."""
-    before = f"function unit(x) {{\n  let y = x; // a{FORM_FEED}b\n  return y;\n}}\n"
     r = reverified_then_edited(
-        repo, "src/a.js", "unit", before, before.replace("return y;", "return y + 1;")
+        repo, "src/a.js", "unit", JS_FF, JS_FF.replace("return y;", "return y + 1;")
     )
     assert r.returncode == 1 and "DRIFTED  src/a.js#unit" in r.stdout, r.stdout
+
+
+@pytest.mark.parametrize(
+    "rel, body", [("src/ff.py", PY_FF), ("src/a.js", JS_FF)], ids=["python", "generic"]
+)
+def test_a_renamed_unit_below_a_form_feed_heals(repo, rel, body):
+    """The rename heal reconstructs the recorded hash from every unit's
+    region, so it has to slice those regions from the lines the units were
+    numbered on, and the healed hash has to be the one the check reads."""
+    reverified(repo, rel, "unit", body)
+    (repo / rel).write_text(body.replace("unit", "renamed"), encoding="utf-8")
+    r = run(["--reverify", "."], str(repo))
+    assert "-> #renamed  (identical content)" in r.stdout, r.stdout
+    check = run(["."], str(repo))
+    assert check.returncode == 0 and "1 ok" in check.stdout, check.stdout
+
+
+def test_two_units_of_one_name_below_a_form_feed_are_told_apart(repo):
+    """Two declarations of one name are told apart by the row's own recorded
+    hash, and that comparison slices each place from the same lines."""
+    body = JS_FF + "\nfunction unit(x) {\n  return 0;\n}\n"
+    (repo / "src" / "a.js").write_text(body, encoding="utf-8")
+    places = ec.resolve("src/a.js", "unit", body)
+    assert len(places) == 2, places
+    a, b = places[0]
+    want = ec.content_hash(ec.gfm_lines(body)[a - 1 : b])
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        f"| C1 | `src/a.js#unit@{want}` | read | 2026-09-01 | n |\n", encoding="utf-8"
+    )
+    r = run(["."], str(repo))
+    assert r.returncode == 0 and "1 ok" in r.stdout, r.stdout
+
+
+def test_the_hash_named_for_an_unsure_place_is_the_lines_own(repo):
+    """A place the declaration rule is unsure of is printed with its hash, to
+    record by hand; that hash has to be of the line the place names."""
+    body = f"let x = 1; // a{FORM_FEED}b\nunit(y)\n"
+    (repo / "src" / "a.js").write_text(body, encoding="utf-8")
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        "| C1 | `src/a.js#unit@deadbeef` | read | 2026-09-01 | n |\n", encoding="utf-8"
+    )
+    r = run(["."], str(repo))
+    assert f"2-2@{ec.content_hash(['unit(y)'])}" in r.stdout, r.stdout
+
+
+def test_migrate_below_a_form_feed_writes_the_hash_the_check_reads(repo):
+    """An old `path:line` row names lines as an editor shows them, and the
+    unit's hash is sliced from those lines."""
+    (repo / "src" / "ff.py").write_text(PY_FF, encoding="utf-8")
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        "| C1 | `src/ff.py:5-7` | read | 2026-08-31 | n |\n", encoding="utf-8"
+    )
+    assert "1 row migrated" in run(["--migrate", "."], str(repo)).stdout
+    check = run(["."], str(repo))
+    assert check.returncode == 0 and "1 ok" in check.stdout, check.stdout
+
+
+def test_migrate_proves_a_row_below_a_form_feed_against_its_stamp(tmp_path):
+    """The since-the-stamp proof compares the cited lines then and now, and
+    it has to read both sides on the same line ends, or an untouched row is
+    refused as changed."""
+    top = tmp_path / "repo"
+    (top / "src").mkdir(parents=True)
+    (top / "seal" / "ledger").mkdir(parents=True)
+    (top / "src" / "ff.py").write_text(PY_FF, encoding="utf-8")
+    git(top, "init", "-q")
+    git(top, "config", "user.email", "t@example.com")
+    git(top, "config", "user.name", "t")
+    git(top, "add", "-A")
+    git(top, "commit", "-qm", "base")
+    sha = git(top, "rev-parse", "HEAD").stdout.strip()
+    (top / "seal" / "ledger" / "f.md").write_text(
+        f"| C1 | `src/ff.py:5-7` | read | 2026-08-31 `{sha}` | n |\n", encoding="utf-8"
+    )
+    r = run(["--migrate", "."], str(top))
+    assert "1 row migrated · 0 left" in r.stdout, r.stdout
+    assert "without the since-the-stamp proof" not in r.stdout, r.stdout
 
 
 # --- the region is right ----------------------------------------------------
