@@ -84,7 +84,7 @@ For the one question `fenced_lines` asks, whether a line opens a fence, that rul
 
 ## ⬜ 3 — the loud half: a stray opener that a later example closes hides the live table
 
-`hooks/config.py#walk`, `hooks/routing.py#hidden`. This is the same stray opener as 🟡 1, with a fenced example below the table that itself holds a closed comment. The example's `-->` ends the stray comment, and the example's closing fence line then opens a fence to the end of the file. Executed: the base reads the declaration and the config table, and HEAD reads `None` and `[]`.
+`hooks/config.py#walk`, `hooks/routing.py#hidden`. This is the same stray opener as 🟡 1, with a fenced example below the table that itself holds a closed comment. The example's `-->` ends the stray comment, and the example's closing fence line then opens a fence to the end of the file. Executed: the base reads the declaration and the config table, and HEAD reads `None` and `[]`. (NAME NOT IN TREE: the unit was removed or reverted after this was written)
 
 This is the loud direction: the gate asks again, and `broad-gate` names the row as commented out. The literal reading in `_liveness` has the same limit. The line-start rule from 🟡 2 would close it for fences, but the hooks also use the comment state to hide rows. There a mid-line opener has to go on hiding a withdrawn row, so that rule cannot be copied into the hooks as it stands. Recorded, not commissioned.
 
@@ -107,7 +107,7 @@ This is the loud direction: the gate asks again, and `broad-gate` names the row 
 
 ## Facts for the evidence ledger
 
-- `hooks/config.py#walk` and `hooks/routing.py#hidden` return the same hidden lines. Executed over 30,000 random files and every committed declaration, at `b02d763a`.
+- `hooks/config.py#walk` and `hooks/routing.py#hidden` return the same hidden lines. Executed over 30,000 random files and every committed declaration, at `b02d763a`. (NAME NOT IN TREE: the unit was removed or reverted after this was written)
 - No markdown file in the tree holds an HTML comment opener left open on its line outside a code span. Executed over 472 files, at `b02d763a`.
 
 ## Verdicts
@@ -117,11 +117,11 @@ This is the loud direction: the gate asks again, and `broad-gate` names the row 
 | 🟡 1 | An HTML comment nobody closed switches off every fence below it, so a fenced example row answers for the routing table and an example table becomes the config table, with its `Broad gate` command | `hooks/config.py:183`, `hooks/routing.py:175` | open | Executed: base reads the live answer on both shapes, HEAD reads the example. Inside units round 2's fixes created. The oracle shares the gap, so the parity case cannot see it |
 | 🟡 2 | An opener written in prose, outside a code span, makes the rider check read a quoted rider and lose the real one, which is round 2's finding 1 from a trigger its fix cannot reach | `.github/scripts/rider_check.py:246` | open | Executed: `68bcb224` reads the real rider; `c7338c43` and HEAD read the quoted one. Latent: 0 of 472 files. The fix reverses the `lone` assertion `a7581653` pinned, which is the owner's call |
 | ⬜ 3 | A stray opener that a later fenced example closes hides the live table from both hooks | `hooks/config.py#walk` | open | Executed: base reads it, HEAD reads none. Loud, and `_liveness`'s literal reading has the same limit |
-| 🟢 | round 2's finding 1 is closed — a comment opener quoted in a code span no longer hides the rider check's fences | `.github/scripts/rider_check.py#fenced_lines` | confirmed | Executed: red with `c7338c43`'s script, green at HEAD. This round's finding 2 is the class member it could not reach |
-| 🟢 | round 2's finding 2 is closed — a fence line in a comment above the table hides no declaration, and a row in a closed comment below it answers for nothing | `hooks/routing.py#hidden` | confirmed | Executed: both shapes red at the base, green at HEAD; 0 of 25 declarations differ |
+| 🟢 | round 2's finding 1 is closed — a comment opener quoted in a code span no longer hides the rider check's fences | `.github/scripts/rider_check.py#fenced_lines` | confirmed | Executed: red with `c7338c43`'s script, green at HEAD. This round's finding 2 is the class member it could not reach (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
+| 🟢 | round 2's finding 2 is closed — a fence line in a comment above the table hides no declaration, and a row in a closed comment below it answers for nothing | `hooks/routing.py#hidden` | confirmed | Executed: both shapes red at the base, green at HEAD; 0 of 25 declarations differ (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
 | 🟢 | round 2's finding 3 is closed — a commented-out exemption excuses nothing | `skills/code-review/scripts/survivor_check.py#read_exemptions` | confirmed | Executed: red at the base, green at HEAD |
 | 🟢 | round 2's ❓ on the config reader's fence-before-comment order is closed — answered into finding 2's fix | `hooks/config.py#walk` | confirmed | Executed: `test_a_fence_line_inside_a_comment_hides_no_table` (NAME NOT IN TREE) red at the base, green at HEAD; 0 of 493 files differ under `config_rows` |
-| 🟢 | The reversal of round 1's finding 3 reading is sound, and the pin case and the three sentences state it | `tests/test_the_mode_question_is_asked_once.py#test_delimiters_quoted_in_code_spans_hide_nothing` | confirmed | Read: it is `_liveness`'s literal reading and the rendered page. Executed: the pin case red at the base. The unclosed-comment sentence is this round's finding 1 to extend |
+| 🟢 | The reversal of round 1's finding 3 reading is sound, and the pin case and the three sentences state it | `tests/test_the_mode_question_is_asked_once.py#test_delimiters_quoted_in_code_spans_hide_nothing` | confirmed | Read: it is `_liveness`'s literal reading and the rendered page. Executed: the pin case red at the base. The unclosed-comment sentence is this round's finding 1 to extend (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
 | 🟢 | round 2's question on the ledger is answered — the fragment's rows and the re-read notes the fix pass wrote into `seal/releases/*.md` hold | `seal/ledger/1790635413-every-markdown-reader-shares-one-fence-rule.md` | confirmed | Executed: `bin/evidence-check .` at `b02d763a`, exit 0; the fragment 72 ok, every ledger file 0 drifted and 0 broken, and 0 refused among the work item's names, this report included |
 | ❓ | The new cases on the Windows and Linux legs | `tests/test_routing_is_recorded.py` | ❓ out of verified scope | Only macOS ran here. CI's test matrix at the pull request answers it |
 
@@ -196,7 +196,7 @@ def _walk(lines, literal_from):
     return shown, opened_at, commented
 ```
 
-### 🟡 1 — `hooks/routing.py#hidden`
+### 🟡 1 — `hooks/routing.py#hidden` (NAME NOT IN TREE: the unit was removed or reverted after this was written)
 
 Replace the body of `hidden` from `fenced_at, commented, run_of = ...` to its `return`:
 
@@ -317,7 +317,7 @@ and the writer alike. **A comment that is never closed hides nothing**, and
 it switches off no fence below it. A
 ```
 
-`hooks/config.py#commented`, the sentence on an unclosed comment:
+`hooks/config.py#commented`, the sentence on an unclosed comment: (NAME NOT IN TREE: the unit was removed or reverted after this was written)
 
 ```text
     answer they gave, which is the direction this module fails in. A comment
@@ -326,13 +326,13 @@ it switches off no fence below it. A
     where it was. The line that OPENS a comment begins
 ```
 
-`tests/test_the_mode_question_is_asked_once.py#test_delimiters_quoted_in_code_spans_hide_nothing`, in its loop:
+`tests/test_the_mode_question_is_asked_once.py#test_delimiters_quoted_in_code_spans_hide_nothing`, in its loop: (NAME NOT IN TREE: the unit was removed or reverted after this was written)
 
 ```python
         assert "switches off no fence" in text, "/".join(parts)
 ```
 
-### 🟡 2 — `.github/scripts/rider_check.py#fenced_lines`
+### 🟡 2 — `.github/scripts/rider_check.py#fenced_lines` (NAME NOT IN TREE: the unit was removed or reverted after this was written)
 
 Replace the comment scan, from `pos = 0` to the end of its `while` loop:
 

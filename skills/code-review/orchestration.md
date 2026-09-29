@@ -477,7 +477,7 @@ the narrowing for the write:
 | The form | What it is for |
 |---|---|
 | `evidence_check.py .`, no `--ledger` | **reading.** It opens `seal/ledger.md` and every fragment, which is the only way a branch learns it falsified a row it does not own — and those are the rows with the longest reach, cited by work that shipped releases ago |
-| `evidence_check.py --ledger '<this work item's fragment>' --reverify .` | **writing.** `--reverify` re-stamps every drifted row it reads, so the narrowing is what keeps it off a row whose claim somebody else has to judge |
+| `evidence_check.py --ledger '<this work item's fragment>' --reverify --checked <YYYY-MM-DD> .` | **writing.** `--reverify` re-stamps every drifted row it reads, and `--checked` dates each one as re-read that day, so the narrowing is what keeps it off a row whose claim somebody else has to judge, and keeps that date off it too |
 
 Measured (#153): one work item's three review rounds and two fix passes all
 ran the scoped form and all reported a clean ledger. The unscoped read at the

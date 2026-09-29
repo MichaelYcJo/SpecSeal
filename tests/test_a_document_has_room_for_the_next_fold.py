@@ -132,6 +132,34 @@ def test_a_document_at_the_ceiling_is_not_over_it(tmp_path):
     assert ceiling_problems(root, 10, OVER) == []
 
 
+# Every character `str.splitlines` ends a line at and GFM does not (#664).
+# Built from code points, because an escape typed into an editing tool can
+# come back as the character itself.
+SPLITLINES_ONLY = [chr(c) for c in (0x0B, 0x0C, 0x1C, 0x1D, 0x1E, 0x85, 0x2028, 0x2029)]
+
+
+@pytest.mark.parametrize("char", SPLITLINES_ONLY, ids=lambda c: f"U+{ord(c):04X}")
+def test_a_line_end_only_splitlines_sees_does_not_add_a_line(tmp_path, char):
+    """A document at the ceiling with one of the eight characters mid-line
+    is at the ceiling, the count an editor shows."""
+    text = body(10).replace("prose\n", f"pro{char}se\n", 1)
+    root = tree(tmp_path, {"big.md": body(12, 2), "other.md": text})
+    assert ceiling_problems(root, 10, OVER) == []
+
+
+def test_the_copy_of_the_line_rule_is_the_checkers():
+    """`fold_check.gfm_lines` is a copy of `evidence_check.gfm_lines`, kept
+    because the shared reader where one copy belongs was being rewritten on
+    another branch. Held equal over every character either could split on."""
+    checker = _load(
+        "specseal_evidence_check",
+        os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py"),
+    )
+    for char in [*SPLITLINES_ONLY, "\n", "\r", "\r\n"]:
+        text = f"a{char}b\n\nc{char}\n{char}"
+        assert fold_check.gfm_lines(text) == checker.gfm_lines(text), repr(char)
+
+
 def test_a_listed_document_back_under_the_ceiling_is_named(tmp_path):
     """A10: the entry cannot outlive the split."""
     root = tree(tmp_path, {"big.md": body(10, 2)})

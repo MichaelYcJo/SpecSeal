@@ -96,6 +96,11 @@ stands in and the new claim written into a work item's fragment,
 which is a convention a contribution does not have. Say on the pull request
 which name your change moved, and leave the ledger alone.
 
+**The same job reads `seal/follow-up.md`.** Its rows name units for a person
+to act on later, and a row naming a unit your change renamed or removed is
+exit 2 too. Say that on the pull request as well: the row is a maintainer's
+to correct, for the same reason the ledger row is.
+
 ## Running the checks
 
 The suite needs `pytest` and one parser, `markdown-it-py`, pinned to one
@@ -236,11 +241,13 @@ when it arrives.
   applies is about the claim rather than the code:
 
   - the claim still holds and you have re-read it — run
-    `evidence-check --reverify .`, which recomputes the hash and names what it
-    changed;
+    `evidence-check --reverify --checked <YYYY-MM-DD> .`, which recomputes
+    the hash, names what it changed and dates the reading in each row whose
+    hash moved. That date says every such row was read, so read each row
+    citing a drifted coordinate first, or narrow the write with `--ledger`;
   - the code still stands and your edit made the claim false — correct the
     claim in place first, with a `Corrected <date>` note, then run
-    `--reverify`;
+    `--reverify --checked <YYYY-MM-DD>`;
   - the claim went with the code — **remove the row and write the new claim
     into your own fragment.** A row is not re-pointed at whatever now sits
     nearest to where it used to look.

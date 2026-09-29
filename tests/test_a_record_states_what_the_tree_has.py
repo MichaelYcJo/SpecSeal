@@ -19,6 +19,8 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py")
 
@@ -1107,6 +1109,375 @@ def test_the_same_anchor_answers_the_same_in_both_arms_under_default_repo(tmp_pa
     assert "1 ok · 0 drifted · 0 broken" in got.stdout, got.stdout
     assert "1 stamp read · 0 refused" in got.stdout, got.stdout
     assert "BROKEN" not in got.stdout, got.stdout
+
+
+# --- seal/follow-up.md is read (#508) ----------------------------------------
+#
+# The permanent list of schedulable items names units, is addressed to a
+# person, and is read months after it was written. Until #508 nothing read
+# it: a row named a case in no file and was caught by grepping.
+
+
+def follow_up(h, text):
+    (h / "follow-up.md").write_text(text, encoding="utf-8")
+
+
+FOLLOW_UP_ROW = (
+    "# Follow-up\n\n| Item | Who |\n|---|---|\n| `invented_unit_name` | x |\n"
+)
+
+
+def test_a_follow_up_row_naming_a_unit_the_tree_lacks_is_refused(tmp_path):
+    """F1 and F2. The file carries the name, and that is not evidence: it is
+    out of the corpus, or the row would vouch for itself."""
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n"})
+    follow_up(h, FOLLOW_UP_ROW)
+    found, read = refusals(tmp_path)
+    assert read == 1, found
+    assert [(s, c.replace(os.sep, "/")) for s, c, _ in found] == [
+        ("NOT-IN-TREE", "seal/follow-up.md:5")
+    ], found
+    for flags in ([], ["--strict"]):
+        got = run([*flags, "."], tmp_path)
+        assert got.returncode == 2, got.stdout + got.stderr
+        assert "seal/follow-up.md:5" in got.stdout, got.stdout
+
+
+def test_a_follow_up_name_another_file_carries_passes(tmp_path):
+    """F2's other direction: out of the corpus is the follow-up file alone."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"mod.py": "def invented_unit_name():\n    return 1\n"})
+    follow_up(h, FOLLOW_UP_ROW)
+    assert refusals(tmp_path) == ([], 1)
+
+
+def test_the_follow_up_is_read_with_no_work_item_live(tmp_path):
+    """F3. The file is permanent and its rows are live until removed, so the
+    shipped boundary does not reach it: no `seal/ledger/` at all, and it is
+    still read."""
+    h = tmp_path / "seal"
+    h.mkdir()
+    follow_up(h, FOLLOW_UP_ROW)
+    found, read = refusals(tmp_path)
+    assert (read, [s for s, _, _ in found]) == (1, ["NOT-IN-TREE"]), found
+
+
+def test_no_follow_up_is_nothing_to_read(tmp_path):
+    """F4, first half: absent is the one quiet answer."""
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`kept_helper`\n"})
+    tree(tmp_path, **{"mod.py": "kept_helper = 1\n"})
+    assert refusals(tmp_path) == ([], 1)
+
+
+def test_a_follow_up_that_cannot_be_read_is_named(tmp_path):
+    """F4, second half: a directory under the file's name is there and cannot
+    be read, which is `UNREADABLE` and exit 2, the way a record is."""
+    h = home(tmp_path)
+    (h / "follow-up.md").mkdir()
+    found, _read = refusals(tmp_path)
+    assert [(s, c.replace(os.sep, "/")) for s, c, _ in found] == [
+        ("UNREADABLE", "seal/follow-up.md")
+    ], found
+    got = run(["."], tmp_path)
+    assert got.returncode == 2, got.stdout + got.stderr
+    assert "seal/follow-up.md unreadable" in got.stdout, got.stdout
+
+
+@pytest.mark.parametrize(
+    "text, refused",
+    [
+        ("`invented_unit_name` NAME NOT IN TREE\n", False),
+        ("```\n`invented_unit_name`\n```\n", False),
+        ("<!-- `invented_unit_name` -->\n", False),
+        ("<!--\n`invented_unit_name`\n-->\n", False),
+        ("```\n`invented_unit_name`\n", True),
+        ("<!-- open\n`invented_unit_name`\n", True),
+    ],
+    ids=[
+        "marker",
+        "closed-fence",
+        "comment",
+        "multi-line-comment",
+        "unclosed-fence",
+        "unclosed-comment",
+    ],
+)
+def test_the_follow_up_is_read_by_the_records_own_claim_rules(tmp_path, text, refused):
+    """F5. One reader for a record and the follow-up file, so the two cannot
+    come to disagree about what a claim is."""
+    h = home(tmp_path)
+    follow_up(h, "# Follow-up\n\n" + text)
+    found, _read = refusals(tmp_path)
+    assert bool(found) is refused, found
+
+
+def test_the_follow_up_is_read_and_left_out_of_the_corpus_in_local_mode(tmp_path):
+    """F6. In local mode `seal/` sits under the git common directory; the
+    file there is read, and it is out of the corpus, with shared mode's
+    answers."""
+    local = tmp_path / ".git" / "seal"
+    local.mkdir(parents=True)
+    follow_up(local, FOLLOW_UP_ROW)
+    findings, read, _stamps = module().check_records(str(tmp_path), str(local))
+    assert (read, [s for s, _, _ in findings]) == (1, ["NOT-IN-TREE"]), findings
+    assert "follow-up.md:5" in findings[0][1], findings
+
+
+def test_a_refusal_names_every_place_the_corpus_leaves_out(tmp_path):
+    """F7. A reader told *nothing outside X carries this name* looks outside
+    X, and naming two places of three sent them to the one that does."""
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    found, _read = refusals(tmp_path)
+    assert (
+        found[0][2]
+        .replace(os.sep, "/")
+        .startswith(
+            "`gone_helper` — nothing outside seal/specs, seal/ledger and "
+            "seal/follow-up.md carries this name. Correct the record, or write "
+            "NAME NOT IN TREE on the line where the record means a name the tree "
+            "does not have"
+        )
+    ), found
+
+
+def test_the_summary_line_says_whether_the_follow_up_was_read(tmp_path):
+    """F7. `0 refused` says the same thing for *read and clean* and *never
+    opened*, so the line says which, and the heading names the file."""
+    h = home(tmp_path)
+    got = run(["."], tmp_path)
+    assert got.returncode == 0, got.stdout + got.stderr
+    assert module().RECORDS_HEADING in got.stdout, got.stdout
+    assert "seal/follow-up.md" in module().RECORDS_HEADING
+    assert "0 external · no seal/follow-up.md\n" in got.stdout, got.stdout
+    follow_up(h, "# Follow-up\n")
+    got = run(["."], tmp_path)
+    assert got.returncode == 0, got.stdout + got.stderr
+    assert "0 external · seal/follow-up.md read\n" in got.stdout, got.stdout
+
+
+# --- a name written as `path#name` is checked (#508) --------------------------
+#
+# `RECORD_NAME_RE` needs the whole backticked span to be an identifier, so a
+# name written the way a coordinate is written was skipped inside the very
+# records that were read.
+
+MOD = (
+    "class Kept:\n"
+    "    def open(self):\n"
+    "        return kept_helper()\n"
+    "\n"
+    "\n"
+    "def kept_helper():\n"
+    "    return 1\n"
+)
+
+
+def coordinate_refusals(tmp_path, line, where="record"):
+    """(findings, names read, stamps read) for one line in a live record or
+    in `seal/follow-up.md`, over a tree holding `src/mod.py` and nothing
+    else."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"src__mod.py": MOD})
+    if where == "record":
+        work_item(h, "1780000000-live", **{"plan.md": f"# p\n\n{line}\n"})
+    else:
+        work_item(h, "1780000000-live", **{"plan.md": "# p\n"})
+        follow_up(h, f"# Follow-up\n\n{line}\n")
+    return module().check_records(str(tmp_path), str(h))
+
+
+@pytest.mark.parametrize("where", ["record", "follow-up"])
+@pytest.mark.parametrize(
+    "span, missing",
+    [
+        ("src/mod.py#invented_unit_name", "invented_unit_name"),
+        ("src/mod.py#invented_unit_name()", "invented_unit_name"),
+        ("src/mod.py#Kept.invented_method", "invented_method"),
+    ],
+    ids=["name", "call", "dotted"],
+)
+def test_a_coordinate_form_name_the_named_file_lacks_is_refused(
+    tmp_path, where, span, missing
+):
+    """P1 and P7: refused, the detail naming the path and the segment, and
+    the span counted in `names read`."""
+    findings, names, stamps = coordinate_refusals(tmp_path, f"see `{span}`", where)
+    assert (names, stamps) == (1, 0), findings
+    assert [s for s, _, _ in findings] == ["NOT-IN-TREE"], findings
+    assert findings[0][1].endswith(":3"), findings
+    assert findings[0][2].startswith(
+        f"`{span.rstrip('()')}` — `{missing}` is not a token of src/mod.py, "
+        "the file the path names. Correct the record, or write NAME NOT IN "
+        "TREE on the line"
+    ), findings
+
+
+def test_a_coordinate_form_name_the_named_file_carries_passes(tmp_path):
+    """P2, the passing direction, dotted and called forms included."""
+    line = "`src/mod.py#kept_helper` and `src/mod.py#Kept.open()`"
+    assert coordinate_refusals(tmp_path, line) == ([], 2, 0)
+
+
+def test_a_name_only_another_file_carries_is_refused_under_the_path(tmp_path):
+    """P2: #508's own instance was a case named under a file that has no such
+    case. Another file carrying the name is not evidence for this one."""
+    tree(tmp_path, **{"src__other.py": "def elsewhere_only():\n    return 2\n"})
+    findings, names, _ = coordinate_refusals(tmp_path, "`src/mod.py#elsewhere_only`")
+    assert names == 1
+    assert [s for s, _, _ in findings] == ["NOT-IN-TREE"], findings
+
+
+def test_a_one_word_name_under_a_resolving_path_is_a_claim(tmp_path):
+    """P3: the path is what makes the span a claim, so the underscore
+    narrowing that keeps a single backticked word out does not apply."""
+    findings, names, _ = coordinate_refusals(tmp_path, "`src/mod.py#Zork`")
+    assert names == 1
+    assert [s for s, _, _ in findings] == ["NOT-IN-TREE"], findings
+
+
+@pytest.mark.parametrize(
+    "path",
+    ["mod.py", "src/gone.py", "../out.py"],
+    ids=["bare-file-name", "missing-file", "escapes-the-root"],
+)
+def test_an_unresolved_path_reads_its_name_as_a_bare_name(tmp_path, path):
+    """P4: the name half is read exactly as the same name written bare, the
+    compound rule against the whole corpus. A one-word name is not read."""
+    findings, names, _ = coordinate_refusals(
+        tmp_path, f"`{path}#invented_unit_name` and `{path}#Zork`"
+    )
+    assert names == 1, findings
+    assert [s for s, _, _ in findings] == ["NOT-IN-TREE"], findings
+    assert findings[0][2].startswith(
+        f"`{path}#invented_unit_name` — {path} resolves to no file here, so "
+        "`invented_unit_name` is read as a bare name, and nothing outside "
+    ), findings
+
+
+def test_an_unresolved_path_with_a_name_the_corpus_carries_passes(tmp_path):
+    """P4, the passing direction: a bare file name with a name some file has."""
+    assert coordinate_refusals(tmp_path, "`mod.py#kept_helper`") == ([], 1, 0)
+
+
+def test_a_stamped_span_is_a_stamp_and_not_a_name(tmp_path):
+    """P5: `@hash` makes the span the stamp half's, and it is counted once."""
+    findings, names, stamps = coordinate_refusals(
+        tmp_path, "`src/mod.py#kept_helper@00000000`"
+    )
+    assert (names, stamps) == (0, 1), findings
+    assert [s for s, _, _ in findings] == ["DRIFTED"], findings
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "`src/mod.py#invented_unit_name` NAME NOT IN TREE",
+        "```\n`src/mod.py#invented_unit_name`\n```",
+        "<!-- `src/mod.py#invented_unit_name` -->",
+    ],
+    ids=["marker", "closed-fence", "comment"],
+)
+def test_the_coordinate_form_takes_the_claim_rules(tmp_path, text):
+    """P6: the same lines `claim_lines` reads, and no others."""
+    assert coordinate_refusals(tmp_path, text)[0] == []
+
+
+def test_a_cross_repo_name_is_not_read_where_its_stamp_is_external(tmp_path):
+    """Round 1 of 1790635414, 🟡 2. In a repository that declared another
+    checkout, a path under a top-level directory this tree does not have is
+    `EXTERNAL` to the stamp half at exit 0, and the name half must not refuse
+    it. A missing file under a directory the tree does have is still read."""
+    h = home(tmp_path)
+    (h / "parity.md").write_text("# parity\n", encoding="utf-8")
+    tree(tmp_path, **{"src__mod.py": MOD})
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "plan.md": "# p\n\n"
+            "Ports `legacy/src/service.py#get_user_by_id`.\n"
+            "Stamped `legacy/src/service.py#get_user_by_id@abcdef12`.\n"
+            "And `src/gone.py#invented_unit_name`.\n"
+        },
+    )
+    findings, names, stamps = module().check_records(str(tmp_path), str(h))
+    assert (names, stamps) == (1, 1), findings
+    assert [(s, c.replace(os.sep, "/")[-9:]) for s, c, _ in findings] == [
+        ("NOT-IN-TREE", "plan.md:5"),
+        ("EXTERNAL", "plan.md:4"),
+    ], findings
+
+
+def test_a_heading_fragment_and_a_line_anchor_are_not_refused(tmp_path):
+    """Round 1 of 1790635414, 🟡 3. After a `.md` path the fragment is
+    GitHub's heading anchor, which lower-cases the heading's words; a
+    `#L120` line anchor names no unit. A word the file does not carry after
+    the same path is still refused."""
+    tree(tmp_path, **{"README.md": "# Tool\n\n## Install\n\nRun it.\n"})
+    findings, names, _ = coordinate_refusals(
+        tmp_path,
+        "Setup is in `README.md#install`, entry at `src/mod.py#L1`, "
+        "and `README.md#uninstall`.",
+    )
+    assert names == 2, findings
+    assert [s for s, _, _ in findings] == ["NOT-IN-TREE"], findings
+    assert "`uninstall`" in findings[0][2], findings
+
+
+def test_a_heading_anchor_github_strips_punctuation_from_is_not_refused(tmp_path):
+    """Round 2 of 1790635414, 🟡 7. GitHub's anchor drops every character of a
+    heading but letters, digits, `_`, `-` and spaces, so `## Don't` is
+    `#dont`, a code-span heading `evidence_check.py` is `#evidence_checkpy`
+    and `## v1.2` is `#v12`: none is a word of the file, lower-cased or not.
+    An invented anchor is still refused, and so is the anchor of a `#` line
+    inside a fence, which GitHub does not read as a heading."""
+    tree(
+        tmp_path,
+        **{
+            "README.md": "# Tool\n\n## Don't\n\n## `evidence_check.py`\n\n## v1.2\n\n"
+            "```\n# Fenced's\n```\n"
+        },
+    )
+    findings, names, _ = coordinate_refusals(
+        tmp_path,
+        "See `README.md#dont`, `README.md#evidence_checkpy`, `README.md#v12`, "
+        "`README.md#fenceds` and `README.md#uninstall`.",
+    )
+    assert names == 5, findings
+    assert [d.split(" — ")[0] for _, _, d in findings] == [
+        "`README.md#fenceds`",
+        "`README.md#uninstall`",
+    ], findings
+
+
+def test_a_heading_github_renders_before_it_slugs_is_not_refused(tmp_path):
+    """Round 3 of 1790635414, 🟡 9. GitHub slugs a heading's rendered text
+    and anchors a setext heading and one inside a blockquote, so each of
+    these is a real anchor of the file: a setext `Don't`, a quoted `Won't`,
+    an emphasised `Note`, a linked code span, a word glued to an inline tag
+    and an entity, none of them a word of the file lower-cased. An invented
+    anchor is still refused."""
+    tree(
+        tmp_path,
+        **{
+            "README.md": "# Tool\n\nDon't\n-----\n\n> ## Won't\n\n## _Note_\n\n"
+            "## [`evidence_check.py`](a.py)\n\n## Press<kbd>Esc</kbd>\n\n"
+            "## Isn&#39;t\n"
+        },
+    )
+    findings, names, _ = coordinate_refusals(
+        tmp_path,
+        "See `README.md#dont`, `README.md#wont`, `README.md#note`, "
+        "`README.md#evidence_checkpy`, `README.md#pressesc`, `README.md#isnt` "
+        "and `README.md#uninstall`.",
+    )
+    assert names == 7, findings
+    assert [d.split(" — ")[0] for _, _, d in findings] == ["`README.md#uninstall`"], (
+        findings
+    )
 
 
 # --- this repository's own records ------------------------------------------

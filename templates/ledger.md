@@ -48,7 +48,11 @@ nothing.
 
 The **Checked** column carries the date somebody read the code. Re-verifying a
 row is re-reading it and then running `evidence-check --reverify`, which
-recomputes the hash and says which rows it changed.
+recomputes the hash and says which rows it changed. `--checked <YYYY-MM-DD>`
+writes the date of that reading into the Checked cell of every row whose hash
+it moves; without it the dates stay and those rows are named. The flag says
+every such row was re-read, so read each row citing a drifted coordinate
+first, or narrow the write with `--ledger` to the files you read.
 
 ## Scope decisions
 

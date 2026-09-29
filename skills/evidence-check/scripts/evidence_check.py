@@ -48,6 +48,15 @@ Usage:
   evidence_check.py --reverify [ROOT]     rewrite the hash of every resolvable
                                           row — an explicit "I have re-read
                                           these", never something a check does
+                                          — and name each row whose hash moved
+                                          and whose date was left
+  evidence_check.py --reverify --checked YYYY-MM-DD [ROOT]
+                                          the same, and write that date into
+                                          the date cell of every row whose
+                                          hash moved. It says every such row
+                                          was re-read: read each row citing a
+                                          drifted coordinate first, or narrow
+                                          the write with --ledger
 
 --map resolves cross-repo coordinates (e.g. a migration's original repo):
   a coordinate `legacy-api/src/service.py#handler@a1b2c3d` with
@@ -56,9 +65,12 @@ Usage:
 
 import argparse
 import ast
+import bisect
+import datetime
 import functools
 import glob
 import hashlib
+import html
 import importlib.util
 import os
 import re
@@ -72,9 +84,16 @@ import tempfile
 # a markdown table line does not split the table it lives in, and `\"` is an
 # escaped double quote, because a bare one ends the quoted line and the whole
 # coordinate stops matching.
+#
+# The path and the unquoted locator are named on their own, because the
+# records arm reads a name written the way a coordinate is written with the
+# same two pieces (`RECORD_COORD_RE`, #508): one grammar, so *a coordinate*
+# means one thing in both arms.
+ANCHOR_PATH = r"[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?"
+ANCHOR_NAME = r"[A-Za-z_][A-Za-z0-9_.]*"
 ANCHOR_RE = re.compile(
-    r"(?P<path>[A-Za-z0-9_@.][A-Za-z0-9_.@/-]*[/.][A-Za-z0-9_.@/-]*?)"
-    r"#(?P<locator>\"(?:[^\"\n]|\\\")+\"|[A-Za-z_][A-Za-z0-9_.]*)"
+    r"(?P<path>" + ANCHOR_PATH + r")"
+    r"#(?P<locator>\"(?:[^\"\n]|\\\")+\"|" + ANCHOR_NAME + r")"
     r"(?:>(?P<claim>\"(?:[^\"\n]|\\\")+\"))?"
     r"@(?P<hash>[0-9a-f]{6,12})"
 )
@@ -276,14 +295,23 @@ def gfm_lines(text, keepends=False):
     otherwise: no trailing empty line, and each line's end kept only when
     KEEPENDS asks.
 
-    For every walk of markdown lines that reads a table or a fence. The
-    lines a hash covers and an anchor spans are still `splitlines`' in this
-    branch, and that is a known defect, not a different answer: `ast` and
-    GFM number lines at LF, CR and CRLF alone, so after a form feed, NEL or
-    U+2028 the region hashed is not the unit the row names, and an edit to
-    the unit there passes without a DRIFTED. #664 fixes it; switching moves
-    the recorded hash of every region that holds or follows one of those
-    characters, so it is a change of its own."""
+    **Every walk of lines in this file reads these**: the table and fence
+    walks, and since #664 the lines a hash covers and an anchor spans. `ast`
+    numbers a `.py` file's lines at LF, CR and CRLF alone, and so does GFM,
+    while `str.splitlines` also ends a line at a form feed, NEL, U+2028 and
+    five more characters. Where one stood mid-line, each kind of anchor went
+    wrong its own way, and each let an edit to the unit pass without a
+    DRIFTED: a `.py` unit below it was sliced one line off the lines `ast`
+    names; in a markdown section it could begin a line reading as a heading,
+    which ended the section there; in a generic unit it could begin a line
+    at column 0, which ended the block.
+
+    What the switch moved: the hash of a region holding one of those
+    characters mid-line, and of a `.py` unit below one. A region holding one
+    only at a line end or on a blank line keeps its hash, because all eight
+    are whitespace to `str.isspace` and `normalise` drops them. No tracked
+    file in this repository held any of the eight when the switch was made,
+    so no row's hash here moved."""
     lines = GFM_LINE_RE.findall(text)
     return lines if keepends else [line.rstrip("\r\n") for line in lines]
 
@@ -524,7 +552,7 @@ def resolve_unit(path, locator, text):
     being rewritten. The hash still reports the prose changing, so the row
     still says re-read this; it just stops saying go fix the ledger.
     """
-    lines = text.splitlines()
+    lines = gfm_lines(text)
     markdown = path.endswith(".md")
     if locator.startswith('"'):
         body = unescape(locator[1:-1])
@@ -752,7 +780,7 @@ def minor_region(path, text, region, minor):
 
     Ambiguity widens for the same reason: several matches is not a place.
     """
-    lines = text.splitlines()
+    lines = gfm_lines(text)
     if minor.startswith('"'):
         found = literal_statements(lines, region, unescape(minor[1:-1]))
     elif path.endswith(".py"):
@@ -776,7 +804,7 @@ def recorded_here(rel, body, place, want, claim):
         if not inside:
             return False
         place = inside[0]
-    return content_hash(body.splitlines()[place[0] - 1 : place[1]]) == want
+    return content_hash(gfm_lines(body)[place[0] - 1 : place[1]]) == want
 
 
 def left_because(places, resurrected):
@@ -806,7 +834,7 @@ def file_units(rel, body):
     destination scan below deliberately keeps them, because there the evidence
     is reconstruction against the row's recorded hash.
     """
-    lines = body.splitlines()
+    lines = gfm_lines(body)
     units = []
     if rel.endswith(".py"):
         for name, places in (py_spans(body) or {}).items():
@@ -918,7 +946,7 @@ def content_matches(repo, rel, locator, want, cache):
         body = read(os.path.join(repo, path))
         if body is None:
             continue
-        lines = body.splitlines()
+        lines = gfm_lines(body)
         for name, (a, b), _unsure in file_units(path, body):
             region = lines[a - 1 : b]
             if markdown:
@@ -1512,7 +1540,7 @@ def check_text(text, root, maps, default_repo=None, seen=None, scan_cache=None):
                 # to is what makes Known limits' *record it by hand* an act
                 # somebody can actually carry out (round 7, 🔴 M).
                 at = "; ".join(
-                    f"{a}-{b}@{content_hash(body.splitlines()[a - 1 : b])}"
+                    f"{a}-{b}@{content_hash(gfm_lines(body)[a - 1 : b])}"
                     for a, b in unsure
                 )
                 detail = (
@@ -1559,7 +1587,7 @@ def check_text(text, root, maps, default_repo=None, seen=None, scan_cache=None):
             unit = inside[0]
 
         start, end = unit
-        got = content_hash(body.splitlines()[start - 1 : end])
+        got = content_hash(gfm_lines(body)[start - 1 : end])
         if got != want:
             findings.append(
                 ("DRIFTED", coord, f"content changed at {start}-{end} — re-verify")
@@ -1989,7 +2017,7 @@ def migrate(ledgers, root, maps=None, default_repo=None):
                     left.append((m.group(0), "file not found"))
                     failed = True
                     continue
-                lines = body.splitlines()
+                lines = gfm_lines(body)
                 if e > len(lines):
                     left.append((m.group(0), f"line past EOF ({len(lines)} lines)"))
                     failed = True
@@ -1998,7 +2026,7 @@ def migrate(ledgers, root, maps=None, default_repo=None):
                 if repo == root and row_sha:
                     old_body = content_at(root, row_sha, rel)
                     if old_body is not None:
-                        old_lines = old_body.splitlines()
+                        old_lines = gfm_lines(old_body)
                         if e > len(old_lines) or normalise(
                             old_lines[s - 1 : e]
                         ) != normalise(lines[s - 1 : e]):
@@ -2069,31 +2097,131 @@ def migrate(ledgers, root, maps=None, default_repo=None):
     return migrated, left, unproven
 
 
-def reverify(ledgers, root, maps, default_repo=None):
+# --- the date a re-read is recorded under (#387) ------------------------------
+#
+# A new hash says somebody re-read the row, and the date cell says when. Until
+# #387 `--reverify` wrote the first and never the second: round 1 of #120
+# measured six rows of `seal/ledger.md` with new hashes and dates from before
+# the content moved, one of them anchored on the very section that branch
+# rewrote. The owner's answer: `--checked <date>` writes that date on every row
+# whose hash moved; without it the date is left alone and those rows are named;
+# a row whose hash did not move is never touched.
+#
+# The date cell is the column headed `Checked`, else the column headed `Date`
+# (the release files of 0.5.0 and 0.12.x use that header), else -- under no
+# header -- the fourth cell of a row exactly as wide as `LEDGER_COLUMNS`.
+DATE_HEADERS = ("Checked", "Date")
+CHECKED_RE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+# A cell boundary, as `split_row` reads one: a `|` with no `\` before it.
+PIPE_RE = re.compile(r"(?<!\\)\|")
+# How much of a row's first cell the naming block prints. The file and line
+# locate the row; the label is for the person reading the list.
+LABEL_WIDTH = 72
+
+
+def checked_refusal(value, reverifying, migrating, today):
+    """Why `--checked VALUE` is refused, or None where it is a date to write.
+
+    Refused before any ledger is read, so a refused run changes no byte:
+    beside `--migrate`, which re-stamps nothing a person re-read; without
+    `--reverify`, where there is nothing to date; a value that is not a
+    calendar date written `YYYY-MM-DD` in ASCII digits; and a date later than
+    TODAY, the local date the run is on. `today` is not taken: the value is
+    a statement typed by whoever did the reading.
+    """
+    if migrating:
+        return (
+            "`--checked` dates the rows `--reverify` re-stamps, and `--migrate` "
+            "re-stamps nothing a person re-read — run them apart"
+        )
+    if not reverifying:
+        return (
+            "`--checked` dates the rows `--reverify` re-stamps, and this run has "
+            "no `--reverify`, so there is nothing to date"
+        )
+    try:
+        when = CHECKED_RE.fullmatch(value) and datetime.date.fromisoformat(value)
+    except ValueError:
+        when = None
+    if not when:
+        return (
+            f"`--checked` takes the date you re-read the rows on, written "
+            f"YYYY-MM-DD, and `{value}` is not a calendar date in that form"
+        )
+    if when > today:
+        return (
+            f"`--checked {value}` is later than today, {today.isoformat()} — "
+            "a reading is not dated after the run that records it"
+        )
+    return None
+
+
+def date_column(header, cells):
+    """(index, name) of a table row's date cell, or None where it has none."""
+    if header is None:
+        if len(cells) != len(LEDGER_COLUMNS):
+            return None
+        index = LEDGER_COLUMNS.index(DATE_HEADERS[0])
+        return index, LEDGER_COLUMNS[index]
+    for name in DATE_HEADERS:
+        if name in header:
+            index = header.index(name)
+            return (index, name) if index < len(cells) else None
+    return None
+
+
+def dated_cell(line, index, date):
+    """(start, end, replacement) within LINE for the cell at INDEX with DATE
+    added, or None where the cell already ends in DATE.
+
+    The boundaries are the unescaped pipes, never a plain split: a Notes cell
+    holding `\\|` before the date cell must not move where the date lands.
+    A cell holding dates gets ` · DATE` appended, the separator all 34 date
+    lists in this repository's ledgers use; an empty cell becomes DATE.
+    """
+    body = line.rstrip("\r\n")
+    pipes = [m.start() for m in PIPE_RE.finditer(body)]
+    start = pipes[index] + 1
+    end = pipes[index + 1] if index + 1 < len(pipes) else len(body)
+    cell = body[start:end]
+    current = cell.strip()
+    if re.search(r"(?:^|\s)" + re.escape(date) + r"$", current):
+        return None
+    if not current:
+        return start, end, f" {date} "
+    lead = cell[: len(cell) - len(cell.lstrip())]
+    trail = cell[len(cell.rstrip()) :]
+    return start, end, f"{lead}{current} · {date}{trail}"
+
+
+def row_label(cells):
+    """A row's first cell, as far as the naming block prints it."""
+    label = cells[0] if cells else ""
+    return label if len(label) <= LABEL_WIDTH else label[: LABEL_WIDTH - 1] + "…"
+
+
+def reverify(ledgers, root, maps, default_repo=None, checked=None):
     """Rewrite the hash of every row whose anchor resolves. Explicit, by hand.
 
     Re-verifying is recomputing the hash, which is a person saying they have
     re-read the code. It is deliberately a separate command: a check that
     silently refreshed what it was checking would report OK forever.
+
+    **CHECKED is the date of that reading** (#387), and where it is given it
+    is written into the date cell of every row whose hash this moves, once
+    per row however many of its coordinates moved. A row with a moved hash
+    and no date cell is then LEFT WHOLE, hash included: writing the hash
+    alone recreates the row whose two halves disagree, which is what #387
+    reports. Without CHECKED the date cells are left alone and every row
+    whose hash moved is named, with its date as it stands. A row whose hash
+    did not move is never dated and never named; one whose file moved whole
+    is re-pointed, and one that still resolves is not touched.
     """
-    # RIDER: this rewrites the hash and never the `Checked` column, so the
-    # claim that somebody re-read the code is made by a person and recorded by
-    # nobody. Round 1 of #120 measured the gap: six rows of `seal/ledger.md`
-    # got new hashes on one branch and all six kept dates from before the
-    # content moved -- one of them anchored on the very section that branch
-    # rewrote, so the ledger recorded a claim about it as last read a week
-    # before the rewrite. `templates/ledger.md` states the rule the other way
-    # round: re-verifying IS re-reading and then running this. Nothing here
-    # reads the column, so nothing can report the half that was skipped. If
-    # you open this function, decide whether it should refuse a row whose
-    # `Checked` still predates the hash it is about to replace, or print the
-    # ones it left; the fix pass that found this could add neither without
-    # adding mechanism.
-    # Verified 2026-09-29 against reverify@69267bf1.
     changed = 0
     unreadable = []
     malformed = []
     overflow = []
+    dated, undated, undatable = [], [], []
     scan_cache = {}
     for ledger in ledgers:
         text = read(ledger)
@@ -2110,10 +2238,14 @@ def reverify(ledgers, root, maps, default_repo=None):
         # names the ledger too. The hashes in the row are still rewritten
         # below where their anchors resolve: the hash is not what is wrong.
         overflow.extend(
-            (f"{display_name(ledger, root)} {coord}", why)
+            (f"{built_name(ledger, root)} {coord}", why)
             for _, coord, why in overflow_rows(text)
         )
-        out, at = [], 0
+        # `(start, end, replacement, what to print)` for every hash this
+        # ledger's rows would take. Collected rather than spliced as found,
+        # because under `--checked` a row with no date cell is left WHOLE, and
+        # that is known only once every coordinate in the row has been read.
+        edits = []
         # Matched in `unquoted(text)` and spliced from `text`: the two have
         # the same offsets, and an example row in a closed fence is never
         # rewritten (#444).
@@ -2182,21 +2314,29 @@ def reverify(ledgers, root, maps, default_repo=None):
                         if path == rel
                         else (raw_path[: len(raw_path) - len(rel)] + path)
                     )
-                    out.append(text[at : m.start("path")])
-                    out.append(new_raw)
-                    out.append(text[m.end("path") : m.start("locator")])
-                    out.append(name)
-                    out.append(text[m.end("locator") : m.start("hash")])
-                    out.append(content_hash(target.splitlines()[a - 1 : b]))
-                    at = m.end("hash")
-                    changed += 1
                     shown = f"#{name}" if path == rel else f"{path}#{name}"
                     # "identical content", not "moved intact": identity is
                     # the whole of what reconstruction proved. A deletion
                     # beside a boilerplate twin reconstructs too, and that
                     # history is the reader's to judge from the diff
                     # (round 4, 🟡 7).
-                    print(f"  {raw_path}#{locator} -> {shown}  (identical content)")
+                    new_hash = content_hash(gfm_lines(target)[a - 1 : b])
+                    edits.append(
+                        (
+                            m.start("path"),
+                            m.end("hash"),
+                            new_raw
+                            + text[m.end("path") : m.start("locator")]
+                            + name
+                            + text[m.end("locator") : m.start("hash")]
+                            + new_hash,
+                            f"  {raw_path}#{locator} -> {shown}  (identical content)",
+                            # A file moved whole reconstructs with the recorded
+                            # hash, and only a rename moves it: the owner's rule
+                            # dates a row whose HASH moved (#387).
+                            new_hash != m.group("hash"),
+                        )
+                    )
                 else:
                     print(
                         f"  {left_as}  {left_because(places, resurrected)}, and "
@@ -2225,26 +2365,109 @@ def reverify(ledgers, root, maps, default_repo=None):
                     continue
                 places = inside
             start, end = places[0]
-            got = content_hash(body.splitlines()[start - 1 : end])
+            got = content_hash(gfm_lines(body)[start - 1 : end])
             if got == m.group("hash"):
                 continue
-            out.append(text[at : m.start("hash")])
-            out.append(got)
-            at = m.end("hash")
-            changed += 1
             shown = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
-            print(f"  {shown}  {m.group('hash')} -> {got}")
+            edits.append(
+                (
+                    m.start("hash"),
+                    m.end("hash"),
+                    got,
+                    f"  {shown}  {m.group('hash')} -> {got}",
+                    True,
+                )
+            )
+        if not edits:
+            continue
+        # `<ledger>:<line>` is a coordinate this run built, so it takes `/`
+        # on every platform, as the records arm's do (`built_name`).
+        name = built_name(ledger, root)
+        lines = gfm_lines(text, keepends=True)
+        starts = [0]
+        for line in lines:
+            starts.append(starts[-1] + len(line))
+        rows = {n: (header, cells) for n, header, cells in ledger_table_rows(text)}
+        by_row = {}
+        for edit in edits:
+            by_row.setdefault(bisect.bisect_right(starts, edit[0]), []).append(edit)
+        kept = []
+        for number, row_edits in sorted(by_row.items()):
+            header, cells = rows.get(number, (None, []))
+            spliced = [edit[:4] for edit in row_edits]
+            if not any(edit[4] for edit in row_edits):
+                # Re-pointed, and no hash moved: no reading to date, and no
+                # undated reading to name.
+                kept.extend(spliced)
+                continue
+            column = date_column(header, cells) if cells else None
+            where = f"{name}:{number}"
+            if checked is not None:
+                if column is None:
+                    undatable.append(where)
+                    continue
+                cell = dated_cell(lines[number - 1], column[0], checked)
+                if cell is not None:
+                    at = starts[number - 1]
+                    kept.append((at + cell[0], at + cell[1], cell[2], None))
+                dated.append((where, row_label(cells)))
+            else:
+                undated.append(
+                    (
+                        where,
+                        row_label(cells),
+                        f"{column[1]}: {cells[column[0]] or '(empty)'}"
+                        if column
+                        else "no date cell",
+                    )
+                )
+            kept.extend(spliced)
+        out, at = [], 0
+        for start, end, replacement, said in sorted(kept):
+            out.append(text[at:start])
+            out.append(replacement)
+            at = end
+            if said is not None:
+                changed += 1
+                print(said)
         if out:
             out.append(text[at:])
             write_atomic(ledger, "".join(out))
     print(f"{changed} row{'' if changed == 1 else 's'} re-verified")
+    if dated:
+        one = len(dated) == 1
+        print(
+            f"  dated {checked} — {len(dated)} row{'' if one else 's'} whose "
+            f"hash moved, each once:"
+        )
+        for where, label in dated:
+            print(f"    {where}  {label}")
+    if undated:
+        one = len(undated) == 1
+        print(
+            f"  {len(undated)} row{'' if one else 's'} took a new hash and "
+            f"kept {'its' if one else 'their'} date — a new hash says somebody "
+            "re-read the row, and nothing here says when:"
+        )
+        for where, label, date in undated:
+            print(f"    {where}  {label}  ({date})")
+        print(
+            "  date each row you re-read in its own cell; `--reverify --checked "
+            "YYYY-MM-DD` writes that date on every row whose hash it moves"
+        )
     for path in unreadable:
         print(f"  LEFT  {path}  ledger unreadable")
     for coord, why in malformed:
         print(f"  LEFT  {coord}  MALFORMED — {why}")
     for where, why in overflow:
         print(f"  LEFT  {where}  OVERFLOW — {why}")
-    return 1 if unreadable or malformed or overflow else 0
+    for where in undatable:
+        print(
+            f"  LEFT  {where}  its hash moved and the row has no date cell — no "
+            "`Checked` or `Date` column, and not the five cells of a ledger row "
+            "— so `--checked` left it whole, hash included; give it a date cell"
+        )
+    return 1 if unreadable or malformed or overflow or undatable else 0
 
 
 # --- the records arm: what a work item's records state about the tree -------
@@ -2258,10 +2481,24 @@ def reverify(ledgers, root, maps, default_repo=None):
 #
 # This is the reader. It answers the ledger's own question -- does this still
 # point at what it claims -- over the records of work items that have not
-# shipped yet.
+# shipped yet, and over `seal/follow-up.md`, whose rows are live for as long as
+# they stand (#508).
 
 SPECS_DIR = "specs"
 FRAGMENT_DIR = "ledger"
+# The permanent list of schedulable items, under the same `seal/` root. Its
+# rows are unit names addressed to a person and read months after they were
+# written, which is the whole reason the file exists -- and until #508 nothing
+# read one: a row named a case in no file and was caught by grepping.
+FOLLOW_UP = "follow-up.md"
+
+
+def follow_up_path(home):
+    """`<home>/follow-up.md`, where the records arm reads it and where
+    `tree_names` leaves it out. One spelling for both, because the file is
+    read as a record only while it is out of the corpus: kept in, the row
+    naming a name would be the evidence that the name exists."""
+    return os.path.join(home, FOLLOW_UP)
 
 
 def unshipped(home, refused=None):
@@ -2440,6 +2677,18 @@ COMMENT_OPENER, COMMENT_CLOSER = "<!--", "-->"
 # for the fix surface; the two are separate because that one measures a diff
 # and this one reads prose, and folding them would give one pattern two jobs.
 RECORD_NAME_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
+# A backticked name written the way a coordinate is written, with no hash:
+# `path#name`, `path#name()` or `path#Class.method` (#508). `RECORD_NAME_RE`
+# needs the whole span to be an identifier, so this form was skipped inside
+# the very records that were read. The path and the name are `ANCHOR_RE`'s own
+# pieces. A span carrying `@hash` does not match, because it is a stamp and
+# the stamp half reads it; a quoted locator does not either, because a line of
+# text is not a name.
+RECORD_COORD_RE = re.compile(
+    r"`(?P<path>" + ANCHOR_PATH + r")#(?P<name>" + ANCHOR_NAME + r")(?:\(\))?`"
+)
+# A GitHub line anchor, `path#L120`: it locates a line and names no unit.
+LINE_ANCHOR_RE = re.compile(r"L[0-9]+")
 TOKEN_RE = re.compile(r"[A-Za-z_]\w*")
 # A file bigger than this is not read into the name corpus. A minified bundle
 # or a lockfile is megabytes of tokens that name nothing anyone claims, and
@@ -2452,7 +2701,9 @@ UNREADABLE_STATUS = "UNREADABLE"
 # unindented line in this program's output that is not a ledger name, and a
 # case that counts ledger headers has to be able to tell it apart by reading
 # this rather than by carrying a second copy of the sentence.
-RECORDS_HEADING = "records — what unreleased work items state about the tree"
+RECORDS_HEADING = (
+    "records — what unreleased work items and seal/follow-up.md state about the tree"
+)
 
 
 def compound(name):
@@ -2638,6 +2889,143 @@ def stated_names(lines):
     return out
 
 
+def stated_coordinates(lines):
+    """[(line number, path, name)] for every name a record writes as
+    `path#name`, on the lines `claim_lines` reads.
+
+    Every such span, compound or not: whether its name is a claim depends on
+    whether its path resolves, which is `coordinate_misses`' question."""
+    return [
+        (number, match.group("path"), match.group("name"))
+        for number, line in claim_lines(lines)
+        for match in RECORD_COORD_RE.finditer(line)
+    ]
+
+
+# An ATX heading's text, without its closing `#` run.
+GITHUB_HEADING_RE = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
+# A setext heading's underline, and the container prefix -- a blockquote, a
+# list marker -- a heading may sit behind. GitHub anchors both kinds.
+SETEXT_UNDERLINE_RE = re.compile(r"^ {0,3}(?:=+|-+)[ \t]*$")
+HEADING_CONTAINER_RE = re.compile(
+    r"^(?: {0,3}(?:>[ \t]?|[-*+][ \t]+|\d{1,9}[.)][ \t]+))+"
+)
+# GitHub slugs a heading's RENDERED text: a link's target, an inline tag and
+# an emphasis run's delimiters are not in it.
+HEADING_MARKUP_RES = (
+    (re.compile(r"!?\[([^\]]*)\]\([^)]*\)"), r"\1"),
+    (re.compile(r"<[^>]+>"), ""),
+    (re.compile(r"(?<![\w*])(\*\*|__|\*|_)(?=\S)(.+?)(?<=\S)\1(?![\w*])"), r"\2"),
+)
+
+
+def github_slug(text):
+    """TEXT's anchor: entities decoded, lower-cased, every character but a
+    letter, digit, `_`, `-` or space dropped, each space a `-`."""
+    return re.sub(r"[^\w\- ]", "", html.unescape(text).lower()).replace(" ", "-")
+
+
+def heading_slugs(body):
+    """The anchors GitHub gives BODY's headings: the text lower-cased, every
+    character but a letter, digit, `_`, `-` or space dropped, and each space
+    a `-` (round 2 of work item 1790635414). So `## Don't` is `dont` and a
+    code-span heading `evidence_check.py` is `evidence_checkpy`, neither a
+    word of the file. A line in a fence that closes is not a heading.
+
+    GitHub slugs what it RENDERS (round 3): a setext heading and one behind a
+    blockquote or list marker are headings too, and a link's target, an
+    inline tag and an emphasis run's delimiters are not in the text. Each
+    heading is slugged as written and as rendered, so the second slug adds
+    only the heading's own words."""
+    slugs = set()
+    lines = gfm_lines(unquoted(body))
+    for n, line in enumerate(lines):
+        bare = HEADING_CONTAINER_RE.sub("", line)
+        m = GITHUB_HEADING_RE.match(bare)
+        if m:
+            text = m.group(1)
+        elif n and SETEXT_UNDERLINE_RE.match(bare) and lines[n - 1].strip():
+            text = HEADING_CONTAINER_RE.sub("", lines[n - 1]).strip()
+        else:
+            continue
+        slugs.add(github_slug(text))
+        for pattern, repl in HEADING_MARKUP_RES:
+            text = pattern.sub(repl, text)
+        slugs.add(github_slug(text))
+    return slugs
+
+
+def coordinate_misses(raw_path, name, root, maps, default_repo, known, file_tokens):
+    """(read, missing, resolved) for one `path#name` a record states.
+
+    **Where the path resolves to a readable file, every segment of the name
+    has to be a token of THAT file.** The claim is the arm's own -- *the tree
+    carries this name* -- narrowed to the file the record points at, so a
+    case named under the wrong test file is refused though another file has
+    it. The path is what makes the span a claim, so a one-word name is read
+    too. Resolution is the ledger's own `place`, so a record and a ledger row
+    cannot disagree about where a path points.
+
+    **By token, not by unit.** A name that survives only in a comment of the
+    file passes, which is the price: `resolve_unit` refused two nested
+    functions the file does define among 424 resolved spans in this
+    repository's records, and a record has no hash to break the tie with
+    (`plan.md` of work item 1790635414, *Alternatives*).
+
+    **Where it does not resolve -- a bare file name, a missing file, a path
+    escaping the root -- each segment is read as the same name written bare
+    would be:** the compound rule, against the whole corpus. 356 of 367 such
+    spans in this repository's records were bare file names, the spelling
+    `seal/follow-up.md` and the riders use, and skipping them left the
+    commonest form unchecked. A dotted name's segments are read one by one,
+    because a bare span holds no dot.
+
+    **Two fragments locate text rather than name a unit, and neither is
+    refused** (round 1 of work item 1790635414). After a `.md` path the
+    fragment is GitHub's heading anchor, which lower-cases the heading's
+    words, so the file's tokens are read lower-cased there too. A GitHub line
+    anchor, `#L120`, names no unit at all and is not read.
+
+    **A path `check_text` would call `EXTERNAL` is not read either**: a
+    repository that declared another checkout, a path under a top-level
+    directory this tree does not have. The stamp half calls that path
+    somebody else's at exit 0, and the name half of the same arm must not
+    refuse it.
+
+    READ is False where nothing was read -- an unresolved path whose segments
+    carry no underscore, a line anchor, an external path -- and MISSING lists
+    the segments refused. FILE_TOKENS is a dict this fills, so a file cited
+    from many lines is read once.
+    """
+    segments = [s for s in name.split(".") if s]
+    repo, rel = place(root, maps, default_repo, raw_path)
+    tokens = None
+    if repo is not None:
+        full = os.path.join(repo, rel)
+        if full not in file_tokens:
+            body = read(full)
+            found = None if body is None else set(TOKEN_RE.findall(body))
+            if found is not None and rel.endswith(".md"):
+                found |= {token.lower() for token in found}
+                found |= heading_slugs(body)
+            file_tokens[full] = found
+        tokens = file_tokens[full]
+    if tokens is not None:
+        if all(LINE_ANCHOR_RE.fullmatch(s) for s in segments):
+            return False, [], True
+        return True, [s for s in segments if s not in tokens], True
+    if (
+        repo == root
+        and cross_repo_intent(root, default_repo)
+        and "/" in rel
+        and not os.path.exists(os.path.join(root, rel.split("/")[0]))
+    ):
+        # The condition `check_text` answers EXTERNAL under, word for word.
+        return False, [], False
+    claimed = [s for s in segments if compound(s)]
+    return bool(claimed), [s for s in claimed if s not in known], False
+
+
 def tree_names(root, home):
     """Every identifier-shaped token the repository carries outside its records.
 
@@ -2645,8 +3033,12 @@ def tree_names(root, home):
     has; a name absent from it is one the record alone carries.
 
     **Two directories are excluded and they are the two a work item writes
-    about itself**: `<home>/specs/` and `<home>/ledger/`. Nothing else under
-    `<home>/` is, and `seal/ledger.md` in particular is IN. The line is
+    about itself**: `<home>/specs/` and `<home>/ledger/`. **One file is
+    excluded too, `<home>/follow-up.md`, because the arm reads it as a
+    record** (#508): a file that is both read and in the corpus answers its
+    own question, and a row naming a name the tree lost would be the name's
+    only evidence. Nothing else under `<home>/` is, and `seal/ledger.md` in
+    particular is IN. The line is
     lifetime, the same line the boundary is drawn on. The gathered ledger is a
     permanent, curated document — its S15 note keeps a renamed unit's old name
     beside the new one on purpose, *so a reader coming from an older record
@@ -2694,6 +3086,7 @@ def tree_names(root, home):
         os.path.normpath(os.path.join(home, SPECS_DIR)),
         os.path.normpath(os.path.join(home, FRAGMENT_DIR)),
     }
+    read_as_record = os.path.normpath(follow_up_path(home))
     # `home` is walked in its own right because in LOCAL mode (#80) it sits
     # under the git common directory, which `SKIP_DIRS` prunes — so identical
     # bytes answered exit 0 in shared mode and exit 2 in local, on the
@@ -2714,6 +3107,8 @@ def tree_names(root, home):
             ]
             for filename in filenames:
                 path = os.path.join(dirpath, filename)
+                if os.path.normpath(path) == read_as_record:
+                    continue
                 names.update(TOKEN_RE.findall(filename))
                 try:
                     if os.path.getsize(path) > NAME_FILE_CAP:
@@ -2769,14 +3164,101 @@ def built_name(path, root, flavour=os.path):
     return display_name(path, root, flavour).replace(flavour.sep, "/")
 
 
+def left_out_of_corpus(root, home):
+    """The places the name corpus leaves out, as a refusal names them.
+
+    Every one of them, because a reader told *nothing outside X carries this
+    name* goes and looks outside X: naming two of the three sends them to
+    the file that was left out and that does carry the name (#508)."""
+    return (
+        f"{built_name(os.path.join(home, SPECS_DIR), root)}, "
+        f"{built_name(os.path.join(home, FRAGMENT_DIR), root)} and "
+        f"{built_name(follow_up_path(home), root)}"
+    )
+
+
+def file_claims(
+    lines, shown, root, known, outside, maps, default_repo, scan_cache, file_tokens
+):
+    """(findings, names read, stamps read) for one file the arm reads.
+
+    A work item's record and `seal/follow-up.md` are read by this one
+    function, so the two cannot come to disagree about what a claim is:
+    `claim_lines` decides which lines count, the name half reads a
+    backticked name and a name written as `path#name`, and the stamp half is
+    `check_text`.
+    """
+    findings, names_read, stamps_read = [], 0, 0
+    remedy = (
+        f"Correct the record, or write {NOT_IN_TREE} on the line where the "
+        "record means a name the tree does not have"
+    )
+    for number, name in stated_names(lines):
+        names_read += 1
+        if name in known:
+            continue
+        findings.append(
+            (
+                NOT_IN_TREE_STATUS,
+                f"{shown}:{number}",
+                f"`{name}` — nothing outside {outside} carries this name. {remedy}",
+            )
+        )
+    for number, raw_path, name in stated_coordinates(lines):
+        read_it, missing, resolved = coordinate_misses(
+            raw_path, name, root, maps, default_repo, known, file_tokens
+        )
+        names_read += read_it
+        if not missing:
+            continue
+        which = ", ".join(f"`{s}`" for s in missing)
+        one = len(missing) == 1
+        if resolved:
+            detail = (
+                f"`{raw_path}#{name}` — {which} {'is not a token' if one else 'are not tokens'} "
+                f"of {raw_path}, the file the path names. {remedy}"
+            )
+        else:
+            detail = (
+                f"`{raw_path}#{name}` — {raw_path} resolves to no file here, "
+                f"so {which} {'is read as a bare name' if one else 'are read as bare names'}, "
+                f"and nothing outside {outside} carries {'it' if one else 'them'}. {remedy}"
+            )
+        findings.append((NOT_IN_TREE_STATUS, f"{shown}:{number}", detail))
+    for number, line in stated_stamps(lines):
+        # The stamps on the line, counted from the line. Counting what
+        # `check_text` RETURNS counts findings: it dedupes a repeated anchor,
+        # so one line stamping a unit twice read as one stamp, and `0 stamps
+        # read` beside a refusal named a number that was never the number of
+        # stamps (round 1, ⬜ 14).
+        stamps_read += sum(1 for _ in ANCHOR_RE.finditer(line))
+        # A fresh `seen` per line and a shared `scan_cache` across them: two
+        # lines stamping one unit are two claims and both are reported, while
+        # the repo-wide scan a broken anchor triggers is paid once for the
+        # whole run.
+        for status, coord, detail in check_text(
+            line, root, maps, default_repo, set(), scan_cache
+        ):
+            if status == "OK":
+                continue
+            findings.append((status, f"{shown}:{number}", f"{coord} {detail}"))
+    return findings, names_read, stamps_read
+
+
 def check_records(root, home, maps=None, default_repo=None):
     """(findings, names read, stamps read) over every unreleased work item's
-    records.
+    records, and over `<home>/follow-up.md`.
 
     A finding is `(status, coordinate, detail)`, the shape `check_ledger`
     returns, so `main` prints both arms the same way — and the stamp half is
     literally `check_text`, the ledger's own reader, so a stamp in a record is
     resolved the way a ledger anchor is rather than by a second rule.
+
+    **`seal/follow-up.md` is read on every run, whether or not a work item is
+    live** (#508). The shipped boundary protects history, and a follow-up row
+    is not history: the file is permanent and a row leaves it when its item
+    is done, so every row in it is live. It is read by the records' own
+    claim rules, and it is out of the corpus (`tree_names`).
     """
     # A directory that could not be listed is a finding, not an empty answer
     # — the direction an unreadable FILE already takes one line down. It is
@@ -2793,15 +3275,17 @@ def check_records(root, home, maps=None, default_repo=None):
         )
         for path in unlistable
     ]
-    if not live:
+    follow_up = follow_up_path(home)
+    has_follow_up = os.path.lexists(follow_up)
+    if not live and not has_follow_up:
         return findings, 0, 0
     known = tree_names(root, home)
-    records_root = os.path.join(home, SPECS_DIR)
-    fragments_root = os.path.join(home, FRAGMENT_DIR)
+    outside = left_out_of_corpus(root, home)
     names_read, stamps_read = 0, 0
-    scan_cache = {}
+    scan_cache, file_tokens = {}, {}
+    paths = []
     for _item, directory in sorted(live.items()):
-        paths, refused_dirs = record_files(directory)
+        records, refused_dirs = record_files(directory)
         for path in refused_dirs:
             findings.append(
                 (
@@ -2810,49 +3294,49 @@ def check_records(root, home, maps=None, default_repo=None):
                     "the records directory could not be listed",
                 )
             )
-        for path in paths:
-            body = read(path)
-            shown = built_name(path, root)
-            if body is None:
-                findings.append(
-                    (UNREADABLE_STATUS, shown, "the record could not be read")
-                )
-                continue
-            lines = gfm_lines(body)
-            for number, name in stated_names(lines):
-                names_read += 1
-                if name in known:
-                    continue
-                findings.append(
-                    (
-                        NOT_IN_TREE_STATUS,
-                        f"{shown}:{number}",
-                        f"`{name}` — nothing outside "
-                        f"{built_name(records_root, root)} and "
-                        f"{built_name(fragments_root, root)} carries this "
-                        f"name. Correct the record, or write {NOT_IN_TREE} on "
-                        "the line where the record means a name the tree does "
-                        "not have",
-                    )
-                )
-            for number, line in stated_stamps(lines):
-                # The stamps on the line, counted from the line. Counting
-                # what `check_text` RETURNS counts findings: it dedupes a
-                # repeated anchor, so one line stamping a unit twice read as
-                # one stamp, and `0 stamps read` beside a refusal named a
-                # number that was never the number of stamps (round 1, ⬜ 14).
-                stamps_read += sum(1 for _ in ANCHOR_RE.finditer(line))
-                # A fresh `seen` per line and a shared `scan_cache` across
-                # them: two lines stamping one unit are two claims and both
-                # are reported, while the repo-wide scan a broken anchor
-                # triggers is paid once for the whole run.
-                for status, coord, detail in check_text(
-                    line, root, maps or {}, default_repo, set(), scan_cache
-                ):
-                    if status == "OK":
-                        continue
-                    findings.append((status, f"{shown}:{number}", f"{coord} {detail}"))
+        paths.extend(records)
+    # Before the early return above and after the work items, so a tree with
+    # nothing live still reads it and a refusal in it prints below theirs.
+    # `lexists` rather than `isfile`: a follow-up that is there and cannot be
+    # read -- a directory under that name, a dangling link -- is UNREADABLE
+    # and exit 2, the way a record is, and absent is the only quiet answer.
+    if has_follow_up:
+        paths.append(follow_up)
+    for path in paths:
+        body = read(path)
+        shown = built_name(path, root)
+        if body is None:
+            findings.append((UNREADABLE_STATUS, shown, "the record could not be read"))
+            continue
+        found, names, stamps = file_claims(
+            gfm_lines(body),
+            shown,
+            root,
+            known,
+            outside,
+            maps or {},
+            default_repo,
+            scan_cache,
+            file_tokens,
+        )
+        findings.extend(found)
+        names_read += names
+        stamps_read += stamps
     return findings, names_read, stamps_read
+
+
+def follow_up_state(root, home):
+    """What the records arm did with `<home>/follow-up.md`, as the summary
+    line says it: read, unreadable, or not there. From `main`, the way the
+    `unread` count is, because `check_records`' three-tuple is read by more
+    call sites than this one line needs."""
+    path = follow_up_path(home)
+    shown = built_name(path, root)
+    if not os.path.lexists(path):
+        return f"no {shown}"
+    if read(path) is None:
+        return f"{shown} unreadable"
+    return f"{shown} read"
 
 
 # **The one exit code this checker's readers grade differently.** Three of them
@@ -2944,7 +3428,25 @@ def main():
         action="store_true",
         help="rewrite each row's hash to what its anchor holds now",
     )
+    ap.add_argument(
+        "--checked",
+        metavar="YYYY-MM-DD",
+        help="with --reverify: the date you re-read the rows on, written into "
+        "the date cell of every row whose hash moves",
+    )
     args = ap.parse_args()
+
+    # Before anything is resolved or read, so a refused run changes no byte
+    # (#387). The precedent is `rider_check.py`'s refusal of `--only` without
+    # `--reverify`: an argument accepted and silently dropped reads as a run
+    # that did what was asked.
+    if args.checked is not None:
+        refusal = checked_refusal(
+            args.checked, args.reverify, args.migrate, datetime.date.today()
+        )
+        if refusal:
+            sys.stderr.write(f"evidence_check: {refusal}\n")
+            return 2
 
     root = os.path.abspath(args.root)
     default_repo = (
@@ -3018,7 +3520,7 @@ def main():
             print(f"  LEFT  {coord}  {why}")
         return 1 if left else 0
     if args.reverify:
-        return reverify(ledgers, root, maps, default_repo)
+        return reverify(ledgers, root, maps, default_repo, args.checked)
 
     if not ledgers:
         print("no evidence ledgers found — nothing to check")
@@ -3116,7 +3618,8 @@ def main():
         f"{unread} unread · "
         f"{names_read} name{'' if names_read == 1 else 's'} read · "
         f"{stamps_read} stamp{'' if stamps_read == 1 else 's'} read · "
-        f"{refused} refused · {drifted} drifted · {external} external"
+        f"{refused} refused · {drifted} drifted · {external} external · "
+        f"{follow_up_state(root, home)}"
     )
 
     code = exit_code(totals, refused, drifted, args.strict)

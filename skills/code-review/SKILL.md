@@ -368,8 +368,9 @@ written.
 
 **The same marker is what a record says a gone name with, and it is read.**
 `evidence-check` refuses a compound backticked identifier in the records of a
-work item that has not shipped when nothing outside `seal/specs/` carries it
-(#190) — a record naming a unit the next commit deleted is a claim nothing
+work item that has not shipped, and in `seal/follow-up.md`, when nothing
+outside `seal/specs/`, `seal/ledger/` and `seal/follow-up.md` carries it
+(#190, #508) — a record naming a unit the next commit deleted is a claim nothing
 was reading. Writing `NAME NOT IN TREE` on that line is the whole of the
 exemption, in either of its two meanings: a name a fix is proposing, and a
 name a record is deliberately calling gone — *`stale_helper` deleted and its

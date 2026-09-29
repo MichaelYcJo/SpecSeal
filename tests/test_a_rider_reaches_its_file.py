@@ -618,6 +618,19 @@ def test_a_missing_walk_is_a_sentence_and_exit_2(tmp_path, capsys):
     assert f"cannot find the fence walk at {missing}" in err, err
 
 
+def test_a_rider_region_below_a_line_separator_is_the_unit():
+    """#664 one file over (round 1 of 1790635414, 🟡 4): the region is sliced
+    from the lines `resolve_unit` numbered it on, so a U+2028 mid-line above
+    the unit does not put the region one line early, and an edit to its last
+    line moves the hash. The character is built from its code point."""
+    text = f"# Doc\nalpha{chr(0x2028)}beta\n## Target\nline one\nline two\n## Next\nx\n"
+    edited = text.replace("line two", "line two EDITED")
+    kept, why = riders.region_lines(CHECKER, "doc.md", '"## Target"', text)
+    again, _ = riders.region_lines(CHECKER, "doc.md", '"## Target"', edited)
+    assert kept is not None and kept[0] == "## Target", (kept, why)
+    assert CHECKER.content_hash(kept) != CHECKER.content_hash(again)
+
+
 def stamped_module(tmp_path, digest=None, date="2026-01-01"):
     """A rider file under `hooks/`, stamped with its own true hash by default."""
     d = tmp_path / "hooks"
