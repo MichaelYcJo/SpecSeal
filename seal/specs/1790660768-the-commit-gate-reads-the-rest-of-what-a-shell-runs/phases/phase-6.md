@@ -164,5 +164,5 @@ must carry*,** gathered from the six phase records:
 
 | Removed item | Where it must land |
 |---|---|
-| `_understood_as_written`, the helper phase 1 moved `understood`'s body into | `understood` itself, where the body stood at `86256492`; the W1 check is `_unreadable_past_leading_redirections` |
+| `_understood_as_written`, the helper phase 1 moved `understood`'s body into | `understood` itself, where the body stood at `86256492`; the W1 check is `_unreadable_past_leading_redirections` · NAME NOT IN TREE |
 | the merged view's per-token `origin` list | none: the directory an addition takes became the last part's, `overview.md`'s divergence row |
