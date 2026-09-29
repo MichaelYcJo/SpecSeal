@@ -331,7 +331,14 @@ the prompt budget below is a count and not a hope:
 - **W1's `Unresolved`** reaches the guard's switch judgment and the consent
   writer as the session's own directory. `hooks/worktree-guard.py` maps an
   `Unresolved` to `cwd`, and so does `hooks/worktree_consent.py`'s creation
-  walk. That is the directory the base's walk already gave, so neither moves.
+  walk. The walk adds it BESIDE the directory the base's walk gave, so
+  neither loses that directory. **Corrected 2026-09-29**, round 1's 🔴 1: this
+  bullet said the `Unresolved` WAS the base's directory, so neither moves. At
+  `befe53cd` it replaced that directory, and it is the session's own only
+  where no `cd` came before it. The guard went silent on four switches the
+  base asked about (`2>/dev/null cd .; cd w && git switch -c nb`), and
+  `creation_directory` filed a creation in a nested clone under the
+  session's clone.
 
 A guard case that pins a redirected git as unread moves group, as
 `1790644505`'s phase 5 moved `nice git`. `docs/worktree-guard-spec.md` says

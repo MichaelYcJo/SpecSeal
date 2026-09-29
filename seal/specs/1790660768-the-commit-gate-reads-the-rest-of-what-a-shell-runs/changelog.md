@@ -18,10 +18,20 @@
   sudo escapes their command into a single word before the shell sees it. A
   body nested inside another is read 32 levels deep and then counts as one
   that might commit. That shortens the answer for a pathological nesting from
-  up to a minute to a few seconds, and it stays the same stop.
+  up to a minute to a few seconds, and it stays the same stop. A compound
+  command's headers are read 32 deep in the same way.
+
+  A redirection glued to the end of a word (`git>/dev/null commit`,
+  `cd>/dev/null W`) is read as well, as are zsh's `noglob`, `nocorrect`,
+  `repeat N` and `for i (…) cmd`, a `cd` behind a redirection the splitter
+  cut (`2>&1 cd W`), and a shell's string past `--` or an option after a
+  redirection (`bash -c 2>/dev/null -- "$CMD"`). bash or zsh committed for
+  each.
 
   The change only adds stops. Every reader asks what it asked before and adds
-  to it, and a generated corpus of 11,393 commands found none that the
+  to it. Where a redirection hides a `cd`, the directory the shell may have
+  reached is added as unreadable beside the one the release base judged, and
+  never replaces it. A generated corpus of 11,393 commands found none that the
   release base stopped and this one lets through. Among the 6,033 commands
   recorded in the milestone's runs, none changes its verdict. A string's
   command word behind a runner's own options now counts when it expands
