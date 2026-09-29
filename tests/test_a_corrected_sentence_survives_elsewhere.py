@@ -1957,6 +1957,21 @@ def test_a_path_row_and_a_range_row_are_told_apart(tmp_path):
     assert ranges == [("abc1234..def5678", "a documented deletion", str(table))], ranges
 
 
+def test_a_row_inside_a_closed_comment_excuses_nothing(tmp_path):
+    """#584 round 2, finding 3. A row somebody commented out is withdrawn,
+    and the reader still took it as an exemption and excused a survivor."""
+    reader = module()
+    table = tmp_path / "survivors.md"
+    table.write_text(
+        "| Path | Quote | Grounds |\n|---|---|---|\n"
+        "| `a.md` | a real sentence | real grounds |\n\n" + "<" + "!-- withdrawn:\n"
+        "| `b.md` | a withdrawn sentence | nobody stands behind this |\n-->\n",
+        encoding="utf-8",
+    )
+    rows, _ranges = reader.read_exemptions([str(table)])
+    assert [where for where, _q, _g in rows] == ["a.md"], rows
+
+
 def test_a_row_quoted_inside_a_fence_excuses_nothing(tmp_path):
     """#658, phase 8 of work item 1790635413. The exemption reader had no
     fence state, so a `| Path | Quote | Grounds |` or `| Range | Grounds |`

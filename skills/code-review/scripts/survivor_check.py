@@ -1752,14 +1752,18 @@ def read_exemptions(paths):
     content of the escape: what a reviewer reads is the written sentence, and
     a row without one silences 153 places on the strength of nothing.
 
-    **A row inside a fenced code block is an example, not an exemption**
-    (#658). A `survivors.md` that shows its own format quotes a row, and the
-    reader took the quotation as a judgment and excused a survivor with it.
-    Excusing is the silent direction, so a fence nobody closed hides every
-    row below it too: `unverified_check.py#blank_fences` is the rule, the
-    delimiters `fence_opener`'s, and a file whose only rows are fenced holds
-    no row and is refused as one.
+    **A row inside a fenced code block or an HTML comment is not an
+    exemption** (#658; #584 round 2, finding 3). A `survivors.md` that shows
+    its own format quotes a row, and one somebody withdrew comments it out;
+    the reader took either as a judgment and excused a survivor with it.
+    Excusing is the silent direction, so a fence or a comment nobody closed
+    hides every row below it too: `unverified_check.py#readable` is the rule,
+    and a file whose only rows are hidden holds no row and is refused as one.
+    A comment delimiter inside a row's own cell is blanked with the text
+    between, which can only shorten a quote out of its contiguous run — an
+    exemption that stops holding, the loud direction.
     """
+    rule = reader()
     rows, ranges = [], []
     for path in paths:
         if not os.path.isfile(path):
@@ -1771,7 +1775,7 @@ def read_exemptions(paths):
         # the first one's rows, which is the direction a checker of claims must
         # not fail in.
         before = len(rows) + len(ranges)
-        for line in reader().blank_fences(text.splitlines()):
+        for line in rule.readable(text):
             line = line.strip()
             if not line.startswith("|"):
                 continue
