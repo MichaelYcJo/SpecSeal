@@ -20,6 +20,7 @@ holding one is exactly what these cases are about.
 """
 
 import ast
+import bisect
 import datetime
 import importlib.util
 import json
@@ -944,3 +945,179 @@ def test_reverify_keeps_a_crlf_or_cr_file_byte_for_byte(tmp_path, end):
     # the platform's separator fails too, where that separator is CRLF.
     stamp = f"2026-09-29 against x@{written[0][1]}".encode()
     assert after == before.replace(b"2026-01-01 against x@deadbeef", stamp)
+
+
+# --- #682: a rider read ends where the hasher cuts ---------------------------
+
+# The six whitespace strings the 576-prefix differential puts before and after
+# the break: six prefixes, the eight characters, six suffixes, in two file
+# types (#664 round 3; questions.md Q2 of 1790683267).
+AROUND = ("", " ", "  ", "\t", " \t", "\t ")
+
+
+def _line_of_each_piece(gfm_lines, text):
+    """The 1-based GFM line each `str.splitlines` piece of TEXT starts in,
+    worked out here rather than asked of `rider_check.py#gfm_places`, which
+    is one of the units these cases hold."""
+    heads, at = [], 0
+    for line in gfm_lines(text, keepends=True):
+        heads.append(at)
+        at += len(line)
+    out, at = [], 0
+    for piece in text.splitlines(keepends=True):
+        out.append(bisect.bisect_right(heads, at))
+        at += len(piece)
+    return out
+
+
+def _extent_shapes(char):
+    """`{shape: [(rel, text)]}` at CHAR: the two shapes #682 found, round 2's
+    three, and the differential's 72 texts."""
+    hash_mark, close = "# " + "RIDER:", " -->"
+    return {
+        "closed-comment-then-break": [
+            ("doc.md", f"x\n<!-- a -->{char}{RIDER_MARK} about a.\n{STAMP} -->\ny\n")
+        ],
+        "hash-line-read-as-html": [
+            (
+                "mod.py",
+                f"a = 1\n# note{char}{RIDER_MARK} about a.\n"
+                f"b = 2  {hash_mark} about b. {STAMP} -->\n",
+            )
+        ],
+        "comment-then-break": [
+            ("mod.yml", f"a: 1\n# note{char}{hash_mark} about a. {STAMP}\nb: 2\n")
+        ],
+        "two-riders-one-line": [
+            (
+                "mod.yml",
+                f"a: 1\n{hash_mark} about a. {STAMP}{char}{hash_mark} about b. {STAMP}\n",
+            )
+        ],
+        "html-then-break": [
+            ("doc.md", f"x\n<!-- a -->{char}{RIDER_MARK} about a. {STAMP} -->\ny\n")
+        ],
+        "differential": [
+            (rel, f"a: 1\n{before}{char}{after}{mark} about a. {STAMP}{end}\nb: 2\n")
+            for rel, mark, end in (
+                ("mod.yml", hash_mark, ""),
+                ("doc.md", RIDER_MARK, close),
+            )
+            for before in AROUND
+            for after in AROUND
+        ],
+    }
+
+
+@pytest.mark.parametrize("char", SPLITLINES_ONLY, **BY_CODE_POINT)
+@pytest.mark.parametrize(
+    "shape",
+    [
+        "closed-comment-then-break",
+        "hash-line-read-as-html",
+        "comment-then-break",
+        "two-riders-one-line",
+        "html-then-break",
+        "differential",
+    ],
+)
+def test_every_rider_read_lies_inside_a_block_the_hasher_cuts(shape, char):
+    """#682, from #664's round 3, 🟡 1. Reading a marker piece on a line the
+    hasher cuts was half of agreeing with it. The reader then ran the block on
+    over `str.splitlines` pieces by its own `-->` and comment-kind tests, so
+    behind a closed HTML comment and a break it read the stamp on the next
+    line, and behind `# note` and a break in Python it read an HTML block and
+    took the code line after it for a second rider. Either stamp was hashed
+    into the region it names, and no `--reverify` made the rider read ok.
+
+    Held as the property, over every shape the class has: every piece of
+    every rider read lies inside one block `comment_blocks` returns over GFM
+    lines, which is what `region_lines` cuts, and every marker piece starting
+    inside such a block starts exactly one rider, so two on one GFM line stay
+    two. The differential adds that a break with whitespace on either side of
+    it, before a rider at the head of its GFM line, leaves that rider read on
+    that line. The characters are built from their code points."""
+    riders = _load("specseal_riders_extent", RIDERS)
+    blocks = riders.load_blocks()
+    for rel, text in _extent_shapes(char)[shape]:
+        cut = riders.comment_blocks(blocks.gfm_lines(text), rel)
+        on = _line_of_each_piece(blocks.gfm_lines, text)
+        read = riders.riders_in(rel, text)
+        for rider in read:
+            lines = [on[k] for k in range(rider.start - 1, rider.end)]
+            assert any(a <= min(lines) and max(lines) <= b for a, b in cut), (
+                rel,
+                text,
+                (rider.start, rider.end),
+                lines,
+                cut,
+            )
+        marked = [
+            k + 1
+            for k, piece in enumerate(text.splitlines())
+            if riders.MARKER in piece and any(a <= on[k] <= b for a, b in cut)
+        ]
+        assert [rider.start for rider in read] == marked, (rel, text, marked)
+        if shape == "differential":
+            assert [on[rider.start - 1] for rider in read] == [2], (rel, text)
+
+
+def _verdict_texts(char):
+    """`{shape: (rel, text)}` for the verdict case, each stamp naming an
+    anchor that resolves in its own file: the heading in the markdown one,
+    `a` in the Python one."""
+    return {
+        "closed-comment-then-break": (
+            "templates/doc.md",
+            f"# doc\n\nx\n<!-- a -->{char}{RIDER_MARK} about a.\n"
+            'Verified 2026-01-01 against "# doc"@abcdef12. -->\ny\n',
+        ),
+        "hash-line-read-as-html": (
+            "hooks/mod.py",
+            f"a = 1\n# note{char}{RIDER_MARK} about a.\n"
+            f"b = 2  # {'RIDER:'} about b. Verified 2026-01-01 against a@abcdef12.\n",
+        ),
+    }
+
+
+@pytest.mark.parametrize("char", SPLITLINES_ONLY, **BY_CODE_POINT)
+@pytest.mark.parametrize(
+    "shape", ["closed-comment-then-break", "hash-line-read-as-html"]
+)
+def test_a_break_inside_a_cut_line_changes_no_verdict(tmp_path, shape, char):
+    """#682. What a person reads is the verdict, so it is pinned beside the
+    property. Each text is checked beside its twin with a space where the
+    break is, and the two give the same counts and the same severity and
+    sentence for each problem. The location is left out: it is the line the
+    rider starts on, which the break moves by one. The markdown shape read
+    drifted after every `--reverify` where its twin reads BROKEN "no
+    verification stamp", because the `-->` on the opener's GFM line ends the
+    block there. The Python shape carried a second rider, on a code line
+    nothing cuts. The characters are built from their code points."""
+    riders = _load("specseal_riders_verdict", RIDERS)
+    checker = riders.load_checker()
+    rel, text = _verdict_texts(char)[shape]
+    top = rel.split("/")[0]
+
+    def planted(name, body):
+        root = tmp_path / name
+        (root / top).mkdir(parents=True)
+        (root / rel).write_text(body, encoding="utf-8")
+        return str(root)
+
+    def verdict(root):
+        ok, drifted, problems = riders.check(root, roots=(top,), checker=checker)
+        return (
+            ok,
+            drifted,
+            sorted((severity, why) for _where, severity, why in problems),
+        )
+
+    broken = planted("break", text)
+    spaced = planted("space", text.replace(char, " "))
+    assert verdict(broken) == verdict(spaced)
+    if rel.endswith(".md"):
+        assert verdict(broken)[1] == 0
+        riders.reverify(broken, roots=(top,), today="2026-09-29", checker=checker)
+        assert verdict(broken)[1] == 0
+        assert verdict(broken) == verdict(spaced)
