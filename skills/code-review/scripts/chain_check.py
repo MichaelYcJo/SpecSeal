@@ -3951,7 +3951,7 @@ APPROVED_RE = re.compile(r"^Approved\s+(.+?)\s+by\s+(.+?), when .smith. was spaw
 FRAME_FROM = 1789518345
 
 
-def frame_mark(text):
+def frame_mark(reader, text):
     """(when, who) from the mark at the foot of `spec.md`, or None.
 
     **The FOOT, not anywhere in the file**, and that is the whole of what
@@ -3966,8 +3966,13 @@ def frame_mark(text):
     The last non-empty line is the whole rule, and it is what the template
     ships: `templates/sdd-spec.md` ends with this line, and a case pins that
     it ends with it rather than merely holding it.
+
+    **The last line a renderer shows**, split by the shared reader's
+    `gfm_lines` (#664). With `str.splitlines`, a mark standing after a
+    U+2028 or a form feed on the file's last line read as a line of its own,
+    which no renderer shows it as.
     """
-    for line in reversed((text or "").splitlines()):
+    for line in reversed(reader.gfm_lines(text or "")):
         line = line.strip()
         if not line:
             continue
@@ -4042,7 +4047,7 @@ def frame(reader, routing, root, item, rel, declared):
             "means the gate has no record anywhere"
         )
     if spec is not None:
-        mark = frame_mark(spec)
+        mark = frame_mark(reader, spec)
         if mark is None:
             problems.append(
                 f"{item}/spec.md does not END with the framer's mark. The "
@@ -4074,7 +4079,7 @@ def frame(reader, routing, root, item, rel, declared):
         line = next(
             (
                 m
-                for ln in plan.splitlines()
+                for ln in reader.gfm_lines(plan)
                 for m in [APPROVED_RE.match(ln.strip())]
                 if m
             ),

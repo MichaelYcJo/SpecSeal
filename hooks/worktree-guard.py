@@ -758,7 +758,10 @@ def last_user_snippet(cwd: str, own_session_id: str):
     except OSError:
         return None
     snippet = None
-    for line in tail.splitlines():
+    # A JSON Lines record ends at LF alone. JSON permits a raw U+2028 inside
+    # a string, and `str.splitlines` cut such a record into two halves that
+    # each failed to parse, so the snippet was an earlier message's (#664).
+    for line in tail.split("\n"):
         try:
             d = json.loads(line)
         except Exception:
@@ -833,7 +836,9 @@ def last_active_event_epoch(path: str):
             tail = f.read().decode("utf-8", "replace")
     except OSError:
         return None
-    for line in reversed(tail.splitlines()):
+    # At LF alone, as `last_user_snippet` splits its tail and as every other
+    # transcript reader here iterates the file (#664).
+    for line in reversed(tail.split("\n")):
         try:
             d = json.loads(line)
         except Exception:

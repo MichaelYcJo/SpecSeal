@@ -577,9 +577,13 @@ def reader_blanking_passes(reader):
     closing word inside an inline code span then read as hidden, `is_closed`
     returned False, and no case said a word about it.
 
-    `readable` is `blank_fences(strip_comments(text.splitlines()))`, so the
+    `readable` is `blank_fences(strip_comments(gfm_lines(text)))`, so the
     passes are the calls it makes by NAME to functions its own module
-    defines. `text.splitlines()` is an attribute call and drops out; a
+    defines — except the splitter. `gfm_lines` is also a module function
+    called by name, and it hides nothing: it decides where the lines are,
+    the question every pass is then asked about. So it is dropped BY NAME,
+    `READER_SPLITTER`, and only that name (#664). It used to be
+    `text.splitlines()`, an attribute call that dropped out on its own. A
     builtin like `list` would have no function on the reader module and
     drops out too. What survives is what a closing word can be hidden by.
 
@@ -592,8 +596,9 @@ def reader_blanking_passes(reader):
     False — which is #210 reproduced with the tie in place. It is also the
     shape #210 and round 3 both used as their example, because a text-level
     blanker is naturally written as a sub rather than as a line-based
-    function. So an attribute call other than `splitlines` fails here
-    instead of quietly narrowing what the tie compares."""
+    function. So any attribute call fails here instead of quietly narrowing
+    what the tie compares — `splitlines` included, since `readable` stopped
+    making one (#664)."""
     src = textwrap.dedent(inspect.getsource(reader.readable))
     called = {
         node.func.id
@@ -605,15 +610,24 @@ def reader_blanking_passes(reader):
         for node in ast.walk(ast.parse(src))
         if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
     }
-    assert attrs <= {"splitlines"}, (
+    assert not attrs, (
         f"`readable` makes an attribute call this derivation cannot see: "
-        f"{sorted(attrs - {'splitlines'})}. A pass written as `_SPAN_RE.sub(...)` "
+        f"{sorted(attrs)}. A pass written as `_SPAN_RE.sub(...)` "
         "rather than as a module function hides a closing word just as well and "
         "leaves the set below unchanged — which is #210 with the tie in place. "
         "Give the pass a name on the reader module, or teach this function to "
         "read the shape you used."
     )
-    return {name for name in called if inspect.isfunction(getattr(reader, name, None))}
+    return {
+        name
+        for name in called - {READER_SPLITTER}
+        if inspect.isfunction(getattr(reader, name, None))
+    }
+
+
+# The one call `readable` makes by name that is not a blanking pass: the
+# splitter every pass is handed lines by (#664).
+READER_SPLITTER = "gfm_lines"
 
 
 # One entry per pass `readable` makes, keyed by the pass's own name so the
@@ -712,6 +726,28 @@ def test_a_blanking_pass_written_as_a_sub_is_refused_rather_than_unseen(tmp_path
     spec.loader.exec_module(module)
     with pytest.raises(AssertionError, match="attribute call this derivation"):
         reader_blanking_passes(module)
+
+
+def test_the_splitter_is_not_a_pass_and_a_pass_beside_it_still_is(tmp_path):
+    """S18 of #664's frame. `readable` hands its passes `gfm_lines(text)`, a
+    module function called by name, so the derivation drops it by name. A
+    pass added beside it is still derived, which is the whole of the tie."""
+    fake = tmp_path / "a_reader_with_a_splitter_and_a_new_pass.py"
+    fake.write_text(
+        "def gfm_lines(text):\n"
+        "    return text.split()\n\n\n"
+        "def blank_fences(lines):\n"
+        "    return lines\n\n\n"
+        "def blank_spans(lines):\n"
+        "    return lines\n\n\n"
+        "def readable(text):\n"
+        "    return blank_fences(blank_spans(gfm_lines(text)))\n",
+        encoding="utf-8",
+    )
+    spec = importlib.util.spec_from_file_location("specseal_fake_split_reader", fake)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert reader_blanking_passes(module) == {"blank_fences", "blank_spans"}
 
 
 def test_the_ties_message_answers_a_rename_as_well_as_an_addition():
