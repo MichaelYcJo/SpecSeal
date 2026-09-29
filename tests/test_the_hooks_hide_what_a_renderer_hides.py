@@ -324,3 +324,65 @@ def test_the_walk_is_exact_somewhere():
     )
     total = sum(len(lines) for lines in CORPUS)
     assert claimed > total // 3, (claimed, total)
+
+
+# --- half 1: each reader never leaves both readings -------------------------
+
+
+def shared_rule():
+    """`skills/verify/scripts/unverified_check.py`, which states the fence
+    delimiter rule the config reader's base reading was held to."""
+    import importlib.util
+
+    path = os.path.join(
+        HERE, "..", "skills", "verify", "scripts", "unverified_check.py"
+    )
+    spec = importlib.util.spec_from_file_location("specseal_uc_for_the_oracle", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+uc = shared_rule()
+
+
+def config_base(lines):
+    """What `hooks/config.py` hid at `release/v0.16.0`: every line inside a
+    fenced block by the shared delimiter rule, a block nobody closed running
+    to the end. `tests/test_unverified_rows_close.py#test_the_fence_rule_
+    agrees_with_the_config_reader` held that reader to exactly this."""
+    out = set()
+    for first, last in uc.fence_spans(lines):
+        out.update(range(first, len(lines) if last is None else last + 1))
+    return out
+
+
+def leaves_both(new, base, renderer, count):
+    """The lines where a reader's answer is neither its base answer nor the
+    renderer's: hidden where both show it, or shown where both hide it."""
+    return [
+        index
+        for index in range(count)
+        if (index in new) != (index in base) and (index in new) != (index in renderer)
+    ]
+
+
+config = load_hook("config.py")
+
+
+def test_the_config_reader_never_leaves_both_readings():
+    """Half 1, S4. On every line of every document, `hooks/config.py` hides
+    the line where its base reading hid it or where a renderer hides it, and
+    nowhere else: a line it newly hides was never a live row, and a line it
+    newly shows was never fenced or commented out."""
+    wrong = []
+    for lines in CORPUS:
+        new = {index for index in range(len(lines))} - {
+            index for index, _line in config.unfenced(lines)
+        }
+        bad = leaves_both(
+            new, config_base(lines), oracle.hidden_lines(lines), len(lines)
+        )
+        if bad:
+            wrong.append((lines, bad))
+    assert not wrong, f"{len(wrong)} documents, the first: {wrong[0]}"

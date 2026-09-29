@@ -168,11 +168,11 @@ def test_a_script_copied_alone_exits_2_and_names_what_it_misses(
 
 
 # The hook-path readers that import `hooks/blocks.py` (#667), with the
-# siblings each needs besides it. They are modules, not scripts: a
-# `PreToolUse` hook imports them, and `hooks/dispatch.py` skips a gate that
-# raises where a hook that exited 2 would deny every Bash call. So a copy
-# without the walk raises one `ImportError` whose sentence names the path and
-# what the file is for -- the sentence a script that loads it prints.
+# siblings each needs besides it. They are modules, not scripts: gates and
+# scripts import them, a gate that raises is skipped and said at the end of
+# the turn (`hooks/dispatch.py`, #28), and a script catches the error or names
+# the file first. So a copy without the walk raises one `ImportError` whose
+# sentence names the path and what the file is for.
 HOOK_READERS = [("config.py", [])]
 
 

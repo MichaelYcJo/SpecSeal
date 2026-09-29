@@ -30,6 +30,7 @@ import os
 import subprocess
 
 import pytest
+from block_shapes import SHAPES
 from conftest import decision_of, load_hook_module, local_home, run_hook
 
 GATE = "mode-gate.py"
@@ -777,6 +778,138 @@ def test_what_counts_as_a_fence_is_commonmarks_rule_as_far_as_it_goes(config):
         "a tilde fence's info string is unrestricted, which is CommonMark's "
         "rule and not an exception to this one"
     )
+
+
+# --- #667: a row inside a comment that closes is not a row either ----------
+#
+# The shape ids are `seal/specs/1790645290-the-hooks-and-the-rider-check-read-
+# fences-and-comments-by-one-rule/spec.md` §*The shapes*, and the texts are
+# `tests/block_shapes.py`'s -- most of them work item 1790635413's own strings,
+# each a place an earlier reading of this file was wrong. "red at base" means
+# the case fails with `hooks/config.py` from `3911a8cf`; "pins" means it passes
+# there too and holds a reading that must not move.
+
+
+def shape_text(name):
+    return "\n".join(SHAPES[name]) + "\n"
+
+
+COMMENTED_OLD_ROW = shape_text("C5")
+COMMENTED_OLD_TABLE = shape_text("C6")
+LIVE = [("Mode", "shared"), ("Broad gate", "bin/test -q")]
+
+
+@pytest.mark.parametrize(
+    "name, rows",
+    [
+        # pins: delimiters quoted in code spans either side of the table hide
+        # nothing (1790635413 round 1, 🟡 3)
+        ("C1", LIVE),
+        # red at base: a closed comment above the table quoting a fence line
+        # opened a fence that ran to the end and hid the live table
+        ("C2", [("Mode", "shared")]),
+        # pins: a mid-line opener nobody closed switches off no fence below it
+        # (1790635413 round 3, 🟡 1)
+        ("C3", [("Mode", "shared"), ("Broad gate", "bin/test")]),
+        # pins: nor does one that an example's closer below seems to close
+        # (1790635413 round 3, ⬜ 3)
+        ("C4", LIVE),
+        # red at base: a row parked in a comment inside the table, and a whole
+        # old table parked above the live one, and the first again in CRLF
+        ("C5", [("Mode", "shared"), ("Broad gate", "bin/test -q")]),
+        ("C6", LIVE),
+        ("C7", [("Mode", "shared"), ("Broad gate", "bin/test -q")]),
+        # red at base: a malformed pipe-line inside a comment is not the
+        # person's refused row
+        ("C8", [("Mode", "shared")]),
+        # pins: a `<!--` nobody closed hides nothing, above the table or in it
+        ("C9a", [("Mode", "shared")]),
+        ("C9b", LIVE),
+        # pins: #429's fenced example above the live table
+        ("C12", [("Mode", "shared")]),
+        # pins: a fence nobody closed still hides everything below it
+        ("C14", []),
+    ],
+    ids=lambda value: value if isinstance(value, str) else "",
+)
+def test_the_config_shapes_read_as_the_frame_expects(config, name, rows):
+    """S5. Every config shape the frame names, through `config_rows` and
+    `refusal`. A row inside a comment that closes is not an answer somebody
+    gave, which is the direction this module fails in; a construct that never
+    closes is not one, so an unclosed comment hides nothing, and an unclosed
+    fence keeps hiding what it hid, because that was this reader's reading."""
+    text = shape_text(name)
+    assert config.config_rows(text) == rows, config.config_rows(text)
+    assert config.refusal(text) == ([], [], None), config.refusal(text)
+
+
+def test_a_commented_row_is_not_a_row_in_either_line_ending(config):
+    """S5, C5 to C7, named as 1790635413 named them. The rows parked in a
+    comment are gone from every walk, and the live rows under them arrive."""
+    for text in (COMMENTED_OLD_ROW, COMMENTED_OLD_TABLE, crlf(COMMENTED_OLD_ROW)):
+        assert config.config_rows(text) == LIVE, text
+        assert all(
+            "old -q" not in line for _index, line in config.unfenced(text.splitlines())
+        ), text
+
+
+def test_a_fence_line_inside_a_closed_comment_names_no_unclosed_fence(config, tmp_path):
+    """S8, C2. The comment closes, so the fence line inside it opens nothing,
+    and neither `broad-gate`'s `fence_left_open` nor `seal.py`'s write guard,
+    which both ask `fence_map`'s second value, names a fence nobody left
+    open. Red at base: the fence ran to the end and was named."""
+    lines = SHAPES["C2"]
+    assert config.fence_map(lines)[1] is None
+    home = tmp_path / "seal"
+    home.mkdir()
+    write_config(home, shape_text("C2"))
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "skills", "verify", "scripts", "broad_gate.py"
+    )
+    spec = importlib.util.spec_from_file_location("specseal_gate_for_667", path)
+    gate = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(gate)
+    assert gate.fence_left_open(str(home)) is False
+
+
+def test_a_fence_nobody_closed_is_still_named(config):
+    """C14, pinned from the other side: the fence that hides the live table
+    is the one `fence_map` reports, so `broad-gate` still says *close that
+    fence*."""
+    assert config.fence_map(SHAPES["C14"])[1] == 0
+
+
+def test_a_mid_line_comment_hides_no_row_the_base_reads(config):
+    """C13, the residual `spec.md` §*Scope* names. A renderer hides the first
+    pipe-line behind a lone backtick and a mid-line `<!--`, and knowing that
+    needs code spans and the paragraph's extent, which is where all three of
+    1790635413's rounds lost ground. The base reads it, so reading it is not
+    worse; this pins that nothing here pretends to more."""
+    lines = SHAPES["C13"]
+    assert [index for index, _line in config.unfenced(lines)] == list(range(len(lines)))
+
+
+def test_the_writer_leaves_a_commented_row_alone(config, tmp_path):
+    """S6, C10. `seal.py#table_span` is the third walk, and it located the
+    FIRST `Mode` line -- the commented one -- so `seal mode` rewrote a row
+    nobody reads while the live row kept its old value. Asserted on the bytes.
+    Red at base."""
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "skills", "implement", "scripts", "seal.py")
+    spec = importlib.util.spec_from_file_location("specseal_seal_for_667", path)
+    seal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seal)
+
+    before = shape_text("C10")
+    home = tmp_path / "seal"
+    home.mkdir()
+    write_config(home, before)
+    assert seal.write_row(str(home), "shared") == ""
+    after = (home / "config.md").read_text(encoding="utf-8")
+    assert after == before.replace("-->\n| Mode | local |", "-->\n| Mode | shared |"), (
+        f"the writer rewrote the commented row, or more than one line:\n{after}"
+    )
+    assert config.declared_mode(str(home)) == ("mode", "shared")
 
 
 # --- S7-S10: the gate ------------------------------------------------------
