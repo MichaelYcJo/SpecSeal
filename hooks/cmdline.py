@@ -2026,53 +2026,15 @@ def understood(tokens):
 
     A redirection among the words in front of the command (#674, W1) is read
     past and the rest asked again, and only a False is taken from that second
-    asking. `2>/dev/null cd W` moves the shell, and `_cd_target` does not see
-    a `cd` there, so it reads as unreadable -- the answer a `cd` behind a
-    prefix already gets below. The same holds for a relocator, a reserved word
-    or an expanding word reached that way.
+    asking (`_unreadable_past_leading_redirections`). `2>/dev/null cd W` moves
+    the shell, and `_cd_target` does not see a `cd` there, so it reads as
+    unreadable -- the answer a `cd` behind a prefix already gets below. The
+    same holds for a relocator, a reserved word or an expanding word reached
+    that way. Everything after that first line is this function as it stood
+    at `86256492`.
     """
-    if not _understood_as_written(tokens):
+    if _unreadable_past_leading_redirections(tokens):
         return False
-    rest, passed = _past_leading_redirections(tokens)
-    if not passed:
-        return True
-    if not _understood_as_written(rest):
-        return False
-    while rest and "=" in rest[0] and not rest[0].startswith("-"):
-        rest = rest[1:]
-    return not rest or rest[0] != "cd"
-
-
-def _past_leading_redirections(tokens):
-    """(TOKENS with the redirections in front of the command taken out, whether any were).
-
-    "In front of" is what `understood` reads past to reach the word that runs:
-    assignments, the `PREFIXES`, and an option behind one of those. A
-    redirection after the command word is that command's own, and `cd W
-    2>/dev/null` is already a `cd` with two operands to `_cd_target`.
-    """
-    toks, _opened = strip_subshell(tokens)
-    kept, passed, i = [], False, 0
-    while i < len(toks):
-        width = redirection_width(toks, i)
-        if width:
-            passed, i = True, i + width
-            continue
-        tok = toks[i]
-        if (
-            ("=" in tok and not tok.startswith("-"))
-            or os.path.basename(tok) in PREFIXES
-            or (kept and tok.startswith("-"))
-        ):
-            kept.append(tok)
-            i += 1
-            continue
-        break
-    return kept + toks[i:], passed
-
-
-def _understood_as_written(tokens):
-    """`understood` as it stood at `86256492`, before redirections were read."""
     toks, opened = strip_subshell(tokens)
     if opened:
         # `(` and `{` open a scope whose end this reader does not find --
@@ -2138,6 +2100,50 @@ def _understood_as_written(tokens):
     # asked of the word that RUNS: `command $C <path>` hid behind the wrapper
     # when only the segment's first token was checked.
     return not any(ch in toks[at] for ch in EXPANDS)
+
+
+def _unreadable_past_leading_redirections(tokens):
+    """True when the segment, read past the redirections in front of its
+    command, is one `understood` refuses, or a `cd` it would otherwise model
+    (#674, W1). False wherever no redirection stands in front."""
+    rest, passed = _past_leading_redirections(tokens)
+    if not passed:
+        return False
+    if not understood(rest):
+        return True
+    while rest and "=" in rest[0] and not rest[0].startswith("-"):
+        rest = rest[1:]
+    return bool(rest) and rest[0] == "cd"
+
+
+def _past_leading_redirections(tokens):
+    """(TOKENS with the redirections in front of the command taken out, whether any were).
+
+    "In front of" is what `understood` reads past to reach the word that runs:
+    assignments, the `PREFIXES`, and an option behind one of those. A
+    redirection after the command word is that command's own, and `cd W
+    2>/dev/null` is already a `cd` with two operands to `_cd_target`. Every
+    redirection in that stretch is taken out, so the rest has none left there
+    and `understood` asked of it does not come back here.
+    """
+    toks, _opened = strip_subshell(tokens)
+    kept, passed, i = [], False, 0
+    while i < len(toks):
+        width = redirection_width(toks, i)
+        if width:
+            passed, i = True, i + width
+            continue
+        tok = toks[i]
+        if (
+            ("=" in tok and not tok.startswith("-"))
+            or os.path.basename(tok) in PREFIXES
+            or (kept and tok.startswith("-"))
+        ):
+            kept.append(tok)
+            i += 1
+            continue
+        break
+    return kept + toks[i:], passed
 
 
 class Unresolved(str):

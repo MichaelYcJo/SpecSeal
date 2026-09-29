@@ -317,10 +317,12 @@ the privilege tools', the tracers' and `find`, `parallel`, `watch` and
 `script`) is read past: directly in front of `git` the commit is judged where
 the shell is, and behind the program's own options or operands, which the
 reader does not parse, the first `git` word stands in and the directory is
-unresolved. A string `sh -c`, `bash -c`, `su -c`, `script -c`, `env -S` or
-`watch` hands to a shell is read as a command the way `eval`'s argument
-already was, and a command word the shell would expand in the string a host
-runs (`sh -c "$CMD"`) counts as one that might commit. That question is not
+unresolved. A string `sh -c`, `bash -c`, `su -c`, `script -c`, `flock -c`,
+`env -S` or `watch` hands to a shell is read as a command the way `eval`'s
+argument already was, and a command word the shell would expand in the string
+a host runs (`sh -c "$CMD"`) counts as one that might commit. `parallel`'s
+arguments are read for a commit written out, and no further: placing its
+command word means parsing its options (#674). That question is not
 asked of a shell's positional parameters or of `watch` as a word something
 else was handed, because no shell runs those (`find -exec sh -c '…' _ {}`,
 `grep watch *.py`). An `eval` is found the same way `git` is, behind a
@@ -340,12 +342,57 @@ gives, and for one more: a command the splitter could not finish is still
 judged in the session's own directory when the new reading found a commit in
 the part it did read. Without that, a commit found in a declared repository
 took the session's directory out of the judgment (round 1 of work item
-1790644505). A body nested deeper than the reader recurses reads as one that
+1790644505). A body nested deeper than the reader reads — `NESTING_READ`, 32
+levels, or the recursion limit where that comes first — reads as one that
 might commit, beside every commit already found, since a gate that raises is
 skipped and a skipped gate is silence; catching the raise around the whole
 reading had thrown away a commit it had found in another repository (round 2
 of work item 1790644505).
 Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
+
+**A program word is read where the shell reads one, whatever stands in front
+of it.** `2>/dev/null git commit`, `git 2>/dev/null commit`, `2>&1 git
+commit`, `(sh -c 'git commit')`, `bash -c 2>/dev/null "$CMD"` and `watch` in
+a `case` arm or a function body each reached the gate as no commit at all
+(#674), and bash landed every one it was given. The readers above stopped at
+the first word they did not know, and a redirection, a compound command's
+header and a `(` glued to the program are each such a word.
+
+So each place a program word stands is read past what the shell takes off it:
+
+- **A redirection** in front of the program or before git's subcommand, glued
+  or spaced (`2>/dev/null`, `2> /dev/null`, `<<<w`, `<< EOF`, `{fd}>f`, zsh's
+  `>!f`), is read past to the word it stands in front of. A commit there is
+  judged where the shell is, as the same commit without it is. A `cd`, a
+  relocator, a reserved word or an expanding word reached past one leaves the
+  directory unresolved, the answer a `cd` behind a prefix already had.
+- **The operators the splitter cuts at `&` or `|`** — `2>&1`, `>&2`, `<&0`,
+  `>&-`, `>|f`, and `&>f` after a word — are glued back into a view the gate
+  reads beside the segments, adding only what no segment found on its own. The
+  splitter itself is unchanged, because teaching it these operators moves every
+  segment in both gates and in the walk.
+- **Inside a `case` arm, a function definition or a coprocess,** `watch` and
+  the command word of a host's string are read by position, and a header
+  spelling the reader does not place falls to the stand-in `git` already had.
+  Behind a runner's own options inside a string, which the reader cannot tell
+  from the program, a later word that expands counts. None of these three counts
+  a redirection's target.
+- **A host glued to a subshell's `(`** is a host, and a string picked after a
+  host's flag is read past a redirection written there.
+
+`sudo -s` and `sudo -i` are not string hosts: `man sudo` says the command
+is escaped a character at a time before it reaches the shell's `-c`, so a
+quoted string is one word there and not a command line. Their argument form
+is `sudo` the runner's.
+
+The reading can only have gained stops by this. Every reader asks what it
+asked before first and adds what the new reading finds, `understood` only
+adds a refusal, and a generated corpus of 11,393 commands across these
+positions found none silent where the release base stopped. The one answer
+replaced rather than kept is git's subcommand where it had been a redirection,
+which no reader acted on. Over 6,033 commands recorded in the milestone's
+runs, none changed its verdict.
+Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py::test_a_commit_behind_a_redirection_is_read_where_the_shell_is, tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py::test_header_end, tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py::test_merged_view, tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py::test_a_commit_the_splitter_already_found_is_not_found_twice, tests/test_no_shape_the_base_stops_reads_silent.py::test_a_cd_behind_a_redirection_is_not_read_as_staying_put, tests/test_no_shape_the_base_stops_reads_silent.py::test_a_deep_nesting_is_read_to_a_bound
 
 ### Why a deny, and why only once
 
