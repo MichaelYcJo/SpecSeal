@@ -261,7 +261,10 @@ def fence_opener(line):
     `skills/evidence-check/scripts/correction_check.py#rows` through
     `closed_fence_lines`; and `skills/verify/scripts/payload_meter.py#heading_starts`
     and `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py#headings`,
-    which ask the two functions directly.
+    which ask the two functions directly. The readers #658 brought here:
+    `skills/code-review/scripts/survivor_check.py#read_exemptions` through
+    `blank_fences`, an unclosed block to the end because excusing a survivor
+    is the silent direction.
 
     **The readers that keep a rule of their own, each on purpose.** #584
     brought every reader it enumerated here or answered it, and these are the
@@ -273,6 +276,9 @@ def fence_opener(line):
         `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
         and `#test_the_comment_rule_agrees_with_the_config_reader` hold the
         copy in step, shape by shape;
+      - `hooks/routing.py#fenced`, which `#table_rows` reads through, is a
+        second hook copy for the same reason (#658), with no comment half,
+        held by `#test_the_fence_rule_agrees_with_the_routing_reader`;
       - `.github/scripts/close_issues_on_release.py#FENCE`, and
         `issue_claims_check.py` and `label_merged_on_release_branch.py`
         through it, read a pull request body by GitHub's rule and open a
@@ -286,7 +292,12 @@ def fence_opener(line):
         a wider opener on purpose, so a fix fenced inside a list item still
         reaches the record. That file keeps a vendored copy of these two
         functions for the copy `evidence-ci` puts alone in a user
-        repository, where this module is not beside it;
+        repository, where this module is not beside it. The fence walks in
+        `tests/test_docs_line_wrap.py#fenced_numbers` and
+        `tests/test_handoff_outlives_the_merge.py#fenced_block_lines` ask
+        these two functions with the same wider opener, a line's indentation
+        stripped first, because the documents they read fence commands under
+        list items (#658);
       - `.github/scripts/gather_changelog.py#insert` and `#section_lines`, and
         `publish_release_note.py#section_body`, end a released section at the
         next `## ` line with one predicate on purpose (#586), and a fragment
@@ -297,12 +308,9 @@ def fence_opener(line):
         migration this repository has taken;
       - `.github/scripts/claude_block.py` reads two exact whole-line markers
         it writes itself;
-      - `hooks/routing.py#table_rows`, the `--exempt` reader in
-        `survivor_check.py#main`, `tests/test_release_hygiene.py#overwide_rows`
-        and the fence toggles in `tests/test_docs_line_wrap.py` and
-        `tests/test_handoff_outlives_the_merge.py` keep no rule shared with
-        another reader of their files, and are a different class — a reader
-        with no fence state at all;
+      - `tests/test_release_hygiene.py#overwide_rows` keeps no fence state at
+        all, and work item A (#585) decides whether it becomes an arm of
+        `evidence_check.py`;
       - the independent walk in `tests/test_unverified_rows_close.py` (around
         `block_ends_at`) is an oracle, kept apart from the rule it checks on
         purpose.

@@ -107,9 +107,46 @@ ANSWER_PRESSED_ANSWERS = (PRESSED_AUTOMATION, PRESSED_PER_AXIS)
 WORK_ITEMS = f"{optin.HOME}/{optin.WORK_ITEMS}"
 FILENAME = "routing.md"
 
+# A fenced code block's delimiter line, CommonMark 4.5: at most three spaces
+# of indentation, then three or more backticks or tildes, then the info
+# string. A copy of `skills/verify/scripts/unverified_check.py#fence_opener`'s
+# rule, as `hooks/config.py#FENCE` is, for the same reason: a hook does not
+# load a skill module (#658).
+FENCE = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})(?P<info>.*)$")
+
+
+def fenced(lines):
+    """The indices of LINES inside a fenced code block, delimiters included,
+    a block that never closes running to the end of the file (#658).
+
+    The shared rule, copied: a backtick opener's info string may not hold a
+    backtick, and a block closes only on a run of its own character at least
+    as long with nothing after it but spaces.
+    `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_routing_reader`
+    holds the copy to `unverified_check.py#fence_spans`, shape by shape.
+
+    An unclosed block runs to the end because everything here fails toward
+    *no declaration*: the rows it swallows are not an answer, and the gate goes
+    back to asking."""
+    out, opener = set(), None
+    for index, raw in enumerate(lines):
+        found = FENCE.match(raw.rstrip("\r\n"))
+        run = found.group("run") if found else ""
+        info = found.group("info") if found else ""
+        if opener is None:
+            if run and not (run[0] == "`" and "`" in info):
+                opener = (run[0], len(run))
+                out.add(index)
+            continue
+        out.add(index)
+        if run[:1] == opener[0] and len(run) >= opener[1] and not info.strip():
+            opener = None
+    return out
+
 
 def table_rows(text):
-    """Every two-cell markdown table row, as (label, value).
+    """Every two-cell markdown table row outside a fenced code block, as
+    (label, value).
 
     Unknown labels are left in rather than filtered: a reader that drops what
     it does not recognise cannot gain a third axis later without the older
@@ -119,9 +156,18 @@ def table_rows(text):
     was added when seventy-two declarations had already been written, none of
     them carrying the row and none of them needing an edit -- and the only
     change this function needed was none.
+
+    **A row inside a fence is an example, not an answer** (#658). `parse`
+    keeps the LAST row of a label, so a fenced example below the real table
+    answered for it: a declared review chain read as *straight to the PR*, on
+    the commit gate's path. `fenced` is the rule.
     """
     rows = []
-    for line in text.splitlines():
+    lines = text.splitlines()
+    hidden = fenced(lines)
+    for index, line in enumerate(lines):
+        if index in hidden:
+            continue
         line = line.strip()
         if not line.startswith("|"):
             continue

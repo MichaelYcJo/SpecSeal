@@ -1751,6 +1751,14 @@ def read_exemptions(paths):
     A range row with no grounds is NOT a row. The grounds are the whole
     content of the escape: what a reviewer reads is the written sentence, and
     a row without one silences 153 places on the strength of nothing.
+
+    **A row inside a fenced code block is an example, not an exemption**
+    (#658). A `survivors.md` that shows its own format quotes a row, and the
+    reader took the quotation as a judgment and excused a survivor with it.
+    Excusing is the silent direction, so a fence nobody closed hides every
+    row below it too: `unverified_check.py#blank_fences` is the rule, the
+    delimiters `fence_opener`'s, and a file whose only rows are fenced holds
+    no row and is refused as one.
     """
     rows, ranges = [], []
     for path in paths:
@@ -1763,7 +1771,7 @@ def read_exemptions(paths):
         # the first one's rows, which is the direction a checker of claims must
         # not fail in.
         before = len(rows) + len(ranges)
-        for line in text.splitlines():
+        for line in reader().blank_fences(text.splitlines()):
             line = line.strip()
             if not line.startswith("|"):
                 continue

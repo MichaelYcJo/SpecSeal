@@ -2323,6 +2323,17 @@ def test_the_fence_rule_agrees_with_the_config_reader(lines):
     assert unclosed == ([] if opened_at is None else [opened_at])
 
 
+@pytest.mark.parametrize("lines", FENCE_SHAPES, ids=range(len(FENCE_SHAPES)))
+def test_the_fence_rule_agrees_with_the_routing_reader(lines):
+    """#658. `hooks/routing.py#fenced` is a second hook copy of the delimiter
+    rule, kept for `hooks/config.py#FENCE`'s reason — a hook does not load a
+    skill module — and held to the shared rule over the same shapes."""
+    from conftest import load_hook_module
+
+    routing = load_hook_module("routing.py", "specseal_routing_for_fence_agreement")
+    assert routing.fenced(lines) == fenced_by_the_shared_rule(lines)
+
+
 # --- #584: the config reader's comment half --------------------------------
 
 COMMENT_SHAPES = [
