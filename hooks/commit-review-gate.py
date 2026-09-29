@@ -102,6 +102,7 @@ from cmdline import (
     EXPANDS,
     Unresolved,
     command_strings,
+    command_word,
     compose,
     drop_comments,
     drop_heredoc_bodies,
@@ -111,7 +112,6 @@ from cmdline import (
     reparsed_texts,
     split_segments,
     split_segments_with_separators,
-    strip_subshell,
     substitution_bodies,
     walk_directories,
 )
@@ -201,20 +201,24 @@ def _eval_argument(toks):
     `eval` concatenates its remaining arguments with a space and re-parses
     the result as a command — the same question `_hides_a_commit` answers,
     just handed the tokens after `eval` instead of a dropped heredoc region.
-    The skip here mirrors `cmdline.understood`'s own assignment/subshell skip,
-    the same rule that already marks a bare `eval` segment's OWN directory
-    `Unresolved` for `cd`-tracking. `source`/`.` sit beside `eval` in
+    The word is found the way `cmdline.command_word` finds any command word,
+    and an `eval` segment's OWN directory is already `Unresolved` for
+    `cd`-tracking, since `understood` refuses it. `source`/`.` sit beside `eval` in
     `RELOCATORS` but take a file, not inline text, so there is nothing here to
     re-parse for them.
     """
-    toks, opened = strip_subshell(list(toks))
-    if opened:
+    # The word that runs, read the way `parse_git` reads it since #669 and
+    # #670: past assignments, `!`, a subshell or brace opener, a reserved word
+    # that begins a list, and the enumerated runners. It used to read past
+    # assignments alone, so `then eval '…'` and `(eval '…')` were no `eval`
+    # (round 1 of 1790644505, yellow 4). `builtin` runs a builtin, and `eval`
+    # is one.
+    word, _unplaced = command_word(list(toks))
+    while word and os.path.basename(word[0]) == "builtin":
+        word = word[1:]
+    if not word or word[0] != "eval":
         return None
-    while toks and "=" in toks[0] and not toks[0].startswith("-"):
-        toks.pop(0)
-    if not toks or toks[0] != "eval":
-        return None
-    return " ".join(toks[1:])
+    return " ".join(word[1:])
 
 
 def _eval_hides_a_commit(arg):
