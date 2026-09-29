@@ -149,6 +149,12 @@ NOT_ARMS = {
         "DictComp",
         "FormattedValue",
         "GeneratorExp",
+        # A t-string and its replacement field, the counterparts of
+        # `JoinedStr` and `FormattedValue` (#684). An interpolation tests
+        # nothing: its `str` is plain text and its `conversion` an integer,
+        # and the walk enters its `value` and `format_spec` like any other
+        # child, so an arm inside one is counted where it stands.
+        "Interpolation",
         "JoinedStr",
         "Lambda",
         "List",
@@ -160,6 +166,7 @@ NOT_ARMS = {
         "Slice",
         "Starred",
         "Subscript",
+        "TemplateStr",
         "Tuple",
         "UnaryOp",
         "Yield",
@@ -260,6 +267,32 @@ NOT_ARM_NAMES = frozenset(n for names in NOT_ARMS.values() for n in names)
 #: Every node type this file classifies. The case that checks totality
 #: compares this against `ast`'s own class tree.
 CLASSIFIED = frozenset(ARM_SHAPES) | NOT_ARM_NAMES
+
+#: The classified names that not every supported Python's `ast` has, each as
+#: `(first Python that has it, first Python that no longer does)`, a `None`
+#: leaving that end open. A name absent from this table is one every Python
+#: from the floor up has. Held for the case that checks it, as `CLASSIFIED`
+#: is: on each Python, `tests/test_arm_check.py` requires `ast` to have
+#: exactly the classified names this table places there, and a bound CI does
+#: not run that module at is refused. So a Python that adds or removes a node
+#: type is caught by the first run on it, and the repair is a row here.
+#:
+#: Only the supported Pythons are described. A 3.9 lacks the `match` and type
+#: parameter names too, and nothing here says so: the walk only looks up the
+#: names a parse produced, so a table naming more than an interpreter has is
+#: harmless when it runs.
+ONLY_ON_SOME_PYTHONS = {
+    # t-strings, PEP 750.
+    "Interpolation": ((3, 14), None),
+    "TemplateStr": ((3, 14), None),
+    # The constant aliases `Constant` replaced, removed in 3.14. Still
+    # classes on 3.12 and 3.13, so the class tree there lists them.
+    "Bytes": (None, (3, 14)),
+    "Ellipsis": (None, (3, 14)),
+    "NameConstant": (None, (3, 14)),
+    "Num": (None, (3, 14)),
+    "Str": (None, (3, 14)),
+}
 
 
 # --------------------------------------------------------------------------
