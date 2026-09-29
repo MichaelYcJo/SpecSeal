@@ -502,6 +502,17 @@ def test_the_rider_check_never_leaves_both_readings():
     assert riders.quoted_lines(SHAPES["K5"]) == {4, 5, 6}
 
 
+def test_an_unclosed_fence_is_reported_at_the_reader_line_it_starts():
+    """#667 round 1, 🟡 1. `walk_text` answers per reader line, and a fence
+    opener whose info string holds a U+2028 is one GFM line and two reader
+    lines. The opener that never closes is the first of them, the one a
+    person can be sent to; the piece after the break opens nothing."""
+    text = "```" + BREAKS["LS"] + "x\n| a |\n"
+    walked = blocks.walk_text(text)
+    assert walked.unclosed == [0], walked.unclosed
+    assert len(walked.kinds) == len(text.splitlines()) == 3
+
+
 def test_the_walks_line_rule_is_the_checkers():
     """#667 round 1, 🟡 1. `hooks/blocks.py#gfm_lines` is a copy of
     `skills/evidence-check/scripts/evidence_check.py#gfm_lines`, the
