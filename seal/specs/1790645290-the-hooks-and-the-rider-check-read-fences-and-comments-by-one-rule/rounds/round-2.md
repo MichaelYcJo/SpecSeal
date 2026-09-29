@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #672 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `67746d05a5b32502bebcee382e95da7f86fd7aac..d814848dc214f01677ec9387eec036b8cc739a22`, 4 commits |
+| Contract changes | none |
+| New units | SENTINEL (depth 1); _starts_in_a_comment (depth 1); test_a_piece_inside_its_lines_open_comment_is_the_only_piece_unsure (depth 1); test_a_piece_inside_an_inline_comment_is_no_config_row (depth 1) |
 | Needs a fix | yes — 🟡 1 and 🟡 2 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 2, verifying, over round 1's fix diff `faec1812..1cc892cc` at HEAD `47f436
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A reader line that starts inside an inline comment its own GFM line opened takes the line's "shown", so the config reader reads a `Mode` row that neither its base nor a renderer shows | `hooks/blocks.py:362` | open | executed: `config_rows` gives `[("Mode", "shared")]` at `47f436aa` and `[]` at `faec1812`; base and an independent reading both hide reader lines 1 to 5; 3,815 of 80,000 widened documents break the config invariant, and routing and rider break 0 because their base hides nothing |
-| 🟡 2 | `hidden_text` maps a piece by the line it starts in, the walk's own rule, so the property cannot see finding 1, and it reads a piece past a closing `-->` as hidden | `tests/commonmark_oracle.py:158` | open | executed: on the reduced shape the oracle gives `{5: "comment"}` and `leaves_both` against it is empty; 18,882 of 80,000 widened documents differ from an independent per-piece reading; with the proposed oracle, the unfixed walk fails 10 cases |
+| 🟡 1 | A reader line that starts inside an inline comment its own GFM line opened takes the line's "shown", so the config reader reads a `Mode` row that neither its base nor a renderer shows | `hooks/blocks.py:362` | **fixed** `aa156990` | fixed at aa156990 — pinned in `311e6af6`: a piece is uncertain when its GFM line is live and the text before the piece leaves an inline comment open; executed: `config_rows` gives `[("Mode", "shared")]` at `47f436aa` and `[]` at `faec1812`; base and an independent reading both hide reader lines 1 to 5; 3,815 of 80,000 widened documents break the config invariant, and routing and rider break 0 because their base hides nothing |
+| 🟡 2 | `hidden_text` maps a piece by the line it starts in, the walk's own rule, so the property cannot see finding 1, and it reads a piece past a closing `-->` as hidden | `tests/commonmark_oracle.py:158` | **fixed** `66daa3a3` | fixed at 66daa3a3 — the oracle asks the parser where each piece starts, by a sentinel re-parse, so it no longer agrees with the walk by construction; executed: on the reduced shape the oracle gives `{5: "comment"}` and `leaves_both` against it is empty; 18,882 of 80,000 widened documents differ from an independent per-piece reading; with the proposed oracle, the unfixed walk fails 10 cases |
 | 🟢 | round 1's finding 1 is closed — a fence run or opener after a break CommonMark does not honour hides no declaration, row or rider | `hooks/blocks.py:338` | confirmed | executed: round 1's 29 cases pass at `47f436aa` and all fail with the code files at `faec1812`; every walk caller passes the text (read, one grep) |
 | 🟢 | round 1's finding 2 is closed — a block quote needs no space after its marker | `hooks/blocks.py:98` | confirmed | executed: the property module passes with `[">```"]` in `FOUND`; the widened fuzz disagrees on no claimed line once finding 1 is corrected |
 | 🟢 | round 1's finding 3 is closed — the parser-failure sentence says what pytest does | `.github/scripts/run_tests.py:231` | confirmed | executed: `-n 2` exits 1 with 2 passed and 1 error, `-p no:xdist` exits 2 interrupted at collection; the case fails at `faec1812` |
