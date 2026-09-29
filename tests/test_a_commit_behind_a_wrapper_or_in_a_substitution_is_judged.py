@@ -102,6 +102,8 @@ HANDED = {
     "script -c": f"script -q -c '{C}' /dev/null",
     "env -S": f"env -S '{C}'",
     "watch, one string": f"watch '{C}'",
+    "env -S glued": f"env -S'{C}'",
+    "env --split-string=": f"env --split-string='{C}'",
     "a command word the shell expands": 'sh -c "$CMD"',
     "a command in the string behind a list opener": f"bash -c 'if true; then {C}; fi'",
 }
@@ -164,6 +166,8 @@ CONTROLS = {
     "a wrapper around no git": "timeout 5 make",
     "arithmetic": "echo $((1+2)) && git commit -m y",
     "a word after for": "for d in git commit; do :; done",
+    "a conditional in a shell string": "bash -c '[ -f x ] && echo y'",
+    "a group in a shell string": "bash -c '{ echo y; }'",
 }
 
 
@@ -208,3 +212,76 @@ def test_the_controls_read_no_hidden_commit(tmp_path):
             if isinstance(inv.base, cmdline.Unresolved)
         ]
         assert not hidden, name
+
+
+# --- the readers, one rule each ---------------------------------------------
+#
+# A body the shell would close later than the reader does loses the commands
+# after the early close, and a body it closes earlier reads text as commands.
+# Most such misses are covered twice over at the gate -- a later `$(` is
+# still found -- so each rule is pinned here on the body itself.
+
+BODIES = {
+    "a plain one": ("echo $(a b)", ["a b"]),
+    "a `)` in double quotes": ('echo $(printf ")") x', ['printf ")"']),
+    "a `)` in single quotes": ("echo $(printf ')') x", ["printf ')'"]),
+    "an escaped `)`": ("echo $(printf \\)) x", ["printf \\)"]),
+    "a `)` in a heredoc": (
+        "echo \"$(cat <<'EOF'\n)\nEOF\nb)\" x",
+        ["cat <<'EOF'\n)\nEOF\nb"],
+    ),
+    "a `)` in a dashed heredoc": (
+        "echo \"$(cat <<-'EOF'\n)\n\tEOF\nb)\" x",
+        ["cat <<-'EOF'\n)\n\tEOF\nb"],
+    ),
+    "a case runs to the end": (
+        "echo $(case x in a) b;; esac) c",
+        ["case x in a) b;; esac) c"],
+    ),
+    "nested, outermost only": ("echo $(a $(b)) c", ["a $(b)"]),
+    "backticks": ("echo `a` `b`", ["a", "b"]),
+    "an escaped backtick inside": ("echo `a \\` b` c", ["a \\` b"]),
+    "unterminated": ("echo $(a b", ["a b"]),
+    "process substitutions": ("cat <(a) >(b)", ["a", "b"]),
+    "single quotes are text": ("echo '$(a)' '`b`'", []),
+    "a quoted `<(` is text": ('echo "<(a)"', []),
+    "a double-quoted `$(` runs": ('echo "$(a)"', ["a"]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(BODIES))
+def test_substitution_bodies(name):
+    command, bodies = BODIES[name]
+    assert cmdline.substitution_bodies(command) == bodies, name
+
+
+TEXTS = {
+    "bash -c": (["bash", "-c", "a b"], ["a b"]),
+    "a cluster holding c": (["bash", "-ec", "a b"], ["a b"]),
+    "every non-option word once -c is given": (
+        ["bash", "-o", "errexit", "-c", "a b"],
+        ["errexit", "a b"],
+    ),
+    "no -c: a script, not a string": (["bash", "run.sh", "a b"], []),
+    "su --command=": (["su", "--command=a b", "u"], ["u", "a b"]),
+    "su --command, separate": (["su", "--command", "a b"], ["a b"]),
+    "--command is su's, not a shell's": (["bash", "--command", "a b"], []),
+    "watch": (["watch", "-n", "5", "a b"], ["5", "a b"]),
+    "env -S": (["env", "-S", "a b"], ["a b"]),
+    "env -S glued": (["env", "-Sa b"], ["a b"]),
+    "env --split-string=": (["env", "--split-string=a b"], ["a b"]),
+    "behind a runner": (["sudo", "sh", "-c", "a b"], ["a b"]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(TEXTS))
+def test_reparsed_texts(name):
+    tokens, texts = TEXTS[name]
+    assert cmdline.reparsed_texts(tokens) == texts, name
+
+
+def test_an_unknown_command_word_is_named_and_a_structural_one_is_not():
+    assert cmdline.names_an_unknown_command("$CMD a")
+    assert cmdline.names_an_unknown_command("echo; ${X} b")
+    for text in ("[ -f x ] && echo y", "{ echo y; }", "echo $X", "if true; then :; fi"):
+        assert not cmdline.names_an_unknown_command(text), text
