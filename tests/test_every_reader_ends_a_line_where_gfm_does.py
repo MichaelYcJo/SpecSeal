@@ -1093,9 +1093,11 @@ def _verdict_texts(char):
 def test_a_break_inside_a_cut_line_changes_no_verdict(tmp_path, shape, char):
     """#682. What a person reads is the verdict, so it is pinned beside the
     property. Each text is checked beside its twin with a space where the
-    break is, and the two give the same counts and the same severity and
-    sentence for each problem. The location is left out: it is the line the
-    rider starts on, which the break moves by one. The markdown shape read
+    break is, and the two give the same counts and the same location,
+    severity and sentence for each problem. The location is the GFM line the
+    rider starts on, which a break GFM does not honour leaves where it was
+    (round 1, ⬜ 5); it used to be left out, because it was the piece number
+    and the break moved it by one. The markdown shape read
     drifted after every `--reverify` where its twin reads BROKEN "no
     verification stamp", because the `-->` on the opener's GFM line ends the
     block there. The Python shape carried a second rider, on a code line
@@ -1113,11 +1115,7 @@ def test_a_break_inside_a_cut_line_changes_no_verdict(tmp_path, shape, char):
 
     def verdict(root):
         ok, drifted, problems = riders.check(root, roots=(top,), checker=checker)
-        return (
-            ok,
-            drifted,
-            sorted((severity, why) for _where, severity, why in problems),
-        )
+        return ok, drifted, sorted(problems)
 
     broken = planted("break", text)
     spaced = planted("space", text.replace(char, " "))
@@ -1127,3 +1125,44 @@ def test_a_break_inside_a_cut_line_changes_no_verdict(tmp_path, shape, char):
         riders.reverify(broken, roots=(top,), today="2026-09-29", checker=checker)
         assert verdict(broken)[1] == 0
         assert verdict(broken) == verdict(spaced)
+
+
+@pytest.mark.parametrize("char", SPLITLINES_ONLY, **BY_CODE_POINT)
+def test_a_rider_is_printed_at_the_line_an_editor_shows(tmp_path, capsys, char):
+    """#682 round 1, ⬜ 5. Every line that names a rider -- a check's
+    DRIFTED and BROKEN, `--reverify`'s `restamped` and REFUSED, and
+    `--migrate`'s REFUSED -- prints `path:line`, and the line is the GFM line
+    an editor and GitHub show. It used to be the `str.splitlines` piece
+    number, one ahead below each of the eight characters on an earlier line.
+    Each rider below sits one such break down, so the piece number and the
+    GFM line differ by one. The characters are built from their code
+    points."""
+    riders = _load("specseal_riders_where", RIDERS)
+    files = {
+        "templates/doc.md": f"# doc\n\nx{char}y\n{RIDER_MARK} about doc.\n"
+        'Verified 2026-01-01 against "# doc"@abcdef12. -->\n',
+        "hooks/mod.py": f'x = "a{char}b"\n# {"RIDER:"} about x, and no stamp.\n',
+        "templates/old.md": f"# old\n\nx{char}y\n{RIDER_MARK} about old. "
+        "Verified 2026-01-01 at abcdef1 -->\n",
+    }
+    for rel, text in files.items():
+        (tmp_path / rel).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / rel).write_text(text, encoding="utf-8")
+    root = str(tmp_path)
+
+    def printed(*argv):
+        riders.main(["--root", root, *argv])
+        return capsys.readouterr().out.splitlines()
+
+    def has(lines, head):
+        assert any(line.startswith(head) for line in lines), (head, lines)
+
+    checked = printed()
+    has(checked, "DRIFTED  templates/doc.md:4: ")
+    has(checked, "BROKEN   hooks/mod.py:2: no verification stamp")
+    has(checked, "BROKEN   templates/old.md:4: the stamp names a commit")
+    has(printed("--migrate"), "REFUSED  templates/old.md:4: no unit encloses")
+    reverified = printed("--reverify")
+    has(reverified, "restamped templates/doc.md:4 -> ")
+    has(reverified, "REFUSED   hooks/mod.py:2: no anchor to recompute")
+    has(reverified, "REFUSED   templates/old.md:4: no anchor to recompute")

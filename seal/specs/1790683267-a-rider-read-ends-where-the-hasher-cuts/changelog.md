@@ -9,3 +9,8 @@
   be with a space in place of the character. For the markdown shape that is
   "no verification stamp", because the comment that closes on that line ends
   the rider there (#682).
+- **The rider check names a rider at the line an editor shows.** Every line
+  it prints about a rider carries `path:line`. Below a U+2028, a form feed or
+  one of the six other characters on an earlier line, that number used to
+  run one ahead of the line an editor or GitHub shows, for each such
+  character above the rider. It is now the line they show (#682).

@@ -362,22 +362,31 @@ def comment_blocks(lines, rel=None):
 
 
 class Rider:
-    """One rider block, and whatever its stamp says."""
+    """One rider block, and whatever its stamp says.
 
-    def __init__(self, rel, start, end, text):
+    START and END number `str.splitlines` pieces, which is what `write_block`
+    splits the file into; LINE is the GFM line START lies on, which is what
+    an editor and GitHub number. `where` prints LINE: below a U+2028, a form
+    feed or one of the six other characters only `str.splitlines` breaks at,
+    the piece number runs ahead of the line a person opens (#682 round 1,
+    ⬜ 5). The piece numbers stay internal."""
+
+    def __init__(self, rel, start, end, text, line):
         self.rel = rel
         self.start = start
         self.end = end
+        self.line = line
         self.body = "\n".join(text.splitlines()[start - 1 : end])
         self.old = OLD_STAMP.search(self.body)
         self.new = NEW_STAMP.search(self.body)
 
     def where(self):
-        return f"{self.rel}:{self.start}"
+        return f"{self.rel}:{self.line}"
 
 
 def riders_in(rel, text):
-    """Every rider in TEXT, numbered on its `str.splitlines` lines.
+    """Every rider in TEXT, numbered on its `str.splitlines` lines and
+    located, for a person, on the GFM line its first piece lies on.
 
     The blocks are the hasher's: `comment_blocks` over GFM lines, which is
     exactly what `region_lines` cuts. The pieces -- the `str.splitlines`
@@ -401,8 +410,9 @@ def riders_in(rel, text):
     if _blocks is None:
         _blocks = load_blocks()
     pieces = text.splitlines()
+    places = gfm_places(_blocks.gfm_lines, text)
     on_line = {}
-    for k, number in enumerate(gfm_places(_blocks.gfm_lines, text)):
+    for k, number in enumerate(places):
         on_line.setdefault(number, []).append(k)
     out = []
     for a, b in comment_blocks(_blocks.gfm_lines(text), rel):
@@ -410,7 +420,10 @@ def riders_in(rel, text):
         starts = [k for k in inside if MARKER in pieces[k]]
         # Each rider runs to the next one's start, the last to the block's end.
         ends = [*starts[1:], inside[-1] + 1]
-        out.extend(Rider(rel, starts[i] + 1, ends[i], text) for i in range(len(starts)))
+        out.extend(
+            Rider(rel, starts[i] + 1, ends[i], text, places[starts[i]])
+            for i in range(len(starts))
+        )
     return out
 
 
@@ -618,7 +631,7 @@ def write_block(root, rider, body):
     # whatever `python3` is on PATH (the broad gate of #664).
     if len(pieces) != len(ends):
         raise ValueError(
-            f"{rider.rel}:{rider.start}: the body has {len(pieces)} pieces "
+            f"{rider.where()}: the body has {len(pieces)} pieces "
             f"and the rider {len(ends)} lines"
         )
     replacement = [pieces[k] + ends[k] for k in range(len(ends))]
