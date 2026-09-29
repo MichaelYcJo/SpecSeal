@@ -85,6 +85,12 @@ EVALS = {
     "a subshell": f"(eval '{C}')",
     "a spaced subshell": f"( eval '{C}' )",
     "a group": f"{{ eval '{C}'; }}",
+    # Round 2 of 1790644505: where no position names the command word, the
+    # first `eval` stands in, as the first `git` does.
+    "a case arm": f"case a in a) eval '{C}';; esac",
+    "a case arm over a variable": 'case a in a) eval "$X";; esac',
+    "a function body": f"f() {{ eval '{C}'; }}; f",
+    "a coprocess": f"coproc eval '{C}'",
 }
 
 

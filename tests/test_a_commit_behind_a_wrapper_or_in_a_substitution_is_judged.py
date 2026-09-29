@@ -193,6 +193,17 @@ STILL_HANDED = {
     "sudo sh -c $CMD": 'sudo sh -c "$CMD"',
     "bash -lc $CMD": 'bash -lc "$CMD"',
     "positional parameters that are the commit": "bash -c '\"$@\"' _ git commit -m x",
+    # Round 2 of 1790644505: a word before the `-c` flag, and `watch` behind
+    # a runner's own options, a list opener or a subshell, used to hide the
+    # string.
+    "bash --rcfile f -c $CMD": 'bash --rcfile /dev/null -c "$CMD"',
+    "bash --init-file f -c $CMD": 'bash --init-file /dev/null -c "$CMD"',
+    "bash 2>/dev/null -c $CMD": 'bash 2>/dev/null -c "$CMD"',
+    "nice -n 5 watch $CMD": 'nice -n 5 watch -g "$CMD"',
+    "timeout 60 watch $CMD": 'timeout 60 watch -g "$CMD"',
+    "sudo -E watch $CMD": 'sudo -E watch "$CMD"',
+    "then watch $CMD": 'if true; then watch -g "$CMD"; fi',
+    "( watch $CMD )": '( watch -g "$CMD" )',
 }
 
 

@@ -245,6 +245,27 @@ def test_a_parity_arm_is_not_waived_by_a_newly_read_commit(
             assert "silent" not in got, (command, which, got)
 
 
+def test_a_commit_found_before_a_nesting_too_deep_still_stops(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """Round 2 of 1790644505. A reader that overflows on 500 nested
+    substitutions used to discard the commit it had already found in `u`,
+    leaving only the declared session directory to judge."""
+    session = make_repo(tmp_path / "session", declared=True)
+    u = make_repo(tmp_path / "u")
+    deep = "$(" * 500 + "true" + ")" * 500
+    for command in (
+        f"git -C {q(u)} commit -m x; echo {deep}",
+        f"cd {q(u)} && {BODY}; echo {deep}",
+        f"git -C {q(u)} commit -m x; echo " + "$(echo " * 500 + "1" + ")" * 500,
+    ):
+        answers = with_and_without_the_press(
+            monkeypatch, capsys, projects, command, session
+        )
+        for which, got in answers.items():
+            assert "silent" not in got, (command[:60], which, got)
+
+
 def test_the_reverse_direction_still_stops(monkeypatch, capsys, projects, tmp_path):
     """#662's second box. From a declared session directory, `cd U ; git
     commit` also reaches U whenever the `cd` works, and U declares nothing."""
