@@ -25,9 +25,11 @@ slice exactly, as `ONLY_ON_SOME_PYTHONS` declares it, and
 """
 
 import ast
+import fnmatch
 import hashlib
 import importlib.util
 import os
+import posixpath
 import re
 import shlex
 import sys
@@ -230,9 +232,67 @@ def test_the_range_table_holds_classified_names_and_bounds_above_the_floor():
 
 WORKFLOW = os.path.join(ROOT, ".github", "workflows", "test.yml")
 
-# A `run:` line that hands pytest this module, or the whole `tests/` directory.
-_RUNS_THIS_MODULE = re.compile(r"\bpytest\b.*\stests/(test_arm_check\.py)?(\s|$)")
 _PINNED_PYTHON = re.compile(r'\bpython(?:-version)?:\s*"(\d+)\.(\d+)"')
+_THIS_MODULE = "tests/test_arm_check.py"
+# pytest's options that take a module back out of the paths it was handed.
+# These three name what they remove, so each is read for whether it names
+# this module.
+_REMOVES = ("--ignore", "--ignore-glob", "--deselect")
+# These select by an expression or by an earlier run, which no reading of the
+# line can resolve, so a job carrying one is not counted as running it.
+_UNREADABLE = (
+    "-k",
+    "-m",
+    "--lf",
+    "--last-failed",
+    "--sw",
+    "--stepwise",
+    "--co",
+    "--collect-only",
+)
+
+
+def _removes_this_module(option, value):
+    """Whether `option value` takes `_THIS_MODULE` out of what pytest runs."""
+    if option == "--ignore-glob":
+        return fnmatch.fnmatch(_THIS_MODULE, value) or fnmatch.fnmatch(
+            "tests", value.rstrip("/")
+        )
+    path = posixpath.normpath(value.split("::", 1)[0])
+    return path == _THIS_MODULE or _THIS_MODULE.startswith(path + "/")
+
+
+def selects_this_module(line):
+    """Whether the pytest invocation on `line` runs `tests/test_arm_check.py`:
+    it hands pytest the module or `tests/`, and no option takes the module
+    back out. The line is split with `shlex`, and only pytest's own
+    selection options are read; a line `shlex` cannot split counts as not
+    running it."""
+    try:
+        words = shlex.split(line)
+    except ValueError:
+        return False
+    start = next(
+        (i for i, w in enumerate(words) if posixpath.basename(w) == "pytest"), None
+    )
+    if start is None:
+        return False
+    args, named, i = words[start + 1 :], False, 0
+    while i < len(args):
+        word = args[i]
+        option, has_value, value = word.partition("=")
+        if option in _REMOVES:
+            if not has_value and i + 1 < len(args):
+                i += 1
+                value = args[i]
+            if _removes_this_module(option, value):
+                return False
+        elif option in _UNREADABLE or (word[:2] in ("-k", "-m") and word[:3] != "--"):
+            return False
+        elif posixpath.normpath(word) in ("tests", _THIS_MODULE):
+            named = True
+        i += 1
+    return named
 
 
 def pythons_ci_runs_this_module_at(text):
@@ -244,7 +304,7 @@ def pythons_ci_runs_this_module_at(text):
     found = set()
     for block in jobs("\n".join(code_lines(text))).values():
         lines = block.splitlines()
-        if any(_RUNS_THIS_MODULE.search(line) for line in lines):
+        if any(selects_this_module(line) for line in lines):
             for line in lines:
                 found.update((int(a), int(b)) for a, b in _PINNED_PYTHON.findall(line))
     return found
@@ -260,11 +320,13 @@ def test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at():
     Both sides of a bound need a leg. A bound one Python too low is red only
     on the bound itself, and one a Python too high is red only on the Python
     just below it, so a range checked at its bound alone is checked in one
-    direction.
+    direction. A job counts only where `selects_this_module` says its pytest
+    line runs this module.
 
     Red how: before `.github/workflows/test.yml` had a job running this module
-    at 3.13 and 3.14, naming 3.14; with the 3.13 leg deleted, naming 3.13.
-    Executed."""
+    at 3.13 and 3.14, naming 3.14; with the 3.13 leg deleted, naming 3.13;
+    with the job's `run:` line handing pytest `tests/` and an `--ignore` of
+    this module, naming 3.13 and 3.14. Executed."""
     with open(WORKFLOW, encoding="utf-8") as handle:
         ran = pythons_ci_runs_this_module_at(handle.read())
     bounds = {
@@ -286,6 +348,35 @@ def test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at():
         f"a leg of the job that runs this module, or that side of the range is "
         f"checked on no interpreter CI has"
     )
+
+
+@pytest.mark.parametrize(
+    "line, runs",
+    [
+        ("- run: pytest tests/test_arm_check.py -q", True),
+        ("- run: pytest tests/ -q -n auto", True),
+        ("- run: python -m pytest tests", True),
+        ("- run: pytest tests/ --ignore=tests/test_other.py -q", True),
+        ("- run: pytest tests/ --ignore=tests/test_arm_check.py -q", False),
+        ("- run: pytest tests/ --ignore tests/test_arm_check.py", False),
+        ("- run: pytest tests/ --ignore=tests", False),
+        ("- run: pytest tests/ --ignore-glob='tests/*arm*'", False),
+        ("- run: pytest tests/ --deselect tests/test_arm_check.py::test_x", False),
+        ("- run: pytest tests/ -k 'not arm'", False),
+        ("- run: pytest tests/ -mslow", False),
+        ("- run: pytest tests/test_other.py", False),
+        ("- run: pip install pytest", False),
+        ('- run: pytest "tests/', False),
+    ],
+)
+def test_a_job_counts_only_where_its_pytest_line_selects_this_module(line, runs):
+    """S6's reader, one line at a time. A line that hands pytest `tests/` and
+    takes this module back out runs it at no Python, and a filter that only
+    pytest can resolve is not counted either.
+
+    Red how: with `_removes_this_module` answering False, and with the
+    `_UNREADABLE` branch deleted. Executed."""
+    assert selects_this_module(line) is runs
 
 
 def test_no_node_type_is_both_an_arm_and_a_non_arm():
