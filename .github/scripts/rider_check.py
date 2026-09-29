@@ -271,8 +271,10 @@ def comment_blocks(lines, rel=None, text=None):
     **In markdown, a marker line inside a fenced example opens no rider**
     (#667). `quoted_lines` says which lines those are, and such a line is
     stepped over without touching the comment state below. Other file types
-    are read as before: a fence means nothing in Python or YAML. Both callers
-    pass TEXT, the file LINES were split from, for `quoted_lines`.
+    are read as before: a fence means nothing in Python or YAML. TEXT, where
+    LINES are `str.splitlines` of it, is what `quoted_lines` walks, and
+    `riders_in` passes it; `region_lines` hands over GFM lines already and
+    passes none.
     """
     out = []
     i, n = 0, len(lines)
@@ -407,7 +409,10 @@ def region_lines(checker, rel, locator, text):
         )
     start, end = places[0]
     lines = checker.gfm_lines(text)  # the lines `resolve_unit` numbered (#664)
-    blocks = comment_blocks(lines, rel, text)
+    # No TEXT: these are already GFM lines, which the walk reads as given.
+    # Handed the text, `walk_text` answers by `str.splitlines` and the blocks
+    # land one line off past a break only that split makes (#667).
+    blocks = comment_blocks(lines, rel)
     kept = [
         line
         for number, line in enumerate(lines[start - 1 : end], start)

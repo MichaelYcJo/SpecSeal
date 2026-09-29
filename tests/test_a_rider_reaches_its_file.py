@@ -590,7 +590,15 @@ def test_a_break_commonmark_does_not_honour_quotes_no_rider(name):
     opens no fence, and the rider below it is live. The walk read the split
     and called the rider quoted, and the check passed a rider it never
     checked; the base had no fence state and read it. Through both callers:
-    the reader, and the hasher's `region_lines` by way of `riders_in`."""
+    the reader, by way of `riders_in`, and the hasher's `region_lines`.
+
+    **The hasher reads GFM lines since #664 (work item C)**, the lines
+    `resolve_unit` numbers, and hands them to `comment_blocks` without the
+    text: they are already where a renderer ends a line. Handed the text as
+    well, the walk answered by `str.splitlines` and the blocks landed one line
+    off past the break -- here the real rider under a quoted one's fence was
+    stepped over as quoted and left in the hash, and the region is asked
+    exactly that."""
     from block_shapes import BREAKS
 
     text = (
@@ -598,9 +606,14 @@ def test_a_break_commonmark_does_not_honour_quotes_no_rider(name):
         "Verified 2026-01-01 against r@abcdef12. -->\n\n```\n"
     )
     assert [(r.start, r.end) for r in riders.riders_in("doc.md", text)] == [(6, 7)]
-    kept, why = riders.region_lines(CHECKER, "doc.md", '"# doc"', text)
+    region = (
+        f"# doc\n\nA note{BREAKS[name]}more\n\n```\n{HTML_MARK} quoted -->\n```\n"
+        f"{HTML_MARK} real\nVerified 2026-01-01 against r@abcdef12. -->\n"
+    )
+    kept, why = riders.region_lines(CHECKER, "doc.md", '"# doc"', region)
     assert kept is not None, why
-    assert not any("RIDER:" in line for line in kept), kept
+    assert any("quoted" in line for line in kept), kept
+    assert not any("real" in line or "Verified" in line for line in kept), kept
 
 
 def test_a_missing_walk_is_a_sentence_and_exit_2(tmp_path, capsys):
