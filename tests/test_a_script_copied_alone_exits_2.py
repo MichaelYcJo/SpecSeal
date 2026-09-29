@@ -173,7 +173,7 @@ def test_a_script_copied_alone_exits_2_and_names_what_it_misses(
 # the turn (`hooks/dispatch.py`, #28), and a script catches the error or names
 # the file first. So a copy without the walk raises one `ImportError` whose
 # sentence names the path and what the file is for.
-HOOK_READERS = [("config.py", [])]
+HOOK_READERS = [("config.py", []), ("routing.py", ["optin.py"])]
 
 
 @pytest.mark.parametrize(

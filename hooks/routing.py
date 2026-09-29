@@ -40,6 +40,22 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import optin
 
+try:
+    import blocks
+except ImportError as missing:
+    # `hooks/config.py` raises the same sentence for the same reason: this is
+    # a module gates and scripts import, and a script that loads it by path
+    # (`chain_check.py`, `round_record.py`, `survivor_check.py`) catches the
+    # error or names the file first.
+    raise ImportError(
+        "cannot read "
+        + os.path.join(os.path.dirname(os.path.abspath(__file__)), "blocks.py")
+        + ", and it is the walk this reader reads routing.md through, which "
+        "tells a live row from one quoted in a fence or parked in a comment. "
+        "This file ships beside it under `hooks/`; a copy of one taken on its "
+        "own is not a plugin"
+    ) from missing
+
 REVIEW = "Review"
 DESTINATION = "Destination"
 BRANCH = "Branch"
@@ -108,6 +124,23 @@ WORK_ITEMS = f"{optin.HOME}/{optin.WORK_ITEMS}"
 FILENAME = "routing.md"
 
 
+def shown(lines):
+    """[(index, line)] for each of LINES `table_rows` reads, ending removed.
+
+    The walk's hidden lines are left out, and only those: where it is not
+    sure, this reader's own reading from before #667 stands, and that
+    reading hid nothing. So on every line the answer is either the old one
+    or a renderer's, which `tests/test_the_hooks_hide_what_a_renderer_hides.py`
+    holds over a generated corpus.
+    """
+    hidden = blocks.walk(lines).hidden()
+    return [
+        (index, raw.rstrip("\r\n"))
+        for index, raw in enumerate(lines)
+        if index not in hidden
+    ]
+
+
 def table_rows(text):
     """Every two-cell markdown table row, as (label, value).
 
@@ -119,9 +152,20 @@ def table_rows(text):
     was added when seventy-two declarations had already been written, none of
     them carrying the row and none of them needing an edit -- and the only
     change this function needed was none.
+
+    **A row a renderer does not show is not a row** (#658, #667). `parse`
+    keeps the LAST row of a label, so an example quoted in a fenced block
+    below the table answered for it, and so did an answer somebody parked in
+    an HTML comment. `shown` below is what this walks, and it hides exactly
+    the lines `hooks/blocks.py` is sure a renderer hides: inside a fenced
+    block or a comment block that begins its line, where either closes.
+    Every other line is read as it always was, so a fence or a `<!--` nobody
+    closed hides nothing, and a declaration that read before still reads.
+    A file whose only table is hidden is not a declaration, the direction
+    this module fails in.
     """
     rows = []
-    for line in text.splitlines():
+    for _index, line in shown(text.splitlines()):
         line = line.strip()
         if not line.startswith("|"):
             continue
@@ -172,6 +216,12 @@ def parse(text):
     artifact. A required row would turn all 84 declarations already committed
     here into "not a declaration", which re-opens the commit gate on every
     branch that already answered.
+
+    **What it reads is `table_rows`', which skips a row a renderer does not
+    show** (#667): a table wholly inside a fenced block, or inside a comment
+    block that closes, is no declaration, and the gate asks as it does for
+    any `routing.md` that does not parse. A fence or a `<!--` nobody closed
+    above the table is not a block at all, so that declaration still reads.
     """
     found = dict(table_rows(text))
     review = found.get(REVIEW)

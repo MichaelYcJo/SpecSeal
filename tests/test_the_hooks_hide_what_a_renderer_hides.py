@@ -386,3 +386,30 @@ def test_the_config_reader_never_leaves_both_readings():
         if bad:
             wrong.append((lines, bad))
     assert not wrong, f"{len(wrong)} documents, the first: {wrong[0]}"
+
+
+routing = load_hook("routing.py")
+
+
+def test_the_routing_reader_never_leaves_both_readings():
+    """Half 1, S9. `hooks/routing.py#table_rows` read every line at
+    `release/v0.16.0`, so its base hides nothing, and every line it skips now
+    has to be one a renderer hides: a row it stops reading was never a live
+    answer."""
+    wrong = []
+    for lines in CORPUS:
+        new = set(range(len(lines))) - {index for index, _line in routing.shown(lines)}
+        bad = leaves_both(new, set(), oracle.hidden_lines(lines), len(lines))
+        if bad:
+            wrong.append((lines, bad))
+    assert not wrong, f"{len(wrong)} documents, the first: {wrong[0]}"
+
+
+def test_the_routing_reader_hides_something():
+    """The half above is empty for a reader that skips nothing, which is
+    what it was. On the shapes that park or quote a table it skips the
+    renderer's lines."""
+    for name in ("R1", "R2", "R5", "R9"):
+        lines = SHAPES[name]
+        skipped = set(range(len(lines))) - {i for i, _ in routing.shown(lines)}
+        assert skipped == RENDERER[name], name

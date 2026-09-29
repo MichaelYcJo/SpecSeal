@@ -19,6 +19,7 @@ import json
 import os
 import subprocess
 
+import pytest
 from conftest import decision_of, fired, load_hook_module, run_hook
 
 routing = load_hook_module("routing.py", "specseal_routing")
@@ -695,6 +696,72 @@ def test_the_answer_pressed_row_is_read_when_it_is_there():
     for answer in routing.ANSWER_PRESSED_ANSWERS:
         parsed = routing.parse(with_row(routing.ANSWER_PRESSED, answer))
         assert parsed["pressed"] == answer, answer
+
+
+# --- #658, #667: a row a renderer does not show is not an answer ------------
+#
+# The shape ids are `seal/specs/1790645290-the-hooks-and-the-rider-check-read-
+# fences-and-comments-by-one-rule/spec.md` §*The shapes*, the texts
+# `tests/block_shapes.py`'s. "red at base" means the case fails with
+# `hooks/routing.py` from `3911a8cf`; "pins" means it passes there too.
+
+
+def declared(name):
+    """The shape's parse, as (review, branch), or None."""
+    from block_shapes import SHAPES
+
+    parsed = routing.parse("\n".join(SHAPES[name]) + "\n")
+    return None if parsed is None else (parsed["review"], parsed["branch"])
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        # red at base: a fenced example below the table answered for it (#658)
+        ("R1", (CHAIN, "feature/x")),
+        # red at base: the whole table inside a closed fence was a declaration
+        ("R2", None),
+        # pins, and reverses 1790635413's assertion: a fence nobody closed is
+        # not a block, so the declaration under it still reads
+        ("R3", (CHAIN, "feature/x")),
+        # pins: a fence line inside a closed comment above the table opens
+        # nothing (1790635413 round 2, 🟡 2)
+        ("R4", (CHAIN, "feature/x")),
+        # red at base: a Review row parked in a closed comment below answered
+        ("R5", (CHAIN, "feature/x")),
+        # red at base: a mid-line opener nobody closed switches off no fence
+        # below it (1790635413 round 3, 🟡 1), with and without a blank line
+        ("R6", (CHAIN, "feature/x")),
+        ("R6b", (CHAIN, "feature/x")),
+        # red at base: nor does one an example's comment below seems to close
+        # (1790635413 round 3, ⬜ 3)
+        ("R7", (CHAIN, "feature/x")),
+        # red at base: a line-start opener nobody closed is not a block, so
+        # the fenced example below it is still fenced
+        ("R8", (CHAIN, "feature/x")),
+        # red at base: a comment that closes below the table parks all of it
+        ("R9", None),
+    ],
+    ids=lambda value: value if isinstance(value, str) else "",
+)
+def test_the_routing_shapes_read_as_the_frame_expects(name, expected):
+    """S10. A row inside a fenced block or a comment block that closes is no
+    answer, and `parse` keeps the last row of a label, so before this an
+    example or a parked row below the table overrode it. A table wholly
+    hidden is no declaration (R2, R9): the direction this module fails in,
+    and the ask that follows is the one every unreadable `routing.md` gets."""
+    assert declared(name) == expected
+
+
+def test_the_template_and_the_committed_declarations_still_parse():
+    """R10's floor, S11. `templates/sdd-routing.md` opens with a comment above
+    its table and a placeholder line below it, and it still parses; the
+    measurement over every committed declaration is in the phase record."""
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "templates", "sdd-routing.md"), encoding="utf-8") as f:
+        template = f.read()
+    rows = dict(routing.table_rows(template))
+    assert rows.get(routing.REVIEW) in routing.REVIEW_ANSWERS, rows
 
 
 def test_pressing_the_preset_and_ticking_every_box_are_told_apart():
