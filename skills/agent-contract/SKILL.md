@@ -224,8 +224,9 @@ assert that every substitution matched.
 
 And no Bash command line exists, so the commit gate has nothing to read. The
 gate reads a heredoc body as shell, on purpose, unless the command it is fed
-to is a known non-shell interpreter reading its program from stdin —
-`python3 -`, `node`, `ruby`, `perl` (#665). Two kinds of segment count. One is
+to is a known non-shell interpreter reading its program from stdin, written
+exactly as `python3 - <<'EOF'` (or `node`, `ruby`, `perl`) with no other word
+in that command (#665). Two kinds of segment count. One is
 a segment whose command word is `git` with the `commit` subcommand, whatever
 any other command does with the body — a patch through `cat` or a shell to
 a file carrying shell commands as test data, or to a document showing a

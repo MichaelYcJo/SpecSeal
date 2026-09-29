@@ -37,16 +37,20 @@
   own repository had no routing declaration was asked about a commit landing
   in a worktree that had one, in the middle of an `automation` run. A `cd`
   into a directory that is there and can be entered does not fail, so that
-  second directory is now dropped. `||`, which runs only when the `cd`
-  fails, still reaches it. So does a `cd` to a missing directory, to one
-  without the execute bit, or from a shell the reader could not follow. The
-  worktree guard reads the same walk.
+  second directory is now dropped, but only where every command before the
+  `cd` is itself a `cd`. The hook reads the filesystem before the command
+  runs, and an earlier `mv` or `chmod` could make the `cd` fail. `||`, which
+  runs only when the `cd` fails, still reaches it. So does a `cd` to a
+  missing directory, to one without the execute bit, or from a shell the
+  reader could not follow. The worktree guard reads the same walk.
 - **A heredoc fed to `python3 -`, `node`, `ruby` or `perl` is no longer read
   as shell by the commit gate (issue #665).** A patch written as
   `python3 - <<'EOF' … EOF` whose Python held `git commit` inside test
   strings and a `for` loop was stopped as a command the gate could not read,
   four times in one `automation` run, with no commit in it. The body of a
   known non-shell interpreter reading its program from stdin is that
-  program, and is now left out. A shell, `ssh`, `xargs`, an interpreter given
-  `-c` or a script, and any command not on the list are still read as shell,
-  so `bash <<'EOF'` with a commit inside is still judged.
+  program, and is now left out, in one exact shape: the interpreter with
+  nothing or only `-` before `<<`, and nothing after the heredoc's word. Any
+  other word in that command (a flag, a script, a redirect, an assignment),
+  a quoted separator, and any other consumer are still read as shell, so
+  `bash <<'EOF'` with a commit inside is still judged.

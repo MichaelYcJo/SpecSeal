@@ -123,19 +123,30 @@ work item B works. Phase 5 did not need `routing.py`.
   - Twenty-four mutants were run, one per changed branch, and each was
     killed.
 - **A stated failure direction.** Both changes allow more, and each only
-  where the shell cannot do otherwise.
-  - #662 stops judging the session's directory after a `cd` that cannot
-    fail. A commit there would need a `cd` into an existing, enterable
-    directory to fail between the hook and the shell, and `||` keeps that
-    branch whenever the command names it.
+  where the shell cannot do otherwise. **Corrected 2026-09-29 in round 2's
+  fix pass.** As first written, the bound did not hold. Round 2 read three
+  real commits silent: a shell-run body behind a `<<` whose consumer was read
+  only up to the redirect, a `cd` whose target an earlier `mv` or `chmod`
+  changed, and a `deny` beside a message that is not text (#661). The fix
+  pass found a fourth, a separator written `';'` or `\;`. As corrected:
+  - #662 stops judging the session's directory after a `cd` into an
+    existing, enterable directory, and only while every segment before that
+    `cd` is itself a `cd`. The hook reads the filesystem before anything
+    runs, so any other earlier command voids the trust (contract §13). A
+    commit there would need such a `cd` to fail between the hook and the
+    shell. `||` keeps that branch whenever the command names it.
   - #665 stops reading one body a known interpreter runs as its own
-    program. `python3 -` running `subprocess.run(["git", "commit", …])` was
-    never read as a commit before, so nothing is open that was closed.
-    Every unlisted consumer stays on the asking side.
-  - The cheaper mistake here is a false allow over a false prompt. The
-    prompts were measured: four in one `automation` run for #665 and one
-    for #662, each stopping a run that promised no question. The allows are
-    bounded to states the shell does not reach.
+    program, in one exact shape, read from the whole line: the interpreter
+    with nothing or only `-` before `<<`, nothing after its word, one `<<`,
+    no backslash, and quotes kept so a quoted separator stays a word.
+    `python3 -` running `subprocess.run(["git", "commit", …])` was never
+    read as a commit before, so nothing is open that was closed. Every other
+    shape and every unlisted consumer stay on the asking side.
+  - The cheaper mistake here is a false prompt over a false allow, and the
+    rule is drawn so that where the reader cannot be certain, it reads as
+    shell and keeps the failure branch. The prompts removed were measured:
+    four in one `automation` run for #665 and one for #662, each stopping a
+    run that promised no question.
 - **A prompt budget.** It goes down. The change adds no question, and it
   removes the prompt for `cd <worktree> && …` followed by a commit on the
   next line, and for a `python3 -` patch whose body holds `git commit` as

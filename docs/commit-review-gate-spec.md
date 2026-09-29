@@ -101,7 +101,7 @@ a `cd` on one side of them does not move the shell the commit runs in at all.
 | The command | What is judged |
 |---|---|
 | `cd X && git commit` | the repository holding X |
-| `cd X ; git commit` | X alone where X is a directory the shell can enter, and both where it is missing or cannot be entered — `;` runs the commit whether the `cd` succeeded or not, and only a `cd` that can fail leaves it in the session's own repository (#662) |
+| `cd X ; git commit` | X alone where X is a directory the shell can enter and every segment before the `cd` is a `cd`, and both otherwise — `;` runs the commit whether the `cd` succeeded or not, and only a `cd` that can fail leaves it in the session's own repository (#662). An earlier `mv`, `chmod` or any other command can change X before the `cd` meets it, and the gate reads the filesystem before anything runs |
 | `cd X \|\| git commit` | both — the session's own repository and X |
 | `cd X \| git commit`, `cd X \|& git commit`, `cd X & git commit` | both, and for a different reason: the commit runs in a subshell that never left the session's own repository, and a shell told to run a pipeline's last stage in the current shell (`shopt -s lastpipe`) does land in X |
 | `cd N \|\| cd B && git commit` | both N and B — the second `cd` is skipped whenever the first works |
@@ -145,8 +145,11 @@ at all is asked of every body separately, as shell, on purpose, because a
 commit hidden in a body used to walk straight past (legacy #75). The one
 exception is a body fed to a known non-shell interpreter reading its program
 from stdin — `python3 -`, `node`, `ruby`, `perl` — which is that program and
-not shell (#665). A shell, `ssh`, `xargs`, an interpreter given `-c` or a
-script, and every unlisted command are still read as shell. Two kinds of
+not shell (#665), in one exact shape: the command holding the `<<` is that
+name with nothing or only `-` before the `<<` and nothing after its word, on
+a line with no other `<<` and no backslash. Every other token in that command
+— a flag, a script, an assignment, a redirect, a `$(…)` — and every other
+consumer read as shell. Two kinds of
 segment count there. One is a segment whose command word is `git` with the
 `commit` subcommand, so what counts is the position and never the presence of
 the word: a whole fixture file of shell commands held in Python strings is
@@ -183,8 +186,11 @@ after such a `cd` reaches X and nothing else: `cd X && make` with the commit
 on the next line answers for X, as the shell does (#662). Before that, it
 also answered for the session's own repository, and one `automation` run was
 stopped by a prompt because that repository had no declaration while X had
-one. A `cd` to a missing directory, to one without the execute bit, or from a
-shell the reader could not name still reaches both.
+one. The gate reads the filesystem before the command runs, so the directory
+is trusted only while every segment before the `cd` is itself a `cd`: `mv X Y
+; cd X ; git commit` commits where it started. A `cd` after any other
+command, a `cd` to a missing directory or to one without the execute bit, and
+a `cd` from a shell the reader could not name all still reach both.
 
 **The reader enumerates what it understands, not what moves a shell.** Where
 it met a construct it did not model it answered *the shell stayed where it
