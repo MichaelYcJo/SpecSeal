@@ -286,6 +286,24 @@ def test_a_later_routing_answer_takes_the_press_back(
     assert worktree_consent.automation_answered(str(repo), PRESSED)
 
 
+def test_an_answer_to_another_question_leaves_the_press_standing(projects, tmp_path):
+    """Only an answer to the routing question takes the press back. A later
+    question the model put for something else is not a routing answer, and
+    reading it as one would put a prompt back in front of a person who said
+    nobody would be answering."""
+    repo = make_repo(tmp_path / "repo")
+    first = ask_entries(repo, tool_id="toolu_01first")
+    other = ask_entries(
+        repo,
+        answer="yes",
+        options=("yes", "no"),
+        question="Which name?",
+        tool_id="toolu_01other",
+    )
+    write_transcript(projects, PRESSED, first + other)
+    assert worktree_consent.automation_answered(str(repo), PRESSED)
+
+
 # --- S6: without the press, nothing changes ---------------------------------
 
 
