@@ -388,12 +388,16 @@ def test_a_broken_opt_in_module_is_said_rather_than_read_as_not_opted_in(
     opted_in(repo)
     hooks = hooks_copy(tmp_path, {"optin.py": BROKEN})
     dispatch(hooks, "pre-bash", bash(repo, "s-x"))
+    # One file time for all three, as a coarse file system gives: the order
+    # said is `pre-bash`'s own order, which is not name order here.
+    for path in (repo / ".git" / RECORDS / "s-x").iterdir():
+        os.utime(path, ns=(10**18, 10**18))
     lines = said(stop(hooks, repo, "s-x"))
-    assert sorted(gates_said(lines)) == [
+    assert gates_said(lines) == [
         "commit-review-gate.py",
+        "worktree-guard.py",
         "mode-gate.py",
         "sealer-stamp.py",
-        "worktree-guard.py",
     ], lines
     assert "sealer-stamp.py failed to load in stop (SyntaxError: " in "\n".join(
         lines
@@ -425,14 +429,20 @@ def test_records_are_said_oldest_first(repo, tmp_path):
         path = directory / (gate + ".pending")
         path.write_text(json.dumps({"group": "pre-bash", "at": at}), encoding="utf-8")
         os.utime(path, ns=(10**18, 10**18))
-    old = directory / "session-lease.py.pending"
-    old.write_text(json.dumps({"group": "post-bash"}), encoding="utf-8")
-    os.utime(old, ns=(10**18 + 2 * 10**9, 10**18 + 2 * 10**9))
+    # An `at` that is not two integers is read as absent, not compared.
+    for gate, body, seconds in (
+        ("version-check.py", {"group": "session-start", "at": ["late", 1]}, 1),
+        ("session-lease.py", {"group": "post-bash"}, 2),
+    ):
+        old = directory / (gate + ".pending")
+        old.write_text(json.dumps(body), encoding="utf-8")
+        os.utime(old, ns=(10**18 + seconds * 10**9, 10**18 + seconds * 10**9))
     lines = said(stop(hooks_copy(tmp_path, {}), repo, "s-x"))
     assert gates_said(lines) == [
         "worktree-guard.py",
         "commit-review-gate.py",
         "mode-gate.py",
+        "version-check.py",
         "session-lease.py",
     ], lines
 
