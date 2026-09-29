@@ -25,7 +25,7 @@ guard's modules.
   without a word.
 - **The fixture writes JSON the way a JavaScript writer does.** Python's
   `json.dumps` escapes U+2028 by default, so a fixture written with it holds
-  ` ` as six ASCII characters and could not show the defect. The case
+  `\u2028` as six ASCII characters and could not show the defect. The case
   writes with `ensure_ascii=False`.
 - **`split("\n")` rather than `gfm_lines`.** A hook does not load a skill
   module on every call (`unverified_check.py#fence_opener`'s docstring),
