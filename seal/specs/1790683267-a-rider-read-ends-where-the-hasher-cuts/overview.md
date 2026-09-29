@@ -29,7 +29,7 @@ The `-->` test's own reach is not changed. A markdown block still ends at a line
 
 `quoted_lines` keeps its TEXT parameter (J3). No shipped caller passes one now. `tests/test_the_hooks_hide_what_a_renderer_hides.py` does, against the oracle.
 
-`region_lines`' comment "No TEXT: …" is left as it stands. It is still true of `quoted_lines`, and editing it would move S2's anchor for a sentence that holds.
+`region_lines`' comment "No TEXT: …" was left as it stood in phase 1. Round 1 (⬜ 3) found it explained an argument `comment_blocks` no longer takes, so the fix pass rewrote it to say the reader cuts from the same GFM lines, and S2 was re-stamped.
 
 The reason cell for `riders_in` in `tests/test_every_reader_ends_a_line_where_gfm_does.py#OUT_OF_CLASS` is left as F's. The plan makes that optional, and S8 keeps existing cases unedited apart from the index.
 

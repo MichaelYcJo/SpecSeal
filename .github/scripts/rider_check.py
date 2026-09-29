@@ -304,9 +304,11 @@ def comment_blocks(lines, rel=None):
     out of the region it hashes, and `riders_in` splits the same blocks at
     every `str.splitlines` piece carrying the marker. So a marker piece
     standing mid-line after a U+2028 or a form feed is a rider exactly where
-    its GFM line opens a comment, which is where the hasher cuts it. Nothing
-    here reads pieces: a reader that walked them by a second statement of
-    this rule parted from the hasher in each of #664's three rounds.
+    its GFM line lies inside a block this returns -- a comment it opens, or
+    an HTML comment an earlier block left open -- which is where the hasher
+    cuts it. Nothing here reads pieces: a reader that walked them by a second
+    statement of this rule parted from the hasher in each of #664's three
+    rounds.
     """
     out = []
     i, n = 0, len(lines)
@@ -473,9 +475,8 @@ def region_lines(checker, rel, locator, text):
         )
     start, end = places[0]
     lines = checker.gfm_lines(text)  # the lines `resolve_unit` numbered (#664)
-    # No TEXT: these are already GFM lines, which the walk reads as given.
-    # Handed the text, `walk_text` answers by `str.splitlines` and the blocks
-    # land one line off past a break only that split makes (#667).
+    # GFM lines, the ones `riders_in` hands `comment_blocks` too, so the blocks
+    # cut here are exactly the blocks the reader reads (#682).
     blocks = comment_blocks(lines, rel)
     kept = [
         line
