@@ -559,3 +559,53 @@ def test_a_second_reading_that_unplaces_keeps_the_base_directory(
             monkeypatch, capsys, projects, command, session
         ).items():
             assert "silent" not in got, (command, which, got)
+
+
+# Chains that reach the walk's `STATE_CAP` sooner than `86256492`'s walk did,
+# because the directories #674 adds beside the base's count toward it.
+CAP_CHAINS = {
+    "a refused segment, then sixteen cds": "2>/dev/null source /dev/null; "
+    + "cd sub; " * 16,
+    "nine landed cds": "2>/dev/null cd sub; " * 9,
+    "twenty landed cds joined by &&": "2>/dev/null cd sub && " * 20,
+}
+
+
+@pytest.mark.parametrize("name", sorted(CAP_CHAINS))
+def test_a_chain_past_the_cap_keeps_the_directories_the_base_reached(
+    monkeypatch, capsys, projects, tmp_path, name
+):
+    """Q7 of 1790660768. Past `STATE_CAP` the walk collapses its directories
+    into one it cannot read, and the directories #674 adds -- `understood`'s
+    refusal, the `cd` landed past its redirections -- counted toward the cap.
+    So these chains collapsed where `86256492`'s walk did not, and the one
+    unresolved directory left is waived whole by `[no-review]`. The base
+    stopped each on the parity arm; bash and zsh commit in the session's
+    repository for the first two. The collapse now takes only the additions,
+    never a directory the base reached."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "sub").mkdir()
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    command = f": '[no-review]'; {CAP_CHAINS[name]}{BODY}"
+    for which, got in with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    ).items():
+        assert "silent" not in got, (name, which, got)
+
+
+@pytest.mark.parametrize("name", sorted(CAP_CHAINS))
+def test_a_chain_past_the_cap_keeps_the_base_directory_outside_an_opted_in_session(
+    monkeypatch, capsys, tmp_path, name
+):
+    """Q7 of 1790660768, from a directory that is not opted in. There the one
+    unresolved directory a collapse leaves is silence, and the base's walk,
+    which never reached the cap, resolved the opted-in `u2` the command then
+    goes to."""
+    plain = tmp_path / "plain"
+    (plain / "sub").mkdir(parents=True)
+    make_repo(plain / "u2")
+    command = f"{CAP_CHAINS[name]}cd u2 && {BODY}"
+    got = decisions(monkeypatch, capsys, command, plain, "s")
+    assert "silent" not in got, (name, got)
