@@ -344,9 +344,12 @@ def walk_text(text):
     stands in a fence or a comment is a renderer's, and a renderer ends a line
     at LF, CR and CRLF alone. So the walk reads `gfm_lines(text)`, and each
     reader line takes the answer of the GFM line it starts in: a piece of a
-    hidden line is hidden, a piece of a shown line is shown, and a piece of a
-    line the walk is not sure of keeps its reader's base reading. An unclosed
-    fence opener is reported at the reader line that starts where it does.
+    hidden line is hidden, a piece of a shown line is shown unless the line
+    opened an inline comment before it and left it open -- then a renderer
+    hides the piece, and the walk calls it uncertain (#667 round 2) -- and a
+    piece of a line the walk is not sure of keeps its reader's base reading.
+    An unclosed fence opener is reported at the reader line that starts where
+    it does.
 
     Called with LINES alone, `walk` reads them as given; every reader that
     has the text hands it here instead.
@@ -359,9 +362,18 @@ def walk_text(text):
     for start in _starts(text.splitlines(keepends=True)):
         while line + 1 < len(renderer_starts) and renderer_starts[line + 1] <= start:
             line += 1
+        at_start = start == renderer_starts[line]
+        # A piece that starts inside an inline comment its own line opened is
+        # hidden by a renderer while the line is shown (#667 round 2), so the
+        # walk is not sure of it and the reader keeps its base reading.
+        inside = (
+            not at_start
+            and walked.kinds[line] == LIVE
+            and leaves_open(renderer[line][: start - renderer_starts[line]])
+        )
         kinds.append(walked.kinds[line])
-        uncertain.append(walked.uncertain[line])
-        of.append((line, start == renderer_starts[line]))
+        uncertain.append(walked.uncertain[line] or inside)
+        of.append((line, at_start))
     opened = set(walked.unclosed)
     unclosed = [
         index

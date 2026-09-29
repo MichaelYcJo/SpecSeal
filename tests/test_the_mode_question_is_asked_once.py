@@ -868,6 +868,23 @@ def test_a_break_commonmark_does_not_honour_hides_no_config_row(config, name):
     assert config.refusal(text) == ([], [], None)
 
 
+@pytest.mark.parametrize("name", ["LS", "PS", "NEL", "FF", "VT", "FS", "GS", "RS"])
+def test_a_piece_inside_an_inline_comment_is_no_config_row(config, name):
+    """#667 round 2, 🟡 1. A table written after a break inside an inline
+    comment its line opened is inside that comment to a renderer, and the
+    fence run before it is fenced to the base. Read by the line it starts in,
+    the piece took the line's answer, shown, and a `Mode` row neither
+    reading shows was read."""
+    from block_shapes import BREAKS, OPEN
+
+    brk = BREAKS[name]
+    text = (
+        f"x {OPEN} a{brk}```{brk}| Item | Value |{brk}|---|---|{brk}"
+        "| Mode | shared |\n-->\n"
+    )
+    assert config.config_rows(text) == []
+
+
 @pytest.mark.parametrize("name", ["LS", "FF"])
 def test_the_writer_reads_where_commonmark_breaks(config, tmp_path, name):
     """#667 round 1, 🟡 1, the writer's walk: `seal.py#table_span` finds the
