@@ -22,6 +22,8 @@ import subprocess
 import sys
 import tempfile
 
+import pytest
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 FOLLOW_UP = os.path.join(ROOT, "seal", "follow-up.md")
 
@@ -487,6 +489,94 @@ def test_the_hasher_reads_a_markdown_heading_the_same_way_the_reader_does():
         "the hasher excluded a markdown heading the reader does not read as a "
         f"rider, so the two disagree: {kept}"
     )
+
+
+# --- #667: a rider quoted in a markdown fence is not a rider ----------------
+#
+# The shape ids are `seal/specs/1790645290-the-hooks-and-the-rider-check-read-
+# fences-and-comments-by-one-rule/spec.md` §*The shapes*, the texts
+# `tests/block_shapes.py`'s. "red at base" means the case fails with
+# `rider_check.py` from `3911a8cf`; "pins" means it passes there too.
+
+
+def blocks_of(name, rel="doc.md"):
+    from block_shapes import SHAPES
+
+    return riders.comment_blocks(SHAPES[name], rel)
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        # pins: a fence line inside rider one's own comment opens nothing, so
+        # rider two is still read (1790635413 round 1, 🟡 4)
+        ("K1", [(3, 6), (10, 11)]),
+        # red at base: a rider quoted in a closed fence below a prose line
+        # that quotes the opener, in a code span and in prose (1790635413
+        # round 2, 🟡 1; round 3, 🟡 2)
+        ("K2", [(12, 13)]),
+        ("K3", [(12, 13)]),
+        # pins: a lone backtick, an opener, a fence line nobody closed, then a
+        # real rider. The fence never closes, so it is not a fence, and the
+        # rider under it is read; round 3's proposed flip to [] is not taken
+        ("K4", [(5, 6)]),
+        # red at base: a rider quoted alone in a closed fence
+        ("K5", []),
+        # red at base: a rider, then one quoted in a fence after its comment
+        ("K7", [(1, 2)]),
+    ],
+    ids=lambda value: value if isinstance(value, str) else "",
+)
+def test_the_rider_shapes_read_as_the_frame_expects(name, expected):
+    """S12. A marker line inside a fenced example that closes is a rider
+    QUOTED, not a rider; a marker line anywhere else is read as it always
+    was. Every loss this checker's docstring accepts loses an alarm, and the
+    quoted rider was the one place it invented one."""
+    assert blocks_of(name) == expected
+
+
+def test_a_python_rider_after_a_line_of_backticks_is_still_read():
+    """K6, S9 of 1790635413: the fence rule is markdown's, and a `.py` file
+    holding a line of three backticks -- in a string, a docstring's example
+    -- is not fenced by it. Pins."""
+    src = f'X = """\n```\n"""\n\n\ndef u():\n    {MARK} claim\n    # stamp\n'
+    assert riders.comment_blocks(src.splitlines(), "hooks/m.py") == [(7, 8)]
+
+
+def test_a_quoted_rider_is_no_broken_rider(tmp_path, capsys):
+    """K5 through the whole check. The quoted rider had no stamp, so the
+    tree failed at exit 2 in CI for a line nobody wrote as a rider. Red at
+    base."""
+    d = tmp_path / "skills" / "x"
+    d.mkdir(parents=True)
+    src = f"# X\n\nA rider looks like:\n\n```\n{HTML_MARK} the claim -->\n```\n"
+    (d / "SKILL.md").write_text(src, encoding="utf-8")
+    assert riders.check(str(tmp_path), checker=CHECKER) == (0, 0, [])
+    assert riders.main(["--root", str(tmp_path)]) == 0
+    assert "0 ok · 0 drifted · 0 broken" in capsys.readouterr().out
+
+
+def test_a_rider_under_a_fence_nobody_closed_is_still_read():
+    """The frame's reading, pinned from the other side: a fence that never
+    closes is not a construct, so a rider below it is read, as the base read
+    it -- 1790635413 pinned the opposite, "unclosed to the end"."""
+    unclosed = f"```\n{HTML_MARK} below a fence left open -->\n".splitlines()
+    assert riders.comment_blocks(unclosed, "a.md") == [(2, 2)]
+
+
+def test_a_missing_walk_is_a_sentence_and_exit_2(tmp_path, capsys):
+    """The walk is loaded by path the way `load_checker` loads the anchor
+    resolver, and a missing file is a sentence naming it rather than the
+    `FileNotFoundError` `spec_from_file_location` hands back."""
+    missing = str(tmp_path / "blocks.py")
+    try:
+        riders.load_blocks(missing)
+    except SystemExit as stop:
+        assert stop.code == 2
+    else:
+        raise AssertionError("a missing walk did not stop the run")
+    err = capsys.readouterr().err
+    assert f"cannot find the fence walk at {missing}" in err, err
 
 
 def stamped_module(tmp_path, digest=None, date="2026-01-01"):

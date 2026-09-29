@@ -275,15 +275,11 @@ def fence_opener(line):
         `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
         holds the copy in step, shape by shape. It is the delimiter half of
         `hooks/blocks.py#walk`, which adds a line-start HTML comment block to
-        the fence and which `hooks/config.py` and `hooks/routing.py#table_rows`
-        read (#667). It stays apart from `live_lines` on purpose: a hook row
-        is safe at its old reading where the walk is unsure, and a marker is
-        safe parked;
-      - the HTML comment walk in `.github/scripts/rider_check.py#comment_blocks`
-        keeps no fence state at all. #584 brought it here and then took it
-        back out after its third review round, because the
-        comment-before-fence reading it needed reopened a finding every
-        round, and work item 1790645290 redoes it from a clean frame;
+        the fence and which `hooks/config.py`, `hooks/routing.py#table_rows`
+        and `.github/scripts/rider_check.py#comment_blocks`, through its
+        `quoted_lines`, read (#667, #658). It stays apart from `live_lines` on
+        purpose: a hook row or a rider is safe at its old reading where the
+        walk is unsure, and a marker is safe parked;
       - `.github/scripts/close_issues_on_release.py#FENCE`, and
         `issue_claims_check.py` and `label_merged_on_release_branch.py`
         through it, read a pull request body by GitHub's rule and open a

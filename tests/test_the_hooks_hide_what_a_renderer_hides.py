@@ -413,3 +413,33 @@ def test_the_routing_reader_hides_something():
         lines = SHAPES[name]
         skipped = set(range(len(lines))) - {i for i, _ in routing.shown(lines)}
         assert skipped == RENDERER[name], name
+
+
+def load_rider_check():
+    import importlib.util
+
+    path = os.path.join(HERE, "..", ".github", "scripts", "rider_check.py")
+    spec = importlib.util.spec_from_file_location(
+        "specseal_riders_for_the_oracle", path
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+riders = load_rider_check()
+
+
+def test_the_rider_check_never_leaves_both_readings():
+    """Half 1, S12's reader. `rider_check.py#comment_blocks` stepped over no
+    marker line at `release/v0.16.0`, and a marker line it steps over now,
+    `quoted_lines`, has to be one a renderer hides: a rider it stops reading
+    was never a live one."""
+    wrong = []
+    for lines in CORPUS:
+        new = riders.quoted_lines(lines)
+        bad = leaves_both(new, set(), oracle.hidden_lines(lines), len(lines))
+        if bad:
+            wrong.append((lines, bad))
+    assert not wrong, f"{len(wrong)} documents, the first: {wrong[0]}"
+    assert riders.quoted_lines(SHAPES["K5"]) == {4, 5, 6}
