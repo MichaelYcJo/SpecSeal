@@ -44,10 +44,16 @@ which lines a paragraph holds. The version is pinned in
 position, so the parser's own `html_inline` rule is wrapped: the wrapper
 calls it unchanged and writes down the offset the rule started and ended at,
 in the inline source it was reading. Nothing about what is inline HTML is
-decided here; only where the tokens the parser found lie.
+decided here; only where the tokens the parser found lie. Where a paragraph's
+text starts, the parser says too: its own `paragraph` and `lheading` rules
+are wrapped the same way, and the wrapper counts the whole lines their strip
+dropped from the lines the parser joined behind the markers it consumed
+(#677).
 """
 
 from markdown_it import MarkdownIt
+from markdown_it.rules_block.lheading import lheading
+from markdown_it.rules_block.paragraph import paragraph
 from markdown_it.rules_inline.html_inline import html_inline
 
 FENCE, CODE, HTML, INLINE_HTML = "fence", "code", "html", "inline html"
@@ -64,46 +70,45 @@ def _recording_html_inline(state, silent):
     return found
 
 
+def _recording_lines(rule):
+    """A block rule of the parser's that joins lines into an inline token's
+    source, with the number of whole lines its strip dropped from the top
+    kept on that token as `meta["dropped"]`.
+
+    The rule is called unchanged. The lines are then joined again with the
+    same arguments the rule used, before any container around the paragraph
+    restores the line marks it moved, so each line is taken from behind the
+    container markers the parser itself consumed and no marker is read here.
+    The joined lines end in `\\n` and only there, so every `\\n` inside what
+    `lstrip` removes from the top ends a line it removed whole, whichever
+    Unicode spaces that line held (#677)."""
+
+    def recorded(state, start, end, silent):
+        count = len(state.tokens)
+        found = rule(state, start, end, silent)
+        if found and not silent:
+            for token in state.tokens[count:]:
+                if token.type == "inline" and token.map:
+                    joined = state.getLines(*token.map, state.blkIndent, False)
+                    dropped = joined[: len(joined) - len(joined.lstrip())]
+                    token.meta = {"dropped": dropped.count("\n")}
+        return found
+
+    return recorded
+
+
 def parser():
     md = MarkdownIt("commonmark").enable("table")
     md.inline.ruler.at("html_inline", _recording_html_inline)
+    md.block.ruler.at("paragraph", _recording_lines(paragraph))
+    md.block.ruler.at("lheading", _recording_lines(lheading))
     return md
 
 
 _PARSER = parser()
 
 
-def _behind_markers(line, opens):
-    """Where LINE's own text starts behind its containers' markers: a block
-    quote's `>`, a bullet, an ordered number (CommonMark 5.1, 5.2), each with
-    the spaces and tabs before it. A bullet or a number is a marker only
-    where a space, a tab or the line's end follows it, and only on the line
-    that OPENS the paragraph: on a later line of it a `*` or a `2.` is text,
-    because a list item that could interrupt the paragraph would have ended
-    it. A `>` on a later line is a marker, for the same reason."""
-    at = 0
-    while True:
-        rest = line[at:]
-        text = rest.lstrip(" \t")
-        skip = len(rest) - len(text)
-        if text.startswith(">"):
-            at += skip + 1
-            continue
-        if not opens:
-            return at
-        digits = len(text) - len(text.lstrip("0123456789"))
-        if text[:1] in ("-", "+", "*"):
-            marker = 1
-        elif 0 < digits <= 9 and text[digits : digits + 1] in (".", ")"):
-            marker = digits + 1
-        else:
-            return at
-        if text[marker : marker + 1] not in ("", " ", "\t"):
-            return at
-        at += skip + marker
-
-
-def _inline_html_lines(inline, lines):
+def _inline_html_lines(inline):
     """Lines of `inline`'s source that begin inside inline raw HTML in it,
     of any of the six kinds.
 
@@ -117,21 +122,17 @@ def _inline_html_lines(inline, lines):
     `str.strip` applied to the whole by the parser. That strip also takes a
     line holding only a no-break space or another Unicode space, which
     CommonMark reads as paragraph text, so the lines it dropped from the top
-    are counted back before an offset is turned into a line. A line's
-    container markers are not its text, so a list item's `- ` is skipped as
-    a block quote's `>` is (#673 round 1, 🟡 1).
+    are counted before an offset is turned into a line. The parser's own
+    block rule counts them, from the lines it joined behind the markers it
+    consumed (`_recording_lines`): three rounds of #673 read those markers
+    here instead, and each found one more marker read wrong (#677). A token
+    from any other rule holds one line, which a strip cannot drop whole, and
+    carries no count.
     """
     out = set()
     if not inline.map or not inline.children:
         return out
-    first = inline.map[0]
-    while (
-        first < inline.map[1] - 1
-        and not lines[first][
-            _behind_markers(lines[first], first == inline.map[0]) :
-        ].strip()
-    ):
-        first += 1
+    first = inline.map[0] + (inline.meta or {}).get("dropped", 0)
     src = inline.content
     starts = [0] + [n + 1 for n, ch in enumerate(src) if ch == "\n"]
     for child in inline.children:
@@ -185,7 +186,7 @@ def _hidden_commonmark(lines):
             for index in range(token.map[0], min(token.map[1], count)):
                 out.setdefault(index, kind)
         elif token.type == "inline":
-            for index in _inline_html_lines(token, lines):
+            for index in _inline_html_lines(token):
                 if index < count:
                     out.setdefault(index, INLINE_HTML)
     return out

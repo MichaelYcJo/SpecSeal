@@ -14,7 +14,7 @@
   it targets (finding 2), and the cost measurement behind the answer to
   finding 3 reproduces.
 - **But the new helper overcorrects, and that is this round's 🟡 1.**
-  `_behind_markers` reads a list marker on every line it is handed. Only the
+  `_behind_markers` reads a list marker on every line it is handed. Only the · NAME NOT IN TREE
   paragraph's first line can carry one. On a later line, a `*` or a `2.`
   standing alone is paragraph text that the parser's strip keeps, and the
   helper skips it as if it were a marker. Every inline HTML line after it is
@@ -30,7 +30,7 @@
 
 ## 🟡 1 · A later line of only `*` or `2.` is counted as a marker, so the oracle places inline HTML one line late
 
-`tests/commonmark_oracle.py:76` (`_behind_markers`), called from
+`tests/commonmark_oracle.py:76` (`_behind_markers`), called from · NAME NOT IN TREE
 `tests/commonmark_oracle.py:125` in `_inline_html_lines`.
 
 The count-back loop hands the helper each line from `inline.map[0]` onward
@@ -88,7 +88,7 @@ exit 0, 80 passed. The helper still imports nothing, so
 
 `tests/commonmark_oracle.py:84-96`. The four rows round 1's fix planted pin
 the `-` bullet, the `.` delimiter, the quote branch and the space-after
-check. These mutations of `_behind_markers` each leave the property module
+check. These mutations of `_behind_markers` each leave the property module · NAME NOT IN TREE
 green (exit 0, 78 passed, executed one at a time and restored):
 
 | Mutant | Exit |
@@ -116,7 +116,7 @@ an edit that narrows the bullet set turns nothing red. Rows are listed under
 | R1-1: each of five mutations alone red (the old `lstrip(" >")`, and the quote, bullet, ordered and space-after branches removed) | ledger fragment, R1-1 | Not re-run as a set. Read against the four rows: each named branch is exercised by one of them. The branches it does not name survive (⬜ 2, executed) |
 | S4 gained three assertions, each red under its own mutant, green at HEAD | ledger fragment, P2-1's re-read | **Confirmed, executed.** Under m1 (closer searched from the text's start) the `instruction` and `early` shapes both read `[False, False]`; under m2 (the instruction's own `?` closes it) `instruction` does; under m3 (single quotes not followed) `single` does. HEAD reads `[False, True]` on all three, and the module fails at line 653 under m1 and m2 and at line 659 under m3 |
 | ⬜ 3 answered: 583 tracked `.md` files in 0.158 s at HEAD against 0.133 s at the base, the slowest 7.6 ms | `round-1.md`, ⬜ 3's grounds | **Reproduced, executed**: 583 files, best of three, 0.169 s at HEAD and 0.145 s with `hooks/blocks.py` from `3fc0c5bd`, the slowest 8.6 ms. Same order, same conclusion |
-| New units are `_behind_markers` (depth 1) | `round-1.md`, `New units` | **Confirmed by the diff.** The four rows and three assertions are the cases that pin it and the S4 readings; judged as code above |
+| New units are `_behind_markers` (depth 1) | `round-1.md`, `New units` | **Confirmed by the diff.** The four rows and three assertions are the cases that pin it and the S4 readings; judged as code above · NAME NOT IN TREE |
 | The ledger fragments check clean | commit `c041b5ed` | **Executed**: `bin/evidence-check --ledger` on this work item's fragment and on `1790645290`'s, exit 0 each |
 
 Carried, not re-established: round 1's fuzz result (0 half-1 and 0 half-2
@@ -146,8 +146,8 @@ failures over 240,000 documents with the fix) and its ❓ on Windows, which CI's
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `_behind_markers` reads a list marker on every line the count-back hands it, but only the paragraph's opening line can carry one; a later line of only `*`, `+`, `1.`, `2.` or `2)` is text the parser keeps, so it is skipped and every inline HTML line after it is placed one line late | `tests/commonmark_oracle.py:76` | open | executed: `[NBSP, "*", "x <? a", "b ?>", "", "text"]` gives `{4: ...}` where a renderer hides line 3, and the property's `disagreements` is `[(4, 'live', True)]`; 15 of 37 probe shapes wrong at HEAD, 0 with the fix |
-| ⬜ 2 | Five branches of `_behind_markers` are pinned by no case: `+` and `*`, the `)` delimiter, the nine-digit bound, a tab before a marker, a tab after one | `tests/commonmark_oracle.py:90` | open | executed: each mutant exit 0, 78 passed; the behaviour is right at HEAD on all 20 first-line shapes |
+| 🟡 1 | `_behind_markers` reads a list marker on every line the count-back hands it, but only the paragraph's opening line can carry one; a later line of only `*`, `+`, `1.`, `2.` or `2)` is text the parser keeps, so it is skipped and every inline HTML line after it is placed one line late | `tests/commonmark_oracle.py:76` | open | executed: `[NBSP, "*", "x <? a", "b ?>", "", "text"]` gives `{4: ...}` where a renderer hides line 3, and the property's `disagreements` is `[(4, 'live', True)]`; 15 of 37 probe shapes wrong at HEAD, 0 with the fix · NAME NOT IN TREE |
+| ⬜ 2 | Five branches of `_behind_markers` are pinned by no case: `+` and `*`, the `)` delimiter, the nine-digit bound, a tab before a marker, a tab after one | `tests/commonmark_oracle.py:90` | open | executed: each mutant exit 0, 78 passed; the behaviour is right at HEAD on all 20 first-line shapes · NAME NOT IN TREE |
 | 🟢 | round 1's finding 1 is closed for the shape it reported — a list item whose first line holds only a Unicode space | `tests/commonmark_oracle.py:125` | confirmed | executed: `["- " + NBSP, "x <? a", "b ?>", "c"]` and 19 more first-line shapes give line 2; the four rows are green. The new unit's own defect is 🟡 1 above |
 | 🟢 | round 1's finding 2 is closed — S4 pins `<?>` not closing, a closer before its opener, and a `>` inside a single-quoted value | `tests/test_the_hooks_hide_what_a_renderer_hides.py:651` | confirmed | executed: each assertion's shape reads `[False, False]` under its own mutant and `[False, True]` at HEAD; the module fails under each of m1, m2 and m3 |
 | 🟢 | round 1's finding 3 is answered on grounds that reproduce | `hooks/blocks.py:233` | confirmed | executed: 583 tracked `.md` files, 0.169 s at HEAD against 0.145 s at the base, the slowest 8.6 ms |
@@ -163,7 +163,7 @@ failures over 240,000 documents with the fix) and its ❓ on Windows, which CI's
 | 🟡 1's fix and two rows applied in the clone, then the probe and the module | probe: 37 of 37 correct; module exit 0, 80 passed |
 | The two new rows with the oracle at HEAD | exit 1, 2 failed, 21 passed |
 | m1, m2 and m3 of `hooks/blocks.py`, one at a time, restored from kept bytes, against the S4 case; and each new shape evaluated under each mutant | each exit 1; failing line 653 (m1, m2) and 659 (m3); the matrix reads `[False, False]` only where the mutant targets the shape |
-| Five mutants of `_behind_markers` (⬜ 2), one at a time, restored, against the property module | each exit 0, 78 passed |
+| Five mutants of `_behind_markers` (⬜ 2), one at a time, restored, against the property module | each exit 0, 78 passed · NAME NOT IN TREE |
 | `walk_text` over the 583 tracked `.md` files, best of three, HEAD against `hooks/blocks.py` from `3fc0c5bd` | 0.169 s against 0.145 s; slowest file 8.6 ms against 7.4 ms |
 | `bin/evidence-check --ledger` on the two fragments `c041b5ed` touched | exit 0 each |
 | Broad gate (full suite, repository-wide lint, typecheck) | not yet — no run has been made, and it is the sealer's once the rounds settle |

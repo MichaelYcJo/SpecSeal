@@ -183,6 +183,50 @@ def test_the_oracle_names_each_kind_it_hides(lines, hidden):
     assert oracle.hidden(lines) == hidden
 
 
+@pytest.mark.parametrize(
+    "lines, hidden",
+    [
+        # #677, the shapes of #673 round 3: a `>` four columns in, or behind a
+        # tab, on a paragraph's later line is lazy-continuation text the
+        # paragraph keeps, and not a quote marker
+        ([NBSP, "    >", "x <? a", "b ?>"], {3: "inline html"}),
+        ([NBSP, "\t>", "x <? a", "b ?>"], {3: "inline html"}),
+        (["- " + NBSP, "      >", "  x <? a", "  b ?>"], {3: "inline html"}),
+        (["> " + NBSP, ">     >", "> x <? a", "> b ?>"], {3: "inline html"}),
+        ([NBSP, "    > >", "x <? a", "b ?>"], {3: "inline html"}),
+        # a setext heading's text is joined and stripped as a paragraph's is,
+        # so the parser's `lheading` rule is asked too
+        ([NBSP, "x <? a", "b ?>", "==="], {2: "inline html"}),
+        ([NBSP, "x <? a", "b ?>", "---"], {2: "inline html"}),
+        (["> " + NBSP, "> x <? a", "> b ?>", "> ==="], {2: "inline html"}),
+    ],
+    ids=[
+        "a > four columns in is text",
+        "a > behind a tab is text",
+        "a > four columns into an item is text",
+        "a > four columns into a quote is text",
+        "two indented > are text",
+        "a level 1 setext heading",
+        "a level 2 setext heading",
+        "a setext heading inside a quote",
+    ],
+)
+def test_the_oracle_counts_the_lines_the_parsers_strip_dropped(lines, hidden):
+    """#677. The parser joins a paragraph's lines from behind the container
+    markers it consumed and applies `str.strip` to the whole, which also
+    drops a line holding only a no-break space or another Unicode space that
+    CommonMark reads as text. Every row here opens with such a line, so every
+    row puts its inline HTML one line early or late wherever the oracle
+    counts those lines wrong.
+
+    The count is taken from the parser's own `paragraph` and `lheading`
+    rules, because reading the markers here took three rounds of #673 and
+    each found one more marker read wrong. A row is here to fail if the count
+    is read from anything but what the parser joined: each shape is a
+    container or a line the old hand count had to know about."""
+    assert oracle.hidden(lines) == hidden
+
+
 # Inline raw HTML other than a comment that can run past a line ending, with
 # a closer that does not put `>` at a line's start (#673). A declaration's
 # closer is written `a>` for that reason.
@@ -438,6 +482,10 @@ FOUND = [
     # pending, and a real opener before the next `-->` must not be stepped
     # over by that `-->`
     ["x `" + OPEN + "` a", "b <? c " + CLOSE + " d", "e ?> f", "| a |"],
+    # #677: a `>` four columns in on a paragraph's later line is text; an
+    # oracle that read it as a marker put the inline HTML on the blank line,
+    # and called hidden a line the walk rightly claims live
+    [NBSP, "    >", "x <? a", "b ?>", "", "text"],
 ]
 
 CORPUS = (

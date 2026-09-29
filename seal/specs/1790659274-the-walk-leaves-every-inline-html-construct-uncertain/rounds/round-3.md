@@ -18,13 +18,13 @@
 
 ## What this round was asked
 
-Round 3, verifying and the run's last: round 2 closed on its one reopening. Target round 2's fix diff `ceff5460..43b81e3f` at HEAD `ce0f1f94`, with the new rows as a finding surface: does `_behind_markers` match CommonMark on a paragraph's opening line and every later one, and is the oracle still independent of the walk.
+Round 3, verifying and the run's last: round 2 closed on its one reopening. Target round 2's fix diff `ceff5460..43b81e3f` at HEAD `ce0f1f94`, with the new rows as a finding surface: does `_behind_markers` match CommonMark on a paragraph's opening line and every later one, and is the oracle still independent of the walk. · NAME NOT IN TREE
 
 ## Verdicts
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A `>` four columns in, or behind a tab, on a paragraph's later line is lazy-continuation text the parser keeps; `_behind_markers` reads it as a quote marker, and every inline HTML line after it is placed one line late | `tests/commonmark_oracle.py:89` | deferred #677 | #677 — The run is capped. The oracle's hand-read markers misread a third shape; #677 replaces `_behind_markers` with the parser's own dropped-line count in this release, after this lands; executed: 5 of 18 shapes wrong at HEAD; `[NBSP, "    >", "x <? a", "b ?>", "", "text"]` gives `disagreements` `[(4, 'live', True)]`. The unit is round 1's `New units` row, which round 2's fix edited, so it is the branch's; the run ends here, so its home is the orchestrator's ladder |
+| 🟡 1 | A `>` four columns in, or behind a tab, on a paragraph's later line is lazy-continuation text the parser keeps; `_behind_markers` reads it as a quote marker, and every inline HTML line after it is placed one line late | `tests/commonmark_oracle.py:89` | deferred #677 | #677 — The run is capped. The oracle's hand-read markers misread a third shape; #677 replaces `_behind_markers` with the parser's own dropped-line count in this release, after this lands; executed: 5 of 18 shapes wrong at HEAD; `[NBSP, "    >", "x <? a", "b ?>", "", "text"]` gives `disagreements` `[(4, 'live', True)]`. The unit is round 1's `New units` row, which round 2's fix edited, so it is the branch's; the run ends here, so its home is the orchestrator's ladder · NAME NOT IN TREE |
 | ⬜ 2 | Ledger row R1-1 says the count reads a block quote's `>` on every line, which finding 1 shows false | `seal/ledger/1790659274-the-walk-leaves-every-inline-html-construct-uncertain.md` | deferred #677 | #677 — R1-1 is REMOVED with the helper when #677 lands; a correction to the run's records; the row is REMOVED if finding 1's fix deletes its anchor |
 | 🟢 | round 2's finding 1 is closed — a bullet or a number on a paragraph's later line is text again | `tests/commonmark_oracle.py:92` | confirmed | executed: a later-line `*` in a list item right; removing the guard fails the two new rows alone, and moving it before the quote branch fails the quote row alone |
 | 🟢 | round 2's finding 2 is closed — every branch round 2 named has a row that goes red without it | `tests/test_the_hooks_hide_what_a_renderer_hides.py:127` | confirmed | executed: five mutants, each exit 1, each failing its own row |
@@ -115,7 +115,7 @@ def parser():
 |---|---|
 | `bin/test tests/test_the_hooks_hide_what_a_renderer_hides.py -q -p no:xdist` at `ce0f1f94` | exit 0, 87 passed |
 | Probe: `oracle.hidden` and the paragraph's inline content on 18 shapes (indented `>` on a later line, lazy continuation, a quote dropping `>`, an item continued by indentation, setext), and `disagreements` on three with the HTML line last | at HEAD: 13 correct, 5 wrong; `disagreements` `[(4, 'live', True)]` on all three |
-| Seven mutants of `_behind_markers`, one at a time, restored from kept bytes, against the property module | each exit 1; failing ids as in the table under *Round 2's findings*; `git diff --quiet` exit 0 after |
+| Seven mutants of `_behind_markers`, one at a time, restored from kept bytes, against the property module | each exit 1; failing ids as in the table under *Round 2's findings*; `git diff --quiet` exit 0 after · NAME NOT IN TREE |
 | 🟡 1's fix applied in the clone, then the 18-shape probe and the module | probe 18 of 18 correct; module exit 0, 87 passed |
 | The four new rows with the oracle at HEAD, with the fix, with the fix's dropped-line count forced to 0, and with `lheading` unwrapped | exit 1 (3 failed); exit 0 (91 passed); exit 1 (16 failed); exit 1 (1 failed, the setext row) |
 | `bin/evidence-check --ledger` on the two fragments `43b81e3f` touched | exit 0 each, 0 drifted |
