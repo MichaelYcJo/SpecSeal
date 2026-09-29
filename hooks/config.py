@@ -35,6 +35,29 @@ is not an answer somebody gave.
 
 import os
 import re
+import sys
+
+# `hooks/blocks.py` is a sibling, found by this file's own directory, so the
+# callers that load this module by path -- `broad_gate.py#load`, `seal.py` --
+# find it too. `hooks/routing.py` reaches `optin.py` the same way.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import blocks
+except ImportError as missing:
+    # A sentence rather than a bare `ModuleNotFoundError`, and an exception
+    # rather than an exit, because this is a module other code imports: a
+    # `PreToolUse` gate that raises is skipped for that call and said at the
+    # end of the turn (`hooks/dispatch.py`, #28), and a script that loads this
+    # file by path catches the error or names the file first
+    # (`skills/implement/scripts/seal.py#HOOK_PURPOSES`).
+    raise ImportError(
+        "cannot read "
+        + os.path.join(os.path.dirname(os.path.abspath(__file__)), "blocks.py")
+        + ", and it is the walk this reader reads config.md through, which "
+        "tells a live row from one quoted in a fence or parked in a comment. "
+        "This file ships beside it under `hooks/`; a copy of one taken on its "
+        "own is not a plugin"
+    ) from missing
 
 CONFIG = "config.md"
 ROW_ITEM = "Mode"
@@ -88,7 +111,10 @@ CONFIG_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
 # is exactly the text somebody would paste into `config.md` to document the
 # format. A rule that knew three backticks only would read the inner fence as
 # the outer one's close and leave the live table inside a fence.
-FENCE = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})(?P<info>.*)$")
+#
+# The pattern lives in `hooks/blocks.py` since #667, which the routing reader
+# and the rider check read as well; this name is that one.
+FENCE = blocks.FENCE
 
 # The one escape this reader undoes, spelled as the two characters it is.
 ESCAPED_PIPE = "\\|"
@@ -116,7 +142,7 @@ def config_path(home):
     return os.path.join(home, CONFIG)
 
 
-def fence_map(lines):
+def fence_map(lines, text=None):
     """([(index, line)] outside every fenced block, the index of an opener
     that was never closed or None) -- the one fence rule, computed once.
 
@@ -134,27 +160,83 @@ def fence_map(lines):
     about the file, for the one caller that has somebody to tell --
     `skills/verify/scripts/broad_gate.py#fence_left_open` -- exactly as
     `refusal` below is a fact about the table for the same caller.
+
+    **The lines it hides are `hidden_lines`' below**, which reads the file
+    through `hooks/blocks.py`'s walk (#667): a closed fence, and now a
+    line-start HTML comment block that closes, hide their lines, and a line
+    the walk cannot be sure of keeps the reading this function gave it before
+    -- the fence rule alone. The name stays because every caller spells it,
+    and "outside every fenced block" now means "outside every block this
+    reader hides". TEXT is `hidden_lines`' argument of the same name.
     """
-    shown, opener, opened_at = [], None, None
-    for index, raw in enumerate(lines):
-        line = raw.rstrip("\r\n")
-        fence = FENCE.match(line)
-        run = fence.group("run") if fence else ""
-        info = fence.group("info") if fence else ""
-        if opener is None:
-            if run and not (run[0] == "`" and "`" in info):
-                opener, opened_at = (run[0], len(run)), index
-                continue
-            shown.append((index, line))
-            continue
-        if run[:1] == opener[0] and len(run) >= opener[1] and not info.strip():
-            opener, opened_at = None, None
+    hidden, opened_at = hidden_lines(lines, text)
+    shown = [
+        (index, raw.rstrip("\r\n"))
+        for index, raw in enumerate(lines)
+        if index not in hidden
+    ]
     return shown, opened_at
 
 
-def unfenced(lines):
+def hidden_lines(lines, text=None):
+    """({index: "fence" or "comment"} for every line of LINES no walk of the
+    table is shown, the index of a fence opener never closed or None).
+
+    **TEXT is the file LINES were split from, and every caller that has it
+    passes it** (#667 round 1, 🟡 1). The readers split with
+    `str.splitlines`, which ends a line at U+2028, NEL, a form feed and five
+    more characters where a renderer does not; the walk reads TEXT where
+    GFM breaks it (`blocks.walk_text`), so a `<!--` after such a character
+    hides nothing. LINES alone is read as given, which is right for a list
+    of lines nobody split from a file.
+
+    **Two readings, and every line takes one of them** (#667, #658). Where
+    `hooks/blocks.py#walk` is sure, the line is hidden exactly where a
+    CommonMark renderer hides it: inside a fenced block or a line-start HTML
+    comment block that closes. Where the walk is not sure -- a construct
+    inside a list item, another kind of HTML block, the lines after a
+    mid-line `<!--`, everything below a construct that never closes -- the
+    line keeps this reader's reading from before #667, the fence rule alone,
+    `blocks.fence_only`. So on every line the answer is either the old one or
+    the renderer's, and never a third; `tests/test_the_hooks_hide_what_a_
+    renderer_hides.py` holds that over a generated corpus.
+
+    What it means in a file:
+
+      - a row parked in a comment that closes, above the table or inside it,
+        is not a row (`COMMENTED_OLD_ROW`, `COMMENTED_OLD_TABLE`), which is
+        the direction this module fails in: *nothing is declared*;
+      - a fence line inside such a comment opens no fence, so a header
+        comment quoting a fence no longer hides the live table under it;
+      - **a fence that is never closed still hides everything below it**,
+        because that is what it did before and a line below it is one the
+        walk is not sure of. `broad-gate` names that fence
+        (`broad_gate.py#fence_left_open`), and `seal mode` asks again;
+      - a `<!--` nobody closed hides nothing it did not hide before, and
+        switches off no fence below it: it is not a construct at all.
+
+    **The second value** is the fence a caller has somebody to tell about:
+    the first opener that never closes, on a line where the walk is not sure
+    -- where the old reading, the one that runs such a fence to the end, is
+    the one in force. A fence line inside a closed comment opens nothing, so
+    it is never named.
+    """
+    walked = blocks.walk(lines) if text is None else blocks.walk_text(text)
+    base, base_opened = blocks.fence_only(lines)
+    hidden = walked.hidden(base)
+    candidates = list(walked.unclosed)
+    if base_opened is not None and walked.uncertain[base_opened]:
+        candidates.append(base_opened)
+    return hidden, min(candidates) if candidates else None
+
+
+def unfenced(lines, text=None):
     """(index, line) for each of LINES that is outside every fenced code
-    block, with the line's own ending removed and its index kept.
+    block and every HTML comment block that closes, with the line's own
+    ending removed and its index kept. `hidden_lines` below is the rule and
+    says which lines those are (#667); this paragraph and the ones after it
+    were written for the fence half, and hold for the comment half word for
+    word.
 
     **One fence rule, in front of all three walks of this table.** A line
     inside a fenced code block is not part of any `| Item | Value |` table:
@@ -213,9 +295,10 @@ def unfenced(lines):
     **The walk itself is `fence_map` above**, and this is its surviving lines.
     One walk rather than two: the caller that needs to know whether a fence
     was left open asks that function, and every walk of the table asks this
-    one, and neither reads the file by a rule of its own.
+    one, and neither reads the file by a rule of its own. TEXT is
+    `hidden_lines`' argument of the same name.
     """
-    yield from fence_map(lines)[0]
+    yield from fence_map(lines, text)[0]
 
 
 def config_rows(text):
@@ -250,7 +333,7 @@ def config_rows(text):
     reader's table (#429).
     """
     found, seen_header = [], False
-    for _index, line in unfenced(text.splitlines()):
+    for _index, line in unfenced(text.splitlines(), text):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True
@@ -341,11 +424,14 @@ def refusal(text):
     refusal from quoting a line out of an example block back at a person as
     their own malformed row (#429). A caller that needs to speak about a
     fenced line asks its own question of the file; `broad_gate.py#fenced_row`
-    is the one that does.
+    is the one that does. A line inside an HTML comment block that closes is
+    the same (#667): a malformed pipe-line somebody commented out is not
+    quoted back as theirs, and `broad_gate.py#commented_row` is the question
+    about it.
     """
     seen_header, found = False, False
     refused, below, stopper = [], [], None
-    for _index, line in unfenced(text.splitlines()):
+    for _index, line in unfenced(text.splitlines(), text):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True

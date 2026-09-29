@@ -611,7 +611,7 @@ OUT_OF_CLASS = {
     ("skills/settle/scripts/settle.py", "released"): (1, GIT),
     ("skills/verify/scripts/broad_gate.py", "Check.first_lines"): (1, TOOL),
     ("skills/verify/scripts/broad_gate.py", "fence_left_open"): (1, F),
-    ("skills/verify/scripts/broad_gate.py", "fenced_row_at"): (1, F),
+    ("skills/verify/scripts/broad_gate.py", "hidden_row_at"): (1, F),
     ("skills/verify/scripts/broad_gate.py", "gate"): (1, TOOL),
     ("skills/verify/scripts/broad_gate.py", "job_steps"): (1, YAML),
     ("skills/verify/scripts/broad_gate.py", "suite_counts"): (1, TOOL),

@@ -301,17 +301,18 @@ def fence_opener(line):
     brought every reader it enumerated here or answered it, and these are the
     answers:
 
-      - `hooks/config.py#FENCE` is a deliberate copy of this rule: it runs on
-        the hook path, where loading a skill module would cost every hook
-        call.
+      - `hooks/blocks.py#FENCE`, with its `fence_opener` and `fence_closes`,
+        is a deliberate copy of this rule: it runs on the hook path, where
+        loading a skill module would cost every hook call, and
+        `hooks/config.py#FENCE` is that pattern under its old name.
         `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
-        holds the copy in step, shape by shape;
-      - `hooks/routing.py#table_rows`, and the HTML comment walk in
-        `.github/scripts/rider_check.py#comment_blocks`, keep no fence state
-        at all. #584 brought both here and then took them back out after its
-        third review round, because the comment-before-fence reading they
-        needed reopened a finding every round; a new work item redoes them
-        from a clean frame, and #658 stays open for the routing half;
+        holds the copy in step, shape by shape. It is the delimiter half of
+        `hooks/blocks.py#walk`, which adds a line-start HTML comment block to
+        the fence and which `hooks/config.py`, `hooks/routing.py#table_rows`
+        and `.github/scripts/rider_check.py#comment_blocks`, through its
+        `quoted_lines`, read (#667, #658). It stays apart from `live_lines` on
+        purpose: a hook row or a rider is safe at its old reading where the
+        walk is unsure, and a marker is safe parked;
       - `.github/scripts/close_issues_on_release.py#FENCE`, and
         `issue_claims_check.py` and `label_merged_on_release_branch.py`
         through it, read a pull request body by GitHub's rule and open a

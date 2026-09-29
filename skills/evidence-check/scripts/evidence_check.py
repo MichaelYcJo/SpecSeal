@@ -178,7 +178,7 @@ READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.p
 # vendored it. So the copy holds the same two functions, and
 # `tests/test_evidence_check.py#test_the_vendored_fence_rule_agrees_with_the_shared_one`
 # holds it in step with the shared rule shape by shape — the arrangement
-# `hooks/config.py#FENCE` already has, for the same reason: a copy that
+# `hooks/blocks.py#FENCE` already has, for the same reason: a copy that
 # cannot load the reader.
 VENDORED_FENCE_RE = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})(?P<info>.*)$")
 
