@@ -129,6 +129,8 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         # ended the paragraph, and the parser's strip keeps it
         ([NBSP, "*", "x <? a", "b ?>", "c"], {3: "inline html"}),
         (["> " + NBSP, "> 2.", "> x <? a", "> b ?>"], {3: "inline html"}),
+        # while a quote's `>` is a marker on every line of it
+        (["> " + NBSP, "> " + NBSP, "> x <? a", "> b ?>"], {3: "inline html"}),
         # every other marker the count-back reads on the opening line: the
         # other two bullets, the `)` delimiter, a tab after a marker and one
         # before it, and a number of ten digits, which is no marker
@@ -163,6 +165,7 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         "a dash that is no marker",
         "a star on a later line is text",
         "a number on a later quoted line is text",
+        "a quote marker on a later line",
         "behind a plus",
         "behind a star",
         "behind a parenthesis",
