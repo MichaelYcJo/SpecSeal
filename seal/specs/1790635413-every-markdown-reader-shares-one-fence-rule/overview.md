@@ -33,7 +33,9 @@ Nine markdown readers decided by rules of their own whether a line was quoted, s
 
 ## Not done
 
-The readers `spec.md` puts out of scope are untouched, and `fence_opener`'s docstring now names each with its reason. `evidence_check.py`'s comment saying that docstring "names the readers #584 has not brought over yet" is left standing for work item C, as `questions.md` D4 decided; the pointer still resolves. `hooks/routing.py#table_rows` and the other readers with no fence state at all are a different class, which `spec.md` gives the orchestrator to file.
+The readers `spec.md` puts out of scope are untouched, and `fence_opener`'s docstring now names each with its reason. `evidence_check.py`'s comment saying that docstring "names the readers #584 has not brought over yet" is left standing for work item C, as `questions.md` D4 decided; the pointer still resolves. The readers `spec.md` called a different class, with no fence state at all, were brought in by phase 8 at the owner's request (#658), except `tests/test_release_hygiene.py#overwide_rows`, which is work item A's (#585).
+
+Round 1's 🟡 1 and 🟡 2 — the gather and the fold writing a marker below a fragment that leaves a block open — need a new refusal in each script, which a fix pass may not add; `questions.md` Q5 holds where it lands. The comment half of the `--exempt` reader was not taken: #658 names fences, and a commented-out exemption is still read.
 
 ## Fed back into the spec
 
