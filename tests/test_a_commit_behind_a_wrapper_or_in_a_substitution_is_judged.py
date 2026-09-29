@@ -352,6 +352,10 @@ STILL_HANDED = {
     "<&0 watch $CMD": '<&0 watch -g "$CMD"',
     ">&- eval $X": '>&- eval "$X"',
     "sh -c with 2>&1 before $CMD": "sh -c '2>&1 $CMD'",
+    # A stop `86256492` made, kept: read as written, the string's first word
+    # is `>$LOG`, and that expands. The readings #674 adds leave redirections
+    # out, and this one is the base's and must not.
+    "sh -c >$LOG echo, the base's own stop": "sh -c '>\"$LOG\" echo hi'",
 }
 
 # #674, phase 1: a commit behind a redirection written in front of `git`, or
