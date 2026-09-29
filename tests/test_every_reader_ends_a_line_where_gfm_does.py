@@ -19,6 +19,7 @@ typed into an editing tool can come back as the character itself, and a file
 holding one is exactly what these cases are about.
 """
 
+import ast
 import datetime
 import importlib.util
 import json
@@ -560,3 +561,149 @@ def test_the_newest_active_event_holding_a_raw_separator_is_read(tmp_path):
 
     want = datetime.datetime(2026, 1, 1, 0, 30, tzinfo=datetime.UTC).timestamp()
     assert guard.last_active_event_epoch(str(path)) == want
+
+
+# --- S19: the class stays closed --------------------------------------------
+
+# Every `.splitlines(` call left in shipped code, by file and enclosing unit,
+# with how many calls the unit makes and why it is outside the class: the text
+# it splits is not a document's lines. A reader of markdown or record text
+# reads `gfm_lines`, or splits at LF where its partner does (`claude_block.py`,
+# the transcript tails). A call in a unit this does not list, or one more call
+# in a unit it does, fails the case until somebody says which kind of text it
+# splits -- here, with the reason.
+GIT = "git output of paths, refs, subjects or status, not a document's lines"
+TOOL = "a tool's or a subprocess's own output, not a document's lines"
+YAML = "YAML read for event and key names, not markdown or a record"
+F = (
+    "work item F's (#667, PR #672): its walk reads GFM lines and maps each "
+    "reader line to the one it starts in"
+)
+OUT_OF_CLASS = {
+    (".github/scripts/close_issues_on_release.py", "arrived"): (2, GIT),
+    (".github/scripts/issue_claims_check.py", "main"): (
+        1,
+        "the docstring's first line",
+    ),
+    (".github/scripts/release_completeness_check.py", "subjects_since"): (1, GIT),
+    (".github/scripts/run_tests.py", "venv_version"): (1, "`pyvenv.cfg`"),
+    ("hooks/commit-review-gate.py", "changed_paths.collect"): (1, GIT),
+    ("hooks/dispatch.py", "first_line"): (1, "an exception's message"),
+    ("hooks/ledger-migrate.py", "attempted"): (1, "a marker file of root paths"),
+    ("hooks/root-migrate.py", "attempted"): (1, "a marker file of root paths"),
+    ("hooks/root-migrate.py", "dirty"): (1, GIT),
+    ("hooks/version-check.py", "latest"): (1, GIT),
+    ("hooks/worktree-guard.py", "lease_owner_alive"): (1, TOOL),
+    ("hooks/worktree-guard.py", "proc_cwd"): (1, TOOL),
+    ("hooks/worktree-guard.py", "sessions_in_tree"): (1, TOOL),
+    ("hooks/worktree-guard.py", "tracked_changes"): (1, GIT),
+    ("skills/code-review/scripts/chain_check.py", "added_on_branch"): (1, GIT),
+    ("skills/code-review/scripts/chain_check.py", "restored_from"): (1, GIT),
+    ("skills/code-review/scripts/round_record.py", "head_moved"): (1, GIT),
+    ("skills/code-review/scripts/round_record.py", "touched"): (1, GIT),
+    ("skills/code-review/scripts/round_record.py", "tracked_at"): (1, GIT),
+    ("skills/code-review/scripts/round_record.py", "worktrees_of"): (1, GIT),
+    ("skills/implement/scripts/seal.py", "gitlinks_under_root"): (1, GIT),
+    ("skills/implement/scripts/seal.py", "other_worktrees"): (1, GIT),
+    ("skills/implement/scripts/seal.py", "porcelain"): (1, GIT),
+    ("skills/implement/scripts/seal.py", "with_row"): (1, F),
+    ("skills/implement/scripts/seal.py", "write_row"): (1, F),
+    ("skills/settle/scripts/settle.py", "released"): (1, GIT),
+    ("skills/verify/scripts/broad_gate.py", "Check.first_lines"): (1, TOOL),
+    ("skills/verify/scripts/broad_gate.py", "fence_left_open"): (1, F),
+    ("skills/verify/scripts/broad_gate.py", "fenced_row_at"): (1, F),
+    ("skills/verify/scripts/broad_gate.py", "gate"): (1, TOOL),
+    ("skills/verify/scripts/broad_gate.py", "job_steps"): (1, YAML),
+    ("skills/verify/scripts/broad_gate.py", "suite_counts"): (1, TOOL),
+    ("skills/verify/scripts/deferral_check.py", "read_events"): (1, YAML),
+    ("skills/verify/scripts/deferral_check.py", "runners_in"): (1, YAML),
+    ("skills/verify/scripts/payload_meter.py", "frontmatter"): (1, YAML),
+    ("skills/verify/scripts/seal_stamp.py", "<module>"): (1, "a constant"),
+    ("skills/verify/scripts/session_cost.py", "open_log"): (1, TOOL),
+    ("skills/verify/scripts/unverified_check.py", "overviews_at"): (1, GIT),
+    ("skills/verify/scripts/unverified_check.py", "tree_at"): (1, GIT),
+}
+# Work item F's files, exempt whole: F rewrites every reader in them against
+# its own walk, and a count pinned here would redden on F's merge for a
+# design this item does not own.
+F_FILES = {
+    "hooks/config.py": F,
+    "hooks/routing.py": F,
+    "hooks/blocks.py": F,
+    ".github/scripts/rider_check.py": F,
+}
+SHIPPED = ("hooks", "skills", os.path.join(".github", "scripts"))
+
+
+def splitlines_calls(root=ROOT):
+    """`{(path, unit): count}` for every `.splitlines(` call under the
+    shipped directories, the unit being the dotted chain of enclosing
+    `def`s and `class`es, or `<module>`."""
+    found = {}
+    for top in SHIPPED:
+        for directory, _dirs, names in os.walk(os.path.join(root, top)):
+            for name in sorted(names):
+                if not name.endswith(".py"):
+                    continue
+                path = os.path.join(directory, name)
+                rel = os.path.relpath(path, root).replace(os.sep, "/")
+                with open(path, encoding="utf-8") as f:
+                    tree = ast.parse(f.read())
+                _walk(tree, [], rel, found)
+    return found
+
+
+def _walk(node, names, rel, found):
+    for child in ast.iter_child_nodes(node):
+        inner = names
+        if isinstance(child, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+            inner = [*names, child.name]
+        if (
+            isinstance(child, ast.Call)
+            and isinstance(child.func, ast.Attribute)
+            and child.func.attr == "splitlines"
+        ):
+            key = (rel, ".".join(names) or "<module>")
+            found[key] = found.get(key, 0) + 1
+        _walk(child, inner, rel, found)
+
+
+def test_every_splitlines_call_left_is_named_with_its_reason():
+    """S19. The class is held closed by a list, not by the next reviewer."""
+    found = {
+        key: count for key, count in splitlines_calls().items() if key[0] not in F_FILES
+    }
+    unnamed = {key: n for key, n in found.items() if key not in OUT_OF_CLASS}
+    assert not unnamed, (
+        f"`.splitlines(` in a unit this case does not name: {unnamed}. A reader "
+        "of markdown or record text reads `unverified_check.py#gfm_lines`; any "
+        "other text goes into OUT_OF_CLASS with the reason it is not a "
+        "document's lines"
+    )
+    more = {
+        key: (n, OUT_OF_CLASS[key][0])
+        for key, n in found.items()
+        if n != OUT_OF_CLASS[key][0]
+    }
+    assert not more, f"a named unit's count of calls moved, (found, named): {more}"
+    gone = sorted(set(OUT_OF_CLASS) - set(found))
+    assert not gone, f"named units that no longer split with `splitlines`: {gone}"
+
+
+def test_the_class_case_sees_a_planted_call(tmp_path):
+    """The walk is what the case rests on, so it is asked of a tree with one
+    call planted in an unlisted unit and one more call in a listed one."""
+    for top in SHIPPED:
+        (tmp_path / top).mkdir(parents=True)
+    (tmp_path / "skills" / "new.py").write_text(
+        "def reader(text):\n    return text.splitlines()\n", encoding="utf-8"
+    )
+    (tmp_path / "hooks" / "dispatch.py").write_text(
+        "def first_line(exc):\n    str(exc).splitlines()\n"
+        "    return str(exc).splitlines()\n",
+        encoding="utf-8",
+    )
+    assert splitlines_calls(str(tmp_path)) == {
+        ("skills/new.py", "reader"): 1,
+        ("hooks/dispatch.py", "first_line"): 2,
+    }
