@@ -421,7 +421,9 @@ def describe(gate, body):
 
 def draw(body):
     """The report of every pending record of this session, oldest first, or
-    "". Each record is renamed to `.reported` before its line is returned,
+    "". Oldest by the `at` pair `record` writes -- the clock and the gate's
+    place in its call -- because records one call writes can share a file
+    time. Each record is renamed to `.reported` before its line is returned,
     the shape of `skills/verify/scripts/seal_stamp.py#claim` -- two drawers
     racing for one record say it once, and a crash between the rename and
     the print loses a line rather than repeating one.

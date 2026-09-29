@@ -108,7 +108,10 @@ that stays broken for the rest of the session is not said again.
 4. **What is said.** It is one JSON object, `{"systemMessage": …}`:
    - **line 1** is a label that names what this is and how many gates it
      covers, because the harness shows it as `Stop says: <line 1>`;
-   - **one line per gate**, oldest record first. Each line names the gate
+   - **one line per gate**, oldest record first, by the `at` pair each record
+     carries rather than by the file's time, which records written in one
+     call can share (*corrected after Windows CI*, see §*Data &
+     interfaces*). Each line names the gate
      file, load or run, where it failed, and the exception's class and first
      line. A load failure names every group that loads the gate's file, and a
      run failure the group it was seen in (*inferred in round 1's fix pass*,
@@ -206,9 +209,16 @@ production spawns.
 
 **The record.** `<git-common-dir>/specseal-gate-failure/<session-id>/<gate>.pending`,
 then `<gate>.reported` once said. `<gate>` is the file name as `GROUPS` spells
-it, for example `commit-review-gate.py`. The body is JSON with four keys:
-`group`, `phase` (`load` or `run`), `error` (the class name) and `message`
-(the first line of `str(exc)`, capped at a length the work chooses). The
+it, for example `commit-review-gate.py`. The body is JSON with five keys:
+`group`, `phase` (`load` or `run`), `error` (the class name), `message`
+(the first line of `str(exc)`, capped at a length the work chooses) and
+`at`, `[the writer's clock in nanoseconds, the gate's place among that
+call's failures]`, which is what the report is ordered by. `at` was added
+after Windows CI said two records in name order: a file's time can be equal
+for records one call writes, on NTFS at 100 ns and on any file system that
+sets it at a coarser tick. A record with no `at`, or one that is not two
+integers, is ordered by its file's time, and name order breaks a tie
+(*inferred during implementation*). The
 body is data a newer or older plugin may write, so a body the drawer cannot
 read still yields a line naming the gate from the file name alone. Unlike a
 stamp, the gate's name is the whole of the report's value, and it is
