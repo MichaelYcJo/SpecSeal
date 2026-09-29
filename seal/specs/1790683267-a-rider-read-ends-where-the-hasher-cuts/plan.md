@@ -95,7 +95,7 @@ reader that grows its own rule again fails there before anything ships.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `#riders_in` from the hasher's blocks; `#comment_blocks` without TEXT; `#gfm_places` returning line numbers; `#inferred_anchor` and round 2's case indexing them; every touched docstring true; the class case (S1–S4) and the verdict case (S5), each seen red at `6321dbdc`, S4 against its named mutant; the ledger (below); the changelog fragment; `phases/phase-1.md` and `overview.md` | S1–S11. Narrow: the item's module, `tests/test_a_rider_reaches_its_file.py`, `tests/test_the_hooks_hide_what_a_renderer_hides.py`, the floor case, `ruff check` and `ruff format --check` on the touched files, `evidence_check.py .`, and the probes S6 and S7 name. The broad gate is the sealer's | |
+| 1 | `#riders_in` from the hasher's blocks; `#comment_blocks` without TEXT; `#gfm_places` returning line numbers; `#inferred_anchor` and round 2's case indexing them; every touched docstring true; the class case (S1–S4) and the verdict case (S5), each seen red at `6321dbdc`, S4 against its named mutant; the ledger (below); the changelog fragment; `phases/phase-1.md` and `overview.md` | S1–S11. Narrow: the item's module, `tests/test_a_rider_reaches_its_file.py`, `tests/test_the_hooks_hide_what_a_renderer_hides.py`, the floor case, `ruff check` and `ruff format --check` on the touched files, `evidence_check.py .`, and the probes S6 and S7 name. The broad gate is the sealer's | 28e9bdb2 |
 
 **Order inside the phase, for the red to mean something.** Write the two
 cases first and run them against `6321dbdc`'s `rider_check.py`, recording
