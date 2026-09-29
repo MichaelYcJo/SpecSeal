@@ -740,6 +740,12 @@ STILL_UNREAD = {
     "env>/dev/null": "env>/dev/null git commit -m x",
     "eval>/dev/null": 'eval>/dev/null "$X"',
     "sh>/dev/null -c": 'sh>/dev/null -c "$CMD"',
+    # The same, inside text the gate reads again as commands: a shell's
+    # string, a heredoc body a shell runs, and a string whose runner hides an
+    # expanding command word.
+    "git>/dev/null in sh -c": "sh -c 'git>/dev/null commit -m x'",
+    "git>/dev/null in a heredoc": "bash <<'EOF'\ngit>/dev/null commit -m x\nEOF",
+    "nice>/dev/null $CMD in sh -c": "sh -c 'nice>/dev/null $CMD'",
     # yellow 5: zsh.
     "for i (1)": "for i (1) git commit -m x",
     "for i (1) { }": "for i (1) { git commit -m x }",
