@@ -22,6 +22,7 @@ holding one is exactly what these cases are about.
 import importlib.util
 import os
 import shutil
+import subprocess
 import sys
 
 import pytest
@@ -350,3 +351,143 @@ def test_a_ledger_row_holding_a_separator_is_one_row_at_both_ends(monkeypatch):
         "unused", "a", "b", {ledger: before}, {ledger: after}
     )
     assert removed == set()
+
+
+# --- S9-S15: the independent readers ----------------------------------------
+
+
+CORRECTION = os.path.join(
+    ROOT, "skills", "evidence-check", "scripts", "correction_check.py"
+)
+CHAIN = os.path.join(ROOT, "skills", "code-review", "scripts", "chain_check.py")
+PAYLOAD = os.path.join(ROOT, "skills", "verify", "scripts", "payload_meter.py")
+CLAIMS = os.path.join(ROOT, ".github", "scripts", "issue_claims_check.py")
+CLAUDE_BLOCK = os.path.join(ROOT, ".github", "scripts", "claude_block.py")
+
+
+def test_a_correction_after_a_separator_is_counted():
+    """S9. Cut at the separator, the note stood on a line that is no row, so
+    a merge dropping it lost nothing `correction-check` could name."""
+    correction = _load("specseal_correction_s9", CORRECTION)
+    head = "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+    head += "|---|---|---|---|---|\n"
+    row = "| X1 · a claim | `pkg/mod.py#f@0123abcd` | read | 2026-01-01 | a note"
+    parent = head + f"{row}{LS}**Corrected 2026-09-15**: the claim was wrong |\n"
+    result = head + f"{row} |\n"
+    lost = correction.losses(parent, result)
+    assert [loss.marker for loss in lost] == [("Corrected", "2026-09-15")]
+
+
+def test_the_framers_mark_is_the_last_line_a_renderer_shows():
+    """S10. The mark stands after a U+2028 on the file's last line, so the
+    last line does not begin with one."""
+    chain = _load("specseal_chain_s10", CHAIN)
+    spec = f"# spec\n\nprose{LS}Framed 2026-01-01 by framer, before the build.\n"
+    assert chain.frame_mark(reader, spec) is None
+    whole = "# spec\n\nprose\nFramed 2026-01-01 by framer, before the build.\n"
+    assert chain.frame_mark(reader, whole) == ("2026-01-01", "framer")
+
+
+def test_the_approval_line_is_a_line_of_its_own(monkeypatch):
+    """S11. `plan.md`'s approval after a U+2028 on a line of prose is no
+    approval line, so the notice that says it is absent is printed."""
+    chain = _load("specseal_chain_s11", CHAIN)
+    item = "seal/specs/1799000000-a-framed-item"
+    texts = {
+        f"{item}/spec.md": "# spec\n\nFramed 2026-01-01 by framer, before the build.\n",
+        f"{item}/plan.md": (
+            f"# plan\n\nprose{LS}Approved 2026-01-01 by x, when `smith` was spawned.\n"
+        ),
+    }
+    monkeypatch.setattr(chain, "read_record", lambda root, rel: texts.get(rel))
+    routing = type("Routing", (), {"BY_FRAMER": "framer", "PLANNING": "Planning"})
+    errors, notices = chain.frame(
+        reader, routing, "unused", item, f"{item}/routing.md", {"planning": "framer"}
+    )
+    assert errors == []
+    assert [n for _rel, _line, n in notices if "approval line is absent" in n]
+
+
+def test_a_heading_after_a_separator_starts_no_section():
+    """S12. No section starts mid-line, and the one that does start is at
+    its offset in the file, which is where the ends kept put it."""
+    payload = _load("specseal_payload_s12", PAYLOAD)
+    text = f"intro\n\nprose{LS}## Not a section\n\n## Real\nbody\n"
+    assert payload.heading_starts(text) == [text.index("## Real")]
+
+
+def test_an_issue_body_is_cut_where_github_renders_a_block():
+    """S13. A list-item shape after a U+2028 mid-line is not a block GitHub
+    renders, so it is no cut."""
+    claims = _load("specseal_claims_s13", CLAIMS)
+    text = f"The parser drops a row{LS}- when the cell is wide"
+    assert claims.segments(text) == [(0, len(text))]
+
+
+@pytest.fixture
+def measured(tmp_path):
+    """A repository whose second commit adds a unit to a non-Python file
+    below a form feed, and a caller of it after a U+2028."""
+    d = tmp_path / "measured"
+    d.mkdir()
+    git(d, "init", "-q", "-b", "base")
+    write(d, "tool.sh", "echo\n")
+    a = commit(d, "a")
+    write(d, "tool.sh", f"echo\n{FF}def name():\n")
+    write(d, "caller.sh", f"x{LS}name(1)\n")
+    b = commit(d, "b")
+    return str(d), a, b
+
+
+def test_a_unit_added_below_a_form_feed_is_measured(measured):
+    """S14. The diff line is `+`, a form feed and `def name` on one line, as
+    git numbers it; cut at the form feed, its `+` was one line and the
+    definition another that is no added line at all."""
+    root, a, b = measured
+    generator = generator_module()
+    uc = generator.load(READER, "specseal_reader_s14")
+    _changed, added, heuristic, _at_a, _at_b = generator.measure(
+        uc, root, a, b, ["tool.sh"]
+    )
+    assert heuristic == ["tool.sh"]
+    assert ("tool.sh", "name") in added
+
+
+def test_a_call_after_a_separator_is_a_call_site(measured):
+    """S14's second half. `git grep -n` prints `rev:path:line:text`, and a
+    U+2028 in `text` cut the call off its prefix."""
+    root, _a, b = measured
+    generator = generator_module()
+    uc = generator.load(READER, "specseal_reader_s14b")
+    assert "caller.sh" in generator.call_sites(uc, root, b, "tool.sh", "name", {})
+
+
+START, END = "<!-- specseal:start -->", "<!-- specseal:end -->"
+
+
+def test_the_claude_md_block_is_cut_where_awk_cuts_it(tmp_path):
+    """S15. `install.sh`'s `awk` ends a record at LF alone. A template line
+    holding a U+2028 mid-line is one line to it, so `--write` copies that line
+    whole and `--check` then agrees."""
+    template = tmp_path / "block.md"
+    target = tmp_path / "CLAUDE.md"
+    template.write_text(f"{START}\n## Rules\nalpha{LS}beta\n{END}\n", encoding="utf-8")
+    target.write_text(
+        f"# repo\n\n{START}\n## Rules\nold\n{END}\n\ntail\n", encoding="utf-8"
+    )
+    paths = ["--template", str(template), "--target", str(target)]
+
+    def run(mode):
+        return subprocess.run(
+            [sys.executable, CLAUDE_BLOCK, mode, *paths],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+        )
+
+    wrote = run("--write")
+    assert wrote.returncode == 0, wrote.stdout + wrote.stderr
+    written = target.read_text(encoding="utf-8")
+    assert written == f"# repo\n\n{START}\n## Rules\nalpha{LS}beta\n{END}\n\ntail\n"
+    checked = run("--check")
+    assert checked.returncode == 0, checked.stdout + checked.stderr

@@ -3167,7 +3167,9 @@ def measure(reader, root, a, b, paths):
                     changed.append((rel, name))
             continue
         heuristic.append(rel)
-        for line in (git(root, "diff", a, b, "--", rel) or "").splitlines():
+        # Each diff line carries a line of the file, and git numbers those
+        # at LF: a form feed in one must not cut its `+` off the rest (#664).
+        for line in reader.gfm_lines(git(root, "diff", a, b, "--", rel) or ""):
             m = HEURISTIC_RE.match(line)
             if m:
                 added.append((rel, m.group(1)))
@@ -3296,7 +3298,9 @@ def call_sites(reader, root, b, rel, name, at_b):
     out = git(root, "grep", "-n", "-F", "-e", f"{name}(", b) or ""
     word = re.compile(r"(?<![A-Za-z0-9_])" + re.escape(name) + r"\(")
     named, tested = [], False
-    for line in out.splitlines():
+    # `path:line:text` per match, `text` a line of the file as git numbers
+    # it: a U+2028 in it must not cut the prefix off the call (#664).
+    for line in reader.gfm_lines(out):
         try:
             _ref, path, number, text = line.split(":", 3)
             number = int(number)

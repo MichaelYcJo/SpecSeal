@@ -109,12 +109,22 @@ def region(lines):
 
 def read_lines(path, what):
     """The file's lines with the endings they have on disk: `newline=""`
-    turns nothing into `\\n`, so a CRLF target is read as CRLF."""
+    turns nothing into `\\n`, so a CRLF target is read as CRLF.
+
+    **A line ends at LF and nowhere else**, which is where `install.sh`'s
+    `awk` ends a record, so a CRLF line keeps its CR inside the line ending
+    and `bare` strips both (#664). `str.splitlines` also ended one at a lone
+    CR, a form feed, U+2028 and five more: a template line holding one of
+    those was cut in two, `write` gave each piece the target's ending, and
+    the copy gained a line break the template and the installer's copy do
+    not have."""
     try:
         with open(path, encoding="utf-8", newline="") as f:
-            return f.read().splitlines(keepends=True)
+            parts = f.read().split("\n")
     except OSError as exc:
         raise NoBlock(f"cannot read the {what} at {shown(path)}: {exc}") from exc
+    lines = [part + "\n" for part in parts[:-1]]
+    return [*lines, parts[-1]] if parts[-1] else lines
 
 
 def bare(line):

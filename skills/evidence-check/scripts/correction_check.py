@@ -398,8 +398,13 @@ class Row:
 def rows(text):
     """Every table row of `text`, separators and blank lines dropped, and the
     rows inside a fenced block that closes (`unverified_check.py#
-    closed_fence_lines`, the rule `evidence_check.py#quoted_lines` applies)."""
-    lines = text.splitlines()
+    closed_fence_lines`, the rule `evidence_check.py#quoted_lines` applies).
+
+    A row is a line as GFM ends one, through the shared reader's `gfm_lines`
+    (#664): split with `str.splitlines`, a U+2028 in a row's notes cut it,
+    and a `Corrected` note after the cut belonged to no row, so dropping it
+    in a merge was silent."""
+    lines = reader.gfm_lines(text)
     quoted = reader.closed_fence_lines(lines)
     found = []
     for n, line in enumerate(lines):
