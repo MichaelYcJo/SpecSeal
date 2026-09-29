@@ -73,11 +73,14 @@ def parser():
 _PARSER = parser()
 
 
-def _behind_markers(line):
+def _behind_markers(line, opens):
     """Where LINE's own text starts behind its containers' markers: a block
     quote's `>`, a bullet, an ordered number (CommonMark 5.1, 5.2), each with
     the spaces and tabs before it. A bullet or a number is a marker only
-    where a space, a tab or the line's end follows it."""
+    where a space, a tab or the line's end follows it, and only on the line
+    that OPENS the paragraph: on a later line of it a `*` or a `2.` is text,
+    because a list item that could interrupt the paragraph would have ended
+    it. A `>` on a later line is a marker, for the same reason."""
     at = 0
     while True:
         rest = line[at:]
@@ -86,6 +89,8 @@ def _behind_markers(line):
         if text.startswith(">"):
             at += skip + 1
             continue
+        if not opens:
+            return at
         digits = len(text) - len(text.lstrip("0123456789"))
         if text[:1] in ("-", "+", "*"):
             marker = 1
@@ -122,7 +127,9 @@ def _inline_html_lines(inline, lines):
     first = inline.map[0]
     while (
         first < inline.map[1] - 1
-        and not lines[first][_behind_markers(lines[first]) :].strip()
+        and not lines[first][
+            _behind_markers(lines[first], first == inline.map[0]) :
+        ].strip()
     ):
         first += 1
     src = inline.content

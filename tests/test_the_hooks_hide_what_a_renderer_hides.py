@@ -124,6 +124,20 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         (["1. " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
         (["> - " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
         (["-" + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        # a later line of the paragraph carries no list marker: a `*` or a
+        # `2.` there is text, since an item that could interrupt would have
+        # ended the paragraph, and the parser's strip keeps it
+        ([NBSP, "*", "x <? a", "b ?>", "c"], {3: "inline html"}),
+        (["> " + NBSP, "> 2.", "> x <? a", "> b ?>"], {3: "inline html"}),
+        # every other marker the count-back reads on the opening line: the
+        # other two bullets, the `)` delimiter, a tab after a marker and one
+        # before it, and a number of ten digits, which is no marker
+        (["+ " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["* " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["1) " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["-\t" + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        ([">\t* " + NBSP, "> x <? a", "> b ?>", "> c"], {2: "inline html"}),
+        (["1234567890. " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
     ],
     ids=[
         "fence",
@@ -147,6 +161,14 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         "behind an ordered marker",
         "behind a quote and a marker",
         "a dash that is no marker",
+        "a star on a later line is text",
+        "a number on a later quoted line is text",
+        "behind a plus",
+        "behind a star",
+        "behind a parenthesis",
+        "a tab after a marker",
+        "a tab before a marker",
+        "ten digits are no marker",
     ],
 )
 def test_the_oracle_names_each_kind_it_hides(lines, hidden):
