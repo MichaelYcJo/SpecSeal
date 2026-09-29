@@ -20,7 +20,7 @@ A third shape is loud, and is recorded as ⬜ 3 without a fix.
 | Claimed | Found |
 |---|---|
 | Round 2's record: all three yellows `fixed` | Confirmed by execution. Every case the fixes added fails with the four code files from `c7338c43` and passes at HEAD (20 failed at base; 491 passed at HEAD over the five touched modules) |
-| `hooks/config.py#walk` and `hooks/routing.py#hidden` are one rule, held to one oracle | Confirmed by execution, and beyond the listed shapes: 30,000 random files built from sixteen delimiter-heavy lines, 0 where config and routing differ, and 0 where config and `hidden_by_the_shared_rule` differ |
+| `hooks/config.py#walk` and `hooks/routing.py#hidden` are one rule, held to one oracle | Confirmed by execution, and beyond the listed shapes: 30,000 random files built from sixteen delimiter-heavy lines, 0 where config and routing differ, and 0 where config and `hidden_by_the_shared_rule` differ (NAME NOT IN TREE: the walks and the oracle were reverted after this round) |
 | 0 of 25 declarations differ | Confirmed by execution against `c7338c43`. Also 0 of 493 markdown files in the tree differ under `config_rows` |
 | The reversal of round 1's finding 3 reading is sound, and the three sentences and the pin case tell the truth | True for the code-span half, by reading and execution. The sentence "a comment that never closes hides nothing" is true but no longer complete. See 🟡 1 |
 | "An unclosed comment still hides nothing" (round 2's report, on its fix) | True of the comment half. False of the fence half: it switches off every fence below it. See 🟡 1 |
@@ -43,11 +43,11 @@ Why each one matters:
 - **Routing.** `parse` keeps the last row of a label. A declared review chain reads as *straight to the PR*, which is the silent shape #658 closed for fences, now reached through a comment.
 - **Config.** `config_rows` reads the first table. `declared_mode` then answers `local`, and `broad-gate` would run the example's command. With `true` in that cell, the one broad run reports green without running anything.
 
-The oracle cannot catch this, because it is built the same way. `_liveness` calls every line after an unclosed opener not live, so `hidden_by_the_shared_rule` opens no fence there either and then hides nothing. The two copies and the oracle agree on a rule that no single shared reader holds. `_liveness` hides that tail, and `readable` blanks it. Neither one shows it with its fences switched off.
+The oracle cannot catch this, because it is built the same way. `_liveness` calls every line after an unclosed opener not live, so `hidden_by_the_shared_rule` (NAME NOT IN TREE) opens no fence there either and then hides nothing. The two copies and the oracle agree on a rule that no single shared reader holds. `_liveness` hides that tail, and `readable` blanks it. Neither one shows it with its fences switched off.
 
 The fix keeps the promise and extends it to fences. A walk that ends inside a comment is walked again, and from the opener's line down nothing is read as a comment delimiter. No `-->` follows an opener that never closed, so the second walk hides nothing the first did not, and it always ends outside a comment. Executed with the fix: both shapes read as at the base, config and routing agree with the extended oracle on 30,000 random files, 0 of 25 declarations and 0 of 493 markdown files differ from HEAD, and the five touched modules pass (495). The three new cases fail at HEAD.
 
-The sentences change with it (contract §14). "A comment that never closes hides nothing" gains "and switches off no fence below it" in `docs/the-broad-gate.md` and `templates/config.md`. `test_delimiters_quoted_in_code_spans_hide_nothing` already reads those two files and `hooks/config.py`, so it takes the new phrase as a second assertion.
+The sentences change with it (contract §14). "A comment that never closes hides nothing" gains "and switches off no fence below it" in `docs/the-broad-gate.md` and `templates/config.md`. `test_delimiters_quoted_in_code_spans_hide_nothing` (NAME NOT IN TREE) already reads those two files and `hooks/config.py`, so it takes the new phrase as a second assertion.
 
 ## 🟡 2 — an opener written in prose makes the rider check read a quoted rider and lose the real one
 
@@ -67,7 +67,7 @@ The fix taught the scan code spans, and that closes the backtick trigger. The sa
 
 No file in today's tree has the shape. Executed: 472 markdown files, and none holds an unquoted opener left open on its line. So the finding is latent, as round 2's finding 1 was.
 
-No fix inside the literal reading can close this. A mid-line opener, a fence line and a later `-->` is exactly the shape the fix range pinned as a comment. That is the `lone` assertion in `test_a_comment_opener_quoted_in_a_code_span_hides_no_rider`, added in `a7581653`. The literal reading cannot tell that pinned case from this finding's shape.
+No fix inside the literal reading can close this. A mid-line opener, a fence line and a later `-->` is exactly the shape the fix range pinned as a comment. That is the `lone` assertion in `test_a_comment_opener_quoted_in_a_code_span_hides_no_rider` (NAME NOT IN TREE), added in `a7581653`. The literal reading cannot tell that pinned case from this finding's shape.
 
 CommonMark can tell them apart:
 
@@ -91,10 +91,10 @@ This is the loud direction: the gate asks again, and `broad-gate` names the row 
 ## Round 2's findings, each re-derived
 
 - **Finding 1 (rider, code span): closed for its shape.** Executed: the case fails with `c7338c43`'s script and passes at HEAD. 🟡 2 above is the same failure from a trigger the fix could not reach.
-- **Finding 2 (routing, comment above and row below): closed.** Executed: both shapes of `test_a_comment_hides_no_table_and_answers_for_none` read the chain at HEAD. At the base, the first returns `None` and the second returns *straight to the PR*.
+- **Finding 2 (routing, comment above and row below): closed.** Executed: both shapes of `test_a_comment_hides_no_table_and_answers_for_none` (NAME NOT IN TREE) read the chain at HEAD. At the base, the first returns `None` and the second returns *straight to the PR*.
 - **Finding 3 (commented-out exemption): closed.** Executed: the case fails at the base and passes at HEAD. Read: `read_exemptions` goes through `readable`, which still counts a delimiter in a code span. That is the loud direction for an exemption, and the docstring and `20a0bfa` say so.
-- **The ❓ on `hooks/config.py#fence_map`: closed into finding 2's fix.** Executed: `test_a_fence_line_inside_a_comment_hides_no_table` fails at the base and passes at HEAD.
-- **The contract change `commented` → `commented_row_at`: read.** `commented` lost its second parameter, and its one caller outside the module, `broad_gate.py#commented_row_at`, passes one argument.
+- **The ❓ on `hooks/config.py#fence_map`: closed into finding 2's fix.** Executed: `test_a_fence_line_inside_a_comment_hides_no_table` (NAME NOT IN TREE) fails at the base and passes at HEAD.
+- **The contract change `commented` → `commented_row_at`: read.** `commented` lost its second parameter, and its one caller outside the module, `broad_gate.py#commented_row_at` (NAME NOT IN TREE), passes one argument.
 
 ## Regression tests to plant
 
@@ -102,7 +102,7 @@ This is the loud direction: the gate asks again, and `broad-gate` names the row 
 |---|---|---|
 | `tests/test_routing_is_recorded.py` | test_an_unclosed_comment_switches_off_no_fence, NAME NOT IN TREE | fails at HEAD, passes with 🟡 1's fix |
 | `tests/test_the_mode_question_is_asked_once.py` | test_an_unclosed_comment_switches_off_no_fence, NAME NOT IN TREE | fails at HEAD, passes with 🟡 1's fix |
-| `tests/test_unverified_rows_close.py` | a sixteenth `COMMENT_SHAPES` entry, with the oracle extended | fails at HEAD (shape 15), passes with 🟡 1's fix |
+| `tests/test_unverified_rows_close.py` | a sixteenth `COMMENT_SHAPES` (NAME NOT IN TREE) entry, with the oracle extended | fails at HEAD (shape 15), passes with 🟡 1's fix |
 | `tests/test_a_rider_reaches_its_file.py` | test_an_opener_inside_prose_hides_no_fence, NAME NOT IN TREE, and the `lone` assertion flipped | both fail at HEAD, pass with 🟡 2's fix |
 
 ## Facts for the evidence ledger
@@ -120,7 +120,7 @@ This is the loud direction: the gate asks again, and `broad-gate` names the row 
 | 🟢 | round 2's finding 1 is closed — a comment opener quoted in a code span no longer hides the rider check's fences | `.github/scripts/rider_check.py#fenced_lines` | confirmed | Executed: red with `c7338c43`'s script, green at HEAD. This round's finding 2 is the class member it could not reach |
 | 🟢 | round 2's finding 2 is closed — a fence line in a comment above the table hides no declaration, and a row in a closed comment below it answers for nothing | `hooks/routing.py#hidden` | confirmed | Executed: both shapes red at the base, green at HEAD; 0 of 25 declarations differ |
 | 🟢 | round 2's finding 3 is closed — a commented-out exemption excuses nothing | `skills/code-review/scripts/survivor_check.py#read_exemptions` | confirmed | Executed: red at the base, green at HEAD |
-| 🟢 | round 2's ❓ on the config reader's fence-before-comment order is closed — answered into finding 2's fix | `hooks/config.py#walk` | confirmed | Executed: `test_a_fence_line_inside_a_comment_hides_no_table` red at the base, green at HEAD; 0 of 493 files differ under `config_rows` |
+| 🟢 | round 2's ❓ on the config reader's fence-before-comment order is closed — answered into finding 2's fix | `hooks/config.py#walk` | confirmed | Executed: `test_a_fence_line_inside_a_comment_hides_no_table` (NAME NOT IN TREE) red at the base, green at HEAD; 0 of 493 files differ under `config_rows` |
 | 🟢 | The reversal of round 1's finding 3 reading is sound, and the pin case and the three sentences state it | `tests/test_the_mode_question_is_asked_once.py#test_delimiters_quoted_in_code_spans_hide_nothing` | confirmed | Read: it is `_liveness`'s literal reading and the rendered page. Executed: the pin case red at the base. The unclosed-comment sentence is this round's finding 1 to extend |
 | 🟢 | round 2's question on the ledger is answered — the fragment's rows and the re-read notes the fix pass wrote into `seal/releases/*.md` hold | `seal/ledger/1790635413-every-markdown-reader-shares-one-fence-rule.md` | confirmed | Executed: `bin/evidence-check .` at `b02d763a`, exit 0; the fragment 72 ok, every ledger file 0 drifted and 0 broken, and 0 refused among the work item's names, this report included |
 | ❓ | The new cases on the Windows and Linux legs | `tests/test_routing_is_recorded.py` | ❓ out of verified scope | Only macOS ran here. CI's test matrix at the pull request answers it |
@@ -133,7 +133,7 @@ This is the loud direction: the gate asks again, and `broad-gate` names the row 
 | The fix range's new cases, with the four code files from `c7338c43` | 20 failed, 2 passed, exit 1 |
 | `routing.parse` and `config_rows`, the two 🟡 1 shapes and the two ⬜ 3 shapes: `c7338c43` against HEAD | 🟡 1: live answer against example; ⬜ 3: live answer against none |
 | `comment_blocks`, the 🟡 2 shape, at `68bcb224`, `c7338c43` and HEAD | `(12, 13)`; `(6, 7)`; `(6, 7)` |
-| 30,000 random files: config walk against routing walk against `hidden_by_the_shared_rule`, at HEAD | 0 differ; 0 differ |
+| 30,000 random files: config walk against routing walk against `hidden_by_the_shared_rule` (NAME NOT IN TREE), at HEAD | 0 differ; 0 differ |
 | `routing.parse` over every `routing.md`, and `config_rows` over every markdown file: `c7338c43` against HEAD | 25 files, 0 differ; 493 files, 0 differ |
 | 🟡 1's and 🟡 2's fixes with the four cases under *Regression tests to plant*, applied in the clone: the five touched modules | 495 passed, exit 0 |
 | The same four cases with HEAD's code | 5 failed (the four cases and the flipped `lone` assertion's test), exit 1 |
@@ -241,7 +241,7 @@ def _hidden(lines, literal_from):
 
 ### 🟡 1 — the oracle and a sixteenth shape, `tests/test_unverified_rows_close.py`
 
-In `hidden_by_the_shared_rule`, between the fence loop and `commented, run = set(), []`:
+In `hidden_by_the_shared_rule` (NAME NOT IN TREE), between the fence loop and `commented, run = set(), []`:
 
 ```python
     if opener is None and not live[len(lines)]:
@@ -254,7 +254,7 @@ In `hidden_by_the_shared_rule`, between the fence loop and `commented, run = set
             fenced.update(range(began + 1 + first, began + 1 + end))
 ```
 
-At the end of `COMMENT_SHAPES`:
+At the end of `COMMENT_SHAPES` (NAME NOT IN TREE):
 
 ```python
     # a comment that never closes switches off no fence below it (#584
@@ -264,7 +264,7 @@ At the end of `COMMENT_SHAPES`:
 
 ### 🟡 1 — the pin cases
 
-`tests/test_routing_is_recorded.py`, above `test_a_row_quoted_inside_a_fence_is_not_an_answer`:
+`tests/test_routing_is_recorded.py`, above `test_a_row_quoted_inside_a_fence_is_not_an_answer` (NAME NOT IN TREE):
 
 ```python
 def test_an_unclosed_comment_switches_off_no_fence():
@@ -280,7 +280,7 @@ def test_an_unclosed_comment_switches_off_no_fence():
     assert routing.parse(text)["review"] == CHAIN
 ```
 
-`tests/test_the_mode_question_is_asked_once.py`, above `test_the_writer_leaves_a_commented_row_alone`:
+`tests/test_the_mode_question_is_asked_once.py`, above `test_the_writer_leaves_a_commented_row_alone` (NAME NOT IN TREE):
 
 ```python
 def test_an_unclosed_comment_switches_off_no_fence(config):
@@ -363,7 +363,7 @@ and the docstring paragraph that begins "A comment delimiter inside a code span"
 
 ### 🟡 2 — `tests/test_a_rider_reaches_its_file.py`
 
-In `test_a_comment_opener_quoted_in_a_code_span_hides_no_rider`, the `lone` block:
+In `test_a_comment_opener_quoted_in_a_code_span_hides_no_rider` (NAME NOT IN TREE), the `lone` block:
 
 ```python
     # an opener that does not begin its line is inline, and a fence line
@@ -406,8 +406,8 @@ Opened this round. The first line is in the orchestrator's tree; the rest are in
 
 - In the orchestrator's tree: `rounds/round-2.md` and `rounds/round-2-report.md`.
 - The diff `c7338c43..1729cf0f` for every code, doc and test file it touches, and the work item's `changelog.md` and `survivors.md` hunks in it.
-- `hooks/config.py` (`fence_map`, `comment_after`, `walk`, `commented`, `table_lines`, `config_rows`, `refusal`, `declared_mode`), `hooks/routing.py` (`fenced`, `comment_after`, `hidden`, `table_rows`, `parse`).
-- `skills/verify/scripts/unverified_check.py` (`comment_scan`, `blank_fences`, `_liveness`, `_paragraph_ends_at`, `_partner_ahead`, `live_lines`, `readable`), `skills/verify/scripts/broad_gate.py` (`fenced_row_at`, `fenced_row`, `commented_row_at`, `fence_left_open`), `skills/implement/scripts/seal.py` (`table_span`, and the write guard that asks `fence_map`).
+- `hooks/config.py` (`fence_map`, `comment_after`, `walk`, `commented`, `table_lines`, `config_rows`, `refusal`, `declared_mode`), `hooks/routing.py` (`fenced`, `comment_after`, `hidden`, `table_rows`, `parse`). NAME NOT IN TREE: the units round 1's and round 2's fixes added here were reverted after this round.
+- `skills/verify/scripts/unverified_check.py` (`comment_scan`, `blank_fences`, `_liveness`, `_paragraph_ends_at`, `_partner_ahead`, `live_lines`, `readable`), `skills/verify/scripts/broad_gate.py` (`fenced_row_at`, `fenced_row`, `commented_row_at`, `fence_left_open`), `skills/implement/scripts/seal.py` (`table_span`, and the write guard that asks `fence_map`). NAME NOT IN TREE: `commented_row_at` was reverted after this round.
 - `.github/scripts/rider_check.py` (`fenced_lines`, `comment_blocks`), `skills/code-review/scripts/survivor_check.py` (`reader`).
-- `tests/test_unverified_rows_close.py` (`FENCE_SHAPES` through `test_the_comment_rule_agrees_with_the_config_reader`), and the new cases in `tests/test_routing_is_recorded.py`, `tests/test_the_mode_question_is_asked_once.py` and `tests/test_a_rider_reaches_its_file.py`.
+- `tests/test_unverified_rows_close.py` (`FENCE_SHAPES` through `test_the_comment_rule_agrees_with_the_config_reader`), and the new cases in `tests/test_routing_is_recorded.py`, `tests/test_the_mode_question_is_asked_once.py` and `tests/test_a_rider_reaches_its_file.py`. NAME NOT IN TREE: the comment cases were reverted after this round.
 - `docs/the-broad-gate.md` and `templates/config.md`, the paragraphs the fix range changed.

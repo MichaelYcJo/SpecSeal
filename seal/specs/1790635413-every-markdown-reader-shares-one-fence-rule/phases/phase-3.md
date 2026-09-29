@@ -17,6 +17,17 @@ in `tests/test_a_rider_reaches_its_file.py`, and the tree's own
 
 ## What this phase found
 
+- **Reverted after round 3, at the owner's decision.** `.github/scripts/
+  rider_check.py` is byte for byte `release/v0.16.0`'s again, with this
+  phase's fence walk, round 1's and round 2's fixes to it, their cases in
+  `tests/test_a_rider_reaches_its_file.py`, and their ledger rows gone. A
+  rider inside a fenced example is read as a rider once more, which is the
+  behaviour the release ships. The reason: the fence walk had to know which
+  comment delimiters were real, and each round found a shape it read wrong
+  (round 1 🟡 4, round 2 🟡 1, round 3 🟡 2), the last one closable only by
+  reversing an assertion round 2's fixes pinned. A new work item redoes it
+  from a clean frame. The bullets below record what the phase found when it
+  was built; they describe no code in the tree.
 - **`fence_spans` has no comment state, and the rider walk does.** The two
   models disagree only where a fence delimiter stands inside an HTML comment.
   The build settles it one way and pins it: a rider block that is already

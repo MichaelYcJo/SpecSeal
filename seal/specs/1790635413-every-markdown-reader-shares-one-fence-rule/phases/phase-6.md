@@ -20,6 +20,20 @@ modules. Q1 is this phase's to measure and Q3 its to decide.
 
 ## What this phase found
 
+- **Reverted after round 3, at the owner's decision.** Everything this
+  phase built is out of the branch again: the comment half of
+  `hooks/config.py`, the `table_lines` generator, `broad_gate.py`'s
+  commented-row arm and its sentence, `seal.py`'s alias change, the comment
+  sentences in `docs/the-broad-gate.md`, `templates/config.md` and the
+  hook's docstring, the parity shapes and the cases, and their ledger rows
+  and changelog entry. `hooks/config.py` is byte for byte
+  `release/v0.16.0`'s. The reason is the review record, not a defect found
+  in the revert: the comment-before-fence reading this phase introduced
+  reopened a finding in every round (round 1 🟡 3 and ⬜ 5, round 2 🟡 2 and
+  its ❓, round 3 🟡 1 and ⬜ 3), each fix creating the unit the next round
+  found wrong, and the run is capped. A new work item redoes the comment
+  half from a clean frame. The bullets below record what the phase found
+  when it was built; they describe no code in the tree.
 - **The generator is a new function, `table_lines`, and `unfenced` stays
   fence-only.** `broad_gate.py#fenced_row_at` takes the complement of
   `unfenced` to find a fenced row. Had `unfenced` started hiding comments, a
@@ -43,13 +57,14 @@ modules. Q1 is this phase's to measure and Q3 its to decide.
   shapes the question names, and it hides two prose lines above the table.
   `config_rows` and `refusal` answer the same before and after for all five.
   The probe was deleted after the run.
-- **Q3 decided:** `commented_row_at`, a sibling of `fenced_row_at`, and an
-  arm of `missing_row` after the fence arm. Its sentence is pinned (§14).
+- **Q3 decided:** `commented_row_at` (NAME NOT IN TREE), a sibling of
+  `fenced_row_at`, and an arm of `missing_row` after the fence arm. Its
+  sentence is pinned (§14). Reverted after round 3, see the first bullet.
 - **Two mutations survived the first cases, and two cases were added.**
   `refusal` reading `unfenced` survived S13, because a well-formed commented
   row followed by `-->` ends the walk the same way either way. A commented
   malformed pipe-line is the shape that reaches `refused`, and it kills the
-  mutation. `commented_row_at` ignoring `names_this_row` survived S17's
+  mutation. `commented_row_at` (NAME NOT IN TREE) ignoring `names_this_row` survived S17's
   fixtures, which held only the `Broad gate` line in the comment; one now
   holds a `Mode` row above it.
 - **`templates/config.md` gained a paragraph** in §*What is refused, and
@@ -67,4 +82,4 @@ modules. Q1 is this phase's to measure and Q3 its to decide.
 
 | Removed item | Where it must land |
 |---|---|
-| `seal.py`'s `unfenced` alias | `table_lines`, the alias `table_span` reads through |
+| `seal.py`'s `unfenced` alias | `table_lines`, the alias `table_span` reads through. Undone by the revert after round 3: the alias is `unfenced` again |

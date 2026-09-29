@@ -18,7 +18,7 @@
 
 ## What this round was asked
 
-Round 3, verifying and the run's last: round 2 closed on its one reopening, so this record ends the run whatever it finds. Target round 2's fix diff `c7338c43..1729cf0f` at HEAD `b02d763a`, with the fixes' new units (`walk`, `hidden`, `comment_after`, `BACKTICKS` and five cases) as a finding surface, the reversal of round 1's 🟡 3 reading to be judged, and a missed declaration or a newly read commented-out row in either hook named as where a defect would leave the root.
+Round 3, verifying and the run's last: round 2 closed on its one reopening, so this record ends the run whatever it finds. Target round 2's fix diff `c7338c43..1729cf0f` at HEAD `b02d763a`, with the fixes' new units (`walk`, `hidden`, `comment_after`, `BACKTICKS` and five cases; NAME NOT IN TREE, all reverted after this round) as a finding surface, the reversal of round 1's 🟡 3 reading to be judged, and a missed declaration or a newly read commented-out row in either hook named as where a defect would leave the root.
 
 ## Verdicts
 
@@ -30,7 +30,7 @@ Round 3, verifying and the run's last: round 2 closed on its one reopening, so t
 | 🟢 | round 2's finding 1 is closed — a comment opener quoted in a code span no longer hides the rider check's fences | `.github/scripts/rider_check.py#fenced_lines` | confirmed | Executed: red with `c7338c43`'s script, green at HEAD. This round's finding 2 is the class member it could not reach |
 | 🟢 | round 2's finding 2 is closed — a fence line in a comment above the table hides no declaration, and a row in a closed comment below it answers for nothing | `hooks/routing.py#hidden` | confirmed | Executed: both shapes red at the base, green at HEAD; 0 of 25 declarations differ |
 | 🟢 | round 2's finding 3 is closed — a commented-out exemption excuses nothing | `skills/code-review/scripts/survivor_check.py#read_exemptions` | confirmed | Executed: red at the base, green at HEAD |
-| 🟢 | round 2's ❓ on the config reader's fence-before-comment order is closed — answered into finding 2's fix | `hooks/config.py#walk` | confirmed | Executed: `test_a_fence_line_inside_a_comment_hides_no_table` red at the base, green at HEAD; 0 of 493 files differ under `config_rows` |
+| 🟢 | round 2's ❓ on the config reader's fence-before-comment order is closed — answered into finding 2's fix | `hooks/config.py#walk` | confirmed | Executed: `test_a_fence_line_inside_a_comment_hides_no_table` (NAME NOT IN TREE, reverted after this round) red at the base, green at HEAD; 0 of 493 files differ under `config_rows` |
 | 🟢 | The reversal of round 1's finding 3 reading is sound, and the pin case and the three sentences state it | `tests/test_the_mode_question_is_asked_once.py#test_delimiters_quoted_in_code_spans_hide_nothing` | confirmed | Read: it is `_liveness`'s literal reading and the rendered page. Executed: the pin case red at the base. The unclosed-comment sentence is this round's finding 1 to extend |
 | 🟢 | round 2's question on the ledger is answered — the fragment's rows and the re-read notes the fix pass wrote into `seal/releases/*.md` hold | `seal/ledger/1790635413-every-markdown-reader-shares-one-fence-rule.md` | confirmed | Executed: `bin/evidence-check .` at `b02d763a`, exit 0; the fragment 72 ok, every ledger file 0 drifted and 0 broken, and 0 refused among the work item's names, this report included |
 | ❓ | The new cases on the Windows and Linux legs | `tests/test_routing_is_recorded.py` | ❓ out of verified scope | Only macOS ran here. CI's test matrix at the pull request answers it |
@@ -240,7 +240,7 @@ def test_an_opener_inside_prose_hides_no_fence():
 | The fix range's new cases, with the four code files from `c7338c43` | 20 failed, 2 passed, exit 1 |
 | `routing.parse` and `config_rows`, the two 🟡 1 shapes and the two ⬜ 3 shapes: `c7338c43` against HEAD | 🟡 1: live answer against example; ⬜ 3: live answer against none |
 | `comment_blocks`, the 🟡 2 shape, at `68bcb224`, `c7338c43` and HEAD | `(12, 13)`; `(6, 7)`; `(6, 7)` |
-| 30,000 random files: config walk against routing walk against `hidden_by_the_shared_rule`, at HEAD | 0 differ; 0 differ |
+| 30,000 random files: config walk against routing walk against `hidden_by_the_shared_rule` (NAME NOT IN TREE), at HEAD | 0 differ; 0 differ |
 | `routing.parse` over every `routing.md`, and `config_rows` over every markdown file: `c7338c43` against HEAD | 25 files, 0 differ; 493 files, 0 differ |
 | 🟡 1's and 🟡 2's fixes with the four cases under *Regression tests to plant*, applied in the clone: the five touched modules | 495 passed, exit 0 |
 | The same four cases with HEAD's code | 5 failed (the four cases and the flipped `lone` assertion's test), exit 1 |

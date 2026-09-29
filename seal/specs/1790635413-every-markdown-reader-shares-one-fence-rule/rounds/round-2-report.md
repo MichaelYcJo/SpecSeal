@@ -71,7 +71,7 @@ Phase 8's own grounds apply here: "excusing is the silent direction". A `survivo
 - **Finding 3** is closed as a statement. The docstring, `docs/the-broad-gate.md`, `templates/config.md` and the changelog fragment all state the code-span shape. The new case pins both the reading and the absence of the old sentence (executed, green). `spec.md` still carries the old sentence at line 115, and that is fine because it is not shipped and retires at settle.
 - **Finding 4** is closed for its shape. The case fails with `68bcb224`'s `rider_check.py` and passes at HEAD (executed). The rewrite that closed it is where 🟡 1 sits.
 - **Cleanup 5** is closed (read). `table_lines` computes `fence_map` once and hands it to `commented`. The other caller, `broad_gate.py#commented_row_at`, passes nothing and walks for itself, which is unchanged.
-- **The new units** are correct as code: the rider case, `QUOTED_DELIMITERS`, and the code-span pin case. The one-line variant in the pin case closes its comment on the same line, so the stray closer below reads as text, as intended.
+- **The new units** are correct as code: the rider case, `QUOTED_DELIMITERS` (NAME NOT IN TREE, reverted after round 3), and the code-span pin case. The one-line variant in the pin case closes its comment on the same line, so the stray closer below reads as text, as intended.
 
 ## Regression tests to plant
 

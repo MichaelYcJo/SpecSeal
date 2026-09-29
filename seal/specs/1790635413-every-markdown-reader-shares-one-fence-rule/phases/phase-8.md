@@ -22,6 +22,19 @@ changelog entry naming #658, and any drifted row re-read in place.
 
 ## What this phase found
 
+- **Half of this phase was reverted after round 3, at the owner's
+  decision.** `hooks/routing.py` is byte for byte `release/v0.16.0`'s again:
+  its fence copy, round 2's comment walk, their cases in
+  `tests/test_routing_is_recorded.py`, the routing parity shapes and ledger
+  rows are gone, and `table_rows` keeps no fence state, as it did before.
+  The reason is round 3's 🟡 1 and ⬜ 3: the routing walk had taken on the
+  config reader's comment-before-fence order, and that order reopened a
+  finding every round. #658 stays open for the routing half, and a new work
+  item redoes it. What stays is the exemption half and the two test walks:
+  `survivor_check.py#read_exemptions` (with round 2's 🟡 3 fix, which reads
+  it through `readable`), `tests/test_docs_line_wrap.py#fenced_numbers` and
+  `tests/test_handoff_outlives_the_merge.py#fenced_block_lines`. The first
+  two bullets below describe reverted code.
 - **`routing.py` keeps a copy, not an import.** Importing `hooks/config.py`'s
   held copy would have been one copy fewer. It would also have added an
   import edge to the commit gate's hook while D changes what a hook's load
@@ -59,4 +72,4 @@ changelog entry naming #658, and any drifted row re-read in place.
 | Removed item | Where it must land |
 |---|---|
 | The fence toggles in `tests/test_docs_line_wrap.py#prose_lines` and `test_every_migration_command_creates_its_destination` | `#fenced_numbers` and `#fenced_block_lines`, over the shared delimiters |
-| `hooks/routing.py#table_rows`, the `--exempt` reader and the two tests in `fence_opener`'s bullet of readers with no fence state | the same docstring's lists: the hook copy, the readers that ask the rule, and the wider opener |
+| `hooks/routing.py#table_rows`, the `--exempt` reader and the two tests in `fence_opener`'s bullet of readers with no fence state | the same docstring's lists: the hook copy, the readers that ask the rule, and the wider opener. After the revert, `table_rows` is named in that docstring again, as a reader with no fence state that a new work item takes up |
