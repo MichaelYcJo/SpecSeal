@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #676 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `ce0f1f94381d2962787ff1f58aed8c6307cfb696..9b4db624d5ae5ea819aa3ce4ada6439966ea50dd`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (a `>` four columns in on a paragraph's later line is text, and the oracle reads it as a quote marker and places inline HTML one line late) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 3, verifying and the run's last: round 2 closed on its one reopening. Targ
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A `>` four columns in, or behind a tab, on a paragraph's later line is lazy-continuation text the parser keeps; `_behind_markers` reads it as a quote marker, and every inline HTML line after it is placed one line late | `tests/commonmark_oracle.py:89` | open | executed: 5 of 18 shapes wrong at HEAD; `[NBSP, "    >", "x <? a", "b ?>", "", "text"]` gives `disagreements` `[(4, 'live', True)]`. The unit is round 1's `New units` row, which round 2's fix edited, so it is the branch's; the run ends here, so its home is the orchestrator's ladder |
-| ⬜ 2 | Ledger row R1-1 says the count reads a block quote's `>` on every line, which finding 1 shows false | `seal/ledger/1790659274-the-walk-leaves-every-inline-html-construct-uncertain.md` | open | a correction to the run's records; the row is REMOVED if finding 1's fix deletes its anchor |
+| 🟡 1 | A `>` four columns in, or behind a tab, on a paragraph's later line is lazy-continuation text the parser keeps; `_behind_markers` reads it as a quote marker, and every inline HTML line after it is placed one line late | `tests/commonmark_oracle.py:89` | deferred #677 | #677 — The run is capped. The oracle's hand-read markers misread a third shape; #677 replaces `_behind_markers` with the parser's own dropped-line count in this release, after this lands; executed: 5 of 18 shapes wrong at HEAD; `[NBSP, "    >", "x <? a", "b ?>", "", "text"]` gives `disagreements` `[(4, 'live', True)]`. The unit is round 1's `New units` row, which round 2's fix edited, so it is the branch's; the run ends here, so its home is the orchestrator's ladder |
+| ⬜ 2 | Ledger row R1-1 says the count reads a block quote's `>` on every line, which finding 1 shows false | `seal/ledger/1790659274-the-walk-leaves-every-inline-html-construct-uncertain.md` | deferred #677 | #677 — R1-1 is REMOVED with the helper when #677 lands; a correction to the run's records; the row is REMOVED if finding 1's fix deletes its anchor |
 | 🟢 | round 2's finding 1 is closed — a bullet or a number on a paragraph's later line is text again | `tests/commonmark_oracle.py:92` | confirmed | executed: a later-line `*` in a list item right; removing the guard fails the two new rows alone, and moving it before the quote branch fails the quote row alone |
 | 🟢 | round 2's finding 2 is closed — every branch round 2 named has a row that goes red without it | `tests/test_the_hooks_hide_what_a_renderer_hides.py:127` | confirmed | executed: five mutants, each exit 1, each failing its own row |
 | 🟢 | The oracle is still independent of the walk | `tests/commonmark_oracle.py:50` | confirmed | executed: the import case is green at HEAD and with finding 1's fix |
