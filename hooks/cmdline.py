@@ -1702,6 +1702,12 @@ def walk_directories(items, cwd):
     # declaration in the target never answers for `cd <B> || git commit`.
     states, parked, walked, env = [(cwd, None)], [], [], {}
     named = []
+    # Whether every segment before this one was a `cd`. Only then is the
+    # filesystem `_enters` read the one this `cd` meets: the hook runs before
+    # the whole command, and an earlier segment can move, remove or lock the
+    # target first -- `mv W X ; cd W ; git commit` commits where it started
+    # (round 2's 🟡 2, contract §13). A `cd` changes no directory's contents.
+    settled = True
     stack, defined = [], set()
     for index, (joined, tokens) in enumerate(items):
         following = items[index + 1][0] if index + 1 < len(items) else ""
@@ -1774,7 +1780,7 @@ def walk_directories(items, cwd):
             # A `cd` to a missing directory keeps both, which is #72's case,
             # and so does a shell the reader could not name: after `alias
             # cd=…` the unnamed shell is the only sign it could not follow.
-            if target is not None:
+            if target is not None and settled:
                 cannot_fail = [
                     not isinstance(failed[i][0], Unresolved) and _enters(moved[i][0])
                     for i in range(len(failed))
@@ -1784,6 +1790,7 @@ def walk_directories(items, cwd):
                 )
                 failed = [failed[i] for i in range(len(failed)) if not cannot_fail[i]]
             parked = _dedup(parked + list(failed))
+        settled = settled and target is not None
 
         carried = list(moved)
         # A subshell on either side leaves the parent shell where it was. The
