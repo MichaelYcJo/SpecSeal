@@ -906,7 +906,7 @@ def test_a_rider_the_hasher_cuts_is_read(rel, text):
     blocks = riders.load_blocks()
     places = riders.gfm_places(blocks.gfm_lines, text)
     gfm = blocks.gfm_lines(text)
-    read = sorted(places[r.start - 1][0] for r in riders.riders_in(rel, text))
+    read = sorted(places[r.start - 1] for r in riders.riders_in(rel, text))
     cut = sorted(
         n
         for a, b in riders.comment_blocks(gfm, rel)
