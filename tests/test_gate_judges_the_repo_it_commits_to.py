@@ -304,6 +304,29 @@ def test_a_cd_into_a_directory_that_cannot_be_entered_keeps_both(tmp_path):
         b.chmod(0o700)
 
 
+def test_a_cd_whose_target_an_earlier_segment_may_change_keeps_both(tmp_path):
+    """Round 2's 🟡 2 (contract §13). The hook reads the filesystem before
+    the command runs, so a segment before the `cd` can move, remove or lock
+    its target first: a real bash given `mv d e ; cd d ; pwd` printed the
+    directory it started in. The existing directory is trusted only when
+    every segment before the `cd` is itself a `cd`. Seen red at `02e47435`,
+    where `mv` and `chmod` read silent."""
+    here = make_repo(tmp_path / "session", opted_in=True)
+    there = make_repo(tmp_path / "declared", opted_in=True)
+    declare_routing(there)
+    moved = tmp_path / "moved"
+    for n, before in enumerate(
+        (f"mv {sh(there)} {sh(moved)}", f"chmod 000 {sh(there)}", "make")
+    ):
+        for m, sep in enumerate((" ;", "\n")):
+            command = f"{before}{sep} cd {sh(there)}{sep} git commit -m x"
+            assert fired(run(command, here, session=f"m-{n}-{m}")), repr(command)
+    # A `cd` changes no directory's contents, so a `cd` before it keeps the
+    # trust.
+    command = f"cd {sh(tmp_path)} ; cd {sh(there)}\ngit commit -m x"
+    assert decision_of(run(command, here, session="m-cd")) == "silent", command
+
+
 def test_a_cd_that_cannot_fail_still_waits_for_an_or_and_counts_to_the_cap(tmp_path):
     """The failure of a `cd` into a directory that is there is kept for a
     `||`, which names that branch, and it counts toward the reader's state
@@ -459,41 +482,76 @@ def test_a_body_a_shell_may_run_is_still_read_as_shell(tmp_path):
         assert fired(run(command, here, session=f"s-{n}")), consumer
 
 
+RUN_STDIN = "import subprocess,sys; subprocess.run(sys.stdin.read(), shell=True)"
+
+
+def test_a_body_read_to_the_end_of_its_command_is_still_shell(tmp_path):
+    """Round 2's 🔴 1. #665's consumer is the whole line, not the text before
+    its `<<`: a program flag or a script after the redirect, a flag bundled
+    with another, and a `$(…)`, `${…;…}` or `>&` before the interpreter's
+    name all leave a body that a shell runs. Four of these ran as shell in a
+    real bash. Seen red at `02e47435`, where they read silent."""
+    here = make_repo(tmp_path / "opted-in", opted_in=True)
+    heads = (
+        f"python3 <<'EOF' -c '{RUN_STDIN}'",
+        f"python3 -Bc'{RUN_STDIN}' <<'EOF'",
+        "perl <<'EOF' -e 'system(join(\"\",<STDIN>))'",
+        "python3 <<'EOF' run.py",
+        "sh -s $(true) python3 <<'EOF'",
+        "sh -s ${x:-;X=} python3 - <<'EOF'",
+        "sh -s >&python3 <<'EOF'",
+    )
+    for n, head in enumerate(heads):
+        command = f"{head}\ngit commit -m x\nEOF"
+        assert fired(run(command, here, session=f"r-{n}")), head
+
+
 def test_the_program_a_heredoc_feeds_is_named_by_its_consumer():
-    """The predicate `shell_bodies` applies: which commands read their
-    PROGRAM from stdin as something other than shell."""
+    """The predicate `shell_bodies` applies to the whole line a `<<` stands
+    on. Data is one exact shape: a known interpreter with nothing, or only
+    `-`, as its program source, then the `<<` and its word and nothing else,
+    in a line whose only punctuation is `&&`, `||`, `;` and `|`. Every other
+    token anywhere in it reads as shell."""
     data = (
-        "python3 -",
-        " python3 - ",
-        "python3",
-        "/usr/bin/python3.12 -u -",
-        "python3 - arg",
-        "PYTHONPATH=x python3 -",
-        "node",
-        "node -",
-        "ruby",
-        "perl -",
+        "python3 - <<'EOF'",
+        " python3 - <<EOF ",
+        "python3 <<EOF",
+        "/usr/bin/python3.12 - <<EOF",
+        "node <<EOF",
+        "node - <<EOF",
+        "ruby <<EOF",
+        "perl - <<EOF",
+        "cd /x && python3 - <<'EOF'",
+        "cd '/x y' && python3 - <<EOF",
+        "echo hi | python3 - <<EOF",
+        "python3 - <<'EOF' # a comment",
     )
     shell = (
-        "bash",
-        "sh -s",
-        "python3 -c 'x'",
-        "python3 -m pkg",
-        "python3 run.py",
-        "node -e x",
-        "node --eval x",
-        "node --eval=x",
-        "python3 -cprint(1)",
-        "perl -e x",
-        "ruby -e x",
-        "ssh host",
-        "xargs",
-        "env python3 -",
-        "pythonic -",
-        "python3 'unclosed",
+        "bash <<EOF",
+        "sh -s <<EOF",
+        "python3 -c 'x' <<EOF",
+        "python3 -u - <<EOF",
+        "python3 run.py <<EOF",
+        "python3 - arg <<EOF",
+        "PYTHONPATH=x python3 - <<EOF",
+        "python3 <<EOF -c x",
+        "python3 <<EOF run.py",
+        "python3 - <<EOF 2>&1",
+        "python3 - 2>&1 <<EOF",
+        "python3 - <<EOF > out",
+        "python3 -Bc x <<EOF",
+        "sh -s $(true) python3 <<EOF",
+        "sh -s ${x:-;X=} python3 - <<EOF",
+        "sh -s >&python3 <<EOF",
+        "a=`x` python3 - <<EOF",
+        "(python3 - <<EOF",
+        "sleep 1 & python3 - <<EOF",
+        "python3 - <<A && python3 - <<B",
+        "env python3 - <<EOF",
+        "pythonic - <<EOF",
+        "python3 'unclosed <<EOF",
+        "python3 -",
         "",
-        "X=1",
-        "=x python3 -",
     )
     for consumer in data:
         assert reader.program_is_data(consumer), consumer
@@ -501,11 +559,11 @@ def test_the_program_a_heredoc_feeds_is_named_by_its_consumer():
         assert not reader.program_is_data(consumer), consumer
 
 
-def test_each_body_is_paired_with_the_command_it_is_fed_to():
-    """The consumer of a body is the command its `<<` stands in, read from
-    the last `;`, `&`, `|`, newline or parenthesis outside quotes. A
-    `python3 -` body after `cd X &&` is data, and a `bash` body on the next
-    line is still shell."""
+def test_each_body_is_paired_with_the_line_it_is_fed_from():
+    """A body's consumer is the whole line its `<<` stands on. A `python3 -`
+    body after `cd X &&` or a pipe is data; a `bash` body, one inside a
+    subshell, one behind a program flag and one after a background job are
+    shell."""
     command = (
         "cd /x && python3 - <<'EOF'\nA\nEOF\n"
         "bash <<'EOF'\nB\nEOF\n"
@@ -515,7 +573,7 @@ def test_each_body_is_paired_with_the_command_it_is_fed_to():
         "sleep 1 & perl - <<'EOF'\nF\nEOF"
     )
     assert reader.heredoc_bodies(command) == ["A", "B", "C", "D", "E", "F"]
-    assert reader.shell_bodies(command) == ["B", "E"]
+    assert reader.shell_bodies(command) == ["B", "D", "E", "F"]
 
 
 def test_a_relative_cd_composes_against_the_directory_the_shell_is_in(tmp_path):

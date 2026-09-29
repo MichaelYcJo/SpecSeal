@@ -314,48 +314,58 @@ def heredoc_bodies(command: str) -> list:
 # not on this list is read as shell, which is the asking side: a shell, `ssh`,
 # `xargs`, and anything this reader has not been told about.
 DATA_INTERPRETERS = ("python", "node", "ruby", "perl")
-# Flags that take the program from somewhere other than stdin -- `python -c`,
-# `-m`, `node -e`/`-p`, `ruby -e`, `perl -e`/`-E` -- after which stdin is input
-# to that program, which may hand it to a shell.
-ELSEWHERE_FLAGS = ("-c", "-m", "-e", "-E", "-p", "--eval", "--print")
+# The only punctuation a line may carry, beside its one `<<`, for the body
+# fed from it to be data.
+SEPARATORS = ("&&", "||", ";", "|")
 
 
-def program_is_data(consumer):
-    """True when `consumer`, the command a heredoc is fed to, is a known
-    non-shell interpreter reading its PROGRAM from stdin -- `python3 -`,
-    `node`, `perl -` -- so the body is that program and not shell (#665).
+def program_is_data(line):
+    """True when `line`, the whole line a heredoc's `<<` stands on, feeds the
+    body to a known non-shell interpreter reading its PROGRAM from stdin, so
+    the body is that program and not shell (#665).
 
-    Everything else is False: a shell (`bash`, `sh`, `zsh`), `ssh`, `xargs`,
-    an interpreter given a script file or a `-c`/`-e` program (stdin is then
-    input to a program that may run it as shell), a command this cannot
-    tokenise, and a name not in `DATA_INTERPRETERS`. What this opens is
+    One exact shape is data, and nothing near it: the command holding the
+    `<<` is a name in `DATA_INTERPRETERS` (a path and a version suffix
+    allowed), then nothing or only `-`, then the `<<` and its word, and
+    nothing after. The line holds that one `<<`, no `$` or backtick, and no
+    punctuation but `&&`, `||`, `;` and `|`. Every other token anywhere reads
+    as shell: a flag or a script before or after the redirect (`python3
+    <<EOF -c …` runs `-c`, and stdin is then input to a program that may run
+    it as shell), an assignment, a second redirect, a subshell, a
+    background job, and a line this cannot tokenise.
+
+    It used to read only the text before the `<<`, back to the last
+    separator, and round 2 found a shell-run body read as data four ways:
+    words after the redirect, a bundled flag (`-Bc`), and a `$(…)`, `${…;…}`
+    or `>&` that moved the separator. Reading the whole line against one
+    shape closes the class rather than those four. What this opens is
     already open: `python3 - <<EOF` calling `subprocess.run(["git",
     "commit", ...])` never read as a commit to anybody, and contract §8
     recommends exactly that form for a probe."""
     try:
-        tokens = shlex.split(consumer)
+        lexer = shlex.shlex(line, posix=True, punctuation_chars=True)
+        lexer.whitespace_split = True
+        tokens = list(lexer)
     except ValueError:
         return False
-    while tokens and _is_assignment(tokens[0]):
-        tokens.pop(0)
-    if not tokens:
+    if tokens.count("<<") != 1 or any("$" in t or "`" in t for t in tokens):
         return False
-    name = os.path.basename(tokens[0]).rstrip("0123456789.")
-    if name not in DATA_INTERPRETERS:
+    punctuation = [t for t in tokens if not t.strip("();<>|&")]
+    if any(t != "<<" and t not in SEPARATORS for t in punctuation):
         return False
-    for token in tokens[1:]:
-        if token == "-":
-            return True
-        if token.startswith(ELSEWHERE_FLAGS) or not token.startswith("-"):
-            return False
-    return True
-
-
-def _is_assignment(token):
-    """`NAME=value` in command position, which the shell reads as an
-    assignment and not as the command."""
-    name, eq, _value = token.partition("=")
-    return bool(eq) and name.isidentifier()
+    command = []
+    for token in tokens:
+        if token in SEPARATORS:
+            if "<<" in command:
+                break
+            command = []
+        else:
+            command.append(token)
+    if len(command) < 3 or command[-2] != "<<":
+        return False
+    head = command[:-2]
+    name = os.path.basename(head[0]).rstrip("0123456789.")
+    return name in DATA_INTERPRETERS and head[1:] in ([], ["-"])
 
 
 def shell_bodies(command: str) -> list:
@@ -371,11 +381,14 @@ def shell_bodies(command: str) -> list:
 
 def _heredoc_split(command: str):
     """(stripped, bodies, consumers) -- `drop_heredoc_bodies`, `heredoc_bodies`
-    and `shell_bodies` share one pass. `consumers[k]` is the text of the
-    command `bodies[k]` is fed to: from the last `;`, `&`, `|`, newline or
-    parenthesis outside quotes and comments, up to its `<<`."""
+    and `shell_bodies` share one pass. `consumers[k]` is the whole line the
+    `<<` of `bodies[k]` stands on, from the newline before it to the newline
+    that starts the body, with any earlier body on it removed. The whole line
+    rather than the text before the `<<`: a flag after the redirect is the
+    consumer's too (round 2's 🔴 1), and `program_is_data` judges the line
+    against one exact shape."""
     out, i, n = [], 0, len(command)
-    bodies, consumers, seg_start = [], [], 0
+    bodies, consumers, line_start = [], [], 0
     quote, esc, comment, word_start, pending = None, False, False, True, []
     # How deep inside a `${…}` parameter expansion this is. The `((` below is
     # arithmetic everywhere except in here, where it is text the expansion
@@ -551,17 +564,18 @@ def _heredoc_split(command: str):
                 j += 1
             delim, j = _heredoc_word(command, j)
             if delim:
-                pending.append((delim, dashed, "".join(out[seg_start:])))
+                pending.append((delim, dashed))
                 out.append(command[i:j])
                 word_start = False
                 i = j
                 continue
         if ch == "\n":
+            opener_line = "".join(out[line_start:])
             out.append(ch)
-            seg_start = len(out)
+            line_start = len(out)
             i += 1
             comment, word_start = False, True
-            for delim, dashed, consumer in pending:
+            for delim, dashed in pending:
                 body_lines = []
                 while i < n:
                     end = command.find("\n", i)
@@ -571,12 +585,10 @@ def _heredoc_split(command: str):
                         break
                     body_lines.append(line.rstrip("\r"))
                 bodies.append("\n".join(body_lines))
-                consumers.append(consumer)
+                consumers.append(opener_line)
             pending = []
             continue
         out.append(ch)
-        if not comment and ch in ";&|()":
-            seg_start = len(out)
         comment = comment and ch != "\n"
         word_start = ch in WORD_BREAK
         i += 1
