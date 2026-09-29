@@ -144,6 +144,20 @@ CHOICE_DIR = "specseal-commit-choice"
 
 
 def _hides_a_commit(text):
+    """`_reads_a_commit`, and True for a body nested deeper than it recurses.
+
+    A body this process cannot finish reading might commit, the way an `eval`
+    argument it cannot expand might (round 2 of 1790644505). Answering here,
+    at the depth that overflowed, keeps every invocation already found; a
+    `RecursionError` caught in `main` discarded them all.
+    """
+    try:
+        return _reads_a_commit(text)
+    except RecursionError:
+        return True
+
+
+def _reads_a_commit(text):
     """True when TEXT, read as commands, might invoke `git commit`.
 
     Only called where the shell really does execute TEXT as commands — a
@@ -1181,10 +1195,10 @@ def main():
     try:
         invocations, clean = commit_invocations(command, cwd)
     except RecursionError:
-        # Nested deeper than the reader recurses (`$(` five hundred deep).
-        # Read as a command that could not be parsed, which stops wherever it
-        # mentions a commit; raising would reach `dispatch.py` as silence
-        # (round 1 of 1790644505, yellow 2).
+        # A backstop for an overflow outside `_hides_a_commit`, which answers
+        # at the depth that overflowed and keeps what was found (round 2 of
+        # 1790644505). Raising would reach `dispatch.py` as silence, so an
+        # overflow here reads as a command that could not be parsed.
         invocations, clean = [], False
     # A command the splitter could not finish may commit in the part it did
     # not read, and the base judged the session's own directory for that
