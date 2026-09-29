@@ -30,14 +30,14 @@ repository code and has been deleted. The executed confirmations are rows in
 Session `ab2760f5-ebe2-4d22-80a0-dc951c2921de`, the milestone-49 run. The
 orchestrator's working directory is the main checkout, on `release/v0.16.0`,
 which no declaration names. Each `ask` below is the commit gate's
-`hook_success` stdout carrying `"permissionDecision": "ask"`.
+`hook_success` stdout carrying `"permissionDecision": "ask"` (NAME NOT IN TREE: a transcript entry's type).
 
 | When (UTC) | Who | Tool use | Command shape | The stop |
 |---|---|---|---|---|
-| 2026-09-28 23:39:12 | D's smith (`subagents/agent-aad05d6b045f15f09.jsonl`) | `toolu_01EUoEQqbPzSmjBCvQ8JG6k3` | `cd <W> && python3 - <<'EOF'` (a Python edit of `changelog.md`) `EOF`, then `git add … && git commit …` on the next line | review arm, naming the main checkout |
-| 23:42:24 | D's smith | `toolu_01QC6Go1smDn7UMzs9UBi8Pb` | `cd <W> && grep -c … ; git add … && git commit …`, with no heredoc at all | review arm, naming the main checkout |
-| 23:42:48 | the orchestrator (main transcript) | `toolu_017FSVs2ETf3NqWGCgWe7DPx` | `cat > <scratch>/issue-newline-cd.md <<'EOF'`. The issue draft quoted a heredoc whose own `EOF` line ended the outer one early, so `git add … && git commit -q -m "…"` became a real command line | review arm, naming the main checkout |
-| 23:57:48 | D's smith | `toolu_01Jkofbs4FBjv7C4Lop7LsFz` | `cd <W> && python3 - <<'EOF'`, a Python patch of `hooks/cmdline.py` whose body holds a `for` loop and test strings carrying `git commit` | `UNREADABLE_CONSTRUCT` |
+| 2026-09-28 23:39:12 | D's smith (`subagents/agent-aad05d6b045f15f09.jsonl`) | `toolu_01EUoEQqbPzSmjBCvQ8JG6k3` (NAME NOT IN TREE: a transcript id) | `cd <W> && python3 - <<'EOF'` (a Python edit of `changelog.md`) `EOF`, then `git add … && git commit …` on the next line | review arm, naming the main checkout |
+| 23:42:24 | D's smith | `toolu_01QC6Go1smDn7UMzs9UBi8Pb` (NAME NOT IN TREE: a transcript id) | `cd <W> && grep -c … ; git add … && git commit …`, with no heredoc at all | review arm, naming the main checkout |
+| 23:42:48 | the orchestrator (main transcript) | `toolu_017FSVs2ETf3NqWGCgWe7DPx` (NAME NOT IN TREE: a transcript id) | `cat > <scratch>/issue-newline-cd.md <<'EOF'`. The issue draft quoted a heredoc whose own `EOF` line ended the outer one early, so `git add … && git commit -q -m "…"` became a real command line | review arm, naming the main checkout |
+| 23:57:48 | D's smith | `toolu_01Jkofbs4FBjv7C4Lop7LsFz` (NAME NOT IN TREE: a transcript id) | `cd <W> && python3 - <<'EOF'`, a Python patch of `hooks/cmdline.py` whose body holds a `for` loop and test strings carrying `git commit` | `UNREADABLE_CONSTRUCT` |
 
 The person's own message at 23:58:07 quotes the last of these back to the
 session.
