@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #675 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `81a770bb23a10f31f05ea84e8e9c6e5bc8c69184..0fd554dd8d3665161c791046e2bcda2a17135612`, 4 commits |
+| Contract changes | none |
+| New units | test_a_rider_the_hasher_cuts_is_read (depth 1); test_reverify_keeps_a_crlf_or_cr_file_byte_for_byte (depth 1) |
 | Needs a fix | yes — 🟡 1 (a rider behind a comment on its GFM line is cut by the hasher and read by nobody), 🟡 2 (`write_block` writes a CRLF file back as LF) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 2, verifying, over round 1's fix diff `7bfea5f4..21b871ef` at HEAD `7c3391
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A rider behind a comment on its GFM line, or behind a second rider on that line, is cut by the hasher and stepped over by the reader, so its stamp is compared by nobody and the run reads clean | `.github/scripts/rider_check.py:331` | open | `check()` on a `.py` fixture: base 1 drifted, head 0 drifted and 0 problems. The `.yml` and `.md` shapes are read at base and unread at head, while the hasher cuts each. The fix reads all three, and the controls stay stepped over |
-| 🟡 2 | `write_block` reads and writes in the default newline mode, so a CRLF or lone-CR file comes back LF throughout, while the fix's comment says each piece keeps its end | `.github/scripts/rider_check.py:584` | open | `reverify` probe: CRLF 6 to 0, lone CR 6 to 0. With `newline=""` on both opens every byte is kept, and the planted case is red with the read reverted |
-| ⬜ 3 | Ledger row G15 and the changelog fragment say a CRLF rider keeps its CR | `seal/ledger/1790655302-every-reader-ends-a-line-where-gfm-does.md:23` | open | False at `21b871ef` by the probe under 🟡 2. True once 🟡 2's fix lands and G15 is re-read. A correction to the run's paperwork, not a fix |
+| 🟡 1 | A rider behind a comment on its GFM line, or behind a second rider on that line, is cut by the hasher and stepped over by the reader, so its stamp is compared by nobody and the run reads clean | `.github/scripts/rider_check.py:331` | **fixed** `ee6215be` | fixed at ee6215be — `comment_blocks` steps over a mid-line marker piece only where `comment_blocks` over the GFM lines does not cut that line; the three shapes of `test_a_rider_the_hasher_cuts_is_read` fail with `rider_check.py` at `7c339169`; `check()` on a `.py` fixture: base 1 drifted, head 0 drifted and 0 problems. The `.yml` and `.md` shapes are read at base and unread at head, while the hasher cuts each. The fix reads all three, and the controls stay stepped over |
+| 🟡 2 | `write_block` reads and writes in the default newline mode, so a CRLF or lone-CR file comes back LF throughout, while the fix's comment says each piece keeps its end | `.github/scripts/rider_check.py:584` | **fixed** `ee6215be` | fixed at ee6215be — `write_block` opens the file with `newline=""` both ways; with `f3a50e72` the CRLF and CR cases compare bytes, and both fail with `rider_check.py` at `7c339169`; `reverify` probe: CRLF 6 to 0, lone CR 6 to 0. With `newline=""` on both opens every byte is kept, and the planted case is red with the read reverted |
+| ⬜ 3 | Ledger row G15 and the changelog fragment say a CRLF rider keeps its CR | `seal/ledger/1790655302-every-reader-ends-a-line-where-gfm-does.md:23` | answered | G15 re-read after 🟡 2's fix and true since it, G13 corrected, and the changelog fragment says a CRLF rider keeps its CR since the fix, at `3148ba70`. A correction to the run's paperwork, not a fix; False at `21b871ef` by the probe under 🟡 2. True once 🟡 2's fix lands and G15 is re-read. A correction to the run's paperwork, not a fix |
 | 🟢 | round 1's finding 1 is closed — a rider behind leading whitespace, the eight breaks included, is read again | `.github/scripts/rider_check.py:261` | confirmed | 16 new cases red at `7bfea5f4`. The 576-prefix differential agrees. The same class through a comment prefix is this round's finding 1 |
 | 🟢 | round 1's finding 2 is closed — the `between` slice is pinned | `.github/scripts/rider_check.py:704` | confirmed | The mutant reverting `between` fails the new case |
 | 🟢 | round 1's finding 3 is closed — a form feed or U+2028 inside a rider is written back as it stood | `.github/scripts/rider_check.py:592` | confirmed | The new case is red at `7bfea5f4`. The last-line case is red against a mutant. CRLF is this round's finding 2 |
