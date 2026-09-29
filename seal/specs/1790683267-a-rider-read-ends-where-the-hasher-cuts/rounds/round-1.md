@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #683 — https://github.com/MichaelYcJo/SpecSeal/pull/683 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `91f0c949b99e1a47ad69dc7c928b405d39ba6f1c..c6ac02b339375e6cd17bb152db0fdb1c500d939c`, 5 commits |
+| Contract changes | Rider → riders_in, round-3-report.md, round-3.md |
+| New units | test_a_rider_is_printed_at_the_line_an_editor_shows (depth 1) |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,11 +29,11 @@ Round 1 over the build range `f7b7d247..0abe93a7` at HEAD `0abe93a7`, against `3
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | `comment_blocks`' docstring says a mid-line marker piece is a rider exactly where its GFM line opens a comment; a line continuing an HTML comment an earlier block left open is read too | `.github/scripts/rider_check.py:307` | open | executed: the continuation probe reads the piece after the break as a rider at HEAD, and the hasher cuts that line; the behaviour is right, the sentence is narrower |
-| ⬜ 2 | G13's first clause, this item's `Re-read` note on G13 ("holds as written") and P5-1's #682 correction ("nowhere else") state the same narrower rule | `seal/ledger/1790655302-every-reader-ends-a-line-where-gfm-does.md` G13; `seal/ledger/1790645290-the-hooks-and-the-rider-check-read-fences-and-comments-by-one-rule.md` P5-1 | open | a correction to paperwork, outside `Needs a fix`; the same counterexample as ⬜ 1, at HEAD and at the base; K1 states the exact rule |
-| ⬜ 3 | `region_lines`' "No TEXT" comment explains an argument `comment_blocks` no longer takes | `.github/scripts/rider_check.py:476` | open | read; S2 already takes this item's `Re-read` note, so a re-stamp is the whole cost |
-| ⬜ 4 | the rider's oracle case drives `quoted_lines(lines, text)`, which no shipped caller uses; the reader's GFM-lines path has no oracle case | `tests/test_the_hooks_hide_what_a_renderer_hides.py:753` | open | executed: the reader's path through the same oracle and corpus, 6,066 documents, 5,183 with a break, never leaves both readings |
-| ⬜ 5 | `Rider.where` prints the `str.splitlines` piece number, which runs ahead of the GFM line below one of the eight characters | `.github/scripts/rider_check.py:374` | open | read; older than #664 and outside this item's class; see Deferred |
+| ⬜ 1 | `comment_blocks`' docstring says a mid-line marker piece is a rider exactly where its GFM line opens a comment; a line continuing an HTML comment an earlier block left open is read too | `.github/scripts/rider_check.py:307` | answered | `89a8419f` — `comment_blocks`' docstring carries the report's paragraph: a mid-line marker piece is a rider wherever its GFM line lies inside a block this returns, a line continuing an HTML comment an earlier block left open included; no code changed; executed: the continuation probe reads the piece after the break as a rider at HEAD, and the hasher cuts that line; the behaviour is right, the sentence is narrower |
+| ⬜ 2 | G13's first clause, this item's `Re-read` note on G13 ("holds as written") and P5-1's #682 correction ("nowhere else") state the same narrower rule | `seal/ledger/1790655302-every-reader-ends-a-line-where-gfm-does.md` G13; `seal/ledger/1790645290-the-hooks-and-the-rider-check-read-fences-and-comments-by-one-rule.md` P5-1 | answered | `d0f0103f` — G13 and P5-1 each carry the report's `Corrected 2026-09-29` note after this item's own correction; a correction to paperwork, outside `Needs a fix`; the same counterexample as ⬜ 1, at HEAD and at the base; K1 states the exact rule |
+| ⬜ 3 | `region_lines`' "No TEXT" comment explains an argument `comment_blocks` no longer takes | `.github/scripts/rider_check.py:476` | answered | `89a8419f` — `region_lines`' comment says the blocks it cuts are the blocks the reader reads; `overview.md`'s sentence about the comment corrected, S2 re-stamped; read; S2 already takes this item's `Re-read` note, so a re-stamp is the whole cost |
+| ⬜ 4 | the rider's oracle case drives `quoted_lines(lines, text)`, which no shipped caller uses; the reader's GFM-lines path has no oracle case | `tests/test_the_hooks_hide_what_a_renderer_hides.py:753` | **fixed** `e1177056` | fixed at e1177056 — `test_the_rider_check_never_leaves_both_readings` gains the reader's half, `quoted_lines` over GFM lines mapped to pieces by `gfm_places`; red on 273 documents under a mutant making `gfm_places` return piece numbers; executed: the reader's path through the same oracle and corpus, 6,066 documents, 5,183 with a break, never leaves both readings |
+| ⬜ 5 | `Rider.where` prints the `str.splitlines` piece number, which runs ahead of the GFM line below one of the eight characters | `.github/scripts/rider_check.py:374` | **fixed** `bda0e0ba` | fixed at bda0e0ba — a `Rider` carries its first piece's GFM line and `Rider.where` prints it; `start` and `end` stay piece numbers; `test_a_rider_is_printed_at_the_line_an_editor_shows` pins the check, `--migrate` and `--reverify` lines, and the verdict case now compares the location; 8 of 8 and 16 of 16 red at `91f0c949`; read; older than #664 and outside this item's class; see Deferred |
 | 🟢 | K1 holds: every piece of every rider read lies in one block the hasher returns, and every marker piece in a cut block starts exactly one rider | `.github/scripts/rider_check.py:377` | confirmed | executed: 120,000 generated texts, 0 at HEAD against 20,154 at the base; end to end on 6,971 texts, 0 drifted after `reverify` at HEAD against 8 at the base |
 | 🟢 | nothing changes for a text without the eight characters | `.github/scripts/rider_check.py:377` | confirmed | executed: 64,482 generated texts and the 25 tree files, identical riders; `inferred_anchor` identical on 43,145 riders; the tree reads `18 ok · 0 drifted · 0 broken` with either script |
 | 🟢 | the removed text path and the second value of `gfm_places` had no other reader | `.github/scripts/rider_check.py:236` | confirmed | read: every call site in the tree; executed: the three rider modules pass |
