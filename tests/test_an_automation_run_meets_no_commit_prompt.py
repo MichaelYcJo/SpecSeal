@@ -217,11 +217,15 @@ def test_the_refusal_names_the_ways_on_that_need_nobody(
         order = [
             "pressed `automation` on the routing question",
             "so this gate puts no question to them",
+            "The ways on, none of which needs a person:",
             "`git -C <absolute path> commit …` in a command of its own",
             "joined to the commit by `&&` alone",
             "because a failed `cd` leaves the shell there",
             "goes through the `Edit` tool, and a new file through the `Write` tool",
+            "Neither leaves a command line for this gate to read.",
             "Only for a commit that belongs to no work item",
+            ": '[no-review]'; <the same command>",
+            "the marker is a pathspec and git rejects the command",
             "hand it back",
             "Re-issuing this command unchanged meets this same refusal.",
         ]
@@ -294,6 +298,51 @@ def test_without_the_press_the_answer_is_the_bases(
     path.unlink()
     path.mkdir()
     assert sequence(monkeypatch, capsys, repo, PLAIN) == reference, "a directory"
+
+
+def test_a_reader_that_raises_or_did_not_load_is_no_press(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """S6, contract §13. `hooks/dispatch.py` skips a gate that raises, and a
+    skipped gate is silence, so the reader failing must land on the base's
+    answer rather than on nothing. Seen red with the guard around the reader
+    removed."""
+    repo = make_repo(tmp_path / "repo")
+    press(projects, repo)
+    reference = sequence(monkeypatch, capsys, repo, PLAIN)
+
+    def raises(*_args, **_kwargs):
+        raise RuntimeError("a transcript shape nobody measured")
+
+    with monkeypatch.context() as m:
+        m.setattr(worktree_consent, "automation_answered", raises)
+        assert sequence(monkeypatch, capsys, repo, PRESSED) == reference
+    with monkeypatch.context() as m:
+        m.setattr(gate, "worktree_consent", None)
+        assert sequence(monkeypatch, capsys, repo, PRESSED) == reference
+
+
+def test_the_press_is_read_only_once_a_stop_is_decided(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """The transcript scan is paid on a stop and never on a command the gate
+    lets through. Seen red by reading the press before the declaration."""
+    session = make_repo(tmp_path / "session")
+    w = make_repo(tmp_path / "w", declared=True)
+    press(projects, session)
+    calls = []
+    real = worktree_consent.automation_answered
+
+    def counted(*args, **kwargs):
+        calls.append(args)
+        return real(*args, **kwargs)
+
+    monkeypatch.setattr(worktree_consent, "automation_answered", counted)
+    for command in ("git status", f"git -C {q(w)} commit -m x", "echo git commit"):
+        assert say(monkeypatch, capsys, command, session)[0] == "silent", command
+    assert calls == []
+    assert say(monkeypatch, capsys, "git commit -m x", session)[0] == "deny"
+    assert len(calls) == 1
 
 
 def test_a_session_with_no_id_still_asks(monkeypatch, capsys, projects, tmp_path):
