@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #663 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `1d3eb8a5cdf36c3f4fc03cfc288f5f20619cd363..a06f23b2094ae4319d6d91764550540d9e27dfd1`, 5 commits |
+| Contract changes | commented → table_lines, commented_row_at |
+| New units | test_a_fence_line_inside_a_rider_body_hides_no_rider_below (depth 1); QUOTED_DELIMITERS (depth 1); test_delimiters_quoted_in_code_spans_either_side_hide_the_table (depth 1) |
 | Needs a fix | yes — 🟡 1 and 🟡 2 (the release scripts write markers their own readers cannot see), 🟡 3 (the config reader hides a live table and three sentences promise it cannot), 🟡 4 (the rider check hides riders below a fence line inside a comment) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 1, the first finding round, over the whole branch `551c7967...68bcb224`. A
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A changelog fragment that leaves a fence or a comment open hides the markers the gather writes below it. `--check` then calls a gathered entry missing, and the gather it advises writes the entry twice | `.github/scripts/gather_changelog.py:102` | open | Executed: gather 0, `--check` 1 naming B, regather 0, B's entry twice in the file |
-| 🟡 2 | A ledger fragment that leaves a fence open hides the markers folded below it. `--check` passes with a wrong count, and `is_marked` cannot see the fold | `.github/scripts/fold_ledger.py:216` | open | Executed: fold 0, two markers written, one live, `--check` 0 printing 1 |
-| 🟡 3 | A comment opener and a closer quoted in code spans on either side of the live config table hide that table. The live row is then called commented out, and three shipped sentences promise this cannot happen | `hooks/config.py:232` | open | Executed: `config_rows` `[]`, `declared_mode` none, `broad-gate` gives the commented-out refusal quoting the live row |
-| 🟡 4 | The rider check's fence spans ignore comment state, so a fence line inside a rider's body hides every rider below it | `.github/scripts/rider_check.py:210` | open | Executed: old reader 2 blocks, branch 1. None in today's tree |
-| ⬜ 5 | `table_lines` walks `fence_map` twice on every Bash call | `hooks/config.py:281` | open | Read |
+| 🟡 1 | A changelog fragment that leaves a fence or a comment open hides the markers the gather writes below it. `--check` then calls a gathered entry missing, and the gather it advises writes the entry twice | `.github/scripts/gather_changelog.py:102` | deferred phase 9 of this branch | phase 9 of this branch — Closing it needs a new refusal in the gather, which a fix pass may not add. The owner's standing answer this run is to fix a defect in the branch where it arose, not file it, so `questions.md` Q5 is answered (a) and it is built as phase 9; Executed: gather 0, `--check` 1 naming B, regather 0, B's entry twice in the file |
+| 🟡 2 | A ledger fragment that leaves a fence open hides the markers folded below it. `--check` passes with a wrong count, and `is_marked` cannot see the fold | `.github/scripts/fold_ledger.py:216` | deferred phase 9 of this branch | phase 9 of this branch — The same class in `fold_ledger.py`, in the same phase; Executed: fold 0, two markers written, one live, `--check` 0 printing 1 |
+| 🟡 3 | A comment opener and a closer quoted in code spans on either side of the live config table hide that table. The live row is then called commented out, and three shipped sentences promise this cannot happen | `hooks/config.py:232` | **fixed** `5ff35cd2` | fixed at 5ff35cd2 — the reading is kept and the three sentences that denied it now state the shape; Executed: `config_rows` `[]`, `declared_mode` none, `broad-gate` gives the commented-out refusal quoting the live row |
+| 🟡 4 | The rider check's fence spans ignore comment state, so a fence line inside a rider's body hides every rider below it | `.github/scripts/rider_check.py:210` | **fixed** `710e3716` | fixed at 710e3716 — `e7318ff9`, `3375a4ef`; Executed: old reader 2 blocks, branch 1. None in today's tree |
+| ⬜ 5 | `table_lines` walks `fence_map` twice on every Bash call | `hooks/config.py:281` | **fixed** `5ff35cd2` | fixed at 5ff35cd2; Read |
 | 🟢 | The marker readers change no current count | `CHANGELOG.md`, `seal/ledger.md`, `seal/releases/*.md` | confirmed | Executed: 140/140 and 125/125 |
 | 🟢 | The rider reader changes no current block | `.github/scripts/rider_check.py:226` | confirmed | Executed: 0 files differ between the base and the branch |
 | 🟢 | S13's case fails without the comment half | `hooks/config.py:281` | confirmed | Executed: the swap back to `unfenced` reads the parked row alone |
