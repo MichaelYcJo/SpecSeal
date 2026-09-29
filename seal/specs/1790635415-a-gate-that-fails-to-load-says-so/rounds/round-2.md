@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #660 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `93d67a5b7d5676d604aac85cda9f69ad37f8f060..7fc359c2e088e4a224cfafdd9c89d130648080cd`, 8 commits |
+| Contract changes | program_is_data → shell_bodies, round-2-report.md, pytest |
+| New units | SEPARATORS (depth 1); test_a_deny_beside_a_message_that_is_not_text_still_denies (depth 1); test_a_cd_whose_target_an_earlier_segment_may_change_keeps_both (depth 1); RUN_STDIN (depth 1); test_a_body_read_to_the_end_of_its_command_is_still_shell (depth 1); test_each_body_is_paired_with_the_line_it_is_fed_from (depth 1) |
 | Needs a fix | yes — 🔴 1 (a shell-run heredoc body reads as data), 🟡 2 (a cd whose target an earlier segment moves is trusted), 🟡 3 (a deny beside a non-text message is dropped) |
 | Loses a record or crashes | yes — 🔴 1 and 🟡 2 each read a real commit silent, which the gate judged at e8e5f977 |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 2, two jobs. Verifying: round 1's fixes, `d89f8392..fa556996`. Finding: ph
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A heredoc body that a shell runs reads as data, and its commit silent, when a program flag or script follows the `<<`, a program flag is bundled, or a `$(…)`, `${…;…}` or `>&` precedes the interpreter's name | `hooks/cmdline.py#program_is_data`, `hooks/cmdline.py#_heredoc_split` | open | Executed: five shapes deny at `e8e5f977` and silent at `02e47435`, and four were run in a real bash, where the body ran as shell. Contradicts the rule #665 states and G7 |
-| 🟡 2 | A `cd` whose target an earlier segment moves or locks is trusted not to fail, so the session's directory, where the commit runs, is not judged | `hooks/cmdline.py#walk_directories`, `hooks/cmdline.py#_enters` | open | Executed: `mv` and `chmod` shapes deny at `e8e5f977` and silent at `02e47435`, and a real bash stayed where it started. Contract §13 |
-| 🟡 3 | `readable` drops a deny carrying a non-text `systemMessage`, which the decision path never reads, and a falsy `hookSpecificOutput` the old code read as absent | `hooks/dispatch.py#readable` | open | Executed: `merge` kept the deny at `1ea0b7c2~1` and prints nothing at `02e47435`. No gate prints the shape today, which was read |
+| 🔴 1 | A heredoc body that a shell runs reads as data, and its commit silent, when a program flag or script follows the `<<`, a program flag is bundled, or a `$(…)`, `${…;…}` or `>&` precedes the interpreter's name | `hooks/cmdline.py#program_is_data`, `hooks/cmdline.py#_heredoc_split` | **fixed** `3b63ab3b` | fixed at 3b63ab3b — pinned in `9b18117f`, and the quoted-separator neighbours the pass found in `37974ee1`: a heredoc body is data only for one exact line shape, a known interpreter then nothing or `-`, then `<<` and its delimiter word, with nothing after and no other `<<` or backslash on the line. Every other token reads as shell; Executed: five shapes deny at `e8e5f977` and silent at `02e47435`, and four were run in a real bash, where the body ran as shell. Contradicts the rule #665 states and G7 |
+| 🟡 2 | A `cd` whose target an earlier segment moves or locks is trusted not to fail, so the session's directory, where the commit runs, is not judged | `hooks/cmdline.py#walk_directories`, `hooks/cmdline.py#_enters` | **fixed** `7a25430b` | fixed at 7a25430b — an existing `cd` target is trusted only when every earlier segment is a `cd`; Executed: `mv` and `chmod` shapes deny at `e8e5f977` and silent at `02e47435`, and a real bash stayed where it started. Contract §13 |
+| 🟡 3 | `readable` drops a deny carrying a non-text `systemMessage`, which the decision path never reads, and a falsy `hookSpecificOutput` the old code read as absent | `hooks/dispatch.py#readable` | **fixed** `920109d0` | fixed at 920109d0 — `readable` reads only the fields the merge path reads, so a deny beside a non-text message stays a deny; Executed: `merge` kept the deny at `1ea0b7c2~1` and prints nothing at `02e47435`. No gate prints the shape today, which was read |
 | 🟢 | round 1's yellow finding 1 is closed — a load failure names every group that loads the gate, a run failure its own | `hooks/dispatch.py#describe` | confirmed | Executed: the new case fails with `d89f8392`'s dispatcher and passes at `02e47435`; the code was read |
 | 🟢 | round 1's yellow finding 2 is closed — no hook says a raising hook is skipped silently | `hooks/ledger-migrate.py`, `hooks/routing.py#rounds`, `hooks/root-migrate.py#git_mv` | confirmed | Read, and a `git grep` for the old phrasings found none |
 | 🟢 | round 1's white finding 3 is closed — the cost comment names the linked worktree and the repository not opted in | `hooks/dispatch.py#record` | confirmed | Read |
