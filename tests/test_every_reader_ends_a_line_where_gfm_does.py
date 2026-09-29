@@ -882,3 +882,60 @@ def test_reverify_leaves_a_last_rider_line_with_no_end_without_one(tmp_path):
     assert len(written) == 1 and refused == []
     after = path.read_text(encoding="utf-8")
     assert not after.endswith("\n") and after.count("\n") == 1
+
+
+@pytest.mark.parametrize(
+    "rel, text",
+    [
+        ("mod.yml", f"a: 1\n# note{FF}# {'RIDER:'} about a. {STAMP}\nb: 2\n"),
+        (
+            "mod.yml",
+            f"a: 1\n# {'RIDER:'} about a. {STAMP}{FF}# {'RIDER:'} about b. {STAMP}\n",
+        ),
+        ("doc.md", f"x\n<!-- a -->{LS}{RIDER_MARK} about a. {STAMP} -->\ny\n"),
+    ],
+    ids=["comment-then-break", "two-riders-one-line", "html-then-break"],
+)
+def test_a_rider_the_hasher_cuts_is_read(rel, text):
+    """Round 2, 🟡 1. `region_lines` cuts a GFM line that opens a comment
+    whole, whatever follows a break inside it, so every marker piece on that
+    line is a rider to the reader too, or its stamp is compared by nobody.
+    The characters are built from their code points."""
+    riders = _load("specseal_riders_cut", RIDERS)
+    blocks = riders.load_blocks()
+    places = riders.gfm_places(blocks.gfm_lines, text)
+    gfm = blocks.gfm_lines(text)
+    read = sorted(places[r.start - 1][0] for r in riders.riders_in(rel, text))
+    cut = sorted(
+        n
+        for a, b in riders.comment_blocks(gfm, rel)
+        for n in range(a, b + 1)
+        for _ in range(gfm[n - 1].count(riders.MARKER))
+    )
+    assert cut and read == cut
+
+
+@pytest.mark.parametrize("end", ["\r\n", "\r"], ids=["CRLF", "CR"])
+def test_reverify_keeps_a_crlf_or_cr_file_byte_for_byte(tmp_path, end):
+    """Round 2, 🟡 2. `write_block` opened the file in the default newline
+    mode, so the read turned every CRLF and lone CR into LF and the whole
+    file came back LF."""
+    riders = _load("specseal_riders_crlf", RIDERS)
+    (tmp_path / "hooks").mkdir()
+    path = tmp_path / "hooks" / "mod.py"
+    lines = [
+        "def g():",
+        "    return 1",
+        "",
+        "",
+        f"# {'RIDER:'} about x. Verified 2026-01-01 against x@deadbeef",
+        "x = 1",
+    ]
+    path.write_bytes("".join(line + end for line in lines).encode("utf-8"))
+    written, refused = riders.reverify(
+        str(tmp_path), roots=("hooks",), today="2026-09-29"
+    )
+    assert len(written) == 1 and refused == []
+    after = path.read_bytes()
+    assert after.count(end.encode()) == 6
+    assert after.replace(end.encode(), b"").count(b"\n") == 0

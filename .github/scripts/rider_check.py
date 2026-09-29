@@ -308,13 +308,16 @@ def comment_blocks(lines, rel=None, text=None):
     passes none.
 
     **A marker line that starts inside a GFM line, after something other
-    than whitespace, opens no rider**, in any file type (#664, F's round 3,
-    🟡 3). It follows a break `str.splitlines` makes and GFM and `ast` do
-    not, so `region_lines`, which cuts blocks out
-    of GFM lines, never cut it: the rider's own stamp was hashed into the
-    region it names, and no `--reverify` could make it read ok. Such a line
-    is stepped over the way a quoted one is. Only TEXT can say which lines
-    those are, so `region_lines`, which passes none, has none to step over.
+    than whitespace, opens no rider unless that GFM line opens a comment**,
+    in any file type (#664, F's round 3, 🟡 3). It follows a break
+    `str.splitlines` makes and GFM and `ast` do not, so `region_lines`, which
+    cuts blocks out of GFM lines, never cut it: the rider's own stamp was
+    hashed into the region it names, and no `--reverify` could make it read
+    ok. Such a line is stepped over the way a quoted one is. Where the GFM
+    line does open a comment, `region_lines` cuts it whole, so the reader
+    reads every marker piece on it (#664 round 2). Only TEXT can say which
+    lines those are, so `region_lines`, which passes none, has none to step
+    over.
     """
     global _blocks
     out = []
@@ -328,7 +331,21 @@ def comment_blocks(lines, rel=None, text=None):
         if _blocks is None:
             _blocks = load_blocks()
         places = gfm_places(_blocks.gfm_lines, text)
-        quoted = quoted | {k for k, (_n, head) in enumerate(places) if not head}
+        # Stepped over only where `region_lines` does not cut the GFM line
+        # either. A GFM line that opens a comment is cut whole, so a rider
+        # behind `# note` and a form feed, or behind a second rider on the
+        # same line, is the hasher's: stepping over it left its stamp
+        # compared by nobody (round 2 of #664, 🟡 1).
+        cut = {
+            number
+            for a, b in comment_blocks(_blocks.gfm_lines(text), rel)
+            for number in range(a, b + 1)
+        }
+        quoted = quoted | {
+            k
+            for k, (number, head) in enumerate(places)
+            if not head and number not in cut
+        }
     # `#` opens a comment in Python, YAML, shell and TOML. In markdown it opens
     # a HEADING, so a heading naming the marker became a rider with no stamp --
     # BROKEN at exit 2 for a line nobody wrote as a rider. Markdown's rider
@@ -581,7 +598,10 @@ def restamp(body, date, locator, digest):
 
 def write_block(root, rider, body):
     path = os.path.join(root, rider.rel)
-    with open(path, encoding="utf-8") as f:
+    # `newline=""` both ways: the default translates CRLF and a lone CR to LF
+    # on the read, so a CRLF file came back LF throughout, and on a CRLF
+    # platform the write turned every LF into CRLF (round 2 of #664, 🟡 2).
+    with open(path, encoding="utf-8", newline="") as f:
         lines = f.read().splitlines(True)
     # Each piece keeps the end it had, a last one with none keeping none.
     # BODY is the pieces joined with LF, and writing every piece back with
@@ -593,7 +613,7 @@ def write_block(root, rider, body):
     replacement = [
         piece + end for piece, end in zip(body.split("\n"), ends, strict=True)
     ]
-    with open(path, "w", encoding="utf-8") as f:
+    with open(path, "w", encoding="utf-8", newline="") as f:
         f.write("".join(lines[: rider.start - 1] + replacement + lines[rider.end :]))
 
 
