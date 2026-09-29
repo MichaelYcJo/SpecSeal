@@ -523,7 +523,7 @@ def test_a_vendored_copy_skips_a_fenced_example_too(proj, tmp_path):
 
 def test_the_vendored_fence_rule_agrees_with_the_shared_one():
     """The vendored pair is a second copy of `unverified_check.py`'s
-    delimiter rule, kept for the one reason `hooks/config.py#FENCE` keeps its
+    delimiter rule, kept for the one reason `hooks/blocks.py#FENCE` keeps its
     own: the copy cannot load the reader. This holds the two in step over the
     shape table the config reader's agreement case walks, opener and closer
     alike."""

@@ -105,6 +105,9 @@ HOOK_PURPOSES = {
     "config.py": "it is what reads the root's config.md, whose Mode row this "
     "command keeps",
     "optin.py": "it is what finds the repository's seal/ root",
+    # `config.py` imports it, so a `hooks/` without it fails that import.
+    "blocks.py": "it is the walk config.py reads config.md through, which "
+    "tells a live row from one quoted in a fence or parked in a comment",
 }
 
 

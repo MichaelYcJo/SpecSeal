@@ -90,6 +90,14 @@ CASES = [
         "it is what reads the root's config.md",
         "reads and writes",
     ),
+    # #667: `hooks/config.py` imports `hooks/blocks.py`, the walk the three
+    # hook-path readers share, so a `hooks/` without it fails that import.
+    (
+        "skills/implement/scripts/seal.py",
+        ["mode", "--check"],
+        "it is the walk config.py reads config.md through",
+        None,
+    ),
     (
         "skills/verify/scripts/payload_meter.py",
         ["--root", "{root}", "--calibrate", "{root}/main.jsonl"],
@@ -157,3 +165,40 @@ def test_a_script_copied_alone_exits_2_and_names_what_it_misses(
     )
     if absent:
         assert absent not in done.stderr, done.stderr
+
+
+# The hook-path readers that import `hooks/blocks.py` (#667), with the
+# siblings each needs besides it. They are modules, not scripts: a
+# `PreToolUse` hook imports them, and `hooks/dispatch.py` skips a gate that
+# raises where a hook that exited 2 would deny every Bash call. So a copy
+# without the walk raises one `ImportError` whose sentence names the path and
+# what the file is for -- the sentence a script that loads it prints.
+HOOK_READERS = [("config.py", [])]
+
+
+@pytest.mark.parametrize(
+    "name, siblings", HOOK_READERS, ids=[n for n, _ in HOOK_READERS]
+)
+def test_a_hook_reader_copied_without_the_walk_names_it(tmp_path, name, siblings):
+    alone = tmp_path / "hooks"
+    alone.mkdir()
+    for file in (name, *siblings):
+        with open(os.path.join(ROOT, "hooks", file), encoding="utf-8") as f:
+            (alone / file).write_text(f.read(), encoding="utf-8")
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            f"import sys; sys.path.insert(0, {str(alone)!r}); import {name[:-3]}",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert done.returncode != 0, done.stderr
+    last = done.stderr.strip().splitlines()[-1]
+    assert last.startswith("ImportError: cannot read "), last
+    assert names_path(os.path.join(str(alone), "blocks.py"), last), last
+    assert "tells a live row from one quoted in a fence or parked in a comment" in (
+        last
+    ), last

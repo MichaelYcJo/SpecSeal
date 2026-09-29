@@ -63,12 +63,21 @@ def parser():
 _PARSER = parser()
 
 
-def _comment_lines(inline):
-    """Lines of `inline`'s source that begin inside an HTML comment in it."""
+def _comment_lines(inline, lines):
+    """Lines of `inline`'s source that begin inside an HTML comment in it.
+
+    The inline source is the paragraph's lines joined, with Python's
+    `str.strip` applied to the whole by the parser. That strip also takes a
+    line holding only a no-break space or another Unicode space, which
+    CommonMark reads as paragraph text, so the lines it dropped from the top
+    are counted back before an offset is turned into a line.
+    """
     out = set()
     if not inline.map or not inline.children:
         return out
     first = inline.map[0]
+    while first < inline.map[1] - 1 and not lines[first].lstrip(" >").strip():
+        first += 1
     src = inline.content
     starts = [0] + [n + 1 for n, ch in enumerate(src) if ch == "\n"]
     for child in inline.children:
@@ -98,7 +107,7 @@ def hidden(lines):
             for index in range(token.map[0], min(token.map[1], count)):
                 out.setdefault(index, kind)
         elif token.type == "inline":
-            for index in _comment_lines(token):
+            for index in _comment_lines(token, lines):
                 if index < count:
                     out.setdefault(index, COMMENT)
     return out

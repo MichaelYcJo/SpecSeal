@@ -35,6 +35,28 @@ is not an answer somebody gave.
 
 import os
 import re
+import sys
+
+# `hooks/blocks.py` is a sibling, found by this file's own directory, so the
+# callers that load this module by path -- `broad_gate.py#load`, `seal.py` --
+# find it too. `hooks/routing.py` reaches `optin.py` the same way.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+try:
+    import blocks
+except ImportError as missing:
+    # A sentence rather than a bare `ModuleNotFoundError`, and an exception
+    # rather than an exit: this module is imported by `PreToolUse` hooks, and
+    # `hooks/dispatch.py` skips a gate that raises, where a hook that exited 2
+    # would deny every Bash call. A script that loads this file by path says
+    # the sentence and stops (`skills/implement/scripts/seal.py#HOOK_PURPOSES`).
+    raise ImportError(
+        "cannot read "
+        + os.path.join(os.path.dirname(os.path.abspath(__file__)), "blocks.py")
+        + ", and it is the walk this reader reads config.md through, which "
+        "tells a live row from one quoted in a fence or parked in a comment. "
+        "This file ships beside it under `hooks/`; a copy of one taken on its "
+        "own is not a plugin"
+    ) from missing
 
 CONFIG = "config.md"
 ROW_ITEM = "Mode"
@@ -88,7 +110,10 @@ CONFIG_SEPARATOR = re.compile(r"^\|[\s:|-]+\|$")
 # is exactly the text somebody would paste into `config.md` to document the
 # format. A rule that knew three backticks only would read the inner fence as
 # the outer one's close and leave the live table inside a fence.
-FENCE = re.compile(r"^ {0,3}(?P<run>`{3,}|~{3,})(?P<info>.*)$")
+#
+# The pattern lives in `hooks/blocks.py` since #667, which the routing reader
+# and the rider check read as well; this name is that one.
+FENCE = blocks.FENCE
 
 # The one escape this reader undoes, spelled as the two characters it is.
 ESCAPED_PIPE = "\\|"

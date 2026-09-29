@@ -28,6 +28,10 @@ from block_shapes import CLOSE, OPEN, RENDERER, SHAPES
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# Spelled by its code point, so no line of this file carries the character
+# itself for a reader to mistake for a space.
+NBSP = chr(0xA0)
+
 
 # --- the oracle is independent, and it says what the frame read -------------
 
@@ -109,3 +113,191 @@ def test_the_oracle_names_each_kind_it_hides(lines, hidden):
     module can see what "a renderer hides" means before any reader is held
     to it."""
     assert oracle.hidden(lines) == hidden
+
+
+# --- the corpus: the frame's shapes, the old cases, and a generated set -----
+
+# `tests/test_unverified_rows_close.py#FENCE_SHAPES`, the delimiter rule's own
+# shapes, and 1790635413's `COMMENT_SHAPES` at `4edc5de6`: every line of each
+# is a place a reading of fences or comments has had to be right.
+COMMENT_SHAPES = [
+    [OPEN, "| a | b |", CLOSE, "| c | d |"],
+    [OPEN + " x", "| a | b |"],
+    [OPEN + " one line " + CLOSE, "| a | b |"],
+    ["| a |", OPEN, "| b |", CLOSE, OPEN, "| c |"],
+    ["```", OPEN, "```", "| a |", CLOSE],
+    [OPEN, "```", CLOSE, "```", "| a |"],
+    [OPEN + "\r", "| a |\r", CLOSE + "\r", "| b |\r"],
+    [f"text `{OPEN}` more", "| a |", f"`{CLOSE}`", "| b |"],
+    [f"a note quoting `{OPEN}`", "```", "| a |", "```", "| b |"],
+    [f"{OPEN} a note with `{CLOSE}` in it", "| a |", CLOSE, "| b |"],
+    [f"a lone ` then {OPEN} x", "| a |", CLOSE, "| b |"],
+    [f"{OPEN} a {CLOSE} {OPEN} b", "| x |", "c " + CLOSE, "| y |"],
+    [OPEN, OPEN + " nested", CLOSE, "| a |", CLOSE],
+    [OPEN, "| a |", f"{CLOSE} {OPEN}", "| b |"],
+    ["<!-->", "| a |", CLOSE, "| b |"],
+    ["a note " + OPEN + " never closed", "| a |", "```", "| b |", "```", "| c |"],
+]
+
+# Lines the generated documents are drawn from. Each is here because it is a
+# delimiter, a container, or a context `hooks/blocks.py` calls uncertain, and
+# a context the walk is ever made exact for has to be in this list first: the
+# property is only as good as what the corpus can hold.
+ALPHABET = [
+    "",
+    "text",
+    "| a | b |",
+    "|---|---|",
+    "```",
+    "````",
+    "~~~",
+    "```python",
+    "``` `x`",
+    "```\t",
+    "   ```",
+    "    ```",
+    "\t```",
+    OPEN,
+    OPEN + " x",
+    "x " + OPEN,
+    "x " + OPEN + " y " + CLOSE,
+    CLOSE,
+    "x " + CLOSE,
+    CLOSE + " x " + OPEN,
+    OPEN + " a " + CLOSE,
+    "<!-->",
+    "<!---->",
+    "   " + OPEN,
+    "    " + OPEN,
+    "`" + OPEN + "`",
+    "`",
+    "a lone ` then " + OPEN,
+    "- item",
+    "- ```",
+    "- " + OPEN,
+    "  ```",
+    "  | a |",
+    "1. ```",
+    "> quote",
+    "> ```",
+    "> " + OPEN,
+    "    code",
+    "<div>",
+    "</div>",
+    "<br>",
+    "<https://example.com>",
+    "<pre>",
+    "</pre>",
+    "# heading",
+    "---",
+    "~~~~ x",
+    # A no-break space: CommonMark counts neither it as a blank line nor it
+    # after a closing run as a space, and Python's `str.strip` counts both.
+    NBSP,
+    "``` " + NBSP,
+    "~~~" + NBSP,
+    "text " + OPEN + " a " + CLOSE + " b " + OPEN,
+    CLOSE + OPEN,
+    OPEN + "--->",
+    "`````",
+    "```~",
+    "~~~ ~",
+    "<?php",
+    "<!DOCTYPE html>",
+    "<script>",
+    "</script>",
+    "* item",
+    "10) ```",
+    "> a " + OPEN,
+    "| x " + OPEN + " |",
+    "[ref]: <x>",
+]
+
+# The lines above that stand at the top level and start no block the walk
+# does not follow. A document drawn from these alone is one the walk claims
+# most of, which is where half 2 has something to check; a document drawn
+# from the whole alphabet reaches the uncertain contexts too.
+TOP_LEVEL = [
+    line
+    for line in ALPHABET
+    if not line.startswith((" ", "\t", "-", "*", "1", ">"))
+    and not (line.startswith("<") and not line.startswith(OPEN))
+]
+
+# The frame's Q7. Seeded, so a red is reproducible by its seed. Measured on
+# 2026-09-29, one core, on the macOS machine phase 2 ran on: 20,000 documents
+# of up to 24 lines took about 1.1 s for the oracle and the walk together,
+# and 60 seeds of 20,000 found no disagreement (phase 2's record). 6,000 of up
+# to 16 lines keeps each property case near a third of a second; raising
+# CORPUS_SIZE is how a local run looks further.
+SEED = 667
+CORPUS_SIZE = 6000
+
+
+def generated(size=CORPUS_SIZE, seed=SEED):
+    """`size` documents of one to sixteen lines, the same ones on every run:
+    half drawn from the top-level lines, half from the whole alphabet."""
+    import random
+
+    rng = random.Random(seed)
+    docs = []
+    for number in range(size):
+        pool = TOP_LEVEL if number % 2 else ALPHABET
+        lines = [rng.choice(pool) for _ in range(rng.randint(1, 16))]
+        if rng.random() < 0.1:
+            lines = [line + "\r" for line in lines]
+        docs.append(lines)
+    return docs
+
+
+CORPUS = (
+    [SHAPES[name] for name in sorted(SHAPES)]
+    + [list(lines) for lines in COMMENT_SHAPES]
+    + generated()
+)
+
+
+def load_hook(filename):
+    from conftest import load_hook_module
+
+    return load_hook_module(filename, "specseal_" + filename[:-3] + "_for_the_oracle")
+
+
+blocks = load_hook("blocks.py")
+
+
+def disagreements(lines):
+    """Lines the walk calls exact and classes otherwise than the oracle."""
+    found = blocks.walk(lines)
+    renderer = oracle.hidden_lines(lines)
+    return [
+        (index, found.kinds[index], index in renderer)
+        for index in range(len(lines))
+        if not found.uncertain[index]
+        and (found.kinds[index] != blocks.LIVE) != (index in renderer)
+    ]
+
+
+def test_where_the_walk_claims_to_be_exact_it_is():
+    """Half 2, S2. On every line `hooks/blocks.py` does not call uncertain,
+    over the shapes, the old cases and the generated corpus, the walk hides
+    a line exactly where the oracle hides it. Without this half a reader that
+    did nothing would pass half 1."""
+    wrong = [(lines, bad) for lines in CORPUS if (bad := disagreements(lines))]
+    assert not wrong, f"{len(wrong)} documents, the first: {wrong[0]}"
+
+
+def test_the_walk_is_exact_somewhere():
+    """The half above is empty if everything is uncertain. On the frame's
+    shapes the walk claims every line but where a construct never closes or
+    a mid-line opener leaves a paragraph open, and it hides the constructs the
+    renderer hides."""
+    for name in ("C2", "C5", "C6", "R1", "R2", "R4", "R5", "R9", "K1", "K5", "K7"):
+        found = blocks.walk(SHAPES[name])
+        assert not any(found.uncertain), name
+        assert set(found.hidden()) == RENDERER[name], name
+    claimed = sum(
+        1 for lines in CORPUS for flag in blocks.walk(lines).uncertain if not flag
+    )
+    total = sum(len(lines) for lines in CORPUS)
+    assert claimed > total // 3, (claimed, total)

@@ -240,7 +240,7 @@ def fence_opener(line):
 
     The readers below ask these two functions rather than a pattern of their
     own, because five spellings of this rule is what five readers had. **It
-    is not every fence walk in the repository.** `hooks/config.py#FENCE` is a
+    is not every fence walk in the repository.** `hooks/blocks.py#FENCE` is a
     deliberate copy, below. `payload_meter.py#FENCE`,
     `.github/scripts/fold_ledger.py#demote`,
     `.github/scripts/close_issues_on_release.py`,
@@ -266,10 +266,15 @@ def fence_opener(line):
     reviewer of one has this docstring to check it against — nothing else
     can reach a reader that does not exist yet.
 
-    `hooks/config.py#FENCE` is a deliberate copy: it runs on the
-    hook path, where loading a skill module would cost every hook call.
+    `hooks/blocks.py#FENCE`, with its `fence_opener` and `fence_closes`, is
+    a deliberate copy: it runs on the hook path, where loading a skill module
+    would cost every hook call. It is the delimiter half of the one walk the
+    three hook-path readers share -- `hooks/config.py`, `hooks/routing.py#
+    table_rows` and `.github/scripts/rider_check.py#comment_blocks` -- which
+    adds a line-start HTML comment block to the fence (#667); `hooks/config.py#
+    FENCE` is that pattern under its old name.
     `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
-    holds the two in step, shape by shape.
+    holds the copy to this rule, shape by shape.
     """
     m = FENCE_RE.match(line.rstrip("\r\n"))
     if not m:
