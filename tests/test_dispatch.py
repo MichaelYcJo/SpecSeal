@@ -272,3 +272,35 @@ def test_a_commit_with_a_malformed_ledger_row_is_told_so(repo):
     assert "1 malformed Code grounds text " in out, out
     assert "does not parse" not in out.splitlines()[0], out
     assert out.count("--reverify") == 1, out
+
+
+def test_a_commit_with_a_ledger_row_wider_than_its_header_is_told_so(repo):
+    """A10 of #585. The commit that wrote a stray `|` into a ledger cell is
+    the one that should hear it, and `failing_rows` dropped every verdict it
+    did not name. The row's coordinate is a line, so the block names the
+    ledger beside it. Seen red against phase 1's advisor: nothing printed."""
+    (repo / "app.py").write_text(
+        "def handler(x):\n    return x + 1\n", encoding="utf-8"
+    )
+    (repo / "seal" / "ledger").mkdir(parents=True)
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        "# frag\n\n"
+        "| CLAUSE | `app.py#handler@00000000` | ran `a | b` | 2026-09-29 | n |\n",
+        encoding="utf-8",
+    )
+    out = run_dispatch("post-bash", payload("git commit -m x", repo))
+    assert (
+        "evidence-check: 1 ledger row wider than its header — the text past "
+        "its last column is in no column" in out
+    ), out
+    rows = [ln for ln in out.splitlines() if ln.lstrip().startswith("OVERFLOW")]
+    assert len(rows) == 1, out
+    # Only the path is normalised: the remedy carries a backslash of its own,
+    # which a `replace(os.sep, "/")` over the whole line turns into `/|` on
+    # Windows (CI's windows leg at 4a0ac81e).
+    path, _, rest = rows[0].partition(" line 3  ")
+    assert path.replace(os.sep, "/") == "  OVERFLOW  seal/ledger/f.md", rows[0]
+    assert rest.startswith("6 cells and no header"), rows[0]
+    assert "write it as `\\|`" in rest, rows[0]
+    # Drift is still dropped: the placeholder hash drifts, and says nothing.
+    assert "DRIFTED" not in out, out
