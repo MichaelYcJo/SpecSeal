@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #676 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `c0d9045b953dee6a50f2ca9638528a9dc29fffd9..c041b5edb8fdf837ce81f43a2b30b20815b7170b`, 2 commits |
+| Contract changes | none |
+| New units | _behind_markers (depth 1) |
 | Needs a fix | yes — 🟡 1 (the oracle's line count behind a list marker) and 🟡 2 (three readings of `leaves_html_open` no case pins) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 1, the first finding round, over the work item's own diff `3fc0c5bd...7a6f
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The oracle counts inline HTML lines one line too early in a list item whose first line holds only a Unicode space, because its count of stripped lines skips a `>` and not a list marker | `tests/commonmark_oracle.py:96` | open | executed: `["- " + NBSP, "x <? a", "b ?>", "c"]` gives `{1: ...}` where a renderer hides line 2; all 12 fuzz disagreements are this shape, and 0 remain with the fix |
-| 🟡 2 | Three readings the spec states are pinned by no case: the closer after the opener, `<?>` not closing, and a `>` inside a single-quoted value | `hooks/blocks.py:231` | open | executed: mutants m1, m2 and m3 each pass both modules (exit 0) and each reads `[("Mode", "shared")]` on its shape; HEAD reads `[]` |
-| ⬜ 3 | Asking every tag opener scans to the tag's end once per opener, and `walk_text` asks again for every piece | `hooks/blocks.py:233` | open | executed: 0.17 s, 0.70 s and 3.1 s at 10,001, 20,001 and 40,001 characters |
+| 🟡 1 | The oracle counts inline HTML lines one line too early in a list item whose first line holds only a Unicode space, because its count of stripped lines skips a `>` and not a list marker | `tests/commonmark_oracle.py:96` | **fixed** `7095f343` | fixed at 7095f343 — the oracle's line count reads past list and quote markers (`_behind_markers`), pinned by four rows; executed: `["- " + NBSP, "x <? a", "b ?>", "c"]` gives `{1: ...}` where a renderer hides line 2; all 12 fuzz disagreements are this shape, and 0 remain with the fix |
+| 🟡 2 | Three readings the spec states are pinned by no case: the closer after the opener, `<?>` not closing, and a `>` inside a single-quoted value | `hooks/blocks.py:231` | **fixed** `7095f343` | fixed at 7095f343 — S4 pins the closer searched after the opener, `<?>` not closing, and a `>` inside a single-quoted value; executed: mutants m1, m2 and m3 each pass both modules (exit 0) and each reads `[("Mode", "shared")]` on its shape; HEAD reads `[]` |
+| ⬜ 3 | Asking every tag opener scans to the tag's end once per opener, and `walk_text` asks again for every piece | `hooks/blocks.py:233` | answered | Measured over every tracked `.md`: 583 files in 0.158 s at HEAD against 0.133 s at the base, the slowest 7.6 ms; the quadratic shape exists in no file any reader opens, and bounding it would add mechanism; executed: 0.17 s, 0.70 s and 3.1 s at 10,001, 20,001 and 40,001 characters |
 | 🟢 | The widening only adds uncertainty, and no claimed line is inside inline HTML | `hooks/blocks.py:213` | confirmed | read: pending is a superset of the base's per line; executed: 0 half-2 and 0 half-1 failures over 240,000 documents with 🟡 1's fix |
 | 🟢 | Every opener asked, where the spec said left to right | `hooks/blocks.py:213` | confirmed | read against `html_re.py`, and executed by the fuzz |
 | 🟢 | The rider case's region half is restored byte for byte | `tests/test_a_rider_reaches_its_file.py#test_a_break_commonmark_does_not_honour_quotes_no_rider` | confirmed | read: `8b1492aa^` lines 601-603 |
