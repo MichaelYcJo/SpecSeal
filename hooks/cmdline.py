@@ -1395,7 +1395,7 @@ def command_word(tokens, stand_in="git"):
         toks[i] in UNPLACED
         or toks[i].endswith(")")
         or (i + 1 < len(toks) and toks[i + 1] == "()")
-        or (after_runner and os.path.basename(toks[i]) != stand_in)
+        or (after_runner and os.path.basename(toks[i]) != "git")
     ):
         # A pattern (`a)`), a definition (`f()`, `f ()`), a word in
         # `UNPLACED`, or a runner's own option or operand: no position names
