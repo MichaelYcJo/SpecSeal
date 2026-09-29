@@ -59,3 +59,7 @@
   inside a string** (#664). The record used to split into two halves that
   each failed to parse, so the blocking prompt named an earlier message of
   the conversation it protects.
+- **`rider_check.py --reverify` and `--migrate` write a rider back with the
+  line ends it had** (#664). A form feed or U+2028 inside a rider used to
+  come back as a line break, and a CRLF rider came back as LF. A rider
+  behind a form feed or U+2028 at the start of its line is still read.
