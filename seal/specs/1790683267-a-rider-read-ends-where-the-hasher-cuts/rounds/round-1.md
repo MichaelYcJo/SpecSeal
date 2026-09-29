@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #683 — https://github.com/MichaelYcJo/SpecSeal/pull/683 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `91f0c949b99e1a47ad69dc7c928b405d39ba6f1c..c6ac02b339375e6cd17bb152db0fdb1c500d939c`, 5 commits |
 | Contract changes | Rider → riders_in, round-3-report.md, round-3.md |
 | New units | test_a_rider_is_printed_at_the_line_an_editor_shows (depth 1) |
