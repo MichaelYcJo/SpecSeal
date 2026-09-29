@@ -182,6 +182,13 @@ ALPHABET = [
     "> ```",
     "> " + OPEN,
     "    code",
+    # An indented code block inside a container, whose line starts with the
+    # container's marker, and indentation counted with a tab in it.
+    ">     code",
+    "-     code",
+    "1.     code",
+    "  \tcode",
+    "\tcode",
     "<div>",
     "</div>",
     "<br>",

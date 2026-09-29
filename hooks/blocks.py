@@ -55,7 +55,10 @@ it cannot be exact there:
   - from a construct that never closes, to the end of the file, for its live
     answers (above);
   - the paragraph lines after a mid-line `<!--` (above);
-  - a line of a block quote, and a line indented four columns or more.
+  - a line behind a container's marker (`>`, a bullet, a number), a line
+    indented four columns or more, and a blank line after either: any of
+    them may be part of an indented code block, and `-     code` is one
+    whose indentation only the marker's column decides.
 
 `tests/test_the_hooks_hide_what_a_renderer_hides.py` holds this to a
 CommonMark parser that shares nothing with it: on every line the walk does
@@ -90,7 +93,6 @@ BLOCK_LOOKING = re.compile(r"`{3,}|~{3,}|<")
 # Another kind of HTML block (CommonMark 4.6, types 1 and 3 to 7), at the top
 # level. A comment block's own `<!--` is told apart before this is asked.
 OTHER_HTML = re.compile(r"<[A-Za-z/?!]")
-BLOCKQUOTE = re.compile(r"^ {0,3}>")
 
 
 def fence_opener(line):
@@ -278,8 +280,12 @@ def walk(lines):
                     pending = leaves_open(line[line.index(CLOSER) + len(CLOSER) :])
             elif leaves_open(line):
                 pending = True
-            indented = columns(line) >= 4
-            if BLOCKQUOTE.match(line) or indented:
+            # A line behind a container's marker -- `>`, a bullet, a number
+            # -- may hold an indented code block the marker's own column
+            # decides (`-     code`), and a line indented four columns or
+            # more may be one. Neither is claimed, nor a blank line after it.
+            indented = bool(prefix.strip(" \t")) or columns(line) >= 4
+            if indented:
                 uncertain[index] = True
         index += 1
 
