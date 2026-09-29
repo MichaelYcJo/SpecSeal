@@ -168,6 +168,19 @@ the guard's behaviour before the answer was read:
    ` -`, so an option labelled `automation (Recommended)` counts.
 4. **The same clone**: the result entry's own `cwd` resolves to the same common
    git directory as the creation's repository.
+5. **The last answer stands**: of every answer to the routing question from
+   that clone, the latest is the one read. A session that pressed `automation`
+   for one work item and answered `per axis` or `no work item` for a later one
+   has, on its latest answer, a person who may be asked, so the press is taken
+   back: the commit gate goes back to deny-then-ask, and this guard asks
+   again while no creation has run. A later press gives it back, and an
+   answer to any other question changes nothing. **A record already written
+   stands**: it is read first, and a creation that ran under the press was
+   consented to, so a later answer does not take it back and does not bring
+   the question back for that clone. This is the commit gate's round 1
+   finding (work item 1790644505, yellow 5), with the record's half settled
+   by the repository owner in round 2; it moves the guard in the asking
+   direction only.
 
 A `per axis` answer is not read, even with its first box ticked: in every
 measured instance the box label had been reworded or translated, so a rule
@@ -258,8 +271,10 @@ reads past, a leading assignment — is a creation and meets the ladder above
 like any other. One it does not read as git — a command word whose last path
 component, as written and before the shell expands anything, is not `git`
 (`$GIT`, `gi*`, a command substitution, a different case, a trailing slash),
-or a wrapper it does not read past such as `nice` — is not a git invocation to
-this guard, and it says nothing. `parse_git` expands nothing and compares that
+or a program outside the runners it reads past, such as `uv run` — is not a
+git invocation to this guard, and it says nothing. `nice` sat in that group
+until #670 enumerated the programs that run their operands as a command
+(`cmdline.RUNNERS`); since then it is read past and sits in the first. `parse_git` expands nothing and compares that
 last component, so `~/git`, `*/git` and `$HOME/git` belong to the first group.
 What the class costs is the
 allow on `/usr/bin/git worktree add …`, which is the trade already made for `$`

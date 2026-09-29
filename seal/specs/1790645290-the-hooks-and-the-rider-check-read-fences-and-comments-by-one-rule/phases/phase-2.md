@@ -56,7 +56,7 @@ property the point of the item, to be kept green through every phase.
 - **The oracle had one defect of its own, found the same way.** markdown-it-py
   strips a paragraph's inline source with `str.strip`, which drops a leading
   line holding only a no-break space, so a comment's offset was one line off.
-  `commonmark_oracle.py#_comment_lines` counts the dropped lines back. It
+  `commonmark_oracle.py#_comment_lines` counts the dropped lines back. It · NAME NOT IN TREE
   decides nothing about what a comment is.
 - **Q7, measured.** One core, this macOS machine: 20,000 documents of up to
   24 lines take about 1.1 s through the oracle and the walk together. The

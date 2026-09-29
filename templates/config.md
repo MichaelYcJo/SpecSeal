@@ -290,9 +290,10 @@ line holding `-->`, and a row parked in one — an old command kept for
 reference, a whole table put away — is not this repository's answer, so no
 walk of the table reads it. A fence line inside such a comment opens no fence.
 One reading decides both, and it is a CommonMark renderer's: where a line's
-context is one that reading cannot be sure of — inside a list item, after a
-`<!--` in the middle of a line, below a block that never closes — the line is
-read as it was before, so a `<!--` nobody closed hides nothing. Where this
+context is one that reading cannot be sure of — inside a list item, after
+inline HTML a line leaves open (a `<!--`, `<![CDATA[`, `<?`, `<!DOCTYPE` or a
+tag started in the middle of a line), below a block that never closes — the
+line is read as it was before, so a `<!--` nobody closed hides nothing. Where this
 gate's row exists only inside a comment, the refusal quotes that line and says
 it is commented out, rather than calling it absent or fenced.
 
