@@ -227,12 +227,16 @@ def _eval_argument(toks):
     # assignments alone, so `then eval '…'` and `(eval '…')` were no `eval`
     # (round 1 of 1790644505, yellow 4). `builtin` runs a builtin, and `eval`
     # is one.
-    word, _unplaced = command_word(list(toks), "eval")
-    while word and os.path.basename(word[0]) == "builtin":
-        word = word[1:]
-    if not word or word[0] != "eval":
-        return None
-    return " ".join(word[1:])
+    #
+    # Asked a second time past the redirections in front of it (#674), only
+    # where the first reading found no `eval`: `2>/dev/null eval "$X"`.
+    for redirections in (False, True):
+        word, _unplaced = command_word(list(toks), "eval", redirections)
+        while word and os.path.basename(word[0]) == "builtin":
+            word = word[1:]
+        if word and word[0] == "eval":
+            return " ".join(word[1:])
+    return None
 
 
 def _eval_hides_a_commit(arg):

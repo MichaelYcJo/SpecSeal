@@ -32,9 +32,56 @@ would only make the silence look deliberate.
 """
 
 import os
+import re
 import shlex
 
 WRAPPERS = {"command", "env", "nohup", "time", "sudo"}
+
+# A redirection's operator, at the start of a word (#674). The shell takes a
+# redirection off the command line wherever it stands, so the word it is written
+# in is neither a program nor a string a host runs -- and a reader that stopped
+# at it read `2>/dev/null git commit` as no commit at all. An optional file
+# descriptor comes first, a number or bash 4.1's `{name}`; longer operators are
+# listed before the ones they begin with. `&>`, `&>>`, `>&`, `<&` and `>|` hold
+# a character the splitter cuts at, so as single words they arrive only in
+# `merged_view`; zsh's `>!` and `>>!` are read without having been run here.
+_REDIRECTION = re.compile(
+    r"(?:[0-9]+|\{[A-Za-z_][A-Za-z0-9_]*\})?"
+    r"(?:<<<|<<-|<<|<>|<&|>&|&>>|&>|>>!|>>|>\||>!|>|<)"
+)
+
+
+def redirection_width(tokens, i):
+    """How many of TOKENS, from I, one redirection takes -- 0 when TOKENS[I] is none.
+
+    A target glued to its operator (`2>/dev/null`, `<<EOF`) is one word, and a
+    spaced one (`2> /dev/null`, `<< EOF`) is the operator and the word after it.
+    A process substitution as the target (`2> >(tee log)`) arrives from the
+    splitter as several words, `>(tee` and `log)`, and runs to the one that
+    closes it.
+
+    Asked only where a program word may stand, or where a host's string is
+    picked, and every reader that asks it keeps the answer it gave without it
+    (`spec.md` decision 1 of work item 1790660768): a word that merely looks
+    like a redirection there can only add a reading.
+    """
+    if i >= len(tokens):
+        return 0
+    m = _REDIRECTION.match(tokens[i])
+    if not m:
+        return 0
+    target, j = tokens[i][m.end() :], i + 1
+    if not target:
+        if j >= len(tokens):
+            return 1
+        target, j = tokens[j], j + 1
+    if target.startswith(("(", ">(", "<(")):
+        depth = target.count("(") - target.count(")")
+        while depth > 0 and j < len(tokens):
+            depth += tokens[j].count("(") - tokens[j].count(")")
+            j += 1
+    return j - i
+
 
 # Characters after which a `#` starts a comment. A shell ends a word at these,
 # and `#` opens a comment only at the start of a word: `git switch feat#1`
@@ -1351,7 +1398,7 @@ SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh", "mksh", "yash", "ash"})
 STRING_HOSTS = frozenset(SHELLS | {"su", "runuser", "script"})
 
 
-def command_word(tokens, stand_in="git"):
+def command_word(tokens, stand_in="git", redirections=False):
     """(the segment from its command word on, whether its directory is unplaced).
 
     STAND_IN is the word looked for where no position names the command word;
@@ -1368,6 +1415,13 @@ def command_word(tokens, stand_in="git"):
     Every segment the base read a command word in keeps it: the tokens read
     past before are read past now, and the new ones are words at which the old
     reading stopped with no command at all.
+
+    REDIRECTIONS reads past a redirection as well (#674), and it is a second
+    reading rather than a change to this one: `2>/x/git commit` reads as `git`
+    without it, because the word's last component is `git`, and as `commit`
+    with it. So every consumer asks this reading only where the first found
+    nothing, and adds what it finds (`parse_git`, `names_an_unknown_command`,
+    `_eval_argument` in the commit gate, and the walk's unplaced flag).
     """
     toks, _opened = strip_subshell(tokens)
     unplaced = False
@@ -1375,6 +1429,10 @@ def command_word(tokens, stand_in="git"):
     i = 0
     while i < len(toks):
         tok = toks[i]
+        width = redirection_width(toks, i) if redirections else 0
+        if width:
+            i += width
+            continue
         if "=" in tok and not tok.startswith("-"):
             i += 1
             continue
@@ -1409,6 +1467,17 @@ def command_word(tokens, stand_in="git"):
     return toks[i:], unplaced
 
 
+def host_word(tok):
+    """The program TOK names, read with a glued subshell opener taken off.
+
+    `(sh -c 'git commit')` arrives from the splitter as `(sh`, and the last
+    component of that is `(sh`, which is no host (#674, P10). Taking the `(`
+    off first only ever adds a host: a word whose last component was already
+    a host keeps it, because a `(` in front of a `/` is not in that component.
+    """
+    return os.path.basename(tok.lstrip("("))
+
+
 def _hands_a_string(word, tok):
     """True when `tok`, an argument of `word`, tells it to run a string."""
     if tok == "--command" or tok.startswith("--command="):
@@ -1432,7 +1501,7 @@ def reparsed_texts(tokens):
     """
     texts = []
     for k, tok in enumerate(tokens):
-        word = os.path.basename(tok)
+        word = host_word(tok)
         rest = tokens[k + 1 :]
         if word in STRING_HOSTS and any(_hands_a_string(word, t) for t in rest):
             texts += [t for t in rest if not t.startswith("-")]
@@ -1462,6 +1531,12 @@ def _is_the_program(tokens, k):
     `sudo -E watch`) are read past, since this reader does not parse them.
     `grep -n watch *.py` has a program before `watch`, and is not one
     (round 2 of 1790644505).
+
+    The first loop is that reading as it stood at `86256492`. The second is
+    asked only where it found no program, and adds two things it stopped at
+    (#674): a redirection, glued or spaced, and a runner glued to a subshell's
+    `(`, which arrives from the splitter as `(nice`. A redirection whose target
+    is `watch` itself (`2> watch …`) makes `watch` a file name, not a program.
     """
     for t in tokens[:k]:
         if os.path.basename(t) in RUNNERS:
@@ -1469,8 +1544,24 @@ def _is_the_program(tokens, k):
         if not (
             ("=" in t and not t.startswith("-")) or t in LIST_OPENERS or t in ("!", "(")
         ):
+            break
+    else:
+        return True
+    j = 0
+    while j < k:
+        width = redirection_width(tokens, j)
+        if width:
+            j += width
+            continue
+        t = host_word(tokens[j]) if j == 0 else tokens[j]
+        if os.path.basename(t) in RUNNERS:
+            return True
+        if not (
+            ("=" in t and not t.startswith("-")) or t in LIST_OPENERS or t in ("!", "(")
+        ):
             return False
-    return True
+        j += 1
+    return j == k
 
 
 def command_strings(tokens):
@@ -1485,7 +1576,7 @@ def command_strings(tokens):
     """
     out = []
     for k, tok in enumerate(tokens):
-        word = os.path.basename(tok)
+        word = host_word(tok)
         rest = tokens[k + 1 :]
         if word in SHELLS and any(_hands_a_string(word, t) for t in rest):
             # The string is the first operand after the flag that says so. A
@@ -1533,15 +1624,24 @@ def names_an_unknown_command(text):
     whether that is a commit. The same question `understood` asks of a command
     word, asked of a string handed to a shell; a conditional (`[`) and a
     reserved word are not command words that expand.
+
+    Each segment is asked twice, as written and read past its redirections
+    (#674), and either answer counts: `sh -c '2>/dev/null $CMD'` runs `$CMD`,
+    while `sh -c '>$LOG echo'` was already asked of `>$LOG` and still is.
     """
     segments, _clean = split_segments(drop_heredoc_bodies(drop_comments(text)))
-    for toks in segments:
-        word = command_word(toks)[0]
-        if not word or word[0] in RESERVED or word[0] == "[":
-            continue
-        if any(ch in word[0] for ch in EXPANDS):
-            return True
-    return False
+    return any(
+        _expands(command_word(toks)[0])
+        or _expands(command_word(toks, redirections=True)[0])
+        for toks in segments
+    )
+
+
+def _expands(word):
+    """True when WORD's first token is a command word the shell expands."""
+    if not word or word[0] in RESERVED or word[0] == "[":
+        return False
+    return any(ch in word[0] for ch in EXPANDS)
 
 
 def _heredoc_end(command, k, n):
@@ -1674,7 +1774,56 @@ def understood(tokens):
     The direction of the remaining error is what matters: a construct nobody
     added to `RESERVED` reads as not understood, and stops. The old default
     failed the other way.
+
+    A redirection among the words in front of the command (#674, W1) is read
+    past and the rest asked again, and only a False is taken from that second
+    asking. `2>/dev/null cd W` moves the shell, and `_cd_target` does not see
+    a `cd` there, so it reads as unreadable -- the answer a `cd` behind a
+    prefix already gets below. The same holds for a relocator, a reserved word
+    or an expanding word reached that way.
     """
+    if not _understood_as_written(tokens):
+        return False
+    rest, passed = _past_leading_redirections(tokens)
+    if not passed:
+        return True
+    if not _understood_as_written(rest):
+        return False
+    while rest and "=" in rest[0] and not rest[0].startswith("-"):
+        rest = rest[1:]
+    return not rest or rest[0] != "cd"
+
+
+def _past_leading_redirections(tokens):
+    """(TOKENS with the redirections in front of the command taken out, whether any were).
+
+    "In front of" is what `understood` reads past to reach the word that runs:
+    assignments, the `PREFIXES`, and an option behind one of those. A
+    redirection after the command word is that command's own, and `cd W
+    2>/dev/null` is already a `cd` with two operands to `_cd_target`.
+    """
+    toks, _opened = strip_subshell(tokens)
+    kept, passed, i = [], False, 0
+    while i < len(toks):
+        width = redirection_width(toks, i)
+        if width:
+            passed, i = True, i + width
+            continue
+        tok = toks[i]
+        if (
+            ("=" in tok and not tok.startswith("-"))
+            or os.path.basename(tok) in PREFIXES
+            or (kept and tok.startswith("-"))
+        ):
+            kept.append(tok)
+            i += 1
+            continue
+        break
+    return kept + toks[i:], passed
+
+
+def _understood_as_written(tokens):
+    """`understood` as it stood at `86256492`, before redirections were read."""
     toks, opened = strip_subshell(tokens)
     if opened:
         # `(` and `{` open a scope whose end this reader does not find --
@@ -2010,7 +2159,10 @@ def walk_directories(items, cwd):
             running, skipped = states, []
 
         wheres = _directories(running + skipped)
-        if command_word(tokens)[1]:
+        # Asked as written and read past its redirections (#674), and either
+        # one unplaces: `2>/dev/null nice -n 5 git commit` stands behind a
+        # runner's options that the first reading never reached.
+        if command_word(tokens)[1] or command_word(tokens, redirections=True)[1]:
             # A command behind a reserved word that begins a list, or inside a
             # construct whose command word is not found by position (#669).
             # Written across lines it would follow a segment `understood`
@@ -2152,13 +2304,17 @@ def walk_directories(items, cwd):
     return walked
 
 
-def _git_options(rest):
+def _git_options(rest, redirections=False):
     """(index of the subcommand, indices of the `-C` VALUES) within `rest`.
 
     `rest` is what follows the `git` word. One scan, read twice: `parse_git`
     takes the values and `_expanded` fills their names in beforehand. Written
     twice they would drift about which token a `-C` names, and the two answers
     would then disagree about which repository the command reaches.
+
+    REDIRECTIONS reads past a redirection before the subcommand as well
+    (#674): `git 2>/dev/null commit` read `2>/dev/null` as the subcommand.
+    `parse_git` asks it only where the first scan landed on a redirection.
     """
     # RIDER: `--git-dir` and `--work-tree` are in this set so the SUBCOMMAND
     # is still found, and their values are then thrown away -- so
@@ -2169,11 +2325,15 @@ def _git_options(rest):
     # composing paths and becomes a resolved (git-dir, work-tree) pair, which
     # `apply_chdir` below cannot express. The rider is here rather than on the
     # guard because this is the file the fix is in.
-    # Verified 2026-08-31 against _git_options@802768ca.
+    # Verified 2026-09-29 against _git_options@4576ad88.
     takes_value = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
     i, chdirs = 0, []
     while i < len(rest):
         t = rest[i]
+        width = redirection_width(rest, i) if redirections else 0
+        if width:
+            i += width
+            continue
         if t in takes_value:
             if t == "-C" and i + 1 < len(rest):
                 chdirs.append(i + 1)
@@ -2203,11 +2363,22 @@ def parse_git(tokens):
     # to both gates (#669). `command_word` reads past it, and the directory
     # such a segment runs in is `Unresolved(CONSTRUCT)`, set by the walk --
     # the only honest one, and the one the multi-line spelling always had.
-    tokens, _unplaced = command_word(tokens)
-    if not tokens or os.path.basename(tokens[0]) != "git":
-        return None
-    rest = tokens[1:]
+    #
+    # A redirection in front of `git` or before its subcommand stopped both
+    # scans (#674). Each is asked again past redirections only where it found
+    # no `git`, or landed on a redirection for the subcommand, so every answer
+    # the first reading gave is kept -- `2>/x/git commit` among them.
+    word, _unplaced = command_word(tokens)
+    if not word or os.path.basename(word[0]) != "git":
+        word, _unplaced = command_word(tokens, redirections=True)
+        if not word or os.path.basename(word[0]) != "git":
+            return None
+    rest = word[1:]
     at, chdir_at = _git_options(rest)
+    if redirection_width(rest, at):
+        again = _git_options(rest, redirections=True)
+        if again[0] < len(rest):
+            at, chdir_at = again
     chdirs = [rest[k] for k in chdir_at]
     if at >= len(rest):
         return None
