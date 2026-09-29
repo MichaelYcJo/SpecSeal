@@ -7,14 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #685 — https://github.com/MichaelYcJo/SpecSeal/pull/685 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `deb6290fe048acb16d8bb94469f3d94b6c0d6b34..54e31f21cb5303380981ed7be6e0018e433ff441`, 5 commits |
+| Contract changes | none |
+| New units | _THIS_MODULE (depth 1); _REMOVES (depth 1); _UNREADABLE (depth 1); _removes_this_module (depth 1); selects_this_module (depth 1); test_a_job_counts_only_where_its_pytest_line_selects_this_module (depth 1) |
 | Needs a fix | no |
 | Loses a record or crashes | no |
+<!-- New units: .github/workflows/test.yml read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,12 +30,12 @@ Round 1 over the build range `40c11190..0b153e95` at HEAD `0b153e95`, against `3
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | S6 requires each range bound to have a leg but not the version below it, where a range that stops too early goes red; the 3.13 leg is held by nothing, and `spec.md:186` says S6 makes CI run both sides | `tests/test_arm_check.py:273` | open | Executed: with the 3.13 leg deleted from `test.yml`, S6 passes. No table is wrong today, so no defect ships |
-| ⬜ 2 | S6 counts a job whose run line hands pytest `tests/` with an ignore of this very module | `tests/test_arm_check.py:233` | open | Executed: the new job rewritten to run `tests/` with an `--ignore` of the module, S6 passes. An unlikely edit |
-| ⬜ 3 | `pythons_ci_runs_this_module_at` re-implements the job splitter `tests/test_ci_gives_the_checks_what_they_need.py#jobs` already has, same regex | `tests/test_arm_check.py:237` | open | Read: the two splitters use one pattern in two places |
-| ⬜ 4 | The `pytest` matrix comment calls `test_arm_check.py` the one module whose truth depends on the interpreter, which nobody has measured | `.github/workflows/test.yml:33` | open | Read: `questions.md` Q1 is still open; spec M6 enumerated one kind of dependence |
-| ⬜ 5 | The job list in `CONTRIBUTING.md` carries a `because` clause mid-list, so the next item reads as part of the reason | `CONTRIBUTING.md:161` | open | Read |
-| ⬜ 6 | L2's Notes say a 3.9 lacks fifteen classified names; at the head it lacks seventeen, the t-string pair included | `seal/ledger/1790690762-arm-check-reads-every-supported-ast.md` L2 | open | Executed on 3.9.6 at `0b153e95`: 17 absent. Paperwork, so not counted in `Needs a fix` |
+| ⬜ 1 | S6 requires each range bound to have a leg but not the version below it, where a range that stops too early goes red; the 3.13 leg is held by nothing, and `spec.md:186` says S6 makes CI run both sides | `tests/test_arm_check.py:273` | **fixed** `dd586b36` | fixed at dd586b36 — S6 also requires a CI run at the version just below each boundary, floor or above; with the 3.13 leg removed it is red naming `['3.13']`. The two restatements are corrected at `f75d1b9b` and L3's claim at `54e31f21`; Executed: with the 3.13 leg deleted from `test.yml`, S6 passes. No table is wrong today, so no defect ships |
+| ⬜ 2 | S6 counts a job whose run line hands pytest `tests/` with an ignore of this very module | `tests/test_arm_check.py:233` | **fixed** `e583e39b` | fixed at e583e39b — `selects_this_module` splits the pytest line with `shlex` and refuses a job whose `--ignore`, `--ignore-glob` or `--deselect` names this module, or which filters with `-k`, `-m` or a rerun filter; red under the ignoring job in both spellings, control green; 14 parametrized cases pin it; Executed: the new job rewritten to run `tests/` with an `--ignore` of the module, S6 passes. An unlikely edit |
+| ⬜ 3 | `pythons_ci_runs_this_module_at` re-implements the job splitter `tests/test_ci_gives_the_checks_what_they_need.py#jobs` already has, same regex | `tests/test_arm_check.py:237` | **fixed** `d20ddfeb` | fixed at d20ddfeb — `pythons_ci_runs_this_module_at` imports `jobs` from `tests/test_ci_gives_the_checks_what_they_need.py`; the versions read are unchanged; S6 red with `jobs` emptied; Read: the two splitters use one pattern in two places |
+| ⬜ 4 | The `pytest` matrix comment calls `test_arm_check.py` the one module whose truth depends on the interpreter, which nobody has measured | `.github/workflows/test.yml:33` | answered | `f75d1b9b` — the matrix comment says this module is the one known to depend on the interpreter, and that no other module was measured; Read: `questions.md` Q1 is still open; spec M6 enumerated one kind of dependence |
+| ⬜ 5 | The job list in `CONTRIBUTING.md` carries a `because` clause mid-list, so the next item reads as part of the reason | `CONTRIBUTING.md:161` | answered | `f75d1b9b` — the `because` clause in `CONTRIBUTING.md`'s job list moved into parentheses; the floor is stated once; Read |
+| ⬜ 6 | L2's Notes say a 3.9 lacks fifteen classified names; at the head it lacks seventeen, the t-string pair included | `seal/ledger/1790690762-arm-check-reads-every-supported-ast.md` L2 | answered | `54e31f21` — L2's notes say 17, re-measured on 3.9.6 at `deb6290f`, with a `Corrected 2026-09-29` note; Executed on 3.9.6 at `0b153e95`: 17 absent. Paperwork, so not counted in `Needs a fix` |
 | 🟢 | An interpolation's arms are counted exactly as an f-string field's: nested t-strings, format specs, conversions, `IfExp`, `BoolOp`, comprehensions, debug specifier, walrus, lambda, multi-line, raw | `skills/verify/scripts/arm_check.py:162` | confirmed | Executed on 3.14.3: 17 shapes, identical arm lists span for span, every mutant parses and matches its f twin's length |
 | 🟢 | `ONLY_ON_SOME_PYTHONS` is exact on 3.12, 3.13 and 3.14 from both sides, and no other classified name is absent on a supported Python | `skills/verify/scripts/arm_check.py:289` | confirmed | Executed: 122, 122 and 119 constructors; five mutants each red on the Python they misdescribe; the module green on all three |
 | 🟢 | The script still runs on 3.9 as its comment claims | `skills/verify/scripts/arm_check.py:431` | confirmed | Executed: 3.9.6 exit 0, 32 arms, output byte-identical to 3.12, 3.13 and 3.14 |
