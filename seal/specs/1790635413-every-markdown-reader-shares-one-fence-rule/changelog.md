@@ -34,3 +34,13 @@
 - **A copy of `correction_check.py` or `payload_meter.py` taken without
   `unverified_check.py` exits 2 with a sentence naming the missing file
   (issue #584).** `payload_meter.py` needs it only under `--sections`.
+- **A routing row or a survivor exemption quoted inside a fenced example is
+  no longer read as one (issue #658).** The commit gate's routing reader kept
+  the last row of each label, so an example quoted in a fence below a
+  `routing.md` declaration answered for it — a declared review chain could
+  read as *straight to the PR*. It now skips fenced lines, and a file whose
+  only rows are fenced is no declaration, so the gate asks. `survivor-check
+  --exempt` likewise takes no exemption from a fenced example, and a fence
+  that is never closed hides the rows below it, because an exemption excuses
+  a survivor. No `routing.md` or `survivors.md` in this repository reads
+  differently.
