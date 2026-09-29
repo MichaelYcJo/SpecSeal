@@ -1278,6 +1278,380 @@ RELOCATORS = frozenset(
 # `! grep -q zzz f && git commit`, both ordinary and both silent before.
 PREFIXES = frozenset(WRAPPERS | {"builtin", "time", "!"})
 
+# Reserved words that BEGIN A COMMAND LIST, so the word after one is a command
+# word (#669). The shell splits `for d in a; do git commit; done` at `;`, and
+# the commit arrives as a segment whose first word is `do`; reading only that
+# position found no commit in a command a shell runs. `{` is here for the same
+# reason after one of the others -- `do { git commit; }` -- and `(` is taken off
+# by `strip_subshell` wherever it opens the remainder.
+LIST_OPENERS = frozenset({"do", "then", "else", "elif", "if", "while", "until", "{"})
+
+# Constructs whose command word is not found by position: a `case` arm's
+# pattern, a function definition's name, a coprocess's optional name. Rather
+# than read their grammar, the first `git` word in the segment is read as the
+# command word -- a false one is a stop, never a silence.
+UNPLACED = frozenset({"case", "coproc", "function"})
+
+# Programs that RUN THEIR OPERANDS AS A COMMAND (#670). The reader used to know
+# `WRAPPERS` alone and stopped at the first word it did not know, so `exec`,
+# `nice`, `timeout` and `xargs` in front of `git commit` read as no commit. The
+# enumeration and how it was found are in work item 1790644505's
+# `phases/phase-5.md`: POSIX's utilities that execute an operand, GNU
+# coreutils' "Modified command invocation" chapter and its `g`-prefixed names
+# on macOS, util-linux's scheduling and namespace tools, the privilege tools,
+# the tracers, and `find`, `parallel`, `watch` and `script`. Directly followed
+# by `git`, the commit runs where the shell is; behind the program's own
+# options or operands, which this reader does not parse, the first `git` word
+# stands in for the command word and the directory is unplaced -- `env -C`,
+# `sudo -D` and `chroot` move it, and knowing which flags do is a parser.
+RUNNERS = frozenset(
+    WRAPPERS
+    | {
+        "exec",
+        "nice",
+        "timeout",
+        "xargs",
+        "stdbuf",
+        "chroot",
+        "runcon",
+        "setsid",
+        "ionice",
+        "taskset",
+        "chrt",
+        "flock",
+        "unshare",
+        "nsenter",
+        "prlimit",
+        "setpriv",
+        "runuser",
+        "doas",
+        "pkexec",
+        "caffeinate",
+        "arch",
+        "strace",
+        "ltrace",
+        "valgrind",
+        "gtimeout",
+        "gnice",
+        "gnohup",
+        "gstdbuf",
+        "genv",
+        "gchroot",
+        "find",
+        "parallel",
+        "watch",
+        "script",
+    }
+)
+
+# Programs that hand a STRING to a shell to parse, once given the flag that
+# says so: `sh -c 'git commit'`. The string is read as a command the way
+# `eval`'s argument already was (`reparsed_texts`).
+SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh", "mksh", "yash", "ash"})
+STRING_HOSTS = frozenset(SHELLS | {"su", "runuser", "script"})
+
+
+def command_word(tokens, stand_in="git"):
+    """(the segment from its command word on, whether its directory is unplaced).
+
+    STAND_IN is the word looked for where no position names the command word;
+    `_eval_argument` passes `eval` (round 2 of 1790644505).
+
+    Assignments, wrappers and the `!`/`time` prefixes are read past as they
+    always were, and so are the words in `LIST_OPENERS`. What sits behind one of
+    those, or inside an `UNPLACED` construct, runs somewhere the walk does not
+    place: a loop or conditional body, a loop condition that runs again after
+    its body, a function body that runs where it is called. The second value
+    says so, and `walk_directories` gives that segment an unresolved directory,
+    which is what the same command written across lines already got.
+
+    Every segment the base read a command word in keeps it: the tokens read
+    past before are read past now, and the new ones are words at which the old
+    reading stopped with no command at all.
+    """
+    toks, _opened = strip_subshell(tokens)
+    unplaced = False
+    after_runner = False
+    i = 0
+    while i < len(toks):
+        tok = toks[i]
+        if "=" in tok and not tok.startswith("-"):
+            i += 1
+            continue
+        if os.path.basename(tok) in RUNNERS:
+            after_runner = True
+            i += 1
+            continue
+        if tok == "!":
+            i += 1
+            continue
+        if tok in LIST_OPENERS:
+            unplaced = True
+            rest, _opened = strip_subshell(toks[i + 1 :])
+            toks, i = rest, 0
+            continue
+        break
+    if i < len(toks) and (
+        toks[i] in UNPLACED
+        or toks[i].endswith(")")
+        or (i + 1 < len(toks) and toks[i + 1] == "()")
+        or (after_runner and os.path.basename(toks[i]) != "git")
+    ):
+        # A pattern (`a)`), a definition (`f()`, `f ()`), a word in
+        # `UNPLACED`, or a runner's own option or operand: no position names
+        # the command word, so the first STAND_IN word stands in for it, and
+        # none means no such command is in the segment.
+        later = [
+            j for j in range(i + 1, len(toks)) if os.path.basename(toks[j]) == stand_in
+        ]
+        if later:
+            i, unplaced = later[0], True
+    return toks[i:], unplaced
+
+
+def _hands_a_string(word, tok):
+    """True when `tok`, an argument of `word`, tells it to run a string."""
+    if tok == "--command" or tok.startswith("--command="):
+        return word in ("su", "runuser", "script")
+    # A short-option cluster holding `c`: `-c`, `-ec`, `-lc`.
+    return tok.startswith("-") and not tok.startswith("--") and "c" in tok[1:]
+
+
+def reparsed_texts(tokens):
+    """Every string in this segment that a program hands to a shell to parse.
+
+    `sh -c`, `bash -c` and the other `SHELLS`, `su -c`, `runuser -c` and
+    `script -c` run their string; `env -S` splits one into a command; `watch`
+    runs its arguments through `sh -c`. Where the flag is present every
+    non-option word after the program is returned, because which of them is
+    the string depends on options this reader does not parse (`bash -o errexit
+    -c '…'`) -- reading an extra word as a command costs a stop, and missing
+    the string costs a silence. A program found anywhere in the segment
+    counts, not only as its command word: `sudo sh -c` and `xargs -I{} sh -c`
+    put it behind a runner.
+    """
+    texts = []
+    for k, tok in enumerate(tokens):
+        word = os.path.basename(tok)
+        rest = tokens[k + 1 :]
+        if word in STRING_HOSTS and any(_hands_a_string(word, t) for t in rest):
+            texts += [t for t in rest if not t.startswith("-")]
+            texts += [t.split("=", 1)[1] for t in rest if t.startswith("--command=")]
+        elif word == "watch":
+            texts += [t for t in rest if not t.startswith("-")]
+        elif word in ("env", "genv"):
+            for j, t in enumerate(rest):
+                if t in ("-S", "--split-string") and j + 1 < len(rest):
+                    texts.append(rest[j + 1])
+                elif t.startswith("--split-string="):
+                    texts.append(t.split("=", 1)[1])
+                elif t.startswith("-S") and len(t) > 2:
+                    texts.append(t[2:])
+    return texts
+
+
+# Options of a shell, and of `watch`, that take the next word as their value.
+VALUED = frozenset({"-o", "+o", "-O", "+O", "-n", "--interval", "-q", "--equexit"})
+
+
+def _is_the_program(tokens, k):
+    """True when TOKENS[k] sits where the segment's program runs.
+
+    Before it stand only assignments, a list opener, `!` or `(` -- or a
+    runner, after which its own options and operands (`nice -n 5 watch`,
+    `sudo -E watch`) are read past, since this reader does not parse them.
+    `grep -n watch *.py` has a program before `watch`, and is not one
+    (round 2 of 1790644505).
+    """
+    for t in tokens[:k]:
+        if os.path.basename(t) in RUNNERS:
+            return True
+        if not (
+            ("=" in t and not t.startswith("-")) or t in LIST_OPENERS or t in ("!", "(")
+        ):
+            return False
+    return True
+
+
+def command_strings(tokens):
+    """The string each host in this segment runs AS its command.
+
+    `reparsed_texts` returns every word that might be it, which is right for
+    asking whether a commit is written there. It is wrong for asking whether a
+    command word expands: `find . -exec sh -c '…' _ {} \\;` hands `_` and `{}`
+    to the string as positional parameters, which no shell runs, and `grep
+    watch *.py` names no program at all. So `names_an_unknown_command` is
+    asked of this narrower list (round 1 of 1790644505, yellow 3).
+    """
+    out = []
+    for k, tok in enumerate(tokens):
+        word = os.path.basename(tok)
+        rest = tokens[k + 1 :]
+        if word in SHELLS and any(_hands_a_string(word, t) for t in rest):
+            # The string is the first operand after the flag that says so. A
+            # word before that flag is an option's value (`--rcfile f`) or a
+            # redirection (`2>/dev/null`); taking it as the string made
+            # `"$CMD"` the one word not asked (round 2 of 1790644505). It is
+            # not asked itself: no shell runs it as a command.
+            flag = next(j for j, t in enumerate(rest) if _hands_a_string(word, t))
+            skip = False
+            for t in rest[flag + 1 :]:
+                if skip:
+                    skip = False
+                elif t in VALUED:
+                    skip = True
+                elif t != "--" and not t.startswith(("-", "+")):
+                    out.append(t)
+                    break
+        elif word in STRING_HOSTS:
+            for j, t in enumerate(rest):
+                if t.startswith("--command="):
+                    out.append(t.split("=", 1)[1])
+                elif _hands_a_string(word, t) and j + 1 < len(rest):
+                    out.append(rest[j + 1])
+        elif word in ("env", "genv"):
+            out += reparsed_texts([tok, *rest])
+        elif word == "watch" and _is_the_program(tokens, k):
+            # Only where `watch` is the program that runs, not a word
+            # something else was handed (`grep watch *.py`).
+            words, skip = [], False
+            for t in rest:
+                if skip:
+                    skip = False
+                elif t in VALUED:
+                    skip = True
+                elif not t.startswith("-"):
+                    words.append(t)
+            out.append(" ".join(words))
+    return out
+
+
+def names_an_unknown_command(text):
+    """True when a command in `text` has a command word the shell expands.
+
+    `sh -c "$CMD"` runs whatever `$CMD` holds, and nothing here can say
+    whether that is a commit. The same question `understood` asks of a command
+    word, asked of a string handed to a shell; a conditional (`[`) and a
+    reserved word are not command words that expand.
+    """
+    segments, _clean = split_segments(drop_heredoc_bodies(drop_comments(text)))
+    for toks in segments:
+        word = command_word(toks)[0]
+        if not word or word[0] in RESERVED or word[0] == "[":
+            continue
+        if any(ch in word[0] for ch in EXPANDS):
+            return True
+    return False
+
+
+def _heredoc_end(command, k, n):
+    """Where the heredoc opened by the `<<` at `k` ends, or None if none opens."""
+    dashed = command.startswith("<<-", k)
+    j = k + (3 if dashed else 2)
+    while j < n and command[j] in " \t":
+        j += 1
+    delim, after = _heredoc_word(command, j)
+    if not delim:
+        return None
+    line_end = command.find("\n", after)
+    while line_end != -1:
+        start = line_end + 1
+        line_end = command.find("\n", start)
+        line = command[start:] if line_end == -1 else command[start:line_end]
+        if (line.lstrip("\t") if dashed else line).rstrip("\r") == delim:
+            return n if line_end == -1 else line_end
+    return n
+
+
+def _paren_end(command, j):
+    """The index of the `)` that closes a substitution whose body starts at `j`.
+
+    Quotes, escapes and heredocs are stepped over, because a `)` in any of them
+    closes nothing. A `case` inside is where counting parentheses stops being
+    right -- its patterns end in an unmatched `)` -- so from there the rest of
+    the input is the body: a longer body can only hold more commits.
+    """
+    depth, k, n, quote = 1, j, len(command), None
+    while k < n:
+        ch = command[k]
+        if quote == "'":
+            quote = None if ch == "'" else quote
+        elif ch == "\\":
+            k += 2
+            continue
+        elif ch == '"':
+            quote = None if quote == '"' else '"'
+        elif quote is None:
+            if command.startswith("<<<", k):
+                # A herestring opens no body. Stepped over whole, because the
+                # last two of its three `<` would otherwise read as a `<<`.
+                k += 3
+                continue
+            if command.startswith("<<", k):
+                end = _heredoc_end(command, k, n)
+                if end is not None:
+                    k = end
+                    continue
+            if ch == "'":
+                quote = "'"
+            elif ch == "(":
+                depth += 1
+            elif ch == ")":
+                depth -= 1
+                if not depth:
+                    return k
+            elif (
+                command.startswith("case", k)
+                and (k == 0 or command[k - 1] in " \t\n;|&(")
+                and command[k + 4 : k + 5] in (" ", "\t", "\n")
+            ):
+                return n
+        k += 1
+    return n
+
+
+def substitution_bodies(command):
+    """The body of every `$( … )`, `` ` … ` ``, `<( … )` and `>( … )` (#670).
+
+    The shell runs each body as a command, in a subshell, and substitutes its
+    output -- so a commit in one is a commit, and the reader never looked. The
+    outermost bodies come back; a caller reading a body as a command calls
+    this again on it for the ones nested inside. A single-quoted `$(` is text
+    and opens nothing; a double-quoted one runs. An unterminated body runs to
+    the end of the input. `$((…))` comes back too, as a body holding its
+    expression, which reads as no command.
+    """
+    bodies, i, n, quote = [], 0, len(command), None
+    while i < n:
+        ch = command[i]
+        if quote == "'":
+            quote = None if ch == "'" else quote
+            i += 1
+            continue
+        if ch == "\\":
+            i += 2
+            continue
+        if ch == "'" and quote is None:
+            quote = "'"
+        elif ch == '"':
+            quote = None if quote == '"' else '"'
+        elif ch == "`":
+            end = i + 1
+            while end < n and command[end] != "`":
+                end += 2 if command[end] == "\\" else 1
+            bodies.append(command[i + 1 : min(end, n)])
+            i = end + 1
+            continue
+        elif command.startswith("$(", i) or (
+            quote is None and ch in "<>" and command.startswith("(", i + 1)
+        ):
+            end = _paren_end(command, i + 2)
+            bodies.append(command[i + 2 : end])
+            i = end + 1
+            continue
+        i += 1
+    return bodies
+
 
 def understood(tokens):
     """True when the reader can say where the shell is after this segment.
@@ -1635,7 +2009,19 @@ def walk_directories(items, cwd):
         else:
             running, skipped = states, []
 
-        walked.append((tokens, _directories(running + skipped)))
+        wheres = _directories(running + skipped)
+        if command_word(tokens)[1]:
+            # A command behind a reserved word that begins a list, or inside a
+            # construct whose command word is not found by position (#669).
+            # Written across lines it would follow a segment `understood`
+            # refuses, and that is the directory it gets here too.
+            wheres = tuple(
+                w
+                if isinstance(w, Unresolved)
+                else Unresolved(str(w), Unresolved.CONSTRUCT)
+                for w in wheres
+            )
+        walked.append((tokens, wheres))
 
         target = _cd_target(tokens)
         moved = [
@@ -1812,31 +2198,15 @@ def parse_git(tokens):
     FIND the subcommand and not enough to know which repository it acts on,
     which is the whole question the worktree guard answers.
     """
-    tokens, _opened = strip_subshell(tokens)
-    # RIDER: a reserved word in front of `git` is not read past, so a commit
-    # that is the FIRST command in a loop or conditional body is invisible to
-    # both gates. `for f in *; do git commit -m x; done` splits into a segment
-    # whose tokens are `["do", "git", "commit", …]`, this loop stops at `do`,
-    # no invocation is found, and the gate is silent -- executed against the
-    # commit gate in an opted-in repository, `do git commit -m x; done`
-    # returned nothing at all. It is a fail-OPEN and it is not this branch's:
-    # the parser answered `None` for the same tokens before this branch.
-    # Left because reading past `do` means deciding where the body LEAVES the
-    # shell, which is the whole thing `understood` refuses to guess at -- the
-    # segment would still need a directory, and `Unresolved(CONSTRUCT)` is the
-    # only honest one. That is a change to what the gate stops, not a parse
-    # fix, and it wants its own work item.
-    # Verified 2026-08-31 against parse_git@7693c50d.
-    i = 0
-    while i < len(tokens):
-        t = tokens[i]
-        if ("=" in t and not t.startswith("-")) or os.path.basename(t) in WRAPPERS:
-            i += 1
-            continue
-        break
-    if i >= len(tokens) or os.path.basename(tokens[i]) != "git":
+    # A reserved word in front of `git` used to stop this reading, so a commit
+    # that was the first command of a loop or conditional body was invisible
+    # to both gates (#669). `command_word` reads past it, and the directory
+    # such a segment runs in is `Unresolved(CONSTRUCT)`, set by the walk --
+    # the only honest one, and the one the multi-line spelling always had.
+    tokens, _unplaced = command_word(tokens)
+    if not tokens or os.path.basename(tokens[0]) != "git":
         return None
-    rest = tokens[i + 1 :]
+    rest = tokens[1:]
     at, chdir_at = _git_options(rest)
     chdirs = [rest[k] for k in chdir_at]
     if at >= len(rest):
