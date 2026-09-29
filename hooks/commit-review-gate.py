@@ -44,6 +44,8 @@ Decisions:
     instruction naming both ways on for every arm that fired
   - every attempt after that one → ask, naming every missing mark at once
     (approving IS the waiver — no separate bypass mechanism to maintain)
+  - any stop at all, in a session whose person pressed `automation` on the
+    routing question → deny, every time, naming the ways on that need nobody
 
 A hook returns allow/deny/ask and nothing else, and the harness renders an
 `ask` as two buttons the model never sees. Declining is then a bare "No": the
@@ -58,6 +60,15 @@ repository (<git-dir>/specseal-commit-choice/<session-id>) and every attempt
 after that gets the plain `ask` this gate has always returned. That fallback
 is also what an environment with nobody to answer lands on: one extra round
 trip, then today's behavior.
+
+Except where the person said, before the first edit, that nobody would be
+answering. A session whose person pressed `automation` was promised that
+nothing stops to ask, and an `ask` is a person's prompt, so there every stop
+is a deny addressed to the model (#662, #665). The press is read from the
+harness-written transcript by `hooks/worktree_consent.py`'s reader, which the
+worktree guard already reads it with, and only once a stop has been decided:
+what the gate stops does not move, only who the stop is put to.
+`automation_pressed` below says why a press that cannot be read is no press.
 
 The skip markers (`[no-review]`, `[no-parity]`) must appear as a BARE WORD in
 the command, not anywhere in its text: `git commit -m "fix [no-review] later"`
@@ -100,6 +111,16 @@ from cmdline import (
     strip_subshell,
     walk_directories,
 )
+
+# The press reader, by plain name so `sys.modules` shares it with the guard.
+# Guarded, unlike the imports above, because what it answers only moves a stop
+# between its two forms: a reader that does not load reads as no press, which
+# is the answer from before it was read, while an ImportError here would leave
+# the gate with no verdict to give at all.
+try:
+    import worktree_consent
+except Exception:
+    worktree_consent = None
 
 # `where` is the directory this invocation's git would actually run in, filled
 # in by commit_targets once `cwd` is known. commit_invocations parses a command
@@ -652,6 +673,74 @@ def question_reason(arms):
     return "\n".join(lines)
 
 
+# What a stop says in a session whose person pressed `automation`, after the
+# state that says what was stopped. It stands in for both of the prompts above
+# and for the unreadable one's options, and it names no question tool: a
+# subagent has none, and the main session of such a run was promised it would
+# not use one. The ways on are ordered from the one that gets the commit a
+# verdict to the one that ends the attempt, and the waiver is offered only
+# where `skills/implement/SKILL.md` §1 offers it -- a commit no work item owns.
+AUTOMATION_WAYS = (
+    "This session's person pressed `automation` on the routing question, so "
+    "this gate puts no question to them, and none is to be put to them in its "
+    "place: the run was promised that nothing would stop to ask.\n\n"
+    "The ways on, none of which needs a person:\n"
+    "  1. Re-issue the commit so the repository it lands in can be read: "
+    "`git -C <absolute path> commit …` in a command of its own, or a `cd` "
+    "joined to the commit by `&&` alone. A `;` or a new line after a `cd` also "
+    "reaches the directory the shell started in, because a failed `cd` leaves "
+    "the shell there.\n"
+    "  2. A file edit goes through the `Edit` tool, and a new file through the "
+    "`Write` tool. Neither leaves a command line for this gate to read.\n"
+    "  3. Only for a commit that belongs to no work item: the waiver in front "
+    "of the command, quotes included, `{waiver}`. Written after `git commit` "
+    "the marker is a pathspec and git rejects the command.\n"
+    "  4. Otherwise, do not retry it: write the commit down and hand it back "
+    "at the end of the run.\n\n"
+    "Re-issuing this command unchanged meets this same refusal."
+)
+
+
+def automation_ways(markers):
+    """The automation text, its waiver naming the marker of every arm that fired."""
+    return AUTOMATION_WAYS.format(waiver=waiver_form(markers))
+
+
+def automation_reason(arms):
+    """The refusal for a repository the gate read, under the `automation` press."""
+    return (
+        "\n\n".join(arm["state"] for arm in arms)
+        + "\n\n"
+        + automation_ways([arm["marker"] for arm in arms])
+    )
+
+
+def automation_pressed(top, session, transcript_path):
+    """True when this session's person pressed `automation`, read from `top`.
+
+    `top` is the root of the session's OWN directory rather than the target:
+    for an unreadable target there is no target to read it against, and the
+    question is whether anybody is at the keyboard, which is a fact about the
+    session. Standing to speak comes from the same place (`optin.opted_in`).
+
+    Every way of not reading the press is False, which is the answer this gate
+    gave before it read one: no session id, a reader that did not load, and
+    anything the reader raises. `hooks/dispatch.py` skips a gate that raises,
+    and a skipped gate is silence -- a commit nobody judged -- where False only
+    costs a prompt. Called only after a stop is decided, so a command the gate
+    lets through never pays for the transcript scan.
+    """
+    if worktree_consent is None or not session or not top:
+        return False
+    try:
+        return (
+            worktree_consent.automation_answered(top, session, transcript_path or "")
+            is True
+        )
+    except Exception:
+        return False
+
+
 UNREADABLE_STATE = (
     "This command commits into {count} it could not resolve to a "
     "repository: {listed}.\n\n"
@@ -675,8 +764,11 @@ UNREADABLE_CONSTRUCT = (
 )
 
 
-def unreadable_reason(paths, first, also_stopped):
+def unreadable_reason(paths, first, also_stopped, automated=False):
     """The prompt for a target the gate could not identify at all.
+
+    `automated` replaces what follows the state with the automation text, for
+    a session whose person pressed `automation`; `first` is then not read.
 
     Its own text rather than an arm in `question_reason`, because the arms
     each name a mark that is missing in a repository the gate resolved. This
@@ -716,7 +808,10 @@ def unreadable_reason(paths, first, also_stopped):
     construct = all(getattr(p, "why", None) == Unresolved.CONSTRUCT for p in paths)
     state = UNREADABLE_CONSTRUCT if construct else UNREADABLE_STATE
     lines = [state.format(count=count, listed=listed), ""]
-    if first:
+    if automated:
+        # This branch honours `[no-review]` alone, so that is the one offered.
+        lines.append(automation_ways(["[no-review]"]))
+    elif first:
         # Built as a list so the header can COUNT it. This prompt renders its
         # own options rather than going through `question_reason`, and it kept
         # a hand-written `two` after the other site learned to count -- one
@@ -1106,12 +1201,24 @@ def main():
 
     session = payload.get("session_id")
 
+    # Read at each decision site below and nowhere earlier: everything above
+    # decided WHETHER the gate speaks, and the press only decides whether the
+    # stop goes to the model or to a person. A command the gate lets through
+    # never reaches a line that reads it.
+    def pressed():
+        return automation_pressed(
+            root_of(cwd), session, payload.get("transcript_path") or ""
+        )
+
     # Standing to speak comes from the session's own repository, not from the
     # target: the target is exactly what could not be read. It decides WHETHER
     # this globally installed plugin says anything here, never WHAT is true of
     # the repository the commit lands in — judging an unknown target against
     # the session's marks would answer for a repository it may never touch.
     if unreadable and optin.opted_in(cwd) and not has_marker(command, "[no-review]"):
+        if pressed():
+            decide("deny", unreadable_reason(unreadable, True, len(stopped), True))
+            return
         here = git(["rev-parse", "--git-dir"], cwd)
         first = bool(session) and not already_asked(cwd, here, session)
         decide(
@@ -1132,7 +1239,14 @@ def main():
     # deny would repeat forever. `ask` cannot loop: approving is the way out.
     # The budget is per repository, like the verdict it spends — answering for
     # one repository does not answer for the next.
-    if session and not already_asked(target, git_dir, session):
+    #
+    # Under the `automation` press the deny DOES repeat, on purpose: nobody is
+    # there to click, so an `ask` would stop the run until somebody came back.
+    # What keeps the repeat from being a trap is the reason's last way on,
+    # handing the commit back, which needs nobody either.
+    if pressed():
+        decision, reason = "deny", automation_reason(missing)
+    elif session and not already_asked(target, git_dir, session):
         decision, reason = "deny", question_reason(missing)
     else:
         decision, reason = "ask", ask_reason(missing)
