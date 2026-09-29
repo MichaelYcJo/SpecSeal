@@ -105,10 +105,13 @@ from cmdline import (
     drop_comments,
     drop_heredoc_bodies,
     heredoc_bodies,
+    names_an_unknown_command,
     parse_git,
+    reparsed_texts,
     split_segments,
     split_segments_with_separators,
     strip_subshell,
+    substitution_bodies,
     walk_directories,
 )
 
@@ -169,7 +172,23 @@ def _hides_a_commit(text):
         arg = _eval_argument(toks)
         if arg is not None and _eval_hides_a_commit(arg):
             return True
-    return any(_hides_a_commit(body) for body in heredoc_bodies(text))
+        if any(_string_hides_a_commit(t) for t in reparsed_texts(toks)):
+            return True
+    return any(_hides_a_commit(body) for body in heredoc_bodies(text)) or any(
+        _hides_a_commit(body) for body in substitution_bodies(stripped)
+    )
+
+
+def _string_hides_a_commit(text):
+    """True when TEXT, a string a program hands to a shell, might commit (#670).
+
+    Read as commands, the way `_hides_a_commit` reads a heredoc body -- and
+    beside that, a command word the shell expands (`sh -c "$CMD"`) counts as
+    one that might, for the reason `_eval_hides_a_commit` gives. Unlike
+    `eval`'s argument, a `$` elsewhere in the string is an argument's and runs
+    nothing, so it is not read as a commit.
+    """
+    return _hides_a_commit(text) or names_an_unknown_command(text)
 
 
 def _eval_argument(toks):
@@ -299,8 +318,22 @@ def commit_invocations(command, cwd=None):
         if arg is not None and _eval_hides_a_commit(arg):
             for base in bases:
                 found.append(Invocation((), (), base=_unresolved_base(base)))
+            continue
+        # `sh -c '…'`, `su -c '…'`, `env -S '…'`: a string a shell parses
+        # again, the same question `eval`'s argument answers above (#670).
+        if any(_string_hides_a_commit(t) for t in reparsed_texts(toks)):
+            for base in bases:
+                found.append(Invocation((), (), base=_unresolved_base(base)))
 
     for body in heredoc_bodies(drop_comments(command)):
+        if _hides_a_commit(body):
+            found.append(Invocation((), (), base=_unresolved_base(cwd)))
+
+    # A command substitution's body runs in a subshell and its output is
+    # substituted, so a commit there is one the walk above never saw as a
+    # segment of its own (#670). It is read the way a heredoc body is, and
+    # stops the same way: no directory the walk can name is its directory.
+    for body in substitution_bodies(drop_heredoc_bodies(drop_comments(command))):
         if _hides_a_commit(body):
             found.append(Invocation((), (), base=_unresolved_base(cwd)))
 

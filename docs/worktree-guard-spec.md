@@ -258,8 +258,10 @@ reads past, a leading assignment — is a creation and meets the ladder above
 like any other. One it does not read as git — a command word whose last path
 component, as written and before the shell expands anything, is not `git`
 (`$GIT`, `gi*`, a command substitution, a different case, a trailing slash),
-or a wrapper it does not read past such as `nice` — is not a git invocation to
-this guard, and it says nothing. `parse_git` expands nothing and compares that
+or a program outside the runners it reads past, such as `uv run` — is not a
+git invocation to this guard, and it says nothing. `nice` sat in that group
+until #670 enumerated the programs that run their operands as a command
+(`cmdline.RUNNERS`); since then it is read past and sits in the first. `parse_git` expands nothing and compares that
 last component, so `~/git`, `*/git` and `$HOME/git` belong to the first group.
 What the class costs is the
 allow on `/usr/bin/git worktree add …`, which is the trade already made for `$`
