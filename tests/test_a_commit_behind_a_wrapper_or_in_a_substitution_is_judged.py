@@ -84,6 +84,11 @@ WRAPPED = {
     "env -i": (f"env -i {C}", UNRESOLVED),
     "sudo -u": (f"sudo -u a {C}", UNRESOLVED),
     "command -p": (f"command -p {C}", UNRESOLVED),
+    # zsh's precommand modifiers and `repeat N` (round 1 of 1790660768,
+    # yellow 5). zsh 5.9 committed for each.
+    "noglob": (f"noglob {C}", HERE),
+    "nocorrect": (f"nocorrect {C}", HERE),
+    "repeat": (f"repeat 1 {C}", UNRESOLVED),
 }
 
 # A string handed to a shell to parse. Its directory is unresolved, as
@@ -719,3 +724,64 @@ def test_an_unknown_command_word_is_named_and_a_structural_one_is_not():
     assert cmdline.names_an_unknown_command("echo; ${X} b")
     for text in ("[ -f x ] && echo y", "{ echo y; }", "echo $X", "if true; then :; fi"):
         assert not cmdline.names_an_unknown_command(text), text
+
+
+# Round 1 of 1790660768, yellows 3-6: shapes a real shell commits that read as
+# no commit at both `86256492` and `befe53cd`. Each was run in bash 3.2.57 or
+# zsh 5.9 and made a commit.
+STILL_UNREAD = {
+    # yellow 4: a redirection glued to the END of a word.
+    "git>/dev/null": "git>/dev/null commit -m x",
+    "commit>/dev/null": "git commit>/dev/null -m x",
+    "git>&2, cut at &": "git>&2 commit -m x",
+    "git<&0, cut at &": "git<&0 commit -m x",
+    "(git>/dev/null": "(git>/dev/null commit -m x)",
+    "nice>/dev/null": "nice>/dev/null git commit -m x",
+    "env>/dev/null": "env>/dev/null git commit -m x",
+    "eval>/dev/null": 'eval>/dev/null "$X"',
+    "sh>/dev/null -c": 'sh>/dev/null -c "$CMD"',
+    # yellow 5: zsh.
+    "for i (1)": "for i (1) git commit -m x",
+    "for i (1) { }": "for i (1) { git commit -m x }",
+    "repeat 1 { }": "repeat 1 { git commit -m x }",
+    "repeat 2 eval": 'repeat 2 eval "$X"',
+    # yellow 6: the string past `--` and options behind a redirection.
+    "bash -c 2>/dev/null --": 'bash -c 2>/dev/null -- "$CMD"',
+    "bash -c 2>&1 --": 'bash -c 2>&1 -- "$CMD"',
+    "bash -c 2>/dev/null -e": 'bash -c 2>/dev/null -e "$CMD"',
+    "sh -c 2>/dev/null +x": 'sh -c 2>/dev/null +x "$CMD"',
+    "bash -c 2>/dev/null -O extglob": 'bash -c 2>/dev/null -O extglob "$CMD"',
+}
+
+
+@pytest.mark.parametrize("name", sorted(STILL_UNREAD))
+def test_a_shape_both_shas_read_as_no_commit_is_read(name, tmp_path):
+    """Seen red at `3b8522c3`, where each returned nothing."""
+    assert found(STILL_UNREAD[name], tmp_path), name
+
+
+# yellows 3-5 in the walk: a `cd` the shell runs that the walk read as
+# staying put. From a declared session, the commit lands in U, which declares
+# nothing, and each read silent at both SHAs.
+UNSEEN_CD = [
+    "2>&1 cd {u} && git commit -m x",
+    ">&2 cd {u} && git commit -m x",
+    ">|f cd {u} && git commit -m x",
+    "<&0 cd {u} && git commit -m x",
+    ">&- cd {u} && git commit -m x",
+    "2>&1 pushd {u} && git commit -m x",
+    "cd>/dev/null {u} && git commit -m x",
+    "pushd>/dev/null {u} && git commit -m x",
+    "noglob cd {u} && git commit -m x",
+    "nocorrect cd {u} && git commit -m x",
+    "repeat 1 cd {u} && git commit -m x",
+]
+
+
+@pytest.mark.parametrize("shape", UNSEEN_CD)
+def test_a_cd_the_walk_did_not_see_stops(monkeypatch, capsys, shape, tmp_path):
+    """Seen red at `3b8522c3`, where each was silent."""
+    session = make_repo(tmp_path / "session", declared=True)
+    u = make_repo(tmp_path / "u")
+    command = shape.format(u=u)
+    assert say(monkeypatch, capsys, command, session) != "silent", command

@@ -115,6 +115,7 @@ from cmdline import (
     split_segments,
     split_segments_with_separators,
     substitution_bodies,
+    unglued,
     walk_directories,
 )
 
@@ -202,7 +203,10 @@ def _reads_a_commit(text):
     segments, _clean = split_segments(stripped)
     # The groups the splitter cut inside a redirection are read too (#674);
     # an answer here is a boolean, so reading them beside the parts only adds.
-    for toks in [*segments, *merged_segments(stripped)]:
+    # So is a view with a redirection glued to a word's end cut off
+    # (`git>/dev/null commit`, round 1 of 1790660768, yellow 4).
+    views = [*segments, *merged_segments(stripped)]
+    for toks in [*views, *filter(None, map(unglued, views))]:
         parsed = parse_git(toks)
         if parsed and parsed[0] == "commit":
             return True
@@ -372,9 +376,21 @@ def commit_invocations(command, cwd=None):
     # word, not a part in front of it.
     for parts, toks in merged_view(items):
         seen = set().union(*(kinds[p] for p in parts))
-        for kind, invs in _segment_invocations(toks, walked[parts[-1]][1]).items():
-            if kind not in seen:
-                found += invs
+        for view in filter(None, (toks, unglued(toks))):
+            for kind, invs in _segment_invocations(view, walked[parts[-1]][1]).items():
+                if kind not in seen:
+                    found += invs
+                    seen.add(kind)
+
+    # A redirection glued to a word's end (`git>/dev/null commit`, round 1 of
+    # 1790660768, yellow 4) is cut off and the segment read again beside
+    # itself, adding only a kind the segment did not find.
+    for index, (toks, bases) in enumerate(walked):
+        cut = unglued(toks)
+        if cut is not None:
+            for kind, invs in _segment_invocations(cut, bases).items():
+                if kind not in kinds[index]:
+                    found += invs
 
     for body in heredoc_bodies(drop_comments(command)):
         if _hides_a_commit(body):

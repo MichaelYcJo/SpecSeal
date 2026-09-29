@@ -83,6 +83,34 @@ def redirection_width(tokens, i):
     return j - i
 
 
+def unglued(tokens):
+    """TOKENS with a redirection glued to the END of a word cut into its own
+    word, or None where no word carries one (round 1 of 1790660768, yellow 4).
+
+    `_REDIRECTION` matches at the start of a word, and a shell ends a word at
+    `<` and `>` wherever they stand: `git>/dev/null commit` runs `git commit`,
+    and `commit>/dev/null` is the subcommand `commit`. A descriptor in front
+    (`2>f`) and bash 4.1's `{fd}>f` are the operator's own and stay whole. A
+    word holding whitespace was quoted, and is an argument's, so it is not
+    cut. It is read as a view BESIDE the segment, the way `merged_view` is,
+    so every answer the segment gave stands and the view only adds.
+    """
+    out, cut = [], False
+    for t in tokens:
+        k = min((t.find(c) for c in "<>" if c in t), default=-1)
+        if (
+            k > 0
+            and not t[:k].isdigit()
+            and not (t[0] == "{" and t[k - 1] == "}")
+            and not any(c.isspace() for c in t)
+        ):
+            out += [t[:k], t[k:]]
+            cut = True
+        else:
+            out.append(t)
+    return out if cut else None
+
+
 # Characters after which a `#` starts a comment. A shell ends a word at these,
 # and `#` opens a comment only at the start of a word: `git switch feat#1`
 # names a branch, and dropping from that `#` would leave `git switch feat`.
@@ -693,8 +721,12 @@ def merged_view(items):
     for index, (sep, tokens) in enumerate(items):
         if groups and sep in ("&", "|") and tokens:
             parts, toks = groups[-1]
-            m = _REDIRECTION.match(toks[-1])
-            if m and m.end() == len(toks[-1]):
+            # The operator may be glued to the end of a word (`git>&2`, round
+            # 1 of 1790660768, yellow 4), so the last piece `unglued` cuts is
+            # the one asked.
+            last = (unglued(toks[-1:]) or toks[-1:])[-1]
+            m = _REDIRECTION.match(last)
+            if m and m.end() == len(last):
                 toks[-1] += sep + tokens[0]
                 toks += tokens[1:]
                 parts.append(index)
@@ -1430,6 +1462,11 @@ RUNNERS = frozenset(
         "parallel",
         "watch",
         "script",
+        # zsh (round 1 of 1790660768, yellow 5): its precommand modifiers,
+        # and `repeat N`, whose count is an operand the stand-in reads past.
+        "noglob",
+        "nocorrect",
+        "repeat",
     }
 )
 
@@ -1518,6 +1555,15 @@ def command_word(tokens, stand_in="git", redirections=False):
         break
     if i < len(toks) and (
         toks[i] in UNPLACED
+        # zsh's short loop, `for i (1 2) git commit` (round 1 of 1790660768,
+        # yellow 5): the word list in parentheses, and the command straight
+        # after it. `for d in git commit` has no parenthesis there and stays
+        # a word list.
+        or (
+            toks[i] in ("for", "foreach")
+            and i + 2 < len(toks)
+            and toks[i + 2].startswith("(")
+        )
         or toks[i].endswith(")")
         or (i + 1 < len(toks) and toks[i + 1] == "()")
         or (after_runner and os.path.basename(toks[i]) != "git")
@@ -1776,17 +1822,25 @@ def command_strings(tokens):
             # redirection (`2>/dev/null`); taking it as the string made
             # `"$CMD"` the one word not asked (round 2 of 1790644505). It is
             # not asked itself: no shell runs it as a command. A redirection
-            # AFTER the flag is asked and read past (#674, `_string_at`).
+            # AFTER the flag is asked and read past (#674), and the scan goes
+            # on past the options and `--` behind it: `bash -c 2>/dev/null --
+            # "$CMD"` runs `$CMD` (round 1 of 1790660768, yellow 6).
             flag = next(j for j, t in enumerate(rest) if _hands_a_string(word, t))
-            tail, skip = rest[flag + 1 :], False
-            for at, t in enumerate(tail):
+            tail, skip, at = rest[flag + 1 :], False, 0
+            while at < len(tail):
+                t, width = tail[at], redirection_width(tail, at)
                 if skip:
                     skip = False
+                elif width:
+                    out.append(t)
+                    at += width
+                    continue
                 elif t in VALUED:
                     skip = True
                 elif t != "--" and not t.startswith(("-", "+")):
-                    out += _string_at(tail, at)
+                    out.append(t)
                     break
+                at += 1
         elif word in STRING_HOSTS:
             for j, t in enumerate(rest):
                 if t.startswith("--command="):
@@ -1825,10 +1879,12 @@ def names_an_unknown_command(text):
     text = drop_heredoc_bodies(drop_comments(text))
     segments, _clean = split_segments(text)
     # The segments the splitter cut inside a redirection are asked again,
-    # glued back (#674, `merged_view`): `2>&1 $CMD` runs `$CMD`.
+    # glued back (#674, `merged_view`): `2>&1 $CMD` runs `$CMD`. A redirection
+    # glued to a word's end is cut off and asked again too (`unglued`).
+    views = [*segments, *merged_segments(text)]
     return any(
         _segment_names_an_unknown_command(toks)
-        for toks in [*segments, *merged_segments(text)]
+        for toks in [*views, *filter(None, map(unglued, views))]
     )
 
 
@@ -2124,9 +2180,14 @@ def understood(tokens, redirections=True):
 def _unreadable_past_leading_redirections(tokens):
     """True when the segment, read past the redirections in front of its
     command, is one `understood` refuses, or a `cd` it would otherwise model
-    (#674, W1). False wherever no redirection stands in front."""
-    rest, passed = _past_leading_redirections(tokens)
-    if not passed:
+    (#674, W1). False wherever no redirection stands in front.
+
+    A redirection glued to a word's end is cut off first (`unglued`), so
+    `cd>/dev/null W` is a `cd` read past one (round 1 of 1790660768, yellow
+    4); zsh's precommand words count as read past too (yellow 5)."""
+    cut = unglued(tokens)
+    rest, passed = _past_leading_redirections(cut or tokens)
+    if not passed and cut is None:
         return False
     if not understood(rest):
         return True
@@ -2153,6 +2214,12 @@ def _past_leading_redirections(tokens):
             passed, i = True, i + width
             continue
         tok = toks[i]
+        # zsh's precommand modifiers and `repeat N` run the command in this
+        # shell, and the base read them as the command word (round 1 of
+        # 1790660768, yellow 5): `noglob cd W` moves the shell.
+        if tok in ("noglob", "nocorrect") or (tok == "repeat" and i + 1 < len(toks)):
+            passed, i = True, i + (2 if tok == "repeat" else 1)
+            continue
         if (
             ("=" in tok and not tok.startswith("-"))
             or os.path.basename(tok) in PREFIXES
@@ -2404,6 +2471,11 @@ def walk_directories(items, cwd):
     # environment instead of keeping a value the body may have rewritten.
     states, parked, walked, env = [(cwd, None)], [], [], {}
     stack, defined = [], set()
+    # A `cd` behind a redirection the splitter cut (`2>&1 cd W`) arrives as a
+    # part whose first word is the descriptor, so the walk read a program
+    # named `1` (round 1 of 1790660768, yellow 3). The group `merged_view`
+    # glues back is asked beside that part, and only its refusal is taken.
+    glued = {parts[-1]: toks for parts, toks in merged_view(items)}
     for index, (joined, tokens) in enumerate(items):
         following = items[index + 1][0] if index + 1 < len(items) else ""
         tokens = _expanded(tokens, env)
@@ -2460,7 +2532,7 @@ def walk_directories(items, cwd):
         # a segment "succeeded" says nothing about whether it moved. A
         # function whose body cds can fail on its last line having already
         # moved the shell.
-        known = understood(tokens)
+        known = understood(tokens) and (index not in glued or understood(glued[index]))
         # W1 (#674) refuses segments `86256492` accepted. That refusal is
         # ADDED beside the answer the segment had without it and never
         # replaces it (round 1 of 1790660768, red 1): an unresolved target is

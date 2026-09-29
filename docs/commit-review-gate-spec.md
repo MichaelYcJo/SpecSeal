@@ -368,12 +368,22 @@ So each place a program word stands is read past what the shell takes off it:
   unresolved directory beside the one the walk read without it, and never
   replaces it: `[no-review]` waives an unresolved target whole, and a session
   that is not opted in reads one as silence, so a replaced directory is a
-  stop lost.
+  stop lost. The same holds for zsh's `noglob`, `nocorrect` and `repeat N`,
+  for a redirection glued to a word's end (`cd>/dev/null W`), and for one the
+  splitter cut (`2>&1 cd W`).
+- **A redirection glued to the end of a word** (`git>/dev/null commit`, `git
+  commit>/dev/null`, `sh>/dev/null -c`) is cut off into a view read beside the
+  segment, adding only what the segment did not find. A descriptor in front
+  (`2>f`), bash 4.1's `{fd}>f` and a quoted word holding a space stay whole.
 - **The operators the splitter cuts at `&` or `|`** — `2>&1`, `>&2`, `<&0`,
-  `>&-`, `>|f`, and `&>f` after a word — are glued back into a view the gate
-  reads beside the segments, adding only what no segment found on its own. The
-  splitter itself is unchanged, because teaching it these operators moves every
-  segment in both gates and in the walk.
+  `>&-`, `>|f`, and `&>f` after a word, `git>&2` among them — are glued back
+  into a view the gate reads beside the segments, adding only what no segment
+  found on its own. The walk asks that view too, where a `cd` behind one
+  stands. The splitter itself is unchanged, because teaching it these
+  operators moves every segment in both gates and in the walk.
+- **zsh's precommand words and short loop** — `noglob`, `nocorrect`, `repeat
+  N` and `for i (…) cmd` — are read past as runners, the count and the word
+  list as operands.
 - **Inside a `case` arm, a function definition or a coprocess,** `watch` and
   the command word of a host's string are read by position, and a header
   spelling the reader does not place falls to the stand-in `git` already had.
@@ -382,7 +392,8 @@ So each place a program word stands is read past what the shell takes off it:
   a redirection's target. Past 32 headers, one inside the next
   (`HEADERS_READ`), the program counts as one the reader does not place.
 - **A host glued to a subshell's `(`** is a host, and a string picked after a
-  host's flag is read past a redirection written there.
+  host's flag is read past a redirection written there, and past the options
+  and `--` behind that redirection (`bash -c 2>/dev/null -- "$CMD"`).
 
 `sudo -s` and `sudo -i` are not string hosts: `man sudo` says the command
 is escaped a character at a time before it reaches the shell's `-c`, so a
