@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #671 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `784d1547027e37de7a8358d20022b52501e7e996..d824b82a653dbdd7fa5f413252d2e739fdd433ea`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 and 🟡 2, the rest of round 2's yellow 2 class: `watch` behind a redirection or in a case arm, a function body or a coprocess, and a redirection after a shell's `-c` |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 3, verifying and the run's last: round 2 closed on its one reopening. Targ
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `_is_the_program` does not read `watch` as the program behind a redirection or in a case arm, a function body or a coprocess, so the string it runs is never asked whether it expands | `hooks/cmdline.py:1457` | open | Executed: six shapes deny at `3006eb85`, silent at `567069b6` and `784d1547`, silent at `3911a8cf`; round 2's yellow 2 class, not enumerated |
-| 🟡 2 | The shell branch of `command_strings` takes a redirection written after `-c` for the string, and the `watch` branch puts it first in the joined string | `hooks/cmdline.py:1498` | open | Executed: five shapes deny at `3006eb85`, silent at `567069b6`, `784d1547` and `3911a8cf`; bash 3.2.57 landed the commit for the four `bash` shapes; the spec sentence at `docs/commit-review-gate-spec.md:307` is false for them |
-| ⬜ 3 | `_hides_a_commit` answers a deep nesting only at the recursion limit, after about 330 full rescans | `hooks/commit-review-gate.py:146` | open | Executed: 30.8 s and 31.4 s at HEAD against 0.4 s and 0.2 s at the base for 4000 and 6000 nested `<(`, deny throughout; a depth bound gives 1.8 s and 3.3 s |
+| 🟡 1 | `_is_the_program` does not read `watch` as the program behind a redirection or in a case arm, a function body or a coprocess, so the string it runs is never asked whether it expands | `hooks/cmdline.py:1457` | deferred #674 | #674 — The run is capped. Every shape also reads silent at `3911a8cf`, so none is below the base. #674 fixes the rest of #670's class in this release, after this lands; Executed: six shapes deny at `3006eb85`, silent at `567069b6` and `784d1547`, silent at `3911a8cf`; round 2's yellow 2 class, not enumerated |
+| 🟡 2 | The shell branch of `command_strings` takes a redirection written after `-c` for the string, and the `watch` branch puts it first in the joined string | `hooks/cmdline.py:1498` | deferred #674 | #674 — The same; bash lands the commit in these shapes at the base too; Executed: five shapes deny at `3006eb85`, silent at `567069b6`, `784d1547` and `3911a8cf`; bash 3.2.57 landed the commit for the four `bash` shapes; the spec sentence at `docs/commit-review-gate-spec.md:307` is false for them |
+| ⬜ 3 | `_hides_a_commit` answers a deep nesting only at the recursion limit, after about 330 full rescans | `hooks/commit-review-gate.py:146` | deferred #674 | #674 — The cost of a deep nesting; the answer is still deny. #674 adds a depth bound, measured before and after; Executed: 30.8 s and 31.4 s at HEAD against 0.4 s and 0.2 s at the base for 4000 and 6000 nested `<(`, deny throughout; a depth bound gives 1.8 s and 3.3 s |
 | 🟢 | round 2's blocking finding is closed — a commit found beside a nesting too deep is kept | `hooks/commit-review-gate.py:146` | confirmed | Executed: nine nesting kinds at four depths deny at `784d1547` and `3911a8cf`; the planted case goes red when the catch is removed |
 | 🟢 | round 2's yellow 2 is closed for its rows — the shell string is read after the flag, and `watch` counts behind a runner's options, a list opener, `(` and `!` | `hooks/cmdline.py:1496` | confirmed | Executed: each of five reverts turns its planted rows red by name; the narrowing that leaves words before `-c` unasked is sound, see prose; the class's remaining shapes are 🟡 1 and 🟡 2 |
 | 🟢 | round 2's yellow 3 is closed — `eval` stands in where no position names the command word | `hooks/commit-review-gate.py:230` | confirmed | Executed: reverting the stand-in turns four `EVALS` rows red; keeping the runner trigger on `git` changes nothing that runs, see prose |
