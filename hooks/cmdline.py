@@ -1488,13 +1488,12 @@ def command_strings(tokens):
         word = os.path.basename(tok)
         rest = tokens[k + 1 :]
         if word in SHELLS and any(_hands_a_string(word, t) for t in rest):
-            # The string is the first operand after the flag that says so.
-            # A word before that flag is an option's value (`--rcfile f`) or
-            # a redirection (`2>/dev/null`), never a positional parameter,
-            # so it is asked too: skipping it made `"$CMD"` the one word
-            # not asked (round 2 of 1790644505).
+            # The string is the first operand after the flag that says so. A
+            # word before that flag is an option's value (`--rcfile f`) or a
+            # redirection (`2>/dev/null`); taking it as the string made
+            # `"$CMD"` the one word not asked (round 2 of 1790644505). It is
+            # not asked itself: no shell runs it as a command.
             flag = next(j for j, t in enumerate(rest) if _hands_a_string(word, t))
-            out += [t for t in rest[:flag] if not t.startswith(("-", "+"))]
             skip = False
             for t in rest[flag + 1 :]:
                 if skip:
