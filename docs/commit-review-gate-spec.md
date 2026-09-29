@@ -281,7 +281,11 @@ and `in` are followed by names and words rather than commands, so
 The reading can only have gained stops by this. Every segment the new reading
 reaches began with a word at which the old one found no command, so no commit
 the base read is read differently, and the directories it marks unresolved
-are those segments' own.
+are those segments' own. What that argument could not see is the fallback for
+a command the splitter could not finish, which is not a segment: a commit
+found behind `do` in a declared repository took the session's own directory
+out of the judgment, until the fallback came to stand beside what was found
+(round 1 of work item 1790644505, and the #670 statement below).
 Enforced by: tests/test_a_commit_behind_a_reserved_word_is_judged.py
 
 **A commit behind a wrapper, in a shell string or in a substitution is a

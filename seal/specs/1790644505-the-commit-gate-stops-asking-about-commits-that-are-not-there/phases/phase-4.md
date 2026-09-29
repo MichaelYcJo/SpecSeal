@@ -77,6 +77,14 @@ both were read and then run.
    repository opted in, and it can be silent only where the session never
    opted in. There the base was silent for the same command, because it found
    no invocation at all.
+   **Corrected 2026-09-29 by round 1's fix pass.** Both points hold for
+   segments, and the conclusion drawn from them did not. The gate's fallback
+   for a command the splitter could not finish is not a segment, and it ran
+   only while nothing was found. So `for d in a; do git -C W commit -m x;
+   done; echo $'it\'s'; git commit -m y`, with W declared, read silent where
+   the base denied, because the newly found commit in W took the session's
+   own directory out of the judgment. The fallback now stands beside what was
+   found, and S7 carries that row.
 
 The measured half: S7, the corpus of every shape the base stops, passed
 before the change and after it. So did the 33 modules that load the gate, the
