@@ -14,6 +14,14 @@ The sweep is against the GRAMMAR, not against the module under test. Reading
 turn a case red instead of quietly narrowing the walk — the same move
 `tests/test_chain_hooks.py`'s `reader_blanking_passes` makes for the reader's
 passes, which is the precedent #262 names.
+
+**That tree is the running interpreter's, and only a run on a Python sees
+its grammar.** #684: 3.14 added two node types and removed five, and CI ran
+this module at 3.12 alone, so the promise above held only on whichever machine
+happened to have 3.14. The two table cases now check the running Python's
+slice exactly, as `ONLY_ON_SOME_PYTHONS` declares it, and
+`test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at` holds
+`.github/workflows/test.yml` to running this module at every bound of it.
 """
 
 import ast
@@ -112,8 +120,12 @@ def test_every_ast_constructor_is_classified():
     refusal only helps if the tables are complete enough that the refusal
     never fires on ordinary code.
 
+    It sees only the running Python's grammar, which is why CI runs this
+    module on more than one (#684).
+
     Red how: deleting `"IfExp"` from `ARM_SHAPES` leaves it in neither table
-    and this case names it. Executed.
+    and this case names it. Executed. On Python 3.14 at `346b4af7` it named
+    `Interpolation` and `TemplateStr`. Executed.
     """
     missing = grammar() - ARM.CLASSIFIED
     assert not missing, (
@@ -121,7 +133,10 @@ def test_every_ast_constructor_is_classified():
         f"an arm shape nor a named non-arm. Every arm inside one of them is "
         f"uncounted while the total still reads like a total, which is #262's "
         f"own defect one level up. Add each to `ARM_SHAPES` with how its arms "
-        f"are read, or to `NOT_ARMS` under the reason it carries none."
+        f"are read, or to `NOT_ARMS` under the reason it carries none. A name "
+        f"new in this Python also takes its first version in "
+        f"`ONLY_ON_SOME_PYTHONS`, or the case after this one goes red on every "
+        f"older Python."
     )
 
 

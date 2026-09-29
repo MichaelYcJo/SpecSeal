@@ -43,8 +43,13 @@ node type in neither raises `UnknownNodeType`.
 
 Totality is checked against `ast` itself rather than against this docstring:
 `tests/test_arm_check.py` enumerates every constructor from the `ast` module's
-own class tree and asserts this file covers all of them. A Python release that
-adds a node type turns that case red instead of quietly narrowing the walk.
+own class tree and asserts this file covers all of them, and names nothing
+else. That tree is the running interpreter's, and the tables serve every
+Python from the floor up, so `ONLY_ON_SOME_PYTHONS` records the classified
+names only some of them have, and each Python checks its own slice exactly.
+CI runs that module at every version where a slice changes. A Python release
+that adds or removes a node type turns a case red on its first run, instead of
+quietly narrowing the walk (#684: 3.14 did both, and CI ran only the floor).
 """
 
 from __future__ import annotations
