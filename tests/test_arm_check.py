@@ -20,12 +20,14 @@ import ast
 import hashlib
 import importlib.util
 import os
+import re
 import shlex
 import sys
 import textwrap
 import warnings
 
 import pytest
+from conftest import code_lines
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "verify", "scripts", "arm_check.py")
@@ -207,6 +209,66 @@ def test_the_range_table_holds_classified_names_and_bounds_above_the_floor():
         f"{low} — a bound at or below the supported floor {floor}. Every "
         f"supported Python is above it, so a name missing below the floor "
         f"needs no row, and one missing at the floor is missing everywhere"
+    )
+
+
+WORKFLOW = os.path.join(ROOT, ".github", "workflows", "test.yml")
+
+# A `run:` line that hands pytest this module, or the whole `tests/` directory.
+_RUNS_THIS_MODULE = re.compile(r"\bpytest\b.*\stests/(test_arm_check\.py)?(\s|$)")
+_PINNED_PYTHON = re.compile(r'\bpython(?:-version)?:\s*"(\d+)\.(\d+)"')
+
+
+def pythons_ci_runs_this_module_at(text):
+    """Every `(major, minor)` a job in `text` pins while it runs pytest over
+    this module, read through `conftest.code_lines` so a commented-out leg
+    or step counts for nothing."""
+    found, job = set(), []
+
+    def close(lines):
+        if any(_RUNS_THIS_MODULE.search(line) for line in lines):
+            for line in lines:
+                found.update((int(a), int(b)) for a, b in _PINNED_PYTHON.findall(line))
+
+    in_jobs = False
+    for line in code_lines(text):
+        if line.rstrip() == "jobs:":
+            in_jobs = True
+            continue
+        if in_jobs and re.match(r"^  [A-Za-z0-9_-]+:\s*$", line):
+            close(job)
+            job = []
+            continue
+        job.append(line)
+    close(job)
+    return found
+
+
+def test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at():
+    """S6 of work item 1790690762. A range is only checked on the Pythons that
+    run this module, and the `pytest` job runs it at the floor alone. A bound
+    no leg of CI runs is a declaration checked on nobody's interpreter, which
+    is how #684 went unseen: 3.14 changed the grammar in both directions, and
+    the one run that met it was a contributor's `.venv`.
+
+    Red how: before `.github/workflows/test.yml` had a job running this module
+    at 3.13 and 3.14, naming 3.14. Executed."""
+    with open(WORKFLOW, encoding="utf-8") as handle:
+        ran = pythons_ci_runs_this_module_at(handle.read())
+    bounds = {
+        tuple(bound)
+        for pair in ARM.ONLY_ON_SOME_PYTHONS.values()
+        for bound in pair
+        if bound is not None
+    }
+    unrun = sorted(bounds - ran)
+    assert not unrun, (
+        f"{['.'.join(map(str, b)) for b in unrun]} — a bound in "
+        f"`ONLY_ON_SOME_PYTHONS` that no job in test.yml runs "
+        f"`tests/test_arm_check.py` at (it runs it at "
+        f"{['.'.join(map(str, v)) for v in sorted(ran)]}). Add the version as "
+        f"a leg of the job that runs this module, or the range is checked on "
+        f"no interpreter CI has"
     )
 
 
