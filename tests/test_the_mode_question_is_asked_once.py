@@ -879,6 +879,17 @@ def test_a_fence_nobody_closed_is_still_named(config):
     assert config.fence_map(SHAPES["C14"])[1] == 0
 
 
+def test_the_fence_named_is_the_one_that_hides_the_row(config):
+    """C2 with a fence left open below the table. The old reading runs the
+    fence quoted in the comment to the end, so it would name THAT line, which
+    opens nothing; the walk sees the tilde fence below the table never close,
+    and the line under it is hidden because of it. That is the fence
+    `broad-gate` has to tell the person to close."""
+    lines = [*SHAPES["C2"], "", "~~~", "| Broad gate | bin/test -q |"]
+    assert config.fence_map(lines)[1] == lines.index("~~~")
+    assert config.config_rows("\n".join(lines)) == [("Mode", "shared")]
+
+
 def test_a_mid_line_comment_hides_no_row_the_base_reads(config):
     """C13, the residual `spec.md` §*Scope* names. A renderer hides the first
     pipe-line behind a lone backtick and a mid-line `<!--`, and knowing that
