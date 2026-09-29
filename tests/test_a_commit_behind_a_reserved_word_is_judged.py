@@ -71,6 +71,28 @@ SHAPES = {
     "a coprocess": (f"coproc {C}", UNRESOLVED),
 }
 
+# Round 1 of 1790644505, yellow 4: the same class for `eval`. Each runs its
+# `eval` in bash, and each was silent at the base and at `f25c6b1a`, because
+# `_eval_argument` read past assignments alone.
+EVALS = {
+    "then": f"if true; then eval '{C}'; fi",
+    "do, over a variable": 'for c in a; do eval "$c"; done',
+    "a while condition": f"while eval '{C}'; do break; done",
+    "!": f"! eval '{C}'",
+    "time": f"time eval '{C}'",
+    "command": f"command eval '{C}'",
+    "builtin": f"builtin eval '{C}'",
+    "a subshell": f"(eval '{C}')",
+    "a spaced subshell": f"( eval '{C}' )",
+    "a group": f"{{ eval '{C}'; }}",
+}
+
+
+@pytest.mark.parametrize("name", sorted(EVALS))
+def test_an_eval_behind_the_same_words_is_read(name, tmp_path):
+    """Seen red at `f25c6b1a`, where each returned nothing."""
+    assert found(EVALS[name], tmp_path), name
+
 
 def found(command, cwd):
     return gate.commit_invocations(command, str(cwd))[0]

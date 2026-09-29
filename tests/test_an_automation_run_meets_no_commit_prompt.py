@@ -265,6 +265,27 @@ def test_the_refusal_still_says_what_was_stopped(
     )
 
 
+def test_a_later_routing_answer_takes_the_press_back(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """Round 1 of 1790644505, yellow 5. A session that pressed `automation` for
+    one work item and then answered `per axis` for another has, on its latest
+    answer, a person who may be asked; the automation text would tell the
+    model not to. The last answer from this clone stands, so the gate goes
+    back to the base's deny-then-ask -- and the guard, whose reader this is,
+    asks again as well. A later `automation` press gives it back."""
+    repo = make_repo(tmp_path / "repo")
+    first = ask_entries(repo, tool_id="toolu_01first")
+    later = ask_entries(repo, answer="per axis", tool_id="toolu_01later")
+    write_transcript(projects, PRESSED, first + later)
+    assert not worktree_consent.automation_answered(str(repo), PRESSED)
+    got = [say(monkeypatch, capsys, "git commit -m x", repo)[0] for _ in "12"]
+    assert got == ["deny", "ask"]
+    again = ask_entries(repo, tool_id="toolu_01again")
+    write_transcript(projects, PRESSED, first + later + again)
+    assert worktree_consent.automation_answered(str(repo), PRESSED)
+
+
 # --- S6: without the press, nothing changes ---------------------------------
 
 

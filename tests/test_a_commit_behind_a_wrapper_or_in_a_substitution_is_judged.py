@@ -169,7 +169,36 @@ CONTROLS = {
     "a word after for": "for d in git commit; do :; done",
     "a conditional in a shell string": "bash -c '[ -f x ] && echo y'",
     "a group in a shell string": "bash -c '{ echo y; }'",
+    # Round 1 of 1790644505, yellow 3: positional parameters no shell runs,
+    # and `watch` as a word something else was handed.
+    "find -exec sh -c with _ {}": "find . -name '*.py' -exec sh -c 'wc -l \"$1\"' _ {} \\;",
+    "find -exec bash -c with bash {} +": "find . -type f -exec bash -c 'echo \"$@\"' bash {} +",
+    "bash -c over a glob": 'bash -c \'for f in "$@"; do echo "$f"; done\' _ *.txt',
+    "bash -c with an expanded $0": 'bash -c \'echo "$0"\' "$HOME"',
+    "grep for watch": "grep -n watch *.py",
+    "grep for watch in a substitution's list": "grep -l watch $(git ls-files)",
+    "rg for watch": 'rg watch "$DIR"',
 }
+
+# The same hosts, where the string they run IS an expansion or holds the
+# commit: each must still stop (round 1 of 1790644505, yellow 3's fence).
+STILL_HANDED = {
+    "sh -c $CMD": 'sh -c "$CMD"',
+    "bash -o errexit -c $CMD": 'bash -o errexit -c "$CMD"',
+    "su -c $CMD root": 'su -c "$CMD" root',
+    "su root -c $CMD": 'su root -c "$CMD"',
+    "watch -n 1 $CMD": 'watch -n 1 "$CMD"',
+    "env -S $CMD": 'env -S "$CMD"',
+    "sudo sh -c $CMD": 'sudo sh -c "$CMD"',
+    "bash -lc $CMD": 'bash -lc "$CMD"',
+    "positional parameters that are the commit": "bash -c '\"$@\"' _ git commit -m x",
+}
+
+
+@pytest.mark.parametrize("name", sorted(STILL_HANDED))
+def test_a_string_that_is_an_expansion_still_stops(monkeypatch, capsys, tmp_path, name):
+    repo = make_repo(tmp_path / "repo", declared=True)
+    assert say(monkeypatch, capsys, STILL_HANDED[name], repo) == "deny", name
 
 
 def say(monkeypatch, capsys, command, cwd):

@@ -176,6 +176,32 @@ def corpus(w, m, h):
             "measured: a body line equal to the delimiter ends it early",
             f"cat > note.md <<'EOF'\nquoted:\nEOF\n{BODY}\nEOF",
         ),
+        # Round 1 of 1790644505: a commit the #669/#670 reading finds in `w`,
+        # then a string the splitter cannot close (`$'…'` with an escaped
+        # quote), then a commit where the shell is. The base judged the
+        # session's directory for the unread rest; a commit found in `w`
+        # used to take that judgment away.
+        (
+            "r1: nice -C w, then $'…'",
+            f"nice git -C {q(w)} commit -m x; echo $'it\\'s'; {BODY}",
+        ),
+        (
+            "r1: do -C w, then $'…'",
+            f"for d in a; do git -C {q(w)} commit -m x; done; echo $'it\\'s'; {BODY}",
+        ),
+        (
+            "r1: cd w && nice, then $'…'",
+            f"cd {q(w)} && nice {BODY}; echo $'it\\'s'; {BODY}",
+        ),
+        (
+            "r1: timeout -C w, then $'…'",
+            f"timeout 5 git -C {q(w)} commit -m x; echo $'it\\'s'; {BODY}",
+        ),
+        # Nested past the reader's recursion: a gate that raises is silence.
+        (
+            "r1: 500 nested substitutions",
+            f"{BODY}; echo " + "$(" * 500 + "true" + ")" * 500,
+        ),
     ]
 
 
@@ -194,6 +220,29 @@ def test_no_shape_the_base_stops_reads_silent(monkeypatch, capsys, projects, tmp
         for marker in (session / ".git" / "specseal-commit-choice").glob("*"):
             marker.unlink()
     assert not silent, "a command the base stops reads silent:\n" + "\n".join(silent)
+
+
+def test_a_parity_arm_is_not_waived_by_a_newly_read_commit(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """Round 1 of 1790644505. `[no-review]` waives an unresolved target whole,
+    and the base's fallback for a command the splitter could not finish still
+    judged the session's own directory, whose parity arm `[no-review]` does
+    not answer. A commit the #670 reading found in a substitution or a shell
+    string used to take that fallback away."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    for command in (
+        f": '[no-review]'; echo $({BODY}) $'it\\'s'",
+        f": '[no-review]'; sh -c '{BODY}'; echo $'it\\'s'",
+    ):
+        answers = with_and_without_the_press(
+            monkeypatch, capsys, projects, command, session
+        )
+        for which, got in answers.items():
+            assert "silent" not in got, (command, which, got)
 
 
 def test_the_reverse_direction_still_stops(monkeypatch, capsys, projects, tmp_path):
