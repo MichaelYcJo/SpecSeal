@@ -133,7 +133,7 @@ through the `&` reset. It was **read**, and executed only against the fix
 below, where it fires.
 
 **Why it matters.** The rule the owner approved in #665 says an interpreter
-given `-c` or a script is read as shell. The docstring of `program_is_data`,
+given `-c` or a script is read as shell. The docstring of `program_is_data`, (NAME NOT IN TREE, reverted with #662 and #665)
 `docs/commit-review-gate-spec.md` and ledger row G7 all say the same. The
 code does not do it for these shapes. A body of plain `git commit` that a
 shell really runs is now a commit nobody judges. It was judged before this
@@ -157,10 +157,10 @@ case the smith planted.
 
 ### 🟡 2 — A `cd` whose target an earlier segment moves or locks is still trusted not to fail
 
-**Where.** `hooks/cmdline.py#walk_directories`, the `cannot_fail` block, and
+**Where.** `hooks/cmdline.py#walk_directories`, the `cannot_fail` block, and (NAME NOT IN TREE, reverted with #662 and #665)
 `hooks/cmdline.py#_enters`.
 
-**What is wrong.** `_enters` asks the filesystem when the hook runs. The
+**What is wrong.** `_enters` asks the filesystem when the hook runs. The (NAME NOT IN TREE, reverted with #662 and #665)
 whole command runs after that, so a segment before the `cd` can change what
 the `cd` meets. `mv W X ; cd W ; git commit` finds W at hook time, so the
 `cd` "cannot fail" and the session's directory is dropped at the `;`. In the
@@ -186,7 +186,7 @@ causes it. Contract §13 asks for the guarantee to be removed and the code to
 still refuse. Here the guarantee is that the hook's filesystem is the one the
 `cd` meets, and an earlier segment removes it.
 
-**The fix** trusts `_enters` only while every earlier segment was a `cd`.
+**The fix** trusts `_enters` only while every earlier segment was a `cd`. (NAME NOT IN TREE, reverted with #662 and #665)
 Every shape #662 measured starts with its `cd`, so none of them changes. It
 was executed in the same run as 🔴 1: every #662 case still passes, and the
 `mv` shape fires.
@@ -500,9 +500,9 @@ Files opened this round, in the clone at `02e47435` unless noted:
   `plan.md` §*Phases*, `phases/phase-4.md`, `phases/phase-5.md`, and the rows
   of `seal/ledger/1790635415-a-gate-that-fails-to-load-says-so.md`
 - `hooks/dispatch.py`, whole
-- `hooks/cmdline.py`: `program_is_data`, `shell_bodies`, `_heredoc_split`,
+- `hooks/cmdline.py`: `program_is_data`, `shell_bodies`, `_heredoc_split`, (NAME NOT IN TREE, reverted with #662 and #665)
   `Unresolved`, `strip_subshell`, `_cd_target`, `_dedup`, `_directories`,
-  `_step`, `_land`, `_enters`, `compose`, `walk_directories`, and the
+  `_step`, `_land`, `_enters`, `compose`, `walk_directories`, and the (NAME NOT IN TREE, reverted with #662 and #665)
   constants `SUBSHELL`, `EXPANDS`, `CD_FLAGS` and `WORD_BREAK`
 - The diffs `d89f8392..fa556996` (hooks and tests), `1ea0b7c2~1..1ea0b7c2`,
   and `8571e683~1..02e47435` (hooks, tests, docs, the contract and

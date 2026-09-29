@@ -20,7 +20,7 @@ that reads a real commit silent, the same failure the finding was opened for.
    (🔴 1 below). The fix reads the whole line and refuses anything after the
    interpreter, which closes round 2's four shapes. But it tokenises the line
    with `shlex`, whose default treats `#` as a comment, so `python3 <<EOF#x
-   -c '…'` hands `program_is_data` only `python3 << EOF` — the interpreter's
+   -c '…'` hands `program_is_data` only `python3 << EOF` — the interpreter's (NAME NOT IN TREE, reverted with #662 and #665)
    `-c` program is dropped as a comment. The shell keeps `EOF#x` as the
    delimiter and runs the `-c` program, so the body runs as shell and the
    commit inside it is not judged. Denied at `e8e5f977`, silent at HEAD.
@@ -53,7 +53,7 @@ prompt named as where a defect leaves the root.
 
 Round 2's five shapes (`python3 <<'EOF' -c …`, the bundled `-Bc`, the `perl`
 form, and the `$(…)`/`${…;…}` separator-moving forms) all deny at HEAD. The
-planted case `test_a_body_read_to_the_end_of_its_command_is_still_shell`
+planted case `test_a_body_read_to_the_end_of_its_command_is_still_shell` (NAME NOT IN TREE, reverted with #662 and #665)
 passes. Confirmed 🟢 for those shapes.
 
 The finding's own words are broader: "a program flag or script after the `<<`
@@ -64,7 +64,7 @@ a flag, and it survives. See 🔴 1 in Findings.
 
 Round 2's `mv W X ; cd W` and `chmod 000 W ; cd W` shapes, where the move is
 in a separate earlier segment, deny at HEAD. The planted case
-`test_a_cd_whose_target_an_earlier_segment_may_change_keeps_both` passes.
+`test_a_cd_whose_target_an_earlier_segment_may_change_keeps_both` passes. (NAME NOT IN TREE, reverted with #662 and #665)
 Confirmed 🟢 for those shapes.
 
 The finding's words are "a `cd` whose target an earlier segment moves or locks
@@ -82,13 +82,13 @@ below.
 
 ## New units (the fix's surface)
 
-`SEPARATORS`, `RUN_STDIN` and the four cases were read as code.
+`SEPARATORS`, `RUN_STDIN` and the four cases were read as code. (NAME NOT IN TREE, reverted with #662 and #665)
 `SEPARATORS = ("&&", "||", ";", "|")` matches the tokens `shlex` with
 `punctuation_chars=True` produces, and a background `&`, a `(` or `)` outside
 that set leaves `head[0]` a non-interpreter word, so the body reads as shell —
 the safe direction. The cases are correct as written and each was seen red at
 its stated base. No defect in the new units themselves; the two 🔴 findings
-are in the existing units the fix modified (`program_is_data`, `_cd_target`).
+are in the existing units the fix modified (`program_is_data`, `_cd_target`). (NAME NOT IN TREE, reverted with #662 and #665)
 
 ## Findings
 
@@ -97,16 +97,16 @@ are in the existing units the fix modified (`program_is_data`, `_cd_target`).
 **Where.** `hooks/cmdline.py#program_is_data`, and the delimiter word read by
 `hooks/cmdline.py#_heredoc_word`.
 
-**What is wrong.** `program_is_data` tokenises the opener line with
+**What is wrong.** `program_is_data` tokenises the opener line with (NAME NOT IN TREE, reverted with #662 and #665)
 `shlex.shlex(line, posix=False, punctuation_chars=True)`. `shlex` keeps its
 default `commenters="#"`, so it discards everything from the first `#` to end
 of line. `_heredoc_word` does not break the delimiter at `#`, so a delimiter
 written `EOF#x` is the real delimiter and the shell keeps whatever follows it
 as arguments to the interpreter. The two disagree: the shell runs the flags,
-`program_is_data` never sees them.
+`program_is_data` never sees them. (NAME NOT IN TREE, reverted with #662 and #665)
 
 For `python3 <<EOF#x -c '<program that runs its stdin as a shell>'`, `shlex`
-yields `['python3', '<<', 'EOF']`, so `program_is_data` returns True and the
+yields `['python3', '<<', 'EOF']`, so `program_is_data` returns True and the (NAME NOT IN TREE, reverted with #662 and #665)
 body is treated as data. The shell gives `python3` a `-c` program and feeds it
 the body on stdin; the body's first line is `git commit -m x`.
 
@@ -120,7 +120,7 @@ the body on stdin; the body's first line is `git commit -m x`.
 The control is data at both, correctly. The other three are a shell-run commit
 the gate denied before this branch and passes now.
 
-**Why it matters.** #665's rule, the `program_is_data` docstring and ledger row
+**Why it matters.** #665's rule, the `program_is_data` docstring and ledger row (NAME NOT IN TREE, reverted with #662 and #665)
 G7 all say an interpreter given a program flag reads as shell. The code does
 not do it when the flag hides behind a `#` in the delimiter word, so a `git
 commit` a shell really runs is a commit nobody judges. It was judged at
@@ -132,13 +132,13 @@ and the flags after the delimiter survive into the token stream, where the
 tokenizer level: with `commenters=""` the line above tokenises to
 `['python3', '<<', 'EOF#x', '-c', "'…'"]`, `command[:-2]` is
 `['python3', '<<', 'EOF#x']`, and `head[1:]` is not `[]` or `['-']`, so
-`program_is_data` returns False. (Read-level: the whole-gate run was not
+`program_is_data` returns False. (Read-level: the whole-gate run was not (NAME NOT IN TREE, reverted with #662 and #665)
 repeated against this fix, since the round's clone was removed.)
 
 ### 🔴 2 — a `cd` with an assignment-shaped prefix is trusted although the shell never reaches it
 
 **Where.** `hooks/cmdline.py#_cd_target` (the assignment strip), and the
-`settled`/`cannot_fail` trust in `hooks/cmdline.py#walk_directories`.
+`settled`/`cannot_fail` trust in `hooks/cmdline.py#walk_directories`. (NAME NOT IN TREE, reverted with #662 and #665)
 
 **What is wrong.** `_cd_target` strips a leading token as an assignment
 whenever it contains `=` and does not start with `-`, without either check
@@ -204,13 +204,13 @@ field. No fix commissioned.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A `#` glued to the heredoc delimiter word is a shell comment to `shlex` but not to the shell, so an interpreter's program flag after the `<<` is dropped from `program_is_data` and the shell-run body reads as data | `hooks/cmdline.py#program_is_data` | deferred owner | Executed: three shapes deny at `e8e5f977` and silent at HEAD, and each body ran as shell in a real bash. Round 2's 🔴 1 class, reopened. Fix verified at the tokenizer level, read-level for the gate |
+| 🔴 1 | A `#` glued to the heredoc delimiter word is a shell comment to `shlex` but not to the shell, so an interpreter's program flag after the `<<` is dropped from `program_is_data` and the shell-run body reads as data | `hooks/cmdline.py#program_is_data` | deferred owner | Executed: three shapes deny at `e8e5f977` and silent at HEAD, and each body ran as shell in a real bash. Round 2's 🔴 1 class, reopened. Fix verified at the tokenizer level, read-level for the gate (NAME NOT IN TREE, reverted with #662 and #665) |
 | 🔴 2 | A `cd` with an assignment-shaped prefix is trusted not to fail, so a `$(…)` side effect in the value or an invalid-identifier prefix drops the session directory and hides a commit in the session repository | `hooks/cmdline.py#_cd_target`, `hooks/cmdline.py#walk_directories` | deferred owner | Executed: three shapes deny at `e8e5f977` and silent at HEAD, and bash lands the commit in the session repository. Round 2's 🟡 2 class, reopened. Contract §13 |
 | ⬜ 3 | A deny with a falsy non-text `permissionDecisionReason` is refused as unreadable, where pre-#661 forwarded it | `hooks/dispatch.py#readable` | noted | Unchanged from `02e47435`, test-pinned on purpose, degrades to an end-of-turn notice. Not blocking |
 | 🟢 | round 2's 🔴 1 documented shapes are closed — the five heredoc shapes deny at HEAD | `hooks/cmdline.py#program_is_data`, `hooks/cmdline.py#_heredoc_split` | confirmed | Executed: the planted case passes and the round-2 shapes deny; the class gap is 🔴 1 above |
 | 🟢 | round 2's 🟡 2 documented shapes are closed — a move in a separate earlier segment denies at HEAD | `hooks/cmdline.py#walk_directories` | confirmed | Executed: the planted case passes; the class gap is 🔴 2 above |
 | 🟢 | round 2's 🟡 3 is closed for what it named — a deny beside a non-text `systemMessage` stays a deny, and a falsy `hookSpecificOutput` is absent again | `hooks/dispatch.py#readable` | confirmed | Executed: the planted case passes and `merge` on those shapes was checked directly; the reason field is ⬜ 3 |
-| 🟢 | The new units are correct as code — `SEPARATORS`, `RUN_STDIN` and the four cases | `hooks/cmdline.py`, `tests/test_gate_judges_the_repo_it_commits_to.py`, `tests/test_a_gate_that_fails_says_so.py` | confirmed | Read, and executed in the narrow run (141 passed) |
+| 🟢 | The new units are correct as code — `SEPARATORS`, `RUN_STDIN` and the four cases | `hooks/cmdline.py`, `tests/test_gate_judges_the_repo_it_commits_to.py`, `tests/test_a_gate_that_fails_says_so.py` | confirmed | Read, and executed in the narrow run (141 passed) (NAME NOT IN TREE, reverted with #662 and #665) |
 | ❓ | Whether a sandboxed `Bash` can refuse a `cd` that `os.access` in the unsandboxed hook allows, and what `os.access` answers on Windows | `hooks/cmdline.py#_enters` | ❓ out of verified scope | Carried from round 2. Nothing here ran the harness's sandbox or Windows. The owner answers the sandbox half, CI's `windows-latest` leg the cases |
 
 ## Executed probes
@@ -221,7 +221,7 @@ field. No fix commissioned.
 | 🔴 1: three `#`-delimiter heredoc shapes plus one control through the gate, at HEAD and with `hooks/cmdline.py` + `hooks/commit-review-gate.py` at `e8e5f977` | three silent at HEAD, all deny at `e8e5f977` |
 | 🔴 1: the same three shapes in a real bash, body creating a file | the body ran as shell each time |
 | 🔴 1: the round-2 shapes and controls through the gate | five deny at HEAD (round-2 closure confirmed) |
-| 🔴 1: `shlex` tokenisation of `python3 <<EOF#x -c '…'`, default vs `commenters=""` | default drops the flags (`['python3','<<','EOF']`); `commenters=""` keeps them, so `program_is_data` returns False |
+| 🔴 1: `shlex` tokenisation of `python3 <<EOF#x -c '…'`, default vs `commenters=""` | default drops the flags (`['python3','<<','EOF']`); `commenters=""` keeps them, so `program_is_data` returns False (NAME NOT IN TREE, reverted with #662 and #665) |
 | 🔴 2: `$(…)`-prefix, invalid-identifier and control `cd` shapes through the gate at HEAD and `e8e5f977`, with the commit really run in bash | three silent at HEAD, all deny at `e8e5f977`, commit landed in the session repository |
 | 🟡 3 / ⬜ 3: `merge` on deny-with-non-text-reason and systemMessage shapes at HEAD and `1ea0b7c2~1` | HEAD keeps the deny beside a non-text message and reads a falsy `hookSpecificOutput` as absent; HEAD drops a deny with a falsy non-text reason that `1ea0b7c2~1` forwarded |
 | 🔴 1: fuzz, 6000 lines around `python3 - <<EOF`, 511 read as data, bodies run in bash | 0 mismatches (no other data/shell disagreement surfaced by this generator) |
@@ -248,7 +248,7 @@ In `hooks/cmdline.py#program_is_data`, disable the lexer's comment handling:
         return False
 ```
 
-Correct with it (§14): the `program_is_data` docstring says the line "holds
+Correct with it (§14): the `program_is_data` docstring says the line "holds (NAME NOT IN TREE, reverted with #662 and #665)
 that one `<<` and no backslash" — add that a `#` in it is a literal, not a
 comment.
 
@@ -307,13 +307,13 @@ Files opened this round, in the clone at `4f45313f` unless noted:
   `rounds/round-2-report.md` (the orchestrator's tree)
 - The fix diff `93d67a5b..7fc359c2` (hooks and tests), and the eight commit
   subjects on it
-- `hooks/cmdline.py`: `program_is_data`, `shell_bodies`, `_heredoc_split`,
+- `hooks/cmdline.py`: `program_is_data`, `shell_bodies`, `_heredoc_split`, (NAME NOT IN TREE, reverted with #662 and #665)
   `_heredoc_word`, `drop_heredoc_bodies`, `heredoc_bodies`, `_cd_target`,
-  `_dedup`, `_directories`, `_step`, `_land`, `_enters`, `compose`,
-  `walk_directories`, `understood`, and the constants `DATA_INTERPRETERS`,
+  `_dedup`, `_directories`, `_step`, `_land`, `_enters`, `compose`, (NAME NOT IN TREE, reverted with #662 and #665)
+  `walk_directories`, `understood`, and the constants `DATA_INTERPRETERS`, (NAME NOT IN TREE, reverted with #662 and #665)
   `SEPARATORS`, `WORD_BREAK`, `EXPANDS`, `CD_FLAGS`
 - `hooks/dispatch.py`: `readable`, `classify`, `merge`
-- `hooks/commit-review-gate.py`: `_hides_a_commit` and the `shell_bodies` call
+- `hooks/commit-review-gate.py`: `_hides_a_commit` and the `shell_bodies` call (NAME NOT IN TREE, reverted with #662 and #665)
   sites
 - The base modules at `e8e5f977` (`cmdline.py`, `commit-review-gate.py`) and
   `1ea0b7c2~1` (`dispatch.py`)
