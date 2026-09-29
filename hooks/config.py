@@ -194,8 +194,10 @@ def hidden_lines(lines, text=None):
     `hooks/blocks.py#walk` is sure, the line is hidden exactly where a
     CommonMark renderer hides it: inside a fenced block or a line-start HTML
     comment block that closes. Where the walk is not sure -- a construct
-    inside a list item, another kind of HTML block, the lines after a
-    mid-line `<!--`, everything below a construct that never closes -- the
+    inside a list item, another kind of HTML block, the lines after inline
+    raw HTML a line leaves open (a mid-line `<!--`, CDATA, a processing
+    instruction, a declaration or a tag) and a piece of a line that starts
+    inside it, everything below a construct that never closes -- the
     line keeps this reader's reading from before #667, the fence rule alone,
     `blocks.fence_only`. So on every line the answer is either the old one or
     the renderer's, and never a third; `tests/test_the_hooks_hide_what_a_

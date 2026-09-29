@@ -380,6 +380,27 @@ FOUND = [
     ["A note" + BREAKS["FF"] + "```", "", OPEN + " RIDER: r " + CLOSE, "```"],
     # round 2: a piece that starts inside an inline comment its line opened
     ["x " + OPEN + " a" + BREAKS["LS"] + "```" + BREAKS["LS"] + "| a |", CLOSE],
+    # #673: the same piece inside every other kind of inline raw HTML, and a
+    # line after it inside the same paragraph. Here and not in ALPHABET: six
+    # alphabet lines pushed `test_the_walk_is_exact_somewhere` under its
+    # third, and an opener without its closer never forms inline HTML.
+    ["x <![CDATA[ a" + BREAKS["LS"] + "```" + BREAKS["LS"] + "| a |", "]]>"],
+    ["x <? a" + BREAKS["FF"] + "```" + BREAKS["FF"] + "| a |", "| b |", "?>"],
+    ["x <!DOCTYPE a" + BREAKS["GS"] + "```" + BREAKS["GS"] + "| a |", "a>"],
+    ['x <span title="a' + BREAKS["NEL"] + "```", "| a |", '">'],
+    ["x <span title='a" + BREAKS["PS"] + "```", "| a |", "'>"],
+    # between a tag's attributes no row can start, but a later line can
+    # begin inside the tag; a closing tag holds only whitespace before `>`
+    ["x <span" + BREAKS["LS"] + 'lang="en"', 'title="t">', "| a |"],
+    ["x </span" + BREAKS["VT"] + ">", "| a |"],
+    # an opener a renderer does not honour -- in a code span -- whose end
+    # lies inside a construct that is real: reading on from that end would
+    # step over the real opener
+    ["x `<?` <![CDATA[ a ?> b" + BREAKS["LS"] + "```" + BREAKS["LS"] + "| a |", "]]>"],
+    # a comment opener a renderer does not honour leaves the paragraph
+    # pending, and a real opener before the next `-->` must not be stepped
+    # over by that `-->`
+    ["x `" + OPEN + "` a", "b <? c " + CLOSE + " d", "e ?> f", "| a |"],
 ]
 
 CORPUS = (
@@ -584,6 +605,47 @@ def test_a_piece_inside_its_lines_open_comment_is_the_only_piece_unsure():
     assert (fenced.kinds[2], fenced.uncertain[2]) == (blocks.FENCED, False)
     before = blocks.walk_text(f"a{ls}b {OPEN} c\n\nd\n")
     assert before.uncertain[:2] == [False, False], before.uncertain
+
+
+# An opener and a closer of every other kind of inline raw HTML, with a
+# closer that can stand at a line's start or directly after the opener (#673).
+# The closing tag's closer is `>` and is only ever written on the same line.
+INLINE_OPEN_CLOSE = [
+    *INLINE_KINDS,
+    ("<span", 'a="b">'),
+    ("</span", ">"),
+]
+
+
+def test_a_piece_inside_other_inline_html_its_line_left_open_is_unsure():
+    """#673's S4, `walk_text`'s own answer. A piece after a break inside
+    CDATA, a processing instruction, a declaration or a tag its line left
+    open is uncertain; a piece after one its line closed is claimed; a piece
+    of a fenced line stays fenced and claimed. And an opener a renderer does
+    not honour does not step over one it does."""
+    ls = BREAKS["LS"]
+    for opener, closer in INLINE_OPEN_CLOSE:
+        inside = blocks.walk_text(f"a {opener}{ls}{closer} x\n\nd\n")
+        assert inside.uncertain[:2] == [False, True], (opener, inside.uncertain)
+        closed = blocks.walk_text(f"a {opener} {closer}{ls}| r |\n\nd\n")
+        assert closed.uncertain[:2] == [False, False], (opener, closed.uncertain)
+        fenced = blocks.walk_text(f"```\nx {opener}{ls}y\n```\n")
+        assert (fenced.kinds[2], fenced.uncertain[2]) == (blocks.FENCED, False)
+    nested = blocks.walk_text(f"a `<?` <![CDATA[ b ?> c{ls}| r |\n]]>\n")
+    assert nested.uncertain[:2] == [False, True], nested.uncertain
+
+
+@pytest.mark.parametrize("opener", [o for o, _ in INLINE_OPEN_CLOSE[:-1]])
+def test_a_paragraph_left_inside_other_inline_html_is_unsure_to_its_end(opener):
+    """#673's S5, `walk`'s paragraph state. The lines after a line that
+    leaves CDATA, a processing instruction, a declaration or a tag open are
+    uncertain to the paragraph's end, because the walk does not follow that
+    construct's end across lines; a blank line ends it. A `-->` does not end
+    it either, where the comment it closes is one the parser never formed."""
+    found = blocks.walk([f"a {opener}", "b", "c", "", "d"])
+    assert found.uncertain == [False, True, True, False, False], found.uncertain
+    fake = blocks.walk(["a `" + OPEN + "` b", "c <? d " + CLOSE + " e", "f", "", "g"])
+    assert fake.uncertain == [False, True, True, False, False], fake.uncertain
 
 
 def test_an_unclosed_fence_is_reported_at_the_reader_line_it_starts():
