@@ -135,7 +135,9 @@ def tree(tmp_path):
             row(
                 "the later claim",
                 unit_hash("parse"),
-                "a note with a | pipe escaped as \\|",
+                # Both pipes escaped: an unescaped one splits the row into
+                # six cells, which the checker names OVERFLOW since #585.
+                "a note with a \\| pipe escaped as \\|",
                 anchor="parse",
             )
         ],

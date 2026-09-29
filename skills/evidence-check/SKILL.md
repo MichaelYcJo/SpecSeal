@@ -170,23 +170,23 @@ evidence-check --reverify .    # after re-reading: rewrite each row's hash
 | `--ledger GLOB` | ledgers to scan (default `seal/ledger.md`, `seal/ledger/*.md` and `seal/releases/*.md`). A run given this prints which ledgers it did not read, and how to read them |
 | `--default-repo PATH` | migration ledgers cite the ORIGINAL repo with unprefixed paths — resolve them against this checkout |
 | `--map NAME=PATH` | resolve `NAME/...` prefixed coordinates against another checkout |
-| `--strict` | drift and a malformed coordinate exit 2, the broken-coordinate code, instead of 1. This is the form `broad-gate` runs |
+| `--strict` | drift, a malformed coordinate and an overflowing row exit 2, the broken-coordinate code, instead of 1. This is the form `broad-gate` runs |
 | `--reverify` | rewrite every resolvable row's hash to what its anchor holds now — and re-anchor every BROKEN row that exactly one unit reconstructs, path and locator both |
 | `--migrate` | rewrite old `path:line` rows to `path#unit@hash`; what it cannot prove is left and named |
 
 ### Which reader graded your tree
 
 Four readers run this checker over one tree. **Three of them read its exit
-code** and grade drift and a malformed coordinate differently, and the command
-above is the most lenient of those three; the fourth never reaches the exit
-code at all.
+code** and grade drift, a malformed coordinate and an overflowing row
+differently, and the command above is the most lenient of those three; the
+fourth never reaches the exit code at all.
 
-| Reader | Drift is | MALFORMED is |
-|---|---|---|
-| `evidence-check .`, the command this page documents | exit 1, the lenient reading | exit 1, the lenient reading |
-| CI's `ledger` job, which runs the same script and adds no flag of its own | exit 1, rendered as a `::warning::` — the job still passes | exit 1, rendered as the same `::warning::` — the job still passes |
-| `broad-gate` | exit 2. It runs this same check with `--strict`, and the branch comes back `NOT SEALED` | exit 2, for the same reason |
-| `hooks/evidence-advisor.py` | not reported at all. It imports this module in process rather than running the script, so it never reaches the exit code — and a line that prints on every commit is a line people learn to skip | printed as a block on the commit, never an exit code: the advisor keeps `MALFORMED` among the rows it names and drops drift |
+| Reader | Drift is | MALFORMED is | OVERFLOW is |
+|---|---|---|---|
+| `evidence-check .`, the command this page documents | exit 1, the lenient reading | exit 1, the lenient reading | exit 1, the lenient reading |
+| CI's `ledger` job, which runs the same script and adds no flag of its own | exit 1, rendered as a `::warning::` — the job still passes | exit 1, rendered as the same `::warning::` — the job still passes | exit 1, rendered as the same `::warning::` — the job still passes |
+| `broad-gate` | exit 2. It runs this same check with `--strict`, and the branch comes back `NOT SEALED` | exit 2, for the same reason | exit 2, for the same reason |
+| `hooks/evidence-advisor.py` | not reported at all. It imports this module in process rather than running the script, so it never reaches the exit code — and a line that prints on every commit is a line people learn to skip | printed as a block on the commit, never an exit code: the advisor keeps `MALFORMED` among the rows it names and drops drift | printed as a block on the commit, never an exit code: each row named with its ledger and line, because the commit that wrote the stray `\|` is the one to hear it |
 
 All four are right about the tree they are looking at. A branch mid-flight
 legitimately drifts, and the gate runs once at the end over a tree nobody is
@@ -200,7 +200,10 @@ for a different reason: the repository owner's answer of 2026-09-26, which
 keeps a release from starting to refuse rows in a repository's lenient run.
 The readers that decide — `broad-gate` and the vendored CI template, which
 both pass `--strict` — still refuse it at exit 2. `OLD-FORMAT`, the other
-coordinate nothing can parse, stays exit 2 under both readings.
+coordinate nothing can parse, stays exit 2 under both readings. A row with
+more cells than its table's header, `OVERFLOW`, takes the malformed
+coordinate's grading for the same reason, which was about a lenient run and
+not about which release changed it (#585).
 
 **So a lenient run says it.** Where a *check* run's answer is exit 1 and only
 there, the check prints which reading you took and what `broad-gate` would say
@@ -263,7 +266,8 @@ branch had touched.
 | `BROKEN` (exit 2) | the MAJOR unit — or its whole file — is not there, or the unit is there more than once | fix the coordinate now. Where the content still exists the line names the destination, graded by proof: `identical content at <where> (renamed?/moved?)` is content identity across a repo-wide scan and `--reverify` acts on it; `same name at <path> (content differs)` is a labelled fact only; several matches are counted, never named |
 | `OLD-FORMAT` (exit 2, `--strict` or not) | an old `path:line` row from before content anchoring, which nothing measures any more | run `evidence-check --migrate .` — a red build naming the migrator beats a green build checking nothing |
 | `MALFORMED` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | a row's `Code grounds` cell holds a coordinate that does not parse — a placeholder or short hash, no path, a bare `"` inside a quoted locator, a minor anchor that is not quoted — or cites no coordinate at all while the row claims something. Before this verdict such a row entered no count and the totals read clean | write it as `path#anchor@hash`: a `"` inside a quoted locator as `\"`, the hash as `@00000000` until `--reverify` fills it. `--reverify` names the row and leaves it, because which reading of an unparseable coordinate was meant is not the checker's call. Exit 1 here means *fix the coordinate*, not *re-read*: the verdict word on the row says which of the two exit 1 is |
-| `DRIFTED` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify`. This is one of the two verdicts the readers grade differently, `MALFORMED` being the other — see *Which reader graded your tree* |
+| `OVERFLOW` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | a table row in a ledger file splits into more cells than its table's header, so the text past the last column is in no column and no reader sees it — usually an unescaped `\|` inside a cell. A row under no header, which is every fragment row, is counted against the five columns `templates/ledger.md` declares for a ledger row. The line is named with both counts | write a `\|` inside a cell as `\\|`; a table that is not ledger rows takes a header of its own. `--reverify` names the row and leaves it, and still rewrites the row's hashes where their anchors resolve, because the hash is not what is wrong. Exit 1 here means *escape the pipe*, not *re-read* |
+| `DRIFTED` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify`. This is one of the three verdicts the readers grade differently, `MALFORMED` and `OVERFLOW` being the others — see *Which reader graded your tree* |
 | `EXTERNAL` (exit 0) | the path resolves in no known checkout, in a repository that has DECLARED cross-repo intent — a parity config, `--map`, or `--default-repo` | pass `--map`/`--default-repo`, or accept as out of scope. Without such a declaration a missing path is `BROKEN` instead: a deleted or renamed directory must fail the build, not read as somebody else's repo |
 | `NOT-IN-TREE` (exit 2, records arm) | a record of a work item that has not shipped names a compound backticked identifier that nothing git carries outside `seal/specs/` and `seal/ledger/` | correct the record, or append ` · NAME NOT IN TREE` on the line where the record means a name the tree does not have (placed before any trailing colon introducing a block). The marker exempts the LINE, not the name |
 | `UNREADABLE` (exit 2, records arm) | a record under a live work item that could not be opened, or a directory the walk could not LIST — a work item's own folder, or `seal/ledger/` itself | a record nobody can read is indistinguishable from a record with nothing in it, which is the green build this refuses. The same holds a directory up, where it is worse: an unlistable `seal/ledger/` used to read as a repository with no live work item and take the whole arm quiet at exit 0. A directory that is ABSENT is still an empty answer — a repository that has not started is not a broken one |
@@ -286,6 +290,8 @@ is a separate command: a check that refreshed what it was checking would
 report `OK` for ever. A row whose anchor is gone is left alone — silently
 renaming its hash would hide the one row somebody has to look at. A
 `MALFORMED` row is left too, with a `LEFT` line naming it and the remedy, and
+the run exits 1. An `OVERFLOW` row gets the same `LEFT` line, naming the
+ledger and the line because this command prints no heading per ledger, and
 the run exits 1.
 
 ## A row inside a fence is an example, not a claim
@@ -494,9 +500,16 @@ absent, or the record is wrong, and the marker is one comment away.
   content changed in place and no destination is provable, both commands leave
   the row and print the hash to record by hand. Accepting it instead is how a
   call site left behind by a move becomes the row's permanent anchor.
-- Every row the check calls `BROKEN`, `DRIFTED` or `MALFORMED` gets a line
-  back from `--reverify`, whether or not it could heal it. Silence there reads
-  as a heal that happened.
+- Every row the check calls `BROKEN`, `DRIFTED`, `MALFORMED` or `OVERFLOW`
+  gets a line back from `--reverify`, whether or not it could heal it.
+  Silence there reads as a heal that happened.
+- `OVERFLOW` reads every table in a ledger file, not only a table with a
+  `Code grounds` column, because a split is a defect of the row whichever
+  table it stands in. So a table under no header that is not ledger rows, six
+  cells wide or wider, is named: give it a header. A table whose own header is
+  wider than five columns is measured against that header, and a row with
+  fewer cells than its header is not named, because every cell of a short row
+  is rendered and nothing in it is hidden.
 - `MALFORMED` reads one cell of a row: the column headed `Code grounds`, or
   the second cell of a row under no header, which is every fragment row. A
   table whose header names no such column is not read, so a ledger that

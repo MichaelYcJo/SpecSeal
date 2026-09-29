@@ -172,8 +172,10 @@ hash and names what it changed.
 Hooks are scripts the plugin auto-registers; they run on your machine at
 tool events. One process handles all the gates on an event rather than one per
 gate — four interpreter startups per Bash call was most of the cost of having
-them (measured: 220ms → 104ms before a Bash call, 323ms → 120ms after). Full
-decision tables:
+them (measured: 220ms → 104ms before a Bash call, 323ms → 120ms after). A gate
+that fails to load or crashes is skipped and the call goes ahead; at the end of
+the turn you are told which gate it was, once per session. Full decision
+tables:
 [docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) ·
 [docs/commit-review-gate-spec.md](./docs/commit-review-gate-spec.md) ·
 [docs/review-chain-spec.md](./docs/review-chain-spec.md).
@@ -267,7 +269,7 @@ wrong for every other machine.
 
 | Command | Does |
 |---|---|
-| `evidence-check . [--strict]` | ledger drift check (the demo GIF) — works without any agent. The plugin puts it on PATH; `/specseal:evidence-ci` wires the same check into CI |
+| `evidence-check . [--strict]` | ledger drift check (the demo GIF) — works without any agent. The plugin puts it on PATH; `/specseal:evidence-ci` wires the same check into CI. It also names a ledger row that an unescaped `\|` split into more cells than its table's header (`OVERFLOW`), whose text past the last column no reader sees; `--strict` fails on it as it does on drift |
 | `deferral-check . [--kind all]` | resolve the answerer an `unverified` row names — does anything here actually run the check you are deferring? Separates *answers on pull requests* from *answers too late*, *local hook only*, and *nothing* |
 | `unverified-check . [--baseline <ref>]` | read the rows those `unverified` labels left behind — what is still open, in which work item, and who was named to answer it. Fails on a section it cannot read, because a tolerant reader reports zero and zero reads as *all closed*. With `--baseline`, it compares counts against `git merge-base <ref> HEAD`: the point where this branch forked from that ref on a branch checkout, and the base's tip in CI, which checks a pull request out already merged into the base. Either way a work item that landed on the base afterwards is not this branch's removal. A table with fewer rows than at that commit fails, as does an `overview.md` that was there and is gone. Replacing one row with another keeps the count and passes |
 | `session-cost --latest` | where a session's minutes went — command time, model time between calls, checks re-run for a result already produced, and how many tools went out per turn. Fills the seal's `cost` row, which nothing inside a session can measure |

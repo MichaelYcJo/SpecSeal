@@ -36,9 +36,10 @@ jobs:
 
       - name: Check evidence ledger coordinates
         run: |
-          # --strict turns DRIFTED — the content under an anchor changed —
-          # and MALFORMED — a coordinate that does not parse — into the same
-          # exit code as a BROKEN coordinate. Drop it to let them warn
+          # --strict gives three verdicts the exit code of a BROKEN
+          # coordinate: DRIFTED (the content under an anchor changed),
+          # MALFORMED (a coordinate that does not parse) and OVERFLOW (a row
+          # with more cells than its table's header). Drop it to let them warn
           # instead: they exit 1, which a `bash -e` step still fails, so
           # letting them warn also needs the `|| [ $? -eq 1 ]` guard the
           # evidence-ci skill prints. A broken coordinate fails either way.
@@ -46,6 +47,6 @@ jobs:
           # So does the records arm, which runs on every invocation and
           # answers for the records of work items that have not shipped: a
           # name the tree does not carry, or a record that cannot be read,
-          # exits 2 whatever this flag says. Dropping --strict softens drift
-          # and MALFORMED, and nothing else.
+          # exits 2 whatever this flag says. Dropping --strict softens drift,
+          # MALFORMED and OVERFLOW, and nothing else.
           python3 tools/evidence_check.py --strict .
