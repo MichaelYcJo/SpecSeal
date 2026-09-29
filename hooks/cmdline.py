@@ -1478,6 +1478,95 @@ def host_word(tok):
     return os.path.basename(tok.lstrip("("))
 
 
+# What `header_end` answers for a header whose spelling it does not place.
+UNPLACEABLE = -1
+
+
+def header_end(tokens):
+    """Where a command stands behind the header this segment opens with (#674).
+
+    A `case` arm (`case W in P)`, a later arm `P)`, `(P)`, `P )`), a function
+    definition (`f()`, `f ()`, `f(){`, `function f`, `function f()`, `function
+    f ()`, each then `{` or `(`) and a coprocess (`coproc CMD`, `coproc NAME
+    {`, `coproc {`). Returns the index of the first word after the header --
+    the length of TOKENS when the command is on a later line -- None when the
+    segment opens with none of these, and `UNPLACEABLE` for a `case`,
+    `function` or definition this reader does not place.
+
+    `command_word` does not use it: for `git` and `eval` the base's stand-in
+    stays, since a false one needs the literal word. `_is_the_program` and
+    `names_an_unknown_command` use it, because for them a false stand-in needs
+    only a word that expands somewhere after it, and `grep -n watch *.py` in a
+    function body is such a word (`spec.md` §*Two stand-ins*). They fall back
+    to the stand-in only on `UNPLACEABLE`, which is the stopping direction.
+    """
+    toks, n, i = list(tokens), len(tokens), 0
+    while i < n and (toks[i] in LIST_OPENERS or toks[i] in ("!", "(")):
+        i += 1
+    if i >= n:
+        return None
+    head = toks[i].lstrip("(")
+
+    def body(j):
+        # The compound command a definition's name is followed by.
+        if j >= n:
+            return n
+        if toks[j] in ("{", "("):
+            return j + 1
+        if toks[j].startswith("("):
+            return j
+        return UNPLACEABLE
+
+    def pattern(j, strict):
+        # A `case` pattern, glued to its `)` or spaced from it. One that runs
+        # on past a `|` ends the segment, and its arm is the next segment's.
+        if j >= n:
+            return n
+        if toks[j].endswith(")"):
+            return j + 1
+        if j + 1 < n and toks[j + 1] == ")":
+            return j + 2
+        if not strict:
+            return None
+        return n if j + 1 >= n else UNPLACEABLE
+
+    if head == "case":
+        if i + 2 >= n:
+            return n
+        return pattern(i + 3, True) if toks[i + 2] == "in" else UNPLACEABLE
+    if head == "in":
+        return pattern(i + 1, False)
+    if head == "coproc":
+        j = i + 1
+        if j >= n:
+            return n
+        if toks[j] in ("{", "("):
+            return j + 1
+        if toks[j].startswith("("):
+            return j
+        if j + 1 < n and toks[j + 1] in ("{", "("):
+            return j + 2
+        return j
+    if head == "function":
+        j = i + 1
+        if j >= n:
+            return n
+        if toks[j].endswith("(){"):
+            return j + 1
+        if toks[j].endswith("()"):
+            return body(j + 1)
+        if j + 1 < n and toks[j + 1] == "()":
+            return body(j + 2)
+        return body(j + 1)
+    if head.endswith("(){") and len(head) > 3:
+        return i + 1
+    if head.endswith("()") and len(head) > 2:
+        return body(i + 1)
+    if i + 1 < n and toks[i + 1] == "()":
+        return body(i + 2)
+    return pattern(i, False)
+
+
 def _hands_a_string(word, tok):
     """True when `tok`, an argument of `word`, tells it to run a string."""
     if tok == "--command" or tok.startswith("--command="):
@@ -1537,6 +1626,12 @@ def _is_the_program(tokens, k):
     (#674): a redirection, glued or spaced, and a runner glued to a subshell's
     `(`, which arrives from the splitter as `(nice`. A redirection whose target
     is `watch` itself (`2> watch …`) makes `watch` a file name, not a program.
+
+    Then a compound command's header, asked last (#674, P7-P9): behind a
+    `case` pattern, a function definition or `coproc`, the reading starts
+    again at the first word after the header. A header `header_end` cannot
+    place makes any later word the program, the stand-in `command_word` uses
+    for `git`.
     """
     for t in tokens[:k]:
         if os.path.basename(t) in RUNNERS:
@@ -1547,6 +1642,18 @@ def _is_the_program(tokens, k):
             break
     else:
         return True
+    if _is_the_program_past_redirections(tokens, k):
+        return True
+    h = header_end(tokens)
+    if h == UNPLACEABLE:
+        return True
+    if h is not None and 0 < h <= k:
+        return _is_the_program(tokens[h:], k - h)
+    return False
+
+
+def _is_the_program_past_redirections(tokens, k):
+    """`_is_the_program`'s second reading: past redirections and a glued `(`."""
     j = 0
     while j < k:
         width = redirection_width(tokens, j)
@@ -1630,11 +1737,53 @@ def names_an_unknown_command(text):
     while `sh -c '>$LOG echo'` was already asked of `>$LOG` and still is.
     """
     segments, _clean = split_segments(drop_heredoc_bodies(drop_comments(text)))
-    return any(
-        _expands(command_word(toks)[0])
-        or _expands(command_word(toks, redirections=True)[0])
-        for toks in segments
-    )
+    return any(_segment_names_an_unknown_command(toks) for toks in segments)
+
+
+def _segment_names_an_unknown_command(toks):
+    """`names_an_unknown_command` for one segment, every reading ORed (#674).
+
+    As written and past redirections (phase 1). Behind a runner's own options
+    or operands, which this reader cannot tell from the program, a later word
+    that expands counts (`sh -c 'nice -n 5 $CMD'`, `spec.md` P4). Behind a
+    compound command's header, the words after it are asked again; a header
+    `header_end` cannot place makes any later word that expands count.
+    """
+    if _expands(command_word(toks)[0]) or _expands(
+        command_word(toks, redirections=True)[0]
+    ):
+        return True
+    if any(_expands([t]) for t in _behind_a_runner(toks)):
+        return True
+    h = header_end(toks)
+    if h == UNPLACEABLE:
+        return any(_expands([t]) for t in toks[1:])
+    return bool(h) and h < len(toks) and _segment_names_an_unknown_command(toks[h:])
+
+
+def _behind_a_runner(toks):
+    """The words behind the runners this segment opens with.
+
+    Empty where no runner is read past. Assignments, redirections, `!` and
+    the list openers are read past on the way, the way `command_word` reads
+    them.
+    """
+    toks, _opened = strip_subshell(toks)
+    i, after = 0, False
+    while i < len(toks):
+        width = redirection_width(toks, i)
+        if width:
+            i += width
+            continue
+        t = toks[i]
+        if os.path.basename(t) in RUNNERS:
+            i, after = i + 1, True
+            continue
+        if ("=" in t and not t.startswith("-")) or t in LIST_OPENERS or t == "!":
+            i += 1
+            continue
+        break
+    return toks[i:] if after else []
 
 
 def _expands(word):
