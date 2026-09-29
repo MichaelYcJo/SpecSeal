@@ -76,9 +76,11 @@ three (#562; #568 joined each into one reading). A row under no header is
 counted against the five columns `templates/ledger.md` declares for a ledger
 row, because a fragment has no header by rule and the fold copies it into its
 release file as it stands — without that width, every fragment row was read
-and none was counted (#501). The case reads the shared file, every release
-file and every fragment.
-Enforced by: tests/test_release_hygiene.py::overwide_rows
+and none was counted (#501). The shipped checker names such a row `OVERFLOW`
+in every repository that installs the plugin (#585), graded like `MALFORMED`,
+and this repository's own case holds its ledgers to that reading on every
+pull request.
+Enforced by: skills/evidence-check/scripts/evidence_check.py::overflow_rows, tests/test_release_hygiene.py::test_no_ledger_row_splits_into_more_cells_than_its_header
 
 ## What the checker refuses, and what it says while refusing
 

@@ -53,8 +53,8 @@ ec = load()
 # the point: neither can move without the other going red.
 NOTICE = (
     "exit 1 is the lenient reading. `broad-gate` runs this same check with "
-    "`--strict`, where DRIFTED and MALFORMED are exit 2, and this tree would "
-    "come back NOT SEALED."
+    "`--strict`, where DRIFTED, MALFORMED and OVERFLOW are exit 2, and this "
+    "tree would come back NOT SEALED."
 )
 
 
@@ -189,7 +189,8 @@ def test_the_grading_is_one_function_and_the_line_reads_its_answer():
     """The condition for the line is *this run is about to return 1*, not a
     predicate written beside the grading that can drift from it."""
     zero = dict.fromkeys(
-        ("OK", "DRIFTED", "BROKEN", "EXTERNAL", "OLD-FORMAT", "MALFORMED"), 0
+        ("OK", "DRIFTED", "BROKEN", "EXTERNAL", "OLD-FORMAT", "MALFORMED", "OVERFLOW"),
+        0,
     )
 
     def code(strict=False, **totals):
@@ -209,6 +210,12 @@ def test_the_grading_is_one_function_and_the_line_reads_its_answer():
     assert code(MALFORMED=1, strict=True) == 2
     assert code(MALFORMED=1, BROKEN=1) == 2
     assert ec.exit_code({**zero, "MALFORMED": 1}, 1, 0, False) == 2
+    # A row wider than its header takes MALFORMED's grading (#585), below
+    # BROKEN and OLD-FORMAT like it.
+    assert code(OVERFLOW=1) == 1
+    assert code(OVERFLOW=1, strict=True) == 2
+    assert code(OVERFLOW=1, BROKEN=1) == 2
+    assert ec.exit_code({**zero, "OVERFLOW": 1, "OLD-FORMAT": 1}, 0, 0, False) == 2
     # The records arm reaches the same grading through its own two counts.
     assert ec.exit_code(zero, 1, 0, False) == 2, "a refused record is exit 2"
     assert ec.exit_code(zero, 0, 1, False) == 1, "a drifted record is exit 1"
@@ -305,7 +312,7 @@ def test_the_notice_borrows_the_word_the_failing_gate_prints():
     assert "NOT SEALED" in read(SEAL_STAMP), "seal_stamp no longer prints it"
     assert "broad-gate" in ec.LENIENT_NOTICE, "the notice names no reader"
     assert "exit 2" in ec.LENIENT_NOTICE, "the notice names no grading"
-    for verdict in ("DRIFTED", "MALFORMED"):
+    for verdict in ("DRIFTED", "MALFORMED", "OVERFLOW"):
         assert verdict in ec.LENIENT_NOTICE, f"the notice does not name {verdict}"
 
 
@@ -381,7 +388,8 @@ def test_no_document_describes_the_lenient_reader_alone():
 def grading(verdict):
     """`(lenient, strict)`: what `exit_code` returns for VERDICT alone."""
     zero = dict.fromkeys(
-        ("OK", "DRIFTED", "BROKEN", "EXTERNAL", "OLD-FORMAT", "MALFORMED"), 0
+        ("OK", "DRIFTED", "BROKEN", "EXTERNAL", "OLD-FORMAT", "MALFORMED", "OVERFLOW"),
+        0,
     )
     totals = {**zero, verdict: 1}
     return ec.exit_code(totals, 0, 0, False), ec.exit_code(totals, 0, 0, True)
@@ -407,21 +415,24 @@ def test_the_skill_states_the_grading_exit_code_returns_for_malformed():
     in this file. So the next change to the grading moves the page or goes
     red, which is what the old row's `(exit 2, --strict or not)` never did
     when the owner's answer moved it."""
-    lenient, strict = grading("MALFORMED")
     skill = read(os.path.join(ROOT, "skills", "evidence-check", "SKILL.md"))
-    verdict = table_row(skill, "`MALFORMED` (")[0]
-    want = f"`MALFORMED` (exit {lenient}; {strict} under `--strict`"
-    assert verdict.startswith(want), f"{verdict!r} does not state {want!r}"
     header = table_row(skill, "Reader")
-    assert header[-1] == "MALFORMED is", header
-    column = len(header) - 1
-    for reader, code in (
-        ("`evidence-check .`", lenient),
-        ("CI's `ledger` job", lenient),
-        ("`broad-gate`", strict),
-    ):
-        cell = table_row(skill, reader)[column]
-        assert cell.startswith(f"exit {code}"), f"{reader}: {cell!r}"
+    # #585 gave `OVERFLOW` a column of its own beside `MALFORMED`'s, so the
+    # case walks both rather than asserting which column is last.
+    assert header[-2:] == ["MALFORMED is", "OVERFLOW is"], header
+    for name in ("MALFORMED", "OVERFLOW"):
+        lenient, strict = grading(name)
+        verdict = table_row(skill, f"`{name}` (")[0]
+        want = f"`{name}` (exit {lenient}; {strict} under `--strict`"
+        assert verdict.startswith(want), f"{verdict!r} does not state {want!r}"
+        column = header.index(f"{name} is")
+        for reader, code in (
+            ("`evidence-check .`", lenient),
+            ("CI's `ledger` job", lenient),
+            ("`broad-gate`", strict),
+        ):
+            cell = table_row(skill, reader)[column]
+            assert cell.startswith(f"exit {code}"), f"{name}, {reader}: {cell!r}"
     drifted = table_row(skill, "`DRIFTED` (")[-1]
     assert "the one verdict" not in drifted, drifted
 
@@ -437,9 +448,9 @@ def test_the_ci_warning_names_every_verdict_the_lenient_reading_softens():
         line for line in workflow.splitlines() if "::warning::evidence ledger" in line
     ]
     assert len(warnings) == 1, warnings
-    stems = {"DRIFTED": "drift", "MALFORMED": "malformed"}
+    stems = {"DRIFTED": "drift", "MALFORMED": "malformed", "OVERFLOW": "overflow"}
     softened = [v for v in stems if grading(v) == (1, 2)]
-    assert softened == ["DRIFTED", "MALFORMED"], softened
+    assert softened == ["DRIFTED", "MALFORMED", "OVERFLOW"], softened
     for verdict in softened:
         assert stems[verdict] in warnings[0], f"{verdict}: {warnings[0]}"
     assert "re-verify the rows above" not in warnings[0], warnings[0]
@@ -451,9 +462,11 @@ def test_every_other_page_that_grades_the_flag_names_malformed():
     against a number written here, so the next change to the grading moves
     them or goes red."""
     lenient, strict = grading("MALFORMED")
+    assert grading("OVERFLOW") == (lenient, strict), "OVERFLOW is graded apart"
     skill = read(os.path.join(ROOT, "skills", "evidence-check", "SKILL.md"))
     flag = table_row(skill, "`--strict`")[1]
     assert "malformed" in flag and f"exit {strict}" in flag, flag
+    assert "overflowing row" in flag, "the flag row does not name OVERFLOW (#585)"
     assert f"instead of {lenient}" in flag, "the flag row's lenient exit"
     ci = " ".join(read(os.path.join(ROOT, "skills", "evidence-ci", "SKILL.md")).split())
     want = (
@@ -461,7 +474,14 @@ def test_every_other_page_that_grades_the_flag_names_malformed():
         f"without it, {strict} with it"
     )
     assert want in ci, "evidence-ci's step 4 no longer grades MALFORMED"
+    want = "So does a row with more cells than its table's header, `OVERFLOW`."
+    assert want in ci, "evidence-ci's step 4 does not grade OVERFLOW (#585)"
     template = read(os.path.join(ROOT, "templates", "evidence-check.yml"))
     assert lenient < strict, "the template says dropping --strict softens it"
-    assert "softens drift\n          # and MALFORMED, and nothing else" in template
-    assert f"{lenient} drift or malformed only" in ec.__doc__, "the module docstring"
+    assert (
+        "softens drift,\n          # MALFORMED and OVERFLOW, and nothing else"
+        in template
+    )
+    assert f"{lenient} drift, malformed or overflow only" in ec.__doc__, (
+        "the module docstring"
+    )
