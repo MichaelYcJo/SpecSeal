@@ -183,6 +183,8 @@ CONTROLS = {
     "grep for watch": "grep -n watch *.py",
     "grep for watch in a substitution's list": "grep -l watch $(git ls-files)",
     "rg for watch": 'rg watch "$DIR"',
+    # #674: `watch` as the file a redirection writes to is no program.
+    "watch as a redirection's target": '2> watch -g "$CMD"',
 }
 
 # #674: round 1's seven controls, rewritten into each position the work item
@@ -326,6 +328,13 @@ def test_a_redirection_whose_target_is_named_git_still_reads_as_git(tmp_path):
     Reading past every redirection would read it as none, so the base's answer
     is kept wherever it found one."""
     assert found("2>/x/git commit -m x", tmp_path)
+
+
+def test_a_redirection_with_nothing_after_it_keeps_the_base_subcommand():
+    """The same rule one scan over: `git 2>/dev/null` names no subcommand past
+    the redirection, so the answer `86256492` gave is the one returned."""
+    assert cmdline.parse_git(["git", "2>/dev/null"]) == ("2>/dev/null", [], [])
+    assert cmdline.parse_git(["git", "2>/dev/null", "commit"]) == ("commit", [], [])
 
 
 @pytest.mark.parametrize("name", sorted(STILL_HANDED))

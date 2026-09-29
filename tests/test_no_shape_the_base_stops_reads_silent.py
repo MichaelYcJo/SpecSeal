@@ -281,6 +281,7 @@ def test_a_cd_behind_a_redirection_is_not_read_as_staying_put(
         f"2>/dev/null cd {q(u)} && {BODY}",
         f"2> /dev/null cd {q(u)} && {BODY}",
         f">/dev/null pushd {q(u)} && {BODY}",
+        f"time 2>/dev/null cd {q(u)} && {BODY}",
     ):
         answers = with_and_without_the_press(
             monkeypatch, capsys, projects, command, session
