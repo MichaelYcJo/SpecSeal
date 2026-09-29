@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #685 — https://github.com/MichaelYcJo/SpecSeal/pull/685 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `806fad617bcd7ec2d5f886e2181022f66e3cc184..86d1bc9717b1773229fafabd878eb10be9bd06a9`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -27,7 +27,7 @@ Round 2, verifying, over round 1's fix range `deb6290f..54e31f21` at HEAD `806fa
 | ⬜ 1 | `selects_this_module` answers True for a filter bundled behind a flag (`-qk`, `-vm`), for an option that runs no case (`--setup-plan`, `--setup-only`, `--fixtures`, `--markers`, `--version`, `-h`), for a `--deselect` prefix shorter than the module path, and for an `--ignore-glob` spelled with `./`; pytest runs no case of the module under each, and exits 0 wherever other cases still run | `tests/test_arm_check.py:266` | deferred #687 | Executed on 3.13 against pytest 9.1.1 in a fixture repository; with the arm job's line rewritten to `pytest tests/ -qk 'not arm'`, S6 is green on 3.12 and 3.14. No defect ships: today's workflow is read right |
 | ⬜ 2 | `pythons_ci_runs_this_module_at` reads each physical line, so a folded or plain multi-line `run:` whose second line holds `--ignore` of the module or `-k` is counted at 3.13 and 3.14 | `tests/test_arm_check.py:299` | deferred #687 | Executed: three shapes counted, and pytest ran the module under none of them; with the arm job rewritten to the folded shape, S6 is green on 3.12 and 3.14. A different unit from ⬜ 1, which predates round 1's fixes |
 | ⬜ 3 | Six of `_UNREADABLE`'s eight options are pinned by no case, and its comment names a class that `--co` is not in | `tests/test_arm_check.py:244` | deferred #687 | Executed: `_UNREADABLE` emptied, all 14 line cases green |
-| ⬜ 4 | L3's Notes name the literal-block continuation that fails closed and omit the folded and plain shapes that count, where the clause says an `--ignore` of the module is never counted | `seal/ledger/1790690762-arm-check-reads-every-supported-ast.md` L3 | open | Read against ⬜ 2's probe. Paperwork, so not counted in `Needs a fix` |
+| ⬜ 4 | L3's Notes name the literal-block continuation that fails closed and omit the folded and plain shapes that count, where the clause says an `--ignore` of the module is never counted | `seal/ledger/1790690762-arm-check-reads-every-supported-ast.md` L3 | answered | `86d1bc97` — L3's note says a literal block continued with a backslash does not count, and a folded or plain multi-line `run:` is counted with an `--ignore` or `-k` on its second line unseen; the counting half is #687; Read against ⬜ 2's probe. Paperwork, so not counted in `Needs a fix` |
 | 🟢 | round 1's finding 1 is closed — S6 requires the Python just below each bound | `tests/test_arm_check.py:340` | confirmed | Executed on 3.12.11 and 3.14.3: 3.13 leg deleted is red naming 3.13, 3.14 leg deleted is red naming 3.14, control green; restatements read at `f75d1b9b` |
 | 🟢 | round 1's finding 2 is closed as written — an `--ignore` of the module, in either spelling, is not counted | `tests/test_arm_check.py:256` | confirmed | Executed: both spellings red naming 3.13 and 3.14, `pytest tests/ -q` green; five removal lines red with `_removes_this_module` answering False. The class it belongs to is wider, which is this round's ⬜ 1 and ⬜ 2 |
 | 🟢 | round 1's finding 3 is closed — S6 splits jobs with the suite's one splitter | `tests/test_arm_check.py:299` | confirmed | Executed: red with `jobs` returning `{}`; green with pytest alone on 3.12, 3.13, 3.14 and under `-n auto` on 3.13. A `jobs:` on the first line now raises rather than reads, which fails closed |
