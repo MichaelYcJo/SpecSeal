@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #668 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `7ddf91eafff5042408e5d2df2f90ce76549f34a6..ba4c48f240605b9c79f99f7b10fcd3152d9b5a02`, 3 commits |
+| Contract changes | none |
+| New units | SETEXT_UNDERLINE_RE (depth 1); HEADING_CONTAINER_RE (depth 1); HEADING_MARKUP_RES (depth 1); github_slug (depth 1); test_a_heading_github_renders_before_it_slugs_is_not_refused (depth 1) |
 | Needs a fix | yes — 🟡 9 (a real single-word heading anchor GitHub builds from a setext, quoted or listed heading, or from rendered text that differs from the source, is refused as `NOT-IN-TREE`) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 3, verifying and the run's last: round 2 closed on its one reopening. Targ
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 9 | `heading_slugs` slugs a heading's source line, so a real single-word anchor GitHub builds from a setext heading, a heading behind `>` or a list marker, or a heading whose rendered text differs from its source (a link, emphasis, an entity, an inline tag) is refused as `NOT-IN-TREE` | `skills/evidence-check/scripts/evidence_check.py:2906` | open | executed: eight fixture anchors refused, the plain ATX control passes; the proposed fix passes all eight, its case red at `5b115d2e` and green with it, whole module 101 passed. Zero instances among 532 single-word anchors in this tree. Same class as round 2's finding 7, in a unit round 2's fixes created |
-| ⬜ 10 | A `#` line GitHub does not render as a heading (unclosed fence, HTML comment, front matter, `<pre>`) adds a slug, so an invented anchor equal to its punctuation-dropped words passes | `skills/evidence-check/scripts/evidence_check.py:2906` | open | executed: an invented anchor passes in each of four fixtures, refused under a closed fence. Within the price `coordinate_misses` states. Not counted in `Needs a fix` |
+| 🟡 9 | `heading_slugs` slugs a heading's source line, so a real single-word anchor GitHub builds from a setext heading, a heading behind `>` or a list marker, or a heading whose rendered text differs from its source (a link, emphasis, an entity, an inline tag) is refused as `NOT-IN-TREE` | `skills/evidence-check/scripts/evidence_check.py:2906` | **fixed** `cd4986e7` | fixed at cd4986e7 — case sharpened in `fbc8029c`: `heading_slugs` reads setext headings and headings behind `>` or a list marker, and adds the slug of the rendered text beside the source line's. The capped run's own unit, so the branch fixed it (`docs/review-chain-spec.md` §*The cap bounds rounds, and not the fixes of the round it stopped*); no round read the fix; executed: eight fixture anchors refused, the plain ATX control passes; the proposed fix passes all eight, its case red at `5b115d2e` and green with it, whole module 101 passed. Zero instances among 532 single-word anchors in this tree. Same class as round 2's finding 7, in a unit round 2's fixes created |
+| ⬜ 10 | A `#` line GitHub does not render as a heading (unclosed fence, HTML comment, front matter, `<pre>`) adds a slug, so an invented anchor equal to its punctuation-dropped words passes | `skills/evidence-check/scripts/evidence_check.py:2906` | answered | Within the price `coordinate_misses` states. `SKILL.md`'s *Known limits* now says so at `cd4986e7`, beside the anchor-name limit the round offered for deferral; executed: an invented anchor passes in each of four fixtures, refused under a closed fence. Within the price `coordinate_misses` states. Not counted in `Needs a fix` |
 | 🟢 | round 2's yellow finding 7 is closed for the shapes it named — an apostrophe heading, a code-span file-name heading, a version heading | `skills/evidence-check/scripts/evidence_check.py:2906`, `:2972` | confirmed | executed: the case passes; each of three mutants (slugs not added, fences not blanked, apostrophe kept) exit 1. The rest of the class is finding 9 |
 | 🟢 | round 2's correction 8 is closed — `reverify`'s docstring and the `SKILL.md` clause state what a moved-whole and an unmoved row get | `skills/evidence-check/scripts/evidence_check.py:2202`, `skills/evidence-check/SKILL.md:309` | confirmed | read: both sentences match the splice and skip paths in `reverify` |
 | 🟢 | the rows round 2's fix re-pointed resolve — `reverify`, `coordinate_misses`, `heading_slugs`, the new case and the 0.8.0 `SKILL.md` section | seven ledger files in the fix diff | confirmed | executed: `evidence-check --ledger` on each, exit 0, 0 drifted, 0 broken; the work item's fragment 70 ok |
