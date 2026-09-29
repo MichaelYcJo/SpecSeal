@@ -147,19 +147,6 @@ def test_a_line_end_only_splitlines_sees_does_not_add_a_line(tmp_path, char):
     assert ceiling_problems(root, 10, OVER) == []
 
 
-def test_the_copy_of_the_line_rule_is_the_checkers():
-    """`fold_check.gfm_lines` is a copy of `evidence_check.gfm_lines`, kept
-    because the shared reader where one copy belongs was being rewritten on
-    another branch. Held equal over every character either could split on."""
-    checker = _load(
-        "specseal_evidence_check",
-        os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py"),
-    )
-    for char in [*SPLITLINES_ONLY, "\n", "\r", "\r\n"]:
-        text = f"a{char}b\n\nc{char}\n{char}"
-        assert fold_check.gfm_lines(text) == checker.gfm_lines(text), repr(char)
-
-
 def test_a_listed_document_back_under_the_ceiling_is_named(tmp_path):
     """A10: the entry cannot outlive the split."""
     root = tree(tmp_path, {"big.md": body(10, 2)})

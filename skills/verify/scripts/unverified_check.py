@@ -155,6 +155,39 @@ SKIP_DIRS = {
 # how a cell is read, where a fence ends, how a path resolves — is shared, and
 # that sharing is what stopped one fix from opening the next gap.
 LOOSE_HEADING = re.compile(r"^#{2,3}\s.*not verified", re.I)
+# Where GFM ends a line: LF, CR or CRLF, and nowhere else. `str.splitlines`
+# also ends one at U+2028, U+2029, NEL, a form feed, VT and `\x1c`-`\x1e`, so
+# below one of those a reader read lines no renderer shows (#664).
+GFM_LINE_RE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+\Z")
+
+
+def gfm_lines(text, keepends=False):
+    """TEXT's lines as GFM reads them, the way `str.splitlines` returns them
+    otherwise: no trailing empty line, and each line's end kept only when
+    KEEPENDS asks.
+
+    **Every reader of markdown or record text reads its lines here** (#664):
+    `readable` and `folded_items` below, and every script that loads this
+    module and splits the same text a second time -- `round_record.py`'s
+    `raw` halves, `fold_check.py`'s marker readers, `gather_changelog.py`
+    and `survivor_check.py`. Two readers of one text that split it two ways
+    disagree about which line an index names, and `round_record.py#swallowed`
+    zips the two splits with `strict=True`.
+
+    `str.splitlines` also ends a line at U+2028, U+2029, NEL, a form feed, VT
+    and `\\x1c`-`\\x1e`. Below one of those it cut a table row in two, read a
+    heading or a marker that stands mid-line as a line of its own, printed a
+    line number one off the one `grep -n` and git print, and, where the
+    reader wrote the text back, turned the character into a line break. On a
+    text holding none of the eight the two splits agree, including `""`, a
+    trailing newline and a final line with none.
+
+    `skills/evidence-check/scripts/evidence_check.py#gfm_lines` is the
+    vendored copy a checker run alone in a user's `tools/` needs, and
+    `tests/test_every_reader_ends_a_line_where_gfm_does.py` holds the copies
+    equal."""
+    lines = GFM_LINE_RE.findall(text)
+    return lines if keepends else [line.rstrip("\r\n") for line in lines]
 
 
 def split_row(line):
@@ -627,7 +660,11 @@ def live_lines(lines):
     `readable` makes. None of them is on this path. What this scan and
     `blank_fences` DO share is the fence delimiter, `fence_opener` and
     `fence_closes`, because two spellings of it is what #491 found: the
-    three-space bound had landed here and not one function over.
+    three-space bound had landed here and not one function over. They share
+    the line split too: `readable` and every caller that hands this lines
+    split the text with `gfm_lines` (#664), except the `fold_ledger.py` and
+    `settle.py` callers, which split newline-translated text on `"\\n"` for a
+    byte-for-byte round trip and end a line where GFM does already.
 
     No `zip`. Ruff's B905 requires the strictness keyword on every such call,
     that keyword arrived in python 3.10, and this script carries no
@@ -650,8 +687,9 @@ def readable(text):
 
     Every read starts here — the working tree and the base revision alike —
     which is what keeps the two sides of the comparison counting the same
-    table."""
-    return blank_fences(strip_comments(text.splitlines()))
+    table. Its lines are `gfm_lines(text)`, so an index into what this
+    returns is an index into `gfm_lines(text)` and into no other split."""
+    return blank_fences(strip_comments(gfm_lines(text)))
 
 
 def headings(lines):
@@ -1122,7 +1160,7 @@ def folded_items(root):
                 text = f.read()
         except OSError:
             continue
-        for line, live in live_lines(text.splitlines()):
+        for line, live in live_lines(gfm_lines(text)):
             if live:
                 found.update(FOLD_MARKER.findall(line))
     return found
