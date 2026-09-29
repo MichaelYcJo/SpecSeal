@@ -290,6 +290,34 @@ def test_a_cd_behind_a_redirection_is_not_read_as_staying_put(
             assert "silent" not in got, (command, which, got)
 
 
+NESTINGS = {
+    "$(": ("$(echo ", ")"),
+    "<(": ("<(cat ", ")"),
+    '"$(': ('"$(echo ', ')"'),
+}
+
+
+@pytest.mark.parametrize("kind", sorted(NESTINGS))
+def test_a_deep_nesting_is_read_to_a_bound(monkeypatch, kind):
+    """#674, `spec.md` S9. A body nested inside another is read to
+    `NESTING_READ` levels and then counts as one that might commit, instead of
+    being read until the interpreter's recursion limit answers. At
+    `86256492` the reader rescanned the rest of the body some 330 times before
+    `RecursionError`, which took thirty seconds on 4000 levels."""
+    opener, closer = NESTINGS[kind]
+    text = opener * 4000 + "true" + closer * 4000
+    calls = []
+    original = gate._reads_a_commit
+
+    def counting(body):
+        calls.append(1)
+        return original(body)
+
+    monkeypatch.setattr(gate, "_reads_a_commit", counting)
+    assert gate._hides_a_commit(text) is True
+    assert len(calls) <= gate.NESTING_READ + 1, len(calls)
+
+
 def test_the_reverse_direction_still_stops(monkeypatch, capsys, projects, tmp_path):
     """#662's second box. From a declared session directory, `cd U ; git
     commit` also reaches U whenever the `cd` works, and U declares nothing."""

@@ -145,18 +145,36 @@ Invocation = collections.namedtuple(
 CHOICE_DIR = "specseal-commit-choice"
 
 
-def _hides_a_commit(text):
-    """`_reads_a_commit`, and True for a body nested deeper than it recurses.
+# How deep one body is read inside another before it counts as one that might
+# commit unread (#674). Each level rescans the rest of the body, so at
+# `86256492` a nesting of 4000 or 6000 `$(` beside a commit was answered only
+# when `RecursionError` fired, some 250 levels down, after 12 to 62 seconds.
+# 32 is far above any nesting a command is written with -- the commit-message
+# form `"$(cat <<'EOF' … EOF)"` is two -- and far below the recursion limit.
+NESTING_READ = 32
+_nesting = [0]
 
-    A body this process cannot finish reading might commit, the way an `eval`
-    argument it cannot expand might (round 2 of 1790644505). Answering here,
-    at the depth that overflowed, keeps every invocation already found; a
-    `RecursionError` caught in `main` discarded them all.
+
+def _hides_a_commit(text):
+    """`_reads_a_commit`, and True for a body nested deeper than it reads.
+
+    A body this process does not finish reading might commit, the way an
+    `eval` argument it cannot expand might (round 2 of 1790644505). Answering
+    here keeps every invocation already found; a `RecursionError` caught in
+    `main` discarded them all. The bound answers before the stack runs out,
+    and the catch stays for an interpreter whose limit is lower still
+    (contract §13): with the limit below what 32 levels need, the answer is
+    the same.
     """
+    if _nesting[0] >= NESTING_READ:
+        return True
+    _nesting[0] += 1
     try:
         return _reads_a_commit(text)
     except RecursionError:
         return True
+    finally:
+        _nesting[0] -= 1
 
 
 def _reads_a_commit(text):
