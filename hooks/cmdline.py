@@ -1395,7 +1395,32 @@ RUNNERS = frozenset(
 # says so: `sh -c 'git commit'`. The string is read as a command the way
 # `eval`'s argument already was (`reparsed_texts`).
 SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh", "mksh", "yash", "ash"})
-STRING_HOSTS = frozenset(SHELLS | {"su", "runuser", "script"})
+# `flock` joined with #674: util-linux's flock(1) says `-c`/`--command` passes
+# "a single command, without arguments, to the shell with -c". `sudo -s` and
+# `sudo -i` did not, although they reach a shell's `-c` too: `man sudo`
+# (1.9.17p2) escapes every character of the command but alphanumerics,
+# underscores, hyphens and dollar signs, so a quoted string arrives as one
+# word and not as a command line. Its argv form is `sudo` the runner's.
+STRING_HOSTS = frozenset(SHELLS | {"su", "runuser", "script", "flock"})
+
+
+def _string_at(words, j):
+    """The words a host's string is picked from, starting at J (#674).
+
+    WORDS[J] as it always was, and, where that word is a redirection, the words
+    past it up to the first that is not one. The shell takes a redirection off
+    before the host runs, so `bash -c 2>/dev/null "$CMD"` runs `$CMD`; the base
+    asked `2>/dev/null` and nothing after it. A spaced target goes with its
+    operator and is not asked.
+    """
+    out = []
+    while j < len(words):
+        out.append(words[j])
+        width = redirection_width(words, j)
+        if not width:
+            break
+        j += width
+    return out
 
 
 def command_word(tokens, stand_in="git", redirections=False):
@@ -1569,7 +1594,7 @@ def header_end(tokens):
 def _hands_a_string(word, tok):
     """True when `tok`, an argument of `word`, tells it to run a string."""
     if tok == "--command" or tok.startswith("--command="):
-        return word in ("su", "runuser", "script")
+        return word in ("su", "runuser", "script", "flock")
     # A short-option cluster holding `c`: `-c`, `-ec`, `-lc`.
     return tok.startswith("-") and not tok.startswith("--") and "c" in tok[1:]
 
@@ -1594,12 +1619,15 @@ def reparsed_texts(tokens):
         if word in STRING_HOSTS and any(_hands_a_string(word, t) for t in rest):
             texts += [t for t in rest if not t.startswith("-")]
             texts += [t.split("=", 1)[1] for t in rest if t.startswith("--command=")]
-        elif word == "watch":
+        elif word in ("watch", "parallel"):
+            # `parallel` runs each of its arguments through a shell (#674). It
+            # is read for a commit written out, which costs nothing where none
+            # is; placing its command word is a parser (`spec.md` §*Scope*).
             texts += [t for t in rest if not t.startswith("-")]
         elif word in ("env", "genv"):
             for j, t in enumerate(rest):
                 if t in ("-S", "--split-string") and j + 1 < len(rest):
-                    texts.append(rest[j + 1])
+                    texts += _string_at(rest, j + 1)
                 elif t.startswith("--split-string="):
                     texts.append(t.split("=", 1)[1])
                 elif t.startswith("-S") and len(t) > 2:
@@ -1689,23 +1717,24 @@ def command_strings(tokens):
             # word before that flag is an option's value (`--rcfile f`) or a
             # redirection (`2>/dev/null`); taking it as the string made
             # `"$CMD"` the one word not asked (round 2 of 1790644505). It is
-            # not asked itself: no shell runs it as a command.
+            # not asked itself: no shell runs it as a command. A redirection
+            # AFTER the flag is asked and read past (#674, `_string_at`).
             flag = next(j for j, t in enumerate(rest) if _hands_a_string(word, t))
-            skip = False
-            for t in rest[flag + 1 :]:
+            tail, skip = rest[flag + 1 :], False
+            for at, t in enumerate(tail):
                 if skip:
                     skip = False
                 elif t in VALUED:
                     skip = True
                 elif t != "--" and not t.startswith(("-", "+")):
-                    out.append(t)
+                    out += _string_at(tail, at)
                     break
         elif word in STRING_HOSTS:
             for j, t in enumerate(rest):
                 if t.startswith("--command="):
                     out.append(t.split("=", 1)[1])
                 elif _hands_a_string(word, t) and j + 1 < len(rest):
-                    out.append(rest[j + 1])
+                    out += _string_at(rest, j + 1)
         elif word in ("env", "genv"):
             out += reparsed_texts([tok, *rest])
         elif word == "watch" and _is_the_program(tokens, k):
