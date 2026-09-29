@@ -273,6 +273,14 @@ def test_a_cd_into_a_directory_that_is_there_has_no_failure_branch(tmp_path):
         str(b),
         str(tmp_path),
     ]
+    # A file is not a directory, however executable: `cd` refuses it.
+    f = tmp_path / "f"
+    f.write_text("", encoding="utf-8")
+    f.chmod(0o755)
+    assert commit_dirs(f"cd {sh(f)} ; git commit -m x", tmp_path) == [
+        str(f),
+        str(tmp_path),
+    ]
 
 
 @pytest.mark.skipif(
