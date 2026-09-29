@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #659 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `a719166b1b7433890e7b9f12ba4380366347368f..b690379e0df9915c81a878b14138a3aa5b2fe5f3`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1, the new `gfm_lines` docstring says a markdown anchor is shifted and that switching moves every region holding or following one of the characters, and neither is true |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 3, verifying and the run's last: round 2 reopened the run, so this record 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The new `gfm_lines` docstring says `ast` and GFM number lines so that the region hashed after a form feed, NEL or U+2028 is not the unit, and that switching moves the hash of every region holding or following one; a markdown anchor is numbered and sliced on the same `splitlines` lines and is not shifted, and a region holding one at a line end or on a blank line keeps its hash | `skills/evidence-check/scripts/evidence_check.py:279` | open | Executed at `a719166b`: a markdown section after each of the three characters hashed the same on both splitters and read DRIFTED after an edit; a region holding one moved only when it sat mid-line. True for `.py` anchors: `ast` line 2, splitlines line 3, and an edit to the unit passed |
-| ⬜ 2 | The same docstring says "in this branch", which names nothing after the squash, and names three of the eight characters before calling them "those characters" | `skills/evidence-check/scripts/evidence_check.py:280` | open | Read: the `GFM_LINE_RE` comment at line 266 says eight. Wording only; the fix block for 🟡 1 covers it |
-| ⬜ 3 | `round-1.md`'s correction grounds its claim on "no tracked file holds such a character", while `round-1-report.md` held one U+2028 and `round-2-report.md` now holds another | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/rounds/round-1.md` | open | Executed: a scan of every tracked file for the eight characters found U+2028 at `round-1-report.md:202` and `round-2-report.md:113`. The conclusion holds because no ledger row anchors into either file. A correction to the run's paperwork |
-| ⬜ 4 | `round-2-report.md` says the planted case spells U+2028 as a literal; `NOT_A_LINE_END` spells it `\u2028` | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/rounds/round-2-report.md:113` | open | Read: `tests/test_a_row_wider_than_its_header_is_named.py:294`. `round-2.md` did not copy the line. A correction to the run's paperwork |
+| 🟡 1 | The new `gfm_lines` docstring says `ast` and GFM number lines so that the region hashed after a form feed, NEL or U+2028 is not the unit, and that switching moves the hash of every region holding or following one; a markdown anchor is numbered and sliced on the same `splitlines` lines and is not shifted, and a region holding one at a line end or on a blank line keeps its hash | `skills/evidence-check/scripts/evidence_check.py:279` | deferred #664 | #664 — The run is capped: round 2 closed on its one reopening. #664 fixes the `.py` hash side, and that fix rewrites this docstring. The corrected claim (a markdown anchor is not shifted; a character at a line end or on a blank line moves no hash) is added to #664; Executed at `a719166b`: a markdown section after each of the three characters hashed the same on both splitters and read DRIFTED after an edit; a region holding one moved only when it sat mid-line. True for `.py` anchors: `ast` line 2, splitlines line 3, and an edit to the unit passed |
+| ⬜ 2 | The same docstring says "in this branch", which names nothing after the squash, and names three of the eight characters before calling them "those characters" | `skills/evidence-check/scripts/evidence_check.py:280` | deferred #664 | #664 — The same docstring's wording ("in this branch", three of the eight characters) is rewritten with it; Read: the `GFM_LINE_RE` comment at line 266 says eight. Wording only; the fix block for 🟡 1 covers it |
+| ⬜ 3 | `round-1.md`'s correction grounds its claim on "no tracked file holds such a character", while `round-1-report.md` held one U+2028 and `round-2-report.md` now holds another | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/rounds/round-1.md` | answered | a record correction in `b690379e`: `round-1.md` no longer says no tracked file holds such a character; Executed: a scan of every tracked file for the eight characters found U+2028 at `round-1-report.md:202` and `round-2-report.md:113`. The conclusion holds because no ledger row anchors into either file. A correction to the run's paperwork |
+| ⬜ 4 | `round-2-report.md` says the planted case spells U+2028 as a literal; `NOT_A_LINE_END` spells it `\u2028` | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/rounds/round-2-report.md:113` | answered | a record correction in `b690379e`: the U+2028 in `round-1-report.md` and `round-2-report.md` is written as the `; Read: `tests/test_a_row_wider_than_its_header_is_named.py:294`. `round-2.md` did not copy the line. A correction to the run's paperwork |
 | 🟢 | round 2's 🟡 1 finding is closed — the "separate question" sentence is gone and the `.py` mechanism is stated truly | `skills/evidence-check/scripts/evidence_check.py:279` | confirmed | Executed: `ast` and splitlines disagree by one line for all eight characters; an edit to a `.py` unit below a form feed, NEL or U+2028 left the hash unchanged; #664 is open on milestone 0.16.0. The overreach the new text adds is 🟡 1 |
 | 🟢 | round 2's ⬜ 2 is closed — both deferrals in `round-1.md` read fixed at `17e8f667` and the "moves every hash" reason is replaced | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/rounds/round-1.md` | confirmed | Read: the diff of `b5a41796`. The new ground's parenthetical is ⬜ 3 |
 | 🟢 | round 2's ⬜ 3 is closed — `round-1.md`'s case carries U+2028 as the escape and parses | `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/rounds/round-1.md` | confirmed | Executed: the fourth fenced block equals the report's with U+2028 replaced by its escape, and it parses; the other three blocks are byte-identical to the report's |
