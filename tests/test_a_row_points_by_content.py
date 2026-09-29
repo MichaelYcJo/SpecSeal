@@ -1655,9 +1655,15 @@ def test_the_date_cell_is_found_by_its_header_or_its_place(repo, table, column):
     [
         "| Clause | Code grounds | Notes |\n|---|---|---|\n| C1 | `{a}` | n |\n",
         "| C1 | `{a}` |\n",
+        "| C1 | `{a}` | read | 2026-09-01 |\n",
         "prose citing `{a}` outside any table\n",
     ],
-    ids=["no-date-column", "short-headerless-row", "not-a-row"],
+    ids=[
+        "no-date-column",
+        "short-headerless-row",
+        "four-cell-headerless-row",
+        "not-a-row",
+    ],
 )
 def test_checked_leaves_a_moved_row_with_no_date_cell_whole(repo, table):
     """R4: writing the hash alone recreates the row whose two halves
@@ -1688,6 +1694,18 @@ def test_an_escaped_pipe_before_the_date_cell_does_not_move_the_date(repo):
     drift_handler(repo)
     run(["--reverify", "--checked", READ_ON, "."], str(repo))
     assert f"| a \\| b | 2026-09-01 · {READ_ON} | n |" in ledger.read_text()
+
+
+def test_the_naming_block_prints_a_long_first_cell_cut_to_its_width():
+    """A ledger claim runs to hundreds of characters; the file and line
+    locate the row, and the label is cut so the list stays readable. A short
+    label is printed whole."""
+    assert ec.row_label(["S7 · short"]) == "S7 · short"
+    long = "S7 · " + "a claim " * 20
+    cut = ec.row_label([long])
+    assert (
+        len(cut) == ec.LABEL_WIDTH and cut.endswith("…") and long.startswith(cut[:-1])
+    )
 
 
 def tomorrow():
