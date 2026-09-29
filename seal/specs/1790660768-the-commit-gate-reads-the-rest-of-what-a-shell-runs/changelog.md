@@ -31,8 +31,11 @@
   opted in and under `[no-review]`, and the worktree guard judged the
   session's own tree for a switch made in W.
 
-  The change only adds stops. Every reader asks what it asked before and adds
-  to it. Where a redirection hides a `cd`, the directory the shell may have
+  The change only adds stops on a command whose walk names at most 64
+  directories. A longer chain of `cd` segments, such as nine `2>/dev/null cd
+  W;` in a row, can reach that cap sooner than on the release base and then
+  read silent under `[no-review]`; the work item's question Q7 holds it.
+  Every reader asks what it asked before and adds to it. Where a redirection hides a `cd`, the directory the shell may have
   reached is added as unreadable beside the one the release base judged, and
   never replaces it. A generated corpus of 11,393 commands found none that the
   release base stopped and this one lets through. Among the 6,033 commands

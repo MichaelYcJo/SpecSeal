@@ -413,8 +413,17 @@ corpus of 11,393 commands across these positions found none silent where the
 release base stopped. The one answer
 replaced rather than kept is git's subcommand where it had been a redirection,
 which no reader acted on. Over 6,033 commands recorded in the milestone's
-runs, none changed its verdict. The `cd` behind a redirection and the depth
-bound are held by `tests/test_no_shape_the_base_stops_reads_silent.py`.
+runs, none changed its verdict.
+
+That holds while the walk names at most `STATE_CAP`, 64, directories. Past
+the cap it collapses them into one it cannot read, and the directories added
+beside count toward the cap. A chain of `cd` segments therefore reaches it
+sooner than at the release base: nine `2>/dev/null cd W;` in a row, or a
+refused segment followed by sixteen `cd W;`. Under `[no-review]`, or from a
+session that is not opted in, a stop the base made then reads silent.
+Whether the collapse should keep the directories the base reached is
+question Q7 of work item 1790660768. The `cd` behind a redirection and the
+depth bound are held by `tests/test_no_shape_the_base_stops_reads_silent.py`.
 Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
 
 ### Why a deny, and why only once

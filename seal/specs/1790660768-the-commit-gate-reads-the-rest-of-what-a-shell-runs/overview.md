@@ -49,6 +49,33 @@ On 2026-09-29, and so no longer open:
   add` is not a creation to it, as at `86256492`. The frame put the view in
   the commit gate's three readers alone, and `docs/worktree-guard-spec.md`
   now says so.
+- **A long chain of `cd` segments can collapse the walk sooner than at the
+  release base.** Past `STATE_CAP`, 64 directories, the walk keeps one it
+  cannot read, and the directories this item adds beside the base's count
+  toward the cap. From a declared session with a parity arm under
+  `[no-review]`, 9 `2>/dev/null cd sub;` segments, or a refused segment and
+  16 `cd sub;`, read silent where `86256492` stops and bash commits. Keeping
+  the base's directories through the collapse needs a second walk, which a
+  fix pass may not add. `questions.md` Q7 holds the choice for the owner, and
+  the policy sentence, E7 and the changelog fragment name the bound.
+- **Every body the gate reads is split twice** (round 2's ⬜ 4).
+  `hooks/commit-review-gate.py#_reads_a_commit` asks `split_segments` and then
+  `merged_segments`, which splits the same text again. Executed 2026-09-30
+  through `commit_invocations` on `git -C /x commit -m x; ` followed by `sh
+  -c` repeated 600 and 1,000 times, on archives of both trees:
+
+  | | 600 words | 1,000 words |
+  |---|---|---|
+  | `86256492` | 2.33 s, 180,300 splits | 6.20 s, 500,500 splits |
+  | `b9098078` | 4.14 s, 360,599 splits | 11.04 s, 1,000,999 splits |
+
+  That is twice the splits and about 1.8 times the time, quadratic at both.
+  Extrapolated from these figures and not run, the harness's 600 s hook limit
+  is crossed near 9,800 words at the base and 7,400 at the head, and a
+  timed-out hook is silence. Nobody writes such a command. Splitting once with
+  separators and deriving both views from the one result would halve the
+  splits; that is a performance pass, not this item's, and no issue is filed
+  from here.
 
 ## Fed back into the spec
 
