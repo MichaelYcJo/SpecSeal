@@ -306,3 +306,27 @@ third carried none, which is §11's own missing-copy failure one file over —
 and the agent without it is the one that reads `seal/parity.md` through
 `legacy-parity`. No role needs an exception to it, which is the test this
 file applies to itself.
+
+## §17 A commit names its repository in the command that makes it
+
+Commit with the repository's absolute path written out after `git -C`, in a
+command of its own. Where a `cd` comes first, join it to the commit with `&&`
+and nothing else. A probe's commit is §8's, and a file edit is §9's.
+
+Two reasons, and they are two different facts about the gate. First, your
+shell starts in the session's directory at every call, so a command reaches
+your worktree through a `cd`, and whatever follows a `;` or a new line after
+that `cd` also runs where a failed `cd` leaves the shell: the session's own
+directory. The gate judges the commit in both places, because both can
+happen, and the session's directory is usually one no declaration names.
+Second, the gate reads a command before the shell expands it, so a loop
+variable in the path names no directory at all, and a commit it cannot place
+stops the same way.
+
+Measured in the milestone-49 run: three of the four stops that reached a
+person began `cd <worktree> &&` and committed after a `;` or a new line, and
+the orchestrator's own loop over a variable, committing several work items'
+routing files, met the refusal in each of the three milestone runs on disk.
+In a session whose person pressed `automation`, each such stop now comes back
+to you as a refusal rather than to them as a prompt, and the shape above is
+the one that does not stop at all.

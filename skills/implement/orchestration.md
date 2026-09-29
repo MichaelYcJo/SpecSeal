@@ -399,7 +399,10 @@ The gate then reports no declaration, which is true, and the session reads a
 chicken-and-egg the design does not have. Measured here: two questions put to
 a user who had to explain the batch was the bug. This is the one place a
 *batch independent commands* habit misleads — the commit is not independent
-of the write, and a gate sits between them.
+of the write, and a gate sits between them. The commit goes the same way:
+each work item's `routing.md` in a command of its own, the worktree's path
+written out after `git -C`, never a loop over a variable naming it — contract
+§17, and in all three milestone runs on disk that loop met the gate.
 
 What the four combinations do:
 
