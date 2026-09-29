@@ -185,6 +185,12 @@ CONTROLS = {
     "rg for watch": 'rg watch "$DIR"',
     # #674: `watch` as the file a redirection writes to is no program.
     "watch as a redirection's target": '2> watch -g "$CMD"',
+    # #674, phase 2: a runner's options inside a string, with nothing after
+    # them that expands.
+    "a runner's options in a shell string": "sh -c 'nice -n 5 make all'",
+    # A `case` word and a `for` list are data, never a program.
+    "a case word that expands, in a string": "sh -c 'case $1 in a) echo;; esac' _ a",
+    "a for list that expands, in a string": "sh -c 'for f in $@; do echo; done' _ a",
 }
 
 # #674: round 1's seven controls, rewritten into each position the work item
@@ -205,6 +211,11 @@ POSITIONS = {
     "P5, behind 2>/dev/null": lambda c: f"2>/dev/null {c}",
     "P5, behind a spaced 2> target": lambda c: f"2> /dev/null {c}",
     "P10, glued to (": lambda c: f"({c})",
+    "P7, a case arm": lambda c: f"case a in a) {c};; esac",
+    "P7, a later arm": lambda c: f"case a in b) :;; a) {c};; esac",
+    "P8, a function body": lambda c: f"f() {{ {c}; }}; f",
+    "P8, function f": lambda c: f"function f {{ {c}; }}; f",
+    "P9, a coprocess": lambda c: f"coproc {c}",
 }
 CONTROLS.update(
     {
@@ -251,6 +262,35 @@ STILL_HANDED = {
     "(watch $CMD)": '(watch -g "$CMD")',
     "(sh -c $CMD)": '(sh -c "$CMD")',
     "(nice watch $CMD)": '(nice watch -g "$CMD")',
+    # #674, phase 2: `watch` inside a compound command's header -- a `case`
+    # arm, a function body, a coprocess -- and a string's command word in the
+    # same places or behind a runner's own options. Each is silent at
+    # `86256492`, where the program was looked for only at the segment's start.
+    "a case arm watch $CMD": 'case a in a) watch -g "$CMD";; esac',
+    "a case arm (a) watch $CMD": 'case a in (a) watch -g "$CMD";; esac',
+    "a case arm a ) watch $CMD": 'case a in a ) watch -g "$CMD";; esac',
+    "a later case arm watch $CMD": 'case a in b) :;; a) watch -g "$CMD";; esac',
+    "a case arm a|b) watch $CMD": 'case a in a|b) watch -g "$CMD";; esac',
+    "a case arm in a then watch $CMD": (
+        'if true; then case a in a) watch -g "$CMD";; esac; fi'
+    ),
+    "a function body watch $CMD": 'f() { watch -g "$CMD"; }; f',
+    "a spaced definition watch $CMD": 'f () { watch -g "$CMD"; }; f',
+    "a glued definition watch $CMD": 'f(){ watch -g "$CMD"; }; f',
+    "function f watch $CMD": 'function f { watch -g "$CMD"; }; f',
+    "function f() watch $CMD": 'function f() { watch -g "$CMD"; }; f',
+    "function f () watch $CMD": 'function f () { watch -g "$CMD"; }; f',
+    "a subshell body watch $CMD": 'f() ( watch -g "$CMD" ); f',
+    "coproc watch $CMD": 'coproc watch -g "$CMD"',
+    "coproc NAME { watch $CMD }": 'coproc W { watch -g "$CMD"; }',
+    "coproc { watch $CMD }": 'coproc { watch -g "$CMD"; }',
+    "sh -c a function body $CMD": "sh -c 'f() { $CMD; }; f'",
+    "sh -c a case arm $CMD": "sh -c 'case a in a) $CMD;; esac'",
+    "sh -c function f $CMD": "sh -c 'function f { $CMD; }; f'",
+    "sh -c coproc $CMD": "sh -c 'coproc $CMD'",
+    "sh -c nice -n 5 $CMD": "sh -c 'nice -n 5 $CMD'",
+    "sh -c timeout 5 $CMD": "sh -c 'timeout 5 $CMD'",
+    "bash -c sudo -u x $CMD": "bash -c 'sudo -u x \"$CMD\"'",
 }
 
 # #674, phase 1: a commit behind a redirection written in front of `git`, or
@@ -332,6 +372,26 @@ def test_a_redirection_whose_target_is_named_git_still_reads_as_git(tmp_path):
     Reading past every redirection would read it as none, so the base's answer
     is kept wherever it found one."""
     assert found("2>/x/git commit -m x", tmp_path)
+
+
+def test_a_header_spelling_the_reader_cannot_place_falls_to_the_stand_in():
+    """#674, `spec.md` §*Two stand-ins*. A header the positional reading does
+    not recognise is read the way `86256492` read every header for `git`: any
+    later `watch` counts as the program, and any later word that expands counts
+    as the string's command word. A false one is a stop, never a silence."""
+    tokens = ["case", "a", "b", "watch", "-g", "$CMD"]
+    assert cmdline.header_end(tokens) == cmdline.UNPLACEABLE
+    assert cmdline.command_strings(tokens) == ["$CMD"]
+    assert cmdline.names_an_unknown_command("case a b echo $CMD")
+
+
+def test_a_string_behind_a_runners_operand_stops_as_the_frame_chose(tmp_path):
+    """`spec.md` (b). Behind a runner's own option or operand the reader cannot
+    tell a value from the program, so a later word that expands counts, and a
+    positional parameter handed to `wc` is such a word. The frame counted this
+    as a cost rather than a defect (`plan.md` Alternatives F)."""
+    command = "sh -c 'timeout 5 wc -l \"$1\"' _ f"
+    assert found(command, tmp_path), command
 
 
 def test_a_redirection_with_nothing_after_it_keeps_the_base_subcommand():
