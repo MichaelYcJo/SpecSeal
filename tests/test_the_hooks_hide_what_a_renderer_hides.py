@@ -633,6 +633,9 @@ def test_a_piece_inside_other_inline_html_its_line_left_open_is_unsure():
         assert (fenced.kinds[2], fenced.uncertain[2]) == (blocks.FENCED, False)
     nested = blocks.walk_text(f"a `<?` <![CDATA[ b ?> c{ls}| r |\n]]>\n")
     assert nested.uncertain[:2] == [False, True], nested.uncertain
+    # a `>` inside a quoted value does not end the tag
+    quoted = blocks.walk_text(f'a <span title="b>c{ls}d">\n\ne\n')
+    assert quoted.uncertain[:2] == [False, True], quoted.uncertain
 
 
 @pytest.mark.parametrize("opener", [o for o, _ in INLINE_OPEN_CLOSE[:-1]])
@@ -644,6 +647,8 @@ def test_a_paragraph_left_inside_other_inline_html_is_unsure_to_its_end(opener):
     it either, where the comment it closes is one the parser never formed."""
     found = blocks.walk([f"a {opener}", "b", "c", "", "d"])
     assert found.uncertain == [False, True, True, False, False], found.uncertain
+    past = blocks.walk([f"a {opener}", "b " + CLOSE + " c", "d", "", "e"])
+    assert past.uncertain == [False, True, True, False, False], past.uncertain
     fake = blocks.walk(["a `" + OPEN + "` b", "c <? d " + CLOSE + " e", "f", "", "g"])
     assert fake.uncertain == [False, True, True, False, False], fake.uncertain
 
