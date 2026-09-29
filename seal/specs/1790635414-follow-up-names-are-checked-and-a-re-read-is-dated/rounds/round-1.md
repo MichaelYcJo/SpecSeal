@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #668 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `0cfbcb55da0f61be5e097859a3b2602f63f468bf..42cd6435fd5d141a75b9e58d34c29e0d1d82c4f8`, 2 commits |
 | Contract changes | none |
 | New units | LINE_ANCHOR_RE (depth 1); test_a_cross_repo_name_is_not_read_where_its_stamp_is_external (depth 1); test_a_heading_fragment_and_a_line_anchor_are_not_refused (depth 1); test_a_rider_region_below_a_line_separator_is_the_unit (depth 1); test_a_file_moved_whole_is_re_pointed_and_neither_dated_nor_named (depth 1) |
