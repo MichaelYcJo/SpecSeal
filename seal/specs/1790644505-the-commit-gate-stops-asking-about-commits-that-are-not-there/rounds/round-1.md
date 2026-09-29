@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #671 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `3006eb8518f1f93b3ac5095d119932cee398e431..567069b62d80d74931bcef29f57f0d65ebe150ad`, 10 commits |
+| Contract changes | _string_hides_a_commit → _hides_a_commit, commit_invocations, round-1-report.md, round-1.md; automation_answered → automation_pressed, consent, round-1-report.md, round-1.md, round-2-report.md, round-2.md, questions.md, spec.md, pytest |
+| New units | VALUED (depth 1); command_strings (depth 1); _routing_answer (depth 1); EVALS (depth 1); test_an_eval_behind_the_same_words_is_read (depth 1); STILL_HANDED (depth 1); test_a_string_that_is_an_expansion_still_stops (depth 1); test_a_later_routing_answer_takes_the_press_back (depth 1); test_an_answer_to_another_question_leaves_the_press_standing (depth 1); test_a_parity_arm_is_not_waived_by_a_newly_read_commit (depth 1) |
 | Needs a fix | yes — 🔴 1 (a commit found in a declared repository displaces the fallback, and six shapes the base stopped read silent); 🟡 2 to 🟡 5 are each fix or justify |
 | Loses a record or crashes | yes — 🔴 1 reads real commits silent that `3911a8cf` stopped, and bash lands them; 🟡 2 crashes the gate at 500 nested substitutions, which the dispatcher turns into silence |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 1, the first finding round, over the work item's own diff `3911a8cf...f25c
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A commit the new reading finds in a declared repository displaces the fallback for a command the splitter could not finish, so a commit in the session's own directory, or a parity arm, goes unjudged | `hooks/commit-review-gate.py:1174` | open | Executed: four review-arm and two parity-arm shapes deny at `3911a8cf` and are silent at `f25c6b1a`; bash commits in the unjudged repository |
-| 🟡 2 | `_hides_a_commit` recurses without a bound, so 500 nested substitutions raise and the dispatcher turns the raise into silence | `hooks/commit-review-gate.py:177` | open | Executed: `RecursionError` at 500 levels, silent through `hooks/dispatch.py`, deny at the base |
-| 🟡 3 | The expansion check runs on a shell's positional arguments and on `watch` anywhere in a segment, so commands that commit nothing stop, even in a declared repository | `hooks/commit-review-gate.py:191` | open | Executed: seven non-commit commands silent at the base and deny at the head |
-| 🟡 4 | `_eval_argument` does not read past a reserved word, a prefix or a subshell, so the class #669 and #670 fixed for `git` and `sh -c` stays open for `eval` | `hooks/commit-review-gate.py:194` | open | Executed: ten shapes silent at base and head; bash runs each `eval` |
-| 🟡 5 | An `automation` press stands after a later `per axis` answer in the same session, and the gate then tells the model not to ask a person who is present | `hooks/worktree_consent.py:330` | open | Executed: a transcript with both answers reads as pressed, and the gate denies twice with the automation text |
+| 🔴 1 | A commit the new reading finds in a declared repository displaces the fallback for a command the splitter could not finish, so a commit in the session's own directory, or a parity arm, goes unjudged | `hooks/commit-review-gate.py:1174` | **fixed** `340ad4c8` | fixed at 340ad4c8 — a command the parser could not finish is judged in the session's directory beside any commit found, not only when none was; Executed: four review-arm and two parity-arm shapes deny at `3911a8cf` and are silent at `f25c6b1a`; bash commits in the unjudged repository |
+| 🟡 2 | `_hides_a_commit` recurses without a bound, so 500 nested substitutions raise and the dispatcher turns the raise into silence | `hooks/commit-review-gate.py:177` | **fixed** `340ad4c8` | fixed at 340ad4c8 — a `RecursionError` from nesting is read as an unparsed command, so it stops; Executed: `RecursionError` at 500 levels, silent through `hooks/dispatch.py`, deny at the base |
+| 🟡 3 | The expansion check runs on a shell's positional arguments and on `watch` anywhere in a segment, so commands that commit nothing stop, even in a declared repository | `hooks/commit-review-gate.py:191` | **fixed** `a1804ee7` | fixed at a1804ee7 — only the string a shell runs is asked whether its command word expands; Executed: seven non-commit commands silent at the base and deny at the head |
+| 🟡 4 | `_eval_argument` does not read past a reserved word, a prefix or a subshell, so the class #669 and #670 fixed for `git` and `sh -c` stays open for `eval` | `hooks/commit-review-gate.py:194` | **fixed** `aa3a0918` | fixed at aa3a0918 — `eval` is found behind a reserved word, `!`, `time`, `command`, `builtin`, a runner, a subshell or a brace group; Executed: ten shapes silent at base and head; bash runs each `eval` |
+| 🟡 5 | An `automation` press stands after a later `per axis` answer in the same session, and the gate then tells the model not to ask a person who is present | `hooks/worktree_consent.py:330` | **fixed** `be6e0f08` | fixed at be6e0f08 — the clone's last routing answer stands, so a later `per axis` takes an earlier press back; Executed: a transcript with both answers reads as pressed, and the gate denies twice with the automation text |
 | 🟢 | The automation decision: deny at both sites under the press, no question tool named, every unreadable press is no press | `hooks/commit-review-gate.py:1240` | confirmed | Read, and exercised by the 251 cases and the 🟡 5 probe |
 | 🟢 | Work item `1790635415`'s false-silent shapes still stop, with and without the press | `tests/test_no_shape_the_base_stops_reads_silent.py` | confirmed | Executed at `f25c6b1a` |
 | ❓ | The cases on Windows | CI's `windows-latest` leg | ❓ out of verified scope | Not run here; CI answers it at the pull request |
