@@ -227,7 +227,7 @@ def _eval_argument(toks):
     # assignments alone, so `then eval '…'` and `(eval '…')` were no `eval`
     # (round 1 of 1790644505, yellow 4). `builtin` runs a builtin, and `eval`
     # is one.
-    word, _unplaced = command_word(list(toks))
+    word, _unplaced = command_word(list(toks), "eval")
     while word and os.path.basename(word[0]) == "builtin":
         word = word[1:]
     if not word or word[0] != "eval":

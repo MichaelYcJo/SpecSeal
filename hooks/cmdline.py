@@ -1351,8 +1351,11 @@ SHELLS = frozenset({"sh", "bash", "zsh", "dash", "ksh", "mksh", "yash", "ash"})
 STRING_HOSTS = frozenset(SHELLS | {"su", "runuser", "script"})
 
 
-def command_word(tokens):
+def command_word(tokens, stand_in="git"):
     """(the segment from its command word on, whether its directory is unplaced).
+
+    STAND_IN is the word looked for where no position names the command word;
+    `_eval_argument` passes `eval` (round 2 of 1790644505).
 
     Assignments, wrappers and the `!`/`time` prefixes are read past as they
     always were, and so are the words in `LIST_OPENERS`. What sits behind one of
@@ -1392,14 +1395,14 @@ def command_word(tokens):
         toks[i] in UNPLACED
         or toks[i].endswith(")")
         or (i + 1 < len(toks) and toks[i + 1] == "()")
-        or (after_runner and os.path.basename(toks[i]) != "git")
+        or (after_runner and os.path.basename(toks[i]) != stand_in)
     ):
         # A pattern (`a)`), a definition (`f()`, `f ()`), a word in
         # `UNPLACED`, or a runner's own option or operand: no position names
-        # the command word, so the first `git` stands in for it, and none
-        # means no git command is in the segment.
+        # the command word, so the first STAND_IN word stands in for it, and
+        # none means no such command is in the segment.
         later = [
-            j for j in range(i + 1, len(toks)) if os.path.basename(toks[j]) == "git"
+            j for j in range(i + 1, len(toks)) if os.path.basename(toks[j]) == stand_in
         ]
         if later:
             i, unplaced = later[0], True
@@ -1451,6 +1454,25 @@ def reparsed_texts(tokens):
 VALUED = frozenset({"-o", "+o", "-O", "+O", "-n", "--interval", "-q", "--equexit"})
 
 
+def _is_the_program(tokens, k):
+    """True when TOKENS[k] sits where the segment's program runs.
+
+    Before it stand only assignments, a list opener, `!` or `(` -- or a
+    runner, after which its own options and operands (`nice -n 5 watch`,
+    `sudo -E watch`) are read past, since this reader does not parse them.
+    `grep -n watch *.py` has a program before `watch`, and is not one
+    (round 2 of 1790644505).
+    """
+    for t in tokens[:k]:
+        if os.path.basename(t) in RUNNERS:
+            return True
+        if not (
+            ("=" in t and not t.startswith("-")) or t in LIST_OPENERS or t in ("!", "(")
+        ):
+            return False
+    return True
+
+
 def command_strings(tokens):
     """The string each host in this segment runs AS its command.
 
@@ -1466,8 +1488,15 @@ def command_strings(tokens):
         word = os.path.basename(tok)
         rest = tokens[k + 1 :]
         if word in SHELLS and any(_hands_a_string(word, t) for t in rest):
+            # The string is the first operand after the flag that says so.
+            # A word before that flag is an option's value (`--rcfile f`) or
+            # a redirection (`2>/dev/null`), never a positional parameter,
+            # so it is asked too: skipping it made `"$CMD"` the one word
+            # not asked (round 2 of 1790644505).
+            flag = next(j for j, t in enumerate(rest) if _hands_a_string(word, t))
+            out += [t for t in rest[:flag] if not t.startswith(("-", "+"))]
             skip = False
-            for t in rest:
+            for t in rest[flag + 1 :]:
                 if skip:
                     skip = False
                 elif t in VALUED:
@@ -1483,10 +1512,7 @@ def command_strings(tokens):
                     out.append(rest[j + 1])
         elif word in ("env", "genv"):
             out += reparsed_texts([tok, *rest])
-        elif word == "watch" and all(
-            ("=" in t and not t.startswith("-")) or os.path.basename(t) in RUNNERS
-            for t in tokens[:k]
-        ):
+        elif word == "watch" and _is_the_program(tokens, k):
             # Only where `watch` is the program that runs, not a word
             # something else was handed (`grep watch *.py`).
             words, skip = [], False
