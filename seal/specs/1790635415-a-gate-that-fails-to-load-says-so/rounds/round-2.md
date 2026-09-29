@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #660 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `93d67a5b7d5676d604aac85cda9f69ad37f8f060..7fc359c2e088e4a224cfafdd9c89d130648080cd`, 8 commits |
 | Contract changes | program_is_data → shell_bodies, round-2-report.md, pytest |
 | New units | SEPARATORS (depth 1); test_a_deny_beside_a_message_that_is_not_text_still_denies (depth 1); test_a_cd_whose_target_an_earlier_segment_may_change_keeps_both (depth 1); RUN_STDIN (depth 1); test_a_body_read_to_the_end_of_its_command_is_still_shell (depth 1); test_each_body_is_paired_with_the_line_it_is_fed_from (depth 1) |
