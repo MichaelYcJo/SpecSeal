@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #663 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `4edc5de6e230bf549c7e21f76052c5f910f68136..bd42959e4ac3dcc51d94920caa25b8c00a39ca55`, 3 commits |
+| Contract changes | none |
+| New units | unfenced (depth 1) |
 | Needs a fix | yes — 🟡 1 (an unclosed comment switches off every fence below it in both hooks, so an example row answers for the routing table and an example table becomes the config table), 🟡 2 (an opener in prose makes the rider check read a quoted rider and lose the real one) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 3, verifying and the run's last: round 2 closed on its one reopening, so t
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | An HTML comment nobody closed switches off every fence below it, so a fenced example row answers for the routing table and an example table becomes the config table, with its `Broad gate` command | `hooks/config.py:183`, `hooks/routing.py:175` | open | Executed: base reads the live answer on both shapes, HEAD reads the example. Inside units round 2's fixes created. The oracle shares the gap, so the parity case cannot see it |
-| 🟡 2 | An opener written in prose, outside a code span, makes the rider check read a quoted rider and lose the real one, which is round 2's finding 1 from a trigger its fix cannot reach | `.github/scripts/rider_check.py:246` | open | Executed: `68bcb224` reads the real rider; `c7338c43` and HEAD read the quoted one. Latent: 0 of 472 files. The fix reverses the `lone` assertion `a7581653` pinned, which is the owner's call |
-| ⬜ 3 | A stray opener that a later fenced example closes hides the live table from both hooks | `hooks/config.py#walk` | open | Executed: base reads it, HEAD reads none. Loud, and `_liveness`'s literal reading has the same limit |
+| 🟡 1 | An HTML comment nobody closed switches off every fence below it, so a fenced example row answers for the routing table and an example table becomes the config table, with its `Broad gate` command | `hooks/config.py:183`, `hooks/routing.py:175` | deferred #667 | #667 — The run is capped. At the owner's decision, the readers this finding sits in (`hooks/config.py`, `hooks/routing.py`) were reverted to `release/v0.16.0` in `4edc5de6..4588df33`, so the shape reads as the base reads it. #667 redoes them from a clean frame (work item 1790645290); Executed: base reads the live answer on both shapes, HEAD reads the example. Inside units round 2's fixes created. The oracle shares the gap, so the parity case cannot see it |
+| 🟡 2 | An opener written in prose, outside a code span, makes the rider check read a quoted rider and lose the real one, which is round 2's finding 1 from a trigger its fix cannot reach | `.github/scripts/rider_check.py:246` | deferred #667 | #667 — The same revert, for `.github/scripts/rider_check.py`; Executed: `68bcb224` reads the real rider; `c7338c43` and HEAD read the quoted one. Latent: 0 of 472 files. The fix reverses the `lone` assertion `a7581653` pinned, which is the owner's call |
+| ⬜ 3 | A stray opener that a later fenced example closes hides the live table from both hooks | `hooks/config.py#walk` | deferred #667 | #667 — The loud half of the same comment-state reading, in the reverted readers; Executed: base reads it, HEAD reads none. Loud, and `_liveness`'s literal reading has the same limit |
 | 🟢 | round 2's finding 1 is closed — a comment opener quoted in a code span no longer hides the rider check's fences | `.github/scripts/rider_check.py#fenced_lines` | confirmed | Executed: red with `c7338c43`'s script, green at HEAD. This round's finding 2 is the class member it could not reach |
 | 🟢 | round 2's finding 2 is closed — a fence line in a comment above the table hides no declaration, and a row in a closed comment below it answers for nothing | `hooks/routing.py#hidden` | confirmed | Executed: both shapes red at the base, green at HEAD; 0 of 25 declarations differ |
 | 🟢 | round 2's finding 3 is closed — a commented-out exemption excuses nothing | `skills/code-review/scripts/survivor_check.py#read_exemptions` | confirmed | Executed: red at the base, green at HEAD |
