@@ -21,6 +21,7 @@ reads each of them, and every command it stopped there it still stops.
 | `sudo -s` and `sudo -i` as string hosts | `spec.md` S5: `sudo -s 'git commit -m x'` and `sudo -i "$CMD"` → stop. `questions.md` Q4's default: "As stated" | Not hosts. S5's two `sudo` rows are not planted as stops; a pin says `sudo -s 'git commit -m x'` reads as no commit and `sudo -s git commit -m x` as one | Read, `man sudo` 1.9.17p2 on this machine, for both `-s` and `-i`: "The command and any args are concatenated, separated by spaces, after escaping each character (including white space) with a backslash (‘\’) except for alphanumerics, underscores, hyphens, and dollar signs." A quoted string arrives at the shell's `-c` as one word, so the shell never parses it as a command line, and Q4's own second option says the host is then left out. The argv form, which does commit, is the runner reading's since #670. `flock` is a host as stated: util-linux's flock(1) manual page, read online because this machine has no `flock(1)`, says `-c` passes the command "to the shell with -c". Phase 3 |
 | `watch`'s join without redirections | `plan.md` phase 3: "`watch` adds its join without redirections" | Not built | Executed: after phase 1, `watch -g 2>/dev/null "$CMD"` and `watch -g 2> /dev/null "$CMD"` already deny, because `names_an_unknown_command` re-splits the joined string and reads it past its redirections, glued or spaced. A second join would ask nothing the first does not, and no case could see it: its mutant would survive by construction. Both rows are planted in `STILL_HANDED` and pass. Phase 3 |
 | The directory a merged group's addition takes | `spec.md` decision 3: "An addition takes the directory of the part that holds the command word or the host" | The directories of the group's last part | Read, `hooks/cmdline.py#walk_directories`: across `&` and `\|` the walk carries the unmoved shell beside the moved one (`carried = list(running) + carried`), so the last part's directories include every earlier part's. The only part that moves the shell is a `cd`, and a `cd` part would itself be the group's command word. So the two rules answer alike on every input, and the one built first was a unit no case could fail: its mutant survived. The simpler rule is the superset. Phase 4 |
+| The walk's `STATE_CAP` collapse | `spec.md` decision 1 keeps each reader's base answer and adds to it, and says nothing of the walk's cap, which collapses every directory into one unresolved one | A second thread in the walk carries the base's states, and each segment's directories are the walk's and then that thread's | Executed: the directories this item adds beside the base's counted toward the cap, so 9 `2>/dev/null cd sub;` segments, or a refused one and 16 `cd sub;`, collapsed where `86256492` did not, and under `[no-review]` the base's stop read silent. `questions.md` Q7, answered **Keep them** on 2026-09-30. Round 2's fix pass, `879df3b4` |
 
 ## Not verified
 
@@ -49,15 +50,6 @@ On 2026-09-29, and so no longer open:
   add` is not a creation to it, as at `86256492`. The frame put the view in
   the commit gate's three readers alone, and `docs/worktree-guard-spec.md`
   now says so.
-- **A long chain of `cd` segments can collapse the walk sooner than at the
-  release base.** Past `STATE_CAP`, 64 directories, the walk keeps one it
-  cannot read, and the directories this item adds beside the base's count
-  toward the cap. From a declared session with a parity arm under
-  `[no-review]`, 9 `2>/dev/null cd sub;` segments, or a refused segment and
-  16 `cd sub;`, read silent where `86256492` stops and bash commits. Keeping
-  the base's directories through the collapse needs a second walk, which a
-  fix pass may not add. `questions.md` Q7 holds the choice for the owner, and
-  the policy sentence, E7 and the changelog fragment name the bound.
 - **Every body the gate reads is split twice** (round 2's ⬜ 4).
   `hooks/commit-review-gate.py#_reads_a_commit` asks `split_segments` and then
   `merged_segments`, which splits the same text again. Executed 2026-09-30
