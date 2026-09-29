@@ -134,6 +134,21 @@ def test_a_resolved_stop_the_first_time_puts_no_question(
     assert ASK_TOOL not in reason
 
 
+def test_the_press_is_read_against_the_sessions_own_repository(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """The press was given in the clone the session sits in, and a commit
+    aimed at another repository is still this session's commit. Read against
+    the target, it would be found nowhere, and the second stop would be a
+    person's prompt again. Seen red by reading it against the target."""
+    session = make_repo(tmp_path / "session")
+    elsewhere = make_repo(tmp_path / "elsewhere")
+    press(projects, session)
+    command = f"git -C {q(elsewhere)} commit -m x"
+    got = [say(monkeypatch, capsys, command, session)[0] for _ in "12"]
+    assert got == ["deny", "deny"]
+
+
 # --- S3: a stop where the gate could not read the repository -----------------
 
 
@@ -218,6 +233,7 @@ def test_the_refusal_names_the_ways_on_that_need_nobody(
             "pressed `automation` on the routing question",
             "so this gate puts no question to them",
             "The ways on, none of which needs a person:",
+            "Re-issue the commit so the repository it lands in can be read:",
             "`git -C <absolute path> commit …` in a command of its own",
             "joined to the commit by `&&` alone",
             "because a failed `cd` leaves the shell there",
