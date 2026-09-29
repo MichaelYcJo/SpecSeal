@@ -298,6 +298,78 @@ def test_a_module_level_arm_is_named_rather_than_dropped():
     assert ARM.counts(found) == {ARM.MODULE_SCOPE: 1}
 
 
+# --- a t-string (#684) ----------------------------------------------------
+#
+# The sources below are string literals, so this module parses on every
+# supported Python. Only 3.14 and later parse what is inside them, which is
+# why the two cases skip below it and why CI runs this module at 3.14.
+
+NEEDS_T_STRINGS = pytest.mark.skipif(
+    sys.version_info < (3, 14), reason="t-strings parse from Python 3.14 on"
+)
+
+T_STRING_BRANCH = """\
+def render(a, x, b):
+    if a:
+        return t"{x if a else b}"
+    return None
+"""
+
+# Every feature an interpolation has, in one module, so the f-string twin is
+# one text substitution: an `IfExp` value with a `!r` conversion and a format
+# spec whose nested field holds another `IfExp`, a `BoolOp` value, and a
+# comprehension with an `if` guard.
+T_STRING_FEATURES = """\
+def render(a, b, x, w, items):
+    return t"{x if a else b!r:>{w if b else 0}} and {a or b}" t"{[i for i in items if i and a]}"
+"""
+
+
+@NEEDS_T_STRINGS
+def test_a_module_holding_a_t_string_is_read_rather_than_refused():
+    """S1 of work item 1790690762. `TemplateStr` and `Interpolation` were in
+    neither table, so on a 3.14 `python3` `arm-check` refused any file with a
+    t-string in it. The arms around and inside one are counted now.
+
+    Red how: on Python 3.14 at `346b4af7`, `UnknownNodeType` naming
+    `TemplateStr`. Executed."""
+    found = ARM.arms(T_STRING_BRANCH, filename="fixture.py")
+    assert [(a.shape, a.source) for a in found] == [("If", "a"), ("IfExp", "a")]
+
+
+@NEEDS_T_STRINGS
+def test_an_interpolation_is_counted_exactly_as_an_f_string_field():
+    """S2 of work item 1790690762. An interpolation tests nothing, like the
+    `FormattedValue` it mirrors, and the walk enters its value and its format
+    spec, so an arm inside one is counted where it stands. Held against the
+    same text read as f-strings, which the rest of this module already pins.
+
+    Red how: on Python 3.14 at `346b4af7`, refused. With `Interpolation`
+    moved into `ARM_SHAPES`, the dispatch in `_node_arms` refuses it.
+    Executed."""
+    as_f = T_STRING_FEATURES.replace('t"', 'f"')
+    assert as_f != T_STRING_FEATURES
+
+    def read(arm):
+        return (arm.scope, arm.shape, arm.note, arm.source, arm.lineno)
+
+    as_template = ARM.arms(T_STRING_FEATURES, filename="fixture.py")
+    assert [read(a) for a in as_template] == [
+        read(a) for a in ARM.arms(as_f, filename="fixture.py")
+    ]
+    # The `IfExp` in the value, the one in the nested format field, and the
+    # comprehension guard's two members. `a or b` is a value, not a branch.
+    assert [(a.shape, a.source) for a in as_template] == [
+        ("IfExp", "a"),
+        ("IfExp", "b"),
+        ("comprehension", "i"),
+        ("comprehension", "a"),
+    ]
+    for arm in as_template:
+        for operator in ARM.OPERATORS:
+            ast.parse(ARM.mutate(T_STRING_FEATURES, arm, operator))
+
+
 # --- the real module ------------------------------------------------------
 
 
