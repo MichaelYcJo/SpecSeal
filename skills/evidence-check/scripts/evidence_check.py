@@ -2213,7 +2213,8 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
     alone recreates the row whose two halves disagree, which is what #387
     reports. Without CHECKED the date cells are left alone and every row
     whose hash moved is named, with its date as it stands. A row whose hash
-    did not move is never touched and never named.
+    did not move is never dated and never named; one whose file moved whole
+    is re-pointed, and one that still resolves is not touched.
     """
     changed = 0
     unreadable = []
@@ -2898,6 +2899,24 @@ def stated_coordinates(lines):
     ]
 
 
+# An ATX heading's text, without its closing `#` run.
+GITHUB_HEADING_RE = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
+
+
+def heading_slugs(body):
+    """The anchors GitHub gives BODY's headings: the text lower-cased, every
+    character but a letter, digit, `_`, `-` or space dropped, and each space
+    a `-` (round 2 of work item 1790635414). So `## Don't` is `dont` and a
+    code-span heading `evidence_check.py` is `evidence_checkpy`, neither a
+    word of the file. A line in a fence that closes is not a heading."""
+    slugs = set()
+    for line in gfm_lines(unquoted(body)):
+        m = GITHUB_HEADING_RE.match(line)
+        if m:
+            slugs.add(re.sub(r"[^\w\- ]", "", m.group(1).lower()).replace(" ", "-"))
+    return slugs
+
+
 def coordinate_misses(raw_path, name, root, maps, default_repo, known, file_tokens):
     """(read, missing, resolved) for one `path#name` a record states.
 
@@ -2950,6 +2969,7 @@ def coordinate_misses(raw_path, name, root, maps, default_repo, known, file_toke
             found = None if body is None else set(TOKEN_RE.findall(body))
             if found is not None and rel.endswith(".md"):
                 found |= {token.lower() for token in found}
+                found |= heading_slugs(body)
             file_tokens[full] = found
         tokens = file_tokens[full]
     if tokens is not None:

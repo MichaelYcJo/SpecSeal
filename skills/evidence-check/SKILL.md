@@ -306,7 +306,8 @@ cell, and nothing where the cell already ends in it. A row is dated once
 however many of its coordinates moved. A rename healed by identical content
 moves the hash, so it is dated too; a file moved whole reconstructs with the
 recorded hash, so its row is re-pointed and neither dated nor named; and a
-row whose hash did not move is never touched.
+row whose anchor still resolves at its recorded path and hash is never
+touched.
 
 The date cell is the column headed `Checked`, else the column headed `Date`,
 else — under no header — the fourth cell of a row exactly five cells wide.

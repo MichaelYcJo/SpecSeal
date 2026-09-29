@@ -1427,6 +1427,32 @@ def test_a_heading_fragment_and_a_line_anchor_are_not_refused(tmp_path):
     assert "`uninstall`" in findings[0][2], findings
 
 
+def test_a_heading_anchor_github_strips_punctuation_from_is_not_refused(tmp_path):
+    """Round 2 of 1790635414, 🟡 7. GitHub's anchor drops every character of a
+    heading but letters, digits, `_`, `-` and spaces, so `## Don't` is
+    `#dont`, a code-span heading `evidence_check.py` is `#evidence_checkpy`
+    and `## v1.2` is `#v12`: none is a word of the file, lower-cased or not.
+    An invented anchor is still refused, and so is the anchor of a `#` line
+    inside a fence, which GitHub does not read as a heading."""
+    tree(
+        tmp_path,
+        **{
+            "README.md": "# Tool\n\n## Don't\n\n## `evidence_check.py`\n\n## v1.2\n\n"
+            "```\n# Fenced's\n```\n"
+        },
+    )
+    findings, names, _ = coordinate_refusals(
+        tmp_path,
+        "See `README.md#dont`, `README.md#evidence_checkpy`, `README.md#v12`, "
+        "`README.md#fenceds` and `README.md#uninstall`.",
+    )
+    assert names == 5, findings
+    assert [d.split(" — ")[0] for _, _, d in findings] == [
+        "`README.md#fenceds`",
+        "`README.md#uninstall`",
+    ], findings
+
+
 # --- this repository's own records ------------------------------------------
 
 
