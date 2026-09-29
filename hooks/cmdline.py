@@ -1553,8 +1553,7 @@ def header_end(tokens):
             return n
         if toks[j].endswith("(){"):
             return j + 1
-        if toks[j].endswith("()"):
-            return body(j + 1)
+        # `function f()` and `function f` both take their body next.
         if j + 1 < n and toks[j + 1] == "()":
             return body(j + 2)
         return body(j + 1)

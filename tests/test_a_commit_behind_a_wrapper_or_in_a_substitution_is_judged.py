@@ -190,6 +190,7 @@ CONTROLS = {
     "a runner's options in a shell string": "sh -c 'nice -n 5 make all'",
     # A `case` word and a `for` list are data, never a program.
     "a case word that expands, in a string": "sh -c 'case $1 in a) echo;; esac' _ a",
+    "a case word that expands, before a|b)": "sh -c 'case $1 in a|b) echo;; esac' _ a",
     "a for list that expands, in a string": "sh -c 'for f in $@; do echo; done' _ a",
 }
 
@@ -213,7 +214,9 @@ POSITIONS = {
     "P10, glued to (": lambda c: f"({c})",
     "P7, a case arm": lambda c: f"case a in a) {c};; esac",
     "P7, a later arm": lambda c: f"case a in b) :;; a) {c};; esac",
+    "P7, a spaced pattern": lambda c: f"case a in a ) {c};; esac",
     "P8, a function body": lambda c: f"f() {{ {c}; }}; f",
+    "P8, a glued subshell body": lambda c: f"f() ({c}); f",
     "P8, function f": lambda c: f"function f {{ {c}; }}; f",
     "P9, a coprocess": lambda c: f"coproc {c}",
 }
@@ -281,6 +284,7 @@ STILL_HANDED = {
     "function f() watch $CMD": 'function f() { watch -g "$CMD"; }; f',
     "function f () watch $CMD": 'function f () { watch -g "$CMD"; }; f',
     "a subshell body watch $CMD": 'f() ( watch -g "$CMD" ); f',
+    "a case in a subshell watch $CMD": '(case a in a) watch -g "$CMD";; esac)',
     "coproc watch $CMD": 'coproc watch -g "$CMD"',
     "coproc NAME { watch $CMD }": 'coproc W { watch -g "$CMD"; }',
     "coproc { watch $CMD }": 'coproc { watch -g "$CMD"; }',
@@ -372,6 +376,53 @@ def test_a_redirection_whose_target_is_named_git_still_reads_as_git(tmp_path):
     Reading past every redirection would read it as none, so the base's answer
     is kept wherever it found one."""
     assert found("2>/x/git commit -m x", tmp_path)
+
+
+# #674, `questions.md` Q3's header half: every header spelling, as the splitter
+# hands it back, and the word `header_end` says the command starts at. A
+# spelling read by position costs nothing; `UNPLACEABLE` is the stand-in, which
+# is a stop. None is a segment that opens with no header at all.
+U = "UNPLACEABLE"
+HEADERS = {
+    "case W in P)": (["case", "a", "in", "a)", "watch"], 4),
+    "case W in (P)": (["case", "a", "in", "(a)", "watch"], 4),
+    "case W in P )": (["case", "a", "in", "a", ")", "watch"], 5),
+    "case W in P, the rest past a |": (["case", "a", "in", "a"], 4),
+    "case W, in on the next line": (["case", "a"], 2),
+    "in, then a pattern": (["in", "a)", "watch"], 2),
+    "a later arm P)": (["b)", "watch"], 1),
+    "a later arm P )": (["b", ")", "watch"], 2),
+    "a case behind then": (["then", "case", "a", "in", "a)", "watch"], 5),
+    "a case glued to (": (["(case", "a", "in", "a)", "watch"], 4),
+    "f() {": (["f()", "{", "watch"], 2),
+    "f() (": (["f()", "(", "watch"], 2),
+    "f() (glued": (["f()", "(watch"], 1),
+    "f(), body on the next line": (["f()"], 1),
+    "f ()": (["f", "()", "{", "watch"], 3),
+    "f(){": (["f(){", "watch"], 1),
+    "function f {": (["function", "f", "{", "watch"], 3),
+    "function f() {": (["function", "f()", "{", "watch"], 3),
+    "function f () {": (["function", "f", "()", "{", "watch"], 4),
+    "function f(){": (["function", "f(){", "watch"], 2),
+    "function f, body on the next line": (["function", "f"], 2),
+    "coproc CMD": (["coproc", "watch"], 1),
+    "coproc {": (["coproc", "{", "watch"], 2),
+    "coproc (glued": (["coproc", "(watch"], 1),
+    "coproc NAME {": (["coproc", "W", "{", "watch"], 3),
+    "a case with no in": (["case", "a", "b", "c)"], U),
+    "a pattern with no )": (["case", "a", "in", "a", "b", "c"], U),
+    "a definition with no body": (["f()", "watch"], U),
+    "no header: a program": (["grep", "-n", "watch"], None),
+    "no header: case as an argument": (["echo", "case", "a)"], None),
+    "no header: a for list": (["for", "x", "in", "a"], None),
+}
+
+
+@pytest.mark.parametrize("name", sorted(HEADERS))
+def test_header_end(name):
+    tokens, want = HEADERS[name]
+    want = cmdline.UNPLACEABLE if want == U else want
+    assert cmdline.header_end(tokens) == want, name
 
 
 def test_a_header_spelling_the_reader_cannot_place_falls_to_the_stand_in():
