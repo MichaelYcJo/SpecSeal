@@ -49,6 +49,7 @@ the parity arm and not the review arm waives the review arm per command with
 | the command names a `-C` the gate cannot resolve | **stopped** — see below |
 | every applicable mark equals current HEAD | allow |
 | no session id in the payload | **ask** — nowhere to record that the choice was put up, and a deny would then repeat forever |
+| this session's person pressed `automation` on the routing question | **deny**, every time, whose reason names the ways on that need nobody and **puts no question to anybody** — see *Why a deny, and why only once* |
 | otherwise, first time this session meets it in this repo | **deny**, whose reason **instructs the model to put the choice up** with AskUserQuestion, naming both ways on for every arm that fired |
 | otherwise | **ask**, which is the harness **putting two buttons to the user** — every missing mark named at once, and approving IS the waiver |
 
@@ -210,7 +211,7 @@ had looked at nothing.
 | What the gate has | What it does |
 |---|---|
 | a `-C` it resolved to a repository | judges that repository — its opt-in, its marks |
-| a `-C` it could not resolve, in a session whose own repository opted in | **stops**: deny once per session per repository, then ask |
+| a `-C` it could not resolve, in a session whose own repository opted in | **stops**: deny once per session per repository, then ask — or deny every time, where the session's person pressed `automation` |
 | a `-C` it could not resolve, anywhere else | silent — the plugin has no standing in a repository that never opted in |
 | no `-C`, and `cwd` is no repository | silent — there is no repository and no command naming one |
 
@@ -271,6 +272,56 @@ as already asked, since one missed question beats a deny nothing can get
 past. Every attempt after the first meets the plain `ask` — which is
 also the answer for an environment with nobody to ask: one extra round trip,
 then today's behavior.
+
+**Where the person said nobody would be answering, every stop is a deny.** A
+session whose person pressed `automation` on the routing question was
+promised that nothing stops to ask, and an `ask` is a person's prompt. So
+there the sentence above is reversed: the gate denies at every stop, in both
+arms and at both decision sites, and the reason names the ways on that need
+nobody — a commit whose repository the gate can read, an edit through the
+`Edit` or `Write` tool, the waiver only for a commit no work item owns, and
+otherwise handing the commit back. It names no question tool, and says that
+re-issuing the command unchanged meets the same refusal.
+
+Measured in the milestone-49 run (#662, #665): four stops reached the person
+as prompts. The main checkout's one deny had been spent by the orchestrator's
+own loop, and the marker is keyed on the git directory and the session id
+alone. A subagent's call carries its parent's session id, so every later stop
+in that repository, from every agent in the run, was an `ask`.
+
+The press is the one `docs/worktree-guard-spec.md` §*Creation consent* reads,
+through the same reader, `hooks/worktree_consent.py#automation_answered`, and
+it stands for the same reason: the harness writes it from the click, and the
+model writes the question and never which option was pressed. It is read
+against the session's own repository, which is where standing to speak comes
+from, and only once a stop is decided, so what the gate stops does not move.
+A `per axis` answer and a `routing.md` `Automation` row are not read, for the
+reasons that section gives, and such a run still meets the ask.
+
+This blocks more and never allows more. Where the base asked, a click let the
+commit through; a deny never does. Every way of not reading the press — no
+session id, no transcript, a shape the reader refuses, a reader that raises —
+is the answer above, because a gate that raises is skipped, and a skipped gate
+is silence. A wrong refusal costs the model a turn. The bound on a model that
+re-issues the same command is the reason's text alone, and whether it holds is
+a measurement owed at the next automation run.
+Enforced by: tests/test_an_automation_run_meets_no_commit_prompt.py
+
+**Two readings that prompted that run stay as they are.** `cd X && x` on one
+line and `git commit` on the next reaches the session's own directory whenever
+the `cd` fails, which is *Two operators consume one, not one* above (#662). A
+heredoc body is read as shell for whether it commits, which is *A file edit
+goes through the `Edit` tool* above (#665). Work item `1790635415` narrowed
+both — trusting an existing `cd` target not to fail, and reading a body fed
+to a known interpreter as data — and its rounds 2 and 3 found commands the
+narrowed gate read silent where the base stopped them, and a real bash ran the
+commit for every one it was given: a flag after the `<<`, a bundled `-Bc`, a
+`$(…)` or `${…;…}` moving the boundary, a `#` glued to the delimiter, and an
+earlier segment or an assignment prefix moving the `cd` target. Each fix
+narrowed further than its proof, so the reading stays where it was, and what
+changed is who a stop is put to. Every one of those commands still stops,
+with the press and without.
+Enforced by: tests/test_no_shape_the_base_stops_reads_silent.py
 
 **Both arms, one call.** When both arms fire, the reason asks for two
 questions inside a single AskUserQuestion call rather than one question with
