@@ -38,8 +38,10 @@ so nobody reopens them as questions:
   `--reverify`.
 - **A moved row with no date cell, under the flag.** Left whole, named, exit
   1.
-- **Whether a heal (`identical content`) is dated.** Yes. Its hash moves, and
-  the owner's rule is *every row whose hash it moved*.
+- **Whether a heal (`identical content`) is dated.** Where its hash moves,
+  which a rename does: the owner's rule is *every row whose hash it moved*.
+  A file moved whole keeps its hash and is not dated. *Corrected 2026-09-29
+  by round 1's fix pass (🟡 1).*
 - **The RIDER on `reverify`.** Deleted, since its question is answered.
 - **`seal/follow-up.md` row 69.** Narrowed with a dated note (D3). Its open
   options stay the owner's.

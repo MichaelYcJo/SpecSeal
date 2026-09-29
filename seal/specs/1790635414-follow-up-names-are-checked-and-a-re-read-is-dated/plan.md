@@ -99,7 +99,7 @@ still type the flag without reading.
 | Accept `today` as a value | A convenience that makes the date not a statement typed by whoever read it. The owner's answer is `--checked <date>` | Rejected |
 | **A moved row with no date cell is left whole under `--checked`, named, exit 1** | The row stays DRIFTED until someone fixes its table | **Chosen.** Writing the hash alone recreates the exact state #387 reports: a row whose two halves disagree. Zero such anchors exist today (M6) |
 | The date cell is `Checked` alone | 203 anchors under `Date` headers (M6) would be `LEFT` on every `--checked` run that reaches them | Rejected |
-| **Dating the heal path (`identical content`)** | Dates a row nobody re-read, though its content is proven identical | **Chosen.** It is the owner's rule taken literally (*every row whose hash it moved*), and a re-anchor moves the hash. Without the flag the row is named, so the reader sees it |
+| **Dating the heal path (`identical content`)** | Dates a row nobody re-read, though its content is proven identical | **Chosen.** It is the owner's rule taken literally (*every row whose hash it moved*), and a rename's re-anchor moves the hash. Without the flag the row is named, so the reader sees it. A file moved whole keeps its hash, so its row is re-pointed and neither dated nor named. *Corrected 2026-09-29 by round 1's fix pass (🟡 1): this cell said every re-anchor moves the hash* |
 | **RIDER deleted** | None | **Chosen.** Its question is answered, and `seal/follow-up.md`'s header says a rider whose ask is done is deleted |
 
 ## Phases

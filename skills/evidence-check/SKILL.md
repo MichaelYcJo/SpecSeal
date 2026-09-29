@@ -303,8 +303,10 @@ first cell, and its date cell as it is — so the reading that nothing dated is
 in front of whoever ran it. `--checked YYYY-MM-DD` writes the date instead:
 ` · YYYY-MM-DD` after the dates a cell holds, the date alone in an empty
 cell, and nothing where the cell already ends in it. A row is dated once
-however many of its coordinates moved, a row re-anchored by identical content
-is dated too, and a row whose hash did not move is never touched.
+however many of its coordinates moved. A rename healed by identical content
+moves the hash, so it is dated too; a file moved whole reconstructs with the
+recorded hash, so its row is re-pointed and neither dated nor named; and a
+row whose hash did not move is never touched.
 
 The date cell is the column headed `Checked`, else the column headed `Date`,
 else — under no header — the fourth cell of a row exactly five cells wide.
@@ -471,9 +473,13 @@ named under the wrong test file is refused though another file has it, and a
 one-word name is read, because the path is what makes it a claim. The
 refusal names the path. Where the path does not resolve — a bare file name,
 a missing file, a path out of the root — each segment is read the way the
-same name written bare is: an underscore, and the whole corpus. What it
-gives up: a name that survives only in a comment of the named file passes,
-and a bare file name paired with a name another file carries passes.
+same name written bare is: an underscore, and the whole corpus. Three
+fragments are not refused: after a `.md` path, a GitHub heading anchor
+(`README.md#install`), read against the file's words lower-cased; a line
+anchor, `#L120`, which names no unit; and a path the stamp half calls
+`EXTERNAL`, which is not read at all. What it gives up: a name that survives
+only in a comment of the named file passes, and a bare file name paired with
+a name another file carries passes.
 
 **A comment is an aside only where it begins a line**, or begins what is left
 of a line after a `-->`. One that opens part-way along text is read with the
