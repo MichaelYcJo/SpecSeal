@@ -2007,6 +2007,21 @@ def test_the_template_documents_the_commented_row_sentence():
     assert "the refusal quotes that line and says it is commented out" in text
 
 
+def test_the_template_names_every_inline_html_kind_it_reads_as_before():
+    """#673's S10 (contract §14). The sentence tells a person which contexts
+    are read as before, and the walk is unsure after any inline raw HTML a
+    line leaves open, not after a comment opener alone. Each opener a
+    person might write is named, and the old list's narrower phrase is gone."""
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "templates", "config.md"), encoding="utf-8") as f:
+        text = " ".join(f.read().split())
+    assert "after inline HTML a line leaves open" in text
+    for opener in ("<" + "!--", "<![CDATA[", "<?", "<!DOCTYPE"):
+        assert f"`{opener}`" in text, opener
+    assert "or a tag started in the middle of a line" in text
+    assert "after a `<" + "!--` in the middle of a line" not in text
+
+
 @pytest.mark.parametrize("name", ["LS", "NEL"])
 def test_the_gate_names_no_block_a_renderer_does_not_see(tmp_path, name):
     """#667 round 1, 🟡 1, `broad-gate`'s two questions of the reader. A

@@ -885,6 +885,38 @@ def test_a_piece_inside_an_inline_comment_is_no_config_row(config, name):
     assert config.config_rows(text) == []
 
 
+@pytest.mark.parametrize("name", ["LS", "PS", "NEL", "FF", "VT", "FS", "GS", "RS"])
+@pytest.mark.parametrize(
+    "opener, closer",
+    [
+        ("<![CDATA[ a", "]]>"),
+        ("<? a", "?>"),
+        ("<!DOCTYPE a", "a>"),
+        ('<span title="a', '">'),
+        ("<span title='a", "'>"),
+    ],
+    ids=["cdata", "instruction", "declaration", "double-quoted", "single-quoted"],
+)
+def test_a_piece_inside_other_inline_html_is_no_config_row(
+    config, name, opener, closer
+):
+    """#673, #667 round 3's 🟡 1. A comment is one kind of inline raw HTML of
+    six (CommonMark 6.6); CDATA, a processing instruction, a declaration and a
+    tag's quoted attribute value hide what they hold too, and the fence run
+    before the table is fenced to the base. The walk looked only for a
+    comment opener, so the piece was claimed shown and a `Mode` row neither
+    reading shows was read. A declaration's closer is written `a>`: a `>` at
+    a line's start would open a block quote instead."""
+    from block_shapes import BREAKS
+
+    brk = BREAKS[name]
+    text = (
+        f"x {opener}{brk}```{brk}| Item | Value |{brk}|---|---|{brk}"
+        f"| Mode | shared |\n{closer}\n"
+    )
+    assert config.config_rows(text) == []
+
+
 @pytest.mark.parametrize("name", ["LS", "FF"])
 def test_the_writer_reads_where_commonmark_breaks(config, tmp_path, name):
     """#667 round 1, 🟡 1, the writer's walk: `seal.py#table_span` finds the

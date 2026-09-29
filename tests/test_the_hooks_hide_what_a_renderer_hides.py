@@ -83,7 +83,10 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         (["<div>", "```", "x", "", "b"], {0: "html", 1: "html", 2: "html"}),
         # an inline comment hides the lines that begin inside it, and not the
         # line it opens on
-        (["x " + OPEN + " y", "z", CLOSE + " w", "v"], {1: "comment", 2: "comment"}),
+        (
+            ["x " + OPEN + " y", "z", CLOSE + " w", "v"],
+            {1: "inline html", 2: "inline html"},
+        ),
         # a blank line ends the paragraph, so the comment never closes
         (["x " + OPEN + " y", "", "z", CLOSE], {}),
         # inside a code span a delimiter is text
@@ -101,8 +104,42 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         # follows the specification, is never "fixed" toward the parser.
         (
             ["x " + OPEN + " a", "b ---> c", "d " + CLOSE + " e", "f"],
-            {1: "comment", 2: "comment"},
+            {1: "inline html", 2: "inline html"},
         ),
+        # #673: every other kind of inline raw HTML hides the lines that
+        # begin inside it the same way -- CDATA, a processing instruction, a
+        # declaration, an open tag inside either kind of quoted value, and an
+        # open tag between its attributes
+        (["x <![CDATA[ a", "b", "c ]]> d", "e"], {1: "inline html", 2: "inline html"}),
+        (["x <? a", "b", "c ?> d", "e"], {1: "inline html", 2: "inline html"}),
+        (["x <!DOCTYPE a", "b", "c> d", "e"], {1: "inline html", 2: "inline html"}),
+        (['x <span title="a', "b", 'c"> d', "e"], {1: "inline html", 2: "inline html"}),
+        (["x <span title='a", "b", "c'> d", "e"], {1: "inline html", 2: "inline html"}),
+        (["x <span", 'lang="en">', "e"], {1: "inline html"}),
+        # a list item whose first line holds only a Unicode space, which the
+        # parser's strip drops: its marker is not text, so the lines are
+        # counted from the next one -- a bullet, a number, a bullet inside a
+        # quote; a `-` with no space after it is no marker, and is text
+        (["- " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["1. " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["> - " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["-" + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        # a later line of the paragraph carries no list marker: a `*` or a
+        # `2.` there is text, since an item that could interrupt would have
+        # ended the paragraph, and the parser's strip keeps it
+        ([NBSP, "*", "x <? a", "b ?>", "c"], {3: "inline html"}),
+        (["> " + NBSP, "> 2.", "> x <? a", "> b ?>"], {3: "inline html"}),
+        # while a quote's `>` is a marker on every line of it
+        (["> " + NBSP, "> " + NBSP, "> x <? a", "> b ?>"], {3: "inline html"}),
+        # every other marker the count-back reads on the opening line: the
+        # other two bullets, the `)` delimiter, a tab after a marker and one
+        # before it, and a number of ten digits, which is no marker
+        (["+ " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["* " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["1) " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["-\t" + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        ([">\t* " + NBSP, "> x <? a", "> b ?>", "> c"], {2: "inline html"}),
+        (["1234567890. " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
     ],
     ids=[
         "fence",
@@ -116,13 +153,46 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         "list item",
         "crlf",
         "past the first closer",
+        "cdata",
+        "instruction",
+        "declaration",
+        "double-quoted value",
+        "single-quoted value",
+        "between attributes",
+        "behind a list marker",
+        "behind an ordered marker",
+        "behind a quote and a marker",
+        "a dash that is no marker",
+        "a star on a later line is text",
+        "a number on a later quoted line is text",
+        "a quote marker on a later line",
+        "behind a plus",
+        "behind a star",
+        "behind a parenthesis",
+        "a tab after a marker",
+        "a tab before a marker",
+        "ten digits are no marker",
     ],
 )
 def test_the_oracle_names_each_kind_it_hides(lines, hidden):
     """What each of the four kinds is, one case each, so a reader of this
     module can see what "a renderer hides" means before any reader is held
-    to it."""
+    to it. `inline html` is all six kinds of CommonMark 6.6, one case each
+    but the closing tag's: a line ending inside one puts `>` at the next
+    line's start, which opens a block quote."""
     assert oracle.hidden(lines) == hidden
+
+
+# Inline raw HTML other than a comment that can run past a line ending, with
+# a closer that does not put `>` at a line's start (#673). A declaration's
+# closer is written `a>` for that reason.
+INLINE_KINDS = [
+    ("<![CDATA[ a", "]]>"),
+    ("<? a", "?>"),
+    ("<!DOCTYPE a", "a>"),
+    ('<span title="a', '">'),
+    ("<span title='a", "'>"),
+]
 
 
 @pytest.mark.parametrize("name", sorted(BREAKS))
@@ -138,10 +208,28 @@ def test_the_oracle_reads_the_text_not_a_readers_split(name):
     # round 2: a piece is asked where it starts, not where its line does --
     # inside a comment its own line opened, and just past one it closed
     assert oracle.hidden_text(f"x {OPEN} a{brk}| b |\n{CLOSE}\n") == {
-        1: "comment",
-        2: "comment",
+        1: "inline html",
+        2: "inline html",
     }
-    assert oracle.hidden_text(f"x {OPEN} a\nb {CLOSE}{brk}| c |\n") == {1: "comment"}
+    assert oracle.hidden_text(f"x {OPEN} a\nb {CLOSE}{brk}| c |\n") == {
+        1: "inline html"
+    }
+    # #673: every other kind of inline raw HTML, opened before the break and
+    # closed after it, holds the piece; closed before the break, it holds
+    # nothing after it
+    for opener, closer in INLINE_KINDS:
+        assert oracle.hidden_text(f"x {opener}{brk}| b |\n{closer}\n") == {
+            1: "inline html",
+            2: "inline html",
+        }, opener
+        assert oracle.hidden_text(f"x {opener} {closer}{brk}| c |\n") == {}, opener
+    # an open tag's piece between its attributes, and a closing tag's piece
+    # at its `>`, where no letter may stand
+    assert oracle.hidden_text(f'x <span{brk}lang="en">\n') == {1: "inline html"}
+    assert oracle.hidden_text(f"x </span{brk}>\n") == {1: "inline html"}
+    # inside an image description, whose tokens are the image's children: a
+    # renderer writes the description as the `alt` text and leaves HTML out
+    assert oracle.hidden_text(f'![x <span title="a{brk}b">](u)\n') == {1: "inline html"}
 
 
 # --- the corpus: the frame's shapes, the old cases, and a generated set -----
@@ -329,6 +417,27 @@ FOUND = [
     ["A note" + BREAKS["FF"] + "```", "", OPEN + " RIDER: r " + CLOSE, "```"],
     # round 2: a piece that starts inside an inline comment its line opened
     ["x " + OPEN + " a" + BREAKS["LS"] + "```" + BREAKS["LS"] + "| a |", CLOSE],
+    # #673: the same piece inside every other kind of inline raw HTML, and a
+    # line after it inside the same paragraph. Here and not in ALPHABET: six
+    # alphabet lines pushed `test_the_walk_is_exact_somewhere` under its
+    # third, and an opener without its closer never forms inline HTML.
+    ["x <![CDATA[ a" + BREAKS["LS"] + "```" + BREAKS["LS"] + "| a |", "]]>"],
+    ["x <? a" + BREAKS["FF"] + "```" + BREAKS["FF"] + "| a |", "| b |", "?>"],
+    ["x <!DOCTYPE a" + BREAKS["GS"] + "```" + BREAKS["GS"] + "| a |", "a>"],
+    ['x <span title="a' + BREAKS["NEL"] + "```", "| a |", '">'],
+    ["x <span title='a" + BREAKS["PS"] + "```", "| a |", "'>"],
+    # between a tag's attributes no row can start, but a later line can
+    # begin inside the tag; a closing tag holds only whitespace before `>`
+    ["x <span" + BREAKS["LS"] + 'lang="en"', 'title="t">', "| a |"],
+    ["x </span" + BREAKS["VT"] + ">", "| a |"],
+    # an opener a renderer does not honour -- in a code span -- whose end
+    # lies inside a construct that is real: reading on from that end would
+    # step over the real opener
+    ["x `<?` <![CDATA[ a ?> b" + BREAKS["LS"] + "```" + BREAKS["LS"] + "| a |", "]]>"],
+    # a comment opener a renderer does not honour leaves the paragraph
+    # pending, and a real opener before the next `-->` must not be stepped
+    # over by that `-->`
+    ["x `" + OPEN + "` a", "b <? c " + CLOSE + " d", "e ?> f", "| a |"],
 ]
 
 CORPUS = (
@@ -533,6 +642,61 @@ def test_a_piece_inside_its_lines_open_comment_is_the_only_piece_unsure():
     assert (fenced.kinds[2], fenced.uncertain[2]) == (blocks.FENCED, False)
     before = blocks.walk_text(f"a{ls}b {OPEN} c\n\nd\n")
     assert before.uncertain[:2] == [False, False], before.uncertain
+
+
+# An opener and a closer of every other kind of inline raw HTML, with a
+# closer that can stand at a line's start or directly after the opener (#673).
+# The closing tag's closer is `>` and is only ever written on the same line.
+INLINE_OPEN_CLOSE = [
+    *INLINE_KINDS,
+    ("<span", 'a="b">'),
+    ("</span", ">"),
+]
+
+
+def test_a_piece_inside_other_inline_html_its_line_left_open_is_unsure():
+    """#673's S4, `walk_text`'s own answer. A piece after a break inside
+    CDATA, a processing instruction, a declaration or a tag its line left
+    open is uncertain; a piece after one its line closed is claimed; a piece
+    of a fenced line stays fenced and claimed. And an opener a renderer does
+    not honour does not step over one it does."""
+    ls = BREAKS["LS"]
+    for opener, closer in INLINE_OPEN_CLOSE:
+        inside = blocks.walk_text(f"a {opener}{ls}{closer} x\n\nd\n")
+        assert inside.uncertain[:2] == [False, True], (opener, inside.uncertain)
+        closed = blocks.walk_text(f"a {opener} {closer}{ls}| r |\n\nd\n")
+        assert closed.uncertain[:2] == [False, False], (opener, closed.uncertain)
+        fenced = blocks.walk_text(f"```\nx {opener}{ls}y\n```\n")
+        assert (fenced.kinds[2], fenced.uncertain[2]) == (blocks.FENCED, False)
+    nested = blocks.walk_text(f"a `<?` <![CDATA[ b ?> c{ls}| r |\n]]>\n")
+    assert nested.uncertain[:2] == [False, True], nested.uncertain
+    # a `>` inside a quoted value does not end the tag
+    quoted = blocks.walk_text(f'a <span title="b>c{ls}d">\n\ne\n')
+    assert quoted.uncertain[:2] == [False, True], quoted.uncertain
+    # `<?>` does not close a processing instruction: the `?` is the opener's
+    instruction = blocks.walk_text(f"a <?>{ls}| r |\n?>\n\nd\n")
+    assert instruction.uncertain[:2] == [False, True], instruction.uncertain
+    # a closer before its opener closes nothing
+    early = blocks.walk_text(f"a ?> <? b{ls}| r |\n?>\n\nd\n")
+    assert early.uncertain[:2] == [False, True], early.uncertain
+    # a `>` inside a single-quoted value does not end the tag either
+    single = blocks.walk_text(f"a <span title='b>c{ls}d'>\n\ne\n")
+    assert single.uncertain[:2] == [False, True], single.uncertain
+
+
+@pytest.mark.parametrize("opener", [o for o, _ in INLINE_OPEN_CLOSE[:-1]])
+def test_a_paragraph_left_inside_other_inline_html_is_unsure_to_its_end(opener):
+    """#673's S5, `walk`'s paragraph state. The lines after a line that
+    leaves CDATA, a processing instruction, a declaration or a tag open are
+    uncertain to the paragraph's end, because the walk does not follow that
+    construct's end across lines; a blank line ends it. A `-->` does not end
+    it either, where the comment it closes is one the parser never formed."""
+    found = blocks.walk([f"a {opener}", "b", "c", "", "d"])
+    assert found.uncertain == [False, True, True, False, False], found.uncertain
+    past = blocks.walk([f"a {opener}", "b " + CLOSE + " c", "d", "", "e"])
+    assert past.uncertain == [False, True, True, False, False], past.uncertain
+    fake = blocks.walk(["a `" + OPEN + "` b", "c <? d " + CLOSE + " e", "f", "", "g"])
+    assert fake.uncertain == [False, True, True, False, False], fake.uncertain
 
 
 def test_an_unclosed_fence_is_reported_at_the_reader_line_it_starts():

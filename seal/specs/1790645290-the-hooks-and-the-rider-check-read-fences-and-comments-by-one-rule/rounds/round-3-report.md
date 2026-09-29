@@ -94,8 +94,8 @@ piece starts, so a piece just past a closing comment and a piece inside one
 are told apart. Executed: the two new oracle assertions fail for all eight
 breaks with `tests/commonmark_oracle.py` from `67746d05` and pass at HEAD.
 
-The new unit `_starts_in_a_comment` (`tests/commonmark_oracle.py:154`) and the
-older `_comment_lines` (`:84`) both keep only `html_inline` tokens whose
+The new unit `_starts_in_a_comment` (`tests/commonmark_oracle.py:154`) and the · NAME NOT IN TREE
+older `_comment_lines` (`:84`) both keep only `html_inline` tokens whose · NAME NOT IN TREE
 content starts with `&lt;!--`. On CDATA, a processing instruction or an
 attribute value the oracle says "shown", which is the walk's own answer, so
 the property agrees with the walk by construction on that part of the class.
@@ -230,7 +230,7 @@ once 🟡 3 is fixed.
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
 | 🟡 1 | A piece that starts inside inline raw HTML other than a comment (CDATA, a processing instruction, a tag's attribute value) that its GFM line opened is claimed live, so with a fence run earlier on the line the config reader reads a `Mode` row its base and a renderer both hide | `hooks/blocks.py:370` | open | executed: `config_rows` gives `[("Mode", "shared")]` for three openers × eight breaks at `8b1492aa`; base and an independent per-piece reading hide the line; 2,035 of 20,000 seeded documents leave both readings. Round 2's fix enumerated only `&lt;!--` (§12). The run is capped: this is a candidate for rung 1, since this work item created `hooks/blocks.py` |
-| 🟡 2 | `_starts_in_a_comment` and `_comment_lines` keep only `html_inline` tokens that are comments, so the oracle cannot see 🟡 1 and agrees with the walk by construction on the rest of inline HTML | `tests/commonmark_oracle.py:154` | open | executed: with the proposed `FOUND` documents the HEAD walk passes the property module against this oracle (61 passed) and fails it against the widened one; this unit is new in round 2's fixes. Candidate for rung 1 |
+| 🟡 2 | `_starts_in_a_comment` and `_comment_lines` keep only `html_inline` tokens that are comments, so the oracle cannot see 🟡 1 and agrees with the walk by construction on the rest of inline HTML | `tests/commonmark_oracle.py:154` | open | executed: with the proposed `FOUND` documents the HEAD walk passes the property module against this oracle (61 passed) and fails it against the widened one; this unit is new in round 2's fixes. Candidate for rung 1 · NAME NOT IN TREE |
 | 🟡 3 | `riders_in` opens a rider at a marker after a break GFM does not honour, and `region_lines` (GFM lines since #668) never cuts it, so that rider's own stamp is inside the region its hash covers | `.github/scripts/rider_check.py:345` | deferred #664 | executed: reader `[(4, 5)]` and the stamp line in the hashed region at `8b1492aa` and at #668's tip `2e392d4`, not at the merge base `66b34a4e`. It arrived with #668, and #664 (open) owns the class, so rung 2 |
 | ⬜ 4 | The re-pinned rider case dropped the region half that put a fence run after the break, so a hasher walking the reader's split passes it | `tests/test_a_rider_reaches_its_file.py:613` | open | executed: the old half holds at HEAD for eight breaks; under a splitlines mutant of `region_lines` the old half fails and the new half passes |
 | ⬜ 5 | 0.9.1 S2's merge re-read says every rider block is removed from the one list before the hash; 🟡 3's rider is not | `seal/releases/0.9.1.md` | open | a paperwork correction, left out of `Needs a fix`; it becomes true again with 🟡 3's fix |
