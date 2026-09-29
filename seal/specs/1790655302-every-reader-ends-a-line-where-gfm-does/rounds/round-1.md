@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #675 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `7bfea5f4b82d82322280d0f777571fe43a116dd8..21b871ef2fc7b69f460735148dcfe20bad8e9046`, 6 commits |
 | Contract changes | none |
 | New units | test_a_rider_behind_a_leading_break_is_still_read (depth 1); test_a_statement_between_the_rider_and_the_unit_is_read_on_asts_lines (depth 1); test_reverify_writes_a_break_inside_a_rider_back_as_it_stood (depth 1); test_reverify_leaves_a_last_rider_line_with_no_end_without_one (depth 1) |
