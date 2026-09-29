@@ -12,8 +12,8 @@
 
 `plan.md`'s phase 1, #667 round 3's 🟡 2: the oracle asks every inline HTML
 token. In `tests/commonmark_oracle.py` the kind `comment` becomes
-`inline html`; `_comment_lines` becomes `_inline_html_lines` and keeps every
-top-level `html_inline` token; `_starts_in_a_comment` becomes
+`inline html`; `_comment_lines` becomes `_inline_html_lines` and keeps every · NAME NOT IN TREE
+top-level `html_inline` token; `_starts_in_a_comment` becomes · NAME NOT IN TREE
 `_starts_in_inline_html` and finds the sentinel in an `html_inline` token at
 any depth; the docstrings say *inline raw HTML* and why lines are read at the
 top level and pieces at any depth. `test_the_oracle_names_each_kind_it_hides`
@@ -21,7 +21,7 @@ gains one row per construct of `spec.md` S1 and
 `test_the_oracle_reads_the_text_not_a_readers_split` gains S2's assertions,
 each seen red with the oracle from `3fc0c5bd`. No `FOUND` change. Q5: the
 property module green with the base walk. Ledger: P1-2 corrected, its
-`_comment_lines` anchor dropped, and a row for the renamed units in this work
+`_comment_lines` anchor dropped, and a row for the renamed units in this work · NAME NOT IN TREE
 item's fragment.
 
 ## What this phase found
@@ -49,13 +49,13 @@ item's fragment.
   image's description as `alt` text and drops `html_inline` from it, so the
   piece is hidden. Without it no case covered the recursion, and a
   mutant reading the top level only would have stayed green.
-- **R1-1's `_starts_in_a_comment` anchor is dropped here, not in phase 2.**
+- **R1-1's `_starts_in_a_comment` anchor is dropped here, not in phase 2.** · NAME NOT IN TREE
   The rename lands in this phase, so leaving the anchor for phase 2 would have
   left a BROKEN row across a commit. The row's walk half is still corrected
   in phase 2, where the walk changes.
 - **The rename leaves the old names in records, and the records arm refuses
   them.** `bin/evidence-check --ledger <this fragment> .` exits 2 on
-  `NOT-IN-TREE` lines: `_comment_lines` and `_starts_in_a_comment` in work
+  `NOT-IN-TREE` lines: `_comment_lines` and `_starts_in_a_comment` in work · NAME NOT IN TREE
   item 1790645290's `phases/phase-2.md`, `rounds/round-3.md` and
   `rounds/round-3-report.md`, and in this work item's `spec.md` and
   `plan.md`. The frame's §*Data & interfaces* priced the rename in ledger
@@ -78,5 +78,5 @@ item's fragment.
 
 | Removed item | Where it must land |
 |---|---|
-| `tests/commonmark_oracle.py#_comment_lines` and `#_starts_in_a_comment` (renamed) | `_inline_html_lines` and `_starts_in_inline_html`; their claim is P1-1 of `seal/ledger/1790659274-the-walk-leaves-every-inline-html-construct-uncertain.md`, and the dropped anchors are noted in P1-2 and R1-1 of work item 1790645290's fragment |
+| `tests/commonmark_oracle.py#_comment_lines` and `#_starts_in_a_comment` (renamed) | `_inline_html_lines` and `_starts_in_inline_html`; their claim is P1-1 of `seal/ledger/1790659274-the-walk-leaves-every-inline-html-construct-uncertain.md`, and the dropped anchors are noted in P1-2 and R1-1 of work item 1790645290's fragment · NAME NOT IN TREE |
 | the oracle's kind `comment` | `inline html`, spelled in the two expectations that spelled `comment` |

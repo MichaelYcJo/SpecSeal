@@ -40,7 +40,7 @@ x <![CDATA[ a␤```␤| Item | Value |␤|---|---|␤| Mode | shared |
 - The walk calls the piece live and certain, so `config_rows` returns
   `[("Mode", "shared")]`. That is a third reading, which half 1 forbids.
 
-The oracle did not see it. `tests/commonmark_oracle.py#_comment_lines` and
+The oracle did not see it. `tests/commonmark_oracle.py#_comment_lines` and · NAME NOT IN TREE
 `#_starts_in_a_comment` keep only `html_inline` tokens whose content starts
 with `<!--`. On the rest of the class the oracle answers "shown", which is the
 walk's own answer, so it agrees with the walk by construction. That is the
@@ -63,7 +63,7 @@ and `templates/` (read, `git diff --stat 8b1492aa 3fc0c5bd`, empty):
 closing tag, an HTML comment, a processing instruction, a declaration or a
 CDATA section. markdown-it-py 4.2.0, the version pinned in
 `.github/scripts/run_tests.py#MARKDOWN_IT_VERSION`, recognises the same six
-in `markdown_it/common/html_re.py#HTML_TAG_RE` and emits every one of them as
+in `markdown_it/common/html_re.py#HTML_TAG_RE` and emits every one of them as · NAME NOT IN TREE
 the single token type `html_inline` (`rules_inline/html_inline.py`). Both were
 read on 2026-09-29; the parser's source was read in an installed copy of that
 exact version. The open tag is listed twice below, because what a piece inside
@@ -218,10 +218,10 @@ and repeated in the pull request.
   `walk` gains the sticky state; `walk_text`'s check asks both predicates. No
   signature changes, and `Walk` is unchanged.
 - **`tests/commonmark_oracle.py`.** The kind `COMMENT = "comment"` becomes
-  `INLINE_HTML = "inline html"`. `_comment_lines` becomes `_inline_html_lines`
+  `INLINE_HTML = "inline html"`. `_comment_lines` becomes `_inline_html_lines` · NAME NOT IN TREE
   and keeps every top-level `html_inline` token; its offsets are the parser's
   offsets in the paragraph's inline source, which is why it stays top-level.
-  `_starts_in_a_comment` becomes `_starts_in_inline_html` and looks for the
+  `_starts_in_a_comment` becomes `_starts_in_inline_html` and looks for the · NAME NOT IN TREE
   sentinel in `html_inline` tokens at any depth, an image description's
   children included, because the sentinel needs no offset. The module
   docstring's fourth place and `hidden_text`'s docstring say *inline raw HTML*.
@@ -231,10 +231,10 @@ and repeated in the pull request.
   report among them. `ALPHABET` is not touched.
 - **Ledger.** In `seal/ledger/1790645290-…md`, corrected in place with a dated
   note and re-stamped: P1-2 (it says "an inline HTML comment"; the
-  `_comment_lines` anchor is dropped as renamed), P2-1 (its uncertain list
+  `_comment_lines` anchor is dropped as renamed), P2-1 (its uncertain list · NAME NOT IN TREE
   says "the paragraph lines after a mid-line opener up to its closer"; `walk`
   and `FOUND` drift) and R1-1 (it says "leaves an inline comment open"; the
-  `_starts_in_a_comment` anchor is dropped as renamed; `walk_text`,
+  `_starts_in_a_comment` anchor is dropped as renamed; `walk_text`, · NAME NOT IN TREE
   `hidden_text` and the rider and oracle cases drift). In
   `seal/ledger/1790659274-…md`: the renamed oracle units, `leaves_html_open`
   with its patterns, the S3, S4, S5 and S10 cases.
