@@ -33,7 +33,7 @@
 
 ## 🟡 1 · A `>` four columns in on a paragraph's later line is text, and the oracle reads it as a quote marker
 
-`tests/commonmark_oracle.py:89` (the `>` branch of `_behind_markers`),
+`tests/commonmark_oracle.py:89` (the `>` branch of `_behind_markers`), · NAME NOT IN TREE
 called from `tests/commonmark_oracle.py:131` in `_inline_html_lines`.
 
 Round 2's fix returns before the list-marker branches on a later line, but
@@ -85,7 +85,7 @@ and `lheading` block rules build the inline source as
 taken from behind the container markers the parser itself consumed. The fix
 wraps those two rules the way the module already wraps `html_inline`, and
 counts the whole lines that strip removed from the top of that same text.
-`_behind_markers` is deleted. The approach fits the module's own principle,
+`_behind_markers` is deleted. The approach fits the module's own principle, · NAME NOT IN TREE
 *"Where the inline HTML is, the parser says"*, and imports only from
 `markdown_it`.
 
@@ -104,7 +104,7 @@ Executed in the clone:
 
 **Where it goes.** The run ends at this round, so which home this finding
 takes is the orchestrator's ladder. The fact the ladder turns on is this:
-`_behind_markers` is round 1's `New units` row, and round 2's fix edited it,
+`_behind_markers` is round 1's `New units` row, and round 2's fix edited it, · NAME NOT IN TREE
 so the unit is the branch's.
 
 ## ⬜ 2 · Ledger row R1-1 states the claim 🟡 1 shows false
@@ -114,13 +114,13 @@ row R1-1. The fix commit `43b81e3f` rewrote it to say the oracle counts back
 behind *"a block quote's `>` on every line"*. A `>` four columns in on a later
 line is not a marker (🟡 1, executed). This is a correction to the run's
 records and not a defect in the tool. If 🟡 1's fix lands, the row's
-`_behind_markers` anchor is removed, so the row is REMOVED and the new claim
+`_behind_markers` anchor is removed, so the row is REMOVED and the new claim · NAME NOT IN TREE
 is written as a new row. If it does not land, the sentence needs the
 three-column bound.
 
 ## Round 2's findings
 
-**Round 2's finding 1 is closed.** `_behind_markers` now returns before the
+**Round 2's finding 1 is closed.** `_behind_markers` now returns before the · NAME NOT IN TREE
 list-marker branches on every line after the paragraph's opening one
 (`tests/commonmark_oracle.py:92`). Executed: a `*` on the later line of a
 list item's paragraph gives the line a renderer hides. Where a lazy `*`
@@ -147,7 +147,7 @@ time, restored):
 
 | Claimed | Where | What I found |
 |---|---|---|
-| `_behind_markers` reads a bullet or a number only on the paragraph's opening line | commit `37dadb8d`, the helper's docstring | **Confirmed, executed**: a later-line `*` in a list item right, and the guard's two rows red without it |
+| `_behind_markers` reads a bullet or a number only on the paragraph's opening line | commit `37dadb8d`, the helper's docstring | **Confirmed, executed**: a later-line `*` in a list item right, and the guard's two rows red without it · NAME NOT IN TREE |
 | *"A `>` on a later line is a marker, for the same reason"* | `tests/commonmark_oracle.py:83` | **False for a `>` four columns in or behind a tab** (🟡 1, executed on five shapes) |
 | R1-1: the count reads *"a block quote's `>` on every line"* | ledger fragment, R1-1 | False for the same shapes (⬜ 2) |
 | Six rows pin the helper's other branches | commit `37dadb8d` | **Confirmed, executed**: each of the five branch mutants turns at least its own row red |
@@ -166,7 +166,7 @@ removed from the fix.
 
 ## Facts for the evidence ledger
 
-- R1-1 goes REMOVED when 🟡 1's fix deletes `_behind_markers`. The new claim
+- R1-1 goes REMOVED when 🟡 1's fix deletes `_behind_markers`. The new claim · NAME NOT IN TREE
   is a new row in this work item's fragment: the oracle takes the number of
   lines the parser's strip dropped from the parser's own paragraph and
   setext-heading rules, which join each line from behind the container
@@ -178,7 +178,7 @@ removed from the fix.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A `>` four columns in, or behind a tab, on a paragraph's later line is lazy-continuation text the parser keeps; `_behind_markers` reads it as a quote marker, and every inline HTML line after it is placed one line late | `tests/commonmark_oracle.py:89` | open | executed: 5 of 18 shapes wrong at HEAD; `[NBSP, "    >", "x <? a", "b ?>", "", "text"]` gives `disagreements` `[(4, 'live', True)]`. The unit is round 1's `New units` row, which round 2's fix edited, so it is the branch's; the run ends here, so its home is the orchestrator's ladder |
+| 🟡 1 | A `>` four columns in, or behind a tab, on a paragraph's later line is lazy-continuation text the parser keeps; `_behind_markers` reads it as a quote marker, and every inline HTML line after it is placed one line late | `tests/commonmark_oracle.py:89` | open | executed: 5 of 18 shapes wrong at HEAD; `[NBSP, "    >", "x <? a", "b ?>", "", "text"]` gives `disagreements` `[(4, 'live', True)]`. The unit is round 1's `New units` row, which round 2's fix edited, so it is the branch's; the run ends here, so its home is the orchestrator's ladder · NAME NOT IN TREE |
 | ⬜ 2 | Ledger row R1-1 says the count reads a block quote's `>` on every line, which finding 1 shows false | `seal/ledger/1790659274-the-walk-leaves-every-inline-html-construct-uncertain.md` | open | a correction to the run's records; the row is REMOVED if finding 1's fix deletes its anchor |
 | 🟢 | round 2's finding 1 is closed — a bullet or a number on a paragraph's later line is text again | `tests/commonmark_oracle.py:92` | confirmed | executed: a later-line `*` in a list item right; removing the guard fails the two new rows alone, and moving it before the quote branch fails the quote row alone |
 | 🟢 | round 2's finding 2 is closed — every branch round 2 named has a row that goes red without it | `tests/test_the_hooks_hide_what_a_renderer_hides.py:127` | confirmed | executed: five mutants, each exit 1, each failing its own row |
@@ -191,7 +191,7 @@ removed from the fix.
 |---|---|
 | `bin/test tests/test_the_hooks_hide_what_a_renderer_hides.py -q -p no:xdist` at `ce0f1f94` | exit 0, 87 passed |
 | Probe: `oracle.hidden` and the paragraph's inline content on 18 shapes (indented `>` on a later line, lazy continuation, a quote dropping `>`, an item continued by indentation, setext), and `disagreements` on three with the HTML line last | at HEAD: 13 correct, 5 wrong; `disagreements` `[(4, 'live', True)]` on all three |
-| Seven mutants of `_behind_markers`, one at a time, restored from kept bytes, against the property module | each exit 1; failing ids as in the table under *Round 2's findings*; `git diff --quiet` exit 0 after |
+| Seven mutants of `_behind_markers`, one at a time, restored from kept bytes, against the property module | each exit 1; failing ids as in the table under *Round 2's findings*; `git diff --quiet` exit 0 after · NAME NOT IN TREE |
 | 🟡 1's fix applied in the clone, then the 18-shape probe and the module | probe 18 of 18 correct; module exit 0, 87 passed |
 | The four new rows with the oracle at HEAD, with the fix, with the fix's dropped-line count forced to 0, and with `lheading` unwrapped | exit 1 (3 failed); exit 0 (91 passed); exit 1 (16 failed); exit 1 (1 failed, the setext row) |
 | `bin/evidence-check --ledger` on the two fragments `43b81e3f` touched | exit 0 each, 0 drifted |

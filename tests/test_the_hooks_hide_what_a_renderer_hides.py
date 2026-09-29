@@ -183,6 +183,131 @@ def test_the_oracle_names_each_kind_it_hides(lines, hidden):
     assert oracle.hidden(lines) == hidden
 
 
+@pytest.mark.parametrize(
+    "lines, hidden",
+    [
+        # #677, the shapes of #673 round 3: a `>` four columns in, or behind a
+        # tab, on a paragraph's later line is lazy-continuation text the
+        # paragraph keeps, and not a quote marker
+        ([NBSP, "    >", "x <? a", "b ?>"], {3: "inline html"}),
+        ([NBSP, "\t>", "x <? a", "b ?>"], {3: "inline html"}),
+        (["- " + NBSP, "      >", "  x <? a", "  b ?>"], {3: "inline html"}),
+        (["> " + NBSP, ">     >", "> x <? a", "> b ?>"], {3: "inline html"}),
+        ([NBSP, "    > >", "x <? a", "b ?>"], {3: "inline html"}),
+        # a setext heading's text is joined and stripped as a paragraph's is,
+        # so the parser's `lheading` rule is asked too
+        ([NBSP, "x <? a", "b ?>", "==="], {2: "inline html"}),
+        ([NBSP, "x <? a", "b ?>", "---"], {2: "inline html"}),
+        (["> " + NBSP, "> x <? a", "> b ?>", "> ==="], {2: "inline html"}),
+        # every other container and line shape the hand count had to know
+        # about: a quote's marker one or three columns in, with no space
+        # after it, three columns in on a later line, and dropped on a lazy
+        # line
+        ([" > " + NBSP, " > x <? a", " > b ?>"], {2: "inline html"}),
+        (["   > " + NBSP, "   > x <? a", "   > b ?>"], {2: "inline html"}),
+        ([">" + NBSP, ">x <? a", ">b ?>"], {2: "inline html"}),
+        (["> " + NBSP, "   > x <? a", "   > b ?>"], {2: "inline html"}),
+        (["> " + NBSP, "x <? a", "b ?>"], {2: "inline html"}),
+        # an item continued by indentation, four spaces after a bullet, the
+        # widest number that is a marker, and an item that opens on a blank
+        # line, whose paragraph starts one line into it
+        (["- " + NBSP, "  x <? a", "  b ?>"], {2: "inline html"}),
+        (["-    " + NBSP, "x <? a", "b ?>"], {2: "inline html"}),
+        (["123456789. " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["-", "  " + NBSP, "  x <? a", "  b ?>"], {3: "inline html"}),
+        # containers inside containers, and the `>` four columns in that IS
+        # a marker, inside `10. >`: the one no column count can tell from
+        # the lazy `>` rows above
+        (["- > " + NBSP, "  > x <? a", "  > b ?>"], {2: "inline html"}),
+        (["- - " + NBSP, "    x <? a", "    b ?>"], {2: "inline html"}),
+        (["> > " + NBSP, "> > x <? a", "> > b ?>"], {2: "inline html"}),
+        (["10. > " + NBSP, "    > x <? a", "    > b ?>"], {2: "inline html"}),
+        # two dropped lines, one mixing spaces, a tab and no-break spaces,
+        # and a paragraph after a reference definition, which starts on the
+        # definition's next line
+        ([NBSP, NBSP, "x <? a", "b ?>"], {3: "inline html"}),
+        ([" " + NBSP + "\t" + NBSP, "x <? a", "b ?>"], {2: "inline html"}),
+        (["[a]: /u", NBSP, "x <? a", "b ?>"], {3: "inline html"}),
+    ],
+    ids=[
+        "a > four columns in is text",
+        "a > behind a tab is text",
+        "a > four columns into an item is text",
+        "a > four columns into a quote is text",
+        "two indented > are text",
+        "a level 1 setext heading",
+        "a level 2 setext heading",
+        "a setext heading inside a quote",
+        "a quote one column in",
+        "a quote three columns in",
+        "a quote with no space after its marker",
+        "a later quote marker three columns in",
+        "a quote's lazy line drops the >",
+        "an item continued by indentation",
+        "four spaces after a bullet",
+        "nine digits are a marker",
+        "an item that opens on a blank line",
+        "a quote inside an item",
+        "an item inside an item",
+        "a quote inside a quote",
+        "a > four columns in that is a marker",
+        "two dropped lines",
+        "spaces, a tab and no-break spaces mixed",
+        "a reference definition before the paragraph",
+    ],
+)
+def test_the_oracle_counts_the_lines_the_parsers_strip_dropped(lines, hidden):
+    """#677. The parser joins a paragraph's lines from behind the container
+    markers it consumed and applies `str.strip` to the whole, which also
+    drops a line holding only a no-break space, another Unicode space or
+    U+001F, which CommonMark reads as text. Every row's paragraph opens with
+    such a line, so every row puts its inline HTML one line early or late wherever the oracle
+    counts those lines wrong.
+
+    The count is taken from the parser's own `paragraph` and `lheading`
+    rules, because reading the markers here took three rounds of #673 and
+    each found one more marker read wrong. A row is here to fail if the count
+    is read from anything but what the parser joined: each shape is a
+    container or a line the old hand count had to know about."""
+    assert oracle.hidden(lines) == hidden
+
+
+# Every character `str.strip` removes that stands inside a CommonMark line:
+# Python calls it whitespace, `str.splitlines` does not break at it, and it
+# is neither a space nor a tab, which CommonMark reads as indentation or a
+# blank line. Computed, so a Unicode version that adds one tests it without a
+# row being written. The breaks `str.splitlines` makes and CommonMark does
+# not are `hidden_text`'s mapping, and `BREAKS` holds them.
+DROPPED_BY_THE_STRIP = [
+    chr(point)
+    for point in range(0x110000)
+    if chr(point).isspace()
+    and len(("a" + chr(point) + "b").splitlines()) == 1
+    and chr(point) not in " \t"
+]
+
+
+@pytest.mark.parametrize(
+    "char", DROPPED_BY_THE_STRIP, ids=lambda char: f"U+{ord(char):04X}"
+)
+def test_the_oracle_counts_every_character_the_strip_drops(char):
+    """#677. A line holding only CHAR is paragraph text to CommonMark and is
+    dropped whole by the parser's strip, at the top level and behind a list
+    marker. U+001F is the one CommonMark does not call whitespace at all."""
+    assert oracle.hidden([char, "x <? a", "b ?>"]) == {2: "inline html"}
+    assert oracle.hidden(["- " + char, "x <? a", "b ?>"]) == {2: "inline html"}
+
+
+def test_the_strips_set_is_the_one_measured():
+    """The case above is skipped, not failed, when its set comes out empty,
+    and it passes on a space or a tab, which CommonMark reads as a blank
+    line. So the set holds what Python 3.12, 3.13 and 3.14 all give, and
+    neither of those two (#677)."""
+    dropped = set(DROPPED_BY_THE_STRIP)
+    assert {chr(0x1F), NBSP, chr(0x1680), chr(0x2000), chr(0x3000)} <= dropped
+    assert not {" ", "\t"} & dropped
+
+
 # Inline raw HTML other than a comment that can run past a line ending, with
 # a closer that does not put `>` at a line's start (#673). A declaration's
 # closer is written `a>` for that reason.
@@ -438,6 +563,10 @@ FOUND = [
     # pending, and a real opener before the next `-->` must not be stepped
     # over by that `-->`
     ["x `" + OPEN + "` a", "b <? c " + CLOSE + " d", "e ?> f", "| a |"],
+    # #677: a `>` four columns in on a paragraph's later line is text; an
+    # oracle that read it as a marker put the inline HTML on the blank line,
+    # and called hidden a line the walk rightly claims live
+    [NBSP, "    >", "x <? a", "b ?>", "", "text"],
 ]
 
 CORPUS = (
