@@ -557,7 +557,10 @@ outright, and a `cd` earlier in the command moves the shell to it — this guard
 is the reason a session is in that shape at all, since it refuses a switch and
 tells the user to work in a separate worktree, so the session stays where it
 was while the commands do not. Both are read the same way the commit gate
-reads them (`commit-review-gate-spec.md` §Which repository).
+reads them (`commit-review-gate-spec.md` §Which repository). A redirection
+among the `cd`'s words (`cd W 2>/dev/null`, `2>/dev/null cd W`, `cd>/dev/null
+W`) moves it too, since round 2 of work item 1790660768; until then the switch
+was judged in the session's own tree while it ran in W.
 
 The advice follows the same tree. A command a reason tells the person to run —
 the worktree steer, a choice's option, the switch steer, the tracked-changes

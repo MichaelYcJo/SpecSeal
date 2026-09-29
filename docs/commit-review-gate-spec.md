@@ -370,7 +370,11 @@ So each place a program word stands is read past what the shell takes off it:
   that is not opted in reads one as silence, so a replaced directory is a
   stop lost. The same holds for zsh's `noglob`, `nocorrect` and `repeat N`,
   for a redirection glued to a word's end (`cd>/dev/null W`), and for one the
-  splitter cut (`2>&1 cd W`).
+  splitter cut (`2>&1 cd W`). A redirection after a `cd`'s operand, or glued
+  to one (`cd W 2>/dev/null`, `cd W>/dev/null`), is the shell's as well. The
+  landing read past any of these is added in front of the directory the walk
+  read with it: the gate judges both, and the worktree guard and the consent
+  writer, which take the first directory they can name, take W.
 - **A redirection glued to the end of a word** (`git>/dev/null commit`, `git
   commit>/dev/null`, `sh>/dev/null -c`) is cut off into a view read beside the
   segment, adding only what the segment did not find. A descriptor in front
@@ -402,7 +406,9 @@ is `sudo` the runner's.
 
 The reading can only have gained stops by this. Every reader asks what it
 asked before first and adds what the new reading finds, `understood`'s
-refusal is added beside the directory the walk read before, and a generated
+refusal is added beside the directory the walk read before, the walk's
+reading past redirections unplaces a segment beside its directory and never
+in place of it, and a generated
 corpus of 11,393 commands across these positions found none silent where the
 release base stopped. The one answer
 replaced rather than kept is git's subcommand where it had been a redirection,

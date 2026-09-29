@@ -26,7 +26,10 @@
   `repeat N` and `for i (…) cmd`, a `cd` behind a redirection the splitter
   cut (`2>&1 cd W`), and a shell's string past `--` or an option after a
   redirection (`bash -c 2>/dev/null -- "$CMD"`). bash or zsh committed for
-  each.
+  each. A `cd` with a redirection after its operand (`cd W 2>/dev/null && git
+  commit`) now lands in W too. It was silent from a directory that is not
+  opted in and under `[no-review]`, and the worktree guard judged the
+  session's own tree for a switch made in W.
 
   The change only adds stops. Every reader asks what it asked before and adds
   to it. Where a redirection hides a `cd`, the directory the shell may have
