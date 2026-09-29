@@ -299,8 +299,12 @@ the shell is, and behind the program's own options or operands, which the
 reader does not parse, the first `git` word stands in and the directory is
 unresolved. A string `sh -c`, `bash -c`, `su -c`, `script -c`, `env -S` or
 `watch` hands to a shell is read as a command the way `eval`'s argument
-already was, and a command word the shell would expand there (`sh -c
-"$CMD"`) counts as one that might commit. The body of a `$( … )`, backticks,
+already was, and a command word the shell would expand in the string a host
+runs (`sh -c "$CMD"`) counts as one that might commit. That question is not
+asked of a shell's positional parameters or of `watch` as a word something
+else was handed, because no shell runs those (`find -exec sh -c '…' _ {}`,
+`grep watch *.py`). An `eval` is found the same way `git` is, behind a
+reserved word, a prefix, a runner or a subshell. The body of a `$( … )`, backticks,
 `<( … )` or `>( … )` is read as a command the way a heredoc body is; a
 single-quoted one is text. A commit found in a string or a substitution runs
 somewhere the walk does not place, so it stops wherever the session's own
@@ -312,9 +316,13 @@ run`, `npx`, `ssh`, `docker exec` — because reading it would mean reading
 files or machines, not the command. Each stays silent as it was.
 
 The reading can only have gained stops by this, for the reason #669's change
-gives: every word newly read past is one at which the old reading found no
-command, and every string and substitution newly read adds an invocation
-beside the ones already found.
+gives, and for one more: a command the splitter could not finish is still
+judged in the session's own directory when the new reading found a commit in
+the part it did read. Without that, a commit found in a declared repository
+took the session's directory out of the judgment (round 1 of work item
+1790644505). A command nested deeper than the reader recurses reads as one it
+could not parse, since a gate that raises is skipped and a skipped gate is
+silence.
 Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
 
 ### Why a deny, and why only once
@@ -359,7 +367,9 @@ model writes the question and never which option was pressed. It is read
 against the session's own repository, which is where standing to speak comes
 from, and only once a stop is decided, so what the gate stops does not move.
 A `per axis` answer and a `routing.md` `Automation` row are not read, for the
-reasons that section gives, and such a run still meets the ask.
+reasons that section gives, and such a run still meets the ask. The last
+answer to the routing question from this clone is the one that stands, so a
+later `per axis` takes an earlier press back.
 
 This blocks more and never allows more. Where the base asked, a click let the
 commit through; a deny never does. Every way of not reading the press — no

@@ -168,6 +168,14 @@ the guard's behaviour before the answer was read:
    ` -`, so an option labelled `automation (Recommended)` counts.
 4. **The same clone**: the result entry's own `cwd` resolves to the same common
    git directory as the creation's repository.
+5. **The last answer stands**: of every answer to the routing question from
+   that clone, the latest is the one read. A session that pressed `automation`
+   for one work item and answered `per axis` or `no work item` for a later one
+   has, on its latest answer, a person who may be asked, so the press is taken
+   back and the guard asks again; a later press gives it back. An answer to
+   any other question changes nothing. This is the commit gate's round 1
+   finding (work item 1790644505, yellow 5), and it moves the guard in the
+   asking direction only.
 
 A `per axis` answer is not read, even with its first box ticked: in every
 measured instance the box label had been reworded or translated, so a rule

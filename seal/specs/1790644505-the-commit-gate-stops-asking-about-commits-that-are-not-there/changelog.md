@@ -14,8 +14,10 @@
   press changes nothing about what the gate stops, so no commit it used to
   judge now passes unjudged. The press is read from the session's transcript
   with the reader the worktree guard already uses, and every way of not
-  reading it is the old behaviour. An attended session, and a `per axis` run,
-  meet the same prompts as before.
+  reading it is the old behaviour. The last answer to the routing question
+  stands, so a later `per axis` takes the press back — for the worktree guard
+  too, which then asks again. An attended session, and a `per axis` run, meet
+  the same prompts as before.
 - The commit gate judges a commit written after a reserved word on the same
   line (#669). `for d in a; do git commit -m x; done`, `while …; do git commit
   …; done` and `if true; then git commit …; fi` reached it as no commit at
@@ -38,10 +40,14 @@
   the tracers, `find`, `parallel`, `watch` and `script` — and reads past
   them; behind their own options it stops rather than guess where they run.
   A string `sh -c`, `bash -c`, `su -c`, `script -c`, `env -S` or `watch`
-  hands to a shell is read as `eval`'s argument already was, and the body of
-  a `$( … )`, backticks, `<( … )` or `>( … )` is read as a heredoc body is. A
-  commit found in either stops as one whose repository cannot be read. The
-  change only adds stops. A program whose arguments are a script or a remote
+  hands to a shell is read as `eval`'s argument already was — the shell's
+  positional parameters are not, so `find -exec sh -c '…' _ {}` commits
+  nothing — and the body of a `$( … )`, backticks, `<( … )` or `>( … )` is
+  read as a heredoc body is. An `eval` is found behind the same words a `git`
+  is. A commit found in either stops as one whose repository cannot be read.
+  The change only adds stops: a command the reader cannot finish is still
+  judged in the session's own directory beside whatever it found, and one
+  nested too deep for the reader reads as unfinished. A program whose arguments are a script or a remote
   command — `bash run.sh`, `make`, `uv run`, `ssh` — is still not read. The
   worktree guard shares the wrapper reading, so `nice git worktree add` now
   meets it too.

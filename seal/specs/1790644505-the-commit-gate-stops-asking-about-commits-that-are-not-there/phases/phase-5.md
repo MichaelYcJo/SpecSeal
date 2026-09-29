@@ -115,6 +115,21 @@ invocation, as at the base:
    directories of existing invocations are not touched, and the only
    directories added are `Unresolved`, which is a stop wherever the session
    opted in.
+   **Corrected 2026-09-29 by round 1's fix pass.** This item was false in
+   three places, and round 1's red refuted it:
+   - Resolved directories were added: `nice git -C W` and `do git -C W`
+     compose an absolute `-C` onto the walk's base.
+   - A found invocation took away the base's fallback for a command the
+     splitter could not finish, which judged the session's own directory
+     only while nothing was found.
+   - An unresolved target is not a stop where `[no-review]` is present.
+
+   So `nice git -C W commit -m x; echo $'it\'s'; git commit -m y`, with W
+   declared, read silent where the base denied, and bash committed in the
+   session's repository. The fallback now stands beside what was found, so
+   the argument holds for invocations and for the fallback alike.
+   `tests/test_no_shape_the_base_stops_reads_silent.py` carries the shapes
+   that refuted this item.
 3. *Measured.* S7 passed before the change (`768377bf`) and after it.
    The 34 modules that load the gate, the reader, the guard or the consent
    writer passed at the phase's head (1412 passed, 2 skipped, exit 0).
