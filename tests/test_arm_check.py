@@ -36,6 +36,7 @@ import warnings
 
 import pytest
 from conftest import code_lines
+from test_ci_gives_the_checks_what_they_need import jobs
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "verify", "scripts", "arm_check.py")
@@ -237,25 +238,15 @@ _PINNED_PYTHON = re.compile(r'\bpython(?:-version)?:\s*"(\d+)\.(\d+)"')
 def pythons_ci_runs_this_module_at(text):
     """Every `(major, minor)` a job in `text` pins while it runs pytest over
     this module, read through `conftest.code_lines` so a commented-out leg
-    or step counts for nothing."""
-    found, job = set(), []
-
-    def close(lines):
+    or step counts for nothing. The jobs are split by
+    `tests/test_ci_gives_the_checks_what_they_need.py#jobs`, the suite's one
+    reader of a workflow's `jobs:` block."""
+    found = set()
+    for block in jobs("\n".join(code_lines(text))).values():
+        lines = block.splitlines()
         if any(_RUNS_THIS_MODULE.search(line) for line in lines):
             for line in lines:
                 found.update((int(a), int(b)) for a, b in _PINNED_PYTHON.findall(line))
-
-    in_jobs = False
-    for line in code_lines(text):
-        if line.rstrip() == "jobs:":
-            in_jobs = True
-            continue
-        if in_jobs and re.match(r"^  [A-Za-z0-9_-]+:\s*$", line):
-            close(job)
-            job = []
-            continue
-        job.append(line)
-    close(job)
     return found
 
 
