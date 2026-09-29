@@ -23,6 +23,14 @@
     fenced example, a commented-out draft or a code span is not a fold or a
     gathered entry. The changelog check used to read a marker quoted anywhere,
     even inline in prose.
+  - Because of that, `gather_changelog.py --version` and
+    `fold_ledger.py --version` now refuse, with or without `--dry-run` and
+    before writing anything, a fragment that opens a fenced block or an HTML
+    comment and never closes it, naming the fragment. Written as it was, such
+    a fragment hid every marker below it: the gather's `--check` then asked
+    for a second gather that wrote the entry twice, and the fold's `--check`
+    passed with a wrong count. Close the block in the fragment and run the
+    step again.
   - The rider check no longer reads a rider quoted inside a fenced example
     in a markdown file, which it reported as BROKEN at exit 2.
   - `correction-check` skips a ledger row inside a fenced example that
