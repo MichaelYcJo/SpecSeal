@@ -56,6 +56,12 @@ the flag would have failed on every fresh build. What a figure for the run
 costs is measured, with its date and machine, in the work item that made it
 parallel; no figure is stated here because a figure with no moment is the
 class `seal/follow-up.md` already names.
+
+One package beyond those two is installed the same way, `markdown-it-py`,
+pinned in `MARKDOWN_IT` (#667). It is the CommonMark parser the suite's
+oracle reads, so the hook readers are checked against a parser that shares
+nothing with them. It is test-only: nothing under `hooks/` or `skills/`
+imports it.
 """
 
 import os
@@ -70,10 +76,20 @@ from pathlib import Path
 FLOOR = (3, 12)
 FLOOR_TEXT = ".".join(str(part) for part in FLOOR)
 
+# The CommonMark parser the suite's oracle reads (`tests/commonmark_oracle.py`,
+# #667), and the one package the suite needs beyond pytest. Pinned to one
+# version, because the oracle is what the hook readers' property cases are
+# held to, and an oracle that moved under the suite would move every verdict
+# with it. Test-only: the gates themselves stay stdlib-only, and a plugin user
+# installs nothing new. `.github/workflows/test.yml` and `CONTRIBUTING.md`'s
+# fallback carry the same string, and a case holds each to this one.
+MARKDOWN_IT_VERSION = "4.2.0"
+MARKDOWN_IT = f"markdown-it-py=={MARKDOWN_IT_VERSION}"
+
 # What a built environment holds. `pytest-xdist` is here because the suite
 # runs `-n auto` by default (#337): a build without it is the build whose
-# first call refused the flag.
-PACKAGES = ("pytest", "pytest-xdist")
+# first call refused the flag. The parser is here for the oracle above.
+PACKAGES = ("pytest", "pytest-xdist", MARKDOWN_IT)
 
 
 def repo_root():
@@ -167,6 +183,53 @@ def add_xdist(venv):
             "above exited non-zero), so this run is serial. Remove that "
             "directory and run bin/test again to build it afresh with "
             "pytest-xdist in it."
+        )
+    return None
+
+
+def has_markdown_it(venv):
+    """True when `venv` holds the pinned markdown-it-py: its own
+    `.dist-info` directory, version in the name, under site-packages.
+
+    The VERSIONED directory rather than the `markdown_it` package, because
+    the pin is the point: an adopted `.venv` holding another version would
+    hand the oracle a different parser and pass a check on the package
+    directory. Filesystem only, for `has_xdist`'s reason.
+    """
+    name = f"markdown_it_py-{MARKDOWN_IT_VERSION}.dist-info"
+    return any((site / name).is_dir() for site in site_packages(venv))
+
+
+def add_markdown_it(venv):
+    """Install the pinned markdown-it-py into `venv` where it is missing.
+    Returns a sentence, or None when the environment has it.
+
+    `add_xdist`'s shape and its reason: an adopted `.venv` built before #667
+    has no parser, and it is repaired rather than refused. What a failed
+    install costs is different, and the sentence says so: the run is not
+    serial, it is short of the cases that read the oracle, which fail at
+    their import with a sentence of their own rather than passing.
+    """
+    if has_markdown_it(venv):
+        return None
+    uv = shutil.which("uv")
+    if uv:
+        step = [uv, "pip", "install", "--python", str(venv_python(venv)), MARKDOWN_IT]
+    else:
+        step = [str(venv_python(venv)), "-m", "pip", "install", "--quiet", MARKDOWN_IT]
+    print(
+        f"bin/test: adding {MARKDOWN_IT} to {venv}, the parser the suite's "
+        "CommonMark oracle reads. This run pays for it; every run after it "
+        "finds it there.",
+        file=sys.stderr,
+    )
+    if subprocess.run(step).returncode != 0:
+        return (
+            f"bin/test: could not install {MARKDOWN_IT} into {venv} (the "
+            "command above exited non-zero), so the cases that read the "
+            "CommonMark oracle will fail at their import. Remove that "
+            "directory and run bin/test again to build it afresh with the "
+            "parser in it."
         )
     return None
 
@@ -425,6 +488,12 @@ def main(argv=None):
     problem = add_xdist(root / ".venv")
     if problem:
         print(problem, file=sys.stderr)
+    # The parser the oracle reads (#667). Its failure is a sentence and a run
+    # that goes on: the cases that need it fail at their import, and every
+    # other case still runs. It decides nothing about `-n auto`.
+    parser_problem = add_markdown_it(root / ".venv")
+    if parser_problem:
+        print(parser_problem, file=sys.stderr)
     # `-n auto` by default (#337). The comment that stood here withheld it,
     # because this virtualenv was built with pytest alone and the flag failed
     # on every fresh build -- so the runner ran serially for ten releases
