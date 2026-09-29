@@ -137,15 +137,40 @@ def _hidden_commonmark(lines):
     return out
 
 
+SENTINEL = "QzxSENTINELxzQ"
+
+
+def _starts_in_a_comment(text, offset):
+    """Whether the text from OFFSET, in the middle of a CommonMark line, is
+    inside an inline HTML comment: the parser reads TEXT with a run of
+    letters put at OFFSET, and a comment it finds holds that run."""
+    marked = text[:offset] + SENTINEL + text[offset:]
+    for token in _PARSER.parse(marked):
+        if token.type != "inline":
+            continue
+        for child in token.children or []:
+            if (
+                child.type == "html_inline"
+                and child.content.startswith("<" + "!--")
+                and SENTINEL in child.content
+            ):
+                return True
+    return False
+
+
 def hidden_text(text):
     """{index: kind} for every line of `text.splitlines()` a renderer hides.
 
     **The renderer reads TEXT, not a reader's split of it** (#667 round 1,
     🟡 1). `str.splitlines` also ends a line at U+2028, NEL, a form feed and
     five more characters, and CommonMark does not, so a reader's line can be a
-    piece of a renderer's line. The parser is given CommonMark's lines, and
-    each reader line takes the answer of the CommonMark line it starts in: a
-    piece of a hidden line is hidden, and a piece of a shown line is shown.
+    piece of a renderer's line. The parser is given CommonMark's lines. A
+    reader line that starts a CommonMark line takes that line's answer, and so
+    does a piece of a line in a block the renderer hides. **A piece of any
+    other line is asked where it starts** (#667 round 2): an inline comment
+    can open before it or close before it on the same line, so the line's
+    answer is not the piece's. Mapping a piece by its line was the walk's own
+    rule, and an oracle built on it agreed with the walk by construction.
     """
     commonmark = commonmark_lines(text)
     found = _hidden_commonmark([line.rstrip("\r\n") for line in commonmark])
@@ -155,8 +180,12 @@ def hidden_text(text):
     for index, start in enumerate(_starts(text.splitlines(keepends=True))):
         while line + 1 < len(renderer_starts) and renderer_starts[line + 1] <= start:
             line += 1
-        if line in found:
-            out[index] = found[line]
+        kind = found.get(line)
+        if start == renderer_starts[line] or kind in (FENCE, CODE, HTML):
+            if kind:
+                out[index] = kind
+        elif _starts_in_a_comment(text, start):
+            out[index] = COMMENT
     return out
 
 

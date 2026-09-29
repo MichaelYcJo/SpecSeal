@@ -135,6 +135,13 @@ def test_the_oracle_reads_the_text_not_a_readers_split(name):
     brk = BREAKS[name]
     assert oracle.hidden_text(f"A note{brk}{OPEN}\n\n| a |\n{CLOSE}\n") == {}
     assert set(oracle.hidden_text(f"```\nx{brk}y\n```\nz\n")) == {0, 1, 2, 3}
+    # round 2: a piece is asked where it starts, not where its line does --
+    # inside a comment its own line opened, and just past one it closed
+    assert oracle.hidden_text(f"x {OPEN} a{brk}| b |\n{CLOSE}\n") == {
+        1: "comment",
+        2: "comment",
+    }
+    assert oracle.hidden_text(f"x {OPEN} a\nb {CLOSE}{brk}| c |\n") == {1: "comment"}
 
 
 # --- the corpus: the frame's shapes, the old cases, and a generated set -----
@@ -253,6 +260,15 @@ ALPHABET = [
     # 🟡 1). Five of the eight, one of each family.
     *(f"a{brk}{rest}" for brk in BREAK_SAMPLE for rest in (OPEN, "```", "| a |")),
     *(f"{brk}{CLOSE}" for brk in BREAK_SAMPLE),
+    # A break inside an inline comment its line opened, and one just past a
+    # comment its line closed, so a piece can start inside a comment or just
+    # outside one (#667 round 2). Four lines: twenty pushed
+    # `test_the_walk_is_exact_somewhere` under its third, because every line
+    # a mid-line opener leaves open is one the walk does not claim.
+    f"x {OPEN} a{BREAKS['LS']}```",
+    f"x {OPEN} a{BREAKS['FF']}| a |",
+    f"x {OPEN} a{BREAKS['NEL']}{CLOSE}",
+    f"b {CLOSE}{BREAKS['LS']}```",
 ]
 
 # The lines above that stand at the top level and start no block the walk
@@ -311,6 +327,8 @@ FOUND = [
     # `str.splitlines` makes and CommonMark does not
     ["A note" + BREAKS["LS"] + OPEN, "", "| a | b |", CLOSE],
     ["A note" + BREAKS["FF"] + "```", "", OPEN + " RIDER: r " + CLOSE, "```"],
+    # round 2: a piece that starts inside an inline comment its line opened
+    ["x " + OPEN + " a" + BREAKS["LS"] + "```" + BREAKS["LS"] + "| a |", CLOSE],
 ]
 
 CORPUS = (
