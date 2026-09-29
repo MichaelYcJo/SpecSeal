@@ -29,11 +29,25 @@ reads each of them, and every command it stopped there it still stops.
 | The cases on Windows | CI's `windows-latest` leg, at the pull request |
 | bash 4.1's `{fd}>` before a program word commits: read, not run. This machine has bash 3.2.57, which has no `{fd}>`, and zsh 5.9 answers a leading `{fd}>` with a parse error (executed, phase 1). zsh's `>!` and `>>!` in front of `git commit` did commit (executed, phase 1) | the orchestrator, where a bash 4.1 or later is at hand; until then the gate stops the shape, which costs a stop on a command zsh would refuse to parse |
 | The whole suite, the repository-wide lint and the typecheck | The sealer, once, after the review rounds settle |
+| Whether the harness cuts off a `PreToolUse` hook that runs long, which would turn a pathological nesting at `86256492` into silence (`questions.md` Q1) | The orchestrator: the frame assigned it there, and the bound is built either way |
 
 ## Not done
 
-Nothing yet.
+- **A command word that expands at the top level** — `"$CMD"`, `"$SHELL"
+  -c …`, `nohup "$CMD"`, and `sudo -s $CMD` unquoted — is still not asked.
+  `spec.md` §*Scope* puts it out: it is a new rule with its own prompt cost,
+  not the rest of #670's class. The orchestrator decides whether to file it.
+- **`parallel`'s expansion question.** Its arguments are read for a commit
+  written out. Placing its command word means parsing its options and its
+  `:::` inputs, which `spec.md` §*Scope* leaves out, for the orchestrator to
+  file or not.
+- **The worktree guard does not read the merged view.** `git 2>&1 worktree
+  add` is not a creation to it, as at `86256492`. The frame put the view in
+  the commit gate's three readers alone, and `docs/worktree-guard-spec.md`
+  now says so.
 
 ## Fed back into the spec
 
-None yet.
+None. `spec.md` and `plan.md` are unchanged. The four places the build went
+another way are the divergence rows above, and the policy text is in
+`docs/commit-review-gate-spec.md` as the plan asked.
