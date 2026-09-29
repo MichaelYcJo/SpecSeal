@@ -526,6 +526,21 @@ def test_a_python_rider_after_a_line_of_backticks_is_still_read():
     assert riders.comment_blocks(src.splitlines(), "hooks/m.py") == [(7, 8)]
 
 
+def test_a_comment_opener_quoted_in_a_code_span_hides_no_rider():
+    """#584 round 2, finding 1. `fenced_lines` read a comment opener inside a
+    code span as an opener, so the fence below it was not a fence, the rider
+    quoted in it was read, and its closing delimiter opened a fence that
+    swallowed the real rider below."""
+    opener = "<" + "!--"
+    text = (
+        "# doc\n\nA rider opens with `" + opener + "` and a marker.\n\n"
+        f"```markdown\n{HTML_MARK} quoted\n"
+        "Verified 2026-01-01 against q@abcdef12. -->\n```\n\n"
+        f"prose\n\n{HTML_MARK} real\nVerified 2026-01-01 against r@abcdef12. -->\n"
+    )
+    assert riders.comment_blocks(text.splitlines(), "doc.md") == [(12, 13)]
+
+
 def test_a_fence_line_inside_a_rider_body_hides_no_rider_below():
     """#584 round 1, finding 4. `fenced_lines` took `fence_spans` over the
     whole file, which has no comment state, so a fence line in rider one's

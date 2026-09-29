@@ -220,6 +220,12 @@ def fenced_lines(lines):
     `fence_closes`; the fence is decided before the comment delimiters on its
     line, and a delimiter inside a fence is neither, as `_liveness` has it.
 
+    A comment delimiter inside a code span that closes on its own line is
+    text, as `_liveness` reads it in its literal reading: prose quoting the
+    opener in backticks opened a "comment" that made the next fenced example
+    no fence, read the rider quoted in it, and turned its closing fence line
+    into an opener that hid every rider below (#584 round 2, finding 1).
+
     The reader is loaded at the first markdown file that carries the marker,
     so a run over a tree with none never needs it."""
     global _reader
@@ -239,11 +245,29 @@ def fenced_lines(lines):
                 continue
         pos = 0
         while True:
-            token = _reader.CLOSER if comment else _reader.OPENER
-            at = line.find(token, pos)
+            if comment:
+                at = line.find(_reader.CLOSER, pos)
+                if at == -1:
+                    break
+                pos, comment = at + len(_reader.CLOSER), False
+                continue
+            at = line.find(_reader.OPENER, pos)
             if at == -1:
                 break
-            pos, comment = at + len(token), not comment
+            run = _reader.BACKTICKS.search(line, pos, at)
+            if run is not None:
+                width = run.end() - run.start()
+                closer = next(
+                    (
+                        m
+                        for m in _reader.BACKTICKS.finditer(line, run.end())
+                        if m.end() - m.start() == width
+                    ),
+                    None,
+                )
+                pos = run.end() if closer is None else closer.end()
+                continue
+            pos, comment = at + len(_reader.OPENER), True
     return fenced
 
 
