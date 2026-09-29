@@ -275,7 +275,8 @@ def moves(root):
 def git_mv(root, src, dst):
     """One staged rename. `git mv` does not create its destination's parent,
     and a `seal` that is a file makes creating it fail — inside the `try`,
-    because an exception out of here is silence under the dispatcher."""
+    because an exception out of here ends the whole migration under the
+    dispatcher, with nothing said until the turn ends (#28)."""
     parent = os.path.dirname(under(root, dst))
     try:
         os.makedirs(parent, exist_ok=True)

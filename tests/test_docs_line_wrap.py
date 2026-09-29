@@ -65,6 +65,48 @@ def _fold_check():
 # any statement.
 fold_check = _fold_check()
 
+
+def _fence_reader():
+    path = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
+    spec = importlib.util.spec_from_file_location("specseal_fence_rule_wrap", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# What is fenced is asked of the shared delimiter rule, `unverified_check.py`'s
+# `fence_opener` and `fence_closes`, rather than a toggle of this file's own
+# (#658): a toggle on any line starting with three backticks closed a
+# four-backtick block at the three-backtick line it quotes, and knew no tilde.
+fence_rule = _fence_reader()
+
+
+def fenced_numbers(lines):
+    """1-based numbers of LINES inside a fenced block, delimiters included, a
+    block that never closes running to the end.
+
+    **The delimiter rule is shared and the opener is wider, on purpose.** Each
+    line is asked with its indentation stripped, so a fence written under a
+    list item — `skills/implement/orchestration.md` indents one five spaces,
+    and a list item is what moves the column a fence is measured from — is
+    still a fence here. The shared rule has no block model and reads that line
+    as prose, which put a 155-column command under the limit.
+    `skills/code-review/scripts/round_record.py#fenced_after` keeps a wider
+    opener for the same reason, and `fence_opener`'s docstring lists both."""
+    out, opener = set(), None
+    for number, line in enumerate(lines, 1):
+        bare = line.lstrip()
+        if opener is None:
+            opener = fence_rule.fence_opener(bare)
+            if opener is not None:
+                out.add(number)
+            continue
+        out.add(number)
+        if fence_rule.fence_closes(bare, opener):
+            opener = None
+    return out
+
+
 # Both editions or neither. `CONTRIBUTING.md` requires the two READMEs to move
 # together, so every documentation change touches the Korean one — and it was
 # the furthest outside the limit, which made it the first file a
@@ -184,7 +226,7 @@ def prose_lines(text):
     """
     lines = text.splitlines()
     enforced = set(fold_check.enforced_lines(text))
-    in_fence = False
+    fenced = fenced_numbers(lines)
     in_frontmatter = lines[:1] == ["---"]
     for number, line in enumerate(lines, 1):
         if in_frontmatter:
@@ -192,10 +234,7 @@ def prose_lines(text):
                 in_frontmatter = False
             continue
         stripped = line.strip()
-        if stripped.startswith("```"):
-            in_fence = not in_fence
-            continue
-        if in_fence or stripped.startswith(("|", "![", ">")):
+        if number in fenced or stripped.startswith(("|", "![", ">")):
             continue
         if "http://" in line or "https://" in line:
             continue
@@ -281,6 +320,24 @@ def test_wide_characters_count_double():
 def test_tables_and_fences_are_not_prose():
     text = "| a | b |\n```\nlong fenced line\n```\nplain\n"
     assert [line for _, line in prose_lines(text)] == ["plain"]
+
+
+def test_a_fence_is_read_by_the_shared_rule():
+    """#658, phase 8 of work item 1790635413. The toggle flipped on any line
+    starting with three backticks, so a ```` ```` ```` block quoting a
+    ```` ``` ```` block closed at the inner delimiter and its content was
+    held to the limit as prose, and a tilde fence was no fence at all. The
+    rule is `unverified_check.py#fence_spans`."""
+    nested = "````\n```\nquoted inside\n```\n````\nplain\n"
+    assert [line for _, line in prose_lines(nested)] == ["plain"]
+    tilde = "~~~\nquoted\n~~~\nplain\n"
+    assert [line for _, line in prose_lines(tilde)] == ["plain"]
+    under_a_list_item = "- a step:\n\n     ```bash\n     a command\n     ```\nplain\n"
+    assert [line for _, line in prose_lines(under_a_list_item)] == [
+        "- a step:",
+        "",
+        "plain",
+    ], "a fence under a list item is a fence to this check, with a wider opener"
 
 
 # A target wider than the limit on its own: 13 columns of prefix and a path

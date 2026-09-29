@@ -147,13 +147,16 @@ def test_the_riders_exist_where_the_rows_said_they_would():
     and its four riders waited a round for that reason. They are planted now
     because the conflict they were avoiding does not exist: the file is the
     same blob at HEAD and at that branch's tip, so nothing there is being
-    rewritten yet."""
+    rewritten yet.
+
+    `hooks/dispatch.py` left the list when its rider was resolved: the
+    silence it recorded is said now (#28, work item 1790635415), and a rider
+    kept after its fix is the cost this file names."""
     for rel in (
         "hooks/optin.py",
         "hooks/review-skill-gate.py",
         "hooks/review-history-guard.py",
         "hooks/cmdline.py",
-        "hooks/dispatch.py",
         "hooks/worktree-guard.py",
         "templates/evidence-check.yml",
     ):

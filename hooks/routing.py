@@ -393,10 +393,11 @@ def rounds(item):
         return _ordered(os.path.join(item, ROUNDS_DIR))
     except NotADirectoryError:
         # Caught here rather than raised at the gates. A hook that raises is
-        # rendered as an allow by `hooks/dispatch.py`, so propagating this
-        # would turn a nameable state into a silent one -- the opposite of
-        # what `_ordered` refuses it for. `rounds_unreadable` is how a caller
-        # asks which of the two happened.
+        # rendered as an allow by `hooks/dispatch.py` for the call it raised
+        # on, and said only at the end of the turn, as a gate that failed
+        # (#28). Propagating this would turn a nameable state into that --
+        # the opposite of what `_ordered` refuses it for.
+        # `rounds_unreadable` is how a caller asks which of the two happened.
         return []
 
 

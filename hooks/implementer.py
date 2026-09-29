@@ -28,9 +28,11 @@ Everything here fails toward "no mark". A git dir that cannot be resolved, an
 unwritable directory, an unreadable file: each ends as a false reminder rather
 than a false silence. That direction is deliberate. A mark is written by a
 `pre-agent` gate, and `dispatch.py` renders a gate that fails to load as an
-allow with no output -- so a gate that quietly stops running would turn the
-notice OFF, and nobody would learn that it had. Firing on *an agent declared
-AND no mark* means a dead gate produces a line somebody reads.
+allow with no output -- so a gate that stopped running would turn the notice
+OFF. The dispatcher now says the failure itself once per session at the end
+of the turn (#28), but only where it can write the record down, and the
+notice is what still speaks where it cannot. Firing on *an agent declared AND
+no mark* means a dead gate produces a line somebody reads.
 
 Branch-scoped, because the declaration is. A mark names the branch it was
 written on, and a mark for another branch does not answer for this one --
