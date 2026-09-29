@@ -80,8 +80,9 @@ def _recording_lines(rule):
     restores the line marks it moved, so each line is taken from behind the
     container markers the parser itself consumed and no marker is read here.
     The joined lines end in `\\n` and only there, so every `\\n` inside what
-    `lstrip` removes from the top ends a line it removed whole, whichever
-    Unicode spaces that line held (#677)."""
+    `lstrip` removes from the top ends a line it removed whole, whichever of
+    the characters the strip removes that line held, U+001F among them
+    (#677)."""
 
     def recorded(state, start, end, silent):
         count = len(state.tokens)
@@ -120,8 +121,8 @@ def _inline_html_lines(inline):
 
     The inline source is the paragraph's lines joined, with Python's
     `str.strip` applied to the whole by the parser. That strip also takes a
-    line holding only a no-break space or another Unicode space, which
-    CommonMark reads as paragraph text, so the lines it dropped from the top
+    line holding only a no-break space, another Unicode space or U+001F,
+    which CommonMark reads as paragraph text, so the lines it dropped from the top
     are counted before an offset is turned into a line. The parser's own
     block rule counts them, from the lines it joined behind the markers it
     consumed (`_recording_lines`): three rounds of #673 read those markers

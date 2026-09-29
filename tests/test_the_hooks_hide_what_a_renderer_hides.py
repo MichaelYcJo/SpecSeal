@@ -259,9 +259,9 @@ def test_the_oracle_names_each_kind_it_hides(lines, hidden):
 def test_the_oracle_counts_the_lines_the_parsers_strip_dropped(lines, hidden):
     """#677. The parser joins a paragraph's lines from behind the container
     markers it consumed and applies `str.strip` to the whole, which also
-    drops a line holding only a no-break space or another Unicode space that
-    CommonMark reads as text. Every row here opens with such a line, so every
-    row puts its inline HTML one line early or late wherever the oracle
+    drops a line holding only a no-break space, another Unicode space or
+    U+001F, which CommonMark reads as text. Every row's paragraph opens with
+    such a line, so every row puts its inline HTML one line early or late wherever the oracle
     counts those lines wrong.
 
     The count is taken from the parser's own `paragraph` and `lheading`
