@@ -149,6 +149,22 @@ def test_the_rule_names_the_branch_that_has_no_commit_in_it():
         )
 
 
+def test_the_rule_names_a_string_a_shell_runs_as_a_position():
+    """#670. A string handed to `sh -c`, and the inside of a substitution, are
+    read as commands now, so a fixture file whose strings hold a commit there
+    trips whole -- this repository's own two gate fixture files among them.
+    The sentence that said a whole fixture file is clean would send a session
+    to patch one by heredoc and meet the gate."""
+    for parts in CARRIERS:
+        text = flat(*parts)
+        who = "/".join(parts)
+        assert "A string a shell would run is a position too" in text, who
+        assert "a file whose strings hold a commit there trips whole" in text, who
+        assert "That is why a whole fixture file is clean" not in text, (
+            f"{who} still says a whole fixture file is clean"
+        )
+
+
 def test_no_carrier_claims_a_fact_about_the_reader_repository():
     """Round 1's finding 2.
 

@@ -65,6 +65,7 @@ the parity arm and not the review arm waives the review arm per command with
 | the command names a `-C` the gate cannot resolve | **stopped** — see below |
 | every applicable mark equals current HEAD | allow |
 | no session id in the payload | **ask** — nowhere to record that the choice was put up, and a deny would then repeat forever |
+| this session's person pressed `automation` on the routing question | **deny**, every time, whose reason names the ways on that need nobody and **puts no question to anybody** — see *Why a deny, and why only once* |
 | otherwise, first time this session meets it in this repo | **deny**, whose reason **instructs the model to put the choice up** with AskUserQuestion, naming both ways on for every arm that fired |
 | otherwise | **ask**, which is the harness **putting two buttons to the user** — every missing mark named at once, and approving IS the waiver |
 
@@ -145,8 +146,12 @@ at all is asked of every body separately, as shell, on purpose, because a
 commit hidden in a body used to walk straight past (legacy #75). Two kinds of
 segment count there. One is a segment whose command word is `git` with the
 `commit` subcommand, so what counts is the position and never the presence of
-the word: a whole fixture file of shell commands held in Python strings is
-clean, while an eight-line patch of that file trips (#34). The other has no
+the word: a fixture file of shell commands held in Python strings can read
+clean whole, while an eight-line patch of that file trips (#34). A string a
+shell would run is a position too — the one `sh -c` is handed, or the inside
+of `$( … )` or a backtick pair (#670) — and this repository's own fixture
+files hold commits in exactly those, so since #670 they trip whole. The other
+has no
 commit in it at all — an `eval` whose argument the reader cannot expand
 stops the session, since nothing can tell what it reduces to without running
 the shell. So a session that searched its patch for a commit and found none
@@ -226,7 +231,7 @@ had looked at nothing.
 | What the gate has | What it does |
 |---|---|
 | a `-C` it resolved to a repository | judges that repository — its opt-in, its marks |
-| a `-C` it could not resolve, in a session whose own repository opted in | **stops**: deny once per session per repository, then ask |
+| a `-C` it could not resolve, in a session whose own repository opted in | **stops**: deny once per session per repository, then ask — or deny every time, where the session's person pressed `automation` |
 | a `-C` it could not resolve, anywhere else | silent — the plugin has no standing in a repository that never opted in |
 | no `-C`, and `cwd` is no repository | silent — there is no repository and no command naming one |
 
@@ -269,6 +274,79 @@ which is where today's answer already was. What that guard protects is a tree
 two sessions would share, so stopping is not available to it and going silent
 would be a fail-open.
 
+**A commit behind a reserved word that begins a command list is a commit.**
+`for d in a; do git commit -m x; done`, `while …; do git commit …; done` and
+`if true; then git commit …; fi` reached the gate as no commit at all (#669):
+the shell splits them at `;`, the commit arrives in a segment whose first word
+is `do` or `then`, and the reader looked for `git` in that position alone. The
+same commands written across lines were always judged, because there the
+reserved word stands on its own line and the commit follows a segment the
+reader does not understand.
+
+So after `do`, `then`, `else`, `elif`, `if`, `while`, `until` or `{`, the next
+word is read as the command word, and the segment gets the directory its
+multi-line spelling has: unresolved, which is a stop wherever the session's
+own repository opted in, before any declaration is read. Inside a `case` arm,
+a function definition or a coprocess no position names the command word, so
+the first `git` word stands in for it — a wrong one is a stop, never a
+silence. `!` and `time` stand in front of a command without opening a list,
+and a commit behind them is judged where the shell is. `for`, `select`, `case`
+and `in` are followed by names and words rather than commands, so
+`for d in git commit` reads nothing.
+
+The reading can only have gained stops by this. Every segment the new reading
+reaches began with a word at which the old one found no command, so no commit
+the base read is read differently, and the directories it marks unresolved
+are those segments' own. What that argument could not see is the fallback for
+a command the splitter could not finish, which is not a segment: a commit
+found behind `do` in a declared repository took the session's own directory
+out of the judgment, until the fallback came to stand beside what was found
+(round 1 of work item 1790644505, and the #670 statement below).
+Enforced by: tests/test_a_commit_behind_a_reserved_word_is_judged.py
+
+**A commit behind a wrapper, in a shell string or in a substitution is a
+commit.** `exec git commit`, `nice git commit`, `timeout 5 git commit`,
+`xargs git commit`, `sh -c 'git commit'` and `echo $(git commit)` each reached
+the gate as no commit at all (#670): the reader knew five wrappers by name,
+stopped at the first word it did not know, never read a string handed to a
+shell, and never looked inside a substitution.
+
+So three readings are added. A program that runs its operands as a command
+(`cmdline.RUNNERS`, an enumeration of POSIX's, GNU coreutils', util-linux's,
+the privilege tools', the tracers' and `find`, `parallel`, `watch` and
+`script`) is read past: directly in front of `git` the commit is judged where
+the shell is, and behind the program's own options or operands, which the
+reader does not parse, the first `git` word stands in and the directory is
+unresolved. A string `sh -c`, `bash -c`, `su -c`, `script -c`, `env -S` or
+`watch` hands to a shell is read as a command the way `eval`'s argument
+already was, and a command word the shell would expand in the string a host
+runs (`sh -c "$CMD"`) counts as one that might commit. That question is not
+asked of a shell's positional parameters or of `watch` as a word something
+else was handed, because no shell runs those (`find -exec sh -c '…' _ {}`,
+`grep watch *.py`). An `eval` is found the same way `git` is, behind a
+reserved word, a prefix, a runner or a subshell. The body of a `$( … )`, backticks,
+`<( … )` or `>( … )` is read as a command the way a heredoc body is; a
+single-quoted one is text. A commit found in a string or a substitution runs
+somewhere the walk does not place, so it stops wherever the session's own
+repository opted in.
+
+What stays unread is a program whose operands are a script or a remote
+command rather than a command here — `bash run.sh`, `source`, `make`, `uv
+run`, `npx`, `ssh`, `docker exec` — because reading it would mean reading
+files or machines, not the command. Each stays silent as it was.
+
+The reading can only have gained stops by this, for the reason #669's change
+gives, and for one more: a command the splitter could not finish is still
+judged in the session's own directory when the new reading found a commit in
+the part it did read. Without that, a commit found in a declared repository
+took the session's directory out of the judgment (round 1 of work item
+1790644505). A body nested deeper than the reader recurses reads as one that
+might commit, beside every commit already found, since a gate that raises is
+skipped and a skipped gate is silence; catching the raise around the whole
+reading had thrown away a commit it had found in another repository (round 2
+of work item 1790644505).
+Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
+
 ### Why a deny, and why only once
 
 A hook returns allow/deny/ask and nothing else, and the harness renders an
@@ -287,6 +365,60 @@ as already asked, since one missed question beats a deny nothing can get
 past. Every attempt after the first meets the plain `ask` — which is
 also the answer for an environment with nobody to ask: one extra round trip,
 then today's behavior.
+
+**Where the person said nobody would be answering, every stop is a deny.** A
+session whose person pressed `automation` on the routing question was
+promised that nothing stops to ask, and an `ask` is a person's prompt. So
+there the sentence above is reversed: the gate denies at every stop, in both
+arms and at both decision sites, and the reason names the ways on that need
+nobody — a commit whose repository the gate can read, an edit through the
+`Edit` or `Write` tool, the waiver only for a commit no work item owns, and
+otherwise handing the commit back. It names no question tool, and says that
+re-issuing the command unchanged meets the same refusal.
+
+Measured in the milestone-49 run (#662, #665): four stops reached the person
+as prompts. The main checkout's one deny had been spent by the orchestrator's
+own loop, and the marker is keyed on the git directory and the session id
+alone. A subagent's call carries its parent's session id, so every later stop
+in that repository, from every agent in the run, was an `ask`.
+
+The press is the one `docs/worktree-guard-spec.md` §*Creation consent* reads,
+through the same reader, `hooks/worktree_consent.py#automation_answered`, and
+it stands for the same reason: the harness writes it from the click, and the
+model writes the question and never which option was pressed. It is read
+against the session's own repository, which is where standing to speak comes
+from, and only once a stop is decided, so what the gate stops does not move.
+A `per axis` answer and a `routing.md` `Automation` row are not read, for the
+reasons that section gives, and such a run still meets the ask. The last
+answer to the routing question from this clone is the one that stands, so a
+later `per axis` takes an earlier press back.
+
+This blocks more and never allows more. Where the base asked, a click let the
+commit through; a deny never does. Every way of not reading the press — no
+session id, no transcript, a shape the reader refuses, a reader that raises —
+is the answer above, because a gate that raises is skipped, and a skipped gate
+is silence. A wrong refusal costs the model a turn. The bound on a model that
+re-issues the same command is the reason's text alone, and whether it holds is
+a measurement owed at the next automation run.
+Enforced by: tests/test_an_automation_run_meets_no_commit_prompt.py
+
+**Two readings that prompted that run stay as they are.** `cd X && x` on one
+line and `git commit` on the next reaches the session's own directory whenever
+the `cd` fails, which is *Two operators consume one, not one* above (#662). A
+heredoc body is read as shell for whether it commits, which is *A file edit
+goes through the `Edit` tool* above (#665). Work item `1790635415` narrowed
+both — trusting an existing `cd` target not to fail, and reading a body fed
+to a known interpreter as data — and its rounds 2 and 3 found commands the
+narrowed gate read silent where the base stopped them, and a real bash ran the
+commit for every one it was given: a flag after the `<<`, a bundled `-Bc`, a
+`$(…)` or `${…;…}` moving the boundary, a `#` glued to the delimiter, and an
+earlier segment or an assignment prefix moving the `cd` target. Each fix
+narrowed further than its proof, so the reading stays where it was, and what
+changed is who a stop is put to. The changes to the reading are the two
+stricter ones above: a commit behind a reserved word (#669), and one behind a
+wrapper, in a shell string or in a substitution (#670). Every one of those
+commands still stops, with the press and without.
+Enforced by: tests/test_no_shape_the_base_stops_reads_silent.py
 
 **Both arms, one call.** When both arms fire, the reason asks for two
 questions inside a single AskUserQuestion call rather than one question with
