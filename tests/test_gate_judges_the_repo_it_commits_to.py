@@ -429,6 +429,10 @@ def test_a_python_patch_holding_commit_strings_is_not_a_commit(tmp_path):
         'subprocess.run(["git", "commit", "-m", "x"])\nEOF'
     )
     assert decision_of(run(probe, here, session="s-probe")) == "silent"
+    # One level down: a shell's body that feeds `python3 -` feeds it a Python
+    # program too, and the recursion into the shell's body reads it that way.
+    nested = "bash <<'OUTER'\npython3 - <<'INNER'\ngit commit -m x\nINNER\nOUTER"
+    assert decision_of(run(nested, here, session="s-nested")) == "silent"
 
 
 def test_a_body_a_shell_may_run_is_still_read_as_shell(tmp_path):
@@ -463,6 +467,7 @@ def test_the_program_a_heredoc_feeds_is_named_by_its_consumer():
         " python3 - ",
         "python3",
         "/usr/bin/python3.12 -u -",
+        "python3 - arg",
         "PYTHONPATH=x python3 -",
         "node",
         "node -",
@@ -486,6 +491,7 @@ def test_the_program_a_heredoc_feeds_is_named_by_its_consumer():
         "python3 'unclosed",
         "",
         "X=1",
+        "=x python3 -",
     )
     for consumer in data:
         assert reader.program_is_data(consumer), consumer
