@@ -187,6 +187,7 @@ STILL_HANDED = {
     "bash -o errexit -c $CMD": 'bash -o errexit -c "$CMD"',
     "su -c $CMD root": 'su -c "$CMD" root',
     "su root -c $CMD": 'su root -c "$CMD"',
+    "su --command=$CMD": 'su --command="$CMD" root',
     "watch -n 1 $CMD": 'watch -n 1 "$CMD"',
     "env -S $CMD": 'env -S "$CMD"',
     "sudo sh -c $CMD": 'sudo sh -c "$CMD"',
