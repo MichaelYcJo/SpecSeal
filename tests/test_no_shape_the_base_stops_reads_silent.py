@@ -443,3 +443,62 @@ def test_a_deep_header_nesting_keeps_the_commits_found(
             monkeypatch, capsys, projects, command, session
         ).items():
             assert "silent" not in got, (command[:60], which, got)
+
+
+CD_BEHIND_A_REDIRECTION = [
+    "cd {d} 2>/dev/null",
+    "cd {d} >/dev/null",
+    "cd {d} 2> /dev/null",
+    "cd {d} </dev/null",
+    "cd {d} >/dev/null 2>&1",
+    "cd -P {d} 2>/dev/null",
+    "cd {d}>/dev/null",
+]
+
+
+@pytest.mark.parametrize("cd", CD_BEHIND_A_REDIRECTION)
+def test_a_cd_with_a_redirection_among_its_words_lands(
+    monkeypatch, capsys, projects, tmp_path, cd
+):
+    """Round 2 of 1790660768. A redirection after a `cd`'s operand is the
+    shell's, and the `cd` still lands; the walk read it as a second operand
+    and left the target unresolved. An unresolved target is silence from a
+    session that is not opted in and is waived whole by `[no-review]`, so
+    both commands were silent at `86256492` and at #674's head, where `cd D
+    && git commit` stops. bash 3.2.57 and zsh 5.9 commit in D."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    make_repo(plain / "u2")
+    command = f"{cd.format(d='u2')} && {BODY}"
+    got = decisions(monkeypatch, capsys, command, plain, "s")
+    assert "silent" not in got, (command, got)
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "sub").mkdir()
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    command = f": '[no-review]'; {cd.format(d='sub')} && {BODY}"
+    for which, got in with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    ).items():
+        assert "silent" not in got, (command, which, got)
+
+
+def test_a_second_reading_that_unplaces_keeps_the_base_directory(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """Round 2 of 1790660768. The walk's reading past redirections REPLACED
+    the directory the base judged with an unresolved one wherever it alone
+    unplaced the segment, and `[no-review]` waived that whole: `nice
+    2>/x/git commit -m git`, a commit to the base's reading, stopped on the
+    parity arm at `86256492` and was silent at #674's head."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    for shape in ("nice 2>/x/git commit -m git", "env </x/git commit -m git"):
+        command = f": '[no-review]'; {shape}"
+        for which, got in with_and_without_the_press(
+            monkeypatch, capsys, projects, command, session
+        ).items():
+            assert "silent" not in got, (command, which, got)

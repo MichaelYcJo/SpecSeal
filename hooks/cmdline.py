@@ -2510,16 +2510,29 @@ def walk_directories(items, cwd):
         # Asked as written and read past its redirections (#674), and either
         # one unplaces: `2>/dev/null nice -n 5 git commit` stands behind a
         # runner's options that the first reading never reached.
-        if command_word(tokens)[1] or command_word(tokens, redirections=True)[1]:
+        unplaced = tuple(
+            w if isinstance(w, Unresolved) else Unresolved(str(w), Unresolved.CONSTRUCT)
+            for w in wheres
+        )
+        first, first_unplaced = command_word(tokens)
+        if first_unplaced:
             # A command behind a reserved word that begins a list, or inside a
             # construct whose command word is not found by position (#669).
             # Written across lines it would follow a segment `understood`
             # refuses, and that is the directory it gets here too.
-            wheres = tuple(
-                w
-                if isinstance(w, Unresolved)
-                else Unresolved(str(w), Unresolved.CONSTRUCT)
-                for w in wheres
+            wheres = unplaced
+        elif command_word(tokens, redirections=True)[1]:
+            # Only the second reading unplaces. Where the first already found
+            # `git`, that is the commit `86256492` judged in WHERES, and the
+            # unresolved directory is added beside it rather than in its
+            # place (round 2 of 1790660768): `nice 2>/x/git commit -m git`
+            # stopped on the parity arm at the base, and `[no-review]` waived
+            # the replacement whole.
+            placed = bool(first) and os.path.basename(first[0]) == "git"
+            wheres = (
+                _directories([(w, None) for w in wheres + unplaced])
+                if placed
+                else unplaced
             )
         walked.append((tokens, wheres))
 
@@ -2528,6 +2541,23 @@ def walk_directories(items, cwd):
             (here if target is None else _land(here, prev, target), here)
             for here, prev in running
         ]
+        # A redirection among a `cd`'s words -- after its operand (`cd W
+        # 2>/dev/null`), glued to one (`cd W>/dev/null`), in front of it, or
+        # cut by the splitter (`2>&1 cd W`) -- is the shell's, and the `cd`
+        # still lands in W (round 2 of 1790660768). Read as an operand it
+        # made the target unknown, and read as the program it left the shell
+        # where it was: silence from a session that is not opted in, and
+        # under `[no-review]` over a parity arm, where `cd W` stops. The
+        # landing read past it is ADDED in front of that answer and never
+        # replaces it, so the commit gate judges both, and the worktree guard
+        # and the consent writer, which take the first directory they can
+        # name, take the one the shell went to.
+        view = _expanded(glued[index], env) if index in glued else tokens
+        past = _cd_target(_without_redirections(unglued(view) or view))
+        if past is not None and past != target:
+            moved = _dedup(
+                [(_land(here, prev, past), here) for here, prev in running] + moved
+            )
 
         # A construct the reader does not understand leaves the shell
         # somewhere it cannot name -- in BOTH directions, because whether such
