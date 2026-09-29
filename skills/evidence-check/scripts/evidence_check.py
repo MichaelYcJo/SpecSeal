@@ -2258,10 +2258,24 @@ def reverify(ledgers, root, maps, default_repo=None):
 #
 # This is the reader. It answers the ledger's own question -- does this still
 # point at what it claims -- over the records of work items that have not
-# shipped yet.
+# shipped yet, and over `seal/follow-up.md`, whose rows are live for as long as
+# they stand (#508).
 
 SPECS_DIR = "specs"
 FRAGMENT_DIR = "ledger"
+# The permanent list of schedulable items, under the same `seal/` root. Its
+# rows are unit names addressed to a person and read months after they were
+# written, which is the whole reason the file exists -- and until #508 nothing
+# read one: a row named a case in no file and was caught by grepping.
+FOLLOW_UP = "follow-up.md"
+
+
+def follow_up_path(home):
+    """`<home>/follow-up.md`, where the records arm reads it and where
+    `tree_names` leaves it out. One spelling for both, because the file is
+    read as a record only while it is out of the corpus: kept in, the row
+    naming a name would be the evidence that the name exists."""
+    return os.path.join(home, FOLLOW_UP)
 
 
 def unshipped(home, refused=None):
@@ -2452,7 +2466,9 @@ UNREADABLE_STATUS = "UNREADABLE"
 # unindented line in this program's output that is not a ledger name, and a
 # case that counts ledger headers has to be able to tell it apart by reading
 # this rather than by carrying a second copy of the sentence.
-RECORDS_HEADING = "records — what unreleased work items state about the tree"
+RECORDS_HEADING = (
+    "records — what unreleased work items and seal/follow-up.md state about the tree"
+)
 
 
 def compound(name):
@@ -2645,8 +2661,12 @@ def tree_names(root, home):
     has; a name absent from it is one the record alone carries.
 
     **Two directories are excluded and they are the two a work item writes
-    about itself**: `<home>/specs/` and `<home>/ledger/`. Nothing else under
-    `<home>/` is, and `seal/ledger.md` in particular is IN. The line is
+    about itself**: `<home>/specs/` and `<home>/ledger/`. **One file is
+    excluded too, `<home>/follow-up.md`, because the arm reads it as a
+    record** (#508): a file that is both read and in the corpus answers its
+    own question, and a row naming a name the tree lost would be the name's
+    only evidence. Nothing else under `<home>/` is, and `seal/ledger.md` in
+    particular is IN. The line is
     lifetime, the same line the boundary is drawn on. The gathered ledger is a
     permanent, curated document — its S15 note keeps a renamed unit's old name
     beside the new one on purpose, *so a reader coming from an older record
@@ -2694,6 +2714,7 @@ def tree_names(root, home):
         os.path.normpath(os.path.join(home, SPECS_DIR)),
         os.path.normpath(os.path.join(home, FRAGMENT_DIR)),
     }
+    read_as_record = os.path.normpath(follow_up_path(home))
     # `home` is walked in its own right because in LOCAL mode (#80) it sits
     # under the git common directory, which `SKIP_DIRS` prunes — so identical
     # bytes answered exit 0 in shared mode and exit 2 in local, on the
@@ -2714,6 +2735,8 @@ def tree_names(root, home):
             ]
             for filename in filenames:
                 path = os.path.join(dirpath, filename)
+                if os.path.normpath(path) == read_as_record:
+                    continue
                 names.update(TOKEN_RE.findall(filename))
                 try:
                     if os.path.getsize(path) > NAME_FILE_CAP:
@@ -2769,14 +2792,75 @@ def built_name(path, root, flavour=os.path):
     return display_name(path, root, flavour).replace(flavour.sep, "/")
 
 
+def left_out_of_corpus(root, home):
+    """The places the name corpus leaves out, as a refusal names them.
+
+    Every one of them, because a reader told *nothing outside X carries this
+    name* goes and looks outside X: naming two of the three sends them to
+    the file that was left out and that does carry the name (#508)."""
+    return (
+        f"{built_name(os.path.join(home, SPECS_DIR), root)}, "
+        f"{built_name(os.path.join(home, FRAGMENT_DIR), root)} and "
+        f"{built_name(follow_up_path(home), root)}"
+    )
+
+
+def file_claims(lines, shown, root, known, outside, maps, default_repo, scan_cache):
+    """(findings, names read, stamps read) for one file the arm reads.
+
+    A work item's record and `seal/follow-up.md` are read by this one
+    function, so the two cannot come to disagree about what a claim is:
+    `claim_lines` decides which lines count, the name half reads a
+    backticked name and the stamp half is `check_text`.
+    """
+    findings, names_read, stamps_read = [], 0, 0
+    for number, name in stated_names(lines):
+        names_read += 1
+        if name in known:
+            continue
+        findings.append(
+            (
+                NOT_IN_TREE_STATUS,
+                f"{shown}:{number}",
+                f"`{name}` — nothing outside {outside} carries this name. "
+                f"Correct the record, or write {NOT_IN_TREE} on the line "
+                "where the record means a name the tree does not have",
+            )
+        )
+    for number, line in stated_stamps(lines):
+        # The stamps on the line, counted from the line. Counting what
+        # `check_text` RETURNS counts findings: it dedupes a repeated anchor,
+        # so one line stamping a unit twice read as one stamp, and `0 stamps
+        # read` beside a refusal named a number that was never the number of
+        # stamps (round 1, ⬜ 14).
+        stamps_read += sum(1 for _ in ANCHOR_RE.finditer(line))
+        # A fresh `seen` per line and a shared `scan_cache` across them: two
+        # lines stamping one unit are two claims and both are reported, while
+        # the repo-wide scan a broken anchor triggers is paid once for the
+        # whole run.
+        for status, coord, detail in check_text(
+            line, root, maps, default_repo, set(), scan_cache
+        ):
+            if status == "OK":
+                continue
+            findings.append((status, f"{shown}:{number}", f"{coord} {detail}"))
+    return findings, names_read, stamps_read
+
+
 def check_records(root, home, maps=None, default_repo=None):
     """(findings, names read, stamps read) over every unreleased work item's
-    records.
+    records, and over `<home>/follow-up.md`.
 
     A finding is `(status, coordinate, detail)`, the shape `check_ledger`
     returns, so `main` prints both arms the same way — and the stamp half is
     literally `check_text`, the ledger's own reader, so a stamp in a record is
     resolved the way a ledger anchor is rather than by a second rule.
+
+    **`seal/follow-up.md` is read on every run, whether or not a work item is
+    live** (#508). The shipped boundary protects history, and a follow-up row
+    is not history: the file is permanent and a row leaves it when its item
+    is done, so every row in it is live. It is read by the records' own
+    claim rules, and it is out of the corpus (`tree_names`).
     """
     # A directory that could not be listed is a finding, not an empty answer
     # — the direction an unreadable FILE already takes one line down. It is
@@ -2793,15 +2877,17 @@ def check_records(root, home, maps=None, default_repo=None):
         )
         for path in unlistable
     ]
-    if not live:
+    follow_up = follow_up_path(home)
+    has_follow_up = os.path.lexists(follow_up)
+    if not live and not has_follow_up:
         return findings, 0, 0
     known = tree_names(root, home)
-    records_root = os.path.join(home, SPECS_DIR)
-    fragments_root = os.path.join(home, FRAGMENT_DIR)
+    outside = left_out_of_corpus(root, home)
     names_read, stamps_read = 0, 0
     scan_cache = {}
+    paths = []
     for _item, directory in sorted(live.items()):
-        paths, refused_dirs = record_files(directory)
+        records, refused_dirs = record_files(directory)
         for path in refused_dirs:
             findings.append(
                 (
@@ -2810,49 +2896,48 @@ def check_records(root, home, maps=None, default_repo=None):
                     "the records directory could not be listed",
                 )
             )
-        for path in paths:
-            body = read(path)
-            shown = built_name(path, root)
-            if body is None:
-                findings.append(
-                    (UNREADABLE_STATUS, shown, "the record could not be read")
-                )
-                continue
-            lines = gfm_lines(body)
-            for number, name in stated_names(lines):
-                names_read += 1
-                if name in known:
-                    continue
-                findings.append(
-                    (
-                        NOT_IN_TREE_STATUS,
-                        f"{shown}:{number}",
-                        f"`{name}` — nothing outside "
-                        f"{built_name(records_root, root)} and "
-                        f"{built_name(fragments_root, root)} carries this "
-                        f"name. Correct the record, or write {NOT_IN_TREE} on "
-                        "the line where the record means a name the tree does "
-                        "not have",
-                    )
-                )
-            for number, line in stated_stamps(lines):
-                # The stamps on the line, counted from the line. Counting
-                # what `check_text` RETURNS counts findings: it dedupes a
-                # repeated anchor, so one line stamping a unit twice read as
-                # one stamp, and `0 stamps read` beside a refusal named a
-                # number that was never the number of stamps (round 1, ⬜ 14).
-                stamps_read += sum(1 for _ in ANCHOR_RE.finditer(line))
-                # A fresh `seen` per line and a shared `scan_cache` across
-                # them: two lines stamping one unit are two claims and both
-                # are reported, while the repo-wide scan a broken anchor
-                # triggers is paid once for the whole run.
-                for status, coord, detail in check_text(
-                    line, root, maps or {}, default_repo, set(), scan_cache
-                ):
-                    if status == "OK":
-                        continue
-                    findings.append((status, f"{shown}:{number}", f"{coord} {detail}"))
+        paths.extend(records)
+    # Before the early return above and after the work items, so a tree with
+    # nothing live still reads it and a refusal in it prints below theirs.
+    # `lexists` rather than `isfile`: a follow-up that is there and cannot be
+    # read -- a directory under that name, a dangling link -- is UNREADABLE
+    # and exit 2, the way a record is, and absent is the only quiet answer.
+    if has_follow_up:
+        paths.append(follow_up)
+    for path in paths:
+        body = read(path)
+        shown = built_name(path, root)
+        if body is None:
+            findings.append((UNREADABLE_STATUS, shown, "the record could not be read"))
+            continue
+        found, names, stamps = file_claims(
+            gfm_lines(body),
+            shown,
+            root,
+            known,
+            outside,
+            maps or {},
+            default_repo,
+            scan_cache,
+        )
+        findings.extend(found)
+        names_read += names
+        stamps_read += stamps
     return findings, names_read, stamps_read
+
+
+def follow_up_state(root, home):
+    """What the records arm did with `<home>/follow-up.md`, as the summary
+    line says it: read, unreadable, or not there. From `main`, the way the
+    `unread` count is, because `check_records`' three-tuple is read by more
+    call sites than this one line needs."""
+    path = follow_up_path(home)
+    shown = built_name(path, root)
+    if not os.path.lexists(path):
+        return f"no {shown}"
+    if read(path) is None:
+        return f"{shown} unreadable"
+    return f"{shown} read"
 
 
 # **The one exit code this checker's readers grade differently.** Three of them
@@ -3116,7 +3201,8 @@ def main():
         f"{unread} unread · "
         f"{names_read} name{'' if names_read == 1 else 's'} read · "
         f"{stamps_read} stamp{'' if stamps_read == 1 else 's'} read · "
-        f"{refused} refused · {drifted} drifted · {external} external"
+        f"{refused} refused · {drifted} drifted · {external} external · "
+        f"{follow_up_state(root, home)}"
     )
 
     code = exit_code(totals, refused, drifted, args.strict)

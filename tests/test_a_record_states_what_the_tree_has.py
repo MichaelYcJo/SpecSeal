@@ -19,6 +19,8 @@ import os
 import subprocess
 import sys
 
+import pytest
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py")
 
@@ -1107,6 +1109,153 @@ def test_the_same_anchor_answers_the_same_in_both_arms_under_default_repo(tmp_pa
     assert "1 ok · 0 drifted · 0 broken" in got.stdout, got.stdout
     assert "1 stamp read · 0 refused" in got.stdout, got.stdout
     assert "BROKEN" not in got.stdout, got.stdout
+
+
+# --- seal/follow-up.md is read (#508) ----------------------------------------
+#
+# The permanent list of schedulable items names units, is addressed to a
+# person, and is read months after it was written. Until #508 nothing read
+# it: a row named a case in no file and was caught by grepping.
+
+
+def follow_up(h, text):
+    (h / "follow-up.md").write_text(text, encoding="utf-8")
+
+
+FOLLOW_UP_ROW = (
+    "# Follow-up\n\n| Item | Who |\n|---|---|\n| `invented_unit_name` | x |\n"
+)
+
+
+def test_a_follow_up_row_naming_a_unit_the_tree_lacks_is_refused(tmp_path):
+    """F1 and F2. The file carries the name, and that is not evidence: it is
+    out of the corpus, or the row would vouch for itself."""
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n"})
+    follow_up(h, FOLLOW_UP_ROW)
+    found, read = refusals(tmp_path)
+    assert read == 1, found
+    assert [(s, c.replace(os.sep, "/")) for s, c, _ in found] == [
+        ("NOT-IN-TREE", "seal/follow-up.md:5")
+    ], found
+    for flags in ([], ["--strict"]):
+        got = run([*flags, "."], tmp_path)
+        assert got.returncode == 2, got.stdout + got.stderr
+        assert "seal/follow-up.md:5" in got.stdout, got.stdout
+
+
+def test_a_follow_up_name_another_file_carries_passes(tmp_path):
+    """F2's other direction: out of the corpus is the follow-up file alone."""
+    h = home(tmp_path)
+    tree(tmp_path, **{"mod.py": "def invented_unit_name():\n    return 1\n"})
+    follow_up(h, FOLLOW_UP_ROW)
+    assert refusals(tmp_path) == ([], 1)
+
+
+def test_the_follow_up_is_read_with_no_work_item_live(tmp_path):
+    """F3. The file is permanent and its rows are live until removed, so the
+    shipped boundary does not reach it: no `seal/ledger/` at all, and it is
+    still read."""
+    h = tmp_path / "seal"
+    h.mkdir()
+    follow_up(h, FOLLOW_UP_ROW)
+    found, read = refusals(tmp_path)
+    assert (read, [s for s, _, _ in found]) == (1, ["NOT-IN-TREE"]), found
+
+
+def test_no_follow_up_is_nothing_to_read(tmp_path):
+    """F4, first half: absent is the one quiet answer."""
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`kept_helper`\n"})
+    tree(tmp_path, **{"mod.py": "kept_helper = 1\n"})
+    assert refusals(tmp_path) == ([], 1)
+
+
+def test_a_follow_up_that_cannot_be_read_is_named(tmp_path):
+    """F4, second half: a directory under the file's name is there and cannot
+    be read, which is `UNREADABLE` and exit 2, the way a record is."""
+    h = home(tmp_path)
+    (h / "follow-up.md").mkdir()
+    found, _read = refusals(tmp_path)
+    assert [(s, c.replace(os.sep, "/")) for s, c, _ in found] == [
+        ("UNREADABLE", "seal/follow-up.md")
+    ], found
+    got = run(["."], tmp_path)
+    assert got.returncode == 2, got.stdout + got.stderr
+    assert "seal/follow-up.md unreadable" in got.stdout, got.stdout
+
+
+@pytest.mark.parametrize(
+    "text, refused",
+    [
+        ("`invented_unit_name` NAME NOT IN TREE\n", False),
+        ("```\n`invented_unit_name`\n```\n", False),
+        ("<!-- `invented_unit_name` -->\n", False),
+        ("<!--\n`invented_unit_name`\n-->\n", False),
+        ("```\n`invented_unit_name`\n", True),
+        ("<!-- open\n`invented_unit_name`\n", True),
+    ],
+    ids=[
+        "marker",
+        "closed-fence",
+        "comment",
+        "multi-line-comment",
+        "unclosed-fence",
+        "unclosed-comment",
+    ],
+)
+def test_the_follow_up_is_read_by_the_records_own_claim_rules(tmp_path, text, refused):
+    """F5. One reader for a record and the follow-up file, so the two cannot
+    come to disagree about what a claim is."""
+    h = home(tmp_path)
+    follow_up(h, "# Follow-up\n\n" + text)
+    found, _read = refusals(tmp_path)
+    assert bool(found) is refused, found
+
+
+def test_the_follow_up_is_read_and_left_out_of_the_corpus_in_local_mode(tmp_path):
+    """F6. In local mode `seal/` sits under the git common directory; the
+    file there is read, and it is out of the corpus, with shared mode's
+    answers."""
+    local = tmp_path / ".git" / "seal"
+    local.mkdir(parents=True)
+    follow_up(local, FOLLOW_UP_ROW)
+    findings, read, _stamps = module().check_records(str(tmp_path), str(local))
+    assert (read, [s for s, _, _ in findings]) == (1, ["NOT-IN-TREE"]), findings
+    assert "follow-up.md:5" in findings[0][1], findings
+
+
+def test_a_refusal_names_every_place_the_corpus_leaves_out(tmp_path):
+    """F7. A reader told *nothing outside X carries this name* looks outside
+    X, and naming two places of three sent them to the one that does."""
+    h = home(tmp_path)
+    work_item(h, "1780000000-live", **{"plan.md": "# p\n\n`gone_helper`\n"})
+    found, _read = refusals(tmp_path)
+    assert (
+        found[0][2]
+        .replace(os.sep, "/")
+        .startswith(
+            "`gone_helper` — nothing outside seal/specs, seal/ledger and "
+            "seal/follow-up.md carries this name. Correct the record, or write "
+            "NAME NOT IN TREE on the line where the record means a name the tree "
+            "does not have"
+        )
+    ), found
+
+
+def test_the_summary_line_says_whether_the_follow_up_was_read(tmp_path):
+    """F7. `0 refused` says the same thing for *read and clean* and *never
+    opened*, so the line says which, and the heading names the file."""
+    h = home(tmp_path)
+    got = run(["."], tmp_path)
+    assert got.returncode == 0, got.stdout + got.stderr
+    assert module().RECORDS_HEADING in got.stdout, got.stdout
+    assert "seal/follow-up.md" in module().RECORDS_HEADING
+    assert "0 external · no seal/follow-up.md\n" in got.stdout, got.stdout
+    follow_up(h, "# Follow-up\n")
+    got = run(["."], tmp_path)
+    assert got.returncode == 0, got.stdout + got.stderr
+    assert "0 external · seal/follow-up.md read\n" in got.stdout, got.stdout
 
 
 # --- this repository's own records ------------------------------------------

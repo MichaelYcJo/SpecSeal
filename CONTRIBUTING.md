@@ -96,6 +96,11 @@ stands in and the new claim written into a work item's fragment,
 which is a convention a contribution does not have. Say on the pull request
 which name your change moved, and leave the ledger alone.
 
+**The same job reads `seal/follow-up.md`.** Its rows name units for a person
+to act on later, and a row naming a unit your change renamed or removed is
+exit 2 too. Say that on the pull request as well: the row is a maintainer's
+to correct, for the same reason the ledger row is.
+
 ## Running the checks
 
 The suite needs only `pytest`; the gates themselves are stdlib-only Python.

@@ -269,8 +269,8 @@ branch had touched.
 | `OVERFLOW` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | a table row in a ledger file splits into more cells than its table's header, so the text past the last column is in no column and no reader sees it — usually an unescaped `\|` inside a cell. A row under no header, which is every fragment row, is counted against the five columns `templates/ledger.md` declares for a ledger row. The line is named with both counts | write a `\|` inside a cell as `\\|`; a table that is not ledger rows takes a header of its own. `--reverify` names the row and leaves it, and still rewrites the row's hashes where their anchors resolve, because the hash is not what is wrong. Exit 1 here means *escape the pipe*, not *re-read* |
 | `DRIFTED` (exit 1; 2 under `--strict`, which is what `broad-gate` passes) | the content changed, or a minor anchor's place is gone | re-open it, re-read the claim, then `--reverify`. This is one of the three verdicts the readers grade differently, `MALFORMED` and `OVERFLOW` being the others — see *Which reader graded your tree* |
 | `EXTERNAL` (exit 0) | the path resolves in no known checkout, in a repository that has DECLARED cross-repo intent — a parity config, `--map`, or `--default-repo` | pass `--map`/`--default-repo`, or accept as out of scope. Without such a declaration a missing path is `BROKEN` instead: a deleted or renamed directory must fail the build, not read as somebody else's repo |
-| `NOT-IN-TREE` (exit 2, records arm) | a record of a work item that has not shipped names a compound backticked identifier that nothing git carries outside `seal/specs/` and `seal/ledger/` | correct the record, or append ` · NAME NOT IN TREE` on the line where the record means a name the tree does not have (placed before any trailing colon introducing a block). The marker exempts the LINE, not the name |
-| `UNREADABLE` (exit 2, records arm) | a record under a live work item that could not be opened, or a directory the walk could not LIST — a work item's own folder, or `seal/ledger/` itself | a record nobody can read is indistinguishable from a record with nothing in it, which is the green build this refuses. The same holds a directory up, where it is worse: an unlistable `seal/ledger/` used to read as a repository with no live work item and take the whole arm quiet at exit 0. A directory that is ABSENT is still an empty answer — a repository that has not started is not a broken one |
+| `NOT-IN-TREE` (exit 2, records arm) | a record of a work item that has not shipped, or a row of `seal/follow-up.md`, names a compound backticked identifier that nothing carries outside `seal/specs/`, `seal/ledger/` and `seal/follow-up.md` | correct the record, or append ` · NAME NOT IN TREE` on the line where the record means a name the tree does not have (placed before any trailing colon introducing a block). The marker exempts the LINE, not the name |
+| `UNREADABLE` (exit 2, records arm) | a record under a live work item, or a `seal/follow-up.md` that is there, that could not be opened, or a directory the walk could not LIST — a work item's own folder, or `seal/ledger/` itself | a record nobody can read is indistinguishable from a record with nothing in it, which is the green build this refuses. The same holds a directory up, where it is worse: an unlistable `seal/ledger/` used to read as a repository with no live work item and take the whole arm quiet at exit 0. A directory that is ABSENT is still an empty answer — a repository that has not started is not a broken one |
 | `OK` | the content is what the row recorded — the current line numbers are printed for you to open |
 
 **An ambiguous MAJOR unit is BROKEN, loudly, and never a measurement.** With
@@ -405,9 +405,9 @@ Every run reads them, under its own heading and with its own counts, and no
 flag turns it on:
 
 ```
-records — what unreleased work items state about the tree
+records — what unreleased work items and seal/follow-up.md state about the tree
   NOT-IN-TREE  seal/specs/1780000000-x/plan.md:14  `gone_helper` — nothing outside …
-  1 work item read · 38 unread · 206 names read · 0 stamps read · 1 refused · 0 drifted · 0 external
+  1 work item read · 38 unread · 206 names read · 0 stamps read · 1 refused · 0 drifted · 0 external · seal/follow-up.md read
 ```
 
 **Whose records are read is decided by the ledger fragment.** A work item
@@ -417,6 +417,15 @@ is nothing else to keep true. A shipped work item's records are records of a
 moment — a plan from two releases ago proposing a helper that was built under
 another name is correct as history — and refusing those would be refusing the
 past.
+
+**`seal/follow-up.md` is read on every run, whatever is live** (#508). It
+is permanent and a row leaves it when its item is done, so every row in it is
+live, and its rows are unit names read by a person months later — a row once
+named a case in no file and was caught by grepping. It is read by the same
+claim rules as a record and it is **out of the corpus**, because a file both
+read and counted as the tree answers its own question. The summary line ends
+by saying which it was: `seal/follow-up.md read`, `no seal/follow-up.md`, or
+`seal/follow-up.md unreadable`, which is also `UNREADABLE` and exit 2.
 
 **`N unread` is the other half of that boundary**, because *has a fragment*
 answers *is live* and its converse does not: a work item that has not written
@@ -456,8 +465,8 @@ until #217 it silenced every claim under it while the arm said nothing. The
 `NAME NOT IN TREE` marker still exempts any line it sits on, held or not.
 
 **What counts as the tree.** Every identifier-shaped token in every file the
-walk reaches, prose and file names included, outside `seal/specs/` and
-`seal/ledger/`. `seal/ledger.md` and `seal/releases/` are inside it: a shipped
+walk reaches, prose and file names included, outside `seal/specs/`,
+`seal/ledger/` and `seal/follow-up.md`. `seal/ledger.md` and `seal/releases/` are inside it: a shipped
 row's names are the tree's. Caches, build output and `.git` are skipped,
 because a `__pycache__` carries the identifiers of a module the tree has since
 lost.
