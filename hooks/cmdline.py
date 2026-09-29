@@ -291,7 +291,7 @@ def drop_heredoc_bodies(command: str) -> str:
     An unterminated body runs to the end of the input, which is what the shell
     does with one.
     """
-    stripped, _bodies = _heredoc_split(command)
+    stripped, _bodies, _consumers = _heredoc_split(command)
     return stripped
 
 
@@ -306,14 +306,76 @@ def heredoc_bodies(command: str) -> list:
     dropped body hides a `git commit` needs the text this drops, not just the
     command with it gone.
     """
-    _stripped, bodies = _heredoc_split(command)
+    _stripped, bodies, _consumers = _heredoc_split(command)
     return bodies
 
 
+# The interpreters whose program, read from stdin, is not shell (#665). A name
+# not on this list is read as shell, which is the asking side: a shell, `ssh`,
+# `xargs`, and anything this reader has not been told about.
+DATA_INTERPRETERS = ("python", "node", "ruby", "perl")
+# Flags that take the program from somewhere other than stdin -- `python -c`,
+# `-m`, `node -e`/`-p`, `ruby -e`, `perl -e`/`-E` -- after which stdin is input
+# to that program, which may hand it to a shell.
+ELSEWHERE_FLAGS = ("-c", "-m", "-e", "-E", "-p", "--eval", "--print")
+
+
+def program_is_data(consumer):
+    """True when `consumer`, the command a heredoc is fed to, is a known
+    non-shell interpreter reading its PROGRAM from stdin -- `python3 -`,
+    `node`, `perl -` -- so the body is that program and not shell (#665).
+
+    Everything else is False: a shell (`bash`, `sh`, `zsh`), `ssh`, `xargs`,
+    an interpreter given a script file or a `-c`/`-e` program (stdin is then
+    input to a program that may run it as shell), a command this cannot
+    tokenise, and a name not in `DATA_INTERPRETERS`. What this opens is
+    already open: `python3 - <<EOF` calling `subprocess.run(["git",
+    "commit", ...])` never read as a commit to anybody, and contract §8
+    recommends exactly that form for a probe."""
+    try:
+        tokens = shlex.split(consumer)
+    except ValueError:
+        return False
+    while tokens and _is_assignment(tokens[0]):
+        tokens.pop(0)
+    if not tokens:
+        return False
+    name = os.path.basename(tokens[0]).rstrip("0123456789.")
+    if name not in DATA_INTERPRETERS:
+        return False
+    for token in tokens[1:]:
+        if token == "-":
+            return True
+        if token.startswith(ELSEWHERE_FLAGS) or not token.startswith("-"):
+            return False
+    return True
+
+
+def _is_assignment(token):
+    """`NAME=value` in command position, which the shell reads as an
+    assignment and not as the command."""
+    name, eq, _value = token.partition("=")
+    return bool(eq) and name.isidentifier()
+
+
+def shell_bodies(command: str) -> list:
+    """The heredoc bodies a shell may execute: every body `heredoc_bodies`
+    returns except one fed to a known non-shell interpreter reading its
+    program from stdin (`program_is_data`). A Python patch holding
+    `git commit` as test data is a Python program, and reading its `for`
+    loop as a shell loop stopped four `automation` runs with no commit in
+    them (#665)."""
+    _stripped, bodies, consumers = _heredoc_split(command)
+    return [bodies[i] for i in range(len(bodies)) if not program_is_data(consumers[i])]
+
+
 def _heredoc_split(command: str):
-    """(stripped, bodies) -- `drop_heredoc_bodies` and `heredoc_bodies` share one pass."""
+    """(stripped, bodies, consumers) -- `drop_heredoc_bodies`, `heredoc_bodies`
+    and `shell_bodies` share one pass. `consumers[k]` is the text of the
+    command `bodies[k]` is fed to: from the last `;`, `&`, `|`, newline or
+    parenthesis outside quotes and comments, up to its `<<`."""
     out, i, n = [], 0, len(command)
-    bodies = []
+    bodies, consumers, seg_start = [], [], 0
     quote, esc, comment, word_start, pending = None, False, False, True, []
     # How deep inside a `${…}` parameter expansion this is. The `((` below is
     # arithmetic everywhere except in here, where it is text the expansion
@@ -489,16 +551,17 @@ def _heredoc_split(command: str):
                 j += 1
             delim, j = _heredoc_word(command, j)
             if delim:
-                pending.append((delim, dashed))
+                pending.append((delim, dashed, "".join(out[seg_start:])))
                 out.append(command[i:j])
                 word_start = False
                 i = j
                 continue
         if ch == "\n":
             out.append(ch)
+            seg_start = len(out)
             i += 1
             comment, word_start = False, True
-            for delim, dashed in pending:
+            for delim, dashed, consumer in pending:
                 body_lines = []
                 while i < n:
                     end = command.find("\n", i)
@@ -508,13 +571,16 @@ def _heredoc_split(command: str):
                         break
                     body_lines.append(line.rstrip("\r"))
                 bodies.append("\n".join(body_lines))
+                consumers.append(consumer)
             pending = []
             continue
         out.append(ch)
+        if not comment and ch in ";&|()":
+            seg_start = len(out)
         comment = comment and ch != "\n"
         word_start = ch in WORD_BREAK
         i += 1
-    return "".join(out), bodies
+    return "".join(out), bodies, consumers
 
 
 def split_segments(command):

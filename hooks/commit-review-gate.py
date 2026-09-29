@@ -93,8 +93,8 @@ from cmdline import (
     compose,
     drop_comments,
     drop_heredoc_bodies,
-    heredoc_bodies,
     parse_git,
+    shell_bodies,
     split_segments,
     split_segments_with_separators,
     strip_subshell,
@@ -122,8 +122,9 @@ def _hides_a_commit(text):
     """True when TEXT, read as commands, might invoke `git commit`.
 
     Only called where the shell really does execute TEXT as commands — a
-    heredoc body an interpreter reads from stdin, or the argument `eval`
-    re-parses — never on prose. Reusing `parse_git`'s own rule, that a
+    heredoc body fed to anything but a known non-shell interpreter reading
+    its program from stdin (`cmdline.shell_bodies`, #665), or the argument
+    `eval` re-parses — never on prose. Reusing `parse_git`'s own rule, that a
     segment's own first token must literally be `git`, is what keeps this
     from reading a commit MESSAGE that happens to mention the words: a
     heredoc feeding `git commit -F -` has "words" as its own line, not a
@@ -148,7 +149,7 @@ def _hides_a_commit(text):
         arg = _eval_argument(toks)
         if arg is not None and _eval_hides_a_commit(arg):
             return True
-    return any(_hides_a_commit(body) for body in heredoc_bodies(text))
+    return any(_hides_a_commit(body) for body in shell_bodies(text))
 
 
 def _eval_argument(toks):
@@ -279,7 +280,10 @@ def commit_invocations(command, cwd=None):
             for base in bases:
                 found.append(Invocation((), (), base=_unresolved_base(base)))
 
-    for body in heredoc_bodies(drop_comments(command)):
+    # A body fed to `python3 -` is a Python program, not shell (#665): a `for`
+    # around test strings holding `git commit` read as a shell loop and
+    # stopped an automation run that committed nothing.
+    for body in shell_bodies(drop_comments(command)):
         if _hides_a_commit(body):
             found.append(Invocation((), (), base=_unresolved_base(cwd)))
 

@@ -361,6 +361,155 @@ def test_a_cd_on_one_line_to_an_undeclared_target_is_still_asked(tmp_path):
         assert fired(out), (shape, out)
 
 
+# #665. The command that stopped this repository's own `automation` run on
+# 2026-09-29, verbatim from the session's transcript except for the worktree
+# path, which `tests/test_no_real_identifiers.py` keeps neutral. It patches a
+# file through `python3 -`, and its body holds `git commit` only as Python
+# string data, inside a Python `for` loop. Nothing in it commits.
+PROMPTED_PATCH = r'''cd /Users/x/repo-worktrees/item && python3 - <<'EOF'
+p="hooks/cmdline.py"; t=open(p,encoding="utf-8").read()
+subs=[("""def _enters(landed):
+    \"\"\"True when a `cd` that lands at `landed` cannot fail: a directory the
+    reader could name, that is there, and that the shell may enter.
+
+    A `cd` fails only when its target is missing or cannot be entered, so
+    the shell it was run from is a place a later `;`, newline or `||` can
+    reach only then (#662). Asked of the filesystem when the hook runs, a
+    moment before the shell does.\"\"\"
+    return (
+        isinstance(landed, str)
+        and not isinstance(landed, Unresolved)
+        and os.path.isdir(landed)
+        and os.access(landed, os.X_OK)
+    )""",
+"""def _enters(landed):
+    \"\"\"True when a `cd` that lands at `landed` cannot fail: a directory that
+    is there and that the shell may enter.
+
+    A `cd` fails only when its target is missing or cannot be entered (#662).
+    Asked of the filesystem when the hook runs, a moment before the shell
+    does. An `Unresolved` landing is asked like any other: where its text
+    happens to name a directory, the answer still carries the `Unresolved`
+    itself, so the commit is stopped either way.\"\"\"
+    return os.path.isdir(landed) and os.access(landed, os.X_OK)"""),
+("            if known and target is not None:\n","            if target is not None:\n"),
+]
+for a,b in subs:
+    assert t.count(a)==1, a[:40]; t=t.replace(a,b)
+open(p,"w",encoding="utf-8").write(t)
+p="tests/test_gate_judges_the_repo_it_commits_to.py"; t=open(p,encoding="utf-8").read()
+a="""        assert commit_dirs(command, tmp_path) == [str(b)], repr(command)
+"""
+b="""        assert commit_dirs(command, tmp_path) == [str(b)], repr(command)
+    # Only a `cd`'s own failure goes: a command that fails before the `cd`
+    # skips it, and the commit after the `;` runs where the shell started.
+    assert commit_dirs(f"false && cd {sh(b)} ; git commit -m x", tmp_path) == [
+        str(b),
+        str(tmp_path),
+    ]
+"""
+assert t.count(a)==1; open(p,"w",encoding="utf-8").write(t.replace(a,b))
+EOF
+uvx ruff format -q hooks/cmdline.py tests/test_gate_judges_the_repo_it_commits_to.py; uvx ruff check -q hooks/cmdline.py tests/test_gate_judges_the_repo_it_commits_to.py; echo "ruff $?"; bin/test tests/test_gate_judges_the_repo_it_commits_to.py -q 2>&1 | tail -1'''
+
+
+def test_a_python_patch_holding_commit_strings_is_not_a_commit(tmp_path):
+    """#665. A heredoc body fed to `python3 -` is a Python program, so its
+    `for` loop is not a shell loop and a quoted `git commit` is not a
+    command. Seen red at `e8e5f977`, where the gate denied this command as
+    one it could not read, in a repository whose branch is declared. The
+    form contract §8 recommends for a probe, `subprocess.run` inside
+    `python3 -`, was never read as a commit and still is not."""
+    here = make_repo(tmp_path / "declared", opted_in=True)
+    declare_routing(here)
+    assert decision_of(run(PROMPTED_PATCH, here, session="s-patch")) == "silent"
+    assert gate.commit_invocations(PROMPTED_PATCH, str(here))[0] == []
+    probe = (
+        "python3 - <<'EOF'\nimport subprocess\n"
+        'subprocess.run(["git", "commit", "-m", "x"])\nEOF'
+    )
+    assert decision_of(run(probe, here, session="s-probe")) == "silent"
+
+
+def test_a_body_a_shell_may_run_is_still_read_as_shell(tmp_path):
+    """#665, the other direction: only a KNOWN non-shell interpreter reading
+    its program from stdin makes a body data. A shell, `ssh`, `xargs`, an
+    interpreter given `-c` or a script (stdin is then input to a program
+    that may hand it to a shell), and a name nobody listed all keep the body
+    read as shell, so a commit in it is still judged. This held before the
+    change too; it is pinned so the change cannot widen past its rule."""
+    here = make_repo(tmp_path / "opted-in", opted_in=True)
+    for n, consumer in enumerate(
+        (
+            "bash",
+            "sh -s",
+            "ssh host",
+            "xargs -0 sh -c",
+            "python3 -c 'import sys'",
+            "python3 run.py",
+            "node -e x",
+            "some-tool",
+        )
+    ):
+        command = f"{consumer} <<'EOF'\ngit commit -m x\nEOF"
+        assert fired(run(command, here, session=f"s-{n}")), consumer
+
+
+def test_the_program_a_heredoc_feeds_is_named_by_its_consumer():
+    """The predicate `shell_bodies` applies: which commands read their
+    PROGRAM from stdin as something other than shell."""
+    data = (
+        "python3 -",
+        " python3 - ",
+        "python3",
+        "/usr/bin/python3.12 -u -",
+        "PYTHONPATH=x python3 -",
+        "node",
+        "node -",
+        "ruby",
+        "perl -",
+    )
+    shell = (
+        "bash",
+        "sh -s",
+        "python3 -c 'x'",
+        "python3 -m pkg",
+        "python3 run.py",
+        "node -e x",
+        "node --eval x",
+        "perl -e x",
+        "ruby -e x",
+        "ssh host",
+        "xargs",
+        "env python3 -",
+        "pythonic -",
+        "python3 'unclosed",
+        "",
+        "X=1",
+    )
+    for consumer in data:
+        assert reader.program_is_data(consumer), consumer
+    for consumer in shell:
+        assert not reader.program_is_data(consumer), consumer
+
+
+def test_each_body_is_paired_with_the_command_it_is_fed_to():
+    """The consumer of a body is the command its `<<` stands in, read from
+    the last `;`, `&`, `|`, newline or parenthesis outside quotes. A
+    `python3 -` body after `cd X &&` is data, and a `bash` body on the next
+    line is still shell."""
+    command = (
+        "cd /x && python3 - <<'EOF'\nA\nEOF\n"
+        "bash <<'EOF'\nB\nEOF\n"
+        "echo hi | python3 - <<'EOF'\nC\nEOF\n"
+        "(python3 - <<'EOF'\nD\nEOF\n)\n"
+        "python3 -c 'a;b' <<'EOF'\nE\nEOF\n"
+        "sleep 1 & perl - <<'EOF'\nF\nEOF"
+    )
+    assert reader.heredoc_bodies(command) == ["A", "B", "C", "D", "E", "F"]
+    assert reader.shell_bodies(command) == ["B", "E"]
+
+
 def test_a_relative_cd_composes_against_the_directory_the_shell_is_in(tmp_path):
     assert commit_dirs("cd sub && git commit -m x", tmp_path) == [str(tmp_path / "sub")]
 
