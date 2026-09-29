@@ -266,6 +266,29 @@ def test_a_commit_found_before_a_nesting_too_deep_still_stops(
             assert "silent" not in got, (command[:60], which, got)
 
 
+def test_a_cd_behind_a_redirection_is_not_read_as_staying_put(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """#674, `spec.md` W1. From a declared session directory, `2>/dev/null cd
+    U && git commit` commits in U, which declares nothing. At `86256492` the
+    walk did not see a `cd` behind the redirection and read the shell as
+    staying where it was, so the commit was judged against the session's
+    declaration alone and was silent. A `cd` behind a prefix was already
+    refused as unreadable; a redirection is one more thing in front of it."""
+    session = make_repo(tmp_path / "session", declared=True)
+    u = make_repo(tmp_path / "u")
+    for command in (
+        f"2>/dev/null cd {q(u)} && {BODY}",
+        f"2> /dev/null cd {q(u)} && {BODY}",
+        f">/dev/null pushd {q(u)} && {BODY}",
+    ):
+        answers = with_and_without_the_press(
+            monkeypatch, capsys, projects, command, session
+        )
+        for which, got in answers.items():
+            assert "silent" not in got, (command, which, got)
+
+
 def test_the_reverse_direction_still_stops(monkeypatch, capsys, projects, tmp_path):
     """#662's second box. From a declared session directory, `cd U ; git
     commit` also reaches U whenever the `cd` works, and U declares nothing."""

@@ -122,6 +122,11 @@ SUBSTITUTED = {
     "inside a heredoc body a shell runs": f"bash <<'EOF'\necho $({C})\nEOF",
     "an unterminated one": f"echo $({C}",
     "a shell string inside a substitution": f"echo $(bash -c '{C}')",
+    # #674, phase 1: a host glued to a subshell's `(`, and a commit behind a
+    # redirection inside a substitution.
+    "(sh -c)": f"(sh -c '{C}')",
+    "(bash -c) after a list": f"true; (bash -c '{C}')",
+    "a redirected commit in $( )": f"echo $(2>/dev/null {C})",
 }
 
 
@@ -180,6 +185,33 @@ CONTROLS = {
     "rg for watch": 'rg watch "$DIR"',
 }
 
+# #674: round 1's seven controls, rewritten into each position the work item
+# teaches the reader. A program word is read by where it stands, never by
+# whether it is present, so a search word and a positional parameter stay what
+# they were wherever the command itself is moved to (`spec.md` §*How the
+# controls stay unasked*). Each is silent at `86256492` and must stay so.
+ROUND_1_CONTROLS = (
+    "find -exec sh -c with _ {}",
+    "find -exec bash -c with bash {} +",
+    "bash -c over a glob",
+    "bash -c with an expanded $0",
+    "grep for watch",
+    "grep for watch in a substitution's list",
+    "rg for watch",
+)
+POSITIONS = {
+    "P5, behind 2>/dev/null": lambda c: f"2>/dev/null {c}",
+    "P5, behind a spaced 2> target": lambda c: f"2> /dev/null {c}",
+    "P10, glued to (": lambda c: f"({c})",
+}
+CONTROLS.update(
+    {
+        f"{name} [{position}]": rewrite(CONTROLS[name])
+        for name in ROUND_1_CONTROLS
+        for position, rewrite in POSITIONS.items()
+    }
+)
+
 # The same hosts, where the string they run IS an expansion or holds the
 # commit: each must still stop (round 1 of 1790644505, yellow 3's fence).
 STILL_HANDED = {
@@ -205,7 +237,95 @@ STILL_HANDED = {
     "then watch $CMD": 'if true; then watch -g "$CMD"; fi',
     "( watch $CMD )": '( watch -g "$CMD" )',
     "! watch $CMD": '! watch -g "$CMD"',
+    # #674, phase 1: a program word behind a redirection, and a host glued to
+    # the `(` that opens a subshell. Each is silent at `86256492`.
+    "2>/dev/null eval $X": '2>/dev/null eval "$X"',
+    "2> /dev/null eval $X": '2> /dev/null eval "$X"',
+    "2>/dev/null watch $CMD": '2>/dev/null watch -g "$CMD"',
+    "2> /dev/null watch $CMD": '2> /dev/null watch -g "$CMD"',
+    "<<<x watch $CMD": '<<<x watch -g "$CMD"',
+    "sh -c with 2>/dev/null before $CMD": "sh -c '2>/dev/null $CMD'",
+    "sh -c with 2> /dev/null before $CMD": "sh -c '2> /dev/null $CMD'",
+    "(watch $CMD)": '(watch -g "$CMD")',
+    "(sh -c $CMD)": '(sh -c "$CMD")',
+    "(nice watch $CMD)": '(nice watch -g "$CMD")',
 }
+
+# #674, phase 1: a commit behind a redirection written in front of `git`, or
+# between `git` and its subcommand. A redirection moves no shell, so each
+# commit is judged where the shell is, as the same commit without the
+# redirection is. Each read as no commit at `86256492`.
+REDIRECTED = {
+    "2>/dev/null git": f"2>/dev/null {C}",
+    "2> /dev/null git": f"2> /dev/null {C}",
+    ">/dev/null git": f">/dev/null {C}",
+    ">>log git": f">>log {C}",
+    "<f git": f"</dev/null {C}",
+    "<>f git": f"<>/dev/null {C}",
+    "<<<x git": f"<<<x {C}",
+    "<<< x git": f"<<< x {C}",
+    "<<EOF git": f"<<EOF {C}\nbody\nEOF",
+    "<< EOF git": f"<< EOF {C}\nbody\nEOF",
+    "<<-EOF git": f"<<-EOF {C}\nbody\n\tEOF",
+    "{fd}>f git": f"{{fd}}>/dev/null {C}",
+    "zsh >!f git": f">!/dev/null {C}",
+    "zsh >>!f git": f">>!/dev/null {C}",
+    "2> >(tee log) git": f"2> >(tee log) {C}",
+    "an assignment, then 2>/dev/null git": f"X=1 2>/dev/null {C}",
+    "2>/dev/null, then an assignment": f"2>/dev/null X=1 {C}",
+    "git 2>/dev/null commit": "git 2>/dev/null commit -m x",
+    "git 2> /dev/null commit": "git 2> /dev/null commit -m x",
+    "git -c k=v 2>/dev/null commit": "git -c k=v 2>/dev/null commit -m x",
+}
+
+# Behind a redirection AND somewhere else the walk does not place: the
+# directory is unresolved for the other reason, as it was without the
+# redirection.
+REDIRECTED_UNPLACED = {
+    "2>/dev/null nice -n 5 git": f"2>/dev/null nice -n 5 {C}",
+    "then 2>/dev/null git": f"if true; then 2>/dev/null {C}; fi",
+}
+
+
+@pytest.mark.parametrize("name", sorted(REDIRECTED))
+def test_a_commit_behind_a_redirection_is_read_where_the_shell_is(name, tmp_path):
+    """Seen red at `86256492`, where each returned nothing."""
+    invocations = found(REDIRECTED[name], tmp_path)
+    assert invocations, f"{name}: no commit read"
+    for inv in invocations:
+        assert not isinstance(inv.base, cmdline.Unresolved), (name, inv.base)
+
+
+@pytest.mark.parametrize("name", sorted(REDIRECTED_UNPLACED))
+def test_a_commit_behind_a_redirection_and_a_construct_is_unplaced(name, tmp_path):
+    invocations = found(REDIRECTED_UNPLACED[name], tmp_path)
+    assert invocations, f"{name}: no commit read"
+    assert all(isinstance(inv.base, cmdline.Unresolved) for inv in invocations), name
+
+
+@pytest.mark.parametrize("name", sorted({**REDIRECTED, **REDIRECTED_UNPLACED}))
+def test_the_gate_stops_a_redirected_commit(monkeypatch, capsys, tmp_path, name):
+    command = {**REDIRECTED, **REDIRECTED_UNPLACED}[name]
+    repo = make_repo(tmp_path / "repo")
+    assert say(monkeypatch, capsys, command, repo) == "deny", name
+
+
+@pytest.mark.parametrize("name", ["2>/dev/null git", "git 2>/dev/null commit"])
+def test_a_redirected_commit_in_a_declared_repository_is_silent(
+    monkeypatch, capsys, tmp_path, name
+):
+    """The redirection is read past, not read as a construct: a declared
+    repository answers the commit the way it answers `git commit` bare."""
+    repo = make_repo(tmp_path / "repo", declared=True)
+    assert say(monkeypatch, capsys, REDIRECTED[name], repo) == "silent", name
+
+
+def test_a_redirection_whose_target_is_named_git_still_reads_as_git(tmp_path):
+    """`spec.md` decision 1. `2>/x/git commit` reads as a git invocation at
+    `86256492`, because the reader took the whole word's last component.
+    Reading past every redirection would read it as none, so the base's answer
+    is kept wherever it found one."""
+    assert found("2>/x/git commit -m x", tmp_path)
 
 
 @pytest.mark.parametrize("name", sorted(STILL_HANDED))
