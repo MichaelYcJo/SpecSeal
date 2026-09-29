@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #681 — https://github.com/MichaelYcJo/SpecSeal/pull/681 |
-| Broad gate | not yet |
+| Broad gate | 5173b591 against cd56113c |
 | Fixes checked by | no fixes to check |
 | Fix range | `80845d3829a289ad78a5c04860a5877d2bd732ec..bcbed21fa15393f66b1a6dc37d5b83dd6b0da1eb`, 2 commits |
 | Contract changes | none |
