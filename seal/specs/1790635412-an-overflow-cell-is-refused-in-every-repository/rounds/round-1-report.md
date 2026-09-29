@@ -199,7 +199,7 @@ A3 cases. It uses that module's `HEADER`, `SPLIT` and `named`/`lines`
 helpers, and was seen red against `6670eb6f` (3 failed) and green with the fix:
 
 ```python
-@pytest.mark.parametrize("ch", [" ", "\x85", "\x0c"])
+@pytest.mark.parametrize("ch", ["\u2028", "\x85", "\x0c"])
 def test_a_character_gfm_does_not_end_a_line_at_does_not_cut_a_row(ch):
     """GFM ends a line at LF, CR and CRLF only; `str.splitlines` also ends
     one at these. Cut there, a split after the cut went unnamed and every

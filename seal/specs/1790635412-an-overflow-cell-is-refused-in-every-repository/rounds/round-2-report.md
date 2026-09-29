@@ -110,7 +110,7 @@ reads the report with `report.splitlines()` and writes lines back joined by LF.
 The record promises that fenced blocks are copied verbatim.
 
 This is the same class as round 1's 🟡 1, one script over. The case the smith
-planted spells the character as `" "`, so no code was harmed. The record
+planted spells the character as `"\u2028"`, so no code was harmed. The record
 is what is wrong, and the tool defect goes to *Deferred*.
 
 ## Verdicts

@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #659 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `b5a41796c072d686c94f55b6db80efd60f39bea2..b934c84758ae06e26af647ee2fe18a7ee512f537`, 1 commit |
 | Contract changes | none |
 | New units | none |
