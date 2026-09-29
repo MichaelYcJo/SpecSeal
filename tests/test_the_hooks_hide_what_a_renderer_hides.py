@@ -257,9 +257,25 @@ def generated(size=CORPUS_SIZE, seed=SEED):
     return docs
 
 
+# Documents a wider generated run found the walk or the oracle wrong on while
+# phase 2 was built, each reduced to the lines that matter, and kept so the
+# next run meets them whatever the seed draws.
+FOUND = [
+    # a blank line between two indented lines is inside the code block
+    ["    code", "", "    more"],
+    # a list item whose content is an indented code block
+    ["-     code"],
+    # a line of only a no-break space is paragraph text, which the parser's
+    # own `str.strip` drops from the top of the inline source
+    [NBSP, "x " + OPEN, "x " + CLOSE],
+    # a no-break space after a closing run: CommonMark does not close there
+    ["```", "x", "``` " + NBSP, "y", "```", "z"],
+]
+
 CORPUS = (
     [SHAPES[name] for name in sorted(SHAPES)]
     + [list(lines) for lines in COMMENT_SHAPES]
+    + FOUND
     + generated()
 )
 
