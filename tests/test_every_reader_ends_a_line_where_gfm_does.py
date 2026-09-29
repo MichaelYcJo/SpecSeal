@@ -234,6 +234,20 @@ def test_gathering_below_a_separator_lands_in_the_section_and_keeps_it():
     )
 
 
+def test_the_sections_index_is_counted_on_the_list_it_indexes():
+    """`insert` indexes `gfm_lines(text)`, and the heading's index is counted
+    with the same split. A text read through `open()` never holds a lone CR,
+    so counting LF agrees on every file `main` reads; handed one directly,
+    the two counts part and the entries land above the heading."""
+    gather = _load("specseal_gather_index", GATHER)
+    text = "# Changelog\n\nIntro\rmore.\n\n## 1.1.0 — 2026-01-02\n\nentry a\n"
+    block = gather.section("1.1.0", "2026-01-03", [("2-b", "entry b")])
+    assert gather.insert(text, block, "1.1.0") == (
+        "# Changelog\n\nIntro\nmore.\n\n## 1.1.0 — 2026-01-02\n\n"
+        "entry a\n\n<!-- specs/2-b -->\nentry b\n"
+    )
+
+
 def fragment_tree(tmp_path, body):
     """A repository root holding one changelog fragment and a changelog."""
     item = tmp_path / "seal" / "specs" / "2-b"
@@ -281,6 +295,17 @@ def test_the_gatherer_and_the_sweep_read_one_marker_alike(monkeypatch):
     )
     assert survivor.gathered_fragments("unused", "HEAD") == set()
     assert gather.live_markers(text) == []
+
+
+def test_the_sweep_loads_its_reader_once_per_path(tmp_path):
+    """`segments` asks the reader for its splitter once per file of the
+    corpus, so the reader is loaded once -- and once per path, so a reader
+    that is not where `READER` now points is still refused."""
+    survivor = _load("specseal_survivor_cache", SURVIVOR)
+    assert survivor.reader() is survivor.reader()
+    survivor.READER = str(tmp_path / "gone" / "unverified_check.py")
+    with pytest.raises(survivor.Refused, match="which says what a retirement is"):
+        survivor.reader()
 
 
 def test_a_sentences_line_number_is_the_files():
