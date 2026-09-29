@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #660 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `3fb828fbac64d04c4666c632cf63e814a95e6a0f..ba7d1e6d2807f5d5de230f28fa7d7ee79d484eae`, 4 commits |
+| Contract changes | _heredoc_split → drop_heredoc_bodies, heredoc_bodies |
+| New units | none |
 | Needs a fix | yes — 🔴 1 (a `#` glued to the heredoc delimiter hides the interpreter's program flag, so a shell-run commit reads as data) and 🔴 2 (a `cd` with an assignment-shaped prefix is trusted, so a `$(…)` side effect or an invalid-identifier prefix hides a commit in the session repository) |
 | Loses a record or crashes | yes — 🔴 1 and 🔴 2 each read a real commit silent that the gate denied at `e8e5f977` |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -26,7 +26,7 @@ Round 3, verifying and the run's last: round 2 closed on its one reopening, so t
 |---|---|---|---|---|
 | 🔴 1 | A `#` glued to the heredoc delimiter word is a shell comment to `shlex` but not to the shell, so an interpreter's program flag after the `<<` is dropped from `program_is_data` and the shell-run body reads as data | `hooks/cmdline.py#program_is_data` | deferred #665 | Executed: three shapes deny at `e8e5f977` and silent at HEAD, and each body ran as shell in a real bash. Round 2's 🔴 1 class, reopened. Fix verified at the tokenizer level, read-level for the gate (NAME NOT IN TREE, reverted with #662 and #665) |
 | 🔴 2 | A `cd` with an assignment-shaped prefix is trusted not to fail, so a `$(…)` side effect in the value or an invalid-identifier prefix drops the session directory and hides a commit in the session repository | `hooks/cmdline.py#_cd_target`, `hooks/cmdline.py#walk_directories` | deferred #662 | Executed: three shapes deny at `e8e5f977` and silent at HEAD, and bash lands the commit in the session repository. Round 2's 🟡 2 class, reopened. Contract §13 |
-| ⬜ 3 | A deny with a falsy non-text `permissionDecisionReason` is refused as unreadable, where pre-#661 forwarded it | `hooks/dispatch.py#readable` | noted | Unchanged from `02e47435`, test-pinned on purpose, degrades to an end-of-turn notice. Not blocking |
+| ⬜ 3 | A deny with a falsy non-text `permissionDecisionReason` is refused as unreadable, where pre-#661 forwarded it | `hooks/dispatch.py#readable` | answered | The deny with a falsy non-text `permissionDecisionReason` is refused as unreadable. That is pinned on purpose, and it degrades to the turn-end notice rather than losing enforcement, as the round itself notes; Unchanged from `02e47435`, test-pinned on purpose, degrades to an end-of-turn notice. Not blocking |
 | 🟢 | round 2's 🔴 1 documented shapes are closed — the five heredoc shapes deny at HEAD | `hooks/cmdline.py#program_is_data`, `hooks/cmdline.py#_heredoc_split` | confirmed | Executed: the planted case passes and the round-2 shapes deny; the class gap is 🔴 1 above |
 | 🟢 | round 2's 🟡 2 documented shapes are closed — a move in a separate earlier segment denies at HEAD | `hooks/cmdline.py#walk_directories` | confirmed | Executed: the planted case passes; the class gap is 🔴 2 above |
 | 🟢 | round 2's 🟡 3 is closed for what it named — a deny beside a non-text `systemMessage` stays a deny, and a falsy `hookSpecificOutput` is absent again | `hooks/dispatch.py#readable` | confirmed | Executed: the planted case passes and `merge` on those shapes was checked directly; the reason field is ⬜ 3 |
