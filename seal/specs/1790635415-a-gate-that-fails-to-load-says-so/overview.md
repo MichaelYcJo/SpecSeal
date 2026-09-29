@@ -18,8 +18,6 @@ the call still goes ahead.
 | How a failure leaves `run_gate` | `plan.md` §*Technical context*: `run_gate` "will also return what failed" | `run_gate` still returns a gate's stdout, and the failure goes into the module-level `dispatch.FAILED` | `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py#test_the_stop_group_reports_the_stop_event` monkeypatches `run_gate` with `lambda _gate, _payload: decision`, a function returning a string. The plan's own constraint is that no existing case be edited to make room |
 | Plain text from the `stop` group | spec silent: `spec.md` §*Scope* item 4 names only the stamp's JSON and nothing | the records wait, and the text is printed as it was | plain `Stop` stdout reaches a different reader than a `systemMessage` (`plan.md`'s Alternatives, the "Also tell the model" row), so converting it would move another gate's output onto a new channel. No gate prints it today |
 | A linked worktree's silent `stop` | `spec.md` §*Data & interfaces*: "it starts no process in a main checkout" | one `git rev-parse` more per turn end in a linked worktree, measured at +17 ms median | within the frame's stated cost; `questions.md` Q4 records the measurement |
-| Why a `cd` on one line did not reach a commit on the next (#662) | `plan.md` phase 5: "find why the gate's path does not carry" the `cd` | the path carries it. The session's directory came from the `cd`'s failure branch, which a newline consumes as `;` does, and that branch is now kept for `\|\|` alone where the `cd` cannot fail | measured on #662's shapes through `commit_invocations` before building; a first, wider fix turned four pinned cases red, and the one that holds leaves them unedited. `phases/phase-5.md` has both |
-| The consumers of #665's rule | the issue: known non-shell interpreters "reading its program from stdin" | `python`, `node`, `ruby`, `perl`, with no script argument or with `-`; any program flag or script file stays shell | the issue lists those four and says unknown stays on the asking side; a script file's stdin is input to a program that may run it as shell |
 
 ## Not verified
 
@@ -40,6 +38,14 @@ process there already, and one parser would want to serve both.
 **`merge()` raised on a gate that printed a JSON array, a number or `null`.**
 This was found in phase 3, predated the branch, and was filed as #661. The
 owner asked mid-run that it be fixed here, and phase 4 fixed it.
+
+**#662 and #665 are not in this branch.** Phase 5 built both, and rounds 2
+and 3 each found false silents in them: commits the gate read as silent that
+it judged at the release branch. After round 3, which ended the run capped,
+the owner decided to take both out and redo them from a clean start in a
+separate work item. Every change phase 5 and round 2's fix pass made for
+them was reverted, so `hooks/cmdline.py` and `hooks/commit-review-gate.py`
+are the release branch's again. `phases/phase-5.md` says so.
 
 ## Fed back into the spec
 

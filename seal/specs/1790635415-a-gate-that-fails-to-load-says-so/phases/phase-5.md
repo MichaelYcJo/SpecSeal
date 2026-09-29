@@ -8,6 +8,14 @@
 | Commit | 8b6b0a00 |
 | Ran by | specseal:smith on claude-opus-5-5 |
 
+**Reverted at the owner's decision after round 3.** Everything this phase
+built, and everything round 2's fix pass added to it, is out of this branch.
+`hooks/cmdline.py` and `hooks/commit-review-gate.py` are the release branch's
+again, with no difference from `origin/release/v0.16.0`. #662 and #665 are
+redone from a clean start in a separate work item. The commit above is the
+one that closed the phase when it was built, and it no longer describes the
+tree.
+
 ## What this phase was asked
 
 Build `plan.md`'s Phase 5, which the owner added after round 1 so that #662
@@ -28,140 +36,31 @@ Shells, `eval`, `ssh`, `xargs` and unknown consumers are still read as shell.
 The command that prompted the person, this phase's own `python3 -` patch, is
 the seen-red case, and both directions are cases.
 
-The spawn also asked for the ledger rows and changelog entries naming both
-issues, every drifted row re-read in place, and this record's pull-request
-lines for `CONTRIBUTING.md` §*What a change to a gate must carry*. Mid-phase,
-every file edit moved to the `Edit` tool. It asked for scratch only under
-`<scratchpad>/1790635415/`, and for staying out of `hooks/routing.py`, where
-work item B works. Phase 5 did not need `routing.py`.
-
 ## What this phase found
 
-- **#662: the frame's premise does not hold, and what does hold was
-  measured before anything was built.** The gate never dropped the `cd` at a
-  newline. `walk_directories` already reads a newline as `;`, and for each
-  of #662's shapes it returned the `cd`'s target AND the session's
-  directory. `;` and a newline run the next line whether the `cd` succeeded
-  or not, so the walk parks the `cd`'s failure branch and they consume it.
-  That is deliberate (#72, `test_a_semicolon_carries_the_commit_to_both`).
-  The prompt came from that second directory. What is true of the shell is
-  narrower: a `cd` into a directory that is there and can be entered does
-  not fail.
-- **The first fix was too wide, and four existing cases said so.** Dropping
-  the failure branch of every such `cd` turned
-  `test_or_reaches_both_the_session_and_the_destination`,
-  `test_a_middle_segment_does_not_spend_another_repositorys_declaration`,
-  `test_a_skipped_branch_still_reaches_the_gate` and
-  `test_an_alias_on_cd_stops_the_commit` red.
-  - The first three pin a forgery defence: `||` NAMES the failure branch, so
-    a declaration in the target must not answer for `cd <B> || git commit`.
-  - The fourth pins that after `alias cd=…` the reader cannot name the shell,
-    and the failure branch of the next `cd` was the only thing marking it.
+What stays true after the revert, for the work item that redoes both issues.
+None of it describes code in this branch.
 
-  The rule that holds all five: such a `cd`'s failure is parked in `named`,
-  which a `||` consumes and a `;` or newline does not, and only when the
-  shell it leaves is one the reader could name. All four cases pass
-  unedited.
-- **Two conditions were removed because nothing could tell them apart.**
-  - `known`: an unnamed segment's states are already `Unresolved`.
-  - `_enters`'s type checks: an `Unresolved` landing leaves the answer
-    unreadable and therefore stopped.
-
-  `target is not None` stayed. `false && cd C ; git commit` shows why: the
-  failure of `false` skips the `cd`, and the commit runs where the shell
-  started.
-- **#665: the consumer is read in the pass that already finds the bodies.**
-  `_heredoc_split` records, for each body, the text of the command its `<<`
-  stands in, from the last `;`, `&`, `|`, newline or parenthesis outside
-  quotes and comments. A second reading of the command could disagree with
-  that pass about which body is which. `program_is_data` answers from those
-  tokens: `python`, `node`, `ruby` or `perl`, with a version suffix, after
-  any assignments, with no script argument or with `-` as the script. Any
-  program flag (`-c`, `-m`, `-e`, `-E`, `-p`, `--eval`, `--print`), a
-  script file, an untokenisable command and an unlisted name read as shell.
-- **The seen-red command carries test data and was taken verbatim, except
-  its worktree path.** It is `PROMPTED_PATCH` in the gate's module, with
-  `/Users/x/repo-worktrees/item` for the path, which
-  `tests/test_no_real_identifiers.py` requires. It was denied at
-  `e8e5f977` ("cannot read") and reads silent now in a declared repository.
-- **Mutants.**
-  - #662: nine, each killed. The `isdir` check needed an executable regular
-    file before a case told it apart from the execute check.
-  - #665: fifteen, each killed. A program flag needed its argument glued on
-    (`python3 -cprint(1)`, `node --eval=x`), because a separate argument
-    already reads as a script.
-- **Words this made false, enumerated and corrected:**
-  - `docs/commit-review-gate-spec.md`: the `cd X ; git commit` table row, the
-    paragraph on the two consuming operators, and the statement on heredoc
-    bodies, whose `Enforced by:` line names the new cases;
-  - agent contract §9, which said the gate reads every heredoc body as shell;
-  - two case docstrings saying an interpreter list is what #75 declined;
-  - `seal/ledger.md`'s row on heredoc bodies, corrected in place.
-
-  Left as they stand, because they are still true:
-  - `agents/smith.md`'s §9 paragraph and its RIDER. A patch to that file
-    through `cat` or a shell still trips, and `_hides_a_commit` on the
-    file's own text is unchanged.
-  - `docs/worktree-guard-spec.md`'s `cd /no/such/dir ; git switch x`, whose
-    directory is missing.
-  - #72's docstring, exempted in `survivors.md`.
-- **Both changes were parsed as Python 3.9.** A hook runs under whatever
-  `python3` the harness finds. `zip(strict=True)` was avoided in phase 4
-  for the same reason, and index loops replace it here too.
-
-### The pull request's lines for `CONTRIBUTING.md` §*What a change to a gate must carry*
-
-- **A test seen red.**
-  - #662: `test_a_cd_on_one_line_carries_the_commit_on_the_next_to_its_target`
-    (three of #662's four shapes) and
-    `test_a_cd_into_a_directory_that_is_there_has_no_failure_branch` were red
-    at `e8e5f977`.
-  - #665: the command that prompted the person, replayed through the gate,
-    was denied at `e8e5f977`. The consumer predicate and the body pairing
-    cases were red there too.
-  - The reverse directions held before and are pinned.
-  - Twenty-four mutants were run, one per changed branch, and each was
-    killed.
-- **A stated failure direction.** Both changes allow more, and each only
-  where the shell cannot do otherwise. **Corrected 2026-09-29 in round 2's
-  fix pass.** As first written, the bound did not hold. Round 2 read three
-  real commits silent: a shell-run body behind a `<<` whose consumer was read
-  only up to the redirect, a `cd` whose target an earlier `mv` or `chmod`
-  changed, and a `deny` beside a message that is not text (#661). The fix
-  pass found a fourth, a separator written `';'` or `\;`. As corrected:
-  - #662 stops judging the session's directory after a `cd` into an
-    existing, enterable directory, and only while every segment before that
-    `cd` is itself a `cd`. The hook reads the filesystem before anything
-    runs, so any other earlier command voids the trust (contract §13). A
-    commit there would need such a `cd` to fail between the hook and the
-    shell. `||` keeps that branch whenever the command names it.
-  - #665 stops reading one body a known interpreter runs as its own
-    program, in one exact shape, read from the whole line: the interpreter
-    with nothing or only `-` before `<<`, nothing after its word, one `<<`,
-    no backslash, and quotes kept so a quoted separator stays a word.
-    `python3 -` running `subprocess.run(["git", "commit", …])` was never
-    read as a commit before, so nothing is open that was closed. Every other
-    shape and every unlisted consumer stay on the asking side.
-  - The cheaper mistake here is a false prompt over a false allow, and the
-    rule is drawn so that where the reader cannot be certain, it reads as
-    shell and keeps the failure branch. The prompts removed were measured:
-    four in one `automation` run for #665 and one for #662, each stopping a
-    run that promised no question.
-- **A prompt budget.** It goes down. The change adds no question, and it
-  removes the prompt for `cd <worktree> && …` followed by a commit on the
-  next line, and for a `python3 -` patch whose body holds `git commit` as
-  data.
-- **Platform honesty.**
-  - `os.access(X_OK)` on a directory means nothing on Windows, so there a
-    `cd` into an existing directory is taken to succeed. The case that
-    refuses entry by mode is skipped on Windows and as root, with the reason
-    in its `skipif`.
-  - Nothing inspects processes.
-  - The cases ran on macOS only, and CI's three legs run them.
+- **#662's premise, measured:** the gate never dropped the `cd` at a
+  newline. It judged the `cd`'s target and also the session's directory,
+  because `;` and a newline consume a `cd`'s failure branch (#72, deliberate).
+  The prompt came from that failure branch.
+- **Three kinds of false silent came out of the attempts, each read by a
+  later round:**
+  - #665, round 2's 🔴 1: the consumer was read only up to the `<<`, so words
+    after the redirect, a bundled flag, and a `$(…)`, `${…;…}` or `>&` read a
+    shell-run body as data. The fix pass found a fifth way: a separator
+    written `';'` or `\;`, which a posix tokeniser unquoted.
+  - #662, round 2's 🟡 2: the hook reads the filesystem before the command
+    runs, so `mv W X ; cd W ; git commit` trusted a `cd` that fails (contract
+    §13).
+  - Round 3's two 🔴, in `3fb828fb`'s record, are what ended the run capped.
+- **What held and stays:** #661's `readable`, including round 2's 🟡 3 fix, is
+  phase 4's and is not reverted. The `||` forgery cases and the alias case
+  were never edited and still pass.
 
 ## What this phase removes
 
 | Removed item | Where it must land |
 |---|---|
-| The `known` condition and `_enters`'s type checks, from the first version of the rule | none: each was redundant, as *What this phase found* says |
-| `heredoc_bodies` as the gate's reader of bodies (the function stays, and the gate now reads `shell_bodies`) | `hooks/cmdline.py#shell_bodies` |
+| Every change to `hooks/cmdline.py` and `hooks/commit-review-gate.py` for #662 and #665, their cases in `tests/test_gate_judges_the_repo_it_commits_to.py`, their sentences in `docs/commit-review-gate-spec.md` and agent contract §9, ledger rows G7 and G8, the `seal/ledger.md` heredoc row's correction, their changelog entries, and 0.4.0's re-read notes on `_heredoc_split` | the separate work item that redoes #662 and #665 |

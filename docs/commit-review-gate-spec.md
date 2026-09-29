@@ -101,7 +101,7 @@ a `cd` on one side of them does not move the shell the commit runs in at all.
 | The command | What is judged |
 |---|---|
 | `cd X && git commit` | the repository holding X |
-| `cd X ; git commit` | X alone where X is a directory the shell can enter and every segment before the `cd` is a `cd`, and both otherwise — `;` runs the commit whether the `cd` succeeded or not, and only a `cd` that can fail leaves it in the session's own repository (#662). An earlier `mv`, `chmod` or any other command can change X before the `cd` meets it, and the gate reads the filesystem before anything runs |
+| `cd X ; git commit` | both — `;` runs the commit whether the `cd` succeeded or not, so a failed `cd` leaves it in the session's own repository |
 | `cd X \|\| git commit` | both — the session's own repository and X |
 | `cd X \| git commit`, `cd X \|& git commit`, `cd X & git commit` | both, and for a different reason: the commit runs in a subshell that never left the session's own repository, and a shell told to run a pipeline's last stage in the current shell (`shopt -s lastpipe`) does land in X |
 | `cd N \|\| cd B && git commit` | both N and B — the second `cd` is skipped whenever the first works |
@@ -142,25 +142,18 @@ Enforced by: tests/test_gate_judges_the_repo_it_commits_to.py::test_a_commit_aim
 edits a file is still a command line this gate reads.** Dropping a heredoc
 body from the walk decides where a commit lands; whether the command commits
 at all is asked of every body separately, as shell, on purpose, because a
-commit hidden in a body used to walk straight past (legacy #75). The one
-exception is a body fed to a known non-shell interpreter reading its program
-from stdin — `python3 -`, `node`, `ruby`, `perl` — which is that program and
-not shell (#665), in one exact shape: the command holding the `<<` is that
-name with nothing or only `-` before the `<<` and nothing after its word, on
-a line with no other `<<` and no backslash. Every other token in that command
-— a flag, a script, an assignment, a redirect, a `$(…)` — and every other
-consumer read as shell. Two kinds of
+commit hidden in a body used to walk straight past (legacy #75). Two kinds of
 segment count there. One is a segment whose command word is `git` with the
 `commit` subcommand, so what counts is the position and never the presence of
 the word: a whole fixture file of shell commands held in Python strings is
-clean, while an eight-line patch of that file through a shell or `cat` trips
-(#34). The other has no commit in it at all — an `eval` whose argument the
-reader cannot expand stops the session, since nothing can tell what it reduces
-to without running the shell. So a session that searched its patch for a
-commit and found none has not cleared it, and an edit the `Edit` tool makes
-leaves no command line to read. Skipping a body that is only being written to
-a file would reopen #75, and that trade is the repository owner's to make.
-Enforced by: tests/test_edits_go_through_the_edit_tool.py::test_the_rule_names_the_tool_and_pairs_its_two_reasons, tests/test_gate_judges_the_repo_it_commits_to.py::test_an_interpreter_fed_heredoc_body_that_commits_stops, tests/test_gate_judges_the_repo_it_commits_to.py::test_a_body_a_shell_may_run_is_still_read_as_shell, tests/test_gate_judges_the_repo_it_commits_to.py::test_a_python_patch_holding_commit_strings_is_not_a_commit
+clean, while an eight-line patch of that file trips (#34). The other has no
+commit in it at all — an `eval` whose argument the reader cannot expand
+stops the session, since nothing can tell what it reduces to without running
+the shell. So a session that searched its patch for a commit and found none
+has not cleared it, and an edit the `Edit` tool makes leaves no command line
+to read. Skipping a body that is only being written to a file would reopen
+#75, and that trade is the repository owner's to make.
+Enforced by: tests/test_edits_go_through_the_edit_tool.py::test_the_rule_names_the_tool_and_pairs_its_two_reasons, tests/test_gate_judges_the_repo_it_commits_to.py::test_an_interpreter_fed_heredoc_body_that_commits_stops
 
 <!-- specs/1788305134-the-reader-stops-where-it-need-not -->
 
@@ -179,18 +172,6 @@ two repositories where `cd X && git commit` answers for one. Only `\|\|` was
 treated as a consumer, so the session's own repository dropped out of the `;`
 answer and a routing declaration in X silenced a commit that could land in
 either. `bash -c 'cd /no/such/dir ; pwd'` prints the directory it started in.
-
-A `cd` into a directory that is there and can be entered does not fail, so
-its failure branch waits for a `||` alone, which names it. A `;` or a newline
-after such a `cd` reaches X and nothing else: `cd X && make` with the commit
-on the next line answers for X, as the shell does (#662). Before that, it
-also answered for the session's own repository, and one `automation` run was
-stopped by a prompt because that repository had no declaration while X had
-one. The gate reads the filesystem before the command runs, so the directory
-is trusted only while every segment before the `cd` is itself a `cd`: `mv X Y
-; cd X ; git commit` commits where it started. A `cd` after any other
-command, a `cd` to a missing directory or to one without the execute bit, and
-a `cd` from a shell the reader could not name all still reach both.
 
 **The reader enumerates what it understands, not what moves a shell.** Where
 it met a construct it did not model it answered *the shell stayed where it

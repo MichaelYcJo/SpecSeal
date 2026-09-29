@@ -291,7 +291,7 @@ def drop_heredoc_bodies(command: str) -> str:
     An unterminated body runs to the end of the input, which is what the shell
     does with one.
     """
-    stripped, _bodies, _consumers = _heredoc_split(command)
+    stripped, _bodies = _heredoc_split(command)
     return stripped
 
 
@@ -306,93 +306,14 @@ def heredoc_bodies(command: str) -> list:
     dropped body hides a `git commit` needs the text this drops, not just the
     command with it gone.
     """
-    _stripped, bodies, _consumers = _heredoc_split(command)
+    _stripped, bodies = _heredoc_split(command)
     return bodies
 
 
-# The interpreters whose program, read from stdin, is not shell (#665). A name
-# not on this list is read as shell, which is the asking side: a shell, `ssh`,
-# `xargs`, and anything this reader has not been told about.
-DATA_INTERPRETERS = ("python", "node", "ruby", "perl")
-# The separators that end the command holding a `<<`, written unquoted. Any
-# other punctuation is part of that command, and so is refused by its shape.
-SEPARATORS = ("&&", "||", ";", "|")
-
-
-def program_is_data(line):
-    """True when `line`, the whole line a heredoc's `<<` stands on, feeds the
-    body to a known non-shell interpreter reading its PROGRAM from stdin, so
-    the body is that program and not shell (#665).
-
-    One exact shape is data, and nothing near it: the command holding the
-    `<<` -- the line cut at unquoted `&&`, `||`, `;` and `|` -- is a name in
-    `DATA_INTERPRETERS` (a path and a version suffix allowed), then nothing
-    or only `-`, then the `<<` and its word, and nothing after. The line
-    holds that one `<<` and no backslash. Every other token in that command
-    reads as shell: a flag or a script before or after the redirect
-    (`python3 <<EOF -c …` runs `-c`, and stdin is then input to a program
-    that may run it as shell), an assignment, a second redirect, a `$(…)`,
-    a subshell, a background job, and a line this cannot tokenise.
-
-    It used to read only the text before the `<<`, back to the last
-    separator, and round 2 found a shell-run body read as data four ways:
-    words after the redirect, a bundled flag (`-Bc`), and a `$(…)`, `${…;…}`
-    or `>&` that moved the separator. Reading the whole line against one
-    shape closes the class rather than those four. The quotes are kept
-    (`posix=False`) and a backslash refuses the line, because a separator
-    written `';'`, `";"` or `\\;` is a word to the shell -- `sh -s ';' python3
-    <<EOF` runs the body in `sh` -- and would otherwise read as a separator.
-    What this opens is already open: `python3 - <<EOF` calling
-    `subprocess.run(["git", "commit", ...])` never read as a commit to
-    anybody, and contract §8 recommends exactly that form for a probe."""
-    if "\\" in line:
-        return False
-    try:
-        lexer = shlex.shlex(line, posix=False, punctuation_chars=True)
-        lexer.whitespace_split = True
-        tokens = list(lexer)
-    except ValueError:
-        return False
-    if tokens.count("<<") != 1:
-        return False
-    command = []
-    for token in tokens:
-        if token in SEPARATORS:
-            if "<<" in command:
-                break
-            command = []
-        else:
-            command.append(token)
-    # The `<<` and its word end the command: where anything follows them, the
-    # head below holds the `<<` and is refused by the shape check.
-    if len(command) < 3:
-        return False
-    head = command[:-2]
-    name = os.path.basename(head[0]).rstrip("0123456789.")
-    return name in DATA_INTERPRETERS and head[1:] in ([], ["-"])
-
-
-def shell_bodies(command: str) -> list:
-    """The heredoc bodies a shell may execute: every body `heredoc_bodies`
-    returns except one fed to a known non-shell interpreter reading its
-    program from stdin (`program_is_data`). A Python patch holding
-    `git commit` as test data is a Python program, and reading its `for`
-    loop as a shell loop stopped four `automation` runs with no commit in
-    them (#665)."""
-    _stripped, bodies, consumers = _heredoc_split(command)
-    return [bodies[i] for i in range(len(bodies)) if not program_is_data(consumers[i])]
-
-
 def _heredoc_split(command: str):
-    """(stripped, bodies, consumers) -- `drop_heredoc_bodies`, `heredoc_bodies`
-    and `shell_bodies` share one pass. `consumers[k]` is the whole line the
-    `<<` of `bodies[k]` stands on, from the newline before it to the newline
-    that starts the body, with any earlier body on it removed. The whole line
-    rather than the text before the `<<`: a flag after the redirect is the
-    consumer's too (round 2's 🔴 1), and `program_is_data` judges the line
-    against one exact shape."""
+    """(stripped, bodies) -- `drop_heredoc_bodies` and `heredoc_bodies` share one pass."""
     out, i, n = [], 0, len(command)
-    bodies, consumers, line_start = [], [], 0
+    bodies = []
     quote, esc, comment, word_start, pending = None, False, False, True, []
     # How deep inside a `${…}` parameter expansion this is. The `((` below is
     # arithmetic everywhere except in here, where it is text the expansion
@@ -574,9 +495,7 @@ def _heredoc_split(command: str):
                 i = j
                 continue
         if ch == "\n":
-            opener_line = "".join(out[line_start:])
             out.append(ch)
-            line_start = len(out)
             i += 1
             comment, word_start = False, True
             for delim, dashed in pending:
@@ -589,14 +508,13 @@ def _heredoc_split(command: str):
                         break
                     body_lines.append(line.rstrip("\r"))
                 bodies.append("\n".join(body_lines))
-                consumers.append(opener_line)
             pending = []
             continue
         out.append(ch)
         comment = comment and ch != "\n"
         word_start = ch in WORD_BREAK
         i += 1
-    return "".join(out), bodies, consumers
+    return "".join(out), bodies
 
 
 def split_segments(command):
@@ -1617,18 +1535,6 @@ def _land(here, prev, target):
     return _step(here, operand)
 
 
-def _enters(landed):
-    """True when a `cd` that lands at `landed` cannot fail: a directory that
-    is there and that the shell may enter.
-
-    A `cd` fails only when its target is missing or cannot be entered (#662).
-    Asked of the filesystem when the hook runs, a moment before the shell
-    does. An `Unresolved` landing is asked like any other: where its text
-    happens to name a directory, the answer still carries the `Unresolved`
-    itself, so the commit is stopped either way."""
-    return os.path.isdir(landed) and os.access(landed, os.X_OK)
-
-
 def compose(base, chdirs):
     """`apply_chdir`, keeping an unreadable base unreadable.
 
@@ -1699,34 +1605,21 @@ def walk_directories(items, cwd):
     # `defined` is the fifth: the functions this string has defined so far, so
     # that a call to one -- a plain word `understood` accepts -- empties the
     # environment instead of keeping a value the body may have rewritten.
-    # `named` is the sixth: failures of a `cd` that cannot fail (`_enters`),
-    # from a shell the reader could name. Only a `||` runs anything from
-    # one, because `||` names the failure branch and a `;` or a newline
-    # reaches it only by sequence (#662). Kept apart from `parked` so a
-    # declaration in the target never answers for `cd <B> || git commit`.
     states, parked, walked, env = [(cwd, None)], [], [], {}
-    named = []
-    # Whether every segment before this one was a `cd`. Only then is the
-    # filesystem `_enters` read the one this `cd` meets: the hook runs before
-    # the whole command, and an earlier segment can move, remove or lock the
-    # target first -- `mv W X ; cd W ; git commit` commits where it started
-    # (round 2's 🟡 2, contract §13). A `cd` changes no directory's contents.
-    settled = True
     stack, defined = [], set()
     for index, (joined, tokens) in enumerate(items):
         following = items[index + 1][0] if index + 1 < len(items) else ""
         tokens = _expanded(tokens, env)
 
-        if joined == "||" and (parked or named):
+        if joined == "||" and parked:
             # Only the failure branch runs a `||`. The live shells skip it —
             # and are still REPORTED, because `cd X || git commit` is judged
             # for X as well as for the directory the shell was in, which is
             # what spec.md S3 pins. What S3 does not ask for is the mirror of
             # that: a failure branch no consumer ever reaches is not reported,
             # which is what keeps `cd <repo> && git commit` costing nothing.
-            running, skipped = _dedup(list(parked) + list(named)), states
-            parked, named = [], []
-        elif joined == ";" and (parked or named):
+            running, skipped, parked = parked, states, []
+        elif joined == ";" and parked:
             # `;` — and a newline, which arrives here as one — runs what
             # follows whether the command before it succeeded or not, so BOTH
             # branches run this segment and neither is skipped. `cd <B> ; git
@@ -1739,7 +1632,6 @@ def walk_directories(items, cwd):
             # past this point nothing tells them apart: each is a live shell
             # whose own failure gets parked again by the segment it runs.
             running, skipped, parked = _dedup(list(states) + list(parked)), [], []
-            named = []
         else:
             running, skipped = states, []
 
@@ -1775,26 +1667,7 @@ def walk_directories(items, cwd):
                 if known
                 else [(Unresolved(str(h), Unresolved.CONSTRUCT), p) for h, p in running]
             )
-            # A `cd` into a directory that is there does not fail, so a `;`
-            # or a newline after it does not reach the shell it left. Without
-            # this, `cd <W> && make` with the commit on the NEXT line was
-            # judged in the session's directory as well as in W, and asked
-            # where W was declared and the session's directory was not
-            # (#662). Such a failure still waits for a `||`, which names it.
-            # A `cd` to a missing directory keeps both, which is #72's case,
-            # and so does a shell the reader could not name: after `alias
-            # cd=…` the unnamed shell is the only sign it could not follow.
-            if target is not None and settled:
-                cannot_fail = [
-                    not isinstance(failed[i][0], Unresolved) and _enters(moved[i][0])
-                    for i in range(len(failed))
-                ]
-                named = _dedup(
-                    named + [failed[i] for i in range(len(failed)) if cannot_fail[i]]
-                )
-                failed = [failed[i] for i in range(len(failed)) if not cannot_fail[i]]
             parked = _dedup(parked + list(failed))
-        settled = settled and target is not None
 
         carried = list(moved)
         # A subshell on either side leaves the parent shell where it was. The
@@ -1805,8 +1678,8 @@ def walk_directories(items, cwd):
         carried += skipped
         states = _dedup(carried)
 
-        if len(states) + len(parked) + len(named) > STATE_CAP:
-            here, prev = (states or parked or named)[0]
+        if len(states) + len(parked) > STATE_CAP:
+            here, prev = (states or parked)[0]
             # CONSTRUCT when the collapse is what made this unreadable: the
             # command reached more directories than the reader will answer
             # for, and that is not a value anyone can write out either.
@@ -1814,7 +1687,6 @@ def walk_directories(items, cwd):
                 [(Unresolved(here, getattr(here, "why", Unresolved.CONSTRUCT)), prev)],
                 [],
             )
-            named = []
 
         # The names this segment leaves behind, for the segments after it.
         # `understood` is the same acceptance test the directory half uses: a

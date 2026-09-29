@@ -223,18 +223,15 @@ the indentation did not match. Where the environment leaves no choice,
 assert that every substitution matched.
 
 And no Bash command line exists, so the commit gate has nothing to read. The
-gate reads a heredoc body as shell, on purpose, unless the command it is fed
-to is a known non-shell interpreter reading its program from stdin, written
-exactly as `python3 - <<'EOF'` (or `node`, `ruby`, `perl`) with no other word
-in that command (#665). Two kinds of segment count. One is
-a segment whose command word is `git` with the `commit` subcommand, whatever
-any other command does with the body — a patch through `cat` or a shell to
-a file carrying shell commands as test data, or to a document showing a
-waiver example verbatim, can leave a commit in command position. That is why
-a whole fixture file is clean and a fragment of one is not: what counts is
-the position, never the presence of the word. The other has no commit in it
-at all: an `eval` whose argument holds a variable, a command substitution or
-a glob stops the session, because nothing can tell what it reduces to without
+gate reads a heredoc body as shell, on purpose, and two kinds of segment
+count. One is a segment whose command word is `git` with the `commit`
+subcommand, whatever the outer command does with the body — a patch to a
+file carrying shell commands as test data, or to a document showing a waiver
+example verbatim, can leave a commit in command position. That is why a whole
+fixture file is clean and a fragment of one is not: what counts is the
+position, never the presence of the word. The other has no commit in it at all:
+an `eval` whose argument holds a variable, a command substitution or a glob
+stops the session, because nothing can tell what it reduces to without
 running the shell, and the gate fails closed. So searching your patch for a
 commit and finding none does not clear it.
 
