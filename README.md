@@ -172,8 +172,10 @@ hash and names what it changed.
 Hooks are scripts the plugin auto-registers; they run on your machine at
 tool events. One process handles all the gates on an event rather than one per
 gate — four interpreter startups per Bash call was most of the cost of having
-them (measured: 220ms → 104ms before a Bash call, 323ms → 120ms after). Full
-decision tables:
+them (measured: 220ms → 104ms before a Bash call, 323ms → 120ms after). A gate
+that fails to load or crashes is skipped and the call goes ahead; at the end of
+the turn you are told which gate it was, once per session. Full decision
+tables:
 [docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) ·
 [docs/commit-review-gate-spec.md](./docs/commit-review-gate-spec.md) ·
 [docs/review-chain-spec.md](./docs/review-chain-spec.md).

@@ -2311,7 +2311,7 @@ def mode(args, cwd):
                 # Not the same answer as "there is no root". A repository
                 # that could not be resolved is a check that did not RUN, and
                 # a gate that cannot tell reads exactly like an allow — the
-                # shape issue #28 is open on. `optin.repo_root` answers ""
+                # shape issue #28 was opened on. `optin.repo_root` answers ""
                 # for a timeout or a git that is not on PATH, and a shared
                 # root committed beside a row saying `local` is what CI is
                 # here to catch.
