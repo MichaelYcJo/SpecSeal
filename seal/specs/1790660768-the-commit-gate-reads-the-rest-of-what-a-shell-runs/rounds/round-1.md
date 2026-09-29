@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #679 — https://github.com/MichaelYcJo/SpecSeal/pull/679 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `3b8522c38d4e400dab57eb86e70ec928ce1490ef..cd4a65d7529d92bd935f528659a7f1e5503982dc`, 8 commits |
 | Contract changes | _segment_names_an_unknown_command → names_an_unknown_command, round-1-report.md, round-1.md; understood → _unreadable_past_leading_redirections, walk_directories, round-1-report.md, round-1.md, pytest |
 | New units | unglued (depth 1); HEADERS_READ (depth 1); STILL_UNREAD (depth 1); test_a_shape_both_shas_read_as_no_commit_is_read (depth 1); UNSEEN_CD (depth 1); test_a_cd_the_walk_did_not_see_stops (depth 1); W1_PREFIXES (depth 1); test_w1_keeps_the_directory_the_base_judged_under_a_waiver (depth 1); test_w1_keeps_the_directory_a_parked_failure_came_from (depth 1); test_w1_keeps_the_directory_the_base_judged_outside_an_opted_in_session (depth 1); test_past_the_header_bound_the_reading_stops (depth 1); test_a_deep_header_nesting_keeps_the_commits_found (depth 1) |
