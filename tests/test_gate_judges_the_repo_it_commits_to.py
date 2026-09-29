@@ -553,6 +553,12 @@ def test_the_program_a_heredoc_feeds_is_named_by_its_consumer():
         "python3 'unclosed <<EOF",
         "python3 -",
         "<<EOF",
+        # A separator the shell reads as a word: `sh -s` runs the body.
+        "sh -s ';' python3 - <<EOF",
+        'sh -s ";" python3 - <<EOF',
+        "sh -s \\; python3 - <<EOF",
+        "sh -s '&&' python3 - <<EOF",
+        "sh -s '|' python3 - <<EOF",
         "",
     )
     for consumer in data:

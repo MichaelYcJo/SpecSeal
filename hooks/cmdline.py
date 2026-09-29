@@ -314,8 +314,8 @@ def heredoc_bodies(command: str) -> list:
 # not on this list is read as shell, which is the asking side: a shell, `ssh`,
 # `xargs`, and anything this reader has not been told about.
 DATA_INTERPRETERS = ("python", "node", "ruby", "perl")
-# The only punctuation a line may carry, beside its one `<<`, for the body
-# fed from it to be data.
+# The separators that end the command holding a `<<`, written unquoted. Any
+# other punctuation is part of that command, and so is refused by its shape.
 SEPARATORS = ("&&", "||", ";", "|")
 
 
@@ -325,33 +325,35 @@ def program_is_data(line):
     the body is that program and not shell (#665).
 
     One exact shape is data, and nothing near it: the command holding the
-    `<<` is a name in `DATA_INTERPRETERS` (a path and a version suffix
-    allowed), then nothing or only `-`, then the `<<` and its word, and
-    nothing after. The line holds that one `<<`, no `$` or backtick, and no
-    punctuation but `&&`, `||`, `;` and `|`. Every other token anywhere reads
-    as shell: a flag or a script before or after the redirect (`python3
-    <<EOF -c …` runs `-c`, and stdin is then input to a program that may run
-    it as shell), an assignment, a second redirect, a subshell, a
-    background job, and a line this cannot tokenise.
+    `<<` -- the line cut at unquoted `&&`, `||`, `;` and `|` -- is a name in
+    `DATA_INTERPRETERS` (a path and a version suffix allowed), then nothing
+    or only `-`, then the `<<` and its word, and nothing after. The line
+    holds that one `<<` and no backslash. Every other token in that command
+    reads as shell: a flag or a script before or after the redirect
+    (`python3 <<EOF -c …` runs `-c`, and stdin is then input to a program
+    that may run it as shell), an assignment, a second redirect, a `$(…)`,
+    a subshell, a background job, and a line this cannot tokenise.
 
     It used to read only the text before the `<<`, back to the last
     separator, and round 2 found a shell-run body read as data four ways:
     words after the redirect, a bundled flag (`-Bc`), and a `$(…)`, `${…;…}`
     or `>&` that moved the separator. Reading the whole line against one
-    shape closes the class rather than those four. What this opens is
-    already open: `python3 - <<EOF` calling `subprocess.run(["git",
-    "commit", ...])` never read as a commit to anybody, and contract §8
-    recommends exactly that form for a probe."""
+    shape closes the class rather than those four. The quotes are kept
+    (`posix=False`) and a backslash refuses the line, because a separator
+    written `';'`, `";"` or `\\;` is a word to the shell -- `sh -s ';' python3
+    <<EOF` runs the body in `sh` -- and would otherwise read as a separator.
+    What this opens is already open: `python3 - <<EOF` calling
+    `subprocess.run(["git", "commit", ...])` never read as a commit to
+    anybody, and contract §8 recommends exactly that form for a probe."""
+    if "\\" in line:
+        return False
     try:
-        lexer = shlex.shlex(line, posix=True, punctuation_chars=True)
+        lexer = shlex.shlex(line, posix=False, punctuation_chars=True)
         lexer.whitespace_split = True
         tokens = list(lexer)
     except ValueError:
         return False
-    if tokens.count("<<") != 1 or any("$" in t or "`" in t for t in tokens):
-        return False
-    punctuation = [t for t in tokens if not t.strip("();<>|&")]
-    if any(t != "<<" and t not in SEPARATORS for t in punctuation):
+    if tokens.count("<<") != 1:
         return False
     command = []
     for token in tokens:
