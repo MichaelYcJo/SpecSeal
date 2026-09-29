@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #675 — https://github.com/MichaelYcJo/SpecSeal/pull/675 |
-| Broad gate | not yet |
+| Broad gate | 7ffa520c against cd56113c |
 | Fixes checked by | no fixes to check |
 | Fix range | none |
 | Contract changes | none |
