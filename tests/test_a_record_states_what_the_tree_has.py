@@ -1453,6 +1453,31 @@ def test_a_heading_anchor_github_strips_punctuation_from_is_not_refused(tmp_path
     ], findings
 
 
+def test_a_heading_github_renders_before_it_slugs_is_not_refused(tmp_path):
+    """Round 3 of 1790635414, 🟡 9. GitHub slugs a heading's rendered text
+    and anchors a setext heading and one inside a blockquote, so each of
+    these is a real anchor of the file: a setext `Don't`, a quoted `Won't`,
+    an emphasised `Note`, a linked code span, an inline tag and an entity.
+    An invented anchor is still refused."""
+    tree(
+        tmp_path,
+        **{
+            "README.md": "# Tool\n\nDon't\n-----\n\n> ## Won't\n\n## _Note_\n\n"
+            "## [`evidence_check.py`](a.py)\n\n## <kbd>Esc</kbd>\n\n## Isn&#39;t\n"
+        },
+    )
+    findings, names, _ = coordinate_refusals(
+        tmp_path,
+        "See `README.md#dont`, `README.md#wont`, `README.md#note`, "
+        "`README.md#evidence_checkpy`, `README.md#esc`, `README.md#isnt` and "
+        "`README.md#uninstall`.",
+    )
+    assert names == 7, findings
+    assert [d.split(" — ")[0] for _, _, d in findings] == ["`README.md#uninstall`"], (
+        findings
+    )
+
+
 # --- this repository's own records ------------------------------------------
 
 

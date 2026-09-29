@@ -477,7 +477,8 @@ a missing file, a path out of the root — each segment is read the way the
 same name written bare is: an underscore, and the whole corpus. Three
 fragments are not refused: after a `.md` path, a GitHub heading anchor
 (`README.md#install`, `README.md#dont` for `## Don't`), read against the
-file's words lower-cased and the anchors GitHub builds from its headings; a line
+file's words lower-cased and the anchors GitHub builds from its rendered
+headings, setext and quoted ones included; a line
 anchor, `#L120`, which names no unit; and a path the stamp half calls
 `EXTERNAL`, which is not read at all. What it gives up: a name that survives
 only in a comment of the named file passes, and a bare file name paired with
@@ -598,6 +599,11 @@ absent, or the record is wrong, and the marker is one comment away.
 - The generic unit rule stops AT a closing brace rather than including it. The
   brace carries no claim, and a language-aware rule for what closes a block is
   the per-language parser this deliberately does not have.
+- A `path#name` whose name holds a hyphen or starts with a digit is not read at
+  all, so a multi-word heading anchor such as `README.md#known-limits` is
+  checked by nobody. And a `#` line GitHub does not render as a heading — in
+  an unclosed fence, an HTML comment, front matter or `<pre>` — still gives the
+  file an anchor, so a record naming it passes.
 
 ## Migrating a pre-anchor ledger
 

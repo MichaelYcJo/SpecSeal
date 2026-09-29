@@ -70,6 +70,7 @@ import datetime
 import functools
 import glob
 import hashlib
+import html
 import importlib.util
 import os
 import re
@@ -2901,6 +2902,25 @@ def stated_coordinates(lines):
 
 # An ATX heading's text, without its closing `#` run.
 GITHUB_HEADING_RE = re.compile(r"^ {0,3}#{1,6}[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*$")
+# A setext heading's underline, and the container prefix -- a blockquote, a
+# list marker -- a heading may sit behind. GitHub anchors both kinds.
+SETEXT_UNDERLINE_RE = re.compile(r"^ {0,3}(?:=+|-+)[ \t]*$")
+HEADING_CONTAINER_RE = re.compile(
+    r"^(?: {0,3}(?:>[ \t]?|[-*+][ \t]+|\d{1,9}[.)][ \t]+))+"
+)
+# GitHub slugs a heading's RENDERED text: a link's target, an inline tag and
+# an emphasis run's delimiters are not in it.
+HEADING_MARKUP_RES = (
+    (re.compile(r"!?\[([^\]]*)\]\([^)]*\)"), r"\1"),
+    (re.compile(r"<[^>]+>"), ""),
+    (re.compile(r"(?<![\w*])(\*\*|__|\*|_)(?=\S)(.+?)(?<=\S)\1(?![\w*])"), r"\2"),
+)
+
+
+def github_slug(text):
+    """TEXT's anchor: entities decoded, lower-cased, every character but a
+    letter, digit, `_`, `-` or space dropped, each space a `-`."""
+    return re.sub(r"[^\w\- ]", "", html.unescape(text).lower()).replace(" ", "-")
 
 
 def heading_slugs(body):
@@ -2908,12 +2928,28 @@ def heading_slugs(body):
     character but a letter, digit, `_`, `-` or space dropped, and each space
     a `-` (round 2 of work item 1790635414). So `## Don't` is `dont` and a
     code-span heading `evidence_check.py` is `evidence_checkpy`, neither a
-    word of the file. A line in a fence that closes is not a heading."""
+    word of the file. A line in a fence that closes is not a heading.
+
+    GitHub slugs what it RENDERS (round 3): a setext heading and one behind a
+    blockquote or list marker are headings too, and a link's target, an
+    inline tag and an emphasis run's delimiters are not in the text. Each
+    heading is slugged as written and as rendered, so the second slug adds
+    only the heading's own words."""
     slugs = set()
-    for line in gfm_lines(unquoted(body)):
-        m = GITHUB_HEADING_RE.match(line)
+    lines = gfm_lines(unquoted(body))
+    for n, line in enumerate(lines):
+        bare = HEADING_CONTAINER_RE.sub("", line)
+        m = GITHUB_HEADING_RE.match(bare)
         if m:
-            slugs.add(re.sub(r"[^\w\- ]", "", m.group(1).lower()).replace(" ", "-"))
+            text = m.group(1)
+        elif n and SETEXT_UNDERLINE_RE.match(bare) and lines[n - 1].strip():
+            text = HEADING_CONTAINER_RE.sub("", lines[n - 1]).strip()
+        else:
+            continue
+        slugs.add(github_slug(text))
+        for pattern, repl in HEADING_MARKUP_RES:
+            text = pattern.sub(repl, text)
+        slugs.add(github_slug(text))
     return slugs
 
 
