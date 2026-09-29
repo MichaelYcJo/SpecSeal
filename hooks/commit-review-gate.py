@@ -107,6 +107,8 @@ from cmdline import (
     drop_comments,
     drop_heredoc_bodies,
     heredoc_bodies,
+    merged_segments,
+    merged_view,
     names_an_unknown_command,
     parse_git,
     reparsed_texts,
@@ -180,7 +182,9 @@ def _reads_a_commit(text):
     text = drop_comments(text)
     stripped = drop_heredoc_bodies(text)
     segments, _clean = split_segments(stripped)
-    for toks in segments:
+    # The groups the splitter cut inside a redirection are read too (#674);
+    # an answer here is a boolean, so reading them beside the parts only adds.
+    for toks in [*segments, *merged_segments(stripped)]:
         parsed = parse_git(toks)
         if parsed and parsed[0] == "commit":
             return True
@@ -333,22 +337,25 @@ def commit_invocations(command, cwd=None):
         if cwd is not None
         else [(tokens, (None,)) for _, tokens in items]
     )
-    found = []
+    found, kinds = [], []
     for toks, bases in walked:
-        parsed = parse_git(toks)
-        if parsed and parsed[0] == "commit":
-            for base in bases:
-                found.append(Invocation(parsed[1], parsed[2], base=base))
-            continue
-        arg = _eval_argument(toks)
-        if arg is not None and _eval_hides_a_commit(arg):
-            for base in bases:
-                found.append(Invocation((), (), base=_unresolved_base(base)))
-        # `sh -c '…'`, `su -c '…'`, `env -S '…'`: a string a shell parses
-        # again, the same question `eval`'s argument answers above (#670).
-        if _string_hides_a_commit(toks):
-            for base in bases:
-                found.append(Invocation((), (), base=_unresolved_base(base)))
+        by_kind = _segment_invocations(toks, bases)
+        kinds.append(set(by_kind))
+        found += [inv for invs in by_kind.values() for inv in invs]
+
+    # A redirection the splitter cut at `&` or `|` (`2>&1 git commit`, `sh -c
+    # 2>&1 "$CMD"`) left the program or the string in a segment of its own
+    # (#674). Each group `merged_view` glues back is read beside its parts, and
+    # adds only a kind no part found on its own, so `git commit -m x 2>&1 |
+    # tail -1` keeps exactly the invocation it had. What it adds takes the
+    # directories of the part that holds the command word.
+    for parts, toks, origin in merged_view(items):
+        word = command_word(toks, redirections=True)[0]
+        owner = origin[min(len(toks) - len(word), len(origin) - 1)]
+        seen = set().union(*(kinds[p] for p in parts))
+        for kind, invs in _segment_invocations(toks, walked[owner][1]).items():
+            if kind not in seen:
+                found += invs
 
     for body in heredoc_bodies(drop_comments(command)):
         if _hides_a_commit(body):
@@ -363,6 +370,27 @@ def commit_invocations(command, cwd=None):
             found.append(Invocation((), (), base=_unresolved_base(cwd)))
 
     return found, clean
+
+
+def _segment_invocations(toks, bases):
+    """{kind: invocations} for one segment, the reading `commit_invocations`
+    gives every segment: `commit` for a git commit, else `eval` and `string`.
+
+    Keyed by kind so `merged_view`'s groups can add only what their parts did
+    not find (#674).
+    """
+    parsed = parse_git(toks)
+    if parsed and parsed[0] == "commit":
+        return {"commit": [Invocation(parsed[1], parsed[2], base=b) for b in bases]}
+    out = {}
+    arg = _eval_argument(toks)
+    if arg is not None and _eval_hides_a_commit(arg):
+        out["eval"] = [Invocation((), (), base=_unresolved_base(b)) for b in bases]
+    # `sh -c '…'`, `su -c '…'`, `env -S '…'`: a string a shell parses
+    # again, the same question `eval`'s argument answers above (#670).
+    if _string_hides_a_commit(toks):
+        out["string"] = [Invocation((), (), base=_unresolved_base(b)) for b in bases]
+    return out
 
 
 def commit_targets(cwd, invocations, root_of=None):

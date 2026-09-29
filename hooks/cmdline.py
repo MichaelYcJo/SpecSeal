@@ -671,6 +671,51 @@ def split_segments_with_separators(command):
     return items, True
 
 
+def merged_view(items):
+    """The segments the splitter cut inside a redirection, glued back (#674).
+
+    `split_segments_with_separators` cuts at every `&` and `|`, so `2>&1`,
+    `>&2`, `<&0`, `>&-`, `>|f`, and `&>f` after a word each arrive as a
+    separator between two segments, and a program or a string behind one lands
+    in a segment of its own. The splitter is not changed: teaching it these
+    operators moves every segment in both gates and in the walk, and `cd W
+    2>&1 && git commit` would then be judged in W alone where `86256492` also
+    judged the session's directory (`plan.md` Alternatives B).
+
+    A segment is glued to the next where it ends in a bare redirection
+    operator (`2>`, `>`, `<`, `{fd}>`) and the separator is `&` or `|`, or where
+    the separator is `&` and the next segment begins with `>` (`&>`, `&>>`). A
+    chain folds into one. Returns `(parts, tokens, origin)` for each group of
+    two or more parts: the item indices, the glued tokens, and for each token
+    the index of the item it came from. Callers read a group BESIDE its parts
+    and add only what no part found on its own.
+    """
+    groups = []
+    for index, (sep, tokens) in enumerate(items):
+        if groups and sep in ("&", "|") and tokens:
+            parts, toks, origin = groups[-1]
+            m = _REDIRECTION.match(toks[-1])
+            if m and m.end() == len(toks[-1]):
+                toks[-1] += sep + tokens[0]
+                toks += tokens[1:]
+                origin += [index] * (len(tokens) - 1)
+                parts.append(index)
+                continue
+            if sep == "&" and tokens[0].startswith(">"):
+                toks += ["&" + tokens[0], *tokens[1:]]
+                origin += [index] * len(tokens)
+                parts.append(index)
+                continue
+        groups.append(([index], list(tokens), [index] * len(tokens)))
+    return [g for g in groups if len(g[0]) > 1]
+
+
+def merged_segments(command):
+    """The glued tokens of every group `merged_view` finds in COMMAND."""
+    items, _clean = split_segments_with_separators(command)
+    return [tokens for _parts, tokens, _origin in merged_view(items)]
+
+
 # Operators that make a segment's effect, or the segment itself, uncertain.
 #
 # `||` runs its right side only when the left FAILED, so a `cd` in front of one
@@ -1764,8 +1809,14 @@ def names_an_unknown_command(text):
     (#674), and either answer counts: `sh -c '2>/dev/null $CMD'` runs `$CMD`,
     while `sh -c '>$LOG echo'` was already asked of `>$LOG` and still is.
     """
-    segments, _clean = split_segments(drop_heredoc_bodies(drop_comments(text)))
-    return any(_segment_names_an_unknown_command(toks) for toks in segments)
+    text = drop_heredoc_bodies(drop_comments(text))
+    segments, _clean = split_segments(text)
+    # The segments the splitter cut inside a redirection are asked again,
+    # glued back (#674, `merged_view`): `2>&1 $CMD` runs `$CMD`.
+    return any(
+        _segment_names_an_unknown_command(toks)
+        for toks in [*segments, *merged_segments(text)]
+    )
 
 
 def _segment_names_an_unknown_command(toks):
