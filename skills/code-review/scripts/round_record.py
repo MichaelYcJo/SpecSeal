@@ -643,7 +643,7 @@ def open_hider(reader, text):
     reviewer can act on and a message that sends them looking for a fence
     they did close.
     """
-    lines = text.splitlines()
+    lines = reader.gfm_lines(text)
     if not reader.strip_comments([*lines, SENTINEL])[-1]:
         return COMMENT
     stripped = reader.strip_comments(lines)
@@ -682,7 +682,7 @@ def hiders_close(reader, text, messages):
     kind = open_hider(reader, text)
     if kind is None:
         return
-    lines = text.splitlines()
+    lines = reader.gfm_lines(text)
     if kind == FENCE:
         line = opens_at(reader, reader.strip_comments(lines), reader.blank_fences)
     else:
@@ -1272,7 +1272,7 @@ def swallowed(reader, report, lines):
     # no knowledge of which slice took the half once it is asked at the
     # destination.
     hiders_close(reader, report, REPORT_HIDERS)
-    stripped = reader.strip_comments(report.splitlines())
+    stripped = reader.strip_comments(reader.gfm_lines(report))
     # `strict=True` states the invariant the pair rests on: both of the
     # reader's passes keep indices intact, so the two reads are the same file
     # line for line. A length that differed would truncate the hidden set,
@@ -1604,7 +1604,7 @@ def inherited_rows(reader, earlier):
         text = read_text(path, f"earlier record round-{k}.md")
         lines = reader.readable(text)
         rows = table_of(
-            reader, text.splitlines(), lines, VERDICTS, VERDICT_HEADER, True
+            reader, reader.gfm_lines(text), lines, VERDICTS, VERDICT_HEADER, True
         )
         for word, line in zip(verdict_words(reader, rows), rows[2:], strict=True):
             cells = [reader.visible(c) for c in reader.split_row(line)]
@@ -1671,7 +1671,7 @@ def reach_forward(reader, rounds, n, rows):
     if not os.path.exists(path):
         return None
     text = read_text(path, f"later record round-{n + 1}.md")
-    raw, lines = text.splitlines(), reader.readable(text)
+    raw, lines = reader.gfm_lines(text), reader.readable(text)
     body = table_body(reader, lines, INHERITED, INHERITED_HEADER, False)
     if body is None:
         raise Refused(
@@ -1769,7 +1769,7 @@ def reach_back(reader, path, n):
     (round 1 of #161's own chain, 🟡 6). Returns the line to print.
     """
     text = read_text(path, f"earlier record round-{n - 1}.md")
-    raw = text.splitlines()
+    raw = reader.gfm_lines(text)
     lines = reader.readable(text)
     hits = [
         i
@@ -2212,7 +2212,7 @@ def build(reader, routing, args, root, item, rounds):
             "naming a commit nobody can open names nothing"
         )
     report = read_text(report_path(rounds, args.round, args.report), "report")
-    raw = report.splitlines()
+    raw = reader.gfm_lines(report)
     lines = reader.readable(report)
     # Before anything is looked up: a section a fence has taken is absent by
     # every later reading, and each of those readings has its own, wrong
@@ -3346,7 +3346,7 @@ def fix_table(reader, path):
     # (measured 2026-09-14). The other two callers are still a real cost and
     # nothing has measured them, so the constant is left alone.
     text = read_text(path, "fix table")
-    raw, lines = text.splitlines(), reader.readable(text)
+    raw, lines = reader.gfm_lines(text), reader.readable(text)
     out, taken, bad, keyed = {}, {}, [], []
     # Two passes, so the id refusal names every offending row before a verdict
     # word on some other row can refuse first. `idless` is off here: in this
@@ -3889,7 +3889,7 @@ def close(args):
     fixes = fix_table(reader, args.fixes)
 
     text = read_text(target, f"record round-{args.round}.md")
-    raw, lines = text.splitlines(), reader.readable(text)
+    raw, lines = reader.gfm_lines(text), reader.readable(text)
     rows = verdict_rows(reader, lines)
     unknown = sorted(n for n in fixes if n not in rows)
     if unknown:
@@ -4428,7 +4428,7 @@ def seal(args):
             rows = chain.table_rows(reader, reader.readable(held_text))
     else:
         text = read_text(path, f"last record round-{n}.md")
-        raw, lines = text.splitlines(), reader.readable(text)
+        raw, lines = reader.gfm_lines(text), reader.readable(text)
         rows = chain.table_rows(reader, lines)
 
     boxes = [m for ln in lines for m in [chain.PASS_RE.match(ln)] if m]
