@@ -630,15 +630,29 @@ OUT_OF_CLASS = {
     ("skills/verify/scripts/unverified_check.py", "overviews_at"): (1, GIT),
     ("skills/verify/scripts/unverified_check.py", "tree_at"): (1, GIT),
 }
-# Work item F's files, exempt whole: F rewrites every reader in them against
-# its own walk, and a count pinned here would redden on F's merge for a
-# design this item does not own.
-F_FILES = {
-    "hooks/config.py": F,
-    "hooks/routing.py": F,
-    "hooks/blocks.py": F,
-    ".github/scripts/rider_check.py": F,
-}
+# Work item F's units, named one by one now that F has landed. Its four files
+# used to be exempt whole, which let any new call in them through --
+# `gfm_places`, which this item wrote into one of them, included (round 1,
+# 🟡 4).
+OUT_OF_CLASS.update(
+    {
+        (".github/scripts/rider_check.py", "Rider.__init__"): (1, F),
+        (".github/scripts/rider_check.py", "gfm_places"): (
+            1,
+            "the pieces `riders_in` reads, each placed on the GFM line it starts in",
+        ),
+        (".github/scripts/rider_check.py", "main"): (1, "the docstring's first line"),
+        (".github/scripts/rider_check.py", "riders_in"): (1, F),
+        (".github/scripts/rider_check.py", "write_block"): (
+            2,
+            "the pieces `riders_in` read, written back each with its own end",
+        ),
+        ("hooks/blocks.py", "walk_text"): (1, F),
+        ("hooks/config.py", "config_rows"): (1, F),
+        ("hooks/config.py", "refusal"): (1, F),
+        ("hooks/routing.py", "table_rows"): (1, F),
+    }
+)
 SHIPPED = ("hooks", "skills", os.path.join(".github", "scripts"))
 
 
@@ -677,9 +691,7 @@ def _walk(node, names, rel, found):
 
 def test_every_splitlines_call_left_is_named_with_its_reason():
     """S19. The class is held closed by a list, not by the next reviewer."""
-    found = {
-        key: count for key, count in splitlines_calls().items() if key[0] not in F_FILES
-    }
+    found = splitlines_calls()
     unnamed = {key: n for key, n in found.items() if key not in OUT_OF_CLASS}
     assert not unnamed, (
         f"`.splitlines(` in a unit this case does not name: {unnamed}. A reader "
@@ -802,3 +814,55 @@ def test_the_gap_below_a_rider_is_read_on_asts_lines():
     )
     rider = riders.riders_in("mod.py", text)[0]
     assert riders.inferred_anchor(checker, "mod.py", text, rider) == "x"
+
+
+@pytest.mark.parametrize("char", SPLITLINES_ONLY, **BY_CODE_POINT)
+@pytest.mark.parametrize(
+    "rel, marker", [("mod.py", "# " + "RIDER:"), ("doc.md", RIDER_MARK)]
+)
+def test_a_rider_behind_a_leading_break_is_still_read(char, rel, marker):
+    """Round 1, 🟡 1. Only whitespace stands before the marker on its GFM
+    line, so `region_lines` cuts the block (`comment_blocks` reads the line
+    `lstrip`ped). The reader has to read it too, or the rider's stamp is
+    never compared and the run reads clean."""
+    riders = _load("specseal_riders_leading", RIDERS)
+    close = " -->" if rel.endswith(".md") else ""
+    text = f"a = 1\n{char}{marker} about a. {STAMP}{close}\nb = 2\n"
+    assert [(r.start, r.end) for r in riders.riders_in(rel, text)] == [(3, 3)]
+
+
+def test_a_statement_between_the_rider_and_the_unit_is_read_on_asts_lines():
+    """Round 1, 🟡 2. A form feed inside a string above the rider puts
+    `str.splitlines` one line ahead of `ast`, so a gap read from its list on
+    the rider's own numbers skipped the `print(s)` standing between the rider
+    and `x`, and `x` was inferred."""
+    riders = _load("specseal_riders_between", RIDERS)
+    checker = riders.load_checker()
+    text = (
+        f"s = 'a{FF}b'\n# {'RIDER:'} about x. Verified 2026-01-01 at abcdef1\n"
+        "print(s)\nx = 1\n"
+    )
+    rider = riders.riders_in("mod.py", text)[0]
+    assert riders.inferred_anchor(checker, "mod.py", text, rider) is None
+
+
+def test_reverify_writes_a_break_inside_a_rider_back_as_it_stood(tmp_path):
+    """Round 1, 🟡 3. `Rider.body` joins its pieces with LF, and
+    `write_block` wrote them back with LF, so a form feed inside a rider
+    became a line break on `--reverify`."""
+    riders = _load("specseal_riders_writeback", RIDERS)
+    (tmp_path / "hooks").mkdir()
+    path = tmp_path / "hooks" / "mod.py"
+    text = (
+        "def g():\n    return 1\n\n\n"
+        f"# {'RIDER:'} about x. Verified 2026-01-01 against x@deadbeef{FF}# more\n"
+        "x = 1\n"
+    )
+    path.write_text(text, encoding="utf-8")
+    written, refused = riders.reverify(
+        str(tmp_path), roots=("hooks",), today="2026-09-29"
+    )
+    assert len(written) == 1 and refused == []
+    after = path.read_text(encoding="utf-8")
+    assert f"{FF}# more\nx = 1\n" in after
+    assert after.count("\n") == text.count("\n")

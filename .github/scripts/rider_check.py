@@ -234,23 +234,31 @@ def quoted_lines(lines, text=None):
 
 def gfm_places(gfm_lines, text):
     """For each `str.splitlines` line of TEXT, in order: (the 1-based GFM
-    line it starts in, whether it starts that line). GFM_LINES is a
-    `gfm_lines` function -- `hooks/blocks.py`'s or the checker's, which
-    `tests/test_every_reader_ends_a_line_where_gfm_does.py` holds equal.
+    line it starts in, whether only whitespace stands before it on that
+    line). GFM_LINES is a `gfm_lines` function -- `hooks/blocks.py`'s or the
+    checker's, which `tests/test_every_reader_ends_a_line_where_gfm_does.py`
+    holds equal.
 
     The reader numbers `str.splitlines` lines and the hasher and `ast` number
     GFM lines, which end at LF, CR and CRLF alone. Below a U+2028, a form
     feed or one of the six other characters only `str.splitlines` breaks at,
     the two numberings part, and this is where one is read in the other's
-    terms (#664)."""
+    terms (#664).
+
+    **Whitespace, not nothing.** `comment_blocks` asks whether a GFM line
+    opens a comment after `lstrip`, so a rider behind a leading form feed or
+    U+2028 is cut by the hasher. The piece after that character is the head
+    of the same rider to the reader, and calling it mid-line stepped over a
+    rider whose stamp was then never compared (round 1, 🟡 1)."""
     heads, at = {}, 0
     for number, line in enumerate(gfm_lines(text, keepends=True), 1):
         heads[at] = number
         at += len(line)
-    out, at, current = [], 0, 0
+    out, at, current, opened = [], 0, 0, 0
     for piece in text.splitlines(keepends=True):
-        current = heads.get(at, current)
-        out.append((current, at in heads))
+        if at in heads:
+            current, opened = heads[at], at
+        out.append((current, not text[opened:at].strip()))
         at += len(piece)
     return out
 
@@ -299,9 +307,10 @@ def comment_blocks(lines, rel=None, text=None):
     `riders_in` passes it; `region_lines` hands over GFM lines already and
     passes none.
 
-    **A marker line that starts inside a GFM line opens no rider**, in any
-    file type (#664, F's round 3, 🟡 3). It follows a break `str.splitlines`
-    makes and GFM and `ast` do not, so `region_lines`, which cuts blocks out
+    **A marker line that starts inside a GFM line, after something other
+    than whitespace, opens no rider**, in any file type (#664, F's round 3,
+    🟡 3). It follows a break `str.splitlines` makes and GFM and `ast` do
+    not, so `region_lines`, which cuts blocks out
     of GFM lines, never cut it: the rider's own stamp was hashed into the
     region it names, and no `--reverify` could make it read ok. Such a line
     is stepped over the way a quoted one is. Only TEXT can say which lines
@@ -574,13 +583,18 @@ def write_block(root, rider, body):
     path = os.path.join(root, rider.rel)
     with open(path, encoding="utf-8") as f:
         lines = f.read().splitlines(True)
-    ending = "\n" if lines and lines[-1].endswith("\n") else ""
-    tail = lines[rider.end :]
-    replacement = [line + "\n" for line in body.splitlines()]
-    if not tail and ending == "":
-        replacement[-1] = replacement[-1].rstrip("\n")
+    # Each piece keeps the end it had, a last one with none keeping none.
+    # BODY is the pieces joined with LF, and writing every piece back with
+    # LF turned a form feed or U+2028 inside a rider into a line break
+    # (round 1 of #664, 🟡 3). `restamp` writes no LF, so BODY splits into
+    # exactly the pieces it was joined from.
+    old = lines[rider.start - 1 : rider.end]
+    ends = [piece[len(piece.splitlines()[0]) :] for piece in old]
+    replacement = [
+        piece + end for piece, end in zip(body.split("\n"), ends, strict=True)
+    ]
     with open(path, "w", encoding="utf-8") as f:
-        f.write("".join(lines[: rider.start - 1] + replacement + tail))
+        f.write("".join(lines[: rider.start - 1] + replacement + lines[rider.end :]))
 
 
 def reverify(root, only=None, roots=RIDER_ROOTS, today=None, checker=None):
