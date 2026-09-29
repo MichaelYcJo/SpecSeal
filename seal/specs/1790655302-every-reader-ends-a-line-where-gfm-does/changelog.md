@@ -47,7 +47,8 @@
   `install.sh`'s copy does not have. The script now ends a line at LF alone,
   as `install.sh`'s `awk` does.
 - **The rider check reads no rider whose marker line follows one of the
-  eight characters mid-line** (#664). Such a rider was read and never cut
+  eight characters mid-line, unless the line opens a comment** (#664). Such
+  a rider was read and never cut
   from the region its stamp hashes, so its own stamp was hashed and
   `--reverify` could not make it read ok. A rider on a line of its own is
   read as before. `rider_check.py` now loads `hooks/blocks.py` for a
@@ -61,5 +62,6 @@
   the conversation it protects.
 - **`rider_check.py --reverify` and `--migrate` write a rider back with the
   line ends it had** (#664). A form feed or U+2028 inside a rider used to
-  come back as a line break, and a CRLF rider came back as LF. A rider
-  behind a form feed or U+2028 at the start of its line is still read.
+  come back as a line break, and a file with CRLF or lone-CR line ends
+  came back with LF throughout. A rider behind a form feed or U+2028 at
+  the start of its line, or behind a comment on its line, is still read.
