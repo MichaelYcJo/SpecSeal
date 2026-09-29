@@ -158,9 +158,11 @@ uvx --with pytest --with markdown-it-py==4.2.0 python3 -m pytest tests/ -q
 # or: pip install pytest markdown-it-py==4.2.0 && python3 -m pytest tests/
 ```
 
-CI runs four jobs: lint (`ruff check` + `ruff format --check`), the suite on
-ubuntu, macOS and Windows at the floor stated above, the evidence ledger
-against this repository, and the hygiene workflow that guards releases. A change to any
+CI runs five jobs: lint (`ruff check` + `ruff format --check`), the suite on
+ubuntu, macOS and Windows at the floor stated above, `tests/test_arm_check.py`
+at 3.13 and 3.14 (`arm-check`'s node-type tables are only as true as the
+interpreter that reads them, #684), the evidence ledger against this
+repository, and the hygiene workflow that guards releases. A change to any
 hook needs a test that fails without it — see the counterfeit rule below.
 
 **The suite runs with `gh` logged out, on your machine as on CI.** CI's
