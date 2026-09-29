@@ -746,12 +746,23 @@ def test_the_rider_check_never_leaves_both_readings():
     """Half 1, S12's reader. `rider_check.py#comment_blocks` stepped over no
     marker line at `release/v0.16.0`, and a marker line it steps over now,
     `quoted_lines`, has to be one a renderer hides: a rider it stops reading
-    was never a live one."""
+    was never a live one.
+
+    Two halves, because the reader and the text path part. `quoted_lines`
+    handed the text is the path J3 kept and no shipped caller takes. What
+    `riders_in` runs since #682 is `comment_blocks` over whole GFM lines,
+    whose `quoted_lines` answer each piece takes from the GFM line
+    `gfm_places` puts it on (round 1, ⬜ 4)."""
     wrong = []
     for doc in CORPUS:
         text, lines = as_read(doc)
+        hidden = set(oracle.hidden_text(text))
         new = riders.quoted_lines(lines, text)
-        bad = leaves_both(new, set(), set(oracle.hidden_text(text)), len(lines))
+        bad = leaves_both(new, set(), hidden, len(lines))
+        quoted = riders.quoted_lines(blocks.gfm_lines(text))
+        places = riders.gfm_places(blocks.gfm_lines, text)
+        read = {k for k, number in enumerate(places) if number - 1 in quoted}
+        bad += leaves_both(read, set(), hidden, len(lines))
         if bad:
             wrong.append((lines, bad))
     assert not wrong, f"{len(wrong)} documents, the first: {wrong[0]}"
