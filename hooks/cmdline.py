@@ -1816,7 +1816,7 @@ def names_an_unknown_command(text):
     )
 
 
-def _segment_names_an_unknown_command(toks):
+def _segment_names_an_unknown_command(toks, nested=False):
     """`names_an_unknown_command` for one segment, every reading ORed (#674).
 
     As written and past redirections (phase 1). Behind a runner's own options
@@ -1824,17 +1824,41 @@ def _segment_names_an_unknown_command(toks):
     that expands counts (`sh -c 'nice -n 5 $CMD'`, `spec.md` P4). Behind a
     compound command's header, the words after it are asked again; a header
     `header_end` cannot place makes any later word that expands count.
+
+    None of those three new readings counts a redirection: its target is a
+    file, never a command, and `>"$LOG"` behind a runner or `{fd}>f` in a case
+    arm would otherwise stop a command that commits nothing. The reading as
+    written keeps doing what it did at `86256492`, `>$LOG echo` included, and
+    NESTED -- the words behind a header -- leaves it out, since that reading
+    is new too.
     """
-    if _expands(command_word(toks)[0]) or _expands(
-        command_word(toks, redirections=True)[0]
-    ):
+    if not nested and _expands(command_word(toks)[0]):
         return True
-    if any(_expands([t]) for t in _behind_a_runner(toks)):
+    if _expands(command_word(toks, redirections=True)[0]):
+        return True
+    if any(_expands([t]) for t in _without_redirections(_behind_a_runner(toks))):
         return True
     h = header_end(toks)
     if h == UNPLACEABLE:
-        return any(_expands([t]) for t in toks[1:])
-    return bool(h) and h < len(toks) and _segment_names_an_unknown_command(toks[h:])
+        return any(_expands([t]) for t in _without_redirections(toks[1:]))
+    return (
+        bool(h)
+        and h < len(toks)
+        and _segment_names_an_unknown_command(toks[h:], nested=True)
+    )
+
+
+def _without_redirections(toks):
+    """TOKS with every redirection taken out, a spaced target with its operator."""
+    out, i = [], 0
+    while i < len(toks):
+        width = redirection_width(toks, i)
+        if width:
+            i += width
+            continue
+        out.append(toks[i])
+        i += 1
+    return out
 
 
 def _behind_a_runner(toks):

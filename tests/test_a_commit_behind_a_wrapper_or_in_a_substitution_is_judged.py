@@ -204,6 +204,12 @@ CONTROLS = {
     "a case word that expands, in a string": "sh -c 'case $1 in a) echo;; esac' _ a",
     "a case word that expands, before a|b)": "sh -c 'case $1 in a|b) echo;; esac' _ a",
     "a for list that expands, in a string": "sh -c 'for f in $@; do echo; done' _ a",
+    # #674, phase 6: a redirection's target is never a command word, so the
+    # new readings -- behind a runner, behind a header, the stand-in -- do not
+    # count one that expands. The differential corpus found these.
+    "a redirection to $LOG behind a runner's options": "sh -c 'nice -n 5 make >\"$LOG\"'",
+    "a redirection to $LOG in a function body": "sh -c 'f() { >\"$LOG\" echo hi; }; f'",
+    "{fd}> in a case arm": "sh -c 'case a in a) {fd}>f echo hi;; esac'",
 }
 
 # #674: round 1's seven controls, rewritten into each position the work item
@@ -496,6 +502,8 @@ def test_a_header_spelling_the_reader_cannot_place_falls_to_the_stand_in():
     assert cmdline.header_end(tokens) == cmdline.UNPLACEABLE
     assert cmdline.command_strings(tokens) == ["$CMD"]
     assert cmdline.names_an_unknown_command("case a b echo $CMD")
+    # A redirection's target is a file, and the stand-in does not count it.
+    assert not cmdline.names_an_unknown_command('case a b echo >"$LOG"')
 
 
 def test_a_string_behind_a_runners_operand_stops_as_the_frame_chose(tmp_path):
