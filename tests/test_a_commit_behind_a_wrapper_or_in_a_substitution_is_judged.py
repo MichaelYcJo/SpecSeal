@@ -560,6 +560,10 @@ SEPARATE = {
     "&& before a redirection": ("a && >f b", []),
     "|| before a redirection": ("a || >f b", []),
     "; before a redirection": ("a; >f b", []),
+    # bash refuses a bare operator before a list operator, and the view does
+    # not make one up either.
+    "a bare operator before &&": ("a > && b", []),
+    "a bare operator before ;": ("a 2> ; b", []),
     "2>&1, then a list": ("a 2>&1 && b", [["a", "2>&1"]]),
 }
 
