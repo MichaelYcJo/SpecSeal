@@ -272,6 +272,10 @@ REDIRECTED = {
     "{fd}>f git": f"{{fd}}>/dev/null {C}",
     "zsh >!f git": f">!/dev/null {C}",
     "zsh >>!f git": f">>!/dev/null {C}",
+    # Glued, `>!f` also reads as `>` with the target `!f`; spaced, only the
+    # operator's own spelling keeps `f` from being read as the program.
+    "zsh >! f git": f">! /dev/null {C}",
+    "zsh >>! f git": f">>! /dev/null {C}",
     "2> >(tee log) git": f"2> >(tee log) {C}",
     "an assignment, then 2>/dev/null git": f"X=1 2>/dev/null {C}",
     "2>/dev/null, then an assignment": f"2>/dev/null X=1 {C}",
