@@ -743,8 +743,9 @@ EDIT_OUTCOMES = {
         "branch's own fragment",
     ),
     "CONTRIBUTING.md": (
+        # #387: the answer dates the reading it asserts.
         "the claim still holds and you have re-read it — run "
-        "`evidence-check --reverify .`",
+        "`evidence-check --reverify --checked <YYYY-MM-DD> .`",
         "remove the row and write the new claim into your own fragment",
     ),
     os.path.join("docs", "the-evidence-ledger.md"): (

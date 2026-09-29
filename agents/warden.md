@@ -409,8 +409,8 @@ line. **A `path#name` you write is read against that path's file**: where the
 path resolves, every segment of the name has to be a token of that file, one
 word or not, so a case you name under the wrong test module is refused
 though another module has it. A bare file name before the `#` resolves to
-nothing, and its name is read as a bare one. **The same module has a second
-arm**: any bare host-shaped token that
+nothing, and its name is read as a bare one.
+**The same module has a second arm**: any bare host-shaped token that
 looks like a real domain and is not in its allowlist fails too — a hostname on
 its own, not only one inside a URL — so a host you quote has to be one that
 allowlist already carries, and `example.com` is the one this repository writes.
