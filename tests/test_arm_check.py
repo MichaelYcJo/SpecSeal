@@ -123,6 +123,15 @@ def test_every_ast_constructor_is_classified():
     )
 
 
+def on_this_python(name, version=None):
+    """Whether `ONLY_ON_SOME_PYTHONS` places `name` on `version`, the
+    running Python's minor version when none is given. A name the table does
+    not hold is on every supported Python."""
+    version = version or sys.version_info[:2]
+    first, gone = ARM.ONLY_ON_SOME_PYTHONS.get(name, (None, None))
+    return (first is None or version >= first) and (gone is None or version < gone)
+
+
 def test_the_classification_names_nothing_the_grammar_does_not_have():
     """The other direction, and it is not symmetry for its own sake.
 
@@ -130,12 +139,74 @@ def test_the_classification_names_nothing_the_grammar_does_not_have():
     can reach, and it hides the case above: a removed node type leaves the
     count of classified names unchanged while a name the grammar gained goes
     missing. Subtracting in one direction only would pass on a table that has
-    drifted in both."""
-    extra = ARM.CLASSIFIED - grammar()
-    assert not extra, (
-        f"{sorted(extra)} — classified here and absent from this "
-        f"interpreter's `ast`. A stale name makes the tables look complete "
-        f"while a real one is missing."
+    drifted in both.
+
+    Exact per Python since #684. The tables serve every Python from the floor
+    up, and 3.14 removed five names 3.12 and 3.13 still have, so a name may be
+    absent here when `ONLY_ON_SOME_PYTHONS` says this Python lacks it. That
+    declaration is checked from both sides: a name it places on this Python
+    must be in `ast`, and one it keeps off must not be. A wrong range is then
+    red on the Python it misdescribes, and CI runs this module at every bound
+    (`test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at`).
+
+    Red how: on Python 3.14 at `346b4af7`, naming the five aliases. With
+    `TemplateStr`'s range deleted, red on 3.12 (declared present, absent).
+    With `Num`'s upper bound at 3.13, red on 3.13 (declared absent, present).
+    Executed."""
+    here = grammar()
+    placed = frozenset(n for n in ARM.CLASSIFIED if on_this_python(n))
+    stale = placed - here
+    kept_off = (ARM.CLASSIFIED - placed) & here
+    assert not stale, (
+        f"{sorted(stale)} — classified here and absent from this "
+        f"interpreter's `ast`, and `ONLY_ON_SOME_PYTHONS` does not say this "
+        f"Python lacks them. A stale name makes the tables look complete "
+        f"while a real one is missing. If the name is gone from this Python "
+        f"on purpose, give it the first Python without it in "
+        f"`ONLY_ON_SOME_PYTHONS`."
+    )
+    assert not kept_off, (
+        f"{sorted(kept_off)} — `ONLY_ON_SOME_PYTHONS` says this Python "
+        f"{sys.version_info[0]}.{sys.version_info[1]} lacks them, and its "
+        f"`ast` has them. Correct the range, so the check it buys is not "
+        f"switched off on a Python that still has the name."
+    )
+
+
+def run_tests_floor():
+    """`FLOOR` from `.github/scripts/run_tests.py`, the one place the
+    supported floor is held."""
+    path = os.path.join(ROOT, ".github", "scripts", "run_tests.py")
+    spec = importlib.util.spec_from_file_location("specseal_floor_of_arm_check", path)
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return tuple(loaded.FLOOR)
+
+
+def test_the_range_table_holds_classified_names_and_bounds_above_the_floor():
+    """S5 of work item 1790690762. A range for a name the tables do not
+    classify switches nothing on or off, and reads as if it did. A bound at
+    or below the floor describes a Python this repository does not support,
+    which no case here runs and no leg of CI will.
+
+    Red how: with a range added for an unclassified name, and with a bound
+    of `(3, 12)`. Executed."""
+    unclassified = sorted(set(ARM.ONLY_ON_SOME_PYTHONS) - ARM.CLASSIFIED)
+    assert not unclassified, (
+        f"{unclassified} — ranged in `ONLY_ON_SOME_PYTHONS` and classified "
+        f"in neither `ARM_SHAPES` nor `NOT_ARMS`"
+    )
+    floor = run_tests_floor()
+    low = sorted(
+        (name, bound)
+        for name, bounds in ARM.ONLY_ON_SOME_PYTHONS.items()
+        for bound in bounds
+        if bound is not None and tuple(bound) <= floor
+    )
+    assert not low, (
+        f"{low} — a bound at or below the supported floor {floor}. Every "
+        f"supported Python is above it, so a name missing below the floor "
+        f"needs no row, and one missing at the floor is missing everywhere"
     )
 
 
