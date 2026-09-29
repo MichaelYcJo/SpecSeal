@@ -781,3 +781,25 @@ def test_json_the_merge_can_read_is_merged_as_before():
     ask = {"hookSpecificOutput": {"permissionDecision": "ask"}}
     assert d.classify(json.dumps(ask)) == ("decision", ask)
     assert d.classify("plain\n") == ("text", "plain")
+
+
+def test_a_deny_beside_a_message_that_is_not_text_still_denies():
+    """Round 2's 🟡 3. #661 must not drop output the merge read before. Its
+    decision path reads the decision and its reason and never the
+    `systemMessage`, and a falsy `hookSpecificOutput` was read as absent.
+    Seen red at `02e47435`, where the merge printed nothing for either."""
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_a_deny")
+    deny = {"hookSpecificOutput": {"permissionDecision": "deny"}, "systemMessage": 3}
+    assert d.classify(json.dumps(deny)) == ("decision", deny)
+    assert decision_of(d.merge([json.dumps(deny)], "PreToolUse")) == "deny"
+    for falsy in (False, 0, "", []):
+        body = {"hookSpecificOutput": falsy, "systemMessage": "m"}
+        assert d.classify(json.dumps(body)) == ("json", body), falsy
+        assert json.loads(d.merge([json.dumps(body)], "Stop")) == body, falsy
+    reason = {
+        "hookSpecificOutput": {
+            "permissionDecision": "ask",
+            "permissionDecisionReason": 7,
+        }
+    }
+    assert d.classify(json.dumps(reason))[0] == "unreadable"

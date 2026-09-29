@@ -147,26 +147,29 @@ def run_gate(filename, payload):
 
 
 def readable(parsed):
-    """Whether `merge` can read this JSON: an object, whose
-    `hookSpecificOutput` is an object and whose `permissionDecision`,
-    `permissionDecisionReason` and `systemMessage` are text, each wherever it
-    is present and not null. These are the fields `merge` reads, and each
-    other type raised there -- after every gate had run and outside
-    `run_gate`'s isolation, so one gate's odd output ended the group and a
-    neighbour's `deny` with it (#661)."""
+    """Whether `merge` can read this JSON, asked of the fields the path it
+    takes actually reads. Each other type raised there -- after every gate
+    had run and outside `run_gate`'s isolation, so one gate's odd output
+    ended the group and a neighbour's `deny` with it (#661).
+
+    An object is required, and its `hookSpecificOutput` is an object where
+    it is truthy; a falsy one (`null`, `false`, `0`, `""`, `[]`) was read as
+    absent before #661 and still is. Where it holds a truthy decision, the
+    decision path reads that decision and its reason, so those are text (the
+    reason may be null) and the `systemMessage` is not asked: a `deny` beside
+    a message that is not text is still a `deny` (round 2's 🟡 3). Otherwise
+    the message path reads the `systemMessage`, which is text or null."""
     if not isinstance(parsed, dict):
         return False
-    hook_out = parsed.get("hookSpecificOutput")
-    if hook_out is None:
-        hook_out = {}
+    hook_out = parsed.get("hookSpecificOutput") or {}
     if not isinstance(hook_out, dict):
         return False
-    fields = (
-        hook_out.get("permissionDecision"),
-        hook_out.get("permissionDecisionReason"),
-        parsed.get("systemMessage"),
-    )
-    return all(value is None or isinstance(value, str) for value in fields)
+    decision = hook_out.get("permissionDecision")
+    if decision:
+        reason = hook_out.get("permissionDecisionReason")
+        return isinstance(decision, str) and (reason is None or isinstance(reason, str))
+    message = parsed.get("systemMessage")
+    return message is None or isinstance(message, str)
 
 
 def classify(text):
