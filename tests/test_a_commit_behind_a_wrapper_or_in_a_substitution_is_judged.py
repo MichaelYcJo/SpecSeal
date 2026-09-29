@@ -204,6 +204,7 @@ STILL_HANDED = {
     "sudo -E watch $CMD": 'sudo -E watch "$CMD"',
     "then watch $CMD": 'if true; then watch -g "$CMD"; fi',
     "( watch $CMD )": '( watch -g "$CMD" )',
+    "! watch $CMD": '! watch -g "$CMD"',
 }
 
 
