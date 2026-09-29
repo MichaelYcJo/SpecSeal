@@ -1596,7 +1596,7 @@ def inherited_rows(reader, earlier):
     # blanks that file's tail and hides nothing `fix_table` reads. Narrowed to
     # the section it is `swallowed` parameterised over its three constants,
     # which is a design call. If you open this function, take the whole class
-    # or none of it. Verified 2026-09-08 against inherited_rows@8cef4835
+    # or none of it. Verified 2026-09-29 against inherited_rows@eda008dd
     location = VERDICT_HEADER.index("Location")
     number = VERDICT_HEADER.index("#")
     seen, out = set(), []
