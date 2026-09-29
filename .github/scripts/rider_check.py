@@ -610,9 +610,16 @@ def write_block(root, rider, body):
     # exactly the pieces it was joined from.
     old = lines[rider.start - 1 : rider.end]
     ends = [piece[len(piece.splitlines()[0]) :] for piece in old]
-    replacement = [
-        piece + end for piece, end in zip(body.split("\n"), ends, strict=True)
-    ]
+    pieces = body.split("\n")
+    # The lengths are compared by hand rather than by a strict zip, which a
+    # `python3` older than 3.10 refuses, and a shipped script is run with
+    # whatever `python3` is on PATH (the broad gate of #664).
+    if len(pieces) != len(ends):
+        raise ValueError(
+            f"{rider.rel}:{rider.start}: the body has {len(pieces)} pieces "
+            f"and the rider {len(ends)} lines"
+        )
+    replacement = [pieces[k] + ends[k] for k in range(len(ends))]
     with open(path, "w", encoding="utf-8", newline="") as f:
         f.write("".join(lines[: rider.start - 1] + replacement + lines[rider.end :]))
 
