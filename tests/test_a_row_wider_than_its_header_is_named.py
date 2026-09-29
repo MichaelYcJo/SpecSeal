@@ -20,6 +20,7 @@ No fixture here runs git: the checker calls git for nothing outside
 `--migrate`.
 """
 
+import ntpath
 import os
 import re
 import subprocess
@@ -365,6 +366,28 @@ def test_reverify_names_an_overflowing_row_and_leaves_it(repo):
         "header" in r.stdout.replace(os.sep, "/")
     ), r.stdout
     assert path.read_text(encoding="utf-8") == before
+
+
+def test_reverify_names_an_overflowing_row_with_forward_slashes(
+    repo, monkeypatch, capsys
+):
+    """The `LEFT` line's `<ledger> line <n>` is a coordinate the run built,
+    so it takes `built_name`'s `/`, as `reverify`'s dated and named rows do.
+    Windows' `glob` spells the ledger `seal\\ledger\\f.md`; the case above
+    folds `os.sep` before it compares, so it could not see that. Simulated
+    from a POSIX machine: the display spelling is Windows', and
+    `built_name` reads `ntpath` (`agent-contract` §13)."""
+    path = fragment(repo, "# frag\n\n" + HEADER + SPLIT.format(c=good()))
+    shown = ec.display_name
+    monkeypatch.setattr(
+        ec,
+        "display_name",
+        lambda p, root, flavour=os.path: shown(p, root).replace("/", "\\"),
+    )
+    monkeypatch.setattr(ec.built_name, "__defaults__", (ntpath,))
+    assert ec.reverify([str(path)], str(repo), {}, None) == 1
+    out = capsys.readouterr().out
+    assert "  LEFT  seal/ledger/f.md line 5  OVERFLOW — " in out, out
 
 
 # --- A13 · a new ledger is clean -------------------------------------------

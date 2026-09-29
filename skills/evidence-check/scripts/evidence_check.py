@@ -2238,7 +2238,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
         # names the ledger too. The hashes in the row are still rewritten
         # below where their anchors resolve: the hash is not what is wrong.
         overflow.extend(
-            (f"{display_name(ledger, root)} {coord}", why)
+            (f"{built_name(ledger, root)} {coord}", why)
             for _, coord, why in overflow_rows(text)
         )
         # `(start, end, replacement, what to print)` for every hash this
