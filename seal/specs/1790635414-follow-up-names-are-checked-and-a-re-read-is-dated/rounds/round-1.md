@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #668 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `0cfbcb55da0f61be5e097859a3b2602f63f468bf..42cd6435fd5d141a75b9e58d34c29e0d1d82c4f8`, 2 commits |
+| Contract changes | none |
+| New units | LINE_ANCHOR_RE (depth 1); test_a_cross_repo_name_is_not_read_where_its_stamp_is_external (depth 1); test_a_heading_fragment_and_a_line_anchor_are_not_refused (depth 1); test_a_rider_region_below_a_line_separator_is_the_unit (depth 1); test_a_file_moved_whole_is_re_pointed_and_neither_dated_nor_named (depth 1) |
 | Needs a fix | yes — 🟡 1 (a move-only heal is dated as a re-read), 🟡 2 (a cross-repo name is refused where its stamp is EXTERNAL), 🟡 3 (a heading fragment or line anchor is refused as a name), 🟡 4 (`region_lines` slices a list `resolve_unit` no longer numbers) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,12 +24,12 @@ Round 1, the first finding round, over the work item's own diff `3911a8cf...ae2c
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A move-only heal keeps its recorded hash, and `--checked` still dates the row and prints that its hash moved. Without the flag the row is named as one that took a new hash | `skills/evidence-check/scripts/evidence_check.py:2321`, `:2385`; `skills/evidence-check/SKILL.md:306` | open | executed: fixture ledger row dated `2026-01-01 · 2026-09-28` with the recorded hash unchanged. The owner's answer dates only rows whose hash moved |
-| 🟡 2 | In a parity repository with the original absent, a cross-repo `path#name` is `NOT-IN-TREE` while the same path's stamp is `EXTERNAL` | `skills/evidence-check/scripts/evidence_check.py:2928` | open | executed: head exit 2, base exit 0. Contradicts `seal/releases/0.9.0.md` R5 (`EXTERNAL` is exit 0 in the records arm) and the comment above the `check_records` call in `main` |
-| 🟡 3 | A markdown heading fragment and a GitHub line anchor after a resolving path are refused as unit names | `skills/evidence-check/scripts/evidence_check.py:2924` | open | executed: head exit 2 with two `NOT-IN-TREE`, base exit 0. Both references exist, so the offered marker is false |
-| 🟡 4 | `region_lines` slices `splitlines` with numbers `resolve_unit` now takes from `gfm_lines`, so a non-Python rider below a mid-line U+2028 hashes the wrong lines and an edit to the unit's last line passes | `.github/scripts/rider_check.py:344` | open | executed: region `(3, 5)` at head against `(4, 6)` at base, and the last-line edit moves no hash at head |
-| ⬜ 5 | Correction: the fragment's R1 row claims every re-anchor by identical content is dated | `seal/ledger/1790635414-follow-up-names-are-checked-and-a-re-read-is-dated.md` R1 | open | read. Corrected in place when 🟡 1's fix lands. Paperwork, not counted in `Needs a fix` |
-| ⬜ 6 | Correction: phase 5's enumeration lists `rider_check.py` as not coupled, and it is coupled to `resolve_unit` | `seal/specs/1790635414-follow-up-names-are-checked-and-a-re-read-is-dated/phases/phase-5.md` | open | read. Paperwork, not counted in `Needs a fix` |
+| 🟡 1 | A move-only heal keeps its recorded hash, and `--checked` still dates the row and prints that its hash moved. Without the flag the row is named as one that took a new hash | `skills/evidence-check/scripts/evidence_check.py:2321`, `:2385`; `skills/evidence-check/SKILL.md:306` | **fixed** `671f4e64` | fixed at 671f4e64 — each reverify edit records whether it moved the hash; a row whose edits moved none is re-pointed, neither dated nor named; executed: fixture ledger row dated `2026-01-01 · 2026-09-28` with the recorded hash unchanged. The owner's answer dates only rows whose hash moved |
+| 🟡 2 | In a parity repository with the original absent, a cross-repo `path#name` is `NOT-IN-TREE` while the same path's stamp is `EXTERNAL` | `skills/evidence-check/scripts/evidence_check.py:2928` | **fixed** `671f4e64` | fixed at 671f4e64 — `coordinate_misses` leaves a name unread under exactly the condition `check_text` answers `EXTERNAL`; executed: head exit 2, base exit 0. Contradicts `seal/releases/0.9.0.md` R5 (`EXTERNAL` is exit 0 in the records arm) and the comment above the `check_records` call in `main` |
+| 🟡 3 | A markdown heading fragment and a GitHub line anchor after a resolving path are refused as unit names | `skills/evidence-check/scripts/evidence_check.py:2924` | **fixed** `671f4e64` | fixed at 671f4e64 — a fragment after a `.md` path is also matched against the file's lower-cased tokens, and a `#L<n>` line anchor is not read; executed: head exit 2 with two `NOT-IN-TREE`, base exit 0. Both references exist, so the offered marker is false |
+| 🟡 4 | `region_lines` slices `splitlines` with numbers `resolve_unit` now takes from `gfm_lines`, so a non-Python rider below a mid-line U+2028 hashes the wrong lines and an edit to the unit's last line passes | `.github/scripts/rider_check.py:344` | **fixed** `671f4e64` | fixed at 671f4e64 — `rider_check.py#region_lines` slices `gfm_lines`, the numbering `resolve_unit` uses; executed: region `(3, 5)` at head against `(4, 6)` at base, and the last-line edit moves no hash at head |
+| ⬜ 5 | Correction: the fragment's R1 row claims every re-anchor by identical content is dated | `seal/ledger/1790635414-follow-up-names-are-checked-and-a-re-read-is-dated.md` R1 | answered | corrected at `42cd6435`: the fragment's R1 claim; read. Corrected in place when 🟡 1's fix lands. Paperwork, not counted in `Needs a fix` |
+| ⬜ 6 | Correction: phase 5's enumeration lists `rider_check.py` as not coupled, and it is coupled to `resolve_unit` | `seal/specs/1790635414-follow-up-names-are-checked-and-a-re-read-is-dated/phases/phase-5.md` | answered | corrected at `42cd6435`: `phases/phase-5.md`'s row for `rider_check.py#region_lines`; read. Paperwork, not counted in `Needs a fix` |
 | 🟢 | The records arm reads `seal/follow-up.md` on every run and leaves it out of the corpus | `skills/evidence-check/scripts/evidence_check.py#check_records`, `#tree_names` | confirmed | executed: a follow-up row naming an absent compound name is exit 2 with no live work item. This tree's records arm returns 0 findings over 402 names |
 | 🟢 | No `str.splitlines` call is left in the checker; the eleven hash-side sites read `gfm_lines` | `skills/evidence-check/scripts/evidence_check.py` | confirmed | read: `grep` finds the word only in two comments and one docstring |
 | 🟢 | The date cell is `Checked`, else `Date`, else the fourth of five headerless cells, and escaped pipes do not move it | `skills/evidence-check/scripts/evidence_check.py#date_column`, `#dated_cell` | confirmed | read against `ledger_table_rows` and the vendored and shared `split_row`, which split on the same unescaped pipe |
