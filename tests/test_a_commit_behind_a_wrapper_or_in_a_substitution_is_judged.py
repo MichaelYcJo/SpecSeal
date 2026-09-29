@@ -135,6 +135,10 @@ SUBSTITUTED = {
     "flock --command": f"flock -w 5 /tmp/l --command '{C}'",
     "parallel :::": f"parallel ::: '{C}'",
     "parallel -j2 :::": f"parallel -j2 ::: '{C}'",
+    # #674, phase 4: the same, where the splitter cut the redirection.
+    "sh -c 2>&1": f"sh -c 2>&1 '{C}'",
+    "bash -c 2>&1 before the commit": f"bash -c '2>&1 {C}'",
+    "a commit behind 2>&1 in $( )": f"echo $(2>&1 {C})",
 }
 
 
@@ -227,6 +231,10 @@ POSITIONS = {
     "P8, a glued subshell body": lambda c: f"f() ({c}); f",
     "P8, function f": lambda c: f"function f {{ {c}; }}; f",
     "P9, a coprocess": lambda c: f"coproc {c}",
+    "P6, behind 2>&1": lambda c: f"2>&1 {c}",
+    "P6, behind >&2": lambda c: f">&2 {c}",
+    "followed by 2>&1": lambda c: f"{c} 2>&1",
+    "followed by 2>&1 | tail": lambda c: f"{c} 2>&1 | tail -1",
 }
 CONTROLS.update(
     {
@@ -325,6 +333,19 @@ STILL_HANDED = {
     "flock -w 5 --command $CMD": 'flock -w 5 /tmp/l --command "$CMD"',
     "flock --command=$CMD": 'flock /tmp/l --command="$CMD"',
     "flock -c 2>/dev/null $CMD": 'flock /tmp/l -c 2>/dev/null "$CMD"',
+    # #674, phase 4: a redirection holding `&` or `|`, which the splitter cuts
+    # into a separator. Each is silent at `86256492`, where the string or the
+    # program landed in a segment of its own.
+    "sh -c 2>&1 $CMD": 'sh -c 2>&1 "$CMD"',
+    "sh -c &>/dev/null $CMD": 'sh -c &>/dev/null "$CMD"',
+    "sh -c &>>log $CMD": 'sh -c &>>log "$CMD"',
+    "sh -c >&2 $CMD": 'sh -c >&2 "$CMD"',
+    "bash -c >|/tmp/f $CMD": 'bash -c >|/tmp/f "$CMD"',
+    "su -c 2>&1 $CMD root": 'su -c 2>&1 "$CMD" root',
+    ">&2 watch $CMD": '>&2 watch -g "$CMD"',
+    "<&0 watch $CMD": '<&0 watch -g "$CMD"',
+    ">&- eval $X": '>&- eval "$X"',
+    "sh -c with 2>&1 before $CMD": "sh -c '2>&1 $CMD'",
 }
 
 # #674, phase 1: a commit behind a redirection written in front of `git`, or
@@ -356,6 +377,15 @@ REDIRECTED = {
     "git 2>/dev/null commit": "git 2>/dev/null commit -m x",
     "git 2> /dev/null commit": "git 2> /dev/null commit -m x",
     "git -c k=v 2>/dev/null commit": "git -c k=v 2>/dev/null commit -m x",
+    # #674, phase 4: cut by the splitter, and glued back by `merged_view`.
+    "2>&1 git": f"2>&1 {C}",
+    ">&2 git": f">&2 {C}",
+    "<&0 git": f"<&0 {C}",
+    ">|f git": f">|/dev/null {C}",
+    "git 2>&1 commit": "git 2>&1 commit -m x",
+    "a chain: >&2 2>&1 git": f">&2 2>&1 {C}",
+    # A leading `&>` is a segment that begins with `>f`, read since phase 1.
+    "&>f git": f"&>/dev/null {C}",
 }
 
 # Behind a redirection AND somewhere else the walk does not place: the
@@ -390,7 +420,9 @@ def test_the_gate_stops_a_redirected_commit(monkeypatch, capsys, tmp_path, name)
     assert say(monkeypatch, capsys, command, repo) == "deny", name
 
 
-@pytest.mark.parametrize("name", ["2>/dev/null git", "git 2>/dev/null commit"])
+@pytest.mark.parametrize(
+    "name", ["2>/dev/null git", "git 2>/dev/null commit", "2>&1 git", "git 2>&1 commit"]
+)
 def test_a_redirected_commit_in_a_declared_repository_is_silent(
     monkeypatch, capsys, tmp_path, name
 ):
@@ -485,6 +517,49 @@ def test_sudo_s_does_not_hand_a_quoted_string_to_its_shell_as_a_command_line(tmp
     does run a commit, and `sudo`'s runner reading already finds it."""
     assert not found("sudo -s 'git commit -m x'", tmp_path)
     assert found("sudo -s git commit -m x", tmp_path)
+
+
+def test_a_commit_the_splitter_already_found_is_not_found_twice(tmp_path):
+    """`spec.md` S6's control. `git commit -m x 2>&1 | tail -1` finds its
+    commit in the part before the cut, exactly as at `86256492`, and the
+    merged view adds nothing: the list is the base's list, `2>` and all."""
+    invocations = found("git commit -m x 2>&1 | tail -1", tmp_path)
+    assert [(list(inv.args), list(inv.chdirs)) for inv in invocations] == [
+        (["-m", "x", "2>"], [])
+    ]
+    assert not isinstance(invocations[0].base, cmdline.Unresolved)
+
+
+MERGED = {
+    "2>&1": ("a 2>&1 b", ["a", "2>&1", "b"]),
+    ">&2": (">&2 a", [">&2", "a"]),
+    "<&0": ("<&0 a", ["<&0", "a"]),
+    ">&-": ("a >&- b", ["a", ">&-", "b"]),
+    ">|f": ("a >|f b", ["a", ">|f", "b"]),
+    "&>f after a word": ("a &>f b", ["a", "&>f", "b"]),
+    "&>>f after a word": ("a &>>f b", ["a", "&>>f", "b"]),
+    "a chain": ("a >&2 2>&1 b", ["a", ">&2", "2>&1", "b"]),
+    "{fd}>&1": ("a {fd}>&1 b", ["a", "{fd}>&1", "b"]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(MERGED))
+def test_merged_view(name):
+    """#674, `spec.md` decision 3: the cut operators glued back, as a view."""
+    command, tokens = MERGED[name]
+    items, _clean = cmdline.split_segments_with_separators(command)
+    groups = cmdline.merged_view(items)
+    assert [g[1] for g in groups] == [tokens], name
+
+
+def test_merged_view_leaves_a_real_separator_alone():
+    """A background job, a pipe and a list are not redirections, and the
+    view never glues across one."""
+    for command in ("a & b", "a | b", "a && b", "a > f & b", "a 2>&1 && b"):
+        items, _clean = cmdline.split_segments_with_separators(command)
+        groups = cmdline.merged_view(items)
+        assert all(len(g[0]) == 2 for g in groups), (command, groups)
+        assert all("&&" not in " ".join(g[1]) for g in groups), command
 
 
 def test_a_redirection_with_nothing_after_it_keeps_the_base_subcommand():
