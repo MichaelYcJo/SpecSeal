@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #671 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `ed1c0132c803cba5e8f7e05cc3b3dca060e2363a..195d81765b54e011a72270ef8d918ee786608b4c`, 7 commits |
+| Contract changes | command_word → names_an_unknown_command, walk_directories, parse_git, _eval_argument, round-1-report.md, round-1.md, round-2-report.md, round-2.md |
+| New units | _is_the_program (depth 1); _reads_a_commit (depth 1); test_a_commit_found_before_a_nesting_too_deep_still_stops (depth 1) |
 | Needs a fix | yes — 🔴 1 (a commit found in another repository reads silent beside 500 nested substitutions, below the base); 🟡 2, 🟡 3 and 🟡 4 are each fix or justify |
 | Loses a record or crashes | yes — 🔴 1 reads a commit silent that `3911a8cf` stopped, and bash lands it in the unjudged repository |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 2, verifying, over round 1's fix diff `3006eb85..567069b6` at HEAD `3e443b
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The `RecursionError` catch in `main` discards every invocation already found, so a commit into another repository beside 500 nested substitutions reads silent where the base denied | `hooks/commit-review-gate.py:1183` | open | Executed: three rows deny at `3911a8cf`, raise at `3006eb85`, silent at `567069b6`; bash commits in the target |
-| 🟡 2 | `command_strings` asks a word before the `-c` flag instead of the string, and misses `watch` behind a runner's options or a list opener, so eight shapes the pre-fix head stopped read silent | `hooks/cmdline.py:1468` | open | Executed: eight rows deny at `3006eb85` and are silent at `567069b6`; bash commits for the two shell rows |
-| 🟡 3 | `_eval_argument` finds no `eval` in a case arm, a function body or a coprocess, because the stand-in rule looks for `git` only | `hooks/commit-review-gate.py:216` | open | Executed: four rows silent at base, pre-fix and head; bash commits for the case and function rows |
-| 🟡 4 | The guard spec says the guard asks again after a later `per axis`, but a creation record written under the press is read first | `docs/worktree-guard-spec.md:175` | open | Executed: after the record, `consent` returns `"record"` while `automation_answered` is `False` |
-| ⬜ 5 | The changelog fragment and ledger rows E18 and E20 repeat the claims 🔴 1 and 🟡 4 refute | `seal/specs/1790644505-the-commit-gate-stops-asking-about-commits-that-are-not-there/changelog.md:19` | open | Read; paperwork correction, outside `Needs a fix` |
+| 🔴 1 | The `RecursionError` catch in `main` discards every invocation already found, so a commit into another repository beside 500 nested substitutions reads silent where the base denied | `hooks/commit-review-gate.py:1183` | **fixed** `8cea9a57` | fixed at 8cea9a57 — `_hides_a_commit` wraps the reader and answers True at the depth that overflowed, so the walk's commits are kept; `main`'s `except` stays as a backstop; Executed: three rows deny at `3911a8cf`, raise at `3006eb85`, silent at `567069b6`; bash commits in the target |
+| 🟡 2 | `command_strings` asks a word before the `-c` flag instead of the string, and misses `watch` behind a runner's options or a list opener, so eight shapes the pre-fix head stopped read silent | `hooks/cmdline.py:1468` | **fixed** `8de1b03c` | fixed at 8de1b03c — narrowed in `9bbede7d` and pinned in `c60dfe9c`: a shell's string is the first operand after `-c`, and `watch` counts wherever it is the program; Executed: eight rows deny at `3006eb85` and are silent at `567069b6`; bash commits for the two shell rows |
+| 🟡 3 | `_eval_argument` finds no `eval` in a case arm, a function body or a coprocess, because the stand-in rule looks for `git` only | `hooks/commit-review-gate.py:216` | **fixed** `8de1b03c` | fixed at 8de1b03c — narrowed in `a63bc156`: `command_word` takes the stand-in word, and `_eval_argument` passes `eval`; Executed: four rows silent at base, pre-fix and head; bash commits for the case and function rows |
+| 🟡 4 | The guard spec says the guard asks again after a later `per axis`, but a creation record written under the press is read first | `docs/worktree-guard-spec.md:175` | answered | corrected at `195d8176`: the guard spec and the case docstring say a later `per axis` takes back the commit gate's deny, and a creation record written under the press stands, by the owner-side decision the orchestrator took; no code changed; Executed: after the record, `consent` returns `"record"` while `automation_answered` is `False` |
+| ⬜ 5 | The changelog fragment and ledger rows E18 and E20 repeat the claims 🔴 1 and 🟡 4 refute | `seal/specs/1790644505-the-commit-gate-stops-asking-about-commits-that-are-not-there/changelog.md:19` | answered | corrected at `195d8176`: the changelog fragment and ledger rows E18, E20 (and E1, E14, E15, which repeated the claims); Read; paperwork correction, outside `Needs a fix` |
 | 🟢 | round 1's blocking finding is closed — the fallback for a command the splitter could not finish stands beside what was found | `hooks/commit-review-gate.py:1196` | confirmed | Executed: round 1's four review-arm rows and two parity rows pass at `567069b6`; the nesting case is 🔴 1, a different trigger |
 | 🟢 | round 1's yellow finding 2 is closed as a crash — the gate no longer raises at 500 levels | `hooks/commit-review-gate.py:1183` | confirmed | Executed: exit 0 where `3006eb85` raised; the silence that remains when a commit was found elsewhere is 🔴 1 |
 | 🟢 | round 1's yellow finding 3 is closed — the seven non-commit shapes are silent | `hooks/cmdline.py:1454` | confirmed | Executed: the seven `CONTROLS` rows and the ten `STILL_HANDED` rows pass; what the narrowing drops is 🟡 2 |
