@@ -257,8 +257,14 @@ def test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at():
     is how #684 went unseen: 3.14 changed the grammar in both directions, and
     the one run that met it was a contributor's `.venv`.
 
+    Both sides of a bound need a leg. A bound one Python too low is red only
+    on the bound itself, and one a Python too high is red only on the Python
+    just below it, so a range checked at its bound alone is checked in one
+    direction.
+
     Red how: before `.github/workflows/test.yml` had a job running this module
-    at 3.13 and 3.14, naming 3.14. Executed."""
+    at 3.13 and 3.14, naming 3.14; with the 3.13 leg deleted, naming 3.13.
+    Executed."""
     with open(WORKFLOW, encoding="utf-8") as handle:
         ran = pythons_ci_runs_this_module_at(handle.read())
     bounds = {
@@ -267,14 +273,18 @@ def test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at():
         for bound in pair
         if bound is not None
     }
-    unrun = sorted(bounds - ran)
+    floor = run_tests_floor()
+    below = {
+        (major, minor - 1) for major, minor in bounds if (major, minor - 1) >= floor
+    }
+    unrun = sorted((bounds | below) - ran)
     assert not unrun, (
         f"{['.'.join(map(str, b)) for b in unrun]} — a bound in "
-        f"`ONLY_ON_SOME_PYTHONS` that no job in test.yml runs "
-        f"`tests/test_arm_check.py` at (it runs it at "
+        f"`ONLY_ON_SOME_PYTHONS`, or the Python just below one, that no job "
+        f"in test.yml runs `tests/test_arm_check.py` at (it runs it at "
         f"{['.'.join(map(str, v)) for v in sorted(ran)]}). Add the version as "
-        f"a leg of the job that runs this module, or the range is checked on "
-        f"no interpreter CI has"
+        f"a leg of the job that runs this module, or that side of the range is "
+        f"checked on no interpreter CI has"
     )
 
 
