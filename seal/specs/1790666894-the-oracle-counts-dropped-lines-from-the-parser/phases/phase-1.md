@@ -6,7 +6,7 @@
 |---|---|
 | Phase | 1 |
 | Commit | cbfe84f8 |
-| Ran by | unknown — the spawn prompt named the agent (`smith`) and not the model; the orchestrator fills this row |
+| Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
 
