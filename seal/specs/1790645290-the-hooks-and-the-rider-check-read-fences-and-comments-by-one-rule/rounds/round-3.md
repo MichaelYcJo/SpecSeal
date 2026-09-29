@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #672 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `24dad1326f62b1897b3c35480acfee159b6a0ac5..626f657873f57bb36ea0395c9a670fd71e9ffce2`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 and 🟡 2 (branch-owned units, the inline-HTML class round 2's fix did not enumerate), and 🟡 3 on #664's ground |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 3, verifying and the run's last: round 2 closed on its one reopening. Targ
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A piece that starts inside inline raw HTML other than a comment (CDATA, a processing instruction, a tag's attribute value) that its GFM line opened is claimed live, so with a fence run earlier on the line the config reader reads a `Mode` row its base and a renderer both hide | `hooks/blocks.py:370` | open | executed: `config_rows` gives `[("Mode", "shared")]` for three openers × eight breaks at `8b1492aa`; base and an independent per-piece reading hide the line; 2,035 of 20,000 seeded documents leave both readings. Round 2's fix enumerated only `&lt;!--` (§12). The run is capped: this is a candidate for rung 1, since this work item created `hooks/blocks.py` |
-| 🟡 2 | `_starts_in_a_comment` and `_comment_lines` keep only `html_inline` tokens that are comments, so the oracle cannot see 🟡 1 and agrees with the walk by construction on the rest of inline HTML | `tests/commonmark_oracle.py:154` | open | executed: with the proposed `FOUND` documents the HEAD walk passes the property module against this oracle (61 passed) and fails it against the widened one; this unit is new in round 2's fixes. Candidate for rung 1 |
+| 🟡 1 | A piece that starts inside inline raw HTML other than a comment (CDATA, a processing instruction, a tag's attribute value) that its GFM line opened is claimed live, so with a fence run earlier on the line the config reader reads a `Mode` row its base and a renderer both hide | `hooks/blocks.py:370` | deferred #673 | #673 — The run is capped. The inline-HTML rest of round 2's class, in `hooks/blocks.py#walk_text`, a unit this work item created; #673 carries the report's fix and cases into this release after this branch lands; executed: `config_rows` gives `[("Mode", "shared")]` for three openers × eight breaks at `8b1492aa`; base and an independent per-piece reading hide the line; 2,035 of 20,000 seeded documents leave both readings. Round 2's fix enumerated only `&lt;!--` (§12). The run is capped: this is a candidate for rung 1, since this work item created `hooks/blocks.py` |
+| 🟡 2 | `_starts_in_a_comment` and `_comment_lines` keep only `html_inline` tokens that are comments, so the oracle cannot see 🟡 1 and agrees with the walk by construction on the rest of inline HTML | `tests/commonmark_oracle.py:154` | deferred #673 | #673 — The oracle half of the same class, `tests/commonmark_oracle.py#_starts_in_a_comment` and `#_comment_lines`; executed: with the proposed `FOUND` documents the HEAD walk passes the property module against this oracle (61 passed) and fails it against the widened one; this unit is new in round 2's fixes. Candidate for rung 1 |
 | 🟡 3 | `riders_in` opens a rider at a marker after a break GFM does not honour, and `region_lines` (GFM lines since #668) never cuts it, so that rider's own stamp is inside the region its hash covers | `.github/scripts/rider_check.py:345` | deferred #664 | executed: reader `[(4, 5)]` and the stamp line in the hashed region at `8b1492aa` and at #668's tip `2e392d4`, not at the merge base `66b34a4e`. It arrived with #668, and #664 (open) owns the class, so rung 2 |
-| ⬜ 4 | The re-pinned rider case dropped the region half that put a fence run after the break, so a hasher walking the reader's split passes it | `tests/test_a_rider_reaches_its_file.py:613` | open | executed: the old half holds at HEAD for eight breaks; under a splitlines mutant of `region_lines` the old half fails and the new half passes |
-| ⬜ 5 | 0.9.1 S2's merge re-read says every rider block is removed from the one list before the hash; 🟡 3's rider is not | `seal/releases/0.9.1.md` | open | a paperwork correction, left out of `Needs a fix`; it becomes true again with 🟡 3's fix |
+| ⬜ 4 | The re-pinned rider case dropped the region half that put a fence run after the break, so a hasher walking the reader's split passes it | `tests/test_a_rider_reaches_its_file.py:613` | deferred #673 | #673 — The rider case's dropped region half, restored with #673; executed: the old half holds at HEAD for eight breaks; under a splitlines mutant of `region_lines` the old half fails and the new half passes |
+| ⬜ 5 | 0.9.1 S2's merge re-read says every rider block is removed from the one list before the hash; 🟡 3's rider is not | `seal/releases/0.9.1.md` | answered | a record correction at `626f6578`: 0.9.1 S2 no longer says every rider block is removed, and names #664; a paperwork correction, left out of `Needs a fix`; it becomes true again with 🟡 3's fix |
 | 🟢 | round 2's blocking finding 1 is closed for its shape — a piece inside an inline comment its line opened is uncertain | `hooks/blocks.py:370` | confirmed | executed: the eight config cases and the `walk_text` case fail with `hooks/blocks.py` from `67746d05` (9 failed) and pass at HEAD |
 | 🟢 | round 2's blocking finding 2 is closed for its shape — the oracle asks the parser where a piece starts | `tests/commonmark_oracle.py:180` | confirmed | executed: the two new oracle assertions fail for all eight breaks with the oracle from `67746d05` and pass at HEAD |
 | 🟢 | the merge's adjustment — `region_lines` hands `comment_blocks` GFM lines and no text | `.github/scripts/rider_check.py:415` | confirmed | executed: the re-pinned half fails for all eight breaks with `rider_check.py` from `9de34fad`, passes at HEAD |
