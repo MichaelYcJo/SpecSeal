@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #663 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `c7338c43a149c39c71d954aad76a72435759f658..1729cf0f79ae3377600f3953fb801f0b3bac9dad`, 8 commits |
+| Contract changes | commented → commented_row_at |
+| New units | BACKTICKS (depth 1); comment_after (depth 1); walk (depth 1); hidden (depth 1); test_a_row_inside_a_closed_comment_excuses_nothing (depth 1); test_a_comment_opener_quoted_in_a_code_span_hides_no_rider (depth 1); test_a_comment_hides_no_table_and_answers_for_none (depth 1); test_delimiters_quoted_in_code_spans_hide_nothing (depth 1); test_a_fence_line_inside_a_comment_hides_no_table (depth 1) |
 | Needs a fix | yes — 🟡 1 (the rider check loses a rider after a comment opener quoted in a code span), 🟡 2 (the routing reader misses a declaration under a comment holding a fence line, and reads a commented-out row as the answer), 🟡 3 (a commented-out exemption excuses a survivor) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 2, two jobs. Verifying: round 1's fixes, `1d3eb8a5..a06f23b2`. Finding: ph
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The rider check's comment scan reads a comment opener quoted in a code span as an opener, so a rider quoted in a fence below is read and the real rider after it is lost | `.github/scripts/rider_check.py:240` | open | Executed: HEAD returns the quoted block (6, 7) and misses the real one at (12, 13), which `68bcb224` reads. None in today's tree. Inside a unit round 1's fixes rewrote |
-| 🟡 2 | The routing reader opens a fence on a line inside an HTML comment, so a declaration with such a note above its table is now none; and a row parked in a closed comment below the table still answers for it | `hooks/routing.py:118` | open | Executed: the base parses the first shape and HEAD returns None; the second reads straight to the PR. With the fix both read the chain and 0 of 25 declarations differ |
-| 🟡 3 | The exemption reader takes a row inside a closed HTML comment as an exemption, so a withdrawn row excuses a survivor | `skills/code-review/scripts/survivor_check.py:1774` | open | Executed: the commented row is read. With `readable` it is not, and 0 of 15 files differ |
+| 🟡 1 | The rider check's comment scan reads a comment opener quoted in a code span as an opener, so a rider quoted in a fence below is read and the real rider after it is lost | `.github/scripts/rider_check.py:240` | **fixed** `17aaf200` | fixed at 17aaf200 — `a7581653`: a comment delimiter inside a code span that closes on its line is text to the rider check; Executed: HEAD returns the quoted block (6, 7) and misses the real one at (12, 13), which `68bcb224` reads. None in today's tree. Inside a unit round 1's fixes rewrote |
+| 🟡 2 | The routing reader opens a fence on a line inside an HTML comment, so a declaration with such a note above its table is now none; and a row parked in a closed comment below the table still answers for it | `hooks/routing.py:118` | **fixed** `6576a83f` | fixed at 6576a83f — `a7581653`: `hooks/routing.py#hidden` decides comments before fences and reads code spans, held with the config reader to one parity oracle built from shared functions. The round's ❓ on `hooks/config.py#fence_map` was answered into this fix by the orchestrator: `config.py` has one walk, `walk`, on the same rule, which reverses round 1's 🟡 3 reading (a delimiter quoted in a code span no longer hides a table); the three sentences and the pin case say so; Executed: the base parses the first shape and HEAD returns None; the second reads straight to the PR. With the fix both read the chain and 0 of 25 declarations differ |
+| 🟡 3 | The exemption reader takes a row inside a closed HTML comment as an exemption, so a withdrawn row excuses a survivor | `skills/code-review/scripts/survivor_check.py:1774` | **fixed** `83a951a1` | fixed at 83a951a1 — `read_exemptions` reads through `readable`, so a commented-out exemption excuses nothing; Executed: the commented row is read. With `readable` it is not, and 0 of 15 files differ |
 | 🟢 | round 1's finding 1 is closed — the gather refuses a fragment that leaves a fence or a comment open, before any write | `.github/scripts/gather_changelog.py#leaves_open` | confirmed | Built in phase 9. Executed: the cases red at `a06f23b2`, green at HEAD, the dry run over this tree 0 |
 | 🟢 | round 1's finding 2 is closed — the fold refuses the same, before any write | `.github/scripts/fold_ledger.py#leaves_open` | confirmed | Built in phase 9. Executed: the cases red at `a06f23b2`, green at HEAD, the dry run over this tree 0 |
 | 🟢 | round 1's finding 3 is closed — the shipped sentences state the code-span shape and a case pins them | `hooks/config.py#commented` | confirmed | Executed: the module is green with the pin case; read: the three sentences and the changelog fragment |
