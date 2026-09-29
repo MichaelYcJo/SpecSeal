@@ -931,7 +931,8 @@ def test_reverify_keeps_a_crlf_or_cr_file_byte_for_byte(tmp_path, end):
         f"# {'RIDER:'} about x. Verified 2026-01-01 against x@deadbeef",
         "x = 1",
     ]
-    path.write_bytes("".join(line + end for line in lines).encode("utf-8"))
+    before = "".join(line + end for line in lines).encode("utf-8")
+    path.write_bytes(before)
     written, refused = riders.reverify(
         str(tmp_path), roots=("hooks",), today="2026-09-29"
     )
@@ -939,3 +940,7 @@ def test_reverify_keeps_a_crlf_or_cr_file_byte_for_byte(tmp_path, end):
     after = path.read_bytes()
     assert after.count(end.encode()) == 6
     assert after.replace(end.encode(), b"").count(b"\n") == 0
+    # Byte for byte apart from the stamp, so a write that translated LF to
+    # the platform's separator fails too, where that separator is CRLF.
+    stamp = f"2026-09-29 against x@{written[0][1]}".encode()
+    assert after == before.replace(b"2026-01-01 against x@deadbeef", stamp)
