@@ -648,10 +648,12 @@ def test_a_heredoc_that_never_terminates_swallows_the_rest(tmp_path):
     own the way a naive drop that missed the unterminated case would.
 
     It still surfaces as a hidden commit needing review (issue #75), the same
-    accepted cost as `cat > run.sh <<'EOF' … git commit … EOF`: nothing here
-    can tell "cat, so this is data" from "bash, so this runs" without the
-    interpreter enumeration issue #75 rejects, so a swallowed body that reads
-    as a commit stops whether or not its heredoc ever terminated.
+    accepted cost as `cat > run.sh <<'EOF' … git commit … EOF`: telling
+    "cat, so this is data" from "bash, so this runs" would take a list of the
+    commands that never run their stdin, which issue #75 declined. #665 lists
+    the other side instead — the interpreters whose stdin program is not
+    shell — so `cat` is still unlisted and read as shell, and a swallowed body
+    that reads as a commit stops whether or not its heredoc ever terminated.
     """
     command = f"cat <<'EOF'\ncd {sh(tmp_path / 'b')}\ngit commit -m x"
     found, _clean = gate.commit_invocations(command, str(tmp_path))
@@ -675,11 +677,15 @@ def test_a_heredoc_body_does_not_hide_a_commit_that_follows_it(tmp_path):
 def test_an_interpreter_fed_heredoc_body_that_commits_stops(tmp_path):
     """issue #75: `bash <<'EOF'` hands its body to a shell that EXECUTES it,
     unlike `cat`, which only reads it as data (the case above). The reader
-    cannot tell the two apart without the interpreter enumeration issue #75
-    rejects, so a dropped body that reads as a commit stops either way — the
-    accepted cost is a stop on a script that WRITES those words without
-    running them, covered by `test_a_heredoc_body_is_data_and_not_commands`
-    remaining green.
+    does not list the commands that never run their stdin, which issue #75
+    declined, so a dropped body that reads as a commit stops for `cat` and
+    `bash` alike. The accepted cost is a stop on a script that WRITES those
+    words without running them, covered by
+    `test_a_heredoc_body_is_data_and_not_commands` remaining green. What #665
+    lists is narrower and on the asking side: a known non-shell interpreter
+    reading its program from stdin (`python3 -`, `node`, `ruby`, `perl`),
+    whose body is that program — `test_a_body_a_shell_may_run_is_still_read_as_shell`
+    pins that nothing else joined it.
     """
     here = make_repo(tmp_path / "opted-in", opted_in=True)
     out = run("bash <<'EOF'\ngit commit -m x\nEOF", here, session="h")
