@@ -73,6 +73,31 @@ def parser():
 _PARSER = parser()
 
 
+def _behind_markers(line):
+    """Where LINE's own text starts behind its containers' markers: a block
+    quote's `>`, a bullet, an ordered number (CommonMark 5.1, 5.2), each with
+    the spaces and tabs before it. A bullet or a number is a marker only
+    where a space, a tab or the line's end follows it."""
+    at = 0
+    while True:
+        rest = line[at:]
+        text = rest.lstrip(" \t")
+        skip = len(rest) - len(text)
+        if text.startswith(">"):
+            at += skip + 1
+            continue
+        digits = len(text) - len(text.lstrip("0123456789"))
+        if text[:1] in ("-", "+", "*"):
+            marker = 1
+        elif 0 < digits <= 9 and text[digits : digits + 1] in (".", ")"):
+            marker = digits + 1
+        else:
+            return at
+        if text[marker : marker + 1] not in ("", " ", "\t"):
+            return at
+        at += skip + marker
+
+
 def _inline_html_lines(inline, lines):
     """Lines of `inline`'s source that begin inside inline raw HTML in it,
     of any of the six kinds.
@@ -87,13 +112,18 @@ def _inline_html_lines(inline, lines):
     `str.strip` applied to the whole by the parser. That strip also takes a
     line holding only a no-break space or another Unicode space, which
     CommonMark reads as paragraph text, so the lines it dropped from the top
-    are counted back before an offset is turned into a line.
+    are counted back before an offset is turned into a line. A line's
+    container markers are not its text, so a list item's `- ` is skipped as
+    a block quote's `>` is (#673 round 1, 🟡 1).
     """
     out = set()
     if not inline.map or not inline.children:
         return out
     first = inline.map[0]
-    while first < inline.map[1] - 1 and not lines[first].lstrip(" >").strip():
+    while (
+        first < inline.map[1] - 1
+        and not lines[first][_behind_markers(lines[first]) :].strip()
+    ):
         first += 1
     src = inline.content
     starts = [0] + [n + 1 for n, ch in enumerate(src) if ch == "\n"]

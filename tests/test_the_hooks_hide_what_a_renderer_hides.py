@@ -116,6 +116,14 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         (['x <span title="a', "b", 'c"> d', "e"], {1: "inline html", 2: "inline html"}),
         (["x <span title='a", "b", "c'> d", "e"], {1: "inline html", 2: "inline html"}),
         (["x <span", 'lang="en">', "e"], {1: "inline html"}),
+        # a list item whose first line holds only a Unicode space, which the
+        # parser's strip drops: its marker is not text, so the lines are
+        # counted from the next one -- a bullet, a number, a bullet inside a
+        # quote; a `-` with no space after it is no marker, and is text
+        (["- " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["1. " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["> - " + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
+        (["-" + NBSP, "x <? a", "b ?>", "c"], {2: "inline html"}),
     ],
     ids=[
         "fence",
@@ -135,6 +143,10 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         "double-quoted value",
         "single-quoted value",
         "between attributes",
+        "behind a list marker",
+        "behind an ordered marker",
+        "behind a quote and a marker",
+        "a dash that is no marker",
     ],
 )
 def test_the_oracle_names_each_kind_it_hides(lines, hidden):
@@ -636,6 +648,15 @@ def test_a_piece_inside_other_inline_html_its_line_left_open_is_unsure():
     # a `>` inside a quoted value does not end the tag
     quoted = blocks.walk_text(f'a <span title="b>c{ls}d">\n\ne\n')
     assert quoted.uncertain[:2] == [False, True], quoted.uncertain
+    # `<?>` does not close a processing instruction: the `?` is the opener's
+    instruction = blocks.walk_text(f"a <?>{ls}| r |\n?>\n\nd\n")
+    assert instruction.uncertain[:2] == [False, True], instruction.uncertain
+    # a closer before its opener closes nothing
+    early = blocks.walk_text(f"a ?> <? b{ls}| r |\n?>\n\nd\n")
+    assert early.uncertain[:2] == [False, True], early.uncertain
+    # a `>` inside a single-quoted value does not end the tag either
+    single = blocks.walk_text(f"a <span title='b>c{ls}d'>\n\ne\n")
+    assert single.uncertain[:2] == [False, True], single.uncertain
 
 
 @pytest.mark.parametrize("opener", [o for o, _ in INLINE_OPEN_CLOSE[:-1]])
