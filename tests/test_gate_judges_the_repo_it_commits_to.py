@@ -482,6 +482,8 @@ def test_the_program_a_heredoc_feeds_is_named_by_its_consumer():
         "python3 run.py",
         "node -e x",
         "node --eval x",
+        "node --eval=x",
+        "python3 -cprint(1)",
         "perl -e x",
         "ruby -e x",
         "ssh host",
