@@ -1385,6 +1385,48 @@ def test_the_coordinate_form_takes_the_claim_rules(tmp_path, text):
     assert coordinate_refusals(tmp_path, text)[0] == []
 
 
+def test_a_cross_repo_name_is_not_read_where_its_stamp_is_external(tmp_path):
+    """Round 1 of 1790635414, 🟡 2. In a repository that declared another
+    checkout, a path under a top-level directory this tree does not have is
+    `EXTERNAL` to the stamp half at exit 0, and the name half must not refuse
+    it. A missing file under a directory the tree does have is still read."""
+    h = home(tmp_path)
+    (h / "parity.md").write_text("# parity\n", encoding="utf-8")
+    tree(tmp_path, **{"src__mod.py": MOD})
+    work_item(
+        h,
+        "1780000000-live",
+        **{
+            "plan.md": "# p\n\n"
+            "Ports `legacy/src/service.py#get_user_by_id`.\n"
+            "Stamped `legacy/src/service.py#get_user_by_id@abcdef12`.\n"
+            "And `src/gone.py#invented_unit_name`.\n"
+        },
+    )
+    findings, names, stamps = module().check_records(str(tmp_path), str(h))
+    assert (names, stamps) == (1, 1), findings
+    assert [(s, c.replace(os.sep, "/")[-9:]) for s, c, _ in findings] == [
+        ("NOT-IN-TREE", "plan.md:5"),
+        ("EXTERNAL", "plan.md:4"),
+    ], findings
+
+
+def test_a_heading_fragment_and_a_line_anchor_are_not_refused(tmp_path):
+    """Round 1 of 1790635414, 🟡 3. After a `.md` path the fragment is
+    GitHub's heading anchor, which lower-cases the heading's words; a
+    `#L120` line anchor names no unit. A word the file does not carry after
+    the same path is still refused."""
+    tree(tmp_path, **{"README.md": "# Tool\n\n## Install\n\nRun it.\n"})
+    findings, names, _ = coordinate_refusals(
+        tmp_path,
+        "Setup is in `README.md#install`, entry at `src/mod.py#L1`, "
+        "and `README.md#uninstall`.",
+    )
+    assert names == 2, findings
+    assert [s for s, _, _ in findings] == ["NOT-IN-TREE"], findings
+    assert "`uninstall`" in findings[0][2], findings
+
+
 # --- this repository's own records ------------------------------------------
 
 

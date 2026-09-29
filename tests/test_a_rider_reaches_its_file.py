@@ -486,6 +486,19 @@ def test_the_hasher_reads_a_markdown_heading_the_same_way_the_reader_does():
     )
 
 
+def test_a_rider_region_below_a_line_separator_is_the_unit():
+    """#664 one file over (round 1 of 1790635414, 🟡 4): the region is sliced
+    from the lines `resolve_unit` numbered it on, so a U+2028 mid-line above
+    the unit does not put the region one line early, and an edit to its last
+    line moves the hash. The character is built from its code point."""
+    text = f"# Doc\nalpha{chr(0x2028)}beta\n## Target\nline one\nline two\n## Next\nx\n"
+    edited = text.replace("line two", "line two EDITED")
+    kept, why = riders.region_lines(CHECKER, "doc.md", '"## Target"', text)
+    again, _ = riders.region_lines(CHECKER, "doc.md", '"## Target"', edited)
+    assert kept is not None and kept[0] == "## Target", (kept, why)
+    assert CHECKER.content_hash(kept) != CHECKER.content_hash(again)
+
+
 def stamped_module(tmp_path, digest=None, date="2026-01-01"):
     """A rider file under `hooks/`, stamped with its own true hash by default."""
     d = tmp_path / "hooks"

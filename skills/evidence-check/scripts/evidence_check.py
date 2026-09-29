@@ -2318,6 +2318,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                     # beside a boilerplate twin reconstructs too, and that
                     # history is the reader's to judge from the diff
                     # (round 4, 🟡 7).
+                    new_hash = content_hash(gfm_lines(target)[a - 1 : b])
                     edits.append(
                         (
                             m.start("path"),
@@ -2326,8 +2327,12 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                             + text[m.end("path") : m.start("locator")]
                             + name
                             + text[m.end("locator") : m.start("hash")]
-                            + content_hash(gfm_lines(target)[a - 1 : b]),
+                            + new_hash,
                             f"  {raw_path}#{locator} -> {shown}  (identical content)",
+                            # A file moved whole reconstructs with the recorded
+                            # hash, and only a rename moves it: the owner's rule
+                            # dates a row whose HASH moved (#387).
+                            new_hash != m.group("hash"),
                         )
                     )
                 else:
@@ -2368,6 +2373,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                     m.end("hash"),
                     got,
                     f"  {shown}  {m.group('hash')} -> {got}",
+                    True,
                 )
             )
         if not edits:
@@ -2384,6 +2390,12 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
         kept = []
         for number, row_edits in sorted(by_row.items()):
             header, cells = rows.get(number, (None, []))
+            spliced = [edit[:4] for edit in row_edits]
+            if not any(edit[4] for edit in row_edits):
+                # Re-pointed, and no hash moved: no reading to date, and no
+                # undated reading to name.
+                kept.extend(spliced)
+                continue
             column = date_column(header, cells) if cells else None
             where = f"{name}:{number}"
             if checked is not None:
@@ -2405,7 +2417,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
                         else "no date cell",
                     )
                 )
-            kept.extend(row_edits)
+            kept.extend(spliced)
         out, at = [], 0
         for start, end, replacement, said in sorted(kept):
             out.append(text[at:start])
@@ -2671,6 +2683,8 @@ RECORD_NAME_RE = re.compile(r"`([A-Za-z_]\w*)(?:\(\))?`")
 RECORD_COORD_RE = re.compile(
     r"`(?P<path>" + ANCHOR_PATH + r")#(?P<name>" + ANCHOR_NAME + r")(?:\(\))?`"
 )
+# A GitHub line anchor, `path#L120`: it locates a line and names no unit.
+LINE_ANCHOR_RE = re.compile(r"L[0-9]+")
 TOKEN_RE = re.compile(r"[A-Za-z_]\w*")
 # A file bigger than this is not read into the name corpus. A minified bundle
 # or a lockfile is megabytes of tokens that name nothing anyone claims, and
@@ -2909,9 +2923,22 @@ def coordinate_misses(raw_path, name, root, maps, default_repo, known, file_toke
     commonest form unchecked. A dotted name's segments are read one by one,
     because a bare span holds no dot.
 
+    **Two fragments locate text rather than name a unit, and neither is
+    refused** (round 1 of work item 1790635414). After a `.md` path the
+    fragment is GitHub's heading anchor, which lower-cases the heading's
+    words, so the file's tokens are read lower-cased there too. A GitHub line
+    anchor, `#L120`, names no unit at all and is not read.
+
+    **A path `check_text` would call `EXTERNAL` is not read either**: a
+    repository that declared another checkout, a path under a top-level
+    directory this tree does not have. The stamp half calls that path
+    somebody else's at exit 0, and the name half of the same arm must not
+    refuse it.
+
     READ is False where nothing was read -- an unresolved path whose segments
-    carry no underscore -- and MISSING lists the segments refused. FILE_TOKENS
-    is a dict this fills, so a file cited from many lines is read once.
+    carry no underscore, a line anchor, an external path -- and MISSING lists
+    the segments refused. FILE_TOKENS is a dict this fills, so a file cited
+    from many lines is read once.
     """
     segments = [s for s in name.split(".") if s]
     repo, rel = place(root, maps, default_repo, raw_path)
@@ -2920,10 +2947,23 @@ def coordinate_misses(raw_path, name, root, maps, default_repo, known, file_toke
         full = os.path.join(repo, rel)
         if full not in file_tokens:
             body = read(full)
-            file_tokens[full] = None if body is None else set(TOKEN_RE.findall(body))
+            found = None if body is None else set(TOKEN_RE.findall(body))
+            if found is not None and rel.endswith(".md"):
+                found |= {token.lower() for token in found}
+            file_tokens[full] = found
         tokens = file_tokens[full]
     if tokens is not None:
+        if all(LINE_ANCHOR_RE.fullmatch(s) for s in segments):
+            return False, [], True
         return True, [s for s in segments if s not in tokens], True
+    if (
+        repo == root
+        and cross_repo_intent(root, default_repo)
+        and "/" in rel
+        and not os.path.exists(os.path.join(root, rel.split("/")[0]))
+    ):
+        # The condition `check_text` answers EXTERNAL under, word for word.
+        return False, [], False
     claimed = [s for s in segments if compound(s)]
     return bool(claimed), [s for s in claimed if s not in known], False
 

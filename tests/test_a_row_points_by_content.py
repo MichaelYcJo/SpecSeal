@@ -1909,8 +1909,9 @@ def test_a_checked_that_is_not_a_date_to_write_is_refused(repo, args, says):
 
 
 def test_a_healed_row_is_dated_under_checked_and_named_without(repo):
-    """R6: a re-anchor by identical content moves the hash, and the owner's
-    rule is every row whose hash moved."""
+    """R6: a rename healed by identical content moves the hash, because the
+    unit's name is inside its own hashed region, and the owner's rule is
+    every row whose hash moved."""
     row = f"| C1 | `{anchor(repo, 'handler')}` | read | 2026-09-01 | n |\n"
     renamed = SERVICE.replace("def handler", "def handle")
     ledger = ledger_of(repo, row)
@@ -1922,6 +1923,24 @@ def test_a_healed_row_is_dated_under_checked_and_named_without(repo):
     assert "(identical content)" in r.stdout, r.stdout
     assert f"| 2026-09-01 · {READ_ON} |" in ledger.read_text()
     assert "#handle@" in ledger.read_text()
+
+
+@pytest.mark.parametrize(
+    "flags", [[], ["--checked", READ_ON]], ids=["plain", "checked"]
+)
+def test_a_file_moved_whole_is_re_pointed_and_neither_dated_nor_named(repo, flags):
+    """R6's other half (round 1 of 1790635414): a file moved whole
+    reconstructs with the recorded hash, so the path is re-pointed, the hash
+    and the date are byte-identical, and neither block names the row."""
+    before = f"| C1 | `{anchor(repo, 'handler')}` | read | 2026-09-01 | n |\n"
+    ledger = ledger_of(repo, before)
+    (repo / "src" / "service.py").rename(repo / "src" / "moved.py")
+    r = run(["--reverify", *flags, "."], str(repo))
+    assert r.returncode == 0, r.stdout + r.stderr
+    assert "-> src/moved.py#handler  (identical content)" in r.stdout, r.stdout
+    after = ledger.read_text()
+    assert after == before.replace("src/service.py", "src/moved.py"), after
+    assert "dated" not in r.stdout and "kept its date" not in r.stdout, r.stdout
 
 
 def test_a_row_with_several_moved_coordinates_is_dated_once(repo):

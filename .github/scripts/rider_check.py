@@ -341,7 +341,7 @@ def region_lines(checker, rel, locator, text):
             "than the unit. Pick a more distinctive anchor"
         )
     start, end = places[0]
-    lines = text.splitlines()
+    lines = checker.gfm_lines(text)  # the lines `resolve_unit` numbered (#664)
     blocks = comment_blocks(lines, rel)
     kept = [
         line
