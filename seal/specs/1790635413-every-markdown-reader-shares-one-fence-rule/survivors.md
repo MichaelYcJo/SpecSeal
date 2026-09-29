@@ -17,6 +17,7 @@ still true under the shared rule.
 | `skills/implement/scripts/seal.py` | `fence_map` is the fence walk with the state it ENDS in kept | still true: `fence_map` returns `walk`'s shown lines and the index of an unclosed opener |
 | `hooks/cmdline.py` | A name is UNBOUND rather than left alone when the assignment is one this reader does not model | an unrelated sentence about shell assignments that shares only the phrase *does not model* |
 | `seal/specs/1790297086-the-broad-gate-says-what-ci-says/plan.md` | Every guard spelling it does not model is silently not mirrored | an unrelated work item's plan that shares only the phrase *does not model* |
+| `seal/specs/1790635412-an-overflow-cell-is-refused-in-every-repository/plan.md` | which the checker's four ledger walks read through | work item A's (#585) plan, merged in from `release/v0.16.0` at `33d77479`. It quotes `fence_opener`'s docstring as it stood before this branch's phase 7 reworded that sentence, and what it quotes still holds: the docstring still names `evidence_check.py#quoted_lines` as the unit the checker's four ledger walks read through. The plan is A's frame and not this branch's to rewrite |
 
 The rows for `seal.py` and the ledger's H1 row no longer anchor anything:
 the revert after round 3 put `seal.py` back to the release's text and
