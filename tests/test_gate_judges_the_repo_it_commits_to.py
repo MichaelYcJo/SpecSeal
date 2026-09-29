@@ -525,6 +525,7 @@ def test_the_program_a_heredoc_feeds_is_named_by_its_consumer():
         "cd '/x y' && python3 - <<EOF",
         "echo hi | python3 - <<EOF",
         "python3 - <<'EOF' # a comment",
+        "python3 - <<EOF && echo done",
     )
     shell = (
         "bash <<EOF",
@@ -551,6 +552,7 @@ def test_the_program_a_heredoc_feeds_is_named_by_its_consumer():
         "pythonic - <<EOF",
         "python3 'unclosed <<EOF",
         "python3 -",
+        "<<EOF",
         "",
     )
     for consumer in data:

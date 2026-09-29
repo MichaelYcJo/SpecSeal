@@ -361,7 +361,9 @@ def program_is_data(line):
             command = []
         else:
             command.append(token)
-    if len(command) < 3 or command[-2] != "<<":
+    # The `<<` and its word end the command: where anything follows them, the
+    # head below holds the `<<` and is refused by the shape check.
+    if len(command) < 3:
         return False
     head = command[:-2]
     name = os.path.basename(head[0]).rstrip("0123456789.")
