@@ -513,8 +513,9 @@ def main():
     event_name = EVENTS.get(group) or (
         "PreToolUse" if group.startswith("pre-") else "PostToolUse"
     )
-    # A loop rather than `zip(..., strict=True)`: a hook runs under whatever
-    # `python3` the harness finds, 3.9 on a stock macOS.
+    # A plain loop rather than pairing the two lists with a strict zip, which
+    # needs 3.10: a hook runs under whatever `python3` the harness finds, 3.9
+    # on a stock macOS.
     outputs = []
     for gate in gates:
         text = run_gate(gate, payload)
