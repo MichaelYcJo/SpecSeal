@@ -628,6 +628,51 @@ def test_a_gathered_fragment_is_not_refused_again(tree):
     assert r.returncode == 0, r.stdout
 
 
+LEFT_OPEN = {
+    "fence": "- **an entry.** It quotes:\n\n```\na block nobody closed\n",
+    "comment": "- **an entry.** It mentions a bare " + "<" + "!--" + " in prose.\n",
+}
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+@pytest.mark.parametrize("shape", sorted(LEFT_OPEN))
+def test_a_fragment_that_leaves_a_block_open_is_refused(tree, shape, dry_run):
+    """#584 round 1, finding 1; phase 9 of work item 1790635413. `section`
+    writes each fragment verbatim and the next marker below it, and `insert`
+    puts every older section below that. A fragment that opens a fenced block
+    or an HTML comment and never closes it put all of those markers on lines
+    `live_markers` cannot see: the gather exited 0, `--check` then called the
+    entry below it missing, and the gather it advised wrote that entry a
+    second time. Refused before anything is written or printed, beside the
+    #586 refusal, naming the fragment."""
+    headed(tree, LEFT_OPEN[shape])
+    before = changelog(tree)
+    args = ["--version", "0.2.0", "--date", "2026-09-15"]
+    r = run(*args, *(["--dry-run"] if dry_run else []), root=tree)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert changelog(tree) == before, "the refused gather wrote to the file"
+    assert "## 0.2.0" not in r.stdout, "the refused gather printed a section"
+    out = " ".join(r.stdout.split())
+    assert f"seal/specs/{HEADED}/changelog.md" in out, out
+    assert "never close" in out and "Nothing was written" in out, out
+    assert "seal/specs/1788229400-later/changelog.md" not in out, out
+
+
+def test_a_fragment_that_closes_what_it_opens_is_gathered(tree):
+    """The other half, so the refusal cannot pass by refusing everything: a
+    fenced block and a comment that both close leave the next marker live."""
+    headed(
+        tree,
+        "- **an entry.** It quotes:\n\n```\na block\n```\n\n"
+        + "<"
+        + "!-- a note -->\n",
+    )
+    gather(tree)
+    r = run("--check", root=tree)
+    assert r.returncode == 0, r.stdout
+    assert "3 work items marked in CHANGELOG.md" in r.stdout, r.stdout
+
+
 def test_the_documents_say_a_fragment_carries_no_section_line():
     """S11 for #586: the fragment convention's home and the house rule a
     session meets when it writes one both say it, and the module docstring

@@ -702,6 +702,35 @@ def test_dry_run_writes_and_removes_nothing(tree):
     assert fragments_left(tree) == left, "--dry-run removed a fragment"
 
 
+@pytest.mark.parametrize(
+    "tail",
+    ["\n```\na block nobody closed\n", "\nA bare " + "<" + "!--" + " in a note.\n"],
+    ids=["fence", "comment"],
+)
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_a_fragment_that_leaves_a_block_open_is_refused(tree, tail, dry_run):
+    """#584 round 1, finding 2; phase 9 of work item 1790635413. `section`
+    folds each fragment verbatim and the next marker below it, and a second
+    fold for the version appends below everything. A fragment that opened a
+    fenced block or an HTML comment and never closed it put every later
+    marker on a line `live_markers` cannot see: the fold exited 0, `--check`
+    exited 0 counting one fold where two had happened, and `is_marked` could
+    not see the second. Refused before anything is written, naming the
+    fragment, and every fragment stays where it was."""
+    path = tree / "seal" / "ledger" / "1700000000-earlier.md"
+    path.write_text(path.read_text(encoding="utf-8") + tail, encoding="utf-8")
+    left = fragments_left(tree)
+    args = ["--version", "0.4.0", "--date", "2026-09-15"]
+    r = run(*args, *(["--dry-run"] if dry_run else []), root=tree)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert not release_file(tree).exists(), "the refused fold wrote a release file"
+    assert fragments_left(tree) == left, "the refused fold removed a fragment"
+    assert "## 0.4.0" not in r.stdout, "the refused fold printed a section"
+    assert "seal/ledger/1700000000-earlier.md" in r.stdout, r.stdout
+    assert "seal/ledger/1788229400-later.md" not in r.stdout, r.stdout
+    assert "never close" in r.stdout and "nothing folded" in r.stdout, r.stdout
+
+
 def test_an_empty_fragment_is_removed_and_named_and_gets_no_marker(tree):
     """A marker with nothing under it would make `--check` say the rows
     arrived when there were none."""

@@ -108,6 +108,14 @@ such a line byte for byte and a heading reader that read it as a heading
 would refuse the fold `demote` just wrote. The delimiters are that module's
 `fence_opener` and `fence_closes`, and `demote` asks them too.
 
+**A fragment closes what it opens** (#584, round 1's finding 2). The fold
+copies a fragment byte for byte with the next marker below it, so a fenced
+block or an HTML comment it leaves open would hide that marker, and every one
+a later fold appends, from the readers above: `--check` would pass counting
+one fold where two happened. The fold refuses such a fragment before anything
+is written or printed, naming it (`leaves_open`). It does not close the block
+itself, because a fold is a move and the rows arrive byte for byte.
+
 **The guard.** A sentence in a work item's `spec.md` that must outlive the
 release has to have moved into a `docs/` policy or a ledger row before the
 merge, and `seal/specs/<id>/evidence-todo.md` is where a reviewer lists the facts
@@ -138,7 +146,8 @@ and by coordinate. The checker (`evidence_check.py`) scans a ledger for
 anchors and reads no headings, so nothing measures from where a row sits.
 
 Exit codes: 0 done · 1 for nothing to fold, an open evidence-todo row, a
-fragment whose marker is already in a ledger, a release file that does not
+fragment whose marker is already in a ledger, a fragment that leaves a fenced
+block or an HTML comment open, a release file that does not
 head the version it is named for, a fragment left at `--check`, a release
 heading left in `seal/ledger.md` at `--check`, a release file headed twice or
 misnamed at `--check`, a marker standing twice in any ledger at `--check`, a
@@ -241,6 +250,21 @@ def is_marked(ledger_text, work_item_id):
     return any(i == work_item_id for i, _ in live_markers(ledger_text))
 
 
+def leaves_open(text):
+    """Whether a marker folded below TEXT would stand on no live line: the
+    fragment opens a fenced block or an HTML comment and never closes it
+    (#584, round 1's finding 2).
+
+    `section` folds the next fragment's marker below it after one blank line,
+    and a second fold for the version appends below everything, so
+    `is_marked`, `doubled_markers` and `--check`'s count would read that fold
+    as none — `--check` passing with a wrong count, and a fragment that came
+    back folding twice. The probe is that shape, asked of `live_lines`
+    itself, so there is no second rule for what an open block is."""
+    probe = [*text.split("\n"), "", marker("probe")]
+    return not list(reader.live_lines(probe))[-1][1]
+
+
 def fragments(root):
     """[(work item id, text)] for every `seal/ledger/*.md`, in id order.
 
@@ -296,7 +320,10 @@ def demote(text, work_item_id):
     `unverified_check.py#fence_spans`: a run at least as long as the opener
     with nothing after it closes, so a ```` ```python ```` line inside a
     ```` ``` ```` block, or a ```` ``` ```` line inside a ```` ```` ````
-    one, is content. A block that never closes runs to the end, as it did.
+    one, is content. A block that never closes would run to the end, and
+    `main` refuses the fragment that holds one before it reaches here,
+    because every marker folded below it would read as no fold
+    (`leaves_open`).
     """
     lines = text.strip("\n").split("\n")
     while lines and not lines[0].strip():
@@ -917,6 +944,24 @@ def main(argv=None):
             f"nothing to fold: {FRAGMENTS}/ holds no fragment. A release whose "
             "work items wrote no evidence rows is unusual — check that the "
             "branches you meant to ship are merged"
+        )
+        return 1
+
+    # #584, phase 9: before anything is written or printed, as the open-row
+    # guard above is, because the fold reports nothing wrong afterwards.
+    unclosed = [work_item_id for work_item_id, text in frags if leaves_open(text)]
+    if unclosed:
+        print(
+            "ledger fragments that open a fenced block or an HTML comment and "
+            "never close it, so every marker folded below them would read as "
+            "no fold:"
+        )
+        for work_item_id in unclosed:
+            print(f"  {FRAGMENTS}/{work_item_id}.md")
+        print(
+            "\nClose it in the fragment in a pull request into the release "
+            f"branch, then fold again.\nnothing folded: {RELEASES}/ and "
+            f"{FRAGMENTS}/ are untouched"
         )
         return 1
 
