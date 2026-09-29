@@ -2558,12 +2558,8 @@ def walk_directories(items, cwd):
             refused = [
                 (Unresolved(str(h), Unresolved.CONSTRUCT), p) for h, p in running
             ]
-            if known:
-                failed = running
-            elif as_written:
-                failed = list(running) + refused
-            else:
-                failed = refused
+            beside = list(running) + refused if as_written else refused
+            failed = running if known else beside
             parked = _dedup(parked + list(failed))
 
         carried = list(moved)
