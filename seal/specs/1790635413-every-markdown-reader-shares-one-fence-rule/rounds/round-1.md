@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #663 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `1d3eb8a5cdf36c3f4fc03cfc288f5f20619cd363..a06f23b2094ae4319d6d91764550540d9e27dfd1`, 5 commits |
 | Contract changes | commented → table_lines, commented_row_at |
 | New units | test_a_fence_line_inside_a_rider_body_hides_no_rider_below (depth 1); QUOTED_DELIMITERS (depth 1); test_delimiters_quoted_in_code_spans_either_side_hide_the_table (depth 1) |
