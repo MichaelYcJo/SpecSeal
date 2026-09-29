@@ -12,6 +12,15 @@
   left open. Where the only `Broad gate` row is commented out, `broad-gate`
   quotes it back as commented out and runs nothing. All 519 tracked markdown
   files in this repository read the same rows as before.
+- A `routing.md` row quoted in a fenced example or parked in an HTML comment
+  no longer answers for the declaration (#658, #667). The last row of a label
+  wins, so an example below the table saying `straight to the PR` used to
+  decide whether a reviewer saw the work. The commit gate and CI's chain check
+  now read only the rows a renderer shows, by the same walk as `config.md`; a
+  table wholly inside a closed fence or comment is no declaration, and the
+  gate asks as it does for any declaration that does not parse. A fence or a
+  `<!--` nobody closed hides nothing, so every declaration that read before
+  still reads: all 27 committed here and the template parse the same.
 
 ### Changed
 
