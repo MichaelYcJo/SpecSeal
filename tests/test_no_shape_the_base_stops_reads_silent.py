@@ -315,7 +315,10 @@ def test_a_deep_nesting_is_read_to_a_bound(monkeypatch, kind):
 
     monkeypatch.setattr(gate, "_reads_a_commit", counting)
     assert gate._hides_a_commit(text) is True
-    assert len(calls) <= gate.NESTING_READ + 1, len(calls)
+    # Exactly the bound: a count below it means the recursion limit answered
+    # first, which is the reliance contract §13 distrusts, and a count above
+    # it means the bound did not hold.
+    assert len(calls) == gate.NESTING_READ, len(calls)
 
 
 def test_the_reverse_direction_still_stops(monkeypatch, capsys, projects, tmp_path):
