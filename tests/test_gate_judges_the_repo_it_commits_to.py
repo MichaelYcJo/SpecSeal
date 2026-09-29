@@ -1629,10 +1629,11 @@ def test_a_broken_command_reader_leaves_no_verdict_rather_than_a_wrong_one(tmp_p
     """`cmdline.py` is imported by name, so a broken one is an ImportError at
     module load and the gate never runs.
 
-    `hooks/dispatch.py` turns that into exit 0 and no output, which reads
-    exactly like an allow — the silence this repository already has a rider
-    on, at `dispatch.py`'s own `except Exception`. What changed here is that
-    it is now the ONLY way the parsing can go missing, instead of one of two.
+    `hooks/dispatch.py` turns that into exit 0 and no output for the call,
+    which reads exactly like an allow there. Since #28 the failure is written
+    down and said at the end of the turn, and the call's own stdout is still
+    what this case asserts. What changed here is that it is now the ONLY way
+    the parsing can go missing, instead of one of two.
     A gate that did not load has no verdict; a gate that loaded with no parser
     had three wrong ones.
     """
