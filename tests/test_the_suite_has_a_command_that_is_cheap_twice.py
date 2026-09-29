@@ -796,13 +796,19 @@ def test_an_adopted_environment_is_given_the_pinned_parser_once(
     assert run[-2:] == ["-n", "auto"], run
 
 
-def test_a_failed_parser_install_is_a_sentence_and_the_suite_still_runs(
+def test_a_failed_parser_install_is_a_sentence_and_pytest_is_still_called(
     tmp_path, monkeypatch, capsys
 ):
-    """#667, phase 1. The install exits non-zero: one sentence names the
-    pinned package and what its absence costs -- the oracle's cases fail at
-    their import, not a serial run -- and names the remedy. The suite still
-    runs, in parallel, and the exit code is pytest's."""
+    """#667, phase 1, and round 1's 🟡 3. The install exits non-zero: one
+    sentence names the pinned package and says what its absence costs, as
+    pytest does it, and names the remedy. Measured 2026-09-29 in a virtualenv
+    with pytest 9.1.1 and pytest-xdist 3.8.0 and no parser, over the oracle's
+    module and one other: under `-n 2` the other module's 31 cases ran and
+    the run exited 1 with one collection error; under `-p no:xdist` pytest
+    stopped at collection, `Interrupted: 1 error during collection`, exit 2,
+    no case run. The sentence used to promise the first for every run and
+    said the error was a sentence of the oracle's own, which it is not.
+    pytest is still called, in parallel, and the exit code is pytest's."""
     (tmp_path / "tests").mkdir()
     fake_venv(tmp_path, markdown_it=False)
     calls = []
@@ -817,9 +823,11 @@ def test_a_failed_parser_install_is_a_sentence_and_the_suite_still_runs(
     assert rt.main([]) == 0
     err = capsys.readouterr().err
     assert rt.MARKDOWN_IT in err, err
-    assert "fail at their import" in err, err
+    assert "fails to collect with a ModuleNotFoundError" in err, err
+    assert "runs every other case and exits non-zero" in err, err
+    assert "stops at collection and runs no case" in err, err
+    assert "a sentence of their own" not in err, err
     assert "run bin/test again" in err, err
-    assert "serial" not in err, err
     assert "Traceback" not in err, err
     assert len(calls) == 2 and calls[1][2] == "pytest", calls
     assert calls[1][-2:] == ["-n", "auto"], calls[1]

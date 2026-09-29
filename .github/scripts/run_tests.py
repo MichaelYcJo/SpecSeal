@@ -206,9 +206,13 @@ def add_markdown_it(venv):
 
     `add_xdist`'s shape and its reason: an adopted `.venv` built before #667
     has no parser, and it is repaired rather than refused. What a failed
-    install costs is different, and the sentence says so: the run is not
-    serial, it is short of the cases that read the oracle, which fail at
-    their import with a sentence of their own rather than passing.
+    install costs is different, and the sentence says what pytest then does
+    (#667 round 1, 🟡 3): the module that imports the oracle fails to collect
+    with a `ModuleNotFoundError`, and pytest's answer to a collection error
+    depends on the run. Measured 2026-09-29 with pytest 9.1.1 and
+    pytest-xdist 3.8.0: under `-n 2` every other module's cases ran and the
+    run exited 1; under `-p no:xdist` pytest stopped at collection, ran no
+    case and exited 2. The sentence used to promise the first for every run.
     """
     if has_markdown_it(venv):
         return None
@@ -226,10 +230,13 @@ def add_markdown_it(venv):
     if subprocess.run(step).returncode != 0:
         return (
             f"bin/test: could not install {MARKDOWN_IT} into {venv} (the "
-            "command above exited non-zero), so the cases that read the "
-            "CommonMark oracle will fail at their import. Remove that "
-            "directory and run bin/test again to build it afresh with the "
-            "parser in it."
+            "command above exited non-zero). The suite's CommonMark oracle "
+            "imports it, so a module that reads the oracle fails to collect "
+            "with a ModuleNotFoundError: a parallel run runs every other case "
+            "and exits non-zero, and a serial one -- `-p no:xdist`, `--pdb`, "
+            "or no pytest-xdist -- stops at collection and runs no case. "
+            "Remove that directory and run bin/test again to build it afresh "
+            "with the parser in it."
         )
     return None
 
@@ -488,9 +495,10 @@ def main(argv=None):
     problem = add_xdist(root / ".venv")
     if problem:
         print(problem, file=sys.stderr)
-    # The parser the oracle reads (#667). Its failure is a sentence and a run
-    # that goes on: the cases that need it fail at their import, and every
-    # other case still runs. It decides nothing about `-n auto`.
+    # The parser the oracle reads (#667). Its failure is a sentence, and
+    # pytest is still called: in parallel the oracle's module is a collection
+    # error beside every other case, and serially pytest stops at collection
+    # (`add_markdown_it` says both). It decides nothing about `-n auto`.
     parser_problem = add_markdown_it(root / ".venv")
     if parser_problem:
         print(parser_problem, file=sys.stderr)
