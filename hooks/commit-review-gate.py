@@ -348,12 +348,13 @@ def commit_invocations(command, cwd=None):
     # (#674). Each group `merged_view` glues back is read beside its parts, and
     # adds only a kind no part found on its own, so `git commit -m x 2>&1 |
     # tail -1` keeps exactly the invocation it had. What it adds takes the
-    # directories of the part that holds the command word.
-    for parts, toks, origin in merged_view(items):
-        word = command_word(toks, redirections=True)[0]
-        owner = origin[min(len(toks) - len(word), len(origin) - 1)]
+    # directories of the group's last part: the walk keeps the unmoved shell
+    # beside the moved one across `&` and `|`, so those include every earlier
+    # part's, and only a `cd` moves one -- which would itself be the command
+    # word, not a part in front of it.
+    for parts, toks in merged_view(items):
         seen = set().union(*(kinds[p] for p in parts))
-        for kind, invs in _segment_invocations(toks, walked[owner][1]).items():
+        for kind, invs in _segment_invocations(toks, walked[parts[-1]][1]).items():
             if kind not in seen:
                 found += invs
 

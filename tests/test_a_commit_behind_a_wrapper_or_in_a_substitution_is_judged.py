@@ -552,14 +552,25 @@ def test_merged_view(name):
     assert [g[1] for g in groups] == [tokens], name
 
 
-def test_merged_view_leaves_a_real_separator_alone():
+SEPARATE = {
+    "a background job": ("a & b", []),
+    "a pipe": ("a | b", []),
+    "a list": ("a && b", []),
+    "a redirection with its target, then a job": ("a > f & b", []),
+    "&& before a redirection": ("a && >f b", []),
+    "|| before a redirection": ("a || >f b", []),
+    "; before a redirection": ("a; >f b", []),
+    "2>&1, then a list": ("a 2>&1 && b", [["a", "2>&1"]]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(SEPARATE))
+def test_merged_view_leaves_a_real_separator_alone(name):
     """A background job, a pipe and a list are not redirections, and the
     view never glues across one."""
-    for command in ("a & b", "a | b", "a && b", "a > f & b", "a 2>&1 && b"):
-        items, _clean = cmdline.split_segments_with_separators(command)
-        groups = cmdline.merged_view(items)
-        assert all(len(g[0]) == 2 for g in groups), (command, groups)
-        assert all("&&" not in " ".join(g[1]) for g in groups), command
+    command, groups = SEPARATE[name]
+    items, _clean = cmdline.split_segments_with_separators(command)
+    assert [g[1] for g in cmdline.merged_view(items)] == groups, name
 
 
 def test_a_redirection_with_nothing_after_it_keeps_the_base_subcommand():
