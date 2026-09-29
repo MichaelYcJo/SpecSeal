@@ -2380,7 +2380,9 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
             )
         if not edits:
             continue
-        name = display_name(ledger, root)
+        # `<ledger>:<line>` is a coordinate this run built, so it takes `/`
+        # on every platform, as the records arm's do (`built_name`).
+        name = built_name(ledger, root)
         lines = gfm_lines(text, keepends=True)
         starts = [0]
         for line in lines:

@@ -26,6 +26,7 @@ Four things this file holds, in the order they can go wrong:
 
 import datetime
 import importlib.util
+import ntpath
 import os
 import re
 import stat
@@ -1700,9 +1701,16 @@ def anchor(repo, name):
 
 
 def ledger_of(repo, text):
+    """A ledger holding TEXT, written as UTF-8 the way every ledger is: the
+    platform default is cp1252 on Windows, where ` · ` is one byte the
+    checker reads as a replacement character."""
     path = repo / "seal" / "ledger" / "f.md"
-    path.write_text(text)
+    path.write_text(text, encoding="utf-8")
     return path
+
+
+def ledger_text(path):
+    return path.read_text(encoding="utf-8")
 
 
 def drift_handler(repo):
@@ -1727,7 +1735,7 @@ def test_checked_dates_the_row_whose_hash_moved(repo, cell, becomes):
     drift_handler(repo)
     r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
     assert r.returncode == 0, r.stdout + r.stderr
-    row = ledger.read_text()
+    row = ledger_text(ledger)
     assert row.split("|")[4].strip() == becomes, row
     assert f"| {becomes} | n |" in row, row
     assert f"  dated {READ_ON} — 1 row whose hash moved, each once:" in r.stdout
@@ -1746,7 +1754,7 @@ def test_a_row_whose_hash_did_not_move_is_never_touched(repo, flags):
     drift_handler(repo)
     r = run(["--reverify", *flags, "."], str(repo))
     assert r.returncode == 0, r.stdout + r.stderr
-    assert ledger.read_text().splitlines()[1] == still.rstrip("\n")
+    assert ledger_text(ledger).splitlines()[1] == still.rstrip("\n")
     assert "C2" not in r.stdout, r.stdout
 
 
@@ -1759,7 +1767,7 @@ def test_without_checked_the_date_is_left_and_the_row_named(repo):
     drift_handler(repo)
     r = run(["--reverify", "."], str(repo))
     assert r.returncode == 0, r.stdout + r.stderr
-    after = ledger.read_text()
+    after = ledger_text(ledger)
     assert after != before and after.split("|")[4] == before.split("|")[4]
     assert r.stdout.endswith(
         "1 row re-verified\n"
@@ -1796,7 +1804,7 @@ def test_the_date_cell_is_found_by_its_header_or_its_place(repo, table, column):
     drift_handler(repo)
     r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
     assert r.returncode == 0, r.stdout + r.stderr
-    row = ledger.read_text().splitlines()[-1]
+    row = ledger_text(ledger).splitlines()[-1]
     assert row.split("|")[column].strip() == f"2026-09-01 · {READ_ON}", row
 
 
@@ -1820,11 +1828,11 @@ def test_checked_leaves_a_moved_row_with_no_date_cell_whole(repo, table):
     disagree, which is what #387 reports. So the row keeps its old hash,
     is named on a `LEFT` line, and the run exits 1."""
     ledger = ledger_of(repo, table.format(a=anchor(repo, "handler")))
-    before = ledger.read_text()
+    before = ledger_text(ledger)
     drift_handler(repo)
     r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
     assert r.returncode == 1, r.stdout + r.stderr
-    assert ledger.read_text() == before
+    assert ledger_text(ledger) == before
     assert "0 rows re-verified" in r.stdout, r.stdout
     assert (
         "  LEFT  seal/ledger/f.md:" in r.stdout
@@ -1843,7 +1851,7 @@ def test_an_escaped_pipe_before_the_date_cell_does_not_move_the_date(repo):
     )
     drift_handler(repo)
     run(["--reverify", "--checked", READ_ON, "."], str(repo))
-    assert f"| a \\| b | 2026-09-01 · {READ_ON} | n |" in ledger.read_text()
+    assert f"| a \\| b | 2026-09-01 · {READ_ON} | n |" in ledger_text(ledger)
 
 
 def test_the_naming_block_prints_a_long_first_cell_cut_to_its_width():
@@ -1898,14 +1906,14 @@ def test_a_checked_that_is_not_a_date_to_write_is_refused(repo, args, says):
     ledger = ledger_of(
         repo, f"| C1 | `{anchor(repo, 'handler')}` | read | 2026-09-01 | n |\n"
     )
-    before = ledger.read_text()
+    before = ledger_text(ledger)
     drift_handler(repo)
     r = run([*args, "."], str(repo))
     assert r.returncode == 2, r.stdout + r.stderr
     assert r.stderr.startswith("evidence_check: `--checked"), r.stderr
     assert says in r.stderr, r.stderr
     assert r.stdout == ""
-    assert ledger.read_text() == before
+    assert ledger_text(ledger) == before
 
 
 def test_a_healed_row_is_dated_under_checked_and_named_without(repo):
@@ -1918,11 +1926,11 @@ def test_a_healed_row_is_dated_under_checked_and_named_without(repo):
     (repo / "src" / "service.py").write_text(renamed)
     r = run(["--reverify", "."], str(repo))
     assert "(identical content)" in r.stdout and "(Checked: 2026-09-01)" in r.stdout
-    ledger.write_text(row)
+    ledger.write_text(row, encoding="utf-8")
     r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
     assert "(identical content)" in r.stdout, r.stdout
-    assert f"| 2026-09-01 · {READ_ON} |" in ledger.read_text()
-    assert "#handle@" in ledger.read_text()
+    assert f"| 2026-09-01 · {READ_ON} |" in ledger_text(ledger)
+    assert "#handle@" in ledger_text(ledger)
 
 
 @pytest.mark.parametrize(
@@ -1938,7 +1946,7 @@ def test_a_file_moved_whole_is_re_pointed_and_neither_dated_nor_named(repo, flag
     r = run(["--reverify", *flags, "."], str(repo))
     assert r.returncode == 0, r.stdout + r.stderr
     assert "-> src/moved.py#handler  (identical content)" in r.stdout, r.stdout
-    after = ledger.read_text()
+    after = ledger_text(ledger)
     assert after == before.replace("src/service.py", "src/moved.py"), after
     assert "dated" not in r.stdout and "kept its date" not in r.stdout, r.stdout
 
@@ -1955,8 +1963,33 @@ def test_a_row_with_several_moved_coordinates_is_dated_once(repo):
     )
     r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
     assert "2 rows re-verified" in r.stdout, r.stdout
-    assert f"| 2026-09-01 · {READ_ON} | n |" in ledger.read_text()
+    assert f"| 2026-09-01 · {READ_ON} | n |" in ledger_text(ledger)
     assert "— 1 row whose hash moved, each once:" in r.stdout, r.stdout
+
+
+def test_a_row_reverify_names_prints_its_ledger_with_forward_slashes(
+    repo, monkeypatch, capsys
+):
+    """The dated, named and `LEFT` rows print `<ledger>:<line>`, a coordinate
+    the run built, so it takes `built_name`'s `/` the way the records arm's
+    coordinates do. Windows' `glob` spells the ledger `seal\\ledger\\f.md`,
+    and the CI leg printed that. Simulated here from a POSIX machine: the
+    display spelling is Windows', and `built_name` reads `ntpath`
+    (`agent-contract` §13)."""
+    ledger = ledger_of(
+        repo, f"| C1 | `{anchor(repo, 'handler')}` | read | 2026-09-01 | n |\n"
+    )
+    drift_handler(repo)
+    shown = ec.display_name
+    monkeypatch.setattr(
+        ec,
+        "display_name",
+        lambda path, root, flavour=os.path: shown(path, root).replace("/", "\\"),
+    )
+    monkeypatch.setattr(ec.built_name, "__defaults__", (ntpath,))
+    assert ec.reverify([str(ledger)], str(repo), {}, None) == 0
+    out = capsys.readouterr().out
+    assert "    seal/ledger/f.md:1  C1  (Checked: 2026-09-01)\n" in out, out
 
 
 # --- this repository --------------------------------------------------------
