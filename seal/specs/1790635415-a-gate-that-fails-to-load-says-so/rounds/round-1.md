@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #660 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `d89f83923280daa4c92daad57c6b2d3661c0c795..fa556996b8a357615c6955d01c33c0df7450547b`, 6 commits |
 | Contract changes | none |
 | New units | test_a_gate_that_fails_to_load_names_every_group_that_loads_it (depth 1) |
