@@ -111,5 +111,5 @@ Round 1 over the build range `f7b7d247..0abe93a7` at HEAD `0abe93a7`, against `3
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| ⬜ 5 — a rider's printed location is a `str.splitlines` number, older than #664 | not placed: a candidate for its own issue | the orchestrator, who files it or answers that it stays as is |
+| ⬜ 5 — a rider's printed location is a `str.splitlines` number, older than #664 | fixed in this run at `bda0e0ba`; confirmed by round 2 — no issue | nobody: closed |
 | the `-->` shape's sentence "no verification stamp" when a stamp sits outside the comment (Push 3) | not placed: a message improvement, outside this item's class | the orchestrator, if the owner wants the message to name the case |
