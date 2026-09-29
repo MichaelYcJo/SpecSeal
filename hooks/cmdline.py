@@ -1548,6 +1548,17 @@ def host_word(tok):
 # What `header_end` answers for a header whose spelling it does not place.
 UNPLACEABLE = -1
 
+# How many compound headers, one inside the next, `_is_the_program` and
+# `_segment_names_an_unknown_command` read before the segment counts as one
+# whose program they cannot place -- the stopping direction, as `UNPLACEABLE`
+# is (round 1 of 1790660768, red 2). Each header used to be one level of
+# recursion, and 1,200 of them raised `RecursionError` past
+# `_hides_a_commit`'s catch into `main`, which dropped every commit it had
+# found. A loop with no bound rescans the rest of the segment per header,
+# 47 s on 10,000. The commit gate's `NESTING_READ` is the same number for
+# bodies.
+HEADERS_READ = 32
+
 
 def header_end(tokens):
     """Where a command stands behind the header this segment opens with (#674).
@@ -1700,25 +1711,30 @@ def _is_the_program(tokens, k):
     `case` pattern, a function definition or `coproc`, the reading starts
     again at the first word after the header. A header `header_end` cannot
     place makes any later word the program, the stand-in `command_word` uses
-    for `git`.
+    for `git`. Past `HEADERS_READ` headers, one inside the next, the answer is
+    that stand-in's too.
     """
-    for t in tokens[:k]:
-        if os.path.basename(t) in RUNNERS:
+    for _level in range(HEADERS_READ):
+        for t in tokens[:k]:
+            if os.path.basename(t) in RUNNERS:
+                return True
+            if not (
+                ("=" in t and not t.startswith("-"))
+                or t in LIST_OPENERS
+                or t in ("!", "(")
+            ):
+                break
+        else:
             return True
-        if not (
-            ("=" in t and not t.startswith("-")) or t in LIST_OPENERS or t in ("!", "(")
-        ):
-            break
-    else:
-        return True
-    if _is_the_program_past_redirections(tokens, k):
-        return True
-    h = header_end(tokens)
-    if h == UNPLACEABLE:
-        return True
-    if h is not None and 0 < h <= k:
-        return _is_the_program(tokens[h:], k - h)
-    return False
+        if _is_the_program_past_redirections(tokens, k):
+            return True
+        h = header_end(tokens)
+        if h == UNPLACEABLE:
+            return True
+        if h is None or not 0 < h <= k:
+            return False
+        tokens, k = tokens[h:], k - h
+    return True
 
 
 def _is_the_program_past_redirections(tokens, k):
@@ -1830,22 +1846,23 @@ def _segment_names_an_unknown_command(toks, nested=False):
     arm would otherwise stop a command that commits nothing. The reading as
     written keeps doing what it did at `86256492`, `>$LOG echo` included, and
     NESTED -- the words behind a header -- leaves it out, since that reading
-    is new too.
+    is new too. Past `HEADERS_READ` headers, one inside the next, the segment
+    counts as one that names an unknown command.
     """
-    if not nested and _expands(command_word(toks)[0]):
-        return True
-    if _expands(command_word(toks, redirections=True)[0]):
-        return True
-    if any(_expands([t]) for t in _without_redirections(_behind_a_runner(toks))):
-        return True
-    h = header_end(toks)
-    if h == UNPLACEABLE:
-        return any(_expands([t]) for t in _without_redirections(toks[1:]))
-    return (
-        bool(h)
-        and h < len(toks)
-        and _segment_names_an_unknown_command(toks[h:], nested=True)
-    )
+    for _level in range(HEADERS_READ):
+        if not nested and _expands(command_word(toks)[0]):
+            return True
+        if _expands(command_word(toks, redirections=True)[0]):
+            return True
+        if any(_expands([t]) for t in _without_redirections(_behind_a_runner(toks))):
+            return True
+        h = header_end(toks)
+        if h == UNPLACEABLE:
+            return any(_expands([t]) for t in _without_redirections(toks[1:]))
+        if not h or h >= len(toks):
+            return False
+        toks, nested = toks[h:], True
+    return True
 
 
 def _without_redirections(toks):
@@ -2002,7 +2019,7 @@ def substitution_bodies(command):
     return bodies
 
 
-def understood(tokens):
+def understood(tokens, redirections=True):
     """True when the reader can say where the shell is after this segment.
 
     This is the inversion that change asked for. The reader used to answer
@@ -2031,9 +2048,11 @@ def understood(tokens):
     unreadable -- the answer a `cd` behind a prefix already gets below. The
     same holds for a relocator, a reserved word or an expanding word reached
     that way. Everything after that first line is this function as it stood
-    at `86256492`.
+    at `86256492`, and REDIRECTIONS=False asks that alone: `walk_directories`
+    adds the refusal beside the answer it gives, and never lets the refusal
+    replace it (round 1 of 1790660768, red 1).
     """
-    if _unreadable_past_leading_redirections(tokens):
+    if redirections and _unreadable_past_leading_redirections(tokens):
         return False
     toks, opened = strip_subshell(tokens)
     if opened:
@@ -2442,11 +2461,20 @@ def walk_directories(items, cwd):
         # function whose body cds can fail on its last line having already
         # moved the shell.
         known = understood(tokens)
+        # W1 (#674) refuses segments `86256492` accepted. That refusal is
+        # ADDED beside the answer the segment had without it and never
+        # replaces it (round 1 of 1790660768, red 1): an unresolved target is
+        # waived whole by `[no-review]` and is silence from a session that is
+        # not opted in, so a directory the base judged, once replaced, was a
+        # stop lost. AS_WRITTEN is that answer, and it is what moves the
+        # shell, parks a failure and writes the names below.
+        as_written = known or understood(tokens, redirections=False)
         if not known:
-            moved = [
+            refused = [
                 (Unresolved(str(here), Unresolved.CONSTRUCT), prev)
                 for here, prev in moved
             ]
+            moved = _dedup(moved + refused) if as_written else refused
 
         # Park this segment's own failure, but only while something that
         # CONSUMES one is still coming: with no `||` and no `;` left, nothing
@@ -2455,11 +2483,15 @@ def walk_directories(items, cwd):
         # cross-repository form, and the prompt volume this exists to
         # reduce — answering for the target alone.
         if any(sep in ("||", ";") for sep, _ in items[index + 1 :]):
-            failed = (
-                running
-                if known
-                else [(Unresolved(str(h), Unresolved.CONSTRUCT), p) for h, p in running]
-            )
+            refused = [
+                (Unresolved(str(h), Unresolved.CONSTRUCT), p) for h, p in running
+            ]
+            if known:
+                failed = running
+            elif as_written:
+                failed = list(running) + refused
+            else:
+                failed = refused
             parked = _dedup(parked + list(failed))
 
         carried = list(moved)
@@ -2501,7 +2533,7 @@ def walk_directories(items, cwd):
             # reader has seen the definition, so the call empties the
             # environment the way `OPAQUE` does.
             env = {}
-        elif joined in ("&&", "||") and known:
+        elif joined in ("&&", "||") and as_written:
             # This segment may not have run at all -- `states` and `parked`
             # model that for the DIRECTORY and nothing models it for a name.
             # Binding it answered `/two` where bash has `/one`, on
@@ -2510,14 +2542,14 @@ def walk_directories(items, cwd):
             # to `Unresolved`, which is the answer this reader gives for
             # anything it cannot state.
             env = _forget(env, tokens)
-        elif known and joined not in SUBSHELL and following not in SUBSHELL:
+        elif as_written and joined not in SUBSHELL and following not in SUBSHELL:
             # Inside a body -- `stack` above -- the segment is a statement of
             # a compound command whose running this reader cannot state, so it
             # is forgotten the way a `&&` branch is. `_forget` drops every
             # shape `_bind` would have taken or unbound, so nothing a body
             # writes survives it, and nothing it does not write is touched.
             env = _bind(env, tokens) if not stack else _forget(env, tokens)
-        elif known:
+        elif as_written:
             # A pipeline stage or a background job -- what is left once the
             # two branches above have taken the joins they name. The comment
             # above says bash runs each in a subshell and leaves the parent's

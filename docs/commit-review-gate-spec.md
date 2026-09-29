@@ -364,8 +364,11 @@ So each place a program word stands is read past what the shell takes off it:
   or spaced (`2>/dev/null`, `2> /dev/null`, `<<<w`, `<< EOF`, `{fd}>f`, zsh's
   `>!f`), is read past to the word it stands in front of. A commit there is
   judged where the shell is, as the same commit without it is. A `cd`, a
-  relocator, a reserved word or an expanding word reached past one leaves the
-  directory unresolved, the answer a `cd` behind a prefix already had.
+  relocator, a reserved word or an expanding word reached past one adds an
+  unresolved directory beside the one the walk read without it, and never
+  replaces it: `[no-review]` waives an unresolved target whole, and a session
+  that is not opted in reads one as silence, so a replaced directory is a
+  stop lost.
 - **The operators the splitter cuts at `&` or `|`** — `2>&1`, `>&2`, `<&0`,
   `>&-`, `>|f`, and `&>f` after a word — are glued back into a view the gate
   reads beside the segments, adding only what no segment found on its own. The
@@ -376,7 +379,8 @@ So each place a program word stands is read past what the shell takes off it:
   spelling the reader does not place falls to the stand-in `git` already had.
   Behind a runner's own options inside a string, which the reader cannot tell
   from the program, a later word that expands counts. None of these three counts
-  a redirection's target.
+  a redirection's target. Past 32 headers, one inside the next
+  (`HEADERS_READ`), the program counts as one the reader does not place.
 - **A host glued to a subshell's `(`** is a host, and a string picked after a
   host's flag is read past a redirection written there.
 
@@ -386,9 +390,10 @@ quoted string is one word there and not a command line. Their argument form
 is `sudo` the runner's.
 
 The reading can only have gained stops by this. Every reader asks what it
-asked before first and adds what the new reading finds, `understood` only
-adds a refusal, and a generated corpus of 11,393 commands across these
-positions found none silent where the release base stopped. The one answer
+asked before first and adds what the new reading finds, `understood`'s
+refusal is added beside the directory the walk read before, and a generated
+corpus of 11,393 commands across these positions found none silent where the
+release base stopped. The one answer
 replaced rather than kept is git's subcommand where it had been a redirection,
 which no reader acted on. Over 6,033 commands recorded in the milestone's
 runs, none changed its verdict. The `cd` behind a redirection and the depth

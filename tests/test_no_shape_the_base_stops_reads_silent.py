@@ -40,6 +40,7 @@ from test_the_guard_asks_once_per_session import ask_entries, write_transcript
 
 gate = load_hook_module("commit-review-gate.py", "crg_no_new_silent")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "hooks"))
+import cmdline  # noqa: E402  -- the plain name both gates import
 import worktree_consent  # noqa: E402  -- the plain name the gate imports
 
 # A program that hands its stdin to a shell, which is what makes a heredoc
@@ -331,3 +332,91 @@ def test_the_reverse_direction_still_stops(monkeypatch, capsys, projects, tmp_pa
     )
     for which, got in answers.items():
         assert "silent" not in got, (which, got)
+
+
+W1_PREFIXES = [
+    "2>/dev/null cd sub &&",
+    ">/dev/null pushd sub &&",
+    ">/dev/null source /dev/null;",
+    "2>/dev/null eval true;",
+    "2>/dev/null $CMD;",
+    "<<<x cd sub &&",
+    "X=1 2>/dev/null cd sub &&",
+    "time 2>/dev/null cd sub &&",
+]
+
+
+@pytest.mark.parametrize("prefix", W1_PREFIXES)
+def test_w1_keeps_the_directory_the_base_judged_under_a_waiver(
+    monkeypatch, capsys, projects, tmp_path, prefix
+):
+    """Round 1 of 1790660768, red 1. W1's refusal REPLACED the directory the
+    base judged with an unresolved one, and `[no-review]` waives an
+    unresolved target whole -- so the parity arm the base judged in the
+    session's directory went silent, while bash commits there."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "sub").mkdir(exist_ok=True)
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    command = f": '[no-review]'; {prefix} {BODY}"
+    for which, got in with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    ).items():
+        assert "silent" not in got, (command, which, got)
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        ">/dev/null source /dev/null; cd u2 && {body}",
+        "2>/dev/null eval true; cd u2 && {body}",
+        "2>/dev/null cd .; cd u2 && {body}",
+        'SB={u2}; 2>/dev/null source /dev/null; git -C "$SB" commit -m x',
+    ],
+)
+def test_w1_keeps_the_directory_the_base_judged_outside_an_opted_in_session(
+    monkeypatch, capsys, tmp_path, shape
+):
+    """Round 1 of 1790660768, red 1. From a directory that is not opted in, an
+    unresolved target is silence, and a later relative `cd`, or a name bound
+    before the refused segment, stays unresolved behind it. The base resolved
+    `u2`, which is opted in, and bash commits there."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    u2 = make_repo(plain / "u2")
+    command = shape.format(body=BODY, u2=q(u2))
+    got = decisions(monkeypatch, capsys, command, plain, "s")
+    assert "silent" not in got, (command, got)
+
+
+@pytest.mark.parametrize("header", ["case a in a) ", "f() { ", "coproc "])
+def test_past_the_header_bound_the_reading_stops(header):
+    """Round 1 of 1790660768, red 2. Past `HEADERS_READ` headers, one inside
+    the next, both header readings answer in the stopping direction; one
+    header fewer, the same segment is read to its end and names nothing."""
+
+    bound = cmdline.HEADERS_READ
+    for depth, expected in ((bound - 1, False), (bound, True)):
+        tokens = (header * depth + "true watch").split()
+        assert cmdline._is_the_program(tokens, len(tokens) - 1) is expected, depth
+        assert cmdline.names_an_unknown_command(header * depth + "true") is expected
+
+
+@pytest.mark.parametrize("header", ["case a in a) ", "f() { ", "coproc "])
+def test_a_deep_header_nesting_keeps_the_commits_found(
+    monkeypatch, capsys, projects, tmp_path, header
+):
+    """Round 1 of 1790660768, red 2. The header readings recursed once per
+    header, so 1,200 of them raised `RecursionError` past `_hides_a_commit`
+    into `main`, which dropped the commit already found in `u`."""
+    session = make_repo(tmp_path / "session", declared=True)
+    u = make_repo(tmp_path / "u")
+    for command in (
+        f"cd {q(u)} && {BODY}; sh -c '" + header * 1200 + "true'",
+        f"git -C {q(u)} commit -m x; " + header * 1200 + "watch -g x",
+    ):
+        for which, got in with_and_without_the_press(
+            monkeypatch, capsys, projects, command, session
+        ).items():
+            assert "silent" not in got, (command[:60], which, got)
