@@ -24,11 +24,23 @@ lost.
 |---|---|
 | The oracle and the property on the Windows and Linux legs | CI's test matrix at the pull request |
 | The full suite, lint and typecheck over the finished branch | the sealer, once the review rounds settle |
+| Q7's corpus time on the slowest CI leg, Windows; it was measured on macOS alone | CI's Windows leg at the pull request, whose log times the module |
+| A no-break space after a closing fence run: the shared delimiter rule (`unverified_check.py#fence_closes`, and `hooks/blocks.py#fence_closes` in step with it) reads it as a closer with `str.strip`, and CommonMark does not. The walk claims nothing below such an opener, so no reader here gives a third answer, but every other reader of the shared rule still reads it that way | the orchestrator, who decides whether it is filed against the shared rule |
 
 ## Not done
 
-Nothing yet.
+- `docs/the-broad-gate.md` §*A fenced example in a config file is not a config
+  row* was not given a sentence on comments. It is a ratified policy, and the
+  frame cites it as grounds rather than as a document this work edits; the
+  rule and the new refusal are stated in `templates/config.md`, which the
+  policy's readers are sent to.
+- The CONTRIBUTING.md gate lines are drafted in each phase record, for the
+  pull request body, and not written into `CONTRIBUTING.md`: that section
+  asks each change to carry them, not to add them to it.
 
 ## Fed back into the spec
 
-None yet.
+- *Inferred during implementation:* the uncertainty table in `spec.md`
+  §*What is not modelled* is a minimum the build widened in four places
+  (`phases/phase-2.md`); a planner may narrow any of them only with the
+  context in the property's alphabet and the property green.

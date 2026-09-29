@@ -21,6 +21,12 @@
   gate asks as it does for any declaration that does not parse. A fence or a
   `<!--` nobody closed hides nothing, so every declaration that read before
   still reads: all 27 committed here and the template parse the same.
+- The rider check no longer fails on a rider quoted in a fenced example in a
+  markdown file (#667). Such a line was read as a rider with no stamp, BROKEN
+  at exit 2, for a line nobody wrote as one. A marker line inside a fenced
+  block that closes now opens no rider; a fence line inside a rider's own
+  comment opens nothing, and a fence nobody closed hides no rider below it.
+  Every file the check reads here gives the same riders as before.
 
 ### Changed
 

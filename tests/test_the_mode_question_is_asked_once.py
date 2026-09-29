@@ -796,6 +796,7 @@ def shape_text(name):
 
 COMMENTED_OLD_ROW = shape_text("C5")
 COMMENTED_OLD_TABLE = shape_text("C6")
+QUOTED_DELIMITERS = shape_text("C1")
 LIVE = [("Mode", "shared"), ("Broad gate", "bin/test -q")]
 
 
@@ -841,6 +842,14 @@ def test_the_config_shapes_read_as_the_frame_expects(config, name, rows):
     text = shape_text(name)
     assert config.config_rows(text) == rows, config.config_rows(text)
     assert config.refusal(text) == ([], [], None), config.refusal(text)
+
+
+def test_delimiters_quoted_in_code_spans_hide_nothing(config):
+    """C1, named as 1790635413 named it (round 1, 🟡 3). A prose line quoting
+    the opener in a code span above the table and one quoting the closer
+    below it are paragraph text, so the table between them is read. Pins:
+    the base read it, and the three rounds lost it by reading inline state."""
+    assert config.config_rows(QUOTED_DELIMITERS) == LIVE
 
 
 def test_a_commented_row_is_not_a_row_in_either_line_ending(config):
