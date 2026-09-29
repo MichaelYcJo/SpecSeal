@@ -866,3 +866,19 @@ def test_reverify_writes_a_break_inside_a_rider_back_as_it_stood(tmp_path):
     after = path.read_text(encoding="utf-8")
     assert f"{FF}# more\nx = 1\n" in after
     assert after.count("\n") == text.count("\n")
+
+
+def test_reverify_leaves_a_last_rider_line_with_no_end_without_one(tmp_path):
+    """The other end `write_block` keeps: a rider on a file's last line, with
+    no line end, is written back with none, as the branch it replaced did."""
+    riders = _load("specseal_riders_last_line", RIDERS)
+    (tmp_path / "hooks").mkdir()
+    path = tmp_path / "hooks" / "mod.py"
+    text = f"x = 1\n# {'RIDER:'} about x. Verified 2026-01-01 against x@deadbeef"
+    path.write_text(text, encoding="utf-8")
+    written, refused = riders.reverify(
+        str(tmp_path), roots=("hooks",), today="2026-09-29"
+    )
+    assert len(written) == 1 and refused == []
+    after = path.read_text(encoding="utf-8")
+    assert not after.endswith("\n") and after.count("\n") == 1
