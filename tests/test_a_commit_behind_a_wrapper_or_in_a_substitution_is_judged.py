@@ -121,6 +121,7 @@ SUBSTITUTED = {
     "inside an arithmetic expansion": f"echo $(( $({C}) ))",
     "inside a heredoc body a shell runs": f"bash <<'EOF'\necho $({C})\nEOF",
     "an unterminated one": f"echo $({C}",
+    "a shell string inside a substitution": f"echo $(bash -c '{C}')",
 }
 
 
@@ -246,7 +247,9 @@ BODIES = {
     "single quotes are text": ("echo '$(a)' '`b`'", []),
     "a quoted `<(` is text": ('echo "<(a)"', []),
     "a herestring opens no heredoc": ('echo $(cat <<< "a" ; b) c', ['cat <<< "a" ; b']),
+    "an apostrophe in double quotes is not a quote": ('echo "it\'s $(a)"', ["a"]),
     "a double-quoted `$(` runs": ('echo "$(a)"', ["a"]),
+    "an escaped `$(` is text": ("echo \\$(a) b", []),
 }
 
 

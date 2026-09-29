@@ -318,7 +318,6 @@ def commit_invocations(command, cwd=None):
         if arg is not None and _eval_hides_a_commit(arg):
             for base in bases:
                 found.append(Invocation((), (), base=_unresolved_base(base)))
-            continue
         # `sh -c '…'`, `su -c '…'`, `env -S '…'`: a string a shell parses
         # again, the same question `eval`'s argument answers above (#670).
         if any(_string_hides_a_commit(t) for t in reparsed_texts(toks)):
