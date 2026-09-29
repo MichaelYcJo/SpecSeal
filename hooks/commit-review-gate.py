@@ -101,6 +101,7 @@ import routing
 from cmdline import (
     EXPANDS,
     Unresolved,
+    command_strings,
     compose,
     drop_comments,
     drop_heredoc_bodies,
@@ -172,23 +173,26 @@ def _hides_a_commit(text):
         arg = _eval_argument(toks)
         if arg is not None and _eval_hides_a_commit(arg):
             return True
-        if any(_string_hides_a_commit(t) for t in reparsed_texts(toks)):
+        if _string_hides_a_commit(toks):
             return True
     return any(_hides_a_commit(body) for body in heredoc_bodies(text)) or any(
         _hides_a_commit(body) for body in substitution_bodies(stripped)
     )
 
 
-def _string_hides_a_commit(text):
-    """True when TEXT, a string a program hands to a shell, might commit (#670).
+def _string_hides_a_commit(toks):
+    """True when a string a program in TOKS hands to a shell might commit (#670).
 
-    Read as commands, the way `_hides_a_commit` reads a heredoc body -- and
-    beside that, a command word the shell expands (`sh -c "$CMD"`) counts as
-    one that might, for the reason `_eval_hides_a_commit` gives. Unlike
-    `eval`'s argument, a `$` elsewhere in the string is an argument's and runs
-    nothing, so it is not read as a commit.
+    Every word that might be the string is read as commands, the way
+    `_hides_a_commit` reads a heredoc body. Only the string a host actually
+    runs is asked whether its command word expands (`sh -c "$CMD"`), for the
+    reason `_eval_hides_a_commit` gives: a positional parameter or a search
+    word is not a command (round 1 of 1790644505, yellow 3). Unlike `eval`'s
+    argument, a `$` elsewhere in the string is an argument's and runs nothing.
     """
-    return _hides_a_commit(text) or names_an_unknown_command(text)
+    return any(_hides_a_commit(t) for t in reparsed_texts(toks)) or any(
+        names_an_unknown_command(t) for t in command_strings(toks)
+    )
 
 
 def _eval_argument(toks):
@@ -320,7 +324,7 @@ def commit_invocations(command, cwd=None):
                 found.append(Invocation((), (), base=_unresolved_base(base)))
         # `sh -c '…'`, `su -c '…'`, `env -S '…'`: a string a shell parses
         # again, the same question `eval`'s argument answers above (#670).
-        if any(_string_hides_a_commit(t) for t in reparsed_texts(toks)):
+        if _string_hides_a_commit(toks):
             for base in bases:
                 found.append(Invocation((), (), base=_unresolved_base(base)))
 

@@ -1447,6 +1447,60 @@ def reparsed_texts(tokens):
     return texts
 
 
+# Options of a shell, and of `watch`, that take the next word as their value.
+VALUED = frozenset({"-o", "+o", "-O", "+O", "-n", "--interval", "-q", "--equexit"})
+
+
+def command_strings(tokens):
+    """The string each host in this segment runs AS its command.
+
+    `reparsed_texts` returns every word that might be it, which is right for
+    asking whether a commit is written there. It is wrong for asking whether a
+    command word expands: `find . -exec sh -c '…' _ {} \\;` hands `_` and `{}`
+    to the string as positional parameters, which no shell runs, and `grep
+    watch *.py` names no program at all. So `names_an_unknown_command` is
+    asked of this narrower list (round 1 of 1790644505, yellow 3).
+    """
+    out = []
+    for k, tok in enumerate(tokens):
+        word = os.path.basename(tok)
+        rest = tokens[k + 1 :]
+        if word in SHELLS and any(_hands_a_string(word, t) for t in rest):
+            skip = False
+            for t in rest:
+                if skip:
+                    skip = False
+                elif t in VALUED:
+                    skip = True
+                elif t != "--" and not t.startswith(("-", "+")):
+                    out.append(t)
+                    break
+        elif word in STRING_HOSTS:
+            for j, t in enumerate(rest):
+                if t.startswith("--command="):
+                    out.append(t.split("=", 1)[1])
+                elif _hands_a_string(word, t) and j + 1 < len(rest):
+                    out.append(rest[j + 1])
+        elif word in ("env", "genv"):
+            out += reparsed_texts([tok, *rest])
+        elif word == "watch" and all(
+            ("=" in t and not t.startswith("-")) or os.path.basename(t) in RUNNERS
+            for t in tokens[:k]
+        ):
+            # Only where `watch` is the program that runs, not a word
+            # something else was handed (`grep watch *.py`).
+            words, skip = [], False
+            for t in rest:
+                if skip:
+                    skip = False
+                elif t in VALUED:
+                    skip = True
+                elif not t.startswith("-"):
+                    words.append(t)
+            out.append(" ".join(words))
+    return out
+
+
 def names_an_unknown_command(text):
     """True when a command in `text` has a command word the shell expands.
 
