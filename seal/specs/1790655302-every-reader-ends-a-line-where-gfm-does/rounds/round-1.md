@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #675 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `7bfea5f4b82d82322280d0f777571fe43a116dd8..21b871ef2fc7b69f460735148dcfe20bad8e9046`, 6 commits |
+| Contract changes | none |
+| New units | test_a_rider_behind_a_leading_break_is_still_read (depth 1); test_a_statement_between_the_rider_and_the_unit_is_read_on_asts_lines (depth 1); test_reverify_writes_a_break_inside_a_rider_back_as_it_stood (depth 1); test_reverify_leaves_a_last_rider_line_with_no_end_without_one (depth 1) |
 | Needs a fix | yes — 🟡 1 (a rider behind a leading break goes unchecked), 🟡 2 (the `between` slice is unpinned), 🟡 3 (`write_block` writes a break back as LF), 🟡 4 (the class case exempts four files whole) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 1, the first finding round, over the work item's own diff `3fc0c5bd...260c
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A rider whose GFM line starts with one of the eight before the marker is stepped over by the reader but cut by the hasher, so its stamp is never checked and the run reads clean | `.github/scripts/rider_check.py:250` | open | Probe: `.py`, `.yml` and `.md` fixtures read 1 drifted or 1 problem at base and nothing at head. The planted case failed for all eight at head and passed with the fix |
-| 🟡 2 | The changed `between` slice in `inferred_anchor` has no case; reverting it to the `str.splitlines` list survives every module that covers the file | `.github/scripts/rider_check.py:690` | open | Mutant survived 265 cases. A statement between rider and unit gives `x` at base and `None` at head |
-| 🟡 3 | `write_block` writes a form feed or U+2028 inside a rider back as a line break on `--reverify` and `--migrate` | `.github/scripts/rider_check.py:579` | open | Probe on base and head: LF count 6 to 7, form feed gone. With the fix the form feed is kept. Pre-existing, left to F by the spec's *Out*, and in the class this item exists to close |
-| 🟡 4 | The class case exempts four files whole, so a new `.splitlines(` call in `rider_check.py`, which this item edits, passes unnamed | `tests/test_every_reader_ends_a_line_where_gfm_does.py:636` | open | Planted call in `comment_blocks` passed as shipped and failed with the replacement. The stated reason, F's merge, is past |
-| ⬜ 5 | `phases/phase-4.md` holds a raw U+2028 in the sentence that says the fixture held six ASCII characters | `seal/specs/1790655302-every-reader-ends-a-line-where-gfm-does/phases/phase-4.md:28` | open | Tracked-file scan at `260c86ac`. A correction to the run's paperwork, not a fix |
+| 🟡 1 | A rider whose GFM line starts with one of the eight before the marker is stepped over by the reader but cut by the hasher, so its stamp is never checked and the run reads clean | `.github/scripts/rider_check.py:250` | **fixed** `fa723c22` | fixed at fa723c22 — `gfm_places` counts a piece as a line head when only whitespace stands before it on its GFM line; Probe: `.py`, `.yml` and `.md` fixtures read 1 drifted or 1 problem at base and nothing at head. The planted case failed for all eight at head and passed with the fix |
+| 🟡 2 | The changed `between` slice in `inferred_anchor` has no case; reverting it to the `str.splitlines` list survives every module that covers the file | `.github/scripts/rider_check.py:690` | **fixed** `fa723c22` | fixed at fa723c22 — `inferred_anchor`'s `between` slice is pinned by a statement between the rider and the unit; Mutant survived 265 cases. A statement between rider and unit gives `x` at base and `None` at head |
+| 🟡 3 | `write_block` writes a form feed or U+2028 inside a rider back as a line break on `--reverify` and `--migrate` | `.github/scripts/rider_check.py:579` | **fixed** `fa723c22` | fixed at fa723c22 — with `90dad0df` pinning the last line with no end: `write_block` gives each piece back its own line end; Probe on base and head: LF count 6 to 7, form feed gone. With the fix the form feed is kept. Pre-existing, left to F by the spec's *Out*, and in the class this item exists to close |
+| 🟡 4 | The class case exempts four files whole, so a new `.splitlines(` call in `rider_check.py`, which this item edits, passes unnamed | `tests/test_every_reader_ends_a_line_where_gfm_does.py:636` | **fixed** `fa723c22` | fixed at fa723c22 — the class case names F's units with their counts instead of exempting F's files by path; Planted call in `comment_blocks` passed as shipped and failed with the replacement. The stated reason, F's merge, is past |
+| ⬜ 5 | `phases/phase-4.md` holds a raw U+2028 in the sentence that says the fixture held six ASCII characters | `seal/specs/1790655302-every-reader-ends-a-line-where-gfm-does/phases/phase-4.md:28` | answered | corrected at `5edae0fe`: `phases/phase-4.md` carries the escape in place of the raw character; Tracked-file scan at `260c86ac`. A correction to the run's paperwork, not a fix |
 | 🟢 | S20 holds on the merged tree | the 12 gate runs in *Executed probes* | confirmed | Head code and base code over one content root matched in exit code, stdout and stderr |
 | 🟢 | Coupled `round_record.py` readers agree on line numbering | `skills/code-review/scripts/round_record.py:1279` | confirmed | Every `raw` / `readable` pair reads `gfm_lines`. `swallowed`'s strict zip is reached by the S1 case, and its revert is killed |
 | ❓ | The claims of the 61 ledger rows re-stamped in `seal/releases/0.4.0` to `0.15.5` and in items C's and F's fragments | `seal/releases/*.md`, `seal/ledger/*.md` | ❓ out of verified scope | `evidence-check` exits 0, so the hashes are consistent. I re-read none of the claims against the edits. The orchestrator answers whether a round reads them |
