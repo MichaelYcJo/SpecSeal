@@ -751,9 +751,15 @@ def segments(text):
     Two passes, and they answer different questions. The first is about
     markdown structure: a blank line or the start of a new block ends whatever
     was being said, whether or not a full stop arrived. The second is about
-    sentences inside one block."""
+    sentences inside one block.
+
+    Lines end where GFM ends them, through the shared reader's `gfm_lines`
+    (#664): a number here is the one `grep -n` prints, and the one
+    `python_prose` and `released_lines` keep, which split at LF. Split with
+    `str.splitlines`, a form feed or U+2028 mid-line moved every sentence
+    below it one line off."""
     blocks, buffer, start = [], [], 0
-    for number, line in enumerate(text.splitlines(), start=1):
+    for number, line in enumerate(reader().gfm_lines(text), start=1):
         if not line.strip() or BLOCK.match(line):
             if buffer:
                 blocks.append((start, "\n".join(buffer)))
@@ -890,11 +896,15 @@ def gathered_fragments(root, rev):
     gathered fragment is EXCUSED from the sweep, so a marker quoted in a fence,
     an HTML comment or a code span must not excuse one — that is the silent
     direction, a removal nobody is told about. A marker the reader parks by
-    mistake keeps a fragment in the sweep, which a person sees."""
+    mistake keeps a fragment in the sweep, which a person sees.
+
+    Its lines are the shared reader's `gfm_lines`, the split
+    `gather_changelog.py#live_markers` reads the same file by (#664)."""
     text = read_blobs(root, rev, [CHANGELOG]).get(CHANGELOG, "")
+    loaded = reader()
     return {
         marker
-        for line, live in reader().live_lines(text.splitlines())
+        for line, live in loaded.live_lines(loaded.gfm_lines(text))
         if live
         for marker in MARKER.findall(line)
     }
@@ -937,8 +947,17 @@ READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.p
 WORK_ITEM_DIR = re.compile(r"^((?:seal/)?specs/[^/]+)/")
 
 
+_loaded = {}
+
+
 def reader():
-    """`unverified_check.py`, or a sentence saying why it cannot be read."""
+    """`unverified_check.py`, or a sentence saying why it cannot be read.
+
+    Loaded once per path: `segments` asks it for `gfm_lines` once per file
+    of the corpus (#664), and a module executed that many times is a run
+    that spends its time loading."""
+    if READER in _loaded:
+        return _loaded[READER]
     if not os.path.isfile(READER):
         raise Refused(
             f"cannot read {READER}, which says what a retirement is. This "
@@ -947,6 +966,7 @@ def reader():
     spec = importlib.util.spec_from_file_location("specseal_unverified_reader", READER)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    _loaded[READER] = module
     return module
 
 
@@ -1094,7 +1114,7 @@ def removed_ledger_rows(root, a, b, before, after):
     if not ledgers:
         return set()
     loaded = evidence()
-    live_lines = reader().live_lines
+    live_lines, gfm_lines = reader().live_lines, reader().gfm_lines
 
     def cited(line):
         return {
@@ -1104,7 +1124,7 @@ def removed_ledger_rows(root, a, b, before, after):
 
     rows, standing, named = [], {}, {}
     for path in ledgers:
-        lines = after.get(path, "").splitlines()
+        lines = gfm_lines(after.get(path, ""))
         standing[path] = [
             cited(line)
             for line, live in live_lines(lines)
@@ -1115,7 +1135,7 @@ def removed_ledger_rows(root, a, b, before, after):
             for _number, heading, row_id, _line in ledger_rows(lines, live_lines)
             if row_id
         )
-        at_left = ledger_rows(before[path].splitlines(), live_lines)
+        at_left = ledger_rows(gfm_lines(before[path]), live_lines)
         held = collections.Counter(
             (heading, row_id) for _number, heading, row_id, _line in at_left if row_id
         )

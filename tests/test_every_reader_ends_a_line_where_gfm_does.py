@@ -192,3 +192,136 @@ def test_no_one_of_the_eight_makes_a_marker_a_line(tmp_path, char):
     (tmp_path / "docs").mkdir()
     (tmp_path / "docs" / "x.md").write_text(text, encoding="utf-8")
     assert reader.folded_items(str(tmp_path)) == set(), repr(char)
+
+
+# --- S5-S8: the changelog readers and their partner ---------------------------
+
+
+GATHER = os.path.join(ROOT, ".github", "scripts", "gather_changelog.py")
+SURVIVOR = os.path.join(ROOT, "skills", "code-review", "scripts", "survivor_check.py")
+
+
+def test_gathering_below_a_separator_lands_in_the_section_and_keeps_it():
+    """S5. `insert` found the section by counting LF and then indexed a list
+    `splitlines` had made, so a U+2028 above the section put the new entries
+    above its heading, and the file was written back with a line break where
+    the character stood."""
+    gather = _load("specseal_gather_s5", GATHER)
+    text = (
+        "# Changelog\n\n"
+        f"Intro alpha{LS}beta.\n\n"
+        "## 1.1.0 — 2026-01-02\n\n"
+        "<!-- specs/1-a -->\nentry a\n\n"
+        "## 1.0.0 — 2026-01-01\n\nold\n"
+    )
+    block = gather.section("1.1.0", "2026-01-03", [("2-b", f"entry{FF}b")])
+    assert gather.insert(text, block, "1.1.0") == (
+        "# Changelog\n\n"
+        f"Intro alpha{LS}beta.\n\n"
+        "## 1.1.0 — 2026-01-02\n\n"
+        "<!-- specs/1-a -->\nentry a\n\n"
+        f"<!-- specs/2-b -->\nentry{FF}b\n\n"
+        "## 1.0.0 — 2026-01-01\n\nold\n"
+    )
+    fresh = gather.section("1.2.0", "2026-01-03", [("2-b", f"entry{FF}b")])
+    assert gather.insert(text, fresh, "1.2.0") == (
+        "# Changelog\n\n"
+        f"Intro alpha{LS}beta.\n\n"
+        f"## 1.2.0 — 2026-01-03\n\n<!-- specs/2-b -->\nentry{FF}b\n\n"
+        "## 1.1.0 — 2026-01-02\n\n"
+        "<!-- specs/1-a -->\nentry a\n\n"
+        "## 1.0.0 — 2026-01-01\n\nold\n"
+    )
+
+
+def fragment_tree(tmp_path, body):
+    """A repository root holding one changelog fragment and a changelog."""
+    item = tmp_path / "seal" / "specs" / "2-b"
+    item.mkdir(parents=True)
+    (item / "changelog.md").write_text(body, encoding="utf-8")
+    (tmp_path / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## 1.0.0 — 2026-01-01\n\nold\n", encoding="utf-8"
+    )
+    return tmp_path
+
+
+def test_the_dry_run_prints_a_fragments_character_as_it_stands(tmp_path, capsys):
+    gather = _load("specseal_gather_dry_run", GATHER)
+    root = fragment_tree(tmp_path, f"entry{LS}b\n")
+    argv = ["--version", "1.1.0", "--date", "2026-01-02", "--dry-run"]
+    assert gather.main([*argv, "--root", str(root)]) == 0
+    assert f"entry{LS}b" in capsys.readouterr().out
+
+
+def test_a_fence_after_a_separator_opens_nothing_in_a_fragment():
+    """`leaves_open` asks `live_lines` whether a marker written below the
+    body would be live. A fence run after a U+2028 is mid-line to GFM, so it
+    opens nothing, and the fragment is not refused for one."""
+    gather = _load("specseal_gather_leaves_open", GATHER)
+    assert gather.leaves_open(f"an entry{LS}```\n") is False
+
+
+def test_a_section_line_is_a_line_that_starts_one(tmp_path):
+    """`section_lines` names every fragment line starting `## `, by the
+    number `grep -n` prints. One after a form feed mid-line starts none."""
+    gather = _load("specseal_gather_section_lines", GATHER)
+    root = fragment_tree(tmp_path, f"entry{FF}## not a heading\n\n## one\n")
+    assert gather.section_lines(str(root), "2-b") == [(3, "## one")]
+
+
+def test_the_gatherer_and_the_sweep_read_one_marker_alike(monkeypatch):
+    """S6. A marker after a U+2028 on its line is not a line of its own to
+    GFM, so neither reader of `CHANGELOG.md` may call the fragment gathered.
+    The sweep's side is the one that excuses a fragment, and it was red."""
+    gather = _load("specseal_gather_s6", GATHER)
+    survivor = _load("specseal_survivor_s6", SURVIVOR)
+    text = f"# Changelog\n\n## 1.0.0 — 2026-01-01\n\nold{LS}<!-- specs/1-a -->\n"
+    monkeypatch.setattr(
+        survivor, "read_blobs", lambda root, rev, paths: {survivor.CHANGELOG: text}
+    )
+    assert survivor.gathered_fragments("unused", "HEAD") == set()
+    assert gather.live_markers(text) == []
+
+
+def test_a_sentences_line_number_is_the_files():
+    """S7. The number is the one `grep -n` prints, and the one
+    `python_prose` and `released_lines` keep."""
+    survivor = _load("specseal_survivor_s7", SURVIVOR)
+    text = f"# A title\n\nalpha{FF}beta.\n\nThe sentence stands here.\n"
+    found = [n for n, raw in survivor.segments(text) if "sentence" in raw]
+    assert found == [5]
+
+
+def test_a_ledger_row_holding_a_separator_is_one_row_at_both_ends(monkeypatch):
+    """S8. A row with no id, whose second anchor sits after a U+2028 in its
+    notes, corrected in place to drop the anchor that left the code. Cut at
+    the separator, the row lost the anchor that still resolves, so nothing at
+    `b` could be seen citing it, and the correction was reported as a
+    removal."""
+    survivor = _load("specseal_survivor_s8", SURVIVOR)
+    module = {
+        "a": "def helper(w):\n    return w\n\n\ndef other(w):\n    return w\n",
+        "b": "def other(w):\n    return w\n",
+    }
+    monkeypatch.setattr(
+        survivor,
+        "read_blobs",
+        lambda root, rev, paths: {p: module[rev] for p in paths if p == "pkg/mod.py"},
+    )
+    head = "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+    head += "|---|---|---|---|---|\n"
+    before = head + (
+        "| a claim with no id | `pkg/mod.py#helper@0123abcd` | read | 2026-01-01 "
+        f"| see{LS}also `pkg/mod.py#other@0123abcd` |\n"
+    )
+    # At `b` too the anchor that still resolves stands after the separator
+    # alone, so each end's split is asked on its own.
+    after = head + (
+        "| a claim with no id, corrected | the notes cite it | read "
+        f"| 2026-01-02 | see{LS}also `pkg/mod.py#other@0123abcd` |\n"
+    )
+    ledger = "seal/ledger.md"
+    removed = survivor.removed_ledger_rows(
+        "unused", "a", "b", {ledger: before}, {ledger: after}
+    )
+    assert removed == set()
