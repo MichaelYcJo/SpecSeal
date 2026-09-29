@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #685 — https://github.com/MichaelYcJo/SpecSeal/pull/685 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `deb6290fe048acb16d8bb94469f3d94b6c0d6b34..54e31f21cb5303380981ed7be6e0018e433ff441`, 5 commits |
 | Contract changes | none |
 | New units | _THIS_MODULE (depth 1); _REMOVES (depth 1); _UNREADABLE (depth 1); _removes_this_module (depth 1); selects_this_module (depth 1); test_a_job_counts_only_where_its_pytest_line_selects_this_module (depth 1) |
