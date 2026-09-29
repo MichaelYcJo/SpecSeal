@@ -28,6 +28,23 @@
   command word. The change only adds stops: nothing the gate used to read as a
   commit reads differently. The worktree guard shares the reading, so a
   branch switch or a worktree creation in a loop body is now read by it too.
+- The commit gate judges a commit behind a program that runs its arguments,
+  inside a string handed to a shell, or inside a command substitution (#670).
+  `exec git commit`, `nice git commit`, `timeout 5 git commit`, `xargs git
+  commit`, `sh -c 'git commit'` and `echo $(git commit)` reached it as no
+  commit at all, while `env git commit` was judged. The reader now knows the
+  programs that run their operands as a command — POSIX's, GNU coreutils' and
+  their `g`-prefixed macOS names, util-linux's, `sudo`, `doas` and `pkexec`,
+  the tracers, `find`, `parallel`, `watch` and `script` — and reads past
+  them; behind their own options it stops rather than guess where they run.
+  A string `sh -c`, `bash -c`, `su -c`, `script -c`, `env -S` or `watch`
+  hands to a shell is read as `eval`'s argument already was, and the body of
+  a `$( … )`, backticks, `<( … )` or `>( … )` is read as a heredoc body is. A
+  commit found in either stops as one whose repository cannot be read. The
+  change only adds stops. A program whose arguments are a script or a remote
+  command — `bash run.sh`, `make`, `uv run`, `ssh` — is still not read. The
+  worktree guard shares the wrapper reading, so `nice git worktree add` now
+  meets it too.
 
 ### Added
 

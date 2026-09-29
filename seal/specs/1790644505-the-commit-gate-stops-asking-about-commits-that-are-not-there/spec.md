@@ -114,6 +114,15 @@ silent. `plan.md` phase 4 and `phases/phase-4.md` hold the change and the
 argument; the sentences below that call `hooks/cmdline.py` untouched are true
 of phases 1–3 and not of the branch.
 
+**Corrected again 2026-09-29 by phase 5 (#670).** Phase 4 found a second
+class of the same kind: a commit behind a wrapper the reader did not know
+(`exec`, `nice`, `timeout`, `xargs`), inside a string handed to a shell, or
+inside a command substitution. Phase 5 reads all three, again only toward
+more stops, and this time the gate's own `commit_invocations` and
+`_hides_a_commit` change beside `hooks/cmdline.py`: each gains an invocation
+for a string or a substitution that holds a commit, and loses none it had.
+`phases/phase-5.md` holds the enumeration and the argument.
+
 In such a session, every stop the commit gate makes is a `deny`, addressed to
 the model, and never an `ask`. Its reason names the ways on that need nobody.
 Everywhere else, the decision is byte-identical to `release/v0.16.0`.
@@ -131,7 +140,11 @@ commands:
    `git diff` alone. (Corrected 2026-09-29: except `hooks/cmdline.py`'s
    `command_word`, `parse_git` and `walk_directories`, changed by phase 4 for
    #669 in the stricter direction only; the three gate functions and
-   `names_a_directory` are still untouched.)
+   `names_a_directory` are still untouched. Corrected again by phase 5, #670:
+   `commit_invocations` now also adds invocations for a shell string and a
+   substitution, and `hooks/cmdline.py` gains the readers for them and the
+   enumerated wrappers; `commit_targets`, `judge` and `names_a_directory` are
+   still untouched.)
 2. **`deny` is never more permissive than `ask`.** An `ask` lets the commit
    through when a person clicks. A `deny` never does. Where the base asked, the
    head refuses.
@@ -208,7 +221,7 @@ edits stay with §9.
   `commit_invocations`, `_hides_a_commit` and the heredoc rule. The owner's
   constraint forbids a new silent, and work item `1790635415` measured what
   narrowing costs. (Corrected 2026-09-29: a change that only WIDENS what the
-  gate reads came in as phase 4, #669, the one edit to `hooks/cmdline.py`;
+  gate reads came in as phase 4, #669, and a second as phase 5, #670;
   narrowing stays out.)
 - **A reading proven by the shell's own parser** (`bash -n`, or printing a
   wrapped function back). It would settle tokenisation, which is where the `#`
@@ -250,7 +263,7 @@ already uses. No case reads a real transcript.
 | S4 | The four measured shapes, rebuilt in temporary repositories | The session directory is opted in and undeclared, and W is declared. (a) `cd W && python3 - <<'EOF'`, body `print(1)`, `EOF`, then `git add f && git commit -m x` on the next line. (b) `cd W && true ; git add f && git commit -m x`. (c) `cd W && python3 - <<'EOF'` whose body carries a `for` loop and a string holding `; git commit -m x`. (d) `cat > f <<'EOF'` whose body holds a bare `EOF` line followed by `git commit -m x`. Under the press: `deny`, twice each. Without it: base behaviour, deny then `ask`. Silent in neither | Through `main()`. Under the press, seen red at `3911a8cf` on the second issue |
 | S5 | What the automation reason says | It names `git -C <absolute path> commit`, `&&` alone after a `cd`, the `Edit` and `Write` tools, the waiver last and only for a commit belonging to no work item, handing back otherwise, and that an unchanged re-issue meets the same refusal. It does not name `AskUserQuestion` | Pinned text (contract §14). Seen red by deleting each sentence in turn |
 | S6 | Without the press, nothing changes | For these, the output is byte-identical to `3911a8cf`'s: no transcript; a `per axis` press; an `Other` answer starting `automation -`; an `isSidechain: true` entry; a press whose `cwd` is another clone; no `session_id`; an unreadable transcript file | Each asserted against the base decision and reason. The existing suites for this gate pass with no existing case edited |
-| S7 | The silent set does not move | (a) `git diff release/v0.16.0 -- hooks/cmdline.py` is empty (corrected 2026-09-29: it holds phase 4's #669 change alone, `command_word` and the two lines of `parse_git` and `walk_directories` that call it, which only add stops), and in `hooks/commit-review-gate.py` the functions named in property 1 are unchanged. (b) A corpus of every shape `1790635415`'s rounds 2 and 3 measured as a false silent, rebuilt from their fences, plus #662's reverse direction (`cd <undeclared U> ; git commit -m x` from a declared session directory). Each stops with and without the press, and none is silent | (a) is read at review. (b) is a case, seen red by a mutation that returns silence on the automation branch (contract §15) |
+| S7 | The silent set does not move | (a) `git diff release/v0.16.0 -- hooks/cmdline.py` is empty (corrected 2026-09-29: it holds phase 4's #669 change, `command_word` and the two lines of `parse_git` and `walk_directories` that call it, and phase 5's #670 readers, `RUNNERS`, `reparsed_texts`, `names_an_unknown_command` and `substitution_bodies`, all of which only add stops), and in `hooks/commit-review-gate.py` the functions named in property 1 are unchanged. (b) A corpus of every shape `1790635415`'s rounds 2 and 3 measured as a false silent, rebuilt from their fences, plus #662's reverse direction (`cd <undeclared U> ; git commit -m x` from a declared session directory). Each stops with and without the press, and none is silent | (a) is read at review. (b) is a case, seen red by a mutation that returns silence on the automation branch (contract §15) |
 | S8 | Declared targets stay silent under the press | `cd W && git commit -m x` and `git -C W commit -m x`, from an undeclared session directory, with W declared → silent, as at base | Through `main()`. It passes at base too, and is seen red by a mutation that denies before the declaration is read |
 | S9 | The written half | Contract §17 exists, is the last section, and carries both reasons, pointing at §8 and §9 without restating them. `orchestration.md`'s paragraph cites §17 | `tests/test_a_moved_rule_leaves_its_definition.py` passes. A case pins §17's two reasons as the tree pins §9's pair (`tests/test_edits_go_through_the_edit_tool.py`) |
 | S10 | The policy says what the code does | `docs/commit-review-gate-spec.md` carries the automation row, the amended paragraph and the #662/#665 paragraph, each with an `Enforced by:` line naming S1–S4 and S7's cases | Read at review. The rider and survivor checks pass |

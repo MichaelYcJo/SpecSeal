@@ -130,8 +130,12 @@ at all is asked of every body separately, as shell, on purpose, because a
 commit hidden in a body used to walk straight past (legacy #75). Two kinds of
 segment count there. One is a segment whose command word is `git` with the
 `commit` subcommand, so what counts is the position and never the presence of
-the word: a whole fixture file of shell commands held in Python strings is
-clean, while an eight-line patch of that file trips (#34). The other has no
+the word: a fixture file of shell commands held in Python strings can read
+clean whole, while an eight-line patch of that file trips (#34). A string a
+shell would run is a position too — the one `sh -c` is handed, or the inside
+of `$( … )` or a backtick pair (#670) — and this repository's own fixture
+files hold commits in exactly those, so since #670 they trip whole. The other
+has no
 commit in it at all — an `eval` whose argument the reader cannot expand
 stops the session, since nothing can tell what it reduces to without running
 the shell. So a session that searched its patch for a commit and found none
@@ -280,6 +284,39 @@ the base read is read differently, and the directories it marks unresolved
 are those segments' own.
 Enforced by: tests/test_a_commit_behind_a_reserved_word_is_judged.py
 
+**A commit behind a wrapper, in a shell string or in a substitution is a
+commit.** `exec git commit`, `nice git commit`, `timeout 5 git commit`,
+`xargs git commit`, `sh -c 'git commit'` and `echo $(git commit)` each reached
+the gate as no commit at all (#670): the reader knew five wrappers by name,
+stopped at the first word it did not know, never read a string handed to a
+shell, and never looked inside a substitution.
+
+So three readings are added. A program that runs its operands as a command
+(`cmdline.RUNNERS`, an enumeration of POSIX's, GNU coreutils', util-linux's,
+the privilege tools', the tracers' and `find`, `parallel`, `watch` and
+`script`) is read past: directly in front of `git` the commit is judged where
+the shell is, and behind the program's own options or operands, which the
+reader does not parse, the first `git` word stands in and the directory is
+unresolved. A string `sh -c`, `bash -c`, `su -c`, `script -c`, `env -S` or
+`watch` hands to a shell is read as a command the way `eval`'s argument
+already was, and a command word the shell would expand there (`sh -c
+"$CMD"`) counts as one that might commit. The body of a `$( … )`, backticks,
+`<( … )` or `>( … )` is read as a command the way a heredoc body is; a
+single-quoted one is text. A commit found in a string or a substitution runs
+somewhere the walk does not place, so it stops wherever the session's own
+repository opted in.
+
+What stays unread is a program whose operands are a script or a remote
+command rather than a command here — `bash run.sh`, `source`, `make`, `uv
+run`, `npx`, `ssh`, `docker exec` — because reading it would mean reading
+files or machines, not the command. Each stays silent as it was.
+
+The reading can only have gained stops by this, for the reason #669's change
+gives: every word newly read past is one at which the old reading found no
+command, and every string and substitution newly read adds an invocation
+beside the ones already found.
+Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
+
 ### Why a deny, and why only once
 
 A hook returns allow/deny/ask and nothing else, and the harness renders an
@@ -345,9 +382,10 @@ commit for every one it was given: a flag after the `<<`, a bundled `-Bc`, a
 `$(…)` or `${…;…}` moving the boundary, a `#` glued to the delimiter, and an
 earlier segment or an assignment prefix moving the `cd` target. Each fix
 narrowed further than its proof, so the reading stays where it was, and what
-changed is who a stop is put to. The one change to the reading is the
-stricter one above, for a commit behind a reserved word (#669). Every one of
-those commands still stops, with the press and without.
+changed is who a stop is put to. The changes to the reading are the two
+stricter ones above: a commit behind a reserved word (#669), and one behind a
+wrapper, in a shell string or in a substitution (#670). Every one of those
+commands still stops, with the press and without.
 Enforced by: tests/test_no_shape_the_base_stops_reads_silent.py
 
 **Both arms, one call.** When both arms fire, the reason asks for two
