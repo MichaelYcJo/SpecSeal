@@ -272,8 +272,10 @@ def test_a_later_routing_answer_takes_the_press_back(
     one work item and then answered `per axis` for another has, on its latest
     answer, a person who may be asked; the automation text would tell the
     model not to. The last answer from this clone stands, so the gate goes
-    back to the base's deny-then-ask -- and the guard, whose reader this is,
-    asks again as well. A later `automation` press gives it back."""
+    back to the base's deny-then-ask. The guard shares this reader but reads
+    its creation record first, so it asks again only while no creation has
+    run; a record written under the press stands (round 2 of 1790644505). A
+    later `automation` press gives the press back."""
     repo = make_repo(tmp_path / "repo")
     first = ask_entries(repo, tool_id="toolu_01first")
     later = ask_entries(repo, answer="per axis", tool_id="toolu_01later")

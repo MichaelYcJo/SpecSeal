@@ -324,9 +324,11 @@ gives, and for one more: a command the splitter could not finish is still
 judged in the session's own directory when the new reading found a commit in
 the part it did read. Without that, a commit found in a declared repository
 took the session's directory out of the judgment (round 1 of work item
-1790644505). A command nested deeper than the reader recurses reads as one it
-could not parse, since a gate that raises is skipped and a skipped gate is
-silence.
+1790644505). A body nested deeper than the reader recurses reads as one that
+might commit, beside every commit already found, since a gate that raises is
+skipped and a skipped gate is silence; catching the raise around the whole
+reading had thrown away a commit it had found in another repository (round 2
+of work item 1790644505).
 Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
 
 ### Why a deny, and why only once
