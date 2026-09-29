@@ -476,6 +476,90 @@ def test_a_marker_quoted_inline_is_not_a_gathered_work_item(tmp_path):
     assert "examined nothing" in r.stdout, r.stdout
 
 
+# --- #584: a marker counts only on a live line --------------------------------
+
+QUOTED_MARKER = {
+    "fenced": "An entry quoting the marker:\n\n```\n<!-- specs/1788229400-later -->\n```\n",
+    "inline": "- this entry names `<!-- specs/1788229400-later -->` in prose\n",
+    "commented": "<!-- a draft entry\n<!-- specs/1788229400-later -->\n-->\n",
+}
+
+
+def quoting(tree, shape):
+    """The fixture's file with the earlier work item gathered for real and
+    the later one's marker only quoted, in `shape`."""
+    (tree / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## 0.1.0 — 2026-09-01\n\n"
+        "<!-- specs/1700000000-earlier -->\n- the earlier one\n\n"
+        + QUOTED_MARKER[shape],
+        encoding="utf-8",
+    )
+
+
+@pytest.mark.parametrize("shape", sorted(QUOTED_MARKER))
+def test_a_quoted_marker_gathers_nothing(tree, shape):
+    """#584, S6. `ungathered` was a substring test, so a marker quoted in a
+    fenced example, in prose or in a commented-out draft marked its fragment
+    gathered, and `--check` passed a release that never shipped the entry.
+    Its count was line-anchored and still read the fenced and commented
+    shapes. A marker counts only on a live line
+    (`docs/the-evidence-ledger.md` §*A marker counts only on a live line*)."""
+    quoting(tree, shape)
+    r = run("--check", root=tree)
+    assert r.returncode == 1, r.stdout
+    assert "seal/specs/1788229400-later/changelog.md" in r.stdout, r.stdout
+    assert "seal/specs/1700000000-earlier/changelog.md" not in r.stdout, r.stdout
+
+
+def test_a_quoted_marker_is_not_counted(tree):
+    """#584, S6's count. `--check`'s success line counted every
+    line-anchored marker, so a fenced or commented quotation of one counted
+    as a work item that was gathered."""
+    gather(tree)
+    (tree / "CHANGELOG.md").write_text(
+        changelog(tree) + "\n" + QUOTED_MARKER["fenced"] + "\n"
+        "<!-- a draft\n<!-- specs/1700000000-earlier -->\n-->\n",
+        encoding="utf-8",
+    )
+    r = run("--check", root=tree)
+    assert r.returncode == 0, r.stdout
+    assert "2 work items marked in CHANGELOG.md" in r.stdout, r.stdout
+
+
+def load(path, name):
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.mark.parametrize("shape", sorted(QUOTED_MARKER))
+def test_the_gather_and_the_survivor_check_read_one_set_of_markers(
+    tree, shape, monkeypatch
+):
+    """#584, S7. `survivor_check.py#gathered_fragments` excuses a gathered
+    fragment from its sweep, and it reads `CHANGELOG.md`'s markers through
+    `live_lines`. The gather reading the same file by another rule is two
+    answers to *was this entry shipped*."""
+    quoting(tree, shape)
+    text = changelog(tree)
+    gather_mod = load(SCRIPT, "specseal_gather_changelog")
+    survivor = load(
+        os.path.join(ROOT, "skills", "code-review", "scripts", "survivor_check.py"),
+        "specseal_survivor_check",
+    )
+    monkeypatch.setattr(
+        survivor, "read_blobs", lambda root, rev, paths: {survivor.CHANGELOG: text}
+    )
+    frags = gather_mod.fragments(str(tree))
+    missing = {i for i, _ in gather_mod.ungathered(text, frags)}
+    gathered = {i for i, _ in frags} - missing
+    assert gathered == survivor.gathered_fragments(str(tree), "HEAD")
+    assert gathered == {"1700000000-earlier"}
+
+
 # --- #586: a fragment's own `## ` line ends the released section -------------
 
 HEADED = "1788250000-headed"
@@ -542,6 +626,51 @@ def test_a_gathered_fragment_is_not_refused_again(tree):
     (d / "changelog.md").write_text("- **the next one.**\n", encoding="utf-8")
     r = run("--version", "0.3.0", "--date", "2026-09-16", root=tree)
     assert r.returncode == 0, r.stdout
+
+
+LEFT_OPEN = {
+    "fence": "- **an entry.** It quotes:\n\n```\na block nobody closed\n",
+    "comment": "- **an entry.** It mentions a bare " + "<" + "!--" + " in prose.\n",
+}
+
+
+@pytest.mark.parametrize("dry_run", [False, True])
+@pytest.mark.parametrize("shape", sorted(LEFT_OPEN))
+def test_a_fragment_that_leaves_a_block_open_is_refused(tree, shape, dry_run):
+    """#584 round 1, finding 1; phase 9 of work item 1790635413. `section`
+    writes each fragment verbatim and the next marker below it, and `insert`
+    puts every older section below that. A fragment that opens a fenced block
+    or an HTML comment and never closes it put all of those markers on lines
+    `live_markers` cannot see: the gather exited 0, `--check` then called the
+    entry below it missing, and the gather it advised wrote that entry a
+    second time. Refused before anything is written or printed, beside the
+    #586 refusal, naming the fragment."""
+    headed(tree, LEFT_OPEN[shape])
+    before = changelog(tree)
+    args = ["--version", "0.2.0", "--date", "2026-09-15"]
+    r = run(*args, *(["--dry-run"] if dry_run else []), root=tree)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert changelog(tree) == before, "the refused gather wrote to the file"
+    assert "## 0.2.0" not in r.stdout, "the refused gather printed a section"
+    out = " ".join(r.stdout.split())
+    assert f"seal/specs/{HEADED}/changelog.md" in out, out
+    assert "never close" in out and "Nothing was written" in out, out
+    assert "seal/specs/1788229400-later/changelog.md" not in out, out
+
+
+def test_a_fragment_that_closes_what_it_opens_is_gathered(tree):
+    """The other half, so the refusal cannot pass by refusing everything: a
+    fenced block and a comment that both close leave the next marker live."""
+    headed(
+        tree,
+        "- **an entry.** It quotes:\n\n```\na block\n```\n\n"
+        + "<"
+        + "!-- a note -->\n",
+    )
+    gather(tree)
+    r = run("--check", root=tree)
+    assert r.returncode == 0, r.stdout
+    assert "3 work items marked in CHANGELOG.md" in r.stdout, r.stdout
 
 
 def test_the_documents_say_a_fragment_carries_no_section_line():

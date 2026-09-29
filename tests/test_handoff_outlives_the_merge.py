@@ -35,6 +35,7 @@ why the tests below assert the two substrings rather than that something was
 printed.
 """
 
+import importlib.util
 import os
 import re
 
@@ -46,6 +47,51 @@ ROOT = os.path.join(os.path.dirname(__file__), "..")
 def read(*parts):
     with open(os.path.join(ROOT, *parts), encoding="utf-8") as f:
         return f.read()
+
+
+def _fence_reader():
+    path = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
+    spec = importlib.util.spec_from_file_location("specseal_fence_rule_handoff", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+fence_rule = _fence_reader()
+
+
+def fenced_block_lines(text):
+    """The lines inside a fenced block, delimiters left out, a block that
+    never closes running to the end (#658).
+
+    The delimiters are `unverified_check.py`'s `fence_opener` and
+    `fence_closes`, asked of each line with its indentation stripped — the
+    wider opener `round_record.py#fenced_after` keeps, because a command is
+    often fenced under a list item. The toggle this replaced flipped on any
+    line starting with three backticks, so the inner delimiter of a
+    four-backtick block ended it and the commands quoted inside went unread."""
+    out, opener = [], None
+    for line in text.splitlines():
+        bare = line.lstrip()
+        if opener is None:
+            opener = fence_rule.fence_opener(bare)
+            continue
+        if fence_rule.fence_closes(bare, opener):
+            opener = None
+            continue
+        out.append(line)
+    return out
+
+
+def test_a_command_quoted_in_a_nested_fence_is_still_read():
+    """#658, phase 8 of work item 1790635413. A `git mv` quoted in a
+    four-backtick block, beside the three-backtick example it quotes, is a
+    fenced line this check has to read."""
+    text = "````\n```\ngit mv a b/\n```\n````\n~~~\ngit mv c d/\n~~~\n"
+    assert [line for line in fenced_block_lines(text) if "git mv" in line] == [
+        "git mv a b/",
+        "git mv c d/",
+    ]
 
 
 def payload(command, repo, session="s1"):
@@ -215,13 +261,9 @@ def test_every_migration_command_creates_its_destination():
         # a sentence about it, and an elided one warns about the broken form —
         # and the warning has to be inside the span, not near it.
         commands = re.findall(r"`([^`\n]*git mv[^`\n]*)`", text)
-        fence = False
-        for line in text.splitlines():
-            if line.strip().startswith("```"):
-                fence = not fence
-                continue
-            if fence and "git mv" in line:
-                commands.append(line.strip())
+        commands += [
+            line.strip() for line in fenced_block_lines(text) if "git mv" in line
+        ]
 
         for cmd in commands:
             after = cmd.split("git mv", 1)[1]

@@ -28,6 +28,16 @@ it is the only link from a released entry back to the work that produced it.
 
 Markdown comments do not render, so a reader never sees them.
 
+**A marker counts only on a live line** (#584). One quoted in a fenced
+example, a commented-out draft or a code span is text about the convention,
+and reading it as a gathered work item passes a release that never shipped
+the entry. Every marker reader here — `ungathered` and `--check`'s count —
+asks `live_markers`, which reads through `unverified_check.py#live_lines`,
+the one function `docs/the-evidence-ledger.md` §*A marker counts only on a
+live line* names. `survivor_check.py#gathered_fragments` reads this file's
+markers through the same function, so the two cannot disagree about which
+entries shipped.
+
 **`--check` judges by the markers, not only by the fragments.** A fragment
 glob goes empty two ways: every fragment reached the file, and there are no
 fragments left to reach it because `settle` retired the work items whole. The
@@ -43,10 +53,20 @@ every entry after it under no version and cut the release note short. The
 gather refuses, among the fragments it would write, before anything is
 written or printed, naming the fragment, the line number and the line.
 
+**A fragment closes what it opens** (#584, round 1's finding 1). The gather
+writes a fragment verbatim with the next marker below it, so a fenced block or
+an HTML comment it leaves open hides that marker and every older one from
+`live_markers`: `--check` then calls a gathered entry missing, and the gather
+it advises writes the entry twice. The gather refuses such a fragment, among
+the ones it would write, before anything is written or printed, naming it.
+It does not close the block for the author: that would ship text nobody
+wrote, and a bare comment opener in prose was never meant to open anything.
+
 Exit codes: 0 done · 1 nothing to gather, a fragment is missing from the file,
-`--check` found neither a fragment nor a marker and so examined nothing, or
-a fragment carries a line starting `## `. All four are failures a release
-pull request should stop on.
+`--check` found neither a fragment nor a marker and so examined nothing, a
+fragment carries a line starting `## `, or a fragment leaves a fenced block
+or an HTML comment open. All five are failures a release pull request should
+stop on.
 """
 
 import argparse
@@ -68,6 +88,38 @@ TITLE = "# Changelog"
 # own entries describe the convention, so a bare substring count reads the
 # description as a gathered work item.
 MARKER_LINE_RE = re.compile(r"^<!-- specs/\S+ -->$", re.M)
+
+# The live-line rule is the shipped one, loaded by path the way
+# `fold_ledger.py#load_reader` loads it (#487, #584). A reader that is moved
+# or renamed stops the gather at load with a traceback, at the release, which
+# is the loud direction.
+READER = os.path.join(ROOT, "skills", "verify", "scripts", "unverified_check.py")
+
+
+def load_reader(path=READER):
+    """`unverified_check.py` as a module."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("specseal_unverified_reader", path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+reader = load_reader()
+
+
+def live_markers(changelog_text):
+    """The work item ids whose marker stands on a live line of its own, in
+    file order (#584).
+
+    Lines are split by `splitlines()`, as `survivor_check.py#gathered_fragments`
+    splits them, so the two readers of this file see the same lines."""
+    return [
+        line[len("<!-- specs/") : -len(" -->")]
+        for line, live in reader.live_lines(changelog_text.splitlines())
+        if live and MARKER_LINE_RE.match(line)
+    ]
 
 
 def marker(work_item_id):
@@ -94,7 +146,27 @@ def fragments(root):
 
 
 def ungathered(changelog_text, frags):
-    return [(i, body) for i, body in frags if marker(i) not in changelog_text]
+    """The fragments whose marker stands on no live line (`live_markers`).
+
+    It used to be a substring test, so a marker quoted in prose, a fence or a
+    code span marked its fragment gathered (#584)."""
+    gathered = set(live_markers(changelog_text))
+    return [(i, body) for i, body in frags if i not in gathered]
+
+
+def leaves_open(body):
+    """Whether a marker written below BODY would stand on no live line: the
+    fragment opens a fenced block or an HTML comment and never closes it
+    (#584, round 1's finding 1).
+
+    `section` writes the next fragment's marker below it after one blank
+    line, and `insert` puts every older section's markers below that, so
+    `ungathered` would call each of them missing and the gather `--check`
+    then advises would write them twice. The probe is exactly that shape —
+    the body, a blank line, a marker — asked of `live_lines` itself, so there
+    is no second rule for what an open block is."""
+    probe = [*body.splitlines(), "", marker("probe")]
+    return not list(reader.live_lines(probe))[-1][1]
 
 
 # What ends a released section for both of its readers: `insert` below and
@@ -246,7 +318,7 @@ def main(argv=None):
         # must not fail in (`unverified_check.py`'s own docstring argues it
         # one file over). The markers in the file are the record that survives
         # the directory, so they are what a folded corpus is judged by.
-        marked = len(MARKER_LINE_RE.findall(text))
+        marked = len(live_markers(text))
         if not frags and not marked:
             print(
                 "nothing to check: no changelog fragment under seal/specs/ "
@@ -294,6 +366,22 @@ def main(argv=None):
             print(f"  seal/specs/{work_item_id}/changelog.md:{n}: {line}")
         print(
             "\nDemote each to `###` or lower in a pull request into the release "
+            "branch, then gather again. Nothing was written."
+        )
+        return 1
+
+    # #584, phase 9: refused on the same terms as #586 above, and after it.
+    unclosed = [work_item_id for work_item_id, body in missing if leaves_open(body)]
+    if unclosed:
+        print(
+            "changelog fragments that open a fenced block or an HTML comment "
+            "and never close it, so every marker written below them would "
+            "read as not gathered and --check would ask for a second gather:"
+        )
+        for work_item_id in unclosed:
+            print(f"  seal/specs/{work_item_id}/changelog.md")
+        print(
+            "\nClose it in the fragment in a pull request into the release "
             "branch, then gather again. Nothing was written."
         )
         return 1

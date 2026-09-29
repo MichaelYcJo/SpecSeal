@@ -828,6 +828,29 @@ def test_sections_do_not_split_at_a_heading_inside_a_fence(meter, tmp_path):
     assert sum(p["chars"] for p in pieces) == len(text)
 
 
+NOT_A_FENCE = {
+    # `skills/evidence-check/SKILL.md` carries this shape: a prose line that
+    # begins with a four-backtick code span. A backtick opener's info string
+    # may not hold a backtick, so it opens nothing (CommonMark 4.5).
+    "backtick info": "```` ```` ```` is how a block quoting ``` is fenced.\n",
+    # Four spaces is an indented code block or a lazy continuation, never a
+    # fence delimiter.
+    "four spaces": "    ```\n",
+}
+
+
+@pytest.mark.parametrize("shape", sorted(NOT_A_FENCE))
+def test_sections_split_by_the_shared_fence_rule(meter, shape):
+    """#584, S12. `heading_starts` kept a fence rule of its own — any
+    indentation, any delimiter line of the right character opening — so a
+    line the shared rule does not read as a fence hid every heading after
+    it. The walk is `unverified_check.py#fence_opener` and `fence_closes`
+    now."""
+    text = f"# alpha\n\n## First\n\n{NOT_A_FENCE[shape]}\n## H\n\nlast\n"
+    headings = [p["heading"] for p in meter.sections_of(text)]
+    assert headings == ["(before the first heading)", "## First", "## H"], headings
+
+
 def test_an_inline_skills_list_is_read(meter, tmp_path):
     """Round 1, finding 3. `skills: [a, b]` is the same field in YAML's
     flow form, and the meter read it as no skills — the definition then
