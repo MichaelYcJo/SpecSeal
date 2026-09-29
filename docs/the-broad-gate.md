@@ -81,16 +81,8 @@ consumed by every walk of the `| Item | Value |` table — the reader, the
 refusal, and the writer that locates the line it overwrites. A reader and a
 writer that disagree about which line is the row leave a file two rows deep
 that no command can bring into agreement, so a repair landing in the reader
-alone is half a repair. A row inside an HTML comment that closes is not a
-config row either, and the same one generator hides it from all three walks
-(#584): a row somebody commented out is not an answer they gave. A comment
-that never closes hides nothing, a comment delimiter inside a code span that
-closes on its own line is text, and a code fence opens only on a line that
-begins outside every comment — the order the shared rule reads in. Where
-this gate's row stands
-only inside a comment the refusal names it as commented out rather than as
-fenced or absent.
-Enforced by: tests/test_the_seal_is_taken_once_by_the_sealer.py::test_a_broad_gate_line_only_inside_a_fence_is_named_and_not_called_absent, tests/test_the_seal_is_taken_once_by_the_sealer.py::test_a_broad_gate_line_only_inside_a_comment_is_named_and_not_called_absent
+alone is half a repair.
+Enforced by: tests/test_the_seal_is_taken_once_by_the_sealer.py::test_a_broad_gate_line_only_inside_a_fence_is_named_and_not_called_absent
 
 <!-- specs/1790206436-the-runs-instruments-cost-wall-clock -->
 **The gate that measures a tree is the copy that tree ships, and the stamp

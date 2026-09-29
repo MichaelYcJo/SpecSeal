@@ -255,33 +255,30 @@ def fence_opener(line):
     read through, and its `#live_markers` through `live_lines`;
     `.github/scripts/gather_changelog.py#live_markers` through `live_lines`,
     which `#ungathered` and `--check`'s count read through;
-    `.github/scripts/rider_check.py#fenced_lines`, which asks the two
-    functions directly with a comment state of its own, and which
-    `#comment_blocks` asks of a markdown file;
     `skills/evidence-check/scripts/correction_check.py#rows` through
     `closed_fence_lines`; and `skills/verify/scripts/payload_meter.py#heading_starts`
     and `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py#headings`,
     which ask the two functions directly. The readers #658 brought here:
     `skills/code-review/scripts/survivor_check.py#read_exemptions` through
-    `blank_fences`, an unclosed block to the end because excusing a survivor
-    is the silent direction.
+    `readable`, which blanks an HTML comment as well as a fence, and either
+    one nobody closed to the end, because excusing a survivor is the silent
+    direction.
 
     **The readers that keep a rule of their own, each on purpose.** #584
     brought every reader it enumerated here or answered it, and these are the
     answers:
 
-      - `hooks/config.py#FENCE` is a deliberate copy of this rule, with a
-        comment half beside it: it runs on the hook path, where loading a
-        skill module would cost every hook call.
+      - `hooks/config.py#FENCE` is a deliberate copy of this rule: it runs on
+        the hook path, where loading a skill module would cost every hook
+        call.
         `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
-        and `#test_the_comment_rule_agrees_with_the_config_reader` hold the
-        copy in step, shape by shape;
-      - `hooks/routing.py#hidden`, which `#table_rows` reads through, is a
-        second hook copy of the same walk as `hooks/config.py#walk`, for the
-        same reason (#658; #584 round 2) — a fence opens only on a line that
-        begins outside every comment, as `_liveness` has it — held by
-        `#test_the_fence_rule_agrees_with_the_routing_reader` and, with the
-        config copy, by `#test_the_comment_rule_agrees_with_the_config_reader`;
+        holds the copy in step, shape by shape;
+      - `hooks/routing.py#table_rows`, and the HTML comment walk in
+        `.github/scripts/rider_check.py#comment_blocks`, keep no fence state
+        at all. #584 brought both here and then took them back out after its
+        third review round, because the comment-before-fence reading they
+        needed reopened a finding every round; a new work item redoes them
+        from a clean frame, and #658 stays open for the routing half;
       - `.github/scripts/close_issues_on_release.py#FENCE`, and
         `issue_claims_check.py` and `label_merged_on_release_branch.py`
         through it, read a pull request body by GitHub's rule and open a

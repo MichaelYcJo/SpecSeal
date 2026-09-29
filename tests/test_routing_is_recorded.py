@@ -697,42 +697,6 @@ def test_the_answer_pressed_row_is_read_when_it_is_there():
         assert parsed["pressed"] == answer, answer
 
 
-# --- #658: a row quoted inside a fence is not a routing row ------------------
-
-
-def test_a_comment_hides_no_table_and_answers_for_none():
-    """#584 round 2, finding 2. A fence line inside an HTML comment above the
-    table opened a fence that hid the whole declaration — one that read at
-    `551c7967` — and a row parked in a closed comment below the table
-    answered for it, because `parse` keeps the last row of a label."""
-    opener = "<" + "!--"
-    above = opener + " a note, with an example:\n```\nan example\n-->\n\n"
-    parsed = routing.parse(above + two_axis_text())
-    assert parsed is not None and parsed["review"] == CHAIN, parsed
-    below = f"\n{opener} the answer before:\n| Review | {DIRECT} |\n-->\n"
-    assert routing.parse(two_axis_text() + below)["review"] == CHAIN
-
-
-def test_a_row_quoted_inside_a_fence_is_not_an_answer():
-    """#658, phase 8 of work item 1790635413. `table_rows` had no fence state,
-    and `parse` keeps the LAST row of a label, so an example quoted in a
-    fenced block below the real table answered for it — here turning a
-    declared review chain into *straight to the PR*. A file whose only rows
-    are fenced is no declaration, the direction this module fails in."""
-    example = (
-        "\nAn example of the other answer:\n\n```markdown\n"
-        f"| Review | {DIRECT} |\n| Branch | somebody-else |\n```\n"
-    )
-    parsed = routing.parse(two_axis_text() + example)
-    assert parsed is not None
-    assert (parsed["review"], parsed["branch"]) == (CHAIN, "feature/x"), parsed
-    fenced_only = "~~~\n" + two_axis_text() + "~~~\n"
-    assert routing.parse(fenced_only) is None
-    assert routing.parse("```\n" + two_axis_text()) is None, (
-        "a fence nobody closed runs to the end of the file"
-    )
-
-
 def test_pressing_the_preset_and_ticking_every_box_are_told_apart():
     """S3. Both produce the same four party rows; only this row differs.
 

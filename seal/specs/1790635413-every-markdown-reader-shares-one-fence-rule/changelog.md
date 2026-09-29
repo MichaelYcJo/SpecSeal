@@ -1,24 +1,3 @@
-- **A row inside an HTML comment in `seal/config.md` is no longer read
-  (issue #584).** The config reader had no comment state, so a `Broad gate`
-  row somebody commented out above the live one was the only row the gate
-  got, and a whole old table parked inside a comment was read as the table.
-  Every reader and the `seal mode` writer now skip a line that begins inside
-  a comment that closes; a comment that never closes hides nothing. **This
-  can change what a repository declares**: a `Broad gate` or `Mode` row that
-  stands only inside a closed comment stops being read, and `broad-gate` then
-  refuses naming the row as *written inside an HTML comment*, or the mode
-  question comes back once. A comment delimiter inside a code span that
-  closes on its own line is text, and a code fence opens only on a line that
-  begins outside every comment, so a note above the table that quotes a
-  delimiter or holds an example fence hides nothing — one such note used to
-  hide the whole table.
-- **A routing row inside a closed HTML comment is no longer read as the
-  answer, and a comment above a declaration no longer hides it (issue
-  #584).** The commit gate's routing reader keeps the last row of each label,
-  so a `Review` row parked in a comment below the table answered for the
-  declaration; and a fence line inside a comment above the table hid the
-  declaration, which sent the gate back to asking. It reads by the config
-  reader's rule now.
 - **Every markdown reader the release and the checks ship shares one fence
   rule (issue #584).** CommonMark's: at most three spaces of indentation, a
   backtick opener whose info string holds no backtick, and a close only on a
@@ -40,8 +19,6 @@
     for a second gather that wrote the entry twice, and the fold's `--check`
     passed with a wrong count. Close the block in the fragment and run the
     step again.
-  - The rider check no longer reads a rider quoted inside a fenced example
-    in a markdown file, which it reported as BROKEN at exit 2.
   - `correction-check` skips a ledger row inside a fenced example that
     closes, as `evidence-check` does, and still watches a row under a fence
     that never closes.
@@ -51,13 +28,10 @@
 - **A copy of `correction_check.py` or `payload_meter.py` taken without
   `unverified_check.py` exits 2 with a sentence naming the missing file
   (issue #584).** `payload_meter.py` needs it only under `--sections`.
-- **A routing row or a survivor exemption quoted inside a fenced example is
-  no longer read as one (issue #658).** The commit gate's routing reader kept
-  the last row of each label, so an example quoted in a fence below a
-  `routing.md` declaration answered for it — a declared review chain could
-  read as *straight to the PR*. It now skips fenced lines, and a file whose
-  only rows are fenced is no declaration, so the gate asks. `survivor-check
-  --exempt` likewise takes no exemption from a fenced example, and a fence
-  that is never closed hides the rows below it, because an exemption excuses
-  a survivor. No `routing.md` or `survivors.md` in this repository reads
-  differently.
+- **A survivor exemption quoted inside a fenced example or an HTML comment
+  is no longer read as one (issue #658, the exemption half).**
+  `survivor-check --exempt` takes no exemption from a fenced example or a
+  commented-out row, and a fence or a comment that is never closed hides the
+  rows below it, because an exemption excuses a survivor. A quote in
+  `survivors.md` can therefore not hold a comment opener. No `survivors.md`
+  in this repository reads differently.

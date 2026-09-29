@@ -308,10 +308,10 @@ What counts as a fence is CommonMark's rule, and the one the ledger and record
 readers share: at most three spaces of indentation, three or more backticks or
 tildes, a backtick opener whose info string holds no backtick, and a closer of
 the same character, at least as long, with nothing after it. The release
-scripts, the rider check, the correction check and the payload meter ask it
-too (#584). The few readers that keep a rule of their own do so on purpose,
-and `skills/verify/scripts/unverified_check.py#fence_opener`'s docstring
-names each with its reason.
+scripts, the correction check and the payload meter ask it too (#584). The
+readers that keep a rule of their own, or none, are named in
+`skills/verify/scripts/unverified_check.py#fence_opener`'s docstring, each
+with its reason.
 
 **A ledger row you mean as a claim does not belong inside a fence.** Before
 this rule, one there was checked. Now it is not, and nothing says so.
