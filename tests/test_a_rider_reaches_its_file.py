@@ -583,6 +583,26 @@ def test_a_rider_under_a_fence_nobody_closed_is_still_read():
     assert riders.comment_blocks(unclosed, "a.md") == [(2, 2)]
 
 
+@pytest.mark.parametrize("name", ["LS", "PS", "NEL", "FF", "VT", "FS", "GS", "RS"])
+def test_a_break_commonmark_does_not_honour_quotes_no_rider(name):
+    """#667 round 1, 🟡 1. A fence run after a character `str.splitlines`
+    breaks at and CommonMark does not stands mid-line to a renderer, so it
+    opens no fence, and the rider below it is live. The walk read the split
+    and called the rider quoted, and the check passed a rider it never
+    checked; the base had no fence state and read it. Through both callers:
+    the reader, and the hasher's `region_lines` by way of `riders_in`."""
+    from block_shapes import BREAKS
+
+    text = (
+        f"# doc\n\nA note{BREAKS[name]}```\n\n{HTML_MARK} real\n"
+        "Verified 2026-01-01 against r@abcdef12. -->\n\n```\n"
+    )
+    assert [(r.start, r.end) for r in riders.riders_in("doc.md", text)] == [(6, 7)]
+    kept, why = riders.region_lines(CHECKER, "doc.md", '"# doc"', text)
+    assert kept is not None, why
+    assert not any("RIDER:" in line for line in kept), kept
+
+
 def test_a_missing_walk_is_a_sentence_and_exit_2(tmp_path, capsys):
     """The walk is loaded by path the way `load_checker` loads the anchor
     resolver, and a missing file is a sentence naming it rather than the

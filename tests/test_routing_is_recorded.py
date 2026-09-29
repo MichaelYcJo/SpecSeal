@@ -764,6 +764,23 @@ def test_the_template_and_the_committed_declarations_still_parse():
     assert rows.get(routing.REVIEW) in routing.REVIEW_ANSWERS, rows
 
 
+BREAK_NAMES = ["LS", "PS", "NEL", "FF", "VT", "FS", "GS", "RS"]
+
+
+@pytest.mark.parametrize("name", BREAK_NAMES)
+def test_a_break_commonmark_does_not_honour_hides_no_declaration(name):
+    """#667 round 1, 🟡 1. `str.splitlines` ends a line at U+2028, NEL, a
+    form feed and five more characters, and CommonMark does not, so a `<!--`
+    after one began a line for the walk and no line for a renderer: the walk
+    hid the table under it, and `parse` answered None where the base read the
+    declaration. The walk reads where CommonMark breaks."""
+    from block_shapes import BREAKS, OPEN, TABLE
+
+    text = "\n".join([f"A note{BREAKS[name]}{OPEN}", "", *TABLE, "-->"]) + "\n"
+    parsed = routing.parse(text)
+    assert parsed is not None and parsed["review"] == CHAIN, parsed
+
+
 def test_pressing_the_preset_and_ticking_every_box_are_told_apart():
     """S3. Both produce the same four party rows; only this row differs.
 

@@ -142,7 +142,7 @@ def config_path(home):
     return os.path.join(home, CONFIG)
 
 
-def fence_map(lines):
+def fence_map(lines, text=None):
     """([(index, line)] outside every fenced block, the index of an opener
     that was never closed or None) -- the one fence rule, computed once.
 
@@ -167,9 +167,9 @@ def fence_map(lines):
     the walk cannot be sure of keeps the reading this function gave it before
     -- the fence rule alone. The name stays because every caller spells it,
     and "outside every fenced block" now means "outside every block this
-    reader hides".
+    reader hides". TEXT is `hidden_lines`' argument of the same name.
     """
-    hidden, opened_at = hidden_lines(lines)
+    hidden, opened_at = hidden_lines(lines, text)
     shown = [
         (index, raw.rstrip("\r\n"))
         for index, raw in enumerate(lines)
@@ -178,9 +178,17 @@ def fence_map(lines):
     return shown, opened_at
 
 
-def hidden_lines(lines):
+def hidden_lines(lines, text=None):
     """({index: "fence" or "comment"} for every line of LINES no walk of the
     table is shown, the index of a fence opener never closed or None).
+
+    **TEXT is the file LINES were split from, and every caller that has it
+    passes it** (#667 round 1, 🟡 1). The readers split with
+    `str.splitlines`, which ends a line at U+2028, NEL, a form feed and five
+    more characters where a renderer does not; the walk reads TEXT where
+    GFM breaks it (`blocks.walk_text`), so a `<!--` after such a character
+    hides nothing. LINES alone is read as given, which is right for a list
+    of lines nobody split from a file.
 
     **Two readings, and every line takes one of them** (#667, #658). Where
     `hooks/blocks.py#walk` is sure, the line is hidden exactly where a
@@ -213,7 +221,7 @@ def hidden_lines(lines):
     the one in force. A fence line inside a closed comment opens nothing, so
     it is never named.
     """
-    walked = blocks.walk(lines)
+    walked = blocks.walk(lines) if text is None else blocks.walk_text(text)
     base, base_opened = blocks.fence_only(lines)
     hidden = walked.hidden(base)
     candidates = list(walked.unclosed)
@@ -222,7 +230,7 @@ def hidden_lines(lines):
     return hidden, min(candidates) if candidates else None
 
 
-def unfenced(lines):
+def unfenced(lines, text=None):
     """(index, line) for each of LINES that is outside every fenced code
     block and every HTML comment block that closes, with the line's own
     ending removed and its index kept. `hidden_lines` below is the rule and
@@ -287,9 +295,10 @@ def unfenced(lines):
     **The walk itself is `fence_map` above**, and this is its surviving lines.
     One walk rather than two: the caller that needs to know whether a fence
     was left open asks that function, and every walk of the table asks this
-    one, and neither reads the file by a rule of its own.
+    one, and neither reads the file by a rule of its own. TEXT is
+    `hidden_lines`' argument of the same name.
     """
-    yield from fence_map(lines)[0]
+    yield from fence_map(lines, text)[0]
 
 
 def config_rows(text):
@@ -324,7 +333,7 @@ def config_rows(text):
     reader's table (#429).
     """
     found, seen_header = [], False
-    for _index, line in unfenced(text.splitlines()):
+    for _index, line in unfenced(text.splitlines(), text):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True
@@ -422,7 +431,7 @@ def refusal(text):
     """
     seen_header, found = False, False
     refused, below, stopper = [], [], None
-    for _index, line in unfenced(text.splitlines()):
+    for _index, line in unfenced(text.splitlines(), text):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True

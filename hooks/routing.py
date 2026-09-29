@@ -124,7 +124,7 @@ WORK_ITEMS = f"{optin.HOME}/{optin.WORK_ITEMS}"
 FILENAME = "routing.md"
 
 
-def shown(lines):
+def shown(lines, text=None):
     """[(index, line)] for each of LINES `table_rows` reads, ending removed.
 
     The walk's hidden lines are left out, and only those: where it is not
@@ -132,8 +132,14 @@ def shown(lines):
     reading hid nothing. So on every line the answer is either the old one
     or a renderer's, which `tests/test_the_hooks_hide_what_a_renderer_hides.py`
     holds over a generated corpus.
+
+    TEXT is the file LINES were split from, and `table_rows` passes it: the
+    walk reads it where GFM breaks a line, so a `<!--` after a U+2028 or a
+    form feed, which `str.splitlines` breaks at, hides nothing a renderer
+    shows (#667 round 1, 🟡 1; `hooks/config.py#hidden_lines` says more).
     """
-    hidden = blocks.walk(lines).hidden()
+    walked = blocks.walk(lines) if text is None else blocks.walk_text(text)
+    hidden = walked.hidden()
     return [
         (index, raw.rstrip("\r\n"))
         for index, raw in enumerate(lines)
@@ -165,7 +171,7 @@ def table_rows(text):
     this module fails in.
     """
     rows = []
-    for _index, line in shown(text.splitlines()):
+    for _index, line in shown(text.splitlines(), text):
         line = line.strip()
         if not line.startswith("|"):
             continue

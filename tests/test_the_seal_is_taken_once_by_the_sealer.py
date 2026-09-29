@@ -2007,6 +2007,32 @@ def test_the_template_documents_the_commented_row_sentence():
     assert "the refusal quotes that line and says it is commented out" in text
 
 
+@pytest.mark.parametrize("name", ["LS", "NEL"])
+def test_the_gate_names_no_block_a_renderer_does_not_see(tmp_path, name):
+    """#667 round 1, 🟡 1, `broad-gate`'s two questions of the reader. A
+    `<!--` or a fence run after a character `str.splitlines` breaks at and
+    CommonMark does not stands mid-line, so the row under it is in no comment
+    and no fence is left open: `commented_row_at` finds nothing and
+    `fence_left_open` says no. Both asked the split before."""
+    from block_shapes import BREAKS, OPEN
+
+    gate = gate_module()
+    commented = tmp_path / "c" / "seal"
+    commented.mkdir(parents=True)
+    (commented / "config.md").write_text(
+        f"A note{BREAKS[name]}{OPEN}\n\n| {ROW} | bin/test -q |\n-->\n",
+        encoding="utf-8",
+    )
+    assert gate.commented_row_at(str(commented)) == (None, None)
+    fenced = tmp_path / "f" / "seal"
+    fenced.mkdir(parents=True)
+    (fenced / "config.md").write_text(
+        f"A note{BREAKS[name]}```\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n",
+        encoding="utf-8",
+    )
+    assert gate.fence_left_open(str(fenced)) is False
+
+
 def test_an_unclosed_fence_hides_the_live_table_and_the_gate_says_which_line(
     tmp_path,
 ):

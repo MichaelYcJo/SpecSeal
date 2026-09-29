@@ -756,7 +756,7 @@ def hidden_row_at(home, kind):
     if text is None:
         return None, None
     lines = text.splitlines()
-    hidden, _opened_at = config.hidden_lines(lines)
+    hidden, _opened_at = config.hidden_lines(lines, text)
     return next(
         (
             (index, line)
@@ -825,7 +825,7 @@ def fence_left_open(home, above=None):
     text = config_text(home)
     if text is None:
         return False
-    opened_at = config.fence_map(text.splitlines())[1]
+    opened_at = config.fence_map(text.splitlines(), text)[1]
     if opened_at is None:
         return False
     return above is None or opened_at < above

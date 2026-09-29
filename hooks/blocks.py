@@ -60,6 +60,11 @@ it cannot be exact there:
     them may be part of an indented code block, and `-     code` is one
     whose indentation only the marker's column decides.
 
+**A line is a line where GFM ends one, at LF, CR or CRLF** (#667 round 1,
+🟡 1). The readers split with `str.splitlines`, which also ends a line at
+U+2028, NEL, a form feed and five more characters; `walk_text` walks the
+file's own lines and answers for each reader line by the line it starts in.
+
 `tests/test_the_hooks_hide_what_a_renderer_hides.py` holds this to a
 CommonMark parser that shares nothing with it: on every line the walk does
 not call uncertain, over the frame's shapes and a seeded generated corpus,
@@ -86,7 +91,22 @@ LIVE, FENCED, COMMENTED = "live", "fence", "comment"
 
 # A container's marker run in front of a line: indentation, a block quote's
 # `>`, a list item's bullet or number. What follows it is what the line is.
-CONTAINER = re.compile(r"^(?:[ \t]*(?:>|[-+*]|\d{1,9}[.)])(?=[ \t]|$))*[ \t]*")
+# A list marker needs a space, a tab or the line's end after it; a block
+# quote's `>` needs nothing (CommonMark 5.1: the space after it may be
+# omitted), so `>` followed by a fence run is a fence inside a quote (#667
+# round 1, 🟡 2).
+CONTAINER = re.compile(r"^(?:[ \t]*(?:>|(?:[-+*]|\d{1,9}[.)])(?=[ \t]|$)))*[ \t]*")
+
+# A line as GFM ends it: at LF, CR or CRLF, and nowhere else. `str.splitlines`
+# also ends one at U+2028, U+2029, NEL, a form feed, a vertical tab and
+# `\x1c` to `\x1e`, and a `<!--` or a fence run after one of those starts a
+# line for that split and no line for a renderer (#667 round 1, 🟡 1; #664's
+# class). This and `gfm_lines` are a copy of `skills/evidence-check/scripts/
+# evidence_check.py#GFM_LINE_RE` and `#gfm_lines`, work item A's precedent:
+# a hook imports nothing from `skills/`, and `tests/test_the_hooks_hide_what_
+# a_renderer_hides.py#test_the_walks_line_rule_is_the_checkers` holds the two
+# in step.
+GFM_LINE_RE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+\Z")
 # What a line that starts a block this walk does not follow looks like, once
 # the container run is taken off: a fence run, or any HTML start.
 BLOCK_LOOKING = re.compile(r"`{3,}|~{3,}|<")
@@ -296,4 +316,56 @@ def walk(lines):
         for below in range(live_from, count):
             if kinds[below] == LIVE:
                 uncertain[below] = True
+    return Walk(kinds, uncertain, unclosed)
+
+
+def gfm_lines(text, keepends=False):
+    """TEXT's lines as GFM reads them, the way `str.splitlines` returns them
+    otherwise: no trailing empty line, and each line's end kept only when
+    KEEPENDS asks. `evidence_check.py#gfm_lines`, copied (see `GFM_LINE_RE`)."""
+    lines = GFM_LINE_RE.findall(text)
+    return lines if keepends else [line.rstrip("\r\n") for line in lines]
+
+
+def _starts(pieces):
+    out, at = [], 0
+    for piece in pieces:
+        out.append(at)
+        at += len(piece)
+    return out
+
+
+def walk_text(text):
+    """The walk over TEXT, answered for each line of `text.splitlines()`.
+
+    **Every reader splits with `str.splitlines`, and the walk must not**
+    (#667 round 1, 🟡 1). A reader's grammar keeps its own lines -- which
+    lines form a table is not this module's question -- but whether a line
+    stands in a fence or a comment is a renderer's, and a renderer ends a line
+    at LF, CR and CRLF alone. So the walk reads `gfm_lines(text)`, and each
+    reader line takes the answer of the GFM line it starts in: a piece of a
+    hidden line is hidden, a piece of a shown line is shown, and a piece of a
+    line the walk is not sure of keeps its reader's base reading. An unclosed
+    fence opener is reported at the reader line that starts where it does.
+
+    Called with LINES alone, `walk` reads them as given; every reader that
+    has the text hands it here instead.
+    """
+    renderer = gfm_lines(text, keepends=True)
+    walked = walk([line.rstrip("\r\n") for line in renderer])
+    renderer_starts = _starts(renderer)
+    kinds, uncertain, of = [], [], []
+    line = 0
+    for start in _starts(text.splitlines(keepends=True)):
+        while line + 1 < len(renderer_starts) and renderer_starts[line + 1] <= start:
+            line += 1
+        kinds.append(walked.kinds[line])
+        uncertain.append(walked.uncertain[line])
+        of.append((line, start == renderer_starts[line]))
+    opened = set(walked.unclosed)
+    unclosed = [
+        index
+        for index, (line, at_start) in enumerate(of)
+        if at_start and line in opened
+    ]
     return Walk(kinds, uncertain, unclosed)

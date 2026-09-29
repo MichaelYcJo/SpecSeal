@@ -92,13 +92,37 @@ def _comment_lines(inline, lines):
     return out
 
 
-def hidden(lines):
-    """{index: kind} for every line of `lines` a renderer hides.
+def _starts(pieces):
+    """Where each of PIECES, which concatenate to one text, starts in it."""
+    out, at = [], 0
+    for piece in pieces:
+        out.append(at)
+        at += len(piece)
+    return out
 
-    `lines` is a list of lines as a reader splits them, endings removed or
-    not; they are joined with `\\n`, so index N here is index N there.
-    """
-    lines = [line.rstrip("\r\n") for line in lines]
+
+def commonmark_lines(text):
+    """TEXT's lines as CommonMark ends them, each with its own ending: at LF,
+    CR or CRLF, and nowhere else (the specification's §2.1). Written from the
+    specification by a scan, not taken from anything this oracle checks."""
+    out, line, index = [], "", 0
+    while index < len(text):
+        ch = text[index]
+        line += ch
+        if ch == "\r" and text[index + 1 : index + 2] == "\n":
+            line += "\n"
+            index += 1
+        if ch in "\r\n":
+            out.append(line)
+            line = ""
+        index += 1
+    if line:
+        out.append(line)
+    return out
+
+
+def _hidden_commonmark(lines):
+    """{CommonMark line index: kind} for LINES, CommonMark's own lines."""
     count = len(lines)
     out = {}
     for token in _PARSER.parse("\n".join(lines)):
@@ -111,6 +135,36 @@ def hidden(lines):
                 if index < count:
                     out.setdefault(index, COMMENT)
     return out
+
+
+def hidden_text(text):
+    """{index: kind} for every line of `text.splitlines()` a renderer hides.
+
+    **The renderer reads TEXT, not a reader's split of it** (#667 round 1,
+    🟡 1). `str.splitlines` also ends a line at U+2028, NEL, a form feed and
+    five more characters, and CommonMark does not, so a reader's line can be a
+    piece of a renderer's line. The parser is given CommonMark's lines, and
+    each reader line takes the answer of the CommonMark line it starts in: a
+    piece of a hidden line is hidden, and a piece of a shown line is shown.
+    """
+    commonmark = commonmark_lines(text)
+    found = _hidden_commonmark([line.rstrip("\r\n") for line in commonmark])
+    renderer_starts = _starts(commonmark)
+    out = {}
+    line = 0
+    for index, start in enumerate(_starts(text.splitlines(keepends=True))):
+        while line + 1 < len(renderer_starts) and renderer_starts[line + 1] <= start:
+            line += 1
+        if line in found:
+            out[index] = found[line]
+    return out
+
+
+def hidden(lines):
+    """`hidden_text` of LINES joined with `\\n`, endings removed or not, so
+    index N here is index N of that text's `splitlines()` -- LINES' own
+    index wherever no line holds a break CommonMark does not honour."""
+    return hidden_text("\n".join(line.rstrip("\r\n") for line in lines))
 
 
 def hidden_lines(lines):

@@ -1475,10 +1475,12 @@ def table_span(lines):
     rewrites the `Mode` row inside somebody's pasted example while every gate
     reads the live one — the file two rows deep the comment below is about
     (#429). `unfenced` hands back each surviving line's own index, which is
-    what this walk returns and what `with_row` overwrites.
+    what this walk returns and what `with_row` overwrites. LINES keep their
+    endings, so their join is the file, and the walk reads that where GFM
+    breaks a line (#667 round 1, 🟡 1).
     """
     seen_header, mode_at, end = False, -1, -1
-    for i, line in unfenced(lines):
+    for i, line in unfenced(lines, "".join(lines)):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True
@@ -1588,7 +1590,7 @@ def write_row(home, value):
         # about (#429, round 2). That shape is repaired above; the branch
         # stays because the next member of the class must not be misdescribed
         # either.
-        if fence_map(new.splitlines())[1] is not None:
+        if fence_map(new.splitlines(), new)[1] is not None:
             return (
                 f"{path} has a fenced code block that is never closed, and "
                 "everything under it -- the table this command would have "

@@ -24,7 +24,7 @@ import os
 
 import commonmark_oracle as oracle
 import pytest
-from block_shapes import CLOSE, OPEN, RENDERER, SHAPES
+from block_shapes import BREAKS, CLOSE, OPEN, RENDERER, SHAPES
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -94,6 +94,15 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         (["- a", "  ```", "  x", "b"], {1: "fence", 2: "fence"}),
         # CRLF is the same document
         (["```\r", "x\r", "```\r", "y\r"], {0: "fence", 1: "fence", 2: "fence"}),
+        # markdown-it-py 4.2.0 runs an inline comment past a closer that a
+        # `-` precedes, which CommonMark 0.31.2 §6.6 does not: a comment's
+        # text may not hold `-->`. Pinned by name (#667 round 1, ⬜ 4), so a
+        # wider corpus meets the divergence here, and so the walk, which
+        # follows the specification, is never "fixed" toward the parser.
+        (
+            ["x " + OPEN + " a", "b ---> c", "d " + CLOSE + " e", "f"],
+            {1: "comment", 2: "comment"},
+        ),
     ],
     ids=[
         "fence",
@@ -106,6 +115,7 @@ def test_the_oracle_gives_the_frames_renderer_column(name):
         "table rows",
         "list item",
         "crlf",
+        "past the first closer",
     ],
 )
 def test_the_oracle_names_each_kind_it_hides(lines, hidden):
@@ -113,6 +123,18 @@ def test_the_oracle_names_each_kind_it_hides(lines, hidden):
     module can see what "a renderer hides" means before any reader is held
     to it."""
     assert oracle.hidden(lines) == hidden
+
+
+@pytest.mark.parametrize("name", sorted(BREAKS))
+def test_the_oracle_reads_the_text_not_a_readers_split(name):
+    """#667 round 1, 🟡 1. `hidden_text` hands the parser TEXT, broken where
+    CommonMark breaks, and answers per `text.splitlines()` line: a reader's
+    line that is a piece of a shown line is shown, and a piece of a hidden
+    line is hidden. Before, the oracle joined the reader's split and so
+    agreed with any walk that read it."""
+    brk = BREAKS[name]
+    assert oracle.hidden_text(f"A note{brk}{OPEN}\n\n| a |\n{CLOSE}\n") == {}
+    assert set(oracle.hidden_text(f"```\nx{brk}y\n```\nz\n")) == {0, 1, 2, 3}
 
 
 # --- the corpus: the frame's shapes, the old cases, and a generated set -----
@@ -138,6 +160,8 @@ COMMENT_SHAPES = [
     ["<!-->", "| a |", CLOSE, "| b |"],
     ["a note " + OPEN + " never closed", "| a |", "```", "| b |", "```", "| c |"],
 ]
+
+BREAK_SAMPLE = [BREAKS[name] for name in ("LS", "PS", "NEL", "FF", "FS")]
 
 # Lines the generated documents are drawn from. Each is here because it is a
 # delimiter, a container, or a context `hooks/blocks.py` calls uncertain, and
@@ -181,6 +205,11 @@ ALPHABET = [
     "> quote",
     "> ```",
     "> " + OPEN,
+    # A block quote needs no space after its marker (CommonMark 5.1; #667
+    # round 1, 🟡 2).
+    ">```",
+    ">" + OPEN,
+    ">| a |",
     "    code",
     # An indented code block inside a container, whose line starts with the
     # container's marker, and indentation counted with a tab in it.
@@ -218,6 +247,12 @@ ALPHABET = [
     "> a " + OPEN,
     "| x " + OPEN + " |",
     "[ref]: <x>",
+    # A character `str.splitlines` ends a line at and CommonMark does not, in
+    # front of a comment opener, a fence run and a row, so a document can
+    # hold a reader line that is a piece of a renderer's line (#667 round 1,
+    # 🟡 1). Five of the eight, one of each family.
+    *(f"a{brk}{rest}" for brk in BREAK_SAMPLE for rest in (OPEN, "```", "| a |")),
+    *(f"{brk}{CLOSE}" for brk in BREAK_SAMPLE),
 ]
 
 # The lines above that stand at the top level and start no block the walk
@@ -270,6 +305,12 @@ FOUND = [
     [NBSP, "x " + OPEN, "x " + CLOSE],
     # a no-break space after a closing run: CommonMark does not close there
     ["```", "x", "``` " + NBSP, "y", "```", "z"],
+    # round 1, 🟡 2: a block quote needs no space after its marker
+    [">```"],
+    # round 1, 🟡 1: a comment opener, and a fence run, after a line break
+    # `str.splitlines` makes and CommonMark does not
+    ["A note" + BREAKS["LS"] + OPEN, "", "| a | b |", CLOSE],
+    ["A note" + BREAKS["FF"] + "```", "", OPEN + " RIDER: r " + CLOSE, "```"],
 ]
 
 CORPUS = (
@@ -289,10 +330,20 @@ def load_hook(filename):
 blocks = load_hook("blocks.py")
 
 
-def disagreements(lines):
+def as_read(doc):
+    """(text, lines) for a corpus document: the text a reader opens, and the
+    lines it splits that text into, which are the indices every answer below
+    is given in. A document is written as lines so it can be read; the
+    readers and the oracle are both handed the text (#667 round 1, 🟡 1)."""
+    text = "\n".join(doc) + "\n"
+    return text, text.splitlines()
+
+
+def disagreements(doc):
     """Lines the walk calls exact and classes otherwise than the oracle."""
-    found = blocks.walk(lines)
-    renderer = oracle.hidden_lines(lines)
+    text, lines = as_read(doc)
+    found = blocks.walk_text(text)
+    renderer = set(oracle.hidden_text(text))
     return [
         (index, found.kinds[index], index in renderer)
         for index in range(len(lines))
@@ -320,9 +371,12 @@ def test_the_walk_is_exact_somewhere():
         assert not any(found.uncertain), name
         assert set(found.hidden()) == RENDERER[name], name
     claimed = sum(
-        1 for lines in CORPUS for flag in blocks.walk(lines).uncertain if not flag
+        1
+        for doc in CORPUS
+        for flag in blocks.walk_text(as_read(doc)[0]).uncertain
+        if not flag
     )
-    total = sum(len(lines) for lines in CORPUS)
+    total = sum(len(as_read(doc)[1]) for doc in CORPUS)
     assert claimed > total // 3, (claimed, total)
 
 
@@ -376,12 +430,13 @@ def test_the_config_reader_never_leaves_both_readings():
     nowhere else: a line it newly hides was never a live row, and a line it
     newly shows was never fenced or commented out."""
     wrong = []
-    for lines in CORPUS:
+    for doc in CORPUS:
+        text, lines = as_read(doc)
         new = {index for index in range(len(lines))} - {
-            index for index, _line in config.unfenced(lines)
+            index for index, _line in config.unfenced(lines, text)
         }
         bad = leaves_both(
-            new, config_base(lines), oracle.hidden_lines(lines), len(lines)
+            new, config_base(lines), set(oracle.hidden_text(text)), len(lines)
         )
         if bad:
             wrong.append((lines, bad))
@@ -397,9 +452,10 @@ def test_the_routing_reader_never_leaves_both_readings():
     has to be one a renderer hides: a row it stops reading was never a live
     answer."""
     wrong = []
-    for lines in CORPUS:
-        new = set(range(len(lines))) - {index for index, _line in routing.shown(lines)}
-        bad = leaves_both(new, set(), oracle.hidden_lines(lines), len(lines))
+    for doc in CORPUS:
+        text, lines = as_read(doc)
+        new = set(range(len(lines))) - {i for i, _line in routing.shown(lines, text)}
+        bad = leaves_both(new, set(), set(oracle.hidden_text(text)), len(lines))
         if bad:
             wrong.append((lines, bad))
     assert not wrong, f"{len(wrong)} documents, the first: {wrong[0]}"
@@ -436,10 +492,34 @@ def test_the_rider_check_never_leaves_both_readings():
     `quoted_lines`, has to be one a renderer hides: a rider it stops reading
     was never a live one."""
     wrong = []
-    for lines in CORPUS:
-        new = riders.quoted_lines(lines)
-        bad = leaves_both(new, set(), oracle.hidden_lines(lines), len(lines))
+    for doc in CORPUS:
+        text, lines = as_read(doc)
+        new = riders.quoted_lines(lines, text)
+        bad = leaves_both(new, set(), set(oracle.hidden_text(text)), len(lines))
         if bad:
             wrong.append((lines, bad))
     assert not wrong, f"{len(wrong)} documents, the first: {wrong[0]}"
     assert riders.quoted_lines(SHAPES["K5"]) == {4, 5, 6}
+
+
+def test_the_walks_line_rule_is_the_checkers():
+    """#667 round 1, 🟡 1. `hooks/blocks.py#gfm_lines` is a copy of
+    `skills/evidence-check/scripts/evidence_check.py#gfm_lines`, the
+    precedent work item A set for #664's class: a hook imports nothing from
+    `skills/`, so the copy is held to the original here, over every break
+    `str.splitlines` makes and CommonMark does not, and the three it does."""
+    import importlib.util
+
+    path = os.path.join(
+        HERE, "..", "skills", "evidence-check", "scripts", "evidence_check.py"
+    )
+    spec = importlib.util.spec_from_file_location("specseal_ec_for_the_walk", path)
+    checker = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(checker)
+    texts = ["", "a", "a\n", "a\r\nb\rc\nd", "\n\n", "a\r", "a\r\r\n"]
+    texts += [f"a{brk}b\n{brk}\nc{brk}" for brk in BREAKS.values()]
+    for text in texts:
+        for keepends in (False, True):
+            assert blocks.gfm_lines(text, keepends) == checker.gfm_lines(
+                text, keepends
+            ), (text, keepends)

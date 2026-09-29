@@ -207,9 +207,12 @@ def load_blocks(path=BLOCKS):
     return module
 
 
-def quoted_lines(lines):
+def quoted_lines(lines, text=None):
     """0-based indices of `lines`, a markdown file's, that stand inside a
     fenced block that closes, where `hooks/blocks.py#walk` is sure of it.
+    TEXT is the file LINES were split from: the walk reads it where GFM
+    breaks a line, so a fence run after a U+2028 or a form feed, which
+    `str.splitlines` breaks at, quotes no rider (#667 round 1, 🟡 1).
 
     A marker line there is a rider QUOTED in an example -- a `SKILL.md`
     showing what a rider looks like -- and reading it as one invented a rider
@@ -221,7 +224,7 @@ def quoted_lines(lines):
     global _blocks
     if _blocks is None:
         _blocks = load_blocks()
-    walked = _blocks.walk(lines)
+    walked = _blocks.walk(lines) if text is None else _blocks.walk_text(text)
     return {
         index
         for index, kind in enumerate(walked.kinds)
@@ -229,7 +232,7 @@ def quoted_lines(lines):
     }
 
 
-def comment_blocks(lines, rel=None):
+def comment_blocks(lines, rel=None, text=None):
     """[(start, end)] 1-based inclusive for every rider block in `lines`.
 
     A block opens at a line that both carries the marker and IS a comment: a
@@ -268,12 +271,13 @@ def comment_blocks(lines, rel=None):
     **In markdown, a marker line inside a fenced example opens no rider**
     (#667). `quoted_lines` says which lines those are, and such a line is
     stepped over without touching the comment state below. Other file types
-    are read as before: a fence means nothing in Python or YAML.
+    are read as before: a fence means nothing in Python or YAML. Both callers
+    pass TEXT, the file LINES were split from, for `quoted_lines`.
     """
     out = []
     i, n = 0, len(lines)
     quoted = (
-        quoted_lines(lines)
+        quoted_lines(lines, text)
         if (rel or "").endswith(".md") and any(MARKER in line for line in lines)
         else set()
     )
@@ -337,7 +341,9 @@ class Rider:
 
 
 def riders_in(rel, text):
-    return [Rider(rel, a, b, text) for a, b in comment_blocks(text.splitlines(), rel)]
+    return [
+        Rider(rel, a, b, text) for a, b in comment_blocks(text.splitlines(), rel, text)
+    ]
 
 
 def tree_files(root, roots=RIDER_ROOTS):
@@ -401,7 +407,7 @@ def region_lines(checker, rel, locator, text):
         )
     start, end = places[0]
     lines = text.splitlines()
-    blocks = comment_blocks(lines, rel)
+    blocks = comment_blocks(lines, rel, text)
     kept = [
         line
         for number, line in enumerate(lines[start - 1 : end], start)

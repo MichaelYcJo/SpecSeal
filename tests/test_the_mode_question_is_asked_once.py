@@ -852,6 +852,47 @@ def test_delimiters_quoted_in_code_spans_hide_nothing(config):
     assert config.config_rows(QUOTED_DELIMITERS) == LIVE
 
 
+@pytest.mark.parametrize("name", ["LS", "PS", "NEL", "FF", "VT", "FS", "GS", "RS"])
+def test_a_break_commonmark_does_not_honour_hides_no_config_row(config, name):
+    """#667 round 1, 🟡 1: the routing reader's shape in `config.md`. A
+    `<!--` after a character `str.splitlines` breaks at and CommonMark does
+    not is mid-line to a renderer, so it hides no row, and the base read
+    `Mode shared`."""
+    from block_shapes import BREAKS, OPEN
+
+    text = (
+        f"A note{BREAKS[name]}{OPEN}\n\n| Item | Value |\n|---|---|\n"
+        "| Mode | shared |\n-->\n"
+    )
+    assert config.config_rows(text) == [("Mode", "shared")]
+    assert config.refusal(text) == ([], [], None)
+
+
+@pytest.mark.parametrize("name", ["LS", "FF"])
+def test_the_writer_reads_where_commonmark_breaks(config, tmp_path, name):
+    """#667 round 1, 🟡 1, the writer's walk: `seal.py#table_span` finds the
+    live `Mode` row under a `<!--` a renderer reads mid-line, and rewrites
+    that row in place rather than appending a second table."""
+    from block_shapes import BREAKS, OPEN
+
+    root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+    path = os.path.join(root, "skills", "implement", "scripts", "seal.py")
+    spec = importlib.util.spec_from_file_location("specseal_seal_for_667_r1", path)
+    seal = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(seal)
+
+    before = (
+        f"A note{BREAKS[name]}{OPEN}\n\n| Item | Value |\n|---|---|\n"
+        "| Mode | local |\n-->\n"
+    )
+    home = tmp_path / "seal"
+    home.mkdir()
+    write_config(home, before)
+    assert seal.write_row(str(home), "shared") == ""
+    after = (home / "config.md").read_text(encoding="utf-8")
+    assert after == before.replace("| Mode | local |", "| Mode | shared |"), after
+
+
 def test_a_commented_row_is_not_a_row_in_either_line_ending(config):
     """S5, C5 to C7, named as 1790635413 named them. The rows parked in a
     comment are gone from every walk, and the live rows under them arrive."""

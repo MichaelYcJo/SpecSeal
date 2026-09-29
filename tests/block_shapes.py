@@ -19,6 +19,20 @@ OPEN = "<" + "!--"
 CLOSE = "-->"
 RIDER = OPEN + " RIDER:"
 
+# The characters `str.splitlines` ends a line at and CommonMark does not:
+# CommonMark ends one at LF, CR and CRLF alone (#667 round 1, 🟡 1; #664's
+# class). Spelled by code point, so no line of this file holds one.
+BREAKS = {
+    "LS": chr(0x2028),
+    "PS": chr(0x2029),
+    "NEL": chr(0x85),
+    "FF": chr(0x0C),
+    "VT": chr(0x0B),
+    "FS": chr(0x1C),
+    "GS": chr(0x1D),
+    "RS": chr(0x1E),
+}
+
 CHAIN = "through the review chain"
 DIRECT = "straight to the PR"
 
