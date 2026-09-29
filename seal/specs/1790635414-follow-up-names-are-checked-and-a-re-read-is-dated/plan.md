@@ -4,7 +4,9 @@
 — HOW, in phases. This is the Design Gate's artifact: where the work alters
 observable behaviour, approval of this plan is the gate. -->
 
-Approved 2026-09-29 by the orchestrating session, when `smith` was spawned. Phase 1's rebase was done as a merge of `release/v0.16.0` at `3911a8cf` (A's squash) into this branch, at `56e53c90`: the frame's commits keep the SHAs its measurements cite, and the branch squashes into the release anyway.
+Approved 2026-09-29 by the orchestrating session, when `smith` was spawned.
+
+Phase 1's rebase was done as a merge of `release/v0.16.0` at `3911a8cf` (A's squash) into this branch, at `56e53c90`: the frame's commits keep the SHAs its measurements cite, and the branch squashes into the release anyway.
 
 <!-- The line above is the record that the gate happened. Fill it in at the
 spawn: reading this plan and spawning the builder IS the approval. -->

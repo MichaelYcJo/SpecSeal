@@ -96,7 +96,7 @@ checked against the code.
 ### 🔴 1 — A commit a shell runs reads silent when the interpreter's program flag comes after the heredoc
 
 **Where.** `hooks/cmdline.py#_heredoc_split` records the consumer as the text
-from the last separator up to the `<<`. `hooks/cmdline.py#program_is_data`
+from the last separator up to the `<<`. `hooks/cmdline.py#program_is_data` (NAME NOT IN TREE: the unit was removed or reverted after this was written)
 then reads only that text.
 
 **What is wrong.** Three ways the consumer comes out wrong:
@@ -158,7 +158,7 @@ case the smith planted.
 ### 🟡 2 — A `cd` whose target an earlier segment moves or locks is still trusted not to fail
 
 **Where.** `hooks/cmdline.py#walk_directories`, the `cannot_fail` block, and (NAME NOT IN TREE, reverted with #662 and #665)
-`hooks/cmdline.py#_enters`.
+`hooks/cmdline.py#_enters`. (NAME NOT IN TREE: the unit was removed or reverted after this was written)
 
 **What is wrong.** `_enters` asks the filesystem when the hook runs. The (NAME NOT IN TREE, reverted with #662 and #665)
 whole command runs after that, so a segment before the `cd` can change what
@@ -325,15 +325,15 @@ Check that `decision_of` is imported there before pasting.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A heredoc body that a shell runs reads as data, and its commit silent, when a program flag or script follows the `<<`, a program flag is bundled, or a `$(…)`, `${…;…}` or `>&` precedes the interpreter's name | `hooks/cmdline.py#program_is_data`, `hooks/cmdline.py#_heredoc_split` | open | Executed: five shapes deny at `e8e5f977` and silent at `02e47435`, and four were run in a real bash, where the body ran as shell. Contradicts the rule #665 states and G7 |
-| 🟡 2 | A `cd` whose target an earlier segment moves or locks is trusted not to fail, so the session's directory, where the commit runs, is not judged | `hooks/cmdline.py#walk_directories`, `hooks/cmdline.py#_enters` | open | Executed: `mv` and `chmod` shapes deny at `e8e5f977` and silent at `02e47435`, and a real bash stayed where it started. Contract §13 |
+| 🔴 1 | A heredoc body that a shell runs reads as data, and its commit silent, when a program flag or script follows the `<<`, a program flag is bundled, or a `$(…)`, `${…;…}` or `>&` precedes the interpreter's name | `hooks/cmdline.py#program_is_data`, `hooks/cmdline.py#_heredoc_split` | open | Executed: five shapes deny at `e8e5f977` and silent at `02e47435`, and four were run in a real bash, where the body ran as shell. Contradicts the rule #665 states and G7 (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
+| 🟡 2 | A `cd` whose target an earlier segment moves or locks is trusted not to fail, so the session's directory, where the commit runs, is not judged | `hooks/cmdline.py#walk_directories`, `hooks/cmdline.py#_enters` | open | Executed: `mv` and `chmod` shapes deny at `e8e5f977` and silent at `02e47435`, and a real bash stayed where it started. Contract §13 (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
 | 🟡 3 | `readable` drops a deny carrying a non-text `systemMessage`, which the decision path never reads, and a falsy `hookSpecificOutput` the old code read as absent | `hooks/dispatch.py#readable` | open | Executed: `merge` kept the deny at `1ea0b7c2~1` and prints nothing at `02e47435`. No gate prints the shape today, which was read |
 | 🟢 | round 1's yellow finding 1 is closed — a load failure names every group that loads the gate, a run failure its own | `hooks/dispatch.py#describe` | confirmed | Executed: the new case fails with `d89f8392`'s dispatcher and passes at `02e47435`; the code was read |
 | 🟢 | round 1's yellow finding 2 is closed — no hook says a raising hook is skipped silently | `hooks/ledger-migrate.py`, `hooks/routing.py#rounds`, `hooks/root-migrate.py#git_mv` | confirmed | Read, and a `git grep` for the old phrasings found none |
 | 🟢 | round 1's white finding 3 is closed — the cost comment names the linked worktree and the repository not opted in | `hooks/dispatch.py#record` | confirmed | Read |
 | 🟢 | The new unit, round 1's case for a gate in two groups, is correct as code | `tests/test_a_gate_that_fails_says_so.py` | confirmed | Read, and executed in the narrow run |
 | 🟢 | The or-operator's branch still consumes the failure of a `cd` that cannot fail, and `named` counts toward the state cap | `hooks/cmdline.py#walk_directories` | confirmed | Read, and the cap case passed in the narrow run |
-| ❓ | Whether a sandboxed `Bash` can refuse a `cd` that `os.access` in the unsandboxed hook allows, and what `os.access` answers on Windows | `hooks/cmdline.py#_enters` | ❓ out of verified scope | Contract §13. Nothing here ran the harness's sandbox or Windows. The owner answers the sandbox half, and CI's `windows-latest` leg answers only the cases, which skip there |
+| ❓ | Whether a sandboxed `Bash` can refuse a `cd` that `os.access` in the unsandboxed hook allows, and what `os.access` answers on Windows | `hooks/cmdline.py#_enters` | ❓ out of verified scope | Contract §13. Nothing here ran the harness's sandbox or Windows. The owner answers the sandbox half, and CI's `windows-latest` leg answers only the cases, which skip there (NAME NOT IN TREE: the unit was removed or reverted after this was written) |
 
 ## Executed probes
 
