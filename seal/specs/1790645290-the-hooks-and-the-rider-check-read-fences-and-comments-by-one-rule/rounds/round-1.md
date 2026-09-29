@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #672 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `faec1812e6b4560706d11274a06afd1df2ad98cc..1cc892cc820b231216efd38b329ecb93a1daf445`, 4 commits |
+| Contract changes | quoted_lines → comment_blocks, phase-2.md, round-1-report.md, round-1.md, quoted_lines, unquoted, migrate, pytest; comment_blocks → riders_in, region_lines, round-1-report.md, round-1.md, round-2-report.md, round-2.md, round-3-report.md, round-3.md, spec.md, pytest; fence_map → unfenced, round-3-report.md, round-3.md, round-1-report.md, round-1.md, write_row, fence_left_open, pytest; hidden_lines → fence_map, round-1-report.md, round-1.md, hidden_row_at, pytest; unfenced → config_rows, refusal, round-1-report.md, round-1.md, table_span, pytest; shown → read_lines, shown, check, write, table_rows, round-1-report.md, round-1.md, pytest; disagreements → pytest only |
+| New units | GFM_LINE_RE (depth 1); gfm_lines (depth 1); _starts (depth 1); walk_text (depth 1); BREAKS (depth 1); commonmark_lines (depth 1); _hidden_commonmark (depth 1); hidden_text (depth 1); test_a_break_commonmark_does_not_honour_quotes_no_rider (depth 1); BREAK_NAMES (depth 1); test_a_break_commonmark_does_not_honour_hides_no_declaration (depth 1); test_the_oracle_reads_the_text_not_a_readers_split (depth 1); BREAK_SAMPLE (depth 1); as_read (depth 1); test_an_unclosed_fence_is_reported_at_the_reader_line_it_starts (depth 1); test_the_walks_line_rule_is_the_checkers (depth 1); test_a_break_commonmark_does_not_honour_hides_no_config_row (depth 1); test_the_writer_reads_where_commonmark_breaks (depth 1); test_the_gate_names_no_block_a_renderer_does_not_see (depth 1); test_a_failed_parser_install_is_a_sentence_and_pytest_is_still_called (depth 1) |
 | Needs a fix | yes — 🟡 1, 🟡 2 and 🟡 3 |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 1, the first finding round, over the work item's own diff `66b34a4e...9b52
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A line break that `str.splitlines` makes and CommonMark does not lets the walk hide a live routing declaration, a live `Mode` row and a live rider | `hooks/blocks.py:208` | open | executed: `routing.parse` gives None, `config_rows` gives nothing, the rider is gone, and the base read all three; the oracle cannot see it because it is handed the reader's split |
-| 🟡 2 | `CONTAINER` needs a space after `>`, so `` >``` `` is claimed live and exact while a renderer hides it | `hooks/blocks.py:89` | open | executed: 1,599 of 1,888 half-2 disagreements reduce to that one line; half 1 fails for the config reader on 3 reduced shapes; the fix clears both and keeps the module green |
-| 🟡 3 | With the parser missing, bin/test says the other cases still run, and pytest interrupts collection and runs none | `.github/scripts/run_tests.py:491` | open | executed: exit 2, `Interrupted: 1 error during collection`, zero cases run from the second module; the case at `tests/test_the_suite_has_a_command_that_is_cheap_twice.py:799` pins the claim under a mock |
-| ⬜ 4 | The oracle runs an inline comment past a `-->` that a `-` precedes, which CommonMark 0.31.2 excludes | `tests/commonmark_oracle.py:48` | open | executed: one `html_inline` token past the first closer; every remaining fuzz disagreement holds a `--->` line; no reader affected |
+| 🟡 1 | A line break that `str.splitlines` makes and CommonMark does not lets the walk hide a live routing declaration, a live `Mode` row and a live rider | `hooks/blocks.py:208` | **fixed** `34682327` | fixed at 34682327 — pinned in `45d6eb4d`: `hooks/blocks.py#walk_text` walks the lines CommonMark ends (`gfm_lines`, a copy held to the checker's) and every walk caller passes its text; the oracle reads the text too, and the property's alphabet carries the break characters; executed: `routing.parse` gives None, `config_rows` gives nothing, the rider is gone, and the base read all three; the oracle cannot see it because it is handed the reader's split |
+| 🟡 2 | `CONTAINER` needs a space after `>`, so `` >``` `` is claimed live and exact while a renderer hides it | `hooks/blocks.py:89` | **fixed** `34682327` | fixed at 34682327 — `CONTAINER` takes `>` without a following space; executed: 1,599 of 1,888 half-2 disagreements reduce to that one line; half 1 fails for the config reader on 3 reduced shapes; the fix clears both and keeps the module green |
+| 🟡 3 | With the parser missing, bin/test says the other cases still run, and pytest interrupts collection and runs none | `.github/scripts/run_tests.py:491` | **fixed** `2b108716` | fixed at 2b108716 — the sentence says what happens without the pin (the other modules run under xdist and the run exits 1; without xdist it stops at collection), and the case pins it; executed: exit 2, `Interrupted: 1 error during collection`, zero cases run from the second module; the case at `tests/test_the_suite_has_a_command_that_is_cheap_twice.py:799` pins the claim under a mock |
+| ⬜ 4 | The oracle runs an inline comment past a `-->` that a `-` precedes, which CommonMark 0.31.2 excludes | `tests/commonmark_oracle.py:48` | **fixed** `34682327` | fixed at 34682327 — the `--->` divergence is a named oracle case; executed: one `html_inline` token past the first closer; every remaining fuzz disagreement holds a `--->` line; no reader affected |
 | ❓ | bin/test's parser-failure path under `-n auto` | `.github/scripts/run_tests.py:505` | ❓ out of verified scope | not run; the smith answers it in the slice that fixes 🟡 3 |
 | ❓ | The per-reader case tables S5 to S8, S10, S12 and S15 were read in part and not run by this round | `tests/test_routing_is_recorded.py:717` | ❓ out of verified scope | only the property module was run here; the sealer's broad run answers the rest |
 
