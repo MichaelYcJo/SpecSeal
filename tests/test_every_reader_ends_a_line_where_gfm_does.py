@@ -19,7 +19,9 @@ typed into an editing tool can come back as the character itself, and a file
 holding one is exactly what these cases are about.
 """
 
+import datetime
 import importlib.util
+import json
 import os
 import shutil
 import subprocess
@@ -492,3 +494,69 @@ def test_the_claude_md_block_is_cut_where_awk_cuts_it(tmp_path):
     assert written == f"# repo\n\n{START}\n## Rules\nalpha{LS}beta\n{END}\n\ntail"
     checked = run("--check")
     assert checked.returncode == 0, checked.stdout + checked.stderr
+
+
+# --- S16: the transcript tails ----------------------------------------------
+
+
+GUARD = os.path.join(ROOT, "hooks", "worktree-guard.py")
+
+
+def jsonl(path, events):
+    """JSON Lines as a JavaScript writer emits them: a U+2028 inside a
+    string stays raw, which JSON permits."""
+    path.write_text(
+        "".join(json.dumps(e, ensure_ascii=False) + "\n" for e in events),
+        encoding="utf-8",
+    )
+
+
+def test_a_transcript_record_holding_a_raw_separator_is_read(monkeypatch, tmp_path):
+    """S16. Cut at the separator, the last user record was two halves that
+    each failed to parse, and the snippet named an earlier message."""
+    guard = _load("specseal_guard_s16", GUARD)
+    cwd = tmp_path / "tree"
+    cwd.mkdir()
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    proj = tmp_path / ".claude" / "projects" / guard.project_slug(str(cwd))
+    proj.mkdir(parents=True)
+    jsonl(
+        proj / "abcd1234-x.jsonl",
+        [
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:00",
+                "message": {"content": "first"},
+            },
+            {
+                "type": "user",
+                "timestamp": "2026-01-01T00:05",
+                "message": {"content": f"second{LS}message"},
+            },
+        ],
+    )
+    _sid, when, text = guard.last_user_snippet(str(cwd), "me")
+    assert when == "2026-01-01T00:05"
+    assert text.startswith("second")
+
+
+def test_the_newest_active_event_holding_a_raw_separator_is_read(tmp_path):
+    """S16's second reader. The newest active event carries a U+2028 in a
+    string, and its time is the answer rather than an older event's."""
+    guard = _load("specseal_guard_s16b", GUARD)
+    path = tmp_path / "t.jsonl"
+    jsonl(
+        path,
+        [
+            {"type": "user", "timestamp": "2026-01-01T00:00:00Z"},
+            {
+                "type": "assistant",
+                "timestamp": "2026-01-01T00:30:00Z",
+                "text": f"a{LS}b",
+            },
+        ],
+    )
+
+    want = datetime.datetime(2026, 1, 1, 0, 30, tzinfo=datetime.UTC).timestamp()
+    assert guard.last_active_event_epoch(str(path)) == want
