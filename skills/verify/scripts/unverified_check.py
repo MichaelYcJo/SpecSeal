@@ -239,37 +239,86 @@ def fence_opener(line):
     below is the other half.
 
     The readers below ask these two functions rather than a pattern of their
-    own, because five spellings of this rule is what five readers had. **It
-    is not every fence walk in the repository.** `hooks/config.py#FENCE` is a
-    deliberate copy, below. `payload_meter.py#FENCE`,
-    `.github/scripts/fold_ledger.py#demote`,
-    `.github/scripts/close_issues_on_release.py`,
-    `skills/evidence-check/scripts/correction_check.py#rows` and the other
-    readers #584 names still keep their own, and #584 is where each is
-    brought here or answered. The readers that ask it: `fence_spans` and
-    through it
-    `blank_fences` and `closed_fence_lines`, and `_liveness` and
-    `_paragraph_ends_at`, all in this module, and `todo_open_rows` through
-    `closed_fence_lines` — which `settle.py#open_rows` and
-    `.github/scripts/fold_ledger.py#open_rows` both are; and
-    `skills/evidence-check/scripts/evidence_check.py#quoted_lines`, which
-    the checker's four ledger walks read through, and `#claim_lines`, the
-    records arm's walk, both by way of its `fence_rule`; and
-    `hooks/root-migrate.py#repoint` through `evidence_check.py#unquoted`.
-    `skills/code-review/scripts/round_record.py#fenced_after` applies the
-    closer rule and the backtick-info rule by its own pattern and keeps a
-    wider opener on purpose, so a fix fenced inside a list item still
-    reaches the record. That file keeps a vendored copy of these two functions for the copy
-    `evidence-ci` puts alone in a user repository, where this module is not
-    beside it. **A new reader that decides by
-    line whether it stands inside a fence belongs on this list**, and a
-    reviewer of one has this docstring to check it against — nothing else
-    can reach a reader that does not exist yet.
+    own, because five spellings of this rule is what five readers had.
 
-    `hooks/config.py#FENCE` is a deliberate copy: it runs on the
-    hook path, where loading a skill module would cost every hook call.
-    `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
-    holds the two in step, shape by shape.
+    **The readers that ask it.** In this module: `fence_spans` and, through
+    it, `blank_fences` and `closed_fence_lines`; `_liveness` and
+    `_paragraph_ends_at`; and `todo_open_rows` through `closed_fence_lines`,
+    which `settle.py#open_rows` and `.github/scripts/fold_ledger.py#open_rows`
+    both are. The checker:
+    `skills/evidence-check/scripts/evidence_check.py#quoted_lines`, which its
+    four ledger walks read through, and `#claim_lines`, the records arm's
+    walk, both by way of its `fence_rule`; and `hooks/root-migrate.py#repoint`
+    through `evidence_check.py#unquoted`. The readers #584 brought here:
+    `.github/scripts/fold_ledger.py#fenced_lines` through `fence_spans`,
+    which `#demote`, `#version_headings`, `#section_heading` and `#insert`
+    read through, and its `#live_markers` through `live_lines`;
+    `.github/scripts/gather_changelog.py#live_markers` through `live_lines`,
+    which `#ungathered` and `--check`'s count read through;
+    `skills/evidence-check/scripts/correction_check.py#rows` through
+    `closed_fence_lines`; and `skills/verify/scripts/payload_meter.py#heading_starts`
+    and `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py#headings`,
+    which ask the two functions directly. The readers #658 brought here:
+    `skills/code-review/scripts/survivor_check.py#read_exemptions` through
+    `readable`, which blanks an HTML comment as well as a fence, and either
+    one nobody closed to the end, because excusing a survivor is the silent
+    direction.
+
+    **The readers that keep a rule of their own, each on purpose.** #584
+    brought every reader it enumerated here or answered it, and these are the
+    answers:
+
+      - `hooks/config.py#FENCE` is a deliberate copy of this rule: it runs on
+        the hook path, where loading a skill module would cost every hook
+        call.
+        `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
+        holds the copy in step, shape by shape;
+      - `hooks/routing.py#table_rows`, and the HTML comment walk in
+        `.github/scripts/rider_check.py#comment_blocks`, keep no fence state
+        at all. #584 brought both here and then took them back out after its
+        third review round, because the comment-before-fence reading they
+        needed reopened a finding every round; a new work item redoes them
+        from a clean frame, and #658 stays open for the routing half;
+      - `.github/scripts/close_issues_on_release.py#FENCE`, and
+        `issue_claims_check.py` and `label_merged_on_release_branch.py`
+        through it, read a pull request body by GitHub's rule and open a
+        fence at any indentation on purpose, so a fence under a list item
+        masks a closing keyword (`docs/issues-and-milestones.md` §*A keyword
+        inside a fence or a code span claims nothing*). This rule's
+        three-space bound would un-mask those and close issues on quoted
+        examples;
+      - `skills/code-review/scripts/round_record.py#fenced_after` applies the
+        closer rule and the backtick-info rule by its own pattern and keeps
+        a wider opener on purpose, so a fix fenced inside a list item still
+        reaches the record. That file keeps a vendored copy of these two
+        functions for the copy `evidence-ci` puts alone in a user
+        repository, where this module is not beside it. The fence walks in
+        `tests/test_docs_line_wrap.py#fenced_numbers` and
+        `tests/test_handoff_outlives_the_merge.py#fenced_block_lines` ask
+        these two functions with the same wider opener, a line's indentation
+        stripped first, because the documents they read fence commands under
+        list items (#658);
+      - `.github/scripts/gather_changelog.py#insert` and `#section_lines`, and
+        `publish_release_note.py#section_body`, end a released section at the
+        next `## ` line with one predicate on purpose (#586), and a fragment
+        carrying such a line is refused before it reaches the file, fenced or
+        not;
+      - `.github/scripts/fold_ledger.py#release_sections`, `#body_rows` and
+        `#rewrite_self_anchors` are read by `--split` alone, a one-time
+        migration this repository has taken;
+      - `.github/scripts/claude_block.py` reads two exact whole-line markers
+        it writes itself;
+      - `tests/test_release_hygiene.py#overwide_rows` keeps no fence state at
+        all, and work item A (#585) decides whether it becomes an arm of
+        `evidence_check.py`;
+      - the independent walk in `tests/test_unverified_rows_close.py` (around
+        `block_ends_at`) is an oracle, kept apart from the rule it checks on
+        purpose.
+
+    **A new reader that decides by line whether it stands inside a fence
+    belongs in one of these two lists**, and a reviewer of one has this
+    docstring to check it against — nothing else can reach a reader that
+    does not exist yet.
     """
     m = FENCE_RE.match(line.rstrip("\r\n"))
     if not m:
