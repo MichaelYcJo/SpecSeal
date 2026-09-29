@@ -1170,9 +1170,26 @@ def main():
         return
     command = (payload.get("tool_input") or {}).get("command", "")
     cwd = payload.get("cwd", "")
-    invocations, clean = commit_invocations(command, cwd)
-    if not invocations and not (not clean and "git" in command and "commit" in command):
+    try:
+        invocations, clean = commit_invocations(command, cwd)
+    except RecursionError:
+        # Nested deeper than the reader recurses (`$(` five hundred deep).
+        # Read as a command that could not be parsed, which stops wherever it
+        # mentions a commit; raising would reach `dispatch.py` as silence
+        # (round 1 of 1790644505, yellow 2).
+        invocations, clean = [], False
+    # A command the splitter could not finish may commit in the part it did
+    # not read, and the base judged the session's own directory for that
+    # whenever nothing was found. A commit found in the part it DID read --
+    # which #669 and #670 made more common -- took that judgment away, so a
+    # declared repository named there silenced the session's own directory
+    # (round 1 of 1790644505, red 1). The fallback now stands beside what was
+    # found, which only adds a target.
+    unparsed = not clean and "git" in command and "commit" in command
+    if not invocations and not unparsed:
         return
+    if unparsed:
+        invocations = [*invocations, Invocation((), ())]
 
     # Every target is judged, not just the first to fire. The decision is
     # about one of them — a hook returns one — but the rest are what the
