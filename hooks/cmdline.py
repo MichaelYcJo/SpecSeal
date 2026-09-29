@@ -2477,7 +2477,13 @@ def walk_directories(items, cwd):
     # part whose first word is the descriptor, so the walk read a program
     # named `1` (round 1 of 1790660768, yellow 3). The group `merged_view`
     # glues back is asked beside that part, and only its refusal is taken.
-    glued = {parts[-1]: toks for parts, toks in merged_view(items)}
+    groups = merged_view(items)
+    glued = {parts[-1]: toks for parts, toks in groups}
+    # The parts in front of each glued group's last one, and the parts whose
+    # own words held a `cd`: a `cd` the group's FIRST part carries is landed
+    # there, and the glued view must not land it a second time.
+    earlier = {parts[-1]: parts[:-1] for parts, _toks in groups}
+    cds = set()
     for index, (joined, tokens) in enumerate(items):
         following = items[index + 1][0] if index + 1 < len(items) else ""
         tokens = _expanded(tokens, env)
@@ -2552,8 +2558,17 @@ def walk_directories(items, cwd):
         # replaces it, so the commit gate judges both, and the worktree guard
         # and the consent writer, which take the first directory they can
         # name, take the one the shell went to.
-        view = _expanded(glued[index], env) if index in glued else tokens
+        #
+        # The glued view is asked only where no earlier part of its group
+        # held a `cd`. In `cd W 2>&1` the splitter's first part is `cd W 2>`,
+        # which lands in W on its own words, and landing the glued view again
+        # from there stepped to W/W, a directory nobody named.
+        view = tokens
+        if index in glued and cds.isdisjoint(earlier[index]):
+            view = _expanded(glued[index], env)
         past = _cd_target(_without_redirections(unglued(view) or view))
+        if target is not None or past is not None:
+            cds.add(index)
         if past is not None and past != target:
             moved = _dedup(
                 [(_land(here, prev, past), here) for here, prev in running] + moved

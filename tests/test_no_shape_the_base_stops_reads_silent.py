@@ -484,6 +484,39 @@ def test_a_cd_with_a_redirection_among_its_words_lands(
         assert "silent" not in got, (command, which, got)
 
 
+@pytest.mark.parametrize("cd", ["2>&1 cd {d}", ">|f cd {d}", ">&2 cd {d}"])
+def test_a_cd_behind_a_redirection_the_splitter_cut_lands(
+    monkeypatch, capsys, tmp_path, cd
+):
+    """Round 2 of 1790660768's fix pass. The splitter cuts `2>&1 cd W` at the
+    `&`, so the `cd` arrives in the group's last part behind a descriptor and
+    only the glued group reads it. Round 1 added an unresolved directory
+    beside it, which is silence from a directory that is not opted in; bash
+    commits in W, and the landing is what the gate judges there."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    make_repo(plain / "u2")
+    command = f"{cd.format(d='u2')} && {BODY}"
+    got = decisions(monkeypatch, capsys, command, plain, "s")
+    assert "silent" not in got, (command, got)
+
+
+@pytest.mark.parametrize("cd", ["cd u2 2>&1", "cd u2 >|f", "cd u2 >&2"])
+def test_a_cd_the_splitter_cut_after_its_operand_lands_once(tmp_path, cd):
+    """Round 2 of 1790660768's fix pass. In `cd W 2>&1` the splitter's first
+    part is `cd W 2>`, which lands in W on its own words. The group's glued
+    view landed it again from there, and the walk named W/W, a directory the
+    command never reaches."""
+    items = cmdline.split_segments_with_separators(f"{cd} && {BODY}")[0]
+    here = str(tmp_path)
+    wheres = [w for t, w in cmdline.walk_directories(items, here) if t[:1] == ["git"]]
+    assert wheres, cd
+    named = [str(w) for w in wheres[0]]
+    landed = [str(w) for w in wheres[0] if not isinstance(w, cmdline.Unresolved)]
+    assert os.path.join(here, "u2") in landed, (cd, named)
+    assert os.path.join(here, "u2", "u2") not in named, (cd, named)
+
+
 def test_a_second_reading_that_unplaces_keeps_the_base_directory(
     monkeypatch, capsys, projects, tmp_path
 ):
