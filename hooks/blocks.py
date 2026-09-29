@@ -365,11 +365,10 @@ def walk_text(text):
         at_start = start == renderer_starts[line]
         # A piece that starts inside an inline comment its own line opened is
         # hidden by a renderer while the line is shown (#667 round 2), so the
-        # walk is not sure of it and the reader keeps its base reading.
-        inside = (
-            not at_start
-            and walked.kinds[line] == LIVE
-            and leaves_open(renderer[line][: start - renderer_starts[line]])
+        # walk is not sure of it and the reader keeps its base reading. At a
+        # line's start the text before the piece is empty and opens nothing.
+        inside = walked.kinds[line] == LIVE and leaves_open(
+            renderer[line][: start - renderer_starts[line]]
         )
         kinds.append(walked.kinds[line])
         uncertain.append(walked.uncertain[line] or inside)

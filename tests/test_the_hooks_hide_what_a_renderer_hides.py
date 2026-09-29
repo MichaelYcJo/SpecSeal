@@ -520,6 +520,21 @@ def test_the_rider_check_never_leaves_both_readings():
     assert riders.quoted_lines(SHAPES["K5"]) == {4, 5, 6}
 
 
+def test_a_piece_inside_its_lines_open_comment_is_the_only_piece_unsure():
+    """#667 round 2, 🟡 1, `walk_text`'s own answer. A piece after a break
+    inside an inline comment its line left open is uncertain; a piece of a
+    fenced line stays fenced and claimed; a piece that starts before the
+    line's opener is claimed live. Each of the three conditions is one
+    line of this case."""
+    ls = BREAKS["LS"]
+    inside = blocks.walk_text(f"a {OPEN} x{ls}| r |\n{CLOSE}\n")
+    assert inside.uncertain[:2] == [False, True], inside.uncertain
+    fenced = blocks.walk_text(f"```\nx {OPEN} a{ls}y\n```\n")
+    assert (fenced.kinds[2], fenced.uncertain[2]) == (blocks.FENCED, False)
+    before = blocks.walk_text(f"a{ls}b {OPEN} c\n\nd\n")
+    assert before.uncertain[:2] == [False, False], before.uncertain
+
+
 def test_an_unclosed_fence_is_reported_at_the_reader_line_it_starts():
     """#667 round 1, 🟡 1. `walk_text` answers per reader line, and a fence
     opener whose info string holds a U+2028 is one GFM line and two reader
