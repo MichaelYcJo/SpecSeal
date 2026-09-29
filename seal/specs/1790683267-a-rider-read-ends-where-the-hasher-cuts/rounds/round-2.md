@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #683 — https://github.com/MichaelYcJo/SpecSeal/pull/683 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `011c45afaab26f3fffd6020dce0c4567e412b1d1..b40565bc27f3d2058bbd601bf1d91c175c79b2d6`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -39,7 +39,7 @@ Also asked for K1 re-measured at HEAD, K2's correction and the new K3 row, the t
 | 🟢 | K1 holds at HEAD | `.github/scripts/rider_check.py:387` | confirmed | executed: 30,000 texts, 150,354 riders, 0 off the cut; 3,883 of 9,000 reads fail under a piece-numbering mutant |
 | 🟢 | K2's correction and K3 are true, and the three ledger checks agree | `seal/ledger/1790683267-a-rider-read-ends-where-the-hasher-cuts.md` K2, K3 | confirmed | executed: `evidence-check --strict` exit 0, `correction-check` exit 0, `survivor-check` exit 0 with the exemptions and 1 without; K3 omits `migrated` from its list, narrower and not false |
 | 🟢 | the shipped script stays on the interpreter floor | `.github/scripts/rider_check.py:629` | confirmed | read: no `zip(`, `pairwise` or `.UTC`, comments included; executed: the floor case and ruff |
-| ⬜ 1 | `round-1.md`'s Deferred table still offers round 1's finding 5 as a candidate issue after the fix pass fixed it | `seal/specs/1790683267-a-rider-read-ends-where-the-hasher-cuts/rounds/round-1.md` `## Deferred` | open | read: the verdict row says `**fixed** bda0e0ba` and the Deferred row asks the orchestrator to file it; a correction to paperwork, outside `Needs a fix` |
+| ⬜ 1 | `round-1.md`'s Deferred table still offers round 1's finding 5 as a candidate issue after the fix pass fixed it | `seal/specs/1790683267-a-rider-read-ends-where-the-hasher-cuts/rounds/round-1.md` `## Deferred` | answered | `b40565bc` — round 1's Deferred row for finding 5 now reads fixed in this run at `bda0e0ba`, confirmed by round 2, no issue; read: the verdict row says `**fixed** bda0e0ba` and the Deferred row asks the orchestrator to file it; a correction to paperwork, outside `Needs a fix` |
 
 ## Paste-ready fixes
 
