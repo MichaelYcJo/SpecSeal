@@ -103,8 +103,12 @@ to correct, for the same reason the ledger row is.
 
 ## Running the checks
 
-The suite needs only `pytest`; the gates themselves are stdlib-only Python.
-`bin/test` acquires it once: it builds a virtualenv at `.venv` on the first
+The suite needs `pytest` and one parser, `markdown-it-py`, pinned to one
+version in `MARKDOWN_IT` in `.github/scripts/run_tests.py`. The parser is the
+CommonMark oracle the hook readers are checked against (#667), and it is
+test-only: the gates themselves are stdlib-only Python and import nothing
+the suite installs. `bin/test` acquires both once: it builds a virtualenv at
+`.venv` on the first
 call and reuses it afterwards, so only the first call pays for an environment.
 It works from any directory in the repository or a worktree of it, and it
 prints the interpreter it used.
@@ -118,7 +122,8 @@ python3 skills/evidence-check/scripts/evidence_check.py .
 
 Both forms run under `-n auto` unless you pass your own `-n`, `-p no:xdist`
 or `--pdb`, and the runner installs `pytest-xdist` into a `.venv` that lacks
-it (#337). What the whole run costs is a figure with a date and a machine,
+it (#337), and the pinned `markdown-it-py` into one that lacks that version
+(#667). What the whole run costs is a figure with a date and a machine,
 recorded in the work item that measured it, not here.
 
 **The last of those is the lenient reader.** `broad-gate` runs the same script
@@ -149,7 +154,8 @@ it, since nothing here holds the floor for you: macOS ships 3.9 under that
 name, and a version manager points it wherever it was last told.
 
 ```bash
-uvx --with pytest python3 -m pytest tests/ -q   # or: pip install pytest && python3 -m pytest tests/
+uvx --with pytest --with markdown-it-py==4.2.0 python3 -m pytest tests/ -q
+# or: pip install pytest markdown-it-py==4.2.0 && python3 -m pytest tests/
 ```
 
 CI runs four jobs: lint (`ruff check` + `ruff format --check`), the suite on

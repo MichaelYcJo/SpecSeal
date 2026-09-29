@@ -148,6 +148,13 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "taken on*, it now has two members, and the exemption is keyed on "
         "(file, token) so neither one lets the number through anywhere else"
     ),
+    ("CONTRIBUTING.md", "4.2.0"): (
+        "markdown-it-py's, the parser the suite's CommonMark oracle reads, "
+        "pinned in `.github/scripts/run_tests.py#MARKDOWN_IT` (#667). The "
+        "fallback commands in §*Running the checks* carry the pin so they "
+        "install the parser the oracle is held to, and a case holds them to "
+        "the runner's constant; no release of SpecSeal makes the number wrong"
+    ),
 }
 
 

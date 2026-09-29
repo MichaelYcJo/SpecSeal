@@ -61,7 +61,10 @@ jobs:
       # builds its own repository under `tmp_path` -- so the spawns can be run
       # several at a time, and the workers scale with whatever cores the runner
       # has rather than with a number written here.
-      - run: pip install pytest pytest-xdist
+      # markdown-it-py is the parser the suite's CommonMark oracle reads
+      # (#667), pinned: `.github/scripts/run_tests.py#MARKDOWN_IT` is the one
+      # place the version is chosen, and a case holds this line to it.
+      - run: pip install pytest pytest-xdist markdown-it-py==4.2.0
       - run: |
           git config --global user.email ci@ci
           git config --global user.name ci
