@@ -245,6 +245,7 @@ BODIES = {
     "process substitutions": ("cat <(a) >(b)", ["a", "b"]),
     "single quotes are text": ("echo '$(a)' '`b`'", []),
     "a quoted `<(` is text": ('echo "<(a)"', []),
+    "a herestring opens no heredoc": ('echo $(cat <<< "a" ; b) c', ['cat <<< "a" ; b']),
     "a double-quoted `$(` runs": ('echo "$(a)"', ["a"]),
 }
 

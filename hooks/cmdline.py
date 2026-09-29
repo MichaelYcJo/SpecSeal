@@ -1503,7 +1503,12 @@ def _paren_end(command, j):
         elif ch == '"':
             quote = None if quote == '"' else '"'
         elif quote is None:
-            if command.startswith("<<", k) and not command.startswith("<<<", k):
+            if command.startswith("<<<", k):
+                # A herestring opens no body. Stepped over whole, because the
+                # last two of its three `<` would otherwise read as a `<<`.
+                k += 3
+                continue
+            if command.startswith("<<", k):
                 end = _heredoc_end(command, k, n)
                 if end is not None:
                     k = end
