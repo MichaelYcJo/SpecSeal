@@ -111,6 +111,15 @@ def test_the_one_line_spelling_is_judged_as_the_multi_line_one(tmp_path):
         assert one == many, name
 
 
+def test_a_directory_already_unreadable_keeps_its_reason(tmp_path):
+    """An expanded value the walk already could not read stays a VALUE, so the
+    stop still tells the model to write the path out rather than naming a
+    construct it did not meet."""
+    (inv,) = found('cd "$WT" && if git commit -m x; then :; fi', tmp_path)
+    assert isinstance(inv.base, cmdline.Unresolved)
+    assert inv.base.why == cmdline.Unresolved.VALUE
+
+
 def test_a_reserved_word_that_begins_no_command_list_reads_nothing(tmp_path):
     """The words after `for`, `select`, `case` and `in` are names and words,
     and a closer ends a list. Nothing here is a command, so nothing is read."""

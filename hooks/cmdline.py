@@ -1278,6 +1278,70 @@ RELOCATORS = frozenset(
 # `! grep -q zzz f && git commit`, both ordinary and both silent before.
 PREFIXES = frozenset(WRAPPERS | {"builtin", "time", "!"})
 
+# Reserved words that BEGIN A COMMAND LIST, so the word after one is a command
+# word (#669). The shell splits `for d in a; do git commit; done` at `;`, and
+# the commit arrives as a segment whose first word is `do`; reading only that
+# position found no commit in a command a shell runs. `{` is here for the same
+# reason after one of the others -- `do { git commit; }` -- and `(` is taken off
+# by `strip_subshell` wherever it opens the remainder.
+LIST_OPENERS = frozenset({"do", "then", "else", "elif", "if", "while", "until", "{"})
+
+# Constructs whose command word is not found by position: a `case` arm's
+# pattern, a function definition's name, a coprocess's optional name. Rather
+# than read their grammar, the first `git` word in the segment is read as the
+# command word -- a false one is a stop, never a silence.
+UNPLACED = frozenset({"case", "coproc", "function"})
+
+
+def command_word(tokens):
+    """(the segment from its command word on, whether its directory is unplaced).
+
+    Assignments, wrappers and the `!`/`time` prefixes are read past as they
+    always were, and so are the words in `LIST_OPENERS`. What sits behind one of
+    those, or inside an `UNPLACED` construct, runs somewhere the walk does not
+    place: a loop or conditional body, a loop condition that runs again after
+    its body, a function body that runs where it is called. The second value
+    says so, and `walk_directories` gives that segment an unresolved directory,
+    which is what the same command written across lines already got.
+
+    Every segment the base read a command word in keeps it: the tokens read
+    past before are read past now, and the new ones are words at which the old
+    reading stopped with no command at all.
+    """
+    toks, _opened = strip_subshell(tokens)
+    unplaced = False
+    i = 0
+    while i < len(toks):
+        tok = toks[i]
+        if ("=" in tok and not tok.startswith("-")) or os.path.basename(
+            tok
+        ) in WRAPPERS:
+            i += 1
+            continue
+        if tok == "!":
+            i += 1
+            continue
+        if tok in LIST_OPENERS:
+            unplaced = True
+            rest, _opened = strip_subshell(toks[i + 1 :])
+            toks, i = rest, 0
+            continue
+        break
+    if i < len(toks) and (
+        toks[i] in UNPLACED
+        or toks[i].endswith(")")
+        or (i + 1 < len(toks) and toks[i + 1] == "()")
+    ):
+        # A pattern (`a)`), a definition (`f()`, `f ()`), or a word in
+        # `UNPLACED`: no position names the command word, so the first `git`
+        # stands in for it, and none means no git command is in the segment.
+        later = [
+            j for j in range(i + 1, len(toks)) if os.path.basename(toks[j]) == "git"
+        ]
+        if later:
+            i, unplaced = later[0], True
+    return toks[i:], unplaced
+
 
 def understood(tokens):
     """True when the reader can say where the shell is after this segment.
@@ -1635,7 +1699,19 @@ def walk_directories(items, cwd):
         else:
             running, skipped = states, []
 
-        walked.append((tokens, _directories(running + skipped)))
+        wheres = _directories(running + skipped)
+        if command_word(tokens)[1]:
+            # A command behind a reserved word that begins a list, or inside a
+            # construct whose command word is not found by position (#669).
+            # Written across lines it would follow a segment `understood`
+            # refuses, and that is the directory it gets here too.
+            wheres = tuple(
+                w
+                if isinstance(w, Unresolved)
+                else Unresolved(str(w), Unresolved.CONSTRUCT)
+                for w in wheres
+            )
+        walked.append((tokens, wheres))
 
         target = _cd_target(tokens)
         moved = [
@@ -1812,31 +1888,15 @@ def parse_git(tokens):
     FIND the subcommand and not enough to know which repository it acts on,
     which is the whole question the worktree guard answers.
     """
-    tokens, _opened = strip_subshell(tokens)
-    # RIDER: a reserved word in front of `git` is not read past, so a commit
-    # that is the FIRST command in a loop or conditional body is invisible to
-    # both gates. `for f in *; do git commit -m x; done` splits into a segment
-    # whose tokens are `["do", "git", "commit", …]`, this loop stops at `do`,
-    # no invocation is found, and the gate is silent -- executed against the
-    # commit gate in an opted-in repository, `do git commit -m x; done`
-    # returned nothing at all. It is a fail-OPEN and it is not this branch's:
-    # the parser answered `None` for the same tokens before this branch.
-    # Left because reading past `do` means deciding where the body LEAVES the
-    # shell, which is the whole thing `understood` refuses to guess at -- the
-    # segment would still need a directory, and `Unresolved(CONSTRUCT)` is the
-    # only honest one. That is a change to what the gate stops, not a parse
-    # fix, and it wants its own work item.
-    # Verified 2026-08-31 against parse_git@7693c50d.
-    i = 0
-    while i < len(tokens):
-        t = tokens[i]
-        if ("=" in t and not t.startswith("-")) or os.path.basename(t) in WRAPPERS:
-            i += 1
-            continue
-        break
-    if i >= len(tokens) or os.path.basename(tokens[i]) != "git":
+    # A reserved word in front of `git` used to stop this reading, so a commit
+    # that was the first command of a loop or conditional body was invisible
+    # to both gates (#669). `command_word` reads past it, and the directory
+    # such a segment runs in is `Unresolved(CONSTRUCT)`, set by the walk --
+    # the only honest one, and the one the multi-line spelling always had.
+    tokens, _unplaced = command_word(tokens)
+    if not tokens or os.path.basename(tokens[0]) != "git":
         return None
-    rest = tokens[i + 1 :]
+    rest = tokens[1:]
     at, chdir_at = _git_options(rest)
     chdirs = [rest[k] for k in chdir_at]
     if at >= len(rest):
