@@ -517,6 +517,30 @@ def test_a_cd_the_splitter_cut_after_its_operand_lands_once(tmp_path, cd):
     assert os.path.join(here, "u2", "u2") not in named, (cd, named)
 
 
+def test_a_cd_landed_past_a_redirection_keeps_the_directory_the_base_judged(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """Round 2 of 1790660768's fix pass. The landing read past a `cd`'s
+    redirection is added in front of the directory the walk read with it, and
+    never replaces it. `86256492` read `2>/dev/null cd P` as a program named
+    by the redirection, so it judged the session's own directory, whose
+    parity arm `[no-review]` does not answer. With the landing in place of
+    that directory, only P, which is no repository, and the refusal beside it
+    were left, and the waiver took the refusal whole. bash commits nothing
+    here; the case pins the invariant, not a commit."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    command = f": '[no-review]'; 2>/dev/null cd {q(plain)} && {BODY}"
+    for which, got in with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    ).items():
+        assert "silent" not in got, (command, which, got)
+
+
 def test_a_second_reading_that_unplaces_keeps_the_base_directory(
     monkeypatch, capsys, projects, tmp_path
 ):
