@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #660 |
-| Broad gate | c6539650 against 3911a8cf |
+| Broad gate | b6a87027 against 3911a8cf; earlier run: c6539650 against 3911a8cf |
 | Fixes checked by | no fixes to check |
 | Fix range | `3fb828fbac64d04c4666c632cf63e814a95e6a0f..ba7d1e6d2807f5d5de230f28fa7d7ee79d484eae`, 4 commits |
 | Contract changes | _heredoc_split → drop_heredoc_bodies, heredoc_bodies |
