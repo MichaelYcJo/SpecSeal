@@ -541,6 +541,25 @@ def test_a_python_rider_after_a_line_of_backticks_is_still_read():
     -- is not fenced by it. Pins."""
     src = f'X = """\n```\n"""\n\n\ndef u():\n    {MARK} claim\n    # stamp\n'
     assert riders.comment_blocks(src.splitlines(), "hooks/m.py") == [(7, 8)]
+    # and between two such lines, where markdown would call it fenced
+    between = f'X = """\n```\n"""\n{MARK} claim\n# stamp\nY = """\n```\n"""\n'
+    assert riders.comment_blocks(between.splitlines(), "hooks/m.py") == [(4, 5)]
+
+
+def test_a_quoted_marker_line_leaves_the_comment_state_alone():
+    """`spec.md`'s phase 5 row: a marker line the walk places in a fence
+    opens no rider AND changes no comment state. Here rider one never closes,
+    so it is no block to the walk and the fence below it is one; the quoted
+    line is stepped over, and the comment rider one left open still makes
+    the bare marker line below it a rider, as it did before."""
+    lines = [
+        f"{HTML_MARK} one",
+        "```",
+        f"{HTML_MARK} quoted",
+        "```",
+        "RIDER: two",
+    ]
+    assert riders.comment_blocks(lines, "doc.md") == [(1, 2), (5, 5)]
 
 
 def test_a_quoted_rider_is_no_broken_rider(tmp_path, capsys):
