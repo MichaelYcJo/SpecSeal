@@ -598,7 +598,13 @@ def test_a_break_commonmark_does_not_honour_quotes_no_rider(name):
     well, the walk answered by `str.splitlines` and the blocks landed one line
     off past the break -- here the real rider under a quoted one's fence was
     stepped over as quoted and left in the hash, and the region is asked
-    exactly that."""
+    exactly that.
+
+    **So the hasher is asked twice** (#673, #667 round 3's ⬜ 4). Once on this
+    case's own shape, the fence run after the break: a hasher that walked the
+    reader's split would call the rider quoted and keep it in the region.
+    Once on the merge's shape, a quoted rider's fence with a real rider under
+    it. Each half catches a hasher the other passes."""
     from block_shapes import BREAKS
 
     text = (
@@ -606,6 +612,9 @@ def test_a_break_commonmark_does_not_honour_quotes_no_rider(name):
         "Verified 2026-01-01 against r@abcdef12. -->\n\n```\n"
     )
     assert [(r.start, r.end) for r in riders.riders_in("doc.md", text)] == [(6, 7)]
+    kept, why = riders.region_lines(CHECKER, "doc.md", '"# doc"', text)
+    assert kept is not None, why
+    assert not any("RIDER:" in line for line in kept), kept
     region = (
         f"# doc\n\nA note{BREAKS[name]}more\n\n```\n{HTML_MARK} quoted -->\n```\n"
         f"{HTML_MARK} real\nVerified 2026-01-01 against r@abcdef12. -->\n"
