@@ -17,3 +17,18 @@ still true under the shared rule.
 | `skills/implement/scripts/seal.py` | `fence_map` is the fence walk with the state it ENDS in kept | still true: `fence_map` returns `walk`'s shown lines and the index of an unclosed opener |
 | `hooks/cmdline.py` | A name is UNBOUND rather than left alone when the assignment is one this reader does not model | an unrelated sentence about shell assignments that shares only the phrase *does not model* |
 | `seal/specs/1790297086-the-broad-gate-says-what-ci-says/plan.md` | Every guard spelling it does not model is silently not mirrored | an unrelated work item's plan that shares only the phrase *does not model* |
+
+The rows for `seal.py` and the ledger's H1 row no longer anchor anything:
+the revert after round 3 put `seal.py` back to the release's text and
+removed H1, so neither quote stands. The grounds of the two `spec.md` rows
+above them name round 2's hook copies, which the same revert took out; the
+frame's sentences they excuse are the framer's and still stand.
+
+The revert after round 3 takes `hooks/config.py`, `hooks/routing.py` and
+`.github/scripts/rider_check.py` back to `release/v0.16.0`'s text, with
+everything that existed only because of them. `survivor-check` over it
+reported 66 places.
+
+| Range | Grounds |
+|---|---|
+| `4edc5de6..4588df33` | the revert after round 3. Every sentence it removed was written by this branch's phases 3, 6 and 8 and round 1's and round 2's fixes to them, and the places still carrying that wording are the durable copies that describe the release's behaviour, which is the behaviour the three readers have again (`hooks/config.py`'s own fence copy, `fold_ledger.py`'s and `payload_meter.py`'s kept sentences on the shared rule, other work items' frames), or this work item's own records of what was built and taken out (`overview.md`, `phases/phase-6.md`). `git diff origin/release/v0.16.0 -- hooks/config.py hooks/routing.py .github/scripts/rider_check.py` is empty at `4588df33` |
