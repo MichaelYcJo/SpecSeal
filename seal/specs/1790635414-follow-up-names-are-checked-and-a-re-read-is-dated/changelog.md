@@ -36,3 +36,17 @@
 - Without `--checked`, `--reverify` still leaves every date alone, and now
   names each row whose hash it moved, with its ledger and line, its first
   cell and its date as it stands (#387). The exit code is unchanged.
+
+### Fixed
+
+- `evidence-check` hashes the region an anchor names even below a form feed,
+  U+2028 or one of the six other characters Python's `splitlines` ends a line
+  at and GFM does not (#664). Where one stood in the middle of a line, a
+  Python function below it was hashed one line off, a markdown section could
+  end at a line that only looked like a heading, and a block in another
+  language could end early, and an edit to the unit then passed as unchanged.
+  A row whose region holds such a character mid-line, or a Python unit below
+  one, reads `DRIFTED` once after the upgrade: re-read it and re-stamp it. A
+  character at the end of a line or on a blank line moves no hash.
+- `fold-check` counts a document's lines where GFM ends them, so such a
+  character no longer puts a document at the ceiling over it (#664).
