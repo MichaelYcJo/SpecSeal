@@ -66,7 +66,7 @@ touches.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | B in `walk_directories`; S1–S6 planted, each seen red at `542f920b` or at the named alternative; the two policy sentences; ⬜ 2's correction and the drifted rows re-read; this item's ledger and changelog fragments; ⬜ 3 and ⬜ 4 refused with grounds in `overview.md` | S1–S7. Narrow: the gate, reader, guard and consent modules through `bin/test`, `ruff check` and `ruff format --check` on the changed Python, `bin/evidence-check --strict .`, `bin/unverified-check`, `bin/survivor-check`. The broad gate is the sealer's | |
+| 1 | B in `walk_directories`; S1–S6 planted, each seen red at `542f920b` or at the named alternative; the two policy sentences; ⬜ 2's correction and the drifted rows re-read; this item's ledger and changelog fragments; ⬜ 3 and ⬜ 4 refused with grounds in `overview.md` | S1–S7. Narrow: the gate, reader, guard and consent modules through `bin/test`, `ruff check` and `ruff format --check` on the changed Python, `bin/evidence-check --strict .`, `bin/unverified-check`, `bin/survivor-check`. The broad gate is the sealer's | 32c433b7 |
 
 This table is also where the work records how far it got. **Status is empty,
 or the commit that closed the phase.**
