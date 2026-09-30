@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 691 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `d1e2b9d3294731aefea30ab7469c85f8660bc031..052c6fe8466422854022531a152bcdedd25c2798`, 4 commits |
+| Contract changes | walk_directories → walk_directories, commit_invocations, walk_command, creation_directory, round-1-report.md, round-1.md, round-2-report.md, round-2.md, pytest |
+| New units | WRAPPERS (depth 1); WORD_BREAK (depth 1); drop_comments (depth 1); _closes (depth 1); _heredoc_word (depth 1); drop_heredoc_bodies (depth 1); heredoc_bodies (depth 1); _heredoc_split (depth 1); split_segments (depth 1); split_segments_with_separators (depth 1); BRANCHING (depth 1); SUBSHELL (depth 1); STATE_CAP (depth 1); EXPANDS (depth 1); CD_FLAGS (depth 1); _NAME_HEAD (depth 1); _NAME_TAIL (depth 1); _name_at (depth 1); _substitute (depth 1); NAME_WRITERS (depth 1); _forget (depth 1); OPAQUE (depth 1); LOOP_WORDS (depth 1); _runs (depth 1); _unseen (depth 1); OPENERS (depth 1); CLOSES (depth 1); CLOSERS (depth 1); _leads (depth 1); _nesting (depth 1); _definitions (depth 1); _bind (depth 1); _expanded (depth 1); RESERVED (depth 1); CONDITIONS (depth 1); RELOCATORS (depth 1); PREFIXES (depth 1); LIST_OPENERS (depth 1); UNPLACED (depth 1); RUNNERS (depth 1); SHELLS (depth 1); STRING_HOSTS (depth 1); command_word (depth 1); _hands_a_string (depth 1); reparsed_texts (depth 1); VALUED (depth 1); _is_the_program (depth 1); command_strings (depth 1); names_an_unknown_command (depth 1); _heredoc_end (depth 1); _paren_end (depth 1); substitution_bodies (depth 1); understood (depth 1); Unresolved (depth 1); strip_subshell (depth 1); _cd_target (depth 1); _dedup (depth 1); _directories (depth 1); _step (depth 1); _land (depth 1); compose (depth 1); walk_directories (depth 1); _git_options (depth 1); parse_git (depth 1); adds_a_worktree (depth 1); apply_chdir (depth 1); test_a_segment_only_the_reading_past_redirections_finds_is_not_git_to_the_guard (depth 1); WIDER_FIRST (depth 1); test_a_segment_the_base_reads_no_git_in_does_not_take_the_first_slot (depth 1); test_the_consent_writer_files_the_creation_the_base_filed_behind_a_wider_one (depth 1); ZSH_PREFIXED (depth 1); test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer (depth 1) |
 | Needs a fix | yes — 🔴 1, a segment only #674 reads as git displaces the one the base judged; 🟡 2, the records' unqualified equality claim |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,11 +29,11 @@ Round 1 of the containment targets `4bc94f05` and the diff `542f920b..4bc94f05`.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A segment only #674's reading reads as git takes the first-of-kind slot, so the later segment `86256492` judged is skipped: deny over an ACTIVE session in `w` becomes silence, and consent files under another clone | `hooks/worktree-guard.py:2086`, `hooks/worktree_consent.py:437` | open | Executed through `main()` and bash; predates the branch (`542f920b` agrees) and contradicts M1 and the changelog's "for every one they both read as git" |
-| 🟡 2 | `base_directories` unplaces `repeat N git …` and `for i (…) git …` where `86256492`'s walk placed them; M1, spec S3 and the docstring claim equality for every segment, and the recognition list names one shape of five | `hooks/cmdline.py:2617` | open | Executed: 12 of 407 commands differ in the guard's directories |
-| ⬜ 3 | The guard policy says `git -C` is read the base's way; `parse_git` reads it past a redirection | `docs/worktree-guard-spec.md:559` | open | Read |
-| ⬜ 4 | The changelog opens the accepted cost with "What this gives back" | `seal/specs/1790745049-the-guard-and-consent-stop-depending-on-the-walks-order/changelog.md:20` | open | A correction to the run's paperwork |
-| ⬜ 5 | M3's grounds call the as-written flag the base-consistent one, while the base unplaced `nice -n 5 git switch` without the redirection | `hooks/cmdline.py:2617` | open | Read; S6's answer is the tree bash runs in |
+| 🔴 1 | A segment only #674's reading reads as git takes the first-of-kind slot, so the later segment `86256492` judged is skipped: deny over an ACTIVE session in `w` becomes silence, and consent files under another clone | `hooks/worktree-guard.py:2086`, `hooks/worktree_consent.py:437` | **fixed** `9b5de14d` | fixed at 9b5de14d; Executed through `main()` and bash; predates the branch (`542f920b` agrees) and contradicts M1 and the changelog's "for every one they both read as git" |
+| 🟡 2 | `base_directories` unplaces `repeat N git …` and `for i (…) git …` where `86256492`'s walk placed them; M1, spec S3 and the docstring claim equality for every segment, and the recognition list names one shape of five | `hooks/cmdline.py:2617` | **fixed** `9b5de14d` | fixed at 9b5de14d; Executed: 12 of 407 commands differ in the guard's directories |
+| ⬜ 3 | The guard policy says `git -C` is read the base's way; `parse_git` reads it past a redirection | `docs/worktree-guard-spec.md:559` | **fixed** `c5bb0222` | fixed at c5bb0222; Read |
+| ⬜ 4 | The changelog opens the accepted cost with "What this gives back" | `seal/specs/1790745049-the-guard-and-consent-stop-depending-on-the-walks-order/changelog.md:20` | answered | corrected at c5bb0222; A correction to the run's paperwork |
+| ⬜ 5 | M3's grounds call the as-written flag the base-consistent one, while the base unplaced `nice -n 5 git switch` without the redirection | `hooks/cmdline.py:2617` | answered | corrected at 70db3a84; Read; S6's answer is the tree bash runs in |
 | 🟢 | The commit gate's invocations and walk equal `542f920b`'s | `hooks/cmdline.py#walk_directories` | confirmed | Executed over 407 commands; the gate file is not in the diff |
 | 🟢 | The consumers of the walk are the three the build enumerated | `hooks/` | confirmed | Read with `git grep` |
 | 🟢 | The changed I13 guard case loses only what M2 records | `tests/test_guard_resolves_the_tree_it_judges.py` | confirmed | Read; the module passes |
