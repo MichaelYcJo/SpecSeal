@@ -304,9 +304,14 @@ def test_a_broken_shared_module_names_every_gate_that_imports_it(repo, tmp_path)
     that does not import it. The `post-bash` call is not a commit: a copy of
     `hooks/` has no `skills/` beside it, so `evidence-advisor.py` would fail
     at run on a commit for want of its checker, which is the fixture and not
-    `cmdline.py`."""
+    `cmdline.py`.
+
+    Changed by #689: the worktree guard and the consent writer import
+    `cmdline_base.py`, the reader frozen at `86256492`, instead of
+    `cmdline.py`, so breaking `cmdline.py` alone named two gates. Both shared
+    readers are broken here, and the four gates that import one are said."""
     opted_in(repo)
-    hooks = hooks_copy(tmp_path, {"cmdline.py": BROKEN})
+    hooks = hooks_copy(tmp_path, {"cmdline.py": BROKEN, "cmdline_base.py": BROKEN})
     dispatch(hooks, "pre-bash", bash(repo, "s-x"))
     dispatch(
         hooks,
@@ -336,9 +341,13 @@ def test_a_gate_that_fails_to_load_names_every_group_that_loads_it(repo, tmp_pat
     `pre-agent` half is the `isolation: "worktree"` spawn going unguarded:
     one `pre-bash` failure must not read as a Bash-only gap. A group where
     the gate stands alone, `post-agent` for `worktree_consent.py`, is named
-    among the failures and not among the groups whose other gates decided."""
+    among the failures and not among the groups whose other gates decided.
+
+    Changed by #689: the guard and the consent writer load `cmdline_base.py`,
+    so that module is broken beside `cmdline.py`, which the commit gate
+    loads."""
     opted_in(repo)
-    hooks = hooks_copy(tmp_path, {"cmdline.py": BROKEN})
+    hooks = hooks_copy(tmp_path, {"cmdline.py": BROKEN, "cmdline_base.py": BROKEN})
     dispatch(hooks, "pre-bash", bash(repo, "s-x"))
     dispatch(
         hooks,

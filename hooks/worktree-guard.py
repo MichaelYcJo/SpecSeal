@@ -120,14 +120,21 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # it. A plain filename means `sys.modules` deduplicates the import, which is
 # what the two gates loading each other by path could not do — see that
 # module's docstring for the 496 executions per hook event it cost.
-import cmdline
+#
+# This guard reads through `hooks/cmdline_base.py`, the reader frozen at
+# `86256492`, and never through `cmdline.py` (#689): the splitter, `parse_git`,
+# `adds_a_worktree`, the walk and `Unresolved` all come from there, so what it
+# recognises and where it judges are the release base's by construction. The
+# name `cmdline` is kept so the rest of this file reads as it did.
+# `worktree_consent` imports the same module, so the two share one `Unresolved`.
+import cmdline_base as cmdline
 import console
 
 # The AFTER half of this guard: it owns the consent record, and this file reads
 # it. A plain filename again -- and the reason that file's name carries an
 # underscore where every other gate here carries a hyphen.
 import worktree_consent
-from cmdline import apply_chdir, parse_git
+from cmdline_base import apply_chdir, parse_git
 
 
 def _idle_min():
@@ -250,16 +257,18 @@ def walk_command(command: str, cwd: str, windows=None):
     possible places) and can hold one the reader could not compute. The caller
     decides what to do with that; see `main`.
 
-    The directories are `cmdline.base_directories`', the ones `86256492`'s
-    walk named, and never the commit gate's wider reading (#689). `main`
-    judges the first directory that classifies, so the order of a segment's
-    directories picks the tree, and the wider reading's order was met by a
-    new command every time it was fixed. The cost is that a `cd` behind a
-    redirection (`2>/dev/null cd W`) does not move the tree judged here, as it
-    did not at `86256492`, while the commit gate judges W.
+    The walk is `hooks/cmdline_base.py`'s, the reader frozen at `86256492`,
+    and never the commit gate's wider one (#689). `main` judges the first
+    segment of each kind and the first directory in it that classifies, so
+    both which segments are git and the order of their directories pick the
+    tree, and every way of ordering the wider reading for this guard met a
+    new command. The cost is that a `cd` behind a redirection (`2>/dev/null
+    cd W`) does not move the tree judged here, and a git behind one
+    (`2>/dev/null git switch x`) is not read as git, both as at `86256492`,
+    while the commit gate reads both.
     """
     items, _clean = _tokenize_with_separators(_judgment_text(command), windows)
-    return cmdline.base_directories(items, cwd)
+    return cmdline.walk_directories(items, cwd)
 
 
 # RIDER: no production caller reaches this any more. `main` reads the command

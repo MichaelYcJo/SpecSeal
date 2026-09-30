@@ -671,8 +671,8 @@ def test_a_cd_behind_a_redirection_leaves_the_guard_on_the_tree_the_base_judged(
 ):
     """Round 2 of 1790660768 made the guard judge the tree a `cd` behind a
     redirection reaches, and #689 took that back: the guard and the consent
-    writer read `cmdline.base_directories`, which is `86256492`'s walk, and
-    that walk does not land these `cd`s. So the guard judges the clean
+    writer read through `hooks/cmdline_base.py`, which is `86256492`'s reader,
+    and that reader does not land these `cd`s. So the guard judges the clean
     session tree and is silent, and the consent writer files the creation
     under the session's clone, while bash runs both in the dirty `w`. That is
     the containment's accepted cost, recorded in #689's spec. The commit gate
@@ -728,8 +728,8 @@ def test_a_chain_past_the_walks_cap_keeps_the_tree_the_base_judged(
 #
 # Each chain below is one where the order of the walk's two threads decided
 # the tree, and every attempt to order them was met by another chain (#689).
-# The guard and the consent writer now read the base's thread alone
-# (`cmdline.base_directories`), so each judges the tree `86256492` judged,
+# The guard and the consent writer now read through `hooks/cmdline_base.py`,
+# `86256492`'s reader frozen, so each judges the tree `86256492` judged,
 # which is the dirty `w` bash runs the command in. `{missing}` is never
 # created and `{other}` is a clean repository of its own.
 BASE_TREE_CHAINS = {
@@ -755,6 +755,7 @@ def _a_dirty_w_under_a_clean_session(repo, tmp_path):
     subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
     shutil.copytree(repo, session / "w")
     (session / "w" / "f.txt").write_text("changed on purpose\n")
+    shutil.copytree(repo, session / "clean")
     other = tmp_path / "O"
     shutil.copytree(repo, other)
     return session, other
@@ -796,17 +797,19 @@ def test_the_consent_writer_files_where_the_base_filed_whatever_the_walk_leads(
     assert os.path.normpath(acted) == str(session / "w"), (name, acted)
 
 
-def test_a_segment_only_the_reading_past_redirections_finds_is_judged_where_the_base_walked(
+def test_a_segment_only_the_reading_past_redirections_finds_is_not_git_to_the_guard(
     monkeypatch, capsys, repo, tmp_path
 ):
     """#689. `2>/dev/null nice -n 5 git switch` is git only to the reading
-    past redirections (#674), which also unplaces it behind the runner's
-    options, so the commit gate's reading gives it no directory it can name.
-    `base_directories` unplaces a segment on the as-written reading alone,
-    which is the flag `86256492` read, and that reading finds nothing to
-    unplace: the switch is judged in `w`, where the base's walk stands and
-    bash runs it. At `542f920b` the guard judged the clean session tree and
-    was silent."""
+    past redirections (#674). The guard reads through `86256492`'s frozen
+    reader, which finds no git there, so it is silent, as at `86256492`,
+    while bash switches `w`. That is the accepted cost of reading as the base
+    read, the same one a `cd` behind a redirection pays.
+
+    Changed by round 1 of 1790745049 rather than deleted. It asserted `ask`
+    about `w`, which the build's `base_directories` gave by placing the
+    segment where the wider reading unplaced it; `86256492` gives `silent`,
+    and that is the answer now."""
     session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
     decision, reason, top = run(
         monkeypatch,
@@ -814,5 +817,85 @@ def test_a_segment_only_the_reading_past_redirections_finds_is_judged_where_the_
         "cd w && 2>/dev/null nice -n 5 git switch feature/x",
         session,
     )
-    assert decision == "ask", (decision, reason)
-    assert top and os.path.samefile(top, session / "w"), top
+    assert decision == "silent", (decision, reason)
+    assert top is None, top
+
+
+# A segment only #674's reading reads as git, in FRONT of one `86256492` read
+# (round 1 of 1790745049, red 1). The guard takes the first segment of each
+# kind, so while it read with #674's `parse_git` the wider segment took the
+# place of the one the base judged. An ACTIVE session sits in any tree the
+# stub is asked about, so `top` is what tells the two apart.
+WIDER_FIRST = (
+    "2>/dev/null git switch feature/x; cd w && git switch feature/x",
+    "git 2>/dev/null switch feature/x; cd w && git switch feature/x",
+    "nocorrect git switch feature/x; cd w && git switch feature/x",
+    "repeat 1 git switch feature/x; cd w && git switch feature/x",
+    "cd clean && 2>/dev/null git switch feature/x; cd ../w && git switch feature/x",
+)
+
+
+@pytest.mark.parametrize("command", WIDER_FIRST)
+def test_a_segment_the_base_reads_no_git_in_does_not_take_the_first_slot(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """Round 1 of 1790745049, red 1. bash switches `w`, and `86256492` denied
+    each command over the session active in `w`. At `4bc94f05` the first
+    segment took the slot and the guard judged the session's own tree."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    active = [(111, str(session / "w"), 1.0, 0.5, "VS Code")]
+    decision, reason, top = run(
+        monkeypatch, capsys, command, session, sessions=(active, [], True)
+    )
+    assert decision == "deny", (command, decision, reason)
+    assert top and os.path.samefile(top, session / "w"), (command, top)
+
+
+def test_the_consent_writer_files_the_creation_the_base_filed_behind_a_wider_one(
+    repo, tmp_path
+):
+    """Round 1 of 1790745049, red 1, the consent twin. `86256492` filed under
+    `w`; at `4bc94f05` the first creation, which it did not read as git, was
+    filed under the session's clone."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    acted = wg.worktree_consent.creation_directory(
+        "2>/dev/null git worktree add ../wt-a; cd w && git worktree add ../wt-b",
+        str(session),
+    )
+    assert os.path.normpath(acted) == str(session / "w"), acted
+
+
+# zsh's precommand words and short loop in front of git (round 1 of
+# 1790745049, yellow 2). #674's `command_word` reads them as runners, so the
+# build read each as git with an unresolved directory; `86256492` read none of
+# them as git.
+ZSH_PREFIXED = (
+    "cd w && repeat 2 git {verb}",
+    "cd w && for i (1) git {verb}",
+    "cd w && noglob git {verb}",
+    "cd w && nocorrect git {verb}",
+)
+
+
+@pytest.mark.parametrize("shape", ZSH_PREFIXED)
+def test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer(
+    monkeypatch, capsys, repo, tmp_path, shape
+):
+    """Round 1 of 1790745049, yellow 2. The guard is silent over an ACTIVE
+    session, and the consent writer files nothing, as at `86256492`. At
+    `4bc94f05` the guard judged the session's tree and denied, and the writer
+    filed the creation under the session's clone."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    active = [(111, str(session / "w"), 1.0, 0.5, "VS Code")]
+    decision, reason, _ = run(
+        monkeypatch,
+        capsys,
+        shape.format(verb="switch feature/x"),
+        session,
+        sessions=(active, [], True),
+    )
+    assert decision == "silent", (shape, decision, reason)
+    acted = wg.worktree_consent.creation_directory(
+        shape.format(verb="worktree add ../wt"), str(session)
+    )
+    assert acted == "", (shape, acted)
