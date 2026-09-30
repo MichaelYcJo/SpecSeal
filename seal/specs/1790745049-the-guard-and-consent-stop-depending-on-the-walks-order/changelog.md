@@ -12,7 +12,7 @@
   for a worktree created behind either was filed under the wrong clone.
 
   Both now read through a copy of the release base's command reader, frozen
-  byte for byte. Over the COMMANDS_MEASURED generated commands measured, the
+  byte for byte. Over the 43,544 generated commands measured, the
   guard's decision, the kinds it recognised, the tree it judged and the clone
   consent was filed under are the release base's for every one. The commit
   gate is unchanged: over 5,092 commands no decision and no reason text
