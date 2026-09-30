@@ -44,6 +44,8 @@ Decisions:
     instruction naming both ways on for every arm that fired
   - every attempt after that one → ask, naming every missing mark at once
     (approving IS the waiver — no separate bypass mechanism to maintain)
+  - any stop at all, in a session whose person pressed `automation` on the
+    routing question → deny, every time, naming the ways on that need nobody
 
 A hook returns allow/deny/ask and nothing else, and the harness renders an
 `ask` as two buttons the model never sees. Declining is then a bare "No": the
@@ -58,6 +60,15 @@ repository (<git-dir>/specseal-commit-choice/<session-id>) and every attempt
 after that gets the plain `ask` this gate has always returned. That fallback
 is also what an environment with nobody to answer lands on: one extra round
 trip, then today's behavior.
+
+Except where the person said, before the first edit, that nobody would be
+answering. A session whose person pressed `automation` was promised that
+nothing stops to ask, and an `ask` is a person's prompt, so there every stop
+is a deny addressed to the model (#662, #665). The press is read from the
+harness-written transcript by `hooks/worktree_consent.py`'s reader, which the
+worktree guard already reads it with, and only once a stop has been decided:
+what the gate stops does not move, only who the stop is put to.
+`automation_pressed` below says why a press that cannot be read is no press.
 
 The skip markers (`[no-review]`, `[no-parity]`) must appear as a BARE WORD in
 the command, not anywhere in its text: `git commit -m "fix [no-review] later"`
@@ -90,16 +101,33 @@ import routing
 from cmdline import (
     EXPANDS,
     Unresolved,
+    command_strings,
+    command_word,
     compose,
     drop_comments,
     drop_heredoc_bodies,
     heredoc_bodies,
+    merged_segments,
+    merged_view,
+    names_an_unknown_command,
     parse_git,
+    reparsed_texts,
     split_segments,
     split_segments_with_separators,
-    strip_subshell,
+    substitution_bodies,
+    unglued,
     walk_directories,
 )
+
+# The press reader, by plain name so `sys.modules` shares it with the guard.
+# Guarded, unlike the imports above, because what it answers only moves a stop
+# between its two forms: a reader that does not load reads as no press, which
+# is the answer from before it was read, while an ImportError here would leave
+# the gate with no verdict to give at all.
+try:
+    import worktree_consent
+except Exception:
+    worktree_consent = None
 
 # `where` is the directory this invocation's git would actually run in, filled
 # in by commit_targets once `cwd` is known. commit_invocations parses a command
@@ -118,7 +146,39 @@ Invocation = collections.namedtuple(
 CHOICE_DIR = "specseal-commit-choice"
 
 
+# How deep one body is read inside another before it counts as one that might
+# commit unread (#674). Each level rescans the rest of the body, so at
+# `86256492` a nesting of 4000 or 6000 `$(` beside a commit was answered only
+# when `RecursionError` fired, some 250 levels down, after 12 to 62 seconds.
+# 32 is far above any nesting a command is written with -- the commit-message
+# form `"$(cat <<'EOF' … EOF)"` is two -- and far below the recursion limit.
+NESTING_READ = 32
+_nesting = [0]
+
+
 def _hides_a_commit(text):
+    """`_reads_a_commit`, and True for a body nested deeper than it reads.
+
+    A body this process does not finish reading might commit, the way an
+    `eval` argument it cannot expand might (round 2 of 1790644505). Answering
+    here keeps every invocation already found; a `RecursionError` caught in
+    `main` discarded them all. The bound answers before the stack runs out,
+    and the catch stays for an interpreter whose limit is lower still
+    (contract §13): with the limit below what 32 levels need, the answer is
+    the same.
+    """
+    if _nesting[0] >= NESTING_READ:
+        return True
+    _nesting[0] += 1
+    try:
+        return _reads_a_commit(text)
+    except RecursionError:
+        return True
+    finally:
+        _nesting[0] -= 1
+
+
+def _reads_a_commit(text):
     """True when TEXT, read as commands, might invoke `git commit`.
 
     Only called where the shell really does execute TEXT as commands — a
@@ -141,14 +201,38 @@ def _hides_a_commit(text):
     text = drop_comments(text)
     stripped = drop_heredoc_bodies(text)
     segments, _clean = split_segments(stripped)
-    for toks in segments:
+    # The groups the splitter cut inside a redirection are read too (#674);
+    # an answer here is a boolean, so reading them beside the parts only adds.
+    # So is a view with a redirection glued to a word's end cut off
+    # (`git>/dev/null commit`, round 1 of 1790660768, yellow 4).
+    views = [*segments, *merged_segments(stripped)]
+    for toks in [*views, *filter(None, map(unglued, views))]:
         parsed = parse_git(toks)
         if parsed and parsed[0] == "commit":
             return True
         arg = _eval_argument(toks)
         if arg is not None and _eval_hides_a_commit(arg):
             return True
-    return any(_hides_a_commit(body) for body in heredoc_bodies(text))
+        if _string_hides_a_commit(toks):
+            return True
+    return any(_hides_a_commit(body) for body in heredoc_bodies(text)) or any(
+        _hides_a_commit(body) for body in substitution_bodies(stripped)
+    )
+
+
+def _string_hides_a_commit(toks):
+    """True when a string a program in TOKS hands to a shell might commit (#670).
+
+    Every word that might be the string is read as commands, the way
+    `_hides_a_commit` reads a heredoc body. Only the string a host actually
+    runs is asked whether its command word expands (`sh -c "$CMD"`), for the
+    reason `_eval_hides_a_commit` gives: a positional parameter or a search
+    word is not a command (round 1 of 1790644505, yellow 3). Unlike `eval`'s
+    argument, a `$` elsewhere in the string is an argument's and runs nothing.
+    """
+    return any(_hides_a_commit(t) for t in reparsed_texts(toks)) or any(
+        names_an_unknown_command(t) for t in command_strings(toks)
+    )
 
 
 def _eval_argument(toks):
@@ -157,20 +241,28 @@ def _eval_argument(toks):
     `eval` concatenates its remaining arguments with a space and re-parses
     the result as a command — the same question `_hides_a_commit` answers,
     just handed the tokens after `eval` instead of a dropped heredoc region.
-    The skip here mirrors `cmdline.understood`'s own assignment/subshell skip,
-    the same rule that already marks a bare `eval` segment's OWN directory
-    `Unresolved` for `cd`-tracking. `source`/`.` sit beside `eval` in
+    The word is found the way `cmdline.command_word` finds any command word,
+    and an `eval` segment's OWN directory is already `Unresolved` for
+    `cd`-tracking, since `understood` refuses it. `source`/`.` sit beside `eval` in
     `RELOCATORS` but take a file, not inline text, so there is nothing here to
     re-parse for them.
     """
-    toks, opened = strip_subshell(list(toks))
-    if opened:
-        return None
-    while toks and "=" in toks[0] and not toks[0].startswith("-"):
-        toks.pop(0)
-    if not toks or toks[0] != "eval":
-        return None
-    return " ".join(toks[1:])
+    # The word that runs, read the way `parse_git` reads it since #669 and
+    # #670: past assignments, `!`, a subshell or brace opener, a reserved word
+    # that begins a list, and the enumerated runners. It used to read past
+    # assignments alone, so `then eval '…'` and `(eval '…')` were no `eval`
+    # (round 1 of 1790644505, yellow 4). `builtin` runs a builtin, and `eval`
+    # is one.
+    #
+    # Asked a second time past the redirections in front of it (#674), only
+    # where the first reading found no `eval`: `2>/dev/null eval "$X"`.
+    for redirections in (False, True):
+        word, _unplaced = command_word(list(toks), "eval", redirections)
+        while word and os.path.basename(word[0]) == "builtin":
+            word = word[1:]
+        if word and word[0] == "eval":
+            return " ".join(word[1:])
+    return None
 
 
 def _eval_hides_a_commit(arg):
@@ -267,23 +359,73 @@ def commit_invocations(command, cwd=None):
         if cwd is not None
         else [(tokens, (None,)) for _, tokens in items]
     )
-    found = []
+    found, kinds = [], []
     for toks, bases in walked:
-        parsed = parse_git(toks)
-        if parsed and parsed[0] == "commit":
-            for base in bases:
-                found.append(Invocation(parsed[1], parsed[2], base=base))
-            continue
-        arg = _eval_argument(toks)
-        if arg is not None and _eval_hides_a_commit(arg):
-            for base in bases:
-                found.append(Invocation((), (), base=_unresolved_base(base)))
+        by_kind = _segment_invocations(toks, bases)
+        kinds.append(set(by_kind))
+        found += [inv for invs in by_kind.values() for inv in invs]
+
+    # A redirection the splitter cut at `&` or `|` (`2>&1 git commit`, `sh -c
+    # 2>&1 "$CMD"`) left the program or the string in a segment of its own
+    # (#674). Each group `merged_view` glues back is read beside its parts, and
+    # adds only a kind no part found on its own, so `git commit -m x 2>&1 |
+    # tail -1` keeps exactly the invocation it had. What it adds takes the
+    # directories of the group's last part: the walk keeps the unmoved shell
+    # beside the moved one across `&` and `|`, so those include every earlier
+    # part's, and only a `cd` moves one -- which would itself be the command
+    # word, not a part in front of it.
+    for parts, toks in merged_view(items):
+        seen = set().union(*(kinds[p] for p in parts))
+        for view in filter(None, (toks, unglued(toks))):
+            for kind, invs in _segment_invocations(view, walked[parts[-1]][1]).items():
+                if kind not in seen:
+                    found += invs
+                    seen.add(kind)
+
+    # A redirection glued to a word's end (`git>/dev/null commit`, round 1 of
+    # 1790660768, yellow 4) is cut off and the segment read again beside
+    # itself, adding only a kind the segment did not find.
+    for index, (toks, bases) in enumerate(walked):
+        cut = unglued(toks)
+        if cut is not None:
+            for kind, invs in _segment_invocations(cut, bases).items():
+                if kind not in kinds[index]:
+                    found += invs
 
     for body in heredoc_bodies(drop_comments(command)):
         if _hides_a_commit(body):
             found.append(Invocation((), (), base=_unresolved_base(cwd)))
 
+    # A command substitution's body runs in a subshell and its output is
+    # substituted, so a commit there is one the walk above never saw as a
+    # segment of its own (#670). It is read the way a heredoc body is, and
+    # stops the same way: no directory the walk can name is its directory.
+    for body in substitution_bodies(drop_heredoc_bodies(drop_comments(command))):
+        if _hides_a_commit(body):
+            found.append(Invocation((), (), base=_unresolved_base(cwd)))
+
     return found, clean
+
+
+def _segment_invocations(toks, bases):
+    """{kind: invocations} for one segment, the reading `commit_invocations`
+    gives every segment: `commit` for a git commit, else `eval` and `string`.
+
+    Keyed by kind so `merged_view`'s groups can add only what their parts did
+    not find (#674).
+    """
+    parsed = parse_git(toks)
+    if parsed and parsed[0] == "commit":
+        return {"commit": [Invocation(parsed[1], parsed[2], base=b) for b in bases]}
+    out = {}
+    arg = _eval_argument(toks)
+    if arg is not None and _eval_hides_a_commit(arg):
+        out["eval"] = [Invocation((), (), base=_unresolved_base(b)) for b in bases]
+    # `sh -c '…'`, `su -c '…'`, `env -S '…'`: a string a shell parses
+    # again, the same question `eval`'s argument answers above (#670).
+    if _string_hides_a_commit(toks):
+        out["string"] = [Invocation((), (), base=_unresolved_base(b)) for b in bases]
+    return out
 
 
 def commit_targets(cwd, invocations, root_of=None):
@@ -652,6 +794,74 @@ def question_reason(arms):
     return "\n".join(lines)
 
 
+# What a stop says in a session whose person pressed `automation`, after the
+# state that says what was stopped. It stands in for both of the prompts above
+# and for the unreadable one's options, and it names no question tool: a
+# subagent has none, and the main session of such a run was promised it would
+# not use one. The ways on are ordered from the one that gets the commit a
+# verdict to the one that ends the attempt, and the waiver is offered only
+# where `skills/implement/SKILL.md` §1 offers it -- a commit no work item owns.
+AUTOMATION_WAYS = (
+    "This session's person pressed `automation` on the routing question, so "
+    "this gate puts no question to them, and none is to be put to them in its "
+    "place: the run was promised that nothing would stop to ask.\n\n"
+    "The ways on, none of which needs a person:\n"
+    "  1. Re-issue the commit so the repository it lands in can be read: "
+    "`git -C <absolute path> commit …` in a command of its own, or a `cd` "
+    "joined to the commit by `&&` alone. A `;` or a new line after a `cd` also "
+    "reaches the directory the shell started in, because a failed `cd` leaves "
+    "the shell there.\n"
+    "  2. A file edit goes through the `Edit` tool, and a new file through the "
+    "`Write` tool. Neither leaves a command line for this gate to read.\n"
+    "  3. Only for a commit that belongs to no work item: the waiver in front "
+    "of the command, quotes included, `{waiver}`. Written after `git commit` "
+    "the marker is a pathspec and git rejects the command.\n"
+    "  4. Otherwise, do not retry it: write the commit down and hand it back "
+    "at the end of the run.\n\n"
+    "Re-issuing this command unchanged meets this same refusal."
+)
+
+
+def automation_ways(markers):
+    """The automation text, its waiver naming the marker of every arm that fired."""
+    return AUTOMATION_WAYS.format(waiver=waiver_form(markers))
+
+
+def automation_reason(arms):
+    """The refusal for a repository the gate read, under the `automation` press."""
+    return (
+        "\n\n".join(arm["state"] for arm in arms)
+        + "\n\n"
+        + automation_ways([arm["marker"] for arm in arms])
+    )
+
+
+def automation_pressed(top, session, transcript_path):
+    """True when this session's person pressed `automation`, read from `top`.
+
+    `top` is the root of the session's OWN directory rather than the target:
+    for an unreadable target there is no target to read it against, and the
+    question is whether anybody is at the keyboard, which is a fact about the
+    session. Standing to speak comes from the same place (`optin.opted_in`).
+
+    Every way of not reading the press is False, which is the answer this gate
+    gave before it read one: no session id, a reader that did not load, and
+    anything the reader raises. `hooks/dispatch.py` skips a gate that raises,
+    and a skipped gate is silence -- a commit nobody judged -- where False only
+    costs a prompt. Called only after a stop is decided, so a command the gate
+    lets through never pays for the transcript scan.
+    """
+    if worktree_consent is None or not session or not top:
+        return False
+    try:
+        return (
+            worktree_consent.automation_answered(top, session, transcript_path or "")
+            is True
+        )
+    except Exception:
+        return False
+
+
 UNREADABLE_STATE = (
     "This command commits into {count} it could not resolve to a "
     "repository: {listed}.\n\n"
@@ -675,8 +885,11 @@ UNREADABLE_CONSTRUCT = (
 )
 
 
-def unreadable_reason(paths, first, also_stopped):
+def unreadable_reason(paths, first, also_stopped, automated=False):
     """The prompt for a target the gate could not identify at all.
+
+    `automated` replaces what follows the state with the automation text, for
+    a session whose person pressed `automation`; `first` is then not read.
 
     Its own text rather than an arm in `question_reason`, because the arms
     each name a mark that is missing in a repository the gate resolved. This
@@ -716,7 +929,10 @@ def unreadable_reason(paths, first, also_stopped):
     construct = all(getattr(p, "why", None) == Unresolved.CONSTRUCT for p in paths)
     state = UNREADABLE_CONSTRUCT if construct else UNREADABLE_STATE
     lines = [state.format(count=count, listed=listed), ""]
-    if first:
+    if automated:
+        # This branch honours `[no-review]` alone, so that is the one offered.
+        lines.append(automation_ways(["[no-review]"]))
+    elif first:
         # Built as a list so the header can COUNT it. This prompt renders its
         # own options rather than going through `question_reason`, and it kept
         # a hand-written `two` after the other site learned to count -- one
@@ -1043,9 +1259,26 @@ def main():
         return
     command = (payload.get("tool_input") or {}).get("command", "")
     cwd = payload.get("cwd", "")
-    invocations, clean = commit_invocations(command, cwd)
-    if not invocations and not (not clean and "git" in command and "commit" in command):
+    try:
+        invocations, clean = commit_invocations(command, cwd)
+    except RecursionError:
+        # A backstop for an overflow outside `_hides_a_commit`, which answers
+        # at the depth that overflowed and keeps what was found (round 2 of
+        # 1790644505). Raising would reach `dispatch.py` as silence, so an
+        # overflow here reads as a command that could not be parsed.
+        invocations, clean = [], False
+    # A command the splitter could not finish may commit in the part it did
+    # not read, and the base judged the session's own directory for that
+    # whenever nothing was found. A commit found in the part it DID read --
+    # which #669 and #670 made more common -- took that judgment away, so a
+    # declared repository named there silenced the session's own directory
+    # (round 1 of 1790644505, red 1). The fallback now stands beside what was
+    # found, which only adds a target.
+    unparsed = not clean and "git" in command and "commit" in command
+    if not invocations and not unparsed:
         return
+    if unparsed:
+        invocations = [*invocations, Invocation((), ())]
 
     # Every target is judged, not just the first to fire. The decision is
     # about one of them — a hook returns one — but the rest are what the
@@ -1106,12 +1339,24 @@ def main():
 
     session = payload.get("session_id")
 
+    # Read at each decision site below and nowhere earlier: everything above
+    # decided WHETHER the gate speaks, and the press only decides whether the
+    # stop goes to the model or to a person. A command the gate lets through
+    # never reaches a line that reads it.
+    def pressed():
+        return automation_pressed(
+            root_of(cwd), session, payload.get("transcript_path") or ""
+        )
+
     # Standing to speak comes from the session's own repository, not from the
     # target: the target is exactly what could not be read. It decides WHETHER
     # this globally installed plugin says anything here, never WHAT is true of
     # the repository the commit lands in — judging an unknown target against
     # the session's marks would answer for a repository it may never touch.
     if unreadable and optin.opted_in(cwd) and not has_marker(command, "[no-review]"):
+        if pressed():
+            decide("deny", unreadable_reason(unreadable, True, len(stopped), True))
+            return
         here = git(["rev-parse", "--git-dir"], cwd)
         first = bool(session) and not already_asked(cwd, here, session)
         decide(
@@ -1132,7 +1377,14 @@ def main():
     # deny would repeat forever. `ask` cannot loop: approving is the way out.
     # The budget is per repository, like the verdict it spends — answering for
     # one repository does not answer for the next.
-    if session and not already_asked(target, git_dir, session):
+    #
+    # Under the `automation` press the deny DOES repeat, on purpose: nobody is
+    # there to click, so an `ask` would stop the run until somebody came back.
+    # What keeps the repeat from being a trap is the reason's last way on,
+    # handing the commit back, which needs nobody either.
+    if pressed():
+        decision, reason = "deny", automation_reason(missing)
+    elif session and not already_asked(target, git_dir, session):
         decision, reason = "deny", question_reason(missing)
     else:
         decision, reason = "ask", ask_reason(missing)

@@ -389,18 +389,22 @@ COMMAND_WORD_GROUPS = {
     # `parse_git` compares the command word's last path component as written,
     # before any expansion, so `~/git`, `*/git` and `$HOME/git` sit here and
     # not with `$GIT` below (round 1 finding 2, round 2 finding 3).
+    # `nice git` moved here from the group below with #670: `nice` is one of
+    # the programs `cmdline.RUNNERS` enumerates as running its operands, so
+    # `parse_git` reads past it, and the guard judges one more command.
     ("none", "deny"): (
         "git",
         "/usr/bin/git",
         "sudo git",
         "VAR=1 git",
+        "nice git",
         "~/git",
         "*/git",
         "$HOME/git",
     ),
     # No record: a word it does not read as git is not a git invocation to
-    # this guard at all.
-    ("none", "silent"): ("nice git", "$GIT", "GIT", "git/"),
+    # this guard at all -- `uv run` is a program outside the enumeration.
+    ("none", "silent"): ("uv run git", "$GIT", "GIT", "git/"),
 }
 
 

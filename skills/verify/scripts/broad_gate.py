@@ -726,18 +726,42 @@ def fenced_row_at(home):
     unclosed lower down the file is not this row's cause, and the person whose
     row is in a block that closes correctly still has to move it (#429,
     round 2).
+
+    **Fenced, and not merely hidden.** The reader hides a line inside an HTML
+    comment that closes too (#667), and "written inside a code fence" is false
+    of that line; `commented_row_at` below is the question about it. So this
+    asks the reader WHICH kind hid the line rather than taking the complement
+    of what it shows.
     """
+    return hidden_row_at(home, "fence")
+
+
+def commented_row_at(home):
+    """(index, line) for this gate's row written inside an HTML comment that
+    closes, or (None, None) -- `fenced_row_at`'s question about the other
+    kind of block the reader hides (#667). A row somebody parked in a comment
+    is not an answer they gave, so no walk of the table reads it; and then the
+    absent-row refusal would send them to write a row they can see, and the
+    fence refusal would name a fence that is not there, which is the
+    wrong-cause shape #415 and #429 were opened about."""
+    return hidden_row_at(home, "comment")
+
+
+def hidden_row_at(home, kind):
+    """(index, line) for the first line naming this gate's row that the one
+    reader hides as KIND, or (None, None). The kind is the reader's answer,
+    `hooks/config.py#hidden_lines`, never a walk of this file's own."""
     config = load(CONFIG_READER, "specseal_config_for_broad_gate")
     text = config_text(home)
     if text is None:
         return None, None
     lines = text.splitlines()
-    shown = {index for index, _line in config.unfenced(lines)}
+    hidden, _opened_at = config.hidden_lines(lines, text)
     return next(
         (
             (index, line)
             for index, line in enumerate(lines)
-            if index not in shown and names_this_row(line)
+            if hidden.get(index) == kind and names_this_row(line)
         ),
         (None, None),
     )
@@ -762,8 +786,9 @@ def fenced_row(home):
     prints is noise on every Bash call, where this command speaks once and
     only when it refuses.
 
-    It reads the fence rule from the one reader and takes the complement of
-    what that reader shows — every line the walks were not shown — rather than
+    It reads the fence rule from the one reader and asks it which lines it
+    hid inside a fence — `hooks/config.py#hidden_lines`, which also hides a
+    line in an HTML comment and says which it was (#667) — rather than
     walking the file by a rule of its own. A second fence rule written here
     would answer a different question about the same file, which is the split
     `hooks/config.py` exists to prevent.
@@ -800,7 +825,7 @@ def fence_left_open(home, above=None):
     text = config_text(home)
     if text is None:
         return False
-    opened_at = config.fence_map(text.splitlines())[1]
+    opened_at = config.fence_map(text.splitlines(), text)[1]
     if opened_at is None:
         return False
     return above is None or opened_at < above
@@ -1077,6 +1102,28 @@ def missing_row(home):
             "— not this gate's reader, not the mode gate's, and not "
             "`seal mode`'s writer. The row is not absent: it is written where "
             f"nothing reads it, and there is no command to seal over.\n{where}\n"
+            "`templates/config.md` §*What is refused, and what stays allowed* "
+            "is where the rule says so, and `/specseal:config` is the door to "
+            "the file. Nothing ran."
+        )
+    _at, commented = commented_row_at(home)
+    if commented is not None:
+        # The fourth cause (#667). A row parked in an HTML comment that closes
+        # is one somebody took out of the table, so no walk reads it, and
+        # neither the absent-row sentence nor the fence sentence is true of
+        # it. The one act is the person's: take it out of the comment if it
+        # is the command to seal over.
+        return (
+            f"broad-gate: {os.path.join(home, CONFIG)} has a `{ROW}` line and "
+            "this is it, written inside an HTML comment:\n"
+            f"    {commented.strip()}\n"
+            "A row inside a comment that closes is parked, not this "
+            "repository's answer, so no walk of that table reads it — not this "
+            "gate's reader, not the mode gate's, and not `seal mode`'s writer. "
+            "The row is not absent and it is not in a code fence: it is "
+            "commented out, and there is no command to seal over.\n"
+            "If it is the command to seal over, take the row out of the "
+            "comment and into the `| Item | Value |` table.\n"
             "`templates/config.md` §*What is refused, and what stays allowed* "
             "is where the rule says so, and `/specseal:config` is the door to "
             "the file. Nothing ran."

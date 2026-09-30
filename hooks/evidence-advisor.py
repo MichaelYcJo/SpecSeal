@@ -28,11 +28,13 @@ provable:
 **Silent when clean, silent when the repository has no ledger, silent outside
 opted-in repositories.** A line that prints on every commit is a line people
 learn to skip; drift is not reported here for the same reason — a branch
-mid-flight legitimately drifts. Three verdicts name something a person must
-touch either way and all three are printed: BROKEN; OLD-FORMAT, whose block
-carries the migration command instead of the re-anchor one; and MALFORMED, a
+mid-flight legitimately drifts. Four verdicts name something a person must
+touch either way and all four are printed: BROKEN; OLD-FORMAT, whose block
+carries the migration command instead of the re-anchor one; MALFORMED, a
 Code grounds text that does not parse or a row that cites nothing (#299),
-whose block counts those texts and prints each with its own remedy.
+whose block counts those texts and prints each with its own remedy; and
+OVERFLOW, a ledger row with more cells than its table's header (#585), whose
+block names each row's ledger and line with the remedy the checker gives.
 
 No success check on the commit: no hook here reads exit codes, and the trade
 is safe in both directions — after a failed commit the tree is unchanged, so
@@ -40,10 +42,10 @@ a clean ledger stays silent and a broken one prints a line that is true
 anyway.
 
 This arm runs under `hooks/dispatch.py`'s crash isolation, where a raising
-gate is skipped silently (the rider at `run_gate` records what that silence
-costs a GATE). For this arm the cost does not bite: it never blocks, so a
-crash loses one reminder and defends nothing less — the same line prints
-again at the next commit, and CI still says it at the pull request.
+gate is skipped and the skip is said once per session at the end of the turn
+(#28). For this arm the skip costs little: it never blocks, so a crash loses
+one reminder and defends nothing less — the same line prints again at the
+next commit, and CI still says it at the pull request.
 
 What a change to a gate must carry (`CONTRIBUTING.md`), answered for an
 advisory: failure direction — wrong-silent misses one reminder that CI
@@ -101,7 +103,8 @@ def commits_in(command):
 
 
 def failing_rows(root, home=None):
-    """[(status, coord, detail)] for every BROKEN, OLD-FORMAT and MALFORMED row.
+    """[(status, coord, detail)] for every BROKEN, OLD-FORMAT, MALFORMED and
+    OVERFLOW row.
 
     Imported rather than spawned: dispatch already paid for this interpreter,
     and a second one would double the cost of the commit path for a check
@@ -111,7 +114,11 @@ def failing_rows(root, home=None):
     line most — one made in a repository whose ledger predates anchors — got
     silence from this hook when only BROKEN was read (round 4, 🟡 6).
     MALFORMED joined it for the same reason (#299): the commit that wrote a
-    placeholder hash is the one to hear that nothing checks the row.
+    placeholder hash is the one to hear that nothing checks the row. OVERFLOW
+    joined it for that reason again (#585): the commit that wrote a stray `|`
+    into a cell is the one to hear that the text past it is in no column. Its
+    coordinate is a line, which says nothing without its file, so the
+    ledger's display name is put in front of it here.
 
     `ledger.md`, `ledger/*.md` and `releases/*.md` (one file per release,
     where the fold writes a release's rows — #547) are under `home` — the
@@ -139,7 +146,9 @@ def failing_rows(root, home=None):
     for pat in patterns:
         for ledger in sorted(glob.glob(pat, recursive=True)):
             for status, coord, detail in ec.check_ledger(ledger, root, {}):
-                if status in ("BROKEN", "OLD-FORMAT", "MALFORMED"):
+                if status == "OVERFLOW":
+                    coord = f"{ec.display_name(ledger, root)} {coord}"
+                if status in ("BROKEN", "OLD-FORMAT", "MALFORMED", "OVERFLOW"):
                     out.append((status, coord, detail))
     return out
 
@@ -165,6 +174,7 @@ def main():
     broken = [(c, d) for s, c, d in rows if s == "BROKEN"]
     old = [(c, d) for s, c, d in rows if s == "OLD-FORMAT"]
     malformed = [(c, d) for s, c, d in rows if s == "MALFORMED"]
+    overflow = [(c, d) for s, c, d in rows if s == "OVERFLOW"]
     lines = []
     if broken:
         n = len(broken)
@@ -191,6 +201,16 @@ def main():
             f"nothing checks what {'it stands' if n == 1 else 'they stand'} for"
         )
         lines += [f"  MALFORMED  {coord}  {detail}" for coord, detail in malformed]
+    if overflow:
+        n = len(overflow)
+        # Each detail carries the remedy, as MALFORMED's do, so no closing
+        # line repeats it.
+        lines.append(
+            f"evidence-check: {n} ledger row{'s'[: n != 1]} wider than "
+            f"{'its header' if n == 1 else 'their headers'} — the text past "
+            f"{'its' if n == 1 else 'each'} last column is in no column"
+        )
+        lines += [f"  OVERFLOW  {coord}  {detail}" for coord, detail in overflow]
     print("\n".join(lines))
 
 

@@ -29,8 +29,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.12 is the stated floor; 3.13 is what a current install resolves
-        # `python3` to, and a gate runs on whatever that name happens to be.
+        # The whole suite, at the stated floor on every platform. A newer
+        # Python is not run here: `arm-check-grammar` below runs
+        # `tests/test_arm_check.py`, whose node-type tables are known to
+        # depend on the interpreter, at the versions it names. Whether any
+        # other module's result depends on the interpreter has not been
+        # measured.
         include:
           - { os: ubuntu-latest, python: "3.12" }
           - { os: macos-latest, python: "3.12" }
@@ -61,7 +65,10 @@ jobs:
       # builds its own repository under `tmp_path` -- so the spawns can be run
       # several at a time, and the workers scale with whatever cores the runner
       # has rather than with a number written here.
-      - run: pip install pytest pytest-xdist
+      # markdown-it-py is the parser the suite's CommonMark oracle reads
+      # (#667), pinned: `.github/scripts/run_tests.py#MARKDOWN_IT` is the one
+      # place the version is chosen, and a case holds this line to it.
+      - run: pip install pytest pytest-xdist markdown-it-py==4.2.0
       - run: |
           git config --global user.email ci@ci
           git config --global user.name ci
@@ -73,12 +80,13 @@ jobs:
   # is a true statement about a branch mid-flight — failing on it would be red
   # by construction, and a check that is always red gets ignored. A malformed
   # coordinate is reported and does not fail either: it is graded like drift,
-  # the repository owner's answer of 2026-09-26, and the warning below names
-  # both causes of exit 1 because the verdict on each row says which it is.
+  # the repository owner's answer of 2026-09-26, and so is a row with more
+  # cells than its table's header (#585). The warning below names all three
+  # causes of exit 1 because the verdict on each row says which it is.
   #
   # This job is the LENIENT reader, and it is not the one that decides.
-  # `broad-gate` runs the same script with `--strict`, where DRIFTED and
-  # MALFORMED are exit 2 and the branch comes back NOT SEALED. The step below
+  # `broad-gate` runs the same script with `--strict`, where DRIFTED,
+  # MALFORMED and OVERFLOW are exit 2 and the branch comes back NOT SEALED. The step below
   # needs nothing for that: it reads the exit code and never the text, and the
   # script prints the difference itself on exit 1, so the sentence lands in
   # this log directly above the warning (#354).
@@ -99,5 +107,32 @@ jobs:
           set -e
           if [ "$code" -ge 2 ]; then exit "$code"; fi
           if [ "$code" -eq 1 ]; then
-            echo "::warning::evidence ledger reports drift or a malformed coordinate — each row above names its verdict and what to do"
+            echo "::warning::evidence ledger reports drift, a malformed coordinate or an overflowing row — each row above names its verdict and what to do"
           fi
+
+  # `arm-check`'s node-type tables have to hold on every supported Python,
+  # and whether they do depends on the interpreter reading them: 3.14 added
+  # the t-string node types and removed five constant aliases, and the
+  # `pytest` job above runs only the floor, so nothing unattended saw it
+  # (#684). `ONLY_ON_SOME_PYTHONS` in `skills/verify/scripts/arm_check.py`
+  # records which names only some Pythons have, and a case in the module
+  # below refuses a bound of it, or the Python just below one, that no leg
+  # here runs. A Python that changes
+  # the grammar again is caught by adding its leg.
+  arm-check-grammar:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { python: "3.13" }
+          - { python: "3.14" }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install pytest
+      - run: pytest tests/test_arm_check.py -q

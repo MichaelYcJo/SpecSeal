@@ -165,22 +165,28 @@ orphan, and the check calls git for nothing — the one exception is
 `--migrate`, a one-shot writer that consults the old stamp's commit before it
 trusts a line number it is rewriting. Re-verifying a row is
 re-reading it and running `evidence-check --reverify`, which recomputes the
-hash and names what it changed.
+hash and names what it changed. Add `--checked <YYYY-MM-DD>` and it also
+writes the date of that reading into every row whose hash it moves; without
+it the dates stay and those rows are named. The flag says every such row was
+re-read, so read each row citing a drifted coordinate first, or narrow the
+write with `--ledger`.
 
 ## The gates
 
 Hooks are scripts the plugin auto-registers; they run on your machine at
 tool events. One process handles all the gates on an event rather than one per
 gate — four interpreter startups per Bash call was most of the cost of having
-them (measured: 220ms → 104ms before a Bash call, 323ms → 120ms after). Full
-decision tables:
+them (measured: 220ms → 104ms before a Bash call, 323ms → 120ms after). A gate
+that fails to load or crashes is skipped and the call goes ahead; at the end of
+the turn you are told which gate it was, once per session. Full decision
+tables:
 [docs/worktree-guard-spec.md](./docs/worktree-guard-spec.md) ·
 [docs/commit-review-gate-spec.md](./docs/commit-review-gate-spec.md) ·
 [docs/review-chain-spec.md](./docs/review-chain-spec.md).
 
 | Gate | Fires | Does | Where |
 |---|---|---|---|
-| commit-review-gate | before `git commit` | stops the commit when `.git/specseal-reviewed` does not hold the current HEAD sha, and puts the two ways on to you as options: run the review chain, or commit with `[no-review]` (which stays visible in the command). In a repo that declares `seal/parity.md` it also stops a code commit with no `.git/specseal-parity` for this HEAD — compare against the original, or `[no-parity]`. Both arms are put up together, in one question each. **Once per session per repository** — after that it is the plain confirmation, where approving is the waiver. The repository judged is the one the command commits **into** — `git -C <path> commit` is judged at `<path>`, not where the shell sits. A `-C` the gate cannot resolve to a repository (a shell variable, since the gate reads the command before the shell expands it) stops the commit rather than passing it: it was never looked at, and that used to be indistinguishable from having passed | `seal/` at the root, or under the common git dir in local mode — silent elsewhere. A migration config lives inside it, so declaring one opts into both arms; waive the review arm per command with `[no-review]`, typed in FRONT of the command — `: '[no-review]'; git commit …`, quotes included |
+| commit-review-gate | before `git commit` | stops the commit when `.git/specseal-reviewed` does not hold the current HEAD sha, and puts the two ways on to you as options: run the review chain, or commit with `[no-review]` (which stays visible in the command). In a repo that declares `seal/parity.md` it also stops a code commit with no `.git/specseal-parity` for this HEAD — compare against the original, or `[no-parity]`. Both arms are put up together, in one question each. **Once per session per repository** — after that it is the plain confirmation, where approving is the waiver. Where you pressed `automation` on the routing question, no prompt reaches you at all: every stop goes back to the model as a refusal naming the ways on that need nobody. The repository judged is the one the command commits **into** — `git -C <path> commit` is judged at `<path>`, not where the shell sits. A `-C` the gate cannot resolve to a repository (a shell variable, since the gate reads the command before the shell expands it) stops the commit rather than passing it: it was never looked at, and that used to be indistinguishable from having passed | `seal/` at the root, or under the common git dir in local mode — silent elsewhere. A migration config lives inside it, so declaring one opts into both arms; waive the review arm per command with `[no-review]`, typed in FRONT of the command — `: '[no-review]'; git commit …`, quotes included |
 | review-history-guard | after posting/reading a PR review via `gh` | reminds to write / read `seal/specs/<work-item>/rounds/round-N.md` and the two todo files beside `rounds/`. It also names any record left at the old flat location, since nothing reads one there. It finds the work item the way the commit gate does — through the routing declaration that names this branch — so a branch that declared nothing is not reminded | same opt-in |
 | implementer-mark | before an Agent/Task call whose `subagent_type` is `framer` or `smith` (`specseal:smith`, or a project-local `smith`) | writes the checked-out branch name to `.git/specseal-planner` or `.git/specseal-implementer`, one file per axis. It prints nothing, so it can neither deny nor ask; it is the trace the notice below reads. Written before the group decides, so a spawn the worktree guard then stops still leaves one | `seal/` at the root, or under the common git dir in local mode — silent elsewhere, and writes nothing |
 | implementer-notice | after a command that actually runs `git commit` | where this branch's `routing.md` answers `Planning` with `framer` or `Implementation` with `smith` and no mark of that axis stands for this branch, prints one line naming the file — **one line for both axes**, never one each. Nothing is said for an axis whose mark stands, whose row is absent or unreadable, or which answers `the session`. **Once per session per repository**, and it never blocks — a declared agent nobody spawned is a session forgetting its own answer, and a reminder is what that costs | same opt-in |
@@ -267,7 +273,7 @@ wrong for every other machine.
 
 | Command | Does |
 |---|---|
-| `evidence-check . [--strict]` | ledger drift check (the demo GIF) — works without any agent. The plugin puts it on PATH; `/specseal:evidence-ci` wires the same check into CI |
+| `evidence-check . [--strict]` | ledger drift check (the demo GIF) — works without any agent. The plugin puts it on PATH; `/specseal:evidence-ci` wires the same check into CI. It also names a ledger row that an unescaped `\|` split into more cells than its table's header (`OVERFLOW`), whose text past the last column no reader sees; `--strict` fails on it as it does on drift |
 | `deferral-check . [--kind all]` | resolve the answerer an `unverified` row names — does anything here actually run the check you are deferring? Separates *answers on pull requests* from *answers too late*, *local hook only*, and *nothing* |
 | `unverified-check . [--baseline <ref>]` | read the rows those `unverified` labels left behind — what is still open, in which work item, and who was named to answer it. Fails on a section it cannot read, because a tolerant reader reports zero and zero reads as *all closed*. With `--baseline`, it compares counts against `git merge-base <ref> HEAD`: the point where this branch forked from that ref on a branch checkout, and the base's tip in CI, which checks a pull request out already merged into the base. Either way a work item that landed on the base afterwards is not this branch's removal. A table with fewer rows than at that commit fails, as does an `overview.md` that was there and is gone. Replacing one row with another keeps the count and passes |
 | `session-cost --latest` | where a session's minutes went — command time, model time between calls, checks re-run for a result already produced, and how many tools went out per turn. Fills the seal's `cost` row, which nothing inside a session can measure |

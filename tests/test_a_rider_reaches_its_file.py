@@ -22,6 +22,8 @@ import subprocess
 import sys
 import tempfile
 
+import pytest
+
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 FOLLOW_UP = os.path.join(ROOT, "seal", "follow-up.md")
 
@@ -147,13 +149,16 @@ def test_the_riders_exist_where_the_rows_said_they_would():
     and its four riders waited a round for that reason. They are planted now
     because the conflict they were avoiding does not exist: the file is the
     same blob at HEAD and at that branch's tip, so nothing there is being
-    rewritten yet."""
+    rewritten yet.
+
+    `hooks/dispatch.py` left the list when its rider was resolved: the
+    silence it recorded is said now (#28, work item 1790635415), and a rider
+    kept after its fix is the cost this file names."""
     for rel in (
         "hooks/optin.py",
         "hooks/review-skill-gate.py",
         "hooks/review-history-guard.py",
         "hooks/cmdline.py",
-        "hooks/dispatch.py",
         "hooks/worktree-guard.py",
         "templates/evidence-check.yml",
     ):
@@ -484,6 +489,168 @@ def test_the_hasher_reads_a_markdown_heading_the_same_way_the_reader_does():
         "the hasher excluded a markdown heading the reader does not read as a "
         f"rider, so the two disagree: {kept}"
     )
+
+
+# --- #667: a rider quoted in a markdown fence is not a rider ----------------
+#
+# The shape ids are `seal/specs/1790645290-the-hooks-and-the-rider-check-read-
+# fences-and-comments-by-one-rule/spec.md` §*The shapes*, the texts
+# `tests/block_shapes.py`'s. "red at base" means the case fails with
+# `rider_check.py` from `3911a8cf`; "pins" means it passes there too.
+
+
+def blocks_of(name, rel="doc.md"):
+    from block_shapes import SHAPES
+
+    return riders.comment_blocks(SHAPES[name], rel)
+
+
+@pytest.mark.parametrize(
+    "name, expected",
+    [
+        # pins: a fence line inside rider one's own comment opens nothing, so
+        # rider two is still read (1790635413 round 1, 🟡 4)
+        ("K1", [(3, 6), (10, 11)]),
+        # red at base: a rider quoted in a closed fence below a prose line
+        # that quotes the opener, in a code span and in prose (1790635413
+        # round 2, 🟡 1; round 3, 🟡 2)
+        ("K2", [(12, 13)]),
+        ("K3", [(12, 13)]),
+        # pins: a lone backtick, an opener, a fence line nobody closed, then a
+        # real rider. The fence never closes, so it is not a fence, and the
+        # rider under it is read; round 3's proposed flip to [] is not taken
+        ("K4", [(5, 6)]),
+        # red at base: a rider quoted alone in a closed fence
+        ("K5", []),
+        # red at base: a rider, then one quoted in a fence after its comment
+        ("K7", [(1, 2)]),
+    ],
+    ids=lambda value: value if isinstance(value, str) else "",
+)
+def test_the_rider_shapes_read_as_the_frame_expects(name, expected):
+    """S12. A marker line inside a fenced example that closes is a rider
+    QUOTED, not a rider; a marker line anywhere else is read as it always
+    was. Every loss this checker's docstring accepts loses an alarm, and the
+    quoted rider was the one place it invented one."""
+    assert blocks_of(name) == expected
+
+
+def test_a_python_rider_after_a_line_of_backticks_is_still_read():
+    """K6, S9 of 1790635413: the fence rule is markdown's, and a `.py` file
+    holding a line of three backticks -- in a string, a docstring's example
+    -- is not fenced by it. Pins."""
+    src = f'X = """\n```\n"""\n\n\ndef u():\n    {MARK} claim\n    # stamp\n'
+    assert riders.comment_blocks(src.splitlines(), "hooks/m.py") == [(7, 8)]
+    # and between two such lines, where markdown would call it fenced
+    between = f'X = """\n```\n"""\n{MARK} claim\n# stamp\nY = """\n```\n"""\n'
+    assert riders.comment_blocks(between.splitlines(), "hooks/m.py") == [(4, 5)]
+
+
+def test_a_quoted_marker_line_leaves_the_comment_state_alone():
+    """`spec.md`'s phase 5 row: a marker line the walk places in a fence
+    opens no rider AND changes no comment state. Here rider one never closes,
+    so it is no block to the walk and the fence below it is one; the quoted
+    line is stepped over, and the comment rider one left open still makes
+    the bare marker line below it a rider, as it did before."""
+    lines = [
+        f"{HTML_MARK} one",
+        "```",
+        f"{HTML_MARK} quoted",
+        "```",
+        "RIDER: two",
+    ]
+    assert riders.comment_blocks(lines, "doc.md") == [(1, 2), (5, 5)]
+
+
+def test_a_quoted_rider_is_no_broken_rider(tmp_path, capsys):
+    """K5 through the whole check. The quoted rider had no stamp, so the
+    tree failed at exit 2 in CI for a line nobody wrote as a rider. Red at
+    base."""
+    d = tmp_path / "skills" / "x"
+    d.mkdir(parents=True)
+    src = f"# X\n\nA rider looks like:\n\n```\n{HTML_MARK} the claim -->\n```\n"
+    (d / "SKILL.md").write_text(src, encoding="utf-8")
+    assert riders.check(str(tmp_path), checker=CHECKER) == (0, 0, [])
+    assert riders.main(["--root", str(tmp_path)]) == 0
+    assert "0 ok · 0 drifted · 0 broken" in capsys.readouterr().out
+
+
+def test_a_rider_under_a_fence_nobody_closed_is_still_read():
+    """The frame's reading, pinned from the other side: a fence that never
+    closes is not a construct, so a rider below it is read, as the base read
+    it -- 1790635413 pinned the opposite, "unclosed to the end"."""
+    unclosed = f"```\n{HTML_MARK} below a fence left open -->\n".splitlines()
+    assert riders.comment_blocks(unclosed, "a.md") == [(2, 2)]
+
+
+@pytest.mark.parametrize("name", ["LS", "PS", "NEL", "FF", "VT", "FS", "GS", "RS"])
+def test_a_break_commonmark_does_not_honour_quotes_no_rider(name):
+    """#667 round 1, 🟡 1. A fence run after a character `str.splitlines`
+    breaks at and CommonMark does not stands mid-line to a renderer, so it
+    opens no fence, and the rider below it is live. The walk read the split
+    and called the rider quoted, and the check passed a rider it never
+    checked; the base had no fence state and read it. Through both callers:
+    the reader, by way of `riders_in`, and the hasher's `region_lines`.
+
+    **The hasher reads GFM lines since #664 (work item C)**, the lines
+    `resolve_unit` numbers, and hands them to `comment_blocks` without the
+    text: they are already where a renderer ends a line. Handed the text as
+    well, the walk answered by `str.splitlines` and the blocks landed one line
+    off past the break -- here the real rider under a quoted one's fence was
+    stepped over as quoted and left in the hash, and the region is asked
+    exactly that.
+
+    **So the hasher is asked twice** (#673, #667 round 3's ⬜ 4). Once on this
+    case's own shape, the fence run after the break: a hasher that walked the
+    reader's split would call the rider quoted and keep it in the region.
+    Once on the merge's shape, a quoted rider's fence with a real rider under
+    it. Each half catches a hasher the other passes."""
+    from block_shapes import BREAKS
+
+    text = (
+        f"# doc\n\nA note{BREAKS[name]}```\n\n{HTML_MARK} real\n"
+        "Verified 2026-01-01 against r@abcdef12. -->\n\n```\n"
+    )
+    assert [(r.start, r.end) for r in riders.riders_in("doc.md", text)] == [(6, 7)]
+    kept, why = riders.region_lines(CHECKER, "doc.md", '"# doc"', text)
+    assert kept is not None, why
+    assert not any("RIDER:" in line for line in kept), kept
+    region = (
+        f"# doc\n\nA note{BREAKS[name]}more\n\n```\n{HTML_MARK} quoted -->\n```\n"
+        f"{HTML_MARK} real\nVerified 2026-01-01 against r@abcdef12. -->\n"
+    )
+    kept, why = riders.region_lines(CHECKER, "doc.md", '"# doc"', region)
+    assert kept is not None, why
+    assert any("quoted" in line for line in kept), kept
+    assert not any("real" in line or "Verified" in line for line in kept), kept
+
+
+def test_a_missing_walk_is_a_sentence_and_exit_2(tmp_path, capsys):
+    """The walk is loaded by path the way `load_checker` loads the anchor
+    resolver, and a missing file is a sentence naming it rather than the
+    `FileNotFoundError` `spec_from_file_location` hands back."""
+    missing = str(tmp_path / "blocks.py")
+    try:
+        riders.load_blocks(missing)
+    except SystemExit as stop:
+        assert stop.code == 2
+    else:
+        raise AssertionError("a missing walk did not stop the run")
+    err = capsys.readouterr().err
+    assert f"cannot find the fence walk at {missing}" in err, err
+
+
+def test_a_rider_region_below_a_line_separator_is_the_unit():
+    """#664 one file over (round 1 of 1790635414, 🟡 4): the region is sliced
+    from the lines `resolve_unit` numbered it on, so a U+2028 mid-line above
+    the unit does not put the region one line early, and an edit to its last
+    line moves the hash. The character is built from its code point."""
+    text = f"# Doc\nalpha{chr(0x2028)}beta\n## Target\nline one\nline two\n## Next\nx\n"
+    edited = text.replace("line two", "line two EDITED")
+    kept, why = riders.region_lines(CHECKER, "doc.md", '"## Target"', text)
+    again, _ = riders.region_lines(CHECKER, "doc.md", '"## Target"', edited)
+    assert kept is not None and kept[0] == "## Target", (kept, why)
+    assert CHECKER.content_hash(kept) != CHECKER.content_hash(again)
 
 
 def stamped_module(tmp_path, digest=None, date="2026-01-01"):

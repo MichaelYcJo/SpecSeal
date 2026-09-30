@@ -85,7 +85,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # `hooks/optin.py` owns resolving a repository's git directories. Plain
 # filenames mean `sys.modules` deduplicates both when `dispatch.py` runs
 # several gates in one process.
-import cmdline
+#
+# The reader is `hooks/cmdline_base.py`, frozen at `86256492`, the one the
+# worktree guard reads through (#689), so the clone a creation is filed under
+# is the one the guard judged and the one the release base filed. The commit
+# gate imports this module for `automation_answered` alone, which reads no
+# command line.
+import cmdline_base as cmdline
 import console
 import optin
 
@@ -229,6 +235,30 @@ def _routing_preset(result) -> bool:
     return False
 
 
+def _routing_answer(result):
+    """True for the preset, False for any other answer to the routing
+    question, None when RESULT answers no routing question at all.
+
+    The False half is what lets a later answer take the press back: a session
+    that pressed `automation` for one work item and answered `per axis` for
+    the next has, on its latest answer, a person who may be asked (round 1 of
+    work item 1790644505, yellow 5). Every shape that is neither the preset
+    nor clearly the routing question stays None and changes nothing.
+    """
+    if _routing_preset(result):
+        return True
+    if not isinstance(result, dict) or not isinstance(result.get("questions"), list):
+        return None
+    for q in result["questions"]:
+        options = q.get("options") if isinstance(q, dict) else None
+        if isinstance(options, list) and sorted(
+            leading_phrase(o.get("label") if isinstance(o, dict) else None)
+            for o in options
+        ) == sorted(ROUTING_LABELS):
+            return False
+    return None
+
+
 def _content(entry):
     message = entry.get("message")
     content = message.get("content") if isinstance(message, dict) else None
@@ -263,7 +293,12 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
          no `answers` object, and a subagent has no `AskUserQuestion`;
       3. the question is the routing question and the preset was pressed
          (`_routing_preset`);
-      4. the result entry's own `cwd` is in the same clone as `top`.
+      4. the result entry's own `cwd` is in the same clone as `top`;
+
+    and the LAST answer to the routing question from this clone is the one
+    that stands, so a later answer other than the preset takes the press back
+    (`_routing_answer`). The whole transcript is read for that, where the
+    reader used to stop at the first press.
 
     A line is parsed only when it carries `AskUserQuestion` or `toolUseResult`.
     That skips assistant text and progress lines, but every tool result
@@ -283,6 +318,7 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
         return False
     asked = set()
     clones = {}
+    pressed = False
     try:
         with open(path, encoding="utf-8", errors="replace") as handle:
             for line in handle:
@@ -321,17 +357,23 @@ def automation_answered(top: str, session: str, transcript_path: str = "") -> bo
                     and item["tool_use_id"] in asked
                     for item in _content(entry)
                 )
-                if not linked or not _routing_preset(entry.get("toolUseResult")):
+                if not linked:
+                    continue
+                answered = _routing_answer(entry.get("toolUseResult"))
+                if answered is None:
                     continue
                 cwd = entry.get("cwd")
                 key = cwd if isinstance(cwd, str) else ""
                 if key not in clones:
                     clones[key] = _clone_of(key) if key else ""
                 if clones[key] == want:
-                    return True
+                    # The LAST answer from this clone stands: a later work
+                    # item's `per axis` takes back an earlier press, and a
+                    # later press gives it back.
+                    pressed = answered
     except (OSError, ValueError):
         return False
-    return False
+    return pressed
 
 
 def consent(top: str, session: str, transcript_path: str = "") -> str:
@@ -391,6 +433,11 @@ def creation_directory(command: str, cwd: str) -> str:
     directory, which is where the shell started. Getting that wrong lands the
     record in the wrong clone, so the next creation asks -- one prompt, on the
     side a guard should fail.
+
+    Every reading here is `hooks/cmdline_base.py`'s, the reader frozen at
+    `86256492` that the guard reads through, so the creation found and the
+    clone filed are the ones the guard judged and the ones `86256492` filed
+    (#689).
     """
     text = cmdline.drop_heredoc_bodies(cmdline.drop_comments(command))
     items, _clean = cmdline.split_segments_with_separators(text)

@@ -120,14 +120,21 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # it. A plain filename means `sys.modules` deduplicates the import, which is
 # what the two gates loading each other by path could not do — see that
 # module's docstring for the 496 executions per hook event it cost.
-import cmdline
+#
+# This guard reads through `hooks/cmdline_base.py`, the reader frozen at
+# `86256492`, and never through `cmdline.py` (#689): the splitter, `parse_git`,
+# `adds_a_worktree`, the walk and `Unresolved` all come from there, so what it
+# recognises and where it judges are the release base's by construction. The
+# name `cmdline` is kept so the rest of this file reads as it did.
+# `worktree_consent` imports the same module, so the two share one `Unresolved`.
+import cmdline_base as cmdline
 import console
 
 # The AFTER half of this guard: it owns the consent record, and this file reads
 # it. A plain filename again -- and the reason that file's name carries an
 # underscore where every other gate here carries a hyphen.
 import worktree_consent
-from cmdline import apply_chdir, parse_git
+from cmdline_base import apply_chdir, parse_git
 
 
 def _idle_min():
@@ -249,6 +256,16 @@ def walk_command(command: str, cwd: str, windows=None):
     `wheres` can hold more than one directory (a `||` leaves the shell in two
     possible places) and can hold one the reader could not compute. The caller
     decides what to do with that; see `main`.
+
+    The walk is `hooks/cmdline_base.py`'s, the reader frozen at `86256492`,
+    and never the commit gate's wider one (#689). `main` judges the first
+    segment of each kind and the first directory in it that classifies, so
+    both which segments are git and the order of their directories pick the
+    tree, and every way of ordering the wider reading for this guard met a
+    new command. The cost is that a `cd` behind a redirection (`2>/dev/null
+    cd W`) does not move the tree judged here, and a git behind one
+    (`2>/dev/null git switch x`) is not read as git, both as at `86256492`,
+    while the commit gate reads both.
     """
     items, _clean = _tokenize_with_separators(_judgment_text(command), windows)
     return cmdline.walk_directories(items, cwd)
@@ -758,7 +775,10 @@ def last_user_snippet(cwd: str, own_session_id: str):
     except OSError:
         return None
     snippet = None
-    for line in tail.splitlines():
+    # A JSON Lines record ends at LF alone. JSON permits a raw U+2028 inside
+    # a string, and `str.splitlines` cut such a record into two halves that
+    # each failed to parse, so the snippet was an earlier message's (#664).
+    for line in tail.split("\n"):
         try:
             d = json.loads(line)
         except Exception:
@@ -833,7 +853,9 @@ def last_active_event_epoch(path: str):
             tail = f.read().decode("utf-8", "replace")
     except OSError:
         return None
-    for line in reversed(tail.splitlines()):
+    # At LF alone, as `last_user_snippet` splits its tail and as every other
+    # transcript reader here iterates the file (#664).
+    for line in reversed(tail.split("\n")):
         try:
             d = json.loads(line)
         except Exception:

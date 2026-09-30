@@ -4,7 +4,8 @@ Not every shipped script that loads a sibling is held here:
 `survivor_check.py` and `broad_gate.py` raise a refusal of their own, and
 `evidence_check.py` falls back by design. The ones held here load it in one
 of two shapes. `fold_check.py`, `settle.py`, `round_record.py`,
-`chain_check.py` and `payload_meter.py` import it by file path; `seal.py`
+`chain_check.py`, `payload_meter.py` and `correction_check.py` import it by
+file path; `seal.py`
 puts `hooks/` on `sys.path` with `sys.path.insert` and then runs a plain
 `import`, which a search for the first shape does not find. In the first
 four 1 means a finding or a refusal the command made about the tree, and in
@@ -34,6 +35,15 @@ argparse's own usage error is also exit 2 and would pass for the wrong
 reason. `payload_meter.py` loads `session_cost.py` only under `--calibrate`,
 and `measure` calls the loader before it opens the transcript, so the
 transcript named need not exist.
+
+#584 brought the fence rule to readers that had kept their own, and a shipped
+one that now loads `unverified_check.py` joins the list:
+`correction_check.py` loads it at import, so the one required flag is all an
+invocation needs, and a copy that reaches no git repository is still stopped
+at the loader first. `payload_meter.py` loads it only under `--sections`,
+and `measure` calls that loader before it reads the root, so its second row
+reaches it in a directory with no `agents/` at all; its purpose must not be
+the transcript sibling's.
 """
 
 import os
@@ -90,10 +100,30 @@ CASES = [
         "it is what reads the root's config.md",
         "reads and writes",
     ),
+    # #667: `hooks/config.py` imports `hooks/blocks.py`, the walk the three
+    # hook-path readers share, so a `hooks/` without it fails that import.
+    (
+        "skills/implement/scripts/seal.py",
+        ["mode", "--check"],
+        "it is the walk config.py reads config.md through",
+        None,
+    ),
     (
         "skills/verify/scripts/payload_meter.py",
         ["--root", "{root}", "--calibrate", "{root}/main.jsonl"],
         "it is what reads a transcript's spawns",
+        None,
+    ),
+    (
+        "skills/verify/scripts/payload_meter.py",
+        ["--root", "{root}", "--sections"],
+        "it is what says which lines of a skill stand inside a fenced example",
+        "transcript",
+    ),
+    (
+        "skills/evidence-check/scripts/correction_check.py",
+        ["--range", "HEAD..HEAD", "--root", "{root}"],
+        "it is what says which ledger rows stand inside a fenced example",
         None,
     ),
 ]
@@ -157,3 +187,40 @@ def test_a_script_copied_alone_exits_2_and_names_what_it_misses(
     )
     if absent:
         assert absent not in done.stderr, done.stderr
+
+
+# The hook-path readers that import `hooks/blocks.py` (#667), with the
+# siblings each needs besides it. They are modules, not scripts: gates and
+# scripts import them, a gate that raises is skipped and said at the end of
+# the turn (`hooks/dispatch.py`, #28), and a script catches the error or names
+# the file first. So a copy without the walk raises one `ImportError` whose
+# sentence names the path and what the file is for.
+HOOK_READERS = [("config.py", []), ("routing.py", ["optin.py"])]
+
+
+@pytest.mark.parametrize(
+    "name, siblings", HOOK_READERS, ids=[n for n, _ in HOOK_READERS]
+)
+def test_a_hook_reader_copied_without_the_walk_names_it(tmp_path, name, siblings):
+    alone = tmp_path / "hooks"
+    alone.mkdir()
+    for file in (name, *siblings):
+        with open(os.path.join(ROOT, "hooks", file), encoding="utf-8") as f:
+            (alone / file).write_text(f.read(), encoding="utf-8")
+    done = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            f"import sys; sys.path.insert(0, {str(alone)!r}); import {name[:-3]}",
+        ],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert done.returncode != 0, done.stderr
+    last = done.stderr.strip().splitlines()[-1]
+    assert last.startswith("ImportError: cannot read "), last
+    assert names_path(os.path.join(str(alone), "blocks.py"), last), last
+    assert "tells a live row from one quoted in a fence or parked in a comment" in (
+        last
+    ), last

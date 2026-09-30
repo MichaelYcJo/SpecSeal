@@ -58,6 +58,7 @@ PINS = {
     14: "In the same commit",
     15: "before it is committed as a case",
     16: "`$(git rev-parse --git-common-dir)/seal/` otherwise",
+    17: "join it to the commit with `&&` and nothing else",
 }
 
 

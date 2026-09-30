@@ -261,6 +261,14 @@ number and the line. Demote the line to `###` or lower in a pull request
 into the release branch, then gather again. A fragment already in the file
 is not read again.
 
+A fragment also closes every fenced block and HTML comment it opens (#584).
+The gather writes the next work item's marker below it, and a block left open
+would hide that marker and every older one, so `--check` would call a
+gathered entry missing and send you to gather it twice. The gather refuses
+such a fragment the same way, with or without `--dry-run`, naming it. The
+ledger fold refuses a ledger fragment that leaves one open, for the same
+reason.
+
 There is no accumulation section any more. `## Unreleased` was the shared
 region, and the fragments are what replaced it.
 
@@ -284,7 +292,11 @@ ships that change (`docs/release-checklist.md` §2). Every row is copied byte
 for byte; a row is a content anchor, so `evidence-check` reports the same
 thing before and after. `--dry-run` prints the section and writes nothing;
 `--check` reports a fragment left behind, and the hygiene workflow runs it
-beside the changelog check on every pull request into `main`.
+beside the changelog check on every pull request into `main`. A marker counts
+only on a live line: one quoted in a fenced example, a commented-out draft or
+a code span is not a fold, so neither the fold's refusal nor `--check`'s
+doubled-marker report and count reads it. A `## X.Y.Z` line inside a fenced
+block heads nothing, because the fold copies such a line as text (#584).
 
 **The fold refuses while a verified fact has not reached the ledger.** A
 reviewer lists such facts in `seal/specs/<work-item-id>/evidence-todo.md`, and a

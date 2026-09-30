@@ -155,6 +155,39 @@ SKIP_DIRS = {
 # how a cell is read, where a fence ends, how a path resolves — is shared, and
 # that sharing is what stopped one fix from opening the next gap.
 LOOSE_HEADING = re.compile(r"^#{2,3}\s.*not verified", re.I)
+# Where GFM ends a line: LF, CR or CRLF, and nowhere else. `str.splitlines`
+# also ends one at U+2028, U+2029, NEL, a form feed, VT and `\x1c`-`\x1e`, so
+# below one of those a reader read lines no renderer shows (#664).
+GFM_LINE_RE = re.compile(r"[^\r\n]*(?:\r\n|\r|\n)|[^\r\n]+\Z")
+
+
+def gfm_lines(text, keepends=False):
+    """TEXT's lines as GFM reads them, the way `str.splitlines` returns them
+    otherwise: no trailing empty line, and each line's end kept only when
+    KEEPENDS asks.
+
+    **Every reader of markdown or record text reads its lines here** (#664):
+    `readable` and `folded_items` below, and every script that loads this
+    module and splits the same text a second time -- `round_record.py`'s
+    `raw` halves, `fold_check.py`'s marker readers, `gather_changelog.py`
+    and `survivor_check.py`. Two readers of one text that split it two ways
+    disagree about which line an index names, and `round_record.py#swallowed`
+    zips the two splits with `strict=True`.
+
+    `str.splitlines` also ends a line at U+2028, U+2029, NEL, a form feed, VT
+    and `\\x1c`-`\\x1e`. Below one of those it cut a table row in two, read a
+    heading or a marker that stands mid-line as a line of its own, printed a
+    line number one off the one `grep -n` and git print, and, where the
+    reader wrote the text back, turned the character into a line break. On a
+    text holding none of the eight the two splits agree, including `""`, a
+    trailing newline and a final line with none.
+
+    `skills/evidence-check/scripts/evidence_check.py#gfm_lines` is the
+    vendored copy a checker run alone in a user's `tools/` needs, and
+    `tests/test_every_reader_ends_a_line_where_gfm_does.py` holds the copies
+    equal."""
+    lines = GFM_LINE_RE.findall(text)
+    return lines if keepends else [line.rstrip("\r\n") for line in lines]
 
 
 def split_row(line):
@@ -239,37 +272,87 @@ def fence_opener(line):
     below is the other half.
 
     The readers below ask these two functions rather than a pattern of their
-    own, because five spellings of this rule is what five readers had. **It
-    is not every fence walk in the repository.** `hooks/config.py#FENCE` is a
-    deliberate copy, below. `payload_meter.py#FENCE`,
-    `.github/scripts/fold_ledger.py#demote`,
-    `.github/scripts/close_issues_on_release.py`,
-    `skills/evidence-check/scripts/correction_check.py#rows` and the other
-    readers #584 names still keep their own, and #584 is where each is
-    brought here or answered. The readers that ask it: `fence_spans` and
-    through it
-    `blank_fences` and `closed_fence_lines`, and `_liveness` and
-    `_paragraph_ends_at`, all in this module, and `todo_open_rows` through
-    `closed_fence_lines` — which `settle.py#open_rows` and
-    `.github/scripts/fold_ledger.py#open_rows` both are; and
-    `skills/evidence-check/scripts/evidence_check.py#quoted_lines`, which
-    the checker's four ledger walks read through, and `#claim_lines`, the
-    records arm's walk, both by way of its `fence_rule`; and
-    `hooks/root-migrate.py#repoint` through `evidence_check.py#unquoted`.
-    `skills/code-review/scripts/round_record.py#fenced_after` applies the
-    closer rule and the backtick-info rule by its own pattern and keeps a
-    wider opener on purpose, so a fix fenced inside a list item still
-    reaches the record. That file keeps a vendored copy of these two functions for the copy
-    `evidence-ci` puts alone in a user repository, where this module is not
-    beside it. **A new reader that decides by
-    line whether it stands inside a fence belongs on this list**, and a
-    reviewer of one has this docstring to check it against — nothing else
-    can reach a reader that does not exist yet.
+    own, because five spellings of this rule is what five readers had.
 
-    `hooks/config.py#FENCE` is a deliberate copy: it runs on the
-    hook path, where loading a skill module would cost every hook call.
-    `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
-    holds the two in step, shape by shape.
+    **The readers that ask it.** In this module: `fence_spans` and, through
+    it, `blank_fences` and `closed_fence_lines`; `_liveness` and
+    `_paragraph_ends_at`; and `todo_open_rows` through `closed_fence_lines`,
+    which `settle.py#open_rows` and `.github/scripts/fold_ledger.py#open_rows`
+    both are. The checker:
+    `skills/evidence-check/scripts/evidence_check.py#quoted_lines`, which its
+    four ledger walks read through, and `#claim_lines`, the records arm's
+    walk, both by way of its `fence_rule`; and `hooks/root-migrate.py#repoint`
+    through `evidence_check.py#unquoted`. The readers #584 brought here:
+    `.github/scripts/fold_ledger.py#fenced_lines` through `fence_spans`,
+    which `#demote`, `#version_headings`, `#section_heading` and `#insert`
+    read through, and its `#live_markers` through `live_lines`;
+    `.github/scripts/gather_changelog.py#live_markers` through `live_lines`,
+    which `#ungathered` and `--check`'s count read through;
+    `skills/evidence-check/scripts/correction_check.py#rows` through
+    `closed_fence_lines`; and `skills/verify/scripts/payload_meter.py#heading_starts`
+    and `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py#headings`,
+    which ask the two functions directly. The readers #658 brought here:
+    `skills/code-review/scripts/survivor_check.py#read_exemptions` through
+    `readable`, which blanks an HTML comment as well as a fence, and either
+    one nobody closed to the end, because excusing a survivor is the silent
+    direction.
+
+    **The readers that keep a rule of their own, each on purpose.** #584
+    brought every reader it enumerated here or answered it, and these are the
+    answers:
+
+      - `hooks/blocks.py#FENCE`, with its `fence_opener` and `fence_closes`,
+        is a deliberate copy of this rule: it runs on the hook path, where
+        loading a skill module would cost every hook call, and
+        `hooks/config.py#FENCE` is that pattern under its old name.
+        `tests/test_unverified_rows_close.py#test_the_fence_rule_agrees_with_the_config_reader`
+        holds the copy in step, shape by shape. It is the delimiter half of
+        `hooks/blocks.py#walk`, which adds a line-start HTML comment block to
+        the fence and which `hooks/config.py`, `hooks/routing.py#table_rows`
+        and `.github/scripts/rider_check.py#comment_blocks`, through its
+        `quoted_lines`, read (#667, #658). It stays apart from `live_lines` on
+        purpose: a hook row or a rider is safe at its old reading where the
+        walk is unsure, and a marker is safe parked;
+      - `.github/scripts/close_issues_on_release.py#FENCE`, and
+        `issue_claims_check.py` and `label_merged_on_release_branch.py`
+        through it, read a pull request body by GitHub's rule and open a
+        fence at any indentation on purpose, so a fence under a list item
+        masks a closing keyword (`docs/issues-and-milestones.md` §*A keyword
+        inside a fence or a code span claims nothing*). This rule's
+        three-space bound would un-mask those and close issues on quoted
+        examples;
+      - `skills/code-review/scripts/round_record.py#fenced_after` applies the
+        closer rule and the backtick-info rule by its own pattern and keeps
+        a wider opener on purpose, so a fix fenced inside a list item still
+        reaches the record. That file keeps a vendored copy of these two
+        functions for the copy `evidence-ci` puts alone in a user
+        repository, where this module is not beside it. The fence walks in
+        `tests/test_docs_line_wrap.py#fenced_numbers` and
+        `tests/test_handoff_outlives_the_merge.py#fenced_block_lines` ask
+        these two functions with the same wider opener, a line's indentation
+        stripped first, because the documents they read fence commands under
+        list items (#658);
+      - `.github/scripts/gather_changelog.py#insert` and `#section_lines`, and
+        `publish_release_note.py#section_body`, end a released section at the
+        next `## ` line with one predicate on purpose (#586), and a fragment
+        carrying such a line is refused before it reaches the file, fenced or
+        not;
+      - `.github/scripts/fold_ledger.py#release_sections`, `#body_rows` and
+        `#rewrite_self_anchors` are read by `--split` alone, a one-time
+        migration this repository has taken;
+      - `.github/scripts/claude_block.py` reads two exact whole-line markers
+        it writes itself;
+      - `tests/test_release_hygiene.py#overwide_rows` keeps no fence state at
+        all, and work item A (#585) decides whether it becomes an arm of
+        `evidence_check.py`;
+      - the independent walk in `tests/test_unverified_rows_close.py` (around
+        `block_ends_at`) is an oracle, kept apart from the rule it checks on
+        purpose.
+
+    **A new reader that decides by line whether it stands inside a fence
+    belongs in one of these two lists**, and a reviewer of one has this
+    docstring to check it against — nothing else can reach a reader that
+    does not exist yet.
     """
     m = FENCE_RE.match(line.rstrip("\r\n"))
     if not m:
@@ -577,7 +660,11 @@ def live_lines(lines):
     `readable` makes. None of them is on this path. What this scan and
     `blank_fences` DO share is the fence delimiter, `fence_opener` and
     `fence_closes`, because two spellings of it is what #491 found: the
-    three-space bound had landed here and not one function over.
+    three-space bound had landed here and not one function over. They share
+    the line split too: `readable` and every caller that hands this lines
+    split the text with `gfm_lines` (#664), except the `fold_ledger.py` and
+    `settle.py` callers, which split newline-translated text on `"\\n"` for a
+    byte-for-byte round trip and end a line where GFM does already.
 
     No `zip`. Ruff's B905 requires the strictness keyword on every such call,
     that keyword arrived in python 3.10, and this script carries no
@@ -600,8 +687,9 @@ def readable(text):
 
     Every read starts here — the working tree and the base revision alike —
     which is what keeps the two sides of the comparison counting the same
-    table."""
-    return blank_fences(strip_comments(text.splitlines()))
+    table. Its lines are `gfm_lines(text)`, so an index into what this
+    returns is an index into `gfm_lines(text)` and into no other split."""
+    return blank_fences(strip_comments(gfm_lines(text)))
 
 
 def headings(lines):
@@ -1072,7 +1160,7 @@ def folded_items(root):
                 text = f.read()
         except OSError:
             continue
-        for line, live in live_lines(text.splitlines()):
+        for line, live in live_lines(gfm_lines(text)):
             if live:
                 found.update(FOLD_MARKER.findall(line))
     return found

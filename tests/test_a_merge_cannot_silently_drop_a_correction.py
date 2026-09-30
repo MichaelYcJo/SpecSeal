@@ -251,6 +251,37 @@ def test_a_marker_outside_a_table_row_has_no_row_to_survive():
     assert cc.losses("Corrected 2026-09-15 by hand.\n", "") == []
 
 
+def fenced(*rows, close=True):
+    """A ledger whose only rows stand inside a fenced example."""
+    body = "".join(row + "\n" for row in rows)
+    return "An example row:\n\n```\n" + HEAD + body + ("```\n" if close else "")
+
+
+def test_a_row_inside_a_fenced_example_is_no_row_to_lose():
+    """#584, S10. `rows` read every `|` line, so a `Re-read` marker dropped
+    from a row quoted in a fenced example read as a correction a merge
+    lost. The checker skips a fenced block that closes
+    (`evidence_check.py#quoted_lines`), so that row is no claim either; the
+    two readers of a ledger agree about which rows exist."""
+    assert cc.losses(fenced(R2), fenced(R2_REVERTED)) == []
+    assert [r.key for r in cc.rows(fenced(R1) + ledger(R2))] == [
+        "Claim",
+        R2.split("|")[1].strip(),
+    ]
+
+
+def test_a_row_under_a_fence_that_never_closes_is_still_watched():
+    """#584, S11. Only a block that closes is certainly a quotation, and the
+    checker reads the rows after a fence nobody closed. A row it watches is a
+    row whose correction can be lost, so this check reads it too. Passes
+    before and after: it pins the direction."""
+    (loss,) = cc.losses(fenced(R2, close=False), fenced(R2_REVERTED, close=False))
+    assert loss.marker == ("Re-read", "2026-09-05"), loss
+    commented = "<!--\n" + ledger(R2) + "-->\n"
+    reverted = "<!--\n" + ledger(R2_REVERTED) + "-->\n"
+    assert len(cc.losses(commented, reverted)) == 1
+
+
 # --- the merge walk (phase 2) ----------------------------------------------
 
 
@@ -743,8 +774,9 @@ EDIT_OUTCOMES = {
         "branch's own fragment",
     ),
     "CONTRIBUTING.md": (
+        # #387: the answer dates the reading it asserts.
         "the claim still holds and you have re-read it — run "
-        "`evidence-check --reverify .`",
+        "`evidence-check --reverify --checked <YYYY-MM-DD> .`",
         "remove the row and write the new claim into your own fragment",
     ),
     os.path.join("docs", "the-evidence-ledger.md"): (

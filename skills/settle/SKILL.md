@@ -319,8 +319,9 @@ every `seal/releases/<X.Y.Z>.md`, where this repository's fold writes a
 release's rows. A fold
 appends nothing: it has no work item, so it has no fragment to append under.
 It removes a row the guard named REMOVED, drops the dead anchor from a row it
-named narrow, and re-reads and re-verifies — `evidence-check --reverify` — a
-row whose anchored unit its own prose edited. Every other row is a content
+named narrow, and re-reads and re-verifies — `evidence-check --reverify
+--checked <date>`, which dates the reading — a row whose anchored unit its own
+prose edited. Every other row is a content
 anchor and survives the fold untouched.
 
 ## What this does not do

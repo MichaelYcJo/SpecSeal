@@ -42,7 +42,11 @@ statement still missing the shape without editing the config first.
 Markers and live lines come from the fold's own reader,
 `skills/verify/scripts/unverified_check.py#live_lines` and `#FOLD_MARKER`,
 loaded rather than re-spelled: a marker this counted and the fold did not, or
-the reverse, would be two answers about one document.
+the reverse, would be two answers about one document. So do the lines,
+`#gfm_lines`, which end where GFM ends one: the marker readers and the
+ceiling's count both split with it, the way the fold does (#664). This script
+kept a copy of that splitter while the reader was being rewritten on another
+branch, and the copy is gone.
 
 Typed with no `--root`, it reads the repository the current directory is in,
 so a run from a subdirectory checks that repository and not nothing.
@@ -194,7 +198,7 @@ def numbered_statements(text):
     found = []
     current = None
     previous_was_marker = False
-    for number, (line, live) in enumerate(uc.live_lines(text.splitlines()), 1):
+    for number, (line, live) in enumerate(uc.live_lines(uc.gfm_lines(text)), 1):
         if not live:
             previous_was_marker = False
             continue
@@ -333,7 +337,7 @@ def markers(text):
     uc = reader()
     return sum(
         len(uc.FOLD_MARKER.findall(line))
-        for line, live in uc.live_lines(text.splitlines())
+        for line, live in uc.live_lines(uc.gfm_lines(text))
         if live
     )
 
@@ -343,7 +347,7 @@ def marker_digest(text):
     uc = reader()
     ids = sorted(
         found
-        for line, live in uc.live_lines(text.splitlines())
+        for line, live in uc.live_lines(uc.gfm_lines(text))
         if live
         for found in uc.FOLD_MARKER.findall(line)
     )
@@ -400,7 +404,7 @@ def ceiling_problems(root, ceiling, over, digests=None):
             problems.append(f"{rel} is listed over the ceiling and does not exist")
     for rel in names:
         text = read(root, rel)
-        lines = len(text.splitlines())
+        lines = len(reader().gfm_lines(text))
         if rel not in over:
             if lines > ceiling:
                 problems.append(

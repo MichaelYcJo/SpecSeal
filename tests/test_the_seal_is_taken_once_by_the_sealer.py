@@ -1971,6 +1971,83 @@ def test_the_absent_row_refusal_still_reaches_a_file_with_no_such_line(tmp_path)
     assert FENCED not in said, said
 
 
+COMMENTED = "written inside an HTML comment"
+
+
+@pytest.mark.parametrize("name", ["C11a", "C11b"], ids=["in the table", "below it"])
+def test_a_broad_gate_line_only_inside_a_comment_is_named_and_not_called_absent(
+    tmp_path, name
+):
+    """S7, C11 (#667). A row inside an HTML comment that closes is shown to
+    no walk of the table, which is what the comment half is for -- and then
+    the refusal has to say so, or it is the absent-row message about a row
+    the person can see, or the fence message about a fence that is not there
+    (the #429 wrong-cause shape). The sentence quotes the line, says it is
+    commented out rather than absent or fenced, and runs nothing. Red at
+    base: the commented row was the row, and a command nobody chose ran."""
+    from block_shapes import SHAPES
+
+    said = refusal_over(tmp_path, name, "\n".join(SHAPES[name]) + "\n")
+    assert COMMENTED in said, said
+    assert f"| {ROW} | bin/test -q |" in said, said
+    assert "The row is not absent and it is not in a code fence" in said, said
+    assert "take the row out of the comment" in said, said
+    assert f"has no `{ROW}` row" not in said, said
+    assert FENCED not in said, said
+    assert said.endswith("Nothing ran."), said
+
+
+def test_the_template_documents_the_commented_row_sentence():
+    """S7's other half (contract §14): the sentence a person reads is stated
+    where `templates/config.md` states the fenced one."""
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "templates", "config.md"), encoding="utf-8") as f:
+        text = " ".join(f.read().split())
+    assert "A row inside an HTML comment that closes is not a row either" in text
+    assert "the refusal quotes that line and says it is commented out" in text
+
+
+def test_the_template_names_every_inline_html_kind_it_reads_as_before():
+    """#673's S10 (contract §14). The sentence tells a person which contexts
+    are read as before, and the walk is unsure after any inline raw HTML a
+    line leaves open, not after a comment opener alone. Each opener a
+    person might write is named, and the old list's narrower phrase is gone."""
+    root = os.path.join(os.path.dirname(__file__), "..")
+    with open(os.path.join(root, "templates", "config.md"), encoding="utf-8") as f:
+        text = " ".join(f.read().split())
+    assert "after inline HTML a line leaves open" in text
+    for opener in ("<" + "!--", "<![CDATA[", "<?", "<!DOCTYPE"):
+        assert f"`{opener}`" in text, opener
+    assert "or a tag started in the middle of a line" in text
+    assert "after a `<" + "!--` in the middle of a line" not in text
+
+
+@pytest.mark.parametrize("name", ["LS", "NEL"])
+def test_the_gate_names_no_block_a_renderer_does_not_see(tmp_path, name):
+    """#667 round 1, 🟡 1, `broad-gate`'s two questions of the reader. A
+    `<!--` or a fence run after a character `str.splitlines` breaks at and
+    CommonMark does not stands mid-line, so the row under it is in no comment
+    and no fence is left open: `commented_row_at` finds nothing and
+    `fence_left_open` says no. Both asked the split before."""
+    from block_shapes import BREAKS, OPEN
+
+    gate = gate_module()
+    commented = tmp_path / "c" / "seal"
+    commented.mkdir(parents=True)
+    (commented / "config.md").write_text(
+        f"A note{BREAKS[name]}{OPEN}\n\n| {ROW} | bin/test -q |\n-->\n",
+        encoding="utf-8",
+    )
+    assert gate.commented_row_at(str(commented)) == (None, None)
+    fenced = tmp_path / "f" / "seal"
+    fenced.mkdir(parents=True)
+    (fenced / "config.md").write_text(
+        f"A note{BREAKS[name]}```\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n",
+        encoding="utf-8",
+    )
+    assert gate.fence_left_open(str(fenced)) is False
+
+
 def test_an_unclosed_fence_hides_the_live_table_and_the_gate_says_which_line(
     tmp_path,
 ):

@@ -135,7 +135,9 @@ def tree(tmp_path):
             row(
                 "the later claim",
                 unit_hash("parse"),
-                "a note with a | pipe escaped as \\|",
+                # Both pipes escaped: an unescaped one splits the row into
+                # six cells, which the checker names OVERFLOW since #585.
+                "a note with a \\| pipe escaped as \\|",
                 anchor="parse",
             )
         ],
@@ -568,6 +570,128 @@ def test_a_blank_line_above_the_title_and_a_tilde_fence_are_read_right(tree):
     assert "#### The area" in lines
 
 
+# --- one fence rule, the shared one (#584) -----------------------------------
+
+
+def fold_body(tree, body):
+    """Write the later fragment's body, fold, and return the release lines."""
+    (tree / "seal" / "ledger" / "1788229400-later.md").write_text(
+        "# 1788229400-later\n\n" + body + "\n## The area\n\n"
+        "| Clause | Code grounds | Verified behavior | Checked | Notes |\n"
+        "|---|---|---|---|---|\n" + row("the claim", handler_hash()) + "\n",
+        encoding="utf-8",
+    )
+    fold(tree)
+    return released(tree).split("\n")
+
+
+def test_a_longer_fence_is_not_closed_by_the_shorter_one_it_quotes(tree):
+    """#584, S1. `demote` closed a fence on any line starting with the
+    opener's first three characters, so a ```` ```` ```` block quoting a
+    ```` ``` ```` block closed at the inner delimiter and the `## ` line
+    after it was demoted as a heading. CommonMark closes only on a run at
+    least as long as the opener."""
+    lines = fold_body(tree, "````\n```\n## inside the example\n```\n````\n")
+    assert "## inside the example" in lines, "the quoted heading was demoted"
+    assert "#### inside the example" not in lines
+    assert "#### The area" in lines, "the heading after the block was not demoted"
+
+
+def test_a_delimiter_with_an_info_string_does_not_close_a_fence(tree):
+    """#584, S2. ```` ```python ```` inside an open ```` ``` ```` block is
+    content, and `demote` read it as the closer and demoted the `#` line
+    after it."""
+    lines = fold_body(tree, "```\n```python\n# a comment in the example\n```\n")
+    assert "# a comment in the example" in lines, "the quoted line was demoted"
+    assert "#### The area" in lines
+
+
+def quoted_marker_file(version, work_item_id):
+    return (
+        f"## {version} — 2026-09-01\n\nThe fold writes a line like this:\n\n"
+        f"```\n<!-- specs/{work_item_id} -->\n```\n"
+    )
+
+
+def test_a_marker_quoted_in_a_fence_is_not_a_fold(tree):
+    """#584, S3. `is_marked` read a line-anchored marker wherever it stood,
+    so one quoted in a fenced example in a release file refused the fold as
+    already done — with advice to remove the fragment, the only copy of its
+    rows. A marker counts only on a live line (`docs/the-evidence-ledger.md`
+    §*A marker counts only on a live line*)."""
+    release_file(tree, "0.3.0").parent.mkdir()
+    release_file(tree, "0.3.0").write_text(
+        quoted_marker_file("0.3.0", "1788229400-later"), encoding="utf-8"
+    )
+    fold(tree)
+    assert "| the later claim |" in released(tree)
+    assert fragments_left(tree) == []
+
+
+def test_a_marker_quoted_in_a_fence_is_not_doubled_and_not_counted(tree):
+    """#584, S4. `doubled_markers` and `--check`'s count read every
+    line-anchored marker, so a fenced quotation of a folded work item's
+    marker read as that work item marked twice and was counted as a third.
+    A marker inside a commented-out draft is the other quoted shape."""
+    fold(tree)
+    (tree / "seal" / "ledger.md").write_text(
+        ledger(tree)
+        + "\n```\n<!-- specs/1788229400-later -->\n```\n"
+        + "\n<!-- a draft\n<!-- specs/1700000000-earlier -->\n-->\n",
+        encoding="utf-8",
+    )
+    r = run("--check", root=tree)
+    assert r.returncode == 0, r.stdout
+    assert "one work item, one marker" not in r.stdout, r.stdout
+    assert "2 work items marked" in r.stdout, r.stdout
+
+
+def test_a_version_heading_quoted_in_a_fence_heads_nothing(tree):
+    """#584, S5. `version_headings` read a fenced `## X.Y.Z` as a heading,
+    so a release file quoting another version's heading was refused as
+    misnamed, and `seal/ledger.md` quoting one was refused as still heading
+    a release. `demote` copies a fenced `#` line byte for byte; a heading
+    reader that then reads it as a heading contradicts what `demote` just
+    decided."""
+    fold(tree)
+    release_file(tree, "0.1.0").write_text(
+        "## 0.1.0 — 2026-09-01\n\nAn example:\n\n```\n## 0.2.0 — 2026-09-02\n```\n",
+        encoding="utf-8",
+    )
+    (tree / "seal" / "ledger.md").write_text(
+        ledger(tree) + "\nA section looks like:\n\n~~~\n## 0.3.0 — 2026-09-03\n~~~\n",
+        encoding="utf-8",
+    )
+    r = run("--check", root=tree)
+    assert r.returncode == 0, r.stdout
+    assert "heads 0.1.0, 0.2.0" not in r.stdout, r.stdout
+    assert "still heads a release" not in r.stdout, r.stdout
+
+
+def test_a_fenced_heading_neither_joins_nor_ends_a_release_section(tree):
+    """#584, S5's other two readers. `section_heading` read a fenced
+    `## 0.4.0` as the section a fold joins, and `insert`'s walk to the next
+    `## ` stopped at a fenced one — so a second fold wrote its work items
+    into the middle of an example."""
+    release_file(tree).parent.mkdir()
+    release_file(tree).write_text(
+        "## 0.3.9 — 2026-09-01\n\n```\n## 0.4.0 — 2026-09-02\n```\n",
+        encoding="utf-8",
+    )
+    r = run("--version", "0.4.0", "--date", "2026-09-15", root=tree)
+    assert r.returncode == 1, r.stdout
+    assert "does not head 0.4.0" in r.stdout, r.stdout
+
+    example = "```\n## 0.5.0 — 2026-09-02\n```\n"
+    release_file(tree).write_text(
+        "## 0.4.0 — 2026-09-01\n\nAn example:\n\n" + example, encoding="utf-8"
+    )
+    fold(tree, date="2026-09-15")
+    text = released(tree)
+    assert example in text, f"the work items went inside the example:\n{text}"
+    assert text.index(example) < text.index("### 1700000000-earlier"), text
+
+
 def test_dry_run_writes_and_removes_nothing(tree):
     before = ledger(tree)
     left = fragments_left(tree)
@@ -578,6 +702,35 @@ def test_dry_run_writes_and_removes_nothing(tree):
     assert ledger(tree) == before, "--dry-run wrote to the ledger"
     assert not (tree / "seal" / "releases").exists(), "--dry-run wrote a release file"
     assert fragments_left(tree) == left, "--dry-run removed a fragment"
+
+
+@pytest.mark.parametrize(
+    "tail",
+    ["\n```\na block nobody closed\n", "\nA bare " + "<" + "!--" + " in a note.\n"],
+    ids=["fence", "comment"],
+)
+@pytest.mark.parametrize("dry_run", [False, True])
+def test_a_fragment_that_leaves_a_block_open_is_refused(tree, tail, dry_run):
+    """#584 round 1, finding 2; phase 9 of work item 1790635413. `section`
+    folds each fragment verbatim and the next marker below it, and a second
+    fold for the version appends below everything. A fragment that opened a
+    fenced block or an HTML comment and never closed it put every later
+    marker on a line `live_markers` cannot see: the fold exited 0, `--check`
+    exited 0 counting one fold where two had happened, and `is_marked` could
+    not see the second. Refused before anything is written, naming the
+    fragment, and every fragment stays where it was."""
+    path = tree / "seal" / "ledger" / "1700000000-earlier.md"
+    path.write_text(path.read_text(encoding="utf-8") + tail, encoding="utf-8")
+    left = fragments_left(tree)
+    args = ["--version", "0.4.0", "--date", "2026-09-15"]
+    r = run(*args, *(["--dry-run"] if dry_run else []), root=tree)
+    assert r.returncode == 1, r.stdout + r.stderr
+    assert not release_file(tree).exists(), "the refused fold wrote a release file"
+    assert fragments_left(tree) == left, "the refused fold removed a fragment"
+    assert "## 0.4.0" not in r.stdout, "the refused fold printed a section"
+    assert "seal/ledger/1700000000-earlier.md" in r.stdout, r.stdout
+    assert "seal/ledger/1788229400-later.md" not in r.stdout, r.stdout
+    assert "never close" in r.stdout and "nothing folded" in r.stdout, r.stdout
 
 
 def test_an_empty_fragment_is_removed_and_named_and_gets_no_marker(tree):

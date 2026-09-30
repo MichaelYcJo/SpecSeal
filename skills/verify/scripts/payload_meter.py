@@ -44,8 +44,10 @@ subtracted from by zero.
 Exit codes: 0 measured · 1 the input could not be measured -- a transcript
 the calibration refuses, or no `agents/*.md` under the root · 2 nothing ran:
 the interpreter is below the floor, `--calibrate` was given and
-`session_cost.py`, the sibling it loads, is not beside this script, or the
-arguments were unusable (argparse's usage error).
+`session_cost.py`, the sibling it loads, is not beside this script,
+`--sections` was given and `unverified_check.py`, the fence rule it splits
+by, is not beside it, or the arguments were unusable (argparse's usage
+error).
 
 Two things the ratio has to know about the machine it was measured on. A
 skill name resolves to `~/.claude/skills/<name>/SKILL.md` when the user has
@@ -127,7 +129,6 @@ ASSUMED_RATIO = 3.2
 BASELINE_AGENT = "general-purpose"
 
 HEADING = re.compile(r"^#{2,3} ")
-FENCE = re.compile(r"^\s*(`{3,}|~{3,})")
 AGENT_ID = re.compile(r"\bagentId:\s*([0-9a-f]+)")
 
 
@@ -156,6 +157,35 @@ def _session_cost():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+_reader = None
+
+
+def _fence_rule():
+    """`unverified_check.py`, the module that holds the fence delimiter rule
+    `heading_starts` asks (#584), loaded once and only where `--sections`
+    splits a file. A missing file is `_session_cost`'s shape: a sentence to
+    stderr, then exit 2."""
+    global _reader
+    if _reader is None:
+        path = os.path.join(HERE, "unverified_check.py")
+        if not os.path.isfile(path):
+            sys.stderr.write(
+                f"payload-meter: cannot read {path}, and it is what says which "
+                "lines of a skill stand inside a fenced example, so --sections "
+                "cannot split one. This command ships beside it under "
+                "`skills/`; a copy of one script taken on its own is not a "
+                "plugin. Nothing was measured.\n"
+            )
+            raise SystemExit(2)
+        spec = importlib.util.spec_from_file_location(
+            "specseal_unverified_reader", path
+        )
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        _reader = module
+    return _reader
 
 
 class CalibrationError(Exception):
@@ -228,22 +258,30 @@ def heading_starts(text):
     quotes headings as examples, and an example is not a section — the rule
     `tests/test_a_section_marked_for_one_role_reaches_only_that_role.py`
     applies before it reads a marker, applied here before a byte count is
-    put beside a heading somebody may trim. A fence closes only on a fence
-    of the same character at least as long — the rule that keeps a ``` inside
-    a ```` block, or a ~~~ inside a ``` block, from ending the outer one
-    (#292 round 2)."""
+    put beside a heading somebody may trim.
+
+    The fence is the shared rule, `unverified_check.py#fence_opener` and
+    `#fence_closes` (#584): at most three spaces of indentation, a backtick
+    opener's info string holds no backtick, and a fence closes only on a run
+    of its own character at least as long with nothing after it — which
+    keeps a ``` inside a ```` block, or a ~~~ inside a ``` block, from ending
+    the outer one (#292 round 2). The rule this kept before read any
+    indentation and any delimiter line as a fence, so a prose line opening
+    with a four-backtick code span hid every heading after it.
+
+    The lines are the reader's too, `gfm_lines` with their ends kept (#664),
+    so the offsets still sum to the file. Split with `str.splitlines`, a `#`
+    after a U+2028 or a form feed mid-line began a section no renderer
+    shows."""
+    rule = _fence_rule()
     starts, offset, fence = [], 0, None
-    for line in text.splitlines(keepends=True):
-        opened = FENCE.match(line)
-        if opened and fence is None:
-            fence = opened.group(1)
-        elif (
-            opened
-            and opened.group(1)[0] == fence[0]
-            and len(opened.group(1)) >= len(fence)
-        ):
-            fence = None
-        elif fence is None and HEADING.match(line):
+    for line in rule.gfm_lines(text, keepends=True):
+        if fence is not None:
+            if rule.fence_closes(line, fence):
+                fence = None
+        elif (opened := rule.fence_opener(line)) is not None:
+            fence = opened
+        elif HEADING.match(line):
             starts.append(offset)
         offset += len(line)
     return starts
@@ -556,6 +594,10 @@ def measure(
     `baseline` an earlier run's JSON path, whose ratios are lent to agents
     this run did not measure and whose numbers the delta is taken against."""
     baseline_agent = short_name(baseline_agent)
+    if sections:
+        # Before anything is read, so a copy missing the fence rule says so
+        # at exit 2 rather than after a partial measurement (#584).
+        _fence_rule()
     baseline_data = None
     if baseline:
         with open(baseline, encoding="utf-8") as handle:
