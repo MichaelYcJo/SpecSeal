@@ -2471,13 +2471,43 @@ def compose(base, chdirs):
     return landed
 
 
-def walk_directories(items, cwd):
+def base_directories(items, cwd):
+    """[(tokens, wheres)] — the directories `86256492`'s walk named, and only those.
+
+    The worktree guard and the consent writer read this (#689). Each takes ONE
+    directory per segment, the first it can name, so where a segment has more
+    than one the order decides the tree it judges and the clone consent is
+    filed under. `walk_directories` gives the walk's own directories and the
+    base's in one tuple, and every attempt to order the two for those readers
+    was met by another command: I's round 2, I's Q7, and #689's round 3 each
+    found a chain where the walk's directory led and was one bash never ran
+    the command in. So these two readers stopped reading the walk at all.
+
+    What is returned is the walk's sixth thread, the base's states and parked
+    failures as `86256492` took them, unplaced by the as-written reading of the
+    command word alone, which is the flag `86256492` read. Nothing #674 added
+    beside the base reaches it: not `understood`'s refusal past a
+    redirection, not a `cd` landed past one, not the glued group. So a `cd`
+    behind a redirection (`2>/dev/null cd W`, `cd W 2>/dev/null`) does not
+    move the tree the guard judges, exactly as at `86256492`; the commit gate
+    still judges W. That is the accepted cost of the containment.
+    """
+    return walk_directories(items, cwd, base=True)
+
+
+def walk_directories(items, cwd, base=False):
     """[(tokens, wheres)] — the directories each segment may run in.
 
     The commit gate's reading, and since #689 the commit gate's alone: it
     judges every directory in `wheres`, so its answer does not depend on
     their order. The worktree guard and the consent writer take one
-    directory, and they read `base_directories` instead.
+    directory, and they read `base_directories`, which is this walk asked
+    with BASE: the sixth thread's directories alone. The two are one loop
+    because both threads read one segment's expanded words and one `cd`
+    target, and a second loop would be a second copy of those to drift from
+    the first. The names are written by the as-written reading alone, which
+    is the base's, so the words both threads read are the words `86256492`
+    read.
 
     `items` comes from `split_segments_with_separators`. `wheres` is a tuple
     because one command can leave the shell in more than one place: after
@@ -2500,43 +2530,6 @@ def walk_directories(items, cwd):
     command reaches sits in one repository the operator does not matter at
     all, and that is the common `cd src && git commit` — the caller collapses
     those by repository root and the verdict is unchanged.
-    """
-    return [(tokens, wheres) for tokens, wheres, _base in _walk(items, cwd)]
-
-
-def base_directories(items, cwd):
-    """[(tokens, wheres)] — the directories `86256492`'s walk named, and only those.
-
-    The worktree guard and the consent writer read this (#689). Each takes ONE
-    directory per segment, the first it can name, so where a segment has more
-    than one the order decides the tree it judges and the clone consent is
-    filed under. `walk_directories` gives the walk's own directories and the
-    base's in one tuple, and every attempt to order the two for those readers
-    was met by another command: I's round 2, I's Q7, and #689's round 3 each
-    found a chain where the walk's directory led and was one bash never ran
-    the command in. So these two readers stopped reading the walk at all.
-
-    What is returned is the walk's sixth thread, the base's states and parked
-    failures as `86256492` took them, unplaced by the as-written reading of the
-    command word alone, which is the flag `86256492` read. Nothing #674 added
-    beside the base reaches it: not `understood`'s refusal past a
-    redirection, not a `cd` landed past one, not the glued group. So a `cd`
-    behind a redirection (`2>/dev/null cd W`, `cd W 2>/dev/null`) does not
-    move the tree the guard judges, exactly as at `86256492`; the commit gate
-    still judges W. That is the accepted cost of the containment.
-    """
-    return [(tokens, base) for tokens, _wheres, base in _walk(items, cwd)]
-
-
-def _walk(items, cwd):
-    """[(tokens, wheres, base)] — both readings of every segment, from one walk.
-
-    WHERES is `walk_directories`' answer and BASE is `base_directories'`. They
-    are computed together because both threads read one segment's expanded
-    words and one `cd` target, and a second loop would be a second copy of
-    those to drift from the first. The names are written by the as-written
-    reading alone, which is the base's, so the words both threads read are
-    the words `86256492` read.
     """
     # `states` are the shells a segment runs in when everything before it
     # worked. `parked` are the ones a command before it FAILED in — they wait,
@@ -2642,7 +2635,7 @@ def _walk(items, cwd):
         else:
             ordered = base_wheres + wheres
         walked.append(
-            (tokens, _directories([(w, None) for w in ordered]), tuple(as_based))
+            (tokens, as_based if base else _directories([(w, None) for w in ordered]))
         )
 
         target = _cd_target(tokens)
