@@ -2592,7 +2592,23 @@ def walk_directories(items, cwd):
         # 1790660768). Where the walk's first is unresolved -- a collapse, a
         # segment only the second reading unplaced -- the base's thread leads,
         # which is the tree `86256492` judged.
-        if wheres and not isinstance(wheres[0], Unresolved):
+        #
+        # A readable first leads only where it is a directory on disk, since
+        # a shell cannot stand in one that is not. A `cd` read past its
+        # redirections (I13) is landed in front of the as-written answer
+        # whether or not it can succeed, and `cd w; 2>/dev/null cd
+        # /abs/missing; git switch` switches in `w`: the landing led, the
+        # guard found no repository in it and judged the session's own tree,
+        # and the consent writer filed the creation under the missing path
+        # (round 1 of 1790729827). A directory an earlier segment of the same
+        # command creates does not exist yet when the hook runs, so there the
+        # base leads, which is the tree `86256492` judged.
+        lead = wheres[0] if wheres else None
+        if (
+            lead is not None
+            and not isinstance(lead, Unresolved)
+            and os.path.isdir(lead)
+        ):
             ordered = wheres + base_wheres
         else:
             ordered = base_wheres + wheres

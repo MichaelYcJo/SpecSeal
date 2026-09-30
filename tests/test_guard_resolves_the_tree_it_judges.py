@@ -858,3 +858,53 @@ def test_past_the_walks_cap_a_cd_landed_past_a_redirection_still_leads(
         chain + "git worktree add ../wt", str(session)
     )
     assert os.path.samefile(acted, other), acted
+
+
+# A `cd` read past its redirections into a directory that does not exist,
+# joined to the switch by an operator that runs it whether or not the `cd`
+# worked (round 1 of 1790729827).
+FAILED_LANDINGS = {
+    "in front, then a semicolon": "2>/dev/null cd {missing}; ",
+    "in front, then a newline": "2>/dev/null cd {missing}\n",
+    # A file is not a directory, and `cd` into one fails as into nothing.
+    "into a file, then a semicolon": "2>/dev/null cd {a_file}; ",
+}
+
+
+@pytest.mark.parametrize("capped", [False, True])
+@pytest.mark.parametrize("route", sorted(FAILED_LANDINGS))
+def test_a_cd_past_a_redirection_that_fails_keeps_the_tree_bash_stays_in(
+    monkeypatch, capsys, repo, tmp_path, route, capped
+):
+    """Round 1 of 1790729827, yellow 1. A `cd` read past its redirections is
+    landed in front of the as-written answer (I13). Where its destination
+    does not exist, bash stays in `w` and runs the switch there, but the
+    landing led, so the guard found no repository in it and judged the
+    session's clean tree, and the consent writer filed the creation under
+    the missing path. `86256492` did not read the `cd` and asked about `w`."""
+    session = _dirty_nested_session(repo, tmp_path)
+    a_file = tmp_path / "a-file"
+    a_file.write_text("not a directory\n")
+    tail = FAILED_LANDINGS[route].format(
+        missing=tmp_path / "nosuch-either", a_file=a_file
+    )
+    chain = "cd w; " + ("2>/dev/null cd nosuch; " * 9 if capped else "") + tail
+    _asks_in_w_and_files_under_w(monkeypatch, capsys, session, chain)
+
+
+@pytest.mark.parametrize("capped", [False, True])
+def test_a_cd_past_a_redirection_that_lands_still_leads_after_a_semicolon(
+    monkeypatch, capsys, repo, tmp_path, capped
+):
+    """Round 1 of 1790729827. What yellow 1's fix keeps: the landing exists,
+    bash switches in `O`, and the guard judges `O`."""
+    session = _dirty_nested_session(repo, tmp_path)
+    other = tmp_path / "O"
+    shutil.copytree(repo, other)
+    chain = (
+        "cd w; "
+        + ("2>/dev/null cd nosuch; " * 9 if capped else "")
+        + f"2>/dev/null cd {other}; "
+    )
+    _, _, top = run(monkeypatch, capsys, chain + "git switch feature/x", session)
+    assert top and os.path.samefile(top, other), top
