@@ -556,11 +556,25 @@ the session's own directory instead. `git -C <path>` names it
 outright, and a `cd` earlier in the command moves the shell to it — this guard
 is the reason a session is in that shape at all, since it refuses a switch and
 tells the user to work in a separate worktree, so the session stays where it
-was while the commands do not. Both are read the same way the commit gate
-reads them (`commit-review-gate-spec.md` §Which repository). A redirection
-among the `cd`'s words (`cd W 2>/dev/null`, `2>/dev/null cd W`, `cd>/dev/null
-W`) moves it too, since round 2 of work item 1790660768; until then the switch
-was judged in the session's own tree while it ran in W.
+was while the commands do not. Both are read the way the release base
+`86256492` read them (`commit-review-gate-spec.md` §Which repository), and not
+the way the commit gate reads them since #674 (#689).
+
+The reason is that this guard takes one directory per segment and the gate
+takes all of them. The gate's wider reading gives a segment the directories
+the base's walk named and the ones #674 added, in one list. This guard and the
+consent writer judge the first directory in that list that names a tree, so
+the list's order picked the tree. Each ordering of the two readings that was
+tried met a command whose leading directory was one bash never ran the
+command in. So both read the base's directories alone
+(`cmdline.base_directories`), and their tree is the base's by construction.
+
+The cost is a `cd` with a redirection among its words (`cd W 2>/dev/null`,
+`2>/dev/null cd W`, `cd>/dev/null W`, `2>&1 cd W`). It does not move the tree
+this guard judges or the clone consent is filed under, as at the base, while
+bash runs the switch in W. Round 2 of work item 1790660768 made it move, and
+#689 took that back as the accepted cost. The commit gate still judges W.
+`tests/test_guard_resolves_the_tree_it_judges.py` holds both halves.
 
 The advice follows the same tree. A command a reason tells the person to run —
 the worktree steer, a choice's option, the switch steer, the tracked-changes

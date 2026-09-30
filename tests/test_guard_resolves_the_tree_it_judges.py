@@ -794,3 +794,25 @@ def test_the_consent_writer_files_where_the_base_filed_whatever_the_walk_leads(
         chain + "git worktree add ../wt", str(session)
     )
     assert os.path.normpath(acted) == str(session / "w"), (name, acted)
+
+
+def test_a_segment_only_the_reading_past_redirections_finds_is_judged_where_the_base_walked(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """#689. `2>/dev/null nice -n 5 git switch` is git only to the reading
+    past redirections (#674), which also unplaces it behind the runner's
+    options, so the commit gate's reading gives it no directory it can name.
+    `base_directories` unplaces a segment on the as-written reading alone,
+    which is the flag `86256492` read, and that reading finds nothing to
+    unplace: the switch is judged in `w`, where the base's walk stands and
+    bash runs it. At `542f920b` the guard judged the clean session tree and
+    was silent."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, top = run(
+        monkeypatch,
+        capsys,
+        "cd w && 2>/dev/null nice -n 5 git switch feature/x",
+        session,
+    )
+    assert decision == "ask", (decision, reason)
+    assert top and os.path.samefile(top, session / "w"), top

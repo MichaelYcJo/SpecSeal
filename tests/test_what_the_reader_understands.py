@@ -782,8 +782,10 @@ def test_the_understood_check_can_fail():
 
 def test_the_guard_reads_the_same_answer():
     """S13. Issue #68's rounds twice fixed one gate and left the other, so the
-    guard is asserted rather than assumed. It shares `walk_directories`
-    through `hooks/worktree-guard.py:219`.
+    guard is asserted rather than assumed. It reads the walk through
+    `walk_command` in `hooks/worktree-guard.py`, and since #689 it takes
+    `cmdline.base_directories`, the base's thread of that walk, where the
+    commit gate takes `walk_directories`; an `eval` is refused by both.
 
     `wg.cmdline` rather than the `reader` above: the guard reaches its reader
     with a plain `import cmdline`, which goes through `sys.modules`, while
