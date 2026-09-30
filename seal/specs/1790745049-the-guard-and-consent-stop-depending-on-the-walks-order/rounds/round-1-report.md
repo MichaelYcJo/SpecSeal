@@ -216,7 +216,7 @@ fix all 5 pass.
 | 🟢 | The commit gate's invocations and walk equal `542f920b`'s | `hooks/cmdline.py#walk_directories` | confirmed | Executed over 407 commands; the gate file is not in the diff |
 | 🟢 | The consumers of the walk are the three the build enumerated | `hooks/` | confirmed | Read with `git grep` |
 | 🟢 | The changed I13 guard case loses only what M2 records | `tests/test_guard_resolves_the_tree_it_judges.py` | confirmed | Read; the module passes |
-| 🟢 | `\|\|`, `&&`, subshells, merged view, newlines, `pushd`/`popd`, env prefixes, the cap and S6 give the base's tree | `hooks/cmdline.py#base_directories` | confirmed | Executed: 0 differences outside the recognition family |
+| 🟢 | `\|\|`, `&&`, subshells, merged view, newlines, `pushd`/`popd`, env prefixes, the cap and S6 give the base's tree | `hooks/cmdline.py#base_directories` | confirmed | Executed: 0 differences outside the recognition family · NAME NOT IN TREE |
 | ❓ | The guard's Windows backslash doubling through `base_directories` | `hooks/worktree-guard.py#_tokenize_with_separators` | ❓ out of verified scope | No Windows runner here; the repository owner answers it on a Windows machine |
 
 ## Executed probes
