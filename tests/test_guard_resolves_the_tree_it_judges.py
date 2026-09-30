@@ -16,6 +16,7 @@ import shlex
 import shutil
 import subprocess
 
+import pytest
 from conftest import load_hook_module
 
 wg = load_hook_module("worktree-guard.py", "wg_tree")
@@ -716,3 +717,144 @@ def test_a_chain_past_the_walks_cap_keeps_the_tree_the_base_judged(
         chain + "git worktree add ../wt", str(session)
     )
     assert os.path.samefile(acted, session / "w"), acted
+
+
+def _dirty_nested_session(repo, tmp_path):
+    """A clean session repository holding a dirty copy of `repo` at `w`."""
+    session = tmp_path / "session"
+    session.mkdir()
+    subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
+    shutil.copytree(repo, session / "w")
+    (session / "w" / "f.txt").write_text("changed on purpose\n")
+    return session
+
+
+def test_a_skipped_cd_past_the_walks_cap_keeps_the_tree_the_base_judged(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 3 of 1790660768, yellow 1. Past `STATE_CAP` the walk's thread
+    collapses, and `cd <missing> ||` then gives it a readable directory on the
+    branch the `||` skips. That directory put the walk in front of the base's
+    thread, so the guard read the collapsed walk's unresolved directory as the
+    session's clean tree, and the consent writer took the skipped branch.
+    bash fails every `cd` after `cd w`, so the switch runs in the dirty `w`,
+    which is the tree `86256492` judged."""
+    session = tmp_path / "session"
+    session.mkdir()
+    subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
+    shutil.copytree(repo, session / "w")
+    (session / "w" / "f.txt").write_text("changed on purpose\n")
+    missing = tmp_path / "nosuch-either"
+    chain = "cd w; " + "2>/dev/null cd nosuch; " * 9 + f"cd {missing} || "
+    decision, reason, _ = run(
+        monkeypatch, capsys, chain + "git switch feature/x", session
+    )
+    assert decision == "ask", (decision, reason)
+    assert "f.txt" in reason, reason
+    acted = wg.worktree_consent.creation_directory(
+        chain + "git worktree add ../wt", str(session)
+    )
+    assert os.path.samefile(acted, session / "w"), acted
+
+
+# Every way a collapsed walk was measured to regain a readable directory only
+# on the branch a `||` skips (#689). `{missing}` is never created and `{other}`
+# is a repository of its own. The first four are where bash runs the switch in
+# `w`; behind `cd {other} ||` bash runs nothing, and the tree judged is the one
+# `86256492` judged.
+SKIPPED_PAST_THE_CAP = {
+    "behind a redirection the splitter cut": "2>&1 cd {missing} || ",
+    "with a redirection after its operand": "cd {missing} 2>&1 || ",
+    "landed past a redirection in front": "2>/dev/null cd {missing} || ",
+    "into a repository the or-operator skips": "cd {other} || ",
+}
+
+# The chains that carry the walk past `STATE_CAP` in front of `cd {missing} ||`.
+CAPPING_PREFIXES = {
+    "nine failing cds after cd w &&": "cd w && " + "2>/dev/null cd nosuch; " * 9,
+    "eight failing cds after cd w;": "cd w; " + "2>/dev/null cd nosuch; " * 8,
+}
+
+
+def _asks_in_w_and_files_under_w(monkeypatch, capsys, session, chain):
+    decision, reason, _ = run(
+        monkeypatch, capsys, chain + "git switch feature/x", session
+    )
+    assert decision == "ask", (chain, decision, reason)
+    assert "f.txt" in reason, (chain, reason)
+    acted = wg.worktree_consent.creation_directory(
+        chain + "git worktree add ../wt", str(session)
+    )
+    assert os.path.samefile(acted, session / "w"), (chain, acted)
+
+
+@pytest.mark.parametrize("route", sorted(SKIPPED_PAST_THE_CAP))
+def test_every_skipped_branch_past_the_walks_cap_keeps_the_tree_the_base_judged(
+    monkeypatch, capsys, repo, tmp_path, route
+):
+    """#689, the class of round 3's yellow 1: each spelling of a `cd` that a
+    collapsed walk lands on the branch the `||` skips. At `542f920b` each one
+    led the base's thread, so the guard was silent on the dirty `w` and the
+    consent writer filed the creation under the skipped target."""
+    session = _dirty_nested_session(repo, tmp_path)
+    other = tmp_path / "O"
+    other.mkdir()
+    subprocess.run(["git", "-C", str(other), "init", "-q"], check=True)
+    regain = SKIPPED_PAST_THE_CAP[route].format(
+        missing=tmp_path / "nosuch-either", other=other
+    )
+    chain = "cd w; " + "2>/dev/null cd nosuch; " * 9 + regain
+    _asks_in_w_and_files_under_w(monkeypatch, capsys, session, chain)
+
+
+@pytest.mark.parametrize("prefix", sorted(CAPPING_PREFIXES))
+def test_a_skipped_cd_past_the_cap_keeps_the_base_tree_whatever_capped_the_walk(
+    monkeypatch, capsys, repo, tmp_path, prefix
+):
+    """#689, round 3's yellow 1 behind the two other chains its report
+    measured: `cd w &&` in front, and eight failing `cd`s where nine is the
+    report's own case. Both were silent at `542f920b`."""
+    session = _dirty_nested_session(repo, tmp_path)
+    chain = CAPPING_PREFIXES[prefix] + f"cd {tmp_path / 'nosuch-either'} || "
+    _asks_in_w_and_files_under_w(monkeypatch, capsys, session, chain)
+
+
+@pytest.mark.parametrize("joined", ["&&", ";", "||"])
+def test_a_subshell_behind_a_failing_cd_keeps_the_directory_the_base_named(
+    tmp_path, joined
+):
+    """#689, the same cause with no cap reached. `2>/dev/null cd nosuch ||`
+    lands `w/nosuch` on the branch the `||` skips, and the glued `(cd` after
+    it is a construct the walk cannot name, so the walk's first directory was
+    unresolved and its readable second was that skipped landing. Asking
+    whether the walk named ANY readable directory put it first, and the
+    creation was filed under `w/nosuch`. bash fails the `cd`, runs the
+    subshell, and creates in `w`, which is what `86256492` named."""
+    other = tmp_path / "O"
+    command = (
+        f"cd w; 2>/dev/null cd nosuch || (cd {other}) {joined} git worktree add ../wt"
+    )
+    acted = wg.worktree_consent.creation_directory(command, str(tmp_path))
+    assert os.path.normpath(acted) == str(tmp_path / "w"), acted
+
+
+def test_past_the_walks_cap_a_cd_landed_past_a_redirection_still_leads(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """#689. What the fix keeps: past `STATE_CAP` a `cd` read past its
+    redirections (round 2 of 1790660768) still lands the running shell, so
+    the walk's first directory is readable and the walk leads. bash switches
+    in `O`, and the guard judges `O`. Putting the base's thread first from
+    the walk's first collapse on -- round 3's proposed fix -- sent the guard
+    to the dirty `w`, which `86256492` judged because it never read that
+    `cd`, and filed `O`'s creation under `w`."""
+    session = _dirty_nested_session(repo, tmp_path)
+    other = tmp_path / "O"
+    shutil.copytree(repo, other)
+    chain = "cd w; " + "2>/dev/null cd nosuch; " * 9 + f"2>/dev/null cd {other} && "
+    _, _, top = run(monkeypatch, capsys, chain + "git switch feature/x", session)
+    assert top and os.path.samefile(top, other), top
+    acted = wg.worktree_consent.creation_directory(
+        chain + "git worktree add ../wt", str(session)
+    )
+    assert os.path.samefile(acted, other), acted

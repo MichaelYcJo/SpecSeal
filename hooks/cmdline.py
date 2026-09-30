@@ -2581,11 +2581,18 @@ def walk_directories(items, cwd):
             base_wheres = _unplaced(base_wheres)
         # The base's directories go behind the walk's, since the worktree
         # guard and the consent writer take the first one -- and in front of
-        # a walk that names none, which is the collapse past `STATE_CAP` or a
-        # segment only the second reading unplaced. Behind it the guard would
-        # read the session's own tree there, where `86256492` judged the
-        # base's first directory.
-        if any(not isinstance(w, Unresolved) for w in wheres):
+        # a walk whose FIRST directory it cannot name. That first one is the
+        # shell the segment runs in: `_branches` puts the running shells
+        # ahead of the skipped ones. Asking whether the walk names ANY
+        # readable directory was the test before #689, and a readable one
+        # behind an unresolved first can be on a branch the shell did not
+        # take: past `STATE_CAP`, `cd /abs/Y || git switch` names Y, the one tree
+        # the `||` skips, and the guard then read the collapsed walk's
+        # unresolved first as the session's own clean tree (round 3 of
+        # 1790660768). Where the walk's first is unresolved -- a collapse, a
+        # segment only the second reading unplaced -- the base's thread leads,
+        # which is the tree `86256492` judged.
+        if wheres and not isinstance(wheres[0], Unresolved):
             ordered = wheres + base_wheres
         else:
             ordered = base_wheres + wheres
