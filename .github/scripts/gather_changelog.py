@@ -113,11 +113,15 @@ def live_markers(changelog_text):
     """The work item ids whose marker stands on a live line of its own, in
     file order (#584).
 
-    Lines are split by `splitlines()`, as `survivor_check.py#gathered_fragments`
-    splits them, so the two readers of this file see the same lines."""
+    Lines are split by the shared reader's `gfm_lines`, as
+    `survivor_check.py#gathered_fragments` splits them, so the two readers of
+    this file see the same lines -- and the lines GFM renders, so a marker
+    standing after a U+2028 or a form feed on its line is not a line of its
+    own to either of them (#664). Every other split of this file's text and
+    of a fragment below reads the same function, for the same reason."""
     return [
         line[len("<!-- specs/") : -len(" -->")]
-        for line, live in reader.live_lines(changelog_text.splitlines())
+        for line, live in reader.live_lines(reader.gfm_lines(changelog_text))
         if live and MARKER_LINE_RE.match(line)
     ]
 
@@ -165,7 +169,7 @@ def leaves_open(body):
     then advises would write them twice. The probe is exactly that shape —
     the body, a blank line, a marker — asked of `live_lines` itself, so there
     is no second rule for what an open block is."""
-    probe = [*body.splitlines(), "", marker("probe")]
+    probe = [*reader.gfm_lines(body), "", marker("probe")]
     return not list(reader.live_lines(probe))[-1][1]
 
 
@@ -186,7 +190,7 @@ def section_lines(root, work_item_id):
     line with text on it."""
     path = os.path.join(root, "seal", "specs", work_item_id, "changelog.md")
     with open(path, encoding="utf-8") as f:
-        lines = f.read().splitlines()
+        lines = reader.gfm_lines(f.read())
     return [
         (n, line) for n, line in enumerate(lines, 1) if line.startswith(SECTION_LINE)
     ]
@@ -249,10 +253,13 @@ def insert(changelog_text, block, version):
     `tests/test_release_hygiene.py` refuses a file that heads a version twice,
     so this arm is the one a red release pull request has to take.
     """
-    lines = changelog_text.splitlines()
+    lines = reader.gfm_lines(changelog_text)
     found = section_heading(changelog_text, version)
     if found is not None:
-        at = changelog_text.count("\n", 0, found.start())
+        # The heading's index in `lines`, counted with the split that made
+        # them. Counting "\n" here while `lines` came from another split put
+        # the entries above the heading wherever the two disagreed (#664).
+        at = len(reader.gfm_lines(changelog_text[: found.start()]))
         end = next(
             (n for n in range(at + 1, len(lines)) if lines[n].startswith("## ")),
             len(lines),
@@ -264,7 +271,7 @@ def insert(changelog_text, block, version):
         # The tail's own blank lines go too, or the one re-added here joins
         # them: two before the next heading, and an extra at the end of the
         # file when the section was the last (round 1 of #536's work item).
-        entries = block.splitlines()[2:]
+        entries = reader.gfm_lines(block)[2:]
         tail = lines[end:]
         while tail and not tail[0].strip():
             tail.pop(0)
@@ -273,7 +280,7 @@ def insert(changelog_text, block, version):
     at = next((n for n, line in enumerate(lines) if line.startswith("## ")), None)
     if at is None:
         at = len(lines)
-    return "\n".join(lines[:at] + block.splitlines() + [""] + lines[at:]) + "\n"
+    return "\n".join(lines[:at] + reader.gfm_lines(block) + [""] + lines[at:]) + "\n"
 
 
 def main(argv=None):
@@ -397,11 +404,11 @@ def main(argv=None):
     block = section(args.version, date, missing)
     # The heading a reader sees is the file's own where the section exists
     # — dated or not — and the block's only where this run writes one.
-    heading = found.group(0) if found else block.splitlines()[0]
+    heading = found.group(0) if found else reader.gfm_lines(block)[0]
     if args.dry_run:
         if found:
             print("appending into the existing section:\n")
-        print("\n".join([heading, *block.splitlines()[1:]]))
+        print("\n".join([heading, *reader.gfm_lines(block)[1:]]))
         return 0
     with open(changelog, "w", encoding="utf-8") as f:
         f.write(insert(text, block, args.version))

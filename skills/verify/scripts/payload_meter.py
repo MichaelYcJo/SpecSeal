@@ -267,10 +267,15 @@ def heading_starts(text):
     keeps a ``` inside a ```` block, or a ~~~ inside a ``` block, from ending
     the outer one (#292 round 2). The rule this kept before read any
     indentation and any delimiter line as a fence, so a prose line opening
-    with a four-backtick code span hid every heading after it."""
+    with a four-backtick code span hid every heading after it.
+
+    The lines are the reader's too, `gfm_lines` with their ends kept (#664),
+    so the offsets still sum to the file. Split with `str.splitlines`, a `#`
+    after a U+2028 or a form feed mid-line began a section no renderer
+    shows."""
     rule = _fence_rule()
     starts, offset, fence = [], 0, None
-    for line in text.splitlines(keepends=True):
+    for line in rule.gfm_lines(text, keepends=True):
         if fence is not None:
             if rule.fence_closes(line, fence):
                 fence = None

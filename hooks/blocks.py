@@ -34,10 +34,14 @@ as an ordinary line and the walk goes on. A renderer hides everything below
 it, so below that line this walk's HIDDEN answers stand -- a renderer hides
 those lines too -- and its LIVE answers are uncertain.
 
-**Nothing inline is modelled.** A mid-line `<!--` is inline raw HTML: it may
-hide text inside its own paragraph and nothing else, so the lines after it up
-to the first `-->`, a blank line or a block start are uncertain, and nothing
-is decided about them.
+**Nothing inline is modelled.** A mid-line `<!--` is inline raw HTML, and so
+is CDATA, a processing instruction, a declaration and a tag (CommonMark 6.6):
+each may hide text inside its own paragraph and nothing else. So the lines
+after a line that leaves one open are uncertain, and nothing is decided about
+them -- after a comment up to its `-->`, a blank line or a block start; after
+any other kind up to a blank line or a block start, because a tag's end needs
+its quoted values followed across lines and the walk follows nothing inline.
+The same holds for a piece of a line (below) that starts inside one.
 
 **Where the walk does not know, it says so, and it decides nothing.** Every
 line carries an `uncertain` flag, and a reader reads an uncertain line exactly
@@ -54,7 +58,9 @@ it cannot be exact there:
     have shifted;
   - from a construct that never closes, to the end of the file, for its live
     answers (above);
-  - the paragraph lines after a mid-line `<!--` (above);
+  - the paragraph lines after inline raw HTML a line leaves open -- a
+    comment, CDATA, a processing instruction, a declaration or a tag -- and
+    a piece of a line that starts inside it (above; #667 round 2, #673);
   - a line behind a container's marker (`>`, a bullet, a number), a line
     indented four columns or more, and a blank line after either: any of
     them may be part of an indented code block, and `-     code` is one
@@ -194,6 +200,41 @@ def leaves_open(text):
     return at != -1 and CLOSER not in text[at + 2 :]
 
 
+# Inline raw HTML other than a comment (CommonMark 6.6), by its opener: a
+# CDATA section, a processing instruction, a declaration, or an open or
+# closing tag. A comment's `<!--` matches none of the four; `leaves_open`
+# reads it. Each can run past a line ending inside its paragraph and hide
+# what it holds, as a comment can (#673).
+INLINE_HTML = re.compile(r"<(?:(!\[CDATA\[)|(\?)|(![A-Za-z])|/?[A-Za-z])")
+# A tag's end: the first `>` outside a quoted attribute value.
+TAG_END = re.compile(r"""(?:[^>"']|"[^"]*"|'[^']*')*>""")
+
+
+def leaves_html_open(text):
+    """Whether TEXT ends inside inline raw HTML other than a comment that
+    began in it, as far as the delimiters alone can say: some opener in it
+    has no end after it -- CDATA no `]]>`, a processing instruction no
+    `?>`, a declaration no `>`, a tag no `>` outside a quoted value.
+
+    Every opener is asked, not only the ones a left-to-right reading would
+    reach. An opener the parser does not honour -- in a code span, after a
+    backslash, a `<` and a letter that never becomes a tag -- can find its
+    end inside a construct that is real, and reading on from that end would
+    step over the real one's opener and call the text closed while a
+    renderer hides what follows. Asking every opener errs only toward
+    calling more pieces uncertain, as `leaves_open` does for a code span.
+    """
+    for found in INLINE_HTML.finditer(text):
+        cdata, instruction, declaration = found.groups()
+        if cdata or instruction or declaration:
+            closer = "]]>" if cdata else "?>" if instruction else ">"
+            if text.find(closer, found.end()) == -1:
+                return True
+        elif TAG_END.match(text, found.end()) is None:
+            return True
+    return False
+
+
 class Walk:
     """What `walk` found, one entry per line.
 
@@ -241,7 +282,11 @@ def walk(lines):
         next_close[index] = index if CLOSER in text[index] else next_close[index + 1]
 
     all_from, live_from = None, None
-    pending, indented = False, False
+    # PENDING: the paragraph this line continues was left inside inline raw
+    # HTML. STICKY: what left it open is not a comment, whose end is not
+    # looked for below -- a tag's `>` needs its quoted values followed across
+    # lines -- so only a blank line or a block the walk follows ends it.
+    pending, sticky, indented = False, False, False
     index = 0
     while index < count:
         line = text[index]
@@ -296,10 +341,15 @@ def walk(lines):
         else:
             if pending:
                 uncertain[index] = True
-                if CLOSER in line:
+                # The whole line is asked, not only the text after its `-->`:
+                # the comment that left the paragraph open may be one the
+                # parser never formed -- a `<!--` in a code span -- and then
+                # an opener before the `-->` is real and the `-->` is text.
+                sticky = sticky or leaves_html_open(line)
+                if CLOSER in line and not sticky:
                     pending = leaves_open(line[line.index(CLOSER) + len(CLOSER) :])
-            elif leaves_open(line):
-                pending = True
+            elif leaves_open(line) or leaves_html_open(line):
+                pending, sticky = True, leaves_html_open(line)
             # A line behind a container's marker -- `>`, a bullet, a number
             # -- may hold an indented code block the marker's own column
             # decides (`-     code`), and a line indented four columns or
@@ -345,9 +395,11 @@ def walk_text(text):
     at LF, CR and CRLF alone. So the walk reads `gfm_lines(text)`, and each
     reader line takes the answer of the GFM line it starts in: a piece of a
     hidden line is hidden, a piece of a shown line is shown unless the line
-    opened an inline comment before it and left it open -- then a renderer
-    hides the piece, and the walk calls it uncertain (#667 round 2) -- and a
-    piece of a line the walk is not sure of keeps its reader's base reading.
+    opened inline raw HTML before it and left it open -- a comment (#667
+    round 2) or CDATA, a processing instruction, a declaration or a tag
+    (#673); then a renderer hides the piece, and the walk calls it
+    uncertain -- and a piece of a line the walk is not sure of keeps its
+    reader's base reading.
     An unclosed fence opener is reported at the reader line that starts where
     it does.
 
@@ -363,12 +415,14 @@ def walk_text(text):
         while line + 1 < len(renderer_starts) and renderer_starts[line + 1] <= start:
             line += 1
         at_start = start == renderer_starts[line]
-        # A piece that starts inside an inline comment its own line opened is
-        # hidden by a renderer while the line is shown (#667 round 2), so the
-        # walk is not sure of it and the reader keeps its base reading. At a
-        # line's start the text before the piece is empty and opens nothing.
-        inside = walked.kinds[line] == LIVE and leaves_open(
-            renderer[line][: start - renderer_starts[line]]
+        # A piece that starts inside inline raw HTML its own line opened -- a
+        # comment (#667 round 2) or any other kind (#673) -- is hidden by a
+        # renderer while the line is shown, so the walk is not sure of it and
+        # the reader keeps its base reading. At a line's start the text
+        # before the piece is empty and opens nothing.
+        before = renderer[line][: start - renderer_starts[line]]
+        inside = walked.kinds[line] == LIVE and (
+            leaves_open(before) or leaves_html_open(before)
         )
         kinds.append(walked.kinds[line])
         uncertain.append(walked.uncertain[line] or inside)

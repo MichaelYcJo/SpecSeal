@@ -14,18 +14,32 @@ The sweep is against the GRAMMAR, not against the module under test. Reading
 turn a case red instead of quietly narrowing the walk — the same move
 `tests/test_chain_hooks.py`'s `reader_blanking_passes` makes for the reader's
 passes, which is the precedent #262 names.
+
+**That tree is the running interpreter's, and only a run on a Python sees
+its grammar.** #684: 3.14 added two node types and removed five, and CI ran
+this module at 3.12 alone, so the promise above held only on whichever machine
+happened to have 3.14. The two table cases now check the running Python's
+slice exactly, as `ONLY_ON_SOME_PYTHONS` declares it, and
+`test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at` holds
+`.github/workflows/test.yml` to running this module at every bound of it and
+at the Python just below each.
 """
 
 import ast
+import fnmatch
 import hashlib
 import importlib.util
 import os
+import posixpath
+import re
 import shlex
 import sys
 import textwrap
 import warnings
 
 import pytest
+from conftest import code_lines
+from test_ci_gives_the_checks_what_they_need import jobs
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 SCRIPT = os.path.join(ROOT, "skills", "verify", "scripts", "arm_check.py")
@@ -110,8 +124,12 @@ def test_every_ast_constructor_is_classified():
     refusal only helps if the tables are complete enough that the refusal
     never fires on ordinary code.
 
+    It sees only the running Python's grammar, which is why CI runs this
+    module on more than one (#684).
+
     Red how: deleting `"IfExp"` from `ARM_SHAPES` leaves it in neither table
-    and this case names it. Executed.
+    and this case names it. Executed. On Python 3.14 at `346b4af7` it named
+    `Interpolation` and `TemplateStr`. Executed.
     """
     missing = grammar() - ARM.CLASSIFIED
     assert not missing, (
@@ -119,8 +137,20 @@ def test_every_ast_constructor_is_classified():
         f"an arm shape nor a named non-arm. Every arm inside one of them is "
         f"uncounted while the total still reads like a total, which is #262's "
         f"own defect one level up. Add each to `ARM_SHAPES` with how its arms "
-        f"are read, or to `NOT_ARMS` under the reason it carries none."
+        f"are read, or to `NOT_ARMS` under the reason it carries none. A name "
+        f"new in this Python also takes its first version in "
+        f"`ONLY_ON_SOME_PYTHONS`, or the case after this one goes red on every "
+        f"older Python."
     )
+
+
+def on_this_python(name, version=None):
+    """Whether `ONLY_ON_SOME_PYTHONS` places `name` on `version`, the
+    running Python's minor version when none is given. A name the table does
+    not hold is on every supported Python."""
+    version = version or sys.version_info[:2]
+    first, gone = ARM.ONLY_ON_SOME_PYTHONS.get(name, (None, None))
+    return (first is None or version >= first) and (gone is None or version < gone)
 
 
 def test_the_classification_names_nothing_the_grammar_does_not_have():
@@ -130,13 +160,224 @@ def test_the_classification_names_nothing_the_grammar_does_not_have():
     can reach, and it hides the case above: a removed node type leaves the
     count of classified names unchanged while a name the grammar gained goes
     missing. Subtracting in one direction only would pass on a table that has
-    drifted in both."""
-    extra = ARM.CLASSIFIED - grammar()
-    assert not extra, (
-        f"{sorted(extra)} — classified here and absent from this "
-        f"interpreter's `ast`. A stale name makes the tables look complete "
-        f"while a real one is missing."
+    drifted in both.
+
+    Exact per Python since #684. The tables serve every Python from the floor
+    up, and 3.14 removed five names 3.12 and 3.13 still have, so a name may be
+    absent here when `ONLY_ON_SOME_PYTHONS` says this Python lacks it. That
+    declaration is checked from both sides: a name it places on this Python
+    must be in `ast`, and one it keeps off must not be. A wrong range is then
+    red on the Python it misdescribes, and CI runs this module at every bound
+    (`test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at`).
+
+    Red how: on Python 3.14 at `346b4af7`, naming the five aliases. With
+    `TemplateStr`'s range deleted, red on 3.12 (declared present, absent).
+    With `Num`'s upper bound at 3.13, red on 3.13 (declared absent, present).
+    Executed."""
+    here = grammar()
+    placed = frozenset(n for n in ARM.CLASSIFIED if on_this_python(n))
+    stale = placed - here
+    kept_off = (ARM.CLASSIFIED - placed) & here
+    assert not stale, (
+        f"{sorted(stale)} — classified here and absent from this "
+        f"interpreter's `ast`, and `ONLY_ON_SOME_PYTHONS` does not say this "
+        f"Python lacks them. A stale name makes the tables look complete "
+        f"while a real one is missing. If the name is gone from this Python "
+        f"on purpose, give it the first Python without it in "
+        f"`ONLY_ON_SOME_PYTHONS`."
     )
+    assert not kept_off, (
+        f"{sorted(kept_off)} — `ONLY_ON_SOME_PYTHONS` says this Python "
+        f"{sys.version_info[0]}.{sys.version_info[1]} lacks them, and its "
+        f"`ast` has them. Correct the range, so the check it buys is not "
+        f"switched off on a Python that still has the name."
+    )
+
+
+def run_tests_floor():
+    """`FLOOR` from `.github/scripts/run_tests.py`, the one place the
+    supported floor is held."""
+    path = os.path.join(ROOT, ".github", "scripts", "run_tests.py")
+    spec = importlib.util.spec_from_file_location("specseal_floor_of_arm_check", path)
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return tuple(loaded.FLOOR)
+
+
+def test_the_range_table_holds_classified_names_and_bounds_above_the_floor():
+    """S5 of work item 1790690762. A range for a name the tables do not
+    classify switches nothing on or off, and reads as if it did. A bound at
+    or below the floor describes a Python this repository does not support,
+    which no case here runs and no leg of CI will.
+
+    Red how: with a range added for an unclassified name, and with a bound
+    of `(3, 12)`. Executed."""
+    unclassified = sorted(set(ARM.ONLY_ON_SOME_PYTHONS) - ARM.CLASSIFIED)
+    assert not unclassified, (
+        f"{unclassified} — ranged in `ONLY_ON_SOME_PYTHONS` and classified "
+        f"in neither `ARM_SHAPES` nor `NOT_ARMS`"
+    )
+    floor = run_tests_floor()
+    low = sorted(
+        (name, bound)
+        for name, bounds in ARM.ONLY_ON_SOME_PYTHONS.items()
+        for bound in bounds
+        if bound is not None and tuple(bound) <= floor
+    )
+    assert not low, (
+        f"{low} — a bound at or below the supported floor {floor}. Every "
+        f"supported Python is above it, so a name missing below the floor "
+        f"needs no row, and one missing at the floor is missing everywhere"
+    )
+
+
+WORKFLOW = os.path.join(ROOT, ".github", "workflows", "test.yml")
+
+_PINNED_PYTHON = re.compile(r'\bpython(?:-version)?:\s*"(\d+)\.(\d+)"')
+_THIS_MODULE = "tests/test_arm_check.py"
+# pytest's options that take a module back out of the paths it was handed.
+# These three name what they remove, so each is read for whether it names
+# this module.
+_REMOVES = ("--ignore", "--ignore-glob", "--deselect")
+# These select by an expression or by an earlier run, which no reading of the
+# line can resolve, so a job carrying one is not counted as running it.
+_UNREADABLE = (
+    "-k",
+    "-m",
+    "--lf",
+    "--last-failed",
+    "--sw",
+    "--stepwise",
+    "--co",
+    "--collect-only",
+)
+
+
+def _removes_this_module(option, value):
+    """Whether `option value` takes `_THIS_MODULE` out of what pytest runs."""
+    if option == "--ignore-glob":
+        return fnmatch.fnmatch(_THIS_MODULE, value) or fnmatch.fnmatch(
+            "tests", value.rstrip("/")
+        )
+    path = posixpath.normpath(value.split("::", 1)[0])
+    return path == _THIS_MODULE or _THIS_MODULE.startswith(path + "/")
+
+
+def selects_this_module(line):
+    """Whether the pytest invocation on `line` runs `tests/test_arm_check.py`:
+    it hands pytest the module or `tests/`, and no option takes the module
+    back out. The line is split with `shlex`, and only pytest's own
+    selection options are read; a line `shlex` cannot split counts as not
+    running it."""
+    try:
+        words = shlex.split(line)
+    except ValueError:
+        return False
+    start = next(
+        (i for i, w in enumerate(words) if posixpath.basename(w) == "pytest"), None
+    )
+    if start is None:
+        return False
+    args, named, i = words[start + 1 :], False, 0
+    while i < len(args):
+        word = args[i]
+        option, has_value, value = word.partition("=")
+        if option in _REMOVES:
+            if not has_value and i + 1 < len(args):
+                i += 1
+                value = args[i]
+            if _removes_this_module(option, value):
+                return False
+        elif option in _UNREADABLE or (word[:2] in ("-k", "-m") and word[:3] != "--"):
+            return False
+        elif posixpath.normpath(word) in ("tests", _THIS_MODULE):
+            named = True
+        i += 1
+    return named
+
+
+def pythons_ci_runs_this_module_at(text):
+    """Every `(major, minor)` a job in `text` pins while it runs pytest over
+    this module, read through `conftest.code_lines` so a commented-out leg
+    or step counts for nothing. The jobs are split by
+    `tests/test_ci_gives_the_checks_what_they_need.py#jobs`, the suite's one
+    reader of a workflow's `jobs:` block."""
+    found = set()
+    for block in jobs("\n".join(code_lines(text))).values():
+        lines = block.splitlines()
+        if any(selects_this_module(line) for line in lines):
+            for line in lines:
+                found.update((int(a), int(b)) for a, b in _PINNED_PYTHON.findall(line))
+    return found
+
+
+def test_every_bound_of_the_range_table_is_a_python_ci_runs_this_module_at():
+    """S6 of work item 1790690762. A range is only checked on the Pythons that
+    run this module, and the `pytest` job runs it at the floor alone. A bound
+    no leg of CI runs is a declaration checked on nobody's interpreter, which
+    is how #684 went unseen: 3.14 changed the grammar in both directions, and
+    the one run that met it was a contributor's `.venv`.
+
+    Both sides of a bound need a leg. A bound one Python too low is red only
+    on the bound itself, and one a Python too high is red only on the Python
+    just below it, so a range checked at its bound alone is checked in one
+    direction. A job counts only where `selects_this_module` says its pytest
+    line runs this module.
+
+    Red how: before `.github/workflows/test.yml` had a job running this module
+    at 3.13 and 3.14, naming 3.14; with the 3.13 leg deleted, naming 3.13;
+    with the job's `run:` line handing pytest `tests/` and an `--ignore` of
+    this module, naming 3.13 and 3.14. Executed."""
+    with open(WORKFLOW, encoding="utf-8") as handle:
+        ran = pythons_ci_runs_this_module_at(handle.read())
+    bounds = {
+        tuple(bound)
+        for pair in ARM.ONLY_ON_SOME_PYTHONS.values()
+        for bound in pair
+        if bound is not None
+    }
+    floor = run_tests_floor()
+    below = {
+        (major, minor - 1) for major, minor in bounds if (major, minor - 1) >= floor
+    }
+    unrun = sorted((bounds | below) - ran)
+    assert not unrun, (
+        f"{['.'.join(map(str, b)) for b in unrun]} — a bound in "
+        f"`ONLY_ON_SOME_PYTHONS`, or the Python just below one, that no job "
+        f"in test.yml runs `tests/test_arm_check.py` at (it runs it at "
+        f"{['.'.join(map(str, v)) for v in sorted(ran)]}). Add the version as "
+        f"a leg of the job that runs this module, or that side of the range is "
+        f"checked on no interpreter CI has"
+    )
+
+
+@pytest.mark.parametrize(
+    "line, runs",
+    [
+        ("- run: pytest tests/test_arm_check.py -q", True),
+        ("- run: pytest tests/ -q -n auto", True),
+        ("- run: python -m pytest tests", True),
+        ("- run: pytest tests/ --ignore=tests/test_other.py -q", True),
+        ("- run: pytest tests/ --ignore=tests/test_arm_check.py -q", False),
+        ("- run: pytest tests/ --ignore tests/test_arm_check.py", False),
+        ("- run: pytest tests/ --ignore=tests", False),
+        ("- run: pytest tests/ --ignore-glob='tests/*arm*'", False),
+        ("- run: pytest tests/ --deselect tests/test_arm_check.py::test_x", False),
+        ("- run: pytest tests/ -k 'not arm'", False),
+        ("- run: pytest tests/ -mslow", False),
+        ("- run: pytest tests/test_other.py", False),
+        ("- run: pip install pytest", False),
+        ('- run: pytest "tests/', False),
+    ],
+)
+def test_a_job_counts_only_where_its_pytest_line_selects_this_module(line, runs):
+    """S6's reader, one line at a time. A line that hands pytest `tests/` and
+    takes this module back out runs it at no Python, and a filter that only
+    pytest can resolve is not counted either.
+
+    Red how: with `_removes_this_module` answering False, and with the
+    `_UNREADABLE` branch deleted. Executed."""
+    assert selects_this_module(line) is runs
 
 
 def test_no_node_type_is_both_an_arm_and_a_non_arm():
@@ -296,6 +537,78 @@ def test_a_module_level_arm_is_named_rather_than_dropped():
     what the file holds."""
     found = ARM.arms('def f():\n    pass\n\n\nif __name__ == "__main__":\n    f()\n')
     assert ARM.counts(found) == {ARM.MODULE_SCOPE: 1}
+
+
+# --- a t-string (#684) ----------------------------------------------------
+#
+# The sources below are string literals, so this module parses on every
+# supported Python. Only 3.14 and later parse what is inside them, which is
+# why the two cases skip below it and why CI runs this module at 3.14.
+
+NEEDS_T_STRINGS = pytest.mark.skipif(
+    sys.version_info < (3, 14), reason="t-strings parse from Python 3.14 on"
+)
+
+T_STRING_BRANCH = """\
+def render(a, x, b):
+    if a:
+        return t"{x if a else b}"
+    return None
+"""
+
+# Every feature an interpolation has, in one module, so the f-string twin is
+# one text substitution: an `IfExp` value with a `!r` conversion and a format
+# spec whose nested field holds another `IfExp`, a `BoolOp` value, and a
+# comprehension with an `if` guard.
+T_STRING_FEATURES = """\
+def render(a, b, x, w, items):
+    return t"{x if a else b!r:>{w if b else 0}} and {a or b}" t"{[i for i in items if i and a]}"
+"""
+
+
+@NEEDS_T_STRINGS
+def test_a_module_holding_a_t_string_is_read_rather_than_refused():
+    """S1 of work item 1790690762. `TemplateStr` and `Interpolation` were in
+    neither table, so on a 3.14 `python3` `arm-check` refused any file with a
+    t-string in it. The arms around and inside one are counted now.
+
+    Red how: on Python 3.14 at `346b4af7`, `UnknownNodeType` naming
+    `TemplateStr`. Executed."""
+    found = ARM.arms(T_STRING_BRANCH, filename="fixture.py")
+    assert [(a.shape, a.source) for a in found] == [("If", "a"), ("IfExp", "a")]
+
+
+@NEEDS_T_STRINGS
+def test_an_interpolation_is_counted_exactly_as_an_f_string_field():
+    """S2 of work item 1790690762. An interpolation tests nothing, like the
+    `FormattedValue` it mirrors, and the walk enters its value and its format
+    spec, so an arm inside one is counted where it stands. Held against the
+    same text read as f-strings, which the rest of this module already pins.
+
+    Red how: on Python 3.14 at `346b4af7`, refused. With `Interpolation`
+    moved into `ARM_SHAPES`, the dispatch in `_node_arms` refuses it.
+    Executed."""
+    as_f = T_STRING_FEATURES.replace('t"', 'f"')
+    assert as_f != T_STRING_FEATURES
+
+    def read(arm):
+        return (arm.scope, arm.shape, arm.note, arm.source, arm.lineno)
+
+    as_template = ARM.arms(T_STRING_FEATURES, filename="fixture.py")
+    assert [read(a) for a in as_template] == [
+        read(a) for a in ARM.arms(as_f, filename="fixture.py")
+    ]
+    # The `IfExp` in the value, the one in the nested format field, and the
+    # comprehension guard's two members. `a or b` is a value, not a branch.
+    assert [(a.shape, a.source) for a in as_template] == [
+        ("IfExp", "a"),
+        ("IfExp", "b"),
+        ("comprehension", "i"),
+        ("comprehension", "a"),
+    ]
+    for arm in as_template:
+        for operator in ARM.OPERATORS:
+            ast.parse(ARM.mutate(T_STRING_FEATURES, arm, operator))
 
 
 # --- the real module ------------------------------------------------------

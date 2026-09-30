@@ -29,8 +29,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # 3.12 is the stated floor; 3.13 is what a current install resolves
-        # `python3` to, and a gate runs on whatever that name happens to be.
+        # The whole suite, at the stated floor on every platform. A newer
+        # Python is not run here: `arm-check-grammar` below runs
+        # `tests/test_arm_check.py`, whose node-type tables are known to
+        # depend on the interpreter, at the versions it names. Whether any
+        # other module's result depends on the interpreter has not been
+        # measured.
         include:
           - { os: ubuntu-latest, python: "3.12" }
           - { os: macos-latest, python: "3.12" }
@@ -105,3 +109,30 @@ jobs:
           if [ "$code" -eq 1 ]; then
             echo "::warning::evidence ledger reports drift, a malformed coordinate or an overflowing row — each row above names its verdict and what to do"
           fi
+
+  # `arm-check`'s node-type tables have to hold on every supported Python,
+  # and whether they do depends on the interpreter reading them: 3.14 added
+  # the t-string node types and removed five constant aliases, and the
+  # `pytest` job above runs only the floor, so nothing unattended saw it
+  # (#684). `ONLY_ON_SOME_PYTHONS` in `skills/verify/scripts/arm_check.py`
+  # records which names only some Pythons have, and a case in the module
+  # below refuses a bound of it, or the Python just below one, that no leg
+  # here runs. A Python that changes
+  # the grammar again is caught by adding its leg.
+  arm-check-grammar:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { python: "3.13" }
+          - { python: "3.14" }
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: pip install pytest
+      - run: pytest tests/test_arm_check.py -q

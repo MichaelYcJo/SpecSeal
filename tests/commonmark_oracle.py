@@ -16,31 +16,47 @@ is the whole point, so no rule of this repository's is written here.
 
 A line is hidden when the parser puts it in one of four places:
 
-  fence    a fenced code block, its delimiter lines included (CommonMark 4.5)
-  code     an indented code block (4.4)
-  html     an HTML block of any of the seven kinds, a comment among them
-           (4.6)
-  comment  an inline HTML comment (6.6) that the line BEGINS inside. The line
-           where the comment opens begins outside it and is not hidden;
-           every later line up to and including the one holding its `-->`
-           is
+  fence        a fenced code block, its delimiter lines included
+               (CommonMark 4.5)
+  code         an indented code block (4.4)
+  html         an HTML block of any of the seven kinds, a comment among them
+               (4.6)
+  inline html  inline raw HTML (6.6) that the line BEGINS inside: a comment,
+               a CDATA section, a processing instruction, a declaration, an
+               open tag or a closing tag -- every token the parser emits as
+               `html_inline` (#673). The line where it opens begins outside
+               it and is not hidden; every later line up to and including
+               the one holding its closer is
+
+All six inline kinds, and not the comment alone, because the block half
+already reads that way: an HTML block of every kind is `html`, and CommonMark
+6.6 renders raw HTML "without escaping" wherever it stands. Reading only the
+comment let this oracle answer "shown" on the other five, which was the
+walk's own answer there, so the two agreed by construction (#667 round 3,
+🟡 2).
 
 The parser is markdown-it-py's `commonmark` preset with GFM tables switched
 on, because the files the hooks read are rendered as GFM, and a table changes
 which lines a paragraph holds. The version is pinned in
 `.github/scripts/run_tests.py#MARKDOWN_IT`.
 
-**Where the inline comment is, the parser says.** A token carries no source
+**Where the inline HTML is, the parser says.** A token carries no source
 position, so the parser's own `html_inline` rule is wrapped: the wrapper
 calls it unchanged and writes down the offset the rule started and ended at,
-in the inline source it was reading. Nothing about what is a comment is
-decided here; only where the one the parser found lies.
+in the inline source it was reading. Nothing about what is inline HTML is
+decided here; only where the tokens the parser found lie. Where a paragraph's
+text starts, the parser says too: its own `paragraph` and `lheading` rules
+are wrapped the same way, and the wrapper counts the whole lines their strip
+dropped from the lines the parser joined behind the markers it consumed
+(#677).
 """
 
 from markdown_it import MarkdownIt
+from markdown_it.rules_block.lheading import lheading
+from markdown_it.rules_block.paragraph import paragraph
 from markdown_it.rules_inline.html_inline import html_inline
 
-FENCE, CODE, HTML, COMMENT = "fence", "code", "html", "comment"
+FENCE, CODE, HTML, INLINE_HTML = "fence", "code", "html", "inline html"
 
 BLOCK_KINDS = {"fence": FENCE, "code_block": CODE, "html_block": HTML}
 
@@ -54,34 +70,74 @@ def _recording_html_inline(state, silent):
     return found
 
 
+def _recording_lines(rule):
+    """A block rule of the parser's that joins lines into an inline token's
+    source, with the number of whole lines its strip dropped from the top
+    kept on that token as `meta["dropped"]`.
+
+    The rule is called unchanged. The lines are then joined again with the
+    same arguments the rule used, before any container around the paragraph
+    restores the line marks it moved, so each line is taken from behind the
+    container markers the parser itself consumed and no marker is read here.
+    The joined lines end in `\\n` and only there, so every `\\n` inside what
+    `lstrip` removes from the top ends a line it removed whole, whichever of
+    the characters the strip removes that line held, U+001F among them
+    (#677)."""
+
+    def recorded(state, start, end, silent):
+        count = len(state.tokens)
+        found = rule(state, start, end, silent)
+        if found and not silent:
+            for token in state.tokens[count:]:
+                if token.type == "inline" and token.map:
+                    joined = state.getLines(*token.map, state.blkIndent, False)
+                    dropped = joined[: len(joined) - len(joined.lstrip())]
+                    token.meta = {"dropped": dropped.count("\n")}
+        return found
+
+    return recorded
+
+
 def parser():
     md = MarkdownIt("commonmark").enable("table")
     md.inline.ruler.at("html_inline", _recording_html_inline)
+    md.block.ruler.at("paragraph", _recording_lines(paragraph))
+    md.block.ruler.at("lheading", _recording_lines(lheading))
     return md
 
 
 _PARSER = parser()
 
 
-def _comment_lines(inline, lines):
-    """Lines of `inline`'s source that begin inside an HTML comment in it.
+def _inline_html_lines(inline):
+    """Lines of `inline`'s source that begin inside inline raw HTML in it,
+    of any of the six kinds.
+
+    Only the inline token's own children are read, not a child's children:
+    an offset the wrapper kept is an offset in the source the rule was
+    reading, and inside an image description that is the description, not
+    the paragraph. A line that begins inside HTML nested there is a line
+    after one that left HTML open, which the walk never claims.
 
     The inline source is the paragraph's lines joined, with Python's
     `str.strip` applied to the whole by the parser. That strip also takes a
-    line holding only a no-break space or another Unicode space, which
-    CommonMark reads as paragraph text, so the lines it dropped from the top
-    are counted back before an offset is turned into a line.
+    line holding only a no-break space, another Unicode space or U+001F,
+    which CommonMark reads as paragraph text, so the lines it dropped from the top
+    are counted before an offset is turned into a line. The parser's own
+    block rule counts them, from the lines it joined behind the markers it
+    consumed (`_recording_lines`): three rounds of #673 read those markers
+    here instead, and each found one more marker read wrong (#677). A token
+    from any other rule holds one line, which a strip cannot drop whole, and
+    carries no count.
     """
     out = set()
     if not inline.map or not inline.children:
         return out
-    first = inline.map[0]
-    while first < inline.map[1] - 1 and not lines[first].lstrip(" >").strip():
-        first += 1
+    first = inline.map[0] + (inline.meta or {}).get("dropped", 0)
     src = inline.content
     starts = [0] + [n + 1 for n, ch in enumerate(src) if ch == "\n"]
     for child in inline.children:
-        if child.type != "html_inline" or not child.content.startswith("<!--"):
+        if child.type != "html_inline":
             continue
         span = child.meta or {}
         if "start" not in span:
@@ -131,29 +187,42 @@ def _hidden_commonmark(lines):
             for index in range(token.map[0], min(token.map[1], count)):
                 out.setdefault(index, kind)
         elif token.type == "inline":
-            for index in _comment_lines(token, lines):
+            for index in _inline_html_lines(token):
                 if index < count:
-                    out.setdefault(index, COMMENT)
+                    out.setdefault(index, INLINE_HTML)
     return out
 
 
+# Two marks, because no one run of characters stands everywhere inline HTML
+# can hold a piece's start. Letters stand inside any of the six kinds but one
+# place: between a closing tag's name and its `>`, where only whitespace may,
+# so there a run of Unicode spaces is put instead. A piece starts just after
+# a break, which the parser reads as whitespace, so the spaces land where one
+# space already stands.
 SENTINEL = "QzxSENTINELxzQ"
+SPACES = chr(0x2002) + chr(0x2003) + chr(0x2002) + chr(0x2003) + chr(0x2002)
 
 
-def _starts_in_a_comment(text, offset):
+def _tokens(tokens):
+    """TOKENS and every child under them, at any depth."""
+    for token in tokens:
+        yield token
+        yield from _tokens(token.children or [])
+
+
+def _starts_in_inline_html(text, offset):
     """Whether the text from OFFSET, in the middle of a CommonMark line, is
-    inside an inline HTML comment: the parser reads TEXT with a run of
-    letters put at OFFSET, and a comment it finds holds that run."""
-    marked = text[:offset] + SENTINEL + text[offset:]
-    for token in _PARSER.parse(marked):
-        if token.type != "inline":
-            continue
-        for child in token.children or []:
-            if (
-                child.type == "html_inline"
-                and child.content.startswith("<" + "!--")
-                and SENTINEL in child.content
-            ):
+    inside inline raw HTML: the parser reads TEXT with a mark put at OFFSET,
+    and an `html_inline` token it finds holds that mark.
+
+    Tokens are read at any depth, an image description's children included,
+    because the mark needs no offset. `_inline_html_lines` reads the top
+    level alone for the reason its docstring gives.
+    """
+    for mark in (SENTINEL, SPACES):
+        marked = text[:offset] + mark + text[offset:]
+        for token in _tokens(_PARSER.parse(marked)):
+            if token.type == "html_inline" and mark in token.content:
                 return True
     return False
 
@@ -167,10 +236,12 @@ def hidden_text(text):
     piece of a renderer's line. The parser is given CommonMark's lines. A
     reader line that starts a CommonMark line takes that line's answer, and so
     does a piece of a line in a block the renderer hides. **A piece of any
-    other line is asked where it starts** (#667 round 2): an inline comment
-    can open before it or close before it on the same line, so the line's
-    answer is not the piece's. Mapping a piece by its line was the walk's own
-    rule, and an oracle built on it agreed with the walk by construction.
+    other line is asked where it starts** (#667 round 2): inline raw HTML of
+    any of the six kinds can open before it or close before it on the same
+    line, so the line's answer is not the piece's. Mapping a piece by its
+    line was the walk's own rule, and an oracle built on it agreed with the
+    walk by construction; asking about comments alone did the same on the
+    other five kinds (#673).
     """
     commonmark = commonmark_lines(text)
     found = _hidden_commonmark([line.rstrip("\r\n") for line in commonmark])
@@ -184,8 +255,8 @@ def hidden_text(text):
         if start == renderer_starts[line] or kind in (FENCE, CODE, HTML):
             if kind:
                 out[index] = kind
-        elif _starts_in_a_comment(text, start):
-            out[index] = COMMENT
+        elif _starts_in_inline_html(text, start):
+            out[index] = INLINE_HTML
     return out
 
 

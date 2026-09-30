@@ -311,7 +311,14 @@ def gfm_lines(text, keepends=False):
     only at a line end or on a blank line keeps its hash, because all eight
     are whitespace to `str.isspace` and `normalise` drops them. No tracked
     file in this repository held any of the eight when the switch was made,
-    so no row's hash here moved."""
+    so no row's hash here moved.
+
+    **A copy of `skills/verify/scripts/unverified_check.py#gfm_lines`**, the
+    one every other reader of markdown and record text splits with. This
+    file keeps its own for the reason `VENDORED_FENCE_RE` does: `evidence-ci`
+    runs it alone in a user's `tools/`, where the shared reader is not
+    beside it. `tests/test_every_reader_ends_a_line_where_gfm_does.py` holds
+    the two equal."""
     lines = GFM_LINE_RE.findall(text)
     return lines if keepends else [line.rstrip("\r\n") for line in lines]
 
