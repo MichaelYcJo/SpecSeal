@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 691 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `00ed11bede7e416b5dee56de688831bfecf948b2..9f5261c53cf866ac056289d9b184e23db229d02f`, 3 commits |
 | Contract changes | test_a_broken_shared_module_names_every_gate_that_imports_it → round-2-report.md, round-2.md |
 | New units | none |
