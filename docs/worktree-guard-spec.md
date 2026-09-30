@@ -276,11 +276,12 @@ git invocation to this guard, and it says nothing. `nice` sat in that group
 until #670 enumerated the programs that run their operands as a command
 (`cmdline.RUNNERS`); since then it is read past and sits in the first. A
 redirection in front of `git` or before its subcommand (`2>/dev/null git
-worktree add …`, `git 2>/dev/null worktree add …`) joined it with #674:
-without consent that is a creation, and with consent the `>` fails the second
-test above, so the user's own settings decide it. One the splitter cuts at `&`
-(`git 2>&1 worktree add …`) is glued back only by the commit gate, and this
-guard does not read it, as before. `parse_git` expands nothing and compares that
+worktree add …`, `git 2>/dev/null worktree add …`, `git 2>&1 worktree add
+…`) and zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or `foreach i
+(…)` in front of it sit in the second group: #674 taught the commit gate to read past them,
+and this guard reads a command through `hooks/cmdline_base.py`, the reader
+frozen at `86256492`, which does not (#689, §*Which tree*). So this guard
+says nothing about them, as at the base. `parse_git` expands nothing and compares that
 last component, so `~/git`, `*/git` and `$HOME/git` belong to the first group.
 What the class costs is the
 allow on `/usr/bin/git worktree add …`, which is the trade already made for `$`
@@ -556,11 +557,35 @@ the session's own directory instead. `git -C <path>` names it
 outright, and a `cd` earlier in the command moves the shell to it — this guard
 is the reason a session is in that shape at all, since it refuses a switch and
 tells the user to work in a separate worktree, so the session stays where it
-was while the commands do not. Both are read the same way the commit gate
-reads them (`commit-review-gate-spec.md` §Which repository). A redirection
-among the `cd`'s words (`cd W 2>/dev/null`, `2>/dev/null cd W`, `cd>/dev/null
-W`) moves it too, since round 2 of work item 1790660768; until then the switch
-was judged in the session's own tree while it ran in W.
+was while the commands do not. The whole command is read the way the release
+base `86256492` read it, and not the way the commit gate reads it since #674
+(#689): which segments are git, the `-C` values each names, where every `cd`
+lands. This guard and the consent writer read it through
+`hooks/cmdline_base.py`, which is that commit's `hooks/cmdline.py` copied byte
+for byte, and never through `hooks/cmdline.py`.
+
+The reason is that this guard takes one answer where the gate takes all of
+them. It judges the first segment of each kind and the first directory in it
+that names a tree. The gate's wider reading finds more segments and more
+directories than the base's, and while the guard shared it, which one came
+first decided the tree. Each way of ordering the two that was tried met a
+command where what came first was a segment or a directory bash never ran the
+switch in: a `cd` that failed, a branch an `||` skipped, or a `2>/dev/null git
+switch` in front of the switch the base judged. Reading through a frozen copy
+makes the guard's answer the base's by construction.
+
+The cost is what #674 taught the gate and this guard does not read. A `cd`
+with a redirection among its words (`cd W 2>/dev/null`, `2>/dev/null cd W`,
+`cd>/dev/null W`, `2>&1 cd W`) does not move the tree this guard judges or the
+clone consent is filed under, while bash runs the switch in W. A git behind a
+redirection or behind zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or
+`foreach i (…)` is not git to this guard, so it says nothing there
+(§*Creation consent*'s command-word groups). Round 2 of work item 1790660768
+made the guard read the first and #674 the second, and #689 took both back as
+the accepted cost. The commit gate still reads both. #692, the redesign of how
+the gates learn where a command acts, decides the guard's reading again, and
+deletes the frozen copy.
+`tests/test_guard_resolves_the_tree_it_judges.py` holds the base's answers.
 
 The advice follows the same tree. A command a reason tells the person to run —
 the worktree steer, a choice's option, the switch steer, the tracked-changes

@@ -85,7 +85,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # `hooks/optin.py` owns resolving a repository's git directories. Plain
 # filenames mean `sys.modules` deduplicates both when `dispatch.py` runs
 # several gates in one process.
-import cmdline
+#
+# The reader is `hooks/cmdline_base.py`, frozen at `86256492`, the one the
+# worktree guard reads through (#689), so the clone a creation is filed under
+# is the one the guard judged and the one the release base filed. The commit
+# gate imports this module for `automation_answered` alone, which reads no
+# command line.
+import cmdline_base as cmdline
 import console
 import optin
 
@@ -427,6 +433,11 @@ def creation_directory(command: str, cwd: str) -> str:
     directory, which is where the shell started. Getting that wrong lands the
     record in the wrong clone, so the next creation asks -- one prompt, on the
     side a guard should fail.
+
+    Every reading here is `hooks/cmdline_base.py`'s, the reader frozen at
+    `86256492` that the guard reads through, so the creation found and the
+    clone filed are the ones the guard judged and the ones `86256492` filed
+    (#689).
     """
     text = cmdline.drop_heredoc_bodies(cmdline.drop_comments(command))
     items, _clean = cmdline.split_segments_with_separators(text)

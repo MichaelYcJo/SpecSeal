@@ -14,7 +14,7 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 | `skills/agent-contract/SKILL.md` §12 | The finding names an instance and the fix is owed to the class. Round 2 of `1790644505` fixed the three `watch` placements its report listed, and round 3 found six more. This frame enumerates positions and redirection forms from the grammar, not from a report |
 | `skills/agent-contract/SKILL.md` §13 | Today a deep nesting is answered by the interpreter's recursion limit. The depth bound makes the answer independent of it, and the case pins that |
 | `skills/agent-contract/SKILL.md` §15 | Every new row is seen red at `86256492` before it is planted |
-| `hooks/cmdline.py` module docstring, and the comment in `_heredoc_split` ("Two models of one question have to answer it the same way") | The gate and the worktree guard share one reading of a command word. A change to `command_word`, `_git_options` or `understood` reaches both, so this frame states what the guard sees (§*What the worktree guard sees*) and does not build a second reader for the gate alone |
+| `hooks/cmdline.py` module docstring, and the comment in `_heredoc_split` ("Two models of one question have to answer it the same way") | The gate and the worktree guard share one reading of a command word. A change to `command_word`, `_git_options` or `understood` reaches both, so this frame states what the guard sees (§*What the worktree guard sees*) and does not build a second reader for the gate alone. **Corrected 2026-09-30** by #689 (work item 1790745049): the guard no longer shares this reading. It reads through `hooks/cmdline_base.py`, the reader frozen at `86256492`, so none of this work item's changes reach it, and §*What the worktree guard sees* describes the guard before #689 |
 
 ## What the tree says, read before this frame
 
@@ -318,6 +318,12 @@ the prompt budget below is a count and not a hope:
   silent where the base judges, however benign the command.
 
 ## What the worktree guard sees
+
+**Corrected 2026-09-30** by #689 (work item 1790745049): this section describes
+the guard as this work item built it. Since #689 the guard and the consent
+writer read through `hooks/cmdline_base.py`, the reader frozen at `86256492`,
+so none of the bullets below holds for them any more; the commit gate keeps
+every reading this frame asks for.
 
 `command_word`, `_git_options` and `understood` are shared. So:
 

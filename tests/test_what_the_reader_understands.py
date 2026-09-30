@@ -782,11 +782,14 @@ def test_the_understood_check_can_fail():
 
 def test_the_guard_reads_the_same_answer():
     """S13. Issue #68's rounds twice fixed one gate and left the other, so the
-    guard is asserted rather than assumed. It shares `walk_directories`
-    through `hooks/worktree-guard.py:219`.
+    guard is asserted rather than assumed. It reads the walk through
+    `walk_command` in `hooks/worktree-guard.py`, and since #689 that walk is
+    `hooks/cmdline_base.py`'s, `86256492`'s reader frozen, where the commit
+    gate takes `cmdline.walk_directories`; an `eval` is refused by both.
 
     `wg.cmdline` rather than the `reader` above: the guard reaches its reader
-    with a plain `import cmdline`, which goes through `sys.modules`, while
+    with a plain `import cmdline_base as cmdline`, which goes through
+    `sys.modules`, while
     `load_hook_module` builds a second instance under its own name. The two
     `Unresolved` classes are then different objects and `isinstance` is False
     across them -- which is a test that passes for the wrong reason waiting to
