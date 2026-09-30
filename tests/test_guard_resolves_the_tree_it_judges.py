@@ -874,6 +874,8 @@ ZSH_PREFIXED = (
     "cd w && for i (1) git {verb}",
     "cd w && noglob git {verb}",
     "cd w && nocorrect git {verb}",
+    # Round 2 of 1790745049, white 3: `542f920b`'s guard read `foreach` too.
+    "cd w && foreach i (1) git {verb}; end",
 )
 
 

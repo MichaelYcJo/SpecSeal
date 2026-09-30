@@ -34,7 +34,7 @@ from test_no_shape_the_base_stops_reads_silent import make_repo
 
 gate = load_hook_module("commit-review-gate.py", "crg_reserved_words")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "hooks"))
-import cmdline  # noqa: E402  -- the plain name both gates import
+import cmdline  # noqa: E402  -- the plain name the commit gate imports
 
 C = "git commit -m x"
 UNRESOLVED, HERE = "unresolved", "here"

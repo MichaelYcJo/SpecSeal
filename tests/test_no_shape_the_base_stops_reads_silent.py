@@ -40,7 +40,7 @@ from test_the_guard_asks_once_per_session import ask_entries, write_transcript
 
 gate = load_hook_module("commit-review-gate.py", "crg_no_new_silent")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "hooks"))
-import cmdline  # noqa: E402  -- the plain name both gates import
+import cmdline  # noqa: E402  -- the plain name the commit gate imports
 import worktree_consent  # noqa: E402  -- the plain name the gate imports
 
 # A program that hands its stdin to a shell, which is what makes a heredoc

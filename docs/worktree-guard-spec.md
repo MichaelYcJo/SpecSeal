@@ -277,8 +277,8 @@ until #670 enumerated the programs that run their operands as a command
 (`cmdline.RUNNERS`); since then it is read past and sits in the first. A
 redirection in front of `git` or before its subcommand (`2>/dev/null git
 worktree add …`, `git 2>/dev/null worktree add …`, `git 2>&1 worktree add
-…`) and zsh's `noglob`, `nocorrect`, `repeat N` or `for i (…)` in front of
-it sit in the second group: #674 taught the commit gate to read past them,
+…`) and zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or `foreach i
+(…)` in front of it sit in the second group: #674 taught the commit gate to read past them,
 and this guard reads a command through `hooks/cmdline_base.py`, the reader
 frozen at `86256492`, which does not (#689, §*Which tree*). So this guard
 says nothing about them, as at the base. `parse_git` expands nothing and compares that
@@ -578,12 +578,13 @@ The cost is what #674 taught the gate and this guard does not read. A `cd`
 with a redirection among its words (`cd W 2>/dev/null`, `2>/dev/null cd W`,
 `cd>/dev/null W`, `2>&1 cd W`) does not move the tree this guard judges or the
 clone consent is filed under, while bash runs the switch in W. A git behind a
-redirection or behind zsh's `noglob`, `nocorrect`, `repeat N` or `for i (…)`
-is not git to this guard, so it says nothing there (§A's command-word
-groups). Round 2 of work item 1790660768 made the guard read the first and
-#674 the second, and #689 took both back as the accepted cost. The commit gate
-still reads both. #692, the 0.17.0 redesign, decides the guard's reading
-again, and deletes the frozen copy.
+redirection or behind zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or
+`foreach i (…)` is not git to this guard, so it says nothing there
+(§*Creation consent*'s command-word groups). Round 2 of work item 1790660768
+made the guard read the first and #674 the second, and #689 took both back as
+the accepted cost. The commit gate still reads both. #692, the redesign of how
+the gates learn where a command acts, decides the guard's reading again, and
+deletes the frozen copy.
 `tests/test_guard_resolves_the_tree_it_judges.py` holds the base's answers.
 
 The advice follows the same tree. A command a reason tells the person to run —

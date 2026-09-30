@@ -21,7 +21,7 @@
   The cost, for the guard only: what #674 taught the commit gate to read is
   not read here. A `cd` with a redirection among its words (`2>/dev/null cd
   W`, `cd W 2>/dev/null`) does not move the tree the guard judges, and a git
-  behind a redirection or zsh's `noglob`, `nocorrect`, `repeat N` or `for i
-  (…)` is not a git command to it, as on the release base. The commit gate
-  still reads both. The 0.17.0 redesign (#692) decides the guard's reading
-  again.
+  behind a redirection or zsh's `noglob`, `nocorrect`, `repeat N`, `for i
+  (…)` or `foreach i (…)` is not a git command to it, as on the release base.
+  The commit gate still reads both. #692, the redesign of how the gates learn
+  where a command acts, decides the guard's reading again.

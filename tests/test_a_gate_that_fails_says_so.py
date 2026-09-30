@@ -22,6 +22,7 @@ import shutil
 import subprocess
 import sys
 
+import pytest
 from conftest import decision_of, load_hook_module
 
 HOOKS = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "hooks"))
@@ -298,20 +299,41 @@ def gates_said(lines):
     return [line.split(" ", 1)[0] for line in lines[1:-1]]
 
 
-def test_a_broken_shared_module_names_every_gate_that_imports_it(repo, tmp_path):
-    """S6. `cmdline.py` is imported by two `pre-bash` gates and two
-    `post-bash` gates, and every one of them is said, once, with no gate
-    that does not import it. The `post-bash` call is not a commit: a copy of
-    `hooks/` has no `skills/` beside it, so `evidence-advisor.py` would fail
-    at run on a commit for want of its checker, which is the fixture and not
-    `cmdline.py`.
+@pytest.mark.parametrize(
+    "broken, named",
+    [
+        ({"cmdline.py": BROKEN}, ["commit-review-gate.py", "implementer-notice.py"]),
+        ({"cmdline_base.py": BROKEN}, ["worktree-guard.py", "worktree_consent.py"]),
+        (
+            {"cmdline.py": BROKEN, "cmdline_base.py": BROKEN},
+            [
+                "commit-review-gate.py",
+                "worktree-guard.py",
+                "implementer-notice.py",
+                "worktree_consent.py",
+            ],
+        ),
+    ],
+    ids=["cmdline", "cmdline_base", "both"],
+)
+def test_a_broken_shared_module_names_every_gate_that_imports_it(
+    repo, tmp_path, broken, named
+):
+    """S6. A broken shared reader names every gate that imports it, once, and
+    no gate that does not. `cmdline.py` is imported by the commit gate and
+    `implementer-notice.py`; since #689 `cmdline_base.py`, the reader frozen at
+    `86256492`, is imported by the worktree guard and `worktree_consent.py`. The
+    commit gate's own import of `worktree_consent` is guarded, so a broken
+    `cmdline_base.py` does not name it. The `post-bash` call is not a commit: a
+    copy of `hooks/` has no `skills/` beside it, so `evidence-advisor.py` would
+    fail at run on a commit for want of its checker, which is the fixture and
+    not the reader.
 
-    Changed by #689: the worktree guard and the consent writer import
-    `cmdline_base.py`, the reader frozen at `86256492`, instead of
-    `cmdline.py`, so breaking `cmdline.py` alone named two gates. Both shared
-    readers are broken here, and the four gates that import one are said."""
+    Changed by #689 twice. Round 1's fix pass broke both readers at once to
+    keep four gates named, which lost the per-module "no gate that does not"
+    (round 2 of 1790745049, white 4); each reader is now broken alone as well."""
     opted_in(repo)
-    hooks = hooks_copy(tmp_path, {"cmdline.py": BROKEN, "cmdline_base.py": BROKEN})
+    hooks = hooks_copy(tmp_path, broken)
     dispatch(hooks, "pre-bash", bash(repo, "s-x"))
     dispatch(
         hooks,
@@ -324,13 +346,8 @@ def test_a_broken_shared_module_names_every_gate_that_imports_it(repo, tmp_path)
     for path in (repo / ".git" / RECORDS / "s-x").iterdir():
         os.utime(path, ns=(10**18, 10**18))
     lines = said(stop(hooks, repo, "s-x"))
-    assert lines[0] == "SpecSeal: 4 gates failed and were skipped", lines
-    assert gates_said(lines) == [
-        "commit-review-gate.py",
-        "worktree-guard.py",
-        "implementer-notice.py",
-        "worktree_consent.py",
-    ], lines
+    assert lines[0] == f"SpecSeal: {len(named)} gates failed and were skipped", lines
+    assert gates_said(lines) == named, lines
     assert lines[-1] == CLOSING
 
 
