@@ -427,10 +427,14 @@ def creation_directory(command: str, cwd: str) -> str:
     directory, which is where the shell started. Getting that wrong lands the
     record in the wrong clone, so the next creation asks -- one prompt, on the
     side a guard should fail.
+
+    The directories are `cmdline.base_directories`', the reading the guard
+    takes, so the clone filed is the one the guard judged and the one
+    `86256492` filed (#689).
     """
     text = cmdline.drop_heredoc_bodies(cmdline.drop_comments(command))
     items, _clean = cmdline.split_segments_with_separators(text)
-    for tokens, wheres in cmdline.walk_directories(items, cwd):
+    for tokens, wheres in cmdline.base_directories(items, cwd):
         if not cmdline.adds_a_worktree(tokens):
             continue
         here = cwd

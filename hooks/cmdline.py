@@ -1270,7 +1270,8 @@ def _expanded(tokens, env):
     A `cd` destination and a `git -C` value, and nothing else. Two call sites
     read one of those (`_cd_target`, `parse_git`) and both are reached through
     the token list rather than through a new argument, so every consumer of
-    `walk_directories` — both gates and the worktree guard — reads the filled
+    the walk — the commit gate through `walk_directories`, the worktree guard
+    and the consent writer through `base_directories` — reads the filled
     operand without being changed.
 
     The command WORD is deliberately left alone. `CMD=git; $CMD commit` stays
@@ -2473,6 +2474,11 @@ def compose(base, chdirs):
 def walk_directories(items, cwd):
     """[(tokens, wheres)] — the directories each segment may run in.
 
+    The commit gate's reading, and since #689 the commit gate's alone: it
+    judges every directory in `wheres`, so its answer does not depend on
+    their order. The worktree guard and the consent writer take one
+    directory, and they read `base_directories` instead.
+
     `items` comes from `split_segments_with_separators`. `wheres` is a tuple
     because one command can leave the shell in more than one place: after
     `cd X || …`, and equally after `cd X ; …`, the shell is in X if the `cd`
@@ -2494,6 +2500,43 @@ def walk_directories(items, cwd):
     command reaches sits in one repository the operator does not matter at
     all, and that is the common `cd src && git commit` — the caller collapses
     those by repository root and the verdict is unchanged.
+    """
+    return [(tokens, wheres) for tokens, wheres, _base in _walk(items, cwd)]
+
+
+def base_directories(items, cwd):
+    """[(tokens, wheres)] — the directories `86256492`'s walk named, and only those.
+
+    The worktree guard and the consent writer read this (#689). Each takes ONE
+    directory per segment, the first it can name, so where a segment has more
+    than one the order decides the tree it judges and the clone consent is
+    filed under. `walk_directories` gives the walk's own directories and the
+    base's in one tuple, and every attempt to order the two for those readers
+    was met by another command: I's round 2, I's Q7, and #689's round 3 each
+    found a chain where the walk's directory led and was one bash never ran
+    the command in. So these two readers stopped reading the walk at all.
+
+    What is returned is the walk's sixth thread, the base's states and parked
+    failures as `86256492` took them, unplaced by the as-written reading of the
+    command word alone, which is the flag `86256492` read. Nothing #674 added
+    beside the base reaches it: not `understood`'s refusal past a
+    redirection, not a `cd` landed past one, not the glued group. So a `cd`
+    behind a redirection (`2>/dev/null cd W`, `cd W 2>/dev/null`) does not
+    move the tree the guard judges, exactly as at `86256492`; the commit gate
+    still judges W. That is the accepted cost of the containment.
+    """
+    return [(tokens, base) for tokens, _wheres, base in _walk(items, cwd)]
+
+
+def _walk(items, cwd):
+    """[(tokens, wheres, base)] — both readings of every segment, from one walk.
+
+    WHERES is `walk_directories`' answer and BASE is `base_directories'`. They
+    are computed together because both threads read one segment's expanded
+    words and one `cd` target, and a second loop would be a second copy of
+    those to drift from the first. The names are written by the as-written
+    reading alone, which is the base's, so the words both threads read are
+    the words `86256492` read.
     """
     # `states` are the shells a segment runs in when everything before it
     # worked. `parked` are the ones a command before it FAILED in — they wait,
@@ -2534,7 +2577,8 @@ def walk_directories(items, cwd):
     # walked in full collapsed here, and the base's stop was lost. This thread
     # takes none of those additions, collapses at the base's own length, and
     # its directories are added behind every segment's answer, so the cap can
-    # take only what #674 added.
+    # take only what #674 added. Its directories alone are also what
+    # `base_directories` returns (#689).
     base_states, base_parked = [(cwd, None)], []
     # A `cd` behind a redirection the splitter cut (`2>&1 cd W`) arrives as a
     # part whose first word is the descriptor, so the walk read a program
@@ -2577,19 +2621,29 @@ def walk_directories(items, cwd):
         placed = bool(first) and os.path.basename(first[0]) == "git"
         if first_unplaced or second_unplaced:
             wheres = _unplaced(wheres)
-        if first_unplaced or (second_unplaced and not placed):
+        if first_unplaced:
+            # `86256492` unplaced a segment on this reading and no other, so
+            # this is the answer `base_directories` gives (#689).
             base_wheres = _unplaced(base_wheres)
-        # The base's directories go behind the walk's, since the worktree
-        # guard and the consent writer take the first one -- and in front of
-        # a walk that names none, which is the collapse past `STATE_CAP` or a
-        # segment only the second reading unplaced. Behind it the guard would
-        # read the session's own tree there, where `86256492` judged the
-        # base's first directory.
+        as_based = base_wheres
+        if second_unplaced and not placed:
+            base_wheres = _unplaced(base_wheres)
+        # The base's directories go behind the walk's, and in front of a walk
+        # that names none, which is the collapse past `STATE_CAP` or a segment
+        # only the second reading unplaced. The rule was written for the
+        # worktree guard and the consent writer, which take the first
+        # directory and read `base_directories` since #689. It is kept for the
+        # commit gate, whose answer it does not change but whose reason does:
+        # the deny names its first stopped target and lists the unresolved
+        # ones in this order, so reordering them would rewrite the text a
+        # person reads for the same commands.
         if any(not isinstance(w, Unresolved) for w in wheres):
             ordered = wheres + base_wheres
         else:
             ordered = base_wheres + wheres
-        walked.append((tokens, _directories([(w, None) for w in ordered])))
+        walked.append(
+            (tokens, _directories([(w, None) for w in ordered]), tuple(as_based))
+        )
 
         target = _cd_target(tokens)
         moved = [
@@ -2604,9 +2658,10 @@ def walk_directories(items, cwd):
         # where it was: silence from a session that is not opted in, and
         # under `[no-review]` over a parity arm, where `cd W` stops. The
         # landing read past it is ADDED in front of that answer and never
-        # replaces it, so the commit gate judges both, and the worktree guard
-        # and the consent writer, which take the first directory they can
-        # name, take the one the shell went to.
+        # replaces it, so the commit gate judges both. It never reaches the
+        # base's thread, so the worktree guard and the consent writer, which
+        # read that thread alone (`base_directories`, #689), judge the
+        # directory `86256492` judged.
         #
         # The glued view is asked only where no earlier part of its group
         # held a `cd`. In `cd W 2>&1` the splitter's first part is `cd W 2>`,

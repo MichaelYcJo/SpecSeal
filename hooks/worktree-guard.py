@@ -249,9 +249,17 @@ def walk_command(command: str, cwd: str, windows=None):
     `wheres` can hold more than one directory (a `||` leaves the shell in two
     possible places) and can hold one the reader could not compute. The caller
     decides what to do with that; see `main`.
+
+    The directories are `cmdline.base_directories`', the ones `86256492`'s
+    walk named, and never the commit gate's wider reading (#689). `main`
+    judges the first directory that classifies, so the order of a segment's
+    directories picks the tree, and the wider reading's order was met by a
+    new command every time it was fixed. The cost is that a `cd` behind a
+    redirection (`2>/dev/null cd W`) does not move the tree judged here, as it
+    did not at `86256492`, while the commit gate judges W.
     """
     items, _clean = _tokenize_with_separators(_judgment_text(command), windows)
-    return cmdline.walk_directories(items, cwd)
+    return cmdline.base_directories(items, cwd)
 
 
 # RIDER: no production caller reaches this any more. `main` reads the command

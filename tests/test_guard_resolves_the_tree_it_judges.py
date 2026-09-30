@@ -16,6 +16,7 @@ import shlex
 import shutil
 import subprocess
 
+import pytest
 from conftest import load_hook_module
 
 wg = load_hook_module("worktree-guard.py", "wg_tree")
@@ -665,15 +666,21 @@ def test_every_printed_command_names_the_tree_it_is_about(
                     )
 
 
-def test_a_cd_behind_a_redirection_moves_the_tree_the_guard_judges(
+def test_a_cd_behind_a_redirection_leaves_the_guard_on_the_tree_the_base_judged(
     monkeypatch, capsys, repo, tmp_path
 ):
-    """Round 2 of 1790660768. A redirection among a `cd`'s words is the
-    shell's, and the switch runs in the tree the `cd` reached. The walk read
-    it as an operand or as the program, and the guard judged the clean
-    session tree instead of the dirty one the switch lands in -- silent at
-    `86256492` and at #674's head. The consent writer filed the creation
-    under the session's clone for the same reason."""
+    """Round 2 of 1790660768 made the guard judge the tree a `cd` behind a
+    redirection reaches, and #689 took that back: the guard and the consent
+    writer read `cmdline.base_directories`, which is `86256492`'s walk, and
+    that walk does not land these `cd`s. So the guard judges the clean
+    session tree and is silent, and the consent writer files the creation
+    under the session's clone, while bash runs both in the dirty `w`. That is
+    the containment's accepted cost, recorded in #689's spec. The commit gate
+    still lands each `cd` (`test_no_shape_the_base_stops_reads_silent.py`).
+
+    Changed by #689 rather than deleted. It asserted `ask` naming `f.txt`,
+    and the consent writer filing under `w`; at the containment it failed on
+    the first command with `silent`, the answer `86256492` gives."""
     session = tmp_path / "session"
     session.mkdir()
     subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
@@ -685,12 +692,11 @@ def test_a_cd_behind_a_redirection_moves_the_tree_the_guard_judges(
         "cd>/dev/null w && git switch feature/x",
     ):
         decision, reason, _ = run(monkeypatch, capsys, command, session)
-        assert decision == "ask", (command, decision, reason)
-        assert "f.txt" in reason, (command, reason)
+        assert decision == "silent", (command, decision, reason)
     acted = wg.worktree_consent.creation_directory(
         "2>/dev/null cd w && git worktree add ../wt", str(session)
     )
-    assert os.path.samefile(acted, session / "w"), acted
+    assert os.path.normpath(acted) == str(session), acted
 
 
 def test_a_chain_past_the_walks_cap_keeps_the_tree_the_base_judged(
@@ -716,3 +722,75 @@ def test_a_chain_past_the_walks_cap_keeps_the_tree_the_base_judged(
         chain + "git worktree add ../wt", str(session)
     )
     assert os.path.samefile(acted, session / "w"), acted
+
+
+# --- #689: the guard and the consent writer read the base's directories ---
+#
+# Each chain below is one where the order of the walk's two threads decided
+# the tree, and every attempt to order them was met by another chain (#689).
+# The guard and the consent writer now read the base's thread alone
+# (`cmdline.base_directories`), so each judges the tree `86256492` judged,
+# which is the dirty `w` bash runs the command in. `{missing}` is never
+# created and `{other}` is a clean repository of its own.
+BASE_TREE_CHAINS = {
+    # Round 3 of #689's report: past `STATE_CAP` the walk collapses, and the
+    # `cd {missing} ||` gives it a readable directory on the branch the `||`
+    # skips, which led the base's thread.
+    "the round-3 chain past the cap": "cd w; "
+    + "2>/dev/null cd nosuch; " * 9
+    + "cd {missing} || ",
+    # PR #690's residuals. A `cd` landed past its redirection into a directory
+    # that does not exist led, so the guard found no repository there and
+    # fell back to the clean session tree.
+    "a landing into a missing directory, then a semicolon": "cd w; "
+    "2>/dev/null cd {missing}; ",
+    "a glued landing into nothing, then one into a repository": "cd w; "
+    "cd>/dev/null {missing} && 2>/dev/null cd {other}\n",
+}
+
+
+def _a_dirty_w_under_a_clean_session(repo, tmp_path):
+    session = tmp_path / "session"
+    session.mkdir()
+    subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
+    shutil.copytree(repo, session / "w")
+    (session / "w" / "f.txt").write_text("changed on purpose\n")
+    other = tmp_path / "O"
+    shutil.copytree(repo, other)
+    return session, other
+
+
+@pytest.mark.parametrize("name", sorted(BASE_TREE_CHAINS))
+def test_the_guard_judges_the_tree_the_base_judged_whatever_the_walk_leads(
+    monkeypatch, capsys, repo, tmp_path, name
+):
+    """#689. At `542f920b` each chain was silent: the walk's directory led the
+    base's, and it was either a directory the `||` skips or one the `cd`
+    never reached. `86256492` asked about the dirty `w`, and so does this."""
+    session, other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    chain = BASE_TREE_CHAINS[name].format(
+        missing=tmp_path / "nosuch-either", other=other
+    )
+    decision, reason, top = run(
+        monkeypatch, capsys, chain + "git switch feature/x", session
+    )
+    assert decision == "ask", (name, decision, reason)
+    assert "f.txt" in reason, (name, reason)
+    assert top and os.path.samefile(top, session / "w"), (name, top)
+
+
+@pytest.mark.parametrize("name", sorted(BASE_TREE_CHAINS))
+def test_the_consent_writer_files_where_the_base_filed_whatever_the_walk_leads(
+    repo, tmp_path, name
+):
+    """#689, the consent twin. At `542f920b` the writer filed each creation
+    under the walk's first directory, the skipped or unreached one; bash
+    creates from `w`, and `86256492` filed it there."""
+    session, other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    chain = BASE_TREE_CHAINS[name].format(
+        missing=tmp_path / "nosuch-either", other=other
+    )
+    acted = wg.worktree_consent.creation_directory(
+        chain + "git worktree add ../wt", str(session)
+    )
+    assert os.path.normpath(acted) == str(session / "w"), (name, acted)
