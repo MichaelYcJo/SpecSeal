@@ -28,8 +28,7 @@
   redirection (`bash -c 2>/dev/null -- "$CMD"`). bash or zsh committed for
   each. A `cd` with a redirection after its operand (`cd W 2>/dev/null && git
   commit`) now lands in W too. It was silent from a directory that is not
-  opted in and under `[no-review]`. The worktree guard and the worktree
-  consent record keep the release base's reading of that `cd` (#689).
+  opted in and under `[no-review]`.
 
   The change only adds stops. Every reader asks what it asked before and adds
   to it. A long chain of `cd` segments, such as nine `2>/dev/null cd W;` in a
@@ -42,5 +41,6 @@
   recorded in the milestone's runs, none changes its verdict. A string's
   command word behind a runner's own options now counts when it expands
   (`sh -c 'timeout 5 wc -l "$1"'` stops), because the reader cannot tell an
-  option's value from the program. The worktree guard shares the redirection
-  reading, so `2>/dev/null git worktree add` now meets it too.
+  option's value from the program. All of this is the commit gate's: the
+  worktree guard and the worktree consent record keep the release base's
+  reading of a command (#689).

@@ -374,9 +374,11 @@ So each place a program word stands is read past what the shell takes off it:
   to one (`cd W 2>/dev/null`, `cd W>/dev/null`), is the shell's as well. The
   landing read past any of these is added in front of the directory the walk
   read with it, and the gate judges both. The worktree guard and the consent
-  writer do not read it. They take one directory per segment, so since #689
-  they read the base's directories alone, and for them this `cd` does not
-  move the shell (`worktree-guard-spec.md` §*Which tree*).
+  writer read none of this list's additions. They take one answer where the
+  gate takes all, so since #689 they read a command through a frozen copy of
+  `86256492`'s reader, and for them this `cd` does not move the shell and a
+  git behind a redirection or a zsh prefix is not git
+  (`worktree-guard-spec.md` §*Which tree*).
 - **A redirection glued to the end of a word** (`git>/dev/null commit`, `git
   commit>/dev/null`, `sh>/dev/null -c`) is cut off into a view read beside the
   segment, adding only what the segment did not find. A descriptor in front
@@ -427,9 +429,9 @@ length, and every segment's directories are the walk's followed by that
 thread's (question Q7 of work item 1790660768). Where the walk names none,
 the base's come first. This gate judges every directory, so that order
 decides none of its answers, but it is the order the deny names its targets
-in. The worktree guard and the consent writer take one directory per segment
-and read the base's thread alone (#689), so no order of the two decides the
-tree they judge. The `cd` behind a redirection, the depth bound and
+in. The worktree guard and the consent writer do not read this walk: they read
+through a frozen copy of `86256492`'s reader (#689), so no order of the two
+decides the tree they judge. The `cd` behind a redirection, the depth bound and
 the cap are held by `tests/test_no_shape_the_base_stops_reads_silent.py`.
 Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
 

@@ -42,7 +42,11 @@ thread before that step, so it unplaces on the as-written reading alone,
 which is the flag `86256492` read. Where it matters, `86256492` found no git
 in the segment at all, so no base answer is being departed from; the case
 `test_a_segment_only_the_reading_past_redirections_finds_is_judged_where_the_base_walked`
-pins which directory such a segment gets.
+(NAME NOT IN TREE: round 1's fix pass renamed it to
+`test_a_segment_only_the_reading_past_redirections_finds_is_not_git_to_the_guard`
+and changed its answer) pins which directory such a segment gets. That the
+base thread shared #674's recognition at all is what this phase missed, and
+round 1 found it (red 1, yellow 2).
 
 **Nothing in the ordering code became dead.** The rule that puts the base's
 directories first where the walk names none was written for the guard. A

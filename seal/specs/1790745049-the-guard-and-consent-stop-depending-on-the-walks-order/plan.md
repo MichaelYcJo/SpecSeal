@@ -15,6 +15,14 @@ names a tree, so for them the rule decided the tree, and every version of the
 rule met a new command. They now read the base thread alone, through
 `cmdline.base_directories`, and their tree is `86256492`'s by construction.
 
+**Corrected 2026-09-30** by round 1's fix pass: the base thread was not
+`86256492`'s reading, because it shared #674's `command_word` and `parse_git`
+(round 1, red 1 and yellow 2), so the paragraph above and the technical
+context below describe phase 1 as built, not the result. The guard and the
+consent writer now read through `hooks/cmdline_base.py`, `86256492`'s
+`hooks/cmdline.py` byte for byte (alternative B), and `hooks/cmdline.py` is
+`542f920b`'s again.
+
 ## Technical context
 
 - `hooks/cmdline.py#walk_directories` at `542f920b` computes both threads in
@@ -40,8 +48,8 @@ rule met a new command. They now read the base thread alone, through
 | Approach | Failure scenario | Verdict |
 |---|---|---|
 | A. Order the two threads correctly for the guard (PR #690) | Each ordering met a new shape: I's round 2, I's Q7, #689's round 3, and #690's own rounds. The class is the order itself | Rejected by the owner under the 3+ Fix Rule |
-| B. Vendor `86256492`'s whole walk as a second function | A second copy of the landing, the names and the cap, drifting from the first; the base thread already is that walk | Rejected |
-| C. Read the base thread `walk_directories` already carries | A reading the thread shares with the walk (the expanded words, the `cd` target) could differ from `86256492`'s; the structural corpus measures that | Chosen |
+| B. Vendor `86256492`'s whole walk as a second function | A second copy of the landing, the names and the cap, drifting from the first; the base thread already is that walk | Chosen by round 1's fix pass, as a frozen module (`hooks/cmdline_base.py`) that is never edited to track `cmdline.py` and is deleted by #692. **Corrected 2026-09-30**: this cell said *Rejected*. The drift it names is what the module's rider forbids, and C's failure happened |
+| C. Read the base thread `walk_directories` already carries | A reading the thread shares with the walk (the expanded words, the `cd` target) could differ from `86256492`'s; the structural corpus measures that | Built in phase 1, and replaced. **Corrected 2026-09-30**: this cell said *Chosen*. The thread shared #674's `command_word` and `parse_git`, and round 1 found both effects (red 1, yellow 2), which the build's corpus had not modelled |
 | D. Also drop the ordering rule in `walk_directories` | The gate's deny names its first stopped target and lists unresolved ones in that order, so the reason text would change for the same commands | Rejected; measured in `overview.md` |
 
 ## Phases
