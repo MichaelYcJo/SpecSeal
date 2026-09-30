@@ -609,3 +609,29 @@ def test_a_chain_past_the_cap_keeps_the_base_directory_outside_an_opted_in_sessi
     command = f"{CAP_CHAINS[name]}cd u2 && {BODY}"
     got = decisions(monkeypatch, capsys, command, plain, "s")
     assert "silent" not in got, (name, got)
+
+
+def test_past_the_cap_the_deny_names_the_directory_the_base_named_first(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """#689. The deny lists the directories it could not resolve in the order
+    the walk gives them. Past `STATE_CAP` the collapsed walk's first one is
+    unresolved, so the base's thread leads, and the directory `86256492` named
+    alone -- the `cd` the `||` falls back from -- comes first, ahead of the
+    collapse's own. At `542f920b` the collapse's directory led."""
+    session = make_repo(tmp_path / "session")
+    nowhere = tmp_path / "nowhere"
+    command = "2>/dev/null cd nosuch; " * 9 + f"cd {nowhere} || {BODY}"
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": command},
+        "cwd": str(session),
+        "session_id": "s",
+    }
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    gate.main()
+    out = json.loads(capsys.readouterr().out)["hookSpecificOutput"]
+    assert out["permissionDecision"] == "deny", out
+    listed = out["permissionDecisionReason"].split("resolve to a repository: ")[1]
+    assert listed.startswith(f"{nowhere}, "), listed[:200]
+    assert f"{session}/nosuch/" in listed.split("\n")[0], listed[:200]
