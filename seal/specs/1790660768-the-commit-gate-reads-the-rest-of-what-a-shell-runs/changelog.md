@@ -28,8 +28,8 @@
   redirection (`bash -c 2>/dev/null -- "$CMD"`). bash or zsh committed for
   each. A `cd` with a redirection after its operand (`cd W 2>/dev/null && git
   commit`) now lands in W too. It was silent from a directory that is not
-  opted in and under `[no-review]`, and the worktree guard judged the
-  session's own tree for a switch made in W.
+  opted in and under `[no-review]`. The worktree guard and the worktree
+  consent record keep the release base's reading of that `cd` (#689).
 
   The change only adds stops. Every reader asks what it asked before and adds
   to it. A long chain of `cd` segments, such as nine `2>/dev/null cd W;` in a

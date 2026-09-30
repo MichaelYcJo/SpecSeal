@@ -39,7 +39,7 @@ Out:
 
 | Scenario | Given / When / Then | Verifiable how |
 |---|---|---|
-| S1 the round-3 chain | Given a clean session holding a dirty `w`, when the command is `cd w; ` + 9 × `2>/dev/null cd nosuch; ` + `cd <missing> \|\| git switch feature/x`, then the guard asks about `w`, and the same chain ending in `git worktree add ../wt` is filed under `w` | `tests/test_guard_resolves_the_tree_it_judges.py`, both `whatever_the_walk_leads` cases; red at `542f920b` |
+| S1 the round-3 chain | Given a clean session holding a dirty `w`, when the command is `cd w; ` + 9 × `2>/dev/null cd nosuch; ` + `cd <missing> \|\| git switch feature/x`, then the guard asks about `w`, and the same chain ending in `git worktree add ../wt` is filed under `w` | `test_the_guard_judges_the_tree_the_base_judged_whatever_the_walk_leads` and `test_the_consent_writer_files_where_the_base_filed_whatever_the_walk_leads` in `tests/test_guard_resolves_the_tree_it_judges.py`; red at `542f920b` |
 | S2 PR #690's residuals | `cd w; 2>/dev/null cd <missing>; git switch` and `cd w; cd>/dev/null <missing> && 2>/dev/null cd <O>` + newline + `git switch`: the guard asks about `w`, consent files under `w` | the same two cases; red at `542f920b` |
 | S3 base equality | Over a generated corpus, every segment's directories as the guard reads them, the guard's judged tree and consent's filed directory equal `86256492`'s hooks | a background script over `git archive 86256492`, recorded in `overview.md` |
 | S4 the gate unchanged | Over a gate corpus, no decision and no reason text changes against `542f920b` | a background script, recorded in `overview.md` |

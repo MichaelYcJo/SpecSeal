@@ -48,7 +48,7 @@ rule met a new command. They now read the base thread alone, through
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | `base_directories`, the guard and the consent writer on it, the red-first cases, I13's guard case changed to the base's answer | the new cases red at `542f920b` and green here; the structural corpus against `86256492`; the gate corpus against `542f920b` | |
+| 1 | `base_directories`, the guard and the consent writer on it, the red-first cases, I13's guard case changed to the base's answer | the new cases red at `542f920b` and green here; the structural corpus against `86256492`; the gate corpus against `542f920b` | 97654799 |
 | 2 | The policy sentences, I's ledger rows and changelog fragment corrected, this item's ledger and changelog fragments | `evidence-check --strict`, `unverified-check`, `survivor-check` | |
 
 ## Operational impact
