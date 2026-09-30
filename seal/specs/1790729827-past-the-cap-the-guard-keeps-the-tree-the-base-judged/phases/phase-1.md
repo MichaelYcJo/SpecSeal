@@ -41,9 +41,14 @@ walk's first directory is a shell the segment runs in (`_branches` puts
   front, and a `cd` into a repository): silent and misfiled at `542f920b`,
   the base's answer at the flag and at the fix. These are the planted cases.
 - `&&`, `;` and a newline, into a repository or a missing directory: the
-  same at all four trees. `;` and a newline into a missing directory are
-  silent at `86256492` too, through the guard's fallback for a directory
-  holding no repository.
+  same at all four trees for a plain `cd`. `;` and a newline into a missing
+  directory are silent at `86256492` too, through the guard's fallback for a
+  directory holding no repository. **Corrected 2026-09-30** by round 1 of
+  this item (⬜ 4): the line said the same held without qualification, and a
+  `cd` read past a redirection into a missing directory does not. Past the
+  cap, `86256492` and round 3's flag judge `w` for `2>/dev/null cd <missing>;`
+  while `542f920b` and this phase's fix judge the session's tree, and bash
+  stays in `w`. The fix pass closed it (M3).
 - A subshell (`(cd O) &&`, `(cd O);`): the same at all four past the cap,
   silent at `86256492` too. Before the cap, after an `||` chain of landings,
   it is the no-cap case above.

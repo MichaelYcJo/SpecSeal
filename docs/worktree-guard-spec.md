@@ -560,12 +560,15 @@ was while the commands do not. Both are read the same way the commit gate
 reads them (`commit-review-gate-spec.md` §Which repository). A redirection
 among the `cd`'s words (`cd W 2>/dev/null`, `2>/dev/null cd W`, `cd>/dev/null
 W`) moves it too, since round 2 of work item 1790660768; until then the switch
-was judged in the session's own tree while it ran in W. Where the walk cannot
-name the shell a segment runs in, as past the collapse of a command too long
-for it, the tree judged is the one `86256492`'s walk judged
+was judged in the session's own tree while it ran in W, and it moves the tree
+only where W is a directory: into one that is not, the `cd` fails and the
+switch runs where the shell already was. Where the walk cannot name the shell
+a segment runs in, as past the collapse of a command too long for it, or names
+one that is no directory, the tree judged is the one `86256492`'s walk judged
 (`commit-review-gate-spec.md` §Which repository, #689). Until then a `cd` on
-the branch a `||` skipped could lead there, and the guard was silent on a
-switch into a dirty tree.
+the branch a `||` skipped, or a `cd` past a redirection into a missing
+directory, could lead there, and the guard was silent on a switch into a dirty
+tree.
 
 The advice follows the same tree. A command a reason tells the person to run —
 the worktree steer, a choice's option, the switch steer, the tracked-changes

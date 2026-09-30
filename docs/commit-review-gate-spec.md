@@ -428,9 +428,12 @@ which judges the first, judges the tree the base did (question Q7 of work item
 1790660768). That covers the collapse itself, and a collapsed walk that
 regains a readable directory only behind its unresolved one: past the cap,
 `cd /abs/Y || git switch` names Y on the branch the `||` skips, the one tree
-the switch does not run in (#689). A `cd` that moves the running shell after
-the collapse makes the walk's first directory readable again, so it leads,
-and a `cd` landed past its redirections leads past the cap as before it. The
+the switch does not run in (#689). An absolute `cd` after the collapse makes
+the walk's first directory readable again, so it leads; a relative one lands
+inside the unresolved directory, and the base's thread leads. A `cd` landed
+past its redirections leads where its destination is a directory, before the
+cap and past it; where it is not, the `cd` fails, the shell stays where it
+was, and the base's thread leads (round 1 of work item 1790729827). The
 `cd` behind a redirection, the depth bound and the cap are held by
 `tests/test_no_shape_the_base_stops_reads_silent.py`, and the order the guard
 and the consent writer read by `tests/test_guard_resolves_the_tree_it_judges.py`.
