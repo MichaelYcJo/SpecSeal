@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #679 — https://github.com/MichaelYcJo/SpecSeal/pull/679 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `6a5afede50f415e21b1db7d2cc7d402602bc4806..c18d8a56ed1a109ccef3987fed70de48bd68fb04`, 6 commits |
 | Contract changes | none |
 | New units | test_a_cd_behind_a_redirection_moves_the_tree_the_guard_judges (depth 1); CD_BEHIND_A_REDIRECTION (depth 1); test_a_cd_with_a_redirection_among_its_words_lands (depth 1); test_a_cd_behind_a_redirection_the_splitter_cut_lands (depth 1); test_a_cd_the_splitter_cut_after_its_operand_lands_once (depth 1); test_a_cd_landed_past_a_redirection_keeps_the_directory_the_base_judged (depth 1); test_a_second_reading_that_unplaces_keeps_the_base_directory (depth 1) |
