@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 691 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `00ed11bede7e416b5dee56de688831bfecf948b2..9f5261c53cf866ac056289d9b184e23db229d02f`, 3 commits |
+| Contract changes | test_a_broken_shared_module_names_every_gate_that_imports_it → round-2-report.md, round-2.md |
+| New units | none |
 | Needs a fix | yes — 🔴 1, `docs/worktree-guard-spec.md:585` names `0.17.0` and the release-hygiene case fails |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,11 +31,11 @@ Round 2 is verifying. It targets `6a2a87d7` over round 1's fix range `d1e2b9d3..
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The policy names `0.17.0`, so the loaded-file version case fails and the suite is red | `docs/worktree-guard-spec.md:585` | open | Executed: 1 failed, 406 passed in the hygiene module; written at `c5bb0222` in round 1's fix range |
-| ⬜ 2 | The cost paragraph cites §A for the command-word groups, which are in §Creation consent | `docs/worktree-guard-spec.md:582` | open | Read |
-| ⬜ 3 | `foreach` is part of the guard's cost and no list names it | `docs/worktree-guard-spec.md:581` | open | Executed: `deny` at `542f920b`, `silent` at `86256492` and here |
-| ⬜ 4 | The shared-module case breaks both readers at once, so the per-module "no gate that does not import it" is no longer pinned, and its first sentence is false | `tests/test_a_gate_that_fails_says_so.py:302` | open | Executed: each reader broken alone names exactly its two importers |
-| ⬜ 5 | Three test modules and one docstring still say the guard imports `cmdline` | `tests/test_what_the_reader_understands.py:791` | open | Read; no assertion depends on it |
+| 🔴 1 | The policy names `0.17.0`, so the loaded-file version case fails and the suite is red | `docs/worktree-guard-spec.md:585` | **fixed** `53d30647` | fixed at 53d30647; Executed: 1 failed, 406 passed in the hygiene module; written at `c5bb0222` in round 1's fix range |
+| ⬜ 2 | The cost paragraph cites §A for the command-word groups, which are in §Creation consent | `docs/worktree-guard-spec.md:582` | answered | corrected at 53d30647; Read |
+| ⬜ 3 | `foreach` is part of the guard's cost and no list names it | `docs/worktree-guard-spec.md:581` | answered | corrected at 53d30647; Executed: `deny` at `542f920b`, `silent` at `86256492` and here |
+| ⬜ 4 | The shared-module case breaks both readers at once, so the per-module "no gate that does not import it" is no longer pinned, and its first sentence is false | `tests/test_a_gate_that_fails_says_so.py:302` | **fixed** `53d30647` | fixed at 53d30647; Executed: each reader broken alone names exactly its two importers |
+| ⬜ 5 | Three test modules and one docstring still say the guard imports `cmdline` | `tests/test_what_the_reader_understands.py:791` | answered | corrected at 53d30647; Read; no assertion depends on it |
 | 🟢 | round 1's blocking finding is closed — a segment only #674 reads as git no longer takes the first slot | `hooks/worktree-guard.py#walk_command` | confirmed | Executed: 0 differences against `86256492` over 10,598 commands, `WIDER_FIRST` and its consent twin included |
 | 🟢 | round 1's 🟡 2 is closed — zsh-prefixed segments get the base's answer | `hooks/cmdline_base.py#walk_directories` | confirmed | Executed: the same corpus, all four prefixes as heads and tails |
 | 🟢 | round 1's ⬜ 3 is closed — the policy says the whole command is read the base's way, which the import makes true | `docs/worktree-guard-spec.md:560` | confirmed | Read, and the differential |
@@ -152,7 +152,7 @@ nosuch          never created
 | round-1 | `hooks/cmdline.py#walk_directories` | round 1's 🟢 — confirmed |
 | round-1 | `hooks/` | round 1's 🟢 — confirmed |
 | round-1 | `tests/test_guard_resolves_the_tree_it_judges.py` | round 1's 🟢 — confirmed |
-| round-1 | `hooks/cmdline.py#base_directories` | round 1's 🟢 — confirmed |
+| round-1 | `hooks/cmdline.py#base_directories` | round 1's 🟢 — confirmed · NAME NOT IN TREE |
 | round-1 | `hooks/worktree-guard.py#_tokenize_with_separators` | round 1's ❓ — out of verified scope |
 
 ## Deferred
