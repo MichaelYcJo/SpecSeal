@@ -107,12 +107,15 @@ from cmdline import (
     drop_comments,
     drop_heredoc_bodies,
     heredoc_bodies,
+    merged_segments,
+    merged_view,
     names_an_unknown_command,
     parse_git,
     reparsed_texts,
     split_segments,
     split_segments_with_separators,
     substitution_bodies,
+    unglued,
     walk_directories,
 )
 
@@ -143,18 +146,36 @@ Invocation = collections.namedtuple(
 CHOICE_DIR = "specseal-commit-choice"
 
 
-def _hides_a_commit(text):
-    """`_reads_a_commit`, and True for a body nested deeper than it recurses.
+# How deep one body is read inside another before it counts as one that might
+# commit unread (#674). Each level rescans the rest of the body, so at
+# `86256492` a nesting of 4000 or 6000 `$(` beside a commit was answered only
+# when `RecursionError` fired, some 250 levels down, after 12 to 62 seconds.
+# 32 is far above any nesting a command is written with -- the commit-message
+# form `"$(cat <<'EOF' … EOF)"` is two -- and far below the recursion limit.
+NESTING_READ = 32
+_nesting = [0]
 
-    A body this process cannot finish reading might commit, the way an `eval`
-    argument it cannot expand might (round 2 of 1790644505). Answering here,
-    at the depth that overflowed, keeps every invocation already found; a
-    `RecursionError` caught in `main` discarded them all.
+
+def _hides_a_commit(text):
+    """`_reads_a_commit`, and True for a body nested deeper than it reads.
+
+    A body this process does not finish reading might commit, the way an
+    `eval` argument it cannot expand might (round 2 of 1790644505). Answering
+    here keeps every invocation already found; a `RecursionError` caught in
+    `main` discarded them all. The bound answers before the stack runs out,
+    and the catch stays for an interpreter whose limit is lower still
+    (contract §13): with the limit below what 32 levels need, the answer is
+    the same.
     """
+    if _nesting[0] >= NESTING_READ:
+        return True
+    _nesting[0] += 1
     try:
         return _reads_a_commit(text)
     except RecursionError:
         return True
+    finally:
+        _nesting[0] -= 1
 
 
 def _reads_a_commit(text):
@@ -180,7 +201,12 @@ def _reads_a_commit(text):
     text = drop_comments(text)
     stripped = drop_heredoc_bodies(text)
     segments, _clean = split_segments(stripped)
-    for toks in segments:
+    # The groups the splitter cut inside a redirection are read too (#674);
+    # an answer here is a boolean, so reading them beside the parts only adds.
+    # So is a view with a redirection glued to a word's end cut off
+    # (`git>/dev/null commit`, round 1 of 1790660768, yellow 4).
+    views = [*segments, *merged_segments(stripped)]
+    for toks in [*views, *filter(None, map(unglued, views))]:
         parsed = parse_git(toks)
         if parsed and parsed[0] == "commit":
             return True
@@ -227,12 +253,16 @@ def _eval_argument(toks):
     # assignments alone, so `then eval '…'` and `(eval '…')` were no `eval`
     # (round 1 of 1790644505, yellow 4). `builtin` runs a builtin, and `eval`
     # is one.
-    word, _unplaced = command_word(list(toks), "eval")
-    while word and os.path.basename(word[0]) == "builtin":
-        word = word[1:]
-    if not word or word[0] != "eval":
-        return None
-    return " ".join(word[1:])
+    #
+    # Asked a second time past the redirections in front of it (#674), only
+    # where the first reading found no `eval`: `2>/dev/null eval "$X"`.
+    for redirections in (False, True):
+        word, _unplaced = command_word(list(toks), "eval", redirections)
+        while word and os.path.basename(word[0]) == "builtin":
+            word = word[1:]
+        if word and word[0] == "eval":
+            return " ".join(word[1:])
+    return None
 
 
 def _eval_hides_a_commit(arg):
@@ -329,22 +359,38 @@ def commit_invocations(command, cwd=None):
         if cwd is not None
         else [(tokens, (None,)) for _, tokens in items]
     )
-    found = []
+    found, kinds = [], []
     for toks, bases in walked:
-        parsed = parse_git(toks)
-        if parsed and parsed[0] == "commit":
-            for base in bases:
-                found.append(Invocation(parsed[1], parsed[2], base=base))
-            continue
-        arg = _eval_argument(toks)
-        if arg is not None and _eval_hides_a_commit(arg):
-            for base in bases:
-                found.append(Invocation((), (), base=_unresolved_base(base)))
-        # `sh -c '…'`, `su -c '…'`, `env -S '…'`: a string a shell parses
-        # again, the same question `eval`'s argument answers above (#670).
-        if _string_hides_a_commit(toks):
-            for base in bases:
-                found.append(Invocation((), (), base=_unresolved_base(base)))
+        by_kind = _segment_invocations(toks, bases)
+        kinds.append(set(by_kind))
+        found += [inv for invs in by_kind.values() for inv in invs]
+
+    # A redirection the splitter cut at `&` or `|` (`2>&1 git commit`, `sh -c
+    # 2>&1 "$CMD"`) left the program or the string in a segment of its own
+    # (#674). Each group `merged_view` glues back is read beside its parts, and
+    # adds only a kind no part found on its own, so `git commit -m x 2>&1 |
+    # tail -1` keeps exactly the invocation it had. What it adds takes the
+    # directories of the group's last part: the walk keeps the unmoved shell
+    # beside the moved one across `&` and `|`, so those include every earlier
+    # part's, and only a `cd` moves one -- which would itself be the command
+    # word, not a part in front of it.
+    for parts, toks in merged_view(items):
+        seen = set().union(*(kinds[p] for p in parts))
+        for view in filter(None, (toks, unglued(toks))):
+            for kind, invs in _segment_invocations(view, walked[parts[-1]][1]).items():
+                if kind not in seen:
+                    found += invs
+                    seen.add(kind)
+
+    # A redirection glued to a word's end (`git>/dev/null commit`, round 1 of
+    # 1790660768, yellow 4) is cut off and the segment read again beside
+    # itself, adding only a kind the segment did not find.
+    for index, (toks, bases) in enumerate(walked):
+        cut = unglued(toks)
+        if cut is not None:
+            for kind, invs in _segment_invocations(cut, bases).items():
+                if kind not in kinds[index]:
+                    found += invs
 
     for body in heredoc_bodies(drop_comments(command)):
         if _hides_a_commit(body):
@@ -359,6 +405,27 @@ def commit_invocations(command, cwd=None):
             found.append(Invocation((), (), base=_unresolved_base(cwd)))
 
     return found, clean
+
+
+def _segment_invocations(toks, bases):
+    """{kind: invocations} for one segment, the reading `commit_invocations`
+    gives every segment: `commit` for a git commit, else `eval` and `string`.
+
+    Keyed by kind so `merged_view`'s groups can add only what their parts did
+    not find (#674).
+    """
+    parsed = parse_git(toks)
+    if parsed and parsed[0] == "commit":
+        return {"commit": [Invocation(parsed[1], parsed[2], base=b) for b in bases]}
+    out = {}
+    arg = _eval_argument(toks)
+    if arg is not None and _eval_hides_a_commit(arg):
+        out["eval"] = [Invocation((), (), base=_unresolved_base(b)) for b in bases]
+    # `sh -c '…'`, `su -c '…'`, `env -S '…'`: a string a shell parses
+    # again, the same question `eval`'s argument answers above (#670).
+    if _string_hides_a_commit(toks):
+        out["string"] = [Invocation((), (), base=_unresolved_base(b)) for b in bases]
+    return out
 
 
 def commit_targets(cwd, invocations, root_of=None):

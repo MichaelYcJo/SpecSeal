@@ -40,6 +40,7 @@ from test_the_guard_asks_once_per_session import ask_entries, write_transcript
 
 gate = load_hook_module("commit-review-gate.py", "crg_no_new_silent")
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "hooks"))
+import cmdline  # noqa: E402  -- the plain name both gates import
 import worktree_consent  # noqa: E402  -- the plain name the gate imports
 
 # A program that hands its stdin to a shell, which is what makes a heredoc
@@ -266,6 +267,61 @@ def test_a_commit_found_before_a_nesting_too_deep_still_stops(
             assert "silent" not in got, (command[:60], which, got)
 
 
+def test_a_cd_behind_a_redirection_is_not_read_as_staying_put(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """#674, `spec.md` W1. From a declared session directory, `2>/dev/null cd
+    U && git commit` commits in U, which declares nothing. At `86256492` the
+    walk did not see a `cd` behind the redirection and read the shell as
+    staying where it was, so the commit was judged against the session's
+    declaration alone and was silent. A `cd` behind a prefix was already
+    refused as unreadable; a redirection is one more thing in front of it."""
+    session = make_repo(tmp_path / "session", declared=True)
+    u = make_repo(tmp_path / "u")
+    for command in (
+        f"2>/dev/null cd {q(u)} && {BODY}",
+        f"2> /dev/null cd {q(u)} && {BODY}",
+        f">/dev/null pushd {q(u)} && {BODY}",
+        f"time 2>/dev/null cd {q(u)} && {BODY}",
+    ):
+        answers = with_and_without_the_press(
+            monkeypatch, capsys, projects, command, session
+        )
+        for which, got in answers.items():
+            assert "silent" not in got, (command, which, got)
+
+
+NESTINGS = {
+    "$(": ("$(echo ", ")"),
+    "<(": ("<(cat ", ")"),
+    '"$(': ('"$(echo ', ')"'),
+}
+
+
+@pytest.mark.parametrize("kind", sorted(NESTINGS))
+def test_a_deep_nesting_is_read_to_a_bound(monkeypatch, kind):
+    """#674, `spec.md` S9. A body nested inside another is read to
+    `NESTING_READ` levels and then counts as one that might commit, instead of
+    being read until the interpreter's recursion limit answers. At
+    `86256492` the reader rescanned the rest of the body some 330 times before
+    `RecursionError`, which took thirty seconds on 4000 levels."""
+    opener, closer = NESTINGS[kind]
+    text = opener * 4000 + "true" + closer * 4000
+    calls = []
+    original = gate._reads_a_commit
+
+    def counting(body):
+        calls.append(1)
+        return original(body)
+
+    monkeypatch.setattr(gate, "_reads_a_commit", counting)
+    assert gate._hides_a_commit(text) is True
+    # Exactly the bound: a count below it means the recursion limit answered
+    # first, which is the reliance contract §13 distrusts, and a count above
+    # it means the bound did not hold.
+    assert len(calls) == gate.NESTING_READ, len(calls)
+
+
 def test_the_reverse_direction_still_stops(monkeypatch, capsys, projects, tmp_path):
     """#662's second box. From a declared session directory, `cd U ; git
     commit` also reaches U whenever the `cd` works, and U declares nothing."""
@@ -276,3 +332,280 @@ def test_the_reverse_direction_still_stops(monkeypatch, capsys, projects, tmp_pa
     )
     for which, got in answers.items():
         assert "silent" not in got, (which, got)
+
+
+W1_PREFIXES = [
+    "2>/dev/null cd sub &&",
+    ">/dev/null pushd sub &&",
+    ">/dev/null source /dev/null;",
+    "2>/dev/null eval true;",
+    "2>/dev/null $CMD;",
+    "<<<x cd sub &&",
+    "X=1 2>/dev/null cd sub &&",
+    "time 2>/dev/null cd sub &&",
+    "2>/dev/null cd nosuch ||",
+    ">/dev/null source /dev/null ||",
+]
+
+
+@pytest.mark.parametrize("prefix", W1_PREFIXES)
+def test_w1_keeps_the_directory_the_base_judged_under_a_waiver(
+    monkeypatch, capsys, projects, tmp_path, prefix
+):
+    """Round 1 of 1790660768, red 1. W1's refusal REPLACED the directory the
+    base judged with an unresolved one, and `[no-review]` waives an
+    unresolved target whole -- so the parity arm the base judged in the
+    session's directory went silent, while bash commits there."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "sub").mkdir(exist_ok=True)
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    command = f": '[no-review]'; {prefix} {BODY}"
+    for which, got in with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    ).items():
+        assert "silent" not in got, (command, which, got)
+
+
+def test_w1_keeps_the_directory_a_parked_failure_came_from(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """Round 1 of 1790660768, red 1, the parked half. A failure the walk parks
+    carries the directory the shell came from, and `cd -` is what reads it:
+    `cd ..` leaves for no repository, the refused `cd` fails, and `cd -`
+    returns to the session, where bash commits. Parking that failure as
+    unresolved alone returned nowhere the gate could name, and `[no-review]`
+    waived it whole. No segment stands in front, because one would park the
+    session's directory with itself as the previous one and hide the loss."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    command = f"cd .. && 2>/dev/null cd nosuch || cd - && {BODY}  # [no-review]"
+    for which, got in with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    ).items():
+        assert "silent" not in got, (command, which, got)
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        ">/dev/null source /dev/null; cd u2 && {body}",
+        "2>/dev/null eval true; cd u2 && {body}",
+        "2>/dev/null cd .; cd u2 && {body}",
+        'SB={u2}; 2>/dev/null source /dev/null; git -C "$SB" commit -m x',
+    ],
+)
+def test_w1_keeps_the_directory_the_base_judged_outside_an_opted_in_session(
+    monkeypatch, capsys, tmp_path, shape
+):
+    """Round 1 of 1790660768, red 1. From a directory that is not opted in, an
+    unresolved target is silence, and a later relative `cd`, or a name bound
+    before the refused segment, stays unresolved behind it. The base resolved
+    `u2`, which is opted in, and bash commits there."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    u2 = make_repo(plain / "u2")
+    command = shape.format(body=BODY, u2=q(u2))
+    got = decisions(monkeypatch, capsys, command, plain, "s")
+    assert "silent" not in got, (command, got)
+
+
+@pytest.mark.parametrize("header", ["case a in a) ", "f() { ", "coproc "])
+def test_past_the_header_bound_the_reading_stops(header):
+    """Round 1 of 1790660768, red 2. Past `HEADERS_READ` headers, one inside
+    the next, both header readings answer in the stopping direction; one
+    header fewer, the same segment is read to its end and names nothing."""
+
+    bound = cmdline.HEADERS_READ
+    for depth, expected in ((bound - 1, False), (bound, True)):
+        tokens = (header * depth + "true watch").split()
+        assert cmdline._is_the_program(tokens, len(tokens) - 1) is expected, depth
+        assert cmdline.names_an_unknown_command(header * depth + "true") is expected
+
+
+@pytest.mark.parametrize("header", ["case a in a) ", "f() { ", "coproc "])
+def test_a_deep_header_nesting_keeps_the_commits_found(
+    monkeypatch, capsys, projects, tmp_path, header
+):
+    """Round 1 of 1790660768, red 2. The header readings recursed once per
+    header, so 1,200 of them raised `RecursionError` past `_hides_a_commit`
+    into `main`, which dropped the commit already found in `u`."""
+    session = make_repo(tmp_path / "session", declared=True)
+    u = make_repo(tmp_path / "u")
+    for command in (
+        f"cd {q(u)} && {BODY}; sh -c '" + header * 1200 + "true'",
+        f"git -C {q(u)} commit -m x; " + header * 1200 + "watch -g x",
+    ):
+        for which, got in with_and_without_the_press(
+            monkeypatch, capsys, projects, command, session
+        ).items():
+            assert "silent" not in got, (command[:60], which, got)
+
+
+CD_BEHIND_A_REDIRECTION = [
+    "cd {d} 2>/dev/null",
+    "cd {d} >/dev/null",
+    "cd {d} 2> /dev/null",
+    "cd {d} </dev/null",
+    "cd {d} >/dev/null 2>&1",
+    "cd -P {d} 2>/dev/null",
+    "cd {d}>/dev/null",
+]
+
+
+@pytest.mark.parametrize("cd", CD_BEHIND_A_REDIRECTION)
+def test_a_cd_with_a_redirection_among_its_words_lands(
+    monkeypatch, capsys, projects, tmp_path, cd
+):
+    """Round 2 of 1790660768. A redirection after a `cd`'s operand is the
+    shell's, and the `cd` still lands; the walk read it as a second operand
+    and left the target unresolved. An unresolved target is silence from a
+    session that is not opted in and is waived whole by `[no-review]`, so
+    both commands were silent at `86256492` and at #674's head, where `cd D
+    && git commit` stops. bash 3.2.57 and zsh 5.9 commit in D."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    make_repo(plain / "u2")
+    command = f"{cd.format(d='u2')} && {BODY}"
+    got = decisions(monkeypatch, capsys, command, plain, "s")
+    assert "silent" not in got, (command, got)
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "sub").mkdir()
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    command = f": '[no-review]'; {cd.format(d='sub')} && {BODY}"
+    for which, got in with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    ).items():
+        assert "silent" not in got, (command, which, got)
+
+
+@pytest.mark.parametrize("cd", ["2>&1 cd {d}", ">|f cd {d}", ">&2 cd {d}"])
+def test_a_cd_behind_a_redirection_the_splitter_cut_lands(
+    monkeypatch, capsys, tmp_path, cd
+):
+    """Round 2 of 1790660768's fix pass. The splitter cuts `2>&1 cd W` at the
+    `&`, so the `cd` arrives in the group's last part behind a descriptor and
+    only the glued group reads it. Round 1 added an unresolved directory
+    beside it, which is silence from a directory that is not opted in; bash
+    commits in W, and the landing is what the gate judges there."""
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    make_repo(plain / "u2")
+    command = f"{cd.format(d='u2')} && {BODY}"
+    got = decisions(monkeypatch, capsys, command, plain, "s")
+    assert "silent" not in got, (command, got)
+
+
+@pytest.mark.parametrize("cd", ["cd u2 2>&1", "cd u2 >|f", "cd u2 >&2"])
+def test_a_cd_the_splitter_cut_after_its_operand_lands_once(tmp_path, cd):
+    """Round 2 of 1790660768's fix pass. In `cd W 2>&1` the splitter's first
+    part is `cd W 2>`, which lands in W on its own words. The group's glued
+    view landed it again from there, and the walk named W/W, a directory the
+    command never reaches."""
+    items = cmdline.split_segments_with_separators(f"{cd} && {BODY}")[0]
+    here = str(tmp_path)
+    wheres = [w for t, w in cmdline.walk_directories(items, here) if t[:1] == ["git"]]
+    assert wheres, cd
+    named = [str(w) for w in wheres[0]]
+    landed = [str(w) for w in wheres[0] if not isinstance(w, cmdline.Unresolved)]
+    assert os.path.join(here, "u2") in landed, (cd, named)
+    assert os.path.join(here, "u2", "u2") not in named, (cd, named)
+
+
+def test_a_cd_landed_past_a_redirection_keeps_the_directory_the_base_judged(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """Round 2 of 1790660768's fix pass. The landing read past a `cd`'s
+    redirection is added in front of the directory the walk read with it, and
+    never replaces it. `86256492` read `2>/dev/null cd P` as a program named
+    by the redirection, so it judged the session's own directory, whose
+    parity arm `[no-review]` does not answer. With the landing in place of
+    that directory, only P, which is no repository, and the refusal beside it
+    were left, and the waiver took the refusal whole. bash commits nothing
+    here; the case pins the invariant, not a commit."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    plain = tmp_path / "plain"
+    plain.mkdir()
+    command = f": '[no-review]'; 2>/dev/null cd {q(plain)} && {BODY}"
+    for which, got in with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    ).items():
+        assert "silent" not in got, (command, which, got)
+
+
+def test_a_second_reading_that_unplaces_keeps_the_base_directory(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """Round 2 of 1790660768. The walk's reading past redirections REPLACED
+    the directory the base judged with an unresolved one wherever it alone
+    unplaced the segment, and `[no-review]` waived that whole: `nice
+    2>/x/git commit -m git`, a commit to the base's reading, stopped on the
+    parity arm at `86256492` and was silent at #674's head."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    for shape in ("nice 2>/x/git commit -m git", "env </x/git commit -m git"):
+        command = f": '[no-review]'; {shape}"
+        for which, got in with_and_without_the_press(
+            monkeypatch, capsys, projects, command, session
+        ).items():
+            assert "silent" not in got, (command, which, got)
+
+
+# Chains that reach the walk's `STATE_CAP` sooner than `86256492`'s walk did,
+# because the directories #674 adds beside the base's count toward it.
+CAP_CHAINS = {
+    "a refused segment, then sixteen cds": "2>/dev/null source /dev/null; "
+    + "cd sub; " * 16,
+    "nine landed cds": "2>/dev/null cd sub; " * 9,
+    "twenty landed cds joined by &&": "2>/dev/null cd sub && " * 20,
+}
+
+
+@pytest.mark.parametrize("name", sorted(CAP_CHAINS))
+def test_a_chain_past_the_cap_keeps_the_directories_the_base_reached(
+    monkeypatch, capsys, projects, tmp_path, name
+):
+    """Q7 of 1790660768. Past `STATE_CAP` the walk collapses its directories
+    into one it cannot read, and the directories #674 adds -- `understood`'s
+    refusal, the `cd` landed past its redirections -- counted toward the cap.
+    So these chains collapsed where `86256492`'s walk did not, and the one
+    unresolved directory left is waived whole by `[no-review]`. The base
+    stopped each on the parity arm; bash and zsh commit in the session's
+    repository for the first two. The collapse now takes only the additions,
+    never a directory the base reached."""
+    session = make_repo(tmp_path / "session", declared=True)
+    (session / "sub").mkdir()
+    (session / "seal" / "parity.md").write_text("# parity\n")
+    (session / "a.py").write_text("x = 1\n")
+    subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
+    command = f": '[no-review]'; {CAP_CHAINS[name]}{BODY}"
+    for which, got in with_and_without_the_press(
+        monkeypatch, capsys, projects, command, session
+    ).items():
+        assert "silent" not in got, (name, which, got)
+
+
+@pytest.mark.parametrize("name", sorted(CAP_CHAINS))
+def test_a_chain_past_the_cap_keeps_the_base_directory_outside_an_opted_in_session(
+    monkeypatch, capsys, tmp_path, name
+):
+    """Q7 of 1790660768, from a directory that is not opted in. There the one
+    unresolved directory a collapse leaves is silence, and the base's walk,
+    which never reached the cap, resolved the opted-in `u2` the command then
+    goes to."""
+    plain = tmp_path / "plain"
+    (plain / "sub").mkdir(parents=True)
+    make_repo(plain / "u2")
+    command = f"{CAP_CHAINS[name]}cd u2 && {BODY}"
+    got = decisions(monkeypatch, capsys, command, plain, "s")
+    assert "silent" not in got, (name, got)

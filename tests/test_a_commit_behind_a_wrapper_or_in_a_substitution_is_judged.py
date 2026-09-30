@@ -84,6 +84,11 @@ WRAPPED = {
     "env -i": (f"env -i {C}", UNRESOLVED),
     "sudo -u": (f"sudo -u a {C}", UNRESOLVED),
     "command -p": (f"command -p {C}", UNRESOLVED),
+    # zsh's precommand modifiers and `repeat N` (round 1 of 1790660768,
+    # yellow 5). zsh 5.9 committed for each.
+    "noglob": (f"noglob {C}", HERE),
+    "nocorrect": (f"nocorrect {C}", HERE),
+    "repeat": (f"repeat 1 {C}", UNRESOLVED),
 }
 
 # A string handed to a shell to parse. Its directory is unresolved, as
@@ -122,6 +127,23 @@ SUBSTITUTED = {
     "inside a heredoc body a shell runs": f"bash <<'EOF'\necho $({C})\nEOF",
     "an unterminated one": f"echo $({C}",
     "a shell string inside a substitution": f"echo $(bash -c '{C}')",
+    # #674, phase 1: a host glued to a subshell's `(`, and a commit behind a
+    # redirection inside a substitution.
+    "(sh -c)": f"(sh -c '{C}')",
+    "(bash -c) after a list": f"true; (bash -c '{C}')",
+    "a redirected commit in $( )": f"echo $(2>/dev/null {C})",
+    # #674, phase 3: the string past a redirection after `env -S`, and the
+    # hosts #670's enumeration did not mark. `parallel` runs its arguments
+    # through a shell and is read for a commit only (`spec.md` §*Scope*).
+    "env -S 2>/dev/null": f"env -S 2>/dev/null '{C}'",
+    "flock -c": f"flock /tmp/l -c '{C}'",
+    "flock --command": f"flock -w 5 /tmp/l --command '{C}'",
+    "parallel :::": f"parallel ::: '{C}'",
+    "parallel -j2 :::": f"parallel -j2 ::: '{C}'",
+    # #674, phase 4: the same, where the splitter cut the redirection.
+    "sh -c 2>&1": f"sh -c 2>&1 '{C}'",
+    "bash -c 2>&1 before the commit": f"bash -c '2>&1 {C}'",
+    "a commit behind 2>&1 in $( )": f"echo $(2>&1 {C})",
 }
 
 
@@ -178,7 +200,60 @@ CONTROLS = {
     "grep for watch": "grep -n watch *.py",
     "grep for watch in a substitution's list": "grep -l watch $(git ls-files)",
     "rg for watch": 'rg watch "$DIR"',
+    # #674: `watch` as the file a redirection writes to is no program.
+    "watch as a redirection's target": '2> watch -g "$CMD"',
+    # #674, phase 2: a runner's options inside a string, with nothing after
+    # them that expands.
+    "a runner's options in a shell string": "sh -c 'nice -n 5 make all'",
+    # A `case` word and a `for` list are data, never a program.
+    "a case word that expands, in a string": "sh -c 'case $1 in a) echo;; esac' _ a",
+    "a case word that expands, before a|b)": "sh -c 'case $1 in a|b) echo;; esac' _ a",
+    "a for list that expands, in a string": "sh -c 'for f in $@; do echo; done' _ a",
+    # #674, phase 6: a redirection's target is never a command word, so the
+    # new readings -- behind a runner, behind a header, the stand-in -- do not
+    # count one that expands. The differential corpus found these.
+    "a redirection to $LOG behind a runner's options": "sh -c 'nice -n 5 make >\"$LOG\"'",
+    "a redirection to $LOG in a function body": "sh -c 'f() { >\"$LOG\" echo hi; }; f'",
+    "{fd}> in a case arm": "sh -c 'case a in a) {fd}>f echo hi;; esac'",
 }
+
+# #674: round 1's seven controls, rewritten into each position the work item
+# teaches the reader. A program word is read by where it stands, never by
+# whether it is present, so a search word and a positional parameter stay what
+# they were wherever the command itself is moved to (`spec.md` §*How the
+# controls stay unasked*). Each is silent at `86256492` and must stay so.
+ROUND_1_CONTROLS = (
+    "find -exec sh -c with _ {}",
+    "find -exec bash -c with bash {} +",
+    "bash -c over a glob",
+    "bash -c with an expanded $0",
+    "grep for watch",
+    "grep for watch in a substitution's list",
+    "rg for watch",
+)
+POSITIONS = {
+    "P5, behind 2>/dev/null": lambda c: f"2>/dev/null {c}",
+    "P5, behind a spaced 2> target": lambda c: f"2> /dev/null {c}",
+    "P10, glued to (": lambda c: f"({c})",
+    "P7, a case arm": lambda c: f"case a in a) {c};; esac",
+    "P7, a later arm": lambda c: f"case a in b) :;; a) {c};; esac",
+    "P7, a spaced pattern": lambda c: f"case a in a ) {c};; esac",
+    "P8, a function body": lambda c: f"f() {{ {c}; }}; f",
+    "P8, a glued subshell body": lambda c: f"f() ({c}); f",
+    "P8, function f": lambda c: f"function f {{ {c}; }}; f",
+    "P9, a coprocess": lambda c: f"coproc {c}",
+    "P6, behind 2>&1": lambda c: f"2>&1 {c}",
+    "P6, behind >&2": lambda c: f">&2 {c}",
+    "followed by 2>&1": lambda c: f"{c} 2>&1",
+    "followed by 2>&1 | tail": lambda c: f"{c} 2>&1 | tail -1",
+}
+CONTROLS.update(
+    {
+        f"{name} [{position}]": rewrite(CONTROLS[name])
+        for name in ROUND_1_CONTROLS
+        for position, rewrite in POSITIONS.items()
+    }
+)
 
 # The same hosts, where the string they run IS an expansion or holds the
 # commit: each must still stop (round 1 of 1790644505, yellow 3's fence).
@@ -205,7 +280,325 @@ STILL_HANDED = {
     "then watch $CMD": 'if true; then watch -g "$CMD"; fi',
     "( watch $CMD )": '( watch -g "$CMD" )',
     "! watch $CMD": '! watch -g "$CMD"',
+    # #674, phase 1: a program word behind a redirection, and a host glued to
+    # the `(` that opens a subshell. Each is silent at `86256492`.
+    "2>/dev/null eval $X": '2>/dev/null eval "$X"',
+    "2> /dev/null eval $X": '2> /dev/null eval "$X"',
+    "2>/dev/null watch $CMD": '2>/dev/null watch -g "$CMD"',
+    "2> /dev/null watch $CMD": '2> /dev/null watch -g "$CMD"',
+    "<<<x watch $CMD": '<<<x watch -g "$CMD"',
+    "sh -c with 2>/dev/null before $CMD": "sh -c '2>/dev/null $CMD'",
+    "sh -c with 2> /dev/null before $CMD": "sh -c '2> /dev/null $CMD'",
+    "(watch $CMD)": '(watch -g "$CMD")',
+    "(sh -c $CMD)": '(sh -c "$CMD")',
+    "(nice watch $CMD)": '(nice watch -g "$CMD")',
+    # #674, phase 2: `watch` inside a compound command's header -- a `case`
+    # arm, a function body, a coprocess -- and a string's command word in the
+    # same places or behind a runner's own options. Each is silent at
+    # `86256492`, where the program was looked for only at the segment's start.
+    "a case arm watch $CMD": 'case a in a) watch -g "$CMD";; esac',
+    "a case arm (a) watch $CMD": 'case a in (a) watch -g "$CMD";; esac',
+    "a case arm a ) watch $CMD": 'case a in a ) watch -g "$CMD";; esac',
+    "a later case arm watch $CMD": 'case a in b) :;; a) watch -g "$CMD";; esac',
+    "a case arm a|b) watch $CMD": 'case a in a|b) watch -g "$CMD";; esac',
+    "a case arm in a then watch $CMD": (
+        'if true; then case a in a) watch -g "$CMD";; esac; fi'
+    ),
+    "a function body watch $CMD": 'f() { watch -g "$CMD"; }; f',
+    "a spaced definition watch $CMD": 'f () { watch -g "$CMD"; }; f',
+    "a glued definition watch $CMD": 'f(){ watch -g "$CMD"; }; f',
+    "function f watch $CMD": 'function f { watch -g "$CMD"; }; f',
+    "function f() watch $CMD": 'function f() { watch -g "$CMD"; }; f',
+    "function f () watch $CMD": 'function f () { watch -g "$CMD"; }; f',
+    "a subshell body watch $CMD": 'f() ( watch -g "$CMD" ); f',
+    "a case in a subshell watch $CMD": '(case a in a) watch -g "$CMD";; esac)',
+    "coproc watch $CMD": 'coproc watch -g "$CMD"',
+    "coproc NAME { watch $CMD }": 'coproc W { watch -g "$CMD"; }',
+    "coproc { watch $CMD }": 'coproc { watch -g "$CMD"; }',
+    "sh -c a function body $CMD": "sh -c 'f() { $CMD; }; f'",
+    "sh -c a case arm $CMD": "sh -c 'case a in a) $CMD;; esac'",
+    "sh -c function f $CMD": "sh -c 'function f { $CMD; }; f'",
+    "sh -c coproc $CMD": "sh -c 'coproc $CMD'",
+    "sh -c nice -n 5 $CMD": "sh -c 'nice -n 5 $CMD'",
+    "sh -c timeout 5 $CMD": "sh -c 'timeout 5 $CMD'",
+    "bash -c sudo -u x $CMD": "bash -c 'sudo -u x \"$CMD\"'",
+    # #674, phase 3: a redirection written after the flag that hands a host
+    # its string, glued or spaced. Round 3 of 1790644505 ran the four `bash`
+    # shapes and each landed a commit. Each is silent at `86256492`, where the
+    # redirection was taken for the string.
+    "bash -c 2>/dev/null $CMD": 'bash -c 2>/dev/null "$CMD"',
+    "bash -c 2> /dev/null $CMD": 'bash -c 2> /dev/null "$CMD"',
+    "bash -c >/dev/null $CMD": 'bash -c >/dev/null "$CMD"',
+    "bash -lc </dev/null $CMD": 'bash -lc </dev/null "$CMD"',
+    "watch -g 2>/dev/null $CMD": 'watch -g 2>/dev/null "$CMD"',
+    "watch -g 2> /dev/null $CMD": 'watch -g 2> /dev/null "$CMD"',
+    "su -c 2>/dev/null $CMD root": 'su -c 2>/dev/null "$CMD" root',
+    "su --command 2> /dev/null $CMD root": 'su --command 2> /dev/null "$CMD" root',
+    "runuser -c 2>/dev/null $CMD u": 'runuser -c 2>/dev/null "$CMD" u',
+    "script -c 2>/dev/null $CMD": 'script -q -c 2>/dev/null "$CMD" /dev/null',
+    "env -S 2>/dev/null $CMD": 'env -S 2>/dev/null "$CMD"',
+    "env --split-string 2> /dev/null $CMD": 'env --split-string 2> /dev/null "$CMD"',
+    # `flock -c` passes its command to the shell with `-c` (util-linux's
+    # flock(1), read for #674's Q4).
+    "flock -c $CMD": 'flock /tmp/l -c "$CMD"',
+    "flock -w 5 --command $CMD": 'flock -w 5 /tmp/l --command "$CMD"',
+    "flock --command=$CMD": 'flock /tmp/l --command="$CMD"',
+    "flock -c 2>/dev/null $CMD": 'flock /tmp/l -c 2>/dev/null "$CMD"',
+    # #674, phase 4: a redirection holding `&` or `|`, which the splitter cuts
+    # into a separator. Each is silent at `86256492`, where the string or the
+    # program landed in a segment of its own.
+    "sh -c 2>&1 $CMD": 'sh -c 2>&1 "$CMD"',
+    "sh -c &>/dev/null $CMD": 'sh -c &>/dev/null "$CMD"',
+    "sh -c &>>log $CMD": 'sh -c &>>log "$CMD"',
+    "sh -c >&2 $CMD": 'sh -c >&2 "$CMD"',
+    "bash -c >|/tmp/f $CMD": 'bash -c >|/tmp/f "$CMD"',
+    "su -c 2>&1 $CMD root": 'su -c 2>&1 "$CMD" root',
+    ">&2 watch $CMD": '>&2 watch -g "$CMD"',
+    "<&0 watch $CMD": '<&0 watch -g "$CMD"',
+    ">&- eval $X": '>&- eval "$X"',
+    "sh -c with 2>&1 before $CMD": "sh -c '2>&1 $CMD'",
+    # A stop `86256492` made, kept: read as written, the string's first word
+    # is `>$LOG`, and that expands. The readings #674 adds leave redirections
+    # out, and this one is the base's and must not.
+    "sh -c >$LOG echo, the base's own stop": "sh -c '>\"$LOG\" echo hi'",
 }
+
+# #674, phase 1: a commit behind a redirection written in front of `git`, or
+# between `git` and its subcommand. A redirection moves no shell, so each
+# commit is judged where the shell is, as the same commit without the
+# redirection is. Each read as no commit at `86256492`.
+REDIRECTED = {
+    "2>/dev/null git": f"2>/dev/null {C}",
+    "2> /dev/null git": f"2> /dev/null {C}",
+    ">/dev/null git": f">/dev/null {C}",
+    ">>log git": f">>log {C}",
+    "<f git": f"</dev/null {C}",
+    "<>f git": f"<>/dev/null {C}",
+    "<<<x git": f"<<<x {C}",
+    "<<< x git": f"<<< x {C}",
+    "<<EOF git": f"<<EOF {C}\nbody\nEOF",
+    "<< EOF git": f"<< EOF {C}\nbody\nEOF",
+    "<<-EOF git": f"<<-EOF {C}\nbody\n\tEOF",
+    "{fd}>f git": f"{{fd}}>/dev/null {C}",
+    "zsh >!f git": f">!/dev/null {C}",
+    "zsh >>!f git": f">>!/dev/null {C}",
+    # Glued, `>!f` also reads as `>` with the target `!f`; spaced, only the
+    # operator's own spelling keeps `f` from being read as the program.
+    "zsh >! f git": f">! /dev/null {C}",
+    "zsh >>! f git": f">>! /dev/null {C}",
+    "2> >(tee log) git": f"2> >(tee log) {C}",
+    "an assignment, then 2>/dev/null git": f"X=1 2>/dev/null {C}",
+    "2>/dev/null, then an assignment": f"2>/dev/null X=1 {C}",
+    "git 2>/dev/null commit": "git 2>/dev/null commit -m x",
+    "git 2> /dev/null commit": "git 2> /dev/null commit -m x",
+    "git -c k=v 2>/dev/null commit": "git -c k=v 2>/dev/null commit -m x",
+    # #674, phase 4: cut by the splitter, and glued back by `merged_view`.
+    "2>&1 git": f"2>&1 {C}",
+    ">&2 git": f">&2 {C}",
+    "<&0 git": f"<&0 {C}",
+    ">|f git": f">|/dev/null {C}",
+    "git 2>&1 commit": "git 2>&1 commit -m x",
+    "a chain: >&2 2>&1 git": f">&2 2>&1 {C}",
+    # A leading `&>` is a segment that begins with `>f`, read since phase 1.
+    "&>f git": f"&>/dev/null {C}",
+}
+
+# Behind a redirection AND somewhere else the walk does not place: the
+# directory is unresolved for the other reason, as it was without the
+# redirection.
+REDIRECTED_UNPLACED = {
+    "2>/dev/null nice -n 5 git": f"2>/dev/null nice -n 5 {C}",
+    "then 2>/dev/null git": f"if true; then 2>/dev/null {C}; fi",
+}
+
+
+@pytest.mark.parametrize("name", sorted(REDIRECTED))
+def test_a_commit_behind_a_redirection_is_read_where_the_shell_is(name, tmp_path):
+    """Seen red at `86256492`, where each returned nothing."""
+    invocations = found(REDIRECTED[name], tmp_path)
+    assert invocations, f"{name}: no commit read"
+    for inv in invocations:
+        assert not isinstance(inv.base, cmdline.Unresolved), (name, inv.base)
+
+
+@pytest.mark.parametrize("name", sorted(REDIRECTED_UNPLACED))
+def test_a_commit_behind_a_redirection_and_a_construct_is_unplaced(name, tmp_path):
+    invocations = found(REDIRECTED_UNPLACED[name], tmp_path)
+    assert invocations, f"{name}: no commit read"
+    assert all(isinstance(inv.base, cmdline.Unresolved) for inv in invocations), name
+
+
+@pytest.mark.parametrize("name", sorted({**REDIRECTED, **REDIRECTED_UNPLACED}))
+def test_the_gate_stops_a_redirected_commit(monkeypatch, capsys, tmp_path, name):
+    command = {**REDIRECTED, **REDIRECTED_UNPLACED}[name]
+    repo = make_repo(tmp_path / "repo")
+    assert say(monkeypatch, capsys, command, repo) == "deny", name
+
+
+@pytest.mark.parametrize(
+    "name", ["2>/dev/null git", "git 2>/dev/null commit", "2>&1 git", "git 2>&1 commit"]
+)
+def test_a_redirected_commit_in_a_declared_repository_is_silent(
+    monkeypatch, capsys, tmp_path, name
+):
+    """The redirection is read past, not read as a construct: a declared
+    repository answers the commit the way it answers `git commit` bare."""
+    repo = make_repo(tmp_path / "repo", declared=True)
+    assert say(monkeypatch, capsys, REDIRECTED[name], repo) == "silent", name
+
+
+def test_a_redirection_whose_target_is_named_git_still_reads_as_git(tmp_path):
+    """`spec.md` decision 1. `2>/x/git commit` reads as a git invocation at
+    `86256492`, because the reader took the whole word's last component.
+    Reading past every redirection would read it as none, so the base's answer
+    is kept wherever it found one."""
+    assert found("2>/x/git commit -m x", tmp_path)
+
+
+# #674, `questions.md` Q3's header half: every header spelling, as the splitter
+# hands it back, and the word `header_end` says the command starts at. A
+# spelling read by position costs nothing; `UNPLACEABLE` is the stand-in, which
+# is a stop. None is a segment that opens with no header at all.
+U = "UNPLACEABLE"
+HEADERS = {
+    "case W in P)": (["case", "a", "in", "a)", "watch"], 4),
+    "case W in (P)": (["case", "a", "in", "(a)", "watch"], 4),
+    "case W in P )": (["case", "a", "in", "a", ")", "watch"], 5),
+    "case W in P, the rest past a |": (["case", "a", "in", "a"], 4),
+    "case W, in on the next line": (["case", "a"], 2),
+    "in, then a pattern": (["in", "a)", "watch"], 2),
+    "a later arm P)": (["b)", "watch"], 1),
+    "a later arm P )": (["b", ")", "watch"], 2),
+    "a case behind then": (["then", "case", "a", "in", "a)", "watch"], 5),
+    "a case glued to (": (["(case", "a", "in", "a)", "watch"], 4),
+    "f() {": (["f()", "{", "watch"], 2),
+    "f() (": (["f()", "(", "watch"], 2),
+    "f() (glued": (["f()", "(watch"], 1),
+    "f(), body on the next line": (["f()"], 1),
+    "f ()": (["f", "()", "{", "watch"], 3),
+    "f(){": (["f(){", "watch"], 1),
+    "function f {": (["function", "f", "{", "watch"], 3),
+    "function f() {": (["function", "f()", "{", "watch"], 3),
+    "function f () {": (["function", "f", "()", "{", "watch"], 4),
+    "function f(){": (["function", "f(){", "watch"], 2),
+    "function f, body on the next line": (["function", "f"], 2),
+    "coproc CMD": (["coproc", "watch"], 1),
+    "coproc {": (["coproc", "{", "watch"], 2),
+    "coproc (glued": (["coproc", "(watch"], 1),
+    "coproc NAME {": (["coproc", "W", "{", "watch"], 3),
+    "a case with no in": (["case", "a", "b", "c)"], U),
+    "a pattern with no )": (["case", "a", "in", "a", "b", "c"], U),
+    "a definition with no body": (["f()", "watch"], U),
+    "no header: a program": (["grep", "-n", "watch"], None),
+    "no header: case as an argument": (["echo", "case", "a)"], None),
+    "no header: a for list": (["for", "x", "in", "a"], None),
+}
+
+
+@pytest.mark.parametrize("name", sorted(HEADERS))
+def test_header_end(name):
+    tokens, want = HEADERS[name]
+    want = cmdline.UNPLACEABLE if want == U else want
+    assert cmdline.header_end(tokens) == want, name
+
+
+def test_a_header_spelling_the_reader_cannot_place_falls_to_the_stand_in():
+    """#674, `spec.md` §*Two stand-ins*. A header the positional reading does
+    not recognise is read the way `86256492` read every header for `git`: any
+    later `watch` counts as the program, and any later word that expands counts
+    as the string's command word. A false one is a stop, never a silence."""
+    tokens = ["case", "a", "b", "watch", "-g", "$CMD"]
+    assert cmdline.header_end(tokens) == cmdline.UNPLACEABLE
+    assert cmdline.command_strings(tokens) == ["$CMD"]
+    assert cmdline.names_an_unknown_command("case a b echo $CMD")
+    # A redirection's target is a file, and the stand-in does not count it.
+    assert not cmdline.names_an_unknown_command('case a b echo >"$LOG"')
+
+
+def test_a_string_behind_a_runners_operand_stops_as_the_frame_chose(tmp_path):
+    """`spec.md` (b). Behind a runner's own option or operand the reader cannot
+    tell a value from the program, so a later word that expands counts, and a
+    positional parameter handed to `wc` is such a word. The frame counted this
+    as a cost rather than a defect (`plan.md` Alternatives F)."""
+    command = "sh -c 'timeout 5 wc -l \"$1\"' _ f"
+    assert found(command, tmp_path), command
+
+
+def test_sudo_s_does_not_hand_a_quoted_string_to_its_shell_as_a_command_line(tmp_path):
+    """#674, `questions.md` Q4, answered *not as stated* from `man sudo`
+    (1.9.17p2): with `-s` or `-i`, "the command and any args are concatenated,
+    separated by spaces, after escaping each character (including white
+    space) with a backslash … except for alphanumerics, underscores, hyphens,
+    and dollar signs". So `sudo -s 'git commit -m x'` reaches the shell as one
+    word, not a command line, and `sudo` is not a string host. The argv form
+    does run a commit, and `sudo`'s runner reading already finds it."""
+    assert not found("sudo -s 'git commit -m x'", tmp_path)
+    assert found("sudo -s git commit -m x", tmp_path)
+
+
+def test_a_commit_the_splitter_already_found_is_not_found_twice(tmp_path):
+    """`spec.md` S6's control. `git commit -m x 2>&1 | tail -1` finds its
+    commit in the part before the cut, exactly as at `86256492`, and the
+    merged view adds nothing: the list is the base's list, `2>` and all."""
+    invocations = found("git commit -m x 2>&1 | tail -1", tmp_path)
+    assert [(list(inv.args), list(inv.chdirs)) for inv in invocations] == [
+        (["-m", "x", "2>"], [])
+    ]
+    assert not isinstance(invocations[0].base, cmdline.Unresolved)
+
+
+MERGED = {
+    "2>&1": ("a 2>&1 b", ["a", "2>&1", "b"]),
+    ">&2": (">&2 a", [">&2", "a"]),
+    "<&0": ("<&0 a", ["<&0", "a"]),
+    ">&-": ("a >&- b", ["a", ">&-", "b"]),
+    ">|f": ("a >|f b", ["a", ">|f", "b"]),
+    "&>f after a word": ("a &>f b", ["a", "&>f", "b"]),
+    "&>>f after a word": ("a &>>f b", ["a", "&>>f", "b"]),
+    "a chain": ("a >&2 2>&1 b", ["a", ">&2", "2>&1", "b"]),
+    "{fd}>&1": ("a {fd}>&1 b", ["a", "{fd}>&1", "b"]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(MERGED))
+def test_merged_view(name):
+    """#674, `spec.md` decision 3: the cut operators glued back, as a view."""
+    command, tokens = MERGED[name]
+    items, _clean = cmdline.split_segments_with_separators(command)
+    groups = cmdline.merged_view(items)
+    assert [g[1] for g in groups] == [tokens], name
+
+
+SEPARATE = {
+    "a background job": ("a & b", []),
+    "a pipe": ("a | b", []),
+    "a list": ("a && b", []),
+    "a redirection with its target, then a job": ("a > f & b", []),
+    "&& before a redirection": ("a && >f b", []),
+    "|| before a redirection": ("a || >f b", []),
+    "; before a redirection": ("a; >f b", []),
+    # bash refuses a bare operator before a list operator, and the view does
+    # not make one up either.
+    "a bare operator before &&": ("a > && b", []),
+    "a bare operator before ;": ("a 2> ; b", []),
+    "2>&1, then a list": ("a 2>&1 && b", [["a", "2>&1"]]),
+}
+
+
+@pytest.mark.parametrize("name", sorted(SEPARATE))
+def test_merged_view_leaves_a_real_separator_alone(name):
+    """A background job, a pipe and a list are not redirections, and the
+    view never glues across one."""
+    command, groups = SEPARATE[name]
+    items, _clean = cmdline.split_segments_with_separators(command)
+    assert [g[1] for g in cmdline.merged_view(items)] == groups, name
+
+
+def test_a_redirection_with_nothing_after_it_keeps_the_base_subcommand():
+    """The same rule one scan over: `git 2>/dev/null` names no subcommand past
+    the redirection, so the answer `86256492` gave is the one returned."""
+    assert cmdline.parse_git(["git", "2>/dev/null"]) == ("2>/dev/null", [], [])
+    assert cmdline.parse_git(["git", "2>/dev/null", "commit"]) == ("commit", [], [])
 
 
 @pytest.mark.parametrize("name", sorted(STILL_HANDED))
@@ -331,3 +724,70 @@ def test_an_unknown_command_word_is_named_and_a_structural_one_is_not():
     assert cmdline.names_an_unknown_command("echo; ${X} b")
     for text in ("[ -f x ] && echo y", "{ echo y; }", "echo $X", "if true; then :; fi"):
         assert not cmdline.names_an_unknown_command(text), text
+
+
+# Round 1 of 1790660768, yellows 3-6: shapes a real shell commits that read as
+# no commit at both `86256492` and `befe53cd`. Each was run in bash 3.2.57 or
+# zsh 5.9 and made a commit.
+STILL_UNREAD = {
+    # yellow 4: a redirection glued to the END of a word.
+    "git>/dev/null": "git>/dev/null commit -m x",
+    "commit>/dev/null": "git commit>/dev/null -m x",
+    "git>&2, cut at &": "git>&2 commit -m x",
+    "git<&0, cut at &": "git<&0 commit -m x",
+    "(git>/dev/null": "(git>/dev/null commit -m x)",
+    "nice>/dev/null": "nice>/dev/null git commit -m x",
+    "env>/dev/null": "env>/dev/null git commit -m x",
+    "eval>/dev/null": 'eval>/dev/null "$X"',
+    "sh>/dev/null -c": 'sh>/dev/null -c "$CMD"',
+    # The same, inside text the gate reads again as commands: a shell's
+    # string, a heredoc body a shell runs, and a string whose runner hides an
+    # expanding command word.
+    "git>/dev/null in sh -c": "sh -c 'git>/dev/null commit -m x'",
+    "git>/dev/null in a heredoc": "bash <<'EOF'\ngit>/dev/null commit -m x\nEOF",
+    "nice>/dev/null $CMD in sh -c": "sh -c 'nice>/dev/null $CMD'",
+    # yellow 5: zsh.
+    "for i (1)": "for i (1) git commit -m x",
+    "for i (1) { }": "for i (1) { git commit -m x }",
+    "repeat 1 { }": "repeat 1 { git commit -m x }",
+    "repeat 2 eval": 'repeat 2 eval "$X"',
+    # yellow 6: the string past `--` and options behind a redirection.
+    "bash -c 2>/dev/null --": 'bash -c 2>/dev/null -- "$CMD"',
+    "bash -c 2>&1 --": 'bash -c 2>&1 -- "$CMD"',
+    "bash -c 2>/dev/null -e": 'bash -c 2>/dev/null -e "$CMD"',
+    "sh -c 2>/dev/null +x": 'sh -c 2>/dev/null +x "$CMD"',
+    "bash -c 2>/dev/null -O extglob": 'bash -c 2>/dev/null -O extglob "$CMD"',
+}
+
+
+@pytest.mark.parametrize("name", sorted(STILL_UNREAD))
+def test_a_shape_both_shas_read_as_no_commit_is_read(name, tmp_path):
+    """Seen red at `3b8522c3`, where each returned nothing."""
+    assert found(STILL_UNREAD[name], tmp_path), name
+
+
+# yellows 3-5 in the walk: a `cd` the shell runs that the walk read as
+# staying put. From a declared session, the commit lands in U, which declares
+# nothing, and each read silent at both SHAs.
+UNSEEN_CD = [
+    "2>&1 cd {u} && git commit -m x",
+    ">&2 cd {u} && git commit -m x",
+    ">|f cd {u} && git commit -m x",
+    "<&0 cd {u} && git commit -m x",
+    ">&- cd {u} && git commit -m x",
+    "2>&1 pushd {u} && git commit -m x",
+    "cd>/dev/null {u} && git commit -m x",
+    "pushd>/dev/null {u} && git commit -m x",
+    "noglob cd {u} && git commit -m x",
+    "nocorrect cd {u} && git commit -m x",
+    "repeat 1 cd {u} && git commit -m x",
+]
+
+
+@pytest.mark.parametrize("shape", UNSEEN_CD)
+def test_a_cd_the_walk_did_not_see_stops(monkeypatch, capsys, shape, tmp_path):
+    """Seen red at `3b8522c3`, where each was silent."""
+    session = make_repo(tmp_path / "session", declared=True)
+    u = make_repo(tmp_path / "u")
+    command = shape.format(u=u)
+    assert say(monkeypatch, capsys, command, session) != "silent", command

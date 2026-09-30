@@ -274,7 +274,13 @@ component, as written and before the shell expands anything, is not `git`
 or a program outside the runners it reads past, such as `uv run` — is not a
 git invocation to this guard, and it says nothing. `nice` sat in that group
 until #670 enumerated the programs that run their operands as a command
-(`cmdline.RUNNERS`); since then it is read past and sits in the first. `parse_git` expands nothing and compares that
+(`cmdline.RUNNERS`); since then it is read past and sits in the first. A
+redirection in front of `git` or before its subcommand (`2>/dev/null git
+worktree add …`, `git 2>/dev/null worktree add …`) joined it with #674:
+without consent that is a creation, and with consent the `>` fails the second
+test above, so the user's own settings decide it. One the splitter cuts at `&`
+(`git 2>&1 worktree add …`) is glued back only by the commit gate, and this
+guard does not read it, as before. `parse_git` expands nothing and compares that
 last component, so `~/git`, `*/git` and `$HOME/git` belong to the first group.
 What the class costs is the
 allow on `/usr/bin/git worktree add …`, which is the trade already made for `$`
@@ -551,7 +557,10 @@ outright, and a `cd` earlier in the command moves the shell to it — this guard
 is the reason a session is in that shape at all, since it refuses a switch and
 tells the user to work in a separate worktree, so the session stays where it
 was while the commands do not. Both are read the same way the commit gate
-reads them (`commit-review-gate-spec.md` §Which repository).
+reads them (`commit-review-gate-spec.md` §Which repository). A redirection
+among the `cd`'s words (`cd W 2>/dev/null`, `2>/dev/null cd W`, `cd>/dev/null
+W`) moves it too, since round 2 of work item 1790660768; until then the switch
+was judged in the session's own tree while it ran in W.
 
 The advice follows the same tree. A command a reason tells the person to run —
 the worktree steer, a choice's option, the switch steer, the tracked-changes

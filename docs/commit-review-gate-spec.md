@@ -317,10 +317,12 @@ the privilege tools', the tracers' and `find`, `parallel`, `watch` and
 `script`) is read past: directly in front of `git` the commit is judged where
 the shell is, and behind the program's own options or operands, which the
 reader does not parse, the first `git` word stands in and the directory is
-unresolved. A string `sh -c`, `bash -c`, `su -c`, `script -c`, `env -S` or
-`watch` hands to a shell is read as a command the way `eval`'s argument
-already was, and a command word the shell would expand in the string a host
-runs (`sh -c "$CMD"`) counts as one that might commit. That question is not
+unresolved. A string `sh -c`, `bash -c`, `su -c`, `script -c`, `flock -c`,
+`env -S` or `watch` hands to a shell is read as a command the way `eval`'s
+argument already was, and a command word the shell would expand in the string
+a host runs (`sh -c "$CMD"`) counts as one that might commit. `parallel`'s
+arguments are read for a commit written out, and no further: placing its
+command word means parsing its options (#674). That question is not
 asked of a shell's positional parameters or of `watch` as a word something
 else was handed, because no shell runs those (`find -exec sh -c '…' _ {}`,
 `grep watch *.py`). An `eval` is found the same way `git` is, behind a
@@ -340,11 +342,90 @@ gives, and for one more: a command the splitter could not finish is still
 judged in the session's own directory when the new reading found a commit in
 the part it did read. Without that, a commit found in a declared repository
 took the session's directory out of the judgment (round 1 of work item
-1790644505). A body nested deeper than the reader recurses reads as one that
+1790644505). A body nested deeper than the reader reads — `NESTING_READ`, 32
+levels, or the recursion limit where that comes first — reads as one that
 might commit, beside every commit already found, since a gate that raises is
 skipped and a skipped gate is silence; catching the raise around the whole
 reading had thrown away a commit it had found in another repository (round 2
 of work item 1790644505).
+Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
+
+**A program word is read where the shell reads one, whatever stands in front
+of it.** `2>/dev/null git commit`, `git 2>/dev/null commit`, `2>&1 git
+commit`, `(sh -c 'git commit')`, `bash -c 2>/dev/null "$CMD"` and `watch` in
+a `case` arm or a function body each reached the gate as no commit at all
+(#674), and bash landed every one it was given. The readers above stopped at
+the first word they did not know, and a redirection, a compound command's
+header and a `(` glued to the program are each such a word.
+
+So each place a program word stands is read past what the shell takes off it:
+
+- **A redirection** in front of the program or before git's subcommand, glued
+  or spaced (`2>/dev/null`, `2> /dev/null`, `<<<w`, `<< EOF`, `{fd}>f`, zsh's
+  `>!f`), is read past to the word it stands in front of. A commit there is
+  judged where the shell is, as the same commit without it is. A `cd`, a
+  relocator, a reserved word or an expanding word reached past one adds an
+  unresolved directory beside the one the walk read without it, and never
+  replaces it: `[no-review]` waives an unresolved target whole, and a session
+  that is not opted in reads one as silence, so a replaced directory is a
+  stop lost. The same holds for zsh's `noglob`, `nocorrect` and `repeat N`,
+  for a redirection glued to a word's end (`cd>/dev/null W`), and for one the
+  splitter cut (`2>&1 cd W`). A redirection after a `cd`'s operand, or glued
+  to one (`cd W 2>/dev/null`, `cd W>/dev/null`), is the shell's as well. The
+  landing read past any of these is added in front of the directory the walk
+  read with it: the gate judges both, and the worktree guard and the consent
+  writer, which take the first directory they can name, take W.
+- **A redirection glued to the end of a word** (`git>/dev/null commit`, `git
+  commit>/dev/null`, `sh>/dev/null -c`) is cut off into a view read beside the
+  segment, adding only what the segment did not find. A descriptor in front
+  (`2>f`), bash 4.1's `{fd}>f` and a quoted word holding a space stay whole.
+- **The operators the splitter cuts at `&` or `|`** — `2>&1`, `>&2`, `<&0`,
+  `>&-`, `>|f`, and `&>f` after a word, `git>&2` among them — are glued back
+  into a view the gate reads beside the segments, adding only what no segment
+  found on its own. The walk asks that view too, where a `cd` behind one
+  stands. The splitter itself is unchanged, because teaching it these
+  operators moves every segment in both gates and in the walk.
+- **zsh's precommand words and short loop** — `noglob`, `nocorrect`, `repeat
+  N` and `for i (…) cmd` — are read past as runners, the count and the word
+  list as operands.
+- **Inside a `case` arm, a function definition or a coprocess,** `watch` and
+  the command word of a host's string are read by position, and a header
+  spelling the reader does not place falls to the stand-in `git` already had.
+  Behind a runner's own options inside a string, which the reader cannot tell
+  from the program, a later word that expands counts. None of these three counts
+  a redirection's target. Past 32 headers, one inside the next
+  (`HEADERS_READ`), the program counts as one the reader does not place.
+- **A host glued to a subshell's `(`** is a host, and a string picked after a
+  host's flag is read past a redirection written there, and past the options
+  and `--` behind that redirection (`bash -c 2>/dev/null -- "$CMD"`).
+
+`sudo -s` and `sudo -i` are not string hosts: `man sudo` says the command
+is escaped a character at a time before it reaches the shell's `-c`, so a
+quoted string is one word there and not a command line. Their argument form
+is `sudo` the runner's.
+
+The reading can only have gained stops by this. Every reader asks what it
+asked before first and adds what the new reading finds, `understood`'s
+refusal is added beside the directory the walk read before, the walk's
+reading past redirections unplaces a segment beside its directory and never
+in place of it, and a generated
+corpus of 11,393 commands across these positions found none silent where the
+release base stopped. The one answer
+replaced rather than kept is git's subcommand where it had been a redirection,
+which no reader acted on. Over 6,033 commands recorded in the milestone's
+runs, none changed its verdict.
+
+That holds past the walk's `STATE_CAP` as well. Past 64 directories the walk
+collapses into one it cannot read, and the directories added beside count
+toward the cap, so a chain of `cd` segments reaches it sooner than the base's
+walk did: nine `2>/dev/null cd W;` in a row, or a refused segment followed by
+sixteen `cd W;`. So the walk carries the base's own states in a thread of
+their own, with none of the additions and the same collapse at the base's
+length, and every segment's directories are the walk's followed by that
+thread's. Where the walk names none, the base's come first, and the worktree
+guard, which judges the first, judges the tree the base did (question Q7 of
+work item 1790660768). The `cd` behind a redirection, the depth bound and
+the cap are held by `tests/test_no_shape_the_base_stops_reads_silent.py`.
 Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
 
 ### Why a deny, and why only once
