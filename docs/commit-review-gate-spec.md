@@ -422,10 +422,18 @@ walk did: nine `2>/dev/null cd W;` in a row, or a refused segment followed by
 sixteen `cd W;`. So the walk carries the base's own states in a thread of
 their own, with none of the additions and the same collapse at the base's
 length, and every segment's directories are the walk's followed by that
-thread's. Where the walk names none, the base's come first, and the worktree
-guard, which judges the first, judges the tree the base did (question Q7 of
-work item 1790660768). The `cd` behind a redirection, the depth bound and
-the cap are held by `tests/test_no_shape_the_base_stops_reads_silent.py`.
+thread's. Where the walk's own first directory, the shell the segment runs
+in, is one it cannot name, the base's come first, and the worktree guard,
+which judges the first, judges the tree the base did (question Q7 of work item
+1790660768). That covers the collapse itself, and a collapsed walk that
+regains a readable directory only behind its unresolved one: past the cap,
+`cd /abs/Y || git switch` names Y on the branch the `||` skips, the one tree
+the switch does not run in (#689). A `cd` that moves the running shell after
+the collapse makes the walk's first directory readable again, so it leads,
+and a `cd` landed past its redirections leads past the cap as before it. The
+`cd` behind a redirection, the depth bound and the cap are held by
+`tests/test_no_shape_the_base_stops_reads_silent.py`, and the order the guard
+and the consent writer read by `tests/test_guard_resolves_the_tree_it_judges.py`.
 Enforced by: tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py
 
 ### Why a deny, and why only once
