@@ -82,7 +82,7 @@ It also re-confirmed three things narrowly: the frozen copy's byte identity, the
 | round-1 | `hooks/cmdline.py#walk_directories` | round 1's 🟢 — confirmed |
 | round-1 | `hooks/` | round 1's 🟢 — confirmed |
 | round-1 | `tests/test_guard_resolves_the_tree_it_judges.py` | round 1's 🟢 — confirmed |
-| round-1 | `hooks/cmdline.py#base_directories` | round 1's 🟢 — confirmed |
+| round-1 | `hooks/cmdline.py#base_directories` | round 1's 🟢 — confirmed · NAME NOT IN TREE |
 | round-1 | `hooks/worktree-guard.py#_tokenize_with_separators` | round 1's ❓ — out of verified scope |
 | round-2 | `docs/worktree-guard-spec.md:585` | round 2's 🔴 1 — fixed |
 | round-2 | `docs/worktree-guard-spec.md:582` | round 2's ⬜ 2 — answered |
