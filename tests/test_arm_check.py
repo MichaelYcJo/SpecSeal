@@ -2041,8 +2041,10 @@ def test_a_refused_run_leaves_the_module_as_it_was_before_the_command(
         f"the module was left as the command {change.split()[0]} it"
     )
 
-    # And when the same command passes: with `--only` selecting no arm there
-    # is no later restore, so the first run's own put-back is the only one.
+    # And when the same command passes, with `--only` selecting no arm: the
+    # module still comes back. Two restores cover this path, the first run's
+    # and the loop's outer `finally`, so this holds the outcome rather than
+    # either one (round 1's fix pass measured the first alone as redundant).
     probe.write_text(
         "import os\nimport sys\n" + CHANGES_THE_MODULE[change] + "\nsys.exit(0)\n",
         encoding="utf-8",

@@ -963,6 +963,8 @@ def run_arms(
             # Removed, or made unreadable: either way not what was read.
             changed = True
         if changed:
+            # On a pass the loop's outer `finally` would put it back as well;
+            # on a refusal, and on an interrupt, nothing else does.
             restore(path, original, original_sha)
     if refusal is not None:
         refusal.put_back = changed
