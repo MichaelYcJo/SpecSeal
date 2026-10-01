@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 699 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `0cbadb8e6c16e409a68ab14494b93dac6c187198..4744a1c045ba7e02c6190c56aee6a89cc915b0eb`, 5 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (a slash-joined word read as a path home), 🟡 2 (a path home loses its underscores) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 2 is the verifying round. It targets `39ef351c` and verifies round 1's fix
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `HOME_TOKEN`'s path arm reads words joined by a slash (`CI/CD`, `and/or`, `stdout/stderr`) as a path, and one placed before an issue hides the issue: `deferred — the stdout/stderr split is #700's` prints `stdout/stderr` | `skills/verify/scripts/broad_gate.py:2400` | open | executed at the target over four cells; requiring an extension fixes all four, and the twelve parametrized cases and the sealer module stay green (216 passed) |
-| 🟡 2 | a path home is read after `EMPHASIS`, which removes every `_`, so `tests/test_the_gate_names_every_step_ci_runs.py` prints as `tests/testthegatenameseverystepciruns.py` | `skills/verify/scripts/broad_gate.py:2423` | open | executed at the target; this line predates the fix (depth 0), and the fix made a path a first-class home; the paste-ready marks keep the name, sealer module green with it |
-| ⬜ 3 | `overview.md` §Not done says the names reach a failed preflight's per-check lines; `not_sealed` puts them on the head only, and the preflight replaces the head | `seal/specs/1790815615-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run/overview.md:39` | open | `not_sealed` executed with names: only line 0 carries them; paperwork, a correction |
-| ⬜ 4 | four release rows re-hashed at the merge over the two headings both sides edited carry no *at the merge* note, where #638's fragment rows over the same headings do | `seal/releases/0.15.4.md` | open | rows 0.15.1 N3, 0.15.4 A5 and C4, 0.15.7 N9; hashes right (`evidence-check` at `613b9389`, 0 drifted); both sides' notes present; paperwork, a correction |
-| ⬜ 5 | two comments give one reason for an absent invoked path, the direct run, and leave out an installed copy older than #666 | `skills/verify/scripts/broad_gate.py:3006` | open | read; also the `gate_copy` docstring at `:450`; the rest of round 1's 🟡 4 class; behaviour right |
+| 🟡 1 | `HOME_TOKEN`'s path arm reads words joined by a slash (`CI/CD`, `and/or`, `stdout/stderr`) as a path, and one placed before an issue hides the issue: `deferred — the stdout/stderr split is #700's` prints `stdout/stderr` | `skills/verify/scripts/broad_gate.py:2400` | **fixed** `fa03671d` | fixed at fa03671d; executed at the target over four cells; requiring an extension fixes all four, and the twelve parametrized cases and the sealer module stay green (216 passed) |
+| 🟡 2 | a path home is read after `EMPHASIS`, which removes every `_`, so `tests/test_the_gate_names_every_step_ci_runs.py` prints as `tests/testthegatenameseverystepciruns.py` | `skills/verify/scripts/broad_gate.py:2423` | **fixed** `fa03671d` | fixed at fa03671d; executed at the target; this line predates the fix (depth 0), and the fix made a path a first-class home; the paste-ready marks keep the name, sealer module green with it |
+| ⬜ 3 | `overview.md` §Not done says the names reach a failed preflight's per-check lines; `not_sealed` puts them on the head only, and the preflight replaces the head | `seal/specs/1790815615-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run/overview.md:39` | answered | corrected at 23542d92; overview.md says the names ride only the head line, which the preflight replaces; `not_sealed` executed with names: only line 0 carries them; paperwork, a correction |
+| ⬜ 4 | four release rows re-hashed at the merge over the two headings both sides edited carry no *at the merge* note, where #638's fragment rows over the same headings do | `seal/releases/0.15.4.md` | answered | corrected at 23542d92; the four rows re-hashed at the merge carry an at-the-merge note; rows 0.15.1 N3, 0.15.4 A5 and C4, 0.15.7 N9; hashes right (`evidence-check` at `613b9389`, 0 drifted); both sides' notes present; paperwork, a correction |
+| ⬜ 5 | two comments give one reason for an absent invoked path, the direct run, and leave out an installed copy older than #666 | `skills/verify/scripts/broad_gate.py:3006` | **fixed** `fa03671d` | fixed at fa03671d; read; also the `gate_copy` docstring at `:450`; the rest of round 1's 🟡 4 class; behaviour right |
 | 🟢 | round 1's 🟡 1 is closed — a list of counts or homes continues beneath its label | `skills/verify/scripts/broad_gate.py:266` | confirmed | executed: `1790645290` and `1790297085` show every home, every row 23 columns or fewer; `beside` draws any height |
 | 🟢 | round 1's 🟡 2 is closed for the tree's four rows and the typed shapes | `skills/verify/scripts/broad_gate.py:2405` | confirmed | executed over every deferred row of every `round-N.md` and over `to #664`, `→ #664`, `→ later`: right home, ASCII; the two remaining misreads are 🟡 1 and 🟡 2 |
 | 🟢 | round 1's 🟡 3 is closed — the base cannot be dropped silently | `skills/verify/scripts/broad_gate.py:2829` | confirmed | mutations executed: argument dropped raises `TypeError` and fails a case; `None` fails `test_a_release_pull_request_is_sealed_as_ci_would_judge_it` |
