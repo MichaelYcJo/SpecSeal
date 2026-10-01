@@ -3223,17 +3223,26 @@ def test_a_framer_row_under_its_bar_is_named(tmp_path):
 def test_a_smith_row_is_never_graded_and_the_page_says_why(tmp_path):
     """S6. An edit-test loop is serial, and the protocol judges it on
     `repeats = 0` and never on tools per turn. A smith at the floor beside a
-    warden under its bar: the warden is named and the smith is not."""
+    warden under its bar: the warden is named and the smiths are not.
+
+    Two smiths, one of them bare, because with one smith and one warden the
+    mutation pass found that counting the WARDEN as exempt instead gives the
+    same three numbers."""
     out = segment_report(
         graded_run(
-            tmp_path, [("specseal:smith", SINGLES), ("specseal:warden", UNDER_WARDEN)]
+            tmp_path,
+            [
+                ("specseal:smith", SINGLES),
+                ("smith", SINGLES),
+                ("specseal:warden", UNDER_WARDEN),
+            ],
         )
     )
     lines = grade_lines(out)
     assert not any("smith" in line for line in lines), lines
     assert len(lines) == 1, lines
     flat_out = " ".join(out.split())
-    assert "1 graded, 1 exempt, 0 ungraded" in flat_out, flat_out
+    assert "1 graded, 2 exempt, 0 ungraded" in flat_out, flat_out
     assert (
         "A smith row is exempt: an edit-test loop is serial, and the protocol "
         "judges it on `repeats = 0` rather than on this ratio." in flat_out
