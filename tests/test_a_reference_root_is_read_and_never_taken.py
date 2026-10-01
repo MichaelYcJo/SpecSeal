@@ -45,16 +45,26 @@ def table(*rows):
 def test_the_row_names_its_prefixes_with_or_without_a_slash(tmp_path):
     """Present: the prefixes it names, normalised, and nothing else."""
     home = str(tmp_path / "seal")
-    write_config(home, table(("Reference specs", "specs/, docs/adr ,./design/")))
+    write_config(
+        home,
+        table(("Reference specs", "specs/, docs/adr ,./design/, specs, tools\\notes")),
+    )
     roots = config.reference_roots(home)
-    assert roots == ("specs", "docs/adr", "design"), roots
-    for rel in ("specs/x/spec.md", "docs/adr/0001.md", "design/a.md", "specs"):
+    assert roots == ("specs", "docs/adr", "design", "tools/notes"), roots
+    for rel in (
+        "specs/x/spec.md",
+        "docs/adr/0001.md",
+        "design/a.md",
+        "specs",
+        "./specs/x.md",
+        "tools/notes/n.md",
+    ):
         assert config.under_reference_root(rel, roots), rel
     for rel in ("docs/adrs/0001.md", "docs/specs/x.md", "src/specs.py", "spec/x"):
         assert not config.under_reference_root(rel, roots), rel
 
 
-def test_no_row_means_every_specs_directory_outside_the_root(tmp_path):
+def test_no_row_means_every_specs_directory_outside_the_root(tmp_path, monkeypatch):
     """Absent, empty or unreadable: the ticket's default, at any depth."""
     home = str(tmp_path / "seal")
     for body in (None, table(("Mode", "shared")), table(("Reference specs", ""))):
@@ -62,11 +72,21 @@ def test_no_row_means_every_specs_directory_outside_the_root(tmp_path):
             write_config(home, body)
         roots = config.reference_roots(home)
         assert roots is None, (body, roots)
-        for rel in ("specs/x/spec.md", "docs/specs/y.md", "a/b/specs/c/d.md"):
+        for rel in (
+            "specs/x/spec.md",
+            "docs/specs/y.md",
+            "a/b/specs/c/d.md",
+            "specs\\x\\spec.md",
+        ):
             assert config.under_reference_root(rel, roots), rel
         for rel in ("seal/specs/1790000000-x/spec.md", "docs/spec.md", "specsheet/a"):
             assert not config.under_reference_root(rel, roots), rel
-    assert config.reference_roots("") is None, "no root is the default, not a crash"
+    # No root is the default — never a `config.md` found relative to wherever
+    # the process happens to stand.
+    stray = tmp_path / "elsewhere"
+    write_config(str(stray), table(("Reference specs", "none")))
+    monkeypatch.chdir(stray)
+    assert config.reference_roots("") is None
 
 
 def test_none_declares_no_reference_root(tmp_path):

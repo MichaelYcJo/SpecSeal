@@ -4715,6 +4715,16 @@ def test_a_team_specs_document_the_range_edited_is_not_a_source(tmp_path):
     assert re.search(r"against 0 sentence\(s\)", text), text
 
 
+def test_the_reference_roots_are_read_once_per_repository(tmp_path):
+    """The pool asks the predicate of every tracked path, so the row and its
+    two modules are read once per root, not once per path."""
+    repo = reference_probe(tmp_path, config=REFERENCE_NONE)
+    loaded = module()
+    first = loaded.references(str(repo))
+    assert first[1] == (), first
+    assert loaded.references(str(repo)) is first
+
+
 def test_a_top_level_specs_directory_is_never_a_retired_work_item(tmp_path):
     """`WORK_ITEM_DIR` reads `seal/specs/` alone. A top-level `specs/<x>/`
     removed by a range is not a retirement: with the reference roots put back
