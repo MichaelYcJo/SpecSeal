@@ -70,8 +70,12 @@ GROUPS = {
     # The installer goes first: a stub that went missing or stale is back
     # before the command runs, and the gates after it ask whether git decides
     # in the clone they are about to judge (`hooks/githooks.py#decides`).
+    #
+    # `answer-write.py` hands the old consent tokens to those hooks (P3), and
+    # `answer-clear.py` in `post-bash` takes them back when the call is over.
     "pre-bash": (
         "hook-install.py",
+        "answer-write.py",
         "commit-review-gate.py",
         "worktree-guard.py",
         "mode-gate.py",
@@ -84,6 +88,7 @@ GROUPS = {
         "session-lease.py",
         "evidence-advisor.py",
         "worktree_consent.py",
+        "answer-clear.py",
     ),
     # The AFTER half of the worktree guard, and the only group that exists for
     # one gate. It cannot join `pre-agent`: what it records is that the call

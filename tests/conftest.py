@@ -514,6 +514,16 @@ def _no_hooks_installed_unless_asked(monkeypatch):
     monkeypatch.setenv("SPECSEAL_HOOK_INSTALL", "off")
 
 
+# `hooks/answers.py` keeps the tokens a command carried under the person's
+# home. Every case keeps them under its own temporary directory instead, so no
+# case writes into the home of whoever runs the suite.
+@pytest.fixture(autouse=True)
+def _answers_kept_in_the_case(monkeypatch, tmp_path_factory):
+    monkeypatch.setenv(
+        "SPECSEAL_ANSWERS", str(tmp_path_factory.mktemp("specseal-answers"))
+    )
+
+
 @pytest.fixture
 def git_hooks_installed(monkeypatch):
     """Lets `hooks/hook-install.py` write, for a case that is about it."""

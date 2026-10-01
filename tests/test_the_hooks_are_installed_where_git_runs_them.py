@@ -372,9 +372,14 @@ def test_post_checkout_starts_python_only_for_a_creation(tmp_path, home):
     assert "ran post-checkout" in created.stderr
 
 
-def test_the_entry_points_this_phase_ships_let_every_action_through(tmp_path, home):
+def test_the_installed_hooks_let_a_commit_through_where_nothing_is_missing(
+    tmp_path, home
+):
+    """The stubs end to end, through the installed entry points: a reviewed
+    HEAD is a commit with nothing missing. What they refuse is
+    `tests/test_the_commit_gate_decides_at_the_commit.py`'s."""
     r = repo(tmp_path / "r")
     install_mod.install(str(r), "s1")
-    s = {"CLAUDE_CODE_SESSION_ID": "s1"}
-    assert commit(r, **s).returncode == 0
-    assert g(r, "worktree", "add", "-q", str(tmp_path / "wt"), "-b", "nb", **s)
+    head = g(r, "rev-parse", "HEAD").stdout.strip()
+    (r / ".git" / "specseal-reviewed").write_text(head, encoding="utf-8")
+    assert commit(r, CLAUDE_CODE_SESSION_ID="s1").returncode == 0
