@@ -94,13 +94,30 @@ discriminator, and the gate's message says which of the two happened. A seal
 over a record that says the run came too early, or over a tree the chain
 check refuses, is a stamp over a contradiction.
 
+**`--preflight` runs arms 2 to 7 alone, and seals nothing** (#638). It is the
+orchestrator's step before it spawns the sealer: the same base resolved the
+same way, every refusal of the row applied, and then every arm above except
+the row, in the same order, with the same arguments, each output kept the
+same way. The row is read and never run, so a refusal on a record arm — a
+drifted ledger row, a chain refusal, a survivor — arrives in seconds rather
+than after a whole suite. It writes no cell, no values file and no stamp,
+runs no `round_record.py seal`, adds no worktree, prints no coverage line,
+and prints no line beginning `SEALED` or `NOT SEALED`: its stdout opens
+`PREFLIGHT PASSED` or `PREFLIGHT FAILED`, the failing arms under the second
+in the failure form's own words. `--record` beside it is refused, because a
+preflight writes no cell. It is not the broad gate and replaces no part of
+the sealer's run.
+
 Usage:
   broad-gate --base <ref> [--root DIR] [--record <item>] [--shape]
              [--scale 0.9] [--keep-output DIR]
+  broad-gate --preflight --base <ref> [--root DIR] [--keep-output DIR]
 
 Exit codes: 0 sealed · 1 not sealed · 2 refused — no row, no repository, a
 base that does not resolve, a scale outside the band, a `seal` the record
-refused; nothing ran on 2 except where the refusal names what ran.
+refused; nothing ran on 2 except where the refusal names what ran. Under
+`--preflight`: 0 every record arm passed · 1 one failed · 2 refused, with
+nothing run, `--record` given among the refusals.
 """
 
 import argparse
@@ -2241,6 +2258,34 @@ def seal_record(item, tree, root, base, keep):
     return check.code, check.text
 
 
+# --- the preflight (#638) -----------------------------------------------------
+#
+# The record arms alone, typed by the orchestrator before it spawns the sealer.
+# Neither head begins `SEALED` or `NOT SEALED`: a preflight is read by the
+# same eyes and the same tests that read a seal, and either word on it would
+# be taken for one.
+PREFLIGHT_PASSED = "PREFLIGHT PASSED   {tree} against {base}"
+PREFLIGHT_FAILED = "PREFLIGHT FAILED   {tree} against {base}"
+PREFLIGHT_TAIL = (
+    " · the record arms alone: the `Broad gate` row was not run and nothing is sealed"
+)
+# Appended to the stderr line that quotes the row, so a reader sees the row
+# was read — every refusal about it still applies — and not handed to a shell.
+ROW_NOT_RUN = " — read, and not run: this is a preflight"
+PREFLIGHT_RECORD = (
+    "broad-gate: --preflight and --record were both given, and a preflight "
+    "writes no cell — nothing ran. The cell is the sealer's, written by a full "
+    "run: `broad-gate --base <base> --record <item>`. Drop `--record` to run "
+    "the record arms alone"
+)
+
+
+def preflight_line(head, tree, base):
+    """The first line of a preflight's stdout: which verdict, the tree, the
+    resolved base, and what the run did not do."""
+    return head.format(tree=tree, base=base) + PREFLIGHT_TAIL
+
+
 def gate(args, console_wants_letters, terminal=False):
     """The run. `terminal` is whether stdout has a person in front of it:
     only then, and only over a written cell, is the stamp drawn here, and
@@ -2295,6 +2340,8 @@ def gate(args, console_wants_letters, terminal=False):
     tree = head.strip()
     item = None
     if args.record:
+        if args.preflight:
+            raise Refused(PREFLIGHT_RECORD)
         item = os.path.abspath(args.record)
         if not os.path.isdir(item):
             raise Refused(f"broad-gate: --record {args.record} is not a directory")
@@ -2318,12 +2365,17 @@ def gate(args, console_wants_letters, terminal=False):
     said = moved_line(root, base)
     if said:
         sys.stderr.write(said + "\n")
-    sys.stderr.write(f"broad-gate: `{ROW}` says: {command}\n")
+    sys.stderr.write(
+        f"broad-gate: `{ROW}` says: {command}"
+        + (ROW_NOT_RUN if args.preflight else "")
+        + "\n"
+    )
     # Before the checks rather than after them, so a run that comes back NOT
     # SEALED carries it too: what this run's seal would not have covered is as
-    # much a fact about a failed run as about a sealed one.
+    # much a fact about a failed run as about a sealed one. A preflight prints
+    # none: the line says what THIS SEAL answers, and a preflight seals nothing.
     workflow = workflow_text(root)
-    coverage = coverage_line(workflow) if workflow else None
+    coverage = coverage_line(workflow) if workflow and not args.preflight else None
     if coverage:
         sys.stderr.write(coverage + "\n")
     # The arms CI's own steps skip at this base, where this repository's
@@ -2333,7 +2385,12 @@ def gate(args, console_wants_letters, terminal=False):
     skipped = skipped_at_main(base.given, workflow)
     if skipped:
         sys.stderr.write(skipped_line(skipped) + "\n")
-    checks[SUITE] = run(SUITE, command, root, keep, shell=True)
+    # A preflight skips the row by CONDITION and keeps this assignment where it
+    # stands: `PARTITION`'s cases read every `checks[...] = run(...)` in this
+    # function, so a second list of arms for the preflight would be the drift
+    # that table was declared to end (#468). Every arm below runs either way.
+    if not args.preflight:
+        checks[SUITE] = run(SUITE, command, root, keep, shell=True)
     checks[LEDGER] = run(LEDGER, [py, EVIDENCE, "--strict", root], root, keep)
     checks[UNVERIFIED_NAME] = run(
         UNVERIFIED_NAME,
@@ -2387,10 +2444,19 @@ def gate(args, console_wants_letters, terminal=False):
         failures.append((name, failure_lines(check, verdicts)))
     sys.stderr.write(f"broad-gate: outputs kept under {keep}\n")
     if failures:
-        sys.stdout.write(
-            "\n".join(stamp.not_sealed(tree, base.commit, failures)) + "\n"
-        )
+        form = stamp.not_sealed(tree, base.commit, failures)
+        if args.preflight:
+            # The same per-check lines under a first line that is not a
+            # verdict on a seal. The form is `seal_stamp`'s, kept in one
+            # place, and only its head is the preflight's (`phases/phase-1.md`
+            # of 1790815611 says why the head is replaced here rather than
+            # passed in).
+            form[0] = preflight_line(PREFLIGHT_FAILED, tree, base.commit)
+        sys.stdout.write("\n".join(form) + "\n")
         return 1
+    if args.preflight:
+        sys.stdout.write(preflight_line(PREFLIGHT_PASSED, tree, base.commit) + "\n")
+        return 0
 
     if item is not None:
         code, text = seal_record(item, tree, root, base.commit, keep)
@@ -2557,6 +2623,12 @@ def main(argv=None, console_wants_letters=None, console_is_terminal=None):
         default=None,
         metavar="DIR",
         help="where each check's output is kept (default: a temp dir)",
+    )
+    parser.add_argument(
+        "--preflight",
+        action="store_true",
+        help="the record arms alone, before the sealer is spawned: the row is "
+        "read and not run, and nothing is sealed or written (#638)",
     )
     # The redirect is decided from `parse_known_args`, before this copy's
     # parser can refuse an argument only the tree's copy knows: a flag added
