@@ -265,8 +265,8 @@ def marked(root, name):
 def tracked_marks(root):
     """The id-shaped names under `specs/` whose mark git TRACKS directly
     under them — `specs/<name>/routing.md`, or a file under
-    `specs/<name>/rounds/` — or None when git cannot say, which `dirty()`
-    already refuses, so nothing moves on the fallback.
+    `specs/<name>/rounds/` — and none when git cannot say: `dirty()` refuses
+    that run before anything moves, so no answer here decides a move.
 
     The move's units come from git (`tracked_names`), and so do its marks.
     Git tracks no empty directory and no ignored file, so a mark that is
@@ -275,9 +275,9 @@ def tracked_marks(root):
     try:
         r = git(root, "ls-files", "-z", "--", OLD_ITEMS)
     except (OSError, subprocess.SubprocessError):
-        return None
+        return set()
     if r.returncode != 0:
-        return None
+        return set()
     routing, rounds = MARKS
     names = set()
     for path in r.stdout.split("\0"):
@@ -307,15 +307,10 @@ def old_items(root):
     The first list is what moves and comes from git, each one carrying a
     mark git tracks; the second is what the printed line names as left
     behind and comes from the directory, because what stays on disk is what
-    a person will see there. Where git cannot list the marks the disk
-    stands in, and `dirty()` refuses that run before anything moves.
+    a person will see there.
     """
     marks = tracked_marks(root)
-    items = [
-        n
-        for n in entries(root, OLD_ITEMS)
-        if (n in marks if marks is not None else marked(root, n))
-    ]
+    items = [n for n in entries(root, OLD_ITEMS) if n in marks]
     try:
         names = sorted(os.listdir(under(root, OLD_ITEMS)))
     except OSError:
@@ -652,7 +647,7 @@ def main():
         if part
     )
     _, left = old_items(root)
-    marks = tracked_marks(root) or set()
+    marks = tracked_marks(root)
     shaped = [n for n in left if unmarked(root, n, marks)]
     groups = (
         ([n for n in left if n not in shaped], "not tracked as a SpecSeal work item"),

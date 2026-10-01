@@ -810,6 +810,20 @@ def test_a_mark_under_a_name_without_the_shape_is_not_a_work_item(hook, repo):
     assert not (repo / "seal" / "specs" / "handbook").exists()
 
 
+def test_a_routing_md_deeper_than_directly_under_is_not_a_mark(hook, repo):
+    """Round 1 of #688's fix pass. The mark is a `routing.md` directly under
+    the directory; a team's `docs/routing.md` one level down, tracked, is a
+    team's file and makes nothing a work item."""
+    plant_team_directory(repo)
+    write(repo, f"specs/{TEAM}/docs/routing.md", "# how our requests route\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "a routing page one level down")
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert LEFT_UNMARKED in out, out
+    assert not (repo / "seal" / "specs" / TEAM).exists()
+
+
 @pytest.mark.parametrize(
     "shape", ["empty rounds/", "ignored rounds/", "ignored routing.md"]
 )
