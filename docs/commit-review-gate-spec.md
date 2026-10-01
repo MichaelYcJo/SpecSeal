@@ -218,8 +218,12 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
   any of the three is missing — Windows, a commit no `claude` started, a
   harness that passes the command another way — the bare word waives
   nothing and the refusal names `git -c specseal.waive=…`, the spelling that
-  belongs to its own command. Two agents running byte-for-byte the same
-  command carrying the token are both waived, because each carried it.
+  belongs to its own command. The match drops everything but letters and
+  digits, `\NNN` escapes included, and looks for the carried command inside
+  the shell's argv, which is what lets the shell's own quoting through. So
+  two agents running the same command are both waived, and so is a command
+  carrying no token that contains another open call's whole command that
+  way (round 2 of #692, executed).
 - **Latency.** A judged commit starts one interpreter in `pre-commit` and, at
   `prepared`, one in `reference-transaction`: 209–400 ms a commit on the
   machine phase 1 measured under load, against 57 ms with no hooks (M10). A
