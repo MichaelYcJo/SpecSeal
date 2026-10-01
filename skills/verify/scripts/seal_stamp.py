@@ -690,7 +690,7 @@ SAMPLE_ROWS = [
     ("tree", "c46fd2d"),
     ("", "feat/12-a-branch"),
     ("base", "1e2bed9"),
-    ("", "origin/release/v1.2.3"),
+    ("", "origin/release/next"),
     ("item", "#34 . 1799000000"),
     ("gate", "tree 1.2.3"),
     None,

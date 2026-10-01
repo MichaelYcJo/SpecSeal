@@ -1926,7 +1926,7 @@ def job_steps(text, job):
 # on a pull request into `main` (`ONLY_AT_MAIN`) and two are skipped there
 # (`SKIPPED_AT_MAIN`'s arms), so the `workflow` count is taken over
 # `steps_for(workflow, base)` rather than over this table: a step CI does not
-# ask of a pull request is neither answered nor unanswered by its seal.
+# ask of a pull request is neither answered nor unanswered by the sealer's run.
 PARTITION = (
     (
         "every issue this pull request claims, and every one it only names",
@@ -2077,7 +2077,7 @@ def steps_for(workflow, given):
     Every step of the job, less `ONLY_AT_MAIN` where the base is not `main`,
     and less the steps `SKIPPED_AT_MAIN`'s arms mirror where it is. A step
     left out here is neither answered nor unanswered: CI does not ask it of
-    this pull request, so a seal neither covers it nor misses it. `given`
+    this pull request, so the sealer's run neither covers it nor misses it. `given`
     None — no base known — leaves out what a base that is not `main` would,
     which is what every caller that knows no base has been asked about."""
     steps = job_steps(workflow, RELEASE_JOB) if workflow else []
@@ -2184,8 +2184,8 @@ def coverage_line(text, given=None):
 
     **Over the steps CI runs for this base** (#666, `steps_for`), and one
     clause saying how many it left out and why (`left_out_clause`): a step CI
-    does not ask of this pull request is not a step the seal failed to
-    answer, and naming it among the unanswered sent a reader to four steps
+    does not ask of this pull request is not a step the sealer's run failed
+    to answer, and naming it among the unanswered sent a reader to four steps
     no run of this pull request would ever ask.
 
     **Names here, a count on the panel** (`questions.md` W1).
@@ -2509,7 +2509,7 @@ def panel(
     continues under `suite`. NOT `("lint", "clean")` either: the row is
     one shell command line and nothing in it says which part is a linter
     (`templates/config.md` §*Broad gate*), so `clean` over a row with no
-    linter in it is the seal asserting a check that never ran.
+    linter in it is the sealer's stamp asserting a check that never ran.
     """
     stamp = stamp_module()
     rows = [("SEALED", ""), None, ("tree", tree)]
