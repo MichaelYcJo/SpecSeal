@@ -520,7 +520,10 @@ jobs:
       - name: a declared review chain has the round record it claimed
         run: true
       - name: the milestone this release claims is the work it carries
-        run: true
+        run: |
+          if [ "${{ github.base_ref }}" != "main" ]; then
+            echo "not a release"; exit 0
+          fi
       - name: both READMEs move together
         run: true
 """
@@ -577,7 +580,11 @@ def test_the_stamp_says_how_many_steps_the_seal_did_not_answer(tmp_path):
     # true statement — which is the failure mode the elision beside the `from`
     # row was added for. The substring is the assertion: a cut value would not
     # carry its tail.
-    assert "2 of 3 not answered" in rendered[0], rendered[0]
+    #
+    # #666: over the steps CI runs for THIS base. The milestone step runs only
+    # on a pull request into `main` and the base here is `base`, so it is
+    # neither answered nor unanswered — `2 of 3` became `1 of 2`.
+    assert "1 of 2 not answered" in rendered[0], rendered[0]
     value = next(
         v for _, v in [r for r in panel_rows(repo) if r] if "not answered" in v
     )
@@ -587,8 +594,16 @@ def test_the_stamp_says_how_many_steps_the_seal_did_not_answer(tmp_path):
         "count rather than the names"
     )
 
-    assert "the milestone this release claims is the work it carries" in result.stderr
     assert "both READMEs move together" in result.stderr
+    # A11 at the fixture: the step CI will not run here is not named among
+    # the unanswered, and one clause says how many were left out and why.
+    assert "the milestone this release claims is the work it carries" not in (
+        result.stderr
+    ), result.stderr
+    assert (
+        "runs 2 steps for this base and this seal answers 1. 1 more runs only on "
+        "a pull request into `main`, so this count leaves it out."
+    ) in result.stderr, result.stderr
     assert (
         "a declared review chain has the round record it claimed"
         not in (result.stderr.split("Not answered", 1)[-1])
@@ -598,23 +613,24 @@ def test_the_stamp_says_how_many_steps_the_seal_did_not_answer(tmp_path):
 def test_a_seal_that_answers_every_step_says_so(tmp_path):
     """The other value of the same line. A run that leaves nothing unanswered
     must not go quiet: silence there is indistinguishable from a gate that
-    stopped looking, which is the state this work item found the gate in."""
+    stopped looking, which is the state this work item found the gate in.
+
+    #666 keys it on the base: the milestone step stays in the workflow and
+    runs only into `main`, so against `base` the one step CI runs is the
+    mirrored one, and the line says every one is answered AND that one more
+    was left out, rather than calling the milestone unanswered."""
     repo = sealable_repo(tmp_path, resolution="kept")
-    write(
-        repo,
-        ".github/workflows/hygiene.yml",
-        FIXTURE_WORKFLOW.replace(
-            "      - name: the milestone this release claims is the work it carries\n"
-            "        run: true\n"
-            "      - name: both READMEs move together\n"
-            "        run: true\n",
-            "",
-        ),
-    )
-    commit(repo, "a workflow whose every step this gate mirrors")
+    readmes = "      - name: both READMEs move together\n        run: true\n"
+    assert readmes in FIXTURE_WORKFLOW, "the fixture no longer has the step"
+    write(repo, ".github/workflows/hygiene.yml", FIXTURE_WORKFLOW.replace(readmes, ""))
+    commit(repo, "a workflow whose every step CI runs here this gate mirrors")
     result = run_gate(repo, tmp_path / "out")
     assert result.returncode == 0, result.stdout + result.stderr
-    assert "answers every one of" in result.stderr, result.stderr
+    assert (
+        "this seal answers every one of the 1 `release` steps "
+        f"{gate.WORKFLOW} runs for this base. 1 more runs only on a pull request "
+        "into `main`, so this count leaves it out."
+    ) in result.stderr, result.stderr
 
 
 # --- A4: a reason is prose a person wrote -----------------------------------
@@ -687,19 +703,18 @@ def test_every_exclusion_says_what_the_gate_cannot_reach():
 
 
 # The panel of a run with no workflow, as it has stood release to release.
-# `gate` joined it in 0.15.1 (#475): which copy of the gate drew the stamp,
-# `tree <version>` or `plugin <version>`, because a branch that changes the
-# gate used to be measured by the installed copy and the stamp could not say
-# which one. It is the one row this partition's A7 admits, for every
-# repository — nothing else about a run without a workflow changed.
+# `gate` joined it in 0.15.1 (#475), and since #666 it prints only where the
+# copy that ran is not the one invoked, so a run handed no `copy` has none.
+# #666 also moved the ref from `from` to the row under `base` (`""`), and the
+# row's exit code from `row` to the row under `suite` — which this fixture's
+# empty output, carrying no pytest counts, does not have. No row here is
+# about the workflow: a run without one is still the run it was.
 HISTORICAL_ROWS = (
     "SEALED",
     "tree",
     "base",
-    "from",
-    "gate",
+    "",
     "suite",
-    "row",
     "ledger",
     "chain",
 )
@@ -817,7 +832,7 @@ def test_a_step_no_row_classifies_is_not_said_to_carry_a_reason():
     workflow that repository does not run. A reader who follows the pointer
     finds somebody else's list and no answer, which is the reconstruction
     from two files this work item exists to remove, one level further out."""
-    said = gate.coverage_line(UNCLASSIFIED_WORKFLOW)
+    said = gate.coverage_line(UNCLASSIFIED_WORKFLOW, "base")
     assert "deploy to staging" in said, said
     with_reasons = said.split("no arm mirrors it in", 1)
     assert len(with_reasons) == 1 or "deploy to staging" not in with_reasons[1], (
@@ -832,7 +847,7 @@ def test_a_step_a_row_excludes_is_still_pointed_at_its_reason():
     deleting the pointer. A step the partition DOES exclude carries a written
     reason, and naming where it is written is the whole of `spec.md` §Scope
     5."""
-    said = gate.coverage_line(read(HYGIENE))
+    said = gate.coverage_line(read(HYGIENE), "base")
     assert "no arm mirrors it in `broad_gate.py#PARTITION`" in said, said
     assert "both READMEs move together" in said.split("no arm mirrors it in", 1)[1]
     assert "no row of `broad_gate.py#PARTITION` at all" not in said, said
@@ -868,8 +883,8 @@ def test_the_two_clauses_render_together_and_hold_the_right_names():
     reviewer called this a coverage note rather than a defect. It is still
     the sentence that goes wrong if either clause ever learns to claim the
     other's steps."""
-    said = gate.coverage_line(MIXED_WORKFLOW)
-    assert "runs 3 steps and this seal answers 1" in said, said
+    said = gate.coverage_line(MIXED_WORKFLOW, "base")
+    assert "runs 3 steps for this base and this seal answers 1" in said, said
 
     reasoned, _, unknown = said.partition(
         "In no row of `broad_gate.py#PARTITION` at all"
@@ -980,6 +995,13 @@ def test_a_release_pull_request_is_sealed_as_ci_would_judge_it(tmp_path):
     assert SKIPPED_LINE in result.stderr.splitlines(), result.stderr
     for arm in gate.SKIPPED_AT_MAIN:
         assert not (keep / f"{arm}.txt").exists(), f"the `{arm}` arm ran"
+    # Round 1's 🟡 3, through the gate: the coverage line is keyed on the
+    # base it was given, so at `main` it leaves out the two skipped steps
+    # rather than counting them answered by arms that did not run.
+    assert (
+        "2 more are steps CI skips on a pull request into `main`, so this "
+        "count leaves them out."
+    ) in result.stderr, result.stderr
 
 
 def test_the_same_branch_against_its_release_branch_is_not_sealed(tmp_path):
@@ -1061,3 +1083,146 @@ def test_the_sealer_is_told_to_quote_the_skip_line():
     sealer = " ".join(read(os.path.join(ROOT, "agents", "sealer.md")).split())
     assert "the gate does not run the `survivors` and `corrections` arms" in sealer
     assert "Quote that line in your report when it appears" in sealer
+
+
+# --- #666: the count is over the steps CI runs for this base ---------------
+
+# A step's shell guard that ends it on any pull request NOT into `main`, as
+# `hygiene.yml` writes it — `SKIPS_AT_MAIN`'s twin, with `!=`.
+RUNS_ONLY_AT_MAIN = re.compile(
+    r'if \[ "\$\{\{ github\.base_ref \}\}" != "main" \]; then\n'
+    r"(?:(?!\s*fi\b).*\n)*?.*\bexit 0\b"
+)
+
+
+def steps_guarded_off_main(text):
+    """The `release` steps whose `run:` exits on a base that is not `main`."""
+    return {
+        name
+        for name in gate.job_steps(text, gate.RELEASE_JOB)
+        if RUNS_ONLY_AT_MAIN.search(workflow_step(text, name))
+    }
+
+
+def test_the_steps_left_out_off_main_are_the_steps_guarded_off_main():
+    """A13. `ONLY_AT_MAIN` is exactly the set of `release` steps whose guard
+    ends them on any base but `main`, from both sides — and the comparison is
+    shown able to fail on a copy of the workflow with one guard turned
+    around, so a guard added to a fifth step, or dropped from one of the
+    four, fails here."""
+    text = read(HYGIENE)
+    guarded = steps_guarded_off_main(text)
+    assert guarded, "no step is guarded off main, so the reader found nothing"
+    assert guarded == set(gate.ONLY_AT_MAIN), (
+        f"the workflow guards these steps off `main`: {sorted(guarded)}, and "
+        f"`ONLY_AT_MAIN` holds {sorted(gate.ONLY_AT_MAIN)}"
+    )
+    assert len(gate.ONLY_AT_MAIN) == len(set(gate.ONLY_AT_MAIN)) == 4
+    flipped = text.replace('" != "main" ]', '" = "main" ]', 1)
+    assert flipped != text and steps_guarded_off_main(flipped) != set(
+        gate.ONLY_AT_MAIN
+    ), "turning one guard around did not move the reader"
+
+
+@pytest.mark.parametrize(
+    "given, main",
+    [
+        ("main", True),
+        ("origin/main", True),
+        ("origin/origin/main", False),
+        ("refs/heads/main", False),
+        ("mains", False),
+        ("release/x", False),
+        (None, False),
+    ],
+)
+def test_one_reading_says_whether_the_base_is_main(given, main):
+    """S5's `base_is_main`: the one reading `skipped_at_main` and the count
+    share, keyed on the spelling with one leading `origin/` removed."""
+    assert gate.base_is_main(given) is main
+
+
+def test_the_count_cannot_be_asked_without_a_base():
+    """Round 1's 🟡 3: a caller that drops the base gets a `TypeError` rather
+    than the feature-base answer in silence, so the merge that rewrote the
+    gate's coverage call could not lose its argument unnoticed."""
+    text = read(HYGIENE)
+    for unit in (gate.unanswered, gate.coverage_line):
+        with pytest.raises(TypeError):
+            unit(text)
+
+
+FEATURE_UNANSWERED = (
+    "every issue this pull request claims, and every one it only names",
+    "the pull request heads a round record may name",
+    "the CLAUDE.md block is the template's, line for line",
+    "both READMEs move together",
+)
+
+
+def real_panel_workflow_row(given):
+    checks = {
+        name: gate.Check(name, 0, "", "")
+        for name in (gate.SUITE, gate.LEDGER, gate.CHAIN_NAME)
+    }
+    base = gate.Base(given, "cccccccc", given, "cccccccc")
+    rows = gate.panel("ccccccc", base, checks, None, read(HYGIENE))
+    return next(value for label, value in [r for r in rows if r] if label == "workflow")
+
+
+def test_a_feature_seal_counts_the_nine_steps_ci_runs_for_it():
+    """A11 over this repository's own workflow. Against a base that is not
+    `main` CI runs 9 of the 13 steps and the gate mirrors 5, so the panel
+    reads `4 of 9 not answered`; the line names the four unanswered steps CI
+    runs and none of the four only-at-`main` ones, and says four were left
+    out and why. Pinned verbatim (`agent-contract` §14)."""
+    assert gate.steps_for(read(HYGIENE), "release/x") == [
+        step
+        for step in gate.job_steps(read(HYGIENE), gate.RELEASE_JOB)
+        if step not in gate.ONLY_AT_MAIN
+    ]
+    assert real_panel_workflow_row("release/x") == "4 of 9 not answered"
+    said = gate.coverage_line(read(HYGIENE), "release/x")
+    assert said.startswith(
+        f"broad-gate: {gate.WORKFLOW}'s `release` job runs 9 steps for this base "
+        "and this seal answers 5. 4 more run only on a pull request into `main`, "
+        "so this count leaves them out."
+    ), said
+    for step in FEATURE_UNANSWERED:
+        assert step in said, step
+    for step in gate.ONLY_AT_MAIN:
+        assert step not in said, step
+
+
+def test_a_release_seal_counts_the_eleven_steps_ci_runs_for_it():
+    """A12. Against `main` CI runs every step but the two it skips there, and
+    the gate mirrors 3 of the 11, so the panel reads `8 of 11 not answered`
+    and the line says the two skipped steps were left out. `SKIPPED_LINE`
+    still prints as it did (the #473 cases above)."""
+    for given in ("main", "origin/main"):
+        assert real_panel_workflow_row(given) == "8 of 11 not answered", given
+        said = gate.coverage_line(read(HYGIENE), given)
+        assert said.startswith(
+            f"broad-gate: {gate.WORKFLOW}'s `release` job runs 11 steps for this "
+            "base and this seal answers 3. 2 more are steps CI skips on a pull "
+            "request into `main`, so this count leaves them out."
+        ), said
+        for step in gate.ONLY_AT_MAIN:
+            assert step in said, step
+
+
+def test_the_documents_say_the_count_is_over_the_steps_ci_runs():
+    """S5's documentation (`agent-contract` §14): the skill section that
+    explains the count, the sealer's release paragraph and the partition's
+    policy paragraph each say a step CI does not run for the base is outside
+    the count."""
+    verify = " ".join(read(os.path.join(ROOT, "skills", "verify", "SKILL.md")).split())
+    assert "counted over the steps CI runs for the base" in verify
+    sealer = " ".join(read(os.path.join(ROOT, "agents", "sealer.md")).split())
+    assert "the `workflow` count leaves out the steps CI does not run for the base" in (
+        sealer
+    )
+    broad = " ".join(read(os.path.join(ROOT, "docs", "the-broad-gate.md")).split())
+    assert "A step CI does not run for the base is neither answered nor unanswered" in (
+        broad
+    )

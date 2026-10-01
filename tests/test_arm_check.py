@@ -1049,7 +1049,7 @@ def test_the_checker_is_report_only_and_exits_zero_over_the_real_module(two_arms
     assert any(not v.killed for v in verdicts)
 
 
-def test_a_stale_bytecode_cache_cannot_decide_an_arms_verdict(tmp_path):
+def test_a_stale_bytecode_cache_cannot_decide_an_arms_verdict(tmp_path, monkeypatch):
     """The defect building phase 3 found, and the reason it is invisible.
 
     CPython validates a `.pyc` against the source's mtime and SIZE. Two
@@ -1066,7 +1066,11 @@ def test_a_stale_bytecode_cache_cannot_decide_an_arms_verdict(tmp_path):
     module_path = tmp_path / "cached.py"
     module_path.write_text("VALUE = 1\n", encoding="utf-8")
 
-    # A real cache entry, made the way an import makes one.
+    # A real cache entry, made the way an import makes one. Writing is
+    # switched on for it, because this suite runs under
+    # `PYTHONDONTWRITEBYTECODE=1` whenever `arm-check` or `mutation-check`
+    # mutates this module, and the import would then write nothing.
+    monkeypatch.setattr(sys, "dont_write_bytecode", False)
     spec = importlib.util.spec_from_file_location("specseal_cached_probe", module_path)
     loaded = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = loaded
@@ -1107,7 +1111,9 @@ with open(os.path.join(cache, "under_test.specseal-left-behind.pyc"), "wb") as f
 """
 
 
-def test_no_arm_runs_while_cached_bytecode_for_the_module_exists(two_arms, tmp_path):
+def test_no_arm_runs_while_cached_bytecode_for_the_module_exists(
+    two_arms, tmp_path, monkeypatch
+):
     """The call site, watched by what the subprocess can see.
 
     **Reproducing the defect is timing-dependent, so the mechanism is what
@@ -1132,7 +1138,9 @@ def test_no_arm_runs_while_cached_bytecode_for_the_module_exists(two_arms, tmp_p
 
     # Plant a cache the way an ordinary import does. `hooks/__pycache__` holds
     # one for `review-history-guard.py` before `arm-check` is ever run,
-    # because this repository's own suite imports it.
+    # because this repository's own suite imports it. Writing is switched on
+    # for the plant for the reason the case above gives.
+    monkeypatch.setattr(sys, "dont_write_bytecode", False)
     spec = importlib.util.spec_from_file_location("specseal_planted", module_path)
     loaded = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = loaded
