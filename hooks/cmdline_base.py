@@ -8,15 +8,18 @@
 # frozen copy instead: its splitter, its `parse_git`, its `adds_a_worktree`,
 # its walk, its `Unresolved`. The commit gate reads `cmdline.py`, untouched.
 #
-# NEVER edit this file to track `cmdline.py`. A change there that the guard
-# should share is a decision for #692, the 0.17.0 zero-base redesign of how
-# the gates learn where a command acts, and deleting this module, with the
-# guard's and the consent writer's imports of it, is part of #692. Until then
-# the docstring and comments below are 86256492's and describe that commit:
-# where they say "both gates" or name a reader, read them as of that commit.
-# Comments in `cmdline.py` that name the guard or the consent writer as its
-# readers describe `542f920b`, and #692 reconciles them.
-# Verified 2026-09-30 against walk_directories@672f1550
+# NEVER edit this file, and never add a rule to it. #692 decided where it
+# stays, on the owner's answers of 2026-10-01 (`seal/specs/1790815613-…/
+# questions.md` P4 and P5): no git refuses a branch switch before its tree has
+# moved, so the guard's switch arm reads the command through this copy on
+# every git, permanently; and the guard's creation arm and the consent writer
+# read it only in a clone whose hooks slot is foreign, where git cannot decide.
+# The bytes below this comment are pinned to `86256492:hooks/cmdline.py`
+# (`tests/test_the_frozen_reading_never_grows.py`, S11), so a rule added here
+# has to delete that case first. The docstring and comments below are
+# 86256492's and describe that commit: where they say "both gates" or name a
+# reader, read them as of that commit.
+# Verified 2026-10-01 against walk_directories@672f1550
 """Reading a shell command line: where one invocation ends, and what git it is.
 
 Two gates ask the same three questions of the string the harness hands them.
