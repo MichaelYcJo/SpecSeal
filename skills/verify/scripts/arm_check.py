@@ -778,8 +778,17 @@ class Verdict:
         )
 
 
-def clear_bytecode_cache(path: str) -> list[str]:
+def clear_bytecode_cache(path: str, cwd: str | None = None) -> list[str]:
     """Remove any cached bytecode for `path`. Returns what it removed.
+
+    `cwd` is the directory the cases run in. A relative `PYTHONPYCACHEPREFIX`
+    is read against it, because CPython joins the prefix as given
+    (`importlib._bootstrap_external.cache_from_source`), so the importing
+    process resolves it against its own working directory — the cases', not
+    this process's. Cleared from here, a relative prefix names a different
+    mirror and the stale `.pyc` stays where the cases read it (#703). `None`
+    reads it against this process's directory, as before; an absolute prefix
+    is the same from anywhere.
 
     **This is not housekeeping; without it the run reports verdicts for the
     wrong mutation.** CPython validates a `.pyc` against the source's mtime
@@ -807,6 +816,10 @@ def clear_bytecode_cache(path: str) -> list[str]:
         "PYTHONPYCACHEPREFIX"
     )
     if prefix:
+        if cwd:
+            # `os.path.join` keeps an absolute prefix as given, so only a
+            # relative one moves.
+            prefix = os.path.join(cwd, prefix)
         # `sys.pycache_prefix` mirrors the absolute source tree under itself.
         _drive, tail = os.path.splitdrive(os.path.dirname(absolute))
         roots.append(os.path.join(prefix, tail.lstrip(os.sep).lstrip("/")))
@@ -911,7 +924,7 @@ def run_arms(
     # each read as `killed` beside every arm (#703). Outside the `try` below
     # on purpose: nothing has been written yet, so a refusal owes no restore
     # and must not make one -- a write here would be the first write.
-    clear_bytecode_cache(path)
+    clear_bytecode_cache(path, cwd=cwd)
     try:
         baseline = subprocess.run(
             tests, cwd=cwd, capture_output=True, env=env, timeout=timeout
@@ -943,7 +956,7 @@ def run_arms(
                     continue
                 with open(path, "w", encoding="utf-8", newline="") as f:
                     f.write(mutated)
-                clear_bytecode_cache(path)
+                clear_bytecode_cache(path, cwd=cwd)
                 try:
                     run = subprocess.run(
                         tests,
@@ -972,7 +985,7 @@ def run_arms(
                     not_applicable[operator] = f"{type(exc).__name__}: {exc}"
                 finally:
                     restore(path, original, original_sha)
-                    clear_bytecode_cache(path)
+                    clear_bytecode_cache(path, cwd=cwd)
             if not by_operator:
                 # No operator came back with a verdict for this arm, and the
                 # list holds two outcomes now: `mutate` had no mutation, so

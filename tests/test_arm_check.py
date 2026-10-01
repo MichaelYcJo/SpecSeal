@@ -27,6 +27,7 @@ at the Python just below each.
 
 import ast
 import fnmatch
+import glob
 import hashlib
 import importlib.util
 import os
@@ -1214,7 +1215,8 @@ def test_a_cache_under_a_pycache_prefix_is_cleared_where_the_cases_read_it(
         f"{seen} — a run read the module's bytecode from the prefix mirror its "
         f"cwd resolves to, so its verdict can be another mutation's"
     )
-    assert not os.path.exists(planted), "and the last run's cache outlived the run"
+    left = glob.glob(os.path.join(os.path.dirname(planted), "under_test.*.pyc"))
+    assert left == [], f"{left} — the last run's cache outlived the run"
 
     # And the function on its own, as `mutation_check.py` calls it.
     plant()
