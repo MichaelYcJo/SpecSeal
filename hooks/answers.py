@@ -1,8 +1,10 @@
 """The old consent spellings, carried from a Bash command to the git hook that
 judges it (#692, `questions.md` P3 answer (a), W6).
 
-`[no-review]`, `[no-parity]` and `[worktree-ok]` are bare words a shell drops
-before git runs, so a git hook cannot see them. `hooks/answer-write.py` reads
+`[no-review]` and `[no-parity]` are bare words a shell drops before git runs,
+so a git hook cannot see them. (`[worktree-ok]` is not carried: a creation is
+judged before git runs, by the guard, which reads it from the command itself --
+`questions.md` P6.) `hooks/answer-write.py` reads
 them out of the command in `pre-bash` (`hooks/tokens.py`) and writes one empty
 file per token here; the hook asks `given`; `hooks/answer-clear.py` removes the
 session's files in `post-bash`. So an answer lives for one Bash call: the
@@ -41,7 +43,6 @@ def root_dir():
 NAMES = {
     "[no-review]": "no-review",
     "[no-parity]": "no-parity",
-    "[worktree-ok]": "worktree-ok",
 }
 
 FRESH = 15 * 60

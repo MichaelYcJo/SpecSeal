@@ -7,9 +7,10 @@
 
 ## Why this work exists
 
-The commit gate and the worktree creation arm now decide inside git, where the
-action happens, so no shell construct moves a commit or a creation around
-them, and a commit into a declared worktree stops costing a prompt.
+The commit gate now decides inside git, where the commit happens, so no shell
+construct moves a commit around it, and a commit into a declared worktree
+stops costing a prompt. A worktree creation and a branch switch are still
+decided before git runs, by 0.16.0's frozen reading (`questions.md` P4, P6).
 
 ## Where spec and implementation diverged
 
@@ -22,7 +23,8 @@ them, and a commit into a declared worktree stops costing a prompt.
 | Where the leases are | spec §*What the tree answered* 4: "lease file name under `<git-common-dir>/specseal-leases/`" / `hooks/session-lease.py#main` writes under each worktree's `--absolute-git-dir` | the code | The stub and `hooks/hooksession.py` read every worktree's lease directory of the clone |
 | The text readers are not deleted | spec §*Scope* 6 and `plan.md` phase 6: delete `hooks/commit-review-gate.py`, reduce `hooks/cmdline.py` to a tokenizer / both kept, each standing aside where git decides | kept | P1's answer (a) keeps a foreign-slot clone on "0.16.0's behaviour" for every arm, and for the commit arm that behaviour is those two files. `questions.md` P5 states the trade and the alternative for the owner |
 | `commit-review-gate.py` stays in `pre-bash` | `plan.md` phase 3: "removed from `GROUPS["pre-bash"]` in this same phase so the two never run together" / kept, standing aside per target where the stubs run | kept | The same P5 reading; the two never judge one clone, which is what the plan's sentence protected |
-| The creation is refused after the fact | `plan.md` phase 4: "the creation refusal at `reference-transaction prepared` where M3 says the new `HEAD` is a transaction" / decided in `post-checkout`, which takes the worktree back | `post-checkout` | M13: nothing at `prepared` tells a creation from a switch, and on 2.50.1 their lines are the same bytes. M14: a fresh worktree can be taken back cleanly. S8 names the post-hoc equivalent |
+| The creation is decided before git runs | `plan.md` phase 4: "the creation refusal at `reference-transaction prepared` where M3 says the new `HEAD` is a transaction" / phase 4 decided it in `post-checkout`, which took the worktree back; the round-1 fix pass moved it back in front of git, through the frozen reading | the frozen reading | M13: nothing at `prepared` tells a creation from a switch. Round 1 found what `post-checkout`'s take-back cannot undo (`-B`'s branch reset, `--no-checkout`, `--orphan`, `--lock`, a Bash creation under `.claude/worktrees/`), and the owner answered P6 (a) on 2026-10-01. S7 and S8 hold for the text reading's shapes only, as in 0.16.0 |
+| The convergence argument | spec §*The convergence argument*: no shell construct "can route a commit, a switch or a creation around the decision" / claimed for commits alone | commits alone | M1 for a switch, round 1 and P6 for a creation; both arms keep `86256492`'s reading. The policy's statement and the changelog fragment say the same |
 | The installer's say-once channel | `plan.md` phase 2: "said once through the dispatcher's failure channel" / its own `systemMessage` and a once-per-session marker | its own | A foreign slot is not a gate failing, and the failure channel is drawn only at `Stop`; `dispatch.merge` now keeps a `systemMessage` beside a decision instead |
 | Where the answer tokens live | `spec.md` §*Data & interfaces*: "`<common-dir>/specseal-answer/<session>/<token>`" / `~/.claude/specseal/answers/<session>/` | the plugin's own state directory | A command can act on a clone its text does not name, and finding which one is the reading this work removes; the directory is where the version check already keeps its state |
 | Phase 5's switch work | `plan.md` phase 5: the switch at git, `shared-tree-ok` and `carry-changes` answers, the guard's Bash walk deleted / none of it | none | The owner's option 1 keeps the switch arm where 0.16.0 had it |
@@ -36,7 +38,7 @@ them, and a commit into a declared worktree stops costing a prompt.
 | The suite, repository-wide lint and typecheck — none of the three was run (§2); every module this branch touched, and 41 that read the gate, the notice or the dispatcher, were | the orchestrator, through the sealer |
 | The stubs under a real Claude Code session: hooks run from the installed plugin copy, which is 0.16.0 and carries no installer, so nothing in this branch has run as the harness runs it | the orchestrator, at the first session on a release carrying it |
 | M4: the harness version that first exports `CLAUDE_CODE_SESSION_ID`, `CLAUDECODE` and `CLAUDE_PID`, and what `CLAUDE_CODE_SESSION_ATTENDED` reads in a headless run | the orchestrator |
-| M5: whether an `isolation: "worktree"` spawn runs `git worktree add`; `post-checkout` keeps a worktree under `.claude/worktrees/` either way | the orchestrator — it needs an `Agent` spawn, which contract §6 withholds from `smith` |
+| M5: whether an `isolation: "worktree"` spawn runs `git worktree add`; no git hook judges a creation since P6, so the answer moves nothing here | the orchestrator — it needs an `Agent` spawn, which contract §6 withholds from `smith` |
 | ✅ M6: stops lost and added per candidate over the corpora | executed 2026-10-01 after the owner's answer, `phases/phase-1.md` §*Resumed* |
 | M9: the stubs and the real-git modules on Windows | the CI Windows leg |
 | Which git CI's `ubuntu-latest` runner carries | the orchestrator, from a CI log |
@@ -49,18 +51,17 @@ clone on 0.16.0's behaviour (`questions.md` P5 holds the trade for the owner).
 None of phase 5's switch work was built, on the owner's option 1. No global
 `init.templateDir` or `core.hooksPath` is written, so a clone no session has
 reached carries no stubs, as the spec's out-of-scope row says. #678 and #686
-are answered for commits and creations in the policy and stay open for the
-switch arm, which still reads the command; nothing was posted to either issue,
-because posting is the orchestrator's.
+are answered for commits in the policy and stay open for the switch and
+creation arms, which still read the command; nothing was posted to either
+issue, because posting is the orchestrator's.
 
 ## Fed back into the spec
 
 - *Inferred during implementation:* the backstop's criterion is
   `GIT_AUTHOR_DATE` (M12), and its mark is keyed by the old HEAD, the tree and
   that date.
-- *Inferred during implementation:* the creation ladder decides in
-  `post-checkout` and counts the tree its parent `git worktree add` ran in.
-- *Inferred during implementation:* a worktree under `.claude/worktrees/` is
-  never taken back while M5 is unmeasured.
+- *Withdrawn in the round-1 fix pass (P6):* the creation ladder deciding in
+  `post-checkout`, and a worktree under `.claude/worktrees/` never being taken
+  back. Both went with `hooks/creationgate.py`.
 - These live in the two policy documents' new statements rather than in
   `spec.md`, which is the framer's.

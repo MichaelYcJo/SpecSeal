@@ -57,7 +57,7 @@ specseal.answer=worktree-ok` (P3, W6). `creation_directory` deleted.
   writer that is a correctness fix, not tidiness. In a git-decided clone a
   command that ran may have had its creation taken back by the hook, and a
   record written from the command would be consent nobody gave.
-  `test_the_guard_and_the_consent_writer_stand_aside_where_git_decides`
+  `test_the_guard_and_the_consent_writer_stand_aside_where_git_decides` · NAME NOT IN TREE (removed by round 1's fix pass, P6)
   pins both. In a foreign clone both judge as 0.16.0 did (P5).
   `creation_directory` stays for that reason.
 - **S7 against bash.** 14 shapes of a creation that ran each leave the

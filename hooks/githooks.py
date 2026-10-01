@@ -1,14 +1,22 @@
 """The git hooks this plugin installs: their stub, where git runs them, and
 whether git decides in a clone (#692).
 
-The commit gate, the worktree guard's creation arm and the consent record used
-to learn where an action happens by reading the Bash command's text before the
-shell ran it. Milestone 49 showed that prediction never converges: every
-reading found one more shell shape that moved a commit somewhere the reader did
-not follow. Git's own hooks run inside the action instead -- `pre-commit` in
-the process making the commit, in the worktree whose index becomes it;
-`post-checkout` in the worktree a creation just made -- so no command text is
-an input to them, and no shell construct can route an action around them.
+The commit gate used to learn where a commit happens by reading the Bash
+command's text before the shell ran it. Milestone 49 showed that prediction
+never converges: every reading found one more shell shape that moved a commit
+somewhere the reader did not follow. Git's own hooks run inside the commit
+instead -- `pre-commit` in the process making it, in the worktree whose index
+becomes it -- so no command text is an input to them, and no shell construct
+can route a commit around them.
+
+**Commits alone.** A worktree creation and a branch switch are decided before
+git runs, by 0.16.0's frozen reading (`hooks/cmdline_base.py`), in every
+clone. A hook that runs after a creation can only take it back, and round 1
+of #692 found what a take-back cannot undo: `worktree add -B` resets an
+existing branch before any hook runs, `--no-checkout` and `--orphan` run no
+`post-checkout` at all, and a `--lock`ed tree survives one `--force`. The
+owner's answer was the switch arm's (`questions.md` P6, answer (a)), so this
+plugin installs no `post-checkout`.
 
 This module is what every party that needs that fact shares:
 
@@ -39,8 +47,7 @@ lease directory exists. `reference-transaction` judges only `prepared` with
 `git commit` hands the hook and no merge, reset, cherry-pick, rebase or pull
 does, on git 2.34.1, 2.39.5, 2.43.0 and 2.50.1. `GIT_REFLOG_ACTION` is no
 such criterion: `git commit` never sets it, and cherry-pick and revert set it
-on 2.34.1 alone. `post-checkout` acts only on a
-creation, whose previous HEAD git passes as the null object id (M3).
+on 2.34.1 alone.
 """
 
 import json
@@ -48,7 +55,7 @@ import os
 import subprocess
 
 # The hooks this plugin installs, in the order the installer names them.
-HOOKS = ("pre-commit", "reference-transaction", "post-checkout", "post-commit")
+HOOKS = ("pre-commit", "reference-transaction", "post-commit")
 
 # The stub's second line, followed by the plugin version that wrote it. A hook
 # file without it is not this plugin's, whatever else it says.
@@ -90,11 +97,6 @@ _NARROW = {
         # closed pipe.
         '[ "$1" = prepared ] || { cat >/dev/null; exit 0; }\n'
         '[ -n "$GIT_AUTHOR_DATE" ] || { cat >/dev/null; exit 0; }\n'
-    ),
-    "post-checkout": (
-        # A creation passes the null object id as the previous HEAD, in SHA-1
-        # and SHA-256 repositories alike: a digit other than 0 is a switch.
-        'case "$1" in *[!0]*) exit 0 ;; esac\n'
     ),
     "post-commit": "",
 }

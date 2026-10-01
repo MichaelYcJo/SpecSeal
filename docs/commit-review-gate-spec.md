@@ -62,8 +62,8 @@ Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s1_a_comm
 somebody else holds is never written over.**
 The installer runs at session start and first in every Bash call's `pre-bash`
 group, for the clone the payload's `cwd` is in, and writes `pre-commit`,
-`reference-transaction`, `post-checkout` and `post-commit` into that clone's
-common `hooks/` directory, which every worktree of it shares. Each stub
+`reference-transaction` and `post-commit` into that clone's common `hooks/`
+directory, which every worktree of it shares. Each stub
 carries the marker line `# specseal-git-hook <version>` and the installed
 plugin's absolute path, which it tests before running anything, so removing
 the plugin leaves stubs that do nothing. A stub whose bytes differ from what
@@ -130,16 +130,19 @@ would have been judged against.
 Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_the_text_reading_stands_aside_where_git_decides, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_foreign_clone_keeps_the_text_reading
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
-**The convergence argument is claimed for the commit gate and for worktree
-creation consent, and for nothing else.**
+**The convergence argument is claimed for commits alone.**
 No git refuses a branch switch before its tree has moved: on 2.34–2.43 a
 switch reaches `reference-transaction` with no line at all, and on 2.50.1 the
 line arrives after the tree and index already hold the new branch (phase 1's
-M1). On the owner's answer of 2026-10-01 the worktree guard's switch arm
-keeps `86256492`'s reading on every git, pinned so it cannot gain a rule
-(`docs/worktree-guard-spec.md` §*Which tree*). That arm still predicts from
-text, and does not converge.
-Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_switch_before_the_tree_moves, tests/test_the_frozen_reading_never_grows.py::test_the_bytes_below_the_rider_are_86256492s
+M1). A worktree creation can be judged after git made it, in `post-checkout`,
+but only taken back there, and round 1 of #692 found what a take-back cannot
+undo: `worktree add -B` resets an existing branch first, `--no-checkout` and
+`--orphan` run no `post-checkout`, and a `--lock`ed tree survives one
+`--force`. On the owner's answers of 2026-10-01 (`questions.md` P4, P6) the
+worktree guard's switch and creation arms both keep `86256492`'s reading on
+every git, pinned so it cannot gain a rule (`docs/worktree-guard-spec.md`
+§*Which tree*). Those arms still predict from text, and do not converge.
+Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_switch_before_the_tree_moves, tests/test_the_hook_surface_git_offers.py::test_what_a_take_back_cannot_undo, tests/test_the_frozen_reading_never_grows.py::test_the_bytes_below_the_rider_are_86256492s
 
 ### Known limits of the commit gate inside git
 

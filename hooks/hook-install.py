@@ -55,18 +55,17 @@ SAID_DIR = "specseal-git-hooks"
 
 INSTALLED = (
     "SpecSeal {verb} its git hooks in {directory}: pre-commit, "
-    "reference-transaction, post-checkout and post-commit. From here on git "
-    "itself judges a commit and a worktree creation in this clone, inside the "
-    "action, instead of a reading of the command before it runs. Each file "
-    "carries the line `{marker}`, and a hook file without it is never touched."
+    "reference-transaction and post-commit. From here on git itself judges a "
+    "commit in this clone, inside the commit, instead of a reading of the "
+    "command before it runs. Each file carries the line `{marker}`, and a hook "
+    "file without it is never touched."
 )
 
 FOREIGN = (
     "SpecSeal installed no git hooks in {top}: {detail}, and a hooks slot "
-    "somebody else holds is never written over. Commits, worktree creations "
-    "and branch switches in this clone are judged as SpecSeal 0.16.0 judged "
-    "them, by reading each command before it runs. This is said once per "
-    "session."
+    "somebody else holds is never written over. Commits in this clone are "
+    "judged as SpecSeal 0.16.0 judged them, by reading each command before it "
+    "runs. This is said once per session."
 )
 
 

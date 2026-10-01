@@ -87,7 +87,7 @@ What the implementer's account asserted and what I found:
 ### 🔴 1 — A refused `git worktree add -B <existing>` leaves that branch reset
 
 `hooks/creationgate.py:271-281` takes the worktree back after `-B` has already
-reset the branch. `take_back` (`:118-126`) removes the tree and nothing moves
+reset the branch. `take_back` (`:118-126`) removes the tree and nothing moves · NAME NOT IN TREE
 the branch back. Executed (probe p02): branch `feat` at `77e5a59` with its own
 commit, `git worktree add -B feat ../wt main` → exit 1, the worktree gone, and
 `feat` at main's tip `09b84f2`. Its reflog reads `feat@{0}: branch: Reset to
@@ -143,8 +143,8 @@ these flags. The phase 1 claim at `phases/phase-1.md:211` is the same claim.
 
 ### 🟡 5 — A Bash creation under `.claude/worktrees/` is kept and buys the session's consent
 
-`harness_made` (`hooks/creationgate.py:109-115`) matches any path with
-`.claude/worktrees/` in it, and `post_checkout` (`:271-277`) then writes the
+`harness_made` (`hooks/creationgate.py:109-115`) matches any path with · NAME NOT IN TREE
+`.claude/worktrees/` in it, and `post_checkout` (`:271-277`) then writes the · NAME NOT IN TREE
 consent record. Executed (c21): `git worktree add .claude/worktrees/x -b n21`
 from Bash in an attended session with no consent → kept, record written. The
 next `git worktree add ../c21_second -b n21b` → kept too. 0.16.0's guard
@@ -156,7 +156,7 @@ paragraph warns about.
 
 ### 🟡 6 — `worktree add --lock` is refused but its tree stays
 
-`take_back` runs `git worktree remove --force` (`hooks/creationgate.py:125`),
+`take_back` runs `git worktree remove --force` (`hooks/creationgate.py:125`), · NAME NOT IN TREE
 and one `--force` refuses a locked worktree. Executed (c24): exit 1, the
 worktree still listed, the directory still there. The text opens with
 "SpecSeal took this worktree back: … was created and removed again"
@@ -317,7 +317,7 @@ measured commits only, and the policy's latency limit says nothing about
 
 ## Paste-ready fixes
 
-### 🔴 1 — put back a branch `-B` reset (applies on top of 🟡 6's `take_back`)
+### 🔴 1 — put back a branch `-B` reset (applies on top of 🟡 6's `take_back`) · NAME NOT IN TREE
 
 ```python
 # hooks/creationgate.py — beside take_back

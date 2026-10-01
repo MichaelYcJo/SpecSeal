@@ -64,11 +64,11 @@ def test_an_answer_is_given_until_the_next_call_replaces_it(tmp_path):
 
 
 def test_an_answer_older_than_a_bash_call_can_run_is_not_given(tmp_path):
-    answers.write("s1", ("[worktree-ok]",), root=str(tmp_path))
-    path = tmp_path / "s1" / "worktree-ok"
+    answers.write("s1", ("[no-review]",), root=str(tmp_path))
+    path = tmp_path / "s1" / "no-review"
     old = time.time() - answers.FRESH - 5
     os.utime(path, (old, old))
-    assert not answers.given("s1", "[worktree-ok]", root=str(tmp_path))
+    assert not answers.given("s1", "[no-review]", root=str(tmp_path))
 
 
 def test_a_session_id_cannot_name_a_directory_outside(tmp_path):
@@ -77,10 +77,11 @@ def test_a_session_id_cannot_name_a_directory_outside(tmp_path):
     assert answers.directory("..") == ""
 
 
-def test_the_shared_tree_answer_is_not_carried(tmp_path):
-    """The switch arm reads its own token from the command (option 1), so
-    nothing is written for it."""
-    assert answers.write("s1", ("[shared-tree-ok]",), root=str(tmp_path)) == []
+@pytest.mark.parametrize("token", ["[shared-tree-ok]", "[worktree-ok]"])
+def test_the_tree_answers_are_not_carried(tmp_path, token):
+    """The switch and creation arms decide before git runs and read their own
+    tokens from the command (option 1, P6), so nothing is written for them."""
+    assert answers.write("s1", (token,), root=str(tmp_path)) == []
 
 
 def run(module, monkeypatch, payload):

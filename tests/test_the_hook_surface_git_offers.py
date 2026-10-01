@@ -347,7 +347,9 @@ def test_only_git_commit_hands_reference_transaction_an_author_date(tmp_path):
 
 
 # M14: post-checkout runs after a creation, cannot stop it, and can take it
-# back -- which is where the creation ladder decides (phase 4).
+# back. Phase 4 put the creation ladder there; round 1 found what a take-back
+# cannot undo (the case after this one), and the owner moved the ladder back
+# in front of git (`questions.md` P6, answer (a)).
 UNDO = r"""case "$1" in *[!0]*) exit 0 ;; esac
 new=$(pwd -P)
 common=$(cd "$(git rev-parse --git-common-dir)" && pwd -P)
@@ -373,3 +375,21 @@ def test_post_checkout_can_take_back_a_fresh_worktree(tmp_path):
     )
     (hooks / "post-checkout").unlink()
     g(d, "worktree", "add", "-q", str(tmp_path / "again"), "other")
+
+
+def test_what_a_take_back_cannot_undo(tmp_path):
+    """Why no creation is judged after git makes it (P6): `-B` has reset an
+    existing branch before `post-checkout` runs, and `--no-checkout` runs no
+    `post-checkout` at all (round 1 of #692, executed on 2.50.1)."""
+    d, hooks = repo(tmp_path)
+    log = tmp_path / "pc.log"
+    hook(hooks, "post-checkout", UNDO.replace("exit 1\n", 'echo ran >>"$PC_LOG"\n'))
+    env = {"PC_LOG": str(log)}
+    other = g(d, "rev-parse", "other").stdout.strip()
+    g(d, "worktree", "add", "-B", "other", str(tmp_path / "wt1"), "main", env=env)
+    assert not (tmp_path / "wt1").exists()
+    assert g(d, "rev-parse", "other").stdout.strip() != other
+    log.unlink()
+    g(d, "worktree", "add", "--no-checkout", str(tmp_path / "wt2"), "-b", "n2", env=env)
+    assert (tmp_path / "wt2").exists()
+    assert not log.exists()

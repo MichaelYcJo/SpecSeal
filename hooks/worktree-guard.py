@@ -129,7 +129,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # `worktree_consent` imports the same module, so the two share one `Unresolved`.
 import cmdline_base as cmdline
 import console
-import githooks
 
 # The AFTER half of this guard: it owns the consent record, and this file reads
 # it. A plain filename again -- and the reason that file's name carries an
@@ -1620,13 +1619,6 @@ def guard_worktree_creation(
     # separate, and standing `cwd` in for one makes every session under it look
     # like concurrent work in it.
     if not top:
-        return
-
-    # Where this plugin's git hooks run, `post-checkout` judges the creation
-    # in the clone it ran in, after git made it (#692, `hooks/creationgate.py`),
-    # and this reading of the command stands aside. It is 0.16.0's, kept for a
-    # clone whose hooks slot is foreign (`questions.md` P1, P5).
-    if githooks.decides(top):
         return
 
     # 0) 이 세션이 이 클론에서 이미 worktree 를 만들었거나, 사용자가 라우팅 질문에

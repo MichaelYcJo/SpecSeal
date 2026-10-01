@@ -113,11 +113,10 @@ def test_the_stubs_land_in_the_common_hooks_directory_from_a_linked_worktree(
         assert githooks.read_stub(str(p))[2] == str(HOOKS_DIR / "git" / f"{hook}.py")
     assert said == (
         f"SpecSeal installed its git hooks in {directory}: pre-commit, "
-        "reference-transaction, post-checkout and post-commit. From here on git "
-        "itself judges a commit and a worktree creation in this clone, inside the "
-        "action, instead of a reading of the command before it runs. Each file "
-        "carries the line `# specseal-git-hook`, and a hook file without it is "
-        "never touched."
+        "reference-transaction and post-commit. From here on git itself judges a "
+        "commit in this clone, inside the commit, instead of a reading of the "
+        "command before it runs. Each file carries the line `# specseal-git-hook`, "
+        "and a hook file without it is never touched."
     )
     assert githooks.decides(str(wt))
     assert githooks.decides(str(r))
@@ -159,10 +158,9 @@ def test_a_stub_whose_plugin_path_is_gone_is_rewritten(tmp_path, home):
 
 
 FOREIGN_TAIL = (
-    ", and a hooks slot somebody else holds is never written over. Commits, "
-    "worktree creations and branch switches in this clone are judged as "
-    "SpecSeal 0.16.0 judged them, by reading each command before it runs. This "
-    "is said once per session."
+    ", and a hooks slot somebody else holds is never written over. Commits in "
+    "this clone are judged as SpecSeal 0.16.0 judged them, by reading each "
+    "command before it runs. This is said once per session."
 )
 
 
@@ -281,7 +279,7 @@ def test_main_says_it_as_a_system_message(tmp_path, home, monkeypatch, capsys):
 
 
 def fake_plugin(tmp_path, body):
-    """A plugin root whose four entry points print `ran <hook>` and do BODY."""
+    """A plugin root whose entry points print `ran <hook>` and do BODY."""
     root = tmp_path / "plugin"
     (root / "hooks" / "git").mkdir(parents=True)
     (root / ".claude-plugin").mkdir()
@@ -359,17 +357,6 @@ def test_reference_transaction_starts_python_only_for_a_commit(tmp_path, home):
     got = commit(r, **s)
     assert got.returncode != 0
     assert "ran reference-transaction" in got.stderr
-
-
-def test_post_checkout_starts_python_only_for_a_creation(tmp_path, home):
-    r = repo(tmp_path / "r")
-    put_stubs(r, fake_plugin(tmp_path, "sys.exit(0)\n"))
-    s = {"CLAUDE_CODE_SESSION_ID": "s1"}
-    g(r, "branch", "other")
-    switched = g(r, "switch", "-q", "other", **s)
-    assert "ran post-checkout" not in switched.stderr
-    created = g(r, "worktree", "add", "-q", str(tmp_path / "wt"), "-b", "nb", **s)
-    assert "ran post-checkout" in created.stderr
 
 
 def test_the_installed_hooks_let_a_commit_through_where_nothing_is_missing(
