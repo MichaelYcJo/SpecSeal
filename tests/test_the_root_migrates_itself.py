@@ -959,6 +959,34 @@ def test_a_linked_specs_holding_only_unmarked_directories_is_not_refused(hook, r
     assert os.path.islink(repo / "specs")
 
 
+def test_the_cleanup_never_removes_a_linked_specs(hook, repo, monkeypatch):
+    """PR #700's `windows-latest` leg, after the seal. The cleanup after a
+    move calls `os.rmdir` on the old roots to take away what git left empty,
+    and it rested on a POSIX guarantee: `rmdir` refuses a symbolic link with
+    `ENOTDIR`. Windows' `RemoveDirectoryW` removes a directory link itself,
+    whatever is behind it, so a team's linked `specs/` was deleted from the
+    working tree and the line named nothing left. Contract §13: the guarantee
+    is removed here, by giving `rmdir` Windows' semantics for a link."""
+    real = os.rmdir
+
+    def windows_rmdir(path, *args, **kwargs):
+        if os.path.islink(path):
+            os.unlink(path)
+            return
+        real(path, *args, **kwargs)
+
+    git(repo, "rm", "-rq", "specs")
+    write(repo, f"team/{TEAM}/spec.md", "# the team's own specification\n")
+    os.symlink("team", repo / "specs")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "the team's specs/ is a link")
+    monkeypatch.setattr(hook.os, "rmdir", windows_rmdir)
+    out = message(start(hook, repo))
+    assert os.path.islink(repo / "specs"), "the cleanup removed the team's link"
+    assert LEFT_UNMARKED in out, out
+    assert git(repo, "status", "--porcelain", "--", "specs").stdout == ""
+
+
 @pytest.mark.parametrize("readme", ["README.md", "README.ko.md"])
 def test_by_hand_block_fails_loudly_when_the_block_leaves_its_section(readme):
     """Round 2's 🟢 E. A README edited so the block sits under a later

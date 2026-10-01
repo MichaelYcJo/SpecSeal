@@ -455,8 +455,16 @@ def run_moves(root, units):
             return done, exc
         done += 1
     for old in (OLD_HOME, OLD_ITEMS):
+        path = under(root, old)
+        # A link is never this cleanup's to remove. POSIX `rmdir` refuses one
+        # with ENOTDIR, which is what this used to rest on; Windows'
+        # `RemoveDirectoryW` removes a directory link itself, whatever is
+        # behind it, and deleted a team's linked `specs/` from the working
+        # tree (PR #700's windows leg, #688; contract §13).
+        if os.path.islink(path):
+            continue
         try:
-            os.rmdir(under(root, old))
+            os.rmdir(path)
         except OSError:
             pass  # something else is in it, or it is already gone
     return done, None
