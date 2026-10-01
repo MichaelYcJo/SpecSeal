@@ -1993,16 +1993,33 @@ def test_a_passing_first_run_changes_no_verdict_and_costs_one_run(
 
 
 # What a first run that does not pass does to the module itself, before it
-# exits 1: the two ways a suite can leave its own input changed.
+# exits 1: the ways a suite can leave its own input changed. The last one
+# leaves it so that it cannot be put back at all.
 CHANGES_THE_MODULE = {
     "rewrites it": "open(sys.argv[1], 'w').write('VALUE = 99\\n')",
     "removes it": "os.remove(sys.argv[1])",
+    "locks it": "os.chmod(sys.argv[1], 0)",
 }
 
+# POSIX modes, and root reads a mode-000 file anyway.
+CANNOT_LOCK = os.name == "nt" or getattr(os, "geteuid", lambda: 1)() == 0
 
-@pytest.mark.parametrize("change", sorted(CHANGES_THE_MODULE))
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "removes it",
+        "rewrites it",
+        pytest.param(
+            "locks it",
+            marks=pytest.mark.skipif(
+                CANNOT_LOCK, reason="needs a POSIX mode root obeys"
+            ),
+        ),
+    ],
+)
 def test_a_refused_run_leaves_the_module_as_it_was_before_the_command(
-    two_arms, tmp_path, capsys, change
+    two_arms, tmp_path, capsys, monkeypatch, change
 ):
     """Round 1's 🟡 1. The first run sits outside the `try` whose `finally`
     restores, so nothing `arm-check` does there writes the module. The cases
@@ -2014,23 +2031,44 @@ def test_a_refused_run_leaves_the_module_as_it_was_before_the_command(
     Removed is the same fact as rewritten: what is on disk is not what was
     read, and a file that cannot be read differs.
 
+    **Locked is the one shape that cannot be put back** (round 2, 🟡 1).
+    The put-back's own `open` fails, and raised out of the `finally` it took
+    the refusal's line and the command's output with it, at exit 1, where
+    `6bbaa4d1` refused at exit 2. The line names the error instead.
+
     Red how: at `6bbaa4d1` the module is left as the command changed it, and
-    the line says *Nothing was written*. Executed on both parameters."""
+    the line says *Nothing was written*; at `dc1b0d14` the locked module is
+    a `PermissionError` traceback and no line. Executed on every parameter."""
     module_path, _ = two_arms
     before = module_path.read_bytes()
     probe = tmp_path / "changes_the_module.py"
     probe.write_text(
-        "import os\nimport sys\n" + CHANGES_THE_MODULE[change] + "\nsys.exit(1)\n",
+        "import os\nimport sys\nprint('the cases ran')\n"
+        + CHANGES_THE_MODULE[change]
+        + "\nsys.exit(1)\n",
         encoding="utf-8",
     )
     tests = [sys.executable, str(probe), str(module_path)]
 
-    status = ARM.main([str(module_path), "--tests", shlex.join(tests)])
+    try:
+        status = ARM.main([str(module_path), "--tests", shlex.join(tests)])
+    finally:
+        if change == "locks it":
+            os.chmod(module_path, 0o644)
 
     out = capsys.readouterr().out
     first = out.splitlines()[0]
     assert status == 2
     assert first.startswith("no baseline: exit 1."), out
+    assert "the cases ran" in out, "the command's own output follows the line"
+    if change == "locks it":
+        assert "putting it back failed: PermissionError" in first, first
+        assert "Nothing was written" not in first and "was put back" not in first
+        assert first.endswith("No arm was measured."), first
+        assert module_path.read_bytes() == before, "a mode change leaves the bytes"
+        # A pass that cannot put the module back propagates, as the loop's own
+        # first write would fail on it; that path is not this case's.
+        return
     assert "was put back from the bytes read before it" in first, first
     assert "Nothing was written" not in first, (
         f"{first!r} — the command wrote the module, so the sentence that says "
@@ -2044,7 +2082,7 @@ def test_a_refused_run_leaves_the_module_as_it_was_before_the_command(
     # And when the same command passes, with `--only` selecting no arm: the
     # module still comes back. Two restores cover this path, the first run's
     # and the loop's outer `finally`, so this holds the outcome rather than
-    # either one (round 1's fix pass measured the first alone as redundant).
+    # either one.
     probe.write_text(
         "import os\nimport sys\n" + CHANGES_THE_MODULE[change] + "\nsys.exit(0)\n",
         encoding="utf-8",
@@ -2053,6 +2091,24 @@ def test_a_refused_run_leaves_the_module_as_it_was_before_the_command(
     assert ARM.main([str(module_path), "--tests", shlex.join(tests), *only]) == 0
     assert module_path.read_bytes() == before, (
         f"a passing first run {change.split()[0]} the module and it stayed so"
+    )
+
+    # And when the first run is interrupted after the command changed the
+    # module. The loop's outer `finally` is never entered on this path, so the
+    # first run's own put-back is the only restore it has (round 2, ⬜ 2:
+    # narrowed to a refusal, the put-back survived every other assertion).
+    def interrupted(cmd, **kwargs):
+        # The command changes the module the way this parameter's does, in
+        # this process, and then the interrupt lands.
+        argv = type("sys", (), {"argv": [None, str(module_path)]})
+        exec(CHANGES_THE_MODULE[change], {"os": os, "sys": argv})
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(ARM.subprocess, "run", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        ARM.run_arms(str(module_path), tests)
+    assert module_path.read_bytes() == before, (
+        f"an interrupted first run {change.split()[0]} the module and it stayed so"
     )
 
 
