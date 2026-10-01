@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 698 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `5365948145b2e2e74171b1f013098d1f3d17f07f..dbd71bca45ccbeb969966a33aed1a6870f02e013`, 4 commits |
 | Contract changes | mutation_run → main; test_the_file_is_restored_from_the_bytes_held_before_the_write → pytest only; test_a_run_past_the_bound_is_timed_out_and_leaves_nothing_it_started → pytest only |
 | New units | none |
