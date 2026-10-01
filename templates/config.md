@@ -34,6 +34,7 @@ there is no default.
 | Record language | English |
 | Mode |  |
 | Broad gate |  |
+| Reference specs |  |
 
 ## Commit and pull request language
 
@@ -328,6 +329,45 @@ Rules 1 and 2 were derived under pressure by the session that met the gate's
 refusal after its review rounds had settled, and were written nowhere until
 #401. Rule 3 was already here and in the config skill, and it is folded into
 this table rather than copied into a third place.
+
+## Reference specs
+
+The directories this repository keeps its own specifications in: history the
+plugin reads and never takes (#688). A person joining a project that had a
+`specs/` before the plugin arrived keeps it where it is. The plugin writes
+only to its own root, and it never moves, edits, absorbs or deletes a
+reference root.
+
+```markdown
+| Reference specs | specs/, docs/adr/ |
+```
+
+| Value | Means |
+|---|---|
+| one or more repository-relative directories, separated by commas, each with or without a trailing `/` | those directories and everything under them |
+| `none` | no reference root |
+| absent or empty | every directory named `specs` outside the plugin's root, at any depth |
+| no `seal/` root at either place | no reference root: the repository has not opted in, and the one layout the plugin read without a root is 0.3.x, whose top-level `specs/` was its own |
+
+**What it governs.** The checks that would read a record leave a reference
+root out: `survivor-check` takes it out of its pool and its range, on both
+sides, and `unverified-check` prunes it from a directory walk while still
+reading a file named to it explicitly. A prefix naming the plugin's own root
+or anything under it is dropped, because the root's records are read whatever
+this row says; `settle --retire` removes only under `seal/specs/`. One reader
+answers the row, `hooks/config.py#reference_roots`, and one predicate the
+path question, `hooks/config.py#under_reference_root`.
+
+**What it asks of a session.** A reference root is read when a change
+touches what it describes, and what was read is cited — in `spec.md`, or in
+the statement `settle` folds into `docs/` — so the next reader can open the
+same file.
+
+**The default's cost is stated rather than hidden.** A repository whose own
+tests sit under a directory named `specs/`, a BDD convention, has them out of
+the survivor sweep under the default, and nothing says so.
+`Reference specs | none`, or a row naming the real reference roots, puts
+them back.
 
 ## The fold's values
 
