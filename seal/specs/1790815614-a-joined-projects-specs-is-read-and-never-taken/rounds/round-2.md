@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 700 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `52b433f7e2043d939de6ab48994bf161b12389bd..affc55448579bbbb535564fa22d6d8d1f6a47f86`, 3 commits |
+| Contract changes | tracked_marks → old_items, main, round-1-report.md, round-1.md, round-2-report.md, round-2.md |
+| New units | test_a_git_that_cannot_list_the_marks_stamps_nothing (depth 1); test_a_move_stopped_inside_an_item_resumes_whichever_file_is_kept (depth 1); test_an_item_with_one_mark_stopped_inside_resumes (depth 1) |
 | Needs a fix | yes — 🟡 1 (no answer from git reads as no work item, and the hook stamps over a stopped run) and 🟡 2 (a move stopped after an item's marks moved is never resumed) |
 | Loses a record or crashes | yes — 🟡 1 and 🟡 2 each leave a 0.3.x work item, or part of one, outside the root with the repository stamped, so the hook never moves it and its rows that already moved stay BROKEN |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 2 is the verifying round. It targets `6fb43173` and verifies round 1's fix
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | the fix pass made `tracked_marks` answer no mark where git cannot list, and the stamp branch, which `main` reaches before `dirty()`, reads that as nothing old left: a stopped run's item is stamped over and never moves | `hooks/root-migrate.py:278` | open | executed: real corrupt index after a stopped run; the target stamped silently and the repaired next start stayed silent with the item under `specs/`; `1e83a80`, `9e120b0a` and the base refused as dirty and moved it next start; the account's *`dirty()` refuses first* is false for `hooks/root-migrate.py:580` |
-| 🟡 2 | a file-by-file move stopped after an item's marks moved is never resumed: settled as the hook's line says, the next start finds no mark, stamps, strands the file at the old path and leaves the moved files' rows BROKEN | `hooks/root-migrate.py:398` | open | executed: taken `spec.md`, `git rm <dst>`; the target and `1e83a80` strand it with 3 broken, `9e120b0a` (empty `rounds/` on disk) and the base move it with 0 broken; depth 0, since the build introduced it for a `routing.md`-only item and the fix pass widened it |
-| ⬜ 3 | the printed reason says *no routing.md or rounds/* beside an ignored `routing.md` the person can see | `hooks/root-migrate.py:654` | open | read; the behaviour is right and the sentence is not; the reason is quoted in `spec.md:203`, the changelog fragment, ledger row B1 and the test's `LEFT_UNMARKED`, so it is fix or justify |
-| ⬜ 4 | ledger row B5 says the disk stands in where git cannot list and `dirty()` refuses that run; at the target neither is true | `seal/ledger/1790815614-a-joined-projects-specs-is-read-and-never-taken.md` | open | read against `hooks/root-migrate.py#old_items` and `#main`; a correction to the run's paperwork, outside `Needs a fix` |
+| 🟡 1 | the fix pass made `tracked_marks` answer no mark where git cannot list, and the stamp branch, which `main` reaches before `dirty()`, reads that as nothing old left: a stopped run's item is stamped over and never moves | `hooks/root-migrate.py:278` | **fixed** `fa38bbbc` | fixed at fa38bbbc; executed: real corrupt index after a stopped run; the target stamped silently and the repaired next start stayed silent with the item under `specs/`; `1e83a80`, `9e120b0a` and the base refused as dirty and moved it next start; the account's *`dirty()` refuses first* is false for `hooks/root-migrate.py:580` |
+| 🟡 2 | a file-by-file move stopped after an item's marks moved is never resumed: settled as the hook's line says, the next start finds no mark, stamps, strands the file at the old path and leaves the moved files' rows BROKEN | `hooks/root-migrate.py:398` | **fixed** `fa38bbbc` | fixed at fa38bbbc; executed: taken `spec.md`, `git rm <dst>`; the target and `1e83a80` strand it with 3 broken, `9e120b0a` (empty `rounds/` on disk) and the base move it with 0 broken; depth 0, since the build introduced it for a `routing.md`-only item and the fix pass widened it |
+| ⬜ 3 | the printed reason says *no routing.md or rounds/* beside an ignored `routing.md` the person can see | `hooks/root-migrate.py:654` | **fixed** `fa38bbbc` | fixed at fa38bbbc; read; the behaviour is right and the sentence is not; the reason is quoted in `spec.md:203`, the changelog fragment, ledger row B1 and the test's `LEFT_UNMARKED`, so it is fix or justify |
+| ⬜ 4 | ledger row B5 says the disk stands in where git cannot list and `dirty()` refuses that run; at the target neither is true | `seal/ledger/1790815614-a-joined-projects-specs-is-read-and-never-taken.md` | answered | corrected at affc5544; ledger row B5 corrected in place, the move-order claim in new row B6; read against `hooks/root-migrate.py#old_items` and `#main`; a correction to the run's paperwork, outside `Needs a fix` |
 | ⬜ 5 | a resume with nothing left to move never re-points the rows of a stopped run, so settling a taken file with `git rm <src>` leaves them BROKEN | `hooks/root-migrate.py:569` | deferred new issue | executed: 3 broken at the target, `1e83a80`, `9e120b0a` and the base alike; present in 0.16.0, loud through `evidence-check`; 🟡 2's fix narrows it to a stop at the last mark |
 | 🟢 | round 1's finding 1 is closed for its shapes — an empty or ignored `rounds/` and an ignored `routing.md` move nothing and stage nothing | `hooks/root-migrate.py:313` | confirmed | executed: planted cases green; a team-only repository silent with nothing staged in all three shapes; seen red with `old_items` back on disk marks |
 | 🟢 | round 1's finding 2 stays answered — the marks are file names by the approved design | `seal/specs/1790815614-a-joined-projects-specs-is-read-and-never-taken/plan.md:123` | confirmed | read: the alternatives table chooses the names, and `plan.md:7` records the approval |
