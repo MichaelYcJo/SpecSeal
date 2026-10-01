@@ -351,6 +351,39 @@ def test_a_replacement_that_mutates_nothing_is_refused(
     assert out.startswith("refused") and says in out, out
 
 
+def test_a_file_that_is_not_utf8_text_is_refused_untouched(tmp_path, capsys):
+    """The replacement is literal text, so a file that does not decode has no
+    text to find it in. Re-encoded leniently it would come back different
+    from the bytes it was read as, and the restore would be the mutation."""
+    target = tmp_path / "blob.bin"
+    original = b"OLD \xff\xfe not text\n"
+    target.write_bytes(original)
+    code, out = run(
+        [
+            target,
+            "--replace",
+            "OLD",
+            "NEW",
+            "--tests",
+            cases_command(probe(tmp_path, FAILS)),
+        ],
+        capsys,
+    )
+    assert code == 2, out
+    assert out.startswith("refused") and "UTF-8" in out, out
+    assert target.read_bytes() == original
+
+
+def test_a_tests_command_that_names_nothing_is_refused(tmp_path, capsys):
+    target = tmp_path / "target.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    with pytest.raises(SystemExit) as raised:
+        module().main([str(target), "--replace", "1", "2", "--tests", "  "])
+    assert raised.value.code == 2
+    assert "names no command" in capsys.readouterr().err
+    assert target.read_text(encoding="utf-8") == "VALUE = 1\n"
+
+
 # --- S4 · restored from held bytes, and the restore is proved ---------------
 
 
