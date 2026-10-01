@@ -698,3 +698,15 @@ same shape.
 | A released work item that wrote no `spec.md` | retired by the rule, with no marker, when nothing in its `overview.md` or `evidence-todo.md` is open; kept and named with its rows when something is. One predicate beside the fold record decides it for `settle` and for every CI reader, asked of the merge base | nothing above said. `docs/the-evidence-ledger.md` had kept such items by name, and ten of them had no way out |
 | A ledger row anchored inside a retiring directory | `settle` names it and `settle --retire` keeps that directory, saying per row whether the row is removed or narrowed | the 2026-09-22 row on what a removal breaks, which listed readers of the corpus and not the ledger rows anchored in it; the first fold broke five of them |
 | What a fold owes the survivor sweep | nothing. A directory the range retired, by either arm, is out of the sweep's range on both sides | the same row, which named the survivor sweep among what a removal breaks. Its answer was a `survivors.md` row, and a fold with no directory has nowhere to keep one |
+
+## Decided when a joined project's `specs/` was read and never taken (2026-10-01)
+
+The three sections above are records of 2026-09-02, 2026-09-22 and
+2026-09-23 and are not rewritten. This is what #688 settled for a person
+joining a project that kept its own `specs/` before the plugin arrived, in
+the same shape.
+
+| Decision | Answer | What it corrects above |
+|---|---|---|
+| What *still on the 0.3.x layout* means | a repository holding `.specseal/`, or a `specs/` entry named `<unix-seconds>-<slug>` that carries `routing.md` or a `rounds/` directory directly under it. A `specs/` with no such entry is the project's own: the bootstrap asks it the shared/local question like any repository with no root, and the session-start hook moves nothing out of it. Measured at tag `v0.3.0`: every one of the 13 work items carried `routing.md` | the row *The first-setup question's shape*, whose "still on the 0.3.x layout" the bootstrap read as any top-level `specs/`, and §*What happens to the existing directories at the switch*, whose move the hook made by a directory's name alone, so a team directory of that shape was taken |
+| Whose a `specs/` outside the root is | the project's. The plugin writes only to its own root and reads every other directory named `specs` as history — a reference root, which the checks that read a record leave out. `seal/config.md`'s `Reference specs` row names them, and with no row every directory named `specs` outside the root is one | §*The change in four lines*, whose "`specs/` stops being SpecSeal's directory" said what the plugin stopped owning and not what it does with a directory it never owned |
