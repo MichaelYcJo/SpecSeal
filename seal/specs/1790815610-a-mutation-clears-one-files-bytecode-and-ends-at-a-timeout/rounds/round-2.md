@@ -7,14 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 698 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `5365948145b2e2e74171b1f013098d1f3d17f07f..dbd71bca45ccbeb969966a33aed1a6870f02e013`, 4 commits |
+| Contract changes | mutation_run → main; test_the_file_is_restored_from_the_bytes_held_before_the_write → pytest only; test_a_run_past_the_bound_is_timed_out_and_leaves_nothing_it_started → pytest only |
+| New units | none |
 | Needs a fix | yes — 🟡 9 (a read-only target reads `not restored` over its original bytes) and 🟡 10 (the baseline's bound is pinned by no case) |
 | Loses a record or crashes | no |
+<!-- New units: bin/mutation-check read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -35,12 +36,12 @@ Round 2 is the verifying round. It targets `8b8149b3` and verifies round 1's fix
 | 🟢 | The group bound still reaches pytest and its xdist workers through `bin/test`, now in the baseline | `skills/verify/scripts/mutation_check.py#run_cases` | confirmed | Executed: 8 s bound, `-n auto` and `-p no:xdist`, `pgrep` empty, target unchanged |
 | 🟢 | The one survivor is exempted on sound grounds | `seal/specs/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout/plan.md:164` | confirmed | Executed: `survivor-check` exit 1 without the table, exit 0 with it; Read: the plan quotes the claim as approved, still true of the mutated run |
 | 🟢 | L5 says the baseline doubles a call's cost, and the figure holds | `seal/ledger/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout.md` L5 | confirmed | Executed: 1.01 s mean per call against 0.43 s for one run, on L5's setup |
-| 🟡 9 | A target read-only before the command starts reads `not restored` and is told to be restored from a commit, though the break never reached it | `skills/verify/scripts/mutation_check.py:337-350` | open | Executed: `chmod 400` before the run gave `not restored … PermissionError`, exit 2, file `VALUE = 1`; the proposed case red at the target, green with the fix |
-| 🟡 10 | The baseline's bound is pinned by no case, and it is now the bound most hangs meet | `skills/verify/scripts/mutation_check.py:319` | open | Executed: `timeout=None` on the baseline SURVIVED the module (M1); the proposed case red under M1 |
-| ⬜ 11 | The smith's step list and the wrapper's comment omit the baseline and the bound per run | `agents/smith.md:271-276`, `bin/mutation-check:11-15` | open | Read: SKILL and the docstring were updated, these two were not; behaviour and verdict list stay right |
-| ⬜ 12 | The baseline's verdict lines: `no baseline` drops the exit code and its *Nothing was written* is unpinned; `interrupted` in the baseline says the file was restored; the timeout suffix lands on the escape clause | `skills/verify/scripts/mutation_check.py:320-328`, `:418-427` | open | Executed: M9 SURVIVED; Ctrl-C substituted into the baseline's wait printed *was restored from the bytes read before the write* |
-| ⬜ 13 | correction: Q5 states the per-call command figures with no note that a call now runs the cases twice | `seal/specs/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout/questions.md:42` | open | Read; L5 carries the note, Q5 does not. Paperwork, outside `Needs a fix` |
-| ⬜ 14 | correction: the ledger fragment's header lists L1–L6 and not L7 | `seal/ledger/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout.md:1-8` | open | Read. Paperwork, outside `Needs a fix` |
+| 🟡 9 | A target read-only before the command starts reads `not restored` and is told to be restored from a commit, though the break never reached it | `skills/verify/scripts/mutation_check.py:337-350` | **fixed** `d64a5184` | fixed at d64a5184; Executed: `chmod 400` before the run gave `not restored … PermissionError`, exit 2, file `VALUE = 1`; the proposed case red at the target, green with the fix |
+| 🟡 10 | The baseline's bound is pinned by no case, and it is now the bound most hangs meet | `skills/verify/scripts/mutation_check.py:319` | **fixed** `d64a5184` | fixed at d64a5184; Executed: `timeout=None` on the baseline SURVIVED the module (M1); the proposed case red under M1 |
+| ⬜ 11 | The smith's step list and the wrapper's comment omit the baseline and the bound per run | `agents/smith.md:271-276`, `bin/mutation-check:11-15` | **fixed** `3f8e021e` | fixed at 3f8e021e; Read: SKILL and the docstring were updated, these two were not; behaviour and verdict list stay right |
+| ⬜ 12 | The baseline's verdict lines: `no baseline` drops the exit code and its *Nothing was written* is unpinned; `interrupted` in the baseline says the file was restored; the timeout suffix lands on the escape clause | `skills/verify/scripts/mutation_check.py:320-328`, `:418-427` | **fixed** `dbd71bca` | fixed at dbd71bca; Executed: M9 SURVIVED; Ctrl-C substituted into the baseline's wait printed *was restored from the bytes read before the write* |
+| ⬜ 13 | correction: Q5 states the per-call command figures with no note that a call now runs the cases twice | `seal/specs/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout/questions.md:42` | answered | corrected at 3f8e021e; Q5 gains a `Corrected` note: a call runs the cases twice, with round 2's measured 1.01 s per call against 0.43 s for one run; Read; L5 carries the note, Q5 does not. Paperwork, outside `Needs a fix` |
+| ⬜ 14 | correction: the ledger fragment's header lists L1–L6 and not L7 | `seal/ledger/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout.md:1-8` | **fixed** `3f8e021e` | fixed at 3f8e021e; Read. Paperwork, outside `Needs a fix` |
 | ❓ | The Windows arm: `proc.kill()`, its text, the temporary-file output, and `bin/mutation-check.cmd` | `skills/verify/scripts/mutation_check.py:218-221`, `bin/mutation-check.cmd` | ❓ out of verified scope | No Windows machine here; carried from round 1. Who answers it: the orchestrator, from the `windows-latest` leg of `.github/workflows/test.yml` on the pull request |
 
 ## Paste-ready fixes
