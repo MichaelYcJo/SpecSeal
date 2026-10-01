@@ -175,6 +175,7 @@ SHIPPED = {
     "broad-gate": (NO_WALK, "hands seal/specs/ to the checks above"),
     "fold-check": (NO_WALK, "reads the top level of docs/ and seal/config.md"),
     "arm-check": (NO_WALK, "reads the Python files it is named"),
+    "mutation-check": (NO_WALK, "breaks and restores the one file it is named"),
     "deferral-check": (NO_WALK, "reads the pull request body and round records"),
     "seal": (NOT_A_CHECK, "the mode command, writing seal/config.md"),
     "seal-stamp": (NOT_A_CHECK, "draws the sealer's stamp"),
