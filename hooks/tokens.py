@@ -67,8 +67,10 @@ def steps_around_hooks(command):
 
     The kinds, each living in the one command where the installer, which runs
     before it, cannot see them: `core.hooksPath` in any spelling (`-c`,
-    `--config-env`, `git config`, a `GIT_CONFIG_*` value), any `GIT_CONFIG*`
-    assignment, `env` emptying the environment, and a word naming
+    `--config-env`, `git config`, a `GIT_CONFIG_*` value), a config file that
+    can carry it (`include.path`, `includeIf.<condition>.path`, `HOME=`,
+    `XDG_CONFIG_HOME=`), any `GIT_CONFIG*` assignment, `env` emptying the
+    environment, and a word naming
     `CLAUDECODE` or `CLAUDE_CODE_SESSION_ID` whole -- the last two leave the
     stub no session variable. A command that does not split is read as one of
     them.
@@ -92,12 +94,24 @@ def steps_around_hooks(command):
         # `env --unset=NAME`, `unset NAME` (round 2 of #692, 🟡 1, executed).
         # 0.16.0's reading stopped each. The name is compared whole, so
         # `$CLAUDECODE` or a message that mentions it is not one.
-        name, _, value = word.strip("()").partition("=")
+        name, eq, value = word.strip("()").partition("=")
         session = name
         if name == "--unset":
             session = value
         elif name.startswith("-u"):
             session = name[2:]
         if session in ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID"):
+            return True
+        # A config file the command names can carry core.hooksPath where no
+        # word does: `include.path` or `includeIf.<condition>.path`, set by
+        # `-c`, `--config-env` or `git config`, and HOME or XDG_CONFIG_HOME
+        # pointing git at another global config (round 2 of #692, 🟡 2,
+        # executed). 0.16.0's reading stopped each. The key and the name are
+        # compared whole, so `$HOME/x` as an argument is not one.
+        key = value.partition("=")[0] if name == "--config-env" else name
+        key = key.lower()
+        if key == "include.path" or key.startswith("includeif."):
+            return True
+        if eq and name in ("HOME", "XDG_CONFIG_HOME"):
             return True
     return False

@@ -153,8 +153,10 @@ stubs run. A target the reader cannot place is left to git when the session's
 own clone is git-decided, because the session's directory is the stand-in it
 would have been judged against. A command carrying a word that can keep the
 hooks from judging it is left to git nowhere (`hooks/tokens.py#steps_around_hooks`):
-`core.hooksPath` in any spelling (`-c`, `--config-env`, `git config`), any
-`GIT_CONFIG*` assignment, `env` emptying the environment, a word naming
+`core.hooksPath` in any spelling (`-c`, `--config-env`, `git config`), a config
+file that can carry it (`include.path`, `includeIf`, `HOME=`,
+`XDG_CONFIG_HOME=`), any `GIT_CONFIG*` assignment, `env` emptying the
+environment, a word naming
 `CLAUDECODE` or `CLAUDE_CODE_SESSION_ID` whole (`NAME=`, `env -u`, `unset`,
 which leave the stub no session), and a command that does not split. Each lives in
 the one command, where the installer that ran before it cannot see it, and a
@@ -188,12 +190,13 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
   carries no stubs, from a session whose own clone does, is judged by
   nobody.** The reader stands aside on the session's clone, and git has no
   hook to run in the other one.
-- **A command that removes the stubs before it commits is judged by nobody.**
-  `rm .git/hooks/pre-commit .git/hooks/reference-transaction && git commit`
-  steps around both hooks, and the reading stood aside before the command
-  ran, because nothing in its words names a hook setting. The installer puts
-  the stubs back at the next Bash call. 0.16.0's reading stopped it (round 1
-  of #692, executed).
+- **A command that removes the stubs, or takes their execute bit, before it
+  commits is judged by nobody.** `rm .git/hooks/pre-commit
+  .git/hooks/reference-transaction && git commit`, and `chmod -x` on the same
+  two files, step around both hooks, and the reading stood aside before the
+  command ran, because nothing in its words names a hook setting. The
+  installer puts the stubs and their mode back at the next Bash call. 0.16.0's
+  reading stopped both (rounds 1 and 2 of #692, executed).
 - **`git commit-tree` with `update-ref`, and `git am`, are not commits to
   either reading.** Neither meets `pre-commit`, and round 1 of #692 executed
   both landing past the backstop, as 0.16.0's reading never read them as

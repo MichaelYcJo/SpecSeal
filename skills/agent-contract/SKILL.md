@@ -242,8 +242,9 @@ That second reason is about a reader, and since #692 the reader judges a
 commit only where git's hooks cannot: a clone whose hooks slot is somebody
 else's, an opted-in clone no session has reached yet, a target it cannot
 place from a session whose own clone carries no hooks, and a command whose
-words can keep the hooks from running (`core.hooksPath`, `GIT_CONFIG*`,
-`env -i`, a session variable unset or emptied). Everywhere else — every
+words can keep the hooks from running (`core.hooksPath` or a config file
+that can carry it, `GIT_CONFIG*`, `env -i`, a session variable unset or
+emptied). Everywhere else — every
 opted-in clone a session reaches, unless `core.hooksPath` or a hook file it
 did not write holds the slot — git judges
 a commit inside the commit, in the worktree it lands in, and no command text

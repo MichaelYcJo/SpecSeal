@@ -996,13 +996,26 @@ STEPS_AROUND = {
     "env -u glued to its name": "env -uCLAUDE_CODE_SESSION_ID git commit -m x",
     "env --unset=": "env --unset=CLAUDECODE git commit -m x",
     "unset": "unset CLAUDE_CODE_SESSION_ID; git commit -m x",
+    # Round 2's 🟡 2: a config file the command names, which can carry
+    # core.hooksPath where no word does.
+    "include.path": "git -c include.path=/x/cfg commit -m x",
+    "includeIf": "git -c includeIf.onbranch:main.path=/x/cfg commit -m x",
+    "include.path through --config-env": (
+        "git --config-env=include.path=CFG commit -m x"
+    ),
+    "include.path through git config": (
+        "git config include.path /x/cfg && git commit -m x"
+    ),
+    "HOME": "HOME=/x/h git commit -m x",
+    "XDG_CONFIG_HOME": "XDG_CONFIG_HOME=/x/c git commit -m x",
 }
 
 
 @pytest.mark.parametrize("name", sorted(STEPS_AROUND))
 def test_a_command_that_can_step_around_the_hooks_keeps_the_text_reading(world, name):
-    """Round 1's 🟡 2 and 🟡 8, and round 2's 🟡 1: a setting, an emptied
-    environment or a removed session variable that lives in the one command
+    """Round 1's 🟡 2 and 🟡 8, and round 2's 🟡 1 and 🟡 2: a setting, a
+    config file that can carry one, an emptied environment or a removed
+    session variable that lives in the one command
     can keep git from running the stubs, or the stub from finding the session,
     so the reading that asked before the command does not stand aside for it.
     A misread costs one refusal."""
@@ -1021,6 +1034,11 @@ def test_a_command_that_can_step_around_the_hooks_keeps_the_text_reading(world, 
         # removes nothing (round 2 of #692, 🟡 1).
         "echo $CLAUDECODE",
         "git commit -m 'mentions CLAUDE_CODE_SESSION_ID'",
+        # A config key or HOME is read whole too (round 2 of #692, 🟡 2).
+        "cat $HOME/x",
+        "printenv HOME",
+        "git -c user.name=HOME commit -m x",
+        "git commit -m 'read include.path'",
         "",
     ],
 )
