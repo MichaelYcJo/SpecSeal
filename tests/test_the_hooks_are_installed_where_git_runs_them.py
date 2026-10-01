@@ -235,6 +235,14 @@ def test_an_empty_cwd_writes_nowhere(tmp_path, home, monkeypatch):
     assert stubs_in(hooks_of(r)) == []
 
 
+def test_the_suites_switch_writes_nothing(tmp_path, home, monkeypatch):
+    """The seam `tests/conftest.py` sets for every other case."""
+    r = repo(tmp_path / "r")
+    monkeypatch.setenv(install_mod.SWITCH, "off")
+    assert install_mod.install(str(r), "s1") == ""
+    assert stubs_in(hooks_of(r)) == []
+
+
 def test_main_says_it_as_a_system_message(tmp_path, home, monkeypatch, capsys):
     import io
 

@@ -145,8 +145,10 @@ SWITCH = "SPECSEAL_HOOK_INSTALL"
 def install(cwd, session=""):
     """Bring the clone at `cwd` to the state the rules above name; the message
     to say, or ""."""
-    if not cwd or os.environ.get(SWITCH) == "off":
+    if os.environ.get(SWITCH) == "off":
         return ""
+    # An empty `cwd` is no repository (`optin.repo_root`), never the process's
+    # own directory: a payload that names nowhere writes nowhere.
     top = optin.repo_root(cwd)
     if not top:
         return ""
