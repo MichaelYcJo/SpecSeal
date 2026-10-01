@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 699 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `111ef570a47de827c08b75d3ffc4b409ee1989a5..2c86816a5da596205f757a396f0d1ca0131939ec`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (a dotted name before an issue is read as the home), 🟡 2 (an underscore at a path segment's edge is taken off) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 3 is the verifying round after the run's one reopening, so it ends the run
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | a dotted name that is not a file (`chain_check.verdict_of`, `re.sub`, `Node.js`) placed before an issue is printed as the home and hides the issue; the bare-name arm was widened from `.md` to any extension | `skills/verify/scripts/broad_gate.py:2404` | open | executed at the target over five cells, all wrong, all right at `0cbadb8e`; round 2's 🟡 1 class, opened by `fa03671d`; the fix is executed green over 24 cases and 73 tree rows |
-| 🟡 2 | an underscore at the edge of a path segment is still taken off, inside a code span too, so a package's private directory or a dunder module name prints without its underscores | `skills/verify/scripts/broad_gate.py:2431` | open | executed at the target over four cells, all wrong; round 2's 🟡 2 class, closed only for the interior instance at `90e5e27`; ledger N9 says *its underscores kept* |
+| 🟡 1 | a dotted name that is not a file (`chain_check.verdict_of`, `re.sub`, `Node.js`) placed before an issue is printed as the home and hides the issue; the bare-name arm was widened from `.md` to any extension | `skills/verify/scripts/broad_gate.py:2404` | deferred #708 | #708 — The run ended capped at round 3; #708 carries the five cells and the report's pattern; executed at the target over five cells, all wrong, all right at `0cbadb8e`; round 2's 🟡 1 class, opened by `fa03671d`; the fix is executed green over 24 cases and 73 tree rows |
+| 🟡 2 | an underscore at the edge of a path segment is still taken off, inside a code span too, so a package's private directory or a dunder module name prints without its underscores | `skills/verify/scripts/broad_gate.py:2431` | deferred #708 | #708 — The same unit and the same issue; no deferred row in the tree today is misread; executed at the target over four cells, all wrong; round 2's 🟡 2 class, closed only for the interior instance at `90e5e27`; ledger N9 says *its underscores kept* |
 | 🟢 | round 2's 🟡 1 finding is closed for its instance — slash-joined words stay words | `skills/verify/scripts/broad_gate.py:2404` | confirmed | executed: four round-2 cells right; reverting `HOME_TOKEN` fails five new cases; the class goes on as 🟡 1 |
 | 🟢 | round 2's 🟡 2 finding is closed for its instance — an interior underscore is kept | `skills/verify/scripts/broad_gate.py:2431` | confirmed | executed: reverting the marks line fails the two new cases; the class goes on as 🟡 2 |
 | 🟢 | round 2's ⬜ 3 is closed — the overview says the names ride only the head line the preflight replaces | `seal/specs/1790815615-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run/overview.md:39` | confirmed | read at `seal_stamp.py:472` and `broad_gate.py:2915`; `survivor-check` over the range exits 0 with the work item's `survivors.md` |
