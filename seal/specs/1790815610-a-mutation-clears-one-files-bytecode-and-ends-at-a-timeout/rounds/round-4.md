@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 698 |
-| Broad gate | 8dd37a2f against a340221b |
+| Broad gate | a8e0f320 against a340221b; earlier run: 8dd37a2f against a340221b |
 | Fixes checked by | no fixes to check |
 | Fix range | `a86101f5332420645509eb65f545e88f534a639e..2d63e8af555a5105411d0bdd2d03fa8696fe110b`, 1 commit |
 | Contract changes | none |
