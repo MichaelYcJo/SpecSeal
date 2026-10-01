@@ -1233,4 +1233,7 @@ def test_an_interrupt_ends_the_run_it_started_and_restores_the_file(
         monkeypatch.setattr(mc, "_wait", real_wait)
     assert code == 2, out
     assert out.startswith("interrupted"), out
+    # What holds whether the interrupt landed in the baseline or after the
+    # write, rather than a restore that may never have happened (round 2, ⬜ 12).
+    assert "holds the bytes it held before the command started" in out, out
     assert target.read_bytes() == original
