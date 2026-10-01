@@ -622,6 +622,7 @@ OUT_OF_CLASS = {
     ("skills/verify/scripts/broad_gate.py", "hidden_row_at"): (1, F),
     ("skills/verify/scripts/broad_gate.py", "gate"): (1, TOOL),
     ("skills/verify/scripts/broad_gate.py", "job_steps"): (1, YAML),
+    ("skills/verify/scripts/broad_gate.py", "ledger_total"): (1, TOOL),
     ("skills/verify/scripts/broad_gate.py", "suite_counts"): (1, TOOL),
     ("skills/verify/scripts/deferral_check.py", "read_events"): (1, YAML),
     ("skills/verify/scripts/deferral_check.py", "runners_in"): (1, YAML),

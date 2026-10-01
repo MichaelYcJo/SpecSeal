@@ -343,8 +343,9 @@ over a question nobody was asking while CI refused the same commit (#423).
 Where resolving moves the answer the gate prints one line naming both refs,
 both commits and the distance, and runs anyway; where the two agree it prints
 nothing. It never fetches, so a remote-tracking ref is only as fresh as the
-last fetch — which is why the stamp's panel names the ref beside the commit
-rather than the commit alone.
+last fetch — which is why the stamp's panel names the ref on the row under
+the commit rather than the commit alone, and the `SEALED` line names it as
+`<ref> @ <commit>`.
 
 **What the sealer's seal covers is declared rather than remembered.** The arms
 exist so that its one run says what CI will say, and for three releases the
@@ -366,7 +367,13 @@ names the repository's own command. The count is on the panel because a panel
 value is 23 columns and a step name is a sentence; the names are printed
 because a number alone sends the reader back to the two files this
 declaration exists to stop them opening. A repository with no such workflow
-sees neither, and nothing else about its run changes.
+sees neither, and nothing else about its run changes. Both are counted over
+the steps CI runs for the base (#666): a step CI does not ask of this pull
+request — four of SpecSeal's run only on a pull request into `main`, and two
+are skipped there — is neither answered nor unanswered, so the count leaves
+it out and the line says how many it left out and why. A feature seal of
+SpecSeal itself reads `4 of 9`, where it used to read `8 of 13` over four
+steps no run of that pull request would ask.
 
 **What the count does not say** is whether a mirrored arm asks the same
 question its step asks. The partition says a step is on the list; two readers
@@ -377,8 +384,10 @@ repository this plugin is developed in. The gate ran the `survivors` and
 steps. That instance is closed: where the base names `main` and the gated
 repository's workflow carries those steps, the gate leaves both arms out and
 says so (`broad_gate.py#SKIPPED_AT_MAIN`). A case holds that list against the
-workflow's guards. The case reads a guard on the base and no other kind of
-condition, so the class stays open for the next kind.
+workflow's guards, and a second case holds `broad_gate.py#ONLY_AT_MAIN`, the
+steps that run only into `main`, against the opposite guard the same way. The
+cases read a guard on the base and no other kind of condition, so the class
+stays open for the next kind.
 
 **The arms the plugin ships are the arms the gate can run.** Four steps of
 SpecSeal's own `release` job have a local answer and no arm: three run a

@@ -562,11 +562,13 @@ def test_the_panel_names_the_ref_the_base_came_from(tmp_path):
         for name in (mod.SUITE, mod.LEDGER, mod.CHAIN_NAME)
     }
     rows = mod.panel("ccccccc", base, checks, None)
-    assert ("base", "bbbbbbb") in rows, rows
-    assert ("from", "origin/base") in rows, rows
+    # #666: the ref continues on the row under `base`, where it has the
+    # whole value width, rather than on a `from` row of its own.
+    at = rows.index(("base", "bbbbbbb"))
+    assert rows[at + 1] == ("", "origin/base"), rows
     drawn = "\n".join(_load("specseal_seal_stamp", STAMP).stamp(rows, shape=True))
-    assert re.search(r"\bfrom\s+[^\n|]*origin/base", drawn), (
-        f"the rendered panel does not carry the ref:\n{drawn}"
+    assert re.search(r"\bbase\s+bbbbbbb\s*\|\n[^\n]*\|\s+origin/base\s", drawn), (
+        f"the rendered panel does not carry the ref under the commit:\n{drawn}"
     )
 
     work = behind_gate_repo(tmp_path)
@@ -574,7 +576,8 @@ def test_the_panel_names_the_ref_the_base_came_from(tmp_path):
     assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
     said = [line for line in out.stdout.splitlines() if line.startswith("SEALED")]
     assert len(said) == 1, out.stdout
-    assert f"against {short(work, 'origin/base')}" in said[0], said
+    # #666: the resolved ref is named beside the commit it resolved to.
+    assert f"against origin/base @ {short(work, 'origin/base')}" in said[0], said
     assert short(work, "base") not in said[0], f"the line names the local ref: {said}"
 
 
@@ -586,7 +589,7 @@ def test_the_failure_form_names_the_base_the_checks_were_asked_about(tmp_path):
     assert out.returncode == 1, f"{out.stdout}\n{out.stderr}"
     head = out.stdout.splitlines()[0]
     assert head.startswith("NOT SEALED"), head
-    assert short(work, "origin/base") in head, head
+    assert f"against origin/base @ {short(work, 'origin/base')}" in head, head
     assert short(work, "base") not in head, (
         f"the failure form names the local ref: {head}"
     )
@@ -784,19 +787,25 @@ def test_the_gates_own_docstring_says_the_base_is_resolved():
 
 
 def test_the_documents_name_the_panel_row_the_gate_actually_prints():
-    """The `from` row is the half of the stamp a reader uses to tell a fresh
-    base from a stale one, so the agent that reports the stamp has to know it
-    is there."""
-    said = read(SEALER)
-    assert "`from`" in said, "agents/sealer.md does not name the panel's ref row"
+    """The ref beside the base commit is the half of the stamp a reader uses
+    to tell a fresh base from a stale one, so the agent that reports the
+    stamp has to know where it is. Since #666 it is the row under `base`,
+    and `from` is not a row the panel has."""
+    said = " ".join(read(SEALER).split())
+    assert "the row under `base` carries the ref that commit came from" in said, (
+        "agents/sealer.md does not name the row that carries the base's ref"
+    )
+    assert "`from`" not in said, "agents/sealer.md names a row the panel lost"
     mod = gate_module()
     base = mod.Base("base", "aaaaaaa", "origin/base", "bbbbbbb")
     checks = {
         name: mod.Check(name, 0, "1 passed in 0.1s", "out.txt")
         for name in (mod.SUITE, mod.LEDGER, mod.CHAIN_NAME)
     }
-    labels = [row[0] for row in mod.panel("ccccccc", base, checks, None) if row]
-    assert "from" in labels, f"the panel has no such row: {labels}"
+    rows = mod.panel("ccccccc", base, checks, None)
+    labels = [row[0] for row in rows if row]
+    assert "from" not in labels, f"the panel still has a `from` row: {labels}"
+    assert rows[rows.index(("base", "bbbbbbb")) + 1] == ("", "origin/base"), rows
 
 
 # --- round 1, finding 2: the line may not speak for CI about a second remote
@@ -1005,7 +1014,8 @@ def test_an_empty_base_fails_the_spelling_check_by_name():
         assert_every_base_is_remote_tracking(found)
 
 
-# --- round 1, finding 5: the `from` row was cut with no marker --------------
+# --- round 1, finding 5: the ref's row was cut with no marker ----------------
+# (the `from` row then; the row under `base` since #666)
 
 STAMP = os.path.join(ROOT, "skills", "verify", "scripts", "seal_stamp.py")
 
@@ -1014,13 +1024,18 @@ def stamp_module():
     return _load("specseal_seal_stamp_for_range_tests", STAMP)
 
 
-def panel_of(mod, ref, given="release/x"):
+def ref_row_of(mod, ref, given="release/x"):
+    """The value of the row under `base`, where the panel carries the ref
+    since #666 (it was the `from` row's)."""
     base = mod.Base(given, "aaaaaaa", ref, "bbbbbbb")
     checks = {
         name: mod.Check(name, 0, "1 passed in 0.1s", "out.txt")
         for name in (mod.SUITE, mod.LEDGER, mod.CHAIN_NAME)
     }
-    return dict(row for row in mod.panel("ccccccc", base, checks, None) if row)
+    rows = mod.panel("ccccccc", base, checks, None)
+    label, value = rows[rows.index(("base", "bbbbbbb")) + 1]
+    assert label == "", rows
+    return value
 
 
 def test_the_panel_value_width_is_what_the_stamp_actually_gives():
@@ -1029,7 +1044,7 @@ def test_the_panel_value_width_is_what_the_stamp_actually_gives():
     elide before it, and `seal_stamp.letter` is what decides — measured here
     by rendering a value nothing could fit rather than by restating the
     formula."""
-    rendered = stamp_module().letter([("from", "x" * 200)])[2]
+    rendered = stamp_module().letter([("", "x" * 200)])[2]
     assert rendered.count("x") == gate_module().PANEL_VALUE_WIDTH, (
         f"the panel gives a value {rendered.count('x')} columns and "
         f"broad_gate elides at {gate_module().PANEL_VALUE_WIDTH}"
@@ -1047,10 +1062,10 @@ def test_a_ref_too_long_for_the_panel_says_it_was_cut(tmp_path):
     mod = gate_module()
     long_ref = "origin/release/2026-09-21-hotfix"
     assert len(long_ref) > mod.PANEL_VALUE_WIDTH, "the fixture ref already fits"
-    shown = panel_of(mod, long_ref)["from"]
+    shown = ref_row_of(mod, long_ref)
     assert shown != long_ref[: len(shown)], f"the ref was cut with no marker: {shown!r}"
     assert shown.endswith("hotfix"), shown
-    rendered = stamp_module().letter([("from", shown)])[2]
+    rendered = stamp_module().letter([("", shown)])[2]
     assert "hotfix" in rendered, f"the marker cost the tail its place: {rendered!r}"
 
 
@@ -1060,7 +1075,7 @@ def test_a_ref_that_fits_is_left_exactly_as_it_is(tmp_path):
     start marking refs that were never in danger."""
     mod = gate_module()
     for ref in ("origin/base", "origin/release/v0.12.2"):
-        assert panel_of(mod, ref)["from"] == ref, ref
+        assert ref_row_of(mod, ref) == ref, ref
 
 
 # --- #461: the line may not name a ref no runner's checkout can hold --------
