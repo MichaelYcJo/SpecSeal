@@ -630,6 +630,7 @@ meet (issue #51, whose transcripts these numbers come from).
 | Segment | Judged on | Grounds |
 |---|---|---|
 | reviewing | tools per turn **≥ 1.8** | a review's reads are independent — coordinates inherited from earlier rounds, files named by one handoff — so they can go out together. The rounds that set the bar measured 1.29–1.89 — not the complete record: the same issue holds a 2.0 baseline and a later chain at 1.10–1.54 — and the one round instructed to batch (1.89) was the fastest measured |
+| framing | tools per turn **≥ 1.4** | a frame is a wide read of independent documents — the ticket, the policies, the ledger, the earlier work items — so its reads can go out together, and it is where a delegated build's re-reading was measured as the dominant cost (#263). The framers of 0.11.2–0.12.2 read 1.46–1.79 and those of 0.15.1 read 2.3–3.1 (#548); every framer reading under the bar since 0.12.3, at 1.00–1.12, was a spawn whose prompt held its opening reads back, which `agents/framer.md` no longer does (#640) |
 | implementing | **`repeats = 0`** and calls per deliverable — never tools per turn | an edit-test loop is inherently serial (measured 1.08–1.17): a call whose input depends on the last result cannot go out with it, so the ratio reports task shape, not waste. What does report waste: a command re-run unchanged, and how many calls one deliverable took |
 | verifying | exempt | it targets the diff of the last fixes, and its job is the answers: whether each verdict the previous round closed is actually closed. That leaves fewer independent axes to open at once than a branch does, which is the ground #51 observation 1 recorded for the exemption |
 
@@ -641,11 +642,19 @@ fix.
 
 The bar and the meter's own advisory are different instruments.
 `session_cost.py` prints its batching advisory below 1.2 and stays there:
-the script cannot tell a reviewer's transcript from an edit-test loop, so
-its threshold sits where it does not nag the serial case — the repository
-owner's answer to Q1 of
+the plain reading cannot tell a reviewer's transcript from an edit-test loop,
+because a lone transcript carries no kind, so its threshold sits where it
+does not nag the serial case — the repository owner's answer to Q1 of
 `seal/specs/1788224363-a-subagent-rediscovers-what-the-session-established/questions.md`.
-The bars above are the orchestrator's, applied knowing the segment kind.
+
+`--segments` applies the bars above by kind, because each of its rows is
+joined to a spawn and the spawn's `subagent_type` names the kind. A
+reviewing or framing row under its bar is named under the table; an
+implementing row is exempt from tools per turn; a row with no kind is not
+graded, and is counted as ungraded rather than left out. A verifying round
+is a warden's as a finding round is, and the page cannot tell the two
+apart, so that exemption is the reader's to apply. Read without that page,
+the bars are the orchestrator's, applied knowing the segment kind.
 
 **The bars judge a segment against its kind; the run-level table judges a
 run against the last run measured.** A bar reads one transcript — a review

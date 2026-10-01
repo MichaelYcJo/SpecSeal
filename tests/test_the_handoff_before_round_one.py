@@ -351,6 +351,13 @@ def test_the_protocol_names_a_bar_per_segment_kind():
     )
     assert "`repeats = 0`" in protocol, "the implementing bar went"
     assert "| verifying | exempt |" in protocol
+    # #640. A frame is a wide read of independent documents, so the framer
+    # has a bar of its own, and the script's constant is cross-pinned to it
+    # below rather than read from it.
+    assert "| framing | tools per turn **≥ 1.4** |" in protocol, (
+        "the framing bar went, and `--segments` grades framer rows against a "
+        "number no policy states"
+    )
     assert "never a refusal threshold" in protocol, (
         "the bar is a lens for rounds of ordinary size — a 23-call round "
         "read 1.64 doing everything right, and a gate failing it would "
@@ -377,6 +384,33 @@ def bars_section(text):
         "this case with it"
     )
     return " ".join(match.group(1).split())
+
+
+def test_the_tying_paragraph_says_which_reading_applies_the_bars():
+    """#640. The paragraph said the script cannot tell a reviewer's
+    transcript from an edit-test loop, and for `--segments` that stopped
+    being true: a row's kind is the `subagent_type` of the spawn it was
+    joined to. The plain reading still cannot tell, which is why its
+    advisory stays where it is and why the sentence is narrowed to it rather
+    than removed."""
+    section = bars_section(read("docs", "review-handoff-protocol.md"))
+    assert "`--segments` applies the bars above by kind" in section, (
+        "the paragraph does not say the page grades a row, so a reader meets "
+        "a named row under a bar with no policy saying where it came from"
+    )
+    assert "`subagent_type`" in section, (
+        "the paragraph says the page knows a row's kind and not how"
+    )
+    assert "a row with no kind is not graded" in section, (
+        "the paragraph leaves an unnamed row's grade to be guessed"
+    )
+    assert (
+        "the plain reading cannot tell a reviewer's transcript from an "
+        "edit-test loop" in section
+    ), (
+        "the sentence about what the script cannot tell was dropped instead "
+        "of narrowed, and it is still true of the plain reading"
+    )
 
 
 def test_the_bars_and_the_run_level_table_judge_different_things():
