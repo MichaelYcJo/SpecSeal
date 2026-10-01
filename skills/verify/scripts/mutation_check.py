@@ -318,14 +318,24 @@ def mutation_run(
     clear_bytecode_cache(path)
     before, detail, output = run_cases(command, cwd=cwd, env=env, timeout=timeout)
     if before == RED:
+        # The baseline's own exit, `(exit N)` from `run_cases`' red detail:
+        # pytest's 5 and 4 are what tell a mistyped `-k` from a failing case.
+        exited = detail[detail.rfind("(exit ") :]
         return (
             NO_BASELINE,
-            "the cases fail against the file as it is, so a failure under the "
-            "mutation would say nothing about it. Nothing was written",
+            f"the cases fail against the file as it is {exited}, so a failure "
+            f"under the mutation would say nothing about it. Nothing was written",
             output,
         )
     if before != SURVIVED:
-        return before, f"{detail}, before the mutation was written", output
+        # A sentence of its own, so it reads as the verdict's and not as the
+        # last clause of the detail's (round 2, ⬜ 12).
+        return (
+            before,
+            f"{detail}. This was the run against the file as it is, before "
+            f"the mutation was written",
+            output,
+        )
 
     try:
         with open(path, "wb") as f:
@@ -336,7 +346,18 @@ def mutation_run(
         return run_cases(command, cwd=cwd, env=env, timeout=timeout)
     finally:
         try:
-            restore(path, original, original_sha)
+            # Only over bytes that differ. A write that never reached the file
+            # -- it was read-only before the command started -- leaves nothing
+            # to put back, and a restore tried anyway raises the same error
+            # and reads `not restored` over the original (round 2, 🟡 9). A
+            # file that cannot be read, or that the cases removed, differs.
+            try:
+                with open(path, "rb") as f:
+                    on_disk = hashlib.sha256(f.read()).hexdigest()
+            except OSError:
+                on_disk = None
+            if on_disk != original_sha:
+                restore(path, original, original_sha)
         except RuntimeError as exc:
             raise NotRestored(str(exc)) from exc
         except BaseException as exc:
@@ -416,12 +437,14 @@ def main(argv=None) -> int:
         )
         return 2
     except KeyboardInterrupt:
-        # Reached only after `run_cases` ended what it started and
-        # `mutation_run`'s `finally` restored the file -- a failed restore
-        # raises `NotRestored` instead, and is reported above.
+        # Reached only after `run_cases` ended what it started and, when the
+        # break had been written, `mutation_run`'s `finally` restored the file
+        # -- a failed restore raises `NotRestored` instead, and is reported
+        # above. An interrupt during the baseline wrote nothing, so the
+        # sentence says what holds in both cases (round 2, ⬜ 12).
         print(
             f"{INTERRUPTED}: no verdict. What the run started was ended, and "
-            f"{args.path} was restored from the bytes read before the write.",
+            f"{args.path} holds the bytes it held before the command started.",
             flush=True,
         )
         return 2

@@ -614,34 +614,57 @@ def test_cases_that_fail_without_the_mutation_measure_nothing(
     )
     assert code == 2, f"{why}: {out}"
     assert out.startswith("no baseline"), f"{why}: {out}"
+    # The baseline's own exit, which is what tells a mistyped `-k` (5) from a
+    # case already failing (1), and the sentence saying nothing was written
+    # (round 2, ⬜ 12).
+    assert f"(exit {exit_code})" in out.splitlines()[0], f"{why}: {out}"
+    assert "Nothing was written" in out, f"{why}: {out}"
     assert target.read_text(encoding="utf-8") == "VALUE = 1\n"
     assert log.read_text(encoding="utf-8") == "VALUE = 1\n", (
         f"{why}: the cases saw a mutant after failing without one"
     )
 
 
-@pytest.mark.parametrize("kind", ["missing", "directory"])
+@pytest.mark.parametrize("kind", ["missing", "directory", "read-only"])
 def test_a_path_that_cannot_be_read_measures_nothing_and_exits_two(
     tmp_path, capsys, kind
 ):
     """Round 1, 🟡 3. Left to Python an uncaught exception exits 1, which is
-    SURVIVED's code, so a mistyped path read as *nothing watches this unit*."""
-    target = tmp_path / ("no-such-file.py" if kind == "missing" else "a-directory")
+    SURVIVED's code, so a mistyped path read as *nothing watches this unit*.
+
+    Round 2, 🟡 9: a target read-only before the command starts never takes
+    the break and still holds its original bytes, so `not restored` there
+    would tell a person to restore a file nothing changed. It is a run that
+    could not happen, and the file is left as it was."""
+    if kind == "read-only" and os.name != "nt" and os.geteuid() == 0:
+        pytest.skip("root writes a read-only file")
+    names = {"missing": "no-such-file.py", "directory": "a-directory"}
+    target = tmp_path / names.get(kind, "target.py")
     if kind == "directory":
         target.mkdir()
-    code, out = run(
-        [
-            target,
-            "--replace",
-            "1",
-            "2",
-            "--tests",
-            cases_command(probe(tmp_path, PASSES)),
-        ],
-        capsys,
-    )
+    if kind == "read-only":
+        target.write_text("VALUE = 1\n", encoding="utf-8")
+        os.chmod(target, 0o444)
+    try:
+        code, out = run(
+            [
+                target,
+                "--replace",
+                "1",
+                "2",
+                "--tests",
+                cases_command(probe(tmp_path, PASSES)),
+            ],
+            capsys,
+        )
+    finally:
+        if kind == "read-only":
+            os.chmod(target, 0o644)
     assert code == 2, out
     assert out.startswith("could not run:"), out
+    if kind == "read-only":
+        assert "PermissionError" in out, f"the cause is not named: {out}"
+        assert target.read_text(encoding="utf-8") == "VALUE = 1\n"
 
 
 # Starts a child that keeps the cases' output open, then exits at once:
@@ -997,15 +1020,32 @@ def read_pid(path):
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the process-group bound is POSIX's")
+@pytest.mark.parametrize(
+    "hangs",
+    ["the mutated run", "the baseline"],
+    ids=["mutated", "baseline"],
+)
 def test_a_run_past_the_bound_is_timed_out_and_leaves_nothing_it_started(
-    tmp_path, capsys
+    tmp_path, capsys, hangs
 ):
     """#577: a mutated run hung for 32 minutes. #313 measured why a bound in
     the loop is not enough by itself: `subprocess.run`'s timeout ends the
     direct child, and `bin/test` puts pytest one process further down, so the
     suite outlives the verdict and runs on, unbounded and unreported.
 
-    Not red, not SURVIVED: neither was measured."""
+    Not red, not SURVIVED: neither was measured.
+
+    Round 2, 🟡 10: a hang that does not depend on the break -- the common
+    kind -- now happens in the baseline, before anything is written, so that
+    run's bound is the one most hangs meet and is held here too. Its fixture
+    is the same wrapper with the gate turned round: it hangs against the file
+    as it is."""
+    body = STARTS_A_CHILD
+    if hangs == "the baseline":
+        body = STARTS_A_CHILD.replace(
+            "if sys.argv[2] not in f.read():", "if sys.argv[2] in f.read():"
+        )
+        assert body != STARTS_A_CHILD, "the fixture did not change"
     target = tmp_path / "under_test.py"
     original = b"VALUE = 1\n"
     target.write_bytes(original)
@@ -1019,7 +1059,7 @@ def test_a_run_past_the_bound_is_timed_out_and_leaves_nothing_it_started(
                 "VALUE = 1",
                 "VALUE = 2",
                 "--tests",
-                starts_a_child(tmp_path, target, pid_file),
+                starts_a_child(tmp_path, target, pid_file, body),
                 "--timeout",
                 "1",
             ],
@@ -1036,9 +1076,11 @@ def test_a_run_past_the_bound_is_timed_out_and_leaves_nothing_it_started(
         end_if_alive(read_pid(pid_file))
     assert code == 2, out
     assert out.startswith("timed out after 1s"), out
-    assert elapsed < 15, f"the bound of 1s took {elapsed:.1f}s to end the run"
+    assert elapsed < 15, f"the bound of 1s took {elapsed:.1f}s to end {hangs}"
     assert target.read_bytes() == original
     assert not list(tmp_path.glob("__pycache__/under_test.*.pyc"))
+    if hangs == "the baseline":
+        assert "before the mutation was written" in out, out
 
 
 # A child that leaves the wrapper's process group and keeps the cases'
