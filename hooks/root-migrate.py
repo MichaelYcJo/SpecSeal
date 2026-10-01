@@ -248,9 +248,9 @@ def marked(root, name):
     """True when `specs/<name>` is an id-shaped directory carrying one of
     the plugin's `MARKS` directly under it — the proof that it is a work item
     and not a team's directory that happens to have the shape."""
-    here = under(root, f"{OLD_ITEMS}/{name}")
-    if not ITEM_RE.match(name) or not os.path.isdir(here):
+    if not ITEM_RE.match(name):
         return False
+    here = under(root, f"{OLD_ITEMS}/{name}")
     routing, rounds = MARKS
     return os.path.isfile(os.path.join(here, routing)) or os.path.isdir(
         os.path.join(here, rounds)
@@ -423,14 +423,9 @@ def moved_items(root):
     stopped run's earlier ones alike, since a resume moves only what remains
     and the rows citing the first half still say `specs/`."""
     try:
-        names = os.listdir(under(root, f"{NEW}/specs"))
+        return frozenset(os.listdir(under(root, f"{NEW}/specs")))
     except OSError:
         return frozenset()
-    return frozenset(
-        n
-        for n in names
-        if ITEM_RE.match(n) and os.path.isdir(under(root, f"{NEW}/specs/{n}"))
-    )
 
 
 def repoint_path(path, moved):

@@ -694,6 +694,12 @@ def test_an_item_shaped_tracked_file_under_specs_stays_and_is_named(hook, repo):
     out = message(start(hook, repo))
     assert "moved .specseal/ and 1 work item into seal/" in out, out
     assert "left specs/1788000001-a-file.md" in out and "where it is" in out, out
+    # #688: a file is not a directory without the marks, so it keeps the
+    # reason a non-item name gets.
+    assert (
+        "left specs/1788000001-a-file.md, specs/notes where it is (not tracked as a "
+        "SpecSeal work item)" in out
+    ), out
     assert (repo / "specs" / "1788000001-a-file.md").is_file()
     assert not (repo / "seal" / "specs" / "1788000001-a-file.md").exists()
     assert stamped(hook, repo)
@@ -774,17 +780,34 @@ def test_a_row_citing_an_unmarked_id_shaped_directory_keeps_its_path(hook, repo)
     assert check(repo) == before
 
 
-def test_a_directory_marked_only_by_its_rounds_still_moves(hook, repo):
-    """B3. `rounds/` is the second mark: a 0.3.x work item whose review ran
-    and whose `routing.md` is gone is still the plugin's, and moves."""
-    other = "1788000002-reviewed-only"
-    write(repo, f"specs/{other}/rounds/round-1.md", ROUND)
+@pytest.mark.parametrize(
+    "mark, text", [("routing.md", ROUTING), ("rounds/round-1.md", ROUND)]
+)
+def test_a_directory_carrying_either_mark_alone_still_moves(hook, repo, mark, text):
+    """B3. Either mark is the proof on its own: `routing.md` was the first
+    file every 0.3.x work item got, and `rounds/` is what a reviewed one
+    carries even where `routing.md` is gone."""
+    other = "1788000002-one-mark"
+    write(repo, f"specs/{other}/{mark}", text)
+    write(repo, f"specs/{other}/spec.md", "# a work item's spec\n")
     git(repo, "add", "-A")
-    git(repo, "commit", "-qm", "a work item with rounds and no routing")
+    git(repo, "commit", "-qm", "a work item with one mark")
     out = message(start(hook, repo))
     assert "moved .specseal/ and 2 work items into seal/" in out, out
-    assert (repo / "seal" / "specs" / other / "rounds" / "round-1.md").is_file()
+    assert (repo / "seal" / "specs" / other / mark).is_file()
     assert not (repo / "specs" / other).exists()
+
+
+def test_a_mark_under_a_name_without_the_shape_is_not_a_work_item(hook, repo):
+    """The marks narrow the shape and never replace it: a team's
+    `specs/handbook/routing.md` is a team's file, not a work item."""
+    write(repo, "specs/handbook/routing.md", "# how requests are routed here\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "a team's routing page")
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert (repo / "specs" / "handbook" / "routing.md").is_file()
+    assert not (repo / "seal" / "specs" / "handbook").exists()
 
 
 def test_a_linked_specs_holding_only_unmarked_directories_is_not_refused(hook, repo):
