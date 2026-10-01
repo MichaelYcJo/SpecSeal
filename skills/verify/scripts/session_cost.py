@@ -1847,6 +1847,10 @@ def measure_segments(path, calls):
             },
         )
         reading["own_file"] = True
+    # #640. Every row carries its kind and its bar, in both branches above,
+    # so the page grades from the same rows `--json` prints.
+    for row in reading["rows"]:
+        row.update(segment_kind(row["agent"]))
     return reading
 
 
@@ -2327,6 +2331,38 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
 # that have to agree is a column that goes ragged the day one of them moves.
 LABEL_WIDTH = 30
 
+# #640. Each segment kind's bar on tools per turn, keyed by the basename of
+# the spawn's `subagent_type` after its last `:`, so `specseal:warden` and
+# `warden` are one kind. The values are `docs/review-handoff-protocol.md`
+# §*After the run — the per-segment bars*: the protocol's name for the kind,
+# and its bar, or None where the protocol exempts the kind from this ratio.
+#
+# Constants rather than read from the protocol at run time, because this
+# script runs from the installed plugin in repositories that have no such
+# document. `tests/test_the_handoff_before_round_one.py` reads both files and
+# turns red when one moves alone.
+#
+# A kind missing from the table has no bar and is UNGRADED, which is not the
+# same as exempt: `sealer` and `scribe` have no measured band, and a number
+# nobody produced is not one to grade them against. The page counts them.
+SEGMENT_BARS = {
+    "warden": ("reviewing", 1.8),
+    "framer": ("framing", 1.4),
+    "smith": ("implementing", None),
+}
+
+
+def segment_kind(agent):
+    """A segment's kind and bar, as the two keys every segment row carries.
+
+    `kind` is `""` where no spawn named the row, and `bar` is None for an
+    exempt kind and for a kind the table does not know alike — the page
+    tells those two apart through `SEGMENT_BARS`, and a program reading
+    `--json` can do the same."""
+    kind = agent.rsplit(":", 1)[-1]
+    _, bar = SEGMENT_BARS.get(kind, ("", None))
+    return {"kind": kind, "bar": bar}
+
 
 def segment_label(row):
     """A segment's name in the printed table.
@@ -2443,6 +2479,68 @@ def report_breaches(segments):
         "it. Where the counts\n  part, a child's transcript is missing or a "
         "segment is unnamed for the other\n  reason, and nothing here can tell "
         "which; both numbers print so a reader can."
+    )
+
+
+def report_grades(rows):
+    """#640: each row against its kind's bar, under the table.
+
+    **The bars were policy and nowhere on the page that prints the ratio
+    they judge.** `docs/review-handoff-protocol.md` holds one per segment
+    kind, and the one advisory this script printed was the plain reading's
+    blanket `< 1.2` — which reads 1.00 on every well-behaved implementer
+    forever, so nobody acted on it (#197). A segment row knows its kind,
+    because it was joined to a spawn, so this page can do what the plain
+    reading cannot.
+
+    **A line per row under its bar, and the counts always.** Exactly at the
+    bar is meeting it. Every count prints even when nothing is under, which
+    is `report_segments`' own rule: a grade that silently matched nothing
+    reads exactly like a run whose rows all met their bars. Exempt and
+    ungraded are counted apart, because one is the protocol's judgment and
+    the other is a kind nobody has measured a band for.
+
+    It refuses nothing and the exit code stays 0. The bar is a lens, and a
+    grade that failed a run would be the refusal threshold the protocol says
+    it never is."""
+    graded = [row for row in rows if row["bar"] is not None and row["numbers"]]
+    under = [row for row in graded if row["numbers"]["tools_per_turn"] < row["bar"]]
+    exempt = [
+        row
+        for row in rows
+        if row["kind"] in SEGMENT_BARS and SEGMENT_BARS[row["kind"]][1] is None
+    ]
+    ungraded = len(rows) - len(graded) - len(exempt)
+    print("\n  Tools per turn against each kind's bar")
+    for row in under:
+        name, bar = SEGMENT_BARS[row["kind"]]
+        print(
+            f"    {segment_label(row).strip()}  "
+            f"{row['numbers']['tools_per_turn']:.2f} tools per turn against the "
+            f"{name} bar of {bar:g}"
+        )
+    if not graded:
+        print("    no row here has a bar to be graded against")
+    elif not under:
+        print("    every graded row meets its kind's bar")
+    known = " and ".join(
+        f"{kind} {bar:g} ({name})"
+        for kind, (name, bar) in SEGMENT_BARS.items()
+        if bar is not None
+    )
+    print(
+        f"\n  {len(graded)} graded, {len(exempt)} exempt, {ungraded} ungraded. "
+        f"The bars are\n  {known}. A smith row is exempt: an edit-test\n  loop is "
+        "serial, and the protocol judges it on `repeats = 0` rather than on\n  "
+        "this ratio. A row with no bar — a kind not listed, a row no spawn "
+        "named, a\n  segment that made no call — is ungraded."
+    )
+    print(
+        "\n  The bar is a lens for rounds of ordinary size and never a refusal "
+        "threshold, so\n  this page refuses nothing and exits 0. A small round "
+        "has few independent batches\n  to rise on. A warden's verifying round "
+        "is exempt by the protocol, and this page\n  cannot tell one from a "
+        "finding round, so a reader applies that exemption by hand."
     )
 
 
@@ -2598,6 +2696,7 @@ def report_segments(segments, path):
             f"{numbers['gap_mean_s']:>6.0f}s"
             f"{spent:>14}"
         )
+    report_grades(rows)
     report_breaches(segments)
     # A column that looks summable and is not is #200's failure shape in a
     # new place, so the page says which of the two it is rather than leaving

@@ -536,6 +536,36 @@ def test_the_title_and_the_status_section_agree_on_the_draft():
     )
 
 
+def test_the_scripts_bars_are_the_protocols():
+    """#640. The bars live in the protocol's table and, since `--segments`
+    grades by kind, in `session_cost.py`'s `SEGMENT_BARS` too -- constants,
+    because the script runs from the installed plugin in repositories with no
+    such document. Two copies of a number is the six-month failure the plan
+    names, so this reads both files and either moving alone turns it red.
+
+    The implementing row is held too: the protocol says it is never judged
+    on tools per turn, and the script's entry for it is the exemption."""
+    script = read("skills", "verify", "scripts", "session_cost.py")
+    protocol = read("docs", "review-handoff-protocol.md")
+    for kind, segment in (("warden", "reviewing"), ("framer", "framing")):
+        constant = re.search(rf'"{kind}": \("{segment}", ([\d.]+)\)', script)
+        assert constant, f"`SEGMENT_BARS` lost its {kind} entry or its shape"
+        row = re.search(
+            rf"^\| {segment} \| tools per turn \*\*≥ ([\d.]+)\*\* \|", protocol, re.M
+        )
+        assert row, f"the protocol's bars table lost its {segment} row or its shape"
+        assert constant.group(1) == row.group(1), (
+            f"session_cost.py grades a {kind} row against {constant.group(1)} "
+            f"and the protocol's {segment} bar is {row.group(1)} -- move both or "
+            "neither"
+        )
+    assert '"smith": ("implementing", None)' in script, (
+        "`SEGMENT_BARS` grades a smith row, and the protocol's implementing row "
+        "says tools per turn never judges one"
+    )
+    assert re.search(r"^\| implementing \|.*never tools per turn", protocol, re.M)
+
+
 def test_the_advisory_and_the_tying_paragraph_name_one_value():
     """The bars (1.8) live in the protocol and the advisory in the script,
     tied by one sentence — the plan's own six-month failure scenario is the
