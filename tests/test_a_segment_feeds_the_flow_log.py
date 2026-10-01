@@ -146,6 +146,26 @@ def test_the_section_names_the_measure_step():
     )
 
 
+def test_every_page_describing_the_segments_mode_names_its_grade():
+    """#640. `--segments` prints, under its table, every row whose tools per
+    turn sit under its kind's bar. The three documents that list what the
+    page prints would otherwise describe a page one block shorter than the
+    one a reader posts, which is the first frame of `agents/framer.md`'s
+    README omission over again."""
+    assert "which rows sit under their kind's bar" in section_body(), (
+        "step 1 lists the table's columns and not the grade under it"
+    )
+    for name, phrase in (
+        ("README.md", "sit under its kind's bar"),
+        ("README.ko.md", "종류의 기준선에 못 미치는 행"),
+    ):
+        with open(os.path.join(ROOT, name), encoding="utf-8") as f:
+            row = next(
+                line for line in f if line.startswith("| `session-cost --segments")
+            )
+        assert phrase in row, f"{name}'s `--segments` row does not name the grade"
+
+
 def test_the_section_names_the_lookup_command():
     body = section_body()
     assert "gh issue list --label flow-measurement --state open" in body, (

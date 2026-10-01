@@ -594,8 +594,8 @@ finished, not as a follow-up someone might do later:
    `~/.claude/projects/<project-dir>/<session-id>/subagents/agent-*.jsonl` —
    joins each to the spawn whose result it opened at, and prints one row per
    segment: the agent, its own span, calls, tools per turn, mean gap and
-   tokens. One command, where this step used to be one invocation per
-   transcript.
+   tokens, and, under the table, which rows sit under their kind's bar. One
+   command, where this step used to be one invocation per transcript.
 
    **A segment's own span is the number no other mode has.** A cycle row's
    `delegated` is the spawn call's own interval, and where a harness writes
