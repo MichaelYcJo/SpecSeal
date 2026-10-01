@@ -319,8 +319,10 @@ def mutation_run(
     # under the mutation says nothing about the mutation: a `-k` that selects
     # nothing exits 5, a mistyped module exits 4, a case already failing exits
     # 1, and each read `red` -- *a case watches this unit* -- for a unit no
-    # case ran against (round 1, 🔴 1).
-    clear_bytecode_cache(path)
+    # case ran against (round 1, 🔴 1). Every removal is handed `cwd`: a
+    # relative `PYTHONPYCACHEPREFIX` names a mirror under the directory the
+    # cases import from, not this process's (round 1, ⬜ 7; #703).
+    clear_bytecode_cache(path, cwd=cwd)
     # The restore's reach starts here, at the baseline, not at the write: the
     # cases may write the file themselves, and every exit -- an interrupt in
     # the baseline included -- is reported as the file holding the bytes it
@@ -353,7 +355,7 @@ def mutation_run(
             f.write(after.encode("utf-8"))
         # Again after the write: the baseline's cases may have written the
         # original's `.pyc`, which a same-length break matches.
-        clear_bytecode_cache(path)
+        clear_bytecode_cache(path, cwd=cwd)
         return run_cases(command, cwd=cwd, env=env, timeout=timeout)
     finally:
         try:
@@ -380,7 +382,7 @@ def mutation_run(
                 f"{path} was not restored: writing it back raised "
                 f"{type(exc).__name__}: {exc}."
             ) from exc
-        clear_bytecode_cache(path)
+        clear_bytecode_cache(path, cwd=cwd)
 
 
 def main(argv=None) -> int:
