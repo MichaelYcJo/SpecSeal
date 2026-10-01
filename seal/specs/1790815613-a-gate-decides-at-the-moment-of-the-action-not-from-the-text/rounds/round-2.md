@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 705 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `b6d5bdb2af90a44a6d48b579ad9ae5df94b2f6f8..75577dc083e99e193264b734542aa06bcb73cdf5`, 6 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (the session variable removed by `NAME=`, `env -u` or `unset`) and 🟡 2 (`core.hooksPath` through `include.path` or `HOME=`, and `chmod -x` missing from the written limit). |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 2 is a verifying round at `bd588eb0`. Its diff is round 1's fix range `12c
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | Removing the session variable by `NAME=`, `env -u` or `unset` leaves the stub no session where no lease stands, and the reading stands aside; 0.16.0 stopped each | `hooks/tokens.py:55-87` | open | executed n01–n03: landed, target silent, 0.16.0 deny; patched, all three deny; class of round 1's finding 8 |
-| 🟡 2 | `git -c include.path=<file>` and `HOME=<dir>` reach `core.hooksPath` through a config file, and `chmod -x` on the stubs is not in the written limit; each lands unjudged | `hooks/tokens.py:63-87`, `docs/commit-review-gate-spec.md:189-194` | open | executed n04–n06: landed, target silent, 0.16.0 deny; patched, n04 and n05 deny; class of round 1's finding 2 |
-| ⬜ 3 | The old spelling's limit says "byte-for-byte"; the match drops all but letters and digits and is a substring | `docs/commit-review-gate-spec.md:216-217`, `hooks/answers.py:147-181` | open | executed: a command carrying no token was given another open call's answer |
-| ⬜ 4 | A person's commit with a lease starts three interpreters; the limit says two | `docs/commit-review-gate-spec.md:218-226` | open | read: the `post-commit` stub has no narrowing line; c18 timing consistent |
-| ⬜ 5 | A conflicted merge's conclusion is judged, including `git merge --continue` which 0.16.0 let through, and the policy names no merge | `docs/commit-review-gate-spec.md:112-143` | open | executed n07, n08 refused; the hook's `git` is the shell's process |
+| 🟡 1 | Removing the session variable by `NAME=`, `env -u` or `unset` leaves the stub no session where no lease stands, and the reading stands aside; 0.16.0 stopped each | `hooks/tokens.py:55-87` | **fixed** `db4bcaea` | fixed at db4bcaea; executed n01–n03: landed, target silent, 0.16.0 deny; patched, all three deny; class of round 1's finding 8 |
+| 🟡 2 | `git -c include.path=<file>` and `HOME=<dir>` reach `core.hooksPath` through a config file, and `chmod -x` on the stubs is not in the written limit; each lands unjudged | `hooks/tokens.py:63-87`, `docs/commit-review-gate-spec.md:189-194` | **fixed** `191bd420` | fixed at 191bd420; executed n04–n06: landed, target silent, 0.16.0 deny; patched, n04 and n05 deny; class of round 1's finding 2 |
+| ⬜ 3 | The old spelling's limit says "byte-for-byte"; the match drops all but letters and digits and is a substring | `docs/commit-review-gate-spec.md:216-217`, `hooks/answers.py:147-181` | **fixed** `26d1bf58` | fixed at 26d1bf58; executed: a command carrying no token was given another open call's answer |
+| ⬜ 4 | A person's commit with a lease starts three interpreters; the limit says two | `docs/commit-review-gate-spec.md:218-226` | **fixed** `de257dff` | fixed at de257dff; read: the `post-commit` stub has no narrowing line; c18 timing consistent |
+| ⬜ 5 | A conflicted merge's conclusion is judged, including `git merge --continue` which 0.16.0 let through, and the policy names no merge | `docs/commit-review-gate-spec.md:112-143` | **fixed** `4f99a0ef` | fixed at 4f99a0ef; executed n07, n08 refused; the hook's `git` is the shell's process |
 | 🟢 | round 1's blocking finding 1 is closed — a refused `worktree add -B` moves nothing | `hooks/worktree-guard.py`, `docs/worktree-guard-spec.md:376-398` | confirmed | executed p02: deny before git, tip unchanged, no tree; the deny text names no take-back |
 | 🟢 | round 1's finding 2 is closed for its instances — `-c core.hooksPath`, `GIT_CONFIG*`; a removed stub is a written limit | `hooks/tokens.py#steps_around_hooks`, `docs/commit-review-gate-spec.md:189-194` | confirmed | executed c02, c03 deny, c06 silent and stated; the class is this round's finding 2 |
 | 🟢 | round 1's finding 3 is closed — a stub git cannot execute is rewritten and decides nothing | `hooks/hook-install.py#write_stubs`, `hooks/githooks.py#decides` | confirmed | executed c07 |
