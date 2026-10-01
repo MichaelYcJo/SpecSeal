@@ -335,3 +335,51 @@ def test_a_planted_team_specs_changes_no_checks_verdict(tmp_path):
         assert "team-thing" not in said[1][1], f"{name} read the team's specs/"
     for rel, data in before.items():
         assert (joined / TEAM / rel).read_bytes() == data, rel
+
+
+# --- C2: the readers read a reference root when relevant, and cite it --------
+#
+# Each party that reads the tree for a decision is told, in its own file, that
+# a reference root is history: read where the work touches what it describes,
+# cited where it was read, and never written. Each names the row by pointing
+# at `templates/config.md` §*Reference specs* rather than restating its
+# grammar, so the grammar has one home.
+
+POINTER = "`templates/config.md` §*Reference specs*"
+READERS = {
+    "agents/framer.md": ("cite", "spec.md"),
+    "agents/smith.md": ("cite", "spec.md"),
+    "agents/warden.md": ("stage 1", "spec.md"),
+    "skills/settle/SKILL.md": ("cite", "standing statement"),
+    "skills/implement/SKILL.md": ("cite", "spec.md"),
+}
+
+
+def paragraph_naming(text, phrase):
+    """The blank-line-bounded block that holds `phrase`, its breaks folded."""
+    at = text.index(phrase)
+    start = text.rfind("\n\n", 0, at) + 2
+    end = text.find("\n\n", at)
+    return " ".join(text[start : end if end >= 0 else None].split())
+
+
+def test_each_reader_says_when_it_reads_a_reference_root_and_where_it_cites_it():
+    for rel, (act, where) in READERS.items():
+        text = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+        assert POINTER in text, f"{rel} does not point at the row's section"
+        said = paragraph_naming(text, POINTER)
+        assert "touches what" in said and "describes" in said, (rel, said)
+        assert act in said and where in said, (rel, said)
+        assert "never" in said and "writ" in said, (rel, said)
+
+
+def test_the_seal_readme_says_nothing_writes_the_old_names():
+    """The sentence used to say nothing READS a top-level `specs/`, which a
+    reference root now contradicts; what is true of it is that nothing
+    writes there, and what moves is the plugin's own marked work items."""
+    for rel in ("templates/seal-README.md", "seal/README.md"):
+        text = open(os.path.join(ROOT, rel), encoding="utf-8").read()
+        flat = " ".join(text.split())
+        assert "Nothing writes `.specseal/` or a top-level `specs/`" in flat, rel
+        assert "Nothing reads `.specseal/`" not in flat, rel
+        assert "`routing.md` or `rounds/`" in flat, rel

@@ -48,9 +48,12 @@ smith mark, the worktree choices, the review and parity marks, any lease, and
 the last export's manifest at `specseal-last-export.json`. The export walks
 this directory and nothing else, which is why the root has to be its own.
 
-Nothing reads `.specseal/` or a top-level `specs/` any more; a
-repository still holding them is moved into `<repo>/seal/` once, at session
-start, by the plugin.
+Nothing writes `.specseal/` or a top-level `specs/` any more. A
+repository still holding the plugin's own 0.3.x work items there — a
+`specs/` entry carrying `routing.md` or `rounds/` — is moved into
+`<repo>/seal/` once, at session start, by the plugin. Anything else under a
+top-level `specs/` is the project's own, read as history and left where it
+is.
 
 **The throwaway opt-out is the file `.git/specseal-scratch`, and it cannot be
 committed.** Where it exists, every gate reads the repository as one that

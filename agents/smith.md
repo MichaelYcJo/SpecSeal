@@ -33,6 +33,10 @@ incorporation. This file only adds what the skill does not carry.
    `seal/specs/` SDD → `seal/follow-up.md`). If the project declares a migration
    config (`seal/parity.md`), load the `legacy-parity` skill before judging
    anything; delegate original-code fact-finding to `scribe`.
+   A reference root — a `specs/` the project kept before the plugin, as
+   `templates/config.md` §*Reference specs* says — is read where the work
+   touches what it describes, and you cite it where `spec.md` cites it; you
+   never write there, and never move, edit or copy a file out of one.
    §5 reaches you through the handoff before round 1
    (`docs/review-handoff-protocol.md`), which is the shape your prompt's
    facts arrive in and the document that says what one must carry. Open the
@@ -113,7 +117,7 @@ incorporation. This file only adds what the skill does not carry.
         `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
         nothing-looks/questions.md` Q4 is where the question is open, and
         this paragraph is evidence for it rather than an answer to it.
-        Verified 2026-09-25 against "## Phases"@035903e4. -->
+        Verified 2026-10-01 against "## Phases"@7d7bc750. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
