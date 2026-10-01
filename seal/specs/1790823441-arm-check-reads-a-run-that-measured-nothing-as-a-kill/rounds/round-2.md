@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 707 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `56268bb13f2fa11780209a7a31c5b1dac98e225d..bdbda4e6a985960b2e6ea9616928b6e9b6a59322`, 4 commits |
 | Contract changes | test_a_refused_run_leaves_the_module_as_it_was_before_the_command → round-1-report.md |
 | New units | CANNOT_LOCK (depth 1) |
