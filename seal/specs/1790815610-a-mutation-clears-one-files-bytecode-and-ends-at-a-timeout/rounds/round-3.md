@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 698 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-4 |
 | Fix range | `db15439f629ba387423900385cad04b6f6247af2..37b3646f8b7f9a69d516adfac3b36791560937bb`, 2 commits |
 | Contract changes | test_an_interrupt_ends_the_run_it_started_and_restores_the_file → pytest only |
 | New units | none |
