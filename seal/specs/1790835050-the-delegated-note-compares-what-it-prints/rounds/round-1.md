@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 711 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `7d96a67bd7b3e3981464977f8214694e2184274b..28137a29f2fc0e375e4273dd9347b4a8f8e9ddae`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -28,8 +28,8 @@ Round 1 targets `7d96a67b` and the diff `e83db346..7d96a67b`, the whole build. I
 | 🟢 | the class sweep is complete, and leaving `:2115` is justified | `skills/verify/scripts/session_cost.py:2115` | confirmed | executed: an `ast` walk found 33 ordering comparisons, all accounted for; read: the ratio is never below 1.0, so *one at a time* is printed only at exactly 1.0 |
 | 🟢 | the case is red on the defect and reads the right cell on its fixtures | `tests/test_session_cost.py:2661` | confirmed | executed: red at the base module (exit 1 at `:2681`), green at the target (4 and 192 passed) |
 | 🟢 | the records hold: seven rows re-stamped with dated notes, and the frame edit was forced and neutral | `seal/releases/0.9.5.md:13` | confirmed | executed: `evidence-check .` exit 0 unscoped and `--strict`; the framed `spec.md` restored gives exit 2 at `spec.md:32`; read: no claim cell changed |
-| ⬜ 1 | `cycle_label` is padded to 30 but never cut, so a long `subagent_type` shifts every cell of its row | `skills/verify/scripts/session_cost.py:2145` | open | executed: `cycle 1  vercel:performance-optimizer` put `1.0m` under `command`; predates the branch; fix it here or defer it as an issue, the smith's call |
-| ⬜ 2 | the framer's definition does not warn against stamping a unit its own work will drift | `agents/framer.md:94` | open | executed: the framed `spec.md:32` stamp makes `evidence-check` exit 2 once the fragment exists; process guidance, not this branch's code |
+| ⬜ 1 | `cycle_label` is padded to 30 but never cut, so a long `subagent_type` shifts every cell of its row | `skills/verify/scripts/session_cost.py:2145` | deferred #712 | #712 — Predates the branch; filed with the round's paste-ready fix; executed: `cycle 1  vercel:performance-optimizer` put `1.0m` under `command`; predates the branch; fix it here or defer it as an issue, the smith's call |
+| ⬜ 2 | the framer's definition does not warn against stamping a unit its own work will drift | `agents/framer.md:94` | deferred #713 | #713 — A rule for the framer's definition, which a fix pass may not add; filed with the round's draft paragraph; executed: the framed `spec.md:32` stamp makes `evidence-check` exit 2 once the fragment exists; process guidance, not this branch's code |
 
 ## Paste-ready fixes
 
