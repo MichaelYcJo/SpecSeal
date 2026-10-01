@@ -159,9 +159,9 @@ watches, or at the first run that could not say.
 a cached `.pyc` instead of the source whenever the size and whole-second
 mtime it recorded still match, and a same-length break written inside one
 second matches. Only the mutated file's cache can be stale. An importer's is
-valid for its unchanged source, so clearing `tests/__pycache__` recompiled
-every test module on every run and missed the cache that mattered whenever
-the mutated file lived anywhere else (#129). Every tag goes, because the
+valid for its unchanged source, so clearing `tests/__pycache__` removed
+caches that were right and missed the one that mattered whenever the mutated
+file lived anywhere else (#129). Every tag goes, because the
 interpreter that runs the command and the one that runs the cases can
 differ.
 

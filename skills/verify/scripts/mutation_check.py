@@ -57,8 +57,8 @@ works (#313's third option).
 reads a `.pyc` instead of the source whenever the size and the whole-second
 mtime it recorded still match, and a same-length mutation written inside one
 second is that match. An importer's bytecode is valid for its unchanged
-source and is never stale, so clearing `tests/__pycache__` recompiled every
-test module per run and missed the cache that was. The removal is
+source and is never stale, so clearing `tests/__pycache__` removed caches
+that were right and missed the one that was not. The removal is
 `arm_check.clear_bytecode_cache`, which takes `<stem>.*.pyc` rather than the
 one name `importlib.util.cache_from_source` gives: that name is the calling
 interpreter's tag, and on the machine this was built on `python3` is 3.14

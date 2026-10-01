@@ -2,10 +2,10 @@
 derived from the file it mutated.
 
 #641, with #129 as its twin. `agents/smith.md` told the implementer to "clear
-`tests/__pycache__` between mutations", which is wrong twice over. It clears
-the importers, whose bytecode is valid and unchanged, so every test module is
-recompiled on every mutated run. And it misses the one cache that can be
-stale -- the one beside the MUTATED file, wherever that file lives
+`tests/__pycache__` between mutations", which aims at the wrong cache. It
+clears the importers, whose bytecode is valid and unchanged, and it misses
+the one cache that can be stale -- the one beside the MUTATED file, wherever
+that file lives
 (`.github/scripts/__pycache__` in #129, `skills/verify/scripts/__pycache__`
 in #326). Nothing bounded a mutated run either, and one hung for 32 minutes
 (#577).
@@ -653,6 +653,27 @@ def test_the_verify_skill_says_what_each_verdict_means_and_what_the_bound_ends()
         "arm-check",
     ):
         assert said in section, f"the section does not say {said!r}"
+
+
+def test_the_default_bound_is_the_one_both_documents_state(tmp_path, monkeypatch):
+    """`questions.md` Q4: a value somebody waits on. The constant, the bound a
+    call with no `--timeout` actually gets, and the figure the smith and the
+    skill are told are one number, so moving one is seen in all three."""
+    mc = module()
+    seen = {}
+
+    def records(path, old, new, command, *, cwd, timeout):
+        seen["timeout"] = timeout
+        return mc.RED, "recorded", ""
+
+    monkeypatch.setattr(mc, "mutation_run", records)
+    target = tmp_path / "target.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    assert mc.main([str(target), "--replace", "1", "2", "--tests", "x"]) == 0
+    assert seen["timeout"] == mc.DEFAULT_TIMEOUT == 300.0
+    bound = f"{mc.DEFAULT_TIMEOUT:g}"
+    assert f"bound ({bound} s unless `--timeout`" in flat("agents", "smith.md")
+    assert f"{bound} seconds by default" in flat("skills", "verify", "SKILL.md")
 
 
 # --- S5 · a run that never returns ends at the bound, and so does its child -
