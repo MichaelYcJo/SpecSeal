@@ -86,17 +86,22 @@ class NoMutationDefined(Exception):
 
 class NoBaseline(Exception):
     """`--tests` did not pass against the module as it is, so nothing it says
-    about a mutation would mean anything. Raised before the first write.
+    about a mutation would mean anything. Raised before this process writes
+    the module.
 
     `reason` is the cause as the command gave it — `exit 5`, the bound it did
     not return within, the `OSError` — and `output` is what it printed, for a
     reader who has to act on the cause without re-running it (#703).
+    `put_back` says the command itself changed the module during that run and
+    it was restored from the bytes read before it, so the line a person reads
+    cannot say *Nothing was written* over a write (round 1, 🟡 1).
     """
 
     def __init__(self, reason: str, output: str = "") -> None:
         super().__init__(reason)
         self.reason = reason
         self.output = output
+        self.put_back = False
 
 
 def _text(captured: bytes | None) -> str:
@@ -875,8 +880,10 @@ def run_arms(
     exit non-zero whatever the module holds, and each read as every arm
     killed (#703). So a first run that exits non-zero, does not return within
     `timeout`, or cannot be spawned raises `NoBaseline` with the cause and
-    what the command printed, before anything is written. It runs on every
-    call, `only` or not, and once.
+    what the command printed, before this process writes anything. Whatever
+    the command itself changed in the module during that run is put back
+    from the bytes read before it, pass or refusal, and a module it left alone
+    is never written. It runs on every call, `only` or not, and once.
 
     Every operator in `operators` is applied to every arm that has a mutation
     for it, because the two ask different questions and #262's own count is
@@ -921,26 +928,45 @@ def run_arms(
     # The command has to pass against the module as it is first, or a failure
     # under a mutation says nothing about the mutation: a `-k` that selects
     # nothing exits 5, a mistyped module path 4, a case already failing 1, and
-    # each read as `killed` beside every arm (#703). Outside the `try` below
-    # on purpose: nothing has been written yet, so a refusal owes no restore
-    # and must not make one -- a write here would be the first write.
+    # each read as `killed` beside every arm (#703). Outside the loop's `try`
+    # on purpose: this process has written nothing yet, so a module the
+    # command left alone is never written. The command itself may change it
+    # -- a formatter's round-trip test, a generator that rewrites in place --
+    # and the `finally` puts back exactly that, from the bytes read above,
+    # whatever the run ended in (round 1, 🟡 1). It sits in a `finally` and
+    # not beside the `except` arms, so an `OSError` from putting the module
+    # back is never read as the command failing to start.
     clear_bytecode_cache(path, cwd=cwd)
+    refusal = None
     try:
         baseline = subprocess.run(
             tests, cwd=cwd, capture_output=True, env=env, timeout=timeout
         )
     except subprocess.TimeoutExpired as exc:
-        raise NoBaseline(
+        refusal = NoBaseline(
             f"the command did not return within {timeout}s",
             _text(exc.stdout) + _text(exc.stderr),
-        ) from exc
-    except OSError as exc:
-        raise NoBaseline(f"{type(exc).__name__}: {exc}") from exc
-    if baseline.returncode != 0:
-        raise NoBaseline(
-            f"exit {baseline.returncode}",
-            _text(baseline.stdout) + _text(baseline.stderr),
         )
+    except OSError as exc:
+        refusal = NoBaseline(f"{type(exc).__name__}: {exc}")
+    else:
+        if baseline.returncode != 0:
+            refusal = NoBaseline(
+                f"exit {baseline.returncode}",
+                _text(baseline.stdout) + _text(baseline.stderr),
+            )
+    finally:
+        try:
+            with open(path, "rb") as f:
+                changed = f.read() != original
+        except OSError:
+            # Removed, or made unreadable: either way not what was read.
+            changed = True
+        if changed:
+            restore(path, original, original_sha)
+    if refusal is not None:
+        refusal.put_back = changed
+        raise refusal
 
     verdicts: list[Verdict] = []
     refused: list[tuple[Arm, str]] = []
@@ -958,11 +984,14 @@ def run_arms(
                     f.write(mutated)
                 clear_bytecode_cache(path, cwd=cwd)
                 try:
+                    # Bytes, never decoded: nothing reads a pair's output, and
+                    # a strict decode of a suite printing a byte that is not
+                    # UTF-8 raised out of the loop and took every verdict
+                    # measured before it (round 1, 🟡 3).
                     run = subprocess.run(
                         tests,
                         cwd=cwd,
                         capture_output=True,
-                        text=True,
                         env=env,
                         timeout=timeout,
                     )
@@ -1216,7 +1245,13 @@ def main(argv=None):
             f"no baseline: {exc.reason}. --tests has to pass against "
             f"{args.module} as it is before anything is mutated, because a "
             f"failure under a mutation says nothing about the mutation. "
-            f"Nothing was written and no arm was measured."
+            + (
+                f"The command changed {args.module} during that run, and it "
+                f"was put back from the bytes read before it. No arm was "
+                f"measured."
+                if exc.put_back
+                else "Nothing was written and no arm was measured."
+            )
         )
         if exc.output.strip():
             echo(exc.output.rstrip("\n"))
@@ -1231,4 +1266,13 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    # A console that cannot encode what this prints -- the report's own
+    # dashes, or the U+FFFD `_text` leaves where a suite printed a byte that
+    # is not UTF-8 -- ended a refusal in a traceback at exit 1, after its
+    # verdict line (round 1, 🟡 2). `hooks/console.py` owns the reasoning
+    # behind these lines; this script reads no stdin.
+    for _name, _errors in (("stdout", "replace"), ("stderr", "backslashreplace")):
+        _stream = getattr(sys, _name, None)
+        if hasattr(_stream, "reconfigure"):
+            _stream.reconfigure(encoding="utf-8", errors=_errors)
     sys.exit(main())

@@ -1707,7 +1707,24 @@ NO_BASELINE_SHAPES = [
     ("a module path that does not exist", 4, "file or directory not found"),
     ("a case that already fails", 1, "1 failed"),
     ("a case that already fails, through an import", None, "this case already fails"),
+    # An OOM kill or a SIGKILL is a negative return code, and a check narrowed
+    # to `> 0` would read it as a pass (round 1, ⬜ 4). POSIX alone has one.
+    pytest.param(
+        "a run killed by a signal",
+        -9,
+        "sending itself SIGKILL",
+        marks=pytest.mark.skipif(os.name == "nt", reason="no signals on Windows"),
+    ),
 ]
+
+# The probe for the signal shape: it prints, then sends itself SIGKILL.
+KILLS_ITSELF = """\
+import os
+import sys
+
+print({said!r}, flush=True)
+os.kill(os.getpid(), 9)
+"""
 
 # A time well in the past, set on the module before a refused run. A write
 # moves the mtime even when it writes the bytes that were there, so this is
@@ -1746,7 +1763,9 @@ def refusal_line(out):
 
 
 @pytest.mark.parametrize(
-    "label,code,said", NO_BASELINE_SHAPES, ids=[s[0] for s in NO_BASELINE_SHAPES]
+    "label,code,said",
+    NO_BASELINE_SHAPES,
+    ids=[getattr(s, "values", s)[0] for s in NO_BASELINE_SHAPES],
 )
 def test_a_command_that_does_not_pass_against_the_module_refuses_the_run(
     two_arms, tmp_path, capsys, label, code, said
@@ -1772,6 +1791,9 @@ def test_a_command_that_does_not_pass_against_the_module_refuses_the_run(
         probe.write_text(ALREADY_FAILING, encoding="utf-8")
         tests = [sys.executable, str(probe), str(module_path)]
         code = 1
+    elif code < 0:
+        probe.write_text(KILLS_ITSELF.format(said=said), encoding="utf-8")
+        tests = [sys.executable, str(probe)]
     else:
         probe.write_text(NOT_GREEN.format(said=said, code=code), encoding="utf-8")
         tests = [sys.executable, str(probe)]
@@ -1826,7 +1848,9 @@ def test_the_run_against_the_unmutated_module_is_bounded_by_the_timeout(two_arms
     nothing_was_written(module_path, before)
 
 
-def test_a_first_run_that_timed_out_carries_what_it_printed(two_arms, monkeypatch):
+def test_a_first_run_that_timed_out_carries_what_it_printed(
+    two_arms, monkeypatch, capsys
+):
     """What a hung suite printed before the bound is the nearest thing to
     its cause, so it is carried as the refusal's output.
 
@@ -1836,7 +1860,11 @@ def test_a_first_run_that_timed_out_carries_what_it_printed(two_arms, monkeypatc
     raises at once, because a real command's output before a short bound
     depends on how fast its interpreter starts.
 
-    Red how: the timeout arm's output dropped, or decoded strictly. Executed."""
+    And it reaches the person, not only the exception: `main` prints it after
+    the verdict line, on this path as on a non-zero exit (round 1, ⬜ 5).
+
+    Red how: the timeout arm's output dropped, or decoded strictly; and
+    `main` printing the output only for an `exit` reason. Executed."""
     module_path, tests = two_arms
 
     def times_out(cmd, **kwargs):
@@ -1853,6 +1881,10 @@ def test_a_first_run_that_timed_out_carries_what_it_printed(two_arms, monkeypatc
     assert "collected 3 items \ufffd" in refused.value.output
     assert "slow" in refused.value.output
     assert "b'" not in refused.value.output, "decoded, not the bytes' repr"
+    assert ARM.main([str(module_path), "--tests", shlex.join(tests)]) == 2
+    assert "collected 3 items" in capsys.readouterr().out.split("\n", 1)[1], (
+        "what the hung suite printed has to reach the reader, below the line"
+    )
 
 
 def test_the_first_run_is_taken_where_the_pairs_are(two_arms, tmp_path):
@@ -2007,6 +2039,18 @@ def test_a_refused_run_leaves_the_module_as_it_was_before_the_command(
     assert first.endswith("No arm was measured."), first
     assert module_path.read_bytes() == before, (
         f"the module was left as the command {change.split()[0]} it"
+    )
+
+    # And when the same command passes: with `--only` selecting no arm there
+    # is no later restore, so the first run's own put-back is the only one.
+    probe.write_text(
+        "import os\nimport sys\n" + CHANGES_THE_MODULE[change] + "\nsys.exit(0)\n",
+        encoding="utf-8",
+    )
+    only = ["--only", "no_such_scope"]
+    assert ARM.main([str(module_path), "--tests", shlex.join(tests), *only]) == 0
+    assert module_path.read_bytes() == before, (
+        f"a passing first run {change.split()[0]} the module and it stayed so"
     )
 
 

@@ -81,7 +81,9 @@ and an arm asks two operators, so one arm can take twice that. When the bound
 is reached, only the command's own process is killed. A wrapper command is the
 one that leaks: where `--tests` names a runner that starts pytest as a child of
 its own, as the example above does, a timed-out pair leaves that suite running,
-unbounded and unreported, beside every arm after it. Against a module whose
+unbounded and unreported, beside every arm after it. The first run against the
+unmutated module is waited for under the same bound and leaks the same way
+when it reaches it, before the run is refused. Against a module whose
 suite can approach the bound, name the pytest command in `--tests` directly
 rather than a wrapper. Whether the bound should reach the whole process group
 is #313.
@@ -127,7 +129,9 @@ holds, and each used to print `killed` beside every arm. When that first run
 exits non-zero, does not return within `--timeout`, or cannot be spawned, the
 command prints `no baseline:` with the cause and what the command printed,
 writes nothing, measures no arm, and exits 2 — the code it already gives a
-negative `--timeout`.
+negative `--timeout`. If the command itself changed the module during that
+run, the module is put back from the bytes read before it and the line says
+so instead.
 
 Two things it does not claim. **A survivor is not automatically a defect:** an
 arm that cannot be constructed, or one whose removal preserves behaviour,
