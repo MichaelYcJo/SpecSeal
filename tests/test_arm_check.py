@@ -34,6 +34,7 @@ import os
 import posixpath
 import re
 import shlex
+import subprocess
 import sys
 import textwrap
 import time
@@ -1957,6 +1958,111 @@ def test_a_passing_first_run_changes_no_verdict_and_costs_one_run(
         "is written"
     )
     assert all(h != original for h in held[1:]), "and every later one a mutation"
+
+
+# What a first run that does not pass does to the module itself, before it
+# exits 1: the two ways a suite can leave its own input changed.
+CHANGES_THE_MODULE = {
+    "rewrites it": "open(sys.argv[1], 'w').write('VALUE = 99\\n')",
+    "removes it": "os.remove(sys.argv[1])",
+}
+
+
+@pytest.mark.parametrize("change", sorted(CHANGES_THE_MODULE))
+def test_a_refused_run_leaves_the_module_as_it_was_before_the_command(
+    two_arms, tmp_path, capsys, change
+):
+    """Round 1's 🟡 1. The first run sits outside the `try` whose `finally`
+    restores, so nothing `arm-check` does there writes the module. The cases
+    can, though: a formatter's round-trip test or a generator that rewrites a
+    file in place. At `a340221b` every run ended with the module put back
+    from the bytes held, and a refusal must not be the one path that keeps
+    the cases' version instead, while it says *Nothing was written*.
+
+    Removed is the same fact as rewritten: what is on disk is not what was
+    read, and a file that cannot be read differs.
+
+    Red how: at `6bbaa4d1` the module is left as the command changed it, and
+    the line says *Nothing was written*. Executed on both parameters."""
+    module_path, _ = two_arms
+    before = module_path.read_bytes()
+    probe = tmp_path / "changes_the_module.py"
+    probe.write_text(
+        "import os\nimport sys\n" + CHANGES_THE_MODULE[change] + "\nsys.exit(1)\n",
+        encoding="utf-8",
+    )
+    tests = [sys.executable, str(probe), str(module_path)]
+
+    status = ARM.main([str(module_path), "--tests", shlex.join(tests)])
+
+    out = capsys.readouterr().out
+    first = out.splitlines()[0]
+    assert status == 2
+    assert first.startswith("no baseline: exit 1."), out
+    assert "was put back from the bytes read before it" in first, first
+    assert "Nothing was written" not in first, (
+        f"{first!r} — the command wrote the module, so the sentence that says "
+        f"nothing was would be false"
+    )
+    assert first.endswith("No arm was measured."), first
+    assert module_path.read_bytes() == before, (
+        f"the module was left as the command {change.split()[0]} it"
+    )
+
+
+def test_a_refusal_survives_a_console_that_cannot_encode_its_output(two_arms, tmp_path):
+    """Round 1's 🟡 2. `_text` turns a byte that is not UTF-8 into U+FFFD, and
+    a console in cp1252 cannot encode that character, so the refusal's own
+    output ended in a `UnicodeEncodeError` at exit 1. A Windows pipe is in
+    the ANSI code page, which is where an agent's captured run meets it. The
+    entry block every other skill script carries is what fixes it, so the
+    script is run as a process, the way that block is reached.
+
+    Red how: at `6bbaa4d1` the refusal line is followed by a traceback and
+    exit 1. Executed."""
+    module_path, _ = two_arms
+    probe = tmp_path / "prints_a_byte.py"
+    probe.write_text(
+        "import sys\nsys.stdout.buffer.write(b'x \\xff y\\n')\nsys.exit(1)\n",
+        encoding="utf-8",
+    )
+    tests = shlex.join([sys.executable, str(probe)])
+    run = subprocess.run(
+        [sys.executable, SCRIPT, str(module_path), "--tests", tests],
+        capture_output=True,
+        env=dict(os.environ, PYTHONIOENCODING="cp1252"),
+    )
+    assert run.returncode == 2, run.stderr.decode("utf-8", "replace")
+    assert b"Traceback" not in run.stderr
+    assert run.stdout.startswith(b"no baseline: exit 1.")
+
+
+def test_a_pair_whose_cases_print_a_byte_that_is_not_utf8_keeps_its_verdict(
+    two_arms, tmp_path
+):
+    """Round 1's 🟡 3. A pair's output is never read, and `text=True` decoded
+    it strictly anyway, so one mutation whose cases print a byte that is not
+    UTF-8 raised `UnicodeDecodeError` out of `run_arms` and every verdict
+    measured before it went with it. The same class as the first run's
+    decode, in the same function.
+
+    Red how: at `6bbaa4d1` `UnicodeDecodeError` leaves `run_arms`. Executed."""
+    module_path, _ = two_arms
+    copy = tmp_path / "as_it_was.txt"
+    copy.write_bytes(module_path.read_bytes())
+    probe = tmp_path / "prints_on_a_mutation.py"
+    probe.write_text(
+        "import sys\n"
+        "if open(sys.argv[1], 'rb').read() != open(sys.argv[2], 'rb').read():\n"
+        "    sys.stdout.buffer.write(b'boom \\xff\\n')\n"
+        "    sys.exit(1)\n",
+        encoding="utf-8",
+    )
+    verdicts, refused = ARM.run_arms(
+        str(module_path), [sys.executable, str(probe), str(module_path), str(copy)]
+    )
+    assert refused == []
+    assert [v.killed for v in verdicts] == [True, True]
 
 
 # --- the two operators are not interchangeable ----------------------------
