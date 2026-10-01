@@ -35,6 +35,7 @@ its own root and reads every other `specs/` as history.
 | The full suite, the repository-wide lint and the broad gate over the finished branch | the orchestrator, through the sealer |
 | The session-start hook over a real joined project through `hooks/dispatch.py`, not the fixture's `main()` call | the repository owner, at the next session start in such a project |
 | `unverified_check.py#reference_rule`'s `top is None` guard on Windows, where a cross-volume `relpath` is the case it also keeps from being asked; only its contract is pinned here | a maintainer with a Windows machine, or the CI windows leg |
+| The sealer's broad gate at `684bae49` (`NOT SEALED 684bae49 against a340221b`, 2 failed, 6438 passed) found two scopes this work item added to `tests/test_the_root_migrates_itself.py` — `test_an_id_shaped_directory_without_the_marks_stays_and_is_named` and `test_a_mark_git_does_not_track_is_not_a_mark`, each reading `git diff --cached --name-only` in its fixture — unclassified in `tests/test_a_shrunken_corpus_declines_to_judge.py`'s census, both failures `new`. The commit after `684bae49` adds both to `LISTS_A_FIXTURE`, the table for a scope that lists a repository the case built; it landed after the review run was capped, so no round read it | the orchestrator, at the sealer's next broad gate |
 
 ## Not done
 
