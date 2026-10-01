@@ -92,6 +92,11 @@ laid out by **lifetime**, not by who wrote it:
 | `seal/specs/<work-item-id>/` | One work item | Its role ends when this work ships (SDD, overview, round records) | The contract this work executes against. A human approves `plan.md`, which is why this is a repository document and not tool state |
 | `seal/`, everything above `specs/` | Permanent | Everything this plugin maintains | Written and read by machines: the ledger, the migration config, the follow-up list |
 
+A `specs/` the project kept before the plugin is neither root: it is a
+**reference root**, as `templates/config.md` §*Reference specs* says — history
+read where the work touches what it describes, cited in `spec.md` where it was
+read, and never written by anything this skill produces.
+
 The axis is lifetime and authority, **not audience** — humans and AI read all
 three. (Labeling policies "for humans" would push sessions away from reading
 them, and policy outranks everything else when a repository has it.)

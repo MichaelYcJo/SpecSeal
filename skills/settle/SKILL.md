@@ -154,6 +154,13 @@ is still true** into `docs/`.
   that has none. `docs/` is flat — there is no `docs/policy/` directory — and
   the file is named for the segment where a new one is needed.
 - **The newest work item wins** where two say different things.
+- **A reference root is history to read, never input to fold.** A project's
+  own `specs/`, as `templates/config.md` §*Reference specs* says, may say how
+  the area came to be: read it where the segment touches what it describes,
+  and cite what you read by path in the standing statement's grounds. It
+  carries no marker and no ledger row, so nothing in it is folded, and the
+  plugin never writes there — `settle --retire` removes under `seal/specs/`
+  alone.
 - **Every folded sentence carries its work item's comment**, on a line of its
   own:
 

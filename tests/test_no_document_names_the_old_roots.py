@@ -64,6 +64,9 @@ KEEP = {
     "<!-- specs/<work-item-id> -->": "the marker text in CHANGELOG.md and the ledger is unchanged (Q2)",
     "`.specseal/scratch`": "the predecessor of `.git/specseal-scratch`, named as past",
     "`.specseal/` or a top-level `specs/`": "the README saying what nothing reads any more",
+    "`.specseal/`, or a top-level `specs/` with an entry named": (
+        "the bootstrap naming the 0.3.x layout it tells rather than asks (#688)"
+    ),
     "└── specs/<work-item-id>/": "the tree under `seal/` in the README, relative to it",
     "└── specs/<작업항목-id>/": "the same tree in the Korean README",
     "(`.specseal/`, `specs/<id>/`)": "the READMEs naming the 0.3.x layout as what the move leaves",
