@@ -22,7 +22,7 @@ run that hangs, and restores from held bytes.
 | `tests/test_arm_check.py` | Spec C2: `arm_check.py` is not edited and the test module stays green; silent on editing the test module / two plants switch bytecode writing on | Code | §12: the class the command made reachable has three members and two are there. `arm_check.py` itself is untouched |
 | Refusals | Spec: a replacement that does not land exactly once / also an empty OLD, a NEW identical to OLD, a non-UTF-8 file, and a `--tests` naming no command | Code | Each would otherwise print a verdict nobody measured. `phases/phase-1.md` §*Q3* |
 | The changelog's `### Changed` bullet | Spec: *That clear recompiled every test module on every mutated run* / the bullet says the clear removed valid caches and missed the stale one; a `### Fixed` bullet added for the two `arm-check` cases | Measurement | The third row above |
-| Spec M9's stamp | `agents/smith.md#"## Phases"@cede28c2` / re-stamped to the hash the rows now hold, with a `Corrected` note keeping the framer's reading | Correction | `evidence-check`'s records arm reads the stamp, and phase 3's edit moved it |
+| Spec M9's stamp | `## Phases` of `agents/smith.md` at hash `cede28c2` / re-stamped to the hash the rows now hold, with a `Corrected` note keeping the framer's reading | Correction | `evidence-check`'s records arm reads the stamp, and phase 3's edit moved it |
 
 ## Not verified
 
