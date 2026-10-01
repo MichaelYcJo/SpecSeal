@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 699 |
-| Broad gate | not yet |
+| Broad gate | 66ab0102 against a340221b |
 | Fixes checked by | no fixes to check |
 | Fix range | `111ef570a47de827c08b75d3ffc4b409ee1989a5..2c86816a5da596205f757a396f0d1ca0131939ec`, 1 commit |
 | Contract changes | none |
