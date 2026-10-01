@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 707 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `ac22a0d839470c71127c64997f4bbe09047db212..fc833b5154b360227ec6fc239b567f9b21c52fa5`, 4 commits |
 | Contract changes | test_a_first_run_that_timed_out_carries_what_it_printed → pytest only |
 | New units | KILLS_ITSELF (depth 1); CHANGES_THE_MODULE (depth 1); test_a_refused_run_leaves_the_module_as_it_was_before_the_command (depth 1); test_a_refusal_survives_a_console_that_cannot_encode_its_output (depth 1); test_a_pair_whose_cases_print_a_byte_that_is_not_utf8_keeps_its_verdict (depth 1) |
