@@ -2529,11 +2529,11 @@ def report_grades(rows):
         if bar is not None
     )
     print(
-        f"\n  {len(graded)} graded, {len(exempt)} exempt, {ungraded} ungraded. "
-        f"The bars are\n  {known}. A smith row is exempt: an edit-test\n  loop is "
-        "serial, and the protocol judges it on `repeats = 0` rather than on\n  "
-        "this ratio. A row with no bar — a kind not listed, a row no spawn "
-        "named, a\n  segment that made no call — is ungraded."
+        f"\n  {len(graded)} graded, {len(exempt)} exempt, {ungraded} ungraded.\n"
+        f"  The bars are {known}. A smith row is\n  exempt: an edit-test loop is "
+        "serial, and the protocol judges it on `repeats = 0`\n  rather than on "
+        "this ratio. A row with no bar — a kind not listed, a row no spawn\n  "
+        "named, a segment that made no call — is ungraded."
     )
     print(
         "\n  The bar is a lens for rounds of ordinary size and never a refusal "
