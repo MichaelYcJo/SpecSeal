@@ -71,7 +71,7 @@ removed units REMOVED, new claims in the fragment, drifted rows re-read
   `GIT_DIR` and `GIT_REFLOG_ACTION` appeared in this work item's records
   only. Each now stands in the docstring that owns its fact: `commitgate.py`
   says why no hook reads `GIT_DIR`, and `githooks.py` why
-  `GIT_REFLOG_ACTION` is no criterion. `AUTO_MERGE` carries the record's
+  `GIT_REFLOG_ACTION` is no criterion. `AUTO_MERGE` carries the record's · NAME NOT IN TREE
   `NAME NOT IN TREE` marker.
 - **`test_release_hygiene` refuses a loaded file naming a version at or above
   the running one,** and the policy names the four gits phase 1 measured on.
