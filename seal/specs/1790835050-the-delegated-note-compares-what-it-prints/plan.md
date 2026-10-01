@@ -58,7 +58,7 @@ prints rather than to the number 60.
 args.json` (`:3116`) and prints `data` at `:3179-3180` with `delegated_s`
 raw. Nothing in the fix reaches it.
 
-**The ledger.** Seven rows anchor at `session_cost.py#report_spawns@15595f59`:
+**The ledger.** Seven rows anchor at `skills/verify/scripts/session_cost.py#report_spawns`, at hash `15595f59` when framed:
 `seal/releases/0.9.5.md` lines 11, 13, 14, 16, 45, 46 and
 `seal/releases/0.11.3.md` line 50. All seven drift on hash alone; the claims
 hold (`spec.md` §*Data & interfaces*). Row 13's note ends *The `delegated_max <

@@ -29,7 +29,7 @@ at `e83db346` before the first edit: `delegated_max < 60` at
 `session_cost.py:2219`, `minutes` at `:1970`, the two #640 comparisons at
 `:2109` and `:2519`, the existing cases at `tests/test_session_cost.py:2609`
 and `:2638`, the round-3 report's paste-ready fix (🟡 10), and the issue's two
-boxes. The seven ledger rows anchored at `report_spawns@15595f59` are where
+boxes. The seven ledger rows anchored at `report_spawns`, hash `15595f59`, are where
 the spec says (`seal/releases/0.9.5.md` lines 11, 13, 14, 16, 45, 46;
 `seal/releases/0.11.3.md` line 50), counted by `grep -n "report_spawns@"` over
 `seal/ledger.md`, `seal/releases/*.md` and `seal/ledger/*.md`. Nothing in
