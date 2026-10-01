@@ -53,6 +53,11 @@ In:
   `seal   exit 2` and the refusal's first lines in the failure form's words,
   exit 1. The ask runs AFTER the arms and does not stop on an arm's failure,
   so a chain refusal and a `seal` refusal are both named in one run.
+  **Corrected 2026-10-02 by round 1's fix pass (⬜ 3):** the branch is the
+  key all three readers share, but `item_dir` reads the declarations in the
+  working tree, as `routing.for_branch` does, while the chain arm reads only
+  those committed at HEAD — so an uncommitted second declaration skips the
+  ask where the chain arm still finds one.
 - **Where nothing is asked, the preflight says so.** No single declaration
   names the branch — none, two, a detached HEAD — and the ask is skipped: one
   stderr line names the branch and says `seal`'s refusals were not asked, no

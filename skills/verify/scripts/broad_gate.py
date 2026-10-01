@@ -122,8 +122,13 @@ sealer writes the cell, after the suite — the last record's `Pass`
 unchecked, its `Fixes checked by` reading anything but `no fixes to check`,
 and a SHA the record's `Target SHA` descends from. After the arms, the
 preflight runs `round_record.py seal --check` on the work item declared for
-the checked-out branch (`hooks/routing.py#item_dir`, the key the commit gate
-and the chain arm read), with the cell value the sealer's run would hand it.
+the checked-out branch, with the cell value the sealer's run would hand it.
+The declaration is found by `hooks/routing.py#item_dir`, which reads the
+declarations in the working tree, untracked ones included — what the commit
+gate reads, and what `seal` reads when the sealer runs it. The chain arm keys
+on the same branch but reads only the declarations committed at HEAD, so an
+uncommitted second declaration naming the branch skips the ask here while
+the chain arm still finds one.
 `--check` asks every refusal `seal` raises and stops before the write, so
 `seal` stays the one authority and nothing here restates its predicates. Its
 output is kept as `seal.txt`, its exit code is read off the subprocess, and
@@ -2852,8 +2857,11 @@ def gate(args, console_wants_letters, terminal=False):
         if not os.path.isdir(item):
             raise Refused(f"broad-gate: --record {args.record} is not a directory")
     # The work item the preflight asks `seal`'s refusals of (#702): the ONE
-    # declaration naming the checked-out branch, the key the commit gate and
-    # the chain arm read, or "" for none, two, or a detached HEAD. Resolved
+    # declaration naming the checked-out branch, or "" for none, two, or a
+    # detached HEAD. It is read from the working tree, as the commit gate
+    # reads it and as `seal` reads the records, and not from HEAD as the
+    # chain arm reads it (round 1's ⬜ 3): an uncommitted declaration counts
+    # here and not there. Resolved
     # here, before anything runs, so a copy of the plugin missing the reader
     # is a refusal with nothing spent rather than one after the arms.
     asked = ""
