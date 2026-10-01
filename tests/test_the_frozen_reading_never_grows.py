@@ -71,7 +71,7 @@ def test_only_the_two_fallback_arms_read_it():
     assert readers == ["hooks/worktree-guard.py", "hooks/worktree_consent.py"]
 
 
-# --- S10: the switch is judged where git decides everything else -------------
+# --- S10: the switch is judged by the guard where git decides the commits -----
 
 guard = load_hook_module("worktree-guard.py", "guard_beside_the_git_hooks")
 install_mod = load_hook_module("hook-install.py", "hook_install_beside_the_switch")
