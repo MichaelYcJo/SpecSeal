@@ -90,11 +90,12 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Reading a command line is neither gate's property; `hooks/cmdline.py` owns
-# it and both gates import it by plain name, which goes through `sys.modules`
-# and runs once. This gate used to reach `parse_git` and `apply_chdir` by
-# loading `hooks/worktree-guard.py` from disk, which only re-exports them
-# from here — and that load could fail, taking the gate's parsing with it
-# while leaving the gate running and silent.
+# it and this gate imports it by plain name, which goes through `sys.modules`
+# and runs once. The worktree guard reads `hooks/cmdline_base.py`, the copy
+# frozen at `86256492`, instead (#689). This gate used to reach `parse_git`
+# and `apply_chdir` by loading `hooks/worktree-guard.py` from disk, which only
+# re-exports them from here — and that load could fail, taking the gate's
+# parsing with it while leaving the gate running and silent.
 import console
 import gate
 import githooks
