@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 696 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `090edf3ba195109857f46d1f6f206c2f1e27a603..6bdf8642e7fea0a67b9eb35f82f081f626a56da1`, 1 commit |
 | Contract changes | none |
 | New units | test_a_plain_reading_printed_at_the_advisory_is_not_flagged (depth 1) |
