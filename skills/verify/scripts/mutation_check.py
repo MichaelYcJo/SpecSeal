@@ -252,7 +252,17 @@ def run_cases(
                 start_new_session=how == GROUP,
             )
         except OSError as exc:
-            return COULD_NOT_START, f"{type(exc).__name__}: {exc}", ""
+            # Named from the command, not from the error's text: on Windows
+            # the `FileNotFoundError` `Popen` raises carries no filename, and
+            # its text says *the system cannot find the file specified*
+            # without saying which (PR #698's `windows-latest` leg).
+            program = exc.filename or command[0]
+            reason = exc.strerror or str(exc)
+            return (
+                COULD_NOT_START,
+                f"{program}: {type(exc).__name__}: {reason}",
+                "",
+            )
         try:
             _wait(proc, timeout)
         except subprocess.TimeoutExpired:

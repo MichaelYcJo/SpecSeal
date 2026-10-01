@@ -790,15 +790,43 @@ def test_cases_that_pass_against_the_mutant_read_survived_and_exit_one(
     assert out.startswith("SURVIVED"), out
 
 
-def test_a_command_that_cannot_start_measures_nothing_and_exits_two(tmp_path, capsys):
-    """Not SURVIVED: nothing ran, so nothing was watched or not watched."""
+@pytest.mark.parametrize(
+    "error",
+    ["this platform's", "one that names no file"],
+    ids=["native", "no-filename"],
+)
+def test_a_command_that_cannot_start_measures_nothing_and_exits_two(
+    tmp_path, capsys, monkeypatch, error
+):
+    """Not SURVIVED: nothing ran, so nothing was watched or not watched.
+
+    The line names the program that could not start. On Windows the
+    `FileNotFoundError` `Popen` raises carries no filename, so its text alone
+    says *the system cannot find the file specified* and not which file: PR
+    #698's `windows-latest` leg failed here. The second parameter raises that
+    error on any platform."""
     target = tmp_path / "target.py"
     target.write_text("VALUE = 1\n", encoding="utf-8")
     missing = tmp_path / "no-such-runner"
-    code, out = run(
-        [target, "--replace", "1", "2", "--tests", shlex.join([str(missing), "-q"])],
-        capsys,
+    mc = module()
+    if error == "one that names no file":
+
+        def refuses(*_args, **_kwargs):
+            raise FileNotFoundError(2, "The system cannot find the file specified")
+
+        monkeypatch.setattr(mc.subprocess, "Popen", refuses)
+    code = mc.main(
+        [
+            str(target),
+            "--replace",
+            "1",
+            "2",
+            "--tests",
+            shlex.join([str(missing), "-q"]),
+        ]
     )
+    captured = capsys.readouterr()
+    out = captured.out + captured.err
     assert code == 2, out
     assert out.startswith("could not start"), out
     assert str(missing) in out, f"the error is not named: {out}"
