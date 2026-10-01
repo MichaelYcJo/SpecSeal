@@ -191,10 +191,10 @@ was `timed out after 3s: no verdict`, exit 2, at the 3 s bound. At the
 default bound that is 300 s per mutation, and a red that was measured is
 reported as one that never returned.
 
-`REAP_TIMEOUT` handles the same hazard after the kill. The cause is one step
+`REAP_TIMEOUT` handles the same hazard after the kill. The cause is one step · NAME NOT IN TREE
 earlier: waiting on the pipe instead of on the process. With the output sent
 to a temporary file, the wait is on the process, nothing can hold it open,
-and `REAP_TIMEOUT` and its escaped-session case have nothing left to guard.
+and `REAP_TIMEOUT` and its escaped-session case have nothing left to guard. · NAME NOT IN TREE
 Ending the group after a normal exit as well keeps the docstring's promise
 that nothing the run started outlives the verdict.
 
@@ -511,7 +511,7 @@ def run_cases(command, *, cwd, env, timeout, how=None):
     )
 ```
 
-`REAP_TIMEOUT` goes. `test_a_process_outside_the_group_does_not_hold_the_verdict_back`
+`REAP_TIMEOUT` goes. `test_a_process_outside_the_group_does_not_hold_the_verdict_back` · NAME NOT IN TREE
 keeps its assertions and drops its `monkeypatch.setattr(mc, "REAP_TIMEOUT", 0.5)`.
 `test_a_group_that_ended_on_its_own_at_the_bound_is_not_an_error` asserts
 `mc._end(proc, mc.GROUP) is None`.
