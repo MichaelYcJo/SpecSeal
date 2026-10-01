@@ -40,6 +40,10 @@ In:
   reads that prefix as *the cell WAS written*. `--check` is the name every
   verify-and-exit flag in this repository takes (`seal.py mode --check`,
   `fold_ledger.py --check`, `claude_block.py --check`).
+  **Corrected 2026-10-02 by round 2 (⬜ 1):** the refusals are ten, not
+  seven. The write path's callees `field_index`, `cell` and `hiders_close`
+  refuse too, and `--check` asks them since round 1's fix pass
+  (`eec243df`), which composes the record above its return.
 - **The preflight asks it.** Under `--preflight`, after the record arms have
   run, `gate()` finds the work item declared for the checked-out branch —
   `hooks/routing.py#item_dir(root, branch)`, the key `routing.for_branch`
