@@ -99,14 +99,12 @@ class NoBaseline(Exception):
         self.output = output
 
 
-def _text(captured) -> str:
-    """Captured output as text. `TimeoutExpired` carries bytes on POSIX even
-    under `text=True`, and `None` when nothing was read."""
-    if captured is None:
-        return ""
-    if isinstance(captured, bytes):
-        return captured.decode("utf-8", errors="replace")
-    return captured
+def _text(captured: bytes | None) -> str:
+    """Captured bytes as text, or `""` for the `None` a `TimeoutExpired`
+    carries when nothing was read. Decoded with `errors="replace"`: the
+    output is shown to a reader, not trusted to be UTF-8, and a suite that
+    prints anything else must not turn a refusal into a traceback."""
+    return captured.decode("utf-8", errors="replace") if captured else ""
 
 
 # --------------------------------------------------------------------------
@@ -916,12 +914,7 @@ def run_arms(
     clear_bytecode_cache(path)
     try:
         baseline = subprocess.run(
-            tests,
-            cwd=cwd,
-            capture_output=True,
-            text=True,
-            env=env,
-            timeout=timeout,
+            tests, cwd=cwd, capture_output=True, env=env, timeout=timeout
         )
     except subprocess.TimeoutExpired as exc:
         raise NoBaseline(

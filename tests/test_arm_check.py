@@ -1745,25 +1745,77 @@ def test_a_first_run_that_timed_out_carries_what_it_printed(two_arms, monkeypatc
     """What a hung suite printed before the bound is the nearest thing to
     its cause, so it is carried as the refusal's output.
 
-    `subprocess.run` hands it over as bytes on `TimeoutExpired` even under
-    `text=True`, so it is decoded on the way. Driven by a `subprocess.run`
-    that raises at once, because a real command's output before a short bound
+    It arrives as bytes, and it is decoded with replacement: the output is
+    shown, not trusted to be UTF-8, and a suite printing anything else must
+    not turn the refusal into a traceback. Driven by a `subprocess.run` that
+    raises at once, because a real command's output before a short bound
     depends on how fast its interpreter starts.
 
-    Red how: the timeout arm's output dropped, or left undecoded. Executed."""
+    Red how: the timeout arm's output dropped, or decoded strictly. Executed."""
     module_path, tests = two_arms
 
     def times_out(cmd, **kwargs):
         raise ARM.subprocess.TimeoutExpired(
-            cmd, kwargs["timeout"], output=b"collected 3 items\n", stderr=b"slow\n"
+            cmd,
+            kwargs["timeout"],
+            output=b"collected 3 items \xff\n",
+            stderr=b"slow\n",
         )
 
     monkeypatch.setattr(ARM.subprocess, "run", times_out)
     with pytest.raises(ARM.NoBaseline) as refused:
         ARM.run_arms(str(module_path), tests, timeout=0.3)
-    assert "collected 3 items" in refused.value.output
+    assert "collected 3 items \ufffd" in refused.value.output
     assert "slow" in refused.value.output
     assert "b'" not in refused.value.output, "decoded, not the bytes' repr"
+
+
+def test_the_first_run_is_taken_where_the_pairs_are(two_arms, tmp_path):
+    """The run against the module as it is answers for the pairs only when it
+    is the same command in the same place. A command relative to `cwd` that
+    passed elsewhere, or failed only because it ran elsewhere, would decide
+    the run on the wrong directory.
+
+    Red how: `cwd=cwd` dropped from the first run refuses this run with exit
+    2, because the probe exists only under `cwd`. Executed."""
+    module_path, _ = two_arms
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "watches_one.py").write_text(WATCHES_ONE, encoding="utf-8")
+    verdicts, refused = ARM.run_arms(
+        str(module_path),
+        [sys.executable, "watches_one.py", str(module_path)],
+        cwd=str(elsewhere),
+    )
+    assert refused == []
+    assert [(v.arm.source, v.killed) for v in verdicts] == [
+        ('host == "example.com"', True),
+        ("flag", False),
+    ]
+
+
+@pytest.mark.parametrize("only", [None, "no_such_scope"], ids=["no arms", "--only"])
+def test_the_first_run_is_taken_whatever_the_arms_are(tmp_path, only):
+    """Once per `--tests` call, with no exception to state: a module with no
+    arms, or an `--only` that selects none of them, still has its command run
+    once and refused when it does not pass. A command that cannot pass is the
+    thing to learn whichever arms there are.
+
+    Red how: the first run made conditional on there being an arm to mutate
+    leaves both parameters returning an empty report. Executed."""
+    module_path = tmp_path / "plain.py"
+    module_path.write_text(
+        "def f(x):\n    if x:\n        return 1\n    return 0\n"
+        if only
+        else "VALUE = 1\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ARM.NoBaseline, match="exit 3"):
+        ARM.run_arms(
+            str(module_path),
+            [sys.executable, "-c", "import sys; sys.exit(3)"],
+            only=only,
+        )
 
 
 def test_a_command_that_cannot_be_spawned_refuses_the_run(two_arms, capsys):
