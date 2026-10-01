@@ -731,6 +731,23 @@ def test_a_process_outside_the_group_does_not_hold_the_verdict_back(
     assert target.read_bytes() == b"VALUE = 1\n"
 
 
+@pytest.mark.skipif(os.name == "nt", reason="the process-group bound is POSIX's")
+def test_a_group_that_ended_on_its_own_at_the_bound_is_not_an_error():
+    """The command can finish between the bound expiring and the kill. The
+    group is gone by then, and the run is still a `timed out` rather than a
+    traceback that skips the verdict."""
+    mc = module()
+    proc = subprocess.Popen(
+        [sys.executable, "-c", "pass"],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        start_new_session=True,
+    )
+    proc.communicate(timeout=30)
+    assert mc._end(proc, mc.GROUP) == ""
+
+
 # --- S6 · the Windows half ends the direct child and says what it did not ---
 
 
