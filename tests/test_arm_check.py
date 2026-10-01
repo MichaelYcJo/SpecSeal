@@ -35,6 +35,7 @@ import re
 import shlex
 import sys
 import textwrap
+import time
 import warnings
 
 import pytest
@@ -1536,6 +1537,242 @@ def test_a_pair_whose_command_ran_and_answered_nothing_is_not_called_unasked(two
         f"at the bound. Only a pair `mutate` refused was never asked, and the "
         f"reason beside each is what tells the two apart"
     )
+
+
+# --- the command has to pass against the module as it is first ------------
+
+# What `--tests` exits with against the module whatever the module holds. The
+# three shapes of a run that measured nothing and came back as a clean report
+# (#703): pytest exits 5 when a `-k` selects no case and 4 on a usage error
+# such as a module path that does not exist, and a case already failing exits
+# 1. Each used to print `killed` beside every arm at exit 0. The probe prints
+# a line first, so a case can see the command's own output reach the reader.
+NOT_GREEN = """\
+import sys
+
+print({said!r})
+sys.exit({code})
+"""
+
+# The shape a person meets: a case that imports the module and asserts
+# something false of it, mutated or not. The suite was red before anybody
+# mutated anything.
+ALREADY_FAILING = """\
+import importlib.util
+import sys
+
+spec = importlib.util.spec_from_file_location("under_test", sys.argv[1])
+m = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = m
+spec.loader.exec_module(m)
+
+assert m.classify("example.com", False) == "unknown", "this case already fails"
+"""
+
+NO_BASELINE_SHAPES = [
+    ("a -k that selects no case", 5, "no tests ran"),
+    ("a module path that does not exist", 4, "file or directory not found"),
+    ("a case that already fails", 1, "1 failed"),
+    ("a case that already fails, through an import", None, "this case already fails"),
+]
+
+# A time well in the past, set on the module before a refused run. A write
+# moves the mtime even when it writes the bytes that were there, so this is
+# what tells "nothing was written" from "written and restored" -- which a
+# byte comparison cannot.
+LONG_AGO_NS = 10**18
+
+
+def nothing_was_written(module_path, before):
+    """The module holds the bytes it held, was never written, and has no
+    cached bytecode beside it."""
+    assert module_path.read_bytes() == before
+    assert module_path.stat().st_mtime_ns == LONG_AGO_NS, (
+        "the module was written: a refused run has to refuse before the first "
+        "write, or *Nothing was written* is a sentence about a restore"
+    )
+    assert not list((module_path.parent / "__pycache__").glob("under_test.*.pyc"))
+
+
+def refusal_line(out):
+    """The verdict line of a refused run, with the three pieces it is pinned
+    by checked: the word, the sentence that says why, and the sentence that
+    says what holds afterwards (§14)."""
+    first = out.splitlines()[0]
+    assert first.startswith("no baseline: "), (
+        f"{out!r} — a run whose command does not pass against the module as it "
+        f"is measured nothing, and its first line has to say so"
+    )
+    assert "a failure under a mutation says nothing about the mutation" in first
+    assert first.endswith("Nothing was written and no arm was measured."), first
+    assert "killed" not in out and "SURVIVED" not in out, (
+        f"{out!r} — no arm was measured, so no arm can carry a verdict"
+    )
+    assert "arms measured" not in out
+    return first
+
+
+@pytest.mark.parametrize(
+    "label,code,said", NO_BASELINE_SHAPES, ids=[s[0] for s in NO_BASELINE_SHAPES]
+)
+def test_a_command_that_does_not_pass_against_the_module_refuses_the_run(
+    two_arms, tmp_path, capsys, label, code, said
+):
+    """#703, S1–S3. A `killed` is a measurement only when the same command
+    passed against the unmutated module.
+
+    `run_arms` read `returncode != 0` as *a case noticed* and ran nothing to
+    compare it with, so a command that cannot pass at all recorded every arm
+    killed: `0 watched by no case`, exit 0, the best report there is out of a
+    run that measured nothing. Now the command runs once against the module
+    as it is, and anything but a pass refuses the run before the first write.
+
+    The command's own output follows the verdict line, because it is the one
+    run whose cause a person has to read to act on it — pytest's *no tests
+    ran* is what tells a mistyped `-k` from a failing case.
+
+    Red how: against the script at `a340221b` every shape prints `killed`
+    beside both arms and exits 0. Executed."""
+    module_path, _ = two_arms
+    probe = tmp_path / "not_green.py"
+    if code is None:
+        probe.write_text(ALREADY_FAILING, encoding="utf-8")
+        tests = [sys.executable, str(probe), str(module_path)]
+        code = 1
+    else:
+        probe.write_text(NOT_GREEN.format(said=said, code=code), encoding="utf-8")
+        tests = [sys.executable, str(probe)]
+    before = module_path.read_bytes()
+    os.utime(module_path, ns=(LONG_AGO_NS, LONG_AGO_NS))
+
+    status = ARM.main([str(module_path), "--tests", shlex.join(tests)])
+
+    out = capsys.readouterr().out
+    first = refusal_line(out)
+    assert f"no baseline: exit {code}." in first, (
+        f"{first!r} — the exit is what tells a `-k` that selected nothing (5) "
+        f"from a case that already fails (1)"
+    )
+    assert said in out, (
+        f"{out!r} — the command's own output has to follow the verdict, or "
+        f"the cause is one re-run away"
+    )
+    assert status == 2, "exit 2 is the run refused before measuring"
+    nothing_was_written(module_path, before)
+
+
+def test_the_run_against_the_unmutated_module_is_bounded_by_the_timeout(two_arms):
+    """#703, S4. The bound reaches the first run too.
+
+    A command that hangs whatever the module holds now hangs in the run
+    against the module as it is, before anything is written. Unbounded there,
+    it is the one wait in the whole run that nothing ends — #641's round 2
+    found its sibling's baseline bound pinned by no case and survived a
+    mutation to `None`.
+
+    Red how: against the script at `a340221b` both arms are filed as no
+    verdict after four 0.3s waits and nothing is raised; with the baseline's
+    `timeout=timeout` removed this waits the whole 30 seconds and then the
+    arms time out one by one. Executed."""
+    module_path, _ = two_arms
+    before = module_path.read_bytes()
+    os.utime(module_path, ns=(LONG_AGO_NS, LONG_AGO_NS))
+    started = time.monotonic()
+    with pytest.raises(ARM.NoBaseline) as refused:
+        ARM.run_arms(
+            str(module_path),
+            [sys.executable, "-c", "import time; time.sleep(30)"],
+            timeout=0.3,
+        )
+    elapsed = time.monotonic() - started
+    assert "did not return within 0.3s" in refused.value.reason, refused.value.reason
+    assert elapsed < 15, (
+        f"{elapsed:.1f}s — the run against the unmutated module was not "
+        f"bounded by the 0.3s the case passed"
+    )
+    nothing_was_written(module_path, before)
+
+
+def test_a_first_run_that_timed_out_carries_what_it_printed(two_arms, monkeypatch):
+    """What a hung suite printed before the bound is the nearest thing to
+    its cause, so it is carried as the refusal's output.
+
+    `subprocess.run` hands it over as bytes on `TimeoutExpired` even under
+    `text=True`, so it is decoded on the way. Driven by a `subprocess.run`
+    that raises at once, because a real command's output before a short bound
+    depends on how fast its interpreter starts.
+
+    Red how: the timeout arm's output dropped, or left undecoded. Executed."""
+    module_path, tests = two_arms
+
+    def times_out(cmd, **kwargs):
+        raise ARM.subprocess.TimeoutExpired(
+            cmd, kwargs["timeout"], output=b"collected 3 items\n", stderr=b"slow\n"
+        )
+
+    monkeypatch.setattr(ARM.subprocess, "run", times_out)
+    with pytest.raises(ARM.NoBaseline) as refused:
+        ARM.run_arms(str(module_path), tests, timeout=0.3)
+    assert "collected 3 items" in refused.value.output
+    assert "slow" in refused.value.output
+    assert "b'" not in refused.value.output, "decoded, not the bytes' repr"
+
+
+def test_a_command_that_cannot_be_spawned_refuses_the_run(two_arms, capsys):
+    """#703, S5. A command that cannot start against the unmutated module
+    cannot start against a mutation either, so nothing is measured.
+
+    Red how: against the script at `a340221b` both arms land in the no-verdict
+    list at exit 0. Executed."""
+    module_path, _ = two_arms
+    before = module_path.read_bytes()
+    os.utime(module_path, ns=(LONG_AGO_NS, LONG_AGO_NS))
+
+    status = ARM.main([str(module_path), "--tests", "specseal-no-such-command-xyz"])
+
+    first = refusal_line(capsys.readouterr().out)
+    assert "FileNotFoundError" in first, (
+        f"{first!r} — the error is the cause, and the line has to name it"
+    )
+    assert status == 2
+    nothing_was_written(module_path, before)
+
+
+def test_a_passing_first_run_changes_no_verdict_and_costs_one_run(
+    two_arms, monkeypatch
+):
+    """#703, S6. One run against the module as it is, before any write, and
+    the verdicts it lets through are the ones measured before it existed.
+
+    Watched by what the module held at each call: the first call has to see
+    the unmutated bytes and every later one a mutation.
+
+    Red how: against the script at `a340221b` there are four calls and the
+    first sees a mutation; with the baseline moved after the first write the
+    first call sees a mutation. Executed."""
+    module_path, tests = two_arms
+    original = module_path.read_bytes()
+    real_run = ARM.subprocess.run
+    held = []
+
+    def watching_run(cmd, **kwargs):
+        held.append(module_path.read_bytes())
+        return real_run(cmd, **kwargs)
+
+    monkeypatch.setattr(ARM.subprocess, "run", watching_run)
+    verdicts, refused = ARM.run_arms(str(module_path), tests)
+
+    assert refused == []
+    assert [(v.arm.source, v.killed) for v in verdicts] == [
+        ('host == "example.com"', True),
+        ("flag", False),
+    ]
+    assert len(held) == 5, f"{len(held)} runs — one against the module, four pairs"
+    assert held[0] == original, (
+        "the first run has to be against the module as it is, before anything "
+        "is written"
+    )
+    assert all(h != original for h in held[1:]), "and every later one a mutation"
 
 
 # --- the two operators are not interchangeable ----------------------------
