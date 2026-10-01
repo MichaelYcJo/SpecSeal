@@ -265,8 +265,11 @@ def marked(root, name):
 def tracked_marks(root):
     """The id-shaped names under `specs/` whose mark git TRACKS directly
     under them — `specs/<name>/routing.md`, or a file under
-    `specs/<name>/rounds/` — and none when git cannot say: `dirty()` refuses
-    that run before anything moves, so no answer here decides a move.
+    `specs/<name>/rounds/` — or None when git cannot say. `old_items` then
+    reads the marks from the disk, so the run still has units and `dirty()`
+    refuses it. An empty answer would read as nothing old left, and `main`'s
+    stamp branch, which comes before `dirty()`, would stamp over a work item
+    that has not moved (round 2 of #688, 🟡 1).
 
     The move's units come from git (`tracked_names`), and so do its marks.
     Git tracks no empty directory and no ignored file, so a mark that is
@@ -275,9 +278,9 @@ def tracked_marks(root):
     try:
         r = git(root, "ls-files", "-z", "--", OLD_ITEMS)
     except (OSError, subprocess.SubprocessError):
-        return set()
+        return None
     if r.returncode != 0:
-        return set()
+        return None
     routing, rounds = MARKS
     names = set()
     for path in r.stdout.split("\0"):
@@ -310,7 +313,11 @@ def old_items(root):
     a person will see there.
     """
     marks = tracked_marks(root)
-    items = [n for n in entries(root, OLD_ITEMS) if n in marks]
+    items = [
+        n
+        for n in entries(root, OLD_ITEMS)
+        if (n in marks if marks is not None else marked(root, n))
+    ]
     try:
         names = sorted(os.listdir(under(root, OLD_ITEMS)))
     except OSError:
@@ -395,7 +402,18 @@ def move(root, src, dst):
     r = git(root, "ls-files", "-z", "--", src)
     if r.returncode != 0:
         raise MoveError(src, (r.stderr or "").strip() or "git ls-files failed")
-    for rel in [p for p in r.stdout.split("\0") if p]:
+    # The marks move last. A run stopped at any other file leaves the item
+    # marked as git tracks it, so the next start still finds a work item and
+    # resumes it; moved first, they left a `spec.md` the line told the person
+    # to keep with no mark beside it, and the next start stamped over it
+    # (round 2 of #688, 🟡 2). The stopped file itself always stays at `src`.
+    routing, rounds = MARKS
+
+    def a_mark(rel):
+        tail = rel[len(src) + 1 :]
+        return tail == routing or tail.startswith(rounds + "/")
+
+    for rel in sorted((p for p in r.stdout.split("\0") if p), key=a_mark):
         target = dst + rel[len(src) :]
         if os.path.exists(under(root, target)):
             raise taken(rel, target)
@@ -647,11 +665,14 @@ def main():
         if part
     )
     _, left = old_items(root)
-    marks = tracked_marks(root)
+    marks = tracked_marks(root) or set()
     shaped = [n for n in left if unmarked(root, n, marks)]
     groups = (
         ([n for n in left if n not in shaped], "not tracked as a SpecSeal work item"),
-        (shaped, "no routing.md or rounds/ — not a SpecSeal work item"),
+        (
+            shaped,
+            "no routing.md or rounds/ that git tracks — not a SpecSeal work item",
+        ),
     )
     tail = "".join(
         f"; left {', '.join(f'{OLD_ITEMS}/{n}' for n in names)} where it is ({why})"

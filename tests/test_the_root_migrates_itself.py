@@ -709,8 +709,8 @@ def test_an_item_shaped_tracked_file_under_specs_stays_and_is_named(hook, repo):
 
 TEAM = "1788000001-team-thing"
 LEFT_UNMARKED = (
-    f"left specs/{TEAM} where it is (no routing.md or rounds/ — not a SpecSeal "
-    "work item)"
+    f"left specs/{TEAM} where it is (no routing.md or rounds/ that git tracks — "
+    "not a SpecSeal work item)"
 )
 
 
@@ -822,6 +822,62 @@ def test_a_routing_md_deeper_than_directly_under_is_not_a_mark(hook, repo):
     assert "moved .specseal/ and 1 work item into seal/" in out, out
     assert LEFT_UNMARKED in out, out
     assert not (repo / "seal" / "specs" / TEAM).exists()
+
+
+def test_a_git_that_cannot_list_the_marks_stamps_nothing(hook, repo):
+    """Round 2 of #688, 🟡 1. With `.specseal/` already moved, the items are
+    the only units, and a `git ls-files` that cannot answer listed none: the
+    hook read that as nothing old left and stamped, so the move never ran
+    once git answered again. A corrupt index is the real shape: `rev-parse`
+    answers and `ls-files` does not."""
+    (repo / "seal").mkdir()
+    for src, dst in (
+        (".specseal/map.md", "seal/ledger.md"),
+        (".specseal/map", "seal/ledger"),
+        (".specseal/README.md", "seal/README.md"),
+        (".specseal/follow-up.md", "seal/follow-up.md"),
+    ):
+        git(repo, "mv", src, dst)
+    git(repo, "commit", "-qm", "the home moved, the item not yet")
+    index = repo / ".git" / "index"
+    good = index.read_bytes()
+    index.write_bytes(b"DIRC garbage")
+    out = message(start(hook, repo))
+    assert "uncommitted changes" in out, out
+    assert not stamped(hook, repo)
+    index.write_bytes(good)
+    out = message(start(hook, repo))
+    assert "moved 1 work item into seal/" in out, out
+    assert (repo / "seal" / "specs" / ITEM / "routing.md").is_file()
+    assert stamped(hook, repo)
+
+
+@pytest.mark.parametrize("keep", ["the old one", "the newer one"])
+def test_a_move_stopped_inside_an_item_resumes_whichever_file_is_kept(hook, repo, keep):
+    """Round 2 of #688, 🟡 2. A destination that exists is moved file by
+    file, and `routing.md` and `rounds/` sort before `spec.md`: a stop at a
+    taken `spec.md` had moved both marks, so once the person settled it as
+    the line says, the next start found no work item, stamped, and left the
+    file at the old path and three rows BROKEN."""
+    write(repo, f"specs/{ITEM}/spec.md", "# the old spec\n")
+    write(repo, f"seal/specs/{ITEM}/spec.md", "# the newer spec\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "both spec.md")
+    out = message(start(hook, repo))
+    assert f"stopped at specs/{ITEM}/spec.md" in out and "already exists" in out, out
+    gone = (
+        f"seal/specs/{ITEM}/spec.md"
+        if keep == "the old one"
+        else f"specs/{ITEM}/spec.md"
+    )
+    git(repo, "rm", "-q", gone)
+    out = message(start(hook, repo))
+    assert "moved 1 work item into seal/" in out, out
+    assert not (repo / "specs" / ITEM / "spec.md").exists()
+    assert (repo / "seal" / "specs" / ITEM / "spec.md").is_file()
+    assert (repo / "seal" / "specs" / ITEM / "routing.md").is_file()
+    totals = check(repo)
+    assert "0 broken" in totals, totals
 
 
 @pytest.mark.parametrize(
