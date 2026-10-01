@@ -251,6 +251,46 @@ def test_a_refused_creation_from_a_linked_worktree_counts_the_tree_it_ran_from(c
     assert clone.record().exists()
 
 
+def test_an_attended_refusal_counts_the_linked_worktree_it_ran_from(clone):
+    first = clone.tmp / "first"
+    clone.git(
+        "-c", "specseal.answer=worktree-ok", "worktree", "add", str(first), "-b", "f1"
+    )
+    clone.record().unlink()
+    got = clone.git("worktree", "add", str(clone.tmp / "second"), "-b", "f2", cwd=first)
+    assert got.returncode != 0
+    assert f" in {os.path.realpath(first)} " in got.stderr, got.stderr
+    assert f" in {os.path.realpath(clone.top)} " not in got.stderr
+
+
+def test_a_checkout_that_is_not_a_creation_is_left_alone_in_python_too(clone):
+    """The stub leaves before Python for a switch; the entry point on its own
+    says the same, for a stub an older plugin wrote."""
+    head = clone.git("rev-parse", "HEAD").stdout.strip()
+    out = io.StringIO()
+    assert (
+        creationgate.post_checkout(
+            str(clone.top), env(clone.home), [head, head, "1"], out
+        )
+        == 0
+    )
+    assert out.getvalue() == ""
+
+
+def test_no_session_takes_nothing_back_in_python_either(clone):
+    wt = clone.tmp / "wt"
+    clone.git("worktree", "add", "-q", str(wt), "-b", "nb", session="")
+    out = io.StringIO()
+    zero = "0" * 40
+    assert (
+        creationgate.post_checkout(
+            str(wt), env(clone.home, session=""), [zero, zero, "1"], out
+        )
+        == 0
+    )
+    assert wt.is_dir()
+
+
 # --- what is never taken back ------------------------------------------------
 
 
