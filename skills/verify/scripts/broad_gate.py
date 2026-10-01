@@ -1921,6 +1921,12 @@ def job_steps(text, job):
 # `seal/config.md`'s `Broad gate` row is where a repository names checks of
 # its own — not the arm list of a script that ships to every repository that
 # installs the plugin.
+#
+# **Which of the thirteen CI runs depends on the base** (#666). Four run only
+# on a pull request into `main` (`ONLY_AT_MAIN`) and two are skipped there
+# (`SKIPPED_AT_MAIN`'s arms), so the `workflow` count is taken over
+# `steps_for(workflow, base)` rather than over this table: a step CI does not
+# ask of a pull request is neither answered nor unanswered by its seal.
 PARTITION = (
     (
         "every issue this pull request claims, and every one it only names",
@@ -2020,10 +2026,83 @@ MAIN = "main"
 # third step, or dropped from one of these, fails the suite.
 SKIPPED_AT_MAIN = (SURVIVORS_NAME, CORRECTIONS_NAME)
 
+# The steps that run ONLY on a pull request into `main`, by step name (#666).
+# In `hygiene.yml` each of the four opens its `run:` with `if [ "${{
+# github.base_ref }}" != "main" ]; then … exit 0`: a release pull request is
+# where the version moves, the fragments are gathered and folded, and the
+# milestone is judged. On any other base CI never asks them, so a seal that
+# counted them as *not answered* counted questions nobody asks — the owner
+# read `8 of 13 not answered` on a feature seal whose honest count was `4 of
+# 9`. None of the four is mirrored, so no arm changes; what changes is the
+# denominator of the `workflow` count and the names beside it.
+#
+# Held against the workflow by `tests/test_the_gate_names_every_step_ci_runs.py`
+# from both sides, the way `SKIPPED_AT_MAIN` is: a `!= "main"` guard added to
+# a fifth step, or dropped from one of these, fails the suite.
+ONLY_AT_MAIN = (
+    "a change to what ships must move the version",
+    "every changelog fragment reached the released file",
+    "every ledger fragment folded into the gathered ledger",
+    "the milestone this release claims is the work it carries",
+)
+
 
 def mirrored():
     """The arm each classified step is mirrored by, by step name."""
     return {name: arm for name, arm, _ in PARTITION if arm}
+
+
+def base_is_main(given):
+    """Whether the base the caller gave is `main`: `given`, with one leading
+    `origin/` removed. This gate's one reading of the workflow's
+    `github.base_ref == "main"`, asked by `skipped_at_main` for the arms and
+    by `steps_for` for the count, so the two cannot disagree about which
+    pull request is a release (#666). None — no base known — is not `main`.
+
+    **The bound, named rather than claimed:** it is keyed on the spelling,
+    so `refs/heads/main` or `upstream/main` reads as not-`main`. For the arms
+    that runs both, and for the count it counts the four only-at-`main`
+    steps as running; both are the direction that over-asks."""
+    if given is None:
+        return False
+    if given.startswith("origin/"):
+        given = given[len("origin/") :]
+    return given == MAIN
+
+
+def steps_for(workflow, given):
+    """The `release` job's steps CI runs for a pull request into `given`, in
+    file order (#666).
+
+    Every step of the job, less `ONLY_AT_MAIN` where the base is not `main`,
+    and less the steps `SKIPPED_AT_MAIN`'s arms mirror where it is. A step
+    left out here is neither answered nor unanswered: CI does not ask it of
+    this pull request, so a seal neither covers it nor misses it. `given`
+    None — no base known — leaves out what a base that is not `main` would,
+    which is what every caller that knows no base has been asked about."""
+    steps = job_steps(workflow, RELEASE_JOB) if workflow else []
+    if base_is_main(given):
+        skipped = {name for name, arm, _ in PARTITION if arm in SKIPPED_AT_MAIN}
+        return [step for step in steps if step not in skipped]
+    return [step for step in steps if step not in ONLY_AT_MAIN]
+
+
+def left_out_clause(workflow, given):
+    """The clause the coverage line adds for the steps `steps_for` left out,
+    or "" where it left none: how many, and why (#666)."""
+    every = job_steps(workflow, RELEASE_JOB) if workflow else []
+    left = len(every) - len(steps_for(workflow, given))
+    if not left:
+        return ""
+    why = (
+        f"{'are steps' if left > 1 else 'is a step'} CI skips on a pull request "
+        f"into `{MAIN}`"
+        if base_is_main(given)
+        else f"{'run' if left > 1 else 'runs'} only on a pull request into `{MAIN}`"
+    )
+    return (
+        f" {left} more {why}, so this count leaves {'them' if left > 1 else 'it'} out."
+    )
 
 
 def skipped_at_main(given, workflow):
@@ -2046,13 +2125,10 @@ def skipped_at_main(given, workflow):
     **The bound, named rather than claimed:** the skip is keyed on the
     spelling `main` or `origin/main` and on the step being present in the
     workflow, not on the guard the step carries, so `refs/heads/main` or
-    `upstream/main` runs both arms, the direction that over-asks.
+    `upstream/main` runs both arms, the direction that over-asks. The
+    spelling is read by `base_is_main`, which the `workflow` count asks too.
     """
-    if not workflow or given is None:
-        return []
-    if given.startswith("origin/"):
-        given = given[len("origin/") :]
-    if given != MAIN:
+    if not workflow or not base_is_main(given):
         return []
     steps = set(job_steps(workflow, RELEASE_JOB))
     return [
@@ -2091,19 +2167,26 @@ def workflow_text(root):
         return None
 
 
-def unanswered(text):
-    """The `release` job's steps this run answers nothing for, in file order.
+def unanswered(text, given=None):
+    """The steps CI runs for this base (`steps_for`) that this run answers
+    nothing for, in file order.
 
     A step no row classifies counts here too, and that is the honest answer
     rather than an oversight: in another repository whose workflow happens to
     carry this name, every step is one this gate runs nothing for.
     """
     arms = mirrored()
-    return [step for step in job_steps(text, RELEASE_JOB) if step not in arms]
+    return [step for step in steps_for(text, given) if step not in arms]
 
 
-def coverage_line(text):
+def coverage_line(text, given=None):
     """One line naming the steps this seal did not answer, or None.
+
+    **Over the steps CI runs for this base** (#666, `steps_for`), and one
+    clause saying how many it left out and why (`left_out_clause`): a step CI
+    does not ask of this pull request is not a step the seal failed to
+    answer, and naming it among the unanswered sent a reader to four steps
+    no run of this pull request would ever ask.
 
     **Names here, a count on the panel** (`questions.md` W1).
     `seal_stamp.letter` gives a panel value 23 columns, which thirteen step
@@ -2121,21 +2204,22 @@ def coverage_line(text):
     which is the reconstruction from two files this work item exists to
     remove, arriving one level further out (round 1, finding 3).
     """
-    steps = job_steps(text, RELEASE_JOB)
-    if not steps:
+    if not job_steps(text, RELEASE_JOB):
         return None
-    short = unanswered(text)
+    steps = steps_for(text, given)
+    short = unanswered(text, given)
+    left = left_out_clause(text, given)
     if not short:
         return (
-            f"broad-gate: this seal answers every one of {WORKFLOW}'s "
-            f"{len(steps)} `{RELEASE_JOB}` steps"
+            f"broad-gate: this seal answers every one of the {len(steps)} "
+            f"`{RELEASE_JOB}` steps {WORKFLOW} runs for this base." + left
         )
     classified = {name for name, _, _ in PARTITION}
     excluded = [step for step in short if step in classified]
     unknown = [step for step in short if step not in classified]
     said = (
         f"broad-gate: {WORKFLOW}'s `{RELEASE_JOB}` job runs {len(steps)} "
-        f"steps and this seal answers {len(steps) - len(short)}."
+        f"steps for this base and this seal answers {len(steps) - len(short)}." + left
     )
     if excluded:
         said += (
@@ -2454,9 +2538,13 @@ def panel(
     # case away from this one: the partition describes SpecSeal's own CI, the
     # plugin ships to repositories that have none, and for them nothing about
     # the run changes (`spec.md` A7).
-    steps = job_steps(workflow, RELEASE_JOB) if workflow else []
-    if steps:
-        short = len(unanswered(workflow))
+    #
+    # Over the steps CI runs for THIS base (#666): `steps_for` leaves out the
+    # four that run only into `main` on any other base, and the two CI skips
+    # at `main` on a release one, so both numbers are the ones CI will ask.
+    if job_steps(workflow, RELEASE_JOB) if workflow else []:
+        steps = steps_for(workflow, base.given)
+        short = len(unanswered(workflow, base.given))
         rows += [None, ("workflow", f"{short} of {len(steps)} not answered")]
     if item is not None:
         rows += [None, *rounds_rows(item, record)]
@@ -2572,11 +2660,13 @@ def gate(args, console_wants_letters, terminal=False):
     # case: a seventh consumer written later cannot take the unresolved value
     # without that case going red (`spec.md` §*The class, enumerated by
     # construction*). Every check below asks `base.commit`, which is the
-    # commit CI will compare against. Two readers take `base.given`, the
-    # caller's spelling, and neither is a check: `moved_line`, which exists
-    # to say how that spelling differs from what it resolved to, and
-    # `skipped_at_main`, because the workflow's guard compares a branch NAME
-    # (`github.base_ref`) and a resolved commit carries no name (#473).
+    # commit CI will compare against. The readers of `base.given`, the
+    # caller's spelling, are none of them a check: `moved_line`, which exists
+    # to say how that spelling differs from what it resolved to; and, through
+    # `base_is_main`, `skipped_at_main` (#473) and the `workflow` count —
+    # `coverage_line` and `panel`, through `steps_for` (#666) — because the
+    # workflow's guard compares a branch NAME (`github.base_ref`) and a
+    # resolved commit carries no name.
     base = resolve_base(root, args.base)
     if base.commit is None:
         raise Refused(
@@ -2616,7 +2706,7 @@ def gate(args, console_wants_letters, terminal=False):
     # SEALED carries it too: what this run's seal would not have covered is as
     # much a fact about a failed run as about a sealed one.
     workflow = workflow_text(root)
-    coverage = coverage_line(workflow) if workflow else None
+    coverage = coverage_line(workflow, base.given) if workflow else None
     if coverage:
         sys.stderr.write(coverage + "\n")
     # The arms CI's own steps skip at this base, where this repository's

@@ -50,8 +50,13 @@ invisible: the gate goes green having not run what CI will. So the partition
 is declared in the gate and a structural case asserts it is total — a step
 name in the workflow with no classification in the gate fails the suite until
 somebody classifies it. That is what makes the next arm impossible to add
-silently.
-Enforced by: tests/test_the_gate_names_every_step_ci_runs.py::test_every_step_the_workflow_runs_is_classified, tests/test_the_gate_names_every_step_ci_runs.py::test_every_entry_of_the_partition_names_a_step_the_workflow_has
+silently. A step CI does not run for the base is neither answered nor
+unanswered: four steps run only on a pull request into `main` and two are
+skipped there, so the panel's count and the line beside it are taken over the
+steps CI runs for the base, and the line says how many it left out (#666).
+Which steps those are is declared beside the partition and held against the
+workflow's guards from both sides, never read off the workflow at run time.
+Enforced by: tests/test_the_gate_names_every_step_ci_runs.py::test_every_step_the_workflow_runs_is_classified, tests/test_the_gate_names_every_step_ci_runs.py::test_every_entry_of_the_partition_names_a_step_the_workflow_has, tests/test_the_gate_names_every_step_ci_runs.py::test_the_steps_left_out_off_main_are_the_steps_guarded_off_main
 
 <!-- specs/1789956662-the-gate-and-ci-ask-about-different-ranges -->
 **The gate and CI ask about the same range, and the base is resolved once.**
