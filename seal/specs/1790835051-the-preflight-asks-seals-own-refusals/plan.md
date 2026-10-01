@@ -132,13 +132,16 @@ the sentence the appended one answers.
 
 **The ledger.** `evidence-check --strict .` is the preflight's own `ledger`
 arm and this repository's rows anchor on the units this work edits.
-`round_record.py#seal@0cfc9d4e` is cited by eleven rows (0.10.0 S10 and S13,
-0.11.5, 0.13.1 C3, 0.15.0 A5 and A9, 0.15.1 N4, 0.16.0 G2 among them);
-`broad_gate.py#seal_record@4d582ed3` by 0.10.0 S12;
-`broad_gate.py#gate@51ce700f` by fifteen rows across 0.10.0, 0.12.0, 0.12.2,
-0.15.4, 0.15.7 and the 1790815611 fragment (P1–P6) — 26 rows in eleven files
-at `e83db346` (`grep -rn` over `seal/ledger.md`, `seal/releases/*.md`,
-`seal/ledger/*.md`, counted 2026-10-01).
+`skills/code-review/scripts/round_record.py#seal` is cited by eleven rows
+(0.10.0 S10 and S13, 0.11.5, 0.13.1 C3, 0.15.0 A5 and A9, 0.15.1 N4, 0.16.0
+G2 among them); `skills/verify/scripts/broad_gate.py#seal_record` by 0.10.0
+S12; `skills/verify/scripts/broad_gate.py#gate` by fifteen rows across
+0.10.0, 0.12.0, 0.12.2, 0.15.4, 0.15.7 and the 1790815611 fragment (P1–P6) —
+26 rows in eleven files at `e83db346` (`grep -rn` over `seal/ledger.md`,
+`seal/releases/*.md`, `seal/ledger/*.md`, counted 2026-10-01). **Corrected
+2026-10-01 by phase 4:** the three coordinates were written with short paths
+and their `e83db346` hashes, which the records arm reads as BROKEN; and the
+build drifted 35 rows in 15 files (`phases/phase-4.md`).
 Every one drifts. The rule is `CLAUDE.md` §*Repo rule — a change writes
 fragments*: re-read each against the edit, correct the claim in place with a
 `Corrected 2026-10-01` note where the edit made it false, and re-stamp with

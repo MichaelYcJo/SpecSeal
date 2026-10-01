@@ -101,14 +101,21 @@ In:
   left as they stand.
 - **The records**: `seal/specs/<id>/changelog.md`, `seal/ledger/<id>.md`,
   `overview.md`, `phases/phase-N.md`, and the re-read of every ledger row
-  whose anchor this work drifts — `round_record.py#seal@0cfc9d4e` (eleven
-  rows: 0.10.0 S10 and S13, 0.11.5, 0.13.1 C3, 0.15.0 A5 and A9, 0.15.1 N4,
-  0.16.0 G2 among them), `broad_gate.py#seal_record@4d582ed3` (0.10.0 S12),
-  and `broad_gate.py#gate@51ce700f` (fifteen rows across 0.10.0, 0.12.0,
-  0.12.2, 0.15.4, 0.15.7 and the 1790815611 fragment's P1–P6) — 26 rows in
-  eleven files, counted 2026-10-01 at `e83db346`. Each is read against the
-  edit and re-stamped with `--checked 2026-10-01`, its claim corrected in
-  place where the edit made it false.
+  whose anchor this work drifts —
+  `skills/code-review/scripts/round_record.py#seal` (eleven rows: 0.10.0 S10
+  and S13, 0.11.5, 0.13.1 C3, 0.15.0 A5 and A9, 0.15.1 N4, 0.16.0 G2 among
+  them), `skills/verify/scripts/broad_gate.py#seal_record` (0.10.0 S12), and
+  `skills/verify/scripts/broad_gate.py#gate` (fifteen rows across 0.10.0,
+  0.12.0, 0.12.2, 0.15.4, 0.15.7 and the 1790815611 fragment's P1–P6) — 26
+  rows in eleven files, counted 2026-10-01 at `e83db346`. Each is read
+  against the edit and re-stamped with `--checked 2026-10-01`, its claim
+  corrected in place where the edit made it false. **Corrected 2026-10-01 by
+  phase 4:** the three coordinates were written with short paths and their
+  `e83db346` hashes, which the records arm of `evidence-check --strict .`
+  reads as BROKEN (no such file); they are named here by their full paths. The build
+  drifted 35 rows in 15 files, not 26 in 11: it also edits `sealed_record`,
+  `main` and `PREFLIGHT_RECORD` of the gate and four document sections
+  (`phases/phase-4.md`).
 
 Out:
 
