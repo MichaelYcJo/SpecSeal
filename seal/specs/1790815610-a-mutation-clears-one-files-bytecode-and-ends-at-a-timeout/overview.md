@@ -1,0 +1,60 @@
+# a mutation clears one file's bytecode and ends at a timeout — overview
+
+📋 implement applied
+· spec:     `seal/specs/1790815610-…/spec.md`, `plan.md`, `questions.md`, `routing.md`; `agents/smith.md` §Phases step 4 and §Boundaries; `skills/verify/SKILL.md` §*`arm-check` asks condition 2 of a whole module*; `skills/agent-contract/SKILL.md` §5, §9, §12, §13, §14, §15; `CLAUDE.md` §*a change writes fragments*
+· evidence: `seal/ledger/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout.md` L1–L6 added; re-read and re-stamped in place: `seal/releases/0.6.0.md` L5, `0.8.1.md` R8, `0.12.0.md` (the design gate's second copy), `0.15.1.md` N1, `0.9.5.md` (the bytecode-cache row)
+· verified: executed — the new module and every module reading the two edited documents, narrow; every new case seen red first; every unit mutated with the command; both timings. Read — the Windows arm. Unverified — the full suite, lint and the broad gate (the orchestrator, through the sealer)
+
+## Why this work exists
+
+The smith's mutation loop cleared the wrong cache and bounded nothing; it is
+now one command per break that removes the mutated file's bytecode, ends a
+run that hangs, and restores from held bytes.
+
+## Where spec and implementation diverged
+
+| Divergence | Spec says / code did | Chosen | Grounds |
+|---|---|---|---|
+| How `mutation_check.py` reaches `arm_check.py` | Spec M7 and plan *How the sibling import resolves*: `from arm_check import …`, resolved because a script's directory is first on `sys.path` / loaded by path with an `importlib` spec, registered first | Code | Nine shipped scripts reach another file by path and none by `sys.path`; a bare import fails under `PYTHONSAFEPATH` and when a case loads the script by spec. `phases/phase-1.md` |
+| How S1 and S2 plant their caches | Spec: S1 *a planted `.pyc` made by a real import*; S2 *imported once* just before the mutation / S1 plants with `py_compile`, S2 with an unchecked-hash `.pyc` | Code | Under the command the cases inherit `PYTHONDONTWRITEBYTECODE=1`, so an import-made plant is never written and the case is red on its precondition. The unchecked-hash plant makes S2 red on every run without the removal instead of only inside one mtime second. Both claims are kept |
+| The cost the old clear carried | Spec §*The class*: *forces pytest to recompile all 142 test modules on every mutated run*; plan *recompiles one module instead of 142* / measured: with one module named, the clear left four files in `tests/__pycache__`, and the clear-all loop ran at 0.76 s per mutation against 0.84 s through the command | Measurement | L5 in the fragment. The documents, the docstrings and the changelog now argue from the cache the clear missed, not from its cost. The flow logs' 121 s and 96 s commands were the cases themselves |
+| Step 4's example and wording | Spec §*Data & interfaces*: `--tests "bin/test tests/<module>.py …"`, *removes that one file's cached bytecode* / `--tests "<the runner> <module> -k <cases>"`, *the mutated file's* | Pins | `tests/test_the_suite_has_a_command_that_is_cheap_twice.py` refuses `bin/test` in a shipped definition, and `tests/test_the_set_a_work_item_always_has.py` refuses *one file* in it. Both are ratified; the text was a suggestion |
+| `tests/test_arm_check.py` | Spec C2: `arm_check.py` is not edited and the test module stays green; silent on editing the test module / two plants switch bytecode writing on | Code | §12: the class the command made reachable has three members and two are there. `arm_check.py` itself is untouched |
+| Refusals | Spec: a replacement that does not land exactly once / also an empty OLD, a NEW identical to OLD, a non-UTF-8 file, and a `--tests` naming no command | Code | Each would otherwise print a verdict nobody measured. `phases/phase-1.md` §*Q3* |
+| The changelog's `### Changed` bullet | Spec: *That clear recompiled every test module on every mutated run* / the bullet says the clear removed valid caches and missed the stale one; a `### Fixed` bullet added for the two `arm-check` cases | Measurement | The third row above |
+| What a red means | Spec S7 and §*Failure direction*: red is *a `--tests` that fails against the mutant*, and the two ways to read red wrongly are a stale cache and a restore that did not land / round 1 found a third, the common one: any non-zero exit read red, so a `-k` that selects nothing did too. The cases now run against the file as it is first, and a failure there is `no baseline` | Review | Round 1 🔴 1; L7. Each call runs the cases twice, which L5's figures predate |
+| Spec M9's stamp | `## Phases` of `agents/smith.md` at hash `cede28c2` / re-stamped to the hash the rows now hold, with a `Corrected` note keeping the framer's reading | Correction | `evidence-check`'s records arm reads the stamp, and phase 3's edit moved it |
+| The `could not start` line, after the run ended | Spec S7: a command that cannot be spawned reads `could not start` *with the error* / the error's own text, which on Windows names no file. PR #698's `windows-latest` leg (CI run 36815560007) failed `test_a_command_that_cannot_start_measures_nothing_and_exits_two` on *[WinError 2] The system cannot find the file specified*, after the review run had ended capped and been sealed at `bf47ce19`. The line now names the program, from the error's `filename` or else the command's first word | Code | A person on Windows is otherwise not told which program could not start. **This fix was read by no review round**: it came after the capped run, from the Windows leg. The case gains a `no-filename` parameter that raises the error as Windows does, red on this machine against the sealed command and green with the fix. It is the one line in `mutation_check.py` that prints an `OSError` from `Popen`; the `could not run` line prints errors from opening the target, which carry their filename on every platform |
+
+## Not verified
+
+| Item | Who must answer |
+|---|---|
+| The Windows arm run on Windows: `proc.kill()` ending the direct child, the verdict text it prints, and `bin/mutation-check.cmd` reaching the script | the orchestrator, from the `windows-latest` leg of `.github/workflows/test.yml` on the pull request. That leg runs this module whole: S6, and every other case through the direct-child strategy, but no case times out there, so `proc.kill()` on expiry is still read and not run, and nothing in this repository runs the `.cmd` wrapper |
+| The full suite, repository-wide `ruff check` and `ruff format --check`, and the broad gate over this branch | the orchestrator, through the sealer, once the review rounds settle |
+| The post-cap `could not start` fix on Windows itself: the `native` parameter of the cannot-start case passing on the `windows-latest` leg | the orchestrator, from that leg's next run on PR #698; on this machine both parameters pass, and the `no-filename` one stands in for Windows' error by construction, not by running there |
+| How the harness's own command bound did not end #577's 32-minute hang (spec M8) | the orchestrator, who holds the flow log; this work item bounds the run inside the command and does not explain the harness |
+
+## Not done
+
+`arm-check`'s own bound still ends the direct child only. That is #313, which
+asks for the Ctrl-C and Windows decisions on purpose; `mutation_check.py`
+now holds a group bound beside `run_arms`' to fold into it. The warden's
+definition does not name the command (spec §*Scope*, out). There is no copy
+of the original on disk (#312). The README cheat sheet does not list the
+command (`questions.md` Q2, decided in phase 3). A relative
+`PYTHONPYCACHEPREFIX` together with a `--cwd` other than the shell's is
+cleared under the wrong mirror (round 1 ⬜ 7, read, not run): the defect is in
+`arm_check.py#clear_bytecode_cache`, which this work item keeps unedited, and
+`arm-check --cwd` reaches it the same way, so it predates the branch.
+
+## Fed back into the spec
+
+*Inferred during implementation*: a case that needs a `.pyc` to exist writes
+it itself, because the cases a mutation loop runs inherit
+`PYTHONDONTWRITEBYTECODE=1` (`skills/verify/SKILL.md`, the new section; L6).
+And a run's wait is on the process, with the output in a temporary file,
+because anything the cases leave behind can hold a pipe open past their exit
+(L2; round 1 found it, and the bounded collection phase 2 had added for the
+same hazard is gone). And a red means anything only when the cases passed
+against the file as it is first (L7; round 1).
