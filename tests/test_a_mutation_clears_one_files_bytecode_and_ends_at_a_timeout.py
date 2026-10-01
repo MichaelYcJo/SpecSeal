@@ -449,11 +449,28 @@ with open(sys.argv[1], "w", encoding="utf-8") as f:
 """
 
 
-def test_the_file_is_restored_from_the_bytes_held_before_the_write(tmp_path, capsys):
+@pytest.mark.parametrize(
+    "cases",
+    [
+        REWRITES,
+        # Removes the mutant. The restore compares the file with the kept
+        # bytes before it writes (round 2, 🟡 9), and a file that cannot be
+        # read has to count as differing, or this one is never written back.
+        "import os, sys\n"
+        "with open(sys.argv[1], encoding='utf-8') as f:\n"
+        "    mutant = sys.argv[2] in f.read()\n"
+        "if mutant:\n"
+        "    os.remove(sys.argv[1])\n",
+    ],
+    ids=["rewritten", "removed"],
+)
+def test_the_file_is_restored_from_the_bytes_held_before_the_write(
+    tmp_path, capsys, cases
+):
     """Not from `HEAD`: `git checkout -- <file>` takes every uncommitted fix in
     the file with it, which is the round's work `agents/smith.md`'s
-    Boundaries says was wiped once. The cases here rewrite the file, so the
-    restore has something to undo besides the mutation."""
+    Boundaries says was wiped once. The cases here rewrite the file, or remove
+    it, so the restore has something to undo besides the mutation."""
     target = tmp_path / "target.py"
     original = b"VALUE = 15\r\n# a CRLF and a byte the codec must keep: \xc3\xa9\n"
     target.write_bytes(original)
@@ -465,7 +482,7 @@ def test_the_file_is_restored_from_the_bytes_held_before_the_write(tmp_path, cap
             "VALUE = 15",
             "VALUE = 25",
             "--tests",
-            cases_command(probe(tmp_path, REWRITES), target),
+            cases_command(probe(tmp_path, cases), target, "VALUE = 25"),
         ],
         capsys,
     )
