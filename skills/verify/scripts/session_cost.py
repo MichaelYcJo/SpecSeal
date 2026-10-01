@@ -2356,9 +2356,9 @@ def segment_kind(agent):
     """A segment's kind and bar, as the two keys every segment row carries.
 
     `kind` is `""` where no spawn named the row, and `bar` is None for an
-    exempt kind and for a kind the table does not know alike — the page
-    tells those two apart through `SEGMENT_BARS`, and a program reading
-    `--json` can do the same."""
+    exempt kind and for a kind the table does not know alike. The page tells
+    those two apart through `SEGMENT_BARS`; a program holding only `--json`
+    cannot, because the table is this script's and not the reading's."""
     kind = agent.rsplit(":", 1)[-1]
     _, bar = SEGMENT_BARS.get(kind, ("", None))
     return {"kind": kind, "bar": bar}
@@ -2493,8 +2493,11 @@ def report_grades(rows):
     because it was joined to a spawn, so this page can do what the plain
     reading cannot.
 
-    **A line per row under its bar, and the counts always.** Exactly at the
-    bar is meeting it. Every count prints even when nothing is under, which
+    **A line per row under its bar, and the counts always.** At the bar is
+    meeting it, and the ratio compared is the one printed, to two places, in
+    the table above and on the line: compared unrounded, 79 calls over 44
+    turns (1.7955) printed `1.80 tools per turn against the reviewing bar of
+    1.8`, a line contradicting the row above it (round 1's 🟡 1). Every count prints even when nothing is under, which
     is `report_segments`' own rule: a grade that silently matched nothing
     reads exactly like a run whose rows all met their bars. Exempt and
     ungraded are counted apart, because one is the protocol's judgment and
@@ -2504,7 +2507,9 @@ def report_grades(rows):
     grade that failed a run would be the refusal threshold the protocol says
     it never is."""
     graded = [row for row in rows if row["bar"] is not None and row["numbers"]]
-    under = [row for row in graded if row["numbers"]["tools_per_turn"] < row["bar"]]
+    under = [
+        row for row in graded if round(row["numbers"]["tools_per_turn"], 2) < row["bar"]
+    ]
     exempt = [
         row
         for row in rows
@@ -2533,7 +2538,8 @@ def report_grades(rows):
         f"  The bars are {known}. A smith row is\n  exempt: an edit-test loop is "
         "serial, and the protocol judges it on `repeats = 0`\n  rather than on "
         "this ratio. A row with no bar — a kind not listed, a row no spawn\n  "
-        "named, a segment that made no call — is ungraded."
+        "named — is ungraded, and so is a graded kind's segment that made no "
+        "call."
     )
     print(
         "\n  The bar is a lens for rounds of ordinary size and never a refusal "

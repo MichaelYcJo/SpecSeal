@@ -290,8 +290,9 @@ def test_the_framers_definition_carries_its_opening():
     The three claims are asserted by phrase, and the prohibition the prompts
     carried is asserted ABSENT over the whole definition. Every framer that
     read 1.00-1.12 since 0.12.3 was told not to open with a parallel read
-    burst; the 0.12.2 framers, never told, read 1.48-1.64. Writing that
-    sentence into the file is the one edit that would fix the floor in place."""
+    burst; the framers of 0.12.1 and 0.12.2, never told, read 1.48-1.80
+    (#456). Writing that sentence into the file is the one edit that would
+    fix the floor in place."""
     text = read("agents", "framer.md")
     section = framer_opening(text)
     assert text.index("## What you read, and how widely") < text.index(
@@ -308,6 +309,21 @@ def test_the_framers_definition_carries_its_opening():
         "which is the opening burst #456's stalls are the evidence about"
     )
     assert "§10" in section, "the bound stopped citing the rule it applies"
+    # Round 1's 🟡 3. §10 says the files the handoff names go out in one
+    # call, so a bound with no exception for them contradicts the rule the
+    # bullet says it applies.
+    assert "whatever their number" in section, (
+        "the bound reaches the files the spawn prompt names, which §10 says "
+        "go out in one call"
+    )
+    # Round 1's 🟡 2. #456 has the 1.48 framer under 0.12.1, and 0.12.2's
+    # framers at 1.64 (finished) and 1.56 and 1.80 (stalled).
+    assert "the framers of 0.12.1 and 0.12.2" in section, (
+        "the comparison names one release for readings #456 records over two"
+    )
+    assert "the 0.12.2 framers, never told" not in section, (
+        "the sentence gives 0.12.2 the 0.12.1 framer's 1.48 again"
+    )
     assert "read by range" in section and "sed -n" in section, (
         "the large-file half went, which is the third clause #478 recorded"
     )
@@ -358,6 +374,12 @@ def test_the_protocol_names_a_bar_per_segment_kind():
         "the framing bar went, and `--segments` grades framer rows against a "
         "number no policy states"
     )
+    # Round 1's ⬜ 4. The prohibition lived in prompts and in no file, so the
+    # row says what the definition does now, not that it stopped doing it.
+    assert "which `agents/framer.md` no longer does" not in protocol, (
+        "the framing row says the definition once held a framer's reads back"
+    )
+    assert "now replaces with a bound on one call" in protocol
     assert "never a refusal threshold" in protocol, (
         "the bar is a lens for rounds of ordinary size — a 23-call round "
         "read 1.64 doing everything right, and a gate failing it would "
@@ -559,6 +581,18 @@ def test_the_scripts_bars_are_the_protocols():
             f"and the protocol's {segment} bar is {row.group(1)} -- move both or "
             "neither"
         )
+    # Round 1's ⬜ 7: the loop above names two kinds, so an entry with a bar
+    # added to either table alone passed. The whole of both is compared.
+    entries = re.findall(r'^    "(\w+)": \("(\w+)", ([\d.]+|None)\),$', script, re.M)
+    assert len(entries) >= 3, f"`SEGMENT_BARS` moved off its shape: {entries}"
+    graded = {segment: bar for _, segment, bar in entries if bar != "None"}
+    rows = dict(
+        re.findall(r"^\| (\w+) \| tools per turn \*\*≥ ([\d.]+)\*\* \|", protocol, re.M)
+    )
+    assert graded == rows, (
+        f"`SEGMENT_BARS` grades {graded} and the protocol's table states {rows} "
+        "-- add, move or remove both or neither"
+    )
     assert '"smith": ("implementing", None)' in script, (
         "`SEGMENT_BARS` grades a smith row, and the protocol's implementing row "
         "says tools per turn never judges one"

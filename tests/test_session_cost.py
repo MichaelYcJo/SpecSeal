@@ -3268,6 +3268,26 @@ def test_a_row_at_its_bar_is_silent_and_the_counts_print(tmp_path):
     assert "2 graded, 0 exempt, 0 ungraded" in flat_out, flat_out
 
 
+def test_a_row_printed_at_its_bar_meets_it(tmp_path):
+    """Round 1's 🟡 1. 79 calls over 44 turns is 1.7955 and 67 over 48 is
+    1.3958: the table prints both as 1.80 and 1.40, so a line naming either
+    under 1.8 or 1.4 contradicts the row printed above it. The grade compares
+    the figure a reader sees."""
+    out = segment_report(
+        graded_run(
+            tmp_path,
+            [
+                ("specseal:warden", [2] * 35 + [1] * 9),
+                ("specseal:framer", [2] * 19 + [1] * 29),
+            ],
+        )
+    )
+    assert re.search(r"specseal:warden\s+\S+\s+79\s+1\.80\s", out), out
+    assert re.search(r"specseal:framer\s+\S+\s+67\s+1\.40\s", out), out
+    assert grade_lines(out) == [], out
+    assert "every graded row meets its kind's bar" in " ".join(out.split()), out
+
+
 def test_a_row_with_no_kind_is_counted_as_ungraded(tmp_path):
     """S8. A kind the table does not know, and a row the parent could not
     name. Neither is named under a bar, the warden beside them still is, and
@@ -3310,6 +3330,12 @@ def test_a_row_with_no_paired_call_is_ungraded(tmp_path):
     flat_out = " ".join(out.split())
     assert "0 graded, 0 exempt, 1 ungraded" in flat_out, flat_out
     assert "no row here has a bar to be graded against" in flat_out, flat_out
+    # Round 1's ⬜ 5. This row HAS a bar; the counts sentence listed a
+    # segment that made no call among the rows with none.
+    assert (
+        "A row with no bar — a kind not listed, a row no spawn named — is "
+        "ungraded, and so is a graded kind's segment that made no call." in flat_out
+    ), flat_out
     assert [(r["kind"], r["bar"]) for r in segments_of(path)["rows"]] == [
         ("warden", 1.8)
     ]
@@ -3399,7 +3425,8 @@ def test_every_json_row_carries_its_kind_and_bar(tmp_path):
     under = [
         row["agent"]
         for row in rows
-        if row["bar"] is not None and row["numbers"]["tools_per_turn"] < row["bar"]
+        if row["bar"] is not None
+        and round(row["numbers"]["tools_per_turn"], 2) < row["bar"]
     ]
     assert [line.split()[0] for line in grade_lines(segment_report(path))] == under
 
