@@ -2912,6 +2912,70 @@ def test_a_preflight_with_record_is_refused_and_writes_no_cell(repo, tmp_path):
     assert read_bytes(two) == before, "the record changed under a refusal"
 
 
+def a_verifying_round_that_says_fixed_at(repo):
+    """#535's item C, as a fixture. Round 1 opened a finding and its fix
+    landed; round 2 is the verifying round, and its reviewer wrote the verdict
+    `fixed at <sha>` — what round 1's fix did, which `chain_check` reads as
+    this round closing on a fix of its own — beside `Fixes checked by: no
+    fixes to check`, the cell #535's record carried.
+
+    `chain_check.py#closed_with_a_fix` refuses that pair, and the refusal is
+    not excused on a draft (`questions.md` Q1). The cell is written by hand
+    because today's generator no longer writes it beside a fix word — `new`
+    lands `nobody — the fixes are not yet written` and `close` corrects that
+    to `nobody — the fixes are written…` (`phases/phase-2.md` of 1790815611
+    measured both) — and a hand-repaired cell is the way that pair still
+    reaches a tree. Returns round 2's record."""
+    declared(repo)
+    generate(repo, 1, OPEN_ROW, "yes — 🔴 1")
+    a = git(repo, "rev-parse", "HEAD").stdout.strip()
+    write(repo, "f.py", "x = 2\n")
+    b = commit(repo, "fix")
+    close_round(repo, 1, f"| 1 | fixed | {b[:7]} |\n", f"{a}..{b}")
+    two = generate(
+        repo,
+        2,
+        f"| 🟢 1 | round 1's fix holds | `f.py:1` | fixed at {b[:7]} | read |\n",
+        "no",
+    )
+    lines = two.read_text(encoding="utf-8").splitlines(keepends=True)
+    at = [i for i, line in enumerate(lines) if line.startswith(f"| {CHECKED_BY} |")]
+    assert len(at) == 1, f"round 2 carries {len(at)} `{CHECKED_BY}` rows"
+    lines[at[0]] = f"| {CHECKED_BY} | no fixes to check |\n"
+    two.write_text("".join(lines), encoding="utf-8")
+    commit(repo, "the cell #535's record carried")
+    return two
+
+
+# A file the row writes into the repository root where it runs, so a row
+# that ran leaves evidence the gate did not write.
+ROW_RAN = "row-ran"
+
+
+def test_a_fixed_at_verdict_in_a_verifying_round_fails_the_preflight(repo, tmp_path):
+    """S7, the ticket's verification (#638 §*How to verify*). A verifying
+    round's table carries `fixed at` beside `Fixes checked by: no fixes to
+    check`. The preflight exits 1 with `chain` named in the failure form, and
+    the row — a command that would leave a file behind and fail — was never
+    invoked. Seen red first: without the flag argparse refuses the command,
+    and with the flag ignored the row runs."""
+    two = a_verifying_round_that_says_fixed_at(repo)
+    record = two.read_text(encoding="utf-8")
+    assert "fixed at" in record, record
+    assert re.search(rf"\| {CHECKED_BY} \| no fixes to check \|", record), record
+    set_row(repo, f"{sys.executable} -c \"open('{ROW_RAN}', 'w')\" && exit 1")
+    keep = tmp_path / "out"
+    out = run_gate(repo, "--preflight", keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert out.stdout.startswith("PREFLIGHT FAILED"), out.stdout
+    assert re.search(r"^\s+chain\s+exit 1", out.stdout, re.M), out.stdout
+    assert no_seal_line(out.stdout), out.stdout
+    assert not (repo / ROW_RAN).exists(), "the preflight invoked the row"
+    assert not (keep / "suite.txt").exists(), "the preflight ran the row"
+    chain = (keep / "chain.txt").read_text(encoding="utf-8")
+    assert "no fixes to check" in chain and "closed on a fix" in chain, chain
+
+
 def test_without_the_row_the_preflight_names_it_and_runs_nothing(tmp_path):
     """S6. The preflight asks the row's questions before anything runs, the
     same as the full run, because a refusal about the row is the cheapest one
