@@ -69,8 +69,9 @@ arm-check hooks/review-history-guard.py --tests "bin/test tests/test_chain_hooks
 ```
 
 With no `--tests` it lists the arms and mutates nothing. With `--tests` it
-makes each arm wrong in turn, runs that command, and names the arms nothing
-kills — restoring the module from held bytes and comparing the sha256 after
+first runs that command once against the module as it is, which has to pass
+(below). Then it makes each arm wrong in turn, runs the command again, and
+names the arms nothing kills — restoring the module from held bytes and comparing the sha256 after
 every mutation, never with `git checkout`, which reaches the uncommitted work
 in the rest of the tree.
 
