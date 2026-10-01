@@ -17,6 +17,13 @@
   correction the plugin's documents owed. A reference root is now out of
   both the pool and the range, and a top-level `specs/<x>/` a range deletes
   is never treated as a retired work item.
+- **`unverified-check .` no longer fails on a team's own overview** (#688).
+  Its walk leaves a reference root out, and its comparison against a base
+  leaves out the same files, so a team removing its own overview is not
+  reported as a deleted record. A file or a directory named on the command
+  line is still read. A repository with no `seal/` root is read as before,
+  because the only layout the plugin knew without a root is 0.3.x, whose
+  top-level `specs/` was its own.
 
 ### Fixed
 
