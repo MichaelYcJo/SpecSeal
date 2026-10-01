@@ -7,14 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 707 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `56268bb13f2fa11780209a7a31c5b1dac98e225d..bdbda4e6a985960b2e6ea9616928b6e9b6a59322`, 4 commits |
+| Contract changes | test_a_refused_run_leaves_the_module_as_it_was_before_the_command → round-1-report.md |
+| New units | CANNOT_LOCK (depth 1) |
 | Needs a fix | yes — 🟡 1 (a first run that leaves the module unreadable, unwritable or replaced by a directory ends the refusal in a traceback at exit 1) |
 | Loses a record or crashes | yes — 🟡 1 crashes a refusal that `6bbaa4d1` gave at exit 2, and the line and the command's output are lost |
+<!-- New units: bin/arm-check read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +25,8 @@ Round 2 is the verifying round. It targets `dc1b0d14` and verifies round 1's fix
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A first run whose cases leave the module unreadable, unwritable or replaced by a directory makes the put-back raise out of the `finally`: a traceback at exit 1 in place of the refusal line and the command's output, where `6bbaa4d1` refused at exit 2 | `skills/verify/scripts/arm_check.py:958-971` | open | Executed: `chmod 000`, `chmod 200`, rewrite then `chmod 444`, and a directory, each then exit 1, all four `PermissionError` or `IsADirectoryError`, exit 1, at the target. All four exit 2 at `6bbaa4d1`. F1 gives exit 2 with the error named in all four |
-| ⬜ 2 | The first run's put-back on an interrupt is held by no case; R2, the refusal-only mutant, is not equivalent | `skills/verify/scripts/arm_check.py:965-968` | open | Executed: the mutant survived the module, 92 passed. Under it a real SIGINT left the rewrite on disk, and at the target the module came back byte-identical. Behaviour right |
+| 🟡 1 | A first run whose cases leave the module unreadable, unwritable or replaced by a directory makes the put-back raise out of the `finally`: a traceback at exit 1 in place of the refusal line and the command's output, where `6bbaa4d1` refused at exit 2 | `skills/verify/scripts/arm_check.py:958-971` | **fixed** `0c25511a` | fixed at 0c25511a; Executed: `chmod 000`, `chmod 200`, rewrite then `chmod 444`, and a directory, each then exit 1, all four `PermissionError` or `IsADirectoryError`, exit 1, at the target. All four exit 2 at `6bbaa4d1`. F1 gives exit 2 with the error named in all four |
+| ⬜ 2 | The first run's put-back on an interrupt is held by no case; R2, the refusal-only mutant, is not equivalent | `skills/verify/scripts/arm_check.py:965-968` | **fixed** `8f231570` | fixed at 8f231570; Executed: the mutant survived the module, 92 passed. Under it a real SIGINT left the rewrite on disk, and at the target the module came back byte-identical. Behaviour right |
 | 🟢 | round 1's finding 1 is closed at its instance — a rewrite or a removal is put back, and the line says so | `skills/verify/scripts/arm_check.py:958-971`, `:1246-1259` | confirmed | Executed: rewrite and remove, each at exit 1 and at exit 0, module byte-identical, line true. Mutations Mu and Mp red on the new case. The class is this round's finding 1 |
 | 🟢 | round 1's finding 2 is closed — a cp1252 console gets the refusal | `skills/verify/scripts/arm_check.py:1270-1279` | confirmed | Executed: exit 2, no `Traceback`, output as UTF-8. Mutation Mc (reconfigure removed) red on the new case alone |
 | 🟢 | round 1's finding 3 is closed — a pair printing non-UTF-8 keeps its verdict | `skills/verify/scripts/arm_check.py:990-1003` | confirmed | Executed: both arms `killed`, exit 0. Mutation Mt (`text=True` back) red on the new case alone |
