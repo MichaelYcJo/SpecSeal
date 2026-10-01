@@ -290,3 +290,86 @@ def test_pre_commit_sees_the_paths_a_dash_a_and_a_pathspec_commit_record(tmp_pat
     g(d, "commit", "-q", "-m", "pathspec", "f.py", env=env)
     lines = [line.split() for line in log.read_text(encoding="utf-8").splitlines()]
     assert lines == [["f.py", "g.py"], ["f.py"]]
+
+
+# M12: which command hands reference-transaction GIT_AUTHOR_DATE. It is the
+# criterion the `--no-verify` backstop keys on (owner's answer of 2026-10-01 in
+# `questions.md` P4): a commit pre-commit did not judge is refused, and nothing
+# else that moves a branch is.
+AUTHOR_DATE_LOG = r"""if [ "$1" = prepared ]; then
+  grep ' refs/heads/' >/dev/null && printf '%s %s\n' "$LABEL" "${GIT_AUTHOR_DATE:+dated}" >>"$A_LOG"
+else
+  cat >/dev/null
+fi
+exit 0
+"""
+
+
+def test_only_git_commit_hands_reference_transaction_an_author_date(tmp_path):
+    d, hooks = repo(tmp_path)
+    hook(hooks, "reference-transaction", AUTHOR_DATE_LOG)
+    log = tmp_path / "a.log"
+
+    def step(label, *args):
+        g(d, *args, env={"A_LOG": str(log), "LABEL": label})
+
+    with open(d / "f.py", "a", encoding="utf-8") as f:
+        f.write("b = 2\n")
+    step("commit", "commit", "-q", "-am", "b")
+    with open(d / "f.py", "a", encoding="utf-8") as f:
+        f.write("c = 3\n")
+    step("no-verify", "commit", "-q", "--no-verify", "-am", "c")
+    step("amend", "commit", "-q", "--amend", "-m", "c2")
+    step("cherry-pick", "cherry-pick", "other")
+    step("revert", "revert", "--no-edit", "HEAD")
+    step("reset", "reset", "-q", "--hard", "HEAD~1")
+    g(d, "branch", "ff", "main~1")
+    g(d, "switch", "-q", "ff")
+    step("merge-ff", "merge", "-q", "--ff-only", "main")
+    step("merge-no-ff", "merge", "-q", "--no-ff", "--no-edit", "other")
+    step("branch-f", "branch", "-f", "other", "main")
+    step("update-ref", "update-ref", "refs/heads/other", "main~1")
+    got = dict(line.split(" ", 1) for line in log.read_text().splitlines())
+    dated = {label for label, value in got.items() if value.strip() == "dated"}
+    assert dated == {"commit", "no-verify", "amend"}, got
+    assert set(got) == {
+        "commit",
+        "no-verify",
+        "amend",
+        "cherry-pick",
+        "revert",
+        "reset",
+        "merge-ff",
+        "merge-no-ff",
+        "branch-f",
+        "update-ref",
+    }
+
+
+# M14: post-checkout runs after a creation, cannot stop it, and can take it
+# back -- which is where the creation ladder decides (phase 4).
+UNDO = r"""case "$1" in *[!0]*) exit 0 ;; esac
+new=$(pwd -P)
+common=$(cd "$(git rev-parse --git-common-dir)" && pwd -P)
+cd "$common" || exit 1
+git worktree remove --force "$new" >/dev/null 2>&1
+exit 1
+"""
+
+
+def test_post_checkout_can_take_back_a_fresh_worktree(tmp_path):
+    d, hooks = repo(tmp_path)
+    hook(hooks, "post-checkout", UNDO)
+    for name, args in (("wt1", ["-b", "nb"]), ("wt2", ["other"])):
+        r = g(d, "worktree", "add", str(tmp_path / name), *args, check=False)
+        assert r.returncode != 0
+        assert not (tmp_path / name).exists()
+    listed = g(d, "worktree", "list", "--porcelain").stdout
+    assert listed.count("worktree ") == 1, listed
+    # The branch `-b` made stays; the existing one is free to check out again.
+    assert (
+        g(d, "rev-parse", "--verify", "-q", "refs/heads/nb", check=False).returncode
+        == 0
+    )
+    (hooks / "post-checkout").unlink()
+    g(d, "worktree", "add", "-q", str(tmp_path / "again"), "other")

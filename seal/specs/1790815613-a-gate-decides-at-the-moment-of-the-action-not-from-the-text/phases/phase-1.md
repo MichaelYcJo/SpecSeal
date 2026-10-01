@@ -62,7 +62,7 @@ install". Answerer: the orchestrator, from a CI log's `git --version`.
 | M3 | executed, 4 gits | `worktree add <p> -b nb` first creates `refs/heads/nb` in its own transaction, in the original worktree's process. **2.50.1:** the new worktree's `<zero> ref:refs/heads/nb HEAD` arrives at `prepared` from the original worktree's process (its `$PWD`, `GIT_DIR` unset), before any file of the new tree exists. Those bytes are the same as a switch's line on that git. **2.34–2.43:** there is no symref line. The `HEAD` line comes from the `reset --hard` git runs inside the new worktree (`<sha> <sha> HEAD`, `GIT_DIR=<common>/worktrees/<name>`), after its files are written. **All four:** refusing at that line gives rc 128 and removes the directory and `<common>/worktrees/<name>`, so `git worktree list` shows one entry, but the `-b` branch remains. `post-checkout` runs with `$PWD` in the new worktree, `$1` the null oid and `$3` = 1; for a switch `$1` is the previous `HEAD` |
 | M4 | executed, 2.50.1 host | `CLAUDECODE=1`, `CLAUDE_CODE_SESSION_ID`, `CLAUDE_PID`, `CLAUDE_CODE_SESSION_ATTENDED=1` and `CLAUDE_CODE_CHILD_SESSION=1` reach `pre-commit`, `post-commit` and `post-checkout` from this agent's Bash tool. `GIT_DIR` was **not** exported to those three hooks (empty in every log), contrary to spec §*What the tree answered* 3. **Unverified:** the harness version that first exports the variables (only 2.1.283–2.1.286 are installed here), and what `CLAUDE_CODE_SESSION_ATTENDED` reads in a headless run. Answerer: the orchestrator |
 | M5 | not run | It needs an `Agent` spawn with `isolation: "worktree"`, and contract §6 withholds spawning from this agent. Answerer: the orchestrator |
-| M6 | not run | The stop came first. The replay compares the candidates' stop counts, and which arms it has to cover depends on the owner's answer for the switch arm. Answerer: the owner's answer, then this phase resumed |
+| M6 | executed, resumed after the owner's answer | Not run at the stop. The resumed run is in §*Resumed after the owner's answer* below |
 | M7 | executed | `ab2760f5` and its 67 subagent transcripts, read from the `PreToolUse:Bash` hook records (`permissionDecision`): **15 `ask`s**. 13 were review asks naming the main checkout (12 approved, 1 declined), 1 an unreadable-construct ask (approved), and 1 the guard's tracked-changes ask (approved). The waits from hook to tool result total **102.2 minutes** (longest 48.3 minutes, median 35 seconds). This matches the memory note's "15 gate asks and 102 minutes". No `deny` decision appears in that record shape, so the framer's "at least 3 denies" was not found there. Which shape they took is unverified, answerer the orchestrator. `8cadfa28` and `30ac0e06` have 0 `ask`s and 0 `deny`s in the same shape |
 | M8 | executed, heuristic | Across the three sessions: 56 `git clone` commands and 395 `git -C <x> commit` commands. Commits into a clone target that no record's `cwd` ever entered: **0**. The match is a `-C` path whose last component equals a clone target's. The known limit stands as stated |
 | M9 | not run | Windows. Answerer: the CI Windows leg |
@@ -160,6 +160,62 @@ not a decision.
   `post-commit` and `post-checkout` on 2.50.1. A hook asks
   `git rev-parse --git-dir` rather than reading it.
 - **The latency (M10) requires the `sh` narrowing** before Python starts.
+
+### Resumed after the owner's answer
+
+The owner answered on 2026-10-01 (`questions.md` P4, committed at
+`003147fc`). The switch arm takes option 1. The backstop is mark-based, on a
+criterion this phase measures, or it is dropped if there is none. M6 runs
+now. Everything below is **executed**, on 2.34.1, 2.39.5, 2.43.0 (the same
+three containers, pulled again and removed at hand-back) and 2.50.1, unless
+a row says otherwise.
+
+| # | Answer |
+|---|---|
+| M12 | **What tells a commit apart at `prepared`, so the `--no-verify` backstop refuses nothing else.** `GIT_AUTHOR_DATE` is exported to `pre-commit` and to `reference-transaction` by every `git commit` measured: plain, `-a`, `--no-verify`, `--amend`, `--allow-empty`, and the commit that concludes a conflicted merge. The same four gits leave it unexported for `cherry-pick`, `revert`, `merge --ff-only`, `merge --no-ff`, `reset --hard`, `reset --soft`, `rebase`, `pull --ff-only`, `update-ref`, `branch -f` and `switch -c`. `GIT_REFLOG_ACTION` is no criterion: `cherry-pick` and `revert` set it on 2.34.1 only, and `git commit` never does. The parent process's argv also tells them apart, but git does not hand it to the hook, and reading it needs `ps` or `/proc`. **The criterion exists, so the backstop is built on it.** The mark `pre-commit` leaves is keyed by the old `HEAD`, the commit's tree and that same `GIT_AUTHOR_DATE` value, which is identical in the two hooks of one commit. A person who exports `GIT_AUTHOR_DATE` around a `rebase` or `cherry-pick` makes that update look like a commit, and it meets the refusal: the fail direction is toward a stop. Pinned by `tests/test_the_hook_surface_git_offers.py#test_only_git_commit_hands_reference_transaction_an_author_date` |
+| M13 | **What tells a worktree creation apart from a switch at `prepared`: nothing clean.** On 2.50.1 the creation's `<zero> ref:refs/heads/<b> HEAD` comes from the original worktree's process and is byte-identical to a switch's line. On 2.34–2.43 it is `<sha> <sha> HEAD` from the `reset --hard` git runs inside the new worktree. git's own `<common>/worktrees/<name>/locked` reads `initializing` during a creation, but `--lock --reason` replaces the text, and the file outlives the creation. So the creation ladder does not decide at `reference-transaction` |
+| M14 | **`post-checkout` can take a fresh worktree back.** Its first argument is the null object id for a creation, and only for one. Inside it, `git worktree remove --force <new>` followed by a non-zero exit leaves `worktree add` exiting 1, the directory and the admin entry gone and an existing branch free again, while a `-b` branch remains. That end state is the same one `reference-transaction` refusal left in M3. Its parent process is `git worktree add`, whose working directory is the toplevel the creation was run from, even from a subdirectory (read through `/proc` on Linux and `lsof` on macOS). **So the creation ladder decides in `post-checkout`, after the fact, on a tree nobody has used yet.** That is spec S8's "post-hoc equivalent". Pinned by `…#test_post_checkout_can_take_back_a_fresh_worktree` |
+
+**M6, the corpora replayed.** 413 commands came from five sources: the
+generators of `tests/test_no_shape_the_base_stops_reads_silent.py`,
+`tests/test_a_commit_behind_a_wrapper_or_in_a_substitution_is_judged.py` and
+`tests/test_a_commit_behind_a_reserved_word_is_judged.py`; #686's seven `cd`
+spellings, each with `&&` and `;`; and the recorded run's three
+declared-worktree shapes plus two `--no-verify` commits. `86256492`'s
+PreToolUse commit gate gave the verdict. Each command then ran through a
+real shell in a fresh sandbox: an opted-in, undeclared session directory, a
+declared repository and an undeclared one, all carrying logging hooks. A
+commit is an action when `HEAD` moved, and the new gate saw it when
+`pre-commit`, or `reference-transaction` with `GIT_AUTHOR_DATE`, fired in the
+repository it landed in.
+
+| | bash 3.2.57 | zsh (this machine's Bash tool) |
+|---|---|---|
+| kept — the base stopped it, and a commit landed in an undeclared repository where the hook fired | 112 | 115 |
+| added — the base was silent, and the hook fired on a real commit into an undeclared repository | 37 | 44 |
+| lost on purpose — the base stopped it, and nothing landed in an undeclared repository | 70 (5 of them commits into the declared repository, the recorded run's class) | 67 |
+| base silent, commit only into the declared repository | 2 | 2 |
+| base silent, no commit anywhere | 192 | 185 |
+| **a commit into an undeclared repository that no hook saw** | 2 | 2 |
+
+The two in the last row are `env -i git commit …` and `genv -i git commit …`.
+`-i` empties the environment, which removed the probe's own log path, so the
+logger could not write. The real stub also loses the session variables
+there, and that is the case S9's second route exists for, the `claude`
+ancestor matched against a lease. Phase 3's S9 case runs exactly that
+command. So the row is a probe artifact rather than a stop lost, and that
+reading is **unverified until that case is green**. The 12 rows where bash
+and zsh differ are zsh-only constructs (`noglob`, `repeat`, `>!`,
+`coproc`) and `command eval`. The added 37/44 are the redirection shapes
+#674 found after `86256492`. The creation half of the corpora was not
+replayed. Every creation runs `post-checkout` on the four gits (M3, M14),
+which is the argument from construction, and it is labelled as one.
+
+**What the owner's answers change for phases 2–6, as built.** The switch
+arm keeps `hooks/cmdline_base.py` on every git, so that file stays, pinned
+(S11). The commit gate and the creation consent move into git. P1(a)
+collides with phase 6's planned deletions, and `questions.md` P5 records how
+and which way this build went.
 
 ## What this phase removes
 
