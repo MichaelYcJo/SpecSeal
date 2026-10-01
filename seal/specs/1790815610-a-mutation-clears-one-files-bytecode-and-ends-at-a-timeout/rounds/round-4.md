@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 698 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `a86101f5332420645509eb65f545e88f534a639e..2d63e8af555a5105411d0bdd2d03fa8696fe110b`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,9 +29,9 @@ Round 4 is the verifying round after the run's one reopening, so it ends the run
 | 🟢 | round 3's correction 17 is answered — L2's note has its full stop and bold opening | `seal/ledger/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout.md` L2 | confirmed | Read: every note boundary in L1, L2, L3, L4 and L7 ends in a full stop |
 | 🟢 | `The break was never written` is true in every baseline exit, and pinned | `skills/verify/scripts/mutation_check.py:325-346` | confirmed | Executed: red, timed out, cannot start and interrupt, each with cases that rewrite the target; the file ended `VALUE = 1` each time; Md red on all three no-baseline parameters |
 | 🟢 | L1, L2, L3, L4 and L7's round 3 notes are true of the fix range | `seal/ledger/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout.md` | confirmed | Read against the diff; L7's two mutations reproduced as M6 and Md |
-| ⬜ 18 | The restore after a `no baseline` exit and after a baseline timeout is held by no case; only the interrupt exit is pinned | `skills/verify/scripts/mutation_check.py:365` | open | Executed: Mb and Mc SURVIVED the module; the proposed case was green at the target and red under each. Behaviour right, no printed line claims it |
-| ⬜ 19 | `main`'s interrupt comment still says an interrupt in the baseline wrote nothing, and that the restore runs only once the break was written | `skills/verify/scripts/mutation_check.py:445-450` | open | Read: false since `647c3395`; a comment, so no line a person reads changes |
-| ⬜ 20 | `not restored` is described as a file that may still hold the break, and a baseline exit whose restore fails now reaches it | `skills/verify/SKILL.md:157-158`, `skills/verify/scripts/mutation_check.py:39` | open | Executed: cases that rewrite and chmod the target, then exit 1, print `not restored`, exit 2, file `VALUE = 99`; the printed line is true and asks for the right act |
+| ⬜ 18 | The restore after a `no baseline` exit and after a baseline timeout is held by no case; only the interrupt exit is pinned | `skills/verify/scripts/mutation_check.py:365` | deferred #706 | #706 — The run ended capped; #706 carries the regression case from this round, red under Mb and Mc; Executed: Mb and Mc SURVIVED the module; the proposed case was green at the target and red under each. Behaviour right, no printed line claims it |
+| ⬜ 19 | `main`'s interrupt comment still says an interrupt in the baseline wrote nothing, and that the restore runs only once the break was written | `skills/verify/scripts/mutation_check.py:445-450` | deferred #706 | #706 — A comment behind the code since 647c3395; filed with ⬜ 18; Read: false since `647c3395`; a comment, so no line a person reads changes |
+| ⬜ 20 | `not restored` is described as a file that may still hold the break, and a baseline exit whose restore fails now reaches it | `skills/verify/SKILL.md:157-158`, `skills/verify/scripts/mutation_check.py:39` | deferred #706 | #706 — Two descriptions of not restored behind the code; the printed line is true; filed with ⬜ 18; Executed: cases that rewrite and chmod the target, then exit 1, print `not restored`, exit 2, file `VALUE = 99`; the printed line is true and asks for the right act |
 | 🟢 | The ledger holds unscoped | the whole tree | confirmed | Executed: `bin/evidence-check .` exit 0, 3223 ok, 0 drifted, 0 broken |
 
 ## Paste-ready fixes
