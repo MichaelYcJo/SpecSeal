@@ -2770,17 +2770,22 @@ PREFLIGHT_RECORD = (
     "preflight asks `seal`'s refusals of the branch's declared work item on "
     "its own"
 )
-# The one stderr line the ask prints (#702): which home `seal --check` was
-# asked about and what it answered, or why nothing was asked.
+# The one stderr line the ask prints (#702): what `seal --check` was asked
+# about and what it answered, or why nothing was asked. `{home}` is the
+# record it read where that file is on disk, and the work item's directory
+# otherwise — where it refused, and for a `straight to the PR` item whose
+# `broad-gate.md` the sealer has not written yet (round 1's ⬜ 4), so the
+# line never names a file the reader cannot open.
 PREFLIGHT_ASKED = (
-    "broad-gate: asked `round_record.py seal --check` of {home}, the work item "
-    "declared for {branch}: {outcome}"
+    "broad-gate: asked `round_record.py seal --check` of {home}, found through "
+    "the one declaration naming {branch}: {outcome}"
 )
 ASKED_PASSED = "no refusal, and nothing was written"
 ASKED_REFUSED = "it refused, and nothing was written — `seal` is in the verdict"
 PREFLIGHT_NOT_ASKED = (
     "broad-gate: `seal`'s refusals were not asked — no single work item "
-    "declares {branch}, so there is no record here for a sealer to seal"
+    "declares {branch}: either none does or more than one does, so there is "
+    "no one work item to ask them of"
 )
 PREFLIGHT_DETACHED = (
     "broad-gate: `seal`'s refusals were not asked — HEAD is detached, so no "
@@ -2980,7 +2985,8 @@ def gate(args, console_wants_letters, terminal=False):
             where, outcome = asked, ASKED_REFUSED
         else:
             record = sealed_record(asked, root)
-            where, outcome = (record.path if record else asked), ASKED_PASSED
+            on_disk = record is not None and os.path.isfile(record.path)
+            where, outcome = (record.path if on_disk else asked), ASKED_PASSED
         sys.stderr.write(
             PREFLIGHT_ASKED.format(
                 home=os.path.relpath(where, root),

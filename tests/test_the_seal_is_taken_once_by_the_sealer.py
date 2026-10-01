@@ -4708,7 +4708,7 @@ def marker_row():
 
 def asked_line(home, outcome):
     """The ask's stderr line, naming `home` — the record `seal --check` read
-    where it passed, the work item where it refused."""
+    where it passed and that file is on disk, the work item otherwise."""
     gate = gate_module()
     return gate.PREFLIGHT_ASKED.format(home=home, branch="`feature`", outcome=outcome)
 
@@ -4814,6 +4814,27 @@ def test_a_settled_item_preflights_green_and_names_the_record_it_asked(repo, tmp
     gate = gate_module()
     said = asked_line(RECORD_FILE.format(n=2), gate.ASKED_PASSED)
     assert said in out.stderr.splitlines(), out.stderr
+    # Round 1's ⬜ 4: the record is named as a record, not as the work item.
+    assert "found through the one declaration naming `feature`" in said, said
+
+
+def test_a_direct_item_preflights_green_and_names_the_work_item_it_asked(
+    repo, tmp_path
+):
+    """Round 1's ⬜ 4. A `straight to the PR` item with no rounds is asked and
+    passes, and the cell's home is a `broad-gate.md` the sealer has not
+    written yet, so the stderr line names the work item rather than a file
+    nobody can open. Seen red at `090cb32f`, where the line named the absent
+    `broad-gate.md`."""
+    path = direct_home(repo)
+    assert not path.exists(), "the fixture wrote `broad-gate.md`"
+    out, keep = preflight(repo, tmp_path)
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert "\nexit 0\n" in (keep / "seal.txt").read_text(encoding="utf-8")
+    assert not path.exists(), "the preflight wrote `broad-gate.md`"
+    gate = gate_module()
+    assert asked_line(ITEM, gate.ASKED_PASSED) in out.stderr.splitlines(), out.stderr
+    assert GATE_FILE not in out.stderr, out.stderr
 
 
 def test_an_undeclared_branch_is_not_asked_and_the_preflight_says_so(repo, tmp_path):
@@ -4842,6 +4863,8 @@ def test_two_declarations_for_one_branch_are_not_asked(repo, tmp_path):
     gate = gate_module()
     said = gate.PREFLIGHT_NOT_ASKED.format(branch="`feature`")
     assert said in out.stderr.splitlines(), out.stderr
+    # Round 1's ⬜ 4: two declarations are not "no record"; the line says so.
+    assert "more than one does" in said, said
 
 
 def test_a_detached_head_is_not_asked_and_the_preflight_says_why(repo, tmp_path):
