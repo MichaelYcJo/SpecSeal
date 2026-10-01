@@ -111,5 +111,5 @@ the mutation is equivalent there.
 
 | Removed item | Where it must land |
 |---|---|
-| `NO_VERDICT_COMMANDS`, the two `(label, command, timeout)` rows the report case was parametrised by | `NO_VERDICT_DOORS` and the case body: the hang is `hangs_on_a_mutation`, the spawn failure a `subprocess.run` that spawns a missing command from its second call |
+| `NO_VERDICT_COMMANDS` (NAME NOT IN TREE, removed here), the two `(label, command, timeout)` rows the report case was parametrised by | `NO_VERDICT_DOORS` and the case body: the hang is `hangs_on_a_mutation`, the spawn failure a `subprocess.run` that spawns a missing command from its second call |
 | `text=True` on the first run (never shipped; removed inside this phase) | `_text`, which decodes with replacement |

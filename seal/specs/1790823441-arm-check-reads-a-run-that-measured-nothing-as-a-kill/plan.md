@@ -57,7 +57,7 @@ run time; S9 wants a variant that looks under the prefix mirror. The five
 cases spec M5 names are at `:1098-1148` (cache observation, `len(seen) == 4`),
 `:1150-1187` (restore, `len(ran) == 1`), `:1274-1304` (never returns),
 `:1306-1348` (spawn failure, third of four calls), `:1351-1416`
-(`NO_VERDICT_COMMANDS` and the report case), `:1489-1543` (second call times
+(`NO_VERDICT_COMMANDS` and the report case; NAME NOT IN TREE since phase 1), `:1489-1543` (second call times
 out). The report-only pin is `:1024-1047` and is not touched. The help pin
 is `:1419-1452`: its two phrases are matched on a whitespace-folded,
 lower-cased `--help`, so the help may gain words and may not lose those.
