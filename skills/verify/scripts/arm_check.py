@@ -84,6 +84,31 @@ class NoMutationDefined(Exception):
     """
 
 
+class NoBaseline(Exception):
+    """`--tests` did not pass against the module as it is, so nothing it says
+    about a mutation would mean anything. Raised before the first write.
+
+    `reason` is the cause as the command gave it — `exit 5`, the bound it did
+    not return within, the `OSError` — and `output` is what it printed, for a
+    reader who has to act on the cause without re-running it (#703).
+    """
+
+    def __init__(self, reason: str, output: str = "") -> None:
+        super().__init__(reason)
+        self.reason = reason
+        self.output = output
+
+
+def _text(captured) -> str:
+    """Captured output as text. `TimeoutExpired` carries bytes on POSIX even
+    under `text=True`, and `None` when nothing was read."""
+    if captured is None:
+        return ""
+    if isinstance(captured, bytes):
+        return captured.decode("utf-8", errors="replace")
+    return captured
+
+
 # --------------------------------------------------------------------------
 # The classification. Total over the grammar, by construction of the case
 # that checks it.
@@ -832,6 +857,16 @@ def run_arms(
 ) -> tuple[list[Verdict], list[tuple[Arm, str]]]:
     """Mutate each arm of `path` in turn and ask whether `tests` notices.
 
+    **`tests` runs once against the module as it is first, and has to pass.**
+    A `killed` is `returncode != 0` under a mutation, which is a measurement
+    only when the same command returned 0 without one: a `-k` that selects no
+    case, a module path that does not exist and a case already failing all
+    exit non-zero whatever the module holds, and each read as every arm
+    killed (#703). So a first run that exits non-zero, does not return within
+    `timeout`, or cannot be spawned raises `NoBaseline` with the cause and
+    what the command printed, before anything is written. It runs on every
+    call, `only` or not, and once.
+
     Every operator in `operators` is applied to every arm that has a mutation
     for it, because the two ask different questions and #262's own count is
     an answer to only one of them — `OPERATORS` holds the measurement.
@@ -842,9 +877,10 @@ def run_arms(
     mutation as killed while never having applied it — the pattern had missed
     by two spaces of indentation.
 
-    `timeout` bounds how long ONE operator's command is WAITED for, and
-    `None` removes the bound. An arm asks each operator in turn, so an arm can
-    take twice it. While a command runs the module on disk holds the mutation
+    `timeout` bounds how long ONE operator's command is WAITED for, and the
+    first run against the module as it is under the same bound; `None`
+    removes it. An arm asks each operator in turn, so an arm can take twice
+    it. While a command runs the module on disk holds the mutation
     and `capture_output` means nothing is printed, so an unbounded hang is
     indistinguishable from a slow suite — and the longer the process lives
     mutated, the more likely it is ended by something no `finally` sees.
@@ -870,6 +906,35 @@ def run_arms(
     # explains what that costs.
     env = dict(os.environ)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+
+    # The command has to pass against the module as it is first, or a failure
+    # under a mutation says nothing about the mutation: a `-k` that selects
+    # nothing exits 5, a mistyped module path 4, a case already failing 1, and
+    # each read as `killed` beside every arm (#703). Outside the `try` below
+    # on purpose: nothing has been written yet, so a refusal owes no restore
+    # and must not make one -- a write here would be the first write.
+    clear_bytecode_cache(path)
+    try:
+        baseline = subprocess.run(
+            tests,
+            cwd=cwd,
+            capture_output=True,
+            text=True,
+            env=env,
+            timeout=timeout,
+        )
+    except subprocess.TimeoutExpired as exc:
+        raise NoBaseline(
+            f"the command did not return within {timeout}s",
+            _text(exc.stdout) + _text(exc.stderr),
+        ) from exc
+    except OSError as exc:
+        raise NoBaseline(f"{type(exc).__name__}: {exc}") from exc
+    if baseline.returncode != 0:
+        raise NoBaseline(
+            f"exit {baseline.returncode}",
+            _text(baseline.stdout) + _text(baseline.stderr),
+        )
 
     verdicts: list[Verdict] = []
     refused: list[tuple[Arm, str]] = []
@@ -1076,7 +1141,9 @@ def main(argv=None):
         "--tests",
         help=(
             "the command that decides whether an arm is watched, e.g. "
-            '--tests "bin/test tests/test_chain_hooks.py -q". Omitted, the '
+            '--tests "bin/test tests/test_chain_hooks.py -q". It runs once '
+            "against the module as it is first and has to pass there, or the "
+            "run is refused with exit 2 and nothing is mutated. Omitted, the "
             "arms are listed and nothing is mutated."
         ),
     )
@@ -1088,9 +1155,11 @@ def main(argv=None):
         default=900.0,
         help=(
             "seconds ONE operator's command is waited for before the pair is "
-            "recorded as unmeasured. An arm asks two operators, so it can "
-            "take twice this. Only the command's own process is killed, not "
-            "anything it spawned. 0 removes the bound"
+            "recorded as unmeasured. The same bound covers the first run "
+            "against the unmutated module, which refuses the whole run when "
+            "it is reached. An arm asks two operators, so it can take twice "
+            "this. Only the command's own process is killed, not anything it "
+            "spawned. 0 removes the bound"
         ),
     )
     args = parser.parse_args(argv)
@@ -1123,20 +1192,35 @@ def main(argv=None):
     # Taken before `--only` narrows anything, because the header's denominator
     # is the module's and not the run's.
     every = arms_of_file(args.module)
-    verdicts, refused = run_arms(
-        args.module,
-        shlex.split(args.tests),
-        only=args.only,
-        cwd=args.cwd or os.getcwd(),
-        timeout=args.timeout or None,
-        echo=echo,
-    )
+    try:
+        verdicts, refused = run_arms(
+            args.module,
+            shlex.split(args.tests),
+            only=args.only,
+            cwd=args.cwd or os.getcwd(),
+            timeout=args.timeout or None,
+            echo=echo,
+        )
+    except NoBaseline as exc:
+        # Exit 2, the code the `--timeout` guard above already gives a run
+        # refused before it measured anything. Not 0: a run that measured
+        # nothing is not a report with no survivors in it, and a `&&` chain or
+        # a script reading `$?` would read 0 as exactly that.
+        echo(
+            f"no baseline: {exc.reason}. --tests has to pass against "
+            f"{args.module} as it is before anything is mutated, because a "
+            f"failure under a mutation says nothing about the mutation. "
+            f"Nothing was written and no arm was measured."
+        )
+        if exc.output.strip():
+            echo(exc.output.rstrip("\n"))
+        return 2
     found = [v.arm for v in verdicts] + [a for a, _ in refused]
     _report(args.module, verdicts, refused, counts(found), echo, of_total=len(every))
-    # Report-only: exit 0 whether or not an arm survived. `questions.md` Q1 is
-    # the owner's, and the two other answers -- non-zero on any survivor, or
-    # non-zero above a recorded baseline -- both need the first run's number
-    # to exist before they can be set. This is that run.
+    # Report-only for a MEASURED run: exit 0 whether or not an arm survived.
+    # `questions.md` Q1 is the owner's, and the two other answers -- non-zero
+    # on any survivor, or non-zero above a recorded baseline -- both need the
+    # first run's number to exist before they can be set. This is that run.
     return 0
 
 

@@ -1137,10 +1137,12 @@ def test_no_arm_runs_while_cached_bytecode_for_the_module_exists(two_arms, tmp_p
     )
     assert refused == []
     seen = log.read_text(encoding="utf-8").split()
-    # Two arms, and every operator that has a mutation for one of them.
-    expected = sum(len(v.by_operator) for v in verdicts)
+    # Two arms, and every operator that has a mutation for one of them, plus
+    # the one run against the module as it is that comes before them -- which
+    # a planted cache would decide just as surely, so it is watched too.
+    expected = sum(len(v.by_operator) for v in verdicts) + 1
     assert len(verdicts) == 2
-    assert len(seen) == expected == 4, "every mutation must have been observed"
+    assert len(seen) == expected == 5, "every run must have been observed"
     assert set(seen) == {"clean"}, (
         f"{seen} — an arm ran with cached bytecode for the module present, so "
         f"its verdict can be decided by another arm's mutation rather than by "
@@ -1159,7 +1161,9 @@ def test_no_verdict_is_taken_after_a_restore_that_did_not_land(two_arms):
     loop rather than after it.
 
     Driven by making `restore` fail at the first arm, and counting how many
-    arms got as far as running their command."""
+    arms got as far as running their command. The first run is the one
+    against the module as it is, which writes nothing and restores nothing,
+    so the first arm's is the second."""
     module_path, tests = two_arms
     ran = []
     real_run = ARM.subprocess.run
@@ -1180,8 +1184,8 @@ def test_no_verdict_is_taken_after_a_restore_that_did_not_land(two_arms):
     finally:
         ARM.subprocess.run = real_run
         ARM.restore = original_restore
-    assert len(ran) == 1, (
-        f"{len(ran)} arms ran their command after a restore that did not "
+    assert len(ran) == 2, (
+        f"{len(ran) - 1} arms ran their command after a restore that did not "
         f"land. Every verdict past the first is measured against a mutated "
         f"module and reported as though it were not"
     )
@@ -1271,6 +1275,36 @@ def test_a_separator_the_tokenizer_ignores_does_not_move_a_spliced_arm(label, so
 
 # --- the command that decides the verdict can hang or fail to start -------
 
+# A command that passes against the module as it is and never returns against
+# any mutation of it, because the run against the unmutated module has to
+# pass before a pair is asked at all (#703). It compares the module's bytes
+# with a copy rather than importing it: dropping the unwatched `flag` arm
+# leaves `classify("example.com", ...)` unchanged, so a probe that imports
+# and sleeps on a changed answer would let that pair return, and these cases
+# pin that EVERY pair hangs. `-S` skips `site`, so the passing run starts
+# fast enough to finish inside the bound these cases pass.
+HANGS_ON_A_MUTATION = """\
+import sys
+import time
+
+with open(sys.argv[1], "rb") as a, open(sys.argv[2], "rb") as b:
+    if a.read() != b.read():
+        time.sleep(30)
+"""
+
+# Wide enough for the passing run's interpreter to start on a loaded runner;
+# every pair waits it out, so it is paid four times per case.
+HANG_BOUND = 1.0
+
+
+def hangs_on_a_mutation(module_path):
+    """The command, with the copy and the probe written beside the module."""
+    copy = module_path.parent / "as_it_was.py"
+    copy.write_bytes(module_path.read_bytes())
+    probe = module_path.parent / "hangs_on_a_mutation.py"
+    probe.write_text(HANGS_ON_A_MUTATION, encoding="utf-8")
+    return [sys.executable, "-S", str(probe), str(module_path), str(copy)]
+
 
 def test_a_command_that_never_returns_is_recorded_as_unmeasured(two_arms):
     """Round 1's finding 1, the bounded half.
@@ -1283,22 +1317,22 @@ def test_a_command_that_never_returns_is_recorded_as_unmeasured(two_arms):
     `killed` would read as *a case noticed* and `survived` as *none did*, and
     neither was measured.
 
-    Red how: `timeout=timeout` removed from the `subprocess.run` call hangs
-    this case for 30 seconds per pair instead of failing. Executed — and the
-    run is bounded here by the 0.3s the case passes, not by the default.
+    Red how: `timeout=timeout` removed from the pair's `subprocess.run` call
+    hangs this case for 30 seconds per pair instead of failing. Executed —
+    and the run is bounded here by the bound the case passes, not by the
+    default. The command passes against the unmutated module, so the pairs
+    are what time out and not the run before them.
     """
     module_path, _ = two_arms
     verdicts, refused = ARM.run_arms(
-        str(module_path),
-        [sys.executable, "-c", "import time; time.sleep(30)"],
-        timeout=0.3,
+        str(module_path), hangs_on_a_mutation(module_path), timeout=HANG_BOUND
     )
     # Every pair timed out, so no arm has a verdict from any operator and
     # both are refused rather than reported as survivors.
     assert verdicts == []
     assert len(refused) == 2
     for _arm, why in refused:
-        assert "did not return within 0.3s" in why, (
+        assert f"did not return within {HANG_BOUND}s" in why, (
             f"{why!r} — a timed-out pair has to say it was not measured and "
             f"what bound it, or the report reads as a verdict"
         )
@@ -1313,8 +1347,9 @@ def test_a_spawn_failure_keeps_the_verdicts_already_measured(two_arms):
     no report at all. `bin/test` builds a virtual environment on demand, so a
     mid-run spawn failure is a reachable state rather than a constructed one.
 
-    Driven by making the third of the four calls raise — arm one is fully
-    measured by then, arm two by nothing.
+    Driven by making the fourth of the five calls raise — the first is the
+    run against the module as it is, arm one is fully measured by the
+    fourth, and arm two by nothing.
 
     Red how: deleting the `except OSError` clause raises `OSError` out of
     `run_arms` here and the first arm's two verdicts are lost. Executed."""
@@ -1322,19 +1357,19 @@ def test_a_spawn_failure_keeps_the_verdicts_already_measured(two_arms):
     real_run = ARM.subprocess.run
     calls = []
 
-    def fails_from_the_third_call(cmd, **kwargs):
+    def fails_from_the_fourth_call(cmd, **kwargs):
         calls.append(cmd)
-        if len(calls) >= 3:
+        if len(calls) >= 4:
             raise OSError("Errno 8: Exec format error")
         return real_run(cmd, **kwargs)
 
-    ARM.subprocess.run = fails_from_the_third_call
+    ARM.subprocess.run = fails_from_the_fourth_call
     try:
         verdicts, refused = ARM.run_arms(str(module_path), tests)
     finally:
         ARM.subprocess.run = real_run
 
-    assert len(calls) == 4, "every pair still had its command attempted"
+    assert len(calls) == 5, "every pair still had its command attempted"
     assert [(v.arm.source, sorted(v.by_operator)) for v in verdicts] == [
         ('host == "example.com"', ["invert", "remove"])
     ], "the verdicts taken before the failure are real and must survive it"
@@ -1346,27 +1381,18 @@ def test_a_spawn_failure_keeps_the_verdicts_already_measured(two_arms):
     )
 
 
-# The two commands that reach the no-verdict list with a mutation already on
-# disk. Both were written, run and restored before the arm got there, which is
-# what neither headline line used to say.
-NO_VERDICT_COMMANDS = [
-    (
-        "every pair times out",
-        [sys.executable, "-c", "import time; time.sleep(30)"],
-        0.3,
-    ),
-    ("the command cannot be spawned", ["specseal-no-such-command-xyz"], 900.0),
-]
+# The two doors to the no-verdict list with a mutation already on disk. Both
+# were written, run and restored before the arm got there, which is what
+# neither headline line used to say. Each is a command that passes against
+# the module as it is, because nothing reaches a pair before that run passes
+# (#703): the hang is `hangs_on_a_mutation`, and the spawn failure is a
+# `subprocess.run` that spawns a command that does not exist from its second
+# call on.
+NO_VERDICT_DOORS = ["every pair times out", "the command cannot be spawned"]
 
 
-@pytest.mark.parametrize(
-    "label,tests,timeout",
-    NO_VERDICT_COMMANDS,
-    ids=[c[0] for c in NO_VERDICT_COMMANDS],
-)
-def test_the_report_does_not_call_a_mutated_arm_unmutated(
-    two_arms, label, tests, timeout
-):
+@pytest.mark.parametrize("label", NO_VERDICT_DOORS, ids=NO_VERDICT_DOORS)
+def test_the_report_does_not_call_a_mutated_arm_unmutated(two_arms, monkeypatch, label):
     """Round 2's finding 15. §14 — the report is what a person reads.
 
     An arm reached this list only when `mutate` had no mutation for any
@@ -1382,7 +1408,21 @@ def test_the_report_does_not_call_a_mutated_arm_unmutated(
 
     Red how: either label restored prints `not mutated` or `arms mutated`
     here. Executed on both parameters."""
-    module_path, _ = two_arms
+    module_path, tests = two_arms
+    if label == "every pair times out":
+        tests, timeout = hangs_on_a_mutation(module_path), HANG_BOUND
+    else:
+        timeout = 900.0
+        real_run = ARM.subprocess.run
+        calls = []
+
+        def cannot_spawn_after_the_first_call(cmd, **kwargs):
+            calls.append(cmd)
+            if len(calls) == 1:
+                return real_run(cmd, **kwargs)
+            return real_run(["specseal-no-such-command-xyz"], **kwargs)
+
+        monkeypatch.setattr(ARM.subprocess, "run", cannot_spawn_after_the_first_call)
     before = hashlib.sha256(module_path.read_bytes()).hexdigest()
     loop = []
     verdicts, refused = ARM.run_arms(
@@ -1450,6 +1490,13 @@ def test_the_help_says_the_bound_reaches_the_command_and_not_its_children(capsys
         "and the bound is per operator command, measured at 2.0s for one arm "
         "against a 1-second bound"
     )
+    # #703: the run against the unmutated module comes first, under the same
+    # bound, and a reader typing `--tests` has to know it must pass there.
+    assert "the same bound covers the first run against the unmutated module" in text
+    assert "runs once against the module as it is first and has to pass" in text, (
+        "a `--tests` that does not pass against the module refuses the run, "
+        "and the flag's own help is where a person learns that before typing it"
+    )
 
 
 def test_a_negative_bound_is_refused_rather_than_measured(two_arms, capsys):
@@ -1497,21 +1544,22 @@ def test_a_pair_whose_command_ran_and_answered_nothing_is_not_called_unasked(two
     anything ran, and false for a pair whose command was spawned, waited for
     and killed at the bound.
 
-    Driven by timing out the second of the four calls only, so one arm has a
-    measured operator and an unanswered one.
+    Driven by timing out the third of the five calls only — the first is the
+    run against the module as it is, the third is arm one's `remove` — so one
+    arm has a measured operator and an unanswered one.
 
     Red how: the header restored prints `not asked` here. Executed."""
     module_path, tests = two_arms
     real_run = ARM.subprocess.run
     calls = []
 
-    def times_out_on_the_second_call(cmd, **kwargs):
+    def times_out_on_the_third_call(cmd, **kwargs):
         calls.append(cmd)
-        if len(calls) == 2:
+        if len(calls) == 3:
             raise ARM.subprocess.TimeoutExpired(cmd, kwargs.get("timeout") or 0.3)
         return real_run(cmd, **kwargs)
 
-    ARM.subprocess.run = times_out_on_the_second_call
+    ARM.subprocess.run = times_out_on_the_third_call
     try:
         verdicts, refused = ARM.run_arms(str(module_path), tests)
     finally:
@@ -1618,7 +1666,7 @@ def refusal_line(out):
 def test_a_command_that_does_not_pass_against_the_module_refuses_the_run(
     two_arms, tmp_path, capsys, label, code, said
 ):
-    """#703, S1–S3. A `killed` is a measurement only when the same command
+    """#703, S1 to S3. A `killed` is a measurement only when the same command
     passed against the unmutated module.
 
     `run_arms` read `returncode != 0` as *a case noticed* and ran nothing to

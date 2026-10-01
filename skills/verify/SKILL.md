@@ -118,11 +118,21 @@ from the grammar rather than from a list, and it **refuses an AST node type
 it does not recognise** instead of skipping it — a walk that skips silently is
 the rotted hand count with a shebang on it.
 
+**A `killed` is a measurement only when the command passed without the
+mutation**, so `--tests` runs once against the module as it is before
+anything is written. A `-k` that selects no case, a module path that does not
+exist and a case already failing each exit non-zero whatever the module
+holds, and each used to print `killed` beside every arm. When that first run
+exits non-zero, does not return within `--timeout`, or cannot be spawned, the
+command prints `no baseline:` with the cause and what the command printed,
+writes nothing, measures no arm, and exits 2 — the code it already gives a
+negative `--timeout`.
+
 Two things it does not claim. **A survivor is not automatically a defect:** an
 arm that cannot be constructed, or one whose removal preserves behaviour,
-belongs in the report and is not work anybody owes. And it is **report-only,
-exit 0 either way** — whether an unwatched arm should fail a run is an open
-decision, not an omission.
+belongs in the report and is not work anybody owes. And a measured run is
+**report-only, exit 0 either way** — whether an unwatched arm should fail a
+run is an open decision, not an omission.
 
 ### 3. Bound to the tree
 

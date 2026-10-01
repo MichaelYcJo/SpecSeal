@@ -10,8 +10,11 @@
 #   arm-check hooks/review-history-guard.py --only main --tests "..."
 #
 # With no --tests it lists the arms and mutates nothing. With --tests it
-# mutates each arm in turn, runs that command, and reports the arms nothing
-# kills -- restoring the module from held bytes and comparing the hash after
-# every one. It is report-only: exit 0 whether or not an arm survived.
+# runs that command once against the module as it is, and refuses the run
+# with exit 2 unless it passes there -- nothing written, no arm measured.
+# Then it mutates each arm in turn, runs the command, and reports the arms
+# nothing kills -- restoring the module from held bytes and comparing the
+# hash after every one. A measured run is report-only: exit 0 whether or not
+# an arm survived.
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 exec python3 "$here/../skills/verify/scripts/arm_check.py" "$@"
