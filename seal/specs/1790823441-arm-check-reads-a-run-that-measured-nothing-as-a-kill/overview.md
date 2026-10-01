@@ -23,6 +23,7 @@ before anything is written, and the second clears the mirror the cases read.
 | Cases beyond S1–S9 | spec §Scope 6 lists S1–S5, S8, S9 | three more: the first run is in `--cwd`, it runs whatever the arms are, a timeout carries what was printed | Each pins a unit a mutation left green against S1–S6 (`phases/phase-1.md`, M5, M14, M15) |
 | The cache case's probe | spec §Scope 5 shifts the case's count by one | the count shifted, and the probe also leaves a `.pyc` behind after each observation | The first run's clear removed the planted cache before any arm, so the per-arm clear was watched by nothing (mutation P0, `phases/phase-2.md`) |
 | Where Q3's figures go | `questions.md` Q3 says *for the ledger row R1's notes* | R2's notes | R2 is the row about what the first run costs and how it is bounded; R1 is about the refusal |
+| Round 1's 🟡 1 fix | the report's paste-ready block reads the module inside the `try` whose `except OSError` reports a spawn failure | each outcome recorded in its own `except`, the put-back in a `finally` beside them, a module that cannot be read counted as changed | In the report's shape a module the cases removed raises `FileNotFoundError` from the read, which that `except` reports as the command failing to start, under *Nothing was written*. The case's `removes it` parameter holds the difference |
 
 ## Not verified
 
@@ -30,7 +31,7 @@ before anything is written, and the second clears the mirror the cases read.
 |---|---|
 | S11 — `tests/test_a_mutation_clears_one_files_bytecode_and_ends_at_a_timeout.py` green on the tree holding both this branch and #641's, and `mutation_check.py`'s three `clear_bytecode_cache(path)` calls given `cwd=cwd` (`questions.md` Q1) | the orchestrator of whichever branch lands second on `release/v0.17.0`, with that module's narrow run |
 | The full suite, the repository-wide lint and the typecheck | the orchestrator, through the sealer after the review rounds settle |
-| S10's two CI legs, `arm-check-grammar (3.13)` and `(3.14)`, and the Windows leg of `pytest`, which runs this module under `-n auto` with `HANG_BOUND` and the mtime pin | the pull request's checks |
+| S10's two CI legs, `arm-check-grammar (3.13)` and `(3.14)`, and the Windows leg of `pytest`, which runs this module under `-n auto` with `HANG_BOUND` and the mtime pin, and where round 1's 🟡 2 meets a real cp1252 pipe (reproduced here only through `PYTHONIOENCODING`) | the pull request's checks |
 
 ## Not done
 
@@ -39,14 +40,20 @@ before anything is written, and the second clears the mirror the cases read.
   adds them.
 - **An interrupt arm in `main`, and a catch-all exiting 2** (#641's 🟡 3 and
   its interrupt sentence). Out of scope under spec §Scope *Out* and J9. The
-  first run sits before the restoring `try`, so an interrupt there leaves
-  nothing written. What a person reads then is Python's traceback.
+  first run sits before the loop's restoring `try`, and its own `finally`
+  puts back only what the command changed, so an interrupt there leaves the
+  module as it was read. What a person reads then is Python's traceback.
 - **#312, #313, #314, #687.** These are different classes in the same file
   (J10). The first run's bound reaches only the direct child, as #313 says of
-  a pair's bound.
-- **The pairs' `text=True`.** Their output is never shown, so the strict
-  decode reaches a person only as a traceback from a suite printing
-  non-UTF-8 under a mutation. That cause predates this item.
+  a pair's bound. Round 1's ⬜ 7, a command that exits 0 and leaves a child
+  holding the pipe, is refused as *did not return*, and it went to #313.
+- **The pairs' `text=True`** was listed here as predating this item. Round 1's
+  🟡 3 contested that on §12's grounds: the class is captured output decoded
+  strictly, and this branch had already fixed the other member. It is fixed.
+- **The stdout `errors="replace"` in the entry block is held by no case.**
+  Under UTF-8 only a lone surrogate fails strictly, and one reaches stdout
+  only through a module path that is not UTF-8, which this machine's APFS
+  cannot create. The value is the copy five other skill scripts carry.
 
 ## Fed back into the spec
 
