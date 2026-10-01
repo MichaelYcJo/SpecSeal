@@ -502,3 +502,84 @@ def declared_mode(home):
                 return "none", ""
             return ("mode", lowered) if lowered in MODES else ("unknown", value)
     return "none", ""
+
+
+# --- the reference roots (#688) -------------------------------------------
+#
+# A project may have kept its own `specs/` before the plugin arrived. The
+# plugin writes only to its own root and reads every other directory named
+# `specs` as history: a REFERENCE ROOT, read when a change touches what it
+# describes and never moved, edited, absorbed or deleted. The checks that read
+# a record ask `under_reference_root` before they read a path, so none of them
+# carries a test of its own (`templates/config.md` §*Reference specs*).
+
+REFERENCE_ROW = "Reference specs"
+NO_REFERENCE = "none"
+# The directory name the default reads as a reference root at any depth.
+REFERENCE_NAME = "specs"
+# The plugin's own root in the tree, `hooks/optin.py#HOME`. Spelled here so
+# this reader needs no second sibling, and held equal to that one by
+# `tests/test_a_reference_root_is_read_and_never_taken.py`.
+HOME = "seal"
+
+
+def inside_the_root(rel):
+    """True when the `/`-joined repository-relative `rel` is the plugin's own
+    root or under it — never a reference root, whatever a row says."""
+    return rel == HOME or rel.startswith(HOME + "/")
+
+
+def reference_roots(home):
+    """The repository-relative directories `<home>/config.md`'s
+    `Reference specs` row names, as a tuple; `()` for `none`; or None, the
+    default — every directory named `specs` outside the plugin's root.
+
+    The value is comma-separated prefixes, each with or without a trailing
+    `/` or a leading `./`. No root, no file, no such row, an empty value or
+    a file that will not read all mean the default, which is what every
+    repository got before the row existed. A prefix naming the plugin's own
+    root or anything under it is dropped: a reference root is outside the
+    root by definition, and the root's records are read whatever the row
+    says."""
+    if not home:
+        return None
+    try:
+        with open(config_path(home), encoding="utf-8") as handle:
+            text = handle.read()
+    except (OSError, ValueError):
+        return None
+    for item, value in config_rows(text):
+        if item != REFERENCE_ROW:
+            continue
+        if not value:
+            return None
+        if value.lower() == NO_REFERENCE:
+            return ()
+        out = []
+        for entry in value.split(","):
+            prefix = entry.strip().replace("\\", "/")
+            while prefix.startswith("./"):
+                prefix = prefix[2:]
+            prefix = prefix.strip("/")
+            if prefix and not inside_the_root(prefix) and prefix not in out:
+                out.append(prefix)
+        return tuple(out)
+    return None
+
+
+def under_reference_root(rel, roots):
+    """True when the repository-relative path `rel` is a reference root or
+    under one. `roots` is `reference_roots`' answer: None reads the default —
+    any directory named `specs` on the path, outside the plugin's root — and
+    a tuple reads its prefixes alone.
+
+    A predicate on a TREE path, so local mode needs no arm of its own: its
+    root is under the git directory and never in the tree, and every `specs`
+    the tree holds is outside it."""
+    parts = [p for p in rel.replace("\\", "/").split("/") if p and p != "."]
+    if not parts or inside_the_root(parts[0]):
+        return False
+    if roots is None:
+        return REFERENCE_NAME in parts
+    joined = "/".join(parts)
+    return any(joined == p or joined.startswith(p + "/") for p in roots)
