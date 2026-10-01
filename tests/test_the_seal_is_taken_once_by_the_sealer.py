@@ -2881,9 +2881,20 @@ def test_no_value_on_the_panel_is_wider_than_the_frame_gives(tmp_path):
         ),
     )
     values = [row[1] for row in rows if row]
-    assert rows[-1][1].startswith("3 deferred -> seal/") and rows[-1][1].endswith(
-        gate.ELISION
-    ), rows[-1]
+    # Round 1's 🟡 1, the owner's Q1 answer: a list continues on the rows
+    # beneath its label rather than losing its tail to `...`. Only a branch
+    # and a ref, which have no bound, are elided.
+    at = next(i for i, row in enumerate(rows) if row and row[0] == "rounds")
+    beneath = " ".join(value for _label, value in rows[at + 1 :])
+    for home in ("seal/follow-up.md", "#12345", "#12346"):
+        assert home in beneath, beneath
+    assert all(label == "" for label, _value in rows[at + 1 :]), rows[at:]
+    assert "67890 skipped" in " ".join(values), values
+    assert "12 xfailed" in " ".join(values), values
+    elided = [
+        v for v in values if v.endswith(gate.ELISION) or v.startswith(gate.ELISION)
+    ]
+    assert len(elided) == 2, f"only the branch and the ref are elided: {elided}"
     assert all(len(v) <= gate.PANEL_VALUE_WIDTH for v in values), [
         v for v in values if len(v) > gate.PANEL_VALUE_WIDTH
     ]
@@ -2899,12 +2910,42 @@ def test_no_value_on_the_panel_is_wider_than_the_frame_gives(tmp_path):
     assert "/v1.2.3-hotfix" in drawn, "the ref's tail did not survive the frame"
 
 
+def test_a_list_too_long_for_its_row_continues_beneath_it():
+    """Round 1's 🟡 1. `wrapped` breaks a list after a separator, keeps the
+    separator at the end of the row it leaves, and puts the rest on `""`
+    rows; a list that fits stays one row, at the frame's full width; and one
+    part wider than the frame is the only thing `fit` elides."""
+    gate = gate_module()
+    assert gate.wrapped(
+        "suite", ["12345 passed", ", 67890 skipped", ", 12 xfailed"]
+    ) == [
+        ("suite", "12345 passed,"),
+        ("", "67890 skipped,"),
+        ("", "12 xfailed"),
+    ]
+    assert gate.wrapped("suite", ["5081 passed", ", 10 skipped"]) == [
+        ("suite", "5081 passed, 10 skipped")
+    ]
+    assert gate.wrapped("", ["3 deferred ->", " seal/follow-up.md", ", #664"]) == [
+        ("", "3 deferred ->"),
+        ("", "seal/follow-up.md, #664"),
+    ]
+    assert gate.wrapped("", ["1 deferred ->", " " + "x" * 30]) == [
+        ("", "1 deferred ->"),
+        ("", gate.fit("x" * 30)),
+    ]
+
+
 @pytest.mark.parametrize(
     "suite, rows",
     [
         (
             "768 passed, 1 skipped in 9.1s\n",
             [("suite", "768 passed, 1 skipped"), ("", "exit 0")],
+        ),
+        (
+            "12345 passed, 67890 skipped in 9.1s\n",
+            [("suite", "12345 passed,"), ("", "67890 skipped"), ("", "exit 0")],
         ),
         ("no summary here\n", [("suite", "exit 0")]),
     ],
@@ -3033,6 +3074,22 @@ def test_the_documents_say_where_the_panel_now_carries_each_name():
         sealer
     )
     assert "a stamp with no `gate` row was measured by the copy you invoked" in sealer
+    # Round 1's 🟡 4 and ⬜ 5: the third arm, which fires on every seal an
+    # installed copy older than #666 redirects, because it hands over no
+    # invoked path to compare against.
+    assert "or where nothing told it which copy you invoked" in sealer
+    assert (
+        "or where the tree's copy ran with no invoked copy named to compare against"
+    ) in broad
+    item = "1790815615-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run"
+    changelog = " ".join(
+        read_document(os.path.join("seal", "specs", item, "changelog.md")).split()
+    )
+    assert "or where nothing told it which copy was invoked" in changelog
+    source = read_document(os.path.join("skills", "verify", "scripts", "broad_gate.py"))
+    above = source.split("GATE_REL = ", 1)[0][-1500:].splitlines()
+    comment = " ".join(" ".join(line.lstrip("# ") for line in above).split())
+    assert "or where no invoked copy was handed over to compare" in comment
     # Phase 3's row.
     assert (
         "`rounds` row reads `<R> . capped` where the last record's `Needs a fix`"
@@ -3120,7 +3177,12 @@ def rounds_of(tmp_path, text, rounds=3):
                     "| 🟡 3 | c | `f.py:3` | deferred #664 | why |\n"
                 )
             ),
-            [("rounds", "3 . capped"), ("", "3 deferred -> seal/follow-up.md, #664")],
+            # Too long for one row: it continues beneath (round 1's 🟡 1).
+            [
+                ("rounds", "3 . capped"),
+                ("", "3 deferred ->"),
+                ("", "seal/follow-up.md, #664"),
+            ],
         ),
         # A bare `deferred` is counted and names no home.
         (
@@ -3184,6 +3246,34 @@ def test_the_home_is_read_off_the_cell_after_the_word(tmp_path):
         ("fixed abc1234", None),
     ):
         assert gate.deferred_home(chain, cell) == home, cell
+
+
+@pytest.mark.parametrize(
+    "cell, home",
+    [
+        ("deferred #664", "#664"),
+        ("**deferred** #664.", "#664"),
+        ("deferred to #664", "#664"),
+        ("deferred → #664", "#664"),
+        ("deferred (#664)", "#664"),
+        ("deferred — issue #97 already holds this axis", "#97"),
+        ("deferred `seal/follow-up.md`", "seal/follow-up.md"),
+        ("deferred [#664](https://example.com/664)", "#664"),
+        ("deferred phase 9 of this branch", "phase 9 of this branch"),
+        ("deferred → later", "later"),
+    ],
+)
+def test_a_deferrals_home_is_read_whole(cell, home):
+    """Round 1's 🟡 2, over the shapes the tree's records and a person
+    write: the home is an issue or a path wherever it stands, and the words
+    where it is neither, never the first word alone — and what reaches the
+    panel is ASCII, because the letter twin is for a console that is not
+    UTF-8."""
+    gate, chain = gate_module(), check_module()
+    assert chain.verdict_of([cell], 0) == chain.DEFERRED, cell
+    found = gate.deferred_home(chain, cell)
+    assert found == home, (cell, found)
+    assert found.isascii(), found
 
 
 def test_a_capped_run_is_sealed_with_its_deferral_on_the_stamp(repo, tmp_path):

@@ -80,9 +80,11 @@ predates the change (#475). Now, where the repository being gated ships
 gate hands the run to that copy with the same arguments and says so on
 stderr; every run prints one line naming the copy that ran, `tree <version>`
 or `plugin <version>`. The stamp carries a `gate` row only where the copy
-that ran is not byte for byte the copy you invoked: `tree <version>` there
-means the branch was measured by the gate it ships, and a stamp with no
-`gate` row was measured by the copy you invoked (#666). Quote the gate line
+that ran is not byte for byte the copy you invoked, or where nothing told
+it which copy you invoked — the tree's copy run directly, or an installed
+copy older than #666: `tree <version>` there means the branch was measured
+by the gate it ships, and a stamp with no `gate` row was measured by the
+copy you invoked (#666). Quote the gate line
 in your report the way you quote the moved-base line: it is not a warning
 and not a refusal, and it is the one place a reader learns which gate
 measured the tree and wrote the stamp's values.

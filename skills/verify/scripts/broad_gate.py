@@ -263,6 +263,31 @@ def fit(value, keep="head"):
     return ELISION + value[-room:] if keep == "tail" else value[:room] + ELISION
 
 
+def wrapped(label, pieces):
+    """A list on as many panel rows as it needs: the first row under `label`,
+    the rest as `""` rows beneath it (round 1's 🟡 1 of #666).
+
+    The owner chose continuation rows over a wider panel (`questions.md`
+    Q1), so a list of counts or homes continues rather than losing its tail
+    to `...`; only a branch or a ref, which have no bound, are elided. Each
+    piece but the first carries the separator that joins it to the one
+    before (`", #664"`). A row is broken before a piece that would not fit,
+    and keeps that separator's comma at its end so the reader sees the list
+    goes on — one column is held back for it on every piece but the last.
+    One piece wider than the frame by itself is still elided by `fit`."""
+    rows, line = [], ""
+    for n, piece in enumerate(pieces):
+        room = PANEL_VALUE_WIDTH - (0 if n == len(pieces) - 1 else 1)
+        if line and len(line + piece) > room:
+            lead = piece[: len(piece) - len(piece.lstrip(", "))]
+            rows.append(line + lead.rstrip())
+            line = piece.lstrip(", ")
+        else:
+            line += piece
+    rows.append(line)
+    return [(label if n == 0 else "", fit(row)) for n, row in enumerate(rows)]
+
+
 # pytest's short-summary line for a failed test, `FAILED path::name - why`,
 # printed under `-q` too. The file is what the base comparison re-runs.
 FAILED_RE = re.compile(r"^FAILED\s+(\S+?)::", re.M)
@@ -341,7 +366,9 @@ def branch_name(root):
 # `main` runs it in place of this file, with the same argument vector, and
 # says so; every run's stderr names which copy ran, `tree` or `plugin`, with
 # its version, and the panel's `gate` row says `tree <version>` where that
-# copy's bytes differ from the one the caller invoked (#666, `gate_copy`). A
+# copy's bytes differ from the one the caller invoked, or where no invoked
+# copy was handed over to compare — the tree's copy run directly, or
+# redirected by an installed copy older than #666 (`gate_copy`). A
 # tree that breaks an arm seals itself — that is the stated cost, named on
 # the stamp by `tree` and caught at the pull request by the same scripts.
 
@@ -2184,9 +2211,11 @@ def workflow_text(root):
         return None
 
 
-def unanswered(text, given=None):
+def unanswered(text, given):
     """The steps CI runs for this base (`steps_for`) that this run answers
-    nothing for, in file order.
+    nothing for, in file order. `given` is required, here and in
+    `coverage_line` (round 1's 🟡 3 of #666): a default answered every caller
+    that dropped it with the feature-base count, in silence.
 
     A step no row classifies counts here too, and that is the honest answer
     rather than an oversight: in another repository whose workflow happens to
@@ -2196,7 +2225,7 @@ def unanswered(text, given=None):
     return [step for step in steps_for(text, given) if step not in arms]
 
 
-def coverage_line(text, given=None):
+def coverage_line(text, given):
     """One line naming the steps this seal did not answer, or None.
 
     **Over the steps CI runs for this base** (#666, `steps_for`), and one
@@ -2367,6 +2396,12 @@ def sealed_record(item, root):
     return Record(path, rows, lines, generator.chain, reader)
 
 
+# What a home looks like inside a deferral's prose: an issue, or a path.
+HOME_TOKEN = re.compile(r"#\d+|[\w.-]+(?:/[\w.-]+)+|[\w.-]+\.md\b")
+# Where a home written as words ends: a spaced dash, or a sentence's stop.
+HOME_END = re.compile(rf" [{chr(0x2014)}{chr(0x2013)}-] |\. ")
+
+
 def deferred_home(chain, cell):
     """The home a `deferred <home>` verdict cell names, or None.
 
@@ -2374,13 +2409,29 @@ def deferred_home(chain, cell):
     it answers *is this closed*, and the home is not part of that answer — so
     the home is read here off the same cell, after the same normalisation
     (`EMPHASIS`, `MARKER`) and up to the same separators (`SEPARATORS`), and
-    only for a row `verdict_of` already called `deferred`. Its first word is
-    the home: `#664`, or a path such as `seal/follow-up.md`."""
+    only for a row `verdict_of` already called `deferred`.
+
+    **An issue or a path anywhere in what follows is the home** (round 1's
+    🟡 2 of #666): the tree writes `deferred — issue #97 already holds…` and a
+    person types `deferred to #664` or `deferred → #664`, and the first word
+    after `deferred` was `issue`, `to` and `→`. Where there is neither, the
+    words up to the first spaced dash or full stop are the home, so `phase 9
+    of this branch` prints whole rather than as `phase`. What is returned is
+    ASCII, because the letter twin exists for a console that is not UTF-8:
+    leading punctuation goes (`MARKER`), and anything else outside ASCII
+    reads `?`, the way such a console would print it."""
     s = chain.MARKER.sub("", chain.EMPHASIS.sub("", cell).strip())
     if not s.lower().startswith(chain.DEFERRED):
         return None
     rest = s[len(chain.DEFERRED) :].strip(chain.SEPARATORS)
-    return rest.split()[0].rstrip(".,;") if rest else None
+    found = HOME_TOKEN.search(rest)
+    if found:
+        home = found.group(0)
+    else:
+        words = chain.MARKER.sub("", rest)
+        home = HOME_END.split(words, maxsplit=1)[0] if words else ""
+    home = home.rstrip(".,;:)")
+    return home.encode("ascii", "replace").decode("ascii") or None
 
 
 def rounds_rows(item, record):
@@ -2432,8 +2483,11 @@ def rounds_rows(item, record):
         count += 1
     rows = [("rounds", head)]
     if count:
-        tail = f" -> {', '.join(homes)}" if homes else ""
-        rows.append(("", f"{count} deferred{tail}"))
+        if homes:
+            pieces = [f"{count} deferred ->", f" {homes[0]}"]
+            rows += wrapped("", pieces + [f", {home}" for home in homes[1:]])
+        else:
+            rows.append(("", f"{count} deferred"))
     return rows
 
 
@@ -2502,9 +2556,11 @@ def panel(
     `seal_stamp.letter` gives a value `PANEL_VALUE_WIDTH` columns and cuts at
     the frame with no marker, and the owner chose continuation rows over a
     wider stamp (`questions.md` Q1). So a name goes on the row under its
-    label, where it has the whole width, and every value passes through
-    `fit` on the way out: a branch keeps its HEAD, whose issue number is what
-    a reader matches to a ticket, and a ref keeps its TAIL, because for the
+    label, where it has the whole width; a list — the suite's counts, the
+    deferred homes — continues on further rows (`wrapped`, round 1's 🟡 1);
+    and every value passes through `fit` on the way out, which elides only a
+    name: a branch keeps its HEAD, whose issue number is what a reader
+    matches to a ticket, and a ref keeps its TAIL, because for the
     `origin/<base>` a runner reads the prefix is the part a reader can infer.
     Where step 1 lands on a second remote the prefix is NOT inferable, and the
     line the gate prints is what names that ref in full — it fires whenever
@@ -2542,7 +2598,14 @@ def panel(
     rows.append(None)
     counts = suite_counts(checks[SUITE].text)
     exit_row = f"exit {checks[SUITE].code}"
-    rows += [(SUITE, counts), ("", exit_row)] if counts else [(SUITE, exit_row)]
+    if counts:
+        first, *more = counts.split(", ")
+        rows += [
+            *wrapped(SUITE, [first, *(f", {part}" for part in more)]),
+            ("", exit_row),
+        ]
+    else:
+        rows.append((SUITE, exit_row))
     ledger = ledger_counts(checks[LEDGER].text)
     if ledger:
         ok, drifted, broken = ledger

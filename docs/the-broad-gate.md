@@ -106,8 +106,10 @@ installs the plugin — runs exactly as before. The symmetric cost, a tree
 that breaks an arm and passes itself, is named rather than dismissed: one
 stderr line names the running copy's path and reads `tree <version>` or
 `plugin <version>`, the panel's `gate` row reads `tree <version>` wherever
-the copy that ran is not byte for byte the copy invoked, and the pull
-request asks the same scripts again. The row prints nowhere else: on every
+the copy that ran is not byte for byte the copy invoked, or where the tree's
+copy ran with no invoked copy named to compare against — invoked directly,
+or redirected by an installed copy older than #666 — and the pull request
+asks the same scripts again. The row prints nowhere else: on every
 redirected seal of a tree whose gate the branch did not change it said the
 same thing and was read by nobody (#666).
 Enforced by: tests/test_the_seal_is_taken_once_by_the_sealer.py

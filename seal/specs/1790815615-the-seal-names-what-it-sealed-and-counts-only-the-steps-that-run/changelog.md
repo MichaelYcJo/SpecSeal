@@ -3,17 +3,22 @@
 - The sealer's stamp names what it sealed (#666). Its panel carries the
   branch on the row under `tree`, the ref the base came from on the row under
   `base`, and an `item` row with the pull request and the work item's id
-  (`#659 . 1790635412`). The panel keeps its width: a name too long for its
-  row is elided with `...`, the branch keeping its head and the ref its tail,
-  and no value is cut at the frame. The `from` row is gone, and so is `row`:
-  the exit code the repository's row came back with now sits under the
-  suite's counts. The `ledger` row shows `drifted` beside `broken` on the row
-  beneath its `ok`. The `gate` row prints only where the copy of the gate that
-  ran is not byte for byte the copy that was invoked, so a stamp from a seal
-  whose branch did not change the gate no longer carries it; every run still
+  (`#659 . 1790635412`). The panel keeps its width: a branch or ref name too
+  long for its row is elided with `...`, the branch keeping its head and the
+  ref its tail; a list too long for one row — the suite's counts, the
+  deferred findings' homes — continues on the rows beneath, and no value is
+  cut at the frame. The `from` row is gone, and so is `row`: the exit code
+  the repository's row came back with now sits under the suite's counts. The
+  `ledger` row shows `drifted` beside `broken` on the row beneath its `ok`.
+  The `gate` row prints only where the copy of the gate that ran is not byte
+  for byte the copy that was invoked, or where nothing told it which copy was
+  invoked — the tree's copy run directly, or redirected by an installed copy
+  older than this change — so a stamp from a seal whose branch did not change
+  the gate, run through a current copy, no longer carries it; every run still
   names its copy on stderr. `rounds` says `capped` where the run ended at the
   cap, with the deferred findings and their homes on the row beneath
-  (`2 deferred -> #664`). `seal-stamp`'s sample shows every row the gate can
+  (`2 deferred -> #664`), a home being the issue or the file the verdict
+  names wherever it stands in the cell. `seal-stamp`'s sample shows every row the gate can
   print, and no longer says `lint clean`.
 
 - The `SEALED` and `NOT SEALED` lines, and the label above a drawn stamp,

@@ -832,7 +832,7 @@ def test_a_step_no_row_classifies_is_not_said_to_carry_a_reason():
     workflow that repository does not run. A reader who follows the pointer
     finds somebody else's list and no answer, which is the reconstruction
     from two files this work item exists to remove, one level further out."""
-    said = gate.coverage_line(UNCLASSIFIED_WORKFLOW)
+    said = gate.coverage_line(UNCLASSIFIED_WORKFLOW, "base")
     assert "deploy to staging" in said, said
     with_reasons = said.split("no arm mirrors it in", 1)
     assert len(with_reasons) == 1 or "deploy to staging" not in with_reasons[1], (
@@ -847,7 +847,7 @@ def test_a_step_a_row_excludes_is_still_pointed_at_its_reason():
     deleting the pointer. A step the partition DOES exclude carries a written
     reason, and naming where it is written is the whole of `spec.md` §Scope
     5."""
-    said = gate.coverage_line(read(HYGIENE))
+    said = gate.coverage_line(read(HYGIENE), "base")
     assert "no arm mirrors it in `broad_gate.py#PARTITION`" in said, said
     assert "both READMEs move together" in said.split("no arm mirrors it in", 1)[1]
     assert "no row of `broad_gate.py#PARTITION` at all" not in said, said
@@ -883,7 +883,7 @@ def test_the_two_clauses_render_together_and_hold_the_right_names():
     reviewer called this a coverage note rather than a defect. It is still
     the sentence that goes wrong if either clause ever learns to claim the
     other's steps."""
-    said = gate.coverage_line(MIXED_WORKFLOW)
+    said = gate.coverage_line(MIXED_WORKFLOW, "base")
     assert "runs 3 steps for this base and this seal answers 1" in said, said
 
     reasoned, _, unknown = said.partition(
@@ -995,6 +995,13 @@ def test_a_release_pull_request_is_sealed_as_ci_would_judge_it(tmp_path):
     assert SKIPPED_LINE in result.stderr.splitlines(), result.stderr
     for arm in gate.SKIPPED_AT_MAIN:
         assert not (keep / f"{arm}.txt").exists(), f"the `{arm}` arm ran"
+    # Round 1's 🟡 3, through the gate: the coverage line is keyed on the
+    # base it was given, so at `main` it leaves out the two skipped steps
+    # rather than counting them answered by arms that did not run.
+    assert (
+        "2 more are steps CI skips on a pull request into `main`, so this "
+        "count leaves them out."
+    ) in result.stderr, result.stderr
 
 
 def test_the_same_branch_against_its_release_branch_is_not_sealed(tmp_path):
@@ -1133,6 +1140,16 @@ def test_one_reading_says_whether_the_base_is_main(given, main):
     """S5's `base_is_main`: the one reading `skipped_at_main` and the count
     share, keyed on the spelling with one leading `origin/` removed."""
     assert gate.base_is_main(given) is main
+
+
+def test_the_count_cannot_be_asked_without_a_base():
+    """Round 1's 🟡 3: a caller that drops the base gets a `TypeError` rather
+    than the feature-base answer in silence, so the merge that rewrote the
+    gate's coverage call could not lose its argument unnoticed."""
+    text = read(HYGIENE)
+    for unit in (gate.unanswered, gate.coverage_line):
+        with pytest.raises(TypeError):
+            unit(text)
 
 
 FEATURE_UNANSWERED = (
