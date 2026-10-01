@@ -37,7 +37,9 @@ row). A commit by a person at their own terminal is not judged (P2, answer
 lease directory exists. `reference-transaction` judges only `prepared` with
 `GIT_AUTHOR_DATE` exported, which phase 1's M12 measured as the one thing every
 `git commit` hands the hook and no merge, reset, cherry-pick, rebase or pull
-does, on git 2.34.1, 2.39.5, 2.43.0 and 2.50.1. `post-checkout` acts only on a
+does, on git 2.34.1, 2.39.5, 2.43.0 and 2.50.1. `GIT_REFLOG_ACTION` is no
+such criterion: `git commit` never sets it, and cherry-pick and revert set it
+on 2.34.1 alone. `post-checkout` acts only on a
 creation, whose previous HEAD git passes as the null object id (M3).
 """
 

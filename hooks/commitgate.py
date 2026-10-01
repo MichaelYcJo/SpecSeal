@@ -5,6 +5,10 @@ backstop, and `post-commit`'s notice (#692).
 drive one hook in-process and the stubs run the same code from a shell. What
 each hook reads, and why each reading is the right one, is in those files'
 docstrings; what is judged is `hooks/gate.py`'s.
+
+Nothing here reads `GIT_DIR`. git does not export it to `pre-commit`,
+`post-commit` or `post-checkout` (phase 1's M4, on 2.50.1), so every reading
+asks `git rev-parse` in the working directory git gave the hook.
 """
 
 import hashlib
