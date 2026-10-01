@@ -27,7 +27,7 @@ the output is collected, and the collection waits for every holder of the
 pipe. A process that started a session of its own is outside the group, so
 the kill does not reach it and it holds the pipe for as long as it runs.
 That is the 32-minute shape again, moved past the bound. So the collection
-is bounded too, `REAP_TIMEOUT` (5 s), after which the pipe is closed and the
+is bounded too, `REAP_TIMEOUT` (5 s; NAME NOT IN TREE since round 1's fix pass, which moved the wait onto the process and removed it), after which the pipe is closed and the
 process reaped. The GROUP verdict text was overclaiming that case (*nothing
 it started outlives this line*), and now names the exception. A case pins
 both halves, with the bound shortened to 0.5 s so it does not cost five

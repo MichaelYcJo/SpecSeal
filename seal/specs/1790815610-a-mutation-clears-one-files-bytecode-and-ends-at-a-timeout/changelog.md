@@ -1,7 +1,9 @@
 ### Added
 
 - **`mutation-check`: one command runs one mutation of one unit.** It refuses
-  a replacement that does not occur exactly once, writes the break, removes
+  a replacement that does not occur exactly once, runs the cases against the
+  file as it is and stops with `no baseline` if they already fail (so a `-k`
+  that selects nothing can never read as caught), writes the break, removes
   only that file's cached bytecode (every interpreter tag, wherever the file
   lives), runs the cases you name under a bound (300 s by default), restores
   the file from the bytes it held and compares the hash, and prints `red`,

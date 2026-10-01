@@ -22,6 +22,7 @@ run that hangs, and restores from held bytes.
 | `tests/test_arm_check.py` | Spec C2: `arm_check.py` is not edited and the test module stays green; silent on editing the test module / two plants switch bytecode writing on | Code | §12: the class the command made reachable has three members and two are there. `arm_check.py` itself is untouched |
 | Refusals | Spec: a replacement that does not land exactly once / also an empty OLD, a NEW identical to OLD, a non-UTF-8 file, and a `--tests` naming no command | Code | Each would otherwise print a verdict nobody measured. `phases/phase-1.md` §*Q3* |
 | The changelog's `### Changed` bullet | Spec: *That clear recompiled every test module on every mutated run* / the bullet says the clear removed valid caches and missed the stale one; a `### Fixed` bullet added for the two `arm-check` cases | Measurement | The third row above |
+| What a red means | Spec S7 and §*Failure direction*: red is *a `--tests` that fails against the mutant*, and the two ways to read red wrongly are a stale cache and a restore that did not land / round 1 found a third, the common one: any non-zero exit read red, so a `-k` that selects nothing did too. The cases now run against the file as it is first, and a failure there is `no baseline` | Review | Round 1 🔴 1; L7. Each call runs the cases twice, which L5's figures predate |
 | Spec M9's stamp | `## Phases` of `agents/smith.md` at hash `cede28c2` / re-stamped to the hash the rows now hold, with a `Corrected` note keeping the framer's reading | Correction | `evidence-check`'s records arm reads the stamp, and phase 3's edit moved it |
 
 ## Not verified
@@ -39,12 +40,19 @@ asks for the Ctrl-C and Windows decisions on purpose; `mutation_check.py`
 now holds a group bound beside `run_arms`' to fold into it. The warden's
 definition does not name the command (spec §*Scope*, out). There is no copy
 of the original on disk (#312). The README cheat sheet does not list the
-command (`questions.md` Q2, decided in phase 3).
+command (`questions.md` Q2, decided in phase 3). A relative
+`PYTHONPYCACHEPREFIX` together with a `--cwd` other than the shell's is
+cleared under the wrong mirror (round 1 ⬜ 7, read, not run): the defect is in
+`arm_check.py#clear_bytecode_cache`, which this work item keeps unedited, and
+`arm-check --cwd` reaches it the same way, so it predates the branch.
 
 ## Fed back into the spec
 
 *Inferred during implementation*: a case that needs a `.pyc` to exist writes
 it itself, because the cases a mutation loop runs inherit
 `PYTHONDONTWRITEBYTECODE=1` (`skills/verify/SKILL.md`, the new section; L6).
-And the output collection after a group kill is bounded, because a process
-that left the group holds the pipe (`REAP_TIMEOUT`; L2).
+And a run's wait is on the process, with the output in a temporary file,
+because anything the cases leave behind can hold a pipe open past their exit
+(L2; round 1 found it, and the bounded collection phase 2 had added for the
+same hazard is gone). And a red means anything only when the cases passed
+against the file as it is first (L7; round 1).
