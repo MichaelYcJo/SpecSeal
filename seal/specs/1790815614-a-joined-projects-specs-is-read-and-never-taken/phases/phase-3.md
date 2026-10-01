@@ -4,7 +4,7 @@
 |---|---|
 | Phase | 3 |
 | Commit | e3ebaf0b |
-| Ran by | unknown — the spawn prompt named the agent (`smith`) and no model; the orchestrating session fills this row |
+| Ran by | specseal:smith on claude-opus-5-5 — set by the orchestrator, which spawned it with that model and did not name it in the prompt |
 
 ## What this phase was asked
 
