@@ -4614,6 +4614,184 @@ def test_the_check_returns_after_the_last_refusal_and_before_the_write():
     assert earlier, "no refusal stands above the `--check` return"
 
 
+# --- 1790835051: the preflight asks `seal`'s refusals (#702) -----------------
+#
+# Under `--preflight`, after the record arms, the gate runs `seal --check` for
+# the work item declared for the checked-out branch, keeps its output as
+# `seal.txt`, and names `seal` under `PREFLIGHT FAILED` where it refused. A
+# skipped ask is a missing `seal.txt` and one stderr line, never a pass.
+
+RECORD_FILE = f"{ITEM}/rounds/round-{{n}}.md"
+
+
+def preflight(repo, tmp_path, row=None):
+    """The preflight over `repo`, with a session set so a values file would
+    land where `values_files` looks. `row`, where given, is committed as the
+    `Broad gate` row first."""
+    if row is not None:
+        set_row(repo, row)
+    keep = tmp_path / "out"
+    return run_gate(repo, "--preflight", keep=keep, session="s-1"), keep
+
+
+def marker_row():
+    """A row that leaves a file behind and fails, so a row that ran is
+    evidence the gate did not write."""
+    return f"{sys.executable} -c \"open('{ROW_RAN}', 'w')\" && exit 1"
+
+
+def asked_line(home, outcome):
+    """The ask's stderr line, naming `home` — the record `seal --check` read
+    where it passed, the work item where it refused."""
+    gate = gate_module()
+    return gate.PREFLIGHT_ASKED.format(home=home, branch="`feature`", outcome=outcome)
+
+
+def assert_refused_at_seal(out, keep, said):
+    """The preflight's verdict where `seal --check` refused: exit 1, the
+    preflight's own head, `seal` among the failing checks in the failure
+    form's words, and `seal`'s sentence in the kept file."""
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert out.stdout.startswith("PREFLIGHT FAILED"), out.stdout
+    assert re.search(r"^\s+seal\s+exit 2", out.stdout, re.M), out.stdout
+    assert "seal.txt" in out.stdout, "the failure form names no file for `seal`"
+    assert no_seal_line(out.stdout), out.stdout
+    text = (keep / "seal.txt").read_text(encoding="utf-8")
+    assert text.startswith("$ ") and "--check" in text.splitlines()[0], text
+    assert "\nexit 2\n" in text, text
+    assert said in text, text
+    assert not (keep / "suite.txt").exists(), "the preflight ran the row"
+
+
+def test_the_generated_unread_fixes_fail_the_preflight_at_seal(repo, tmp_path):
+    """S3, #702's own case. #535's shape exactly as `new` and `close` write it
+    — round 1 closed on a fix, no round 2, so `Pass` is ticked beside
+    `nobody — the fixes are not yet written` — passed the preflight with exit
+    0, and the sealer's run refused it at `seal` after the suite. Now the
+    preflight refuses it, names `seal`, and the row, which would leave a file
+    and fail, was never invoked. Nothing is written: the record is
+    byte-identical and no values file exists. Seen red against phase 1's
+    gate, which exits 0 here."""
+    path = fixed_but_unread_item(repo)
+    text = path.read_text(encoding="utf-8")
+    assert "- [x] Pass" in text, "the fixture is not #535's shape"
+    assert fields(text)[CHECKED_BY].startswith("nobody"), text
+    before = read_bytes(path)
+    out, keep = preflight(repo, tmp_path, marker_row())
+    assert_refused_at_seal(out, keep, "read by no LATER round")
+    assert CHECKED_BY in (keep / "seal.txt").read_text(encoding="utf-8")
+    assert not (repo / ROW_RAN).exists(), "the preflight invoked the row"
+    assert read_bytes(path) == before, "the preflight wrote the record"
+    assert not values_files(repo), "a preflight left a stamp to draw"
+    gate = gate_module()
+    assert asked_line(ITEM, gate.ASKED_REFUSED) in out.stderr.splitlines(), out.stderr
+
+
+def test_an_unchecked_pass_fails_the_preflight_at_seal(repo, tmp_path):
+    """S4, #456's first instance: an open finding leaves `Pass` unchecked,
+    and `seal` refuses it. The preflight now says so before the suite."""
+    declared(repo)
+    path = generate(repo, 1, OPEN_ROW, "no")
+    before = read_bytes(path)
+    out, keep = preflight(repo, tmp_path)
+    assert_refused_at_seal(out, keep, "`Pass` is unchecked")
+    assert read_bytes(path) == before, "the preflight wrote the record"
+
+
+def test_a_target_that_descends_from_the_tree_fails_the_preflight_at_seal(
+    repo, tmp_path
+):
+    """S5. The gate hands `seal --check` the tree it stands on, so a record
+    whose `Target SHA` descends from that tree is a run spent before the round
+    it would seal. The target is a commit on a side branch cut from HEAD; the
+    record naming it is written by `new` and left uncommitted, so HEAD stays
+    the commit the target descends from (`questions.md` Q2)."""
+    declared(repo)
+    git(repo, "switch", "-qc", "side")
+    write(repo, "g.py", "y = 1\n")
+    later = commit(repo, "a commit after the tree the gate stands on")
+    git(repo, "switch", "-q", "feature")
+    generate(
+        repo,
+        1,
+        "| 🟢 1 | the reviewed commit holds | `g.py:1` | answered | read |\n",
+        "no",
+        target=later,
+    )
+    git(repo, "reset", "-q", "--soft", "HEAD~1")
+    out, keep = preflight(repo, tmp_path)
+    assert_refused_at_seal(out, keep, "descends from")
+
+
+def test_a_settled_item_preflights_green_and_names_the_record_it_asked(repo, tmp_path):
+    """S6. The state the sealer runs in: round 2 reads `no fixes to check`
+    with `Pass` ticked. Every arm green and `seal --check` exits 0, so the
+    preflight passes; `seal.txt` is kept with its exit, the record is
+    byte-identical, and one stderr line names `round-2.md` as the record
+    asked. Seen red with the ask dropped (no `seal.txt`) and with `--check`
+    dropped from the argv (the cell written)."""
+    _one, two = settled_item(repo)
+    before = read_bytes(two)
+    out, keep = preflight(repo, tmp_path)
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    head = PREFLIGHT_PASSED.format(tree=short(repo, "HEAD"), base=short(repo, "base"))
+    gate = gate_module()
+    assert out.stdout.splitlines()[0] == head + gate.PREFLIGHT_TAIL, out.stdout
+    assert "`seal`'s refusals" in gate.PREFLIGHT_TAIL, gate.PREFLIGHT_TAIL
+    assert NOT_RUN in gate.PREFLIGHT_TAIL, gate.PREFLIGHT_TAIL
+    assert no_seal_line(out.stdout), out.stdout
+    text = (keep / "seal.txt").read_text(encoding="utf-8")
+    assert text.startswith("$ ") and "--check" in text.splitlines()[0], text
+    assert "\nexit 0\n" in text, text
+    assert read_bytes(two) == before, "the preflight wrote the record"
+    assert not values_files(repo), "a preflight left a stamp to draw"
+    gate = gate_module()
+    said = asked_line(RECORD_FILE.format(n=2), gate.ASKED_PASSED)
+    assert said in out.stderr.splitlines(), out.stderr
+
+
+def test_an_undeclared_branch_is_not_asked_and_the_preflight_says_so(repo, tmp_path):
+    """S8. No declaration names `feature`, so there is no work item for a
+    sealer to seal and nothing to ask: exit 0, no `seal.txt`, and one stderr
+    line naming the branch and saying `seal`'s refusals were not asked."""
+    out, keep = preflight(repo, tmp_path)
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert not (keep / "seal.txt").exists(), "the preflight asked an undeclared item"
+    gate = gate_module()
+    said = gate.PREFLIGHT_NOT_ASKED.format(branch="`feature`")
+    assert said in out.stderr.splitlines(), out.stderr
+
+
+def test_two_declarations_for_one_branch_are_not_asked(repo, tmp_path):
+    """S8's second half. Two declarations naming `feature` are not an answer
+    (`hooks/routing.py#item_dir`), so the ask is skipped with the same line;
+    the chain arm's own refusal of the pair is what fails the run, and `seal`
+    is not among the failures."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    write(repo, "seal/specs/1799000001-a-second-item/routing.md", declaration())
+    commit(repo, "two declarations name one branch")
+    out, keep = preflight(repo, tmp_path)
+    assert not (keep / "seal.txt").exists(), "the preflight asked one of two"
+    assert not re.search(r"^\s+seal\s+exit", out.stdout, re.M), out.stdout
+    gate = gate_module()
+    said = gate.PREFLIGHT_NOT_ASKED.format(branch="`feature`")
+    assert said in out.stderr.splitlines(), out.stderr
+
+
+def test_a_detached_head_is_not_asked_and_the_preflight_says_why(repo, tmp_path):
+    """S8 on a detached HEAD: no branch is checked out, so no declaration can
+    name this checkout. The item is declared for `feature` and would refuse
+    — an unchecked `Pass` — so an ask that ran anyway is a `seal.txt` and a
+    failing run."""
+    declared(repo)
+    generate(repo, 1, OPEN_ROW, "no")
+    git(repo, "switch", "-q", "--detach")
+    out, keep = preflight(repo, tmp_path)
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert not (keep / "seal.txt").exists(), "the preflight asked on a detached HEAD"
+    assert gate_module().PREFLIGHT_DETACHED in out.stderr.splitlines(), out.stderr
+
+
 def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(repo, tmp_path):
     """S1 with `--record`: the checks pass, `seal` writes the last record's
     cell with the tree and the base, and the panel carries `rounds 2` — read
