@@ -699,6 +699,110 @@ def test_an_item_shaped_tracked_file_under_specs_stays_and_is_named(hook, repo):
     assert stamped(hook, repo)
 
 
+# --- #688: a joined project's `specs/` is read and never taken ----------------
+
+TEAM = "1788000001-team-thing"
+LEFT_UNMARKED = (
+    f"left specs/{TEAM} where it is (no routing.md or rounds/ — not a SpecSeal "
+    "work item)"
+)
+
+
+def plant_team_directory(repo):
+    """A team's own specification under a name `date +%s` could have made:
+    the shape `ITEM_RE` accepts, and none of the plugin's marks."""
+    write(repo, f"specs/{TEAM}/spec.md", "# the team's own specification\n")
+    write(repo, f"specs/{TEAM}/plan.md", "# the team's own plan\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "a team directory shaped like a work item")
+
+
+def test_an_id_shaped_directory_without_the_marks_stays_and_is_named(hook, repo):
+    """B1. The name alone used to be the proof, so a team's `specs/<x>/`
+    carrying `spec.md` and `plan.md` moved with the plugin's own. Only
+    `routing.md` or `rounds/` directly under it makes it SpecSeal's; the
+    rest stays, nothing is staged for it, and the line says why."""
+    plant_team_directory(repo)
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert LEFT_UNMARKED in out, out
+    assert (repo / "specs" / TEAM / "spec.md").is_file()
+    assert not (repo / "seal" / "specs" / TEAM).exists()
+    staged = git(repo, "diff", "--cached", "--name-only").stdout
+    assert TEAM not in staged, staged
+    assert stamped(hook, repo)
+
+
+def test_a_joined_project_holding_only_its_own_specs_hears_nothing(hook, tmp_path):
+    """B1, the joined project itself: no `.specseal/`, no marked directory —
+    nothing of the plugin's old layout, so the hook stays silent, stages
+    nothing and stamps nothing, as its *silent when there is nothing to do*
+    boundary says."""
+    d = tmp_path / "joined"
+    d.mkdir()
+    git(d, "init", "-q", "-b", "main")
+    git(d, "config", "user.email", "t@example.com")
+    git(d, "config", "user.name", "t")
+    write(d, f"specs/{TEAM}/spec.md", "# the team's own specification\n")
+    write(d, "specs/notes/todo.md", "# not SpecSeal's\n")
+    git(d, "add", "-A")
+    git(d, "commit", "-qm", "the team's specs/")
+    assert start(hook, d) == ""
+    assert (d / "specs" / TEAM / "spec.md").is_file()
+    assert not (d / "seal").exists()
+    assert git(d, "status", "--porcelain").stdout == ""
+    assert not stamped(hook, d)
+
+
+def test_a_row_citing_an_unmarked_id_shaped_directory_keeps_its_path(hook, repo):
+    """B2. The re-point followed the name pattern, so a row citing the team
+    directory was sent to a `seal/specs/` path that never appears. It follows
+    what moved: the row keeps its path and the totals are equal."""
+    plant_team_directory(repo)
+    ledger = repo / ".specseal" / "map.md"
+    row = coordinate(repo, f"specs/{TEAM}/spec.md", '"# the team\'s own specification"')
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + f"| D | `{row}` |\n", encoding="utf-8"
+    )
+    git(repo, "commit", "-qam", "a row citing the team directory")
+    before = check(repo, ".specseal/map.md", ".specseal/map/*.md")
+    out = message(start(hook, repo))
+    assert "3 ledger rows re-pointed" in out, out
+    after = (repo / "seal" / "ledger.md").read_text(encoding="utf-8")
+    assert f"`specs/{TEAM}/spec.md#" in after, after
+    assert f"seal/specs/{TEAM}" not in after, after
+    assert check(repo) == before
+
+
+def test_a_directory_marked_only_by_its_rounds_still_moves(hook, repo):
+    """B3. `rounds/` is the second mark: a 0.3.x work item whose review ran
+    and whose `routing.md` is gone is still the plugin's, and moves."""
+    other = "1788000002-reviewed-only"
+    write(repo, f"specs/{other}/rounds/round-1.md", ROUND)
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "a work item with rounds and no routing")
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 2 work items into seal/" in out, out
+    assert (repo / "seal" / "specs" / other / "rounds" / "round-1.md").is_file()
+    assert not (repo / "specs" / other).exists()
+
+
+def test_a_linked_specs_holding_only_unmarked_directories_is_not_refused(hook, repo):
+    """The symbolic-link refusal reads the same marks. A linked `specs/`
+    whose id-shaped entries carry none of them holds no work items, so the
+    rest of the old layout moves and the link is named as left."""
+    git(repo, "rm", "-rq", "specs")
+    write(repo, f"team/{TEAM}/spec.md", "# the team's own specification\n")
+    os.symlink("team", repo / "specs")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "the team's specs/ is a link")
+    out = message(start(hook, repo))
+    assert "symbolic link" not in out, out
+    assert "moved .specseal/ into seal/" in out, out
+    assert LEFT_UNMARKED in out, out
+    assert os.path.islink(repo / "specs")
+
+
 @pytest.mark.parametrize("readme", ["README.md", "README.ko.md"])
 def test_by_hand_block_fails_loudly_when_the_block_leaves_its_section(readme):
     """Round 2's 🟢 E. A README edited so the block sits under a later
