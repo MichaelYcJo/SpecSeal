@@ -29,8 +29,9 @@
   `kind` and `bar`. Both the grade and the plain reading's batching advisory
   compare the ratio rounded to the two places they print it to, so a reading
   printed at 1.20 is no longer flagged below 1.2; the advisory's verdict moves
-  only for a ratio in [1.195, 1.2), and every other reading stays comparable. The protocol's bars table gains
-  the `framing` row. The first reading the grade took, over the run that built
-  this change, read this frame's own segment at 4.17 tools per turn, 50 calls
-  over 12 turns with a largest batch of 11, on a prompt without the old
-  prohibition; one reading, and nothing beyond it is claimed from it.
+  only for a ratio in [1.195, 1.2), and every other reading stays comparable.
+  The protocol's bars table gains the `framing` row. The first reading the
+  grade took, over the run that built this change, read this frame's own
+  segment at 4.17 tools per turn, 50 calls over 12 turns with a largest batch
+  of 11, on a prompt without the old prohibition; one reading, and nothing
+  beyond it is claimed from it.
