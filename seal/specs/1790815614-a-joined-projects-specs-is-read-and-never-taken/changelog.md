@@ -43,8 +43,8 @@
   `rounds/` directly under it that git tracks — an empty or ignored
   `rounds/` is not one. Every 0.3.x work item carried `routing.md`, so an old
   layout still moves whole. Anything else stays, keeps the rows that cite it,
-  and is named in the hook's line as *no routing.md or rounds/ — not a
-  SpecSeal work item*. A repository holding nothing else of the old layout
+  and is named in the hook's line as *no routing.md or rounds/ that git
+  tracks — not a SpecSeal work item*. A repository holding nothing else of the old layout
   hears nothing.
 - **First setup asks a project with its own `specs/` where the root goes**
   (#688). The bootstrap used to read any top-level `specs/` as the 0.3.x
