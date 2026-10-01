@@ -20,16 +20,21 @@ So this is the loop as one command:
     mutation-check <file> --replace OLD NEW --tests "<command>" [--timeout S]
 
 It refuses a replacement that does not land exactly once, before anything is
-written. It writes the break, removes the mutated file's cached bytecode for
-every interpreter tag, runs the command with `PYTHONDONTWRITEBYTECODE=1` under
-a bound, puts the file back from the bytes it read first and compares their
-sha256, removes the bytecode again, and prints one verdict line, then the
-command's own output.
+run. It runs the command once against the file as it is, and goes on only if
+that passes: a red means a case failed BECAUSE of the break, never because
+the command selected nothing or a case was already failing. Then it writes
+the break, removes the mutated file's cached bytecode for every interpreter
+tag, runs the command with `PYTHONDONTWRITEBYTECODE=1` under a bound, puts
+the file back from the bytes it read first and compares their sha256,
+removes the bytecode again, and prints one verdict line, then the command's
+own output. The bound applies to each of the two runs.
 
   red              exit 0   a case failed against the mutation
   SURVIVED         exit 1   the cases passed, so nothing they run watches it
+  no baseline      exit 2   the cases fail without the break; nothing written
   timed out        exit 2   the bound was reached; no verdict
   could not start  exit 2   the command could not be spawned; no verdict
+  could not run    exit 2   anything else went wrong; no verdict
   refused          exit 2   nothing was written
   not restored     exit 2   the file on disk may still hold the mutation
   interrupted      exit 2   Ctrl-C; the run was ended and the file restored
@@ -43,10 +48,13 @@ that could not say.
 runner that starts pytest as a child of its own, so a run bounded that way
 leaves the suite running past the verdict -- #313 measured it on `arm-check`,
 and the case for S5 re-measures it here. On POSIX the command runs in a
-session of its own and a timed-out run's whole process group is killed. Two
-consequences come with that. A process that puts itself in yet another
-session is outside the group, so collecting the output afterwards is bounded
-too (`REAP_TIMEOUT`) and the verdict names the exception. And the terminal's
+session of its own and a timed-out run's whole process group is killed; so
+is the group of a run that exited, which ends whatever the cases left
+behind. The wait is on the process and the output goes to a temporary file,
+so nothing the cases leave can hold the wait open. Two consequences come with
+the session. A process that puts itself in yet another session is outside
+the group and outlives the kill; the verdict names that as the bound's
+limit, without being able to tell whether it happened. And the terminal's
 Ctrl-C now reaches this process alone, so the `KeyboardInterrupt` it raises
 here is what ends the group, before the restore. On Windows the direct child
 is ended, and the verdict says that anything it started was not: a group
@@ -89,6 +97,7 @@ import shlex
 import signal
 import subprocess
 import sys
+import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -106,17 +115,14 @@ COULD_NOT_START = "could not start"
 REFUSED = "refused"
 NOT_RESTORED = "not restored"
 INTERRUPTED = "interrupted"
+NO_BASELINE = "no baseline"
+COULD_NOT_RUN = "could not run"
 
 EXIT = {RED: 0, SURVIVED: 1}
 
 # What the bound ends. `strategy` picks one per platform.
 GROUP = "process group"
 CHILD = "direct child"
-
-# Seconds the ended run is waited for while its output is collected. A
-# process that left the group can hold the pipe open past the kill, and an
-# unbounded wait there is the hang the bound exists to end.
-REAP_TIMEOUT = 5.0
 
 
 def _sibling(name: str, path: str):
@@ -188,32 +194,30 @@ def timed_out_detail(timeout: float, how: str) -> str:
 
 
 def _wait(proc: subprocess.Popen, timeout: float | None):
-    """The one wait, a function of its own so a case can interrupt it."""
-    return proc.communicate(timeout=timeout)
+    """The one wait, a function of its own so a case can interrupt it.
+
+    On the process and not on a pipe. A process the cases started can hold a
+    pipe open after they exit, and a wait on the pipe then read a run that
+    finished red at once as one that never returned (round 1, 🟡 4)."""
+    return proc.wait(timeout=timeout)
 
 
-def _end(proc: subprocess.Popen, how: str) -> str:
-    """End what the run started, reap it, and return what it had printed.
+def _end(proc: subprocess.Popen, how: str) -> None:
+    """End what the run started and reap it.
 
     The group on POSIX: `bin/test` execs a runner that starts pytest as a
     child of its own, so ending the direct child alone leaves the suite
-    running past the verdict (#313). The reaping wait is bounded too, because
-    a process that left the group can still hold the pipe open."""
+    running past the verdict (#313). Called after a normal exit too, so what
+    the cases left in the group goes with them. A group already gone is not
+    an error: the command can finish between the bound and the kill."""
     if how == GROUP:
         try:
             os.killpg(proc.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
-    else:
+    elif proc.poll() is None:
         proc.kill()
-    try:
-        output, _ = proc.communicate(timeout=REAP_TIMEOUT)
-    except subprocess.TimeoutExpired:
-        if proc.stdout:
-            proc.stdout.close()
-        proc.wait()
-        output = ""
-    return output or ""
+    proc.wait()
 
 
 def run_cases(
@@ -229,29 +233,36 @@ def run_cases(
     On POSIX the command runs in a session of its own, which is what lets the
     bound end everything it started. It also takes the command out of the
     terminal's process group, so a Ctrl-C reaches this process alone; the
-    `KeyboardInterrupt` arm below is what passes it on, before the restore."""
+    `KeyboardInterrupt` arm below is what passes it on, before the restore.
+
+    The output goes to a temporary file rather than a pipe, so nothing the
+    cases leave behind can hold this process's wait open. It is decoded with
+    `errors="replace"`: the cases' output is shown, not trusted to be UTF-8."""
     how = how or strategy(os.name)
-    try:
-        proc = subprocess.Popen(
-            command,
-            cwd=cwd,
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            errors="replace",
-            start_new_session=how == GROUP,
-        )
-    except OSError as exc:
-        return COULD_NOT_START, f"{type(exc).__name__}: {exc}", ""
-    try:
-        output, _ = _wait(proc, timeout)
-    except subprocess.TimeoutExpired:
-        return TIMED_OUT, timed_out_detail(timeout, how), _end(proc, how)
-    except KeyboardInterrupt:
+    with tempfile.TemporaryFile("w+", encoding="utf-8", errors="replace") as sink:
+        try:
+            proc = subprocess.Popen(
+                command,
+                cwd=cwd,
+                env=env,
+                stdout=sink,
+                stderr=subprocess.STDOUT,
+                start_new_session=how == GROUP,
+            )
+        except OSError as exc:
+            return COULD_NOT_START, f"{type(exc).__name__}: {exc}", ""
+        try:
+            _wait(proc, timeout)
+        except subprocess.TimeoutExpired:
+            _end(proc, how)
+            sink.seek(0)
+            return TIMED_OUT, timed_out_detail(timeout, how), sink.read()
+        except KeyboardInterrupt:
+            _end(proc, how)
+            raise
         _end(proc, how)
-        raise
-    output = output or ""
+        sink.seek(0)
+        output = sink.read()
     if proc.returncode != 0:
         return (
             RED,
@@ -274,10 +285,12 @@ def mutation_run(
     cwd: str,
     timeout: float | None = DEFAULT_TIMEOUT,
 ):
-    """Write one mutation, run the cases, restore. `(verdict, detail, output)`.
+    """Run the cases against the file as it is, then write one mutation, run
+    them again, and restore. `(verdict, detail, output)`.
 
-    `Refused` before any write; `NotRestored` when the restore did not land,
-    which replaces whatever the run said."""
+    `Refused` before any run; `NO_BASELINE` when the cases fail before the
+    write; `NotRestored` when the restore did not land, which replaces
+    whatever the run said."""
     with open(path, "rb") as f:
         original = f.read()
     original_sha = hashlib.sha256(original).hexdigest()
@@ -294,9 +307,29 @@ def mutation_run(
     # anyway.
     env = dict(os.environ)
     env["PYTHONDONTWRITEBYTECODE"] = "1"
+
+    # The cases must pass against the file as it is first. Otherwise a failure
+    # under the mutation says nothing about the mutation: a `-k` that selects
+    # nothing exits 5, a mistyped module exits 4, a case already failing exits
+    # 1, and each read `red` -- *a case watches this unit* -- for a unit no
+    # case ran against (round 1, 🔴 1).
+    clear_bytecode_cache(path)
+    before, detail, output = run_cases(command, cwd=cwd, env=env, timeout=timeout)
+    if before == RED:
+        return (
+            NO_BASELINE,
+            "the cases fail against the file as it is, so a failure under the "
+            "mutation would say nothing about it. Nothing was written",
+            output,
+        )
+    if before != SURVIVED:
+        return before, f"{detail}, before the mutation was written", output
+
     try:
         with open(path, "wb") as f:
             f.write(after.encode("utf-8"))
+        # Again after the write: the baseline's cases may have written the
+        # original's `.pyc`, which a same-length break matches.
         clear_bytecode_cache(path)
         return run_cases(command, cwd=cwd, env=env, timeout=timeout)
     finally:
@@ -304,6 +337,15 @@ def mutation_run(
             restore(path, original, original_sha)
         except RuntimeError as exc:
             raise NotRestored(str(exc)) from exc
+        except BaseException as exc:
+            # A write that raised -- the cases made the file read-only or
+            # removed its directory, or a second Ctrl-C landed inside the
+            # write -- is a restore that did not land as surely as a hash
+            # that differs (round 1, 🟡 2).
+            raise NotRestored(
+                f"{path} was not restored: writing it back raised "
+                f"{type(exc).__name__}: {exc}."
+            ) from exc
         clear_bytecode_cache(path)
 
 
@@ -378,6 +420,17 @@ def main(argv=None) -> int:
         print(
             f"{INTERRUPTED}: no verdict. What the run started was ended, and "
             f"{args.path} was restored from the bytes read before the write.",
+            flush=True,
+        )
+        return 2
+    except Exception as exc:
+        # Anything else measured nothing. Left to Python, an uncaught
+        # exception exits 1, which is SURVIVED's code, so a mistyped path or
+        # a cache that could not be removed read as "nothing watches this
+        # unit" (round 1, 🟡 3). The file was restored on the way out, or
+        # `NotRestored` above would have been raised instead.
+        print(
+            f"{COULD_NOT_RUN}: {type(exc).__name__}: {exc}. No verdict.",
             flush=True,
         )
         return 2

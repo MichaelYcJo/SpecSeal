@@ -88,6 +88,21 @@ def snapshot(directory):
 PASSES = "import sys\nsys.exit(0)\n"
 FAILS = "import sys\nsys.exit(1)\n"
 
+# Fails only while the file it is handed carries the text it is handed, so
+# the run against the file as it is passes and the run against the mutant is
+# red -- the one shape a red means anything in (round 1, 🔴 1).
+FAILS_ON_THE_MUTANT = """\
+import sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    sys.exit(1 if sys.argv[2] in f.read() else 0)
+"""
+
+
+def red_on(tmp_path, target, marker, name="red_on.py"):
+    """The cases command that is red only against the mutant holding `marker`."""
+    return cases_command(probe(tmp_path, FAILS_ON_THE_MUTANT, name), target, marker)
+
+
 # Reports the bytes of the file it is handed, so a case can see what the
 # cases saw at the moment they ran.
 SEES_FILE = """\
@@ -128,9 +143,14 @@ module, log = sys.argv[1], sys.argv[2]
 stem = os.path.splitext(os.path.basename(module))[0]
 cache = os.path.join(os.path.dirname(module), "__pycache__")
 found = sorted(os.path.basename(p) for p in glob.glob(os.path.join(cache, stem + ".*.pyc")))
-with open(log, "w", encoding="utf-8") as f:
-    f.write(repr((found, os.environ.get("PYTHONDONTWRITEBYTECODE"))))
+with open(log, "a", encoding="utf-8") as f:
+    f.write(repr((found, os.environ.get("PYTHONDONTWRITEBYTECODE"))) + "\\n")
 """
+
+
+def seen_runs(log):
+    """One `(caches found, the variable)` per run the command made."""
+    return [eval(line) for line in log.read_text(encoding="utf-8").splitlines()]
 
 
 def test_no_bytecode_for_the_mutated_file_exists_while_the_cases_run(
@@ -172,13 +192,15 @@ def test_no_bytecode_for_the_mutated_file_exists_while_the_cases_run(
         ],
         capsys,
     )
-    found, flag = eval(log.read_text(encoding="utf-8"))
-    assert found == [], (
-        f"{found} -- cached bytecode for the mutated file existed while the "
-        f"cases ran, so the interpreter can run a previous mutation instead of "
-        f"this one. A tag left behind is the one `cache_from_source` does not name"
-    )
-    assert flag == "1", "the cases were not told to write no bytecode"
+    # Every run the command made: the baseline against the file as it is, and
+    # the run against the mutant.
+    for found, flag in seen_runs(log):
+        assert found == [], (
+            f"{found} -- cached bytecode for the mutated file existed while the "
+            f"cases ran, so the interpreter can run a previous mutation instead of "
+            f"this one. A tag left behind is the one `cache_from_source` does not name"
+        )
+        assert flag == "1", "the cases were not told to write no bytecode"
     assert not list((tmp_path / "__pycache__").glob("under_test.*.pyc"))
     assert code == 1, out
 
@@ -191,6 +213,36 @@ sys.dont_write_bytecode = False
 spec = importlib.util.spec_from_file_location("mutant", sys.argv[1])
 spec.loader.exec_module(importlib.util.module_from_spec(spec))
 """
+
+
+def test_bytecode_the_baseline_wrote_is_gone_before_the_mutated_run(tmp_path, capsys):
+    """The baseline runs the cases against the original, and a command that
+    builds its own environment writes the original's `.pyc` while it does. A
+    same-length break written inside the same second matches that cache, so
+    the mutated run would read the original. So the removal happens again
+    between the write and the mutated run, and the mutated run sees none."""
+    target = tmp_path / "under_test.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    log = tmp_path / "seen.txt"
+    run(
+        [
+            target,
+            "--replace",
+            "VALUE = 1",
+            "VALUE = 2",
+            "--tests",
+            # Look first, then write: so each line says what the run before
+            # this one left behind.
+            cases_command(probe(tmp_path, SEES_CACHE + WRITES_CACHE), target, log),
+        ],
+        capsys,
+    )
+    runs = seen_runs(log)
+    assert len(runs) == 2, f"the command ran the cases {len(runs)} times, not twice"
+    assert runs[1][0] == [], (
+        f"{runs[1][0]} -- the baseline's bytecode for the original was still "
+        f"there when the mutated run started"
+    )
 
 
 def test_bytecode_the_cases_wrote_for_the_mutant_is_not_left_behind(tmp_path, capsys):
@@ -440,16 +492,60 @@ def test_a_restore_that_did_not_land_stops_the_run_and_says_so(
             "VALUE = 15",
             "VALUE = 25",
             "--tests",
-            cases_command(probe(tmp_path, FAILS)),
+            red_on(tmp_path, target, "VALUE = 25"),
         ]
     )
     out = capsys.readouterr()
     text = out.out + out.err
     assert code == 2, text
     assert "was not restored" in text, text
-    assert not text.startswith("red"), (
-        f"a verdict was printed over a file that still holds the mutation: {text}"
+    # The verdict word itself, not only the phrase the fake's message carries:
+    # this is the line that tells a person the file holds a mutant (round 1,
+    # 🟡 5).
+    assert text.startswith("not restored:"), (
+        f"the line that says the file still holds a mutation lost its verdict word: {text}"
     )
+
+
+# Makes the file it is handed read-only once it holds the mutant, so the
+# restore's own write raises rather than its hash differing.
+LOCKS_THE_MUTANT = """\
+import os, stat, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    mutant = sys.argv[2] in f.read()
+if mutant:
+    os.chmod(sys.argv[1], stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
+sys.exit(1 if mutant else 0)
+"""
+
+
+@pytest.mark.skipif(
+    os.name != "nt" and os.geteuid() == 0, reason="root writes a read-only file"
+)
+def test_a_restore_whose_write_raises_is_not_restored_and_exits_two(tmp_path, capsys):
+    """Round 1, 🟡 2. A restore can fail by raising as well as by landing the
+    wrong bytes: the cases made the file read-only, or removed its directory,
+    or a second Ctrl-C arrived inside the write. Each leaves the mutant on
+    disk, which is the one outcome `not restored` exists to say."""
+    target = tmp_path / "target.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    try:
+        code, out = run(
+            [
+                target,
+                "--replace",
+                "VALUE = 1",
+                "VALUE = 2",
+                "--tests",
+                cases_command(probe(tmp_path, LOCKS_THE_MUTANT), target, "VALUE = 2"),
+            ],
+            capsys,
+        )
+    finally:
+        os.chmod(target, 0o644)
+    assert code == 2, out
+    assert out.startswith("not restored:"), out
+    assert "PermissionError" in out, f"the cause is not named: {out}"
 
 
 # --- S7 · the verdict and the exit code say which of three things happened --
@@ -465,13 +561,170 @@ def test_cases_that_fail_against_the_mutant_read_red_and_exit_zero(tmp_path, cap
             "1",
             "2",
             "--tests",
-            cases_command(probe(tmp_path, "print('the case output')\n" + FAILS)),
+            cases_command(
+                probe(tmp_path, "print('the case output')\n" + FAILS_ON_THE_MUTANT),
+                target,
+                "VALUE = 2",
+            ),
         ],
         capsys,
     )
     assert code == 0, out
     assert out.startswith("red"), out
     assert "the case output" in out, "the command's own output is not shown"
+    first = out.splitlines()[0]
+    assert re.search(r"\(\d+\.\ds\)$", first), (
+        f"the verdict line no longer says how long the run took: {first}"
+    )
+
+
+@pytest.mark.parametrize(
+    ("exit_code", "why"),
+    [
+        (1, "a case already failing"),
+        (5, "a -k that selects nothing"),
+        (4, "a mistyped module"),
+    ],
+    ids=["failing", "nothing-selected", "usage-error"],
+)
+def test_cases_that_fail_without_the_mutation_measure_nothing(
+    tmp_path, capsys, exit_code, why
+):
+    """Round 1, 🔴 1: a non-zero exit is red only when the cases passed
+    against the file as it was. Otherwise a mistyped `-k` -- pytest's exit 5
+    -- reads *a case watches this unit* for a file no case ran against, and
+    the smith hands over on it. So the cases run once against the file as it
+    is, and a failure there is `no baseline`, exit 2, with nothing written."""
+    target = tmp_path / "target.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    log = tmp_path / "seen.txt"
+    body = (
+        SEES_FILE.replace('"w", encoding', '"a", encoding') + f"sys.exit({exit_code})\n"
+    )
+    code, out = run(
+        [
+            target,
+            "--replace",
+            "VALUE = 1",
+            "VALUE = 2",
+            "--tests",
+            cases_command(probe(tmp_path, body), target, log),
+        ],
+        capsys,
+    )
+    assert code == 2, f"{why}: {out}"
+    assert out.startswith("no baseline"), f"{why}: {out}"
+    assert target.read_text(encoding="utf-8") == "VALUE = 1\n"
+    assert log.read_text(encoding="utf-8") == "VALUE = 1\n", (
+        f"{why}: the cases saw a mutant after failing without one"
+    )
+
+
+@pytest.mark.parametrize("kind", ["missing", "directory"])
+def test_a_path_that_cannot_be_read_measures_nothing_and_exits_two(
+    tmp_path, capsys, kind
+):
+    """Round 1, 🟡 3. Left to Python an uncaught exception exits 1, which is
+    SURVIVED's code, so a mistyped path read as *nothing watches this unit*."""
+    target = tmp_path / ("no-such-file.py" if kind == "missing" else "a-directory")
+    if kind == "directory":
+        target.mkdir()
+    code, out = run(
+        [
+            target,
+            "--replace",
+            "1",
+            "2",
+            "--tests",
+            cases_command(probe(tmp_path, PASSES)),
+        ],
+        capsys,
+    )
+    assert code == 2, out
+    assert out.startswith("could not run:"), out
+
+
+# Starts a child that keeps the cases' output open, then exits at once:
+# red against the mutant, green against the file as it is.
+LEAVES_A_CHILD_ON_THE_OUTPUT = """\
+import subprocess, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    mutant = sys.argv[2] in f.read()
+if mutant:
+    child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+    with open(sys.argv[3], "w", encoding="utf-8") as f:
+        f.write(str(child.pid))
+sys.exit(1 if mutant else 0)
+"""
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the process-group bound is POSIX's")
+def test_cases_that_exit_but_leave_a_child_on_the_output_read_red_at_once(
+    tmp_path, capsys
+):
+    """Round 1, 🟡 4. A wait on the output pipe returns only when every
+    holder has closed it, so a run that exited red at once read `timed out`
+    after the whole bound -- 300 s per mutation at the default. The wait is on
+    the process; and what the cases left behind is ended with them."""
+    target = tmp_path / "target.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    pid_file = tmp_path / "child.pid"
+    started = time.monotonic()
+    try:
+        code, out = run(
+            [
+                target,
+                "--replace",
+                "VALUE = 1",
+                "VALUE = 2",
+                "--tests",
+                cases_command(
+                    probe(tmp_path, LEAVES_A_CHILD_ON_THE_OUTPUT),
+                    target,
+                    "VALUE = 2",
+                    pid_file,
+                ),
+                "--timeout",
+                "20",
+            ],
+            capsys,
+        )
+        elapsed = time.monotonic() - started
+        pid = read_pid(pid_file)
+        assert pid is not None, "the cases never started their child"
+        assert gone_within(pid, 5), "the run left the child the cases started"
+    finally:
+        end_if_alive(read_pid(pid_file))
+    assert code == 0 and out.startswith("red"), out
+    assert elapsed < 10, f"a run that exited at once took {elapsed:.1f}s to read"
+
+
+# Prints bytes that are not UTF-8, then fails only on the mutant.
+PRINTS_NOT_UTF8 = """\
+import sys
+sys.stdout.buffer.write(b"\\xff\\xfe\\n")
+sys.stdout.flush()
+with open(sys.argv[1], encoding="utf-8") as f:
+    sys.exit(1 if sys.argv[2] in f.read() else 0)
+"""
+
+
+def test_output_that_is_not_utf8_does_not_cost_the_verdict(tmp_path, capsys):
+    """Round 1, 🟡 5: the cases' output is shown, not trusted to decode."""
+    target = tmp_path / "target.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    code, out = run(
+        [
+            target,
+            "--replace",
+            "VALUE = 1",
+            "VALUE = 2",
+            "--tests",
+            cases_command(probe(tmp_path, PRINTS_NOT_UTF8), target, "VALUE = 2"),
+        ],
+        capsys,
+    )
+    assert code == 0 and out.startswith("red"), out
 
 
 def test_cases_that_pass_against_the_mutant_read_survived_and_exit_one(
@@ -548,7 +801,7 @@ def test_the_command_a_session_types_reaches_the_script(tmp_path):
             "1",
             "2",
             "--tests",
-            cases_command(probe(tmp_path, FAILS)),
+            red_on(tmp_path, target, "VALUE = 2"),
         ],
         capture_output=True,
         text=True,
@@ -651,6 +904,9 @@ def test_the_verify_skill_says_what_each_verdict_means_and_what_the_bound_ends()
         "Windows",
         "PYTHONDONTWRITEBYTECODE",
         "arm-check",
+        # Round 1, 🔴 1: the baseline, and the verdict it gives.
+        "first runs `--tests` against the file as it is",
+        "`no baseline`",
     ):
         assert said in section, f"the section does not say {said!r}"
 
@@ -679,16 +935,26 @@ def test_the_default_bound_is_the_one_both_documents_state(tmp_path, monkeypatch
 # --- S5 · a run that never returns ends at the bound, and so does its child -
 
 
-# A wrapper in `bin/test`'s position: it starts the process that does the
-# work as a child of its own and waits for it. The child's pid is written
-# down first, so a case can ask afterwards whether it is still alive.
+# A wrapper in `bin/test`'s position: against the mutant it starts the process
+# that does the work as a child of its own and waits for it, and against the
+# file as it is it passes at once, so the run the bound ends is the mutated
+# one. The child's pid is written down first, so a case can ask afterwards
+# whether it is still alive. Arguments: the file, the mutant's text, the pid
+# file.
 STARTS_A_CHILD = """\
 import subprocess, sys
+with open(sys.argv[1], encoding="utf-8") as f:
+    if sys.argv[2] not in f.read():
+        sys.exit(0)
 child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
-with open(sys.argv[1], "w", encoding="utf-8") as f:
+with open(sys.argv[3], "w", encoding="utf-8") as f:
     f.write(str(child.pid))
 child.wait()
 """
+
+
+def starts_a_child(tmp_path, target, pid_file, body=STARTS_A_CHILD):
+    return cases_command(probe(tmp_path, body), target, "VALUE = 2", pid_file)
 
 
 def alive(pid):
@@ -750,7 +1016,7 @@ def test_a_run_past_the_bound_is_timed_out_and_leaves_nothing_it_started(
                 "VALUE = 1",
                 "VALUE = 2",
                 "--tests",
-                cases_command(probe(tmp_path, STARTS_A_CHILD), pid_file),
+                starts_a_child(tmp_path, target, pid_file),
                 "--timeout",
                 "1",
             ],
@@ -773,7 +1039,7 @@ def test_a_run_past_the_bound_is_timed_out_and_leaves_nothing_it_started(
 
 
 # A child that leaves the wrapper's process group and keeps the cases'
-# output pipe open, so no group kill reaches it.
+# output open, so no group kill reaches it.
 STARTS_AN_ESCAPED_CHILD = STARTS_A_CHILD.replace(
     '"import time; time.sleep(30)"])',
     '"import time; time.sleep(30)"], start_new_session=True)',
@@ -781,17 +1047,13 @@ STARTS_AN_ESCAPED_CHILD = STARTS_A_CHILD.replace(
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the process-group bound is POSIX's")
-def test_a_process_outside_the_group_does_not_hold_the_verdict_back(
-    tmp_path, capsys, monkeypatch
-):
-    """The kill ends the group, and then the output is collected -- which
-    waits for every holder of the pipe to close it. A process that started a
-    session of its own is outside the group and holds it for as long as it
-    runs, so an unbounded collection is the hang again, one step later. The
-    collection is bounded, and the verdict says the group was what ended."""
+def test_a_process_outside_the_group_does_not_hold_the_verdict_back(tmp_path, capsys):
+    """A process that started a session of its own is outside the group, so
+    the kill does not reach it, and it holds the cases' output for as long as
+    it runs. Nothing after the kill may wait on that output, or the hang is
+    back one step later; the verdict names the escape as the bound's limit."""
     assert STARTS_AN_ESCAPED_CHILD != STARTS_A_CHILD, "the fixture did not change"
     mc = module()
-    monkeypatch.setattr(mc, "REAP_TIMEOUT", 0.5)
     target = tmp_path / "under_test.py"
     target.write_bytes(b"VALUE = 1\n")
     pid_file = tmp_path / "child.pid"
@@ -804,7 +1066,7 @@ def test_a_process_outside_the_group_does_not_hold_the_verdict_back(
                 "VALUE = 1",
                 "VALUE = 2",
                 "--tests",
-                cases_command(probe(tmp_path, STARTS_AN_ESCAPED_CHILD), pid_file),
+                starts_a_child(tmp_path, target, pid_file, STARTS_AN_ESCAPED_CHILD),
                 "--timeout",
                 "1",
             ]
@@ -835,7 +1097,8 @@ def test_a_group_that_ended_on_its_own_at_the_bound_is_not_an_error():
         start_new_session=True,
     )
     proc.communicate(timeout=30)
-    assert mc._end(proc, mc.GROUP) == ""
+    mc._end(proc, mc.GROUP)
+    assert proc.returncode == 0
 
 
 # --- S6 · the Windows half ends the direct child and says what it did not ---
@@ -878,6 +1141,10 @@ def test_an_interrupt_ends_the_run_it_started_and_restores_the_file(
     real_wait = mc._wait
 
     def interrupted(proc, timeout):
+        # Against the file as it is the cases pass at once; the interrupt
+        # lands in the mutated run, while the mutant is on disk.
+        if "VALUE = 2" not in target.read_text(encoding="utf-8"):
+            return real_wait(proc, timeout)
         deadline = time.monotonic() + 10
         while read_pid(pid_file) is None and time.monotonic() < deadline:
             time.sleep(0.05)
@@ -892,7 +1159,7 @@ def test_an_interrupt_ends_the_run_it_started_and_restores_the_file(
                 "VALUE = 1",
                 "VALUE = 2",
                 "--tests",
-                cases_command(probe(tmp_path, STARTS_A_CHILD), pid_file),
+                starts_a_child(tmp_path, target, pid_file),
             ]
         )
         out = capsys.readouterr().out
