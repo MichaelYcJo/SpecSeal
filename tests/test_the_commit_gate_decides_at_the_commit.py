@@ -704,6 +704,25 @@ def test_the_parity_arm_reads_the_paths_git_is_committing(world):
         "code",
         home=world.home,
     )
+    # A comparison recorded at HEAD lets the next code commit through.
+    gitdir = Path(
+        g(
+            world.w, "rev-parse", "--absolute-git-dir", home=world.home, session=""
+        ).stdout.strip()
+    )
+    (gitdir / "specseal-parity").write_text(world.head(world.w), encoding="utf-8")
+    (world.w / "f.py").write_text("a = 4\n", encoding="utf-8")
+    before = world.head(world.w)
+    g(world.w, "commit", "-q", "-am", "compared", home=world.home)
+    assert world.head(world.w) != before
+
+
+def test_no_session_is_judged_by_nothing_in_python_either(world):
+    """The stub leaves before Python for P2; the entry point says the same
+    thing on its own, for a stub an older plugin wrote."""
+    world.change(world.main)
+    environ = env(world.home, session="")
+    assert commitgate.pre_commit(str(world.main), environ, io.StringIO()) == 0
 
 
 # --- the fallback stands aside where git decides ------------------------------
