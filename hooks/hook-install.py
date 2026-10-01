@@ -159,10 +159,8 @@ def install(cwd, session=""):
     if not optin.home_at(top, common):
         remove_ours(directory)
         return ""
-    state, detail = githooks.slot(top, common)
-    if state == "ours":
-        return ""
-    if state == "foreign":
+    detail = githooks.foreign(top, common)
+    if detail:
         if not detail.startswith("core.hooksPath"):
             remove_ours(directory)
         if say_once(common, session, "foreign"):

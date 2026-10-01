@@ -180,6 +180,29 @@ def test_core_hooks_path_makes_the_clone_foreign(tmp_path, home):
     assert not githooks.decides(str(r))
 
 
+def test_a_hooks_path_set_after_the_stubs_turns_git_off(tmp_path, home):
+    """The stubs are still on disk, and git no longer runs them."""
+    r = repo(tmp_path / "r")
+    install_mod.install(str(r), "s1")
+    assert githooks.decides(str(r))
+    g(r, "config", "core.hooksPath", ".husky")
+    assert not githooks.decides(str(r))
+
+
+def test_a_stub_put_back_alone_leaves_its_neighbours_untouched(tmp_path, home):
+    r = repo(tmp_path / "r")
+    install_mod.install(str(r), "s1")
+    (hooks_of(r) / "post-commit").unlink()
+    others = {
+        h: (hooks_of(r) / h).stat().st_mtime_ns
+        for h in githooks.HOOKS
+        if h != "post-commit"
+    }
+    install_mod.install(str(r), "s2")
+    assert (hooks_of(r) / "post-commit").exists()
+    assert others == {h: (hooks_of(r) / h).stat().st_mtime_ns for h in others}
+
+
 def test_a_global_hooks_path_is_foreign_too(tmp_path, home):
     r = repo(tmp_path / "r")
     subprocess.run(

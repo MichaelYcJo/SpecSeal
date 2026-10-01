@@ -194,36 +194,24 @@ def hooks_dir(common):
     return os.path.join(common, "hooks") if common else ""
 
 
-def slot(top, common):
-    """("ours" | "free" | "foreign", detail) for the clone at `top`.
+def foreign(top, common):
+    """What holds the clone's hooks slot that is not this plugin, or "".
 
-    `foreign` carries what took the slot: `core.hooksPath` and its value, or
-    the hook file that is not this plugin's. `ours` means every hook this
-    plugin writes is there with its marker; `free` means none is foreign and
-    at least one is missing or stale -- the installer's to write.
+    `core.hooksPath` and its value, or the first hook file without the stub's
+    marker. "" means the slot is this plugin's to write -- whether each stub is
+    current is the installer's question, answered by comparing bytes.
     """
     setting = hooks_path_setting(top)
     if setting:
-        return "foreign", f"core.hooksPath is set to {setting}"
+        return f"core.hooksPath is set to {setting}"
     directory = hooks_dir(common)
     if not directory:
-        return "foreign", "the clone's git directory could not be read"
-    current = True
+        return "the clone's git directory could not be read"
     for hook in HOOKS:
         found = read_stub(os.path.join(directory, hook))
-        if found is None:
-            current = False
-            continue
-        ours, version, target = found
-        if not ours:
-            return "foreign", os.path.join(directory, hook)
-        if (
-            version != plugin_version()
-            or target != entry_point(hook)
-            or not os.path.isfile(target)
-        ):
-            current = False
-    return ("ours" if current else "free"), directory
+        if found is not None and not found[0]:
+            return os.path.join(directory, hook)
+    return ""
 
 
 def decides(top, common=None):
