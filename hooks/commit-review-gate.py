@@ -101,6 +101,7 @@ import gate
 import githooks
 import optin
 import routing
+import tokens
 from cmdline import (
     EXPANDS,
     Unresolved,
@@ -1329,10 +1330,16 @@ def main():
     # reader could not place stands aside where the SESSION's clone is git's,
     # because that is the stand-in it would have been judged against; a
     # commit it would have reached in a clone carrying no hooks is the known
-    # limit `docs/commit-review-gate-spec.md` states.
+    # limit `docs/commit-review-gate-spec.md` states. A command carrying a
+    # word that can keep the hooks from judging it -- `core.hooksPath`, a
+    # `GIT_CONFIG*` assignment, `env -i` -- stands aside nowhere (round 1's
+    # 🟡 2 and 🟡 8, `hooks/tokens.py#steps_around_hooks`).
     decided = {}
+    around = tokens.steps_around_hooks(command)
 
     def git_decides(path):
+        if around:
+            return False
         root = root_of(path) if isinstance(path, str) else ""
         if root not in decided:
             decided[root] = githooks.decides(root)

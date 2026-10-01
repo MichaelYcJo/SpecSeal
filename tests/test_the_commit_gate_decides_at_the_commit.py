@@ -30,6 +30,7 @@ from test_the_guard_asks_once_per_session import ask_entries, write_transcript
 HOOKS = Path(__file__).resolve().parent.parent / "hooks"
 sys.path.insert(0, str(HOOKS))
 import gate  # noqa: E402  -- the plain name the hooks import
+import tokens  # noqa: E402
 
 install_mod = load_hook_module("hook-install.py", "hook_install_for_the_commit_gate")
 crg = load_hook_module("commit-review-gate.py", "crg_beside_the_git_hooks")
@@ -766,6 +767,51 @@ def test_a_foreign_clone_keeps_the_text_reading(world, monkeypatch):
     as 0.16.0 judged it."""
     g(world.u, "config", "core.hooksPath", ".husky", home=world.home, session="")
     assert pre_bash(world, f"git -C {q(world.u)} commit -m x", world.main) == "deny"
+
+
+STEPS_AROUND = {
+    "-c core.hooksPath": "git -c core.hooksPath=/dev/null commit -m x",
+    "the key in another case": "git -c CORE.HOOKSPATH=/dev/null commit -m x",
+    "--config-env": "git --config-env=core.hooksPath=H commit -m x",
+    "GIT_CONFIG_COUNT": (
+        "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath "
+        "GIT_CONFIG_VALUE_0=/nonexistent git commit -m x"
+    ),
+    "GIT_CONFIG_PARAMETERS": (
+        "GIT_CONFIG_PARAMETERS=\"'core.hookspath'='/x'\" git commit -m x"
+    ),
+    "an exported GIT_CONFIG": "export GIT_CONFIG_GLOBAL=/x/g; git commit -m x",
+    "env -i": "env -i PATH=/usr/bin git commit -m x",
+    "env --ignore-environment": "env --ignore-environment git commit -m x",
+    "a path-qualified env -": "/usr/bin/env - git commit -m x",
+    "env -i in a subshell": "(env -i git commit -m x)",
+    "GIT_CONFIG in a subshell": "(GIT_CONFIG_GLOBAL=/x/g git commit -m x)",
+    "an unreadable command": "git commit -m 'x",
+}
+
+
+@pytest.mark.parametrize("name", sorted(STEPS_AROUND))
+def test_a_command_that_can_step_around_the_hooks_keeps_the_text_reading(world, name):
+    """Round 1's 🟡 2 and 🟡 8: a setting or an emptied environment that lives
+    in the one command can keep git from running the stubs, or the stub from
+    finding the session, so the reading that asked before the command does not
+    stand aside for it. A misread costs one refusal."""
+    assert pre_bash(world, STEPS_AROUND[name], world.main) == "deny", name
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git commit -m x",
+        "git -c specseal.waive=parity commit -m x",
+        "env FOO=1 git commit -m x",
+        "printenv GIT_DIR",
+        "echo GIT_CONFIG_NOSYSTEM",
+        "",
+    ],
+)
+def test_only_those_words_make_the_reading_judge_a_git_decided_clone(command):
+    assert not tokens.steps_around_hooks(command)
 
 
 # --- post-commit: the implementer notice --------------------------------------
