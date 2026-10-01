@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 696 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `0340a8bd99458b2efee2fa24606c7ec0b3792558..fe122afed0ed34988a7389441c64795292cf7422`, 1 commit |
+| Contract changes | none |
+| New units | test_a_row_printed_at_its_bar_meets_it (depth 1) |
 | Needs a fix | yes — 🟡 1 (a row printed at its bar is named under it), 🟡 2 (a measurement attributed to the wrong release in a shipped definition and changelog), 🟡 3 (the per-call bound contradicts §10's requirements read) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,13 +29,13 @@ Round 1 targets `c9d5114e` and the diff `cd24f516..c9d5114e`, the whole build. I
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | the grade compares the unrounded ratio and prints it rounded, so a row shown at 1.80 is named under the 1.8 bar | `skills/verify/scripts/session_cost.py:2507` | open | executed probe: 79/44 and 67/48 print `1.80 … bar of 1.8` and `1.40 … bar of 1.4`; S7's fixtures are exact fractions and never exercised it |
-| 🟡 2 | *the 0.12.2 framers … read 1.48–1.64* gives 0.12.2 a 0.12.1 reading and leaves out 0.12.2's stalled 1.56 and 1.80 | `agents/framer.md:188` | open | #456 opened: 1.48 sits under its 0.12.1 section, 1.64 under #423's comment, 1.56 and 1.80 under #424's; also in the changelog fragment line 5 and the test docstring line 293 |
-| 🟡 3 | the about-six bound on one call has no exception for the files the handoff names, which §10 says go out in one call | `agents/framer.md:175` | open | `skills/agent-contract/SKILL.md:246` read; the bullet cites §10 as the rule it applies |
-| ⬜ 4 | *which `agents/framer.md` no longer does* reads as if the definition once held the opening reads back | `docs/review-handoff-protocol.md:633` | open | the prohibition lived in no file, per spec §Grounding and the definition case's own docstring |
-| ⬜ 5 | the counts sentence lists *a segment that made no call* among rows with no bar; a no-call smith is counted exempt and a no-call warden carries bar 1.8 | `skills/verify/scripts/session_cost.py:2536` | open | read: exemption keys on kind, not on numbers; counts are right, the sentence is not |
-| ⬜ 6 | the docstring says a program reading `--json` can tell exempt from unknown through `SEGMENT_BARS`, which is not in the reading | `skills/verify/scripts/session_cost.py:2360` | open | read; the two `kind` keys sit on different objects and are not confusable by path, and I7 fixed both keys' shape |
-| ⬜ 7 | the cross-pin loops over two named kinds, so an entry added to either table alone passes | `tests/test_the_handoff_before_round_one.py:550` | open | executed: a `scribe` entry with a bar and no protocol row left the case green; a value moved on the protocol side alone turned it red |
+| 🟡 1 | the grade compares the unrounded ratio and prints it rounded, so a row shown at 1.80 is named under the 1.8 bar | `skills/verify/scripts/session_cost.py:2507` | **fixed** `fe122afed0ed34988a7389441c64795292cf7422` | fixed at fe122afed0ed34988a7389441c64795292cf7422; executed probe: 79/44 and 67/48 print `1.80 … bar of 1.8` and `1.40 … bar of 1.4`; S7's fixtures are exact fractions and never exercised it |
+| 🟡 2 | *the 0.12.2 framers … read 1.48–1.64* gives 0.12.2 a 0.12.1 reading and leaves out 0.12.2's stalled 1.56 and 1.80 | `agents/framer.md:188` | **fixed** `fe122afed0ed34988a7389441c64795292cf7422` | fixed at fe122afed0ed34988a7389441c64795292cf7422; #456 opened: 1.48 sits under its 0.12.1 section, 1.64 under #423's comment, 1.56 and 1.80 under #424's; also in the changelog fragment line 5 and the test docstring line 293 |
+| 🟡 3 | the about-six bound on one call has no exception for the files the handoff names, which §10 says go out in one call | `agents/framer.md:175` | **fixed** `fe122afed0ed34988a7389441c64795292cf7422` | fixed at fe122afed0ed34988a7389441c64795292cf7422; `skills/agent-contract/SKILL.md:246` read; the bullet cites §10 as the rule it applies |
+| ⬜ 4 | *which `agents/framer.md` no longer does* reads as if the definition once held the opening reads back | `docs/review-handoff-protocol.md:633` | **fixed** `fe122afed0ed34988a7389441c64795292cf7422` | fixed at fe122afed0ed34988a7389441c64795292cf7422; the prohibition lived in no file, per spec §Grounding and the definition case's own docstring |
+| ⬜ 5 | the counts sentence lists *a segment that made no call* among rows with no bar; a no-call smith is counted exempt and a no-call warden carries bar 1.8 | `skills/verify/scripts/session_cost.py:2536` | **fixed** `fe122afed0ed34988a7389441c64795292cf7422` | fixed at fe122afed0ed34988a7389441c64795292cf7422; read: exemption keys on kind, not on numbers; counts are right, the sentence is not |
+| ⬜ 6 | the docstring says a program reading `--json` can tell exempt from unknown through `SEGMENT_BARS`, which is not in the reading | `skills/verify/scripts/session_cost.py:2360` | **fixed** `fe122afed0ed34988a7389441c64795292cf7422` | fixed at fe122afed0ed34988a7389441c64795292cf7422; read; the two `kind` keys sit on different objects and are not confusable by path, and I7 fixed both keys' shape |
+| ⬜ 7 | the cross-pin loops over two named kinds, so an entry added to either table alone passes | `tests/test_the_handoff_before_round_one.py:550` | **fixed** `fe122afed0ed34988a7389441c64795292cf7422` | fixed at fe122afed0ed34988a7389441c64795292cf7422; executed: a `scribe` entry with a bar and no protocol row left the case green; a value moved on the protocol side alone turned it red |
 | 🟢 | the ledger stays true at the target, and both in-place corrections say something true | `seal/releases/0.4.0.md`, `seal/releases/0.15.7.md` | confirmed | unscoped `evidence-check .` exit 0, 3179 ok, 0 drifted; correction and re-read notes read against the diff |
 | 🟢 | Q1's reading reproduces: the frame's segment is 50 calls at 4.17 tools per turn, graded against 1.4 | `seal/specs/1790815612-the-reading-segments-batch-again-and-the-opening-lives-in-a-file/phases/phase-4.md` | confirmed | executed `--json` over the run's transcript at the target; the largest batch of 11 was not re-derived |
 | 🟢 | the class holds no other carrier of *cannot tell kinds apart*, a universal 1.2 bar, or the prohibition | README.md, README.ko.md, `skills/`, `docs/`, `templates/`, `agents/` | confirmed | read, by search over each |
