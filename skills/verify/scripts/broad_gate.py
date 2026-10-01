@@ -2489,6 +2489,10 @@ def panel(
     `fit` on the way out: a branch keeps its HEAD, whose issue number is what
     a reader matches to a ticket, and a ref keeps its TAIL, because for the
     `origin/<base>` a runner reads the prefix is the part a reader can infer.
+    Where step 1 lands on a second remote the prefix is NOT inferable, and the
+    line the gate prints is what names that ref in full — it fires whenever
+    the given and resolved commits differ (`questions.md` W1, round 1 finding
+    5); the `SEALED` line names it in full as well.
 
     **Where the moved-base line does not fire, the ref row is the only
     statement a reader gets.** A4 keeps the line silent where the two bases
