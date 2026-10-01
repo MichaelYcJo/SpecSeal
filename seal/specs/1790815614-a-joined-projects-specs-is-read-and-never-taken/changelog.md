@@ -8,6 +8,12 @@
   what the row governs and what the default costs: a repository whose own
   tests sit in a `specs/` directory gets them back in the survivor sweep with
   `Reference specs | none`.
+- **The agents and skills that read the tree say what a reference root is
+  to them** (#688). The framer, the smith, the warden, `settle` and the
+  implement skill each read a project's own `specs/` where the work touches
+  what it describes, cite what they read in `spec.md` or a standing
+  statement, and never write there; the warden opens such a citation in its
+  first stage like any other coordinate.
 
 ### Changed
 
