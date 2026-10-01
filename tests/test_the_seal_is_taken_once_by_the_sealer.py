@@ -2950,6 +2950,27 @@ def test_a_failing_ledger_ends_with_its_total_line(tmp_path):
     )
 
 
+def test_a_base_that_is_its_own_commit_has_no_ref_row_under_it():
+    """A3 on the panel. A bare SHA given as `--base` resolves to itself, so
+    the row under `base` would repeat the commit; `ref_is_commit` — the one
+    reading the lines use too — leaves it out. A branch-named base keeps
+    its row."""
+    gate = gate_module()
+    sha = "1e2bed90" + "a" * 32
+    bare = gate.panel(
+        "c46fd2db", gate.Base(sha, "1e2bed90", sha, "1e2bed90"), checks_with(gate), None
+    )
+    at = bare.index(("base", "1e2bed90"))
+    assert bare[at + 1] is None, bare
+    named = gate.panel(
+        "c46fd2db",
+        gate.Base("base", "1e2bed90", "base", "1e2bed90"),
+        checks_with(gate),
+        None,
+    )
+    assert named[named.index(("base", "1e2bed90")) + 1] == ("", "base"), named
+
+
 def test_a_run_with_no_record_has_no_item_and_no_rounds():
     """A7's last shape. Without `--record` there is no work item, so neither
     row prints."""
