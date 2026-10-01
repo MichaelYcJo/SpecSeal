@@ -574,7 +574,8 @@ def test_the_panel_names_the_ref_the_base_came_from(tmp_path):
     assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
     said = [line for line in out.stdout.splitlines() if line.startswith("SEALED")]
     assert len(said) == 1, out.stdout
-    assert f"against {short(work, 'origin/base')}" in said[0], said
+    # #666: the resolved ref is named beside the commit it resolved to.
+    assert f"against origin/base @ {short(work, 'origin/base')}" in said[0], said
     assert short(work, "base") not in said[0], f"the line names the local ref: {said}"
 
 
@@ -586,7 +587,7 @@ def test_the_failure_form_names_the_base_the_checks_were_asked_about(tmp_path):
     assert out.returncode == 1, f"{out.stdout}\n{out.stderr}"
     head = out.stdout.splitlines()[0]
     assert head.startswith("NOT SEALED"), head
-    assert short(work, "origin/base") in head, head
+    assert f"against origin/base @ {short(work, 'origin/base')}" in head, head
     assert short(work, "base") not in head, (
         f"the failure form names the local ref: {head}"
     )

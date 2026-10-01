@@ -56,11 +56,34 @@ def values(scale=0.9, item="/x/seal/specs/1799000000-an-item", rows=ROWS):
         "tree": "aaa1111",
         "base": "bbb2222",
         "from": "origin/base",
+        "branch": "feat/x",
+        "pr": "#12",
         "item": item,
         "session": "s-1",
         "scale": scale,
         "rows": rows,
     }
+
+
+# The label a values file in `values()`'s shape draws under (#666): the
+# `SEALED` line's own names, the pull request, the work item.
+LABEL = (
+    "SEALED feat/x @ aaa1111 against origin/base @ bbb2222 · #12 · 1799000000-an-item"
+)
+
+
+def test_a_values_file_from_an_older_gate_draws_the_label_it_always_drew():
+    """A15's compatibility half. A file with no `branch` key was written by
+    a gate older than #666, and may still be pending when a newer hook draws
+    it, so it gets the label it always got. `branch` present and `null` is a
+    detached HEAD, which is the new shape with the branch left out; no `pr`
+    leaves the pull request out."""
+    mod = stamp_module()
+    old = {k: v for k, v in values().items() if k not in ("branch", "pr")}
+    assert mod.label(old) == "SEALED aaa1111 against bbb2222 · 1799000000-an-item"
+    assert mod.label({**values(), "branch": None, "pr": None}) == (
+        "SEALED aaa1111 against origin/base @ bbb2222 · 1799000000-an-item"
+    )
 
 
 def seal_stamp(*args):
@@ -243,7 +266,7 @@ def test_the_main_sessions_stop_draws_each_undrawn_file_once(tmp_path):
     repo = opted_in(tmp_path)
     path = pending_for(repo, "s-1")
     lines = message(stop(repo))
-    assert lines[0] == "SEALED aaa1111 against bbb2222 · 1799000000-an-item", lines[0]
+    assert lines[0] == LABEL, lines[0]
     assert lines[1:] == mod.stamp(ROWS, 0.9, shape=False), "not the file's block form"
     assert any("\x1b[38;2;" in line for line in lines[1:]), "the drawing lost colour"
     assert not os.path.exists(path) and os.path.exists(mod.drawn_path(path))
@@ -291,8 +314,8 @@ def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
     text = json.loads(stop(repo))["systemMessage"]
     blocks = text.split("\n\n")
     assert [b.split("\n", 1)[0] for b in blocks] == [
-        "SEALED aaa1111 against bbb2222 · 1799000000-an-item",
-        "SEALED ccc3333 against bbb2222 · 1799000000-an-item",
+        LABEL,
+        LABEL.replace("aaa1111", "ccc3333"),
     ], text
     for block in blocks:
         assert block.split("\n")[1:] == mod.stamp(ROWS, 0.9, shape=False)
@@ -312,7 +335,7 @@ def test_a_malformed_later_file_does_not_take_the_earlier_ones(tmp_path):
     good = mod.write_values(str(repo / ".git"), "s-1", values(), now=1)
     bad = mod.write_values(str(repo / ".git"), "s-1", {**values(), "item": 5}, now=2)
     lines = message(stop(repo))
-    assert lines[0] == "SEALED aaa1111 against bbb2222 · 1799000000-an-item", lines
+    assert lines[0] == LABEL, lines
     assert lines[1:] == mod.stamp(ROWS, 0.9, shape=False)
     assert os.path.exists(mod.drawn_path(good)) and not os.path.exists(good)
     assert os.path.exists(bad), "the malformed file was claimed"
@@ -332,7 +355,9 @@ def test_the_sealers_worktree_and_the_main_checkout_share_the_file(tmp_path):
     common = os.path.normpath(os.path.join(str(tree), common))
     assert common == os.path.normpath(str(repo / ".git")), common
     stamp_module().write_values(common, "s-1", values())
-    assert message(stop(repo))[0].startswith("SEALED aaa1111"), "not from the checkout"
+    assert message(stop(repo))[0].startswith("SEALED feat/x @ aaa1111"), (
+        "not from the checkout"
+    )
     pending_for(repo, "s-1", item="/x/seal/specs/1799000001-another")
     assert message(stop(tree))[0].endswith("1799000001-another"), "not from the tree"
 
@@ -344,7 +369,9 @@ def test_a_turn_ending_in_a_subdirectory_still_draws(tmp_path):
     repo = opted_in(tmp_path)
     (repo / "docs" / "deep").mkdir(parents=True)
     pending_for(repo, "s-1")
-    assert message(stop(repo / "docs" / "deep"))[0].startswith("SEALED aaa1111")
+    assert message(stop(repo / "docs" / "deep"))[0].startswith(
+        "SEALED feat/x @ aaa1111"
+    )
 
 
 def test_a_repository_that_never_opted_in_is_not_drawn_for(tmp_path):

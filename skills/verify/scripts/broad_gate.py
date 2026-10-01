@@ -77,9 +77,14 @@ Anywhere else a recorded seal draws nothing and prints one line beginning
 it at the end of the turn of the session named by `CLAUDE_CODE_SESSION_ID`.
 Without `--record` there is no cell, so on a terminal or off one the line
 says nothing was recorded, and nothing is written or drawn. A sealer's
-stdout is a pipe, so a sealer's run never draws. The failure form is `NOT SEALED
-<tree> against <base>` and the failing checks with their first lines, no
-drawing and no file.
+stdout is a pipe, so a sealer's run never draws. Both lines name what was
+sealed as `<branch> @ <tree> against <ref> @ <base commit>`, the branch left
+out on a detached HEAD and the ref left out where it is the commit itself
+(#666). The failure form is `NOT SEALED` with the same names and the failing
+checks with their first lines, no drawing and no file. A recorded seal adds
+one line after the stamp or the `SEALED` line, where git still sees the
+cell's file uncommitted: the cell is written and not committed, and CI reads
+HEAD.
 
 `--record <item>` runs `round_record.py seal` on success, which sets the LAST
 record's `Broad gate` cell and nothing else. With `--record`, success is the
@@ -261,6 +266,18 @@ def git(root, *args):
 def repo_root(start):
     out = git(start, "rev-parse", "--show-toplevel")
     return os.path.normpath(out.strip()) if out and out.strip() else None
+
+
+def branch_name(root):
+    """The branch checked out at `root`, or None on a detached HEAD.
+
+    What the `SEALED` and `NOT SEALED` lines name beside the tree (#666): a
+    head naming two commits told a reader which hash was sealed and never
+    which branch, so a stamp was matched to its work by hand. `symbolic-ref
+    -q` exits non-zero on a detached HEAD and prints nothing, which is the
+    None the lines read as *leave the branch out*."""
+    out = git(root, "symbolic-ref", "--short", "-q", "HEAD")
+    return out.strip() if out and out.strip() else None
 
 
 # --- which copy of the gate runs, and the stamp says which ------------------
@@ -2108,6 +2125,73 @@ def round_count(item):
     return sum(1 for n in names if ROUND_RE.match(n))
 
 
+class Record:
+    """The record a recorded seal just wrote its cell into, as the plugin's
+    own readers read it (#666).
+
+    `path` is the home `round_record.seal_home` picks — the last round record,
+    or `broad-gate.md` for a work item that ran no rounds — and `rows` its
+    `| field | value |` rows, None where the home is not a round record or
+    cannot be read. `chain` and `reader` are the modules that read it, kept so
+    a later question of the same record asks the same reader.
+
+    **No second reader of a round record.** `chain_check.py` owns the record's
+    vocabulary and `round_record.py` owns which file the cell lands in, and a
+    reader written here would be a third answer to both, which is the split
+    `hooks/config.py`'s loading comment above refuses."""
+
+    __slots__ = ("chain", "lines", "path", "reader", "rows")
+
+    def __init__(self, path, rows=None, lines=None, chain=None, reader=None):
+        self.path, self.rows, self.lines = path, rows, lines
+        self.chain, self.reader = chain, reader
+
+
+def sealed_record(item, root):
+    """The `Record` the cell went into, or None where nothing can say.
+
+    Asked only after `seal` exited 0, so the files it reads were just read by
+    the same scripts in a subprocess. Every failure is None and never a
+    refusal: what this feeds is a label and a line, and a run that sealed
+    does not stop on a label."""
+    # `SystemExit` too: `round_record.py`'s own `load` raises it for a sibling
+    # it cannot find, which is how it ends its own run, and must not end this
+    # one.
+    try:
+        generator = load(RECORD, "specseal_round_record_for_broad_gate")
+        reader, routing, _root, item, rounds = generator.where(
+            argparse.Namespace(item=item, root=root)
+        )
+        n, path = generator.seal_home(routing, item, rounds)
+    except (Exception, SystemExit):  # a label never stops a sealed run
+        return None
+    if n is None:
+        return Record(path, chain=generator.chain, reader=reader)
+    try:
+        with open(path, encoding="utf-8") as handle:
+            lines = reader.readable(handle.read())
+        rows = generator.chain.table_rows(reader, lines)
+    except (Exception, SystemExit):
+        return Record(path, chain=generator.chain, reader=reader)
+    return Record(path, rows, lines, generator.chain, reader)
+
+
+def pull_request(record):
+    """`#<N>` from the record's `| PR |` row, or None.
+
+    Read with `chain_check.PR_RE` over `PR_FIELD`, the way
+    `chain_check.declared_pull_head` reads it. `not yet opened` — the honest
+    value while the review runs — names no number, and neither does a
+    `broad-gate.md` home, which has no such row. Nothing is looked up: the
+    gate reads no network (`PARTITION`'s reason for the milestone step)."""
+    if record is None or record.rows is None:
+        return None
+    found = record.chain.PR_RE.search(
+        record.chain.field(record.rows, record.chain.PR_FIELD) or ""
+    )
+    return f"#{found.group(1)}" if found else None
+
+
 def panel(tree, base, checks, item, workflow=None, copy=None):
     """The stamp's rows. `base` is a `Base`, so the panel can say WHICH ref
     the commit beside it came from. `copy` is the `gate` row's value from
@@ -2293,6 +2377,7 @@ def gate(args, console_wants_letters, terminal=False):
             "compared against"
         )
     tree = head.strip()
+    branch = branch_name(root)
     item = None
     if args.record:
         item = os.path.abspath(args.record)
@@ -2388,7 +2473,8 @@ def gate(args, console_wants_letters, terminal=False):
     sys.stderr.write(f"broad-gate: outputs kept under {keep}\n")
     if failures:
         sys.stdout.write(
-            "\n".join(stamp.not_sealed(tree, base.commit, failures)) + "\n"
+            "\n".join(stamp.not_sealed(tree, base.commit, failures, branch, base.ref))
+            + "\n"
         )
         return 1
 
@@ -2426,7 +2512,12 @@ def gate(args, console_wants_letters, terminal=False):
                 + "\n"
             )
             return 2
+    record = sealed_record(item, root) if item is not None else None
     rows = panel(tree, base, checks, item, workflow, gate_copy(root))
+    # The cell is in the working tree and CI reads HEAD (#666): said after
+    # the stamp or the `SEALED` line, on the same stream, and only where a
+    # cell was written and git still sees it uncommitted.
+    uncommitted = uncommitted_line(root, record)
     if terminal and item is not None:
         # A person is in front of this stream, and it is the one place the
         # gate draws. Once, and no values file is left for anyone else to
@@ -2437,8 +2528,25 @@ def gate(args, console_wants_letters, terminal=False):
         sys.stdout.write(
             "\n" + "\n".join(stamp.stamp(rows, args.scale, shape)) + "\n\n"
         )
+        if uncommitted:
+            sys.stdout.write(uncommitted + "\n")
         return 0
-    sys.stdout.write(signal(stamp, root, tree, base, item, rows, args.scale) + "\n")
+    sys.stdout.write(
+        signal(
+            stamp,
+            root,
+            tree,
+            base,
+            item,
+            rows,
+            args.scale,
+            branch=branch,
+            pr=pull_request(record),
+        )
+        + "\n"
+    )
+    if uncommitted:
+        sys.stdout.write(uncommitted + "\n")
     return 0
 
 
@@ -2469,6 +2577,38 @@ DRAWN_AT_TURN_END = (
     "{path}; where none appears, `seal-stamp --from {command}` draws it"
 )
 
+# The line after the `SEALED` line on a recorded seal (#666). `seal` writes
+# the cell into the working tree and commits nothing, CI reads the record at
+# HEAD, and a pull request marked ready over an uncommitted cell fails on a
+# cell reading `not yet` — after the one broad run it was meant to record. It
+# names the act and the reason, and nothing it says is a question.
+CELL_UNCOMMITTED = (
+    "broad-gate: the `Broad gate` cell is written to {path} and not committed. "
+    "CI reads the record at HEAD, so commit it before the pull request is "
+    "marked ready"
+)
+
+
+def uncommitted_line(root, record):
+    """`CELL_UNCOMMITTED` for the file the cell went into, or None.
+
+    None without a record, and None where git says the file does not differ
+    from HEAD: a re-seal at the commit and base the newest entry already
+    records rewrites the same bytes (#174), and a line saying *not committed*
+    over a committed file would be false on its face. Asked of git rather
+    than assumed, so the line is true wherever it prints."""
+    if record is None:
+        return None
+    # Both by realpath: `--record` arrives as typed, and the root as git
+    # resolved it, so on a checkout under a symlinked directory the two
+    # spellings of one file relate by `../..` and git reads the path as
+    # outside the repository.
+    rel = os.path.relpath(os.path.realpath(record.path), os.path.realpath(root))
+    status = git(root, "status", "--porcelain", "--", rel)
+    if not (status and status.strip()):
+        return None
+    return CELL_UNCOMMITTED.format(path=rel)
+
 
 def common_dir(root):
     """The git common dir of `root`, absolute, or None."""
@@ -2478,17 +2618,23 @@ def common_dir(root):
     return os.path.normpath(os.path.join(root, common.strip()))
 
 
-def signal(stamp, root, tree, base, item, rows, scale):
+def signal(stamp, root, tree, base, item, rows, scale, branch=None, pr=None):
     """The one line a sealed run prints where nobody can see a drawing.
 
-    It starts with `SEALED` and carries `<tree> against <base commit>`, the
-    way the failure form starts `NOT SEALED`. On a recorded seal it writes the
-    panel's `rows` to a values file first and names it: the drawing is then
-    the hook's, in the session that spawned the run, and this line is what
-    reaches the report. A values file that cannot be written leaves the run
-    sealed — every check passed and the cell was written — and says on
-    stderr why nothing will be drawn."""
-    head = f"SEALED   {tree} against {base.commit}"
+    It starts with `SEALED` and carries `<branch> @ <tree> against <ref> @
+    <base commit>` (`seal_stamp.sealed_names`), the way the failure form
+    starts `NOT SEALED`. On a recorded seal it writes the panel's `rows` to a
+    values file first and names it: the drawing is then the hook's, in the
+    session that spawned the run, and this line is what reaches the report. A
+    values file that cannot be written leaves the run sealed — every check
+    passed and the cell was written — and says on stderr why nothing will be
+    drawn.
+
+    The values file carries `branch` and `pr` beside the keys it always had,
+    which `seal_stamp.label` reads for the line above the drawing; a hook
+    older than this gate ignores both and draws the rows under its own
+    label."""
+    head = f"SEALED   {stamp.sealed_names(tree, base.commit, branch, base.ref)}"
     if item is None:
         return head + NOTHING_RECORDED
     session = os.environ.get(SESSION_VAR)
@@ -2496,6 +2642,8 @@ def signal(stamp, root, tree, base, item, rows, scale):
         "tree": tree,
         "base": base.commit,
         "from": base.ref,
+        "branch": branch,
+        "pr": pr,
         "item": item,
         "session": session or None,
         "scale": scale,

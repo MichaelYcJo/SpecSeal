@@ -704,6 +704,14 @@ def signal_lines(text):
     return [line for line in text.splitlines() if line.startswith("SEALED")]
 
 
+def head_of(repo, word="SEALED", branch="feature"):
+    """What a `SEALED` or `NOT SEALED` line opens with over the fixture
+    (#666): the branch and the tree, then the base's ref and its commit. The
+    fixture has no remote, so the ref is `base` as given."""
+    named = f"{branch} @ {short(repo, 'HEAD')}" if branch else short(repo, "HEAD")
+    return f"{word}   {named} against base @ {short(repo, 'base')}"
+
+
 def sealed_values(repo, tmp_path, session="s-1"):
     """A settled item sealed through `--record` on a pipe, with `session` set:
     the completed process and the one values file's contents."""
@@ -2339,8 +2347,11 @@ def test_a_green_tree_is_sealed_with_every_check_run_in_order(repo, tmp_path):
     assert "NOT SEALED" not in out.stdout
     said = signal_lines(out.stdout)
     assert len(said) == 1, f"one `SEALED` line expected:\n{out.stdout}"
-    assert f"{short(repo, 'HEAD')} against {short(repo, 'base')}" in said[0], said
+    assert said[0].startswith(head_of(repo)), said
     assert "nothing was recorded" in said[0], said
+    # No cell was written, so nothing is uncommitted and the line that says
+    # so is absent (#666's S2).
+    assert "not committed" not in out.stdout, out.stdout
     assert crown_of() not in out.stdout, "a piped run drew the twin"
     assert not SGR.search(out.stdout), "a piped run carries colour codes"
     assert not any(c in out.stdout for c in HALF_BLOCKS), "a piped run drew blocks"
@@ -2390,7 +2401,7 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(repo, tmp_path):
     said = signal_lines(out.stdout)
     assert len(said) == 1, f"one `SEALED` line expected:\n{out.stdout}"
     (path,) = values_files(repo)
-    assert f"{short(repo, 'HEAD')} against {short(repo, 'base')}" in said[0], said
+    assert said[0].startswith(head_of(repo)), said
     assert path in said[0], f"the line does not name the file {path}: {said}"
     assert "session s-1" in said[0], said
     # Round 1's 🟡 1. The hook draws nothing, and says nothing, where it
@@ -2574,6 +2585,160 @@ def test_the_wrapper_runs_the_same_gate(repo):
     assert "SEALED" in out.stdout
 
 
+# --- #666: the lines name what they sealed, and say to commit the cell -------
+#
+# 0.16.0's first real stamp named the base and never the branch, so a reader
+# matched the line to its work by hash. The head now reads `<branch> @ <tree>
+# against <ref> @ <base commit>`, and a recorded seal says on the next line
+# that the cell it wrote is not committed, because CI reads HEAD.
+
+
+def set_field(path, label, value):
+    """Rewrite one record's `| label | … |` cell; the record is committed by
+    the caller."""
+    text = path.read_text(encoding="utf-8")
+    path.write_text(
+        "\n".join(
+            f"| {label} | {value} |" if line.startswith(f"| {label} |") else line
+            for line in text.splitlines()
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+
+def test_a_recorded_seal_says_the_cell_is_written_and_not_committed(repo, tmp_path):
+    """A1 and S2. The line after the `SEALED` line names the file the cell
+    went into, says it is not committed, and says CI reads HEAD — on the same
+    stream, so the sealer passes both on together. The file IS uncommitted,
+    which is what makes the line true: `git status` names it."""
+    out, values = sealed_values(repo, tmp_path)
+    lines = out.stdout.splitlines()
+    (at,) = [i for i, line in enumerate(lines) if line.startswith("SEALED")]
+    rel = os.path.join(ITEM, "rounds", "round-2.md").replace("/", os.sep)
+    assert lines[at + 1] == gate_module().CELL_UNCOMMITTED.format(path=rel), lines
+    assert lines[at + 1] == (
+        f"broad-gate: the `Broad gate` cell is written to {rel} and not "
+        "committed. CI reads the record at HEAD, so commit it before the pull "
+        "request is marked ready"
+    )
+    assert git(repo, "status", "--porcelain", "--", rel).stdout.strip(), (
+        "the line says the cell is uncommitted over a file git calls clean"
+    )
+    assert values["branch"] == "feature" and values["pr"] is None, values
+
+
+def test_the_line_is_absent_where_the_cells_file_is_committed(repo):
+    """S2's other half, at the unit: `uncommitted_line` asks git rather than
+    assuming, so a file that does not differ from HEAD gets no line, and no
+    record gets none either."""
+    gate = gate_module()
+    _one, two = settled_item(repo)
+    record = gate.Record(str(two))
+    assert gate.uncommitted_line(str(repo), record) is None
+    assert gate.uncommitted_line(str(repo), None) is None
+    set_field(two, ROW, "abcdef1 against 1234567")
+    said = gate.uncommitted_line(str(repo), record)
+    assert said and os.path.join("rounds", "round-2.md") in said, said
+
+
+def test_the_pull_request_the_record_names_reaches_the_values_file(repo, tmp_path):
+    """A1, A7's number. `| PR | #12 |` on the record the cell lands on is
+    read with `chain_check.PR_RE` and carried as `#12`; `not yet opened`,
+    which the fixture's records hold, is None."""
+    _one, two = settled_item(repo)
+    set_field(two, "PR", "#12")
+    commit(repo, "the pull request opened")
+    out = run_gate(
+        repo, "--record", str(repo / ITEM), keep=tmp_path / "out", session="s-1"
+    )
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    (path,) = values_files(repo)
+    assert module().read_values(path)["pr"] == "#12"
+
+
+def test_a_detached_head_names_the_tree_alone(repo, tmp_path):
+    """A2. A detached HEAD has no branch, so the head reads the tree alone,
+    with no stray `@` before it."""
+    git(repo, "switch", "-q", "--detach")
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    (said,) = signal_lines(out.stdout)
+    assert said.startswith(head_of(repo, branch=None)), said
+    assert said.split(" against ", 1)[0] == f"SEALED   {short(repo, 'HEAD')}", said
+
+
+def test_a_base_given_as_a_commit_is_named_once(repo, tmp_path):
+    """A3. `--base <sha>` resolves to itself, so its ref IS the commit, and
+    the head names it once: `against <commit>`, never `<commit> @ <commit>`.
+    `run_gate`'s own `--base base` comes first, and argparse keeps the last."""
+    commit_ = git(repo, "rev-parse", "base").stdout.strip()
+    out = run_gate(repo, "--base", commit_, keep=tmp_path / "out")
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    (said,) = signal_lines(out.stdout)
+    assert said.startswith(
+        f"SEALED   feature @ {short(repo, 'HEAD')} against {short(repo, 'base')} · "
+    ), said
+
+
+@pytest.mark.parametrize(
+    "branch, ref, said",
+    [
+        ("feat/x", "origin/base", "feat/x @ aaa1111 against origin/base @ bbb2222"),
+        (None, "origin/base", "aaa1111 against origin/base @ bbb2222"),
+        ("feat/x", None, "feat/x @ aaa1111 against bbb2222"),
+        ("feat/x", "bbb2222", "feat/x @ aaa1111 against bbb2222"),
+        ("feat/x", "bbb2222" + "0" * 33, "feat/x @ aaa1111 against bbb2222"),
+        ("feat/x", "bbb2", "feat/x @ aaa1111 against bbb2222"),
+        # A branch whose name happens to begin the commit is still a branch:
+        # only a ref spelled in hex is read as the commit itself.
+        ("feat/x", "b", "feat/x @ aaa1111 against b @ bbb2222"),
+        ("feat/x", "bbb-x", "feat/x @ aaa1111 against bbb-x @ bbb2222"),
+    ],
+)
+def test_the_names_collapse_only_where_a_part_would_repeat(branch, ref, said):
+    """S1's two collapses, at the composer all three lines share."""
+    assert module().sealed_names("aaa1111", "bbb2222", branch, ref) == said
+
+
+def test_the_failure_form_takes_the_same_names():
+    """A4's head, at the unit: `not_sealed` names the branch and the ref the
+    way the `SEALED` line does, and a caller naming neither gets the line it
+    always got."""
+    mod = module()
+    failures = [("suite", ["1 failed"])]
+    assert mod.not_sealed("aaa1111", "bbb2222", failures, "feat/x", "origin/base")[
+        0
+    ] == ("NOT SEALED   feat/x @ aaa1111 against origin/base @ bbb2222")
+    assert mod.not_sealed("aaa1111", "bbb2222", failures)[0] == (
+        "NOT SEALED   aaa1111 against bbb2222"
+    )
+
+
+def test_the_documents_name_the_line_that_says_to_commit_the_cell():
+    """S2's documentation (`agent-contract` §14). The sealer is told the line
+    exists and is passed on, and the orchestrator is told what to do with
+    it — the commit is the orchestrator's act."""
+    sealer = " ".join(sealer_text().split())
+    assert "one more line says the `Broad gate` cell is written and not committed" in (
+        sealer
+    )
+    assert "naming the branch and the tree, the ref and the base commit" in sealer
+    orchestration = " ".join(
+        read_document(os.path.join("skills", "code-review", "orchestration.md")).split()
+    )
+    assert (
+        "the line under it says the `Broad gate` cell is written and not "
+        "committed: CI reads the record at HEAD, so commit the cell before the "
+        "pull request is marked ready"
+    ) in orchestration
+
+
+def read_document(rel):
+    with open(os.path.join(ROOT, rel), encoding="utf-8") as handle:
+        return handle.read()
+
+
 # --- S2 not sealed -----------------------------------------------------------
 
 
@@ -2587,8 +2752,8 @@ def test_a_failing_test_is_not_sealed_and_is_new_when_the_base_passes(repo):
     out = run_gate(repo, session="s-1")
     assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
     first = out.stdout.strip().splitlines()[0]
-    assert first.startswith("NOT SEALED"), first
-    assert short(repo, "HEAD") in first and short(repo, "base") in first, first
+    assert first == head_of(repo, "NOT SEALED"), first
+    assert "not committed" not in out.stdout, "a red run said a cell was written"
     assert crown_of() not in out.stdout, "the failure form drew the disc"
     # S7 of 1790562543. A piped run draws no disc even when it seals, so the
     # line above no longer proves the failure form drew nothing; what a hook

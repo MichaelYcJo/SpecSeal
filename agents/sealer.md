@@ -102,8 +102,12 @@ freshness is a question somebody can ask.
 Three outcomes, and they are not two:
 
 - **Exit 0, sealed** — every check passed and the cell was written. The gate
-  printed one line beginning `SEALED`, naming the tree, the base commit every
-  check was asked about, and the file the stamp's values were written to. The
+  printed one line beginning `SEALED`, naming the branch and the tree, the
+  ref and the base commit every check was asked about, and the file the
+  stamp's values were written to. Under it, one more line says the `Broad
+  gate` cell is written and not committed, and that CI reads the record at
+  HEAD: pass it on beside the `SEALED` line, because the commit it asks for
+  is the orchestrator's and the pull request is not ready without it. The
   stamp itself, whose panel carries `base` beside `from` (the ref that commit
   came from), is drawn later and not by you.
 - **Exit 1, not sealed** — a check failed. The gate printed which, its exit

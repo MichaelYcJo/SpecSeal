@@ -547,7 +547,12 @@ sealed, the lines worth quoting, and what happens next. Then end the turn,
 and the drawing lands last with nothing after it. Draw none yourself,
 neither with `seal-stamp` nor by relaying the sealer's log. The 0.15.6 run
 relayed the log, and the person saw the same stamp twice, the copy
-colourless and cut. On a red run relay the `NOT SEALED` lines, and nothing
+colourless and cut. The `SEALED` line names the branch and the tree it
+sealed and the ref and the commit it was compared against, and the line
+under it says the `Broad gate` cell is written and not committed: CI reads
+the record at HEAD, so commit the cell before the pull request is marked
+ready, or the one broad run is recorded nowhere CI looks. On a red run relay
+the `NOT SEALED` lines, and nothing
 is drawn. Wherever the `SEALED` line names `seal-stamp --from`, quote it as
 it stands: that command is the person's to type, and never yours. Every line
 that names a values file names it, because the hook draws nothing and says

@@ -18,9 +18,10 @@ stdout is not a UTF-8 terminal, or on `--shape`. An agent's report carries
 neither: since #400 the gate draws nothing on a pipe.
 
 The stamp prints on success only. The failure form, `not_sealed`, is the words
-`NOT SEALED`, the tree and the base, and the failing checks with their first
-lines — no drawing, because a picture that says *sealed* beside a word that
-says *not* is read picture first.
+`NOT SEALED`, the branch and the tree, the base's ref and its commit
+(`sealed_names`), and the failing checks with their first lines — no drawing,
+because a picture that says *sealed* beside a word that says *not* is read
+picture first.
 
 **A sealed run is drawn where a person sees it, and that is rarely where it
 ran** (#400). The gate draws only on a terminal, and only over a written
@@ -39,7 +40,8 @@ Usage:
   seal-stamp --from <file>        a sealed run's values file, drawn once
 
 The gate imports `stamp(rows, scale, shape)`, `not_sealed(tree, base,
-failures)`, `pick_shape(stream)`, `is_terminal(stream)` and `write_values`;
+failures, branch, ref)`, `sealed_names`, `pick_shape(stream)`,
+`is_terminal(stream)` and `write_values`;
 the hook imports `pending`, `read_values`, `claim` and `stamp`. The command
 exists so a person can see the drawing without running a gate, and so a
 values file no hook drew can still be drawn by hand.
@@ -411,13 +413,50 @@ def stamp(rows, scale=1.0, shape=False):
     return beside(disc, letter(rows))
 
 
-def not_sealed(tree, base, failures):
-    """The failure form, as lines: `NOT SEALED <tree> against <base>`, then
-    each failing check's name with its first lines under it. No drawing.
+# A ref spelled as a commit: what `--base <sha>` resolves to (`sealed_names`).
+HEX_REF = re.compile(r"[0-9a-fA-F]{4,40}")
+
+
+def sealed_names(tree, base, branch=None, ref=None):
+    """`<branch> @ <tree> against <ref> @ <base>` — what a `SEALED` line, a
+    `NOT SEALED` line and a drawn stamp's label say was sealed (#666).
+
+    A head naming two commits named neither the branch nor the base's ref,
+    so a reader matched a stamp to its work by hash alone. One composer for
+    the three lines, because two spellings of one sentence drift.
+
+    Two collapses, and each leaves a part out rather than printing it twice:
+
+      - `branch` None — a detached HEAD has no branch, so the tree prints
+        alone, with no stray `@`
+      - `ref` None, or a ref that is the commit itself — a bare SHA given as
+        `--base` resolves to itself, and `1e2bed9 @ 1e2bed9` says one thing
+        twice. Read as a ref spelled in hex with either hash a prefix of the
+        other, because the caller may have typed forty characters where the
+        gate prints eight, and a branch named `b` is not the commit `b1e2…`
+
+    `ref` is the RESOLVED ref (`broad_gate.Base.ref`), the one CI reads, not
+    the spelling the caller typed: #423's repair was that a reader can tell
+    `origin/<base>` from a local ref a week behind it."""
+    named = f"{branch} @ {tree}" if branch else f"{tree}"
+    base, ref = str(base), (None if ref is None else str(ref))
+    same = not ref or (
+        bool(HEX_REF.fullmatch(ref)) and (base.startswith(ref) or ref.startswith(base))
+    )
+    against = base if same else f"{ref} @ {base}"
+    return f"{named} against {against}"
+
+
+def not_sealed(tree, base, failures, branch=None, ref=None):
+    """The failure form, as lines: `NOT SEALED <branch> @ <tree> against
+    <ref> @ <base>` (`sealed_names`), then each failing check's name with its
+    first lines under it. No drawing.
 
     `failures` is a list of `(name, lines)` — the check that failed and the
-    first lines of what it printed, as the gate kept them."""
-    out = [f"NOT SEALED   {tree} against {base}", ""]
+    first lines of what it printed, as the gate kept them. `branch` and `ref`
+    None leave their half out, which is the line a caller that names neither
+    has always got."""
+    out = [f"NOT SEALED   {sealed_names(tree, base, branch, ref)}", ""]
     # The widest name present, not a literal 8: `survivors` is nine
     # characters, so that one check's first line sat a column out from every
     # other check's.
@@ -603,10 +642,24 @@ def claim(path):
 def label(values):
     """The line said above a drawn stamp: what was sealed, and for which
     work item. The harness shows a hook message's first line as a dim label,
-    so this is the line that must not be blank."""
+    so this is the line that must not be blank.
+
+    A file carrying `branch` — written by a gate that has #666, `null` on a
+    detached HEAD — gets the `SEALED` line's own names (`sealed_names`) and
+    then ` · #<pr>` where the record named a pull request (#666). **A file
+    without the key draws the label it always drew**, `SEALED <tree> against
+    <base> · <item>`: the file is written by the gate the TREE ships and read
+    by the hook the INSTALLED plugin ships, so a file from an older gate may
+    still be pending when a newer hook draws it."""
     item = values.get("item")
     where = f" · {os.path.basename(os.path.normpath(item))}" if item else ""
-    return f"SEALED {values.get('tree')} against {values.get('base')}{where}"
+    if "branch" not in values:
+        return f"SEALED {values.get('tree')} against {values.get('base')}{where}"
+    pr = values.get("pr")
+    names = sealed_names(
+        values.get("tree"), values.get("base"), values.get("branch"), values.get("from")
+    )
+    return f"SEALED {names}{f' · {pr}' if pr else ''}{where}"
 
 
 # --- a person's command --------------------------------------------------
