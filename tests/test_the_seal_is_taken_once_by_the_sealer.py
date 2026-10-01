@@ -2836,6 +2836,25 @@ def test_a_green_tree_preflights_green_and_seals_nothing(repo, tmp_path):
     assert times == sorted(times), f"the arms did not run in the gate's order: {times}"
 
 
+def test_the_preflight_prints_no_coverage_line(repo, tmp_path):
+    """Spec §*Data & interfaces*, step 2. The coverage line says what THIS
+    SEAL answers of the workflow's `release` job, and a preflight seals
+    nothing, so it prints none — over a fixture carrying this repository's own
+    workflow, where the full run over the same tree prints it."""
+    workflow = os.path.join(ROOT, ".github", "workflows", "hygiene.yml")
+    with open(workflow, encoding="utf-8") as handle:
+        write(repo, ".github/workflows/hygiene.yml", handle.read())
+    commit(repo, "the workflow")
+    said = "this seal answers"
+    full = run_gate(repo, keep=tmp_path / "full")
+    assert said in full.stderr, f"the full run printed no coverage line:\n{full.stderr}"
+    out = run_gate(repo, "--preflight", keep=tmp_path / "pre")
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert said not in out.stderr, (
+        f"a preflight claimed a seal's coverage:\n{out.stderr}"
+    )
+
+
 def test_the_preflight_does_not_run_the_row(repo, tmp_path):
     """S2, the case that shows the flag does something. The row is `exit 1`,
     so the full gate over this tree is NOT SEALED; the preflight over the same
