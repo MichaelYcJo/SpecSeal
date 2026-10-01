@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 696 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `090edf3ba195109857f46d1f6f206c2f1e27a603..6bdf8642e7fea0a67b9eb35f82f081f626a56da1`, 1 commit |
+| Contract changes | none |
+| New units | test_a_plain_reading_printed_at_the_advisory_is_not_flagged (depth 1) |
 | Needs a fix | yes — 🟡 8 (the plain reading's batching advisory prints 1.20 under a threshold of 1.2, finding 1's class left standing), unless the smith answers it with grounds as a deferral the owner opens |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -33,8 +33,8 @@ Round 2 is the verifying round. It targets `618dc68f` and verifies the fix range
 | 🟢 | round 1's finding 7 is closed — the cross-pin compares both whole tables | `tests/test_the_handoff_before_round_one.py:584` | confirmed | executed: an entry added to `SEGMENT_BARS` alone, and a row added to the protocol alone, each turn it red |
 | 🟢 | the new unit pins its defect — the table regexes hold the fixture at the boundary and the grade assertion goes red unrounded | `tests/test_session_cost.py:3271` | confirmed | executed: red against the unrounded comparison, green at the target |
 | 🟢 | the four other-ledger re-stamp notes are true | `seal/ledger.md`, `seal/releases/0.4.0.md`, `seal/releases/0.8.2.md`, `seal/releases/0.15.7.md` | confirmed | read against the protocol diff, whose one change in the section is the framing Grounds cell; unscoped `evidence-check .` exit 0, 3180 ok, 0 drifted |
-| 🟡 8 | the plain reading compares the unrounded ratio with 1.2 and prints it rounded, so 1.199 prints `batching 1.20 tools per turn` and drops `nothing obvious` — finding 1's class, left standing | `skills/verify/scripts/session_cost.py:2102` | open | executed: 241 calls over 201 turns; the protocol states the advisory as below 1.2 at `docs/review-handoff-protocol.md:644`; may be answered with grounds (S10, predates the work item) as a deferral the owner opens |
-| ⬜ 9 | one docstring line runs to 120 columns and two prose lines end ragged after the fix's edit | `skills/verify/scripts/session_cost.py:2500` | open | read; ruff and the line-wrap case are green, and nothing changes in behaviour or fact; also `agents/framer.md:180` and `:198` |
+| 🟡 8 | the plain reading compares the unrounded ratio with 1.2 and prints it rounded, so 1.199 prints `batching 1.20 tools per turn` and drops `nothing obvious` — finding 1's class, left standing | `skills/verify/scripts/session_cost.py:2102` | **fixed** `6bdf8642e7fea0a67b9eb35f82f081f626a56da1` | fixed at 6bdf8642e7fea0a67b9eb35f82f081f626a56da1; executed: 241 calls over 201 turns; the protocol states the advisory as below 1.2 at `docs/review-handoff-protocol.md:644`; may be answered with grounds (S10, predates the work item) as a deferral the owner opens |
+| ⬜ 9 | one docstring line runs to 120 columns and two prose lines end ragged after the fix's edit | `skills/verify/scripts/session_cost.py:2500` | **fixed** `6bdf8642e7fea0a67b9eb35f82f081f626a56da1` | fixed at 6bdf8642e7fea0a67b9eb35f82f081f626a56da1; read; ruff and the line-wrap case are green, and nothing changes in behaviour or fact; also `agents/framer.md:180` and `:198` |
 
 ## Paste-ready fixes
 
