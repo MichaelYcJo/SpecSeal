@@ -227,6 +227,10 @@ LISTS_A_FIXTURE = {
     "tests/test_the_root_migrates_itself.py#test_the_re_pointed_ledgers_are_staged_with_the_move": 1,
     "tests/test_the_root_migrates_itself.py#test_an_ignored_file_directly_under_the_old_root_does_not_stop_the_move": 1,
     "tests/test_the_root_migrates_itself.py#test_the_readmes_by_hand_sequence_yields_the_hooks_tracked_set": 1,
+    # #688: both read `git diff --cached --name-only` in the fixture the case
+    # built, to assert that a team's directory was not staged for a move.
+    "tests/test_the_root_migrates_itself.py#test_an_id_shaped_directory_without_the_marks_stays_and_is_named": 1,
+    "tests/test_the_root_migrates_itself.py#test_a_mark_git_does_not_track_is_not_a_mark": 1,
     "tests/test_chain_check_at_the_pull_request.py#test_a_symbolic_link_cannot_stand_in_for_the_last_round": 1,
     "tests/test_chain_check_at_the_pull_request.py#test_a_clean_copy_in_the_working_tree_cannot_hide_a_committed_failure": 1,
 }

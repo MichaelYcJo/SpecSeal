@@ -71,15 +71,26 @@ a question they did not know to ask, so this is the only place the mode and
 the migration question get asked at all.
 
 First, look for the 0.3.x layout. A repository still holding
-`.specseal/` or a top-level `specs/` is on the 0.3.x layout and committed the
-plugin's files, so it chose shared already: do not ask, say *"this repository
-is on the 0.3.x layout; start a new session and the plugin moves it into
-`<repo>/seal/`, or follow the README's by-hand sequence — and `seal mode
-local` moves it out of the tree afterwards if that is what you wanted"*, and
-stop the bootstrap there. The session-start hook moves it, and the root it
-creates is the one this section would have asked about. Naming the command
-is what keeps *not asked* from meaning *not offered*: nobody who lands in
-shared mode without a question goes looking in a README for the way out.
+`.specseal/`, or a top-level `specs/` with an entry named
+`<unix-seconds>-<slug>` that carries one of the plugin's two marks directly
+under it as git tracks it — `routing.md`, or a file under `rounds/` — is on
+the 0.3.x layout and committed the plugin's files, so it chose shared
+already: do not ask,
+say *"this repository is on the 0.3.x layout; start a new session and the
+plugin moves it into `<repo>/seal/`, or follow the README's by-hand sequence
+— and `seal mode local` moves it out of the tree afterwards if that is what
+you wanted"*, and stop the bootstrap there. The session-start hook moves it,
+and the root it creates is the one this section would have asked about.
+Naming the command is what keeps *not asked* from meaning *not offered*:
+nobody who lands in shared mode without a question goes looking in a README
+for the way out.
+
+**A `specs/` without a marked entry is not the 0.3.x layout.** It is the
+project's own — a team's specifications, which a `spec.md`, a `plan.md` or
+an `overview.md` does not make the plugin's — so go on to the question below
+as for any repository with no root, and leave the directory where it is. The
+session-start hook moves nothing out of it either: the plugin writes only to
+its own root, and every 0.3.x work item carried `routing.md` (#688).
 
 1. Ask, once, with one `AskUserQuestion` carrying **two questions** — the
    mode, and the `Broad gate` row. One interruption or two is the whole of
