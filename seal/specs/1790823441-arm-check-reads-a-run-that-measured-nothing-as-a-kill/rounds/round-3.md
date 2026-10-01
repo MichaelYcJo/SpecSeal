@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 707 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `e091150ab6bf660cf2000d3565ed9e340c792b0f..c09f01a561052ac09d5dae6ba546707c49d95d83`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 3 is the verifying round. It targets `e091150a` and verifies round 2's fix
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | The `RuntimeError` arm of the put-back guard is held by no case, and its line ends `stops here.. No arm was measured.` | `skills/verify/scripts/arm_check.py:977`, `:1271` | open | Executed: the guard narrowed to `except OSError` leaves the module green, 93 passed. In-process, `restore` raising as it does on a read-back mismatch gives exit 2 and the output, and the doubled period. Reachable through the grandchild shape deferred to #313 |
-| ⬜ 2 | Two comments name the loop's first write as what makes the pass path safe; it is the outer `finally`'s `restore` | `skills/verify/scripts/arm_check.py:982-983` | open | Executed: under the pass-only swallow mutant a locked or replaced module still ends in its traceback at exit 1 with `--only` selecting nothing, where the loop writes nothing. The same sentence is at `tests/test_arm_check.py:2072-2073` |
-| ⬜ 3 | The case's parameters are a hand-written list beside `CHANGES_THE_MODULE`; a shape added to the dict is never run | `tests/test_arm_check.py:2008-2020` | open | Read: it was `sorted(CHANGES_THE_MODULE)` before `8f231570` |
-| ⬜ 4 | `CANNOT_LOCK` restates `CHMOD_STOPS_A_WRITE` under the opposite name | `tests/test_arm_check.py:2005` | open | Read: `tests/test_the_suite_has_a_command_that_is_cheap_twice.py:498` holds the same predicate, negated |
+| ⬜ 1 | The `RuntimeError` arm of the put-back guard is held by no case, and its line ends `stops here.. No arm was measured.` | `skills/verify/scripts/arm_check.py:977`, `:1271` | deferred #710 | #710 — The verifying round needs no fix; #710 carries the case and the full-stop fix; Executed: the guard narrowed to `except OSError` leaves the module green, 93 passed. In-process, `restore` raising as it does on a read-back mismatch gives exit 2 and the output, and the doubled period. Reachable through the grandchild shape deferred to #313 |
+| ⬜ 2 | Two comments name the loop's first write as what makes the pass path safe; it is the outer `finally`'s `restore` | `skills/verify/scripts/arm_check.py:982-983` | deferred #710 | #710 — Two comments; filed with ⬜ 1; Executed: under the pass-only swallow mutant a locked or replaced module still ends in its traceback at exit 1 with `--only` selecting nothing, where the loop writes nothing. The same sentence is at `tests/test_arm_check.py:2072-2073` |
+| ⬜ 3 | The case's parameters are a hand-written list beside `CHANGES_THE_MODULE`; a shape added to the dict is never run | `tests/test_arm_check.py:2008-2020` | deferred #710 | #710 — The parametrize list; filed with ⬜ 1; Read: it was `sorted(CHANGES_THE_MODULE)` before `8f231570` |
+| ⬜ 4 | `CANNOT_LOCK` restates `CHMOD_STOPS_A_WRITE` under the opposite name | `tests/test_arm_check.py:2005` | deferred #710 | #710 — The duplicated constant; filed with ⬜ 1; Read: `tests/test_the_suite_has_a_command_that_is_cheap_twice.py:498` holds the same predicate, negated |
 | 🟢 | round 2's finding 1 is closed, and its class — a refusal over a module the command left so that it cannot be put back names the error at exit 2 | `skills/verify/scripts/arm_check.py:972-990`, `:1268-1280` | confirmed | Executed: `chmod 000`, `chmod 200`, rewrite then `chmod 444`, a directory, each then exit 1: exit 2, no traceback, the error after *putting it back failed:*, the output following. Rewrite and remove: *was put back*, byte-identical |
 | 🟢 | round 2's finding 2 is closed — the first run's put-back on an interrupt is held | `tests/test_arm_check.py:2117-2133` | confirmed | Executed: R2 red on all three parameters. A real SIGINT over a rewrite and over a removal left the module byte-identical, exit -2 |
 | 🟢 | An interrupt over a module that cannot be put back raises the failure chained to the interrupt | `skills/verify/scripts/arm_check.py:977-987` | confirmed | Executed: a real SIGINT over a `chmod 000` module gives the `KeyboardInterrupt`, then the `PermissionError` raised during it, at exit 1. The swallow-always mutant is red on `locks it` |
