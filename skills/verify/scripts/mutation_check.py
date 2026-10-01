@@ -195,16 +195,24 @@ def mutation_run(
         raise Refused(f"{path} is not UTF-8 text ({exc}); nothing was written") from exc
     after = mutated(text, old, new, path)
 
+    # Both halves of the bytecode step, as `arm_check.run_arms` has them: the
+    # removal takes what was there before the run, and the variable stops the
+    # run writing more. The removal is repeated after the restore for a
+    # command that builds its own environment and writes the mutant's `.pyc`
+    # anyway.
     env = dict(os.environ)
+    env["PYTHONDONTWRITEBYTECODE"] = "1"
     try:
         with open(path, "wb") as f:
             f.write(after.encode("utf-8"))
+        clear_bytecode_cache(path)
         return run_cases(command, cwd=cwd, env=env, timeout=timeout)
     finally:
         try:
             restore(path, original, original_sha)
         except RuntimeError as exc:
             raise NotRestored(str(exc)) from exc
+        clear_bytecode_cache(path)
 
 
 def main(argv=None) -> int:

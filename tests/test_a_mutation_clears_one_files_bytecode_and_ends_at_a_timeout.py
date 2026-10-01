@@ -29,6 +29,7 @@ is reaped or proven dead before the case returns.
 
 import importlib.util
 import os
+import py_compile
 import shlex
 import sys
 import textwrap
@@ -93,6 +94,161 @@ with open(sys.argv[1], encoding="utf-8") as f:
 with open(sys.argv[2], "w", encoding="utf-8") as f:
     f.write(seen)
 """
+
+
+# --- S1 · the mutated file's bytecode is gone for every tag -----------------
+
+
+def plant_import_cache(path):
+    """A cache entry for `path`, made the way an ordinary import makes one."""
+    spec = importlib.util.spec_from_file_location("specseal_planted_probe", path)
+    loaded = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = loaded
+    try:
+        spec.loader.exec_module(loaded)
+    finally:
+        del sys.modules[spec.name]
+    cached = list((path.parent / "__pycache__").glob(f"{path.stem}.*.pyc"))
+    assert cached, "this case needs a real .pyc to remove; the interpreter wrote none"
+    return cached
+
+
+# Reports what it SAW rather than passing or failing: whether any cached
+# bytecode for the module existed at the moment the cases ran, and whether the
+# run was told to write none.
+SEES_CACHE = """\
+import glob, os, sys
+module, log = sys.argv[1], sys.argv[2]
+stem = os.path.splitext(os.path.basename(module))[0]
+cache = os.path.join(os.path.dirname(module), "__pycache__")
+found = sorted(os.path.basename(p) for p in glob.glob(os.path.join(cache, stem + ".*.pyc")))
+with open(log, "w", encoding="utf-8") as f:
+    f.write(repr((found, os.environ.get("PYTHONDONTWRITEBYTECODE"))))
+"""
+
+
+def test_no_bytecode_for_the_mutated_file_exists_while_the_cases_run(tmp_path, capsys):
+    """The mechanism, watched by what the subprocess can see.
+
+    Two tags are planted, because two coexist beside one source on the
+    machine this was built on: `python3` is 3.14 and `bin/test`'s virtualenv
+    is 3.13. `importlib.util.cache_from_source` names the CALLING
+    interpreter's file only, so a removal spelled that way leaves the other
+    tag for the cases' interpreter to read. The foreign tag here is written by
+    hand, since no second interpreter is guaranteed on a CI runner.
+
+    Reproducing a stale read by timing is not attempted -- whether two writes
+    land in one mtime second is the machine's, not the case's, which is what
+    `tests/test_arm_check.py` measured and says. S2 below makes the stale
+    read deterministic instead."""
+    target = tmp_path / "under_test.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    plant_import_cache(target)
+    foreign = tmp_path / "__pycache__" / "under_test.cpython-399.pyc"
+    foreign.write_bytes(b"not bytecode any interpreter here reads")
+    log = tmp_path / "seen.txt"
+
+    code, out = run(
+        [
+            target,
+            "--replace",
+            "VALUE = 1",
+            "VALUE = 2",
+            "--tests",
+            cases_command(probe(tmp_path, SEES_CACHE), target, log),
+        ],
+        capsys,
+    )
+    found, flag = eval(log.read_text(encoding="utf-8"))
+    assert found == [], (
+        f"{found} -- cached bytecode for the mutated file existed while the "
+        f"cases ran, so the interpreter can run a previous mutation instead of "
+        f"this one. A tag left behind is the one `cache_from_source` does not name"
+    )
+    assert flag == "1", "the cases were not told to write no bytecode"
+    assert not list((tmp_path / "__pycache__").glob("under_test.*.pyc"))
+    assert code == 1, out
+
+
+# Imports the mutated module with bytecode writing switched back ON, the way
+# a `--tests` command that builds its own environment would.
+WRITES_CACHE = """\
+import importlib.util, sys
+sys.dont_write_bytecode = False
+spec = importlib.util.spec_from_file_location("mutant", sys.argv[1])
+spec.loader.exec_module(importlib.util.module_from_spec(spec))
+"""
+
+
+def test_bytecode_the_cases_wrote_for_the_mutant_is_not_left_behind(tmp_path, capsys):
+    """The second removal, after the restore. The environment variable stops
+    a run that honours it; a command that builds its own environment does
+    not, and the mutant's `.pyc` it leaves is the same size as the next
+    same-length mutation's source."""
+    target = tmp_path / "under_test.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+
+    run(
+        [
+            target,
+            "--replace",
+            "VALUE = 1",
+            "VALUE = 2",
+            "--tests",
+            cases_command(probe(tmp_path, WRITES_CACHE), target),
+        ],
+        capsys,
+    )
+    left = list((tmp_path / "__pycache__").glob("under_test.*.pyc"))
+    assert left == [], f"{left} -- the run left the mutant's bytecode behind"
+
+
+# --- S2 · the same-length mutation reads red --------------------------------
+
+
+# Passes while the module it loads still says 15.
+ASSERTS_FIFTEEN = """\
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("under_test", sys.argv[1])
+loaded = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(loaded)
+sys.exit(0 if loaded.VALUE == 15 else 1)
+"""
+
+
+def test_a_same_length_mutation_reads_red_over_a_trusted_cache(tmp_path, capsys):
+    """#641's *what must not break*, and the smith's loop in miniature:
+    `WINDOW = 15` to `25` read green once, because the interpreter ran the
+    cached original.
+
+    The cache planted here is an unchecked-hash `.pyc`, which CPython trusts
+    without consulting the source at all. That makes the stale read the
+    timestamp cache produces only inside one mtime second happen on every
+    run, so this case is red whenever the removal is missing rather than
+    whenever the machine is fast."""
+    target = tmp_path / "under_test.py"
+    target.write_text("VALUE = 15\n", encoding="utf-8")
+    py_compile.compile(
+        str(target),
+        cfile=importlib.util.cache_from_source(str(target)),
+        invalidation_mode=py_compile.PycInvalidationMode.UNCHECKED_HASH,
+        doraise=True,
+    )
+
+    code, out = run(
+        [
+            target,
+            "--replace",
+            "VALUE = 15",
+            "VALUE = 25",
+            "--tests",
+            cases_command(probe(tmp_path, ASSERTS_FIFTEEN), target),
+        ],
+        capsys,
+    )
+    assert code == 0 and out.startswith("red"), (
+        f"the cases ran the cached original rather than the mutation: {out}"
+    )
 
 
 # --- S3 · a replacement lands exactly once, or nothing is written -----------
