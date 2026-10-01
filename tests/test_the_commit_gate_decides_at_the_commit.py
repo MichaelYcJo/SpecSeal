@@ -14,6 +14,7 @@ The world each case builds:
   * `u`, a second opted-in clone, undeclared.
 """
 
+import io
 import json
 import os
 import shlex
@@ -763,3 +764,95 @@ def test_the_notice_follows_a_commit_git_made(world):
     world.change(world.w)
     second = g(world.w, "commit", "-q", "-m", "y", home=world.home)
     assert "answers `Implementation`" not in second.stdout + second.stderr
+
+
+def test_the_post_tool_use_notice_stands_aside_where_git_says_it(world, monkeypatch):
+    notice = load_hook_module("implementer-notice.py", "notice_beside_post_commit")
+    routing_md = world.w / "seal" / "specs" / "1790000000-x" / "routing.md"
+    routing_md.write_text(
+        routing_md.read_text(encoding="utf-8") + "| Implementation | smith |\n",
+        encoding="utf-8",
+    )
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "git commit -m x"},
+        "cwd": str(world.w),
+        "session_id": "s-other",
+    }
+    out = io.StringIO()
+    monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+    monkeypatch.setattr(sys, "stdout", out)
+    notice.main()
+    assert out.getvalue() == ""
+
+
+# --- the units underneath ----------------------------------------------------
+
+import commitgate  # noqa: E402
+import hooksession  # noqa: E402
+
+
+def test_the_mark_names_one_commit():
+    """The old HEAD, the tree and the commit's own author date: a mark left
+    by a commit that aborted after pre-commit does not pass a later one."""
+    base = commitgate._key("a" * 40, "t", "@1 +0000")
+    assert base != commitgate._key("a" * 40, "t", "@2 +0000")
+    assert base != commitgate._key("b" * 40, "t", "@1 +0000")
+    assert base != commitgate._key("a" * 40, "u", "@1 +0000")
+    # A root commit's old value is the null id at the ref and nothing in
+    # pre-commit; both name the same commit.
+    assert commitgate._key("0" * 40, "t", "@1 +0000") == commitgate._key(
+        "", "t", "@1 +0000"
+    )
+
+
+def test_the_backstop_judges_only_prepared(world):
+    world.change(world.main)
+    lines = [f"{world.head(world.main)} {'f' * 40} refs/heads/release"]
+    e = env(world.home, GIT_AUTHOR_DATE="@1 +0000")
+    for state in ("committed", "aborted"):
+        assert (
+            commitgate.reference_transaction(
+                str(world.main), e, state, lines, io.StringIO()
+            )
+            == 0
+        )
+
+
+def test_a_detached_head_commit_past_no_verify_is_met_too(world):
+    g(world.main, "switch", "-q", "--detach", "HEAD", home=world.home, session="")
+    world.change(world.main)
+    before = world.head(world.main)
+    got = g(
+        world.main,
+        "commit",
+        "--no-verify",
+        "-q",
+        "-m",
+        "x",
+        home=world.home,
+        check=False,
+    )
+    assert got.returncode != 0
+    assert world.head(world.main) == before
+    assert gate.BACKSTOP in got.stderr
+
+
+def test_two_leases_naming_one_pid_name_no_session(tmp_path):
+    """W3: nobody can tell from here which of the two the hook runs under."""
+    common = tmp_path / "git"
+    leases = common / "specseal-leases"
+    leases.mkdir(parents=True)
+    (leases / "a").write_text('{"pid": 4242}', encoding="utf-8")
+    assert hooksession.from_lease(str(common), 4242) == "a"
+    (leases / "b").write_text('{"pid": 4242}', encoding="utf-8")
+    assert hooksession.from_lease(str(common), 4242) == ""
+
+
+def test_a_lease_in_a_linked_worktree_is_read(tmp_path):
+    common = tmp_path / "git"
+    leases = common / "worktrees" / "wt" / "specseal-leases"
+    leases.mkdir(parents=True)
+    (leases / "s9").write_text('{"pid": 4242}', encoding="utf-8")
+    assert hooksession.from_lease(str(common), 4242) == "s9"
+    assert hooksession.from_lease(str(common), 4243) == ""
