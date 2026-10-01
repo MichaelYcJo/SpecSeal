@@ -49,11 +49,14 @@ ROWS = [
     ("SEALED", ""),
     None,
     ("tree", "c46fd2d"),
+    ("", "feat/12-a-branch"),
     ("base", "1e2bed9"),
+    ("", "origin/base"),
     None,
     ("suite", "768 passed, 1 skipped"),
-    ("lint", "clean"),
-    ("ledger", "187 ok . 0 broken"),
+    ("", "exit 0"),
+    ("ledger", "187 ok"),
+    ("", "0 drifted . 0 broken"),
     ("chain", "exit 0"),
     None,
     ("rounds", "4"),
@@ -283,6 +286,11 @@ def test_the_panel_renders_its_rows_and_its_blanks():
         assert label in line and value in line, f"{row} rendered as {line!r}"
     width = {len(line) for line in panel}
     assert len(width) == 1, f"the panel's lines are not one width: {sorted(width)}"
+    # #666: a `""` label continues the row above it — its value starts in the
+    # same column as the labelled row's value, and nothing stands before it.
+    tree, branch = body[2], body[3]
+    assert branch.index("feat/12-a-branch") == tree.index("c46fd2d"), (tree, branch)
+    assert branch[1 : branch.index("feat/")].strip() == "", branch
 
 
 # --- the floor -------------------------------------------------------------
@@ -824,18 +832,16 @@ def test_a_shipped_copy_that_is_this_file_by_realpath_is_not_a_redirect(repo):
 
 def test_a_repository_shipping_no_gate_runs_the_invoked_copy(repo, tmp_path):
     """A9 and A10 together, on a sealed run. The fixture ships no gate, so the
-    invoked copy runs as before with two additions: the panel's `gate` row
-    reads `plugin <version>` — this tree's script is not under the fixture
-    root — and stderr carries one line naming the running copy's absolute
-    path. Red at `9f846733`: no `gate` row, no such line.
+    invoked copy runs as before, and stderr carries one line naming the
+    running copy's absolute path and `plugin <version>`. Red at `9f846733`:
+    no such line.
 
-    The panel is read from the run's values file since #400, because a
-    sealed run on a pipe no longer draws it; so the run records."""
+    Since #666 the panel carries NO `gate` row here (A8): the copy that ran
+    is the copy that was invoked, so the row would say nothing, which is the
+    owner's complaint about the row on every stamp. The panel is read from
+    the run's values file, because a sealed run on a pipe does not draw it."""
     out, values = sealed_values(repo, tmp_path)
-    assert row_of(values, "gate") == f"plugin {plugin_json_version()}", (
-        f"the panel does not carry `gate plugin {plugin_json_version()}`:\n"
-        f"{values['rows']}"
-    )
+    assert row_of(values, "gate") is None, values["rows"]
     assert f"broad-gate: gate {os.path.realpath(GATE)} (plugin " in out.stderr, (
         f"no stderr line names the running copy's path:\n{out.stderr}"
     )
@@ -852,22 +858,99 @@ def test_a_refusal_after_the_root_resolved_still_names_the_running_copy(tmp_path
     assert f"broad-gate: gate {os.path.realpath(GATE)} (" in out.stderr, out.stderr
 
 
-def test_the_gate_row_says_tree_under_the_gated_root_and_plugin_elsewhere(tmp_path):
-    """A10's value. `tree <version>` where the running copy's realpath lies
-    under the gated root, `plugin <version>` otherwise; the version is the
-    running copy's own `plugin.json`, and `?` where it cannot be read."""
+def test_the_stderr_line_says_tree_under_the_gated_root_and_plugin_elsewhere(
+    tmp_path,
+):
+    """A10's value, on the stderr line every run prints. `tree <version>`
+    where the running copy's realpath lies under the gated root, `plugin
+    <version>` otherwise; the version is the running copy's own
+    `plugin.json`, and `?` where it cannot be read."""
     gate = gate_module()
     version = plugin_json_version()
-    assert gate.gate_copy(ROOT) == f"tree {version}"
-    assert gate.gate_copy(str(tmp_path)) == f"plugin {version}"
-    assert gate.gate_copy(None) == f"plugin {version}"
-    assert gate.gate_copy(str(tmp_path), plugin=str(tmp_path)) == "plugin ?"
+    assert gate.copy_origin(ROOT) == f"tree {version}"
+    assert gate.copy_origin(str(tmp_path)) == f"plugin {version}"
+    assert gate.copy_origin(None) == f"plugin {version}"
+    assert gate.copy_origin(str(tmp_path), plugin=str(tmp_path)) == "plugin ?"
+
+
+def test_the_gate_row_prints_only_where_the_copy_that_ran_is_not_the_one_invoked(
+    tmp_path,
+):
+    """A8, #666's four shapes, at the unit `main` and `gate` feed.
+
+    - a tree whose copy is byte-identical to the copy invoked: no row
+    - a tree whose copy differs: `tree <version>`
+    - a repository that ships no gate, so the running copy is not under
+      its root: no row
+    - the tree's copy invoked directly, no installed path handed over:
+      the row, the direction that says more when it cannot tell
+    """
+    gate = gate_module()
+    version = plugin_json_version()
+    tree = tmp_path / "tree"
+    shipped = tree / "skills" / "verify" / "scripts" / "broad_gate.py"
+    shipped.parent.mkdir(parents=True)
+    shutil.copyfile(GATE, shipped)
+    other = tmp_path / "installed.py"
+    other.write_text("# a different gate\n", encoding="utf-8")
+    running, root = str(shipped), str(tree)
+    assert gate.gate_copy(root, running=running, installed=GATE) is None
+    assert gate.gate_copy(root, running=running, installed=str(other)) == (
+        f"tree {version}"
+    )
+    assert gate.gate_copy(str(tmp_path / "elsewhere"), running=GATE) is None
+    assert gate.gate_copy(root, running=running) == f"tree {version}"
+    # An installed copy nobody can read counts as different, so the row says
+    # which copy ran.
+    missing = str(tmp_path / "gone.py")
+    assert gate.gate_copy(root, running=running, installed=missing) == (
+        f"tree {version}"
+    )
+
+
+STUB_THAT_SAYS_WHO_INVOKED_IT = (
+    "import os, sys\n"
+    "print('INVOKED AS', os.environ.get('SPECSEAL_BROAD_GATE_INVOKED_AS'))\n"
+    "sys.exit(3)\n"
+)
+
+
+def test_the_redirect_hands_the_child_the_copy_it_was_invoked_as(repo, tmp_path):
+    """A8's channel. `main` hands the tree's copy the realpath of the copy the
+    caller invoked, in the environment, because the child has no other way to
+    know it; and the child takes it OUT of the environment before any check
+    inherits it, so a suite loading the gate in process is not answered for a
+    redirect it never made."""
+    stub = repo / "skills" / "verify" / "scripts" / "broad_gate.py"
+    stub.parent.mkdir(parents=True)
+    stub.write_text(STUB_THAT_SAYS_WHO_INVOKED_IT, encoding="utf-8")
+    out = run_gate(repo, keep=tmp_path / "out")
+    assert out.returncode == 3, f"{out.stdout}\n{out.stderr}"
+    assert f"INVOKED AS {os.path.realpath(GATE)}" in out.stdout, out.stdout
+    gate = gate_module()
+    assert gate.INVOKED_AS_VAR == "SPECSEAL_BROAD_GATE_INVOKED_AS"
+
+
+def test_the_gate_takes_the_invoked_path_out_of_the_environment(
+    repo, tmp_path, monkeypatch
+):
+    """The other half of the channel, in process: `main` pops the variable,
+    so every check it then runs, and the test suite a `Broad gate` row runs,
+    sees none."""
+    gate = gate_module()
+    monkeypatch.setenv(gate.INVOKED_AS_VAR, "/x/elsewhere/broad_gate.py")
+    gate.main(
+        ["--base", "base", "--root", str(repo), "--keep-output", str(tmp_path / "o")],
+        console_wants_letters=True,
+        console_is_terminal=False,
+    )
+    assert gate.INVOKED_AS_VAR not in os.environ
 
 
 def test_the_gate_row_fits_the_panel_for_a_nine_character_version(tmp_path):
     """A10's width. `plugin ` is seven columns and `PANEL_VALUE_WIDTH` is 23,
     so a nine-character version fits with room; a version that would not is
-    cut at the frame the way the `from` row is, never widening the row."""
+    elided at the frame (`fit`), never widening the row."""
     gate = gate_module()
     fake = tmp_path / "plugin"
     (fake / ".claude-plugin").mkdir(parents=True)
@@ -875,10 +958,10 @@ def test_the_gate_row_fits_the_panel_for_a_nine_character_version(tmp_path):
         (fake / ".claude-plugin" / "plugin.json").write_text(
             json.dumps({"version": version}), encoding="utf-8"
         )
-        value = gate.gate_copy(str(tmp_path), plugin=str(fake))
+        value = gate.copy_origin(str(tmp_path), plugin=str(fake))
         assert len(value) <= gate.PANEL_VALUE_WIDTH, value
         assert value.startswith("plugin "), value
-    assert gate.gate_copy(str(tmp_path), plugin=str(fake)).endswith(gate.ELISION)
+    assert gate.copy_origin(str(tmp_path), plugin=str(fake)).endswith(gate.ELISION)
     rows = gate.panel(
         "ccccccc",
         gate.Base("base", "cccccccc", "base", "cccccccc"),
@@ -2420,33 +2503,33 @@ def test_the_values_file_holds_this_runs_panel(repo, tmp_path):
     """S2 and S13 of 1790562543. The file holds the rows `panel` returned for
     this run — in `panel`'s order, with its blanks — and the scale the run
     was given, which with no `--scale` is `seal_stamp.DEFAULT_SCALE`. Nothing
-    downstream re-derives a row: the drawing is these values."""
+    downstream re-derives a row: the drawing is these values.
+
+    #666's A5: the whole sequence, positively, so a row that went missing
+    cannot pass by being absent. The branch continues under `tree` and the
+    base's ref under `base`; `item` is the work item's id with no pull
+    request, because the fixture's record reads `not yet opened`; no `gate`
+    row, because the fixture ships no gate; the suite's exit continues under
+    its counts and the ledger's `drifted` and `broken` under its `ok`; and
+    `from` and `row` are gone. No `workflow` row: the fixture has none."""
     _out, values = sealed_values(repo, tmp_path)
-    labels = tuple(row[0] for row in values["rows"] if row)
-    assert labels == (
-        "SEALED",
-        "tree",
-        "base",
-        "from",
-        "gate",
-        "suite",
-        "row",
-        "ledger",
-        "chain",
-        "rounds",
-    ), labels
-    assert values["rows"][1] is None, "the blank under the heading is gone"
-    for label, value in (
+    assert values["rows"] == [
+        ("SEALED", ""),
+        None,
         ("tree", short(repo, "HEAD")),
+        ("", "feature"),
         ("base", short(repo, "base")),
-        ("from", "base"),
+        ("", "base"),
+        ("item", "1799000000"),
+        None,
         ("suite", "1 passed"),
-        ("row", "exit 0"),
+        ("", "exit 0"),
+        ("ledger", "0 ok"),
+        ("", "0 drifted . 0 broken"),
         ("chain", "exit 0"),
+        None,
         ("rounds", "2"),
-    ):
-        assert row_of(values, label) == value, (label, values["rows"])
-    assert row_of(values, "ledger").endswith("0 broken"), values["rows"]
+    ], values["rows"]
     assert values["scale"] == module().DEFAULT_SCALE == 0.90, values["scale"]
     assert values["session"] == "s-1" and values["item"] == str(repo / ITEM)
     assert (values["tree"], values["base"]) == (
@@ -2656,7 +2739,10 @@ def test_the_pull_request_the_record_names_reaches_the_values_file(repo, tmp_pat
     )
     assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
     (path,) = values_files(repo)
-    assert module().read_values(path)["pr"] == "#12"
+    values = module().read_values(path)
+    assert values["pr"] == "#12"
+    # A7 on the panel: the pull request leads the `item` row.
+    assert row_of(values, "item") == "#12 . 1799000000", values["rows"]
 
 
 def test_a_detached_head_names_the_tree_alone(repo, tmp_path):
@@ -2739,6 +2825,203 @@ def test_the_documents_name_the_line_that_says_to_commit_the_cell():
 def read_document(rel):
     with open(os.path.join(ROOT, rel), encoding="utf-8") as handle:
         return handle.read()
+
+
+# --- #666: the panel names what it sealed, and loses the rows that said
+# nothing ---------------------------------------------------------------------
+
+
+def checks_with(gate, suite="", ledger="", code=0):
+    return {
+        gate.SUITE: gate.Check(gate.SUITE, code, suite, "suite.txt"),
+        gate.LEDGER: gate.Check(gate.LEDGER, code, ledger, "ledger.txt"),
+        gate.CHAIN_NAME: gate.Check(gate.CHAIN_NAME, code, "", "chain.txt"),
+    }
+
+
+LONG_BRANCH = (
+    "feat/666-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run"
+)
+# 1.2.3 is illustrative, not a release this repository has (`test_release_hygiene`).
+LONG_REF = "refs/remotes/other/release/v1.2.3-hotfix"
+LONG_SUITE = "12345 passed, 67890 skipped, 12 xfailed in 1234.56s"
+LONG_LEDGER = "total: 12345 ok · 0 drifted · 0 broken · 0 external"
+
+
+def test_no_value_on_the_panel_is_wider_than_the_frame_gives(tmp_path):
+    """A5's width half and A6. Over the longest inputs a real run meets —
+    this branch's own 73-character name, a ref under a second remote, five-
+    digit counts — every value is at most `PANEL_VALUE_WIDTH`, the branch
+    keeps its HEAD and ends in the marker, the ref starts with the marker and
+    keeps its TAIL, and the rendered panel carries both. A value the frame
+    cut would read as a shorter true statement, which is what the marker
+    exists to prevent."""
+    gate = gate_module()
+    assert len(LONG_BRANCH) == 73, len(LONG_BRANCH)
+    item = tmp_path / "1799000000-an-item-with-a-long-name"
+    rows = gate.panel(
+        "c46fd2db",
+        gate.Base("release/v1.2.3-hotfix", "1e2bed90", LONG_REF, "1e2bed90"),
+        checks_with(gate, LONG_SUITE + "\n", LONG_LEDGER + "\n"),
+        str(item),
+        copy=gate.copy_origin(ROOT),
+        branch=LONG_BRANCH,
+        pr="#12345",
+    )
+    values = [row[1] for row in rows if row]
+    assert all(len(v) <= gate.PANEL_VALUE_WIDTH for v in values), [
+        v for v in values if len(v) > gate.PANEL_VALUE_WIDTH
+    ]
+    branch = rows[rows.index(("tree", "c46fd2db")) + 1]
+    assert branch[0] == "" and branch[1].endswith(gate.ELISION), branch
+    assert LONG_BRANCH.startswith(branch[1][: -len(gate.ELISION)]), branch
+    ref = rows[rows.index(("base", "1e2bed90")) + 1]
+    assert ref[0] == "" and ref[1].startswith(gate.ELISION), ref
+    assert LONG_REF.endswith(ref[1][len(gate.ELISION) :]), ref
+    assert ("item", "#12345 . 1799000000") in rows, rows
+    drawn = "\n".join(module().stamp(rows, shape=True))
+    assert branch[1] in drawn and ref[1] in drawn, drawn
+    assert "/v1.2.3-hotfix" in drawn, "the ref's tail did not survive the frame"
+
+
+@pytest.mark.parametrize(
+    "suite, rows",
+    [
+        (
+            "768 passed, 1 skipped in 9.1s\n",
+            [("suite", "768 passed, 1 skipped"), ("", "exit 0")],
+        ),
+        ("no summary here\n", [("suite", "exit 0")]),
+    ],
+)
+def test_the_suite_carries_its_exit_under_its_counts(suite, rows):
+    """A9's `suite`. The counts where pytest printed them, and the exit code
+    the repository's row came back with on the row beneath; where there are
+    no counts the row already reads `exit N` and nothing continues it."""
+    gate = gate_module()
+    panel = gate.panel(
+        "c46fd2db",
+        gate.Base("base", "1e2bed90", "base", "1e2bed90"),
+        checks_with(gate, suite),
+        None,
+    )
+    at = panel.index(rows[0])
+    assert panel[at : at + len(rows)] == rows, panel
+    assert panel[at + len(rows)][0] == gate.LEDGER, panel
+
+
+def test_the_ledger_carries_drifted_beside_broken_on_the_row_beneath():
+    """A9's `ledger`, read from one `total:` line: `<N> ok`, then `<D>
+    drifted . <B> broken` beneath it. A ledger output with no total line
+    reads `exit N`, as the suite does."""
+    gate = gate_module()
+    base = gate.Base("base", "1e2bed90", "base", "1e2bed90")
+    rows = gate.panel(
+        "c46fd2db",
+        base,
+        checks_with(gate, ledger="total: 187 ok · 3 drifted · 4 broken · 0 x\n"),
+        None,
+    )
+    at = rows.index(("ledger", "187 ok"))
+    assert rows[at + 1] == ("", "3 drifted . 4 broken"), rows
+    bare = gate.panel("c46fd2db", base, checks_with(gate), None)
+    assert ("ledger", "exit 0") in bare, bare
+
+
+def test_a_failing_ledger_ends_with_its_total_line(tmp_path):
+    """A4's second half. `evidence-check` prints its `total:` line LAST and the
+    failure form quotes a check's first eight lines, so a ledger refused for
+    one drifted row reached the reader with no counts. The entry ends with
+    the total now, once — not a second time where the quoted lines already
+    hold it."""
+    gate = gate_module()
+    long_text = "\n".join(f"  DRIFTED  row {n}" for n in range(12))
+    total = "total: 9 ok · 12 drifted · 0 broken · 0 external"
+    lines = gate.failure_lines(
+        gate.Check(gate.LEDGER, 2, f"{long_text}\n{total}\n", "ledger.txt")
+    )
+    assert lines[-2:] == [total, "full output: ledger.txt"], lines
+    short_text = f"  DRIFTED  row 1\n{total}\n"
+    lines = gate.failure_lines(gate.Check(gate.LEDGER, 2, short_text, "ledger.txt"))
+    assert lines.count(total) == 1, lines
+    suite = gate.failure_lines(gate.Check(gate.SUITE, 1, f"{total}\n", "suite.txt"))
+    assert suite.count(total) == 1, (
+        "the total was added to a check that is not the ledger"
+    )
+
+
+def test_a_run_with_no_record_has_no_item_and_no_rounds():
+    """A7's last shape. Without `--record` there is no work item, so neither
+    row prints."""
+    gate = gate_module()
+    rows = gate.panel(
+        "c46fd2db",
+        gate.Base("base", "1e2bed90", "base", "1e2bed90"),
+        checks_with(gate),
+        None,
+        branch="feature",
+        pr="#12",
+    )
+    labels = [row[0] for row in rows if row]
+    assert "item" not in labels and "rounds" not in labels, labels
+
+
+def test_the_item_row_is_the_id_alone_without_a_pull_request(tmp_path):
+    """A7. `<id>` is the digits before the first `-` of the directory's name,
+    and the pull request leads it where the record names one."""
+    gate = gate_module()
+    item = str(tmp_path / "1790815615-the-seal-names-what-it-sealed")
+    assert gate.item_value(item) == "1790815615"
+    assert gate.item_value(item, "#666") == "#666 . 1790815615"
+    assert gate.item_value(str(tmp_path / "plain")) == "plain"
+
+
+def test_the_documents_say_where_the_panel_now_carries_each_name():
+    """S6 for the panel (`agent-contract` §14). Each sentence that named a
+    row the panel lost, or the `gate` row printing on every stamp, says what
+    the panel prints now."""
+    broad = " ".join(read_document(os.path.join("docs", "the-broad-gate.md")).split())
+    assert (
+        "the panel's `gate` row reads `tree <version>` wherever the copy that ran "
+        "is not byte for byte the copy invoked"
+    ) in broad
+    assert "panel's `gate` row reads `tree <version>` or `plugin <version>`" not in (
+        broad
+    )
+    verify = " ".join(
+        read_document(os.path.join("skills", "verify", "SKILL.md")).split()
+    )
+    assert "names the ref on the row under the commit" in verify
+    sealer = " ".join(sealer_text().split())
+    assert "The stamp carries a `gate` row only where the copy that ran is not" in (
+        sealer
+    )
+    assert "a stamp with no `gate` row was measured by the copy you invoked" in sealer
+
+
+def test_the_sample_carries_every_row_the_panel_can(tmp_path):
+    """A16. `seal-stamp` with no arguments shows a person what the gate will
+    print, and it read `lint clean` from #400 to #666 because nothing held
+    the two lists together. Its labels, in order, are the labels `panel`
+    returns for a run with every conditional row present."""
+    gate = gate_module()
+    workflow = (
+        "jobs:\n  release:\n    steps:\n"
+        "      - name: a declared review chain has the round record it claimed\n"
+    )
+    rows = gate.panel(
+        "c46fd2db",
+        gate.Base("release/x", "1e2bed90", "origin/release/x", "1e2bed90"),
+        checks_with(gate, "1 passed in 1s\n", "total: 1 ok · 0 drifted · 0 broken\n"),
+        str(tmp_path / "1799000000-an-item"),
+        workflow,
+        copy="tree 1.2.3",
+        branch="feature",
+        pr="#12",
+    )
+    labels = [None if row is None else row[0] for row in rows]
+    sample = [None if row is None else row[0] for row in module().SAMPLE_ROWS]
+    assert sample == labels, (sample, labels)
 
 
 # --- S2 not sealed -----------------------------------------------------------
@@ -3665,9 +3948,12 @@ def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(repo, tmp_pa
 
     The fixture's row is a bare pytest call, with no linter in it at all.
     Read from the values file since #400, which is where a piped run's panel
-    is."""
+    is. Since #666 the exit code continues under `suite` rather than on a
+    `row` of its own."""
     _out, values = sealed_values(repo, tmp_path)
-    assert row_of(values, "row") == "exit 0", values["rows"]
+    rows = values["rows"]
+    at = rows.index(("suite", "1 passed"))
+    assert rows[at + 1] == ("", "exit 0"), rows
     assert not any("clean" in cell for row in values["rows"] if row for cell in row), (
         "the seal still asserts a linter over a row that has none in it"
     )

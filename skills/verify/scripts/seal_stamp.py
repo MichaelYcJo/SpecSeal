@@ -2,8 +2,9 @@
 """seal-stamp — the drawing the broad gate prints when it was earned.
 
 Issue #30 §*What it prints*. A wax disc with a fleur-de-lis, and a parchment
-panel beside it carrying the numbers the gate read: the tree, the base, the
-suite's counts, lint, the ledger, the chain, the rounds. The disc is COMPUTED —
+panel beside it carrying what the gate read: the tree and its branch, the
+base and its ref, the work item, the suite's counts, the ledger, the chain,
+the rounds (`broad_gate.panel` owns the list). The disc is COMPUTED —
 `hypot` for the bands, `sin` for the rope's twist — and only the lily is
 authored, as a 29x32 counted-stitch chart held below as data. Four hand-typed
 discs came before this one and every one was lopsided; a circle that is
@@ -367,7 +368,9 @@ def letter(rows, width=PANEL_WIDTH):
 
     `rows` is a list of `(label, value)` pairs with `None` for a blank line,
     so what the stamp reports is data the gate fills rather than a string it
-    formats. A value longer than the panel is cut at the frame."""
+    formats. A pair whose label is `""` is a continuation: its value lands in
+    the value column under the row above it. A value longer than the panel is
+    cut at the frame, which is why `broad_gate.fit` elides before it does."""
     inner = width - 2
     out = ["." + "-" * inner + ".", "|" + " " * inner + "|"]
     for row in rows:
@@ -439,12 +442,22 @@ def sealed_names(tree, base, branch=None, ref=None):
     the spelling the caller typed: #423's repair was that a reader can tell
     `origin/<base>` from a local ref a week behind it."""
     named = f"{branch} @ {tree}" if branch else f"{tree}"
-    base, ref = str(base), (None if ref is None else str(ref))
-    same = not ref or (
-        bool(HEX_REF.fullmatch(ref)) and (base.startswith(ref) or ref.startswith(base))
-    )
-    against = base if same else f"{ref} @ {base}"
+    against = f"{base}" if ref_is_commit(ref, base) else f"{ref} @ {base}"
     return f"{named} against {against}"
+
+
+def ref_is_commit(ref, base):
+    """True where `ref` names nothing the commit `base` does not: no ref at
+    all, or a ref spelled in hex that `base` begins, or that begins with
+    `base`. The one reading of *the ref is the commit*, asked by
+    `sealed_names` for the lines and by `broad_gate.panel` for the row under
+    `base`, so the two cannot disagree about when a ref is worth printing."""
+    base, ref = str(base), ("" if ref is None else str(ref))
+    if not ref:
+        return True
+    return bool(HEX_REF.fullmatch(ref)) and (
+        base.startswith(ref) or ref.startswith(base)
+    )
 
 
 def not_sealed(tree, base, failures, branch=None, ref=None):
@@ -665,17 +678,29 @@ def label(values):
 # --- a person's command --------------------------------------------------
 
 # Neutral values in the panel's shape, so `seal-stamp` shows a person what the
-# gate will print without a gate having run.
+# gate will print without a gate having run — every row `broad_gate.panel`
+# can return, the conditional ones included, in its order. It read `lint
+# clean` from #400 to #666, which the real panel's own comment refuses as a
+# counterfeit, because nothing held the two lists together; a case in
+# `tests/test_the_seal_is_taken_once_by_the_sealer.py` holds the labels
+# against `panel`'s now.
 SAMPLE_ROWS = [
     ("SEALED", ""),
     None,
     ("tree", "c46fd2d"),
+    ("", "feat/12-a-branch"),
     ("base", "1e2bed9"),
+    ("", "origin/release/v1.2.3"),
+    ("item", "#34 . 1799000000"),
+    ("gate", "tree 1.2.3"),
     None,
     ("suite", "768 passed, 1 skipped"),
-    ("lint", "clean"),
-    ("ledger", "187 ok . 0 broken"),
+    ("", "exit 0"),
+    ("ledger", "187 ok"),
+    ("", "0 drifted . 0 broken"),
     ("chain", "exit 0"),
+    None,
+    ("workflow", "4 of 9 not answered"),
     None,
     ("rounds", "4"),
 ]

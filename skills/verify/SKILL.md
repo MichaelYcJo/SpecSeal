@@ -341,8 +341,9 @@ over a question nobody was asking while CI refused the same commit (#423).
 Where resolving moves the answer the gate prints one line naming both refs,
 both commits and the distance, and runs anyway; where the two agree it prints
 nothing. It never fetches, so a remote-tracking ref is only as fresh as the
-last fetch — which is why the stamp's panel names the ref beside the commit
-rather than the commit alone.
+last fetch — which is why the stamp's panel names the ref on the row under
+the commit rather than the commit alone, and the `SEALED` line names it as
+`<ref> @ <commit>`.
 
 **What the sealer's seal covers is declared rather than remembered.** The arms
 exist so that its one run says what CI will say, and for three releases the

@@ -687,19 +687,18 @@ def test_every_exclusion_says_what_the_gate_cannot_reach():
 
 
 # The panel of a run with no workflow, as it has stood release to release.
-# `gate` joined it in 0.15.1 (#475): which copy of the gate drew the stamp,
-# `tree <version>` or `plugin <version>`, because a branch that changes the
-# gate used to be measured by the installed copy and the stamp could not say
-# which one. It is the one row this partition's A7 admits, for every
-# repository — nothing else about a run without a workflow changed.
+# `gate` joined it in 0.15.1 (#475), and since #666 it prints only where the
+# copy that ran is not the one invoked, so a run handed no `copy` has none.
+# #666 also moved the ref from `from` to the row under `base` (`""`), and the
+# row's exit code from `row` to the row under `suite` — which this fixture's
+# empty output, carrying no pytest counts, does not have. No row here is
+# about the workflow: a run without one is still the run it was.
 HISTORICAL_ROWS = (
     "SEALED",
     "tree",
     "base",
-    "from",
-    "gate",
+    "",
     "suite",
-    "row",
     "ledger",
     "chain",
 )

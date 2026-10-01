@@ -78,12 +78,14 @@ and a branch that changes the gate used to be measured by the copy that
 predates the change (#475). Now, where the repository being gated ships
 `skills/verify/scripts/broad_gate.py` and it is not the running file, the
 gate hands the run to that copy with the same arguments and says so on
-stderr; every run prints one line naming the copy that ran, and the stamp
-carries a `gate` row — `tree <version>` means the branch was measured by the
-gate it ships, `plugin <version>` that the installed copy measured it. Quote
-the gate line in your report the way you quote the moved-base line: it is
-not a warning and not a refusal, and it is the one place a reader learns
-which gate measured the tree and wrote the stamp's values.
+stderr; every run prints one line naming the copy that ran, `tree <version>`
+or `plugin <version>`. The stamp carries a `gate` row only where the copy
+that ran is not byte for byte the copy you invoked: `tree <version>` there
+means the branch was measured by the gate it ships, and a stamp with no
+`gate` row was measured by the copy you invoked (#666). Quote the gate line
+in your report the way you quote the moved-base line: it is not a warning
+and not a refusal, and it is the one place a reader learns which gate
+measured the tree and wrote the stamp's values.
 
 **On a release pull request the gate may leave two arms out, and it says so
 on one line.** Where the base names `main` and the repository's
@@ -96,7 +98,7 @@ that two arms did not run.
 **The gate does not fetch, so a remote-tracking ref is only as fresh as the
 last fetch.** That is a limit and not a defect: an unattended run may have no
 credentials, and a check that moves refs to make itself pass is a different
-problem. What the panel gives a reader is the ref beside the commit, so the
+problem. What the panel gives a reader is the ref under the commit, so the
 freshness is a question somebody can ask.
 
 Three outcomes, and they are not two:
@@ -108,8 +110,9 @@ Three outcomes, and they are not two:
   gate` cell is written and not committed, and that CI reads the record at
   HEAD: pass it on beside the `SEALED` line, because the commit it asks for
   is the orchestrator's and the pull request is not ready without it. The
-  stamp itself, whose panel carries `base` beside `from` (the ref that commit
-  came from), is drawn later and not by you.
+  stamp itself is drawn later and not by you. Its panel names the branch
+  under `tree`, and the row under `base` carries the ref that commit came
+  from; a name too long for a row is elided with `...`, never cut.
 - **Exit 1, not sealed** — a check failed. The gate printed which, its exit
   code, its first lines, and, per failing test file, `new` or `failing on
   base too`. No stamp is drawn, on purpose: a picture saying *sealed* beside

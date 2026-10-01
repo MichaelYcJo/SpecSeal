@@ -66,9 +66,11 @@ base too`. It decides nothing about either word: both go in the report and
 the reader acts.
 
 **Drawn on success only, and only where a person is looking** (#400). The
-stamp — the disc and a panel carrying the tree, the base, the suite's counts,
-the exit code the repository's row came back with, the ledger's counts, the
-chain's exit, and the round count when `--record` names a work item — is
+stamp — the disc and a panel carrying the tree and its branch, the base and
+the ref it came from, the work item and its pull request, the suite's counts
+and the exit code the repository's row came back with, the ledger's counts,
+the chain's exit, and the round count when `--record` names a work item, a
+name too long for its row continuing on the row beneath it (`panel`) — is
 `seal_stamp.stamp`'s, and it is drawn only over a written cell. On a
 terminal a recorded seal draws it once, in the form `pick_shape` chooses.
 Anywhere else a recorded seal draws nothing and prints one line beginning
@@ -109,6 +111,7 @@ refused; nothing ran on 2 except where the refusal names what ran.
 """
 
 import argparse
+import functools
 import glob
 import importlib.util
 import json
@@ -224,6 +227,23 @@ NEW, ON_BASE = "new", "failing on base too"
 PANEL_VALUE_WIDTH = 23
 ELISION = "..."
 
+
+def fit(value, keep="head"):
+    """`value` as the panel can carry it: unchanged where it fits, else
+    elided to `PANEL_VALUE_WIDTH` with `ELISION` on the side that was cut.
+
+    `keep="head"` for a branch name, whose issue number leads and is what a
+    reader matches to a ticket; `keep="tail"` for a ref, where the
+    `origin/` a runner reads is the part a reader can infer. Every value
+    `panel` returns passes through here, so no row is wider than the frame
+    and none is cut by it without a marker (#666)."""
+    value = str(value)
+    if len(value) <= PANEL_VALUE_WIDTH:
+        return value
+    room = PANEL_VALUE_WIDTH - len(ELISION)
+    return ELISION + value[-room:] if keep == "tail" else value[:room] + ELISION
+
+
 # pytest's short-summary line for a failed test, `FAILED path::name - why`,
 # printed under `-q` too. The file is what the base comparison re-runs.
 FAILED_RE = re.compile(r"^FAILED\s+(\S+?)::", re.M)
@@ -235,7 +255,7 @@ COUNTS_RE = re.compile(
     r"(?:, \d+ [a-z]+)*)"
 )
 # `evidence-check`'s total line: `total: N ok · D drifted · B broken · …`.
-LEDGER_RE = re.compile(r"total: (\d+) ok · \d+ drifted · (\d+) broken")
+LEDGER_RE = re.compile(r"total: (\d+) ok · (\d+) drifted · (\d+) broken")
 
 
 class Refused(Exception):
@@ -250,6 +270,14 @@ def load(path, name):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     return mod
+
+
+@functools.lru_cache(maxsize=1)
+def stamp_module():
+    """`seal_stamp.py`, loaded once per process: `panel` asks it the one
+    question both of them answer (`ref_is_commit`), and a case drives
+    `panel` without a gate around it to have loaded it."""
+    return load(STAMP, "specseal_seal_stamp_for_broad_gate")
 
 
 def git(root, *args):
@@ -292,10 +320,11 @@ def branch_name(root):
 # will say (`docs/the-broad-gate.md`), so the checkout's copy is the one that
 # asks the question the merge is judged by. Where the gated tree ships one,
 # `main` runs it in place of this file, with the same argument vector, and
-# says so; and the panel's `gate` row says which copy ran, `tree` or `plugin`,
-# with the running copy's version beside it. A tree that breaks an arm seals
-# itself — that is the stated cost, named on the stamp by `tree` and caught at
-# the pull request by the same scripts.
+# says so; every run's stderr names which copy ran, `tree` or `plugin`, with
+# its version, and the panel's `gate` row says `tree <version>` where that
+# copy's bytes differ from the one the caller invoked (#666, `gate_copy`). A
+# tree that breaks an arm seals itself — that is the stated cost, named on
+# the stamp by `tree` and caught at the pull request by the same scripts.
 
 GATE_REL = os.path.join("skills", "verify", "scripts", "broad_gate.py")
 PLUGIN_JSON = os.path.join(".claude-plugin", "plugin.json")
@@ -341,29 +370,71 @@ def under(path, root):
         return False
 
 
-def gate_copy(root, plugin=PLUGIN):
-    """The `gate` row's value: `tree <version>` where the running copy lies
-    under the gated root, `plugin <version>` otherwise, the version read from
-    the running copy's own `plugin.json`.
+def copy_origin(root, plugin=PLUGIN, running=None):
+    """`tree <version>` where the running copy lies under the gated root,
+    `plugin <version>` otherwise, the version read from the running copy's
+    own `plugin.json` — which copy ran, as the stderr line says it on every
+    run (`running_line`) and the panel's `gate` row says it where it differs.
 
     A path does not fit `PANEL_VALUE_WIDTH`; a version alone does not tell a
     branch cut from the tag apart from the tag. The pair says where the copy
     came from and which release it belongs to, and the line `main` writes to
     stderr carries the path in full, the way `moved_line` and `coverage_line`
-    carry what the panel cannot. Cut at the frame the way `panel` cuts the
-    `from` row, so a long version is a shorter label and never a wider row.
+    carry what the panel cannot. Elided at the frame (`fit`), so a long
+    version is a shorter label and never a wider row. `running` is this
+    file unless a case names another.
     """
-    origin = "tree" if under(__file__, root) else "plugin"
-    value = f"{origin} {plugin_version(plugin)}"
-    if len(value) > PANEL_VALUE_WIDTH:
-        value = value[: PANEL_VALUE_WIDTH - len(ELISION)] + ELISION
-    return value
+    origin = (
+        "tree" if under(__file__ if running is None else running, root) else "plugin"
+    )
+    return fit(f"{origin} {plugin_version(plugin)}")
+
+
+def gate_copy(root, plugin=PLUGIN, running=None, installed=None):
+    """The panel's `gate` row, or None where it would say nothing (#666).
+
+    The row printed on every stamp from 0.15.1 (#475), and in this repository
+    every seal is redirected to the tree's copy, so it read `tree <version>`
+    every time and told nobody anything. It prints now only where the copy
+    that measured the tree is NOT the copy the caller invoked:
+
+      - the running copy lies under the gated root, AND
+      - its bytes differ from `installed`, the copy the caller invoked, whose
+        path the redirect hands the child in `INVOKED_AS_VAR` and `main`
+        passes here; or `installed` is None — the tree's copy invoked
+        directly, with no path handed over — which is the direction that says
+        more when it cannot tell.
+
+    A repository that ships no gate runs the invoked copy, which is not under
+    its root, so it gets no row, which is the *carries no information* case
+    the owner named.
+
+    **Two bounds, named rather than claimed.** It compares one file, so a
+    tree that changed a sibling arm (`chain_check.py`, say) and not
+    `broad_gate.py` prints no row although the arms it runs are the tree's;
+    and an installed copy that cannot be read counts as different, so the row
+    prints. Versions are not compared: within a release cycle the tree's
+    `plugin.json` equals the installed one until the release bumps it, so a
+    branch that changed the gate — #475 itself — would print nothing exactly
+    when it matters (`plan.md` §*Alternatives considered*).
+    """
+    running = __file__ if running is None else running
+    if not under(running, root):
+        return None
+    if installed:
+        try:
+            with open(running, "rb") as mine, open(installed, "rb") as theirs:
+                if mine.read() == theirs.read():
+                    return None
+        except OSError:
+            pass
+    return copy_origin(root, plugin, running)
 
 
 def running_line(root):
     """The one stderr line every run carries once the root has resolved:
-    the running copy's absolute path and the `gate` row's value."""
-    return f"broad-gate: gate {os.path.realpath(__file__)} ({gate_copy(root)})"
+    the running copy's absolute path and which copy it is."""
+    return f"broad-gate: gate {os.path.realpath(__file__)} ({copy_origin(root)})"
 
 
 def redirect_line(root, shipped):
@@ -2113,8 +2184,25 @@ def suite_counts(text):
 
 
 def ledger_counts(text):
+    """`(ok, drifted, broken)` off `evidence-check`'s `total:` line, or None.
+
+    On a drawn panel `drifted` and `broken` are both 0 by construction: the
+    gate passes `--strict`, which exits 2 on either. They are carried anyway,
+    because the owner asked for the row in that shape (#666) and it costs one
+    line; the count that varies is where it varies, at the end of the
+    failure form's `ledger` entry (`failure_lines`)."""
     m = LEDGER_RE.search(text)
-    return f"{m.group(1)} ok . {m.group(2)} broken" if m else None
+    return m.groups() if m else None
+
+
+def ledger_total(text):
+    """`evidence-check`'s own `total:` line, or None where its output has
+    none. The failure form quotes a check's FIRST lines and this line is its
+    LAST, so a refused ledger used to be reported without its counts."""
+    for line in reversed(text.splitlines()):
+        if line.startswith("total:"):
+            return line.rstrip()
+    return None
 
 
 def round_count(item):
@@ -2192,61 +2280,87 @@ def pull_request(record):
     return f"#{found.group(1)}" if found else None
 
 
-def panel(tree, base, checks, item, workflow=None, copy=None):
-    """The stamp's rows. `base` is a `Base`, so the panel can say WHICH ref
-    the commit beside it came from. `copy` is the `gate` row's value from
-    `gate_copy` — which copy of this script measured the tree (#475) — and None
-    asks the running copy with no root, which reads `plugin`.
+def item_value(item, pr=None):
+    """The `item` row: `#<pr> . <id>`, or `<id>` alone where the record names
+    no pull request. `<id>` is the digits before the first `-` of the work
+    item directory's name — the part every reference to a work item carries —
+    and the whole name where it has no `-`."""
+    name = os.path.basename(os.path.normpath(item))
+    ident = name.split("-", 1)[0] or name
+    return f"{pr} . {ident}" if pr else ident
 
-    A bare SHA is what #423 found on the stamp of a branch CI then refused:
-    the evidence was right there and a reader still could not tell a base the
-    merge is judged by from a local ref a week behind it. The `from` row is
-    that missing half.
 
-    **A ref too long for the row says so.** `seal_stamp.letter` gives a value
-    `PANEL_VALUE_WIDTH` columns and cuts at the frame with no marker, so the
-    elision is made here instead and the TAIL is kept: for the `origin/<base>`
-    a runner reads, the prefix is the part a reader can infer. Where step 1
-    lands on a second remote the prefix is NOT inferable, and the line the
-    gate prints is what names that ref in full — it fires whenever the given
-    and resolved commits differ (`questions.md` W1, round 1 finding 5).
+def panel(tree, base, checks, item, workflow=None, copy=None, branch=None, pr=None):
+    """The stamp's rows, as `(label, value)` with `None` for a blank and `""`
+    as the label of a row that continues the one above it (#666).
 
-    **Where it does not fire, this row is the only statement a reader gets.**
-    A4 keeps the line silent where the two bases agree, so a fork whose base
-    and `origin`'s name one commit renders a long `other/…` ref as its tail
-    with the remote hidden and nothing beside it. That is the stated cost of
-    keeping the tail rather than the head, and it is why the reading this
-    docstring used to lead with — a longer ref is why the printed line is the
-    authoritative statement and this row is context — is retired rather than
-    merely weakened (`phases/phase-3.md`, round 2 finding 13).
+    `base` is a `Base`. `copy` is `gate_copy`'s value and None leaves the
+    `gate` row out; `branch` is `branch_name`'s, None on a detached HEAD;
+    `pr` is `pull_request`'s, None where the record names none.
+
+      SEALED
+      tree      <tree>
+                <branch>                   absent on a detached HEAD
+      base      <base commit>
+                <Base.ref>                 absent where the ref IS the commit
+      item      #<pr> . <id>               absent without --record
+      gate      tree <version>             only where `gate_copy` says so
+      suite     <pytest counts | exit N>
+                exit <N>                   only under the counts
+      ledger    <N> ok
+                <D> drifted . <B> broken
+      chain     exit <N>
+      workflow  <n> of <m> not answered    absent without a hygiene workflow
+      rounds    <R>                        absent without --record
+
+    **The panel keeps its width, and nothing on it is cut by the frame.**
+    `seal_stamp.letter` gives a value `PANEL_VALUE_WIDTH` columns and cuts at
+    the frame with no marker, and the owner chose continuation rows over a
+    wider stamp (`questions.md` Q1). So a name goes on the row under its
+    label, where it has the whole width, and every value passes through
+    `fit` on the way out: a branch keeps its HEAD, whose issue number is what
+    a reader matches to a ticket, and a ref keeps its TAIL, because for the
+    `origin/<base>` a runner reads the prefix is the part a reader can infer.
+
+    **Where the moved-base line does not fire, the ref row is the only
+    statement a reader gets.** A4 keeps the line silent where the two bases
+    agree, so a fork whose base and `origin`'s name one commit renders a long
+    `other/…` ref as its tail with the remote hidden — the stated cost of
+    keeping the tail (`phases/phase-3.md`, round 2 finding 13).
+
+    **Separators are ASCII** — ` . ` and `->` — because the letter twin exists
+    for a console that is not UTF-8 (`seal_stamp.pick_shape`), where `·` and
+    `→` print as `?`.
+
+    Two rows left with #666, and why: `from` became the row under `base`,
+    and `row` — the exit code the repository's row came back with —
+    continues under `suite`. NOT `("lint", "clean")` either: the row is
+    one shell command line and nothing in it says which part is a linter
+    (`templates/config.md` §*Broad gate*), so `clean` over a row with no
+    linter in it is the seal asserting a check that never ran.
     """
-    shown = base.ref
-    if len(shown) > PANEL_VALUE_WIDTH:
-        shown = ELISION + shown[-(PANEL_VALUE_WIDTH - len(ELISION)) :]
-    rows = [
-        ("SEALED", ""),
-        None,
-        ("tree", tree),
-        ("base", base.commit),
-        ("from", shown),
-        # Which copy of the gate measured this (#475): `tree <version>` where the
-        # running script lies under the gated root, `plugin <version>` where
-        # it is the installed copy. Beside `from` because it is the same kind
-        # of fact — what this run was measured against, and by what.
-        ("gate", copy if copy is not None else gate_copy(None)),
-        None,
-        (SUITE, suite_counts(checks[SUITE].text) or "exit 0"),
-        # NOT `("lint", "clean")`. The row is one shell command line and
-        # nothing in it says which part is a linter (`templates/config.md`
-        # §*Broad gate*), so `clean` over a row with no linter in it is the
-        # seal asserting a check that never ran — the counterfeit `verify`
-        # names, printed on the artifact a reader trusts BECAUSE it is drawn
-        # on success alone. What the gate actually measured is the row's
-        # exit code.
-        ("row", f"exit {checks[SUITE].code}"),
-        (LEDGER, ledger_counts(checks[LEDGER].text) or "exit 0"),
-        (CHAIN_NAME, f"exit {checks[CHAIN_NAME].code}"),
-    ]
+    stamp = stamp_module()
+    rows = [("SEALED", ""), None, ("tree", tree)]
+    if branch:
+        rows.append(("", fit(branch)))
+    rows.append(("base", base.commit))
+    if not stamp.ref_is_commit(base.ref, base.commit):
+        rows.append(("", fit(base.ref, keep="tail")))
+    if item is not None:
+        rows.append(("item", item_value(item, pr)))
+    if copy:
+        rows.append(("gate", copy))
+    rows.append(None)
+    counts = suite_counts(checks[SUITE].text)
+    exit_row = f"exit {checks[SUITE].code}"
+    rows += [(SUITE, counts), ("", exit_row)] if counts else [(SUITE, exit_row)]
+    ledger = ledger_counts(checks[LEDGER].text)
+    if ledger:
+        ok, drifted, broken = ledger
+        rows += [(LEDGER, f"{ok} ok"), ("", f"{drifted} drifted . {broken} broken")]
+    else:
+        rows.append((LEDGER, f"exit {checks[LEDGER].code}"))
+    rows.append((CHAIN_NAME, f"exit {checks[CHAIN_NAME].code}"))
     # What this seal did NOT answer, which a reader otherwise reconstructs
     # from two files (#468). A COUNT, because a panel value is 23 columns and
     # a step name is a sentence — the names go to stderr beside the command
@@ -2262,7 +2376,7 @@ def panel(tree, base, checks, item, workflow=None, copy=None):
         rows += [None, ("workflow", f"{short} of {len(steps)} not answered")]
     if item is not None:
         rows += [None, ("rounds", str(round_count(item)))]
-    return rows
+    return [None if row is None else (row[0], fit(row[1])) for row in rows]
 
 
 def failure_lines(check, verdicts=None):
@@ -2276,6 +2390,12 @@ def failure_lines(check, verdicts=None):
     with a "not recognized" line in the machine's own language. The exit
     code cannot tell those apart on either shell, so the line reads what is
     actually missing: `suite_counts` found no summary with a wall clock.
+
+    **A failing `ledger` ends with `evidence-check`'s `total:` line** (#666),
+    the way a failing `suite` ends with pytest's counts. The check prints that
+    line LAST and this quotes its first lines, so a refusal for one drifted
+    row reached the reader with no count of how many; it is added only where
+    the quoted lines do not already hold it.
     """
     lines = [f"exit {check.code}", *check.first_lines()]
     if verdicts:
@@ -2284,6 +2404,10 @@ def failure_lines(check, verdicts=None):
     if check.name == SUITE:
         counts = suite_counts(check.text)
         lines.append(counts or NO_SUMMARY)
+    if check.name == LEDGER:
+        total = ledger_total(check.text)
+        if total and total not in lines:
+            lines.append(total)
     lines.append(f"full output: {check.path}")
     return lines
 
@@ -2330,7 +2454,7 @@ def gate(args, console_wants_letters, terminal=False):
     only then, and only over a written cell, is the stamp drawn here, and
     every other sealed run signals instead (#400). Its default is the pipe, which is what every caller that
     is not `__main__` — a case driving this in process — is writing to."""
-    stamp = load(STAMP, "specseal_seal_stamp_for_broad_gate")
+    stamp = stamp_module()
     root = repo_root(os.path.abspath(args.root or os.getcwd()))
     if root is None:
         raise Refused(
@@ -2513,7 +2637,16 @@ def gate(args, console_wants_letters, terminal=False):
             )
             return 2
     record = sealed_record(item, root) if item is not None else None
-    rows = panel(tree, base, checks, item, workflow, gate_copy(root))
+    rows = panel(
+        tree,
+        base,
+        checks,
+        item,
+        workflow,
+        gate_copy(root, installed=getattr(args, "invoked_as", None)),
+        branch=branch,
+        pr=pull_request(record),
+    )
     # The cell is in the working tree and CI reads HEAD (#666): said after
     # the stamp or the `SEALED` line, on the same stream, and only where a
     # cell was written and git still sees it uncommitted.
@@ -2556,6 +2689,13 @@ def gate(args, console_wants_letters, terminal=False):
 # documented, and where it is absent the values land under `none/`, which no
 # hook reads, and the signal line says so.
 SESSION_VAR = "CLAUDE_CODE_SESSION_ID"
+
+# The second variable the gate reads, and the one it sets itself: `main`
+# hands the tree's copy, on the redirect, the realpath of the copy the caller
+# invoked, and nobody else sets or reads it. `gate_copy` compares the two
+# files' bytes to decide whether the panel's `gate` row says anything (#666).
+# Absent, the running copy was invoked directly.
+INVOKED_AS_VAR = "SPECSEAL_BROAD_GATE_INVOKED_AS"
 
 NOTHING_RECORDED = (
     " · nothing was recorded (no --record), so no stamp is written or drawn"
@@ -2725,8 +2865,16 @@ def main(argv=None, console_wants_letters=None, console_is_terminal=None):
         if shipped is not None:
             sys.stderr.write(redirect_line(root, shipped) + "\n")
             handed = sys.argv[1:] if argv is None else list(argv)
-            return subprocess.run([sys.executable, shipped, *handed]).returncode
+            env = {**os.environ, INVOKED_AS_VAR: os.path.realpath(__file__)}
+            return subprocess.run(
+                [sys.executable, shipped, *handed], env=env
+            ).returncode
     args = parser.parse_args(argv)
+    # Taken OUT of the environment rather than read from it: every check
+    # below inherits this process's environment, and a suite that loads this
+    # module in process would otherwise answer `gate_copy` for a redirect it
+    # never made (#666).
+    args.invoked_as = os.environ.pop(INVOKED_AS_VAR, None) or None
     if root is not None:
         sys.stderr.write(running_line(root) + "\n")
     if console_wants_letters is None:
