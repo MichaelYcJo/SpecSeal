@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 700 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `c35317119feb0f1d7d6f2b8be2b8f5ce736dced7..838de55a76ee172cc9d5bc3c0bc8714aafd6404e`, 4 commits |
 | Contract changes | unmarked → main, round-1-report.md, round-1.md |
 | New units | tracked_marks (depth 1); test_a_routing_md_deeper_than_directly_under_is_not_a_mark (depth 1); test_a_mark_git_does_not_track_is_not_a_mark (depth 1) |
