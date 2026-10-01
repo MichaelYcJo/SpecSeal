@@ -730,7 +730,12 @@ def test_the_order_opens_the_draft_between_the_build_and_the_rounds():
     text = flat(*ORCH_IMPL)
     step = text[text.index("2. spec · plan") : text.index("3. The pull request body")]
     assert "smith → the draft pull request opens (" in step
-    assert ") → warden rounds → sealer → the pull request is marked ready." in step
+    # 1790815611 (#638) wrote the orchestrator's preflight in as the step
+    # before the sealer's spawn, so the arrows carry it.
+    assert (
+        ") → warden rounds → `broad-gate --preflight`, yours → sealer → the pull "
+        "request is marked ready." in step
+    )
     assert step.index("the draft pull request opens") < step.index("warden rounds")
 
 
