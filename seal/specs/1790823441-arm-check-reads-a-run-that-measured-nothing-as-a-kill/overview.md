@@ -42,7 +42,9 @@ before anything is written, and the second clears the mirror the cases read.
   its interrupt sentence). Out of scope under spec §Scope *Out* and J9. The
   first run sits before the loop's restoring `try`, and its own `finally`
   puts back only what the command changed, so an interrupt there leaves the
-  module as it was read. What a person reads then is Python's traceback.
+  module as it was read, or, where the command left it so that it cannot be
+  put back, raises that failure chained to the interrupt. What a person
+  reads then is Python's traceback.
 - **#312, #313, #314, #687.** These are different classes in the same file
   (J10). The first run's bound reaches only the direct child, as #313 says of
   a pair's bound. Round 1's ⬜ 7, a command that exits 0 and leaves a child
