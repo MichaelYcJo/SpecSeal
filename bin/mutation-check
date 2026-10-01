@@ -8,10 +8,11 @@
 #   mutation-check hooks/x.py --replace "LIMIT = 15" "LIMIT = 25" --tests "bin/test tests/test_x.py -q -k limit"
 #   mutation-check agents/smith.md --replace "watch one go red" "" --tests "bin/test tests/test_y.py -q"
 #
-# It writes the break, removes that one file's cached bytecode for every
-# interpreter tag, runs the command under a bound (300 s unless --timeout says
-# otherwise), restores the file from the bytes it read first and compares the
-# hash, and prints red (exit 0), SURVIVED (exit 1), or a run that measured
-# nothing (exit 2).
+# It runs the command against the file as it is and stops with `no baseline`
+# if that fails, writes the break, removes that one file's cached bytecode for
+# every interpreter tag, runs the command again, each run under a bound (300 s
+# unless --timeout says otherwise), restores the file from the bytes it read
+# first and compares the hash, and prints red (exit 0), SURVIVED (exit 1), or
+# a run that measured nothing (exit 2).
 here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
 exec python3 "$here/../skills/verify/scripts/mutation_check.py" "$@"

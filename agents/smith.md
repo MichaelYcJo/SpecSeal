@@ -113,7 +113,7 @@ incorporation. This file only adds what the skill does not carry.
         `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
         nothing-looks/questions.md` Q4 is where the question is open, and
         this paragraph is evidence for it rather than an answer to it.
-        Verified 2026-10-01 against "## Phases"@5d603613. -->
+        Verified 2026-10-01 against "## Phases"@05f1c597. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
@@ -269,11 +269,13 @@ incorporation. This file only adds what the skill does not carry.
    mutation-check <file> --replace "<old>" "<new>" --tests "<the runner> <module> -k <cases>"
    ```
 
-   It refuses an `<old>` that does not occur exactly once, writes the break,
-   removes the mutated file's cached bytecode for every interpreter tag, runs
-   the cases under a bound (300 s unless `--timeout` says otherwise), puts
-   the file back from the bytes it read first and compares the hash, and
-   prints `red`, `SURVIVED`, or a run that measured nothing. A timed-out run
+   It refuses an `<old>` that does not occur exactly once, runs the cases
+   against the file as it is and stops with `no baseline` if they already
+   fail, writes the break, removes the mutated file's cached bytecode for
+   every interpreter tag, runs the cases again, each run under a bound (300 s
+   unless `--timeout` says otherwise), puts the file back from the bytes it
+   read first and compares the hash, and prints `red`, `SURVIVED`, or a run
+   that measured nothing. A timed-out run
    is a result to report, not a kill to find later. Clearing a whole
    `__pycache__` was never the housekeeping: the stale `.pyc` that read a
    same-length break wrong sat beside the mutated file, wherever that file
