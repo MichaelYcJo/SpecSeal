@@ -824,7 +824,8 @@ def test_a_routing_md_deeper_than_directly_under_is_not_a_mark(hook, repo):
     assert not (repo / "seal" / "specs" / TEAM).exists()
 
 
-def test_a_git_that_cannot_list_the_marks_stamps_nothing(hook, repo):
+@pytest.mark.parametrize("how", ["corrupt index", "ls-files raises"])
+def test_a_git_that_cannot_list_the_marks_stamps_nothing(hook, repo, monkeypatch, how):
     """Round 2 of #688, 🟡 1. With `.specseal/` already moved, the items are
     the only units, and a `git ls-files` that cannot answer listed none: the
     hook read that as nothing old left and stamped, so the move never ran
@@ -841,11 +842,22 @@ def test_a_git_that_cannot_list_the_marks_stamps_nothing(hook, repo):
     git(repo, "commit", "-qm", "the home moved, the item not yet")
     index = repo / ".git" / "index"
     good = index.read_bytes()
-    index.write_bytes(b"DIRC garbage")
+    real = hook.git
+    if how == "corrupt index":
+        index.write_bytes(b"DIRC garbage")
+    else:
+
+        def no_ls_files(root, *args):
+            if args[0] == "ls-files":
+                raise OSError("no ls-files today")
+            return real(root, *args)
+
+        monkeypatch.setattr(hook, "git", no_ls_files)
     out = message(start(hook, repo))
     assert "uncommitted changes" in out, out
     assert not stamped(hook, repo)
     index.write_bytes(good)
+    monkeypatch.setattr(hook, "git", real)
     out = message(start(hook, repo))
     assert "moved 1 work item into seal/" in out, out
     assert (repo / "seal" / "specs" / ITEM / "routing.md").is_file()
@@ -878,6 +890,29 @@ def test_a_move_stopped_inside_an_item_resumes_whichever_file_is_kept(hook, repo
     assert (repo / "seal" / "specs" / ITEM / "routing.md").is_file()
     totals = check(repo)
     assert "0 broken" in totals, totals
+
+
+@pytest.mark.parametrize(
+    "mark, text", [("routing.md", ROUTING), ("rounds/round-1.md", ROUND)]
+)
+def test_an_item_with_one_mark_stopped_inside_resumes(hook, repo, mark, text):
+    """Round 2 of #688's fix pass, beside 🟡 2. Each mark alone must move
+    last: an item carrying only one has nothing else to be found by once it
+    moved, so a stop at its taken `spec.md` would strand it."""
+    other = "1788000002-one-mark"
+    write(repo, f"specs/{other}/{mark}", text)
+    write(repo, f"specs/{other}/spec.md", "# the old spec\n")
+    write(repo, f"seal/specs/{other}/spec.md", "# the newer spec\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "an item with one mark, its spec.md taken")
+    out = message(start(hook, repo))
+    assert f"stopped at specs/{other}/spec.md" in out, out
+    git(repo, "rm", "-q", f"seal/specs/{other}/spec.md")
+    out = message(start(hook, repo))
+    assert "moved 1 work item into seal/" in out, out
+    assert (repo / "seal" / "specs" / other / mark).is_file()
+    assert (repo / "seal" / "specs" / other / "spec.md").is_file()
+    assert not (repo / "specs" / other).exists()
 
 
 @pytest.mark.parametrize(
