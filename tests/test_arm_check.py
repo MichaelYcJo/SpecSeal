@@ -1082,17 +1082,26 @@ def test_a_stale_bytecode_cache_cannot_decide_an_arms_verdict(tmp_path):
 
 # A stand-in for the test command that reports what it SAW rather than
 # passing or failing: whether cached bytecode for the module under test
-# existed at the moment it ran.
+# existed, in the directory it is handed, at the moment it ran.
+#
+# Then it leaves a `.pyc` there, the way a command that builds its own
+# environment and ignores `PYTHONDONTWRITEBYTECODE` would. Without that, the
+# run against the unmutated module clears the planted cache before any arm
+# runs, and the clear before each arm is watched by nothing (#703: measured,
+# the cache case stayed green with it deleted). The next run has to see it
+# gone, and so does the caller once the run is over.
 SEES_CACHE = """\
 import glob
 import os
 import sys
 
-module, log = sys.argv[1], sys.argv[2]
-cache = os.path.join(os.path.dirname(module), "__pycache__")
+cache, log = sys.argv[1], sys.argv[2]
 found = glob.glob(os.path.join(cache, "under_test.*.pyc"))
 with open(log, "a", encoding="utf-8") as f:
     f.write("cache\\n" if found else "clean\\n")
+os.makedirs(cache, exist_ok=True)
+with open(os.path.join(cache, "under_test.specseal-left-behind.pyc"), "wb") as f:
+    f.write(b"stale")
 """
 
 
@@ -1131,9 +1140,10 @@ def test_no_arm_runs_while_cached_bytecode_for_the_module_exists(two_arms, tmp_p
         "this case needs a cache to have been planted"
     )
 
+    cache = module_path.parent / "__pycache__"
     verdicts, refused = ARM.run_arms(
         str(module_path),
-        [sys.executable, str(probe), str(module_path), str(log)],
+        [sys.executable, str(probe), str(cache), str(log)],
     )
     assert refused == []
     seen = log.read_text(encoding="utf-8").split()
@@ -1148,6 +1158,78 @@ def test_no_arm_runs_while_cached_bytecode_for_the_module_exists(two_arms, tmp_p
         f"its verdict can be decided by another arm's mutation rather than by "
         f"the source on disk"
     )
+    assert not list(cache.glob("under_test.*.pyc")), (
+        "the last run's cache outlived the run, so the next import of the "
+        "module loads the last mutation's bytecode"
+    )
+
+
+@pytest.mark.parametrize("relative", [True, False], ids=["relative", "absolute"])
+def test_a_cache_under_a_pycache_prefix_is_cleared_where_the_cases_read_it(
+    two_arms, tmp_path, monkeypatch, relative
+):
+    """#703, S9. Under `PYTHONPYCACHEPREFIX` the cache is a mirror of the
+    source tree under the prefix, and CPython joins the prefix as given
+    (`importlib._bootstrap_external.cache_from_source`). So a RELATIVE prefix
+    is read against the directory of the process that imports: the cases'
+    `--cwd`, not `arm-check`'s. Cleared from `arm-check`'s, the stale `.pyc`
+    stays exactly where the cases read it — the defect the clear exists for.
+
+    The path the cases read is taken from `cache_from_source` itself, with
+    the prefix as a process in `other/` resolves it, so this case asks
+    CPython where the file is rather than repeating the clear's own join.
+    The absolute parameter pins what the relative one is joined to: there,
+    `cwd` changes nothing.
+
+    Red how: against the script at `a340221b` the relative parameter's runs
+    see the planted cache, and `clear_bytecode_cache` does not take `cwd`.
+    Executed."""
+    module_path, _ = two_arms
+    other = tmp_path / "other"
+    other.mkdir()
+    prefix = "specseal-prefix-703" if relative else str(tmp_path / "absolute-prefix")
+    monkeypatch.setattr(sys, "pycache_prefix", os.path.join(str(other), prefix))
+    planted = importlib.util.cache_from_source(str(module_path))
+    # The prefix the clear reads is the environment's, as a session's would be.
+    monkeypatch.setattr(sys, "pycache_prefix", None)
+    monkeypatch.setenv("PYTHONPYCACHEPREFIX", prefix)
+
+    def plant():
+        os.makedirs(os.path.dirname(planted), exist_ok=True)
+        with open(planted, "wb") as f:
+            f.write(b"stale")
+
+    plant()
+    log = tmp_path / "seen.txt"
+    probe = tmp_path / "sees_cache.py"
+    probe.write_text(SEES_CACHE, encoding="utf-8")
+    verdicts, refused = ARM.run_arms(
+        str(module_path),
+        [sys.executable, str(probe), os.path.dirname(planted), str(log)],
+        cwd=str(other),
+    )
+    assert refused == [] and len(verdicts) == 2
+    seen = log.read_text(encoding="utf-8").split()
+    assert seen == ["clean"] * 5, (
+        f"{seen} — a run read the module's bytecode from the prefix mirror its "
+        f"cwd resolves to, so its verdict can be another mutation's"
+    )
+    assert not os.path.exists(planted), "and the last run's cache outlived the run"
+
+    # And the function on its own, as `mutation_check.py` calls it.
+    plant()
+    removed = ARM.clear_bytecode_cache(str(module_path), cwd=str(other))
+    assert not os.path.exists(planted)
+    assert [os.path.normcase(os.path.abspath(p)) for p in removed] == [
+        os.path.normcase(os.path.abspath(planted))
+    ]
+    if not relative:
+        # An absolute prefix is read the same from anywhere, so a caller that
+        # passes no `cwd` clears it too.
+        plant()
+        assert ARM.clear_bytecode_cache(str(module_path)) and not os.path.exists(
+            planted
+        )
 
 
 def test_no_verdict_is_taken_after_a_restore_that_did_not_land(two_arms):
