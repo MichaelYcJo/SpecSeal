@@ -2517,6 +2517,8 @@ def test_a_person_at_a_terminal_sees_the_stamp_drawn_once(repo, tmp_path):
     assert any(c in screen for c in HALF_BLOCKS), "a UTF-8 terminal got no blocks"
     assert not signal_lines(SGR.sub("", screen).replace("\r", "")), screen
     assert not values_files(repo), "a drawn run left a file for a hook to draw again"
+    # #666's S2 on this path too: the cell is in the working tree here as well.
+    assert "cell is written to" in screen and "not committed" in screen, screen
 
 
 def test_a_terminal_run_with_no_record_draws_nothing(repo, tmp_path):
