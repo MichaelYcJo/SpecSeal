@@ -100,14 +100,17 @@ with open(sys.argv[2], "w", encoding="utf-8") as f:
 
 
 def plant_import_cache(path):
-    """A cache entry for `path`, made the way an ordinary import makes one."""
-    spec = importlib.util.spec_from_file_location("specseal_planted_probe", path)
-    loaded = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = loaded
-    try:
-        spec.loader.exec_module(loaded)
-    finally:
-        del sys.modules[spec.name]
+    """A cache entry for `path`, the timestamp-checked kind an import writes.
+
+    Written by `py_compile` rather than by importing, because an import
+    honours `PYTHONDONTWRITEBYTECODE` -- and this module is itself run under
+    `mutation-check`, which sets it, whenever a unit of the command is
+    mutated. Planted by import, the cache is never written there and the case
+    goes red on its own precondition whatever the mutation was: measured
+    while mutating this module's script, 2026-10-01."""
+    py_compile.compile(
+        str(path), cfile=importlib.util.cache_from_source(str(path)), doraise=True
+    )
     cached = list((path.parent / "__pycache__").glob(f"{path.stem}.*.pyc"))
     assert cached, "this case needs a real .pyc to remove; the interpreter wrote none"
     return cached
@@ -127,7 +130,9 @@ with open(log, "w", encoding="utf-8") as f:
 """
 
 
-def test_no_bytecode_for_the_mutated_file_exists_while_the_cases_run(tmp_path, capsys):
+def test_no_bytecode_for_the_mutated_file_exists_while_the_cases_run(
+    tmp_path, capsys, monkeypatch
+):
     """The mechanism, watched by what the subprocess can see.
 
     Two tags are planted, because two coexist beside one source on the
@@ -140,7 +145,12 @@ def test_no_bytecode_for_the_mutated_file_exists_while_the_cases_run(tmp_path, c
     Reproducing a stale read by timing is not attempted -- whether two writes
     land in one mtime second is the machine's, not the case's, which is what
     `tests/test_arm_check.py` measured and says. S2 below makes the stale
-    read deterministic instead."""
+    read deterministic instead.
+
+    The variable is taken out of this process's environment first, so the
+    flag the cases report is the one the command set and not one inherited
+    from whatever ran this suite."""
+    monkeypatch.delenv("PYTHONDONTWRITEBYTECODE", raising=False)
     target = tmp_path / "under_test.py"
     target.write_text("VALUE = 1\n", encoding="utf-8")
     plant_import_cache(target)
