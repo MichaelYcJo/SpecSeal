@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 698 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `d6ce226a5a771b2f7d08aed094c3f29871f765e2..2d47fbbd46e886bd4152845153801341a408e336`, 4 commits |
 | Contract changes | _end → round-1-report.md, round-1.md, run_cases, pytest; mutation_run → main; test_a_process_outside_the_group_does_not_hold_the_verdict_back → pytest only |
 | New units | NO_BASELINE (depth 1); COULD_NOT_RUN (depth 1); FAILS_ON_THE_MUTANT (depth 1); red_on (depth 1); seen_runs (depth 1); test_bytecode_the_baseline_wrote_is_gone_before_the_mutated_run (depth 1); LOCKS_THE_MUTANT (depth 1); test_a_restore_whose_write_raises_is_not_restored_and_exits_two (depth 1); test_cases_that_fail_without_the_mutation_measure_nothing (depth 1); test_a_path_that_cannot_be_read_measures_nothing_and_exits_two (depth 1); LEAVES_A_CHILD_ON_THE_OUTPUT (depth 1); test_cases_that_exit_but_leave_a_child_on_the_output_read_red_at_once (depth 1); PRINTS_NOT_UTF8 (depth 1); test_output_that_is_not_utf8_does_not_cost_the_verdict (depth 1); starts_a_child (depth 1) |
