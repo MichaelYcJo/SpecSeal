@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 714 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `9438e00ebf108cc2e4784d39317270bbf04b73fe..c4c1780cfba3e407c755e4e09ea8b244eae2f401`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,7 +31,7 @@ Round 2 is a verifying round at `a0c66d18`. Its diff is round 1's fix range `090
 | 🟢 | The survivor `bab8dc4a` excused is true as it stands | `docs/commit-review-gate-spec.md:765` | confirmed | Read: it names the commit gate alone, whose `for_branch` reads the working tree |
 | 🟢 | The merge `f3b18cff` changes nothing this branch's code or documents do or say | `seal/releases/0.15.1.md` | confirmed | Read: rows G1, N3 and N4 from the branch, N2 from the release; the `SKILL.md` preflight sentence intact. Executed: `evidence-check .` 0 drifted; `correction-check` exit 0 over 2 merges |
 | 🟢 | The six new units are correct and each case fails on its defect | `tests/test_the_seal_is_taken_once_by_the_sealer.py:4535` | confirmed | Executed: red at `090cb32f` and under two mutations; the `cell` refusal is pinned by name only, and the preflight's value cannot reach it |
-| ⬜ 1 | `spec.md` S1 counts seven refusals where `--check` now asks ten | `seal/specs/1790835051-the-preflight-asks-seals-own-refusals/spec.md:35` | open | Read. Paperwork; a correction closing `answered` with `corrected at <sha>`, outside `Needs a fix` |
+| ⬜ 1 | `spec.md` S1 counts seven refusals where `--check` now asks ten | `seal/specs/1790835051-the-preflight-asks-seals-own-refusals/spec.md:35` | answered | corrected at c4c1780c: this work item's own spec.md, a correction rather than a fix; Read. Paperwork; a correction closing `answered` with `corrected at <sha>`, outside `Needs a fix` |
 
 ## Paste-ready fixes
 
