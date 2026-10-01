@@ -268,6 +268,24 @@ def test_retire_removes_only_what_docs_records(tree):
     )
 
 
+def test_retire_leaves_a_team_specs_of_the_same_name_on_disk(tree):
+    """#688 D3. A project's own `specs/` is read as history and never taken,
+    even where a team directory carries the retiring work item's very id: the
+    retirement is `seal/specs/` whatever else the tree holds (`SPECS`)."""
+    team = tree / "specs" / "1700000001-alpha"
+    team.mkdir(parents=True)
+    (team / "design.md").write_text("# the team's design\n", encoding="utf-8")
+    (team / "spec.md").write_text("# the team's spec\n", encoding="utf-8")
+    git(tree, "add", "-A")
+    git(tree, "commit", "-qm", "a team directory of the same name")
+    fold(tree, "1700000001-alpha")
+    code, text = run(tree, "--retire")
+    assert code == 0, text
+    assert not (tree / "seal" / "specs" / "1700000001-alpha").exists()
+    assert (team / "design.md").read_text(encoding="utf-8") == "# the team's design\n"
+    assert (team / "spec.md").is_file()
+
+
 def test_retire_refuses_an_item_the_guard_is_holding(tree):
     """A fold recorded while a fact the reviewer verified is still waiting for
     the ledger. The record says the prose landed; the row says something else

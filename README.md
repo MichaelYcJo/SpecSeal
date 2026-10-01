@@ -377,6 +377,15 @@ gate asks; waive it for that one command with
 `: '[no-review]'; git commit -m "specseal: the root move"`, and put `[no-parity]` in
 the same position where `seal/parity.md` exists.
 
+Only the plugin's own work items move out of `specs/`: a directory named
+`<unix-seconds>-<slug>` where git tracks a `routing.md`, or a file under
+`rounds/`, directly under it. Every 0.3.x work item carried `routing.md`.
+Anything else under `specs/` is the project's own, whatever its name — a
+team's specifications are read and never taken — so it stays where it is,
+the rows that cite it keep their paths, and the line names it as left. A
+repository holding nothing of the plugin's old layout — neither its old root
+nor such an entry — hears nothing at all.
+
 A tree with uncommitted changes under the old pair is refused with a line
 saying to commit first, and the next clean session start moves it. A
 repository carrying the throwaway marker `.specseal/scratch` is left alone;

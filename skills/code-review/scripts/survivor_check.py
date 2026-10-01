@@ -209,6 +209,20 @@ claim carried verbatim into a new row is held rather than written.
 claim it no longer makes; `seal/ledger.md`'s R3 carries three of them. Text
 inside one is by definition not a standing sentence.
 
+**A reference root.** A project's own `specs/` -- every directory of that name
+outside the plugin's root, or what `seal/config.md`'s `Reference specs` row
+names instead -- is out of the **pool** and out of the **range**, on both
+sides of the range's path list (#688). It is a document the plugin never
+wrote, read as history and never checked: a sentence standing there is not a
+place a correction was owed, and a sentence removed from it is a team's edit
+of its own document, not a correction the plugin's documents owe. One
+predicate decides it, `hooks/config.py#under_reference_root`, asked through
+`a_reference_root` beside `records_a_past_state`; and `WORK_ITEM_DIR` reads
+`seal/specs/` alone, so a top-level `specs/<x>/` a range removes is never a
+retired work item. A repository whose own tests sit in a `specs/` directory
+loses them from the sweep under the default and gets them back with
+`Reference specs | none`.
+
 Both losses go one way: a survivor hidden inside an excluded region costs
 whatever the unanswered finding was worth, and an invented survivor costs a red
 build to somebody who did not write the line. The same asymmetry
@@ -939,12 +953,14 @@ def a_gathered_fragment(path, gathered):
 # retirement is: the marker (`folded_items`) and the rule (`retired_by_rule`).
 HERE = os.path.dirname(os.path.abspath(__file__))
 READER = os.path.join(HERE, "..", "..", "verify", "scripts", "unverified_check.py")
-# A work item's directory, read off a path: the `seal/` root's `specs/`, or
-# the top-level `specs/` a repository from before 0.4.0 still carries. Local
-# mode is never committed, so it never reaches a range. Anchored at the start,
-# so `docs/specs/<name>/` is a directory of prose like any other and stays in
-# the range (round 1's finding 4).
-WORK_ITEM_DIR = re.compile(r"^((?:seal/)?specs/[^/]+)/")
+# A work item's directory, read off a path: the `seal/` root's `specs/` and
+# nothing else. A top-level `specs/` is a project's own, a reference root
+# (#688): its directories are never work items a range retired, and with the
+# row's default they are out of the range before this is asked. Local mode is
+# never committed, so it never reaches a range. Anchored at the start, so
+# `docs/seal/specs/<name>/` is a directory of prose like any other and stays
+# in the range (round 1's finding 4).
+WORK_ITEM_DIR = re.compile(r"^(seal/specs/[^/]+)/")
 
 
 _loaded = {}
@@ -1174,13 +1190,15 @@ def removed_ledger_rows(root, a, b, before, after):
 
 def corpus(root, rev):
     """`{path: [Sentence]}` for the tree at `rev`, less what is excluded --
-    what `records_a_past_state` names, and the changelog fragments the tip's
-    `CHANGELOG.md` has gathered."""
+    what `records_a_past_state` names, the changelog fragments the tip's
+    `CHANGELOG.md` has gathered, and the reference roots."""
     gathered = gathered_fragments(root, rev)
     paths = [
         p
         for p in tracked(root, rev)
-        if not records_a_past_state(p) and not a_gathered_fragment(p, gathered)
+        if not records_a_past_state(p)
+        and not a_gathered_fragment(p, gathered)
+        and not a_reference_root(root, p)
     ]
     return {
         path: sentences(path, text)
@@ -1278,12 +1296,17 @@ def corrected(root, a, b):
     # and their live copies -- the work item's own `spec.md` and
     # `overview.md` -- would be reported at the release.
     gathered = gathered_fragments(root, b)
+    # A reference root is out on both sides as well (#688): a sentence
+    # removed from a team's own `specs/` is not a correction the plugin's
+    # documents owe, and one standing there is not a survivor -- `corpus`
+    # applies the same predicate.
     paths = [
         path
         for path in names.split("\0")
         if path
         and not records_a_past_state(path)
         and not a_gathered_fragment(path, gathered)
+        and not a_reference_root(root, path)
     ]
     # A retired directory is out of the range too (#517), for the reason the
     # round records are: its sentences stand in `docs/` by design, because
@@ -1648,6 +1671,8 @@ ROUTING = os.path.join(HERE, "..", "..", "..", "hooks", "routing.py")
 # Where the common git directory is, and so local mode's root: the one reader
 # `hooks/optin.py` keeps for every gate, never a second copy of it here.
 OPTIN = os.path.join(HERE, "..", "..", "..", "hooks", "optin.py")
+# The `Reference specs` row's one reader and the predicate beside it (#688).
+CONFIG_READER = os.path.join(HERE, "..", "..", "..", "hooks", "config.py")
 
 
 def hook(path, name, what):
@@ -1665,6 +1690,34 @@ def hook(path, name, what):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def references(root):
+    """`(hooks/config.py, roots)` for the repository at `root`: the module
+    holding the predicate, and what its `Reference specs` row names under the
+    root `hooks/optin.py#home_at` resolves -- None for the default. Read once
+    per root, because the pool asks it of every tracked path."""
+    key = ("references", root)
+    if key not in _loaded:
+        config = hook(
+            CONFIG_READER,
+            "specseal_config",
+            "says which directories are reference roots",
+        )
+        resolver = hook(OPTIN, "specseal_optin", "says where the seal/ root is")
+        home = resolver.home_at(root, resolver.git_common_dir(root))
+        _loaded[key] = (config, config.reference_roots(home))
+    return _loaded[key]
+
+
+def a_reference_root(root, path):
+    """True for a tracked path under a reference root -- a project's own
+    `specs/`, which the plugin reads as history and never checks (#688).
+    Applied beside `records_a_past_state` on both sides, in `corpus` and in
+    `corrected`, through `hooks/config.py#under_reference_root` and never a
+    test of this module's own."""
+    config, roots = references(root)
+    return config.under_reference_root(path, roots)
 
 
 def local_specs(root):

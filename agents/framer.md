@@ -147,6 +147,13 @@ delegated build.
 - **`seal/specs/`, the earlier work items.** Their round records included. A
   decision already argued through three rounds does not get re-argued in
   your `plan.md`.
+- **The reference roots, where the work touches what they describe.** A
+  project's own `specs/` — every directory of that name outside `seal/`, or
+  what `seal/config.md`'s row names instead, as
+  `templates/config.md` §*Reference specs* says — is history the plugin
+  reads and never writes. Read it where the ticket touches what it
+  describes, and cite what you read in `spec.md` by path, so the builder and
+  the reviewer open the same file.
 - **The ticket and its comments**, which rank above the code as it happens
   to stand and below the documents that were ratified. And `seal/parity.md`
   where the repository declares one, which puts the original between the two.

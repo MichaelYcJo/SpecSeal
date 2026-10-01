@@ -24,12 +24,18 @@ The move, in order (`seal/specs/1788331011-…/spec.md`, "The move, in order"):
      `templates/seal-README.md` — the file is plugin-owned and its old text
      describes a layout that no longer exists
   4. every other entry under `.specseal/` → `seal/<same name>`
-  5. each `specs/<id>/` whose name is `<unix seconds>-<slug>` → `seal/specs/<id>/`;
-     anything else under `specs/` stays and is named, because `specs/` stops
-     being SpecSeal's directory and a project may have had one first
+  5. each `specs/<id>/` whose name is `<unix seconds>-<slug>` AND that carries
+     one of the plugin's marks directly under it, as git tracks it —
+     `routing.md`, or a file under `rounds/` — → `seal/specs/<id>/`;
+     anything else under `specs/` stays and is named, because `specs/`
+     stops being SpecSeal's directory
+     and a project may have had one first. A name is not the proof: a team's
+     own `spec.md` and `plan.md` can sit under a directory `date +%s` could
+     have named, and every 0.3.x work item carried `routing.md` (#688)
   6. in every ledger, every anchor whose path starts with a moved prefix is
      rewritten to the new one; the hash after `@` is not touched, because it
-     covers the cited content, which did not change
+     covers the cited content, which did not change. Under `specs/` the
+     prefix is a work item that moved, never a name that merely has the shape
   7. the root is appended to `~/.claude/specseal/root-migrated`
 
 Boundaries, each pinned in `tests/test_the_root_migrates_itself.py`:
@@ -40,6 +46,12 @@ Boundaries, each pinned in `tests/test_the_root_migrates_itself.py`:
   - **only what git tracks** — the units come from `git ls-files`, so an
     ignored file under the old roots is not a unit and stays where it is;
     `.specseal/` may remain on disk holding nothing else
+  - **only what carries the plugin's marks** — an id-shaped `specs/<x>/`
+    where git tracks neither `routing.md` nor a file under `rounds/` is a
+    team's directory, whatever an empty or ignored one on disk says: it is not
+    moved, a row citing it keeps its path, and the printed line names it with
+    that reason. A repository holding nothing else of the old layout hears
+    nothing at all
   - **once per repository** — a completed move stamps the marker, and so does
     a repository that has nothing old left and a root at EITHER place,
     `<repo>/seal/` or `<git-common-dir>/seal/`, so switching to an old branch
@@ -94,6 +106,13 @@ NEW = optin.HOME
 # The shape `date +%s` and a slug produce. `specs/` may hold other things in
 # a project that had the directory before the plugin arrived; those stay.
 ITEM_RE = re.compile(r"^[0-9]{9,10}-[A-Za-z0-9._-]+$")
+# What makes an id-shaped directory the plugin's: `routing.md`, or a file
+# under `rounds/`, directly under it and tracked by git (`tracked_marks`;
+# round 1 of #688 found an empty or ignored `rounds/` read from the disk
+# making a team's directory one). The shape is necessary and not
+# sufficient — `spec.md`, `plan.md` and `overview.md` are names a team's own
+# specification may use, so they are not marks (#688).
+MARKS = ("routing.md", "rounds")
 # Longest first, so `.specseal/map.md` is not read as `.specseal/` + `map.md`.
 PREFIXES = (
     (".specseal/map.md", f"{NEW}/ledger.md"),
@@ -229,17 +248,75 @@ def entries(root, rel):
         return []
 
 
+def marked(root, name):
+    """True when `specs/<name>` is an id-shaped directory carrying one of
+    the plugin's `MARKS` directly under it ON DISK. Read for the symbolic-link
+    refusal alone, because git lists nothing behind a link; what moves is
+    decided by `tracked_marks`, from git, as the units are."""
+    if not ITEM_RE.match(name):
+        return False
+    here = under(root, f"{OLD_ITEMS}/{name}")
+    routing, rounds = MARKS
+    return os.path.isfile(os.path.join(here, routing)) or os.path.isdir(
+        os.path.join(here, rounds)
+    )
+
+
+def tracked_marks(root):
+    """The id-shaped names under `specs/` whose mark git TRACKS directly
+    under them — `specs/<name>/routing.md`, or a file under
+    `specs/<name>/rounds/` — or None when git cannot say. `old_items` then
+    reads the marks from the disk, so the run still has units and `dirty()`
+    refuses it. An empty answer would read as nothing old left, and `main`'s
+    stamp branch, which comes before `dirty()`, would stamp over a work item
+    that has not moved (round 2 of #688, 🟡 1).
+
+    The move's units come from git (`tracked_names`), and so do its marks.
+    Git tracks no empty directory and no ignored file, so a mark that is
+    either leaves `git status` clean, and read from the disk it made a
+    team's directory a work item (round 1 of #688, 🟡 1)."""
+    try:
+        r = git(root, "ls-files", "-z", "--", OLD_ITEMS)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    routing, rounds = MARKS
+    names = set()
+    for path in r.stdout.split("\0"):
+        parts = path.split("/")
+        if len(parts) < 3 or parts[0] != OLD_ITEMS or not ITEM_RE.match(parts[1]):
+            continue
+        if (len(parts) == 3 and parts[2] == routing) or (
+            len(parts) > 3 and parts[2] == rounds
+        ):
+            names.add(parts[1])
+    return names
+
+
+def unmarked(root, name, marks):
+    """True when `specs/<name>` has a work item's shape and none of the marks
+    git tracks: the case the printed line gives its own reason for."""
+    return (
+        ITEM_RE.match(name) is not None
+        and os.path.isdir(under(root, f"{OLD_ITEMS}/{name}"))
+        and name not in marks
+    )
+
+
 def old_items(root):
     """(SpecSeal work items under `specs/`, everything else on disk there).
 
-    The first list is what moves and comes from git; the second is what the
-    printed line names as left behind and comes from the directory, because
-    what stays on disk is what a person will see there.
+    The first list is what moves and comes from git, each one carrying a
+    mark git tracks; the second is what the printed line names as left
+    behind and comes from the directory, because what stays on disk is what
+    a person will see there.
     """
+    marks = tracked_marks(root)
     items = [
         n
         for n in entries(root, OLD_ITEMS)
-        if ITEM_RE.match(n) and os.path.isdir(under(root, f"{OLD_ITEMS}/{n}"))
+        if (n in marks if marks is not None else marked(root, n))
     ]
     try:
         names = sorted(os.listdir(under(root, OLD_ITEMS)))
@@ -325,7 +402,18 @@ def move(root, src, dst):
     r = git(root, "ls-files", "-z", "--", src)
     if r.returncode != 0:
         raise MoveError(src, (r.stderr or "").strip() or "git ls-files failed")
-    for rel in [p for p in r.stdout.split("\0") if p]:
+    # The marks move last. A run stopped at any other file leaves the item
+    # marked as git tracks it, so the next start still finds a work item and
+    # resumes it; moved first, they left a `spec.md` the line told the person
+    # to keep with no mark beside it, and the next start stamped over it
+    # (round 2 of #688, 🟡 2). The stopped file itself always stays at `src`.
+    routing, rounds = MARKS
+
+    def a_mark(rel):
+        tail = rel[len(src) + 1 :]
+        return tail == routing or tail.startswith(rounds + "/")
+
+    for rel in sorted((p for p in r.stdout.split("\0") if p), key=a_mark):
         target = dst + rel[len(src) :]
         if os.path.exists(under(root, target)):
             raise taken(rel, target)
@@ -367,8 +455,16 @@ def run_moves(root, units):
             return done, exc
         done += 1
     for old in (OLD_HOME, OLD_ITEMS):
+        path = under(root, old)
+        # A link is never this cleanup's to remove. POSIX `rmdir` refuses one
+        # with ENOTDIR, which is what this used to rest on; Windows'
+        # `RemoveDirectoryW` removes a directory link itself, whatever is
+        # behind it, and deleted a team's linked `specs/` from the working
+        # tree (PR #700's windows leg, #688; contract §13).
+        if os.path.islink(path):
+            continue
         try:
-            os.rmdir(under(root, old))
+            os.rmdir(path)
         except OSError:
             pass  # something else is in it, or it is already gone
     return done, None
@@ -384,15 +480,27 @@ def ledgers(root):
     )
 
 
-def repoint_path(path):
+def moved_items(root):
+    """The work items now under `seal/specs/` — this run's moves and a
+    stopped run's earlier ones alike, since a resume moves only what remains
+    and the rows citing the first half still say `specs/`."""
+    try:
+        return frozenset(os.listdir(under(root, f"{NEW}/specs")))
+    except OSError:
+        return frozenset()
+
+
+def repoint_path(path, moved):
     """The path after the move — unchanged when nothing moved it. An entry
-    under `specs/` that is not a work item stays where it is (step 5), so a
-    row citing it has to stay too, or the row breaks."""
+    under `specs/` that did not move stays where it is (step 5): a name that
+    is not a work item's, and an id-shaped directory without the marks. A
+    row citing either has to stay too, or the row breaks — so the test is
+    `moved`, the set that did move, and never the name pattern."""
     for old, new in PREFIXES:
         if path.startswith(old):
             if old == f"{OLD_ITEMS}/":
                 head = path[len(old) :].split("/", 1)[0]
-                if not ITEM_RE.match(head):
+                if head not in moved:
                     return path
             return new + path[len(old) :]
     return path
@@ -407,6 +515,7 @@ def repoint(root):
     changed — rows — not of anchors, since a row may cite two.
     """
     ec = checker()
+    moved = moved_items(root)
     rows = 0
     for ledger in ledgers(root):
         text = ec.read(ledger)
@@ -421,7 +530,7 @@ def repoint(root):
         pieces, at = [], 0
         for m in ec.ANCHOR_RE.finditer(view):
             path = m.group("path")
-            new = repoint_path(path)
+            new = repoint_path(path, moved)
             if new != path:
                 pieces += [
                     text[at : m.start()],
@@ -506,16 +615,14 @@ def main():
         )
         return
     if os.path.islink(under(root, OLD_ITEMS)) and any(
-        ITEM_RE.match(n) and os.path.isdir(under(root, f"{OLD_ITEMS}/{n}"))
-        for n in old_items(root)[1]
+        marked(root, n) for n in old_items(root)[1]
     ):
         # The same blob on the other root. Git lists no work items behind
         # the link, so the home would move, the items would be named as
-        # "not tracked" and left, their rows re-pointed to a `seal/specs/`
-        # that never appears, and the marker stamped over a broken ledger.
-        # After the unit and marker checks, so a migrated repository stays
-        # silent; a linked `specs/` holding no work items is not SpecSeal's
-        # name and is not refused.
+        # "not tracked" and left, and the marker stamped over a ledger whose
+        # rows still cite the old paths. After the unit and marker checks, so
+        # a migrated repository stays silent; a linked `specs/` holding no
+        # MARKED directory is a team's, not SpecSeal's, and is not refused.
         say(
             f"specseal: {OLD_ITEMS}/ is a symbolic link holding work items, which "
             "git tracks as the link and not as its files — not moving it. Move by "
@@ -566,11 +673,19 @@ def main():
         if part
     )
     _, left = old_items(root)
-    tail = (
-        f"; left {', '.join(f'{OLD_ITEMS}/{n}' for n in left)} where it is "
-        "(not tracked as a SpecSeal work item)"
-        if left
-        else ""
+    marks = tracked_marks(root) or set()
+    shaped = [n for n in left if unmarked(root, n, marks)]
+    groups = (
+        ([n for n in left if n not in shaped], "not tracked as a SpecSeal work item"),
+        (
+            shaped,
+            "no routing.md or rounds/ that git tracks — not a SpecSeal work item",
+        ),
+    )
+    tail = "".join(
+        f"; left {', '.join(f'{OLD_ITEMS}/{n}' for n in names)} where it is ({why})"
+        for names, why in groups
+        if names
     )
     say(
         f"specseal: moved {what} into {NEW}/ ({rows} ledger row"
