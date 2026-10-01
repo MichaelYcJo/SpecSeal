@@ -269,6 +269,90 @@ def test_the_smiths_contract_does_not_demand_what_a_serial_loop_cannot_give():
     assert "never obliged to fake a batch" in smith
 
 
+def framer_opening(text):
+    """The body of `agents/framer.md`'s `## How a frame opens`, heading to the
+    next `## `. Scoped so a phrase elsewhere in the definition cannot hold one
+    of the claims below up after the section itself lost it."""
+    match = re.search(r"^## How a frame opens$(.*?)(?=^## )", text, re.M | re.S)
+    assert match, (
+        "`agents/framer.md` has no `## How a frame opens`. The opening was typed "
+        "into spawn prompts from 0.12.3 and lived in no file (#640); a rename "
+        "has to bring this case with it"
+    )
+    return " ".join(match.group(1).split())
+
+
+def test_the_framers_definition_carries_its_opening():
+    """#640, recommendation 1. A rule kept only in whoever last wrote a
+    prompt goes missing without a trace (#107), and the framer's opening was
+    exactly that: found by the 2026-09-28 sweep in no file at all.
+
+    The three claims are asserted by phrase, and the prohibition the prompts
+    carried is asserted ABSENT over the whole definition. Every framer that
+    read 1.00-1.12 since 0.12.3 was told not to open with a parallel read
+    burst; the framers of 0.12.1 and 0.12.2, never told, read 1.48-1.80
+    (#456). Writing that sentence into the file is the one edit that would
+    fix the floor in place."""
+    text = read("agents", "framer.md")
+    section = framer_opening(text)
+    assert text.index("## What you read, and how widely") < text.index(
+        "## How a frame opens"
+    ), "the opening sits before the reading it bounds"
+    assert "skeleton `spec.md`" in section, "the early write went"
+    assert "inside your first few calls" in section, (
+        "the early write lost its moment, and a skeleton written at the end "
+        "is what a watchdog loss leaves no trace of"
+    )
+    assert "about six reads or ranges" in section, "the bound on one call went"
+    assert "never the whole reading list" in section, (
+        "the bound says how large a call may be and not what it may not be, "
+        "which is the opening burst #456's stalls are the evidence about"
+    )
+    assert "§10" in section, "the bound stopped citing the rule it applies"
+    # Round 1's 🟡 3. §10 says the files the handoff names go out in one
+    # call, so a bound with no exception for them contradicts the rule the
+    # bullet says it applies.
+    assert "whatever their number" in section, (
+        "the bound reaches the files the spawn prompt names, which §10 says "
+        "go out in one call"
+    )
+    # Round 1's 🟡 2. #456 has the 1.48 framer under 0.12.1, and 0.12.2's
+    # framers at 1.64 (finished) and 1.56 and 1.80 (stalled).
+    assert "the framers of 0.12.1 and 0.12.2" in section, (
+        "the comparison names one release for readings #456 records over two"
+    )
+    assert "the 0.12.2 framers, never told" not in section, (
+        "the sentence gives 0.12.2 the 0.12.1 framer's 1.48 again"
+    )
+    assert "read by range" in section and "sed -n" in section, (
+        "the large-file half went, which is the third clause #478 recorded"
+    )
+    whole = " ".join(text.split()).lower()
+    for prohibition in ("read burst", "not to open with", "do not open with"):
+        assert prohibition not in whole, (
+            f"`agents/framer.md` carries {prohibition!r}. The rewording bounds "
+            "the opening and forbids nothing, because every reading taken "
+            "under the prohibition sat at the floor"
+        )
+
+
+def test_the_framers_definition_carries_its_own_number():
+    """§10 sends each kind's number back to that kind's definition, and the
+    warden's (1.89) and the smith's (1.08-1.17) were there while the
+    framer's was nowhere. The bar is 1.4, under the band it comes from."""
+    section = framer_opening(read("agents", "framer.md"))
+    dash = chr(0x2013)
+    assert "1.4 tools per turn" in section, "the framer's bar went"
+    assert f"1.46{dash}1.79" in section, (
+        "the bar lost the band it was set under, and a number with nothing "
+        "behind it reads as style advice"
+    )
+    assert "promises no saving" in section, (
+        "the number reads as a forecast. `## Why the frame is not the "
+        "builder's to draw` refuses one, and the bar is a lens"
+    )
+
+
 # --- the per-segment bars (work item 1788277657, round 1's tests-todo) ------
 
 
@@ -283,6 +367,19 @@ def test_the_protocol_names_a_bar_per_segment_kind():
     )
     assert "`repeats = 0`" in protocol, "the implementing bar went"
     assert "| verifying | exempt |" in protocol
+    # #640. A frame is a wide read of independent documents, so the framer
+    # has a bar of its own, and the script's constant is cross-pinned to it
+    # below rather than read from it.
+    assert "| framing | tools per turn **≥ 1.4** |" in protocol, (
+        "the framing bar went, and `--segments` grades framer rows against a "
+        "number no policy states"
+    )
+    # Round 1's ⬜ 4. The prohibition lived in prompts and in no file, so the
+    # row says what the definition does now, not that it stopped doing it.
+    assert "which `agents/framer.md` no longer does" not in protocol, (
+        "the framing row says the definition once held a framer's reads back"
+    )
+    assert "now replaces with a bound on one call" in protocol
     assert "never a refusal threshold" in protocol, (
         "the bar is a lens for rounds of ordinary size — a 23-call round "
         "read 1.64 doing everything right, and a gate failing it would "
@@ -309,6 +406,33 @@ def bars_section(text):
         "this case with it"
     )
     return " ".join(match.group(1).split())
+
+
+def test_the_tying_paragraph_says_which_reading_applies_the_bars():
+    """#640. The paragraph said the script cannot tell a reviewer's
+    transcript from an edit-test loop, and for `--segments` that stopped
+    being true: a row's kind is the `subagent_type` of the spawn it was
+    joined to. The plain reading still cannot tell, which is why its
+    advisory stays where it is and why the sentence is narrowed to it rather
+    than removed."""
+    section = bars_section(read("docs", "review-handoff-protocol.md"))
+    assert "`--segments` applies the bars above by kind" in section, (
+        "the paragraph does not say the page grades a row, so a reader meets "
+        "a named row under a bar with no policy saying where it came from"
+    )
+    assert "`subagent_type`" in section, (
+        "the paragraph says the page knows a row's kind and not how"
+    )
+    assert "a row with no kind is not graded" in section, (
+        "the paragraph leaves an unnamed row's grade to be guessed"
+    )
+    assert (
+        "the plain reading cannot tell a reviewer's transcript from an "
+        "edit-test loop" in section
+    ), (
+        "the sentence about what the script cannot tell was dropped instead "
+        "of narrowed, and it is still true of the plain reading"
+    )
 
 
 def test_the_bars_and_the_run_level_table_judge_different_things():
@@ -434,13 +558,57 @@ def test_the_title_and_the_status_section_agree_on_the_draft():
     )
 
 
+def test_the_scripts_bars_are_the_protocols():
+    """#640. The bars live in the protocol's table and, since `--segments`
+    grades by kind, in `session_cost.py`'s `SEGMENT_BARS` too -- constants,
+    because the script runs from the installed plugin in repositories with no
+    such document. Two copies of a number is the six-month failure the plan
+    names, so this reads both files and either moving alone turns it red.
+
+    The implementing row is held too: the protocol says it is never judged
+    on tools per turn, and the script's entry for it is the exemption."""
+    script = read("skills", "verify", "scripts", "session_cost.py")
+    protocol = read("docs", "review-handoff-protocol.md")
+    for kind, segment in (("warden", "reviewing"), ("framer", "framing")):
+        constant = re.search(rf'"{kind}": \("{segment}", ([\d.]+)\)', script)
+        assert constant, f"`SEGMENT_BARS` lost its {kind} entry or its shape"
+        row = re.search(
+            rf"^\| {segment} \| tools per turn \*\*≥ ([\d.]+)\*\* \|", protocol, re.M
+        )
+        assert row, f"the protocol's bars table lost its {segment} row or its shape"
+        assert constant.group(1) == row.group(1), (
+            f"session_cost.py grades a {kind} row against {constant.group(1)} "
+            f"and the protocol's {segment} bar is {row.group(1)} -- move both or "
+            "neither"
+        )
+    # Round 1's ⬜ 7: the loop above names two kinds, so an entry with a bar
+    # added to either table alone passed. The whole of both is compared.
+    entries = re.findall(r'^    "(\w+)": \("(\w+)", ([\d.]+|None)\),$', script, re.M)
+    assert len(entries) >= 3, f"`SEGMENT_BARS` moved off its shape: {entries}"
+    graded = {segment: bar for _, segment, bar in entries if bar != "None"}
+    rows = dict(
+        re.findall(r"^\| (\w+) \| tools per turn \*\*≥ ([\d.]+)\*\* \|", protocol, re.M)
+    )
+    assert graded == rows, (
+        f"`SEGMENT_BARS` grades {graded} and the protocol's table states {rows} "
+        "-- add, move or remove both or neither"
+    )
+    assert '"smith": ("implementing", None)' in script, (
+        "`SEGMENT_BARS` grades a smith row, and the protocol's implementing row "
+        "says tools per turn never judges one"
+    )
+    assert re.search(r"^\| implementing \|.*never tools per turn", protocol, re.M)
+
+
 def test_the_advisory_and_the_tying_paragraph_name_one_value():
     """The bars (1.8) live in the protocol and the advisory in the script,
     tied by one sentence — the plan's own six-month failure scenario is the
     script's threshold moving while the sentence keeps the old value. This
     case reads both files, so that move turns it red."""
     script = read("skills", "verify", "scripts", "session_cost.py")
-    threshold = re.search(r'data\["tools_per_turn"\] < ([\d.]+)', script)
+    # #640, round 2's 🟡 8: the advisory compares the ratio rounded to the two
+    # places it prints, so the pattern reads the rounded comparison.
+    threshold = re.search(r'round\(data\["tools_per_turn"\], 2\) < ([\d.]+)', script)
     assert threshold, "the advisory threshold moved off its pattern in session_cost.py"
     protocol = flat("docs", "review-handoff-protocol.md")
     assert (

@@ -124,6 +124,79 @@ belongs in the report and is not work anybody owes. And it is **report-only,
 exit 0 either way** — whether an unwatched arm should fail a run is an open
 decision, not an omission.
 
+#### `mutation-check` asks condition 2 of one unit, one break at a time
+
+`arm-check` breaks a module's arms under two fixed operators. The unit an
+implementer has just added is usually something else: a constant, a flipped
+comparison, a sentence a case pins. The break is whatever makes that unit
+wrong, so the loop is one command per break:
+
+```
+mutation-check <file> --replace "<old>" "<new>" --tests "bin/test tests/<module>.py -q -k <cases> -p no:xdist"
+```
+
+`<old>` is literal text and must occur exactly once in the file, or nothing
+is written; `<new>` may be empty, which deletes. Any UTF-8 text file can be
+the target. The command first runs `--tests` against the file as it is, and
+goes on only if that passes. A `-k` that selects nothing, a mistyped module
+and a case that already fails each exit non-zero, and without that run each
+would read `red` for a unit no case ran against. Then it writes the break,
+removes that file's cached bytecode
+for every interpreter tag, runs `--tests` with `PYTHONDONTWRITEBYTECODE=1`,
+puts the file back from the bytes it read first and compares their sha256,
+and removes the bytecode again. Nothing is read from git. The script is
+`skills/verify/scripts/mutation_check.py`, and it uses `arm-check`'s own two
+functions for the bytecode and the restore.
+
+The first line printed is the verdict, then the command's own output:
+
+- `red`, exit 0: a case failed against the break, so the unit is watched.
+- `SURVIVED`, exit 1: the cases passed, so nothing they run watches the unit.
+- exit 2 for every run that measured nothing: `no baseline` (the cases fail
+  without the break, so the break was never written), `timed out`, `could not
+  start`, `could not run`, `refused` (nothing was written), `not restored`
+  (the file may still hold the break; restore it from your commit), and
+  `interrupted`.
+
+So `mutation-check … && mutation-check …` stops at the first unit nothing
+watches, or at the first run that could not say.
+
+**Why the cache beside the file, and not `tests/__pycache__`.** CPython runs
+a cached `.pyc` instead of the source whenever the size and whole-second
+mtime it recorded still match, and a same-length break written inside one
+second matches. Only the mutated file's cache can be stale. An importer's is
+valid for its unchanged source, so clearing `tests/__pycache__` removed
+caches that were right and missed the one that mattered whenever the mutated
+file lived anywhere else (#129). Every tag goes, because the
+interpreter that runs the command and the one that runs the cases can
+differ.
+
+**The cases inherit `PYTHONDONTWRITEBYTECODE=1`.** A case that needs a
+`.pyc` to exist, such as one that plants a cache to show it is removed, has
+to write it itself, with `py_compile` or with `sys.dont_write_bytecode`
+switched off for the plant. An import made under the variable writes
+nothing, and the case then goes red on its own precondition whatever the
+break was.
+
+**The bound ends the run, not only the process it spawned.** `--timeout` is
+300 seconds by default for each of the two runs, and `0` removes it. On
+POSIX the command runs in a session of its own and a timed-out run's whole
+process group is killed, so a wrapper's pytest does not outlive the verdict.
+That is the hole `arm-check`'s bound still has (#313). The group of a run
+that exited is ended too, and the wait is on the process rather than on its
+output, so a child the cases leave behind neither outlives the verdict nor
+holds it back. A process that put itself in yet another session is outside
+the group and outlives the kill; the verdict names that as the bound's
+limit, and cannot tell whether one did. Ctrl-C
+reaches this command rather than the cases, and it ends the group before the
+restore. On Windows only the direct child is ended, and the verdict says that
+anything it started was not.
+
+`-p no:xdist` belongs on a handful of cases. Measured 2026-10-01 on one
+machine, starting the workers took about 0.6 s a run against 0.02 s of
+cases. For a module's arms rather than one unit, `arm-check` above is the
+command.
+
 ### 3. Bound to the tree
 
 Evidence attaches to a tree state, not to a session. Note the state the
@@ -324,7 +397,9 @@ by whichever session remembered them, differently each time. `agents/sealer.md`
 is the agent, `broad-gate --base <base> --record <item>` is the command, and
 `skills/code-review/orchestration.md` §*The last record's `Broad gate` cell is
 read at a READY pull request* owns when it is spawned. What the sealer returns
-is a report; it judges no failure and fixes none.
+is a report; it judges no failure and fixes none. `broad-gate --preflight`,
+which the orchestrator runs before that spawn, is not this run: it runs the
+gate's record arms alone, runs no suite, and seals nothing (#638).
 
 **An expensive suite argues for this placement, not against it.** A run that
 takes fifteen minutes is a finding about the run and deserves its own ticket.
@@ -341,8 +416,9 @@ over a question nobody was asking while CI refused the same commit (#423).
 Where resolving moves the answer the gate prints one line naming both refs,
 both commits and the distance, and runs anyway; where the two agree it prints
 nothing. It never fetches, so a remote-tracking ref is only as fresh as the
-last fetch — which is why the stamp's panel names the ref beside the commit
-rather than the commit alone.
+last fetch — which is why the stamp's panel names the ref on the row under
+the commit rather than the commit alone, and the `SEALED` line names it as
+`<ref> @ <commit>`.
 
 **What the sealer's seal covers is declared rather than remembered.** The arms
 exist so that its one run says what CI will say, and for three releases the
@@ -364,7 +440,13 @@ names the repository's own command. The count is on the panel because a panel
 value is 23 columns and a step name is a sentence; the names are printed
 because a number alone sends the reader back to the two files this
 declaration exists to stop them opening. A repository with no such workflow
-sees neither, and nothing else about its run changes.
+sees neither, and nothing else about its run changes. Both are counted over
+the steps CI runs for the base (#666): a step CI does not ask of this pull
+request — four of SpecSeal's run only on a pull request into `main`, and two
+are skipped there — is neither answered nor unanswered, so the count leaves
+it out and the line says how many it left out and why. A feature seal of
+SpecSeal itself reads `4 of 9`, where it used to read `8 of 13` over four
+steps no run of that pull request would ask.
 
 **What the count does not say** is whether a mirrored arm asks the same
 question its step asks. The partition says a step is on the list; two readers
@@ -375,8 +457,10 @@ repository this plugin is developed in. The gate ran the `survivors` and
 steps. That instance is closed: where the base names `main` and the gated
 repository's workflow carries those steps, the gate leaves both arms out and
 says so (`broad_gate.py#SKIPPED_AT_MAIN`). A case holds that list against the
-workflow's guards. The case reads a guard on the base and no other kind of
-condition, so the class stays open for the next kind.
+workflow's guards, and a second case holds `broad_gate.py#ONLY_AT_MAIN`, the
+steps that run only into `main`, against the opposite guard the same way. The
+cases read a guard on the base and no other kind of condition, so the class
+stays open for the next kind.
 
 **The arms the plugin ships are the arms the gate can run.** Four steps of
 SpecSeal's own `release` job have a local answer and no arm: three run a
@@ -592,8 +676,8 @@ finished, not as a follow-up someone might do later:
    `~/.claude/projects/<project-dir>/<session-id>/subagents/agent-*.jsonl` —
    joins each to the spawn whose result it opened at, and prints one row per
    segment: the agent, its own span, calls, tools per turn, mean gap and
-   tokens. One command, where this step used to be one invocation per
-   transcript.
+   tokens, and, under the table, which rows sit under their kind's bar. One
+   command, where this step used to be one invocation per transcript.
 
    **A segment's own span is the number no other mode has.** A cycle row's
    `delegated` is the spawn call's own interval, and where a harness writes

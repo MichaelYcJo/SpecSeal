@@ -50,8 +50,13 @@ invisible: the gate goes green having not run what CI will. So the partition
 is declared in the gate and a structural case asserts it is total — a step
 name in the workflow with no classification in the gate fails the suite until
 somebody classifies it. That is what makes the next arm impossible to add
-silently.
-Enforced by: tests/test_the_gate_names_every_step_ci_runs.py::test_every_step_the_workflow_runs_is_classified, tests/test_the_gate_names_every_step_ci_runs.py::test_every_entry_of_the_partition_names_a_step_the_workflow_has
+silently. A step CI does not run for the base is neither answered nor
+unanswered: four steps run only on a pull request into `main` and two are
+skipped there, so the panel's count and the line beside it are taken over the
+steps CI runs for the base, and the line says how many it left out (#666).
+Which steps those are is declared beside the partition and held against the
+workflow's guards from both sides, never read off the workflow at run time.
+Enforced by: tests/test_the_gate_names_every_step_ci_runs.py::test_every_step_the_workflow_runs_is_classified, tests/test_the_gate_names_every_step_ci_runs.py::test_every_entry_of_the_partition_names_a_step_the_workflow_has, tests/test_the_gate_names_every_step_ci_runs.py::test_the_steps_left_out_off_main_are_the_steps_guarded_off_main
 
 <!-- specs/1789956662-the-gate-and-ci-ask-about-different-ranges -->
 **The gate and CI ask about the same range, and the base is resolved once.**
@@ -98,10 +103,15 @@ realpath, the running copy hands it the whole argument vector before judging
 anything. Its exit code is the run's, and a flag only the tree's copy knows
 still reaches it. A repository that ships no gate — every repository that
 installs the plugin — runs exactly as before. The symmetric cost, a tree
-that breaks an arm and passes itself, is named rather than dismissed: the
-panel's `gate` row reads `tree <version>` or `plugin <version>`, one stderr
-line names the running copy's path, and the pull request asks the same
-scripts again.
+that breaks an arm and passes itself, is named rather than dismissed: one
+stderr line names the running copy's path and reads `tree <version>` or
+`plugin <version>`, the panel's `gate` row reads `tree <version>` wherever
+the copy that ran is not byte for byte the copy invoked, or where the tree's
+copy ran with no invoked copy named to compare against — invoked directly,
+or redirected by an installed copy older than #666 — and the pull request
+asks the same scripts again. The row prints nowhere else: on every
+redirected seal of a tree whose gate the branch did not change it said the
+same thing and was read by nobody (#666).
 Enforced by: tests/test_the_seal_is_taken_once_by_the_sealer.py
 
 ## Where the stamp is drawn
