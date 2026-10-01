@@ -257,12 +257,7 @@ def run_cases(
             # its text says *the system cannot find the file specified*
             # without saying which (PR #698's `windows-latest` leg).
             program = exc.filename or command[0]
-            reason = exc.strerror or str(exc)
-            return (
-                COULD_NOT_START,
-                f"{program}: {type(exc).__name__}: {reason}",
-                "",
-            )
+            return COULD_NOT_START, f"{program}: {type(exc).__name__}: {exc}", ""
         try:
             _wait(proc, timeout)
         except subprocess.TimeoutExpired:
