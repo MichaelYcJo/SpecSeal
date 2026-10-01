@@ -140,6 +140,12 @@ So `git commit --no-verify` or `--amend` typed at a paused rebase is judged,
 and so is an alias's commit outside a sequencer. Where `ps` cannot answer --
 Windows -- the commit is judged, and the fail direction is a stop.
 `GIT_REFLOG_ACTION` is no criterion: only a rebase's children carry it.
+A conflicted merge is not one of them. `MERGE_HEAD` is no sequencer state
+here, and `git merge --continue` runs its commit in the process the shell
+started, so concluding a conflicted merge is judged whether it is typed as
+`git commit` or as `git merge --continue`, where 0.16.0's reading let the
+second through (round 2 of #692, executed). A merge with no conflict makes
+its commit without `pre-commit` or the author date, and is not judged.
 Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_a_rebase_git_continues_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_an_interactive_rebases_reword_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_pick_git_continues_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_commit_typed_while_a_rebase_is_paused_is_still_met, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_commit_an_alias_starts_is_still_judged, tests/test_the_hook_surface_git_offers.py::test_a_sequencer_that_stopped_on_a_conflict_commits_with_the_date
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
