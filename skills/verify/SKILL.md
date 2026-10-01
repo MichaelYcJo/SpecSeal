@@ -153,7 +153,7 @@ The first line printed is the verdict, then the command's own output:
 - `red`, exit 0: a case failed against the break, so the unit is watched.
 - `SURVIVED`, exit 1: the cases passed, so nothing they run watches the unit.
 - exit 2 for every run that measured nothing: `no baseline` (the cases fail
-  without the break, so nothing was written), `timed out`, `could not
+  without the break, so the break was never written), `timed out`, `could not
   start`, `could not run`, `refused` (nothing was written), `not restored`
   (the file may still hold the break; restore it from your commit), and
   `interrupted`.

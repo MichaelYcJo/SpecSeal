@@ -31,7 +31,7 @@ own output. The bound applies to each of the two runs.
 
   red              exit 0   a case failed against the mutation
   SURVIVED         exit 1   the cases passed, so nothing they run watches it
-  no baseline      exit 2   the cases fail without the break; nothing written
+  no baseline      exit 2   the cases fail without the break; it is never written
   timed out        exit 2   the bound was reached; no verdict
   could not start  exit 2   the command could not be spawned; no verdict
   could not run    exit 2   anything else went wrong; no verdict
@@ -316,28 +316,34 @@ def mutation_run(
     # 1, and each read `red` -- *a case watches this unit* -- for a unit no
     # case ran against (round 1, 🔴 1).
     clear_bytecode_cache(path)
-    before, detail, output = run_cases(command, cwd=cwd, env=env, timeout=timeout)
-    if before == RED:
-        # The baseline's own exit, `(exit N)` from `run_cases`' red detail:
-        # pytest's 5 and 4 are what tell a mistyped `-k` from a failing case.
-        exited = detail[detail.rfind("(exit ") :]
-        return (
-            NO_BASELINE,
-            f"the cases fail against the file as it is {exited}, so a failure "
-            f"under the mutation would say nothing about it. Nothing was written",
-            output,
-        )
-    if before != SURVIVED:
-        # A sentence of its own, so it reads as the verdict's and not as the
-        # last clause of the detail's (round 2, ⬜ 12).
-        return (
-            before,
-            f"{detail}. This was the run against the file as it is, before "
-            f"the mutation was written",
-            output,
-        )
-
+    # The restore's reach starts here, at the baseline, not at the write: the
+    # cases may write the file themselves, and every exit -- an interrupt in
+    # the baseline included -- is reported as the file holding the bytes it
+    # held before the command started (round 3, 🟡 15). The compare below
+    # restores only bytes that differ, so a baseline that leaves the file
+    # alone still writes nothing.
     try:
+        before, detail, output = run_cases(command, cwd=cwd, env=env, timeout=timeout)
+        if before == RED:
+            # The baseline's own exit, `(exit N)` from `run_cases`' red detail:
+            # pytest's 5 and 4 are what tell a mistyped `-k` from a failing case.
+            exited = detail[detail.rfind("(exit ") :]
+            return (
+                NO_BASELINE,
+                f"the cases fail against the file as it is {exited}, so a failure "
+                f"under the mutation would say nothing about it. The break was "
+                f"never written",
+                output,
+            )
+        if before != SURVIVED:
+            # A sentence of its own, so it reads as the verdict's and not as the
+            # last clause of the detail's (round 2, ⬜ 12).
+            return (
+                before,
+                f"{detail}. This was the run against the file as it is, before "
+                f"the mutation was written",
+                output,
+            )
         with open(path, "wb") as f:
             f.write(after.encode("utf-8"))
         # Again after the write: the baseline's cases may have written the

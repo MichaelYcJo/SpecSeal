@@ -611,7 +611,8 @@ def test_cases_that_fail_without_the_mutation_measure_nothing(
     against the file as it was. Otherwise a mistyped `-k` -- pytest's exit 5
     -- reads *a case watches this unit* for a file no case ran against, and
     the smith hands over on it. So the cases run once against the file as it
-    is, and a failure there is `no baseline`, exit 2, with nothing written."""
+    is, and a failure there is `no baseline`, exit 2, with the break never
+    written."""
     target = tmp_path / "target.py"
     target.write_text("VALUE = 1\n", encoding="utf-8")
     log = tmp_path / "seen.txt"
@@ -632,10 +633,12 @@ def test_cases_that_fail_without_the_mutation_measure_nothing(
     assert code == 2, f"{why}: {out}"
     assert out.startswith("no baseline"), f"{why}: {out}"
     # The baseline's own exit, which is what tells a mistyped `-k` (5) from a
-    # case already failing (1), and the sentence saying nothing was written
-    # (round 2, ⬜ 12).
+    # case already failing (1), and the sentence saying the break was never
+    # written (round 2, ⬜ 12). Narrower than *nothing was written* since round
+    # 3: the restore now covers the baseline, and puts back what its cases
+    # changed.
     assert f"(exit {exit_code})" in out.splitlines()[0], f"{why}: {out}"
-    assert "Nothing was written" in out, f"{why}: {out}"
+    assert "The break was never written" in out, f"{why}: {out}"
     assert target.read_text(encoding="utf-8") == "VALUE = 1\n"
     assert log.read_text(encoding="utf-8") == "VALUE = 1\n", (
         f"{why}: the cases saw a mutant after failing without one"
@@ -800,8 +803,12 @@ def test_a_command_that_cannot_start_measures_nothing_and_exits_two(tmp_path, ca
     assert out.startswith("could not start"), out
     assert str(missing) in out, f"the error is not named: {out}"
     # It failed in the baseline, so the break was never written, and the
-    # verdict says which run it was.
-    assert "before the mutation was written" in out, out
+    # verdict says which run it was -- in a sentence of its own, not as the
+    # detail's last clause (round 3, ⬜ 16).
+    assert (
+        ". This was the run against the file as it is, before the mutation was written"
+        in out
+    ), out
     assert target.read_text(encoding="utf-8") == "VALUE = 1\n"
 
 
@@ -1097,7 +1104,10 @@ def test_a_run_past_the_bound_is_timed_out_and_leaves_nothing_it_started(
     assert target.read_bytes() == original
     assert not list(tmp_path.glob("__pycache__/under_test.*.pyc"))
     if hangs == "the baseline":
-        assert "before the mutation was written" in out, out
+        assert (
+            ". This was the run against the file as it is, before the mutation "
+            "was written" in out
+        ), out
 
 
 # A child that leaves the wrapper's process group and keeps the cases'
@@ -1187,14 +1197,24 @@ def test_the_bound_is_chosen_by_the_platform_and_windows_says_what_it_left():
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the process-group bound is POSIX's")
+@pytest.mark.parametrize(
+    "lands",
+    ["the mutated run", "the baseline"],
+    ids=["mutated", "baseline"],
+)
 def test_an_interrupt_ends_the_run_it_started_and_restores_the_file(
-    tmp_path, capsys, monkeypatch
+    tmp_path, capsys, monkeypatch, lands
 ):
     """The run is in a session of its own, so the terminal's Ctrl-C reaches
     this process and not the cases (#313 names that consequence). So the
     interrupt has to end the group here, or the suite runs on after the
     command has gone. Delivered as the `KeyboardInterrupt` Python raises for
-    it, once the child is known to be running."""
+    it, once the child is known to be running.
+
+    Round 3, 🟡 15: the line then says the file holds the bytes it held
+    before the command started, and that has to be true wherever the
+    interrupt lands. The cases can write the file during the baseline, before
+    any break exists, so the restore covers the baseline too."""
     target = tmp_path / "under_test.py"
     original = b"VALUE = 1\n"
     target.write_bytes(original)
@@ -1203,6 +1223,11 @@ def test_an_interrupt_ends_the_run_it_started_and_restores_the_file(
     real_wait = mc._wait
 
     def interrupted(proc, timeout):
+        if lands == "the baseline":
+            # The cases finish what they write, then the Ctrl-C lands: the
+            # first wait is the baseline's.
+            proc.wait()
+            raise KeyboardInterrupt
         # Against the file as it is the cases pass at once; the interrupt
         # lands in the mutated run, while the mutant is on disk.
         if "VALUE = 2" not in target.read_text(encoding="utf-8"):
@@ -1212,6 +1237,18 @@ def test_an_interrupt_ends_the_run_it_started_and_restores_the_file(
             time.sleep(0.05)
         raise KeyboardInterrupt
 
+    cases = starts_a_child(tmp_path, target, pid_file)
+    if lands == "the baseline":
+        cases = cases_command(
+            probe(
+                tmp_path,
+                "import sys\n"
+                "with open(sys.argv[1], 'w', encoding='utf-8') as f:\n"
+                "    f.write('VALUE = 99\\n')\n",
+                "rewrites.py",
+            ),
+            target,
+        )
     monkeypatch.setattr(mc, "_wait", interrupted)
     try:
         code = mc.main(
@@ -1221,13 +1258,14 @@ def test_an_interrupt_ends_the_run_it_started_and_restores_the_file(
                 "VALUE = 1",
                 "VALUE = 2",
                 "--tests",
-                starts_a_child(tmp_path, target, pid_file),
+                cases,
             ]
         )
         out = capsys.readouterr().out
-        pid = read_pid(pid_file)
-        assert pid is not None, "the wrapper never started its child"
-        assert gone_within(pid, 5), "the interrupt left the process the run started"
+        if lands == "the mutated run":
+            pid = read_pid(pid_file)
+            assert pid is not None, "the wrapper never started its child"
+            assert gone_within(pid, 5), "the interrupt left the process the run started"
     finally:
         end_if_alive(read_pid(pid_file))
         monkeypatch.setattr(mc, "_wait", real_wait)
