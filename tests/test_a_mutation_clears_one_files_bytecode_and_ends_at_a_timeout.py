@@ -759,6 +759,9 @@ def test_a_command_that_cannot_start_measures_nothing_and_exits_two(tmp_path, ca
     assert code == 2, out
     assert out.startswith("could not start"), out
     assert str(missing) in out, f"the error is not named: {out}"
+    # It failed in the baseline, so the break was never written, and the
+    # verdict says which run it was.
+    assert "before the mutation was written" in out, out
     assert target.read_text(encoding="utf-8") == "VALUE = 1\n"
 
 

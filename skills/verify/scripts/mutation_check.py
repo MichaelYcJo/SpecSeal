@@ -215,7 +215,9 @@ def _end(proc: subprocess.Popen, how: str) -> None:
             os.killpg(proc.pid, signal.SIGKILL)
         except ProcessLookupError:
             pass
-    elif proc.poll() is None:
+    else:
+        # A no-op once the process has been reaped: `Popen.send_signal`
+        # checks `returncode` first.
         proc.kill()
     proc.wait()
 
