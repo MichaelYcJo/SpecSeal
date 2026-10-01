@@ -4427,12 +4427,16 @@ def seal(args):
 
     **`--check` asks every refusal above and writes nothing** (#702). The
     seven — the six here and `seal_home`'s — are raised in the same order
-    with the same sentences, and then, before `kept_broad_gate`, the
-    subcommand prints one line and returns 0: no cell, no `broad-gate.md`,
-    no chain check. The return is the statement immediately after the last
-    refusal, so a refusal added later lands above it or is a refusal the
-    flag never asks, and a case holds that position. It adds no `raise`
-    site, so the count above is unchanged. The line never begins
+    with the same sentences, and so are the three the write path's callees
+    raise: `field_index` (no `Broad gate` row, or two), `cell` (a pipe or a
+    newline in the value) and `hiders_close` (a comment the record never
+    closes). The record is composed above the return for that reason, and
+    the return is the statement immediately before `write_record`: the
+    subcommand prints one line and returns 0, with no cell, no
+    `broad-gate.md` and no chain check. A refusal added later lands above it
+    or is a refusal the flag never asks, and one case holds that position
+    while a second holds the three callees. It adds no `raise` site, so the
+    count above is unchanged. The line never begins
     `round-record: sealed`, because `broad_gate.py#gate` reads that prefix
     as the cell having been written. `broad-gate --preflight` is the caller:
     it asks the sealer's own subcommand rather than restating its
@@ -4573,14 +4577,6 @@ def seal(args):
                 "Run it again at the tree as it stands; no cell was written"
             )
 
-    # `--check` (#702): every refusal above was asked and none fired. Nothing
-    # below this return may raise — it is where the write starts — and a case
-    # reads this function's body to hold that.
-    if args.check:
-        said = CHECKED_NO_ROUND if n is None else CHECKED
-        print(said.format(path=os.path.relpath(path, root), dash=DASH))
-        return 0
-
     # ONE ENTRY PER RUN, NEWEST FIRST (#174). A run the cell already holds is
     # kept behind the new one as `earlier run`, because a second broad run --
     # after a pre-existing failure, or after the last fixes landed -- used to
@@ -4588,14 +4584,31 @@ def seal(args):
     # The newest entry alone is replaced, where it is the same commit against
     # the same base (`same_run`).
     # `kept_broad_gate` is the one path, shared with `close --broad-gate`.
+    #
+    # The record is COMPOSED here and written below the `--check` return, so
+    # the write path's own refusals are asked under `--check` too (#702):
+    # `field_index` (no `Broad gate` row, or two), `cell` (a pipe or a
+    # newline in the value) and `hiders_close` (a comment the record never
+    # closes). Each is a `Refused` raised by a callee, so no `raise` in this
+    # body shows it.
     value = kept_broad_gate(reader, rows, args.broad_gate)
     if n is None:
-        write_record(reader, path, new_broad_gate_file(item, value))
+        composed = new_broad_gate_file(item, value)
     else:
         i = field_index(reader, lines, BROAD_GATE)
         raw[i] = cell(BROAD_GATE, value)
         ending = "\n" if text.endswith("\n") else ""
-        write_record(reader, path, "\n".join(raw) + ending)
+        composed = "\n".join(raw) + ending
+    hiders_close(reader, composed, RECORD_HIDERS)
+
+    # `--check` (#702): every refusal above was asked and none fired. What
+    # follows is the write and the chain check, and neither is asked here.
+    if args.check:
+        said = CHECKED_NO_ROUND if n is None else CHECKED
+        print(said.format(path=os.path.relpath(path, root), dash=DASH))
+        return 0
+
+    write_record(reader, path, composed)
     print(
         f"round-record: sealed {os.path.relpath(path, root)} {DASH} `{BROAD_GATE}` | {value}"
     )

@@ -4532,6 +4532,61 @@ def test_seal_check_refuses_what_seal_refuses_and_writes_nothing(repo, shape, sa
     assert after == before, f"`--check` wrote {path.name} under a refusal"
 
 
+def hand_edited_last(edit):
+    """A settled item whose last record `edit` rewrites and commits."""
+
+    def shape(repo):
+        _one, two = settled_item(repo)
+        two.write_text(edit(two.read_text(encoding="utf-8")), encoding="utf-8")
+        commit(repo, "the last record edited by hand")
+        return two
+
+    return shape
+
+
+def without_the_row(text):
+    return "".join(
+        line for line in text.splitlines(True) if not line.startswith("| Broad gate |")
+    )
+
+
+def with_the_row_twice(text):
+    return "".join(
+        line * (2 if line.startswith("| Broad gate |") else 1)
+        for line in text.splitlines(True)
+    )
+
+
+def with_an_open_comment(text):
+    # Spelled in two parts so no record generated from a report quoting this
+    # case carries a literal comment opener.
+    return text + "\n<" + "!-- left open by hand\n"
+
+
+@pytest.mark.parametrize(
+    "edit, said",
+    [
+        (without_the_row, "has 0 `| Broad gate | … |` rows"),
+        (with_the_row_twice, "has 2 `| Broad gate | … |` rows"),
+        (with_an_open_comment, "never closed"),
+    ],
+    ids=["no-row", "two-rows", "open-comment"],
+)
+def test_seal_check_refuses_what_the_write_path_refuses(repo, edit, said):
+    """S1's class, past the six `raise` sites (round 1's 🟡 1): `field_index`,
+    `cell` and `hiders_close` refuse on the write path, inside callees.
+    `--check` exited 0 on each while `seal` refused it after the sealer's
+    suite. Seen red at `090cb32f`, where the `--check` return stood above
+    all three."""
+    path = hand_edited_last(edit)(repo)
+    before = read_bytes(path)
+    code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base", CHECK_FLAG)
+    assert code == 2, out
+    assert said in out, out
+    assert "chain-check:" not in out, out
+    assert read_bytes(path) == before
+
+
 def settled_last(repo):
     return settled_item(repo)[1]
 
@@ -4578,8 +4633,10 @@ def test_the_check_returns_after_the_last_refusal_and_before_the_write():
     """`plan.md`'s failure scenario. A refusal added to `seal` below the
     `--check` return is refused by the sealer after a suite and passed by the
     preflight — the gap this work closes, reopened one refusal at a time. So
-    the statement immediately before `kept_broad_gate` in `seal`'s body is the
-    `--check` guard ending in a `return`, and nothing after it raises."""
+    the statement immediately before `write_record` in `seal`'s body is the
+    `--check` guard ending in a `return`, nothing after it raises, and the
+    callees that refuse on the write path are each called above it (round
+    1's 🟡 1: a `raise` walk alone passed over all three)."""
     with open(GENERATOR, encoding="utf-8") as handle:
         parsed = ast.parse(handle.read())
     seal = next(
@@ -4588,15 +4645,24 @@ def test_the_check_returns_after_the_last_refusal_and_before_the_write():
     keep = [
         i
         for i, statement in enumerate(seal.body)
-        if isinstance(statement, ast.Assign)
+        if isinstance(statement, ast.Expr)
         and isinstance(statement.value, ast.Call)
-        and ast.unparse(statement.value.func) == "kept_broad_gate"
+        and ast.unparse(statement.value.func) == "write_record"
     ]
-    assert len(keep) == 1, f"`seal` calls `kept_broad_gate` {len(keep)} times"
+    assert len(keep) == 1, f"`seal` calls `write_record` {len(keep)} times"
     guard = seal.body[keep[0] - 1]
     assert isinstance(guard, ast.If) and ast.unparse(guard.test) == "args.check", (
-        "the statement before `kept_broad_gate` is not the `--check` guard"
+        "the statement before `write_record` is not the `--check` guard"
     )
+    # The callees that refuse on the write path are asked above the guard.
+    above = {
+        ast.unparse(node.func)
+        for statement in seal.body[: keep[0] - 1]
+        for node in ast.walk(statement)
+        if isinstance(node, ast.Call)
+    }
+    for callee in ("kept_broad_gate", "field_index", "cell", "hiders_close"):
+        assert callee in above, f"`{callee}` is not asked above the `--check` return"
     assert isinstance(guard.body[-1], ast.Return), "the guard does not return"
     later = [
         node
