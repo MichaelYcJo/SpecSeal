@@ -2216,7 +2216,13 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
     delegated_max = max(
         (row["numbers"]["delegated_s"] for row in rows if row["numbers"]), default=0.0
     )
-    if delegated_max < 60:
+    # Compared at what the `delegated` column prints, `minutes` to one place,
+    # so the note never says a minute is not reached beside a `1.0m` cell
+    # (#701). Raw against 60, a spawn paired in 59.6 s printed `1.0m` above
+    # *never reaches a minute here — 60s at most*: the cause #640 fixed twice
+    # for the tools-per-turn ratio, on a duration. The note's presence moves
+    # only for a maximum in (57.0, 60) seconds, so it prints at most `57s`.
+    if round(delegated_max / 60, 1) < 1.0:
         print(
             f"\n  `delegated` never reaches a minute here — {delegated_max:.0f}s at "
             "most — so on this\n  harness the `Agent` result is written when the "

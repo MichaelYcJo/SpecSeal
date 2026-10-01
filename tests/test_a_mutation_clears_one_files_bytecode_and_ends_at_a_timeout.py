@@ -268,6 +268,73 @@ def test_bytecode_the_cases_wrote_for_the_mutant_is_not_left_behind(tmp_path, ca
     assert left == [], f"{left} -- the run left the mutant's bytecode behind"
 
 
+# Logs whether the planted file exists when the cases run, then leaves it there
+# again, the way a command that builds its own environment would write it. So
+# every run asks of the removal before it, and the caller asks of the last.
+SEES_THE_MIRROR = """\
+import os, sys
+planted, log = sys.argv[1], sys.argv[2]
+with open(log, "a", encoding="utf-8") as f:
+    f.write(("cache" if os.path.exists(planted) else "clean") + "\\n")
+os.makedirs(os.path.dirname(planted), exist_ok=True)
+with open(planted, "wb") as f:
+    f.write(b"stale")
+"""
+
+
+def test_a_relative_pycache_prefix_is_cleared_where_the_cases_run(
+    tmp_path, capsys, monkeypatch
+):
+    """#703's S11, and this item's round 1 ⬜ 7. CPython joins
+    `PYTHONPYCACHEPREFIX` as given, so a relative prefix names a mirror under
+    the directory of the process that imports, which is the cases' `--cwd`.
+    `arm_check.clear_bytecode_cache` reads it against the `cwd` it is handed,
+    and this command used to hand it none, so with a `--cwd` other than the
+    shell's the stale `.pyc` stayed exactly where the cases read it.
+
+    The planted path is `cache_from_source`'s own, with the prefix as a
+    process in `other/` resolves it, so the case asks CPython where the file
+    is rather than repeating the clear's join.
+
+    Red how: with `mutation_run`'s three calls passing no `cwd`, every run
+    saw the planted file and it outlived the run. Executed."""
+    target = tmp_path / "under_test.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    other = tmp_path / "other"
+    other.mkdir()
+    prefix = "specseal-prefix-703"
+    monkeypatch.setattr(sys, "pycache_prefix", os.path.join(str(other), prefix))
+    planted = importlib.util.cache_from_source(str(target))
+    # The prefix the clear reads is the environment's, as a session's would be.
+    monkeypatch.setattr(sys, "pycache_prefix", None)
+    monkeypatch.setenv("PYTHONPYCACHEPREFIX", prefix)
+    os.makedirs(os.path.dirname(planted))
+    with open(planted, "wb") as f:
+        f.write(b"stale")
+    log = tmp_path / "seen.txt"
+
+    code, out = run(
+        [
+            target,
+            "--replace",
+            "VALUE = 1",
+            "VALUE = 2",
+            "--tests",
+            cases_command(probe(tmp_path, SEES_THE_MIRROR), planted, log),
+            "--cwd",
+            other,
+        ],
+        capsys,
+    )
+    seen = log.read_text(encoding="utf-8").split()
+    assert seen == ["clean", "clean"], (
+        f"{seen} -- a run read the module's bytecode from the prefix mirror its "
+        f"cwd resolves to, so the mutated run can read a previous mutation"
+    )
+    assert not os.path.exists(planted), "the last run's cache outlived the run"
+    assert code == 1, out
+
+
 # --- S2 · the same-length mutation reads red --------------------------------
 
 

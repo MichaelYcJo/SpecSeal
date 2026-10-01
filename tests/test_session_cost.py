@@ -2635,6 +2635,65 @@ def test_a_delegated_column_of_seconds_says_which_of_two_things_it_is(
     assert "never reaches a minute" not in covered, covered
 
 
+def delegated_cells(out):
+    """The `delegated` column's cells, read by the header's own right edge.
+
+    The column is right-aligned under its header, so a cell ends where the
+    word `delegated` does. Reading by position rather than by splitting keeps
+    a row label with a space in it from moving the cell, and it is the cell a
+    reader sees beside the note rather than any `0.9m` elsewhere on the line."""
+    lines = out.splitlines()
+    header = next(line for line in lines if line.startswith("  row "))
+    end = header.index("delegated") + len("delegated")
+    rows = lines[lines.index(header) + 1 :]
+    cells = []
+    for line in rows:
+        if not line.strip():
+            break
+        if line.endswith("no call in this window"):
+            continue
+        cell = line[end - 11 : end].strip()
+        if cell and cell != "—":
+            cells.append(cell)
+    return cells
+
+
+def test_the_delegated_note_follows_the_minute_the_column_prints(tmp_path):
+    """The note is a sentence about the `delegated` column, so it decides on
+    the value the column prints: `minutes`, to one place of minutes.
+
+    Compared raw against 60, a spawn paired in 59.6 s printed `1.0m` in the
+    column and, under it, *never reaches a minute here — 60s at most* (#701;
+    #640's round 3, 🟡 10). That is the cause #640 fixed twice for the
+    tools-per-turn ratio, on a duration.
+
+    Both edges of the band, and the cell asserted beside the note at each, so
+    the case ties the decision to what the column prints rather than to the
+    number 60: if the column's unit ever changes, the 57.0 s half is what
+    goes red. 57.0 s is the band's floor — `57 / 60` sits just under 0.95 in
+    binary, so the column prints `0.9m` there and `1.0m` a millisecond
+    above."""
+    over = spawn("A", 0, 59.6, "specseal:smith") + call("a", 80, 85, "git status")
+    path = tmp_path / "over.jsonl"
+    path.write_text("\n".join(over) + "\n")
+    out = run(["--spawns", str(path)]).stdout
+    assert delegated_cells(out) == ["1.0m"], out
+    assert "never reaches a minute" not in out, out
+    assert "60s at most" not in out, out
+    data = json.loads(run(["--json", str(path)]).stdout)
+    delegated = [
+        r["numbers"]["delegated_s"] for r in data["spawns"]["rows"] if r["numbers"]
+    ]
+    assert 59.6 in delegated, delegated
+
+    floor = spawn("A", 0, 57.0, "specseal:smith") + call("a", 80, 85, "git status")
+    path = tmp_path / "floor.jsonl"
+    path.write_text("\n".join(floor) + "\n")
+    out = run(["--spawns", str(path)]).stdout
+    assert delegated_cells(out) == ["0.9m"], out
+    assert "`delegated` never reaches a minute here — 57s at most" in out, out
+
+
 def test_the_delegated_wait_is_in_no_column_of_any_row(tmp_path):
     """Where the agent's wall clock actually goes, on the ACCEPTED harness.
 
