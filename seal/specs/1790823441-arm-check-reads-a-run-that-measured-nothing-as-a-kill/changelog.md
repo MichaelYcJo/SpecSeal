@@ -20,13 +20,14 @@
   `hooks/review-history-guard.py` against `tests/test_chain_hooks.py`, the
   extra run took the whole command from 107.9 s to 110.5 s on one machine.
 
-- `arm-check` clears the cached bytecode the cases would actually load when
-  `PYTHONPYCACHEPREFIX` is a relative path and `--cwd` is not the shell's
-  directory (#703). CPython reads a relative prefix against the directory of
-  the process that imports, which is the cases' `--cwd`. The clear read it
-  against `arm-check`'s own directory, so a stale `.pyc` stayed exactly where
-  the cases read it. `clear_bytecode_cache` takes that directory as `cwd`;
-  a caller passing none reads the prefix as before.
+- `arm-check` and `mutation-check` clear the cached bytecode the cases would
+  actually load when `PYTHONPYCACHEPREFIX` is a relative path and `--cwd` is
+  not the shell's directory (#703, #641). CPython reads a relative prefix
+  against the directory of the process that imports, which is the cases'
+  `--cwd`. Both commands read it against their own directory, so a stale
+  `.pyc` stayed exactly where the cases read it. `clear_bytecode_cache` takes
+  that directory as `cwd`, and both commands now pass it at every removal; a
+  caller passing none reads the prefix as before.
 
 - `arm-check` no longer ends in a traceback over output it cannot handle
   (#703). A mutation whose cases printed a byte that is not UTF-8 raised

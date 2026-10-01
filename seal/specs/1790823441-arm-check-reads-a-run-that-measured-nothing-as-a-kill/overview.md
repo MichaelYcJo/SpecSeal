@@ -29,15 +29,17 @@ before anything is written, and the second clears the mirror the cases read.
 
 | Item | Who must answer |
 |---|---|
-| S11 — `tests/test_a_mutation_clears_one_files_bytecode_and_ends_at_a_timeout.py` green on the tree holding both this branch and #641's, and `mutation_check.py`'s three `clear_bytecode_cache(path)` calls given `cwd=cwd` (`questions.md` Q1) | the orchestrator of whichever branch lands second on `release/v0.17.0`, with that module's narrow run |
+| ✅ S11 — `tests/test_a_mutation_clears_one_files_bytecode_and_ends_at_a_timeout.py` green on the tree holding both this branch and #641's, and `mutation_check.py`'s three `clear_bytecode_cache(path)` calls given `cwd=cwd` (`questions.md` Q1) | executed 2026-10-01 after the merge of `release/v0.17.0` at `e83db346`: that module and `tests/test_arm_check.py` gave 134 passed, 2 skipped, before the three keywords, and 135 passed, 2 skipped, after them with the new prefix case. The case was red before them (`cache` at both runs), and dropping `cwd` from each call in turn turned it red |
 | The full suite, the repository-wide lint and the typecheck | the orchestrator, through the sealer after the review rounds settle |
 | S10's two CI legs, `arm-check-grammar (3.13)` and `(3.14)`, and the Windows leg of `pytest`, which runs this module under `-n auto` with `HANG_BOUND` and the mtime pin, and where round 1's 🟡 2 meets a real cp1252 pipe (reproduced here only through `PYTHONIOENCODING`) | the pull request's checks |
 
 ## Not done
 
-- **`mutation_check.py`'s three `cwd=cwd` keywords.** That file is not in
-  this tree. `questions.md` Q1's default stands: the branch that lands second
-  adds them.
+- **`mutation_check.py`'s three `cwd=cwd` keywords** were listed here while
+  that file was not in this tree. #641 landed first, so this branch added
+  them after the merge, and they are done. #641's own `overview.md` still
+  describes the relative-prefix gap as open; that record is #641's, and it is
+  not edited here.
 - **An interrupt arm in `main`, and a catch-all exiting 2** (#641's 🟡 3 and
   its interrupt sentence). Out of scope under spec §Scope *Out* and J9. The
   first run sits before the loop's restoring `try`, and its own `finally`
