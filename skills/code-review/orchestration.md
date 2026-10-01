@@ -522,9 +522,11 @@ prints on a draft and names the verifying round, and *Ready for review* fails
 the pull request if the cell still says `nobody`.
 
 **The last record's `Broad gate` cell is read at a READY pull request
-(#295).** So the sequence has one more step before the draft goes ready, and
-it is a spawn rather than a run: **spawn `sealer`, with the base and the work
-item's directory.** It runs `broad-gate --base <base> --record <item>`, which
+(#295).** So the sequence has two more steps before the draft goes ready: a
+run of the record arms, which is yours, and then a spawn. **Run `broad-gate
+--preflight --base <base>`, and on its exit 0 spawn `sealer`, with the base
+and the work item's directory.** The sealer runs `broad-gate --base <base>
+--record <item>`, which
 takes the one broad pass now that the rounds have settled and, on a green
 run, writes the SHA it ran at and the base it was compared against into that
 cell through `round_record.py seal` — in front of any run the cell already
@@ -535,6 +537,20 @@ fails the pull request, and so does a newest entry the record's own
 `Target SHA` descends from — a run spent before the round it was meant to
 seal. Work items begun before
 `chain_check.GATE_FROM` print instead of failing.
+
+**The preflight is yours, and it is not the broad gate (#638).** It runs every
+arm of the gate except the `Broad gate` row, in the gate's order and over the
+same resolved base, once every refusal of the row has been applied; the row is
+read and not run. It takes seconds where the sealer's run takes a suite, so a
+refusal on a record arm, which the sealer would return after that suite,
+arrives before the spawn. Read its exit code directly and spawn only on 0. On
+1 its `PREFLIGHT FAILED` lines name each failing arm with its first lines and
+the file holding the rest: correct the record, commit, and run it again. On 2
+it refused before anything ran, and a refusal about the row goes to a person,
+as *A refusal about the `Broad gate` row* below says. It writes no cell, no
+values file and no stamp, and prints no `SEALED` line, so it seals nothing.
+A session that skips it loses only time: the sealer asks the same arms and
+refuses the same way.
 
 **The stamp is drawn for you at the end of your turn, and you never draw
 one (#400).** A green recorded run on the sealer's pipe draws nothing. It

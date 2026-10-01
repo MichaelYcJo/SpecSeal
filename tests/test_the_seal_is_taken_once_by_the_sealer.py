@@ -22,6 +22,7 @@ builds them.
 """
 
 import argparse
+import ast
 import importlib.util
 import io
 import json
@@ -3374,6 +3375,261 @@ def test_a_plugin_check_that_fails_is_named_and_the_suite_is_not_compared(repo):
     assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
 
 
+# --- 1790815611: the record arms run before the sealer is spawned (#638) -------
+#
+# `broad-gate --preflight` is the orchestrator's step before the sealer's
+# spawn: the same command, the same resolved base, the same row refusals, and
+# then the record arms alone. It runs no row, writes no cell, values file or
+# stamp, and prints no line a reader could take for a seal.
+
+PREFLIGHT_PASSED = "PREFLIGHT PASSED   {tree} against {base}"
+PREFLIGHT_FAILED = "PREFLIGHT FAILED   {tree} against {base}"
+NOT_RUN = "the `Broad gate` row was not run and nothing is sealed"
+
+
+def record_arms():
+    """Every arm `gate()` records except the repository's row, in source
+    order — read off the function, never typed here.
+
+    `plan.md`'s failure scenario is an arm landing under the condition that
+    skips the row: the partition cases stay green, because the assignment is
+    still inside `gate()`, and the preflight runs one arm fewer than the
+    sealer. A list typed in this file would agree with the preflight and miss
+    it; this one is read from the same source the gate runs, so that arm is a
+    kept output file the preflight did not write."""
+    gate = gate_module()
+    with open(GATE, encoding="utf-8") as handle:
+        parsed = ast.parse(handle.read())
+    function = next(
+        n
+        for n in ast.walk(parsed)
+        if isinstance(n, ast.FunctionDef) and n.name == "gate"
+    )
+    found = []
+    for node in ast.walk(function):
+        if not (isinstance(node, ast.Assign) and isinstance(node.value, ast.Call)):
+            continue
+        if ast.unparse(node.value.func) != "run":
+            continue
+        for target in node.targets:
+            if (
+                isinstance(target, ast.Subscript)
+                and ast.unparse(target.value) == "checks"
+            ):
+                found.append((node.lineno, getattr(gate, ast.unparse(target.slice))))
+    return [name for _, name in sorted(found) if name != gate.SUITE]
+
+
+def no_seal_line(text):
+    """True when no line of `text` is one a reader could take for a seal."""
+    return not any(
+        line.startswith(("SEALED", "NOT SEALED")) for line in text.splitlines()
+    )
+
+
+def test_a_green_tree_preflights_green_and_seals_nothing(repo, tmp_path):
+    """S1. Every record arm runs, in the gate's order, with its output kept the
+    way the full run keeps it; the row does not run, so there is no
+    `suite.txt`. Nothing is sealed: no `SEALED` line, no values file even with
+    a session set, no disc in either form and no colour. The one line on
+    stdout names the preflight, the tree and the resolved base."""
+    keep = tmp_path / "out"
+    out = run_gate(repo, "--preflight", keep=keep, session="s-1")
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert no_seal_line(out.stdout), out.stdout
+    head = PREFLIGHT_PASSED.format(tree=short(repo, "HEAD"), base=short(repo, "base"))
+    assert out.stdout.startswith(head), out.stdout
+    assert NOT_RUN in out.stdout, out.stdout
+    assert "read, and not run: this is a preflight" in out.stderr, out.stderr
+    assert not values_files(repo), "a preflight left a stamp to draw"
+    assert crown_of() not in out.stdout, "a preflight drew the twin"
+    assert not SGR.search(out.stdout), "a preflight carries colour codes"
+    assert not any(c in out.stdout for c in HALF_BLOCKS), "a preflight drew blocks"
+    arms = record_arms()
+    assert len(arms) >= 6, f"the gate's record arms were not read: {arms}"
+    # `.txt` alone: the chain arm's draft payload (`draft_env`) is kept here
+    # too, and it is an input rather than an arm's output.
+    kept = sorted(n for n in os.listdir(keep) if n.endswith(".txt"))
+    assert kept == sorted(f"{name}.txt" for name in arms), (
+        f"the preflight kept {kept}; the gate's record arms are {arms}"
+    )
+    for name in arms:
+        text = (keep / f"{name}.txt").read_text(encoding="utf-8")
+        assert text.startswith("$ "), f"{name}.txt does not open with its command"
+        assert "\nexit 0\n" in text, f"{name}.txt does not carry its exit code"
+    times = [os.stat(keep / f"{n}.txt").st_mtime_ns for n in arms]
+    assert times == sorted(times), f"the arms did not run in the gate's order: {times}"
+
+
+def test_the_preflight_prints_no_coverage_line(repo, tmp_path):
+    """Spec §*Data & interfaces*, step 2. The coverage line says what THIS
+    SEAL answers of the workflow's `release` job, and a preflight seals
+    nothing, so it prints none — over a fixture carrying this repository's own
+    workflow, where the full run over the same tree prints it."""
+    workflow = os.path.join(ROOT, ".github", "workflows", "hygiene.yml")
+    with open(workflow, encoding="utf-8") as handle:
+        write(repo, ".github/workflows/hygiene.yml", handle.read())
+    commit(repo, "the workflow")
+    said = "this seal answers"
+    full = run_gate(repo, keep=tmp_path / "full")
+    assert said in full.stderr, f"the full run printed no coverage line:\n{full.stderr}"
+    out = run_gate(repo, "--preflight", keep=tmp_path / "pre")
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert said not in out.stderr, (
+        f"a preflight claimed a seal's coverage:\n{out.stderr}"
+    )
+
+
+def test_the_preflight_does_not_run_the_row(repo, tmp_path):
+    """S2, the case that shows the flag does something. The row is `exit 1`,
+    so the full gate over this tree is NOT SEALED; the preflight over the same
+    tree passes, because it never hands the row to a shell."""
+    set_row(repo, "exit 1")
+    full = run_gate(repo, keep=tmp_path / "full")
+    assert full.returncode == 1, f"{full.stdout}\n{full.stderr}"
+    assert "NOT SEALED" in full.stdout, full.stdout
+    keep = tmp_path / "pre"
+    out = run_gate(repo, "--preflight", keep=keep)
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    assert not (keep / "suite.txt").exists(), "the preflight ran the row"
+
+
+def test_a_failing_record_arm_is_named_and_the_row_is_still_not_run(repo, tmp_path):
+    """S3. The overview's `## Not verified` row deleted, which
+    `unverified-check --baseline` refuses, and the row `exit 1`. The preflight
+    exits 1 and names `unverified` in the failure form's own words — the exit,
+    the first lines, the file holding the rest — under a first line naming the
+    preflight rather than a seal. The row did not run and no worktree was
+    added for a comparison that exists only for a failing test."""
+    write(repo, f"{ITEM}/overview.md", "# overview\n\n## Not verified\n\n")
+    commit(repo, "delete the row")
+    set_row(repo, "exit 1")
+    keep = tmp_path / "out"
+    out = run_gate(repo, "--preflight", keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    head = PREFLIGHT_FAILED.format(tree=short(repo, "HEAD"), base=short(repo, "base"))
+    assert out.stdout.startswith(head), out.stdout
+    assert NOT_RUN in out.stdout.splitlines()[0], out.stdout
+    assert no_seal_line(out.stdout), out.stdout
+    assert re.search(r"^\s+unverified\s+exit [12]", out.stdout, re.M), out.stdout
+    assert "full output:" in out.stdout and "unverified.txt" in out.stdout, out.stdout
+    assert not (keep / "suite.txt").exists(), "the preflight ran the row"
+    assert len(git(repo, "worktree", "list").stdout.strip().splitlines()) == 1
+
+
+def test_a_preflight_with_record_is_refused_and_writes_no_cell(repo, tmp_path):
+    """S4. A preflight that took `--record` would write the cell, which it
+    exists not to do, or ignore the flag, which is a flag that does nothing.
+    So the pair is a refusal: exit 2, nothing run, the record byte-identical,
+    and a sentence naming both flags and saying the preflight writes no
+    cell."""
+    _one, two = settled_item(repo)
+    before = read_bytes(two)
+    keep = tmp_path / "out"
+    out = run_gate(repo, "--preflight", "--record", str(repo / ITEM), keep=keep)
+    assert out.returncode == 2, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert not out.stdout, f"something printed under a refusal: {out.stdout!r}"
+    assert "--preflight" in out.stderr and "--record" in out.stderr, out.stderr
+    assert "a preflight writes no cell" in out.stderr, out.stderr
+    assert not keep.exists() or not os.listdir(keep), (
+        f"a check ran under a refusal: {os.listdir(keep)}"
+    )
+    assert read_bytes(two) == before, "the record changed under a refusal"
+
+
+def a_verifying_round_that_says_fixed_at(repo):
+    """#535's item C, as a fixture. Round 1 opened a finding and its fix
+    landed; round 2 is the verifying round, and its reviewer wrote the verdict
+    `fixed at <sha>` — what round 1's fix did, which `chain_check` reads as
+    this round closing on a fix of its own — beside `Fixes checked by: no
+    fixes to check`, the cell #535's record carried.
+
+    `chain_check.py#closed_with_a_fix` refuses that pair, and the refusal is
+    not excused on a draft (`questions.md` Q1). The cell is written by hand
+    because today's generator no longer writes it beside a fix word — `new`
+    lands `nobody — the fixes are not yet written` and `close` corrects that
+    to `nobody — the fixes are written…` (`phases/phase-2.md` of 1790815611
+    measured both) — and a hand-repaired cell is the way that pair still
+    reaches a tree. Returns round 2's record."""
+    declared(repo)
+    generate(repo, 1, OPEN_ROW, "yes — 🔴 1")
+    a = git(repo, "rev-parse", "HEAD").stdout.strip()
+    write(repo, "f.py", "x = 2\n")
+    b = commit(repo, "fix")
+    close_round(repo, 1, f"| 1 | fixed | {b[:7]} |\n", f"{a}..{b}")
+    two = generate(
+        repo,
+        2,
+        f"| 🟢 1 | round 1's fix holds | `f.py:1` | fixed at {b[:7]} | read |\n",
+        "no",
+    )
+    lines = two.read_text(encoding="utf-8").splitlines(keepends=True)
+    at = [i for i, line in enumerate(lines) if line.startswith(f"| {CHECKED_BY} |")]
+    assert len(at) == 1, f"round 2 carries {len(at)} `{CHECKED_BY}` rows"
+    lines[at[0]] = f"| {CHECKED_BY} | no fixes to check |\n"
+    two.write_text("".join(lines), encoding="utf-8")
+    commit(repo, "the cell #535's record carried")
+    return two
+
+
+# A file the row writes into the repository root where it runs, so a row
+# that ran leaves evidence the gate did not write.
+ROW_RAN = "row-ran"
+
+
+def test_a_fixed_at_verdict_in_a_verifying_round_fails_the_preflight(repo, tmp_path):
+    """S7, the ticket's verification (#638 §*How to verify*). A verifying
+    round's table carries `fixed at` beside `Fixes checked by: no fixes to
+    check`. The preflight exits 1 with `chain` named in the failure form, and
+    the row — a command that would leave a file behind and fail — was never
+    invoked. Seen red first: without the flag argparse refuses the command,
+    and with the flag ignored the row runs."""
+    two = a_verifying_round_that_says_fixed_at(repo)
+    record = two.read_text(encoding="utf-8")
+    assert "fixed at" in record, record
+    assert re.search(rf"\| {CHECKED_BY} \| no fixes to check \|", record), record
+    set_row(repo, f"{sys.executable} -c \"open('{ROW_RAN}', 'w')\" && exit 1")
+    keep = tmp_path / "out"
+    out = run_gate(repo, "--preflight", keep=keep)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    assert out.stdout.startswith("PREFLIGHT FAILED"), out.stdout
+    assert re.search(r"^\s+chain\s+exit 1", out.stdout, re.M), out.stdout
+    assert no_seal_line(out.stdout), out.stdout
+    assert not (repo / ROW_RAN).exists(), "the preflight invoked the row"
+    assert not (keep / "suite.txt").exists(), "the preflight ran the row"
+    chain = (keep / "chain.txt").read_text(encoding="utf-8")
+    assert "no fixes to check" in chain and "closed on a fix" in chain, chain
+
+
+def test_without_the_row_the_preflight_names_it_and_runs_nothing(tmp_path):
+    """S6. The preflight asks the row's questions before anything runs, the
+    same as the full run, because a refusal about the row is the cheapest one
+    the sealer gives and it costs a spawn when it arrives there."""
+    repo = build_repo(tmp_path / "repo", row=False)
+    keep = tmp_path / "out"
+    out = run_gate(repo, "--preflight", keep=keep)
+    assert out.returncode == 2, f"exit {out.returncode}; {out.stdout!r} {out.stderr!r}"
+    assert f"has no `{ROW}` row" in out.stderr, out.stderr
+    assert not out.stdout, f"something printed under a refusal: {out.stdout!r}"
+    assert not keep.exists() or not os.listdir(keep), (
+        f"a check ran under a refusal: {os.listdir(keep)}"
+    )
+
+
+def test_a_preflight_over_a_wrapped_row_is_refused_and_runs_nothing(repo, tmp_path):
+    """S6's second half: a row the gate would not run as the command it reads
+    as is refused by the preflight too, though the preflight would not have
+    run it either. The refusal is about what the sealer will meet."""
+    keep = tmp_path / "out"
+    out = run_gate(set_row(repo, f"`{SUITE_ROW}`"), "--preflight", keep=keep)
+    assert out.returncode == 2, f"exit {out.returncode}; {out.stdout!r} {out.stderr!r}"
+    assert "backticks" in out.stderr, out.stderr
+    assert not out.stdout, f"something printed under a refusal: {out.stdout!r}"
+    assert not keep.exists() or not os.listdir(keep), (
+        f"a check ran under a refusal: {os.listdir(keep)}"
+    )
+
+
 # --- S4 one write: the fixture item --------------------------------------------
 
 
@@ -4162,6 +4418,7 @@ def test_a_runners_event_payload_judges_the_fixture_and_fails_its_gate(
             shape=True,
             scale=1.0,
             keep_output=str(tmp_path / "out"),
+            preflight=False,
         ),
         False,
     )
@@ -4212,6 +4469,7 @@ def test_a_seal_exit_that_is_not_two_leaves_the_tree_unsealed(
             shape=True,
             scale=1.0,
             keep_output=str(tmp_path / "out"),
+            preflight=False,
         ),
         False,
     )

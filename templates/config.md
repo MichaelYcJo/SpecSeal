@@ -163,8 +163,10 @@ from the moment it lands.
 The repository's own broad command — the full suite, the repository-wide
 lint, the typecheck — as **one shell command line**, run from the repository
 root by `broad-gate` once the review rounds settle. The plugin's own checks
-(`evidence-check`, `unverified-check`, `chain_check.py`, `survivor-check`)
-follow it and are not part of the row.
+follow it and are not part of the row; the module docstring of
+`skills/verify/scripts/broad_gate.py` lists them, in the order they run.
+`broad-gate --preflight` runs those checks alone, reading the row and not
+running it, and the orchestrator runs it before the sealer is spawned.
 
 Two of those checks, the survivor arm and the correction arm, are left out
 where the base names `main` and the repository's `.github/workflows/hygiene.yml`
@@ -174,7 +176,7 @@ skip is keyed on the spelling `main` or `origin/main` and on the step being
 present in the workflow, not on the guard the step carries.
 
 ```markdown
-| Broad gate | bin/test -q && uvx ruff check . && uvx ruff format --check . |
+| Broad gate | uvx ruff check . && uvx ruff format --check . && bin/test -q |
 ```
 
 **An absent row is a refusal, not a default.** `broad-gate` names this row
