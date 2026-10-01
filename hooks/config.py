@@ -535,14 +535,21 @@ def reference_roots(home):
     default — every directory named `specs` outside the plugin's root.
 
     The value is comma-separated prefixes, each with or without a trailing
-    `/` or a leading `./`. No root, no file, no such row, an empty value or
-    a file that will not read all mean the default, which is what every
-    repository got before the row existed. A prefix naming the plugin's own
-    root or anything under it is dropped: a reference root is outside the
-    root by definition, and the root's records are read whatever the row
-    says."""
+    `/` or a leading `./`. No file, no such row, an empty value or a file
+    that will not read all mean the default, which is what every repository
+    got before the row existed. A prefix naming the plugin's own root or
+    anything under it is dropped: a reference root is outside the root by
+    definition, and the root's records are read whatever the row says.
+
+    **No root at either place is `()`, no reference root at all** — not the
+    default. A reference root is defined against the plugin's root, and a
+    repository with none has not opted in: the one layout the plugin ever
+    read without a root is 0.3.x, whose top-level `specs/` was the plugin's
+    own, and the checks still read that spelling as its records. A person
+    joining a project runs the bootstrap, which creates the root, before any
+    check reads the tree."""
     if not home:
-        return None
+        return ()
     try:
         with open(config_path(home), encoding="utf-8") as handle:
             text = handle.read()

@@ -2348,3 +2348,66 @@ def test_an_atx_heading_ends_a_paragraph_only_within_three_spaces(line, ends):
     said so. Seen red against `c52e8350`, whose `line.strip()` stopped the
     paragraph on the four-space line."""
     assert uc._paragraph_ends_at(line) is ends
+
+
+# --- #688: a reference root is read and never checked ---------------------
+#
+# A project's own `specs/` is a team's document. A walk leaves it out, so a
+# malformed `## Not verified` there is not this plugin's finding; a path the
+# person names is read as named; and the base is read by the same rule, so an
+# overview the walk leaves out is never reported deleted.
+
+TEAM = "specs/1788000001-team-thing"
+MALFORMED = "## Not verified\n\nnot a table, and not a none line either\n"
+
+
+def joined_repo(tmp_path):
+    """A repository with a `seal/` root holding one readable work item, and a
+    team's own `specs/` whose overview the reader cannot read."""
+    d = tmp_path / "joined"
+    shutil.copytree(_bare_inited_repo_template(), d)
+    item = d / "seal" / "specs" / "1790000000-ours"
+    item.mkdir(parents=True)
+    (item / "overview.md").write_text(f"# ours\n\n{CANONICAL}", encoding="utf-8")
+    team = d / TEAM
+    team.mkdir(parents=True)
+    (team / "overview.md").write_text(f"# the team's\n\n{MALFORMED}", encoding="utf-8")
+    (team / "spec.md").write_text("# the team's spec\n", encoding="utf-8")
+    subprocess.run(["git", "-C", str(d), "add", "-A"], check=True)
+    subprocess.run(["git", "-C", str(d), "commit", "-qm", "joined"], check=True)
+    return d
+
+
+def test_a_walk_from_the_repository_root_leaves_a_team_specs_out(tmp_path, capsys):
+    """D2. Red against the walk before #688: the team's overview was read and
+    its unreadable section failed the run."""
+    d = joined_repo(tmp_path)
+    assert run([str(d)]) == 0
+    out = capsys.readouterr().out
+    assert "1790000000-ours" in out and "team-thing" not in out, out
+
+
+def test_a_team_overview_named_explicitly_is_still_read(tmp_path):
+    """D2's other half: a person who names the file, or the directory it
+    sits in, has asked for it."""
+    d = joined_repo(tmp_path)
+    assert run([str(d / TEAM / "overview.md")]) == 1
+    assert run([str(d / "specs")]) == 1
+
+
+def test_a_team_overview_deleted_since_the_base_is_not_reported(tmp_path):
+    """The base side by the walk's rule: a team removing its own overview is
+    not a record this branch deleted."""
+    d = joined_repo(tmp_path)
+    os.remove(d / TEAM / "overview.md")
+    assert run([str(d), "--baseline", "HEAD"]) == 0
+
+
+def test_a_copy_with_no_hooks_beside_it_prunes_nothing(tmp_path, monkeypatch):
+    """`references_at` loads `hooks/config.py` beside this script. A copy
+    taken alone reads every overview, as it did before reference roots
+    existed, rather than refusing a run that needed none of this."""
+    d = joined_repo(tmp_path)
+    monkeypatch.setattr(uc, "HOOKS", str(tmp_path / "no-hooks-here"))
+    monkeypatch.setattr(uc, "_references", {})
+    assert run([str(d)]) == 1

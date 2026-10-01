@@ -4649,15 +4649,20 @@ def test_the_measured_range_that_removed_three_rows_reports_nothing():
 # A project's own `specs/` is a document the plugin never wrote, so it is not
 # a place a correction was owed (`hooks/config.py#under_reference_root`). With
 # no `Reference specs` row every directory named `specs` outside the plugin's
-# root is one; `Reference specs | none` puts them back.
+# root is one; `Reference specs | none` puts them back. A repository with no
+# `seal/` root at either place has none at all: it has not opted in, and the
+# 0.3.x `specs/` the sweep still reads was the plugin's own.
 
 TEAM_DOC = "specs/1788000001-team-thing/design.md"
 REFERENCE_NONE = "# config\n\n| Item | Value |\n|---|---|\n| Reference specs | none |\n"
+# A root with a config that names no `Reference specs` row: the default.
+NO_REFERENCE_ROW = "# config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n"
 
 
-def reference_probe(tmp_path, config=None):
+def reference_probe(tmp_path, config=NO_REFERENCE_ROW):
     """The claim in `notes.md` and verbatim in a team's `specs/` document,
-    plus a filler; `config` is `seal/config.md`'s body where one is wanted."""
+    plus a filler; `config` is `seal/config.md`'s body, or None for a
+    repository with no `seal/` root at all."""
     repo = tmp_path / "probe"
     os.makedirs(repo, exist_ok=True)
     files = {
@@ -4683,20 +4688,24 @@ def test_a_team_specs_document_carrying_the_wording_is_not_a_survivor(tmp_path):
     code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
     assert code == 0, f"a team's own specs/ was reported as a survivor:\n{text}"
     assert TEAM_DOC not in text, text
-    assert "examined 2 files" in text, (
+    assert "examined 3 files" in text, (
         f"the reference root is still in the pool:\n{text}"
     )
 
-    declared = reference_probe(tmp_path / "declared", config=REFERENCE_NONE)
-    head = build(
-        declared,
-        {"notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n"},
-        "corrected notes.md",
-    )
-    code, text = run("--range", f"{head}^..{head}", "--root", str(declared))
-    assert code == 1 and TEAM_DOC in text, (
-        f"`Reference specs | none` did not put the team document back:\n{text}"
-    )
+    for where, config, why in (
+        ("declared", REFERENCE_NONE, "`Reference specs | none`"),
+        ("rootless", None, "a repository with no seal/ root"),
+    ):
+        other = reference_probe(tmp_path / where, config=config)
+        head = build(
+            other,
+            {"notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n"},
+            "corrected notes.md",
+        )
+        code, text = run("--range", f"{head}^..{head}", "--root", str(other))
+        assert code == 1 and TEAM_DOC in text, (
+            f"{why} did not keep the team document in the sweep:\n{text}"
+        )
 
 
 def test_a_team_specs_document_the_range_edited_is_not_a_source(tmp_path):

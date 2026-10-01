@@ -345,6 +345,7 @@ reference root.
 | one or more repository-relative directories, separated by commas, each with or without a trailing `/` | those directories and everything under them |
 | `none` | no reference root |
 | absent or empty | every directory named `specs` outside the plugin's root, at any depth |
+| no `seal/` root at either place | no reference root: the repository has not opted in, and the one layout the plugin read without a root is 0.3.x, whose top-level `specs/` was its own |
 
 **What it governs.** The checks that would read a record leave a reference
 root out: `survivor-check` takes it out of its pool and its range, on both

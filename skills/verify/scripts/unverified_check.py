@@ -13,7 +13,7 @@ So this reads every `## Not verified` section and reports what is still open.
 It does **not** fail because items are open. Dozens were open the day it was
 written, and a build that goes red for an honest `unverified` row teaches
 people to write none, which voids the condition it is defending. Counting them
-is what `unverified-check specs/` is for; no number is repeated in prose here,
+is what `unverified-check seal/specs/` is for; no number is repeated in prose here,
 because a number in a comment is right for one commit and nobody recounts it.
 
 It fails for what the author can always fix:
@@ -63,6 +63,7 @@ which is the state a complete fold ends in and exits 0 saying so
 """
 
 import argparse
+import importlib.util
 import os
 import re
 import subprocess
@@ -870,7 +871,14 @@ def check_text(text, heading=HEADING, strict_header=True):
 
 
 def overviews(paths):
-    """Every overview.md under the given paths, in a stable order."""
+    """Every overview.md under the given paths, in a stable order.
+
+    **A walk leaves the reference roots out** (#688): a project's own
+    `specs/` is a team's document, read as history and never as this
+    plugin's record, so a malformed `## Not verified` there is not a finding.
+    A path NAMED, a file or a directory inside a reference root, is read as
+    named — the person asked for it — and `overviews_at` reads a base by the
+    same rule, so an overview the walk leaves out is never reported deleted."""
     found = []
     for p in paths:
         # The argument is resolved once, and nothing below it is. `ls-tree`
@@ -880,11 +888,76 @@ def overviews(paths):
         if os.path.isfile(p):
             found.append(p)
             continue
+        skip = reference_rule(p)
         for root, dirs, files in os.walk(p):
-            dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
+            dirs[:] = sorted(
+                d
+                for d in dirs
+                if d not in SKIP_DIRS and not (skip and skip(os.path.join(root, d)))
+            )
             if OVERVIEW in files:
                 found.append(os.path.join(root, OVERVIEW))
     return sorted(dict.fromkeys(found))
+
+
+# The `Reference specs` row's one reader and the root's one resolver, loaded
+# by path from `hooks/` beside this script (#688).
+HERE = os.path.dirname(os.path.abspath(__file__))
+HOOKS = os.path.join(HERE, "..", "..", "..", "hooks")
+_references = {}
+
+
+def references_at(top):
+    """`(hooks/config.py, roots)` for the repository at `top` — the module
+    holding `under_reference_root` and what the row names under the root
+    `hooks/optin.py#home_at` resolves — or None for a copy of this script
+    with no `hooks/` beside it.
+
+    None prunes nothing, which reads more and never less: a copy taken alone
+    keeps the walk it had before reference roots existed, rather than
+    refusing a run that needed none of this."""
+    if top not in _references:
+        loaded = None
+        try:
+            modules = []
+            for name in ("config", "optin"):
+                path = os.path.join(HOOKS, f"{name}.py")
+                spec = importlib.util.spec_from_file_location(
+                    f"specseal_{name}_for_unverified", path
+                )
+                module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(module)
+                modules.append(module)
+            config, resolver = modules
+            home = resolver.home_at(top, resolver.git_common_dir(top))
+            loaded = (config, config.reference_roots(home))
+        except (OSError, ImportError, AttributeError):
+            loaded = None
+        _references[top] = loaded
+    return _references[top]
+
+
+def reference_rule(start):
+    """A predicate on a disk directory — True for one the walk from `start`
+    leaves out — or None where nothing is left out: `start` outside a git
+    repository, a copy with no `hooks/`, or `start` itself inside a
+    reference root, which the person named and so asked for."""
+    top = repo_root(start)
+    if top is None:
+        return None
+    loaded = references_at(top)
+    if loaded is None:
+        return None
+    config, roots = loaded
+    here = repo_relative(start, top)
+    if here is None or config.under_reference_root(here, roots):
+        return None
+
+    def skip(directory):
+        rel = repo_relative(directory, top)
+        return rel is not None and config.under_reference_root(rel, roots)
+
+    return skip
 
 
 def real(path):
@@ -1091,6 +1164,13 @@ def overviews_at(root, ref, prefixes):
     )
     if r.returncode != 0:
         return []
+    loaded = references_at(root)
+    config, roots = loaded if loaded else (None, ())
+    named = [
+        p
+        for p in prefixes
+        if loaded and p != "." and config.under_reference_root(p, roots)
+    ]
     out = []
     for rel in r.stdout.splitlines():
         if os.path.basename(rel) != OVERVIEW:
@@ -1100,6 +1180,15 @@ def overviews_at(root, ref, prefixes):
         # from every scan and so reported as deleted on every run — a red
         # build the author can only clear by renaming the directory.
         if set(os.path.dirname(rel).split("/")) & SKIP_DIRS:
+            continue
+        # The reference roots by the scan's rule too (#688), or an overview
+        # the walk leaves out would be reported deleted on every run: out,
+        # unless a prefix the person named sits inside one.
+        if (
+            loaded
+            and config.under_reference_root(rel, roots)
+            and not any(rel == p or rel.startswith(p + "/") for p in named)
+        ):
             continue
         if any(p == "." or rel == p or rel.startswith(p + "/") for p in prefixes):
             out.append(rel)

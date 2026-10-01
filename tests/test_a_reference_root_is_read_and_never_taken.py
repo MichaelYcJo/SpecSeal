@@ -17,8 +17,11 @@ each check's own (D1, D2, D3), and this file's last section names every
 shipped check and what keeps it off a reference root.
 """
 
+import importlib.util
 import os
+import re
 import subprocess
+import sys
 
 from conftest import load_hook_module
 
@@ -81,12 +84,15 @@ def test_no_row_means_every_specs_directory_outside_the_root(tmp_path, monkeypat
             assert config.under_reference_root(rel, roots), rel
         for rel in ("seal/specs/1790000000-x/spec.md", "docs/spec.md", "specsheet/a"):
             assert not config.under_reference_root(rel, roots), rel
-    # No root is the default — never a `config.md` found relative to wherever
-    # the process happens to stand.
+    # No root at either place is no reference root at all: the repository has
+    # not opted in, and the 0.3.x `specs/` the checks still read was the
+    # plugin's own. Never a `config.md` found relative to wherever the
+    # process happens to stand, either.
     stray = tmp_path / "elsewhere"
-    write_config(str(stray), table(("Reference specs", "none")))
+    write_config(str(stray), table(("Reference specs", "docs/adr")))
     monkeypatch.chdir(stray)
-    assert config.reference_roots("") is None
+    assert config.reference_roots("") == ()
+    assert not config.under_reference_root("specs/x/spec.md", ())
 
 
 def test_none_declares_no_reference_root(tmp_path):
@@ -140,3 +146,192 @@ def test_local_mode_reads_the_row_under_the_git_directory(tmp_path):
     assert config.under_reference_root("specs/x/spec.md", None)
     write_config(home, table(("Reference specs", "docs/adr")))
     assert config.reference_roots(home) == ("docs/adr",)
+
+
+# --- D3: every shipped check, and what keeps it off a reference root ---------
+#
+# The failure this file's plan names for six months out: a check added later
+# walks the tree without asking the predicate, and the class reopens one
+# script at a time. So every command `bin/` ships is named here with what
+# keeps it off a team's `specs/`, and a command nobody classified turns this
+# red. A check that walks no `specs/` says so; one pinned to the root names
+# the constant it rests on, which the case below holds under `seal/`.
+
+PREDICATE = "asks hooks/config.py#under_reference_root"
+PINNED = "reads the plugin's root by a constant under seal/"
+NO_WALK = "walks no specs/ directory"
+NOT_A_CHECK = "is not a check of the tree"
+
+SHIPPED = {
+    "survivor-check": (PREDICATE, "pool and range, through a_reference_root"),
+    "unverified-check": (PREDICATE, "the walk and the base, by one rule"),
+    "settle": (PINNED, "settle.py#SPECS; its citation scan reads as a citer"),
+    "correction-check": (PINNED, "correction_check.py#LEDGER/FRAGMENTS/RELEASES"),
+    "evidence-check": (
+        PINNED,
+        "evidence_check.py#default_patterns; the tree corpus reads as the tree",
+    ),
+    "round-record": (PINNED, "writes rounds/ under seal/specs/<id>/ only"),
+    "broad-gate": (NO_WALK, "hands seal/specs/ to the checks above"),
+    "fold-check": (NO_WALK, "reads the top level of docs/ and seal/config.md"),
+    "arm-check": (NO_WALK, "reads the Python files it is named"),
+    "deferral-check": (NO_WALK, "reads the pull request body and round records"),
+    "seal": (NOT_A_CHECK, "the mode command, writing seal/config.md"),
+    "seal-stamp": (NOT_A_CHECK, "draws the sealer's stamp"),
+    "session-cost": (NOT_A_CHECK, "measures a transcript"),
+    "payload-meter": (NOT_A_CHECK, "measures a spawn's payload"),
+    "test": (NOT_A_CHECK, "this repository's own suite runner"),
+}
+
+
+def load_script(*parts):
+    path = os.path.join(ROOT, *parts)
+    spec = importlib.util.spec_from_file_location(
+        "specseal_" + parts[-1].replace(".", "_") + "_for_reference_roots", path
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_every_shipped_command_is_classified():
+    shipped = {
+        name
+        for name in os.listdir(os.path.join(ROOT, "bin"))
+        if not name.endswith(".cmd")
+    }
+    assert shipped == set(SHIPPED), (
+        "a command in bin/ is not classified here, or a classified one left: "
+        f"{sorted(shipped ^ set(SHIPPED))}. Say what keeps it off a team's "
+        "specs/ — the predicate, a constant under seal/, or no walk at all"
+    )
+
+
+def test_the_pinned_checks_read_under_the_root_alone(tmp_path):
+    """Each constant a pinned check rests on, held under `seal/`. Widening one
+    to a top-level `specs/` turns this red, which is the probe the plan names
+    for `SPECS`, `LEDGER`/`FRAGMENTS`/`RELEASES` and `WORK_ITEMS`."""
+    settle = load_script("skills", "settle", "scripts", "settle.py")
+    assert settle.SPECS == "seal/specs"
+    correction = load_script(
+        "skills", "evidence-check", "scripts", "correction_check.py"
+    )
+    for name in ("LEDGER", "FRAGMENTS", "RELEASES"):
+        assert getattr(correction, name).startswith("seal/"), name
+    routing = load_hook_module("routing.py", "routing_for_reference_roots")
+    assert routing.WORK_ITEMS == "seal/specs"
+    evidence = load_script("skills", "evidence-check", "scripts", "evidence_check.py")
+    (tmp_path / "seal").mkdir()
+    patterns = [
+        os.path.relpath(p, tmp_path).replace(os.sep, "/")
+        for p in evidence.default_patterns(str(tmp_path))
+    ]
+    assert patterns == [
+        "seal/ledger.md",
+        "seal/ledger/*.md",
+        "seal/releases/*.md",
+        "docs/**/_evidence.md",
+    ], patterns
+
+
+# A repository with a `seal/` root holding one work item and one ledger row,
+# built twice: once alone, and once with a team's own `specs/` planted beside
+# it — a malformed overview, a spec, and a design note, edited in the second
+# commit. Every check below must say the same thing about both.
+SERVICE = "def handler(x):\n    return x + 1\n"
+OURS = "seal/specs/1790000000-ours"
+TEAM = "specs/1788000001-team-thing"
+
+
+def planted(where, team):
+    def git(*args):
+        subprocess.run(
+            ["git", "-C", str(where), *args], check=True, capture_output=True
+        )
+
+    def put(rel, text):
+        path = where / rel
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(text, encoding="utf-8")
+
+    where.mkdir(parents=True)
+    git("init", "-q", "-b", "main")
+    git("config", "user.email", "t@example.com")
+    git("config", "user.name", "t")
+    put("src/service.py", SERVICE)
+    put(f"{OURS}/routing.md", "# routing\n\n| Axis | Answer |\n|---|---|\n")
+    put(f"{OURS}/overview.md", "# ours\n\n## Not verified\n\nnone — a probe\n")
+    put("seal/ledger.md", "# ledger\n\n| Clause | Coordinate |\n|---|---|\n")
+    if team:
+        put(f"{TEAM}/spec.md", "# the team's spec\n\nA design they own.\n")
+        put(f"{TEAM}/overview.md", "# theirs\n\n## Not verified\n\nnot a table\n")
+        put(f"{TEAM}/design.md", "# design\n\n| Clause | Coordinate |\n|---|---|\n")
+    git("add", "-A")
+    git("commit", "-qm", "base")
+    # The second commit arrives by a merge, so `correction-check` has a merge
+    # to read the ledger listing at rather than stopping before it reads.
+    git("switch", "-qc", "side")
+    put("src/service.py", SERVICE + "\n\ndef other():\n    return 0\n")
+    if team:
+        put(f"{TEAM}/design.md", "# design\n\nRewritten by the team.\n")
+    git("add", "-A")
+    git("commit", "-qm", "second")
+    git("switch", "-q", "main")
+    git("merge", "-q", "--no-ff", "-m", "merge", "side")
+    return where
+
+
+CHECKS = {
+    "evidence-check": ("skills/evidence-check/scripts/evidence_check.py", ["{r}"]),
+    "correction-check": (
+        "skills/evidence-check/scripts/correction_check.py",
+        ["--range", "HEAD~1..HEAD", "--root", "{r}"],
+    ),
+    "chain_check.py": (
+        "skills/code-review/scripts/chain_check.py",
+        ["--baseline", "HEAD~1", "--root", "{r}"],
+    ),
+    "unverified-check": ("skills/verify/scripts/unverified_check.py", ["{r}"]),
+    "settle": (
+        "skills/settle/scripts/settle.py",
+        ["--root", "{r}", "--released-at", "HEAD"],
+    ),
+}
+
+
+def test_a_planted_team_specs_changes_no_checks_verdict(tmp_path):
+    """D3. Each check run over the repository with and without the team's
+    `specs/` exits the same and prints the same, with the repository's own
+    path written out of both; and the team's directory is on disk, untouched,
+    after all of them."""
+    alone = planted(tmp_path / "alone", team=False)
+    joined = planted(tmp_path / "joined", team=True)
+    before = {
+        rel: (joined / TEAM / rel).read_bytes()
+        for rel in ("spec.md", "overview.md", "design.md")
+    }
+    for name, (script, args) in CHECKS.items():
+        said = []
+        for repo in (alone, joined):
+            r = subprocess.run(
+                [sys.executable, os.path.join(ROOT, script)]
+                + [a.replace("{r}", str(repo)) for a in args],
+                cwd=str(repo),
+                capture_output=True,
+                encoding="utf-8",
+                errors="replace",
+            )
+            # The two repositories' paths and commits differ by construction.
+            text = re.sub(
+                r"\b[0-9a-f]{7,40}\b",
+                "<sha>",
+                (r.stdout + r.stderr).replace(str(repo), "<repo>"),
+            )
+            said.append((r.returncode, text))
+        assert said[0] == said[1], (
+            f"{name} says something else once a team's specs/ is planted:\n"
+            f"alone:\n{said[0]}\njoined:\n{said[1]}"
+        )
+        assert "team-thing" not in said[1][1], f"{name} read the team's specs/"
+    for rel, data in before.items():
+        assert (joined / TEAM / rel).read_bytes() == data, rel
