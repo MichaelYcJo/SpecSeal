@@ -597,6 +597,7 @@ OUT_OF_CLASS = {
     (".github/scripts/run_tests.py", "venv_version"): (1, "`pyvenv.cfg`"),
     ("hooks/commit-review-gate.py", "changed_paths.collect"): (1, GIT),
     ("hooks/dispatch.py", "first_line"): (1, "an exception's message"),
+    ("hooks/githooks.py", "read_stub"): (1, "a git hook file this plugin wrote"),
     ("hooks/ledger-migrate.py", "attempted"): (1, "a marker file of root paths"),
     ("hooks/root-migrate.py", "attempted"): (1, "a marker file of root paths"),
     ("hooks/root-migrate.py", "dirty"): (1, GIT),

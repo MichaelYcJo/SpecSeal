@@ -483,6 +483,43 @@ def _no_real_transcripts(monkeypatch):
         monkeypatch.setattr(consent, "PROJECTS_ROOT", _NO_TRANSCRIPTS)
 
 
+# What a Claude Code session exports to every Bash child, and so to every git
+# hook a fixture repository's stub runs (#692, `phases/phase-1.md` M4). A
+# suite run from inside a session inherits them and CI does not, so a stub
+# would judge a fixture's commit on one and stay silent on the other (P2).
+# Every case starts with none of them; a case about a session sets its own.
+SESSION_VARIABLES = (
+    "CLAUDECODE",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_PID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_ENTRYPOINT",
+)
+
+
+@pytest.fixture(autouse=True)
+def _no_session_in_the_environment(monkeypatch):
+    for name in SESSION_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+
+
+# `hooks/hook-install.py` runs first in `pre-bash` and in `session-start`, so
+# every case that drives either group would grow git hooks in its fixture
+# repository and print the installer's line beside the gate it is about. The
+# installer's own cases, and the real-git cases of the hooks it writes, unset
+# this themselves (`git_hooks_installed` below).
+@pytest.fixture(autouse=True)
+def _no_hooks_installed_unless_asked(monkeypatch):
+    monkeypatch.setenv("SPECSEAL_HOOK_INSTALL", "off")
+
+
+@pytest.fixture
+def git_hooks_installed(monkeypatch):
+    """Lets `hooks/hook-install.py` write, for a case that is about it."""
+    monkeypatch.delenv("SPECSEAL_HOOK_INSTALL", raising=False)
+
+
 def load_hook_module(filename, name):
     spec = importlib.util.spec_from_file_location(name, os.path.join(HOOKS, filename))
     mod = importlib.util.module_from_spec(spec)
