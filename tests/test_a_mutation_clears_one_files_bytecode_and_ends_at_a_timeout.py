@@ -34,6 +34,7 @@ import shlex
 import subprocess
 import sys
 import textwrap
+import time
 
 import pytest
 
@@ -583,3 +584,217 @@ def test_a_markdown_file_is_mutated_and_restored_the_same_way(tmp_path, capsys):
     assert target.read_text(encoding="utf-8") == text
     assert code == 1 and out.startswith("SURVIVED"), out
     assert not (tmp_path / "__pycache__").exists()
+
+
+# --- S5 · a run that never returns ends at the bound, and so does its child -
+
+
+# A wrapper in `bin/test`'s position: it starts the process that does the
+# work as a child of its own and waits for it. The child's pid is written
+# down first, so a case can ask afterwards whether it is still alive.
+STARTS_A_CHILD = """\
+import subprocess, sys
+child = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(30)"])
+with open(sys.argv[1], "w", encoding="utf-8") as f:
+    f.write(str(child.pid))
+child.wait()
+"""
+
+
+def alive(pid):
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def gone_within(pid, seconds):
+    """Polled, because the orphan is reaped by the system, not by us."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        if not alive(pid):
+            return True
+        time.sleep(0.05)
+    return not alive(pid)
+
+
+def end_if_alive(pid):
+    """So a red case leaves nothing running either (C5)."""
+    if pid is not None and alive(pid):
+        try:
+            os.kill(pid, 9)
+        except ProcessLookupError:
+            pass
+
+
+def read_pid(path):
+    try:
+        return int(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the process-group bound is POSIX's")
+def test_a_run_past_the_bound_is_timed_out_and_leaves_nothing_it_started(
+    tmp_path, capsys
+):
+    """#577: a mutated run hung for 32 minutes. #313 measured why a bound in
+    the loop is not enough by itself: `subprocess.run`'s timeout ends the
+    direct child, and `bin/test` puts pytest one process further down, so the
+    suite outlives the verdict and runs on, unbounded and unreported.
+
+    Not red, not SURVIVED: neither was measured."""
+    target = tmp_path / "under_test.py"
+    original = b"VALUE = 1\n"
+    target.write_bytes(original)
+    pid_file = tmp_path / "child.pid"
+    started = time.monotonic()
+    try:
+        code, out = run(
+            [
+                target,
+                "--replace",
+                "VALUE = 1",
+                "VALUE = 2",
+                "--tests",
+                cases_command(probe(tmp_path, STARTS_A_CHILD), pid_file),
+                "--timeout",
+                "1",
+            ],
+            capsys,
+        )
+        elapsed = time.monotonic() - started
+        pid = read_pid(pid_file)
+        assert pid is not None, "the wrapper never started its child"
+        assert gone_within(pid, 5), (
+            "the bound ended the wrapper and left the process it started "
+            "running -- a wrapper's pytest outliving the verdict, #313"
+        )
+    finally:
+        end_if_alive(read_pid(pid_file))
+    assert code == 2, out
+    assert out.startswith("timed out after 1s"), out
+    assert elapsed < 15, f"the bound of 1s took {elapsed:.1f}s to end the run"
+    assert target.read_bytes() == original
+    assert not list(tmp_path.glob("__pycache__/under_test.*.pyc"))
+
+
+# A child that leaves the wrapper's process group and keeps the cases'
+# output pipe open, so no group kill reaches it.
+STARTS_AN_ESCAPED_CHILD = STARTS_A_CHILD.replace(
+    '"import time; time.sleep(30)"])',
+    '"import time; time.sleep(30)"], start_new_session=True)',
+)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the process-group bound is POSIX's")
+def test_a_process_outside_the_group_does_not_hold_the_verdict_back(
+    tmp_path, capsys, monkeypatch
+):
+    """The kill ends the group, and then the output is collected -- which
+    waits for every holder of the pipe to close it. A process that started a
+    session of its own is outside the group and holds it for as long as it
+    runs, so an unbounded collection is the hang again, one step later. The
+    collection is bounded, and the verdict says the group was what ended."""
+    assert STARTS_AN_ESCAPED_CHILD != STARTS_A_CHILD, "the fixture did not change"
+    mc = module()
+    monkeypatch.setattr(mc, "REAP_TIMEOUT", 0.5)
+    target = tmp_path / "under_test.py"
+    target.write_bytes(b"VALUE = 1\n")
+    pid_file = tmp_path / "child.pid"
+    started = time.monotonic()
+    try:
+        code = mc.main(
+            [
+                str(target),
+                "--replace",
+                "VALUE = 1",
+                "VALUE = 2",
+                "--tests",
+                cases_command(probe(tmp_path, STARTS_AN_ESCAPED_CHILD), pid_file),
+                "--timeout",
+                "1",
+            ]
+        )
+        elapsed = time.monotonic() - started
+    finally:
+        end_if_alive(read_pid(pid_file))
+    out = capsys.readouterr().out
+    assert elapsed < 15, (
+        f"collecting the output waited {elapsed:.1f}s on the escaped child"
+    )
+    assert code == 2 and out.startswith("timed out after 1s"), out
+    assert "session of its own" in out, out
+    assert target.read_bytes() == b"VALUE = 1\n"
+
+
+# --- S6 · the Windows half ends the direct child and says what it did not ---
+
+
+def test_the_bound_is_chosen_by_the_platform_and_windows_says_what_it_left():
+    """§13: a defence resting on a platform's guarantee is asked without it.
+    The chooser takes the platform as an argument, so the Windows half is
+    pinned from a machine that is not Windows."""
+    mc = module()
+    assert mc.strategy("posix") == mc.GROUP
+    assert mc.strategy("nt") == mc.CHILD
+    windows = mc.timed_out_detail(5.0, mc.CHILD)
+    assert "after 5s" in windows
+    assert "not ended" in windows, (
+        f"the Windows verdict does not say that what the command started may "
+        f"still be running: {windows}"
+    )
+    posix = mc.timed_out_detail(5.0, mc.GROUP)
+    assert "not ended" not in posix and "process group" in posix, posix
+
+
+# --- Ctrl-C ends what the run started, then restores ------------------------
+
+
+@pytest.mark.skipif(os.name == "nt", reason="the process-group bound is POSIX's")
+def test_an_interrupt_ends_the_run_it_started_and_restores_the_file(
+    tmp_path, capsys, monkeypatch
+):
+    """The run is in a session of its own, so the terminal's Ctrl-C reaches
+    this process and not the cases (#313 names that consequence). So the
+    interrupt has to end the group here, or the suite runs on after the
+    command has gone. Delivered as the `KeyboardInterrupt` Python raises for
+    it, once the child is known to be running."""
+    target = tmp_path / "under_test.py"
+    original = b"VALUE = 1\n"
+    target.write_bytes(original)
+    pid_file = tmp_path / "child.pid"
+    mc = module()
+    real_wait = mc._wait
+
+    def interrupted(proc, timeout):
+        deadline = time.monotonic() + 10
+        while read_pid(pid_file) is None and time.monotonic() < deadline:
+            time.sleep(0.05)
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(mc, "_wait", interrupted)
+    try:
+        code = mc.main(
+            [
+                str(target),
+                "--replace",
+                "VALUE = 1",
+                "VALUE = 2",
+                "--tests",
+                cases_command(probe(tmp_path, STARTS_A_CHILD), pid_file),
+            ]
+        )
+        out = capsys.readouterr().out
+        pid = read_pid(pid_file)
+        assert pid is not None, "the wrapper never started its child"
+        assert gone_within(pid, 5), "the interrupt left the process the run started"
+    finally:
+        end_if_alive(read_pid(pid_file))
+        monkeypatch.setattr(mc, "_wait", real_wait)
+    assert code == 2, out
+    assert out.startswith("interrupted"), out
+    assert target.read_bytes() == original

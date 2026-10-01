@@ -32,10 +32,26 @@ command's own output.
   could not start  exit 2   the command could not be spawned; no verdict
   refused          exit 2   nothing was written
   not restored     exit 2   the file on disk may still hold the mutation
+  interrupted      exit 2   Ctrl-C; the run was ended and the file restored
 
 Exit 2 is everything that measured nothing, so `mutation-check ... &&
 mutation-check ...` stops at the first unit nothing watches or the first run
 that could not say.
+
+**The bound ends what the run started, not only the process it spawned.**
+`subprocess.run`'s timeout kills the direct child, and `bin/test` execs a
+runner that starts pytest as a child of its own, so a run bounded that way
+leaves the suite running past the verdict -- #313 measured it on `arm-check`,
+and the case for S5 re-measures it here. On POSIX the command runs in a
+session of its own and a timed-out run's whole process group is killed. Two
+consequences come with that. A process that puts itself in yet another
+session is outside the group, so collecting the output afterwards is bounded
+too (`REAP_TIMEOUT`) and the verdict names the exception. And the terminal's
+Ctrl-C now reaches this process alone, so the `KeyboardInterrupt` it raises
+here is what ends the group, before the restore. On Windows the direct child
+is ended, and the verdict says that anything it started was not: a group
+kill there needs a job object, and nobody runs this on Windows to show one
+works (#313's third option).
 
 **The cache that matters is the mutated file's, and only that one.** CPython
 reads a `.pyc` instead of the source whenever the size and the whole-second
@@ -70,6 +86,7 @@ import hashlib
 import importlib.util
 import os
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -88,8 +105,18 @@ TIMED_OUT = "timed out"
 COULD_NOT_START = "could not start"
 REFUSED = "refused"
 NOT_RESTORED = "not restored"
+INTERRUPTED = "interrupted"
 
 EXIT = {RED: 0, SURVIVED: 1}
+
+# What the bound ends. `strategy` picks one per platform.
+GROUP = "process group"
+CHILD = "direct child"
+
+# Seconds the ended run is waited for while its output is collected. A
+# process that left the group can hold the pipe open past the kill, and an
+# unbounded wait there is the hang the bound exists to end.
+REAP_TIMEOUT = 5.0
 
 
 def _sibling(name: str, path: str):
@@ -140,10 +167,72 @@ def mutated(text: str, old: str, new: str, path: str) -> str:
     return text.replace(old, new, 1)
 
 
-def run_cases(command: list[str], *, cwd: str, env: dict, timeout: float | None):
-    """Run the cases once. `(verdict, detail, output)`."""
+def strategy(os_name: str) -> str:
+    """What the bound ends on this platform. Takes the platform as an
+    argument so the Windows half is pinned from any machine (contract §13)."""
+    return CHILD if os_name == "nt" else GROUP
+
+
+def timed_out_detail(timeout: float, how: str) -> str:
+    """The verdict's text for a run the bound ended, saying what it ended."""
+    if how == GROUP:
+        return (
+            f"after {timeout:g}s: no verdict. The command's whole process group "
+            f"was ended, so nothing it started outlives this line unless it "
+            f"put itself in a session of its own"
+        )
+    return (
+        f"after {timeout:g}s: no verdict. Only the command's own process was "
+        f"ended; anything it started was not ended and may still be running"
+    )
+
+
+def _wait(proc: subprocess.Popen, timeout: float | None):
+    """The one wait, a function of its own so a case can interrupt it."""
+    return proc.communicate(timeout=timeout)
+
+
+def _end(proc: subprocess.Popen, how: str) -> str:
+    """End what the run started, reap it, and return what it had printed.
+
+    The group on POSIX: `bin/test` execs a runner that starts pytest as a
+    child of its own, so ending the direct child alone leaves the suite
+    running past the verdict (#313). The reaping wait is bounded too, because
+    a process that left the group can still hold the pipe open."""
+    if how == GROUP:
+        try:
+            os.killpg(proc.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+    else:
+        proc.kill()
     try:
-        done = subprocess.run(
+        output, _ = proc.communicate(timeout=REAP_TIMEOUT)
+    except subprocess.TimeoutExpired:
+        if proc.stdout:
+            proc.stdout.close()
+        proc.wait()
+        output = ""
+    return output or ""
+
+
+def run_cases(
+    command: list[str],
+    *,
+    cwd: str,
+    env: dict,
+    timeout: float | None,
+    how: str | None = None,
+):
+    """Run the cases once. `(verdict, detail, output)`.
+
+    On POSIX the command runs in a session of its own, which is what lets the
+    bound end everything it started. It also takes the command out of the
+    terminal's process group, so a Ctrl-C reaches this process alone; the
+    `KeyboardInterrupt` arm below is what passes it on, before the restore."""
+    how = how or strategy(os.name)
+    try:
+        proc = subprocess.Popen(
             command,
             cwd=cwd,
             env=env,
@@ -151,25 +240,28 @@ def run_cases(command: list[str], *, cwd: str, env: dict, timeout: float | None)
             stderr=subprocess.STDOUT,
             text=True,
             errors="replace",
-            timeout=timeout,
+            start_new_session=how == GROUP,
         )
-    except subprocess.TimeoutExpired as exc:
-        output = exc.output or ""
-        if isinstance(output, bytes):
-            output = output.decode("utf-8", "replace")
-        return TIMED_OUT, f"after {timeout:g}s: no verdict", output
     except OSError as exc:
         return COULD_NOT_START, f"{type(exc).__name__}: {exc}", ""
-    if done.returncode != 0:
+    try:
+        output, _ = _wait(proc, timeout)
+    except subprocess.TimeoutExpired:
+        return TIMED_OUT, timed_out_detail(timeout, how), _end(proc, how)
+    except KeyboardInterrupt:
+        _end(proc, how)
+        raise
+    output = output or ""
+    if proc.returncode != 0:
         return (
             RED,
-            f"the cases failed against the mutation (exit {done.returncode})",
-            done.stdout,
+            f"the cases failed against the mutation (exit {proc.returncode})",
+            output,
         )
     return (
         SURVIVED,
         "the cases passed against the mutation, so nothing they run watches this unit",
-        done.stdout,
+        output,
     )
 
 
@@ -279,8 +371,21 @@ def main(argv=None) -> int:
             flush=True,
         )
         return 2
+    except KeyboardInterrupt:
+        # Reached only after `run_cases` ended what it started and
+        # `mutation_run`'s `finally` restored the file -- a failed restore
+        # raises `NotRestored` instead, and is reported above.
+        print(
+            f"{INTERRUPTED}: no verdict. What the run started was ended, and "
+            f"{args.path} was restored from the bytes read before the write.",
+            flush=True,
+        )
+        return 2
     elapsed = time.monotonic() - started
-    print(f"{verdict}: {detail} ({elapsed:.1f}s)", flush=True)
+    # `timed out after 300s: ...` reads as one phrase; the others are a word
+    # and what it means.
+    joint = " " if verdict == TIMED_OUT else ": "
+    print(f"{verdict}{joint}{detail} ({elapsed:.1f}s)", flush=True)
     if output.strip():
         print(output.rstrip("\n"), flush=True)
     return EXIT.get(verdict, 2)
