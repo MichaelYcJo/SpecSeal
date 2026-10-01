@@ -124,6 +124,69 @@ belongs in the report and is not work anybody owes. And it is **report-only,
 exit 0 either way** — whether an unwatched arm should fail a run is an open
 decision, not an omission.
 
+#### `mutation-check` asks condition 2 of one unit, one break at a time
+
+`arm-check` breaks a module's arms under two fixed operators. The unit an
+implementer has just added is usually something else: a constant, a flipped
+comparison, a sentence a case pins. The break is whatever makes that unit
+wrong, so the loop is one command per break:
+
+```
+mutation-check <file> --replace "<old>" "<new>" --tests "bin/test tests/<module>.py -q -k <cases> -p no:xdist"
+```
+
+`<old>` is literal text and must occur exactly once in the file, or nothing
+is written; `<new>` may be empty, which deletes. Any UTF-8 text file can be
+the target. The command writes the break, removes that file's cached bytecode
+for every interpreter tag, runs `--tests` with `PYTHONDONTWRITEBYTECODE=1`,
+puts the file back from the bytes it read first and compares their sha256,
+and removes the bytecode again. Nothing is read from git. The script is
+`skills/verify/scripts/mutation_check.py`, and it uses `arm-check`'s own two
+functions for the bytecode and the restore.
+
+The first line printed is the verdict, then the command's own output:
+
+- `red`, exit 0: a case failed against the break, so the unit is watched.
+- `SURVIVED`, exit 1: the cases passed, so nothing they run watches the unit.
+- exit 2 for every run that measured nothing: `timed out`, `could not
+  start`, `refused` (nothing was written), `not restored` (the file may
+  still hold the break; restore it from your commit), and `interrupted`.
+
+So `mutation-check … && mutation-check …` stops at the first unit nothing
+watches, or at the first run that could not say.
+
+**Why the cache beside the file, and not `tests/__pycache__`.** CPython runs
+a cached `.pyc` instead of the source whenever the size and whole-second
+mtime it recorded still match, and a same-length break written inside one
+second matches. Only the mutated file's cache can be stale. An importer's is
+valid for its unchanged source, so clearing `tests/__pycache__` recompiled
+every test module on every run and missed the cache that mattered whenever
+the mutated file lived anywhere else (#129). Every tag goes, because the
+interpreter that runs the command and the one that runs the cases can
+differ.
+
+**The cases inherit `PYTHONDONTWRITEBYTECODE=1`.** A case that needs a
+`.pyc` to exist, such as one that plants a cache to show it is removed, has
+to write it itself, with `py_compile` or with `sys.dont_write_bytecode`
+switched off for the plant. An import made under the variable writes
+nothing, and the case then goes red on its own precondition whatever the
+break was.
+
+**The bound ends the run, not only the process it spawned.** `--timeout` is
+300 seconds by default, and `0` removes it. On POSIX the command runs in a
+session of its own and a timed-out run's whole process group is killed, so
+a wrapper's pytest does not outlive the verdict. That is the hole
+`arm-check`'s bound still has (#313). A process that put itself in yet
+another session is outside the group, and the verdict says so. Ctrl-C
+reaches this command rather than the cases, and it ends the group before the
+restore. On Windows only the direct child is ended, and the verdict says that
+anything it started was not.
+
+`-p no:xdist` belongs on a handful of cases. Measured 2026-10-01 on one
+machine, starting the workers took about 0.6 s a run against 0.02 s of
+cases. For a module's arms rather than one unit, `arm-check` above is the
+command.
+
 ### 3. Bound to the tree
 
 Evidence attaches to a tree state, not to a session. Note the state the

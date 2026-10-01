@@ -30,6 +30,7 @@ is reaped or proven dead before the case returns.
 import importlib.util
 import os
 import py_compile
+import re
 import shlex
 import subprocess
 import sys
@@ -584,6 +585,74 @@ def test_a_markdown_file_is_mutated_and_restored_the_same_way(tmp_path, capsys):
     assert target.read_text(encoding="utf-8") == text
     assert code == 1 and out.startswith("SURVIVED"), out
     assert not (tmp_path / "__pycache__").exists()
+
+
+# --- S9 · the definition names the command and no directory to clear -------
+
+
+def flat(*parts):
+    with open(os.path.join(ROOT, *parts), encoding="utf-8") as f:
+        return " ".join(f.read().split())
+
+
+def test_the_smiths_definition_names_the_command_and_no_directory_to_clear():
+    """§14: the sentence the smith acts on changed, so the new text is pinned
+    and so is the absence of the old one. *Clear `tests/__pycache__`* cleared
+    the importers, whose bytecode is never stale, and missed the mutated
+    file's, which is; any second directory named in its place would miss the
+    third the same way (#129).
+
+    The two sentences `tests/test_the_handoff_before_round_one.py` pins are
+    asserted here too, because the rewording happens around them and that
+    case is the one that would notice their loss -- this one says the loss
+    did not come from this edit."""
+    smith = flat("agents", "smith.md")
+    # Any runner: the definition ships to repositories with no `bin/test`,
+    # and `tests/test_the_suite_has_a_command_that_is_cheap_twice.py` holds it
+    # to naming none.
+    assert re.search(r"mutation-check \S+ --replace .+? --tests \"", smith), (
+        "`agents/smith.md` does not show the mutation loop as one command, "
+        "with its replacement and the cases it runs"
+    )
+    assert "-p no:xdist" in smith, (
+        "the example dropped `-p no:xdist`, which `questions.md` Q1's "
+        "measurement put there for a handful of cases"
+    )
+    assert "tests/__pycache__" not in smith, (
+        "`agents/smith.md` still names a directory to clear between mutations"
+    )
+    assert (
+        "Mutation-test every unit you added, one at a time, before you hand over."
+        in smith
+    )
+    assert "watch one go red" in smith
+
+
+def test_the_boundaries_bullet_says_the_command_holds_the_copy():
+    smith = flat("agents", "smith.md")
+    bullet = smith[smith.index("**Commit before you mutate") :]
+    bullet = bullet[: bullet.index("## Report")]
+    assert "`mutation-check` holds that copy" in bullet, bullet
+
+
+def test_the_verify_skill_says_what_each_verdict_means_and_what_the_bound_ends():
+    """The section a reader opens to learn the command: its verdicts with
+    their exit codes, its bound, and what that bound ends on each platform."""
+    skill = flat("skills", "verify", "SKILL.md")
+    start = skill.index("#### `mutation-check`")
+    section = skill[start : skill.index("### 3. Bound to the tree")]
+    for said in (
+        "mutation-check <file> --replace",
+        "`red`, exit 0",
+        "`SURVIVED`, exit 1",
+        "exit 2",
+        "300 seconds",
+        "process group",
+        "Windows",
+        "PYTHONDONTWRITEBYTECODE",
+        "arm-check",
+    ):
+        assert said in section, f"the section does not say {said!r}"
 
 
 # --- S5 · a run that never returns ends at the bound, and so does its child -
