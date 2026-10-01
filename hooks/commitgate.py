@@ -9,11 +9,24 @@ docstrings; what is judged is `hooks/gate.py`'s.
 Nothing here reads `GIT_DIR`. git does not export it to `pre-commit`,
 `post-commit` or `post-checkout` (phase 1's M4, on 2.50.1), so every reading
 asks `git rev-parse` in the working directory git gave the hook.
+
+**A commit git makes for its own sequencer is not judged** (round 1 of #692,
+🟡 7). `rebase --continue`, a reword, `cherry-pick --continue` and `revert
+--continue` each commit through a child `git commit`, which hands both hooks
+the author date and, for the first, skips `pre-commit`. Measured on 2.34.1,
+2.39.5, 2.43.0 and 2.50.1, that child is the one commit whose starter is
+another `git` process while a sequencer state is on disk. A commit a shell
+starts during a paused rebase -- `--amend` at an `edit` stop, `--no-verify`
+before `--continue` -- has a shell for its starter, and is judged. An alias
+(`git -c alias.ci=commit ci`) is started by git too, so the state has to be
+there as well. `GIT_REFLOG_ACTION` is no criterion for this either: the
+rebase's children set it, and cherry-pick's and revert's do not.
 """
 
 import hashlib
 import importlib.util
 import os
+import subprocess
 import time
 
 import answers
@@ -74,9 +87,77 @@ def pressed(top, session):
         return False
 
 
-def _key(old, tree, date):
+def _git_process():
+    """The `git commit` process this hook runs under, as a string; "" where it
+    cannot be named the same way from both hooks.
+
+    The stub `exec`s the interpreter, so on a POSIX system its parent is the
+    `git commit` that ran the hook, and both hooks of one commit share it
+    (measured on four gits by round 1's fix pass). Git for Windows runs each
+    hook through its own `sh.exe`, whose pid differs per hook, so there the
+    mark is keyed without it.
+    """
+    return "" if os.name == "nt" else str(os.getppid())
+
+
+def _key(old, tree, date, process=None):
+    # The process is round 1's 🟡 10: a commit that aborted after
+    # `pre-commit` (an empty message, a failing `commit-msg`) left a mark for
+    # the same HEAD, tree and date, and a later `--no-verify` commit with that
+    # date took it. The later commit is another `git` process.
     old = "" if not old or set(old) <= ZERO else old
-    return hashlib.sha1(f"{old}\n{tree}\n{date}".encode()).hexdigest()
+    process = _git_process() if process is None else process
+    return hashlib.sha1(f"{old}\n{tree}\n{date}\n{process}".encode()).hexdigest()
+
+
+# What git leaves under a worktree's git directory while a rebase, a
+# cherry-pick or a revert is in progress there.
+SEQUENCER = (
+    "rebase-merge",
+    "rebase-apply",
+    "sequencer",
+    "CHERRY_PICK_HEAD",
+    "REVERT_HEAD",
+)
+
+
+def _process(pid):
+    """(parent pid, command name) of process `pid`; (None, "") unreadable."""
+    try:
+        out = subprocess.run(
+            ["ps", "-o", "ppid=,comm=", "-p", str(pid)],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return None, ""
+    parent, _, comm = out.partition(" ")
+    try:
+        return int(parent), os.path.basename(comm.strip())
+    except ValueError:
+        return None, ""
+
+
+def _sequencer_commit(cwd, commit=None):
+    """True when git is making this commit for its own rebase, cherry-pick or
+    revert: a sequencer state on disk, and the `git commit` running the hook
+    started by another `git` process. Every way of not reading it is False,
+    so the commit is judged; on Windows, where no `ps` answers, it always is.
+    """
+    git_dir = gate.git(["rev-parse", "--absolute-git-dir"], cwd)
+    if not git_dir or not any(
+        os.path.exists(os.path.join(git_dir, name)) for name in SEQUENCER
+    ):
+        return False
+    if commit is None:
+        if os.name == "nt":
+            return False
+        commit = os.getppid()
+    starter, _name = _process(commit)
+    _parent, name = _process(starter)
+    return name == "git"
 
 
 def _judged_dir(cwd):
@@ -139,7 +220,7 @@ def pre_commit(cwd, environ, stream):
         lambda: gate.git(["diff", "--cached", "--name-only"], cwd).splitlines(),
         head=head,
     )
-    if arms:
+    if arms and not _sequencer_commit(cwd):
         return _refuse(stream, arms, top, cwd, session)
     _leave_mark(cwd, head, environ.get("GIT_AUTHOR_DATE", ""))
     return 0
@@ -194,7 +275,7 @@ def reference_transaction(cwd, environ, state, lines, stream):
         arms = gate.arms_missing(
             cwd, top, waived(cwd, session), _paths_between(cwd, base, new), head=base
         )
-        if arms:
+        if arms and not _sequencer_commit(cwd):
             return _refuse(stream, arms, top, cwd, session, backstop=True)
     return 0
 

@@ -433,6 +433,173 @@ def test_a_branch_moved_by_anything_but_git_commit_is_not_judged(world, args):
     assert gate.HEADER not in got.stderr
 
 
+def diverged(world):
+    """`release` and `side` in the undeclared main checkout, each changing
+    f.py its own way, `side` with a second commit on top. Made as a person's
+    commits, so nothing judges the setup."""
+    d = world.main
+    g(d, "branch", "side", home=world.home, session="")
+    world.change(d, text="a = 'release'\n")
+    g(d, "commit", "-q", "-m", "release", home=world.home, session="")
+    g(d, "switch", "-q", "side", home=world.home, session="")
+    world.change(d, text="a = 'side'\n")
+    g(d, "commit", "-q", "-m", "side", home=world.home, session="")
+    world.change(d, name="g.py", text="g = 1\n")
+    g(d, "commit", "-q", "-m", "side 2", home=world.home, session="")
+    return d
+
+
+def resolve(world, d):
+    world.change(d, text="a = 'both'\n")
+
+
+def busy(world, d):
+    gitdir = Path(
+        g(
+            d, "rev-parse", "--absolute-git-dir", home=world.home, session=""
+        ).stdout.strip()
+    )
+    return any(
+        (gitdir / n).exists()
+        for n in ("rebase-merge", "rebase-apply", "CHERRY_PICK_HEAD", "REVERT_HEAD")
+    )
+
+
+def test_a_rebase_git_continues_is_not_judged(world):
+    """Round 1's 🟡 7, c13: the sequencer's own `git commit -n` hands the
+    backstop the author date and skips `pre-commit`. It is git's commit,
+    made by a git process while a rebase is in progress, and is not judged."""
+    d = diverged(world)
+    g(d, "rebase", "-q", "release", home=world.home, check=False)
+    resolve(world, d)
+    got = g(d, "rebase", "--continue", home=world.home, check=False, GIT_EDITOR="true")
+    assert gate.HEADER not in got.stderr, got.stderr
+    assert got.returncode == 0, got.stderr
+    assert not busy(world, d)
+
+
+def test_an_interactive_rebases_reword_is_not_judged(world):
+    """Round 1's 🟡 7, c09: a reword runs `pre-commit` from the sequencer."""
+    d = diverged(world)
+    got = g(
+        d,
+        "rebase",
+        "-q",
+        "-i",
+        "HEAD~2",
+        home=world.home,
+        check=False,
+        GIT_EDITOR="true",
+        GIT_SEQUENCE_EDITOR="sed -i.bak 1s/^pick/reword/",
+    )
+    assert gate.HEADER not in got.stderr, got.stderr
+    assert got.returncode == 0, got.stderr
+    assert not busy(world, d)
+
+
+@pytest.mark.parametrize("verb", ["cherry-pick", "revert"])
+def test_a_pick_git_continues_is_not_judged(world, verb):
+    """The same sequencer path, executed on four gits by round 1's fix pass:
+    `cherry-pick --continue` and `revert --continue` run `pre-commit`."""
+    d = diverged(world)
+    g(d, "switch", "-q", "release", home=world.home, session="")
+    if verb == "revert":
+        g(
+            d,
+            "merge",
+            "-q",
+            "--ff-only",
+            "--no-edit",
+            "side",
+            home=world.home,
+            session="",
+            check=False,
+        )
+        g(d, "reset", "-q", "--hard", "release", home=world.home, session="")
+        world.change(d, text="a = 'later'\n")
+        g(d, "commit", "-q", "-m", "later", home=world.home, session="")
+        g(d, verb, "--no-edit", "HEAD~1", home=world.home, check=False)
+    else:
+        g(d, verb, "side~1", home=world.home, check=False)
+    assert busy(world, d)
+    resolve(world, d)
+    got = g(d, verb, "--continue", home=world.home, check=False, GIT_EDITOR="true")
+    assert gate.HEADER not in got.stderr, got.stderr
+    assert got.returncode == 0, got.stderr
+    assert not busy(world, d)
+
+
+def test_a_commit_typed_while_a_rebase_is_paused_is_still_met(world):
+    """What the criterion keeps: a `git commit --no-verify` a shell starts
+    during a paused rebase is a commit, and its branch move is refused."""
+    d = diverged(world)
+    g(d, "rebase", "-q", "release", home=world.home, check=False)
+    resolve(world, d)
+    before = world.head(d)
+    got = g(
+        d, "commit", "--no-verify", "-q", "-m", "typed", home=world.home, check=False
+    )
+    assert got.returncode != 0
+    assert gate.BACKSTOP in got.stderr
+    assert world.head(d) == before
+
+
+def test_a_commit_an_alias_starts_is_still_judged(world):
+    """An alias runs `git commit` as a child of `git` too; with no sequencer
+    state on disk it is a person's command, and is judged."""
+    world.change(world.main)
+    before = world.head(world.main)
+    got = g(
+        world.main,
+        "-c",
+        "alias.ci=commit",
+        "ci",
+        "-q",
+        "-m",
+        "x",
+        home=world.home,
+        check=False,
+    )
+    assert got.returncode != 0
+    assert gate.HEADER in got.stderr
+    assert world.head(world.main) == before
+
+
+def test_a_mark_an_aborted_commit_left_passes_no_later_commit(world):
+    """Round 1's 🟡 10, c16: the same HEAD, tree and author date, and another
+    `git commit` process, which `pre-commit` never saw."""
+    world.change(world.main)
+    date = {"GIT_AUTHOR_DATE": "@1790000000 +0000"}
+    aborted = g(
+        world.main,
+        "-c",
+        "specseal.waive=review",
+        "commit",
+        "-q",
+        "-m",
+        "",
+        home=world.home,
+        check=False,
+        **date,
+    )
+    assert aborted.returncode != 0
+    before = world.head(world.main)
+    got = g(
+        world.main,
+        "commit",
+        "--no-verify",
+        "-q",
+        "-m",
+        "x",
+        home=world.home,
+        check=False,
+        **date,
+    )
+    assert got.returncode != 0, "a stale mark let a later commit through"
+    assert gate.BACKSTOP in got.stderr
+    assert world.head(world.main) == before
+
+
 # --- S4, S5: who the refusal is put to --------------------------------------
 
 
@@ -868,6 +1035,10 @@ def test_the_mark_names_one_commit():
     # pre-commit; both name the same commit.
     assert commitgate._key("0" * 40, "t", "@1 +0000") == commitgate._key(
         "", "t", "@1 +0000"
+    )
+    # And the `git commit` process both hooks are children of (🟡 10).
+    assert commitgate._key("a" * 40, "t", "@1 +0000", 7) != commitgate._key(
+        "a" * 40, "t", "@1 +0000", 8
     )
 
 

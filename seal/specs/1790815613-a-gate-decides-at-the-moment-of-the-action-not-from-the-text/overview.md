@@ -60,7 +60,10 @@ issue, because posting is the orchestrator's.
 
 - *Inferred during implementation:* the backstop's criterion is
   `GIT_AUTHOR_DATE` (M12), and its mark is keyed by the old HEAD, the tree and
-  that date.
+  that date. *Corrected in round 1's fix pass:* the mark is keyed by the
+  `git commit` process too (🟡 10), and neither hook judges the commit git
+  makes for its own sequencer — a sequencer state on disk and a `git commit`
+  started by `git`, measured on four gits (🟡 7).
 - *Withdrawn in the round-1 fix pass (P6):* the creation ladder deciding in
   `post-checkout`, and a worktree under `.claude/worktrees/` never being taken
   back. Both went with `hooks/creationgate.py`.

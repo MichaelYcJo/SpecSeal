@@ -19,9 +19,12 @@
   commit …` keeps working. A command that sets `core.hooksPath` or a
   `GIT_CONFIG*` variable, or empties its environment with `env -i`, is
   still judged before it runs, because those can keep git's hooks from
-  judging it. `--no-verify` is met where
-  the branch moves, and nothing but a `git commit` is. A person's own commit
-  at their own terminal, with no Claude session behind it, is not judged.
+  judging it. `--no-verify` is met where the branch moves, and nothing but a
+  `git commit` is. The commit git makes itself to finish a rebase,
+  cherry-pick or revert that stopped on a conflict, or a reword, is not
+  judged, as 0.16.0 did not judge `git rebase --continue`; a commit typed
+  while one is paused is. A person's own commit at their own terminal, with
+  no Claude session behind it, is not judged.
 
   **What stays a reading of the command.** A branch switch and a worktree
   creation. No git refuses a switch before its tree has moved, and a hook

@@ -346,6 +346,38 @@ def test_only_git_commit_hands_reference_transaction_an_author_date(tmp_path):
     }
 
 
+def test_a_sequencer_that_stopped_on_a_conflict_commits_with_the_date(tmp_path):
+    """Round 1 of #692 (🟡 7): what M12 left out. A cherry-pick or a rebase
+    that stopped on a conflict finishes through a child `git commit`, which
+    hands the hook the date -- so the backstop has to tell git's own commit
+    from a person's another way (`hooks/commitgate.py#_sequencer_commit`)."""
+    d, hooks = repo(tmp_path)
+    # A rebase commits on a detached HEAD, so its line names `HEAD`.
+    hook(
+        hooks,
+        "reference-transaction",
+        AUTHOR_DATE_LOG.replace("' refs/heads/'", "-E ' (refs/heads/|HEAD$)'"),
+    )
+    log = tmp_path / "a.log"
+    env = {"A_LOG": str(log), "GIT_EDITOR": "true"}
+    (d / "marker.txt").write_text("conflict\n", encoding="utf-8")
+    g(d, "commit", "-q", "-am", "conflict")
+    g(d, "cherry-pick", "other", check=False)
+    (d / "marker.txt").write_text("both\n", encoding="utf-8")
+    g(d, "add", "marker.txt")
+    g(d, "cherry-pick", "--continue", env={**env, "LABEL": "cherry-pick-continue"})
+    g(d, "switch", "-q", "other")
+    g(d, "rebase", "-q", "main", check=False)
+    (d / "marker.txt").write_text("both again\n", encoding="utf-8")
+    g(d, "add", "marker.txt")
+    g(d, "rebase", "--continue", env={**env, "LABEL": "rebase-continue"})
+    # A rebase also moves its branch at the end, undated; one dated line per
+    # command is the fact.
+    lines = log.read_text().splitlines()
+    dated = {line.split(" ", 1)[0] for line in lines if line.endswith(" dated")}
+    assert dated == {"cherry-pick-continue", "rebase-continue"}, lines
+
+
 # M14: post-checkout runs after a creation, cannot stop it, and can take it
 # back. Phase 4 put the creation ladder there; round 1 found what a take-back
 # cannot undo (the case after this one), and the owner moved the ladder back

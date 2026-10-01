@@ -44,10 +44,13 @@ row). A commit by a person at their own terminal is not judged (P2, answer
 (a)), and that is known without Python when neither a session variable nor a
 lease directory exists. `reference-transaction` judges only `prepared` with
 `GIT_AUTHOR_DATE` exported, which phase 1's M12 measured as the one thing every
-`git commit` hands the hook and no merge, reset, cherry-pick, rebase or pull
-does, on git 2.34.1, 2.39.5, 2.43.0 and 2.50.1. `GIT_REFLOG_ACTION` is no
-such criterion: `git commit` never sets it, and cherry-pick and revert set it
-on 2.34.1 alone.
+`git commit` hands the hook and no merge, reset, clean cherry-pick or revert,
+rebase or pull does, on git 2.34.1, 2.39.5, 2.43.0 and 2.50.1. A rebase, a
+cherry-pick or a revert that stopped on a conflict, and a reword, finish
+through a child `git commit`, which does hand it the date (round 1 of #692);
+`hooks/commitgate.py#_sequencer_commit` tells that commit from a person's.
+`GIT_REFLOG_ACTION` is no criterion for either: `git commit` never sets it,
+and of the sequencer's children only a rebase's carry it.
 """
 
 import json

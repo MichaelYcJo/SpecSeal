@@ -109,13 +109,32 @@ branch is.**
 `reference-transaction` refuses, at `prepared`, a commit that `pre-commit`
 never judged: HEAD, the index and the working tree stay as they were, with one
 unreachable commit object left. What tells a commit from a merge, a reset, a
-cherry-pick, a revert, a rebase or a pull is `GIT_AUTHOR_DATE`, which every
-`git commit` exports to its hooks and none of those does on git 2.34.1,
+clean cherry-pick or revert, a rebase or a pull is `GIT_AUTHOR_DATE`, which
+every `git commit` exports to its hooks and none of those does on git 2.34.1,
 2.39.5, 2.43.0 and 2.50.1 (phase 1's M12). A commit `pre-commit` let through
-carries a one-shot mark keyed by the old HEAD, the tree and that date, and
-passes. A person who exports `GIT_AUTHOR_DATE` around a rebase makes it look
-like a commit, and it meets the refusal: the fail direction is a stop.
-Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s3_no_verify_is_met_where_the_branch_moves_and_nothing_moves, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_branch_moved_by_anything_but_git_commit_is_not_judged, tests/test_the_hook_surface_git_offers.py::test_only_git_commit_hands_reference_transaction_an_author_date
+carries a one-shot mark keyed by the old HEAD, the tree, that date and the
+`git commit` process both hooks run under, and passes; a mark a commit left
+when it aborted after `pre-commit` is another process's, and passes nothing.
+A person who exports `GIT_AUTHOR_DATE` around a rebase makes it look like a
+commit, and it meets the refusal: the fail direction is a stop.
+Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s3_no_verify_is_met_where_the_branch_moves_and_nothing_moves, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_branch_moved_by_anything_but_git_commit_is_not_judged, tests/test_the_hook_surface_git_offers.py::test_only_git_commit_hands_reference_transaction_an_author_date, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_mark_an_aborted_commit_left_passes_no_later_commit
+
+<!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
+**A commit git makes for its own rebase, cherry-pick or revert is not judged;
+a commit a shell starts while one is paused is.**
+A rebase, cherry-pick or revert that stopped on a conflict, and a reword,
+finish through a child `git commit`: it hands both hooks the date, runs
+`pre-commit` for all but `rebase --continue`, and was refused by both until
+round 1 of #692 measured it. 0.16.0's reading judged none of these commands.
+What tells that child from a person's commit, on all four gits, is two facts
+together: a sequencer state under the worktree's git directory (`rebase-merge`,
+`rebase-apply`, `sequencer`, `CHERRY_PICK_HEAD`, `REVERT_HEAD`), and the
+`git commit` having been started by another `git` process rather than a shell.
+So `git commit --no-verify` or `--amend` typed at a paused rebase is judged,
+and so is an alias's commit outside a sequencer. Where `ps` cannot answer --
+Windows -- the commit is judged, and the fail direction is a stop.
+`GIT_REFLOG_ACTION` is no criterion: only a rebase's children carry it.
+Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_a_rebase_git_continues_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_an_interactive_rebases_reword_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_pick_git_continues_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_commit_typed_while_a_rebase_is_paused_is_still_met, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_commit_an_alias_starts_is_still_judged, tests/test_the_hook_surface_git_offers.py::test_a_sequencer_that_stopped_on_a_conflict_commits_with_the_date
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
 **Where git decides, the PreToolUse reading in the next section stands aside;
@@ -168,9 +187,20 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
   the stubs back at the next Bash call. 0.16.0's reading stopped it (round 1
   of #692, executed).
 - **`git commit-tree` with `update-ref`, and `git am`, are not commits to
-  either reading.** Neither runs `pre-commit`, and neither hands
-  `reference-transaction` the date only `git commit` does, as 0.16.0's
-  reading never read them as commits.
+  either reading.** Neither meets `pre-commit`, and round 1 of #692 executed
+  both landing past the backstop, as 0.16.0's reading never read them as
+  commits.
+- **A commit git starts while a sequencer state is on disk is not judged,
+  whoever asked for it.** An alias (`git -c alias.ci=commit ci`) and, where
+  `/bin/sh` hands its last command straight to git as macOS's does, a
+  `rebase --exec 'git commit …'` both run `git commit` under a `git` parent.
+  During a paused rebase, cherry-pick or revert those commits pass as the
+  sequencer's own.
+- **On Windows** the backstop's mark is keyed without the `git commit`
+  process, because each hook there runs under its own `sh.exe`, so a mark an
+  aborted commit left can pass a later `--no-verify` commit with the same
+  HEAD, tree and date; and no commit counts as the sequencer's, so a
+  `rebase --continue` into an undeclared repository is refused.
 - **Latency.** A judged commit starts one interpreter in `pre-commit` and, at
   `prepared`, one in `reference-transaction`: 209–400 ms a commit on the
   machine phase 1 measured under load, against 57 ms with no hooks (M10). A
