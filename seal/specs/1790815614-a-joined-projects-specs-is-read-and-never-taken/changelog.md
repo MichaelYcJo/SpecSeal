@@ -12,3 +12,9 @@
   and is named in the hook's line as *no routing.md or rounds/ — not a
   SpecSeal work item*. A repository holding nothing else of the old layout
   hears nothing.
+- **First setup asks a project with its own `specs/` where the root goes**
+  (#688). The bootstrap used to read any top-level `specs/` as the 0.3.x
+  layout, tell the person the plugin would move it, and skip the shared/local
+  question. It reads the same two marks now: a `specs/` without a marked
+  entry is the project's own, the question is asked as in any repository with
+  no root, and the directory is left where it is.
