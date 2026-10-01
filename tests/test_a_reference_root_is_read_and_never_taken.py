@@ -370,7 +370,7 @@ def test_each_reader_says_when_it_reads_a_reference_root_and_where_it_cites_it()
         said = paragraph_naming(text, POINTER)
         assert "touches what" in said and "describes" in said, (rel, said)
         assert act in said and where in said, (rel, said)
-        assert "never" in said and "writ" in said, (rel, said)
+        assert re.search(r"\bnever writ", said), (rel, said)
 
 
 def test_the_seal_readme_says_nothing_writes_the_old_names():
