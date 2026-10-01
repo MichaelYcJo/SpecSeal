@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 714 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `090cb32f64b3d5f17c9db5cacf04805a9c383298..bab8dc4a676f2d0ec9c014108666b8f62f506a44`, 5 commits |
+| Contract changes | none |
+| New units | hand_edited_last (depth 1); without_the_row (depth 1); with_the_row_twice (depth 1); with_an_open_comment (depth 1); test_seal_check_refuses_what_the_write_path_refuses (depth 1); test_a_direct_item_preflights_green_and_names_the_work_item_it_asked (depth 1) |
 | Needs a fix | yes — 🟡 1, `seal --check` passes three refusals the write path raises in `field_index`, `cell` and `hiders_close`, which the sealer then raises after its suite |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 1 targets `6a93a552`, a merge of `821e592d` onto the build's tip `3eacc85f
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `seal --check` returns before three refusals the write path raises in callees — `field_index` (no `Broad gate` row, or two), `cell`, and `hiders_close` (a comment never closed) — so the preflight passes them and the sealer refuses them after its suite; the position case walks only `raise` statements and passes over all three | `skills/code-review/scripts/round_record.py:4579` | open | Executed: each of three shapes `seal --check` exit 0, preflight exit 0, the full gate ran the suite and exited 2; the fix was red-then-green in the clone |
-| ⬜ 2 | 35 re-stamped ledger rows carry no dated note naming #702, which `CLAUDE.md` asks of a re-stamp | `seal/releases/0.16.0.md` | open | Read: 47 added lines outside the fragment, none names #702 or 1790835051 |
-| ⬜ 3 | The ask's key is said to be the chain arm's, but `item_dir` reads declarations on disk and the chain arm reads them tracked at HEAD | `skills/verify/scripts/broad_gate.py:2861` | open | Read |
-| ⬜ 4 | `PREFLIGHT_ASKED` calls a record a work item and names an absent `broad-gate.md` for a direct item; `PREFLIGHT_NOT_ASKED` says no record exists where there are two declarations | `skills/verify/scripts/broad_gate.py:2770` | open | Read |
+| 🟡 1 | `seal --check` returns before three refusals the write path raises in callees — `field_index` (no `Broad gate` row, or two), `cell`, and `hiders_close` (a comment never closed) — so the preflight passes them and the sealer refuses them after its suite; the position case walks only `raise` statements and passes over all three | `skills/code-review/scripts/round_record.py:4579` | **fixed** `eec243df` | fixed at eec243df; Executed: each of three shapes `seal --check` exit 0, preflight exit 0, the full gate ran the suite and exited 2; the fix was red-then-green in the clone |
+| ⬜ 2 | 35 re-stamped ledger rows carry no dated note naming #702, which `CLAUDE.md` asks of a re-stamp | `seal/releases/0.16.0.md` | **fixed** `2331a820` | fixed at 2331a820; Read: 47 added lines outside the fragment, none names #702 or 1790835051 |
+| ⬜ 3 | The ask's key is said to be the chain arm's, but `item_dir` reads declarations on disk and the chain arm reads them tracked at HEAD | `skills/verify/scripts/broad_gate.py:2861` | **fixed** `c7867e1c` | fixed at c7867e1c; Read |
+| ⬜ 4 | `PREFLIGHT_ASKED` calls a record a work item and names an absent `broad-gate.md` for a direct item; `PREFLIGHT_NOT_ASKED` says no record exists where there are two declarations | `skills/verify/scripts/broad_gate.py:2770` | **fixed** `ff99ce10` | fixed at ff99ce10; Read |
 | 🟢 | The ask runs after the arms, does not stop on an arm's failure, keeps `seal.txt` and reads the exit code off the subprocess | `skills/verify/scripts/broad_gate.py:2967` | confirmed | Read; S3/S4/S6 run by the orchestrator |
 | 🟢 | The three skip paths and the direct home behave as the spec says, each with its line | `skills/verify/scripts/broad_gate.py:2984` | confirmed | Read, and the cases |
 | 🟢 | No ask refuses a branch that would seal: the value and the predicates are the sealer's own | `skills/verify/scripts/broad_gate.py:2968` | confirmed | Read against `:3010` |
