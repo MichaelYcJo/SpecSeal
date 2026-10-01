@@ -154,9 +154,11 @@ own clone is git-decided, because the session's directory is the stand-in it
 would have been judged against. A command carrying a word that can keep the
 hooks from judging it is left to git nowhere (`hooks/tokens.py#steps_around_hooks`):
 `core.hooksPath` in any spelling (`-c`, `--config-env`, `git config`), any
-`GIT_CONFIG*` assignment, `env` emptying the environment, and a command that
-does not split. Each lives in the one command, where the installer that ran
-before it cannot see it, and a misread costs the one judgment 0.16.0 made.
+`GIT_CONFIG*` assignment, `env` emptying the environment, a word naming
+`CLAUDECODE` or `CLAUDE_CODE_SESSION_ID` whole (`NAME=`, `env -u`, `unset`,
+which leave the stub no session), and a command that does not split. Each lives in
+the one command, where the installer that ran before it cannot see it, and a
+misread costs the one judgment 0.16.0 made.
 Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_the_text_reading_stands_aside_where_git_decides, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_foreign_clone_keeps_the_text_reading, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_command_that_can_step_around_the_hooks_keeps_the_text_reading, tests/test_the_commit_gate_decides_at_the_commit.py::test_only_those_words_make_the_reading_judge_a_git_decided_clone
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
@@ -237,7 +239,7 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
 
 | State | What judges a commit |
 |---|---|
-| a clone carrying the stubs | `pre-commit`, then `reference-transaction` for one that skipped it; the PreToolUse reading as well for a command carrying `core.hooksPath`, a `GIT_CONFIG*` assignment or `env -i` |
+| a clone carrying the stubs | `pre-commit`, then `reference-transaction` for one that skipped it; the PreToolUse reading as well for a command carrying one of the words `hooks/tokens.py#steps_around_hooks` reads |
 | a clone whose hooks slot is foreign | the PreToolUse reading below, as 0.16.0 — said once per session |
 | an opted-in clone no session has reached | the PreToolUse reading below, until a session or a Bash call reaches it |
 | a clone that opted out after the stubs arrived | nothing: each stub reads the opt-in when it runs, and the installer takes them out |

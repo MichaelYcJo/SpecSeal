@@ -987,15 +987,25 @@ STEPS_AROUND = {
     "env -i in a subshell": "(env -i git commit -m x)",
     "GIT_CONFIG in a subshell": "(GIT_CONFIG_GLOBAL=/x/g git commit -m x)",
     "an unreadable command": "git commit -m 'x",
+    # Round 2's 🟡 1: the session variables the stub reads, removed another
+    # way than `env -i`. A harness may export one of the two, so either alone
+    # is enough to leave the stub no session, and each case names one.
+    "an emptied session variable": "CLAUDECODE= git commit -m x",
+    "a session variable in a subshell": "(CLAUDECODE= git commit -m x)",
+    "env -u": "env -u CLAUDECODE git commit -m x",
+    "env -u glued to its name": "env -uCLAUDE_CODE_SESSION_ID git commit -m x",
+    "env --unset=": "env --unset=CLAUDECODE git commit -m x",
+    "unset": "unset CLAUDE_CODE_SESSION_ID; git commit -m x",
 }
 
 
 @pytest.mark.parametrize("name", sorted(STEPS_AROUND))
 def test_a_command_that_can_step_around_the_hooks_keeps_the_text_reading(world, name):
-    """Round 1's 🟡 2 and 🟡 8: a setting or an emptied environment that lives
-    in the one command can keep git from running the stubs, or the stub from
-    finding the session, so the reading that asked before the command does not
-    stand aside for it. A misread costs one refusal."""
+    """Round 1's 🟡 2 and 🟡 8, and round 2's 🟡 1: a setting, an emptied
+    environment or a removed session variable that lives in the one command
+    can keep git from running the stubs, or the stub from finding the session,
+    so the reading that asked before the command does not stand aside for it.
+    A misread costs one refusal."""
     assert pre_bash(world, STEPS_AROUND[name], world.main) == "deny", name
 
 
@@ -1007,6 +1017,10 @@ def test_a_command_that_can_step_around_the_hooks_keeps_the_text_reading(world, 
         "env FOO=1 git commit -m x",
         "printenv GIT_DIR",
         "echo GIT_CONFIG_NOSYSTEM",
+        # A session name is read whole: expanded, or inside a message, it
+        # removes nothing (round 2 of #692, 🟡 1).
+        "echo $CLAUDECODE",
+        "git commit -m 'mentions CLAUDE_CODE_SESSION_ID'",
         "",
     ],
 )

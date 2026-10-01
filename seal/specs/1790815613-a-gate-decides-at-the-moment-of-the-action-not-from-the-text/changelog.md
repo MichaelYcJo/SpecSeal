@@ -18,9 +18,9 @@
   is the waiver in git's own spelling, and the old `: '[no-review]'; git
   commit …` keeps working for the one Bash call that carries it, and for no
   other agent's call in the same session. A command that sets `core.hooksPath` or a
-  `GIT_CONFIG*` variable, or empties its environment with `env -i`, is
-  still judged before it runs, because those can keep git's hooks from
-  judging it. `--no-verify` is met where the branch moves, and nothing but a
+  `GIT_CONFIG*` variable, empties its environment with `env -i`, or unsets
+  or empties `CLAUDECODE` or `CLAUDE_CODE_SESSION_ID`, is still judged
+  before it runs, because those can keep git's hooks from judging it. `--no-verify` is met where the branch moves, and nothing but a
   `git commit` is. The commit git makes itself to finish a rebase,
   cherry-pick or revert that stopped on a conflict, or a reword, is not
   judged, as 0.16.0 did not judge `git rebase --continue`; a commit typed

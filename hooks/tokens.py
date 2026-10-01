@@ -65,11 +65,13 @@ def steps_around_hooks(command):
     from judging it, so the PreToolUse reading must not stand aside for it
     (round 1 of #692, 🟡 2 and 🟡 8; `questions.md` P6's commit half).
 
-    Three kinds, each living in the one command where the installer, which
-    runs before it, cannot see them: `core.hooksPath` in any spelling (`-c`,
+    The kinds, each living in the one command where the installer, which runs
+    before it, cannot see them: `core.hooksPath` in any spelling (`-c`,
     `--config-env`, `git config`, a `GIT_CONFIG_*` value), any `GIT_CONFIG*`
-    assignment, and `env` emptying the environment, which leaves the stub no
-    session variable. A command that does not split is read as one of them.
+    assignment, `env` emptying the environment, and a word naming
+    `CLAUDECODE` or `CLAUDE_CODE_SESSION_ID` whole -- the last two leave the
+    stub no session variable. A command that does not split is read as one of
+    them.
     The direction is the refusal's: a word read here that meant nothing costs
     the reading's judgment of one command, which is 0.16.0's.
     """
@@ -83,5 +85,19 @@ def steps_around_hooks(command):
             return True
         after = split[i + 1] if i + 1 < len(split) else ""
         if _empties_the_environment(word, after):
+            return True
+        # The stub's P2 short-cut reads two session names, so a command that
+        # empties, unsets or reassigns either leaves the stub no session where
+        # no lease stands: `NAME= git commit`, `env -u NAME`, `env -uNAME`,
+        # `env --unset=NAME`, `unset NAME` (round 2 of #692, 🟡 1, executed).
+        # 0.16.0's reading stopped each. The name is compared whole, so
+        # `$CLAUDECODE` or a message that mentions it is not one.
+        name, _, value = word.strip("()").partition("=")
+        session = name
+        if name == "--unset":
+            session = value
+        elif name.startswith("-u"):
+            session = name[2:]
+        if session in ("CLAUDECODE", "CLAUDE_CODE_SESSION_ID"):
             return True
     return False

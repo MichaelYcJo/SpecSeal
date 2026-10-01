@@ -243,8 +243,9 @@ commit only where git's hooks cannot: a clone whose hooks slot is somebody
 else's, an opted-in clone no session has reached yet, a target it cannot
 place from a session whose own clone carries no hooks, and a command whose
 words can keep the hooks from running (`core.hooksPath`, `GIT_CONFIG*`,
-`env -i`). Everywhere else — every opted-in clone a session reaches, unless
-`core.hooksPath` or a hook file it did not write holds the slot — git judges
+`env -i`, a session variable unset or emptied). Everywhere else — every
+opted-in clone a session reaches, unless `core.hooksPath` or a hook file it
+did not write holds the slot — git judges
 a commit inside the commit, in the worktree it lands in, and no command text
 is read for it (`docs/commit-review-gate-spec.md` §*The commit gate inside
 git*). The first reason holds everywhere, and it is the one that makes this

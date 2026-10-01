@@ -1331,9 +1331,9 @@ def main():
     # because that is the stand-in it would have been judged against; a
     # commit it would have reached in a clone carrying no hooks is the known
     # limit `docs/commit-review-gate-spec.md` states. A command carrying a
-    # word that can keep the hooks from judging it -- `core.hooksPath`, a
-    # `GIT_CONFIG*` assignment, `env -i` -- stands aside nowhere (round 1's
-    # 🟡 2 and 🟡 8, `hooks/tokens.py#steps_around_hooks`).
+    # word that can keep the hooks from judging it stands aside nowhere, and
+    # `hooks/tokens.py#steps_around_hooks` is the one list of those words
+    # (round 1's 🟡 2 and 🟡 8, round 2's 🟡 1 and 🟡 2).
     decided = {}
     around = tokens.steps_around_hooks(command)
 
