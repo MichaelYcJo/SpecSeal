@@ -2930,6 +2930,12 @@ def test_a_list_too_long_for_its_row_continues_beneath_it():
         ("", "3 deferred ->"),
         ("", "seal/follow-up.md, #664"),
     ]
+    # A row that would fill the frame exactly is broken one piece early when
+    # more follow, so the comma it ends with is not cut by `fit`.
+    assert gate.wrapped("x", ["a" * 20, ", b", ", c"]) == [
+        ("x", "a" * 20 + ","),
+        ("", "b, c"),
+    ]
     assert gate.wrapped("", ["1 deferred ->", " " + "x" * 30]) == [
         ("", "1 deferred ->"),
         ("", gate.fit("x" * 30)),
@@ -3261,6 +3267,9 @@ def test_the_home_is_read_off_the_cell_after_the_word(tmp_path):
         ("deferred [#664](https://example.com/664)", "#664"),
         ("deferred phase 9 of this branch", "phase 9 of this branch"),
         ("deferred → later", "later"),
+        # A path or a `.md` file after other words is still the home.
+        ("deferred to seal/follow-up.md", "seal/follow-up.md"),
+        ("deferred into the follow-up.md file", "follow-up.md"),
     ],
 )
 def test_a_deferrals_home_is_read_whole(cell, home):
