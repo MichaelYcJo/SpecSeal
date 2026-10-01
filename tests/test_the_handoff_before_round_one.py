@@ -606,7 +606,9 @@ def test_the_advisory_and_the_tying_paragraph_name_one_value():
     script's threshold moving while the sentence keeps the old value. This
     case reads both files, so that move turns it red."""
     script = read("skills", "verify", "scripts", "session_cost.py")
-    threshold = re.search(r'data\["tools_per_turn"\] < ([\d.]+)', script)
+    # #640, round 2's 🟡 8: the advisory compares the ratio rounded to the two
+    # places it prints, so the pattern reads the rounded comparison.
+    threshold = re.search(r'round\(data\["tools_per_turn"\], 2\) < ([\d.]+)', script)
     assert threshold, "the advisory threshold moved off its pattern in session_cost.py"
     protocol = flat("docs", "review-handoff-protocol.md")
     assert (

@@ -312,6 +312,41 @@ def test_the_report_stops_claiming_one_at_a_time_above_a_ratio_of_one(tmp_path):
     assert "most turns send a single call" in out
 
 
+def test_a_plain_reading_printed_at_the_advisory_is_not_flagged(tmp_path):
+    """Round 2's 🟡 8, round 1's 🟡 1 in the plain reading. 241 calls over
+    201 turns is 1.199, which prints as 1.20. The advisory sits below 1.2, so
+    a batching line printing 1.20 contradicts the rule that printed it, and
+    the `nothing obvious` line went missing beside it.
+
+    Comparing the printed figure moves the verdict only for a ratio in
+    [1.195, 1.2), so every reading outside that band reads as it did and
+    stays comparable with the readings published since 0.9.4."""
+    lines = []
+    for i in range(40):
+        lines += [
+            message(
+                i * 10,
+                [use(f"d{i}a", f"ls a{i}"), use(f"d{i}b", f"ls b{i}")],
+                message_id=f"md{i}",
+            ),
+            result(i * 10 + 1, f"d{i}a"),
+            result(i * 10 + 2, f"d{i}b"),
+        ]
+    for i in range(161):
+        second = 400 + i * 10
+        lines += [
+            message(second, [use(f"s{i}", f"cat f{i}")], message_id=f"ms{i}"),
+            result(second + 1, f"s{i}"),
+        ]
+    path = tmp_path / "p.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert (data["calls"], data["call_turns"]) == (241, 201), data
+    out = run([str(path)]).stdout
+    assert "batching" not in out, out
+    assert "nothing obvious" in out, out
+
+
 def test_a_transcript_with_no_tool_calls_says_so(tmp_path):
     path = tmp_path / "e.jsonl"
     path.write_text("{}\n")

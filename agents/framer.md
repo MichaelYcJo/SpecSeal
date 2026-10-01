@@ -177,9 +177,9 @@ minutes a harness judges you on before anything you write exists.
   spawn prompt names are one such call whatever their number. The bound is on
   each call of the wide reading after that — about six reads or ranges — and
   never the whole reading list of the section above sent as the opening
-  call. Six is a default and not a
-  measured limit; the 0.15.1 framers sent 2.3–3.1 tools per turn and all of
-  them finished (#548), and #640 is where the number can be overturned.
+  call. Six is a default and not a measured limit; the 0.15.1 framers sent
+  2.3–3.1 tools per turn and all of them finished (#548), and #640 is where
+  the number can be overturned.
 - **A large file is read by range.** `Read` pages a long file and says when
   a view is partial; `sed -n '<a>,<b>p'` is the shell form. Open a file whole
   only where its size is known to fit a page, and `wc -l` is a call that can
@@ -195,9 +195,9 @@ at 1.56 and 1.80 (#456).
 own definition. A frame is a wide read of independent documents (#263), so
 it is the kind batching pays on, and the bar sits under the band the
 framers of 0.11.2–0.12.2 that finished read: 1.46–1.79 (#370, #376, #385,
-#456). It is a
-lens on your segment's reading and promises no saving — §*Why the frame is
-not the builder's to draw* refuses that claim, and it holds here too.
+#456). It is a lens on your segment's reading and promises no saving —
+§*Why the frame is not the builder's to draw* refuses that claim, and it
+holds here too.
 
 ## `questions.md` is the residue, not a collection
 

@@ -2099,7 +2099,14 @@ def report(data):
             f"already produced"
             + (f" ({minutes(exact)} of it identical)" if exact > 0 else "")
         )
-    if data["tools_per_turn"] < 1.2:
+    # Compared at the two places the ratio is printed to, as `report_grades`
+    # does (#640, round 2's 🟡 8): unrounded, 241 calls over 201 turns (1.199)
+    # printed `batching 1.20 tools per turn` under an advisory the protocol
+    # states as below 1.2, and the `nothing obvious` line went missing beside
+    # it. The verdict moves only for a ratio in [1.195, 1.2), so every reading
+    # outside that band reads as it did and stays comparable with the readings
+    # published since 0.9.4.
+    if round(data["tools_per_turn"], 2) < 1.2:
         # Above 1 the one-at-a-time claim is one the number no longer
         # supports — and under per-block counting it never could rise to
         # contradict it, which is how the claim printed on five straight runs.
@@ -2131,7 +2138,7 @@ def report(data):
             f"  context            {growth[0]:,} → {growth[2]:,} input tokens; "
             f"later calls cost more than the same call would have earlier"
         )
-    if same <= 0 and data["tools_per_turn"] >= 1.2:
+    if same <= 0 and round(data["tools_per_turn"], 2) >= 1.2:
         print("  nothing obvious — the command time is the command's own cost")
 
 
@@ -2497,11 +2504,12 @@ def report_grades(rows):
     meeting it, and the ratio compared is the one printed, to two places, in
     the table above and on the line: compared unrounded, 79 calls over 44
     turns (1.7955) printed `1.80 tools per turn against the reviewing bar of
-    1.8`, a line contradicting the row above it (round 1's 🟡 1). Every count prints even when nothing is under, which
-    is `report_segments`' own rule: a grade that silently matched nothing
-    reads exactly like a run whose rows all met their bars. Exempt and
-    ungraded are counted apart, because one is the protocol's judgment and
-    the other is a kind nobody has measured a band for.
+    1.8`, a line contradicting the row above it (round 1's 🟡 1). Every
+    count prints even when nothing is under, which is `report_segments`' own
+    rule: a grade that silently matched nothing reads exactly like a run
+    whose rows all met their bars. Exempt and ungraded are counted apart,
+    because one is the protocol's judgment and the other is a kind nobody has
+    measured a band for.
 
     It refuses nothing and the exit code stays 0. The bar is a lens, and a
     grade that failed a run would be the refusal threshold the protocol says
