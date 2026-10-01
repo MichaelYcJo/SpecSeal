@@ -16,7 +16,8 @@
   tells the model to ask the person with AskUserQuestion. Under the
   `automation` press it asks nobody. `git -c specseal.waive=review commit …`
   is the waiver in git's own spelling, and the old `: '[no-review]'; git
-  commit …` keeps working. A command that sets `core.hooksPath` or a
+  commit …` keeps working for the one Bash call that carries it, and for no
+  other agent's call in the same session. A command that sets `core.hooksPath` or a
   `GIT_CONFIG*` variable, or empties its environment with `env -i`, is
   still judged before it runs, because those can keep git's hooks from
   judging it. `--no-verify` is met where the branch moves, and nothing but a

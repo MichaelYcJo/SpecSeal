@@ -18,7 +18,9 @@ def main():
         return
     if not isinstance(payload, dict) or payload.get("tool_name") != "Bash":
         return
-    answers.clear(payload.get("session_id") or "")
+    command = (payload.get("tool_input") or {}).get("command", "") or ""
+    call = answers.call_id(payload.get("tool_use_id"), command)
+    answers.clear(payload.get("session_id") or "", call)
 
 
 if __name__ == "__main__":

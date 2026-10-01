@@ -238,13 +238,17 @@ stops the session, because nothing can tell what it reduces to without
 running the shell, and the gate fails closed. So searching your patch for a
 commit and finding none does not clear it.
 
-That second reason is about a reader, and since #692 the reader judges only a
-clone whose hooks slot is somebody else's. Where this plugin's git hooks run —
-every opted-in clone a session reaches, unless `core.hooksPath` or a hook file
-it did not write holds the slot — git judges a commit inside the commit, in
-the worktree it lands in, and no command text is read at all
-(`docs/commit-review-gate-spec.md` §*The commit gate inside git*). The first
-reason holds everywhere, and it is the one that makes this rule yours.
+That second reason is about a reader, and since #692 the reader judges a
+commit only where git's hooks cannot: a clone whose hooks slot is somebody
+else's, an opted-in clone no session has reached yet, a target it cannot
+place from a session whose own clone carries no hooks, and a command whose
+words can keep the hooks from running (`core.hooksPath`, `GIT_CONFIG*`,
+`env -i`). Everywhere else — every opted-in clone a session reaches, unless
+`core.hooksPath` or a hook file it did not write holds the slot — git judges
+a commit inside the commit, in the worktree it lands in, and no command text
+is read for it (`docs/commit-review-gate-spec.md` §*The commit gate inside
+git*). The first reason holds everywhere, and it is the one that makes this
+rule yours.
 
 ## §10 Batch independent reads and runs
 
@@ -343,10 +347,11 @@ to you as a refusal rather than to them as a prompt, and the shape above is
 the one that does not stop at all.
 
 Both reasons are about the reading of a command, and since #692 that reading
-judges only a clone whose hooks slot is somebody else's. Where this plugin's
-git hooks run, git judges the commit in the worktree it lands in: a `cd` that
-failed, a `;`, a loop variable and a heredoc commit exactly where bash runs
-them, and are judged there (`docs/commit-review-gate-spec.md` §*The commit
-gate inside git*). The shape above is still the one to write, because it is
-also the one a person reading the transcript can follow, and it is the only
-one a foreign clone's reading can place.
+judges a commit only where git's hooks cannot — §9 names the four places.
+Where this plugin's git hooks run, git judges the commit in the worktree it
+lands in: a `cd` that failed, a `;`, a loop variable and a heredoc commit
+exactly where bash runs them, and are judged there
+(`docs/commit-review-gate-spec.md` §*The commit gate inside git*). The shape
+above is still the one to write, because it is also the one a person reading
+the transcript can follow, and it is the only one the reading can place where
+it still judges.

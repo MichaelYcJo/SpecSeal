@@ -65,6 +65,43 @@ def claude_ancestor(start=None, depth=20):
     return None
 
 
+def _ps(pid, fields):
+    try:
+        return subprocess.run(
+            ["ps", "-ww", "-o", fields, "-p", str(pid)],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=5,
+        ).stdout.strip()
+    except (OSError, subprocess.SubprocessError):
+        return ""
+
+
+def call_args(start=None, depth=20):
+    """The argv of every process between the hook and the nearest `claude`
+    above it, nearest first; [] where no `claude` is found.
+
+    The Bash tool's shell is one of them, and it carries the command it runs
+    in its argv, so `hooks/answers.py#given` can tell which Bash call a
+    commit came from (round 1 of #692, 🟡 9).
+    """
+    pid = os.getppid() if start is None else start
+    found = []
+    for _ in range(depth):
+        if pid is None or pid <= 1:
+            return []
+        parent, _, comm = _ps(pid, "ppid=,comm=").partition(" ")
+        if os.path.basename(comm.strip()) == "claude":
+            return found
+        found.append(_ps(pid, "args="))
+        try:
+            pid = int(parent)
+        except ValueError:
+            return []
+    return []
+
+
 def lease_dirs(common):
     """Every `specseal-leases` directory of the clone at `common`."""
     found = [os.path.join(common, LEASES)]

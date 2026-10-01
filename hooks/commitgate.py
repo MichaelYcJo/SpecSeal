@@ -64,14 +64,23 @@ def _context(cwd, environ):
 
 def waived(cwd, session):
     """The arms this command waived: `-c specseal.waive=<arm>`, and the old
-    bare word carried over from the Bash call (P3)."""
+    bare word carried over from the Bash call this commit runs under (P3,
+    round 1's 🟡 9). The ancestry is walked once, and only if an answer is
+    there to match it."""
     out = set()
     for value in gate.git(["config", "--get-all", "specseal.waive"], cwd).splitlines():
         for word in value.replace(",", " ").split():
             if word in (gate.REVIEW, gate.PARITY):
                 out.add(word)
+    walked = []
+
+    def args():
+        if not walked:
+            walked.append(hooksession.call_args())
+        return walked[0]
+
     for arm, token in gate.TOKENS.items():
-        if answers.given(session, token):
+        if answers.given(session, token, args):
             out.add(arm)
     return out
 

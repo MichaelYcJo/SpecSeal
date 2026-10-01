@@ -25,7 +25,8 @@ def main():
         return
     session = payload.get("session_id") or ""
     command = (payload.get("tool_input") or {}).get("command", "") or ""
-    answers.write(session, tokens.given(command))
+    call = answers.call_id(payload.get("tool_use_id"), command)
+    answers.write(session, call, command, tokens.given(command))
 
 
 if __name__ == "__main__":

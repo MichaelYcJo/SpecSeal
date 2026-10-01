@@ -680,35 +680,68 @@ def test_s5_both_spellings_the_refusal_names_actually_commit(world):
     world.change(world.main)
     before = world.head(world.main)
     command = ": '[no-review]'; git commit -q -m y"
-    dispatch = HOOKS / "dispatch.py"
+    group(world, "pre-bash", command, "toolu_a")
+    got = as_a_call(world, command)
+    assert got.returncode == 0, got.stderr
+    assert world.head(world.main) != before
+    group(world, "post-bash", command, "toolu_a")
+    world.change(world.main)
+    again = as_a_call(world, "git commit -q -m z")
+    assert again.returncode != 0, "the answer outlived the call that carried it"
+
+
+def group(world, name, command, call):
+    """One dispatcher group for one Bash call, as the harness runs it."""
     payload = {
         "tool_name": "Bash",
         "tool_input": {"command": command},
         "cwd": str(world.main),
         "session_id": SESSION,
+        "tool_use_id": call,
     }
     subprocess.run(
-        [sys.executable, str(dispatch), "pre-bash"],
+        [sys.executable, str(HOOKS / "dispatch.py"), name],
         input=json.dumps(payload),
         capture_output=True,
         text=True,
         env=env(world.home),
         check=True,
     )
-    got = world.sh(command)
+
+
+def as_a_call(world, command):
+    """COMMAND as the Bash tool runs it: a shell of its own, carrying the
+    command in its argv, below a process named `claude`."""
+    claude = world.tmp / "bin" / "claude"
+    if not claude.exists():
+        fake_claude(world)
+    return subprocess.run(
+        [str(claude), "-c", f'{q(BASH)} -c "$CALL_COMMAND"; exit $?'],
+        cwd=str(world.main),
+        capture_output=True,
+        text=True,
+        env=env(world.home, CALL_COMMAND=command),
+        stdin=subprocess.DEVNULL,
+        timeout=60,
+    )
+
+
+def test_an_old_spelling_waives_no_other_agents_commit(world):
+    """Round 1's 🟡 9, c25: while agent A's call carrying `[no-review]` runs,
+    agent B's commit under the same session id is its own command, and is
+    judged; and B's call starting does not take A's answer away."""
+    a = ": '[no-review]'; git commit -q -m a"
+    group(world, "pre-bash", a, "toolu_a")
+    group(world, "pre-bash", "git commit -q -m b", "toolu_b")
+    world.change(world.main)
+    before = world.head(world.main)
+    b = as_a_call(world, "git commit -q -m b")
+    assert b.returncode != 0, "A's token waived B's commit"
+    assert world.head(world.main) == before
+    group(world, "post-bash", "git commit -q -m b", "toolu_b")
+    got = as_a_call(world, a)
     assert got.returncode == 0, got.stderr
     assert world.head(world.main) != before
-    subprocess.run(
-        [sys.executable, str(dispatch), "post-bash"],
-        input=json.dumps(payload),
-        capture_output=True,
-        text=True,
-        env=env(world.home),
-        check=True,
-    )
-    world.change(world.main)
-    again = world.sh("git commit -q -m z")
-    assert again.returncode != 0, "the answer outlived the call that carried it"
 
 
 def test_s6_inside_a_message_the_waiver_is_prose(world):

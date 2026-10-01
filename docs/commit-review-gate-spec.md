@@ -100,8 +100,13 @@ that runs, the git-native waiver first: `git -c specseal.waive=review commit
 and which inside a message is prose. The older `: '[no-review]'; git commit …`
 keeps working (`questions.md` P3, answer (a)): `hooks/answer-write.py` reads
 the bare word out of the Bash call and `hooks/answers.py` carries it to the
-hook for that call alone.
-Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s4_under_the_press_the_refusal_names_no_question_tool, tests/test_the_commit_gate_decides_at_the_commit.py::test_s5_an_attended_session_is_told_to_ask_and_the_second_attempt_is_the_same, tests/test_the_commit_gate_decides_at_the_commit.py::test_s5_both_spellings_the_refusal_names_actually_commit, tests/test_the_commit_gate_decides_at_the_commit.py::test_s6_inside_a_message_the_waiver_is_prose
+hook for that call alone. The parent and every subagent share one session id,
+so the answer is kept per call, under the payload's `tool_use_id` with the
+command beside it, and given only to a commit whose ancestry up to the
+`claude` process carries that command — the Bash tool's shell holds it in its
+argv. Another agent's commit in the same moment is its own command and is
+judged, and another agent's call starting or ending leaves the answer alone.
+Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s4_under_the_press_the_refusal_names_no_question_tool, tests/test_the_commit_gate_decides_at_the_commit.py::test_s5_an_attended_session_is_told_to_ask_and_the_second_attempt_is_the_same, tests/test_the_commit_gate_decides_at_the_commit.py::test_s5_both_spellings_the_refusal_names_actually_commit, tests/test_the_commit_gate_decides_at_the_commit.py::test_s6_inside_a_message_the_waiver_is_prose, tests/test_the_commit_gate_decides_at_the_commit.py::test_an_old_spelling_waives_no_other_agents_commit, tests/test_the_old_spellings_reach_the_hook.py::test_an_answer_is_given_to_the_call_that_carried_it_and_no_other, tests/test_the_old_spellings_reach_the_hook.py::test_another_call_neither_replaces_nor_clears_an_answer
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
 **`--no-verify` is met where the branch moves, and nothing else that moves a
@@ -202,6 +207,14 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
   aborted commit left can pass a later `--no-verify` commit with the same
   HEAD, tree and date; and no commit counts as the sequencer's, so a
   `rebase --continue` into an undeclared repository is refused.
+- **The old spelling waives only where the hook can find the call's shell.**
+  It needs `ps` and a `claude` process above the commit, and a shell whose
+  argv carries the command, which is how the Bash tool runs one today. Where
+  any of the three is missing — Windows, a commit no `claude` started, a
+  harness that passes the command another way — the bare word waives
+  nothing and the refusal names `git -c specseal.waive=…`, the spelling that
+  belongs to its own command. Two agents running byte-for-byte the same
+  command carrying the token are both waived, because each carried it.
 - **Latency.** A judged commit starts one interpreter in `pre-commit` and, at
   `prepared`, one in `reference-transaction`: 209–400 ms a commit on the
   machine phase 1 measured under load, against 57 ms with no hooks (M10). A
@@ -212,6 +225,11 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
   a person's commit pays the two interpreter starts so the stub can look for
   a `claude` ancestor: round 1 of #692 measured 396 ms against 125 ms with the
   stubs and no lease and 50 ms with no stubs, and the commit was not judged.
+  The installer runs first in every Bash call's `pre-bash` group, and with
+  current stubs it starts two `git` processes and reads each stub: a median
+  113 ms in the dispatcher's process on the machine round 1's fix pass
+  measured under load, where one bare `git rev-parse` took 48 ms. That is
+  paid on every Bash call in an opted-in clone, a commit or not.
 - **Windows** runs the stubs through git's bundled `sh`; nothing here has run
   there (M9), and the CI Windows leg is where it first does.
 
@@ -219,7 +237,7 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
 
 | State | What judges a commit |
 |---|---|
-| a clone carrying the stubs | `pre-commit`, then `reference-transaction` for one that skipped it |
+| a clone carrying the stubs | `pre-commit`, then `reference-transaction` for one that skipped it; the PreToolUse reading as well for a command carrying `core.hooksPath`, a `GIT_CONFIG*` assignment or `env -i` |
 | a clone whose hooks slot is foreign | the PreToolUse reading below, as 0.16.0 — said once per session |
 | an opted-in clone no session has reached | the PreToolUse reading below, until a session or a Bash call reaches it |
 | a clone that opted out after the stubs arrived | nothing: each stub reads the opt-in when it runs, and the installer takes them out |
@@ -228,9 +246,10 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
 ## commit-review-gate (PreToolUse, Bash)
 
 This is the reading 0.16.0 shipped, and since #692 it judges only where git
-cannot: a target in a clone without this plugin's stubs, or a target it cannot
-place from a session whose own clone has none. The section above says when it
-stands aside, and everything below describes it as it was.
+cannot: a target in a clone without this plugin's stubs, a target it cannot
+place from a session whose own clone has none, and a command whose words can
+keep the hooks from judging it. The section above says when it stands aside,
+and everything below describes it as it was.
 
 The hook carries **two opt-ins, evaluated independently**. Each has its own
 mark, its own waiver token and its own silence rules, and neither is nested
