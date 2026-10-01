@@ -17,6 +17,7 @@ of its own moment.
 | `seal/specs/1790745049-the-guard-and-consent-stop-depending-on-the-walks-order/overview.md` | the rider in `hooks/cmdline_base.py` says those comments describe `542f920b` and that #692 reconciles them | work item 1790745049's closing memo, a record of what the rider said then |
 | `seal/specs/1790745049-the-guard-and-consent-stop-depending-on-the-walks-order/overview.md` | several of its comments name the worktree guard or the consent writer as a reader | the same memo's divergence row, a record of its own build |
 | `seal/specs/1790745049-the-guard-and-consent-stop-depending-on-the-walks-order/spec.md` | the commit gate still reads both. | work item 1790745049's frame, true of the commit gate on the day it was written; the policy now says which reading |
+| `seal/specs/1790381327-an-automation-run-creates-its-worktrees-without-asking/overview.md` | six rows of `seal/releases/0.9.1.md` and S3, S4 | work item 1790381327's closing memo, a record of its own moment; it shares only the guard's and the consent writer's names with the `hooks/cmdline_base.py` rider this branch rewrote. Reported by `broad-gate --preflight` over the whole branch after the merge of `release/v0.17.0` |
 
 ## Round 1's fix pass
 

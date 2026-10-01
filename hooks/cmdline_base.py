@@ -10,10 +10,10 @@
 #
 # NEVER edit this file, and never add a rule to it. #692 decided where it
 # stays, on the owner's answers of 2026-10-01 (`seal/specs/1790815613-…/
-# questions.md` P4 and P5): no git refuses a branch switch before its tree has
-# moved, so the guard's switch arm reads the command through this copy on
-# every git, permanently; and the guard's creation arm and the consent writer
-# read it only in a clone whose hooks slot is foreign, where git cannot decide.
+# questions.md` P4, P5 and P6): no git refuses a branch switch before its tree
+# has moved, and a hook that runs after a worktree creation cannot undo all of
+# it, so the guard's switch and creation arms and the consent writer read the
+# command through this copy on every git, permanently.
 # The bytes below this comment are pinned to `86256492:hooks/cmdline.py`
 # (`tests/test_the_frozen_reading_never_grows.py`, S11), so a rule added here
 # has to delete that case first. The docstring and comments below are
