@@ -36,7 +36,7 @@ The sealer's stamp and its two lines named two commits and never the branch, the
 
 ## Not done
 
-nothing
+The `PREFLIGHT PASSED` / `PREFLIGHT FAILED` heads #638 added keep their `<tree> against <base>` shape and do not take this work item's names. At the merge, the names went onto the per-check lines below a failed preflight's head (`not_sealed(…, branch, base.ref)`), and the preflight still replaces that head with its own. A preflight is the orchestrator's check before the sealer is spawned and seals nothing, so S1's reason, matching a stamp to its work, does not reach it, and #638's cases pin its head as written. Naming it is a change to `preflight_line` if the owner wants it.
 
 ## Fed back into the spec
 
