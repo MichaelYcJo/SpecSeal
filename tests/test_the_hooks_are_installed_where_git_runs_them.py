@@ -333,10 +333,40 @@ def test_a_lease_in_any_worktree_of_the_clone_starts_python(tmp_path, home):
     wt = tmp_path / "wt"
     g(r, "worktree", "add", "-q", str(wt), "-b", "side")
     put_stubs(r, fake_plugin(tmp_path, "sys.exit(1)\n"))
-    (r / ".git" / "worktrees" / "wt" / "specseal-leases").mkdir()
+    leases = r / ".git" / "worktrees" / "wt" / "specseal-leases"
+    leases.mkdir()
+    (leases / "s1").write_text('{"pid": 1}', encoding="utf-8")
     got = commit(r)
     assert got.returncode != 0
     assert "ran pre-commit" in got.stderr
+
+
+def test_an_emptied_lease_directory_starts_no_python(tmp_path, home):
+    """Round 1's 🟡 11: `hooks/session-lease.py` prunes lease files and never
+    the directory, so a person's commit in every clone a session once used
+    paid the interpreter starts P2 meant to spare it (396 ms against 125)."""
+    r = repo(tmp_path / "r")
+    put_stubs(r, fake_plugin(tmp_path, "sys.exit(1)\n"))
+    (r / ".git" / "specseal-leases").mkdir()
+    got = commit(r)
+    assert got.returncode == 0, got.stderr
+    assert "ran" not in got.stderr
+
+
+@pytest.mark.skipif(os.name == "nt", reason="no execute bit to take away")
+def test_a_stub_git_cannot_run_is_written_again_and_decides_nothing_till_then(
+    tmp_path, home
+):
+    """Round 1's 🟡 3: git skips a hook it cannot execute, so a stub with the
+    right bytes and the wrong mode is no stub."""
+    r = repo(tmp_path / "r")
+    install_mod.install(str(r), "s1")
+    stub = hooks_of(r) / "reference-transaction"
+    stub.chmod(0o644)
+    assert not githooks.decides(str(r))
+    install_mod.install(str(r), "s1")
+    assert stub.stat().st_mode & stat.S_IXUSR
+    assert githooks.decides(str(r))
 
 
 def test_a_stub_whose_entry_point_is_gone_does_nothing(tmp_path, home):

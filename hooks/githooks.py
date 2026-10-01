@@ -42,7 +42,7 @@ installer rewrites it at the next session start or Bash call in the clone.
 per hook per commit cost 209-921 ms on this machine, against the plan's ~200 ms
 row). A commit by a person at their own terminal is not judged (P2, answer
 (a)), and that is known without Python when neither a session variable nor a
-lease directory exists. `reference-transaction` judges only `prepared` with
+lease file exists. `reference-transaction` judges only `prepared` with
 `GIT_AUTHOR_DATE` exported, which phase 1's M12 measured as the one thing every
 `git commit` hands the hook and no merge, reset, clean cherry-pick or revert,
 rebase or pull does, on git 2.34.1, 2.39.5, 2.43.0 and 2.50.1. A rebase, a
@@ -110,13 +110,16 @@ _NARROW = {
 # because S9's second route -- the `claude` ancestor matched against a lease --
 # is the one that survives a harness that exports no variable. Leases sit under
 # each worktree's own git directory (`hooks/session-lease.py`), so the whole
-# clone is looked at.
+# clone is looked at. A lease is a FILE: the writer prunes files older than a
+# day and never the directory, so a directory alone holds nobody (round 1 of
+# #692, 🟡 11). A glob that matches nothing stays a literal word, which `-f`
+# answers no to.
 _P2 = (
     'if [ -z "$CLAUDE_CODE_SESSION_ID$CLAUDECODE" ]; then\n'
     "  c=$(git rev-parse --git-common-dir 2>/dev/null)\n"
     "  l=\n"
-    '  for d in "$c/specseal-leases" "$c"/worktrees/*/specseal-leases; do\n'
-    '    [ -d "$d" ] && l=1\n'
+    '  for f in "$c"/specseal-leases/* "$c"/worktrees/*/specseal-leases/*; do\n'
+    '    [ -f "$f" ] && l=1\n'
     "  done\n"
     '  [ -n "$l" ] || {{ {drain}exit 0; }}\n'
     "fi\n"
@@ -224,11 +227,13 @@ def foreign(top, common):
 def decides(top, common=None):
     """True when git runs this plugin's judgment for actions in `top`'s clone.
 
-    Every stub present with its marker and pointing at an entry point that
-    exists, and nothing moving git's hooks elsewhere. The stub's version is
-    not asked: a stub an older plugin wrote still runs a judgment, and the one
-    it runs is the path it names. A text path that stands aside on this
-    answer is never standing aside for a hook that will not run.
+    Every stub present with its marker, executable, and pointing at an entry
+    point that exists, and nothing moving git's hooks elsewhere. git skips a
+    hook it cannot execute, so a stub without its execute bit is no stub
+    (round 1 of #692, 🟡 3). The stub's version is not asked: a stub an older
+    plugin wrote still runs a judgment, and the one it runs is the path it
+    names. A text path that stands aside on this answer is never standing
+    aside for a hook that will not run.
     """
     if not top:
         return False
@@ -240,7 +245,10 @@ def decides(top, common=None):
         return False
     directory = hooks_dir(common)
     for hook in HOOKS:
-        found = read_stub(os.path.join(directory, hook))
+        path = os.path.join(directory, hook)
+        found = read_stub(path)
         if not found or not found[0] or not found[2] or not os.path.isfile(found[2]):
+            return False
+        if not os.access(path, os.X_OK):
             return False
     return True

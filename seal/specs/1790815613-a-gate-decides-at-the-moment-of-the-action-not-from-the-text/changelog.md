@@ -43,4 +43,6 @@
   removed. A clone with `core.hooksPath` set, or a hook file without that
   line, gets nothing, and the session is told once. A judged commit pays
   one or two Python starts, about 200–400 ms on the machine measured, and a
-  fetch, a merge and a person's own commit pay none.
+  fetch and a merge pay none. A person's own commit pays none in a clone
+  where no session has worked in the last day; in one where a session has,
+  it pays the two starts and is still not judged.

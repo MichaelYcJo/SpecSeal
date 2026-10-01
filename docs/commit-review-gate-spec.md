@@ -67,12 +67,13 @@ directory, which every worktree of it shares. Each stub
 carries the marker line `# specseal-git-hook <version>` and the installed
 plugin's absolute path, which it tests before running anything, so removing
 the plugin leaves stubs that do nothing. A stub whose bytes differ from what
-the running plugin would write is rewritten. `core.hooksPath` set at any
+the running plugin would write, or that git cannot execute, is rewritten, and
+until it is the clone is not one where git decides. `core.hooksPath` set at any
 level, or a hook file without the marker, makes the clone foreign: nothing is
 written, the plugin's own stubs there are taken out, and the session is told
 once (`questions.md` P1, answer (a)). A clone that does not opt in gets
 nothing and loses the stubs it had.
-Enforced by: tests/test_the_hooks_are_installed_where_git_runs_them.py::test_the_stubs_land_in_the_common_hooks_directory_from_a_linked_worktree, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_core_hooks_path_makes_the_clone_foreign, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_a_hook_file_without_the_marker_is_never_touched, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_a_clone_that_does_not_opt_in_gets_nothing_and_loses_ours
+Enforced by: tests/test_the_hooks_are_installed_where_git_runs_them.py::test_the_stubs_land_in_the_common_hooks_directory_from_a_linked_worktree, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_core_hooks_path_makes_the_clone_foreign, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_a_hook_file_without_the_marker_is_never_touched, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_a_clone_that_does_not_opt_in_gets_nothing_and_loses_ours, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_a_stub_git_cannot_run_is_written_again_and_decides_nothing_till_then
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
 **A commit with no Claude session behind it is a person's own, and is not
@@ -82,9 +83,9 @@ every Bash child and git hands to its hooks. Where it is absent, as under
 `env -i`, the hook takes the lease (`hooks/session-lease.py`) whose recorded
 pid is its nearest ancestor named `claude`. Two leases naming one pid are no
 session. With neither, the commit is the person's (`questions.md` P2, answer
-(a)), and the stub leaves before Python starts. `hooks/hooksession.py` holds
-the two routes.
-Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_no_variable_and_no_lease_is_a_persons_own_commit, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_the_lease_names_the_session_when_no_variable_is_exported, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_an_emptied_environment_is_still_judged_through_the_lease
+(a)), and the stub leaves before Python starts wherever no lease file stands
+in the clone. `hooks/hooksession.py` holds the two routes.
+Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_no_variable_and_no_lease_is_a_persons_own_commit, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_the_lease_names_the_session_when_no_variable_is_exported, tests/test_the_commit_gate_decides_at_the_commit.py::test_s9_an_emptied_environment_is_still_judged_through_the_lease, tests/test_the_hooks_are_installed_where_git_runs_them.py::test_an_emptied_lease_directory_starts_no_python
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
 **The arms, the marks and the declaration are the ones below, asked of
@@ -204,8 +205,13 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
 - **Latency.** A judged commit starts one interpreter in `pre-commit` and, at
   `prepared`, one in `reference-transaction`: 209–400 ms a commit on the
   machine phase 1 measured under load, against 57 ms with no hooks (M10). A
-  ref update that is not a commit, a fetch's among them, and a person's own
-  commit start none.
+  ref update that is not a commit, a fetch's among them, starts none, and so
+  does a person's own commit where no lease file stands in the clone. A lease
+  stands for up to a day after its session's last tool call
+  (`hooks/session-lease.py` prunes files older than that), and while one does
+  a person's commit pays the two interpreter starts so the stub can look for
+  a `claude` ancestor: round 1 of #692 measured 396 ms against 125 ms with the
+  stubs and no lease and 50 ms with no stubs, and the commit was not judged.
 - **Windows** runs the stubs through git's bundled `sh`; nothing here has run
   there (M9), and the CI Windows leg is where it first does.
 

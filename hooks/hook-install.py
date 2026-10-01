@@ -112,7 +112,10 @@ def write_stubs(directory):
         path = os.path.join(directory, hook)
         text = githooks.stub_text(hook, version=version)
         found = githooks.read_stub(path)
-        if found and found[0]:
+        # The right bytes are not enough: git skips a hook it cannot execute,
+        # so a stub that lost its execute bit is written again (round 1 of
+        # #692, 🟡 3).
+        if found and found[0] and os.access(path, os.X_OK):
             try:
                 with open(path, encoding="utf-8") as f:
                     if f.read() == text:
