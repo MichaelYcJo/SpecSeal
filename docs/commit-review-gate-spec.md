@@ -224,15 +224,17 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
   two agents running the same command are both waived, and so is a command
   carrying no token that contains another open call's whole command that
   way (round 2 of #692, executed).
-- **Latency.** A judged commit starts one interpreter in `pre-commit` and, at
-  `prepared`, one in `reference-transaction`: 209–400 ms a commit on the
+- **Latency.** A judged commit starts one interpreter in `pre-commit`, one in
+  `reference-transaction` at `prepared`, and, once it lands, one in
+  `post-commit`, which has no narrowing line: 209–400 ms a commit on the
   machine phase 1 measured under load, against 57 ms with no hooks (M10). A
   ref update that is not a commit, a fetch's among them, starts none, and so
   does a person's own commit where no lease file stands in the clone. A lease
   stands for up to a day after its session's last tool call
   (`hooks/session-lease.py` prunes files older than that), and while one does
-  a person's commit pays the two interpreter starts so the stub can look for
-  a `claude` ancestor: round 1 of #692 measured 396 ms against 125 ms with the
+  a person's commit pays three interpreter starts, `pre-commit`,
+  `reference-transaction` at `prepared` and `post-commit`, so the stub can
+  look for a `claude` ancestor: round 1 of #692 measured 396 ms against 125 ms with the
   stubs and no lease and 50 ms with no stubs, and the commit was not judged.
   The installer runs first in every Bash call's `pre-bash` group, and with
   current stubs it starts two `git` processes and reads each stub: a median

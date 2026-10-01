@@ -46,7 +46,8 @@
   and the installed plugin's path, and does nothing once the plugin is
   removed. A clone with `core.hooksPath` set, or a hook file without that
   line, gets nothing, and the session is told once. A judged commit pays
-  one or two Python starts, about 200–400 ms on the machine measured, and a
-  fetch and a merge pay none. A person's own commit pays none in a clone
-  where no session has worked in the last day; in one where a session has,
-  it pays the two starts and is still not judged.
+  up to three Python starts — `pre-commit`, `reference-transaction`, and
+  `post-commit` once it lands — about 200–400 ms on the machine measured,
+  and a fetch and a merge pay none. A person's own commit pays none in a
+  clone where no session has worked in the last day; in one where a session
+  has, it pays the three starts and is still not judged.
