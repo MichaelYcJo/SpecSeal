@@ -93,6 +93,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # command line.
 import cmdline_base as cmdline
 import console
+import githooks
 import optin
 
 # One empty file per session per clone. Its existence is the fact.
@@ -485,6 +486,12 @@ def main():
 
     top = optin.repo_root(where)
     if not top:
+        return
+    # Where this plugin's git hooks run, `post-checkout` writes the record for
+    # a creation git made and kept (#692, `hooks/creationgate.py`). A command
+    # that RAN is no longer evidence there: the creation in it may have been
+    # taken back by the hook, and a record for it would be consent nobody gave.
+    if tool == "Bash" and githooks.decides(top):
         return
     record(top, session)
 
