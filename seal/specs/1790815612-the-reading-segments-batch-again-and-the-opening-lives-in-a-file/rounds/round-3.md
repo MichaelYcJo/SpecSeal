@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 696 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `683367958650f26024e679198112f6a72d072922..0d802f32de05231e1976f81ee3ffa7122b7eb62f`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 10 (the `delegated` note's unrounded comparison), which predates the work item and lies outside every unit the run created, so it takes the filing ladder rather than a fix on this branch |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,8 +29,8 @@ Round 3 is the verifying round after the run's one reopening, so it is the run's
 | 🟢 | the cross-pin still fails when the script and the protocol disagree | `tests/test_the_handoff_before_round_one.py:611` | confirmed | executed: threshold moved to 1.3, red naming 1.3; comparison unrounded, red on the pattern; the `>= 1.2` gate is read by no pattern, as before the fix |
 | 🟢 | round 2's finding 9 is closed at its three coordinates | `skills/verify/scripts/session_cost.py:2500`, `agents/framer.md:180`, `:198` | confirmed | read: widths measured; executed: `tests/test_docs_line_wrap.py` green, ruff check and format check exit 0 |
 | 🟢 | the four re-stamped rows' notes and the changelog's corrected sentence are true | `seal/releases/0.8.3.md:126`, `seal/releases/0.9.4.md:32`, `:35`, `seal/releases/0.9.5.md:47` | confirmed | read against the `report` diff; unscoped `evidence-check .` exit 0 |
-| 🟡 10 | the `delegated` note compares the unrounded maximum with 60 and prints it rounded, so 59.6 s reads `1.0m` in the column and *never reaches a minute here — 60s at most* under it | `skills/verify/scripts/session_cost.py:2219` | open | executed: a deleted probe, one spawn paired in 59.6 s; finding 8's cause on a duration, predates the work item (`93d27574`, #294) and lies outside every unit this run created, so it takes the filing ladder |
-| ⬜ 11 | the changelog fragment's corrected sentence leaves one line at 109 columns — finding 9's class, written by the commit that closed it | `seal/specs/1790815612-the-reading-segments-batch-again-and-the-opening-lives-in-a-file/changelog.md:32` | open | read: widths measured; a correction to the run's paperwork, outside `Needs a fix` |
+| 🟡 10 | the `delegated` note compares the unrounded maximum with 60 and prints it rounded, so 59.6 s reads `1.0m` in the column and *never reaches a minute here — 60s at most* under it | `skills/verify/scripts/session_cost.py:2219` | deferred #701 | #701 — Predates the work item (`93d27574`, #294) and lies outside every unit this run created; the run is capped, so it takes the filing ladder. #701 carries the measurement and points at this round's paste-ready fix; executed: a deleted probe, one spawn paired in 59.6 s; finding 8's cause on a duration, predates the work item (`93d27574`, #294) and lies outside every unit this run created, so it takes the filing ladder |
+| ⬜ 11 | the changelog fragment's corrected sentence leaves one line at 109 columns — finding 9's class, written by the commit that closed it | `seal/specs/1790815612-the-reading-segments-batch-again-and-the-opening-lives-in-a-file/changelog.md:32` | answered | corrected at 0d802f32; the paragraph is rewrapped, no word changed; read: widths measured; a correction to the run's paperwork, outside `Needs a fix` |
 
 ## Paste-ready fixes
 
