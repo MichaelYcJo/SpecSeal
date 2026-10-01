@@ -120,7 +120,8 @@ In:
   reads as BROKEN (no such file); they are named here by their full paths. The build
   drifted 35 rows in 15 files, not 26 in 11: it also edits `sealed_record`,
   `main` and `PREFLIGHT_RECORD` of the gate and four document sections
-  (`phases/phase-4.md`).
+  (`phases/phase-4.md`). **Corrected 2026-10-02 by round 1's fix pass:** 35
+  coordinates, cited by 48 rows.
 
 Out:
 

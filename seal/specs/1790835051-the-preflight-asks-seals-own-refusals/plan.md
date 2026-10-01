@@ -141,7 +141,8 @@ S12; `skills/verify/scripts/broad_gate.py#gate` by fifteen rows across
 `seal/releases/*.md`, `seal/ledger/*.md`, counted 2026-10-01). **Corrected
 2026-10-01 by phase 4:** the three coordinates were written with short paths
 and their `e83db346` hashes, which the records arm reads as BROKEN; and the
-build drifted 35 rows in 15 files (`phases/phase-4.md`).
+build drifted 35 rows in 15 files (`phases/phase-4.md`). **Corrected
+2026-10-02 by round 1's fix pass:** 35 coordinates, cited by 48 rows.
 Every one drifts. The rule is `CLAUDE.md` §*Repo rule — a change writes
 fragments*: re-read each against the edit, correct the claim in place with a
 `Corrected 2026-10-01` note where the edit made it false, and re-stamp with

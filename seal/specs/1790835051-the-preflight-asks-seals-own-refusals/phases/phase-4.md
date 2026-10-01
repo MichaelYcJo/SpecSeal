@@ -28,7 +28,10 @@ the acts table of `skills/implement/orchestration.md`, `verify`'s broad-gate
 section, and `templates/config.md`'s `Broad gate` section. Two rows anchor
 on whole files: `templates/config.md` (0.5.0 S8) and
 `skills/code-review/orchestration.md` (0.9.3). `evidence-check` named every
-one of them. Every row was read against the edit, file by file, and every
+one of them. **Corrected 2026-10-02 by round 1's fix pass:** 35 is the
+number of drifted coordinates `evidence-check` reports, one per coordinate
+per file; the rows that cite them are 48, in the same 15 files, and all 48
+were re-stamped in `8e9528c2`. Every row was read against the edit, file by file, and every
 claim still held: the six `raise` sites, the one `kept_broad_gate` path, the
 single read of `args.base`, the full run's two endings, #638's P1–P6, and the
 document claims, which are about content this work did not alter. So none
