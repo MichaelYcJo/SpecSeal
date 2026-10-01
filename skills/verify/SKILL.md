@@ -131,7 +131,8 @@ command prints `no baseline:` with the cause and what the command printed,
 writes nothing, measures no arm, and exits 2 — the code it already gives a
 negative `--timeout`. If the command itself changed the module during that
 run, the module is put back from the bytes read before it and the line says
-so instead.
+so instead. Where it cannot be put back, because the command left it
+unreadable, unwritable or replaced by a directory, the line names the error.
 
 Two things it does not claim. **A survivor is not automatically a defect:** an
 arm that cannot be constructed, or one whose removal preserves behaviour,

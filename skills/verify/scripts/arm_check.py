@@ -95,6 +95,9 @@ class NoBaseline(Exception):
     `put_back` says the command itself changed the module during that run and
     it was restored from the bytes read before it, so the line a person reads
     cannot say *Nothing was written* over a write (round 1, 🟡 1).
+    `not_put_back` is why that restore failed, where the command left the
+    module unreadable, unwritable or replaced, so the line says it instead of
+    a traceback that loses the line (round 2, 🟡 1).
     """
 
     def __init__(self, reason: str, output: str = "") -> None:
@@ -102,6 +105,7 @@ class NoBaseline(Exception):
         self.reason = reason
         self.output = output
         self.put_back = False
+        self.not_put_back: str | None = None
 
 
 def _text(captured: bytes | None) -> str:
@@ -882,8 +886,10 @@ def run_arms(
     `timeout`, or cannot be spawned raises `NoBaseline` with the cause and
     what the command printed, before this process writes anything. Whatever
     the command itself changed in the module during that run is put back
-    from the bytes read before it, pass or refusal, and a module it left alone
-    is never written. It runs on every call, `only` or not, and once.
+    from the bytes read before it, pass, refusal or interrupt, and a module it
+    left alone is never written. Where the command left it so that it cannot
+    be put back, a refusal names the error on its line and a pass or an
+    interrupt raises it. It runs on every call, `only` or not, and once.
 
     Every operator in `operators` is applied to every arm that has a mutation
     for it, because the two ask different questions and #262's own count is
@@ -960,14 +966,27 @@ def run_arms(
             with open(path, "rb") as f:
                 changed = f.read() != original
         except OSError:
-            # Removed, or made unreadable: either way not what was read.
+            # Removed, made unreadable, or replaced: not what was read.
             changed = True
+        not_put_back = None
         if changed:
             # On a pass the loop's outer `finally` would put it back as well;
             # on a refusal, and on an interrupt, nothing else does.
-            restore(path, original, original_sha)
+            try:
+                restore(path, original, original_sha)
+            except (OSError, RuntimeError) as exc:
+                # A module the command left unreadable or unwritable, or
+                # replaced with a directory, cannot be put back. On a refusal
+                # that is said on the refusal's own line: raised from here it
+                # took the line and the command's output with it, at exit 1
+                # (round 2, 🟡 1). On a pass or an interrupt it propagates, as
+                # the loop's own first write would fail on it.
+                if refusal is None:
+                    raise
+                not_put_back = f"{type(exc).__name__}: {exc}"
     if refusal is not None:
         refusal.put_back = changed
+        refusal.not_put_back = not_put_back
         raise refusal
 
     verdicts: list[Verdict] = []
@@ -1248,7 +1267,11 @@ def main(argv=None):
             f"{args.module} as it is before anything is mutated, because a "
             f"failure under a mutation says nothing about the mutation. "
             + (
-                f"The command changed {args.module} during that run, and it "
+                f"The command changed {args.module} during that run, and "
+                f"putting it back failed: {exc.not_put_back}. No arm was "
+                f"measured."
+                if exc.not_put_back
+                else f"The command changed {args.module} during that run, and it "
                 f"was put back from the bytes read before it. No arm was "
                 f"measured."
                 if exc.put_back

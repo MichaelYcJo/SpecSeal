@@ -12,7 +12,8 @@
 # With no --tests it lists the arms and mutates nothing. With --tests it
 # runs that command once against the module as it is, and refuses the run
 # with exit 2 unless it passes there -- nothing written, no arm measured,
-# and anything the command itself changed in the module put back.
+# and anything the command itself changed in the module put back, or, where
+# it cannot be, the reason said.
 # Then it mutates each arm in turn, runs the command, and reports the arms
 # nothing kills -- restoring the module from held bytes and comparing the
 # hash after every one. A measured run is report-only: exit 0 whether or not

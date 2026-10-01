@@ -14,7 +14,8 @@
   and no arm was measured.*, then the command's own output, and exits 2. That
   is the code a negative `--timeout` already gets. If the command itself
   changed the module during that run, the module is put back from the bytes
-  read before it and the line says so instead. A run that measured its
+  read before it and the line says so instead, or names the error where the
+  command left it so that it cannot be put back. A run that measured its
   arms still exits 0 whether or not one survived. Measured on
   `hooks/review-history-guard.py` against `tests/test_chain_hooks.py`, the
   extra run took the whole command from 107.9 s to 110.5 s on one machine.
