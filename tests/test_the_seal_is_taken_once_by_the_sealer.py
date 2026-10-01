@@ -3275,6 +3275,10 @@ def test_the_home_is_read_off_the_cell_after_the_word(tmp_path):
         ("deferred to whoever owns CI/CD next", "to whoever owns CI/CD next"),
         ("deferred — read/write order is in seal/follow-up.md", "seal/follow-up.md"),
         ("deferred and/or #701", "#701"),
+        # A path written from `./` is still the file, and words in a code
+        # span lose the span's marks.
+        ("deferred see ./seal/follow-up.md", "seal/follow-up.md"),
+        ("deferred `phase 9 of this branch`", "phase 9 of this branch"),
         # A file name keeps its underscores (round 2's 🟡 2).
         (
             "deferred `tests/test_the_gate_names_every_step_ci_runs.py`",

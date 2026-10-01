@@ -2401,7 +2401,7 @@ def sealed_record(item, root):
 # path whose last part carries an extension, so `CI/CD`, `and/or` and
 # `stdout/stderr` stay words and an issue after them is still found (round 2
 # of #666).
-HOME_TOKEN = re.compile(r"#\d+|(?<![\w/.-])[\w-][\w.-]*(?:/[\w.-]+)*\.[A-Za-z]\w+\b")
+HOME_TOKEN = re.compile(r"#\d+|[\w-][\w.-]*(?:/[\w.-]+)*\.[A-Za-z]\w+\b")
 # Where a home written as words ends: a spaced dash, or a sentence's stop.
 HOME_END = re.compile(rf" [{chr(0x2014)}{chr(0x2013)}-] |\. ")
 
