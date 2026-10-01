@@ -25,9 +25,10 @@ The move, in order (`seal/specs/1788331011-…/spec.md`, "The move, in order"):
      describes a layout that no longer exists
   4. every other entry under `.specseal/` → `seal/<same name>`
   5. each `specs/<id>/` whose name is `<unix seconds>-<slug>` AND that carries
-     one of the plugin's marks directly under it — `routing.md`, or a
-     `rounds/` directory — → `seal/specs/<id>/`; anything else under `specs/`
-     stays and is named, because `specs/` stops being SpecSeal's directory
+     one of the plugin's marks directly under it, as git tracks it —
+     `routing.md`, or a file under `rounds/` — → `seal/specs/<id>/`;
+     anything else under `specs/` stays and is named, because `specs/`
+     stops being SpecSeal's directory
      and a project may have had one first. A name is not the proof: a team's
      own `spec.md` and `plan.md` can sit under a directory `date +%s` could
      have named, and every 0.3.x work item carried `routing.md` (#688)
@@ -46,7 +47,8 @@ Boundaries, each pinned in `tests/test_the_root_migrates_itself.py`:
     ignored file under the old roots is not a unit and stays where it is;
     `.specseal/` may remain on disk holding nothing else
   - **only what carries the plugin's marks** — an id-shaped `specs/<x>/`
-    with neither `routing.md` nor `rounds/` is a team's directory: it is not
+    where git tracks neither `routing.md` nor a file under `rounds/` is a
+    team's directory, whatever an empty or ignored one on disk says: it is not
     moved, a row citing it keeps its path, and the printed line names it with
     that reason. A repository holding nothing else of the old layout hears
     nothing at all
@@ -104,8 +106,10 @@ NEW = optin.HOME
 # The shape `date +%s` and a slug produce. `specs/` may hold other things in
 # a project that had the directory before the plugin arrived; those stay.
 ITEM_RE = re.compile(r"^[0-9]{9,10}-[A-Za-z0-9._-]+$")
-# What makes an id-shaped directory the plugin's: `routing.md` as a file or
-# `rounds` as a directory, directly under it. The shape is necessary and not
+# What makes an id-shaped directory the plugin's: `routing.md`, or a file
+# under `rounds/`, directly under it and tracked by git (`tracked_marks`;
+# round 1 of #688 found an empty or ignored `rounds/` read from the disk
+# making a team's directory one). The shape is necessary and not
 # sufficient — `spec.md`, `plan.md` and `overview.md` are names a team's own
 # specification may use, so they are not marks (#688).
 MARKS = ("routing.md", "rounds")
@@ -246,8 +250,9 @@ def entries(root, rel):
 
 def marked(root, name):
     """True when `specs/<name>` is an id-shaped directory carrying one of
-    the plugin's `MARKS` directly under it — the proof that it is a work item
-    and not a team's directory that happens to have the shape."""
+    the plugin's `MARKS` directly under it ON DISK. Read for the symbolic-link
+    refusal alone, because git lists nothing behind a link; what moves is
+    decided by `tracked_marks`, from git, as the units are."""
     if not ITEM_RE.match(name):
         return False
     here = under(root, f"{OLD_ITEMS}/{name}")
@@ -257,24 +262,60 @@ def marked(root, name):
     )
 
 
-def unmarked(root, name):
-    """True when `specs/<name>` has a work item's shape and none of its marks:
-    the case the printed line gives its own reason for."""
+def tracked_marks(root):
+    """The id-shaped names under `specs/` whose mark git TRACKS directly
+    under them — `specs/<name>/routing.md`, or a file under
+    `specs/<name>/rounds/` — or None when git cannot say, which `dirty()`
+    already refuses, so nothing moves on the fallback.
+
+    The move's units come from git (`tracked_names`), and so do its marks.
+    Git tracks no empty directory and no ignored file, so a mark that is
+    either leaves `git status` clean, and read from the disk it made a
+    team's directory a work item (round 1 of #688, 🟡 1)."""
+    try:
+        r = git(root, "ls-files", "-z", "--", OLD_ITEMS)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if r.returncode != 0:
+        return None
+    routing, rounds = MARKS
+    names = set()
+    for path in r.stdout.split("\0"):
+        parts = path.split("/")
+        if len(parts) < 3 or parts[0] != OLD_ITEMS or not ITEM_RE.match(parts[1]):
+            continue
+        if (len(parts) == 3 and parts[2] == routing) or (
+            len(parts) > 3 and parts[2] == rounds
+        ):
+            names.add(parts[1])
+    return names
+
+
+def unmarked(root, name, marks):
+    """True when `specs/<name>` has a work item's shape and none of the marks
+    git tracks: the case the printed line gives its own reason for."""
     return (
         ITEM_RE.match(name) is not None
         and os.path.isdir(under(root, f"{OLD_ITEMS}/{name}"))
-        and not marked(root, name)
+        and name not in marks
     )
 
 
 def old_items(root):
     """(SpecSeal work items under `specs/`, everything else on disk there).
 
-    The first list is what moves and comes from git, each one `marked`; the
-    second is what the printed line names as left behind and comes from the
-    directory, because what stays on disk is what a person will see there.
+    The first list is what moves and comes from git, each one carrying a
+    mark git tracks; the second is what the printed line names as left
+    behind and comes from the directory, because what stays on disk is what
+    a person will see there. Where git cannot list the marks the disk
+    stands in, and `dirty()` refuses that run before anything moves.
     """
-    items = [n for n in entries(root, OLD_ITEMS) if marked(root, n)]
+    marks = tracked_marks(root)
+    items = [
+        n
+        for n in entries(root, OLD_ITEMS)
+        if (n in marks if marks is not None else marked(root, n))
+    ]
     try:
         names = sorted(os.listdir(under(root, OLD_ITEMS)))
     except OSError:
@@ -611,7 +652,8 @@ def main():
         if part
     )
     _, left = old_items(root)
-    shaped = [n for n in left if unmarked(root, n)]
+    marks = tracked_marks(root) or set()
+    shaped = [n for n in left if unmarked(root, n, marks)]
     groups = (
         ([n for n in left if n not in shaped], "not tracked as a SpecSeal work item"),
         (shaped, "no routing.md or rounds/ — not a SpecSeal work item"),

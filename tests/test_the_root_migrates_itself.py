@@ -725,8 +725,8 @@ def plant_team_directory(repo):
 
 def test_an_id_shaped_directory_without_the_marks_stays_and_is_named(hook, repo):
     """B1. The name alone used to be the proof, so a team's `specs/<x>/`
-    carrying `spec.md` and `plan.md` moved with the plugin's own. Only
-    `routing.md` or `rounds/` directly under it makes it SpecSeal's; the
+    carrying `spec.md` and `plan.md` moved with the plugin's own. Only a
+    tracked `routing.md` or file under `rounds/` makes it SpecSeal's; the
     rest stays, nothing is staged for it, and the line says why."""
     plant_team_directory(repo)
     out = message(start(hook, repo))
@@ -808,6 +808,34 @@ def test_a_mark_under_a_name_without_the_shape_is_not_a_work_item(hook, repo):
     assert "moved .specseal/ and 1 work item into seal/" in out, out
     assert (repo / "specs" / "handbook" / "routing.md").is_file()
     assert not (repo / "seal" / "specs" / "handbook").exists()
+
+
+@pytest.mark.parametrize(
+    "shape", ["empty rounds/", "ignored rounds/", "ignored routing.md"]
+)
+def test_a_mark_git_does_not_track_is_not_a_mark(hook, repo, shape):
+    """Round 1 of #688, 🟡 1. Git tracks no empty directory and no ignored
+    file, so a mark that is either leaves `git status` clean, and the marks
+    were read from the disk while the units came from git. The marks come
+    from git now, as the units do, and the team's directory stays."""
+    if shape.startswith("ignored"):
+        write(repo, ".gitignore", "rounds/\nrouting.md\n")
+        git(repo, "add", ".gitignore")
+        git(repo, "commit", "-qm", "ignore the team's local notes")
+    plant_team_directory(repo)
+    if shape == "empty rounds/":
+        os.makedirs(repo / "specs" / TEAM / "rounds")
+    elif shape == "ignored rounds/":
+        write(repo, f"specs/{TEAM}/rounds/scratch.md", "# local only\n")
+    else:
+        write(repo, f"specs/{TEAM}/routing.md", "# local only\n")
+    assert git(repo, "status", "--porcelain").stdout == ""
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert LEFT_UNMARKED in out, out
+    assert not (repo / "seal" / "specs" / TEAM).exists()
+    staged = git(repo, "diff", "--cached", "--name-only").stdout
+    assert TEAM not in staged, staged
 
 
 def test_a_linked_specs_holding_only_unmarked_directories_is_not_refused(hook, repo):
