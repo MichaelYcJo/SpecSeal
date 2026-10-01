@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 699 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `613b93896123490b8eaf893d716bacf46659c0b4..bf44693446255098ef5fb459f69172e4db8fdcf9`, 4 commits |
 | Contract changes | unanswered → round-1-report.md, round-1.md, coverage_line, panel; coverage_line → 1790815611-the-record-arms-run-before-the-sealer-is-spawned.md, round-1-report.md, round-1.md, gate, pytest |
 | New units | wrapped (depth 1); HOME_TOKEN (depth 1); HOME_END (depth 1); test_the_count_cannot_be_asked_without_a_base (depth 1); test_a_list_too_long_for_its_row_continues_beneath_it (depth 1); test_a_deferrals_home_is_read_whole (depth 1) |
