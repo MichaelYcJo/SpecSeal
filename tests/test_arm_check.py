@@ -2066,8 +2066,29 @@ def test_a_refused_run_leaves_the_module_as_it_was_before_the_command(
         assert "Nothing was written" not in first and "was put back" not in first
         assert first.endswith("No arm was measured."), first
         assert module_path.read_bytes() == before, "a mode change leaves the bytes"
-        # A pass that cannot put the module back propagates, as the loop's own
-        # first write would fail on it; that path is not this case's.
+
+        # An interrupt that cannot put the module back raises the failure,
+        # chained to the interrupt, rather than swallowing it: a person who
+        # pressed Ctrl-C is told the module was left as the command left it.
+        # (A pass that cannot put it back raises too, and the loop's own first
+        # write would fail on the same module, so that path is not pinned.)
+        def locked_then_interrupted(cmd, **kwargs):
+            os.chmod(module_path, 0)
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(ARM.subprocess, "run", locked_then_interrupted)
+        try:
+            # `BaseException`, so a swallowed failure fails this case with the
+            # interrupt in hand instead of ending the whole pytest session.
+            with pytest.raises(BaseException) as raised:
+                ARM.run_arms(str(module_path), tests)
+        finally:
+            os.chmod(module_path, 0o644)
+        assert isinstance(raised.value, PermissionError), (
+            f"{raised.value!r} — the put-back's failure was swallowed, so the "
+            f"interrupt is all a person sees of a module left locked"
+        )
+        assert isinstance(raised.value.__context__, KeyboardInterrupt)
         return
     assert "was put back from the bytes read before it" in first, first
     assert "Nothing was written" not in first, (
