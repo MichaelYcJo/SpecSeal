@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 698 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `db15439f629ba387423900385cad04b6f6247af2..37b3646f8b7f9a69d516adfac3b36791560937bb`, 2 commits |
+| Contract changes | test_an_interrupt_ends_the_run_it_started_and_restores_the_file → pytest only |
+| New units | none |
 | Needs a fix | yes — 🟡 15 (an interrupt in the baseline says the file holds its first bytes over a file the cases changed) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -28,12 +28,12 @@ Round 3 is the verifying round after the run's one reopening, so it is the run's
 | 🟢 | round 2's finding 10 is closed — the baseline's bound is held by a case | `skills/verify/scripts/mutation_check.py:319` | confirmed | Executed: M3 (`timeout=None` on the baseline) red on the bound case's `[baseline]` parameter, 37.0 s; P3 `timed out after 1s`, exit 2, file unchanged |
 | 🟢 | round 2's note 11 is closed — the step list and the wrapper comment name the baseline and the bound per run | `agents/smith.md:272-278`, `bin/mutation-check:11-16` | confirmed | Read: both match `mutation_run` at the target |
 | 🟢 | round 2's note 12 is closed in two of its clauses — `no baseline` carries the baseline's exit and *Nothing was written*, both held | `skills/verify/scripts/mutation_check.py:320-329` | confirmed | Executed: P2 printed `(exit 5)`, `(exit 4)`, `(exit 1)`, nothing written; M4, M5 and M8 each red. The other two clauses are 15 and 16 below |
-| 🟡 15 | An interrupt in the baseline prints that the file holds the bytes it held before the command started, and nothing compared them: cases that wrote the target leave it changed under that line | `skills/verify/scripts/mutation_check.py:318-338`, `:443-449` | open | Executed: P5, cases writing `VALUE = 99` with the Ctrl-C in the baseline, printed *holds the bytes it held*, file `VALUE = 99`; the proposed case red at the target, green with the fix; module 40 passed with it. Round 2's note 12 class, not closed |
-| ⬜ 16 | The baseline suffix's sentence boundary is pinned by no case: both assertions read a substring round 2's clause form also carries | `tests/test_a_mutation_clears_one_files_bytecode_and_ends_at_a_timeout.py:804`, `:1100` | open | Executed: M6 (the clause form put back) SURVIVED the whole module; red in both cases with the widened assertions. Behaviour and fact stay right |
+| 🟡 15 | An interrupt in the baseline prints that the file holds the bytes it held before the command started, and nothing compared them: cases that wrote the target leave it changed under that line | `skills/verify/scripts/mutation_check.py:318-338`, `:443-449` | **fixed** `647c3395` | fixed at 647c3395; Executed: P5, cases writing `VALUE = 99` with the Ctrl-C in the baseline, printed *holds the bytes it held*, file `VALUE = 99`; the proposed case red at the target, green with the fix; module 40 passed with it. Round 2's note 12 class, not closed |
+| ⬜ 16 | The baseline suffix's sentence boundary is pinned by no case: both assertions read a substring round 2's clause form also carries | `tests/test_a_mutation_clears_one_files_bytecode_and_ends_at_a_timeout.py:804`, `:1100` | **fixed** `647c3395` | fixed at 647c3395; Executed: M6 (the clause form put back) SURVIVED the whole module; red in both cases with the widened assertions. Behaviour and fact stay right |
 | 🟢 | round 2's note 13 is answered — Q5 says a call runs the cases twice, with the measured figures | `seal/specs/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout/questions.md` Q5 | confirmed | Read: the `Corrected 2026-10-01` note in the Q5 cell |
 | 🟢 | round 2's note 14 is closed — the fragment's header names L7 | `seal/ledger/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout.md:1-9` | confirmed | Read |
 | 🟢 | L2's re-read note after `dbd71bca` is true | `seal/ledger/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout.md` L2 | confirmed | Read: `dbd71bca` adds one assertion and its comment to the interrupt case and touches no code; the bound, the group kill and the restore order are as L2 states |
-| ⬜ 17 | correction: L2's orchestrator note is joined to the note before it with no full stop and no bold opening | `seal/ledger/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout.md` L2 | open | Read. Paperwork, outside `Needs a fix` |
+| ⬜ 17 | correction: L2's orchestrator note is joined to the note before it with no full stop and no bold opening | `seal/ledger/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout.md` L2 | answered | corrected at 37b3646f; L2's note has its full stop back, with a round 3 re-read note; Read. Paperwork, outside `Needs a fix` |
 | 🟢 | The ledger holds unscoped | the whole tree | confirmed | Executed: `bin/evidence-check .` exit 0, 3223 ok, 0 drifted, 0 broken |
 
 ## Paste-ready fixes
