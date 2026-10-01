@@ -7,7 +7,7 @@ of the build did, written by the implementer when the phase closes. -->
 |---|---|
 | Phase | 3 |
 | Commit | 8a724d2d |
-| Ran by | unknown — the spawn prompt named the agent (`smith`) and not the model; the orchestrator fills this row |
+| Ran by | specseal:smith on claude-opus-5-5 — set by the orchestrator, which spawned it with that model and did not name it in the prompt |
 
 ## What this phase was asked
 
