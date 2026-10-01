@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 4 |
-| Commit | the commit that adds this file; `plan.md`'s Status cell for phase 4 names it |
+| Commit | 55b4d617 |
 | Ran by | unknown — the spawn prompt named the agent (`smith`) and no model; the orchestrating session fills this row |
 
 ## What this phase was asked
