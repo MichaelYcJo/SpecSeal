@@ -8,7 +8,9 @@
   and a survivor, each found by the sealer after its suite. The preflight
   catches the record-arm refusals among them. A refusal that
   `round_record.py seal` raises, such as an unchecked `Pass` or `nobody` on
-  the last record, still reaches the sealer.
+  the last record, still reaches the sealer. (Added 2026-10-01: #702, the
+  entry after this one, closes that gap in the same release — the preflight
+  now asks those refusals through `round_record.py seal --check`.)
 
   The preflight is the same command with the same resolved base. It applies
   every refusal of the row and then runs every other arm, in the gate's
