@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Runs one mutation of one unit as `mutation-check` instead of a long path into
+# the plugin directory. Claude Code puts a plugin's bin/ on the Bash tool's PATH
+# while the plugin is enabled, so the smith can type the loop #641 asks for.
+#
+# Resolves the script relative to this file, not the caller's cwd, so it works
+# from any directory. Arguments pass straight through:
+#   mutation-check hooks/x.py --replace "LIMIT = 15" "LIMIT = 25" --tests "bin/test tests/test_x.py -q -k limit"
+#   mutation-check agents/smith.md --replace "watch one go red" "" --tests "bin/test tests/test_y.py -q"
+#
+# It writes the break, removes that one file's cached bytecode for every
+# interpreter tag, runs the command under a bound (300 s unless --timeout says
+# otherwise), restores the file from the bytes it read first and compares the
+# hash, and prints red (exit 0), SURVIVED (exit 1), or a run that measured
+# nothing (exit 2).
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+exec python3 "$here/../skills/verify/scripts/mutation_check.py" "$@"

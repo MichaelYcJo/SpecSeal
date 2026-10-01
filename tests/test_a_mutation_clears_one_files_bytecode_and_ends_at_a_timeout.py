@@ -31,6 +31,7 @@ import importlib.util
 import os
 import py_compile
 import shlex
+import subprocess
 import sys
 import textwrap
 
@@ -526,6 +527,33 @@ def test_a_negative_bound_is_refused_rather_than_timing_every_run_out(tmp_path, 
         )
     assert raised.value.code == 2
     assert "non-negative" in capsys.readouterr().err
+    assert target.read_text(encoding="utf-8") == "VALUE = 1\n"
+
+
+@pytest.mark.skipif(
+    os.name == "nt", reason="the POSIX wrapper; its .cmd twin is read, not run"
+)
+def test_the_command_a_session_types_reaches_the_script(tmp_path):
+    """`bin/mutation-check`, run the way the Bash tool runs it, through the
+    shell: the verdict and the exit code arrive unchanged."""
+    target = tmp_path / "target.py"
+    target.write_text("VALUE = 1\n", encoding="utf-8")
+    done = subprocess.run(
+        [
+            WRAPPER,
+            str(target),
+            "--replace",
+            "1",
+            "2",
+            "--tests",
+            cases_command(probe(tmp_path, FAILS)),
+        ],
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert done.stdout.startswith("red"), done.stdout + done.stderr
     assert target.read_text(encoding="utf-8") == "VALUE = 1\n"
 
 
