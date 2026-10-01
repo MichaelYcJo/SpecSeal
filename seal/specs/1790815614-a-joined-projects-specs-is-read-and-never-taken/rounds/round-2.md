@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 700 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `52b433f7e2043d939de6ab48994bf161b12389bd..affc55448579bbbb535564fa22d6d8d1f6a47f86`, 3 commits |
 | Contract changes | tracked_marks → old_items, main, round-1-report.md, round-1.md, round-2-report.md, round-2.md |
 | New units | test_a_git_that_cannot_list_the_marks_stamps_nothing (depth 1); test_a_move_stopped_inside_an_item_resumes_whichever_file_is_kept (depth 1); test_an_item_with_one_mark_stopped_inside_resumes (depth 1) |
