@@ -904,7 +904,6 @@ def overviews(paths):
 # by path from `hooks/` beside this script (#688).
 HERE = os.path.dirname(os.path.abspath(__file__))
 HOOKS = os.path.join(HERE, "..", "..", "..", "hooks")
-_references = {}
 
 
 def references_at(top):
@@ -915,33 +914,32 @@ def references_at(top):
 
     None prunes nothing, which reads more and never less: a copy taken alone
     keeps the walk it had before reference roots existed, rather than
-    refusing a run that needed none of this."""
-    if top not in _references:
-        loaded = None
-        try:
-            modules = []
-            for name in ("config", "optin"):
-                path = os.path.join(HOOKS, f"{name}.py")
-                spec = importlib.util.spec_from_file_location(
-                    f"specseal_{name}_for_unverified", path
-                )
-                module = importlib.util.module_from_spec(spec)
-                spec.loader.exec_module(module)
-                modules.append(module)
-            config, resolver = modules
-            home = resolver.home_at(top, resolver.git_common_dir(top))
-            loaded = (config, config.reference_roots(home))
-        except (OSError, ImportError, AttributeError):
-            loaded = None
-        _references[top] = loaded
-    return _references[top]
+    refusing a run that needed none of this. Read once per path a run is
+    handed, and once more for the base, so nothing is cached."""
+    try:
+        modules = []
+        for name in ("config", "optin"):
+            path = os.path.join(HOOKS, f"{name}.py")
+            spec = importlib.util.spec_from_file_location(
+                f"specseal_{name}_for_unverified", path
+            )
+            module = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(module)
+            modules.append(module)
+        config, resolver = modules
+        home = resolver.home_at(top, resolver.git_common_dir(top))
+        return config, config.reference_roots(home)
+    except (OSError, ImportError, AttributeError):
+        return None
 
 
 def reference_rule(start):
     """A predicate on a disk directory — True for one the walk from `start`
     leaves out — or None where nothing is left out: `start` outside a git
     repository, a copy with no `hooks/`, or `start` itself inside a
-    reference root, which the person named and so asked for."""
+    reference root, which the person named and so asked for. Every
+    directory the walk meets is under `start`, so under `top` as well, and
+    has a repository-relative form."""
     top = repo_root(start)
     if top is None:
         return None
@@ -949,13 +947,11 @@ def reference_rule(start):
     if loaded is None:
         return None
     config, roots = loaded
-    here = repo_relative(start, top)
-    if here is None or config.under_reference_root(here, roots):
+    if config.under_reference_root(repo_relative(start, top), roots):
         return None
 
     def skip(directory):
-        rel = repo_relative(directory, top)
-        return rel is not None and config.under_reference_root(rel, roots)
+        return config.under_reference_root(repo_relative(directory, top), roots)
 
     return skip
 

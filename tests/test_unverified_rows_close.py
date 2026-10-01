@@ -2403,11 +2403,21 @@ def test_a_team_overview_deleted_since_the_base_is_not_reported(tmp_path):
     assert run([str(d), "--baseline", "HEAD"]) == 0
 
 
+def test_a_team_directory_named_is_compared_against_its_base(tmp_path, capsys):
+    """Named, the team's directory is read on both sides: its overview gone
+    since the base is reported as a deletion, as any named path's is."""
+    d = joined_repo(tmp_path)
+    os.remove(d / TEAM / "overview.md")
+    assert run([str(d / "specs"), "--baseline", "HEAD"]) == 1
+    assert "team-thing" in capsys.readouterr().out
+
+
 def test_a_copy_with_no_hooks_beside_it_prunes_nothing(tmp_path, monkeypatch):
     """`references_at` loads `hooks/config.py` beside this script. A copy
     taken alone reads every overview, as it did before reference roots
-    existed, rather than refusing a run that needed none of this."""
+    existed, rather than refusing a run that needed none of this — the walk
+    and the base alike."""
     d = joined_repo(tmp_path)
     monkeypatch.setattr(uc, "HOOKS", str(tmp_path / "no-hooks-here"))
-    monkeypatch.setattr(uc, "_references", {})
     assert run([str(d)]) == 1
+    assert run([str(d), "--baseline", "HEAD"]) == 1
