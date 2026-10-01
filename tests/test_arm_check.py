@@ -27,14 +27,17 @@ at the Python just below each.
 
 import ast
 import fnmatch
+import glob
 import hashlib
 import importlib.util
 import os
 import posixpath
 import re
 import shlex
+import subprocess
 import sys
 import textwrap
+import time
 import warnings
 
 import pytest
@@ -1085,17 +1088,26 @@ def test_a_stale_bytecode_cache_cannot_decide_an_arms_verdict(tmp_path, monkeypa
 
 # A stand-in for the test command that reports what it SAW rather than
 # passing or failing: whether cached bytecode for the module under test
-# existed at the moment it ran.
+# existed, in the directory it is handed, at the moment it ran.
+#
+# Then it leaves a `.pyc` there, the way a command that builds its own
+# environment and ignores `PYTHONDONTWRITEBYTECODE` would. Without that, the
+# run against the unmutated module clears the planted cache before any arm
+# runs, and the clear before each arm is watched by nothing (#703: measured,
+# the cache case stayed green with it deleted). The next run has to see it
+# gone, and so does the caller once the run is over.
 SEES_CACHE = """\
 import glob
 import os
 import sys
 
-module, log = sys.argv[1], sys.argv[2]
-cache = os.path.join(os.path.dirname(module), "__pycache__")
+cache, log = sys.argv[1], sys.argv[2]
 found = glob.glob(os.path.join(cache, "under_test.*.pyc"))
 with open(log, "a", encoding="utf-8") as f:
     f.write("cache\\n" if found else "clean\\n")
+os.makedirs(cache, exist_ok=True)
+with open(os.path.join(cache, "under_test.specseal-left-behind.pyc"), "wb") as f:
+    f.write(b"stale")
 """
 
 
@@ -1138,21 +1150,97 @@ def test_no_arm_runs_while_cached_bytecode_for_the_module_exists(
         "this case needs a cache to have been planted"
     )
 
+    cache = module_path.parent / "__pycache__"
     verdicts, refused = ARM.run_arms(
         str(module_path),
-        [sys.executable, str(probe), str(module_path), str(log)],
+        [sys.executable, str(probe), str(cache), str(log)],
     )
     assert refused == []
     seen = log.read_text(encoding="utf-8").split()
-    # Two arms, and every operator that has a mutation for one of them.
-    expected = sum(len(v.by_operator) for v in verdicts)
+    # Two arms, and every operator that has a mutation for one of them, plus
+    # the one run against the module as it is that comes before them -- which
+    # a planted cache would decide just as surely, so it is watched too.
+    expected = sum(len(v.by_operator) for v in verdicts) + 1
     assert len(verdicts) == 2
-    assert len(seen) == expected == 4, "every mutation must have been observed"
+    assert len(seen) == expected == 5, "every run must have been observed"
     assert set(seen) == {"clean"}, (
         f"{seen} — an arm ran with cached bytecode for the module present, so "
         f"its verdict can be decided by another arm's mutation rather than by "
         f"the source on disk"
     )
+    assert not list(cache.glob("under_test.*.pyc")), (
+        "the last run's cache outlived the run, so the next import of the "
+        "module loads the last mutation's bytecode"
+    )
+
+
+@pytest.mark.parametrize("relative", [True, False], ids=["relative", "absolute"])
+def test_a_cache_under_a_pycache_prefix_is_cleared_where_the_cases_read_it(
+    two_arms, tmp_path, monkeypatch, relative
+):
+    """#703, S9. Under `PYTHONPYCACHEPREFIX` the cache is a mirror of the
+    source tree under the prefix, and CPython joins the prefix as given
+    (`importlib._bootstrap_external.cache_from_source`). So a RELATIVE prefix
+    is read against the directory of the process that imports: the cases'
+    `--cwd`, not `arm-check`'s. Cleared from `arm-check`'s, the stale `.pyc`
+    stays exactly where the cases read it — the defect the clear exists for.
+
+    The path the cases read is taken from `cache_from_source` itself, with
+    the prefix as a process in `other/` resolves it, so this case asks
+    CPython where the file is rather than repeating the clear's own join.
+    The absolute parameter pins what the relative one is joined to: there,
+    `cwd` changes nothing.
+
+    Red how: against the script at `a340221b` the relative parameter's runs
+    see the planted cache, and `clear_bytecode_cache` does not take `cwd`.
+    Executed."""
+    module_path, _ = two_arms
+    other = tmp_path / "other"
+    other.mkdir()
+    prefix = "specseal-prefix-703" if relative else str(tmp_path / "absolute-prefix")
+    monkeypatch.setattr(sys, "pycache_prefix", os.path.join(str(other), prefix))
+    planted = importlib.util.cache_from_source(str(module_path))
+    # The prefix the clear reads is the environment's, as a session's would be.
+    monkeypatch.setattr(sys, "pycache_prefix", None)
+    monkeypatch.setenv("PYTHONPYCACHEPREFIX", prefix)
+
+    def plant():
+        os.makedirs(os.path.dirname(planted), exist_ok=True)
+        with open(planted, "wb") as f:
+            f.write(b"stale")
+
+    plant()
+    log = tmp_path / "seen.txt"
+    probe = tmp_path / "sees_cache.py"
+    probe.write_text(SEES_CACHE, encoding="utf-8")
+    verdicts, refused = ARM.run_arms(
+        str(module_path),
+        [sys.executable, str(probe), os.path.dirname(planted), str(log)],
+        cwd=str(other),
+    )
+    assert refused == [] and len(verdicts) == 2
+    seen = log.read_text(encoding="utf-8").split()
+    assert seen == ["clean"] * 5, (
+        f"{seen} — a run read the module's bytecode from the prefix mirror its "
+        f"cwd resolves to, so its verdict can be another mutation's"
+    )
+    left = glob.glob(os.path.join(os.path.dirname(planted), "under_test.*.pyc"))
+    assert left == [], f"{left} — the last run's cache outlived the run"
+
+    # And the function on its own, as `mutation_check.py` calls it.
+    plant()
+    removed = ARM.clear_bytecode_cache(str(module_path), cwd=str(other))
+    assert not os.path.exists(planted)
+    assert [os.path.normcase(os.path.abspath(p)) for p in removed] == [
+        os.path.normcase(os.path.abspath(planted))
+    ]
+    if not relative:
+        # An absolute prefix is read the same from anywhere, so a caller that
+        # passes no `cwd` clears it too.
+        plant()
+        assert ARM.clear_bytecode_cache(str(module_path)) and not os.path.exists(
+            planted
+        )
 
 
 def test_no_verdict_is_taken_after_a_restore_that_did_not_land(two_arms):
@@ -1166,7 +1254,9 @@ def test_no_verdict_is_taken_after_a_restore_that_did_not_land(two_arms):
     loop rather than after it.
 
     Driven by making `restore` fail at the first arm, and counting how many
-    arms got as far as running their command."""
+    arms got as far as running their command. The first run is the one
+    against the module as it is, which writes nothing and restores nothing,
+    so the first arm's is the second."""
     module_path, tests = two_arms
     ran = []
     real_run = ARM.subprocess.run
@@ -1187,8 +1277,8 @@ def test_no_verdict_is_taken_after_a_restore_that_did_not_land(two_arms):
     finally:
         ARM.subprocess.run = real_run
         ARM.restore = original_restore
-    assert len(ran) == 1, (
-        f"{len(ran)} arms ran their command after a restore that did not "
+    assert len(ran) == 2, (
+        f"{len(ran) - 1} arms ran their command after a restore that did not "
         f"land. Every verdict past the first is measured against a mutated "
         f"module and reported as though it were not"
     )
@@ -1278,6 +1368,36 @@ def test_a_separator_the_tokenizer_ignores_does_not_move_a_spliced_arm(label, so
 
 # --- the command that decides the verdict can hang or fail to start -------
 
+# A command that passes against the module as it is and never returns against
+# any mutation of it, because the run against the unmutated module has to
+# pass before a pair is asked at all (#703). It compares the module's bytes
+# with a copy rather than importing it: dropping the unwatched `flag` arm
+# leaves `classify("example.com", ...)` unchanged, so a probe that imports
+# and sleeps on a changed answer would let that pair return, and these cases
+# pin that EVERY pair hangs. `-S` skips `site`, so the passing run starts
+# fast enough to finish inside the bound these cases pass.
+HANGS_ON_A_MUTATION = """\
+import sys
+import time
+
+with open(sys.argv[1], "rb") as a, open(sys.argv[2], "rb") as b:
+    if a.read() != b.read():
+        time.sleep(30)
+"""
+
+# Wide enough for the passing run's interpreter to start on a loaded runner;
+# every pair waits it out, so it is paid four times per case.
+HANG_BOUND = 1.0
+
+
+def hangs_on_a_mutation(module_path):
+    """The command, with the copy and the probe written beside the module."""
+    copy = module_path.parent / "as_it_was.py"
+    copy.write_bytes(module_path.read_bytes())
+    probe = module_path.parent / "hangs_on_a_mutation.py"
+    probe.write_text(HANGS_ON_A_MUTATION, encoding="utf-8")
+    return [sys.executable, "-S", str(probe), str(module_path), str(copy)]
+
 
 def test_a_command_that_never_returns_is_recorded_as_unmeasured(two_arms):
     """Round 1's finding 1, the bounded half.
@@ -1290,22 +1410,22 @@ def test_a_command_that_never_returns_is_recorded_as_unmeasured(two_arms):
     `killed` would read as *a case noticed* and `survived` as *none did*, and
     neither was measured.
 
-    Red how: `timeout=timeout` removed from the `subprocess.run` call hangs
-    this case for 30 seconds per pair instead of failing. Executed — and the
-    run is bounded here by the 0.3s the case passes, not by the default.
+    Red how: `timeout=timeout` removed from the pair's `subprocess.run` call
+    hangs this case for 30 seconds per pair instead of failing. Executed —
+    and the run is bounded here by the bound the case passes, not by the
+    default. The command passes against the unmutated module, so the pairs
+    are what time out and not the run before them.
     """
     module_path, _ = two_arms
     verdicts, refused = ARM.run_arms(
-        str(module_path),
-        [sys.executable, "-c", "import time; time.sleep(30)"],
-        timeout=0.3,
+        str(module_path), hangs_on_a_mutation(module_path), timeout=HANG_BOUND
     )
     # Every pair timed out, so no arm has a verdict from any operator and
     # both are refused rather than reported as survivors.
     assert verdicts == []
     assert len(refused) == 2
     for _arm, why in refused:
-        assert "did not return within 0.3s" in why, (
+        assert f"did not return within {HANG_BOUND}s" in why, (
             f"{why!r} — a timed-out pair has to say it was not measured and "
             f"what bound it, or the report reads as a verdict"
         )
@@ -1320,8 +1440,9 @@ def test_a_spawn_failure_keeps_the_verdicts_already_measured(two_arms):
     no report at all. `bin/test` builds a virtual environment on demand, so a
     mid-run spawn failure is a reachable state rather than a constructed one.
 
-    Driven by making the third of the four calls raise — arm one is fully
-    measured by then, arm two by nothing.
+    Driven by making the fourth of the five calls raise — the first is the
+    run against the module as it is, arm one is fully measured by the
+    fourth, and arm two by nothing.
 
     Red how: deleting the `except OSError` clause raises `OSError` out of
     `run_arms` here and the first arm's two verdicts are lost. Executed."""
@@ -1329,19 +1450,19 @@ def test_a_spawn_failure_keeps_the_verdicts_already_measured(two_arms):
     real_run = ARM.subprocess.run
     calls = []
 
-    def fails_from_the_third_call(cmd, **kwargs):
+    def fails_from_the_fourth_call(cmd, **kwargs):
         calls.append(cmd)
-        if len(calls) >= 3:
+        if len(calls) >= 4:
             raise OSError("Errno 8: Exec format error")
         return real_run(cmd, **kwargs)
 
-    ARM.subprocess.run = fails_from_the_third_call
+    ARM.subprocess.run = fails_from_the_fourth_call
     try:
         verdicts, refused = ARM.run_arms(str(module_path), tests)
     finally:
         ARM.subprocess.run = real_run
 
-    assert len(calls) == 4, "every pair still had its command attempted"
+    assert len(calls) == 5, "every pair still had its command attempted"
     assert [(v.arm.source, sorted(v.by_operator)) for v in verdicts] == [
         ('host == "example.com"', ["invert", "remove"])
     ], "the verdicts taken before the failure are real and must survive it"
@@ -1353,27 +1474,18 @@ def test_a_spawn_failure_keeps_the_verdicts_already_measured(two_arms):
     )
 
 
-# The two commands that reach the no-verdict list with a mutation already on
-# disk. Both were written, run and restored before the arm got there, which is
-# what neither headline line used to say.
-NO_VERDICT_COMMANDS = [
-    (
-        "every pair times out",
-        [sys.executable, "-c", "import time; time.sleep(30)"],
-        0.3,
-    ),
-    ("the command cannot be spawned", ["specseal-no-such-command-xyz"], 900.0),
-]
+# The two doors to the no-verdict list with a mutation already on disk. Both
+# were written, run and restored before the arm got there, which is what
+# neither headline line used to say. Each is a command that passes against
+# the module as it is, because nothing reaches a pair before that run passes
+# (#703): the hang is `hangs_on_a_mutation`, and the spawn failure is a
+# `subprocess.run` that spawns a command that does not exist from its second
+# call on.
+NO_VERDICT_DOORS = ["every pair times out", "the command cannot be spawned"]
 
 
-@pytest.mark.parametrize(
-    "label,tests,timeout",
-    NO_VERDICT_COMMANDS,
-    ids=[c[0] for c in NO_VERDICT_COMMANDS],
-)
-def test_the_report_does_not_call_a_mutated_arm_unmutated(
-    two_arms, label, tests, timeout
-):
+@pytest.mark.parametrize("label", NO_VERDICT_DOORS, ids=NO_VERDICT_DOORS)
+def test_the_report_does_not_call_a_mutated_arm_unmutated(two_arms, monkeypatch, label):
     """Round 2's finding 15. §14 — the report is what a person reads.
 
     An arm reached this list only when `mutate` had no mutation for any
@@ -1389,7 +1501,21 @@ def test_the_report_does_not_call_a_mutated_arm_unmutated(
 
     Red how: either label restored prints `not mutated` or `arms mutated`
     here. Executed on both parameters."""
-    module_path, _ = two_arms
+    module_path, tests = two_arms
+    if label == "every pair times out":
+        tests, timeout = hangs_on_a_mutation(module_path), HANG_BOUND
+    else:
+        timeout = 900.0
+        real_run = ARM.subprocess.run
+        calls = []
+
+        def cannot_spawn_after_the_first_call(cmd, **kwargs):
+            calls.append(cmd)
+            if len(calls) == 1:
+                return real_run(cmd, **kwargs)
+            return real_run(["specseal-no-such-command-xyz"], **kwargs)
+
+        monkeypatch.setattr(ARM.subprocess, "run", cannot_spawn_after_the_first_call)
     before = hashlib.sha256(module_path.read_bytes()).hexdigest()
     loop = []
     verdicts, refused = ARM.run_arms(
@@ -1457,6 +1583,13 @@ def test_the_help_says_the_bound_reaches_the_command_and_not_its_children(capsys
         "and the bound is per operator command, measured at 2.0s for one arm "
         "against a 1-second bound"
     )
+    # #703: the run against the unmutated module comes first, under the same
+    # bound, and a reader typing `--tests` has to know it must pass there.
+    assert "the same bound covers the first run against the unmutated module" in text
+    assert "runs once against the module as it is first and has to pass" in text, (
+        "a `--tests` that does not pass against the module refuses the run, "
+        "and the flag's own help is where a person learns that before typing it"
+    )
 
 
 def test_a_negative_bound_is_refused_rather_than_measured(two_arms, capsys):
@@ -1504,21 +1637,22 @@ def test_a_pair_whose_command_ran_and_answered_nothing_is_not_called_unasked(two
     anything ran, and false for a pair whose command was spawned, waited for
     and killed at the bound.
 
-    Driven by timing out the second of the four calls only, so one arm has a
-    measured operator and an unanswered one.
+    Driven by timing out the third of the five calls only — the first is the
+    run against the module as it is, the third is arm one's `remove` — so one
+    arm has a measured operator and an unanswered one.
 
     Red how: the header restored prints `not asked` here. Executed."""
     module_path, tests = two_arms
     real_run = ARM.subprocess.run
     calls = []
 
-    def times_out_on_the_second_call(cmd, **kwargs):
+    def times_out_on_the_third_call(cmd, **kwargs):
         calls.append(cmd)
-        if len(calls) == 2:
+        if len(calls) == 3:
             raise ARM.subprocess.TimeoutExpired(cmd, kwargs.get("timeout") or 0.3)
         return real_run(cmd, **kwargs)
 
-    ARM.subprocess.run = times_out_on_the_second_call
+    ARM.subprocess.run = times_out_on_the_third_call
     try:
         verdicts, refused = ARM.run_arms(str(module_path), tests)
     finally:
@@ -1544,6 +1678,522 @@ def test_a_pair_whose_command_ran_and_answered_nothing_is_not_called_unasked(two
         f"at the bound. Only a pair `mutate` refused was never asked, and the "
         f"reason beside each is what tells the two apart"
     )
+
+
+# --- the command has to pass against the module as it is first ------------
+
+# What `--tests` exits with against the module whatever the module holds. The
+# three shapes of a run that measured nothing and came back as a clean report
+# (#703): pytest exits 5 when a `-k` selects no case and 4 on a usage error
+# such as a module path that does not exist, and a case already failing exits
+# 1. Each used to print `killed` beside every arm at exit 0. The probe prints
+# a line first, so a case can see the command's own output reach the reader.
+NOT_GREEN = """\
+import sys
+
+print({said!r})
+sys.exit({code})
+"""
+
+# The shape a person meets: a case that imports the module and asserts
+# something false of it, mutated or not. The suite was red before anybody
+# mutated anything.
+ALREADY_FAILING = """\
+import importlib.util
+import sys
+
+spec = importlib.util.spec_from_file_location("under_test", sys.argv[1])
+m = importlib.util.module_from_spec(spec)
+sys.modules[spec.name] = m
+spec.loader.exec_module(m)
+
+assert m.classify("example.com", False) == "unknown", "this case already fails"
+"""
+
+NO_BASELINE_SHAPES = [
+    ("a -k that selects no case", 5, "no tests ran"),
+    ("a module path that does not exist", 4, "file or directory not found"),
+    ("a case that already fails", 1, "1 failed"),
+    ("a case that already fails, through an import", None, "this case already fails"),
+    # An OOM kill or a SIGKILL is a negative return code, and a check narrowed
+    # to `> 0` would read it as a pass (round 1, ⬜ 4). POSIX alone has one.
+    pytest.param(
+        "a run killed by a signal",
+        -9,
+        "sending itself SIGKILL",
+        marks=pytest.mark.skipif(os.name == "nt", reason="no signals on Windows"),
+    ),
+]
+
+# The probe for the signal shape: it prints, then sends itself SIGKILL.
+KILLS_ITSELF = """\
+import os
+import sys
+
+print({said!r}, flush=True)
+os.kill(os.getpid(), 9)
+"""
+
+# A time well in the past, set on the module before a refused run. A write
+# moves the mtime even when it writes the bytes that were there, so this is
+# what tells "nothing was written" from "written and restored" -- which a
+# byte comparison cannot.
+LONG_AGO_NS = 10**18
+
+
+def nothing_was_written(module_path, before):
+    """The module holds the bytes it held, was never written, and has no
+    cached bytecode beside it."""
+    assert module_path.read_bytes() == before
+    assert module_path.stat().st_mtime_ns == LONG_AGO_NS, (
+        "the module was written: a refused run has to refuse before the first "
+        "write, or *Nothing was written* is a sentence about a restore"
+    )
+    assert not list((module_path.parent / "__pycache__").glob("under_test.*.pyc"))
+
+
+def refusal_line(out):
+    """The verdict line of a refused run, with the three pieces it is pinned
+    by checked: the word, the sentence that says why, and the sentence that
+    says what holds afterwards (§14)."""
+    first = out.splitlines()[0]
+    assert first.startswith("no baseline: "), (
+        f"{out!r} — a run whose command does not pass against the module as it "
+        f"is measured nothing, and its first line has to say so"
+    )
+    assert "a failure under a mutation says nothing about the mutation" in first
+    assert first.endswith("Nothing was written and no arm was measured."), first
+    assert "killed" not in out and "SURVIVED" not in out, (
+        f"{out!r} — no arm was measured, so no arm can carry a verdict"
+    )
+    assert "arms measured" not in out
+    return first
+
+
+@pytest.mark.parametrize(
+    "label,code,said",
+    NO_BASELINE_SHAPES,
+    ids=[getattr(s, "values", s)[0] for s in NO_BASELINE_SHAPES],
+)
+def test_a_command_that_does_not_pass_against_the_module_refuses_the_run(
+    two_arms, tmp_path, capsys, label, code, said
+):
+    """#703, S1 to S3. A `killed` is a measurement only when the same command
+    passed against the unmutated module.
+
+    `run_arms` read `returncode != 0` as *a case noticed* and ran nothing to
+    compare it with, so a command that cannot pass at all recorded every arm
+    killed: `0 watched by no case`, exit 0, the best report there is out of a
+    run that measured nothing. Now the command runs once against the module
+    as it is, and anything but a pass refuses the run before the first write.
+
+    The command's own output follows the verdict line, because it is the one
+    run whose cause a person has to read to act on it — pytest's *no tests
+    ran* is what tells a mistyped `-k` from a failing case.
+
+    Red how: against the script at `a340221b` every shape prints `killed`
+    beside both arms and exits 0. Executed."""
+    module_path, _ = two_arms
+    probe = tmp_path / "not_green.py"
+    if code is None:
+        probe.write_text(ALREADY_FAILING, encoding="utf-8")
+        tests = [sys.executable, str(probe), str(module_path)]
+        code = 1
+    elif code < 0:
+        probe.write_text(KILLS_ITSELF.format(said=said), encoding="utf-8")
+        tests = [sys.executable, str(probe)]
+    else:
+        probe.write_text(NOT_GREEN.format(said=said, code=code), encoding="utf-8")
+        tests = [sys.executable, str(probe)]
+    before = module_path.read_bytes()
+    os.utime(module_path, ns=(LONG_AGO_NS, LONG_AGO_NS))
+
+    status = ARM.main([str(module_path), "--tests", shlex.join(tests)])
+
+    out = capsys.readouterr().out
+    first = refusal_line(out)
+    assert f"no baseline: exit {code}." in first, (
+        f"{first!r} — the exit is what tells a `-k` that selected nothing (5) "
+        f"from a case that already fails (1)"
+    )
+    assert said in out, (
+        f"{out!r} — the command's own output has to follow the verdict, or "
+        f"the cause is one re-run away"
+    )
+    assert status == 2, "exit 2 is the run refused before measuring"
+    nothing_was_written(module_path, before)
+
+
+def test_the_run_against_the_unmutated_module_is_bounded_by_the_timeout(two_arms):
+    """#703, S4. The bound reaches the first run too.
+
+    A command that hangs whatever the module holds now hangs in the run
+    against the module as it is, before anything is written. Unbounded there,
+    it is the one wait in the whole run that nothing ends — #641's round 2
+    found its sibling's baseline bound pinned by no case and survived a
+    mutation to `None`.
+
+    Red how: against the script at `a340221b` both arms are filed as no
+    verdict after four 0.3s waits and nothing is raised; with the baseline's
+    `timeout=timeout` removed this waits the whole 30 seconds and then the
+    arms time out one by one. Executed."""
+    module_path, _ = two_arms
+    before = module_path.read_bytes()
+    os.utime(module_path, ns=(LONG_AGO_NS, LONG_AGO_NS))
+    started = time.monotonic()
+    with pytest.raises(ARM.NoBaseline) as refused:
+        ARM.run_arms(
+            str(module_path),
+            [sys.executable, "-c", "import time; time.sleep(30)"],
+            timeout=0.3,
+        )
+    elapsed = time.monotonic() - started
+    assert "did not return within 0.3s" in refused.value.reason, refused.value.reason
+    assert elapsed < 15, (
+        f"{elapsed:.1f}s — the run against the unmutated module was not "
+        f"bounded by the 0.3s the case passed"
+    )
+    nothing_was_written(module_path, before)
+
+
+def test_a_first_run_that_timed_out_carries_what_it_printed(
+    two_arms, monkeypatch, capsys
+):
+    """What a hung suite printed before the bound is the nearest thing to
+    its cause, so it is carried as the refusal's output.
+
+    It arrives as bytes, and it is decoded with replacement: the output is
+    shown, not trusted to be UTF-8, and a suite printing anything else must
+    not turn the refusal into a traceback. Driven by a `subprocess.run` that
+    raises at once, because a real command's output before a short bound
+    depends on how fast its interpreter starts.
+
+    And it reaches the person, not only the exception: `main` prints it after
+    the verdict line, on this path as on a non-zero exit (round 1, ⬜ 5).
+
+    Red how: the timeout arm's output dropped, or decoded strictly; and
+    `main` printing the output only for an `exit` reason. Executed."""
+    module_path, tests = two_arms
+
+    def times_out(cmd, **kwargs):
+        raise ARM.subprocess.TimeoutExpired(
+            cmd,
+            kwargs["timeout"],
+            output=b"collected 3 items \xff\n",
+            stderr=b"slow\n",
+        )
+
+    monkeypatch.setattr(ARM.subprocess, "run", times_out)
+    with pytest.raises(ARM.NoBaseline) as refused:
+        ARM.run_arms(str(module_path), tests, timeout=0.3)
+    assert "collected 3 items \ufffd" in refused.value.output
+    assert "slow" in refused.value.output
+    assert "b'" not in refused.value.output, "decoded, not the bytes' repr"
+    assert ARM.main([str(module_path), "--tests", shlex.join(tests)]) == 2
+    assert "collected 3 items" in capsys.readouterr().out.split("\n", 1)[1], (
+        "what the hung suite printed has to reach the reader, below the line"
+    )
+
+
+def test_the_first_run_is_taken_where_the_pairs_are(two_arms, tmp_path):
+    """The run against the module as it is answers for the pairs only when it
+    is the same command in the same place. A command relative to `cwd` that
+    passed elsewhere, or failed only because it ran elsewhere, would decide
+    the run on the wrong directory.
+
+    Red how: `cwd=cwd` dropped from the first run refuses this run with exit
+    2, because the probe exists only under `cwd`. Executed."""
+    module_path, _ = two_arms
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    (elsewhere / "watches_one.py").write_text(WATCHES_ONE, encoding="utf-8")
+    verdicts, refused = ARM.run_arms(
+        str(module_path),
+        [sys.executable, "watches_one.py", str(module_path)],
+        cwd=str(elsewhere),
+    )
+    assert refused == []
+    assert [(v.arm.source, v.killed) for v in verdicts] == [
+        ('host == "example.com"', True),
+        ("flag", False),
+    ]
+
+
+@pytest.mark.parametrize("only", [None, "no_such_scope"], ids=["no arms", "--only"])
+def test_the_first_run_is_taken_whatever_the_arms_are(tmp_path, only):
+    """Once per `--tests` call, with no exception to state: a module with no
+    arms, or an `--only` that selects none of them, still has its command run
+    once and refused when it does not pass. A command that cannot pass is the
+    thing to learn whichever arms there are.
+
+    Red how: the first run made conditional on there being an arm to mutate
+    leaves both parameters returning an empty report. Executed."""
+    module_path = tmp_path / "plain.py"
+    module_path.write_text(
+        "def f(x):\n    if x:\n        return 1\n    return 0\n"
+        if only
+        else "VALUE = 1\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ARM.NoBaseline, match="exit 3"):
+        ARM.run_arms(
+            str(module_path),
+            [sys.executable, "-c", "import sys; sys.exit(3)"],
+            only=only,
+        )
+
+
+def test_a_command_that_cannot_be_spawned_refuses_the_run(two_arms, capsys):
+    """#703, S5. A command that cannot start against the unmutated module
+    cannot start against a mutation either, so nothing is measured.
+
+    Red how: against the script at `a340221b` both arms land in the no-verdict
+    list at exit 0. Executed."""
+    module_path, _ = two_arms
+    before = module_path.read_bytes()
+    os.utime(module_path, ns=(LONG_AGO_NS, LONG_AGO_NS))
+
+    status = ARM.main([str(module_path), "--tests", "specseal-no-such-command-xyz"])
+
+    first = refusal_line(capsys.readouterr().out)
+    assert "FileNotFoundError" in first, (
+        f"{first!r} — the error is the cause, and the line has to name it"
+    )
+    assert status == 2
+    nothing_was_written(module_path, before)
+
+
+def test_a_passing_first_run_changes_no_verdict_and_costs_one_run(
+    two_arms, monkeypatch
+):
+    """#703, S6. One run against the module as it is, before any write, and
+    the verdicts it lets through are the ones measured before it existed.
+
+    Watched by what the module held at each call: the first call has to see
+    the unmutated bytes and every later one a mutation.
+
+    Red how: against the script at `a340221b` there are four calls and the
+    first sees a mutation; with the baseline moved after the first write the
+    first call sees a mutation. Executed."""
+    module_path, tests = two_arms
+    original = module_path.read_bytes()
+    real_run = ARM.subprocess.run
+    held = []
+
+    def watching_run(cmd, **kwargs):
+        held.append(module_path.read_bytes())
+        return real_run(cmd, **kwargs)
+
+    monkeypatch.setattr(ARM.subprocess, "run", watching_run)
+    verdicts, refused = ARM.run_arms(str(module_path), tests)
+
+    assert refused == []
+    assert [(v.arm.source, v.killed) for v in verdicts] == [
+        ('host == "example.com"', True),
+        ("flag", False),
+    ]
+    assert len(held) == 5, f"{len(held)} runs — one against the module, four pairs"
+    assert held[0] == original, (
+        "the first run has to be against the module as it is, before anything "
+        "is written"
+    )
+    assert all(h != original for h in held[1:]), "and every later one a mutation"
+
+
+# What a first run that does not pass does to the module itself, before it
+# exits 1: the ways a suite can leave its own input changed. The last one
+# leaves it so that it cannot be put back at all.
+CHANGES_THE_MODULE = {
+    "rewrites it": "open(sys.argv[1], 'w').write('VALUE = 99\\n')",
+    "removes it": "os.remove(sys.argv[1])",
+    "locks it": "os.chmod(sys.argv[1], 0)",
+}
+
+# POSIX modes, and root reads a mode-000 file anyway.
+CANNOT_LOCK = os.name == "nt" or getattr(os, "geteuid", lambda: 1)() == 0
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        "removes it",
+        "rewrites it",
+        pytest.param(
+            "locks it",
+            marks=pytest.mark.skipif(
+                CANNOT_LOCK, reason="needs a POSIX mode root obeys"
+            ),
+        ),
+    ],
+)
+def test_a_refused_run_leaves_the_module_as_it_was_before_the_command(
+    two_arms, tmp_path, capsys, monkeypatch, change
+):
+    """Round 1's 🟡 1. The first run sits outside the `try` whose `finally`
+    restores, so nothing `arm-check` does there writes the module. The cases
+    can, though: a formatter's round-trip test or a generator that rewrites a
+    file in place. At `a340221b` every run ended with the module put back
+    from the bytes held, and a refusal must not be the one path that keeps
+    the cases' version instead, while it says *Nothing was written*.
+
+    Removed is the same fact as rewritten: what is on disk is not what was
+    read, and a file that cannot be read differs.
+
+    **Locked is the one shape that cannot be put back** (round 2, 🟡 1).
+    The put-back's own `open` fails, and raised out of the `finally` it took
+    the refusal's line and the command's output with it, at exit 1, where
+    `6bbaa4d1` refused at exit 2. The line names the error instead.
+
+    Red how: at `6bbaa4d1` the module is left as the command changed it, and
+    the line says *Nothing was written*; at `dc1b0d14` the locked module is
+    a `PermissionError` traceback and no line. Executed on every parameter."""
+    module_path, _ = two_arms
+    before = module_path.read_bytes()
+    probe = tmp_path / "changes_the_module.py"
+    probe.write_text(
+        "import os\nimport sys\nprint('the cases ran')\n"
+        + CHANGES_THE_MODULE[change]
+        + "\nsys.exit(1)\n",
+        encoding="utf-8",
+    )
+    tests = [sys.executable, str(probe), str(module_path)]
+
+    try:
+        status = ARM.main([str(module_path), "--tests", shlex.join(tests)])
+    finally:
+        if change == "locks it":
+            os.chmod(module_path, 0o644)
+
+    out = capsys.readouterr().out
+    first = out.splitlines()[0]
+    assert status == 2
+    assert first.startswith("no baseline: exit 1."), out
+    assert "the cases ran" in out, "the command's own output follows the line"
+    if change == "locks it":
+        assert "putting it back failed: PermissionError" in first, first
+        assert "Nothing was written" not in first and "was put back" not in first
+        assert first.endswith("No arm was measured."), first
+        assert module_path.read_bytes() == before, "a mode change leaves the bytes"
+
+        # An interrupt that cannot put the module back raises the failure,
+        # chained to the interrupt, rather than swallowing it: a person who
+        # pressed Ctrl-C is told the module was left as the command left it.
+        # (A pass that cannot put it back raises too, and the loop's own first
+        # write would fail on the same module, so that path is not pinned.)
+        def locked_then_interrupted(cmd, **kwargs):
+            os.chmod(module_path, 0)
+            raise KeyboardInterrupt
+
+        monkeypatch.setattr(ARM.subprocess, "run", locked_then_interrupted)
+        try:
+            # `BaseException`, so a swallowed failure fails this case with the
+            # interrupt in hand instead of ending the whole pytest session.
+            with pytest.raises(BaseException) as raised:
+                ARM.run_arms(str(module_path), tests)
+        finally:
+            os.chmod(module_path, 0o644)
+        assert isinstance(raised.value, PermissionError), (
+            f"{raised.value!r} — the put-back's failure was swallowed, so the "
+            f"interrupt is all a person sees of a module left locked"
+        )
+        assert isinstance(raised.value.__context__, KeyboardInterrupt)
+        return
+    assert "was put back from the bytes read before it" in first, first
+    assert "Nothing was written" not in first, (
+        f"{first!r} — the command wrote the module, so the sentence that says "
+        f"nothing was would be false"
+    )
+    assert first.endswith("No arm was measured."), first
+    assert module_path.read_bytes() == before, (
+        f"the module was left as the command {change.split()[0]} it"
+    )
+
+    # And when the same command passes, with `--only` selecting no arm: the
+    # module still comes back. Two restores cover this path, the first run's
+    # and the loop's outer `finally`, so this holds the outcome rather than
+    # either one.
+    probe.write_text(
+        "import os\nimport sys\n" + CHANGES_THE_MODULE[change] + "\nsys.exit(0)\n",
+        encoding="utf-8",
+    )
+    only = ["--only", "no_such_scope"]
+    assert ARM.main([str(module_path), "--tests", shlex.join(tests), *only]) == 0
+    assert module_path.read_bytes() == before, (
+        f"a passing first run {change.split()[0]} the module and it stayed so"
+    )
+
+    # And when the first run is interrupted after the command changed the
+    # module. The loop's outer `finally` is never entered on this path, so the
+    # first run's own put-back is the only restore it has (round 2, ⬜ 2:
+    # narrowed to a refusal, the put-back survived every other assertion).
+    def interrupted(cmd, **kwargs):
+        # The command changes the module the way this parameter's does, in
+        # this process, and then the interrupt lands.
+        argv = type("sys", (), {"argv": [None, str(module_path)]})
+        exec(CHANGES_THE_MODULE[change], {"os": os, "sys": argv})
+        raise KeyboardInterrupt
+
+    monkeypatch.setattr(ARM.subprocess, "run", interrupted)
+    with pytest.raises(KeyboardInterrupt):
+        ARM.run_arms(str(module_path), tests)
+    assert module_path.read_bytes() == before, (
+        f"an interrupted first run {change.split()[0]} the module and it stayed so"
+    )
+
+
+def test_a_refusal_survives_a_console_that_cannot_encode_its_output(two_arms, tmp_path):
+    """Round 1's 🟡 2. `_text` turns a byte that is not UTF-8 into U+FFFD, and
+    a console in cp1252 cannot encode that character, so the refusal's own
+    output ended in a `UnicodeEncodeError` at exit 1. A Windows pipe is in
+    the ANSI code page, which is where an agent's captured run meets it. The
+    entry block every other skill script carries is what fixes it, so the
+    script is run as a process, the way that block is reached.
+
+    Red how: at `6bbaa4d1` the refusal line is followed by a traceback and
+    exit 1. Executed."""
+    module_path, _ = two_arms
+    probe = tmp_path / "prints_a_byte.py"
+    probe.write_text(
+        "import sys\nsys.stdout.buffer.write(b'x \\xff y\\n')\nsys.exit(1)\n",
+        encoding="utf-8",
+    )
+    tests = shlex.join([sys.executable, str(probe)])
+    run = subprocess.run(
+        [sys.executable, SCRIPT, str(module_path), "--tests", tests],
+        capture_output=True,
+        env=dict(os.environ, PYTHONIOENCODING="cp1252"),
+    )
+    assert run.returncode == 2, run.stderr.decode("utf-8", "replace")
+    assert b"Traceback" not in run.stderr
+    assert run.stdout.startswith(b"no baseline: exit 1.")
+
+
+def test_a_pair_whose_cases_print_a_byte_that_is_not_utf8_keeps_its_verdict(
+    two_arms, tmp_path
+):
+    """Round 1's 🟡 3. A pair's output is never read, and `text=True` decoded
+    it strictly anyway, so one mutation whose cases print a byte that is not
+    UTF-8 raised `UnicodeDecodeError` out of `run_arms` and every verdict
+    measured before it went with it. The same class as the first run's
+    decode, in the same function.
+
+    Red how: at `6bbaa4d1` `UnicodeDecodeError` leaves `run_arms`. Executed."""
+    module_path, _ = two_arms
+    copy = tmp_path / "as_it_was.txt"
+    copy.write_bytes(module_path.read_bytes())
+    probe = tmp_path / "prints_on_a_mutation.py"
+    probe.write_text(
+        "import sys\n"
+        "if open(sys.argv[1], 'rb').read() != open(sys.argv[2], 'rb').read():\n"
+        "    sys.stdout.buffer.write(b'boom \\xff\\n')\n"
+        "    sys.exit(1)\n",
+        encoding="utf-8",
+    )
+    verdicts, refused = ARM.run_arms(
+        str(module_path), [sys.executable, str(probe), str(module_path), str(copy)]
+    )
+    assert refused == []
+    assert [v.killed for v in verdicts] == [True, True]
 
 
 # --- the two operators are not interchangeable ----------------------------

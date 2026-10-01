@@ -69,8 +69,9 @@ arm-check hooks/review-history-guard.py --tests "bin/test tests/test_chain_hooks
 ```
 
 With no `--tests` it lists the arms and mutates nothing. With `--tests` it
-makes each arm wrong in turn, runs that command, and names the arms nothing
-kills — restoring the module from held bytes and comparing the sha256 after
+first runs that command once against the module as it is, which has to pass
+(below). Then it makes each arm wrong in turn, runs the command again, and
+names the arms nothing kills — restoring the module from held bytes and comparing the sha256 after
 every mutation, never with `git checkout`, which reaches the uncommitted work
 in the rest of the tree.
 
@@ -80,7 +81,9 @@ and an arm asks two operators, so one arm can take twice that. When the bound
 is reached, only the command's own process is killed. A wrapper command is the
 one that leaks: where `--tests` names a runner that starts pytest as a child of
 its own, as the example above does, a timed-out pair leaves that suite running,
-unbounded and unreported, beside every arm after it. Against a module whose
+unbounded and unreported, beside every arm after it. The first run against the
+unmutated module is waited for under the same bound and leaks the same way
+when it reaches it, before the run is refused. Against a module whose
 suite can approach the bound, name the pytest command in `--tests` directly
 rather than a wrapper. Whether the bound should reach the whole process group
 is #313.
@@ -118,11 +121,24 @@ from the grammar rather than from a list, and it **refuses an AST node type
 it does not recognise** instead of skipping it — a walk that skips silently is
 the rotted hand count with a shebang on it.
 
+**A `killed` is a measurement only when the command passed without the
+mutation**, so `--tests` runs once against the module as it is before
+anything is written. A `-k` that selects no case, a module path that does not
+exist and a case already failing each exit non-zero whatever the module
+holds, and each used to print `killed` beside every arm. When that first run
+exits non-zero, does not return within `--timeout`, or cannot be spawned, the
+command prints `no baseline:` with the cause and what the command printed,
+writes nothing, measures no arm, and exits 2 — the code it already gives a
+negative `--timeout`. If the command itself changed the module during that
+run, the module is put back from the bytes read before it and the line says
+so instead. Where it cannot be put back, because the command left it
+unreadable, unwritable or replaced by a directory, the line names the error.
+
 Two things it does not claim. **A survivor is not automatically a defect:** an
 arm that cannot be constructed, or one whose removal preserves behaviour,
-belongs in the report and is not work anybody owes. And it is **report-only,
-exit 0 either way** — whether an unwatched arm should fail a run is an open
-decision, not an omission.
+belongs in the report and is not work anybody owes. And a measured run is
+**report-only, exit 0 either way** — whether an unwatched arm should fail a
+run is an open decision, not an omission.
 
 #### `mutation-check` asks condition 2 of one unit, one break at a time
 
