@@ -69,8 +69,10 @@ the reader acts.
 stamp — the disc and a panel carrying the tree and its branch, the base and
 the ref it came from, the work item and its pull request, the suite's counts
 and the exit code the repository's row came back with, the ledger's counts,
-the chain's exit, and the round count when `--record` names a work item, a
-name too long for its row continuing on the row beneath it (`panel`) — is
+the chain's exit, and the round count when `--record` names a work item —
+`capped` beside it and the deferred findings' homes beneath it where the run
+ended at the cap (`rounds_rows`) — a name too long for its row continuing on
+the row beneath it (`panel`) — is
 `seal_stamp.stamp`'s, and it is drawn only over a written cell. On a
 terminal a recorded seal draws it once, in the form `pick_shape` chooses.
 Anywhere else a recorded seal draws nothing and prints one line beginning
@@ -2264,6 +2266,76 @@ def sealed_record(item, root):
     return Record(path, rows, lines, generator.chain, reader)
 
 
+def deferred_home(chain, cell):
+    """The home a `deferred <home>` verdict cell names, or None.
+
+    `chain_check.verdict_of` hands back the bare word for a homed deferral —
+    it answers *is this closed*, and the home is not part of that answer — so
+    the home is read here off the same cell, after the same normalisation
+    (`EMPHASIS`, `MARKER`) and up to the same separators (`SEPARATORS`), and
+    only for a row `verdict_of` already called `deferred`. Its first word is
+    the home: `#664`, or a path such as `seal/follow-up.md`."""
+    s = chain.MARKER.sub("", chain.EMPHASIS.sub("", cell).strip())
+    if not s.lower().startswith(chain.DEFERRED):
+        return None
+    rest = s[len(chain.DEFERRED) :].strip(chain.SEPARATORS)
+    return rest.split()[0].rstrip(".,;") if rest else None
+
+
+def rounds_rows(item, record):
+    """The `rounds` row and, where it has one, the row beneath it (#666).
+
+    `<R>` is the count of round records, as before. ` . capped` is appended
+    where the last record's `Needs a fix` begins `yes`: `seal` has already
+    refused an unchecked `Pass`, so that is a record whose every finding
+    closed while the reviewer's own answer still says the round needed a fix
+    — the shape `skills/verify/SKILL.md` §*The broad gate* defines a run
+    that ended at the cap by. The row beneath counts the verdict rows
+    `chain_check.verdict_of` calls `deferred` or `deferred (no home)` and
+    lists the distinct homes after `->`, in table order, a homeless deferral
+    counted and naming none.
+
+    Read off the table regardless of `capped`, because the two come apart in
+    this tree: measured 2026-10-01 over every work item whose last record has
+    `Pass` checked (`phases/phase-3.md`), every one reading `yes` holds a
+    deferral, and ten reading `no` hold one too — a deferral by choice, or a
+    capped round's findings carried into a verifying round.
+
+    **`<R>` alone wherever the record cannot answer both questions** — a
+    record that cannot be read, a `broad-gate.md` home, a record with no
+    `Needs a fix` row, and one with no readable `## Verdicts` table. Half an
+    answer there would be a `capped` with no count beside it, or a count
+    with nothing saying whether the run was capped, and neither is a shape
+    `seal` leaves on a record it accepted (`spec.md` S4)."""
+    head = str(round_count(item))
+    if record is None or record.rows is None:
+        return [("rounds", head)]
+    chain, reader = record.chain, record.reader
+    needs = chain.field(record.rows, chain.NEEDS)
+    found, col, _header, _errors = chain.verdict_table(
+        reader, record.lines, os.path.basename(record.path)
+    )
+    if needs is None or col < 0:
+        return [("rounds", head)]
+    if reader.visible(needs).strip().lower().startswith("yes"):
+        head += " . capped"
+    count, homes = 0, []
+    for _line, seen in found:
+        word = chain.verdict_of(seen, col)
+        if word == chain.DEFERRED:
+            home = deferred_home(chain, seen[col])
+            if home and home not in homes:
+                homes.append(home)
+        elif word != f"{chain.DEFERRED} {chain.NO_HOME}":
+            continue
+        count += 1
+    rows = [("rounds", head)]
+    if count:
+        tail = f" -> {', '.join(homes)}" if homes else ""
+        rows.append(("", f"{count} deferred{tail}"))
+    return rows
+
+
 def pull_request(record):
     """`#<N>` from the record's `| PR |` row, or None.
 
@@ -2290,13 +2362,24 @@ def item_value(item, pr=None):
     return f"{pr} . {ident}" if pr else ident
 
 
-def panel(tree, base, checks, item, workflow=None, copy=None, branch=None, pr=None):
+def panel(
+    tree,
+    base,
+    checks,
+    item,
+    workflow=None,
+    copy=None,
+    branch=None,
+    pr=None,
+    record=None,
+):
     """The stamp's rows, as `(label, value)` with `None` for a blank and `""`
     as the label of a row that continues the one above it (#666).
 
     `base` is a `Base`. `copy` is `gate_copy`'s value and None leaves the
     `gate` row out; `branch` is `branch_name`'s, None on a detached HEAD;
-    `pr` is `pull_request`'s, None where the record names none.
+    `pr` is `pull_request`'s, None where the record names none; `record` is
+    `sealed_record`'s, which `rounds_rows` reads.
 
       SEALED
       tree      <tree>
@@ -2311,7 +2394,8 @@ def panel(tree, base, checks, item, workflow=None, copy=None, branch=None, pr=No
                 <D> drifted . <B> broken
       chain     exit <N>
       workflow  <n> of <m> not answered    absent without a hygiene workflow
-      rounds    <R>                        absent without --record
+      rounds    <R>[ . capped]             absent without --record
+                <k> deferred -> <homes>    only where k > 0 (`rounds_rows`)
 
     **The panel keeps its width, and nothing on it is cut by the frame.**
     `seal_stamp.letter` gives a value `PANEL_VALUE_WIDTH` columns and cuts at
@@ -2375,7 +2459,7 @@ def panel(tree, base, checks, item, workflow=None, copy=None, branch=None, pr=No
         short = len(unanswered(workflow))
         rows += [None, ("workflow", f"{short} of {len(steps)} not answered")]
     if item is not None:
-        rows += [None, ("rounds", str(round_count(item)))]
+        rows += [None, *rounds_rows(item, record)]
     return [None if row is None else (row[0], fit(row[1])) for row in rows]
 
 
@@ -2646,6 +2730,7 @@ def gate(args, console_wants_letters, terminal=False):
         gate_copy(root, installed=getattr(args, "invoked_as", None)),
         branch=branch,
         pr=pull_request(record),
+        record=record,
     )
     # The cell is in the working tree and CI reads HEAD (#666): said after
     # the stamp or the `SEALED` line, on the same stream, and only where a

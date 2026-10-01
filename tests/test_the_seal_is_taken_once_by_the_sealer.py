@@ -2867,8 +2867,22 @@ def test_no_value_on_the_panel_is_wider_than_the_frame_gives(tmp_path):
         copy=gate.copy_origin(ROOT),
         branch=LONG_BRANCH,
         pr="#12345",
+        # Phase 3's longest `rounds` continuation: three homes, one a path.
+        record=record_of(
+            tmp_path,
+            capped_record(
+                verdicts=(
+                    "| 🟡 1 | a | `f.py:1` | deferred seal/follow-up.md | why |\n"
+                    "| 🟡 2 | b | `f.py:2` | deferred #12345 | why |\n"
+                    "| 🟡 3 | c | `f.py:3` | deferred #12346 | why |\n"
+                )
+            ),
+        ),
     )
     values = [row[1] for row in rows if row]
+    assert rows[-1][1].startswith("3 deferred -> seal/") and rows[-1][1].endswith(
+        gate.ELISION
+    ), rows[-1]
     assert all(len(v) <= gate.PANEL_VALUE_WIDTH for v in values), [
         v for v in values if len(v) > gate.PANEL_VALUE_WIDTH
     ]
@@ -3018,6 +3032,12 @@ def test_the_documents_say_where_the_panel_now_carries_each_name():
         sealer
     )
     assert "a stamp with no `gate` row was measured by the copy you invoked" in sealer
+    # Phase 3's row.
+    assert (
+        "`rounds` row reads `<R> . capped` where the last record's `Needs a fix`"
+        in (sealer)
+    )
+    assert "counts the findings closed `deferred` and names their homes" in sealer
 
 
 def test_the_sample_carries_every_row_the_panel_can(tmp_path):
@@ -3039,10 +3059,144 @@ def test_the_sample_carries_every_row_the_panel_can(tmp_path):
         copy="tree 1.2.3",
         branch="feature",
         pr="#12",
+        record=record_of(tmp_path, capped_record()),
     )
     labels = [None if row is None else row[0] for row in rows]
     sample = [None if row is None else row[0] for row in module().SAMPLE_ROWS]
     assert sample == labels, (sample, labels)
+
+
+# --- #666: `rounds` says capped and counts the deferred findings -----------
+
+
+def capped_record(needs="yes — 🟡 1, the wording", verdicts=None, pass_box="x"):
+    """A last record in the shape `seal/specs/1790635412-*/rounds/round-3.md`
+    has: `Pass` checked, `Fixes checked by | no fixes to check`, `Needs a fix
+    | yes — …`, and two findings closed `deferred #664`."""
+    if verdicts is None:
+        verdicts = (
+            "| 🟡 1 | a docstring claim | `f.py:1` | deferred #664 | #664 — why |\n"
+            "| ⬜ 2 | its wording | `f.py:2` | **deferred** #664 | #664 — why |\n"
+        )
+    table = f"## Verdicts\n\n{VERDICT_HEADER}{verdicts}\n" if verdicts else ""
+    needs_row = f"| {NEEDS} | {needs} |\n" if needs is not None else ""
+    return (
+        "# round 3\n\n| Field | Value |\n|---|---|\n| PR | #659 |\n"
+        f"| {CHECKED_BY} | no fixes to check |\n{needs_row}\n"
+        f"- [{pass_box}] Pass\n\n{table}"
+    )
+
+
+def record_of(tmp_path, text, name="round-3.md"):
+    """A `broad_gate.Record` over `text`, read with the plugin's own readers
+    the way `sealed_record` reads a record on disk."""
+    gate, reader, chain = gate_module(), reader_module(), check_module()
+    path = tmp_path / name
+    path.write_text(text, encoding="utf-8")
+    lines = reader.readable(text)
+    return gate.Record(str(path), chain.table_rows(reader, lines), lines, chain, reader)
+
+
+def rounds_of(tmp_path, text, rounds=3):
+    item = tmp_path / "1799000000-an-item"
+    (item / "rounds").mkdir(parents=True, exist_ok=True)
+    for n in range(1, rounds + 1):
+        (item / "rounds" / f"round-{n}.md").write_text("x\n", encoding="utf-8")
+    return gate_module().rounds_rows(str(item), record_of(tmp_path, text))
+
+
+@pytest.mark.parametrize(
+    "text, rows",
+    [
+        # A10's own shape: capped, two deferrals to one home.
+        (capped_record(), [("rounds", "3 . capped"), ("", "2 deferred -> #664")]),
+        # Two homes, in table order.
+        (
+            capped_record(
+                verdicts=(
+                    "| 🟡 1 | a | `f.py:1` | deferred seal/follow-up.md | why |\n"
+                    "| 🟡 2 | b | `f.py:2` | deferred #664 | why |\n"
+                    "| 🟡 3 | c | `f.py:3` | deferred #664 | why |\n"
+                )
+            ),
+            [("rounds", "3 . capped"), ("", "3 deferred -> seal/follow-up.md, #664")],
+        ),
+        # A bare `deferred` is counted and names no home.
+        (
+            capped_record(
+                verdicts=(
+                    "| 🟡 1 | a | `f.py:1` | deferred #664 | why |\n"
+                    "| 🟡 2 | b | `f.py:2` | deferred | why |\n"
+                )
+            ),
+            [("rounds", "3 . capped"), ("", "2 deferred -> #664")],
+        ),
+        (
+            capped_record(verdicts="| 🟡 1 | a | `f.py:1` | deferred | why |\n"),
+            [("rounds", "3 . capped"), ("", "1 deferred")],
+        ),
+        # A run that ended with nothing needing a fix and nothing deferred.
+        (
+            capped_record(
+                needs="no", verdicts="| 🟢 1 | a | `f.py:1` | answered | why |\n"
+            ),
+            [("rounds", "3")],
+        ),
+        # A deferral by choice on a record that needed no fix: counted, not
+        # capped (`questions.md` Q2's measurement found ten of these).
+        (capped_record(needs="no"), [("rounds", "3"), ("", "2 deferred -> #664")]),
+        # Half an answer is no answer: no table, or no `Needs a fix` row.
+        (capped_record(verdicts=""), [("rounds", "3")]),
+        (capped_record(needs=None), [("rounds", "3")]),
+    ],
+)
+def test_rounds_says_capped_and_counts_what_was_deferred(tmp_path, text, rows):
+    """A10. `capped` is read off the last record's `Needs a fix` beginning
+    `yes`; the row beneath counts the verdicts `chain_check.verdict_of` calls
+    `deferred` and lists their homes, read through `chain_check`'s own
+    readers rather than a second parser of a round record."""
+    assert rounds_of(tmp_path, text) == rows
+
+
+def test_a_record_with_no_rows_or_no_record_prints_the_count_alone(tmp_path):
+    """A10's last shape: a `broad-gate.md` home has no round record, and a
+    record that could not be read gives no rows; both print `<R>` alone."""
+    gate = gate_module()
+    item = tmp_path / "1799000000-an-item"
+    item.mkdir()
+    assert gate.rounds_rows(str(item), None) == [("rounds", "0")]
+    home = gate.Record(str(item / "broad-gate.md"))
+    assert gate.rounds_rows(str(item), home) == [("rounds", "0")]
+
+
+def test_the_home_is_read_off_the_cell_after_the_word(tmp_path):
+    """`verdict_of` hands back the bare word for a homed deferral, so the home
+    comes off the cell itself, through the same normalisation: emphasis off,
+    the word, then the separators, then the home's first word."""
+    gate, chain = gate_module(), check_module()
+    for cell, home in (
+        ("deferred #664", "#664"),
+        ("**deferred** #664", "#664"),
+        ("deferred — #664, see the issue", "#664"),
+        ("Deferred seal/follow-up.md.", "seal/follow-up.md"),
+        ("deferred", None),
+        ("fixed abc1234", None),
+    ):
+        assert gate.deferred_home(chain, cell) == home, cell
+
+
+def test_a_capped_run_is_sealed_with_its_deferral_on_the_stamp(repo, tmp_path):
+    """A10 end to end, over the fixture `capped_item` builds: round 1 closed
+    its one finding `deferred #999` and `Needs a fix` still reads `yes`. The
+    gate seals it, and the values file's `rounds` says so."""
+    capped_item(repo)
+    out = run_gate(
+        repo, "--record", str(repo / ITEM), keep=tmp_path / "out", session="s-1"
+    )
+    assert out.returncode == 0, f"{out.stdout}\n{out.stderr}"
+    (path,) = values_files(repo)
+    rows = module().read_values(path)["rows"]
+    assert rows[-2:] == [("rounds", "1 . capped"), ("", "1 deferred -> #999")], rows
 
 
 # --- S2 not sealed -----------------------------------------------------------

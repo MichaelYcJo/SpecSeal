@@ -112,7 +112,11 @@ Three outcomes, and they are not two:
   is the orchestrator's and the pull request is not ready without it. The
   stamp itself is drawn later and not by you. Its panel names the branch
   under `tree`, and the row under `base` carries the ref that commit came
-  from; a name too long for a row is elided with `...`, never cut.
+  from; a name too long for a row is elided with `...`, never cut. Its
+  `rounds` row reads `<R> . capped` where the last record's `Needs a fix`
+  still says `yes` over a closed table — the run ended at the cap — and the
+  row beneath it counts the findings closed `deferred` and names their
+  homes.
 - **Exit 1, not sealed** — a check failed. The gate printed which, its exit
   code, its first lines, and, per failing test file, `new` or `failing on
   base too`. No stamp is drawn, on purpose: a picture saying *sealed* beside

@@ -702,7 +702,8 @@ SAMPLE_ROWS = [
     None,
     ("workflow", "4 of 9 not answered"),
     None,
-    ("rounds", "4"),
+    ("rounds", "3 . capped"),
+    ("", "2 deferred -> #56"),
 ]
 
 
