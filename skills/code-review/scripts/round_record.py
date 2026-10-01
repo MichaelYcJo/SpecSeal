@@ -113,7 +113,9 @@ it does not parse, and the honest starting values of the cells it does.
 Exit codes: 0 and 1 are `chain_check`'s own, after the record is written ·
 2 the input was unusable, a sibling script this loads is not beside it, or
 the interpreter is below the floor — any way, nothing was read and nothing
-was written.
+was written. `seal --check` (#702) is the one 0 that is not the checker's:
+every refusal `seal` raises was asked and none fired, and nothing was
+written and no check ran; a refusal under it is 2 as it is without it.
 
 Those are all the exits, enumerated from this module's own AST rather than
 remembered: `SystemExit(2)` at the guard and in `load`, and
@@ -4319,6 +4321,20 @@ def new_broad_gate_file(item, value):
     )
 
 
+# What `seal --check` prints where every refusal was asked and none fired
+# (#702), one line naming the home it asked. Neither begins `round-record:
+# sealed`: `broad_gate.py#gate` reads that prefix as a written cell.
+CHECKED = (
+    "round-record: checked {path} {dash} `seal` raises no refusal over this "
+    "record; --check, so no cell was written and no chain check ran"
+)
+CHECKED_NO_ROUND = (
+    "round-record: checked {path} {dash} no round record is read for this "
+    "home, and the SHA raises no refusal; --check, so no cell was written "
+    "and no chain check ran"
+)
+
+
 def seal(args):
     """Set the LAST record's `Broad gate` cell, and touch nothing else.
 
@@ -4408,6 +4424,19 @@ def seal(args):
 
     Then `chain_check --worktree` runs, as `new` and `close` do. Commits
     nothing.
+
+    **`--check` asks every refusal above and writes nothing** (#702). The
+    seven — the six here and `seal_home`'s — are raised in the same order
+    with the same sentences, and then, before `kept_broad_gate`, the
+    subcommand prints one line and returns 0: no cell, no `broad-gate.md`,
+    no chain check. The return is the statement immediately after the last
+    refusal, so a refusal added later lands above it or is a refusal the
+    flag never asks, and a case holds that position. It adds no `raise`
+    site, so the count above is unchanged. The line never begins
+    `round-record: sealed`, because `broad_gate.py#gate` reads that prefix
+    as the cell having been written. `broad-gate --preflight` is the caller:
+    it asks the sealer's own subcommand rather than restating its
+    predicates, so the sealer's refusals arrive before the suite.
     """
     reader, routing, root, item, rounds = where(args)
     n, path = seal_home(routing, item, rounds)
@@ -4544,6 +4573,14 @@ def seal(args):
                 "Run it again at the tree as it stands; no cell was written"
             )
 
+    # `--check` (#702): every refusal above was asked and none fired. Nothing
+    # below this return may raise — it is where the write starts — and a case
+    # reads this function's body to hold that.
+    if args.check:
+        said = CHECKED_NO_ROUND if n is None else CHECKED
+        print(said.format(path=os.path.relpath(path, root), dash=DASH))
+        return 0
+
     # ONE ENTRY PER RUN, NEWEST FIRST (#174). A run the cell already holds is
     # kept behind the new one as `earlier run`, because a second broad run --
     # after a pre-existing failure, or after the last fixes landed -- used to
@@ -4621,6 +4658,12 @@ def main(argv=None):
         required=True,
         help="the cell: `<sha> against <base>` — the commit the one broad run "
         "happened at, and the base it was compared against",
+    )
+    s.add_argument(
+        "--check",
+        action="store_true",
+        help="ask every refusal and write nothing: no cell, no chain check — "
+        "what `broad-gate --preflight` runs",
     )
     s.add_argument("--root", default=None, help="the repository (default: the item's)")
     s.add_argument(

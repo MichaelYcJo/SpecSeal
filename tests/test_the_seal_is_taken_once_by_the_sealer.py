@@ -4466,6 +4466,154 @@ def test_seal_refuses_a_cell_with_no_sha_in_it(repo):
     assert "SHA-shaped" in out and read_bytes(two) == before
 
 
+# --- 1790835051: `seal --check` asks every refusal and writes nothing (#702) --
+#
+# The preflight asks the sealer's own subcommand rather than restating its
+# predicates, so the flag has two halves to hold: everything `seal` refuses,
+# `--check` refuses with the same sentence, and nothing `--check` passes is
+# written — no cell, no `broad-gate.md`, no chain check after.
+
+CHECK_FLAG = ("--check",)
+
+
+def generator_module():
+    return _load("specseal_round_record_for_seal_check", GENERATOR)
+
+
+def unchecked_pass(repo):
+    """An open finding, so the last record's `Pass` is unchecked."""
+    declared(repo)
+    return generate(repo, 1, OPEN_ROW, "no"), None
+
+
+def unread_fixes(repo):
+    """#535's shape as `new` and `close` write it: `Pass` ticked beside
+    `nobody — the fixes are not yet written` on the last record."""
+    return fixed_but_unread_item(repo), None
+
+
+def spent_sha(repo):
+    """A settled item, asked with the base's commit: round 2's `Target SHA`
+    descends from it."""
+    _one, two = settled_item(repo)
+    return two, short(repo, "base")
+
+
+def no_round_record(repo):
+    """A chain declaration whose `rounds/` holds nothing yet."""
+    write(repo, f"{ITEM}/routing.md", declaration())
+    commit(repo, "declare the chain, rounds not written yet")
+    return repo / ITEM / GATE_FILE, None
+
+
+@pytest.mark.parametrize(
+    "shape, said",
+    [
+        (unchecked_pass, "`Pass` is unchecked"),
+        (unread_fixes, "read by no LATER round"),
+        (spent_sha, "descends from"),
+        (no_round_record, "holds no `round-N.md`"),
+    ],
+    ids=["pass-unchecked", "nobody-on-the-last-record", "spent-sha", "no-record"],
+)
+def test_seal_check_refuses_what_seal_refuses_and_writes_nothing(repo, shape, said):
+    """S1. Each refusal `seal` raises before the write, asked under `--check`:
+    exit 2 with `seal`'s own sentence, the record (or the absent
+    `broad-gate.md`) unchanged, and no chain check run. Seen red first with
+    the flag absent, where argparse refuses the command before any of them is
+    asked."""
+    path, at = shape(repo)
+    before = read_bytes(path) if path.exists() else None
+    code, out = run_seal(repo, f"{at or short(repo, 'HEAD')} against base", CHECK_FLAG)
+    assert code == 2, out
+    assert said in out and "no cell was written" in out, out
+    assert "chain-check:" not in out, f"`--check` ran the chain check:\n{out}"
+    after = read_bytes(path) if path.exists() else None
+    assert after == before, f"`--check` wrote {path.name} under a refusal"
+
+
+def settled_last(repo):
+    return settled_item(repo)[1]
+
+
+def direct_home(repo):
+    """`straight to the PR`, no rounds: the cell's home is `broad-gate.md`."""
+    write(repo, f"{ITEM}/routing.md", declaration(review="straight to the PR"))
+    commit(repo, "declare direct")
+    return repo / ITEM / GATE_FILE
+
+
+@pytest.mark.parametrize(
+    "shape, line",
+    [
+        (settled_last, "CHECKED"),
+        (capped_item, "CHECKED"),
+        (direct_home, "CHECKED_NO_ROUND"),
+    ],
+    ids=["settled", "capped", "straight-to-the-pr"],
+)
+def test_seal_check_passes_what_seal_would_seal_and_writes_nothing(repo, shape, line):
+    """S2. A record `seal` would write, asked under `--check`: exit 0, the
+    record (or the absent `broad-gate.md`) byte-identical, no chain check,
+    and the one line naming the home asked and saying nothing was written.
+    The line never begins `round-record: sealed`, which `broad_gate.py#gate`
+    reads as the cell having been written. Seen red with `--check` ignored:
+    the cell is written and the byte comparison fails."""
+    path = shape(repo)
+    before = read_bytes(path) if path.exists() else None
+    code, out = run_seal(repo, f"{short(repo, 'HEAD')} against base", CHECK_FLAG)
+    assert code == 0, out
+    after = read_bytes(path) if path.exists() else None
+    assert after == before, f"`--check` wrote {path.name}"
+    assert "chain-check:" not in out, f"`--check` ran the chain check:\n{out}"
+    generator = generator_module()
+    said = getattr(generator, line).format(
+        path=os.path.relpath(path, repo), dash=generator.DASH
+    )
+    assert out.splitlines() == [said], out
+    assert not out.startswith("round-record: sealed"), out
+
+
+def test_the_check_returns_after_the_last_refusal_and_before_the_write():
+    """`plan.md`'s failure scenario. A refusal added to `seal` below the
+    `--check` return is refused by the sealer after a suite and passed by the
+    preflight — the gap this work closes, reopened one refusal at a time. So
+    the statement immediately before `kept_broad_gate` in `seal`'s body is the
+    `--check` guard ending in a `return`, and nothing after it raises."""
+    with open(GENERATOR, encoding="utf-8") as handle:
+        parsed = ast.parse(handle.read())
+    seal = next(
+        n for n in parsed.body if isinstance(n, ast.FunctionDef) and n.name == "seal"
+    )
+    keep = [
+        i
+        for i, statement in enumerate(seal.body)
+        if isinstance(statement, ast.Assign)
+        and isinstance(statement.value, ast.Call)
+        and ast.unparse(statement.value.func) == "kept_broad_gate"
+    ]
+    assert len(keep) == 1, f"`seal` calls `kept_broad_gate` {len(keep)} times"
+    guard = seal.body[keep[0] - 1]
+    assert isinstance(guard, ast.If) and ast.unparse(guard.test) == "args.check", (
+        "the statement before `kept_broad_gate` is not the `--check` guard"
+    )
+    assert isinstance(guard.body[-1], ast.Return), "the guard does not return"
+    later = [
+        node
+        for statement in seal.body[keep[0] - 1 :]
+        for node in ast.walk(statement)
+        if isinstance(node, ast.Raise)
+    ]
+    assert not later, "a refusal stands below the `--check` return"
+    earlier = [
+        node
+        for statement in seal.body[: keep[0] - 1]
+        for node in ast.walk(statement)
+        if isinstance(node, ast.Raise)
+    ]
+    assert earlier, "no refusal stands above the `--check` return"
+
+
 def test_the_gate_with_record_seals_the_item_and_counts_its_rounds(repo, tmp_path):
     """S1 with `--record`: the checks pass, `seal` writes the last record's
     cell with the tree and the base, and the panel carries `rounds 2` — read
