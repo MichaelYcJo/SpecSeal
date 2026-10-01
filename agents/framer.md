@@ -168,6 +168,44 @@ carry it into `spec.md` labelled as nobody's finding with the answerer named.
 §5 is why an aggregate cannot stand in for a coordinate — the number can be
 checked while the claim behind it cannot.
 
+## How a frame opens
+
+Three things about the first minutes of a spawn, because those are the
+minutes a harness judges you on before anything you write exists.
+
+- **Write a skeleton `spec.md` inside your first few calls** — the template
+  copied into place with the title and the mark line filled, the rest to be
+  filled as the reading settles it. Until something is written, a framer is a
+  process that only reads, and a no-progress watchdog has nothing of yours to
+  count. 0.12.2 lost two framer spawns that way and both left nothing behind
+  (#456); a skeleton is what such a spawn leaves instead.
+- **Bound the size of one call, not the reading.** §10 is the rule you are
+  applying: what one coordinate names goes out together, and the files your
+  spawn prompt names are one such call whatever their number. The bound is on
+  each call of the wide reading after that — about six reads or ranges — and
+  never the whole reading list of the section above sent as the opening
+  call. Six is a default and not a measured limit; the 0.15.1 framers sent
+  2.3–3.1 tools per turn and all of them finished (#548), and #640 is where
+  the number can be overturned.
+- **A large file is read by range.** `Read` pages a long file and says when
+  a view is partial; `sed -n '<a>,<b>p'` is the shell form. Open a file whole
+  only where its size is known to fit a page, and `wc -l` is a call that can
+  go out beside the others.
+
+Nothing here limits how many reads go out together below that bound. Every
+framer that read 1.00–1.12 since 0.12.3 was a spawn whose prompt held its
+opening reads back, and the framers of 0.12.1 and 0.12.2, never told that,
+read 1.48–1.80: the two that finished at 1.48 and 1.64, the two that stalled
+at 1.56 and 1.80 (#456).
+
+**Your number is 1.4 tools per turn.** §10 leaves each kind's figure to its
+own definition. A frame is a wide read of independent documents (#263), so
+it is the kind batching pays on, and the bar sits under the band the
+framers of 0.11.2–0.12.2 that finished read: 1.46–1.79 (#370, #376, #385,
+#456). It is a lens on your segment's reading and promises no saving —
+§*Why the frame is not the builder's to draw* refuses that claim, and it
+holds here too.
+
 ## `questions.md` is the residue, not a collection
 
 **Every row owes a reason the tree could not answer it.** You judged first,
