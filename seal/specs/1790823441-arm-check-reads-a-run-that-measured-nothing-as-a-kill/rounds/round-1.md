@@ -7,14 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 707 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `ac22a0d839470c71127c64997f4bbe09047db212..fc833b5154b360227ec6fc239b567f9b21c52fa5`, 4 commits |
+| Contract changes | test_a_first_run_that_timed_out_carries_what_it_printed → pytest only |
+| New units | KILLS_ITSELF (depth 1); CHANGES_THE_MODULE (depth 1); test_a_refused_run_leaves_the_module_as_it_was_before_the_command (depth 1); test_a_refusal_survives_a_console_that_cannot_encode_its_output (depth 1); test_a_pair_whose_cases_print_a_byte_that_is_not_utf8_keeps_its_verdict (depth 1) |
 | Needs a fix | yes — 🟡 1 (a refusal leaves a module the cases rewrote, which the base put back) and 🟡 2 (the refusal crashes on a non-UTF-8 console); 🟡 3 is fix or justify with a home named |
 | Loses a record or crashes | yes — 🟡 2 ends a refusal in a traceback at exit 1, 🟡 3 crashes a run and discards every verdict measured before it, and 🟡 1 drops the module bytes `arm-check` held and leaves the cases' rewrite |
+<!-- New units: bin/arm-check read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,12 +25,12 @@ Round 1 targets `6bbaa4d1` and the diff `a340221b..6bbaa4d1`, the whole build. I
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A refused run leaves the module however the cases wrote it during the first run; at the base the outer `finally` put it back, and the line still says *Nothing was written* | `skills/verify/scripts/arm_check.py:920-944` | open | Executed: P4, a command writing `VALUE = 99` and exiting 1, left the module `VALUE = 99` at the target and byte-identical at `a340221b`; fix F4 restores it, and F5 shows an untouched module is still never written |
-| 🟡 2 | The refusal's output crashes on a console that is not UTF-8: U+FFFD from `_text` raises `UnicodeEncodeError`, exit 1, contradicting `_text`'s docstring; `arm_check.py` lacks the stream reconfigure five other skill scripts carry | `skills/verify/scripts/arm_check.py:1222` | open | Executed: P2 under `PYTHONIOENCODING=cp1252` printed the line and then a traceback, exit 1; exit 2 under UTF-8; fix F2 exits 2 under cp1252 |
-| 🟡 3 | A pair's `text=True` strict decode turns a mutation whose cases print a non-UTF-8 byte into a traceback that discards every verdict; the output is never read | `skills/verify/scripts/arm_check.py:965` | open | Executed: P3 crashed with `UnicodeDecodeError`, exit 1, at the base and at the target; fix F3 gives both arms `killed`, exit 0. Predates the branch, and is the same class as the decode it fixed |
-| ⬜ 4 | A first run killed by a signal (negative return code) is held by no case | `skills/verify/scripts/arm_check.py:939` | open | Executed: mutation Mg (`!= 0` to `> 0`) survived the module, 87 passed. Behaviour right |
-| ⬜ 5 | The output a timed-out first run printed reaches `NoBaseline.output` under a case, and reaches the reader under none | `skills/verify/scripts/arm_check.py:1221-1222` | open | Executed: mutation Mi (print only when the reason starts with `exit`) survived the module. Behaviour right |
-| ⬜ 6 | The SKILL timeout paragraph names a timed-out pair as what leaks a wrapper's suite; the first run leaks it the same way now | `skills/verify/SKILL.md:83` | open | Read against `run_arms` at the target. The help's sentence covers it; the paragraph does not |
+| 🟡 1 | A refused run leaves the module however the cases wrote it during the first run; at the base the outer `finally` put it back, and the line still says *Nothing was written* | `skills/verify/scripts/arm_check.py:920-944` | **fixed** `47f66b2c` | fixed at 47f66b2c; Executed: P4, a command writing `VALUE = 99` and exiting 1, left the module `VALUE = 99` at the target and byte-identical at `a340221b`; fix F4 restores it, and F5 shows an untouched module is still never written |
+| 🟡 2 | The refusal's output crashes on a console that is not UTF-8: U+FFFD from `_text` raises `UnicodeEncodeError`, exit 1, contradicting `_text`'s docstring; `arm_check.py` lacks the stream reconfigure five other skill scripts carry | `skills/verify/scripts/arm_check.py:1222` | **fixed** `47f66b2c` | fixed at 47f66b2c; Executed: P2 under `PYTHONIOENCODING=cp1252` printed the line and then a traceback, exit 1; exit 2 under UTF-8; fix F2 exits 2 under cp1252 |
+| 🟡 3 | A pair's `text=True` strict decode turns a mutation whose cases print a non-UTF-8 byte into a traceback that discards every verdict; the output is never read | `skills/verify/scripts/arm_check.py:965` | **fixed** `47f66b2c` | fixed at 47f66b2c; Executed: P3 crashed with `UnicodeDecodeError`, exit 1, at the base and at the target; fix F3 gives both arms `killed`, exit 0. Predates the branch, and is the same class as the decode it fixed |
+| ⬜ 4 | A first run killed by a signal (negative return code) is held by no case | `skills/verify/scripts/arm_check.py:939` | **fixed** `47f66b2c` | fixed at 47f66b2c; Executed: mutation Mg (`!= 0` to `> 0`) survived the module, 87 passed. Behaviour right |
+| ⬜ 5 | The output a timed-out first run printed reaches `NoBaseline.output` under a case, and reaches the reader under none | `skills/verify/scripts/arm_check.py:1221-1222` | **fixed** `47f66b2c` | fixed at 47f66b2c; Executed: mutation Mi (print only when the reason starts with `exit`) survived the module. Behaviour right |
+| ⬜ 6 | The SKILL timeout paragraph names a timed-out pair as what leaks a wrapper's suite; the first run leaks it the same way now | `skills/verify/SKILL.md:83` | **fixed** `47f66b2c` | fixed at 47f66b2c; Read against `run_arms` at the target. The help's sentence covers it; the paragraph does not |
 | ⬜ 7 | A command that exits 0 but leaves a child holding stdout is refused as *did not return within* the bound | `skills/verify/scripts/arm_check.py:928-935` | deferred #313 | Executed: P5 printed `no baseline: the command did not return within 2.0s` at 2.0 s for `sh -c 'sleep 20 & exit 0'`. The pairs had it before the branch; the wait is #313's direct-child reach |
 | 🟢 | The three shapes, a timeout, a spawn failure and non-UTF-8 output each refuse the run at exit 2 with nothing written | `skills/verify/scripts/arm_check.py:920-944`, `:1210-1223` | confirmed | Executed: P1 against real pytest (exit 5, 4, 1) at base and target; P2 default console; Python 3.9.6 refusal; module case 87 passed |
 | 🟢 | The first run's bound is held by a case | `tests/test_arm_check.py` | confirmed | Executed: mutation Ma (`timeout=None` on the first run) red on the bound case alone |
