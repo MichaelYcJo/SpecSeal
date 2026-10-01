@@ -73,8 +73,9 @@ the migration question get asked at all.
 First, look for the 0.3.x layout. A repository still holding
 `.specseal/`, or a top-level `specs/` with an entry named
 `<unix-seconds>-<slug>` that carries one of the plugin's two marks directly
-under it — `routing.md`, or a `rounds/` directory — is on the 0.3.x layout
-and committed the plugin's files, so it chose shared already: do not ask,
+under it as git tracks it — `routing.md`, or a file under `rounds/` — is on
+the 0.3.x layout and committed the plugin's files, so it chose shared
+already: do not ask,
 say *"this repository is on the 0.3.x layout; start a new session and the
 plugin moves it into `<repo>/seal/`, or follow the README's by-hand sequence
 — and `seal mode local` moves it out of the tree afterwards if that is what

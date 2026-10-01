@@ -545,7 +545,10 @@ def reference_roots(home):
     default. A reference root is defined against the plugin's root, and a
     repository with none has not opted in: the one layout the plugin ever
     read without a root is 0.3.x, whose top-level `specs/` was the plugin's
-    own, and the checks still read that spelling as its records. A person
+    own, and the survivor sweep's pool and range and `unverified-check` still
+    read that spelling as its records — `survivor_check.py#WORK_ITEM_DIR`
+    alone no longer does, so a top-level `specs/<x>/` is never a retired
+    work item there. A person
     joining a project runs the bootstrap, which creates the root, before any
     check reads the tree."""
     if not home:

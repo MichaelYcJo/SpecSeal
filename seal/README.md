@@ -50,7 +50,8 @@ this directory and nothing else, which is why the root has to be its own.
 
 Nothing writes `.specseal/` or a top-level `specs/` any more. A
 repository still holding the plugin's own 0.3.x work items there — a
-`specs/` entry carrying `routing.md` or `rounds/` — is moved into
+`specs/` entry named `<unix-seconds>-<slug>` carrying `routing.md` or
+`rounds/` as git tracks them — is moved into
 `<repo>/seal/` once, at session start, by the plugin. Anything else under a
 top-level `specs/` is the project's own, read as history and left where it
 is.

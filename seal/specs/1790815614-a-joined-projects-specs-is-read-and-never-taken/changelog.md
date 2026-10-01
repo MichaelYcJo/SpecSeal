@@ -39,8 +39,9 @@
   work item's, `<unix-seconds>-<slug>`. A team that keeps its own
   specifications under such names had them taken, and its ledger rows citing
   them re-pointed to a path that never appeared. A directory moves now only
-  when it carries the plugin's own marks, a `routing.md` or a `rounds/`
-  directly under it. Every 0.3.x work item carried `routing.md`, so an old
+  when it carries the plugin's own marks, a `routing.md` or a file under
+  `rounds/` directly under it that git tracks — an empty or ignored
+  `rounds/` is not one. Every 0.3.x work item carried `routing.md`, so an old
   layout still moves whole. Anything else stays, keeps the rows that cite it,
   and is named in the hook's line as *no routing.md or rounds/ — not a
   SpecSeal work item*. A repository holding nothing else of the old layout
