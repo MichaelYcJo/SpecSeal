@@ -31,16 +31,18 @@ seconds, before the sealer is spawned.
 | Item | Who must answer |
 |---|---|
 | The full suite, the repository-wide lint and the broad gate over this branch. Each phase ran the modules its `Verified by` cell names and the modules that read what it edited (2,707 passed and one red that phase 4 closed: `test_every_spec_directory_that_reached_the_ladder_has_an_overview`, red only until this file existed) | the orchestrator, through the sealer |
-| This repository's own preflight took 30.86 s, over the ticket's 10 s bound for the fixture. About 18.8 s of it was the `ledger` arm (`evidence-check --strict` over 3,152 rows) and 8.46 s the `survivors` arm, split from the kept files' times. Why the ledger arm costs that was not measured | the repository owner |
-| A verifying round's `fixed at` verdict, as `round_record.py` writes it today, leaves `Pass` beside `nobody` on the last record. That pair exits 0 on a draft (executed) and fails a ready pull request (read from `chain_check.py#checked_by`, not run). So #535's instance passes both the preflight and the sealer, which judge a draft, and fails after the pull request is marked ready | the repository owner |
+| This repository's own preflight took 30.86 s in the build, on a loaded machine with two DRIFTED rows. Round 1 measured 10.79 s at `7ff69cb4`, the `ledger` arm about 6.6 s, and `evidence-check --strict .` alone 7.06 s, so none of it is the preflight's own doing. **Corrected 2026-10-01** from round 1's ⬜ 3, where this row said why the ledger arm costs that was not measured | the repository owner |
+| A verifying round's `fixed at` verdict, as `round_record.py` writes it today, leaves `Pass` beside `nobody — the fixes are not yet written` on the last record. The preflight passes it (exit 0, executed in round 1), and the sealer's run refuses it at `round_record.py seal` with exit 2 after every check has passed, because `seal` accepts only `no fixes to check` on the last record (executed in round 1). So #535's instance, as written today, still costs a suite: it is a `seal` refusal, not a record-arm refusal, and the preflight does not ask `seal`'s refusals (`plan.md` alternative E). **Corrected 2026-10-01** from round 1's 🟡 1, where this row said the instance passes the sealer and fails only at a ready pull request | the repository owner |
 | Q3: how many `NOT SEALED` runs had only a record arm failing over 0.17.0 | the flow-log sweep that follows 0.17.0 (`questions.md` Q3) |
 
 ## Not done
 
 A dry run of `round_record.py seal`'s three record refusals was not built
-(`plan.md` alternative E). #456's first instance, an unchecked `Pass` box,
-therefore still reaches the sealer. It is named here as a possible follow-up
-for the owner, as the plan asked.
+(`plan.md` alternative E). Two instances therefore still reach the sealer and
+are refused after its suite: #456's unchecked `Pass` box, and #535's
+`fixed at` in a verifying round as `round_record.py new` writes it today
+(`nobody` on the last record, which `seal` refuses; round 1 executed it). It
+is named here as a follow-up for the owner, as the plan asked.
 
 `skills/verify/SKILL.md` §*The broad gate* cites *The last record's `Broad
 gate` cell is read at a READY pull request* as a section of

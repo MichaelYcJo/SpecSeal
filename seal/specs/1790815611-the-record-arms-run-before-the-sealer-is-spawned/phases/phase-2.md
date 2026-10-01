@@ -39,11 +39,15 @@ and the preflight both judge, that pair prints and exits 0 (executed, the
 table above). `chain_check` fails it at a READY pull request (read, not
 run: `chain_check.py#checked_by`, the `strict` branch after `if not
 strict:`). So a generated record with #535's verdict no longer reaches the
-gate as a refusal: it passes the preflight and the sealer, and it fails
-after the pull request is marked ready. The preflight cannot
-catch it while it judges a draft, which the spec requires ("the same names,
-arguments and environment `gate()` gives them"). This is written into
-`overview.md` §*Not verified* with the owner named.
+chain arm as a refusal: it passes the preflight. It does not pass the sealer.
+`round_record.py seal` refuses `nobody` on the last record with exit 2, after
+every check has passed (executed in round 1), so the instance still costs a
+suite and is caught by `seal`, not by an arm. The preflight cannot catch it
+without asking `seal`'s refusals, which `plan.md` alternative E left out.
+This is written into `overview.md` §*Not verified* with the owner named.
+**Corrected 2026-10-01** from round 1's 🟡 1, where this paragraph said the
+record passes the sealer and fails only after the pull request is marked
+ready.
 
 **Red first, executed:**
 
