@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 699 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `613b93896123490b8eaf893d716bacf46659c0b4..bf44693446255098ef5fb459f69172e4db8fdcf9`, 4 commits |
+| Contract changes | unanswered → round-1-report.md, round-1.md, coverage_line, panel; coverage_line → 1790815611-the-record-arms-run-before-the-sealer-is-spawned.md, round-1-report.md, round-1.md, gate, pytest |
+| New units | wrapped (depth 1); HOME_TOKEN (depth 1); HOME_END (depth 1); test_the_count_cannot_be_asked_without_a_base (depth 1); test_a_list_too_long_for_its_row_continues_beneath_it (depth 1); test_a_deferrals_home_is_read_whole (depth 1) |
 | Needs a fix | yes — 🟡 1 (counts and homes elided against Q1), 🟡 2 (a home read as its first word), 🟡 3 (the coverage base unpinned, #638 rewrites that line), 🟡 4 (the gate row's third arm missing from three documents) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,11 +31,11 @@ Round 1 targets `512f6a89` and the diff `cd24f516..512f6a89`, the whole build. T
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | the suite's counts and the deferred homes are elided at the frame, where the owner's Q1 answer says a long value continues beneath its label; two real records lose homes (`4 deferred -> #673, ...`, `4 deferred -> #611, ...`) | `skills/verify/scripts/broad_gate.py:2555` | open | `questions.md` Q1's answered default; executed over the tree's 36 work items; the width case pins the elision at `tests/test_the_seal_is_taken_once_by_the_sealer.py:2883` |
-| 🟡 2 | a deferral's home is the first word after `deferred`, so `— issue #97 …` reads `issue`, `phase 9 of this branch` reads `phase`, `to #664` reads `to`, `→ #664` reads a non-ASCII `→` | `skills/verify/scripts/broad_gate.py:2366` | open | executed over every `round-N.md` in the tree (four rows) and over typed shapes; `verdict_of` accepts all of them as homed |
-| 🟡 3 | the coverage line's base is unpinned through the gate: dropping it survives the gate modules and makes the release-base line say `answers 5` over two arms that did not run; #638's hunk rewrites that line with one argument | `skills/verify/scripts/broad_gate.py:2713` | open | mutation executed (281 passed); line compared for `main` and `None` (executed); #638's hunk read; trial merge executed |
-| 🟡 4 | `docs/the-broad-gate.md`, `agents/sealer.md` and the section comment state the `gate` row's condition without the no-invoked-path arm, which fires on every seal of the 0.17.0 run under the installed 0.16.0 copy | `docs/the-broad-gate.md:106` | open | `gate_copy` returns the row where `installed` is None (read; `test_the_gate_row_prints_only_where_the_copy_that_ran_is_not_the_one_invoked` asserts it); the 0.16.0 copy sets no variable |
-| ⬜ 5 | the changelog fragment carries 🟡 4's two-arm sentence | `seal/specs/1790815615-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run/changelog.md:11` | open | paperwork; goes with 🟡 4's fix |
+| 🟡 1 | the suite's counts and the deferred homes are elided at the frame, where the owner's Q1 answer says a long value continues beneath its label; two real records lose homes (`4 deferred -> #673, ...`, `4 deferred -> #611, ...`) | `skills/verify/scripts/broad_gate.py:2555` | **fixed** `f153f537` | fixed at f153f537; `questions.md` Q1's answered default; executed over the tree's 36 work items; the width case pins the elision at `tests/test_the_seal_is_taken_once_by_the_sealer.py:2883` |
+| 🟡 2 | a deferral's home is the first word after `deferred`, so `— issue #97 …` reads `issue`, `phase 9 of this branch` reads `phase`, `to #664` reads `to`, `→ #664` reads a non-ASCII `→` | `skills/verify/scripts/broad_gate.py:2366` | **fixed** `f153f537` | fixed at f153f537; executed over every `round-N.md` in the tree (four rows) and over typed shapes; `verdict_of` accepts all of them as homed |
+| 🟡 3 | the coverage line's base is unpinned through the gate: dropping it survives the gate modules and makes the release-base line say `answers 5` over two arms that did not run; #638's hunk rewrites that line with one argument | `skills/verify/scripts/broad_gate.py:2713` | **fixed** `f153f537` | fixed at f153f537; mutation executed (281 passed); line compared for `main` and `None` (executed); #638's hunk read; trial merge executed |
+| 🟡 4 | `docs/the-broad-gate.md`, `agents/sealer.md` and the section comment state the `gate` row's condition without the no-invoked-path arm, which fires on every seal of the 0.17.0 run under the installed 0.16.0 copy | `docs/the-broad-gate.md:106` | **fixed** `f153f537` | fixed at f153f537; `gate_copy` returns the row where `installed` is None (read; `test_the_gate_row_prints_only_where_the_copy_that_ran_is_not_the_one_invoked` asserts it); the 0.16.0 copy sets no variable |
+| ⬜ 5 | the changelog fragment carries 🟡 4's two-arm sentence | `seal/specs/1790815615-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run/changelog.md:11` | **fixed** `f153f537` | fixed at f153f537; paperwork; goes with 🟡 4's fix |
 | 🟢 | the `Broad gate` cell is `<sha> against <sha>` as before and `chain_check` reads it unchanged | `skills/verify/scripts/broad_gate.py:2616` | confirmed | outside every hunk; `round_record.py` and `chain_check.py` not in the diff |
 | 🟢 | `SPECSEAL_BROAD_GATE_INVOKED_AS` reaches no check and no child gate | `skills/verify/scripts/broad_gate.py:3047` | confirmed | read: fresh `env` for the child, popped before `gate()`; both channel cases green |
 | 🟢 | `ONLY_AT_MAIN` is held both ways, and `4 of 9` and `8 of 11` come from the real workflow | `tests/test_the_gate_names_every_step_ci_runs.py:1100` | confirmed | executed: module green; the flipped-guard arm shows the case can fail |
