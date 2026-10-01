@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 700 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `1c320c327d124f903e336ed972d76be866c02162..043c9aa6fc17c40ddb7c0d7ce4ec5d04698f6b1c`, 2 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1, a 0.3.x work item behind a relative link is named as no work item and stamped over; deferred, since this round commissions nothing |
 | Loses a record or crashes | yes — 🟡 1 leaves a 0.3.x work item outside the root with the repository stamped, so no start ever moves it; its files and rows stay intact and readable through the link |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -26,8 +26,8 @@ Round 3 is the verifying round after the run's one reopening, so it ends the run
 |---|---|---|---|---|
 | 🟡 1 | a 0.3.x work item at a relative-link `specs/<id>` has no mark git lists, so the hook leaves it, names it *not a SpecSeal work item*, stamps, and never moves it | `hooks/root-migrate.py:290` | deferred #709 | executed: the target leaves the link, names it under the false reason, stamps, 5 ok 0 broken, the next start silent; `1e83a80e^` and the base move the link, which dangles, 4 ok 1 broken, stamped; the smith's account confirmed; `tracked_marks` is depth 1 per `round-1.md`'s `New units`; this round commissions nothing under the reopening bound |
 | ⬜ 2 | a file-by-file resume leaves the item's emptied directory on disk, and the moved line names that item as *not a SpecSeal work item* | `hooks/root-migrate.py:421` | deferred #709 | executed: three settle shapes at the target leave an empty `specs/<item>/` and the false reason; the base leaves it too, under *not tracked*; only the reason is the branch's; nothing tracked and no row is affected |
-| ⬜ 3 | `spec.md:203` quotes the reason without *that git tracks*, a carrier of round 2's ⬜ 3 the fix pass missed | `seal/specs/1790815614-a-joined-projects-specs-is-read-and-never-taken/spec.md:203` | open | read; a correction to the run's paperwork, outside `Needs a fix` |
-| ⬜ 4 | the corrected 🟢 F row anchors only `hooks/root-migrate.py#move`, which decides nothing in its corrected claim | `seal/releases/0.4.0.md:292` | open | read against `hooks/root-migrate.py#tracked_marks`, `#old_items` and `#main`; a correction to the run's paperwork, outside `Needs a fix` |
+| ⬜ 3 | `spec.md:203` quotes the reason without *that git tracks*, a carrier of round 2's ⬜ 3 the fix pass missed | `seal/specs/1790815614-a-joined-projects-specs-is-read-and-never-taken/spec.md:203` | answered | `spec.md` is the approved frame and is kept as approved; the hook, the test, the changelog and ledger B1 carry the new reason; read; a correction to the run's paperwork, outside `Needs a fix` |
+| ⬜ 4 | the corrected 🟢 F row anchors only `hooks/root-migrate.py#move`, which decides nothing in its corrected claim | `seal/releases/0.4.0.md:292` | deferred #709 | #709 — The 🟢 F row is re-anchored by the change #709 makes to `tracked_marks`, which is where its claim is decided; read against `hooks/root-migrate.py#tracked_marks`, `#old_items` and `#main`; a correction to the run's paperwork, outside `Needs a fix` |
 | 🟢 | round 2's first finding is closed — a git that cannot list the marks is refused as dirty and stamps nothing, and the next start moves the item | `hooks/root-migrate.py:319` | confirmed | executed: P2 at the target, `1e83a80e^` and the base alike; seen red with the fallback removed; class read across every reader of `tracked_marks` |
 | 🟢 | round 2's second finding is closed — a stop at any file but the last mark resumes, whichever copy is kept | `hooks/root-migrate.py:416` | confirmed | executed: four stop shapes, each settled both ways, all resumed but the last-mark `git rm <src>`, which is #704; seen red with the sort removed |
 | 🟢 | round 2's third finding is closed in the hook, the case, the changelog and B1 | `hooks/root-migrate.py:674` | confirmed | read; the remaining carrier is ⬜ 3 |
