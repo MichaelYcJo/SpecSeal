@@ -2421,3 +2421,17 @@ def test_a_copy_with_no_hooks_beside_it_prunes_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(uc, "HOOKS", str(tmp_path / "no-hooks-here"))
     assert run([str(d)]) == 1
     assert run([str(d), "--baseline", "HEAD"]) == 1
+
+
+def test_a_walk_outside_a_repository_reads_no_reference_root(tmp_path, monkeypatch):
+    """Outside a git repository there is no root to be outside of, and every
+    fixture of the 0.3.x spelling lives there: nothing about reference roots
+    is read, and a path with no relative form to a repository is never asked
+    for one."""
+
+    def refuse(top):
+        raise AssertionError(f"reference roots were read for {top!r}")
+
+    monkeypatch.setattr(uc, "references_at", refuse)
+    write(tmp_path, CANONICAL)
+    assert run([str(tmp_path)]) == 0
