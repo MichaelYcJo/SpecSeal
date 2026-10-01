@@ -1,3 +1,23 @@
+### Added
+
+- **A `Reference specs` row in `seal/config.md`** (#688) names the
+  directories a project keeps its own specifications in. The plugin reads
+  them as history and never moves, edits or checks them as its own records.
+  With no row, every directory named `specs` outside `seal/` is one; the
+  value `none` declares none. `templates/config.md` §*Reference specs* says
+  what the row governs and what the default costs: a repository whose own
+  tests sit in a `specs/` directory gets them back in the survivor sweep with
+  `Reference specs | none`.
+
+### Changed
+
+- **`survivor-check` leaves a project's own `specs/` out of its search**
+  (#688). A team's document carrying wording a range removed used to be
+  reported as a survivor, and a team's own edit to it was read as a
+  correction the plugin's documents owed. A reference root is now out of
+  both the pool and the range, and a top-level `specs/<x>/` a range deletes
+  is never treated as a retired work item.
+
 ### Fixed
 
 - **A project's own `specs/` is no longer moved into `seal/` at session
