@@ -448,8 +448,9 @@ def gate_copy(root, plugin=PLUGIN, running=None, installed=None):
       - its bytes differ from `installed`, the copy the caller invoked, whose
         path the redirect hands the child in `INVOKED_AS_VAR` and `main`
         passes here; or `installed` is None — the tree's copy invoked
-        directly, with no path handed over — which is the direction that says
-        more when it cannot tell.
+        directly, or redirected by an installed copy older than #666, either
+        way with no path handed over — which is the direction that says more
+        when it cannot tell.
 
     A repository that ships no gate runs the invoked copy, which is not under
     its root, so it gets no row, which is the *carries no information* case
@@ -2396,8 +2397,11 @@ def sealed_record(item, root):
     return Record(path, rows, lines, generator.chain, reader)
 
 
-# What a home looks like inside a deferral's prose: an issue, or a path.
-HOME_TOKEN = re.compile(r"#\d+|[\w.-]+(?:/[\w.-]+)+|[\w.-]+\.md\b")
+# What a home looks like inside a deferral's prose: an issue, or a file — a
+# path whose last part carries an extension, so `CI/CD`, `and/or` and
+# `stdout/stderr` stay words and an issue after them is still found (round 2
+# of #666).
+HOME_TOKEN = re.compile(r"#\d+|(?<![\w/.-])[\w-][\w.-]*(?:/[\w.-]+)*\.[A-Za-z]\w+\b")
 # Where a home written as words ends: a spaced dash, or a sentence's stop.
 HOME_END = re.compile(rf" [{chr(0x2014)}{chr(0x2013)}-] |\. ")
 
@@ -2407,9 +2411,13 @@ def deferred_home(chain, cell):
 
     `chain_check.verdict_of` hands back the bare word for a homed deferral —
     it answers *is this closed*, and the home is not part of that answer — so
-    the home is read here off the same cell, after the same normalisation
-    (`EMPHASIS`, `MARKER`) and up to the same separators (`SEPARATORS`), and
-    only for a row `verdict_of` already called `deferred`.
+    the home is read here off the same cell, after `MARKER` and up to the
+    same separators (`SEPARATORS`), and only for a row `verdict_of` already
+    called `deferred`. The marks are taken off by a narrower pattern than
+    `chain_check.EMPHASIS`, which removes every `_`: code spans, asterisks,
+    and an underscore only at a word's edge, so `tests/test_x.py` keeps its
+    name (round 2's 🟡 2 of #666). Written inline, as `suite_counts` writes
+    its clock, because `re` caches it.
 
     **An issue or a path anywhere in what follows is the home** (round 1's
     🟡 2 of #666): the tree writes `deferred — issue #97 already holds…` and a
@@ -2420,7 +2428,8 @@ def deferred_home(chain, cell):
     ASCII, because the letter twin exists for a console that is not UTF-8:
     leading punctuation goes (`MARKER`), and anything else outside ASCII
     reads `?`, the way such a console would print it."""
-    s = chain.MARKER.sub("", chain.EMPHASIS.sub("", cell).strip())
+    marks = re.sub(r"`|\*+|(?<!\w)_+|_+(?!\w)", "", cell)
+    s = chain.MARKER.sub("", marks.strip())
     if not s.lower().startswith(chain.DEFERRED):
         return None
     rest = s[len(chain.DEFERRED) :].strip(chain.SEPARATORS)
@@ -3003,7 +3012,8 @@ SESSION_VAR = "CLAUDE_CODE_SESSION_ID"
 # hands the tree's copy, on the redirect, the realpath of the copy the caller
 # invoked, and nobody else sets or reads it. `gate_copy` compares the two
 # files' bytes to decide whether the panel's `gate` row says anything (#666).
-# Absent, the running copy was invoked directly.
+# Absent, the running copy was invoked directly, or redirected by an installed
+# copy older than #666, which sets no such variable.
 INVOKED_AS_VAR = "SPECSEAL_BROAD_GATE_INVOKED_AS"
 
 NOTHING_RECORDED = (

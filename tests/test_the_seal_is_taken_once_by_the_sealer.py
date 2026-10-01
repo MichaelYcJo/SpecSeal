@@ -3270,6 +3270,20 @@ def test_the_home_is_read_off_the_cell_after_the_word(tmp_path):
         # A path or a `.md` file after other words is still the home.
         ("deferred to seal/follow-up.md", "seal/follow-up.md"),
         ("deferred into the follow-up.md file", "follow-up.md"),
+        # Words joined by a slash are words, not a path (round 2's 🟡 1).
+        ("deferred — the stdout/stderr split is #700's", "#700"),
+        ("deferred to whoever owns CI/CD next", "to whoever owns CI/CD next"),
+        ("deferred — read/write order is in seal/follow-up.md", "seal/follow-up.md"),
+        ("deferred and/or #701", "#701"),
+        # A file name keeps its underscores (round 2's 🟡 2).
+        (
+            "deferred `tests/test_the_gate_names_every_step_ci_runs.py`",
+            "tests/test_the_gate_names_every_step_ci_runs.py",
+        ),
+        (
+            "deferred to `skills/verify/scripts/broad_gate.py`'s owner",
+            "skills/verify/scripts/broad_gate.py",
+        ),
     ],
 )
 def test_a_deferrals_home_is_read_whole(cell, home):
