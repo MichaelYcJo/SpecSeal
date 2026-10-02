@@ -754,25 +754,20 @@ def label(values):
 # clean` from #400 to #666, which the real panel's own comment refuses as a
 # counterfeit, because nothing held the two lists together; a case in
 # `tests/test_the_seal_is_taken_once_by_the_sealer.py` holds the labels
-# against `panel`'s now.
+# against `panel`'s now. Since #717 there is no blank row in it, no `chain`,
+# no `exit` under the suite and no `drifted` under the ledger, because
+# `panel` returns none of them.
 SAMPLE_ROWS = [
     ("SEALED", ""),
-    None,
     ("tree", "c46fd2d"),
     ("", "feat/12-a-branch"),
     ("base", "1e2bed9"),
     ("", "origin/release/next"),
     ("item", "#34 . 1799000000"),
     ("gate", "tree 1.2.3"),
-    None,
     ("suite", "768 passed, 1 skipped"),
-    ("", "exit 0"),
     ("ledger", "187 ok"),
-    ("", "0 drifted . 0 broken"),
-    ("chain", "exit 0"),
-    None,
-    ("workflow", "4 of 9 not answered"),
-    None,
+    ("CI also", "4 more steps"),
     ("rounds", "3 . capped"),
     ("", "2 deferred -> #56"),
 ]

@@ -67,9 +67,9 @@ the reader acts.
 
 **Drawn on success only, and only where a person is looking** (#400). The
 stamp — the disc and a panel carrying the tree and its branch, the base and
-the ref it came from, the work item and its pull request, the suite's counts
-and the exit code the repository's row came back with, the ledger's counts,
-the chain's exit, and the round count when `--record` names a work item —
+the ref it came from, the work item and its pull request, the suite's counts,
+the ledger's `ok` count, how many more steps CI runs than this seal answers,
+and the round count when `--record` names a work item —
 `capped` beside it and the deferred findings' homes beneath it where the run
 ended at the cap (`rounds_rows`) — a name too long for its row continuing on
 the row beneath it (`panel`) — is
@@ -2344,10 +2344,11 @@ def ledger_counts(text):
     """`(ok, drifted, broken)` off `evidence-check`'s `total:` line, or None.
 
     On a drawn panel `drifted` and `broken` are both 0 by construction: the
-    gate passes `--strict`, which exits 2 on either. They are carried anyway,
-    because the owner asked for the row in that shape (#666) and it costs one
-    line; the count that varies is where it varies, at the end of the
-    failure form's `ledger` entry (`failure_lines`)."""
+    gate passes `--strict`, which exits 2 on either. #666 carried them on the
+    row beneath `ok` because the owner asked for it; #717's owner took that
+    row off, so `panel` prints `ok` alone, and the count that varies is
+    where it varies, at the end of the failure form's `ledger` entry
+    (`failure_lines`)."""
     m = LEDGER_RE.search(text)
     return m.groups() if m else None
 
@@ -2564,8 +2565,10 @@ def panel(
     pr=None,
     record=None,
 ):
-    """The stamp's rows, as `(label, value)` with `None` for a blank and `""`
-    as the label of a row that continues the one above it (#666).
+    """The stamp's rows, as `(label, value)`, with `""` as the label of a row
+    that continues the one above it (#666). No row is `None` since #717: the
+    sheet draws no blank line between groups, and the values file should not
+    claim a row nothing draws.
 
     `base` is a `Base`. `copy` is `gate_copy`'s value and None leaves the
     `gate` row out; `branch` is `branch_name`'s, None on a detached HEAD;
@@ -2579,14 +2582,20 @@ def panel(
                 <Base.ref>                 absent where the ref IS the commit
       item      #<pr> . <id>               absent without --record
       gate      tree <version>             only where `gate_copy` says so
-      suite     <pytest counts | exit N>
-                exit <N>                   only under the counts
-      ledger    <N> ok
-                <D> drifted . <B> broken
-      chain     exit <N>
-      workflow  <n> of <m> not answered    absent without a hygiene workflow
+      suite     <pytest counts | exit N>   counts wrapped onto `""` rows
+      ledger    <N> ok                     exit N where there is no total
+      CI also   <n> more steps             absent without a hygiene workflow
       rounds    <R>[ . capped]             absent without --record
                 <k> deferred -> <homes>    only where k > 0 (`rounds_rows`)
+
+    **A drawn panel says only what a `SEALED` stamp can say** (#717). It is
+    drawn on success alone, so every arm's exit is 0 and, under `--strict`,
+    the ledger's drifted and broken counts are 0 too. `chain exit 0`, the
+    suite's `exit 0` beneath its counts and `0 drifted . 0 broken` beneath
+    `ok` said again what `SEALED` says, and the owner took them off. The
+    counts stay, and so does `exit N` where a row has no count to print,
+    because then it is the only statement of what that arm did. The failure
+    form keeps every arm's exit code (`failure_lines`).
 
     **The panel keeps its width, and nothing on it is cut by the frame.**
     `seal_stamp.letter` gives a value `PANEL_VALUE_WIDTH` columns and cuts at
@@ -2615,13 +2624,14 @@ def panel(
 
     Two rows left with #666, and why: `from` became the row under `base`,
     and `row` — the exit code the repository's row came back with —
-    continues under `suite`. NOT `("lint", "clean")` either: the row is
+    continued under `suite` until #717 took it off. NOT `("lint", "clean")`
+    either: the row is
     one shell command line and nothing in it says which part is a linter
     (`templates/config.md` §*Broad gate*), so `clean` over a row with no
     linter in it is the sealer's stamp asserting a check that never ran.
     """
     stamp = stamp_module()
-    rows = [("SEALED", ""), None, ("tree", tree)]
+    rows = [("SEALED", ""), ("tree", tree)]
     if branch:
         rows.append(("", fit(branch)))
     rows.append(("base", base.commit))
@@ -2631,24 +2641,17 @@ def panel(
         rows.append(("item", item_value(item, pr)))
     if copy:
         rows.append(("gate", copy))
-    rows.append(None)
     counts = suite_counts(checks[SUITE].text)
-    exit_row = f"exit {checks[SUITE].code}"
     if counts:
         first, *more = counts.split(", ")
-        rows += [
-            *wrapped(SUITE, [first, *(f", {part}" for part in more)]),
-            ("", exit_row),
-        ]
+        rows += wrapped(SUITE, [first, *(f", {part}" for part in more)])
     else:
-        rows.append((SUITE, exit_row))
+        rows.append((SUITE, f"exit {checks[SUITE].code}"))
     ledger = ledger_counts(checks[LEDGER].text)
     if ledger:
-        ok, drifted, broken = ledger
-        rows += [(LEDGER, f"{ok} ok"), ("", f"{drifted} drifted . {broken} broken")]
+        rows.append((LEDGER, f"{ledger[0]} ok"))
     else:
         rows.append((LEDGER, f"exit {checks[LEDGER].code}"))
-    rows.append((CHAIN_NAME, f"exit {checks[CHAIN_NAME].code}"))
     # What this seal did NOT answer, which a reader otherwise reconstructs
     # from two files (#468). A COUNT, because a panel value is 23 columns and
     # a step name is a sentence — the names go to stderr beside the command
@@ -2659,16 +2662,20 @@ def panel(
     # plugin ships to repositories that have none, and for them nothing about
     # the run changes (`spec.md` A7).
     #
-    # Over the steps CI runs for THIS base (#666): `steps_for` leaves out the
+    # Over the steps CI runs for THIS base (#666): `unanswered` leaves out the
     # four that run only into `main` on any other base, and the two CI skips
-    # at `main` on a release one, so both numbers are the ones CI will ask.
+    # at `main` on a release one, so the number is one CI will ask.
+    #
+    # `CI also  <n> more steps` is the owner's wording (#717). The total it
+    # was `<n> of` left the panel for the stderr line, which says it beside
+    # the names; the row still prints at 0, because a row that goes quiet
+    # reads as a gate that stopped looking.
     if job_steps(workflow, RELEASE_JOB) if workflow else []:
-        steps = steps_for(workflow, base.given)
         short = len(unanswered(workflow, base.given))
-        rows += [None, ("workflow", f"{short} of {len(steps)} not answered")]
+        rows.append(("CI also", f"{short} more steps"))
     if item is not None:
-        rows += [None, *rounds_rows(item, record)]
-    return [None if row is None else (row[0], fit(row[1])) for row in rows]
+        rows += rounds_rows(item, record)
+    return [(label, fit(value)) for label, value in rows]
 
 
 def failure_lines(check, verdicts=None):

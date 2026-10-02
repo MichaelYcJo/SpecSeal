@@ -2503,33 +2503,32 @@ def test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing(repo, tmp_path):
 
 def test_the_values_file_holds_this_runs_panel(repo, tmp_path):
     """S2 and S13 of 1790562543. The file holds the rows `panel` returned for
-    this run — in `panel`'s order, with its blanks — and the scale the run
-    was given, which with no `--scale` is `seal_stamp.DEFAULT_SCALE`. Nothing
-    downstream re-derives a row: the drawing is these values.
+    this run — in `panel`'s order — and the scale the run was given, which
+    with no `--scale` is `seal_stamp.DEFAULT_SCALE`. Nothing downstream
+    re-derives a row: the drawing is these values.
 
     #666's A5: the whole sequence, positively, so a row that went missing
     cannot pass by being absent. The branch continues under `tree` and the
     base's ref under `base`; `item` is the work item's id with no pull
     request, because the fixture's record reads `not yet opened`; no `gate`
-    row, because the fixture ships no gate; the suite's exit continues under
-    its counts and the ledger's `drifted` and `broken` under its `ok`; and
-    `from` and `row` are gone. No `workflow` row: the fixture has none."""
+    row, because the fixture ships no gate; `from` and `row` are gone. No
+    `CI also` row: the fixture has no workflow.
+
+    #717's A6: the panel says only what a `SEALED` stamp can say. `chain`,
+    the suite's `exit` row and the ledger's `drifted` row are gone, because
+    a drawn panel is green by construction and `SEALED` already says each;
+    and so is every blank, because the sheet draws none and the values file
+    should not claim a row nothing draws."""
     _out, values = sealed_values(repo, tmp_path)
     assert values["rows"] == [
         ("SEALED", ""),
-        None,
         ("tree", short(repo, "HEAD")),
         ("", "feature"),
         ("base", short(repo, "base")),
         ("", "base"),
         ("item", "1799000000"),
-        None,
         ("suite", "1 passed"),
-        ("", "exit 0"),
         ("ledger", "0 ok"),
-        ("", "0 drifted . 0 broken"),
-        ("chain", "exit 0"),
-        None,
         ("rounds", "2"),
     ], values["rows"]
     assert values["scale"] == module().DEFAULT_SCALE == 0.90, values["scale"]
@@ -2948,19 +2947,21 @@ def test_a_list_too_long_for_its_row_continues_beneath_it():
     [
         (
             "768 passed, 1 skipped in 9.1s\n",
-            [("suite", "768 passed, 1 skipped"), ("", "exit 0")],
+            [("suite", "768 passed, 1 skipped")],
         ),
         (
             "12345 passed, 67890 skipped in 9.1s\n",
-            [("suite", "12345 passed,"), ("", "67890 skipped"), ("", "exit 0")],
+            [("suite", "12345 passed,"), ("", "67890 skipped")],
         ),
         ("no summary here\n", [("suite", "exit 0")]),
     ],
 )
-def test_the_suite_carries_its_exit_under_its_counts(suite, rows):
-    """A9's `suite`. The counts where pytest printed them, and the exit code
-    the repository's row came back with on the row beneath; where there are
-    no counts the row already reads `exit N` and nothing continues it."""
+def test_the_suite_carries_its_counts_and_nothing_under_them(suite, rows):
+    """#717's A8, `suite`. The counts where pytest printed them, wrapped as
+    #666 wraps them, and the row after the last counts row is the ledger's
+    label — not `exit 0`, which a `SEALED` stamp already says. Where there
+    are no counts the row reads `exit N`, which is then the only statement
+    of what the suite did."""
     gate = gate_module()
     panel = gate.panel(
         "c46fd2db",
@@ -2973,20 +2974,28 @@ def test_the_suite_carries_its_exit_under_its_counts(suite, rows):
     assert panel[at + len(rows)][0] == gate.LEDGER, panel
 
 
-def test_the_ledger_carries_drifted_beside_broken_on_the_row_beneath():
-    """A9's `ledger`, read from one `total:` line: `<N> ok`, then `<D>
-    drifted . <B> broken` beneath it. A ledger output with no total line
-    reads `exit N`, as the suite does."""
+def test_the_ledger_carries_its_ok_count_and_nothing_beneath():
+    """#717's A8, `ledger`, read from one `total:` line: `<N> ok`, and the
+    row after it is the next label — `CI also` where a workflow is given —
+    rather than `<D> drifted . <B> broken`, which under `--strict` is 0 and
+    0 on every drawn panel. A ledger output with no total line reads
+    `exit N`, as the suite does."""
     gate = gate_module()
     base = gate.Base("base", "1e2bed90", "base", "1e2bed90")
+    workflow = (
+        "jobs:\n  release:\n    steps:\n"
+        "      - name: a declared review chain has the round record it claimed\n"
+    )
     rows = gate.panel(
         "c46fd2db",
         base,
         checks_with(gate, ledger="total: 187 ok · 3 drifted · 4 broken · 0 x\n"),
         None,
+        workflow,
     )
     at = rows.index(("ledger", "187 ok"))
-    assert rows[at + 1] == ("", "3 drifted . 4 broken"), rows
+    assert rows[at + 1][0] == "CI also", rows
+    assert not any("drifted" in row[1] for row in rows), rows
     bare = gate.panel("c46fd2db", base, checks_with(gate), None)
     assert ("ledger", "exit 0") in bare, bare
 
@@ -3024,7 +3033,9 @@ def test_a_base_that_is_its_own_commit_has_no_ref_row_under_it():
         "c46fd2db", gate.Base(sha, "1e2bed90", sha, "1e2bed90"), checks_with(gate), None
     )
     at = bare.index(("base", "1e2bed90"))
-    assert bare[at + 1] is None, bare
+    # The next label, and no `""` row: #717 took the blank that used to
+    # follow, so the row after `base` is the suite's own.
+    assert bare[at + 1] == ("suite", "exit 0"), bare
     named = gate.panel(
         "c46fd2db",
         gate.Base("base", "1e2bed90", "base", "1e2bed90"),
@@ -3129,6 +3140,39 @@ def test_the_sample_carries_every_row_the_panel_can(tmp_path):
     labels = [None if row is None else row[0] for row in rows]
     sample = [None if row is None else row[0] for row in module().SAMPLE_ROWS]
     assert sample == labels, (sample, labels)
+    # #717's A19, positively: the sequence itself, so the two lists cannot
+    # agree by losing the same row.
+    assert labels == [
+        "SEALED",
+        "tree",
+        "",
+        "base",
+        "",
+        "item",
+        "gate",
+        "suite",
+        "ledger",
+        "CI also",
+        "rounds",
+        "",
+    ], labels
+
+
+def test_the_documents_name_the_ci_also_row():
+    """#717, S7 for the rows (`agent-contract` §14). `skills/verify/SKILL.md`
+    §*A seal says what it did not answer* and `agents/sealer.md` named the
+    `workflow` row and its `<n> of <total> not answered` reading; both name
+    the `CI also` row and its `<n> more steps` now, and the denominator is
+    said to be on the stderr line."""
+    verify = " ".join(
+        read_document(os.path.join("skills", "verify", "SKILL.md")).split()
+    )
+    assert "the panel carries a `CI also` row — *<n> more steps* —" in verify
+    assert "A feature seal of SpecSeal itself reads `CI also 4 more steps`" in verify
+    assert "the panel carries a `workflow` row" not in verify
+    sealer = " ".join(sealer_text().split())
+    assert "On any base the `CI also` count leaves out the steps" in sealer
+    assert "the `workflow` count" not in sealer
 
 
 # --- #666: `rounds` says capped and counts the deferred findings -----------
@@ -5004,12 +5048,14 @@ def test_the_panel_reports_the_rows_exit_code_and_asserts_no_linter(repo, tmp_pa
 
     The fixture's row is a bare pytest call, with no linter in it at all.
     Read from the values file since #400, which is where a piped run's panel
-    is. Since #666 the exit code continues under `suite` rather than on a
-    `row` of its own."""
+    is. Since #666 the exit code continued under `suite` rather than on a
+    `row` of its own, and since #717 it is not on the panel at all: a drawn
+    panel's row came back 0 by construction, which `SEALED` says, so the row
+    after the counts is the ledger's."""
     _out, values = sealed_values(repo, tmp_path)
     rows = values["rows"]
     at = rows.index(("suite", "1 passed"))
-    assert rows[at + 1] == ("", "exit 0"), rows
+    assert rows[at + 1] == ("ledger", "0 ok"), rows
     assert not any("clean" in cell for row in values["rows"] if row for cell in row), (
         "the seal still asserts a linter over a row that has none in it"
     )

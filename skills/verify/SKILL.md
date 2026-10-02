@@ -451,9 +451,9 @@ until somebody classifies it, and a row naming a step that was renamed away
 fails it too.
 
 **A seal says what it did not answer.** Where the repository being gated has
-that workflow, the panel carries a `workflow` row — *<n> of <total> not
-answered* — and the names of those steps go to stderr beside the line that
-names the repository's own command. The count is on the panel because a panel
+that workflow, the panel carries a `CI also` row — *<n> more steps* — and the
+names of those steps go to stderr beside the line that names the
+repository's own command, with the total they are counted out of. The count is on the panel because a panel
 value is 23 columns and a step name is a sentence; the names are printed
 because a number alone sends the reader back to the two files this
 declaration exists to stop them opening. A repository with no such workflow
@@ -462,8 +462,9 @@ the steps CI runs for the base (#666): a step CI does not ask of this pull
 request — four of SpecSeal's run only on a pull request into `main`, and two
 are skipped there — is neither answered nor unanswered, so the count leaves
 it out and the line says how many it left out and why. A feature seal of
-SpecSeal itself reads `4 of 9`, where it used to read `8 of 13` over four
-steps no run of that pull request would ask.
+SpecSeal itself reads `CI also  4 more steps`, and the line says they are
+four of the nine CI runs for that base (#717); before #666 the panel read
+`8 of 13`, over four steps no run of that pull request would ask.
 
 **What the count does not say** is whether a mirrored arm asks the same
 question its step asks. The partition says a step is on the list; two readers
