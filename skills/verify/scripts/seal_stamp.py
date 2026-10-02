@@ -581,7 +581,10 @@ def compose(rows, scale):
             top, bottom = colour(x, 2 * ln), colour(x, 2 * ln + 1)
             char = None
             if TEXT_LEFT <= x < TEXT_LEFT + len(said) and top == bottom == PARCHMENT:
-                ink = TITLE if said.strip() == "SEALED" else INK
+                # The title is the panel's first row, not a line that reads
+                # `SEALED`: keyed on the value, a branch named `SEALED` on a
+                # continuation row was inked as a second title (round 1's ⬜ 5).
+                ink = TITLE if ln == 1 else INK
                 char = (said[x - TEXT_LEFT], ink)
             line.append((top, bottom, char, frame(x, ln)))
         while line and line[-1][0] is None and line[-1][1] is None:

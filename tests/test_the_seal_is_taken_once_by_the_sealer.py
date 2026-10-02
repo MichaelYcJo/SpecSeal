@@ -415,6 +415,20 @@ def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
     assert (mod.FIELD_EDGE, mod.WAX_EDGE) == (0.78, 0.84)
 
 
+def test_the_title_is_the_sheets_first_line_whatever_a_value_says():
+    """Round 1's ⬜ 5. The title's 124 was keyed on a line READING `SEALED`,
+    so a continuation row carrying that value — a branch named `SEALED` —
+    was inked as a second title. It is keyed on the panel's first row now:
+    that line alone is 124, and every other line is ink, whatever it says."""
+    mod = module()
+    rows = [("SEALED", ""), ("tree", "aaa1111"), ("", "SEALED"), ("rounds", "2")]
+    cells = mod.compose(rows, 0.9).cells
+    inks = [{c[2][1] for c in line if c[2] and c[2][0] != " "} for line in cells]
+    assert inks[1] == {mod.TITLE}, inks[1]
+    assert inks[3] == {mod.INK}, "a continuation reading SEALED is inked as the title"
+    assert all(ink <= {mod.INK} for k, ink in enumerate(inks) if k != 1), inks
+
+
 @pytest.mark.parametrize("scale", [0.9, 0.8, 0.75])
 def test_the_lily_is_lit_from_the_upper_left(scale):
     """#717's lily, one colour pressed into the wax: a lily cell whose
