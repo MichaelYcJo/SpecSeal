@@ -139,13 +139,18 @@ harness writes a `Stop` hook's `systemMessage` longer than 10,000 characters
 to a file and shows the person a 2 KB preview, so a stamp past that size is
 not seen. `seal_stamp.MESSAGE_LIMIT` is that number, measured with a scratch
 hook; `MESSAGE_BUDGET` keeps 1,000 characters of it back for the gate-failure
-report `hooks/dispatch.py` prepends to the same message. Every block of one
-message is drawn at one rung, the highest at which all of them fit: the
-files' own scales, then 0.90, 0.80 and 0.75, then the sheet with no disc. A
-stamp can come out smaller or without its disc, and never undrawn. The
-gate's own terminal drawing and `seal-stamp` are not budgeted, because
-neither is a hook's message.
-Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_hooks_message_is_under_the_budget_for_one_file, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_two_files_in_one_turn_are_under_the_budget_together, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_ladder_steps_down_in_order_and_ends_with_no_disc
+report `hooks/dispatch.py` prepends to the same message. The harness counts
+UTF-16 units, so a character outside the BMP is two, and so does the hook.
+One message carries as many of the oldest pending stamps as fit together
+with their disc, each at the highest rung the others leave room for: its
+file's own scale, then 0.90, 0.80 and 0.75. A seal past what one message can
+carry stays pending and is drawn at the next turn's end, and a single stamp
+that does not fit at 0.75 by itself is the only one drawn as the sheet with
+no disc. A stamp can come out smaller or a turn later, and a session that
+ends first leaves it for `seal-stamp --from`. The gate's own terminal
+drawing and `seal-stamp` are not budgeted, because neither is a hook's
+message.
+Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_hooks_message_is_under_the_budget_for_one_file, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_two_seals_of_a_real_runs_size_take_two_turns, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_seals_past_what_one_message_carries_wait_for_the_next_turn, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_ladder_steps_down_in_order_and_ends_with_no_disc
 
 <!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->
 <!-- specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for -->

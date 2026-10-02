@@ -312,28 +312,36 @@ def test_another_sessions_stop_leaves_its_file_alone(tmp_path):
     assert mod.pending(os.path.dirname(path)) == [path]
 
 
+# A panel small enough that two of its stamps share one message with their
+# discs, which two of a real run's size do not (`questions.md` Q6).
+SMALL_ROWS = [("SEALED", ""), ("tree", "aaa1111"), ("", "feat/x"), ("rounds", "2")]
+
+
 def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
-    """Two seals in one turn are one message, oldest first, each stamp whole
-    under its own label; a file that is not a run's values is skipped and
-    left where it is rather than taking the others down."""
+    """Two seals that fit one message together are one message, oldest
+    first, each stamp whole under its own label and each with its disc; a
+    file that is not a run's values is skipped and left where it is rather
+    than taking the others down. The older takes the highest rung the newer
+    leaves room for, and the newer the highest left — 0.80 and 0.75 here,
+    where one rung for both was 0.75 for both."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
-    first = mod.write_values(str(repo / ".git"), "s-1", values(), now=1)
+    small = values(rows=SMALL_ROWS)
+    first = mod.write_values(str(repo / ".git"), "s-1", small, now=1)
     second = mod.write_values(
-        str(repo / ".git"), "s-1", {**values(), "tree": "ccc3333"}, now=2
+        str(repo / ".git"), "s-1", {**small, "tree": "ccc3333"}, now=2
     )
     broken = os.path.join(os.path.dirname(first), "3-ddd4444.json")
     with open(broken, "w", encoding="utf-8") as handle:
         handle.write("not json")
     text = json.loads(stop(repo))["systemMessage"]
-    blocks = text.split("\n\n")
-    assert [b.split("\n", 1)[0] for b in blocks] == [
-        LABEL,
-        LABEL.replace("aaa1111", "ccc3333"),
-    ], text
-    assert text == mod.fitted(
-        [(LABEL, ROWS, 0.9), (LABEL.replace("aaa1111", "ccc3333"), ROWS, 0.9)]
-    )
+    other = LABEL.replace("aaa1111", "ccc3333")
+    assert text == (
+        drawn(mod, LABEL, SMALL_ROWS, 0.8)
+        + "\n\n"
+        + drawn(mod, other, SMALL_ROWS, 0.75)
+    ), [b.split("\n", 1)[0] for b in text.split("\n\n")]
+    assert len(text) <= mod.MESSAGE_BUDGET, len(text)
     assert mod.pending(os.path.dirname(first)) == [broken]
     assert not os.path.exists(first) and not os.path.exists(second)
 
@@ -519,20 +527,92 @@ def test_the_hooks_message_is_under_the_budget_for_one_file(tmp_path):
     assert text.split("\n", 1)[0] == mod.label(full_values())
 
 
-def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
-    """A3, two files. The budget is the WHOLE message's, so two stamps that
-    each fit alone are stepped down together, and both come out at one rung —
-    the same rows, so the same drawing under each label."""
+def test_two_seals_of_a_real_runs_size_take_two_turns(tmp_path):
+    """A3, two files, under the owner's rule of 2026-10-02 (`questions.md`
+    Q6). Two stamps of a real run's size do not fit one message together
+    even at 0.75, so the old rule drew both with no disc. The disc is kept
+    now: the first is drawn whole at its own 0.90, the second stays pending
+    under its own name, and the next `Stop` draws it whole."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
-    mod.write_values(str(repo / ".git"), "s-1", full_values(), now=1)
-    mod.write_values(str(repo / ".git"), "s-1", full_values("ccc3333c"), now=2)
+    first = mod.write_values(str(repo / ".git"), "s-1", full_values(), now=1)
+    second = mod.write_values(str(repo / ".git"), "s-1", full_values("ccc3333c"), now=2)
     text = json.loads(stop(repo))["systemMessage"]
     assert len(text) <= mod.MESSAGE_BUDGET, len(text)
-    first, second = text.split("\n\n")
-    assert first.split("\n", 1)[0] == mod.label(full_values())
-    assert second.split("\n", 1)[0] == mod.label(full_values("ccc3333c"))
-    assert first.split("\n", 1)[1] == second.split("\n", 1)[1], "two rungs"
+    label = mod.label(full_values())
+    assert text == drawn(mod, label, FULL_ROWS, 0.9), "not the first, whole"
+    assert os.path.exists(mod.drawn_path(first)) and not os.path.exists(first)
+    assert os.path.exists(second), "the second was claimed with the first"
+    later = json.loads(stop(repo))["systemMessage"]
+    assert later == drawn(mod, mod.label(full_values("ccc3333c")), FULL_ROWS, 0.9)
+    assert os.path.exists(mod.drawn_path(second)) and not os.path.exists(second)
+    assert stop(repo) == "", "a drawn file was drawn a second time"
+
+
+def test_seals_past_what_one_message_carries_wait_for_the_next_turn(tmp_path):
+    """A3, any set — round 1's 🟡 1. Twelve files of a real run's size were
+    all claimed and printed at once with no disc, 15,000 characters and more,
+    which the harness persists. Now each `Stop` draws the oldest that fit
+    with their disc, under `MESSAGE_BUDGET`, and leaves the rest pending in
+    order; the next `Stop` takes the next, so twelve turns draw all twelve
+    and none is drawn without its disc."""
+    mod = stamp_module()
+    repo = opted_in(tmp_path)
+    # `now` of one width: the name sort is oldest first because a real time
+    # in nanoseconds always has the same number of digits.
+    paths = [
+        mod.write_values(str(repo / ".git"), "s-1", full_values(f"{n:08x}"), now=n)
+        for n in range(101, 113)
+    ]
+    for turn in range(1, 13):
+        text = json.loads(stop(repo))["systemMessage"]
+        assert len(text) <= mod.MESSAGE_BUDGET, (turn, len(text))
+        blocks = text.split("\n\n")
+        assert all("\x1b[38;2;" in b for b in blocks), f"turn {turn} lost a disc"
+        drawn_now = [p for p in paths if os.path.exists(mod.drawn_path(p))]
+        waiting = [p for p in paths if os.path.exists(p)]
+        assert drawn_now == paths[: len(drawn_now)], "not oldest first"
+        assert waiting == paths[len(drawn_now) :], "a file was lost"
+        assert len(drawn_now) >= turn, f"turn {turn} drew nothing new"
+        if not waiting:
+            break
+    assert stop(repo) == "", "something was left to draw"
+
+
+def test_one_seal_too_large_for_the_disc_is_drawn_alone_without_it(tmp_path):
+    """A4's last rung, under the owner's rule. A record whose sheet does not
+    fit the budget at 0.75 by itself — a long list of deferral homes — is the
+    one case the sheet is drawn with no disc, and it is drawn alone: the
+    first pending file is always drawn, so the queue cannot stall, and the
+    seal after it waits for the next `Stop` rather than losing its disc."""
+    mod = stamp_module()
+    repo = opted_in(tmp_path)
+    homes = [("", f"home-{k}") for k in range(60)]
+    big = {**full_values(), "rows": FULL_ROWS + homes}
+    oversized = mod.write_values(str(repo / ".git"), "s-1", big, now=1)
+    after = mod.write_values(str(repo / ".git"), "s-1", full_values("ccc3333c"), now=2)
+    label = mod.label(big)
+    assert len(drawn(mod, label, big["rows"], 0.75)) > mod.MESSAGE_BUDGET
+    text = json.loads(stop(repo))["systemMessage"]
+    assert text == drawn(mod, label, big["rows"], None), "not the sheet alone"
+    assert "\x1b[38;2;" not in text, "the oversized seal drew a disc"
+    assert os.path.exists(mod.drawn_path(oversized)) and os.path.exists(after)
+    later = json.loads(stop(repo))["systemMessage"]
+    assert later == drawn(mod, mod.label(full_values("ccc3333c")), FULL_ROWS, 0.9)
+
+
+def test_a_character_outside_the_bmp_is_counted_as_two():
+    """The round-1 question, measured in the fix pass: the harness counts a
+    `systemMessage` in UTF-16 units, so 5,001 U+1D54F (10,002 units) were
+    persisted where 4,999 were shown. Python's `len` counts each as one, so
+    a label of them fitted a rung the harness would not. A budget between
+    the two counts steps the block down."""
+    mod = stamp_module()
+    label = LABEL + " " + "\U0001d54f" * 50
+    at = {s: drawn(mod, label, ROWS, s) for s in (0.9, 0.8)}
+    assert len(at[0.9].encode("utf-16-le")) // 2 == len(at[0.9]) + 50
+    assert mod.fitted([(label, ROWS, 0.9)], len(at[0.9]) + 10) == at[0.8]
+    assert mod.fitted([(label, ROWS, 0.9)], len(at[0.9]) + 50) == at[0.9]
 
 
 def test_a_values_file_from_an_older_gate_draws_every_row_and_skips_its_blanks(
@@ -563,7 +643,8 @@ def test_a_values_file_from_an_older_gate_draws_every_row_and_skips_its_blanks(
 def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     """A4. Driven at small budgets: the file's own scale where it fits, then
     0.80, then 0.75, then the panel with no disc — which is returned whatever
-    the budget, because nothing comes after it. One rung for every block, and
+    the budget, because nothing comes after it. Each block takes the highest
+    rung the others leave room for, oldest first (`questions.md` Q6), and
     never a rung above the file's own scale."""
     mod = stamp_module()
     at = {s: drawn(mod, LABEL, ROWS, s) for s in (*mod.SCALE_LADDER, None)}
@@ -580,10 +661,16 @@ def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     for row in ROWS:
         if row is not None:
             assert f"{row[0]:<8} {row[1]}".strip() in bare, row
-    # Two blocks: each fits at 0.90 alone, together only one rung down.
+    # Two blocks: each fits at 0.90 alone, and together the older keeps
+    # 0.90 and the newer takes the rung left over — not one rung for both.
     two = [(LABEL, ROWS, 0.9), (LABEL, ROWS, 0.9)]
     room = len(at[0.9]) + 2 + len(at[0.8])
-    assert mod.fitted(two, room) == at[0.8] + "\n\n" + at[0.8]
+    assert mod.fitted(two, room) == at[0.9] + "\n\n" + at[0.8]
+    # Where the newer does not fit even at 0.75 beside the older at 0.75, it
+    # is left out rather than both losing the disc.
+    alone = len(at[0.75]) * 2 + 1
+    assert len(at[0.9]) <= alone, (len(at[0.9]), alone)
+    assert mod.admitted(two, alone) == [at[0.9]], "both drawn, or not at 0.90"
     # A file that asked for less is never drawn larger, and one that asked
     # for more than the first rung gets it where it fits.
     assert mod.fitted([(LABEL, ROWS, 0.75)], 10**6) == at[0.75]
@@ -608,6 +695,10 @@ def test_the_policy_states_the_budget_and_names_its_case():
     rule = text.split(marker)[1].split("<!--", 1)[0]
     assert "**The hook holds its whole message under a budget named in the code" in rule
     assert "::test_the_hooks_message_is_under_the_budget_for_one_file" in rule
+    # Round 1's 🟡 1, under the owner's rule of 2026-10-02 (`questions.md` Q6).
+    assert "A seal past what one message can carry stays pending" in rule
+    assert "::test_seals_past_what_one_message_carries_wait_for_the_next_turn" in rule
+    assert "a character outside the BMP is two" in rule
     section = text.split("## Where the stamp is drawn", 1)[1]
     assert marker in section.split("## What the runner owes", 1)[0]
 

@@ -25,8 +25,10 @@ neither: since #400 the gate draws nothing on a pipe.
 
 **The `Stop` hook's message is held under a budget** (#717): the harness
 persists a `systemMessage` longer than `MESSAGE_LIMIT` and shows a preview
-instead, so `fitted` steps every stamp in one message down `SCALE_LADDER`
-together, and last draws the sheet with no disc.
+instead, so `admitted` carries as many of the oldest stamps as fit with
+their disc, each at the highest rung of `SCALE_LADDER` the others leave room
+for, and leaves the rest for the next `Stop`. Only one stamp that does not
+fit at 0.75 alone is drawn as the sheet with no disc.
 
 The stamp prints on success only. The failure form, `not_sealed`, is the words
 `NOT SEALED`, the branch and the tree, the base's ref and its commit
@@ -208,12 +210,16 @@ DEFAULT_SCALE = 0.90
 #
 # The harness writes a `Stop` hook's `systemMessage` longer than this many
 # characters to a file and shows the person a 2 KB preview of it, so a stamp
-# past it is not seen. Counted as Python `str` length, not as bytes. Measured
-# 2026-10-02 on Claude Code 2.1.287, with a `Stop` hook in a scratch project
-# and one headless `claude -p` turn per size: 9,990 and 10,000 characters, and
-# 9,990 `▀` (29,942 bytes), were shown with nothing written to the session's
+# past it is not seen. Counted in UTF-16 units, the length JavaScript gives a
+# string, not as bytes: a character outside the BMP is two, and Python's `str`
+# length counts it as one (`admitted` counts it as two). Measured 2026-10-02
+# on Claude Code 2.1.287, with a `Stop` hook in a scratch project and one
+# headless `claude -p` turn per size: 9,990 and 10,000 characters, and 9,990
+# `▀` (29,942 bytes), were shown with nothing written to the session's
 # `tool-results/`; 10,001, 10,010 and 12,000 each left a
-# `hook-<uuid>-<n>-systemMessage.txt` there. This project's own sessions had
+# `hook-<uuid>-<n>-systemMessage.txt` there. Then, in round 1's fix pass,
+# 4,999 U+1D54F (9,998 units) were shown and 5,001 (10,002 units),
+# 9,990 and 10,001 were persisted. This project's own sessions had
 # bracketed it before the probe: 9,919 shown, 10,090 persisted. The harness
 # can move it, and the only sign is a preview on the owner's screen; the same
 # hook at two sizes either side of this number is the whole probe again.
@@ -228,9 +234,9 @@ MESSAGE_LIMIT = 10000
 # limit beside a stamp at the budget.
 MESSAGE_RESERVE = 1000
 MESSAGE_BUDGET = MESSAGE_LIMIT - MESSAGE_RESERVE
-# The rungs a message over the budget steps down, after the file's own scale;
-# past the last, every block is drawn with no disc (`fitted`). Each rung is
-# inside `check_scale`'s band, so a step down cannot be refused.
+# The rungs a block steps down, after the file's own scale; past the last, a
+# block that does not fit alone is drawn with no disc (`admitted`). Each rung
+# is inside `check_scale`'s band, so a step down cannot be refused.
 SCALE_LADDER = (0.90, 0.80, 0.75)
 
 SCALE_REFUSED = (
@@ -610,44 +616,73 @@ def stamp(rows, scale=1.0, shape=False):
     return [writer(line) for line in compose(rows, scale).cells]
 
 
-def fitted(blocks, budget=MESSAGE_BUDGET):
-    """The message the `Stop` hook prints for `blocks`, held under `budget`
-    (#717). `blocks` is `(label, rows, scale)` per values file, oldest first;
-    each is its label and then its block form, and two are joined by a blank
-    line.
+def admitted(blocks, budget=MESSAGE_BUDGET):
+    """The drawn blocks one `Stop` message carries under `budget`, oldest
+    first (#717). `blocks` is `(label, rows, scale)` per values file, oldest
+    first; a drawn block is its label and then its block form.
 
-    One rung for the whole message, the highest at which every block fits
-    together: the files' own scales first, then each of `SCALE_LADDER` —
-    never above a file's own scale — and last every block with no disc.
-    Two stamps in one message are two stamps at one scale. The last rung is
-    returned whatever its size, because nothing comes after it: a sheet with
-    no disc is about 70 characters a row with its colour codes (2,071 for
-    the widest panel this tree can produce, measured 2026-10-02), and its
-    width is bounded by `broad_gate.PANEL_VALUE_WIDTH`, so only a record
-    deferring to far more homes than any work item has had could pass the
-    budget there.
-    `budget` is a parameter so a case can drive every rung."""
+    The owner's rule of 2026-10-02 (`questions.md` Q6), which replaced one
+    rung for the whole message: a seal keeps its disc rather than share a
+    message without it. So the message carries as many of the oldest blocks
+    as fit together WITH the disc, each at 0.75 or its own smaller scale,
+    and then each, oldest first, at the highest rung the others leave room
+    for: its own scale first, then each of `SCALE_LADDER`, never above its
+    own scale. The blocks past those are not drawn here; the hook leaves
+    their files pending, and the next `Stop` draws them whole.
 
-    def message(rung):
-        return "\n\n".join(
-            "\n".join(
-                [
-                    label,
-                    *stamp(
-                        rows,
-                        None if rung is None else min(scale, rung),
-                        shape=False,
-                    ),
-                ]
-            )
-            for label, rows, scale in blocks
+    The rung with no disc is for one block alone, the oldest, when it does
+    not fit at 0.75 by itself; it is returned whatever its size, because
+    nothing comes after it. So the first block is always drawn and the queue
+    cannot stall. A sheet with no disc is about 70 characters a row with its
+    colour codes (2,071 for the widest panel this tree can produce, measured
+    2026-10-02), its width bounded by `broad_gate.PANEL_VALUE_WIDTH`.
+
+    A size is counted in UTF-16 units, which is what the harness counts
+    (`MESSAGE_LIMIT`): a character outside the BMP is two. `budget` is a
+    parameter so a case can drive every rung."""
+
+    def drawn(block, rung):
+        label, rows, scale = block
+        text = "\n".join(
+            [label, *stamp(rows, None if rung is None else min(scale, rung))]
+        )
+        # `surrogatepass`: a values file is JSON, which can carry a lone
+        # surrogate, and a size that raised would leave every file pending.
+        return text, len(text.encode("utf-16-le", "surrogatepass")) // 2
+
+    def rungs(scale):
+        return list(
+            dict.fromkeys(min(scale, rung) for rung in (SCALE_CEILING, *SCALE_LADDER))
         )
 
-    for rung in (SCALE_CEILING, *SCALE_LADDER):
-        drawn = message(rung)
-        if len(drawn) <= budget:
-            return drawn
-    return message(None)
+    floor, used = [], -2
+    for block in blocks:
+        text, size = drawn(block, SCALE_LADDER[-1])
+        if used + 2 + size > budget:
+            break
+        floor.append((text, size))
+        used += 2 + size
+    if not floor:
+        return [drawn(blocks[0], None)[0]] if blocks else []
+    out = []
+    for block, (text, size) in zip(blocks[: len(floor)], floor, strict=True):
+        rest = used - size
+        for rung in rungs(block[2])[:-1]:
+            higher, more = drawn(block, rung)
+            if rest + more <= budget:
+                text, size = higher, more
+                break
+        out.append(text)
+        used = rest + size
+    return out
+
+
+def fitted(blocks, budget=MESSAGE_BUDGET):
+    """The message the `Stop` hook prints for `blocks`: `admitted`'s drawn
+    blocks joined by a blank line, held under `budget` (#717). The blocks
+    past what `admitted` carries are not in it; the hook claims only the
+    files whose blocks it holds."""
+    return "\n\n".join(admitted(blocks, budget))
 
 
 # A ref spelled as a commit: what `--base <sha>` resolves to (`sealed_names`).

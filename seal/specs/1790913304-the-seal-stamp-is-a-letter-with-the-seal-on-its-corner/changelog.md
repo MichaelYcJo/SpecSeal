@@ -16,14 +16,18 @@
 - The `Stop` hook holds its whole message under a budget, so the harness
   never replaces a stamp with a 2 KB preview of a file again. Measured with
   a scratch hook on Claude Code 2.1.287, the harness persists a
-  `systemMessage` longer than 10,000 characters, counted as characters and
-  not bytes. The hook keeps 1,000 of them back for the gate-failure report
-  that can be prepended to the same message, and where a message is over
-  9,000 it draws every stamp in it one rung smaller together — 0.90, 0.80,
-  0.75 — and last without the disc. A stamp can come out smaller than its
-  values file's `scale` says, or without its disc, and is never left
-  undrawn. `seal-stamp` and the gate's own terminal drawing are not
-  budgeted.
+  `systemMessage` longer than 10,000 characters, counted in UTF-16 units —
+  a character outside the BMP is two — and not in bytes. The hook keeps
+  1,000 of them back for the gate-failure report that can be prepended to
+  the same message. One message carries as many of the oldest stamps as fit
+  under 9,000 with their disc, each at the highest rung the others leave
+  room for — its own scale, 0.90, 0.80, 0.75 — and the rest wait for the
+  next turn's end, so two seals of a real run's size are drawn one turn
+  apart rather than both without the disc. Only a single stamp too large
+  for 0.75 by itself is drawn without its disc. A stamp can come out smaller
+  than its values file's `scale` says, or a turn later; a session that ends
+  first leaves it for `seal-stamp --from`. `seal-stamp` and the gate's own
+  terminal drawing are not budgeted.
 
 - A `SEALED` panel says only what a `SEALED` stamp can say. `chain  exit 0`,
   the suite's `exit 0` beneath its counts, the ledger's `0 drifted . 0

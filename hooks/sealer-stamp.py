@@ -32,12 +32,14 @@ checkout; a `cwd` in a linked worktree costs one `rev-parse` first.
 **One message, held under a budget** (#717). The harness writes a
 `systemMessage` longer than `seal_stamp.MESSAGE_LIMIT` characters to a file
 and shows a preview of it, which is how every stamp from #666 to #717 reached
-the owner. So the message printed is `seal_stamp.fitted`'s: every pending
-block at one rung, the highest at which all of them fit `MESSAGE_BUDGET`
-together — the files' own scales, then down `SCALE_LADDER`, then with no disc.
-A stamp may therefore be drawn smaller than its file's `scale` says, or
-without its disc, and never not drawn. The file's `scale` is not rewritten:
-it records what the gate was asked for.
+the owner. So the message printed is `seal_stamp.fitted`'s: as many of the
+oldest pending blocks as fit `MESSAGE_BUDGET` together with their disc, each
+at the highest rung the others leave room for — its file's own scale, then
+down `SCALE_LADDER`. The rest stay pending for the next `Stop`, and only one
+block that does not fit at 0.75 alone is drawn without its disc. A stamp may
+therefore be drawn smaller than its file's `scale` says, or at a later
+`Stop`, and no file is claimed without its stamp being printed. The file's
+`scale` is not rewritten: it records what the gate was asked for.
 
 **Claim before print.** Each file is rendered, then renamed to `.drawn.json`
 (`seal_stamp.claim`), and only a file this process renamed is printed. Two
@@ -121,8 +123,14 @@ def drawings(stamp, directory):
     that is what proves the file draws at all. The rungs `fitted` may step
     down to are inside the band the file's scale has just passed, and the
     last draws no disc and checks no scale, so a block drawn here cannot
-    fail there."""
-    blocks = []
+    fail there.
+
+    Every file is drawn before any is claimed, and only the oldest files
+    one message carries are claimed (`seal_stamp.admitted`, the owner's rule
+    of 2026-10-02): the rest stay pending under their own names, and the
+    next `Stop` draws them whole. A session that ends first leaves them for
+    `seal-stamp --from`."""
+    ready = []
     for path in stamp.pending(directory):
         try:
             values = stamp.read_values(path)
@@ -130,6 +138,10 @@ def drawings(stamp, directory):
             stamp.stamp(values["rows"], values["scale"], shape=False)
         except Exception:
             continue
+        ready.append((path, block))
+    carried = len(stamp.admitted([block for _, block in ready]))
+    blocks = []
+    for path, block in ready[:carried]:
         if stamp.claim(path) is None:
             continue
         blocks.append(block)
