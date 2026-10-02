@@ -4335,6 +4335,23 @@ CHECKED_NO_ROUND = (
 )
 
 
+def checked_line(n, path, root, flavour=os.path):
+    """The `seal --check` line for the home `path` under `root`: `CHECKED`
+    over a round record, `CHECKED_NO_ROUND` where `n` is None. The home is
+    named repository-relative and with `/` on every platform, as this module
+    already spells `floor_at` for `chain.item_began`.
+
+    `flavour` is the path module whose separator applies, `os.path` for the
+    running platform. A case passes `ntpath` to exercise the Windows
+    separator from a POSIX machine: the line used to print `relpath` as it
+    came, and the Windows leg alone saw `seal\\specs\\…` (`agent-contract`
+    §13). Callers pass three arguments."""
+    said = CHECKED_NO_ROUND if n is None else CHECKED
+    return said.format(
+        path=flavour.relpath(path, root).replace(flavour.sep, "/"), dash=DASH
+    )
+
+
 def seal(args):
     """Set the LAST record's `Broad gate` cell, and touch nothing else.
 
@@ -4604,8 +4621,7 @@ def seal(args):
     # `--check` (#702): every refusal above was asked and none fired. What
     # follows is the write and the chain check, and neither is asked here.
     if args.check:
-        said = CHECKED_NO_ROUND if n is None else CHECKED
-        print(said.format(path=os.path.relpath(path, root), dash=DASH))
+        print(checked_line(n, path, root))
         return 0
 
     write_record(reader, path, composed)

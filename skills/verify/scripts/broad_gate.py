@@ -2799,6 +2799,23 @@ def preflight_line(head, tree, base):
     return head.format(tree=tree, base=base) + PREFLIGHT_TAIL
 
 
+def preflight_asked_line(where, root, branch, outcome, flavour=os.path):
+    """`PREFLIGHT_ASKED` for the home `where` under `root`, which it names
+    repository-relative and with `/` on every platform, the way a path is
+    written everywhere else in this repository.
+
+    `flavour` is the path module whose separator applies, `os.path` for the
+    running platform. A case passes `ntpath` to exercise the Windows
+    separator from a POSIX machine: the line used to print `relpath` as it
+    came, and the Windows leg alone saw `seal\\specs\\…` (`agent-contract`
+    §13). Callers pass four arguments."""
+    return PREFLIGHT_ASKED.format(
+        home=flavour.relpath(where, root).replace(flavour.sep, "/"),
+        branch=f"`{branch}`",
+        outcome=outcome,
+    )
+
+
 def gate(args, console_wants_letters, terminal=False):
     """The run. `terminal` is whether stdout has a person in front of it:
     only then, and only over a written cell, is the stamp drawn here, and
@@ -2987,14 +3004,7 @@ def gate(args, console_wants_letters, terminal=False):
             record = sealed_record(asked, root)
             on_disk = record is not None and os.path.isfile(record.path)
             where, outcome = (record.path if on_disk else asked), ASKED_PASSED
-        sys.stderr.write(
-            PREFLIGHT_ASKED.format(
-                home=os.path.relpath(where, root),
-                branch=f"`{branch}`",
-                outcome=outcome,
-            )
-            + "\n"
-        )
+        sys.stderr.write(preflight_asked_line(where, root, branch, outcome) + "\n")
     elif args.preflight:
         sys.stderr.write(
             (

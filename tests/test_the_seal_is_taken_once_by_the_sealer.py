@@ -26,6 +26,7 @@ import ast
 import importlib.util
 import io
 import json
+import ntpath
 import os
 import re
 import shutil
@@ -4623,10 +4624,41 @@ def test_seal_check_passes_what_seal_would_seal_and_writes_nothing(repo, shape, 
     assert "chain-check:" not in out, f"`--check` ran the chain check:\n{out}"
     generator = generator_module()
     said = getattr(generator, line).format(
-        path=os.path.relpath(path, repo), dash=generator.DASH
+        path=path.relative_to(repo).as_posix(), dash=generator.DASH
     )
     assert out.splitlines() == [said], out
     assert not out.startswith("round-record: sealed"), out
+
+
+# A repository-relative path a line prints is written with `/` on every
+# platform. `ntpath` drives the Windows separators from a POSIX machine, so the
+# Windows leg of CI is not the only witness (`agent-contract` §13): every
+# integration case above runs on macOS, where `os.sep` is already `/`.
+WINDOWS_ROOT = r"C:\x\repo"
+
+
+def windows_path(home):
+    """`home`, a `/`-joined repository-relative path, under `WINDOWS_ROOT`
+    as `ntpath` spells it."""
+    return ntpath.join(WINDOWS_ROOT, *home.split("/"))
+
+
+@pytest.mark.parametrize(
+    "n, line, home",
+    [
+        (2, "CHECKED", f"{ROUNDS}/round-2.md"),
+        (None, "CHECKED_NO_ROUND", f"{ITEM}/{GATE_FILE}"),
+    ],
+    ids=["a-round-record", "straight-to-the-pr"],
+)
+def test_the_checked_line_names_its_home_with_slashes_on_windows(n, line, home):
+    """The `seal --check` line formatted with Windows separators names the
+    home it asked with `/`. Seen red with `checked_line` formatting
+    `flavour.relpath` unreplaced, as `seal` did at `04d8bfd7`: the line named
+    `seal\\specs\\…`, which is what the Windows leg failed on."""
+    generator = generator_module()
+    said = generator.checked_line(n, windows_path(home), WINDOWS_ROOT, ntpath)
+    assert said == getattr(generator, line).format(path=home, dash=generator.DASH)
 
 
 def test_the_check_returns_after_the_last_refusal_and_before_the_write():
@@ -4835,6 +4867,27 @@ def test_a_direct_item_preflights_green_and_names_the_work_item_it_asked(
     gate = gate_module()
     assert asked_line(ITEM, gate.ASKED_PASSED) in out.stderr.splitlines(), out.stderr
     assert GATE_FILE not in out.stderr, out.stderr
+
+
+@pytest.mark.parametrize(
+    "home, outcome",
+    [
+        (RECORD_FILE.format(n=2), "ASKED_PASSED"),
+        (ITEM, "ASKED_REFUSED"),
+    ],
+    ids=["a-record", "the-work-item"],
+)
+def test_the_asked_line_names_its_home_with_slashes_on_windows(home, outcome):
+    """The ask's stderr line formatted with Windows separators names its home
+    with `/`, as `asked_line` spells it for the integration cases above. Seen
+    red with `preflight_asked_line` formatting `flavour.relpath` unreplaced,
+    as `gate` did at `04d8bfd7`: the line named `seal\\specs\\…`, and S3, S6
+    and round 1's ⬜ 4 failed on the Windows leg for it."""
+    gate = gate_module()
+    said = gate.preflight_asked_line(
+        windows_path(home), WINDOWS_ROOT, "feature", getattr(gate, outcome), ntpath
+    )
+    assert said == asked_line(home, getattr(gate, outcome))
 
 
 def test_an_undeclared_branch_is_not_asked_and_the_preflight_says_so(repo, tmp_path):
