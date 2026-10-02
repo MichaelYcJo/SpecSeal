@@ -324,6 +324,18 @@ def test_the_text_is_written_on_a_sheet_one_blank_line_inside_it():
     for k, (label, value) in enumerate(rows, 1):
         line = "".join(cell[2][0] if cell[2] else " " for cell in cells[k])
         assert f"{label:<8} {value}".strip() in line, (k, line)
+    # One of `letter`'s two leading spaces is kept, so a label stands four in.
+    assert "".join(cells[1][x][2][0] for x in first).startswith(" SEALED"), said
+    # Every line of the sheet is the sheet's width where the disc does not
+    # carry it further: nothing is padded past the edge, nothing stripped.
+    for ln in range(height):
+        beyond = [cell for cell in cells[ln][width:] if disc_at(cell)]
+        assert len(cells[ln]) == width if not beyond else len(cells[ln]) > width, ln
+    # Where the text and not the disc sets the width (no disc at all), the
+    # edge stands two cells past the longest line: one of parchment, then it.
+    bare = mod.compose(mod.SAMPLE_ROWS, None)
+    longest = max(len(t) for t in mod.sheet_text(mod.SAMPLE_ROWS))
+    assert bare.width == mod.TEXT_LEFT + longest + 2, (bare.width, longest)
 
 
 @pytest.mark.parametrize("scale", [0.9, 0.8, 0.75])
@@ -352,6 +364,14 @@ def test_the_disc_hangs_over_the_corner_two_clear_cells_from_the_text(scale):
         assert wax[0] > end + mod.GAP == end + 2, (scale, ln, end, wax[0])
         for x in range(end + 1, end + 1 + mod.GAP):
             assert line[x][:3] == (mod.PARCHMENT, mod.PARCHMENT, None), (ln, x)
+    # The disc's centre line is the sheet's last line and, where it sets the
+    # width, its centre column is the sheet's right edge: half below, half
+    # over. The letter ends at the disc's lowest line, with no empty line.
+    rows_on = [ln for ln, line in enumerate(cells) if any(map(disc_at, line))]
+    cols_on = [x for line in cells for x, cell in enumerate(line) if disc_at(cell)]
+    assert abs((rows_on[0] + rows_on[-1]) / 2 - (height - 1)) <= 1, (rows_on, height)
+    assert abs((min(cols_on) + max(cols_on)) / 2 - (width - 1)) <= 1, (cols_on, width)
+    assert rows_on[-1] == len(cells) - 1, "an empty line ends the letter"
 
 
 def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
@@ -388,6 +408,58 @@ def test_the_letter_is_written_in_its_four_codes_and_the_discs_five_colours():
     sheet = mod.compose(mod.SAMPLE_ROWS, 0.9)
     assert visible(lines[0]) == sheet.width, (visible(lines[0]), sheet.width)
     assert lines[0].endswith(" \x1b[0m"), repr(lines[0][-12:])
+    # The owner's disc: its edge from 0.78 of the radius and nothing past 0.84.
+    assert (mod.FIELD_EDGE, mod.WAX_EDGE) == (0.78, 0.84)
+
+
+@pytest.mark.parametrize("scale", [0.9, 0.8, 0.75])
+def test_the_lily_is_lit_from_the_upper_left(scale):
+    """#717's lily, one colour pressed into the wax: a lily cell whose
+    up-left neighbour is not lily is its highlight, one whose down-right
+    neighbour is not lily is its shadow (where the up-left one is), and
+    every other lily cell is its face. Read off `build` cell by cell, at
+    every rung, so a light swapped for a shadow or a neighbour taken from
+    the wrong side is red."""
+    mod = module()
+    w, h, px = mod.build(scale)
+    lily = {mod.LILY_FACE, mod.LILY_LIGHT, mod.LILY_SHADOW}
+    seen = set()
+    for y in range(h):
+        for x in range(w):
+            here = px(x, y)
+            if here not in lily:
+                continue
+            seen.add(here)
+            up_left, down_right = px(x - 1, y - 1), px(x + 1, y + 1)
+            if here == mod.LILY_LIGHT:
+                assert up_left not in lily, (x, y)
+            else:
+                assert up_left in lily, (x, y, here)
+                assert (down_right not in lily) == (here == mod.LILY_SHADOW), (x, y)
+    assert seen == lily, seen
+
+
+def test_the_twin_writes_the_discs_five_letters_over_the_sheets_frame():
+    """#717's A10 for the characters. `KEY` gives the disc's five colours
+    five letters, the field keeping `.`; a cell whose top half is the disc's
+    is that colour's letter whatever the sheet is beneath it, so the disc
+    overrides the frame where it covers it; the sheet's last line is its
+    bottom, `'---`, and every other line of it is edged with `|`."""
+    mod = module()
+    assert set(mod.KEY) == set(mod.DISC_COLOURS)
+    assert len(set(mod.KEY.values())) == 5 and mod.KEY[mod.FIELD] == ".", mod.KEY
+    sheet = mod.compose(mod.SAMPLE_ROWS, 0.9)
+    twin = mod.stamp(mod.SAMPLE_ROWS, 0.9, shape=True)
+    for line, said in zip(sheet.cells, twin, strict=True):
+        for cell, char in zip(line, said, strict=True):
+            if isinstance(cell[0], tuple):
+                assert char == mod.KEY[cell[0]], (cell, char)
+            elif isinstance(cell[1], tuple):
+                assert char == mod.KEY[cell[1]], (cell, char)
+    bottom = twin[sheet.height - 1]
+    assert bottom.startswith("'---"), bottom
+    for said in twin[1 : sheet.height - 1]:
+        assert said.startswith("|"), said
 
 
 # --- the panel -------------------------------------------------------------
