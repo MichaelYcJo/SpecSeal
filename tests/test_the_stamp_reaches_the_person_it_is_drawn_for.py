@@ -354,6 +354,23 @@ def test_a_malformed_later_file_does_not_take_the_earlier_ones(tmp_path):
     assert not os.path.exists(mod.drawn_path(bad))
 
 
+def test_a_file_at_a_scale_the_band_refuses_is_left_pending(tmp_path):
+    """#717. `drawings` hands `fitted` the rows and the scale rather than a
+    finished drawing, so it still draws each file once at its own scale
+    before the claim: that is what proves the file draws at all. A file at
+    0.5 passes `read_values` — the scale is a number — and is refused by the
+    band, so it stays pending under its own name and the good file beside it
+    is drawn, rather than both being claimed and nothing printed."""
+    mod = stamp_module()
+    repo = opted_in(tmp_path)
+    good = mod.write_values(str(repo / ".git"), "s-1", values(), now=1)
+    small = mod.write_values(str(repo / ".git"), "s-1", values(scale=0.5), now=2)
+    lines = message(stop(repo))
+    assert "\n".join(lines) == mod.fitted([(LABEL, ROWS, 0.9)])
+    assert os.path.exists(mod.drawn_path(good)) and not os.path.exists(good)
+    assert os.path.exists(small), "a file the band refuses was claimed"
+
+
 def test_the_sealers_worktree_and_the_main_checkout_share_the_file(tmp_path):
     """The sealer's root is a linked worktree while the main session's `cwd`
     is the checkout (Q2's reading: the `Stop` payload's `cwd` was the main
@@ -481,6 +498,7 @@ def test_the_budget_is_named_and_derived_from_the_measured_limit():
     rung can be refused when the hook steps down to it."""
     mod = stamp_module()
     assert mod.MESSAGE_LIMIT <= 10090, "above a size the harness has persisted"
+    assert mod.MESSAGE_LIMIT == 10000, "not the number the probe measured"
     assert mod.MESSAGE_BUDGET <= mod.MESSAGE_LIMIT - 1000, mod.MESSAGE_BUDGET
     assert mod.SCALE_LADDER == (0.90, 0.80, 0.75)
     assert all(mod.check_scale(rung) is None for rung in mod.SCALE_LADDER)
