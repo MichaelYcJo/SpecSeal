@@ -1102,6 +1102,7 @@ STILL_PLAIN = [
     "echo GIT_CONFIG_NOSYSTEM",
     "echo $CLAUDECODE",
     "git commit -m 'mentions CLAUDE_CODE_SESSION_ID'",
+    "cat $HOME/x",
     "git -c user.name=HOME commit -m x",
     "git commit -m 'read include.path'",
 ]
