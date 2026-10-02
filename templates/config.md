@@ -167,7 +167,9 @@ root by `broad-gate` once the review rounds settle. The plugin's own checks
 follow it and are not part of the row; the module docstring of
 `skills/verify/scripts/broad_gate.py` lists them, in the order they run.
 `broad-gate --preflight` runs those checks alone, reading the row and not
-running it, and the orchestrator runs it before the sealer is spawned.
+running it, then asks `seal`'s refusals of the work item declared for the
+branch without writing the cell; the orchestrator runs it before the sealer
+is spawned.
 
 Two of those checks, the survivor arm and the correction arm, are left out
 where the base names `main` and the repository's `.github/workflows/hygiene.yml`
