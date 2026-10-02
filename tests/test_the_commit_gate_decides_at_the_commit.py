@@ -71,6 +71,7 @@ def g(d, *args, home, check=True, session=SESSION, **extra):
         check=check,
         env=env(home, session, **extra),
         stdin=subprocess.DEVNULL,
+        timeout=60,
     )
 
 
@@ -739,6 +740,7 @@ def group(world, name, command, call):
         text=True,
         env=env(world.home),
         check=True,
+        timeout=60,
     )
 
 
@@ -837,6 +839,7 @@ def test_s9_the_lease_names_the_session_when_no_variable_is_exported(world):
         text=True,
         env=env(world.home, session=""),
         stdin=subprocess.DEVNULL,
+        timeout=60,
     )
     assert got.returncode != 0
     assert world.head(world.main) == before
@@ -862,6 +865,7 @@ def test_s9_an_emptied_environment_is_still_judged_through_the_lease(world):
         text=True,
         env=env(world.home, session=""),
         stdin=subprocess.DEVNULL,
+        timeout=60,
     )
     assert got.returncode != 0, got.stderr
     assert world.head(world.main) == before
@@ -976,6 +980,7 @@ def pre_bash(world, command, cwd):
         capture_output=True,
         text=True,
         env=env(world.home),
+        timeout=60,
     ).stdout
     if not out.strip():
         return "silent"

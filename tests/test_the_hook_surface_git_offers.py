@@ -34,7 +34,7 @@ ZERO = "0" * 40
 
 def _git_version():
     out = subprocess.run(
-        ["git", "--version"], capture_output=True, text=True, check=True
+        ["git", "--version"], capture_output=True, text=True, check=True, timeout=60
     ).stdout
     m = re.search(r"(\d+)\.(\d+)", out)
     return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
@@ -64,6 +64,8 @@ def g(d, *args, check=True, env=None):
         text=True,
         check=check,
         env=e,
+        stdin=subprocess.DEVNULL,
+        timeout=60,
     )
 
 

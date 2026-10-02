@@ -47,6 +47,7 @@ def test_the_bytes_below_the_rider_are_86256492s():
     shown = subprocess.run(
         ["git", "-C", str(ROOT), "show", f"{BASE}:hooks/cmdline.py"],
         capture_output=True,
+        timeout=60,
     )
     if shown.returncode != 0:
         pytest.skip(f"{BASE} is not reachable here; the hash above still held")
@@ -97,7 +98,11 @@ def test_s10_a_switch_in_a_git_decided_clone_is_still_judged_by_the_guard(
 
     def g(*args):
         subprocess.run(
-            ["git", "-C", str(r), *args], check=True, capture_output=True, env=env
+            ["git", "-C", str(r), *args],
+            check=True,
+            capture_output=True,
+            env=env,
+            timeout=60,
         )
 
     g("init", "-q")

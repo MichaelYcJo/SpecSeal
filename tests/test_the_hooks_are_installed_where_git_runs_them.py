@@ -48,6 +48,7 @@ def g(d, *args, check=True, **extra):
         check=check,
         env=env(**extra),
         stdin=subprocess.DEVNULL,
+        timeout=60,
     )
 
 
@@ -207,6 +208,7 @@ def test_a_global_hooks_path_is_foreign_too(tmp_path, home):
         ["git", "config", "--global", "core.hooksPath", str(tmp_path / "mine")],
         check=True,
         env=env(),
+        timeout=60,
     )
     assert "core.hooksPath is set to" in install_mod.install(str(r), "s1")
     assert stubs_in(hooks_of(r)) == []

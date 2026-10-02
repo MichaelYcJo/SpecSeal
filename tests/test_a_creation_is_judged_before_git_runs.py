@@ -92,6 +92,7 @@ class Clone:
             text=True,
             env=env(self.home, session=""),
             stdin=subprocess.DEVNULL,
+            timeout=60,
         )
 
     def tip(self, branch):
@@ -145,6 +146,7 @@ class Clone:
                 capture_output=True,
                 text=True,
                 env=env(self.home),
+                timeout=60,
             ).stdout
 
         out = group("pre-bash")
