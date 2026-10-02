@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 719 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `59666b18f77850a0fa6e5a05ad1e8f315acc2e90..237dbc5216fd81dcab18f8d51c442d1847063f53`, 6 commits |
 | Contract changes | none |
 | New units | admitted (depth 1); test_the_title_is_the_sheets_first_line_whatever_a_value_says (depth 1); SMALL_ROWS (depth 1); test_seals_past_what_one_message_carries_wait_for_the_next_turn (depth 1); test_one_seal_too_large_for_the_disc_is_drawn_alone_without_it (depth 1); test_a_character_outside_the_bmp_is_counted_as_two (depth 1) |
