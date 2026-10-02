@@ -4890,6 +4890,45 @@ def test_the_asked_line_names_its_home_with_slashes_on_windows(home, outcome):
     assert said == asked_line(home, getattr(gate, outcome))
 
 
+@pytest.mark.parametrize(
+    "script, formatter, names, caller",
+    [
+        (GATE, "preflight_asked_line", ("PREFLIGHT_ASKED",), "gate"),
+        (GENERATOR, "checked_line", ("CHECKED", "CHECKED_NO_ROUND"), "seal"),
+    ],
+    ids=["the-ask", "seal-check"],
+)
+def test_each_line_naming_a_home_is_formatted_only_by_its_line_function(
+    script, formatter, names, caller
+):
+    """The two cases above drive the line functions with `ntpath`, and every
+    integration case runs where `os.sep` is `/` already, so a caller that
+    formats the constant itself again prints `\\` on Windows and nothing on
+    macOS goes red. So each constant is read inside its line function and
+    nowhere else, and the caller calls that function once. Seen red with
+    `gate` formatting `PREFLIGHT_ASKED` from `os.path.relpath` again, as it
+    did at `04d8bfd7`, which the two cases above passed."""
+    with open(script, encoding="utf-8") as handle:
+        parsed = ast.parse(handle.read())
+    functions = {n.name: n for n in parsed.body if isinstance(n, ast.FunctionDef)}
+    inside = {id(node) for node in ast.walk(functions[formatter])}
+    outside = [
+        f"`{node.id}` at line {node.lineno}"
+        for node in ast.walk(parsed)
+        if isinstance(node, ast.Name)
+        and node.id in names
+        and isinstance(node.ctx, ast.Load)
+        and id(node) not in inside
+    ]
+    assert not outside, f"read outside `{formatter}`: {outside}"
+    calls = [
+        node
+        for node in ast.walk(functions[caller])
+        if isinstance(node, ast.Call) and ast.unparse(node.func) == formatter
+    ]
+    assert len(calls) == 1, f"`{caller}` calls `{formatter}` {len(calls)} times"
+
+
 def test_an_undeclared_branch_is_not_asked_and_the_preflight_says_so(repo, tmp_path):
     """S8. No declaration names `feature`, so there is no work item for a
     sealer to seal and nothing to ask: exit 0, no `seal.txt`, and one stderr
