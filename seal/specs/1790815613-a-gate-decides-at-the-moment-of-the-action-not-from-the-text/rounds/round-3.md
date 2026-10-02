@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 705 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `b34b5401225b3196c9ab4e7dca5bcb848c0acc6b..a4692a0b9e086248c0054b2b661edd840ad0ef5a`, 6 commits |
+| Contract changes | none |
+| New units | PLAIN_PROGRAMS (depth 1); PLAIN_GIT (depth 1); PLAIN_CONFIG (depth 1); is_plain (depth 1); test_concluding_a_conflicted_merge_is_judged (depth 1); STILL_PLAIN (depth 1); NO_LONGER_PLAIN (depth 1); test_each_other_condition_of_the_rule_makes_a_command_not_plain (depth 1); test_a_negative_that_is_plain_stays_plain (depth 1); test_a_negative_outside_the_allowlist_is_not_plain (depth 1); PLAIN_AND_NOT (depth 1); test_a_plain_agent_commit_stands_aside_and_one_word_more_is_judged (depth 1) |
 | Needs a fix | yes — 🟡 1 (the words inside a string a shell parses again) and 🟡 2 (an emptied environment behind another `env` option, and `exec -c`). |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 3 is a verifying round at `4fe82d29`. Its diff is round 2's fix range `b6d
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A session name, a config key, `HOME` or a `GIT_CONFIG*` assignment inside a string a shell parses again (`sh -c`, `bash -c`, `eval`, a quoted `$( … )`, `env -S`) is one word to the reader, and the commit lands unjudged; 0.16.0 stopped each | `hooks/tokens.py#steps_around_hooks` | open | executed x10, x11, x15, x17, y01, y02, y03, y08, y10: landed, target silent, 0.16.0 deny; patched, all nine deny; class of round 2's 🟡 1 and 🟡 2 |
-| 🟡 2 | `env -v -i`, `env -u FOO -i`, `env -vuNAME` and `exec -c` empty the environment past a reader that looks only at the word after `env`; 0.16.0 stopped each | `hooks/tokens.py#_empties_the_environment` | open | executed x08, x09, x12, x16, y07, z08: landed, target silent, 0.16.0 deny; patched, all six deny; class of round 1's 🟡 8 |
-| ⬜ 3 | `git --config-env core.hooksPath=VAR commit` with a space, and `env -S '-i git commit'`, are commits neither reading places | `hooks/cmdline.py#_git_options` | open | executed y05, y09: landed, both readings silent; 0.16.0's gap as much as the target's; a new issue is the candidate home, and the owner answers it |
-| ⬜ 4 | The conflicted-merge sentence round 2's ⬜ 5 added has no case among the paragraph's `Enforced by:` line | `docs/commit-review-gate-spec.md` §*A commit git makes for its own rebase, cherry-pick or revert* | open | read: the six named cases conclude no merge; executed n07 refused, so the sentence is true |
+| 🟡 1 | A session name, a config key, `HOME` or a `GIT_CONFIG*` assignment inside a string a shell parses again (`sh -c`, `bash -c`, `eval`, a quoted `$( … )`, `env -S`) is one word to the reader, and the commit lands unjudged; 0.16.0 stopped each | `hooks/tokens.py#steps_around_hooks` | **fixed** `7e8269c4` | fixed at 7e8269c4 — owner-directed change of mechanism (questions.md P7, 2026-10-02): the reading stands aside only for a positively defined plain command; executed x10, x11, x15, x17, y01, y02, y03, y08, y10: landed, target silent, 0.16.0 deny; patched, all nine deny; class of round 2's 🟡 1 and 🟡 2 |
+| 🟡 2 | `env -v -i`, `env -u FOO -i`, `env -vuNAME` and `exec -c` empty the environment past a reader that looks only at the word after `env`; 0.16.0 stopped each | `hooks/tokens.py#_empties_the_environment` | **fixed** `7e8269c4` | fixed at 7e8269c4 — the same rule as 🟡 1 (P7); executed x08, x09, x12, x16, y07, z08: landed, target silent, 0.16.0 deny; patched, all six deny; class of round 1's 🟡 8 |
+| ⬜ 3 | `git --config-env core.hooksPath=VAR commit` with a space, and `env -S '-i git commit'`, are commits neither reading places | `hooks/cmdline.py#_git_options` | deferred #716 | #716 — Predates the branch: 0.16.0's reading misses both spellings too (y05, y09); executed y05, y09: landed, both readings silent; 0.16.0's gap as much as the target's; a new issue is the candidate home, and the owner answers it |
+| ⬜ 4 | The conflicted-merge sentence round 2's ⬜ 5 added has no case among the paragraph's `Enforced by:` line | `docs/commit-review-gate-spec.md` §*A commit git makes for its own rebase, cherry-pick or revert* | **fixed** `7e8269c4` | fixed at 7e8269c4; read: the six named cases conclude no merge; executed n07 refused, so the sentence is true |
 | 🟢 | round 2's finding 1 is closed for its instances — `NAME=`, `env -u`, `env -uNAME`, `unset`, and `export -n`, `declare +x`, `typeset +x` through the bare name | `hooks/tokens.py#steps_around_hooks` | confirmed | executed n01–n03, x01–x03, z01: landed with git alone, target deny; the class is this round's 🟡 1 and 🟡 2 |
 | 🟢 | round 2's finding 2 is closed for its instances — `include.path`, `includeIf` with a dotted condition, `HOME=`, `XDG_CONFIG_HOME=`; the `chmod -x` limit is written and true | `hooks/tokens.py#steps_around_hooks`, `docs/commit-review-gate-spec.md` | confirmed | executed n04, n05, x04, x05, x07, x07d, x18, x20, y04 deny; n06 landed with the target silent, as written; the class is this round's 🟡 1 |
 | 🟢 | round 2's finding 3 is closed — the old spelling's limit states the match as `hooks/answers.py#given` makes it | `docs/commit-review-gate-spec.md`, `hooks/answers.py#_squash` | confirmed | read: escapes and every non-alphanumeric dropped, then a substring of the ancestors' argv |
