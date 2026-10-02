@@ -237,9 +237,11 @@ def test_s1_a_patch_whose_body_mentions_a_commit_commits_nothing_and_is_not_stop
 ):
     """Row 4: 0.15.7 answered `UNREADABLE_CONSTRUCT`; nothing here commits."""
     before = (world.head(world.main), world.head(world.w))
-    # The second string as a Python literal, so a Windows path's backslashes
-    # are escaped rather than read as `\U…` (#692).
-    second = repr(f"cd {world.main}; git commit -m y")
+    # The path with forward slashes, as a Python literal. A Windows path's
+    # backslashes were read as `\U…`, and escaping them did not survive:
+    # Git for Windows' bash halves a doubled backslash in its `-c` argument
+    # (#692's Windows pass, CI run 37014766992).
+    second = repr(f"cd {world.main.as_posix()}; git commit -m y")
     got = world.sh(
         f"cd {q(world.w)} && python3 - <<'EOF'\n"
         f"for c in ['git commit -m x', {second}]:\n"
@@ -468,7 +470,7 @@ def test_s2_a_commit_bash_makes_into_an_undeclared_repository_does_not_land(
     hooks, the same command with the hooks lands nothing there. The base's
     verdict is not asked -- every stop it made on a real commit is in this
     set, and so is every commit it missed."""
-    if os.name == "nt" and "stdbuf" in CORPUS[name]:
+    if os.name == "nt" and CORPUS[name].startswith("stdbuf "):
         pytest.skip(NO_HOOK_UNDER_LD_PRELOAD)
     home = tmp_path / "home"
     home.mkdir()
