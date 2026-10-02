@@ -142,6 +142,28 @@ def test_plain_reminders_merge_into_one_stdout():
     assert d.merge(["first\n", "", "second\n"], "PostToolUse") == "first\nsecond"
 
 
+def test_a_line_said_once_survives_a_neighbours_decision():
+    """#692: `hook-install.py` says its line once per session, so a `deny`
+    beside it in the same group must not drop it."""
+    d = dispatch_module()
+    out = json.loads(
+        d.merge(
+            [json.dumps({"systemMessage": "installed"}), decision("deny", "worktree")],
+            "PreToolUse",
+        )
+    )
+    assert out["systemMessage"] == "installed"
+    assert out["hookSpecificOutput"]["permissionDecision"] == "deny"
+
+
+def test_the_installer_runs_before_the_gates_it_serves():
+    """#692: first in `pre-bash`, so a stub that went missing is back before
+    the command runs; last at `session-start`, after the root migrations."""
+    d = dispatch_module()
+    assert d.GROUPS["pre-bash"][0] == "hook-install.py"
+    assert d.GROUPS["session-start"][-1] == "hook-install.py"
+
+
 def test_a_crashing_gate_does_not_take_the_group_down(repo, monkeypatch):
     d = dispatch_module()
     monkeypatch.setattr(

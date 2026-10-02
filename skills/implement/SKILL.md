@@ -227,12 +227,16 @@ commit gate silent for every commit of a declared branch, for either review
 answer. Coupling them would ask for the same answer twice and stop a
 session for not repeating itself. Where no declaration is in force — no
 file, a branch it does not name, or a file that will not parse — the gate
-behaves exactly as it did before, which is to ask. For a change that
-belongs to no work item at all, the token is still the way past, and it
-goes in FRONT of the command, quotes included:
+stops the commit, as it always did. Where this plugin's git hooks run,
+git refuses it and prints the ways on into the command's output; in a
+clone whose hooks slot is somebody else's, the PreToolUse reading asks.
+For a change that belongs to no work item at all, the token is still the
+way past, and it goes in FRONT of the command, quotes included:
 `: '[no-review]'; git commit …` (and `[no-parity]` too where a migration
 config is declared). After `git commit` a bare word is a pathspec and git
-rejects the whole command.
+rejects the whole command. `git -c specseal.waive=review commit …` is the
+same waiver in git's own spelling, and it is the one the refusal names
+first.
 
 **Once the batch is answered, the session runs to the pull request.** What
 surfaces after it is written down rather than raised: a decision only a person
