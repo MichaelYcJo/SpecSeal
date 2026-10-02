@@ -566,6 +566,7 @@ def test_seals_past_what_one_message_carries_wait_for_the_next_turn(tmp_path):
         mod.write_values(str(repo / ".git"), "s-1", full_values(f"{n:08x}"), now=n)
         for n in range(101, 113)
     ]
+    before = 0
     for turn in range(1, 13):
         text = json.loads(stop(repo))["systemMessage"]
         assert len(text) <= mod.MESSAGE_BUDGET, (turn, len(text))
@@ -576,6 +577,14 @@ def test_seals_past_what_one_message_carries_wait_for_the_next_turn(tmp_path):
         assert drawn_now == paths[: len(drawn_now)], "not oldest first"
         assert waiting == paths[len(drawn_now) :], "a file was lost"
         assert len(drawn_now) >= turn, f"turn {turn} drew nothing new"
+        # A claim renames the file whether or not its stamp is printed, so
+        # the drawn names alone cannot see a file claimed and dropped: the
+        # message's labels are exactly the files this turn claimed.
+        assert [b.split("\n", 1)[0] for b in blocks] == [
+            mod.label(full_values(f"{n:08x}"))
+            for n in range(101 + before, 101 + len(drawn_now))
+        ], f"turn {turn} claimed a file its message does not carry"
+        before = len(drawn_now)
         if not waiting:
             break
     assert stop(repo) == "", "something was left to draw"
