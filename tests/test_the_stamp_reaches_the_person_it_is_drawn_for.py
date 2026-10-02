@@ -613,6 +613,10 @@ def test_a_character_outside_the_bmp_is_counted_as_two():
     assert len(at[0.9].encode("utf-16-le")) // 2 == len(at[0.9]) + 50
     assert mod.fitted([(label, ROWS, 0.9)], len(at[0.9]) + 10) == at[0.8]
     assert mod.fitted([(label, ROWS, 0.9)], len(at[0.9]) + 50) == at[0.9]
+    # A values file is JSON, which can carry a lone surrogate; counting it
+    # must not raise, or every pending file would wait forever.
+    lone = LABEL + "\ud800"
+    assert mod.fitted([(lone, ROWS, 0.9)]) == drawn(mod, lone, ROWS, 0.9)
 
 
 def test_a_values_file_from_an_older_gate_draws_every_row_and_skips_its_blanks(
