@@ -567,9 +567,17 @@ def test_the_panel_names_the_ref_the_base_came_from(tmp_path):
     at = rows.index(("base", "bbbbbbb"))
     assert rows[at + 1] == ("", "origin/base"), rows
     drawn = "\n".join(_load("specseal_seal_stamp", STAMP).stamp(rows, shape=True))
-    assert re.search(r"\bbase\s+bbbbbbb\s*\|\n[^\n]*\|\s+origin/base\s", drawn), (
+    # #717: the letter's right edge may be the disc's rather than a `|`, so
+    # the ref is read as the next line's value in the commit's own column.
+    lines = drawn.split("\n")
+    at = next(
+        n for n, line in enumerate(lines) if re.search(r"\bbase\s+bbbbbbb\b", line)
+    )
+    column = lines[at].index("bbbbbbb")
+    assert lines[at + 1][column:].startswith("origin/base "), (
         f"the rendered panel does not carry the ref under the commit:\n{drawn}"
     )
+    assert not lines[at + 1][:column].strip("| "), lines[at + 1]
 
     work = behind_gate_repo(tmp_path)
     out = run_gate(work, tmp_path / "out")

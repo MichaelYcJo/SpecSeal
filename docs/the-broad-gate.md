@@ -132,13 +132,38 @@ reading or act stands between the verdict and the drawing, and what is drawn
 is the run's values rather than a sample anybody can print.
 Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_main_sessions_stop_draws_each_undrawn_file_once, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_a_subagents_end_draws_nothing_and_leaves_the_file, tests/test_the_seal_is_taken_once_by_the_sealer.py::test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing
 
+<!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->
+**The hook holds its whole message under a budget named in the code, and
+steps the drawing down rather than letting the harness persist it.** The
+harness writes a `Stop` hook's `systemMessage` longer than 10,000 characters
+to a file and shows the person a 2 KB preview, so a stamp past that size is
+not seen. `seal_stamp.MESSAGE_LIMIT` is that number, measured with a scratch
+hook; `MESSAGE_BUDGET` keeps 1,000 characters of it back for the gate-failure
+report `hooks/dispatch.py` prepends to the same message. The harness counts
+UTF-16 units, so a character outside the BMP is two, and so does the hook.
+One message carries as many of the oldest pending stamps as fit together
+with their disc, each at the highest rung the others leave room for: its
+file's own scale, then 0.90, 0.80 and 0.75. A seal past what one message can
+carry stays pending and is drawn at the next turn's end, and a single stamp
+that does not fit at 0.75 by itself is the only one drawn as the sheet with
+no disc. A stamp can come out smaller or a turn later, and a session that
+ends first leaves it for `seal-stamp --from`. The gate's own terminal
+drawing and `seal-stamp` are not budgeted, because neither is a hook's
+message.
+Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_hooks_message_is_under_the_budget_for_one_file, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_two_files_in_one_turn_are_under_the_budget_together, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_seals_past_what_one_message_carries_wait_for_the_next_turn, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_ladder_steps_down_in_order_and_ends_with_no_disc
+
+<!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->
 <!-- specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for -->
 **What the person's screen shows is not checked, and neither is the order of
 the text above it.** The cases prove that the hook emits the right bytes for
 the right payload. A screenshot of the probe proved once that such bytes
 render unfolded, in colour, after the turn's final text. Whether a given
 run's stamp was seen, and whether the orchestrator wrote its result in the
-turn the stamp closed, are read by the person and by nobody else.
+turn the stamp closed, are read by the person and by nobody else. So is how
+the sheet reads on a light background as well as a dark one. Its parchment
+and its edge are painted, and on white they are 1.02 and 1.48 to 1 against
+the screen where on black they are 20.5 and 14.2; those figures are
+arithmetic, and the owner reads the first real seal on each background.
 **Nor is the hook's silence where it cannot draw.** It draws nothing and
 says nothing where the main session's `python3` is under 3.12, the floor
 `seal_stamp.py` refuses below (macOS ships 3.9); where that session's

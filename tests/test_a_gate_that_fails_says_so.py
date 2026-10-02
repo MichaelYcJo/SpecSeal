@@ -561,6 +561,15 @@ def test_a_message_is_its_first_line_and_capped():
     assert d.first_line(RuntimeError("\n  one  \ntwo")) == "one"
     assert d.first_line(RuntimeError("y" * 500)) == "y" * d.MESSAGE_CAP
     assert d.MESSAGE_CAP == 200
+    # The cap is in UTF-16 units, the unit the harness counts the `Stop`
+    # message in (`seal_stamp.MESSAGE_RESERVE`): a character outside the BMP
+    # is two, and one that would pass the cap is left out whole.
+    astral = "\U0001d54f"
+    assert d.first_line(RuntimeError(astral * 500)) == astral * 100
+    assert d.first_line(RuntimeError("y" + astral * 500)) == "y" + astral * 99
+    # The last character inside the BMP is one unit.
+    last = chr(0xFFFF)
+    assert d.first_line(RuntimeError(last * 500)) == last * d.MESSAGE_CAP
 
 
 # --- S10: a subagent's failure reaches the main session ----------------------

@@ -570,7 +570,7 @@ def test_the_stamp_says_how_many_steps_the_seal_did_not_answer(tmp_path):
     assert result.returncode == 0, result.stdout + result.stderr
 
     drawn = _load("specseal_seal_stamp", STAMP).stamp(panel_rows(repo), shape=True)
-    rendered = [line for line in drawn if "not answered" in line]
+    rendered = [line for line in drawn if "more steps" in line]
     assert len(rendered) == 1, (
         "the stamp says nothing about the steps this seal did not answer:\n"
         + "\n".join(drawn)
@@ -584,10 +584,11 @@ def test_the_stamp_says_how_many_steps_the_seal_did_not_answer(tmp_path):
     # #666: over the steps CI runs for THIS base. The milestone step runs only
     # on a pull request into `main` and the base here is `base`, so it is
     # neither answered nor unanswered — `2 of 3` became `1 of 2`.
-    assert "1 of 2 not answered" in rendered[0], rendered[0]
-    value = next(
-        v for _, v in [r for r in panel_rows(repo) if r] if "not answered" in v
-    )
+    #
+    # #717: the owner's wording, `CI also  <n> more steps`. The denominator
+    # left the panel for the stderr line beside the names, asserted below.
+    assert "CI also  1 more steps" in rendered[0], rendered[0]
+    value = next(v for _, v in [r for r in panel_rows(repo) if r] if "more steps" in v)
     assert len(value) <= gate.PANEL_VALUE_WIDTH, (
         f"the value is {len(value)} columns and the panel gives "
         f"{gate.PANEL_VALUE_WIDTH}: {value!r}. This is W1's whole reason for a "
@@ -631,6 +632,9 @@ def test_a_seal_that_answers_every_step_says_so(tmp_path):
         f"{gate.WORKFLOW} runs for this base. 1 more runs only on a pull request "
         "into `main`, so this count leaves it out."
     ) in result.stderr, result.stderr
+    # #717: the panel's row does not go quiet either. At 0 it still prints,
+    # and it says a count.
+    assert ("CI also", "0 more steps") in panel_rows(repo), panel_rows(repo)
 
 
 # --- A4: a reason is prose a person wrote -----------------------------------
@@ -708,7 +712,9 @@ def test_every_exclusion_says_what_the_gate_cannot_reach():
 # #666 also moved the ref from `from` to the row under `base` (`""`), and the
 # row's exit code from `row` to the row under `suite` — which this fixture's
 # empty output, carrying no pytest counts, does not have. No row here is
-# about the workflow: a run without one is still the run it was.
+# about the workflow: a run without one is still the run it was. #717 took
+# `chain` off, because a drawn panel is green by construction and `SEALED`
+# already says its exit was 0.
 HISTORICAL_ROWS = (
     "SEALED",
     "tree",
@@ -716,7 +722,6 @@ HISTORICAL_ROWS = (
     "",
     "suite",
     "ledger",
-    "chain",
 )
 
 
@@ -1167,13 +1172,14 @@ def real_panel_workflow_row(given):
     }
     base = gate.Base(given, "cccccccc", given, "cccccccc")
     rows = gate.panel("ccccccc", base, checks, None, read(HYGIENE))
-    return next(value for label, value in [r for r in rows if r] if label == "workflow")
+    return next(value for label, value in [r for r in rows if r] if label == "CI also")
 
 
 def test_a_feature_seal_counts_the_nine_steps_ci_runs_for_it():
     """A11 over this repository's own workflow. Against a base that is not
     `main` CI runs 9 of the 13 steps and the gate mirrors 5, so the panel
-    reads `4 of 9 not answered`; the line names the four unanswered steps CI
+    reads `CI also  4 more steps` (#717; `4 of 9 not answered` before it);
+    the line names the four unanswered steps CI
     runs and none of the four only-at-`main` ones, and says four were left
     out and why. Pinned verbatim (`agent-contract` §14)."""
     assert gate.steps_for(read(HYGIENE), "release/x") == [
@@ -1181,7 +1187,7 @@ def test_a_feature_seal_counts_the_nine_steps_ci_runs_for_it():
         for step in gate.job_steps(read(HYGIENE), gate.RELEASE_JOB)
         if step not in gate.ONLY_AT_MAIN
     ]
-    assert real_panel_workflow_row("release/x") == "4 of 9 not answered"
+    assert real_panel_workflow_row("release/x") == "4 more steps"
     said = gate.coverage_line(read(HYGIENE), "release/x")
     assert said.startswith(
         f"broad-gate: {gate.WORKFLOW}'s `release` job runs 9 steps for this base "
@@ -1196,11 +1202,12 @@ def test_a_feature_seal_counts_the_nine_steps_ci_runs_for_it():
 
 def test_a_release_seal_counts_the_eleven_steps_ci_runs_for_it():
     """A12. Against `main` CI runs every step but the two it skips there, and
-    the gate mirrors 3 of the 11, so the panel reads `8 of 11 not answered`
-    and the line says the two skipped steps were left out. `SKIPPED_LINE`
-    still prints as it did (the #473 cases above)."""
+    the gate mirrors 3 of the 11, so the panel reads `CI also  8 more steps`
+    (#717; `8 of 11 not answered` before it) and the line says the two
+    skipped steps were left out. `SKIPPED_LINE` still prints as it did (the
+    #473 cases above)."""
     for given in ("main", "origin/main"):
-        assert real_panel_workflow_row(given) == "8 of 11 not answered", given
+        assert real_panel_workflow_row(given) == "8 more steps", given
         said = gate.coverage_line(read(HYGIENE), given)
         assert said.startswith(
             f"broad-gate: {gate.WORKFLOW}'s `release` job runs 11 steps for this "
@@ -1219,7 +1226,8 @@ def test_the_documents_say_the_count_is_over_the_steps_ci_runs():
     verify = " ".join(read(os.path.join(ROOT, "skills", "verify", "SKILL.md")).split())
     assert "counted over the steps CI runs for the base" in verify
     sealer = " ".join(read(os.path.join(ROOT, "agents", "sealer.md")).split())
-    assert "the `workflow` count leaves out the steps CI does not run for the base" in (
+    # #717 renamed the row the count is on.
+    assert "the `CI also` count leaves out the steps CI does not run for the base" in (
         sealer
     )
     broad = " ".join(read(os.path.join(ROOT, "docs", "the-broad-gate.md")).split())

@@ -95,7 +95,7 @@ on one line.** Where the base names `main` and the repository's
 `corrections` arms, because CI skips both steps there (#473). Quote that line
 in your report when it appears, the way you quote the moved-base line. The
 panel has no row for either arm, so the line is the one place a reader learns
-that two arms did not run. On any base the `workflow` count leaves out the
+that two arms did not run. On any base the `CI also` count leaves out the
 steps CI does not run for the base — on a release pull request those two, on
 any other the four that run only on a pull request into `main` — and the
 line beside the command says how many it left out and why (#666).
