@@ -212,9 +212,6 @@ SEAL_SWEPT = (
     # that instructed somebody while it sat there, so the split does not
     # take it out of the sweep.
     ("docs", "commit-review-gate-spec.md"),
-    # Cut from the one above by #692, for the same reason the split does not
-    # take #526's two out of the sweep.
-    ("docs", "commit-gate-inside-git-spec.md"),
     ("docs", "round-record-spec.md"),
     ("docs", "review-handoff-protocol.md"),
     ("CONTRIBUTING.md",),

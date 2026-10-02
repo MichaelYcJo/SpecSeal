@@ -1330,7 +1330,7 @@ def main():
     # reader could not place stands aside where the SESSION's clone is git's,
     # because that is the stand-in it would have been judged against; a
     # commit it would have reached in a clone carrying no hooks is the known
-    # limit `docs/commit-gate-inside-git-spec.md` states. Only a command whose
+    # limit `docs/commit-review-gate-spec.md` states. Only a command whose
     # shape is known plain stands aside at all, and `hooks/tokens.py#is_plain`
     # is the one rule for that (`questions.md` P7, the owner's answer of
     # 2026-10-02, after three rounds each found words a list missed).

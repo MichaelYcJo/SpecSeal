@@ -187,10 +187,6 @@ COVERED = [
     # line is a path and its comma at 89 columns, and fitting it means
     # rewording a sentence a ledger row quotes.
     "docs/commit-review-gate-spec.md",
-    # Cut from the one above along its own heading when #692 took it past the
-    # document line ceiling. Every line moved from a file already on this
-    # list, so it fits at birth.
-    "docs/commit-gate-inside-git-spec.md",
 ]
 
 
