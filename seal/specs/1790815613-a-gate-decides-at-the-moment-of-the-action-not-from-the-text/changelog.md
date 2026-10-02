@@ -17,12 +17,14 @@
   `automation` press it asks nobody. `git -c specseal.waive=review commit …`
   is the waiver in git's own spelling, and the old `: '[no-review]'; git
   commit …` keeps working for the one Bash call that carries it, and for no
-  other agent's call in the same session. A command that sets
-  `core.hooksPath`, points git at a config file that can set it
-  (`include.path`, `includeIf`, `HOME`, `XDG_CONFIG_HOME`), sets a
-  `GIT_CONFIG*` variable, empties its environment with `env -i`, or unsets
-  or empties `CLAUDECODE` or `CLAUDE_CODE_SESSION_ID`, is still judged
-  before it runs, because those can keep git's hooks from judging it.
+  other agent's call in the same session. The old reading of the command
+  steps aside only for a command whose shape is known to be plain:
+  `git commit`, `add`, `status`, `log`, `diff`, `show` or `rev-parse`,
+  beside a few harmless words such as `cd`, `echo` and `tail`, with nothing
+  a shell parses again, no variable assignment, and output sent nowhere but
+  `/dev/null`. Every other command is judged before it runs, as 0.16.0
+  judged it, because a command can keep git's hooks from judging it in more
+  ways than a list of them ever caught.
   `--no-verify` is met where the branch moves, and nothing but a
   `git commit` is. The commit git makes itself to finish a rebase,
   cherry-pick or revert that stopped on a conflict, or a reword, is not

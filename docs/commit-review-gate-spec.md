@@ -146,7 +146,7 @@ started, so concluding a conflicted merge is judged whether it is typed as
 `git commit` or as `git merge --continue`, where 0.16.0's reading let the
 second through (round 2 of #692, executed). A merge with no conflict makes
 its commit without `pre-commit` or the author date, and is not judged.
-Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_a_rebase_git_continues_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_an_interactive_rebases_reword_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_pick_git_continues_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_commit_typed_while_a_rebase_is_paused_is_still_met, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_commit_an_alias_starts_is_still_judged, tests/test_the_hook_surface_git_offers.py::test_a_sequencer_that_stopped_on_a_conflict_commits_with_the_date
+Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_concluding_a_conflicted_merge_is_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_rebase_git_continues_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_an_interactive_rebases_reword_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_pick_git_continues_is_not_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_commit_typed_while_a_rebase_is_paused_is_still_met, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_commit_an_alias_starts_is_still_judged, tests/test_the_hook_surface_git_offers.py::test_a_sequencer_that_stopped_on_a_conflict_commits_with_the_date
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
 **Where git decides, the PreToolUse reading in the next section stands aside;
@@ -157,17 +157,24 @@ arm that behaviour is `hooks/commit-review-gate.py` reading through
 names is asked `hooks/githooks.py#decides` first and left to git where the
 stubs run. A target the reader cannot place is left to git when the session's
 own clone is git-decided, because the session's directory is the stand-in it
-would have been judged against. A command carrying a word that can keep the
-hooks from judging it is left to git nowhere (`hooks/tokens.py#steps_around_hooks`):
-`core.hooksPath` in any spelling (`-c`, `--config-env`, `git config`), a config
-file that can carry it (`include.path`, `includeIf`, `HOME=`,
-`XDG_CONFIG_HOME=`), any `GIT_CONFIG*` assignment, `env` emptying the
-environment, a word naming
-`CLAUDECODE` or `CLAUDE_CODE_SESSION_ID` whole (`NAME=`, `env -u`, `unset`,
-which leave the stub no session), and a command that does not split. Each lives in
-the one command, where the installer that ran before it cannot see it, and a
-misread costs the one judgment 0.16.0 made.
-Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_the_text_reading_stands_aside_where_git_decides, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_foreign_clone_keeps_the_text_reading, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_command_that_can_step_around_the_hooks_keeps_the_text_reading, tests/test_the_commit_gate_decides_at_the_commit.py::test_only_those_words_make_the_reading_judge_a_git_decided_clone
+would have been judged against. **Only a command whose shape is known plain
+is left to git at all** (`hooks/tokens.py#is_plain`, `questions.md` P7);
+every other command is judged by the reading wherever it lands, which is
+what 0.16.0 did with it. Plain is a positive rule rather than a list of
+words that step around the hooks, because three review rounds of #692 each
+found spellings such a list missed. A command is plain when it splits;
+every simple command's program is one of a few words measured from the
+commit commands agents type (`git`, `cd`, `true`, `:`, `echo`, `printf`
+with no option, `test`, `[`, and `cat`, `head`, `tail`, `grep`, `wc`,
+`cut` reading output); each `git` passes only `-C` and a `-c` of
+`commit.gpgsign`, `user.name`, `user.email` or `specseal.*` before
+`commit`, `add`, `status`, `log`, `diff`, `show` or `rev-parse`; no
+assignment stands in a command's place; output goes only to `/dev/null` or
+another descriptor; nothing is parsed again (no `$( … )`, backtick, `( … )`
+or `{ … }`, and no heredoc body holding a substitution behind an unquoted
+delimiter); and none of the words `hooks/tokens.py#steps_around_hooks`
+reads appears. A misread costs the one judgment 0.16.0 made.
+Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_the_text_reading_stands_aside_where_git_decides, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_foreign_clone_keeps_the_text_reading, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_command_that_can_step_around_the_hooks_keeps_the_text_reading, tests/test_the_commit_gate_decides_at_the_commit.py::test_only_those_words_make_the_reading_judge_a_git_decided_clone, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_plain_agent_commit_stands_aside_and_one_word_more_is_judged, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_negative_that_is_plain_stays_plain, tests/test_the_commit_gate_decides_at_the_commit.py::test_a_negative_outside_the_allowlist_is_not_plain
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
 **The convergence argument is claimed for commits alone.**
@@ -197,12 +204,12 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
   nobody.** The reader stands aside on the session's clone, and git has no
   hook to run in the other one.
 - **A command that removes the stubs, or takes their execute bit, before it
-  commits is judged by nobody.** `rm .git/hooks/pre-commit
+  commits steps around both hooks.** `rm .git/hooks/pre-commit
   .git/hooks/reference-transaction && git commit`, and `chmod -x` on the same
-  two files, step around both hooks, and the reading stood aside before the
-  command ran, because nothing in its words names a hook setting. The
-  installer puts the stubs and their mode back at the next Bash call. 0.16.0's
-  reading stopped both (rounds 1 and 2 of #692, executed).
+  two files, landed with git alone (rounds 1 and 2 of #692, executed). Since
+  P7 neither is plain, because `rm` and `chmod` are not among the plain
+  programs, so the reading judges each before it runs, as 0.16.0's did. The
+  installer puts the stubs and their mode back at the next Bash call.
 - **`git commit-tree` with `update-ref`, and `git am`, are not commits to
   either reading.** Neither meets `pre-commit`, and round 1 of #692 executed
   both landing past the backstop, as 0.16.0's reading never read them as
@@ -254,7 +261,7 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
 
 | State | What judges a commit |
 |---|---|
-| a clone carrying the stubs | `pre-commit`, then `reference-transaction` for one that skipped it; the PreToolUse reading as well for a command carrying one of the words `hooks/tokens.py#steps_around_hooks` reads |
+| a clone carrying the stubs | `pre-commit`, then `reference-transaction` for one that skipped it; the PreToolUse reading as well for every command whose shape `hooks/tokens.py#is_plain` does not call plain |
 | a clone whose hooks slot is foreign | the PreToolUse reading below, as 0.16.0 — said once per session |
 | an opted-in clone no session has reached | the PreToolUse reading below, until a session or a Bash call reaches it |
 | a clone that opted out after the stubs arrived | nothing: each stub reads the opt-in when it runs, and the installer takes them out |
