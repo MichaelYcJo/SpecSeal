@@ -1,7 +1,7 @@
 # 1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner — overview
 
 📋 implement applied
-· spec:     `spec.md` S1–S7 and A1–A20, `plan.md` phases 1–3, `questions.md` Q1–Q5; `docs/the-broad-gate.md` §*Where the stamp is drawn*; `skills/verify/SKILL.md` §*A seal says what it did not answer* and §`mutation-check`; `CONTRIBUTING.md`'s fragment rule as `CLAUDE.md` states it
+· spec:     `spec.md` S1–S7 and A1–A20, `plan.md` phases 1–3, `questions.md` Q1–Q6; `docs/the-broad-gate.md` §*Where the stamp is drawn*; `skills/verify/SKILL.md` §*A seal says what it did not answer* and §`mutation-check`; `CONTRIBUTING.md`'s fragment rule as `CLAUDE.md` states it
 · evidence: `seal/ledger/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner.md` B1–B3, P1–P2, L1–L4; corrected in place `seal/releases/0.15.7.md` N5 and N7, `seal/releases/0.10.0.md` S2, `seal/ledger/1790815615-….md` N5 and N10; re-read in place the rows each phase record names
 · verified: executed — the threshold probe (six headless turns), every case named in the phase records seen red, each phase's modules, the mutations the phase records list; read — the prototype scripts, the owner's chosen output, the rows re-read
 
@@ -20,6 +20,8 @@ code names, so it is seen whole.
 | The gap between the text and the wax | `spec.md` S3: *two clear parchment cells* on every text line; the owner's rendering had zero on the `suite` row | the spec's two | The frame's judgement, named for the owner in the spawn prompt. It moves the disc two cells right on every line — the binding line is the `suite` row, `6621 passed, 11 skipped` — and costs 40 characters over #702's values: 6,279 with the prototype's two trailing empty lines against its 6,239, label included and no final newline |
 | Trailing empty lines | The prototype's output ends with two empty lines, the rows of #30's rope-sized grid below the wax | dropped | A line carrying nothing is not part of the letter, and the twin and the block form drop them alike; `phases/phase-3.md` |
 | `spec.md` §*What was measured* | named two cases the build renamed, and `hook_success` | a `NAME NOT IN TREE` note on each line | `evidence-check --strict`'s record walk refused the three names; the note records the rename rather than rewriting the frame's measurement (`phases/phase-2.md`) |
+| How several pending seals share one message | `spec.md` S1: *one rung for the whole message … A message with two stamps is two stamps at one scale*; round 1 measured two seals of #702's size both drawn without the disc, and eight at 10,118 characters, past the limit | the owner's rule of 2026-10-02 (`questions.md` Q6): as many as fit with the disc, oldest first, each at the highest rung it can take, the rest left pending | Owner-directed, in round 1's fix pass. The rung with no disc stays for a single seal that cannot fit at 0.75 alone; a session that ends right after leaves the rest for `seal-stamp --from`. `spec.md` is left as the frame wrote it |
+| What the limit counts | `spec.md` S1 and the frame: characters, as Python `str` length | UTF-16 units | Measured in round 1's fix pass: 4,999 characters outside the BMP were shown and 5,001 persisted, so each counts two; `admitted` counts the same way |
 
 ## Not verified
 
