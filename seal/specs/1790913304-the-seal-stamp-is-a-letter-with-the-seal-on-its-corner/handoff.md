@@ -17,7 +17,7 @@ Round 2 closed on fixes, so it used the run's one reopening. `round-record new` 
 
 ## The next steps, in order
 
-1. On the new machine, check out `fix/717-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner` and pull it. Check that the commit identity is `zenith.m.jo@gmail.com`.
+1. On the new machine, check out `fix/717-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner` and pull it. Check that `git config user.email` is the owner's SpecSeal address, the one this branch's commits carry.
 2. If `origin/release/v0.17.0` has moved past `e4399b65`, which it will once PR #705 lands, merge it with `--no-ff` and resolve hunk by hunk. Earlier merges conflicted only in `seal/releases/*.md` rows, and each row was taken from the side that edited it. Run `bin/evidence-check --strict .` and `bin/correction-check --range origin/release/v0.17.0...HEAD` afterwards.
 3. Spawn `specseal:warden` for **round 3, verifying**. Give it:
    - the target as the branch head;

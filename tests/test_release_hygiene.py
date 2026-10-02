@@ -155,6 +155,14 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "install the parser the oracle is held to, and a case holds them to "
         "the runner's constant; no release of SpecSeal makes the number wrong"
     ),
+    ("skills/verify/scripts/seal_stamp.py", "2.1.287"): (
+        "Claude Code's, named above `MESSAGE_LIMIT` as the build on which the "
+        "harness's 10,000-unit limit on a hook's `systemMessage` was measured "
+        "(#717). The class is the git rows' above, a loaded file naming the "
+        "tool build a measurement was taken on: the limit is the harness's to "
+        "move, and the comment says the same probe at two sizes is the whole "
+        "re-measurement; no release of SpecSeal makes the number wrong"
+    ),
 }
 
 

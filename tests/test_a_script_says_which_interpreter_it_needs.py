@@ -478,6 +478,11 @@ CLASSIFIED = {
     "skills/implement/scripts/seal.py": "deferred, seal/follow-up.md (#226)",
     "hooks/root-migrate.py": "deferred, seal/follow-up.md (#226)",
     "skills/verify/scripts/session_cost.py": "deferred, seal/follow-up.md (#226)",
+    "skills/verify/scripts/seal_stamp.py": (
+        "guarded -- it refuses at entry with a sentence naming the floor, the "
+        "block copied from round_record.py; `zip(..., strict=True)` in "
+        "`admitted` (#717) is 3.10's"
+    ),
 }
 
 

@@ -39,6 +39,25 @@ pinned rather than asked, and `test_the_panel_reports_the_rows_exit_code_and_ass
 keeps a name half of which is no longer true, because its other half is what
 it is for (`phases/phase-2.md`).
 
+## After the chain
+
+The first broad gate, at `c7f7df6e` against `e4399b65`, was NOT SEALED: three
+cases red, each one new on this branch. None is a defect in the stamp, and no
+round read the repairs, because the capped run had ended.
+
+- `test_no_shipped_script_needs_more_than_the_floor_without_saying_so`:
+  `admitted`'s `zip(..., strict=True)` matched the pattern. The file already
+  refuses at entry under 3.12, so it is classified `guarded` in
+  `CLASSIFIED`, and 0.9.1's R3 is re-read and re-stamped.
+- `test_no_loaded_file_names_a_version_at_or_above_the_running_one`: the
+  `MESSAGE_LIMIT` comment names Claude Code 2.1.287 as the build the limit was
+  measured on. It is pinned in `VERSIONS_OF_ANOTHER_PRODUCT`, beside git's
+  rows of the same class.
+- `test_only_neutral_domains`: `handoff.md` named the owner's commit address.
+  It now names it without the address.
+
+The three modules passed afterwards (77 passed), and then the re-seal ran.
+
 ## Fed back into the spec
 
 none — the clauses this work states are in `docs/the-broad-gate.md` under its marker, and the spec was not amended beyond the two `NAME NOT IN TREE` notes.
