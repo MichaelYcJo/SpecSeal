@@ -686,6 +686,16 @@ def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     alone = len(at[0.75]) * 2 + 1
     assert len(at[0.9]) <= alone, (len(at[0.9]), alone)
     assert mod.admitted(two, alone) == [at[0.9]], "both drawn, or not at 0.90"
+    # Oldest first: a newer seal that would fit is not drawn ahead of an
+    # older one that does not, which the hook would claim and not print.
+    big = (LABEL, ROWS + [("", f"home-{k}") for k in range(60)], 0.9)
+    one = (LABEL, ROWS, 0.9)
+    past = len(at[0.9]) + 2 + len(at[0.75])
+    assert mod.admitted([one, big, one], past) == [at[0.9]], (
+        "drawn past a seal that waits"
+    )
+    # A single seal exactly at the budget keeps its disc.
+    assert mod.admitted([(LABEL, ROWS, 0.75)], len(at[0.75])) == [at[0.75]]
     # A file that asked for less is never drawn larger, and one that asked
     # for more than the first rung gets it where it fits.
     assert mod.fitted([(LABEL, ROWS, 0.75)], 10**6) == at[0.75]
