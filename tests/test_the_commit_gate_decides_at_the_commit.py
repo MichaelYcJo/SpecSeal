@@ -565,6 +565,21 @@ def test_a_commit_an_alias_starts_is_still_judged(world):
     assert world.head(world.main) == before
 
 
+def test_concluding_a_conflicted_merge_is_judged(world):
+    """Round 3's ⬜ 4, n07: `MERGE_HEAD` is no sequencer state, so `git merge
+    --continue` in the undeclared main checkout is a commit the shell started,
+    and it is refused with HEAD where it was."""
+    d = diverged(world)
+    g(d, "switch", "-q", "release", home=world.home, session="")
+    g(d, "merge", "-q", "side", home=world.home, session="", check=False)
+    resolve(world, d)
+    before = world.head(d)
+    got = g(d, "merge", "--continue", home=world.home, check=False, GIT_EDITOR="true")
+    assert got.returncode != 0, got.stderr
+    assert gate.HEADER in got.stderr
+    assert world.head(d) == before
+
+
 def test_a_mark_an_aborted_commit_left_passes_no_later_commit(world):
     """Round 1's 🟡 10, c16: the same HEAD, tree and author date, and another
     `git commit` process, which `pre-commit` never saw."""
@@ -953,11 +968,11 @@ def pre_bash(world, command, cwd):
 def test_the_text_reading_stands_aside_where_git_decides(world):
     """The recorded run's 13 asks: a reading that named the main checkout for
     a commit landing in the declared worktree. Git decides in that clone, so
-    the reading says nothing, whatever it read."""
+    the reading says nothing, whatever it read. `eval "$C"` stood here until
+    P7, and is judged now (`STEPS_AROUND`)."""
     for command in (
         f"cd {q(world.w)} && true; git commit -m x",
         "git commit -m x",
-        'eval "$C"',
     ):
         assert pre_bash(world, command, world.main) == "silent", command
 
@@ -1008,6 +1023,36 @@ STEPS_AROUND = {
     ),
     "HOME": "HOME=/x/h git commit -m x",
     "XDG_CONFIG_HOME": "XDG_CONFIG_HOME=/x/c git commit -m x",
+    # Round 3's 🟡 1: a string a shell parses again. None of these is plain,
+    # so the reading judges each (P7, the owner's answer of 2026-10-02).
+    "sh -c unsetting a session variable": "sh -c 'unset CLAUDECODE; git commit -m x'",
+    "include.path behind cd in bash -c": (
+        "bash -c 'cd . && git -c include.path=/x/cfg commit -m x'"
+    ),
+    "GIT_CONFIG behind cd in sh -c": (
+        "sh -c 'cd . && GIT_CONFIG_GLOBAL=/x/g git commit -m x'"
+    ),
+    "HOME in a quoted substitution": 'echo "$(cd . && HOME=/x/h git commit -m x)"',
+    "eval of a literal string": "eval 'unset CLAUDECODE; git commit -m x'",
+    # P7: an `eval` is not plain, so the reading's fail-closed answer for one
+    # whose argument it cannot reduce comes back, as 0.16.0 gave it.
+    "eval of a variable": 'eval "$C"',
+    # Round 3's 🟡 2: the environment emptied with another option first.
+    "env -v -i": "env -v -i git commit -m x",
+    "env -u then -i": "env -u FOO -i git commit -m x",
+    "env -u glued behind a flag": "env -vuCLAUDECODE git commit -m x",
+    "env -S splitting a -u": "env -S'-u CLAUDECODE' git commit -m x",
+    "exec -c": "(exec -c git commit -m x)",
+    # The limit beside the removed stub: `rm` and `chmod` are not plain, so
+    # a command that takes the stubs away first is judged (P7).
+    "the stubs removed first": (
+        "rm -f .git/hooks/pre-commit .git/hooks/reference-transaction"
+        " && git commit -m x"
+    ),
+    "the stubs' execute bit taken first": (
+        "chmod -x .git/hooks/pre-commit .git/hooks/reference-transaction"
+        " && git commit -m x"
+    ),
 }
 
 
@@ -1043,7 +1088,115 @@ def test_a_command_that_can_step_around_the_hooks_keeps_the_text_reading(world, 
     ],
 )
 def test_only_those_words_make_the_reading_judge_a_git_decided_clone(command):
+    """The word list alone does not over-read. Since P7 the reading also
+    judges every shape `tokens.is_plain` does not recognise; the cases below
+    pin which of these commands are plain."""
     assert not tokens.steps_around_hooks(command)
+
+
+# P7 (2026-10-02): the reading stands aside only for a command whose shape is
+# known plain. These are the negatives above, sorted by that rule.
+STILL_PLAIN = [
+    "git commit -m x",
+    "git -c specseal.waive=parity commit -m x",
+    "echo GIT_CONFIG_NOSYSTEM",
+    "echo $CLAUDECODE",
+    "git commit -m 'mentions CLAUDE_CODE_SESSION_ID'",
+    "git -c user.name=HOME commit -m x",
+    "git commit -m 'read include.path'",
+]
+# Not plain any more, so the 0.16.0 reading judges them: `env`, `printenv`
+# and `cat` with an expansion are programs outside the allowlist, and an
+# empty command is no shape at all.
+NO_LONGER_PLAIN = [
+    "env FOO=1 git commit -m x",
+    "printenv GIT_DIR",
+    "printenv HOME",
+    "",
+]
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "git",  # a git with no subcommand
+        "git -C /x/m; echo y",  # the same, before a separator
+        "git --git-dir=/x/m commit -m x",  # a global option outside the rule
+        ": ${X:=y}; git commit -m x",  # an assignment inside an expansion
+        "git commit -m x >&f",  # output duplicated onto a file
+        "git diff --output=/x/o; git commit -m x",  # an option that writes
+        "/usr/bin/git commit -m x",  # a program that is not the bare word
+    ],
+)
+def test_each_other_condition_of_the_rule_makes_a_command_not_plain(command):
+    assert not tokens.is_plain(command)
+
+
+@pytest.mark.parametrize("command", STILL_PLAIN)
+def test_a_negative_that_is_plain_stays_plain(command):
+    assert tokens.is_plain(command)
+
+
+@pytest.mark.parametrize("command", NO_LONGER_PLAIN)
+def test_a_negative_outside_the_allowlist_is_not_plain(command):
+    assert not tokens.is_plain(command)
+
+
+# The shapes this repository's own agents type, and the same shape with one
+# thing outside the rule. Each pair differs in one place.
+PLAIN_AND_NOT = {
+    "-m": ('git -C {d} commit -q -m "x"', 'git -C {d} commit -q -m "x"; ls'),
+    "-F a file": ("git -C {d} commit -F {f}", "git -C {d} commit -F {f}; printenv"),
+    "a quoted heredoc": (
+        "git -C {d} commit -q -F - <<'EOF'\nfix `x` and $(y)\nEOF",
+        "git -C {d} commit -q -F - <<EOF\nfix $(y)\nEOF",
+    ),
+    "cd first": ("cd {d} && git commit -q -m x", "cd {d} && X=1 git commit -q -m x"),
+    "piped to tail": (
+        "git -C {d} commit -q -m x 2>&1 | tail -3",
+        "git -C {d} commit -q -m x 2>&1 | xargs echo",
+    ),
+    "to /dev/null": (
+        "git -C {d} commit -q -m x >/dev/null",
+        "git -C {d} commit -q -m x >{f}.out",
+    ),
+    "a -c the plugin reads": (
+        "git -C {d} -c commit.gpgsign=false commit -q -m x",
+        "git -C {d} -c core.editor=true commit -q -m x",
+    ),
+    "a subcommand outside the list": (
+        "git -C {d} add f.py && git -C {d} commit -q -m x",
+        "git -C {d} stash && git -C {d} commit -q -m x",
+    ),
+    "printf with no option": (
+        "printf '%s\\n' x; git -C {d} commit -q -m x",
+        "printf -v y x; git -C {d} commit -q -m x",
+    ),
+    "a substitution": (
+        "git -C {d} commit -q -m 'it is $(x)'",
+        'git -C {d} commit -q -m "it is $(echo x)"',
+    ),
+    "a subshell": ("git -C {d} commit -q -m x", "(git -C {d} commit -q -m x)"),
+    "a second line": (
+        "git -C {d} commit -q -m x\ngit -C {d} log -1",
+        "git -C {d} commit -q -m x\nsh -c true",
+    ),
+}
+
+
+@pytest.mark.parametrize("name", sorted(PLAIN_AND_NOT))
+def test_a_plain_agent_commit_stands_aside_and_one_word_more_is_judged(world, name):
+    """The allowlist's boundary in both directions (P7): the plain form is
+    left to git, which refuses it itself, and the form with one thing outside
+    the rule meets the 0.16.0 reading, which denies a commit into the
+    undeclared main checkout."""
+    msg = world.tmp / "msg.txt"
+    msg.write_text("x\n", encoding="utf-8")
+    plain, other = (s.format(d=q(world.main), f=q(msg)) for s in PLAIN_AND_NOT[name])
+    assert tokens.is_plain(plain), plain
+    assert not tokens.is_plain(other), other
+    assert pre_bash(world, plain, world.main) == "silent", plain
+    assert pre_bash(world, other, world.main) == "deny", other
 
 
 # --- post-commit: the implementer notice --------------------------------------

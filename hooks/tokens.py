@@ -115,3 +115,129 @@ def steps_around_hooks(command):
         if eq and name in ("HOME", "XDG_CONFIG_HOME"):
             return True
     return False
+
+
+# The programs a plain command may run, measured rather than guessed: the
+# program word of every simple command in the 2,337 distinct Bash commands
+# that ran `git … commit` across this repository's 478 recorded transcripts
+# (2026-10-02, round 3's fix pass of #692). Kept are the ones that run no
+# other program, change no environment and write no file by themselves:
+# echo 1393, cd 785, grep 560, tail 511, cat 322, head 235, cut 156, wc 64,
+# `:` 35, printf 22, `[` 8, and `true` and `test`, which cost nothing.
+PLAIN_PROGRAMS = frozenset(
+    {"git", "cd", "true", ":", "echo", "printf", "test", "["}
+    | {"cat", "head", "tail", "grep", "wc", "cut"}
+)
+
+# The git subcommands a plain command may run, from the same count: commit
+# 2023, add 1449, log 1243, rev-parse 337, status 330, diff 92, show 48.
+PLAIN_GIT = frozenset({"commit", "add", "log", "rev-parse", "status", "diff", "show"})
+
+# The keys a plain `git -c` may set, from the same count (commit.gpgsign 40,
+# user.email 9, user.name 4) and the plugin's own git-native answers.
+PLAIN_CONFIG = frozenset(
+    {"commit.gpgsign", "user.email", "user.name", "specseal.waive", "specseal.answer"}
+)
+
+
+def is_plain(command):
+    """True only when `command`'s shape is known plain, which is the one case
+    the PreToolUse reading stands aside for in a clone where git decides
+    (`questions.md` P7, the owner's answer of 2026-10-02).
+
+    The rule is positive on purpose. Three review rounds of #692 each found
+    spellings a list of hook-bypassing words missed, so the condition was
+    flipped: instead of judging only what a list names, the reading judges
+    everything except a shape this function recognises. Anything it does not
+    recognise gets 0.16.0's reading, and a misread costs one refusal (P6).
+
+    Plain means all of:
+      * it splits, comments and quoted heredoc bodies aside;
+      * every simple command's program is a bare word in `PLAIN_PROGRAMS`,
+        and no assignment stands in a program's place;
+      * a `git` passes only `-C <dir>` and `-c <key>=…` with a key in
+        `PLAIN_CONFIG` before a subcommand in `PLAIN_GIT`;
+      * no word is an `--output` option, which writes a file;
+      * a `printf` takes no option, since `-v` assigns a variable;
+      * output is redirected only to `/dev/null` or to another descriptor;
+      * nothing re-parses: no `$( … )`, backtick or process substitution, no
+        `( … )` or `{ … }`, no `${ … = … }`, and no heredoc body holding a
+        substitution behind an unquoted delimiter;
+      * `steps_around_hooks` finds none of its words.
+    """
+    import re
+
+    from cmdline import (
+        drop_comments,
+        drop_heredoc_bodies,
+        heredoc_bodies,
+        substitution_bodies,
+    )
+
+    if not (command or "").strip() or steps_around_hooks(command):
+        return False
+    text = drop_heredoc_bodies(drop_comments(command))
+    if substitution_bodies(text):
+        return False
+    # A subshell, a group or a function body, outside every quoted span.
+    bare = re.sub(r"\\.|'[^']*'|\"(?:\\.|[^\"\\])*\"", "", text)
+    if any(ch in bare for ch in "(){}"):
+        return False
+    if any("$(" in b or "`" in b for b in heredoc_bodies(drop_comments(command))):
+        markers = re.findall(r"(?<!<)<<(?!<)-?[ \t]*(\S)", text)
+        if not markers or any(m not in "'\"\\" for m in markers):
+            return False
+    lexer = shlex.shlex(text, posix=True, punctuation_chars=";&|<>\n")
+    lexer.whitespace = " \t\r"
+    lexer.whitespace_split = True
+    lexer.commenters = ""
+    try:
+        split = list(lexer)
+    except ValueError:
+        return False
+    program, git_at, k = None, None, 0
+    while k < len(split):
+        word = split[k]
+        k += 1
+        if set(word) <= set(";&|\n"):
+            if git_at is not None:
+                return False
+            program = None
+            continue
+        if set(word) <= set("<>&|"):
+            # Every redirection takes the next word: a file, a descriptor or
+            # a heredoc's delimiter. Output goes to /dev/null or a descriptor.
+            target = split[k] if k < len(split) else ""
+            k += 1
+            if ">" in word:
+                if word.endswith("&"):
+                    if not (target.isdigit() or target == "-"):
+                        return False
+                elif target != "/dev/null":
+                    return False
+            continue
+        if re.search(r"\$\{[^}]*=", word):
+            return False
+        if program is None:
+            if word not in PLAIN_PROGRAMS:
+                return False
+            program, git_at = word, (k if word == "git" else None)
+            if word == "printf" and k < len(split) and split[k].startswith("-"):
+                return False
+            continue
+        if word.startswith("--output"):
+            return False
+        if git_at is None:
+            continue
+        if word == "-C":
+            k += 1
+        elif word == "-c":
+            key = split[k].partition("=")[0].lower() if k < len(split) else ""
+            if key not in PLAIN_CONFIG:
+                return False
+            k += 1
+        elif word in PLAIN_GIT:
+            git_at = None
+        else:
+            return False
+    return git_at is None
