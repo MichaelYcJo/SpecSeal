@@ -248,8 +248,8 @@ no assignment, are plain). Everywhere else — every
 opted-in clone a session reaches, unless `core.hooksPath` or a hook file it
 did not write holds the slot — git judges
 a commit inside the commit, in the worktree it lands in, and no command text
-is read for it (`docs/commit-review-gate-spec.md` §*The commit gate inside
-git*). The first reason holds everywhere, and it is the one that makes this
+is read for it (`docs/commit-gate-inside-git-spec.md` §*The commit gate
+inside git*). The first reason holds everywhere, and it is the one that makes this
 rule yours.
 
 ## §10 Batch independent reads and runs
@@ -353,7 +353,7 @@ judges a commit only where git's hooks cannot — §9 names the four places.
 Where this plugin's git hooks run, git judges the commit in the worktree it
 lands in: a `cd` that failed, a `;`, a loop variable and a heredoc commit
 exactly where bash runs them, and are judged there
-(`docs/commit-review-gate-spec.md` §*The commit gate inside git*). The shape
+(`docs/commit-gate-inside-git-spec.md` §*The commit gate inside git*). The shape
 above is still the one to write, because it is also the one a person reading
 the transcript can follow, and it is the only one the reading can place where
 it still judges.
