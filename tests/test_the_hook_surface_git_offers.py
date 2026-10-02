@@ -215,7 +215,11 @@ def test_a_refused_creation_leaves_no_worktree_and_keeps_its_branch(tmp_path):
     )
 
 
-POST_CHECKOUT_LOG = r"""printf '%s %s %s\n' "$1" "$3" "$(pwd -P)" >>"$PC_LOG"
+# `pwd -W` first: Git for Windows' shell prints `/c/…` for `pwd`, which no
+# Windows path compares equal to, and `-W` is its spelling of `C:/…`. Every
+# other shell refuses the option, and the hook falls back to `pwd -P` (#692).
+POST_CHECKOUT_LOG = r"""d=$(pwd -W 2>/dev/null) || d=$(pwd -P)
+printf '%s %s %s\n' "$1" "$3" "$d" >>"$PC_LOG"
 exit 0
 """
 

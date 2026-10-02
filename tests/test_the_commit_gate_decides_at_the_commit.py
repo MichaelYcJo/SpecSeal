@@ -26,7 +26,7 @@ import time
 from pathlib import Path
 
 import pytest
-from conftest import load_hook_module, symlink_or_skip
+from conftest import load_hook_module, ps_names_the_parent_or_skip, symlink_or_skip
 from test_the_guard_asks_once_per_session import ask_entries, write_transcript
 
 HOOKS = Path(__file__).resolve().parent.parent / "hooks"
@@ -50,8 +50,12 @@ def _installer_writes(git_hooks_installed):
 
 def env(home, session=SESSION, **extra):
     e = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    # USERPROFILE as well: Python's `expanduser` reads it on Windows and HOME
+    # nowhere else, so a hook there looked for the session's transcript in
+    # the runner's own profile and never read the press (#692).
     e.update(
         HOME=str(home),
+        USERPROFILE=str(home),
         XDG_CONFIG_HOME=str(home / ".config"),
         GIT_CONFIG_NOSYSTEM="1",
         GIT_AUTHOR_NAME="x",
@@ -233,9 +237,12 @@ def test_s1_a_patch_whose_body_mentions_a_commit_commits_nothing_and_is_not_stop
 ):
     """Row 4: 0.15.7 answered `UNREADABLE_CONSTRUCT`; nothing here commits."""
     before = (world.head(world.main), world.head(world.w))
+    # The second string as a Python literal, so a Windows path's backslashes
+    # are escaped rather than read as `\U…` (#692).
+    second = repr(f"cd {world.main}; git commit -m y")
     got = world.sh(
         f"cd {q(world.w)} && python3 - <<'EOF'\n"
-        f"for c in ['git commit -m x', 'cd {world.main}; git commit -m y']:\n"
+        f"for c in ['git commit -m x', {second}]:\n"
         "    print(c)\nEOF"
     )
     assert got.returncode == 0, got.stderr
@@ -553,6 +560,31 @@ def busy(world, d):
     )
 
 
+# The known limits a case below rests on where it skips, as
+# `docs/commit-review-gate-spec.md` §*Known limits of the commit gate inside
+# git* states them. The first two are the code's own `os.name == "nt"`
+# branches (`hooks/commitgate.py#_sequencer_commit`, `#_git_process`), so
+# their cases skip on the same test; the last two rest on `ps`, and their
+# cases ask it (`conftest.py#ps_names_the_parent_or_skip`). #692's Windows
+# pass is what found each case red on `windows-latest`.
+NO_SEQUENCER_COMMIT = (
+    "known limit: on Windows no commit counts as the sequencer's, so the "
+    "sequencer's own commit is judged"
+)
+MARK_WITHOUT_PROCESS = (
+    "known limit: on Windows the backstop's mark is keyed without the "
+    "`git commit` process"
+)
+OLD_SPELLING_NEEDS_PS = (
+    "known limit: the old spelling waives only where the hook can find the call's shell"
+)
+LEASE_NEEDS_PS = (
+    "known limit: the lease names the session only where the hook can find "
+    "its `claude` ancestor"
+)
+
+
+@pytest.mark.skipif(os.name == "nt", reason=NO_SEQUENCER_COMMIT)
 def test_a_rebase_git_continues_is_not_judged(world):
     """Round 1's 🟡 7, c13: the sequencer's own `git commit -n` hands the
     backstop the author date and skips `pre-commit`. It is git's commit,
@@ -566,6 +598,7 @@ def test_a_rebase_git_continues_is_not_judged(world):
     assert not busy(world, d)
 
 
+@pytest.mark.skipif(os.name == "nt", reason=NO_SEQUENCER_COMMIT)
 def test_an_interactive_rebases_reword_is_not_judged(world):
     """Round 1's 🟡 7, c09: a reword runs `pre-commit` from the sequencer."""
     d = diverged(world)
@@ -585,6 +618,7 @@ def test_an_interactive_rebases_reword_is_not_judged(world):
     assert not busy(world, d)
 
 
+@pytest.mark.skipif(os.name == "nt", reason=NO_SEQUENCER_COMMIT)
 @pytest.mark.parametrize("verb", ["cherry-pick", "revert"])
 def test_a_pick_git_continues_is_not_judged(world, verb):
     """The same sequencer path, executed on four gits by round 1's fix pass:
@@ -668,6 +702,7 @@ def test_concluding_a_conflicted_merge_is_judged(world):
     assert world.head(d) == before
 
 
+@pytest.mark.skipif(os.name == "nt", reason=MARK_WITHOUT_PROCESS)
 def test_a_mark_an_aborted_commit_left_passes_no_later_commit(world):
     """Round 1's 🟡 10, c16: the same HEAD, tree and author date, and another
     `git commit` process, which `pre-commit` never saw."""
@@ -780,6 +815,7 @@ def test_s5_both_spellings_the_refusal_names_actually_commit(world):
     )
     assert world.head(world.main) != before
     # The old spelling, through the PreToolUse writer that carries it.
+    ps_names_the_parent_or_skip(OLD_SPELLING_NEEDS_PS)
     world.change(world.main)
     before = world.head(world.main)
     command = ": '[no-review]'; git commit -q -m y"
@@ -835,6 +871,7 @@ def test_an_old_spelling_waives_no_other_agents_commit(world):
     """Round 1's 🟡 9, c25: while agent A's call carrying `[no-review]` runs,
     agent B's commit under the same session id is its own command, and is
     judged; and B's call starting does not take A's answer away."""
+    ps_names_the_parent_or_skip(OLD_SPELLING_NEEDS_PS)
     a = ": '[no-review]'; git commit -q -m a"
     group(world, "pre-bash", a, "toolu_a")
     group(world, "pre-bash", "git commit -q -m b", "toolu_b")
@@ -897,6 +934,7 @@ def lease_then(world, body):
 
 
 def test_s9_the_lease_names_the_session_when_no_variable_is_exported(world):
+    ps_names_the_parent_or_skip(LEASE_NEEDS_PS)
     claude = fake_claude(world)
     press(world)
     world.change(world.main)

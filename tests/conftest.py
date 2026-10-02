@@ -636,6 +636,38 @@ def symlink_or_skip(target, link):
         pytest.skip(f"symbolic links are not available here ({exc})")
 
 
+def ps_names_the_parent_or_skip(limit):
+    """Skip unless `ps -o ppid=,comm= -p <pid>` names this process's parent.
+
+    That call is how the hooks walk up to the `claude` process: the commit
+    gate's lease route and old spelling (`hooks/hooksession.py`) and the
+    worktree guard's count of other sessions. Git for Windows' `ps` takes no
+    `-o`, so on a `windows-latest` runner every one of them finds nothing,
+    and a case resting on the walk has no behaviour to pin there. LIMIT names
+    the documented known limit the skip rests on (#692).
+
+    Asked by attempting the call, for the reason `symlink_or_skip` gives:
+    a Windows machine with another `ps` keeps the coverage, and nothing is
+    inferred from the platform.
+    """
+    try:
+        r = subprocess.run(
+            ["ps", "-o", "ppid=,comm=", "-p", str(os.getpid())],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        pytest.skip(f"{limit} -- `ps` could not be run here ({exc})")
+    parent = r.stdout.strip().partition(" ")[0]
+    if r.returncode != 0 or parent != str(os.getppid()):
+        pytest.skip(
+            f"{limit} -- `ps -o ppid=,comm= -p` does not name a parent here "
+            f"(exit {r.returncode})"
+        )
+
+
 def fifo_or_skip(path):
     """`os.mkfifo(path)`, or skip the test where it is not available.
 

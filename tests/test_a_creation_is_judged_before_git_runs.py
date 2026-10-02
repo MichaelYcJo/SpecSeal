@@ -25,8 +25,15 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import load_hook_module, symlink_or_skip
+from conftest import load_hook_module, ps_names_the_parent_or_skip, symlink_or_skip
 from test_the_guard_asks_once_per_session import ask_entries, write_transcript
+
+# `docs/worktree-guard-spec.md` §*Known limits*, found red on `windows-latest`
+# by #692's Windows pass.
+GUARD_COUNT_NEEDS_PS = (
+    "known limit: where `ps` cannot walk the process table, as on Windows, "
+    "the guard's count of other sessions is unusable"
+)
 
 HOOKS = Path(__file__).resolve().parent.parent / "hooks"
 install_mod = load_hook_module("hook-install.py", "hook_install_for_creation")
@@ -43,7 +50,11 @@ def _installer_writes(git_hooks_installed):
 
 def env(home, session=SESSION):
     e = {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
+    # USERPROFILE as well: Python's `expanduser` reads it on Windows and HOME
+    # nowhere else, so the guard there looked for the session's transcript in
+    # the runner's own profile and never read the press (#692).
     e.update(
+        USERPROFILE=str(home),
         HOME=str(home),
         XDG_CONFIG_HOME=str(home / ".config"),
         GIT_CONFIG_NOSYSTEM="1",
@@ -216,6 +227,10 @@ def test_a_bash_creation_under_the_harness_path_buys_no_consent(clone):
     assert not clone.record().exists()
     assert not wt.exists()
     assert decision == "deny"
+    # The second creation meets the single-stream refusal only where the
+    # guard can count the other sessions; where it cannot, the documented
+    # row answers a creation after the first with the confirmation instead.
+    ps_names_the_parent_or_skip(GUARD_COUNT_NEEDS_PS)
     second = clone.tmp / "second"
     decision, _ran = clone.call(f"git worktree add {q(second)} -b n21b")
     assert not second.exists()

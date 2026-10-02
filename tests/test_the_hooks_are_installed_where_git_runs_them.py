@@ -107,7 +107,9 @@ def test_the_stubs_land_in_the_common_hooks_directory_from_a_linked_worktree(
     assert stubs_in(directory) == sorted(githooks.HOOKS)
     for hook in githooks.HOOKS:
         p = directory / hook
-        assert p.stat().st_mode & stat.S_IXUSR
+        # Asked as `decides` asks it. Windows keeps no execute bit, and git
+        # there runs a hook without one, so the mode is POSIX's question (#692).
+        assert os.access(p, os.X_OK)
         lines = p.read_text(encoding="utf-8").splitlines()
         assert lines[0] == "#!/bin/sh"
         assert lines[1] == f"{githooks.MARKER} {githooks.plugin_version()}"

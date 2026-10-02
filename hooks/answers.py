@@ -69,6 +69,15 @@ COMMAND = "command"
 
 FRESH = 15 * 60
 
+# How far ahead of `time.time()` an answer's own file may be stamped and still
+# be read as written now. CPython before 3.13 reads Windows' coarse clock for
+# `time.time()`, which trails the precise one NTFS stamps a write with by up
+# to a tick, so an answer read a moment after it was written looked written in
+# the future and was not given (#692's Windows pass). A file stamped further
+# ahead than this is still refused: a token is consent, and a stamp set into
+# the future would keep one alive.
+SKEW = 2
+
 
 def _part(value):
     part = os.path.basename(str(value or "").strip())
@@ -164,7 +173,8 @@ def given(session, token, args, root=None, now=None):
         return False
     for call in calls:
         try:
-            if not 0 <= now - os.stat(os.path.join(d, call, name)).st_mtime <= FRESH:
+            age = now - os.stat(os.path.join(d, call, name)).st_mtime
+            if not -SKEW <= age <= FRESH:
                 continue
             with open(os.path.join(d, call, COMMAND), encoding="utf-8") as f:
                 carried = _squash(f.read())

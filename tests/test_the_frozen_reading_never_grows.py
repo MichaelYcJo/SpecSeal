@@ -60,7 +60,8 @@ def test_only_the_two_fallback_arms_read_it():
     clone) and the consent writer (in a foreign clone). Nothing else under
     `hooks/` may reach for it."""
     readers = sorted(
-        str(p.relative_to(ROOT))
+        # As a POSIX path, so the names compare on Windows too (#692).
+        p.relative_to(ROOT).as_posix()
         for p in (ROOT / "hooks").rglob("*.py")
         if p != FROZEN
         and re.search(

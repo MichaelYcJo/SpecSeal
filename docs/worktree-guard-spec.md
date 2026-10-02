@@ -664,6 +664,12 @@ at one prompt against a wrong allow breaking another session's tree.
   guard runs and §*Which tree* falls back. `git -C ../x switch y` is the
   spelling that avoids the stop — it names no repository yet, so only the
   creation is judged.
+- On Windows the count of other sessions is always unusable. It walks the
+  process table with `ps -o` and `ps -axo`, and Git for Windows' `ps` takes
+  neither, so every tree state there reads as *detection unusable* and takes
+  that row of §A and §B. A second Bash creation in one session therefore
+  meets the confirmation where a POSIX system's single-stream row refuses it
+  (#692's Windows pass, CI run 36978391812).
 - Transcript activity is per-project, not per-pid: one working session marks
   every session of that project active. Conservative by design.
 - tty atime also refreshes on in-turn stdin reads (a session listening for
