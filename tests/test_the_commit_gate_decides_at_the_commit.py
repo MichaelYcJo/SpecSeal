@@ -1122,7 +1122,13 @@ NO_LONGER_PLAIN = [
         "git",  # a git with no subcommand
         "git -C /x/m; echo y",  # the same, before a separator
         "git --git-dir=/x/m commit -m x",  # a global option outside the rule
-        ": ${X:=y}; git commit -m x",  # an assignment inside an expansion
+        ': "${X:=y}"; git commit -m x',  # an assignment inside an expansion
+        "echo x(y); git commit -m x",  # a parenthesis inside a word
+        "echo {a,b}; git commit -m x",  # a brace outside quotes
+        "cat <<EOF\n'\nEOF\necho '",  # splits whole, but not once the body goes
+        # A word the list reads, in an otherwise plain shape (round 3's m07):
+        # it costs one judgment, which is the list's direction (P6).
+        "git commit -m CLAUDECODE",
         "git commit -m x >&f",  # output duplicated onto a file
         "git diff --output=/x/o; git commit -m x",  # an option that writes
         "/usr/bin/git commit -m x",  # a program that is not the bare word
