@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 719 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `0bef982a0d12b8fd7e53100d1b442da585ccc09a..483c3770566a81110b30364b70ab8f6f3804bba9`, 6 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,11 +31,11 @@ Round 2 is a verifying round at `3a42459e` over round 1's fix range `59666b18..2
 | 🟢 | round 1's finding 5 is closed — the title is the first line, and the twin carries no ink to disagree | `skills/verify/scripts/seal_stamp.py:593` | confirmed | Executed: a continuation reading SEALED is inked 94; twin has no colour and keeps the footprint; the case goes red with the old keying |
 | 🟢 | `admitted` is monotone, terminates, returns a prefix, and leaves no block able to take a higher rung | `skills/verify/scripts/seal_stamp.py:658` | confirmed | Executed: 176 sets, 0 violations, the named sets included |
 | 🟢 | every measurement of the printed message is in UTF-16 units, a lone surrogate counted without raising | `skills/verify/scripts/seal_stamp.py:651` | confirmed | Read and executed: the hook printed a lone-surrogate and an astral branch; the cases' `len` equals the units on their BMP fixtures |
-| ⬜ 6 | the A3 case passes against a hook that claims every file and prints one, because a claim makes the drawn name either way | `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py:577` | open | Executed: the mutation left this case green and turned two other cases red; round 1's version of the case carried the missing check |
-| ⬜ 7 | oldest-first carrying and a single seal exactly at the budget are pinned by no case | `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py:679` | open | Executed: `break` to `continue` and `>` to `>=` in the floor pass both survive the eight cases; the proposed lines go red on each |
-| ⬜ 8 | the reserve's 533 and 909 are code points, and `MESSAGE_CAP` cuts by code points, so two gates with astral exception text pass the reserve | `skills/verify/scripts/seal_stamp.py:229` | open | Read; reachable only by exception text outside the BMP beside a stamp near the budget |
-| ⬜ 9 | `admitted`'s docstring says a block may sit at its own scale below 0.75, which is refused before it arrives | `skills/verify/scripts/seal_stamp.py:627` | open | Read: `check_scale` in `drawings`; a dead clause, behaviour right |
-| ⬜ 10 | ledger B2 carries the same dead clause, a correction | `seal/ledger/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner.md` | open | Read; paperwork, re-stamped with `--reverify --checked` when edited |
+| ⬜ 6 | the A3 case passes against a hook that claims every file and prints one, because a claim makes the drawn name either way | `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py:577` | **fixed** `81e4730f` | fixed at 81e4730f; Executed: the mutation left this case green and turned two other cases red; round 1's version of the case carried the missing check |
+| ⬜ 7 | oldest-first carrying and a single seal exactly at the budget are pinned by no case | `tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py:679` | **fixed** `ea36c24f` | fixed at ea36c24f; Executed: `break` to `continue` and `>` to `>=` in the floor pass both survive the eight cases; the proposed lines go red on each |
+| ⬜ 8 | the reserve's 533 and 909 are code points, and `MESSAGE_CAP` cuts by code points, so two gates with astral exception text pass the reserve | `skills/verify/scripts/seal_stamp.py:229` | **fixed** `2988a974` | fixed at 2988a974; Read; reachable only by exception text outside the BMP beside a stamp near the budget |
+| ⬜ 9 | `admitted`'s docstring says a block may sit at its own scale below 0.75, which is refused before it arrives | `skills/verify/scripts/seal_stamp.py:627` | **fixed** `efe1c949` | fixed at efe1c949; Read: `check_scale` in `drawings`; a dead clause, behaviour right |
+| ⬜ 10 | ledger B2 carries the same dead clause, a correction | `seal/ledger/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner.md` | answered | corrected at 483c3770: ledger row B2, a correction to the record rather than a fix; Read; paperwork, re-stamped with `--reverify --checked` when edited |
 | ❓ | whether the harness counts a character outside the BMP as two UTF-16 units | `skills/verify/scripts/seal_stamp.py:213` | ❓ out of verified scope | Measured by the fix pass with `claude -p`, which this round was told not to run; the orchestrator answers it |
 
 ## Paste-ready fixes
