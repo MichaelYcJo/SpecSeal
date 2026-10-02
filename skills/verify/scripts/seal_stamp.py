@@ -177,6 +177,36 @@ SCALE_CEILING = 1.0
 # each other, and it is the least detail of the band. Disc height moves in
 # whole cells, so a scale is not a continuous dial.
 DEFAULT_SCALE = 0.90
+
+# --- what one hook message may hold (#717) ---------------------------------
+#
+# The harness writes a `Stop` hook's `systemMessage` longer than this many
+# characters to a file and shows the person a 2 KB preview of it, so a stamp
+# past it is not seen. Counted as Python `str` length, not as bytes. Measured
+# 2026-10-02 on Claude Code 2.1.287, with a `Stop` hook in a scratch project
+# and one headless `claude -p` turn per size: 9,990 and 10,000 characters, and
+# 9,990 `▀` (29,942 bytes), were shown with nothing written to the session's
+# `tool-results/`; 10,001, 10,010 and 12,000 each left a
+# `hook-<uuid>-<n>-systemMessage.txt` there. This project's own sessions had
+# bracketed it before the probe: 9,919 shown, 10,090 persisted. The harness
+# can move it, and the only sign is a preview on the owner's screen; the same
+# hook at two sizes either side of this number is the whole probe again.
+MESSAGE_LIMIT = 10000
+# What the hook holds its WHOLE message under — every block, every label and
+# the blank line between two blocks. The reserve is for what the hook cannot
+# see: `hooks/dispatch.py#report` prepends the session's gate-failure report
+# to this same message after the hook has printed. The longest report it can
+# write, with each exception's text cut at its `MESSAGE_CAP`, is 533
+# characters for one failed gate and 909 for two, separator included
+# (measured 2026-10-02 over `dispatch.describe`); a third would pass the
+# limit beside a stamp at the budget.
+MESSAGE_RESERVE = 1000
+MESSAGE_BUDGET = MESSAGE_LIMIT - MESSAGE_RESERVE
+# The rungs a message over the budget steps down, after the file's own scale;
+# past the last, every block is drawn with no disc (`fitted`). Each rung is
+# inside `check_scale`'s band, so a step down cannot be refused.
+SCALE_LADDER = (0.90, 0.80, 0.75)
+
 SCALE_REFUSED = (
     "seal-stamp: scale {scale} is under the floor of {floor}; below it the "
     "lily is not legible (#30 measured 0.6 closing the band and 0.5 reading as "
@@ -409,11 +439,52 @@ def beside(left, right, gap=3, pad_left=2):
 def stamp(rows, scale=1.0, shape=False):
     """The lines of the stamp: the disc at `scale`, the panel of `rows`
     beside it. `shape` picks the letter twin. Raises `ValueError` with the
-    refusal sentence for a scale outside the band."""
+    refusal sentence for a scale outside the band. `scale` None is the
+    panel with no disc, the last rung `fitted` steps down to (#717)."""
+    if scale is None:
+        return letter(rows)
     w, h, px = build(scale)
     writer = letter_row if shape else colour_row
     disc = [writer(px, w, y) for y in range(0, h, 2)]
     return beside(disc, letter(rows))
+
+
+def fitted(blocks, budget=MESSAGE_BUDGET):
+    """The message the `Stop` hook prints for `blocks`, held under `budget`
+    (#717). `blocks` is `(label, rows, scale)` per values file, oldest first;
+    each is its label and then its block form, and two are joined by a blank
+    line.
+
+    One rung for the whole message, the highest at which every block fits
+    together: the files' own scales first, then each of `SCALE_LADDER` —
+    never above a file's own scale — and last every block with no disc.
+    Two stamps in one message are two stamps at one scale. The last rung is
+    returned whatever its size, because nothing comes after it: a panel
+    with no disc is about 40 characters a row, and its width is bounded by
+    `broad_gate.PANEL_VALUE_WIDTH`, so only a record deferring to far more
+    homes than any work item has had could pass the budget there.
+    `budget` is a parameter so a case can drive every rung."""
+
+    def message(rung):
+        return "\n\n".join(
+            "\n".join(
+                [
+                    label,
+                    *stamp(
+                        rows,
+                        None if rung is None else min(scale, rung),
+                        shape=False,
+                    ),
+                ]
+            )
+            for label, rows, scale in blocks
+        )
+
+    for rung in (SCALE_CEILING, *SCALE_LADDER):
+        drawn = message(rung)
+        if len(drawn) <= budget:
+            return drawn
+    return message(None)
 
 
 # A ref spelled as a commit: what `--base <sha>` resolves to (`sealed_names`).

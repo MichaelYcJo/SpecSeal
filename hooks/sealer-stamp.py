@@ -29,6 +29,16 @@ no process started. The hook fires at the end of every turn, so a session
 directory that does not exist returns before any `git` call in a main
 checkout; a `cwd` in a linked worktree costs one `rev-parse` first.
 
+**One message, held under a budget** (#717). The harness writes a
+`systemMessage` longer than `seal_stamp.MESSAGE_LIMIT` characters to a file
+and shows a preview of it, which is how every stamp from #666 to #717 reached
+the owner. So the message printed is `seal_stamp.fitted`'s: every pending
+block at one rung, the highest at which all of them fit `MESSAGE_BUDGET`
+together — the files' own scales, then down `SCALE_LADDER`, then with no disc.
+A stamp may therefore be drawn smaller than its file's `scale` says, or
+without its disc, and never not drawn. The file's `scale` is not rewritten:
+it records what the gate was asked for.
+
 **Claim before print.** Each file is rendered, then renamed to `.drawn.json`
 (`seal_stamp.claim`), and only a file this process renamed is printed. Two
 hooks racing for one file draw it once, and a crash between the two loses a
@@ -104,17 +114,20 @@ def drawings(stamp, directory):
     bad file after a good one left both renamed and nothing printed (round
     1's 🟡 2). The file is written by the gate the TREE ships and read by the
     hook the INSTALLED plugin ships, so a format one side does not know is an
-    ordinary state, not only a hand-written file."""
+    ordinary state, not only a hand-written file.
+
+    A block is `(label, rows, scale)`, which `seal_stamp.fitted` draws (#717).
+    It is still drawn whole here, at the file's own scale, before the claim:
+    that is what proves the file draws at all. The rungs `fitted` may step
+    down to are inside the band the file's scale has just passed, and the
+    last draws no disc and checks no scale, so a block drawn here cannot
+    fail there."""
     blocks = []
     for path in stamp.pending(directory):
         try:
             values = stamp.read_values(path)
-            block = "\n".join(
-                [
-                    stamp.label(values),
-                    *stamp.stamp(values["rows"], values["scale"], shape=False),
-                ]
-            )
+            block = (stamp.label(values), values["rows"], values["scale"])
+            stamp.stamp(values["rows"], values["scale"], shape=False)
         except Exception:
             continue
         if stamp.claim(path) is None:
@@ -147,7 +160,7 @@ def main():
         return
     blocks = drawings(stamp, directory)
     if blocks:
-        print(json.dumps({"systemMessage": "\n\n".join(blocks)}))
+        print(json.dumps({"systemMessage": stamp.fitted(blocks)}))
 
 
 if __name__ == "__main__":

@@ -258,18 +258,27 @@ def message(stdout):
     return json.loads(stdout)["systemMessage"].split("\n")
 
 
+def drawn(mod, label, rows, scale):
+    """One block of the hook's message as `fitted` draws it at `scale`: the
+    label, then the block form. `scale` None is the rung with no disc."""
+    return "\n".join([label, *mod.stamp(rows, scale, shape=False)])
+
+
 def test_the_main_sessions_stop_draws_each_undrawn_file_once(tmp_path):
     """S3 and S4. The main session's `Stop` — `session_id` X, no `agent_id` —
     prints one JSON object whose `systemMessage` opens with a label naming
     what was sealed and then draws the block form of the file's rows at the
     file's scale, colour sequences and all. The file is marked drawn, so the
-    next `Stop` of the same session prints nothing."""
+    next `Stop` of the same session prints nothing.
+
+    #717's A15: the bytes are compared with the message `fitted` holds under
+    the budget, not with the file's scale drawn whatever its size."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     path = pending_for(repo, "s-1")
     lines = message(stop(repo))
     assert lines[0] == LABEL, lines[0]
-    assert lines[1:] == mod.stamp(ROWS, 0.9, shape=False), "not the file's block form"
+    assert "\n".join(lines) == mod.fitted([(LABEL, ROWS, 0.9)]), "not the fitted form"
     assert any("\x1b[38;2;" in line for line in lines[1:]), "the drawing lost colour"
     assert not os.path.exists(path) and os.path.exists(mod.drawn_path(path))
     assert stop(repo) == "", "a drawn file was drawn a second time"
@@ -319,8 +328,9 @@ def test_several_files_come_out_as_one_message_oldest_first(tmp_path):
         LABEL,
         LABEL.replace("aaa1111", "ccc3333"),
     ], text
-    for block in blocks:
-        assert block.split("\n")[1:] == mod.stamp(ROWS, 0.9, shape=False)
+    assert text == mod.fitted(
+        [(LABEL, ROWS, 0.9), (LABEL.replace("aaa1111", "ccc3333"), ROWS, 0.9)]
+    )
     assert mod.pending(os.path.dirname(first)) == [broken]
     assert not os.path.exists(first) and not os.path.exists(second)
 
@@ -338,7 +348,7 @@ def test_a_malformed_later_file_does_not_take_the_earlier_ones(tmp_path):
     bad = mod.write_values(str(repo / ".git"), "s-1", {**values(), "item": 5}, now=2)
     lines = message(stop(repo))
     assert lines[0] == LABEL, lines
-    assert lines[1:] == mod.stamp(ROWS, 0.9, shape=False)
+    assert "\n".join(lines) == mod.fitted([(LABEL, ROWS, 0.9)])
     assert os.path.exists(mod.drawn_path(good)) and not os.path.exists(good)
     assert os.path.exists(bad), "the malformed file was claimed"
     assert not os.path.exists(mod.drawn_path(bad))
@@ -420,6 +430,132 @@ def test_the_hook_is_registered_for_stop_and_nothing_else():
     assert "SubagentStop" not in events
     dispatch = _load("specseal_dispatch_for_its_groups", DISPATCH)
     assert dispatch.GROUPS["stop"] == ("sealer-stamp.py",)
+
+
+# --- #717: the hook's whole message is held under a budget --------------------
+
+# A panel in the shape the gate wrote from #666 to #717, with values as long as
+# a real run's. Its 0.90 drawing under its label was over the harness's limit,
+# which put every stamp drawn from #666 on behind a 2 KB preview of a file.
+# Neutral values; a file in this shape may still be pending when a newer hook
+# draws it, which is why the case keeps it rather than following `panel`.
+FULL_ROWS = [
+    ("SEALED", ""),
+    None,
+    ("tree", "aaa1111a"),
+    ("", "feat/12-the-branch-n..."),
+    ("base", "bbb2222b"),
+    ("", "origin/release/v1.2.3"),
+    ("item", "#12 . 1799000000"),
+    ("gate", "tree 1.2.3"),
+    None,
+    ("suite", "6621 passed, 11 skipped"),
+    ("", "exit 0"),
+    ("ledger", "3451 ok"),
+    ("", "0 drifted . 0 broken"),
+    ("chain", "exit 0"),
+    None,
+    ("workflow", "4 of 9 not answered"),
+    None,
+    ("rounds", "2"),
+]
+
+
+def full_values(tree="aaa1111a"):
+    """A values file as long as a real run's, label included: a branch and a
+    work item named the way this repository names them."""
+    name = "the-branch-names-the-work-item-it-carries"
+    return {
+        **values(item=f"/x/seal/specs/1799000000-{name}", rows=FULL_ROWS),
+        "tree": tree,
+        "base": "bbb2222b",
+        "from": "origin/release/v1.2.3",
+        "branch": f"feat/12-{name}",
+    }
+
+
+def test_the_budget_is_named_and_derived_from_the_measured_limit():
+    """A2. The limit is the harness's, measured in characters, and the
+    budget leaves room for the report `dispatch.py` prepends to the same
+    message; every rung of the ladder is a scale the band accepts, so no
+    rung can be refused when the hook steps down to it."""
+    mod = stamp_module()
+    assert mod.MESSAGE_LIMIT <= 10090, "above a size the harness has persisted"
+    assert mod.MESSAGE_BUDGET <= mod.MESSAGE_LIMIT - 1000, mod.MESSAGE_BUDGET
+    assert mod.SCALE_LADDER == (0.90, 0.80, 0.75)
+    assert all(mod.check_scale(rung) is None for rung in mod.SCALE_LADDER)
+
+
+def test_the_hooks_message_is_under_the_budget_for_one_file(tmp_path):
+    """A3, one file. A run's values at a real run's size, drawn by the hook
+    through `dispatch.py stop`: the printed `systemMessage` is no longer than
+    `MESSAGE_BUDGET`, and it still opens with the file's label."""
+    mod = stamp_module()
+    repo = opted_in(tmp_path)
+    mod.write_values(str(repo / ".git"), "s-1", full_values())
+    text = json.loads(stop(repo))["systemMessage"]
+    assert len(text) <= mod.MESSAGE_BUDGET, len(text)
+    assert text.split("\n", 1)[0] == mod.label(full_values())
+
+
+def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
+    """A3, two files. The budget is the WHOLE message's, so two stamps that
+    each fit alone are stepped down together, and both come out at one rung —
+    the same rows, so the same drawing under each label."""
+    mod = stamp_module()
+    repo = opted_in(tmp_path)
+    mod.write_values(str(repo / ".git"), "s-1", full_values(), now=1)
+    mod.write_values(str(repo / ".git"), "s-1", full_values("ccc3333c"), now=2)
+    text = json.loads(stop(repo))["systemMessage"]
+    assert len(text) <= mod.MESSAGE_BUDGET, len(text)
+    first, second = text.split("\n\n")
+    assert first.split("\n", 1)[0] == mod.label(full_values())
+    assert second.split("\n", 1)[0] == mod.label(full_values("ccc3333c"))
+    assert first.split("\n", 1)[1] == second.split("\n", 1)[1], "two rungs"
+
+
+def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
+    """A4. Driven at small budgets: the file's own scale where it fits, then
+    0.80, then 0.75, then the panel with no disc — which is returned whatever
+    the budget, because nothing comes after it. One rung for every block, and
+    never a rung above the file's own scale."""
+    mod = stamp_module()
+    at = {s: drawn(mod, LABEL, ROWS, s) for s in (*mod.SCALE_LADDER, None)}
+    sizes = [len(at[s]) for s in (*mod.SCALE_LADDER, None)]
+    assert sizes == sorted(sizes, reverse=True) and len(set(sizes)) == 4, sizes
+    one = [(LABEL, ROWS, 0.9)]
+    assert mod.fitted(one, len(at[0.9])) == at[0.9]
+    assert mod.fitted(one, len(at[0.9]) - 1) == at[0.8]
+    assert mod.fitted(one, len(at[0.8]) - 1) == at[0.75]
+    assert mod.fitted(one, len(at[0.75]) - 1) == at[None]
+    assert mod.fitted(one, 0) == at[None], "the last rung is the last"
+    bare = mod.strip_ansi(at[None])
+    assert "▀" not in bare and "▄" not in bare, "the last rung drew a disc"
+    for row in ROWS:
+        if row is not None:
+            assert f"{row[0]:<8} {row[1]}".strip() in bare, row
+    # Two blocks: each fits at 0.90 alone, together only one rung down.
+    two = [(LABEL, ROWS, 0.9), (LABEL, ROWS, 0.9)]
+    room = len(at[0.9]) + 2 + len(at[0.8])
+    assert mod.fitted(two, room) == at[0.8] + "\n\n" + at[0.8]
+    # A file that asked for less is never drawn larger, and one that asked
+    # for more than the first rung gets it where it fits.
+    assert mod.fitted([(LABEL, ROWS, 0.75)], 10**6) == at[0.75]
+    assert mod.fitted([(LABEL, ROWS, 1.0)], 10**6) == drawn(mod, LABEL, ROWS, 1.0)
+
+
+def test_the_policy_states_the_budget_and_names_its_case():
+    """A18's first half. `docs/the-broad-gate.md` §*Where the stamp is drawn*
+    carries the budget rule under #717's marker, and its `Enforced by:` line
+    names A3's case."""
+    text = flat("docs", "the-broad-gate.md")
+    marker = "<!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->"
+    assert marker in text
+    rule = text.split(marker)[1].split("<!--", 1)[0]
+    assert "**The hook holds its whole message under a budget named in the code" in rule
+    assert "::test_the_hooks_message_is_under_the_budget_for_one_file" in rule
+    section = text.split("## Where the stamp is drawn", 1)[1]
+    assert marker in section.split("## What the runner owes", 1)[0]
 
 
 # --- S16: the rules are where they are read ----------------------------------
