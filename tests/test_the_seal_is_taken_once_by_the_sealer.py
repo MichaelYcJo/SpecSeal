@@ -354,6 +354,9 @@ def test_the_disc_hangs_over_the_corner_two_clear_cells_from_the_text(scale):
     assert any(disc_at(cell) for line in cells for cell in line[width:]), (
         "the disc does not hang over the sheet's right edge"
     )
+    assert any(disc_at(cell) for line in cells[:height] for cell in line[:width]), (
+        "the disc is tucked under the sheet rather than pressed over it"
+    )
     for ln in range(1, height - 1):
         line = cells[ln]
         ends = [x for x, cell in enumerate(line) if cell[2] and cell[2][0] != " "]
