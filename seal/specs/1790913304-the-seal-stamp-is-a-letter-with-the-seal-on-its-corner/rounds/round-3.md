@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 719 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `2fe8af6ef9a9d068d9e18f6957e878b434c4978f..2fe8af6ef9a9d068d9e18f6957e878b434c4978f`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,7 +29,7 @@ Round 3 is the run's last round, a verifying round at `2fe8af6e` over round 2's 
 | 🟢 | round 2's finding 8 is closed — `first_line` cuts at 200 UTF-16 units, so two gates write 909 whatever their text | `hooks/dispatch.py:319` | confirmed | Executed: every gate pair gives 909 and three gates 1,274, ASCII and U+1D54F alike, against 1,309 under the old cut; end to end 870 against 1,270; four mutations red, the equivalent `break` survives |
 | 🟢 | round 2's finding 9 is closed — `admitted`'s docstring no longer names a scale below 0.75 | `skills/verify/scripts/seal_stamp.py:630` | confirmed | Read: `check_scale` in `drawings` refuses it first; finding 11 is the reflow's long line |
 | 🟢 | round 2's finding 10 is closed — ledger B1 and B2 say what the code does, re-stamped | `seal/ledger/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner.md` | confirmed | Read; executed: `bin/evidence-check .` 3,521 ok, 0 drifted, 0 broken |
-| ⬜ 11 | one line of `admitted`'s reflowed docstring is 113 columns, where the rest wraps under 80 | `skills/verify/scripts/seal_stamp.py:632` | open | Read: no check reads docstring width (`E501` is not selected); does not block, and is the branch's under the cap rule if fixed |
+| ⬜ 11 | one line of `admitted`'s reflowed docstring is 113 columns, where the rest wraps under 80 | `skills/verify/scripts/seal_stamp.py:632` | deferred #721 | #721 — a rewrap in a unit this run created; does not block, and a fix would cost a verifying round the capped run has not got; Read: no check reads docstring width (`E501` is not selected); does not block, and is the branch's under the cap rule if fixed |
 | ❓ | whether the harness counts a character outside the BMP as two UTF-16 units | `skills/verify/scripts/seal_stamp.py:213` | ❓ out of verified scope | Measured by round 1's fix pass with `claude -p`, which this round was told not to run; carried from round 2; the orchestrator answers it |
 
 ## Paste-ready fixes
@@ -90,4 +90,5 @@ Round 3 is the run's last round, a verifying round at `2fe8af6e` over round 2's 
 
 | Finding | Where it went | Who answers it |
 |---|---|---|
-| `record` writes an exception's type name uncapped, so a type name from outside the plugin longer than about 30 characters can pass the reserve with two gates (predates #717; the plugin's own longest is 28) | `handoff.md` §*Open, and who answers*, not yet placed in an issue or PR #719's body | the orchestrator |
+| ⬜ 11 — one line of `admitted`'s reflowed docstring is 113 columns | #721 | the owner, through the issue |
+| `record` writes an exception's type name uncapped, so a type name from outside the plugin longer than about 30 characters can pass the reserve with two gates (predates #717; the plugin's own longest is 28) | #722 | the owner, through the issue |
