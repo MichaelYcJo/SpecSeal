@@ -118,3 +118,16 @@ earlier dated notes, each followed by this pass's note of 2026-10-02
 | `seal/releases/0.16.0.md` | in a clone without them both decision sites are untouched and the three cases pass unedited | record: E1's note of 2026-10-01 |
 | `seal/releases/0.16.0.md` | the unreadable site is untouched and the case passes unedited | record: E2's note of 2026-10-01 |
 | `seal/releases/0.16.0.md` | in a clone without them it is unchanged and the case and the corpus pass | record: E17's note of 2026-10-01 |
+
+## The ceiling fix after the chain
+
+`survivor-check --range 28daffc6..2d964e21`, run by `smith`, reported one
+place. The range froze `docs/commit-review-gate-spec.md` over the document
+line ceiling until MichaelYcJo/SpecSeal#715, and rewrote the fold case's
+docstring, which had said the listing stays empty for the next such document.
+The place is another work item's rejected alternative, quoting that docstring
+as it stood (**record**).
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `seal/specs/1790260563-the-fold-checks-run-only-as-this-repositorys-tests/plan.md` | the test docstring records the intent to keep the listing for the next document a fold takes past the ceiling before it can be split | record: work item 1790260563's plan, a rejected alternative quoting the docstring of its day; the listing was kept, and this range is that next document arriving |
