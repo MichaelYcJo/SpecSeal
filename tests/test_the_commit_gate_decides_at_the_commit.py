@@ -19,8 +19,10 @@ import json
 import os
 import shlex
 import shutil
+import signal
 import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -317,6 +319,50 @@ def _as_a_session(base, repos):
     return [str(claude), "-c", writes + f'{q(BASH)} -c "$CORPUS_COMMAND"\nexit $?']
 
 
+ROW_BOUND = 20
+
+
+def _run_bounded(argv, *, cwd, env, timeout):
+    """Run ARGV to its end or to TIMEOUT; True when it ended on its own.
+
+    Not `subprocess.run(..., capture_output=True, timeout=…)`, which bounds
+    the direct child alone: a row's shell runs below the `claude` one, so a
+    row that never ends -- the corpus's `until false` did not, before it got
+    its `break` -- outlived the kill. On POSIX it ran on, an orphan
+    committing forever; on Windows `run` reads the pipes to their end after
+    the kill, the orphan held them, and the windows-latest leg hung with no
+    case named (#692, after the chain: CI run 36965695916). So nothing here
+    is a pipe, and on POSIX the whole session the row started is ended,
+    whether it ended on its own or not. Windows has no group kill without a
+    job object, so there the direct child is ended and a row that did not
+    end is still a failure that names itself."""
+    group = os.name != "nt"
+    proc = subprocess.Popen(
+        argv,
+        cwd=cwd,
+        env=env,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=group,
+    )
+    try:
+        proc.wait(timeout=timeout)
+        ended = True
+    except subprocess.TimeoutExpired:
+        ended = False
+    finally:
+        if group:
+            try:
+                os.killpg(proc.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+        else:
+            proc.kill()
+        proc.wait()
+    return ended
+
+
 def _run_corpus_row(base, command, with_hooks, home):
     repos = _sandbox(base, with_hooks, home)
     text = (
@@ -330,16 +376,12 @@ def _run_corpus_row(base, command, with_hooks, home):
     }
     flock_existed = os.path.exists("/tmp/l")
     try:
-        subprocess.run(
+        ended = _run_bounded(
             _as_a_session(base, repos),
             cwd=str(repos["main"]),
-            capture_output=True,
             env=env(home, CORPUS_COMMAND=as_the_tool_spells_it(text)),
-            stdin=subprocess.DEVNULL,
-            timeout=20,
+            timeout=ROW_BOUND,
         )
-    except subprocess.TimeoutExpired:
-        pass
     finally:
         if not flock_existed and os.path.exists("/tmp/l"):
             os.remove("/tmp/l")
@@ -349,6 +391,10 @@ def _run_corpus_row(base, command, with_hooks, home):
                     p.chmod(0o755)
                 except OSError:
                     pass
+    assert ended, (
+        f"the row did not end within {ROW_BOUND} s, so what it committed is "
+        f"not an answer: {command!r}"
+    )
     landed = set()
     for k, d in repos.items():
         if not d.is_dir():
@@ -356,6 +402,29 @@ def _run_corpus_row(base, command, with_hooks, home):
         if g(d, "rev-parse", "HEAD", home=home, session="").stdout != before[k]:
             landed.add(k)
     return landed
+
+
+def test_a_row_that_does_not_end_is_named_and_leaves_nothing_behind(tmp_path):
+    """The bound S2's runner leans on, held without a corpus row: a shell
+    that starts a loop of its own and outlives the bound is reported as not
+    ended, within the bound and not after the loop, and on POSIX the loop
+    goes with it. The loop is finite, so where nothing ends it -- Windows --
+    it is gone ten seconds later rather than at the end of the job."""
+    alive = tmp_path / "alive"
+    loop = f"for i in $(seq 1 100); do touch {q(alive)}; sleep 0.1; done"
+    started = time.monotonic()
+    ended = _run_bounded(
+        [BASH, "-c", f"{q(BASH)} -c {q(loop)}; exit $?"],
+        cwd=str(tmp_path),
+        env=dict(os.environ),
+        timeout=1,
+    )
+    assert not ended
+    assert time.monotonic() - started < 8, "the bound waited for the loop"
+    if os.name != "nt":
+        alive.unlink(missing_ok=True)
+        time.sleep(0.5)
+        assert not alive.exists(), "the row's loop outlived the bound"
 
 
 @pytest.mark.parametrize("name", sorted(CORPUS))
