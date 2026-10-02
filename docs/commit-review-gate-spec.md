@@ -254,8 +254,16 @@ Enforced by: tests/test_the_hook_surface_git_offers.py::test_no_git_refuses_a_sw
   113 ms in the dispatcher's process on the machine round 1's fix pass
   measured under load, where one bare `git rev-parse` took 48 ms. That is
   paid on every Bash call in an opted-in clone, a commit or not.
-- **Windows** runs the stubs through git's bundled `sh`; nothing here has run
-  there (M9), and the CI Windows leg is where it first does.
+- **Windows** runs the stubs through git's bundled `sh`, and #692's Windows
+  pass ran them there on `windows-latest` (CI runs 37013783175 and after).
+  Git for Windows' `ps` takes no `-o`, so a hook there finds no `claude`
+  ancestor: the session comes from `CLAUDE_CODE_SESSION_ID` alone, and a
+  commit under `env -i`, which the lease names on POSIX, is a person's
+  there. A command that exports `LD_PRELOAD` runs no hook at all: `stdbuf`
+  exports it as an MSYS path, the bundled `sh` dies loading it, and git
+  commits as if every hook had passed. Neither command is plain
+  (`hooks/tokens.py#is_plain`), so the PreToolUse reading judges both before
+  they run, as 0.16.0's did.
 
 ### Where each state of a repository stands
 

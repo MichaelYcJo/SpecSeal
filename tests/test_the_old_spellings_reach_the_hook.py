@@ -129,11 +129,12 @@ def test_an_answer_older_than_a_bash_call_can_run_is_not_given(tmp_path):
 def test_an_answer_stamped_a_clock_tick_ahead_is_given_and_one_far_ahead_is_not(
     tmp_path,
 ):
-    """#692's Windows pass: Python 3.12's `time.time()` there trails the
-    stamp NTFS gives a write by up to a tick, so an answer read right after
-    it was written read as written in the future, and a different case of
+    """#692's Windows pass: on `windows-latest` an answer's file read its
+    stamp ahead of a `time.time()` taken right after the write, by under a
+    microsecond, in 401 of 3,000 writes, so a different case of
     `test_the_shells_own_spelling_of_the_command_still_matches` failed in
-    each run. A stamp set well into the future is still no answer."""
+    each run. One tick of the coarse clock is allowed here, more than was
+    measured; a stamp set well into the future is still no answer."""
     root = str(tmp_path)
     answers.write("s1", "call-a", A, ("[no-review]",), root=root)
     stamped = os.stat(tmp_path / "s1" / "call-a" / "no-review").st_mtime

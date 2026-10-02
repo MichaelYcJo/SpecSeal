@@ -70,12 +70,13 @@ COMMAND = "command"
 FRESH = 15 * 60
 
 # How far ahead of `time.time()` an answer's own file may be stamped and still
-# be read as written now. CPython before 3.13 reads Windows' coarse clock for
-# `time.time()`, which trails the precise one NTFS stamps a write with by up
-# to a tick, so an answer read a moment after it was written looked written in
-# the future and was not given (#692's Windows pass). A file stamped further
-# ahead than this is still refused: a token is consent, and a stamp set into
-# the future would keep one alive.
+# be read as written now. On `windows-latest` under Python 3.12, 401 of 3,000
+# files read their stamp ahead of a `time.time()` taken right after the write,
+# each by under a microsecond (#692's Windows pass, CI run 37013783175): the
+# write and the read fall in one tick of a coarse clock, and the two floats
+# round apart. An exact lower bound of 0 refused those answers, a different
+# one in each run. A file stamped further ahead than this is still refused: a
+# token is consent, and a stamp set into the future would keep one alive.
 SKEW = 2
 
 

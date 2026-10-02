@@ -434,6 +434,32 @@ def test_a_row_that_does_not_end_is_named_and_leaves_nothing_behind(tmp_path):
         assert not alive.exists(), "the row's loop outlived the bound"
 
 
+# `docs/commit-review-gate-spec.md` §*Known limits of the commit gate inside
+# git*. `stdbuf` exports `LD_PRELOAD` as an MSYS path; Git for Windows' `sh`
+# reads it as a list split at `:`, dies loading `C`, and git commits as if
+# every hook had passed (#692's Windows pass, CI run 37013783175, traced).
+NO_HOOK_UNDER_LD_PRELOAD = (
+    "known limit: on Windows a command that exports LD_PRELOAD runs no git "
+    "hook, and the PreToolUse reading judges it instead"
+)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "stdbuf -oL git commit -m x",
+        "LD_PRELOAD=/x git commit -m x",
+        "export LD_PRELOAD=/x; git commit -m x",
+        "env -i git commit -m x",
+    ],
+)
+def test_a_command_windows_runs_no_hook_for_is_not_plain(command):
+    """What stands behind the limit above and the lease's: a command that
+    exports `LD_PRELOAD`, or empties the environment, is never plain, so the
+    PreToolUse reading judges it wherever it lands (P7)."""
+    assert not tokens.is_plain(command)
+
+
 @pytest.mark.parametrize("name", sorted(CORPUS))
 def test_s2_a_commit_bash_makes_into_an_undeclared_repository_does_not_land(
     tmp_path, name
@@ -442,6 +468,8 @@ def test_s2_a_commit_bash_makes_into_an_undeclared_repository_does_not_land(
     hooks, the same command with the hooks lands nothing there. The base's
     verdict is not asked -- every stop it made on a real commit is in this
     set, and so is every commit it missed."""
+    if os.name == "nt" and "stdbuf" in CORPUS[name]:
+        pytest.skip(NO_HOOK_UNDER_LD_PRELOAD)
     home = tmp_path / "home"
     home.mkdir()
     bare = _run_corpus_row(tmp_path / "bare", CORPUS[name], False, home)
@@ -955,6 +983,9 @@ def test_s9_the_lease_names_the_session_when_no_variable_is_exported(world):
 
 def test_s9_an_emptied_environment_is_still_judged_through_the_lease(world):
     """M6's two rows a probe could not see: `env -i git commit …`."""
+    # On Windows this case was green for another reason: `env -i` there
+    # cannot find `git` on a `;`-separated PATH (#692's Windows pass).
+    ps_names_the_parent_or_skip(LEASE_NEEDS_PS)
     claude = fake_claude(world)
     world.change(world.main)
     before = world.head(world.main)
