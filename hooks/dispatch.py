@@ -49,7 +49,10 @@ HOOKS = os.path.dirname(os.path.abspath(__file__))
 FAILURES_DIR = "specseal-gate-failure"
 PENDING = ".pending"
 REPORTED = ".reported"
-# The longest first line of an exception's message a record keeps.
+# The longest first line of an exception's message a record keeps, in UTF-16
+# units: the report joins the `Stop` message `seal_stamp.MESSAGE_RESERVE` is
+# held for, and the harness counts that message in them, so a character
+# outside the BMP is two.
 MESSAGE_CAP = 200
 
 # What `run_gate` saw fail during this invocation, in order, as
@@ -314,9 +317,17 @@ def opted_in(top, common):
 
 
 def first_line(exc):
-    """The first non-blank line of `exc`'s message, capped."""
+    """The first non-blank line of `exc`'s message, capped at `MESSAGE_CAP`
+    UTF-16 units. A character outside the BMP is two, and one that would
+    pass the cap is left out whole rather than split into half a pair."""
     lines = str(exc).strip().splitlines()
-    return lines[0].strip()[:MESSAGE_CAP] if lines else ""
+    kept, units = [], 0
+    for char in lines[0].strip() if lines else "":
+        units += 2 if ord(char) > 0xFFFF else 1
+        if units > MESSAGE_CAP:
+            break
+        kept.append(char)
+    return "".join(kept)
 
 
 def record(group, failures, body):

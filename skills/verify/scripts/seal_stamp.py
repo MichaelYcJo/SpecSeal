@@ -228,10 +228,13 @@ MESSAGE_LIMIT = 10000
 # the blank line between two blocks. The reserve is for what the hook cannot
 # see: `hooks/dispatch.py#report` prepends the session's gate-failure report
 # to this same message after the hook has printed. The longest report it can
-# write, with each exception's text cut at its `MESSAGE_CAP`, is 533
-# characters for one failed gate and 909 for two, separator included
-# (measured 2026-10-02 over `dispatch.describe`); a third would pass the
-# limit beside a stamp at the budget.
+# write, with each exception's text cut at its `MESSAGE_CAP`, is 533 UTF-16
+# units for one failed gate and 909 for two, separator included (measured
+# 2026-10-02 over `dispatch.describe`, every gate failing to load with
+# `ModuleNotFoundError`; the longest built-in type name gives 539 and 921);
+# a third would pass the limit beside a stamp at the budget. The cap counts
+# the same units, so exception text outside the BMP keeps those figures:
+# cut by code points it gave two gates 1,309, past the reserve.
 MESSAGE_RESERVE = 1000
 MESSAGE_BUDGET = MESSAGE_LIMIT - MESSAGE_RESERVE
 # The rungs a block steps down, after the file's own scale; past the last, a
