@@ -527,12 +527,14 @@ def test_the_hooks_message_is_under_the_budget_for_one_file(tmp_path):
     assert text.split("\n", 1)[0] == mod.label(full_values())
 
 
-def test_two_seals_of_a_real_runs_size_take_two_turns(tmp_path):
+def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
     """A3, two files, under the owner's rule of 2026-10-02 (`questions.md`
     Q6). Two stamps of a real run's size do not fit one message together
     even at 0.75, so the old rule drew both with no disc. The disc is kept
     now: the first is drawn whole at its own 0.90, the second stays pending
-    under its own name, and the next `Stop` draws it whole."""
+    under its own name, and the next `Stop` draws it whole — two turns,
+    each message under the budget. The name is the case's from phase 1,
+    kept because round 1's record cites it."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     first = mod.write_values(str(repo / ".git"), "s-1", full_values(), now=1)

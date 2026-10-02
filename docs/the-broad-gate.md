@@ -150,7 +150,7 @@ no disc. A stamp can come out smaller or a turn later, and a session that
 ends first leaves it for `seal-stamp --from`. The gate's own terminal
 drawing and `seal-stamp` are not budgeted, because neither is a hook's
 message.
-Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_hooks_message_is_under_the_budget_for_one_file, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_two_seals_of_a_real_runs_size_take_two_turns, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_seals_past_what_one_message_carries_wait_for_the_next_turn, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_ladder_steps_down_in_order_and_ends_with_no_disc
+Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_hooks_message_is_under_the_budget_for_one_file, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_two_files_in_one_turn_are_under_the_budget_together, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_seals_past_what_one_message_carries_wait_for_the_next_turn, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_ladder_steps_down_in_order_and_ends_with_no_disc
 
 <!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->
 <!-- specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for -->
