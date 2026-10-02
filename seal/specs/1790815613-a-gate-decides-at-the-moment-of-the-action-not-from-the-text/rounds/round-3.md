@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 705 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-4 |
 | Fix range | `b34b5401225b3196c9ab4e7dca5bcb848c0acc6b..a4692a0b9e086248c0054b2b661edd840ad0ef5a`, 6 commits |
 | Contract changes | none |
 | New units | PLAIN_PROGRAMS (depth 1); PLAIN_GIT (depth 1); PLAIN_CONFIG (depth 1); is_plain (depth 1); test_concluding_a_conflicted_merge_is_judged (depth 1); STILL_PLAIN (depth 1); NO_LONGER_PLAIN (depth 1); test_each_other_condition_of_the_rule_makes_a_command_not_plain (depth 1); test_a_negative_that_is_plain_stays_plain (depth 1); test_a_negative_outside_the_allowlist_is_not_plain (depth 1); PLAIN_AND_NOT (depth 1); test_a_plain_agent_commit_stands_aside_and_one_word_more_is_judged (depth 1) |
