@@ -549,8 +549,16 @@ the file holding the rest: correct the record, commit, and run it again. On 2
 it refused before anything ran, and a refusal about the row goes to a person,
 as *A refusal about the `Broad gate` row* below says. It writes no cell, no
 values file and no stamp, and prints no `SEALED` line, so it seals nothing.
-A session that skips it loses only time: the sealer asks the same arms and
-refuses the same way.
+After the arms it runs `round_record.py seal --check` on the work item
+declared for the branch (#702): every refusal the sealer's write would raise,
+asked with nothing written, so those arrive before the spawn too. Where `seal`
+is among the `PREFLIGHT FAILED` lines, its first lines quote `seal`'s own
+sentence. A last record whose `Fixes checked by` reads `nobody` sends you to
+spawn the verifying round first; `Pass` is unchecked means a finding is still
+open, so close it. Where no single declaration names the branch nothing is
+asked, and one stderr line says so. A session that skips the preflight loses
+only time: the sealer asks the same arms and the same refusals of `seal`, and
+refuses the same way after its suite.
 
 **The stamp is drawn for you at the end of your turn, and you never draw
 one (#400).** A green recorded run on the sealer's pipe draws nothing. It

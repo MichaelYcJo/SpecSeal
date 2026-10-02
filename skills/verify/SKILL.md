@@ -415,7 +415,8 @@ is the agent, `broad-gate --base <base> --record <item>` is the command, and
 read at a READY pull request* owns when it is spawned. What the sealer returns
 is a report; it judges no failure and fixes none. `broad-gate --preflight`,
 which the orchestrator runs before that spawn, is not this run: it runs the
-gate's record arms alone, runs no suite, and seals nothing (#638).
+gate's record arms, asks `seal`'s refusals of the branch's declared work item
+without writing (#702), runs no suite, and seals nothing (#638).
 
 **An expensive suite argues for this placement, not against it.** A run that
 takes fifteen minutes is a finding about the run and deserves its own ticket.

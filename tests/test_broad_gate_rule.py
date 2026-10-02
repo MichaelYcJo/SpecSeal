@@ -689,3 +689,67 @@ def test_the_skill_says_the_preflight_is_not_the_broad_gate():
     assert "--preflight" not in read("agents", "sealer.md"), (
         "the sealer's definition names the preflight"
     )
+
+
+# --- 1790835051: the preflight asks `seal`'s own refusals (#702) -------------
+
+ASK = "`round_record.py seal --check`"
+REFUSALS = "`seal`'s refusals"
+
+
+def preflight_paragraph():
+    """The paragraph of the spawn section that opens *The preflight is
+    yours*, as one joined line."""
+    body = section(read("skills", "code-review", "orchestration.md"), SPAWN_SECTION)
+    start = next(
+        i for i, line in enumerate(body) if line.startswith("**The preflight is yours")
+    )
+    end = next((i for i in range(start + 1, len(body)) if not body[i].strip()), None)
+    return joined(body[start:end])
+
+
+def test_the_orchestrator_is_told_the_preflight_asks_seals_refusals():
+    """S11. The orchestrator types the same command, and is told what it now
+    asks: `seal --check` of the work item declared for the branch, and where
+    a `seal` line under `PREFLIGHT FAILED` sends it — the verifying round
+    where the last record reads `nobody`, the open finding where `Pass` is
+    unchecked, which are `seal`'s own sentences."""
+    text = preflight_paragraph()
+    assert ASK in text, "the paragraph does not name the ask"
+    assert "declared for the branch" in text, text
+    assert "verifying round" in text and "`Pass` is unchecked" in text, text
+    assert "writes no cell" in text or "nothing is written" in text, text
+
+
+def test_the_acts_table_grounds_name_the_ask():
+    """S11. The row stays `still a sentence` and its grounds name the ask, so
+    the sentence about what a skipped preflight costs counts `seal`'s
+    refusals among what the sealer asks after its suite."""
+    rows = [
+        line
+        for line in read("skills", "implement", "orchestration.md").splitlines()
+        if line.startswith(f"| {SPAWN_SECTION} |")
+    ]
+    assert len(rows) == 1, f"{len(rows)} acts-table rows name the section"
+    assert "| still a sentence |" in rows[0], rows[0]
+    assert ASK in rows[0], "the row's grounds do not name the ask"
+
+
+def test_the_skill_and_the_template_say_the_preflight_asks_seals_refusals():
+    """S11. `verify` §*The broad gate* and `templates/config.md` §*Broad gate*
+    each carry the preflight sentence, and each says it asks `seal`'s
+    refusals without writing — beside what already keeps it from being taken
+    for the run."""
+    verify = joined(
+        section(
+            read("skills", "verify", "SKILL.md"),
+            "The broad gate — after the rounds, then compare against the base",
+        )
+    )
+    at = verify.index(PREFLIGHT)
+    said = verify[at : at + 400]
+    assert REFUSALS in said and "runs no suite" in said, said
+    template = joined(section(read("templates", "config.md"), "Broad gate"))
+    lead = template.split("```")[0]
+    at = lead.index(PREFLIGHT)
+    assert REFUSALS in lead[at : at + 400], lead[at : at + 400]
