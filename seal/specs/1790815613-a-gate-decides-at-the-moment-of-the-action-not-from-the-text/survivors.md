@@ -99,3 +99,22 @@ records (**frame**); another work item's record of its own moment
 | `docs/commit-review-gate-spec.md` | Where git decides, the PreToolUse reading in the next | true: the commit statement, with round 1's exception added |
 | `hooks/commit-review-gate.py` | kept for a clone whose hooks slot | true: the commit reading's stand-aside comment |
 | `hooks/implementer-notice.py` | `post-commit` says this line for | true |
+
+## Round 3's fix pass
+
+`survivor-check --range b34b5401..b34272cb`, run by `smith`, reported five
+places. The range rewrote the policy's stand-aside paragraph, the gate's
+comment and contract §9's parenthesis from a list of words to the positive
+rule (`questions.md` P7). The list itself still exists: `steps_around_hooks`
+is one of `is_plain`'s conditions, so its own docstring and comments still
+describe what it reads (**true**). The release rows carry this branch's
+earlier dated notes, each followed by this pass's note of 2026-10-02
+(**record**).
+
+| Path | Quote | Grounds |
+|---|---|---|
+| `hooks/tokens.py` | The kinds, each living in the one command where the installer | true: `steps_around_hooks`' own docstring, about the words it reads |
+| `hooks/tokens.py` | `--config-env` or `git config`, and HOME or XDG_CONFIG_HOME | true: the same function's comment on its config-file arm |
+| `seal/releases/0.16.0.md` | in a clone without them both decision sites are untouched and the three cases pass unedited | record: E1's note of 2026-10-01 |
+| `seal/releases/0.16.0.md` | the unreadable site is untouched and the case passes unedited | record: E2's note of 2026-10-01 |
+| `seal/releases/0.16.0.md` | in a clone without them it is unchanged and the case and the corpus pass | record: E17's note of 2026-10-01 |
