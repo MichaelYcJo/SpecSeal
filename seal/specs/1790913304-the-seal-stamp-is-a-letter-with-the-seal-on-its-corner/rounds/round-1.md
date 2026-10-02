@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 719 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `59666b18f77850a0fa6e5a05ad1e8f315acc2e90..237dbc5216fd81dcab18f8d51c442d1847063f53`, 6 commits |
+| Contract changes | none |
+| New units | admitted (depth 1); test_the_title_is_the_sheets_first_line_whatever_a_value_says (depth 1); SMALL_ROWS (depth 1); test_seals_past_what_one_message_carries_wait_for_the_next_turn (depth 1); test_one_seal_too_large_for_the_disc_is_drawn_alone_without_it (depth 1); test_a_character_outside_the_bmp_is_counted_as_two (depth 1) |
 | Needs a fix | yes — 🟡 1, the hook claims and prints every pending seal at the last rung whatever the count, so eight or more in one turn reach the harness as a persisted preview. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,11 +24,11 @@ Round 1 targets `6fa87bed`, over the build's diff `2bf10c9e..6fa87bed`. It was a
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | Eight pending values files in one turn make the hook print 10,118 characters; `fitted`'s last rung is returned whatever its size and `drawings` has already claimed every file, so A3's *any set* does not hold and three documents promise otherwise | `skills/verify/scripts/seal_stamp.py:647` | open | Executed: `hooks/sealer-stamp.py` over eight files in #702's shape printed 10,118, every file renamed drawn; `fitted` over n copies crosses `MESSAGE_BUDGET` at eight. `docs/the-broad-gate.md:136`, `changelog.md:17`, `fitted`'s docstring and `spec.md` A3 each claim the bound |
-| ⬜ 2 | Two seals in one turn at #702's size both draw with no disc: 9,356 at 0.75 is over 9,000, so the one rung for the whole message is the bare sheet | `skills/verify/scripts/seal_stamp.py:643` | open | Executed; built as S1 specs it (*two stamps at one scale*). A frame judgement the owner did not see, and the owner answers it. A per-block rung would draw 7,540 |
-| ⬜ 3 | The reserve covers two failed gates (909) and not three (1,274) beside a stamp near the budget | `skills/verify/scripts/seal_stamp.py:229` | open | Read; the comment states the limit and S1 asked for at least 1,000. Built as specced |
-| ⬜ 4 | A wide character in a branch value moves the disc's row on that line by its extra columns | `skills/verify/scripts/seal_stamp.py:548` | open | Executed with a Korean branch in the twin; the same code-point counting misplaced the old frame, so the class predates #717 |
-| ⬜ 5 | A continuation row whose value is `SEALED` is inked in the title's 124 | `skills/verify/scripts/seal_stamp.py:584` | open | Executed; reached only by a branch named `SEALED` |
+| 🟡 1 | Eight pending values files in one turn make the hook print 10,118 characters; `fitted`'s last rung is returned whatever its size and `drawings` has already claimed every file, so A3's *any set* does not hold and three documents promise otherwise | `skills/verify/scripts/seal_stamp.py:647` | **fixed** `6a2b1142` | fixed at 6a2b1142 — owner-directed change to S1 (questions.md Q6, 2026-10-02): the hook draws as many of the oldest seals as fit with their disc and leaves the rest for the next Stop; Executed: `hooks/sealer-stamp.py` over eight files in #702's shape printed 10,118, every file renamed drawn; `fitted` over n copies crosses `MESSAGE_BUDGET` at eight. `docs/the-broad-gate.md:136`, `changelog.md:17`, `fitted`'s docstring and `spec.md` A3 each claim the bound |
+| ⬜ 2 | Two seals in one turn at #702's size both draw with no disc: 9,356 at 0.75 is over 9,000, so the one rung for the whole message is the bare sheet | `skills/verify/scripts/seal_stamp.py:643` | **fixed** `6a2b1142` | fixed at 6a2b1142 — the same change: two seals at #702's size come out as the first whole at 0.90, the second whole at the next Stop; Executed; built as S1 specs it (*two stamps at one scale*). A frame judgement the owner did not see, and the owner answers it. A per-block rung would draw 7,540 |
+| ⬜ 3 | The reserve covers two failed gates (909) and not three (1,274) beside a stamp near the budget | `skills/verify/scripts/seal_stamp.py:229` | answered | The comment above MESSAGE_RESERVE states the reserve covers two failed gates and a third would pass the limit; S1 asked for at least 1,000 — built as specced; Read; the comment states the limit and S1 asked for at least 1,000. Built as specced |
+| ⬜ 4 | A wide character in a branch value moves the disc's row on that line by its extra columns | `skills/verify/scripts/seal_stamp.py:548` | deferred #720 | #720 — Predates #717: fit, letter and compose all count code points, not display cells; Executed with a Korean branch in the twin; the same code-point counting misplaced the old frame, so the class predates #717 |
+| ⬜ 5 | A continuation row whose value is `SEALED` is inked in the title's 124 | `skills/verify/scripts/seal_stamp.py:584` | **fixed** `3dbf8f47` | fixed at 3dbf8f47; Executed; reached only by a branch named `SEALED` |
 | 🟢 | The rows #717 removes are always passes on a drawn panel, and the `NOT SEALED` form is unchanged | `skills/verify/scripts/broad_gate.py:2557` | confirmed | Read: `panel` only on empty `failures`, `failed` is `code != 0`, the ledger runs `--strict`; `failure_lines` and `not_sealed` carry no diff |
 | 🟢 | Claim-before-print holds; a refused or malformed file stays pending; both directions of the 0.16.0 and 0.17.0 hook and file pairing draw | `hooks/sealer-stamp.py:125` | confirmed | Read, and the hook's cases green in the executed run |
 | 🟢 | The disc hangs over the bottom and right edges, the two-cell gap holds on every text line, painted trailing cells are kept, and the twin has the block form's footprint | `skills/verify/scripts/seal_stamp.py:520` | confirmed | Executed over three row sets at three rungs, no exception found |
