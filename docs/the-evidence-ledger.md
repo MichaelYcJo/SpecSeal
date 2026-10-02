@@ -217,16 +217,18 @@ Enforced by: skills/settle/scripts/fold_check.py::bound, tests/test_a_folded_sta
 **A top-level document under `docs/` stays at or under 1000 lines, and one
 over that ceiling takes no new statement.** Two folds had put 29 statements
 into `docs/review-chain-spec.md`, 2,159 lines long while the next
-largest document was 839, because nothing said where a fold lands. No
-document is over the ceiling now, so none is listed. The one that was,
-`docs/review-chain-spec.md`, was split along its own headings by
-MichaelYcJo/SpecSeal#526 into itself, `docs/commit-review-gate-spec.md` and
-`docs/round-record-spec.md`, its fold markers carried across whole. A
-document the next fold would take past the ceiling is split the same way
-first, or the rule goes to the document for its own sub-subject. The cutoff,
-the ceiling and the empty list are rows of this repository's `seal/config.md`,
-which `fold-check` reads, and a pin holds the rows and this section to the same
-numbers.
+largest document was 839, because nothing said where a fold lands. It was
+split along its own headings by MichaelYcJo/SpecSeal#526 into itself,
+`docs/commit-review-gate-spec.md` and `docs/round-record-spec.md`, its fold
+markers carried across whole. A document the next fold would take past the
+ceiling is split the same way first, or the rule goes to the document for
+its own sub-subject. One document is listed over the ceiling now, as
+`docs/commit-review-gate-spec.md`,
+frozen at 18 fold markers until MichaelYcJo/SpecSeal#715: #692 took it to
+1,039 lines, and the owner left its split to that issue, which gives the
+records one layout (2026-10-02). The cutoff, the ceiling and the list are
+rows of this repository's `seal/config.md`, which `fold-check` reads, and a
+pin holds the rows and this section to the same numbers.
 Enforced by: skills/settle/scripts/fold_check.py::ceiling_problems, tests/test_a_document_has_room_for_the_next_fold.py::test_the_evidence_ledger_states_the_values_the_config_rows_hold
 
 <!-- specs/1790154761-folded-statements-pile-into-one-spec -->

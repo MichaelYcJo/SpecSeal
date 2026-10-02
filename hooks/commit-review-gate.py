@@ -90,14 +90,18 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # Reading a command line is neither gate's property; `hooks/cmdline.py` owns
-# it and both gates import it by plain name, which goes through `sys.modules`
-# and runs once. This gate used to reach `parse_git` and `apply_chdir` by
-# loading `hooks/worktree-guard.py` from disk, which only re-exports them
-# from here — and that load could fail, taking the gate's parsing with it
-# while leaving the gate running and silent.
+# it and this gate imports it by plain name, which goes through `sys.modules`
+# and runs once. The worktree guard reads `hooks/cmdline_base.py`, the copy
+# frozen at `86256492`, instead (#689). This gate used to reach `parse_git`
+# and `apply_chdir` by loading `hooks/worktree-guard.py` from disk, which only
+# re-exports them from here — and that load could fail, taking the gate's
+# parsing with it while leaving the gate running and silent.
 import console
+import gate
+import githooks
 import optin
 import routing
+import tokens
 from cmdline import (
     EXPANDS,
     Unresolved,
@@ -630,7 +634,7 @@ def changed_paths(cwd, invocations):
 # `docs/commit-review-gate-spec.md` §*Review arm* holds the grounds, and
 # `test_the_review_arm_asks_on_a_document_only_commit` fails if this line
 # ever reaches the review arm.
-DOC_ROOTS = ("docs/", "seal/")
+DOC_ROOTS = gate.DOC_ROOTS
 
 
 def touches_code(cwd, invocations):
@@ -645,8 +649,7 @@ def touches_code(cwd, invocations):
     fixed findings sit (`docs/commit-review-gate-spec.md` §*Review arm*,
     #518).
     """
-    paths = changed_paths(cwd, invocations)
-    return any(not path.startswith(DOC_ROOTS) for path in paths)
+    return gate.touches_code(changed_paths(cwd, invocations))
 
 
 def has_marker(command, marker):
@@ -1086,165 +1089,161 @@ def judge(cwd, top, command, invocations, clean):
     # so each is checked on its own rather than nested behind the other.
     missing = []
 
-    # A declaration is the answer this gate used to have to guess at. Where one
-    # is in force the arm stays silent, for EITHER way on: the routing question
-    # was answered before the first edit, and asking for `[no-review]` as well
-    # would be asking for the same answer twice. What each answer costs is
-    # checked at the pull request, by CI, where nobody has to be sitting.
+    # WHETHER each arm stands is `hooks/gate.py#arms_missing`'s, the judgment
+    # the git hooks render too (#692), so this reading and git's cannot come to
+    # disagree about it. What stays here is how 0.16.0 SAYS it: the arms' own
+    # texts and options below, read off the names that come back.
     #
-    # Both this and `[no-review]` silence the arm, and they are independent.
-    # The token still waives one command for a commit that belongs to no work
-    # item; the declaration routes a work item.
-    routed = routing.declared(cwd, top)
+    # A declaration is the answer this gate used to have to guess at. Where one
+    # is in force the review arm stays silent, for EITHER way on, and both it
+    # and `[no-review]` silence the arm independently: the token waives one
+    # command for a commit that belongs to no work item, the declaration routes
+    # a work item.
+    waived = {arm for arm, token in gate.TOKENS.items() if has_marker(command, token)}
+    standing = gate.arms_missing(
+        cwd, top, waived, lambda: changed_paths(cwd, invocations), head=head
+    )
 
-    if optin.opted_in(cwd) and not has_marker(command, "[no-review]") and not routed:
-        if not head or read_mark(cwd, git_dir, "specseal-reviewed") != head:
-            # Built here, inside the arm that stands, and nowhere earlier:
-            # it costs one more `git` in a linked worktree, and building it
-            # before the judgment put a `relpath` that can raise in front of
-            # every commit (round 1 of #80, 🔴 1 and 🟢 6).
-            declaration = declaration_hint(top)
-            missing.append(
-                {
-                    "marker": "[no-review]",
-                    "way_on": f"run the review chain against {top}",
-                    # The way out that is neither the mark nor the waiver, and
-                    # the only one that fits a work item just starting. It is
-                    # carried on the arm rather than written into `ask_reason`
-                    # because the parity arm has no equivalent -- nothing
-                    # declares a comparison in advance the way routing is
-                    # declared before the first edit.
-                    "also": (
-                        "There is a third way out of the REVIEW arm when this "
-                        "commit belongs to a work item: write "
-                        f"`{declaration}` naming this "
-                        "branch, in a command of its own, then re-issue the "
-                        "commit. The declaration is read from the working "
-                        "tree, so it silences the review arm for the very "
-                        "commit that adds it, and the answer it records — the "
-                        "user's answer, not yours — is checked at the pull "
-                        "request instead. It silences NOTHING ELSE, so any "
-                        "other arm named above still has to be answered on "
-                        "its own and the commit does not go through until it "
-                        "is. The separate command matters: this gate denies "
-                        "the whole call, so a write batched with the commit "
-                        "never runs."
+    if gate.REVIEW in standing:
+        # Built here, inside the arm that stands, and nowhere earlier:
+        # it costs one more `git` in a linked worktree, and building it
+        # before the judgment put a `relpath` that can raise in front of
+        # every commit (round 1 of #80, 🔴 1 and 🟢 6).
+        declaration = declaration_hint(top)
+        missing.append(
+            {
+                "marker": "[no-review]",
+                "way_on": f"run the review chain against {top}",
+                # The way out that is neither the mark nor the waiver, and
+                # the only one that fits a work item just starting. It is
+                # carried on the arm rather than written into `ask_reason`
+                # because the parity arm has no equivalent -- nothing
+                # declares a comparison in advance the way routing is
+                # declared before the first edit.
+                "also": (
+                    "There is a third way out of the REVIEW arm when this "
+                    "commit belongs to a work item: write "
+                    f"`{declaration}` naming this "
+                    "branch, in a command of its own, then re-issue the "
+                    "commit. The declaration is read from the working "
+                    "tree, so it silences the review arm for the very "
+                    "commit that adds it, and the answer it records — the "
+                    "user's answer, not yours — is checked at the pull "
+                    "request instead. It silences NOTHING ELSE, so any "
+                    "other arm named above still has to be answered on "
+                    "its own and the commit does not go through until it "
+                    "is. The separate command matters: this gate denies "
+                    "the whole call, so a write batched with the commit "
+                    "never runs."
+                ),
+                "state": (
+                    f"No review is recorded for this cycle in {top} — the "
+                    "repository this commit lands in (the code-review "
+                    "skill writes the reviewed HEAD to that repository's "
+                    ".git/specseal-reviewed)."
+                ),
+                "question": ("This commit closes a cycle nothing reviewed. Which way?"),
+                "options": (
+                    (
+                        '1. "Declare the routing"',
+                        "this commit belongs to a work item whose "
+                        f"`{declaration}` is not "
+                        "written "
+                        "yet. Write it from `templates/sdd-routing.md`, "
+                        "naming THIS branch, IN A COMMAND OF ITS OWN, and "
+                        "then re-issue the commit unchanged. The Review "
+                        "row is the USER'S answer and not yours: put both "
+                        "spellings — `through the review chain` and "
+                        "`straight to the PR` — to them before writing "
+                        "the file. `straight to the PR` turns off the "
+                        "reviewer alone — CI still requires the sealer's "
+                        "broad-gate.md of it at a ready pull request, the "
+                        "one broad run — and it silences this arm for "
+                        "every later commit on this branch, so writing it "
+                        "yourself is the waiver below taken without the "
+                        "word that records it — and this way leaves no "
+                        "word in the command at all. The "
+                        "declaration is read from the WORKING TREE, so it "
+                        "silences this arm for the very commit that adds "
+                        "it — there is nothing to wait for and no waiver "
+                        "to spend. It is not a way past review: the answer "
+                        "written in it is what CI checks at the pull "
+                        "request, and `through the review chain` still "
+                        "requires a round record there. The separate "
+                        "command is not a style note — this gate runs "
+                        "before the shell does and denies the WHOLE call, "
+                        "so a write batched with the commit never happens "
+                        "and the declaration this option is about is the "
+                        "file that was lost.",
                     ),
-                    "state": (
-                        f"No review is recorded for this cycle in {top} — the "
-                        "repository this commit lands in (the code-review "
-                        "skill writes the reviewed HEAD to that repository's "
-                        ".git/specseal-reviewed)."
+                    (
+                        '2. "Review it first"',
+                        "hand the change to the review chain — "
+                        "@agent-specseal:warden, or /specseal:code-review "
+                        f"— run AGAINST {top}. That is where this commit "
+                        "lands and where the mark has to be written, and "
+                        "it is not necessarily the repository this session "
+                        "is sitting in. The mark is what silences this "
+                        "gate, so the same commit then goes through "
+                        "untouched.",
                     ),
-                    "question": (
-                        "This commit closes a cycle nothing reviewed. Which way?"
+                    (
+                        '3. "Commit without a review"',
+                        "re-issue the command with the waiver in front of "
+                        "it, exactly like this, quotes included: "
+                        "`: '[no-review]'; git commit …`. Written after "
+                        "`git commit` the marker is a pathspec and git "
+                        "rejects the command; an interactive zsh refuses "
+                        "it earlier still, as an unmatched glob. The `:` "
+                        "is a no-op that carries the word into the command "
+                        "without handing it to git, so the waiver stays "
+                        "visible in shell history. It must be outside the "
+                        "commit message, where it waives the gate instead "
+                        "of describing one.",
                     ),
-                    "options": (
-                        (
-                            '1. "Declare the routing"',
-                            "this commit belongs to a work item whose "
-                            f"`{declaration}` is not "
-                            "written "
-                            "yet. Write it from `templates/sdd-routing.md`, "
-                            "naming THIS branch, IN A COMMAND OF ITS OWN, and "
-                            "then re-issue the commit unchanged. The Review "
-                            "row is the USER'S answer and not yours: put both "
-                            "spellings — `through the review chain` and "
-                            "`straight to the PR` — to them before writing "
-                            "the file. `straight to the PR` turns off the "
-                            "reviewer alone — CI still requires the sealer's "
-                            "broad-gate.md of it at a ready pull request, the "
-                            "one broad run — and it silences this arm for "
-                            "every later commit on this branch, so writing it "
-                            "yourself is the waiver below taken without the "
-                            "word that records it — and this way leaves no "
-                            "word in the command at all. The "
-                            "declaration is read from the WORKING TREE, so it "
-                            "silences this arm for the very commit that adds "
-                            "it — there is nothing to wait for and no waiver "
-                            "to spend. It is not a way past review: the answer "
-                            "written in it is what CI checks at the pull "
-                            "request, and `through the review chain` still "
-                            "requires a round record there. The separate "
-                            "command is not a style note — this gate runs "
-                            "before the shell does and denies the WHOLE call, "
-                            "so a write batched with the commit never happens "
-                            "and the declaration this option is about is the "
-                            "file that was lost.",
-                        ),
-                        (
-                            '2. "Review it first"',
-                            "hand the change to the review chain — "
-                            "@agent-specseal:warden, or /specseal:code-review "
-                            f"— run AGAINST {top}. That is where this commit "
-                            "lands and where the mark has to be written, and "
-                            "it is not necessarily the repository this session "
-                            "is sitting in. The mark is what silences this "
-                            "gate, so the same commit then goes through "
-                            "untouched.",
-                        ),
-                        (
-                            '3. "Commit without a review"',
-                            "re-issue the command with the waiver in front of "
-                            "it, exactly like this, quotes included: "
-                            "`: '[no-review]'; git commit …`. Written after "
-                            "`git commit` the marker is a pathspec and git "
-                            "rejects the command; an interactive zsh refuses "
-                            "it earlier still, as an unmatched glob. The `:` "
-                            "is a no-op that carries the word into the command "
-                            "without handing it to git, so the waiver stays "
-                            "visible in shell history. It must be outside the "
-                            "commit message, where it waives the gate instead "
-                            "of describing one.",
-                        ),
-                    ),
-                }
-            )
+                ),
+            }
+        )
 
-    if (
-        optin.parity_config(cwd)
-        and not has_marker(command, "[no-parity]")
-        and touches_code(cwd, invocations)
-    ):
-        if not head or read_mark(cwd, git_dir, "specseal-parity") != head:
-            missing.append(
-                {
-                    "marker": "[no-parity]",
-                    "way_on": f"compare {top} against the original",
-                    "state": (
-                        f"{top} — the repository this commit lands in — "
-                        "declares a migration config, so behavior there is "
-                        "ported and the original decides where policy is "
-                        "silent. Nothing records that the original was "
-                        "consulted for this change (the legacy-parity skill "
-                        "writes the compared HEAD to that repository's "
-                        ".git/specseal-parity)."
+    if gate.PARITY in standing:
+        missing.append(
+            {
+                "marker": "[no-parity]",
+                "way_on": f"compare {top} against the original",
+                "state": (
+                    f"{top} — the repository this commit lands in — "
+                    "declares a migration config, so behavior there is "
+                    "ported and the original decides where policy is "
+                    "silent. Nothing records that the original was "
+                    "consulted for this change (the legacy-parity skill "
+                    "writes the compared HEAD to that repository's "
+                    ".git/specseal-parity)."
+                ),
+                "question": (
+                    "Nothing records that the original was consulted for "
+                    "this change. Which way?"
+                ),
+                "options": (
+                    (
+                        '1. "Compare against the original"',
+                        "run the legacy-parity skill against the baseline "
+                        f"in {top}'s migration config, and against that "
+                        "repository — not necessarily the one this session "
+                        "is sitting in. The mark that comparison writes is "
+                        "what silences this gate.",
                     ),
-                    "question": (
-                        "Nothing records that the original was consulted for "
-                        "this change. Which way?"
+                    (
+                        '2. "Commit without comparing"',
+                        "re-issue the command with the waiver in front of "
+                        "it, exactly like this, quotes included: "
+                        "`: '[no-parity]'; git commit …`. Written after "
+                        "`git commit` the marker is a pathspec and git "
+                        "rejects the command. It must be outside the "
+                        "commit message.",
                     ),
-                    "options": (
-                        (
-                            '1. "Compare against the original"',
-                            "run the legacy-parity skill against the baseline "
-                            f"in {top}'s migration config, and against that "
-                            "repository — not necessarily the one this session "
-                            "is sitting in. The mark that comparison writes is "
-                            "what silences this gate.",
-                        ),
-                        (
-                            '2. "Commit without comparing"',
-                            "re-issue the command with the waiver in front of "
-                            "it, exactly like this, quotes included: "
-                            "`: '[no-parity]'; git commit …`. Written after "
-                            "`git commit` the marker is a pathspec and git "
-                            "rejects the command. It must be outside the "
-                            "commit message.",
-                        ),
-                    ),
-                }
-            )
+                ),
+            }
+        )
 
     return missing, git_dir
 
@@ -1324,8 +1323,35 @@ def main():
             inv.chdirs or (inv.base is not None and inv.base != cwd) for inv in group
         )
 
+    # Where this plugin's git hooks run, git judges the commit inside the
+    # commit, in the worktree it lands in (#692), and this reading stands
+    # aside: it is 0.16.0's, kept for a clone whose hooks slot is foreign or
+    # that no session has reached yet (`questions.md` P1, P5). A target the
+    # reader could not place stands aside where the SESSION's clone is git's,
+    # because that is the stand-in it would have been judged against; a
+    # commit it would have reached in a clone carrying no hooks is the known
+    # limit `docs/commit-review-gate-spec.md` states. Only a command whose
+    # shape is known plain stands aside at all, and `hooks/tokens.py#is_plain`
+    # is the one rule for that (`questions.md` P7, the owner's answer of
+    # 2026-10-02, after three rounds each found words a list missed).
+    decided = {}
+    around = not tokens.is_plain(command)
+
+    def git_decides(path):
+        if around:
+            return False
+        root = root_of(path) if isinstance(path, str) else ""
+        if root not in decided:
+            decided[root] = githooks.decides(root)
+        return decided[root]
+
     stopped, unreadable = [], []
     for where, group in commit_targets(cwd, invocations, root_of):
+        if isinstance(where, Unresolved) or not root_of(where):
+            if git_decides(cwd):
+                continue
+        elif git_decides(where):
+            continue
         if names_a_directory(where, group) and (
             isinstance(where, Unresolved) or not root_of(where)
         ):

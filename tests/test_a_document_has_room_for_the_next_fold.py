@@ -11,8 +11,10 @@ document was 839. Its fold-marker count was frozen until
 MichaelYcJo/SpecSeal#526 split it along its own headings into three
 documents, each under the ceiling, and the entry could not outlive the split:
 once the file was back under the ceiling, the listing itself failed, which is
-how the entry below came to be removed. The listing stays, empty, for the
-next document a fold takes past the ceiling before it can be split.
+how the entry came to be removed. The listing stayed, empty, for the next
+document taken past the ceiling before it could be split, and that was
+`docs/commit-review-gate-spec.md`: #692 took it to 1,039 lines, and its split
+is MichaelYcJo/SpecSeal#715's, on the owner's decision of 2026-10-02.
 
 The marker count is frozen, not the line count, because a marker is the one
 thing only a fold adds. A sibling that edits a listed document's prose moves
@@ -337,9 +339,9 @@ def test_this_repository_passes_the_command_with_no_flags():
     """S1: the values come from `seal/config.md`, and both checks run."""
     code, out, err = command("--root", ROOT)
     assert code == 0, (out, err)
-    cutoff, ceiling, _, _ = declared()
+    cutoff, ceiling, over, _ = declared()
     assert f"; the cutoff {cutoff} binds " in out, out
-    assert f" to {ceiling} lines, 0 listed over it\n" in out, out
+    assert f" to {ceiling} lines, {len(over)} listed over it\n" in out, out
 
 
 def config_root(tmp_path, rows):

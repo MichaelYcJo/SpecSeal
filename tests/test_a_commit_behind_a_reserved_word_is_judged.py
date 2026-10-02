@@ -48,8 +48,11 @@ SHAPES = {
     "for": (f"for d in a; do {C}; done", UNRESOLVED),
     "while": (f"while true; do {C}; break; done", UNRESOLVED),
     "if": (f"if true; then {C}; fi", UNRESOLVED),
-    # The rest of the reserved words that begin a command list.
-    "until": (f"until false; do {C}; done", UNRESOLVED),
+    # The rest of the reserved words that begin a command list. Every row
+    # ends when it runs, as `while`'s does: the commit gate's S2 replays this
+    # table against real git, and an `until false` with no `break` never
+    # returned there (#692, after the chain: CI run 36965695916).
+    "until": (f"until false; do {C}; break; done", UNRESOLVED),
     "select": (f"select d in a; do {C}; done", UNRESOLVED),
     "else": (f"if false; then :; else {C}; fi", UNRESOLVED),
     "elif": (f"if false; then :; elif {C}; then :; fi", UNRESOLVED),

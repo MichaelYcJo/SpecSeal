@@ -483,6 +483,53 @@ def _no_real_transcripts(monkeypatch):
         monkeypatch.setattr(consent, "PROJECTS_ROOT", _NO_TRANSCRIPTS)
 
 
+# What a Claude Code session exports to every Bash child, and so to every git
+# hook a fixture repository's stub runs (#692, `phases/phase-1.md` M4). A
+# suite run from inside a session inherits them and CI does not, so a stub
+# would judge a fixture's commit on one and stay silent on the other (P2).
+# Every case starts with none of them; a case about a session sets its own.
+SESSION_VARIABLES = (
+    "CLAUDECODE",
+    "CLAUDE_CODE_SESSION_ID",
+    "CLAUDE_PID",
+    "CLAUDE_CODE_CHILD_SESSION",
+    "CLAUDE_CODE_SESSION_ATTENDED",
+    "CLAUDE_CODE_ENTRYPOINT",
+)
+
+
+@pytest.fixture(autouse=True)
+def _no_session_in_the_environment(monkeypatch):
+    for name in SESSION_VARIABLES:
+        monkeypatch.delenv(name, raising=False)
+
+
+# `hooks/hook-install.py` runs first in `pre-bash` and in `session-start`, so
+# every case that drives either group would grow git hooks in its fixture
+# repository and print the installer's line beside the gate it is about. The
+# installer's own cases, and the real-git cases of the hooks it writes, unset
+# this themselves (`git_hooks_installed` below).
+@pytest.fixture(autouse=True)
+def _no_hooks_installed_unless_asked(monkeypatch):
+    monkeypatch.setenv("SPECSEAL_HOOK_INSTALL", "off")
+
+
+# `hooks/answers.py` keeps the tokens a command carried under the person's
+# home. Every case keeps them under its own temporary directory instead, so no
+# case writes into the home of whoever runs the suite.
+@pytest.fixture(autouse=True)
+def _answers_kept_in_the_case(monkeypatch, tmp_path_factory):
+    monkeypatch.setenv(
+        "SPECSEAL_ANSWERS", str(tmp_path_factory.mktemp("specseal-answers"))
+    )
+
+
+@pytest.fixture
+def git_hooks_installed(monkeypatch):
+    """Lets `hooks/hook-install.py` write, for a case that is about it."""
+    monkeypatch.delenv("SPECSEAL_HOOK_INSTALL", raising=False)
+
+
 def load_hook_module(filename, name):
     spec = importlib.util.spec_from_file_location(name, os.path.join(HOOKS, filename))
     mod = importlib.util.module_from_spec(spec)
@@ -587,6 +634,38 @@ def symlink_or_skip(target, link):
         os.symlink(target, link)
     except OSError as exc:
         pytest.skip(f"symbolic links are not available here ({exc})")
+
+
+def ps_names_the_parent_or_skip(limit):
+    """Skip unless `ps -o ppid=,comm= -p <pid>` names this process's parent.
+
+    That call is how the hooks walk up to the `claude` process: the commit
+    gate's lease route and old spelling (`hooks/hooksession.py`) and the
+    worktree guard's count of other sessions. Git for Windows' `ps` takes no
+    `-o`, so on a `windows-latest` runner every one of them finds nothing,
+    and a case resting on the walk has no behaviour to pin there. LIMIT names
+    the documented known limit the skip rests on (#692).
+
+    Asked by attempting the call, for the reason `symlink_or_skip` gives:
+    a Windows machine with another `ps` keeps the coverage, and nothing is
+    inferred from the platform.
+    """
+    try:
+        r = subprocess.run(
+            ["ps", "-o", "ppid=,comm=", "-p", str(os.getpid())],
+            capture_output=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=15,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        pytest.skip(f"{limit} -- `ps` could not be run here ({exc})")
+    parent = r.stdout.strip().partition(" ")[0]
+    if r.returncode != 0 or parent != str(os.getppid()):
+        pytest.skip(
+            f"{limit} -- `ps -o ppid=,comm= -p` does not name a parent here "
+            f"(exit {r.returncode})"
+        )
 
 
 def fifo_or_skip(path):

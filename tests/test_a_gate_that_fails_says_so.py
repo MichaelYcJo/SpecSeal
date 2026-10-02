@@ -414,12 +414,14 @@ def test_a_broken_opt_in_module_is_said_rather_than_read_as_not_opted_in(
     opted_in(repo)
     hooks = hooks_copy(tmp_path, {"optin.py": BROKEN})
     dispatch(hooks, "pre-bash", bash(repo, "s-x"))
-    # One file time for all three, as a coarse file system gives: the order
-    # said is `pre-bash`'s own order, which is not name order here.
+    # One file time for all of them, as a coarse file system gives: the order
+    # said is `pre-bash`'s own order, which is not name order here. The git
+    # hook installer imports `optin.py` too, and it runs first (#692).
     for path in (repo / ".git" / RECORDS / "s-x").iterdir():
         os.utime(path, ns=(10**18, 10**18))
     lines = said(stop(hooks, repo, "s-x"))
     assert gates_said(lines) == [
+        "hook-install.py",
         "commit-review-gate.py",
         "worktree-guard.py",
         "mode-gate.py",

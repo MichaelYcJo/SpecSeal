@@ -76,8 +76,10 @@ incorporation. This file only adds what the skill does not carry.
    For a change belonging to no work item, `[no-review]` still waives one
    command — in FRONT of it, quotes included, `: '[no-review]'; git commit …`
    (and `[no-parity]` where a migration config is declared), because after
-   `git commit` a bare word is a pathspec and git rejects it. That token is
-   the last way past the gate and never the first one to reach for. On a
+   `git commit` a bare word is a pathspec and git rejects it;
+   `git -c specseal.waive=review commit …` is the same waiver in git's own
+   spelling. That token is the last way past the gate and never the first
+   one to reach for. On a
    probe it records something untrue: the commit lands in a scratch
    repository and was never work that skipped review. Contract §8 names the
    two shapes to reach for before it.
@@ -117,7 +119,7 @@ incorporation. This file only adds what the skill does not carry.
         `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
         nothing-looks/questions.md` Q4 is where the question is open, and
         this paragraph is evidence for it rather than an answer to it.
-        Verified 2026-10-01 against "## Phases"@a31832e4. -->
+        Verified 2026-10-01 against "## Phases"@639bc11e. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
@@ -167,7 +169,10 @@ incorporation. This file only adds what the skill does not carry.
    **§9 lands on you harder than on any other agent**, because you edit more
    than they do — and its second reason is why the design gate's waiver
    example above carries a RIDER. A patch to that paragraph is exactly the
-   shape the gate reads a commit out of, without your having written one.
+   shape the gate reads a commit out of, without your having written one —
+   in the clones the old PreToolUse reading still covers. In the rest, the
+   stubs leave your command text unread, which is why §9's first reason, an
+   edit that can fail, is the one that holds for you everywhere.
 
    **At each phase's close, also write `seal/specs/<work-item-id>/phases/phase-N.md`
    from `templates/sdd-phase.md`** — what this phase was asked, what building

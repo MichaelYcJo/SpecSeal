@@ -41,6 +41,7 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import console
+import githooks
 import implementer
 import optin
 import routing
@@ -141,6 +142,39 @@ def already_told(cwd, session):
     return False
 
 
+def notify(cwd, session):
+    """The one line for a commit that happened in `cwd`, or "".
+
+    Called by `hooks/git/post-commit.py`, where git running the hook is the
+    fact that a commit happened, in the worktree it landed in (#692), and by
+    `main` below for a clone whose hooks slot is foreign.
+    """
+    top = optin.repo_root(cwd)
+    if not top or not optin.opted_in(cwd):
+        return ""
+
+    branch = routing.current_branch(cwd)
+    declared = routing.for_branch(top, branch)
+    if not declared:
+        return ""
+    missing = unfulfilled(cwd, branch, declared)
+    if not missing:
+        return ""
+    if already_told(cwd, session):
+        return ""
+
+    # The path a person has to recognise, spelled the way their platform
+    # spells it — `os.path.join`, not a literal `/`, for the reason
+    # `review-history-guard.py` gives: half of one path in each dialect.
+    item = routing.item_dir(top, branch)
+    where = (
+        os.path.join(os.path.relpath(item, top), routing.FILENAME)
+        if item
+        else "the routing declaration"
+    )
+    return line(where, missing)
+
+
 def main():
     try:
         payload = json.load(sys.stdin)
@@ -153,30 +187,13 @@ def main():
         return
 
     cwd = payload.get("cwd") or "."
-    top = optin.repo_root(cwd)
-    if not top or not optin.opted_in(cwd):
+    # Where this plugin's git hooks run, `post-commit` says this line for the
+    # commit git actually made, so the reading of the command stands aside.
+    if githooks.decides(optin.repo_root(cwd)):
         return
-
-    branch = routing.current_branch(cwd)
-    declared = routing.for_branch(top, branch)
-    if not declared:
-        return
-    missing = unfulfilled(cwd, branch, declared)
-    if not missing:
-        return
-    if already_told(cwd, payload.get("session_id")):
-        return
-
-    # The path a person has to recognise, spelled the way their platform
-    # spells it — `os.path.join`, not a literal `/`, for the reason
-    # `review-history-guard.py` gives: half of one path in each dialect.
-    item = routing.item_dir(top, branch)
-    where = (
-        os.path.join(os.path.relpath(item, top), routing.FILENAME)
-        if item
-        else "the routing declaration"
-    )
-    print(line(where, missing))
+    said = notify(cwd, payload.get("session_id"))
+    if said:
+        print(said)
 
 
 if __name__ == "__main__":
