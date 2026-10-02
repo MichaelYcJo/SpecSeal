@@ -272,13 +272,16 @@ def test_the_main_sessions_stop_draws_each_undrawn_file_once(tmp_path):
     next `Stop` of the same session prints nothing.
 
     #717's A15: the bytes are compared with the message `fitted` holds under
-    the budget, not with the file's scale drawn whatever its size."""
+    the budget, not with the file's scale drawn whatever its size — and at
+    `ROWS`' size that message IS the file's 0.90 drawing, so the step-down
+    is asserted not to have fired here rather than assumed."""
     mod = stamp_module()
     repo = opted_in(tmp_path)
     path = pending_for(repo, "s-1")
     lines = message(stop(repo))
     assert lines[0] == LABEL, lines[0]
     assert "\n".join(lines) == mod.fitted([(LABEL, ROWS, 0.9)]), "not the fitted form"
+    assert lines[1:] == mod.stamp(ROWS, 0.9, shape=False), "not the file's block form"
     assert any("\x1b[38;2;" in line for line in lines[1:]), "the drawing lost colour"
     assert not os.path.exists(path) and os.path.exists(mod.drawn_path(path))
     assert stop(repo) == "", "a drawn file was drawn a second time"
@@ -532,6 +535,31 @@ def test_two_files_in_one_turn_are_under_the_budget_together(tmp_path):
     assert first.split("\n", 1)[1] == second.split("\n", 1)[1], "two rungs"
 
 
+def test_a_values_file_from_an_older_gate_draws_every_row_and_skips_its_blanks(
+    tmp_path,
+):
+    """A13. A file the gate wrote from #666 to #717 carries `null` blanks, a
+    `chain` row, `exit 0` under the suite and `0 drifted . 0 broken` under
+    the ledger, and may still be pending when this hook draws it. Every row
+    it carries is drawn on the sheet as text, one line each and in order;
+    its blanks draw no line; and it opens with `label(values)`. At this
+    file's size that is the 0.90 drawing — the letter is what brought #666's
+    full row set back under the budget."""
+    mod = stamp_module()
+    repo = opted_in(tmp_path)
+    mod.write_values(str(repo / ".git"), "s-1", full_values())
+    text = json.loads(stop(repo))["systemMessage"]
+    label, *lines = text.split("\n")
+    assert label == mod.label(full_values())
+    assert lines == mod.stamp(FULL_ROWS, 0.9, shape=False), "not the 0.90 letter"
+    sheet = mod.compose(FULL_ROWS, 0.9)
+    rows = [row for row in FULL_ROWS if row is not None]
+    assert sheet.height == len(rows) + 2, "a blank row drew a line"
+    for k, (name, value) in enumerate(rows, 1):
+        said = "".join(cell[2][0] if cell[2] else " " for cell in sheet.cells[k])
+        assert f"{name:<8} {value}".strip() in said, (k, said)
+
+
 def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     """A4. Driven at small budgets: the file's own scale where it fits, then
     0.80, then 0.75, then the panel with no disc — which is returned whatever
@@ -563,12 +591,20 @@ def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
 
 
 def test_the_policy_states_the_budget_and_names_its_case():
-    """A18's first half. `docs/the-broad-gate.md` §*Where the stamp is drawn*
-    carries the budget rule under #717's marker, and its `Enforced by:` line
-    names A3's case."""
+    """A18. `docs/the-broad-gate.md` §*Where the stamp is drawn* carries the
+    budget rule under #717's marker, and its `Enforced by:` line names A3's
+    case; the marker stands a second time over the paragraph nothing
+    enforces, which now says the sheet's background is the owner's reading,
+    with the contrast figures beside it."""
     text = flat("docs", "the-broad-gate.md")
     marker = "<!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->"
-    assert marker in text
+    assert text.count(marker) == 2, "the rule and the unchecked half, one marker each"
+    unchecked = text.split(marker)[2]
+    assert "**What the person's screen shows is not checked" in unchecked
+    assert "So is how the sheet reads on a light background as well as a dark one." in (
+        unchecked
+    )
+    assert "on white they are 1.02 and 1.48 to 1" in unchecked
     rule = text.split(marker)[1].split("<!--", 1)[0]
     assert "**The hook holds its whole message under a budget named in the code" in rule
     assert "::test_the_hooks_message_is_under_the_budget_for_one_file" in rule

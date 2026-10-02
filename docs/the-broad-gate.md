@@ -141,19 +141,24 @@ not seen. `seal_stamp.MESSAGE_LIMIT` is that number, measured with a scratch
 hook; `MESSAGE_BUDGET` keeps 1,000 characters of it back for the gate-failure
 report `hooks/dispatch.py` prepends to the same message. Every block of one
 message is drawn at one rung, the highest at which all of them fit: the
-files' own scales, then 0.90, 0.80 and 0.75, then the panel with no disc. A
+files' own scales, then 0.90, 0.80 and 0.75, then the sheet with no disc. A
 stamp can come out smaller or without its disc, and never undrawn. The
 gate's own terminal drawing and `seal-stamp` are not budgeted, because
 neither is a hook's message.
 Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_hooks_message_is_under_the_budget_for_one_file, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_two_files_in_one_turn_are_under_the_budget_together, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_ladder_steps_down_in_order_and_ends_with_no_disc
 
+<!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->
 <!-- specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for -->
 **What the person's screen shows is not checked, and neither is the order of
 the text above it.** The cases prove that the hook emits the right bytes for
 the right payload. A screenshot of the probe proved once that such bytes
 render unfolded, in colour, after the turn's final text. Whether a given
 run's stamp was seen, and whether the orchestrator wrote its result in the
-turn the stamp closed, are read by the person and by nobody else.
+turn the stamp closed, are read by the person and by nobody else. So is how
+the sheet reads on a light background as well as a dark one. Its parchment
+and its edge are painted, and on white they are 1.02 and 1.48 to 1 against
+the screen where on black they are 20.5 and 14.2; those figures are
+arithmetic, and the owner reads the first real seal on each background.
 **Nor is the hook's silence where it cannot draw.** It draws nothing and
 says nothing where the main session's `python3` is under 3.12, the floor
 `seal_stamp.py` refuses below (macOS ships 3.9); where that session's

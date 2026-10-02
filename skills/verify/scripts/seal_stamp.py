@@ -1,22 +1,32 @@
 #!/usr/bin/env python3
 """seal-stamp — the drawing the broad gate prints when it was earned.
 
-Issue #30 §*What it prints*. A wax disc with a fleur-de-lis, and a parchment
-panel beside it carrying what the gate read: the tree and its branch, the
-base and its ref, the work item, the suite's counts, the ledger, the chain,
-the rounds (`broad_gate.panel` owns the list). The disc is COMPUTED —
-`hypot` for the bands, `sin` for the rope's twist — and only the lily is
-authored, as a 29x32 counted-stitch chart held below as data. Four hand-typed
-discs came before this one and every one was lopsided; a circle that is
-calculated cannot be off centre, and resizing it is one number.
+Issue #30 §*What it prints*, redrawn by #717. A letter: what the gate read —
+the tree and its branch, the base and its ref, the work item, the suite's
+counts, the ledger's, the steps CI also runs, the rounds (`broad_gate.panel`
+owns the list) — written on a parchment sheet, with a wax disc pressed over
+the sheet's lower right corner and a fleur-de-lis pressed into the wax. The
+disc is COMPUTED — `hypot` for its edge — and only the lily is authored, as a
+29x32 counted-stitch chart held below as data. Four hand-typed discs came
+before #30's and every one was lopsided; a circle that is calculated cannot
+be off centre, and resizing it is one number. #717 took off the rope ring and
+the outer red band and pressed the lily in one red lit from the upper left,
+and the owner chose that drawing, its colours and its scale from renderings.
 
-Two forms, one drawing. The block form is half-block characters in truecolour,
-emitted only where the colour changes (a code per cell was 282 KB for one
-seal). The letter twin is the same footprint as letters — `o O` rope, `l m`
-wax, `G W y Y` the lily's golds, `.` the field — for a console that cannot
+Two forms, one drawing (`compose`). The block form is half-block characters,
+the disc in truecolour and the sheet in 256-colour codes, emitted only where
+the colour changes (a code per cell was 282 KB for one seal). The letter twin
+is the same footprint as letters — the sheet's edge `|`, its top `.---.` and
+its bottom `'---'`, the text as itself, `m` the wax's edge, `.` the field and
+`G Y y` the lily's face, highlight and shadow — for a console that cannot
 render half-blocks, and for `seal-stamp` on a pipe. The twin is chosen when
 stdout is not a UTF-8 terminal, or on `--shape`. An agent's report carries
 neither: since #400 the gate draws nothing on a pipe.
+
+**The `Stop` hook's message is held under a budget** (#717): the harness
+persists a `systemMessage` longer than `MESSAGE_LIMIT` and shows a preview
+instead, so `fitted` steps every stamp in one message down `SCALE_LADDER`
+together, and last draws the sheet with no disc.
 
 The stamp prints on success only. The failure form, `not_sealed`, is the words
 `NOT SEALED`, the branch and the tree, the base's ref and its commit
@@ -53,6 +63,7 @@ nothing was written on 2.
 """
 
 import argparse
+import collections
 import json
 import math
 import os
@@ -98,9 +109,12 @@ if _refusal:
 
 # --- the chart -----------------------------------------------------------
 #
-# 29 columns by 32 rows. `D` the lily's gold, `R` its highlight, `y` the
-# band's shadow, `Y` the band's light, `.` the field. Traced outside the tree
-# by hand against a counted-stitch pattern; this is the only copy.
+# 29 columns by 32 rows. Traced outside the tree by hand against a
+# counted-stitch pattern; this is the only copy. Every letter but `.` is the
+# lily since #717, which presses it into the wax in one colour; the letters
+# were the golds of #30's drawing (`D` the lily, `R` its highlight, `y` and
+# `Y` the band) and are kept, because `shrink` takes the majority letter of
+# the stitches a cell covers and the owner's rendering came from this chart.
 ART = """
 ..............D..............
 .............DDD.............
@@ -136,27 +150,37 @@ DDDD......DD.DDD.DD......DRDD
 ..............D..............
 """.strip("\n").splitlines()
 
-GOLD = {
-    "D": (0xC8, 0x96, 0x1E),
-    "R": (0xF7, 0xDC, 0x8A),
-    "y": (0x8C, 0x63, 0x12),
-    "Y": (0xE8, 0xB7, 0x3C),
-}
-ROPE_L, ROPE_D = (232, 226, 196), (168, 158, 122)
-WAX_L, WAX_M, FIELD = (206, 46, 48), (168, 26, 30), (78, 12, 16)
+# The disc's colours, chosen by the owner from renderings (#717). The rope
+# ring and the outer light-red band are gone, so `WAX_M` is the wax's edge;
+# the lily is pressed into the field in one colour, lit from the upper left:
+# its highlight where the chart cell up-left of a lily cell is field, its
+# shadow where the cell down-right is, and its face everywhere else. They are
+# truecolour, the one part of the letter drawn that way.
+WAX_M = (168, 26, 30)
+FIELD = (120, 16, 20)
+LILY_LIGHT = (226, 82, 74)
+LILY_SHADOW = (96, 10, 14)
+LILY_FACE = (186, 34, 38)
+DISC_COLOURS = (WAX_M, FIELD, LILY_LIGHT, LILY_SHADOW, LILY_FACE)
+# Where the disc ends, as a fraction of its radius, and where its edge begins.
+WAX_EDGE, FIELD_EDGE = 0.84, 0.78
 
-# The letter for each colour. `None` is outside the disc.
+# The sheet's colours, as 256-colour codes (#717): the parchment and its
+# one-cell edge, the ink, and the red of the `SEALED` title. A code is a
+# shorter sequence than a triple, and the sheet is most of the letter's cells.
+PARCHMENT = 230  # (255, 255, 215) in the 256-colour cube
+SHEET_EDGE = 187  # (215, 215, 175)
+INK = 94  # (135, 95, 0)
+TITLE = 124  # (175, 0, 0)
+
+# The letter for each disc colour in the twin. `.` is the field, as it was
+# before #717; a cell of the sheet is its own character (`compose`).
 KEY = {
-    ROPE_L: "o",
-    ROPE_D: "O",
-    WAX_L: "l",
     WAX_M: "m",
     FIELD: ".",
-    GOLD["D"]: "G",
-    GOLD["R"]: "W",
-    GOLD["y"]: "y",
-    GOLD["Y"]: "Y",
-    None: " ",
+    LILY_FACE: "G",
+    LILY_LIGHT: "Y",
+    LILY_SHADOW: "y",
 }
 
 # #30 §*Size*: the chart compresses to 75 % with the lily still legible; at
@@ -170,7 +194,9 @@ SCALE_CEILING = 1.0
 # 16, the darkest gold that crowds the lily's foot at 0.95 has cleared, the
 # rope settles to two rows, and the highlight still runs the centre leaf.
 # The trade was the lily's legibility against the two blocks lining up, and
-# legibility won.
+# legibility won. #717 drew the letter at 0.90 again, the owner choosing it
+# from renderings at 0.85 and 0.90 with the disc pressed on the sheet; the
+# rope this paragraph names is gone.
 #
 # 0.75 was the other candidate, passed over rather than missed: it is the only
 # legal scale where the disc (17 lines) and the panel end within one line of
@@ -284,10 +310,12 @@ def build(scale=1.0, margin=0.74):
     from a cell to its colour, `None` outside the disc.
 
     The radius is the chart's reach from its centre over `margin`, so the lily
-    fills the field and the bands are drawn around it: rope from 0.90, wax in
-    two reds from 0.78, the field and the chart inside. The rope's twist is a
-    sine over the angle, so it alternates light and dark around the ring.
-    `h` is even, because the block form prints two cells per line."""
+    fills the field and the wax is drawn around it: nothing past `WAX_EDGE`,
+    the wax's edge from `FIELD_EDGE`, the field and the lily inside, the lily
+    in the three colours its neighbours decide (#717). The grid keeps the size
+    #30's rope gave it, so a scale is the same footprint it was; the cells
+    past the wax's edge are outside the disc. `h` is even, because the block
+    form prints two cells per line."""
     refusal = check_scale(scale)
     if refusal:
         raise ValueError(refusal)
@@ -305,6 +333,12 @@ def build(scale=1.0, margin=0.74):
     h = w + (w % 2)
     ox, oy = w / 2, h / 2
 
+    def chart(dx, dy):
+        # `floor`, not `int`: `int` truncates toward zero, so the cell just
+        # outside the chart's top-left would read stitch 0 a second time.
+        fx, fy = math.floor(dx + fw / 2), math.floor(dy + fh / 2)
+        return art[fy][fx] if 0 <= fy < fh and 0 <= fx < fw else "."
+
     def px(x, y):
         # Sampled at the cell's centre. Sampled at its corner, the disc sat
         # half a cell right and half a cell down of the grid's centre — the
@@ -312,79 +346,112 @@ def build(scale=1.0, margin=0.74):
         # the lopsidedness a computed circle is supposed to make impossible.
         dx, dy = x + 0.5 - ox, y + 0.5 - oy
         r = math.hypot(dx, dy) / r0
-        if r > 1.00:
+        if r > WAX_EDGE:
             return None
-        if r > 0.90:
-            twist = math.sin(math.atan2(dy, dx) * 30 + r * 8)
-            return ROPE_L if twist > 0 else ROPE_D
-        if r > 0.84:
-            return WAX_L
-        if r > 0.78:
+        if r > FIELD_EDGE:
             return WAX_M
-        # `floor`, not `int`: `int` truncates toward zero, so the cell just
-        # outside the chart's top-left would read stitch 0 a second time.
-        fx, fy = math.floor(dx + fw / 2), math.floor(dy + fh / 2)
-        if 0 <= fy < fh and 0 <= fx < fw and art[fy][fx] in GOLD:
-            return GOLD[art[fy][fx]]
-        return FIELD
+        if chart(dx, dy) == ".":
+            return FIELD
+        if chart(dx - 1, dy - 1) == ".":
+            return LILY_LIGHT
+        if chart(dx + 1, dy + 1) == ".":
+            return LILY_SHADOW
+        return LILY_FACE
 
     return w, h, px
 
 
 # --- the two row writers -------------------------------------------------
 #
-# Both walk the same cells — row `y` on top, `y + 1` below — so the two forms
-# have one footprint: a cell is blank in the twin exactly where the block form
-# prints a space.
+# Both walk the same cells, so the two forms have one footprint: one
+# character per cell, the block form's a half-block or a space and the twin's
+# a letter. A cell is `(top, bottom, text, frame)`: the colours of its two
+# halves — a disc colour as a triple, a sheet colour as a 256-colour code, or
+# None for nothing — the `(character, colour)` written on it or None, and the
+# twin's character for the sheet there or None off it (`compose`).
+
+RESET = "\x1b[0m"
 
 
-def sgr(ground, rgb):
-    """A truecolour sequence: `ground` 38 for the foreground, 48 for the
-    background."""
-    r, g, b = rgb
+def sgr(ground, colour):
+    """A colour sequence: `ground` 38 for the foreground, 48 for the
+    background. A triple is truecolour; an int is a 256-colour code (#717)."""
+    if isinstance(colour, int):
+        return f"\x1b[{ground};5;{colour}m"
+    r, g, b = colour
     return f"\x1b[{ground};2;{r};{g};{b}m"
 
 
-def colour_row(px, w, y):
+def disc_cells(px, w, y):
+    """One line of cells over the disc alone: row `y` on top, `y + 1`
+    below, nothing written and no sheet."""
+    return [(px(x, y), px(x, y + 1), None, None) for x in range(w)]
+
+
+def block(cell):
+    """`(character, foreground, background)` for one cell of the block form.
+
+    Text is its character in its colour on parchment. A cell nothing covers
+    is a bare space. One half outside everything is a half-block in the
+    other half's colour with no background; two halves of one colour are a
+    space painted that colour; two colours are an upper half-block with the
+    bottom one as its background."""
+    top, bottom, text, _frame = cell
+    if text:
+        return text[0], text[1], PARCHMENT
+    if top is None and bottom is None:
+        return " ", None, None
+    if top is None:
+        return "▄", bottom, None
+    if bottom is None:
+        return "▀", top, None
+    if top == bottom:
+        return " ", None, top
+    return "▀", top, bottom
+
+
+def colour_row(cells):
     """One line of the block form, emitting a colour only where it changes.
 
-    A cell whose top half is outside the disc is a lower half-block in the
-    bottom colour; one whose bottom half is outside is an upper half-block;
-    one inside on both halves is an upper half-block with the bottom colour
-    as its background. The line ends with a reset, so nothing bleeds into the
-    panel beside it."""
+    A painted space keeps the foreground it was handed, because it draws
+    none. A cell nothing covers resets both, so no colour bleeds past the
+    letter, and so does the line's end. Trailing cells nothing covers are
+    `compose`'s to leave off; a painted one at the end is the sheet, and it
+    is kept with its colour rather than stripped as padding."""
     out, fg, bg = [], None, None
-    for x in range(w):
-        top, bot = px(x, y), px(x, y + 1)
-        if top is None and bot is None:
-            if fg or bg:
-                out.append("\x1b[0m")
+    for cell in cells:
+        ch, want_fg, want_bg = block(cell)
+        if want_fg is None and want_bg is None:
+            if fg is not None or bg is not None:
+                out.append(RESET)
                 fg = bg = None
-            out.append(" ")
+            out.append(ch)
             continue
-        if top is None:
-            want_fg, want_bg, ch = bot, None, "▄"
-        elif bot is None:
-            want_fg, want_bg, ch = top, None, "▀"
-        else:
-            want_fg, want_bg, ch = top, bot, "▀"
-        if want_fg != fg:
+        if want_fg is not None and want_fg != fg:
             out.append(sgr(38, want_fg))
             fg = want_fg
         if want_bg != bg:
             out.append("\x1b[49m" if want_bg is None else sgr(48, want_bg))
             bg = want_bg
         out.append(ch)
-    return "".join(out) + "\x1b[0m"
+    return "".join(out) + (RESET if fg is not None or bg is not None else "")
 
 
-def letter_row(px, w, y):
-    """One line of the letter twin over the same two cell rows: the top cell's
-    letter, or the bottom cell's where only the bottom is inside the disc."""
+def letter_row(cells):
+    """One line of the letter twin over the same cells: the character
+    written there; else the disc's letter for whichever half is the disc's,
+    the top first, so a disc cell overrides the sheet's frame as it covers it
+    in colour; else the sheet's own character; else a space."""
     out = []
-    for x in range(w):
-        top, bot = px(x, y), px(x, y + 1)
-        out.append(KEY[top if top is not None else bot])
+    for top, bottom, text, frame in cells:
+        if text:
+            out.append(text[0])
+        elif top in KEY:
+            out.append(KEY[top])
+        elif bottom in KEY:
+            out.append(KEY[bottom])
+        else:
+            out.append(frame or " ")
     return "".join(out)
 
 
@@ -394,7 +461,11 @@ PANEL_WIDTH = 36
 
 
 def letter(rows, width=PANEL_WIDTH):
-    """A parchment panel carrying the stamp's numbers, set beside the disc.
+    """The panel carrying the stamp's numbers, framed in letters. Nothing
+    draws the frame since #717: `compose` takes the inner lines, without the
+    frame and without the blank ones, and writes them on the sheet. This is
+    still the one place a value's width is decided, which
+    `broad_gate.PANEL_VALUE_WIDTH` is measured against.
 
     `rows` is a list of `(label, value)` pairs with `None` for a blank line,
     so what the stamp reports is data the gate fills rather than a string it
@@ -418,35 +489,122 @@ def strip_ansi(s):
     return re.sub(r"\x1b\[[0-9;]*m", "", s)
 
 
-def beside(left, right, gap=3, pad_left=2):
-    """Two blocks side by side, the shorter one centred against the taller.
-    Widths are measured with colour codes removed."""
-    lw = max(len(strip_ansi(line)) for line in left) if left else 0
-    top = max(0, (len(left) - len(right)) // 2)
-    rows = max(len(left), len(right) + top)
-    out = []
-    for i in range(rows):
-        line = left[i] if i < len(left) else ""
-        pad = lw - len(strip_ansi(line))
-        r = right[i - top] if 0 <= i - top < len(right) else ""
-        out.append(" " * pad_left + line + " " * (pad + gap) + r)
-    return out
+# --- the letter: the text on a sheet, the disc pressed on its corner -------
+#
+# #717, the owner's choice from rendered prototypes: the panel's text written
+# on parchment, the sheet one blank line taller than the text at its top and
+# its bottom, and the disc pressed over the sheet's lower right corner, half
+# of it hanging below the last line and, where the disc sets the width, half
+# over the right edge.
+
+# The column the text starts in: the edge, then two cells of parchment. Each
+# text line keeps one leading space of `letter`'s, so a label stands four in.
+TEXT_LEFT = 3
+# Clear parchment cells between the last character of a text line and the
+# wax on that line. The prototype asked for two and looked for them on the
+# disc's equator alone, so its rendering showed wax touching the text on one
+# row; two on every line is the prototype's intent (`spec.md` S3).
+GAP = 2
+
+Letter = collections.namedtuple("Letter", "cells width height")
+
+
+def sheet_text(rows):
+    """The lines the sheet carries: `letter`'s inner lines without the
+    frame, without every blank one — a `None` row an older values file may
+    carry draws no line — and with one of their two leading spaces."""
+    inner = [line[1:-1].rstrip() for line in letter(rows)[1:-1]]
+    return [t[1:] if t.startswith("  ") else t for t in inner if t.strip()]
+
+
+def compose(rows, scale):
+    """The letter of `rows` as cells (see the writers above), with the
+    sheet's own width and height: `Letter(cells, width, height)`.
+
+    The disc at `scale` — None leaves it off, which is the last rung
+    `fitted` steps down to — stands with its centre line on the sheet's last
+    line and as far left as it can without covering a text cell or leaving
+    fewer than `GAP` clear cells after any line's last character. The
+    sheet's right edge is at the disc's centre column, or two cells past the
+    longest line where the text is wider, and its first and last lines are
+    blank. Lines end at their last cell something covers."""
+    text = sheet_text(rows)
+    lines, longest = len(text), max((len(t) for t in text), default=0)
+    if scale is None:
+        dw = dh = 0
+        px = None
+    else:
+        dw, dh, px = build(scale)
+    height = lines + 2
+    disc_lines = dh // 2
+    disc_top = max(1, height - disc_lines // 2 - 1)
+
+    def disc(left, x, y):
+        dx, dy = x - left, y - 2 * disc_top
+        return px(dx, dy) if px and 0 <= dx < dw and 0 <= dy < dh else None
+
+    def covered(left):
+        for k, said in enumerate(text, 1):
+            for x in range(TEXT_LEFT, TEXT_LEFT + len(said) + GAP):
+                if disc(left, x, 2 * k) or disc(left, x, 2 * k + 1):
+                    return True
+        return False
+
+    left = TEXT_LEFT
+    while px and covered(left):
+        left += 1
+    width = max(TEXT_LEFT + longest + 2, left + dw // 2)
+
+    def colour(x, y):
+        on_disc = disc(left, x, y)
+        if on_disc:
+            return on_disc
+        if y >= 2 * height or x >= width:
+            return None
+        return SHEET_EDGE if x in (0, width - 1) else PARCHMENT
+
+    def frame(x, ln):
+        if ln >= height or x >= width:
+            return None
+        side = x in (0, width - 1)
+        if ln == 0:
+            return "." if side else "-"
+        if ln == height - 1:
+            return "'" if side else "-"
+        return "|" if side else " "
+
+    cells = []
+    for ln in range(max(height, disc_top + disc_lines)):
+        said = text[ln - 1] if 0 < ln <= lines else ""
+        line = []
+        for x in range(max(width, left + dw)):
+            top, bottom = colour(x, 2 * ln), colour(x, 2 * ln + 1)
+            char = None
+            if TEXT_LEFT <= x < TEXT_LEFT + len(said) and top == bottom == PARCHMENT:
+                ink = TITLE if said.strip() == "SEALED" else INK
+                char = (said[x - TEXT_LEFT], ink)
+            line.append((top, bottom, char, frame(x, ln)))
+        while line and line[-1][0] is None and line[-1][1] is None:
+            line.pop()
+        cells.append(line)
+    # The disc's grid keeps the rows #30's rope needed, and below the wax
+    # they are empty; a line that carries nothing is not part of the letter.
+    while cells and not cells[-1]:
+        cells.pop()
+    return Letter(cells, width, height)
 
 
 # --- what the gate calls -------------------------------------------------
 
 
 def stamp(rows, scale=1.0, shape=False):
-    """The lines of the stamp: the disc at `scale`, the panel of `rows`
-    beside it. `shape` picks the letter twin. Raises `ValueError` with the
-    refusal sentence for a scale outside the band. `scale` None is the
-    panel with no disc, the last rung `fitted` steps down to (#717)."""
-    if scale is None:
-        return letter(rows)
-    w, h, px = build(scale)
+    """The lines of the stamp: the letter of `rows` with the disc at `scale`
+    pressed on its corner (#717). `shape` picks the letter twin. Raises
+    `ValueError` with the refusal sentence for a scale outside the band.
+    `scale` None is the sheet with no disc, the last rung `fitted` steps
+    down to."""
     writer = letter_row if shape else colour_row
-    disc = [writer(px, w, y) for y in range(0, h, 2)]
-    return beside(disc, letter(rows))
+    return [writer(line) for line in compose(rows, scale).cells]
 
 
 def fitted(blocks, budget=MESSAGE_BUDGET):
@@ -459,10 +617,12 @@ def fitted(blocks, budget=MESSAGE_BUDGET):
     together: the files' own scales first, then each of `SCALE_LADDER` —
     never above a file's own scale — and last every block with no disc.
     Two stamps in one message are two stamps at one scale. The last rung is
-    returned whatever its size, because nothing comes after it: a panel
-    with no disc is about 40 characters a row, and its width is bounded by
-    `broad_gate.PANEL_VALUE_WIDTH`, so only a record deferring to far more
-    homes than any work item has had could pass the budget there.
+    returned whatever its size, because nothing comes after it: a sheet with
+    no disc is about 70 characters a row with its colour codes (2,071 for
+    the widest panel this tree can produce, measured 2026-10-02), and its
+    width is bounded by `broad_gate.PANEL_VALUE_WIDTH`, so only a record
+    deferring to far more homes than any work item has had could pass the
+    budget there.
     `budget` is a parameter so a case can drive every rung."""
 
     def message(rung):
@@ -780,7 +940,7 @@ def main(argv=None, console_wants_letters=None):
     both name; a direct call may leave it to be asked here."""
     parser = argparse.ArgumentParser(
         prog="seal-stamp",
-        description="Print the sealer's seal — the disc the broad gate stamps.",
+        description="Print the sealer's seal — the letter the broad gate stamps.",
     )
     parser.add_argument(
         "--shape", action="store_true", help="the letter twin, whatever the console"
