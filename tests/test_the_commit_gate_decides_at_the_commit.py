@@ -164,6 +164,24 @@ def q(p):
     return shlex.quote(str(p))
 
 
+def as_the_tool_spells_it(command):
+    """The `-c` string the Bash tool hands its shell for COMMAND: the command
+    inside `eval '…'`, with more after it (`pwd -P` into a file, in the
+    harness).
+
+    The more-after-it is what keeps the shell alive. bash 5.1 and later
+    replace a `-c` shell with the last command of its list, so `bash -c
+    "$COMMAND"` holds the command in no process by the time git's hook walks
+    up to `claude`, and an answer `hooks/answers.py` can only give to the
+    call whose argv carries it is given to nobody. macOS's bash 3.2 does not
+    do that, so both cases that model a call that way passed there and
+    failed on ubuntu's 5.2 (#692, after the chain: CI run 36965695916). The
+    harness's own string cannot be replaced, because `eval` is not its last
+    command; the argv `ps` shows for it is the one
+    `tests/test_the_old_spellings_reach_the_hook.py#shell` records."""
+    return f"eval {q(command)} < /dev/null && pwd -P >/dev/null"
+
+
 # --- S1: the recorded run's four commands -----------------------------------
 
 
@@ -315,7 +333,7 @@ def _run_corpus_row(base, command, with_hooks, home):
             _as_a_session(base, repos),
             cwd=str(repos["main"]),
             capture_output=True,
-            env=env(home, CORPUS_COMMAND=text),
+            env=env(home, CORPUS_COMMAND=as_the_tool_spells_it(text)),
             stdin=subprocess.DEVNULL,
             timeout=20,
         )
@@ -726,7 +744,8 @@ def group(world, name, command, call):
 
 def as_a_call(world, command):
     """COMMAND as the Bash tool runs it: a shell of its own, carrying the
-    command in its argv, below a process named `claude`."""
+    command in its argv for as long as the command runs, below a process
+    named `claude`."""
     claude = world.tmp / "bin" / "claude"
     if not claude.exists():
         fake_claude(world)
@@ -735,7 +754,7 @@ def as_a_call(world, command):
         cwd=str(world.main),
         capture_output=True,
         text=True,
-        env=env(world.home, CALL_COMMAND=command),
+        env=env(world.home, CALL_COMMAND=as_the_tool_spells_it(command)),
         stdin=subprocess.DEVNULL,
         timeout=60,
     )

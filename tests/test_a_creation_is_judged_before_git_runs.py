@@ -25,7 +25,7 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import load_hook_module
+from conftest import load_hook_module, symlink_or_skip
 from test_the_guard_asks_once_per_session import ask_entries, write_transcript
 
 HOOKS = Path(__file__).resolve().parent.parent / "hooks"
@@ -105,6 +105,26 @@ class Clone:
             self.home / ".claude" / "projects", SESSION, ask_entries(self.top)
         )
 
+    def claude(self):
+        """A shell named `claude`, for the hooks to run below.
+
+        The harness runs every hook below its own `claude` process, and the
+        guard's count of other sessions starts by finding that process among
+        its ancestors (`hooks/worktree-guard.py#sessions_in_tree`). A case
+        that ran the dispatcher straight from pytest borrowed the ancestor of
+        whoever ran the suite: inside a session the count was taken and a
+        second creation met the single-stream refusal, while in CI, with no
+        `claude` anywhere, the count was unusable and the same creation met
+        the confirmation prompt instead (#692, after the chain: CI run
+        36965695916). A symlink to bash, so `ps` names it `claude`, for the
+        reasons `tests/test_the_commit_gate_decides_at_the_commit.py#fake_claude`
+        gives."""
+        link = self.tmp / "bin" / "claude"
+        if not link.exists():
+            link.parent.mkdir(exist_ok=True)
+            symlink_or_skip(BASH, link)
+        return link
+
     def call(self, command):
         """One Bash call as the harness makes it: the decision, and the
         command's result when it ran (None when it did not)."""
@@ -114,10 +134,13 @@ class Clone:
             "cwd": str(self.top),
             "session_id": SESSION,
         }
+        hook = f"{q(sys.executable)} {q(HOOKS / 'dispatch.py')}"
 
         def group(name):
+            # `; exit $?` keeps bash from exec-ing the hook in its own place,
+            # which would take the `claude` process out of the ancestry.
             return subprocess.run(
-                [sys.executable, str(HOOKS / "dispatch.py"), name],
+                [str(self.claude()), "-c", f"{hook} {name}; exit $?"],
                 input=json.dumps(payload),
                 capture_output=True,
                 text=True,
