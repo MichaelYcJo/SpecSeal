@@ -17,7 +17,10 @@
   `automation` press it asks nobody. `git -c specseal.waive=review commit …`
   is the waiver in git's own spelling, and the old `: '[no-review]'; git
   commit …` keeps working for the one Bash call that carries it, and for no
-  other agent's call in the same session. The old reading of the command
+  other agent's call in the same session — except on Windows, where it
+  waives nothing, because finding the call needs a `ps` that Git for
+  Windows does not ship, and the `-c` spelling is the one that works there.
+  The old reading of the command
   steps aside only for a command whose shape is known to be plain:
   `git commit`, `add`, `status`, `log`, `diff`, `show` or `rev-parse`,
   beside a few harmless words such as `cd`, `echo` and `tail`, with nothing

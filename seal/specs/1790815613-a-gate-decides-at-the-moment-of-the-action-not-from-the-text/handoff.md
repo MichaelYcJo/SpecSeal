@@ -29,7 +29,7 @@ None of these were read by any round, and each is a row in `overview.md`.
 
 ## What is owed next, in order
 
-1. On the new machine, check out `feat/692-a-gate-decides-at-the-moment-of-the-action-not-from-the-text` and pull it. Check that the commit identity is `zenith.m.jo@gmail.com`.
+1. On the new machine, check out `feat/692-a-gate-decides-at-the-moment-of-the-action-not-from-the-text` and pull it. Check that `git config user.email` is the owner's SpecSeal address, the one this branch's commits carry.
 2. **Fix the 17 Windows failures.** They are listed in `overview.md` §*Not verified*, in three groups. Work through them in this order:
    - **(3) First, because a person on Windows meets these, and they may be defects in the code:**
      - `test_s2_…[shape: stdbuf]`: a commit into `main` landed with the stubs installed.
