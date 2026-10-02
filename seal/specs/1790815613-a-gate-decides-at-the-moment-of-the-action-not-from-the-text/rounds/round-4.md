@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 705 |
-| Broad gate | 2ac372ec against e4399b65 |
+| Broad gate | aaf47348 against e4399b65; earlier run: 2ac372ec against e4399b65 |
 | Fixes checked by | no fixes to check |
 | Fix range | none |
 | Contract changes | none |
