@@ -627,9 +627,9 @@ def admitted(blocks, budget=MESSAGE_BUDGET):
     The owner's rule of 2026-10-02 (`questions.md` Q6), which replaced one
     rung for the whole message: a seal keeps its disc rather than share a
     message without it. So the message carries as many of the oldest blocks
-    as fit together WITH the disc, each at 0.75 or its own smaller scale,
-    and then each, oldest first, at the highest rung the others leave room
-    for: its own scale first, then each of `SCALE_LADDER`, never above its
+    as fit together WITH the disc, each at 0.75 — a scale below it is
+    refused before a block reaches here — and then each, oldest first, at
+    the highest rung the others leave room for: its own scale first, then each of `SCALE_LADDER`, never above its
     own scale. The blocks past those are not drawn here; the hook leaves
     their files pending, and the next `Stop` draws them whole.
 
