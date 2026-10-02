@@ -19,7 +19,9 @@
   `systemMessage` longer than 10,000 characters, counted in UTF-16 units —
   a character outside the BMP is two — and not in bytes. The hook keeps
   1,000 of them back for the gate-failure report that can be prepended to
-  the same message. One message carries as many of the oldest stamps as fit
+  the same message, and that report now cuts each exception's text at 200
+  of the same units rather than 200 characters, so two failed gates stay
+  inside the 1,000 whatever their text says. One message carries as many of the oldest stamps as fit
   under 9,000 with their disc, each at the highest rung the others leave
   room for — its own scale, 0.90, 0.80, 0.75 — and the rest wait for the
   next turn's end, so two seals of a real run's size are drawn one turn
