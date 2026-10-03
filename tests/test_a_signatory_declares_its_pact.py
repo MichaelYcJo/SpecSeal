@@ -341,3 +341,37 @@ def test_every_way_the_table_ends_is_read_or_refused(text, said):
         assert [s[1] for s in signatories] == ["example.com/org/orders-web"]
     else:
         assert any(said in r for r in refusals), refusals
+
+
+ENTRY = "has a `Signatory` entry that will not read: "
+
+
+@pytest.mark.parametrize(
+    "row, sentence",
+    [
+        ("|  |", ENTRY + "an empty row"),
+        (
+            "| https://example.com/org/orders web |",
+            ENTRY + "`https://example.com/org/orders web` holds a space — one "
+            "remote URL per entry",
+        ),
+        (
+            "| orders-mobile |",
+            ENTRY + "`orders-mobile` is not a remote URL — it reduces to no host "
+            "and path, so no repository can be found by it",
+        ),
+        (
+            "| git@example.com:org/orders-web.git |",
+            ENTRY + "`git@example.com:org/orders-web.git` and "
+            "`https://example.com/org/orders-web` are one repository",
+        ),
+    ],
+    ids=["empty", "a space", "not a url", "one repository"],
+)
+def test_every_entry_refusal_reads_after_the_pact(row, sentence):
+    """Both callers print a table refusal after "the pact "; each sentence
+    an entry can raise is pinned whole (round 2 of #647, white 14)."""
+    text = HEAD + row + "\n" + CLAUSE
+    _, refusals = config.pact_signatories(text)
+    assert refusals == [sentence], refusals
+    assert ("the pact " + sentence).count("the pact the") == 0

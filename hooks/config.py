@@ -923,9 +923,13 @@ def pact_signatories(text):
                 "it as `| … |`"
             )
         break
-    signatories, refusals = remote_entries(
-        values, "the `Signatory` table holds an empty row", named=False
-    )
+    # Both callers print each refusal after "the pact ", so an entry's own
+    # sentence gets a lead-in that reads after those words (round 2 of #647,
+    # white 14); `remote_entries` keeps the sentences the `Pact` row prints.
+    signatories, entry_refusals = remote_entries(values, "an empty row", named=False)
+    refusals = [
+        f"has a `Signatory` entry that will not read: {r}" for r in entry_refusals
+    ]
     if stray is not None:
         refusals.append(stray)
     if not values:
