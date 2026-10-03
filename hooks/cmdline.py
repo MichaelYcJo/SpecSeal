@@ -1728,57 +1728,82 @@ def reparsed_texts(tokens, env_words=True):
             # is; placing its command word is a parser (`spec.md` §*Scope*).
             texts += [t for t in rest if not t.startswith("-")]
         elif word in ("env", "genv"):
-            # OWN: still among env's own options, read through `ENV_OPTIONS`,
-            # where a cluster or an abbreviation can spell the split string.
-            # A redirection anywhere among them is the shell's and is read
-            # past; `--` ends them (rounds 1 and 2 of 1790993140). The split
-            # string's unabbreviated spellings are read anywhere, as the base
-            # read them.
-            own, value, skip = True, False, 0
-            for j, t in enumerate(rest):
-                if skip:
-                    skip -= 1
-                    continue
-                width = redirection_width(rest, j) if own else 0
-                if width:
-                    skip = width - 1
-                    continue
-                at, takes_next = _env_option(t, own and not value)
-                if value:
-                    value = False
-                elif own and (t == "--" or not t.startswith("-")):
-                    own = False
-                elif own:
-                    value = takes_next or (at is not None and at[0] == "next")
-                if at is None:
-                    continue
-                kind, string = at
-                if kind == "next" and j + 1 < len(rest):
-                    texts += _string_at(rest, j + 1)
-                    after = rest[j + 1 :]
-                elif kind == "here":
-                    texts.append(string)
-                    after = [string, *rest[j + 1 :]]
-                else:
-                    continue
-                if env_words:
-                    texts += _env_words(word, rest[:j], after)
+            # env's words are walked once under GNU's grammar and, for `env`
+            # alone, once under BSD's, and every string either walk finds is
+            # kept (#737): where the two read a word differently, one of them
+            # is the env that runs. `genv` is GNU's by name.
+            found = _env_walk(word, rest, "gnu", env_words)
+            if word == "env":
+                found += [
+                    t for t in _env_walk(word, rest, "bsd", env_words) if t not in found
+                ]
+            texts += found
+    return texts
+
+
+def _env_walk(word, rest, grammar, env_words):
+    """The strings `env`'s words REST hand a shell, read under GRAMMAR.
+
+    OWN: still among env's own options, read through `ENV_OPTIONS`, where a
+    cluster or an abbreviation can spell the split string. A redirection
+    anywhere among them is the shell's and is read past; `--` ends them
+    (rounds 1 and 2 of 1790993140). The split string's unabbreviated
+    spellings are read anywhere, as the base read them.
+    """
+    texts = []
+    own, value, skip = True, False, 0
+    for j, t in enumerate(rest):
+        if skip:
+            skip -= 1
+            continue
+        width = redirection_width(rest, j) if own else 0
+        if width:
+            skip = width - 1
+            continue
+        at, takes_next = _env_option(t, own and not value, grammar=grammar)
+        if value:
+            value = False
+        elif own and (t == "--" or not t.startswith("-")):
+            own = False
+        elif own:
+            value = takes_next or (at is not None and at[0] == "next")
+        if at is None:
+            continue
+        kind, string = at
+        if kind == "next" and j + 1 < len(rest):
+            texts += _string_at(rest, j + 1)
+            after = rest[j + 1 :]
+        elif kind == "here":
+            texts.append(string)
+            after = [string, *rest[j + 1 :]]
+        else:
+            continue
+        if env_words:
+            texts += _env_words(word, rest[:j], after)
     return texts
 
 
 # Every option of `env`, and the one table the env arm of `reparsed_texts`
-# reads them from (round 2 of 1790993140). Sources, read and not run here: GNU
-# coreutils env's synopsis (`env --help` and env(1), coreutils 9.x) and
-# BSD/macOS env's (env(1) on macOS and FreeBSD 14). (short, long, value):
-# VALUE is `ENV_STRING` for the split string, "required" for a value attached
-# or in the next word, "optional" for one attached with `=` only, None for no
-# value. A short option a synopsis gives no long name has None there.
+# reads them from (round 2 of 1790993140). Sources, read from the code and not
+# from a synopsis, which is what missed two rows (#737): GNU coreutils
+# `src/env.c` at `f799b2f48a61` (`shortopts` and `longopts`; `--quoting-style`
+# is there before any release has it) and FreeBSD `usr.bin/env/env.c` at
+# `c2d93a803ace` (its `getopt` letters; Apple's `shell_cmds` `env/env.c` has
+# the same less `L` and `U`). Re-derive from those files, never from `--help`.
+# (short, long, value): VALUE is `ENV_STRING` for the split string,
+# "required" for a value attached or in the next word, "optional" for one
+# attached with `=` only, None for no value. A short option with no long name
+# has None there.
 #
-# What the table does not need a row for: a lone `-`, which both synopses take
-# as `-i` and which starts with `-`, so the walk reads it as one of env's own
-# options; and `--`, which ends them. GNU's getopt takes an unambiguous prefix
-# of a long name (`--un`, `--spl`); an ambiguous one (`--i`, `--d`) is an
-# error, after which env runs nothing, so it is read as a flag.
+# What the table does not need a row for: a lone `-`, which GNU takes as `-i`
+# and the end of the options and BSD as `-i` among them; the walk reads it as
+# one of env's own options, which costs a stop only where GNU's program is
+# named like an option. And `--`, which ends them. BSD's `-` inside a word is
+# `_ENV_SHORT`'s, below the table, and BSD's getopt reads a word starting `--`
+# with more after it as a cluster led by that letter, which `_env_option`
+# reads under the "bsd" grammar. GNU's getopt takes an unambiguous prefix of a
+# long name (`--un`, `--spl`); an ambiguous one (`--i`, `--d`) is an error,
+# after which env runs nothing, so it is read as a flag.
 ENV_STRING = "string"
 ENV_OPTIONS = (
     ("i", "--ignore-environment", None),
@@ -1795,10 +1820,16 @@ ENV_OPTIONS = (
     (None, "--default-signal", "optional"),
     (None, "--ignore-signal", "optional"),
     (None, "--list-signal-handling", None),
+    (None, "--env0-from", "required"),
+    (None, "--quoting-style", "required"),
     (None, "--help", None),
     (None, "--version", None),
 )
 _ENV_SHORT = {short: value for short, _long, value in ENV_OPTIONS if short}
+# BSD's getopt has `-` among its letters, as `-i`: `env -i-S '…'` runs the
+# string on macOS (executed, #737). A row would be spelt `--`, the end of the
+# options, so the letter lives here.
+_ENV_SHORT["-"] = None
 _ENV_LONG = {long: value for _short, long, value in ENV_OPTIONS if long}
 
 
@@ -1816,7 +1847,7 @@ def _env_long(name, abbreviated):
     return found[0] if len(found) == 1 else None
 
 
-def _env_option(t, own):
+def _env_option(t, own, grammar="gnu"):
     """What T is to `env`: (where it spells the split string, takes_next).
 
     The first is ("next", None) where the split string is the next word,
@@ -1827,8 +1858,13 @@ def _env_option(t, own):
     and a long name in any prefix getopt takes. Elsewhere only the split
     string's unabbreviated spellings at a word's head count, as the base read
     them (#716).
+
+    GRAMMAR is "gnu" or "bsd" (#737). Under "bsd", a word among env's own
+    options that starts `--` with more after it is a cluster whose first
+    letter is `-`, as FreeBSD's getopt reads it: `--S` is `-i -S`, and
+    `--unset` is `-i -u nset`.
     """
-    if t.startswith("--"):
+    if t.startswith("--") and not (grammar == "bsd" and own and t != "--"):
         name, eq, attached = t.partition("=")
         value = _ENV_LONG.get(_env_long(name, own))
         if value == ENV_STRING:
