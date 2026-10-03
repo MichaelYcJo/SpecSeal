@@ -999,6 +999,8 @@ KINDS = {
     "switch -": (["git", "switch", "-"], "switch"),
     "switch with no target": (["git", "switch", "--detach"], None),
     "checkout -b": (["git", "checkout", "-b", "x"], "switch"),
+    # `classify`'s order: `-b` is a switch before `--` is a restore.
+    "checkout -b before --": (["git", "checkout", "-b", "x", "--"], "switch"),
     "checkout a name": (["git", "checkout", "x"], "switch"),
     "checkout -": (["git", "checkout", "-"], "switch"),
     "checkout .": (["git", "checkout", "."], None),
