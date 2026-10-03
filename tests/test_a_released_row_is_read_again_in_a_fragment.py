@@ -134,9 +134,15 @@ def findings(out):
 
 
 def ledger_section(out, name):
-    """The lines the run printed under the ledger NAME, up to its counts."""
+    """The lines the run printed under the ledger NAME, up to its counts.
+
+    The checker prints a ledger's path with the platform's separator, so the
+    heading is compared in POSIX form, as the rest of this suite compares
+    paths (`.replace(os.sep, "/")`)."""
     lines = out.splitlines()
-    start = next(i for i, line in enumerate(lines) if line.strip() == name)
+    start = next(
+        i for i, line in enumerate(lines) if line.strip().replace(os.sep, "/") == name
+    )
     block = []
     for line in lines[start + 1 :]:
         block.append(line)
