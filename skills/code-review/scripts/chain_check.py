@@ -3091,7 +3091,7 @@ def restored_from(root, fork, rel):
     `base...HEAD` whatever its content, so the diff alone calls it new. But
     bytes the base's own history already held at this path were added there,
     by an earlier pull request, and the review they record was enforced at
-    that one (`docs/commit-review-gate-spec.md`). #597 went red on four such
+    that one (`docs/the-review-and-parity-arms.md`). #597 went red on four such
     records, every one byte-identical to `main`'s.
 
     ANY version in that history counts, not only the one the base retired:

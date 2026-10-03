@@ -30,7 +30,7 @@ half is added because a ledger row is one long line: at 233f0455 the longest
 was 8,831 characters, so a ledger file can reach megabytes under any line
 cap.
 
-Three kinds are over target today, and each is named here rather than
+Two kinds are over target today, and each is named here rather than
 discovered:
 
 - **A release ledger file.** 37 files at 233f0455, 2.42 MB together, the
@@ -40,8 +40,6 @@ discovered:
   58 KB, with a median of 14 KB.
 - **`CHANGELOG.md`.** 549 KB at 233f0455, with sections at a median of 12 KB
   and at most 33 KB. F2 below moves it to one file per release.
-- **`docs/commit-review-gate-spec.md`.** 1,047 lines, frozen over the ceiling
-  by `seal/config.md`'s `Over the ceiling` row. F1 below cuts it in three.
 
 No index file is added inside `seal/releases/`. The file name is the index
 by version and the `### <work-item-id>` heading is the index inside a file;
@@ -85,7 +83,7 @@ a work item that finds one wrong corrects it.
 | File | The question it answers |
 |---|---|
 | `docs/branch-and-release.md` | where a branch is cut from, how it merges back, and what carries the version |
-| `docs/commit-review-gate-spec.md` | how the commit gate, the review-history guard and the implementer mark are registered and what each decides |
+| `docs/commit-review-gate-spec.md` | how the gates are registered, what the PreToolUse reading of a commit decides where git cannot, and what the review-history guard and the implementer mark say |
 | `docs/issues-and-milestones.md` | what the issue tracker's fields mean here, and which of them anything reads |
 | `docs/measuring-a-run.md` | what a segment of a run measures, and where the reading goes |
 | `docs/one-root-by-lifetime.md` and its `.ko.md` edition | the design 0.4.0 started from: one root, laid out by lifetime |
@@ -95,8 +93,10 @@ a work item that finds one wrong corrects it.
 | `docs/round-record-spec.md` | the rows of a round record as the pull-request check reads them |
 | `docs/the-agent-set.md` | how the rules are split between the agents a work item spawns |
 | `docs/the-broad-gate.md` | who takes the one broad run, what it runs, and what it may say |
+| `docs/the-commit-gate-inside-git.md` | what git decides inside a commit, what its hooks cannot see, and which reading judges each state of a repository |
 | `docs/the-evidence-ledger.md` | what a ledger row is, how a coordinate names code, how a released row is read again, and what a merge can drop |
 | `docs/the-record-layout.md` | this index: where each kind of record lives, and which file a change writes |
+| `docs/the-review-and-parity-arms.md` | what each opt-in arm of the commit gate wants, and the routing declaration that moves the review arm's check to the pull request |
 | `docs/worktree-guard-spec.md` | what the worktree guard refuses, and why |
 
 `docs/experiments/` holds dated scratch documents and is no policy; a fold
@@ -153,12 +153,15 @@ built (F3).
 
 ## What is decided and not built yet
 
-Four parts of this layout are decided here and built by their own issues.
-Each says when, by the release it lands in relative to #716's; the issue's
-milestone names the version, so no number here goes stale when it ships.
+Four parts of this layout were decided here, each to be built by its own
+issue. F1 is built; the other three are not yet. Each says when, by the
+release it lands in relative to #716's; the issue's milestone names the
+version, so no number here goes stale when it ships.
 
 **F1 — `docs/commit-review-gate-spec.md` is cut in three (#727, in the
-release #716 ships in, after #716 lands).** #716 changes that document's reading of the commit gate
+release #716 ships in, after #716 lands). Built by #727.** The table below
+records the cut as it was decided, with the lines it read at 233f0455.
+#716 changes that document's reading of the commit gate
 in the same release, and a split landing first would conflict with it at its
 squash. The cut follows the document's own headings, as #526 cut
 `docs/review-chain-spec.md`:
@@ -170,8 +173,9 @@ squash. The cut follows the document's own headings, as #526 cut
 | `docs/commit-review-gate-spec.md` | *Registration*, §*commit-review-gate (PreToolUse, Bash)* through *Why a deny*, review-history-guard, implementer-mark, and an index naming the other two | 1–40, 278–759, 995–1047 |
 
 Each part answers one question — what git decides, what the text reading
-decides, what each arm wants — and each is under 500 lines. Fold markers go
-across whole, and the `Over the ceiling` row goes away in the same change.
+decides, what each arm wants. Built, the parent is 586 lines, the commit gate
+inside git 254 and the arms 250, each under the ceiling of 1,000. Fold markers
+go across whole, and the `Over the ceiling` row goes away in the same change.
 
 **F2 — `CHANGELOG.md` becomes one file per release (#728, in the release
 after that one).** The

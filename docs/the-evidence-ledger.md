@@ -474,6 +474,6 @@ marker is matched whole, so wrapping a long work item id stops it being a fold
 record, and `tests/test_docs_line_wrap.py` skips a line that is exactly one
 marker rather than asking a document to choose between the two. The chain
 checker's reading of a retired declaration is
-`docs/commit-review-gate-spec.md`'s, under *The declaration, and where the
+`docs/the-review-and-parity-arms.md`'s, under *The declaration, and where the
 check went instead*.
 Enforced by: tests/test_docs_line_wrap.py::test_a_fold_marker_is_skipped_and_the_line_beside_it_is_not
