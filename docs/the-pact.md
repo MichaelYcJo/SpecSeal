@@ -223,9 +223,11 @@ and a change that keeps its clause can still be taken, which a key on the
 clause's own hash would forbid. `pact-check` refuses a row naming a
 signatory the pact does not list, a record that signatory does not hold, a
 verdict other than the two, a change not written `<work-item-id>@<hash>`,
-and `amended` where a clause the record cites still has the hash the record
-recorded.
-Enforced by: tests/test_a_pact_review_takes_a_pact_change.py::test_s15_a_record_grown_after_its_review_is_not_taken_again, tests/test_a_pact_review_takes_a_pact_change.py::test_s16_a_pact_review_row_that_cannot_be_true_is_refused, tests/test_a_pact_review_takes_a_pact_change.py::test_s17_a_review_that_will_not_read_or_parse_is_exit_2
+and `amended`, at the record's current hash, where a clause it cites still
+has the hash the record recorded. A review at an older hash is not judged
+again against rows the record gained since: what it said was about the
+record it took.
+Enforced by: tests/test_a_pact_review_takes_a_pact_change.py::test_s15_a_record_grown_after_its_review_is_not_taken_again, tests/test_a_pact_review_takes_a_pact_change.py::test_s16_a_pact_review_row_that_cannot_be_true_is_refused, tests/test_a_pact_review_takes_a_pact_change.py::test_s17_a_review_that_will_not_read_or_parse_is_exit_2, tests/test_a_pact_review_takes_a_pact_change.py::test_an_amended_review_at_an_older_hash_is_not_judged_again
 
 <!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
 **A clause the pact's repository changes owes no pact review.** `SUPERSEDED`

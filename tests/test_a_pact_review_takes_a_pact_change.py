@@ -351,3 +351,19 @@ def test_a_row_citing_another_pact_is_not_this_pacts(world):
     code, out = run(world)
     assert code == 0, out
     assert "0 pact changes read, 0 taken" in out, out
+
+
+def test_an_amended_review_at_an_older_hash_is_not_judged_again(world):
+    """An `amended` that was true at the hash it took stays true after the
+    record grows with a row citing the amended clause (round 1, yellow 3)."""
+    _anchor, first = record(world, cites=V1)
+    _anchor, now = record(world, cites=V2, label="O2", step=2)
+    review(
+        world,
+        (SIGNATORY_URL, f"{ITEM}@{first}", "amended"),
+        (SIGNATORY_URL, f"{ITEM}@{now}", "holds"),
+    )
+    code, out = run(world)
+    assert code == 0, out
+    assert "REFUSED" not in out, out
+    assert "2 pact changes read, 2 taken" in out, out

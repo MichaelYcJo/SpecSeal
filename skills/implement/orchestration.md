@@ -571,7 +571,8 @@ pact review, as it is for any other work item.
 each taken record reads as taken, a record that gained rows since reads
 `NOT TAKEN` again with both hashes, and a row that cannot be true — a
 signatory the pact does not list, a record it does not hold, another verdict,
-or `amended` for a clause that did not move — is refused at exit 2.
+or `amended`, at the record's current hash, for a clause that did not move
+— is refused at exit 2.
 
 A clause the pact's repository changes owes no pact review: `SUPERSEDED`
 already sends each citing signatory to re-read it against its own code.

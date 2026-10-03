@@ -85,8 +85,8 @@ and the summary says so.
      remote, a record of pact changes or of pact reviews that will not read
      or parse, or a pact review row that cannot be true: a signatory the
      pact does not list, a record that signatory does not hold, a verdict
-     other than `holds` and `amended`, or `amended` for a clause that still
-     has the hash the record recorded
+     other than `holds` and `amended`, or `amended`, at the record's
+     current hash, for a clause that still has the hash the record recorded
 
 These mirror `evidence-check`'s classes, where `BROKEN` is exit 2 and drift is
 exit 1. Nothing is ever written.
@@ -821,7 +821,11 @@ def pact_changes(config, checker, signatory_at, pact, reviews, found):
                     f"and {take}",
                 )
         for review in reviewed:
-            if review[5] != config.VERDICT_AMENDED:
+            # Judged against the record it takes, and only that one: a review
+            # at an older hash took rows this record has since added to, and
+            # re-judging its verdict against them refuses one that was true
+            # (round 1 of #647 C and D, yellow 3).
+            if review[5] != config.VERDICT_AMENDED or review[4] != digest:
                 continue
             for anchor in cited:
                 current, _why = clause_hash(checker, pact_text, anchor.group("locator"))

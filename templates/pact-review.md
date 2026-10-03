@@ -21,8 +21,9 @@ the signatory's feature branch squashes, and the SHA stops resolving.
 
 **What `pact-check` refuses here, at exit 2**: a signatory the pact does not
 list, a record that signatory does not hold, a verdict other than the two,
-and `amended` where a clause the record cites still has the hash the record
-recorded — the clause was not amended.
+and `amended`, at the record's current hash, where a clause it cites still
+has the hash the record recorded — the clause was not amended. A row at an
+older hash is not judged again against rows the record gained since.
 
 The builder judges each change against its clause in the signatory's
 checkout, at the paths `pact-check` printed, and the review chain's warden
