@@ -27,11 +27,12 @@ RECORD = f"seal/pact-changes/{ITEM}.md"
 PACT_URL = "git@example.com:org/orders-api.git"
 CLAUSE = 'pact:orders-api/"## Order response shape / ### Fields"@1a2b3c4d'
 OTHER = 'pact:billing/"## Invoices"@5e6f7a8b'
-# What a run prints after putting the ledger back because an owed pact change
-# could not be recorded (round 1, red 1).
+# What a run prints where an owed pact change could not be recorded: it plans
+# its writes, records, and writes the ledger only after recording, so it wrote
+# no ledger file (round 1, red 1; round 2, red 10 and yellow 11).
 UNDONE = (
-    "a pact change is owed and was not recorded, so every ledger file this run "
-    "wrote is back as it was: nothing was re-stamped"
+    "a pact change is owed and was not recorded, so this run wrote no ledger "
+    "file: nothing was re-stamped"
 )
 SOURCE = "def serialize(order):\n    return {'id': order.id}\n\n\ndef evict(key):\n    return key\n"
 
@@ -504,10 +505,10 @@ def test_a_record_that_will_not_read_or_parse_leaves_the_ledger(repo, shape):
     assert UNDONE in out, out
 
 
-def test_under_the_freeze_the_reread_row_is_taken_back_too(repo):
-    """Under `Ledger frozen from` the run writes a `Re-read ·` row into the
-    `--into` fragment, and re-stamps fragments in place. Where the change
-    cannot be recorded, both writes are taken back: the fragment is as it
+def test_under_the_freeze_the_reread_row_is_never_written(repo):
+    """Under `Ledger frozen from` the run plans a `Re-read ·` row for the
+    `--into` fragment and in-place re-stamps of the fragments. Where the
+    change cannot be recorded, neither is written: the fragment is as it
     was, byte for byte, and so is every other ledger file."""
     (repo / "seal" / "config.md").write_text(
         config_text(
@@ -537,10 +538,10 @@ def test_under_the_freeze_the_reread_row_is_taken_back_too(repo):
     assert UNDONE in out, out
 
 
-def test_a_fragment_the_run_created_is_removed_again(repo):
+def test_a_fragment_the_run_would_create_is_never_created(repo):
     """Under the freeze with `--into` naming a fragment that does not exist
-    yet, the run creates it for the `Re-read ·` row; where the change cannot
-    be recorded, it is removed again rather than left holding a re-read."""
+    yet, the run plans it for the `Re-read ·` row; where the change cannot
+    be recorded, it is never created."""
     (repo / "seal" / "config.md").write_text(
         config_text(
             ("Mode", "shared"), ("Pact", PACT_URL), ("Ledger frozen from", "0")
@@ -564,9 +565,9 @@ def test_a_fragment_the_run_created_is_removed_again(repo):
     assert not (repo / FRAGMENT).exists(), out
 
 
-def test_a_run_that_dies_part_way_puts_the_ledger_back(repo, monkeypatch, capsys):
-    """Transactional means a crash too: the re-stamp is written, the record
-    step raises, and the ledger is what it was."""
+def test_a_record_step_that_raises_writes_no_ledger(repo, monkeypatch, capsys):
+    """The ledger is written after the record, so a record step that raises
+    leaves the ledger as it was: nothing had been written yet."""
     old = unit_hash(repo, "src/orders.py", "serialize")
     rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
     ledger = cite(repo, rows)
@@ -769,3 +770,118 @@ def test_one_change_cited_by_two_rows_of_one_label_is_recorded_once(repo):
     code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
     assert code == 0, out
     assert len(record_rows(repo)) == 1, record_rows(repo)
+
+
+# --- round 2, red 10 and yellow 11: plan, record, then write ---------------
+
+UNREADABLE = pytest.mark.skipif(
+    os.name == "nt" or (hasattr(os, "geteuid") and os.geteuid() == 0),
+    reason="a mode of 0 stops no read on Windows or as root",
+)
+
+
+@UNREADABLE
+def test_a_ledger_that_will_not_read_survives_a_run_that_cannot_record(repo):
+    """A sibling fragment that will not read stood in the run's scope; the
+    old transaction read it as absent and its put-back removed it (round 2,
+    red 10). A run that cannot record writes nothing, so it stays."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
+    other = cite(
+        repo,
+        [row("X1", "", "src/orders.py#evict@00000000")],
+        where="seal/ledger/1790000000-other.md",
+    )
+    os.chmod(other, 0)
+    try:
+        move_serialize(repo)
+        code, out = run(repo, "--checked", "2026-09-04")
+        assert code == 1 and UNDONE in out, out
+        assert os.path.lexists(other), out
+        assert ledger.read_text(encoding="utf-8") == "".join(rows), out
+    finally:
+        if os.path.lexists(other):
+            os.chmod(other, 0o644)
+
+
+@UNREADABLE
+def test_an_into_that_will_not_read_is_refused_before_anything_is_written(repo):
+    """`reverify_into` wrote its rows over an `--into` it could not read
+    (#736's overwrite, round 2's red 10). It is refused at plan time, at
+    exit 2, and nothing is written: not the record, not a ledger."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    other_rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    other = cite(repo, other_rows, where="seal/ledger/1790000000-other.md")
+    frag = cite(
+        repo,
+        ["| F9 · kept | `src/orders.py#evict@00000000` | read | 2026-10-01 | |\n"],
+    )
+    os.chmod(frag, 0)
+    try:
+        move_serialize(repo)
+        code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+        assert code == 2 and "will not read" in out, out
+    finally:
+        os.chmod(frag, 0o644)
+    assert "F9 · kept" in frag.read_text(encoding="utf-8")
+    assert other.read_text(encoding="utf-8") == "".join(other_rows), out
+    assert not (repo / "seal" / "pact-changes").exists(), out
+
+
+def test_a_run_killed_after_its_record_is_finished_by_the_next(repo, tmp_path):
+    """The kill window. The record is written first and the ledger after, so
+    a run killed between the two leaves the record holding the change and
+    the ledger unstamped. The next run plans the same move, finds it is the
+    record's last word already, records nothing twice, and re-stamps (round
+    2, yellow 11). No handler is needed, because nothing is ever put back."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
+    new = move_serialize(repo)
+    wrapper = tmp_path / "killed.py"
+    wrapper.write_text(
+        "import importlib.util, os, sys\n"
+        f"spec = importlib.util.spec_from_file_location('ec', {SCRIPT!r})\n"
+        "ec = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(ec)\n"
+        "real = ec.record_pact_changes\n"
+        "def recorded_then_killed(*a):\n"
+        "    real(*a)\n"
+        "    sys.stdout.flush()\n"
+        "    os._exit(137)\n"
+        "ec.record_pact_changes = recorded_then_killed\n"
+        f"sys.argv = ['evidence_check.py', '--reverify', '--into', {FRAGMENT!r}, "
+        f"'--checked', '2026-09-04', {str(repo)!r}]\n"
+        "sys.exit(ec.main())\n",
+        encoding="utf-8",
+    )
+    done = subprocess.run(
+        [sys.executable, str(wrapper)],
+        cwd=str(repo),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    assert done.returncode == 137, done.stdout + done.stderr
+    assert ledger.read_text(encoding="utf-8") == "".join(rows)
+    assert len(record_rows(repo)) == 1
+    first = (repo / RECORD).read_bytes()
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert (repo / RECORD).read_bytes() == first, out
+    assert f"src/orders.py#serialize@{new}" in ledger.read_text(encoding="utf-8")
+
+
+def test_a_record_that_cannot_be_written_leaves_the_ledger(repo):
+    """An OSError writing the record -- here `seal/pact-changes` is a file,
+    so its directory cannot be made -- is a change not recorded: a `LEFT`
+    line, exit 1, and no ledger file written."""
+    (repo / "seal" / "pact-changes").write_text("not a directory", encoding="utf-8")
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1 and "could not be written" in out and UNDONE in out, out
+    assert ledger.read_text(encoding="utf-8") == "".join(rows), out

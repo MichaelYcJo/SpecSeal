@@ -1047,12 +1047,45 @@ def content_matches(repo, rel, locator, want, cache):
     return hash_matches, name_matches, capped
 
 
+# The ledger writes a `--reverify` run has planned and not yet made, keyed by
+# the file's absolute path, or None where writes go to disk at once (round 2
+# of #647 C and D, red 10 and yellow 11). While a plan is open, `put` adds to
+# it and `read` answers from it, so every later step of the plan reads what
+# the run will write. `main` records the pact changes the plan owes, and only
+# then writes the plan with `apply_plan`: a run that cannot record writes no
+# ledger file, and one killed after recording leaves the ledger unstamped for
+# the next run, which finds the change recorded already and re-stamps.
+PLANNED = None
+
+
+def planned_key(path):
+    return os.path.normcase(os.path.abspath(path))
+
+
 def read(path):
+    if PLANNED is not None and planned_key(path) in PLANNED:
+        return PLANNED[planned_key(path)][1]
     try:
         with open(path, encoding="utf-8", errors="replace") as f:
             return f.read()
     except OSError:
         return None
+
+
+def put(path, text):
+    """Write TEXT to PATH, or add it to the open plan."""
+    if PLANNED is None:
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        write_atomic(path, text)
+    else:
+        PLANNED[planned_key(path)] = (path, text)
+
+
+def apply_plan(plan):
+    """Write every file PLAN holds, in the order it was planned."""
+    for path, text in plan.values():
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        write_atomic(path, text)
 
 
 def write_atomic(path, text):
@@ -3135,7 +3168,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None, moves=None):
                 print(said)
         if out:
             out.append(text[at:])
-            write_atomic(ledger, "".join(out))
+            put(ledger, "".join(out))
     print(f"{changed} row{'' if changed == 1 else 's'} re-verified")
     if dated:
         one = len(dated) == 1
@@ -3463,8 +3496,7 @@ def reverify_into(
         if text and not text.endswith("\n"):
             text += "\n"
         start = len(gfm_lines(text)) + 1
-        os.makedirs(os.path.dirname(into), exist_ok=True)
-        write_atomic(into, text + "".join(row + "\n" for _, _, row in rows))
+        put(into, text + "".join(row + "\n" for _, _, row in rows))
         name = built_name(into, root)
         for offset, (where, label, _) in enumerate(rows):
             print(f"  wrote {name}:{start + offset}  Re-read · {label}  citing {where}")
@@ -3507,47 +3539,14 @@ CODE_PART = re.compile(
     r"(?: → `@(?P<new>[0-9a-f]{6,12})`| BROKEN)"
 )
 # How every line ends that names an owed pact change left unrecorded: the run
-# puts the ledger back, so the drift is still there for the run that can
-# record it (round 1 of #647 C and D, red 1).
+# writes its ledger only after recording, so it writes none, and the drift is
+# still there for the run that can record it (round 1 of #647 C and D, red 1;
+# round 2, red 10 and yellow 11).
 NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
 PACT_CHANGE_UNDONE = (
-    "  a pact change is owed and was not recorded, so every ledger file this run "
-    "wrote is back as it was: nothing was re-stamped"
+    "  a pact change is owed and was not recorded, so this run wrote no ledger "
+    "file: nothing was re-stamped"
 )
-
-
-def snapshot(paths):
-    """{path: its bytes, or None where it is absent} for each of PATHS."""
-    out = {}
-    for path in paths:
-        try:
-            with open(path, "rb") as handle:
-                out[path] = handle.read()
-        except OSError:
-            out[path] = None
-    return out
-
-
-def restore(before):
-    """Put each file BEFORE holds back as it was, byte for byte, through a
-    rename beside the real file as `write_atomic` does; remove one that was
-    absent and now exists."""
-    for path, data in before.items():
-        if data is None:
-            if os.path.isfile(path):
-                os.remove(path)
-            continue
-        target = os.path.realpath(path)
-        fd, tmp = tempfile.mkstemp(
-            dir=os.path.dirname(target) or ".", prefix=os.path.basename(target) + "."
-        )
-        with os.fdopen(fd, "wb") as handle:
-            handle.write(data)
-        try:
-            os.chmod(tmp, stat.S_IMODE(os.stat(target).st_mode))
-        except OSError:
-            pass
-        os.replace(tmp, target)
 
 
 @functools.cache
@@ -3732,8 +3731,15 @@ def record_pact_changes(moves, root, into, checked):
     )
     at = rows[-1][0] if rows else head + 1
     lines[at:at] = [entry + "\n" for _w, entry in new]
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    write_atomic(path, "".join(lines))
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        write_atomic(path, "".join(lines))
+    except OSError as problem:
+        print(
+            f"  LEFT  {shown}  the record could not be written "
+            f"({problem.strerror or problem}) — {NOT_RESTAMPED}"
+        )
+        return 1
     for offset, (where, _entry) in enumerate(new, at + 1):
         print(f"  recorded {shown}:{offset}  a pact change for {where}")
     return 0
@@ -4838,25 +4844,45 @@ def main():
                     "released file is never written\n"
                 )
                 return 2
+        # An `--into` that is there and will not read would be written over:
+        # `reverify_into` appends to what `read` answers, and `read` answers
+        # nothing for it (#736's overwrite, round 2 of #647 C and D, red 10).
+        # Refused before anything is planned or written.
+        if into is not None and os.path.lexists(into):
+            try:
+                with open(into, encoding="utf-8") as handle:
+                    handle.read()
+            except (OSError, ValueError):
+                sys.stderr.write(
+                    f"evidence_check: `--into {args.into}` is there and will not "
+                    "read, and the run would write over it — nothing was written\n"
+                )
+                return 2
         # What the re-read moved, for the pact changes it owes (#647, C).
         moves = []
-        # Every file this run may write, as it stands: put back where a pact
-        # change is owed and cannot be recorded, because the re-stamp is what
-        # clears the drift, and a re-stamp without its record loses the
-        # trigger for good -- the next run finds nothing moved (round 1 of
-        # #647 C and D, red 1). The two paths below are the only two that
-        # write a ledger, and both end through `recorded_or_restored`.
-        before = snapshot(list(ledgers) + ([into] if into else []))
+        # Three phases, in this order (round 2 of #647 C and D, red 10 and
+        # yellow 11). PLAN: every ledger write the run would make is computed
+        # and held in `PLANNED`, and nothing is written. RECORD: the pact
+        # changes the plan owes are written. APPLY: only then is the plan
+        # written. A run that cannot record writes no ledger file at all, so
+        # the drift stays for the run that can. A run killed after recording
+        # leaves the record written and the ledger unstamped; the next run
+        # plans the same move, finds it is the record's last word already,
+        # records nothing twice, and re-stamps. Nothing is ever put back, so
+        # no signal handler is needed and no file is ever removed.
+        global PLANNED
+        plan = PLANNED = {}
 
-        def recorded_or_restored():
+        def recorded_then_applied(code):
+            global PLANNED
+            PLANNED = None
             recorded = record_pact_changes(moves, root, into, args.checked)
             if recorded:
-                restore(before)
                 print(PACT_CHANGE_UNDONE)
-            return recorded
+                return max(code, recorded)
+            apply_plan(plan)
+            return code
 
-        # A run that dies part way is no different: what it wrote is put
-        # back, so no re-stamp outlives the record it owed.
         try:
             if into is None and cutoff is None:
                 code = reverify(ledgers, root, maps, default_repo, args.checked, moves)
@@ -4883,7 +4909,7 @@ def main():
                         f"reading of {', '.join(owed[key])} in its family sits in a "
                         "file this run did not write; run it without `--ledger`"
                     )
-                return max(code, 1 if owed else 0, recorded_or_restored())
+                return recorded_then_applied(max(code, 1 if owed else 0))
             # A released file is not written: the fragments are re-stamped in
             # place as before, and then the released rows are re-read into INTO,
             # or named where there is no INTO. The view is read after the
@@ -4905,10 +4931,9 @@ def main():
             written = reverify_into(
                 ledgers, view, into, root, maps, default_repo, args.checked, moves
             )
-            return max(code, written, recorded_or_restored())
-        except BaseException:
-            restore(before)
-            raise
+            return recorded_then_applied(max(code, written))
+        finally:
+            PLANNED = None
 
     if not ledgers:
         print("no evidence ledgers found — nothing to check")
