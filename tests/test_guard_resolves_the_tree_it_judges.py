@@ -959,6 +959,23 @@ WIDER_ONLY = {
         "switch",
     ),
     "--config-env, a switch": ("git --config-env k=v switch x", "switch"),
+    # Round 2 of 1790993140: a redirection glued to the subcommand's end.
+    # bash runs each (executed by the round); the frozen parser reads
+    # `switch>/dev/null` as no subcommand, and only the cut view reads the
+    # kind. Silent at `f1629706`, where the cut view was compared with the
+    # frozen parser.
+    "a redirection glued to switch": (
+        "cd w && git switch>/dev/null feature/x",
+        "switch",
+    ),
+    "a redirection glued to checkout": (
+        "cd w && git checkout>/dev/null -b y",
+        "switch",
+    ),
+    "a redirection glued to add": (
+        "cd w && git worktree add>/dev/null ../wt b",
+        "creation",
+    ),
     **{
         f"zsh: {shape.split('&& ')[1]}": (
             shape.format(verb="switch feature/x"),

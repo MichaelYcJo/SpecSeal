@@ -327,9 +327,10 @@ def wider_only_kinds(command: str, cwd: str, judged=None) -> set:
     splitter's segments, `merged_view`'s groups and the words a redirection
     glued to a word's end, each read by its `parse_git`, as the commit gate
     reads them. A kind the frozen loop judged keeps its slot and its verdict,
-    and a view the frozen parser reads as the same kind is not hidden from
-    it, so neither is reported (round 1 of 1790745049, red 1; round 1 of
-    1790993140, yellow 3). JUDGED is the kinds `main`'s loop judged; without
+    and a view's kind is hidden only where the frozen parser reads it from
+    none of the segments the view was made from, so neither is reported
+    (round 1 of 1790745049, red 1; rounds 1 and 2 of 1790993140, yellows 3
+    and 8). JUDGED is the kinds `main`'s loop judged; without
     it, the kinds the frozen segments' words hold stand in.
 
     Wired by phase 4 of work item 1790993140, because it fired on none of the
@@ -345,16 +346,27 @@ def wider_only_kinds(command: str, cwd: str, judged=None) -> set:
             for tokens, _wheres in walk_command(command, cwd)
         }
     text = wide.drop_heredoc_bodies(wide.drop_comments(command))
-    segments, _clean = wide.split_segments(text)
-    views = [*segments, *wide.merged_segments(text)]
+    items, _clean = wide.split_segments_with_separators(text)
+    segments = [tokens for _sep, tokens in items]
+    # Each view beside the segments it was made from. The frozen walk reads
+    # those segments as written, never a glued group or a cut word, so a kind
+    # is hidden unless the frozen parser reads it from one of the view's own
+    # segments: `git checkout README.md` is a restore to `classify` and must
+    # not silence a switch behind a redirection after it, and `git
+    # switch>/dev/null x` is no switch to the frozen parser, although its cut
+    # view is (round 2 of 1790993140).
+    sourced = [(tokens, [tokens]) for tokens in segments]
+    sourced += [
+        (tokens, [segments[i] for i in parts])
+        for parts, tokens in wide.merged_view(items)
+    ]
     wider = set()
-    for tokens in [*views, *filter(None, map(wide.unglued, views))]:
-        kind = switch_kind(wide.parse_git(tokens))
-        # A view the frozen reader reads as the same kind is not hidden from
-        # it: `git checkout README.md` is a restore to `classify`, and must
-        # not silence a switch written behind a redirection after it.
-        if kind and switch_kind(parse_git(tokens)) != kind:
-            wider.add(kind)
+    for view, sources in sourced:
+        frozen = {switch_kind(parse_git(tokens)) for tokens in sources}
+        for tokens in filter(None, (view, wide.unglued(view))):
+            kind = switch_kind(wide.parse_git(tokens))
+            if kind and kind not in frozen:
+                wider.add(kind)
     return wider - set(judged)
 
 
