@@ -8,8 +8,9 @@
   rows are a fixed set: the version, the tagged commit, the pull requests
   merged, the issues closed, the suite's passed and skipped counts at the
   tag, the work items and their review rounds, how many runs were capped,
-  and how many issues the rounds deferred. A count whose source cannot be
-  read says `not read` rather than 0. The image's alt text carries every
+  and how many issues the rounds' verdicts deferred (a deferral written only
+  in a round record's `## Deferred` table is not counted). A count whose
+  source cannot be read says `not read` rather than 0. The image's alt text carries every
   number too. The job runs only on a release that run created, edits only a
   glance table still exactly as it was generated, and turns every failure
   into a `::warning::` in its log with the note left as published, so a seal
