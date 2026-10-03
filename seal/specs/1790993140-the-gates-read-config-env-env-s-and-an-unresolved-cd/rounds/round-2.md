@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 733 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `e74efba8dd0d72fc071a281eac9b2b562142d5f3..40214e980dd3a99339e20396cd5b933576645e4a`, 6 commits |
 | Contract changes | none |
 | New units | ENV_STRING (depth 1); ENV_OPTIONS (depth 1); _ENV_SHORT (depth 1); _ENV_LONG (depth 1); _env_long (depth 1); _env_option (depth 1); ENV_SPELLINGS (depth 1); ENV_GRAMMAR (depth 1); test_every_row_of_the_env_grammar_has_a_case (depth 1); test_a_cluster_behind_env_s_own_options_is_read (depth 1); test_the_split_string_after_the_options_is_read_past_a_redirection (depth 1); test_an_ambiguous_prefix_names_no_long_option (depth 1) |
