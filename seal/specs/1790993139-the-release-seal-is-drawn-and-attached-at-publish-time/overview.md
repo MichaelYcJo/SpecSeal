@@ -19,16 +19,25 @@ failure leaves the note exactly as it is published today.
 | The reserve's figures | `spec.md` §*Scope* 5: `909 + 2 × (40 − 19) = 951`; measured 957 | the measurement | 909 was already stale at the base: today's `GROUPS` give 915 with a 19-character name (`phases/phase-1.md`) |
 | What `describe` caps at read | `spec.md` §*Scope* 5 and `plan.md` phase 1: `error` and `message`; the build also caps `group` | the build's three | Contract §12 and `spec.md`'s own grounding row: every field the report takes from a record without a fixed vocabulary. `group`'s vocabulary is fixed only at this plugin's writer |
 | The pixel pin's ink check | `spec.md` S6: *the darkest pixel is nearer the cell's ink than `PARCHMENT`*; that check passed with the ink's red and green swapped | some pixel is the ink exactly | Measured with `bin/mutation-check` over `rgb`'s cube levels: every glyph at this size covers whole pixels in Menlo and in Pillow's default (`phases/phase-2.md`) |
+| The deferred count over 0.17.0 | `spec.md` S10 expected the rule to give 12 against the owner's 13 (`questions.md` Q10) | the rule as specified, 12 | Measured in phase 3: the 13th is #722, named only in a round record's `## Deferred` section and in no verdict cell, so no verdict shape is missed (`phases/phase-3.md`) |
+| `glance` and `sealed_glance`'s inputs | `spec.md` §*Data & interfaces* names the two functions; the build adds `tally(pulls, owner)`, the counting `release_body` did inline | the build's three | The seal finds the block by the text the note wrote, so it counts the release the same way the note does; the note is byte-identical (`phases/phase-4.md`) |
 
 ## Not verified
 
 | Item | Who must answer |
 |---|---|
 | Which font `ubuntu-latest` gives `font()` (`questions.md` Q11) | the work: the first CI run of the pixel case under `-s`, and the first live run at a tag, whose log names it |
+| That the `seal` job runs at a tag on GitHub's runners and its edit shows the image on the release page (`questions.md` Q9 for the browsers) | the repository owner, at 0.18.0's tag push: the job log's rows and font line, and the release page in Chrome, Firefox and Safari |
+| The full suite, lint and typecheck over the branch (the broad gate) | the sealer, once the review rounds settle |
 
 ## Not done
 
-Nothing yet.
+The seal does not count a deferral that a round record names only in its
+`## Deferred` section. 0.17.0's #722 is one: the hand count had 13 issues and
+the rule gives 12 (`phases/phase-3.md`). Counting it would need a second
+section reader that no checker shares, and the frame's default was to keep
+the rule. #720 and the `NOT SEALED` form for a release are out of scope, as
+`spec.md` says.
 
 ## Fed back into the spec
 
