@@ -18,9 +18,11 @@ name: publish the release note
 # to `main`.
 #
 # Then the seal (#718). A second job, `seal`, runs only when `publish` created
-# the release in this run (`created` is its output; a re-pushed tag or a
-# re-run finds a release already there and writes `false`). It runs the suite
-# at the tag, draws one seal for the release from `seal_stamp.compose`'s
+# the release in this run (`created` is its output; a re-pushed tag or a full
+# re-run finds a release already there and writes `false`, and a re-run of
+# `seal` alone keeps `true` and meets the glance-table guard instead). It
+# runs the suite at the tag, draws one seal for the release from
+# `seal_stamp.compose`'s
 # letter, attaches it as `seal.png`, and replaces the note's glance table with
 # the image and one line of the table's counts
 # (`.github/scripts/release_seal.py`). Every step of it is
