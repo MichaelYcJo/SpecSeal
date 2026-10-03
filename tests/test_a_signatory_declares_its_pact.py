@@ -124,12 +124,16 @@ def test_a_row_that_will_not_parse_is_refused_and_never_read_as_absent():
     ]
 
 
-def test_an_unreadable_config_is_no_declaration(tmp_path):
-    """`declared_pacts` fails toward nothing declared, as every reader in
-    `hooks/config.py` does."""
+def test_an_absent_config_is_no_row_and_an_unreadable_one_is_no_answer(tmp_path):
+    """`declared_pacts` is what `pact-check` reads a signatory's rows
+    through. No file is no row; a file that is there and will not read is
+    None, which the caller refuses, because a written row read as absent is
+    the silence the reader exists to end."""
     assert config.declared_pacts(str(tmp_path / "missing")) == ([], None, [])
     home = tmp_path / "seal"
-    home.mkdir()
+    (home / "config.md").mkdir(parents=True)
+    assert config.declared_pacts(str(home)) is None
+    (home / "config.md").rmdir()
     (home / "config.md").write_text(
         table(("Pact", "git@example.com:org/orders-api.git")), encoding="utf-8"
     )

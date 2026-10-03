@@ -797,13 +797,25 @@ def pact_declaration(text):
 
 
 def declared_pacts(home):
-    """`pact_declaration` over `<home>/config.md`, with a file that will not
-    read answered as no row at all — what every reader here does with one."""
+    """`pact_declaration` over `<home>/config.md`, or None where that file
+    is there and will not read.
+
+    **Not the rule the other readers here keep**, and on purpose (round 1 of
+    #647, white 5). They answer an unreadable file as no row, because a gate
+    that refuses wrongly stops a session with nobody able to get past it.
+    This reader's caller is `pact-check`, run by a person at the pact's
+    repository, and a signatory whose written rows read as absent is the
+    silence `pact_declaration` exists to end. So no file is no row, and a
+    file that will not read is None, which `pact-check` refuses as
+    `UNREADABLE`."""
+    path = config_path(home)
+    if not os.path.lexists(path):
+        return [], None, []
     try:
-        with open(config_path(home), encoding="utf-8") as handle:
+        with open(path, encoding="utf-8") as handle:
             text = handle.read()
     except (OSError, ValueError):
-        return [], None, []
+        return None
     return pact_declaration(text)
 
 

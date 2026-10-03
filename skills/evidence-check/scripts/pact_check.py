@@ -413,18 +413,16 @@ def check(root, out=sys.stdout, home_dir=None):
                 "in: the relationship is recorded on one side only",
             )
             continue
-        text = read(os.path.join(their_home, CONFIG_FILE))
-        if text is None:
-            if os.path.lexists(os.path.join(their_home, CONFIG_FILE)):
-                found(
-                    UNREADABLE,
-                    written,
-                    f"{their_home}/{CONFIG_FILE}",
-                    "could not be read",
-                )
-                continue
-            text = ""
-        pacts, notify, row_refusals = config.pact_declaration(text)
+        declared = config.declared_pacts(their_home)
+        if declared is None:
+            found(
+                UNREADABLE,
+                written,
+                f"{their_home}/{CONFIG_FILE}",
+                "could not be read",
+            )
+            continue
+        pacts, notify, row_refusals = declared
         for refusal in row_refusals:
             found(REFUSED, written, f"seal/{CONFIG_FILE}", refusal)
         if not any(n == config.normalise_remote(mine) for _w, n, _ in pacts):
