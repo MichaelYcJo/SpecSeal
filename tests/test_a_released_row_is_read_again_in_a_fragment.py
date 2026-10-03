@@ -1626,6 +1626,28 @@ def test_a_narrowing_to_a_superseded_root_answers_nothing(repo, mode):
     assert "LEFT" not in out.stdout, out.stdout
 
 
+@pytest.mark.parametrize("carrier", ("the root", "re-reads only"))
+@pytest.mark.parametrize("member", ("release", "fragment"))
+def test_a_frozen_reverify_narrowed_to_a_member_names_the_root_with_into(
+    repo, member, carrier
+):
+    """S3 (round 1, ⬜ 7): under the freeze and without `--into`, a run
+    narrowed to the file holding the older reading M names the family's
+    root, not M, with the `--into` repair, and writes no released byte --
+    also where the drifted coordinate is one only the re-reads carry, so the
+    reading the run picks is M's own."""
+    files = three_readings(repo, member, "fragment", carrier)
+    frozen(repo, "0")
+    before = digests(repo)
+    out = run(["--reverify", "--ledger", files["M"], "."], repo)
+    assert out.returncode == 1, out.stdout
+    left = [line for line in out.stdout.splitlines() if "LEFT" in line]
+    assert len(left) == 1, out.stdout
+    assert left[0].split()[:2] == ["LEFT", "seal/releases/0.1.0.md:5"], left[0]
+    assert "--reverify --into seal/ledger/<work-item-id>.md" in left[0], left[0]
+    assert digests(repo) == before
+
+
 def test_a_narrowed_into_re_reads_a_family_whose_folded_member_it_read(repo):
     """Round 3's first case (🟡 16): under the freeze, narrowed to the release
     file holding a folded re-read C of an older release's R, while a newer
