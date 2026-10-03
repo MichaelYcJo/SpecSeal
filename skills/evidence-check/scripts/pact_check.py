@@ -96,12 +96,24 @@ NOT_FOUND, ONE_SIDED, REFUSED, UNREADABLE = (
     "REFUSED",
     "UNREADABLE",
 )
-# Anything that starts like a pact anchor naming a pact, so one that does
-# not parse -- `#` for `/`, no quotes, no hash -- is named rather than passed
-# over. A mistyped citation is otherwise read by nobody: not here, not by the
-# signatory's own check, which passes pact anchors over by design, and not by
-# chain-check (round 1 of #647, yellow 4).
-PACT_MENTION_RE = re.compile(r"(?<![A-Za-z0-9_.@/-])pact:(?P<name>[A-Za-z0-9_.-]+)\S*")
+# A token that begins a pact anchor and does not complete one, so a mistyped
+# citation -- `#` for `/`, no quotes, no hash -- is named rather than passed
+# over. It is otherwise read by nobody: not here, not by the signatory's own
+# check, which passes pact anchors over by design, and not by chain-check
+# (round 1 of #647, yellow 4).
+#
+# **The grammar, in one rule** (round 2, yellow 13): a token begins an anchor
+# where `pact:<name>` is followed at once by `/` or `#`, and is refused where
+# it does not go on to parse as one. Anything else naming the pact is a
+# mention and is left alone: `pact:<name>` followed by punctuation, a space or
+# the end of a code span, so the `.` ending a sentence leaves a mention. The
+# one form that begins an anchor and is not an attempt is the one this plugin
+# prints to show the shape, its locator opening with a placeholder,
+# `/"<heading path>"`.
+PACT_MENTION_RE = re.compile(
+    r"(?<![A-Za-z0-9_.@/-])pact:(?P<name>[A-Za-z0-9_.-]+)"
+    r"(?=[/#])(?!/\"<)[^\s`|]*"
+)
 # Which exit each finding is: the classes `evidence-check` keeps.
 EXIT_ONE = frozenset({SUPERSEDED, NOT_TAKEN, UNMATCHED, NOT_FOUND})
 EXIT_TWO = frozenset({BROKEN, ONE_SIDED, REFUSED, UNREADABLE})
@@ -473,9 +485,10 @@ def check(root, out=sys.stdout, home_dir=None):
                 if status != OK:
                     line = view.count("\n", 0, match.start()) + 1
                     found(status, written, f"{shown}:{line} {match.group(0)}", detail)
-            graded = {m.start() for m in checker.PACT_ANCHOR_RE.finditer(view)}
+            graded = [m.span() for m in checker.PACT_ANCHOR_RE.finditer(view)]
             for near in PACT_MENTION_RE.finditer(view):
-                if near.group("name").lower() != name or near.start() in graded:
+                inside = any(s <= near.start() < e for s, e in graded)
+                if near.group("name").lower() != name or inside:
                     continue
                 line = view.count("\n", 0, near.start()) + 1
                 found(

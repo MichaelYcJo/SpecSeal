@@ -517,3 +517,36 @@ def test_a_signatory_row_below_a_blank_line_is_refused(world):
         "`| https://example.com/org/orders-mobile |`, a row the walk never "
         "reaches — it and every signatory below it would go unread"
     ) in out, out
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "This work item signs pact:orders-api, the order contract.",
+        "This work item signs `pact:orders-api`.",
+        'Cite each clause as `pact:orders-api/"<heading path>"@<hash>`.',
+        "See pact:orders-api.",
+    ],
+    ids=["prose", "code span", "the form with its placeholders", "a sentence's end"],
+)
+def test_prose_naming_the_pact_is_not_a_citation(world, body):
+    """A refusal is for a token that begins an anchor, `pact:<name>/` or
+    `pact:<name>#`, and does not complete. Naming the pact is not that."""
+    cite(world, clause(V2))
+    write(world["web"], "seal/specs/1790000001-y/spec.md", f"# spec\n\n{body}\n")
+    code, out = run(world)
+    assert code == 0, out
+    assert "does not parse" not in out, out
+
+
+def test_a_pact_name_inside_a_graded_anchors_heading_is_not_a_near_miss(world):
+    """A clause heading may spell the pact's own name; the anchor around it
+    is graded, and the spelling inside it is not a second citation."""
+    write(
+        world["web"],
+        "seal/ledger/1790000000-x.md",
+        ledger_row('pact:orders-api/"## On pact:orders-api/old shapes"@deadbeef'),
+    )
+    code, out = run(world)
+    assert code == 2 and "BROKEN " in out, out
+    assert "does not parse" not in out, out
