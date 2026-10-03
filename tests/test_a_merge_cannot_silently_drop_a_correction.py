@@ -1629,5 +1629,5 @@ def test_a_correction_whose_released_file_is_gone_is_not_judged_a_loss(tmp_path)
     run(root, "merge", "--no-commit", "--no-ff", "theirs", check=False)
     write(root, CITING, "")
     head = commit(root, "Merge branch 'theirs' into ours")
-    code, out = check(root, f"{start}..{head}")
+    _, out = check(root, f"{start}..{head}")
     assert "  dropped     " not in out, out
