@@ -17,7 +17,8 @@ fifteen `dispatch.py pre-bash` calls on a plain `git switch` before and after.
 
 ## What this phase found
 
-**The branches taken.** Count A was 9, so candidate A, `unplaced_switch`, and
+**The branches taken.** Count A was 9, so candidate A,
+`unplaced_switch` (NAME NOT IN TREE), and
 its two helpers were deleted with their unit cases, and §*Known limits* gained
 a bullet with the count, the corpus and the date. A case pins #686's seven
 shapes silent over a dirty `w` under a clean session. Count C was 0, so
