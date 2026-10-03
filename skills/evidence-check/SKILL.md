@@ -485,7 +485,7 @@ followed by `/` or `#`, or by the rest of an anchor with its `/` missing —
 and does not parse is that last kind; the refusal names both ways out, a
 quoted heading path with a hash, or a fenced code block for an example.
 Every path it prints is in POSIX form on every platform: relative to its
-repository inside one, `~/`-relative under the home directory.
+repository inside one, and beginning `~/` where it lies under `~`.
 
 **It is local only.** A signatory's pull request can read one repository, so
 its CI prints the relationship and verifies nothing (`chain-check`'s pact
