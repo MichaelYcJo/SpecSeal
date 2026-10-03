@@ -26,8 +26,10 @@ from test_pact_check import (
     V2,
     checker,
     clause,
+    commit,
     config,
     make_world,
+    pact,
     run,
     write,
 )
@@ -101,6 +103,11 @@ def review(world, *rows, name="1791030000-the-pact-review"):
 
 
 RECORD = f"seal/pact-changes/{ITEM}.md"
+
+
+def pact_with(other):
+    """The pact at v2, listing the signatory and OTHER."""
+    return pact(V2, (SIGNATORY_URL, other))
 
 
 @pytest.fixture
@@ -297,3 +304,50 @@ def test_a_clause_cell_that_is_neither_is_refused(world):
         f"REFUSED {SIGNATORY_URL} seal/pact-changes/1791020001-x.md:3 — the "
         "record's `Clause` cell `a clause` is neither a pact anchor nor `—`"
     ) in out, out
+
+
+def test_a_review_of_another_signatory_takes_nothing_here(world):
+    """A pact review row naming another signatory, at this record's very id
+    and hash, does not take this signatory's record."""
+    _anchor, digest = record(world)
+    mobile = "https://example.com/org/orders-mobile"
+    write(world["api"], "seal/pact.md", pact_with(mobile))
+    commit(world["api"], "a second signatory")
+    review(world, (mobile, f"{ITEM}@{digest}", "holds"))
+    code, out = run(world)
+    assert code == 1, out
+    assert f"NOT TAKEN {SIGNATORY_URL} {RECORD}:7" in out, out
+    assert "1 pact change read, 0 taken" in out, out
+
+
+def test_a_review_of_another_record_takes_nothing_here(world):
+    """Two records; a review takes the first. The second is not taken, and
+    its line says it was never reviewed, not that it grew."""
+    _anchor, first = record(world)
+    later = "1791020001-a-later-item"
+    (world["web"] / "seal" / "pact-changes" / f"{ITEM}.md").rename(
+        world["web"] / "seal" / "pact-changes" / f"{later}.md"
+    )
+    _anchor, _ = record(world, step=2)
+    review(world, (SIGNATORY_URL, f"{later}@{first}", "holds"))
+    code, out = run(world)
+    assert code == 1, out
+    assert (
+        f"NOT TAKEN {SIGNATORY_URL} {RECORD}:7 pact:orders-api/{LOCATOR}@"
+        f"{clause(V2)} — the pact has not taken work item {ITEM}'s pact change"
+    ) in out, out
+
+
+def test_a_row_citing_another_pact_is_not_this_pacts(world):
+    """A signatory of two pacts records changes under both; a row citing
+    only the other pact is neither read nor refused here."""
+    write(
+        world["web"],
+        f"seal/pact-changes/{ITEM}.md",
+        "| Clause | Row | Code | Checked |\n|---|---|---|---|\n"
+        '| pact:billing/"## Invoices"@5e6f7a8b | seal/ledger/x.md · B1 | `a.py#f@1` '
+        "BROKEN | 2026-09-04 |\n",
+    )
+    code, out = run(world)
+    assert code == 0, out
+    assert "0 pact changes read, 0 taken" in out, out
