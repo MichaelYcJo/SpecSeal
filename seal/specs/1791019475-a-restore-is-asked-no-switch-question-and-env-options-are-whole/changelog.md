@@ -23,5 +23,8 @@
   a value. `env`'s options are now read both ways, and every string either
   reading finds is judged, so the gate stops on every spelling either `env`
   runs. A prefix of `--env0-from` or `--quoting-style` now takes the next
-  word as its value, as GNU reads it, so a string behind one is no longer
-  read where no `env` runs it. `genv` is read as GNU's alone.
+  word as its value, as GNU reads it, so an abbreviated split string behind
+  one (`env --quoti --spl '…'`) is no longer read where no `env` runs it.
+  `-S` and `--split-string` spelt in full are still read wherever they
+  stand, as before, so `env --e -S '…'` is read although no `env` runs
+  that string. `genv` is read as GNU's alone.
