@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 5 |
-| Commit | the commit that carries this record; the records it checks are in `005067c3` and `dcd87ab1` |
+| Commit | b68c404e |
 | Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
@@ -38,7 +38,7 @@ the records run below; that line carries the marker as well.
 
 **`survivor-check --range 233f0455..HEAD`** found one place: the wrapper test
 module's docstring still said `env -S`'s string is read the way `eval`'s
-argument is, and nothing more. It was corrected in `dcd87ab1`, and the check
+argument is, and nothing more. It was corrected in `dcd87abd`, and the check
 then reported no removed wording standing.
 
 **Checks run, executed:** `bin/evidence-check` exit 0, 3616 ok and no
