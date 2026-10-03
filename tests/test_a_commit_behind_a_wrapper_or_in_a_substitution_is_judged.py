@@ -270,6 +270,9 @@ CONTROLS = {
     # silent at `233f0455`.
     "a program after env's --": "env -- -iS 'git commit -m y'",
     "a program after env's -- behind an option": "env -i -- -vS 'git commit -m y'",
+    # A letter no synopsis has ends the cluster: getopt fails, and env runs
+    # nothing, so the `S` after it spells no split string.
+    "a cluster holding a letter no synopsis has": "env -xS 'git commit -m y'",
 }
 
 # #674: round 1's seven controls, rewritten into each position the work item
@@ -979,3 +982,12 @@ def test_a_cluster_behind_env_s_own_options_is_read(name, tmp_path):
 def test_the_split_string_after_the_options_is_read_past_a_redirection(tmp_path):
     assert found(f"env -iS 2>/dev/null '{C}'", tmp_path)
     assert found(f"env --spl 2>/dev/null '{C}'", tmp_path)
+
+
+def test_an_ambiguous_prefix_names_no_long_option():
+    """GNU's getopt refuses a prefix of two long names (`--i`, `--d`), and env
+    then runs nothing; one long name's prefix is that name."""
+    assert cmdline._env_long("--i", True) is None
+    assert cmdline._env_long("--d", True) is None
+    assert cmdline._env_long("--un", True) == "--unset"
+    assert cmdline._env_long("--un", False) is None
