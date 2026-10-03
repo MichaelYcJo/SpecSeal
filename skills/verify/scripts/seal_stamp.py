@@ -232,14 +232,16 @@ MESSAGE_LIMIT = 10000
 # the blank line between two blocks. The reserve is for what the hook cannot
 # see: `hooks/dispatch.py#report` prepends the session's gate-failure report
 # to this same message after the hook has printed. The longest report it can
-# write, with each exception's type name cut at its `NAME_CAP` and its text
-# at its `MESSAGE_CAP`, is 559 UTF-16 units for one failed gate and 957 for
-# two, separator included; a third, at 1,352, would pass the limit beside a
-# stamp at the budget (measured 2026-10-03 over `dispatch.describe`, every
-# gate in every group it is in, both phases, with a name and a text at their
-# caps; `tests/test_a_gate_that_fails_says_so.py#longest_report` is the
+# write, with each exception's type name and each gate's name cut at
+# `NAME_CAP` and its text at `MESSAGE_CAP`, is 564 UTF-16 units for one failed
+# gate and 972 for two, separator included; a third, at 1,378, would pass the
+# limit beside a stamp at the budget (measured 2026-10-03 over
+# `dispatch.describe`, every gate this plugin names and three foreign ones,
+# in every group it names and a foreign one, at every phase, with every field
+# past its cap -- a record an older or newer plugin wrote;
+# `tests/test_a_gate_that_fails_says_so.py#longest_report` is the
 # measurement). Before #722 the name had no cap, so a class from outside the
-# plugin with a long enough name passed the reserve with two gates. Both caps
+# plugin with a long enough name passed the reserve with two gates. The caps
 # count the same units, so a name or a text outside the BMP keeps these
 # figures: cut by code points, a text gave two gates 1,309 in #717's round 3.
 MESSAGE_RESERVE = 1000

@@ -639,14 +639,19 @@ def test_a_record_an_older_plugin_wrote_is_capped_when_it_is_read():
 
 def longest_report(d, count):
     """The longest report `count` failed gates can put before a stamp, in
-    UTF-16 units, the blank line `report` adds included: every gate in every
-    group it is in, both phases, with the name and the message at their caps.
-    Each gate is said once per session, so `count` distinct gates."""
-    fields = {"error": "E" * d.NAME_CAP, "message": "m" * d.MESSAGE_CAP}
+    UTF-16 units, the blank line `report` adds included: every gate this
+    plugin names and three foreign ones, in every group this plugin names and
+    a foreign one, at every phase, with each field past its cap -- a record
+    an older or newer plugin wrote is what the read-side caps are for
+    (round 1's 🟡 3). Each gate is said once per session, so `count` distinct
+    gates."""
+    fields = {"error": "E" * 300, "message": "m" * 400}
+    gates = {g for gs in d.GROUPS.values() for g in gs} | {c * 300 for c in "xyz"}
+    groups = [*d.GROUPS, "G" * 300]
     longest = {}
-    for group, gates in d.GROUPS.items():
-        for gate in gates:
-            for phase in ("load", "run"):
+    for gate in gates:
+        for group in groups:
+            for phase in ("load", "run", None):
                 line = d.describe(gate, {"group": group, "phase": phase, **fields})
                 longest[gate] = max(longest.get(gate, ""), line, key=units)
     chosen = sorted(longest.values(), key=units, reverse=True)[:count]
@@ -655,6 +660,23 @@ def longest_report(d, count):
         count=f"{count} gate{'' if one else 's'}", verb="was" if one else "were"
     )
     return units("\n".join([label, *chosen, d.CLOSING])) + 2
+
+
+def test_a_record_another_version_wrote_names_its_own_group_and_a_capped_gate():
+    """Round 1's 🟡 3. A load failure whose record names a group today's
+    `GROUPS` does not put the gate in -- a gate that moved between versions --
+    names that group alone, rather than adding every group the gate is in
+    now. And the gate's name, the record's file name, is cut at `NAME_CAP`
+    like the type name. Seen red at `64196684`."""
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_the_foreign_record")
+    moved = d.describe("session-lease.py", {"group": "session-start", "phase": "load"})
+    assert moved.startswith("session-lease.py failed to load in session-start;"), moved
+    known = d.describe("worktree-guard.py", {"group": "pre-bash", "phase": "load"})
+    assert "in pre-bash and pre-agent" in known, known
+    long = d.describe("g" * 120, {"group": "pre-bash", "phase": "run"})
+    assert long.startswith("g" * d.NAME_CAP + " failed while running"), long
+    astral = d.describe("y" + ASTRAL * 60, {"phase": "run"})
+    assert astral.startswith("y" + ASTRAL * 19 + " failed while running"), astral
 
 
 def test_two_failed_gates_fit_the_reserve_with_every_field_at_its_cap():

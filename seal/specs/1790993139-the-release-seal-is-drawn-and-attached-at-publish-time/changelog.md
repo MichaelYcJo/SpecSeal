@@ -22,8 +22,9 @@
   and two gates failing with a long enough name made the report pass the
   1,000 UTF-16 units the `Stop` message keeps back for it. The name is cut
   at 40 units when the failure is recorded, and the name, the message and
-  the group are cut again when an older plugin's record is read. With every
-  field at its cap, two failed gates write 957 units and three 1,352.
+  the group and the gate's own name are cut again when an older plugin's
+  record is read. With every field at its cap, two failed gates write 972
+  units and three 1,378.
 
 - The suite needs Pillow, pinned to one version beside the CommonMark
   parser, for the seal's pixel case; `bin/test` adds it to an existing

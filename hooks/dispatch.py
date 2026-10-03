@@ -455,17 +455,23 @@ def describe(gate, body):
     its cap again here, because `read_record`'s writer may be an older or a
     newer plugin (#722): `error` at `NAME_CAP`, `message` at `MESSAGE_CAP`,
     and `group`, which this plugin writes from `GROUPS` but cannot trust a
-    record to, at `NAME_CAP`. `phase` is read through a fixed table, and the
-    gate's name is the record's FILE name, which the reserve's figures
-    measure over `GROUPS`."""
+    record to, at `NAME_CAP`. `phase` is read through a fixed table. The
+    gate's name is the record's FILE name, which another plugin version's
+    gates name, so it is cut at `NAME_CAP` too; and a load failure's group
+    is expanded only where today's `GROUPS` puts the gate in the group the
+    record names (round 1's 🟡 3)."""
     group = capped(flat(body.get("group")), NAME_CAP)
+    gate = capped(gate, NAME_CAP)
     phase = body.get("phase")
     how = {"load": "failed to load", "run": "failed while running"}.get(phase, "failed")
     error = capped(flat(body.get("error")), NAME_CAP)
     message = capped(flat(body.get("message")), MESSAGE_CAP)
     cause = f"{error}: {message}" if error and message else error or message
     groups = [group] if group else []
-    if phase == "load" and group in GROUPS:
+    # Expanded only where this plugin's `GROUPS` puts the gate in the group
+    # the record names: a record whose pair this version would never write
+    # (a gate that moved groups between versions) names its own group alone.
+    if phase == "load" and gate in GROUPS.get(group, ()):
         groups += [g for g, gates in GROUPS.items() if gate in gates and g != group]
     decided = [g for g in groups if any(o != gate for o in GROUPS.get(g, ()))]
     return "".join(
