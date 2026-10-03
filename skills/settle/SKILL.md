@@ -287,12 +287,16 @@ ones inside a fence included. The checker skips a fence that closes (#444),
 and the guard reads it anyway, because keeping a directory the checker would
 not break is the cheaper mistake. `settle` alone names them for every
 released directory before you write any prose. Each row carries what
-`CLAUDE.md` requires of it: **REMOVED** when every anchor it cites goes, and
+`docs/the-evidence-ledger.md` §*A row is a content anchor, and it names no
+commit* requires of it: **REMOVED** when every anchor it cites goes, and
 its claim written anew where
 it still stands; **narrow** when it keeps a live anchor, with the dead one
 dropped — and whether such a row is removed instead is the repository owner's
-question. The command edits no row. Answer them, and the next
-`settle --retire` takes the directory.
+question. Where `seal/config.md` declares `Ledger frozen from`, a row in a
+released ledger file says **released** instead: it is never removed or
+narrowed, and a `Corrected ·` row citing it in the fold's own fragment
+supersedes it (§*What a fold branch owes*). The command edits no row. Answer
+them, and the next `settle --retire` takes the directory.
 
 **The retirement is the second half of the fold and never its own act.** A
 directory removed before a policy document absorbed it takes the reasoning
@@ -321,15 +325,27 @@ ceiling is cheaper to fix while the spec it came from is still on disk. Where
 the repository declares neither row, the command says so and checks nothing,
 which is not a finding.
 
-**`seal/ledger.md` changes only by removal and re-verification.** So does
-every `seal/releases/<X.Y.Z>.md`, where this repository's fold writes a
-release's rows. A fold
-appends nothing: it has no work item, so it has no fragment to append under.
-It removes a row the guard named REMOVED, drops the dead anchor from a row it
-named narrow, and re-reads and re-verifies — `evidence-check --reverify
---checked <date>`, which dates the reading — a row whose anchored unit its own
-prose edited. Every other row is a content
-anchor and survives the fold untouched.
+**Where the freeze is declared, a fold writes a fragment of its own.** A
+repository whose `seal/config.md` carries `Ledger frozen from` does not edit
+`seal/ledger.md` or any `seal/releases/<X.Y.Z>.md` after its release, and a
+fold is no exception. A fold has no work item, so its fragment is named for
+the moment instead: `seal/ledger/<unix-seconds>-fold.md`, the seconds from
+`date +%s`, and the release folds it like any other fragment. Into it go a
+`Re-read ·` row for each row whose anchored unit the fold's own prose edited
+— `evidence-check --reverify --into seal/ledger/<unix-seconds>-fold.md
+--checked <date>` writes them — and a `Corrected ·` row for each row the
+guard names `released`, citing it, with the citation alone where the claim
+went with the directory (`docs/the-evidence-ledger.md` §*A released row is
+read again in the branch's fragment*). A released row is never removed; the correction
+supersedes it, and the next `settle --retire` takes the directory. Every
+other row is a content anchor and survives the fold untouched.
+
+**Without the freeze, `seal/ledger.md` changes only by removal and
+re-verification**, and so does every `seal/releases/<X.Y.Z>.md`. A fold
+appends nothing there: it removes a row the guard named REMOVED, drops the
+dead anchor from a row it named narrow, and re-reads and re-verifies —
+`evidence-check --reverify --checked <date>`, which dates the reading — a row
+whose anchored unit its own prose edited.
 
 ## What this does not do
 

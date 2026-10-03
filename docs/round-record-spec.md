@@ -4,8 +4,8 @@ Authority for the rows of `seal/specs/<work-item-id>/rounds/round-N.md` as the
 pull-request check reads them, one section per row, and for
 `skills/code-review/scripts/round_record.py`, the generator that writes them.
 What sends a work item's records to this check is
-`docs/commit-review-gate-spec.md` §*The declaration, and where the check went
-instead*. The rows the review run's bound rests on — the floor, `Needs a fix`
+`docs/the-review-and-parity-arms.md` §*The declaration, and where the check
+went instead*. The rows the review run's bound rests on — the floor, `Needs a fix`
 and the reopening — and the record's own two subjects, when it was written and
 what it carries, are `docs/review-chain-spec.md`'s. Update spec and code
 together.

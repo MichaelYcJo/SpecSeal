@@ -1192,8 +1192,14 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
             names = sorted(os.listdir(releases)) if os.path.isdir(releases) else []
             corpus = [read("seal", "ledger.md")]
             corpus += [read("seal", "releases", n) for n in names]
-            folded = next(t for t in corpus if f"### {item}" in t)
-            start = folded.index(f"### {item}")
+            # The heading as a line of its own: a re-read row in a later
+            # release's file cites this section by a coordinate that quotes
+            # `### <item>` inside its heading path (#715), and a substring
+            # search found that row first once the fold put it in a file
+            # sorted ahead of the section's own.
+            heading = f"\n### {item}\n"
+            folded = next(t for t in corpus if heading in t)
+            start = folded.index(heading) + 1
             rest = folded[start + 4 :]
             end = rest.find("\n### ")
             text = " ".join((rest if end < 0 else rest[:end]).split())

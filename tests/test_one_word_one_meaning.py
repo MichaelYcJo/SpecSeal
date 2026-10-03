@@ -14,6 +14,7 @@ two answers ship at once.
 half-edited; the rows naming it are in this work item's overview.
 """
 
+import ast
 import os
 import re
 
@@ -210,8 +211,11 @@ SEAL_SWEPT = (
     ("docs", "review-chain-spec.md"),
     # The two documents #526 split out of the one above. Each carries text
     # that instructed somebody while it sat there, so the split does not
-    # take it out of the sweep.
+    # take it out of the sweep. The same holds for the two #727 cut out of
+    # the first of them.
     ("docs", "commit-review-gate-spec.md"),
+    ("docs", "the-commit-gate-inside-git.md"),
+    ("docs", "the-review-and-parity-arms.md"),
     ("docs", "round-record-spec.md"),
     ("docs", "review-handoff-protocol.md"),
     ("CONTRIBUTING.md",),
@@ -552,3 +556,104 @@ def test_flat_is_what_folds_the_seam_and_it_folds_python_only():
         "`flat` folded a markdown file, which has no literals to join — the "
         "cut lands inside a shell command a reader copies"
     )
+
+
+# --- "pact" and "signatory" — the owner's two words (#647) ------------------
+#
+# Named by the owner on 2026-10-03: the PACT is the one copy of what several
+# repositories keep together, every repository of such a work item is a
+# SIGNATORY, the one holding the pact included, and that one has no noun of
+# its own -- it is "the pact's repository". The thread that designed it used
+# three working words for the same things, and none of them ships.
+
+PACT_SWEPT = (
+    ("templates", "pact.md"),
+    ("docs", "the-pact.md"),
+)
+# The two sections that carry the words inside larger documents, read alone.
+PACT_SECTIONS = (
+    (
+        ("skills", "implement", "orchestration.md"),
+        "### A work item that commits in more than one repository",
+    ),
+    (
+        ("skills", "evidence-check", "SKILL.md"),
+        "## `pact-check` — the signatories against the pact",
+    ),
+    # Round 1's white 11: the words ship here too.
+    (("templates", "config.md"), "## Pact"),
+)
+# Files where only the lines naming a pact are the pact's text: the cheat
+# sheets' row and the config skill's rows and bullet.
+PACT_LINES = (("README.md",), ("README.ko.md",), ("skills", "config", "SKILL.md"))
+# The sentences a person is printed: every string constant of `pact-check`,
+# and those of `chain-check`'s pact print.
+PACT_PRINTED = (
+    (("skills", "evidence-check", "scripts", "pact_check.py"), None),
+    (("skills", "code-review", "scripts", "chain_check.py"), "pact_notices"),
+    (("skills", "code-review", "scripts", "chain_check.py"), "PACT_NOT_HERE"),
+    # The refusals both commands print are written in `hooks/config.py`
+    # (round 2 of #647, white 15).
+    (("hooks", "config.py"), "pact_declaration"),
+    (("hooks", "config.py"), "remote_entries"),
+    (("hooks", "config.py"), "pact_signatories"),
+    (("hooks", "config.py"), "_stops_at"),
+)
+# The thread's working words, and the noun the owner withheld from the
+# repository holding the pact: each would give one thing a second name.
+PACT_LOOSE = re.compile(
+    r"\b(?:home|member|keeper)s?\b|\bpact repo(?:sitory|sitories|s)?\b",
+    re.IGNORECASE,
+)
+
+
+def pact_texts():
+    out = [("/".join(parts), flat(*parts)) for parts in PACT_SWEPT]
+    for parts, heading in PACT_SECTIONS:
+        text = flat(*parts)
+        start = text.index(heading)
+        level = heading.split()[0]
+        end = text.find(f" {level} ", start + len(heading))
+        nested = text.find(" ## ", start + len(heading))
+        stops = [i for i in (end, nested) if i != -1]
+        out.append(
+            (f"{'/'.join(parts)} {heading}", text[start : min(stops or [len(text)])])
+        )
+    for parts in PACT_LINES:
+        lines = [ln for ln in read(*parts).splitlines() if "pact" in ln.lower()]
+        assert lines, "/".join(parts)
+        out.append(("/".join(parts), " ".join(" ".join(lines).split())))
+    for parts, unit in PACT_PRINTED:
+        tree = ast.parse(read(*parts))
+        if unit is not None:
+            tree = next(
+                node
+                for node in ast.walk(tree)
+                if getattr(node, "name", None) == unit
+                or any(
+                    getattr(t, "id", None) == unit for t in getattr(node, "targets", [])
+                )
+            )
+        strings = [
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        ]
+        assert strings, (parts, unit)
+        out.append((f"{'/'.join(parts)} {unit or ''}", " ".join(strings)))
+    return out
+
+
+def test_the_pacts_words_keep_one_meaning():
+    """The policy states both definitions, and no text carrying the words
+    names either thing a second way."""
+    policy = flat("docs", "the-pact.md")
+    assert (
+        "**The pact is the one copy of what two or more repositories keep "
+        "together, and every repository of such a work item is a signatory, "
+        "the one holding the pact included.**"
+    ) in policy
+    assert "it is the pact's repository" in policy
+    for where, text in pact_texts():
+        loose = PACT_LOOSE.findall(text)
+        assert not loose, f"{where} names the pact's things a second way: {loose}"

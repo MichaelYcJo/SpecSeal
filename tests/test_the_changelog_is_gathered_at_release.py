@@ -345,16 +345,18 @@ def test_the_accumulation_section_no_longer_exists():
 
 
 def test_the_documents_send_a_change_to_its_own_fragment():
-    """Three documents decide where an entry goes, and a reader stops at the
-    first one that answers. All three have to say the same thing."""
-    for parts in (
-        ("CONTRIBUTING.md",),
-        ("docs", "branch-and-release.md"),
-        ("CLAUDE.md",),
-    ):
+    """Where an entry goes is decided in one home since #715,
+    `docs/the-record-layout.md`, beside the release sequence that gathers it;
+    `CONTRIBUTING.md` and `CLAUDE.md`, where a reader stops first, send the
+    reader there by name rather than saying it a third and fourth time."""
+    for parts in (("docs", "the-record-layout.md"), ("docs", "branch-and-release.md")):
         text = flat(*parts)
         assert "seal/specs/<work-item-id>/changelog.md" in text, (
             "/".join(parts) + " does not name the file a change writes"
+        )
+    for parts in (("CONTRIBUTING.md",), ("CLAUDE.md",)):
+        assert "docs/the-record-layout.md" in flat(*parts), (
+            "/".join(parts) + " does not send the reader to the fragment rule's home"
         )
 
 
@@ -677,7 +679,7 @@ def test_the_documents_say_a_fragment_carries_no_section_line():
     """S11 for #586: the fragment convention's home and the house rule a
     session meets when it writes one both say it, and the module docstring
     lists the exit."""
-    for parts in (("docs", "branch-and-release.md"), ("CONTRIBUTING.md",)):
+    for parts in (("docs", "branch-and-release.md"), ("docs", "the-record-layout.md")):
         text = flat(*parts)
         assert "no line starting `## `" in text, "/".join(parts)
     head = flat(".github", "scripts", "gather_changelog.py").split('"""')[1]

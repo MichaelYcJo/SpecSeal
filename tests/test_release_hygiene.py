@@ -132,10 +132,10 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
     # policy states which gits a git-side decision was measured to hold on,
     # and that is the class the `seal.py` and `broad_gate.py` rows below name:
     # a property read off an unnamed git is not a measurement.
-    ("docs/commit-review-gate-spec.md", "2.34.1"): "git's, a build #692 measured",
-    ("docs/commit-review-gate-spec.md", "2.39.5"): "git's, a build #692 measured",
-    ("docs/commit-review-gate-spec.md", "2.43.0"): "git's, a build #692 measured",
-    ("docs/commit-review-gate-spec.md", "2.50.1"): "git's, a build #692 measured",
+    ("docs/the-commit-gate-inside-git.md", "2.34.1"): "git's, a build #692 measured",
+    ("docs/the-commit-gate-inside-git.md", "2.39.5"): "git's, a build #692 measured",
+    ("docs/the-commit-gate-inside-git.md", "2.43.0"): "git's, a build #692 measured",
+    ("docs/the-commit-gate-inside-git.md", "2.50.1"): "git's, a build #692 measured",
     ("skills/implement/scripts/seal.py", "4.4.17"): (
         "bash's, named in a comment about the glob behaviour of that release"
     ),
@@ -162,6 +162,14 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "fallback commands in §*Running the checks* carry the pin so they "
         "install the parser the oracle is held to, and a case holds them to "
         "the runner's constant; no release of SpecSeal makes the number wrong"
+    ),
+    ("CONTRIBUTING.md", "12.3.0"): (
+        "Pillow's, the imaging library the release seal is drawn with, pinned "
+        "in `.github/scripts/run_tests.py#PILLOW` (#718). The class is the "
+        "row above's: the fallback commands carry the pin so they install "
+        "the version the suite's pixel case is held to, and a case holds "
+        "them to the runner's constant; no release of SpecSeal makes the "
+        "number wrong"
     ),
     ("skills/verify/scripts/seal_stamp.py", "2.1.287"): (
         "Claude Code's, named above `MESSAGE_LIMIT` as the build on which the "
@@ -1889,7 +1897,7 @@ def test_the_pull_request_checks_the_chain_it_was_routed_to():
     Moving enforcement off the commit and onto the pull request is only
     honest while the pull request actually checks. A workflow with the
     declaration and no step is the standing waiver
-    `docs/commit-review-gate-spec.md` refuses to build — quieter than the one it replaced, because a declaration
+    `docs/the-review-and-parity-arms.md` refuses to build — quieter than the one it replaced, because a declaration
     that nothing reads leaves no trace at all.
     """
     workflow = open(

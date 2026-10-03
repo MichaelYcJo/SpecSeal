@@ -101,6 +101,7 @@ round records must reach CI and other clones.
 │   ├── ledger/<id>.md             rows of work items in development. Folded into ledger.md at release, then removed
 │   ├── follow-up.md               permanent
 │   ├── parity.md                  migration projects only. Permanent
+│   ├── pact.md                    only in the repository that holds the pact. Permanent
 │   └── specs/<epoch>-<slug>/      the whole work item. Lives until settle folds it; 0.4.0 keeps it
 │       ├── spec.md plan.md questions.md overview.md      the SDD set: what was decided and why
 │       ├── changelog.md                                  gathered into CHANGELOG.md at release

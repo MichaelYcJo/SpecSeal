@@ -379,18 +379,31 @@ globs read too. A row is checked against the code it cites wherever it
 sits, so the fold changes no row's status. The `ok` total counts a
 `(coordinate, hash)` pair once per file, so a fold can change the count.
 
+Where `seal/config.md` declares `Ledger frozen from`, a released ledger file
+never changes, and a re-read of one of its rows is written into your own
+fragment: `evidence-check --reverify --into seal/ledger/<work-item-id>.md
+--checked <YYYY-MM-DD> .` writes one `Re-read ·` row per drifted released
+row, and plain `--reverify` writes no released file and names each row it
+left. What a citing row is, and how the checker reads a released row with
+the rows that cite it, is `docs/the-evidence-ledger.md` §*A released row is
+read again in the branch's fragment*.
+
 A row citing a range that spans several definitions becomes several
 coordinates, one per definition. That is not a loss: it is the row saying which
 pieces of code it is actually about.
 
 ## `correction-check` — a correction a merge dropped
 
-The fragment rule has one exception and the exception is the whole of this
-problem: a branch that removes or edits the code an existing ledger row cites,
-or makes what the row claims false, keeps that claim true in the file the row
-is in. So two branches in one release correct rows of one file, the file
-conflicts, and resolving it by taking a side reverts whatever the other side
-had corrected.
+Without the freeze, the fragment rule has one exception and the exception is
+the whole of this problem: a branch that removes or edits the code an
+existing ledger row cites, or makes what the row claims false, keeps that
+claim true in the file the row is in. So two branches in one release correct
+rows of one file, the file conflicts, and resolving it by taking a side
+reverts whatever the other side had corrected. Where `seal/config.md`
+declares `Ledger frozen from`, a released row is read again and corrected by
+a citing row in the branch's own fragment instead, and a released file takes
+no edit to conflict on — `docs/the-evidence-ledger.md` §*A released row is
+read again in the branch's fragment* is the rule.
 
 **This check cannot see that, and neither can anything else here.** A row
 reverted to a superseded state is byte-identical to a row nobody touched:
@@ -410,8 +423,12 @@ at both parents and at the merge base, and names every `Corrected <date>` or
 `Re-read <date>` marker a parent carried that the result does not — while the
 row carrying it still stands. A marker that went **with** its row is `REMOVED`
 and correct, and a marker a parent deleted relative to the base is that
-parent's decision rather than the merge's. Exit 0 when nothing was dropped, 1
-with each loss named, 2 for a range that does not resolve.
+parent's decision rather than the merge's. A `Corrected ·` row a merge
+dropped while the released row it cites stands is a loss too, and under the
+freeze a range that changes a released file is refused, with the exemptions
+that section names. Exit 0 when nothing was dropped or refused, 1 with each
+loss and each refused file named, 2 for a range or a freeze row that will not
+read.
 
 **Its moment is the pull request, and it has no other.** A feature branch
 squashes into its release branch, so the merges it reads stop existing the
@@ -423,6 +440,53 @@ It reports the loss; it does not prevent it. Reading both sides of a hunk is a
 person's act, and a merge driver for the file would have to understand what a
 row claims — which is the judgment this whole ledger is built around a person
 making.
+
+## `pact-check` — the signatories against the pact
+
+Some work items commit in more than one repository, and where those
+repositories keep a contract together, the one copy of it is the pact,
+`seal/pact.md` in one of them (`docs/the-pact.md`). Every repository of such
+a work item is a signatory. A signatory other than the pact's repository
+names it in a `Pact` row of its `seal/config.md`, and cites the clauses it
+was built against as pact anchors:
+
+```
+pact:orders-api/"## Order response shape / ### Fields"@1a2b3c4d
+```
+
+The name is the last path segment of the pact's repository's normalised
+origin URL, the locator is a heading path in `seal/pact.md`, and the hash is
+this checker's content hash of that clause, the value a local coordinate to
+the heading would carry. **This checker passes a pact anchor over.**
+`ANCHOR_RE` cannot match inside one, and the readers that blank coordinates
+before reading a line another way blank pact anchors first, so a clause
+heading holding a version is never an old-format coordinate here.
+
+What grades them is a second command, run at the pact's repository:
+
+```bash
+pact-check
+```
+
+It reads the pact's `| Signatory |` table, finds each signatory's checkout
+through `~/.claude/specseal/pact-paths.md` (a `| Remote | Path |` table kept
+per machine) or a sibling directory with that origin, guessing nothing, and
+refuses a signatory whose config does not name this pact. Then it grades every
+anchor naming this pact in the signatory's ledger files and specs: `OK`;
+`SUPERSEDED`, built against a clause HEAD's own history replaced; `NOT TAKEN`,
+citing a version only another ref holds, which it names; `UNMATCHED`, a hash
+no commit gave the clause; `BROKEN`, a heading path naming no single clause.
+Git is asked which way a mismatch points and never whether an anchor is `OK`.
+Exit 0 when every signatory was read and every anchor is `OK`, 1 for the three
+mismatches or a checkout not found, 2 for `BROKEN`, a refused row or file, an
+anchor naming the pact that does not parse, a relationship recorded on one
+side only, or no origin remote.
+
+**It is local only.** A signatory's pull request can read one repository, so
+its CI prints the relationship and verifies nothing (`chain-check`'s pact
+notices), and this command is where the reconciliation runs. A `SUPERSEDED`
+or `UNMATCHED` line names the clause's current hash, so a new citation can be
+written with `@00000000` and corrected from its first report.
 
 ## The records arm — what a work item's records say about the tree
 

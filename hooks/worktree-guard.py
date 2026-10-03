@@ -122,13 +122,28 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # module's docstring for the 496 executions per hook event it cost.
 #
 # This guard reads through `hooks/cmdline_base.py`, the reader frozen at
-# `86256492`, and never through `cmdline.py` (#689): the splitter, `parse_git`,
+# `86256492`, and never chooses a segment or a tree through `cmdline.py` (#689;
+# the one question it asks that module is below): the splitter, `parse_git`,
 # `adds_a_worktree`, the walk and `Unresolved` all come from there, so what it
 # recognises and where it judges are the release base's by construction. The
 # name `cmdline` is kept so the rest of this file reads as it did.
 # `worktree_consent` imports the same module, so the two share one `Unresolved`.
 import cmdline_base as cmdline
 import console
+
+# The commit gate's wider reader, under a name of its own so the binding above
+# keeps meaning the frozen one. It is asked one question, `wider_only_kinds`:
+# what does it find that the frozen reading does not. It never takes the first
+# slot and never picks the tree (#689). The import is guarded because this
+# guard's own rows do not need it: a broken `hooks/cmdline.py` must not take
+# the ACTIVE deny down with the commit gate, so it costs only the question that
+# reading adds (#678), and the commit gate's own failure still names the module.
+# `SystemExit` beside `Exception`, as `hooks/dispatch.py` catches a module
+# body that exits (round 1 of 1790993140, white 5).
+try:
+    import cmdline as wide
+except (Exception, SystemExit):
+    wide = None
 
 # The AFTER half of this guard: it owns the consent record, and this file reads
 # it. A plain filename again -- and the reason that file's name carries an
@@ -265,10 +280,161 @@ def walk_command(command: str, cwd: str, windows=None):
     new command. The cost is that a `cd` behind a redirection (`2>/dev/null
     cd W`) does not move the tree judged here, and a git behind one
     (`2>/dev/null git switch x`) is not read as git, both as at `86256492`,
-    while the commit gate reads both.
+    while the commit gate reads both. Since #678 the second is put to the
+    person (`wider_only_kinds`); the first stays a known limit (#686).
     """
     items, _clean = _tokenize_with_separators(_judgment_text(command), windows)
     return cmdline.walk_directories(items, cwd)
+
+
+def switch_kind(parsed):
+    """The kind of a `parse_git` result from its words alone: "switch",
+    "creation" or None.
+
+    `classify` answers the same question against a tree: a `checkout` of a
+    path that exists, or of a name that is no ref, is not a switch there. This
+    reads no tree, so every `checkout` with a name in it counts: the upper
+    bound phase 3 of work item 1790993140 counted with (`questions.md` D3). A
+    `switch -c` needs no test of its own, because `-c` always takes a name.
+    """
+    if not parsed:
+        return None
+    sub, args, _chdirs = parsed
+    if sub == "worktree":
+        positionals = [a for a in args if not a.startswith("-")]
+        return "creation" if positionals[:1] == ["add"] else None
+    if sub == "switch":
+        if any(a == "-" or not a.startswith("-") for a in args):
+            return "switch"
+        return None
+    if sub == "checkout":
+        if any(a in ("-b", "-B") for a in args):
+            return "switch"
+        if "--" in args:
+            return None
+        if any(a == "-" or (not a.startswith("-") and a != ".") for a in args):
+            return "switch"
+    return None
+
+
+def wider_only_kinds(command: str, cwd: str, judged=None) -> set:
+    """Candidate C of #678: the kinds only the commit gate's reading finds.
+
+    Each kind -- "switch", "creation" -- that `hooks/cmdline.py`'s reading
+    finds in COMMAND where the frozen reading finds none of it: a git behind
+    a redirection (`git 2>&1 worktree add`, `2>/dev/null git switch x`), a
+    zsh precommand word, a spaced `--config-env`. The wider reading is its
+    splitter's segments, `merged_view`'s groups and the words a redirection
+    glued to a word's end, each read by its `parse_git`, as the commit gate
+    reads them. A kind the frozen loop judged keeps its slot and its verdict,
+    and a view's kind is hidden only where the frozen parser reads it from
+    none of the segments the view was made from, so neither is reported
+    (round 1 of 1790745049, red 1; rounds 1 and 2 of 1790993140, yellows 3
+    and 8). JUDGED is the kinds `main`'s loop judged; without
+    it, the kinds the frozen segments' words hold stand in.
+
+    Wired by phase 4 of work item 1790993140, because it fired on none of the
+    27,351 recorded command and directory pairs phase 3 counted, and the
+    per-view reading round 1 measured fired on none either. Where the wider
+    reader failed to load, it finds nothing, which is the base's answer.
+    """
+    if wide is None:
+        return set()
+    if judged is None:
+        judged = {
+            switch_kind(parse_git(tokens))
+            for tokens, _wheres in walk_command(command, cwd)
+        }
+    text = wide.drop_heredoc_bodies(wide.drop_comments(command))
+    items, _clean = wide.split_segments_with_separators(text)
+    segments = [tokens for _sep, tokens in items]
+    # Each view beside the segments it was made from. The frozen walk reads
+    # those segments as written, never a glued group or a cut word, so a kind
+    # is hidden unless the frozen parser reads it from one of the view's own
+    # segments: `git checkout README.md` is a restore to `classify` and must
+    # not silence a switch behind a redirection after it, and `git
+    # switch>/dev/null x` is no switch to the frozen parser, although its cut
+    # view is (round 2 of 1790993140).
+    sourced = [(tokens, [tokens]) for tokens in segments]
+    sourced += [
+        (tokens, [segments[i] for i in parts])
+        for parts, tokens in wide.merged_view(items)
+    ]
+    wider = set()
+    for view, sources in sourced:
+        frozen = {switch_kind(parse_git(tokens)) for tokens in sources}
+        # The view as the program is handed it. A cut or merged view carries
+        # a redirection word its segments do not, and `switch_kind` reads any
+        # word as a name, so `git checkout . &>/dev/null` read as a switch
+        # (#737).
+        kind = switch_kind(wide.parse_git(_bare_words(view)))
+        if kind and kind not in frozen:
+            wider.add(kind)
+    return wider - set(judged)
+
+
+def _bare_words(tokens):
+    """TOKENS as the program is handed them: a redirection glued to a word's
+    end cut off, and then every redirection taken out (#737).
+
+    bash ends a word at `<` and `>` wherever they stand, and at `&>`, so
+    `checkout>/dev/null` hands git `checkout` and `.&>/dev/null` hands it `.`.
+    `unglued` cuts at the `>` and leaves the `&` on the word, so that `&` goes
+    too.
+    """
+    cut = wide.unglued(tokens) or list(tokens)
+    cut = [
+        t[:-1]
+        if t.endswith("&") and i + 1 < len(cut) and cut[i + 1].startswith(">")
+        else t
+        for i, t in enumerate(cut)
+    ]
+    return wide._without_redirections([t for t in cut if t])
+
+
+def ask_what_only_the_wider_reading_finds(kinds, cwd, session_id, transcript_path):
+    """Put KINDS -- what only the wider reading found -- to the person (#678).
+
+    Asked only where this guard was about to say nothing, so every deny,
+    choice and ask the frozen reading earns still decides first. A creation
+    reads consent first, exactly as `guard_worktree_creation` does, and is
+    silent under it, as at the base (`questions.md` D10): under `automation`
+    the consent is the person's own press. Returns when nothing is left to ask.
+    """
+    if "creation" in kinds:
+        top = repo_paths(cwd)[0] or cwd
+        if worktree_consent.consent(top, session_id, transcript_path):
+            kinds = kinds - {"creation"}
+    if not kinds:
+        return
+    en, ko = [], []
+    if "switch" in kinds:
+        en.append("switches a branch")
+        ko.append("브랜치 전환")
+    if "creation" in kinds:
+        en.append("creates a worktree")
+        ko.append("worktree 생성")
+    respond(
+        "ask",
+        tr(
+            f"This command {' and '.join(en)} in a shape this guard does not "
+            "read: a git behind a redirection (`2>/dev/null git …`, `git 2>&1 "
+            "…`), behind zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or "
+            "`foreach i (…)`, or after a spaced `--config-env`. So it could not "
+            "check which tree that runs in or whether another session is working "
+            "there. Confirm to proceed, or re-issue it as a plain `git switch …` "
+            "or `git worktree add …` (with `git -C <dir>` for another tree), "
+            "which it reads.",
+            f"이 명령의 {'·'.join(ko)}은 이 guard 가 읽지 않는 모양으로 적혀 "
+            "있습니다. 리다이렉션 뒤의 git(`2>/dev/null git …`, `git 2>&1 …`), "
+            "zsh 의 `noglob`·`nocorrect`·`repeat N`·`for i (…)`·`foreach i (…)` "
+            "뒤의 git, 또는 값을 띄어 쓴 `--config-env` 뒤의 git 입니다. "
+            "그래서 어느 트리에서 실행되는지, 다른 세션이 그 트리에서 작업 중인지 "
+            "확인하지 못했습니다. 진행하려면 확인해 주세요. 아니면 이 guard 가 "
+            "읽는 평범한 `git switch …` 나 `git worktree add …` (다른 트리라면 "
+            "`git -C <dir>`) 로 다시 실행하세요.",
+        ),
+    )
 
 
 # RIDER: no production caller reaches this any more. `main` reads the command
@@ -2114,8 +2280,26 @@ def main():
         if switch_reason is not None and creation_at is not None:
             break
     reason = switch_reason or ("worktree-add" if creation_at is not None else None)
-    if not reason:
+
+    # #678's guard half, wired because it fired on none of the recorded runs
+    # (phase 3 of work item 1790993140). Each silent exit below asks first
+    # about a kind only the commit gate's wider reading finds -- a git behind
+    # a redirection or a zsh prefix, or after a spaced `--config-env` -- that
+    # the frozen loop did not judge. It never reaches a row that speaks, so
+    # the frozen findings keep their slots and their verdicts. The kinds the
+    # loop judged are handed over, because `classify` judges fewer than
+    # `switch_kind` reads from the same words: a `git checkout README.md` in
+    # front must not take a hidden switch's kind out (round 1, yellow 3).
+    def quiet():
+        judged = {"switch"} if switch_reason is not None else set()
+        if creation_at is not None:
+            judged.add("creation")
+        hidden = wider_only_kinds(command, cwd, judged)
+        ask_what_only_the_wider_reading_finds(hidden, cwd, session_id, transcript_path)
         sys.exit(0)
+
+    if not reason:
+        quiet()
     eff_cwd = switch_at if switch_reason else creation_at
 
     top, wt_root = repo_paths(eff_cwd)
@@ -2138,11 +2322,11 @@ def main():
             judge_creation(
                 command, cwd, repo_paths(creation_at)[0], session_id, transcript_path
             )
-        sys.exit(0)
+        quiet()
 
     if reason == "worktree-add":
         judge_creation(command, cwd, top, session_id, transcript_path)
-        sys.exit(0)
+        quiet()
 
     active, idle, reliable = sessions_in_tree(top, session_id)
     # The command word for every command this ladder hands back: `-C <top>`
@@ -2421,7 +2605,7 @@ def main():
         )
 
     # 4) 단건 + clean -> 워크트리 없이 그냥 전환.
-    sys.exit(0)
+    quiet()
 
 
 if __name__ == "__main__":

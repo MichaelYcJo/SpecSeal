@@ -8,6 +8,7 @@ machine, and a single-stream switch was denied by sessions in unrelated
 repositories.
 """
 
+import importlib.util
 import json
 import ntpath
 import os
@@ -15,6 +16,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 
 import pytest
 from conftest import load_hook_module
@@ -802,14 +804,17 @@ def test_a_segment_only_the_reading_past_redirections_finds_is_not_git_to_the_gu
 ):
     """#689. `2>/dev/null nice -n 5 git switch` is git only to the reading
     past redirections (#674). The guard reads through `86256492`'s frozen
-    reader, which finds no git there, so it is silent, as at `86256492`,
-    while bash switches `w`. That is the accepted cost of reading as the base
-    read, the same one a `cd` behind a redirection pays.
+    reader, which finds no git there, so it judges no tree, while bash
+    switches `w`. That is the accepted cost of reading as the base read, the
+    same one a `cd` behind a redirection pays.
 
     Changed by round 1 of 1790745049 rather than deleted. It asserted `ask`
     about `w`, which the build's `base_directories` gave by placing the
-    segment where the wider reading unplaced it; `86256492` gives `silent`,
-    and that is the answer now."""
+    segment where the wider reading unplaced it; `86256492` gives `silent`.
+
+    Changed again by phase 4 of 1790993140 (#678's guard half). The frozen
+    reader still judges no tree (`top` stays None), and the guard now puts the
+    switch it could not read to the person instead of passing it silently."""
     session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
     decision, reason, top = run(
         monkeypatch,
@@ -817,7 +822,7 @@ def test_a_segment_only_the_reading_past_redirections_finds_is_not_git_to_the_gu
         "cd w && 2>/dev/null nice -n 5 git switch feature/x",
         session,
     )
-    assert decision == "silent", (decision, reason)
+    assert decision == "ask", (decision, reason)
     assert top is None, top
 
 
@@ -883,10 +888,14 @@ ZSH_PREFIXED = (
 def test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer(
     monkeypatch, capsys, repo, tmp_path, shape
 ):
-    """Round 1 of 1790745049, yellow 2. The guard is silent over an ACTIVE
-    session, and the consent writer files nothing, as at `86256492`. At
-    `4bc94f05` the guard judged the session's tree and denied, and the writer
-    filed the creation under the session's clone."""
+    """Round 1 of 1790745049, yellow 2. The guard does not judge the tree,
+    and the consent writer files nothing, as at `86256492`. At `4bc94f05` the
+    guard judged the session's tree and denied, and the writer filed the
+    creation under the session's clone.
+
+    Changed by phase 4 of 1790993140 (#678's guard half): it asserted
+    `silent` over the ACTIVE session; the guard now asks about the switch it
+    could not read, without judging any tree. The writer's half is unchanged."""
     session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
     active = [(111, str(session / "w"), 1.0, 0.5, "VS Code")]
     decision, reason, _ = run(
@@ -896,8 +905,461 @@ def test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer(
         session,
         sessions=(active, [], True),
     )
-    assert decision == "silent", (shape, decision, reason)
+    assert decision == "ask", (shape, decision, reason)
     acted = wg.worktree_consent.creation_directory(
         shape.format(verb="worktree add ../wt"), str(session)
     )
     assert acted == "", (shape, acted)
+
+
+# --- #686 and #678's guard half, decided by a count ------------------------
+#
+# Both were built in phase 2 of work item 1790993140 and counted in phase 3
+# over the recorded runs; phase 4 wired or removed each by that count, under
+# the owner's rule of 2026-10-03. #686's ask fired on 9 recorded pairs and was
+# removed, so its fallback is a known limit. #678's fired on none and is wired.
+
+SWITCH = "git switch feature/x"
+
+# #686's seven: a `cd` the frozen walk cannot follow, or follows confidently
+# to the wrong place, before the switch. bash switches the dirty `w`; the
+# guard judges the clean session tree and says nothing.
+UNPLACED = {
+    "builtin cd": f"builtin cd w && {SWITCH}",
+    "command cd": f"command cd w && {SWITCH}",
+    "time cd": f"time cd w && {SWITCH}",
+    "pushd": f"pushd w && {SWITCH}",
+    "noglob cd": f"noglob cd w && {SWITCH}",
+    "cd to an unset variable": f'cd "$W" && {SWITCH}',
+    "2>&1 cd": f"2>&1 cd w && {SWITCH}",
+}
+
+
+@pytest.mark.parametrize("name", sorted(UNPLACED))
+def test_a_switch_tree_the_guard_cannot_place_is_judged_as_its_own(
+    monkeypatch, capsys, repo, tmp_path, name
+):
+    """`docs/worktree-guard-spec.md` §*Known limits*: asking here would have
+    stopped 9 of the 27,351 recorded command and directory pairs, so the
+    fallback stays (phase 3 of work item 1790993140). Seen red against a
+    mutant whose last silent exit asks."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, _ = run(monkeypatch, capsys, UNPLACED[name], session)
+    assert decision == "silent", (name, decision, reason)
+
+
+WIDER_ONLY = {
+    "git 2>&1 worktree add": ("cd w && git 2>&1 worktree add ../wt b", "creation"),
+    "--config-env, a creation": (
+        "git --config-env k=v worktree add ../wt b",
+        "creation",
+    ),
+    "2>/dev/null nice -n 5 git switch": (
+        f"cd w && 2>/dev/null nice -n 5 {SWITCH}",
+        "switch",
+    ),
+    "--config-env, a switch": ("git --config-env k=v switch x", "switch"),
+    # Round 2 of 1790993140: a redirection glued to the subcommand's end.
+    # bash runs each (executed by the round); the frozen parser reads
+    # `switch>/dev/null` as no subcommand, and only the cut view reads the
+    # kind. Silent at `f1629706`, where the cut view was compared with the
+    # frozen parser.
+    "a redirection glued to switch": (
+        "cd w && git switch>/dev/null feature/x",
+        "switch",
+    ),
+    "a redirection glued to checkout": (
+        "cd w && git checkout>/dev/null -b y",
+        "switch",
+    ),
+    "a redirection glued to add": (
+        "cd w && git worktree add>/dev/null ../wt b",
+        "creation",
+    ),
+    # #737. The splitter cuts `&>` at `&`, and only the merged view holds the
+    # switch; bash runs each (executed). A mutant comparing the merged view
+    # with itself is silent on both.
+    "&> between switch and its name": (
+        "cd w && git switch &>/dev/null feature/x",
+        "switch",
+    ),
+    "&> between checkout and its name": (
+        "cd w && git checkout &>/dev/null feature/x",
+        "switch",
+    ),
+    # #737. bash runs it as a creation (executed); silent at `2b1dcb1f`,
+    # where `2>/dev/null` was read as `worktree`'s first positional.
+    "a redirection between worktree and add": (
+        "cd w && git worktree 2>/dev/null add ../wt b",
+        "creation",
+    ),
+    **{
+        f"zsh: {shape.split('&& ')[1]}": (
+            shape.format(verb="switch feature/x"),
+            "switch",
+        )
+        for shape in ZSH_PREFIXED
+    },
+}
+
+
+@pytest.mark.parametrize("name", sorted(WIDER_ONLY))
+def test_candidate_c_finds_what_only_the_wider_reading_finds(tmp_path, name):
+    command, kind = WIDER_ONLY[name]
+    assert wg.wider_only_kinds(command, str(tmp_path)) == {kind}, name
+
+
+@pytest.mark.parametrize("command", [*WIDER_FIRST, SWITCH, "git worktree add ../wt b"])
+def test_candidate_c_reports_nothing_the_frozen_reading_found(tmp_path, command):
+    assert wg.wider_only_kinds(command, str(tmp_path)) == set(), command
+
+
+@pytest.mark.parametrize("name", sorted(WIDER_ONLY))
+def test_what_only_the_wider_reading_finds_is_put_to_the_person(
+    monkeypatch, capsys, repo, tmp_path, name
+):
+    """#678's guard half, wired. Each was silent at `233f0455`, and seen red
+    against a mutant whose silent exits skip the question."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    command, kind = WIDER_ONLY[name]
+    decision, reason, top = run(monkeypatch, capsys, command, session)
+    assert decision == "ask", (name, decision, reason)
+    assert "does not read" in reason, reason
+    assert ("switches a branch" in reason) == (kind == "switch"), reason
+    assert ("creates a worktree" in reason) == (kind == "creation"), reason
+    assert top is None, top
+
+
+@pytest.mark.parametrize(
+    "name", sorted(k for k, (_c, kind) in WIDER_ONLY.items() if kind == "creation")
+)
+def test_a_creation_only_the_wider_reading_finds_is_silent_under_consent(
+    monkeypatch, capsys, repo, tmp_path, name
+):
+    """`questions.md` D10: consent is read first, as for every creation."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    assert wg.worktree_consent.record(str(session), "me")
+    decision, reason, _ = run(monkeypatch, capsys, WIDER_ONLY[name][0], session)
+    assert decision == "silent", (name, decision, reason)
+
+
+def test_the_question_names_both_kinds_and_says_it_in_korean(
+    monkeypatch, capsys, repo, tmp_path
+):
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    command = "2>/dev/null git switch x; git 2>&1 worktree add ../wt b"
+    _, reason, _ = run(monkeypatch, capsys, command, session)
+    assert "switches a branch and creates a worktree" in reason, reason
+    monkeypatch.setattr(wg, "LANG", "ko")
+    _, reason, _ = run(monkeypatch, capsys, command, session)
+    assert "브랜치 전환·worktree 생성은 이 guard 가 읽지 않는 모양" in reason, reason
+
+
+@pytest.mark.parametrize(
+    "first", ["git checkout README.md && ", "git checkout nosuch; "]
+)
+def test_a_restore_before_a_hidden_switch_does_not_silence_the_question(
+    monkeypatch, capsys, repo, tmp_path, first
+):
+    """Round 1 of 1790993140, yellow 3. `classify` reads `git checkout
+    README.md`, and a checkout of no ref, as no switch, so the frozen loop
+    judged no switch, and the switch behind the redirection is still put to
+    the person. Silent at `07a3dc7f`, where the restore's words alone took the
+    switch kind out."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    command = f"{first}cd w && 2>/dev/null {SWITCH}"
+    decision, reason, top = run(monkeypatch, capsys, command, session)
+    assert decision == "ask", (decision, reason)
+    assert "switches a branch" in reason, reason
+    assert top is None, top
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd w && git checkout . &>/dev/null",
+        "cd w && git checkout .&>/dev/null",
+        "cd w && git checkout -q &>/dev/null",
+        "cd w && git switch --detach &>/dev/null",
+        "cd w && git switch --detach>/dev/null",
+        "cd w && git checkout>/dev/null .",
+    ],
+)
+def test_a_redirection_word_is_not_read_as_a_branch_name(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """#737. A cut or merged view carries a redirection word its segments do
+    not, and `switch_kind` reads any word as a name, so each of these asked
+    *switches a branch* at `2b1dcb1f`. bash runs each as a restore or a
+    detach (executed), and `233f0455` asked none of them."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, _ = run(monkeypatch, capsys, command, session)
+    assert decision == "silent", (command, decision, reason)
+
+
+def _redirections():
+    """Every redirection `hooks/cmdline.py`'s `_REDIRECTION` names, as (operator,
+    target) pairs, each operator once bare and, where it is not `&`-led, with
+    a number and with bash 4.1's `{fd}` in front. Derived from the pattern, so
+    an operator the reader learns is a new case the day it is added."""
+    pattern = wg.wide._REDIRECTION.pattern
+    assert pattern.endswith(")"), pattern
+    operators = pattern[pattern.rindex("(?:") + 3 : -1]
+    pairs = []
+    for op in (o.replace("\\", "") for o in re.split(r"(?<!\\)\|", operators)):
+        target = {"<<<": "word", "<<": "EOF", "<<-": "EOF"}.get(op, "/dev/null")
+        if op.endswith("&"):
+            target = "1"
+        fds = [""] if op.startswith("&") else ["", "2", "{fd}"]
+        pairs += [(fd + op, target) for fd in fds]
+    return pairs
+
+
+def test_the_redirections_are_read_from_the_reader():
+    """The generator below is only as wide as this list."""
+    ops = {op for op, _target in _redirections()}
+    assert {"&>", "&>>", ">&", "<&", "2>", "{fd}>", "<<<", ">|", ">!"} <= ops, ops
+    assert len(ops) == 2 + 12 * 3, sorted(ops)
+
+
+RESTORES = (
+    "checkout .",
+    "checkout -- README.md",
+    "checkout -q",
+    "switch --detach",
+    "worktree list",
+)
+
+
+def _shapes(verb):
+    """`git <verb>` with every redirection `_redirections` gives, at every
+    position, glued to the word before it and spaced, its target glued and
+    spaced.
+
+    A number or a `{fd}` is a descriptor only as a word of its own, so those
+    are spaced: glued, bash hands it to git inside the word before
+    (`--2>&1` is the option `--2`), which is another verb."""
+    words = ["git", *verb.split()]
+    for op, target in _redirections():
+        gluable = not op[0].isdigit() and not op.startswith("{")
+        for at in range(len(words) + 1):
+            for glued in (False, True) if at and gluable else (False,):
+                for spaced_target in (False, True):
+                    redirection = op + (" " if spaced_target else "") + target
+                    head = " ".join(words[:at])
+                    tail = " ".join(words[at:])
+                    joint = "" if glued else " "
+                    command = (head + joint + redirection).lstrip()
+                    command = (command + " " + tail).rstrip()
+                    if target == "EOF":
+                        command += "\nEOF"
+                    yield command
+
+
+def test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands(
+    tmp_path,
+):
+    """#737, S4. For every operator `_REDIRECTION` names, at every position, glued
+    to the word before it and spaced, its target glued and spaced, a verb that
+    switches nothing is no kind to the wider reading. Red at `2b1dcb1f`."""
+    asked = []
+    for verb in RESTORES:
+        for command in _shapes(verb):
+            kinds = wg.wider_only_kinds(command, str(tmp_path))
+            if kinds:
+                asked.append((command, kinds))
+    assert not asked, (len(asked), asked[:10])
+
+
+def _policy_text():
+    """`docs/worktree-guard-spec.md`, whitespace folded so a wrapped sentence
+    reads as one line."""
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "docs", "worktree-guard-spec.md"
+    )
+    with open(path, encoding="utf-8") as f:
+        return " ".join(f.read().split())
+
+
+# The rule §*Which tree* states for candidate C, in its own words (round 2 of
+# #737): a list of positions was wrong in each of two rounds, so the sentence
+# states the condition, and the case below checks the condition.
+POLICY_RULE = (
+    "the guard asks wherever a view's words hold a switch or a creation that "
+    "none of the frozen segments the view was made from holds"
+)
+
+# Verbs whose words read as a switch or a creation, each a restore or a
+# detach among them where the tree decides: the rule asks them whenever the
+# frozen reading misses them.
+ASKABLE = (
+    "switch feature/x",
+    "switch --detach feature/x",
+    "checkout README.md",
+    "checkout -b y",
+    "worktree add ../wt b",
+)
+
+
+def test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers(
+    tmp_path,
+):
+    """Round 2 of #737. Over the generated shapes, every kind
+    `wider_only_kinds` asks is the kind the verb's own words hold, read with
+    no redirection, and one none of the frozen segments of the command as
+    written holds. Checked by that condition, never by a list of shapes, so
+    the policy's rule and the code cannot drift apart a position at a time.
+    Red against the round-1 sentence, which listed positions."""
+    assert POLICY_RULE in _policy_text()
+    asked, outside = 0, []
+    for verb in (*RESTORES, *ASKABLE):
+        own = wg.switch_kind(wg.parse_git(["git", *verb.split()]))
+        for command in _shapes(verb):
+            kinds = wg.wider_only_kinds(command, str(tmp_path))
+            if not kinds:
+                continue
+            asked += 1
+            frozen = {
+                wg.switch_kind(wg.parse_git(tokens))
+                for tokens, _wheres in wg.walk_command(command, str(tmp_path))
+            }
+            if kinds != {own} or own in frozen:
+                outside.append((command, sorted(kinds), own))
+    assert asked, "the generator reached no shape the wider reading asks"
+    assert not outside, (len(outside), outside[:10])
+
+
+HIDDEN_FILE_CHECKOUTS = (
+    "2>/dev/null git checkout README.md",
+    "git 2>/dev/null checkout README.md",
+    "git checkout>/dev/null README.md",
+    "git checkout &>/dev/null README.md",
+)
+
+
+@pytest.mark.parametrize("command", HIDDEN_FILE_CHECKOUTS)
+def test_a_file_checkout_hidden_from_the_frozen_reader_is_asked_as_a_switch(
+    tmp_path, command
+):
+    """`docs/worktree-guard-spec.md` §*Which tree*: C reads no tree, so a
+    file's name reads as a branch's, and the rule asks it wherever the frozen
+    reading misses it (warden round 1 of #737). Seen red against a
+    `switch_kind` that skips a name holding a `.`."""
+    assert wg.wider_only_kinds(command, str(tmp_path)) == {"switch"}, command
+
+
+def test_the_guard_policy_says_a_hidden_file_checkout_is_asked():
+    """§14 of the agent contract: the sentence a person reads to learn when
+    the guard asks states the rule, says the reading looks up no tree, and
+    labels its examples as examples. Red against the round-1 sentence, which
+    listed positions and promised silence for a detach (round 2 of #737)."""
+    text = _policy_text()
+    assert POLICY_RULE in text
+    assert "it asks whether or not the command moves the tree" in text
+    assert "the two are examples, not the set" in text
+    assert "`git checkout &>/dev/null README.md` is asked" in text
+
+
+def test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 1 of 1790993140, yellow 3: the subtraction is per view, so a
+    restore both readings parse alike adds no question, as at the base."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, _ = run(
+        monkeypatch, capsys, "cd w && git checkout README.md", session
+    )
+    assert decision == "silent", (decision, reason)
+
+
+def test_a_hidden_switch_behind_a_judged_one_adds_no_question(
+    monkeypatch, capsys, repo
+):
+    """The kind the frozen loop judged keeps its verdict: a clean single
+    stream lets the switch through, and a second switch only the wider
+    reading finds is not asked about."""
+    command = f"{SWITCH}; 2>/dev/null git switch main"
+    decision, reason, top = run(monkeypatch, capsys, command, repo)
+    assert decision == "silent", (decision, reason)
+    assert top and os.path.samefile(top, repo), top
+
+
+def test_a_hidden_creation_behind_a_judged_one_adds_no_question(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """The judged creation's own clone has consent, so its verdict is
+    silence; a second creation only the wider reading finds is not asked
+    about from a directory in no repository."""
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    assert wg.worktree_consent.record(str(repo), "me")
+    command = (
+        f"git -C {repo} worktree add ../wt-a -b a && "
+        f"git -C {repo} 2>&1 worktree add ../wt-b -b b"
+    )
+    decision, reason, _ = run(monkeypatch, capsys, command, elsewhere)
+    assert decision == "silent", (decision, reason)
+
+
+def test_a_broken_wider_reader_costs_only_the_question(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Where `hooks/cmdline.py` failed to load, the guard keeps its own rows
+    and asks nothing it could not read, as at the base."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    monkeypatch.setattr(wg, "wide", None)
+    decision, _, _ = run(monkeypatch, capsys, "git --config-env k=v switch x", session)
+    assert decision == "silent"
+
+
+KINDS = {
+    "switch to a branch": (["git", "switch", "x"], "switch"),
+    "switch -c": (["git", "switch", "-c", "x"], "switch"),
+    "switch -": (["git", "switch", "-"], "switch"),
+    "switch with no target": (["git", "switch", "--detach"], None),
+    "checkout -b": (["git", "checkout", "-b", "x"], "switch"),
+    # `classify`'s order: `-b` is a switch before `--` is a restore.
+    "checkout -b before --": (["git", "checkout", "-b", "x", "--"], "switch"),
+    "checkout a name": (["git", "checkout", "x"], "switch"),
+    "checkout -": (["git", "checkout", "-"], "switch"),
+    "checkout .": (["git", "checkout", "."], None),
+    "checkout -- path": (["git", "checkout", "--", "f"], None),
+    "checkout with no name": (["git", "checkout", "-q"], None),
+    "worktree add": (["git", "worktree", "add", "../wt"], "creation"),
+    "worktree list": (["git", "worktree", "list"], None),
+    "status": (["git", "status"], None),
+    "not git": (["echo", "git", "switch", "x"], None),
+}
+
+
+@pytest.mark.parametrize("name", sorted(KINDS))
+def test_switch_kind_reads_the_words_alone(name):
+    tokens, kind = KINDS[name]
+    assert wg.switch_kind(wg.parse_git(tokens)) == kind, name
+
+
+def test_candidate_c_reads_a_redirection_glued_to_git(tmp_path):
+    assert wg.wider_only_kinds("git>/dev/null switch x", str(tmp_path)) == {"switch"}
+
+
+def test_a_wider_reader_that_exits_at_load_costs_only_the_question(
+    monkeypatch, tmp_path
+):
+    """Round 1 of 1790993140, white 5. A `hooks/cmdline.py` whose body raises
+    `SystemExit` is a failure `hooks/dispatch.py` catches beside `Exception`,
+    and the guard's import catches it too, so the guard still loads and keeps
+    its own rows. Seen red with `except Exception:` alone."""
+    hooks = tmp_path / "hooks"
+    shutil.copytree(os.path.join(os.path.dirname(__file__), "..", "hooks"), hooks)
+    (hooks / "cmdline.py").write_text("raise SystemExit(3)\n", encoding="utf-8")
+    monkeypatch.delitem(sys.modules, "cmdline", raising=False)
+    monkeypatch.syspath_prepend(str(hooks))
+    spec = importlib.util.spec_from_file_location(
+        "wg_exiting_reader", hooks / "worktree-guard.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.wide is None
+    assert (
+        module.wider_only_kinds("git --config-env k=v switch x", str(tmp_path)) == set()
+    )

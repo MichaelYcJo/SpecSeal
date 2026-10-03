@@ -35,6 +35,8 @@ there is no default.
 | Mode |  |
 | Broad gate |  |
 | Reference specs |  |
+| Pact |  |
+| Pact notify |  |
 
 ## Commit and pull request language
 
@@ -97,8 +99,11 @@ every repository, whatever either row says:
   translation, it is a broken gate.
 - **The markers and anchors.** `<!-- specs/<work-item-id> -->`, a release
   section's `## X.Y.Z — <date>`, a drained file's `drained` line, the `✅`
-  that closes a row and the `🔴` that opens one, and a ledger anchor's
-  `path#unit@hash`.
+  that closes a row and the `🔴` that opens one, a ledger anchor's
+  `path#unit@hash`, and a pact anchor's `pact:<name>/"<heading path>"@<hash>`.
+- **The `Pact notify` values.** `always`, `when the pact is touched` and
+  `never` are read literally by `hooks/config.py#pact_declaration`, so a
+  translated value is refused rather than read.
 - **Code.** Identifiers, comments, docstrings, file names, and test function
   names.
 - **The item column of this table**, which is a key rather than prose — the
@@ -371,6 +376,42 @@ the survivor sweep under the default, and nothing says so.
 `Reference specs | none`, or a row naming the real reference roots, puts
 them back.
 
+## Pact
+
+Two rows, written in a signatory of a pact held in another repository
+(`docs/the-pact.md`). A work item that commits in more than one repository,
+where those repositories keep a contract together, keeps the one copy of that
+contract in `seal/pact.md` in one of them. Every repository of the work item
+is a signatory, and every one except the pact's repository names the pact
+here. The pact's repository needs no row: it is identified by holding
+`seal/pact.md`.
+
+```markdown
+| Pact | git@example.com:org/orders-api.git |
+| Pact notify | when the pact is touched |
+```
+
+| Row | Value | Absent |
+|---|---|---|
+| `Pact` | the origin remote URL of the pact's repository; a signatory of pacts held in more than one repository lists them separated by `;` | no pact is held elsewhere |
+| `Pact notify` | `always` · `when the pact is touched` · `never` | `when the pact is touched` where a `Pact` row stands, and ignored where none does |
+
+**The URL is compared normalised**, so `git@example.com:org/orders-api.git`
+and `https://example.com/org/orders-api` name one repository. Its last path
+segment is the name a pact anchor carries, `pact:orders-api/"## A"@1a2b3c4d`,
+so two pacts whose URLs end in the same segment are refused as ambiguous.
+
+**Nothing acts on `Pact notify` yet.** It says what this signatory asks to be
+told about a change to the pact, and the record that tells it is #647's next
+step. It is read and validated now, so the row has a reader from the first
+day.
+
+**A row that will not parse is refused in a sentence**, never read as absent.
+At this repository's pull request `chain-check` prints the sentence and its
+exit status does not move: a signatory's CI prints and does not verify.
+`pact-check`, run at the pact's repository, reads the same rows through the
+same reader, `hooks/config.py#pact_declaration`, and exits 2 on them.
+
 ## The fold's values
 
 Three rows, read by `fold-check`, which holds `settle`'s two fold rules over
@@ -408,3 +449,38 @@ file has now, to be written into the entry in the commit that changed them.
 The entry names its home, the issue or document that will split the file,
 and it fails once the file is back under the ceiling, so it cannot outlive the
 split.
+
+## The ledger freeze
+
+One row, read by `evidence-check` and `correction-check`. It declares that a
+released ledger file -- `seal/ledger.md`, or a `seal/releases/<X.Y.Z>.md`
+once its release is tagged -- is never edited again, and that a re-read or a
+correction of one of its rows is a citing row in the branch's own fragment
+instead (`docs/the-evidence-ledger.md`).
+
+```markdown
+| Ledger frozen from | 1790993141 |
+```
+
+| Row | Value | Absent |
+|---|---|---|
+| `Ledger frozen from` | a work-item id's epoch prefix, or `0`. A range whose added work items are all below it is read under the rule it was cut under; one adding a work item at or above it, or adding none, is held to the freeze | no released file is frozen, and `--reverify` re-stamps released rows in place |
+
+**What the row changes.** `evidence-check --reverify` writes no released file
+in a repository that declares it, whatever the value: it re-stamps the
+fragments in place, then exits 1 naming each released row it left, and
+`--reverify --into seal/ledger/<work-item-id>.md --checked YYYY-MM-DD` writes
+those rows as `Re-read ·` rows into the fragment. `correction-check --range`
+refuses a pull request that changes `seal/ledger.md`, or a release file the
+merge base already had, for work at or above the cutoff.
+
+**The comparison is on the work item, not on the merge base.** A branch cut
+before the row landed keeps its exemption after it merges the release branch
+in, because its own `routing.md` id does not move. That is why the value is
+an id rather than a date or a commit.
+
+**An absent row means not frozen, and that is the default every installed
+copy keeps.** A value that is not a whole number is refused: both commands
+exit 2 naming the row, and nothing is written. Lowering the value to `0` once
+no branch below it is open exempts nobody who still exists, so it needs no
+follow-up.

@@ -593,3 +593,352 @@ def under_reference_root(rel, roots):
         return REFERENCE_NAME in parts
     joined = "/".join(parts)
     return any(joined == p or joined.startswith(p + "/") for p in roots)
+
+
+# --- the pact a signatory declares (#647) ----------------------------------
+#
+# A work item can commit in more than one repository, and where those
+# repositories keep one contract together, the one copy of it is the PACT:
+# `seal/pact.md` in the repository that holds it. Every repository of such a
+# work item is a SIGNATORY, the pact's repository included. A signatory other
+# than the pact's repository names the pact here, by the origin remote URL of
+# the repository that holds it, and the pact's repository needs no row: it is
+# identified by holding `seal/pact.md` (`docs/the-pact.md`).
+#
+# Two readers ask these rows and they ask THIS reader:
+# `skills/code-review/scripts/chain_check.py`, which prints the relationship
+# at a signatory's pull request and refuses nothing, and
+# `skills/evidence-check/scripts/pact_check.py`, which reads every signatory
+# from the pact's repository and refuses what will not parse. One reader, so
+# the print and the refusal are about the same rows.
+
+PACT_ROW = "Pact"
+PACT_NOTIFY_ROW = "Pact notify"
+# The separator `Over the ceiling` already uses between its entries.
+PACT_SEPARATOR = ";"
+# What a signatory asks to be told about a change to the pact. Nothing acts on
+# the value until #647's step C; this reader validates it so the row has a
+# reader from the first day.
+NOTIFY_ALWAYS = "always"
+NOTIFY_TOUCHED = "when the pact is touched"
+NOTIFY_NEVER = "never"
+NOTIFY_VALUES = (NOTIFY_ALWAYS, NOTIFY_TOUCHED, NOTIFY_NEVER)
+# #647 recommended it and decided nothing; the frame took it, and
+# `docs/the-pact.md` states it.
+NOTIFY_DEFAULT = NOTIFY_TOUCHED
+# A pact's name in an anchor, `pact:<name>/"<heading path>"@<hash>`: the last
+# path segment of the pact's repository's normalised origin URL. The class is
+# `evidence_check.py#PACT_NAME`'s, which reads the anchor.
+PACT_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
+
+
+def normalise_remote(url):
+    """A remote URL reduced to host and path, so two spellings of one
+    repository compare equal.
+
+    `git@example.com:org/repo.git` and `https://example.com/org/repo` are one
+    repository, and ssh at one machine with https at another is the ordinary
+    case — comparing the strings would refuse every real import.
+
+    The scheme goes, a `user@` prefix goes, the scp-style `host:path` colon
+    becomes `/` **only where there was no scheme** (so the port in
+    `https://example.com:8443/x` is left alone), a trailing `.git` and `/` go,
+    and the result is lowercased.
+
+    Wrong in the accepting direction would need two different repositories to
+    reduce to the same host and path, which is the same repository. Wrong in
+    the refusing direction costs a message naming `--allow-other-repo`. That
+    asymmetry is why this is done at all.
+
+    Anything that is not text reduces to "", because one caller passes a field
+    out of a manifest another machine wrote. `read_manifest` checks that the
+    manifest is an object and that its `format` is one this build reads; every
+    other field is whatever the zip says, and a list here used to reach the
+    console as an `AttributeError`.
+
+    **It lives here and `skills/implement/scripts/seal.py` re-exports it**
+    (#647), the arrangement this module's docstring records for the `Mode`
+    reader. The `Pact` reader below needs it, and this module cannot import
+    `seal.py`: that file imports this one, and a hook must not load a
+    two-thousand-line command to read a row. One normaliser, reached by the
+    name each caller already spells.
+    """
+    if not isinstance(url, str):
+        return ""
+    text = url.strip()
+    if not text:
+        return ""
+    schemed = "://" in text
+    if schemed:
+        text = text.split("://", 1)[1]
+    authority = text.split("/", 1)[0]
+    if "@" in authority:
+        text = text.split("@", 1)[1]
+    if not schemed and ":" in text:
+        text = text.replace(":", "/", 1)
+    text = text.rstrip("/")
+    if text.endswith(".git"):
+        text = text[: -len(".git")]
+    return text.lower()
+
+
+def pact_name(remote):
+    """The name a pact anchor gives the pact held at REMOTE: the last path
+    segment of its normalised URL, or "" where it has no path."""
+    normalised = normalise_remote(remote)
+    if "/" not in normalised:
+        return ""
+    return normalised.rsplit("/", 1)[1]
+
+
+def remote_entries(entries, empty, named):
+    """(parsed, refusals) for ENTRIES, each a remote URL as somebody wrote
+    it: `parsed` as `(as written, normalised, name)` in order, and one
+    sentence per entry refused, EMPTY being the sentence for an empty one.
+
+    NAMED is true where the name is what an anchor will carry -- the
+    `Pact` row's entries -- so a name outside `PACT_NAME_RE`, and two entries
+    sharing a name, are refused as well. A pact's `Signatory` table lists
+    repositories nobody cites by name, and two of them may end in one
+    segment. Two entries naming one repository are refused either way.
+    """
+    parsed, refusals, seen, names = [], [], {}, {}
+    for entry in entries:
+        written = entry.strip()
+        if not written:
+            refusals.append(empty)
+            continue
+        if any(ch.isspace() for ch in written):
+            refusals.append(f"`{written}` holds a space — one remote URL per entry")
+            continue
+        normalised = normalise_remote(written)
+        name = pact_name(written)
+        if not name:
+            refusals.append(
+                f"`{written}` is not a remote URL — it reduces to no host and "
+                "path, so no repository can be found by it"
+            )
+            continue
+        if normalised in seen:
+            refusals.append(f"`{written}` and `{seen[normalised]}` are one repository")
+            continue
+        if named and not PACT_NAME_RE.fullmatch(name):
+            refusals.append(
+                f"`{written}` ends in `{name}`, which a pact anchor cannot "
+                "name — the name takes letters, digits, `_`, `.` and `-`"
+            )
+            continue
+        if named and name in names:
+            refusals.append(
+                f"`{written}` and `{names[name]}` both end in `{name}`, so an "
+                f"anchor `pact:{name}/…` cannot say which pact it cites"
+            )
+            continue
+        seen[normalised] = names[name] = written
+        parsed.append((written, normalised, name))
+    return parsed, refusals
+
+
+def pact_declaration(text):
+    """(pacts, notify, refusals) for the `Pact` rows of a config.md's TEXT.
+
+      pacts     [(as written, normalised, name)] for every entry of the
+                `Pact` row that parsed, in the order the row lists them;
+                [] where no row names a pact
+      notify    the `Pact notify` value, lowercased; `NOTIFY_DEFAULT` where a
+                `Pact` row stands with no `Pact notify`; None where no
+                `Pact` row does, because the notify row is then ignored
+      refusals  one sentence per thing that would not parse, naming it
+
+    **It refuses in sentences and stops nothing.** The two callers differ on
+    exactly that, and the difference is #647's decision 2: a signatory's CI
+    prints a refusal as a notice and its exit status does not move, while
+    `pact-check`, run at the pact's repository, exits 2 on one.
+
+    No row, an empty value, and a file with no table are one state, *no pact
+    is held elsewhere* — the direction everything in this module fails in. A
+    value that is there and does not parse is not that state, and it is
+    refused rather than read as absent: a signatory that wrote a row and is
+    read as having written none is the silence this reader exists to end.
+    """
+    rows = config_rows(text)
+    pact_rows = [value for item, value in rows if item == PACT_ROW]
+    notify_rows = [value for item, value in rows if item == PACT_NOTIFY_ROW]
+    refusals = []
+    if len(pact_rows) > 1:
+        refusals.append(
+            f"`{PACT_ROW}` appears {len(pact_rows)} times — list every pact in "
+            f"one row, separated by `{PACT_SEPARATOR}`"
+        )
+    value = pact_rows[0] if pact_rows else ""
+    if not value:
+        return [], None, refusals
+    pacts, refused = remote_entries(
+        value.split(PACT_SEPARATOR),
+        f"`{PACT_ROW} | {value}` holds an empty entry — one remote URL between "
+        f"each `{PACT_SEPARATOR}`",
+        named=True,
+    )
+    refusals.extend(refused)
+    if len(notify_rows) > 1:
+        refusals.append(
+            f"`{PACT_NOTIFY_ROW}` appears {len(notify_rows)} times — one value"
+        )
+    notify = " ".join(notify_rows[0].split()).lower() if notify_rows else ""
+    if not notify:
+        notify = NOTIFY_DEFAULT
+    elif notify not in NOTIFY_VALUES:
+        refusals.append(
+            f"`{PACT_NOTIFY_ROW} | {notify_rows[0]}` is not one of "
+            + ", ".join(f"`{v}`" for v in NOTIFY_VALUES)
+        )
+        notify = None
+    return pacts, notify, refusals
+
+
+def declared_pacts(home):
+    """`pact_declaration` over `<home>/config.md`, or None where that file
+    is there and will not read.
+
+    **Not the rule the other readers here keep**, and on purpose (round 1 of
+    #647, white 5). They answer an unreadable file as no row, because a gate
+    that refuses wrongly stops a session with nobody able to get past it.
+    This reader's caller is `pact-check`, run by a person at the pact's
+    repository, and a signatory whose written rows read as absent is the
+    silence `pact_declaration` exists to end. So no file is no row, and a
+    file that will not read is None, which `pact-check` refuses as
+    `UNREADABLE`."""
+    path = config_path(home)
+    if not os.path.lexists(path):
+        return [], None, []
+    try:
+        with open(path, encoding="utf-8") as handle:
+            text = handle.read()
+    except (OSError, ValueError):
+        return None
+    return pact_declaration(text)
+
+
+# The pact's own table: every OTHER signatory, by origin remote URL, one per
+# row under a `| Signatory |` header (`templates/pact.md`).
+SIGNATORY_HEADER = re.compile(r"^\|\s*Signatory\s*\|\s*$")
+SIGNATORY_ROW = re.compile(rf"^\|\s*(?P<value>{CELL}*?)\s*\|\s*$")
+
+
+# A one-cell delimiter row, and the starts of the blocks that break a GFM
+# table: a heading, a block quote, an HTML block, a fence, a list item.
+SIGNATORY_DELIMITER = re.compile(r"^\|\s*:?-+:?\s*\|\s*$")
+TABLE_BREAK = re.compile(
+    r"^ {0,3}(?:#{1,6}(?:\s|$)|>|<|`{3,}|~{3,}|[-*+](?:\s|$)|\d{1,9}[.)](?:\s|$))"
+)
+HEADING_LINE = re.compile(r"^ {0,3}#{1,6}(?:\s|$)")
+
+
+def pact_signatories(text):
+    """(signatories, refusals) for the `| Signatory |` table of a pact's
+    TEXT. `signatories` is `remote_entries`' parsed list, and a table that is
+    absent or empty is a refusal, because a pact nobody signs is not a pact.
+
+    **Every way GFM ends or breaks the table is read as GFM reads it, or
+    refused** (round 2 of #647), so no signatory is dropped while the table
+    reads as complete:
+
+      a heading               ends the table; what is under it is a clause
+      the end of the file     ends the table
+      a blank line, a fence,  end the table; a `| … |` line after them and
+      an HTML block, a quote,   before the first heading is a signatory the
+      a list item               walk never reaches, and is refused
+      no delimiter row, or    GFM renders no table, so the header names
+      one of another width      nobody, and it is refused
+      a delimiter row below   refused: GFM reads it as a row of dashes
+        the first row
+      too few cells           an empty row, refused by `remote_entries`
+      too many cells, no      refused: GFM would read a cell or drop one,
+        closing or opening      and which is not this reader's to guess
+        pipe
+      a line with no pipe     refused: GFM reads it as one of the table's
+                                rows, and it should be written as one
+
+    The walk reads what `unfenced` shows it, so a fence or a comment block
+    is a gap in the line numbers, and a gap ends the table as the block it
+    hides does.
+    """
+    shown = list(unfenced(text.splitlines(), text))
+    at = next(
+        (k for k, (_i, line) in enumerate(shown) if SIGNATORY_HEADER.match(line)), None
+    )
+    if at is None:
+        return [], ["holds no `| Signatory |` table, so it names no signatory"]
+    head_index = shown[at][0]
+    delimiter = shown[at + 1] if at + 1 < len(shown) else None
+    if (
+        delimiter is None
+        or delimiter[0] != head_index + 1
+        or not CONFIG_SEPARATOR.match(delimiter[1].strip())
+    ):
+        return [], [
+            "has a `| Signatory |` header with no delimiter row under it, so "
+            "GFM renders no table there"
+        ]
+    if not SIGNATORY_DELIMITER.match(delimiter[1]):
+        width = delimiter[1].strip().strip("|").count("|") + 1
+        return [], [
+            f"has a `| Signatory |` header over a delimiter row of {width} "
+            "cells, so GFM renders no table there"
+        ]
+    values, stray, ended, previous = [], None, False, delimiter[0]
+    for index, line in shown[at + 2 :]:
+        if not ended and (index != previous + 1 or not line.strip()):
+            ended = True
+        if ended:
+            if HEADING_LINE.match(line):
+                break
+            if line.lstrip().startswith("|"):
+                stray = (
+                    f"has a `Signatory` table that ends above `{line.strip()}`, "
+                    "a row the walk never reaches — it and every signatory "
+                    "below it would go unread"
+                )
+                break
+            continue
+        previous = index
+        if HEADING_LINE.match(line):
+            break
+        if TABLE_BREAK.match(line):
+            ended = True
+            continue
+        if SIGNATORY_DELIMITER.match(line):
+            stray = _stops_at(line, "a delimiter row out of place")
+            break
+        match = SIGNATORY_ROW.match(line)
+        if match:
+            values.append(unescaped(match.group("value").strip()))
+            continue
+        if "|" in line:
+            stray = _stops_at(line, "which is not a one-cell row written `| … |`")
+        else:
+            stray = (
+                f"has a `Signatory` table that continues with `{line.strip()}`, "
+                "a line with no pipe that GFM reads as one of its rows — write "
+                "it as `| … |`"
+            )
+        break
+    # Both callers print each refusal after "the pact ", so an entry's own
+    # sentence gets a lead-in that reads after those words (round 2 of #647,
+    # white 14); `remote_entries` keeps the sentences the `Pact` row prints.
+    signatories, entry_refusals = remote_entries(values, "an empty row", named=False)
+    refusals = [
+        f"has a `Signatory` entry that will not read: {r}" for r in entry_refusals
+    ]
+    if stray is not None:
+        refusals.append(stray)
+    if not values:
+        refusals.append("has a `Signatory` table that lists nobody")
+    return signatories, refusals
+
+
+def _stops_at(line, why):
+    return (
+        f"has a `Signatory` table that stops at `{line.strip()}`, {why} — every "
+        "signatory below it would go unread"
+    )

@@ -124,6 +124,7 @@ seal/
 │   └── <X.Y.Z>.md    one release's rows, where this repository's fold
 │                     writes them
 ├── parity.md         migration config, only when declared
+├── pact.md           the pact, only in the repository that holds one
 ├── follow-up.md      schedulable items in a repository with no tracker
 └── specs/<work-item-id>/
     ├── routing.md    the routing answer, written before the first edit —
@@ -277,7 +278,12 @@ no two work items share an id, and the checker reads the whole
 the work item, whose preparation step folds it — in this plugin's own
 repository into `seal/releases/<X.Y.Z>.md` — and removes it; a row is a
 content anchor, so the move changes no row's status, and the checker reads
-`seal/releases/*.md` beside the other two.
+`seal/releases/*.md` beside the other two. Where `seal/config.md` declares
+`Ledger frozen from`, a released row is never re-stamped in place: its
+re-read is a citing row in the work item's fragment, written by
+`evidence-check --reverify --into seal/ledger/<work-item-id>.md --checked
+<YYYY-MM-DD>` (`docs/the-evidence-ledger.md` §*A released row is read again
+in the branch's fragment*).
 
 **Draft as you go, write in one pass.** The recording is cheap and the round
 trip is not: one session made twenty-six separate edits to its ledger and

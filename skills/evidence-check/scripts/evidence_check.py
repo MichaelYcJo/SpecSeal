@@ -57,10 +57,37 @@ Usage:
                                           was re-read: read each row citing a
                                           drifted coordinate first, or narrow
                                           the write with --ledger
+  evidence_check.py --reverify --into FRAGMENT --checked YYYY-MM-DD [ROOT]
+                                          re-stamp the fragments in place, and
+                                          write one `Re-read ·` row into
+                                          FRAGMENT for every released row
+                                          with a drifted coordinate; no
+                                          released file is written. Where
+                                          seal/config.md declares `Ledger
+                                          frozen from`, `--reverify` without
+                                          `--into` writes no released file and
+                                          names each row it left
 
 --map resolves cross-repo coordinates (e.g. a migration's original repo):
   a coordinate `legacy-api/src/service.py#handler@a1b2c3d` with
   --map legacy-api=~/work/legacy-api is checked inside that checkout.
+
+A released row read again (#715). A released ledger file, `seal/ledger.md` or
+a `seal/releases/<X.Y.Z>.md`, is not edited after its release. A re-read or a
+correction of one of its rows is a CITING ROW in the branch's own fragment:
+
+  | Re-read · <the claim> | `<citation>`, `<code at its current hash>` | ... | <date> | Re-read <date> ... |
+  | Corrected · <the new claim> | `<citation>`, `<the new claim's code>` | ... | <date> | Corrected <date> ... |
+
+The citation is the first coordinate in Code grounds and names the row by
+content, `seal/releases/<X.Y.Z>.md#"### <work-item-id>">"<start of the row's
+first cell>"@<hash of that line>`. A released row is read together with
+every `Re-read ·` row citing it, and every one citing those: a coordinate is
+OK when one of its newest readings recorded what it holds now, readings on
+the newest `Checked` date counting together. A `Corrected ·` row
+supersedes the row it cites, whose coordinates are no longer checked, and its
+own are. A citation into a fragment, a citing row without its marker, and a
+citation whose row is gone are each named.
 """
 
 import argparse
@@ -78,6 +105,13 @@ import stat
 import subprocess
 import sys
 import tempfile
+import types
+
+# `--help` ends with the docstring's last section. Partitioned rather than
+# indexed, so an interpreter run with `-OO`, where a module has no docstring,
+# still loads.
+_EPILOG_HEAD = "A released row read again (#715)."
+HELP_EPILOG = _EPILOG_HEAD + (__doc__ or "").partition(_EPILOG_HEAD)[2]
 
 # `path#anchor@hash`. The anchor is either a dotted symbol name or a quoted
 # line of text; `\|` inside the quotes is an escaped pipe, so a row anchored to
@@ -98,6 +132,38 @@ ANCHOR_RE = re.compile(
     r"@(?P<hash>[0-9a-f]{6,12})"
 )
 HASH_LEN = 8
+# A clause of a pact held in another repository, cited from a signatory
+# (#647, `docs/the-pact.md`): `pact:<name>/"<heading path>"@<hash>`. The name
+# is the last path segment of the pact's repository's normalised origin URL
+# (`hooks/config.py#pact_name`), the locator is this module's quoted heading
+# path with its `\|` and `\"` escapes, and the hash is `content_hash` of the
+# clause's region in `seal/pact.md`, the value a local coordinate to that
+# heading carries. `pact_check.py` grades these; nothing here does.
+#
+# **No `ANCHOR_RE` match can end inside one**, so the ledger arm, the records
+# arm, `--reverify` and `--migrate` pass it over: `ANCHOR_RE`'s path must end
+# right before a `#`, and inside a pact anchor every `#` follows a `"`, a `#`
+# or a space, none of which a path holds. `OLD_COORD_RE` is not blind to it
+# the same way -- a heading holding `v1.2:3` matches -- so every reader that
+# blanks `ANCHOR_RE` before reading a line with another pattern blanks these
+# first, through `blank_pact_anchors`. The one shape still read is a heading
+# whose own text holds a whole coordinate, which `check_text` would read as
+# one; that is a known limit rather than a case.
+PACT_NAME = r"[A-Za-z0-9_.-]+"
+PACT_ANCHOR_RE = re.compile(
+    r"(?<![A-Za-z0-9_.@/-])pact:(?P<name>" + PACT_NAME + r")/"
+    r"(?P<locator>\"(?:[^\"\n]|\\\")+\")"
+    r"@(?P<hash>[0-9a-f]{6,12})"
+)
+
+
+def blank_pact_anchors(text):
+    """TEXT with every pact anchor replaced by as many spaces, so a reader
+    that blanks coordinates before reading the rest with another pattern
+    reads no part of one, and every offset stays where it was."""
+    return PACT_ANCHOR_RE.sub(lambda m: " " * len(m.group(0)), text)
+
+
 # The old, pre-anchor coordinate shape — `path:line`, `path:start-end`. Nothing measures
 # from these any more, and the one unacceptable outcome is silence: a ledger
 # full of them once read `0 ok · 0 drifted · 0 broken`, exit 0, which stripped
@@ -760,6 +826,13 @@ def literal_statements(lines, region, literal):
     hits = [
         n for n in range(lo, hi + 1) if want and want in " ".join(lines[n - 1].split())
     ]
+    if len(hits) > 1 and want.startswith("| "):
+        # A literal opening with a table row's leading pipe names the row
+        # whose line begins with it: another row can hold the same run as a
+        # later cell, and no later cell begins a line (round 2, ⬜ 14).
+        starts = [n for n in hits if " ".join(lines[n - 1].split()).startswith(want)]
+        if len(starts) == 1:
+            hits = starts
     if len(hits) != 1:
         return [(n, n) for n in hits]
     at = hits[0]
@@ -1408,7 +1481,14 @@ def skipped_by_narrowing(root, read):
     return [p for p in candidates if identity[p] not in seen]
 
 
-def check_ledger(ledger, root, maps, default_repo=None):
+def check_ledger(ledger, root, maps, default_repo=None, families=None):
+    """Every finding for one ledger file.
+
+    FAMILIES is `ledger_families` over every ledger the caller reads. A
+    caller reading several passes one view to each call, so a released row is
+    read with the rows that cite it from other files; without it the view is
+    this file alone, and a released row's re-reads elsewhere are not seen.
+    """
     text = read(ledger)
     if text is None:
         # Permissions, a directory named `.md`, an I/O error. Answering `[]`
@@ -1420,7 +1500,20 @@ def check_ledger(ledger, root, maps, default_repo=None):
     # A row inside a fenced block that closes is an example, not a claim
     # (#444). `unquoted` blanks those lines and nothing else, and
     # `old_format_rows` asks the same of the text it is given.
-    findings = check_text(unquoted(text), root, maps, default_repo)
+    body = unquoted(text)
+    # A row that cites a released row, or is cited by one, is read by the
+    # family reader (#715), and its line is blanked here the way a quoted line
+    # is, offsets kept, so the walk below does not read it a second time.
+    if families is None:
+        families = ledger_families([ledger], root, maps, default_repo)
+    owned, read_by_family = families.get(file_identity(ledger), (set(), []))
+    if owned:
+        body = "".join(
+            BLANK_RE.sub(" ", line) if n in owned else line
+            for n, line in enumerate(gfm_lines(body, keepends=True), 1)
+        )
+    findings = check_text(body, root, maps, default_repo)
+    findings.extend(read_by_family)
     findings.extend(old_format_rows(text))
     findings.extend(malformed_rows(text))
     findings.extend(overflow_rows(text))
@@ -1447,161 +1540,164 @@ def check_text(text, root, maps, default_repo=None, seen=None, scan_cache=None):
     seen = set() if seen is None else seen
     scan_cache = {} if scan_cache is None else scan_cache
     for m in ANCHOR_RE.finditer(text):
-        raw_path, want = m.group("path"), m.group("hash")
-        locator, claim = m.group("locator"), m.group("claim")
-        coord = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
         # The hash is part of the key: two rows citing one unit at different
         # times disagree, and one of them is necessarily stale — deduping on
         # the coordinate alone skipped the stale one silently (round 4, 🟡 5).
-        if (coord, want) in seen:
+        key = (coordinate_of(m), m.group("hash"))
+        if key in seen:
             continue
-        seen.add((coord, want))
-
-        repo, rel = place(root, maps, default_repo, raw_path)
-        if repo is None:
-            findings.append(("BROKEN", coord, "path escapes the repository"))
-            continue
-        full = os.path.join(repo, rel)
-
-        body = read(full)
-        if body is None:
-            if repo == root and cross_repo_intent(root, default_repo):
-                # The row cannot be placed in any repository this run knows,
-                # and the declaration says another one exists. The scan stays
-                # OFF: searching THIS repo for a row that may cite the other
-                # one manufactures evidence, and did — a cross-repo row was
-                # re-anchored onto a local look-alike (round 4, 🔴 4).
-                if "/" in rel and not os.path.exists(
-                    os.path.join(root, rel.split("/")[0])
-                ):
-                    findings.append(
-                        (
-                            "EXTERNAL",
-                            coord,
-                            "not in this repo; pass --map/--default-repo",
-                        )
-                    )
-                else:
-                    findings.append(("BROKEN", coord, "file not found"))
-                continue
-            # No cross-repo intent anywhere, or the row is mapped into a repo
-            # we can honestly search: a missing file is a broken citation
-            # whatever directory it sat in, and the same graded scan that
-            # heals a renamed file heals a renamed DIRECTORY (round 4, 🔴 3).
-            detail = "file not found"
-            scan = scan_cache.setdefault(repo, {})
-            hashes, names, capped = content_matches(repo, rel, locator, want, scan)
-            if len(hashes) == 1:
-                path, name, _ = hashes[0]
-                tag = "moved?" if name == locator else "renamed?"
-                detail += f" — identical content at {path}#{name} ({tag})"
-            elif hashes:
-                detail += f" — identical content at {len(hashes)} units"
-            elif len(names) == 1:
-                detail += f" — same name at {names[0][0]} (content differs)"
-            if capped:
-                detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
-            findings.append(("BROKEN", coord, detail))
-            continue
-
-        places, resurrected = resolve_unit(rel, locator, body)
-        unsure = []
-        if places and (resurrected or len(places) > 1):
-            # The row's OWN recorded content decides, in both directions. With
-            # several places it breaks the tie (questions.md §Q3). With one
-            # place the declaration rule is not sure of, it is the only thing
-            # that can say whether the row's unit is still there — and where
-            # nothing reconstructs, the unit is GONE, which is the answer
-            # `ast` already gives `.py` (round 6, 🔴 J). Two places
-            # reconstructing one hash are identical spans, so the choice
-            # between them is not a choice — at the MAJOR level. A claim
-            # row's `want` is the hash of the minor region, which two
-            # unrelated units can share by holding one identical line, so
-            # neither move is licensed there: the tie stands, and an unsure
-            # place stays DRIFTED rather than being called gone. `CLAUDE.md`
-            # is the rule — *an anchor degrades to DRIFTED, never to BROKEN.
-            # Only the major level can be BROKEN* (round 8, 🔴 A and 🔴 B).
-            hit = [p for p in places if recorded_here(rel, body, p, want, claim)]
-            if hit and (len(hit) == 1 or not claim):
-                places = hit[:1]
-            elif resurrected and not claim:
-                # Kept, not discarded: the place is what the person needs to
-                # see, and its hash is what they need to record (round 7, 🔴 M).
-                unsure, places = places, []
-        if len(places) > 1:
-            at = ", ".join(f"{a}-{b}" for a, b in places)
-            findings.append(
-                (
-                    "BROKEN",
-                    coord,
-                    f"locator is ambiguous — {len(places)} places: {at} "
-                    "(none holds the recorded content)",
-                )
-            )
-            continue
-        if not places:
-            detail = "locator not found"
-            if unsure:
-                # `locator not found` was a lie — the place was found and the
-                # rule is unsure of it. Saying which lines and what they hash
-                # to is what makes Known limits' *record it by hand* an act
-                # somebody can actually carry out (round 7, 🔴 M).
-                at = "; ".join(
-                    f"{a}-{b}@{content_hash(gfm_lines(body)[a - 1 : b])}"
-                    for a, b in unsure
-                )
-                detail = (
-                    "the declaration rule is unsure of the only place"
-                    f"{'' if len(unsure) == 1 else 's'} it found, and none holds "
-                    f"the recorded content — {at}; record one by hand if it is "
-                    "still the unit"
-                )
-            scan = scan_cache.setdefault(repo, {})
-            hashes, names, capped = content_matches(repo, rel, locator, want, scan)
-            if len(hashes) == 1:
-                path, name, _ = hashes[0]
-                if path == rel:
-                    detail += f" — identical content at #{name} (renamed?)"
-                elif name == locator:
-                    detail += f" — identical content at {path}#{name} (moved?)"
-                else:
-                    detail += f" — identical content at {path}#{name} (renamed?)"
-            elif hashes:
-                detail += f" — identical content at {len(hashes)} units"
-            elif len(names) == 1:
-                # A labelled fact, never the word "renamed": the content
-                # differs, so the checker does not know that.
-                detail += f" — same name at {names[0][0]} (content differs)"
-            if capped:
-                detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
-            findings.append(("BROKEN", coord, detail))
-            continue
-        unit = places[0]
-        if claim:
-            inside = minor_region(rel, body, unit, claim)
-            if not inside:
-                # WIDEN, never break. The minor anchor's place changed, which
-                # is something to re-read rather than a ledger to edit.
-                findings.append(
-                    (
-                        "DRIFTED",
-                        coord,
-                        f"the anchored statement is gone from {locator} "
-                        f"({unit[0]}-{unit[1]}) — re-verify",
-                    )
-                )
-                continue
-            unit = inside[0]
-
-        start, end = unit
-        got = content_hash(gfm_lines(body)[start - 1 : end])
-        if got != want:
-            findings.append(
-                ("DRIFTED", coord, f"content changed at {start}-{end} — re-verify")
-            )
-            continue
-        findings.append(("OK", coord, f"{start}-{end}"))
+        seen.add(key)
+        findings.append(classify(m, root, maps, default_repo, scan_cache))
     return findings
+
+
+def coordinate_of(m):
+    """`path#locator[>claim]` of an `ANCHOR_RE` match: the coordinate with
+    its hash dropped, which is how every finding names it."""
+    claim = m.group("claim")
+    return f"{m.group('path')}#{m.group('locator')}" + (f">{claim}" if claim else "")
+
+
+def classify(m, root, maps, default_repo, scan_cache):
+    """`(status, coordinate, detail)` for one `ANCHOR_RE` match: the anchor
+    reading for a single occurrence.
+
+    Split out of `check_text` so the reader of a released row's family
+    (`ledger_families`, #715) grades each reading by this code path rather
+    than by a second implementation of it. `scan_cache` is shared by a caller
+    that classifies many matches, so a repo-wide scan is paid once.
+    """
+    raw_path, want = m.group("path"), m.group("hash")
+    locator, claim = m.group("locator"), m.group("claim")
+    coord = coordinate_of(m)
+
+    repo, rel = place(root, maps, default_repo, raw_path)
+    if repo is None:
+        return ("BROKEN", coord, "path escapes the repository")
+    full = os.path.join(repo, rel)
+
+    body = read(full)
+    if body is None:
+        if repo == root and cross_repo_intent(root, default_repo):
+            # The row cannot be placed in any repository this run knows,
+            # and the declaration says another one exists. The scan stays
+            # OFF: searching THIS repo for a row that may cite the other
+            # one manufactures evidence, and did — a cross-repo row was
+            # re-anchored onto a local look-alike (round 4, 🔴 4).
+            if "/" in rel and not os.path.exists(os.path.join(root, rel.split("/")[0])):
+                return (
+                    "EXTERNAL",
+                    coord,
+                    "not in this repo; pass --map/--default-repo",
+                )
+            else:
+                return ("BROKEN", coord, "file not found")
+        # No cross-repo intent anywhere, or the row is mapped into a repo
+        # we can honestly search: a missing file is a broken citation
+        # whatever directory it sat in, and the same graded scan that
+        # heals a renamed file heals a renamed DIRECTORY (round 4, 🔴 3).
+        detail = "file not found"
+        scan = scan_cache.setdefault(repo, {})
+        hashes, names, capped = content_matches(repo, rel, locator, want, scan)
+        if len(hashes) == 1:
+            path, name, _ = hashes[0]
+            tag = "moved?" if name == locator else "renamed?"
+            detail += f" — identical content at {path}#{name} ({tag})"
+        elif hashes:
+            detail += f" — identical content at {len(hashes)} units"
+        elif len(names) == 1:
+            detail += f" — same name at {names[0][0]} (content differs)"
+        if capped:
+            detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
+        return ("BROKEN", coord, detail)
+
+    places, resurrected = resolve_unit(rel, locator, body)
+    unsure = []
+    if places and (resurrected or len(places) > 1):
+        # The row's OWN recorded content decides, in both directions. With
+        # several places it breaks the tie (questions.md §Q3). With one
+        # place the declaration rule is not sure of, it is the only thing
+        # that can say whether the row's unit is still there — and where
+        # nothing reconstructs, the unit is GONE, which is the answer
+        # `ast` already gives `.py` (round 6, 🔴 J). Two places
+        # reconstructing one hash are identical spans, so the choice
+        # between them is not a choice — at the MAJOR level. A claim
+        # row's `want` is the hash of the minor region, which two
+        # unrelated units can share by holding one identical line, so
+        # neither move is licensed there: the tie stands, and an unsure
+        # place stays DRIFTED rather than being called gone.
+        # `docs/the-evidence-ledger.md` §*A row is a content anchor* is the
+        # rule — *an anchor degrades to DRIFTED, never to BROKEN.
+        # Only the major level can be BROKEN* (round 8, 🔴 A and 🔴 B).
+        hit = [p for p in places if recorded_here(rel, body, p, want, claim)]
+        if hit and (len(hit) == 1 or not claim):
+            places = hit[:1]
+        elif resurrected and not claim:
+            # Kept, not discarded: the place is what the person needs to
+            # see, and its hash is what they need to record (round 7, 🔴 M).
+            unsure, places = places, []
+    if len(places) > 1:
+        at = ", ".join(f"{a}-{b}" for a, b in places)
+        return (
+            "BROKEN",
+            coord,
+            f"locator is ambiguous — {len(places)} places: {at} "
+            "(none holds the recorded content)",
+        )
+    if not places:
+        detail = "locator not found"
+        if unsure:
+            # `locator not found` was a lie — the place was found and the
+            # rule is unsure of it. Saying which lines and what they hash
+            # to is what makes Known limits' *record it by hand* an act
+            # somebody can actually carry out (round 7, 🔴 M).
+            at = "; ".join(
+                f"{a}-{b}@{content_hash(gfm_lines(body)[a - 1 : b])}" for a, b in unsure
+            )
+            detail = (
+                "the declaration rule is unsure of the only place"
+                f"{'' if len(unsure) == 1 else 's'} it found, and none holds "
+                f"the recorded content — {at}; record one by hand if it is "
+                "still the unit"
+            )
+        scan = scan_cache.setdefault(repo, {})
+        hashes, names, capped = content_matches(repo, rel, locator, want, scan)
+        if len(hashes) == 1:
+            path, name, _ = hashes[0]
+            if path == rel:
+                detail += f" — identical content at #{name} (renamed?)"
+            elif name == locator:
+                detail += f" — identical content at {path}#{name} (moved?)"
+            else:
+                detail += f" — identical content at {path}#{name} (renamed?)"
+        elif hashes:
+            detail += f" — identical content at {len(hashes)} units"
+        elif len(names) == 1:
+            # A labelled fact, never the word "renamed": the content
+            # differs, so the checker does not know that.
+            detail += f" — same name at {names[0][0]} (content differs)"
+        if capped:
+            detail += f" (repo-wide scan skipped: over {SCAN_FILE_CAP} files)"
+        return ("BROKEN", coord, detail)
+    unit = places[0]
+    if claim:
+        inside = minor_region(rel, body, unit, claim)
+        if not inside:
+            # WIDEN, never break. The minor anchor's place changed, which
+            # is something to re-read rather than a ledger to edit.
+            return (
+                "DRIFTED",
+                coord,
+                f"the anchored statement is gone from {locator} "
+                f"({unit[0]}-{unit[1]}) — re-verify",
+            )
+        unit = inside[0]
+
+    start, end = unit
+    got = content_hash(gfm_lines(body)[start - 1 : end])
+    if got != want:
+        return ("DRIFTED", coord, f"content changed at {start}-{end} — re-verify")
+    return ("OK", coord, f"{start}-{end}")
 
 
 def old_format_rows(text):
@@ -1611,7 +1707,9 @@ def old_format_rows(text):
     it fails the run with or without `--strict`: a red build saying "run the
     migrator" beats a green build checking nothing. Only table rows are read,
     and new-format anchors are blanked first so a quoted locator that happens
-    to mention an old coordinate cannot trip this forever.
+    to mention an old coordinate cannot trip this forever. Pact anchors are
+    blanked before them (#647), because a pact clause's heading may hold
+    `v1.2:3` and is never this repository's coordinate.
     """
     findings, seen = [], set()
     # An example row in a fenced block that closes is not a row (#444), and
@@ -1621,7 +1719,7 @@ def old_format_rows(text):
     for line in gfm_lines(unquoted(text)):
         if not line.lstrip().startswith("|"):
             continue
-        for m in OLD_COORD_RE.finditer(ANCHOR_RE.sub(" ", line)):
+        for m in OLD_COORD_RE.finditer(ANCHOR_RE.sub(" ", blank_pact_anchors(line))):
             if URL_HOST_RE.search(line[: line.find(m.group(0))]):
                 continue
             if m.group(0) in seen:
@@ -1829,7 +1927,8 @@ def malformed_rows(text):
     in:
 
     - a coordinate the patterns refused: what is left of the cell once every
-      `ANCHOR_RE` and `OLD_COORD_RE` match is blanked, and every URL in it,
+      pact anchor (`PACT_ANCHOR_RE`, #647) and every `ANCHOR_RE` and
+      `OLD_COORD_RE` match is blanked, and every URL in it,
       still holds an `@` glued after a `#` (no whitespace between them
       outside a quoted string, which holds whitespace only in a code span),
       a `#` glued to a path or a file name, or a path followed by `@` and a
@@ -1855,7 +1954,12 @@ def malformed_rows(text):
 
     for cells, column in grounds_cells(text):
         cell = cells[column]
-        left = OLD_COORD_RE.sub(" ", ANCHOR_RE.sub(" ", cell))
+        # A pact anchor is a clause of another repository's pact, not a
+        # coordinate this ledger failed to write (#647): blanked before the
+        # two patterns, so neither its `#`s nor a `v1.2:3` in its heading is
+        # read as a refused coordinate here.
+        unpacted = blank_pact_anchors(cell)
+        left = OLD_COORD_RE.sub(" ", ANCHOR_RE.sub(" ", unpacted))
         spans = [m.group(2).strip() for m in CODE_SPAN_RE.finditer(left)]
         words = CODE_SPAN_RE.sub(" ", left).split()
         refused = [s for s in spans + words if refused_coordinate(s)]
@@ -1865,7 +1969,7 @@ def malformed_rows(text):
         elif (
             cell
             and not ANCHOR_RE.search(cell)
-            and not OLD_COORD_RE.search(cell)
+            and not OLD_COORD_RE.search(unpacted)
             and any(c for i, c in enumerate(cells) if i != column)
         ):
             found(
@@ -1920,6 +2024,555 @@ def overflow_rows(text):
             detail = f"{len(cells)} cells under a {width}-cell header — {REMEDY_PIPE}"
         findings.append(("OVERFLOW", f"line {n}", detail))
     return findings
+
+
+# --- a released row read again in a fragment (#715) --------------------------
+#
+# A released ledger file -- `seal/ledger.md` or a `seal/releases/<X.Y.Z>.md` --
+# is not edited after its release. A branch that re-reads one of its rows, or
+# finds the row's claim false, writes a CITING ROW into its own fragment
+# instead: a first cell opening `Re-read · ` or `Corrected · `, and a `Code
+# grounds` cell whose first coordinate names the released row by content --
+# the file, the heading the row sits under, and a literal from the start of
+# its first cell, with the hash of the row's own line:
+#
+#   seal/releases/0.1.0.md#"### <work-item-id>">"R1 · the start of the claim"@<hash>
+#
+# The rows that read one released row are then read together, as a FAMILY:
+# the row, every `Re-read ·` row citing it, and every `Re-read ·` row citing
+# one of those. Of the members that record a code coordinate, only the
+# readings with the newest `Checked` date count, ties kept as a union, and the
+# coordinate is OK when one of them recorded what it holds now. That is the
+# halves rule of `docs/the-evidence-ledger.md` computed rather than applied by
+# hand to a released file: two same-day re-reads tie, the side that edited a
+# unit is the side whose hash matches it, and where both sides edited it,
+# neither matches and the row is DRIFTED. The cost: content back at a hash
+# only an older reading recorded reads DRIFTED, a partial revert and a whole
+# one alike, and costs a re-read, never a question. Coordinates are still
+# judged one at a time, so readings of two units on two rows combine into a
+# pair neither row recorded (round 1, 🟡 2; round 2, 🟡 10). A `Corrected ·`
+# row supersedes the family of the row it cites -- none of those coordinates
+# is checked any more -- and starts a family of its own.
+#
+# The citation itself is a coordinate and is checked as one, except that a
+# row it no longer finds is BROKEN rather than the DRIFTED an ordinary minor
+# anchor degrades to: the family it named is gone, and nothing re-reading
+# could bring it back. `seal/specs/1790993138-every-record-has-one-home-and-a-
+# released-ledger-file-never-changes/spec.md` D2 and D3 hold the decisions.
+CITING_VERBS = ("Re-read", "Corrected")
+CITING_SEPARATOR = " · "
+# `correction_check.py#MARKER`'s shape: the verb, at most five lowercase words,
+# and a date. That module is the reader of the marker, so a citing row is held
+# to the spelling it reads; a copy here, because `evidence-ci` vendors this
+# file alone.
+CITING_MARKER_RE = re.compile(
+    r"\b(Re-read|Corrected)(?:[ \t]+[a-z][a-z-]*){0,5}[ \t]+\d{4}-\d{2}-\d{2}(?!\d)"
+)
+NOTES = "Notes"
+# A citation is written the way the repository spells the root: `seal/…`. In
+# local mode the root sits under the git directory (`seal_home`), so the
+# prefix is re-rooted there rather than read under the working tree.
+SEAL_PREFIX = "seal/"
+
+
+def citing_verb(cells):
+    """`Re-read`, `Corrected`, or None: what a row's first cell opens with."""
+    first = cells[0] if cells else ""
+    for verb in CITING_VERBS:
+        if first.startswith(verb + CITING_SEPARATOR):
+            return verb
+    return None
+
+
+def ledger_kind(root, path):
+    """`released`, `fragment`, or None for PATH, by where it sits under the
+    `seal/` root: `ledger.md` and `releases/*.md` are released, and
+    `ledger/*.md` is a fragment."""
+    home = os.path.normcase(os.path.abspath(seal_home(root)))
+    full = os.path.normcase(os.path.abspath(path))
+    if full == os.path.join(home, "ledger.md"):
+        return "released"
+    parent, name = os.path.split(full)
+    if not name.endswith(".md"):
+        return None
+    if parent == os.path.join(home, "releases"):
+        return "released"
+    if parent == os.path.join(home, "ledger"):
+        return "fragment"
+    return None
+
+
+def cell_index(header, cells, name):
+    """The index of column NAME in a row, or -1: the header's column, or the
+    ledger row's under no header, which is every fragment and release row."""
+    if header is None:
+        index = LEDGER_COLUMNS.index(name)
+    else:
+        index = header.index(name) if name in header else -1
+    return index if 0 <= index < len(cells) else -1
+
+
+def citation_target(root, maps, default_repo, raw_path):
+    """The file a citation's path names, or None where it escapes."""
+    repo, rel = place(root, maps, default_repo, raw_path)
+    if repo is None:
+        return None, rel
+    if repo == root and rel.startswith(SEAL_PREFIX):
+        return os.path.join(seal_home(root), rel[len(SEAL_PREFIX) :]), rel
+    return os.path.join(repo, rel), rel
+
+
+def cited_row(cite, verb, root, maps, default_repo, load):
+    """`(status, detail, (file identity, line) or None)` for one citation.
+
+    LOAD is the caller's reader: a path in, `(identity, (path, body, lines,
+    rows) or None)` out, where LINES is the body through `unquoted` and ROWS
+    maps a line number to its `(header, cells)`. The third value names the
+    cited row wherever the row was found -- the citation `OK`, or `DRIFTED`
+    because the released file changed under it -- and is None where nothing
+    was: a refusal, or a row that is gone.
+    """
+    want = cite.group("hash")
+    target, rel = citation_target(root, maps, default_repo, cite.group("path"))
+    kind = ledger_kind(root, target) if target else None
+    if kind == "fragment":
+        return (
+            "MALFORMED",
+            "a citation names a row in a fragment, which is not released and "
+            "moves at the fold, so the citation would break at the next release "
+            "— re-stamp that row in place in its own fragment (`evidence-check "
+            "--reverify`) instead",
+            None,
+        )
+    if kind != "released":
+        return (
+            "MALFORMED",
+            f"a `{verb} ·` row's first coordinate names a row of a released "
+            "ledger file — seal/ledger.md or a seal/releases/<X.Y.Z>.md — and "
+            "this one names neither",
+            None,
+        )
+    claim = cite.group("claim")
+    if not claim:
+        return (
+            "MALFORMED",
+            "the citation names a section, not a row — add "
+            '`>"<the start of the row\'s first cell>"` before its hash',
+            None,
+        )
+    ident, entry = load(target)
+    if entry is None:
+        return "BROKEN", "the released file it names is not there", None
+    _, body, lines, rows = entry
+    places, _ = resolve_unit(rel, cite.group("locator"), body)
+    if len(places) != 1:
+        return (
+            "BROKEN",
+            "the section it names is gone"
+            if not places
+            else f"the section it names is there {len(places)} times",
+            None,
+        )
+    hits = literal_statements(lines, places[0], unescape(claim[1:-1]))
+    if len(hits) != 1:
+        return (
+            "BROKEN",
+            "the row it cites is gone from its section"
+            if not hits
+            else f"the literal is on {len(hits)} lines of its section, so it "
+            "names no one row — lengthen it",
+            None,
+        )
+    number = hits[0][0]
+    if number not in rows:
+        return "BROKEN", "the line it cites is not a ledger row", None
+    inside = minor_region(rel, body, places[0], claim)
+    start, end = inside[0] if inside else (number, number)
+    if content_hash(gfm_lines(body)[start - 1 : end]) != want:
+        return (
+            "DRIFTED",
+            f"the released file changed under the row it cites, at {start}-{end} "
+            "— a released file is not edited after its release; re-read the row "
+            "and re-stamp this citation",
+            (ident, number),
+        )
+    return "OK", f"{start}-{end}", (ident, number)
+
+
+# How short a citation's literal may be, in characters, while a longer one
+# is on offer. The shortest prefix unique in its section is what is written,
+# and this floor keeps it readable: `R1` alone may be unique and says nothing
+# to the person opening the fragment.
+LITERAL_FLOOR = 16
+# What ends a literal: a backslash or a quote would need escaping inside the
+# quoted locator, and a backtick would close the code span the citation sits
+# in. Cut before the first of them rather than escaped, so a citation is the
+# released line's own characters and nothing else.
+LITERAL_STOP_RE = re.compile(r'[\\"`]')
+
+
+def unique_literal(lines, region, number, cell):
+    """The shortest run of whole words in CELL on line NUMBER of REGION and
+    on no other line of it, or None: `citation_for`'s literal rule."""
+    for run in LITERAL_STOP_RE.split(cell):
+        words = run.split()
+        for k in range(1, len(words) + 1):
+            candidate = " ".join(words[:k])
+            if len(candidate) < LITERAL_FLOOR and k < len(words):
+                continue
+            hits = literal_statements(lines, region, candidate)
+            if len(hits) == 1 and hits[0][0] == number:
+                return candidate
+    # Every prefix is on another line too: the whole cell is the start of a
+    # longer row's, as `R1 · it adds` is of `R1 · it adds, again`. The cell's
+    # closing pipe is what tells them apart, so the last run is taken with it.
+    tail = " ".join(LITERAL_STOP_RE.split(cell)[-1].split())
+    if tail:
+        hits = literal_statements(lines, region, tail + " |")
+        if len(hits) == 1 and hits[0][0] == number:
+            return tail + " |"
+    # The cell whole, with both of its pipes. The match is a substring, so
+    # the run can stand on another row's line as one of its later cells;
+    # `literal_statements` then keeps the one line that begins with it,
+    # which only a first cell does (round 1, ⬜ 9; round 2, ⬜ 14). The same
+    # rule resolves the citation in `cited_row`, `minor_region` and
+    # `--reverify`, so all three name the row this names.
+    whole = "| " + " ".join(cell.split()) + " |"
+    if not LITERAL_STOP_RE.search(whole[2:-2]):
+        hits = literal_statements(lines, region, whole)
+        if len(hits) == 1 and hits[0][0] == number:
+            return whole
+    return None
+
+
+def citation_for(root, path, number, body=None):
+    """The citation of the row on line NUMBER of the released file PATH --
+    `seal/<path under the root>#"<heading>">"<literal>"@<hash>` -- or None
+    where no citation names that row alone.
+
+    The heading is tried nearest first: the nearest heading above the row,
+    then the path of every heading enclosing it, then each enclosing heading
+    alone from the nearest outward. A heading is skipped where it is not
+    unique in the file, or holds a backtick, which would close the code span
+    the citation sits in. The first whose section holds a literal for the row
+    is the one written (`unique_literal`): the first cell is cut into runs at
+    every character `LITERAL_STOP_RE` names, and the literal is the shortest
+    run of whole words from the start of the first run that has one on no
+    other line of the section, at least `LITERAL_FLOOR` characters where the
+    run has them. A cell opening with a code span is the common reason the
+    first run has none.
+    """
+    body = read(path) if body is None else body
+    if body is None:
+        return None
+    raw = gfm_lines(body)
+    lines = gfm_lines(unquoted(body))
+    rel = SEAL_PREFIX + os.path.relpath(path, seal_home(root)).replace(os.sep, "/")
+    trail = []
+    for n in range(number - 1, 0, -1):
+        level = heading_level(raw[n - 1])
+        if level is not None and all(level < held for held, _ in trail):
+            trail.insert(0, (level, raw[n - 1].strip()))
+    texts = [text for _, text in trail]
+    tries = [texts[-1:], texts] + [[text] for text in reversed(texts[:-1])]
+    cell = re.split(r"(?<!\\)\|", lines[number - 1].strip()[1:])[0]
+    for parts in tries:
+        if not parts or any("`" in text for text in parts):
+            continue
+        found = heading_path(raw, parts)
+        if len(found) != 1 or not found[0][0] < number <= found[0][1]:
+            continue
+        literal = unique_literal(lines, found[0], number, cell)
+        if literal is not None:
+            region, locator = found[0], HEADING_SEP.join(parts)
+            break
+    else:
+        return None
+    # A pipe is escaped, or it would split the cell the citation is written in.
+    claim = '"' + literal.replace("|", "\\|") + '"'
+    inside = minor_region(rel, body, region, claim)
+    start, end = inside[0] if inside else (number, number)
+    digest = content_hash(raw[start - 1 : end])
+    escaped = locator.replace('"', '\\"').replace("|", "\\|")
+    return f'{rel}#"{escaped}">{claim}@{digest}'
+
+
+def family_view(paths, root, maps, default_repo=None, scan_cache=None):
+    """The families of PATHS, as a namespace `ledger_families` and
+    `reverify_into` both read:
+
+      out        `{file identity: (owned line numbers, findings)}`
+      files      `{file identity: (path, body, unquoted lines, rows)}` for
+                 every file read, None where it could not be
+      families   `{root row: [member rows]}`, a row being `(identity, line)`
+      superseded the roots a `Corrected ·` row supersedes
+      readings   `{root row: {coordinate: [(row, match, status, detail)]}}`,
+                 every code coordinate on a member's line, graded alone
+      held       `{root row: {coordinate: [those readings that hold]}}`: the
+                 OK readings among the newest-dated ones, empty where the
+                 coordinate is drifted for the family
+
+    `out` is the rows of PATHS that cite a released row or are cited by one.
+
+    Those rows are read here and nowhere else: `check_ledger` blanks the
+    owned lines before its own walk, and adds these findings to its own.
+    Every other row is left to that walk, so a ledger with no citing row in
+    it is read exactly as it was before #715.
+
+    PATHS is every ledger the caller reads, so the rows citing a released
+    row are found wherever they sit. A file a citation names and PATHS does
+    not hold is read for the row it names, and its own citing rows join the
+    walk; nothing is reported against it.
+
+    The findings, per citing row: its citation (`OK`, `DRIFTED` where a
+    released file changed under it, `BROKEN` where the row is gone) and the
+    refusals -- `MALFORMED` for a citation into a fragment, one into no
+    released ledger, one naming a section rather than a row, or a row with
+    no citation or no marker. Per family that is not superseded: each code
+    coordinate on each member's line, graded by the family.
+    """
+    scan_cache = {} if scan_cache is None else scan_cache
+    files = {}
+    pending = []
+
+    def load(path):
+        ident = file_identity(path)
+        if ident not in files:
+            body = read(path)
+            if body is None:
+                files[ident] = None
+            else:
+                lines = gfm_lines(unquoted(body))
+                rows = {n: (h, cells) for n, h, cells in ledger_table_rows(body)}
+                files[ident] = (path, body, lines, rows)
+                pending.extend(
+                    (ident, n) for n, (_, c) in rows.items() if citing_verb(c)
+                )
+        return ident, files[ident]
+
+    for path in paths:
+        load(path)
+
+    def row(key):
+        path, _, lines, rows = files[key[0]]
+        header, cells = rows[key[1]]
+        return path, lines[key[1] - 1], header, cells
+
+    def where(key):
+        return f"{built_name(files[key[0]][0], root)}:{key[1]}"
+
+    out = {}
+
+    def emit(key, finding):
+        out.setdefault(key[0], (set(), []))[1].append(finding)
+
+    parent = {}
+    citations = {}
+    resolved = set()
+    while pending:
+        key = pending.pop()
+        if key in resolved:
+            continue
+        resolved.add(key)
+        path, line, header, cells = row(key)
+        verb = citing_verb(cells)
+        notes = cell_index(header, cells, NOTES)
+        marks = CITING_MARKER_RE.findall(cells[notes]) if notes >= 0 else []
+        if verb not in marks:
+            emit(
+                key,
+                (
+                    "MALFORMED",
+                    f"line {key[1]}",
+                    f"a `{verb} ·` row carries `{verb} <date>` in its Notes, the "
+                    "marker `correction-check` reads, and this one carries none — "
+                    "add the date it was read on",
+                ),
+            )
+        grounds = cell_index(header, cells, CODE_GROUNDS)
+        cited = ANCHOR_RE.search(cells[grounds]) if grounds >= 0 else None
+        if cited is None:
+            emit(
+                key,
+                (
+                    "MALFORMED",
+                    f"line {key[1]}",
+                    f"a `{verb} ·` row names the row it reads first in its Code "
+                    "grounds cell, as a coordinate into seal/ledger.md or a "
+                    "seal/releases/<X.Y.Z>.md, and this one names none",
+                ),
+            )
+            continue
+        cite = next(
+            (
+                m
+                for m in ANCHOR_RE.finditer(line)
+                if m.group(0).replace("\\|", "|") == cited.group(0)
+            ),
+            cited,
+        )
+        citations[key] = cite
+        status, detail, target = cited_row(cite, verb, root, maps, default_repo, load)
+        emit(key, (status, coordinate_of(cite), detail))
+        if target is not None:
+            parent[key] = target
+
+    def verb_of(key):
+        return citing_verb(row(key)[3])
+
+    roots = {}
+
+    def root_of(key):
+        trail = []
+        while key not in roots:
+            if key in trail or verb_of(key) != "Re-read" or key not in parent:
+                break
+            trail.append(key)
+            key = parent[key]
+        top = roots.get(key, key)
+        for step in [*trail, key]:
+            roots[step] = top
+        return top
+
+    involved = resolved | set(parent.values())
+    families = {}
+    for key in involved:
+        families.setdefault(root_of(key), []).append(key)
+        out.setdefault(key[0], (set(), []))[0].add(key[1])
+    superseded = {
+        root_of(parent[key])
+        for key in parent
+        if verb_of(key) == "Corrected" and root_of(parent[key]) != key
+    }
+    # A released row corrected by more than one row carries two claims and
+    # nothing reconciles them: the conflict two in-place corrections used to
+    # meet on is gone, so each correcting row is named with the others
+    # (round 1, 🟡 4). Which claim stays is a person's judgment.
+    corrected_by = {}
+    for key in parent:
+        if verb_of(key) == "Corrected" and root_of(parent[key]) != key:
+            corrected_by.setdefault(root_of(parent[key]), []).append(key)
+    for keys in corrected_by.values():
+        # A correcting row a later `Corrected ·` row supersedes is no longer
+        # a claim: that later row is the repair once both have folded, where
+        # neither can be edited (round 2, 🟡 11).
+        keys = [k for k in keys if k not in superseded]
+        if len(keys) < 2:
+            continue
+        keys.sort(key=lambda k: (str(k[0]), k[1]))
+        names = ", ".join(where(k) for k in keys)
+        for key in keys:
+            emit(
+                key,
+                (
+                    "DRIFTED",
+                    coordinate_of(citations[key]),
+                    f"the row it cites is corrected by {len(keys)} rows ({names}) "
+                    "— read them together and keep one claim",
+                ),
+            )
+
+    memo = {}
+
+    def grade(m):
+        index = (coordinate_of(m), m.group("hash"))
+        if index not in memo:
+            memo[index] = classify(m, root, maps, default_repo, scan_cache)
+        return memo[index]
+
+    def checked(key):
+        """The newest date in KEY's `Checked` cell, or "" where it has none:
+        the moment that reading was taken, which is what orders two readings
+        of one coordinate (round 1, 🟡 2)."""
+        _, _, header, cells = row(key)
+        column = date_column(header, cells)
+        dates = CHECKED_RE.findall(cells[column[0]]) if column else []
+        return max((d for d in dates if calendar_date(d)), default="")
+
+    def reading(key):
+        """KEY's reading as the DRIFTED line names it: by its newest calendar
+        date; else by every date-shaped string its `Checked` cell holds, each
+        once in cell order, said to be a date (or dates) the calendar does
+        not have, because fixing that typo is the person's repair; else as
+        the reading of no date (round 3, ⬜ 17). The ordering is `checked`'s,
+        unchanged."""
+        if checked(key):
+            return f"the reading of {checked(key)}"
+        _, _, header, cells = row(key)
+        column = date_column(header, cells)
+        # Each string once, in the order the cell first has it, and the last
+        # joined with "and", so a list reads as one (round 1, ⬜ 3).
+        typed = list(
+            dict.fromkeys(CHECKED_RE.findall(cells[column[0]]) if column else [])
+        )
+        if not typed:
+            return "the reading of no date"
+        if len(typed) == 1:
+            return f"the reading dated {typed[0]}, a date the calendar does not have"
+        listed = ", ".join(typed[:-1]) + f" and {typed[-1]}"
+        return f"the reading dated {listed}, dates the calendar does not have"
+
+    readings, held_by = {}, {}
+    for top, members in families.items():
+        if top in superseded:
+            continue
+        by_coord = {}
+        for key in sorted(members, key=lambda k: (str(k[0]), k[1])):
+            cite = citations.get(key)
+            for m in ANCHOR_RE.finditer(row(key)[1]):
+                if cite is not None and m.span() == cite.span():
+                    continue
+                status, coord, detail = grade(m)
+                by_coord.setdefault(coord, []).append((key, m, status, detail))
+        readings[top] = by_coord
+        held_by[top] = {}
+        for coord, graded in by_coord.items():
+            # Only the newest reading of a coordinate counts, and readings
+            # that tie on that date are a union: a revert to content a newer
+            # reading superseded is caught, and two branches re-reading one
+            # row on one day both count (round 1, 🟡 2). Each coordinate is
+            # judged alone, so two rows' readings of two units can combine
+            # into a pair neither recorded (round 2, 🟡 10).
+            newest = max(checked(r[0]) for r in graded)
+            held = [r for r in graded if r[2] == "OK" and checked(r[0]) == newest]
+            held_by[top][coord] = held
+            last = next(r for r in graded if checked(r[0]) == newest)
+            seen = set()
+            for key, m, status, detail in graded:
+                if (key, m.group("hash")) in seen:
+                    continue
+                seen.add((key, m.group("hash")))
+                if held and status != "OK":
+                    detail = f"read again at {where(held[0][0])}"
+                    status = "OK"
+                elif not held and status == "OK":
+                    status = "DRIFTED"
+                    detail = (
+                        f"matches only {reading(key)}; "
+                        f"the newest reading of this coordinate, {newest} at "
+                        f"{where(last[0])}, holds other content — re-read"
+                    )
+                elif status == "DRIFTED" and len(members) > 1:
+                    detail += (
+                        f"; no reading in this row's family of {len(members)} "
+                        "rows holds the current content"
+                    )
+                emit(key, (status, coord, detail))
+    return types.SimpleNamespace(
+        out=out,
+        files=files,
+        families=families,
+        superseded=superseded,
+        readings=readings,
+        held=held_by,
+    )
+
+
+def ledger_families(paths, root, maps, default_repo=None, scan_cache=None):
+    """`{file identity: (owned line numbers, findings)}` for the rows of
+    PATHS that cite a released row or are cited by one: `family_view`'s
+    findings, which is all `check_ledger` and the commit advisor read."""
+    return family_view(paths, root, maps, default_repo, scan_cache).out
 
 
 def content_at(root, sha, rel):
@@ -1999,7 +2652,11 @@ def migrate(ledgers, root, maps=None, default_repo=None):
             if n in quoted or not line.lstrip().startswith("|"):
                 out_lines.append(line)
                 continue
-            blanked = ANCHOR_RE.sub(lambda m: " " * len(m.group(0)), line)
+            # Pact anchors first (#647): a clause heading holding `v1.2:3`
+            # is another repository's, never a row to migrate.
+            blanked = ANCHOR_RE.sub(
+                lambda m: " " * len(m.group(0)), blank_pact_anchors(line)
+            )
             hits = [
                 m
                 for m in OLD_COORD_RE.finditer(blanked)
@@ -2161,6 +2818,17 @@ def checked_refusal(value, reverifying, migrating, today):
             "a reading is not dated after the run that records it"
         )
     return None
+
+
+def calendar_date(text):
+    """Whether TEXT, a `CHECKED_RE` match, is a date the calendar has: a
+    `2026-13-45` would otherwise outrank every reading after it when
+    `family_view` orders readings by date (round 2, ⬜ 13)."""
+    try:
+        datetime.date.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
 
 
 def date_column(header, cells):
@@ -2475,6 +3143,297 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
             "— so `--checked` left it whole, hash included; give it a date cell"
         )
     return 1 if unreadable or malformed or overflow or undatable else 0
+
+
+# --- the freeze, and the citing rows a re-read writes (#715) -----------------
+#
+# `Ledger frozen from | <work-item id>` in `seal/config.md` declares that no
+# released ledger file is edited after its release. `correction-check` holds
+# a pull request to it, keyed on the id; here any value means the same thing:
+# `--reverify` writes no released file, and `--into` is where a re-read of a
+# released row goes instead. A repository without the row keeps the
+# re-stamp in place every installed copy had (spec D4, D5).
+FROZEN_ROW = "Ledger frozen from"
+CONFIG_READER = os.path.join(HERE, "..", "..", "..", "hooks", "config.py")
+CONFIG_HEADER_RE = re.compile(r"^\|\s*Item\s*\|\s*Value\s*\|\s*$")
+CONFIG_ROW_RE = re.compile(
+    r"^\|\s*(?P<item>(?:[^|\\]|\\.)*?)\s*\|\s*(?P<value>(?:[^|\\]|\\.)*?)\s*\|\s*$"
+)
+
+
+def vendored_config_rows(text):
+    """`hooks/config.py#config_rows`, for a copy with no `hooks/` beside it:
+    the `(item, value)` rows under the first `| Item | Value |` header, up to
+    the first line that is not one. It does not know fences or comments, which
+    the plugin's reader does; a vendored copy reads a CI checkout's config,
+    where the table is the file's own."""
+    found, seen = [], False
+    for line in gfm_lines(text):
+        if not seen:
+            seen = bool(CONFIG_HEADER_RE.match(line))
+            continue
+        if RULE_LINE_RE.match(line.strip()):
+            continue
+        m = CONFIG_ROW_RE.match(line)
+        if not m:
+            if found:
+                break
+            continue
+        found.append(
+            (m.group("item").replace("\\|", "|"), m.group("value").replace("\\|", "|"))
+        )
+    return found
+
+
+RULE_LINE_RE = re.compile(r"^\|[\s:|-]+\|$")
+
+
+@functools.cache
+def config_reader():
+    """`config_rows`: the one reader of `seal/config.md`,
+    `hooks/config.py#config_rows`, where this is the plugin's own copy -- told
+    apart the way `shared_reader` tells it -- and the vendored one where it is
+    not."""
+    skill = os.path.join(HERE, "..", "SKILL.md")
+    if os.path.isfile(CONFIG_READER) and os.path.isfile(skill):
+        spec = importlib.util.spec_from_file_location("specseal_config", CONFIG_READER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.config_rows
+    return vendored_config_rows
+
+
+def frozen_from(root):
+    """`(cutoff, refusal)`: the `Ledger frozen from` value as a whole number,
+    or None where the row is absent or empty, and a sentence where the value
+    is not a work-item id. `0` is a value: it binds every work item."""
+    path = os.path.join(seal_home(root), "config.md")
+    text = read(path)
+    if text is None:
+        return None, None
+    values = [value for item, value in config_reader()(text) if item == FROZEN_ROW]
+    if not values or not values[-1].strip():
+        return None, None
+    value = values[-1].strip()
+    if not value.isdigit():
+        return None, (
+            f"the `{FROZEN_ROW}` row of {display_name(path, root)} holds "
+            f"`{value}`, which is not a work-item id — write the epoch prefix of "
+            "the first work item the freeze binds, or `0` for every one"
+        )
+    return int(value), None
+
+
+def current_hash(m, root, maps, default_repo):
+    """What the coordinate of match M holds now, or None where it has no one
+    place to hash: gone, ambiguous, a place the declaration rule is unsure
+    of, or a minor anchor that no longer matches."""
+    repo, rel = place(root, maps, default_repo, m.group("path"))
+    if repo is None:
+        return None
+    body = read(os.path.join(repo, rel))
+    if body is None:
+        return None
+    places, resurrected = resolve_unit(rel, m.group("locator"), body)
+    if resurrected or len(places) != 1:
+        return None
+    start, end = places[0]
+    claim = m.group("claim")
+    if claim:
+        inside = minor_region(rel, body, places[0], claim)
+        if not inside:
+            return None
+        start, end = inside[0]
+    return content_hash(gfm_lines(body)[start - 1 : end])
+
+
+def released_drift(ledgers, view_paths, root, maps, default_repo):
+    """`(view, drifted, broken)` for the rows of LEDGERS a re-read owes.
+
+    DRIFTED is `{row: {coordinate: match}}`, one entry per row a re-read
+    owes: a released row of a released file in LEDGERS that sits outside
+    every family and has a drifted coordinate, and the root of each family
+    that is not superseded and has a member, released or fragment, in a file
+    LEDGERS names, where no newest reading holds a coordinate's current
+    content and a member's reading -- a released member's where one carries
+    the coordinate, else any member's under a released root -- either
+    drifted or is outranked by a newer reading holding other content. The
+    root is named even where LEDGERS left its file out, because a
+    `Re-read ·` row cites the root.
+    BROKEN is `[(where, coordinate, detail)]` for the released coordinates a
+    re-read cannot clear, which take a `Corrected ·` row instead.
+    """
+    view = family_view(view_paths, root, maps, default_repo)
+    wanted = {file_identity(p) for p in ledgers if ledger_kind(root, p) == "released"}
+    # Any member answers for its family, not only the root: a narrowing to
+    # the file holding a folded or a fragment re-read is a narrowing to that
+    # family, and `--strict` over the same file reads that member DRIFTED
+    # (round 3, 🟡 16).
+    read_here = {file_identity(p) for p in ledgers}
+    drifted, broken, scan = {}, [], {}
+
+    def where(key):
+        return f"{built_name(view.files[key[0]][0], root)}:{key[1]}"
+
+    for ident in sorted(wanted, key=str):
+        entry = view.files.get(ident)
+        if not entry:
+            continue
+        owned = view.out.get(ident, (set(), []))[0]
+        for n in sorted(entry[3]):
+            if n in owned:
+                continue
+            for m in ANCHOR_RE.finditer(entry[2][n - 1]):
+                status, coord, detail = classify(m, root, maps, default_repo, scan)
+                if status == "DRIFTED":
+                    drifted.setdefault((ident, n), {}).setdefault(coord, m)
+                elif status == "BROKEN":
+                    broken.append((where((ident, n)), coord, detail))
+    for top, by_coord in view.readings.items():
+        if not any(member[0] in read_here for member in view.families[top]):
+            continue
+        for coord, graded in by_coord.items():
+            if view.held[top][coord]:
+                continue
+            pick = next(
+                (
+                    g
+                    for g in graded
+                    if ledger_kind(root, view.files[g[0][0]][0]) == "released"
+                ),
+                None,
+            )
+            if pick is None:
+                # A coordinate only fragment members carry -- a re-read that
+                # added a unit its root does not cite -- is owed a re-read all
+                # the same: the fragment holding its newest reading may be one
+                # LEDGERS left out, which nothing re-stamped (round 1, 🟡 1).
+                # Only where the root is released: a `Re-read ·` cites nothing
+                # else, and a family rooted in a fragment is re-stamped in
+                # place (round 1, ⬜ 9).
+                if ledger_kind(root, view.files[top[0]][0]) != "released":
+                    continue
+                pick = next((g for g in graded if g[2] != "BROKEN"), None)
+                if pick is None:
+                    continue
+            key, m, status, detail = pick
+            if status == "BROKEN":
+                broken.append((where(key), coord, detail))
+                continue
+            # DRIFTED, or OK and outranked by a newer reading holding other
+            # content: the family owes a re-read either way. That newer
+            # reading may sit in a fragment LEDGERS left out, which nothing
+            # re-stamped (round 2, 🟡 12).
+            drifted.setdefault(top, {}).setdefault(coord, m)
+    return view, drifted, broken
+
+
+INTO_VERIFIED = (
+    "re-read against the code at the hashes in this row, and the cited row's "
+    "claim holds"
+)
+INTO_REPAIR = (
+    "`evidence-check --reverify --into seal/ledger/<work-item-id>.md --checked "
+    "YYYY-MM-DD` writes a `Re-read ·` row for it into your own fragment"
+)
+
+
+def spanned(text):
+    """TEXT as a code span, with a fence longer than any backtick run in it."""
+    fence = "`" * (max((len(r) for r in re.findall(r"`+", text)), default=0) + 1)
+    pad = " " if fence != "`" else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
+def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
+    """Write one `Re-read ·` row into INTO for every released row a re-read
+    owes (`released_drift`): one outside every family in a released file of
+    LEDGERS, and the root of every family a file of LEDGERS holds a member
+    of, released or fragment, whether or not LEDGERS holds the root's file.
+    Name every released row it could not write; or, with INTO None, write
+    nothing and name each such row with the `--into` form. A released file
+    is never written either way.
+
+    The row cites the released row -- the family's root, so it joins that
+    family -- and carries each drifted coordinate at its current hash, the
+    date in `Checked`, and `Re-read <date>` in Notes. One row per row, never
+    one per coordinate (spec D4). Exit 1 where a row was left, else 0.
+    """
+    view, drifted, broken = released_drift(
+        ledgers, view_paths, root, maps, default_repo
+    )
+    # A fragment is named for its work item, so the row can say whose
+    # reading it records, as the spec's own example does.
+    item = os.path.splitext(os.path.basename(into))[0] if into else None
+    rows, left = [], []
+    for key in sorted(drifted, key=lambda k: (view.files[k[0]][0], k[1])):
+        path, body, _, table = view.files[key[0]]
+        where = f"{built_name(path, root)}:{key[1]}"
+        label = row_label(table[key[1]][1])
+        if into is None:
+            n = len(drifted[key])
+            left.append(
+                (
+                    where,
+                    f"{label} — {n} drifted coordinate{'' if n == 1 else 's'}, and a "
+                    f"released file is not edited after its release; {INTO_REPAIR}",
+                )
+            )
+            continue
+        cite = citation_for(root, path, key[1], body)
+        if cite is None:
+            left.append((where, f"{label} — no citation names this row alone"))
+            continue
+        stamped = []
+        for coord, m in drifted[key].items():
+            new = current_hash(m, root, maps, default_repo)
+            if new is None:
+                left.append((where, f"{coord} — no one place to hash, so not re-read"))
+                continue
+            # M may come from any released member of the family, not from
+            # KEY's own line (`released_drift`): slice the line it was matched
+            # on, which is the string the match carries.
+            stamped.append(spanned(m.string[m.start() : m.start("hash")] + new))
+        if not stamped:
+            continue
+        rows.append(
+            (
+                where,
+                label,
+                f"| Re-read · {label.replace('|', chr(92) + '|')} | {spanned(cite)}, "
+                + ", ".join(stamped)
+                + f" | {INTO_VERIFIED} | {checked} | Re-read {checked} by work item "
+                f"{item} (`evidence-check --reverify --into`) |",
+            )
+        )
+    for at, coord, detail in broken:
+        left.append(
+            (
+                at,
+                f"{coord} BROKEN — {detail}; a re-read cannot clear it, so a "
+                "`Corrected ·` row in your own fragment re-points or retires it — "
+                "and carries every other coordinate the claim still rests on, "
+                "because the correction supersedes the whole row and a "
+                "coordinate it leaves out is not checked again",
+            )
+        )
+    if rows:
+        text = read(into) or ""
+        if text and not text.endswith("\n"):
+            text += "\n"
+        start = len(gfm_lines(text)) + 1
+        os.makedirs(os.path.dirname(into), exist_ok=True)
+        write_atomic(into, text + "".join(row + "\n" for _, _, row in rows))
+        name = built_name(into, root)
+        for offset, (where, label, _) in enumerate(rows):
+            print(f"  wrote {name}:{start + offset}  Re-read · {label}  citing {where}")
+    print(
+        f"{len(rows)} citing row{'' if len(rows) == 1 else 's'} written · "
+        f"{len(left)} released row{'' if len(left) == 1 else 's'} left"
+    )
+    for where, why in left:
+        print(f"  LEFT  {where}  {why}")
+    return 1 if left else 0
 
 
 # --- the records arm: what a work item's records state about the tree -------
@@ -2886,10 +3845,14 @@ def claim_lines(lines):
 
 
 def stated_names(lines):
-    """[(line number, name)] for every compound identifier a record states."""
+    """[(line number, name)] for every compound identifier a record states.
+
+    A pact anchor is blanked first (round 1 of #647, yellow 3): its heading is
+    a clause of another repository's pact, so a name quoted in it is that
+    repository's and not a claim about this tree."""
     out = []
     for number, line in claim_lines(lines):
-        for match in RECORD_NAME_RE.finditer(line):
+        for match in RECORD_NAME_RE.finditer(blank_pact_anchors(line)):
             name = match.group(1)
             if compound(name):
                 out.append((number, name))
@@ -2898,14 +3861,15 @@ def stated_names(lines):
 
 def stated_coordinates(lines):
     """[(line number, path, name)] for every name a record writes as
-    `path#name`, on the lines `claim_lines` reads.
+    `path#name`, on the lines `claim_lines` reads, outside pact anchors,
+    for the reason `stated_names` gives.
 
     Every such span, compound or not: whether its name is a claim depends on
     whether its path resolves, which is `coordinate_misses`' question."""
     return [
         (number, match.group("path"), match.group("name"))
         for number, line in claim_lines(lines)
-        for match in RECORD_COORD_RE.finditer(line)
+        for match in RECORD_COORD_RE.finditer(blank_pact_anchors(line))
     ]
 
 
@@ -3409,7 +4373,9 @@ def exit_code(totals, refused, drifted, strict):
 
 
 def main():
-    ap = argparse.ArgumentParser()
+    ap = argparse.ArgumentParser(
+        epilog=HELP_EPILOG, formatter_class=argparse.RawDescriptionHelpFormatter
+    )
     ap.add_argument("root", nargs="?", default=".")
     ap.add_argument("--ledger", action="append", default=[])
     ap.add_argument("--map", action="append", default=[], metavar="NAME=PATH")
@@ -3441,7 +4407,30 @@ def main():
         help="with --reverify: the date you re-read the rows on, written into "
         "the date cell of every row whose hash moves",
     )
+    ap.add_argument(
+        "--into",
+        metavar="FRAGMENT",
+        help="with --reverify --checked: write a `Re-read ·` row into this "
+        "fragment (seal/ledger/<work-item-id>.md) for every released row with "
+        "a drifted coordinate, instead of editing the released file",
+    )
     args = ap.parse_args()
+
+    # `--into` dates every row it writes, so it is refused without the date
+    # and without the command it belongs to, before anything is read (#715).
+    if args.into is not None and not args.reverify:
+        sys.stderr.write(
+            "evidence_check: `--into` is where `--reverify` writes its re-reads "
+            "of released rows, and this run has no `--reverify`\n"
+        )
+        return 2
+    if args.into is not None and args.checked is None:
+        sys.stderr.write(
+            "evidence_check: `--into` writes citing rows, and a citing row with "
+            "no date is a stamp nobody read — pass `--checked YYYY-MM-DD`, the "
+            "day you re-read them\n"
+        )
+        return 2
 
     # Before anything is resolved or read, so a refused run changes no byte
     # (#387). The precedent is `rider_check.py`'s refusal of `--only` without
@@ -3527,7 +4516,73 @@ def main():
             print(f"  LEFT  {coord}  {why}")
         return 1 if left else 0
     if args.reverify:
-        return reverify(ledgers, root, maps, default_repo, args.checked)
+        cutoff, refusal = frozen_from(root)
+        if refusal:
+            sys.stderr.write(f"evidence_check: {refusal}\n")
+            return 2
+        into = None
+        if args.into is not None:
+            spelled = args.into.replace(os.sep, "/")
+            into = (
+                os.path.join(seal_home(root), spelled[len(SEAL_PREFIX) :])
+                if spelled.startswith(SEAL_PREFIX)
+                else os.path.join(root, args.into)
+            )
+            if ledger_kind(root, into) != "fragment":
+                sys.stderr.write(
+                    f"evidence_check: `--into {args.into}` is not a fragment — "
+                    "name the branch's own, seal/ledger/<work-item-id>.md; a "
+                    "released file is never written\n"
+                )
+                return 2
+        if into is None and cutoff is None:
+            code = reverify(ledgers, root, maps, default_repo, args.checked)
+            # Re-stamping in place cannot clear a family whose newest reading
+            # sits in a file the narrowing left out, so the run names, by its
+            # root row, each family a file it read holds a member of that is
+            # still owed a re-read, rather than exit 0 while a member it read
+            # reads DRIFTED (round 2, 🟡 12; round 3, 🟡 16). The root is
+            # named even where the narrowing left its file out: it is the row
+            # a `Re-read ·` cites.
+            view = list(ledgers)
+            known = {file_identity(p) for p in view}
+            view += [
+                p
+                for p in resolve_patterns(default_patterns(root))
+                if file_identity(p) not in known
+            ]
+            done, owed, _ = released_drift(ledgers, view, root, maps, default_repo)
+            for key in sorted(owed, key=lambda k: (done.files[k[0]][0], k[1])):
+                path, _, _, table = done.files[key[0]]
+                print(
+                    f"  LEFT  {built_name(path, root)}:{key[1]}  "
+                    f"{row_label(table[key[1]][1])} — still DRIFTED: the newest "
+                    f"reading of {', '.join(owed[key])} in its family sits in a "
+                    "file this run did not write; run it without `--ledger`"
+                )
+            return max(code, 1 if owed else 0)
+        # A released file is not written: the fragments are re-stamped in
+        # place as before, and then the released rows are re-read into INTO,
+        # or named where there is no INTO. The view is read after the
+        # re-stamp, so a fragment's own re-read is counted before a new row
+        # is written for the family it belongs to.
+        writable = [p for p in ledgers if ledger_kind(root, p) != "released"]
+        code = reverify(writable, root, maps, default_repo, args.checked)
+        view = list(ledgers)
+        known = {file_identity(p) for p in view}
+        for extra in resolve_patterns(default_patterns(root)) + (
+            [into] if into and os.path.isfile(into) else []
+        ):
+            if file_identity(extra) not in known:
+                known.add(file_identity(extra))
+                view.append(extra)
+        # The whole narrowed list, fragments included: a family is the run's
+        # to answer for wherever a file it read holds a member, and
+        # `reverify_into` writes no file but INTO either way (round 3, 🟡 16).
+        written = reverify_into(
+            ledgers, view, into, root, maps, default_repo, args.checked
+        )
+        return max(code, written)
 
     if not ledgers:
         print("no evidence ledgers found — nothing to check")
@@ -3541,8 +4596,21 @@ def main():
         "MALFORMED": 0,
         "OVERFLOW": 0,
     }
+    # One view of every ledger, so a released row is read with the rows that
+    # cite it from fragments (#715). Under `--ledger` the default set is read
+    # too, for its citing rows alone: a narrowing chooses what is REPORTED,
+    # and a released row reported DRIFTED because its re-read sat in a file
+    # the narrowing left out would be a false finding.
+    view = list(ledgers)
+    known = {file_identity(p) for p in view}
+    view += [
+        p
+        for p in resolve_patterns(default_patterns(root))
+        if file_identity(p) not in known
+    ]
+    families = ledger_families(view, root, maps, default_repo)
     for ledger in ledgers:
-        findings = check_ledger(ledger, root, maps, default_repo)
+        findings = check_ledger(ledger, root, maps, default_repo, families)
         print(f"\n{display_name(ledger, root)}")
         for status, coord, detail in findings:
             totals[status] += 1

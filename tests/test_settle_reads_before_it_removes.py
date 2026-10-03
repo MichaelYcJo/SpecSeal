@@ -389,7 +389,8 @@ def test_a_row_in_a_fragment_is_read_by_the_guard(tree):
 
 
 def test_a_row_with_a_live_anchor_beside_the_dead_one_is_narrowed(tree):
-    """A row that keeps a live anchor is not REMOVED by `CLAUDE.md`'s rule,
+    """A row that keeps a live anchor is not REMOVED by the rule in
+    `docs/the-evidence-ledger.md`,
     and whether it should be is the repository owner's question — so the line
     says to drop the dead anchor and names who answers the rest."""
     fold(tree, "1700000001-alpha")
@@ -1308,13 +1309,21 @@ def test_the_skill_says_a_fold_is_not_a_work_item_and_owes_no_range_row():
 def test_the_skill_says_what_a_fold_does_to_the_ledger():
     """Q3's default. *Nothing in `seal/ledger.md` moves* was false of both
     folds — one removed rows, the other re-verified four — and it disagreed
-    with the policy the fold works under."""
+    with the policy the fold works under. Since #715 the sentence has two
+    halves: under the freeze a released file does not change and the fold
+    writes a fragment of its own, and without it the old rule stands."""
     text = flat(skill())
     assert "Nothing in `seal/ledger.md` moves" not in text
-    assert "`seal/ledger.md` changes only by removal and re-verification." in text
-    assert "A fold appends nothing" in text
+    assert "Where the freeze is declared, a fold writes a fragment of its own." in text
+    assert "`seal/ledger/<unix-seconds>-fold.md`" in text
+    assert "`seal/ledger.md` changes only by removal and re-verification" in text
+    assert "A fold appends nothing there" in text
     policy = document("docs", "the-evidence-ledger.md")
-    assert "A fold is not a work item, and it adds nothing to the ledger." in policy
+    assert (
+        "A fold is not a work item, and it adds no work item's rows to the ledger."
+        in flat(policy)
+    )
+    assert "`seal/ledger/<unix-seconds>-fold.md`" in policy
 
 
 def test_the_skill_says_the_retirement_is_the_second_half_of_the_fold():
@@ -2093,3 +2102,74 @@ def test_a_settled_root_is_green_and_says_so(tmp_path, keep_empty_dir, retire):
     assert r.returncode == 0, r.stdout + r.stderr
     assert "holds no work item" in r.stdout, r.stdout + r.stderr
     assert "A complete fold ends here" in r.stdout, r.stdout
+
+
+# --- #715: under the freeze a released row is corrected, never removed -------
+#
+# A released ledger file is not edited after its release where `seal/config.md`
+# declares `Ledger frozen from`. A released row anchored inside a retiring
+# directory can then be neither removed nor narrowed in place: the fold writes
+# a `Corrected ·` row citing it into its own fragment, `seal/ledger/<unix
+# seconds>-fold.md`, and the correction supersedes the row, so the checker no
+# longer reads its anchor and the directory can go.
+
+FREEZE = "| Item | Value |\n|---|---|\n| Ledger frozen from | 1 |\n"
+
+
+def released_anchor(repo):
+    """A frozen repository whose release file holds INSIDE_ROW, and its line."""
+    (repo / "seal" / "config.md").write_text(FREEZE, encoding="utf-8")
+    release = repo / "seal" / "releases" / "0.4.0.md"
+    release.parent.mkdir(parents=True, exist_ok=True)
+    release.write_text(
+        "## 0.4.0 — 2026-01-02\n\n### 1700000001-alpha\n\n" + INSIDE_ROW + "\n",
+        encoding="utf-8",
+    )
+    return release, 5
+
+
+def test_under_the_freeze_a_released_row_is_answered_by_a_correction(tree):
+    """The guidance names the `Corrected ·` row and the fold's fragment, and
+    never REMOVED: a released row is not removed."""
+    fold(tree, "1700000001-alpha")
+    released_anchor(tree)
+    code, text = run(tree, "--retire")
+    assert code == 1, text
+    assert (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    assert "seal/releases/0.4.0.md:5" in text, text
+    assert "Corrected ·" in text and "-fold.md" in text, text
+    assert "REMOVED" not in text.split("seal/releases/0.4.0.md:5")[1], text
+
+
+def test_a_correction_in_the_fold_fragment_lets_the_directory_go(tree):
+    """Once the fold's fragment holds a `Corrected ·` row citing the released
+    row, the guard no longer holds the directory, and the checker reads no
+    BROKEN anchor once it is gone."""
+    fold(tree, "1700000001-alpha")
+    release, line = released_anchor(tree)
+    spec = importlib.util.spec_from_file_location(
+        "ec",
+        os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py"),
+    )
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
+    cite = ec.citation_for(str(tree), str(release), line)
+    assert cite is not None
+    fragment = tree / "seal" / "ledger" / "1790000000-fold.md"
+    fragment.parent.mkdir()
+    fragment.write_text(
+        f"| Corrected · the round record it cited was retired | `{cite}` | read: "
+        "the claim went with the directory | 2026-02-01 | Corrected 2026-02-01 by "
+        "the fold |\n",
+        encoding="utf-8",
+    )
+    _, text = run(tree, "--retire")
+    assert not (tree / "seal" / "specs" / "1700000001-alpha").exists(), text
+    findings = ec.check_ledger(
+        str(release),
+        str(tree),
+        {},
+        None,
+        ec.ledger_families([str(release), str(fragment)], str(tree), {}),
+    )
+    assert not [f for f in findings if f[0] == "BROKEN"], findings

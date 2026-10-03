@@ -10,4 +10,5 @@ row and what an absent one means. -->
 | Broad gate | uvx ruff check . && uvx ruff format --check . && bin/test -q |
 | Fold shape from | 0 |
 | Document line ceiling | 1000 |
-| Over the ceiling | docs/commit-review-gate-spec.md frozen at 18 markers cb5d441b51a4 until MichaelYcJo/SpecSeal#715 |
+| Over the ceiling | none |
+| Ledger frozen from | 1790993141 |

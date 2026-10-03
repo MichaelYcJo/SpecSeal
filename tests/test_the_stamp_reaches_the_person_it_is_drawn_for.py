@@ -13,6 +13,7 @@ that drive a real gate over a settled work item.
 """
 
 import importlib.util
+import inspect
 import json
 import os
 import subprocess
@@ -700,6 +701,18 @@ def test_the_ladder_steps_down_in_order_and_ends_with_no_disc():
     # for more than the first rung gets it where it fits.
     assert mod.fitted([(LABEL, ROWS, 0.75)], 10**6) == at[0.75]
     assert mod.fitted([(LABEL, ROWS, 1.0)], 10**6) == drawn(mod, LABEL, ROWS, 1.0)
+
+
+def test_admitteds_docstring_fits_the_line_length():
+    """S13 (#721). Round 3 of #717 reflowed one line of `admitted`'s
+    docstring to 113 columns; the paragraph is round 3's paste-ready one,
+    and no line of the docstring is wider than 79 as the source holds it —
+    read from the source, because Python 3.13 strips a docstring's indent
+    from `__doc__` and 3.12 keeps it. Seen red against the 113-column line."""
+    source = inspect.getsource(stamp_module().admitted)
+    doc = source.split('"""', 2)[1]
+    wide = [line for line in source.splitlines() if line in doc and len(line) > 79]
+    assert wide == [], wide
 
 
 def test_the_policy_states_the_budget_and_names_its_case():

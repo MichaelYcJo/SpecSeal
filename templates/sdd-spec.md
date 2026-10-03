@@ -9,6 +9,10 @@ The policy documents in docs/ outrank this file; cite them, don't restate. -->
 |---|---|
 | | |
 
+<!-- A clause of a pact held in another repository is cited in this table as
+`pact:<name>/"<heading path>"@<hash>` (`docs/the-pact.md`), and `pact-check`,
+run at the pact's repository, is what reads it. -->
+
 ## Scope
 
 What is in, what is explicitly out.

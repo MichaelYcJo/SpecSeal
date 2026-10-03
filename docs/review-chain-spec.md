@@ -6,7 +6,10 @@ that say what was reviewed, and the survivor sweep. Two sibling documents
 carry the rest of what this one used to hold.
 `docs/commit-review-gate-spec.md` is the authority for
 `hooks/commit-review-gate.py`, `hooks/review-history-guard.py` and the
-implementer mark. `docs/round-record-spec.md` is the authority for the rows of
+implementer mark, and two documents cut out of it carry what git decides
+inside the commit, `docs/the-commit-gate-inside-git.md`, and what each opt-in
+arm wants, `docs/the-review-and-parity-arms.md`.
+`docs/round-record-spec.md` is the authority for the rows of
 `rounds/round-N.md` as the pull-request check reads them, and for the
 generator that writes them. Update spec and code together.
 

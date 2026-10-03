@@ -38,7 +38,7 @@ STANDS = "the sealer's `broad-gate.md`"
 # R12: a whole-file substring pin is evidence only where the words occur
 # nowhere else).
 DIRECT_REQUIRES = {
-    ("docs", "commit-review-gate-spec.md"): (
+    ("docs", "the-review-and-parity-arms.md"): (
         "nothing required; the declaration is printed",
         STANDS,
     ),
@@ -113,7 +113,7 @@ def test_the_specification_says_why_two_answers_and_not_three():
     """Item 8 of the frame: the sentence a later reader of #241 finds beside
     the declaration table instead of the ticket's proposal — what a
     session's own check leaves that CI can read, and where it lives."""
-    text = flat("docs", "commit-review-gate-spec.md")
+    text = flat("docs", "the-review-and-parity-arms.md")
     assert "Two answers, and not three" in text, (
         "the specification does not say why there is no third `Review` answer"
     )

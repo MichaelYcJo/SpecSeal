@@ -99,6 +99,7 @@ GitHub 의 것인 것과 같습니다. 기본 모드에서는 커밋합니다. �
 │   ├── ledger/<id>.md             진행 중인 작업 항목의 행. 릴리스 때 ledger.md 로 접고 치운다
 │   ├── follow-up.md               영구
 │   ├── parity.md                  이관 프로젝트에만. 영구
+│   ├── pact.md                    pact 를 가진 저장소에만. 영구
 │   └── specs/<epoch>-<slug>/      작업 항목 전체. settle 이 접을 때까지 산다. 0.4.0 은 그대로 둔다
 │       ├── spec.md plan.md questions.md overview.md      작업의 기록: 무엇을 왜 만들기로 했는가
 │       ├── changelog.md                                  릴리스 때 CHANGELOG.md 로 모은다

@@ -457,7 +457,7 @@ def test_the_review_arm_asks_on_a_document_only_commit(repo, path):
     in `docs/`, one of them 🔴, and 26 fixed findings across every round
     record sit in the ledger alone. So a commit confined to either root meets
     the review arm exactly as a code change does
-    (`docs/commit-review-gate-spec.md` §*Review arm*). One path per root, because the line can leak by halves:
+    (`docs/the-review-and-parity-arms.md` §*Review arm*). One path per root, because the line can leak by halves:
     an exemption for `seal/` alone passes every `docs/` case. This case is
     what fails if `touches_code`, or either half of it, is ever shared
     between the arms.
@@ -504,7 +504,7 @@ def test_the_review_arms_missing_path_line_is_written_where_it_is_met():
         with open(os.path.join(ROOT, *parts), encoding="utf-8") as f:
             return re.sub(r"\s+", " ", f.read())
 
-    spec = flat("docs", "commit-review-gate-spec.md")
+    spec = flat("docs", "the-review-and-parity-arms.md")
     review_arm = spec.split("### Review arm", 1)[1].split("####", 1)[0]
     assert (
         "| the change confined to `docs/`, `seal/` | no different from any "

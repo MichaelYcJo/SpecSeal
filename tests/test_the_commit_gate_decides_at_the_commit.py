@@ -436,8 +436,8 @@ def test_a_row_that_does_not_end_is_named_and_leaves_nothing_behind(tmp_path):
         assert not alive.exists(), "the row's loop outlived the bound"
 
 
-# `docs/commit-review-gate-spec.md` §*Known limits of the commit gate inside
-# git*. `stdbuf` exports `LD_PRELOAD` as an MSYS path; Git for Windows' `sh`
+# `docs/the-commit-gate-inside-git.md` §*Known limits of the commit gate
+# inside git*. `stdbuf` exports `LD_PRELOAD` as an MSYS path; Git for Windows' `sh`
 # reads it as a list split at `:`, dies loading `C`, and git commits as if
 # every hook had passed (#692's Windows pass, CI run 37013783175, traced).
 NO_HOOK_UNDER_LD_PRELOAD = (
@@ -591,8 +591,8 @@ def busy(world, d):
 
 
 # The known limits a case below rests on where it skips, as
-# `docs/commit-review-gate-spec.md` §*Known limits of the commit gate inside
-# git* states them. The first two are the code's own `os.name == "nt"`
+# `docs/the-commit-gate-inside-git.md` §*Known limits of the commit gate
+# inside git* states them. The first two are the code's own `os.name == "nt"`
 # branches (`hooks/commitgate.py#_sequencer_commit`, `#_git_process`), so
 # their cases skip on the same test; the last two rest on `ps`, and their
 # cases ask it (`conftest.py#ps_names_the_parent_or_skip`). #692's Windows
@@ -1152,6 +1152,9 @@ STEPS_AROUND = {
     "-c core.hooksPath": "git -c core.hooksPath=/dev/null commit -m x",
     "the key in another case": "git -c CORE.HOOKSPATH=/dev/null commit -m x",
     "--config-env": "git --config-env=core.hooksPath=H commit -m x",
+    # #716: the same option with its value as a separate word. Seen red at
+    # `233f0455`, where the reading took the value for the subcommand.
+    "--config-env, spaced": "git --config-env core.hooksPath=H commit -m x",
     "GIT_CONFIG_COUNT": (
         "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath "
         "GIT_CONFIG_VALUE_0=/nonexistent git commit -m x"

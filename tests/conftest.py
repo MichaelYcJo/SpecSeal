@@ -12,21 +12,24 @@ import tempfile
 import pytest
 
 # `docs/review-chain-spec.md` and the two documents #526 split out of it: the
-# run, the hooks, and the round record's rows. A case that reads one of them
-# for what is THERE reads the one that holds the section; a case asserting
-# what is NOT there reads all three through `review_chain_text`, because a
-# sentence forbidden in the spec that returns in a sibling is the same
-# sentence back, and an absence that holds in one third of the text proves
-# nothing about the rest.
+# run, the hooks, and the round record's rows; and the two #727 then cut out
+# of the hooks' document: what git decides, and what each arm wants. A case
+# that reads one of them for what is THERE reads the one that holds the
+# section; a case asserting what is NOT there reads all five through
+# `review_chain_text`, because a sentence forbidden in the spec that returns
+# in a sibling is the same sentence back, and an absence that holds in one
+# part of the text proves nothing about the rest.
 REVIEW_CHAIN_DOCS = (
     ("docs", "review-chain-spec.md"),
     ("docs", "commit-review-gate-spec.md"),
+    ("docs", "the-commit-gate-inside-git.md"),
+    ("docs", "the-review-and-parity-arms.md"),
     ("docs", "round-record-spec.md"),
 )
 
 
 def review_chain_text(root):
-    """The three documents under `root`, each whitespace-collapsed, joined."""
+    """The five documents under `root`, each whitespace-collapsed, joined."""
     texts = []
     for parts in REVIEW_CHAIN_DOCS:
         with open(os.path.join(root, *parts), encoding="utf-8") as handle:

@@ -67,7 +67,14 @@ act, fires the note, because a note has to name a tag.
   line for every author other than the repository owner and bots, how to
   update — and keeps the gathered section beneath it, folded (#572). A
   pull request title is therefore a line of the release note: write it as
-  one.
+  one. **Then the release's seal is attached** (#718). A second job in the
+  same workflow runs only when this run created the release. It runs the
+  suite at the tag, draws one seal for the release from the broad gate's
+  letter, attaches it as `seal.png`, and replaces the glance table with the
+  image and one line of the table's counts. That edit is the only change it
+  makes to a note, and only to one whose glance table is still exactly as it
+  was generated. Any failure is a `::warning::` in the job log and leaves
+  the note as it was published, so the seal can never turn the release red.
 - **The plugin directory is read by a command that never fails a release.**
   `.github/scripts/plugin_directory_check.py` says, per directory, whether the
   plugin is listed, which commit the entry pins and whether that commit is on
@@ -86,7 +93,7 @@ act, fires the note, because a note has to name a tag.
 `docs/release-checklist.md` §6 carries a box for each of the first two. The
 first confirms the workflow fired and is not where the note gets written; the
 second is where the command is run.
-Enforced by: tests/test_a_release_publishes_its_note.py::test_the_workflow_fires_on_the_tag_and_writes_nothing_else, tests/test_the_release_tail_does_not_end_at_the_tag.py::test_the_label_acts_are_fired_by_the_merge_to_main_not_the_tag
+Enforced by: tests/test_a_release_publishes_its_note.py::test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit, tests/test_the_release_tail_does_not_end_at_the_tag.py::test_the_label_acts_are_fired_by_the_merge_to_main_not_the_tag, tests/test_the_release_seal_is_drawn.py::test_any_failure_leaves_the_note_as_it_was_published
 
 ### Work accumulates on a release branch
 
@@ -287,8 +294,9 @@ file under `## X.Y.Z — <date>`,
 one `###` section per work item marked with `<!-- specs/<work-item-id> -->`,
 and removes the fragment. `seal/ledger.md` keeps the notation and the rows
 from before the fragments existed, and stops growing; the sections folded into
-it before #547 move once, by `fold_ledger.py --split` at the release that
-ships that change (`docs/release-checklist.md` §2). Every row is copied byte
+it before #547 moved once, by a `--split` that #715 retired. A released file
+never changes again, so the fold refuses a version older than the newest
+release file (`docs/release-checklist.md` §2). Every row is copied byte
 for byte; a row is a content anchor, so `evidence-check` reports the same
 thing before and after. `--dry-run` prints the section and writes nothing;
 `--check` reports a fragment left behind, and the hygiene workflow runs it

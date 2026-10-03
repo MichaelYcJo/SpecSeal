@@ -280,10 +280,12 @@ until #670 enumerated the programs that run their operands as a command
 redirection in front of `git` or before its subcommand (`2>/dev/null git
 worktree add …`, `git 2>/dev/null worktree add …`, `git 2>&1 worktree add
 …`) and zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or `foreach i
-(…)` in front of it sit in the second group: #674 taught the commit gate to read past them,
+(…)` in front of it, or a spaced `--config-env` before `worktree`, are not git to this
+guard either: #674 taught the commit gate to read past them,
 and this guard reads a command through `hooks/cmdline_base.py`, the reader
-frozen at `86256492`, which does not (#689, §*Which tree*). So this guard
-says nothing about them, as at the base. `parse_git` expands nothing and compares that
+frozen at `86256492`, which does not (#689, §*Which tree*). Since #678
+they leave the second group: the guard puts such a creation to the person, and
+under consent it says nothing, as at the base. `parse_git` expands nothing and compares that
 last component, so `~/git`, `*/git` and `$HOME/git` belong to the first group.
 What the class costs is the
 allow on `/usr/bin/git worktree add …`, which is the trade already made for `$`
@@ -590,7 +592,8 @@ base `86256492` read it, and not the way the commit gate reads it since #674
 (#689): which segments are git, the `-C` values each names, where every `cd`
 lands. This guard and the consent writer read it through
 `hooks/cmdline_base.py`, which is that commit's `hooks/cmdline.py` copied byte
-for byte, and never through `hooks/cmdline.py`.
+for byte. Neither chooses a segment or a tree through `hooks/cmdline.py`; the
+guard asks that module one question, below, and its answer never names a tree.
 
 The reason is that this guard takes one answer where the gate takes all of
 them. It judges the first segment of each kind and the first directory in it
@@ -607,11 +610,46 @@ with a redirection among its words (`cd W 2>/dev/null`, `2>/dev/null cd W`,
 `cd>/dev/null W`, `2>&1 cd W`) does not move the tree this guard judges or the
 clone consent is filed under, while bash runs the switch in W. A git behind a
 redirection or behind zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or
-`foreach i (…)` is not git to this guard, so it says nothing there
+`foreach i (…)` is not git to this guard, so it judges no tree there
 (§*Creation consent*'s command-word groups). Round 2 of work item 1790660768
 made the guard read the first and #674 the second, and #689 took both back as
 the accepted cost. The commit gate's own reading, kept for a clone whose hooks
 slot is foreign, reads both.
+
+**Since #678, a switch or a creation that only the commit gate's reading finds
+is put to the person instead of passing silently.** That covers a git behind a
+redirection or a zsh prefix, and one after a spaced `--config-env`. The guard
+asks `hooks/cmdline.py` which kinds it finds that the frozen reading does not,
+and only at an exit where it was about to say nothing, so every deny, choice
+and ask the frozen reading earns still decides first. A creation reads consent
+first and stays silent under it, as at the base. Each view the wider reading
+makes is read as git is handed it: a redirection glued to a word's end is cut
+off and then every redirection is taken out before the kind is read, so a
+redirection's word is never read as a branch name (#737). The question then
+follows one rule: the guard asks wherever a view's words hold a switch or a
+creation that none of the frozen segments the view was made from holds. Each
+side is read by its words alone: a `switch` or a `checkout` naming a word or
+`-` (other than `checkout`'s `.` and anything after `--`), a `checkout -b`, or a
+`worktree add`. The reading looks up no tree (#689), so it asks whether or not
+the command moves the tree, and a restore or a detach whose words read as a
+switch is asked as one when the frozen reading misses it. For example,
+`git checkout &>/dev/null README.md` is asked, because a file's name reads as
+a branch's, and `git checkout . &>/dev/null` is not, because its words name
+nothing; the two are examples, not the set. Measured before it was
+wired: over the 27,351 distinct command and directory pairs recorded in this
+repository's transcripts on the maintainer's machine before 2026-10-03, it
+would have stopped none (work item 1790993140, `phases/phase-3.md`), and
+re-counted for #737's reading it still stops none (work item 1791019475,
+`phases/phase-1.md`). Where `hooks/cmdline.py` fails to load, the guard keeps
+its own rows and asks nothing it could not read.
+`test_what_only_the_wider_reading_finds_is_put_to_the_person` and
+`test_a_creation_only_the_wider_reading_finds_is_silent_under_consent`, in
+`tests/test_guard_resolves_the_tree_it_judges.py`, pin both halves, and
+`test_a_redirection_word_is_not_read_as_a_branch_name` and
+`test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands`
+pin the restore, and
+`test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers`
+pins the rule over generated shapes.
 
 #692, the redesign of how the gates learn where a command acts, decided this
 reading on the owner's answers of 2026-10-01, and it stays. No git refuses a
@@ -664,6 +702,19 @@ at one prompt against a wrong allow breaking another session's tree.
   guard runs and §*Which tree* falls back. `git -C ../x switch y` is the
   spelling that avoids the stop — it names no repository yet, so only the
   creation is judged.
+- A switch whose tree the guard cannot place is judged against the session's
+  own tree, as §*Which tree* says, and passes silently where that tree is clean
+  and single-stream. #686's seven shapes are examples, each before `&& git
+  switch …`: `builtin cd w`, `command cd w`, `time cd w`, `pushd w`, `noglob cd
+  w`, `cd "$W"` with `W` unset, and `2>&1 cd w`. Asking there instead was built
+  and counted on 2026-10-03, over every Bash command recorded in this
+  repository's transcripts on the maintainer's machine before that day (511
+  transcripts, 27,351 distinct command and directory pairs, 395 of them holding
+  a switch). It would have stopped 9 of them, so under the owner's rule of
+  2026-10-03 the fallback stays (work item 1790993140, `phases/phase-3.md`).
+  `git -C <dir> switch …`, or a plain `cd <dir>` of its own, is the spelling
+  the guard reads. `test_a_switch_tree_the_guard_cannot_place_is_judged_as_its_own`
+  in `tests/test_guard_resolves_the_tree_it_judges.py` pins it.
 - On Windows the count of other sessions is always unusable. It walks the
   process table with `ps -o` and `ps -axo`, and Git for Windows' `ps` takes
   neither, so every tree state there reads as *detection unusable* and takes

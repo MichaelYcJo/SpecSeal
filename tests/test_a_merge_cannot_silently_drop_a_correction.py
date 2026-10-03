@@ -12,8 +12,9 @@ grepped for the marker the corrections carried and found 0 occurrences of
 
 What the check reads is the marker those corrections already carry, and what
 separates a loss from a legitimate removal is **whether the row survived**.
-`CLAUDE.md` §*A row whose anchor a change removes is REMOVED, not re-pointed*
-is that rule, so the distinction is the repository's own and not one this
+`docs/the-evidence-ledger.md` §*A row is a content anchor, and it names no
+commit* -- a row whose anchor a change removes is REMOVED, not re-pointed -- is
+that rule, so the distinction is the repository's own and not one this
 check invents. A check that fired on a legitimate removal would be one people
 learn to skip, which is why A3 below is an acceptance row rather than a note.
 
@@ -175,8 +176,8 @@ def test_a_marker_gone_from_a_row_that_still_stands_is_a_loss():
 
 
 def test_a_marker_that_went_with_its_whole_row_is_not_a_loss():
-    """A3. This is `REMOVED` and correct -- `CLAUDE.md` says a row whose
-    anchor a change removes goes with it. A check that fires here fires on
+    """A3. This is `REMOVED` and correct -- `docs/the-evidence-ledger.md` says
+    a row whose anchor a change removes goes with it. A check that fires here fires on
     work the repository's own rule requires."""
     assert cc.losses(ledger(R1, R2), ledger(R2)) == []
 
@@ -718,73 +719,52 @@ def test_a9_the_leg_skips_a_release_pull_request_and_says_why():
     assert "exit 0" in step, step
 
 
-# --- the documents (phase 5) -----------------------------------------------
+# --- the documents (phase 5; one home since #715) ---------------------------
 
-# The sentences both documents have to carry. `CLAUDE.md` and
-# `CONTRIBUTING.md` have already disagreed about this rule once -- one forbade
-# editing the shared ledger at all while the other forbade appending to it,
-# which left a branch that had falsified a row with no reading that permits
-# the only correct act. So the two are held against each other rather than
-# trusted to be edited together.
+# `CLAUDE.md` and `CONTRIBUTING.md` have already disagreed about this rule
+# once -- one forbade editing the shared ledger at all while the other forbade
+# appending to it, which left a branch that had falsified a row with no
+# reading that permits the only correct act. Until #715 the two were held
+# against each other, which kept them equal and kept them both. Now the rule
+# has one home, `docs/the-evidence-ledger.md`, and the two guides name it.
 #
 # Needles rather than whole paragraphs: what must not drift is the
 # INSTRUCTION and the argument behind it, and pinning the prose word for word
-# would go red on a rewording that says the same thing, which is the failure
-# this work item's own check was built to avoid.
+# would go red on a rewording that says the same thing.
+HOME = os.path.join("docs", "the-evidence-ledger.md")
 CONFLICT_SENTENCES = (
     "resolve it hunk by hunk and read both sides",
-    "`--ours`",
-    "`--theirs`",
-    "resolved in opposite directions",
+    "Never *ours* and never *theirs*",
+    "resolved two hunks in opposite directions",
     "byte-identical to a row nobody touched",
-    "correction-check",
-    # The arguments behind the two rules, in the guides' words: what taking a
-    # side cost, and why the marker check cannot see a stale hash. The owner
-    # words both differently, so they stand outside its slice.
-    "Taking a side reverted three corrections",
-    "cannot see a union that kept a stale hash",
-    # #488: the exception is an edit as well as a removal, and both are the
-    # one write a branch owes the file the row is in; a claim the edit made
-    # false is corrected in place first, with a dated note.
-    "removes or edits code an existing",
-    "keeping an existing claim true",
-    "`Corrected <date>` note",
+    "taking a side reverted three corrections",
     # #509: of a conflicted row only the notes are a union; the hash is the
     # side's that edited the unit and neither side's where both did, and the
     # row the checker names is re-read against every edit the merge carries.
     "only the notes are a union",
-    "the side that edited the anchored unit",
+    "belongs to the side that edited the anchored unit",
     "to neither side where both did",
     "re-read against every edit the merged unit carries",
-    "run `evidence-check` after the resolution",
+    "So run `evidence-check` after the resolution",
 )
 
-# The owner of the two rules the needles above end with. The guides carry
-# them and link here; the policy document states them first (#488, #509).
-OWNED_SENTENCES = CONFLICT_SENTENCES[-8:]
+# #715: a re-read or a correction of a released row is a citing row in the
+# branch's fragment, and #488's three outcomes stand for a repository without
+# the freeze -- re-stamped in place with a dated note, corrected in place
+# first, and a row whose claim went with the code removed for the fragment.
+RE_READ_SENTENCES = (
+    "A re-read or a correction is a citing row in the branch's own fragment.",
+    "a `Corrected ·` row whose grounds hold the citation alone",
+    "re-stamps a re-read row in place with a dated note",
+    "corrects a false claim in place with a `Corrected <date>` note",
+    "removes a row whose claim went with its code, writing the new claim into "
+    "the branch's own fragment",
+)
 
-# #488's other two outcomes: a claim that still holds is re-stamped with a
-# dated note, and a claim that went with the code leaves its row for the
-# fragment. Each carrier words them its own way (a sentence, a bulleted list,
-# the owner's paragraph), so no needle is shared and each carrier has its own.
-EDIT_OUTCOMES = {
-    "CLAUDE.md": (
-        "re-read against that edit and re-stamped there with a dated note",
-        "A removal takes the row out there and writes the new claim into the "
-        "branch's own fragment",
-    ),
-    "CONTRIBUTING.md": (
-        # #387: the answer dates the reading it asserts.
-        "the claim still holds and you have re-read it — run "
-        "`evidence-check --reverify --checked <YYYY-MM-DD> .`",
-        "remove the row and write the new claim into your own fragment",
-    ),
-    os.path.join("docs", "the-evidence-ledger.md"): (
-        "a claim that still holds is re-stamped there with a dated note",
-        "A removal takes the row out there, and the new claim goes in the "
-        "branch's own fragment",
-    ),
-}
+SECTIONS = (
+    "A correction a merge dropped",
+    "A released row is read again in the branch's fragment",
+)
 
 
 def read(path):
@@ -798,43 +778,42 @@ def read(path):
         return " ".join(handle.read().split())
 
 
-def test_a8_both_rule_documents_say_what_to_do_at_the_conflict():
-    """A8. The instruction has to reach the person at the moment of the act,
-    and it lives in the two documents that state the fragment rule's
-    exception -- the exception being the whole cause, because a branch that
-    falsifies a row is REQUIRED to repair it in the shared file."""
+def test_a8_both_guides_send_the_reader_to_the_rules_home():
+    """A8. The instruction has to reach the person at the moment of the act.
+    It reaches them through the two documents read first, which name the
+    home and its two sections, and carry none of its sentences: a copy is the
+    defect, because the copy is what the next edit leaves behind."""
     for document in ("CLAUDE.md", "CONTRIBUTING.md"):
         text = read(document)
-        for needle in CONFLICT_SENTENCES + EDIT_OUTCOMES[document]:
-            assert needle in text, f"{document} does not say: {needle}"
+        assert "docs/the-evidence-ledger.md" in text, document
+        for heading in SECTIONS:
+            assert heading in text, f"{document} does not name §{heading}"
+        for needle in CONFLICT_SENTENCES + RE_READ_SENTENCES:
+            assert needle not in text, f"{document} restates: {needle}"
 
 
-def test_the_policy_document_owns_the_exception_and_the_halves():
-    """#488 and #509. `docs/the-evidence-ledger.md` is the owner the two
-    guides carry: the exception widened to an edit, and the halves of a
-    conflicted row. Seen red with each sentence removed from the owner."""
-    owner = os.path.join("docs", "the-evidence-ledger.md")
-    text = read(owner)
-    for needle in OWNED_SENTENCES + EDIT_OUTCOMES[owner]:
+def test_the_policy_document_owns_the_conflict_and_the_re_read():
+    """#488, #509 and #715. `docs/the-evidence-ledger.md` is the one home:
+    the conflict and its halves, and where a re-read or a correction goes,
+    with the outcomes a repository without the freeze keeps."""
+    text = read(HOME)
+    for needle in CONFLICT_SENTENCES + RE_READ_SENTENCES:
         assert needle in text, f"the ledger policy does not say: {needle}"
-    # #488's third outcome, in the owner's words. The shared needle above is
-    # not enough here: the halves paragraph's `Corrected <date>` notes carry it.
-    assert "the edit made false is corrected there first" in text, (
-        "the ledger policy does not say an edit that falsified a claim corrects it first"
-    )
     assert "docs/the-evidence-ledger.md` §*A correction a merge dropped*" in read(
         os.path.join("docs", "release-checklist.md")
     ), "the squash step does not name where the conflict's rule lives"
 
 
-def test_a8_each_document_points_at_the_other():
-    """The pin is only as good as the next editor knowing it exists. Each
-    document names the other and names the case that holds them together, so
-    a session editing one finds out that the sentence has a twin."""
-    assert "CONTRIBUTING.md` carries both paragraphs" in read("CLAUDE.md")
-    assert "CLAUDE.md` carries both paragraphs" in read("CONTRIBUTING.md")
-    for document in ("CLAUDE.md", "CONTRIBUTING.md"):
-        assert os.path.basename(__file__) in read(document), document
+def test_a8_the_home_names_the_case_that_holds_it():
+    """The pin is only as good as the next editor knowing it exists: the
+    home's conflict statement names the guides' case in its `Enforced by:`
+    line, read under its own section so another statement's line cannot
+    stand in for it."""
+    section = read(HOME).split("## A correction a merge dropped")[1].split(" ## ")[0]
+    assert (
+        f"Enforced by: tests/{os.path.basename(__file__)}"
+        "::test_a8_both_guides_send_the_reader_to_the_rules_home" in section
+    )
 
 
 def test_the_skill_says_what_the_command_is_for_and_when_it_runs():
@@ -923,7 +902,8 @@ def test_a_run_long_enough_to_be_a_sentence_is_not_a_qualifier():
     and re-stamped a third time <date>`, which stands in `seal/ledger.md`'s
     prose rather than on any row — and the bound is five, round 2's finding 6.
     The spelling is the address, not a line number: a row of this repository's
-    ledger names content and never a position (`CLAUDE.md`), and the line that
+    ledger names content and never a position (`docs/the-evidence-ledger.md`),
+    and the line that
     spelling sat on was cited in four places before #470. This case is red the
     moment that bound stops being a bound."""
     assert cc.markers("Corrected the claim that the reviewer read on 2026-09-05") == {}
@@ -1368,3 +1348,317 @@ def test_the_bound_covers_every_candidate_marker_site_the_corpus_carries():
         "is a qualifier, and raise the bound deliberately with this case "
         "re-driven:\n  " + "\n  ".join(unseen)
     )
+
+
+# --- #715: a released file is frozen, and a correction is a row of its own ---
+#
+# A released ledger file is not edited after its release, so a correction of
+# one of its rows is a `Corrected ·` row in the branch's fragment, citing the
+# released row. Dropping that row at a merge brings the false claim back to
+# life exactly as dropping a marker did, and the released row it cites always
+# still stands (S8). `Ledger frozen from` in `seal/config.md` then holds a
+# range to the freeze, keyed on the work items the range adds (S9, S10).
+
+RELEASED = "seal/releases/0.1.0.md"
+R_RELEASED = (
+    "| R1 · the released claim | `a/one.py#f@11111111` | Read. | 2026-01-01 | |"
+)
+RELEASED_TEXT = (
+    "## 0.1.0 — 2026-01-01\n\n### 1000000001-the-first\n\n" + R_RELEASED + "\n"
+)
+CITING = "seal/ledger/2000000001-a-later-item.md"
+C_ROW = (
+    '| Corrected · the claim was false | `seal/releases/0.1.0.md#"### '
+    '1000000001-the-first">"R1 · the released claim"@abcdef12`, `a/one.py#f@33333333` '
+    "| Read. | 2026-02-01 | Corrected 2026-02-01 by work item 2000000001: it never held |"
+)
+
+
+def repo_at(tmp, files):
+    root = pathlib.Path(tmp) / "repo"
+    root.mkdir(parents=True, exist_ok=True)
+    run(root, "init", "-q")
+    run(root, "config", "user.email", "t@example.com")
+    run(root, "config", "user.name", "t")
+    for path, text in files.items():
+        write(root, path, text)
+    return root, commit(root, "base")
+
+
+def test_s8_a_dropped_correction_row_is_a_loss(tmp_path):
+    """S8. Ours writes a `Corrected ·` row into its fragment; the merge
+    resolution leaves the fragment without it. The released row it cites
+    still stands, so the loss is named with the fragment, the merge and the
+    row it corrected."""
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT, CITING: ""})
+    run(root, "checkout", "-q", "-b", "ours")
+    write(root, CITING, C_ROW + "\n")
+    commit(root, "ours corrects the released row")
+    run(root, "checkout", "-q", start)
+    run(root, "checkout", "-q", "-b", "theirs")
+    write(root, "other.txt", "x\n")
+    commit(root, "theirs does something else")
+    run(root, "checkout", "-q", "ours")
+    run(root, "merge", "--no-commit", "--no-ff", "theirs", check=False)
+    write(root, CITING, "")
+    head = commit(root, "Merge branch 'theirs' into ours")
+    code, out = check(root, f"{start}..{head}")
+    assert code == 1, out
+    assert CITING in out and head[:7] in out, out
+    assert "R1 · the released claim" in out, out
+
+
+def test_s8_a_correction_row_the_merge_kept_is_no_loss(tmp_path):
+    """The control: the same merge keeping the row reports nothing."""
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT, CITING: ""})
+    run(root, "checkout", "-q", "-b", "ours")
+    write(root, CITING, C_ROW + "\n")
+    commit(root, "ours corrects the released row")
+    run(root, "checkout", "-q", start)
+    run(root, "checkout", "-q", "-b", "theirs")
+    write(root, "other.txt", "x\n")
+    commit(root, "theirs does something else")
+    run(root, "checkout", "-q", "ours")
+    run(root, "merge", "-q", "--no-ff", "-m", "merge", "theirs")
+    head = run(root, "rev-parse", "HEAD").stdout.strip()
+    code, out = check(root, f"{start}..{head}")
+    assert code == 0, out
+
+
+def frozen_config(value="1500000000"):
+    return (
+        f"# config\n\n| Item | Value |\n|---|---|\n| Ledger frozen from | {value} |\n"
+    )
+
+
+def branch_that(root, start, files, name="work"):
+    run(root, "checkout", "-q", "-b", name, start)
+    for path, text in files.items():
+        if text is None:
+            (pathlib.Path(root) / path).unlink()
+        else:
+            write(root, path, text)
+    return commit(root, "the branch's work")
+
+
+ROUTING_AT = "seal/specs/{}-an-item/routing.md"
+
+
+def test_s9_a_work_item_at_the_cutoff_that_edits_a_release_file_is_refused(tmp_path):
+    """S9. The range adds a work item at or above the cutoff and changes a
+    release file the base already had: exit 1, the file named."""
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config(), RELEASED: RELEASED_TEXT}
+    )
+    head = branch_that(
+        root,
+        start,
+        {
+            ROUTING_AT.format(1500000001): "| Review | straight to the PR |\n",
+            RELEASED: RELEASED_TEXT.replace("Read.", "Read again."),
+        },
+    )
+    code, out = check(root, f"{start}...{head}")
+    assert code == 1, out
+    assert RELEASED in out and "frozen" in out, out
+
+
+def test_s9_the_same_work_item_writing_only_its_fragment_passes(tmp_path):
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config(), RELEASED: RELEASED_TEXT}
+    )
+    head = branch_that(
+        root,
+        start,
+        {
+            ROUTING_AT.format(1500000001): "| Review | straight to the PR |\n",
+            "seal/ledger/1500000001-an-item.md": C_ROW + "\n",
+        },
+    )
+    code, out = check(root, f"{start}...{head}")
+    assert code == 0, out
+
+
+def test_s9_a_range_adding_no_work_item_that_edits_the_gathered_ledger_is_refused(
+    tmp_path,
+):
+    """A fold, a release preparation or a change belonging to no work item
+    adds no `routing.md`, and is held to the freeze."""
+    root, start = repo_at(
+        tmp_path,
+        {
+            "seal/config.md": frozen_config(),
+            "seal/ledger.md": "# map\n\n" + R_RELEASED + "\n",
+        },
+    )
+    head = branch_that(root, start, {"seal/ledger.md": "# map\n\nedited\n"})
+    code, out = check(root, f"{start}...{head}")
+    assert code == 1, out
+    assert "seal/ledger.md" in out, out
+
+
+def test_s10_a_work_item_below_the_cutoff_is_read_under_its_own_rule(tmp_path):
+    """S10. A branch cut before the rule keeps its exemption, and the report
+    says in one line which rule it was read under."""
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config(), RELEASED: RELEASED_TEXT}
+    )
+    head = branch_that(
+        root,
+        start,
+        {
+            ROUTING_AT.format(1400000001): "| Review | straight to the PR |\n",
+            RELEASED: RELEASED_TEXT.replace("Read.", "Read again."),
+        },
+    )
+    code, out = check(root, f"{start}...{head}")
+    assert code == 0, out
+    said = [line for line in out.splitlines() if "rule it was cut under" in line]
+    assert len(said) == 1 and "1400000001" in said[0], out
+
+
+def test_s10_adding_a_release_file_is_allowed(tmp_path):
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config(), RELEASED: RELEASED_TEXT}
+    )
+    head = branch_that(root, start, {"seal/releases/0.2.0.md": RELEASED_TEXT})
+    code, out = check(root, f"{start}...{head}")
+    assert code == 0, out
+
+
+def test_s10_the_release_file_named_for_the_base_s_own_version_may_join(tmp_path):
+    """#540: a second fold for one version joins that version's file before
+    the tag, on a `release/vX.Y.Z` base."""
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config(), RELEASED: RELEASED_TEXT}
+    )
+    run(root, "branch", "release/v0.1.0", start)
+    head = branch_that(
+        root, start, {RELEASED: RELEASED_TEXT + "\n### 1000000002-x\n\n" + R_RELEASED}
+    )
+    code, out = check(root, f"release/v0.1.0...{head}")
+    assert code == 0, out
+
+
+def test_s10_without_the_row_the_freeze_arm_is_off(tmp_path):
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT})
+    head = branch_that(root, start, {RELEASED: RELEASED_TEXT.replace("Read.", "x")})
+    code, out = check(root, f"{start}...{head}")
+    assert code == 0, out
+    assert "frozen" not in out, out
+
+
+def test_a_freeze_row_that_is_not_an_id_is_refused_and_nothing_is_judged(tmp_path):
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config("soon"), RELEASED: RELEASED_TEXT}
+    )
+    head = branch_that(root, start, {"x.txt": "x\n"})
+    code, out = check(root, f"{start}...{head}")
+    assert code == 2, out
+
+
+def correction_merge(tmp, base, ours, theirs, resolution, files=None):
+    """A merge of two branches over CITING, resolved by hand to RESOLUTION,
+    with the released file and FILES in the base."""
+    root, start = repo_at(tmp, {RELEASED: RELEASED_TEXT, CITING: base, **(files or {})})
+    run(root, "checkout", "-q", "-b", "ours")
+    write(root, CITING, ours)
+    commit(root, "ours")
+    run(root, "checkout", "-q", start)
+    run(root, "checkout", "-q", "-b", "theirs")
+    write(root, CITING, theirs)
+    write(root, "other.txt", "x\n")
+    commit(root, "theirs")
+    run(root, "checkout", "-q", "ours")
+    run(root, "merge", "--no-commit", "--no-ff", "theirs", check=False)
+    write(root, CITING, resolution)
+    return root, start, commit(root, "Merge branch 'theirs' into ours")
+
+
+def test_a_correction_row_a_parent_deleted_is_honoured(tmp_path):
+    """The base carried the row and ours deleted it: the merge taking ours'
+    deletion is doing its job, as it is for a marker."""
+    row = C_ROW + "\n"
+    root, start, head = correction_merge(tmp_path, row, "", row, "")
+    code, out = check(root, f"{start}..{head}")
+    assert code == 0, out
+
+
+def test_a_correction_row_both_parents_carried_is_reported_once(tmp_path):
+    """Both parents kept the base's row and the resolution dropped it: one
+    loss, not one per parent."""
+    row = C_ROW + "\n"
+    root, start, head = correction_merge(tmp_path, row, row, row, "")
+    code, out = check(root, f"{start}..{head}")
+    assert code == 1, out
+    assert out.count("  dropped     ") == 1, out
+
+
+def test_a_correction_whose_released_file_is_gone_is_not_judged_a_loss(tmp_path):
+    """The released row is what still stands. Where the merge result has no
+    file at the citation's path, there is no standing row to read as true."""
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT, CITING: ""})
+    run(root, "checkout", "-q", "-b", "ours")
+    write(root, CITING, C_ROW + "\n")
+    commit(root, "ours corrects the released row")
+    run(root, "checkout", "-q", start)
+    run(root, "checkout", "-q", "-b", "theirs")
+    (pathlib.Path(root) / RELEASED).unlink()
+    commit(root, "theirs removes the release file")
+    run(root, "checkout", "-q", "ours")
+    run(root, "merge", "--no-commit", "--no-ff", "theirs", check=False)
+    write(root, CITING, "")
+    head = commit(root, "Merge branch 'theirs' into ours")
+    _, out = check(root, f"{start}..{head}")
+    assert "  dropped     " not in out, out
+
+
+def test_a_config_with_other_rows_and_no_freeze_row_leaves_the_arm_off(tmp_path):
+    """Every installed repository with any config row and no freeze row: the
+    arm is off, not frozen from 0."""
+    root, start = repo_at(
+        tmp_path,
+        {
+            "seal/config.md": "| Item | Value |\n|---|---|\n| Mode | shared |\n",
+            RELEASED: RELEASED_TEXT,
+        },
+    )
+    head = branch_that(root, start, {RELEASED: RELEASED_TEXT.replace("Read.", "x")})
+    code, out = check(root, f"{start}...{head}")
+    assert code == 0, out
+    assert "frozen" not in out, out
+
+
+PIPE_ROW = (
+    '| Corrected · the claim was false | `seal/releases/0.1.0.md#"### '
+    '1000000001-the-first">"R1 · the released claim \\|"@abcdef12`, `a/one.py#f@33333333` '
+    "| Read. | 2026-02-01 | Corrected 2026-02-01 |"
+)
+
+
+def test_a_closing_pipe_citation_is_keyed_by_the_citation():
+    """`citation_for` writes `"<cell tail> \\|"` where every prefix of a first
+    cell stands on another line. `ANCHOR` cannot cross the `|`, so the row was
+    keyed on its first code coordinate (round 1, 🟡 5)."""
+    found = cc.corrections(ledger(PIPE_ROW))
+    assert list(found) == [
+        'seal/releases/0.1.0.md#"### 1000000001-the-first">"R1 · the released claim \\|"'
+    ], found
+
+
+def test_a_dropped_closing_pipe_correction_is_reported(tmp_path):
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT, CITING: ""})
+    run(root, "checkout", "-q", "-b", "ours")
+    write(root, CITING, PIPE_ROW + "\n")
+    commit(root, "ours corrects the released row")
+    run(root, "checkout", "-q", start)
+    run(root, "checkout", "-q", "-b", "theirs")
+    write(root, "other.txt", "x\n")
+    commit(root, "theirs does something else")
+    run(root, "checkout", "-q", "ours")
+    run(root, "merge", "--no-commit", "--no-ff", "theirs", check=False)
+    write(root, CITING, "")
+    head = commit(root, "Merge branch 'theirs' into ours")
+    code, out = check(root, f"{start}..{head}")
+    assert code == 1, out
+    assert "  dropped     " in out, out

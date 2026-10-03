@@ -187,6 +187,13 @@ COVERED = [
     # line is a path and its comma at 89 columns, and fitting it means
     # rewording a sentence a ledger row quotes.
     "docs/commit-review-gate-spec.md",
+    # The two documents #727 cut out of the one above. Their moved lines were
+    # held to the limit where they stood, and their preambles were written
+    # wrapped, so both go in at birth.
+    "docs/the-commit-gate-inside-git.md",
+    "docs/the-review-and-parity-arms.md",
+    # The pact's policy (#647), written wrapped and in at birth.
+    "docs/the-pact.md",
 ]
 
 
