@@ -1728,21 +1728,84 @@ def reparsed_texts(tokens, env_words=True):
             # is; placing its command word is a parser (`spec.md` §*Scope*).
             texts += [t for t in rest if not t.startswith("-")]
         elif word in ("env", "genv"):
+            # OWN: still among env's own options, where a cluster or an
+            # abbreviation can spell the split string (round 1 of 1790993140,
+            # yellow 2). The base spellings are read anywhere, as they were.
+            own, value = True, False
             for j, t in enumerate(rest):
-                if t in ("-S", "--split-string") and j + 1 < len(rest):
+                at = _env_split_at(t, own and not value)
+                if value:
+                    value = False
+                elif own and not t.startswith("-"):
+                    own = False
+                elif own:
+                    value = _env_takes_next(t) or (at is not None and at[0] == "next")
+                if at is None:
+                    continue
+                kind, string = at
+                if kind == "next" and j + 1 < len(rest):
                     texts += _string_at(rest, j + 1)
                     after = rest[j + 1 :]
-                elif t.startswith("--split-string="):
-                    texts.append(t.split("=", 1)[1])
-                    after = [texts[-1], *rest[j + 1 :]]
-                elif t.startswith("-S") and len(t) > 2:
-                    texts.append(t[2:])
-                    after = [t[2:], *rest[j + 1 :]]
+                elif kind == "here":
+                    texts.append(string)
+                    after = [string, *rest[j + 1 :]]
                 else:
                     continue
                 if env_words:
                     texts += _env_words(word, rest[:j], after)
     return texts
+
+
+# `env`'s options other than `-S` that take a value, in GNU coreutils and
+# BSD/macOS: the rest of the cluster, or the next word where none is left.
+ENV_VALUED = frozenset("uCPLa")
+ENV_VALUED_LONG = frozenset({"--unset", "--chdir", "--argv0"})
+
+
+def _env_takes_next(t):
+    """True where T is one of `env`'s options whose value is the next word."""
+    if t.startswith("--"):
+        return t in ENV_VALUED_LONG
+    middle = t[1:-1]
+    return (
+        len(t) > 1
+        and t[-1] in ENV_VALUED
+        and all(c.isalnum() and c not in ENV_VALUED for c in middle)
+    )
+
+
+def _env_split_at(t, own):
+    """Where T spells `env`'s split string (#716), or None.
+
+    ("next", None) where the string is the next word, ("here", s) where T
+    carries it. `-S`, `-S<s>` and `--split-string[=<s>]` anywhere, as the
+    base read them. Among env's own options (OWN) also a cluster ending in it
+    (`-iS`, `-vS<s>`, which macOS `env` and GNU's getopt both accept) and
+    every prefix of `--split-string` GNU's getopt takes, from `--s`: no other
+    long option of GNU `env` starts with `s`.
+    """
+    if t in ("-S", "--split-string"):
+        return ("next", None)
+    if t.startswith("--split-string="):
+        return ("here", t.split("=", 1)[1])
+    if t.startswith("-S") and len(t) > 2:
+        return ("here", t[2:])
+    if not own:
+        return None
+    if t.startswith("--"):
+        name, eq, value = t.partition("=")
+        if name.startswith("--s") and "--split-string".startswith(name):
+            return ("here", value) if eq else ("next", None)
+        return None
+    if not t.startswith("-") or len(t) < 2:
+        return None
+    for i, ch in enumerate(t[1:], 1):
+        if ch == "S":
+            string = t[i + 1 :]
+            return ("here", string) if string else ("next", None)
+        if ch in ENV_VALUED or not ch.isalnum():
+            return None
+    return None
 
 
 def _env_words(word, before, after):

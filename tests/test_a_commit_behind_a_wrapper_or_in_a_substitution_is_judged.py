@@ -121,6 +121,15 @@ HANDED = {
     "env --split-string=, env's own words": f"env --split-string='-i {C}'",
     "genv -S, env's own words": f"genv -S '-i {C}'",
     "env -S, the command after the string": "env -S '-i git' commit -m x",
+    # Round 1 of 1790993140, yellow 2: a cluster ending in `S`, which macOS
+    # `env` accepts, and GNU's abbreviation of `--split-string`. Each found
+    # nothing at `07a3dc7f`.
+    "env -iS, a cluster": f"env -iS '{C}'",
+    "env -vS, a cluster carrying env's own words": f"env -vS '-i {C}'",
+    "env -iS glued": f"env -iS'{C}'",
+    "env --split, abbreviated": f"env --split '-i {C}'",
+    "env --split=, abbreviated": f"env --split='-i {C}'",
+    "env -iS behind an option's value": f"env -u FOO -iS '{C}'",
 }
 
 SUBSTITUTED = {
@@ -238,6 +247,9 @@ CONTROLS = {
     "env -S with a variable operand": "env -S 'echo' \"$X\"",
     "env -S with a quoted operand holding a list": "env -S 'echo' 'a && git commit -m y'",
     "env -S with a quoted operand holding a ;": "env -S 'printf %s' 'x; git commit -m y'",
+    # Round 1 of 1790993140, yellow 2: a cluster ending in `S` after the
+    # program is the program's (`ls -lS`), not a split string.
+    "a program's own cluster ending in S": 'env ls -lS "$DIR"',
 }
 
 # #674: round 1's seven controls, rewritten into each position the work item
