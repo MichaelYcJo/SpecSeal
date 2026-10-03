@@ -1554,3 +1554,49 @@ def test_an_unfrozen_reverify_narrowed_to_a_folded_member_names_the_root(repo):
     left = [line for line in out.stdout.splitlines() if "LEFT" in line]
     assert left, out.stdout
     assert left[0].split()[:2] == ["LEFT", "seal/releases/0.1.0.md:5"], left[0]
+
+
+@pytest.mark.parametrize(
+    "cell, said",
+    [
+        (
+            "2026-13-45",
+            "the reading dated 2026-13-45, a date the calendar does not have",
+        ),
+        (
+            "2026-13-45, 2026-02-30",
+            "the reading dated 2026-13-45, 2026-02-30, dates the calendar does not have",
+        ),
+        ("", "the reading of no date"),
+    ],
+)
+def test_a_checked_date_the_calendar_does_not_have_is_named_as_written(
+    repo, cell, said
+):
+    """Round 3's ⬜ 17: R's `Checked` cell holds a date the calendar does not
+    have, a fragment re-read dated 2026-02-01 holds other content, and the
+    code is back at R's hash. R is DRIFTED, as before, and the line names
+    the date as the cell wrote it, because fixing that typo is the repair.
+    It said "the reading of no date", which is kept for a cell with no
+    date at all."""
+    h1 = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h1}` | read | {cell} | |"
+        ],
+    )
+    edit_handler(repo)
+    h2 = unit_hash(repo, "src/service.py", "handler")
+    fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+            f"`src/service.py#handler@{h2}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+    )
+    (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+    out = run(["--strict", "."], repo)
+    assert out.returncode == 2, out.stdout
+    section = ledger_section(out.stdout, R_FILE)
+    assert f"matches only {said}; the newest reading" in section, section

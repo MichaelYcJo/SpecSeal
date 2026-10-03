@@ -2489,6 +2489,24 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
         dates = CHECKED_RE.findall(cells[column[0]]) if column else []
         return max((d for d in dates if calendar_date(d)), default="")
 
+    def reading(key):
+        """KEY's reading as the DRIFTED line names it: by its newest calendar
+        date; else by every date-shaped string its `Checked` cell holds, in
+        cell order, said to be no date the calendar has, because fixing that
+        typo is the person's repair; else as the reading of no date (round
+        3, ⬜ 17). The ordering is `checked`'s, unchanged."""
+        if checked(key):
+            return f"the reading of {checked(key)}"
+        _, _, header, cells = row(key)
+        column = date_column(header, cells)
+        typed = CHECKED_RE.findall(cells[column[0]]) if column else []
+        if not typed:
+            return "the reading of no date"
+        what = "a date" if len(typed) == 1 else "dates"
+        return (
+            f"the reading dated {', '.join(typed)}, {what} the calendar does not have"
+        )
+
     readings, held_by = {}, {}
     for top, members in families.items():
         if top in superseded:
@@ -2525,7 +2543,7 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
                 elif not held and status == "OK":
                     status = "DRIFTED"
                     detail = (
-                        f"matches only the reading of {checked(key) or 'no date'}; "
+                        f"matches only {reading(key)}; "
                         f"the newest reading of this coordinate, {newest} at "
                         f"{where(last[0])}, holds other content — re-read"
                     )
