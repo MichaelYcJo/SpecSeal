@@ -1023,3 +1023,34 @@ def test_two_readings_of_one_coordinate_on_the_same_day_are_a_union(repo):
     assert run(["--strict", "."], repo).returncode == 0
     edit_handler(repo)
     assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_into_re_reads_a_revert_a_folded_newer_reading_outranks(repo):
+    """R reads h1, a folded re-read reads h2 a month later, and the code goes
+    back to h1. R's reading matches and is older, so the family is drifted,
+    and `--into` writes a re-read at h1 that clears it."""
+    h1 = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h1}` | read | 2026-01-01 | |"
+        ],
+    )
+    edit_handler(repo)
+    h2 = unit_hash(repo, "src/service.py", "handler")
+    released(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+            f"`src/service.py#handler@{h2}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+        version="0.2.0",
+        section="### 2000000001-a-later-item",
+    )
+    frozen(repo, "0")
+    (repo / "src" / "service.py").write_text(SERVICE)
+    assert run(["--strict", "."], repo).returncode == 2
+    out = run(["--reverify", "--into", INTO, "--checked", "2026-03-01", "."], repo)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert f"`src/service.py#handler@{h1}`" in (repo / INTO).read_text()
+    assert run(["--strict", "."], repo).returncode == 0
