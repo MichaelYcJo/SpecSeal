@@ -69,7 +69,9 @@ The work item's slug says *released member* because the ticket does. D1 is wider
 
 The freeze branch of `main` currently passes `released` to `reverify_into`. It passes the full narrowed list instead, and `reverify_into` writes no file but INTO either way. The no-freeze branch already passes the full list.
 
-**D3 — Unnarrowed runs do not change.** Every released file is already in `wanted` there, and every family's root is released, so every family is already answered. The enumeration's unnarrowed column is the control that holds this.
+**D3 — Unnarrowed runs do not change.** Every released file is already in `wanted` there. A family rooted in a fragment — a `Corrected ·` row there, or a citing row whose citation resolves to nothing — holds no released member, because a citation into a fragment joins nothing, and `released_drift` grades a family's coordinate only from a member under a released root; so every family that can owe a re-read is already answered. A change that widens which members grade a coordinate keeps that guard on the root's kind. The enumeration's unnarrowed column is the control that holds this.
+
+*Corrected 2026-10-03 by round 1's fix pass (⬜ 9): D3 said "every family's root is released", which is false for the two fragment-rooted families named above; the conclusion held only through the released-member filter, which 🟡 1's fix widens under a released-root guard.*
 
 **D4 — The `LEFT` line and the written row name the family's root, even where the run did not read the root's file.** A `Re-read ·` row cites the root (`reverify_into`'s docstring), so the root is where the repair lands, and `--into` already prints `citing <root>`. The home's rewritten sentence says "by its root row", as the paste-ready text does.
 
