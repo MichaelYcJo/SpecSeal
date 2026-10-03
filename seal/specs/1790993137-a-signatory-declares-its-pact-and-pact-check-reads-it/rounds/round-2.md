@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 735 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `652275a07ae4f0b8123ec9787c525278ffdf821f..d9602677221dea95e01197e1b895fb7d4076a657`, 5 commits |
 | Contract changes | none |
 | New units | SIGNATORY_DELIMITER (depth 1); TABLE_BREAK (depth 1); HEADING_LINE (depth 1); _stops_at (depth 1); WEB (depth 1); MOBILE (depth 1); HEAD (depth 1); CLAUSE (depth 1); ENDS_ABOVE (depth 1); stops_at (depth 1); TABLE_ENDS (depth 1); test_every_way_the_table_ends_is_read_or_refused (depth 1); ENTRY (depth 1); test_every_entry_refusal_reads_after_the_pact (depth 1); test_a_signatory_row_below_a_blank_line_is_refused (depth 1); test_prose_naming_the_pact_is_not_a_citation (depth 1); test_a_pact_name_inside_a_graded_anchors_heading_is_not_a_near_miss (depth 1); test_an_entry_refusal_is_printed_after_the_pact (depth 1) |
