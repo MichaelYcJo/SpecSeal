@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 745 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `b4bd4ea1d2d1ad497735c1fe210fd51b8bca734d..36ddfb75725155c98a467e80b8aff16ee17dd858`, 4 commits |
 | Contract changes | none |
 | New units | HIDDEN_FILE_CHECKOUTS (depth 1); test_a_file_checkout_hidden_from_the_frozen_reader_is_asked_as_a_switch (depth 1); test_the_guard_policy_says_a_hidden_file_checkout_is_asked (depth 1) |
