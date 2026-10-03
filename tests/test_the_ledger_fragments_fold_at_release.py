@@ -1207,8 +1207,8 @@ THIS_WORK_ITEM = "1788326734-the-ledger-fragments-are-never-gathered"
 
 def folded_ledgers(root):
     """`seal/ledger.md` and every release file, where a folded section can
-    stand: in the shared file until `--split` moves it, in
-    `seal/releases/<X.Y.Z>.md` after (#547)."""
+    stand: in the shared file in a tree from before the one-time split, in
+    `seal/releases/<X.Y.Z>.md` since (#547)."""
     paths = [os.path.join(root, "seal", "ledger.md")]
     paths += sorted(glob.glob(os.path.join(root, "seal", "releases", "*.md")))
     out = []

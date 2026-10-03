@@ -352,8 +352,9 @@ def doubled_markers(ledgers):
 
     Across the corpus rather than per file, because both shapes are one
     defect: a work item marked twice in one file (the fragment that began
-    with its own marker) and one marked in two files (a fold to the old
-    place after the split) both make the count say one work item is two.
+    with its own marker) and one marked in two files (a section written to
+    `seal/ledger.md` beside its release file) both make the count say one
+    work item is two.
     `tests/test_release_hygiene.py#duplicated_markers` is the same reader
     over the real tree on every pull request. A marker counts only on a live
     line (`live_markers`, #584).

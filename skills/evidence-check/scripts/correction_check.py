@@ -192,11 +192,12 @@ written here is a figure nothing would ever re-take.
 
 **A row that moves between two of those paths at a merge is not identified
 on either.** The survival test identifies a row within one path, so a merge
-that moves a row from `seal/ledger.md` to a release file — the one-time
-`fold_ledger.py --split` at the release that ships #547 — is silent about
-that row's markers: the bias toward silence above, stated rather than met as
-a surprise. The split runs at a release-preparation commit with no merge in
-its range, which is what keeps that silence from hiding a loss.
+that moves a row from `seal/ledger.md` to a release file — as the one-time
+`fold_ledger.py --split` did at the release that shipped #547, before #715
+retired it — is silent about that row's markers: the bias toward silence
+above, stated rather than met as a surprise. The split ran at a
+release-preparation commit with no merge in its range, which kept that
+silence from hiding a loss.
 
 Only the committed root is readable at all. A repository in local mode keeps
 `seal/` under the git common directory and commits nothing, so it has no

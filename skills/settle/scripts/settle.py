@@ -313,8 +313,8 @@ def coordinates(root):
 
     Three addresses hold the rows and all are read, which is what the checker
     does: `seal/ledger.md`, the rows from before the fragments existed and,
-    until `fold_ledger.py --split` moves them, the sections a release folded
-    there; `seal/releases/<X.Y.Z>.md`, one file per release, where the fold
+    in a tree from before the one-time split (#547, retired by #715), the
+    sections a release folded there; `seal/releases/<X.Y.Z>.md`, one file per release, where the fold
     writes each work item's section under its own `<!-- specs/<id> -->`
     marker (#547); and `seal/ledger/<id>.md`, the fragment of a work item
     whose release has not folded it yet.
