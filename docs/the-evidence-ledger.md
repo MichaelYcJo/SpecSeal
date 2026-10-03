@@ -35,7 +35,10 @@ claims was about.
 can be broken. A stale minor anchor widens to its unit and says re-read,
 because `BROKEN` means *go edit the ledger* and that is the bookkeeping this
 removes. **A row whose anchor a change removes is `REMOVED`, not re-pointed**
-— its claim went with the code, and the new claim is a new row.
+— its claim went with the code, and the new claim is a new row. Under the
+freeze a released row is never removed: a `Corrected ·` row retires it, or
+re-points a moved one (§*A released row is read again in the branch's
+fragment*).
 
 **Which file a change writes is `docs/the-record-layout.md` §*A change
 writes fragments, never a shared file*.** The checker reads `seal/ledger.md`,
