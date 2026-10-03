@@ -48,7 +48,7 @@ GRANDFATHERED = "prints instead of failing"
 HEADING = "### The reopening — one, and then the run is capped"
 NEXT_HEADING = "### Where a leftover goes — the ladder"
 PREVIOUS_HEADING = "### `Needs a fix` — the row the bound"
-GATE_SPEC = ("docs", "commit-review-gate-spec.md")
+GATE_SPEC = ("docs", "the-review-and-parity-arms.md")
 
 
 def _load(name, path):

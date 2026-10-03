@@ -302,11 +302,11 @@ split along its own headings by MichaelYcJo/SpecSeal#526 into itself,
 `docs/commit-review-gate-spec.md` and `docs/round-record-spec.md`, its fold
 markers carried across whole. A document the next fold would take past the
 ceiling is split the same way first, or the rule goes to the document for
-its own sub-subject. One document is listed over the ceiling now, as
-`docs/commit-review-gate-spec.md`,
-frozen at 18 fold markers until MichaelYcJo/SpecSeal#715: #692 took it to
-1,039 lines, and the owner left its split to that issue, which gives the
-records one layout (2026-10-02). The cutoff, the ceiling and the list are
+its own sub-subject. No document is listed over the ceiling now.
+`docs/commit-review-gate-spec.md` was, after #692 took it to 1,039 lines,
+until MichaelYcJo/SpecSeal#727 cut it the same way into itself,
+`docs/the-commit-gate-inside-git.md` and `docs/the-review-and-parity-arms.md`,
+and its entry went with the cut. The cutoff, the ceiling and the list are
 rows of this repository's `seal/config.md`, which `fold-check` reads, and a
 pin holds the rows and this section to the same numbers.
 Enforced by: skills/settle/scripts/fold_check.py::ceiling_problems, tests/test_a_document_has_room_for_the_next_fold.py::test_the_evidence_ledger_states_the_values_the_config_rows_hold

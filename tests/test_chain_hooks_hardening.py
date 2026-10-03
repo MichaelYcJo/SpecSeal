@@ -504,7 +504,7 @@ def test_the_review_arms_missing_path_line_is_written_where_it_is_met():
         with open(os.path.join(ROOT, *parts), encoding="utf-8") as f:
             return re.sub(r"\s+", " ", f.read())
 
-    spec = flat("docs", "commit-review-gate-spec.md")
+    spec = flat("docs", "the-review-and-parity-arms.md")
     review_arm = spec.split("### Review arm", 1)[1].split("####", 1)[0]
     assert (
         "| the change confined to `docs/`, `seal/` | no different from any "
