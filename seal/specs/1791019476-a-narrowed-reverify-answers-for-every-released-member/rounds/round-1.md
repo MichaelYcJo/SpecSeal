@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 743 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `465adf3325b0ac6070ddc80484d8068ba1f25da6..604f8969f9aad34099706c59541415a0c9787082`, 10 commits |
+| Contract changes | three_readings → round-1-report.md, round-1.md, pytest; test_a_narrowed_reverify_exits_0_only_where_the_narrowed_strict_does → round-1-report.md, round-1.md |
+| New units | test_a_narrowed_reverify_answers_for_a_coordinate_only_fragments_carry (depth 1); test_a_family_rooted_in_a_fragment_is_owed_no_released_re_read (depth 1); test_a_frozen_reverify_narrowed_to_a_member_names_the_root_with_into (depth 1) |
 | Needs a fix | yes — 🟡 1, a coordinate only fragment members carry escapes a narrowed `--reverify` in all three modes. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,15 +30,15 @@ The 9 rows the integration chore #742 re-stamps were named as expected, to be co
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A coordinate carried only by fragment members escapes a narrowed `--reverify`. Narrowed to the fragment holding the older reading, with the newest in another fragment, the run exits 0 and writes nothing in all three modes, while the narrowed `--strict` exits 2. The home's two new sentences, L4, N1's first clause and the changelog entry are false there | `skills/evidence-check/scripts/evidence_check.py:3292` | open | Executed. Red at `a7ba069f` in 3 of 3 modes and at `2b1dcb1f` for both placements of N. Green in 3 of 3 with the paste-ready fix, which keeps 154 cases of the module and two siblings passing |
-| ⬜ 2 | The home says a reading dated only by one impossible date is named with that date; the code names every date-shaped string, and the case pins two | `docs/the-evidence-ledger.md:103` | open | Read against `evidence_check.py:2501-2508` and the case's second cell |
-| ⬜ 3 | The plural message joins the dates with `, ` and then adds `, dates …`, which reads as three items; a repeated string is named twice | `skills/evidence-check/scripts/evidence_check.py:2505` | open | Read. Phase 2 records that the plural form was the smith's choice, so D5 did not decide it |
-| ⬜ 4 | The `reading` docstring describes the message with Q2(a)'s rejected wording, *no date the calendar has* | `skills/evidence-check/scripts/evidence_check.py:2495` | open | Read against the f-string four lines below it |
-| ⬜ 5 | N2 quotes the message as *said to be no date the calendar has*, the rejected wording, not the text the code prints | `seal/ledger/1791019476-a-narrowed-reverify-answers-for-every-released-member.md:2` | open | Read. This is a correction to the run's records |
-| ⬜ 6 | The control's docstring says the uncorrected narrowing exits 1, which is false under `freeze with --into`; the enumeration's docstring promises a skipped-files notice nothing asserts | `tests/test_a_released_row_is_read_again_in_a_fragment.py:1489` | open | Executed: the uncorrected narrowing exits 1, 1 and 0 across the three modes |
-| ⬜ 7 | S3's root naming under the freeze without `--into` is not pinned; the enumeration accepts any exit-1 output | `tests/test_a_released_row_is_read_again_in_a_fragment.py:1445` | open | Read. The code names the root today (executed, CONTROL), and nothing holds it |
-| ⬜ 8 | A double correction is DRIFTED under `--strict` and named by no `--reverify`, narrowed or not, while the rewritten home sentence promises every family no re-stamp clears | `docs/the-evidence-ledger.md:163` | open | Executed (P5): `--reverify` exits 0 and `--strict` exits 2, narrowed and unnarrowed. The behaviour comes from #736; the sentence is this item's |
-| ⬜ 9 | Spec D3's premise, *every family's root is released*, is false; the conclusion holds only through the released-member filter, which 🟡 1's fix has to widen | `seal/specs/1791019476-a-narrowed-reverify-answers-for-every-released-member/spec.md:72` | open | Read: `root_of` and `cited_row`. This is a correction to the run's records |
+| 🟡 1 | A coordinate carried only by fragment members escapes a narrowed `--reverify`. Narrowed to the fragment holding the older reading, with the newest in another fragment, the run exits 0 and writes nothing in all three modes, while the narrowed `--strict` exits 2. The home's two new sentences, L4, N1's first clause and the changelog entry are false there | `skills/evidence-check/scripts/evidence_check.py:3292` | **fixed** `27b6991e` | fixed at 27b6991e; Executed. Red at `a7ba069f` in 3 of 3 modes and at `2b1dcb1f` for both placements of N. Green in 3 of 3 with the paste-ready fix, which keeps 154 cases of the module and two siblings passing |
+| ⬜ 2 | The home says a reading dated only by one impossible date is named with that date; the code names every date-shaped string, and the case pins two | `docs/the-evidence-ledger.md:103` | **fixed** `5c8baa17` | fixed at 5c8baa17; Read against `evidence_check.py:2501-2508` and the case's second cell |
+| ⬜ 3 | The plural message joins the dates with `, ` and then adds `, dates …`, which reads as three items; a repeated string is named twice | `skills/evidence-check/scripts/evidence_check.py:2505` | **fixed** `bf9d833a` | fixed at bf9d833a; Read. Phase 2 records that the plural form was the smith's choice, so D5 did not decide it |
+| ⬜ 4 | The `reading` docstring describes the message with Q2(a)'s rejected wording, *no date the calendar has* | `skills/evidence-check/scripts/evidence_check.py:2495` | **fixed** `14a56599` | fixed at 14a56599; Read against the f-string four lines below it |
+| ⬜ 5 | N2 quotes the message as *said to be no date the calendar has*, the rejected wording, not the text the code prints | `seal/ledger/1791019476-a-narrowed-reverify-answers-for-every-released-member.md:2` | answered | corrected at `da825ff1`; Read. This is a correction to the run's records |
+| ⬜ 6 | The control's docstring says the uncorrected narrowing exits 1, which is false under `freeze with --into`; the enumeration's docstring promises a skipped-files notice nothing asserts | `tests/test_a_released_row_is_read_again_in_a_fragment.py:1489` | **fixed** `e17069fa` | fixed at e17069fa; Executed: the uncorrected narrowing exits 1, 1 and 0 across the three modes |
+| ⬜ 7 | S3's root naming under the freeze without `--into` is not pinned; the enumeration accepts any exit-1 output | `tests/test_a_released_row_is_read_again_in_a_fragment.py:1445` | **fixed** `bf27f5f5` | fixed at bf27f5f5; Read. The code names the root today (executed, CONTROL), and nothing holds it |
+| ⬜ 8 | A double correction is DRIFTED under `--strict` and named by no `--reverify`, narrowed or not, while the rewritten home sentence promises every family no re-stamp clears | `docs/the-evidence-ledger.md:163` | **fixed** `9c93f814` | fixed at 9c93f814; Executed (P5): `--reverify` exits 0 and `--strict` exits 2, narrowed and unnarrowed. The behaviour comes from #736; the sentence is this item's |
+| ⬜ 9 | Spec D3's premise, *every family's root is released*, is false; the conclusion holds only through the released-member filter, which 🟡 1's fix has to widen | `seal/specs/1791019476-a-narrowed-reverify-answers-for-every-released-member/spec.md:72` | answered | corrected at `b0a41a09`; Read: `root_of` and `cited_row`. This is a correction to the run's records |
 | 🟢 | The integration claim: with #742 merged and the two hunks resolved by hash, `--strict .` reads 0 drifted | `seal/ledger/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes.md` | confirmed | Executed: 4,026 ok and 0 drifted after the merge; 4,017 ok and 9 drifted at `a7ba069f` |
 | 🟢 | S8's second half: no released ledger file changed | `seal/releases`, `seal/ledger.md` | confirmed | Executed: the name-only diff is empty |
 | 🟢 | The ten re-stamped rows of #736's fragment hold against the edit, except L4's narrowing clause, which is 🟡 1 | `seal/ledger/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes.md` | confirmed | Read, row by row; table above |
