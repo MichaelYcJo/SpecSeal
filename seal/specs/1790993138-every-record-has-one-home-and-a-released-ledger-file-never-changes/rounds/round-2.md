@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 736 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `4f0aacc8ffff95504ecdb0375fa216b8ad6f915d..c9fe12fd669edb57fc8f394e3565134d93c8385f`, 8 commits |
 | Contract changes | none |
 | New units | calendar_date (depth 1); test_a_folded_double_correction_is_cleared_by_retiring_one (depth 1); test_a_narrowed_into_re_reads_a_family_a_fragment_outranks (depth 1); test_an_unfrozen_narrowed_reverify_names_a_family_it_could_not_clear (depth 1); test_a_checked_cell_the_calendar_does_not_have_does_not_outrank_a_re_read (depth 1); test_a_first_cell_equal_to_another_rows_cell_still_gets_a_citation (depth 1) |
