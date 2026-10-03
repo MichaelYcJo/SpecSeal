@@ -54,6 +54,14 @@ REPORTED = ".reported"
 # held for, and the harness counts that message in them, so a character
 # outside the BMP is two.
 MESSAGE_CAP = 200
+# The longest exception TYPE name a record keeps, in the same units and for
+# the same message (#722). The plugin's own longest is `NoMutationDefined`,
+# 17 characters, but a gate's import can raise a class from anywhere, and a
+# class names itself whatever it likes; a name with no bound is a report no
+# fixed reserve can hold. 40 keeps every built-in name whole -- the longest,
+# `PendingDeprecationWarning`, is 25 -- and the cut name still says which
+# class it was, the way the cut message still says what it said.
+NAME_CAP = 40
 
 # What `run_gate` saw fail during this invocation, in order, as
 # `(gate, phase, exception)` where phase is "load" or "run". Kept beside the
@@ -345,18 +353,25 @@ def opted_in(top, common):
         return True
 
 
-def first_line(exc):
-    """The first non-blank line of `exc`'s message, capped at `MESSAGE_CAP`
-    UTF-16 units. A character outside the BMP is two, and one that would
-    pass the cap is left out whole rather than split into half a pair."""
-    lines = str(exc).strip().splitlines()
+def capped(text, cap):
+    """`text` cut to at most `cap` UTF-16 units. A character outside the BMP
+    is two, and one that would pass the cap is left out whole rather than
+    split into half a pair. No marker is added: a cut is a shorter text, the
+    way it always was for a message."""
     kept, units = [], 0
-    for char in lines[0].strip() if lines else "":
+    for char in text:
         units += 2 if ord(char) > 0xFFFF else 1
-        if units > MESSAGE_CAP:
+        if units > cap:
             break
         kept.append(char)
     return "".join(kept)
+
+
+def first_line(exc):
+    """The first non-blank line of `exc`'s message, capped at `MESSAGE_CAP`
+    UTF-16 units by `capped`."""
+    lines = str(exc).strip().splitlines()
+    return capped(lines[0].strip() if lines else "", MESSAGE_CAP)
 
 
 def record(group, failures, body):
@@ -399,7 +414,7 @@ def record(group, failures, body):
                     {
                         "group": group,
                         "phase": phase,
-                        "error": type(exc).__name__,
+                        "error": capped(type(exc).__name__, NAME_CAP),
                         "message": first_line(exc),
                         "at": [now, place],
                     },
@@ -434,11 +449,20 @@ def describe(gate, body):
     named: a broken `worktree-guard.py` is an unguarded `pre-agent` too, not
     only an unguarded `pre-bash`. A failure while running depends on the
     payload, so it names the group it was seen in. The closing clause names
-    only the groups where other gates were there to decide."""
-    group = flat(body.get("group"))
+    only the groups where other gates were there to decide.
+
+    Every field read from the record that has no fixed vocabulary is cut to
+    its cap again here, because `read_record`'s writer may be an older or a
+    newer plugin (#722): `error` at `NAME_CAP`, `message` at `MESSAGE_CAP`,
+    and `group`, which this plugin writes from `GROUPS` but cannot trust a
+    record to, at `NAME_CAP`. `phase` is read through a fixed table, and the
+    gate's name is the record's FILE name, which the reserve's figures
+    measure over `GROUPS`."""
+    group = capped(flat(body.get("group")), NAME_CAP)
     phase = body.get("phase")
     how = {"load": "failed to load", "run": "failed while running"}.get(phase, "failed")
-    error, message = flat(body.get("error")), flat(body.get("message"))
+    error = capped(flat(body.get("error")), NAME_CAP)
+    message = capped(flat(body.get("message")), MESSAGE_CAP)
     cause = f"{error}: {message}" if error and message else error or message
     groups = [group] if group else []
     if phase == "load" and group in GROUPS:

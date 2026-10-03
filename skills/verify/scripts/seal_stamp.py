@@ -228,13 +228,16 @@ MESSAGE_LIMIT = 10000
 # the blank line between two blocks. The reserve is for what the hook cannot
 # see: `hooks/dispatch.py#report` prepends the session's gate-failure report
 # to this same message after the hook has printed. The longest report it can
-# write, with each exception's text cut at its `MESSAGE_CAP`, is 533 UTF-16
-# units for one failed gate and 909 for two, separator included (measured
-# 2026-10-02 over `dispatch.describe`, every gate failing to load with
-# `ModuleNotFoundError`; the longest built-in type name gives 539 and 921);
-# a third would pass the limit beside a stamp at the budget. The cap counts
-# the same units, so exception text outside the BMP keeps those figures:
-# cut by code points it gave two gates 1,309, past the reserve.
+# write, with each exception's type name cut at its `NAME_CAP` and its text
+# at its `MESSAGE_CAP`, is 559 UTF-16 units for one failed gate and 957 for
+# two, separator included; a third, at 1,352, would pass the limit beside a
+# stamp at the budget (measured 2026-10-03 over `dispatch.describe`, every
+# gate in every group it is in, both phases, with a name and a text at their
+# caps; `tests/test_a_gate_that_fails_says_so.py#longest_report` is the
+# measurement). Before #722 the name had no cap, so a class from outside the
+# plugin with a long enough name passed the reserve with two gates. Both caps
+# count the same units, so a name or a text outside the BMP keeps these
+# figures: cut by code points, a text gave two gates 1,309 in #717's round 3.
 MESSAGE_RESERVE = 1000
 MESSAGE_BUDGET = MESSAGE_LIMIT - MESSAGE_RESERVE
 # The rungs a block steps down, after the file's own scale; past the last, a
@@ -629,9 +632,10 @@ def admitted(blocks, budget=MESSAGE_BUDGET):
     message without it. So the message carries as many of the oldest blocks
     as fit together WITH the disc, each at 0.75 — a scale below it is
     refused before a block reaches here — and then each, oldest first, at
-    the highest rung the others leave room for: its own scale first, then each of `SCALE_LADDER`, never above its
-    own scale. The blocks past those are not drawn here; the hook leaves
-    their files pending, and the next `Stop` draws them whole.
+    the highest rung the others leave room for: its own scale first, then
+    each of `SCALE_LADDER`, never above its own scale. The blocks past
+    those are not drawn here; the hook leaves their files pending, and the
+    next `Stop` draws them whole.
 
     The rung with no disc is for one block alone, the oldest, when it does
     not fit at 0.75 by itself; it is returned whatever its size, because
