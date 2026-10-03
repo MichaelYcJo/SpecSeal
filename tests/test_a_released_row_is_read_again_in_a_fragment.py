@@ -1471,8 +1471,8 @@ def test_a_narrowed_reverify_exits_0_only_where_the_narrowed_strict_does(
     `--reverify` that exits 0 is followed by a `--strict` with the same
     narrowing that exits 0 too. Under the freeze no released byte moves, and
     with `--into`, wherever the narrowing holds a member, the whole tree then
-    checks clean. A run that read no member answers for nothing, and says
-    which files it skipped."""
+    checks clean. A narrowed run names the files it did not read before
+    anything else it prints."""
     files = three_readings(repo, m_at, n_at, carrier)
     flags = []
     for name in NARROWINGS[narrowed]:
@@ -1486,6 +1486,8 @@ def test_a_narrowed_reverify_exits_0_only_where_the_narrowed_strict_does(
         repo,
     )
     assert fix.returncode in (0, 1), fix.stdout + fix.stderr
+    if flags:
+        assert fix.stdout.startswith("--ledger narrowed this run"), fix.stdout
     check = run(["--strict", *flags, "."], repo)
     if fix.returncode == 0:
         assert check.returncode == 0, (
@@ -1593,7 +1595,8 @@ def test_a_family_rooted_in_a_fragment_is_owed_no_released_re_read(repo):
 def test_a_narrowing_to_a_superseded_root_answers_nothing(repo, mode):
     """The control outside the product: R is superseded by a `Corrected ·`
     row, so nothing in R's family is graded, and a run narrowed to R's file
-    owes nothing. Without the correction the same narrowing exits 1."""
+    owes nothing. Without the correction the same narrowing exits 1, or,
+    with `--into`, writes the row R's family owes and exits 0."""
     three_readings(repo, "release", "fragment")
     other = unit_hash(repo, "src/service.py", "other")
     r = (repo / R_FILE).read_text(encoding="utf-8").splitlines()[4]
