@@ -33,14 +33,14 @@ pact anchors blanked) and `#migrate`. `hooks/ledger-migrate.py` and
 `ANCHOR_RE` reader (`check_text`, `reverify`'s own walk, the records arm's
 `stated_stamps` and `file_claims`, `hooks/root-migrate.py#repoint`,
 `survivor_check.py`) only finds `ANCHOR_RE` matches, so a pact anchor is
-passed over there by the grammar alone. `fold_ledger.py#SELF_ANCHOR_RE` and
+passed over there by the grammar alone. `fold_ledger.py#SELF_ANCHOR_RE` and · NAME NOT IN TREE
 `settle.py#COORDINATE_RE` are copies of the coordinate shape that read only
 their own matches, and neither can match inside a pact anchor for the same
 reason.
 
 **A look-behind keeps a word ending in `pact` out.** `compact:x/"## A"@…`
 is prose, and `PACT_ANCHOR_RE` opens with the same look-behind
-`fold_ledger.py#SELF_ANCHOR_RE` uses. The hash takes six to twelve hex
+`fold_ledger.py#SELF_ANCHOR_RE` uses. The hash takes six to twelve hex · NAME NOT IN TREE
 characters, the width `ANCHOR_RE` takes, so the two grammars agree on what a
 hash is.
 

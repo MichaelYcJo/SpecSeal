@@ -21,10 +21,10 @@ says what was claimed and what the code does.
 - **Claimed** (phase 3, Q11): the blanking class is three readers,
   `old_format_rows`, `malformed_rows` and `migrate`. **Found**: re-derived by
   `git grep` over every non-test `.py` for `ANCHOR_RE`, `OLD_COORD_RE`, every
-  `*COORD*_RE`, `COORDINATE_RE`, `SELF_ANCHOR_RE` and the hooks that call the
+  `*COORD*_RE`, `COORDINATE_RE`, `SELF_ANCHOR_RE` and the hooks that call the · NAME NOT IN TREE
   three functions. The `.sub` sites are exactly those three, each blanks pact
   anchors first, and `correction_check.py`'s own `ANCHOR`, `settle.py`'s
-  `COORDINATE_RE` and `fold_ledger.py`'s `SELF_ANCHOR_RE` cannot match inside
+  `COORDINATE_RE` and `fold_ledger.py`'s `SELF_ANCHOR_RE` cannot match inside · NAME NOT IN TREE
   a pact anchor. **But the class the spec promises is wider than `.sub`
   sites.** Spec item 6 says no reader in a signatory takes a pact anchor for
   something of its own, which "leaves a signatory's own `evidence-check` exit
