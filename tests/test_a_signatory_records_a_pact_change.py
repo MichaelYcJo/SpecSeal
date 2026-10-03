@@ -593,3 +593,179 @@ def test_a_run_that_dies_part_way_puts_the_ledger_back(repo, monkeypatch, capsys
     with pytest.raises(RuntimeError):
         ec.main()
     assert ledger.read_text(encoding="utf-8") == "".join(rows)
+
+
+# --- round 1, yellow 2: a second identical run records nothing new ----------
+
+
+def test_a_broken_coordinate_beside_a_moved_one_is_recorded_once(repo):
+    """Run 1 records the move and the BROKEN together; run 2 has only the
+    BROKEN left, which was recorded already."""
+    s = unit_hash(repo, "src/orders.py", "serialize")
+    e = unit_hash(repo, "src/orders.py", "evict")
+    cite(
+        repo,
+        [
+            f"| O1 · x | `{CLAUSE}`, `src/orders.py#serialize@{s}`, "
+            f"`src/orders.py#evict@{e}` | read | 2026-10-01 | |\n"
+        ],
+    )
+    src = SOURCE.replace("'id': order.id", "'id': order.id, 'tax': 0")
+    (repo / "src" / "orders.py").write_text(
+        src.split("\n\n\ndef evict")[0] + "\n", encoding="utf-8"
+    )
+    run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    first = (repo / RECORD).read_text(encoding="utf-8")
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-05")
+    assert code == 0, out
+    assert (repo / RECORD).read_text(encoding="utf-8") == first, out
+
+
+def test_a_coordinate_holding_an_escaped_pipe_is_recorded_once(repo):
+    """A coordinate and a label holding `\\|`: the record is compared in the
+    form its reader reads a cell, so the second run finds them held."""
+    doc = repo / "docs" / "x.md"
+    doc.parent.mkdir()
+    doc.write_text("# T\n\n## A | B\n\ntext one\n", encoding="utf-8")
+    h = unit_hash(repo, "docs/x.md", '"## A \\| B"')
+    cite(
+        repo,
+        [
+            f'| O1 \\| x · y | `{CLAUSE}`, `docs/x.md#"## A \\| B"@{h}` '
+            "| read | 2026-10-01 | |\n"
+        ],
+    )
+    doc.write_text("# T\n", encoding="utf-8")
+    run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    run(repo, "--into", FRAGMENT, "--checked", "2026-09-05")
+    assert len(record_rows(repo)) == 1
+
+
+REPOSITORY_PIPED = (
+    ("templates/sdd-phase.md", '"\\| Field \\| Value \\|"'),
+    ("templates/sdd-round.md", '"\\| Field \\| Value \\|"'),
+    (
+        "templates/sdd-round.md",
+        '"# <work-item-id> — review round <N>">"\\| Target SHA \\| <the commit '
+        'this round actually reviewed — both, if HEAD moved mid-review> \\|"',
+    ),
+)
+
+
+def test_this_repositorys_own_piped_coordinates_are_recorded_once(repo):
+    """The three coordinates holding `\\|` that stand in this repository's
+    own ledger, cited beside a clause in a signatory holding the same two
+    templates, then the templates edited under them: each is recorded once,
+    and a second and third run add nothing."""
+    for rel in {r for r, _ in REPOSITORY_PIPED}:
+        target = repo / rel
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with open(os.path.join(ROOT, rel), encoding="utf-8") as handle:
+            target.write_text(handle.read(), encoding="utf-8")
+    rows = []
+    for n, (rel, locator) in enumerate(REPOSITORY_PIPED, 1):
+        text = (repo / rel).read_text(encoding="utf-8")
+        m = ec.ANCHOR_RE.search(f"{rel}#{locator}@00000000")
+        assert m, locator
+        place, claim = m.group("locator"), m.group("claim")
+        places, _ = ec.resolve_unit(rel, place, text)
+        region = places[0]
+        if claim:
+            region = ec.minor_region(rel, text, region, claim)[0]
+        digest = ec.content_hash(ec.gfm_lines(text)[region[0] - 1 : region[1]])
+        rows.append(
+            f"| P{n} \\| piped · t | `{CLAUSE}`, `{rel}#{locator}@{digest}` "
+            "| read | 2026-10-01 | |\n"
+        )
+    cite(repo, rows)
+    for rel in {r for r, _ in REPOSITORY_PIPED}:
+        path = repo / rel
+        path.write_text(
+            path.read_text(encoding="utf-8")
+            .replace("| Field | Value |", "| Field | Value | Note |")
+            .replace("moved mid-review> |", "moved mid-review> | read |"),
+            encoding="utf-8",
+        )
+    run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    first = (repo / RECORD).read_text(encoding="utf-8")
+    assert len(record_rows(repo)) == len(REPOSITORY_PIPED), first
+    for day in ("2026-09-05", "2026-09-06"):
+        code, out = run(repo, "--into", FRAGMENT, "--checked", day)
+        assert code == 0, out
+        assert (repo / RECORD).read_text(encoding="utf-8") == first, out
+
+
+def _fixture(repo, shape):
+    """Write one signatory ledger and move its code, for the property case."""
+    s = unit_hash(repo, "src/orders.py", "serialize")
+    e = unit_hash(repo, "src/orders.py", "evict")
+    two = f'`{CLAUSE}`, `pact:orders-api/"## Errors"@5e6f7a8b`, '
+    rows = {
+        "a move": [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{s}")],
+        "a BROKEN": [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#evict@{e}")],
+        "a move beside a BROKEN": [
+            f"| O1 · x | `{CLAUSE}`, `src/orders.py#serialize@{s}`, "
+            f"`src/orders.py#evict@{e}` | read | 2026-10-01 | |\n"
+        ],
+        "two rows": [
+            row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{s}"),
+            row("O2", f"`{CLAUSE}`, ", f"src/orders.py#evict@{e}"),
+        ],
+        "two clauses": [row("O1", two, f"src/orders.py#serialize@{s}")],
+        "a piped label": [row("O1 \\| a", f"`{CLAUSE}`, ", f"src/orders.py#evict@{e}")],
+        "no clause, always": [row("O1", "", f"src/orders.py#serialize@{s}")],
+    }[shape]
+    if shape == "no clause, always":
+        (repo / "seal" / "config.md").write_text(
+            config_text(
+                ("Mode", "shared"), ("Pact", PACT_URL), ("Pact notify", "always")
+            ),
+            encoding="utf-8",
+        )
+    cite(repo, rows)
+    src = SOURCE.replace("'id': order.id", "'id': order.id, 'tax': 0")
+    (repo / "src" / "orders.py").write_text(
+        src.split("\n\n\ndef evict")[0] + "\n", encoding="utf-8"
+    )
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        "a move",
+        "a BROKEN",
+        "a move beside a BROKEN",
+        "two rows",
+        "two clauses",
+        "a piped label",
+        "no clause, always",
+    ],
+)
+def test_a_second_identical_run_leaves_the_record_byte_identical(repo, shape):
+    """The property `spec.md` item 5 states: running it twice records
+    nothing twice. On each fixture the record after the second run is the
+    record after the first, byte for byte."""
+    _fixture(repo, shape)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0 and "recorded" in out, out
+    first = (repo / RECORD).read_bytes()
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-05")
+    assert code == 0, out
+    assert (repo / RECORD).read_bytes() == first, out
+
+
+def test_one_change_cited_by_two_rows_of_one_label_is_recorded_once(repo):
+    """Two ledger rows of one label citing the same clause and coordinate
+    are one change: the first run records it once, not once per row."""
+    s = unit_hash(repo, "src/orders.py", "serialize")
+    cite(
+        repo,
+        [
+            row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{s}"),
+            row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{s}"),
+        ],
+    )
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert len(record_rows(repo)) == 1, record_rows(repo)

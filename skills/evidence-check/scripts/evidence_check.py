@@ -3445,6 +3445,12 @@ PACT_CHANGE_REPAIR = (
     "name the work item with `--into seal/ledger/<work-item-id>.md`, or run it "
     "on a branch a `seal/specs/<work-item-id>/routing.md` declares"
 )
+# One coordinate of a record's `Code` cell, as `record_pact_changes` writes
+# it: moved to a new hash, or BROKEN (round 1 of #647 C and D, yellow 2).
+CODE_PART = re.compile(
+    r"`(?P<coord>[^`]*)@(?P<old>[0-9a-f]{6,12})`"
+    r"(?: → `@(?P<new>[0-9a-f]{6,12})`| BROKEN)"
+)
 # How every line ends that names an owed pact change left unrecorded: the run
 # puts the ledger back, so the drift is still there for the run that can
 # record it (round 1 of #647 C and D, red 1).
@@ -3525,8 +3531,9 @@ def record_pact_changes(moves, root, into, checked):
     decides which: `when the pact is touched` (the default) records a row
     citing a clause of a pact the `Pact` row declares, `always` also records
     every other row with `—` for its clause, and `never` records nothing. A
-    row whose `Clause`, `Row` and `Code` match one already in the file is not
-    appended again, whatever its date, so a second run records nothing twice.
+    coordinate already recorded for the same clause and row, with the same
+    move or the same BROKEN, is not recorded again, whatever its date, so a
+    second run records nothing twice.
 
     Exit 1, recording nothing, where a row is owed and no work item names the
     file, where the file is there and will not read or parse, where the
@@ -3549,17 +3556,14 @@ def record_pact_changes(moves, root, into, checked):
         line = lines[number - 1] if 0 < number <= len(lines) else ""
         cells = dict((n, c) for n, _h, c in ledger_table_rows(text)).get(number, [])
         label = (cells[0] if cells else "").split(" · ", 1)[0].strip()
-        code = ", ".join(
-            f"`{coord}@{old}` → `@{new}`" if new else f"`{coord}@{old}` BROKEN"
-            for coord, old, new in dict.fromkeys(coords)
-        )
+        parts = list(dict.fromkeys(coords))
         where = f"{built_name(ledger, root)}:{number}"
         row = f"{built_name(ledger, root)} · {label or number}".replace("|", "\\|")
-        entries.append((where, row, code, list(PACT_ANCHOR_RE.finditer(line))))
+        entries.append((where, row, parts, list(PACT_ANCHOR_RE.finditer(line))))
     config = plugin_module(CONFIG_READER, "specseal_config_for_pact_changes")
     if config is None:
         citing = [e for e in entries if e[3]]
-        for where, _row, _code, _anchors in citing:
+        for where, _row, _parts, _anchors in citing:
             print(
                 f"  LEFT  {where}  cites a pact clause, and this copy of "
                 "evidence_check.py has no hooks/ beside it to read the `Pact` "
@@ -3576,7 +3580,7 @@ def record_pact_changes(moves, root, into, checked):
     if refused and any(e[3] for e in entries):
         # Silent before: a row that will not read reads as no pact declared,
         # and the drift went unrecorded at exit 0.
-        for where, _row, _code, _anchors in (e for e in entries if e[3]):
+        for where, _row, _parts, _anchors in (e for e in entries if e[3]):
             print(
                 f"  LEFT  {where}  cites a pact clause, and the `Pact` rows will "
                 f"not read: {refused[0]} — {NOT_RESTAMPED}; fix the row and run "
@@ -3589,21 +3593,21 @@ def record_pact_changes(moves, root, into, checked):
     if not names or notify == config.NOTIFY_NEVER:
         return 0
     owed = []
-    for where, row, code, anchors in entries:
+    for where, row, parts, anchors in entries:
         clauses = list(
             dict.fromkeys(
                 a.group(0) for a in anchors if a.group("name").lower() in names
             )
         )
         if clauses:
-            owed.append((where, ", ".join(clauses), row, code))
+            owed.append((where, ", ".join(clauses), row, parts))
         elif notify == config.NOTIFY_ALWAYS:
-            owed.append((where, config.NO_CLAUSE, row, code))
+            owed.append((where, config.NO_CLAUSE, row, parts))
     if not owed:
         return 0
     item = pact_change_item(root, into)
     if not item:
-        for where, clause, _row, _code in owed:
+        for where, clause, _row, _parts in owed:
             print(
                 f"  LEFT  {where}  {clause} — a pact change is owed and no work "
                 f"item names its record: {PACT_CHANGE_REPAIR} — {NOT_RESTAMPED}"
@@ -3633,13 +3637,31 @@ def record_pact_changes(moves, root, into, checked):
             + "\n"
         )
         rows = []
-    held = {(clause, row, code) for _l, clause, row, code, _c in rows}
+    # Held per coordinate, and compared in the form the record's reader reads
+    # a cell in (`\\|` a pipe), so a row is not recorded again because one of
+    # its coordinates was recorded beside another, or because its text holds
+    # an escaped pipe (round 1 of #647 C and D, yellow 2).
+    held = {
+        (clause, row, *part.group("coord", "old", "new"))
+        for _l, clause, row, code, _c in rows
+        for part in CODE_PART.finditer(code)
+    }
     date = checked or datetime.date.today().isoformat()
     new = []
-    for where, clause, row, code in owed:
-        if (clause, row, code) in held:
+    for where, clause, row, parts in owed:
+        key = (config.unescaped(clause), config.unescaped(row))
+        fresh = [
+            (coord, old, nw)
+            for coord, old, nw in parts
+            if (*key, config.unescaped(coord), old, nw) not in held
+        ]
+        if not fresh:
             continue
-        held.add((clause, row, code))
+        held.update((*key, config.unescaped(c), o, n) for c, o, n in fresh)
+        code = ", ".join(
+            f"`{coord}@{old}` → `@{nw}`" if nw else f"`{coord}@{old}` BROKEN"
+            for coord, old, nw in fresh
+        )
         new.append((where, f"| {clause} | {row} | {code} | {date} |"))
     if not new:
         return 0
