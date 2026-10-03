@@ -96,6 +96,16 @@ none. The 468 left are C's tree-blind and option-blind upper bound, which
 holds `checkout README.md`. That is recorded here and in the hand-back
 rather than built around (`plan.md` and `spec.md` are the framer's).
 
+**Corrected 2026-10-03 by round 1's fix pass (white 2).** "Adds none" and
+"the only (a) shapes the build adds" held over this phase's generator, which
+never wrote a numbered `>&` with a file. Round 1's generator did, and found
+60 more commands, 16 core shapes: `2>&/dev/null` or `{fd}>&/dev/null`,
+target glued or spaced, before `add` or before `-C`'s value, as in
+`git worktree 2>&/dev/null add ../wt b`. bash 3.2 and 5.2 refuse each as an
+ambiguous redirect and run nothing; zsh 5.9 runs each as the creation. The
+guard reads zsh's forms, so asking is right, and only these figures were
+wrong.
+
 **(b), the silences, and #738's number.** Over the two prefixes that enter
 `w`, where the guard's tree holds `feature/x` as the ground truth's does, 226
 shapes ran as a switch under bash with `233f0455` and the build both silent
