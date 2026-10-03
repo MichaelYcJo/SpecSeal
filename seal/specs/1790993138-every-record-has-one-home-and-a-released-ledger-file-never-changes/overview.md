@@ -29,7 +29,7 @@ A re-read of a released ledger row used to edit the released file in place, so t
 
 ## Not done
 
-Nothing yet.
+`seal/config.md`'s `Over the ceiling` row and `docs/the-evidence-ledger.md`'s ceiling statement still name #715 as the issue that splits `docs/commit-review-gate-spec.md`, and that split is now #727 (F1). D7 says the row "stays as it is until then", F1's change removes it, and a pin (`tests/test_a_document_has_room_for_the_next_fold.py#test_the_evidence_ledger_states_the_values_the_config_rows_hold`) holds the row and the prose to one home, so re-pointing it was left to F1.
 
 ## Fed back into the spec
 
