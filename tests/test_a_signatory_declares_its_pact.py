@@ -17,6 +17,7 @@ step's pinned sentences (S4).
 
 import os
 
+import pytest
 from conftest import load_hook_module
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -226,4 +227,28 @@ def test_a_pact_with_no_table_or_an_unfilled_one_is_refused():
         signatories, refusals = config.pact_signatories(h.read())
     assert signatories == [] and len(refusals) == 1 and "holds a space" in refusals[0]
     _, refusals = config.pact_signatories("| Signatory |\n|---|\n\n## A\n")
-    assert refusals == ["its `Signatory` table lists nobody"]
+    assert refusals == ["has a `Signatory` table that lists nobody"]
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        "| https://example.com/org/orders-mobile",
+        "| https://example.com/org/orders-mobile | the app |",
+    ],
+    ids=["no closing pipe", "two cells"],
+)
+def test_a_signatory_row_the_walk_cannot_read_is_refused(row):
+    """A table line the walk cannot read ends it, and the signatories below
+    it would go unread; the line is refused rather than passed in silence."""
+    text = (
+        "# Pact\n\n| Signatory |\n|---|\n| https://example.com/org/orders-web |\n"
+        + row
+        + "\n\n## A\n\nx\n"
+    )
+    signatories, refusals = config.pact_signatories(text)
+    assert [s[2] for s in signatories] == ["orders-web"]
+    assert refusals == [
+        f"has a `Signatory` table that stops at `{row}`, which is not a one-cell "
+        "row closed by `|` — every signatory below it would go unread"
+    ], refusals

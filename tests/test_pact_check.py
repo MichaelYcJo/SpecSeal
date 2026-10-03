@@ -401,3 +401,21 @@ def test_a_clause_a_merge_did_not_keep_is_still_heads_history(world):
     code, out = run(world)
     assert code == 1, out
     assert "SUPERSEDED" in out and "UNMATCHED " not in out, out
+
+
+def test_a_signatory_row_the_table_walk_cannot_read_is_exit_2(world):
+    """The row with no closing pipe is refused at the pact, so a signatory
+    below it is never reported as clean by omission."""
+    text = pact(V2).replace(
+        f"| {SIGNATORY_URL} |\n",
+        f"| {SIGNATORY_URL} |\n| https://example.com/org/orders-mobile\n",
+    )
+    write(world["api"], "seal/pact.md", text)
+    commit(world["api"], "a row with no closing pipe")
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        "REFUSED seal/pact.md — the pact has a `Signatory` table that stops at "
+        "`| https://example.com/org/orders-mobile`"
+    ) in out, out

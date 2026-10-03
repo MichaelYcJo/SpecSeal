@@ -821,7 +821,7 @@ def pact_signatories(text):
     `remote_entries`' parsed list, and a table that is absent or empty is
     a refusal, because a pact nobody signs is not a pact.
     """
-    values, seen_header = [], False
+    values, seen_header, stray = [], False, None
     for _index, line in unfenced(text.splitlines(), text):
         if not seen_header:
             seen_header = bool(SIGNATORY_HEADER.match(line))
@@ -830,6 +830,12 @@ def pact_signatories(text):
             continue
         match = SIGNATORY_ROW.match(line)
         if not match:
+            # A table line the walk cannot read -- no closing pipe, or a
+            # second cell -- ends the walk, and every signatory written below
+            # it would go unread in silence. So it is refused (round 1 of
+            # #647, yellow 2).
+            if line.lstrip().startswith("|"):
+                stray = line.strip()
             break
         values.append(unescaped(match.group("value").strip()))
     if not seen_header:
@@ -837,6 +843,12 @@ def pact_signatories(text):
     signatories, refusals = remote_entries(
         values, "the `Signatory` table holds an empty row", named=False
     )
+    if stray is not None:
+        refusals.append(
+            f"has a `Signatory` table that stops at `{stray}`, which is not a "
+            "one-cell row closed by `|` — every signatory below it would go "
+            "unread"
+        )
     if not values:
-        refusals.append("its `Signatory` table lists nobody")
+        refusals.append("has a `Signatory` table that lists nobody")
     return signatories, refusals
