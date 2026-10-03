@@ -278,47 +278,10 @@ def head_sha(root):
     return git_asked(root, "rev-parse", "HEAD")
 
 
-def normalise_remote(url):
-    """A remote URL reduced to host and path, so two spellings of one
-    repository compare equal.
-
-    `git@example.com:org/repo.git` and `https://example.com/org/repo` are one
-    repository, and ssh at one machine with https at another is the ordinary
-    case — comparing the strings would refuse every real import.
-
-    The scheme goes, a `user@` prefix goes, the scp-style `host:path` colon
-    becomes `/` **only where there was no scheme** (so the port in
-    `https://example.com:8443/x` is left alone), a trailing `.git` and `/` go,
-    and the result is lowercased.
-
-    Wrong in the accepting direction would need two different repositories to
-    reduce to the same host and path, which is the same repository. Wrong in
-    the refusing direction costs a message naming `--allow-other-repo`. That
-    asymmetry is why this is done at all.
-
-    Anything that is not text reduces to "", because one caller passes a field
-    out of a manifest another machine wrote. `read_manifest` checks that the
-    manifest is an object and that its `format` is one this build reads; every
-    other field is whatever the zip says, and a list here used to reach the
-    console as an `AttributeError`.
-    """
-    if not isinstance(url, str):
-        return ""
-    text = url.strip()
-    if not text:
-        return ""
-    schemed = "://" in text
-    if schemed:
-        text = text.split("://", 1)[1]
-    authority = text.split("/", 1)[0]
-    if "@" in authority:
-        text = text.split("@", 1)[1]
-    if not schemed and ":" in text:
-        text = text.replace(":", "/", 1)
-    text = text.rstrip("/")
-    if text.endswith(".git"):
-        text = text[: -len(".git")]
-    return text.lower()
+# Moved to `hooks/config.py` (#647), where the `Pact` reader needs it and
+# cannot import this file; the alias keeps one normaliser under the name every
+# caller here already spells, as the config aliases below do.
+normalise_remote = repo_config.normalise_remote
 
 
 # --- the root, and the one walk everything reads it through -----------------

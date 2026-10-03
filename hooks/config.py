@@ -593,3 +593,202 @@ def under_reference_root(rel, roots):
         return REFERENCE_NAME in parts
     joined = "/".join(parts)
     return any(joined == p or joined.startswith(p + "/") for p in roots)
+
+
+# --- the pact a signatory declares (#647) ----------------------------------
+#
+# A work item can commit in more than one repository, and where those
+# repositories keep one contract together, the one copy of it is the PACT:
+# `seal/pact.md` in the repository that holds it. Every repository of such a
+# work item is a SIGNATORY, the pact's repository included. A signatory other
+# than the pact's repository names the pact here, by the origin remote URL of
+# the repository that holds it, and the pact's repository needs no row: it is
+# identified by holding `seal/pact.md` (`docs/the-pact.md`).
+#
+# Two readers ask these rows and they ask THIS reader:
+# `skills/code-review/scripts/chain_check.py`, which prints the relationship
+# at a signatory's pull request and refuses nothing, and
+# `skills/evidence-check/scripts/pact_check.py`, which reads every signatory
+# from the pact's repository and refuses what will not parse. One reader, so
+# the print and the refusal are about the same rows.
+
+PACT_ROW = "Pact"
+PACT_NOTIFY_ROW = "Pact notify"
+# The separator `Over the ceiling` already uses between its entries.
+PACT_SEPARATOR = ";"
+# What a signatory asks to be told about a change to the pact. Nothing acts on
+# the value until #647's step C; this reader validates it so the row has a
+# reader from the first day.
+NOTIFY_ALWAYS = "always"
+NOTIFY_TOUCHED = "when the pact is touched"
+NOTIFY_NEVER = "never"
+NOTIFY_VALUES = (NOTIFY_ALWAYS, NOTIFY_TOUCHED, NOTIFY_NEVER)
+# #647 recommended it and decided nothing; the frame took it, and
+# `docs/the-pact.md` states it.
+NOTIFY_DEFAULT = NOTIFY_TOUCHED
+# A pact's name in an anchor, `pact:<name>/"<heading path>"@<hash>`: the last
+# path segment of the pact's repository's normalised origin URL. The class is
+# `evidence_check.py#PACT_NAME`'s, which reads the anchor.
+PACT_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
+
+
+def normalise_remote(url):
+    """A remote URL reduced to host and path, so two spellings of one
+    repository compare equal.
+
+    `git@example.com:org/repo.git` and `https://example.com/org/repo` are one
+    repository, and ssh at one machine with https at another is the ordinary
+    case — comparing the strings would refuse every real import.
+
+    The scheme goes, a `user@` prefix goes, the scp-style `host:path` colon
+    becomes `/` **only where there was no scheme** (so the port in
+    `https://example.com:8443/x` is left alone), a trailing `.git` and `/` go,
+    and the result is lowercased.
+
+    Wrong in the accepting direction would need two different repositories to
+    reduce to the same host and path, which is the same repository. Wrong in
+    the refusing direction costs a message naming `--allow-other-repo`. That
+    asymmetry is why this is done at all.
+
+    Anything that is not text reduces to "", because one caller passes a field
+    out of a manifest another machine wrote. `read_manifest` checks that the
+    manifest is an object and that its `format` is one this build reads; every
+    other field is whatever the zip says, and a list here used to reach the
+    console as an `AttributeError`.
+
+    **It lives here and `skills/implement/scripts/seal.py` re-exports it**
+    (#647), the arrangement this module's docstring records for the `Mode`
+    reader. The `Pact` reader below needs it, and this module cannot import
+    `seal.py`: that file imports this one, and a hook must not load a
+    two-thousand-line command to read a row. One normaliser, reached by the
+    name each caller already spells.
+    """
+    if not isinstance(url, str):
+        return ""
+    text = url.strip()
+    if not text:
+        return ""
+    schemed = "://" in text
+    if schemed:
+        text = text.split("://", 1)[1]
+    authority = text.split("/", 1)[0]
+    if "@" in authority:
+        text = text.split("@", 1)[1]
+    if not schemed and ":" in text:
+        text = text.replace(":", "/", 1)
+    text = text.rstrip("/")
+    if text.endswith(".git"):
+        text = text[: -len(".git")]
+    return text.lower()
+
+
+def pact_name(remote):
+    """The name a pact anchor gives the pact held at REMOTE: the last path
+    segment of its normalised URL, or "" where it has no path."""
+    normalised = normalise_remote(remote)
+    if "/" not in normalised:
+        return ""
+    return normalised.rsplit("/", 1)[1]
+
+
+def pact_declaration(text):
+    """(pacts, notify, refusals) for the `Pact` rows of a config.md's TEXT.
+
+      pacts     [(as written, normalised, name)] for every entry of the
+                `Pact` row that parsed, in the order the row lists them;
+                [] where no row names a pact
+      notify    the `Pact notify` value, lowercased; `NOTIFY_DEFAULT` where a
+                `Pact` row stands with no `Pact notify`; None where no
+                `Pact` row does, because the notify row is then ignored
+      refusals  one sentence per thing that would not parse, naming it
+
+    **It refuses in sentences and stops nothing.** The two callers differ on
+    exactly that, and the difference is #647's decision 2: a signatory's CI
+    prints a refusal as a notice and its exit status does not move, while
+    `pact-check`, run at the pact's repository, exits 2 on one.
+
+    No row, an empty value, and a file with no table are one state, *no pact
+    is held elsewhere* — the direction everything in this module fails in. A
+    value that is there and does not parse is not that state, and it is
+    refused rather than read as absent: a signatory that wrote a row and is
+    read as having written none is the silence this reader exists to end.
+    """
+    rows = config_rows(text)
+    pact_rows = [value for item, value in rows if item == PACT_ROW]
+    notify_rows = [value for item, value in rows if item == PACT_NOTIFY_ROW]
+    refusals = []
+    if len(pact_rows) > 1:
+        refusals.append(
+            f"`{PACT_ROW}` appears {len(pact_rows)} times — list every pact in "
+            f"one row, separated by `{PACT_SEPARATOR}`"
+        )
+    value = pact_rows[0] if pact_rows else ""
+    if not value:
+        return [], None, refusals
+    pacts, seen = [], {}
+    for entry in value.split(PACT_SEPARATOR):
+        written = entry.strip()
+        if not written:
+            refusals.append(
+                f"`{PACT_ROW} | {value}` holds an empty entry — one remote URL "
+                f"between each `{PACT_SEPARATOR}`"
+            )
+            continue
+        if any(ch.isspace() for ch in written):
+            refusals.append(
+                f"`{written}` holds a space — one remote URL per entry, "
+                f"separated by `{PACT_SEPARATOR}`"
+            )
+            continue
+        normalised = normalise_remote(written)
+        name = pact_name(written)
+        if not name:
+            refusals.append(
+                f"`{written}` is not a remote URL — it reduces to no host and "
+                "path, so no repository can be found by it"
+            )
+            continue
+        if not PACT_NAME_RE.fullmatch(name):
+            refusals.append(
+                f"`{written}` ends in `{name}`, which a pact anchor cannot "
+                "name — the name takes letters, digits, `_`, `.` and `-`"
+            )
+            continue
+        if name in seen:
+            refusals.append(
+                f"`{written}` and `{seen[name]}` "
+                + (
+                    "are one repository"
+                    if normalise_remote(seen[name]) == normalised
+                    else f"both end in `{name}`, so an anchor "
+                    f"`pact:{name}/…` cannot say which pact it cites"
+                )
+            )
+            continue
+        seen[name] = written
+        pacts.append((written, normalised, name))
+    if len(notify_rows) > 1:
+        refusals.append(
+            f"`{PACT_NOTIFY_ROW}` appears {len(notify_rows)} times — one value"
+        )
+    notify = " ".join(notify_rows[0].split()).lower() if notify_rows else ""
+    if not notify:
+        notify = NOTIFY_DEFAULT
+    elif notify not in NOTIFY_VALUES:
+        refusals.append(
+            f"`{PACT_NOTIFY_ROW} | {notify_rows[0]}` is not one of "
+            + ", ".join(f"`{v}`" for v in NOTIFY_VALUES)
+        )
+        notify = None
+    return pacts, notify, refusals
+
+
+def declared_pacts(home):
+    """`pact_declaration` over `<home>/config.md`, with a file that will not
+    read answered as no row at all — what every reader here does with one."""
+    try:
+        with open(config_path(home), encoding="utf-8") as handle:
+            text = handle.read()
+    except (OSError, ValueError):
+        return [], None, []
+    return pact_declaration(text)
