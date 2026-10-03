@@ -589,6 +589,12 @@ PACT_PRINTED = (
     (("skills", "evidence-check", "scripts", "pact_check.py"), None),
     (("skills", "code-review", "scripts", "chain_check.py"), "pact_notices"),
     (("skills", "code-review", "scripts", "chain_check.py"), "PACT_NOT_HERE"),
+    # The refusals both commands print are written in `hooks/config.py`
+    # (round 2 of #647, white 15).
+    (("hooks", "config.py"), "pact_declaration"),
+    (("hooks", "config.py"), "remote_entries"),
+    (("hooks", "config.py"), "pact_signatories"),
+    (("hooks", "config.py"), "_stops_at"),
 )
 # The thread's working words, and the noun the owner withheld from the
 # repository holding the pact: each would give one thing a second name.
