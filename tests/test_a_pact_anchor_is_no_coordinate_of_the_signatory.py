@@ -170,3 +170,48 @@ def test_every_layout_tree_that_draws_parity_draws_the_pact():
             lines = handle.read().splitlines()
         trees = [ln for ln in lines if ln.lstrip().startswith(TREE_LINE)]
         assert any("pact.md" in ln for ln in trees), rel
+
+
+def test_a_name_quoted_in_a_pact_clause_heading_is_not_a_claim_here():
+    """The records arm reads backticked names and `path#name` spans as
+    claims about this tree; inside a pact anchor they are the pact's
+    repository's names, so neither reader sees them."""
+    line = (
+        '| G1 | pact:orders-api/"## Order response shape / ### The `order_total` '
+        'field and `api/orders.py#serialise`"@1a2b3c4d | the total is a string |'
+    )
+    assert ec.stated_names([line]) == []
+    assert ec.stated_coordinates([line]) == []
+    # The same names outside an anchor are still read.
+    bare = "| G2 | `order_total` and `api/orders.py#serialise` | x |"
+    assert ec.stated_names([bare]) == [(1, "order_total")]
+    assert ec.stated_coordinates([bare]) == [(1, "api/orders.py", "serialise")]
+
+
+def test_a_live_spec_citing_such_a_clause_leaves_the_signatorys_check_at_0(
+    tmp_path,
+):
+    """The records arm reads a live work item's `spec.md`; a field named in
+    a cited clause's heading is not a name this tree must carry."""
+    root, _ledger = signatory(tmp_path, "P1 · the total")
+    item = "1790000000-x"
+    (root / "seal" / "ledger").mkdir()
+    (root / "seal" / "ledger" / f"{item}.md").write_text("", encoding="utf-8")
+    spec = root / "seal" / "specs" / item / "spec.md"
+    spec.parent.mkdir(parents=True)
+    spec.write_text(
+        "# spec\n\n| Policy clause | What it fixes |\n|---|---|\n"
+        '| `pact:orders-api/"## Order response shape / ### The `order_total` '
+        'field"@1a2b3c4d` | the total is a string |\n',
+        encoding="utf-8",
+    )
+    done = subprocess.run(
+        [sys.executable, SCRIPT, "--strict", "."],
+        cwd=str(root),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    out = done.stdout + done.stderr
+    assert done.returncode == 0, out
+    assert "1 work item read" in out and "0 refused" in out, out

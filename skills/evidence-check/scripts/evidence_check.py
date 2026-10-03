@@ -2930,10 +2930,14 @@ def claim_lines(lines):
 
 
 def stated_names(lines):
-    """[(line number, name)] for every compound identifier a record states."""
+    """[(line number, name)] for every compound identifier a record states.
+
+    A pact anchor is blanked first (round 1 of #647, yellow 3): its heading is
+    a clause of another repository's pact, so a name quoted in it is that
+    repository's and not a claim about this tree."""
     out = []
     for number, line in claim_lines(lines):
-        for match in RECORD_NAME_RE.finditer(line):
+        for match in RECORD_NAME_RE.finditer(blank_pact_anchors(line)):
             name = match.group(1)
             if compound(name):
                 out.append((number, name))
@@ -2942,14 +2946,15 @@ def stated_names(lines):
 
 def stated_coordinates(lines):
     """[(line number, path, name)] for every name a record writes as
-    `path#name`, on the lines `claim_lines` reads.
+    `path#name`, on the lines `claim_lines` reads, outside pact anchors,
+    for the reason `stated_names` gives.
 
     Every such span, compound or not: whether its name is a claim depends on
     whether its path resolves, which is `coordinate_misses`' question."""
     return [
         (number, match.group("path"), match.group("name"))
         for number, line in claim_lines(lines)
-        for match in RECORD_COORD_RE.finditer(line)
+        for match in RECORD_COORD_RE.finditer(blank_pact_anchors(line))
     ]
 
 
