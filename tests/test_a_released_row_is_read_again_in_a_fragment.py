@@ -1672,7 +1672,16 @@ def test_an_unfrozen_reverify_narrowed_to_a_folded_member_names_the_root(repo):
         ),
         (
             "2026-13-45, 2026-02-30",
-            "the reading dated 2026-13-45, 2026-02-30, dates the calendar does not have",
+            "the reading dated 2026-13-45 and 2026-02-30, dates the calendar does not have",
+        ),
+        (
+            "2026-13-45, 2026-02-30, 2026-00-00",
+            "the reading dated 2026-13-45, 2026-02-30 and 2026-00-00, dates the "
+            "calendar does not have",
+        ),
+        (
+            "2026-13-45, 2026-13-45",
+            "the reading dated 2026-13-45, a date the calendar does not have",
         ),
         ("", "the reading of no date"),
     ],

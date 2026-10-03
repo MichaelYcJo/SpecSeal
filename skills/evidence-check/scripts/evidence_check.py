@@ -2499,13 +2499,17 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
             return f"the reading of {checked(key)}"
         _, _, header, cells = row(key)
         column = date_column(header, cells)
-        typed = CHECKED_RE.findall(cells[column[0]]) if column else []
+        # Each string once, in the order the cell first has it, and the last
+        # joined with "and", so a list reads as one (round 1, ⬜ 3).
+        typed = list(
+            dict.fromkeys(CHECKED_RE.findall(cells[column[0]]) if column else [])
+        )
         if not typed:
             return "the reading of no date"
-        what = "a date" if len(typed) == 1 else "dates"
-        return (
-            f"the reading dated {', '.join(typed)}, {what} the calendar does not have"
-        )
+        if len(typed) == 1:
+            return f"the reading dated {typed[0]}, a date the calendar does not have"
+        listed = ", ".join(typed[:-1]) + f" and {typed[-1]}"
+        return f"the reading dated {listed}, dates the calendar does not have"
 
     readings, held_by = {}, {}
     for top, members in families.items():
