@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | the commit that carries this record; the probe is deleted and commits nothing |
+| Commit | c7f84438 |
 | Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
