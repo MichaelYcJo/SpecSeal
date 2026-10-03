@@ -1631,3 +1631,19 @@ def test_a_correction_whose_released_file_is_gone_is_not_judged_a_loss(tmp_path)
     head = commit(root, "Merge branch 'theirs' into ours")
     _, out = check(root, f"{start}..{head}")
     assert "  dropped     " not in out, out
+
+
+def test_a_config_with_other_rows_and_no_freeze_row_leaves_the_arm_off(tmp_path):
+    """Every installed repository with any config row and no freeze row: the
+    arm is off, not frozen from 0."""
+    root, start = repo_at(
+        tmp_path,
+        {
+            "seal/config.md": "| Item | Value |\n|---|---|\n| Mode | shared |\n",
+            RELEASED: RELEASED_TEXT,
+        },
+    )
+    head = branch_that(root, start, {RELEASED: RELEASED_TEXT.replace("Read.", "x")})
+    code, out = check(root, f"{start}...{head}")
+    assert code == 0, out
+    assert "frozen" not in out, out
