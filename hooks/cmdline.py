@@ -1728,18 +1728,28 @@ def reparsed_texts(tokens, env_words=True):
             # is; placing its command word is a parser (`spec.md` §*Scope*).
             texts += [t for t in rest if not t.startswith("-")]
         elif word in ("env", "genv"):
-            # OWN: still among env's own options, where a cluster or an
-            # abbreviation can spell the split string (round 1 of 1790993140,
-            # yellow 2). The base spellings are read anywhere, as they were.
-            own, value = True, False
+            # OWN: still among env's own options, read through `ENV_OPTIONS`,
+            # where a cluster or an abbreviation can spell the split string.
+            # A redirection anywhere among them is the shell's and is read
+            # past; `--` ends them (rounds 1 and 2 of 1790993140). The split
+            # string's unabbreviated spellings are read anywhere, as the base
+            # read them.
+            own, value, skip = True, False, 0
             for j, t in enumerate(rest):
-                at = _env_split_at(t, own and not value)
+                if skip:
+                    skip -= 1
+                    continue
+                width = redirection_width(rest, j) if own else 0
+                if width:
+                    skip = width - 1
+                    continue
+                at, takes_next = _env_option(t, own and not value)
                 if value:
                     value = False
-                elif own and not t.startswith("-"):
+                elif own and (t == "--" or not t.startswith("-")):
                     own = False
                 elif own:
-                    value = _env_takes_next(t) or (at is not None and at[0] == "next")
+                    value = takes_next or (at is not None and at[0] == "next")
                 if at is None:
                     continue
                 kind, string = at
@@ -1756,56 +1766,88 @@ def reparsed_texts(tokens, env_words=True):
     return texts
 
 
-# `env`'s options other than `-S` that take a value, in GNU coreutils and
-# BSD/macOS: the rest of the cluster, or the next word where none is left.
-ENV_VALUED = frozenset("uCPLa")
-ENV_VALUED_LONG = frozenset({"--unset", "--chdir", "--argv0"})
+# Every option of `env`, and the one table the env arm of `reparsed_texts`
+# reads them from (round 2 of 1790993140). Sources, read and not run here: GNU
+# coreutils env's synopsis (`env --help` and env(1), coreutils 9.x) and
+# BSD/macOS env's (env(1) on macOS and FreeBSD 14). (short, long, value):
+# VALUE is `ENV_STRING` for the split string, "required" for a value attached
+# or in the next word, "optional" for one attached with `=` only, None for no
+# value. A short option a synopsis gives no long name has None there.
+#
+# What the table does not need a row for: a lone `-`, which both synopses take
+# as `-i` and which starts with `-`, so the walk reads it as one of env's own
+# options; and `--`, which ends them. GNU's getopt takes an unambiguous prefix
+# of a long name (`--un`, `--spl`); an ambiguous one (`--i`, `--d`) is an
+# error, after which env runs nothing, so it is read as a flag.
+ENV_STRING = "string"
+ENV_OPTIONS = (
+    ("i", "--ignore-environment", None),
+    ("0", "--null", None),
+    ("v", "--debug", None),
+    ("u", "--unset", "required"),
+    ("C", "--chdir", "required"),
+    ("S", "--split-string", ENV_STRING),
+    ("a", "--argv0", "required"),
+    ("P", None, "required"),
+    ("L", None, "required"),
+    ("U", None, "required"),
+    (None, "--block-signal", "optional"),
+    (None, "--default-signal", "optional"),
+    (None, "--ignore-signal", "optional"),
+    (None, "--list-signal-handling", None),
+    (None, "--help", None),
+    (None, "--version", None),
+)
+_ENV_SHORT = {short: value for short, _long, value in ENV_OPTIONS if short}
+_ENV_LONG = {long: value for _short, long, value in ENV_OPTIONS if long}
 
 
-def _env_takes_next(t):
-    """True where T is one of `env`'s options whose value is the next word."""
-    if t.startswith("--"):
-        return t in ENV_VALUED_LONG
-    middle = t[1:-1]
-    return (
-        len(t) > 1
-        and t[-1] in ENV_VALUED
-        and all(c.isalnum() and c not in ENV_VALUED for c in middle)
-    )
+def _env_long(name, abbreviated):
+    """The long option NAME spells in `ENV_OPTIONS`, or None.
 
-
-def _env_split_at(t, own):
-    """Where T spells `env`'s split string (#716), or None.
-
-    ("next", None) where the string is the next word, ("here", s) where T
-    carries it. `-S`, `-S<s>` and `--split-string[=<s>]` anywhere, as the
-    base read them. Among env's own options (OWN) also a cluster ending in it
-    (`-iS`, `-vS<s>`, which macOS `env` and GNU's getopt both accept) and
-    every prefix of `--split-string` GNU's getopt takes, from `--s`: no other
-    long option of GNU `env` starts with `s`.
+    Exactly, or, where ABBREVIATED, as the one long name it is a prefix of,
+    which is GNU getopt's rule; `--` alone is no prefix.
     """
-    if t in ("-S", "--split-string"):
-        return ("next", None)
-    if t.startswith("--split-string="):
-        return ("here", t.split("=", 1)[1])
-    if t.startswith("-S") and len(t) > 2:
-        return ("here", t[2:])
-    if not own:
+    if name in _ENV_LONG:
+        return name
+    if not abbreviated or len(name) < 3:
         return None
+    found = [long for long in _ENV_LONG if long.startswith(name)]
+    return found[0] if len(found) == 1 else None
+
+
+def _env_option(t, own):
+    """What T is to `env`: (where it spells the split string, takes_next).
+
+    The first is ("next", None) where the split string is the next word,
+    ("here", s) where T carries it, and None otherwise. TAKES_NEXT is True
+    where T is an option whose value is the next word. Among env's own
+    options (OWN) a short cluster is read letter by letter, up to the letter
+    whose value is the rest of the word or the next one (`-iS`, `-vu FOO`),
+    and a long name in any prefix getopt takes. Elsewhere only the split
+    string's unabbreviated spellings at a word's head count, as the base read
+    them (#716).
+    """
     if t.startswith("--"):
-        name, eq, value = t.partition("=")
-        if name.startswith("--s") and "--split-string".startswith(name):
-            return ("here", value) if eq else ("next", None)
-        return None
+        name, eq, attached = t.partition("=")
+        value = _ENV_LONG.get(_env_long(name, own))
+        if value == ENV_STRING:
+            return (("here", attached) if eq else ("next", None)), False
+        return None, own and value == "required" and not eq
     if not t.startswith("-") or len(t) < 2:
-        return None
-    for i, ch in enumerate(t[1:], 1):
-        if ch == "S":
+        return None, False
+    letters = t[1:] if own else t[1]
+    for i, ch in enumerate(letters, 1):
+        value = _ENV_SHORT.get(ch, "unknown")
+        if value == ENV_STRING:
             string = t[i + 1 :]
-            return ("here", string) if string else ("next", None)
-        if ch in ENV_VALUED or not ch.isalnum():
-            return None
-    return None
+            return (("here", string) if string else ("next", None)), False
+        if value == "required":
+            return None, i == len(t) - 1
+        if value is not None:
+            # A letter no synopsis has: getopt fails, and env runs nothing.
+            return None, False
+    return None, False
 
 
 def _env_words(word, before, after):

@@ -130,6 +130,19 @@ HANDED = {
     "env --split, abbreviated": f"env --split '-i {C}'",
     "env --split=, abbreviated": f"env --split='-i {C}'",
     "env -iS behind an option's value": f"env -u FOO -iS '{C}'",
+    # Round 2 of 1790993140, yellow 9: GNU's getopt takes a prefix of a long
+    # option that takes a value too, so its value is still env's own word.
+    # Each found nothing at `f1629706`.
+    "env -iS behind --un's value": f"env --un FOO -iS '{C}'",
+    "env -iS behind --ch's value": f"env --ch /tmp -iS '{C}'",
+    "env --split behind --ar's value": f"env --ar x --split '{C}'",
+    # Round 2 of 1790993140, yellow 10: a redirection among env's options is
+    # the shell's, and env still reads the cluster after it (macOS `env`,
+    # executed by the round). Each found nothing at `f1629706`.
+    "env -iS behind a redirection": f"env 2>/dev/null -iS '{C}'",
+    "env -iS behind a redirection after a value": f"env -u FOO 2>/dev/null -iS '{C}'",
+    "env -iS behind a redirection before a value": f"env -u 2>/dev/null FOO -iS '{C}'",
+    "env -vS behind a cut redirection": f"env -i 2>&1 -vS '{C}'",
 }
 
 SUBSTITUTED = {
@@ -252,6 +265,11 @@ CONTROLS = {
     # Round 1 of 1790993140, yellow 2: a cluster ending in `S` after the
     # program is the program's (`ls -lS`), not a split string.
     "a program's own cluster ending in S": 'env ls -lS "$DIR"',
+    # Round 2 of 1790993140, white 11: `--` ends env's options, so the word
+    # after it is the program `-iS`, not a cluster. A deny at `f1629706`,
+    # silent at `233f0455`.
+    "a program after env's --": "env -- -iS 'git commit -m y'",
+    "a program after env's -- behind an option": "env -i -- -vS 'git commit -m y'",
 }
 
 # #674: round 1's seven controls, rewritten into each position the work item
@@ -889,3 +907,75 @@ def test_a_glued_config_env_reads_as_it_did():
         ["-m", "x"],
         [],
     )
+
+
+# Round 2 of 1790993140: `env`'s option grammar, one case per row of
+# `cmdline.ENV_OPTIONS`. Written from GNU coreutils env's and BSD/macOS env's
+# synopses, not from the table: each spelling, with the value its synopsis
+# gives it, stands in front of a cluster that hides a commit. A flag read as
+# taking a value eats the cluster, and an option with a value read as a flag
+# ends env's options at its value; either way the commit is found by nothing.
+# GNU env is not installed here, so its half is read, not run.
+ENV_SPELLINGS = {
+    "-i": "-i",
+    "-0": "-0",
+    "-v": "-v",
+    "-u": "-u FOO",
+    "-C": "-C /tmp",
+    "-S": "-S '-i true'",
+    "-a": "-a x",
+    "-P": "-P /bin",
+    "-L": "-L user",
+    "-U": "-U user",
+    "--ignore-environment": "--ignore-environment",
+    "--null": "--null",
+    "--debug": "--debug",
+    "--unset": "--unset FOO",
+    "--chdir": "--chdir /tmp",
+    "--split-string": "--split-string '-i true'",
+    "--argv0": "--argv0 x",
+    "--block-signal": "--block-signal",
+    "--default-signal": "--default-signal",
+    "--ignore-signal": "--ignore-signal",
+    "--list-signal-handling": "--list-signal-handling",
+    "--help": "--help",
+    "--version": "--version",
+}
+
+# The same grammar's other spellings: a value attached, an abbreviation, a
+# cluster holding a value, and a redirection before, between and after.
+ENV_GRAMMAR = {
+    "a value after =": "--unset=FOO",
+    "an optional value after =": "--block-signal=INT",
+    "a value glued to its letter": "-uFOO",
+    "a cluster ending in a letter with a value": "-iu FOO",
+    "an abbreviation with a value": "--un FOO",
+    "an abbreviation with no value": "--ign",
+    "a lone -": "-",
+    "a redirection before the options": "2>/dev/null -i",
+    "a redirection between an option and its value": "-u 2>/dev/null FOO",
+    "a redirection between two options": "-u FOO 2>/dev/null -0",
+    "a redirection after the options": "-i 2> /dev/null",
+}
+
+
+def test_every_row_of_the_env_grammar_has_a_case():
+    rows = set()
+    for short, long, _value in cmdline.ENV_OPTIONS:
+        rows |= {f"-{short}"} if short else set()
+        rows |= {long} if long else set()
+    assert rows == set(ENV_SPELLINGS), rows ^ set(ENV_SPELLINGS)
+
+
+@pytest.mark.parametrize("name", sorted({**ENV_SPELLINGS, **ENV_GRAMMAR}))
+def test_a_cluster_behind_env_s_own_options_is_read(name, tmp_path):
+    """Each found nothing at `f1629706` where the row's value, a redirection,
+    an abbreviation or the cluster's value is what ended env's options."""
+    spelling = {**ENV_SPELLINGS, **ENV_GRAMMAR}[name]
+    command = f"env {spelling} -vS '{C}'"
+    assert found(command, tmp_path), command
+
+
+def test_the_split_string_after_the_options_is_read_past_a_redirection(tmp_path):
+    assert found(f"env -iS 2>/dev/null '{C}'", tmp_path)
+    assert found(f"env --spl 2>/dev/null '{C}'", tmp_path)
