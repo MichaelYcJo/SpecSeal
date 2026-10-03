@@ -616,9 +616,9 @@ PACT_ROW = "Pact"
 PACT_NOTIFY_ROW = "Pact notify"
 # The separator `Over the ceiling` already uses between its entries.
 PACT_SEPARATOR = ";"
-# What a signatory asks to be told about a change to the pact. Nothing acts on
-# the value until #647's step C; this reader validates it so the row has a
-# reader from the first day.
+# What a signatory asks to be told about a change to the pact: which of its
+# re-reads `evidence-check --reverify` records as pact changes, and which of
+# those `pact-check` reads (#647, steps C and D; `docs/the-pact.md`).
 NOTIFY_ALWAYS = "always"
 NOTIFY_TOUCHED = "when the pact is touched"
 NOTIFY_NEVER = "never"

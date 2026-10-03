@@ -321,6 +321,20 @@ unit can be cited by several rows, and the check names the coordinate once.
 Read every row that cites a drifted coordinate before typing the date, or
 narrow the write with `--ledger` to the files you did read.
 
+**In a signatory, the re-read also records a pact change** (#647,
+`docs/the-pact.md`). Where `seal/config.md` names a pact in a `Pact` row and a
+row whose hash this moves — in place, or into a `Re-read ·` row under
+`--into` — cites one of its clauses as a pact anchor, or a coordinate of such
+a row is BROKEN, one row per ledger row is appended to
+`seal/pact-changes/<work-item-id>.md` and a `recorded` line names it. `Pact
+notify | always` records every row whose code moved, with `—` for its clause,
+and `never` records nothing. The work item is the `--into` fragment's, else
+the one a `routing.md` declares for the branch; with neither, the row is
+named on a `LEFT` line and the run exits 1. A copy of this script with no
+`hooks/` beside it cannot read the `Pact` row: it names each row citing a
+pact on a `LEFT` line, records nothing, and exits 1. The ledger is written
+exactly as before in every case.
+
 ## A row inside a fence is an example, not a claim
 
 A ledger that explains its own row format shows an example row in a fenced

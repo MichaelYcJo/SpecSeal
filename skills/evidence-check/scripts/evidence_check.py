@@ -68,6 +68,11 @@ Usage:
                                           `--into` writes no released file and
                                           names each row it left
 
+In a signatory -- a `Pact` row in seal/config.md -- every form of `--reverify`
+also appends one row per re-read ledger row citing a clause of a declared pact
+to seal/pact-changes/<work-item-id>.md, and prints a `recorded` line
+(`record_pact_changes`, #647).
+
 --map resolves cross-repo coordinates (e.g. a migration's original repo):
   a coordinate `legacy-api/src/service.py#handler@a1b2c3d` with
   --map legacy-api=~/work/legacy-api is checked inside that checkout.
