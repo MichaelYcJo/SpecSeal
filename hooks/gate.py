@@ -11,7 +11,7 @@ judgment, so the two cannot come to disagree about WHETHER a commit is
 stopped; two renderings, because one of them can put a question to a person
 and the other cannot.
 
-**The two arms**, as `docs/commit-review-gate-spec.md` defines them:
+**The two arms**, as `docs/the-review-and-parity-arms.md` defines them:
 
   * review -- the repository opted in (`hooks/optin.py`), no routing
     declaration names the branch (`hooks/routing.py#declared`), nothing waived
@@ -57,7 +57,7 @@ TOKENS = {REVIEW: "[no-review]", PARITY: "[no-parity]"}
 
 # `seal/` as a string rather than `optin.HOME` joined under anything: these
 # classify paths as `git diff` prints them, repository-relative. The line is
-# the PARITY arm's alone -- `docs/commit-review-gate-spec.md` §*Review arm*
+# the PARITY arm's alone -- `docs/the-review-and-parity-arms.md` §*Review arm*
 # (#518) holds why the review arm reads no paths.
 DOC_ROOTS = ("docs/", "seal/")
 
