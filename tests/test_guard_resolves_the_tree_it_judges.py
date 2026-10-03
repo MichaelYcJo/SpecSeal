@@ -1038,6 +1038,47 @@ def test_a_restore_before_a_hidden_switch_does_not_silence_the_question(
     assert top is None, top
 
 
+def test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Round 1 of 1790993140, yellow 3: the subtraction is per view, so a
+    restore both readings parse alike adds no question, as at the base."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, _ = run(
+        monkeypatch, capsys, "cd w && git checkout README.md", session
+    )
+    assert decision == "silent", (decision, reason)
+
+
+def test_a_hidden_switch_behind_a_judged_one_adds_no_question(
+    monkeypatch, capsys, repo
+):
+    """The kind the frozen loop judged keeps its verdict: a clean single
+    stream lets the switch through, and a second switch only the wider
+    reading finds is not asked about."""
+    command = f"{SWITCH}; 2>/dev/null git switch main"
+    decision, reason, top = run(monkeypatch, capsys, command, repo)
+    assert decision == "silent", (decision, reason)
+    assert top and os.path.samefile(top, repo), top
+
+
+def test_a_hidden_creation_behind_a_judged_one_adds_no_question(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """The judged creation's own clone has consent, so its verdict is
+    silence; a second creation only the wider reading finds is not asked
+    about from a directory in no repository."""
+    elsewhere = tmp_path / "elsewhere"
+    elsewhere.mkdir()
+    assert wg.worktree_consent.record(str(repo), "me")
+    command = (
+        f"git -C {repo} worktree add ../wt-a -b a && "
+        f"git -C {repo} 2>&1 worktree add ../wt-b -b b"
+    )
+    decision, reason, _ = run(monkeypatch, capsys, command, elsewhere)
+    assert decision == "silent", (decision, reason)
+
+
 def test_a_broken_wider_reader_costs_only_the_question(
     monkeypatch, capsys, repo, tmp_path
 ):
