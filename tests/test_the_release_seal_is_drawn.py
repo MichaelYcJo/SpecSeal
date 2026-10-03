@@ -267,6 +267,13 @@ def test_a_chain_count_nobody_could_read_says_so_and_keeps_its_row():
         if label
     )
     assert rows["items"] == rows["capped"] == rows["deferred"] == "not read"
+    # Each row that needs two counts says `not read` when either is missing.
+    half = dict(mod.release_rows("1.2.3", "aaa11111", 1, 1, (5, 0), (1, None, 0, 0)))
+    assert half["items"] == "not read", half
+    labels = dict(
+        mod.release_rows("1.2.3", "aaa11111", 1, 1, (5, 0), (None, None, 2, None))
+    )
+    assert labels["capped"] == "not read", labels
     one = dict(mod.release_rows("1.2.3", "aaa11111", 1, 1, (5, 0), (1, 1, 0, 1)))
     assert one["items"] == "1 . 1 round" and one["deferred"] == "1 issue", one
     assert one["capped"] == "0 of 1", one
@@ -388,7 +395,10 @@ def test_the_chain_rows_count_items_rounds_capped_and_deferred(tmp_path):
         tmp_path,
         verdicts=[
             ["fixed", "deferred #12"],
-            ["**deferred** #13, #14", "answered"],
+            [
+                "**deferred** #13, #14",
+                "answered, and #99 was deferred by another round",
+            ],
             ["deferred seal/follow-up.md", "deferred #12"],
         ],
     )
@@ -450,3 +460,6 @@ def test_the_alt_text_is_one_sentence_carrying_every_value():
     text = seal().alt_text(unread)
     assert "work items not read" in text and "deferred not read" in text, text
     assert "]" not in text and "\n" not in text
+    # A value carrying either cannot end the image early.
+    odd = [(label, f"{value}]\n[") for label, value in ROWS]
+    assert not set("[]\n") & set(seal().alt_text(odd))
