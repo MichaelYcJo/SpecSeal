@@ -238,7 +238,13 @@ class History:
         self._texts = {}
 
     def commits(self, *revs):
-        out = git(self.root, "rev-list", *revs, "--", self.rel)
+        # `--full-history`: by default git follows only the TREESAME parent
+        # of a merge, so a clause version on the side a merge did not keep
+        # vanished from HEAD's list (and `--not HEAD` kept it out of the
+        # other one), and its hash read UNMATCHED where SUPERSEDED is true.
+        # A merge listed this way carries one parent's text, so it changes
+        # no verdict.
+        out = git(self.root, "rev-list", "--full-history", *revs, "--", self.rel)
         return out.split() if out else []
 
     def head(self):

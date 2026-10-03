@@ -382,3 +382,22 @@ def test_an_anchor_quoted_in_a_closed_fence_is_an_example_and_not_graded(world):
     code, out = run(world)
     assert code == 0, out
     assert "1 ok · 0 superseded · 0 not taken · 0 unmatched" in out, out
+
+
+def test_a_clause_a_merge_did_not_keep_is_still_heads_history(world):
+    """Main held v2; a branch cut from v1 changed the clause, and the merge
+    kept the branch's text. A signatory built against v2 is SUPERSEDED, not
+    UNMATCHED: v2 is in HEAD's history, on the side git's default history
+    simplification does not follow."""
+    api = world["api"]
+    git(api, "switch", "-qc", "early", "main~1")
+    write(api, "seal/pact.md", pact("id, total, tax"))
+    commit(api, "the clause, changed from v1")
+    git(api, "switch", "-q", "main")
+    git(api, "merge", "-q", "--no-ff", "-s", "ours", "--no-commit", "early")
+    write(api, "seal/pact.md", pact("id, total, tax"))
+    commit(api, "merge early, keeping its clause")
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 1, out
+    assert "SUPERSEDED" in out and "UNMATCHED " not in out, out
