@@ -86,8 +86,8 @@ changelog fragment): 2,285 passed, 7 skipped, 2 failed.
   item had no `overview.md` yet. It is written in `72a9c90a`, and the
   module then passed.
 - `test_a_record_states_what_the_tree_has.py`'s own-records case fails on
-  the base as well: four lines in `1790993137`'s records name
-  `SELF_ANCHOR_RE`, which #736 removed. The integration branch's `bb2f3400`
+  the base as well: four lines in `1790993137`'s records name a constant of
+  `fold_ledger.py` that #736 removed. The integration branch's `bb2f3400`
   marks them, and this branch takes that when `origin/release/v0.18.0` is
   merged in. Not this work's to fix.
 
