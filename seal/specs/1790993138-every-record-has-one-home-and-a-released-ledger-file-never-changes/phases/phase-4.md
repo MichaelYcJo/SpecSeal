@@ -33,7 +33,7 @@ without the row keeps REMOVED and narrow, and the existing case for that
 unchanged.
 
 **What `--split` left behind.** Its four units (`split`, `release_sections`,
-`body_rows`, `rewrite_self_anchors`), `SELF_ANCHOR_RE`, the option, and the
+`body_rows`, `rewrite_self_anchors`), `SELF_ANCHOR_RE` (NAME NOT IN TREE), the option, and the
 twelve cases between its heading and *the checker cannot tell*. Two other
 places named it: `fold_ledger.py#version_headings`' docstring and a bullet in
 `unverified_check.py#fence_opener`'s list of fence walks, which named three
@@ -93,7 +93,7 @@ nothing to the ledger*, is phase 6's.
 
 | Removed item | Where it must land |
 |---|---|
-| `fold_ledger.py --split` and `#split`, `#release_sections`, `#body_rows`, `#rewrite_self_anchors`, `SELF_ANCHOR_RE` | nowhere: the one-time move ran at 0.15.1's preparation; `fold_ledger.py`'s docstring and `docs/release-checklist.md` §2 say so |
+| `fold_ledger.py --split` and `#split`, `#release_sections`, `#body_rows`, `#rewrite_self_anchors`, `SELF_ANCHOR_RE` (NAME NOT IN TREE) | nowhere: the one-time move ran at 0.15.1's preparation; `fold_ledger.py`'s docstring and `docs/release-checklist.md` §2 say so |
 | the twelve `--split` cases of `tests/test_the_ledger_fragments_fold_at_release.py` | nowhere: they held the removed units; `test_split_is_no_longer_an_option` holds the removal |
 | the release checklist's before-and-after readings around `--split` (§2's block, §3's paragraph) | nowhere: they were that release's |
 | *a fold changes a released ledger file only by removal and re-verification*, as the whole rule | `skills/settle/SKILL.md` §*What a fold branch owes*, now in two halves; the policy half is phase 6's |
