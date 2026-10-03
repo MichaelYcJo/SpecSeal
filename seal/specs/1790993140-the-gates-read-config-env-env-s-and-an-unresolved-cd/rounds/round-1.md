@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 733 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `25e5b01ac4a3c368b60659f5a1f21e89bbe8af23..2f4e993325fb68b5b4e25f8ed162008e59a60bd7`, 10 commits |
+| Contract changes | reparsed_texts → command_strings, reparsed_texts, _string_hides_a_commit, round-1-report.md, round-1.md, round-3-report.md, round-3.md, plan.md, spec.md, pytest; wider_only_kinds → main, round-1-report.md, round-1.md, pytest |
+| New units | ENV_VALUED (depth 1); ENV_VALUED_LONG (depth 1); _env_takes_next (depth 1); _env_split_at (depth 1); test_a_restore_before_a_hidden_switch_does_not_silence_the_question (depth 1); test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it (depth 1); test_a_hidden_switch_behind_a_judged_one_adds_no_question (depth 1); test_a_hidden_creation_behind_a_judged_one_adds_no_question (depth 1); test_a_wider_reader_that_exits_at_load_costs_only_the_question (depth 1) |
 | Needs a fix | yes — 🟡 1 (env's own words stop no-commit `env -S` commands), 🟡 2 (the `env -S` class misses clusters and abbreviations), 🟡 3 (a restore before a hidden switch silences candidate C) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,13 +30,13 @@ Round 1 targets `07a3dc7f`, over the build's diff `233f0455..07a3dc7f`. It was a
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `env`'s own words are asked the expansion question and joined unquoted, so `env -S` commands holding no commit now deny, in a declared repository too | `hooks/cmdline.py:1740` | open | executed: five shapes deny at `07a3dc7f`, silent at `233f0455`; the PR's prompt-budget sentence promises otherwise |
-| 🟡 2 | the `env -S` class misses a cluster ending in `S` and GNU's `--split-string` prefixes; `env -iS 'git commit -m x'` is found by nothing | `hooks/cmdline.py:1726` | open | executed: macOS `env -iS` and `-vS` run the string; three commit shapes found by nothing at target and base |
-| 🟡 3 | candidate C subtracts the frozen words' kinds, not the loop's verdicts, so a restore before a hidden switch silences the question | `hooks/worktree-guard.py:336` | open | executed: two shapes silent where the bare hidden switch asks; the per-view fix fires on 0 of 27,351 corpus pairs |
-| ⬜ 4 | a hidden creation reads the session clone's consent, not the creation's | `hooks/worktree-guard.py:359` | open | executed: silent into another clone where the plain spelling denies; asks from a non-repo cwd where the plain spelling allows; base silent for both |
-| ⬜ 5 | the guarded import catches `Exception` but not `SystemExit` | `hooks/worktree-guard.py:143` | open | read: `hooks/dispatch.py` catches both; no such module body exists today |
-| ⬜ 6 | W10's re-read does not test its claim; the new reason is a third exception | `seal/releases/0.15.6.md:17` | open | read; ledger correction, outside `Needs a fix` |
-| ⬜ 7 | M1's correction says the verdict kinds are still `86256492`'s | `seal/releases/0.16.0.md:247` | open | read; ledger correction, outside `Needs a fix` |
+| 🟡 1 | `env`'s own words are asked the expansion question and joined unquoted, so `env -S` commands holding no commit now deny, in a declared repository too | `hooks/cmdline.py:1740` | **fixed** `5d2a58f7` | fixed at 5d2a58f7 — `a8dfb388`; executed: five shapes deny at `07a3dc7f`, silent at `233f0455`; the PR's prompt-budget sentence promises otherwise |
+| 🟡 2 | the `env -S` class misses a cluster ending in `S` and GNU's `--split-string` prefixes; `env -iS 'git commit -m x'` is found by nothing | `hooks/cmdline.py:1726` | **fixed** `ea53c0a3` | fixed at ea53c0a3; executed: macOS `env -iS` and `-vS` run the string; three commit shapes found by nothing at target and base |
+| 🟡 3 | candidate C subtracts the frozen words' kinds, not the loop's verdicts, so a restore before a hidden switch silences the question | `hooks/worktree-guard.py:336` | **fixed** `139bf5e6` | fixed at 139bf5e6 — `cdc05d99`; executed: two shapes silent where the bare hidden switch asks; the per-view fix fires on 0 of 27,351 corpus pairs |
+| ⬜ 4 | a hidden creation reads the session clone's consent, not the creation's | `hooks/worktree-guard.py:359` | deferred #734 | #734 — Predates the work item: the base was silent for the same shape; filed as #734; executed: silent into another clone where the plain spelling denies; asks from a non-repo cwd where the plain spelling allows; base silent for both |
+| ⬜ 5 | the guarded import catches `Exception` but not `SystemExit` | `hooks/worktree-guard.py:143` | **fixed** `1bbc534b` | fixed at 1bbc534b; read: `hooks/dispatch.py` catches both; no such module body exists today |
+| ⬜ 6 | W10's re-read does not test its claim; the new reason is a third exception | `seal/releases/0.15.6.md:17` | answered | corrected at `b32aa5ce`; read; ledger correction, outside `Needs a fix` |
+| ⬜ 7 | M1's correction says the verdict kinds are still `86256492`'s | `seal/releases/0.16.0.md:247` | answered | corrected at `b59030bd`; read; ledger correction, outside `Needs a fix` |
 | 🟢 | phase 3's count was honestly produced: the built functions reproduce A = 9, C = 0 and every denominator | `phases/phase-3.md` | confirmed | executed re-count with `c7f84438`'s A and the target's C over D1's cut |
 | 🟢 | the probe fired on the issues' own shapes before a zero was trusted | `phases/phase-3.md` | confirmed | executed: 7 of 7 for A, 9 of 9 for C |
 | 🟢 | D1's cut excludes this run's own commands, and the corpus is complete for the machine | `questions.md` D1 | confirmed | executed: cut equals `5c8a49f7`'s time; the other SpecSeal project directory holds 0 transcripts |
