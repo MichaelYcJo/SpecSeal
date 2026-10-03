@@ -1,5 +1,259 @@
 # Changelog
 
+## 0.18.0 — 2026-10-03
+
+<!-- specs/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it -->
+### Added
+
+- A work item that commits in more than one repository can keep one
+  contract in a pact (#647, steps A and B). The pact is `seal/pact.md` in
+  one of the repositories, begun from `templates/pact.md`, and every
+  repository of the work item is a signatory, that one included. A sentence
+  belongs in the pact when another repository's code would be wrong if it
+  changed. `docs/the-pact.md` is the policy.
+
+- The routing step covers every repository the work item commits in. The
+  question is asked once, the work-item id is minted once and names the
+  directory in every repository, and a declaration goes into each
+  repository that already has a `seal/` root. A repository without one is
+  named in the handback and left alone, because writing into it would opt
+  it in.
+
+- Two `seal/config.md` rows, `Pact` and `Pact notify`, name the pact a
+  signatory signs and what it asks to be told about a change to it. Nothing
+  acts on `Pact notify` yet; it is read and validated now. A row that will
+  not parse is refused in a sentence rather than read as absent.
+  `/specseal:config` now shows all ten rows the template ships, including
+  `Reference specs`, which it had been leaving out.
+
+- A signatory cites a clause it was built against as
+  `pact:<name>/"<heading path>"@<hash>`, in a spec's Grounding or in a ledger
+  row's `Clause` cell. Its own `evidence-check` reads past the anchor, so a
+  version in a clause heading is never reported as an old-format coordinate.
+
+- `pact-check`, run at the pact's repository, reads every signatory the pact
+  lists, found through `~/.claude/specseal/pact-paths.md` or a sibling
+  checkout with nothing guessed, and grades every anchor: `SUPERSEDED`
+  where the signatory was built against an older clause, `NOT TAKEN` naming
+  the branch holding a change the pact has not taken, `UNMATCHED` and
+  `BROKEN`. It runs locally only.
+
+### Changed
+
+- At a signatory's pull request, `chain-check` prints the pact it names, the
+  notify value and how many pact anchors the declared work item cites, and
+  in the pact's repository how many signatories the pact lists. None of it
+  moves the exit status, because a pull request there can read one
+  repository and `pact-check` is where the reconciliation runs.
+
+<!-- specs/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes -->
+### Changed
+
+- A released ledger file never changes, and a re-read is a row in your own
+  fragment (#715). Where `seal/config.md` declares the new
+  `Ledger frozen from` row, which this repository now does,
+  `seal/ledger.md` and every `seal/releases/<X.Y.Z>.md` are not edited after
+  their release. A branch that re-reads a released row writes a
+  `Re-read ·` row into `seal/ledger/<work-item-id>.md`, citing the released
+  row by content, and a claim it finds false takes a `Corrected ·` row
+  there instead. Two branches that re-read one released row used to meet on
+  its line at their squash, after the broad gate had run; now they write
+  different files, and git merges them with no conflict. A repository
+  without the row keeps re-stamping in place, as before.
+
+- `evidence-check` reads a released row together with every row that
+  re-reads it. For each coordinate only the newest reading counts, and two
+  readings dated the same day count together: a coordinate is OK when one
+  of them recorded what the code holds now, and DRIFTED when none did. Two
+  branches that edited the same unit still leave the row DRIFTED, and code
+  reverted to a hash only a superseded reading recorded reads DRIFTED too.
+  A `Corrected ·` row supersedes the row it cites, and a released row
+  corrected by two or more rows names each of them DRIFTED until one claim
+  is kept. A citation into a fragment, a citing row without its
+  `Re-read <date>` or `Corrected <date>` note, and a citation whose row is
+  gone are each named.
+
+- `evidence-check --reverify --into seal/ledger/<work-item-id>.md --checked
+  <YYYY-MM-DD>` writes those rows: one `Re-read ·` row per drifted released
+  row, never one per coordinate, each naming the work item that read it.
+  Under the freeze, plain `--reverify` re-stamps the fragments, writes no
+  released file, and exits 1 naming each released row it left. The commit
+  advisor's repair line says the same.
+
+- `correction-check` refuses a pull request that changes `seal/ledger.md`,
+  or a release file its base already had, when the range adds a work item at
+  or above the cutoff or adds none. A branch cut before the rule is read
+  under the old one and told so in one line, even after it merges the
+  release branch in. A `Corrected ·` row a merge drops while the released
+  row it cites still stands is reported as a lost correction.
+
+- `fold_ledger.py --split` is gone. It had run once, at 0.15.1, and its only
+  act left was writing `seal/ledger.md`. The fold now refuses a `--version`
+  older than the newest release file and writes nothing; a second fold for
+  the newest version still joins its file. A `settle` fold writes its
+  readings into `seal/ledger/<unix-seconds>-fold.md`. Under the freeze,
+  `settle` names a released row anchored into a retiring directory
+  `released` and says to correct it, never remove it. Once a correction
+  supersedes the row, the directory can go.
+
+- Every kind of record has one home, indexed in the new
+  `docs/the-record-layout.md`. The ledger rules live in
+  `docs/the-evidence-ledger.md`, and which file a change writes lives in the
+  layout document. `CLAUDE.md`, `CONTRIBUTING.md`, the skills and the
+  scripts that restated them now link there. A case refuses a copy put back.
+  Four further steps are decided there and land later: the commit-gate
+  document's split (#727), one changelog file per release (#728), a work
+  item's directory by lifetime (#729), and the other rules `CLAUDE.md`
+  restates (#730).
+
+<!-- specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time -->
+### Added
+
+- Every release gets a seal on its GitHub Release page (#718). After the tag
+  push publishes the note, a second job in the same workflow runs the suite
+  at the tag, draws one seal for the release from the broad gate's letter,
+  attaches it as `seal.png`, and puts it where the note's `📊 At a glance`
+  table stood, with one line of the table's counts beneath it. The panel's
+  rows are a fixed set: the version, the tagged commit, the pull requests
+  merged, the issues closed, the suite's passed and skipped counts at the
+  tag, the work items and their review rounds, how many runs were capped,
+  and how many issues the rounds' verdicts deferred (a deferral written only
+  in a round record's `## Deferred` table is not counted). A count whose
+  source cannot be read says `not read` rather than 0. The image's alt text carries every
+  number too. The job runs only on a release that run created, edits only a
+  glance table still exactly as it was generated, and turns every failure
+  into a `::warning::` in its log with the note left as published, so a seal
+  can never make a release fail. `DRY_RUN=1` draws one by hand.
+
+### Changed
+
+- A gate's failure report caps the exception's class name, not only its
+  message (#722). A class from outside the plugin can name itself anything,
+  and two gates failing with a long enough name made the report pass the
+  1,000 UTF-16 units the `Stop` message keeps back for it. The name is cut
+  at 40 units when the failure is recorded, and the name, the message and
+  the group and the gate's own name are cut again when an older plugin's
+  record is read. With every field at its cap, two failed gates write 972
+  units and three 1,378.
+
+- The suite needs Pillow, pinned to one version beside the CommonMark
+  parser, for the seal's pixel case; `bin/test` adds it to an existing
+  `.venv` on its next run. A plugin user installs nothing new: nothing under
+  `hooks/` or `skills/` imports it.
+
+<!-- specs/1790993140-the-gates-read-config-env-env-s-and-an-unresolved-cd -->
+### Fixed
+
+- The commit gate finds two commits it used to read as none (#716). A
+  global option written with its value as a separate word,
+  `git --config-env core.hooksPath=VAR commit`, read its value as the
+  subcommand; `--config-env`, `--attr-source` and `--shallow-file` now take
+  their value as git 2.54.0 does, beside `-C`, `-c`, `--git-dir`,
+  `--work-tree` and `--namespace`. `env -S '-i git commit'` read the split
+  string alone, as a command whose word is `-i`; `env` splits that string
+  into its own arguments, so the string is now also read as
+  `env -i git commit`, in every spelling of the option and for `genv`. Both
+  readings only add, so the gate stops more and never less. Neither shape is
+  plain, so the reading judges it even where git's own hooks run.
+
+### Changed
+
+- The worktree guard asks about a branch switch or a worktree creation that
+  only the commit gate's reading finds, instead of passing it silently
+  (#678). That covers a git behind a redirection (`2>/dev/null git switch
+  x`, `git 2>&1 worktree add …`), behind zsh's `noglob`, `nocorrect`,
+  `repeat N`, `for i (…)` or `foreach i (…)`, or after a spaced
+  `--config-env`. It asks only where it was about to say nothing, so every
+  deny, choice and ask it already gave still comes first, and a creation is
+  silent under consent, as before, so an `automation` run is not asked.
+  Counted before it was wired over the 27,351 distinct command and directory
+  pairs recorded in this repository's transcripts: it would have stopped
+  none.
+
+- A switch whose tree the guard cannot place stays judged against the
+  session's own tree, and is now a named limit in the guard's
+  specification (#686). `builtin cd w`, `pushd w`, `noglob cd w`,
+  `cd "$W"` with `W` unset and `2>&1 cd w` before a `git switch` are
+  examples. Asking there was built and counted under the owner's rule of
+  2026-10-03: it would have stopped 9 of the same 27,351 pairs, so it was
+  removed. `git -C <dir> switch …` is the spelling the guard reads.
+
+<!-- specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole -->
+### Fixed
+
+- The worktree guard no longer reads a redirection's word as a branch name
+  (#737). The question added for #678 did, so a command whose words name
+  nothing a switch could take, such as `git checkout . &>/dev/null`, was
+  asked "This command switches a branch". It now reads each command as git
+  is handed it, with every redirection taken off, and asks wherever those
+  words hold a switch or a creation that the guard's own reading of the
+  command as written misses. It reads no tree, so a restore or a detach
+  whose words read as a switch is asked as one, such as
+  `git checkout &>/dev/null README.md`. It now also asks about a
+  worktree creation with a redirection between `worktree` and `add`
+  (`git worktree 2>/dev/null add ../wt b`), which bash runs as a creation. As
+  before, a creation is silent under consent. Counted over the 27,351
+  distinct command and directory pairs recorded in this repository's
+  transcripts, the question still stops none.
+
+- The commit gate finds a commit behind `env` options it used to misread
+  (#737). Examples are `env -i-S '…'`, `env --S '…'`,
+  `env --unset -iS '…'` and `env --env0-from f -iS '…'`. macOS `env` reads
+  `-` as a letter and a word starting `--` as a cluster of letters. GNU's
+  `env` has `--env0-from` and, unreleased, `--quoting-style`, and each takes
+  a value. `env`'s options are now read both ways, and every string either
+  reading finds is judged, so the gate stops on every spelling either `env`
+  runs. A prefix of `--env0-from` or `--quoting-style` now takes the next
+  word as its value, as GNU reads it, so an abbreviated split string behind
+  one (`env --quoti --spl '…'`) is no longer read where no `env` runs it.
+  `-S` and `--split-string` spelt in full are still read wherever they
+  stand, as before, so `env --e -S '…'` is read although no `env` runs
+  that string. `genv` is read as GNU's alone.
+
+<!-- specs/1791019476-a-narrowed-reverify-answers-for-every-released-member -->
+### Fixed
+
+- A `--reverify` narrowed with `--ledger` now answers for every family that
+  a file it read holds a member of (#740). It used to answer only where the
+  family's first row, the released row the others re-read, sat in a file it
+  read. Narrowed to a release file holding a folded `Re-read ·` row, or to a
+  fragment holding an older re-read, it wrote nothing and exited 0, while
+  `--strict` with the same narrowing read that member DRIFTED. Now, without
+  the freeze, it names the family's first row and exits 1; under the freeze,
+  `--into` writes the re-read that row is owed, and a run without `--into`
+  names it with the `--into` form. That holds whichever rows carry the
+  drifted coordinate, including one only fragment re-reads record. A
+  narrowing to a file that holds no member of the family behaves as before,
+  and so does a run without `--ledger`, with one exception: where a
+  coordinate only fragment re-reads record has lost the statement its anchor
+  names, the run now names the family's first row and exits 1, as it
+  already did where a released row recorded that coordinate.
+
+- A ledger row whose `Checked` cell holds a date the calendar does not have,
+  such as `2026-13-45`, is now named with that date when `evidence-check`
+  reports it DRIFTED (#740). The line used to say "the reading of no date",
+  which hid the typo the person has to fix. It now says "the reading dated
+  2026-13-45, a date the calendar does not have". A cell with no date at
+  all still says "the reading of no date", and what such a date orders is
+  unchanged: nothing.
+
+<!-- specs/1791019477-the-commit-gate-policy-is-cut-into-files-by-question -->
+### Changed
+
+- The commit gate's policy is three documents, one question each (#727).
+  `docs/commit-review-gate-spec.md` had reached 1,047 lines and was frozen
+  over the ceiling, so no new rule could be folded into it. It is cut along
+  its own headings: `docs/the-commit-gate-inside-git.md` says what git
+  decides inside the commit, `docs/the-review-and-parity-arms.md` says what
+  each opt-in arm wants and how the routing declaration moves the review
+  arm's check to the pull request, and `docs/commit-review-gate-spec.md`
+  keeps the registration, the PreToolUse reading, the review-history guard
+  and the implementer mark, with an index naming the other two. The moved
+  text is unchanged except where it pointed across the cut by position. The
+  `Over the ceiling` row now reads `none`. The agent contract, both READMEs
+  and every other reference cite the file that holds the section. A link to
+  a moved section at an older tag keeps resolving at that tag.
+
 ## 0.17.0 — 2026-10-03
 
 <!-- specs/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout -->
