@@ -419,3 +419,25 @@ def test_a_signatory_row_the_table_walk_cannot_read_is_exit_2(world):
         "REFUSED seal/pact.md — the pact has a `Signatory` table that stops at "
         "`| https://example.com/org/orders-mobile`"
     ) in out, out
+
+
+@pytest.mark.parametrize(
+    "anchor",
+    [
+        'pact:orders-api#"## Order response shape / ### Fields"@1a2b3c4d',
+        "pact:orders-api/## Order response shape@1a2b3c4d",
+        'pact:orders-api/"## Order response shape / ### Fields"',
+    ],
+    ids=["hash for slash", "no quotes", "no hash"],
+)
+def test_a_pact_anchor_that_does_not_parse_is_refused(world, anchor):
+    """A mistyped citation is read by nobody else: not the signatory's own
+    check, not chain-check. Here it is named and exit 2."""
+    write(world["web"], "seal/ledger/1790000000-x.md", ledger_row(anchor))
+    code, out = run(world)
+    assert code == 2, out
+    assert (f"REFUSED {SIGNATORY_URL} seal/ledger/1790000000-x.md:1 — `") in out, out
+    assert (
+        'does not parse as `pact:orders-api/"<heading path>"@<hash>`, so '
+        "nothing grades it"
+    ) in out, out

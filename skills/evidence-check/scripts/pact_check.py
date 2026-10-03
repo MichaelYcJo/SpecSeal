@@ -58,9 +58,10 @@ and the summary says so.
   1  a `SUPERSEDED`, `NOT TAKEN` or `UNMATCHED` anchor, or a signatory not
      found on this machine
   2  unusable input: no pact here, a pact or file that cannot be read, a
-     `BROKEN` anchor, a `Pact` row or notify value that will not parse, a
-     relationship recorded on one side only, or a pact's repository with no
-     origin remote
+     `BROKEN` anchor, an anchor naming this pact that does not parse, a
+     `Pact` row or notify value that will not parse, a relationship
+     recorded on one side only, or a pact's repository with no origin
+     remote
 
 These mirror `evidence-check`'s classes, where `BROKEN` is exit 2 and drift is
 exit 1. Nothing is ever written.
@@ -95,6 +96,12 @@ NOT_FOUND, ONE_SIDED, REFUSED, UNREADABLE = (
     "REFUSED",
     "UNREADABLE",
 )
+# Anything that starts like a pact anchor naming a pact, so one that does
+# not parse -- `#` for `/`, no quotes, no hash -- is named rather than passed
+# over. A mistyped citation is otherwise read by nobody: not here, not by the
+# signatory's own check, which passes pact anchors over by design, and not by
+# chain-check (round 1 of #647, yellow 4).
+PACT_MENTION_RE = re.compile(r"(?<![A-Za-z0-9_.@/-])pact:(?P<name>[A-Za-z0-9_.-]+)\S*")
 # Which exit each finding is: the classes `evidence-check` keeps.
 EXIT_ONE = frozenset({SUPERSEDED, NOT_TAKEN, UNMATCHED, NOT_FOUND})
 EXIT_TWO = frozenset({BROKEN, ONE_SIDED, REFUSED, UNREADABLE})
@@ -455,6 +462,20 @@ def check(root, out=sys.stdout, home_dir=None):
                 if status != OK:
                     line = view.count("\n", 0, match.start()) + 1
                     found(status, written, f"{shown}:{line} {match.group(0)}", detail)
+            graded = {m.start() for m in checker.PACT_ANCHOR_RE.finditer(view)}
+            for near in PACT_MENTION_RE.finditer(view):
+                if near.group("name").lower() != name or near.start() in graded:
+                    continue
+                line = view.count("\n", 0, near.start()) + 1
+                found(
+                    REFUSED,
+                    written,
+                    f"{shown}:{line}",
+                    f"`{near.group(0)}` does not parse as "
+                    f'`pact:{name}/"<heading path>"@<hash>`, so nothing grades '
+                    "it. Quote the heading path and give it a hash, `@00000000` "
+                    "until the first report names the real one",
+                )
         say(
             f"READ {written} {path} — `{config.PACT_NOTIFY_ROW}`: "
             f"{notify or 'will not parse'}; {anchors} pact anchor"

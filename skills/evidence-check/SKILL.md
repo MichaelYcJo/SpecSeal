@@ -461,8 +461,9 @@ citing a version only another ref holds, which it names; `UNMATCHED`, a hash
 no commit gave the clause; `BROKEN`, a heading path naming no single clause.
 Git is asked which way a mismatch points and never whether an anchor is `OK`.
 Exit 0 when every signatory was read and every anchor is `OK`, 1 for the three
-mismatches or a checkout not found, 2 for `BROKEN`, a refused row or file, a
-relationship recorded on one side only, or no origin remote.
+mismatches or a checkout not found, 2 for `BROKEN`, a refused row or file, an
+anchor naming the pact that does not parse, a relationship recorded on one
+side only, or no origin remote.
 
 **It is local only.** A signatory's pull request can read one repository, so
 its CI prints the relationship and verifies nothing (`chain-check`'s pact
