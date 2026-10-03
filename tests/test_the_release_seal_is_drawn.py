@@ -903,3 +903,6 @@ def test_the_checklist_box_says_where_a_missing_seal_is_explained():
     # Round 1's ⬜ 8: the route draws from the tag's tree and ends at the edit.
     assert "from a checkout at the tag" in box
     assert "then apply the note it prints with `gh release edit --notes-file`" in box
+    # Round 2's ⬜ 12: the reasons match the refusal's three causes.
+    assert "published without one" in box
+    assert "the pull requests moved between the two lists" in box
