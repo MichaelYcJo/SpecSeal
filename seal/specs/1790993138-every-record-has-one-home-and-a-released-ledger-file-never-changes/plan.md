@@ -4,7 +4,7 @@
      The decisions D1–D8, the scenarios S1–S15 and the classes are in spec.md;
      this file says in what order they are built and how each phase is shown. -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-10-03 by the repository owner, whose `automation` answer covers this item, when `smith` was spawned.
 
 ## Summary
 
