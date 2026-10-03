@@ -163,6 +163,14 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "install the parser the oracle is held to, and a case holds them to "
         "the runner's constant; no release of SpecSeal makes the number wrong"
     ),
+    ("CONTRIBUTING.md", "12.3.0"): (
+        "Pillow's, the imaging library the release seal is drawn with, pinned "
+        "in `.github/scripts/run_tests.py#PILLOW` (#718). The class is the "
+        "row above's: the fallback commands carry the pin so they install "
+        "the version the suite's pixel case is held to, and a case holds "
+        "them to the runner's constant; no release of SpecSeal makes the "
+        "number wrong"
+    ),
     ("skills/verify/scripts/seal_stamp.py", "2.1.287"): (
         "Claude Code's, named above `MESSAGE_LIMIT` as the build on which the "
         "harness's 10,000-unit limit on a hook's `systemMessage` was measured "

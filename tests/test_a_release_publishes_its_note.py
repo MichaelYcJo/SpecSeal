@@ -137,6 +137,9 @@ def wire(
     monkeypatch.setenv("TAG", env.pop("TAG", TAG))
     monkeypatch.setenv("REPO", REPO)
     monkeypatch.delenv("DRY_RUN", raising=False)
+    # A run on CI has its own step's output file here; a case that wants one
+    # names its own (S4 of work item 1790993139).
+    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
     for key, value in env.items():
         monkeypatch.setenv(key, value)
     return mod, tracker
@@ -438,6 +441,10 @@ def test_the_list_is_read_from_the_release_branch(monkeypatch):
     assert "body" in args[args.index("--json") + 1].split(","), (
         "the body is not fetched, so no line can say which issues it closed"
     )
+    # #718: the seal reads the capped label and the head branch from the same
+    # call, so the list is fetched once for the note and the seal alike.
+    fields = args[args.index("--json") + 1].split(",")
+    assert "labels" in fields and "headRefName" in fields, fields
     assert args[args.index("--state") + 1] == "merged"
     assert args[args.index("--repo") + 1] == REPO
 
@@ -445,6 +452,78 @@ def test_the_list_is_read_from_the_release_branch(monkeypatch):
         mod.subprocess, "run", lambda args, **_: Done(1, err="HTTP 502")
     )
     assert mod.merged_pulls(REPO, VERSION) is None
+
+
+# --- S4 of work item 1790993139: the job says whether it created the release --
+
+
+@pytest.mark.parametrize(
+    "existing, created",
+    [((), "true"), ((TAG,), "false")],
+    ids=["created", "already there"],
+)
+def test_the_job_says_whether_it_created_the_release(
+    monkeypatch, tmp_path, existing, created
+):
+    """S4 (#718). `created` goes to `$GITHUB_OUTPUT`: `true` after the
+    release is created, `false` where one was already at the tag, so the seal
+    job, which edits the note, runs only on a note this run wrote. Seen red
+    against the `main` that wrote nothing."""
+    out = tmp_path / "github_output"
+    mod, _ = wire(
+        monkeypatch,
+        tmp_path,
+        message=title_line(),
+        existing=existing,
+        GITHUB_OUTPUT=str(out),
+    )
+    assert mod.main() == 0
+    assert out.read_text(encoding="utf-8") == f"created={created}\n"
+
+
+def test_without_an_output_file_nothing_is_written_and_nothing_raises(
+    monkeypatch, tmp_path, capsys
+):
+    """S4. On a laptop there is no `$GITHUB_OUTPUT`: nothing is written. Where
+    the file cannot be written, that is printed and ignored, and the release
+    is still published with exit 0."""
+    mod, tracker = wire(monkeypatch, tmp_path, message=title_line())
+    assert mod.main() == 0
+    assert len(tracker.creates()) == 1
+    assert not (tmp_path / "github_output").exists()
+    blocked = tmp_path / "a-directory"
+    blocked.mkdir()
+    mod, tracker = wire(
+        monkeypatch, tmp_path, message=title_line(), GITHUB_OUTPUT=str(blocked)
+    )
+    assert mod.main() == 0
+    assert len(tracker.creates()) == 1
+    assert "could not write created=true" in capsys.readouterr().out
+
+
+def test_the_glance_block_is_built_by_one_function_and_its_sealed_twin_by_another(
+    monkeypatch, tmp_path
+):
+    """S1's shape (#718). The note's glance block is exactly `glance`'s, so
+    the seal can find it by the same function; `sealed_glance` is the heading,
+    the image, a blank line and one line carrying every row the table had, in
+    its order."""
+    mod, body = published(monkeypatch, tmp_path, RELEASE)
+    work, closed, people = mod.tally(RELEASE, OWNER)
+    block = mod.glance(work, closed, people)
+    assert body.startswith(block + "\n\n### ✨ Features"), body[:400]
+    assert mod.sealed_glance(
+        "https://example.com/seal.png", "a seal", work, closed, people
+    ) == (
+        f"{mod.GLANCE_HEADING}\n\n"
+        "![a seal](https://example.com/seal.png)\n\n"
+        "🔀 Pull requests **7** · ✅ Issues closed **4** · 🙌 Outside contributors **2**"
+    )
+    alone = [pull(10, OWNER, "fix: one", "Closes #100")]
+    work, closed, people = mod.tally(alone, OWNER)
+    assert mod.sealed_glance("u", "a", work, closed, people).endswith(
+        "🔀 Pull requests **1** · ✅ Issues closed **1**"
+    )
 
 
 # --- the seam with the script that writes the section ----------------------
@@ -488,10 +567,47 @@ def workflow():
     )
 
 
-def test_the_workflow_fires_on_the_tag_and_writes_nothing_else():
-    """The trigger is the whole design decision. Hanging this from the push to
-    `main` would put it before the tag exists, so the job would have to create
-    one — and `docs/branch-and-release.md` says the tag is the maintainer's."""
+def job(text, name):
+    """One job's lines of the comment-free workflow, from its `  <name>:`
+    line to the next job or the end."""
+    lines = text.splitlines()
+    start = lines.index(f"  {name}:")
+    end = next(
+        (
+            i
+            for i in range(start + 1, len(lines))
+            if lines[i].startswith("  ") and not lines[i].startswith("   ")
+        ),
+        len(lines),
+    )
+    return lines[start:end]
+
+
+def steps(lines):
+    """A job's steps, each as its lines, split at every `      - ` line."""
+    out = []
+    for line in lines:
+        if line.startswith("      - "):
+            out.append([line])
+        elif out:
+            out[-1].append(line)
+    return out
+
+
+def test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit():
+    """S5 (#718). The trigger is the whole design decision: hanging this from
+    the push to `main` would put it before the tag exists. Under
+    `contents: write` it writes three things now -- one release (`publish`),
+    one asset on it and one edit of its note (`seal`) -- and still declares no
+    other scope. `publish` has no `needs` and says whether it created the
+    release; `seal` needs it, runs only on `created == 'true'`, and every one
+    of its steps is `continue-on-error`, so nothing the seal meets can turn
+    the workflow red. A hung suite ends at the step's `timeout-minutes`, and
+    the job's own timeout sits under a job-level `continue-on-error` (round
+    1's 🟡 4). The token is on the drawing step alone, and the checkout does
+    not persist it in `.git/config`, so the suite at the tag runs with none
+    (round 1's 🟡 5). Seen red against the workflow with no `seal` job, and
+    the two round-1 halves against the workflow without them."""
     text = workflow()
     assert "tags: ['v*']" in text, "the workflow no longer fires on a tag push"
     assert "branches:" not in text, (
@@ -500,8 +616,34 @@ def test_the_workflow_fires_on_the_tag_and_writes_nothing_else():
     )
     assert "contents: write" in text
     for scope in ("issues:", "pull-requests:", "packages:"):
-        assert scope not in text, f"the job declares {scope}, which it does not use"
-    assert "publish_release_note.py" in text
+        assert scope not in text, (
+            f"the workflow declares {scope}, which it does not use"
+        )
+    publish = job(text, "publish")
+    assert not any(line.strip().startswith("needs:") for line in publish), publish
+    assert "      created: ${{ steps.note.outputs.created }}" in publish, publish
+    assert any("publish_release_note.py" in line for line in publish)
+    seal = job(text, "seal")
+    assert "    needs: publish" in seal, seal
+    assert "    if: needs.publish.outputs.created == 'true'" in seal, seal
+    assert (
+        "    timeout-minutes: 60" in seal and "    continue-on-error: true" in seal
+    ), seal
+    held = steps(seal)
+    assert len(held) == 5, held
+    assert any(line.strip() == "persist-credentials: false" for line in held[0]), held[
+        0
+    ]
+    for step in held:
+        assert any(line.strip() == "continue-on-error: true" for line in step), step
+    tokened = [step for step in held if any("GH_TOKEN" in line for line in step)]
+    assert len(tokened) == 1 and any("release_seal.py" in line for line in tokened[0])
+    suite = [step for step in held if any("--junitxml" in line for line in step)]
+    assert len(suite) == 1 and any("id: suite" in line for line in suite[0]), suite
+    assert any(line.strip() == "timeout-minutes: 30" for line in suite[0]), suite
+    assert any(
+        "SUITE_OUTCOME: ${{ steps.suite.outcome }}" in line for line in tokened[0]
+    ), tokened
 
 
 def test_the_workflow_is_not_a_step_of_the_release_job():

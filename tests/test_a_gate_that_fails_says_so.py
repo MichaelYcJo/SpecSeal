@@ -572,6 +572,129 @@ def test_a_message_is_its_first_line_and_capped():
     assert d.first_line(RuntimeError(last * 500)) == last * d.MESSAGE_CAP
 
 
+# --- #722: a class name from outside the plugin is capped too -----------------
+
+ASTRAL = "\U0001d54f"
+
+
+def units(text):
+    """`text`'s length in UTF-16 units, the length the harness counts."""
+    return len(text.encode("utf-16-le", "surrogatepass")) // 2
+
+
+def test_a_foreign_class_name_is_capped_where_it_is_written(repo):
+    """S14 (#722). `record` wrote `type(exc).__name__` whole, and a class
+    from outside the plugin names itself whatever it likes. A 120-character
+    name and a name of 60 characters outside the BMP (120 units) are each
+    written at `NAME_CAP` units, and an astral character that would cross
+    the cap is left out whole rather than split into half a pair. Seen red
+    against the `record` that wrote the name uncapped."""
+    opted_in(repo)
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_the_name_cap")
+    assert d.NAME_CAP == 40
+    wide = type("N" * 120, (Exception,), {})
+    astral = type("y" + ASTRAL * 60, (Exception,), {})
+    d.record(
+        "pre-bash",
+        [
+            ("mode-gate.py", "run", wide("x")),
+            ("worktree-guard.py", "load", astral("z")),
+        ],
+        bash(repo, "s-x"),
+    )
+    directory = repo / ".git" / RECORDS / "s-x"
+    written = {
+        name: json.loads((directory / name).read_text(encoding="utf-8"))["error"]
+        for name in ("mode-gate.py.pending", "worktree-guard.py.pending")
+    }
+    assert written == {
+        "mode-gate.py.pending": "N" * 40,
+        "worktree-guard.py.pending": "y" + ASTRAL * 19,
+    }, written
+    assert all(units(name) <= d.NAME_CAP for name in written.values())
+    body = json.loads((directory / "mode-gate.py.pending").read_text(encoding="utf-8"))
+    line = d.describe("mode-gate.py", body)
+    assert f"({'N' * 40}: x)" in line, line
+
+
+def test_a_record_an_older_plugin_wrote_is_capped_when_it_is_read():
+    """S15 (#722). `read_record` says an older or newer plugin may have
+    written the record, so `describe` cannot trust the writer's caps: a
+    300-unit `error`, a 400-unit `message` and a 300-unit `group` are each
+    cut to their cap as the line is built. Seen red against the `describe`
+    that interpolated the fields whole."""
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_the_read_cap")
+    line = d.describe(
+        "mode-gate.py",
+        {"group": "g" * 300, "phase": "run", "error": "E" * 300, "message": "m" * 400},
+    )
+    assert f" in {'g' * d.NAME_CAP} (" in line, line
+    assert f"({'E' * d.NAME_CAP}: {'m' * d.MESSAGE_CAP})" in line, line
+    astral = d.describe(
+        "mode-gate.py",
+        {"phase": "run", "error": "y" + ASTRAL * 300, "message": ASTRAL * 400},
+    )
+    assert f"(y{ASTRAL * 19}: {ASTRAL * 100})" in astral, astral
+
+
+def longest_report(d, count):
+    """The longest report `count` failed gates can put before a stamp, in
+    UTF-16 units, the blank line `report` adds included: every gate this
+    plugin names and three foreign ones, in every group this plugin names and
+    a foreign one, at every phase, with each field past its cap -- a record
+    an older or newer plugin wrote is what the read-side caps are for
+    (round 1's 🟡 3). Each gate is said once per session, so `count` distinct
+    gates."""
+    fields = {"error": "E" * 300, "message": "m" * 400}
+    gates = {g for gs in d.GROUPS.values() for g in gs} | {c * 300 for c in "xyz"}
+    groups = [*d.GROUPS, "G" * 300]
+    longest = {}
+    for gate in gates:
+        for group in groups:
+            for phase in ("load", "run", None):
+                line = d.describe(gate, {"group": group, "phase": phase, **fields})
+                longest[gate] = max(longest.get(gate, ""), line, key=units)
+    chosen = sorted(longest.values(), key=units, reverse=True)[:count]
+    one = count == 1
+    label = d.LABEL.format(
+        count=f"{count} gate{'' if one else 's'}", verb="was" if one else "were"
+    )
+    return units("\n".join([label, *chosen, d.CLOSING])) + 2
+
+
+def test_a_record_another_version_wrote_names_its_own_group_and_a_capped_gate():
+    """Round 1's 🟡 3. A load failure whose record names a group today's
+    `GROUPS` does not put the gate in -- a gate that moved between versions --
+    names that group alone, rather than adding every group the gate is in
+    now. And the gate's name, the record's file name, is cut at `NAME_CAP`
+    like the type name. Seen red at `64196684`."""
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_the_foreign_record")
+    moved = d.describe("session-lease.py", {"group": "session-start", "phase": "load"})
+    assert moved.startswith("session-lease.py failed to load in session-start;"), moved
+    known = d.describe("worktree-guard.py", {"group": "pre-bash", "phase": "load"})
+    assert "in pre-bash and pre-agent" in known, known
+    long = d.describe("g" * 120, {"group": "pre-bash", "phase": "run"})
+    assert long.startswith("g" * d.NAME_CAP + " failed while running"), long
+    astral = d.describe("y" + ASTRAL * 60, {"phase": "run"})
+    assert astral.startswith("y" + ASTRAL * 19 + " failed while running"), astral
+
+
+def test_two_failed_gates_fit_the_reserve_with_every_field_at_its_cap():
+    """S14 (#722). With the name capped as well as the message, the longest
+    two-gate report fits `seal_stamp.MESSAGE_RESERVE` and a third would not.
+    The reserve's comment states the figures this measures, so a cap that
+    moves has to move the comment with it."""
+    d = load(os.path.join(HOOKS, "dispatch.py"), "dispatch_for_the_reserve")
+    stamp = load(STAMP, "seal_stamp_for_the_reserve")
+    one, two, three = (longest_report(d, n) for n in (1, 2, 3))
+    assert two <= stamp.MESSAGE_RESERVE < three, (one, two, three)
+    with open(STAMP, encoding="utf-8") as handle:
+        source = handle.read()
+    comment = source.split("\nMESSAGE_RESERVE = ", 1)[0].rsplit("\n\n", 1)[1]
+    for figure in (one, two, three):
+        assert f"{figure:,}" in comment, (figure, comment)
+
+
 # --- S10: a subagent's failure reaches the main session ----------------------
 
 
