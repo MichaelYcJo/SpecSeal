@@ -954,3 +954,72 @@ def test_into_re_reads_a_coordinate_a_folded_re_read_carries(repo):
     now = unit_hash(repo, "src/service.py", "other")
     assert f"`src/service.py#other@{now}`" in written, written
     assert run(["--strict", "."], repo).returncode == 0
+
+
+# --- the newest reading of each coordinate decides (round 1, 🟡 2) -----------
+
+
+def test_a_partial_revert_to_an_older_reading_is_drifted(repo):
+    """P1. R reads (h1, o1); both units change and a re-read records
+    (h2, o2); then `handler` alone goes back to h1. The pair (h1, o2) was
+    never read together, and the claim about how the two fit can be false
+    there. Only the newest reading of each coordinate counts, so `handler`
+    at h1 matches R's older reading alone and is DRIFTED."""
+    h1 = unit_hash(repo, "src/service.py", "handler")
+    o1 = unit_hash(repo, "src/service.py", "other")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler and other agree | `src/service.py#handler@{h1}`, "
+            f"`src/service.py#other@{o1}` | read | 2026-01-01 | |"
+        ],
+    )
+    both = SERVICE.replace("y = x + 1", "y = x + 2").replace("x * 2", "x * 3")
+    (repo / "src" / "service.py").write_text(both)
+    h2 = unit_hash(repo, "src/service.py", "handler")
+    o2 = unit_hash(repo, "src/service.py", "other")
+    fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler and other agree | `{citation(r, 'R1 · handler and other')}`, "
+            f"`src/service.py#handler@{h2}`, `src/service.py#other@{o2}` | read "
+            "| 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+    )
+    assert run(["--strict", "."], repo).returncode == 0
+    (repo / "src" / "service.py").write_text(both.replace("y = x + 2", "y = x + 1"))
+    assert unit_hash(repo, "src/service.py", "handler") == h1
+    out = run(["--strict", "."], repo)
+    assert out.returncode == 2, out.stdout
+    assert ("DRIFTED", "src/service.py#handler") in findings(out.stdout), out.stdout
+    assert "2026-02-01" in out.stdout, out.stdout
+
+
+def test_two_readings_of_one_coordinate_on_the_same_day_are_a_union(repo):
+    """Two parallel branches re-read one row on the same day and record two
+    hashes for one unit: neither is newer, so both count, and the content
+    either one recorded reads OK."""
+    h1 = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h1}` | read | 2026-01-01 | |"
+        ],
+    )
+    edit_handler(repo)
+    h2 = unit_hash(repo, "src/service.py", "handler")
+    (repo / "src" / "service.py").write_text(SERVICE.replace("y = x + 1", "y = x + 3"))
+    h3 = unit_hash(repo, "src/service.py", "handler")
+    cite = citation(r, "R1 · handler adds one")
+    for name, h in (("2000000001-a", h2), ("2000000002-b", h3)):
+        fragment(
+            repo,
+            [
+                f"| Re-read · R1 · handler adds one | `{cite}`, `src/service.py#handler@{h}` "
+                "| read | 2026-02-01 | Re-read 2026-02-01 |"
+            ],
+            name=name,
+        )
+    assert run(["--strict", "."], repo).returncode == 0
+    edit_handler(repo)
+    assert run(["--strict", "."], repo).returncode == 0

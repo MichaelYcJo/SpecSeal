@@ -83,7 +83,8 @@ The citation is the first coordinate in Code grounds and names the row by
 content, `seal/releases/<X.Y.Z>.md#"### <work-item-id>">"<start of the row's
 first cell>"@<hash of that line>`. A released row is read together with
 every `Re-read ·` row citing it, and every one citing those: a coordinate is
-OK when any of them recorded what it holds now. A `Corrected ·` row
+OK when one of its newest readings recorded what it holds now, readings on
+the newest `Checked` date counting together. A `Corrected ·` row
 supersedes the row it cites, whose coordinates are no longer checked, and its
 own are. A citation into a fragment, a citing row without its marker, and a
 citation whose row is gone are each named.
@@ -1992,13 +1993,18 @@ def overflow_rows(text):
 #
 # The rows that read one released row are then read together, as a FAMILY:
 # the row, every `Re-read ·` row citing it, and every `Re-read ·` row citing
-# one of those. A code coordinate is OK when ANY member recorded what it holds
-# now, which is the halves rule of `docs/the-evidence-ledger.md` computed
-# rather than applied by hand to a released file: the side that edited a unit
-# is the side whose hash matches it, and where both sides edited it, neither
-# matches and the row is DRIFTED. A `Corrected ·` row supersedes the family of
-# the row it cites -- none of those coordinates is checked any more -- and
-# starts a family of its own.
+# one of those. Of the members that record a code coordinate, only the
+# readings with the newest `Checked` date count, ties kept as a union, and the
+# coordinate is OK when one of them recorded what it holds now. That is the
+# halves rule of `docs/the-evidence-ledger.md` computed rather than applied by
+# hand to a released file: two same-day re-reads tie, the side that edited a
+# unit is the side whose hash matches it, and where both sides edited it,
+# neither matches and the row is DRIFTED. The cost: content back at a hash
+# only an older reading recorded reads DRIFTED, a partial revert and a whole
+# one alike, and costs a re-read, never a question; no pair of hashes nobody
+# read together is accepted (round 1, 🟡 2). A `Corrected ·` row supersedes
+# the family of the row it cites -- none of those coordinates is checked any
+# more -- and starts a family of its own.
 #
 # The citation itself is a coordinate and is checked as one, except that a
 # row it no longer finds is BROKEN rather than the DRIFTED an ordinary minor
@@ -2243,6 +2249,9 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
       superseded the roots a `Corrected ·` row supersedes
       readings   `{root row: {coordinate: [(row, match, status, detail)]}}`,
                  every code coordinate on a member's line, graded alone
+      held       `{root row: {coordinate: [those readings that hold]}}`: the
+                 OK readings among the newest-dated ones, empty where the
+                 coordinate is drifted for the family
 
     `out` is the rows of PATHS that cite a released row or are cited by one.
 
@@ -2385,7 +2394,16 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
             memo[index] = classify(m, root, maps, default_repo, scan_cache)
         return memo[index]
 
-    readings = {}
+    def checked(key):
+        """The newest date in KEY's `Checked` cell, or "" where it has none:
+        the moment that reading was taken, which is what orders two readings
+        of one coordinate (round 1, 🟡 2)."""
+        _, _, header, cells = row(key)
+        column = date_column(header, cells)
+        dates = CHECKED_RE.findall(cells[column[0]]) if column else []
+        return max(dates, default="")
+
+    readings, held_by = {}, {}
     for top, members in families.items():
         if top in superseded:
             continue
@@ -2398,8 +2416,16 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
                 status, coord, detail = grade(m)
                 by_coord.setdefault(coord, []).append((key, m, status, detail))
         readings[top] = by_coord
+        held_by[top] = {}
         for coord, graded in by_coord.items():
-            held = [r for r in graded if r[2] == "OK"]
+            # Only the newest reading of a coordinate counts, and readings
+            # that tie on that date are a union: a pair of hashes is accepted
+            # only where somebody read it, and two branches re-reading one row
+            # on one day both count (round 1, 🟡 2).
+            newest = max(checked(r[0]) for r in graded)
+            held = [r for r in graded if r[2] == "OK" and checked(r[0]) == newest]
+            held_by[top][coord] = held
+            last = next(r for r in graded if checked(r[0]) == newest)
             seen = set()
             for key, m, status, detail in graded:
                 if (key, m.group("hash")) in seen:
@@ -2408,6 +2434,13 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
                 if held and status != "OK":
                     detail = f"read again at {where(held[0][0])}"
                     status = "OK"
+                elif not held and status == "OK":
+                    status = "DRIFTED"
+                    detail = (
+                        f"matches only the reading of {checked(key) or 'no date'}; "
+                        f"the newest reading of this coordinate, {newest} at "
+                        f"{where(last[0])}, holds other content — re-read"
+                    )
                 elif status == "DRIFTED" and len(members) > 1:
                     detail += (
                         f"; no reading in this row's family of {len(members)} "
@@ -2420,6 +2453,7 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
         families=families,
         superseded=superseded,
         readings=readings,
+        held=held_by,
     )
 
 
@@ -3122,12 +3156,14 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
         if top[0] not in wanted:
             continue
         for coord, graded in by_coord.items():
-            if any(status == "OK" for _, _, status, _ in graded):
+            if view.held[top][coord]:
                 continue
             for key, m, status, detail in graded:
                 if ledger_kind(root, view.files[key[0]][0]) != "released":
                     continue
-                if status == "DRIFTED":
+                # An OK reading here is an older one the newest outranks: its
+                # match names the coordinate as well as a drifted one does.
+                if status in ("DRIFTED", "OK"):
                     drifted.setdefault(top, {}).setdefault(coord, m)
                     break
                 if status == "BROKEN":

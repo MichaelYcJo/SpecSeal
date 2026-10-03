@@ -13,9 +13,12 @@
   without the row keeps re-stamping in place, as before.
 
 - `evidence-check` reads a released row together with every row that
-  re-reads it. A coordinate is OK when any of those readings recorded what
-  the code holds now, and DRIFTED when none did, so two branches that edited
-  the same unit still leave the row DRIFTED. A `Corrected ·` row supersedes
+  re-reads it. For each coordinate only the newest reading counts, and two
+  readings dated the same day count together: a coordinate is OK when one
+  of them recorded what the code holds now, and DRIFTED when none did. Two
+  branches that edited the same unit still leave the row DRIFTED, and code
+  reverted to a hash only an older reading recorded reads DRIFTED too, so a
+  pair of hashes nobody read together is never accepted. A `Corrected ·` row supersedes
   the row it cites. A citation into a fragment, a citing row without its
   `Re-read <date>` or `Corrected <date>` note, and a citation whose row is
   gone are each named.

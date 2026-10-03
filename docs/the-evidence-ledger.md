@@ -93,15 +93,21 @@ always was.
 
 **The checker reads a released row together with the rows that read it, as
 one family:** the row, every `Re-read ·` row citing it, and every one citing
-those. A code coordinate is OK when any member recorded what it holds now,
-DRIFTED when none did, and BROKEN by the rules above. A `Corrected ·` row
-supersedes the family of the row it cites, whose coordinates are not checked
-again, and starts a family of its own. That is §*A correction a merge
-dropped*'s halves rule computed rather than applied by hand: the side that
-edited a unit is the side whose hash matches it, and where both edited it,
-neither matches. Its one cost is stated: content that returns to a hash an
-earlier reading recorded reads OK again, because somebody read the claim
-against that content.
+those. Of the members that record a coordinate, only the readings with the
+newest `Checked` date count, and readings that tie on that date are a union:
+the coordinate is OK when one of them recorded what it holds now, DRIFTED
+when none did, and BROKEN by the rules above. A `Corrected ·` row supersedes
+the family of the row it cites, whose coordinates are not checked again, and
+starts a family of its own. That is §*A correction a merge dropped*'s halves
+rule computed rather than applied by hand: two branches re-reading one row on
+one day tie, the side that edited a unit is the side whose hash matches it,
+and where both edited it, neither matches. Its cost is stated: content that
+returns to a hash only an older reading recorded reads DRIFTED — a partial
+revert, one unit back at an old reading while another sits at a newer one,
+and a whole revert of one unit alike — though somebody once read the claim
+against it. The cost is a re-read, never a question, and it is the price of
+never accepting a pair of hashes no reading saw together. A same-day pair of
+readings from two branches is still a union, so a revert to either reads OK.
 
 **A citation that does not hold is named.** One into a fragment is refused,
 because a fragment moves at the fold — re-stamp that fragment's row in place
