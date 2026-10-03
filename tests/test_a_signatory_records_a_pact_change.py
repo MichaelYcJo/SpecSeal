@@ -965,3 +965,64 @@ def test_a_refused_declaration_that_still_rules_always_out_leaves_no_row_unknown
     code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
     assert code == 0, out
     assert f"@{new}" in ledger.read_text(encoding="utf-8"), out
+
+
+def _minor_coordinate(repo):
+    text = (repo / "src" / "orders.py").read_text(encoding="utf-8")
+    places, _ = ec.resolve_unit("src/orders.py", "serialize", text)
+    a, b = ec.minor_region("src/orders.py", text, places[0], '"return"')[0]
+    h = ec.content_hash(ec.gfm_lines(text)[a - 1 : b])
+    return f'src/orders.py#serialize>"return"@{h}'
+
+
+def _leave(repo, how):
+    if how == "the file is gone":
+        (repo / "src" / "orders.py").unlink()
+    else:
+        (repo / "src" / "orders.py").write_text(
+            SOURCE.replace("    return {'id': order.id}", "    pass"),
+            encoding="utf-8",
+        )
+
+
+@pytest.mark.parametrize("how", ["the anchored statement is gone", "the file is gone"])
+def test_a_coordinate_the_reread_leaves_is_recorded(repo, how):
+    """A coordinate the re-read leaves because no one place holds it is
+    recorded `BROKEN`, as a major-only one is; it was left at exit 0 with
+    nothing recorded (round 2, yellow 14). A second run adds nothing."""
+    coord = _minor_coordinate(repo)
+    cite(repo, [row("O1", f"`{CLAUSE}`, ", coord)])
+    _leave(repo, how)
+    _code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/ledger/{ITEM}.md · O1 | `{coord}` BROKEN | 2026-09-04 |"
+    ], out
+    run(repo, "--into", FRAGMENT, "--checked", "2026-09-05")
+    assert len(record_rows(repo)) == 1
+
+
+@pytest.mark.parametrize("how", ["the anchored statement is gone", "the file is gone"])
+def test_under_the_freeze_a_coordinate_with_no_one_place_is_recorded(repo, how):
+    """`reverify_into`'s *no one place to hash* is the same exit under the
+    freeze: the released row is named and left, and its coordinate is
+    recorded `BROKEN` through the same record step."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(
+            ("Mode", "shared"), ("Pact", PACT_URL), ("Ledger frozen from", "0")
+        ),
+        encoding="utf-8",
+    )
+    coord = _minor_coordinate(repo)
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("O1", f"`{CLAUSE}`, ", coord),
+        encoding="utf-8",
+    )
+    cite(repo, [])
+    _leave(repo, how)
+    _code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    rows = record_rows(repo)
+    assert len(rows) == 1 and rows[0].endswith("BROKEN | 2026-09-04 |"), out
+    assert "seal/releases/0.1.0.md · O1" in rows[0], rows

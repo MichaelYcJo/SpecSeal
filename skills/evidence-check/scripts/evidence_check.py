@@ -3072,6 +3072,9 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None, moves=None):
                 continue
             if body is None:
                 print(f"  {left_as}  the file could not be read — left")
+                # Recorded as BROKEN, as a coordinate no one place holds is
+                # (round 2 of #647 C and D, yellow 14).
+                pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
             if len(places) != 1:
                 # Never silence. The check calls this row BROKEN and tells the
@@ -3090,6 +3093,7 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None, moves=None):
                         f"  {left_as}  the anchored statement is gone from "
                         f"{locator} — the check calls this DRIFTED; left"
                     )
+                    pending.append((m.start(), left_as, m.group("hash"), None))
                     continue
                 places = inside
             start, end = places[0]
@@ -3459,6 +3463,10 @@ def reverify_into(
             new = current_hash(m, root, maps, default_repo)
             if new is None:
                 left.append((where, f"{coord} — no one place to hash, so not re-read"))
+                # Recorded BROKEN through the same record step (round 2 of
+                # #647 C and D, yellow 14).
+                if moves is not None:
+                    moves.append((path, key[1], coord, m.group("hash"), None))
                 continue
             # M may come from any released member of the family, not from
             # KEY's own line (`released_drift`): slice the line it was matched
