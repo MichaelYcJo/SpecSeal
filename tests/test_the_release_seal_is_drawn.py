@@ -217,3 +217,236 @@ def test_the_seal_module_imports_without_pillow(monkeypatch):
     monkeypatch.setitem(sys.modules, "PIL", None)
     mod = seal()
     assert callable(mod.paint) and callable(mod.png)
+
+
+# --- S8: the rows are fixed and fit -----------------------------------------
+
+GATE = os.path.join(ROOT, "skills", "verify", "scripts", "broad_gate.py")
+
+
+def test_the_rows_are_the_fixed_set_in_order_and_fit_the_panel():
+    """S8. `release_rows` returns the fixed label set in order, the tag's
+    continuation carrying `main`. Every label fits `seal_stamp.letter`'s
+    eight-wide label column -- `deferred` is exactly eight, which is the only
+    reason the column looks set by it -- and no value is wider than
+    `broad_gate.PANEL_VALUE_WIDTH`. A count of 0 still draws its row."""
+    mod = seal()
+    rows = mod.release_rows("1.2.3", "aaa11111bbbb", 10, 0, (7003, 66), (10, 27, 6, 13))
+    assert rows == [*ROWS[:4], ("issues", "0 closed"), *ROWS[5:]], rows
+    assert all(len(label) <= 8 for label in mod.LABELS), mod.LABELS
+    assert [label for label, _ in rows if label] == list(mod.LABELS)
+    width = load(GATE, "broad_gate_for_the_release_rows").PANEL_VALUE_WIDTH
+    assert mod.PANEL_VALUE_WIDTH == width == 23
+    assert all(len(value) <= width for _, value in rows), rows
+
+
+def test_a_suite_wider_than_the_value_column_moves_skipped_to_its_own_row():
+    """S8, `questions.md` Q6. `7003 passed, 66 skipped` is exactly 23; a
+    five-digit suite is 25, so `S skipped` moves under `P passed` on a
+    continuation row rather than being cut at the frame. Seen red against
+    the rows that wrote the value whole."""
+    mod = seal()
+    rows = mod.release_rows("1.2.3", "aaa11111", 1, 1, (10003, 166), (1, 1, 0, 0))
+    at = [label for label, _ in rows].index("suite")
+    assert rows[at : at + 2] == [("suite", "10003 passed"), ("", "166 skipped")]
+    assert ("suite", "7003 passed, 66 skipped") in mod.release_rows(
+        "1.2.3", "aaa11111", 1, 1, (7003, 66), (1, 1, 0, 0)
+    )
+
+
+def test_a_chain_count_nobody_could_read_says_so_and_keeps_its_row():
+    """S8, S10, `questions.md` Q8. A chain count that is None was not read:
+    its row stays and says `not read`, never dropped and never 0. One issue
+    and one round are singular."""
+    mod = seal()
+    rows = dict(
+        (label, value)
+        for label, value in mod.release_rows(
+            "1.2.3", "aaa11111", 1, 1, (5, 0), (None, None, None, None)
+        )
+        if label
+    )
+    assert rows["items"] == rows["capped"] == rows["deferred"] == "not read"
+    one = dict(mod.release_rows("1.2.3", "aaa11111", 1, 1, (5, 0), (1, 1, 0, 1)))
+    assert one["items"] == "1 . 1 round" and one["deferred"] == "1 issue", one
+    assert one["capped"] == "0 of 1", one
+
+
+# --- S9: the suite counts come from JUnit -----------------------------------
+
+JUNIT = """<?xml version="1.0" encoding="utf-8"?>
+<testsuites name="pytest tests">{suites}</testsuites>
+"""
+SUITE = (
+    '<testsuite name="pytest" errors="{errors}" failures="{failures}" '
+    'skipped="{skipped}" tests="{tests}" time="1.0" '
+    'timestamp="2026-01-02T00:00:00" hostname="example">'
+    '<testcase classname="tests.test_x" name="test_y" time="0.1" />'
+    "</testsuite>"
+)
+
+
+def junit(tmp_path, *suites):
+    path = tmp_path / "suite.xml"
+    path.write_text(
+        JUNIT.format(
+            suites="".join(
+                SUITE.format(tests=t, failures=f, errors=e, skipped=s)
+                for t, f, e, s in suites
+            )
+        ),
+        encoding="utf-8",
+    )
+    return str(path)
+
+
+def test_the_suite_counts_are_read_from_pytests_junit_file(tmp_path):
+    """S9. Passed is `tests - failures - errors - skipped`, in the shape
+    pytest writes, and more than one `testsuite` is summed."""
+    mod = seal()
+    assert mod.suite_counts(junit(tmp_path, (7069, 0, 0, 66))) == (7003, 66)
+    assert mod.suite_counts(junit(tmp_path, (10, 0, 0, 2), (5, 0, 0, 1))) == (12, 3)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "not xml at all",
+        "<testsuites></testsuites>",
+        '<testsuites><testsuite tests="x" failures="0" errors="0" skipped="0"/>'
+        "</testsuites>",
+    ],
+    ids=["unparsable", "no suite", "not a number"],
+)
+def test_a_junit_file_that_cannot_be_read_is_a_failure_never_a_zero(tmp_path, text):
+    """S9. A file that does not parse, holds no suite or a count that is not
+    a number raises, so the seal falls back (S2) rather than drawing 0."""
+    path = tmp_path / "suite.xml"
+    path.write_text(text, encoding="utf-8")
+    with pytest.raises(ValueError):
+        seal().suite_counts(str(path))
+    with pytest.raises(OSError):
+        seal().suite_counts(str(tmp_path / "absent.xml"))
+
+
+@pytest.mark.parametrize(
+    "failed", [(10, 1, 0, 0), (10, 0, 1, 0)], ids=["failure", "error"]
+)
+def test_a_suite_that_did_not_pass_is_not_sealed(tmp_path, failed):
+    """S9. A failure or an error in the file raises: a `SEALED` above a red
+    suite would say something false."""
+    with pytest.raises(ValueError):
+        seal().suite_counts(junit(tmp_path, failed))
+
+
+# --- S10: the chain rows read the tree at the tag ---------------------------
+
+ROUTING = """| Axis | Answer |
+|---|---|
+| Review | through the review chain |
+| Destination | open the pull request |
+| Branch | {branch} |
+"""
+ROUND = """# round {n}
+
+## Verdicts
+
+| # | Verdict | Grounds |
+|---|---|---|
+{rows}
+"""
+
+
+def tree(tmp_path, branch="feat/12-an-item", verdicts=()):
+    """A repository root holding one work item that declares `branch`, with
+    one round record per entry of `verdicts`, each a list of verdict cells."""
+    item = tmp_path / "seal" / "specs" / "1700000000-an-item"
+    (item / "rounds").mkdir(parents=True)
+    (item / "routing.md").write_text(ROUTING.format(branch=branch), encoding="utf-8")
+    for n, cells in enumerate(verdicts, 1):
+        rows = "\n".join(f"| {i} | {cell} | why |" for i, cell in enumerate(cells, 1))
+        (item / "rounds" / f"round-{n}.md").write_text(
+            ROUND.format(n=n, rows=rows), encoding="utf-8"
+        )
+    return str(tmp_path)
+
+
+def pr(number, branch, *labels):
+    return {
+        "number": number,
+        "headRefName": branch,
+        "labels": [{"name": name} for name in labels],
+    }
+
+
+def test_the_chain_rows_count_items_rounds_capped_and_deferred(tmp_path):
+    """S10. One work item declaring the pull request's branch, three rounds
+    whose verdicts defer #12, then #13 and #14, then a file: one item, three
+    rounds, one capped, three distinct issues. A pull request no declaration
+    names is not an item, and its label still counts."""
+    root = tree(
+        tmp_path,
+        verdicts=[
+            ["fixed", "deferred #12"],
+            ["**deferred** #13, #14", "answered"],
+            ["deferred seal/follow-up.md", "deferred #12"],
+        ],
+    )
+    pulls = [
+        pr(20, "feat/12-an-item", "chain: capped"),
+        pr(21, "fix/nobody-declared-this"),
+    ]
+    assert seal().chain_counts(root, pulls) == (1, 3, 1, 3)
+
+
+def test_a_deferred_count_nobody_could_read_is_none_and_the_log_says_why(
+    tmp_path, capsys
+):
+    """S10, `questions.md` Q8. A round record whose verdict table cannot be
+    read leaves the deferred count None, which the row shows as `not read`,
+    and the log names the file; the items and rounds it could count stand."""
+    root = tree(tmp_path, verdicts=[["deferred #12"]])
+    record = tmp_path / "seal" / "specs" / "1700000000-an-item" / "rounds"
+    (record / "round-2.md").write_text("# round 2\n\nno verdicts\n", encoding="utf-8")
+    counts = seal().chain_counts(root, [pr(20, "feat/12-an-item")])
+    assert counts == (1, 2, 0, None), counts
+    out = capsys.readouterr().out
+    assert "round-2.md" in out and "deferred" in out, out
+
+
+def test_readers_that_will_not_load_leave_every_tree_row_unread(
+    tmp_path, monkeypatch, capsys
+):
+    """S10. Where the shared readers cannot be loaded, the three tree rows are
+    None and the log says why; capped is read from the labels alone."""
+    mod = seal()
+
+    def broken(*_):
+        raise ImportError("no reader")
+
+    monkeypatch.setattr(mod, "readers", broken)
+    counts = mod.chain_counts(
+        tree(tmp_path), [pr(20, "feat/12-an-item", "chain: capped")]
+    )
+    assert counts == (None, None, 1, None), counts
+    assert "no reader" in capsys.readouterr().out
+
+
+# --- S11: the alt text says what the image says -----------------------------
+
+
+def test_the_alt_text_is_one_sentence_carrying_every_value():
+    """S11. One sentence in the shape of 0.17.0's hand-written alt text,
+    carrying every value of the rows, with no `]` and no line break, so the
+    Markdown image it sits in cannot end early."""
+    text = seal().alt_text(ROWS)
+    assert text == (
+        "The 1.2.3 release seal: SEALED v1.2.3 at aaa11111 on main, 10 pull "
+        "requests merged, 11 issues closed, the suite at 7003 passed and 66 "
+        "skipped, 10 work items over 27 review rounds, 6 of them capped, 13 "
+        "issues deferred"
+    ), text
+    unread = seal().release_rows("1.2.3", "aaa11111", 1, 1, (5, 0), (None,) * 4)
+    text = seal().alt_text(unread)
+    assert "work items not read" in text and "deferred not read" in text, text
+    assert "]" not in text and "\n" not in text

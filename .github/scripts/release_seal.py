@@ -21,13 +21,38 @@ are stdlib-only (`CONTRIBUTING.md` §*Running the checks*), and nothing under
 in `.github/scripts/run_tests.py#PILLOW`.
 """
 
+import functools
+import importlib.util
 import os
-import sys
+import re
+import xml.etree.ElementTree as ElementTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-sys.path.insert(0, os.path.join(ROOT, "skills", "verify", "scripts"))
-import seal_stamp  # noqa: E402
+
+
+# The tree's own modules are loaded when first asked for, not at import: a
+# module that will not load is one more way for the seal to fail, and every
+# way it fails has to end in today's note and an exit of 0 (`main`), which an
+# import at the top of this file would end before `main` ran.
+def module(name, *parts):
+    """The tree's module at `ROOT/<parts>`, loaded once under `name`."""
+    return _module(name, os.path.join(ROOT, *parts))
+
+
+@functools.cache
+def _module(name, path):
+    spec = importlib.util.spec_from_file_location(name, path)
+    loaded = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(loaded)
+    return loaded
+
+
+def stamp():
+    """`skills/verify/scripts/seal_stamp.py`, whose `compose`, `block` and
+    `DEFAULT_SCALE` this draws with."""
+    return module("specseal_seal_stamp", "skills", "verify", "scripts", "seal_stamp.py")
+
 
 # One cell of the letter in pixels, and the size its characters are drawn
 # at: the hand-drawn 0.17.0 seal's, which the owner saw on the release page.
@@ -73,7 +98,7 @@ def paint(letter):
     ops, half = [], CELL_H // 2
     for y, line in enumerate(letter.cells):
         for x, cell in enumerate(line):
-            char, fg, bg = seal_stamp.block(cell)
+            char, fg, bg = stamp().block(cell)
             x0, y0 = x * CELL_W, y * CELL_H
             x1, y1 = x0 + CELL_W - 1, y0 + CELL_H - 1
             if bg is not None:
@@ -155,3 +180,229 @@ def png(ops, dimensions, path):
             pen.text((cx, cy), char, fill=colour, font=face, anchor="mm")
     image.save(path, format="PNG")
     return name
+
+
+# --- the rows ------------------------------------------------------------
+#
+# A release's panel is a fixed set of rows, held here as one constant: the
+# owner's 0.17.0 seal is the drawing, and a label the code composed from free
+# text could grow past `seal_stamp.letter`'s eight-wide label column. That
+# column is `{label:<8}`, not the longest label: `deferred` is exactly eight,
+# which is the only reason the column looked set by it.
+LABELS = ("SEALED", "tag", "PRs", "issues", "suite", "items", "capped", "deferred")
+# The widest value the panel carries before the frame would cut it,
+# `skills/verify/scripts/broad_gate.py#PANEL_VALUE_WIDTH`. Held here rather
+# than imported, because that module is the whole gate; a case holds the two
+# to one number.
+PANEL_VALUE_WIDTH = 23
+# What a row says when the source it is read from could not be read: the row
+# stays, because a dropped row reads as none and a 0 reads as a count
+# (`questions.md` Q8).
+NOT_READ = "not read"
+# The label the review chain puts on a pull request whose run ended at the
+# round cap (`docs/review-chain-spec.md`).
+CAPPED_LABEL = "chain: capped"
+
+
+def plural(count, word):
+    return f"{count} {word}{'' if count == 1 else 's'}"
+
+
+def release_rows(version, sha, pulls_n, issues_n, suite, chain):
+    """The panel's rows for a release, `(label, value)` with `""` for a
+    continuation, in `LABELS`' order.
+
+    `suite` is `(passed, skipped)`; `chain` is `chain_counts`' four, each a
+    number or None for not read. A suite value wider than
+    `PANEL_VALUE_WIDTH` moves `S skipped` to a continuation row under
+    `P passed` (`questions.md` Q6): only the suite can overflow, a five-digit
+    count and a three-digit skip being 25. The items row needs both its
+    numbers and the capped row both of its own, so either missing says
+    `not read`."""
+    items, rounds, capped, deferred = chain
+    passed, skipped = suite
+    rows = [
+        ("SEALED", f"v{version}"),
+        ("tag", sha[:8]),
+        ("", "main"),
+        ("PRs", f"{pulls_n} merged"),
+        ("issues", f"{issues_n} closed"),
+    ]
+    whole = f"{passed} passed, {skipped} skipped"
+    if len(whole) <= PANEL_VALUE_WIDTH:
+        rows.append(("suite", whole))
+    else:
+        rows += [("suite", f"{passed} passed"), ("", f"{skipped} skipped")]
+    rows += [
+        (
+            "items",
+            NOT_READ
+            if items is None or rounds is None
+            else f"{items} . {plural(rounds, 'round')}",
+        ),
+        (
+            "capped",
+            NOT_READ if capped is None or items is None else f"{capped} of {items}",
+        ),
+        ("deferred", NOT_READ if deferred is None else plural(deferred, "issue")),
+    ]
+    return rows
+
+
+def alt_text(rows):
+    """One sentence carrying every value of `rows`, in the shape of the alt
+    text written by hand for 0.17.0's seal, for a reader whose browser does
+    not draw the image. A `]` or a line break would end the Markdown image
+    early, so neither is let through."""
+    by = {}
+    for label, value in rows:
+        if label:
+            by[label] = [value]
+            last = label
+        else:
+            by[last].append(value)
+    sealed, tag = by["SEALED"][0], by["tag"]
+    first = f"The {sealed.removeprefix('v')} release seal: SEALED {sealed} at {tag[0]}"
+    suite = [part.strip() for value in by["suite"] for part in value.split(",")]
+    parts = [
+        first + "".join(f" on {more}" for more in tag[1:]),
+        plural(int(by["PRs"][0].split()[0]), "pull request") + " merged",
+        plural(int(by["issues"][0].split()[0]), "issue") + " closed",
+        "the suite at " + " and ".join(suite),
+    ]
+    items, capped, deferred = by["items"][0], by["capped"][0], by["deferred"][0]
+    if items == NOT_READ:
+        parts.append("work items not read")
+    else:
+        count, rounds = items.split(" . ")
+        rounds = rounds.replace("round", "review round")
+        parts.append(f"{plural(int(count), 'work item')} over {rounds}")
+    if capped == NOT_READ:
+        parts.append("capped not read")
+    else:
+        parts.append(f"{capped.split()[0]} of them capped")
+    parts.append(
+        "deferred not read" if deferred == NOT_READ else f"{deferred} deferred"
+    )
+    return re.sub(r"[\]\[\r\n]+", " ", ", ".join(parts))
+
+
+# --- the sources ---------------------------------------------------------
+
+
+def suite_counts(path):
+    """`(passed, skipped)` from the JUnit XML pytest wrote at `path`.
+
+    JUnit is pytest's documented output format, where a log is not: each
+    `testsuite` element carries `tests`, `failures`, `errors` and `skipped`,
+    and passed is the first less the other three, summed over every suite.
+    Raises `OSError` for a file that is not there and `ValueError` for one
+    that does not parse, holds no suite, carries a count that is not a
+    number, or counts a failure or an error -- a `SEALED` above a red suite
+    would be false, and a file nobody can read is never a zero."""
+    try:
+        root = ElementTree.parse(path).getroot()
+    except ElementTree.ParseError as problem:
+        raise ValueError(f"{path} is not JUnit XML: {problem}") from problem
+    suites = [root] if root.tag == "testsuite" else root.findall("testsuite")
+    if not suites:
+        raise ValueError(f"{path} holds no testsuite")
+    total = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+    for suite in suites:
+        for key in total:
+            try:
+                total[key] += int(suite.get(key, ""))
+            except ValueError as problem:
+                raise ValueError(
+                    f"{path}: a testsuite's {key} is {suite.get(key)!r}"
+                ) from problem
+    if total["failures"] or total["errors"]:
+        raise ValueError(
+            f"the suite at the tag did not pass: {total['failures']} failed and "
+            f"{total['errors']} errors"
+        )
+    passed = total["tests"] - total["failures"] - total["errors"] - total["skipped"]
+    return passed, total["skipped"]
+
+
+def readers():
+    """`(routing, chain_check, the markdown reader)`: the modules the review
+    chain's own gates read round records with, so the counts here are the
+    ones a gate would read and a change to where records live has to move
+    these readers first."""
+    return (
+        module("specseal_routing", "hooks", "routing.py"),
+        module(
+            "specseal_chain_check", "skills", "code-review", "scripts", "chain_check.py"
+        ),
+        module(
+            "specseal_unverified_reader",
+            "skills",
+            "verify",
+            "scripts",
+            "unverified_check.py",
+        ),
+    )
+
+
+def labels_of(pull):
+    return {
+        (label.get("name") if isinstance(label, dict) else str(label)) or ""
+        for label in pull.get("labels") or ()
+    }
+
+
+def chain_counts(root, pulls):
+    """`(items, rounds, capped, deferred)` for the release's pull requests,
+    each a number or None for not read, with the log saying why.
+
+    `capped` counts the pull requests labelled `CAPPED_LABEL`. A pull request
+    is a work item where exactly one `routing.md` under `root` names its head
+    branch (`hooks/routing.py#item_dir`), and its rounds are
+    `hooks/routing.py#rounds`. `deferred` is the number of distinct issues
+    named in a Verdicts cell whose verdict is `deferred`, read with
+    `chain_check.verdict_table` and `#verdict_of`; a home that is a file
+    names no issue. A round record whose verdict table cannot be read leaves
+    `deferred` None -- an incomplete count is a wrong number -- and a reader
+    that will not load leaves all three tree counts None."""
+    capped = sum(1 for pull in pulls if CAPPED_LABEL in labels_of(pull))
+    try:
+        routing, chain, reader = readers()
+    except Exception as problem:
+        print(
+            f"the chain rows are not read: the round-record readers did not load ({problem})"
+        )
+        return None, None, capped, None
+    items, rounds, deferred, unread = 0, 0, set(), []
+    for pull in pulls:
+        item = routing.item_dir(root, pull.get("headRefName") or "")
+        if not item:
+            continue
+        items += 1
+        if routing.rounds_unreadable(item):
+            unread.append(os.path.join(item, routing.ROUNDS_DIR))
+        records = routing.rounds(item)
+        rounds += len(records)
+        for path in records:
+            try:
+                with open(path, encoding="utf-8") as handle:
+                    text = handle.read()
+            except (OSError, UnicodeDecodeError):
+                unread.append(path)
+                continue
+            rows, col, _header, _errors = chain.verdict_table(
+                reader, reader.readable(text), path
+            )
+            if col < 0:
+                unread.append(path)
+                continue
+            for _line, seen in rows:
+                if chain.verdict_of(seen, col) == chain.DEFERRED:
+                    deferred.update(int(n) for n in re.findall(r"#(\d+)", seen[col]))
+    if unread:
+        print(
+            "the deferred row is not read: no verdict table could be read in "
+            + ", ".join(os.path.relpath(p, root) for p in unread)
+        )
+        return items, rounds, capped, None
+    return items, rounds, capped, len(deferred)
