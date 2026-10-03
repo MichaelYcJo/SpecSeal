@@ -42,7 +42,8 @@ leaves an attached image the note does not show, which the warning names.
 `DRY_RUN=1` draws the PNG at `SEAL_PNG` (by default `seal.png` in a
 temporary directory), prints the rows and the note it would write, and
 uploads and edits nothing, so the seal of a release whose job did not run can
-be drawn by hand and attached with `gh release upload`.
+be drawn by hand from a checkout at the tag, attached with
+`gh release upload` and shown with `gh release edit --notes-file`.
 
 Environment: `TAG`, `REPO`, `GH_TOKEN`, `SUITE_XML` (the JUnit file),
 `SUITE_OUTCOME` (the suite step's outcome), `DRY_RUN`, `SEAL_PNG`.
