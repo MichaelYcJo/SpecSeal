@@ -782,3 +782,52 @@ def test_a_refused_gh_or_git_call_is_a_reason_naming_the_call(monkeypatch):
     assert seen[-1] == ["git", "rev-parse", f"{TAG}^{{commit}}"]
     with pytest.raises(mod.Refused, match=r"^git rev-parse nope failed: HTTP 502$"):
         mod.tagged("nope")
+
+
+# --- the documents a person reads (contract §14) ----------------------------
+
+
+def flat(*parts):
+    with open(os.path.join(ROOT, *parts), encoding="utf-8") as handle:
+        return " ".join(handle.read().split())
+
+
+def test_the_release_tail_says_the_seal_is_a_second_act_that_never_fails_it():
+    """`docs/branch-and-release.md` §*Every act the release performs once it
+    reaches `main`*: the bullet on the note says the seal job runs only on a
+    release this run created, edits only a glance table still as generated,
+    and cannot turn the release red, and the section's `Enforced by:` line
+    names the case that pins the fallback."""
+    text = flat("docs", "branch-and-release.md")
+    bullet = text.split("**The release note publishes itself.**", 1)[1].split(
+        "- **", 1
+    )[0]
+    assert "**Then the release's seal is attached** (#718)" in bullet
+    assert "runs only when this run created the release" in bullet
+    assert (
+        "only to one whose glance table is still exactly as it was generated" in bullet
+    )
+    assert "so the seal can never turn the release red" in bullet
+    section = text.split("**Every act the release performs once it reaches `main`", 1)[
+        1
+    ]
+    enforced = section.split("Enforced by:", 1)[1].split("###", 1)[0]
+    assert (
+        "tests/test_the_release_seal_is_drawn.py::"
+        "test_any_failure_leaves_the_note_as_it_was_published" in enforced
+    )
+
+
+def test_the_checklist_box_says_where_a_missing_seal_is_explained():
+    """`docs/release-checklist.md` §6, the release-note box: it names the
+    `seal` job, says its log carries the reason on a `::warning::` line and
+    that it never fails the release, and gives the hand-drawn route."""
+    text = flat("docs", "release-checklist.md")
+    box = text.split("**A GitHub Release exists at `vX.Y.Z`**", 1)[1].split("- [ ]", 1)[
+        0
+    ]
+    assert "the same workflow's `seal` job attaches `seal.png`" in box
+    assert "says why on a `::warning::` line" in box
+    assert "That job never fails the release." in box
+    assert "`DRY_RUN=1 python3 .github/scripts/release_seal.py`" in box
+    assert "`gh release upload`" in box

@@ -334,7 +334,15 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
       a summary of the release's pull requests and a `### 🙌 Thanks to` line
       for each outside contributor, over the section folded; where the job
       log says the pull requests could not be listed, the note went out as
-      the section alone, which one `gh release edit` repairs.
+      the section alone, which one `gh release edit` repairs. After the
+      note, the same workflow's `seal` job attaches `seal.png` and puts it
+      where the glance table stood (#718). Where the note still shows the
+      table, the `seal` job's log says why on a `::warning::` line: the
+      suite at the tag did not pass, a `gh` call failed, or the note was
+      edited before the job reached it. That job never fails the release.
+      To draw one by hand, run `DRY_RUN=1 python3 .github/scripts/release_seal.py`
+      with `TAG`, `REPO` and `SUITE_XML` set, then attach the PNG it names
+      with `gh release upload`.
 - [ ] **The plugin directory's answer has been read** —
       `python3 .github/scripts/plugin_directory_check.py`. It says, per
       directory, whether this plugin is listed, which commit the entry pins,
