@@ -1306,3 +1306,34 @@ def test_a_checked_cell_the_calendar_does_not_have_does_not_outrank_a_re_read(re
     assert "1 citing row written" in out.stdout, out.stdout
     check = run(["--strict", "."], repo)
     assert check.returncode == 0, check.stdout
+
+
+def test_a_first_cell_equal_to_another_rows_cell_still_gets_a_citation(repo):
+    """R2's Notes cell is exactly R1's first cell, pipes and all, so even
+    `| R1 · handler adds one |` stands on R2's line. A literal that opens
+    with a row's leading pipe is matched where a line begins with it, and
+    only one line does (round 2, ⬜ 14)."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    r1, _ = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |",
+            f"| R2 · other doubles | `src/service.py#other@{o}` | read | 2026-01-01 | R1 · handler adds one |",
+        ],
+    )
+    path = repo / "seal" / "releases" / "0.1.0.md"
+    number = path.read_text().splitlines().index(r1) + 1
+    cite = ec.citation_for(str(repo), str(path), number)
+    assert cite is not None
+    edit_handler(repo)
+    fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, "
+            f"`src/service.py#handler@{unit_hash(repo, 'src/service.py', 'handler')}` "
+            "| read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+    )
+    out = run(["--strict", "."], repo)
+    assert out.returncode == 0, out.stdout

@@ -794,6 +794,13 @@ def literal_statements(lines, region, literal):
     hits = [
         n for n in range(lo, hi + 1) if want and want in " ".join(lines[n - 1].split())
     ]
+    if len(hits) > 1 and want.startswith("| "):
+        # A literal opening with a table row's leading pipe names the row
+        # whose line begins with it: another row can hold the same run as a
+        # later cell, and no later cell begins a line (round 2, ⬜ 14).
+        starts = [n for n in hits if " ".join(lines[n - 1].split()).startswith(want)]
+        if len(starts) == 1:
+            hits = starts
     if len(hits) != 1:
         return [(n, n) for n in hits]
     at = hits[0]
@@ -2184,9 +2191,12 @@ def unique_literal(lines, region, number, cell):
         hits = literal_statements(lines, region, tail + " |")
         if len(hits) == 1 and hits[0][0] == number:
             return tail + " |"
-    # The cell whole, with the row's leading pipe: a first cell begins its
-    # line, and no other cell does, so this names the row even where the
-    # whole cell also ends another row's last cell (round 1, ⬜ 9).
+    # The cell whole, with both of its pipes. The match is a substring, so
+    # the run can stand on another row's line as one of its later cells;
+    # `literal_statements` then keeps the one line that begins with it,
+    # which only a first cell does (round 1, ⬜ 9; round 2, ⬜ 14). The same
+    # rule resolves the citation in `cited_row`, `minor_region` and
+    # `--reverify`, so all three name the row this names.
     whole = "| " + " ".join(cell.split()) + " |"
     if not LITERAL_STOP_RE.search(whole[2:-2]):
         hits = literal_statements(lines, region, whole)
