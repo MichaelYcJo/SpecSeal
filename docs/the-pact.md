@@ -147,12 +147,14 @@ item keeps two branches from appending to one file. Each row names the
 clause as the ledger row cites it, the ledger row, what moved (each
 coordinate from its recorded hash to its current one, or `BROKEN`) and the
 date; the file's name says why, through that work item's `spec.md`. A
-coordinate already recorded for the same clause and ledger row, with the same
-move or the same `BROKEN`, is not recorded again, compared as the record's
-reader reads a cell, so a second identical run leaves the record byte for byte
-as it was and its content hash with it. A record that will not read or parse
+coordinate whose last recorded row for the same clause and ledger row says
+the same move or the same `BROKEN` is not recorded again, compared as the
+record's reader reads a cell, so a second identical run leaves the record byte
+for byte as it was and its content hash with it; a change that comes back
+after its revert is recorded, because the record's last word for it was the
+revert. A record that will not read or parse
 is named and left, with nothing appended.
-Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_s11_a_broken_coordinate_is_recorded_and_the_row_left, tests/test_a_signatory_records_a_pact_change.py::test_s11_a_second_run_records_nothing_twice, tests/test_a_signatory_records_a_pact_change.py::test_a_record_that_will_not_parse_is_left_and_named, tests/test_a_signatory_records_a_pact_change.py::test_a_second_identical_run_leaves_the_record_byte_identical, tests/test_a_signatory_records_a_pact_change.py::test_this_repositorys_own_piped_coordinates_are_recorded_once
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_s11_a_broken_coordinate_is_recorded_and_the_row_left, tests/test_a_signatory_records_a_pact_change.py::test_s11_a_second_run_records_nothing_twice, tests/test_a_signatory_records_a_pact_change.py::test_a_record_that_will_not_parse_is_left_and_named, tests/test_a_signatory_records_a_pact_change.py::test_a_second_identical_run_leaves_the_record_byte_identical, tests/test_a_signatory_records_a_pact_change.py::test_this_repositorys_own_piped_coordinates_are_recorded_once, tests/test_a_signatory_records_a_pact_change.py::test_a_change_relanded_after_its_revert_is_recorded
 
 ## A signatory's CI prints and verifies nothing
 

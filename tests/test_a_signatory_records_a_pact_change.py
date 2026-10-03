@@ -885,3 +885,23 @@ def test_a_record_that_cannot_be_written_leaves_the_ledger(repo):
     code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
     assert code == 1 and "could not be written" in out and UNDONE in out, out
     assert ledger.read_text(encoding="utf-8") == "".join(rows), out
+
+
+def test_a_change_relanded_after_its_revert_is_recorded(repo):
+    """A→B, B→A, A→B: the third is a change the pact's repository has not
+    seen since the revert, because the record's last word for the coordinate
+    was the revert (round 2, yellow 12)."""
+    a = unit_hash(repo, "src/orders.py", "serialize")
+    cite(repo, [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{a}")])
+    b = move_serialize(repo)
+    run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    (repo / "src" / "orders.py").write_text(SOURCE, encoding="utf-8")
+    run(repo, "--into", FRAGMENT, "--checked", "2026-09-05")
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-06")
+    assert code == 0, out
+    rows = record_rows(repo)
+    assert len(rows) == 3, rows
+    assert rows[-1].endswith(
+        f"`src/orders.py#serialize@{a}` → `@{b}` | 2026-09-06 |"
+    ), rows

@@ -3585,9 +3585,10 @@ def record_pact_changes(moves, root, into, checked):
     decides which: `when the pact is touched` (the default) records a row
     citing a clause of a pact the `Pact` row declares, `always` also records
     every other row with `—` for its clause, and `never` records nothing. A
-    coordinate already recorded for the same clause and row, with the same
-    move or the same BROKEN, is not recorded again, whatever its date, so a
-    second run records nothing twice.
+    coordinate whose last recorded row for the same clause and ledger row says
+    the same move or the same BROKEN is not recorded again, whatever its date,
+    so a second run records nothing twice; a change that comes back after its
+    revert is recorded, because the record's last word for it was the revert.
 
     Exit 1, recording nothing, where a row is owed and no work item names the
     file, where the file is there and will not read or parse, where the
@@ -3691,15 +3692,17 @@ def record_pact_changes(moves, root, into, checked):
             + "\n"
         )
         rows = []
-    # Held per coordinate, and compared in the form the record's reader reads
-    # a cell in (`\\|` a pipe), so a row is not recorded again because one of
-    # its coordinates was recorded beside another, or because its text holds
-    # an escaped pipe (round 1 of #647 C and D, yellow 2).
-    held = {
-        (clause, row, *part.group("coord", "old", "new"))
-        for _l, clause, row, code, _c in rows
-        for part in CODE_PART.finditer(code)
-    }
+    # The last thing recorded for each coordinate of each clause and row, in
+    # the form the record's reader reads a cell in (`\\|` a pipe). A
+    # coordinate is recorded again only where what it did now is not what it
+    # was last recorded doing: a second identical run adds nothing, a change
+    # re-landed after its revert is recorded (round 2 of #647 C and D, yellow
+    # 12), and a run killed after recording is finished by the next, which
+    # finds its move the record's last word already.
+    last = {}
+    for _l, clause, row, code, _c in rows:
+        for part in CODE_PART.finditer(code):
+            last[(clause, row, part.group("coord"))] = part.group("old", "new")
     date = checked or datetime.date.today().isoformat()
     new = []
     for where, clause, row, parts in owed:
@@ -3707,11 +3710,11 @@ def record_pact_changes(moves, root, into, checked):
         fresh = [
             (coord, old, nw)
             for coord, old, nw in parts
-            if (*key, config.unescaped(coord), old, nw) not in held
+            if last.get((*key, config.unescaped(coord))) != (old, nw)
         ]
         if not fresh:
             continue
-        held.update((*key, config.unescaped(c), o, n) for c, o, n in fresh)
+        last.update(((*key, config.unescaped(c)), (o, n)) for c, o, n in fresh)
         code = ", ".join(
             f"`{coord}@{old}` → `@{nw}`" if nw else f"`{coord}@{old}` BROKEN"
             for coord, old, nw in fresh
