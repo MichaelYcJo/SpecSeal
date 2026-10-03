@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 745 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `8f59851fd01eea8a5ad8f21b3db5fb365734ff1d..8f59851fd01eea8a5ad8f21b3db5fb365734ff1d`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 9, the list of words in `docs/worktree-guard-spec.md` §*Which tree*'s rule, which counts a checkout's name before `--` and leaves out a bare `-B`, and which no case pins |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 3 is a verifying round and the run's last, since round 2 closed on fixes a
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 9 | the rule's list of words says a `checkout` naming a word before `--` is a switch and names `checkout -b` but not `-B`; the guard reads any `checkout` carrying `--` as nothing and a bare `-B` as a switch, and no case pins the list | `docs/worktree-guard-spec.md:631` | open | executed: my generator, 2,859 commands; the sentence's words in place of `switch_kind` differ on 37 shapes (a name before `--`, silent through `main()`) and 58 shapes (a bare `-B`, asked through `main()`); deleting the sentence leaves the module green; real git restores without moving HEAD and refuses a bare `-B`. The same class as yellows 1 and 5, in a unit round 2's fix created |
-| ⬜ 10 | the new rule case's `own in frozen` half can never fire, because the function-level default already subtracts the same set; its docstring claims a check it does not make | `tests/test_guard_resolves_the_tree_it_judges.py:1226` | open | executed: the mutant dropping `kind not in frozen` leaves the case green, and only `test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it` fails; read: the default `judged` and the case's `frozen` are the same expression. Behaviour held, so not counted in `Needs a fix` |
+| 🟡 9 | the rule's list of words says a `checkout` naming a word before `--` is a switch and names `checkout -b` but not `-B`; the guard reads any `checkout` carrying `--` as nothing and a bare `-B` as a switch, and no case pins the list | `docs/worktree-guard-spec.md:631` | deferred #750 | #750 — The run is capped at the reopening bound, which commissions nothing. The guard behaves rightly in every case; the sentence word list is filed with the reviewer fix and pin; executed: my generator, 2,859 commands; the sentence's words in place of `switch_kind` differ on 37 shapes (a name before `--`, silent through `main()`) and 58 shapes (a bare `-B`, asked through `main()`); deleting the sentence leaves the module green; real git restores without moving HEAD and refuses a bare `-B`. The same class as yellows 1 and 5, in a unit round 2's fix created |
+| ⬜ 10 | the new rule case's `own in frozen` half can never fire, because the function-level default already subtracts the same set; its docstring claims a check it does not make | `tests/test_guard_resolves_the_tree_it_judges.py:1226` | deferred #750 | #750 — The same paragraph and test module; filed beside 🟡 9; executed: the mutant dropping `kind not in frozen` leaves the case green, and only `test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it` fails; read: the default `judged` and the case's `frozen` are the same expression. Behaviour held, so not counted in `Needs a fix` |
 | 🟢 | round 2's yellow-severity finding 5 is closed for what it named — the detach promise and the list of positions are gone, and the rule's condition matches the guard | `docs/worktree-guard-spec.md:628` | confirmed | executed: over 2,859 commands of my own generator, the condition with `switch_kind`'s words and the guard agree on every shape; under zsh-handed argv, the only other difference is `{fd}` in front of `git`, which bash 4.1 runs. The residual, in the list of words, is finding 9 |
 | 🟢 | round 2's white 6 is closed — the changelog's first bullet states the condition, with no detach promise and no `-q` example | `seal/specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole/changelog.md:3` | confirmed | read against the executions above; the bullet names no list of words, so finding 9 does not reach it |
 | 🟢 | round 2's white 7 is closed — the env sentence is narrowed to an abbreviated split string, and says a fully spelt `-S` is still read | `seal/specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole/changelog.md:25` | confirmed | executed: `reparsed_texts` reads nothing from `env --quoti --spl`, and reads the string from `env --e -S` and `env --e --split-string`; macOS `env` refuses all three |
