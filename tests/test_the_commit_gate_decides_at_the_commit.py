@@ -1152,6 +1152,9 @@ STEPS_AROUND = {
     "-c core.hooksPath": "git -c core.hooksPath=/dev/null commit -m x",
     "the key in another case": "git -c CORE.HOOKSPATH=/dev/null commit -m x",
     "--config-env": "git --config-env=core.hooksPath=H commit -m x",
+    # #716: the same option with its value as a separate word. Seen red at
+    # `233f0455`, where the reading took the value for the subcommand.
+    "--config-env, spaced": "git --config-env core.hooksPath=H commit -m x",
     "GIT_CONFIG_COUNT": (
         "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.hooksPath "
         "GIT_CONFIG_VALUE_0=/nonexistent git commit -m x"

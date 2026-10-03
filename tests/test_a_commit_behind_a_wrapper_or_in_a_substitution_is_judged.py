@@ -18,7 +18,8 @@ Three readings are added, all in the stricter direction:
   and the directory is unresolved.
 - **A command that hands a string to a shell** -- `sh -c`, `bash -c`, `su
   -c`, `script -c`, `env -S`, `watch '…'` -- has that string read as a
-  command, the way `eval`'s argument already was.
+  command, as `eval`'s argument is; `env -S`'s is also read as `env`'s own
+  words (#716).
 - **A command substitution** -- `$( … )`, backticks, `<( … )`, `>( … )` -- has
   its body read as a command. A commit there runs in a subshell the walk does
   not place, so it is a stop wherever the session's own repository opted in.
@@ -111,6 +112,37 @@ HANDED = {
     "env --split-string=": f"env --split-string='{C}'",
     "a command word the shell expands": 'sh -c "$CMD"',
     "a command in the string behind a list opener": f"bash -c 'if true; then {C}; fi'",
+    # #716: `env` splits the string into its OWN arguments, so `-i git commit`
+    # runs `env -i git commit`. Each read the string alone as a command whose
+    # word is `-i`, and found nothing, at `233f0455`.
+    "env -S, env's own words": f"env -S '-i {C}'",
+    "env -S glued, env's own words": f"env -S'-i {C}'",
+    "env --split-string, env's own words": f"env --split-string '-i {C}'",
+    "env --split-string=, env's own words": f"env --split-string='-i {C}'",
+    "genv -S, env's own words": f"genv -S '-i {C}'",
+    "env -S, the command after the string": "env -S '-i git' commit -m x",
+    # Round 1 of 1790993140, yellow 2: a cluster ending in `S`, which macOS
+    # `env` accepts, and GNU's abbreviation of `--split-string`. Each found
+    # nothing at `07a3dc7f`.
+    "env -iS, a cluster": f"env -iS '{C}'",
+    "env -vS, a cluster carrying env's own words": f"env -vS '-i {C}'",
+    "env -iS glued": f"env -iS'{C}'",
+    "env --split, abbreviated": f"env --split '-i {C}'",
+    "env --split=, abbreviated": f"env --split='-i {C}'",
+    "env -iS behind an option's value": f"env -u FOO -iS '{C}'",
+    # Round 2 of 1790993140, yellow 9: GNU's getopt takes a prefix of a long
+    # option that takes a value too, so its value is still env's own word.
+    # Each found nothing at `f1629706`.
+    "env -iS behind --un's value": f"env --un FOO -iS '{C}'",
+    "env -iS behind --ch's value": f"env --ch /tmp -iS '{C}'",
+    "env --split behind --ar's value": f"env --ar x --split '{C}'",
+    # Round 2 of 1790993140, yellow 10: a redirection among env's options is
+    # the shell's, and env still reads the cluster after it (macOS `env`,
+    # executed by the round). Each found nothing at `f1629706`.
+    "env -iS behind a redirection": f"env 2>/dev/null -iS '{C}'",
+    "env -iS behind a redirection after a value": f"env -u FOO 2>/dev/null -iS '{C}'",
+    "env -iS behind a redirection before a value": f"env -u 2>/dev/null FOO -iS '{C}'",
+    "env -vS behind a cut redirection": f"env -i 2>&1 -vS '{C}'",
 }
 
 SUBSTITUTED = {
@@ -215,6 +247,32 @@ CONTROLS = {
     "a redirection to $LOG behind a runner's options": "sh -c 'nice -n 5 make >\"$LOG\"'",
     "a redirection to $LOG in a function body": "sh -c 'f() { >\"$LOG\" echo hi; }; f'",
     "{fd}> in a case arm": "sh -c 'case a in a) {fd}>f echo hi;; esac'",
+    # #716: `env -S`'s string read as env's own words commits nothing where
+    # it holds no commit.
+    "env -S with no commit": "env -S 'echo hi'",
+    "env -S with env's own option and no commit": "env -S '-i true'",
+    # Round 1 of 1790993140, yellow 1: env's own words are arguments to
+    # `env`, so a variable among them names no command, and a quoted operand
+    # stays one word. Each was a deny in a declared repository at `07a3dc7f`
+    # and silent at `233f0455`.
+    "env -S behind an option's variable value": "env -u \"$V\" -S 'echo hi'",
+    "env -S behind a variable directory": "env -C \"$D\" -S 'echo hi'",
+    "env -S with a variable operand": "env -S 'echo' \"$X\"",
+    "env -S with a quoted operand holding a list": "env -S 'echo' 'a && git commit -m y'",
+    "env -S with a quoted operand holding a ;": "env -S 'printf %s' 'x; git commit -m y'",
+    # An option's value before the split string reaches `env` as one word too.
+    "env -S behind an option value holding a ;": "env -u 'a; git commit -m y' -S 'echo hi'",
+    # Round 1 of 1790993140, yellow 2: a cluster ending in `S` after the
+    # program is the program's (`ls -lS`), not a split string.
+    "a program's own cluster ending in S": 'env ls -lS "$DIR"',
+    # Round 2 of 1790993140, white 11: `--` ends env's options, so the word
+    # after it is the program `-iS`, not a cluster. A deny at `f1629706`,
+    # silent at `233f0455`.
+    "a program after env's --": "env -- -iS 'git commit -m y'",
+    "a program after env's -- behind an option": "env -i -- -vS 'git commit -m y'",
+    # A letter no synopsis has ends the cluster: getopt fails, and env runs
+    # nothing, so the `S` after it spells no split string.
+    "a cluster holding a letter no synopsis has": "env -xS 'git commit -m y'",
 }
 
 # #674: round 1's seven controls, rewritten into each position the work item
@@ -706,9 +764,27 @@ TEXTS = {
     "su --command, separate": (["su", "--command", "a b"], ["a b"]),
     "--command is su's, not a shell's": (["bash", "--command", "a b"], []),
     "watch": (["watch", "-n", "5", "a b"], ["5", "a b"]),
-    "env -S": (["env", "-S", "a b"], ["a b"]),
-    "env -S glued": (["env", "-Sa b"], ["a b"]),
-    "env --split-string=": (["env", "--split-string=a b"], ["a b"]),
+    # #716: the string is also read as `env`'s own words, beside the string
+    # alone. The base text stays first, so every answer it gave is kept.
+    "env -S": (["env", "-S", "a b"], ["a b", "env a b"]),
+    "env -S glued": (["env", "-Sa b"], ["a b", "env a b"]),
+    "env --split-string=": (["env", "--split-string=a b"], ["a b", "env a b"]),
+    "env -S, the words around it": (
+        ["env", "-v", "-S", "-i a", "b"],
+        ["-i a", "env -v -i a b"],
+    ),
+    "env -S past a redirection": (
+        ["env", "-S", "2>/dev/null", "a b", "c"],
+        ["2>/dev/null", "a b", "env a b c"],
+    ),
+    "env -S behind a redirection": (
+        ["env", "2>", "/dev/null", "-S", "a b"],
+        ["a b", "env a b"],
+    ),
+    "env -S with no string after its redirection": (
+        ["env", "-S", "2>/dev/null"],
+        ["2>/dev/null"],
+    ),
     "behind a runner": (["sudo", "sh", "-c", "a b"], ["a b"]),
 }
 
@@ -791,3 +867,127 @@ def test_a_cd_the_walk_did_not_see_stops(monkeypatch, capsys, shape, tmp_path):
     u = make_repo(tmp_path / "u")
     command = shape.format(u=u)
     assert say(monkeypatch, capsys, command, session) != "silent", command
+
+
+# #716: git's global options that take their value as a SEPARATE word. Each
+# was run as `git <option> <value> status` on git 2.54.0 in a scratch
+# repository, and status ran for exactly these (`phases/phase-1.md`, M1). The
+# last three were missing from `_git_options`, so the value read as the
+# subcommand and the commit behind it was no commit.
+SPACED_OPTIONS = {
+    "-C": ".",
+    "-c": "a.b=c",
+    "--git-dir": ".git",
+    "--work-tree": ".",
+    "--namespace": "n",
+    "--config-env": "core.hooksPath=VAR",
+    "--attr-source": "HEAD",
+    "--shallow-file": "x",
+}
+
+
+@pytest.mark.parametrize("option", sorted(SPACED_OPTIONS))
+def test_a_commit_behind_a_spaced_global_option_is_read(option, tmp_path):
+    """Seen red at `233f0455` for `--config-env`, `--attr-source` and
+    `--shallow-file`, where each returned nothing."""
+    value = SPACED_OPTIONS[option]
+    assert found(f"git {option} {value} commit -m x", tmp_path), option
+    assert not found(f"git {option} {value} status", tmp_path), option
+
+
+@pytest.mark.parametrize("declared", [False, True])
+def test_the_gate_judges_a_spaced_config_env(monkeypatch, capsys, tmp_path, declared):
+    """#716's own shape: it stops where any commit stops, and a declared
+    repository meets no new stop. Seen red at `233f0455`, silent undeclared."""
+    repo = make_repo(tmp_path / "repo", declared=declared)
+    command = "git --config-env core.hooksPath=VAR commit -m x"
+    assert say(monkeypatch, capsys, command, repo) == ("silent" if declared else "deny")
+
+
+def test_a_glued_config_env_reads_as_it_did():
+    assert cmdline.parse_git(["git", "--config-env=k=v", "commit", "-m", "x"]) == (
+        "commit",
+        ["-m", "x"],
+        [],
+    )
+
+
+# Round 2 of 1790993140: `env`'s option grammar, one case per row of
+# `cmdline.ENV_OPTIONS`. Written from GNU coreutils env's and BSD/macOS env's
+# synopses, not from the table: each spelling, with the value its synopsis
+# gives it, stands in front of a cluster that hides a commit. A flag read as
+# taking a value eats the cluster, and an option with a value read as a flag
+# ends env's options at its value; either way the commit is found by nothing.
+# GNU env is not installed here, so its half is read, not run.
+ENV_SPELLINGS = {
+    "-i": "-i",
+    "-0": "-0",
+    "-v": "-v",
+    "-u": "-u FOO",
+    "-C": "-C /tmp",
+    "-S": "-S '-i true'",
+    "-a": "-a x",
+    "-P": "-P /bin",
+    "-L": "-L user",
+    "-U": "-U user",
+    "--ignore-environment": "--ignore-environment",
+    "--null": "--null",
+    "--debug": "--debug",
+    "--unset": "--unset FOO",
+    "--chdir": "--chdir /tmp",
+    "--split-string": "--split-string '-i true'",
+    "--argv0": "--argv0 x",
+    "--block-signal": "--block-signal",
+    "--default-signal": "--default-signal",
+    "--ignore-signal": "--ignore-signal",
+    "--list-signal-handling": "--list-signal-handling",
+    "--help": "--help",
+    "--version": "--version",
+}
+
+# The same grammar's other spellings: a value attached, an abbreviation, a
+# cluster holding a value, and a redirection before, between and after.
+ENV_GRAMMAR = {
+    "a value after =": "--unset=FOO",
+    "an optional value after =": "--block-signal=INT",
+    "a value glued to its letter": "-uFOO",
+    "a cluster ending in a letter with a value": "-iu FOO",
+    "an abbreviation with a value": "--un FOO",
+    "an abbreviation with no value": "--ign",
+    "a lone -": "-",
+    "a redirection before the options": "2>/dev/null -i",
+    "a redirection between an option and its value": "-u 2>/dev/null FOO",
+    "a redirection between two options": "-u FOO 2>/dev/null -0",
+    "a redirection after the options": "-i 2> /dev/null",
+}
+
+
+def test_every_row_of_the_env_grammar_has_a_case():
+    rows = set()
+    for short, long, _value in cmdline.ENV_OPTIONS:
+        rows |= {f"-{short}"} if short else set()
+        rows |= {long} if long else set()
+    assert rows == set(ENV_SPELLINGS), rows ^ set(ENV_SPELLINGS)
+
+
+@pytest.mark.parametrize("name", sorted({**ENV_SPELLINGS, **ENV_GRAMMAR}))
+def test_a_cluster_behind_env_s_own_options_is_read(name, tmp_path):
+    """Each found nothing at `f1629706` where the row's value, a redirection,
+    an abbreviation or the cluster's value is what ended env's options."""
+    spelling = {**ENV_SPELLINGS, **ENV_GRAMMAR}[name]
+    command = f"env {spelling} -vS '{C}'"
+    assert found(command, tmp_path), command
+
+
+def test_the_split_string_after_the_options_is_read_past_a_redirection(tmp_path):
+    assert found(f"env -iS 2>/dev/null '{C}'", tmp_path)
+    assert found(f"env --spl 2>/dev/null '{C}'", tmp_path)
+
+
+def test_an_ambiguous_prefix_names_no_long_option():
+    """GNU's getopt refuses a prefix of two long names (`--i`, `--d`), and env
+    then runs nothing; one long name's prefix is that name."""
+    assert cmdline._env_long("--i", True) is None
+    assert cmdline._env_long("--d", True) is None
+    assert cmdline._env_long("--un", True) == "--unset"
+    assert cmdline._env_long("--un", False) is None

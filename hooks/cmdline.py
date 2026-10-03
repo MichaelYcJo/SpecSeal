@@ -1698,7 +1698,7 @@ def _hands_a_string(word, tok):
     return tok.startswith("-") and not tok.startswith("--") and "c" in tok[1:]
 
 
-def reparsed_texts(tokens):
+def reparsed_texts(tokens, env_words=True):
     """Every string in this segment that a program hands to a shell to parse.
 
     `sh -c`, `bash -c` and the other `SHELLS`, `su -c`, `runuser -c` and
@@ -1710,6 +1710,10 @@ def reparsed_texts(tokens):
     the string costs a silence. A program found anywhere in the segment
     counts, not only as its command word: `sudo sh -c` and `xargs -I{} sh -c`
     put it behind a runner.
+
+    ENV_WORDS adds `env -S`'s string read as `env`'s own words (#716).
+    `command_strings` passes False: it asks which command word expands, and
+    env's other words are its arguments, never a command word.
     """
     texts = []
     for k, tok in enumerate(tokens):
@@ -1724,14 +1728,148 @@ def reparsed_texts(tokens):
             # is; placing its command word is a parser (`spec.md` §*Scope*).
             texts += [t for t in rest if not t.startswith("-")]
         elif word in ("env", "genv"):
+            # OWN: still among env's own options, read through `ENV_OPTIONS`,
+            # where a cluster or an abbreviation can spell the split string.
+            # A redirection anywhere among them is the shell's and is read
+            # past; `--` ends them (rounds 1 and 2 of 1790993140). The split
+            # string's unabbreviated spellings are read anywhere, as the base
+            # read them.
+            own, value, skip = True, False, 0
             for j, t in enumerate(rest):
-                if t in ("-S", "--split-string") and j + 1 < len(rest):
+                if skip:
+                    skip -= 1
+                    continue
+                width = redirection_width(rest, j) if own else 0
+                if width:
+                    skip = width - 1
+                    continue
+                at, takes_next = _env_option(t, own and not value)
+                if value:
+                    value = False
+                elif own and (t == "--" or not t.startswith("-")):
+                    own = False
+                elif own:
+                    value = takes_next or (at is not None and at[0] == "next")
+                if at is None:
+                    continue
+                kind, string = at
+                if kind == "next" and j + 1 < len(rest):
                     texts += _string_at(rest, j + 1)
-                elif t.startswith("--split-string="):
-                    texts.append(t.split("=", 1)[1])
-                elif t.startswith("-S") and len(t) > 2:
-                    texts.append(t[2:])
+                    after = rest[j + 1 :]
+                elif kind == "here":
+                    texts.append(string)
+                    after = [string, *rest[j + 1 :]]
+                else:
+                    continue
+                if env_words:
+                    texts += _env_words(word, rest[:j], after)
     return texts
+
+
+# Every option of `env`, and the one table the env arm of `reparsed_texts`
+# reads them from (round 2 of 1790993140). Sources, read and not run here: GNU
+# coreutils env's synopsis (`env --help` and env(1), coreutils 9.x) and
+# BSD/macOS env's (env(1) on macOS and FreeBSD 14). (short, long, value):
+# VALUE is `ENV_STRING` for the split string, "required" for a value attached
+# or in the next word, "optional" for one attached with `=` only, None for no
+# value. A short option a synopsis gives no long name has None there.
+#
+# What the table does not need a row for: a lone `-`, which both synopses take
+# as `-i` and which starts with `-`, so the walk reads it as one of env's own
+# options; and `--`, which ends them. GNU's getopt takes an unambiguous prefix
+# of a long name (`--un`, `--spl`); an ambiguous one (`--i`, `--d`) is an
+# error, after which env runs nothing, so it is read as a flag.
+ENV_STRING = "string"
+ENV_OPTIONS = (
+    ("i", "--ignore-environment", None),
+    ("0", "--null", None),
+    ("v", "--debug", None),
+    ("u", "--unset", "required"),
+    ("C", "--chdir", "required"),
+    ("S", "--split-string", ENV_STRING),
+    ("a", "--argv0", "required"),
+    ("P", None, "required"),
+    ("L", None, "required"),
+    ("U", None, "required"),
+    (None, "--block-signal", "optional"),
+    (None, "--default-signal", "optional"),
+    (None, "--ignore-signal", "optional"),
+    (None, "--list-signal-handling", None),
+    (None, "--help", None),
+    (None, "--version", None),
+)
+_ENV_SHORT = {short: value for short, _long, value in ENV_OPTIONS if short}
+_ENV_LONG = {long: value for _short, long, value in ENV_OPTIONS if long}
+
+
+def _env_long(name, abbreviated):
+    """The long option NAME spells in `ENV_OPTIONS`, or None.
+
+    Exactly, or, where ABBREVIATED, as the one long name it is a prefix of,
+    which is GNU getopt's rule; `--` alone is no prefix.
+    """
+    if name in _ENV_LONG:
+        return name
+    if not abbreviated or len(name) < 3:
+        return None
+    found = [long for long in _ENV_LONG if long.startswith(name)]
+    return found[0] if len(found) == 1 else None
+
+
+def _env_option(t, own):
+    """What T is to `env`: (where it spells the split string, takes_next).
+
+    The first is ("next", None) where the split string is the next word,
+    ("here", s) where T carries it, and None otherwise. TAKES_NEXT is True
+    where T is an option whose value is the next word. Among env's own
+    options (OWN) a short cluster is read letter by letter, up to the letter
+    whose value is the rest of the word or the next one (`-iS`, `-vu FOO`),
+    and a long name in any prefix getopt takes. Elsewhere only the split
+    string's unabbreviated spellings at a word's head count, as the base read
+    them (#716).
+    """
+    if t.startswith("--"):
+        name, eq, attached = t.partition("=")
+        value = _ENV_LONG.get(_env_long(name, own))
+        if value == ENV_STRING:
+            return (("here", attached) if eq else ("next", None)), False
+        return None, own and value == "required" and not eq
+    if not t.startswith("-") or len(t) < 2:
+        return None, False
+    letters = t[1:] if own else t[1]
+    for i, ch in enumerate(letters, 1):
+        value = _ENV_SHORT.get(ch, "unknown")
+        if value == ENV_STRING:
+            string = t[i + 1 :]
+            return (("here", string) if string else ("next", None)), False
+        if value == "required":
+            return None, i == len(t) - 1
+        if value is not None:
+            # A letter no synopsis has: getopt fails, and env runs nothing.
+            return None, False
+    return None, False
+
+
+def _env_words(word, before, after):
+    """`env -S`'s string read as the command `env` runs, as a one-item list (#716).
+
+    `env` splits the string into its OWN arguments, so `env -S '-i git
+    commit'` runs `env -i git commit`, and the string alone reads as a command
+    whose word is `-i`. BEFORE is what stood between `env` and the option,
+    AFTER the string and what follows it. The shell takes the redirections off
+    before `env` runs, so they are left out, and the string is the first word
+    past them. Returned beside the string, never instead of it; empty where a
+    redirection is the last word and no string follows.
+    """
+    after = _without_redirections(after)
+    if not after:
+        return []
+    # Only the string is split again; every other word reached `env` as ONE
+    # argument, so it is quoted back into one: `env -S echo 'a && b'` runs
+    # `echo` with one operand, not a list (round 1 of 1790993140, yellow 1).
+    head = [shlex.quote(w) for w in _without_redirections(before)]
+    tail = [shlex.quote(w) for w in after[1:]]
+    return [" ".join([word, *head, after[0], *tail])]
 
 
 # Options of a shell, and of `watch`, that take the next word as their value.
@@ -1848,7 +1986,10 @@ def command_strings(tokens):
                 elif _hands_a_string(word, t) and j + 1 < len(rest):
                     out += _string_at(rest, j + 1)
         elif word in ("env", "genv"):
-            out += reparsed_texts([tok, *rest])
+            # The split string alone: `env`'s own words carry its options'
+            # values and the operands after the string, which `env` runs as
+            # arguments and never as a command word (round 1 of 1790993140).
+            out += reparsed_texts([tok, *rest], env_words=False)
         elif word == "watch" and _is_the_program(tokens, k):
             # Only where `watch` is the program that runs, not a word
             # something else was handed (`grep watch *.py`).
@@ -2791,8 +2932,23 @@ def _git_options(rest, redirections=False):
     # composing paths and becomes a resolved (git-dir, work-tree) pair, which
     # `apply_chdir` below cannot express. The rider is here rather than on the
     # guard because this is the file the fix is in.
-    # Verified 2026-09-29 against _git_options@4576ad88.
-    takes_value = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
+    # Verified 2026-10-03 against _git_options@d9673734.
+    # The options git 2.54.0 ran `status` after with the value as a separate
+    # word (#716, M1). `--config-env`, `--attr-source` and `--shallow-file`
+    # were missing, so their value read as the subcommand. `--exec-path` takes
+    # no separate value -- git prints its path and exits -- and stays: the
+    # word it skips was never run.
+    takes_value = {
+        "-C",
+        "-c",
+        "--git-dir",
+        "--work-tree",
+        "--namespace",
+        "--exec-path",
+        "--config-env",
+        "--attr-source",
+        "--shallow-file",
+    }
     i, chdirs = 0, []
     while i < len(rest):
         t = rest[i]
