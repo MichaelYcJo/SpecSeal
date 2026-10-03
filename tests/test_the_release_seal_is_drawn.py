@@ -409,6 +409,34 @@ def test_the_chain_rows_count_items_rounds_capped_and_deferred(tmp_path):
     assert seal().chain_counts(root, pulls) == (1, 3, 1, 3)
 
 
+def test_a_tree_whose_records_are_not_there_is_not_read_never_zero(tmp_path, capsys):
+    """S10, `questions.md` Q1 (round 1's 🔴 1). A root with no declaration --
+    the records moved by #715, or retired before the tag -- leaves the three
+    tree rows None, and the log says why; capped is read from the labels
+    alone. Seen red at `e01e1b12`, which drew `(0, 0, 1, 0)` and said nothing."""
+    counts = seal().chain_counts(
+        str(tmp_path), [pr(20, "feat/12-an-item", "chain: capped")]
+    )
+    assert counts == (None, None, 1, None), counts
+    assert "not read" in capsys.readouterr().out
+    # With no capped pull request to miss, the empty tree alone is the reason.
+    counts = seal().chain_counts(str(tmp_path), [pr(20, "feat/12-an-item")])
+    assert counts == (None, None, 0, None), counts
+    assert "no routing.md" in capsys.readouterr().out
+
+
+def test_a_capped_pull_request_with_no_work_item_leaves_the_tree_rows_unread(
+    tmp_path, capsys
+):
+    """S10 (round 1's 🔴 1). A pull request labelled `chain: capped` was
+    reviewed, so one that resolves to no declaration makes the item count
+    incomplete, and the log names it."""
+    root = tree(tmp_path, verdicts=[["deferred #12"]])
+    pulls = [pr(20, "feat/12-an-item"), pr(21, "feat/99-retired", "chain: capped")]
+    assert seal().chain_counts(root, pulls) == (None, None, 1, None)
+    assert "#21" in capsys.readouterr().out
+
+
 def test_a_deferred_count_nobody_could_read_is_none_and_the_log_says_why(
     tmp_path, capsys
 ):

@@ -410,7 +410,12 @@ def chain_counts(root, pulls):
     `chain_check.verdict_table` and `#verdict_of`; a home that is a file
     names no issue. A round record whose verdict table cannot be read leaves
     `deferred` None -- an incomplete count is a wrong number -- and a reader
-    that will not load leaves all three tree counts None."""
+    that will not load leaves all three tree counts None.
+
+    A tree with no declaration at all, or a pull request labelled
+    `CAPPED_LABEL` that resolves to no work item, is a count known to be
+    incomplete -- records moved (#715) or retired before the tag -- so the
+    three tree rows are not read rather than drawn as 0 (round 1's 🔴 1)."""
     capped = sum(1 for pull in pulls if CAPPED_LABEL in labels_of(pull))
     try:
         routing, chain, reader = readers()
@@ -419,10 +424,19 @@ def chain_counts(root, pulls):
             f"the chain rows are not read: the round-record readers did not load ({problem})"
         )
         return None, None, capped, None
-    items, rounds, deferred, unread = 0, 0, set(), []
+    if not routing.declarations(root):
+        print(
+            "the chain rows are not read: no routing.md under "
+            f"{root} declares a branch, so the round records are not where "
+            "the readers look"
+        )
+        return None, None, capped, None
+    items, rounds, deferred, unread, lost = 0, 0, set(), [], []
     for pull in pulls:
         item = routing.item_dir(root, pull.get("headRefName") or "")
         if not item:
+            if CAPPED_LABEL in labels_of(pull):
+                lost.append(f"#{pull.get('number')}")
             continue
         items += 1
         if routing.rounds_unreadable(item):
@@ -445,6 +459,12 @@ def chain_counts(root, pulls):
             for _line, seen in rows:
                 if chain.verdict_of(seen, col) == chain.DEFERRED:
                     deferred.update(int(n) for n in re.findall(r"#(\d+)", seen[col]))
+    if lost:
+        print(
+            f"the chain rows are not read: {', '.join(lost)} carry "
+            f"{CAPPED_LABEL!r} and resolve to no work item under {root}"
+        )
+        return None, None, capped, None
     if unread:
         print(
             "the deferred row is not read: no verdict table could be read in "
