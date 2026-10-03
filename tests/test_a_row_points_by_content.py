@@ -79,19 +79,19 @@ def repo(tmp_path):
     d = tmp_path / "proj"
     (d / "src").mkdir(parents=True)
     (d / "seal" / "ledger").mkdir(parents=True)
-    (d / "src" / "service.py").write_text(SERVICE)
+    (d / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     return d
 
 
 def write_row(repo, path, anchor):
     """A ledger row citing `path#anchor` at the content it holds right now."""
-    body = (repo / path).read_text()
+    body = (repo / path).read_text(encoding="utf-8")
     places = ec.resolve(path, anchor, body)
     assert len(places) == 1, f"fixture anchor is not unique: {places}"
     a, b = places[0]
     h = ec.content_hash(body.splitlines()[a - 1 : b])
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f"# frag\n\n| CLAUSE | `{path}#{anchor}@{h}` |\n"
+        f"# frag\n\n| CLAUSE | `{path}#{anchor}@{h}` |\n", encoding="utf-8"
     )
     return (a, b)
 
@@ -133,7 +133,7 @@ def test_rows_citing_one_file_cost_one_parse(repo, monkeypatch):
     the count read low."""
     unique = f"# {repo}\n"
     body = unique + SERVICE + "\n\ndef third():\n    return 3\n\n\nLIMIT = 4\n"
-    (repo / "src" / "many.py").write_text(body)
+    (repo / "src" / "many.py").write_text(body, encoding="utf-8")
 
     parses = []
     real = ec.ast.parse
@@ -152,7 +152,7 @@ def test_rows_citing_one_file_cost_one_parse(repo, monkeypatch):
         h = ec.content_hash(body.splitlines()[a - 1 : b])
         rows.append(f"| C | `src/many.py#{anchor}@{h}` |")
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text("# frag\n\n" + "\n".join(rows) + "\n")
+    ledger.write_text("# frag\n\n" + "\n".join(rows) + "\n", encoding="utf-8")
     findings = ec.check_ledger(str(ledger), str(repo), {})
     assert [f[0] for f in findings] == ["OK"] * 5, findings
     assert len(parses) == 1, f"{len(parses)} parses of one file for five rows"
@@ -186,9 +186,11 @@ def test_changing_the_returned_spans_does_not_reach_the_next_caller(repo):
 def test_an_ambiguous_anchor_is_broken_and_says_where(repo):
     """Two places to look is not a measurement. Reporting OK would be a claim
     about whichever one the code happened to reach first."""
-    (repo / "notes.md").write_text("same line\n\nmiddle\n\nsame line\n")
+    (repo / "notes.md").write_text(
+        "same line\n\nmiddle\n\nsame line\n", encoding="utf-8"
+    )
     (repo / "seal" / "ledger" / "f.md").write_text(
-        '# frag\n\n| CLAUSE | `notes.md#"same line"@00000000` |\n'
+        '# frag\n\n| CLAUSE | `notes.md#"same line"@00000000` |\n', encoding="utf-8"
     )
     r = run(["."], str(repo))
     assert "BROKEN" in r.stdout and "ambiguous" in r.stdout, r.stdout
@@ -198,7 +200,9 @@ def test_an_ambiguous_anchor_is_broken_and_says_where(repo):
 
 def test_a_missing_anchor_is_broken(repo):
     write_row(repo, "src/service.py", "handler")
-    (repo / "src" / "service.py").write_text(SERVICE.replace("def handler", "def gone"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("def handler", "def gone"), encoding="utf-8"
+    )
     r = run(["."], str(repo))
     assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
     assert r.returncode == 2, r.stdout
@@ -210,7 +214,9 @@ def test_a_missing_anchor_is_broken(repo):
 def test_a_change_inside_the_region_drifts(repo):
     write_row(repo, "src/service.py", "handler")
     assert "1 ok" in run(["."], str(repo)).stdout
-    (repo / "src" / "service.py").write_text(SERVICE.replace("x + 1", "x + 2"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x + 1", "x + 2"), encoding="utf-8"
+    )
     r = run(["."], str(repo))
     assert "1 drifted" in r.stdout, r.stdout
     assert r.returncode == 1, r.stdout
@@ -225,12 +231,16 @@ def test_moving_the_region_does_not_drift_it(repo):
     current one.
     """
     before = write_row(repo, "src/service.py", "handler")
-    (repo / "src" / "service.py").write_text("# inserted at the top\n" + SERVICE)
+    (repo / "src" / "service.py").write_text(
+        "# inserted at the top\n" + SERVICE, encoding="utf-8"
+    )
     r = run(["."], str(repo))
     assert "1 ok" in r.stdout, r.stdout
     assert r.returncode == 0, r.stdout
     after = ec.resolve(
-        "src/service.py", "handler", (repo / "src" / "service.py").read_text()
+        "src/service.py",
+        "handler",
+        (repo / "src" / "service.py").read_text(encoding="utf-8"),
     )
     assert after == [(before[0] + 1, before[1] + 1)], after
 
@@ -488,9 +498,9 @@ def test_the_major_unit_resolves_without_a_parser(repo):
 def test_a_unit_the_generic_rule_cannot_find_is_broken(repo):
     """Loud and honest beats a per-language parser nobody maintains."""
     assert ec.resolve("svc.ts", "missing", BRACE) == []
-    (repo / "svc.ts").write_text(BRACE)
+    (repo / "svc.ts").write_text(BRACE, encoding="utf-8")
     (repo / "seal" / "ledger" / "f.md").write_text(
-        "# frag\n\n| CLAUSE | `svc.ts#missing@00000000` |\n"
+        "# frag\n\n| CLAUSE | `svc.ts#missing@00000000` |\n", encoding="utf-8"
     )
     r = run(["."], str(repo))
     assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
@@ -498,13 +508,13 @@ def test_a_unit_the_generic_rule_cannot_find_is_broken(repo):
 
 
 def test_a_brace_language_unit_drifts_on_a_change_inside_it(repo):
-    (repo / "svc.ts").write_text(BRACE)
+    (repo / "svc.ts").write_text(BRACE, encoding="utf-8")
     h = ec.content_hash(BRACE.splitlines()[2:8])
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f"# frag\n\n| CLAUSE | `svc.ts#handler@{h}` |\n"
+        f"# frag\n\n| CLAUSE | `svc.ts#handler@{h}` |\n", encoding="utf-8"
     )
     assert "1 ok" in run(["."], str(repo)).stdout
-    (repo / "svc.ts").write_text(BRACE.replace("y > 3", "y > 4"))
+    (repo / "svc.ts").write_text(BRACE.replace("y > 3", "y > 4"), encoding="utf-8")
     r = run(["."], str(repo))
     assert "1 drifted" in r.stdout and r.returncode == 1, r.stdout
 
@@ -527,18 +537,20 @@ def test_a_stale_minor_anchor_widens_to_drifted_rather_than_broken(repo):
     work the ledger exists for. A minor anchor that stopped matching means
     that place changed, so the row widens to its unit and reports DRIFTED.
     """
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     inside = ec.minor_region("src/service.py", body, (4, 6), '"y = x + 1"')
     a, b = inside[0]
     h = ec.content_hash(body.splitlines()[a - 1 : b])
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f'# frag\n\n| CLAUSE | `src/service.py#handler>"y = x + 1"@{h}` |\n'
+        f'# frag\n\n| CLAUSE | `src/service.py#handler>"y = x + 1"@{h}` |\n',
+        encoding="utf-8",
     )
     assert "1 ok" in run(["."], str(repo)).stdout
 
     # The anchored statement is gone entirely.
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("    y = x + 1\n    return y", "    return x + 1")
+        SERVICE.replace("    y = x + 1\n    return y", "    return x + 1"),
+        encoding="utf-8",
     )
     r = run(["."], str(repo))
     assert "BROKEN" not in r.stdout, (
@@ -553,14 +565,17 @@ def test_widening_does_not_swallow_a_real_broken(repo):
     """The failure mode of the widening: if the UNIT is also gone, the row
     must still be BROKEN. A widen that answered DRIFTED for a deleted function
     would report `go re-read` about something nobody can open."""
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     inside = ec.minor_region("src/service.py", body, (4, 6), '"y = x + 1"')
     a, b = inside[0]
     h = ec.content_hash(body.splitlines()[a - 1 : b])
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f'# frag\n\n| CLAUSE | `src/service.py#handler>"y = x + 1"@{h}` |\n'
+        f'# frag\n\n| CLAUSE | `src/service.py#handler>"y = x + 1"@{h}` |\n',
+        encoding="utf-8",
     )
-    (repo / "src" / "service.py").write_text(SERVICE.replace("def handler", "def gone"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("def handler", "def gone"), encoding="utf-8"
+    )
     r = run(["."], str(repo))
     assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
     assert r.returncode == 2, r.stdout
@@ -686,7 +701,7 @@ def test_a_renamed_unit_is_named_in_the_broken_report(repo):
     """
     write_row(repo, "src/service.py", "handler")
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("def handler(", "def total_price(")
+        SERVICE.replace("def handler(", "def total_price("), encoding="utf-8"
     )
     r = run(["."], str(repo))
     assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
@@ -701,7 +716,8 @@ def test_renamed_and_edited_prints_no_hint(repo):
     the plain BROKEN is the honest answer."""
     write_row(repo, "src/service.py", "handler")
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("def handler(", "def total_price(").replace("x + 1", "x + 2")
+        SERVICE.replace("def handler(", "def total_price(").replace("x + 1", "x + 2"),
+        encoding="utf-8",
     )
     r = run(["."], str(repo))
     assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
@@ -715,13 +731,13 @@ def test_two_identical_units_are_counted_not_named(repo):
     """A guess is not a measurement. With two units holding the recorded
     content, the report says how many and names none."""
     twin = "def alpha(x):\n    return x + 1\n\n\ndef beta(x):\n    return x + 1\n"
-    (repo / "src" / "twin.py").write_text(twin)
+    (repo / "src" / "twin.py").write_text(twin, encoding="utf-8")
     # The row records what a `gamma` unit WOULD hash to: reconstruction
     # substitutes each candidate's name with the locator before comparing,
     # so both alpha and beta reconstruct to exactly this.
     h = ec.content_hash(["def gamma(x):", "    return x + 1"])
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f"# frag\n\n| CLAUSE | `src/twin.py#gamma@{h}` |\n"
+        f"# frag\n\n| CLAUSE | `src/twin.py#gamma@{h}` |\n", encoding="utf-8"
     )
     r = run(["."], str(repo))
     assert "BROKEN" in r.stdout and "locator not found" in r.stdout, r.stdout
@@ -736,13 +752,15 @@ def test_a_renamed_markdown_heading_is_named_too(repo):
     """The same machinery covers a document: a section whose heading was
     renamed still holds the recorded content."""
     doc = "## Old name\n\nthe body stays put\n"
-    (repo / "notes.md").write_text(doc)
+    (repo / "notes.md").write_text(doc, encoding="utf-8")
     h = ec.content_hash(doc.splitlines())
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f'# frag\n\n| CLAUSE | `notes.md#"## Old name"@{h}` |\n'
+        f'# frag\n\n| CLAUSE | `notes.md#"## Old name"@{h}` |\n', encoding="utf-8"
     )
     assert "1 ok" in run(["."], str(repo)).stdout
-    (repo / "notes.md").write_text(doc.replace("## Old name", "## New name"))
+    (repo / "notes.md").write_text(
+        doc.replace("## Old name", "## New name"), encoding="utf-8"
+    )
     r = run(["."], str(repo))
     assert "BROKEN" in r.stdout, r.stdout
     assert 'identical content at #"## New name"' in r.stdout, r.stdout
@@ -759,16 +777,18 @@ def test_reverify_re_anchors_a_row_whose_content_provably_moved(repo):
     """
     write_row(repo, "src/service.py", "handler")
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("def handler(", "def total_price(")
+        SERVICE.replace("def handler(", "def total_price("), encoding="utf-8"
     )
     ledger = repo / "seal" / "ledger" / "f.md"
-    before = ledger.read_text()
+    before = ledger.read_text(encoding="utf-8")
     assert run(["."], str(repo)).returncode == 2
-    assert ledger.read_text() == before, "the plain check rewrote the ledger"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "the plain check rewrote the ledger"
+    )
 
     r = run(["--reverify", "."], str(repo))
     assert "#handler -> #total_price" in r.stdout, r.stdout
-    after = ledger.read_text()
+    after = ledger.read_text(encoding="utf-8")
     assert "#total_price@" in after and "#handler@" not in after, after
     # The hash follows the locator. It cannot stay: the name is part of the
     # unit's own hashed region, so the recorded hash is of the OLD spelling
@@ -781,36 +801,43 @@ def test_reverify_re_anchors_a_row_whose_content_provably_moved(repo):
 def test_reverify_does_not_touch_a_renamed_and_edited_row(repo):
     write_row(repo, "src/service.py", "handler")
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("def handler(", "def total_price(").replace("x + 1", "x + 2")
+        SERVICE.replace("def handler(", "def total_price(").replace("x + 1", "x + 2"),
+        encoding="utf-8",
     )
     ledger = repo / "seal" / "ledger" / "f.md"
-    before = ledger.read_text()
+    before = ledger.read_text(encoding="utf-8")
     r = run(["--reverify", "."], str(repo))
     assert "0 rows re-verified" in r.stdout, r.stdout
-    assert ledger.read_text() == before, "an unprovable move was rewritten"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "an unprovable move was rewritten"
+    )
     assert run(["."], str(repo)).returncode == 2
 
 
 def test_reverify_does_not_choose_between_two_identical_units(repo):
     twin = "def alpha(x):\n    return x + 1\n\n\ndef beta(x):\n    return x + 1\n"
-    (repo / "src" / "twin.py").write_text(twin)
+    (repo / "src" / "twin.py").write_text(twin, encoding="utf-8")
     h = ec.content_hash(["def gamma(x):", "    return x + 1"])
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text(f"# frag\n\n| CLAUSE | `src/twin.py#gamma@{h}` |\n")
-    before = ledger.read_text()
+    ledger.write_text(
+        f"# frag\n\n| CLAUSE | `src/twin.py#gamma@{h}` |\n", encoding="utf-8"
+    )
+    before = ledger.read_text(encoding="utf-8")
     run(["--reverify", "."], str(repo))
-    assert ledger.read_text() == before, "reverify picked one of two matches"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "reverify picked one of two matches"
+    )
 
 
 def test_a_move_to_another_file_is_named_with_its_path(repo):
     """hash AND name matching in another file proves the unit moved intact."""
     write_row(repo, "src/service.py", "handler")
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     (repo / "src" / "service.py").write_text(
-        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n"), encoding="utf-8"
     )
     (repo / "src" / "moved.py").write_text(
-        "def handler(x):\n    y = x + 1\n    return y\n"
+        "def handler(x):\n    y = x + 1\n    return y\n", encoding="utf-8"
     )
     r = run(["."], str(repo))
     assert "BROKEN" in r.stdout, r.stdout
@@ -818,7 +845,7 @@ def test_a_move_to_another_file_is_named_with_its_path(repo):
 
     rr = run(["--reverify", "."], str(repo))
     assert "src/service.py#handler -> src/moved.py#handler" in rr.stdout, rr.stdout
-    ledger = (repo / "seal" / "ledger" / "f.md").read_text()
+    ledger = (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8")
     assert "`src/moved.py#handler@" in ledger, ledger
     assert run(["."], str(repo)).returncode == 0, run(["."], str(repo)).stdout
 
@@ -827,12 +854,12 @@ def test_renamed_and_moved_is_still_provable_by_content(repo):
     """hash alone, unique across the scan — content identity is the proof,
     the same as the same-file rename."""
     write_row(repo, "src/service.py", "handler")
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     (repo / "src" / "service.py").write_text(
-        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n"), encoding="utf-8"
     )
     (repo / "src" / "moved.py").write_text(
-        "def total_price(x):\n    y = x + 1\n    return y\n"
+        "def total_price(x):\n    y = x + 1\n    return y\n", encoding="utf-8"
     )
     r = run(["."], str(repo))
     assert "identical content at src/moved.py#total_price (renamed?)" in r.stdout, (
@@ -848,34 +875,40 @@ def test_a_name_alone_is_a_labelled_fact_and_never_a_fix(repo):
     Content differing means the checker does not know it is a rename, so it
     says exactly what it measured and touches nothing."""
     write_row(repo, "src/service.py", "handler")
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     (repo / "src" / "service.py").write_text(
-        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n"), encoding="utf-8"
     )
-    (repo / "src" / "other.py").write_text("def handler(x):\n    return x * 99\n")
+    (repo / "src" / "other.py").write_text(
+        "def handler(x):\n    return x * 99\n", encoding="utf-8"
+    )
     r = run(["."], str(repo))
     assert "same name at src/other.py (content differs)" in r.stdout, r.stdout
     assert "renamed" not in r.stdout, r.stdout
 
     ledger = repo / "seal" / "ledger" / "f.md"
-    before = ledger.read_text()
+    before = ledger.read_text(encoding="utf-8")
     rr = run(["--reverify", "."], str(repo))
     assert "0 rows re-verified" in rr.stdout, rr.stdout
-    assert ledger.read_text() == before, "a name-alone match was rewritten"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "a name-alone match was rewritten"
+    )
 
 
 def test_a_hash_match_outranks_a_name_alone_match(repo):
     """The grade order. When content identity proves where the unit went, a
     name collision elsewhere is noise and must not be reported."""
     write_row(repo, "src/service.py", "handler")
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     (repo / "src" / "service.py").write_text(
-        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n"), encoding="utf-8"
     )
     (repo / "src" / "moved.py").write_text(
-        "def total_price(x):\n    y = x + 1\n    return y\n"
+        "def total_price(x):\n    y = x + 1\n    return y\n", encoding="utf-8"
     )
-    (repo / "src" / "decoy.py").write_text("def handler(x):\n    return x * 99\n")
+    (repo / "src" / "decoy.py").write_text(
+        "def handler(x):\n    return x * 99\n", encoding="utf-8"
+    )
     r = run(["."], str(repo))
     assert "identical content at src/moved.py#total_price" in r.stdout, r.stdout
     assert "same name at" not in r.stdout, (
@@ -887,33 +920,36 @@ def test_the_same_unit_in_two_files_is_counted_not_rewritten(repo):
     """Same name AND identical content in two files: two units, no names, no
     rewrite. Uniqueness is judged across the whole scan."""
     write_row(repo, "src/service.py", "handler")
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     (repo / "src" / "service.py").write_text(
-        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n"), encoding="utf-8"
     )
     unit = "def handler(x):\n    y = x + 1\n    return y\n"
-    (repo / "src" / "a.py").write_text(unit)
-    (repo / "src" / "b.py").write_text(unit)
+    (repo / "src" / "a.py").write_text(unit, encoding="utf-8")
+    (repo / "src" / "b.py").write_text(unit, encoding="utf-8")
     r = run(["."], str(repo))
     assert "identical content at 2 units" in r.stdout, r.stdout
     ledger = repo / "seal" / "ledger" / "f.md"
-    before = ledger.read_text()
+    before = ledger.read_text(encoding="utf-8")
     run(["--reverify", "."], str(repo))
-    assert ledger.read_text() == before, "reverify picked one of two files"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "reverify picked one of two files"
+    )
 
 
 def test_a_whole_file_rename_heals_mechanically(repo):
     """Every row on the old path goes BROKEN, and each finds its unit in the
     new file by hash and name. This replaces the old known limit that a file
     rename was a by-hand search-and-replace on the ledger."""
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     h1 = ec.content_hash(body.splitlines()[3:6])
     h2 = ec.content_hash(body.splitlines()[8:11])
     (repo / "seal" / "ledger" / "f.md").write_text(
         f"# frag\n\n| A | `src/service.py#handler@{h1}` |\n"
-        f"| B | `src/service.py#Box@{h2}` |\n"
+        f"| B | `src/service.py#Box@{h2}` |\n",
+        encoding="utf-8",
     )
-    (repo / "src" / "renamed.py").write_text(body)
+    (repo / "src" / "renamed.py").write_text(body, encoding="utf-8")
     (repo / "src" / "service.py").unlink()
 
     before = run(["."], str(repo))
@@ -937,12 +973,12 @@ def test_past_the_file_cap_the_scan_degrades_and_says_so(repo):
     so, because a silently narrowed search reads as a search that found
     nothing."""
     write_row(repo, "src/service.py", "handler")
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     (repo / "src" / "service.py").write_text(
-        body.replace(SERVICE[: SERVICE.index("class")], "import os\n")
+        body.replace(SERVICE[: SERVICE.index("class")], "import os\n"), encoding="utf-8"
     )
     (repo / "src" / "moved.py").write_text(
-        "def handler(x):\n    y = x + 1\n    return y\n"
+        "def handler(x):\n    y = x + 1\n    return y\n", encoding="utf-8"
     )
     # `zfiller` sorts AFTER `src`, so the match sits inside the first
     # SCAN_FILE_CAP files the walk meets. A mutant that fills the list past
@@ -952,7 +988,7 @@ def test_past_the_file_cap_the_scan_degrades_and_says_so(repo):
     # never load-bearing.
     (repo / "zfiller").mkdir()
     for i in range(ec.SCAN_FILE_CAP + 1):
-        (repo / "zfiller" / f"f{i:04}.py").write_text("pass\n")
+        (repo / "zfiller" / f"f{i:04}.py").write_text("pass\n", encoding="utf-8")
     r = run(["."], str(repo))
     assert "repo-wide scan skipped" in r.stdout, r.stdout
     assert "moved.py" not in r.stdout, (
@@ -987,7 +1023,7 @@ def test_an_old_format_ledger_is_loud_never_invisible(repo):
     not: a red build saying "run the migrator" beats a green build checking
     nothing.
     """
-    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER)
+    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER, encoding="utf-8")
     r = run(["."], str(repo))
     assert "OLD-FORMAT" in r.stdout, f"today's silent pass, verbatim:\n{r.stdout}"
     assert "src/service.py:4-6" in r.stdout, r.stdout
@@ -1000,7 +1036,7 @@ def test_the_pre_0_2_address_is_covered_too(repo):
     old rows."""
     d = repo / "docs" / "policies" / "demo"
     d.mkdir(parents=True)
-    (d / "_evidence.md").write_text(OLD_LEDGER)
+    (d / "_evidence.md").write_text(OLD_LEDGER, encoding="utf-8")
     r = run(["."], str(repo))
     assert "OLD-FORMAT" in r.stdout and r.returncode == 2, r.stdout
 
@@ -1009,11 +1045,14 @@ def test_a_quoted_anchor_naming_an_old_coordinate_is_not_old_format(repo):
     """A text locator may legitimately quote a line that contains `file.py:12`.
     New-format anchors are blanked before the old-format scan, or such a row
     would read OLD-FORMAT forever with nothing for the migrator to fix."""
-    (repo / "notes.md").write_text("the row cited hooks/gate.py:12 back then\n")
-    body = (repo / "notes.md").read_text()
+    (repo / "notes.md").write_text(
+        "the row cited hooks/gate.py:12 back then\n", encoding="utf-8"
+    )
+    body = (repo / "notes.md").read_text(encoding="utf-8")
     h = ec.content_hash(body.splitlines())
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f'# frag\n\n| CLAUSE | `notes.md#"the row cited hooks/gate.py:12 back then"@{h}` |\n'
+        f'# frag\n\n| CLAUSE | `notes.md#"the row cited hooks/gate.py:12 back then"@{h}` |\n',
+        encoding="utf-8",
     )
     r = run(["."], str(repo))
     assert "OLD-FORMAT" not in r.stdout, r.stdout
@@ -1525,10 +1564,10 @@ def test_reverify_names_a_malformed_row_and_leaves_it(repo):
 
 
 def test_migrate_rewrites_an_old_row_to_its_enclosing_unit(repo):
-    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER)
+    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER, encoding="utf-8")
     r = run(["--migrate", "."], str(repo))
     assert "2 rows migrated" in r.stdout, r.stdout
-    after = (repo / "seal" / "ledger" / "f.md").read_text()
+    after = (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8")
     assert "src/service.py#handler@" in after, after
     assert "src/service.py#Box.open@" in after, after
     assert "src/service.py:4-6" not in after, after
@@ -1544,7 +1583,8 @@ def test_migrate_leaves_what_it_cannot_prove_and_says_why(repo):
     (repo / "seal" / "ledger" / "f.md").write_text(
         "# map\n\n"
         "| A | `src/service.py:999` | | 2026-08-31 |\n"
-        "| B | `src/gone.py:3` | | 2026-08-31 |\n"
+        "| B | `src/gone.py:3` | | 2026-08-31 |\n",
+        encoding="utf-8",
     )
     r = run(["--migrate", "."], str(repo))
     assert "0 rows migrated" in r.stdout and "2 left" in r.stdout, r.stdout
@@ -1561,20 +1601,20 @@ def test_a_row_migrate_can_only_half_prove_is_left_whole(repo):
     the row stays exactly as the person left it. Found by mutation: no
     fixture carried two coordinates in one row."""
     row = "| X | `src/service.py:5` and `src/gone.py:2` | 2026-08-31 `9829412` |\n"
-    (repo / "seal" / "ledger" / "f.md").write_text("# map\n\n" + row)
+    (repo / "seal" / "ledger" / "f.md").write_text("# map\n\n" + row, encoding="utf-8")
     r = run(["--migrate", "."], str(repo))
     assert "1 left" in r.stdout, r.stdout
-    after = (repo / "seal" / "ledger" / "f.md").read_text()
+    after = (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8")
     assert row in after, f"the row was partly rewritten:\n{after}"
 
 
 def test_migrate_twice_is_a_no_op(repo):
-    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER)
+    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER, encoding="utf-8")
     run(["--migrate", "."], str(repo))
-    once = (repo / "seal" / "ledger" / "f.md").read_text()
+    once = (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8")
     r = run(["--migrate", "."], str(repo))
     assert "0 rows migrated" in r.stdout, r.stdout
-    assert (repo / "seal" / "ledger" / "f.md").read_text() == once
+    assert (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8") == once
 
 
 # --- the verdicts -----------------------------------------------------------
@@ -1593,9 +1633,10 @@ def test_a_cross_repo_path_is_external_without_a_map(repo):
     — a parity config, `--map`, `--default-repo` — says this project has one.
     Without the declaration this read EXTERNAL too, which made deleting a
     directory a green build (round 4, 🔴 3)."""
-    (repo / "seal" / "parity.md").write_text("# parity\n")
+    (repo / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
     (repo / "seal" / "ledger" / "f.md").write_text(
-        "# frag\n\n| CLAUSE | `legacy/src/old.py#handler@00000000` |\n"
+        "# frag\n\n| CLAUSE | `legacy/src/old.py#handler@00000000` |\n",
+        encoding="utf-8",
     )
     r = run(["."], str(repo))
     assert "EXTERNAL" in r.stdout, r.stdout
@@ -1607,10 +1648,10 @@ def test_a_mapped_cross_repo_row_is_checked_like_any_other(repo, tmp_path):
     to be missing, so it needs no second header and reads like a local one."""
     other = tmp_path / "legacy"
     (other / "src").mkdir(parents=True)
-    (other / "src" / "old.py").write_text(SERVICE)
+    (other / "src" / "old.py").write_text(SERVICE, encoding="utf-8")
     h = ec.content_hash(SERVICE.splitlines()[3:6])
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f"# frag\n\n| CLAUSE | `legacy/src/old.py#handler@{h}` |\n"
+        f"# frag\n\n| CLAUSE | `legacy/src/old.py#handler@{h}` |\n", encoding="utf-8"
     )
     r = run(["--map", f"legacy={other}", "."], str(repo))
     assert "1 ok" in r.stdout, r.stdout
@@ -1619,7 +1660,9 @@ def test_a_mapped_cross_repo_row_is_checked_like_any_other(repo, tmp_path):
 
 def test_strict_turns_drift_into_the_broken_code(repo):
     write_row(repo, "src/service.py", "handler")
-    (repo / "src" / "service.py").write_text(SERVICE.replace("x + 1", "x + 2"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x + 1", "x + 2"), encoding="utf-8"
+    )
     assert run(["."], str(repo)).returncode == 1
     assert run(["--strict", "."], str(repo)).returncode == 2
 
@@ -1628,7 +1671,7 @@ def test_an_ok_row_prints_the_regions_current_lines(repo):
     """The line number is an output for a reader to open, never an input. It
     is what the row citing a symbol gives up nothing to have."""
     write_row(repo, "src/service.py", "handler")
-    (repo / "src" / "service.py").write_text("# inserted\n" + SERVICE)
+    (repo / "src" / "service.py").write_text("# inserted\n" + SERVICE, encoding="utf-8")
     r = run(["."], str(repo))
     assert "1 ok" in r.stdout
     findings = ec.check_ledger(
@@ -1642,7 +1685,9 @@ def test_an_ok_row_prints_the_regions_current_lines(repo):
 
 def test_reverify_rewrites_a_drifted_hash_and_says_so(repo):
     write_row(repo, "src/service.py", "handler")
-    (repo / "src" / "service.py").write_text(SERVICE.replace("x + 1", "x + 2"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x + 1", "x + 2"), encoding="utf-8"
+    )
     assert run(["."], str(repo)).returncode == 1
     r = run(["--reverify", "."], str(repo))
     assert "1 row re-verified" in r.stdout, r.stdout
@@ -1655,12 +1700,14 @@ def test_the_check_never_rewrites_on_its_own(repo):
     Re-verifying is a person saying they re-read the code, so it is a separate
     command and the ordinary run must leave the file alone."""
     write_row(repo, "src/service.py", "handler")
-    (repo / "src" / "service.py").write_text(SERVICE.replace("x + 1", "x + 2"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x + 1", "x + 2"), encoding="utf-8"
+    )
     ledger = repo / "seal" / "ledger" / "f.md"
-    before = ledger.read_text()
+    before = ledger.read_text(encoding="utf-8")
     run(["."], str(repo))
     run(["--strict", "."], str(repo))
-    assert ledger.read_text() == before, "the check rewrote the ledger"
+    assert ledger.read_text(encoding="utf-8") == before, "the check rewrote the ledger"
 
 
 def test_reverify_leaves_an_unresolvable_row_alone(repo):
@@ -1670,13 +1717,14 @@ def test_reverify_leaves_an_unresolvable_row_alone(repo):
     because a pure rename is now provable and gets re-anchored instead."""
     write_row(repo, "src/service.py", "handler")
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("def handler", "def gone").replace("x + 1", "x + 9")
+        SERVICE.replace("def handler", "def gone").replace("x + 1", "x + 9"),
+        encoding="utf-8",
     )
     ledger = repo / "seal" / "ledger" / "f.md"
-    before = ledger.read_text()
+    before = ledger.read_text(encoding="utf-8")
     r = run(["--reverify", "."], str(repo))
     assert "0 rows re-verified" in r.stdout, r.stdout
-    assert ledger.read_text() == before
+    assert ledger.read_text(encoding="utf-8") == before
     assert run(["."], str(repo)).returncode == 2
 
 
@@ -1695,7 +1743,7 @@ HEADER = "| Clause | Code grounds | Verified behavior | Checked | Notes |\n|---|
 
 def anchor(repo, name):
     """`src/service.py#NAME@hash` at the content the file holds now."""
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     (a, b) = ec.resolve("src/service.py", name, body)[0]
     return f"src/service.py#{name}@{ec.content_hash(body.splitlines()[a - 1 : b])}"
 
@@ -1714,7 +1762,9 @@ def ledger_text(path):
 
 
 def drift_handler(repo):
-    (repo / "src" / "service.py").write_text(SERVICE.replace("x + 1", "x + 2"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x + 1", "x + 2"), encoding="utf-8"
+    )
 
 
 @pytest.mark.parametrize(
@@ -1923,7 +1973,7 @@ def test_a_healed_row_is_dated_under_checked_and_named_without(repo):
     row = f"| C1 | `{anchor(repo, 'handler')}` | read | 2026-09-01 | n |\n"
     renamed = SERVICE.replace("def handler", "def handle")
     ledger = ledger_of(repo, row)
-    (repo / "src" / "service.py").write_text(renamed)
+    (repo / "src" / "service.py").write_text(renamed, encoding="utf-8")
     r = run(["--reverify", "."], str(repo))
     assert "(identical content)" in r.stdout and "(Checked: 2026-09-01)" in r.stdout
     ledger.write_text(row, encoding="utf-8")
@@ -1959,7 +2009,8 @@ def test_a_row_with_several_moved_coordinates_is_dated_once(repo):
         "| 2026-09-01 | n |\n",
     )
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("x + 1", "x + 2").replace("return 1", "return 2")
+        SERVICE.replace("x + 1", "x + 2").replace("return 1", "return 2"),
+        encoding="utf-8",
     )
     r = run(["--reverify", "--checked", READ_ON, "."], str(repo))
     assert "2 rows re-verified" in r.stdout, r.stdout
@@ -2108,17 +2159,18 @@ def test_a_gone_symbol_in_a_parsing_python_file_is_broken_with_the_hint(repo):
     answer is the whole answer."""
     write_row(repo, "src/service.py", "handler")
     (repo / "src" / "service.py").write_text(
-        "import os\n\n\ndef caller(x):\n    handler(x)\n    return x\n"
+        "import os\n\n\ndef caller(x):\n    handler(x)\n    return x\n",
+        encoding="utf-8",
     )
     (repo / "src" / "lib.py").write_text(
-        "def handler(x):\n    y = x + 1\n    return y\n"
+        "def handler(x):\n    y = x + 1\n    return y\n", encoding="utf-8"
     )
     r = run(["."], str(repo))
     assert "BROKEN" in r.stdout and "DRIFTED" not in r.stdout, r.stdout
     assert "identical content at src/lib.py#handler (moved?)" in r.stdout, r.stdout
     rr = run(["--reverify", "."], str(repo))
     assert "src/service.py#handler -> src/lib.py#handler" in rr.stdout, rr.stdout
-    ledger = (repo / "seal" / "ledger" / "f.md").read_text()
+    ledger = (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8")
     assert "`src/lib.py#handler@" in ledger, ledger
     assert run(["."], str(repo)).returncode == 0
 
@@ -2162,7 +2214,9 @@ def test_a_renamed_directory_is_broken_with_the_hint_not_external(repo):
     file is a broken citation whatever directory it sat in, and the same
     scan that heals a renamed file heals a renamed directory."""
     (repo / "pkg").mkdir()
-    (repo / "pkg" / "mod.py").write_text("def handler(x):\n    return x * 3\n")
+    (repo / "pkg" / "mod.py").write_text(
+        "def handler(x):\n    return x * 3\n", encoding="utf-8"
+    )
     write_row(repo, "pkg/mod.py", "handler")
     (repo / "pkg").rename(repo / "lib")
     r = run(["."], str(repo))
@@ -2180,7 +2234,9 @@ def test_a_deleted_directory_fails_the_build_without_cross_repo_intent(repo):
     import shutil
 
     (repo / "pkg").mkdir()
-    (repo / "pkg" / "mod.py").write_text("def handler(x):\n    return x * 3\n")
+    (repo / "pkg" / "mod.py").write_text(
+        "def handler(x):\n    return x * 3\n", encoding="utf-8"
+    )
     write_row(repo, "pkg/mod.py", "handler")
     shutil.rmtree(repo / "pkg")
     r = run(["."], str(repo))
@@ -2195,9 +2251,11 @@ def test_reverify_reads_default_repo(repo, tmp_path):
     🔴 4)."""
     orig = tmp_path / "orig"
     (orig / "apps").mkdir(parents=True)
-    (orig / "apps" / "svc.py").write_text("def handler(x):\n    return x + 1\n")
+    (orig / "apps" / "svc.py").write_text(
+        "def handler(x):\n    return x + 1\n", encoding="utf-8"
+    )
     (repo / "seal" / "ledger" / "f.md").write_text(
-        "# frag\n\n| CLAUSE | `apps/svc.py#handler@00000000` |\n"
+        "# frag\n\n| CLAUSE | `apps/svc.py#handler@00000000` |\n", encoding="utf-8"
     )
     r = run(["--reverify", "--default-repo", str(orig), "."], str(repo))
     assert "1 row re-verified" in r.stdout, r.stdout
@@ -2214,14 +2272,16 @@ def test_reverify_never_scans_this_repo_for_a_row_it_cannot_place(repo, tmp_path
     orig = tmp_path / "orig"
     orig.mkdir()
     h = ec.content_hash(["def fetch(x):", "    return x + 1"])
-    (repo / "src" / "copycat.py").write_text("def grab(x):\n    return x + 1\n")
-    (repo / "seal" / "ledger" / "f.md").write_text(
-        f"# frag\n\n| CLAUSE | `apps/svc.py#fetch@{h}` |\n"
+    (repo / "src" / "copycat.py").write_text(
+        "def grab(x):\n    return x + 1\n", encoding="utf-8"
     )
-    before = (repo / "seal" / "ledger" / "f.md").read_text()
+    (repo / "seal" / "ledger" / "f.md").write_text(
+        f"# frag\n\n| CLAUSE | `apps/svc.py#fetch@{h}` |\n", encoding="utf-8"
+    )
+    before = (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8")
     r = run(["--reverify", "--default-repo", str(orig), "."], str(repo))
     assert "0 rows re-verified" in r.stdout, r.stdout
-    assert (repo / "seal" / "ledger" / "f.md").read_text() == before
+    assert (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8") == before
     check = run(["--default-repo", str(orig), "."], str(repo))
     assert "grab" not in check.stdout, check.stdout
 
@@ -2234,7 +2294,9 @@ def test_two_rows_at_one_coordinate_with_different_hashes_are_both_checked(repo)
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
     ledger.write_text(
-        ledger.read_text() + "| STALE | `src/service.py#handler@00000000` |\n"
+        ledger.read_text(encoding="utf-8")
+        + "| STALE | `src/service.py#handler@00000000` |\n",
+        encoding="utf-8",
     )
     r = run(["."], str(repo))
     assert "1 ok" in r.stdout and "1 drifted" in r.stdout, r.stdout
@@ -2245,7 +2307,7 @@ def test_old_format_reaches_the_totals_line(repo):
     """The build failed red while the summary read all zeros (round 4, 🟡 6 —
     the totals half was measured here during the --migrate demo before the
     round reported it)."""
-    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER)
+    (repo / "seal" / "ledger" / "f.md").write_text(OLD_LEDGER, encoding="utf-8")
     r = run(["."], str(repo))
     # Both summary lines, pinned separately: the per-ledger counts and the
     # grand total each read all zeros before, and either one alone still
@@ -2265,13 +2327,13 @@ def test_a_heading_path_locator_still_gets_the_rename_hint(repo):
     part's heading line — so the parent-qualified form the skill recommends
     was the one form that could never be healed (round 4, 🟡 8)."""
     doc = "## A\n\n### B\n\nbody stays put\n\n## C\n\ntail\n"
-    (repo / "notes.md").write_text(doc)
+    (repo / "notes.md").write_text(doc, encoding="utf-8")
     h = ec.content_hash(doc.splitlines()[2:6])
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f'# frag\n\n| CLAUSE | `notes.md#"## A / ### B"@{h}` |\n'
+        f'# frag\n\n| CLAUSE | `notes.md#"## A / ### B"@{h}` |\n', encoding="utf-8"
     )
     assert "1 ok" in run(["."], str(repo)).stdout
-    (repo / "notes.md").write_text(doc.replace("### B", "### D"))
+    (repo / "notes.md").write_text(doc.replace("### B", "### D"), encoding="utf-8")
     r = run(["."], str(repo))
     assert 'identical content at #"### D" (renamed?)' in r.stdout, r.stdout
     rr = run(["--reverify", "."], str(repo))
@@ -2287,7 +2349,7 @@ def test_a_failed_write_never_tears_the_ledger(repo, monkeypatch):
     import builtins
 
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text(OLD_LEDGER)
+    ledger.write_text(OLD_LEDGER, encoding="utf-8")
     real_open = builtins.open
 
     class Refusing:
@@ -2315,7 +2377,7 @@ def test_a_failed_write_never_tears_the_ledger(repo, monkeypatch):
     except OSError:
         pass
     monkeypatch.undo()
-    text = ledger.read_text()
+    text = ledger.read_text(encoding="utf-8")
     assert text == OLD_LEDGER or "#handler@" in text, f"torn ledger:\n{text!r}"
 
 
@@ -2360,9 +2422,9 @@ def test_migrate_proves_a_row_against_the_file_under_its_own_root(tmp_path):
     (top / "sub" / "seal" / "ledger").mkdir(parents=True)
     # Same path, different content: the decoy the top-level resolution reads.
     (top / "src" / "service.py").write_text(
-        "import os\n\n\ndef handler(x):\n    return 999\n"
+        "import os\n\n\ndef handler(x):\n    return 999\n", encoding="utf-8"
     )
-    (top / "sub" / "src" / "service.py").write_text(SERVICE)
+    (top / "sub" / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     git(top, "init", "-q")
     git(top, "config", "user.email", "t@example.com")
     git(top, "config", "user.name", "t")
@@ -2372,12 +2434,15 @@ def test_migrate_proves_a_row_against_the_file_under_its_own_root(tmp_path):
 
     ledger = top / "sub" / "seal" / "ledger" / "f.md"
     ledger.write_text(
-        f"# frag\n\n| CLAUSE | `src/service.py:4-6` | 2026-08-31 `{sha}` |\n"
+        f"# frag\n\n| CLAUSE | `src/service.py:4-6` | 2026-08-31 `{sha}` |\n",
+        encoding="utf-8",
     )
     r = run(["--migrate", "."], str(top / "sub"))
     assert "1 row migrated · 0 left" in r.stdout, r.stdout
     assert "without the since-the-stamp proof" not in r.stdout, r.stdout
-    assert "#handler@" in ledger.read_text(), ledger.read_text()
+    assert "#handler@" in ledger.read_text(encoding="utf-8"), ledger.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_migrate_still_proves_a_row_at_the_top_level(tmp_path):
@@ -2385,7 +2450,7 @@ def test_migrate_still_proves_a_row_at_the_top_level(tmp_path):
     top = tmp_path / "repo"
     (top / "src").mkdir(parents=True)
     (top / "seal" / "ledger").mkdir(parents=True)
-    (top / "src" / "service.py").write_text(SERVICE)
+    (top / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     git(top, "init", "-q")
     git(top, "config", "user.email", "t@example.com")
     git(top, "config", "user.name", "t")
@@ -2395,7 +2460,8 @@ def test_migrate_still_proves_a_row_at_the_top_level(tmp_path):
 
     ledger = top / "seal" / "ledger" / "f.md"
     ledger.write_text(
-        f"# frag\n\n| CLAUSE | `src/service.py:4-6` | 2026-08-31 `{sha}` |\n"
+        f"# frag\n\n| CLAUSE | `src/service.py:4-6` | 2026-08-31 `{sha}` |\n",
+        encoding="utf-8",
     )
     r = run(["--migrate", "."], str(top))
     assert "1 row migrated · 0 left" in r.stdout, r.stdout
@@ -2409,14 +2475,16 @@ def test_write_atomic_writes_through_a_symlink_and_keeps_the_mode(repo, tmp_path
     from conftest import symlink_or_skip
 
     real = tmp_path / "real.md"
-    real.write_text("old\n")
+    real.write_text("old\n", encoding="utf-8")
     os.chmod(str(real), 0o664)
     link = repo / "seal" / "ledger" / "linked.md"
     symlink_or_skip(str(real), str(link))
 
     ec.write_atomic(str(link), "new\n")
     assert os.path.islink(str(link)), "the symlink was replaced by a regular file"
-    assert real.read_text() == "new\n", "the file behind the link is stale"
+    assert real.read_text(encoding="utf-8") == "new\n", (
+        "the file behind the link is stale"
+    )
     if os.name != "nt":
         # Windows has no POSIX mode to preserve — `os.stat` reports 0o666 for
         # every writable file, so the assertion would be about the platform
@@ -2427,10 +2495,10 @@ def test_write_atomic_writes_through_a_symlink_and_keeps_the_mode(repo, tmp_path
 
 def test_write_atomic_keeps_a_plain_ledgers_mode(tmp_path):
     plain = tmp_path / "plain.md"
-    plain.write_text("old\n")
+    plain.write_text("old\n", encoding="utf-8")
     os.chmod(str(plain), 0o644)
     ec.write_atomic(str(plain), "new\n")
-    assert plain.read_text() == "new\n"
+    assert plain.read_text(encoding="utf-8") == "new\n"
     if os.name != "nt":
         # See the symlink case above: there is no POSIX mode here to keep.
         assert stat.S_IMODE(os.stat(str(plain)).st_mode) == 0o644, (
@@ -2466,10 +2534,10 @@ def test_the_recorded_hash_breaks_a_tie_between_two_places(repo):
     text = (
         "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
     )
-    (repo / "src" / "app.cs").write_text(text)
+    (repo / "src" / "app.cs").write_text(text, encoding="utf-8")
     h = ec.content_hash(["void render(int x) {", "  log(x);"])
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f"# frag\n\n| CLAUSE | `src/app.cs#render@{h}` |\n"
+        f"# frag\n\n| CLAUSE | `src/app.cs#render@{h}` |\n", encoding="utf-8"
     )
     r = run(["."], str(repo))
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
@@ -2481,9 +2549,9 @@ def test_a_tie_no_place_reconstructs_is_still_broken(repo):
     text = (
         "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
     )
-    (repo / "src" / "app.cs").write_text(text)
+    (repo / "src" / "app.cs").write_text(text, encoding="utf-8")
     (repo / "seal" / "ledger" / "f.md").write_text(
-        "# frag\n\n| CLAUSE | `src/app.cs#render@00000000` |\n"
+        "# frag\n\n| CLAUSE | `src/app.cs#render@00000000` |\n", encoding="utf-8"
     )
     r = run(["."], str(repo))
     assert "ambiguous" in r.stdout and r.returncode == 2, r.stdout
@@ -2498,7 +2566,7 @@ def test_a_map_declaration_does_not_turn_the_scan_off_for_a_local_row(repo, tmp_
     other.mkdir()
     write_row(repo, "src/service.py", "handler")
     (repo / "src" / "service.py").unlink()
-    (repo / "src" / "moved.py").write_text(SERVICE)
+    (repo / "src" / "moved.py").write_text(SERVICE, encoding="utf-8")
     r = run(["--map", f"legacy={other}", "."], str(repo))
     assert "identical content at src/moved.py#handler" in r.stdout, r.stdout
 
@@ -2508,7 +2576,7 @@ def test_reverify_says_identical_content_and_not_moved_intact(repo):
     case in four files (round 5, 🟢)."""
     write_row(repo, "src/service.py", "handler")
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("def handler(", "def total_price(")
+        SERVICE.replace("def handler(", "def total_price("), encoding="utf-8"
     )
     r = run(["--reverify", "."], str(repo))
     assert "(identical content)" in r.stdout, r.stdout
@@ -2580,24 +2648,36 @@ def test_a_row_cannot_read_outside_the_repository_it_is_placed_in(repo, tmp_path
     """
     outside = tmp_path / "outside"
     outside.mkdir()
-    (outside / "creds.py").write_text("def secret():\n    return 'SENTINEL'\n")
+    (outside / "creds.py").write_text(
+        "def secret():\n    return 'SENTINEL'\n", encoding="utf-8"
+    )
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text("# frag\n\n| CLAUSE | `../outside/creds.py#secret@00000000` |\n")
-    before = ledger.read_text()
+    ledger.write_text(
+        "# frag\n\n| CLAUSE | `../outside/creds.py#secret@00000000` |\n",
+        encoding="utf-8",
+    )
+    before = ledger.read_text(encoding="utf-8")
 
     r = run(["."], str(repo))
     assert "escapes the repository" in r.stdout, r.stdout
     assert r.returncode == 2, r.stdout
 
     v = run(["--reverify", "."], str(repo))
-    assert ledger.read_text() == before, "reverify rewrote a row it read outside"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "reverify rewrote a row it read outside"
+    )
     assert "0 rows re-verified" in v.stdout, v.stdout
 
-    ledger.write_text("# frag\n\n| CLAUSE | `../outside/creds.py:1-2` | 2026-08-31 |\n")
-    before = ledger.read_text()
+    ledger.write_text(
+        "# frag\n\n| CLAUSE | `../outside/creds.py:1-2` | 2026-08-31 |\n",
+        encoding="utf-8",
+    )
+    before = ledger.read_text(encoding="utf-8")
     m = run(["--migrate", "."], str(repo))
     assert "escapes the repository" in m.stdout, m.stdout
-    assert ledger.read_text() == before, "migrate rewrote a row it read outside"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "migrate rewrote a row it read outside"
+    )
 
 
 def test_a_mapped_prefix_still_reaches_its_own_checkout(repo, tmp_path):
@@ -2606,20 +2686,24 @@ def test_a_mapped_prefix_still_reaches_its_own_checkout(repo, tmp_path):
     against the root would refuse every cross-repo row."""
     other = tmp_path / "legacy"
     (other / "src").mkdir(parents=True)
-    (other / "src" / "service.py").write_text(SERVICE)
+    (other / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     h = ec.content_hash(SERVICE.splitlines()[3:6])
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f"# frag\n\n| CLAUSE | `legacy/src/service.py#handler@{h}` |\n"
+        f"# frag\n\n| CLAUSE | `legacy/src/service.py#handler@{h}` |\n",
+        encoding="utf-8",
     )
     r = run(["--map", f"legacy={other}", "."], str(repo))
     assert "1 ok" in r.stdout and r.returncode == 0, r.stdout
 
     # And the prefix is not a way back out of the checkout it names.
     (repo / "seal" / "ledger" / "f.md").write_text(
-        "# frag\n\n| CLAUSE | `legacy/../outside/creds.py#secret@00000000` |\n"
+        "# frag\n\n| CLAUSE | `legacy/../outside/creds.py#secret@00000000` |\n",
+        encoding="utf-8",
     )
     (tmp_path / "outside").mkdir()
-    (tmp_path / "outside" / "creds.py").write_text("def secret():\n    return 'S'\n")
+    (tmp_path / "outside" / "creds.py").write_text(
+        "def secret():\n    return 'S'\n", encoding="utf-8"
+    )
     r = run(["--map", f"legacy={other}", "."], str(repo))
     assert "escapes the repository" in r.stdout, r.stdout
 
@@ -2644,11 +2728,14 @@ def test_a_moved_brace_language_unit_is_broken_with_the_hint(repo):
         "\n"
         "function page(y) {\n"
         "  return render(y);\n"
-        "}\n"
+        "}\n",
+        encoding="utf-8",
     )
     write_row(repo, "src/app.js", "render")
-    app.write_text("function page(y) {\n  return render(y);\n}\n")
-    (repo / "src" / "other.js").write_text("function render(x) {\n  return x;\n}\n")
+    app.write_text("function page(y) {\n  return render(y);\n}\n", encoding="utf-8")
+    (repo / "src" / "other.js").write_text(
+        "function render(x) {\n  return x;\n}\n", encoding="utf-8"
+    )
 
     r = run(["."], str(repo))
     assert "identical content at src/other.js#render (moved?)" in r.stdout, r.stdout
@@ -2672,18 +2759,23 @@ def test_reverify_refuses_a_place_the_declaration_rule_resurrected(repo):
         "\n"
         "function page(y) {\n"
         "  return render(y);\n"
-        "}\n"
+        "}\n",
+        encoding="utf-8",
     )
     write_row(repo, "src/app.js", "render")
     ledger = repo / "seal" / "ledger" / "f.md"
-    before = ledger.read_text()
-    app.write_text("function page(y) {\n  return render(y);\n}\n")
+    before = ledger.read_text(encoding="utf-8")
+    app.write_text("function page(y) {\n  return render(y);\n}\n", encoding="utf-8")
     # Moved AND edited, so nothing reconstructs and no destination is provable.
-    (repo / "src" / "other.js").write_text("function render(x) {\n  return x + 1;\n}\n")
+    (repo / "src" / "other.js").write_text(
+        "function render(x) {\n  return x + 1;\n}\n", encoding="utf-8"
+    )
 
     rr = run(["--reverify", "."], str(repo))
     assert "0 rows re-verified" in rr.stdout, rr.stdout
-    assert ledger.read_text() == before, "reverify anchored the row onto a call site"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "reverify anchored the row onto a call site"
+    )
     assert "declaration rule" in rr.stdout, rr.stdout
 
 
@@ -2691,10 +2783,11 @@ def test_reverify_says_something_about_a_row_the_check_called_broken(repo):
     """A person told *go look* runs the heal command and used to get silence
     (round 6, 🟢)."""
     (repo / "src" / "app.cs").write_text(
-        "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
+        "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n",
+        encoding="utf-8",
     )
     (repo / "seal" / "ledger" / "f.md").write_text(
-        "# frag\n\n| CLAUSE | `src/app.cs#render@00000000` |\n"
+        "# frag\n\n| CLAUSE | `src/app.cs#render@00000000` |\n", encoding="utf-8"
     )
     rr = run(["--reverify", "."], str(repo))
     assert "src/app.cs#render" in rr.stdout, rr.stdout
@@ -2712,12 +2805,12 @@ def test_default_repo_cannot_reach_outside_its_own_checkout(repo, tmp_path):
     outside = tmp_path / "outside"
     outside.mkdir()
     secret = outside / "creds.py"
-    secret.write_text("def secret():\n    return 'S'\n")
+    secret.write_text("def secret():\n    return 'S'\n", encoding="utf-8")
     symlink_or_skip(str(secret), str(orig / "src" / "creds.py"))
 
-    h = ec.content_hash(secret.read_text().splitlines())
+    h = ec.content_hash(secret.read_text(encoding="utf-8").splitlines())
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f"# frag\n\n| CLAUSE | `src/creds.py#secret@{h}` |\n"
+        f"# frag\n\n| CLAUSE | `src/creds.py#secret@{h}` |\n", encoding="utf-8"
     )
     r = run(["--default-repo", str(orig), "."], str(repo))
     assert "escapes the repository" in r.stdout, r.stdout
@@ -2788,11 +2881,14 @@ def test_a_moved_unit_in_a_semicolonless_file_is_broken_with_its_destination(rep
         "\n"
         "fun page(y: Int): Int {\n"
         "  render(y)\n"
-        "}\n"
+        "}\n",
+        encoding="utf-8",
     )
     write_row(repo, "src/app.kt", "render")
-    app.write_text("fun page(y: Int): Int {\n  render(y)\n}\n")
-    (repo / "src" / "other.kt").write_text("fun render(x: Int): Int {\n  return x\n}\n")
+    app.write_text("fun page(y: Int): Int {\n  render(y)\n}\n", encoding="utf-8")
+    (repo / "src" / "other.kt").write_text(
+        "fun render(x: Int): Int {\n  return x\n}\n", encoding="utf-8"
+    )
 
     r = run(["."], str(repo))
     assert "identical content at src/other.kt#render (moved?)" in r.stdout, r.stdout
@@ -2826,9 +2922,11 @@ def test_a_blocked_declaration_can_be_recorded_by_hand(repo):
     The refusal stays and the prescription becomes performable — the check
     names the place and the hash to record.
     """
-    (repo / "src" / "a.cs").write_text(BLOCKED_CS)
+    (repo / "src" / "a.cs").write_text(BLOCKED_CS, encoding="utf-8")
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text("# frag\n\n| CLAUSE | `src/a.cs#Render@00000000` |\n")
+    ledger.write_text(
+        "# frag\n\n| CLAUSE | `src/a.cs#Render@00000000` |\n", encoding="utf-8"
+    )
 
     want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
     r = run(["."], str(repo))
@@ -2837,7 +2935,9 @@ def test_a_blocked_declaration_can_be_recorded_by_hand(repo):
     assert r.returncode == 2, r.stdout
 
     # The prescription, carried out.
-    ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n")
+    ledger.write_text(
+        f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n", encoding="utf-8"
+    )
     ok = run(["."], str(repo))
     assert "1 ok" in ok.stdout and ok.returncode == 0, ok.stdout
 
@@ -2847,7 +2947,9 @@ def test_an_ordinary_new_row_is_still_anchored_by_reverify(repo):
     everywhere else: a row written with a placeholder hash is filled in."""
     write_row(repo, "src/service.py", "handler")
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text("# frag\n\n| CLAUSE | `src/service.py#handler@00000000` |\n")
+    ledger.write_text(
+        "# frag\n\n| CLAUSE | `src/service.py#handler@00000000` |\n", encoding="utf-8"
+    )
     rr = run(["--reverify", "."], str(repo))
     assert "1 row re-verified" in rr.stdout, rr.stdout
     assert run(["."], str(repo)).returncode == 0, "the filled row is not OK"
@@ -2856,15 +2958,17 @@ def test_an_ordinary_new_row_is_still_anchored_by_reverify(repo):
 def test_an_unchanged_blocked_row_is_not_re_anchored(repo):
     """`--reverify` printed `#Render -> #Render (identical content)` and
     counted a row for a row where nothing had changed (round 7, 🟢)."""
-    (repo / "src" / "a.cs").write_text(BLOCKED_CS)
+    (repo / "src" / "a.cs").write_text(BLOCKED_CS, encoding="utf-8")
     want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n")
-    before = ledger.read_text()
+    ledger.write_text(
+        f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n", encoding="utf-8"
+    )
+    before = ledger.read_text(encoding="utf-8")
     rr = run(["--reverify", "."], str(repo))
     assert "0 rows re-verified" in rr.stdout, rr.stdout
     assert "->" not in rr.stdout, rr.stdout
-    assert ledger.read_text() == before
+    assert ledger.read_text(encoding="utf-8") == before
 
 
 def test_migrate_answers_an_unsure_place_the_way_reverify_does(repo):
@@ -2874,16 +2978,20 @@ def test_migrate_answers_an_unsure_place_the_way_reverify_does(repo):
 
     Unproven, `--migrate` now leaves the row and names the hash to record.
     """
-    (repo / "src" / "a.cs").write_text(BLOCKED_CS)
+    (repo / "src" / "a.cs").write_text(BLOCKED_CS, encoding="utf-8")
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text("# frag\n\n| CLAUSE | `src/a.cs:1-2` | 2026-08-31 |\n")
-    before = ledger.read_text()
+    ledger.write_text(
+        "# frag\n\n| CLAUSE | `src/a.cs:1-2` | 2026-08-31 |\n", encoding="utf-8"
+    )
+    before = ledger.read_text(encoding="utf-8")
     want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
 
     m = run(["--migrate", "."], str(repo))
     assert "0 rows migrated · 1 left" in m.stdout, m.stdout
     assert want in m.stdout, m.stdout
-    assert ledger.read_text() == before, "an unsure place was anchored anyway"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "an unsure place was anchored anyway"
+    )
 
 
 def test_reverify_never_contradicts_the_checks_verdict(repo):
@@ -2892,15 +3000,19 @@ def test_reverify_never_contradicts_the_checks_verdict(repo):
     a row with no candidate at all, and it dropped the claim from the
     coordinate so two claim rows on one unit read alike (round 7, 🟡 N)."""
     # (a) a blocked row the check calls OK — silence, and no phantom.
-    (repo / "src" / "a.cs").write_text(BLOCKED_CS)
+    (repo / "src" / "a.cs").write_text(BLOCKED_CS, encoding="utf-8")
     want = ec.content_hash(BLOCKED_CS.splitlines()[0:2])
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n")
+    ledger.write_text(
+        f"# frag\n\n| CLAUSE | `src/a.cs#Render@{want}` |\n", encoding="utf-8"
+    )
     assert "1 ok" in run(["."], str(repo)).stdout
     assert "ambiguous" not in run(["--reverify", "."], str(repo)).stdout
 
     # (b) a row with no place at all is not reported as a resurrection.
-    ledger.write_text("# frag\n\n| CLAUSE | `src/service.py#gone@00000000` |\n")
+    ledger.write_text(
+        "# frag\n\n| CLAUSE | `src/service.py#gone@00000000` |\n", encoding="utf-8"
+    )
     rr = run(["--reverify", "."], str(repo))
     assert "src/service.py#gone" in rr.stdout, rr.stdout
     # The check calls this BROKEN with no place at all, so that is what this
@@ -2909,9 +3021,10 @@ def test_reverify_never_contradicts_the_checks_verdict(repo):
     assert "unsure" not in rr.stdout, rr.stdout
 
     # (c) the claim is part of the coordinate a left-behind line names.
-    body = (repo / "src" / "service.py").read_text()
+    body = (repo / "src" / "service.py").read_text(encoding="utf-8")
     ledger.write_text(
-        '# frag\n\n| CLAUSE | `src/service.py#handler>"z = 9"@00000000` |\n'
+        '# frag\n\n| CLAUSE | `src/service.py#handler>"z = 9"@00000000` |\n',
+        encoding="utf-8",
     )
     assert "handler" in body
     rr = run(["--reverify", "."], str(repo))
@@ -2924,18 +3037,24 @@ def test_every_row_the_check_flags_gets_a_line_from_reverify(repo):
     with no provable destination, and a claim row whose minor anchor went
     stale, where the check literally prints `— re-verify` (round 7, 🟢)."""
     (repo / "src" / "a.cs").write_text(
-        "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n"
+        "void render(int x) {\n  log(x);\n}\n\nvoid render(string s) {\n  send(s);\n}\n",
+        encoding="utf-8",
     )
-    (repo / "src" / "b.cs").write_text(BLOCKED_CS.replace("log(x);", "log(x + 1);"))
+    (repo / "src" / "b.cs").write_text(
+        BLOCKED_CS.replace("log(x);", "log(x + 1);"), encoding="utf-8"
+    )
     (repo / "seal" / "ledger" / "f.md").write_text(
         "# frag\n\n"
         "| A | `src/service.py#gone@00000000` |\n"
         "| B | `src/app.cs#render@00000000` |\n"
         '| C | `src/service.py#handler>"z = 9"@00000000` |\n'
         "| D | `src/missing.py#thing@00000000` |\n"
-        "| E | `src/b.cs#Render@00000000` |\n"
+        "| E | `src/b.cs#Render@00000000` |\n",
+        encoding="utf-8",
     )
-    (repo / "src" / "app.cs").write_text((repo / "src" / "a.cs").read_text())
+    (repo / "src" / "app.cs").write_text(
+        (repo / "src" / "a.cs").read_text(encoding="utf-8"), encoding="utf-8"
+    )
 
     checked = run(["."], str(repo))
     flagged = [
@@ -2959,7 +3078,7 @@ def test_migrate_still_anchors_an_unsure_place_the_stamp_vouches_for(tmp_path):
     top = tmp_path / "repo"
     (top / "src").mkdir(parents=True)
     (top / "seal" / "ledger").mkdir(parents=True)
-    (top / "src" / "a.cs").write_text(BLOCKED_CS)
+    (top / "src" / "a.cs").write_text(BLOCKED_CS, encoding="utf-8")
     git(top, "init", "-q")
     git(top, "config", "user.email", "t@example.com")
     git(top, "config", "user.name", "t")
@@ -2968,10 +3087,15 @@ def test_migrate_still_anchors_an_unsure_place_the_stamp_vouches_for(tmp_path):
     sha = git(top, "rev-parse", "HEAD").stdout.strip()
 
     ledger = top / "seal" / "ledger" / "f.md"
-    ledger.write_text(f"# frag\n\n| CLAUSE | `src/a.cs:1-2` | 2026-08-31 `{sha}` |\n")
+    ledger.write_text(
+        f"# frag\n\n| CLAUSE | `src/a.cs:1-2` | 2026-08-31 `{sha}` |\n",
+        encoding="utf-8",
+    )
     m = run(["--migrate", "."], str(top))
     assert "1 row migrated · 0 left" in m.stdout, m.stdout
-    assert "#Render@" in ledger.read_text(), ledger.read_text()
+    assert "#Render@" in ledger.read_text(encoding="utf-8"), ledger.read_text(
+        encoding="utf-8"
+    )
     assert run(["."], str(top)).returncode == 0, "the migrated row is not OK"
 
 

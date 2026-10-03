@@ -69,7 +69,7 @@ def run(args, cwd):
 
 def unit_hash(repo, rel, locator):
     """What `rel#locator` holds now, as the checker hashes it."""
-    text = (repo / rel).read_text()
+    text = (repo / rel).read_text(encoding="utf-8")
     places, _ = ec.resolve_unit(rel, locator, text)
     assert len(places) == 1, places
     a, b = places[0]
@@ -84,7 +84,7 @@ def line_hash(line):
 def repo(tmp_path):
     d = tmp_path / "proj"
     (d / "src").mkdir(parents=True)
-    (d / "src" / "service.py").write_text(SERVICE)
+    (d / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     (d / "seal").mkdir()
     return d
 
@@ -97,14 +97,14 @@ def released(repo, rows, version="0.1.0", section=SECTION):
     body = f"## {version} — 2026-01-01\n\n{section}\n\n" + "".join(
         row + "\n" for row in rows
     )
-    path.write_text(body)
+    path.write_text(body, encoding="utf-8")
     return rows
 
 
 def fragment(repo, rows, name="2000000001-a-later-item"):
     path = repo / "seal" / "ledger" / f"{name}.md"
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text("".join(row + "\n" for row in rows))
+    path.write_text("".join(row + "\n" for row in rows), encoding="utf-8")
     return path
 
 
@@ -113,7 +113,9 @@ def citation(row, literal, version="0.1.0", section=SECTION):
 
 
 def edit_handler(repo):
-    (repo / "src" / "service.py").write_text(SERVICE.replace("y = x + 1", "y = x + 2"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("y = x + 1", "y = x + 2"), encoding="utf-8"
+    )
 
 
 def findings(out):
@@ -315,7 +317,9 @@ def test_removal_is_a_correction_whose_grounds_hold_the_citation_alone(repo):
             f"| R1 · other doubles | `src/service.py#other@{old}` | read | 2026-01-01 | |"
         ],
     )
-    (repo / "src" / "service.py").write_text(SERVICE.split("\n\n\ndef other")[0] + "\n")
+    (repo / "src" / "service.py").write_text(
+        SERVICE.split("\n\n\ndef other")[0] + "\n", encoding="utf-8"
+    )
     fragment(
         repo,
         [
@@ -426,7 +430,10 @@ def test_a_released_file_changed_under_a_citation_drifts_it(repo):
         ],
     )
     path = repo / "seal" / "releases" / "0.1.0.md"
-    path.write_text(path.read_text().replace("| read |", "| read again |"))
+    path.write_text(
+        path.read_text(encoding="utf-8").replace("| read |", "| read again |"),
+        encoding="utf-8",
+    )
     out = run(["--strict", "."], repo)
     drifted = [c for s, c in findings(out.stdout) if s == "DRIFTED"]
     assert any(c.startswith("seal/releases/0.1.0.md#") for c in drifted), out.stdout
@@ -460,9 +467,10 @@ def test_the_citation_written_for_a_row_names_that_row_alone(repo):
     path.parent.mkdir(parents=True)
     path.write_text(
         f"## 0.1.0 — 2026-01-01\n\n{SECTION}\n\n#### `handler`, and what it adds\n\n"
-        + "".join(r + "\n" for r in rows)
+        + "".join(r + "\n" for r in rows),
+        encoding="utf-8",
     )
-    lines = path.read_text().splitlines()
+    lines = path.read_text(encoding="utf-8").splitlines()
     files = {}
 
     def load(p):
@@ -531,7 +539,9 @@ def test_the_commit_advisor_reads_one_view_of_every_ledger(repo):
             f"| R1 · other doubles | `src/service.py#other@{old}` | read | 2026-01-01 | |"
         ],
     )
-    (repo / "src" / "service.py").write_text(SERVICE.split("\n\n\ndef other")[0] + "\n")
+    (repo / "src" / "service.py").write_text(
+        SERVICE.split("\n\n\ndef other")[0] + "\n", encoding="utf-8"
+    )
     fragment(
         repo,
         [
@@ -554,7 +564,8 @@ def test_a_citation_into_the_gathered_ledger_names_its_row(repo):
     row = f"| G1 · handler adds one | `src/service.py#handler@{old}` | read | 2026-01-01 | |"
     (repo / "seal" / "ledger.md").write_text(
         "# map\n\n## Coordinates\n\n| Clause | Code grounds | Verified behavior "
-        "| Checked | Notes |\n|---|---|---|---|---|\n" + row + "\n"
+        "| Checked | Notes |\n|---|---|---|---|---|\n" + row + "\n",
+        encoding="utf-8",
     )
     edit_handler(repo)
     new = unit_hash(repo, "src/service.py", "handler")
@@ -655,7 +666,8 @@ INTO = "seal/ledger/2000000001-a-later-item.md"
 def frozen(repo, value="1"):
     (repo / "seal" / "config.md").write_text(
         "# Repository config\n\n| Item | Value |\n|---|---|\n"
-        f"| Ledger frozen from | {value} |\n"
+        f"| Ledger frozen from | {value} |\n",
+        encoding="utf-8",
     )
 
 
@@ -685,7 +697,8 @@ def two_drifted_rows(repo):
         ],
     )
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("y = x + 1", "y = x + 2").replace("x * 2", "x * 3")
+        SERVICE.replace("y = x + 1", "y = x + 2").replace("x * 2", "x * 3"),
+        encoding="utf-8",
     )
     return rows
 
@@ -701,7 +714,7 @@ def test_into_writes_one_citing_row_per_drifted_row_and_no_released_byte(repo):
     out = run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
     assert out.returncode == 0, out.stdout + out.stderr
     assert digests(repo) == before
-    written = (repo / INTO).read_text().splitlines()
+    written = (repo / INTO).read_text(encoding="utf-8").splitlines()
     assert len(written) == 2, written
     assert written[0].startswith("| Re-read · R1 · handler adds one"), written[0]
     assert written[0].count("src/service.py#") == 2, written[0]
@@ -722,10 +735,10 @@ def test_into_writes_nothing_for_a_row_its_family_already_re_read(repo):
     frozen(repo)
     two_drifted_rows(repo)
     run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
-    first = (repo / INTO).read_text()
+    first = (repo / INTO).read_text(encoding="utf-8")
     out = run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
     assert out.returncode == 0, out.stdout
-    assert (repo / INTO).read_text() == first
+    assert (repo / INTO).read_text(encoding="utf-8") == first
 
 
 def test_a_frozen_reverify_without_into_writes_no_released_file(repo):
@@ -741,7 +754,7 @@ def test_a_frozen_reverify_without_into_writes_no_released_file(repo):
     out = run(["--reverify", "."], repo)
     assert out.returncode == 1, out.stdout
     assert digests(repo) == before
-    assert f"src/service.py#handler@{h}" in (repo / INTO).read_text()
+    assert f"src/service.py#handler@{h}" in (repo / INTO).read_text(encoding="utf-8")
     assert "--into" in out.stdout
     assert (
         "seal/releases/0.1.0.md:5" in out.stdout
@@ -888,7 +901,7 @@ def test_a_vendored_copy_reads_the_freeze_without_the_plugin_beside_it(repo):
 def test_into_re_reads_a_claimed_coordinate_at_its_minor_region(repo):
     """A coordinate narrowed by a claim records the hash of the statement
     it names, and the citing row carries that hash, not the unit's."""
-    text = (repo / "src" / "service.py").read_text()
+    text = (repo / "src" / "service.py").read_text(encoding="utf-8")
     places, _ = ec.resolve_unit("src/service.py", "handler", text)
     (inside,) = ec.minor_region("src/service.py", text, places[0], '"return y"')
     lines = ec.gfm_lines(text)
@@ -901,12 +914,12 @@ def test_into_re_reads_a_claimed_coordinate_at_its_minor_region(repo):
         ],
     )
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("    return y\n", "    return y  # the sum\n")
+        SERVICE.replace("    return y\n", "    return y  # the sum\n"), encoding="utf-8"
     )
     frozen(repo)
     out = run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
     assert out.returncode == 0, out.stdout + out.stderr
-    assert '#handler>"return y"@' in (repo / INTO).read_text()
+    assert '#handler>"return y"@' in (repo / INTO).read_text(encoding="utf-8")
     check = run(["--strict", "."], repo)
     assert check.returncode == 0, check.stdout
 
@@ -939,7 +952,9 @@ def test_into_re_reads_a_coordinate_a_folded_re_read_carries(repo):
     )
     released(repo, [folded], version="0.2.0", section="### 2000000001-a-later-item")
     frozen(repo, "0")
-    (repo / "src" / "service.py").write_text(SERVICE.replace("x * 2", "x * 7"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x * 2", "x * 7"), encoding="utf-8"
+    )
     r = run(
         [
             "--reverify",
@@ -952,7 +967,7 @@ def test_into_re_reads_a_coordinate_a_folded_re_read_carries(repo):
         repo,
     )
     assert r.returncode == 0, r.stdout + r.stderr
-    written = (repo / "seal" / "ledger" / "3000000001-y.md").read_text()
+    written = (repo / "seal" / "ledger" / "3000000001-y.md").read_text(encoding="utf-8")
     now = unit_hash(repo, "src/service.py", "other")
     assert f"`src/service.py#other@{now}`" in written, written
     assert run(["--strict", "."], repo).returncode == 0
@@ -977,7 +992,7 @@ def test_a_partial_revert_to_an_older_reading_is_drifted(repo):
         ],
     )
     both = SERVICE.replace("y = x + 1", "y = x + 2").replace("x * 2", "x * 3")
-    (repo / "src" / "service.py").write_text(both)
+    (repo / "src" / "service.py").write_text(both, encoding="utf-8")
     h2 = unit_hash(repo, "src/service.py", "handler")
     o2 = unit_hash(repo, "src/service.py", "other")
     fragment(
@@ -989,7 +1004,9 @@ def test_a_partial_revert_to_an_older_reading_is_drifted(repo):
         ],
     )
     assert run(["--strict", "."], repo).returncode == 0
-    (repo / "src" / "service.py").write_text(both.replace("y = x + 2", "y = x + 1"))
+    (repo / "src" / "service.py").write_text(
+        both.replace("y = x + 2", "y = x + 1"), encoding="utf-8"
+    )
     assert unit_hash(repo, "src/service.py", "handler") == h1
     out = run(["--strict", "."], repo)
     assert out.returncode == 2, out.stdout
@@ -1010,7 +1027,9 @@ def test_two_readings_of_one_coordinate_on_the_same_day_are_a_union(repo):
     )
     edit_handler(repo)
     h2 = unit_hash(repo, "src/service.py", "handler")
-    (repo / "src" / "service.py").write_text(SERVICE.replace("y = x + 1", "y = x + 3"))
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("y = x + 1", "y = x + 3"), encoding="utf-8"
+    )
     h3 = unit_hash(repo, "src/service.py", "handler")
     cite = citation(r, "R1 · handler adds one")
     for name, h in (("2000000001-a", h2), ("2000000002-b", h3)):
@@ -1050,11 +1069,11 @@ def test_into_re_reads_a_revert_a_folded_newer_reading_outranks(repo):
         section="### 2000000001-a-later-item",
     )
     frozen(repo, "0")
-    (repo / "src" / "service.py").write_text(SERVICE)
+    (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     assert run(["--strict", "."], repo).returncode == 2
     out = run(["--reverify", "--into", INTO, "--checked", "2026-03-01", "."], repo)
     assert out.returncode == 0, out.stdout + out.stderr
-    assert f"`src/service.py#handler@{h1}`" in (repo / INTO).read_text()
+    assert f"`src/service.py#handler@{h1}`" in (repo / INTO).read_text(encoding="utf-8")
     assert run(["--strict", "."], repo).returncode == 0
 
 
@@ -1076,7 +1095,7 @@ def test_a_moved_released_row_is_told_its_correction_carries_every_coordinate(
     )
     frozen(repo)
     (repo / "src" / "service.py").write_text(
-        SERVICE.replace("def handler", "def handle2")
+        SERVICE.replace("def handler", "def handle2"), encoding="utf-8"
     )
     out = run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
     assert out.returncode == 1, out.stdout
@@ -1160,7 +1179,7 @@ def test_a_first_cell_that_also_ends_another_cell_still_gets_a_citation(repo):
         ],
     )
     path = repo / "seal" / "releases" / "0.1.0.md"
-    number = path.read_text().splitlines().index(r1) + 1
+    number = path.read_text(encoding="utf-8").splitlines().index(r1) + 1
     cite = ec.citation_for(str(repo), str(path), number)
     assert cite is not None
     m = ec.ANCHOR_RE.fullmatch(cite)
@@ -1240,7 +1259,7 @@ def test_a_narrowed_into_re_reads_a_family_a_fragment_outranks(repo):
         name="2000000009-z",
     )
     frozen(repo, "0")
-    (repo / "src" / "service.py").write_text(SERVICE)
+    (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     assert run(["--strict", "."], repo).returncode == 2
     out = run(
         [
@@ -1281,7 +1300,7 @@ def test_an_unfrozen_narrowed_reverify_names_a_family_it_could_not_clear(repo):
         ],
         name="2000000009-z",
     )
-    (repo / "src" / "service.py").write_text(SERVICE)
+    (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
     out = run(["--reverify", "--ledger", "seal/releases/0.1.0.md", "."], repo)
     assert run(["--strict", "."], repo).returncode == 2
     assert out.returncode == 1, out.stdout
@@ -1325,7 +1344,7 @@ def test_a_first_cell_equal_to_another_rows_cell_still_gets_a_citation(repo):
         ],
     )
     path = repo / "seal" / "releases" / "0.1.0.md"
-    number = path.read_text().splitlines().index(r1) + 1
+    number = path.read_text(encoding="utf-8").splitlines().index(r1) + 1
     cite = ec.citation_for(str(repo), str(path), number)
     assert cite is not None
     edit_handler(repo)

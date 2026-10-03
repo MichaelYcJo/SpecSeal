@@ -60,7 +60,7 @@ def unit_hash(root, rel, name):
     spec = importlib.util.spec_from_file_location("ec", SCRIPT)
     ec = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(ec)
-    text = (root / rel).read_text()
+    text = (root / rel).read_text(encoding="utf-8")
     ((a, b),), _ = ec.resolve_unit(rel, name, text)
     return ec.content_hash(ec.gfm_lines(text)[a - 1 : b])
 
@@ -92,7 +92,7 @@ def released_repo(tmp_path, frozen=True):
 
 def branch(root, name, rel, old, new, fragment=None):
     git(root, "checkout", "-q", "-b", name, "main")
-    write(root, rel, (root / rel).read_text().replace(old, new))
+    write(root, rel, (root / rel).read_text(encoding="utf-8").replace(old, new))
     if fragment is None:
         out = checker(root, "--reverify", "--checked", "2026-02-01")
     else:
