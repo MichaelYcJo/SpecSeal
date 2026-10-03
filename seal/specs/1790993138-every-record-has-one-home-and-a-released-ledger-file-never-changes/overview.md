@@ -26,6 +26,9 @@ A re-read of a released ledger row used to edit the released file in place, so t
 | Item | Who must answer |
 |---|---|
 | Whether the family union's failure direction (a coordinate whose content returns to a hash an earlier reading recorded reads OK again, spec D3) is acceptable in practice | the warden, reading D3 against the cases; the repository owner if it is contested |
+| The freeze arm on a real pull request: the hygiene step passes `origin/<base>...HEAD`, and `frozen_changes` reads the base's version off that spelling; the cases drive a local `release/v0.1.0`, not CI's `origin/` form | CI, at this work item's pull request into `release/v0.18.0` |
+| `ledger_kind` and the citation re-rooting compare paths through `os.path.normcase`; nothing was run on Windows | CI's `windows-latest` leg |
+| The full suite, lint over the repository and the typecheck | the sealer, once the review rounds settle |
 
 ## Not done
 
@@ -33,4 +36,18 @@ A re-read of a released ledger row used to edit the released file in place, so t
 
 ## Fed back into the spec
 
-None yet.
+Each of these is *inferred during implementation*, and a planner may
+overturn it:
+
+- **W1's literal rule** (`evidence_check.py#citation_for`, `#unique_literal`),
+  measured over the corpus as M2.
+- **A released row whose anchor moved takes a `Corrected ·` row**, because a
+  `Re-read ·` row cannot clear a coordinate whose spelling changed; the home
+  states it (`docs/the-evidence-ledger.md` §*A released row is read again in
+  the branch's fragment*).
+- **The freeze row is value-blind to `evidence-check`**: any value stops
+  `--reverify` writing a released file; the cutoff is `correction-check`'s.
+- **`settle`'s anchored guard skips a row a correction supersedes**, so
+  D6's guidance can be followed without holding a directory forever.
+- **M1 kept the fold fragment's name**: every reader accepts
+  `seal/ledger/<unix-seconds>-fold.md`.
