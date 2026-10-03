@@ -229,6 +229,15 @@ CONTROLS = {
     # it holds no commit.
     "env -S with no commit": "env -S 'echo hi'",
     "env -S with env's own option and no commit": "env -S '-i true'",
+    # Round 1 of 1790993140, yellow 1: env's own words are arguments to
+    # `env`, so a variable among them names no command, and a quoted operand
+    # stays one word. Each was a deny in a declared repository at `07a3dc7f`
+    # and silent at `233f0455`.
+    "env -S behind an option's variable value": "env -u \"$V\" -S 'echo hi'",
+    "env -S behind a variable directory": "env -C \"$D\" -S 'echo hi'",
+    "env -S with a variable operand": "env -S 'echo' \"$X\"",
+    "env -S with a quoted operand holding a list": "env -S 'echo' 'a && git commit -m y'",
+    "env -S with a quoted operand holding a ;": "env -S 'printf %s' 'x; git commit -m y'",
 }
 
 # #674: round 1's seven controls, rewritten into each position the work item

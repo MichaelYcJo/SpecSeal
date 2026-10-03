@@ -1698,7 +1698,7 @@ def _hands_a_string(word, tok):
     return tok.startswith("-") and not tok.startswith("--") and "c" in tok[1:]
 
 
-def reparsed_texts(tokens):
+def reparsed_texts(tokens, env_words=True):
     """Every string in this segment that a program hands to a shell to parse.
 
     `sh -c`, `bash -c` and the other `SHELLS`, `su -c`, `runuser -c` and
@@ -1710,6 +1710,10 @@ def reparsed_texts(tokens):
     the string costs a silence. A program found anywhere in the segment
     counts, not only as its command word: `sudo sh -c` and `xargs -I{} sh -c`
     put it behind a runner.
+
+    ENV_WORDS adds `env -S`'s string read as `env`'s own words (#716).
+    `command_strings` passes False: it asks which command word expands, and
+    env's other words are its arguments, never a command word.
     """
     texts = []
     for k, tok in enumerate(tokens):
@@ -1727,13 +1731,17 @@ def reparsed_texts(tokens):
             for j, t in enumerate(rest):
                 if t in ("-S", "--split-string") and j + 1 < len(rest):
                     texts += _string_at(rest, j + 1)
-                    texts += _env_words(word, rest[:j], rest[j + 1 :])
+                    after = rest[j + 1 :]
                 elif t.startswith("--split-string="):
                     texts.append(t.split("=", 1)[1])
-                    texts += _env_words(word, rest[:j], [texts[-1], *rest[j + 1 :]])
+                    after = [texts[-1], *rest[j + 1 :]]
                 elif t.startswith("-S") and len(t) > 2:
                     texts.append(t[2:])
-                    texts += _env_words(word, rest[:j], [t[2:], *rest[j + 1 :]])
+                    after = [t[2:], *rest[j + 1 :]]
+                else:
+                    continue
+                if env_words:
+                    texts += _env_words(word, rest[:j], after)
     return texts
 
 
@@ -1751,7 +1759,12 @@ def _env_words(word, before, after):
     after = _without_redirections(after)
     if not after:
         return []
-    return [" ".join([word, *_without_redirections(before), *after])]
+    # Only the string is split again; every other word reached `env` as ONE
+    # argument, so it is quoted back into one: `env -S echo 'a && b'` runs
+    # `echo` with one operand, not a list (round 1 of 1790993140, yellow 1).
+    head = [shlex.quote(w) for w in _without_redirections(before)]
+    tail = [shlex.quote(w) for w in after[1:]]
+    return [" ".join([word, *head, after[0], *tail])]
 
 
 # Options of a shell, and of `watch`, that take the next word as their value.
@@ -1868,7 +1881,10 @@ def command_strings(tokens):
                 elif _hands_a_string(word, t) and j + 1 < len(rest):
                     out += _string_at(rest, j + 1)
         elif word in ("env", "genv"):
-            out += reparsed_texts([tok, *rest])
+            # The split string alone: `env`'s own words carry its options'
+            # values and the operands after the string, which `env` runs as
+            # arguments and never as a command word (round 1 of 1790993140).
+            out += reparsed_texts([tok, *rest], env_words=False)
         elif word == "watch" and _is_the_program(tokens, k):
             # Only where `watch` is the program that runs, not a word
             # something else was handed (`grep watch *.py`).
