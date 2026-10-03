@@ -976,6 +976,23 @@ WIDER_ONLY = {
         "cd w && git worktree add>/dev/null ../wt b",
         "creation",
     ),
+    # #737. The splitter cuts `&>` at `&`, and only the merged view holds the
+    # switch; bash runs each (executed). A mutant comparing the merged view
+    # with itself is silent on both.
+    "&> between switch and its name": (
+        "cd w && git switch &>/dev/null feature/x",
+        "switch",
+    ),
+    "&> between checkout and its name": (
+        "cd w && git checkout &>/dev/null feature/x",
+        "switch",
+    ),
+    # #737. bash runs it as a creation (executed); silent at `2b1dcb1f`,
+    # where `2>/dev/null` was read as `worktree`'s first positional.
+    "a redirection between worktree and add": (
+        "cd w && git worktree 2>/dev/null add ../wt b",
+        "creation",
+    ),
     **{
         f"zsh: {shape.split('&& ')[1]}": (
             shape.format(verb="switch feature/x"),
@@ -1055,6 +1072,192 @@ def test_a_restore_before_a_hidden_switch_does_not_silence_the_question(
     assert decision == "ask", (decision, reason)
     assert "switches a branch" in reason, reason
     assert top is None, top
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd w && git checkout . &>/dev/null",
+        "cd w && git checkout .&>/dev/null",
+        "cd w && git checkout -q &>/dev/null",
+        "cd w && git switch --detach &>/dev/null",
+        "cd w && git switch --detach>/dev/null",
+        "cd w && git checkout>/dev/null .",
+    ],
+)
+def test_a_redirection_word_is_not_read_as_a_branch_name(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """#737. A cut or merged view carries a redirection word its segments do
+    not, and `switch_kind` reads any word as a name, so each of these asked
+    *switches a branch* at `2b1dcb1f`. bash runs each as a restore or a
+    detach (executed), and `233f0455` asked none of them."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, _ = run(monkeypatch, capsys, command, session)
+    assert decision == "silent", (command, decision, reason)
+
+
+def _redirections():
+    """Every redirection `hooks/cmdline.py`'s `_REDIRECTION` names, as (operator,
+    target) pairs, each operator once bare and, where it is not `&`-led, with
+    a number and with bash 4.1's `{fd}` in front. Derived from the pattern, so
+    an operator the reader learns is a new case the day it is added."""
+    pattern = wg.wide._REDIRECTION.pattern
+    assert pattern.endswith(")"), pattern
+    operators = pattern[pattern.rindex("(?:") + 3 : -1]
+    pairs = []
+    for op in (o.replace("\\", "") for o in re.split(r"(?<!\\)\|", operators)):
+        target = {"<<<": "word", "<<": "EOF", "<<-": "EOF"}.get(op, "/dev/null")
+        if op.endswith("&"):
+            target = "1"
+        fds = [""] if op.startswith("&") else ["", "2", "{fd}"]
+        pairs += [(fd + op, target) for fd in fds]
+    return pairs
+
+
+def test_the_redirections_are_read_from_the_reader():
+    """The generator below is only as wide as this list."""
+    ops = {op for op, _target in _redirections()}
+    assert {"&>", "&>>", ">&", "<&", "2>", "{fd}>", "<<<", ">|", ">!"} <= ops, ops
+    assert len(ops) == 2 + 12 * 3, sorted(ops)
+
+
+RESTORES = (
+    "checkout .",
+    "checkout -- README.md",
+    "checkout -q",
+    "switch --detach",
+    "worktree list",
+)
+
+
+def _shapes(verb):
+    """`git <verb>` with every redirection `_redirections` gives, at every
+    position, glued to the word before it and spaced, its target glued and
+    spaced.
+
+    A number or a `{fd}` is a descriptor only as a word of its own, so those
+    are spaced: glued, bash hands it to git inside the word before
+    (`--2>&1` is the option `--2`), which is another verb."""
+    words = ["git", *verb.split()]
+    for op, target in _redirections():
+        gluable = not op[0].isdigit() and not op.startswith("{")
+        for at in range(len(words) + 1):
+            for glued in (False, True) if at and gluable else (False,):
+                for spaced_target in (False, True):
+                    redirection = op + (" " if spaced_target else "") + target
+                    head = " ".join(words[:at])
+                    tail = " ".join(words[at:])
+                    joint = "" if glued else " "
+                    command = (head + joint + redirection).lstrip()
+                    command = (command + " " + tail).rstrip()
+                    if target == "EOF":
+                        command += "\nEOF"
+                    yield command
+
+
+def test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands(
+    tmp_path,
+):
+    """#737, S4. For every operator `_REDIRECTION` names, at every position, glued
+    to the word before it and spaced, its target glued and spaced, a verb that
+    switches nothing is no kind to the wider reading. Red at `2b1dcb1f`."""
+    asked = []
+    for verb in RESTORES:
+        for command in _shapes(verb):
+            kinds = wg.wider_only_kinds(command, str(tmp_path))
+            if kinds:
+                asked.append((command, kinds))
+    assert not asked, (len(asked), asked[:10])
+
+
+def _policy_text():
+    """`docs/worktree-guard-spec.md`, whitespace folded so a wrapped sentence
+    reads as one line."""
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "docs", "worktree-guard-spec.md"
+    )
+    with open(path, encoding="utf-8") as f:
+        return " ".join(f.read().split())
+
+
+# The rule §*Which tree* states for candidate C, in its own words (round 2 of
+# #737): a list of positions was wrong in each of two rounds, so the sentence
+# states the condition, and the case below checks the condition.
+POLICY_RULE = (
+    "the guard asks wherever a view's words hold a switch or a creation that "
+    "none of the frozen segments the view was made from holds"
+)
+
+# Verbs whose words read as a switch or a creation, each a restore or a
+# detach among them where the tree decides: the rule asks them whenever the
+# frozen reading misses them.
+ASKABLE = (
+    "switch feature/x",
+    "switch --detach feature/x",
+    "checkout README.md",
+    "checkout -b y",
+    "worktree add ../wt b",
+)
+
+
+def test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers(
+    tmp_path,
+):
+    """Round 2 of #737. Over the generated shapes, every kind
+    `wider_only_kinds` asks is the kind the verb's own words hold, read with
+    no redirection, and one none of the frozen segments of the command as
+    written holds. Checked by that condition, never by a list of shapes, so
+    the policy's rule and the code cannot drift apart a position at a time.
+    Red against the round-1 sentence, which listed positions."""
+    assert POLICY_RULE in _policy_text()
+    asked, outside = 0, []
+    for verb in (*RESTORES, *ASKABLE):
+        own = wg.switch_kind(wg.parse_git(["git", *verb.split()]))
+        for command in _shapes(verb):
+            kinds = wg.wider_only_kinds(command, str(tmp_path))
+            if not kinds:
+                continue
+            asked += 1
+            frozen = {
+                wg.switch_kind(wg.parse_git(tokens))
+                for tokens, _wheres in wg.walk_command(command, str(tmp_path))
+            }
+            if kinds != {own} or own in frozen:
+                outside.append((command, sorted(kinds), own))
+    assert asked, "the generator reached no shape the wider reading asks"
+    assert not outside, (len(outside), outside[:10])
+
+
+HIDDEN_FILE_CHECKOUTS = (
+    "2>/dev/null git checkout README.md",
+    "git 2>/dev/null checkout README.md",
+    "git checkout>/dev/null README.md",
+    "git checkout &>/dev/null README.md",
+)
+
+
+@pytest.mark.parametrize("command", HIDDEN_FILE_CHECKOUTS)
+def test_a_file_checkout_hidden_from_the_frozen_reader_is_asked_as_a_switch(
+    tmp_path, command
+):
+    """`docs/worktree-guard-spec.md` §*Which tree*: C reads no tree, so a
+    file's name reads as a branch's, and the rule asks it wherever the frozen
+    reading misses it (warden round 1 of #737). Seen red against a
+    `switch_kind` that skips a name holding a `.`."""
+    assert wg.wider_only_kinds(command, str(tmp_path)) == {"switch"}, command
+
+
+def test_the_guard_policy_says_a_hidden_file_checkout_is_asked():
+    """§14 of the agent contract: the sentence a person reads to learn when
+    the guard asks states the rule, says the reading looks up no tree, and
+    labels its examples as examples. Red against the round-1 sentence, which
+    listed positions and promised silence for a detach (round 2 of #737)."""
+    text = _policy_text()
+    assert POLICY_RULE in text
+    assert "it asks whether or not the command moves the tree" in text
+    assert "the two are examples, not the set" in text
+    assert "`git checkout &>/dev/null README.md` is asked" in text
 
 
 def test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it(

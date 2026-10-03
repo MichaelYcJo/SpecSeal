@@ -143,6 +143,19 @@ HANDED = {
     "env -iS behind a redirection after a value": f"env -u FOO 2>/dev/null -iS '{C}'",
     "env -iS behind a redirection before a value": f"env -u 2>/dev/null FOO -iS '{C}'",
     "env -vS behind a cut redirection": f"env -i 2>&1 -vS '{C}'",
+    # #737: BSD's getopt has `-` among its letters, as `-i`, and reads a word
+    # starting `--` with more after it as a cluster led by `-`; macOS `env`
+    # runs each string (executed). Each found nothing at `2b1dcb1f`.
+    "env -i-S": f"env -i-S '{C}'",
+    "env --S": f"env --S '{C}'",
+    "env --S behind an option's value": f"env -u FOO --S '{C}'",
+    # GNU's `--env0-from` takes a value (coreutils 9.12, read, not run).
+    "env -iS behind --env0-from's value": f"env --env0-from f -iS '{C}'",
+    # BSD reads `--unset` as `-i -u nset` and `--un` as `-i -u n`, where GNU
+    # reads the long option taking the next word; macOS `env` runs each
+    # (executed). Reading the word only as GNU does found nothing.
+    "env -iS behind BSD's --unset": f"env --unset -iS '{C}'",
+    "env -vS behind BSD's --un": f"env --un -vS '{C}'",
 }
 
 SUBSTITUTED = {
@@ -273,6 +286,9 @@ CONTROLS = {
     # A letter no synopsis has ends the cluster: getopt fails, and env runs
     # nothing, so the `S` after it spells no split string.
     "a cluster holding a letter no synopsis has": "env -xS 'git commit -m y'",
+    # #737: `genv` is GNU's env by name, so `--unset` takes `-iS` and the
+    # program is the one word `git commit -m x`. BSD's reading is `env`'s.
+    "genv's --unset takes the cluster as its value": f"genv --unset -iS '{C}'",
 }
 
 # #674: round 1's seven controls, rewritten into each position the work item
@@ -913,11 +929,12 @@ def test_a_glued_config_env_reads_as_it_did():
 
 
 # Round 2 of 1790993140: `env`'s option grammar, one case per row of
-# `cmdline.ENV_OPTIONS`. Written from GNU coreutils env's and BSD/macOS env's
-# synopses, not from the table: each spelling, with the value its synopsis
-# gives it, stands in front of a cluster that hides a commit. A flag read as
-# taking a value eats the cluster, and an option with a value read as a flag
-# ends env's options at its value; either way the commit is found by nothing.
+# `cmdline.ENV_OPTIONS`. Written from GNU coreutils' `src/env.c` and FreeBSD's
+# `usr.bin/env/env.c` (#737), not from the table: each spelling, with the
+# value its source gives it, stands in front of a cluster that hides a commit.
+# A flag read as taking a value eats the cluster, and an option with a value
+# read as a flag ends env's options at its value; either way the commit is
+# found by nothing.
 # GNU env is not installed here, so its half is read, not run.
 ENV_SPELLINGS = {
     "-i": "-i",
@@ -941,6 +958,8 @@ ENV_SPELLINGS = {
     "--default-signal": "--default-signal",
     "--ignore-signal": "--ignore-signal",
     "--list-signal-handling": "--list-signal-handling",
+    "--env0-from": "--env0-from f",
+    "--quoting-style": "--quoting-style shell",
     "--help": "--help",
     "--version": "--version",
 }
