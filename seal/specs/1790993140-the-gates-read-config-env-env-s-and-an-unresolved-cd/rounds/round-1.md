@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 733 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `25e5b01ac4a3c368b60659f5a1f21e89bbe8af23..2f4e993325fb68b5b4e25f8ed162008e59a60bd7`, 10 commits |
 | Contract changes | reparsed_texts → command_strings, reparsed_texts, _string_hides_a_commit, round-1-report.md, round-1.md, round-3-report.md, round-3.md, plan.md, spec.md, pytest; wider_only_kinds → main, round-1-report.md, round-1.md, pytest |
 | New units | ENV_VALUED (depth 1); ENV_VALUED_LONG (depth 1); _env_takes_next (depth 1); _env_split_at (depth 1); test_a_restore_before_a_hidden_switch_does_not_silence_the_question (depth 1); test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it (depth 1); test_a_hidden_switch_behind_a_judged_one_adds_no_question (depth 1); test_a_hidden_creation_behind_a_judged_one_adds_no_question (depth 1); test_a_wider_reader_that_exits_at_load_costs_only_the_question (depth 1) |
