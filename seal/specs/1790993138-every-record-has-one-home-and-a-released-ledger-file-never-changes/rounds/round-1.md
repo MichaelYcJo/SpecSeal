@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 736 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `f50f5f05c7dc06e725b3f4d177c7f95103e73caa..b726c91b97a54a75d9f1ff4ecb82913d29ed4537`, 13 commits |
+| Contract changes | none |
+| New units | CITATION (depth 1); PIPE_ROW (depth 1); test_a_closing_pipe_citation_is_keyed_by_the_citation (depth 1); test_a_dropped_closing_pipe_correction_is_reported (depth 1); test_into_re_reads_a_coordinate_a_folded_re_read_carries (depth 1); test_a_partial_revert_to_an_older_reading_is_drifted (depth 1); test_two_readings_of_one_coordinate_on_the_same_day_are_a_union (depth 1); test_into_re_reads_a_revert_a_folded_newer_reading_outranks (depth 1); test_a_moved_released_row_is_told_its_correction_carries_every_coordinate (depth 1); test_a_released_row_corrected_by_two_rows_names_both (depth 1); test_a_released_row_corrected_once_is_not_named (depth 1); test_a_first_cell_that_also_ends_another_cell_still_gets_a_citation (depth 1); test_the_checklist_repairs_preparation_drift_the_way_the_freeze_accepts (depth 1) |
 | Needs a fix | yes — 🔴 1 (`--into` writes a broken coordinate), 🟡 2–7 (the union's stated cost, the partial correction, the double correction, the pipe citation in `correction-check`, fragment row 25, the release checklist's §3 row) |
 | Loses a record or crashes | yes — 🔴 1 writes a re-read row whose coordinate is a bare hash and reports it written, so the reading it was asked to record is lost; 🟡 5 lets a dropped `Corrected ·` row pass `correction-check` unreported |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -32,15 +32,15 @@ Round 1 targets `626bdeb6`, over the build's diff `233f0455..626bdeb6`. It was a
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | `--into` slices the family root's line with a match from another member, writes a bare hash for the coordinate and reports the row written | `skills/evidence-check/scripts/evidence_check.py:3198` | open | executed: the row carried `` `90309471` `` for `src/service.py#other`, exit 0, drift still reported; fixed in the scratch clone with `m.string` |
-| 🟡 2 | the per-coordinate union reads OK a pair of hashes no reading recorded together, and the home's stated cost says somebody read it | `skills/evidence-check/scripts/evidence_check.py:2402`, `docs/the-evidence-ledger.md:102` | open | executed: R at (h1,o1), re-read at (h2,o2), revert to (h1,o2) reads 5 OK, exit 0; the replaced in-place rule reads DRIFTED |
-| 🟡 3 | a `Corrected ·` row re-pointing one moved coordinate silences the row's other coordinates, and the repair text invites that row | `skills/evidence-check/scripts/evidence_check.py:3217`, `docs/the-evidence-ledger.md:121` | open | executed: after the partial correction an edit to `other` reads exit 0 |
-| 🟡 4 | two `Corrected ·` rows correcting one released row both read OK and nothing names them | `skills/evidence-check/scripts/evidence_check.py:2374` | open | executed: contradictory corrections, exit 0, 4 OK; spec D3 is silent on it |
-| 🟡 5 | `correction-check` keys a closing-pipe citation on the next coordinate, so its dropped row is never reported | `skills/evidence-check/scripts/correction_check.py:583` | open | executed: key `src/service.py#handler`; `dropped_corrections` then skips it (read); fixed in the scratch clone |
-| 🟡 6 | the fragment's row 25 re-reads the per-file dedup claim, which family rows no longer obey | `seal/ledger/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes.md:25` | open | executed: one file goes from 1 ok to 2 ok for one `(coordinate, hash)` once a row is in a family |
-| 🟡 7 | the release checklist's §3 drift row prescribes plain `--reverify --checked`, which writes no released file under the freeze | `docs/release-checklist.md:199` | open | read; the 0.18.0 preparation is its first reader |
-| ⬜ 8 | the home's REMOVED-not-re-pointed sentence is unqualified beside the freeze's never-removed, re-pointed-by-correction rule | `docs/the-evidence-ledger.md:37` | open | read |
-| ⬜ 9 | a row whose first cell also ends another cell of its section gets no citation | `skills/evidence-check/scripts/evidence_check.py:2160` | open | executed: `citation_for` returns None; 0 corpus rows have the shape |
+| 🔴 1 | `--into` slices the family root's line with a match from another member, writes a bare hash for the coordinate and reports the row written | `skills/evidence-check/scripts/evidence_check.py:3198` | **fixed** `d971ba27` | fixed at d971ba27; executed: the row carried `` `90309471` `` for `src/service.py#other`, exit 0, drift still reported; fixed in the scratch clone with `m.string` |
+| 🟡 2 | the per-coordinate union reads OK a pair of hashes no reading recorded together, and the home's stated cost says somebody read it | `skills/evidence-check/scripts/evidence_check.py:2402`, `docs/the-evidence-ledger.md:102` | **fixed** `c7ec3c23` | fixed at c7ec3c23 — `1f8f001a`, `752a50a3` — the orchestrator's rule: per coordinate only the readings with the newest `Checked` date count, ties kept as a union; executed: R at (h1,o1), re-read at (h2,o2), revert to (h1,o2) reads 5 OK, exit 0; the replaced in-place rule reads DRIFTED |
+| 🟡 3 | a `Corrected ·` row re-pointing one moved coordinate silences the row's other coordinates, and the repair text invites that row | `skills/evidence-check/scripts/evidence_check.py:3217`, `docs/the-evidence-ledger.md:121` | **fixed** `01082c4f` | fixed at 01082c4f; executed: after the partial correction an edit to `other` reads exit 0 |
+| 🟡 4 | two `Corrected ·` rows correcting one released row both read OK and nothing names them | `skills/evidence-check/scripts/evidence_check.py:2374` | **fixed** `c730be61` | fixed at c730be61; executed: contradictory corrections, exit 0, 4 OK; spec D3 is silent on it |
+| 🟡 5 | `correction-check` keys a closing-pipe citation on the next coordinate, so its dropped row is never reported | `skills/evidence-check/scripts/correction_check.py:583` | **fixed** `fe6b06f6` | fixed at fe6b06f6; executed: key `src/service.py#handler`; `dropped_corrections` then skips it (read); fixed in the scratch clone |
+| 🟡 6 | the fragment's row 25 re-reads the per-file dedup claim, which family rows no longer obey | `seal/ledger/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes.md:25` | answered | corrected at `5604b390`; executed: one file goes from 1 ok to 2 ok for one `(coordinate, hash)` once a row is in a family |
+| 🟡 7 | the release checklist's §3 drift row prescribes plain `--reverify --checked`, which writes no released file under the freeze | `docs/release-checklist.md:199` | **fixed** `f4b1d18e` | fixed at f4b1d18e; read; the 0.18.0 preparation is its first reader |
+| ⬜ 8 | the home's REMOVED-not-re-pointed sentence is unqualified beside the freeze's never-removed, re-pointed-by-correction rule | `docs/the-evidence-ledger.md:37` | **fixed** `2f01c24b` | fixed at 2f01c24b; read |
+| ⬜ 9 | a row whose first cell also ends another cell of its section gets no citation | `skills/evidence-check/scripts/evidence_check.py:2160` | **fixed** `c4b06aae` | fixed at c4b06aae; executed: `citation_for` returns None; 0 corpus rows have the shape |
 
 ## Paste-ready fixes
 
