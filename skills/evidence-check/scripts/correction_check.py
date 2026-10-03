@@ -572,6 +572,13 @@ def losses(parent_text, result_text):
 # first anchor is the released row it reads. A `Corrected ·` row is identified
 # by that citation with its hash dropped, which no later edit to the row moves.
 CORRECTED_ROW = "Corrected · "
+# A citation's locator is quoted, and a quoted segment may hold `\|` -- the
+# closing-pipe literal `evidence_check.py#citation_for` writes, or a heading
+# with a pipe in it. `ANCHOR` stops at any `|`, so it is tried second
+# (round 1, 🟡 5).
+CITATION = re.compile(
+    r'([^\s`|]+\.[A-Za-z0-9]+#"(?:[^"\\]|\\.)*"(?:>"(?:[^"\\]|\\.)*")?)@[0-9a-f]{6,}'
+)
 
 
 def corrections(text):
@@ -580,7 +587,7 @@ def corrections(text):
     for row in rows(text):
         if not row.key.startswith(CORRECTED_ROW):
             continue
-        cited = ANCHOR.search(row.raw)
+        cited = CITATION.search(row.raw) or ANCHOR.search(row.raw)
         if cited:
             found.setdefault(cited.group(1).strip(), row)
     return found

@@ -1625,3 +1625,38 @@ def test_a_config_with_other_rows_and_no_freeze_row_leaves_the_arm_off(tmp_path)
     code, out = check(root, f"{start}...{head}")
     assert code == 0, out
     assert "frozen" not in out, out
+
+
+PIPE_ROW = (
+    '| Corrected · the claim was false | `seal/releases/0.1.0.md#"### '
+    '1000000001-the-first">"R1 · the released claim \\|"@abcdef12`, `a/one.py#f@33333333` '
+    "| Read. | 2026-02-01 | Corrected 2026-02-01 |"
+)
+
+
+def test_a_closing_pipe_citation_is_keyed_by_the_citation():
+    """`citation_for` writes `"<cell tail> \\|"` where every prefix of a first
+    cell stands on another line. `ANCHOR` cannot cross the `|`, so the row was
+    keyed on its first code coordinate (round 1, 🟡 5)."""
+    found = cc.corrections(ledger(PIPE_ROW))
+    assert list(found) == [
+        'seal/releases/0.1.0.md#"### 1000000001-the-first">"R1 · the released claim \\|"'
+    ], found
+
+
+def test_a_dropped_closing_pipe_correction_is_reported(tmp_path):
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT, CITING: ""})
+    run(root, "checkout", "-q", "-b", "ours")
+    write(root, CITING, PIPE_ROW + "\n")
+    commit(root, "ours corrects the released row")
+    run(root, "checkout", "-q", start)
+    run(root, "checkout", "-q", "-b", "theirs")
+    write(root, "other.txt", "x\n")
+    commit(root, "theirs does something else")
+    run(root, "checkout", "-q", "ours")
+    run(root, "merge", "--no-commit", "--no-ff", "theirs", check=False)
+    write(root, CITING, "")
+    head = commit(root, "Merge branch 'theirs' into ours")
+    code, out = check(root, f"{start}..{head}")
+    assert code == 1, out
+    assert "  dropped     " in out, out
