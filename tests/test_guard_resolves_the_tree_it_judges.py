@@ -901,3 +901,121 @@ def test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer(
         shape.format(verb="worktree add ../wt"), str(session)
     )
     assert acted == "", (shape, acted)
+
+
+# --- #686 and #678's guard half: the two candidates, unwired ---------------
+#
+# Built in phase 2 of work item 1790993140 and counted in phase 3 over the
+# recorded runs; phase 4 wires each or removes it by that count (the owner's
+# rule of 2026-10-03). These cases pin what each function answers on its own.
+
+SWITCH = "git switch feature/x"
+
+# #686's seven: a `cd` the frozen walk cannot follow, or follows confidently
+# to the wrong place, before the switch.
+UNPLACED = {
+    "builtin cd": f"builtin cd w && {SWITCH}",
+    "command cd": f"command cd w && {SWITCH}",
+    "time cd": f"time cd w && {SWITCH}",
+    "pushd": f"pushd w && {SWITCH}",
+    "noglob cd": f"noglob cd w && {SWITCH}",
+    "cd to an unset variable": f'cd "$W" && {SWITCH}',
+    "2>&1 cd": f"2>&1 cd w && {SWITCH}",
+}
+
+PLACED = {
+    "a plain cd": f"cd w && {SWITCH}",
+    "git -C": "git -C w switch feature/x",
+    "a plain switch": SWITCH,
+    "a cd to nowhere, then ;": "cd /no/such/dir ; git switch x",
+}
+
+
+@pytest.mark.parametrize("name", sorted(UNPLACED))
+def test_candidate_a_fires_where_the_switch_tree_is_unplaced(tmp_path, name):
+    (tmp_path / "w").mkdir()
+    assert wg.unplaced_switch(UNPLACED[name], str(tmp_path)), name
+
+
+@pytest.mark.parametrize("name", sorted(PLACED))
+def test_candidate_a_is_quiet_where_the_switch_tree_is_placed(tmp_path, name):
+    (tmp_path / "w").mkdir()
+    assert not wg.unplaced_switch(PLACED[name], str(tmp_path)), name
+
+
+def test_candidate_a_judges_the_segment_main_chose(tmp_path):
+    """`chosen` names the segment; a later unplaced one is not it."""
+    (tmp_path / "w").mkdir()
+    command = f"{SWITCH}; noglob cd w && git switch y"
+    chosen = ["git", "switch", "feature/x"]
+    assert not wg.unplaced_switch(command, str(tmp_path), chosen)
+    assert wg.unplaced_switch(command, str(tmp_path), ["git", "switch", "y"])
+
+
+WIDER_ONLY = {
+    "git 2>&1 worktree add": ("cd w && git 2>&1 worktree add ../wt b", "creation"),
+    "--config-env, a creation": (
+        "git --config-env k=v worktree add ../wt b",
+        "creation",
+    ),
+    "2>/dev/null nice -n 5 git switch": (
+        f"cd w && 2>/dev/null nice -n 5 {SWITCH}",
+        "switch",
+    ),
+    "--config-env, a switch": ("git --config-env k=v switch x", "switch"),
+    **{
+        f"zsh: {shape.split('&& ')[1]}": (
+            shape.format(verb="switch feature/x"),
+            "switch",
+        )
+        for shape in ZSH_PREFIXED
+    },
+}
+
+
+@pytest.mark.parametrize("name", sorted(WIDER_ONLY))
+def test_candidate_c_finds_what_only_the_wider_reading_finds(tmp_path, name):
+    command, kind = WIDER_ONLY[name]
+    assert wg.wider_only_kinds(command, str(tmp_path)) == {kind}, name
+
+
+@pytest.mark.parametrize("command", [*WIDER_FIRST, SWITCH, "git worktree add ../wt b"])
+def test_candidate_c_reports_nothing_the_frozen_reading_found(tmp_path, command):
+    assert wg.wider_only_kinds(command, str(tmp_path)) == set(), command
+
+
+def test_candidate_a_answers_true_where_the_judged_segment_has_no_twin(
+    monkeypatch, tmp_path
+):
+    """`questions.md` W1: a segment the wider splitter cut differently costs a
+    counted stop, never a silence."""
+    monkeypatch.setattr(wg, "_wider_walk", lambda command, cwd: [])
+    assert wg.unplaced_switch(SWITCH, str(tmp_path))
+
+
+KINDS = {
+    "switch to a branch": (["git", "switch", "x"], "switch"),
+    "switch -c": (["git", "switch", "-c", "x"], "switch"),
+    "switch -": (["git", "switch", "-"], "switch"),
+    "switch with no target": (["git", "switch", "--detach"], None),
+    "checkout -b": (["git", "checkout", "-b", "x"], "switch"),
+    "checkout a name": (["git", "checkout", "x"], "switch"),
+    "checkout -": (["git", "checkout", "-"], "switch"),
+    "checkout .": (["git", "checkout", "."], None),
+    "checkout -- path": (["git", "checkout", "--", "f"], None),
+    "checkout with no name": (["git", "checkout", "-q"], None),
+    "worktree add": (["git", "worktree", "add", "../wt"], "creation"),
+    "worktree list": (["git", "worktree", "list"], None),
+    "status": (["git", "status"], None),
+    "not git": (["echo", "git", "switch", "x"], None),
+}
+
+
+@pytest.mark.parametrize("name", sorted(KINDS))
+def test_switch_kind_reads_the_words_alone(name):
+    tokens, kind = KINDS[name]
+    assert wg.switch_kind(wg.parse_git(tokens)) == kind, name
+
+
+def test_candidate_c_reads_a_redirection_glued_to_git(tmp_path):
+    assert wg.wider_only_kinds("git>/dev/null switch x", str(tmp_path)) == {"switch"}

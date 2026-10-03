@@ -127,6 +127,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # recognises and where it judges are the release base's by construction. The
 # name `cmdline` is kept so the rest of this file reads as it did.
 # `worktree_consent` imports the same module, so the two share one `Unresolved`.
+# The commit gate's wider reader, under a name of its own so the binding above
+# keeps meaning the frozen one. It is asked only whether it agrees with the
+# frozen reading (`unplaced_switch`, `wider_only_kinds`); it never takes the
+# first slot and never picks the tree (#689).
+import cmdline as wide
 import cmdline_base as cmdline
 import console
 
@@ -269,6 +274,111 @@ def walk_command(command: str, cwd: str, windows=None):
     """
     items, _clean = _tokenize_with_separators(_judgment_text(command), windows)
     return cmdline.walk_directories(items, cwd)
+
+
+def switch_kind(parsed):
+    """The kind of a `parse_git` result from its words alone: "switch",
+    "creation" or None.
+
+    `classify` answers the same question against a tree: a `checkout` of a
+    path that exists, or of a name that is no ref, is not a switch there. This
+    reads no tree, so every `checkout` with a name in it counts, which is the
+    upper bound `questions.md` D3 asks of the count in phase 3.
+    """
+    if not parsed:
+        return None
+    sub, args, _chdirs = parsed
+    if sub == "worktree":
+        positionals = [a for a in args if not a.startswith("-")]
+        return "creation" if positionals[:1] == ["add"] else None
+    if sub == "switch":
+        if any(a in ("-c", "-C") or a == "-" or not a.startswith("-") for a in args):
+            return "switch"
+        return None
+    if sub == "checkout":
+        if any(a in ("-b", "-B") for a in args):
+            return "switch"
+        if "--" in args:
+            return None
+        if any(a == "-" or (not a.startswith("-") and a != ".") for a in args):
+            return "switch"
+    return None
+
+
+def _wider_walk(command: str, cwd: str):
+    """`hooks/cmdline.py`'s walk of COMMAND: a second opinion, never the tree."""
+    text = wide.drop_heredoc_bodies(wide.drop_comments(command))
+    items, _clean = wide.split_segments_with_separators(text)
+    return wide.walk_directories(items, cwd)
+
+
+def _places(wheres):
+    """WHERES as comparable values: each directory, and whether it is unknown."""
+    return {(str(w), type(w).__name__ == "Unresolved") for w in wheres}
+
+
+def unplaced_switch(command: str, cwd: str, chosen=None) -> bool:
+    """Candidate A of #686: the switch is judged on a tree nobody could place.
+
+    True when the switch-kind segment the guard judges has an `Unresolved`
+    among its directories in the frozen walk -- which `judgeable` turns into
+    the session's own -- or when `hooks/cmdline.py`'s walk gives that segment
+    a directory the frozen walk does not (`noglob cd w`, `2>&1 cd w`, both
+    confident to the frozen reader). It never returns a tree: the wider walk
+    is asked whether it agrees, and the frozen walk still picks (#689).
+
+    CHOSEN is the token list `main` judged. Without it, the first segment
+    `switch_kind` reads as a switch stands in, which is what phase 3's probe
+    counts. The two splitters can cut a command differently; where the
+    judged segment has no twin with the same words in the wider walk, the
+    answer is True, so a mismatch is a counted stop rather than a silence
+    (`questions.md` W1).
+    """
+    frozen = walk_command(command, cwd)
+    at = None
+    for i, (tokens, _wheres) in enumerate(frozen):
+        if chosen is not None:
+            if tokens == chosen:
+                at = i
+                break
+        elif switch_kind(parse_git(tokens)) == "switch":
+            at = i
+            break
+    if at is None:
+        return False
+    tokens, wheres = frozen[at]
+    if any(isinstance(w, cmdline.Unresolved) for w in wheres):
+        return True
+    nth = sum(1 for t, _w in frozen[:at] if t == tokens)
+    twins = [w for t, w in _wider_walk(command, cwd) if t == tokens]
+    if len(twins) <= nth:
+        return True
+    return bool(_places(twins[nth]) - _places(wheres))
+
+
+def wider_only_kinds(command: str, cwd: str) -> set:
+    """Candidate C of #678: the kinds only the commit gate's reading finds.
+
+    Each kind -- "switch", "creation" -- that `hooks/cmdline.py`'s reading
+    finds in COMMAND where the frozen reading finds none of it: a git behind
+    a redirection (`git 2>&1 worktree add`, `2>/dev/null git switch x`), a
+    zsh precommand word, a spaced `--config-env`. The wider reading is its
+    splitter's segments, `merged_view`'s groups and the words a redirection
+    glued to a word's end, each read by its `parse_git`, as the commit gate
+    reads them. A kind the frozen reading already found keeps its slot and
+    its verdict, so this never reports it (round 1 of 1790745049, red 1).
+    """
+    found = {
+        switch_kind(parse_git(tokens)) for tokens, _wheres in walk_command(command, cwd)
+    }
+    text = wide.drop_heredoc_bodies(wide.drop_comments(command))
+    segments, _clean = wide.split_segments(text)
+    views = [*segments, *wide.merged_segments(text)]
+    wider = {
+        switch_kind(wide.parse_git(tokens))
+        for tokens in [*views, *filter(None, map(wide.unglued, views))]
+    }
+    return {k for k in wider - found if k}
 
 
 # RIDER: no production caller reaches this any more. `main` reads the command
