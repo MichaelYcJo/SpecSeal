@@ -3225,17 +3225,26 @@ def current_hash(m, root, maps, default_repo):
 
 
 def released_drift(ledgers, view_paths, root, maps, default_repo):
-    """`(view, drifted, broken)` for the released files among LEDGERS.
+    """`(view, drifted, broken)` for the rows of LEDGERS a re-read owes.
 
     DRIFTED is `{row: {coordinate: match}}`, one entry per row a re-read
-    owes: a released row outside every family with a drifted coordinate, and
-    the root of each family that is not superseded where no reading holds a
-    coordinate's current content and a released member's reading drifted.
+    owes: a released row of a released file in LEDGERS that sits outside
+    every family and has a drifted coordinate, and the root of each family
+    that is not superseded and has a member, released or fragment, in a file
+    LEDGERS names, where no newest reading holds a coordinate's current
+    content and a released member's reading either drifted or is outranked
+    by a newer reading holding other content. The root is named even where
+    LEDGERS left its file out, because a `Re-read ·` row cites the root.
     BROKEN is `[(where, coordinate, detail)]` for the released coordinates a
     re-read cannot clear, which take a `Corrected ·` row instead.
     """
     view = family_view(view_paths, root, maps, default_repo)
     wanted = {file_identity(p) for p in ledgers if ledger_kind(root, p) == "released"}
+    # Any member answers for its family, not only the root: a narrowing to
+    # the file holding a folded or a fragment re-read is a narrowing to that
+    # family, and `--strict` over the same file reads that member DRIFTED
+    # (round 3, 🟡 16).
+    read_here = {file_identity(p) for p in ledgers}
     drifted, broken, scan = {}, [], {}
 
     def where(key):
@@ -3256,7 +3265,7 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
                 elif status == "BROKEN":
                     broken.append((where((ident, n)), coord, detail))
     for top, by_coord in view.readings.items():
-        if top[0] not in wanted:
+        if not any(member[0] in read_here for member in view.families[top]):
             continue
         for coord, graded in by_coord.items():
             if view.held[top][coord]:
@@ -3294,10 +3303,13 @@ def spanned(text):
 
 
 def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
-    """Write one `Re-read ·` row into INTO for every released row of LEDGERS
-    that a re-read owes (`released_drift`), and name every released row it
-    could not write; or, with INTO None, write nothing and name each such row
-    with the `--into` form. A released file is never written either way.
+    """Write one `Re-read ·` row into INTO for every released row a re-read
+    owes (`released_drift`): one outside every family in a released file of
+    LEDGERS, and the root of every family a file of LEDGERS holds a member
+    of, released or fragment, whether or not LEDGERS holds the root's file.
+    Name every released row it could not write; or, with INTO None, write
+    nothing and name each such row with the `--into` form. A released file
+    is never written either way.
 
     The row cites the released row -- the family's root, so it joins that
     family -- and carries each drifted coordinate at its current hash, the
@@ -4483,9 +4495,12 @@ def main():
         if into is None and cutoff is None:
             code = reverify(ledgers, root, maps, default_repo, args.checked)
             # Re-stamping in place cannot clear a family whose newest reading
-            # sits in a file the narrowing left out, so the run names each
-            # released row it read that is still owed a re-read, rather than
-            # exit 0 while the family reads DRIFTED (round 2, 🟡 12).
+            # sits in a file the narrowing left out, so the run names, by its
+            # root row, each family a file it read holds a member of that is
+            # still owed a re-read, rather than exit 0 while a member it read
+            # reads DRIFTED (round 2, 🟡 12; round 3, 🟡 16). The root is
+            # named even where the narrowing left its file out: it is the row
+            # a `Re-read ·` cites.
             view = list(ledgers)
             known = {file_identity(p) for p in view}
             view += [
@@ -4508,7 +4523,6 @@ def main():
         # or named where there is no INTO. The view is read after the
         # re-stamp, so a fragment's own re-read is counted before a new row
         # is written for the family it belongs to.
-        released = [p for p in ledgers if ledger_kind(root, p) == "released"]
         writable = [p for p in ledgers if ledger_kind(root, p) != "released"]
         code = reverify(writable, root, maps, default_repo, args.checked)
         view = list(ledgers)
@@ -4519,8 +4533,11 @@ def main():
             if file_identity(extra) not in known:
                 known.add(file_identity(extra))
                 view.append(extra)
+        # The whole narrowed list, fragments included: a family is the run's
+        # to answer for wherever a file it read holds a member, and
+        # `reverify_into` writes no file but INTO either way (round 3, 🟡 16).
         written = reverify_into(
-            released, view, into, root, maps, default_repo, args.checked
+            ledgers, view, into, root, maps, default_repo, args.checked
         )
         return max(code, written)
 

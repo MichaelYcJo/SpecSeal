@@ -1364,3 +1364,193 @@ def test_a_first_cell_equal_to_another_rows_cell_still_gets_a_citation(repo):
     )
     out = run(["--strict", "."], repo)
     assert out.returncode == 0, out.stdout
+
+
+# --- a narrowed `--reverify` answers for every family a file it read holds a
+# member of (#740, round 3's 🟡 16) -------------------------------------------
+
+R_FILE = "seal/releases/0.1.0.md"
+UNRELATED = "seal/ledger/2000000009-unrelated.md"
+MEMBER_INTO = "seal/ledger/4000000001-the-re-reading-item.md"
+
+
+def three_readings(repo, m_at, n_at):
+    """One family of three readings of `handler`, the code back at h1.
+
+    R, the root, sits in `seal/releases/0.1.0.md` at h1, dated 2026-01-01. M
+    is an older `Re-read ·` of R at h1, dated 2026-02-01, folded into
+    `seal/releases/0.2.0.md` or sitting in a fragment (M_AT `release` or
+    `fragment`). N is the newest `Re-read ·` of R at h2, dated 2026-03-01, in
+    another fragment or folded into `seal/releases/0.3.0.md` (N_AT likewise).
+    N is the only reading that does not hold, and it outranks the two that
+    do, so every member reads DRIFTED under `--strict`. An unrelated fragment
+    holds one row of its own, which holds.
+
+    Returns `{"R": file, "M": file, "N": file}`, each relative to the repo.
+    These two placements are the axes `released_drift`'s family filter is
+    keyed on; a member kind `ledger_kind` names a third way is a third value
+    for both, and belongs here."""
+    h1 = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h1}` | read | 2026-01-01 | |"
+        ],
+    )
+    cite = citation(r, "R1 · handler adds one")
+    edit_handler(repo)
+    h2 = unit_hash(repo, "src/service.py", "handler")
+    files = {"R": R_FILE}
+    for name, h, date, at, version, item in (
+        ("M", h1, "2026-02-01", m_at, "0.2.0", "2000000002-the-older-re-read"),
+        ("N", h2, "2026-03-01", n_at, "0.3.0", "3000000003-the-newer-re-read"),
+    ):
+        row = (
+            f"| Re-read · R1 · handler adds one | `{cite}`, "
+            f"`src/service.py#handler@{h}` | read | {date} | Re-read {date} |"
+        )
+        if at == "release":
+            released(repo, [row], version=version, section=f"### {item}")
+            files[name] = f"seal/releases/{version}.md"
+        else:
+            fragment(repo, [row], name=item)
+            files[name] = f"seal/ledger/{item}.md"
+    other = unit_hash(repo, "src/service.py", "other")
+    fragment(
+        repo,
+        [
+            f"| U1 · other doubles | `src/service.py#other@{other}` | read | 2026-01-01 | |"
+        ],
+        name="2000000009-unrelated",
+    )
+    (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+    return files
+
+
+NARROWINGS = {
+    "R's file": ("R",),
+    "M's file": ("M",),
+    "N's file": ("N",),
+    "R's and M's files": ("R", "M"),
+    "an unrelated fragment": (UNRELATED,),
+    "no --ledger": (),
+}
+MODES = ("no freeze", "freeze without --into", "freeze with --into")
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("narrowed", list(NARROWINGS))
+@pytest.mark.parametrize("n_at", ("fragment", "release"))
+@pytest.mark.parametrize("m_at", ("release", "fragment"))
+def test_a_narrowed_reverify_exits_0_only_where_the_narrowed_strict_does(
+    repo, m_at, n_at, narrowed, mode
+):
+    """The class round 3's 🟡 16 is one instance of, by construction: where a
+    family's older reading M and newest reading N sit (a folded release file
+    or a fragment), which files `--ledger` names, and whether the freeze is
+    declared and `--into` given. 2 x 2 x 6 x 3 cells.
+
+    Asserted per cell, never as a per-cell expected value: a narrowed
+    `--reverify` that exits 0 is followed by a `--strict` with the same
+    narrowing that exits 0 too. Under the freeze no released byte moves, and
+    with `--into`, wherever the narrowing holds a member, the whole tree then
+    checks clean. A run that read no member answers for nothing, and says
+    which files it skipped."""
+    files = three_readings(repo, m_at, n_at)
+    flags = []
+    for name in NARROWINGS[narrowed]:
+        flags += ["--ledger", files.get(name, name)]
+    if mode != "no freeze":
+        frozen(repo, "0")
+    into = ["--into", MEMBER_INTO, "--checked", "2026-04-01"]
+    before = digests(repo)
+    fix = run(
+        ["--reverify", *(into if mode == "freeze with --into" else []), *flags, "."],
+        repo,
+    )
+    assert fix.returncode in (0, 1), fix.stdout + fix.stderr
+    check = run(["--strict", *flags, "."], repo)
+    if fix.returncode == 0:
+        assert check.returncode == 0, (
+            f"--reverify exited 0 and --strict with the same narrowing exited "
+            f"{check.returncode}\n{fix.stdout}\n---\n{check.stdout}"
+        )
+    if mode != "no freeze":
+        assert digests(repo) == before, fix.stdout
+    if mode == "freeze with --into" and narrowed != "an unrelated fragment":
+        whole = run(["--strict", "."], repo)
+        assert whole.returncode == 0, fix.stdout + "\n---\n" + whole.stdout
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_a_narrowing_to_a_superseded_root_answers_nothing(repo, mode):
+    """The control outside the product: R is superseded by a `Corrected ·`
+    row, so nothing in R's family is graded, and a run narrowed to R's file
+    owes nothing. Without the correction the same narrowing exits 1."""
+    three_readings(repo, "release", "fragment")
+    other = unit_hash(repo, "src/service.py", "other")
+    r = (repo / R_FILE).read_text(encoding="utf-8").splitlines()[4]
+    fragment(
+        repo,
+        [
+            f"| Corrected · the doubling lives in other | `{citation(r, 'R1 · handler adds one')}`, "
+            f"`src/service.py#other@{other}` | read | 2026-03-15 | "
+            "Corrected 2026-03-15 by work item 3000000004 |"
+        ],
+        name="3000000004-the-correction",
+    )
+    if mode != "no freeze":
+        frozen(repo, "0")
+    into = ["--into", MEMBER_INTO, "--checked", "2026-04-01"]
+    out = run(
+        [
+            "--reverify",
+            *(into if mode == "freeze with --into" else []),
+            "--ledger",
+            R_FILE,
+            ".",
+        ],
+        repo,
+    )
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "LEFT" not in out.stdout, out.stdout
+
+
+def test_a_narrowed_into_re_reads_a_family_whose_folded_member_it_read(repo):
+    """Round 3's first case (🟡 16): under the freeze, narrowed to the release
+    file holding a folded re-read C of an older release's R, while a newer
+    fragment re-read F holds other content. `--into` writes the re-read the
+    family owes, citing R, and the tree checks clean. It wrote nothing and
+    exited 0, because the family's root sits in a file the run did not
+    read."""
+    three_readings(repo, "release", "fragment")
+    frozen(repo, "0")
+    out = run(
+        [
+            "--reverify",
+            "--into",
+            MEMBER_INTO,
+            "--checked",
+            "2026-04-01",
+            "--ledger",
+            "seal/releases/0.2.0.md",
+            ".",
+        ],
+        repo,
+    )
+    assert "1 citing row written" in out.stdout, out.stdout
+    assert "citing seal/releases/0.1.0.md:5" in out.stdout, out.stdout
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_an_unfrozen_reverify_narrowed_to_a_folded_member_names_the_root(repo):
+    """Round 3's second case (🟡 16): the same family without the freeze. The
+    narrowed run cannot re-stamp the newer reading, so it exits 1 and names
+    the family's root, the row a `Re-read ·` cites, though it did not read
+    the root's file."""
+    three_readings(repo, "release", "fragment")
+    out = run(["--reverify", "--ledger", "seal/releases/0.2.0.md", "."], repo)
+    assert out.returncode == 1, out.stdout
+    left = [line for line in out.stdout.splitlines() if "LEFT" in line]
+    assert left, out.stdout
+    assert left[0].split()[:2] == ["LEFT", "seal/releases/0.1.0.md:5"], left[0]
