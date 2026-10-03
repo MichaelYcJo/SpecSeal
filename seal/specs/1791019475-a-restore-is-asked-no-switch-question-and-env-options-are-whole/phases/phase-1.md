@@ -101,10 +101,17 @@ rather than built around (`plan.md` and `spec.md` are the framer's).
 never wrote a numbered `>&` with a file. Round 1's generator did, and found
 60 more commands, 16 core shapes: `2>&/dev/null` or `{fd}>&/dev/null`,
 target glued or spaced, before `add` or before `-C`'s value, as in
-`git worktree 2>&/dev/null add ../wt b`. bash 3.2 and 5.2 refuse each as an
-ambiguous redirect and run nothing; zsh 5.9 runs each as the creation. The
-guard reads zsh's forms, so asking is right, and only these figures were
-wrong.
+`git worktree 2>&/dev/null add ../wt b`. bash runs nothing: 3.2 and 5.2
+refuse a numbered `>&` with a file as an ambiguous redirect, and 3.2, which
+has no `{fd}`, hands git `{fd}` as a word git refuses. zsh 5.9 runs each, as
+the creation, or as the switch where `checkout` or `switch` follows `-C`'s
+value. The guard reads zsh's forms, so asking is right, and only these
+figures were wrong.
+
+**Corrected 2026-10-03 by round 2's fix pass (white 8).** The note above
+first said bash 3.2 and 5.2 refuse each shape and zsh runs each as the
+creation. zsh runs the `-C` value shapes as a switch, and bash 3.2 passes
+`{fd}` through to git rather than refusing it.
 
 **(b), the silences, and #738's number.** Over the two prefixes that enter
 `w`, where the guard's tree holds `feature/x` as the ground truth's does, 226
