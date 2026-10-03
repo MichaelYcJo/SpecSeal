@@ -18,7 +18,8 @@ Three readings are added, all in the stricter direction:
   and the directory is unresolved.
 - **A command that hands a string to a shell** -- `sh -c`, `bash -c`, `su
   -c`, `script -c`, `env -S`, `watch '…'` -- has that string read as a
-  command, the way `eval`'s argument already was.
+  command, as `eval`'s argument is; `env -S`'s is also read as `env`'s own
+  words (#716).
 - **A command substitution** -- `$( … )`, backticks, `<( … )`, `>( … )` -- has
   its body read as a command. A commit there runs in a subshell the walk does
   not place, so it is a stop wherever the session's own repository opted in.
