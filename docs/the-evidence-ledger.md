@@ -168,6 +168,9 @@ member of, released or fragment, where no in-place re-stamp of the files it
 read clears that family, whichever members carry the drifted coordinate, and
 exits 1. The root is named even where the
 narrowing left its file out, because the root is the row a `Re-read ·` cites.
+A row corrected by two rows is not a re-read's to clear: `--strict` names
+each correcting row and exits 2, while `--reverify`, narrowed or not, exits
+0 and leaves the choice of claim to a person.
 
 ## What the checker refuses, and what it says while refusing
 
