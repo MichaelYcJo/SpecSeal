@@ -1,5 +1,419 @@
 # Changelog
 
+## 0.17.0 — 2026-10-03
+
+<!-- specs/1790815610-a-mutation-clears-one-files-bytecode-and-ends-at-a-timeout -->
+### Added
+
+- **`mutation-check`: one command runs one mutation of one unit.** It refuses
+  a replacement that does not occur exactly once, runs the cases against the
+  file as it is and stops with `no baseline` if they already fail (so a `-k`
+  that selects nothing can never read as caught), writes the break, removes
+  only that file's cached bytecode (every interpreter tag, wherever the file
+  lives), runs the cases you name under a bound (300 s by default), restores
+  the file from the bytes it held and compares the hash, and prints `red`,
+  `SURVIVED` or a run that measured nothing, with exit 0, 1 or 2. On POSIX a
+  timed-out run's whole process group is ended, so a wrapper's pytest does
+  not outlive the verdict, and Ctrl-C ends it the same way before the
+  restore. On Windows only the direct child is ended, and the verdict says
+  so (#641, #129).
+
+### Changed
+
+- **`agents/smith.md` no longer says to clear `tests/__pycache__` between
+  mutations.** That clear removed the test modules' bytecode, which is never
+  stale, and missed the cache beside the mutated file, which is the one that
+  made a same-length mutation read green. The smith now types
+  `mutation-check` once per break, and `skills/verify/SKILL.md` says what
+  each verdict means (#641, #129).
+
+### Fixed
+
+- **`arm-check`'s two bytecode cases hold under a mutation loop's own
+  environment.** Both planted their cache by importing, and an import writes
+  nothing under the `PYTHONDONTWRITEBYTECODE=1` that `arm-check` and
+  `mutation-check` give the cases they run, so the two went red on their own
+  setup whatever had been mutated (#641).
+
+<!-- specs/1790815611-the-record-arms-run-before-the-sealer-is-spawned -->
+### Added
+
+- `broad-gate --preflight` runs the record arms before the sealer is spawned
+  (#638). A refusal on one of the gate's own record arms used to arrive only
+  after a whole suite, because the gate runs the repository's `Broad gate` row
+  first. Six instances across five releases were read from the flow logs,
+  among them a DRIFTED ledger row, a chain refusal over a `fixed at` verdict
+  and a survivor, each found by the sealer after its suite. The preflight
+  catches the record-arm refusals among them. A refusal that
+  `round_record.py seal` raises, such as an unchecked `Pass` or `nobody` on
+  the last record, still reaches the sealer. (Added 2026-10-01: #702, the
+  entry after this one, closes that gap in the same release — the preflight
+  now asks those refusals through `round_record.py seal --check`.)
+
+  The preflight is the same command with the same resolved base. It applies
+  every refusal of the row and then runs every other arm, in the gate's
+  order and with the same arguments. It reads the row and never runs it. It
+  writes no cell, no values file and no stamp, adds no worktree, and prints no
+  `SEALED` or `NOT SEALED` line: its stdout opens `PREFLIGHT PASSED` or
+  `PREFLIGHT FAILED`, the failing arms under the second in the failure form's
+  words. It exits 0, 1 or 2 as the gate does, and `--record` beside it is
+  refused. On the fixture it took 1.57 s. On this repository it took about
+  11 s, most of it `evidence-check --strict`, which costs the same with the
+  preflight around it as without.
+
+  The orchestrator runs it before it spawns the sealer and spawns only on exit
+  0 (`skills/code-review/orchestration.md`, `skills/implement/orchestration.md`).
+  It is not the broad gate, and the sealer's run is unchanged.
+
+### Changed
+
+- `templates/config.md`'s example `Broad gate` row goes lint-first, `uvx ruff
+  check . && uvx ruff format --check . && bin/test -q`, the order this
+  repository's own row took in #634. A red suite no longer hides the two
+  seconds-long linters in a repository that copies it. The prose above it
+  stops naming four of the gate's six arms and points at `broad_gate.py`'s
+  docstring, where they are listed in order.
+
+<!-- specs/1790815612-the-reading-segments-batch-again-and-the-opening-lives-in-a-file -->
+- **The framer's opening lives in its definition, and it bounds the opening
+  call instead of forbidding batched reads (issue #640).** Since 0.12.3 every
+  framer spawn was told, in its prompt alone, not to open with a parallel read
+  burst, and every framer reading since sat at 1.00–1.12 tools per turn; the
+  framers of 0.12.1 and 0.12.2, never told, read 1.48–1.80, the two that
+  stalled among them included. The rule was in no file, which is the state
+  #107 exists to end. `agents/framer.md` now carries a section of its own:
+  write a skeleton `spec.md` inside the first few calls, so a spawn the
+  no-progress watchdog takes leaves something behind; open the files the spawn
+  prompt names in one call, and after that keep each call to about six reads
+  or ranges and never the whole reading list; read a large file by range.
+  Nothing in it forbids reads going out together, and the definition gains
+  the framer's own §10 number, 1.4 tools per turn, under the 1.46–1.79 band
+  the framers of 0.11.2–0.12.2 that finished read.
+
+- **`session-cost --segments` names each row that sits under its kind's bar
+  (issue #640).** The per-kind bars lived in
+  `docs/review-handoff-protocol.md` alone, and the one advisory the script
+  printed was the plain reading's blanket `< 1.2`, which reads 1.00 on every
+  well-behaved implementer and so told nobody anything. A segment row knows its
+  kind, because it is joined to a spawn, so the page now prints under its table
+  each warden row under 1.8 and each framer row under 1.4, with the counts of
+  graded, exempt and ungraded rows and the protocol's caveats: the bar is a
+  lens and never a refusal, a small round has few batches to rise on, and a
+  verifying round is exempt and cannot be told from a finding round here. A
+  smith's edit-test loop is exempt; a kind with no measured band, such as
+  `sealer` or `scribe`, prints as ungraded. The exit code stays 0, `--spawns`
+  is unchanged, no number on the page moves, and `--json` segment rows gain
+  `kind` and `bar`. Both the grade and the plain reading's batching advisory
+  compare the ratio rounded to the two places they print it to, so a reading
+  printed at 1.20 is no longer flagged below 1.2; the advisory's verdict moves
+  only for a ratio in [1.195, 1.2), and every other reading stays comparable.
+  The protocol's bars table gains the `framing` row. The first reading the
+  grade took, over the run that built this change, read this frame's own
+  segment at 4.17 tools per turn, 50 calls over 12 turns with a largest batch
+  of 11, on a prompt without the old prohibition; one reading, and nothing
+  beyond it is claimed from it.
+
+<!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
+- **A commit is judged inside git, where it happens, and not from a reading
+  of the command (#692).** The commit gate used to predict from the Bash
+  command's text where a shell would run the commit, and milestone 49 found
+  one more shell shape at every round. In the recorded run that cost 15
+  prompts and 102 minutes of waiting, 13 of them for commits into a declared
+  worktree that the reading placed in the main checkout. Now `pre-commit`
+  judges the commit in the worktree it lands in, with the same two arms,
+  marks and routing declaration. No `cd`, redirection, loop variable or
+  `eval` moves a commit around the judgment. Over 413 commands of the
+  milestone's corpora, every real commit the release base stopped is still
+  stopped, 37–44 it missed now are, and the stops on commands that committed
+  nothing are gone. That convergence is claimed for commits alone.
+
+  **What a session meets.** A stop is git refusing the commit with the ways
+  on in the command's output, the same text on every attempt. Attended, it
+  tells the model to ask the person with AskUserQuestion. Under the
+  `automation` press it asks nobody. `git -c specseal.waive=review commit …`
+  is the waiver in git's own spelling, and the old `: '[no-review]'; git
+  commit …` keeps working for the one Bash call that carries it, and for no
+  other agent's call in the same session — except on Windows, where it
+  waives nothing, because finding the call needs a `ps` that Git for
+  Windows does not ship, and the `-c` spelling is the one that works there.
+  The old reading of the command
+  steps aside only for a command whose shape is known to be plain:
+  `git commit`, `add`, `status`, `log`, `diff`, `show` or `rev-parse`,
+  beside a few harmless words such as `cd`, `echo` and `tail`, with nothing
+  a shell parses again, no variable assignment, and output sent nowhere but
+  `/dev/null`. Every other command is judged before it runs, as 0.16.0
+  judged it, because a command can keep git's hooks from judging it in more
+  ways than a list of them ever caught.
+  `--no-verify` is met where the branch moves, and nothing but a
+  `git commit` is. The commit git makes itself to finish a rebase,
+  cherry-pick or revert that stopped on a conflict, or a reword, is not
+  judged, as 0.16.0 did not judge `git rebase --continue`; a commit typed
+  while one is paused is. A person's own commit at their own terminal, with
+  no Claude session behind it, is not judged.
+
+  **What stays a reading of the command.** A branch switch and a worktree
+  creation. No git refuses a switch before its tree has moved, and a hook
+  that runs after a creation can only take it back, which cannot undo what
+  `worktree add -B`, `--no-checkout`, `--orphan` or `--lock` already did. So
+  the worktree guard keeps the 0.16.0 reading for both on every git, pinned
+  so it cannot gain a rule, and `# [worktree-ok]` works as it did. And the
+  commit gate in a clone whose git hooks slot is somebody else's, which
+  keeps 0.16.0's behaviour.
+
+  **Operational.** SpecSeal now writes three small stub files —
+  `pre-commit`, `reference-transaction`, `post-commit` — into the common
+  `.git/hooks/` of every opted-in clone a session reaches,
+  and says so once. Each carries the line `# specseal-git-hook <version>`
+  and the installed plugin's path, and does nothing once the plugin is
+  removed. A clone with `core.hooksPath` set, or a hook file without that
+  line, gets nothing, and the session is told once. A judged commit pays
+  up to three Python starts — `pre-commit`, `reference-transaction`, and
+  `post-commit` once it lands — about 200–400 ms on the machine measured,
+  and a fetch and a merge pay none. A person's own commit pays none in a
+  clone where no session has worked in the last day; in one where a session
+  has, it pays the three starts and is still not judged.
+
+<!-- specs/1790815614-a-joined-projects-specs-is-read-and-never-taken -->
+### Added
+
+- **A `Reference specs` row in `seal/config.md`** (#688) names the
+  directories a project keeps its own specifications in. The plugin reads
+  them as history and never moves, edits or checks them as its own records.
+  With no row, every directory named `specs` outside `seal/` is one; the
+  value `none` declares none. `templates/config.md` §*Reference specs* says
+  what the row governs and what the default costs: a repository whose own
+  tests sit in a `specs/` directory gets them back in the survivor sweep with
+  `Reference specs | none`.
+- **The agents and skills that read the tree say what a reference root is
+  to them** (#688). The framer, the smith, the warden, `settle` and the
+  implement skill each read a project's own `specs/` where the work touches
+  what it describes, cite what they read in `spec.md` or a standing
+  statement, and never write there; the warden opens such a citation in its
+  first stage like any other coordinate.
+
+### Changed
+
+- **`survivor-check` leaves a project's own `specs/` out of its search**
+  (#688). A team's document carrying wording a range removed used to be
+  reported as a survivor, and a team's own edit to it was read as a
+  correction the plugin's documents owed. A reference root is now out of
+  both the pool and the range, and a top-level `specs/<x>/` a range deletes
+  is never treated as a retired work item.
+- **`unverified-check .` no longer fails on a team's own overview** (#688).
+  Its walk leaves a reference root out, and its comparison against a base
+  leaves out the same files, so a team removing its own overview is not
+  reported as a deleted record. A file or a directory named on the command
+  line is still read. A repository with no `seal/` root is read as before,
+  because the only layout the plugin knew without a root is 0.3.x, whose
+  top-level `specs/` was its own.
+
+### Fixed
+
+- **A project's own `specs/` is no longer moved into `seal/` at session
+  start** (#688). The session-start hook that brings a 0.3.x repository up to
+  the `seal/` layout used to move every `specs/<x>/` whose name looked like a
+  work item's, `<unix-seconds>-<slug>`. A team that keeps its own
+  specifications under such names had them taken, and its ledger rows citing
+  them re-pointed to a path that never appeared. A directory moves now only
+  when it carries the plugin's own marks, a `routing.md` or a file under
+  `rounds/` directly under it that git tracks — an empty or ignored
+  `rounds/` is not one. Every 0.3.x work item carried `routing.md`, so an old
+  layout still moves whole. Anything else stays, keeps the rows that cite it,
+  and is named in the hook's line as *no routing.md or rounds/ that git
+  tracks — not a SpecSeal work item*. A repository holding nothing else of the old layout
+  hears nothing.
+- **First setup asks a project with its own `specs/` where the root goes**
+  (#688). The bootstrap used to read any top-level `specs/` as the 0.3.x
+  layout, tell the person the plugin would move it, and skip the shared/local
+  question. It reads the same two marks now: a `specs/` without a marked
+  entry is the project's own, the question is asked as in any repository with
+  no root, and the directory is left where it is.
+
+<!-- specs/1790815615-the-seal-names-what-it-sealed-and-counts-only-the-steps-that-run -->
+### Changed
+
+- The sealer's stamp names what it sealed (#666). Its panel carries the
+  branch on the row under `tree`, the ref the base came from on the row under
+  `base`, and an `item` row with the pull request and the work item's id
+  (`#659 . 1790635412`). The panel keeps its width: a branch or ref name too
+  long for its row is elided with `...`, the branch keeping its head and the
+  ref its tail; a list too long for one row — the suite's counts, the
+  deferred findings' homes — continues on the rows beneath, and no value is
+  cut at the frame. The `from` row is gone, and so is `row`: the exit code
+  the repository's row came back with now sits under the suite's counts. The
+  `ledger` row shows `drifted` beside `broken` on the row beneath its `ok`.
+  The `gate` row prints only where the copy of the gate that ran is not byte
+  for byte the copy that was invoked, or where nothing told it which copy was
+  invoked — the tree's copy run directly, or redirected by an installed copy
+  older than this change — so a stamp from a seal whose branch did not change
+  the gate, run through a current copy, no longer carries it; every run still
+  names its copy on stderr. `rounds` says `capped` where the run ended at the
+  cap, with the deferred findings and their homes on the row beneath
+  (`2 deferred -> #664`), a home being the issue or the file the verdict
+  names wherever it stands in the cell. `seal-stamp`'s sample shows every row the gate can
+  print, and no longer says `lint clean`.
+
+- The `SEALED` and `NOT SEALED` lines, and the label above a drawn stamp,
+  read `<branch> @ <tree> against <ref> @ <base commit>`, leaving the branch
+  out on a detached HEAD and the ref out where it is the commit itself. The
+  label adds the pull request where the record names one. A values file
+  written by an older gate still draws the label it always drew. After a
+  recorded seal one more line says the `Broad gate` cell is written and not
+  committed, and that CI reads the record at HEAD, so commit it before the
+  pull request is marked ready. A failing `ledger` in the `NOT SEALED` form
+  now ends with `evidence-check`'s own `total:` line.
+
+- The `workflow` count, and the line beside the command that names the
+  steps, cover only the steps CI runs for the base. Four steps of SpecSeal's
+  `release` job run only on a pull request into `main` and two are skipped
+  there, so a feature seal of SpecSeal reads `4 of 9 not answered` where it
+  read `8 of 13`, a release seal reads `8 of 11`, and the line says how many
+  steps it left out and why. Which steps those are is declared beside the
+  partition and held against the workflow's guards, so a guard added to a
+  fifth step fails the suite.
+
+  The record's `Broad gate` cell, every exit code and every check are
+  unchanged.
+
+<!-- specs/1790823441-arm-check-reads-a-run-that-measured-nothing-as-a-kill -->
+### Fixed
+
+- `arm-check` no longer reports a run that measured nothing as a perfectly
+  watched module (#703). A `killed` was read from a non-zero exit under a
+  mutation, and nothing ran the command without one first. So a `-k` that
+  selected no case (exit 5), a module path that did not exist (exit 4) and a
+  case that already failed (exit 1) each printed `killed` beside every arm,
+  `0 watched by no case`, exit 0.
+
+  With `--tests`, the command now runs once against the module as it is,
+  before anything is written, under the same `--timeout`. Anything but a pass
+  prints `no baseline:` with the cause (`exit 5`, the bound it did not return
+  within, or the error that stopped it starting), then *Nothing was written
+  and no arm was measured.*, then the command's own output, and exits 2. That
+  is the code a negative `--timeout` already gets. If the command itself
+  changed the module during that run, the module is put back from the bytes
+  read before it and the line says so instead, or names the error where the
+  command left it so that it cannot be put back. A run that measured its
+  arms still exits 0 whether or not one survived. Measured on
+  `hooks/review-history-guard.py` against `tests/test_chain_hooks.py`, the
+  extra run took the whole command from 107.9 s to 110.5 s on one machine.
+
+- `arm-check` and `mutation-check` clear the cached bytecode the cases would
+  actually load when `PYTHONPYCACHEPREFIX` is a relative path and `--cwd` is
+  not the shell's directory (#703, #641). CPython reads a relative prefix
+  against the directory of the process that imports, which is the cases'
+  `--cwd`. Both commands read it against their own directory, so a stale
+  `.pyc` stayed exactly where the cases read it. `clear_bytecode_cache` takes
+  that directory as `cwd`, and both commands now pass it at every removal; a
+  caller passing none reads the prefix as before.
+
+- `arm-check` no longer ends in a traceback over output it cannot handle
+  (#703). A mutation whose cases printed a byte that is not UTF-8 raised
+  `UnicodeDecodeError` out of the run and lost every verdict measured before
+  it, although nothing reads a pair's output; that output is now kept as
+  bytes. And on a console that cannot encode what the command prints, such
+  as a Windows pipe in cp1252, a refusal printed its line and then raised
+  `UnicodeEncodeError`, exit 1. The script now puts its output streams in
+  UTF-8 at start-up, as the other skill scripts do.
+
+<!-- specs/1790835050-the-delegated-note-compares-what-it-prints -->
+- **`session-cost --spawns` no longer says no spawn reached a minute under a
+  column that prints `1.0m` (issue #701).** The note under the cycle table,
+  *`delegated` never reaches a minute here*, was decided on the raw largest
+  interval against 60 seconds, while the `delegated` column prints it in
+  minutes to one place. A spawn paired in 59.6 s therefore printed `1.0m` in
+  the column and *60s at most* in the note beneath it. The note is now decided
+  on the minute the column prints, the way #640 fixed the same cause twice for
+  the tools-per-turn ratio. Its presence moves only for a largest `delegated`
+  interval in (57.0, 60) seconds, so every other reading prints as it did; no
+  number on the page moves, the exit code stays 0, and `--json` is unchanged.
+  Every other comparison in `session_cost.py` of a value against a threshold
+  was checked in the same change: three already compare the figure they print
+  (#640), and the rest compare against zero, compare counts, or compare a
+  value the page does not print rounded. One has the same shape and was left
+  on purpose: the batching line's choice between *one at a time* and *most
+  turns send a single call* compares the unrounded ratio with 1.0. At a ratio
+  just above 1.0 the page prints `1.00` beside *most turns send a single
+  call*, which `1.00` does not contradict and which stays true of a run where
+  one turn sent two calls.
+
+<!-- specs/1790835051-the-preflight-asks-seals-own-refusals -->
+### Added
+
+- `broad-gate --preflight` asks `round_record.py seal`'s own refusals before
+  the sealer is spawned (#702). Three refusals were not record arms, so the
+  preflight passed them and the sealer refused them after its whole suite:
+  the last record's `Pass` unchecked, its `Fixes checked by` reading anything
+  but `no fixes to check` (#535's shape, exactly as `new` and `close` write
+  it), and a run the record's own `Target SHA` descends from. After the
+  record arms, the preflight now runs `seal --check` on the work item whose
+  `routing.md` names the checked-out branch. A refusal is named `seal` under
+  `PREFLIGHT FAILED` with `seal`'s own sentence, exit 1, and its output is
+  kept as `seal.txt`. Where no single work item declares the branch, or HEAD
+  is detached, nothing is asked and one stderr line says so. The orchestrator
+  types the same command as before. The ask added about one second to a
+  preflight on the test fixture.
+
+- `round_record.py seal --check` raises every refusal `seal` raises before
+  the write, in the same order and with the same sentences, then prints one
+  line naming the record it asked and exits 0. It writes no cell and no
+  `broad-gate.md`, and runs no chain check. `seal` without the flag and the
+  sealer's `broad-gate --base <base> --record <item>` are unchanged.
+
+### Changed
+
+- The first line of a preflight's stdout says what it did: the record arms,
+  and `seal`'s refusals where a work item is declared for the branch. The
+  `PREFLIGHT PASSED` and `PREFLIGHT FAILED` heads are unchanged.
+
+<!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->
+### Changed
+
+- The sealer's stamp is a letter (#717). The panel's text is written on a
+  parchment sheet, one blank line inside it at the top and the bottom, and
+  a wax disc is pressed over the sheet's lower right corner, half below its
+  last line and half over its right edge, two clear cells from every line
+  of text. The rope ring and the outer light-red band are gone; the
+  fleur-de-lis is pressed into the wax in one red, lit from the upper left.
+  The disc keeps truecolour, and the sheet, its edge, the ink and the red
+  `SEALED` title are 256-colour codes. The owner chose the drawing, its
+  colours and the 0.90 scale from renderings. Over the values of #702's
+  seal the hook's message is 6,277 characters where it was 10,171. The
+  letter twin a console that is not UTF-8 gets is the same footprint: `|`,
+  `.---.` and `'---'` for the sheet, `m . G Y y` for the disc.
+
+- The `Stop` hook holds its whole message under a budget, so the harness
+  never replaces a stamp with a 2 KB preview of a file again. Measured with
+  a scratch hook on Claude Code 2.1.287, the harness persists a
+  `systemMessage` longer than 10,000 characters, counted in UTF-16 units —
+  a character outside the BMP is two — and not in bytes. The hook keeps
+  1,000 of them back for the gate-failure report that can be prepended to
+  the same message, and that report now cuts each exception's text at 200
+  of the same units rather than 200 characters, so two failed gates stay
+  inside the 1,000 whatever their text says. One message carries as many of the oldest stamps as fit
+  under 9,000 with their disc, each at the highest rung the others leave
+  room for — its own scale, 0.90, 0.80, 0.75 — and the rest wait for the
+  next turn's end, so two seals of a real run's size are drawn one turn
+  apart rather than both without the disc. Only a single stamp too large
+  for 0.75 by itself is drawn without its disc. A stamp can come out smaller
+  than its values file's `scale` says, or a turn later; a session that ends
+  first leaves it for `seal-stamp --from`. `seal-stamp` and the gate's own
+  terminal drawing are not budgeted.
+
+- A `SEALED` panel says only what a `SEALED` stamp can say. `chain  exit 0`,
+  the suite's `exit 0` beneath its counts, the ledger's `0 drifted . 0
+  broken` beneath its `ok` and every blank row are gone, because a drawn
+  panel is green by construction. The counts stay, and `exit N` stays where
+  a row has no count. `workflow  <n> of <m> not answered` reads
+  `CI also  <n> more steps`; the total stays on the stderr line beside the
+  step names. The `NOT SEALED` form keeps every arm's exit code.
+
+- **Until 0.17.0 is installed, the installed 0.16.0 hook draws this release's
+  values files with its own drawing**, rope and gold over the new rows. A
+  person who wants the letter before then runs the tree's
+  `skills/verify/scripts/seal_stamp.py --from <file>` by path, because
+  `seal-stamp` on the PATH is the installed copy too.
+
 ## 0.16.0 — 2026-09-30
 
 <!-- specs/1790635412-an-overflow-cell-is-refused-in-every-repository -->
