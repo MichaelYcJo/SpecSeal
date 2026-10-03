@@ -8,6 +8,7 @@ machine, and a single-stream switch was denied by sessions in unrelated
 repositories.
 """
 
+import importlib.util
 import json
 import ntpath
 import os
@@ -15,6 +16,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import sys
 
 import pytest
 from conftest import load_hook_module
@@ -1118,3 +1120,26 @@ def test_switch_kind_reads_the_words_alone(name):
 
 def test_candidate_c_reads_a_redirection_glued_to_git(tmp_path):
     assert wg.wider_only_kinds("git>/dev/null switch x", str(tmp_path)) == {"switch"}
+
+
+def test_a_wider_reader_that_exits_at_load_costs_only_the_question(
+    monkeypatch, tmp_path
+):
+    """Round 1 of 1790993140, white 5. A `hooks/cmdline.py` whose body raises
+    `SystemExit` is a failure `hooks/dispatch.py` catches beside `Exception`,
+    and the guard's import catches it too, so the guard still loads and keeps
+    its own rows. Seen red with `except Exception:` alone."""
+    hooks = tmp_path / "hooks"
+    shutil.copytree(os.path.join(os.path.dirname(__file__), "..", "hooks"), hooks)
+    (hooks / "cmdline.py").write_text("raise SystemExit(3)\n", encoding="utf-8")
+    monkeypatch.delitem(sys.modules, "cmdline", raising=False)
+    monkeypatch.syspath_prepend(str(hooks))
+    spec = importlib.util.spec_from_file_location(
+        "wg_exiting_reader", hooks / "worktree-guard.py"
+    )
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    assert module.wide is None
+    assert (
+        module.wider_only_kinds("git --config-env k=v switch x", str(tmp_path)) == set()
+    )

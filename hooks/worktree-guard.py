@@ -138,9 +138,11 @@ import console
 # guard's own rows do not need it: a broken `hooks/cmdline.py` must not take
 # the ACTIVE deny down with the commit gate, so it costs only the question that
 # reading adds (#678), and the commit gate's own failure still names the module.
+# `SystemExit` beside `Exception`, as `hooks/dispatch.py` catches a module
+# body that exits (round 1 of 1790993140, white 5).
 try:
     import cmdline as wide
-except Exception:
+except (Exception, SystemExit):
     wide = None
 
 # The AFTER half of this guard: it owns the consent record, and this file reads
