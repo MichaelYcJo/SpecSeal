@@ -72,7 +72,6 @@ fragments, both.**
 
 ```bash
 python3 .github/scripts/gather_changelog.py --dry-run --version X.Y.Z
-python3 .github/scripts/fold_ledger.py --split --dry-run    # see below
 python3 .github/scripts/fold_ledger.py --dry-run --version X.Y.Z
 ```
 
@@ -80,10 +79,6 @@ Read them. Then:
 
 ```bash
 python3 .github/scripts/gather_changelog.py --version X.Y.Z
-# At the release that splits: the two readings §3 compares against, before --split.
-find seal/ledger.md seal/releases seal/ledger -name '*.md' -exec cat {} + 2>/dev/null | grep -c '^|'
-python3 skills/evidence-check/scripts/evidence_check.py --strict . >/dev/null 2>&1; echo $?
-python3 .github/scripts/fold_ledger.py --split              # see below
 python3 .github/scripts/fold_ledger.py --version X.Y.Z
 sed -i '' 's/"version": "A.B.C"/"version": "X.Y.Z"/' .claude-plugin/plugin.json
 ```
@@ -94,21 +89,24 @@ row's work item is where it is closed.
 Enforced by: tests/test_the_ledger_fragments_fold_at_release.py::test_check_fails_while_a_fragment_is_left, tests/test_the_ledger_fragments_fold_at_release.py::test_the_release_pull_request_runs_the_check, .github/workflows/hygiene.yml
 
 <!-- specs/1790208593-the-fold-writes-each-release-to-its-own-file -->
-**The fold writes the release's own file, and the split has run.** Since
+**The fold writes the release's own file, and never an older one.** Since
 #547 the fold writes `seal/releases/X.Y.Z.md` and never `seal/ledger.md`,
 which keeps the notation and the rows from before the fragments and stops
 growing. It had reached 2,736 lines, and every re-stamp's diff and every
-conflict's hunks landed in it. `--split` moved the releases folded into it
-before #547 into their own files once, byte for byte, at the release that
-shipped #547, and rewrote the one row anchored into a moved section. It now
-says `nothing to split` and exits 1, so the `--split` lines in the block
-above belong to that release. `--check` refuses a `seal/ledger.md` that heads
-a release again, naming `--split` as the repair. A fragment that begins with
-its own marker line is folded with one marker, and `--check` refuses a work
-item marked twice across the ledger files: twenty stood twice when #553
-measured it. The split did not remove the same-row conflict two branches
-meet when each re-stamps one row; it moved it into a smaller file.
-Enforced by: .github/scripts/fold_ledger.py::main, tests/test_release_hygiene.py
+conflict's hunks landed in it. A one-time `--split` moved the releases folded
+into it before #547 into their own files at the release that shipped #547,
+and was retired by #715, because the one act left to it was writing
+`seal/ledger.md`. A released file is not edited after its release, so the
+fold refuses a `--version` older than the newest release file and writes
+nothing; a second fold for the newest version still joins its file.
+`--check` refuses a `seal/ledger.md` that heads a release again, and says to
+move the section into its release's file in the change that wrote it. A
+fragment that begins with its own marker line is folded with one marker, and
+`--check` refuses a work item marked twice across the ledger files: twenty
+stood twice when #553 measured it. The split did not remove the same-row
+conflict two branches meet when each re-stamps one row; #715 removed it,
+because a re-read is now a row in the branch's own fragment.
+Enforced by: .github/scripts/fold_ledger.py::main, tests/test_release_hygiene.py, tests/test_the_ledger_fragments_fold_at_release.py::test_a_fold_into_an_older_release_is_refused_and_writes_nothing
 
 <!-- specs/1790173209-the-release-tail-stops-at-the-first-issue-it-cannot-close -->
 <!-- specs/1790206437-a-second-fold-writes-a-second-heading -->
@@ -168,26 +166,8 @@ the survivor sweep leaves a retired directory out of its range.
 
 The preparation commit is the first time a fragment's prose is read by the
 tests that scan `CHANGELOG.md`, and the first time `seal/ledger/` is empty.
-Both found something the first time. At the release that runs `--split` it
-is also the first time `seal/releases/` exists, and three readings are that
-release's to take (the #547 work item's `questions.md` Q6): the marker census
-case in `tests/test_a_merge_cannot_silently_drop_a_correction.py` stays
-green; `evidence_check.py --strict .` exits 0 here as it did in step 2
-before the split, with no drifted and no broken row. Its `ok` total rises,
-because the checker counts a `(coordinate, hash)` pair once per file and the
-split puts pairs two releases shared into two files, so the total is not the
-comparison. The table lines are the third reading:
-
-```bash
-find seal/ledger.md seal/releases seal/ledger -name '*.md' -exec cat {} + 2>/dev/null | grep -c '^|'
-```
-
-This command prints here the number it printed in step 2 before the split,
-which is every row in exactly one file, the fold's included. It names no glob,
-so no shell refuses it once the fold has emptied `seal/ledger/`. And
-`correction-check` over the next release's merges stays silent across the
-moved rows. So the whole gate runs on this tree, and
-every exit code is read directly rather than through a `| tail`.
+Both found something the first time. So the whole gate runs on this tree,
+and every exit code is read directly rather than through a `| tail`.
 
 <!-- specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep -->
 **A sweep that walks a git listing judges what remains instead of stopping at

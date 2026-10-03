@@ -409,7 +409,11 @@ def coordinates(root):
 
 # --- what a removal would break --------------------------------------------
 
-AnchoredRow = collections.namedtuple("AnchoredRow", "file line clause dead live items")
+# `released` is True for a row in a released ledger file of a repository that
+# declares `Ledger frozen from` (#715): such a row is corrected, never removed.
+AnchoredRow = collections.namedtuple(
+    "AnchoredRow", "file line clause dead live items released", defaults=(False,)
+)
 
 # A cell boundary: a pipe no backslash escapes. A ledger anchor that quotes a
 # table line escapes the pipes it holds, and splitting on those would hand the
@@ -427,6 +431,16 @@ NARROW_SAYS = (
     "narrow — drop the anchor{s} inside a retiring directory and keep the "
     "{live} live one{live_s}; whether such a row is removed instead is the "
     "repository owner's question (`seal/ledger.md` §1788354065's S12 row)"
+)
+# Where the freeze is declared, a released file is not edited after its
+# release, so the two verdicts above are not on offer for a row in one: the
+# fold corrects it from its own fragment, and the correction supersedes it.
+RELEASED_SAYS = (
+    "released — a released ledger file is not edited after its release, so "
+    "this row is never removed or narrowed: write a `Corrected ·` row citing "
+    "it into the fold's own fragment, `seal/ledger/<unix-seconds>-fold.md`, "
+    "with the claim's code as it stands now, or the citation alone where the "
+    "claim went with the directory (`docs/the-evidence-ledger.md`)"
 )
 
 
@@ -593,11 +607,21 @@ def anchored_rows(root, work_item_ids):
         rel = os.path.relpath(path, root).replace(os.sep, "/")
         if rel not in sources:
             sources.append(rel)
+    # A row a `Corrected ·` row supersedes is no longer read by the checker,
+    # so the removal breaks nothing (#715): its family is asked of the
+    # checker itself, over the same files, rather than worked out here.
+    view = checker.family_view([under(root, rel) for rel in sources], root, {})
+    superseded = {key for top in view.superseded for key in view.families.get(top, [])}
+    frozen = checker.frozen_from(root)[0] is not None
     found = []
     for rel in sources:
         with open(under(root, rel), encoding="utf-8") as f:
             lines = f.read().split("\n")
+        identity = checker.file_identity(under(root, rel))
+        released = frozen and (rel == LEDGER or rel.startswith(RELEASES + "/"))
         for number, line in enumerate(lines, start=1):
+            if (identity, number) in superseded:
+                continue
             paths = [m.group("path") for m in COORDINATE_RE.finditer(line)]
             dead, items = [], set()
             for path in paths:
@@ -614,6 +638,7 @@ def anchored_rows(root, work_item_ids):
                         dead,
                         len(paths) - len(dead),
                         sorted(items),
+                        released,
                     )
                 )
     return found
@@ -621,6 +646,8 @@ def anchored_rows(root, work_item_ids):
 
 def verdict(row):
     """What `CLAUDE.md` requires of one anchored row, as a person reads it."""
+    if row.released:
+        return RELEASED_SAYS
     if not row.live:
         return REMOVED_SAYS
     return NARROW_SAYS.format(

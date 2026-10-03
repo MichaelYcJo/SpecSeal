@@ -19,8 +19,15 @@ three addresses alike (`evidence_check.py#default_patterns`), so where a row
 sits changes no row's status — the `ok` total counts a pair once per file,
 so a move can change the count; the shared file stops growing, and a
 re-stamp's diff lands in the file of the release the row belongs to. The
-sections that were folded into `seal/ledger.md` before this layout move once,
-at the release-preparation commit that ships it (`--split`, below).
+sections that were folded into `seal/ledger.md` before this layout moved
+once, at 0.15.1's preparation, by a `--split` that has since been retired.
+
+**A released file never changes** (#715). Once its release is tagged, a
+release file and `seal/ledger.md` are not edited again: a re-read or a
+correction of one of their rows is a citing row in the branch's own fragment
+(`docs/the-evidence-ledger.md`). So the fold writes only the newest
+version's file, and refuses `--version` older than the newest release file,
+writing nothing.
 
 This is the other half of that layout, the way `gather_changelog.py` is the
 other half of the changelog fragments. Release preparation runs both, in the
@@ -34,28 +41,6 @@ same commit:
                                             every release file named for the
                                             one version it heads once, no
                                             work item marked twice
-  fold_ledger.py --split                    once: move every release section
-                                            of ledger.md into its own file
-  fold_ledger.py --split --dry-run          print what would move, write
-                                            nothing
-
-**The split runs once** (#547). `--split` cuts every `## X.Y.Z` section of
-`seal/ledger.md` — from its heading to the next `## ` line or the end —
-into `seal/releases/<X.Y.Z>.md` byte for byte, ending in one newline, and
-leaves the header and the standing areas as `seal/ledger.md`. One kind of row
-points INTO the shared file: an anchor `seal/ledger.md#"<locator>"@<hash>`
-whose heading or line the split moves. Its content moves with the
-file byte for byte, so the split rewrites the path to the release file and
-keeps the hash — the class `hooks/root-migrate.py` rewrites for the root
-move, and not a row whose content went (`CLAUDE.md`, *REMOVED, not
-re-pointed*). The rewrite runs over the shared file, every release file and
-every fragment, and reads a locator by the checker's own rule; an anchor
-whose line or heading is in no section the split moved or kept, or stands in
-more than one place so that only the row's hash could choose, is named and
-left, for a person. The split refuses a version the ledger heads
-twice (C's reader: joining two sections is a person's call), any target
-that exists (a join is the fold's, and a file there before the split is a
-state nobody planned), and a ledger with nothing to move.
 
 **A second fold for one version joins its file** (#540). The release pull
 request going red and a fragment landing after the preparation commit is the
@@ -68,9 +53,9 @@ fold's date over `--date` and over today, and `--dry-run` prints the heading
 it joins. `--check` refuses a release file that heads a version twice, or one
 not named for the version it heads, naming the lines — the same three answers
 `gather_changelog.py` gives for `CHANGELOG.md` (#289). It also refuses a
-`seal/ledger.md` that heads any release at all: after the split that is a fold
-written to the old place or a split not run, and the refusal names `--split`
-as the repair.
+`seal/ledger.md` that heads any release at all: a section there was written
+by hand or by a fold from before #547, and the refusal says to move it into
+its release's file in the change that wrote it.
 
 **A fold is a move, not a deletion.** Every table row of a fragment is copied
 into the release file byte for byte, under a heading for the release and one
@@ -151,8 +136,8 @@ block or an HTML comment open, a release file that does not
 head the version it is named for, a fragment left at `--check`, a release
 heading left in `seal/ledger.md` at `--check`, a release file headed twice or
 misnamed at `--check`, a marker standing twice in any ledger at `--check`, a
-`--split` refused (a version headed twice, a target that exists, nothing to
-move), or a missing `seal/ledger.md`. Every one is a failure a release pull request
+`--version` older than the newest release file, or a missing
+`seal/ledger.md`. Every one is a failure a release pull request
 should stop on.
 """
 
@@ -492,8 +477,8 @@ def version_headings(text):
     The one reader of `## X.Y.Z` lines (#547, Q3). `--check` asks it of
     `seal/ledger.md`, where any answer is a release left in the shared file,
     and of each release file, where the answer has to be the file's own
-    version once; `--split` asks it for the sections to move. A line inside
-    a fence is not a heading (`fenced_lines`, #584).
+    version once. A line inside a fence is not a heading (`fenced_lines`,
+    #584).
     """
     lines = {}
     split_lines = text.split("\n")
@@ -536,188 +521,6 @@ def misnamed(name, text):
     if version != name:
         return f"heads {version} at line {at[0]}"
     return None
-
-
-# An anchor whose path is exactly `seal/ledger.md`, with a quoted locator and
-# the `@hash` every coordinate carries (`evidence_check.py#ANCHOR_RE`). The
-# look-behind keeps `x/seal/ledger.md` — some other file — out; the
-# look-ahead keeps a backticked mention with no hash out, and makes the
-# locator backtrack over an escaped `\"` rather than stop at its backslash.
-SELF_ANCHOR_RE = re.compile(
-    r'(?<![A-Za-z0-9_.@/-])seal/ledger\.md#"((?:[^"\n]|\\")+)"'
-    r'(?=(?:>"(?:[^"\n]|\\")+")?@[0-9a-f]{6,12})'
-)
-HEADING_SEP = " / "  # `evidence_check.py#HEADING_SEP`
-
-
-def release_sections(text):
-    """`[(version, start, end)]`, 0-based `[start, end)` line ranges of every
-    `## X.Y.Z` section: from its heading to the next `## ` line or the end."""
-    lines = text.split("\n")
-    out = []
-    for n, line in enumerate(lines):
-        found = VERSION_HEADING_RE.match(line)
-        if found:
-            end = next(
-                (k for k in range(n + 1, len(lines)) if lines[k].startswith("## ")),
-                len(lines),
-            )
-            out.append((found.group(1), n, end))
-    return out
-
-
-def body_rows(lines):
-    """Table body rows: `| ` lines that are not a header over a separator."""
-    rows = 0
-    for n, line in enumerate(lines):
-        if not line.startswith("| "):
-            continue
-        following = lines[n + 1].strip() if n + 1 < len(lines) else ""
-        if not SEPARATOR_RE.match(following):
-            rows += 1
-    return rows
-
-
-def rewrite_self_anchors(text, moved, kept):
-    """`(text, rewritten, left)` — every `seal/ledger.md#"<locator>"@<hash>`
-    whose target is in `moved` (`{line: version}`) points at that release's
-    file, hash untouched. The target is read by the checker's rule
-    (`evidence_check.py#resolve_unit`): the first part of a heading path when
-    that part is a heading, the one whole line otherwise. An anchor whose
-    line or heading is in no section the split moved or kept is `left`: the
-    split cannot say where it points, so a person does. `split` leaves a
-    line out of both maps when it stands in more than one place, so such an
-    anchor is `left` too. `rewritten` is
-    `[(old, new, line)]`, the line of that anchor's own occurrence — a
-    rewrite adds no newline, so a line in `text` is the same line after."""
-    rewritten, left = [], []
-
-    def one(match):
-        body = match.group(1).replace('\\"', '"').replace("\\|", "|")
-        parts = [p for p in body.split(HEADING_SEP) if p.strip()]
-        if parts and HEADING_RE.match(parts[0].strip()):
-            first = " ".join(parts[0].split())
-        else:
-            first = " ".join(body.split())
-        version = moved.get(first)
-        if version is None:
-            if first not in kept:
-                left.append(match.group(0))
-            return match.group(0)
-        new = f'{release_path(version)}#"{match.group(1)}"'
-        line = text.count("\n", 0, match.start()) + 1
-        rewritten.append((match.group(0), new, line))
-        return new
-
-    return SELF_ANCHOR_RE.sub(one, text), rewritten, left
-
-
-def split(root, text, dry_run):
-    """`--split`. Returns the exit code; prints what moved or would."""
-    doubled = doubled_versions(text)
-    if doubled:
-        print(f"{LEDGER} heads a version twice — one release, one file:")
-        for version, at in doubled:
-            print(f"  {version}  at lines {', '.join(str(n) for n in at)}")
-        print(
-            "\nMove the later heading's work items under the first heading and "
-            f"delete the later one, then split.\nnothing split: {LEDGER} is untouched"
-        )
-        return 1
-    sections = release_sections(text)
-    if not sections:
-        print(f"nothing to split: {LEDGER} heads no release")
-        return 1
-    present = [
-        release_path(v)
-        for v, _, _ in sections
-        if os.path.exists(under(root, release_path(v)))
-    ]
-    if present:
-        print("release files that already exist — the split writes new files only:")
-        for path in present:
-            print(f"  {path}  exists")
-        print(
-            "\nA release file before the split is a state nobody planned; compare "
-            f"it with its section by hand.\nnothing split: {LEDGER} is untouched"
-        )
-        return 1
-
-    lines = text.split("\n")
-    inside = set()
-    moved = {}
-    files = {}
-    for version, start, end in sections:
-        inside.update(range(start, end))
-        body = lines[start:end]
-        files[release_path(version)] = "\n".join(body).rstrip("\n") + "\n"
-        # Every non-blank line, not headings only: a line anchor into a
-        # moved section moves with it exactly as a heading does.
-        for line in body:
-            key = " ".join(line.split())
-            if key:
-                moved[key] = None if key in moved else version
-    twice = {k for k, v in moved.items() if v is None}
-    moved = {k: v for k, v in moved.items() if v is not None}
-    rest = [line for n, line in enumerate(lines) if n not in inside]
-    kept = {" ".join(line.split()) for line in rest if line.strip()}
-    # A line that stands in more than one place is several places to the
-    # checker, and the row's own hash picks between them
-    # (`evidence_check.py#check_text`). The split reads no hash, so an anchor
-    # to such a line is named for a person rather than moved or kept by guess.
-    both = (kept & moved.keys()) | (kept & twice)
-    moved = {k: v for k, v in moved.items() if k not in both}
-    kept -= both
-    files[LEDGER] = "\n".join(rest).rstrip("\n") + "\n"
-    # Every other ledger an anchor can stand in: release files from before,
-    # and fragments. The split's own files are rewritten with them.
-    for _, path, body in release_files(root):
-        files.setdefault(path, body)
-    for work_item_id, body in fragments(root):
-        files[f"{FRAGMENTS}/{work_item_id}.md"] = body
-    rewrites, lefts = [], []
-    for path in list(files):
-        new, rewritten, left = rewrite_self_anchors(files[path], moved, kept)
-        if new != files[path]:
-            files[path] = new
-        for old, fresh, number in rewritten:
-            rewrites.append((path, number, old, fresh.split("#", 1)[0]))
-        lefts += [(path, anchor) for anchor in left]
-
-    verb = "would move" if dry_run else "moved"
-    print(f"{verb} {len(sections)} release sections out of {LEDGER}:")
-    for version, start, end in sections:
-        last = end
-        while last > start + 1 and not lines[last - 1].strip():
-            last -= 1
-        rows = body_rows(lines[start:end])
-        print(
-            f"  {version}  lines {start + 1}-{last}  -> {release_path(version)}  "
-            f"({rows} row{'' if rows == 1 else 's'})"
-        )
-    verb = "would rewrite" if dry_run else "rewrote"
-    print(
-        f"{verb} {len(rewrites)} anchor{'' if len(rewrites) == 1 else 's'} into a moved section:"
-    )
-    for path, number, old, target in rewrites:
-        print(f"  {path}:{number}  {old} -> {target}")
-    if lefts:
-        print(
-            "anchors into seal/ledger.md the split could not place — open them by hand:"
-        )
-        for path, anchor in lefts:
-            print(f"  {path}  {anchor}")
-    if dry_run:
-        print("nothing written")
-        return 0
-    # The release files first and the shared file last: an interruption
-    # leaves every row in the shared file still, and the next split refuses
-    # on the files it already wrote rather than losing a section.
-    os.makedirs(under(root, RELEASES), exist_ok=True)
-    for path, body in sorted(files.items(), key=lambda item: item[0] == LEDGER):
-        with open(under(root, path), "w", encoding="utf-8") as f:
-            f.write(body)
-    return 0
 
 
 # The open-rows rule is the shipped one, loaded by path the way
@@ -783,18 +586,12 @@ def main(argv=None):
         "named for the one version it heads once and a marker standing "
         "twice, and exit 1",
     )
-    ap.add_argument(
-        "--split",
-        action="store_true",
-        help="once: move every release section of seal/ledger.md into "
-        "seal/releases/<X.Y.Z>.md and rewrite the anchors into them",
-    )
     ap.add_argument("--dry-run", action="store_true", help="print, write nothing")
     ap.add_argument("--root", default=ROOT, help="repository root (default: this one)")
     args = ap.parse_args(argv)
 
-    if sum(bool(a) for a in (args.check, args.version, args.split)) != 1:
-        ap.error("pass one of --version to fold, --check to verify, --split to move")
+    if sum(bool(a) for a in (args.check, args.version)) != 1:
+        ap.error("pass one of --version to fold, --check to verify")
 
     root = os.path.abspath(args.root)
     ledger = under(root, LEDGER)
@@ -803,8 +600,6 @@ def main(argv=None):
         return 1
     with open(ledger, encoding="utf-8") as f:
         text = f.read()
-    if args.split:
-        return split(root, text, args.dry_run)
     releases = release_files(root)
     ledgers = [(LEDGER, text), *[(path, body) for _, path, body in releases]]
     frags = fragments(root)
@@ -834,8 +629,9 @@ def main(argv=None):
         headed = version_headings(text)
         if headed:
             # A release's rows are its own file (#547). A section standing
-            # in the shared file is a fold written to the old place, or the
-            # one-time split not run; either way the repair is the split.
+            # in the shared file was written by hand or by a fold from before
+            # it; the change that wrote it is where it moves out, because a
+            # released file is not edited after its release (#715).
             bad = True
             if frags or items:
                 print()
@@ -847,9 +643,10 @@ def main(argv=None):
                 for number in at:
                     print(f"  {version}  at line {number}")
             print(
-                "\nRun once, at the release-preparation commit "
-                "(its --dry-run first):\n"
-                "  python3 .github/scripts/fold_ledger.py --split"
+                f"\nMove each section into {RELEASES}/<X.Y.Z>.md in the change "
+                f"that wrote it — `fold_ledger.py --version X.Y.Z` writes a "
+                f"release's rows there, and {LEDGER} is released and is not "
+                "edited after its release"
             )
         wrong = [(path, misnamed(name, body)) for name, path, body in releases]
         wrong = [(path, why) for path, why in wrong if why]
@@ -903,6 +700,19 @@ def main(argv=None):
 
     if not re.fullmatch(r"\d+\.\d+\.\d+", args.version):
         ap.error(f"--version must be X.Y.Z, not {args.version!r}")
+
+    # A fold into a version older than the newest release file would write a
+    # released file, and a released file is not edited after its release
+    # (#715). The newest version's own file still takes a second fold (#540).
+    newest = releases[-1][0] if releases else None
+    if newest and version_key(args.version) < version_key(newest):
+        print(
+            f"{args.version} is older than the newest release file, "
+            f"{release_path(newest)}, so its file is released and is not "
+            f"edited after its release — fold into {newest} or a later "
+            f"version.\nnothing folded: {RELEASES}/ and {FRAGMENTS}/ are untouched"
+        )
+        return 1
 
     target = release_path(args.version)
     disk = under(root, target)

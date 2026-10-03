@@ -879,8 +879,9 @@ def dropped_corrections(merge, base, kin, paths, listing, blobs):
     found = []
     for path in paths:
         in_base = corrections(blobs.get((base, path), ""))
-        held = [corrections(blobs.get((p, path), "")) for p in kin]
-        for parent, carried in zip(kin, held, strict=True):
+        held_by = {p: corrections(blobs.get((p, path), "")) for p in kin}
+        held = list(held_by.values())
+        for parent, carried in held_by.items():
             for citation, row in carried.items():
                 if citation in kept:
                     continue
