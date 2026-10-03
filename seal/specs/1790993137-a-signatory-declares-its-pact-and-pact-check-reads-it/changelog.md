@@ -15,9 +15,10 @@
   it in.
 
 - Two `seal/config.md` rows, `Pact` and `Pact notify`, name the pact a
-  signatory signs and what it asks to be told about a change to it. Nothing
-  acts on `Pact notify` yet; it is read and validated now. A row that will
-  not parse is refused in a sentence rather than read as absent.
+  signatory signs and what it asks to be told about a change to it;
+  `Pact notify` decides which of its changes are recorded as pact changes,
+  below. A row that will not parse is refused in a sentence rather than read
+  as absent.
   `/specseal:config` now shows all ten rows the template ships, including
   `Reference specs`, which it had been leaving out.
 
