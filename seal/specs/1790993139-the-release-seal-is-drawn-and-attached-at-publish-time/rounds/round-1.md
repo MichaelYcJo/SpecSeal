@@ -7,14 +7,15 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 731 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `e01e1b1295ecb6a6da71333479b9bae8a20942f9..1d6ac8952991f834a3bcf7e7a19c2cd038666b77`, 9 commits |
+| Contract changes | none |
+| New units | test_a_record_another_version_wrote_names_its_own_group_and_a_capped_gate (depth 1); test_a_tree_whose_records_are_not_there_is_not_read_never_zero (depth 1); test_a_capped_pull_request_with_no_work_item_leaves_the_tree_rows_unread (depth 1); test_an_unlistable_rounds_leaves_rounds_unread_not_zero (depth 1); test_a_verdict_row_the_table_skipped_leaves_deferred_unread (depth 1) |
 | Needs a fix | yes — 🔴 1 (the chain rows draw zeros for a tree they cannot read), 🟡 2 (two more incomplete reads become numbers), 🟡 3 (#722's bound does not hold for another plugin's record), 🟡 4 (no timeout on the seal job), 🟡 5 (the write token stays in `.git/config` during the suite) |
 | Loses a record or crashes | no |
+<!-- New units: .github/workflows/publish-release.yml read by the diff-line heuristic and not by the AST -->
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -30,15 +31,15 @@ Round 1 targets `28c807fc`, over the build's diff `233f0455..28c807fc`. It was a
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | A tree with no declarations (records moved by #715, items retired, or a capped pull request whose item is gone) gives the seal `0 . 0 rounds`, `capped N of 0`, `0 issues` with no log line, against S10, Q1 and `NOT_READ`'s own comment | `.github/scripts/release_seal.py:422` | open | Executed: `(0, 0, 1, 0)` over an empty root, nothing printed |
-| 🟡 2 | An unreadable `rounds` counts its item's rounds as 0; a short verdict row's `deferred #N` is dropped because `verdict_table`'s errors are discarded | `.github/scripts/release_seal.py:428` | open | Executed: `(1, 0, 1, None)` and deferred `1` for two deferrals |
-| 🟡 3 | `describe` expands a record's group from today's `GROUPS` even when the gate is not in it, and leaves the gate's file name uncapped; two gates reach 1,023 and 1,118 units against the 1,000 reserve, so the comment, D1 and 0.17.0 B1's corrected claim are false for the records the read-side cap exists for | `hooks/dispatch.py:468` | open | Executed over the clone's `describe`; with the fix, 564/972/1,378 |
-| 🟡 4 | The `seal` job and its suite step have no `timeout-minutes`, so a hung suite runs to the 360-minute default and ends outside every step's `continue-on-error` | `.github/workflows/publish-release.yml:69` | open | Read; the runtime outcome is unverified, and the first hung run or the owner answers it |
-| 🟡 5 | `actions/checkout` persists the `contents: write` token in `.git/config` during the suite step; the S5 docstring says the suite runs with none | `.github/workflows/publish-release.yml:76` | open | Read; answerable with grounds by changing the sentence |
-| ⬜ 6 | The deferred row counts verdict cells only, not the record's `## Deferred` table, so 0.17.0 reads 12 against the owner's 13 | `.github/scripts/release_seal.py:445` | open | Decided by frame (Q10, overview *Not done*); a question for the repository owner |
-| ⬜ 7 | The not-found refusal always says the note was edited, also when it was published as the section alone or the pull request set moved | `.github/scripts/release_seal.py:526` | open | Read |
-| ⬜ 8 | The checklist's by-hand route does not say to run from a checkout at the tag, and stops at `gh release upload` without the edit | `docs/release-checklist.md:343` | open | Read |
-| ⬜ 9 | The workflow comment says a re-run writes `false`; re-running the `seal` job alone keeps `created=true` | `.github/workflows/publish-release.yml:21` | open | Read; GitHub's re-run semantics not executed |
+| 🔴 1 | A tree with no declarations (records moved by #715, items retired, or a capped pull request whose item is gone) gives the seal `0 . 0 rounds`, `capped N of 0`, `0 issues` with no log line, against S10, Q1 and `NOT_READ`'s own comment | `.github/scripts/release_seal.py:422` | **fixed** `7966a9f9` | fixed at 7966a9f9; Executed: `(0, 0, 1, 0)` over an empty root, nothing printed |
+| 🟡 2 | An unreadable `rounds` counts its item's rounds as 0; a short verdict row's `deferred #N` is dropped because `verdict_table`'s errors are discarded | `.github/scripts/release_seal.py:428` | **fixed** `64196684` | fixed at 64196684; Executed: `(1, 0, 1, None)` and deferred `1` for two deferrals |
+| 🟡 3 | `describe` expands a record's group from today's `GROUPS` even when the gate is not in it, and leaves the gate's file name uncapped; two gates reach 1,023 and 1,118 units against the 1,000 reserve, so the comment, D1 and 0.17.0 B1's corrected claim are false for the records the read-side cap exists for | `hooks/dispatch.py:468` | **fixed** `f118f7b5` | fixed at f118f7b5; Executed over the clone's `describe`; with the fix, 564/972/1,378 |
+| 🟡 4 | The `seal` job and its suite step have no `timeout-minutes`, so a hung suite runs to the 360-minute default and ends outside every step's `continue-on-error` | `.github/workflows/publish-release.yml:69` | **fixed** `e91e33b9` | fixed at e91e33b9; Read; the runtime outcome is unverified, and the first hung run or the owner answers it |
+| 🟡 5 | `actions/checkout` persists the `contents: write` token in `.git/config` during the suite step; the S5 docstring says the suite runs with none | `.github/workflows/publish-release.yml:76` | **fixed** `071c9005` | fixed at 071c9005; Read; answerable with grounds by changing the sentence |
+| ⬜ 6 | The deferred row counts verdict cells only, not the record's `## Deferred` table, so 0.17.0 reads 12 against the owner's 13 | `.github/scripts/release_seal.py:445` | answered | The deferred row counts Verdicts cells only, by `questions.md` Q10's rule. A record's `## Deferred` table is not a verdict, so 0.17.0 reads 12 and the seal says so; the orchestrator's decision, with no code change; Decided by frame (Q10, overview *Not done*); a question for the repository owner |
+| ⬜ 7 | The not-found refusal always says the note was edited, also when it was published as the section alone or the pull request set moved | `.github/scripts/release_seal.py:526` | **fixed** `626be3ab` | fixed at 626be3ab; Read |
+| ⬜ 8 | The checklist's by-hand route does not say to run from a checkout at the tag, and stops at `gh release upload` without the edit | `docs/release-checklist.md:343` | **fixed** `318d3426` | fixed at 318d3426; Read |
+| ⬜ 9 | The workflow comment says a re-run writes `false`; re-running the `seal` job alone keeps `created=true` | `.github/workflows/publish-release.yml:21` | **fixed** `93ff907a` | fixed at 93ff907a; Read; GitHub's re-run semantics not executed |
 | 🟢 | The 0.17.0 reproduction holds: 10 items, 27 rounds, 6 capped, 12 deferred; #722 is named only in a `## Deferred` table | `.github/scripts/release_seal.py#chain_counts` | confirmed | Executed over a clone at `233f0455` with the live pull request list |
 | 🟢 | Every exception inside `seal_release` ends as one `no seal:` line, one `::warning::` and exit 0; the module imports only the standard library | `.github/scripts/release_seal.py:549` | confirmed | Read; the 16 S2 cases passed (executed) |
 | 🟢 | Pillow is test-and-release only: no file under `hooks/`, `skills/`, `bin/` or `.github/` imports it except `release_seal.py`; the floor module passes | `.github/scripts/run_tests.py#PILLOW` | confirmed | Executed: `grep -rnE "from PIL\|import PIL"` exit 1; floor module green |
