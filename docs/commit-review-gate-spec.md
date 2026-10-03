@@ -561,19 +561,19 @@ the privilege tools', the tracers' and `find`, `parallel`, `watch` and
 the shell is, and behind the program's own options or operands, which the
 reader does not parse, the first `git` word stands in and the directory is
 unresolved. A string `sh -c`, `bash -c`, `su -c`, `script -c`, `flock -c`,
-`env -S` or `watch` hands to a shell is read as a command the way `eval`'s
-argument already was, and a command word the shell would expand in the string
-a host runs (`sh -c "$CMD"`) counts as one that might commit. `parallel`'s
-arguments are read for a commit written out, and no further: placing its
-command word means parsing its options (#674). That question is not
-asked of a shell's positional parameters or of `watch` as a word something
-else was handed, because no shell runs those (`find -exec sh -c '…' _ {}`,
-`grep watch *.py`). An `eval` is found the same way `git` is, behind a
-reserved word, a prefix, a runner or a subshell. The body of a `$( … )`, backticks,
-`<( … )` or `>( … )` is read as a command the way a heredoc body is; a
-single-quoted one is text. A commit found in a string or a substitution runs
-somewhere the walk does not place, so it stops wherever the session's own
-repository opted in.
+`env -S` or `watch` hands to a shell is read as a command, as `eval`'s argument
+was, `env -S`'s also as `env`'s own words (#716), and a command word the shell
+would expand in the string a host runs (`sh -c "$CMD"`) counts as one that
+might commit. `parallel`'s arguments are read for a commit written out, and no
+further: placing its command word means parsing its options (#674). That
+question is not asked of a shell's positional parameters or of `watch` as a
+word something else was handed, because no shell runs those
+(`find -exec sh -c '…' _ {}`, `grep watch *.py`). An `eval` is found the same
+way `git` is, behind a reserved word, a prefix, a runner or a subshell. The
+body of a `$( … )`, backticks, `<( … )` or `>( … )` is read as a command the
+way a heredoc body is; a single-quoted one is text. A commit found in a string
+or a substitution runs somewhere the walk does not place, so it stops wherever
+the session's own repository opted in.
 
 What stays unread is a program whose operands are a script or a remote
 command rather than a command here — `bash run.sh`, `source`, `make`, `uv

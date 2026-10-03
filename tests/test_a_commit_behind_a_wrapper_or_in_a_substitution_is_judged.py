@@ -111,6 +111,15 @@ HANDED = {
     "env --split-string=": f"env --split-string='{C}'",
     "a command word the shell expands": 'sh -c "$CMD"',
     "a command in the string behind a list opener": f"bash -c 'if true; then {C}; fi'",
+    # #716: `env` splits the string into its OWN arguments, so `-i git commit`
+    # runs `env -i git commit`. Each read the string alone as a command whose
+    # word is `-i`, and found nothing, at `233f0455`.
+    "env -S, env's own words": f"env -S '-i {C}'",
+    "env -S glued, env's own words": f"env -S'-i {C}'",
+    "env --split-string, env's own words": f"env --split-string '-i {C}'",
+    "env --split-string=, env's own words": f"env --split-string='-i {C}'",
+    "genv -S, env's own words": f"genv -S '-i {C}'",
+    "env -S, the command after the string": "env -S '-i git' commit -m x",
 }
 
 SUBSTITUTED = {
@@ -215,6 +224,10 @@ CONTROLS = {
     "a redirection to $LOG behind a runner's options": "sh -c 'nice -n 5 make >\"$LOG\"'",
     "a redirection to $LOG in a function body": "sh -c 'f() { >\"$LOG\" echo hi; }; f'",
     "{fd}> in a case arm": "sh -c 'case a in a) {fd}>f echo hi;; esac'",
+    # #716: `env -S`'s string read as env's own words commits nothing where
+    # it holds no commit.
+    "env -S with no commit": "env -S 'echo hi'",
+    "env -S with env's own option and no commit": "env -S '-i true'",
 }
 
 # #674: round 1's seven controls, rewritten into each position the work item
@@ -706,9 +719,19 @@ TEXTS = {
     "su --command, separate": (["su", "--command", "a b"], ["a b"]),
     "--command is su's, not a shell's": (["bash", "--command", "a b"], []),
     "watch": (["watch", "-n", "5", "a b"], ["5", "a b"]),
-    "env -S": (["env", "-S", "a b"], ["a b"]),
-    "env -S glued": (["env", "-Sa b"], ["a b"]),
-    "env --split-string=": (["env", "--split-string=a b"], ["a b"]),
+    # #716: the string is also read as `env`'s own words, beside the string
+    # alone. The base text stays first, so every answer it gave is kept.
+    "env -S": (["env", "-S", "a b"], ["a b", "env a b"]),
+    "env -S glued": (["env", "-Sa b"], ["a b", "env a b"]),
+    "env --split-string=": (["env", "--split-string=a b"], ["a b", "env a b"]),
+    "env -S, the words around it": (
+        ["env", "-v", "-S", "-i a", "b"],
+        ["-i a", "env -v -i a b"],
+    ),
+    "env -S past a redirection": (
+        ["env", "-S", "2>/dev/null", "a b", "c"],
+        ["2>/dev/null", "a b", "env a b c"],
+    ),
     "behind a runner": (["sudo", "sh", "-c", "a b"], ["a b"]),
 }
 
@@ -791,3 +814,46 @@ def test_a_cd_the_walk_did_not_see_stops(monkeypatch, capsys, shape, tmp_path):
     u = make_repo(tmp_path / "u")
     command = shape.format(u=u)
     assert say(monkeypatch, capsys, command, session) != "silent", command
+
+
+# #716: git's global options that take their value as a SEPARATE word. Each
+# was run as `git <option> <value> status` on git 2.54.0 in a scratch
+# repository, and status ran for exactly these (`phases/phase-1.md`, M1). The
+# last three were missing from `_git_options`, so the value read as the
+# subcommand and the commit behind it was no commit.
+SPACED_OPTIONS = {
+    "-C": ".",
+    "-c": "a.b=c",
+    "--git-dir": ".git",
+    "--work-tree": ".",
+    "--namespace": "n",
+    "--config-env": "core.hooksPath=VAR",
+    "--attr-source": "HEAD",
+    "--shallow-file": "x",
+}
+
+
+@pytest.mark.parametrize("option", sorted(SPACED_OPTIONS))
+def test_a_commit_behind_a_spaced_global_option_is_read(option, tmp_path):
+    """Seen red at `233f0455` for `--config-env`, `--attr-source` and
+    `--shallow-file`, where each returned nothing."""
+    value = SPACED_OPTIONS[option]
+    assert found(f"git {option} {value} commit -m x", tmp_path), option
+    assert not found(f"git {option} {value} status", tmp_path), option
+
+
+@pytest.mark.parametrize("declared", [False, True])
+def test_the_gate_judges_a_spaced_config_env(monkeypatch, capsys, tmp_path, declared):
+    """#716's own shape: it stops where any commit stops, and a declared
+    repository meets no new stop. Seen red at `233f0455`, silent undeclared."""
+    repo = make_repo(tmp_path / "repo", declared=declared)
+    command = "git --config-env core.hooksPath=VAR commit -m x"
+    assert say(monkeypatch, capsys, command, repo) == ("silent" if declared else "deny")
+
+
+def test_a_glued_config_env_reads_as_it_did():
+    assert cmdline.parse_git(["git", "--config-env=k=v", "commit", "-m", "x"]) == (
+        "commit",
+        ["-m", "x"],
+        [],
+    )

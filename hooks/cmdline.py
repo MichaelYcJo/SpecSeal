@@ -1727,11 +1727,31 @@ def reparsed_texts(tokens):
             for j, t in enumerate(rest):
                 if t in ("-S", "--split-string") and j + 1 < len(rest):
                     texts += _string_at(rest, j + 1)
+                    texts += _env_words(word, rest[:j], rest[j + 1 :])
                 elif t.startswith("--split-string="):
                     texts.append(t.split("=", 1)[1])
+                    texts += _env_words(word, rest[:j], [texts[-1], *rest[j + 1 :]])
                 elif t.startswith("-S") and len(t) > 2:
                     texts.append(t[2:])
+                    texts += _env_words(word, rest[:j], [t[2:], *rest[j + 1 :]])
     return texts
+
+
+def _env_words(word, before, after):
+    """`env -S`'s string read as the command `env` runs, as a one-item list (#716).
+
+    `env` splits the string into its OWN arguments, so `env -S '-i git
+    commit'` runs `env -i git commit`, and the string alone reads as a command
+    whose word is `-i`. BEFORE is what stood between `env` and the option,
+    AFTER the string and what follows it. The shell takes the redirections off
+    before `env` runs, so they are left out, and the string is the first word
+    past them. Returned beside the string, never instead of it; empty where a
+    redirection is the last word and no string follows.
+    """
+    after = _without_redirections(after)
+    if not after:
+        return []
+    return [" ".join([word, *_without_redirections(before), *after])]
 
 
 # Options of a shell, and of `watch`, that take the next word as their value.
@@ -2791,8 +2811,23 @@ def _git_options(rest, redirections=False):
     # composing paths and becomes a resolved (git-dir, work-tree) pair, which
     # `apply_chdir` below cannot express. The rider is here rather than on the
     # guard because this is the file the fix is in.
-    # Verified 2026-09-29 against _git_options@4576ad88.
-    takes_value = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--exec-path"}
+    # Verified 2026-10-03 against _git_options@d9673734.
+    # The options git 2.54.0 ran `status` after with the value as a separate
+    # word (#716, M1). `--config-env`, `--attr-source` and `--shallow-file`
+    # were missing, so their value read as the subcommand. `--exec-path` takes
+    # no separate value -- git prints its path and exits -- and stays: the
+    # word it skips was never run.
+    takes_value = {
+        "-C",
+        "-c",
+        "--git-dir",
+        "--work-tree",
+        "--namespace",
+        "--exec-path",
+        "--config-env",
+        "--attr-source",
+        "--shallow-file",
+    }
     i, chdirs = 0, []
     while i < len(rest):
         t = rest[i]
