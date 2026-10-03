@@ -124,6 +124,7 @@ seal/
 │   └── <X.Y.Z>.md    one release's rows, where this repository's fold
 │                     writes them
 ├── parity.md         migration config, only when declared
+├── pact.md           the pact, only in the repository that holds one
 ├── follow-up.md      schedulable items in a repository with no tracker
 └── specs/<work-item-id>/
     ├── routing.md    the routing answer, written before the first edit —

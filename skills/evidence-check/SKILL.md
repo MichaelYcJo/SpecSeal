@@ -424,6 +424,53 @@ person's act, and a merge driver for the file would have to understand what a
 row claims — which is the judgment this whole ledger is built around a person
 making.
 
+## `pact-check` — the signatories against the pact
+
+Some work items commit in more than one repository, and where those
+repositories keep a contract together, the one copy of it is the pact,
+`seal/pact.md` in one of them (`docs/the-pact.md`). Every repository of such
+a work item is a signatory. A signatory other than the pact's repository
+names it in a `Pact` row of its `seal/config.md`, and cites the clauses it
+was built against as pact anchors:
+
+```
+pact:orders-api/"## Order response shape / ### Fields"@1a2b3c4d
+```
+
+The name is the last path segment of the pact's repository's normalised
+origin URL, the locator is a heading path in `seal/pact.md`, and the hash is
+this checker's content hash of that clause, the value a local coordinate to
+the heading would carry. **This checker passes a pact anchor over.**
+`ANCHOR_RE` cannot match inside one, and the readers that blank coordinates
+before reading a line another way blank pact anchors first, so a clause
+heading holding a version is never an old-format coordinate here.
+
+What grades them is a second command, run at the pact's repository:
+
+```bash
+pact-check
+```
+
+It reads the pact's `| Signatory |` table, finds each signatory's checkout
+through `~/.claude/specseal/pact-paths.md` (a `| Remote | Path |` table kept
+per machine) or a sibling directory with that origin, guessing nothing, and
+refuses a signatory whose config does not name this pact. Then it grades every
+anchor naming this pact in the signatory's ledger files and specs: `OK`;
+`SUPERSEDED`, built against a clause HEAD's own history replaced; `NOT TAKEN`,
+citing a version only another ref holds, which it names; `UNMATCHED`, a hash
+no commit gave the clause; `BROKEN`, a heading path naming no single clause.
+Git is asked which way a mismatch points and never whether an anchor is `OK`.
+Exit 0 when every signatory was read and every anchor is `OK`, 1 for the three
+mismatches or a checkout not found, 2 for `BROKEN`, a refused row or file, an
+anchor naming the pact that does not parse, a relationship recorded on one
+side only, or no origin remote.
+
+**It is local only.** A signatory's pull request can read one repository, so
+its CI prints the relationship and verifies nothing (`chain-check`'s pact
+notices), and this command is where the reconciliation runs. A `SUPERSEDED`
+or `UNMATCHED` line names the clause's current hash, so a new citation can be
+written with `@00000000` and corrected from its first report.
+
 ## The records arm — what a work item's records say about the tree
 
 A ledger row is a claim about the tree that something reads. A **record** —

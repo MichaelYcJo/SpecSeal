@@ -492,6 +492,56 @@ turns off is the reviewer, and the broad run is owed just the same.
 Deciding early does not weaken the question; it moves it to the minute where
 answering it costs a reply rather than a stopped session.
 
+### A work item that commits in more than one repository
+
+Some work items commit in more than one repository. The routing question is
+still asked once, in the one call above, and every answer it writes goes into
+every repository the work item commits in. Asking it again per repository is
+the mid-run question this section exists to remove, arriving once per
+checkout.
+
+**Only a gated repository gets a declaration.** A gated repository is one
+with a `seal/` root at either place (`skills/agent-contract/SKILL.md` §16).
+Write `seal/specs/<work-item-id>/routing.md` into each one before that
+repository's first edit, each naming that repository's own branch, each in a
+command of its own, and commit each with that repository's absolute path
+written out after `git -C` (contract §17). A repository with no root is not
+opted in by this step: writing the file would create its root, and creating
+a root is the bootstrap's decision and the person's. Name such a repository
+in the handback and write nothing into it.
+
+**One id, minted once, names the directory in every repository.** Take
+`date +%s` once, pick one slug, and use the resulting directory name in every
+repository. The id is what every share is keyed by: its ledger fragment, its
+changelog fragment and the `<!-- specs/<work-item-id> -->` marker a fold
+writes. A directory named differently in each repository would have to be
+renamed later, and the rename moves all three. Nothing checks this, because
+nothing can tell an id minted twice from a signatory's own work item that
+cites the pact without changing it, and that second case is legitimate and
+common.
+
+**Where the repositories keep a contract together, they sign a pact.**
+`docs/the-pact.md` holds the model. Two conditions decide it, and both must
+hold: the work item commits in more than one repository, and those
+repositories share contract. A sentence is contract when another
+repository's code would be wrong if it changed. Where both hold:
+
+- the one copy of the contract is `seal/pact.md` in one of the repositories,
+  begun from `templates/pact.md` and written by the build there, framed by
+  that repository's own spec. That repository is the pact's repository;
+- every other repository of the work item is a signatory too, and this step
+  writes two rows into its `seal/config.md` where they are absent: `Pact`,
+  the origin remote URL of the pact's repository, and `Pact notify`, written
+  as `when the pact is touched`. `templates/config.md` §*Pact* documents
+  both. The pact's repository needs no row, because it is identified by
+  holding `seal/pact.md`;
+- each signatory cites the clauses it was built against as pact anchors, in
+  its spec's Grounding and in its ledger rows, and `pact-check`, run at the
+  pact's repository, reads every signatory and says where they disagree.
+
+Where only the first condition holds, the repositories get their
+declarations and nothing else: no pact, and no `Pact` row.
+
 ## Orchestrator: which of these acts runs itself
 
 Every act addressed to the orchestrator sits under a heading carrying the
@@ -557,6 +607,7 @@ not a closed-looking one.
 | Question 1 — single-select | `skills/implement/orchestration.md` | part of its parent's act | The three options of the one `AskUserQuestion` call its parent describes. It names no act of its own |
 | Question 2 — `multiSelect`, meaningful only under *per axis* | `skills/implement/orchestration.md` | part of its parent's act | The four boxes of the same call, and the ceiling on how many there may be. It names no act of its own |
 | What the answer writes | `skills/implement/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | It refuses a `Review` or `Destination` value outside the vocabulary at the pull request, and `hooks/routing.py` parses the same rows at every commit. The three optional rows are read by nothing that refuses: `hooks/implementer-notice.py` says one line after a commit where a declared agent left no mark, and blocks nothing |
+| A work item that commits in more than one repository | `skills/implement/orchestration.md` | check: `hooks/commit-review-gate.py` | In each gated repository the review arm asks at every commit until a declaration naming that repository's branch stands there, so a repository the step skipped is noticed at its first commit. What it does not reach: an id minted twice is legitimate in a signatory's own work item and nothing tells the two apart, and a missing `Pact` row is noticed only when somebody runs `bin/pact-check` at the pact's repository, which refuses a relationship recorded on one side |
 | Orchestrator: which of these acts runs itself | `skills/implement/orchestration.md` | check: `tests/test_every_orchestrator_act_names_its_delivery.py` | The test holds this table against both files from both sides, which is the condition #330 set for enumerating the class at all: unless something reads it. It reads the marker and not the meaning, so an act written under a heading with no prefix is in neither the table nor the test |
 | Orchestrator: a fix pass resumes the implementer | `skills/code-review/orchestration.md` | still a sentence | A resumed fix pass and a fresh spawn leave identical trees, so nothing at the pull request can tell them apart, and the measured difference between them is 282 calls against 30. The steps inside the section are commands, `bin/round-record` for the fix table and `bin/survivor-check` for the sweep that follows, and the choice of session is not one of them |
 | Orchestrator: the run ends with a verifying round | `skills/code-review/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | It fails a ready pull request when the run's last record carries `nobody` beside a checked `Pass`, which is the run whose own last fixes nobody opened; on a draft that pair prints and names the verifying round. Work items begun before its cutoff print instead of failing |

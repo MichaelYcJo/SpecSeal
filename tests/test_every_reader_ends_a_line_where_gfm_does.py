@@ -660,6 +660,11 @@ OUT_OF_CLASS.update(
         ("hooks/blocks.py", "walk_text"): (1, F),
         ("hooks/config.py", "config_rows"): (1, F),
         ("hooks/config.py", "refusal"): (1, F),
+        # The pact's `Signatory` table, walked as `config_rows` walks its own
+        # (#647).
+        ("hooks/config.py", "pact_signatories"): (1, F),
+        # The machine-local map `pact-check` reads, the same walk (#647).
+        ("skills/evidence-check/scripts/pact_check.py", "path_map"): (1, F),
         ("hooks/routing.py", "table_rows"): (1, F),
     }
 )
