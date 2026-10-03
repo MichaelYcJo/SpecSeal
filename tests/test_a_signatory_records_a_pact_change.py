@@ -27,6 +27,12 @@ RECORD = f"seal/pact-changes/{ITEM}.md"
 PACT_URL = "git@example.com:org/orders-api.git"
 CLAUSE = 'pact:orders-api/"## Order response shape / ### Fields"@1a2b3c4d'
 OTHER = 'pact:billing/"## Invoices"@5e6f7a8b'
+# What a run prints after putting the ledger back because an owed pact change
+# could not be recorded (round 1, red 1).
+UNDONE = (
+    "a pact change is owed and was not recorded, so every ledger file this run "
+    "wrote is back as it was: nothing was re-stamped"
+)
 SOURCE = "def serialize(order):\n    return {'id': order.id}\n\n\ndef evict(key):\n    return key\n"
 
 
@@ -217,22 +223,26 @@ def test_s9_a_declared_branch_names_the_record(repo):
 
 
 def test_s9_with_no_work_item_nothing_is_recorded_and_the_row_is_left(repo):
-    """S9, second half. No `--into` and no declaration: the row is
-    re-stamped as before, nothing is recorded, a `LEFT` line names both
-    ways to name a work item, and the exit is 1."""
+    """S9, second half. No `--into` and no declaration: nothing is recorded,
+    and so nothing is re-stamped either -- the drift is what records the
+    change on the run the `LEFT` line names (round 1, red 1) -- a `LEFT` line
+    names both ways to name a work item, and the exit is 1."""
     old = unit_hash(repo, "src/orders.py", "serialize")
-    ledger = cite(repo, [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")])
-    new = move_serialize(repo)
+    rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
+    move_serialize(repo)
     code, out = run(repo, "--checked", "2026-09-04")
     assert code == 1, out
-    assert f"@{new}" in ledger.read_text(encoding="utf-8")
+    assert ledger.read_text(encoding="utf-8") == "".join(rows), out
     assert not (repo / "seal" / "pact-changes").exists()
     assert (
         f"  LEFT  seal/ledger/{ITEM}.md:1  {CLAUSE} — a pact change is owed and no "
         "work item names its record: name the work item with `--into "
         "seal/ledger/<work-item-id>.md`, or run it on a branch a "
-        "`seal/specs/<work-item-id>/routing.md` declares"
+        "`seal/specs/<work-item-id>/routing.md` declares — no pact change was "
+        "recorded and nothing was re-stamped"
     ) in out, out
+    assert UNDONE in out, out
 
 
 @pytest.mark.parametrize(
@@ -314,26 +324,30 @@ def test_a_record_that_will_not_parse_is_left_and_named(repo):
         encoding="utf-8",
     )
     old = unit_hash(repo, "src/orders.py", "serialize")
-    cite(repo, [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")])
+    rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
     move_serialize(repo)
     code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
     assert code == 1, out
+    assert ledger.read_text(encoding="utf-8") == "".join(rows), out
     assert (
         f"  LEFT  seal/pact-changes/{ITEM}.md  the record has a row at line 3 whose "
-        "`Checked` is `soon`, not a date written YYYY-MM-DD — nothing recorded"
+        "`Checked` is `soon`, not a date written YYYY-MM-DD — no pact change was "
+        "recorded and nothing was re-stamped"
     ) in out, out
 
 
 def test_a_vendored_copy_says_it_recorded_nothing(repo, tmp_path):
     """Q15. A copy with no `hooks/` beside it cannot read the `Pact` row: it
-    re-stamps as today, names each row citing a pact, records nothing, and
-    the exit is 1."""
+    names each row citing a pact, records nothing, re-stamps nothing (round
+    1, red 1), and the exit is 1."""
     vendored = tmp_path / "tools" / "evidence_check.py"
     vendored.parent.mkdir()
     vendored.write_text(open(SCRIPT, encoding="utf-8").read(), encoding="utf-8")
     old = unit_hash(repo, "src/orders.py", "serialize")
-    ledger = cite(repo, [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")])
-    new = move_serialize(repo)
+    rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
+    move_serialize(repo)
     done = subprocess.run(
         [
             sys.executable,
@@ -350,12 +364,12 @@ def test_a_vendored_copy_says_it_recorded_nothing(repo, tmp_path):
     )
     out = done.stdout + done.stderr
     assert done.returncode == 1, out
-    assert f"@{new}" in ledger.read_text(encoding="utf-8")
+    assert ledger.read_text(encoding="utf-8") == "".join(rows), out
     assert not (repo / "seal" / "pact-changes").exists()
     assert (
         f"  LEFT  seal/ledger/{ITEM}.md:1  cites a pact clause, and this copy of "
         "evidence_check.py has no hooks/ beside it to read the `Pact` row with — no "
-        "pact change was recorded"
+        "pact change was recorded and nothing was re-stamped"
     ) in out, out
 
 
@@ -415,3 +429,167 @@ def test_a_released_coordinate_broken_is_recorded(repo):
         f"| {CLAUSE} | seal/releases/0.1.0.md · O2 | `src/orders.py#evict@{old}` "
         "BROKEN | 2026-09-04 |"
     ], out
+
+
+# --- round 1, red 1: a change that cannot be recorded re-stamps nothing -----
+
+
+def test_a_change_left_is_recorded_by_the_remedy_it_names(repo):
+    """The run that cannot name a work item re-stamps nothing, so the drift
+    is still there for the run its `LEFT` line names, and that run records
+    the change. Before the fix it found nothing moved and exited 0."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
+    new = move_serialize(repo)
+    code, out = run(repo, "--checked", "2026-09-04")
+    assert code == 1 and "nothing was re-stamped" in out, out
+    assert ledger.read_text(encoding="utf-8") == "".join(rows), out
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/ledger/{ITEM}.md · O1 | `src/orders.py#serialize@{old}` "
+        f"→ `@{new}` | 2026-09-04 |"
+    ], out
+
+
+@pytest.mark.parametrize(
+    "config_bytes, said",
+    [
+        (
+            b"| Item | Value |\n|---|---|\n| Pact | orders api |\n",
+            "the `Pact` rows will not read: `orders api` holds a space",
+        ),
+        (
+            b"| Item | Value |\n|---|---|\n| Pact | git@example.com:org/orders-api.git |"
+            b"\n| Note | caf\xe9 |\n",
+            "the `Pact` rows will not read: seal/config.md could not be read",
+        ),
+    ],
+    ids=["a Pact row that will not parse", "a config that is not UTF-8"],
+)
+def test_a_pact_row_that_will_not_read_leaves_the_row(repo, config_bytes, said):
+    """The silent path: the `Pact` rows will not read, so nothing could say
+    whether the drifted row cites a declared pact. It was exit 0 with the
+    ledger re-stamped and no line at all; it is a refusal now."""
+    (repo / "seal" / "config.md").write_bytes(config_bytes)
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1, out
+    assert said in out and "nothing was re-stamped" in out, out
+    assert ledger.read_text(encoding="utf-8") == "".join(rows), out
+
+
+@pytest.mark.parametrize("shape", ["an empty file", "a directory"])
+def test_a_record_that_will_not_read_or_parse_leaves_the_ledger(repo, shape):
+    """The record path's other two exits: an empty record (no table to
+    parse) and one that will not read. Each re-stamps nothing."""
+    record = repo / RECORD
+    record.parent.mkdir(parents=True)
+    if shape == "an empty file":
+        record.write_text("", encoding="utf-8")
+    else:
+        record.mkdir()
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1, out
+    assert "no pact change was recorded and nothing was re-stamped" in out, out
+    assert ledger.read_text(encoding="utf-8") == "".join(rows), out
+    assert UNDONE in out, out
+
+
+def test_under_the_freeze_the_reread_row_is_taken_back_too(repo):
+    """Under `Ledger frozen from` the run writes a `Re-read ·` row into the
+    `--into` fragment, and re-stamps fragments in place. Where the change
+    cannot be recorded, both writes are taken back: the fragment is as it
+    was, byte for byte, and so is every other ledger file."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(
+            ("Mode", "shared"), ("Pact", PACT_URL), ("Ledger frozen from", "0")
+        ),
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}"),
+        encoding="utf-8",
+    )
+    fragment_rows = [row("F1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    fragment = cite(repo, fragment_rows)
+    record = repo / RECORD
+    record.parent.mkdir(parents=True)
+    record.write_text("", encoding="utf-8")
+    before = released.read_bytes()
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1, out
+    assert fragment.read_text(encoding="utf-8") == "".join(fragment_rows), out
+    assert released.read_bytes() == before, out
+    assert UNDONE in out, out
+
+
+def test_a_fragment_the_run_created_is_removed_again(repo):
+    """Under the freeze with `--into` naming a fragment that does not exist
+    yet, the run creates it for the `Re-read ·` row; where the change cannot
+    be recorded, it is removed again rather than left holding a re-read."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(
+            ("Mode", "shared"), ("Pact", PACT_URL), ("Ledger frozen from", "0")
+        ),
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}"),
+        encoding="utf-8",
+    )
+    record = repo / RECORD
+    record.parent.mkdir(parents=True)
+    record.write_text("", encoding="utf-8")
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1, out
+    assert not (repo / FRAGMENT).exists(), out
+
+
+def test_a_run_that_dies_part_way_puts_the_ledger_back(repo, monkeypatch, capsys):
+    """Transactional means a crash too: the re-stamp is written, the record
+    step raises, and the ledger is what it was."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    rows = [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
+    move_serialize(repo)
+
+    def boom(*_args):
+        raise RuntimeError("the record step died")
+
+    monkeypatch.setattr(ec, "record_pact_changes", boom)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "evidence_check.py",
+            "--reverify",
+            "--into",
+            FRAGMENT,
+            "--checked",
+            "2026-09-04",
+            str(repo),
+        ],
+    )
+    monkeypatch.chdir(repo)
+    with pytest.raises(RuntimeError):
+        ec.main()
+    assert ledger.read_text(encoding="utf-8") == "".join(rows)

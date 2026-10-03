@@ -123,8 +123,14 @@ whose code moved, with `—` for its clause, and `never` records nothing. The
 work item the record is named for is the `--into` fragment's, else the one a
 `routing.md` declares for the branch; with neither, nothing is recorded, the
 row is named on a `LEFT` line with both ways to name one, and the exit is 1.
-The ledger is written exactly as it would be without the record.
-Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_s7_a_drifted_row_citing_a_clause_is_recorded, tests/test_a_signatory_records_a_pact_change.py::test_s8_a_released_row_drifted_is_recorded_beside_its_reread, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_declared_branch_names_the_record, tests/test_a_signatory_records_a_pact_change.py::test_s9_with_no_work_item_nothing_is_recorded_and_the_row_is_left, tests/test_a_signatory_records_a_pact_change.py::test_s7_the_ledger_is_written_exactly_as_before
+Where the record is written, the ledger is written exactly as it would be
+without it. **Where a change is owed and cannot be recorded, nothing is
+re-stamped either**: no work item, a record that will not read or parse,
+`Pact` rows that will not read, a copy of the checker with no `hooks/`, or a
+run that dies part way. Every ledger file the run wrote is put back byte for
+byte, because the re-stamp is what clears the drift, and a re-stamp without
+its record would leave the next run nothing to record.
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_s7_a_drifted_row_citing_a_clause_is_recorded, tests/test_a_signatory_records_a_pact_change.py::test_s8_a_released_row_drifted_is_recorded_beside_its_reread, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_declared_branch_names_the_record, tests/test_a_signatory_records_a_pact_change.py::test_s9_with_no_work_item_nothing_is_recorded_and_the_row_is_left, tests/test_a_signatory_records_a_pact_change.py::test_s7_the_ledger_is_written_exactly_as_before, tests/test_a_signatory_records_a_pact_change.py::test_a_change_left_is_recorded_by_the_remedy_it_names, tests/test_a_signatory_records_a_pact_change.py::test_a_pact_row_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_the_freeze_the_reread_row_is_taken_back_too
 
 <!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
 **The record is `seal/pact-changes/<work-item-id>.md` directly under the
@@ -251,7 +257,9 @@ pact reviews on one machine.** The record is written inside `--reverify`, so
 a signatory that types a new hash into a ledger row leaves no pact change,
 and nothing can see that it should have. A copy of the checker with no
 `hooks/` beside it cannot read the `Pact` row; it names each row citing a
-pact and says it recorded nothing. A pact under local mode keeps
+pact, says it recorded nothing, and re-stamps nothing, so the plugin's own
+checker records the change where the signatory is checked out. A pact under
+local mode keeps
 `seal/pact-reviews/` under the git directory, so another clone of the pact's
 repository reads the same changes as `NOT TAKEN`, which is loud in the right
 direction.

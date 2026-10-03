@@ -3445,6 +3445,48 @@ PACT_CHANGE_REPAIR = (
     "name the work item with `--into seal/ledger/<work-item-id>.md`, or run it "
     "on a branch a `seal/specs/<work-item-id>/routing.md` declares"
 )
+# How every line ends that names an owed pact change left unrecorded: the run
+# puts the ledger back, so the drift is still there for the run that can
+# record it (round 1 of #647 C and D, red 1).
+NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
+PACT_CHANGE_UNDONE = (
+    "  a pact change is owed and was not recorded, so every ledger file this run "
+    "wrote is back as it was: nothing was re-stamped"
+)
+
+
+def snapshot(paths):
+    """{path: its bytes, or None where it is absent} for each of PATHS."""
+    out = {}
+    for path in paths:
+        try:
+            with open(path, "rb") as handle:
+                out[path] = handle.read()
+        except OSError:
+            out[path] = None
+    return out
+
+
+def restore(before):
+    """Put each file BEFORE holds back as it was, byte for byte, through a
+    rename beside the real file as `write_atomic` does; remove one that was
+    absent and now exists."""
+    for path, data in before.items():
+        if data is None:
+            if os.path.isfile(path):
+                os.remove(path)
+            continue
+        target = os.path.realpath(path)
+        fd, tmp = tempfile.mkstemp(
+            dir=os.path.dirname(target) or ".", prefix=os.path.basename(target) + "."
+        )
+        with os.fdopen(fd, "wb") as handle:
+            handle.write(data)
+        try:
+            os.chmod(tmp, stat.S_IMODE(os.stat(target).st_mode))
+        except OSError:
+            pass
+        os.replace(tmp, target)
 
 
 @functools.cache
@@ -3487,11 +3529,13 @@ def record_pact_changes(moves, root, into, checked):
     appended again, whatever its date, so a second run records nothing twice.
 
     Exit 1, recording nothing, where a row is owed and no work item names the
-    file, where the file is there and will not read or parse, and where this
-    copy has no `hooks/` to read the `Pact` row with (a vendored copy names
-    each row citing a pact and says it recorded nothing). The ledger is
-    written exactly as before either way: the record is an addition to the
-    act, never a change to what it writes.
+    file, where the file is there and will not read or parse, where the
+    `Pact` rows will not read, and where this copy has no `hooks/` to read
+    them with. **Every return of 1 is an owed change left**, and `main` puts
+    the ledger back on it (`restore`): the re-stamp is what clears the drift,
+    so a re-stamp without its record would lose the trigger for good (round
+    1 of #647 C and D, red 1). Where the record is written, the ledger is
+    written exactly as it would be without it.
     """
     if not moves:
         return 0
@@ -3519,11 +3563,27 @@ def record_pact_changes(moves, root, into, checked):
             print(
                 f"  LEFT  {where}  cites a pact clause, and this copy of "
                 "evidence_check.py has no hooks/ beside it to read the `Pact` "
-                "row with — no pact change was recorded; run the plugin's "
+                f"row with — {NOT_RESTAMPED}; run the plugin's "
                 "`evidence-check --reverify` where the signatory is checked out"
             )
         return 1 if citing else 0
-    declared = config.declared_pacts(seal_home(root)) or ([], None, [])
+    declared = config.declared_pacts(seal_home(root))
+    refused = (
+        [f"{SEAL_PREFIX}config.md could not be read"]
+        if declared is None
+        else declared[2]
+    )
+    if refused and any(e[3] for e in entries):
+        # Silent before: a row that will not read reads as no pact declared,
+        # and the drift went unrecorded at exit 0.
+        for where, _row, _code, _anchors in (e for e in entries if e[3]):
+            print(
+                f"  LEFT  {where}  cites a pact clause, and the `Pact` rows will "
+                f"not read: {refused[0]} — {NOT_RESTAMPED}; fix the row and run "
+                "it again"
+            )
+        return 1
+    declared = declared or ([], None, [])
     pacts, notify = declared[0], declared[1] or config.NOTIFY_DEFAULT
     names = {name for _w, _n, name in pacts}
     if not names or notify == config.NOTIFY_NEVER:
@@ -3546,7 +3606,7 @@ def record_pact_changes(moves, root, into, checked):
         for where, clause, _row, _code in owed:
             print(
                 f"  LEFT  {where}  {clause} — a pact change is owed and no work "
-                f"item names its record: {PACT_CHANGE_REPAIR}"
+                f"item names its record: {PACT_CHANGE_REPAIR} — {NOT_RESTAMPED}"
             )
         return 1
     path = os.path.join(seal_home(root), config.PACT_CHANGES, item + ".md")
@@ -3554,12 +3614,12 @@ def record_pact_changes(moves, root, into, checked):
     if os.path.lexists(path):
         text = read(path)
         if text is None:
-            print(f"  LEFT  {shown}  the record could not be read — nothing recorded")
+            print(f"  LEFT  {shown}  the record could not be read — {NOT_RESTAMPED}")
             return 1
         rows, refusals = config.pact_changes(text)
         if refusals:
             print(
-                f"  LEFT  {shown}  the record {refusals[0]} — nothing recorded; "
+                f"  LEFT  {shown}  the record {refusals[0]} — {NOT_RESTAMPED}; "
                 "the record is written by this command alone, so restore it "
                 "from its history"
             )
@@ -4703,51 +4763,70 @@ def main():
                 return 2
         # What the re-read moved, for the pact changes it owes (#647, C).
         moves = []
-        if into is None and cutoff is None:
-            code = reverify(ledgers, root, maps, default_repo, args.checked, moves)
-            # Re-stamping in place cannot clear a family whose newest reading
-            # sits in a file the narrowing left out, so the run names each
-            # released row it read that is still owed a re-read, rather than
-            # exit 0 while the family reads DRIFTED (round 2, 🟡 12).
+        # Every file this run may write, as it stands: put back where a pact
+        # change is owed and cannot be recorded, because the re-stamp is what
+        # clears the drift, and a re-stamp without its record loses the
+        # trigger for good -- the next run finds nothing moved (round 1 of
+        # #647 C and D, red 1). The two paths below are the only two that
+        # write a ledger, and both end through `recorded_or_restored`.
+        before = snapshot(list(ledgers) + ([into] if into else []))
+
+        def recorded_or_restored():
+            recorded = record_pact_changes(moves, root, into, args.checked)
+            if recorded:
+                restore(before)
+                print(PACT_CHANGE_UNDONE)
+            return recorded
+
+        # A run that dies part way is no different: what it wrote is put
+        # back, so no re-stamp outlives the record it owed.
+        try:
+            if into is None and cutoff is None:
+                code = reverify(ledgers, root, maps, default_repo, args.checked, moves)
+                # Re-stamping in place cannot clear a family whose newest reading
+                # sits in a file the narrowing left out, so the run names each
+                # released row it read that is still owed a re-read, rather than
+                # exit 0 while the family reads DRIFTED (round 2, 🟡 12).
+                view = list(ledgers)
+                known = {file_identity(p) for p in view}
+                view += [
+                    p
+                    for p in resolve_patterns(default_patterns(root))
+                    if file_identity(p) not in known
+                ]
+                done, owed, _ = released_drift(ledgers, view, root, maps, default_repo)
+                for key in sorted(owed, key=lambda k: (done.files[k[0]][0], k[1])):
+                    path, _, _, table = done.files[key[0]]
+                    print(
+                        f"  LEFT  {built_name(path, root)}:{key[1]}  "
+                        f"{row_label(table[key[1]][1])} — still DRIFTED: the newest "
+                        f"reading of {', '.join(owed[key])} in its family sits in a "
+                        "file this run did not write; run it without `--ledger`"
+                    )
+                return max(code, 1 if owed else 0, recorded_or_restored())
+            # A released file is not written: the fragments are re-stamped in
+            # place as before, and then the released rows are re-read into INTO,
+            # or named where there is no INTO. The view is read after the
+            # re-stamp, so a fragment's own re-read is counted before a new row
+            # is written for the family it belongs to.
+            released = [p for p in ledgers if ledger_kind(root, p) == "released"]
+            writable = [p for p in ledgers if ledger_kind(root, p) != "released"]
+            code = reverify(writable, root, maps, default_repo, args.checked, moves)
             view = list(ledgers)
             known = {file_identity(p) for p in view}
-            view += [
-                p
-                for p in resolve_patterns(default_patterns(root))
-                if file_identity(p) not in known
-            ]
-            done, owed, _ = released_drift(ledgers, view, root, maps, default_repo)
-            for key in sorted(owed, key=lambda k: (done.files[k[0]][0], k[1])):
-                path, _, _, table = done.files[key[0]]
-                print(
-                    f"  LEFT  {built_name(path, root)}:{key[1]}  "
-                    f"{row_label(table[key[1]][1])} — still DRIFTED: the newest "
-                    f"reading of {', '.join(owed[key])} in its family sits in a "
-                    "file this run did not write; run it without `--ledger`"
-                )
-            recorded = record_pact_changes(moves, root, into, args.checked)
-            return max(code, 1 if owed else 0, recorded)
-        # A released file is not written: the fragments are re-stamped in
-        # place as before, and then the released rows are re-read into INTO,
-        # or named where there is no INTO. The view is read after the
-        # re-stamp, so a fragment's own re-read is counted before a new row
-        # is written for the family it belongs to.
-        released = [p for p in ledgers if ledger_kind(root, p) == "released"]
-        writable = [p for p in ledgers if ledger_kind(root, p) != "released"]
-        code = reverify(writable, root, maps, default_repo, args.checked, moves)
-        view = list(ledgers)
-        known = {file_identity(p) for p in view}
-        for extra in resolve_patterns(default_patterns(root)) + (
-            [into] if into and os.path.isfile(into) else []
-        ):
-            if file_identity(extra) not in known:
-                known.add(file_identity(extra))
-                view.append(extra)
-        written = reverify_into(
-            released, view, into, root, maps, default_repo, args.checked, moves
-        )
-        recorded = record_pact_changes(moves, root, into, args.checked)
-        return max(code, written, recorded)
+            for extra in resolve_patterns(default_patterns(root)) + (
+                [into] if into and os.path.isfile(into) else []
+            ):
+                if file_identity(extra) not in known:
+                    known.add(file_identity(extra))
+                    view.append(extra)
+            written = reverify_into(
+                released, view, into, root, maps, default_repo, args.checked, moves
+            )
+            return max(code, written, recorded_or_restored())
+        except BaseException:
+            restore(before)
+            raise
 
     if not ledgers:
         print("no evidence ledgers found — nothing to check")

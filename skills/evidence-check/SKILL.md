@@ -332,8 +332,12 @@ and `never` records nothing. The work item is the `--into` fragment's, else
 the one a `routing.md` declares for the branch; with neither, the row is
 named on a `LEFT` line and the run exits 1. A copy of this script with no
 `hooks/` beside it cannot read the `Pact` row: it names each row citing a
-pact on a `LEFT` line, records nothing, and exits 1. The ledger is written
-exactly as before in every case.
+pact on a `LEFT` line, records nothing, and exits 1. Where the record is
+written, the ledger is written exactly as before. **Where a change is owed
+and cannot be recorded** — on any of those paths, or where the record or the
+`Pact` rows will not read, or where the run dies — every ledger file it wrote
+is put back byte for byte and the run says so: the re-stamp is what clears
+the drift, so the next run, the one that can record, still finds it.
 
 ## A row inside a fence is an example, not a claim
 
