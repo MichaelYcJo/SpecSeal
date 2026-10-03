@@ -254,5 +254,90 @@ def test_a_signatory_row_the_walk_cannot_read_is_refused(row):
     assert [s[2] for s in signatories] == ["orders-web"]
     assert refusals == [
         f"has a `Signatory` table that stops at `{row}`, which is not a one-cell "
-        "row closed by `|` — every signatory below it would go unread"
+        "row written `| … |` — every signatory below it would go unread"
     ], refusals
+
+
+# --- every way GFM ends or breaks the `Signatory` table (round 2 of #647) ---
+#
+# Enumerated from the GFM tables extension: a table is a header row, a
+# delimiter row of the same width, then body rows, and it is broken by a
+# blank line or by the start of another block. Each way is either read as
+# GFM reads it, or refused; none drops a signatory while the table reads as
+# complete.
+
+WEB = "https://example.com/org/orders-web"
+MOBILE = "https://example.com/org/orders-mobile"
+HEAD = f"# Pact\n\n| Signatory |\n|---|\n| {WEB} |\n"
+CLAUSE = "\n## Order response shape\n\nx\n"
+ENDS_ABOVE = (
+    f"has a `Signatory` table that ends above `| {MOBILE} |`, a row the walk "
+    "never reaches — it and every signatory below it would go unread"
+)
+
+
+def stops_at(line, why="which is not a one-cell row written `| … |`"):
+    return (
+        f"has a `Signatory` table that stops at `{line}`, {why} — every "
+        "signatory below it would go unread"
+    )
+
+
+TABLE_ENDS = [
+    ("a blank line, then a row", HEAD + f"\n| {MOBILE} |\n" + CLAUSE, ENDS_ABOVE),
+    (
+        "a line with no pipe",
+        HEAD + f"{MOBILE}\n" + CLAUSE,
+        f"has a `Signatory` table that continues with `{MOBILE}`, a line with "
+        "no pipe that GFM reads as one of its rows — write it as `| … |`",
+    ),
+    ("a heading", HEAD + f"## A clause\n\n| {MOBILE} |\n", None),
+    ("a fence", HEAD + f"```\nx\n```\n| {MOBILE} |\n" + CLAUSE, ENDS_ABOVE),
+    ("an HTML comment", HEAD + f"<!-- a note -->\n| {MOBILE} |\n" + CLAUSE, ENDS_ABOVE),
+    ("a block quote", HEAD + f"> a note\n| {MOBILE} |\n" + CLAUSE, ENDS_ABOVE),
+    ("a list item", HEAD + f"- a note\n| {MOBILE} |\n" + CLAUSE, ENDS_ABOVE),
+    ("the end of the file", HEAD, None),
+    (
+        "no delimiter row",
+        f"# Pact\n\n| Signatory |\n| {WEB} |\n" + CLAUSE,
+        "has a `| Signatory |` header with no delimiter row under it, so GFM "
+        "renders no table there",
+    ),
+    (
+        "a comment between the header and its delimiter",
+        f"# Pact\n\n| Signatory |\n<!-- a note -->\n|---|\n| {WEB} |\n" + CLAUSE,
+        "has a `| Signatory |` header with no delimiter row under it, so GFM "
+        "renders no table there",
+    ),
+    (
+        "a delimiter row of the wrong width",
+        f"# Pact\n\n| Signatory |\n|---|---|\n| {WEB} |\n" + CLAUSE,
+        "has a `| Signatory |` header over a delimiter row of 2 cells, so GFM "
+        "renders no table there",
+    ),
+    (
+        "a delimiter row out of place",
+        HEAD + f"|---|\n| {MOBILE} |\n" + CLAUSE,
+        stops_at("|---|", "a delimiter row out of place"),
+    ),
+    ("too few cells", HEAD + "|  |\n" + CLAUSE, "an empty row"),
+    (
+        "too many cells",
+        HEAD + f"| {MOBILE} | the app |\n" + CLAUSE,
+        stops_at(f"| {MOBILE} | the app |"),
+    ),
+    ("no closing pipe", HEAD + f"| {MOBILE}\n" + CLAUSE, stops_at(f"| {MOBILE}")),
+    ("no opening pipe", HEAD + f"{MOBILE} |\n" + CLAUSE, stops_at(f"{MOBILE} |")),
+]
+
+
+@pytest.mark.parametrize(
+    "text, said", [c[1:] for c in TABLE_ENDS], ids=[c[0] for c in TABLE_ENDS]
+)
+def test_every_way_the_table_ends_is_read_or_refused(text, said):
+    signatories, refusals = config.pact_signatories(text)
+    if said is None:
+        assert refusals == [], refusals
+        assert [s[1] for s in signatories] == ["example.com/org/orders-web"]
+    else:
+        assert any(said in r for r in refusals), refusals

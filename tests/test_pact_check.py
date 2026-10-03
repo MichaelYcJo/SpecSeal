@@ -498,3 +498,22 @@ def test_a_pact_listing_its_own_repository_says_so(world):
         "the `Signatory` table lists every OTHER signatory, so take this row out"
     ) in out, out
     assert "NOT FOUND" not in out, out
+
+
+def test_a_signatory_row_below_a_blank_line_is_refused(world):
+    """A blank line ends the table's walk; a row written below it is a
+    signatory nobody reads, so it is refused rather than passed over."""
+    text = pact(V2).replace(
+        f"| {SIGNATORY_URL} |\n",
+        f"| {SIGNATORY_URL} |\n\n| https://example.com/org/orders-mobile |\n",
+    )
+    write(world["api"], "seal/pact.md", text)
+    commit(world["api"], "a blank line inside the table")
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        "REFUSED seal/pact.md — the pact has a `Signatory` table that ends above "
+        "`| https://example.com/org/orders-mobile |`, a row the walk never "
+        "reaches — it and every signatory below it would go unread"
+    ) in out, out

@@ -825,42 +825,116 @@ SIGNATORY_HEADER = re.compile(r"^\|\s*Signatory\s*\|\s*$")
 SIGNATORY_ROW = re.compile(rf"^\|\s*(?P<value>{CELL}*?)\s*\|\s*$")
 
 
+# A one-cell delimiter row, and the starts of the blocks that break a GFM
+# table: a heading, a block quote, an HTML block, a fence, a list item.
+SIGNATORY_DELIMITER = re.compile(r"^\|\s*:?-+:?\s*\|\s*$")
+TABLE_BREAK = re.compile(
+    r"^ {0,3}(?:#{1,6}(?:\s|$)|>|<|`{3,}|~{3,}|[-*+](?:\s|$)|\d{1,9}[.)](?:\s|$))"
+)
+HEADING_LINE = re.compile(r"^ {0,3}#{1,6}(?:\s|$)")
+
+
 def pact_signatories(text):
     """(signatories, refusals) for the `| Signatory |` table of a pact's
-    TEXT, read the way `config_rows` reads its table: the first such header,
-    its separator, then rows until a line that is not one; a line inside a
-    fence or a comment block is not shown to the walk. `signatories` is
-    `remote_entries`' parsed list, and a table that is absent or empty is
-    a refusal, because a pact nobody signs is not a pact.
+    TEXT. `signatories` is `remote_entries`' parsed list, and a table that is
+    absent or empty is a refusal, because a pact nobody signs is not a pact.
+
+    **Every way GFM ends or breaks the table is read as GFM reads it, or
+    refused** (round 2 of #647), so no signatory is dropped while the table
+    reads as complete:
+
+      a heading               ends the table; what is under it is a clause
+      the end of the file     ends the table
+      a blank line, a fence,  end the table; a `| … |` line after them and
+      an HTML block, a quote,   before the first heading is a signatory the
+      a list item               walk never reaches, and is refused
+      no delimiter row, or    GFM renders no table, so the header names
+      one of another width      nobody, and it is refused
+      a delimiter row below   refused: GFM reads it as a row of dashes
+        the first row
+      too few cells           an empty row, refused by `remote_entries`
+      too many cells, no      refused: GFM would read a cell or drop one,
+        closing or opening      and which is not this reader's to guess
+        pipe
+      a line with no pipe     refused: GFM reads it as one of the table's
+                                rows, and it should be written as one
+
+    The walk reads what `unfenced` shows it, so a fence or a comment block
+    is a gap in the line numbers, and a gap ends the table as the block it
+    hides does.
     """
-    values, seen_header, stray = [], False, None
-    for _index, line in unfenced(text.splitlines(), text):
-        if not seen_header:
-            seen_header = bool(SIGNATORY_HEADER.match(line))
-            continue
-        if CONFIG_SEPARATOR.match(line.strip()) and not values:
-            continue
-        match = SIGNATORY_ROW.match(line)
-        if not match:
-            # A table line the walk cannot read -- no closing pipe, or a
-            # second cell -- ends the walk, and every signatory written below
-            # it would go unread in silence. So it is refused (round 1 of
-            # #647, yellow 2).
-            if line.lstrip().startswith("|"):
-                stray = line.strip()
-            break
-        values.append(unescaped(match.group("value").strip()))
-    if not seen_header:
+    shown = list(unfenced(text.splitlines(), text))
+    at = next(
+        (k for k, (_i, line) in enumerate(shown) if SIGNATORY_HEADER.match(line)), None
+    )
+    if at is None:
         return [], ["holds no `| Signatory |` table, so it names no signatory"]
+    head_index = shown[at][0]
+    delimiter = shown[at + 1] if at + 1 < len(shown) else None
+    if (
+        delimiter is None
+        or delimiter[0] != head_index + 1
+        or not CONFIG_SEPARATOR.match(delimiter[1].strip())
+    ):
+        return [], [
+            "has a `| Signatory |` header with no delimiter row under it, so "
+            "GFM renders no table there"
+        ]
+    if not SIGNATORY_DELIMITER.match(delimiter[1]):
+        width = delimiter[1].strip().strip("|").count("|") + 1
+        return [], [
+            f"has a `| Signatory |` header over a delimiter row of {width} "
+            "cells, so GFM renders no table there"
+        ]
+    values, stray, ended, previous = [], None, False, delimiter[0]
+    for index, line in shown[at + 2 :]:
+        if not ended and (index != previous + 1 or not line.strip()):
+            ended = True
+        if ended:
+            if HEADING_LINE.match(line):
+                break
+            if line.lstrip().startswith("|"):
+                stray = (
+                    f"has a `Signatory` table that ends above `{line.strip()}`, "
+                    "a row the walk never reaches — it and every signatory "
+                    "below it would go unread"
+                )
+                break
+            continue
+        previous = index
+        if HEADING_LINE.match(line):
+            break
+        if TABLE_BREAK.match(line):
+            ended = True
+            continue
+        if SIGNATORY_DELIMITER.match(line):
+            stray = _stops_at(line, "a delimiter row out of place")
+            break
+        match = SIGNATORY_ROW.match(line)
+        if match:
+            values.append(unescaped(match.group("value").strip()))
+            continue
+        if "|" in line:
+            stray = _stops_at(line, "which is not a one-cell row written `| … |`")
+        else:
+            stray = (
+                f"has a `Signatory` table that continues with `{line.strip()}`, "
+                "a line with no pipe that GFM reads as one of its rows — write "
+                "it as `| … |`"
+            )
+        break
     signatories, refusals = remote_entries(
         values, "the `Signatory` table holds an empty row", named=False
     )
     if stray is not None:
-        refusals.append(
-            f"has a `Signatory` table that stops at `{stray}`, which is not a "
-            "one-cell row closed by `|` — every signatory below it would go "
-            "unread"
-        )
+        refusals.append(stray)
     if not values:
         refusals.append("has a `Signatory` table that lists nobody")
     return signatories, refusals
+
+
+def _stops_at(line, why):
+    return (
+        f"has a `Signatory` table that stops at `{line.strip()}`, {why} — every "
+        "signatory below it would go unread"
+    )
