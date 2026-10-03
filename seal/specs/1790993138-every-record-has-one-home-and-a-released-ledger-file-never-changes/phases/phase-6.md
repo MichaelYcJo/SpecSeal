@@ -68,7 +68,7 @@ pinned a copy of a moved rule are the list —
 `test_a_merge_cannot_silently_drop_a_correction.py`'s
 `test_a8_both_rule_documents_say_what_to_do_at_the_conflict`,
 `test_the_policy_document_owns_the_exception_and_the_halves` and
-`test_a8_each_document_points_at_the_other` (with `CONFLICT_SENTENCES` and
+`test_a8_each_document_points_at_the_other` (NAME NOT IN TREE; with `CONFLICT_SENTENCES` and
 `EDIT_OUTCOMES`);
 `test_a_row_points_by_content.py#test_no_document_claims_the_checker_never_calls_git`;
 `test_the_changelog_is_gathered_at_release.py`'s
