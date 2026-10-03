@@ -646,6 +646,53 @@ def test_an_anchor_missing_its_slash_is_refused(world, shape):
     assert "does not parse" in out, out
 
 
+@pytest.mark.parametrize(
+    "shape",
+    [
+        "pact:orders-api.{loc}@{h}",
+        "pact:orders-api-{loc}@{h}",
+        "pact:orders-api_{loc}@{h}",
+        "pact:orders-api./{loc}@{h}",
+        "pact:orders-api-/{loc}@{h}",
+        "pact:orders-api_/{loc}@{h}",
+        "pact:orders-api.@{h}",
+    ],
+    ids=[
+        "a dot for the slash",
+        "a hyphen for the slash",
+        "an underscore for the slash",
+        "a dot before the slash",
+        "a hyphen before the slash",
+        "an underscore before the slash",
+        "a dot, no heading path",
+    ],
+)
+def test_a_mark_the_name_holds_is_not_a_second_name(world, shape):
+    """`.`, `-` and `_` are marks the grammar's "one mark" covers and the
+    name pattern also takes in, so each made the token name another pact,
+    read by nobody (round 1, yellow 4). Each is refused at exit 2."""
+    anchor = shape.format(loc=LOCATOR, h=clause(V2))
+    write(world["web"], "seal/ledger/1790000000-x.md", ledger_row(anchor))
+    code, out = run(world)
+    assert code == 2, out
+    assert "does not parse" in out, out
+
+
+def test_a_pact_whose_name_extends_this_ones_is_another_pact(world):
+    """One mark only: `orders-api-legacy-` begins with this pact's name and
+    ends in a mark, and it is another pact's name, cited whole, so it is
+    neither graded nor refused here."""
+    write(
+        world["web"],
+        "seal/ledger/1790000000-x.md",
+        ledger_row(f"pact:orders-api-legacy-/{LOCATOR}@deadbeef")
+        + ledger_row(f"pact:orders-api/{LOCATOR}@{clause(V2)}"),
+    )
+    code, out = run(world)
+    assert code == 0, out
+    assert "does not parse" not in out, out
+
+
 def test_the_refusal_names_both_remedies(world):
     """S5 (⬜ 23). The grammar stands -- a `/` after `pact:<name>` begins an
     anchor -- so the half-typed form in prose is refused, and the sentence

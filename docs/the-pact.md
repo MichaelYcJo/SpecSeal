@@ -95,8 +95,10 @@ Enforced by: tests/test_a_pact_anchor_is_no_coordinate_of_the_signatory.py::test
 `/` or `#`, or by the rest of an anchor with its `/` missing, and
 `pact-check` refuses a token that begins one and does not go on to parse.**
 The rest of an anchor is a quoted heading path closed by `@`, or `@` and a
-hash, at once or after one mark or one space, so the commonest typos are
-named rather than read by nobody. Anything else naming the pact is a
+hash, at once or after one mark or one space — a `.`, `-` or `_` included,
+which the name itself could otherwise hold, and so is one of those marks
+standing just before the `/` — so the commonest typos are named rather than
+read by nobody. Anything else naming the pact is a
 mention and is left alone: `pact:<name>` followed by punctuation, a space or
 the end of a code span. The one form that begins an anchor and is not an
 attempt is the one this plugin prints to show the shape, its heading path a
@@ -104,7 +106,7 @@ placeholder, `/"<heading path>"`. So `pact:<name>/` written in prose is
 refused, and the refusal names both ways out: quote the heading path and
 give it a hash, or, where the text shows the shape rather than citing a
 clause, put it in a fenced code block, which nothing reads.
-Enforced by: tests/test_pact_check.py::test_an_anchor_missing_its_slash_is_refused, tests/test_pact_check.py::test_the_refusal_names_both_remedies, tests/test_pact_check.py::test_prose_naming_the_pact_is_not_a_citation, tests/test_pact_check.py::test_a_pact_anchor_that_does_not_parse_is_refused
+Enforced by: tests/test_pact_check.py::test_an_anchor_missing_its_slash_is_refused, tests/test_pact_check.py::test_a_mark_the_name_holds_is_not_a_second_name, tests/test_pact_check.py::test_the_refusal_names_both_remedies, tests/test_pact_check.py::test_prose_naming_the_pact_is_not_a_citation, tests/test_pact_check.py::test_a_pact_anchor_that_does_not_parse_is_refused
 
 ## A signatory records a pact change
 

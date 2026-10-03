@@ -197,7 +197,9 @@ CHANGE_RE = re.compile(r"(?P<item>[^\s@]+)@(?P<hash>[0-9a-f]{6,12})")
 # begins an anchor where `pact:<name>` is followed at once by `/` or `#`, or
 # where the rest of an anchor follows with its `/` missing -- a quoted heading
 # path closed by `@`, or `@` and a hash, at once or after one mark or one
-# space. It is refused where it does not go on to parse. Anything else naming
+# space. A `.`, `-` or `_` the name class takes in as that mark is read by
+# `near_miss`, here and before a `/`. It is refused where it does not go on
+# to parse. Anything else naming
 # the pact is a mention and is left alone: `pact:<name>` followed by
 # punctuation, a space or the end of a code span, so the `.` ending a sentence
 # leaves a mention. The one form that begins an anchor and is not an attempt
@@ -233,6 +235,16 @@ def load(path, name):
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def near_miss(said, name):
+    """True where SAID is NAME and one more mark the name class holds -- a
+    `.`, `-` or `_` -- standing where an anchor's `/` went missing or just
+    before it, as in `pact:orders-api."## A"@1a2b3c4d`: the name pattern
+    takes the mark in, so without this the token names another pact and
+    nobody reads it (round 1 of #647 C and D, yellow 4)."""
+    said = said.lower()
+    return len(said) == len(name) + 1 and said.startswith(name) and said[-1] in "._-"
 
 
 def git(root, *args):
@@ -605,10 +617,18 @@ def check(root, out=sys.stdout, home_dir=None):
                 if status != OK:
                     line = view.count("\n", 0, match.start()) + 1
                     found(status, written, f"{where}:{line} {match.group(0)}", detail)
-            graded = [m.span() for m in checker.PACT_ANCHOR_RE.finditer(view)]
+            # A whole anchor naming this pact plus one mark is an attempt at
+            # this pact, not a span to step past (round 1 of #647 C and D,
+            # yellow 4).
+            graded = [
+                m.span()
+                for m in checker.PACT_ANCHOR_RE.finditer(view)
+                if not near_miss(m.group("name"), name)
+            ]
             for near in PACT_MENTION_RE.finditer(view):
                 inside = any(s <= near.start() < e for s, e in graded)
-                if near.group("name").lower() != name or inside:
+                said = near.group("name")
+                if not (said.lower() == name or near_miss(said, name)) or inside:
                     continue
                 line = view.count("\n", 0, near.start()) + 1
                 found(
