@@ -270,10 +270,9 @@ and nothing can see that it should have. A copy of the checker with no
 `hooks/` beside it cannot read the `Pact` row; it names each row citing a
 pact, says it recorded nothing, and re-stamps nothing, so the plugin's own
 checker records the change where the signatory is checked out. A pact under
-local mode keeps
-`seal/pact-reviews/` under the git directory, so another clone of the pact's
-repository reads the same changes as `NOT TAKEN`, which is loud in the right
-direction.
+local mode keeps `seal/pact-reviews/` under the git directory, so another
+clone of the pact's repository reads the same changes as `NOT TAKEN`, which
+is loud in the right direction.
 Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing
 
 <!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
