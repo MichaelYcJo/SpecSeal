@@ -3632,14 +3632,24 @@ def record_pact_changes(moves, root, into, checked):
         if declared is None
         else declared[2]
     )
-    if refused and any(e[3] for e in entries):
+    # A row citing a pact is owed under any `Pact notify`; a row citing none
+    # is owed under `always`, and a declaration that will not read cannot say
+    # it is not `always`, so such a row is unknown (round 2 of #647 C and D,
+    # yellow 13).
+    blind = declared is None or declared[1] in (None, config.NOTIFY_ALWAYS)
+    unknown = [e for e in entries if e[3] or blind]
+    if refused and unknown:
         # Silent before: a row that will not read reads as no pact declared,
         # and the drift went unrecorded at exit 0.
-        for where, _row, _parts, _anchors in (e for e in entries if e[3]):
+        for where, _row, _parts, anchors in unknown:
+            why = (
+                "cites a pact clause"
+                if anchors
+                else "moved, and `Pact notify` may be `always`"
+            )
             print(
-                f"  LEFT  {where}  cites a pact clause, and the `Pact` rows will "
-                f"not read: {refused[0]} — {NOT_RESTAMPED}; fix the row and run "
-                "it again"
+                f"  LEFT  {where}  {why}, and the `Pact` rows will not read: "
+                f"{refused[0]} — {NOT_RESTAMPED}; fix the row and run it again"
             )
         return 1
     declared = declared or ([], None, [])

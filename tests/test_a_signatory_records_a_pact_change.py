@@ -905,3 +905,63 @@ def test_a_change_relanded_after_its_revert_is_recorded(repo):
     assert rows[-1].endswith(
         f"`src/orders.py#serialize@{a}` → `@{b}` | 2026-09-06 |"
     ), rows
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        (("Pact", PACT_URL), ("Pact notify", "allways")),
+        (("Pact", "orders api"), ("Pact notify", "always")),
+    ],
+    ids=["a Pact notify that will not read", "a Pact row that will not read, always"],
+)
+def test_under_always_a_declaration_that_will_not_read_leaves_the_row(repo, rows):
+    """A row citing no clause is owed under `always`, and a refused
+    declaration cannot say `always` was not meant, so the row is unknown:
+    exit 1, a `LEFT` line for a row with no clause, and no ledger file
+    written (round 2, yellow 13)."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), *rows), encoding="utf-8"
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger_rows = [row("O1", "", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, ledger_rows)
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1 and "`Pact notify` may be `always`" in out, out
+    assert UNDONE in out, out
+    assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
+
+
+def test_a_valid_declaration_that_rules_always_out_still_records_nothing(repo):
+    """The other side: a valid `when the pact is touched` rules `always`
+    out, so a moved row citing no clause owes nothing and the run re-stamps
+    at exit 0."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger = cite(repo, [row("O1", "", f"src/orders.py#serialize@{old}")])
+    new = move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert f"@{new}" in ledger.read_text(encoding="utf-8"), out
+
+
+def test_a_refused_declaration_that_still_rules_always_out_leaves_no_row_unknown(
+    repo,
+):
+    """A `Pact` row that will not read beside a `Pact notify` that does and
+    is not `always`: a moved row citing no clause is owed nothing under that
+    notify, so it is not unknown, and the run re-stamps it at exit 0."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(
+            ("Mode", "shared"),
+            ("Pact", "orders api"),
+            ("Pact notify", "when the pact is touched"),
+        ),
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger = cite(repo, [row("O1", "", f"src/orders.py#serialize@{old}")])
+    new = move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert f"@{new}" in ledger.read_text(encoding="utf-8"), out
