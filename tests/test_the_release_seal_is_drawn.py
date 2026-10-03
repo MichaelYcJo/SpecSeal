@@ -773,9 +773,15 @@ def test_a_hand_edited_note_is_left_alone_and_nothing_is_uploaded(
     mod, hub = wired(monkeypatch, tmp_path, body=edited)
     assert mod.main() == 0
     assert hub.writes("upload") == [] and hub.writes("edit") == []
+    out = capsys.readouterr().out
+    # Round 1's ⬜ 7: the refusal names every way the table can be missing,
+    # not a hand edit alone.
     assert (
-        "not in the note exactly once in the generated shape" in capsys.readouterr().out
-    )
+        "the glance table is not in the note exactly once as `glance` writes it "
+        "for this release -- the note was edited after publication, went out "
+        "without one, or the pull requests moved between the two lists; nothing "
+        "was uploaded"
+    ) in out, out
 
 
 def test_a_dry_run_draws_and_prints_and_writes_nothing(monkeypatch, tmp_path, capsys):

@@ -558,8 +558,10 @@ def seal_release(tag, repo, dry):
     table = note.glance(work, closed, people)
     if body.count(table) != 1:
         raise Refused(
-            "the glance table is not in the note exactly once in the generated "
-            "shape, so the note was edited after publication; nothing was uploaded"
+            "the glance table is not in the note exactly once as `glance` "
+            "writes it for this release -- the note was edited after "
+            "publication, went out without one, or the pull requests moved "
+            "between the two lists; nothing was uploaded"
         )
     image = f"https://github.com/{repo}/releases/download/{tag}/{ASSET}"
     sealed = body.replace(
