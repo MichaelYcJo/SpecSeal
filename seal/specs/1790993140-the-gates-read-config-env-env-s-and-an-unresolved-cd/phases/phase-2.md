@@ -22,13 +22,17 @@ nothing for `WIDER_FIRST` or a plain `git switch`. Answer M2.
 
 ## What this phase found
 
-**Four functions, not two.** `unplaced_switch` (A) and `wider_only_kinds` (C)
-both need a kind read from the words alone, since a transcript carries no tree
-for `classify` to ask. So `switch_kind` reads a `parse_git` result as
-`"switch"`, `"creation"` or None. It counts every `checkout` that names
-something, which is `questions.md` D3's upper bound. `_wider_walk` is
-`hooks/cmdline.py`'s walk over its own splitter, and `_places` makes two
-walks' directories comparable across the two modules' `Unresolved` classes.
+Phase 4 removed candidate A and its two helpers, so three names below are
+gone from the tree; each line naming one says so.
+
+**Four functions, not two.** `unplaced_switch` (A, NAME NOT IN TREE) and
+`wider_only_kinds` (C) both need a kind read from the words alone, since a
+transcript carries no tree for `classify` to ask. So `switch_kind` reads a
+`parse_git` result as `"switch"`, `"creation"` or None. It counts every
+`checkout` that names something, which is `questions.md` D3's upper bound.
+`_wider_walk` (NAME NOT IN TREE) is `hooks/cmdline.py`'s walk over its own
+splitter, and `_places` (NAME NOT IN TREE) makes two walks' directories
+comparable across the two modules' `Unresolved` classes.
 
 **A takes `chosen`**, the segment `main` would judge. Without it, the first
 segment `switch_kind` calls a switch stands in, and that is what the probe
