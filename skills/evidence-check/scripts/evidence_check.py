@@ -2491,10 +2491,11 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
 
     def reading(key):
         """KEY's reading as the DRIFTED line names it: by its newest calendar
-        date; else by every date-shaped string its `Checked` cell holds, in
-        cell order, said to be no date the calendar has, because fixing that
-        typo is the person's repair; else as the reading of no date (round
-        3, ⬜ 17). The ordering is `checked`'s, unchanged."""
+        date; else by every date-shaped string its `Checked` cell holds, each
+        once in cell order, said to be a date (or dates) the calendar does
+        not have, because fixing that typo is the person's repair; else as
+        the reading of no date (round 3, ⬜ 17). The ordering is `checked`'s,
+        unchanged."""
         if checked(key):
             return f"the reading of {checked(key)}"
         _, _, header, cells = row(key)
