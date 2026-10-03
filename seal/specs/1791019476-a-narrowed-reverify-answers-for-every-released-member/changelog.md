@@ -8,8 +8,10 @@
   `--strict` with the same narrowing read that member DRIFTED. Now, without
   the freeze, it names the family's first row and exits 1; under the freeze,
   `--into` writes the re-read that row is owed, and a run without `--into`
-  names it with the `--into` form. A narrowing to a file that holds no member
-  of the family, and a run without `--ledger`, behave as before.
+  names it with the `--into` form. That holds whichever rows carry the
+  drifted coordinate, including one only fragment re-reads record. A
+  narrowing to a file that holds no member of the family, and a run without
+  `--ledger`, behave as before.
 
 - A ledger row whose `Checked` cell holds a date the calendar does not have,
   such as `2026-13-45`, is now named with that date when `evidence-check`

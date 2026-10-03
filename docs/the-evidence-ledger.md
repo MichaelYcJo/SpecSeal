@@ -136,7 +136,9 @@ coordinate — one per row, never one per coordinate — and names each row it
 wrote. Without `--into`, `--reverify` writes no released file and names each
 row it left. Narrowed with `--ledger`, either form answers for every family
 that a file it read holds a member of, released or fragment, by the family's
-root row. The `Checked` column holds the date somebody read the code, and
+root row, whichever members carry the drifted coordinate: a coordinate only
+fragment re-reads carry is owed a re-read of a released root too. The
+`Checked` column holds the date somebody read the code, and
 `--checked` writes that date into every row whose hash it moves; it says
 every such row was re-read, so read each row citing a drifted coordinate
 first, or narrow the write with `--ledger` to the files you read. A released
@@ -162,7 +164,8 @@ into the branch's own fragment. That is what every installed copy does until
 it adds the row. Where citing rows exist anyway, a `--reverify` narrowed with
 `--ledger` names, by its root row, each family that a file it read holds a
 member of, released or fragment, where no in-place re-stamp of the files it
-read clears that family, and exits 1. The root is named even where the
+read clears that family, whichever members carry the drifted coordinate, and
+exits 1. The root is named even where the
 narrowing left its file out, because the root is the row a `Re-read ·` cites.
 
 ## What the checker refuses, and what it says while refusing

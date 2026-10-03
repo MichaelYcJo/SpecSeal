@@ -3250,9 +3250,11 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
     every family and has a drifted coordinate, and the root of each family
     that is not superseded and has a member, released or fragment, in a file
     LEDGERS names, where no newest reading holds a coordinate's current
-    content and a released member's reading either drifted or is outranked
-    by a newer reading holding other content. The root is named even where
-    LEDGERS left its file out, because a `Re-read ·` row cites the root.
+    content and a member's reading -- a released member's where one carries
+    the coordinate, else any member's under a released root -- either
+    drifted or is outranked by a newer reading holding other content. The
+    root is named even where LEDGERS left its file out, because a
+    `Re-read ·` row cites the root.
     BROKEN is `[(where, coordinate, detail)]` for the released coordinates a
     re-read cannot clear, which take a `Corrected ·` row instead.
     """
@@ -3288,18 +3290,36 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
         for coord, graded in by_coord.items():
             if view.held[top][coord]:
                 continue
-            for key, m, status, detail in graded:
-                if ledger_kind(root, view.files[key[0]][0]) != "released":
+            pick = next(
+                (
+                    g
+                    for g in graded
+                    if ledger_kind(root, view.files[g[0][0]][0]) == "released"
+                ),
+                None,
+            )
+            if pick is None:
+                # A coordinate only fragment members carry -- a re-read that
+                # added a unit its root does not cite -- is owed a re-read all
+                # the same: the fragment holding its newest reading may be one
+                # LEDGERS left out, which nothing re-stamped (round 1, 🟡 1).
+                # Only where the root is released: a `Re-read ·` cites nothing
+                # else, and a family rooted in a fragment is re-stamped in
+                # place (round 1, ⬜ 9).
+                if ledger_kind(root, view.files[top[0]][0]) != "released":
                     continue
-                if status == "BROKEN":
-                    broken.append((where(key), coord, detail))
-                    break
-                # DRIFTED, or OK and outranked by a newer reading holding
-                # other content: the family owes a re-read either way. That
-                # newer reading may sit in a fragment LEDGERS left out, which
-                # nothing re-stamped (round 2, 🟡 12).
-                drifted.setdefault(top, {}).setdefault(coord, m)
-                break
+                pick = next((g for g in graded if g[2] != "BROKEN"), None)
+                if pick is None:
+                    continue
+            key, m, status, detail = pick
+            if status == "BROKEN":
+                broken.append((where(key), coord, detail))
+                continue
+            # DRIFTED, or OK and outranked by a newer reading holding other
+            # content: the family owes a re-read either way. That newer
+            # reading may sit in a fragment LEDGERS left out, which nothing
+            # re-stamped (round 2, 🟡 12).
+            drifted.setdefault(top, {}).setdefault(coord, m)
     return view, drifted, broken
 
 

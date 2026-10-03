@@ -1374,32 +1374,47 @@ UNRELATED = "seal/ledger/2000000009-unrelated.md"
 MEMBER_INTO = "seal/ledger/4000000001-the-re-reading-item.md"
 
 
-def three_readings(repo, m_at, n_at):
-    """One family of three readings of `handler`, the code back at h1.
+def three_readings(repo, m_at, n_at, carrier="the root"):
+    """One family of three readings of one unit, the code back at h1.
 
-    R, the root, sits in `seal/releases/0.1.0.md` at h1, dated 2026-01-01. M
-    is an older `Re-read ·` of R at h1, dated 2026-02-01, folded into
-    `seal/releases/0.2.0.md` or sitting in a fragment (M_AT `release` or
-    `fragment`). N is the newest `Re-read ·` of R at h2, dated 2026-03-01, in
-    another fragment or folded into `seal/releases/0.3.0.md` (N_AT likewise).
-    N is the only reading that does not hold, and it outranks the two that
-    do, so every member reads DRIFTED under `--strict`. An unrelated fragment
-    holds one row of its own, which holds.
+    R, the root, sits in `seal/releases/0.1.0.md`, dated 2026-01-01, and
+    cites `handler` as it is. M is an older `Re-read ·` of R at h1, dated
+    2026-02-01, folded into `seal/releases/0.2.0.md` or sitting in a
+    fragment (M_AT `release` or `fragment`). N is the newest `Re-read ·` of R
+    at h2, dated 2026-03-01, in another fragment or folded into
+    `seal/releases/0.3.0.md` (N_AT likewise). N is the only reading that
+    does not hold, and it outranks the ones that do, so every member carrying
+    the unit reads DRIFTED under `--strict`. An unrelated fragment holds one
+    row of its own, which holds.
+
+    CARRIER says which members carry that unit. `the root`: it is `handler`,
+    and R records h1 too. `re-reads only`: it is `other`, which R does not
+    cite, so the unit is held by a released row only where M or N is folded,
+    and by fragment rows alone where both sit in fragments.
 
     Returns `{"R": file, "M": file, "N": file}`, each relative to the repo.
-    These two placements are the axes `released_drift`'s family filter is
-    keyed on; a member kind `ledger_kind` names a third way is a third value
-    for both, and belongs here."""
-    h1 = unit_hash(repo, "src/service.py", "handler")
+    The two placements and the carrier are the axes `released_drift`'s
+    family filter and its choice of reading are keyed on; a member kind
+    `ledger_kind` names a third way is a third value for the placements, and
+    belongs here."""
+    h = unit_hash(repo, "src/service.py", "handler")
     (r,) = released(
         repo,
         [
-            f"| R1 · handler adds one | `src/service.py#handler@{h1}` | read | 2026-01-01 | |"
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
         ],
     )
     cite = citation(r, "R1 · handler adds one")
-    edit_handler(repo)
-    h2 = unit_hash(repo, "src/service.py", "handler")
+    other = unit_hash(repo, "src/service.py", "other")
+    unit = "handler" if carrier == "the root" else "other"
+    h1 = unit_hash(repo, "src/service.py", unit)
+    if unit == "handler":
+        edit_handler(repo)
+    else:
+        (repo / "src" / "service.py").write_text(
+            SERVICE.replace("x * 2", "x * 3"), encoding="utf-8"
+        )
+    h2 = unit_hash(repo, "src/service.py", unit)
     files = {"R": R_FILE}
     for name, h, date, at, version, item in (
         ("M", h1, "2026-02-01", m_at, "0.2.0", "2000000002-the-older-re-read"),
@@ -1407,7 +1422,7 @@ def three_readings(repo, m_at, n_at):
     ):
         row = (
             f"| Re-read · R1 · handler adds one | `{cite}`, "
-            f"`src/service.py#handler@{h}` | read | {date} | Re-read {date} |"
+            f"`src/service.py#{unit}@{h}` | read | {date} | Re-read {date} |"
         )
         if at == "release":
             released(repo, [row], version=version, section=f"### {item}")
@@ -1415,7 +1430,6 @@ def three_readings(repo, m_at, n_at):
         else:
             fragment(repo, [row], name=item)
             files[name] = f"seal/ledger/{item}.md"
-    other = unit_hash(repo, "src/service.py", "other")
     fragment(
         repo,
         [
@@ -1442,13 +1456,16 @@ MODES = ("no freeze", "freeze without --into", "freeze with --into")
 @pytest.mark.parametrize("narrowed", list(NARROWINGS))
 @pytest.mark.parametrize("n_at", ("fragment", "release"))
 @pytest.mark.parametrize("m_at", ("release", "fragment"))
+@pytest.mark.parametrize("carrier", ("the root", "re-reads only"))
 def test_a_narrowed_reverify_exits_0_only_where_the_narrowed_strict_does(
-    repo, m_at, n_at, narrowed, mode
+    repo, carrier, m_at, n_at, narrowed, mode
 ):
-    """The class round 3's 🟡 16 is one instance of, by construction: where a
-    family's older reading M and newest reading N sit (a folded release file
-    or a fragment), which files `--ledger` names, and whether the freeze is
-    declared and `--into` given. 2 x 2 x 6 x 3 cells.
+    """The class round 3's 🟡 16 is one instance of, by construction: which
+    members carry the drifted coordinate (the root among them, or only its
+    re-reads, so with both re-reads in fragments no released row holds it),
+    where a family's older reading M and newest reading N sit (a folded
+    release file or a fragment), which files `--ledger` names, and whether
+    the freeze is declared and `--into` given. 2 x 2 x 2 x 6 x 3 cells.
 
     Asserted per cell, never as a per-cell expected value: a narrowed
     `--reverify` that exits 0 is followed by a `--strict` with the same
@@ -1456,7 +1473,7 @@ def test_a_narrowed_reverify_exits_0_only_where_the_narrowed_strict_does(
     with `--into`, wherever the narrowing holds a member, the whole tree then
     checks clean. A run that read no member answers for nothing, and says
     which files it skipped."""
-    files = three_readings(repo, m_at, n_at)
+    files = three_readings(repo, m_at, n_at, carrier)
     flags = []
     for name in NARROWINGS[narrowed]:
         flags += ["--ledger", files.get(name, name)]
@@ -1480,6 +1497,96 @@ def test_a_narrowed_reverify_exits_0_only_where_the_narrowed_strict_does(
     if mode == "freeze with --into" and narrowed != "an unrelated fragment":
         whole = run(["--strict", "."], repo)
         assert whole.returncode == 0, fix.stdout + "\n---\n" + whole.stdout
+
+
+@pytest.mark.parametrize("mode", MODES)
+def test_a_narrowed_reverify_answers_for_a_coordinate_only_fragments_carry(repo, mode):
+    """Round 1's 🟡 1, the axis the first 72 cells held fixed: which members
+    carry the coordinate. R cites `handler` alone; an older fragment re-read
+    M adds `other` as it is, a newer re-read N in another fragment holds
+    other content, and no released member carries `other`. A run narrowed to
+    M's fragment exits 0 only where `--strict` with the same narrowing does,
+    and names or writes for the family's root otherwise."""
+    h1 = unit_hash(repo, "src/service.py", "handler")
+    o1 = unit_hash(repo, "src/service.py", "other")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h1}` | read | 2026-01-01 | |"
+        ],
+    )
+    cite = citation(r, "R1 · handler adds one")
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    o2 = unit_hash(repo, "src/service.py", "other")
+    for name, h, date in (
+        ("2000000002-the-older-re-read", o1, "2026-02-01"),
+        ("3000000003-the-newer-re-read", o2, "2026-03-01"),
+    ):
+        fragment(
+            repo,
+            [
+                f"| Re-read · R1 · handler adds one | `{cite}`, "
+                f"`src/service.py#other@{h}` | read | {date} | Re-read {date} |"
+            ],
+            name=name,
+        )
+    (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+    flags = ["--ledger", "seal/ledger/2000000002-the-older-re-read.md"]
+    if mode != "no freeze":
+        frozen(repo, "0")
+    into = ["--into", MEMBER_INTO, "--checked", "2026-04-01"]
+    fix = run(
+        ["--reverify", *(into if mode == "freeze with --into" else []), *flags, "."],
+        repo,
+    )
+    assert fix.returncode in (0, 1), fix.stdout + fix.stderr
+    check = run(["--strict", *flags, "."], repo)
+    if fix.returncode == 0:
+        assert check.returncode == 0, fix.stdout + "\n---\n" + check.stdout
+    if mode == "freeze with --into":
+        assert "citing seal/releases/0.1.0.md:5" in fix.stdout, fix.stdout
+        assert run(["--strict", "."], repo).returncode == 0
+    else:
+        assert fix.returncode == 1, fix.stdout
+        assert "LEFT  seal/releases/0.1.0.md:5" in fix.stdout, fix.stdout
+
+
+def test_a_family_rooted_in_a_fragment_is_owed_no_released_re_read(repo):
+    """The guard beside round 1's 🟡 1 fix (⬜ 9): a coordinate is graded
+    from a fragment member only under a released root. A `Corrected ·` row
+    in a fragment roots its own family, and here its one coordinate names a
+    statement the code no longer has, which an in-place re-stamp leaves.
+    Under the freeze the run names no `Re-read ·` owed to that fragment row:
+    a citation into a fragment is refused, and the row is the fragment's own
+    to repair."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    text = (repo / "src" / "service.py").read_text(encoding="utf-8")
+    places, _ = ec.resolve_unit("src/service.py", "other", text)
+    (inside,) = ec.minor_region("src/service.py", text, places[0], '"x * 2"')
+    stated = ec.content_hash(ec.gfm_lines(text)[inside[0] - 1 : inside[1]])
+    fragment(
+        repo,
+        [
+            f"| Corrected · other doubles | `{citation(r, 'R1 · handler adds one')}`, "
+            f'`src/service.py#other>"x * 2"@{stated}` | read | 2026-02-01 | '
+            "Corrected 2026-02-01 by work item 2000000001 |"
+        ],
+    )
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    frozen(repo, "0")
+    out = run(["--reverify", "."], repo)
+    left = [line for line in out.stdout.splitlines() if line.startswith("  LEFT")]
+    assert not [line for line in left if "seal/ledger/" in line], out.stdout
 
 
 @pytest.mark.parametrize("mode", MODES)
