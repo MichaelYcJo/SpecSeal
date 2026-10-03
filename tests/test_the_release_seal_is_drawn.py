@@ -161,8 +161,12 @@ def test_the_png_carries_the_colours_and_is_clear_where_nothing_is_painted(
     decoded, and each half of each cell is sampled on its outer row at the
     cell's centre column, away from where a glyph is drawn: the colour
     `block` gives that half, or alpha 0 where it gives none. In every cell
-    that carries a character other than a space, the darkest pixel is nearer
-    the cell's ink than the parchment. The font the run used is one `font`
+    that carries a character other than a space, some pixel is the cell's
+    ink exactly, which is stronger than the frame's *the darkest pixel is
+    nearer the ink than the parchment*: that one passed with the ink's red
+    and green swapped, measured with `bin/mutation-check` over `rgb`'s cube
+    levels, because every stroke at this size covers whole pixels in both
+    fonts measured, Menlo and Pillow's default. The font the run used is one `font`
     names, and it is printed for a run under `-s` (`questions.md` Q11; the
     publishing step logs it at the tag). Seen red by swapping two codes in
     `rgb`'s table. Run twice: with the face chain as it is, and with no face
@@ -183,11 +187,6 @@ def test_the_png_carries_the_colours_and_is_clear_where_nothing_is_painted(
     assert image.mode == "RGBA" and image.size == mod.size(letter)
     pixels = image.load()
     cw, ch = mod.CELL_W, mod.CELL_H
-    parchment = XTERM[stamp.PARCHMENT]
-
-    def far(a, b):
-        return sum((p - q) ** 2 for p, q in zip(a, b, strict=True))
-
     for y, line in enumerate(letter.cells):
         for x, cell in enumerate(line):
             top, bottom, said = expected(stamp, cell)
@@ -203,20 +202,12 @@ def test_the_png_carries_the_colours_and_is_clear_where_nothing_is_painted(
                 else:
                     assert got == (*want, 255), (x, y, got, want)
             if said and said[0] != " ":
-                darkest = min(
-                    (
-                        pixels[a, b][:3]
-                        for a in range(x * cw, x * cw + cw)
-                        for b in range(y * ch, y * ch + ch)
-                    ),
-                    key=sum,
-                )
-                assert far(darkest, said[1]) < far(darkest, parchment), (
-                    x,
-                    y,
-                    said,
-                    darkest,
-                )
+                inked = {
+                    pixels[a, b]
+                    for a in range(x * cw, x * cw + cw)
+                    for b in range(y * ch, y * ch + ch)
+                }
+                assert (*said[1], 255) in inked, (x, y, said)
 
 
 def test_the_seal_module_imports_without_pillow(monkeypatch):
