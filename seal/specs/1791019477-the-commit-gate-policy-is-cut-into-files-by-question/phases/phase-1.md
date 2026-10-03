@@ -68,7 +68,12 @@ the row.
 - The S1 probe, `test_tmp_s1_the_cut_is_a_move.py`, run once from the
   scratchpad and deleted: `difflib` over each moved block against `git show
   2b1dcb1f:docs/commit-review-gate-spec.md`. The only differing lines are the
-  three preambles and base lines 91, 152, 199, 273, 274, 283 and 284.
+  three preambles and base lines 91, 152, 153 (re-wrapped, same words), 199,
+  273, 274, 283 and 284. **Corrected 2026-10-03 in round 1's fix pass (⬜ 2):**
+  this list first left out 153, which the edit to 152 re-wrapped. Of the
+  seven re-pointed lines, 152 and 283–284 name a file and section; 91, 199,
+  273 and 274 name the file alone (`overview.md` §*Where spec and
+  implementation diverged*).
 - `bin/fold-check --root .`: exit 0, 157 statements in 18 documents, every
   document at or under 1,000 lines, 0 listed over it. Markers per file 6, 8
   and 4, by `grep -c '^<!-- specs/'`.
