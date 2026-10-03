@@ -1185,9 +1185,13 @@ def test_no_document_says_the_fragments_are_never_gathered():
 
 def test_the_release_sequence_names_the_fold_beside_the_gather():
     """The sequence in `docs/branch-and-release.md` is walked by whoever cuts
-    a release, and `CONTRIBUTING.md` holds the commands. A step that is only
-    in a workflow comment is a step that gets discovered by a red build."""
-    for parts in (("docs", "branch-and-release.md"), ("CONTRIBUTING.md",)):
+    a release, and `docs/release-checklist.md` §2 holds the commands, which
+    `CONTRIBUTING.md` sends the reader to (#715). A step that is only in a
+    workflow comment is a step that gets discovered by a red build."""
+    assert "docs/release-checklist.md` §*2. Gather, fold, bump*" in flat(
+        "CONTRIBUTING.md"
+    ), "CONTRIBUTING.md does not send the reader to the release commands"
+    for parts in (("docs", "branch-and-release.md"), ("docs", "release-checklist.md")):
         text = flat(*parts)
         assert "fold_ledger.py" in text, (
             "/".join(parts) + " does not name the script that folds the ledger"

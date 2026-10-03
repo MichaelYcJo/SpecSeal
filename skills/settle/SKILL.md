@@ -287,7 +287,8 @@ ones inside a fence included. The checker skips a fence that closes (#444),
 and the guard reads it anyway, because keeping a directory the checker would
 not break is the cheaper mistake. `settle` alone names them for every
 released directory before you write any prose. Each row carries what
-`CLAUDE.md` requires of it: **REMOVED** when every anchor it cites goes, and
+`docs/the-evidence-ledger.md` §*A row is a content anchor, and it names no
+commit* requires of it: **REMOVED** when every anchor it cites goes, and
 its claim written anew where
 it still stands; **narrow** when it keeps a live anchor, with the dead one
 dropped — and whether such a row is removed instead is the repository owner's
@@ -334,7 +335,8 @@ the moment instead: `seal/ledger/<unix-seconds>-fold.md`, the seconds from
 — `evidence-check --reverify --into seal/ledger/<unix-seconds>-fold.md
 --checked <date>` writes them — and a `Corrected ·` row for each row the
 guard names `released`, citing it, with the citation alone where the claim
-went with the directory. A released row is never removed; the correction
+went with the directory (`docs/the-evidence-ledger.md` §*A released row is
+read again in the branch's fragment*). A released row is never removed; the correction
 supersedes it, and the next `settle --retire` takes the directory. Every
 other row is a content anchor and survives the fold untouched.
 

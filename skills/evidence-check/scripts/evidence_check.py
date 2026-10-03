@@ -1585,8 +1585,9 @@ def classify(m, root, maps, default_repo, scan_cache):
         # row's `want` is the hash of the minor region, which two
         # unrelated units can share by holding one identical line, so
         # neither move is licensed there: the tie stands, and an unsure
-        # place stays DRIFTED rather than being called gone. `CLAUDE.md`
-        # is the rule — *an anchor degrades to DRIFTED, never to BROKEN.
+        # place stays DRIFTED rather than being called gone.
+        # `docs/the-evidence-ledger.md` §*A row is a content anchor* is the
+        # rule — *an anchor degrades to DRIFTED, never to BROKEN.
         # Only the major level can be BROKEN* (round 8, 🔴 A and 🔴 B).
         hit = [p for p in places if recorded_here(rel, body, p, want, claim)]
         if hit and (len(hit) == 1 or not claim):

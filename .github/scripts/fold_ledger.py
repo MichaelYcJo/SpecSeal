@@ -70,8 +70,8 @@ in `ledger.md` or in any release file is refused rather than folded twice: the
 same claim in the corpus twice, with no way to tell which is current, is
 worse than a stop that names the work item and the file.
 
-**A fragment's own leading marker line is dropped** (#553). `CLAUDE.md` says
-a fragment needs no header, and twenty of them began with their own
+**A fragment's own leading marker line is dropped** (#553). A fragment needs
+no header (`docs/the-record-layout.md`), and twenty of them began with their own
 `<!-- specs/<id> -->` line anyway; the fold wrote its marker in front and
 copied the fragment whole, so each of the twenty stood twice in
 `seal/ledger.md` and `--check` counted 118 work items over 98 folded

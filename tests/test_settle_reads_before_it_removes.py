@@ -1318,7 +1318,11 @@ def test_the_skill_says_what_a_fold_does_to_the_ledger():
     assert "`seal/ledger.md` changes only by removal and re-verification" in text
     assert "A fold appends nothing there" in text
     policy = document("docs", "the-evidence-ledger.md")
-    assert "A fold is not a work item, and it adds nothing to the ledger." in policy
+    assert (
+        "A fold is not a work item, and it adds no work item's rows to the ledger."
+        in flat(policy)
+    )
+    assert "`seal/ledger/<unix-seconds>-fold.md`" in policy
 
 
 def test_the_skill_says_the_retirement_is_the_second_half_of_the_fold():

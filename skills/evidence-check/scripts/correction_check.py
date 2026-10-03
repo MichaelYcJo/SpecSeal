@@ -2,9 +2,12 @@
 """Did a merge in this range drop a correction the ledger had already made?
 
 Issue #424. Two branches each corrected rows of `seal/ledger.md` that the
-other had not touched -- which `CLAUDE.md`'s fragment rule does not merely
-permit but REQUIRES, because a branch that falsifies what a row claims must
-repair it in the shared file. So the file conflicted, and the two hunks
+other had not touched -- which the fragment rule of the day did not merely
+permit but REQUIRED, because a branch that falsified what a row claimed had to
+repair it in the shared file. Since #715 a released file is not edited at all
+where the freeze is declared (`docs/the-evidence-ledger.md` §*A released row
+is read again in the branch's fragment*), and the arms below say what that
+changed here. So the file conflicted, and the two hunks
 resolved in opposite directions because each side was the superset in one.
 Taking a side wholesale reverted three corrections, each of which had turned a
 false claim true.
@@ -114,8 +117,9 @@ the ledger format changing -- a different work item.
 
 ## Row survival is the whole distinction
 
-A marker that vanishes **with its row** is `REMOVED` and correct: `CLAUDE.md`
-§*A row whose anchor a change removes is REMOVED, not re-pointed* is the
+A marker that vanishes **with its row** is `REMOVED` and correct:
+`docs/the-evidence-ledger.md` §*A row is a content anchor, and it names no
+commit* -- a row whose anchor a change removes is REMOVED, not re-pointed -- is the
 repository's own rule, and a branch that removes the code a row cites is
 obeying it. A marker that vanishes **while its row stands** is the defect.
 

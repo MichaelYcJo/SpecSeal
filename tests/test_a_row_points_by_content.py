@@ -2521,8 +2521,17 @@ NO_GIT_CLAIM = re.compile(r"git for nothing|git 을[^.\n]{0,24}부르")
 def test_no_document_claims_the_checker_never_calls_git(repo):
     """Round 4's 🟡 10 put a git call in the file — one, in `--migrate` — and
     four documents kept saying the checker calls git for nothing at all. The
-    exception belongs in the same paragraph as the claim (round 5, 🟡 H)."""
-    for rel in ("CLAUDE.md", "README.md", "README.ko.md", "seal/ledger.md"):
+    exception belongs in the same paragraph as the claim (round 5, 🟡 H).
+
+    `CLAUDE.md` stated it until #715 moved the coordinate rules to their one
+    home, `docs/the-evidence-ledger.md`, which `CLAUDE.md` now links to;
+    `tests/test_the_ledger_rules_have_one_home.py` holds that link."""
+    for rel in (
+        "docs/the-evidence-ledger.md",
+        "README.md",
+        "README.ko.md",
+        "seal/ledger.md",
+    ):
         with open(os.path.join(ROOT, rel), encoding="utf-8") as f:
             paragraphs = f.read().split("\n\n")
         claiming = [p for p in paragraphs if NO_GIT_CLAIM.search(p)]

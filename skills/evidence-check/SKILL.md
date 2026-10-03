@@ -379,18 +379,31 @@ globs read too. A row is checked against the code it cites wherever it
 sits, so the fold changes no row's status. The `ok` total counts a
 `(coordinate, hash)` pair once per file, so a fold can change the count.
 
+Where `seal/config.md` declares `Ledger frozen from`, a released ledger file
+never changes, and a re-read of one of its rows is written into your own
+fragment: `evidence-check --reverify --into seal/ledger/<work-item-id>.md
+--checked <YYYY-MM-DD> .` writes one `Re-read ·` row per drifted released
+row, and plain `--reverify` writes no released file and names each row it
+left. What a citing row is, and how the checker reads a released row with
+the rows that cite it, is `docs/the-evidence-ledger.md` §*A released row is
+read again in the branch's fragment*.
+
 A row citing a range that spans several definitions becomes several
 coordinates, one per definition. That is not a loss: it is the row saying which
 pieces of code it is actually about.
 
 ## `correction-check` — a correction a merge dropped
 
-The fragment rule has one exception and the exception is the whole of this
-problem: a branch that removes or edits the code an existing ledger row cites,
-or makes what the row claims false, keeps that claim true in the file the row
-is in. So two branches in one release correct rows of one file, the file
-conflicts, and resolving it by taking a side reverts whatever the other side
-had corrected.
+Without the freeze, the fragment rule has one exception and the exception is
+the whole of this problem: a branch that removes or edits the code an
+existing ledger row cites, or makes what the row claims false, keeps that
+claim true in the file the row is in. So two branches in one release correct
+rows of one file, the file conflicts, and resolving it by taking a side
+reverts whatever the other side had corrected. Where `seal/config.md`
+declares `Ledger frozen from`, a released row is read again and corrected by
+a citing row in the branch's own fragment instead, and a released file takes
+no edit to conflict on — `docs/the-evidence-ledger.md` §*A released row is
+read again in the branch's fragment* is the rule.
 
 **This check cannot see that, and neither can anything else here.** A row
 reverted to a superseded state is byte-identical to a row nobody touched:
@@ -410,8 +423,12 @@ at both parents and at the merge base, and names every `Corrected <date>` or
 `Re-read <date>` marker a parent carried that the result does not — while the
 row carrying it still stands. A marker that went **with** its row is `REMOVED`
 and correct, and a marker a parent deleted relative to the base is that
-parent's decision rather than the merge's. Exit 0 when nothing was dropped, 1
-with each loss named, 2 for a range that does not resolve.
+parent's decision rather than the merge's. A `Corrected ·` row a merge
+dropped while the released row it cites stands is a loss too, and under the
+freeze a range that changes a released file is refused, with the exemptions
+that section names. Exit 0 when nothing was dropped or refused, 1 with each
+loss and each refused file named, 2 for a range or a freeze row that will not
+read.
 
 **Its moment is the pull request, and it has no other.** A feature branch
 squashes into its release branch, so the merges it reads stop existing the

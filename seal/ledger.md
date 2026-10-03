@@ -15,10 +15,13 @@
 > `## X.Y.Z — <date>` heading, one `###` section per work item marked with
 > `<!-- specs/<work-item-id> -->` (the marker's text names the work item by its
 > sub-directory and did not change when the root did), and removes the
-> fragment. The checker reads all three addresses. A `## X.Y.Z` section still
-> standing below the areas here was folded before that layout (#547), and
-> `fold_ledger.py --split` moves each one into its release's file at the next
-> release.
+> fragment. The checker reads all three addresses.
+>
+> This file is released, and so is every release file: neither changes again.
+> A re-read or a correction of a row here is a citing row in the branch's own
+> fragment (`docs/the-evidence-ledger.md` §*A released row is read again in
+> the branch's fragment*), and where each kind of record lives is
+> `docs/the-record-layout.md`.
 
 ## Coordinates
 

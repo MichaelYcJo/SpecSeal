@@ -61,7 +61,8 @@ again. So a change writes a file of its own, named for its work item:
 
 No two work items share an id, so no two branches share a file. A ledger
 fragment needs no header of its own: every row carries its own anchor and
-hash. What a citing row is, and how the checker reads it, is
+hash. A changelog fragment has no line starting `## `, because that line
+ends the released section, and the gather refuses a fragment that has one. What a citing row is, and how the checker reads it, is
 `docs/the-evidence-ledger.md` §*A released row is read again in the branch's
 fragment*.
 
@@ -153,10 +154,11 @@ built (F3).
 ## What is decided and not built yet
 
 Four parts of this layout are decided here and built by their own issues.
-Each says when.
+Each says when, by the release it lands in relative to #716's; the issue's
+milestone names the version, so no number here goes stale when it ships.
 
-**F1 — `docs/commit-review-gate-spec.md` is cut in three (#727, in 0.18.0,
-after #716 lands).** #716 changes that document's reading of the commit gate
+**F1 — `docs/commit-review-gate-spec.md` is cut in three (#727, in the
+release #716 ships in, after #716 lands).** #716 changes that document's reading of the commit gate
 in the same release, and a split landing first would conflict with it at its
 squash. The cut follows the document's own headings, as #526 cut
 `docs/review-chain-spec.md`:
@@ -171,21 +173,23 @@ Each part answers one question — what git decides, what the text reading
 decides, what each arm wants — and each is under 500 lines. Fold markers go
 across whole, and the `Over the ceiling` row goes away in the same change.
 
-**F2 — `CHANGELOG.md` becomes one file per release (#728, in 0.18.1).** The
+**F2 — `CHANGELOG.md` becomes one file per release (#728, in the release
+after that one).** The
 target is `changelog/<X.Y.Z>.md`, with all existing sections migrated and
 `CHANGELOG.md` kept as a short index linking each one; the GitHub Release
 reads the release's own file. Migrated rather than frozen, because no branch
 writes the changelog in parallel, and a link at an old tag keeps resolving at
 that tag.
 
-**F3 — a work item's directory is laid out by lifetime (#729, in 0.18.1).**
+**F3 — a work item's directory is laid out by lifetime (#729, in the release
+after #716's).**
 The principle: what outlives the merge stays, or folds into `docs/` and the
 ledger; what a review run needs only while it runs leaves the tree, or
 becomes one file per run. F3's own frame decides which, after reading the
 readers of `rounds/`, `phases/` and `survivors.md`.
 
-**F4 — the other rules `CLAUDE.md` restates get one home each (#730, in
-0.18.1).** The merge-direction table, *no real identifiers*, the commit
+**F4 — the other rules `CLAUDE.md` restates get one home each (#730, in the
+release after #716's).** The merge-direction table, *no real identifiers*, the commit
 cadence, and every restated rule outside `CLAUDE.md` and `CONTRIBUTING.md`.
 #715 moved the ledger and fragment rules alone, because it rewrote them; the
 rest change no meaning, and finding a restated rule repository-wide needs a

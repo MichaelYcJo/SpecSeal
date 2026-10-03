@@ -1,13 +1,14 @@
 # The evidence ledger — what a row claims, and what reads it
 
 A ledger row pairs a claim with the code that makes it true.
-`seal/releases/<X.Y.Z>.md` holds the rows one release gathered;
-`seal/ledger.md` holds the notation and the rows from before the fragments
-existed, and until the one-time `fold_ledger.py --split` the releases folded
-into it before #547; `seal/ledger/<work-item-id>.md` holds the rows one
-branch is still writing. This document is the standing account
-of what a row is, what each checker over it refuses, and what a merge can
-take out of one without anybody noticing.
+`seal/releases/<X.Y.Z>.md` holds the rows one release gathered, and
+`seal/ledger.md` the notation and the rows from before the fragments existed;
+neither changes after its release. `seal/ledger/<work-item-id>.md` holds the
+rows, re-reads and corrections one branch is still writing. This document is
+the standing account of what a row is, how a released row is read again, what
+each checker over it refuses, and what a merge can take out of one without
+anybody noticing. Where each kind of record lives is
+`docs/the-record-layout.md`.
 
 It is a policy document: it outranks the SDD set, and a work item that finds
 it wrong corrects it rather than working around it.
@@ -19,7 +20,8 @@ it wrong corrects it rather than working around it.
 `path#major>minor@hash` where a claim needs narrowing. The major level is the
 enclosing unit — a function or a class for code, a heading path for a
 document. A row carries no line number and no commit SHA, and the check calls
-git for nothing.
+git for nothing — the one exception is `--migrate`, a one-shot writer that
+consults the old stamp's commit before it trusts a line number.
 
 That removes a whole chain rather than one rule from it. A line number moves
 for edits unrelated to the claim, so the coordinate rotted, so the row was
@@ -35,30 +37,13 @@ because `BROKEN` means *go edit the ledger* and that is the bookkeeping this
 removes. **A row whose anchor a change removes is `REMOVED`, not re-pointed**
 — its claim went with the code, and the new claim is a new row.
 
-**A change writes a fragment, never the shared file.** Two files used to take
-an append from every branch, and both cost a conflict at the worst moment,
-after the broad gate has run, which forces it to run again. No two work items
-share an id, so no two branches share a fragment. The checker reads
-`seal/ledger.md`, the `seal/releases/*.md` glob and the `seal/ledger/*.md`
-glob alike, and a row is a content anchor, so the release that folds a
-fragment into its release file changes no row's status. The `ok` total
-counts a `(coordinate, hash)` pair once per file, so a move can change it.
+**Which file a change writes is `docs/the-record-layout.md` §*A change
+writes fragments, never a shared file*.** The checker reads `seal/ledger.md`,
+the `seal/releases/*.md` glob and the `seal/ledger/*.md` glob alike, and a
+row is a content anchor, so the release that folds a fragment into its
+release file changes no row's status. The `ok` total counts a
+`(coordinate, hash)` pair once per file, so a move can change it.
 Enforced by: tests/test_a_row_points_by_content.py::test_no_ledger_row_carries_a_line_number_or_a_commit, tests/test_a_row_points_by_content.py::test_the_checker_asks_git_for_nothing
-
-<!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
-**Appended is the word, and a removal is not one — nor is an edit.** A
-branch that removes or edits code an existing shared-file row cites must touch
-the file the row is in to leave the ledger true. A removal takes the row out
-there, and the new claim goes in the branch's own fragment. An edit drifts the
-row, and the branch re-reads it against that edit: a claim that still holds is
-re-stamped there with a dated note, and one the edit made false is corrected
-there first, with a `Corrected <date>` note. `--reverify --checked <date>` is
-how the date of that reading lands in the row's date cell, and the flag says
-every row whose hash it moves was re-read, so the write is narrowed with
-`--ledger` to the files that were. Both are keeping an existing
-claim true, which is not appending; adding a claim is what belongs in the
-fragment, and always did.
-Enforced by: tests/test_a_merge_cannot_silently_drop_a_correction.py
 
 <!-- specs/1788761915-a-record-states-what-nothing-reads -->
 **A work item whose ledger fragment still exists has not shipped.** The fold
@@ -84,6 +69,71 @@ in every repository that installs the plugin (#585), graded like `MALFORMED`,
 and this repository's own case holds its ledgers to that reading on every
 pull request.
 Enforced by: skills/evidence-check/scripts/evidence_check.py::overflow_rows, tests/test_release_hygiene.py::test_no_ledger_row_splits_into_more_cells_than_its_header
+
+## A released row is read again in the branch's fragment
+
+**A released ledger file never changes.** Where `seal/config.md` declares
+`Ledger frozen from`, as this repository does, `seal/ledger.md` and every
+`seal/releases/<X.Y.Z>.md` are not edited after their release: no row in one
+is re-stamped, corrected or removed there. Two branches re-reading one row
+used to meet on its line at their squash, after the broad gate had run; with
+nothing written to the released file, they meet nowhere.
+`templates/config.md` §*The ledger freeze* documents the row.
+
+**A re-read or a correction is a citing row in the branch's own fragment.**
+Its first cell opens `Re-read · ` or `Corrected · `. The first coordinate of
+its Code grounds cell names the released row by content —
+`seal/releases/<X.Y.Z>.md#"### <work-item-id>">"<the start of the row's
+first cell>"@<the hash of that line>` — and the rest names the code the
+claim rests on now. Its Notes carry `Re-read <date>` or `Corrected <date>`,
+the markers `correction-check` reads. A claim that went with its code is a
+`Corrected ·` row whose grounds hold the citation alone: a released row is
+never removed. Adding a new claim is a new row in the same fragment, as it
+always was.
+
+**The checker reads a released row together with the rows that read it, as
+one family:** the row, every `Re-read ·` row citing it, and every one citing
+those. A code coordinate is OK when any member recorded what it holds now,
+DRIFTED when none did, and BROKEN by the rules above. A `Corrected ·` row
+supersedes the family of the row it cites, whose coordinates are not checked
+again, and starts a family of its own. That is §*A correction a merge
+dropped*'s halves rule computed rather than applied by hand: the side that
+edited a unit is the side whose hash matches it, and where both edited it,
+neither matches. Its one cost is stated: content that returns to a hash an
+earlier reading recorded reads OK again, because somebody read the claim
+against that content.
+
+**A citation that does not hold is named.** One into a fragment is refused,
+because a fragment moves at the fold — re-stamp that fragment's row in place
+instead. A citing row without its marker is refused. A citation whose row is
+gone is BROKEN, and one whose released file changed under it is DRIFTED.
+
+**`evidence-check --reverify --into seal/ledger/<work-item-id>.md --checked
+<YYYY-MM-DD>` writes the re-reads.** It re-stamps the fragments in place,
+then writes one `Re-read ·` row for each released row with a drifted
+coordinate — one per row, never one per coordinate — and names each row it
+wrote. Without `--into`, `--reverify` writes no released file and names each
+row it left. The `Checked` column holds the date somebody read the code, and
+`--checked` writes that date into every row whose hash it moves; it says
+every such row was re-read, so read each row citing a drifted coordinate
+first, or narrow the write with `--ledger` to the files you read. A released
+row whose anchor moved is not cleared by a re-read, because the family is
+keyed on the coordinate, and a `Corrected ·` row re-points it.
+
+**`correction-check` holds a pull request to the freeze.** A range that adds
+a work item at or above the cutoff, or adds none, may not change
+`seal/ledger.md` or a release file its merge base already had; a range whose
+work items all sit below it is read under the rule it was cut under, and says
+so in one line. Adding a release file is allowed, and so is the base's own
+version's file on a `release/vX.Y.Z` base (#540). A `Corrected ·` row a merge
+drops while the released row it cites stands is reported as a loss.
+
+**Without the row, a released row is kept true where it stands.** A
+repository that does not declare the freeze re-stamps a re-read row in place
+with a dated note, corrects a false claim in place with a `Corrected <date>`
+note, and removes a row whose claim went with its code, writing the new claim
+into the branch's own fragment. That is what every installed copy does until
+it adds the row.
 
 ## What the checker refuses, and what it says while refusing
 
@@ -131,8 +181,11 @@ Enforced by: tests/test_a_row_points_by_content.py::test_rows_citing_one_file_co
 ## A correction a merge dropped
 
 <!-- specs/1789969379-a-conflict-resolved-by-side-reverts-the-other-sides-corrections -->
-**When the shared ledger or a release file conflicts, resolve it hunk by hunk
-and read both sides.** Never *ours* and never *theirs*. A whole-file choice is
+**When a ledger file two branches both edited conflicts — a fragment stacked
+branches share, or a released file where the freeze is not declared —
+resolve it hunk by hunk and read both sides.** Never *ours* and never
+*theirs*. A released file under the freeze takes no edit, so it cannot
+conflict. A whole-file choice is
 wrong by construction once both branches have been correcting: the measured
 instance resolved two hunks in opposite directions, because each side was the
 superset in one of them, and taking a side reverted three corrections that had
@@ -149,8 +202,9 @@ parent's** ledger text and absent from the result, **while the row carrying
 it survives**, is reported with the file, the marker and the parent it came
 from. Row survival is the one distinction that check exists to draw: a marker
 that vanishes with its whole row is a removal and is correct; a marker that
-vanishes while its row stands is the defect. It reports the loss after the
-fact and cannot prevent it.
+vanishes while its row stands is the defect. A `Corrected ·` row is the one
+whole row whose loss is also reported, because the released row it corrected
+still stands. It reports the loss after the fact and cannot prevent it.
 
 It reads the shared file, every release file and every fragment, because a
 fragment becomes part of a release file at the release and a check that
@@ -167,7 +221,9 @@ resolution that keeps a hash the merge made stale names content that no
 longer exists anywhere, and the marker check above cannot see it, because no
 marker was dropped. So run `evidence-check` after the resolution: a drifted
 anchor is the tool naming the row, and the row is re-read against every edit
-the merged unit carries, one side's or both, before it is re-stamped.
+the merged unit carries, one side's or both, before it is re-stamped. For a
+released row under the freeze the checker computes this itself
+(§*A released row is read again in the branch's fragment*).
 Enforced by: tests/test_a_merge_cannot_silently_drop_a_correction.py
 
 <!-- specs/1789996780-the-census-and-the-tie-that-nothing-holds -->
@@ -337,22 +393,26 @@ checker keeps a directory the checker would not break, which is the
 direction to be wrong in. It names each row anchored inside a
 released directory, and `settle --retire` keeps every directory such a row
 anchors into, removes the rest, and exits 1 naming each row (#511). It says
-per row what `CLAUDE.md` requires: a row whose every anchor goes is REMOVED,
-never re-pointed, and its claim is written anew where a work item still holds
-it; a row that keeps a live anchor beside the dead one loses only the dead
-one, and whether it should be removed instead is the repository owner's
-question, recorded against the ledger row that first met it. The command names
-the rows and edits none of them, because which row goes is a judgment about a
-claim.
+per row what §*A row is a content anchor, and it names no commit* requires: a
+row whose every anchor goes is REMOVED, never re-pointed, and its claim is
+written anew where a work item still holds it; a row that keeps a live anchor
+beside the dead one loses only the dead one, and whether it should be removed
+instead is the repository owner's question, recorded against the ledger row
+that first met it. Under the freeze a row in a released file says `released`
+instead: a `Corrected ·` row in the fold's own fragment answers it, and a row
+a correction supersedes holds no directory. The command names the rows and
+edits none of them, because which row goes is a judgment about a claim.
 Enforced by: tests/test_settle_reads_before_it_removes.py::test_a_row_anchored_inside_a_candidate_keeps_that_directory
 
 <!-- specs/1790138190-settle-leaves-twelve-directories-with-no-way-out -->
-**A fold is not a work item, and it adds nothing to the ledger.** It opens
-no directory under `seal/specs/`, so it has no fragment to append under, and
-a ledger file changes on a fold branch only by removal and re-verification:
-a row the guard named REMOVED goes, a row it named narrow loses its dead
-anchor, and a row whose anchored unit the fold's own prose edited is re-read
-and re-verified. Its commits are waived one command at a time and its
+**A fold is not a work item, and it adds no work item's rows to the
+ledger.** It opens no directory under `seal/specs/`. Under the freeze it
+writes its readings and corrections into a fragment named for the moment,
+`seal/ledger/<unix-seconds>-fold.md`, which the release folds like any other;
+without the freeze a ledger file changes on a fold branch only by removal and
+re-verification: a row the guard named REMOVED goes, a row it named narrow
+loses its dead anchor, and a row whose anchored unit the fold's own prose
+edited is re-read and re-verified. Its commits are waived one command at a time and its
 judgment is reviewed at its pull request (#517). What it leaves already has a
 home — the marker, the pull request, git history — so it keeps no log of its
 own. A fold that opened a work item left a directory for the next fold to

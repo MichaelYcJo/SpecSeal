@@ -127,7 +127,7 @@ FROZEN_REPAIR = (
     "fragments; a released file is not edited after its release, so a released "
     "row is re-pointed or retired by a `Corrected ·` row in your own fragment, "
     "and drift is re-read with `--reverify --into seal/ledger/<work-item-id>.md "
-    "--checked YYYY-MM-DD`."
+    "--checked YYYY-MM-DD` (docs/the-evidence-ledger.md)."
 )
 
 

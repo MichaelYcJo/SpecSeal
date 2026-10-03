@@ -43,7 +43,7 @@ branch's deletion.
 skipped and named, never folded and never removed. A fact a reviewer verified
 that never reached the ledger is exactly what the directory must not take
 with it. And a directory a live ledger row anchors into is kept, with the row
-named and what `CLAUDE.md` requires of it (#511): removing the directory
+named and what `docs/the-evidence-ledger.md` requires of it (#511): removing the directory
 would leave the row BROKEN, and the checker would only say so afterwards.
 
 **Two halves, and the retirement is the second.** The command lists what a
@@ -424,7 +424,8 @@ CELL_RE = re.compile(r"(?<!\\)\|")
 # `tests/test_settle_reads_before_it_removes.py`, because a person acts on it.
 REMOVED_SAYS = (
     "REMOVED — every anchor it cites lies inside a directory a retirement "
-    "removes, and `CLAUDE.md` says a row whose anchor a change removes is "
+    "removes, and `docs/the-evidence-ledger.md` says a row whose anchor a "
+    "change removes is "
     "REMOVED, not re-pointed; its claim is written anew where it still stands"
 )
 NARROW_SAYS = (
@@ -645,7 +646,8 @@ def anchored_rows(root, work_item_ids):
 
 
 def verdict(row):
-    """What `CLAUDE.md` requires of one anchored row, as a person reads it."""
+    """What `docs/the-evidence-ledger.md` requires of one anchored row, as a
+    person reads it."""
     if row.released:
         return RELEASED_SAYS
     if not row.live:
@@ -657,7 +659,7 @@ def verdict(row):
 
 def write_anchored(rows, out):
     """One block per row: where it is, what it claims, where it points, and
-    what `CLAUDE.md` says to do with it."""
+    what `docs/the-evidence-ledger.md` says to do with it."""
     for row in rows:
         out.write(f"    {row.file}:{row.line}  {row.clause}\n")
         out.write(f"        into {', '.join(row.items)}\n")

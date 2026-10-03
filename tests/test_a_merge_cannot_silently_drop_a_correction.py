@@ -718,73 +718,52 @@ def test_a9_the_leg_skips_a_release_pull_request_and_says_why():
     assert "exit 0" in step, step
 
 
-# --- the documents (phase 5) -----------------------------------------------
+# --- the documents (phase 5; one home since #715) ---------------------------
 
-# The sentences both documents have to carry. `CLAUDE.md` and
-# `CONTRIBUTING.md` have already disagreed about this rule once -- one forbade
-# editing the shared ledger at all while the other forbade appending to it,
-# which left a branch that had falsified a row with no reading that permits
-# the only correct act. So the two are held against each other rather than
-# trusted to be edited together.
+# `CLAUDE.md` and `CONTRIBUTING.md` have already disagreed about this rule
+# once -- one forbade editing the shared ledger at all while the other forbade
+# appending to it, which left a branch that had falsified a row with no
+# reading that permits the only correct act. Until #715 the two were held
+# against each other, which kept them equal and kept them both. Now the rule
+# has one home, `docs/the-evidence-ledger.md`, and the two guides name it.
 #
 # Needles rather than whole paragraphs: what must not drift is the
 # INSTRUCTION and the argument behind it, and pinning the prose word for word
-# would go red on a rewording that says the same thing, which is the failure
-# this work item's own check was built to avoid.
+# would go red on a rewording that says the same thing.
+HOME = os.path.join("docs", "the-evidence-ledger.md")
 CONFLICT_SENTENCES = (
     "resolve it hunk by hunk and read both sides",
-    "`--ours`",
-    "`--theirs`",
-    "resolved in opposite directions",
+    "Never *ours* and never *theirs*",
+    "resolved two hunks in opposite directions",
     "byte-identical to a row nobody touched",
-    "correction-check",
-    # The arguments behind the two rules, in the guides' words: what taking a
-    # side cost, and why the marker check cannot see a stale hash. The owner
-    # words both differently, so they stand outside its slice.
-    "Taking a side reverted three corrections",
-    "cannot see a union that kept a stale hash",
-    # #488: the exception is an edit as well as a removal, and both are the
-    # one write a branch owes the file the row is in; a claim the edit made
-    # false is corrected in place first, with a dated note.
-    "removes or edits code an existing",
-    "keeping an existing claim true",
-    "`Corrected <date>` note",
+    "taking a side reverted three corrections",
     # #509: of a conflicted row only the notes are a union; the hash is the
     # side's that edited the unit and neither side's where both did, and the
     # row the checker names is re-read against every edit the merge carries.
     "only the notes are a union",
-    "the side that edited the anchored unit",
+    "belongs to the side that edited the anchored unit",
     "to neither side where both did",
     "re-read against every edit the merged unit carries",
-    "run `evidence-check` after the resolution",
+    "So run `evidence-check` after the resolution",
 )
 
-# The owner of the two rules the needles above end with. The guides carry
-# them and link here; the policy document states them first (#488, #509).
-OWNED_SENTENCES = CONFLICT_SENTENCES[-8:]
+# #715: a re-read or a correction of a released row is a citing row in the
+# branch's fragment, and #488's three outcomes stand for a repository without
+# the freeze -- re-stamped in place with a dated note, corrected in place
+# first, and a row whose claim went with the code removed for the fragment.
+RE_READ_SENTENCES = (
+    "A re-read or a correction is a citing row in the branch's own fragment.",
+    "a `Corrected ·` row whose grounds hold the citation alone",
+    "re-stamps a re-read row in place with a dated note",
+    "corrects a false claim in place with a `Corrected <date>` note",
+    "removes a row whose claim went with its code, writing the new claim into "
+    "the branch's own fragment",
+)
 
-# #488's other two outcomes: a claim that still holds is re-stamped with a
-# dated note, and a claim that went with the code leaves its row for the
-# fragment. Each carrier words them its own way (a sentence, a bulleted list,
-# the owner's paragraph), so no needle is shared and each carrier has its own.
-EDIT_OUTCOMES = {
-    "CLAUDE.md": (
-        "re-read against that edit and re-stamped there with a dated note",
-        "A removal takes the row out there and writes the new claim into the "
-        "branch's own fragment",
-    ),
-    "CONTRIBUTING.md": (
-        # #387: the answer dates the reading it asserts.
-        "the claim still holds and you have re-read it — run "
-        "`evidence-check --reverify --checked <YYYY-MM-DD> .`",
-        "remove the row and write the new claim into your own fragment",
-    ),
-    os.path.join("docs", "the-evidence-ledger.md"): (
-        "a claim that still holds is re-stamped there with a dated note",
-        "A removal takes the row out there, and the new claim goes in the "
-        "branch's own fragment",
-    ),
-}
+SECTIONS = (
+    "A correction a merge dropped",
+    "A released row is read again in the branch's fragment",
+)
 
 
 def read(path):
@@ -798,43 +777,36 @@ def read(path):
         return " ".join(handle.read().split())
 
 
-def test_a8_both_rule_documents_say_what_to_do_at_the_conflict():
-    """A8. The instruction has to reach the person at the moment of the act,
-    and it lives in the two documents that state the fragment rule's
-    exception -- the exception being the whole cause, because a branch that
-    falsifies a row is REQUIRED to repair it in the shared file."""
+def test_a8_both_guides_send_the_reader_to_the_rules_home():
+    """A8. The instruction has to reach the person at the moment of the act.
+    It reaches them through the two documents read first, which name the
+    home and its two sections, and carry none of its sentences: a copy is the
+    defect, because the copy is what the next edit leaves behind."""
     for document in ("CLAUDE.md", "CONTRIBUTING.md"):
         text = read(document)
-        for needle in CONFLICT_SENTENCES + EDIT_OUTCOMES[document]:
-            assert needle in text, f"{document} does not say: {needle}"
+        assert "docs/the-evidence-ledger.md" in text, document
+        for heading in SECTIONS:
+            assert heading in text, f"{document} does not name §{heading}"
+        for needle in CONFLICT_SENTENCES + RE_READ_SENTENCES:
+            assert needle not in text, f"{document} restates: {needle}"
 
 
-def test_the_policy_document_owns_the_exception_and_the_halves():
-    """#488 and #509. `docs/the-evidence-ledger.md` is the owner the two
-    guides carry: the exception widened to an edit, and the halves of a
-    conflicted row. Seen red with each sentence removed from the owner."""
-    owner = os.path.join("docs", "the-evidence-ledger.md")
-    text = read(owner)
-    for needle in OWNED_SENTENCES + EDIT_OUTCOMES[owner]:
+def test_the_policy_document_owns_the_conflict_and_the_re_read():
+    """#488, #509 and #715. `docs/the-evidence-ledger.md` is the one home:
+    the conflict and its halves, and where a re-read or a correction goes,
+    with the outcomes a repository without the freeze keeps."""
+    text = read(HOME)
+    for needle in CONFLICT_SENTENCES + RE_READ_SENTENCES:
         assert needle in text, f"the ledger policy does not say: {needle}"
-    # #488's third outcome, in the owner's words. The shared needle above is
-    # not enough here: the halves paragraph's `Corrected <date>` notes carry it.
-    assert "the edit made false is corrected there first" in text, (
-        "the ledger policy does not say an edit that falsified a claim corrects it first"
-    )
     assert "docs/the-evidence-ledger.md` §*A correction a merge dropped*" in read(
         os.path.join("docs", "release-checklist.md")
     ), "the squash step does not name where the conflict's rule lives"
 
 
-def test_a8_each_document_points_at_the_other():
-    """The pin is only as good as the next editor knowing it exists. Each
-    document names the other and names the case that holds them together, so
-    a session editing one finds out that the sentence has a twin."""
-    assert "CONTRIBUTING.md` carries both paragraphs" in read("CLAUDE.md")
-    assert "CLAUDE.md` carries both paragraphs" in read("CONTRIBUTING.md")
-    for document in ("CLAUDE.md", "CONTRIBUTING.md"):
-        assert os.path.basename(__file__) in read(document), document
+def test_a8_the_home_names_the_case_that_holds_it():
+    """The pin is only as good as the next editor knowing it exists: the
+    home's conflict statement names this module in its `Enforced by:` line."""
+    assert f"Enforced by: tests/{os.path.basename(__file__)}" in read(HOME)
 
 
 def test_the_skill_says_what_the_command_is_for_and_when_it_runs():
