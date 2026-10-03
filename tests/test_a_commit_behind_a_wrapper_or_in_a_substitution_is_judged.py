@@ -732,6 +732,14 @@ TEXTS = {
         ["env", "-S", "2>/dev/null", "a b", "c"],
         ["2>/dev/null", "a b", "env a b c"],
     ),
+    "env -S behind a redirection": (
+        ["env", "2>", "/dev/null", "-S", "a b"],
+        ["a b", "env a b"],
+    ),
+    "env -S with no string after its redirection": (
+        ["env", "-S", "2>/dev/null"],
+        ["2>/dev/null"],
+    ),
     "behind a runner": (["sudo", "sh", "-c", "a b"], ["a b"]),
 }
 
