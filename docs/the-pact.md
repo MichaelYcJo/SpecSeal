@@ -171,6 +171,63 @@ checkout not found, and exit 2 is unusable input, the classes
 `evidence-check` keeps.
 Enforced by: tests/test_pact_check.py::test_s8_a_hash_from_heads_own_history_is_superseded, tests/test_pact_check.py::test_s9_a_hash_only_another_ref_holds_is_not_taken_and_names_it, tests/test_pact_check.py::test_s10_a_heading_path_that_resolves_to_nothing_is_broken, tests/test_pact_check.py::test_s11_a_relationship_recorded_on_one_side_is_refused, tests/test_pact_check.py::test_s12_a_signatory_citing_the_current_clause_is_clean
 
+<!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
+**`pact-check` reads every signatory's records of pact changes, following
+that signatory's `Pact notify` as read now, and reports a row citing a
+clause of this pact as `NOT TAKEN`, exit 1, until a pact review here takes
+it.** This is the second source of `NOT TAKEN` that #735's frame named, and
+the report keeps its name. The line names the signatory, the record and its
+line, the clause, the work item, and the record's content hash, which is the
+value a pact review writes. A `—` row from a signatory whose notify is
+`always` is `NOTED`, printed until a pact review takes it and in no exit
+class, because a pact review is owed only where a clause is cited (#647's
+decision 4). Under `when the pact is touched` a `—` row is not read, and
+under `never` no row is. A record that will not read is `UNREADABLE` and one
+that will not parse `REFUSED`, both exit 2. The `READ` line and the summary
+count the pact changes read and taken.
+Enforced by: tests/test_a_pact_review_takes_a_pact_change.py::test_s12_an_untaken_pact_change_is_not_taken, tests/test_a_pact_review_takes_a_pact_change.py::test_s13_a_row_citing_no_clause_is_noted_under_always, tests/test_a_pact_review_takes_a_pact_change.py::test_s13_a_row_citing_no_clause_is_not_read_when_the_pact_is_touched, tests/test_a_pact_review_takes_a_pact_change.py::test_s13_under_never_no_row_is_read, tests/test_a_pact_review_takes_a_pact_change.py::test_s17_a_record_that_will_not_read_or_parse_is_exit_2
+
+## A pact review takes a pact change
+
+<!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
+**A pact review is an ordinary work item at the pact's repository, opened
+when `pact-check` reports a `NOT TAKEN` from a pact change, and it takes a
+record by a row of `seal/pact-reviews/<work-item-id>.md` naming the
+signatory and the record at its current content hash.** The row's `Change`
+is the signatory's work-item id, `@`, and the content hash `pact-check`
+printed; its verdict is `holds`, the clause stands and the change keeps it,
+or `amended`, this work item amends the clause to take the change. The
+builder judges each change against its clause in the signatory's checkout,
+and the review chain's warden verifies those judgments there; where the
+routing answer skips the review chain, the builder's judgment is the whole
+pact review. The record is begun from `templates/pact-review.md`.
+`skills/implement/orchestration.md` §*A pact review at the pact's
+repository* is the procedure.
+Enforced by: tests/test_a_pact_review_takes_a_pact_change.py::test_s14_a_pact_review_at_the_current_hash_takes_it, tests/test_a_pact_review_takes_a_pact_change.py::test_s16_amended_is_taken_where_the_clause_moved
+
+<!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
+**A record is taken at the content hash a pact review row names and no
+other, and a row that cannot be true is refused at exit 2.** A commit SHA is
+never the key, because a signatory's feature branch squashes and the SHA
+stops resolving. So a record that gains rows after its pact review reads
+`NOT TAKEN` again, naming the hash the review took and the hash it holds now,
+and a change that keeps its clause can still be taken, which a key on the
+clause's own hash would forbid. `pact-check` refuses a row naming a
+signatory the pact does not list, a record that signatory does not hold, a
+verdict other than the two, a change not written `<work-item-id>@<hash>`,
+and `amended` where a clause the record cites still has the hash the record
+recorded.
+Enforced by: tests/test_a_pact_review_takes_a_pact_change.py::test_s15_a_record_grown_after_its_review_is_not_taken_again, tests/test_a_pact_review_takes_a_pact_change.py::test_s16_a_pact_review_row_that_cannot_be_true_is_refused, tests/test_a_pact_review_takes_a_pact_change.py::test_s17_a_review_that_will_not_read_or_parse_is_exit_2
+
+<!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
+**A clause the pact's repository changes owes no pact review.** `SUPERSEDED`
+already sends every signatory citing the clause to re-read it against its
+own code and re-anchor, which is checked where that code is, and nothing on
+a pull request can see which signatories cite a clause (#647's decision 2).
+A pact review answers the other direction alone: a signatory's code moved
+under a clause it cites.
+Enforced by: tests/test_pact_check.py::test_s8_a_hash_from_heads_own_history_is_superseded
+
 ## What this does not see
 
 <!-- specs/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it -->
@@ -186,3 +243,16 @@ signatory re-reads, and renaming the heading is one each of them has to
 re-coordinate. And `pact-check` runs where a person runs it: nothing on a
 pull request reconciles anything.
 Enforced by: tests/test_pact_check.py::test_a_pact_under_local_mode_has_no_history_and_says_so, tests/test_pact_check.py::test_s10_a_hash_no_commit_gave_is_unmatched
+
+<!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
+**A hash edited by hand bypasses the writer, a vendored copy of
+`evidence_check.py` records nothing, and a pact under local mode keeps its
+pact reviews on one machine.** The record is written inside `--reverify`, so
+a signatory that types a new hash into a ledger row leaves no pact change,
+and nothing can see that it should have. A copy of the checker with no
+`hooks/` beside it cannot read the `Pact` row; it names each row citing a
+pact and says it recorded nothing. A pact under local mode keeps
+`seal/pact-reviews/` under the git directory, so another clone of the pact's
+repository reads the same changes as `NOT TAKEN`, which is loud in the right
+direction.
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing

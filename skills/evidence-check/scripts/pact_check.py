@@ -47,6 +47,27 @@ A signatory neither finds is reported with the map line to add.
   BROKEN      the heading path resolves to no clause, or to more than one:
               renamed or removed. Re-coordinate the signatory
 
+## What each pact change reads
+
+A signatory's re-read records a pact change in its
+`seal/pact-changes/<work-item-id>.md` (`evidence_check.py#record_pact_changes`).
+Every such record is read, following the signatory's `Pact notify` as read
+now:
+
+  NOT TAKEN   a row citing a clause of this pact that no pact review here
+              has taken: the line names the record and line, the clause, the
+              work item, and the record's content hash, which is the value a
+              pact review writes. A record a review took at another hash
+              names both
+  NOTED       a `—` row from a signatory whose notify is `always`, printed
+              until a pact review takes it; no exit class, because a pact
+              review is owed only where a clause is cited
+
+Under `when the pact is touched` a `—` row is not read, and under `never` no
+row is. A pact review is a row of `seal/pact-reviews/<work-item-id>.md` here
+naming the signatory and `<work-item-id>@<content hash>`, verdict `holds` or
+`amended`; it takes the record at that hash and no other.
+
 Git is asked one thing: which way a mismatch points. It never decides `OK`,
 which is the bound `evidence-check` keeps by asking git for nothing. A pact
 under local mode has no history, so every mismatch there reads `UNMATCHED`,
@@ -55,13 +76,17 @@ and the summary says so.
 ## Exit codes
 
   0  every listed signatory was read, and every anchor is `OK`
-  1  a `SUPERSEDED`, `NOT TAKEN` or `UNMATCHED` anchor, or a signatory not
-     found on this machine
+  1  a `SUPERSEDED`, `NOT TAKEN` or `UNMATCHED` anchor, a `NOT TAKEN` pact
+     change, or a signatory not found on this machine
   2  unusable input: no pact here, a pact or file that cannot be read, a
      `BROKEN` anchor, an anchor naming this pact that does not parse, a
      `Pact` row or notify value that will not parse, a relationship
-     recorded on one side only, or a pact's repository with no origin
-     remote
+     recorded on one side only, a pact's repository with no origin
+     remote, a record of pact changes or of pact reviews that will not read
+     or parse, or a pact review row that cannot be true: a signatory the
+     pact does not list, a record that signatory does not hold, a verdict
+     other than `holds` and `amended`, or `amended` for a clause that still
+     has the hash the record recorded
 
 These mirror `evidence-check`'s classes, where `BROKEN` is exit 2 and drift is
 exit 1. Nothing is ever written.

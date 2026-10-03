@@ -501,6 +501,24 @@ quoted heading path with a hash, or a fenced code block for an example.
 Every path it prints is in POSIX form on every platform: relative to its
 repository inside one, and beginning `~/` where it lies under `~`.
 
+**It reads every signatory's pact changes too** — the
+`seal/pact-changes/<work-item-id>.md` records a signatory's `--reverify`
+writes (§*Re-verifying is recomputing the hash*), following that signatory's
+`Pact notify` as read now. A row citing a clause of this pact is `NOT TAKEN`,
+exit 1, until a pact review here takes it: the line names the record and
+line, the clause, the work item and the record's content hash, which is the
+value the review writes. A `—` row from a signatory whose notify is `always`
+is `NOTED` and moves no exit. A pact review is a work item at the pact's
+repository whose record, `seal/pact-reviews/<work-item-id>.md`
+(`templates/pact-review.md`), has one row per record it takes: the signatory,
+`<work-item-id>@<content hash>`, and `holds` or `amended`. A record is taken
+at that hash alone, so one that grows after its review reads `NOT TAKEN`
+again, naming both hashes. A review row naming a signatory the pact does not
+list, a record that signatory does not hold, another verdict, or `amended`
+for a clause that still has the recorded hash is refused at exit 2, as is a
+record that will not read or parse. The `READ` line and the summary count the
+pact changes read and taken.
+
 **It is local only.** A signatory's pull request can read one repository, so
 its CI prints the relationship and verifies nothing (`chain-check`'s pact
 notices), and this command is where the reconciliation runs. A `SUPERSEDED`
