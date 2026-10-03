@@ -101,6 +101,13 @@ axes, probe rules, record formats. This file adds only your role boundaries.
   someone can audit. Silence about it, whether from trusting it or from
   ignoring it, leaves the reader unable to tell which happened.
 
+  A `spec.md` that cites a reference root — a project's own `specs/`, as
+  `templates/config.md` §*Reference specs* says — cites a coordinate like
+  any other: in stage 1, open it where the work touches what it describes
+  and read it against what the spec says it says. The plugin never writes
+  there, so a diff that edits, moves or copies a file out of one is a
+  finding.
+
   Take the review target and what to look at from your prompt as given —
   "only the migration files", "round 2, re-check findings 3 and 5", a PR
   number. That is what to look at, not what to conclude. It is also not the

@@ -92,6 +92,11 @@ laid out by **lifetime**, not by who wrote it:
 | `seal/specs/<work-item-id>/` | One work item | Its role ends when this work ships (SDD, overview, round records) | The contract this work executes against. A human approves `plan.md`, which is why this is a repository document and not tool state |
 | `seal/`, everything above `specs/` | Permanent | Everything this plugin maintains | Written and read by machines: the ledger, the migration config, the follow-up list |
 
+A `specs/` the project kept before the plugin is neither root: it is a
+**reference root**, as `templates/config.md` §*Reference specs* says — history
+read where the work touches what it describes, cited in `spec.md` where it was
+read, and never written by anything this skill produces.
+
 The axis is lifetime and authority, **not audience** — humans and AI read all
 three. (Labeling policies "for humans" would push sessions away from reading
 them, and policy outranks everything else when a repository has it.)
@@ -222,12 +227,16 @@ commit gate silent for every commit of a declared branch, for either review
 answer. Coupling them would ask for the same answer twice and stop a
 session for not repeating itself. Where no declaration is in force — no
 file, a branch it does not name, or a file that will not parse — the gate
-behaves exactly as it did before, which is to ask. For a change that
-belongs to no work item at all, the token is still the way past, and it
-goes in FRONT of the command, quotes included:
+stops the commit, as it always did. Where this plugin's git hooks run,
+git refuses it and prints the ways on into the command's output; in a
+clone whose hooks slot is somebody else's, the PreToolUse reading asks.
+For a change that belongs to no work item at all, the token is still the
+way past, and it goes in FRONT of the command, quotes included:
 `: '[no-review]'; git commit …` (and `[no-parity]` too where a migration
 config is declared). After `git commit` a bare word is a pathspec and git
-rejects the whole command.
+rejects the whole command. `git -c specseal.waive=review commit …` is the
+same waiver in git's own spelling, and it is the one the refusal names
+first.
 
 **Once the batch is answered, the session runs to the pull request.** What
 surfaces after it is written down rather than raised: a decision only a person

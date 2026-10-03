@@ -338,6 +338,25 @@ def test_an_unmoved_old_layout_is_not_asked_but_told():
     assert "moves it" in boot
 
 
+BARE_SPECS = "**A `specs/` without a marked entry is not the 0.3.x layout.**"
+
+
+def test_a_bare_specs_is_asked_and_only_the_plugins_marks_are_told():
+    """#688 A1 and A2. A top-level `specs/` used to be the 0.3.x layout by
+    its name, so a project that kept its own specifications there was told
+    it had chosen shared and never asked. The told path needs the plugin's
+    marks now, named in the paragraph that decides it, and a `specs/`
+    without them goes on to the question before the mode's options."""
+    boot = bootstrap()
+    told = paragraph(boot, "First, look for the 0.3.x layout.")
+    assert "`routing.md`" in told and "`rounds/`" in told, told
+    assert "a top-level `specs/` is" not in told, "the name alone still decides"
+    bare = paragraph(boot, BARE_SPECS)
+    assert "go on to the question" in bare, bare
+    assert "leave the directory where it is" in bare, bare
+    assert boot.index(told[:40]) < boot.index(BARE_SPECS) < boot.index("**shared**")
+
+
 # --- Q1: the sentence a session reads, once in each place -----------------
 
 

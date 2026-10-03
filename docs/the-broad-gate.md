@@ -50,8 +50,13 @@ invisible: the gate goes green having not run what CI will. So the partition
 is declared in the gate and a structural case asserts it is total — a step
 name in the workflow with no classification in the gate fails the suite until
 somebody classifies it. That is what makes the next arm impossible to add
-silently.
-Enforced by: tests/test_the_gate_names_every_step_ci_runs.py::test_every_step_the_workflow_runs_is_classified, tests/test_the_gate_names_every_step_ci_runs.py::test_every_entry_of_the_partition_names_a_step_the_workflow_has
+silently. A step CI does not run for the base is neither answered nor
+unanswered: four steps run only on a pull request into `main` and two are
+skipped there, so the panel's count and the line beside it are taken over the
+steps CI runs for the base, and the line says how many it left out (#666).
+Which steps those are is declared beside the partition and held against the
+workflow's guards from both sides, never read off the workflow at run time.
+Enforced by: tests/test_the_gate_names_every_step_ci_runs.py::test_every_step_the_workflow_runs_is_classified, tests/test_the_gate_names_every_step_ci_runs.py::test_every_entry_of_the_partition_names_a_step_the_workflow_has, tests/test_the_gate_names_every_step_ci_runs.py::test_the_steps_left_out_off_main_are_the_steps_guarded_off_main
 
 <!-- specs/1789956662-the-gate-and-ci-ask-about-different-ranges -->
 **The gate and CI ask about the same range, and the base is resolved once.**
@@ -98,10 +103,15 @@ realpath, the running copy hands it the whole argument vector before judging
 anything. Its exit code is the run's, and a flag only the tree's copy knows
 still reaches it. A repository that ships no gate — every repository that
 installs the plugin — runs exactly as before. The symmetric cost, a tree
-that breaks an arm and passes itself, is named rather than dismissed: the
-panel's `gate` row reads `tree <version>` or `plugin <version>`, one stderr
-line names the running copy's path, and the pull request asks the same
-scripts again.
+that breaks an arm and passes itself, is named rather than dismissed: one
+stderr line names the running copy's path and reads `tree <version>` or
+`plugin <version>`, the panel's `gate` row reads `tree <version>` wherever
+the copy that ran is not byte for byte the copy invoked, or where the tree's
+copy ran with no invoked copy named to compare against — invoked directly,
+or redirected by an installed copy older than #666 — and the pull request
+asks the same scripts again. The row prints nowhere else: on every
+redirected seal of a tree whose gate the branch did not change it said the
+same thing and was read by nobody (#666).
 Enforced by: tests/test_the_seal_is_taken_once_by_the_sealer.py
 
 ## Where the stamp is drawn
@@ -122,13 +132,38 @@ reading or act stands between the verdict and the drawing, and what is drawn
 is the run's values rather than a sample anybody can print.
 Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_main_sessions_stop_draws_each_undrawn_file_once, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_a_subagents_end_draws_nothing_and_leaves_the_file, tests/test_the_seal_is_taken_once_by_the_sealer.py::test_a_recorded_seal_on_a_pipe_signals_and_draws_nothing
 
+<!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->
+**The hook holds its whole message under a budget named in the code, and
+steps the drawing down rather than letting the harness persist it.** The
+harness writes a `Stop` hook's `systemMessage` longer than 10,000 characters
+to a file and shows the person a 2 KB preview, so a stamp past that size is
+not seen. `seal_stamp.MESSAGE_LIMIT` is that number, measured with a scratch
+hook; `MESSAGE_BUDGET` keeps 1,000 characters of it back for the gate-failure
+report `hooks/dispatch.py` prepends to the same message. The harness counts
+UTF-16 units, so a character outside the BMP is two, and so does the hook.
+One message carries as many of the oldest pending stamps as fit together
+with their disc, each at the highest rung the others leave room for: its
+file's own scale, then 0.90, 0.80 and 0.75. A seal past what one message can
+carry stays pending and is drawn at the next turn's end, and a single stamp
+that does not fit at 0.75 by itself is the only one drawn as the sheet with
+no disc. A stamp can come out smaller or a turn later, and a session that
+ends first leaves it for `seal-stamp --from`. The gate's own terminal
+drawing and `seal-stamp` are not budgeted, because neither is a hook's
+message.
+Enforced by: tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_hooks_message_is_under_the_budget_for_one_file, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_two_files_in_one_turn_are_under_the_budget_together, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_seals_past_what_one_message_carries_wait_for_the_next_turn, tests/test_the_stamp_reaches_the_person_it_is_drawn_for.py::test_the_ladder_steps_down_in_order_and_ends_with_no_disc
+
+<!-- specs/1790913304-the-seal-stamp-is-a-letter-with-the-seal-on-its-corner -->
 <!-- specs/1790562543-the-stamp-reaches-the-person-it-is-drawn-for -->
 **What the person's screen shows is not checked, and neither is the order of
 the text above it.** The cases prove that the hook emits the right bytes for
 the right payload. A screenshot of the probe proved once that such bytes
 render unfolded, in colour, after the turn's final text. Whether a given
 run's stamp was seen, and whether the orchestrator wrote its result in the
-turn the stamp closed, are read by the person and by nobody else.
+turn the stamp closed, are read by the person and by nobody else. So is how
+the sheet reads on a light background as well as a dark one. Its parchment
+and its edge are painted, and on white they are 1.02 and 1.48 to 1 against
+the screen where on black they are 20.5 and 14.2; those figures are
+arithmetic, and the owner reads the first real seal on each background.
 **Nor is the hook's silence where it cannot draw.** It draws nothing and
 says nothing where the main session's `python3` is under 3.12, the floor
 `seal_stamp.py` refuses below (macOS ships 3.9); where that session's

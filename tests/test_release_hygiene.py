@@ -128,6 +128,14 @@ RECORDS_OF_A_MOMENT = (
 # exemption stays a fact about one comment rather than a hole the token can
 # walk through anywhere.
 VERSIONS_OF_ANOTHER_PRODUCT = {
+    # git's, the four builds #692's phase 1 measured the hook surface on. The
+    # policy states which gits a git-side decision was measured to hold on,
+    # and that is the class the `seal.py` and `broad_gate.py` rows below name:
+    # a property read off an unnamed git is not a measurement.
+    ("docs/commit-review-gate-spec.md", "2.34.1"): "git's, a build #692 measured",
+    ("docs/commit-review-gate-spec.md", "2.39.5"): "git's, a build #692 measured",
+    ("docs/commit-review-gate-spec.md", "2.43.0"): "git's, a build #692 measured",
+    ("docs/commit-review-gate-spec.md", "2.50.1"): "git's, a build #692 measured",
     ("skills/implement/scripts/seal.py", "4.4.17"): (
         "bash's, named in a comment about the glob behaviour of that release"
     ),
@@ -154,6 +162,14 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "fallback commands in §*Running the checks* carry the pin so they "
         "install the parser the oracle is held to, and a case holds them to "
         "the runner's constant; no release of SpecSeal makes the number wrong"
+    ),
+    ("skills/verify/scripts/seal_stamp.py", "2.1.287"): (
+        "Claude Code's, named above `MESSAGE_LIMIT` as the build on which the "
+        "harness's 10,000-unit limit on a hook's `systemMessage` was measured "
+        "(#717). The class is the git rows' above, a loaded file naming the "
+        "tool build a measurement was taken on: the limit is the harness's to "
+        "move, and the comment says the same probe at two sizes is the whole "
+        "re-measurement; no release of SpecSeal makes the number wrong"
     ),
 }
 

@@ -33,6 +33,10 @@ incorporation. This file only adds what the skill does not carry.
    `seal/specs/` SDD → `seal/follow-up.md`). If the project declares a migration
    config (`seal/parity.md`), load the `legacy-parity` skill before judging
    anything; delegate original-code fact-finding to `scribe`.
+   A reference root — a `specs/` the project kept before the plugin, as
+   `templates/config.md` §*Reference specs* says — is read where the work
+   touches what it describes, and you cite it where `spec.md` cites it; you
+   never write there, and never move, edit or copy a file out of one.
    §5 reaches you through the handoff before round 1
    (`docs/review-handoff-protocol.md`), which is the shape your prompt's
    facts arrive in and the document that says what one must carry. Open the
@@ -72,8 +76,10 @@ incorporation. This file only adds what the skill does not carry.
    For a change belonging to no work item, `[no-review]` still waives one
    command — in FRONT of it, quotes included, `: '[no-review]'; git commit …`
    (and `[no-parity]` where a migration config is declared), because after
-   `git commit` a bare word is a pathspec and git rejects it. That token is
-   the last way past the gate and never the first one to reach for. On a
+   `git commit` a bare word is a pathspec and git rejects it;
+   `git -c specseal.waive=review commit …` is the same waiver in git's own
+   spelling. That token is the last way past the gate and never the first
+   one to reach for. On a
    probe it records something untrue: the commit lands in a scratch
    repository and was never work that skipped review. Contract §8 names the
    two shapes to reach for before it.
@@ -113,7 +119,7 @@ incorporation. This file only adds what the skill does not carry.
         `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
         nothing-looks/questions.md` Q4 is where the question is open, and
         this paragraph is evidence for it rather than an answer to it.
-        Verified 2026-09-25 against "## Phases"@035903e4. -->
+        Verified 2026-10-01 against "## Phases"@639bc11e. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
@@ -163,7 +169,10 @@ incorporation. This file only adds what the skill does not carry.
    **§9 lands on you harder than on any other agent**, because you edit more
    than they do — and its second reason is why the design gate's waiver
    example above carries a RIDER. A patch to that paragraph is exactly the
-   shape the gate reads a commit out of, without your having written one.
+   shape the gate reads a commit out of, without your having written one —
+   in the clones the old PreToolUse reading still covers. In the rest, the
+   stubs leave your command text unread, which is why §9's first reason, an
+   edit that can fail, is the one that holds for you everywhere.
 
    **At each phase's close, also write `seal/specs/<work-item-id>/phases/phase-N.md`
    from `templates/sdd-phase.md`** — what this phase was asked, what building
@@ -263,8 +272,26 @@ incorporation. This file only adds what the skill does not carry.
    **Mutation-test every unit you added, one at a time, before you hand
    over.** Break one unit, run the cases that cover it, and watch one go
    red. A unit that stays green while broken has nothing behind it, whatever
-   the suite total says. Restore it from bytes you kept, per *Boundaries*
-   below, and clear `tests/__pycache__` between mutations.
+   the suite total says. Each break is one command:
+
+   ```
+   mutation-check <file> --replace "<old>" "<new>" --tests "<the runner> <module> -k <cases>"
+   ```
+
+   It refuses an `<old>` that does not occur exactly once, runs the cases
+   against the file as it is and stops with `no baseline` if they already
+   fail, writes the break, removes the mutated file's cached bytecode for
+   every interpreter tag, runs the cases again, each run under a bound (300 s
+   unless `--timeout` says otherwise), puts the file back from the bytes it
+   read first and compares the hash, and prints `red`, `SURVIVED`, or a run
+   that measured nothing. A timed-out run
+   is a result to report, not a kill to find later. Clearing a whole
+   `__pycache__` was never the housekeeping: the stale `.pyc` that read a
+   same-length break wrong sat beside the mutated file, wherever that file
+   lived. Where the runner starts pytest-xdist workers by default, add
+   `-p no:xdist` for a handful of cases: starting the workers costs more
+   than they save there. `skills/verify/SKILL.md` carries the
+   verdicts, their exit codes and what the bound ends.
 
    This is not contract §15 said twice. That one is about a case on the day
    it is written; this one is about the units at the moment they leave your
@@ -379,7 +406,8 @@ missing a class of breakage, which is the architecture talking.
   the committed state, which takes every uncommitted fix in that file with it.
   That happened: a round's work was wiped mid-loop and had to be rebuilt from
   a patch script. Committing first costs nothing on a feature branch, which
-  squashes anyway.
+  squashes anyway. `mutation-check` holds that copy and compares the hash
+  after the restore, which is why the loop runs through it.
 
 ## Report
 

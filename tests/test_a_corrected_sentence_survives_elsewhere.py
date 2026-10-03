@@ -1025,6 +1025,7 @@ EXCLUSIONS = (
     "**The work item's own exemption file.**",
     "**A phase record.**",
     "**A released changelog section, and a gathered fragment.**",
+    "**A reference root.**",
 )
 
 
@@ -2356,13 +2357,20 @@ def test_a_specs_directory_outside_the_seal_root_stays_in_the_range(tmp_path):
     pre-0.4.0 top-level `specs/`, never under `docs/specs/`: a directory of
     design notes deleted whole there holds no `spec.md` and nothing open, so
     an unanchored pattern read it as retired by the rule and the sweep
-    measured none of its sentences."""
+    measured none of its sentences.
+
+    Since #688 a directory named `specs` outside the plugin's root is a
+    reference root by default and out of the range for THAT reason, so the
+    fixture declares `Reference specs | none`: what this case pins is the
+    anchored pattern, which must hold where a repository puts its `specs/`
+    directories back in."""
     repo = tmp_path / "probe"
     os.makedirs(repo)
     notes = "docs/specs/login-flow"
     build(
         repo,
         {
+            "seal/config.md": REFERENCE_NONE,
             "docs/policy.md": f"# policy\n\n{STANDING_MOMENT}\n",
             f"{notes}/design.md": f"# design\n\n{RETIRED_MOMENT_SENTENCE}\n",
             **FILLER,
@@ -4634,3 +4642,120 @@ def test_the_measured_range_that_removed_three_rows_reports_nothing():
         pytest.skip(f"{REMOVED_ROWS_RANGE} is not in this clone")
     code, text = over(REMOVED_ROWS_RANGE)
     assert code == 0, f"the removed rows' claims were read as corrections:\n{text}"
+
+
+# --- #688: a reference root is read and never checked ---------------------
+#
+# A project's own `specs/` is a document the plugin never wrote, so it is not
+# a place a correction was owed (`hooks/config.py#under_reference_root`). With
+# no `Reference specs` row every directory named `specs` outside the plugin's
+# root is one; `Reference specs | none` puts them back. A repository with no
+# `seal/` root at either place has none at all: it has not opted in, and the
+# 0.3.x `specs/` the sweep still reads was the plugin's own.
+
+TEAM_DOC = "specs/1788000001-team-thing/design.md"
+REFERENCE_NONE = "# config\n\n| Item | Value |\n|---|---|\n| Reference specs | none |\n"
+# A root with a config that names no `Reference specs` row: the default.
+NO_REFERENCE_ROW = "# config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n"
+
+
+def reference_probe(tmp_path, config=NO_REFERENCE_ROW):
+    """The claim in `notes.md` and verbatim in a team's `specs/` document,
+    plus a filler; `config` is `seal/config.md`'s body, or None for a
+    repository with no `seal/` root at all."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    files = {
+        "notes.md": f"# notes\n\nFirst statement. {FOUND}\n",
+        TEAM_DOC: f"# the team's design\n\nSecond statement. {FOUND}\n",
+        "filler.md": "# filler\n\nUnrelated prose that shares nothing.\n",
+    }
+    if config is not None:
+        files["seal/config.md"] = config
+    build(repo, files, "the claim, in notes.md and in the team's own specs/")
+    return repo
+
+
+def test_a_team_specs_document_carrying_the_wording_is_not_a_survivor(tmp_path):
+    """D1, the pool. The same probe reports the team document once the row
+    says `none`, so the case pins the exclusion and not a weak floor."""
+    repo = reference_probe(tmp_path)
+    head = build(
+        repo,
+        {"notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n"},
+        "corrected notes.md",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, f"a team's own specs/ was reported as a survivor:\n{text}"
+    assert TEAM_DOC not in text, text
+    assert "examined 3 files" in text, (
+        f"the reference root is still in the pool:\n{text}"
+    )
+
+    for where, config, why in (
+        ("declared", REFERENCE_NONE, "`Reference specs | none`"),
+        ("rootless", None, "a repository with no seal/ root"),
+    ):
+        other = reference_probe(tmp_path / where, config=config)
+        head = build(
+            other,
+            {"notes.md": f"# notes\n\nFirst statement. {REPAIRED}\n"},
+            "corrected notes.md",
+        )
+        code, text = run("--range", f"{head}^..{head}", "--root", str(other))
+        assert code == 1 and TEAM_DOC in text, (
+            f"{why} did not keep the team document in the sweep:\n{text}"
+        )
+
+
+def test_a_team_specs_document_the_range_edited_is_not_a_source(tmp_path):
+    """D1, the range. A sentence removed from a team document is not a
+    correction anybody owes the plugin's own documents."""
+    repo = reference_probe(tmp_path)
+    head = build(
+        repo,
+        {TEAM_DOC: f"# the team's design\n\nSecond statement. {REPAIRED}\n"},
+        "the team reworded its own design",
+    )
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 0, (
+        f"an edit to a team's own specs/ was read as a correction:\n{text}"
+    )
+    assert re.search(r"against 0 sentence\(s\)", text), text
+
+
+def test_the_reference_roots_are_read_once_per_repository(tmp_path):
+    """The pool asks the predicate of every tracked path, so the row and its
+    two modules are read once per root, not once per path."""
+    repo = reference_probe(tmp_path, config=REFERENCE_NONE)
+    loaded = module()
+    first = loaded.references(str(repo))
+    assert first[1] == (), first
+    assert loaded.references(str(repo)) is first
+
+
+def test_a_top_level_specs_directory_is_never_a_retired_work_item(tmp_path):
+    """`WORK_ITEM_DIR` reads `seal/specs/` alone. A top-level `specs/<x>/`
+    removed by a range is not a retirement: with the reference roots put back
+    by `none`, its removed sentence is measured and the copy in `guide.md` is
+    reported, where the old pattern asked `retired_by_rule` and excused it.
+    The fixture is the deletion shape `test_a_specs_directory_outside_the_seal_root_stays_in_the_range`
+    uses, which clears the floor."""
+    repo = tmp_path / "probe"
+    os.makedirs(repo, exist_ok=True)
+    build(
+        repo,
+        {
+            "seal/config.md": REFERENCE_NONE,
+            "docs/policy.md": f"# policy\n\n{STANDING_MOMENT}\n",
+            TEAM_DOC: f"# the team's design\n\n{RETIRED_MOMENT_SENTENCE}\n",
+            **FILLER,
+        },
+        "the claim, in a top-level specs/ directory and in the policy",
+    )
+    shutil.rmtree(os.path.join(repo, "specs"))
+    head = build(repo, {"filler/0.md": "# filler\n\nStill unrelated.\n"}, "removed")
+    code, text = run("--range", f"{head}^..{head}", "--root", str(repo))
+    assert code == 1 and "docs/policy.md" in text, (
+        f"a top-level specs/ directory was excused as a retired work item:\n{text}"
+    )

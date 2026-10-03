@@ -49,7 +49,10 @@ HOOKS = os.path.dirname(os.path.abspath(__file__))
 FAILURES_DIR = "specseal-gate-failure"
 PENDING = ".pending"
 REPORTED = ".reported"
-# The longest first line of an exception's message a record keeps.
+# The longest first line of an exception's message a record keeps, in UTF-16
+# units: the report joins the `Stop` message `seal_stamp.MESSAGE_RESERVE` is
+# held for, and the harness counts that message in them, so a character
+# outside the BMP is two.
 MESSAGE_CAP = 200
 
 # What `run_gate` saw fail during this invocation, in order, as
@@ -67,7 +70,19 @@ CLOSING = (
 )
 
 GROUPS = {
-    "pre-bash": ("commit-review-gate.py", "worktree-guard.py", "mode-gate.py"),
+    # The installer goes first: a stub that went missing or stale is back
+    # before the command runs, and the gates after it ask whether git decides
+    # in the clone they are about to judge (`hooks/githooks.py#decides`).
+    #
+    # `answer-write.py` hands the old consent tokens to those hooks (P3), and
+    # `answer-clear.py` in `post-bash` takes them back when the call is over.
+    "pre-bash": (
+        "hook-install.py",
+        "answer-write.py",
+        "commit-review-gate.py",
+        "worktree-guard.py",
+        "mode-gate.py",
+    ),
     "pre-agent": ("worktree-guard.py", "implementer-mark.py"),
     "pre-skill": ("review-skill-gate.py",),
     "post-bash": (
@@ -76,6 +91,7 @@ GROUPS = {
         "session-lease.py",
         "evidence-advisor.py",
         "worktree_consent.py",
+        "answer-clear.py",
     ),
     # The AFTER half of the worktree guard, and the only group that exists for
     # one gate. It cannot join `pre-agent`: what it records is that the call
@@ -85,7 +101,14 @@ GROUPS = {
     "post-edit": ("lint-python.py", "session-lease.py"),
     # The root move precedes the ledger-format migration, because the second
     # reads the ledgers at the addresses the first creates.
-    "session-start": ("version-check.py", "root-migrate.py", "ledger-migrate.py"),
+    # The git hooks are installed last, into the root the two migrations above
+    # may just have moved.
+    "session-start": (
+        "version-check.py",
+        "root-migrate.py",
+        "ledger-migrate.py",
+        "hook-install.py",
+    ),
     # The end of a main-session turn, where a sealed run's stamp is drawn
     # after the text it belongs under (#400). One gate, like `post-agent`,
     # because nothing else here has anything to say when a turn ends.
@@ -217,19 +240,28 @@ def merge(outputs, event_name):
             d["hookSpecificOutput"].get("permissionDecisionReason", "")
             for d in decisions
         ]
-        return json.dumps(
-            {
-                "hookSpecificOutput": {
-                    "hookEventName": event_name,
-                    "permissionDecision": winner["hookSpecificOutput"][
-                        "permissionDecision"
-                    ],
-                    "permissionDecisionReason": "\n\n".join(
-                        r for r in reasons + texts if r
-                    ),
-                }
+        out = {
+            "hookSpecificOutput": {
+                "hookEventName": event_name,
+                "permissionDecision": winner["hookSpecificOutput"][
+                    "permissionDecision"
+                ],
+                "permissionDecisionReason": "\n\n".join(
+                    r for r in reasons + texts if r
+                ),
             }
-        )
+        }
+        # A gate that only says something -- `hook-install.py`'s once-per-session
+        # line -- is kept beside a neighbour's decision rather than dropped by
+        # it: the line is said once, so dropping it once loses it.
+        said = [
+            j["systemMessage"]
+            for j in jsons
+            if isinstance(j.get("systemMessage"), str) and j["systemMessage"]
+        ]
+        if said:
+            out["systemMessage"] = "\n\n".join(said)
+        return json.dumps(out)
     if jsons:
         merged = dict(jsons[0])
         extra = [j.get("systemMessage") for j in jsons[1:] if j.get("systemMessage")]
@@ -314,9 +346,17 @@ def opted_in(top, common):
 
 
 def first_line(exc):
-    """The first non-blank line of `exc`'s message, capped."""
+    """The first non-blank line of `exc`'s message, capped at `MESSAGE_CAP`
+    UTF-16 units. A character outside the BMP is two, and one that would
+    pass the cap is left out whole rather than split into half a pair."""
     lines = str(exc).strip().splitlines()
-    return lines[0].strip()[:MESSAGE_CAP] if lines else ""
+    kept, units = [], 0
+    for char in lines[0].strip() if lines else "":
+        units += 2 if ord(char) > 0xFFFF else 1
+        if units > MESSAGE_CAP:
+            break
+        kept.append(char)
+    return "".join(kept)
 
 
 def record(group, failures, body):

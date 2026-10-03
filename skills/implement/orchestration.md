@@ -37,7 +37,8 @@ half: `<repo>/seal/` where that directory exists, and
 2. spec · plan (framer) → smith → the draft pull request opens
    (`skills/code-review/orchestration.md` §*Orchestrator: the pull request
    opens before round 1, and a phase is re-run* owns when) → warden rounds →
-   sealer → the pull request is marked ready.
+   `broad-gate --preflight`, yours → sealer → the pull request is marked
+   ready.
 3. The pull request body carries `Closes #N`; the release workflow closes the
    ticket when the release reaches `main`.
 
@@ -70,15 +71,26 @@ a question they did not know to ask, so this is the only place the mode and
 the migration question get asked at all.
 
 First, look for the 0.3.x layout. A repository still holding
-`.specseal/` or a top-level `specs/` is on the 0.3.x layout and committed the
-plugin's files, so it chose shared already: do not ask, say *"this repository
-is on the 0.3.x layout; start a new session and the plugin moves it into
-`<repo>/seal/`, or follow the README's by-hand sequence — and `seal mode
-local` moves it out of the tree afterwards if that is what you wanted"*, and
-stop the bootstrap there. The session-start hook moves it, and the root it
-creates is the one this section would have asked about. Naming the command
-is what keeps *not asked* from meaning *not offered*: nobody who lands in
-shared mode without a question goes looking in a README for the way out.
+`.specseal/`, or a top-level `specs/` with an entry named
+`<unix-seconds>-<slug>` that carries one of the plugin's two marks directly
+under it as git tracks it — `routing.md`, or a file under `rounds/` — is on
+the 0.3.x layout and committed the plugin's files, so it chose shared
+already: do not ask,
+say *"this repository is on the 0.3.x layout; start a new session and the
+plugin moves it into `<repo>/seal/`, or follow the README's by-hand sequence
+— and `seal mode local` moves it out of the tree afterwards if that is what
+you wanted"*, and stop the bootstrap there. The session-start hook moves it,
+and the root it creates is the one this section would have asked about.
+Naming the command is what keeps *not asked* from meaning *not offered*:
+nobody who lands in shared mode without a question goes looking in a README
+for the way out.
+
+**A `specs/` without a marked entry is not the 0.3.x layout.** It is the
+project's own — a team's specifications, which a `spec.md`, a `plan.md` or
+an `overview.md` does not make the plugin's — so go on to the question below
+as for any repository with no root, and leave the directory where it is. The
+session-start hook moves nothing out of it either: the plugin writes only to
+its own root, and every 0.3.x work item carried `routing.md` (#688).
 
 1. Ask, once, with one `AskUserQuestion` carrying **two questions** — the
    mode, and the `Broad gate` row. One interruption or two is the whole of
@@ -555,7 +567,7 @@ not a closed-looking one.
 | And say what ran the round | `skills/code-review/orchestration.md` | command: `bin/round-record` | `new` writes the row from the value the spawning session gives it, and `skills/code-review/scripts/chain_check.py` fails a record missing it after its cutoff and refuses a present row it cannot read. Neither reaches whether the value is true: the agent and the model are the orchestrator's own knowledge, and nothing else in the tree holds them |
 | And commit the record before commissioning the fixes | `skills/code-review/orchestration.md` | check: `skills/code-review/scripts/chain_check.py` | It refuses a record whose adding commit descends from a commit its own verdicts name as the fix. `round_record.py new` lists the commits between and refuses nothing, because 40 records of 152 differ that way for a reason that is not this one. Nothing reads whether the reviewer's report rode in the same commit |
 | The check a round runs reads everything, and only a write is narrowed | `skills/code-review/orchestration.md` | command: `bin/evidence-check` | A narrowed run names the ledgers it did not read and says how to read them, so the narrowing announces its own blind spot instead of waiting for the pull request to find it. It does not refuse: a round that reads only its own fragment still exits 0, and the unscoped read at the pull request is what found fifteen drifted rows and one broken claim over three rounds that had all reported clean |
-| Orchestrator: the pull request opens before round 1, and a phase is re-run | `skills/code-review/orchestration.md` | still a sentence | A pull request opened after the rounds leaves the same tree as one opened before them, so nothing reads the timing, and nothing records that a closed phase's suite and lint were re-run before the next phase spawned. What is delivered is the step the section ends on: `skills/code-review/scripts/chain_check.py` fails a ready pull request whose last record's `Broad gate` cell still reads `not yet`, which is what makes the sealer's spawn happen |
+| Orchestrator: the pull request opens before round 1, and a phase is re-run | `skills/code-review/orchestration.md` | still a sentence | A pull request opened after the rounds leaves the same tree as one opened before them, so nothing reads the timing, and nothing records that a closed phase's suite and lint were re-run before the next phase spawned. What is delivered is the step the section ends on: `skills/code-review/scripts/chain_check.py` fails a ready pull request whose last record's `Broad gate` cell still reads `not yet`, which is what makes the sealer's spawn happen. The step before that spawn, `broad-gate --preflight` (#638), is recorded nowhere either, and a session that skips it loses time and nothing else: the sealer asks the same arms, and the same refusals the preflight asks through `round_record.py seal --check` (#702), and refuses the same way |
 | Orchestrator: verify before posting | `skills/code-review/orchestration.md` | still a sentence | The four checks are readings the orchestrator takes before posting, and nothing in the tree records that any of them happened. The one part a record carries is both SHAs in `Target SHA` where HEAD moved, and `round_record.py new` prints the commits between rather than refusing |
 | Orchestrator: closing the cycle | `skills/code-review/orchestration.md` | check: `hooks/commit-review-gate.py` | The review arm quiets on a mark standing at HEAD, so a cycle left unclosed meets the gate at the next commit. On a branch with a routing declaration in force the declaration quiets that arm first, and that is every branch this workflow routes, so for those the missing mark is never noticed |
 

@@ -694,9 +694,297 @@ def test_an_item_shaped_tracked_file_under_specs_stays_and_is_named(hook, repo):
     out = message(start(hook, repo))
     assert "moved .specseal/ and 1 work item into seal/" in out, out
     assert "left specs/1788000001-a-file.md" in out and "where it is" in out, out
+    # #688: a file is not a directory without the marks, so it keeps the
+    # reason a non-item name gets.
+    assert (
+        "left specs/1788000001-a-file.md, specs/notes where it is (not tracked as a "
+        "SpecSeal work item)" in out
+    ), out
     assert (repo / "specs" / "1788000001-a-file.md").is_file()
     assert not (repo / "seal" / "specs" / "1788000001-a-file.md").exists()
     assert stamped(hook, repo)
+
+
+# --- #688: a joined project's `specs/` is read and never taken ----------------
+
+TEAM = "1788000001-team-thing"
+LEFT_UNMARKED = (
+    f"left specs/{TEAM} where it is (no routing.md or rounds/ that git tracks — "
+    "not a SpecSeal work item)"
+)
+
+
+def plant_team_directory(repo):
+    """A team's own specification under a name `date +%s` could have made:
+    the shape `ITEM_RE` accepts, and none of the plugin's marks."""
+    write(repo, f"specs/{TEAM}/spec.md", "# the team's own specification\n")
+    write(repo, f"specs/{TEAM}/plan.md", "# the team's own plan\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "a team directory shaped like a work item")
+
+
+def test_an_id_shaped_directory_without_the_marks_stays_and_is_named(hook, repo):
+    """B1. The name alone used to be the proof, so a team's `specs/<x>/`
+    carrying `spec.md` and `plan.md` moved with the plugin's own. Only a
+    tracked `routing.md` or file under `rounds/` makes it SpecSeal's; the
+    rest stays, nothing is staged for it, and the line says why."""
+    plant_team_directory(repo)
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert LEFT_UNMARKED in out, out
+    assert (repo / "specs" / TEAM / "spec.md").is_file()
+    assert not (repo / "seal" / "specs" / TEAM).exists()
+    staged = git(repo, "diff", "--cached", "--name-only").stdout
+    assert TEAM not in staged, staged
+    assert stamped(hook, repo)
+
+
+def test_a_joined_project_holding_only_its_own_specs_hears_nothing(hook, tmp_path):
+    """B1, the joined project itself: no `.specseal/`, no marked directory —
+    nothing of the plugin's old layout, so the hook stays silent, stages
+    nothing and stamps nothing, as its *silent when there is nothing to do*
+    boundary says."""
+    d = tmp_path / "joined"
+    d.mkdir()
+    git(d, "init", "-q", "-b", "main")
+    git(d, "config", "user.email", "t@example.com")
+    git(d, "config", "user.name", "t")
+    write(d, f"specs/{TEAM}/spec.md", "# the team's own specification\n")
+    write(d, "specs/notes/todo.md", "# not SpecSeal's\n")
+    git(d, "add", "-A")
+    git(d, "commit", "-qm", "the team's specs/")
+    assert start(hook, d) == ""
+    assert (d / "specs" / TEAM / "spec.md").is_file()
+    assert not (d / "seal").exists()
+    assert git(d, "status", "--porcelain").stdout == ""
+    assert not stamped(hook, d)
+
+
+def test_a_row_citing_an_unmarked_id_shaped_directory_keeps_its_path(hook, repo):
+    """B2. The re-point followed the name pattern, so a row citing the team
+    directory was sent to a `seal/specs/` path that never appears. It follows
+    what moved: the row keeps its path and the totals are equal."""
+    plant_team_directory(repo)
+    ledger = repo / ".specseal" / "map.md"
+    row = coordinate(repo, f"specs/{TEAM}/spec.md", '"# the team\'s own specification"')
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + f"| D | `{row}` |\n", encoding="utf-8"
+    )
+    git(repo, "commit", "-qam", "a row citing the team directory")
+    before = check(repo, ".specseal/map.md", ".specseal/map/*.md")
+    out = message(start(hook, repo))
+    assert "3 ledger rows re-pointed" in out, out
+    after = (repo / "seal" / "ledger.md").read_text(encoding="utf-8")
+    assert f"`specs/{TEAM}/spec.md#" in after, after
+    assert f"seal/specs/{TEAM}" not in after, after
+    assert check(repo) == before
+
+
+@pytest.mark.parametrize(
+    "mark, text", [("routing.md", ROUTING), ("rounds/round-1.md", ROUND)]
+)
+def test_a_directory_carrying_either_mark_alone_still_moves(hook, repo, mark, text):
+    """B3. Either mark is the proof on its own: `routing.md` was the first
+    file every 0.3.x work item got, and `rounds/` is what a reviewed one
+    carries even where `routing.md` is gone."""
+    other = "1788000002-one-mark"
+    write(repo, f"specs/{other}/{mark}", text)
+    write(repo, f"specs/{other}/spec.md", "# a work item's spec\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "a work item with one mark")
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 2 work items into seal/" in out, out
+    assert (repo / "seal" / "specs" / other / mark).is_file()
+    assert not (repo / "specs" / other).exists()
+
+
+def test_a_mark_under_a_name_without_the_shape_is_not_a_work_item(hook, repo):
+    """The marks narrow the shape and never replace it: a team's
+    `specs/handbook/routing.md` is a team's file, not a work item."""
+    write(repo, "specs/handbook/routing.md", "# how requests are routed here\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "a team's routing page")
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert (repo / "specs" / "handbook" / "routing.md").is_file()
+    assert not (repo / "seal" / "specs" / "handbook").exists()
+
+
+def test_a_routing_md_deeper_than_directly_under_is_not_a_mark(hook, repo):
+    """Round 1 of #688's fix pass. The mark is a `routing.md` directly under
+    the directory; a team's `docs/routing.md` one level down, tracked, is a
+    team's file and makes nothing a work item."""
+    plant_team_directory(repo)
+    write(repo, f"specs/{TEAM}/docs/routing.md", "# how our requests route\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "a routing page one level down")
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert LEFT_UNMARKED in out, out
+    assert not (repo / "seal" / "specs" / TEAM).exists()
+
+
+@pytest.mark.parametrize("how", ["corrupt index", "ls-files raises"])
+def test_a_git_that_cannot_list_the_marks_stamps_nothing(hook, repo, monkeypatch, how):
+    """Round 2 of #688, 🟡 1. With `.specseal/` already moved, the items are
+    the only units, and a `git ls-files` that cannot answer listed none: the
+    hook read that as nothing old left and stamped, so the move never ran
+    once git answered again. A corrupt index is the real shape: `rev-parse`
+    answers and `ls-files` does not."""
+    (repo / "seal").mkdir()
+    for src, dst in (
+        (".specseal/map.md", "seal/ledger.md"),
+        (".specseal/map", "seal/ledger"),
+        (".specseal/README.md", "seal/README.md"),
+        (".specseal/follow-up.md", "seal/follow-up.md"),
+    ):
+        git(repo, "mv", src, dst)
+    git(repo, "commit", "-qm", "the home moved, the item not yet")
+    index = repo / ".git" / "index"
+    good = index.read_bytes()
+    real = hook.git
+    if how == "corrupt index":
+        index.write_bytes(b"DIRC garbage")
+    else:
+
+        def no_ls_files(root, *args):
+            if args[0] == "ls-files":
+                raise OSError("no ls-files today")
+            return real(root, *args)
+
+        monkeypatch.setattr(hook, "git", no_ls_files)
+    out = message(start(hook, repo))
+    assert "uncommitted changes" in out, out
+    assert not stamped(hook, repo)
+    index.write_bytes(good)
+    monkeypatch.setattr(hook, "git", real)
+    out = message(start(hook, repo))
+    assert "moved 1 work item into seal/" in out, out
+    assert (repo / "seal" / "specs" / ITEM / "routing.md").is_file()
+    assert stamped(hook, repo)
+
+
+@pytest.mark.parametrize("keep", ["the old one", "the newer one"])
+def test_a_move_stopped_inside_an_item_resumes_whichever_file_is_kept(hook, repo, keep):
+    """Round 2 of #688, 🟡 2. A destination that exists is moved file by
+    file, and `routing.md` and `rounds/` sort before `spec.md`: a stop at a
+    taken `spec.md` had moved both marks, so once the person settled it as
+    the line says, the next start found no work item, stamped, and left the
+    file at the old path and three rows BROKEN."""
+    write(repo, f"specs/{ITEM}/spec.md", "# the old spec\n")
+    write(repo, f"seal/specs/{ITEM}/spec.md", "# the newer spec\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "both spec.md")
+    out = message(start(hook, repo))
+    assert f"stopped at specs/{ITEM}/spec.md" in out and "already exists" in out, out
+    gone = (
+        f"seal/specs/{ITEM}/spec.md"
+        if keep == "the old one"
+        else f"specs/{ITEM}/spec.md"
+    )
+    git(repo, "rm", "-q", gone)
+    out = message(start(hook, repo))
+    assert "moved 1 work item into seal/" in out, out
+    assert not (repo / "specs" / ITEM / "spec.md").exists()
+    assert (repo / "seal" / "specs" / ITEM / "spec.md").is_file()
+    assert (repo / "seal" / "specs" / ITEM / "routing.md").is_file()
+    totals = check(repo)
+    assert "0 broken" in totals, totals
+
+
+@pytest.mark.parametrize(
+    "mark, text", [("routing.md", ROUTING), ("rounds/round-1.md", ROUND)]
+)
+def test_an_item_with_one_mark_stopped_inside_resumes(hook, repo, mark, text):
+    """Round 2 of #688's fix pass, beside 🟡 2. Each mark alone must move
+    last: an item carrying only one has nothing else to be found by once it
+    moved, so a stop at its taken `spec.md` would strand it."""
+    other = "1788000002-one-mark"
+    write(repo, f"specs/{other}/{mark}", text)
+    write(repo, f"specs/{other}/spec.md", "# the old spec\n")
+    write(repo, f"seal/specs/{other}/spec.md", "# the newer spec\n")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "an item with one mark, its spec.md taken")
+    out = message(start(hook, repo))
+    assert f"stopped at specs/{other}/spec.md" in out, out
+    git(repo, "rm", "-q", f"seal/specs/{other}/spec.md")
+    out = message(start(hook, repo))
+    assert "moved 1 work item into seal/" in out, out
+    assert (repo / "seal" / "specs" / other / mark).is_file()
+    assert (repo / "seal" / "specs" / other / "spec.md").is_file()
+    assert not (repo / "specs" / other).exists()
+
+
+@pytest.mark.parametrize(
+    "shape", ["empty rounds/", "ignored rounds/", "ignored routing.md"]
+)
+def test_a_mark_git_does_not_track_is_not_a_mark(hook, repo, shape):
+    """Round 1 of #688, 🟡 1. Git tracks no empty directory and no ignored
+    file, so a mark that is either leaves `git status` clean, and the marks
+    were read from the disk while the units came from git. The marks come
+    from git now, as the units do, and the team's directory stays."""
+    if shape.startswith("ignored"):
+        write(repo, ".gitignore", "rounds/\nrouting.md\n")
+        git(repo, "add", ".gitignore")
+        git(repo, "commit", "-qm", "ignore the team's local notes")
+    plant_team_directory(repo)
+    if shape == "empty rounds/":
+        os.makedirs(repo / "specs" / TEAM / "rounds")
+    elif shape == "ignored rounds/":
+        write(repo, f"specs/{TEAM}/rounds/scratch.md", "# local only\n")
+    else:
+        write(repo, f"specs/{TEAM}/routing.md", "# local only\n")
+    assert git(repo, "status", "--porcelain").stdout == ""
+    out = message(start(hook, repo))
+    assert "moved .specseal/ and 1 work item into seal/" in out, out
+    assert LEFT_UNMARKED in out, out
+    assert not (repo / "seal" / "specs" / TEAM).exists()
+    staged = git(repo, "diff", "--cached", "--name-only").stdout
+    assert TEAM not in staged, staged
+
+
+def test_a_linked_specs_holding_only_unmarked_directories_is_not_refused(hook, repo):
+    """The symbolic-link refusal reads the same marks. A linked `specs/`
+    whose id-shaped entries carry none of them holds no work items, so the
+    rest of the old layout moves and the link is named as left."""
+    git(repo, "rm", "-rq", "specs")
+    write(repo, f"team/{TEAM}/spec.md", "# the team's own specification\n")
+    os.symlink("team", repo / "specs")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "the team's specs/ is a link")
+    out = message(start(hook, repo))
+    assert "symbolic link" not in out, out
+    assert "moved .specseal/ into seal/" in out, out
+    assert LEFT_UNMARKED in out, out
+    assert os.path.islink(repo / "specs")
+
+
+def test_the_cleanup_never_removes_a_linked_specs(hook, repo, monkeypatch):
+    """PR #700's `windows-latest` leg, after the seal. The cleanup after a
+    move calls `os.rmdir` on the old roots to take away what git left empty,
+    and it rested on a POSIX guarantee: `rmdir` refuses a symbolic link with
+    `ENOTDIR`. Windows' `RemoveDirectoryW` removes a directory link itself,
+    whatever is behind it, so a team's linked `specs/` was deleted from the
+    working tree and the line named nothing left. Contract §13: the guarantee
+    is removed here, by giving `rmdir` Windows' semantics for a link."""
+    real = os.rmdir
+
+    def windows_rmdir(path, *args, **kwargs):
+        if os.path.islink(path):
+            os.unlink(path)
+            return
+        real(path, *args, **kwargs)
+
+    git(repo, "rm", "-rq", "specs")
+    write(repo, f"team/{TEAM}/spec.md", "# the team's own specification\n")
+    os.symlink("team", repo / "specs")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-qm", "the team's specs/ is a link")
+    monkeypatch.setattr(hook.os, "rmdir", windows_rmdir)
+    out = message(start(hook, repo))
+    assert os.path.islink(repo / "specs"), "the cleanup removed the team's link"
+    assert LEFT_UNMARKED in out, out
+    assert git(repo, "status", "--porcelain", "--", "specs").stdout == ""
 
 
 @pytest.mark.parametrize("readme", ["README.md", "README.ko.md"])

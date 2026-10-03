@@ -312,6 +312,41 @@ def test_the_report_stops_claiming_one_at_a_time_above_a_ratio_of_one(tmp_path):
     assert "most turns send a single call" in out
 
 
+def test_a_plain_reading_printed_at_the_advisory_is_not_flagged(tmp_path):
+    """Round 2's 🟡 8, round 1's 🟡 1 in the plain reading. 241 calls over
+    201 turns is 1.199, which prints as 1.20. The advisory sits below 1.2, so
+    a batching line printing 1.20 contradicts the rule that printed it, and
+    the `nothing obvious` line went missing beside it.
+
+    Comparing the printed figure moves the verdict only for a ratio in
+    [1.195, 1.2), so every reading outside that band reads as it did and
+    stays comparable with the readings published since 0.9.4."""
+    lines = []
+    for i in range(40):
+        lines += [
+            message(
+                i * 10,
+                [use(f"d{i}a", f"ls a{i}"), use(f"d{i}b", f"ls b{i}")],
+                message_id=f"md{i}",
+            ),
+            result(i * 10 + 1, f"d{i}a"),
+            result(i * 10 + 2, f"d{i}b"),
+        ]
+    for i in range(161):
+        second = 400 + i * 10
+        lines += [
+            message(second, [use(f"s{i}", f"cat f{i}")], message_id=f"ms{i}"),
+            result(second + 1, f"s{i}"),
+        ]
+    path = tmp_path / "p.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    data = json.loads(run(["--json", str(path)]).stdout)
+    assert (data["calls"], data["call_turns"]) == (241, 201), data
+    out = run([str(path)]).stdout
+    assert "batching" not in out, out
+    assert "nothing obvious" in out, out
+
+
 def test_a_transcript_with_no_tool_calls_says_so(tmp_path):
     path = tmp_path / "e.jsonl"
     path.write_text("{}\n")
@@ -2600,6 +2635,65 @@ def test_a_delegated_column_of_seconds_says_which_of_two_things_it_is(
     assert "never reaches a minute" not in covered, covered
 
 
+def delegated_cells(out):
+    """The `delegated` column's cells, read by the header's own right edge.
+
+    The column is right-aligned under its header, so a cell ends where the
+    word `delegated` does. Reading by position rather than by splitting keeps
+    a row label with a space in it from moving the cell, and it is the cell a
+    reader sees beside the note rather than any `0.9m` elsewhere on the line."""
+    lines = out.splitlines()
+    header = next(line for line in lines if line.startswith("  row "))
+    end = header.index("delegated") + len("delegated")
+    rows = lines[lines.index(header) + 1 :]
+    cells = []
+    for line in rows:
+        if not line.strip():
+            break
+        if line.endswith("no call in this window"):
+            continue
+        cell = line[end - 11 : end].strip()
+        if cell and cell != "—":
+            cells.append(cell)
+    return cells
+
+
+def test_the_delegated_note_follows_the_minute_the_column_prints(tmp_path):
+    """The note is a sentence about the `delegated` column, so it decides on
+    the value the column prints: `minutes`, to one place of minutes.
+
+    Compared raw against 60, a spawn paired in 59.6 s printed `1.0m` in the
+    column and, under it, *never reaches a minute here — 60s at most* (#701;
+    #640's round 3, 🟡 10). That is the cause #640 fixed twice for the
+    tools-per-turn ratio, on a duration.
+
+    Both edges of the band, and the cell asserted beside the note at each, so
+    the case ties the decision to what the column prints rather than to the
+    number 60: if the column's unit ever changes, the 57.0 s half is what
+    goes red. 57.0 s is the band's floor — `57 / 60` sits just under 0.95 in
+    binary, so the column prints `0.9m` there and `1.0m` a millisecond
+    above."""
+    over = spawn("A", 0, 59.6, "specseal:smith") + call("a", 80, 85, "git status")
+    path = tmp_path / "over.jsonl"
+    path.write_text("\n".join(over) + "\n")
+    out = run(["--spawns", str(path)]).stdout
+    assert delegated_cells(out) == ["1.0m"], out
+    assert "never reaches a minute" not in out, out
+    assert "60s at most" not in out, out
+    data = json.loads(run(["--json", str(path)]).stdout)
+    delegated = [
+        r["numbers"]["delegated_s"] for r in data["spawns"]["rows"] if r["numbers"]
+    ]
+    assert 59.6 in delegated, delegated
+
+    floor = spawn("A", 0, 57.0, "specseal:smith") + call("a", 80, 85, "git status")
+    path = tmp_path / "floor.jsonl"
+    path.write_text("\n".join(floor) + "\n")
+    out = run(["--spawns", str(path)]).stdout
+    assert delegated_cells(out) == ["0.9m"], out
+    assert "`delegated` never reaches a minute here — 57s at most" in out, out
+
+
 def test_the_delegated_wait_is_in_no_column_of_any_row(tmp_path):
     """Where the agent's wall clock actually goes, on the ACCEPTED harness.
 
@@ -3132,6 +3226,303 @@ def test_no_existing_printed_line_moves_when_the_mode_is_not_asked_for(
     spawns = run(["--spawns", str(run_with_segments)]).stdout
     assert "named by nobody" not in spawns, spawns
     assert "2 spawns found" in spawns, spawns
+
+
+# --- the grade: each row against its kind's bar (#640) ----------------------
+#
+# The bars are `docs/review-handoff-protocol.md`'s, per segment kind, and until
+# #640 they were nowhere on the page that prints the ratio they judge. A row's
+# kind is the `subagent_type` of the spawn it was joined to, so `--segments`
+# can grade where the plain reading cannot: a lone transcript carries no kind.
+
+
+def batched(start, sizes, prefix):
+    """A segment's own file whose turns send `sizes[i]` calls each.
+
+    One message per turn, its calls sharing the message id, which is how
+    `load` tells a turn that sent three calls from three turns. Each turn's
+    results arrive a second after it, and the next turn starts five seconds
+    on, so the ratio is `sum(sizes) / len(sizes)` exactly."""
+    lines = []
+    for index, size in enumerate(sizes):
+        second = start + 5 * index
+        uids = [f"{prefix}{index}-{n}" for n in range(size)]
+        lines.append(
+            spend(
+                second,
+                output=1,
+                message_id=f"{prefix}-m{index}",
+                blocks=[use(uid, f"cat docs/{uid}.md") for uid in uids],
+            )
+        )
+        lines += [plain_result(second + 1, uid) for uid in uids]
+    return lines
+
+
+def graded_run(tmp_path, segments):
+    """A run whose spawns each open one segment file of the given turn sizes.
+
+    `segments` is `[(subagent_type, sizes), ...]`; spawn `i` is made at
+    `25 + 1000 * i` and its result lands 600 seconds later, which is where
+    that segment's own file opens."""
+    main = call("a", 0, 10, "git status --short")
+    files = {}
+    for index, (agent, sizes) in enumerate(segments):
+        made = 25 + 1000 * index
+        main += spawn(f"S{index}", made, made + 600, agent, f"segment {index}")
+        files[f"agent-{index}.jsonl"] = batched(made + 600, sizes, f"g{index}")
+    return write_run(tmp_path, main, files)
+
+
+def grade_lines(out):
+    """The page's per-row grade lines, each flattened to single spaces."""
+    return [
+        " ".join(line.split())
+        for line in out.splitlines()
+        if "tools per turn against the" in line
+    ]
+
+
+# 15 calls over 14 turns, 1.07; three single calls, 1.00.
+UNDER_WARDEN = [1] * 13 + [2]
+SINGLES = [1, 1, 1]
+
+
+def test_a_warden_row_under_its_bar_is_named_with_the_bar(tmp_path):
+    """S4. The ratio, the kind's bar and the protocol's name for the kind, on
+    one line a reader can post. The prefixed name and the bare one are one
+    kind, so a framer spawned as `framer` is graded the way
+    `specseal:framer` would be."""
+    out = segment_report(
+        graded_run(tmp_path, [("specseal:warden", UNDER_WARDEN), ("framer", SINGLES)])
+    )
+    assert grade_lines(out) == [
+        "specseal:warden 1.07 tools per turn against the reviewing bar of 1.8",
+        "framer 1.00 tools per turn against the framing bar of 1.4",
+    ], out
+    flat_out = " ".join(out.split())
+    assert "every graded row meets its kind's bar" not in flat_out, flat_out
+    assert "2 graded, 0 exempt, 0 ungraded" in flat_out, flat_out
+
+
+def test_a_framer_row_under_its_bar_is_named(tmp_path):
+    """S5. 4 calls over 3 turns is 1.33, under the framing bar of 1.4 and
+    over the plain reading's 1.2 -- so this row is one only the grade names."""
+    out = segment_report(graded_run(tmp_path, [("specseal:framer", [2, 1, 1])]))
+    assert grade_lines(out) == [
+        "specseal:framer 1.33 tools per turn against the framing bar of 1.4"
+    ], out
+
+
+def test_a_smith_row_is_never_graded_and_the_page_says_why(tmp_path):
+    """S6. An edit-test loop is serial, and the protocol judges it on
+    `repeats = 0` and never on tools per turn. A smith at the floor beside a
+    warden under its bar: the warden is named and the smiths are not.
+
+    Two smiths, one of them bare, because with one smith and one warden the
+    mutation pass found that counting the WARDEN as exempt instead gives the
+    same three numbers."""
+    out = segment_report(
+        graded_run(
+            tmp_path,
+            [
+                ("specseal:smith", SINGLES),
+                ("smith", SINGLES),
+                ("specseal:warden", UNDER_WARDEN),
+            ],
+        )
+    )
+    lines = grade_lines(out)
+    assert not any("smith" in line for line in lines), lines
+    assert len(lines) == 1, lines
+    flat_out = " ".join(out.split())
+    assert "1 graded, 2 exempt, 0 ungraded" in flat_out, flat_out
+    assert (
+        "A smith row is exempt: an edit-test loop is serial, and the protocol "
+        "judges it on `repeats = 0` rather than on this ratio." in flat_out
+    ), flat_out
+
+
+def test_a_row_at_its_bar_is_silent_and_the_counts_print(tmp_path):
+    """S7. Exactly at the bar is meeting it: 9 calls over 5 turns is 1.8 and
+    7 over 5 is 1.4, both exact in binary arithmetic. A grade that read the
+    bar as a floor to clear rather than to reach names both."""
+    out = segment_report(
+        graded_run(
+            tmp_path,
+            [
+                ("specseal:warden", [2, 2, 2, 2, 1]),
+                ("specseal:framer", [2, 1, 2, 1, 1]),
+            ],
+        )
+    )
+    assert grade_lines(out) == [], out
+    flat_out = " ".join(out.split())
+    assert "every graded row meets its kind's bar" in flat_out, flat_out
+    assert "2 graded, 0 exempt, 0 ungraded" in flat_out, flat_out
+
+
+def test_a_row_printed_at_its_bar_meets_it(tmp_path):
+    """Round 1's 🟡 1. 79 calls over 44 turns is 1.7955 and 67 over 48 is
+    1.3958: the table prints both as 1.80 and 1.40, so a line naming either
+    under 1.8 or 1.4 contradicts the row printed above it. The grade compares
+    the figure a reader sees."""
+    out = segment_report(
+        graded_run(
+            tmp_path,
+            [
+                ("specseal:warden", [2] * 35 + [1] * 9),
+                ("specseal:framer", [2] * 19 + [1] * 29),
+            ],
+        )
+    )
+    assert re.search(r"specseal:warden\s+\S+\s+79\s+1\.80\s", out), out
+    assert re.search(r"specseal:framer\s+\S+\s+67\s+1\.40\s", out), out
+    assert grade_lines(out) == [], out
+    assert "every graded row meets its kind's bar" in " ".join(out.split()), out
+
+
+def test_a_row_with_no_kind_is_counted_as_ungraded(tmp_path):
+    """S8. A kind the table does not know, and a row the parent could not
+    name. Neither is named under a bar, the warden beside them still is, and
+    the ungraded count holds both -- the counted silence rather than the
+    silent one."""
+    path = graded_run(
+        tmp_path, [("specseal:scribe", SINGLES), ("specseal:warden", UNDER_WARDEN)]
+    )
+    deep = tmp_path / "main" / "subagents" / "inner" / "agent-deep.jsonl"
+    deep.parent.mkdir(parents=True)
+    deep.write_text("\n".join(batched(5000, SINGLES, "d")) + "\n")
+    out = segment_report(path)
+    assert grade_lines(out) == [
+        "specseal:warden 1.07 tools per turn against the reviewing bar of 1.8"
+    ], out
+    flat_out = " ".join(out.split())
+    assert "1 graded, 0 exempt, 2 ungraded" in flat_out, flat_out
+    assert "a kind not listed, a row no spawn named" in flat_out, flat_out
+    rows = segments_of(path)["rows"]
+    assert [(row["kind"], row["bar"]) for row in rows] == [
+        ("scribe", None),
+        ("warden", 1.8),
+        ("", None),
+    ], rows
+
+
+def test_a_row_with_no_paired_call_is_ungraded(tmp_path):
+    """S8, the fourth shape. A warden segment that read and thought and
+    called nothing has a kind and a bar and no ratio, so there is nothing to
+    hold against the bar; it is counted as ungraded, never as meeting it."""
+    main = call("a", 0, 10, "git status --short") + spawn(
+        "W", 25, 625, "specseal:warden", "Review round 1"
+    )
+    path = write_run(
+        tmp_path, main, {"agent-w.jsonl": [spend(625, output=5, message_id="t")]}
+    )
+    out = segment_report(path)
+    assert "no paired call" in out, out
+    assert grade_lines(out) == [], out
+    flat_out = " ".join(out.split())
+    assert "0 graded, 0 exempt, 1 ungraded" in flat_out, flat_out
+    assert "no row here has a bar to be graded against" in flat_out, flat_out
+    # Round 1's ⬜ 5. This row HAS a bar; the counts sentence listed a
+    # segment that made no call among the rows with none.
+    assert (
+        "A row with no bar — a kind not listed, a row no spawn named — is "
+        "ungraded, and so is a graded kind's segment that made no call." in flat_out
+    ), flat_out
+    assert [(r["kind"], r["bar"]) for r in segments_of(path)["rows"]] == [
+        ("warden", 1.8)
+    ]
+
+
+def test_an_own_files_rows_are_ungraded(resumed_segment):
+    """S8, the third shape. An agent's own file was joined to no spawn, so no
+    row of it has a kind, and the page grades none while saying so."""
+    out = segment_report(own_file(resumed_segment))
+    assert grade_lines(out) == [], out
+    flat_out = " ".join(out.split())
+    assert "no row here has a bar to be graded against" in flat_out, flat_out
+    assert "0 graded, 0 exempt, 2 ungraded" in flat_out, flat_out
+    assert "every graded row meets" not in flat_out, flat_out
+
+
+def test_the_grade_carries_the_protocols_caveats(run_with_segments):
+    """S9. One case per sentence, each seen red with that sentence deleted.
+    A bar printed without them reads as a threshold the round failed."""
+    flat_out = " ".join(segment_report(run_with_segments).split())
+    assert (
+        "The bar is a lens for rounds of ordinary size and never a refusal "
+        "threshold, so this page refuses nothing and exits 0." in flat_out
+    ), flat_out
+    assert "A small round has few independent batches to rise on." in flat_out, flat_out
+    assert (
+        "A warden's verifying round is exempt by the protocol, and this page "
+        "cannot tell one from a finding round, so a reader applies that "
+        "exemption by hand." in flat_out
+    ), flat_out
+
+
+def test_the_grade_sits_between_the_table_and_the_section_six_block(
+    segment_that_spawned,
+):
+    """Spec I5: under the table and before the §6 block, so the grade reads
+    against the rows just above it."""
+    out = segment_report(segment_that_spawned)
+    table = out.index("t/turn")
+    grade = out.index("Tools per turn against each kind's bar")
+    breach = out.index("§6 — an agent spawned another agent")
+    assert table < grade < breach, out
+
+
+def test_the_plain_reading_and_spawns_carry_no_grade(tmp_path):
+    """S10. The grade is the segments page's alone. The plain reading of the
+    same run keeps its own advisory and gains nothing, and `--spawns` gains
+    nothing."""
+    path = graded_run(tmp_path, [("specseal:warden", UNDER_WARDEN)])
+    for args in ([str(path)], ["--spawns", str(path)]):
+        out = run(args).stdout
+        assert "against each kind's bar" not in out, (args, out)
+        assert "tools per turn against the" not in out, (args, out)
+
+
+def test_every_json_row_carries_its_kind_and_bar(tmp_path):
+    """S11. Two keys added and nothing else moved: `kind` is the basename,
+    `bar` the number or null. The page's named rows are exactly the rows
+    with a bar and a ratio under it."""
+    path = graded_run(
+        tmp_path,
+        [
+            ("specseal:smith", SINGLES),
+            ("warden", UNDER_WARDEN),
+            ("specseal:framer", [2, 2]),
+        ],
+    )
+    rows = segments_of(path)["rows"]
+    assert [(row["kind"], row["bar"]) for row in rows] == [
+        ("smith", None),
+        ("warden", 1.8),
+        ("framer", 1.4),
+    ], rows
+    for row in rows:
+        assert {
+            "agent",
+            "description",
+            "named",
+            "transcript",
+            "slice",
+            "slices",
+            "idle_gap_s",
+            "spawns",
+            "numbers",
+            "tokens",
+        } < set(row), row
+    under = [
+        row["agent"]
+        for row in rows
+        if row["bar"] is not None
+        and round(row["numbers"]["tools_per_turn"], 2) < row["bar"]
+    ]
+    assert [line.split()[0] for line in grade_lines(segment_report(path))] == under
 
 
 # --- the resume slice: one row is one segment, not one file ----------------
@@ -3779,7 +4170,10 @@ def test_either_route_prints_the_same_slices(resumed_segment):
     the spawn that names it."""
 
     def numbers(rows):
-        labels = ("agent", "description", "named", "transcript")
+        # `kind` and `bar` are labels too (#640): derived from `agent`, so
+        # the own file's rows carry `""` and None where the walk's carry the
+        # spawn's kind, for the same reason `agent` differs.
+        labels = ("agent", "description", "named", "transcript", "kind", "bar")
         return [{k: v for k, v in row.items() if k not in labels} for row in rows]
 
     walked = segments_of(resumed_segment)["rows"]

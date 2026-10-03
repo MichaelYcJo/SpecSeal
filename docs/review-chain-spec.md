@@ -852,15 +852,18 @@ more than one place, and the copies nobody touched come back as the next
 round's finding. This is the check that names them.
 
 <!-- specs/1788873640-a-corrected-sentence-survives-elsewhere-and-nothing-looks -->
-**`survivor-check --range <a>..<b>` reports every place in the tree still
-carrying wording the range removed**, naming the path, the surviving sentence
-and the corrected sentence it matched. It is run by the party whose range it
-is about — the fix pass, and the implementer's verify phase — because nothing
-downstream can run it for somebody else's range. A survivor that is a
-deliberate carrier is exempted by a content-anchored row in the work item's
-own `seal/specs/<id>/survivors.md`, so the exemption stops holding the moment
-that text changes.
-Enforced by: tests/test_a_corrected_sentence_survives_elsewhere.py::test_a_reworded_sentence_reports_the_pin_it_left_behind, tests/test_a_corrected_sentence_survives_elsewhere.py::test_the_report_names_the_sentence_that_was_corrected_too
+**`survivor-check --range <a>..<b>` reports every place in the tree outside
+the reference roots still carrying wording the range removed**, naming the
+path, the surviving sentence and the corrected sentence it matched. It is run
+by the party whose range it is about — the fix pass, and the implementer's
+verify phase — because nothing downstream can run it for somebody else's
+range. A survivor that is a deliberate carrier is exempted by a
+content-anchored row in the work item's own `seal/specs/<id>/survivors.md`, so
+the exemption stops holding the moment that text changes. A reference root —
+a project's own `specs/`, named by `seal/config.md`'s `Reference specs` row —
+is a document the plugin never wrote, so it is neither a place a correction
+was owed nor a source of one (#688).
+Enforced by: tests/test_a_corrected_sentence_survives_elsewhere.py::test_a_reworded_sentence_reports_the_pin_it_left_behind, tests/test_a_corrected_sentence_survives_elsewhere.py::test_the_report_names_the_sentence_that_was_corrected_too, tests/test_a_corrected_sentence_survives_elsewhere.py::test_a_team_specs_document_carrying_the_wording_is_not_a_survivor, tests/test_a_corrected_sentence_survives_elsewhere.py::test_a_team_specs_document_the_range_edited_is_not_a_source
 
 <!-- specs/1788912166-red-for-following-the-documents-green-for-ignoring-one -->
 **A range that removes a shipped section whole takes one row for the range

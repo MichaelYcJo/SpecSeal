@@ -78,12 +78,16 @@ and a branch that changes the gate used to be measured by the copy that
 predates the change (#475). Now, where the repository being gated ships
 `skills/verify/scripts/broad_gate.py` and it is not the running file, the
 gate hands the run to that copy with the same arguments and says so on
-stderr; every run prints one line naming the copy that ran, and the stamp
-carries a `gate` row — `tree <version>` means the branch was measured by the
-gate it ships, `plugin <version>` that the installed copy measured it. Quote
-the gate line in your report the way you quote the moved-base line: it is
-not a warning and not a refusal, and it is the one place a reader learns
-which gate measured the tree and wrote the stamp's values.
+stderr; every run prints one line naming the copy that ran, `tree <version>`
+or `plugin <version>`. The stamp carries a `gate` row only where the copy
+that ran is not byte for byte the copy you invoked, or where nothing told
+it which copy you invoked — the tree's copy run directly, or an installed
+copy older than #666: `tree <version>` there means the branch was measured
+by the gate it ships, and a stamp with no `gate` row was measured by the
+copy you invoked (#666). Quote the gate line
+in your report the way you quote the moved-base line: it is not a warning
+and not a refusal, and it is the one place a reader learns which gate
+measured the tree and wrote the stamp's values.
 
 **On a release pull request the gate may leave two arms out, and it says so
 on one line.** Where the base names `main` and the repository's
@@ -91,21 +95,33 @@ on one line.** Where the base names `main` and the repository's
 `corrections` arms, because CI skips both steps there (#473). Quote that line
 in your report when it appears, the way you quote the moved-base line. The
 panel has no row for either arm, so the line is the one place a reader learns
-that two arms did not run.
+that two arms did not run. On any base the `CI also` count leaves out the
+steps CI does not run for the base — on a release pull request those two, on
+any other the four that run only on a pull request into `main` — and the
+line beside the command says how many it left out and why (#666).
 
 **The gate does not fetch, so a remote-tracking ref is only as fresh as the
 last fetch.** That is a limit and not a defect: an unattended run may have no
 credentials, and a check that moves refs to make itself pass is a different
-problem. What the panel gives a reader is the ref beside the commit, so the
+problem. What the panel gives a reader is the ref under the commit, so the
 freshness is a question somebody can ask.
 
 Three outcomes, and they are not two:
 
 - **Exit 0, sealed** — every check passed and the cell was written. The gate
-  printed one line beginning `SEALED`, naming the tree, the base commit every
-  check was asked about, and the file the stamp's values were written to. The
-  stamp itself, whose panel carries `base` beside `from` (the ref that commit
-  came from), is drawn later and not by you.
+  printed one line beginning `SEALED`, naming the branch and the tree, the
+  ref and the base commit every check was asked about, and the file the
+  stamp's values were written to. Under it, one more line says the `Broad
+  gate` cell is written and not committed, and that CI reads the record at
+  HEAD: pass it on beside the `SEALED` line, because the commit it asks for
+  is the orchestrator's and the pull request is not ready without it. The
+  stamp itself is drawn later and not by you. Its panel names the branch
+  under `tree`, and the row under `base` carries the ref that commit came
+  from; a name too long for a row is elided with `...`, never cut. Its
+  `rounds` row reads `<R> . capped` where the last record's `Needs a fix`
+  still says `yes` over a closed table — the run ended at the cap — and the
+  row beneath it counts the findings closed `deferred` and names their
+  homes.
 - **Exit 1, not sealed** — a check failed. The gate printed which, its exit
   code, its first lines, and, per failing test file, `new` or `failing on
   base too`. No stamp is drawn, on purpose: a picture saying *sealed* beside

@@ -1847,6 +1847,10 @@ def measure_segments(path, calls):
             },
         )
         reading["own_file"] = True
+    # #640. Every row carries its kind and its bar, in both branches above,
+    # so the page grades from the same rows `--json` prints.
+    for row in reading["rows"]:
+        row.update(segment_kind(row["agent"]))
     return reading
 
 
@@ -2095,7 +2099,14 @@ def report(data):
             f"already produced"
             + (f" ({minutes(exact)} of it identical)" if exact > 0 else "")
         )
-    if data["tools_per_turn"] < 1.2:
+    # Compared at the two places the ratio is printed to, as `report_grades`
+    # does (#640, round 2's 🟡 8): unrounded, 241 calls over 201 turns (1.199)
+    # printed `batching 1.20 tools per turn` under an advisory the protocol
+    # states as below 1.2, and the `nothing obvious` line went missing beside
+    # it. The verdict moves only for a ratio in [1.195, 1.2), so every reading
+    # outside that band reads as it did and stays comparable with the readings
+    # published since 0.9.4.
+    if round(data["tools_per_turn"], 2) < 1.2:
         # Above 1 the one-at-a-time claim is one the number no longer
         # supports — and under per-block counting it never could rise to
         # contradict it, which is how the claim printed on five straight runs.
@@ -2127,7 +2138,7 @@ def report(data):
             f"  context            {growth[0]:,} → {growth[2]:,} input tokens; "
             f"later calls cost more than the same call would have earlier"
         )
-    if same <= 0 and data["tools_per_turn"] >= 1.2:
+    if same <= 0 and round(data["tools_per_turn"], 2) >= 1.2:
         print("  nothing obvious — the command time is the command's own cost")
 
 
@@ -2205,7 +2216,13 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
     delegated_max = max(
         (row["numbers"]["delegated_s"] for row in rows if row["numbers"]), default=0.0
     )
-    if delegated_max < 60:
+    # Compared at what the `delegated` column prints, `minutes` to one place,
+    # so the note never says a minute is not reached beside a `1.0m` cell
+    # (#701). Raw against 60, a spawn paired in 59.6 s printed `1.0m` above
+    # *never reaches a minute here — 60s at most*: the cause #640 fixed twice
+    # for the tools-per-turn ratio, on a duration. The note's presence moves
+    # only for a maximum in (57.0, 60) seconds, so it prints at most `57s`.
+    if round(delegated_max / 60, 1) < 1.0:
         print(
             f"\n  `delegated` never reaches a minute here — {delegated_max:.0f}s at "
             "most — so on this\n  harness the `Agent` result is written when the "
@@ -2327,6 +2344,38 @@ def report_spawns(spawns, path, total_calls, run_span=0.0):
 # that have to agree is a column that goes ragged the day one of them moves.
 LABEL_WIDTH = 30
 
+# #640. Each segment kind's bar on tools per turn, keyed by the basename of
+# the spawn's `subagent_type` after its last `:`, so `specseal:warden` and
+# `warden` are one kind. The values are `docs/review-handoff-protocol.md`
+# §*After the run — the per-segment bars*: the protocol's name for the kind,
+# and its bar, or None where the protocol exempts the kind from this ratio.
+#
+# Constants rather than read from the protocol at run time, because this
+# script runs from the installed plugin in repositories that have no such
+# document. `tests/test_the_handoff_before_round_one.py` reads both files and
+# turns red when one moves alone.
+#
+# A kind missing from the table has no bar and is UNGRADED, which is not the
+# same as exempt: `sealer` and `scribe` have no measured band, and a number
+# nobody produced is not one to grade them against. The page counts them.
+SEGMENT_BARS = {
+    "warden": ("reviewing", 1.8),
+    "framer": ("framing", 1.4),
+    "smith": ("implementing", None),
+}
+
+
+def segment_kind(agent):
+    """A segment's kind and bar, as the two keys every segment row carries.
+
+    `kind` is `""` where no spawn named the row, and `bar` is None for an
+    exempt kind and for a kind the table does not know alike. The page tells
+    those two apart through `SEGMENT_BARS`; a program holding only `--json`
+    cannot, because the table is this script's and not the reading's."""
+    kind = agent.rsplit(":", 1)[-1]
+    _, bar = SEGMENT_BARS.get(kind, ("", None))
+    return {"kind": kind, "bar": bar}
+
 
 def segment_label(row):
     """A segment's name in the printed table.
@@ -2443,6 +2492,75 @@ def report_breaches(segments):
         "it. Where the counts\n  part, a child's transcript is missing or a "
         "segment is unnamed for the other\n  reason, and nothing here can tell "
         "which; both numbers print so a reader can."
+    )
+
+
+def report_grades(rows):
+    """#640: each row against its kind's bar, under the table.
+
+    **The bars were policy and nowhere on the page that prints the ratio
+    they judge.** `docs/review-handoff-protocol.md` holds one per segment
+    kind, and the one advisory this script printed was the plain reading's
+    blanket `< 1.2` — which reads 1.00 on every well-behaved implementer
+    forever, so nobody acted on it (#197). A segment row knows its kind,
+    because it was joined to a spawn, so this page can do what the plain
+    reading cannot.
+
+    **A line per row under its bar, and the counts always.** At the bar is
+    meeting it, and the ratio compared is the one printed, to two places, in
+    the table above and on the line: compared unrounded, 79 calls over 44
+    turns (1.7955) printed `1.80 tools per turn against the reviewing bar of
+    1.8`, a line contradicting the row above it (round 1's 🟡 1). Every
+    count prints even when nothing is under, which is `report_segments`' own
+    rule: a grade that silently matched nothing reads exactly like a run
+    whose rows all met their bars. Exempt and ungraded are counted apart,
+    because one is the protocol's judgment and the other is a kind nobody has
+    measured a band for.
+
+    It refuses nothing and the exit code stays 0. The bar is a lens, and a
+    grade that failed a run would be the refusal threshold the protocol says
+    it never is."""
+    graded = [row for row in rows if row["bar"] is not None and row["numbers"]]
+    under = [
+        row for row in graded if round(row["numbers"]["tools_per_turn"], 2) < row["bar"]
+    ]
+    exempt = [
+        row
+        for row in rows
+        if row["kind"] in SEGMENT_BARS and SEGMENT_BARS[row["kind"]][1] is None
+    ]
+    ungraded = len(rows) - len(graded) - len(exempt)
+    print("\n  Tools per turn against each kind's bar")
+    for row in under:
+        name, bar = SEGMENT_BARS[row["kind"]]
+        print(
+            f"    {segment_label(row).strip()}  "
+            f"{row['numbers']['tools_per_turn']:.2f} tools per turn against the "
+            f"{name} bar of {bar:g}"
+        )
+    if not graded:
+        print("    no row here has a bar to be graded against")
+    elif not under:
+        print("    every graded row meets its kind's bar")
+    known = " and ".join(
+        f"{kind} {bar:g} ({name})"
+        for kind, (name, bar) in SEGMENT_BARS.items()
+        if bar is not None
+    )
+    print(
+        f"\n  {len(graded)} graded, {len(exempt)} exempt, {ungraded} ungraded.\n"
+        f"  The bars are {known}. A smith row is\n  exempt: an edit-test loop is "
+        "serial, and the protocol judges it on `repeats = 0`\n  rather than on "
+        "this ratio. A row with no bar — a kind not listed, a row no spawn\n  "
+        "named — is ungraded, and so is a graded kind's segment that made no "
+        "call."
+    )
+    print(
+        "\n  The bar is a lens for rounds of ordinary size and never a refusal "
+        "threshold, so\n  this page refuses nothing and exits 0. A small round "
+        "has few independent batches\n  to rise on. A warden's verifying round "
+        "is exempt by the protocol, and this page\n  cannot tell one from a "
+        "finding round, so a reader applies that exemption by hand."
     )
 
 
@@ -2598,6 +2716,7 @@ def report_segments(segments, path):
             f"{numbers['gap_mean_s']:>6.0f}s"
             f"{spent:>14}"
         )
+    report_grades(rows)
     report_breaches(segments)
     # A column that looks summable and is not is #200's failure shape in a
     # new place, so the page says which of the two it is rather than leaving

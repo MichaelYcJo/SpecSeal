@@ -45,6 +45,8 @@ consent, *So the creation is judged between the ladder's two halves*.
 | **Agent/Task**, no consent, any tree state | ask — the agent runs beside this session, so the call is concurrent by construction. No session is counted, no choice site is reached, and declining cancels the spawn. See below |
 
 Every row between the consent row and the Agent/Task row is the Bash path's.
+They are decided before the command runs in every clone, one carrying this
+plugin's git hooks included (§*Creation consent*, *Decided before git runs*).
 
 #### Why the Agent path counts nothing, asks once, and reads no token
 
@@ -371,6 +373,32 @@ With consent, a creation written as one segment of a compound gets no allow,
 and neither does one carrying an expansion, a redirection, a wrapper or a **path-qualified command word**, because that is exactly what the bound above refuses to speak for. The guard is silent there, so what each one costs is whatever the user's own permission settings ask. The last of those is what round 2's second fix added to the list, and it moves nothing in the budget: `git worktree add …`, the same backgrounded, and the `\git` spelling all still allow.
 Enforced by: tests/test_the_guard_asks_once_per_session.py::test_the_first_creation_is_still_a_question, tests/test_the_guard_asks_once_per_session.py::test_a_second_creation_in_the_same_session_is_allowed, tests/test_the_guard_asks_once_per_session.py::test_the_measured_automation_run_is_not_stopped, tests/test_the_guard_asks_once_per_session.py::test_a_result_not_linked_to_an_ask_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_automation_on_another_question_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_an_answer_given_in_another_clone_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_the_labels_match_the_routing_question_the_orchestrator_asks, tests/test_the_guard_asks_once_per_session.py::test_a_typed_answer_that_qualifies_the_preset_is_not_consent, tests/test_the_guard_asks_once_per_session.py::test_a_shape_the_reader_did_not_expect_keeps_the_guards_deny, tests/test_the_guard_asks_once_per_session.py::test_a_switch_written_after_a_creation_is_judged, tests/test_the_guard_asks_once_per_session.py::test_the_order_of_a_switch_and_a_creation_does_not_decide, tests/test_the_guard_asks_once_per_session.py::test_a_command_with_both_is_never_weaker_than_either_alone, tests/test_the_guard_asks_once_per_session.py::test_the_command_word_class_is_what_the_allow_covers, tests/test_the_guard_asks_once_per_session.py::test_the_guard_is_never_silent_where_the_writer_records
 
+### Decided before git runs (#692)
+
+<!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
+**A worktree creation is decided before git runs, in every clone, one
+carrying this plugin's git hooks included.**
+#692 first moved this decision into `post-checkout`, after git had made the
+creation, and took a refused one back. Round 1 of its review found what a
+take-back cannot undo. `git worktree add -B <existing>` resets that branch
+before any hook runs. `--no-checkout` and `--orphan` run no `post-checkout` at
+all. A `--lock`ed tree survives one `git worktree remove --force`. And a Bash
+creation that named `.claude/worktrees/` was kept and bought the session's
+consent. The owner's answer was the switch arm's (`seal/specs/1790815613-…/
+questions.md` P6, answer (a)): the rows of §B decide before the command runs,
+through the frozen reading §*Which tree* describes, and this plugin installs
+no `post-checkout`. So a creation that reading cannot follow is judged as
+0.16.0 judged it, with that release's known limits.
+Enforced by: tests/test_a_creation_is_judged_before_git_runs.py::test_a_refused_dash_capital_b_leaves_the_branch_where_it_was, tests/test_a_creation_is_judged_before_git_runs.py::test_a_creation_git_runs_no_undo_for_is_refused_before_it, tests/test_a_creation_is_judged_before_git_runs.py::test_a_bash_creation_under_the_harness_path_buys_no_consent, tests/test_a_creation_is_judged_before_git_runs.py::test_no_git_hook_judges_a_creation, tests/test_the_hook_surface_git_offers.py::test_what_a_take_back_cannot_undo
+
+<!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
+**A creation the guard lets through is recorded as before, from the command
+that ran.**
+The PostToolUse writer above files the record in every clone, so the budget
+is the one this section states, and `[worktree-ok]` is read from the command
+by the guard itself, never carried to a git hook.
+Enforced by: tests/test_a_creation_is_judged_before_git_runs.py::test_an_answered_creation_runs_and_the_record_follows_it, tests/test_a_creation_is_judged_before_git_runs.py::test_the_old_token_puts_the_creation_to_the_person_before_it_runs
+
 ## Choice sites
 
 A hook decision renders as approve/decline and the model never gets the turn,
@@ -582,9 +610,18 @@ redirection or behind zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or
 `foreach i (…)` is not git to this guard, so it says nothing there
 (§*Creation consent*'s command-word groups). Round 2 of work item 1790660768
 made the guard read the first and #674 the second, and #689 took both back as
-the accepted cost. The commit gate still reads both. #692, the redesign of how
-the gates learn where a command acts, decides the guard's reading again, and
-deletes the frozen copy.
+the accepted cost. The commit gate's own reading, kept for a clone whose hooks
+slot is foreign, reads both.
+
+#692, the redesign of how the gates learn where a command acts, decided this
+reading on the owner's answers of 2026-10-01, and it stays. No git refuses a
+branch switch before its tree has moved (`seal/specs/1790815613-…/phases/
+phase-1.md`, M1), so §A keeps this reading on every git, permanently. A
+creation keeps it too, because a hook after git made one cannot undo all of
+what it did (§*Creation consent*, *Decided before git runs*).
+`tests/test_the_frozen_reading_never_grows.py` pins `hooks/cmdline_base.py`
+below its rider to `86256492:hooks/cmdline.py`, so a rule added to it has to
+delete that case first.
 `tests/test_guard_resolves_the_tree_it_judges.py` holds the base's answers.
 
 The advice follows the same tree. A command a reason tells the person to run —
@@ -617,12 +654,22 @@ at one prompt against a wrong allow breaking another session's tree.
 
 ## Known limits
 
+- Neither a switch nor a creation is judged by git. No git refuses a switch
+  before its tree has moved (M1), and a hook after a creation cannot undo all
+  of it (P6), so §A and §B predict from the command's text on every git,
+  through the frozen reading §*Which tree* describes.
 - A switch into the worktree the same command creates is judged against the
   session's own tree: `git worktree add ../x -b x && cd ../x && git switch y`
   meets that tree's switch verdict, because `../x` does not exist yet when the
   guard runs and §*Which tree* falls back. `git -C ../x switch y` is the
   spelling that avoids the stop — it names no repository yet, so only the
   creation is judged.
+- On Windows the count of other sessions is always unusable. It walks the
+  process table with `ps -o` and `ps -axo`, and Git for Windows' `ps` takes
+  neither, so every tree state there reads as *detection unusable* and takes
+  that row of §A and §B. A second Bash creation in one session therefore
+  meets the confirmation where a POSIX system's single-stream row refuses it
+  (#692's Windows pass, CI run 36978391812).
 - Transcript activity is per-project, not per-pid: one working session marks
   every session of that project active. Conservative by design.
 - tty atime also refreshes on in-turn stdin reads (a session listening for
