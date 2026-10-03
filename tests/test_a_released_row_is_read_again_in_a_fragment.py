@@ -1141,3 +1141,40 @@ def test_a_released_row_corrected_once_is_not_named(repo):
         ],
     )
     assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_a_first_cell_that_also_ends_another_cell_still_gets_a_citation(repo):
+    """R2's last cell is `see R1 · handler adds one`, so every prefix of R1's
+    first cell and its closing-pipe tail stand on R2's line too. The cell
+    whole, after the row's leading pipe, begins no other line, and names R1
+    alone (round 1, ⬜ 9)."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    r1, _ = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |",
+            f"| R2 · other doubles | `src/service.py#other@{o}` | read | 2026-01-01 | see R1 · handler adds one |",
+        ],
+    )
+    path = repo / "seal" / "releases" / "0.1.0.md"
+    number = path.read_text().splitlines().index(r1) + 1
+    cite = ec.citation_for(str(repo), str(path), number)
+    assert cite is not None
+    m = ec.ANCHOR_RE.fullmatch(cite)
+    assert m is not None, cite
+    files = {}
+
+    def load(p):
+        ident = ec.file_identity(p)
+        body = ec.read(p)
+        files[ident] = (
+            p,
+            body,
+            ec.gfm_lines(ec.unquoted(body)),
+            {n: (hd, c) for n, hd, c in ec.ledger_table_rows(body)},
+        )
+        return ident, files[ident]
+
+    status, _, target = ec.cited_row(m, "Re-read", str(repo), {}, None, load)
+    assert (status, target[1]) == ("OK", number), cite

@@ -2183,6 +2183,14 @@ def unique_literal(lines, region, number, cell):
         hits = literal_statements(lines, region, tail + " |")
         if len(hits) == 1 and hits[0][0] == number:
             return tail + " |"
+    # The cell whole, with the row's leading pipe: a first cell begins its
+    # line, and no other cell does, so this names the row even where the
+    # whole cell also ends another row's last cell (round 1, ⬜ 9).
+    whole = "| " + " ".join(cell.split()) + " |"
+    if not LITERAL_STOP_RE.search(whole[2:-2]):
+        hits = literal_statements(lines, region, whole)
+        if len(hits) == 1 and hits[0][0] == number:
+            return whole
     return None
 
 
