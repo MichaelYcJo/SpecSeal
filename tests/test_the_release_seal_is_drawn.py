@@ -900,3 +900,6 @@ def test_the_checklist_box_says_where_a_missing_seal_is_explained():
     assert "That job never fails the release." in box
     assert "`DRY_RUN=1 python3 .github/scripts/release_seal.py`" in box
     assert "`gh release upload`" in box
+    # Round 1's ⬜ 8: the route draws from the tag's tree and ends at the edit.
+    assert "from a checkout at the tag" in box
+    assert "then apply the note it prints with `gh release edit --notes-file`" in box

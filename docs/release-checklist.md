@@ -340,9 +340,11 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
       table, the `seal` job's log says why on a `::warning::` line: the
       suite at the tag did not pass, a `gh` call failed, or the note was
       edited before the job reached it. That job never fails the release.
-      To draw one by hand, run `DRY_RUN=1 python3 .github/scripts/release_seal.py`
-      with `TAG`, `REPO` and `SUITE_XML` set, then attach the PNG it names
-      with `gh release upload`.
+      To draw one by hand, from a checkout at the tag, run
+      `DRY_RUN=1 python3 .github/scripts/release_seal.py` with `TAG`,
+      `REPO` and `SUITE_XML` set; attach the PNG it names with
+      `gh release upload`, then apply the note it prints with
+      `gh release edit --notes-file`.
 - [ ] **The plugin directory's answer has been read** —
       `python3 .github/scripts/plugin_directory_check.py`. It says, per
       directory, whether this plugin is listed, which commit the entry pins,
