@@ -122,18 +122,26 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 # module's docstring for the 496 executions per hook event it cost.
 #
 # This guard reads through `hooks/cmdline_base.py`, the reader frozen at
-# `86256492`, and never through `cmdline.py` (#689): the splitter, `parse_git`,
+# `86256492`, and never chooses a segment or a tree through `cmdline.py` (#689;
+# the one question it asks that module is below): the splitter, `parse_git`,
 # `adds_a_worktree`, the walk and `Unresolved` all come from there, so what it
 # recognises and where it judges are the release base's by construction. The
 # name `cmdline` is kept so the rest of this file reads as it did.
 # `worktree_consent` imports the same module, so the two share one `Unresolved`.
-# The commit gate's wider reader, under a name of its own so the binding above
-# keeps meaning the frozen one. It is asked only whether it agrees with the
-# frozen reading (`unplaced_switch`, `wider_only_kinds`); it never takes the
-# first slot and never picks the tree (#689).
-import cmdline as wide
 import cmdline_base as cmdline
 import console
+
+# The commit gate's wider reader, under a name of its own so the binding above
+# keeps meaning the frozen one. It is asked one question, `wider_only_kinds`:
+# what does it find that the frozen reading does not. It never takes the first
+# slot and never picks the tree (#689). The import is guarded because this
+# guard's own rows do not need it: a broken `hooks/cmdline.py` must not take
+# the ACTIVE deny down with the commit gate, so it costs only the question that
+# reading adds (#678), and the commit gate's own failure still names the module.
+try:
+    import cmdline as wide
+except Exception:
+    wide = None
 
 # The AFTER half of this guard: it owns the consent record, and this file reads
 # it. A plain filename again -- and the reason that file's name carries an
@@ -270,7 +278,8 @@ def walk_command(command: str, cwd: str, windows=None):
     new command. The cost is that a `cd` behind a redirection (`2>/dev/null
     cd W`) does not move the tree judged here, and a git behind one
     (`2>/dev/null git switch x`) is not read as git, both as at `86256492`,
-    while the commit gate reads both.
+    while the commit gate reads both. Since #678 the second is put to the
+    person (`wider_only_kinds`); the first stays a known limit (#686).
     """
     items, _clean = _tokenize_with_separators(_judgment_text(command), windows)
     return cmdline.walk_directories(items, cwd)
@@ -282,8 +291,9 @@ def switch_kind(parsed):
 
     `classify` answers the same question against a tree: a `checkout` of a
     path that exists, or of a name that is no ref, is not a switch there. This
-    reads no tree, so every `checkout` with a name in it counts, which is the
-    upper bound `questions.md` D3 asks of the count in phase 3.
+    reads no tree, so every `checkout` with a name in it counts: the upper
+    bound phase 3 of work item 1790993140 counted with (`questions.md` D3). A
+    `switch -c` needs no test of its own, because `-c` always takes a name.
     """
     if not parsed:
         return None
@@ -292,7 +302,7 @@ def switch_kind(parsed):
         positionals = [a for a in args if not a.startswith("-")]
         return "creation" if positionals[:1] == ["add"] else None
     if sub == "switch":
-        if any(a in ("-c", "-C") or a == "-" or not a.startswith("-") for a in args):
+        if any(a == "-" or not a.startswith("-") for a in args):
             return "switch"
         return None
     if sub == "checkout":
@@ -303,57 +313,6 @@ def switch_kind(parsed):
         if any(a == "-" or (not a.startswith("-") and a != ".") for a in args):
             return "switch"
     return None
-
-
-def _wider_walk(command: str, cwd: str):
-    """`hooks/cmdline.py`'s walk of COMMAND: a second opinion, never the tree."""
-    text = wide.drop_heredoc_bodies(wide.drop_comments(command))
-    items, _clean = wide.split_segments_with_separators(text)
-    return wide.walk_directories(items, cwd)
-
-
-def _places(wheres):
-    """WHERES as comparable values: each directory, and whether it is unknown."""
-    return {(str(w), type(w).__name__ == "Unresolved") for w in wheres}
-
-
-def unplaced_switch(command: str, cwd: str, chosen=None) -> bool:
-    """Candidate A of #686: the switch is judged on a tree nobody could place.
-
-    True when the switch-kind segment the guard judges has an `Unresolved`
-    among its directories in the frozen walk -- which `judgeable` turns into
-    the session's own -- or when `hooks/cmdline.py`'s walk gives that segment
-    a directory the frozen walk does not (`noglob cd w`, `2>&1 cd w`, both
-    confident to the frozen reader). It never returns a tree: the wider walk
-    is asked whether it agrees, and the frozen walk still picks (#689).
-
-    CHOSEN is the token list `main` judged. Without it, the first segment
-    `switch_kind` reads as a switch stands in, which is what phase 3's probe
-    counts. The two splitters can cut a command differently; where the
-    judged segment has no twin with the same words in the wider walk, the
-    answer is True, so a mismatch is a counted stop rather than a silence
-    (`questions.md` W1).
-    """
-    frozen = walk_command(command, cwd)
-    at = None
-    for i, (tokens, _wheres) in enumerate(frozen):
-        if chosen is not None:
-            if tokens == chosen:
-                at = i
-                break
-        elif switch_kind(parse_git(tokens)) == "switch":
-            at = i
-            break
-    if at is None:
-        return False
-    tokens, wheres = frozen[at]
-    if any(isinstance(w, cmdline.Unresolved) for w in wheres):
-        return True
-    nth = sum(1 for t, _w in frozen[:at] if t == tokens)
-    twins = [w for t, w in _wider_walk(command, cwd) if t == tokens]
-    if len(twins) <= nth:
-        return True
-    return bool(_places(twins[nth]) - _places(wheres))
 
 
 def wider_only_kinds(command: str, cwd: str) -> set:
@@ -367,7 +326,13 @@ def wider_only_kinds(command: str, cwd: str) -> set:
     glued to a word's end, each read by its `parse_git`, as the commit gate
     reads them. A kind the frozen reading already found keeps its slot and
     its verdict, so this never reports it (round 1 of 1790745049, red 1).
+
+    Wired by phase 4 of work item 1790993140, because it fired on none of the
+    27,351 recorded command and directory pairs phase 3 counted. Where the
+    wider reader failed to load, it finds nothing, which is the base's answer.
     """
+    if wide is None:
+        return set()
     found = {
         switch_kind(parse_git(tokens)) for tokens, _wheres in walk_command(command, cwd)
     }
@@ -379,6 +344,51 @@ def wider_only_kinds(command: str, cwd: str) -> set:
         for tokens in [*views, *filter(None, map(wide.unglued, views))]
     }
     return {k for k in wider - found if k}
+
+
+def ask_what_only_the_wider_reading_finds(kinds, cwd, session_id, transcript_path):
+    """Put KINDS -- what only the wider reading found -- to the person (#678).
+
+    Asked only where this guard was about to say nothing, so every deny,
+    choice and ask the frozen reading earns still decides first. A creation
+    reads consent first, exactly as `guard_worktree_creation` does, and is
+    silent under it, as at the base (`questions.md` D10): under `automation`
+    the consent is the person's own press. Returns when nothing is left to ask.
+    """
+    if "creation" in kinds:
+        top = repo_paths(cwd)[0] or cwd
+        if worktree_consent.consent(top, session_id, transcript_path):
+            kinds = kinds - {"creation"}
+    if not kinds:
+        return
+    en, ko = [], []
+    if "switch" in kinds:
+        en.append("switches a branch")
+        ko.append("브랜치 전환")
+    if "creation" in kinds:
+        en.append("creates a worktree")
+        ko.append("worktree 생성")
+    respond(
+        "ask",
+        tr(
+            f"This command {' and '.join(en)} in a shape this guard does not "
+            "read: a git behind a redirection (`2>/dev/null git …`, `git 2>&1 "
+            "…`), behind zsh's `noglob`, `nocorrect`, `repeat N`, `for i (…)` or "
+            "`foreach i (…)`, or after a spaced `--config-env`. So it could not "
+            "check which tree that runs in or whether another session is working "
+            "there. Confirm to proceed, or re-issue it as a plain `git switch …` "
+            "or `git worktree add …` (with `git -C <dir>` for another tree), "
+            "which it reads.",
+            f"이 명령의 {'·'.join(ko)}은 이 guard 가 읽지 않는 모양으로 적혀 "
+            "있습니다. 리다이렉션 뒤의 git(`2>/dev/null git …`, `git 2>&1 …`), "
+            "zsh 의 `noglob`·`nocorrect`·`repeat N`·`for i (…)`·`foreach i (…)` "
+            "뒤의 git, 또는 값을 띄어 쓴 `--config-env` 뒤의 git 입니다. "
+            "그래서 어느 트리에서 실행되는지, 다른 세션이 그 트리에서 작업 중인지 "
+            "확인하지 못했습니다. 진행하려면 확인해 주세요. 아니면 이 guard 가 "
+            "읽는 평범한 `git switch …` 나 `git worktree add …` (다른 트리라면 "
+            "`git -C <dir>`) 로 다시 실행하세요.",
+        ),
+    )
 
 
 # RIDER: no production caller reaches this any more. `main` reads the command
@@ -2224,8 +2234,22 @@ def main():
         if switch_reason is not None and creation_at is not None:
             break
     reason = switch_reason or ("worktree-add" if creation_at is not None else None)
-    if not reason:
+
+    # #678's guard half, wired because it fired on none of the recorded runs
+    # (phase 3 of work item 1790993140). Each silent exit below asks first
+    # about a kind only the commit gate's wider reading finds -- a git behind
+    # a redirection or a zsh prefix, or after a spaced `--config-env` -- that
+    # the frozen reading did not find. It never reaches a row that speaks, so
+    # the frozen findings keep their slots and their verdicts. What the loop
+    # found, `wider_only_kinds` already leaves out: `classify` finds a subset
+    # of what `switch_kind` reads from the same frozen segments.
+    def quiet():
+        hidden = wider_only_kinds(command, cwd)
+        ask_what_only_the_wider_reading_finds(hidden, cwd, session_id, transcript_path)
         sys.exit(0)
+
+    if not reason:
+        quiet()
     eff_cwd = switch_at if switch_reason else creation_at
 
     top, wt_root = repo_paths(eff_cwd)
@@ -2248,11 +2272,11 @@ def main():
             judge_creation(
                 command, cwd, repo_paths(creation_at)[0], session_id, transcript_path
             )
-        sys.exit(0)
+        quiet()
 
     if reason == "worktree-add":
         judge_creation(command, cwd, top, session_id, transcript_path)
-        sys.exit(0)
+        quiet()
 
     active, idle, reliable = sessions_in_tree(top, session_id)
     # The command word for every command this ladder hands back: `-C <top>`
@@ -2531,7 +2555,7 @@ def main():
         )
 
     # 4) 단건 + clean -> 워크트리 없이 그냥 전환.
-    sys.exit(0)
+    quiet()
 
 
 if __name__ == "__main__":

@@ -802,14 +802,17 @@ def test_a_segment_only_the_reading_past_redirections_finds_is_not_git_to_the_gu
 ):
     """#689. `2>/dev/null nice -n 5 git switch` is git only to the reading
     past redirections (#674). The guard reads through `86256492`'s frozen
-    reader, which finds no git there, so it is silent, as at `86256492`,
-    while bash switches `w`. That is the accepted cost of reading as the base
-    read, the same one a `cd` behind a redirection pays.
+    reader, which finds no git there, so it judges no tree, while bash
+    switches `w`. That is the accepted cost of reading as the base read, the
+    same one a `cd` behind a redirection pays.
 
     Changed by round 1 of 1790745049 rather than deleted. It asserted `ask`
     about `w`, which the build's `base_directories` gave by placing the
-    segment where the wider reading unplaced it; `86256492` gives `silent`,
-    and that is the answer now."""
+    segment where the wider reading unplaced it; `86256492` gives `silent`.
+
+    Changed again by phase 4 of 1790993140 (#678's guard half). The frozen
+    reader still judges no tree (`top` stays None), and the guard now puts the
+    switch it could not read to the person instead of passing it silently."""
     session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
     decision, reason, top = run(
         monkeypatch,
@@ -817,7 +820,7 @@ def test_a_segment_only_the_reading_past_redirections_finds_is_not_git_to_the_gu
         "cd w && 2>/dev/null nice -n 5 git switch feature/x",
         session,
     )
-    assert decision == "silent", (decision, reason)
+    assert decision == "ask", (decision, reason)
     assert top is None, top
 
 
@@ -883,10 +886,14 @@ ZSH_PREFIXED = (
 def test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer(
     monkeypatch, capsys, repo, tmp_path, shape
 ):
-    """Round 1 of 1790745049, yellow 2. The guard is silent over an ACTIVE
-    session, and the consent writer files nothing, as at `86256492`. At
-    `4bc94f05` the guard judged the session's tree and denied, and the writer
-    filed the creation under the session's clone."""
+    """Round 1 of 1790745049, yellow 2. The guard does not judge the tree,
+    and the consent writer files nothing, as at `86256492`. At `4bc94f05` the
+    guard judged the session's tree and denied, and the writer filed the
+    creation under the session's clone.
+
+    Changed by phase 4 of 1790993140 (#678's guard half): it asserted
+    `silent` over the ACTIVE session; the guard now asks about the switch it
+    could not read, without judging any tree. The writer's half is unchanged."""
     session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
     active = [(111, str(session / "w"), 1.0, 0.5, "VS Code")]
     decision, reason, _ = run(
@@ -896,23 +903,25 @@ def test_a_zsh_prefixed_git_is_not_git_to_the_guard_or_the_consent_writer(
         session,
         sessions=(active, [], True),
     )
-    assert decision == "silent", (shape, decision, reason)
+    assert decision == "ask", (shape, decision, reason)
     acted = wg.worktree_consent.creation_directory(
         shape.format(verb="worktree add ../wt"), str(session)
     )
     assert acted == "", (shape, acted)
 
 
-# --- #686 and #678's guard half: the two candidates, unwired ---------------
+# --- #686 and #678's guard half, decided by a count ------------------------
 #
-# Built in phase 2 of work item 1790993140 and counted in phase 3 over the
-# recorded runs; phase 4 wires each or removes it by that count (the owner's
-# rule of 2026-10-03). These cases pin what each function answers on its own.
+# Both were built in phase 2 of work item 1790993140 and counted in phase 3
+# over the recorded runs; phase 4 wired or removed each by that count, under
+# the owner's rule of 2026-10-03. #686's ask fired on 9 recorded pairs and was
+# removed, so its fallback is a known limit. #678's fired on none and is wired.
 
 SWITCH = "git switch feature/x"
 
 # #686's seven: a `cd` the frozen walk cannot follow, or follows confidently
-# to the wrong place, before the switch.
+# to the wrong place, before the switch. bash switches the dirty `w`; the
+# guard judges the clean session tree and says nothing.
 UNPLACED = {
     "builtin cd": f"builtin cd w && {SWITCH}",
     "command cd": f"command cd w && {SWITCH}",
@@ -923,33 +932,18 @@ UNPLACED = {
     "2>&1 cd": f"2>&1 cd w && {SWITCH}",
 }
 
-PLACED = {
-    "a plain cd": f"cd w && {SWITCH}",
-    "git -C": "git -C w switch feature/x",
-    "a plain switch": SWITCH,
-    "a cd to nowhere, then ;": "cd /no/such/dir ; git switch x",
-}
-
 
 @pytest.mark.parametrize("name", sorted(UNPLACED))
-def test_candidate_a_fires_where_the_switch_tree_is_unplaced(tmp_path, name):
-    (tmp_path / "w").mkdir()
-    assert wg.unplaced_switch(UNPLACED[name], str(tmp_path)), name
-
-
-@pytest.mark.parametrize("name", sorted(PLACED))
-def test_candidate_a_is_quiet_where_the_switch_tree_is_placed(tmp_path, name):
-    (tmp_path / "w").mkdir()
-    assert not wg.unplaced_switch(PLACED[name], str(tmp_path)), name
-
-
-def test_candidate_a_judges_the_segment_main_chose(tmp_path):
-    """`chosen` names the segment; a later unplaced one is not it."""
-    (tmp_path / "w").mkdir()
-    command = f"{SWITCH}; noglob cd w && git switch y"
-    chosen = ["git", "switch", "feature/x"]
-    assert not wg.unplaced_switch(command, str(tmp_path), chosen)
-    assert wg.unplaced_switch(command, str(tmp_path), ["git", "switch", "y"])
+def test_a_switch_tree_the_guard_cannot_place_is_judged_as_its_own(
+    monkeypatch, capsys, repo, tmp_path, name
+):
+    """`docs/worktree-guard-spec.md` §*Known limits*: asking here would have
+    stopped 9 of the 27,351 recorded command and directory pairs, so the
+    fallback stays (phase 3 of work item 1790993140). Seen red against a
+    mutant whose last silent exit asks."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, _ = run(monkeypatch, capsys, UNPLACED[name], session)
+    assert decision == "silent", (name, decision, reason)
 
 
 WIDER_ONLY = {
@@ -984,13 +978,56 @@ def test_candidate_c_reports_nothing_the_frozen_reading_found(tmp_path, command)
     assert wg.wider_only_kinds(command, str(tmp_path)) == set(), command
 
 
-def test_candidate_a_answers_true_where_the_judged_segment_has_no_twin(
-    monkeypatch, tmp_path
+@pytest.mark.parametrize("name", sorted(WIDER_ONLY))
+def test_what_only_the_wider_reading_finds_is_put_to_the_person(
+    monkeypatch, capsys, repo, tmp_path, name
 ):
-    """`questions.md` W1: a segment the wider splitter cut differently costs a
-    counted stop, never a silence."""
-    monkeypatch.setattr(wg, "_wider_walk", lambda command, cwd: [])
-    assert wg.unplaced_switch(SWITCH, str(tmp_path))
+    """#678's guard half, wired. Each was silent at `233f0455`, and seen red
+    against a mutant whose silent exits skip the question."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    command, kind = WIDER_ONLY[name]
+    decision, reason, top = run(monkeypatch, capsys, command, session)
+    assert decision == "ask", (name, decision, reason)
+    assert "does not read" in reason, reason
+    assert ("switches a branch" in reason) == (kind == "switch"), reason
+    assert ("creates a worktree" in reason) == (kind == "creation"), reason
+    assert top is None, top
+
+
+@pytest.mark.parametrize(
+    "name", sorted(k for k, (_c, kind) in WIDER_ONLY.items() if kind == "creation")
+)
+def test_a_creation_only_the_wider_reading_finds_is_silent_under_consent(
+    monkeypatch, capsys, repo, tmp_path, name
+):
+    """`questions.md` D10: consent is read first, as for every creation."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    assert wg.worktree_consent.record(str(session), "me")
+    decision, reason, _ = run(monkeypatch, capsys, WIDER_ONLY[name][0], session)
+    assert decision == "silent", (name, decision, reason)
+
+
+def test_the_question_names_both_kinds_and_says_it_in_korean(
+    monkeypatch, capsys, repo, tmp_path
+):
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    command = "2>/dev/null git switch x; git 2>&1 worktree add ../wt b"
+    _, reason, _ = run(monkeypatch, capsys, command, session)
+    assert "switches a branch and creates a worktree" in reason, reason
+    monkeypatch.setattr(wg, "LANG", "ko")
+    _, reason, _ = run(monkeypatch, capsys, command, session)
+    assert "브랜치 전환·worktree 생성은 이 guard 가 읽지 않는 모양" in reason, reason
+
+
+def test_a_broken_wider_reader_costs_only_the_question(
+    monkeypatch, capsys, repo, tmp_path
+):
+    """Where `hooks/cmdline.py` failed to load, the guard keeps its own rows
+    and asks nothing it could not read, as at the base."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    monkeypatch.setattr(wg, "wide", None)
+    decision, _, _ = run(monkeypatch, capsys, "git --config-env k=v switch x", session)
+    assert decision == "silent"
 
 
 KINDS = {
