@@ -1054,3 +1054,37 @@ def test_into_re_reads_a_revert_a_folded_newer_reading_outranks(repo):
     assert out.returncode == 0, out.stdout + out.stderr
     assert f"`src/service.py#handler@{h1}`" in (repo / INTO).read_text()
     assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_a_moved_released_row_is_told_its_correction_carries_every_coordinate(
+    repo,
+):
+    """A `Corrected ·` row supersedes the whole released row, so one that
+    re-points only the moved coordinate stops the rest being checked. The
+    repair `--into` prints, and the commit advisor's, say the correction
+    carries every coordinate the claim still rests on (round 1, 🟡 3)."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    released(
+        repo,
+        [
+            f"| R1 · handler and other agree | `src/service.py#handler@{h}`, "
+            f"`src/service.py#other@{o}` | read | 2026-01-01 | |"
+        ],
+    )
+    frozen(repo)
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("def handler", "def handle2")
+    )
+    out = run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
+    assert out.returncode == 1, out.stdout
+    assert "carries every other coordinate the claim still rests on" in out.stdout, (
+        out.stdout
+    )
+    spec = importlib.util.spec_from_file_location(
+        "specseal_evidence_advisor_repair",
+        os.path.join(ROOT, "hooks", "evidence-advisor.py"),
+    )
+    advisor = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(advisor)
+    assert "every coordinate the claim still rests on" in advisor.FROZEN_REPAIR

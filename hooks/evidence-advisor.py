@@ -28,8 +28,8 @@ provable:
 Where `seal/config.md` declares `Ledger frozen from` (#715), `--reverify`
 writes no released ledger file, so that last line says instead that a
 released row is re-pointed or retired by a `Corrected ·` row in the branch's
-own fragment, and that drift is re-read with `--reverify --into`
-(`FROZEN_REPAIR`).
+own fragment, which carries every coordinate the claim still rests on, and
+that drift is re-read with `--reverify --into` (`FROZEN_REPAIR`).
 
 **Silent when clean, silent when the repository has no ledger, silent outside
 opted-in repositories.** A line that prints on every commit is a line people
@@ -126,6 +126,8 @@ FROZEN_REPAIR = (
     "`bin/evidence-check --reverify .` re-anchors what it can prove in the "
     "fragments; a released file is not edited after its release, so a released "
     "row is re-pointed or retired by a `Corrected ·` row in your own fragment, "
+    "which carries every coordinate the claim still rests on, the moved one at "
+    "its new place, because a coordinate it leaves out is not checked again; "
     "and drift is re-read with `--reverify --into seal/ledger/<work-item-id>.md "
     "--checked YYYY-MM-DD` (docs/the-evidence-ledger.md)."
 )

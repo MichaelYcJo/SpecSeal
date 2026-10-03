@@ -124,7 +124,10 @@ row it left. The `Checked` column holds the date somebody read the code, and
 every such row was re-read, so read each row citing a drifted coordinate
 first, or narrow the write with `--ledger` to the files you read. A released
 row whose anchor moved is not cleared by a re-read, because the family is
-keyed on the coordinate, and a `Corrected ·` row re-points it.
+keyed on the coordinate, and a `Corrected ·` row re-points it. That row
+supersedes the whole released row, so it carries every coordinate the claim
+still rests on, the moved one at its new place: a coordinate it leaves out is
+not checked again.
 
 **`correction-check` holds a pull request to the freeze.** A range that adds
 a work item at or above the cutoff, or adds none, may not change

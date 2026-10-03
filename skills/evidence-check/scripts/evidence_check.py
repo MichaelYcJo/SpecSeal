@@ -3254,7 +3254,10 @@ def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
             (
                 at,
                 f"{coord} BROKEN — {detail}; a re-read cannot clear it, so a "
-                "`Corrected ·` row in your own fragment re-points or retires it",
+                "`Corrected ·` row in your own fragment re-points or retires it — "
+                "and carries every other coordinate the claim still rests on, "
+                "because the correction supersedes the whole row and a "
+                "coordinate it leaves out is not checked again",
             )
         )
     if rows:
