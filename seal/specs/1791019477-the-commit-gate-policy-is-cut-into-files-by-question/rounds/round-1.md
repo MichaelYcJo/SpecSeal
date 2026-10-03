@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 744 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `8410e123f4465cebf3b209c0bba304debe9b63a3..35a6d822e4539c5a9c7d6ff52154f6ddaa2e70c3`, 3 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1, the record layout's F1 says the `Over the ceiling` row goes away while the row stays at `none`. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,9 +31,9 @@ The 9 rows #742 re-stamps were named as expected.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | the record layout's F1, marked built, still says the `Over the ceiling` row goes away; the row stays and reads `none` (D8), and the next split reading this policy turns half of `fold-check` off | `docs/the-record-layout.md:177` | open | read: `seal/config.md` row `Over the ceiling` is `none`; `docs/the-evidence-ledger.md:305-309` says the entry went; D8 says why an absent row is a different state |
-| ⬜ 2 | ledger row C1 says seven base lines changed and each now cites a file and section; base 153 differs too (re-wrapped), and 91, 199, 273, 274 name no section | `seal/ledger/1791019477-the-commit-gate-policy-is-cut-into-files-by-question.md` (C1) | open | executed: the S1 probe found base 153 changed beside 152; read: the seven lines as they stand. A record, so a correction |
-| ⬜ 3 | three re-pointed locators cite the parent by path alone, not D5's file-and-section shape, and no divergence row records it | `docs/the-commit-gate-inside-git.md:176` | open | read: lines 176, 251, 252 against D5 and line 128; `overview.md` has no row for it. Behaviour and facts are right |
+| 🟡 1 | the record layout's F1, marked built, still says the `Over the ceiling` row goes away; the row stays and reads `none` (D8), and the next split reading this policy turns half of `fold-check` off | `docs/the-record-layout.md:177` | **fixed** `ac858e6c` | fixed at ac858e6c; read: `seal/config.md` row `Over the ceiling` is `none`; `docs/the-evidence-ledger.md:305-309` says the entry went; D8 says why an absent row is a different state |
+| ⬜ 2 | ledger row C1 says seven base lines changed and each now cites a file and section; base 153 differs too (re-wrapped), and 91, 199, 273, 274 name no section | `seal/ledger/1791019477-the-commit-gate-policy-is-cut-into-files-by-question.md` (C1) | answered | corrected at `e92f01c3`; executed: the S1 probe found base 153 changed beside 152; read: the seven lines as they stand. A record, so a correction |
+| ⬜ 3 | three re-pointed locators cite the parent by path alone, not D5's file-and-section shape, and no divergence row records it | `docs/the-commit-gate-inside-git.md:176` | answered | corrected at `35a6d822`; read: lines 176, 251, 252 against D5 and line 128; `overview.md` has no row for it. Behaviour and facts are right |
 | 🟢 | the moved spans equal the base except the three preambles, base 91, 152–153, 199, 273, 274, 283, 284 | `docs/the-commit-gate-inside-git.md`, `docs/the-review-and-parity-arms.md`, `docs/commit-review-gate-spec.md` | confirmed | executed: `difflib` probe against `git show 2b1dcb1f:docs/commit-review-gate-spec.md` |
 | 🟢 | no other positional or italic reference crosses the cut | the three files | confirmed | executed: a wider word list over the base by part, and an italic-to-heading and italic-to-bold probe across the three files |
 | 🟢 | every `§*…*` citation of a heading in the three files names the file holding it, in docs, hooks, skills, READMEs and tests | live tree | confirmed | executed: resolver probe, 21 citations, 17 resolved, 4 are worktree-guard's own heading; `git grep` of the moved headings' words |

@@ -138,7 +138,7 @@ told to remove the row, and the check stops holding every document to the
 ceiling without anything going red.
 
 The fix states what was built. It edits a unit this item's C5 row anchors
-(`docs/the-record-layout.md#"## What is decided and not built yet"@adc3fe12`),
+(`docs/the-record-layout.md` §*What is decided and not built yet*, as it stood at `e2f5270f`),
 so C5 is re-stamped in place in the same commit. The removed sentence also
 stands in work item 1790993138's `spec.md:116`, which records the decision as
 it was made, so survivor-check will name it; exempt it in `survivors.md`.
