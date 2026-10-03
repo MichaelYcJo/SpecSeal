@@ -57,6 +57,16 @@ Usage:
                                           was re-read: read each row citing a
                                           drifted coordinate first, or narrow
                                           the write with --ledger
+  evidence_check.py --reverify --into FRAGMENT --checked YYYY-MM-DD [ROOT]
+                                          re-stamp the fragments in place, and
+                                          write one `Re-read ·` row into
+                                          FRAGMENT for every released row
+                                          with a drifted coordinate; no
+                                          released file is written. Where
+                                          seal/config.md declares `Ledger
+                                          frozen from`, `--reverify` without
+                                          `--into` writes no released file and
+                                          names each row it left
 
 --map resolves cross-repo coordinates (e.g. a migration's original repo):
   a coordinate `legacy-api/src/service.py#handler@a1b2c3d` with
@@ -94,6 +104,7 @@ import stat
 import subprocess
 import sys
 import tempfile
+import types
 
 # `--help` ends with the docstring's last section. Partitioned rather than
 # indexed, so an interpreter run with `-OO`, where a module has no docstring,
@@ -2220,9 +2231,19 @@ def citation_for(root, path, number, body=None):
     return f'{rel}#"{escaped}">{claim}@{digest}'
 
 
-def ledger_families(paths, root, maps, default_repo=None, scan_cache=None):
-    """`{file identity: (owned line numbers, findings)}` for the rows of
-    PATHS that cite a released row or are cited by one.
+def family_view(paths, root, maps, default_repo=None, scan_cache=None):
+    """The families of PATHS, as a namespace `ledger_families` and
+    `reverify_into` both read:
+
+      out        `{file identity: (owned line numbers, findings)}`
+      files      `{file identity: (path, body, unquoted lines, rows)}` for
+                 every file read, None where it could not be
+      families   `{root row: [member rows]}`, a row being `(identity, line)`
+      superseded the roots a `Corrected ·` row supersedes
+      readings   `{root row: {coordinate: [(row, match, status, detail)]}}`,
+                 every code coordinate on a member's line, graded alone
+
+    `out` is the rows of PATHS that cite a released row or are cited by one.
 
     Those rows are read here and nowhere else: `check_ledger` blanks the
     owned lines before its own walk, and adds these findings to its own.
@@ -2363,6 +2384,7 @@ def ledger_families(paths, root, maps, default_repo=None, scan_cache=None):
             memo[index] = classify(m, root, maps, default_repo, scan_cache)
         return memo[index]
 
+    readings = {}
     for top, members in families.items():
         if top in superseded:
             continue
@@ -2373,16 +2395,15 @@ def ledger_families(paths, root, maps, default_repo=None, scan_cache=None):
                 if cite is not None and m.span() == cite.span():
                     continue
                 status, coord, detail = grade(m)
-                by_coord.setdefault(coord, []).append(
-                    (key, m.group("hash"), status, detail)
-                )
-        for coord, readings in by_coord.items():
-            held = [r for r in readings if r[2] == "OK"]
+                by_coord.setdefault(coord, []).append((key, m, status, detail))
+        readings[top] = by_coord
+        for coord, graded in by_coord.items():
+            held = [r for r in graded if r[2] == "OK"]
             seen = set()
-            for key, want, status, detail in readings:
-                if (key, want) in seen:
+            for key, m, status, detail in graded:
+                if (key, m.group("hash")) in seen:
                     continue
-                seen.add((key, want))
+                seen.add((key, m.group("hash")))
                 if held and status != "OK":
                     detail = f"read again at {where(held[0][0])}"
                     status = "OK"
@@ -2392,7 +2413,20 @@ def ledger_families(paths, root, maps, default_repo=None, scan_cache=None):
                         "rows holds the current content"
                     )
                 emit(key, (status, coord, detail))
-    return out
+    return types.SimpleNamespace(
+        out=out,
+        files=files,
+        families=families,
+        superseded=superseded,
+        readings=readings,
+    )
+
+
+def ledger_families(paths, root, maps, default_repo=None, scan_cache=None):
+    """`{file identity: (owned line numbers, findings)}` for the rows of
+    PATHS that cite a released row or are cited by one: `family_view`'s
+    findings, which is all `check_ledger` and the commit advisor read."""
+    return family_view(paths, root, maps, default_repo, scan_cache).out
 
 
 def content_at(root, sha, rel):
@@ -2948,6 +2982,254 @@ def reverify(ledgers, root, maps, default_repo=None, checked=None):
             "— so `--checked` left it whole, hash included; give it a date cell"
         )
     return 1 if unreadable or malformed or overflow or undatable else 0
+
+
+# --- the freeze, and the citing rows a re-read writes (#715) -----------------
+#
+# `Ledger frozen from | <work-item id>` in `seal/config.md` declares that no
+# released ledger file is edited after its release. `correction-check` holds
+# a pull request to it, keyed on the id; here any value means the same thing:
+# `--reverify` writes no released file, and `--into` is where a re-read of a
+# released row goes instead. A repository without the row keeps the
+# re-stamp in place every installed copy had (spec D4, D5).
+FROZEN_ROW = "Ledger frozen from"
+CONFIG_READER = os.path.join(HERE, "..", "..", "..", "hooks", "config.py")
+CONFIG_HEADER_RE = re.compile(r"^\|\s*Item\s*\|\s*Value\s*\|\s*$")
+CONFIG_ROW_RE = re.compile(
+    r"^\|\s*(?P<item>(?:[^|\\]|\\.)*?)\s*\|\s*(?P<value>(?:[^|\\]|\\.)*?)\s*\|\s*$"
+)
+
+
+def vendored_config_rows(text):
+    """`hooks/config.py#config_rows`, for a copy with no `hooks/` beside it:
+    the `(item, value)` rows under the first `| Item | Value |` header, up to
+    the first line that is not one. It does not know fences or comments, which
+    the plugin's reader does; a vendored copy reads a CI checkout's config,
+    where the table is the file's own."""
+    found, seen = [], False
+    for line in gfm_lines(text):
+        if not seen:
+            seen = bool(CONFIG_HEADER_RE.match(line))
+            continue
+        if RULE_LINE_RE.match(line.strip()):
+            continue
+        m = CONFIG_ROW_RE.match(line)
+        if not m:
+            if found:
+                break
+            continue
+        found.append(
+            (m.group("item").replace("\\|", "|"), m.group("value").replace("\\|", "|"))
+        )
+    return found
+
+
+RULE_LINE_RE = re.compile(r"^\|[\s:|-]+\|$")
+
+
+@functools.cache
+def config_reader():
+    """`config_rows`: the one reader of `seal/config.md`,
+    `hooks/config.py#config_rows`, where this is the plugin's own copy -- told
+    apart the way `shared_reader` tells it -- and the vendored one where it is
+    not."""
+    skill = os.path.join(HERE, "..", "SKILL.md")
+    if os.path.isfile(CONFIG_READER) and os.path.isfile(skill):
+        spec = importlib.util.spec_from_file_location("specseal_config", CONFIG_READER)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module.config_rows
+    return vendored_config_rows
+
+
+def frozen_from(root):
+    """`(cutoff, refusal)`: the `Ledger frozen from` value as a whole number,
+    or None where the row is absent or empty, and a sentence where the value
+    is not a work-item id. `0` is a value: it binds every work item."""
+    path = os.path.join(seal_home(root), "config.md")
+    text = read(path)
+    if text is None:
+        return None, None
+    values = [value for item, value in config_reader()(text) if item == FROZEN_ROW]
+    if not values or not values[-1].strip():
+        return None, None
+    value = values[-1].strip()
+    if not value.isdigit():
+        return None, (
+            f"the `{FROZEN_ROW}` row of {display_name(path, root)} holds "
+            f"`{value}`, which is not a work-item id — write the epoch prefix of "
+            "the first work item the freeze binds, or `0` for every one"
+        )
+    return int(value), None
+
+
+def current_hash(m, root, maps, default_repo):
+    """What the coordinate of match M holds now, or None where it has no one
+    place to hash: gone, ambiguous, a place the declaration rule is unsure
+    of, or a minor anchor that no longer matches."""
+    repo, rel = place(root, maps, default_repo, m.group("path"))
+    if repo is None:
+        return None
+    body = read(os.path.join(repo, rel))
+    if body is None:
+        return None
+    places, resurrected = resolve_unit(rel, m.group("locator"), body)
+    if resurrected or len(places) != 1:
+        return None
+    start, end = places[0]
+    claim = m.group("claim")
+    if claim:
+        inside = minor_region(rel, body, places[0], claim)
+        if not inside:
+            return None
+        start, end = inside[0]
+    return content_hash(gfm_lines(body)[start - 1 : end])
+
+
+def released_drift(ledgers, view_paths, root, maps, default_repo):
+    """`(view, drifted, broken)` for the released files among LEDGERS.
+
+    DRIFTED is `{row: {coordinate: match}}`, one entry per row a re-read
+    owes: a released row outside every family with a drifted coordinate, and
+    the root of each family that is not superseded where no reading holds a
+    coordinate's current content and a released member's reading drifted.
+    BROKEN is `[(where, coordinate, detail)]` for the released coordinates a
+    re-read cannot clear, which take a `Corrected ·` row instead.
+    """
+    view = family_view(view_paths, root, maps, default_repo)
+    wanted = {file_identity(p) for p in ledgers if ledger_kind(root, p) == "released"}
+    drifted, broken, scan = {}, [], {}
+
+    def where(key):
+        return f"{built_name(view.files[key[0]][0], root)}:{key[1]}"
+
+    for ident in sorted(wanted, key=str):
+        entry = view.files.get(ident)
+        if not entry:
+            continue
+        owned = view.out.get(ident, (set(), []))[0]
+        for n in sorted(entry[3]):
+            if n in owned:
+                continue
+            for m in ANCHOR_RE.finditer(entry[2][n - 1]):
+                status, coord, detail = classify(m, root, maps, default_repo, scan)
+                if status == "DRIFTED":
+                    drifted.setdefault((ident, n), {}).setdefault(coord, m)
+                elif status == "BROKEN":
+                    broken.append((where((ident, n)), coord, detail))
+    for top, by_coord in view.readings.items():
+        if top[0] not in wanted:
+            continue
+        for coord, graded in by_coord.items():
+            if any(status == "OK" for _, _, status, _ in graded):
+                continue
+            for key, m, status, detail in graded:
+                if ledger_kind(root, view.files[key[0]][0]) != "released":
+                    continue
+                if status == "DRIFTED":
+                    drifted.setdefault(top, {}).setdefault(coord, m)
+                    break
+                if status == "BROKEN":
+                    broken.append((where(key), coord, detail))
+                    break
+    return view, drifted, broken
+
+
+INTO_VERIFIED = (
+    "re-read against the code at the hashes in this row, and the cited row's "
+    "claim holds"
+)
+INTO_REPAIR = (
+    "`evidence-check --reverify --into seal/ledger/<work-item-id>.md --checked "
+    "YYYY-MM-DD` writes a `Re-read ·` row for it into your own fragment"
+)
+
+
+def spanned(text):
+    """TEXT as a code span, with a fence longer than any backtick run in it."""
+    fence = "`" * (max((len(r) for r in re.findall(r"`+", text)), default=0) + 1)
+    pad = " " if fence != "`" else ""
+    return f"{fence}{pad}{text}{pad}{fence}"
+
+
+def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
+    """Write one `Re-read ·` row into INTO for every released row of LEDGERS
+    that a re-read owes (`released_drift`), and name every released row it
+    could not write; or, with INTO None, write nothing and name each such row
+    with the `--into` form. A released file is never written either way.
+
+    The row cites the released row -- the family's root, so it joins that
+    family -- and carries each drifted coordinate at its current hash, the
+    date in `Checked`, and `Re-read <date>` in Notes. One row per row, never
+    one per coordinate (spec D4). Exit 1 where a row was left, else 0.
+    """
+    view, drifted, broken = released_drift(
+        ledgers, view_paths, root, maps, default_repo
+    )
+    rows, left = [], []
+    for key in sorted(drifted, key=lambda k: (view.files[k[0]][0], k[1])):
+        path, body, lines, table = view.files[key[0]]
+        where = f"{built_name(path, root)}:{key[1]}"
+        label = row_label(table[key[1]][1])
+        if into is None:
+            n = len(drifted[key])
+            left.append(
+                (
+                    where,
+                    f"{label} — {n} drifted coordinate{'' if n == 1 else 's'}, and a "
+                    f"released file is not edited after its release; {INTO_REPAIR}",
+                )
+            )
+            continue
+        cite = citation_for(root, path, key[1], body)
+        if cite is None:
+            left.append((where, f"{label} — no citation names this row alone"))
+            continue
+        stamped = []
+        for coord, m in drifted[key].items():
+            new = current_hash(m, root, maps, default_repo)
+            if new is None:
+                left.append((where, f"{coord} — no one place to hash, so not re-read"))
+                continue
+            line = lines[key[1] - 1]
+            stamped.append(spanned(line[m.start() : m.start("hash")] + new))
+        if not stamped:
+            continue
+        rows.append(
+            (
+                where,
+                label,
+                f"| Re-read · {label.replace('|', chr(92) + '|')} | {spanned(cite)}, "
+                + ", ".join(stamped)
+                + f" | {INTO_VERIFIED} | {checked} | Re-read {checked} by "
+                "`evidence-check --reverify --into` |",
+            )
+        )
+    for at, coord, detail in broken:
+        left.append(
+            (
+                at,
+                f"{coord} BROKEN — {detail}; a re-read cannot clear it, so a "
+                "`Corrected ·` row in your own fragment re-points or retires it",
+            )
+        )
+    if rows:
+        text = read(into) or ""
+        if text and not text.endswith("\n"):
+            text += "\n"
+        start = len(gfm_lines(text)) + 1
+        os.makedirs(os.path.dirname(into), exist_ok=True)
+        write_atomic(into, text + "".join(row + "\n" for _, _, row in rows))
+        name = built_name(into, root)
+        for offset, (where, label, _) in enumerate(rows):
+            print(f"  wrote {name}:{start + offset}  Re-read · {label}  citing {where}")
+    print(
+        f"{len(rows)} citing row{'' if len(rows) == 1 else 's'} written · "
+        f"{len(left)} released row{'' if len(left) == 1 else 's'} left"
+    )
+    for where, why in left:
+        print(f"  LEFT  {where}  {why}")
+    return 1 if left else 0
 
 
 # --- the records arm: what a work item's records state about the tree -------
@@ -3916,7 +4198,30 @@ def main():
         help="with --reverify: the date you re-read the rows on, written into "
         "the date cell of every row whose hash moves",
     )
+    ap.add_argument(
+        "--into",
+        metavar="FRAGMENT",
+        help="with --reverify --checked: write a `Re-read ·` row into this "
+        "fragment (seal/ledger/<work-item-id>.md) for every released row with "
+        "a drifted coordinate, instead of editing the released file",
+    )
     args = ap.parse_args()
+
+    # `--into` dates every row it writes, so it is refused without the date
+    # and without the command it belongs to, before anything is read (#715).
+    if args.into is not None and not args.reverify:
+        sys.stderr.write(
+            "evidence_check: `--into` is where `--reverify` writes its re-reads "
+            "of released rows, and this run has no `--reverify`\n"
+        )
+        return 2
+    if args.into is not None and args.checked is None:
+        sys.stderr.write(
+            "evidence_check: `--into` writes citing rows, and a citing row with "
+            "no date is a stamp nobody read — pass `--checked YYYY-MM-DD`, the "
+            "day you re-read them\n"
+        )
+        return 2
 
     # Before anything is resolved or read, so a refused run changes no byte
     # (#387). The precedent is `rider_check.py`'s refusal of `--only` without
@@ -4002,7 +4307,47 @@ def main():
             print(f"  LEFT  {coord}  {why}")
         return 1 if left else 0
     if args.reverify:
-        return reverify(ledgers, root, maps, default_repo, args.checked)
+        cutoff, refusal = frozen_from(root)
+        if refusal:
+            sys.stderr.write(f"evidence_check: {refusal}\n")
+            return 2
+        into = None
+        if args.into is not None:
+            spelled = args.into.replace(os.sep, "/")
+            into = (
+                os.path.join(seal_home(root), spelled[len(SEAL_PREFIX) :])
+                if spelled.startswith(SEAL_PREFIX)
+                else os.path.join(root, args.into)
+            )
+            if ledger_kind(root, into) != "fragment":
+                sys.stderr.write(
+                    f"evidence_check: `--into {args.into}` is not a fragment — "
+                    "name the branch's own, seal/ledger/<work-item-id>.md; a "
+                    "released file is never written\n"
+                )
+                return 2
+        if into is None and cutoff is None:
+            return reverify(ledgers, root, maps, default_repo, args.checked)
+        # A released file is not written: the fragments are re-stamped in
+        # place as before, and then the released rows are re-read into INTO,
+        # or named where there is no INTO. The view is read after the
+        # re-stamp, so a fragment's own re-read is counted before a new row
+        # is written for the family it belongs to.
+        released = [p for p in ledgers if ledger_kind(root, p) == "released"]
+        writable = [p for p in ledgers if ledger_kind(root, p) != "released"]
+        code = reverify(writable, root, maps, default_repo, args.checked)
+        view = list(ledgers)
+        known = {file_identity(p) for p in view}
+        for extra in resolve_patterns(default_patterns(root)) + (
+            [into] if into and os.path.isfile(into) else []
+        ):
+            if file_identity(extra) not in known:
+                known.add(file_identity(extra))
+                view.append(extra)
+        written = reverify_into(
+            released, view, into, root, maps, default_repo, args.checked
+        )
+        return max(code, written)
 
     if not ledgers:
         print("no evidence ledgers found — nothing to check")

@@ -643,3 +643,266 @@ def test_a_citation_whose_literal_lands_on_prose_names_no_row(repo):
     out = run(["--strict", "."], repo)
     named = [line for line in out.stdout.splitlines() if "not a ledger row" in line]
     assert named and named[0].strip().startswith("BROKEN"), out.stdout
+
+
+# --- S5: `--reverify --into` writes the citing rows ---------------------------
+
+INTO = "seal/ledger/2000000001-a-later-item.md"
+
+
+def frozen(repo, value="1"):
+    (repo / "seal" / "config.md").write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n"
+        f"| Ledger frozen from | {value} |\n"
+    )
+
+
+def digests(repo):
+    """sha256 of every released ledger file, by path."""
+    import hashlib
+
+    found = {}
+    for path in sorted((repo / "seal").rglob("*.md")):
+        rel = path.relative_to(repo).as_posix()
+        if rel == "seal/ledger.md" or rel.startswith("seal/releases/"):
+            found[rel] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return found
+
+
+def two_drifted_rows(repo):
+    """R1 cites `handler` and `other`, R2 cites `handler`; then both units
+    change, so R1 drifts on two coordinates and R2 on one."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    rows = released(
+        repo,
+        [
+            f"| R1 · handler adds one and other doubles | `src/service.py#handler@{h}`, "
+            f"`src/service.py#other@{o}` | read | 2026-01-01 | |",
+            f"| R2 · handler returns its sum | `src/service.py#handler@{h}` | read | 2026-01-01 | |",
+        ],
+    )
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("y = x + 1", "y = x + 2").replace("x * 2", "x * 3")
+    )
+    return rows
+
+
+def test_into_writes_one_citing_row_per_drifted_row_and_no_released_byte(repo):
+    """S5. Two drifted rows, three drifted coordinates: two rows are written,
+    one per row and never one per coordinate, each carrying every drifted
+    coordinate at its current hash. Every released file is byte-identical,
+    and the tree then checks clean."""
+    frozen(repo)
+    two_drifted_rows(repo)
+    before = digests(repo)
+    out = run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert digests(repo) == before
+    written = (repo / INTO).read_text().splitlines()
+    assert len(written) == 2, written
+    assert written[0].startswith("| Re-read · R1 · handler adds one"), written[0]
+    assert written[0].count("src/service.py#") == 2, written[0]
+    assert "Re-read 2026-02-01" in written[0] and "| 2026-02-01 |" in written[0]
+    assert written[1].startswith("| Re-read · R2 · handler returns its sum"), written[1]
+    assert (
+        "seal/releases/0.1.0.md:5" in out.stdout
+        and "seal/releases/0.1.0.md:6" in out.stdout
+    )
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout
+
+
+def test_into_writes_nothing_for_a_row_its_family_already_re_read(repo):
+    """A row whose family already holds the current hash is not drifted, so
+    a second run writes no second row."""
+    frozen(repo)
+    two_drifted_rows(repo)
+    run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
+    first = (repo / INTO).read_text()
+    out = run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
+    assert out.returncode == 0, out.stdout
+    assert (repo / INTO).read_text() == first
+
+
+def test_a_frozen_reverify_without_into_writes_no_released_file(repo):
+    """S5. Under `Ledger frozen from` a plain `--reverify` still re-stamps the
+    fragments in place, leaves every released file byte-identical, and exits
+    non-zero naming each released row it left and the `--into` form."""
+    frozen(repo)
+    two_drifted_rows(repo)
+    h = unit_hash(repo, "src/service.py", "handler")
+    own = f"| F1 · handler adds two | `src/service.py#handler@{h[:-1]}0` | read | 2026-02-01 | |"
+    fragment(repo, [own])
+    before = digests(repo)
+    out = run(["--reverify", "."], repo)
+    assert out.returncode == 1, out.stdout
+    assert digests(repo) == before
+    assert f"src/service.py#handler@{h}" in (repo / INTO).read_text()
+    assert "--into" in out.stdout
+    assert (
+        "seal/releases/0.1.0.md:5" in out.stdout
+        and "seal/releases/0.1.0.md:6" in out.stdout
+    )
+
+
+def test_into_without_checked_is_refused_and_writes_nothing(repo):
+    """S5. A citing row with no date is a stamp nobody read."""
+    frozen(repo)
+    two_drifted_rows(repo)
+    out = run(["--reverify", "--into", INTO, "."], repo)
+    assert out.returncode == 2, out.stdout
+    assert "--checked" in out.stderr
+    assert not (repo / INTO).exists()
+
+
+def test_into_names_a_fragment_or_is_refused(repo):
+    """`--into` is where the branch's own rows go: a fragment, never a
+    released file."""
+    frozen(repo)
+    two_drifted_rows(repo)
+    before = digests(repo)
+    out = run(
+        [
+            "--reverify",
+            "--into",
+            "seal/releases/0.1.0.md",
+            "--checked",
+            "2026-02-01",
+            ".",
+        ],
+        repo,
+    )
+    assert out.returncode == 2, out.stdout
+    assert "fragment" in out.stderr
+    assert digests(repo) == before
+
+
+def test_without_the_row_reverify_re_stamps_in_place_as_before(repo):
+    """S5. A repository that does not declare the freeze keeps the behaviour
+    every installed copy had."""
+    two_drifted_rows(repo)
+    before = digests(repo)
+    out = run(["--reverify", "--checked", "2026-02-01", "."], repo)
+    assert out.returncode == 0, out.stdout
+    assert digests(repo) != before
+    assert not (repo / "seal" / "ledger").exists()
+
+
+def test_a_freeze_row_that_is_not_an_id_is_refused(repo):
+    """A cutoff that will not parse is refused with the row named, the way
+    `fold-check` refuses `Fold shape from`."""
+    frozen(repo, "soon")
+    two_drifted_rows(repo)
+    out = run(["--reverify", "."], repo)
+    assert out.returncode == 2, out.stdout
+    assert "Ledger frozen from" in out.stderr
+
+
+def test_the_commit_advisor_names_into_where_the_ledger_is_frozen(repo):
+    """D4: the post-commit advisor prints the same repair. Under the freeze a
+    released row is not re-anchored in place, so the line names `--into`."""
+    frozen(repo)
+    released(
+        repo,
+        ["| R1 · gone | `src/service.py#gone@abcdef12` | read | 2026-01-01 | |"],
+    )
+    payload = {
+        "tool_name": "Bash",
+        "tool_input": {"command": "git commit -m x"},
+        "cwd": str(repo),
+    }
+    import json
+
+    subprocess.run(["git", "init", "-q", str(repo)], check=True)
+    out = subprocess.run(
+        [sys.executable, os.path.join(ROOT, "hooks", "evidence-advisor.py")],
+        input=json.dumps(payload),
+        capture_output=True,
+        encoding="utf-8",
+    )
+    assert "BROKEN" in out.stdout, out.stdout + out.stderr
+    assert "--into" in out.stdout, out.stdout
+
+
+# --- S15: the freeze is a documented row --------------------------------------
+
+
+def test_every_row_this_repository_declares_is_documented_in_the_template():
+    """S15. `templates/config.md` documents every row; this repository's own
+    `seal/config.md` declares six. A row the template does not name is a row
+    another repository cannot learn to read."""
+    spec = importlib.util.spec_from_file_location(
+        "specseal_config", os.path.join(ROOT, "hooks", "config.py")
+    )
+    config = importlib.util.module_from_spec(spec)
+    sys.path.insert(0, os.path.join(ROOT, "hooks"))
+    try:
+        spec.loader.exec_module(config)
+    finally:
+        sys.path.pop(0)
+    with open(os.path.join(ROOT, "seal", "config.md"), encoding="utf-8") as fh:
+        rows = config.config_rows(fh.read())
+    with open(os.path.join(ROOT, "templates", "config.md"), encoding="utf-8") as fh:
+        template = fh.read()
+    items = [item for item, _ in rows]
+    assert "Ledger frozen from" in items, items
+    missing = [
+        item
+        for item in items
+        if f"`{item}`" not in template and f"## {item}" not in template
+    ]
+    assert not missing, missing
+    assert (
+        "| Ledger frozen from | 1790993141 |"
+        in open(os.path.join(ROOT, "seal", "config.md"), encoding="utf-8").read()
+    )
+
+
+def test_a_vendored_copy_reads_the_freeze_without_the_plugin_beside_it(repo):
+    """`evidence-ci` puts the checker alone in a repository's `tools/`, where
+    `hooks/config.py` is not beside it. The copy still reads the row and
+    still writes no released file."""
+    import shutil
+
+    tools = repo / "tools"
+    tools.mkdir()
+    shutil.copy(SCRIPT, tools / "evidence_check.py")
+    frozen(repo)
+    two_drifted_rows(repo)
+    before = digests(repo)
+    out = subprocess.run(
+        [sys.executable, str(tools / "evidence_check.py"), "--reverify", "."],
+        cwd=str(repo),
+        capture_output=True,
+        encoding="utf-8",
+    )
+    assert out.returncode == 1, out.stdout + out.stderr
+    assert digests(repo) == before
+    assert "--into" in out.stdout
+
+
+def test_into_re_reads_a_claimed_coordinate_at_its_minor_region(repo):
+    """A coordinate narrowed by a claim records the hash of the statement
+    it names, and the citing row carries that hash, not the unit's."""
+    text = (repo / "src" / "service.py").read_text()
+    places, _ = ec.resolve_unit("src/service.py", "handler", text)
+    (inside,) = ec.minor_region("src/service.py", text, places[0], '"return y"')
+    lines = ec.gfm_lines(text)
+    old = ec.content_hash(lines[inside[0] - 1 : inside[1]])
+    released(
+        repo,
+        [
+            f'| R1 · handler returns y | `src/service.py#handler>"return y"@{old}` '
+            "| read | 2026-01-01 | |"
+        ],
+    )
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("    return y\n", "    return y  # the sum\n")
+    )
+    frozen(repo)
+    out = run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert '#handler>"return y"@' in (repo / INTO).read_text()
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout

@@ -25,6 +25,12 @@ provable:
       BROKEN  src/app.py#greet  locator not found
     `bin/evidence-check --reverify .` re-anchors what it can prove.
 
+Where `seal/config.md` declares `Ledger frozen from` (#715), `--reverify`
+writes no released ledger file, so that last line says instead that a
+released row is re-pointed or retired by a `Corrected ·` row in the branch's
+own fragment, and that drift is re-read with `--reverify --into`
+(`FROZEN_REPAIR`).
+
 **Silent when clean, silent when the repository has no ledger, silent outside
 opted-in repositories.** A line that prints on every commit is a line people
 learn to skip; drift is not reported here for the same reason — a branch
@@ -102,6 +108,29 @@ def commits_in(command):
     return False
 
 
+def checker():
+    """`evidence_check.py`, imported by path. Imported rather than spawned:
+    dispatch already paid for this interpreter."""
+    spec = importlib.util.spec_from_file_location("specseal_evidence", CHECKER)
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
+    return ec
+
+
+# The repair for a BROKEN row, where `seal/config.md` declares `Ledger frozen
+# from` (#715). `--reverify` writes no released file there, so the one-command
+# line would re-anchor the fragments and leave every released row as it was;
+# a released row is re-pointed or retired by a `Corrected ·` row instead, and
+# the line says so rather than naming a command that cannot repair it.
+FROZEN_REPAIR = (
+    "`bin/evidence-check --reverify .` re-anchors what it can prove in the "
+    "fragments; a released file is not edited after its release, so a released "
+    "row is re-pointed or retired by a `Corrected ·` row in your own fragment, "
+    "and drift is re-read with `--reverify --into seal/ledger/<work-item-id>.md "
+    "--checked YYYY-MM-DD`."
+)
+
+
 def failing_rows(root, home=None):
     """[(status, coord, detail)] for every BROKEN, OLD-FORMAT, MALFORMED and
     OVERFLOW row.
@@ -128,9 +157,7 @@ def failing_rows(root, home=None):
     part of the root that moved. Spelling `seal/` under `root` here is what
     left a local-mode ledger unread at every commit.
     """
-    spec = importlib.util.spec_from_file_location("specseal_evidence", CHECKER)
-    ec = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(ec)
+    ec = checker()
     import glob
 
     home = home or optin.home_at(root)
@@ -188,7 +215,12 @@ def main():
             f"evidence-check: this commit leaves {n} anchor{'s'[: n != 1]} broken"
         )
         lines += [f"  BROKEN  {coord}  {detail}" for coord, detail in broken]
-        lines.append("`bin/evidence-check --reverify .` re-anchors what it can prove.")
+        frozen, _ = checker().frozen_from(root)
+        lines.append(
+            FROZEN_REPAIR
+            if frozen is not None
+            else "`bin/evidence-check --reverify .` re-anchors what it can prove."
+        )
     if old:
         n = len(old)
         lines.append(
