@@ -908,12 +908,14 @@ def table_cells(line):
 
 
 def html_start(content):
-    """`(opens, closes on this line)` for the HTML block CONTENT begins, if it
-    begins one -- CONTENT being the line past its indentation."""
-    for start, end in HTML_KINDS:
+    """`(kind, end)` for the HTML block CONTENT begins -- CONTENT being the
+    line past its indentation -- where `kind` is CommonMark 4.6's condition
+    number and `end` the pattern that ends the block, None for the two kinds
+    a blank line ends; `(None, None)` where CONTENT begins none."""
+    for number, (start, end) in enumerate(HTML_KINDS, 1):
         if start.match(content):
-            return True, bool(end and end.search(content, 1))
-    return False, False
+            return number, end
+    return None, None
 
 
 def table_end(line):
@@ -937,21 +939,55 @@ def table_end(line):
     return None
 
 
-def absorbs_a_header(line):
-    """True where a header written under LINE, with no blank line between, is
-    read by GFM as part of the block LINE belongs to, so no table renders: a
-    list item or a block quote holding text, whose paragraph takes the header
-    as a lazy continuation, or an HTML block not closed on LINE itself."""
-    if blocks.columns(line) >= 4:
-        return False
-    content = line.lstrip(" ")
-    if BLOCK_QUOTE.match(content):
-        return bool(content[1:].strip())
-    marker = LIST_ITEM.match(content)
-    if marker:
-        return bool(content[marker.end() :].strip())
-    opens, closes = html_start(content)
-    return opens and not closes
+def absorbs_a_header(run):
+    """True where GFM reads a header written straight under RUN -- the lines
+    above it back to the last blank line or gap, top first -- as part of a
+    block RUN leaves open, so no table renders there: the paragraph of a list
+    item or a block quote, which takes the header as a lazy continuation, or
+    an HTML block whose end has not come.
+
+    Read top to bottom, because what is open at the header is what the last
+    block start left open: an HTML block closed two lines up absorbs nothing,
+    and a thematic break ends the list item above it. A list item interrupts
+    a paragraph only where CommonMark 5.2 lets it (a bullet, or the number 1,
+    with text after the marker), and an HTML block of the seventh kind never
+    does (4.6); otherwise the line is more of the paragraph."""
+    open_html, end, container, paragraph = False, None, False, False
+    for line in run:
+        if open_html:
+            if end is not None and end.search(line):
+                open_html = False
+            continue
+        if blocks.columns(line) >= 4:
+            continue
+        content = line.lstrip(" ")
+        if ATX_HEADING.match(content) or THEMATIC_BREAK.match(content):
+            container = paragraph = False
+            continue
+        number, end = html_start(content)
+        if number is not None and (number < 7 or not paragraph):
+            open_html = not (end is not None and end.search(content, 1))
+            container = paragraph = False
+            continue
+        if BLOCK_QUOTE.match(content):
+            container = paragraph = bool(content[1:].strip())
+            continue
+        marker = LIST_ITEM.match(content)
+        holds = bool(marker) and bool(content[marker.end() :].strip())
+        if marker and (
+            not paragraph
+            or (
+                holds
+                and (
+                    content[0] in "-+*"
+                    or int(content[: marker.end()].rstrip(".) \t")) == 1
+                )
+            )
+        ):
+            container = paragraph = holds
+            continue
+        paragraph = True
+    return open_html or container
 
 
 def gfm_table(text, header):
@@ -999,15 +1035,18 @@ def gfm_table(text, header):
     if at is None:
         return [], [f"holds no `| {name} |` table"]
     head_index = shown[at][0]
-    k = at - 1
-    while k >= 0 and shown[k][0] == shown[k + 1][0] - 1 and shown[k][1].strip():
-        if absorbs_a_header(shown[k][1]):
-            return [], [
-                f"has a `| {name} |` header directly under `{shown[k][1].strip()}`, "
-                "which GFM reads as part of that block, so it renders no table "
-                "there — leave a blank line above the header"
-            ]
-        k -= 1
+    top = at
+    while (
+        top > 0 and shown[top - 1][0] == shown[top][0] - 1 and shown[top - 1][1].strip()
+    ):
+        top -= 1
+    run = [line for _i, line in shown[top:at]]
+    if run and absorbs_a_header(run):
+        return [], [
+            f"has a `| {name} |` header directly under `{run[-1].strip()}`, "
+            "which GFM reads as part of the block above it, so it renders no "
+            "table there — leave a blank line above the header"
+        ]
     delimiter = shown[at + 1] if at + 1 < len(shown) else None
     if (
         delimiter is None

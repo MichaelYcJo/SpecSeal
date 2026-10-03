@@ -232,6 +232,15 @@ def test_a_pact_with_no_table_or_an_unfilled_one_is_refused():
     assert signatories == [] and len(refusals) == 1 and "holds a space" in refusals[0]
     _, refusals = config.pact_signatories("| Signatory |\n|---|\n\n## A\n")
     assert refusals == ["has a `Signatory` table that lists nobody"]
+    # A header GFM renders no table under is that refusal alone: it names
+    # no table, so it cannot be one that lists nobody.
+    assert config.pact_signatories("| Signatory |\n\n## A\n") == (
+        [],
+        [
+            "has a `| Signatory |` header with no delimiter row under it, so "
+            "GFM renders no table there"
+        ],
+    )
 
 
 @pytest.mark.parametrize(
@@ -329,8 +338,8 @@ TABLE_ENDS = [
         "a header GFM reads into a list item",
         f"# Pact\n\n- a note\n| Signatory |\n|---|\n| {WEB} |\n" + CLAUSE,
         "has a `| Signatory |` header directly under `- a note`, which GFM "
-        "reads as part of that block, so it renders no table there — leave a "
-        "blank line above the header",
+        "reads as part of the block above it, so it renders no table there — "
+        "leave a blank line above the header",
     ),
     (
         "no delimiter row",

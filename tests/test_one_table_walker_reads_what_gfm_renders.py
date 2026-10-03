@@ -166,6 +166,10 @@ KINDS = {
     "html 6 <div/>": ["<div/>"],
     # A name CommonMark 0.31 added to condition 6, after cmark-gfm's 0.29.
     "html 6? <search": ["<search"],
+    # The near miss condition 6 states: the name must end where a listed
+    # name ends, so a longer name a listed one begins is not a block start.
+    "not html 6, <divx": ["<divx"],
+    "not html 6, <pattern": ["<pattern"],
     "html 7 <span>": ["<span>"],
     "html 7 </span>": ["</span>"],
     'html 7 <a href="x">': ['<a href="x">'],
@@ -174,6 +178,17 @@ KINDS = {
     "not html 7, text after": ["<span>x</span> y"],
     "not html 7, unfinished": ["<span"],
     "not html 7, unquoted": ['<a href="x"'],
+    # What may interrupt a paragraph, which decides whether a line above the
+    # header leaves a block open: §4.6 says the seventh kind may not, and
+    # §5.2 that a list item may only with text after a bullet or the number 1.
+    "after a paragraph, html 7": ["text", "<span>"],
+    "after a paragraph, html 6": ["text", "<div>"],
+    "after a paragraph, list -": ["text", "- x"],
+    "after a paragraph, list 1.": ["text", "1. x"],
+    "after a paragraph, list 2.": ["text", "2. x"],
+    "after a paragraph, list -, empty": ["text", "-"],
+    "after a paragraph, quote": ["text", "> q"],
+    "after a list item, a break": ["- x", "***"],
     # §4.7 a link reference definition.
     "link reference": ["[x]: https://example.com"],
     # §4.8 a paragraph line.
@@ -250,11 +265,29 @@ def document(header, kind_lines, position, indent):
     return "\n".join(lines) + "\n"
 
 
-def plain(header, indents):
+def delimiters(header):
+    """Every spelling of HEADER's delimiter row the GFM tables extension
+    states: both outer pipes, one, or none, padded or not, aligned or not --
+    and, for one column, the bare `---` that is a setext underline instead."""
+    n = len(header)
+    cells = ["---"] * n
+    aligned = [":-:"] * n
+    return [
+        "|" + "|".join(cells) + "|",
+        "| " + " | ".join(cells) + " |",
+        "|" + "|".join(aligned) + "|",
+        "|" + "|".join(cells),
+        "|".join(cells) + "|",
+        "|".join(cells),
+    ]
+
+
+def plain(header, indents, delimiter=None):
     """The base table with its header, delimiter and rows indented by
-    INDENTS, the indentation axis on the table's own lines (⬜ 22)."""
+    INDENTS, the indentation axis on the table's own lines (⬜ 22), and the
+    delimiter spelled DELIMITER."""
     head = indents[0] + "| " + " | ".join(header) + " |"
-    delimiter = indents[1] + "|" + "---|" * len(header)
+    delimiter = indents[1] + (delimiter or "|" + "---|" * len(header))
     rows = [indents[2] + row(header, n) for n in (1, 2)]
     return "\n".join(["# Pact", "", head, delimiter, *rows, *CLAUSE]) + "\n"
 
@@ -276,6 +309,11 @@ def corpus(header):
                 if text not in seen:
                     seen.add(text)
                     out.append((("plain", a, b, c), text))
+    for spelled in delimiters(header):
+        text = plain(header, ("", "", ""), spelled)
+        if text not in seen:
+            seen.add(text)
+            out.append((("delimiter", spelled), text))
     return out
 
 
@@ -377,6 +415,47 @@ def test_a_table_indented_as_gfm_permits_is_read_and_not_refused(which):
     assert not wrong, "\n".join(wrong)
 
 
+@pytest.mark.parametrize("which", sorted(HEADERS))
+def test_every_delimiter_gfm_accepts_is_read(which):
+    """Every spelling of the delimiter row: where cmark-gfm renders the
+    table, the walker reads it exactly and refuses nothing; where it renders
+    none (a bare `---` under one column is a setext underline), the walker
+    refuses."""
+    header = HEADERS[which]
+    wrong = []
+    for spelled in delimiters(header):
+        text = plain(header, ("", "", ""), spelled)
+        want = oracle.rows_under(text, header)
+        rows, refusals = config.gfm_table(text, header)
+        got = [cells for _line, cells in rows]
+        ok = bool(refusals) if want is None else (not refusals and got == want)
+        if not ok:
+            wrong.append(f"{spelled!r}: walker {got} {refusals}, GFM {want}")
+    assert not wrong, "\n".join(wrong)
+
+
+@pytest.mark.parametrize("which", sorted(HEADERS))
+def test_a_line_above_the_header_is_refused_only_where_gfm_renders_no_table(which):
+    """The property lets the walker refuse anything, so a walker that refused
+    too much would pass it. Above the header the walk refuses only what GFM
+    reads the header into: wherever cmark-gfm renders the table under a kind
+    written above it -- an empty quote, an empty list item, an HTML block
+    closed on its own line, a paragraph -- the walker reads it and refuses
+    nothing."""
+    header = HEADERS[which]
+    wrong = []
+    for kind, lines in KINDS.items():
+        for indent in INDENTS:
+            text = document(header, lines, "before the header", indent)
+            want = oracle.rows_under(text, header)
+            if want is None:
+                continue
+            rows, refusals = config.gfm_table(text, header)
+            if refusals or [cells for _line, cells in rows] != want:
+                wrong.append(f"{kind}, indent {indent!r}: {refusals}")
+    assert not wrong, "\n".join(wrong)
+
+
 def test_round_3s_shapes_are_inside_the_corpus():
     """Round 3 of #735 compared 21 shapes and named their kinds; each falls
     inside the enumeration, so they are not listed separately (spec item 1).
@@ -416,4 +495,4 @@ def test_the_corpus_is_counted():
     generating shapes is a red case rather than a smaller number nobody
     reads."""
     sizes = {which: len(corpus(header)) for which, header in HEADERS.items()}
-    assert sizes == {"signatory": 5099, "pact change": 5100, "pact review": 5100}, sizes
+    assert sizes == {"signatory": 5354, "pact change": 5355, "pact review": 5355}, sizes
