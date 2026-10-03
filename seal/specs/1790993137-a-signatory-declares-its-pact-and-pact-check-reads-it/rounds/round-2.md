@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 735 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `652275a07ae4f0b8123ec9787c525278ffdf821f..d9602677221dea95e01197e1b895fb7d4076a657`, 5 commits |
+| Contract changes | none |
+| New units | SIGNATORY_DELIMITER (depth 1); TABLE_BREAK (depth 1); HEADING_LINE (depth 1); _stops_at (depth 1); WEB (depth 1); MOBILE (depth 1); HEAD (depth 1); CLAUSE (depth 1); ENDS_ABOVE (depth 1); stops_at (depth 1); TABLE_ENDS (depth 1); test_every_way_the_table_ends_is_read_or_refused (depth 1); ENTRY (depth 1); test_every_entry_refusal_reads_after_the_pact (depth 1); test_a_signatory_row_below_a_blank_line_is_refused (depth 1); test_prose_naming_the_pact_is_not_a_citation (depth 1); test_a_pact_name_inside_a_graded_anchors_heading_is_not_a_near_miss (depth 1); test_an_entry_refusal_is_printed_after_the_pact (depth 1) |
 | Needs a fix | yes — 🟡 12 (a blank line inside the `Signatory` table drops the signatories below it, exit 0), 🟡 13 (`pact-check` refuses prose naming the pact at exit 2) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,12 +29,12 @@ Round 2 is a verifying round. It targets `2a0243b2` over round 1's fix range `04
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 12 | A blank line inside the pact's `Signatory` table ends the walk, and a signatory written below it is never read: `pact-check` prints `1 of 1 signatory read`, exit 0 | `hooks/config.py:851` | open | executed: a row below a blank line was unread at exit 0; above it, the same row read `NOT FOUND`, exit 1; the stray-line fix covers only a line that starts with `\|` |
-| 🟡 13 | `PACT_MENTION_RE` takes `pact:<name>` followed by anything, so prose naming the pact, a code span holding it, and the placeholder form are each refused at exit 2 as a pact anchor that does not parse | `skills/evidence-check/scripts/pact_check.py:104` | open | executed: three prose shapes beside a valid citation each exit 2; `pact:orders-api.` ending a sentence exits 0; the three malformed shapes stay refused under the fix |
-| ⬜ 14 | Three refusals from `remote_entries` print after *the pact* as *the pact the `Signatory` table holds an empty row*, *the pact `<url>` holds a space*, *the pact `<a>` and `<b>` are one repository*, in `pact-check` and `chain-check` | `hooks/config.py:856` | open | executed: each printed as quoted; the fix commit says both of the table's refusals read after *the pact*, and it changed two of five |
-| ⬜ 15 | The word case's printed texts leave out the refusal sentences `pact-check` and `chain-check` print from `hooks/config.py` | `tests/test_one_word_one_meaning.py:588` | open | read: `PACT_PRINTED` names `pact_check.py` and two `chain_check.py` units; the three config units are clean today |
-| ⬜ 16 | P9's Code grounds cite one of three `UNREADABLE` cases and not the pact-level stray case, while its note says each branch has a case | `seal/ledger/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it.md:9` | open | read: a correction to the run's paperwork, not a fix |
-| ⬜ 17 | `round-1.md`'s 🟡 3 and ⬜ 5 Grounds read *fixed at bf035a2f — ;* and *fixed at 1e1bb977 — `62726cb9`*, the close's splice of the fixes table | `seal/specs/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it/rounds/round-1.md:36` | open | read: a correction to the run's paperwork; the generator's join, not this branch's code; the orchestrator answers it |
+| 🟡 12 | A blank line inside the pact's `Signatory` table ends the walk, and a signatory written below it is never read: `pact-check` prints `1 of 1 signatory read`, exit 0 | `hooks/config.py:851` | **fixed** `5b45e4c4` | fixed at 5b45e4c4; executed: a row below a blank line was unread at exit 0; above it, the same row read `NOT FOUND`, exit 1; the stray-line fix covers only a line that starts with `\|` |
+| 🟡 13 | `PACT_MENTION_RE` takes `pact:<name>` followed by anything, so prose naming the pact, a code span holding it, and the placeholder form are each refused at exit 2 as a pact anchor that does not parse | `skills/evidence-check/scripts/pact_check.py:104` | **fixed** `7090a9f4` | fixed at 7090a9f4; executed: three prose shapes beside a valid citation each exit 2; `pact:orders-api.` ending a sentence exits 0; the three malformed shapes stay refused under the fix |
+| ⬜ 14 | Three refusals from `remote_entries` print after *the pact* as *the pact the `Signatory` table holds an empty row*, *the pact `<url>` holds a space*, *the pact `<a>` and `<b>` are one repository*, in `pact-check` and `chain-check` | `hooks/config.py:856` | **fixed** `64c5704c` | fixed at 64c5704c; executed: each printed as quoted; the fix commit says both of the table's refusals read after *the pact*, and it changed two of five |
+| ⬜ 15 | The word case's printed texts leave out the refusal sentences `pact-check` and `chain-check` print from `hooks/config.py` | `tests/test_one_word_one_meaning.py:588` | **fixed** `8705cdd4` | fixed at 8705cdd4; read: `PACT_PRINTED` names `pact_check.py` and two `chain_check.py` units; the three config units are clean today |
+| ⬜ 16 | P9's Code grounds cite one of three `UNREADABLE` cases and not the pact-level stray case, while its note says each branch has a case | `seal/ledger/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it.md:9` | answered | corrected at `d9602677`; read: a correction to the run's paperwork, not a fix |
+| ⬜ 17 | `round-1.md`'s 🟡 3 and ⬜ 5 Grounds read *fixed at bf035a2f — ;* and *fixed at 1e1bb977 — `62726cb9`*, the close's splice of the fixes table | `seal/specs/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it/rounds/round-1.md:36` | answered | corrected at `652275a0`; read: a correction to the run's paperwork; the generator's join, not this branch's code; the orchestrator answers it |
 | 🟢 | round 1's finding 1, re-read: HEAD's history is read with `--full-history`, so a clause a merge did not keep is `SUPERSEDED` | `skills/evidence-check/scripts/pact_check.py:254` | verified | executed: flag dropped, the merge case red; read: `other()` unchanged in shape, a merge listed carries one parent's text |
 | 🟢 | round 1's finding 2, re-read: a `Signatory` line with no closing pipe or a second cell is refused | `hooks/config.py:849` | verified | executed: recording dropped, three ids red; the class has one more line, 🟡 12 |
 | 🟢 | round 1's finding 3, re-read: `stated_names` and `stated_coordinates` blank pact anchors first | `skills/evidence-check/scripts/evidence_check.py:2940` | verified | executed: each blanking dropped alone, a case red each time; read: every regex read in the file sorted by what it reads, none missed beyond the limit `PACT_ANCHOR_RE`'s comment names |
