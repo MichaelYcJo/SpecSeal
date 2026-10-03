@@ -24,9 +24,9 @@ narrows inside it. A signatory cites a clause as
 
 where `<name>` is the last path segment of this repository's normalised
 origin URL and `<hash>` is `evidence-check`'s content hash of the clause's
-region. `pact-check` names a clause's current hash in every line it prints,
-so a new citation can be written with `@00000000` and corrected from its
-first report.
+region. A `SUPERSEDED` or `UNMATCHED` line from `pact-check` names the
+clause's current hash, so a new citation can be written with `@00000000` and
+corrected from its first report.
 
 **A heading is an address.** Rewording a clause's prose is a change every
 citing signatory sees as `SUPERSEDED` and re-reads. Renaming its heading is a

@@ -351,3 +351,34 @@ def test_a_pact_under_local_mode_has_no_history_and_says_so(world):
         "The pact sits under the git directory (local mode), so it has no "
         "history and every mismatch reads unmatched"
     ) in out, out
+
+
+def test_a_map_line_naming_a_checkout_of_another_repository_is_not_trusted(world):
+    """The map is keyed by URL and the checkout it names must have that
+    origin; a stale line pointing elsewhere is a signatory not found."""
+    other = world["tmp"] / "unrelated"
+    other.mkdir()
+    git(other, "init", "-q", "-b", "main")
+    git(other, "remote", "add", "origin", "git@example.com:org/unrelated.git")
+    write(
+        world["home"],
+        ".claude/specseal/pact-paths.md",
+        f"| Remote | Path |\n|---|---|\n| {SIGNATORY_URL} | {other} |\n",
+    )
+    code, out = run(world)
+    assert code == 1, out
+    assert f"NOT FOUND {SIGNATORY_URL} — the map names {other}, whose origin is" in out
+
+
+def test_an_anchor_quoted_in_a_closed_fence_is_an_example_and_not_graded(world):
+    """A spec showing the anchor's shape in a code block cites nothing,
+    the rule the ledger reader keeps for a fenced row."""
+    write(
+        world["web"],
+        "seal/specs/1790000000-x/spec.md",
+        f"```\npact:orders-api/{LOCATOR}@deadbeef\n```\n",
+    )
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 0, out
+    assert "1 ok · 0 superseded · 0 not taken · 0 unmatched" in out, out

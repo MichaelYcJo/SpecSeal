@@ -224,16 +224,20 @@ def anchor_files(home):
 class History:
     """The pact file's versions, asked for lazily and once: HEAD's own
     history of it, newest first, and the commits that touched it on any
-    other branch, remote-tracking branch or tag that HEAD does not hold."""
+    other branch, remote-tracking branch or tag that HEAD does not hold.
 
-    def __init__(self, root, rel, tracked):
-        self.root, self.rel, self.tracked = root, rel, tracked
+    A pact under local mode sits under the git directory, a path git never
+    tracked, so both lists come back empty with nothing special-cased: that is
+    what makes every mismatch there `UNMATCHED`. `grade` reads HEAD's list
+    before the other, so leaving HEAD's commits out of the second changes no
+    verdict; it says what the list is and saves reading them twice."""
+
+    def __init__(self, root, rel):
+        self.root, self.rel = root, rel
         self._head = self._other = None
         self._texts = {}
 
     def commits(self, *revs):
-        if not self.tracked:
-            return []
         out = git(self.root, "rev-list", *revs, "--", self.rel)
         return out.split() if out else []
 
@@ -359,7 +363,7 @@ def check(root, out=sys.stdout, home_dir=None):
     shared = optin.home_paths(repo)[0]
     local = os.path.realpath(home) != os.path.realpath(shared)
     rel = os.path.relpath(pact_path, repo).replace(os.sep, "/")
-    history = History(repo, rel, tracked=not local)
+    history = History(repo, rel)
 
     findings = []
 
