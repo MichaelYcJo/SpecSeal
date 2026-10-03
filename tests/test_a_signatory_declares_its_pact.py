@@ -191,3 +191,39 @@ def test_the_routing_step_mints_one_id_and_declares_only_in_gated_repositories()
         "The pact's repository needs no row",
     ):
         assert sentence in section, sentence
+
+
+# --- the pact's own table ---------------------------------------------------
+
+PACT = (
+    "# Pact\n\n<!-- | Signatory |\n|---|\n| git@example.com:org/quoted.git | -->\n\n"
+    "| Signatory |\n|---|\n"
+    "| git@example.com:org/orders-web.git |\n"
+    "| https://example.com/other/orders-web |\n\n"
+    "## Order response shape\n\nx\n"
+)
+
+
+def test_the_pact_lists_its_signatories_and_a_comment_is_not_the_table():
+    """Two signatories may end in one segment, because nobody cites a
+    signatory by name; a table in a comment block is not the table."""
+    signatories, refusals = config.pact_signatories(PACT)
+    assert refusals == []
+    assert [n for _, n, _ in signatories] == [
+        "example.com/org/orders-web",
+        "example.com/other/orders-web",
+    ]
+
+
+def test_a_pact_with_no_table_or_an_unfilled_one_is_refused():
+    """A pact nobody signs is not a pact, and the template's placeholder row
+    is refused rather than read as a signatory."""
+    assert config.pact_signatories("# Pact\n\n## A\n") == (
+        [],
+        ["holds no `| Signatory |` table, so it names no signatory"],
+    )
+    with open(os.path.join(ROOT, "templates", "pact.md"), encoding="utf-8") as h:
+        signatories, refusals = config.pact_signatories(h.read())
+    assert signatories == [] and len(refusals) == 1 and "holds a space" in refusals[0]
+    _, refusals = config.pact_signatories("| Signatory |\n|---|\n\n## A\n")
+    assert refusals == ["its `Signatory` table lists nobody"]

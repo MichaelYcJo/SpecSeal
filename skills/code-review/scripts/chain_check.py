@@ -40,6 +40,11 @@ What it reads, for every routing declaration this pull request adds or changes:
                              nothing would otherwise fail with `holds no
                              round-N.md` — true, and indistinguishable from a
                              work item that skipped its review
+  a pact (#647)              PRINTED, never refused, and the exit status is
+                             the one the tree has without it: the pact a
+                             `Pact` row names, or the signatories
+                             `seal/pact.md` lists (`pact_notices`). This CI
+                             reads one repository; `pact-check` reads them all
 
 REACHABLE, and why it is not "an ancestor of HEAD". It was, and the branching
 model destroys that property on purpose: `CONTRIBUTING.md` has feature branches
@@ -3951,6 +3956,146 @@ APPROVED_RE = re.compile(r"^Approved\s+(.+?)\s+by\s+(.+?), when .smith. was spaw
 FRAME_FROM = 1789518345
 
 
+CONFIG_READER = os.path.join(HERE, "..", "..", "..", "hooks", "config.py")
+CHECKER = os.path.join(
+    HERE, "..", "..", "evidence-check", "scripts", "evidence_check.py"
+)
+PACT_FILE = "pact.md"
+# What every pact notice ends on, because it is what keeps a notice from
+# reading as a check: this CI reads one repository, and the reconciliation
+# needs all of them.
+PACT_NOT_HERE = (
+    "This CI reads no other repository, so nothing here verifies it: "
+    "`pact-check`, run at the pact's repository, is where the reconciliation "
+    "runs"
+)
+
+
+def plural(count, one, many):
+    return f"{count} {one if count == 1 else many}"
+
+
+def pact_notices(routing, root, declarations):
+    """[(rel, 0, message)] for what this tree says about a pact (#647).
+
+    **Notices and nothing else, and no exit status moves on any of them.**
+    That is #647's decision 2: a signatory's CI prints the relationship and
+    does not verify it. The strict reading of the same rows is `pact-check`'s,
+    run locally at the pact's repository, which can open every signatory;
+    this check can open one. So a `Pact` row that will not parse, a notify
+    value outside the vocabulary, and an anchor naming a pact no row declares
+    are printed here exactly as a well-formed relationship is.
+
+    - Where `seal/config.md` names a pact held elsewhere: one notice per pact,
+      naming the pact's repository, the notify value, and how many pact
+      anchors naming it the declared work item's `spec.md` carries.
+    - Where this repository holds `seal/pact.md`: how many signatories the
+      pact lists.
+    - A refusal `hooks/config.py#pact_declaration` or `#pact_signatories`
+      writes, and an anchor naming no declared pact: one notice each.
+
+    Read from HEAD, as every record here is (`read_record`), so a local-mode
+    root, which commits nothing, prints nothing. A reader that will not load
+    is one notice rather than exit 2, for the same decision.
+    """
+    home = routing.optin.HOME
+    config_rel = f"{home}/config.md"
+    pact_rel = f"{home}/{PACT_FILE}"
+    config_text = read_record(root, config_rel)
+    pact_text = read_record(root, pact_rel)
+    specs = []
+    for rel in declarations:
+        item = os.path.dirname(rel)
+        text = read_record(root, f"{item}/spec.md")
+        if text is not None:
+            specs.append((f"{item}/spec.md", text))
+    if config_text is None and pact_text is None and not specs:
+        return []
+    try:
+        config = load(CONFIG_READER, "specseal_config_for_chain_check")
+        checker = load(CHECKER, "specseal_evidence_for_chain_check")
+    except (OSError, SyntaxError, ImportError, SystemExit) as exc:
+        return [
+            (
+                config_rel,
+                0,
+                f"the pact relationship was not read ({exc}). Nothing about a "
+                "pact moves this check's exit status, so this is a notice",
+            )
+        ]
+
+    cited = []
+    for rel, text in specs:
+        for match in checker.PACT_ANCHOR_RE.finditer(checker.unquoted(text)):
+            cited.append((rel, match.group("name").lower()))
+
+    notices = []
+    pacts, notify, refusals = config.pact_declaration(config_text or "")
+    for written, _normalised, name in pacts:
+        count = sum(1 for _rel, n in cited if n == name)
+        where = (
+            " and ".join(rel for rel, _ in specs)
+            if specs
+            else "no declared work item's spec.md, since this pull request "
+            "declares none"
+        )
+        notices.append(
+            (
+                config_rel,
+                0,
+                f"this repository signs the pact held at {written} "
+                f"(`{config.PACT_NOTIFY_ROW}`: "
+                f"{notify if notify else 'a value that will not parse'}). "
+                f"{plural(count, 'pact anchor', 'pact anchors')} naming "
+                f"`{name}` in {where}. {PACT_NOT_HERE}",
+            )
+        )
+    for refusal in refusals:
+        notices.append(
+            (
+                config_rel,
+                0,
+                f"a `{config.PACT_ROW}` row this CI does not verify: {refusal}. "
+                "Printed rather than refused, because a signatory's CI prints "
+                "and does not verify; `pact-check` at the pact's repository "
+                "exits 2 on it",
+            )
+        )
+    declared = {name for _w, _n, name in pacts}
+    for rel, name in sorted(set(cited)):
+        if name not in declared:
+            notices.append(
+                (
+                    rel,
+                    0,
+                    f"cites `pact:{name}/…`, and no `{config.PACT_ROW}` row in "
+                    f"{config_rel} names a pact called `{name}`. Printed rather "
+                    "than refused: a signatory's CI prints and does not verify",
+                )
+            )
+    if pact_text is not None:
+        signatories, refused = config.pact_signatories(pact_text)
+        notices.append(
+            (
+                pact_rel,
+                0,
+                f"this repository holds the pact, which lists "
+                f"{plural(len(signatories), 'signatory', 'signatories')}. "
+                + PACT_NOT_HERE.replace("verifies it", "compares them with it"),
+            )
+        )
+        for refusal in refused:
+            notices.append(
+                (
+                    pact_rel,
+                    0,
+                    f"the pact {refusal}. Printed rather than refused; "
+                    "`pact-check` here exits 2 on it",
+                )
+            )
+    return notices
+
+
 def frame_mark(reader, text):
     """(when, who) from the mark at the foot of `spec.md`, or None.
 
@@ -4363,7 +4508,14 @@ def main(argv=None):
         f"pull request ({where})"
     )
 
+    # Before the early return, so a pull request that declares nothing still
+    # prints a pact relationship the tree holds, and notices alone, so the
+    # exit status below is the one the same tree has with no pact (#647).
+    pacts = pact_notices(routing, root, declarations)
+
     if not declarations:
+        for rel, line, message in pacts:
+            print(reader.annotate("notice", rel, line, message))
         # What was NOT checked, not what was not found. "No declaration found"
         # describes this script's own state and reads as routine; this
         # describes the pull request's state, and it is the sentence the next
@@ -4397,7 +4549,7 @@ def main(argv=None):
     # `settle` and `unverified_check.py --baseline` ask, never re-derived.
     fork = reader.merge_base(root, args.baseline)
 
-    errors, notices = [], []
+    errors, notices = [], list(pacts)
     for rel in declarations:
         item = os.path.dirname(rel)
         text = read_record(root, rel)

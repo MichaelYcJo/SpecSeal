@@ -691,6 +691,54 @@ def pact_name(remote):
     return normalised.rsplit("/", 1)[1]
 
 
+def remote_entries(entries, empty, named):
+    """(parsed, refusals) for ENTRIES, each a remote URL as somebody wrote
+    it: `parsed` as `(as written, normalised, name)` in order, and one
+    sentence per entry refused, EMPTY being the sentence for an empty one.
+
+    NAMED is true where the name is what an anchor will carry -- the
+    `Pact` row's entries -- so a name outside `PACT_NAME_RE`, and two entries
+    sharing a name, are refused as well. A pact's `Signatory` table lists
+    repositories nobody cites by name, and two of them may end in one
+    segment. Two entries naming one repository are refused either way.
+    """
+    parsed, refusals, seen, names = [], [], {}, {}
+    for entry in entries:
+        written = entry.strip()
+        if not written:
+            refusals.append(empty)
+            continue
+        if any(ch.isspace() for ch in written):
+            refusals.append(f"`{written}` holds a space — one remote URL per entry")
+            continue
+        normalised = normalise_remote(written)
+        name = pact_name(written)
+        if not name:
+            refusals.append(
+                f"`{written}` is not a remote URL — it reduces to no host and "
+                "path, so no repository can be found by it"
+            )
+            continue
+        if normalised in seen:
+            refusals.append(f"`{written}` and `{seen[normalised]}` are one repository")
+            continue
+        if named and not PACT_NAME_RE.fullmatch(name):
+            refusals.append(
+                f"`{written}` ends in `{name}`, which a pact anchor cannot "
+                "name — the name takes letters, digits, `_`, `.` and `-`"
+            )
+            continue
+        if named and name in names:
+            refusals.append(
+                f"`{written}` and `{names[name]}` both end in `{name}`, so an "
+                f"anchor `pact:{name}/…` cannot say which pact it cites"
+            )
+            continue
+        seen[normalised] = names[name] = written
+        parsed.append((written, normalised, name))
+    return parsed, refusals
+
+
 def pact_declaration(text):
     """(pacts, notify, refusals) for the `Pact` rows of a config.md's TEXT.
 
@@ -725,48 +773,13 @@ def pact_declaration(text):
     value = pact_rows[0] if pact_rows else ""
     if not value:
         return [], None, refusals
-    pacts, seen = [], {}
-    for entry in value.split(PACT_SEPARATOR):
-        written = entry.strip()
-        if not written:
-            refusals.append(
-                f"`{PACT_ROW} | {value}` holds an empty entry — one remote URL "
-                f"between each `{PACT_SEPARATOR}`"
-            )
-            continue
-        if any(ch.isspace() for ch in written):
-            refusals.append(
-                f"`{written}` holds a space — one remote URL per entry, "
-                f"separated by `{PACT_SEPARATOR}`"
-            )
-            continue
-        normalised = normalise_remote(written)
-        name = pact_name(written)
-        if not name:
-            refusals.append(
-                f"`{written}` is not a remote URL — it reduces to no host and "
-                "path, so no repository can be found by it"
-            )
-            continue
-        if not PACT_NAME_RE.fullmatch(name):
-            refusals.append(
-                f"`{written}` ends in `{name}`, which a pact anchor cannot "
-                "name — the name takes letters, digits, `_`, `.` and `-`"
-            )
-            continue
-        if name in seen:
-            refusals.append(
-                f"`{written}` and `{seen[name]}` "
-                + (
-                    "are one repository"
-                    if normalise_remote(seen[name]) == normalised
-                    else f"both end in `{name}`, so an anchor "
-                    f"`pact:{name}/…` cannot say which pact it cites"
-                )
-            )
-            continue
-        seen[name] = written
-        pacts.append((written, normalised, name))
+    pacts, refused = remote_entries(
+        value.split(PACT_SEPARATOR),
+        f"`{PACT_ROW} | {value}` holds an empty entry — one remote URL between "
+        f"each `{PACT_SEPARATOR}`",
+        named=True,
+    )
+    refusals.extend(refused)
     if len(notify_rows) > 1:
         refusals.append(
             f"`{PACT_NOTIFY_ROW}` appears {len(notify_rows)} times — one value"
@@ -792,3 +805,38 @@ def declared_pacts(home):
     except (OSError, ValueError):
         return [], None, []
     return pact_declaration(text)
+
+
+# The pact's own table: every OTHER signatory, by origin remote URL, one per
+# row under a `| Signatory |` header (`templates/pact.md`).
+SIGNATORY_HEADER = re.compile(r"^\|\s*Signatory\s*\|\s*$")
+SIGNATORY_ROW = re.compile(rf"^\|\s*(?P<value>{CELL}*?)\s*\|\s*$")
+
+
+def pact_signatories(text):
+    """(signatories, refusals) for the `| Signatory |` table of a pact's
+    TEXT, read the way `config_rows` reads its table: the first such header,
+    its separator, then rows until a line that is not one; a line inside a
+    fence or a comment block is not shown to the walk. `signatories` is
+    `remote_entries`' parsed list, and a table that is absent or empty is
+    a refusal, because a pact nobody signs is not a pact.
+    """
+    values, seen_header = [], False
+    for _index, line in unfenced(text.splitlines(), text):
+        if not seen_header:
+            seen_header = bool(SIGNATORY_HEADER.match(line))
+            continue
+        if CONFIG_SEPARATOR.match(line.strip()) and not values:
+            continue
+        match = SIGNATORY_ROW.match(line)
+        if not match:
+            break
+        values.append(unescaped(match.group("value").strip()))
+    if not seen_header:
+        return [], ["holds no `| Signatory |` table, so it names no signatory"]
+    signatories, refusals = remote_entries(
+        values, "the `Signatory` table holds an empty row", named=False
+    )
+    if not values:
+        refusals.append("its `Signatory` table lists nobody")
+    return signatories, refusals
