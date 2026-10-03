@@ -175,7 +175,10 @@ squash. The cut follows the document's own headings, as #526 cut
 Each part answers one question — what git decides, what the text reading
 decides, what each arm wants. Built, the parent is 586 lines, the commit gate
 inside git 254 and the arms 250, each under the ceiling of 1,000. Fold markers
-go across whole, and the `Over the ceiling` row goes away in the same change.
+went across whole, and the `Over the ceiling` entry went with the cut in the
+same change. The row stays and reads `none`, so `fold-check` still holds every
+document to the ceiling (`docs/the-evidence-ledger.md` §*The fold, and what
+tells it from a deletion*).
 
 **F2 — `CHANGELOG.md` becomes one file per release (#728, in the release
 after that one).** The
