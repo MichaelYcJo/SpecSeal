@@ -597,6 +597,7 @@ REASONS = {
     "the glance table is not there": "not in the note exactly once",
     "the glance table is there twice": "not in the note exactly once",
     "gh release edit fails": "gh release edit failed",
+    "a module will not load": "ImportError: no publisher",
 }
 
 
@@ -625,6 +626,7 @@ def broken_compose(mod, exc):
         "the glance table is not there",
         "the glance table is there twice",
         "gh release edit fails",
+        "a module will not load",
     ],
 )
 def test_any_failure_leaves_the_note_as_it_was_published(
@@ -676,6 +678,12 @@ def test_any_failure_leaves_the_note_as_it_was_published(
         )
     elif case == "compose exits":
         monkeypatch.setattr(mod.stamp(), "compose", broken_compose(mod, SystemExit(2)))
+    elif case == "a module will not load":
+
+        def publisher():
+            raise ImportError("no publisher")
+
+        monkeypatch.setattr(mod, "publisher", publisher)
     elif case == "the PNG writer exits":
 
         def png(*_):

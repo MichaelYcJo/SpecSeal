@@ -55,7 +55,6 @@ import importlib.util
 import json
 import os
 import re
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -505,9 +504,10 @@ def seal_release(tag, repo, dry):
     rows = release_rows(version, tagged(tag), len(work), len(closed), suite, chain)
     for label, value in rows:
         print(f"{label:<8} {value}")
-    folder = tempfile.mkdtemp(prefix="release-seal-")
+    # The upload names the asset after the file, so a run that uploads
+    # writes `ASSET` in a directory of its own; `SEAL_PNG` is a dry run's.
     path = os.environ.get("SEAL_PNG") if dry else ""
-    path = path or os.path.join(folder, ASSET)
+    path = path or os.path.join(tempfile.mkdtemp(prefix="release-seal-"), ASSET)
     try:
         letter = stamp().compose(rows, stamp().DEFAULT_SCALE)
         used = png(paint(letter), size(letter), path)
@@ -536,9 +536,6 @@ def seal_release(tag, repo, dry):
         print("DRY_RUN -- nothing uploaded and nothing edited; the note would read:")
         print(sealed)
         return
-    if os.path.basename(path) != ASSET:
-        shutil.copyfile(path, os.path.join(folder, ASSET))
-        path = os.path.join(folder, ASSET)
     gh("release", "upload", tag, path, "--repo", repo)
     try:
         gh("release", "edit", tag, "--repo", repo, "--notes", sealed)
