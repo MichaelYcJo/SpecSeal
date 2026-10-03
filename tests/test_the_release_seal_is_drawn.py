@@ -85,12 +85,17 @@ def expected(stamp, cell):
 def painted(mod, ops):
     """`{(x, y): [top, bottom]}` over the cells the ops cover, and
     `{(x, y): (character, colour, bold)}` for the text: each rectangle laid
-    over the halves it covers, in order, the way a raster would take it."""
+    over the halves it covers, in order, the way a raster would take it.
+    A rectangle that does not start and end on a half's edge is refused,
+    because a half that bleeds a pixel row into its neighbour is a colour
+    this map would not see."""
     cw, ch = mod.CELL_W, mod.CELL_H
     halves, text = {}, {}
     for op in ops:
         if op[0] == "rect":
             _, x0, y0, x1, y1, rgb = op
+            assert x0 % cw == 0 and (x1 + 1) % cw == 0, op
+            assert y0 % (ch // 2) == 0 and (y1 + 1) % (ch // 2) == 0, op
             for y in range(y0 // (ch // 2), (y1 + 1) // (ch // 2)):
                 for x in range(x0 // cw, (x1 + 1) // cw):
                     halves.setdefault((x, y // 2), [None, None])[y % 2] = rgb
@@ -186,7 +191,12 @@ def test_the_png_carries_the_colours_and_is_clear_where_nothing_is_painted(
     for y, line in enumerate(letter.cells):
         for x, cell in enumerate(line):
             top, bottom, said = expected(stamp, cell)
-            for want, row in ((top, y * ch), (bottom, y * ch + ch - 1)):
+            # A half's outer row always, and its inner row where no glyph
+            # can reach it, so a half one pixel row short or long is seen.
+            rows = [(top, y * ch), (bottom, y * ch + ch - 1)]
+            if not said:
+                rows += [(top, y * ch + ch // 2 - 1), (bottom, y * ch + ch // 2)]
+            for want, row in rows:
                 got = pixels[x * cw + cw // 2, row]
                 if want is None:
                     assert got[3] == 0, (x, y, got)
