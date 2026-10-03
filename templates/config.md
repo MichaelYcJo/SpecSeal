@@ -401,10 +401,17 @@ and `https://example.com/org/orders-api` name one repository. Its last path
 segment is the name a pact anchor carries, `pact:orders-api/"## A"@1a2b3c4d`,
 so two pacts whose URLs end in the same segment are refused as ambiguous.
 
-**Nothing acts on `Pact notify` yet.** It says what this signatory asks to be
-told about a change to the pact, and the record that tells it is #647's next
-step. It is read and validated now, so the row has a reader from the first
-day.
+**`Pact notify` decides which of this signatory's changes the pact's
+repository hears about.** When `evidence-check --reverify` moves the hash of
+a ledger row here — or leaves a coordinate of one BROKEN — it records a pact
+change in `seal/pact-changes/<work-item-id>.md`, and `pact-check` at the
+pact's repository reads that record until a pact review there takes it:
+
+| Value | Recorded here | Read there |
+|---|---|---|
+| `when the pact is touched` | a row citing a clause of a pact the `Pact` row names | as `NOT TAKEN`, exit 1, until a pact review takes it |
+| `always` | that, and every other row whose code moved, with `—` for its clause | a `—` row as `NOTED`, which moves no exit |
+| `never` | nothing | nothing, whatever an earlier value recorded |
 
 **A row that will not parse is refused in a sentence**, never read as absent.
 At this repository's pull request `chain-check` prints the sentence and its

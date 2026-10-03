@@ -517,7 +517,7 @@ Files opened in this round, at `2a0243b2`: `rounds/round-1.md`,
 `stated_names`, `stated_coordinates`, `heading_slugs`,
 `coordinate_misses`, `stated_stamps`, and every regex call site by search);
 `hooks/config.py` (`normalise_remote`, `pact_name`, `remote_entries`,
-`pact_declaration`, `declared_pacts`, `SIGNATORY_ROW`, `pact_signatories`,
+`pact_declaration`, `declared_pacts`, `SIGNATORY_ROW`, `pact_signatories`, · NAME NOT IN TREE
 `unfenced`'s docstring); `skills/code-review/scripts/chain_check.py`
 (`CLOSED_WORDS`, `FIX_WORDS`, `closed_with_a_fix`, the pact refusal print);
 `skills/code-review/scripts/round_record.py` (`IDENTIFIER_RE` and its

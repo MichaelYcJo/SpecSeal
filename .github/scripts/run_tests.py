@@ -68,6 +68,10 @@ as a PNG in `.github/scripts/release_seal.py`, which the tag push runs, and
 the suite's pixel case pins that drawing against the terminal form. It is
 test-and-release-only, on the same terms: nothing under `hooks/` or
 `skills/` imports it, and a plugin user installs nothing new.
+
+A third is `cmarkgfm`, pinned in `CMARKGFM` (#647): GitHub's own renderer,
+which `tests/gfm_table_oracle.py` reads to hold the table walker in
+`hooks/config.py` to what GitHub renders. Test-only, on the parser's terms.
 """
 
 import os
@@ -103,11 +107,23 @@ MARKDOWN_IT = f"markdown-it-py=={MARKDOWN_IT_VERSION}"
 PILLOW_VERSION = "12.3.0"
 PILLOW = f"pillow=={PILLOW_VERSION}"
 
+# GitHub's own renderer, cmark-gfm, through its `cmarkgfm` binding: the oracle
+# `hooks/config.py#gfm_table` is held to (`tests/gfm_table_oracle.py`, #647).
+# Pinned for the parser's reason -- a renderer that moved under the suite would
+# move every verdict of the walker's property case with it -- and test-only on
+# the same terms: nothing under `hooks/` or `skills/` imports it. The version
+# was chosen as the newest with a wheel for Python 3.12 on Windows, macOS
+# (arm64) and Linux, so no runner compiles it. `.github/workflows/test.yml`,
+# `.github/workflows/publish-release.yml` and `CONTRIBUTING.md`'s fallback
+# carry the same string, and a case holds each to this one.
+CMARKGFM_VERSION = "2025.10.22"
+CMARKGFM = f"cmarkgfm=={CMARKGFM_VERSION}"
+
 # What a built environment holds. `pytest-xdist` is here because the suite
 # runs `-n auto` by default (#337): a build without it is the build whose
-# first call refused the flag. The parser is here for the oracle above, and
-# Pillow for the seal's pixel case.
-PACKAGES = ("pytest", "pytest-xdist", MARKDOWN_IT, PILLOW)
+# first call refused the flag. The parser is here for the oracle above,
+# Pillow for the seal's pixel case, and cmark-gfm for the table walker's.
+PACKAGES = ("pytest", "pytest-xdist", MARKDOWN_IT, PILLOW, CMARKGFM)
 
 
 def repo_root():
@@ -300,6 +316,49 @@ def add_pillow(venv):
             "ModuleNotFoundError and every other case runs. Remove that "
             "directory and run bin/test again to build it afresh with Pillow "
             "in it."
+        )
+    return None
+
+
+def has_cmarkgfm(venv):
+    """True when `venv` holds the pinned cmarkgfm: its own versioned
+    `.dist-info` directory under site-packages, for `has_markdown_it`'s
+    reason -- the pin is the point -- and filesystem only, for `has_xdist`'s."""
+    name = f"cmarkgfm-{CMARKGFM_VERSION}.dist-info"
+    return any((site / name).is_dir() for site in site_packages(venv))
+
+
+def add_cmarkgfm(venv):
+    """Install the pinned cmarkgfm into `venv` where it is missing. Returns a
+    sentence, or None when the environment has it.
+
+    `add_markdown_it`'s shape, and the same cost when the install fails: the
+    table walker's case imports the oracle at module level, so that module
+    fails to collect, and what pytest then does depends on the run.
+    """
+    if has_cmarkgfm(venv):
+        return None
+    uv = shutil.which("uv")
+    if uv:
+        step = [uv, "pip", "install", "--python", str(venv_python(venv)), CMARKGFM]
+    else:
+        step = [str(venv_python(venv)), "-m", "pip", "install", "--quiet", CMARKGFM]
+    print(
+        f"bin/test: adding {CMARKGFM} to {venv}, the renderer the table "
+        "walker's oracle reads. This run pays for it; every run after it "
+        "finds it there.",
+        file=sys.stderr,
+    )
+    if subprocess.run(step).returncode != 0:
+        return (
+            f"bin/test: could not install {CMARKGFM} into {venv} (the command "
+            "above exited non-zero). The table walker's oracle imports it, so "
+            "the module that reads the oracle fails to collect with a "
+            "ModuleNotFoundError: a parallel run runs every other case and "
+            "exits non-zero, and a serial one -- `-p no:xdist`, `--pdb`, or no "
+            "pytest-xdist -- stops at collection and runs no case. Remove that "
+            "directory and run bin/test again to build it afresh with the "
+            "renderer in it."
         )
     return None
 
@@ -570,6 +629,11 @@ def main(argv=None):
     pillow_problem = add_pillow(root / ".venv")
     if pillow_problem:
         print(pillow_problem, file=sys.stderr)
+    # The table walker's renderer (#647). The parser's terms: a sentence, and
+    # pytest is still called; it decides nothing about `-n auto`.
+    renderer_problem = add_cmarkgfm(root / ".venv")
+    if renderer_problem:
+        print(renderer_problem, file=sys.stderr)
     # `-n auto` by default (#337). The comment that stood here withheld it,
     # because this virtualenv was built with pytest alone and the flag failed
     # on every fresh build -- so the runner ran serially for ten releases
