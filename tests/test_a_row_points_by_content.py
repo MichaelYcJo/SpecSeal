@@ -2984,8 +2984,8 @@ def _cs(repo, body):
 
 
 def test_a_stale_claim_on_an_unsure_place_drifts_rather_than_breaking(repo):
-    """`CLAUDE.md`: *an anchor degrades to DRIFTED, never to BROKEN. Only the
-    major level can be BROKEN.*
+    """`docs/the-evidence-ledger.md`: *an anchor degrades to DRIFTED, never to
+    BROKEN. Only the major level can be broken.*
 
     The existing widening case uses `.py`, where `ast` is certain and the
     resurrection path is never reached, so it could not see this. Here `new`

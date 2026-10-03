@@ -389,7 +389,8 @@ def test_a_row_in_a_fragment_is_read_by_the_guard(tree):
 
 
 def test_a_row_with_a_live_anchor_beside_the_dead_one_is_narrowed(tree):
-    """A row that keeps a live anchor is not REMOVED by `CLAUDE.md`'s rule,
+    """A row that keeps a live anchor is not REMOVED by the rule in
+    `docs/the-evidence-ledger.md`,
     and whether it should be is the repository owner's question — so the line
     says to drop the dead anchor and names who answers the rest."""
     fold(tree, "1700000001-alpha")

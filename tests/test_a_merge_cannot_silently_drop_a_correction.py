@@ -12,8 +12,9 @@ grepped for the marker the corrections carried and found 0 occurrences of
 
 What the check reads is the marker those corrections already carry, and what
 separates a loss from a legitimate removal is **whether the row survived**.
-`CLAUDE.md` §*A row whose anchor a change removes is REMOVED, not re-pointed*
-is that rule, so the distinction is the repository's own and not one this
+`docs/the-evidence-ledger.md` §*A row is a content anchor, and it names no
+commit* -- a row whose anchor a change removes is REMOVED, not re-pointed -- is
+that rule, so the distinction is the repository's own and not one this
 check invents. A check that fired on a legitimate removal would be one people
 learn to skip, which is why A3 below is an acceptance row rather than a note.
 
@@ -175,8 +176,8 @@ def test_a_marker_gone_from_a_row_that_still_stands_is_a_loss():
 
 
 def test_a_marker_that_went_with_its_whole_row_is_not_a_loss():
-    """A3. This is `REMOVED` and correct -- `CLAUDE.md` says a row whose
-    anchor a change removes goes with it. A check that fires here fires on
+    """A3. This is `REMOVED` and correct -- `docs/the-evidence-ledger.md` says
+    a row whose anchor a change removes goes with it. A check that fires here fires on
     work the repository's own rule requires."""
     assert cc.losses(ledger(R1, R2), ledger(R2)) == []
 
@@ -901,7 +902,8 @@ def test_a_run_long_enough_to_be_a_sentence_is_not_a_qualifier():
     and re-stamped a third time <date>`, which stands in `seal/ledger.md`'s
     prose rather than on any row — and the bound is five, round 2's finding 6.
     The spelling is the address, not a line number: a row of this repository's
-    ledger names content and never a position (`CLAUDE.md`), and the line that
+    ledger names content and never a position (`docs/the-evidence-ledger.md`),
+    and the line that
     spelling sat on was cited in four places before #470. This case is red the
     moment that bound stops being a bound."""
     assert cc.markers("Corrected the claim that the reviewer read on 2026-09-05") == {}

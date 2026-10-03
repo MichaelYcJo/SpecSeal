@@ -444,9 +444,10 @@ def test_check_refuses_a_release_file_named_for_another_version(tree):
 
 
 def test_check_refuses_a_release_left_in_the_shared_ledger(tree):
-    """#547, S10. After the split `seal/ledger.md` heads no release; a
-    section standing there is a fold written to the old place or a split
-    not run, and the refusal names the version, the line and the repair.
+    """#547, S10. Since the one-time split `seal/ledger.md` heads no
+    release; a section standing there was written to the old place by hand
+    or by a fold from before #547, and the refusal names the version, the
+    line and the repair, which no longer names the retired `--split` (#715).
     The fragment and open-row reports still print beside it."""
     fold(tree)
     shared = ledger(tree) + "\n## 0.4.1 — 2026-09-16\n\nRows folded to the old place.\n"

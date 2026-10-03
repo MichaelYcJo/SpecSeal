@@ -2674,8 +2674,8 @@ def test_the_docstring_states_what_a_sentence_is_in_a_python_file():
 # --- #307: a released changelog section and a gathered fragment are records --
 #
 # A released section records what a past release did, in that release's
-# words, and a released entry is not rewritten (`CLAUDE.md` §*Repo rule — a
-# change writes fragments, never the shared file*). So the branch that changes
+# words, and a released entry is not rewritten (`docs/the-record-layout.md`
+# §*A change writes fragments, never a shared file*). So the branch that changes
 # the behaviour it describes was reported against it and could correct
 # nothing; two of the four measured ranges carried exactly that report. The
 # region is read off the HEADING rather than the file whole, because a
@@ -4206,8 +4206,8 @@ def test_a_crlf_changelog_still_has_its_gathered_ids(tmp_path):
 
 # --- #603: a ledger row removed because its anchor left is no correction ---
 #
-# `CLAUDE.md`: *a row whose anchor a change removes is REMOVED, not
-# re-pointed. Its claim went with the code.* So a range that deletes a unit
+# `docs/the-evidence-ledger.md`: *a row whose anchor a change removes is
+# `REMOVED`, not re-pointed — its claim went with the code.* So a range that deletes a unit
 # and the row anchored on it has corrected nothing, and a document still
 # stating the rule is not a survivor of it. Measured on #587: exit 1, eight
 # places, every one sourced from the three removed rows. A row corrected in
