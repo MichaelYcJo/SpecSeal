@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 735 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `8589ff46bc9f582d2c56cbb91bc6a3cf3d8152f1..8589ff46bc9f582d2c56cbb91bc6a3cf3d8152f1`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 18 (an autolink row in the `Signatory` table is dropped and `pact-check` exits 0), 🟡 19 (an anchor missing its `/` is graded by nobody, exit 0, which round 1's fix had refused) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -27,12 +27,12 @@ Round 3 is a verifying round and the run's last, since round 2 closed on fixes a
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 18 | `TABLE_BREAK`'s `<` arm ends the table at an autolink row, which GFM reads as a signatory: `pact-check` prints *1 of 1 signatory read* and exits 0 with a second signatory in the rendered table; the thematic break, which ends a GFM table, is refused as a row | `hooks/config.py:831` | open | executed: 21 shapes against cmark-gfm, three silent drops all through the `<` arm; `pact-check` end to end exit 0; removing the `<` arm survives every case |
-| 🟡 19 | `PACT_MENTION_RE` passes an anchor whose `/` is missing (no slash, `:` or a space for it, or `@hash` alone), which round 1's net refused: read by nobody, exit 0 | `skills/evidence-check/scripts/pact_check.py:113` | open | executed: four shapes exit 0 at the target and match round 1's pattern; `skills/evidence-check/SKILL.md:465` says exit 2; the grammar is stated only in the account |
-| ⬜ 20 | P8's claim says the walk `config_rows` uses, and its note says each branch was seen red; three `TABLE_BREAK` arms survive | `seal/ledger/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it.md:8` | open | read: the two walks share `unfenced` alone; executed: three arms survived; a correction to the run's paperwork |
-| ⬜ 21 | The census comment says the pact's table is walked as `config_rows` walks its own | `tests/test_every_reader_ends_a_line_where_gfm_does.py:663` | open | read: the reason `F` still holds and the comment does not |
-| ⬜ 22 | An indented header, delimiter or row is refused in a sentence naming another cause | `hooks/config.py:868` | open | executed against cmark-gfm: GFM reads all three; each refused at exit 2, nothing lost |
-| ⬜ 23 | `pact:<name>/` in prose and a documented form with a real heading and `@<hash>` are refused at exit 2 | `skills/evidence-check/scripts/pact_check.py:113` | open | executed: both exit 2; the stated grammar's consequence; the remedy is a fence |
+| 🟡 18 | `TABLE_BREAK`'s `<` arm ends the table at an autolink row, which GFM reads as a signatory: `pact-check` prints *1 of 1 signatory read* and exits 0 with a second signatory in the rendered table; the thematic break, which ends a GFM table, is refused as a row | `hooks/config.py:831` | deferred #647 | #647 — The run is capped at the reopening bound, which commissions nothing. #647's steps C and D are the next work item on this code, so the finding went to that issue as a comment, with the report's paste-ready fix; executed: 21 shapes against cmark-gfm, three silent drops all through the `<` arm; `pact-check` end to end exit 0; removing the `<` arm survives every case |
+| 🟡 19 | `PACT_MENTION_RE` passes an anchor whose `/` is missing (no slash, `:` or a space for it, or `@hash` alone), which round 1's net refused: read by nobody, exit 0 | `skills/evidence-check/scripts/pact_check.py:113` | deferred #647 | #647 — The same reason: capped, and the next work item on `PACT_MENTION_RE` owns it; executed: four shapes exit 0 at the target and match round 1's pattern; `skills/evidence-check/SKILL.md:465` says exit 2; the grammar is stated only in the account |
+| ⬜ 20 | P8's claim says the walk `config_rows` uses, and its note says each branch was seen red; three `TABLE_BREAK` arms survive | `seal/ledger/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it.md:8` | answered | corrected at `8589ff46`; read: the two walks share `unfenced` alone; executed: three arms survived; a correction to the run's paperwork |
+| ⬜ 21 | The census comment says the pact's table is walked as `config_rows` walks its own | `tests/test_every_reader_ends_a_line_where_gfm_does.py:663` | deferred #647 | #647 — A test comment repeating P8's stale sentence, which steps C and D will touch; read: the reason `F` still holds and the comment does not |
+| ⬜ 22 | An indented header, delimiter or row is refused in a sentence naming another cause | `hooks/config.py:868` | deferred #647 | #647 — The same table reader as 🟡 18. No signatory is lost; executed against cmark-gfm: GFM reads all three; each refused at exit 2, nothing lost |
+| ⬜ 23 | `pact:<name>/` in prose and a documented form with a real heading and `@<hash>` are refused at exit 2 | `skills/evidence-check/scripts/pact_check.py:113` | deferred #647 | #647 — It follows from the stated grammar, so whether the grammar is right is the next frame's decision; executed: both exit 2; the stated grammar's consequence; the remedy is a fence |
 | 🟢 | round 2's finding 12 is closed — a row below a blank line inside the `Signatory` table is refused | `hooks/config.py:837` | confirmed | executed: the blank-line half and the gap half each broken, 4 and 2 cases red; the class has one more way, 🟡 18 |
 | 🟢 | round 2's finding 13 is closed — prose, a code span, the placeholder form and a sentence's end naming the pact are exit 0 | `skills/evidence-check/scripts/pact_check.py:113` | confirmed | executed: the lookahead, the placeholder exception and the span skip each broken, every one red; the narrowing reopened part of round 1's finding 4, 🟡 19 |
 | 🟢 | round 2's finding 14 is closed — every entry refusal reads after *the pact* | `hooks/config.py:931` | confirmed | executed: the lead-in dropped, red; read: both callers print `the pact {refusal}` |
