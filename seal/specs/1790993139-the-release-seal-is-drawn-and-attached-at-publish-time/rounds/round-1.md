@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 731 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `e01e1b1295ecb6a6da71333479b9bae8a20942f9..1d6ac8952991f834a3bcf7e7a19c2cd038666b77`, 9 commits |
 | Contract changes | none |
 | New units | test_a_record_another_version_wrote_names_its_own_group_and_a_capped_gate (depth 1); test_a_tree_whose_records_are_not_there_is_not_read_never_zero (depth 1); test_a_capped_pull_request_with_no_work_item_leaves_the_tree_rows_unread (depth 1); test_an_unlistable_rounds_leaves_rounds_unread_not_zero (depth 1); test_a_verdict_row_the_table_skipped_leaves_deferred_unread (depth 1) |
