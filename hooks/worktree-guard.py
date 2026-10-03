@@ -315,7 +315,7 @@ def switch_kind(parsed):
     return None
 
 
-def wider_only_kinds(command: str, cwd: str) -> set:
+def wider_only_kinds(command: str, cwd: str, judged=None) -> set:
     """Candidate C of #678: the kinds only the commit gate's reading finds.
 
     Each kind -- "switch", "creation" -- that `hooks/cmdline.py`'s reading
@@ -324,26 +324,36 @@ def wider_only_kinds(command: str, cwd: str) -> set:
     zsh precommand word, a spaced `--config-env`. The wider reading is its
     splitter's segments, `merged_view`'s groups and the words a redirection
     glued to a word's end, each read by its `parse_git`, as the commit gate
-    reads them. A kind the frozen reading already found keeps its slot and
-    its verdict, so this never reports it (round 1 of 1790745049, red 1).
+    reads them. A kind the frozen loop judged keeps its slot and its verdict,
+    and a view the frozen parser reads as the same kind is not hidden from
+    it, so neither is reported (round 1 of 1790745049, red 1; round 1 of
+    1790993140, yellow 3). JUDGED is the kinds `main`'s loop judged; without
+    it, the kinds the frozen segments' words hold stand in.
 
     Wired by phase 4 of work item 1790993140, because it fired on none of the
-    27,351 recorded command and directory pairs phase 3 counted. Where the
-    wider reader failed to load, it finds nothing, which is the base's answer.
+    27,351 recorded command and directory pairs phase 3 counted, and the
+    per-view reading round 1 measured fired on none either. Where the wider
+    reader failed to load, it finds nothing, which is the base's answer.
     """
     if wide is None:
         return set()
-    found = {
-        switch_kind(parse_git(tokens)) for tokens, _wheres in walk_command(command, cwd)
-    }
+    if judged is None:
+        judged = {
+            switch_kind(parse_git(tokens))
+            for tokens, _wheres in walk_command(command, cwd)
+        }
     text = wide.drop_heredoc_bodies(wide.drop_comments(command))
     segments, _clean = wide.split_segments(text)
     views = [*segments, *wide.merged_segments(text)]
-    wider = {
-        switch_kind(wide.parse_git(tokens))
-        for tokens in [*views, *filter(None, map(wide.unglued, views))]
-    }
-    return {k for k in wider - found if k}
+    wider = set()
+    for tokens in [*views, *filter(None, map(wide.unglued, views))]:
+        kind = switch_kind(wide.parse_git(tokens))
+        # A view the frozen reader reads as the same kind is not hidden from
+        # it: `git checkout README.md` is a restore to `classify`, and must
+        # not silence a switch written behind a redirection after it.
+        if kind and switch_kind(parse_git(tokens)) != kind:
+            wider.add(kind)
+    return wider - set(judged)
 
 
 def ask_what_only_the_wider_reading_finds(kinds, cwd, session_id, transcript_path):
@@ -2239,12 +2249,16 @@ def main():
     # (phase 3 of work item 1790993140). Each silent exit below asks first
     # about a kind only the commit gate's wider reading finds -- a git behind
     # a redirection or a zsh prefix, or after a spaced `--config-env` -- that
-    # the frozen reading did not find. It never reaches a row that speaks, so
-    # the frozen findings keep their slots and their verdicts. What the loop
-    # found, `wider_only_kinds` already leaves out: `classify` finds a subset
-    # of what `switch_kind` reads from the same frozen segments.
+    # the frozen loop did not judge. It never reaches a row that speaks, so
+    # the frozen findings keep their slots and their verdicts. The kinds the
+    # loop judged are handed over, because `classify` judges fewer than
+    # `switch_kind` reads from the same words: a `git checkout README.md` in
+    # front must not take a hidden switch's kind out (round 1, yellow 3).
     def quiet():
-        hidden = wider_only_kinds(command, cwd)
+        judged = {"switch"} if switch_reason is not None else set()
+        if creation_at is not None:
+            judged.add("creation")
+        hidden = wider_only_kinds(command, cwd, judged)
         ask_what_only_the_wider_reading_finds(hidden, cwd, session_id, transcript_path)
         sys.exit(0)
 

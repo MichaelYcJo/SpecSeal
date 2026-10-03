@@ -1019,6 +1019,25 @@ def test_the_question_names_both_kinds_and_says_it_in_korean(
     assert "브랜치 전환·worktree 생성은 이 guard 가 읽지 않는 모양" in reason, reason
 
 
+@pytest.mark.parametrize(
+    "first", ["git checkout README.md && ", "git checkout nosuch; "]
+)
+def test_a_restore_before_a_hidden_switch_does_not_silence_the_question(
+    monkeypatch, capsys, repo, tmp_path, first
+):
+    """Round 1 of 1790993140, yellow 3. `classify` reads `git checkout
+    README.md`, and a checkout of no ref, as no switch, so the frozen loop
+    judged no switch, and the switch behind the redirection is still put to
+    the person. Silent at `07a3dc7f`, where the restore's words alone took the
+    switch kind out."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    command = f"{first}cd w && 2>/dev/null {SWITCH}"
+    decision, reason, top = run(monkeypatch, capsys, command, session)
+    assert decision == "ask", (decision, reason)
+    assert "switches a branch" in reason, reason
+    assert top is None, top
+
+
 def test_a_broken_wider_reader_costs_only_the_question(
     monkeypatch, capsys, repo, tmp_path
 ):
