@@ -14,6 +14,7 @@ two answers ship at once.
 half-edited; the rows naming it are in this work item's overview.
 """
 
+import ast
 import os
 import re
 
@@ -576,6 +577,18 @@ PACT_SECTIONS = (
         ("skills", "evidence-check", "SKILL.md"),
         "## `pact-check` — the signatories against the pact",
     ),
+    # Round 1's white 11: the words ship here too.
+    (("templates", "config.md"), "## Pact"),
+)
+# Files where only the lines naming a pact are the pact's text: the cheat
+# sheets' row and the config skill's rows and bullet.
+PACT_LINES = (("README.md",), ("README.ko.md",), ("skills", "config", "SKILL.md"))
+# The sentences a person is printed: every string constant of `pact-check`,
+# and those of `chain-check`'s pact print.
+PACT_PRINTED = (
+    (("skills", "evidence-check", "scripts", "pact_check.py"), None),
+    (("skills", "code-review", "scripts", "chain_check.py"), "pact_notices"),
+    (("skills", "code-review", "scripts", "chain_check.py"), "PACT_NOT_HERE"),
 )
 # The thread's working words, and the noun the owner withheld from the
 # repository holding the pact: each would give one thing a second name.
@@ -597,6 +610,28 @@ def pact_texts():
         out.append(
             (f"{'/'.join(parts)} {heading}", text[start : min(stops or [len(text)])])
         )
+    for parts in PACT_LINES:
+        lines = [ln for ln in read(*parts).splitlines() if "pact" in ln.lower()]
+        assert lines, "/".join(parts)
+        out.append(("/".join(parts), " ".join(" ".join(lines).split())))
+    for parts, unit in PACT_PRINTED:
+        tree = ast.parse(read(*parts))
+        if unit is not None:
+            tree = next(
+                node
+                for node in ast.walk(tree)
+                if getattr(node, "name", None) == unit
+                or any(
+                    getattr(t, "id", None) == unit for t in getattr(node, "targets", [])
+                )
+            )
+        strings = [
+            node.value
+            for node in ast.walk(tree)
+            if isinstance(node, ast.Constant) and isinstance(node.value, str)
+        ]
+        assert strings, (parts, unit)
+        out.append((f"{'/'.join(parts)} {unit or ''}", " ".join(strings)))
     return out
 
 
