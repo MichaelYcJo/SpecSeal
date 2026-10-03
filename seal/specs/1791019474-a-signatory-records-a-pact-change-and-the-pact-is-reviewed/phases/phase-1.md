@@ -14,7 +14,7 @@
 CommonMark and GFM block kinds, every verdict cmark-gfm's and never a
 hand-written expectation; round 3's `TABLE_ENDS` entries; the census comment
 (⬜ 21); the docstring table rewritten to the walker's actual rules. Verified
-by the property case red with `TABLE_BREAK`'s `<` arm restored and with the
+by the property case red with `TABLE_BREAK`'s `<` arm restored and with the · NAME NOT IN TREE
 indentation rule removed, `bin/mutation-check` over every arm, and the five
 pact modules and the census module green. The spawn added: every file read
 and write passes `encoding="utf-8"`; answer Q12, Q13 and Q17 here.
@@ -69,12 +69,12 @@ after a noun naming the file; `pact_signatories` turns *every row below it*
 into *every signatory below it*, and a record reader can do the same for its
 own noun.
 
-**Ledger**: P8 in #735's fragment named `TABLE_BREAK`, which is gone, and was
+**Ledger**: P8 in #735's fragment named `TABLE_BREAK`, which is gone, and was · NAME NOT IN TREE
 corrected in place with a dated note. R3 and W3 in #718's fragment were
 re-stamped in place with notes; W4 there, drifted at the base already, was
 left as it stood. Nine released rows the pin drifted (CONTRIBUTING.md and
 `run_tests.py`) were re-read into this item's fragment. The nine rows and the
-four record lines naming `SELF_ANCHOR_RE` that are drifted or refused at
+four record lines naming `SELF_ANCHOR_RE` that are drifted or refused at · NAME NOT IN TREE
 `805013c2` belong to the integration branch that re-stamps them, and were not
 touched.
 
