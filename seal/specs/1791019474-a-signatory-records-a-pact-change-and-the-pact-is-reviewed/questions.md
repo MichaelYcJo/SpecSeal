@@ -1,0 +1,55 @@
+# 1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed — questions for the planner
+
+<!-- seal/specs/<unix-epoch-seconds>-<slug>/questions.md — decisions only a human can make,
+extracted so nothing ships on a silent assumption. Before adding a row,
+check the inheritance rule: if policy is silent but existing behavior
+answers it, inherit and record — only genuinely NEW rules belong here. -->
+
+**Nothing here blocks the build.** The owner's 2026-10-03 answers are inputs,
+recorded in `spec.md`'s Grounding and not repeated as rows: the names, decision
+5's rule, decision 2 (no token), and decision 4's default (a pact review is
+owed only where a signatory cites a pact clause).
+
+**What the tree answered, so nobody reopens it.** Each of these was left open by
+#647, the milestone or the spawn prompt, and something in the tree that can be
+opened settled it:
+
+| Judgment | Answered by |
+|---|---|
+| What status an untaken pact change gets | #735's `spec.md` item 8: a second source under `NOT TAKEN`, the report's name left alone. Exit 1 follows from `pact_check.py#EXIT_ONE` |
+| Whether the trigger needs a judgment | #647's revised design: a drifted row citing a clause is the trigger, and it is mechanical |
+| Which ledger rows can carry the trigger | #735's `spec.md` item 7: the row carrying both a local code coordinate and a `PACT_ANCHOR_RE` match, the shape B built |
+| How a re-read is written under the freeze | `docs/the-evidence-ledger.md` §*A released row is read again in the branch's fragment*: a released row gets a `Re-read ·` row in this item's fragment; a fragment row is re-stamped in place, because a citation into a fragment is refused |
+| Why a record cannot live in the work item's directory | `skills/settle/SKILL.md`: `settle --retire` removes `seal/specs/<id>/` |
+| Why the pact review takes by content and not by commit | `docs/the-evidence-ledger.md` §*A row is a content anchor, and it names no commit*, and the squash history it records |
+| Which work item a branch is | `hooks/routing.py#item_dir` |
+| Whether a test-only parser has precedent | `tests/commonmark_oracle.py` and `run_tests.py#MARKDOWN_IT` (#667): pinned, imports only itself and the standard library, a plugin user installs nothing |
+| Whether a pact review is owed where nobody cites a clause | decision 4's default; and here no record is owed one unless it cites a clause (`spec.md` item 9), so the default holds by construction |
+| What `pact-check` may print or exit on in CI | decision 2: nothing on a pull request reads across repositories, so nothing new reaches CI |
+
+**The rows below are the frame's decisions and the residue.** Q1–Q11 are values
+a person would be accountable for, so their answerer is `a person`. Nobody was
+left to ask in this unattended run, so the frame chose each with stated grounds.
+Each Status reads `decided by frame`, and a reviewer overturns one by opening the
+grounds it names. Q12–Q14 go to a measurement and Q15–Q17 to the work, and none
+of them waits on anybody.
+
+| # | Question | Who can answer | Options & what each implies | Default until answered | Status |
+|---|---|---|---|---|---|
+| Q1 | Does the scope fit one work item under the review cap, or is it cut? | a person | **One item, five phases.** #735 ran six and capped at round 3 with two yellows deferred. Here the deferred fixes share units with C and D: phase 1's walker reads both new records, and phase 2's printed-path class contains every new line. **Cut between phases 2 and 3**, the fixes as their own item: two items rewrite one walker in sequence, and C and D cannot be built until that item squashes. *The cap is a judgment about review risk, and no document sizes a work item against it* | **Not cut.** The fallback, if the orchestrator disagrees, is the line between phases 2 and 3. Phases 1–2 become an item named for 🟡 18 and 🟡 19 and built first; phases 3–5 stay here and merge the release branch in once it squashes | ✅ decided by frame — not cut |
+| Q2 | What are the two new things named? | a person | **pact change / pact review**, in `seal/pact-changes/` and `seal/pact-reviews/`: the owner's `pact` replaces the thread's *contract*, as #735's Q4 did for the notify value. **`contract-changes`**: the thread's working word. It is a second name for the pact, beside a word the owner fixed. *The owner named three things, and these two came after* | pact change, pact review; `contract-changes` and *contract review* joined to the word case's loose list | ✅ decided by frame — pact change, pact review |
+| Q3 | Where does a recorded pact change live? | a person | **`seal/pact-changes/<work-item-id>.md`, permanent**; **inside `seal/specs/<id>/`**, retired by `settle` before the pact's repository may read it; **one shared file**, which every branch appends to; **the `Re-read ·` row itself**, which an in-place re-stamp never writes (`plan.md` Alternatives). *Layout documents name no file with this lifetime* | the first | ✅ decided by frame — `seal/pact-changes/<id>.md` |
+| Q4 | What do `always`, `when the pact is touched` and `never` each record? | a person | Written in the trigger's own unit, the drifted ledger row. `when the pact is touched` records rows citing a clause of that pact. `always` also records every other drifted row, with `—` for its clause. `never` records nothing. At read time `pact-check` applies the same filter. A `—` row is `NOTED` (exit 0) until a pact review takes it, because decision 4's default owes a review only where a clause is cited. *#647 named the three values and gave `always` no mechanical meaning* | as stated | ✅ decided by frame — as stated |
+| Q5 | How does a pact review take a change, and with which verdicts? | a person | **A row naming the signatory and `<work-item-id>@<content hash of the record>`, verdict `holds` or `amended`**. A record that grows after its review reads `NOT TAKEN` again, and `amended` is refused where the clause did not move. **By commit SHA**: squashes orphan it. **By the clause's hash moving**: a change that keeps the clause can never be taken. **A third verdict, *breaks***: such a change is not taken at all. It stays `NOT TAKEN`, and the finding goes to the signatory. *A review record's shape is new to the tree* | the first, two verdicts | ✅ decided by frame — content hash, `holds` / `amended` |
+| Q6 | Does a clause change at the pact's repository owe a pact review? | a person | **No.** `SUPERSEDED` already sends every citing signatory to re-read and re-anchor where its code is checked, and CI cannot see which signatories cite a clause (decision 2). **Yes**: a record CI cannot verify against decision 4's default. *#647's step 4 says "the contract review" without saying which direction* | no, stated in `docs/the-pact.md` | ✅ decided by frame — no |
+| Q7 | Who runs a pact review? | a person | **An ordinary work item at the pact's repository.** Its builder judges each change, and its review chain's warden verifies the judgments in the signatory checkouts. The routing answer decides as for any item. **A new agent**: a definition and a writes table for what the warden already does. **`pact-check` judging**: whether a change keeps a clause is not mechanical. *#647's first comment proposed "a contract round", which no later comment kept or dropped* | the first; `skills/implement/orchestration.md` gains `### A pact review at the pact's repository` | ✅ decided by frame — an ordinary work item |
+| Q8 | Which oracle holds the table walker? | a person | **`cmarkgfm`, pinned, test-only**: GitHub's renderer, and the instrument round 3 found 🟡 18 with. **`markdown-it-py`**, already pinned: its table rule is a reimplementation. *The spawn prompt names cmark-gfm; adding a package to the suite is a cost somebody owns* | `cmarkgfm`, held in every place `MARKDOWN_IT`'s string is held | ✅ decided by frame — cmark-gfm |
+| Q9 | ⬜ 23: is the anchor grammar right? | a person | **It stands.** Loosening `pact:<name>/` in prose reopens round 1's 🟡 4 for a half-typed anchor. The refusal names a fenced example as the second remedy, and the grammar becomes a statement in `docs/the-pact.md`. **Loosen it**: the silence comes back. *Round 3 left the question to this frame by name* | stands | ✅ decided by frame — the grammar stands |
+| Q10 | The exit classes of the new findings | a person | `NOT TAKEN` from a record: 1. A record taken at an older hash: `NOT TAKEN`, 1. `NOTED`: 0. A pact review row that cannot be true: `REFUSED`, 2. A record or review that will not read or parse: 2. This mirrors the existing classes, where a mismatch is 1 and unusable input is 2. *A new status, `NOTED`, needs a class nobody has given it* | as stated | ✅ decided by frame — as stated |
+| Q11 | Does a signatory's CI print its recorded pact changes? | a person | **No.** The person who acts on a record is at the pact's repository, where `pact-check` names it, and a new printed line is a pinned sentence with no reader who acts on it. **Yes**: visible at the signatory's pull request. *Decision 2 says a signatory's CI prints the relationship, which A's notice already does* | no | ✅ decided by frame — no |
+| Q12 | Which `cmarkgfm` version is pinned, and do its wheels install on Windows, macOS and Linux at Python 3.12? | a measurement | `uv run --with cmarkgfm==<v>` on this machine, and the three-platform CI leg on the first push | pin the newest version that installs from a wheel on all three; if one platform needs a compiler, record it in `phases/phase-1.md` and choose again | ⬜ |
+| Q13 | What does cmark-gfm read for each corpus shape: an indented header, a tab before a row, a setext `===` under a row, a link reference definition? | a measurement | the oracle answers each, and the walker follows it | none assumed. The phase records the answers it found surprising | ⬜ |
+| Q14 | Which existing ledger rows does this work drift? | a measurement | `bin/evidence-check` after each phase names them | re-stamped in place in their own fragment where unreleased (#735's P1, P8 and P9 are the likely ones, and `1790993138`'s rows on `reverify_into`), re-read into this item's fragment where released | ⬜ |
+| Q15 | A vendored `evidence_check.py`, with no `hooks/` beside it, meets a drifted row citing a pact under `--reverify`. What does it say? | the work | it cannot read the `Pact` row with the plugin's reader. It re-stamps as today and names each such row on a line saying no pact change was recorded. Phase 3 decides the sentence and whether the exit moves, and pins both | the sentence and the exit are phase 3's | ⬜ |
+| Q16 | Is the display helper `evidence_check.py#display_name` or a new function? | the work | reuse it if its `flavour` argument covers `~/`-relative output; otherwise add one beside `MAP_SHOWN` | phase 2 decides and records it | ⬜ |
+| Q17 | Does any reader beyond `pact_check.py` and `chain_check.py` call `pact_signatories`? | the work | enumerate the callers by `git grep` before changing the walker | phase 1 enumerates and names them | ⬜ |
