@@ -55,7 +55,11 @@ Usage:
 The gate imports `stamp(rows, scale, shape)`, `not_sealed(tree, base,
 failures, branch, ref)`, `sealed_names`, `pick_shape(stream)`,
 `is_terminal(stream)` and `write_values`;
-the hook imports `pending`, `read_values`, `claim` and `stamp`. The command
+the hook imports `pending`, `read_values`, `claim` and `stamp`; and
+`.github/scripts/release_seal.py`, which the tag push runs, imports
+`compose`, `block` and `DEFAULT_SCALE` to draw a release's seal as a PNG,
+one cell to one rectangle (#718). That script is the repository's own and
+the plugin ships nothing that runs it. The command
 exists so a person can see the drawing without running a gate, and so a
 values file no hook drew can still be drawn by hand.
 
