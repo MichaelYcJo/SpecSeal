@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 744 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `70680f16cd75bbe20a1b4e716ca0e918c7838dbe..f7b31c42bf9c7ad8d55b4fa264e27f2bf4db42f6`, 3 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 4, F1's new sentence gives a false reason for `none`. |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -27,9 +27,9 @@ Round 2 is a verifying round. It targets `b779daf2` over round 1's fix range `84
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 4 | F1's new reason is false: *the row stays and reads `none`, so `fold-check` still holds every document to the ceiling*; an absent row reads as an empty listing and the ceiling check runs on `Document line ceiling` alone | `docs/the-record-layout.md:179` | open | executed: with the row deleted, `fold-check` exits 0 on the tree and 1 on a padded arms file, the same output as with `none`; read: `fold_check.py#parse_over`, `#run`, `templates/config.md`'s *Absent* column |
-| ⬜ 5 | ledger row C2's note says an absent row turns that half of the check off | `seal/ledger/1791019477-the-commit-gate-policy-is-cut-into-files-by-question.md` (C2) | open | executed: finding 4's probe. A record, so a correction |
-| ⬜ 6 | the fix for ⬜ 3 split the K3 divergence row: K3 has three cells and its Grounds is a fifth cell on the D5 row | `seal/specs/1791019477-the-commit-gate-policy-is-cut-into-files-by-question/overview.md:27` | open | executed: cell count per table line; read: lines 27–28 against the diff of `35a6d822`. A record, so a correction |
+| 🟡 4 | F1's new reason is false: *the row stays and reads `none`, so `fold-check` still holds every document to the ceiling*; an absent row reads as an empty listing and the ceiling check runs on `Document line ceiling` alone | `docs/the-record-layout.md:179` | **fixed** `9a3db2eb` | fixed at 9a3db2eb; executed: with the row deleted, `fold-check` exits 0 on the tree and 1 on a padded arms file, the same output as with `none`; read: `fold_check.py#parse_over`, `#run`, `templates/config.md`'s *Absent* column |
+| ⬜ 5 | ledger row C2's note says an absent row turns that half of the check off | `seal/ledger/1791019477-the-commit-gate-policy-is-cut-into-files-by-question.md` (C2) | answered | corrected at `8d68574a`; executed: finding 4's probe. A record, so a correction |
+| ⬜ 6 | the fix for ⬜ 3 split the K3 divergence row: K3 has three cells and its Grounds is a fifth cell on the D5 row | `seal/specs/1791019477-the-commit-gate-policy-is-cut-into-files-by-question/overview.md:27` | answered | corrected at `f7b31c42`; executed: cell count per table line; read: lines 27–28 against the diff of `35a6d822`. A record, so a correction |
 | 🟢 | round 1's finding 1 is closed — F1 no longer says the `Over the ceiling` row goes away; it says the row stays at `none` | `docs/the-record-layout.md:177` | confirmed | read at `ac858e6c` and at `b779daf2`; `seal/config.md:13` is `none`. The sentence added beside it is finding 4 |
 | 🟢 | C5 re-stamped in place with a dated Corrected note, its claim extended to the row | `seal/ledger/1791019477-the-commit-gate-policy-is-cut-into-files-by-question.md` (C5) | confirmed | executed: `evidence-check --strict` exit 0, 0 drifted; `correction-check` exit 0; read: the note |
 | 🟢 | the `survivors.md` row for 1790993138's `spec.md:116` is added and its quote stands there | `seal/specs/1791019477-the-commit-gate-policy-is-cut-into-files-by-question/survivors.md` | confirmed | executed: survivor-check with `--exempt` exit 0; without it, exit 1 naming only 1790815613's overview line 49, so this row excuses a place the check does not name today |
