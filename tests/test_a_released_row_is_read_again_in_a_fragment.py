@@ -704,6 +704,7 @@ def test_into_writes_one_citing_row_per_drifted_row_and_no_released_byte(repo):
     assert written[0].startswith("| Re-read · R1 · handler adds one"), written[0]
     assert written[0].count("src/service.py#") == 2, written[0]
     assert "Re-read 2026-02-01" in written[0] and "| 2026-02-01 |" in written[0]
+    assert "by work item 2000000001-a-later-item" in written[0], written[0]
     assert written[1].startswith("| Re-read · R2 · handler returns its sum"), written[1]
     assert (
         "seal/releases/0.1.0.md:5" in out.stdout

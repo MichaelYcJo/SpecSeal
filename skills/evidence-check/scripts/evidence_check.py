@@ -3166,6 +3166,9 @@ def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
     view, drifted, broken = released_drift(
         ledgers, view_paths, root, maps, default_repo
     )
+    # A fragment is named for its work item, so the row can say whose
+    # reading it records, as the spec's own example does.
+    item = os.path.splitext(os.path.basename(into))[0] if into else None
     rows, left = [], []
     for key in sorted(drifted, key=lambda k: (view.files[k[0]][0], k[1])):
         path, body, lines, table = view.files[key[0]]
@@ -3201,8 +3204,8 @@ def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
                 label,
                 f"| Re-read · {label.replace('|', chr(92) + '|')} | {spanned(cite)}, "
                 + ", ".join(stamped)
-                + f" | {INTO_VERIFIED} | {checked} | Re-read {checked} by "
-                "`evidence-check --reverify --into` |",
+                + f" | {INTO_VERIFIED} | {checked} | Re-read {checked} by work item "
+                f"{item} (`evidence-check --reverify --into`) |",
             )
         )
     for at, coord, detail in broken:
