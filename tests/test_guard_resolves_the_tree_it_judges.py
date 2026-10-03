@@ -976,6 +976,23 @@ WIDER_ONLY = {
         "cd w && git worktree add>/dev/null ../wt b",
         "creation",
     ),
+    # #737. The splitter cuts `&>` at `&`, and only the merged view holds the
+    # switch; bash runs each (executed). A mutant comparing the merged view
+    # with itself is silent on both.
+    "&> between switch and its name": (
+        "cd w && git switch &>/dev/null feature/x",
+        "switch",
+    ),
+    "&> between checkout and its name": (
+        "cd w && git checkout &>/dev/null feature/x",
+        "switch",
+    ),
+    # #737. bash runs it as a creation (executed); silent at `2b1dcb1f`,
+    # where `2>/dev/null` was read as `worktree`'s first positional.
+    "a redirection between worktree and add": (
+        "cd w && git worktree 2>/dev/null add ../wt b",
+        "creation",
+    ),
     **{
         f"zsh: {shape.split('&& ')[1]}": (
             shape.format(verb="switch feature/x"),
@@ -1055,6 +1072,95 @@ def test_a_restore_before_a_hidden_switch_does_not_silence_the_question(
     assert decision == "ask", (decision, reason)
     assert "switches a branch" in reason, reason
     assert top is None, top
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "cd w && git checkout . &>/dev/null",
+        "cd w && git checkout .&>/dev/null",
+        "cd w && git checkout -q &>/dev/null",
+        "cd w && git switch --detach &>/dev/null",
+        "cd w && git switch --detach>/dev/null",
+        "cd w && git checkout>/dev/null .",
+    ],
+)
+def test_a_redirection_word_is_not_read_as_a_branch_name(
+    monkeypatch, capsys, repo, tmp_path, command
+):
+    """#737. A cut or merged view carries a redirection word its segments do
+    not, and `switch_kind` reads any word as a name, so each of these asked
+    *switches a branch* at `2b1dcb1f`. bash runs each as a restore or a
+    detach (executed), and `233f0455` asked none of them."""
+    session, _other = _a_dirty_w_under_a_clean_session(repo, tmp_path)
+    decision, reason, _ = run(monkeypatch, capsys, command, session)
+    assert decision == "silent", (command, decision, reason)
+
+
+def _redirections():
+    """Every redirection `hooks/cmdline.py`'s `_REDIRECTION` names, as (operator,
+    target) pairs, each operator once bare and, where it is not `&`-led, with
+    a number and with bash 4.1's `{fd}` in front. Derived from the pattern, so
+    an operator the reader learns is a new case the day it is added."""
+    pattern = wg.wide._REDIRECTION.pattern
+    assert pattern.endswith(")"), pattern
+    operators = pattern[pattern.rindex("(?:") + 3 : -1]
+    pairs = []
+    for op in (o.replace("\\", "") for o in re.split(r"(?<!\\)\|", operators)):
+        target = {"<<<": "word", "<<": "EOF", "<<-": "EOF"}.get(op, "/dev/null")
+        if op.endswith("&"):
+            target = "1"
+        fds = [""] if op.startswith("&") else ["", "2", "{fd}"]
+        pairs += [(fd + op, target) for fd in fds]
+    return pairs
+
+
+def test_the_redirections_are_read_from_the_reader():
+    """The generator below is only as wide as this list."""
+    ops = {op for op, _target in _redirections()}
+    assert {"&>", "&>>", ">&", "<&", "2>", "{fd}>", "<<<", ">|", ">!"} <= ops, ops
+    assert len(ops) == 2 + 12 * 3, sorted(ops)
+
+
+RESTORES = (
+    "checkout .",
+    "checkout -- README.md",
+    "checkout -q",
+    "switch --detach",
+    "worktree list",
+)
+
+
+def test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands(
+    tmp_path,
+):
+    """#737, S4. For every operator `_REDIRECTION` names, at every position, glued
+    to the word before it and spaced, its target glued and spaced, a verb that
+    switches nothing is no kind to the wider reading. Red at `2b1dcb1f`.
+
+    A number or a `{fd}` is a descriptor only as a word of its own, so those
+    are spaced: glued, bash hands it to git inside the word before
+    (`--2>&1` is the option `--2`), which is another verb."""
+    asked = []
+    for verb in RESTORES:
+        words = ["git", *verb.split()]
+        for op, target in _redirections():
+            gluable = not op[0].isdigit() and not op.startswith("{")
+            for at in range(len(words) + 1):
+                for glued in (False, True) if at and gluable else (False,):
+                    for spaced_target in (False, True):
+                        redirection = op + (" " if spaced_target else "") + target
+                        head = " ".join(words[:at])
+                        tail = " ".join(words[at:])
+                        joint = "" if glued else " "
+                        command = (head + joint + redirection).lstrip()
+                        command = (command + " " + tail).rstrip()
+                        if target == "EOF":
+                            command += "\nEOF"
+                        kinds = wg.wider_only_kinds(command, str(tmp_path))
+                        if kinds:
+                            asked.append((command, kinds))
+    assert not asked, (len(asked), asked[:10])
 
 
 def test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it(

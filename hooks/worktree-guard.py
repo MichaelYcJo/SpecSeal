@@ -363,11 +363,33 @@ def wider_only_kinds(command: str, cwd: str, judged=None) -> set:
     wider = set()
     for view, sources in sourced:
         frozen = {switch_kind(parse_git(tokens)) for tokens in sources}
-        for tokens in filter(None, (view, wide.unglued(view))):
-            kind = switch_kind(wide.parse_git(tokens))
-            if kind and kind not in frozen:
-                wider.add(kind)
+        # The view as the program is handed it. A cut or merged view carries
+        # a redirection word its segments do not, and `switch_kind` reads any
+        # word as a name, so `git checkout . &>/dev/null` read as a switch
+        # (#737).
+        kind = switch_kind(wide.parse_git(_bare_words(view)))
+        if kind and kind not in frozen:
+            wider.add(kind)
     return wider - set(judged)
+
+
+def _bare_words(tokens):
+    """TOKENS as the program is handed them: a redirection glued to a word's
+    end cut off, and then every redirection taken out (#737).
+
+    bash ends a word at `<` and `>` wherever they stand, and at `&>`, so
+    `checkout>/dev/null` hands git `checkout` and `.&>/dev/null` hands it `.`.
+    `unglued` cuts at the `>` and leaves the `&` on the word, so that `&` goes
+    too.
+    """
+    cut = wide.unglued(tokens) or list(tokens)
+    cut = [
+        t[:-1]
+        if t.endswith("&") and i + 1 < len(cut) and cut[i + 1].startswith(">")
+        else t
+        for i, t in enumerate(cut)
+    ]
+    return wide._without_redirections([t for t in cut if t])
 
 
 def ask_what_only_the_wider_reading_finds(kinds, cwd, session_id, transcript_path):
