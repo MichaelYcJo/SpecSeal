@@ -399,6 +399,19 @@ def check(root, out=sys.stdout, home_dir=None):
     read_count = 0
     for signatory in signatories:
         written = signatory[0]
+        if signatory[1] == config.normalise_remote(mine):
+            # The owner's definition makes the pact's repository a signatory
+            # too, so listing it is a plausible slip; the sibling search
+            # skips this repository and would call it not found here (round
+            # 1 of #647, white 9).
+            found(
+                REFUSED,
+                written,
+                f"seal/{PACT_FILE}",
+                "the pact lists its own repository; the `Signatory` table "
+                "lists every OTHER signatory, so take this row out",
+            )
+            continue
         path, why = checkout(config, signatory, repo, mapped)
         if path is None:
             found(NOT_FOUND, written, "", why)

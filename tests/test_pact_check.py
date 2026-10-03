@@ -483,3 +483,18 @@ def test_a_pact_that_will_not_read_is_unreadable(world):
     assert code == 2, out
     pact_path = os.path.join(str(world["api"]), "seal", "pact.md")
     assert f"UNREADABLE {pact_path} — the pact could not be read" in out, out
+
+
+def test_a_pact_listing_its_own_repository_says_so(world):
+    """Not `NOT FOUND`, which would send a person looking for a checkout of
+    the repository they stand in."""
+    write(world["api"], "seal/pact.md", pact(V2, (SIGNATORY_URL, PACT_URL)))
+    commit(world["api"], "the pact lists itself")
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        f"REFUSED {PACT_URL} seal/pact.md — the pact lists its own repository; "
+        "the `Signatory` table lists every OTHER signatory, so take this row out"
+    ) in out, out
+    assert "NOT FOUND" not in out, out
