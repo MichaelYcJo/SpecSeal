@@ -99,7 +99,10 @@ one family:** the row, every `Re-read ·` row citing it, and every one citing
 those. Of the members that record a coordinate, only the readings with the
 newest `Checked` date count, and readings that tie on that date are a union:
 the coordinate is OK when one of them recorded what it holds now, DRIFTED
-when none did, and BROKEN by the rules above. A `Corrected ·` row supersedes
+when none did, and BROKEN by the rules above. A `Checked` date the calendar
+does not have, such as `2026-13-45`, orders nothing, and a reading dated only
+by one is named with that date as written, because fixing it is the repair.
+A `Corrected ·` row supersedes
 the family of the row it cites, whose coordinates are not checked again, and
 starts a family of its own. That is §*A correction a merge dropped*'s halves
 rule computed rather than applied by hand: two branches re-reading one row on

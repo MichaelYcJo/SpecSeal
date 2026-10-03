@@ -10,3 +10,11 @@
   `--into` writes the re-read that row is owed, and a run without `--into`
   names it with the `--into` form. A narrowing to a file that holds no member
   of the family, and a run without `--ledger`, behave as before.
+
+- A ledger row whose `Checked` cell holds a date the calendar does not have,
+  such as `2026-13-45`, is now named with that date when `evidence-check`
+  reports it DRIFTED (#740). The line used to say "the reading of no date",
+  which hid the typo the person has to fix. It now says "the reading dated
+  2026-13-45, a date the calendar does not have". A cell with no date at
+  all still says "the reading of no date", and what such a date orders is
+  unchanged: nothing.
