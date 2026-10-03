@@ -1163,6 +1163,40 @@ def test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands(
     assert not asked, (len(asked), asked[:10])
 
 
+HIDDEN_FILE_CHECKOUTS = (
+    "2>/dev/null git checkout README.md",
+    "git 2>/dev/null checkout README.md",
+    "git checkout>/dev/null README.md",
+    "git checkout &>/dev/null README.md",
+)
+
+
+@pytest.mark.parametrize("command", HIDDEN_FILE_CHECKOUTS)
+def test_a_file_checkout_hidden_from_the_frozen_reader_is_asked_as_a_switch(
+    tmp_path, command
+):
+    """`docs/worktree-guard-spec.md` §*Which tree*: C reads no tree, so a
+    file's name reads as a branch's wherever a redirection hides `checkout`
+    from the frozen reader (warden round 1 of #737). Seen red against a
+    `switch_kind` that skips a name holding a `.`."""
+    assert wg.wider_only_kinds(command, str(tmp_path)) == {"switch"}, command
+
+
+def test_the_guard_policy_says_a_hidden_file_checkout_is_asked():
+    """§14 of the agent contract: the sentence a person reads to learn when
+    the guard asks names the tree-blind class, not one position of it. Red
+    against the sentence before warden round 1 of #737, which promised
+    silence for a restore carrying an `&>`."""
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "docs", "worktree-guard-spec.md"
+    )
+    with open(path, encoding="utf-8") as f:
+        text = " ".join(f.read().split())
+    assert "wherever a redirection hides `checkout` from the frozen reader" in text
+    for command in (HIDDEN_FILE_CHECKOUTS[0], *HIDDEN_FILE_CHECKOUTS[2:]):
+        assert f"`{command}`" in text, command
+
+
 def test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it(
     monkeypatch, capsys, repo, tmp_path
 ):

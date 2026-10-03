@@ -625,13 +625,16 @@ and ask the frozen reading earns still decides first. A creation reads consent
 first and stays silent under it, as at the base. Each view the wider reading
 makes is read as git is handed it: a redirection glued to a word's end is cut
 off and then every redirection is taken out before the kind is read. So a
-redirection's word is never read as a branch name, and a restore or a detach
-that carries one (`git checkout . &>/dev/null`, `git switch
---detach>/dev/null`) is not asked about (#737). The reading still looks up no
-tree, so a checkout of a file the frozen reader cannot see, behind a
-redirection in front of `git` (`2>/dev/null git checkout README.md`), is
-asked as a switch, as it has been since #678. Measured before it was wired:
-over the 27,351 distinct command and directory pairs recorded in this
+redirection's word is never read as a branch name, and a restore of `.` or of
+a path after `--`, or a detach, that carries one (`git checkout .
+&>/dev/null`, `git switch --detach>/dev/null`) is not asked about (#737). The
+reading still looks up no tree (#689), so a file's name reads as a branch's: a
+checkout of a file is asked as a switch wherever a redirection hides
+`checkout` from the frozen reader, in front of `git`, between `git` and
+`checkout`, glued to either, or as an `&>` before the name (`2>/dev/null git
+checkout README.md`, `git checkout>/dev/null README.md`, `git checkout
+&>/dev/null README.md`), as it has been since #678. Measured before it was
+wired: over the 27,351 distinct command and directory pairs recorded in this
 repository's transcripts on the maintainer's machine before 2026-10-03, it
 would have stopped none (work item 1790993140, `phases/phase-3.md`), and
 re-counted for #737's reading it still stops none (work item 1791019475,
@@ -642,7 +645,9 @@ its own rows and asks nothing it could not read.
 `tests/test_guard_resolves_the_tree_it_judges.py`, pin both halves, and
 `test_a_redirection_word_is_not_read_as_a_branch_name` and
 `test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands`
-pin the restore.
+pin the restore, and
+`test_a_file_checkout_hidden_from_the_frozen_reader_is_asked_as_a_switch`
+pins the file's.
 
 #692, the redesign of how the gates learn where a command acts, decided this
 reading on the owner's answers of 2026-10-01, and it stays. No git refuses a

@@ -1,11 +1,15 @@
 ### Fixed
 
 - The worktree guard no longer asks "This command switches a branch" about a
-  restore or a detach that carries a redirection, such as
-  `git checkout . &>/dev/null`, `git checkout -q &>/dev/null` or
-  `git switch --detach>/dev/null` (#737). The question added for #678 read
-  the redirection's word as a branch name. It now reads each command as git
-  is handed it, with every redirection taken off. It now also asks about a
+  restore of `.` or of a path after `--`, or a detach, that carries a
+  redirection, such as `git checkout . &>/dev/null`,
+  `git checkout -q &>/dev/null` or `git switch --detach>/dev/null` (#737).
+  The question added for #678 read the redirection's word as a branch name.
+  It now reads each command as git is handed it, with every redirection
+  taken off. It still reads no tree, so a checkout of a file whose
+  `checkout` a redirection hides from the guard's own reading
+  (`git checkout &>/dev/null README.md`) is still asked, as it was before
+  this change. It now also asks about a
   worktree creation with a redirection between `worktree` and `add`
   (`git worktree 2>/dev/null add ../wt b`), which bash runs as a creation. As
   before, a creation is silent under consent. Counted over the 27,351
