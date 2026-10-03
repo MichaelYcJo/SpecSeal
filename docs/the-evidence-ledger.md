@@ -99,7 +99,11 @@ one family:** the row, every `Re-read ·` row citing it, and every one citing
 those. Of the members that record a coordinate, only the readings with the
 newest `Checked` date count, and readings that tie on that date are a union:
 the coordinate is OK when one of them recorded what it holds now, DRIFTED
-when none did, and BROKEN by the rules above. A `Corrected ·` row supersedes
+when none did, and BROKEN by the rules above. A `Checked` date the calendar
+does not have, such as `2026-13-45`, orders nothing, and a reading dated only
+by such dates is named with each of them as written, because fixing them is
+the repair.
+A `Corrected ·` row supersedes
 the family of the row it cites, whose coordinates are not checked again, and
 starts a family of its own. That is §*A correction a merge dropped*'s halves
 rule computed rather than applied by hand: two branches re-reading one row on
@@ -131,7 +135,11 @@ Once both have folded, a `Corrected ·` row citing one of them retires it.
 then writes one `Re-read ·` row for each released row with a drifted
 coordinate — one per row, never one per coordinate — and names each row it
 wrote. Without `--into`, `--reverify` writes no released file and names each
-row it left. The `Checked` column holds the date somebody read the code, and
+row it left. Narrowed with `--ledger`, either form answers for every family
+that a file it read holds a member of, released or fragment, by the family's
+root row, whichever members carry the drifted coordinate: a coordinate only
+fragment re-reads carry is owed a re-read of a released root too. The
+`Checked` column holds the date somebody read the code, and
 `--checked` writes that date into every row whose hash it moves; it says
 every such row was re-read, so read each row citing a drifted coordinate
 first, or narrow the write with `--ledger` to the files you read. A released
@@ -155,9 +163,14 @@ with a dated note, corrects a false claim in place with a `Corrected <date>`
 note, and removes a row whose claim went with its code, writing the new claim
 into the branch's own fragment. That is what every installed copy does until
 it adds the row. Where citing rows exist anyway, a `--reverify` narrowed with
-`--ledger` names each released row it read whose family's newest reading sits
-in a file it did not write, and exits 1, because no in-place re-stamp of the
-files it read can clear that family.
+`--ledger` names, by its root row, each family that a file it read holds a
+member of, released or fragment, where no in-place re-stamp of the files it
+read clears that family, whichever members carry the drifted coordinate, and
+exits 1. The root is named even where the
+narrowing left its file out, because the root is the row a `Re-read ·` cites.
+A row corrected by two rows is not a re-read's to clear: `--strict` names
+each correcting row and exits 2, while `--reverify`, narrowed or not, exits
+0 and leaves the choice of claim to a person.
 
 ## What the checker refuses, and what it says while refusing
 
