@@ -3172,7 +3172,7 @@ def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
     item = os.path.splitext(os.path.basename(into))[0] if into else None
     rows, left = [], []
     for key in sorted(drifted, key=lambda k: (view.files[k[0]][0], k[1])):
-        path, body, lines, table = view.files[key[0]]
+        path, body, _, table = view.files[key[0]]
         where = f"{built_name(path, root)}:{key[1]}"
         label = row_label(table[key[1]][1])
         if into is None:
@@ -3195,8 +3195,10 @@ def reverify_into(ledgers, view_paths, into, root, maps, default_repo, checked):
             if new is None:
                 left.append((where, f"{coord} — no one place to hash, so not re-read"))
                 continue
-            line = lines[key[1] - 1]
-            stamped.append(spanned(line[m.start() : m.start("hash")] + new))
+            # M may come from any released member of the family, not from
+            # KEY's own line (`released_drift`): slice the line it was matched
+            # on, which is the string the match carries.
+            stamped.append(spanned(m.string[m.start() : m.start("hash")] + new))
         if not stamped:
             continue
         rows.append(

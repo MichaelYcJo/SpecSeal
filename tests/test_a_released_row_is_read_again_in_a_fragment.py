@@ -916,3 +916,41 @@ def test_into_without_reverify_says_which_command_it_belongs_to(repo):
     out = run(["--into", INTO, "."], repo)
     assert out.returncode == 2, out.stdout
     assert "no `--reverify`" in out.stderr, out.stderr
+
+
+def test_into_re_reads_a_coordinate_a_folded_re_read_carries(repo):
+    """The drifted coordinate sits on a folded `Re-read ·` row, not on the
+    family's root: the row `--into` writes names it whole. It wrote a bare
+    hash and exited 0 before, because the match was sliced against the
+    root's line (warden round 1, 🔴 1)."""
+    handler = unit_hash(repo, "src/service.py", "handler")
+    other = unit_hash(repo, "src/service.py", "other")
+    (row,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{handler}` | read | 2026-01-01 | |"
+        ],
+    )
+    folded = (
+        f"| Re-read · R1 · handler adds one | `{citation(row, 'R1 · handler adds one')}`, "
+        f"`src/service.py#other@{other}` | read | 2026-02-01 | Re-read 2026-02-01 by work item 2 |"
+    )
+    released(repo, [folded], version="0.2.0", section="### 2000000001-a-later-item")
+    frozen(repo, "0")
+    (repo / "src" / "service.py").write_text(SERVICE.replace("x * 2", "x * 7"))
+    r = run(
+        [
+            "--reverify",
+            "--into",
+            "seal/ledger/3000000001-y.md",
+            "--checked",
+            "2026-03-01",
+            ".",
+        ],
+        repo,
+    )
+    assert r.returncode == 0, r.stdout + r.stderr
+    written = (repo / "seal" / "ledger" / "3000000001-y.md").read_text()
+    now = unit_hash(repo, "src/service.py", "other")
+    assert f"`src/service.py#other@{now}`" in written, written
+    assert run(["--strict", "."], repo).returncode == 0
