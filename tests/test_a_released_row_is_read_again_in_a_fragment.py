@@ -906,3 +906,12 @@ def test_into_re_reads_a_claimed_coordinate_at_its_minor_region(repo):
     assert '#handler>"return y"@' in (repo / INTO).read_text()
     check = run(["--strict", "."], repo)
     assert check.returncode == 0, check.stdout
+
+
+def test_into_without_reverify_says_which_command_it_belongs_to(repo):
+    """`--into` alone is refused for the command it lacks, not for the date."""
+    frozen(repo)
+    two_drifted_rows(repo)
+    out = run(["--into", INTO, "."], repo)
+    assert out.returncode == 2, out.stdout
+    assert "no `--reverify`" in out.stderr, out.stderr
