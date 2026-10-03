@@ -595,6 +595,10 @@ PACT_PRINTED = (
     (("hooks", "config.py"), "remote_entries"),
     (("hooks", "config.py"), "pact_signatories"),
     (("hooks", "config.py"), "_stops_at"),
+    # The walker every pact table is read through, and the words the
+    # `Signatory` table's refusals are put in (#647, steps C and D).
+    (("hooks", "config.py"), "gfm_table"),
+    (("hooks", "config.py"), "_signatory"),
 )
 # The thread's working words, and the noun the owner withheld from the
 # repository holding the pact: each would give one thing a second name.

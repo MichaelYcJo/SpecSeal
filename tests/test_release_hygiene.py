@@ -171,6 +171,14 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "them to the runner's constant; no release of SpecSeal makes the "
         "number wrong"
     ),
+    ("CONTRIBUTING.md", "2025.10.22"): (
+        "cmarkgfm's, GitHub's renderer the table walker's oracle reads, "
+        "pinned in `.github/scripts/run_tests.py#CMARKGFM` (#647). The class "
+        "is the two rows above: the fallback commands carry the pin so they "
+        "install the renderer the walker's property case is held to, and a "
+        "case holds them to the runner's constant; the package numbers its "
+        "releases by date, and no release of SpecSeal makes the number wrong"
+    ),
     ("skills/verify/scripts/seal_stamp.py", "2.1.287"): (
         "Claude Code's, named above `MESSAGE_LIMIT` as the build on which the "
         "harness's 10,000-unit limit on a hook's `systemMessage` was measured "

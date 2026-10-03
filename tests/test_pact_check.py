@@ -552,6 +552,26 @@ def test_a_pact_name_inside_a_graded_anchors_heading_is_not_a_near_miss(world):
     assert "does not parse" not in out, out
 
 
+def test_a_signatory_written_as_an_autolink_is_never_passed_over(world):
+    """S2 (🟡 18 of #735's round 3). GFM renders a second signatory from an
+    autolink line under the table; the walk refuses the line rather than end
+    the table there, so the run never says every signatory was read."""
+    text = pact(V2).replace(
+        f"| {SIGNATORY_URL} |\n",
+        f"| {SIGNATORY_URL} |\n<https://example.com/org/orders-mobile>\n",
+    )
+    write(world["api"], "seal/pact.md", text)
+    commit(world["api"], "a signatory written as an autolink")
+    cite(world, clause(V2))
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        "REFUSED seal/pact.md — the pact has a `Signatory` table that continues "
+        "with `<https://example.com/org/orders-mobile>`, a line with no pipe "
+        "that GFM reads as one of its rows — write it as `| … |`"
+    ) in out, out
+
+
 def test_an_entry_refusal_is_printed_after_the_pact(world):
     text = pact(V2).replace(f"| {SIGNATORY_URL} |\n", f"| {SIGNATORY_URL} |\n|  |\n")
     write(world["api"], "seal/pact.md", text)
