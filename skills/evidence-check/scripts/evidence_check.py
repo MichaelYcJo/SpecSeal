@@ -3161,9 +3161,11 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
             for key, m, status, detail in graded:
                 if ledger_kind(root, view.files[key[0]][0]) != "released":
                     continue
-                # An OK reading here is an older one the newest outranks: its
-                # match names the coordinate as well as a drifted one does.
-                if status in ("DRIFTED", "OK"):
+                # Where the family is drifted, its newest released readings
+                # grade DRIFTED; an older one that matches is outranked and
+                # names nothing a re-read must cover. A newest reading in a
+                # fragment was re-stamped in place before this view was read.
+                if status == "DRIFTED":
                     drifted.setdefault(top, {}).setdefault(coord, m)
                     break
                 if status == "BROKEN":
