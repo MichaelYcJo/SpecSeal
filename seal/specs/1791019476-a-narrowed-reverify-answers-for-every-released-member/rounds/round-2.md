@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 743 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `c715c475a71db94f7e4124334512765997412a3e..c715c475a71db94f7e4124334512765997412a3e`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -42,9 +42,9 @@ Round 2 is a verifying round. It targets `2e595b8e` over round 1's fix range `46
 | 🟢 | the merge lost no correction and kept every moved hash | `seal/ledger/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes.md` | confirmed | Executed: `correction-check` none dropped; 20 anchors compared, none moved on both sides; `--strict .` 4,029 ok, 0 drifted, 0 refused |
 | 🟢 | the five rows `604f8969` re-stamped hold against the edit | `seal/ledger/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes.md` | confirmed | Read row by row; table above |
 | 🟢 | the class round 1 opened is closed outside the 144 cells | `skills/evidence-check/scripts/evidence_check.py:3292` | confirmed | Executed: 105 runs, P1–P4 hold in every cell; the remaining disagreements are ⬜ 11 and ⬜ 12, and behave the same at `465adf33` |
-| ⬜ 10 | A run without `--ledger` now exits 1 and names the released root where a coordinate only fragment re-reads carry has lost its anchored statement; it exited 0 before. N1, the changelog fragment and spec D3 say unnarrowed runs behave as before | `seal/ledger/1791019476-a-narrowed-reverify-answers-for-every-released-member.md:1` | open | Executed, P7: exit 0 in 3 modes at `465adf33`, exit 1 at HEAD; the paste-ready case is red at `465adf33` and green at HEAD. A correction to the run's records |
-| ⬜ 11 | The home's narrowed-run promise names one family no re-read can clear, the double correction; a BROKEN anchor and a statement gone from a fragment-rooted family also exit 0 against `--strict` 2 | `docs/the-evidence-ledger.md:171` | open | Executed, P6, P10, P11: the same at HEAD and `465adf33`; the sentence is this item's |
-| ⬜ 12 | `--into` with a `--checked` date older than the family's newest reading writes a row that does not outrank it and exits 0, while `--strict` still exits 2 | `skills/evidence-check/scripts/evidence_check.py:3348` | open | Executed, P5: both carriers, at HEAD and `465adf33`. #736's behaviour, not this item's class; its home is the orchestrator's call |
+| ⬜ 10 | A run without `--ledger` now exits 1 and names the released root where a coordinate only fragment re-reads carry has lost its anchored statement; it exited 0 before. N1, the changelog fragment and spec D3 say unnarrowed runs behave as before | `seal/ledger/1791019476-a-narrowed-reverify-answers-for-every-released-member.md:1` | answered | corrected at `c715c475`; Executed, P7: exit 0 in 3 modes at `465adf33`, exit 1 at HEAD; the paste-ready case is red at `465adf33` and green at HEAD. A correction to the run's records |
+| ⬜ 11 | The home's narrowed-run promise names one family no re-read can clear, the double correction; a BROKEN anchor and a statement gone from a fragment-rooted family also exit 0 against `--strict` 2 | `docs/the-evidence-ledger.md:171` | deferred #746 | #746 — Predates #740: the home names one family no re-read can clear, and the reviewer executed two more; filed with the report wording; Executed, P6, P10, P11: the same at HEAD and `465adf33`; the sentence is this item's |
+| ⬜ 12 | `--into` with a `--checked` date older than the family's newest reading writes a row that does not outrank it and exits 0, while `--strict` still exits 2 | `skills/evidence-check/scripts/evidence_check.py:3348` | deferred #746 | #746 — Predates #740: #736 `--into` writes a row a stale `--checked` date cannot count; filed beside ⬜ 11; Executed, P5: both carriers, at HEAD and `465adf33`. #736's behaviour, not this item's class; its home is the orchestrator's call |
 | ❓ | The Windows leg: the separator handling of the cases the fix pass added | `tests/test_a_released_row_is_read_again_in_a_fragment.py` | ❓ out of verified scope | Read only: the new cases compare printed names, which `built_name` writes with `/`. The pull request's Windows CI leg answers it |
 
 ## Paste-ready fixes
