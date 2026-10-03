@@ -36,7 +36,6 @@ What the enumeration leaves out, and why:
 import ast
 import os
 import random
-import re
 
 import gfm_table_oracle as oracle
 import pytest
@@ -510,14 +509,13 @@ def test_an_html_block_closed_above_the_header_leaves_the_table(oracle_check=Tru
 # walker's line-above mistakes with random documents instead. This is that
 # generator, held small and seeded so it runs in a few seconds: documents of
 # 2-9 lines drawn from a vocabulary of line kinds and table lines, judged by
-# cmark-gfm. Its one tolerated disagreement is `unfenced`'s limit, named in
-# `gfm_table`'s docstring: a fence line `unfenced` hides that cmark-gfm reads
-# inside an HTML block, which a blank line has not yet ended.
+# cmark-gfm, a tenth of them with the header indented 1-3 spaces. It tolerates
+# no disagreement: the one it used to, a fence `unfenced` hides inside a kind
+# 6-7 HTML block, is closed since the walker judges the line above as
+# written (round 2, yellow 15).
 
 GENERATOR_SEED = 647
 GENERATOR_DOCUMENTS = 3000
-FENCE_LINE = re.compile(r"^ {0,3}(?:`{3,}|~{3,})")
-HTML_LINE = re.compile(r"^ {0,3}<[A-Za-z!?/]")
 
 
 def vocabulary(header):
@@ -526,20 +524,6 @@ def vocabulary(header):
     delimiter = "|" + "---|" * len(header)
     table = [head, delimiter, row(header, 1), row(header, 2), "| x |", "|---|"]
     return sorted(set(lines)) + table * 6 + ["", "", "", "text"]
-
-
-def inside_html_fence(text):
-    """True where a fence line stands under an HTML block start with no
-    blank line between: the limit `unfenced` shares with `config_rows`."""
-    opened = False
-    for line in text.splitlines():
-        if not line.strip():
-            opened = False
-        elif HTML_LINE.match(line):
-            opened = True
-        elif opened and FENCE_LINE.match(line):
-            return True
-    return False
 
 
 @pytest.mark.parametrize("which", sorted(HEADERS))
@@ -553,9 +537,12 @@ def test_random_documents_are_read_as_cmark_gfm_renders_them_or_refused(which):
         lines = [pick.choice(words) for _k in range(pick.randint(2, 9))]
         if head not in lines:
             lines.insert(pick.randint(0, len(lines)), head)
+        if pick.random() < 0.1:
+            k = lines.index(head)
+            lines[k] = " " * pick.randint(1, 3) + head
         text = "\n".join(lines) + "\n"
         said = disagreement(header, text)
-        if said and not inside_html_fence(text):
+        if said:
             wrong.append(f"{said}\n{text}")
     assert not wrong, f"{len(wrong)} disagreements:\n" + "\n".join(wrong[:5])
 
@@ -613,16 +600,12 @@ def test_a_half_written_tag_does_not_hide_the_table_from_the_oracle():
 @pytest.mark.parametrize(
     "above",
     [
-        "text\n```\nx\n```\n",
-        "text\n<!-- c -->\n",
         "<div>\n\n",
         "<pre>x</pre>\n\n",
         "<? x ?>\n\n",
         "<!DOCTYPE html>\n\n",
     ],
     ids=[
-        "a closed fence directly above, under a paragraph",
-        "a closed comment directly above, under a paragraph",
         "a kind-6 block a blank line ends",
         "a kind-1 block closed on its own line",
         "a kind-3 block closed on its own line",
@@ -630,10 +613,9 @@ def test_a_half_written_tag_does_not_hide_the_table_from_the_oracle():
     ],
 )
 def test_a_table_under_a_block_that_has_ended_is_read(above):
-    """The refusals reach no further than they must: a block `unfenced` hides
-    leaves a gap rather than a line above, a blank line ends a kind-6 block,
-    and a kind 1-5 block closed on its opening line is closed. cmark-gfm
-    renders each table, and the walker reads it."""
+    """The refusals reach no further than they must: a blank line ends a
+    kind-6 block, and a kind 1-5 block closed on its opening line is closed.
+    cmark-gfm renders each table, and the walker reads it."""
     u = "https://example.com/org/a"
     text = f"# Pact\n\n{above}| Signatory |\n|---|\n| {u} |\n"
     assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
@@ -657,3 +639,84 @@ def test_a_pipe_after_an_even_run_of_backslashes_is_refused(cell):
     assert oracle.rows_under(text, header) != [("a \\", "b", "c", "2026-10-04")]
     rows, refusals = config.gfm_table(text, header)
     assert rows == [] and refusals, (rows, refusals)
+
+
+@pytest.mark.parametrize(
+    "above",
+    ["text\n```\nx\n```\n", "text\n" + "<" + "!-- c -->\n"],
+    ids=[
+        "a closed fence directly above, under a paragraph",
+        "a closed comment directly above, under a paragraph",
+    ],
+)
+def test_a_hidden_line_directly_above_the_header_is_refused(above):
+    """**The trade** (round 2, yellow 15). cmark-gfm renders both of these
+    tables, and until round 2 the walker read them, because `unfenced` hides
+    the closing fence or comment and the walk saw a gap above the header.
+    The walker now judges the line above as written, hidden or not, because
+    the same hidden line is what hid a header cmark-gfm does not render: a
+    fence inside a kind 6-7 HTML block, or a list item a fence-only reading
+    hid. So these are refused with the blank-line remedy, as a paragraph
+    directly above already is (round 1, yellow 5). Every template and the
+    writer leave the blank line."""
+    text = f"# Pact\n\n{above}| Signatory |\n|---|\n| https://example.com/org/a |\n"
+    _rows, refusals = config.gfm_table(text, ("Signatory",))
+    assert refusals and "blank line above the header" in refusals[0], refusals
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "- x\n\n  | Signatory |\n|---|\n| {u} |\n",
+        "1) one\n\n   | Signatory |\n|---|\n| {u} |\n",
+        "{c} open\n```\n-->\n- note\n| Signatory |\n|---|\n| {u} |\n",
+        "<div>\n```\nx\n```\n| Signatory |\n|---|\n| {u} |\n",
+    ],
+    ids=[
+        "a header indented into a bullet item",
+        "a header indented into an ordered item",
+        "a list item hidden under a comment holding a fence",
+        "a fence inside a kind-6 block directly above",
+    ],
+)
+def test_the_shapes_round_2_measured_are_refused(text):
+    """Round 2's generator found these read where cmark-gfm renders no
+    table: a header indented 1-3 spaces under a list item across a blank
+    line, a list item `unfenced` hid under a comment holding a fence, and
+    the named kind 6-7 limit, a fence inside an HTML block directly above."""
+    text = text.format(u="https://example.com/org/a", c="<" + "!--")
+    assert oracle.rows_under(text, ("Signatory",)) is None, text
+    _rows, refusals = config.gfm_table(text, ("Signatory",))
+    assert refusals, text
+
+
+def test_an_indented_table_with_no_list_above_is_read():
+    """The other side of the list-item refusal: an indented header under a
+    heading, with no list item since it, renders and is read (S3)."""
+    u = "https://example.com/org/a"
+    text = f"- x\n\n# Pact\n\n  | Signatory |\n|---|\n| {u} |\n"
+    assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
+    rows, refusals = config.gfm_table(text, ("Signatory",))
+    assert refusals == [] and [c for _l, c in rows] == [(u,)], refusals
+
+
+def test_a_heading_inside_the_list_item_does_not_end_it():
+    """A heading indented into the list item is the item's content, not the
+    end of the list: an indented header under it is still the item's, and
+    cmark-gfm renders no table, so only a heading at the start of a line
+    resets the look upward."""
+    u = "https://example.com/org/a"
+    text = f"- x\n\n  # h\n\n  | Signatory |\n|---|\n| {u} |\n"
+    assert oracle.rows_under(text, ("Signatory",)) is None, text
+    _rows, refusals = config.gfm_table(text, ("Signatory",))
+    assert refusals and "indented under a list item" in refusals[0], refusals
+
+
+def test_a_list_marker_in_indented_code_is_no_list_item():
+    """`    - x` is indented code, not a list item, so an indented table under
+    it renders and is read."""
+    u = "https://example.com/org/a"
+    text = f"# Pact\n\n    - x\n\n  | Signatory |\n|---|\n| {u} |\n"
+    assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
+    rows, refusals = config.gfm_table(text, ("Signatory",))
+    assert refusals == [] and [c for _l, c in rows] == [(u,)], refusals

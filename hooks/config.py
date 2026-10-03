@@ -966,6 +966,25 @@ def raw_html_open(lines):
     return end is not None
 
 
+def a_list_above(lines):
+    """True where a list item stands in LINES since the last heading or
+    thematic break at the start of a line, so an indented header under it
+    can be more of that item: a blank line does not end a list item, and the
+    header's indent decides (round 2 of #647 C and D, yellow 15). The two
+    patterns are matched on the line as written, so a heading indented into
+    an item is the item's content and resets nothing."""
+    seen = False
+    for line in lines:
+        if blocks.columns(line) >= 4:
+            continue
+        content = line.lstrip(" ")
+        if ATX_HEADING.match(line) or THEMATIC_BREAK.match(line):
+            seen = False
+        elif LIST_ITEM.match(content):
+            seen = True
+    return seen
+
+
 def gfm_table(text, header):
     """(rows, refusals) for the first GFM table in TEXT whose header row's
     cells are HEADER, a tuple of names.
@@ -990,18 +1009,22 @@ def gfm_table(text, header):
                    line with no pipe, which GFM reads as one of the rows
 
     **A header with a line directly above it is refused**, with the
-    blank-line remedy, because whether GFM renders a table there depends on
-    block state no reader here tracks -- a paragraph, a list item's lazy
-    paragraph, a table above, a setext underline, an HTML block -- and the
-    first walker, which mirrored those rules line by line, read tables GFM
-    does not render (round 1 of #647 C and D, yellow 5). So is a header under
-    an HTML block of kinds 1-5 left open above it (`raw_html_open`), which no
-    blank line ends. **What this cannot see** is a fence `unfenced` hides that
-    GFM reads inside an HTML block of kinds 6 and 7 -- the walk sees a gap
-    where GFM sees raw text, a limit `unfenced` shares with `config_rows` --
-    and a header taken lazily into a list item two blocks up, `- x`, a blank
-    line, an indented paragraph, then the header: telling those apart needs
-    block state no table reader here tracks.
+    blank-line remedy, whether or not `unfenced` hides that line, because
+    whether GFM renders a table there depends on block state no reader here
+    tracks -- a paragraph, a list item's lazy paragraph, a table above, a
+    setext underline, an HTML block, a fence inside one -- and the first
+    walker, which mirrored those rules line by line, read tables GFM does not
+    render (round 1 of #647 C and D, yellow 5; round 2, yellow 15). Judging
+    the line as written closes the limit this docstring used to name, a
+    fence `unfenced` hides inside an HTML block of kinds 6 and 7, because a
+    header inside such a block always has a non-blank line above it. So is a
+    header indented under a list item since the last heading or thematic
+    break (`a_list_above`), which a blank line does not end -- the shape the
+    list-item limit named here, `- x`, a blank line, then the header, is now
+    refused -- and a header under an HTML block of kinds 1-5 left open above
+    it (`raw_html_open`), which no blank line ends. **What this cannot see**
+    is block state none of those three carries; round 2's generator found
+    none over 600,000 documents.
 
     Each refusal reads after a noun naming the file, as both callers of
     `pact_signatories` print it after "the pact ".
@@ -1010,7 +1033,8 @@ def gfm_table(text, header):
     width = len(header)
     shape = "a one-cell row" if width == 1 else f"a {width}-cell row"
     written = "`|" + " … |" * width + "`"
-    shown = list(unfenced(text.splitlines(), text))
+    lines = text.splitlines()
+    shown = list(unfenced(lines, text))
     at = next(
         (k for k, (_i, line) in enumerate(shown) if table_cells(line) == header),
         None,
@@ -1018,10 +1042,20 @@ def gfm_table(text, header):
     if at is None:
         return [], [f"holds no `| {name} |` table"]
     head_index = shown[at][0]
-    above = shown[at - 1] if at > 0 else None
-    if above is not None and above[0] == head_index - 1 and above[1].strip():
+    # The line as written, hidden or not: a line `unfenced` hides directly
+    # above the header is a line GFM may read the header into -- a fence
+    # inside an HTML block of kinds 6-7, or a list item the fence-only reading
+    # hid (round 2 of #647 C and D, yellow 15).
+    above = lines[head_index - 1] if head_index > 0 else ""
+    if shown[at][1][:1] == " " and a_list_above([ln for _i, ln in shown[:at]]):
         return [], [
-            f"has a `| {name} |` header directly under `{above[1].strip()}`, "
+            f"has a `| {name} |` header indented under a list item, which GFM "
+            "reads as more of that item where the indent reaches its text — "
+            "write the header at the start of its line"
+        ]
+    if above.strip():
+        return [], [
+            f"has a `| {name} |` header directly under `{above.strip()}`, "
             "and GFM renders a table under a line only in some of the shapes "
             "that line can take — leave a blank line above the header"
         ]

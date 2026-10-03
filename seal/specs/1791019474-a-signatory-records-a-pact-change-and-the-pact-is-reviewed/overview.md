@@ -34,19 +34,16 @@ review there takes it.
 
 ## Not done
 
-- **The container nesting the walker cannot see.** A header taken lazily into
-  a list item two blocks up (`- x`, a blank line, an indented paragraph, the
-  header) is read as a table GitHub does not render. Telling it apart needs
-  the container nesting no table reader here tracks; `gfm_table`'s docstring
-  and the corpus module's docstring name it, and nothing in a pact, a record
-  of pact changes or a record of pact reviews writes that shape.
-- **A fence inside an HTML block.** `<div>`, a fenced block, then the header
-  with no blank line: cmark-gfm reads all of it as the HTML block's raw text
-  and renders no table, while `unfenced` hides the fence, so the walk sees a
-  gap and reads the table. It is `unfenced`'s limit, shared with
-  `config_rows` and older than this work item; `gfm_table`'s docstring names
-  it, and the seeded generator in the corpus module tolerates exactly that
-  class (round 1, 🟡 5, deferred by the reviewer to the orchestrator).
+- **Block state the walker does not track.** Round 2 (🟡 15) closed the two
+  limits this memo used to name: a fence inside an HTML block of kinds 6-7
+  directly above the header, now refused because the line above is judged as
+  written, hidden or not; and the list-item shape, now an indented header
+  under a list item since the last heading or thematic break, refused. The
+  trade is that a table directly under a closed fence or comment, which
+  GitHub renders, is refused with the blank-line remedy. What remains is any
+  block state none of the walker's three checks carries; round 2's generator
+  found none over 600,000 documents, and the build's seeded generator runs
+  in the corpus module.
 - **A record a person edits by hand.** The record of pact changes is written
   by `--reverify` alone and said never to be edited by hand; a hand edit
   changes its content hash, which `pact-check` then reports as a record grown
