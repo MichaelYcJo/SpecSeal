@@ -70,6 +70,12 @@ jobs:
     needs: publish
     if: needs.publish.outputs.created == 'true'
     runs-on: ubuntu-latest
+    # A hung suite must end as a failed step, not as a job the runner ends at
+    # its six-hour default: a step's `continue-on-error` does not reach the
+    # job's own timeout, and the job's line below keeps the run green if it
+    # is reached anyway.
+    timeout-minutes: 60
+    continue-on-error: true
     steps:
       # Not shallow, for `test.yml`'s reason: a case asks git whether a
       # recorded SHA is an ancestor of HEAD, and at depth 1 none is.
@@ -91,6 +97,7 @@ jobs:
       - name: run the suite at the tag
         id: suite
         continue-on-error: true
+        timeout-minutes: 30
         shell: bash
         run: |
           git config --global user.email ci@ci

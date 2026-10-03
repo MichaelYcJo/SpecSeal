@@ -602,8 +602,11 @@ def test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit
     other scope. `publish` has no `needs` and says whether it created the
     release; `seal` needs it, runs only on `created == 'true'`, and every one
     of its steps is `continue-on-error`, so nothing the seal meets can turn
-    the workflow red. The token is on the drawing step alone, so the suite at
-    the tag runs with none. Seen red against the workflow with no `seal` job."""
+    the workflow red. A hung suite ends at the step's `timeout-minutes`, and
+    the job's own timeout sits under a job-level `continue-on-error` (round
+    1's 🟡 4). The token is on the drawing step alone. Seen red against the
+    workflow with no `seal` job, and the timeouts against the workflow
+    without them."""
     text = workflow()
     assert "tags: ['v*']" in text, "the workflow no longer fires on a tag push"
     assert "branches:" not in text, (
@@ -622,6 +625,9 @@ def test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit
     seal = job(text, "seal")
     assert "    needs: publish" in seal, seal
     assert "    if: needs.publish.outputs.created == 'true'" in seal, seal
+    assert (
+        "    timeout-minutes: 60" in seal and "    continue-on-error: true" in seal
+    ), seal
     held = steps(seal)
     assert len(held) == 5, held
     for step in held:
@@ -630,6 +636,7 @@ def test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit
     assert len(tokened) == 1 and any("release_seal.py" in line for line in tokened[0])
     suite = [step for step in held if any("--junitxml" in line for line in step)]
     assert len(suite) == 1 and any("id: suite" in line for line in suite[0]), suite
+    assert any(line.strip() == "timeout-minutes: 30" for line in suite[0]), suite
     assert any(
         "SUITE_OUTCOME: ${{ steps.suite.outcome }}" in line for line in tokened[0]
     ), tokened
