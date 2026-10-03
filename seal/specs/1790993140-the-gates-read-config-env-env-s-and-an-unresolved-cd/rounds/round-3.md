@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 733 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `97f6cee08c1234591d754f7cd23b3cf5ff3754bf..97f6cee08c1234591d754f7cd23b3cf5ff3754bf`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 13 (a redirection word read as a branch name makes `git checkout . &>/dev/null` ask "switches a branch", silent at the base and at `f1629706`) and 🟡 14 (`ENV_OPTIONS` misses BSD's `-` and GNU 9.12's `--env0-from`, so a commit behind `env -i-S` or `env --S` is found by nothing); 🟡 15 is a silence the base shipped too, which I judge answerable with grounds and deferrable |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -28,11 +28,11 @@ Round 3 is a verifying round and the run's last, since round 2 closed on fixes a
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 13 | 🟡 8's fix compares a cut or merged view with segments that lack its redirection word, which `switch_kind` reads as a branch name, so `git checkout . &>/dev/null` and other non-switch shapes ask "switches a branch" | `hooks/worktree-guard.py:364` | open | executed: six shapes silent at `233f0455` and `f1629706`, ask at `a575739f`; bash runs each without switching; the fence passes the two modules and fires on 0 of 27,351 pairs |
-| 🟡 14 | `ENV_OPTIONS` misses BSD's `-` letter and GNU 9.12's `--env0-from`, so `env -i-S`, `env --S` and `env --env0-from f -iS` hide a commit from every reading | `hooks/cmdline.py:1783` | open | executed: macOS `env -i-S`, `-v-S` and `--S` run the string, and five shapes are found by nothing at three commits; read: GNU's and FreeBSD's sources |
-| 🟡 15 | a checkout whose name carries a redirection (`git checkout feature/x>/dev/null`, `git checkout 2>/dev/null feature/x`) switches unasked, because `classify` looks the redirection up as part of the name and C reads the name tree-blind | `hooks/worktree-guard.py:364` | open | executed: bash switches; silent through `main()` at `233f0455`, `07a3dc7f`, `f1629706` and `a575739f`; not a regression; a tree-blind fence asks on a glued restore too |
-| ⬜ 16 | the merged-group mutant the build calls equivalent is not: it silences `git switch &>/dev/null feature/x`, and no case pins an `&>` before the name | `hooks/worktree-guard.py:361` | open | executed at function level: 32 of 854 shapes differ, the mutant silent on each; the code is right |
-| ⬜ 17 | K3's corrected clause and E14's round 2 note say the table holds every option of both synopses | `seal/ledger/1790993140-the-gates-read-config-env-env-s-and-an-unresolved-cd.md` K3 | open | read; paperwork correction, outside `Needs a fix`; drifts with 🟡 14's fix |
+| 🟡 13 | 🟡 8's fix compares a cut or merged view with segments that lack its redirection word, which `switch_kind` reads as a branch name, so `git checkout . &>/dev/null` and other non-switch shapes ask "switches a branch" | `hooks/worktree-guard.py:364` | deferred #737 | #737 — The run is capped at the reopening bound, which commissions nothing. #737 is in this release's milestone, because the base never asked this question and 0.18.0 should not ship it; it carries the report's fence; executed: six shapes silent at `233f0455` and `f1629706`, ask at `a575739f`; bash runs each without switching; the fence passes the two modules and fires on 0 of 27,351 pairs |
+| 🟡 14 | `ENV_OPTIONS` misses BSD's `-` letter and GNU 9.12's `--env0-from`, so `env -i-S`, `env --S` and `env --env0-from f -iS` hide a commit from every reading | `hooks/cmdline.py:1783` | deferred #737 | #737 — The same reason and the same issue; both fences touch the guard's and the reader's code together; executed: macOS `env -i-S`, `-v-S` and `--S` run the string, and five shapes are found by nothing at three commits; read: GNU's and FreeBSD's sources |
+| 🟡 15 | a checkout whose name carries a redirection (`git checkout feature/x>/dev/null`, `git checkout 2>/dev/null feature/x`) switches unasked, because `classify` looks the redirection up as part of the name and C reads the name tree-blind | `hooks/worktree-guard.py:364` | deferred #738 | #738 — A silence the base shipped (233f0455 through a575739f); the backlog issue carries the fence and its cost; executed: bash switches; silent through `main()` at `233f0455`, `07a3dc7f`, `f1629706` and `a575739f`; not a regression; a tree-blind fence asks on a glued restore too |
+| ⬜ 16 | the merged-group mutant the build calls equivalent is not: it silences `git switch &>/dev/null feature/x`, and no case pins an `&>` before the name | `hooks/worktree-guard.py:361` | deferred #737 | #737 — The two cases that pin the merged-group comparison ride with 🟡 13's fence; executed at function level: 32 of 854 shapes differ, the mutant silent on each; the code is right |
+| ⬜ 17 | K3's corrected clause and E14's round 2 note say the table holds every option of both synopses | `seal/ledger/1790993140-the-gates-read-config-env-env-s-and-an-unresolved-cd.md` K3 | answered | corrected at `97f6cee0`; read; paperwork correction, outside `Needs a fix`; drifts with 🟡 14's fix |
 | 🟢 | round 2's finding 8 is closed for the shapes it named — a redirection glued to the subcommand is asked again | `hooks/worktree-guard.py:364` | confirmed | executed: the three glued shapes ask at `a575739f` and are silent at `f1629706`; the comparison it introduced is this round's finding 13 |
 | 🟢 | round 2's finding 9 is closed — an abbreviated long option's value no longer ends env's own options | `hooks/cmdline.py:1813` | confirmed | executed: `env --un FOO -iS` is found at `a575739f`, by nothing at `f1629706`; the abbreviation cases pass; GNU env read, not run |
 | 🟢 | round 2's finding 10 is closed — a redirection among env's options is read past | `hooks/cmdline.py:1742` | confirmed | executed: `env -u FOO 2>/dev/null -iS 'git commit -m x'` is found and denied at `a575739f`, found by nothing at `f1629706` |
