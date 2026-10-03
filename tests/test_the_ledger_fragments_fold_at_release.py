@@ -1266,3 +1266,15 @@ def test_this_work_items_rows_are_still_found_after_the_release_folds_them(tree)
     fold(tree)
     assert not frag.exists(), "the fold removed nothing"
     this_work_items_rows_are_in_the_ledger(str(tree))
+
+
+def test_the_checklist_repairs_preparation_drift_the_way_the_freeze_accepts():
+    """Under `Ledger frozen from` plain `--reverify` writes no released file,
+    so the release checklist's §3 drift row names `--into`, the fold's own
+    fragment, and the second fold that joins it (round 1, 🟡 7)."""
+    text = flat("docs", "release-checklist.md")
+    row = next(line for line in text.split("| `evidence-check --strict` |")[1:2]).split(
+        " | "
+    )[0]
+    assert "--reverify --into seal/ledger/<unix-seconds>-fold.md --checked" in row, row
+    assert "second `fold_ledger.py --version X.Y.Z`" in row, row
