@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 3 |
-| Commit | the commit that adds this record; `plan.md`'s Status cell names it |
+| Commit | 2ad5a046 |
 | Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
