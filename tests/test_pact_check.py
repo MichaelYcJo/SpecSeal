@@ -132,6 +132,13 @@ def cite(world, digest, locator=LOCATOR, where="seal/ledger/1790000000-x.md"):
     return anchor
 
 
+def posix(path):
+    """A path as `pact-check` prints one outside HOME: every separator `/`.
+    Each case comparing a printed path compares this, so a Windows run
+    holds the same sentence a POSIX one does."""
+    return str(path).replace(os.sep, "/")
+
+
 def run(world, root=None):
     out = io.StringIO()
     code = pc.check(str(root or world["api"]), out=out, home_dir=str(world["home"]))
@@ -150,7 +157,7 @@ def test_s12_a_signatory_citing_the_current_clause_is_clean(world):
     code, out = run(world)
     assert code == 0, out
     assert (
-        f"READ {SIGNATORY_URL} {world['web']} — `Pact notify`: when the pact is "
+        f"READ {SIGNATORY_URL} {posix(world['web'])} — `Pact notify`: when the pact is "
         "touched; 2 pact anchors naming `orders-api`"
     ) in out, out
     assert (
@@ -367,7 +374,9 @@ def test_a_map_line_naming_a_checkout_of_another_repository_is_not_trusted(world
     )
     code, out = run(world)
     assert code == 1, out
-    assert f"NOT FOUND {SIGNATORY_URL} — the map names {other}, whose origin is" in out
+    assert (
+        f"NOT FOUND {SIGNATORY_URL} — the map names {posix(other)}, whose origin is"
+    ) in out, out
 
 
 def test_an_anchor_quoted_in_a_closed_fence_is_an_example_and_not_graded(world):
@@ -452,7 +461,7 @@ def test_a_signatory_with_no_seal_root_is_one_sided(world):
     code, out = run(world)
     assert code == 2, out
     assert (
-        f"ONE-SIDED {SIGNATORY_URL} {world['web']} — the pact lists it, and it "
+        f"ONE-SIDED {SIGNATORY_URL} {posix(world['web'])} — the pact lists it, and it "
         "has no seal/ root to name this pact in: the relationship is recorded "
         "on one side only"
     ) in out, out
@@ -463,8 +472,9 @@ def test_a_signatory_config_that_will_not_read_is_unreadable(world):
     (world["web"] / "seal" / "config.md").mkdir()
     code, out = run(world)
     assert code == 2, out
-    home = os.path.join(str(world["web"]), "seal")
-    assert f"UNREADABLE {SIGNATORY_URL} {home}/config.md — could not be read" in out
+    # Relative to the signatory's checkout and in POSIX form: the sentence
+    # used to join a native absolute path with `/` (#647's separator note).
+    assert f"UNREADABLE {SIGNATORY_URL} seal/config.md — could not be read" in out, out
 
 
 def test_an_anchor_file_that_will_not_read_is_unreadable(world):
@@ -481,8 +491,7 @@ def test_a_pact_that_will_not_read_is_unreadable(world):
     (world["api"] / "seal" / "pact.md").mkdir()
     code, out = run(world)
     assert code == 2, out
-    pact_path = os.path.join(str(world["api"]), "seal", "pact.md")
-    assert f"UNREADABLE {pact_path} — the pact could not be read" in out, out
+    assert "UNREADABLE seal/pact.md — the pact could not be read" in out, out
 
 
 def test_a_pact_listing_its_own_repository_says_so(world):
@@ -600,3 +609,130 @@ def test_the_map_is_named_in_posix_form_on_every_platform(world, monkeypatch):
     _, why = windows.checkout(config, signatory, str(world["tmp"] / "nowhere"), {})
     assert "~/.claude/specseal/pact-paths.md" in why, why
     assert "\\" not in why, why
+
+
+# --- #647 C and D, phase 2: the grammar and the printed paths --------------
+
+
+@pytest.mark.parametrize(
+    "shape",
+    [
+        "pact:orders-api{loc}@{h}",
+        "pact:orders-api:{loc}@{h}",
+        "pact:orders-api {loc}@{h}",
+        "pact:orders-api@{h}",
+    ],
+    ids=[
+        "no slash",
+        "a colon for the slash",
+        "a space for the slash",
+        "no heading path",
+    ],
+)
+def test_an_anchor_missing_its_slash_is_refused(world, shape):
+    """S4 (🟡 19 of #735's round 3). An anchor whose `/` went missing is still
+    an attempt, and the shipped section says one that does not parse is exit
+    2. Round 2's narrowing had made each of these a mention, read by nobody."""
+    anchor = shape.format(loc=LOCATOR, h=clause(V2))
+    write(world["web"], "seal/ledger/1790000000-x.md", ledger_row(anchor))
+    code, out = run(world)
+    assert code == 2, out
+    assert "does not parse" in out, out
+
+
+def test_the_refusal_names_both_remedies(world):
+    """S5 (⬜ 23). The grammar stands -- a `/` after `pact:<name>` begins an
+    anchor -- so the half-typed form in prose is refused, and the sentence
+    names the second remedy beside the first: a fenced block for an
+    example."""
+    cite(world, clause(V2))
+    write(
+        world["web"],
+        "seal/specs/1790000001-y/spec.md",
+        "# spec\n\nThe clauses sit under pact:orders-api/ in that repository.\n",
+    )
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        "Quote the heading path and give it a hash, `@00000000` until the first "
+        "report names the real one; or, where it shows the shape rather than "
+        "citing a clause, put it in a fenced code block, which nothing reads"
+    ) in out, out
+
+
+@pytest.mark.parametrize(
+    "path, repo, home, want",
+    [
+        (
+            r"C:\Users\x\work\orders-web\seal\config.md",
+            r"C:\Users\x\work\orders-web",
+            r"C:\Users\x",
+            "seal/config.md",
+        ),
+        (
+            r"C:\Users\x\.claude\specseal\pact-paths.md",
+            None,
+            r"C:\Users\x",
+            "~/.claude/specseal/pact-paths.md",
+        ),
+        (r"C:\Users\x\work\orders-web", None, r"C:\Users\x", "~/work/orders-web"),
+        (r"D:\work\orders-web", None, r"C:\Users\x", "D:/work/orders-web"),
+        (r"C:\Users\xy\work", None, r"C:\Users\x", "C:/Users/xy/work"),
+        ("C:/Users/x/work/a\\b.md", r"C:\Users\x\work", None, "a/b.md"),
+    ],
+    ids=[
+        "inside its repository",
+        "the map",
+        "a checkout under home",
+        "another drive",
+        "a longer segment is not under home",
+        "both separators",
+    ],
+)
+def test_every_printed_path_is_in_posix_form(path, repo, home, want):
+    """S6. The one helper every printed path goes through, fed Windows paths
+    through `ntpath`, so the POSIX guarantee is removed rather than relied on
+    (`agent-contract` §13): no `\\` survives, a path under home begins `~/`,
+    and one inside its repository is relative to it."""
+    import ntpath
+
+    got = pc.shown(path, repo, home, flavour=ntpath)
+    assert got == want
+    assert "\\" not in got
+
+
+def test_no_line_formats_a_path_without_the_helper():
+    """S6, the class: every `{…}` in an f-string of `pact_check.py` that names
+    a path variable goes through `shown`. Restoring the old
+    `{their_home}/{CONFIG_FILE}` puts one back, and this names it."""
+    import ast
+
+    with open(SCRIPT, encoding="utf-8") as handle:
+        tree = ast.parse(handle.read())
+    # `where` is not among them: every value it holds is built by `shown`
+    # or is a literal `seal/...` label.
+    paths = {
+        "path",
+        "repo",
+        "root",
+        "pact_path",
+        "their_home",
+        "their_repo",
+        "file_path",
+        "home",
+        "home_dir",
+        "h",
+        "hits",
+    }
+    raw = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.JoinedStr):
+            continue
+        for part in node.values:
+            if (
+                isinstance(part, ast.FormattedValue)
+                and isinstance(part.value, ast.Name)
+                and part.value.id in paths
+            ):
+                raw.append((node.lineno, part.value.id))
+    assert raw == [], raw

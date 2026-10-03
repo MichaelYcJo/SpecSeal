@@ -86,6 +86,58 @@ MAP_PARTS = (".claude", "specseal", "pact-paths.md")
 # `~/.claude\specseal\pact-paths.md`.
 MAP = os.path.join(*MAP_PARTS)
 MAP_SHOWN = "~/" + "/".join(MAP_PARTS)
+
+
+def shown(path, repo=None, home_dir=None, flavour=os.path):
+    """PATH as every line of `pact-check` prints it, on every platform:
+    relative to REPO where it lies inside that repository, `~/`-relative
+    where it lies under HOME_DIR, and otherwise whole, with `/` for every
+    separator.
+
+    **Every path this command prints goes through here** (#647, the separator
+    note). The `UNREADABLE` sentence used to join a native absolute path with
+    `/`, so a Windows run printed `C:\\Users\\x\\orders-web\\seal/config.md`,
+    and every other path line printed whatever separators the platform gave
+    it. One function, so the class is closed by construction rather than one
+    sentence at a time.
+
+    The comparison is by whole segment and literal, as
+    `evidence_check.py#display_name`'s is: nothing is case-folded, resolved or
+    normalised, so a path reached by another spelling of the repository
+    prints long and still names the file that was read. That function is not
+    reused because it keeps the caller's separators on purpose, and because
+    `load`'s sentence is printed before that module is loaded.
+
+    FLAVOUR is the path module whose separators and drive rule apply;
+    `ntpath` is what a case passes, so the Windows spelling is exercised on
+    every platform rather than resting on a POSIX guarantee
+    (`agent-contract` §13).
+    """
+    seps = "".join(s for s in (flavour.sep, flavour.altsep) if s)
+
+    def parts(text):
+        drive, rest = flavour.splitdrive(text)
+        segments = [s for s in re.split(f"[{re.escape(seps)}]", rest) if s]
+        return drive, rest[:1] in seps, segments
+
+    drive, rooted, segments = parts(path)
+    for base, lead in ((repo, ""), (home_dir, "~/")):
+        if not base:
+            continue
+        base_drive, base_rooted, base_segments = parts(base)
+        n = len(base_segments)
+        if (
+            (base_drive, base_rooted) == (drive, rooted)
+            and len(segments) > n
+            and segments[:n] == base_segments
+        ):
+            return lead + "/".join(segments[n:])
+    rest = flavour.splitdrive(path)[1]
+    for sep in seps:
+        rest = rest.replace(sep, "/")
+    return drive + rest
+
+
 MAP_HEADER = re.compile(r"^\|\s*Remote\s*\|\s*Path\s*\|\s*$")
 
 OK, SUPERSEDED, NOT_TAKEN, UNMATCHED, BROKEN = (
@@ -107,17 +159,27 @@ NOT_FOUND, ONE_SIDED, REFUSED, UNREADABLE = (
 # check, which passes pact anchors over by design, and not by chain-check
 # (round 1 of #647, yellow 4).
 #
-# **The grammar, in one rule** (round 2, yellow 13): a token begins an anchor
-# where `pact:<name>` is followed at once by `/` or `#`, and is refused where
-# it does not go on to parse as one. Anything else naming the pact is a
-# mention and is left alone: `pact:<name>` followed by punctuation, a space or
-# the end of a code span, so the `.` ending a sentence leaves a mention. The
-# one form that begins an anchor and is not an attempt is the one this plugin
-# prints to show the shape, its locator opening with a placeholder,
-# `/"<heading path>"`.
+# **The grammar, in one rule** (round 2, yellow 13; round 3 of #735, yellow
+# 19), stated for a reader in `docs/the-pact.md` §*The pact anchor*: a token
+# begins an anchor where `pact:<name>` is followed at once by `/` or `#`, or
+# where the rest of an anchor follows with its `/` missing -- a quoted heading
+# path closed by `@`, or `@` and a hash, at once or after one mark or one
+# space. It is refused where it does not go on to parse. Anything else naming
+# the pact is a mention and is left alone: `pact:<name>` followed by
+# punctuation, a space or the end of a code span, so the `.` ending a sentence
+# leaves a mention. The one form that begins an anchor and is not an attempt
+# is the one this plugin prints to show the shape, its locator opening with a
+# placeholder, `/"<heading path>"`.
+# Straight or curly quotes, spelled by code point so no line of this file holds
+# a character a reader takes for another.
+OPEN_QUOTE = "[\"'" + chr(0x201C) + chr(0x2018) + "]"
+CLOSE_QUOTE = "[\"'" + chr(0x201D) + chr(0x2019) + "]"
 PACT_MENTION_RE = re.compile(
     r"(?<![A-Za-z0-9_.@/-])pact:(?P<name>[A-Za-z0-9_.-]+)"
-    r"(?=[/#])(?!/\"<)[^\s`|]*"
+    r"(?:(?=[/#])(?!/\"<)"
+    r"|(?=[^\s`|/#]?[ \t]?" + OPEN_QUOTE + r"[^\n]*?" + CLOSE_QUOTE + r"@)"
+    r"|(?=[^\s`|/#]?@[0-9A-Fa-f]))"
+    r"[^\s`|]*"
 )
 # Which exit each finding is: the classes `evidence-check` keeps.
 EXIT_ONE = frozenset({SUPERSEDED, NOT_TAKEN, UNMATCHED, NOT_FOUND})
@@ -128,7 +190,8 @@ def load(path, name):
     """A sibling module by path, or a sentence and exit 2."""
     if not os.path.isfile(path):
         sys.stderr.write(
-            f"pact-check: cannot read {path}, which this command reads the pact "
+            f"pact-check: cannot read {shown(path, home_dir=os.path.expanduser('~'))}, "
+            "which this command reads the pact "
             "through. It ships in the plugin beside this script; a copy of one "
             "script taken on its own is not a plugin. Nothing was read.\n"
         )
@@ -178,7 +241,7 @@ def path_map(config, home_dir):
         return {}, None
     text = read(where)
     if text is None:
-        return {}, f"{where} is there and could not be read"
+        return {}, f"{shown(where, home_dir=home_dir)} is there and could not be read"
     found, seen_header = {}, False
     row = re.compile(
         rf"^\|\s*(?P<remote>{config.CELL}+?)\s*\|\s*(?P<path>{config.CELL}+?)\s*\|\s*$"
@@ -197,17 +260,21 @@ def path_map(config, home_dir):
     return found, None
 
 
-def checkout(config, signatory, root, mapped):
-    """(path, None) for the signatory's checkout, or (None, why not)."""
+def checkout(config, signatory, root, mapped, home_dir=None):
+    """(path, None) for the signatory's checkout, or (None, why not), every
+    path in the reason as `shown` prints it."""
     written, normalised, _name = signatory
     if normalised in mapped:
         path = mapped[normalised]
         if not os.path.isdir(path):
-            return None, f"the map names {path}, which is not a directory here"
+            return None, (
+                f"the map names {shown(path, home_dir=home_dir)}, which is not a "
+                "directory here"
+            )
         theirs = config.normalise_remote(origin(path))
         if theirs != normalised:
             return None, (
-                f"the map names {path}, whose origin is "
+                f"the map names {shown(path, home_dir=home_dir)}, whose origin is "
                 f"{theirs or 'not set'} rather than {normalised}"
             )
         return path, None
@@ -230,7 +297,8 @@ def checkout(config, signatory, root, mapped):
     line = f"`| {written} | <the path of its checkout> |`"
     if hits:
         return None, (
-            f"{len(hits)} sibling directories have its origin ({', '.join(hits)}), "
+            f"{len(hits)} sibling directories have its origin "
+            f"({', '.join(shown(h, home_dir=home_dir) for h in hits)}), "
             f"and nothing here guesses which: add {line} to {MAP_SHOWN}"
         )
     return (
@@ -371,25 +439,33 @@ def check(root, out=sys.stdout, home_dir=None):
 
     repo = optin.repo_root(os.path.abspath(root))
     if not repo:
-        say(f"pact-check: {root} is not in a git repository — nothing was read")
+        say(
+            f"pact-check: {shown(root, home_dir=home_dir)} is not in a git "
+            "repository — nothing was read"
+        )
         return 2
     home = optin.home_at(repo)
     pact_path = os.path.join(home, PACT_FILE) if home else ""
     if not home or not os.path.lexists(pact_path):
         say(
-            f"pact-check: {repo} holds no seal/{PACT_FILE}, so there is no pact "
+            f"pact-check: {shown(repo, home_dir=home_dir)} holds no "
+            f"seal/{PACT_FILE}, so there is no pact "
             "to reconcile here — run it in the repository that holds the pact"
         )
         return 2
     pact_text = read(pact_path)
     if pact_text is None:
-        say(f"{UNREADABLE} {pact_path} — the pact could not be read")
+        say(
+            f"{UNREADABLE} {shown(pact_path, repo, home_dir)} — the pact could "
+            "not be read"
+        )
         return 2
     mine = origin(repo)
     name = config.pact_name(mine)
     if not name:
         say(
-            f"pact-check: {repo} has no origin remote, so the name every pact "
+            f"pact-check: {shown(repo, home_dir=home_dir)} has no origin remote, "
+            "so the name every pact "
             "anchor carries cannot be derived — set `origin` and run it again"
         )
         return 2
@@ -432,16 +508,17 @@ def check(root, out=sys.stdout, home_dir=None):
                 "lists every OTHER signatory, so take this row out",
             )
             continue
-        path, why = checkout(config, signatory, repo, mapped)
+        path, why = checkout(config, signatory, repo, mapped, home_dir)
         if path is None:
             found(NOT_FOUND, written, "", why)
             continue
-        their_home = optin.home_at(optin.repo_root(path) or path)
+        their_repo = optin.repo_root(path) or path
+        their_home = optin.home_at(their_repo)
         if not their_home:
             found(
                 ONE_SIDED,
                 written,
-                path,
+                shown(path, home_dir=home_dir),
                 "the pact lists it, and it has no seal/ root to name this pact "
                 "in: the relationship is recorded on one side only",
             )
@@ -451,7 +528,7 @@ def check(root, out=sys.stdout, home_dir=None):
             found(
                 UNREADABLE,
                 written,
-                f"{their_home}/{CONFIG_FILE}",
+                shown(config.config_path(their_home), their_repo, home_dir),
                 "could not be read",
             )
             continue
@@ -473,9 +550,9 @@ def check(root, out=sys.stdout, home_dir=None):
         anchors = 0
         for file_path in anchor_files(their_home):
             body = read(file_path)
-            shown = os.path.relpath(file_path, path).replace(os.sep, "/")
+            where = shown(file_path, path, home_dir)
             if body is None:
-                found(UNREADABLE, written, shown, "could not be read")
+                found(UNREADABLE, written, where, "could not be read")
                 continue
             view = checker.unquoted(body)
             for match in checker.PACT_ANCHOR_RE.finditer(view):
@@ -492,7 +569,7 @@ def check(root, out=sys.stdout, home_dir=None):
                 counts[status] += 1
                 if status != OK:
                     line = view.count("\n", 0, match.start()) + 1
-                    found(status, written, f"{shown}:{line} {match.group(0)}", detail)
+                    found(status, written, f"{where}:{line} {match.group(0)}", detail)
             graded = [m.span() for m in checker.PACT_ANCHOR_RE.finditer(view)]
             for near in PACT_MENTION_RE.finditer(view):
                 inside = any(s <= near.start() < e for s, e in graded)
@@ -502,14 +579,17 @@ def check(root, out=sys.stdout, home_dir=None):
                 found(
                     REFUSED,
                     written,
-                    f"{shown}:{line}",
+                    f"{where}:{line}",
                     f"`{near.group(0)}` does not parse as "
                     f'`pact:{name}/"<heading path>"@<hash>`, so nothing grades '
                     "it. Quote the heading path and give it a hash, `@00000000` "
-                    "until the first report names the real one",
+                    "until the first report names the real one; or, where it "
+                    "shows the shape rather than citing a clause, put it in a "
+                    "fenced code block, which nothing reads",
                 )
         say(
-            f"READ {written} {path} — `{config.PACT_NOTIFY_ROW}`: "
+            f"READ {written} {shown(path, home_dir=home_dir)} — "
+            f"`{config.PACT_NOTIFY_ROW}`: "
             f"{notify or 'will not parse'}; {anchors} pact anchor"
             f"{'' if anchors == 1 else 's'} naming `{name}`"
         )
