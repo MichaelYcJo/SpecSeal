@@ -80,7 +80,12 @@ HOOKS = os.path.join(HERE, "..", "..", "..", "hooks")
 CHECKER = os.path.join(HERE, "evidence_check.py")
 PACT_FILE = "pact.md"
 CONFIG_FILE = "config.md"
-MAP = os.path.join(".claude", "specseal", "pact-paths.md")
+MAP_PARTS = (".claude", "specseal", "pact-paths.md")
+# Read through the native path; named in every sentence by the one spelling
+# the documents use on every platform, so a Windows run does not print
+# `~/.claude\specseal\pact-paths.md`.
+MAP = os.path.join(*MAP_PARTS)
+MAP_SHOWN = "~/" + "/".join(MAP_PARTS)
 MAP_HEADER = re.compile(r"^\|\s*Remote\s*\|\s*Path\s*\|\s*$")
 
 OK, SUPERSEDED, NOT_TAKEN, UNMATCHED, BROKEN = (
@@ -226,9 +231,12 @@ def checkout(config, signatory, root, mapped):
     if hits:
         return None, (
             f"{len(hits)} sibling directories have its origin ({', '.join(hits)}), "
-            f"and nothing here guesses which: add {line} to ~/{MAP}"
+            f"and nothing here guesses which: add {line} to {MAP_SHOWN}"
         )
-    return None, f"no checkout of it was found on this machine: add {line} to ~/{MAP}"
+    return (
+        None,
+        f"no checkout of it was found on this machine: add {line} to {MAP_SHOWN}",
+    )
 
 
 def anchor_files(home):
@@ -405,7 +413,7 @@ def check(root, out=sys.stdout, home_dir=None):
         found(REFUSED, f"seal/{PACT_FILE}", "", f"the pact {refusal}")
     mapped, map_refusal = path_map(config, home_dir)
     if map_refusal:
-        found(REFUSED, f"~/{MAP}", "", map_refusal)
+        found(REFUSED, MAP_SHOWN, "", map_refusal)
 
     counts = dict.fromkeys((OK, SUPERSEDED, NOT_TAKEN, UNMATCHED, BROKEN), 0)
     read_count = 0

@@ -563,3 +563,20 @@ def test_an_entry_refusal_is_printed_after_the_pact(world):
         "REFUSED seal/pact.md — the pact has a `Signatory` entry that will not "
         "read: an empty row"
     ) in out, out
+
+
+def test_the_map_is_named_in_posix_form_on_every_platform(world, monkeypatch):
+    """The map lives at one documented place, `~/.claude/specseal/
+    pact-paths.md`, and every sentence names it that way. Loaded with
+    Windows' `os.path.join`, as on a Windows runner, the module still says
+    it with `/`; reading the file stays native."""
+    import ntpath
+
+    with monkeypatch.context() as patched:
+        patched.setattr(os.path, "join", ntpath.join)
+        windows = load()
+    config = pc.load(os.path.join(pc.HOOKS, "config.py"), "config_for_posix_map")
+    signatory = (SIGNATORY_URL, "example.com/org/orders-web", "orders-web")
+    _, why = windows.checkout(config, signatory, str(world["tmp"] / "nowhere"), {})
+    assert "~/.claude/specseal/pact-paths.md" in why, why
+    assert "\\" not in why, why
