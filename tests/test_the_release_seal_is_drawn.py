@@ -463,3 +463,322 @@ def test_the_alt_text_is_one_sentence_carrying_every_value():
     # A value carrying either cannot end the image early.
     odd = [(label, f"{value}]\n[") for label, value in ROWS]
     assert not set("[]\n") & set(seal().alt_text(odd))
+
+
+# --- S1, S2, S3, S12: publishing --------------------------------------------
+
+REPO = "example/repo"
+TAG = "v1.2.3"
+SHA = "aaa11111bbbbccccddddeeeeffff000011112222"
+PUBLISHER = os.path.join(ROOT, ".github", "scripts", "publish_release_note.py")
+OWNER = REPO.split("/")[0]
+SECTION = "- **A thing that changed.** And what it changes for a reader."
+
+
+def pull(number, branch, title, body="", *labels, login=OWNER):
+    return {
+        "number": number,
+        "title": title,
+        "body": body,
+        "author": {"login": login, "is_bot": False},
+        "headRefName": branch,
+        "labels": [{"name": name} for name in labels],
+    }
+
+
+PULLS = [
+    pull(9, "chore/the-fragments", "chore: release 1.2.3 — the gathering"),
+    pull(10, "feat/12-an-item", "feat: a thing", "Closes #12", "chain: capped"),
+    pull(11, "fix/13-another", "fix: another thing", "Closes #13", login="someone"),
+]
+
+
+class GitHub:
+    """`gh` and `git` as the seal calls them: every call recorded in order,
+    the note served from `body`, and any verb in `fails` answered with the
+    refusal `main` turns into today's note."""
+
+    def __init__(self, mod, body, fails=()):
+        self.mod, self.body, self.fails, self.calls = mod, body, set(fails), []
+
+    def gh(self, *args):
+        self.calls.append(args)
+        verb = args[1] if args[0] == "release" else args[0]
+        if verb in self.fails:
+            raise self.mod.Refused(f"gh {' '.join(args[:2])} failed: HTTP 502")
+        if args[:2] == ("release", "view"):
+            import json
+
+            return json.dumps({"body": self.body})
+        return ""
+
+    def writes(self, verb):
+        return [a for a in self.calls if a[:2] == ("release", verb)]
+
+
+def note(pulls=PULLS):
+    """The note `publish_release_note.release_body` publishes for `pulls`."""
+    publisher = load(PUBLISHER, "publish_release_note_for_the_seal")
+    return publisher.release_body(SECTION, pulls, OWNER, REPO, TAG)
+
+
+def wired(monkeypatch, tmp_path, body=None, fails=(), pulls=PULLS, **env):
+    """The seal with a fixture suite, a fixture tree and no route to GitHub."""
+    mod = seal()
+    hub = GitHub(mod, note(pulls) if body is None else body, fails)
+    monkeypatch.setattr(mod, "gh", hub.gh)
+    monkeypatch.setattr(mod, "tagged", lambda tag: SHA)
+    monkeypatch.setattr(mod, "ROOT", tree(tmp_path, verdicts=[["deferred #12"]]))
+    publisher = mod.publisher()
+    monkeypatch.setattr(
+        publisher,
+        "merged_pulls",
+        lambda repo, version: None if pulls is None else pulls,
+    )
+    defaults = {"TAG": TAG, "REPO": REPO, "SUITE_OUTCOME": "success"}
+    defaults.update(env)
+    if "SUITE_XML" not in defaults:
+        defaults["SUITE_XML"] = junit(tmp_path, (7069, 0, 0, 66))
+    for key in ("DRY_RUN", "SEAL_PNG"):
+        monkeypatch.delenv(key, raising=False)
+    for key, value in defaults.items():
+        monkeypatch.setenv(key, value)
+    return mod, hub
+
+
+def test_the_seal_replaces_the_glance_table_and_is_attached(monkeypatch, tmp_path):
+    """S1. The PNG is uploaded as `seal.png`, and the edited note is the
+    published one with its glance block replaced by the heading, the image
+    at the release-download URL with its alt text, a blank line and one line
+    of the counts -- every other byte unchanged. Seen red before `main`
+    existed."""
+    mod, hub = wired(monkeypatch, tmp_path)
+    assert mod.main() == 0
+    (upload,) = hub.writes("upload")
+    assert upload[:3] == ("release", "upload", TAG)
+    assert os.path.basename(upload[3]) == "seal.png" and os.path.isfile(upload[3])
+    assert upload[4:] == ("--repo", REPO)
+    (edit,) = hub.writes("edit")
+    assert edit[:5] == ("release", "edit", TAG, "--repo", REPO)
+    body = edit[edit.index("--notes") + 1]
+    publisher = load(PUBLISHER, "publish_release_note_for_s1")
+    work, closed, people = publisher.tally(PULLS, OWNER)
+    rows = mod.release_rows("1.2.3", SHA, 2, 2, (7003, 66), (1, 1, 1, 1))
+    image = f"https://github.com/{REPO}/releases/download/{TAG}/seal.png"
+    sealed = publisher.sealed_glance(image, mod.alt_text(rows), work, closed, people)
+    assert body == note().replace(publisher.glance(work, closed, people), sealed)
+    assert body.startswith(
+        "### 📊 At a glance\n\n![The 1.2.3 release seal: SEALED v1.2.3 at aaa11111 on "
+        "main, 2 pull requests merged, 2 issues closed, the suite at 7003 passed and "
+        "66 skipped, 1 work item over 1 review round, 1 of them capped, 1 issue "
+        f"deferred]({image})\n\n"
+        "🔀 Pull requests **2** · ✅ Issues closed **2** · 🙌 Outside contributors **1**"
+        "\n\n### ✨ Features"
+    ), body[:600]
+    assert hub.calls.index(upload) < hub.calls.index(edit)
+
+
+# What each failure's reason says, so a case that stopped at an EARLIER
+# guard than the one it is named for fails rather than passing on the wrong
+# reason.
+REASONS = {
+    "the suite step failed": "ended failure",
+    "the JUnit file is missing": "the suite's counts cannot be read",
+    "the JUnit file does not parse": "is not JUnit XML",
+    "the suite counts a failure": "did not pass: 1 failed and 0 errors",
+    "the suite counts an error": "did not pass: 0 failed and 1 errors",
+    "Pillow does not import": "could not be drawn: ModuleNotFoundError",
+    "compose raises": "could not be drawn: ValueError",
+    "compose exits": "could not be drawn: SystemExit",
+    "the PNG writer exits": "could not be drawn: SystemExit",
+    "gh pr list fails": "gh pr list could not list",
+    "gh release view fails": "gh release view failed",
+    "gh release upload fails": "gh release upload failed",
+    "the glance table is not there": "not in the note exactly once",
+    "the glance table is there twice": "not in the note exactly once",
+    "gh release edit fails": "gh release edit failed",
+}
+
+
+def broken_compose(mod, exc):
+    def compose(*_):
+        raise exc
+
+    return compose
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "the suite step failed",
+        "the JUnit file is missing",
+        "the JUnit file does not parse",
+        "the suite counts a failure",
+        "the suite counts an error",
+        "Pillow does not import",
+        "compose raises",
+        "compose exits",
+        "the PNG writer exits",
+        "gh pr list fails",
+        "gh release view fails",
+        "gh release upload fails",
+        "the glance table is not there",
+        "the glance table is there twice",
+        "gh release edit fails",
+    ],
+)
+def test_any_failure_leaves_the_note_as_it_was_published(
+    monkeypatch, tmp_path, capsys, case
+):
+    """S2, the case #718's box 2 asks for. Each failure, one at a time: the
+    process exits 0, prints a line naming the failure and a `::warning::`
+    with the same reason, and calls no `gh release edit` -- except where the
+    edit is the call that failed. Seen red by removing the guard each pins."""
+    env, fails, body, pulls = {}, (), None, PULLS
+    if case == "the suite step failed":
+        env["SUITE_OUTCOME"] = "failure"
+    elif case == "the JUnit file is missing":
+        env["SUITE_XML"] = str(tmp_path / "absent.xml")
+    elif case == "the JUnit file does not parse":
+        (tmp_path / "bad.xml").write_text("not xml", encoding="utf-8")
+        env["SUITE_XML"] = str(tmp_path / "bad.xml")
+    elif case == "the suite counts a failure":
+        env["SUITE_XML"] = junit(tmp_path, (10, 1, 0, 0))
+    elif case == "the suite counts an error":
+        env["SUITE_XML"] = junit(tmp_path, (10, 0, 1, 0))
+    elif case == "gh pr list fails":
+        pulls = None
+    elif case == "gh release view fails":
+        fails = ("view",)
+    elif case == "gh release upload fails":
+        fails = ("upload",)
+    elif case == "gh release edit fails":
+        fails = ("edit",)
+    elif case == "the glance table is not there":
+        body = note().replace(
+            "| ✅ Issues closed | **2** |", "| ✅ Issues closed | **3** |"
+        )
+    elif case == "the glance table is there twice":
+        body = note() + "\n\n" + note().split("\n\n### ✨")[0]
+    mod, hub = wired(
+        monkeypatch,
+        tmp_path,
+        body=body if body is not None else (note() if pulls is not None else ""),
+        fails=fails,
+        pulls=pulls,
+        **env,
+    )
+    if case == "Pillow does not import":
+        monkeypatch.setitem(sys.modules, "PIL", None)
+    elif case == "compose raises":
+        monkeypatch.setattr(
+            mod.stamp(), "compose", broken_compose(mod, ValueError("x"))
+        )
+    elif case == "compose exits":
+        monkeypatch.setattr(mod.stamp(), "compose", broken_compose(mod, SystemExit(2)))
+    elif case == "the PNG writer exits":
+
+        def png(*_):
+            raise SystemExit(1)
+
+        monkeypatch.setattr(mod, "png", png)
+    assert mod.main() == 0
+    out = capsys.readouterr().out.splitlines()
+    warnings = [line for line in out if line.startswith("::warning::")]
+    assert len(warnings) == 1, out
+    reason = warnings[0].removeprefix("::warning::release seal skipped: ")
+    assert reason and [line for line in out if line.startswith("no seal: ")] == [
+        f"no seal: {reason} -- the note stays as it was published"
+    ], out
+    assert REASONS[case] in reason, (case, reason)
+    edits = hub.writes("edit")
+    if case == "gh release edit fails":
+        assert len(edits) == 1 and "uploaded" in reason, (edits, reason)
+    else:
+        assert edits == [], (case, hub.calls)
+
+
+def test_a_hand_edited_note_is_left_alone_and_nothing_is_uploaded(
+    monkeypatch, tmp_path, capsys
+):
+    """S3. A glance table changed by one character after publication is not
+    the generated shape: the note is not edited, the asset is not uploaded,
+    and the log says the table was not found."""
+    edited = note().replace(
+        "| 🔀 Pull requests | **2** |", "| 🔀 Pull requests | **2**  |"
+    )
+    mod, hub = wired(monkeypatch, tmp_path, body=edited)
+    assert mod.main() == 0
+    assert hub.writes("upload") == [] and hub.writes("edit") == []
+    assert (
+        "not in the note exactly once in the generated shape" in capsys.readouterr().out
+    )
+
+
+def test_a_dry_run_draws_and_prints_and_writes_nothing(monkeypatch, tmp_path, capsys):
+    """S12. `DRY_RUN=1` writes the PNG where `SEAL_PNG` says, prints the rows
+    and the edited note, and calls neither `gh release upload` nor
+    `gh release edit`."""
+    target = tmp_path / "out" / "seal.png"
+    target.parent.mkdir()
+    mod, hub = wired(
+        monkeypatch,
+        tmp_path,
+        fails=("upload", "edit"),
+        DRY_RUN="1",
+        SEAL_PNG=str(target),
+    )
+    assert mod.main() == 0
+    assert target.is_file()
+    assert hub.writes("upload") == [] and hub.writes("edit") == []
+    out = capsys.readouterr().out
+    assert "deferred 1 issue" in out and "suite    7003 passed, 66 skipped" in out, out
+    assert "![The 1.2.3 release seal: SEALED v1.2.3 at aaa11111" in out, out
+    assert "::warning::" not in out, out
+
+
+def test_the_publishing_workflow_installs_the_pins_the_runner_holds():
+    """S16 (#718). The `seal` job's install line carries the parser and
+    Pillow exactly as `run_tests.py` pins them, so the suite at the tag and
+    the drawing run on the versions every other run of the suite uses."""
+    runner = load(
+        os.path.join(ROOT, ".github", "scripts", "run_tests.py"), "rt_for_seal"
+    )
+    with open(
+        os.path.join(ROOT, ".github", "workflows", "publish-release.yml"),
+        encoding="utf-8",
+    ) as handle:
+        installs = [
+            line.split("run:", 1)[1].split()
+            for line in handle
+            if "run: pip install" in line
+        ]
+    assert len(installs) == 1, installs
+    assert runner.MARKDOWN_IT in installs[0] and runner.PILLOW in installs[0], installs
+
+
+def test_a_refused_gh_or_git_call_is_a_reason_naming_the_call(monkeypatch):
+    """S2's inputs. `gh` answers a call's stdout and turns a non-zero exit
+    into `Refused` naming the call and what it printed; `tagged` does the
+    same for the commit a tag names. Both are what the failure cases above
+    stand in for."""
+    import subprocess
+
+    mod = seal()
+    seen = []
+
+    def run(args, **_):
+        seen.append(args)
+        code = 1 if "edit" in args or "nope" in args[-1] else 0
+        return subprocess.CompletedProcess(
+            args, code, stdout=f"{SHA}\n", stderr="HTTP 502\n"
+        )
+
+    monkeypatch.setattr(mod.subprocess, "run", run)
+    assert mod.gh("release", "view", TAG) == f"{SHA}\n"
+    with pytest.raises(mod.Refused, match=r"^gh release edit failed: HTTP 502$"):
+        mod.gh("release", "edit", TAG, "--notes", "x")
+    assert mod.tagged(TAG) == SHA
+    assert seen[-1] == ["git", "rev-parse", f"{TAG}^{{commit}}"]
+    with pytest.raises(mod.Refused, match=r"^git rev-parse nope failed: HTTP 502$"):
+        mod.tagged("nope")

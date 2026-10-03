@@ -65,12 +65,21 @@ requests publishes the section alone, as every note before #572 was, and
 says so in the job log -- a plain note is fixable in one edit, and a failed
 job at the tag is not.
 
+**It says whether it created the release** (#718). `created=true` or
+`created=false` goes to `$GITHUB_OUTPUT` where the workflow sets it, and the
+`seal` job in the same workflow runs only on `true`: the seal edits the note,
+so it is held to the line above and never touches a release this run did
+not write. The glance block is built by `glance`, and the seal's replacement
+for it by `sealed_glance`, so both shapes live in the file that owns the
+heading and the seal finds the block by the function that wrote it.
+
 `DRY_RUN=1` prints the note it would create and writes nothing, for the reason
 `close_issues_on_release.py`'s docstring gives: a tool whose only mode has
 side effects gets run for its output sooner or later, and the first person to
 do it is whoever wrote it.
 
-Environment: `TAG` (`github.ref_name`), `REPO`, `GH_TOKEN`.
+Environment: `TAG` (`github.ref_name`), `REPO`, `GH_TOKEN`, and
+`GITHUB_OUTPUT` where the workflow runner sets it.
 
 Exit codes: 0 published, or already published, or a dry run -- 1 the tag is
 not `vX.Y.Z`, or `CHANGELOG.md` carries no section for it.
@@ -250,7 +259,10 @@ def merged_pulls(repo, version):
             "--limit",
             "500",
             "--json",
-            "number,title,author,body",
+            # `labels` and `headRefName` are read by the seal, not here
+            # (`.github/scripts/release_seal.py#chain_counts`): one call
+            # serves both, so the two cannot disagree about the set.
+            "number,title,author,body,labels,headRefName",
         ],
         capture_output=True,
         text=True,
@@ -341,6 +353,66 @@ def thanks_section(pulls, owner):
     return "\n".join(lines)
 
 
+def tally(pulls, owner):
+    """`(work, closed, people)`: the release's own pull requests, the issues
+    their bodies close in order and each once, and the outside contributors'
+    logins -- what the glance block counts."""
+    work, closed = changes(pulls), []
+    for pull in work:
+        closed += [n for n in closed_by(pull) if n not in closed]
+    people = {outside(p, owner) for p in work} - {""}
+    return work, closed, people
+
+
+def glance(work, closed, people):
+    """The `### 📊 At a glance` block exactly as the note carries it: the
+    heading and a table of the counts, the outside contributors' row only
+    where there are some. `release_seal.py` finds the block in a published
+    note by this text, so a note edited by hand afterwards is left alone."""
+    parts = [
+        GLANCE_HEADING,
+        "",
+        "| | |",
+        "| --- | ---: |",
+        f"| 🔀 Pull requests | **{len(work)}** |",
+        f"| ✅ Issues closed | **{len(closed)}** |",
+    ]
+    if people:
+        parts.append(f"| 🙌 Outside contributors | **{len(people)}** |")
+    return "\n".join(parts)
+
+
+def sealed_glance(image_url, alt, work, closed, people):
+    """What replaces `glance`'s block once the release seal is attached
+    (#718): the heading, the seal as an image with `alt` as its text, a blank
+    line, and one line carrying every row the table had, in its order, so a
+    reader whose browser does not draw the image still has every count."""
+    counts = [
+        f"🔀 Pull requests **{len(work)}**",
+        f"✅ Issues closed **{len(closed)}**",
+    ]
+    if people:
+        counts.append(f"🙌 Outside contributors **{len(people)}**")
+    return "\n".join(
+        [GLANCE_HEADING, "", f"![{alt}]({image_url})", "", " · ".join(counts)]
+    )
+
+
+def write_output(name, value):
+    """`name=value` appended to `$GITHUB_OUTPUT` where it is set. A write
+    that fails is printed and ignored: the release is already published, and
+    a job that went red over its own output would be a failed job at the tag
+    for nothing (#718)."""
+    path = os.environ.get("GITHUB_OUTPUT")
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(f"{name}={value}\n")
+    except OSError as problem:
+        print(f"could not write {name}={value} to $GITHUB_OUTPUT: {problem}")
+
+
 def release_body(section, pulls, owner, repo, tag):
     """The note: a summary a reader scans, over the section they can open.
 
@@ -355,14 +427,13 @@ def release_body(section, pulls, owner, repo, tag):
     With no pull request to read -- the list failed, or a release was cut
     with none -- the note is `section` alone, which is what it always was.
     """
-    work = changes(pulls)
+    work, closed, people = tally(pulls, owner)
     if not work:
         return section
-    groups, closed = {}, []
+    groups = {}
     for pull in work:
         heading, text = kind_and_text(pull["title"])
         issues = closed_by(pull)
-        closed += [n for n in issues if n not in closed]
         line = f"- {text} (#{pull['number']})"
         if issues:
             line += " · closes " + ", ".join(f"#{n}" for n in issues)
@@ -370,18 +441,8 @@ def release_body(section, pulls, owner, repo, tag):
         if login:
             line += f" — thanks @{login}"
         groups.setdefault(heading, []).append(line)
-    people = {outside(p, owner) for p in work} - {""}
 
-    parts = [
-        GLANCE_HEADING,
-        "",
-        "| | |",
-        "| --- | ---: |",
-        f"| 🔀 Pull requests | **{len(work)}** |",
-        f"| ✅ Issues closed | **{len(closed)}** |",
-    ]
-    if people:
-        parts.append(f"| 🙌 Outside contributors | **{len(people)}** |")
+    parts = [glance(work, closed, people)]
     order = list(dict.fromkeys([h for _, h in TYPES] + [OTHER]))
     for heading in order:
         if heading in groups:
@@ -463,6 +524,7 @@ def main(argv=None):
             "overwrites a note, because one may have been edited by hand "
             "after it was published"
         )
+        write_output("created", "false")
         return 0
 
     title, source = title_from(commit_message(tag), version, tag)
@@ -474,9 +536,11 @@ def main(argv=None):
     if dry:
         print(f"would create the release at {tag} with {len(body)} characters of notes")
         print(body)
+        write_output("created", "false")
         return 0
     create(repo, tag, title, body)
     print(f"published the release at {tag}")
+    write_output("created", "true")
     return 0
 
 

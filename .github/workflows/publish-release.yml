@@ -16,20 +16,38 @@ name: publish the release note
 # tag, and nothing here creates one either. By the time it exists, the
 # `CHANGELOG.md` section this publishes has been gathered, reviewed and merged
 # to `main`.
+#
+# Then the seal (#718). A second job, `seal`, runs only when `publish` created
+# the release in this run (`created` is its output; a re-pushed tag or a
+# re-run finds a release already there and writes `false`). It runs the suite
+# at the tag, draws one seal for the release from `seal_stamp.compose`'s
+# letter, attaches it as `seal.png`, and replaces the note's glance table with
+# the image and one line of the table's counts
+# (`.github/scripts/release_seal.py`). Every step of it is
+# `continue-on-error`, and every failure the script meets is a log line and a
+# `::warning::` with an exit of 0: the note is already out, and a seal that
+# cannot be drawn costs the image and never the counts. So nothing in that
+# job can turn the workflow red or touch a note this run did not write.
 
 on:
   push:
     tags: ['v*']
 
 # The first write of this scope in the repository, and the minimum
-# `gh release create` needs. The job does nothing else: it reads a file, reads
-# one commit message, and creates one release.
+# `gh release create` needs. The workflow writes three things under it: one
+# release (`publish`), one asset on that release and one edit of its note
+# (`seal`). `gh pr list` reads the pull requests' labels and head branches
+# under the same block, which is a read.
 permissions:
   contents: write
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+    # Whether this run created the release, which is the only release the
+    # `seal` job may edit (`publish_release_note.py#write_output`).
+    outputs:
+      created: ${{ steps.note.outputs.created }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -40,9 +58,51 @@ jobs:
           fetch-depth: 0
 
       - name: publish the GitHub Release for this tag
+        id: note
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ github.ref_name }}
           REPO: ${{ github.repository }}
         shell: bash
         run: python3 .github/scripts/publish_release_note.py
+
+  seal:
+    needs: publish
+    if: needs.publish.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      # Not shallow, for `test.yml`'s reason: a case asks git whether a
+      # recorded SHA is an ancestor of HEAD, and at depth 1 none is.
+      - uses: actions/checkout@v4
+        continue-on-error: true
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        continue-on-error: true
+        with:
+          python-version: '3.12'
+      # The suite's packages and Pillow, at the versions
+      # `.github/scripts/run_tests.py` pins; a case holds this line to them.
+      - name: install the suite's packages and Pillow
+        continue-on-error: true
+        run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0
+      # `test.yml`'s ubuntu leg, plus the JUnit file the counts are read from.
+      # No token is in this step's environment.
+      - name: run the suite at the tag
+        id: suite
+        continue-on-error: true
+        shell: bash
+        run: |
+          git config --global user.email ci@ci
+          git config --global user.name ci
+          pytest tests/ -q -n auto --junitxml="$RUNNER_TEMP/suite.xml"
+      - name: draw the seal and put it in the note
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+          SUITE_XML: ${{ runner.temp }}/suite.xml
+          SUITE_OUTCOME: ${{ steps.suite.outcome }}
+        shell: bash
+        run: python3 .github/scripts/release_seal.py

@@ -19,16 +19,55 @@ inside `png` alone.
 are stdlib-only (`CONTRIBUTING.md` §*Running the checks*), and nothing under
 `hooks/` or `skills/` imports this file or Pillow. The version is pinned once,
 in `.github/scripts/run_tests.py#PILLOW`.
+
+**The rows are a fixed set, read from what the tag carries.** The suite's
+counts come from the JUnit file the run at the tag wrote (`suite_counts`),
+the pull requests and their `chain: capped` labels from the one `gh pr list`
+call the note already makes, and the work items, rounds and deferred issues
+from the round records at the tag, through the readers the review chain's
+own gates use (`chain_counts`). A source that cannot be read says `not read`
+in its row.
+
+**Any failure leaves the note as it was published.** `.github/workflows/
+publish-release.yml` runs this in its `seal` job, after `publish` created
+the release in the same run. The note is already out by then, so a seal that
+cannot be drawn costs the image and never the counts -- the rule
+`publish_release_note.py`'s docstring states for its summary. Every failure
+here is one log line and one `::warning::` with an exit of 0, and nothing is
+edited unless the glance table is still in the note exactly as `glance`
+wrote it: a note somebody edited after publication is left alone, and so is
+its asset list. The upload comes before the edit, so an edit that fails
+leaves an attached image the note does not show, which the warning names.
+
+`DRY_RUN=1` draws the PNG at `SEAL_PNG` (by default `seal.png` in a
+temporary directory), prints the rows and the note it would write, and
+uploads and edits nothing, so the seal of a release whose job did not run can
+be drawn by hand and attached with `gh release upload`.
+
+Environment: `TAG`, `REPO`, `GH_TOKEN`, `SUITE_XML` (the JUnit file),
+`SUITE_OUTCOME` (the suite step's outcome), `DRY_RUN`, `SEAL_PNG`.
+
+Exit code: 0, always.
 """
 
 import functools
 import importlib.util
+import json
 import os
 import re
+import shutil
+import subprocess
+import sys
+import tempfile
 import xml.etree.ElementTree as ElementTree
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
+# Where this file's own repository is, which the modules below are loaded
+# from; and the tree whose round records the chain rows read. They are the
+# same checkout at the tag, and two names so a case can point the second at
+# a fixture without moving the first.
+CODE = os.path.abspath(os.path.join(HERE, "..", ".."))
+ROOT = CODE
 
 
 # The tree's own modules are loaded when first asked for, not at import: a
@@ -36,8 +75,8 @@ ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
 # way it fails has to end in today's note and an exit of 0 (`main`), which an
 # import at the top of this file would end before `main` ran.
 def module(name, *parts):
-    """The tree's module at `ROOT/<parts>`, loaded once under `name`."""
-    return _module(name, os.path.join(ROOT, *parts))
+    """The repository's module at `CODE/<parts>`, loaded once under `name`."""
+    return _module(name, os.path.join(CODE, *parts))
 
 
 @functools.cache
@@ -52,6 +91,14 @@ def stamp():
     """`skills/verify/scripts/seal_stamp.py`, whose `compose`, `block` and
     `DEFAULT_SCALE` this draws with."""
     return module("specseal_seal_stamp", "skills", "verify", "scripts", "seal_stamp.py")
+
+
+def publisher():
+    """`.github/scripts/publish_release_note.py`, which owns the note's
+    glance block, the pull request list and how a release is counted."""
+    return module(
+        "specseal_publish_release_note", ".github", "scripts", "publish_release_note.py"
+    )
 
 
 # One cell of the letter in pixels, and the size its characters are drawn
@@ -406,3 +453,125 @@ def chain_counts(root, pulls):
         )
         return items, rounds, capped, None
     return items, rounds, capped, len(deferred)
+
+
+# --- publishing ----------------------------------------------------------
+
+# The asset's name on the release, and so the last part of its URL.
+ASSET = "seal.png"
+
+
+class Refused(Exception):
+    """A reason the seal is not attached; `main` says it and exits 0."""
+
+
+def gh(*args):
+    """`gh <args>`'s stdout, or `Refused` naming the call and what it said."""
+    out = subprocess.run(["gh", *args], capture_output=True, text=True)
+    if out.returncode:
+        raise Refused(f"gh {' '.join(args[:2])} failed: {out.stderr.strip()}")
+    return out.stdout
+
+
+def tagged(tag):
+    """The commit `tag` names, which the panel's `tag` row shows."""
+    out = subprocess.run(
+        ["git", "rev-parse", f"{tag}^{{commit}}"], capture_output=True, text=True
+    )
+    if out.returncode:
+        raise Refused(f"git rev-parse {tag} failed: {out.stderr.strip()}")
+    return out.stdout.strip()
+
+
+def seal_release(tag, repo, dry):
+    """Draw, attach and show the seal for `tag`, or raise `Refused` at the
+    first thing that stops it -- before any write, apart from the edit."""
+    note = publisher()
+    version = note.version_of(tag)
+    if version is None:
+        raise Refused(f"{tag!r} is not a vX.Y.Z tag")
+    outcome = os.environ.get("SUITE_OUTCOME", "").strip()
+    if outcome and outcome != "success":
+        raise Refused(f"the suite at {tag} ended {outcome}, and a seal says it passed")
+    try:
+        suite = suite_counts(os.environ.get("SUITE_XML", ""))
+    except (OSError, ValueError) as problem:
+        raise Refused(f"the suite's counts cannot be read: {problem}") from problem
+    pulls = note.merged_pulls(repo, version)
+    if pulls is None:
+        raise Refused("gh pr list could not list the release's pull requests")
+    work, closed, people = note.tally(pulls, repo.split("/")[0])
+    chain = chain_counts(ROOT, work)
+    rows = release_rows(version, tagged(tag), len(work), len(closed), suite, chain)
+    for label, value in rows:
+        print(f"{label:<8} {value}")
+    folder = tempfile.mkdtemp(prefix="release-seal-")
+    path = os.environ.get("SEAL_PNG") if dry else ""
+    path = path or os.path.join(folder, ASSET)
+    try:
+        letter = stamp().compose(rows, stamp().DEFAULT_SCALE)
+        used = png(paint(letter), size(letter), path)
+    except (Exception, SystemExit) as problem:
+        raise Refused(
+            f"the seal could not be drawn: {type(problem).__name__}: {problem}"
+        ) from problem
+    print(f"drew {path} with {used}")
+    try:
+        body = json.loads(gh("release", "view", tag, "--repo", repo, "--json", "body"))[
+            "body"
+        ]
+    except (ValueError, KeyError, TypeError) as problem:
+        raise Refused(f"gh release view printed no note: {problem}") from problem
+    table = note.glance(work, closed, people)
+    if body.count(table) != 1:
+        raise Refused(
+            "the glance table is not in the note exactly once in the generated "
+            "shape, so the note was edited after publication; nothing was uploaded"
+        )
+    image = f"https://github.com/{repo}/releases/download/{tag}/{ASSET}"
+    sealed = body.replace(
+        table, note.sealed_glance(image, alt_text(rows), work, closed, people)
+    )
+    if dry:
+        print("DRY_RUN -- nothing uploaded and nothing edited; the note would read:")
+        print(sealed)
+        return
+    if os.path.basename(path) != ASSET:
+        shutil.copyfile(path, os.path.join(folder, ASSET))
+        path = os.path.join(folder, ASSET)
+    gh("release", "upload", tag, path, "--repo", repo)
+    try:
+        gh("release", "edit", tag, "--repo", repo, "--notes", sealed)
+    except Refused as problem:
+        raise Refused(
+            f"{problem}; {ASSET} was uploaded and the note does not show it"
+        ) from problem
+    print(f"attached {ASSET} to {tag} and put it in the note")
+
+
+def main():
+    for name in ("stdout", "stderr"):
+        stream = getattr(sys, name, None)
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+    tag = os.environ.get("TAG", "").strip()
+    repo = os.environ.get("REPO", "").strip()
+    dry = os.environ.get("DRY_RUN", "").strip() not in ("", "0", "false", "no")
+    if dry:
+        print("DRY_RUN -- nothing will be uploaded or edited")
+    try:
+        seal_release(tag, repo, dry)
+    except (Exception, SystemExit) as problem:
+        reason = (
+            str(problem)
+            if isinstance(problem, Refused)
+            else (f"{type(problem).__name__}: {problem}")
+        )
+        reason = " ".join(reason.split())
+        print(f"no seal: {reason} -- the note stays as it was published")
+        print(f"::warning::release seal skipped: {reason}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
