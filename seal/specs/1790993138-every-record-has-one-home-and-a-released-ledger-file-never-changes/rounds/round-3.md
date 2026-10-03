@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 736 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `45cae990be26e1add6cd10e58b86397292d17715..45cae990be26e1add6cd10e58b86397292d17715`, 0 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 16 (a narrowed `--reverify` answers only for families rooted in a file it read; the home and L4 say otherwise) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -35,8 +35,8 @@ Round 3 is a verifying round and the run's last, since round 2 closed on fixes a
 | 🟢 | round 2's finding 14 is closed — a first cell equal to another row's cell gets a citation | `skills/evidence-check/scripts/evidence_check.py:797` | confirmed | closed at `ba837122`, as a behaviour change rather than round 2's comment; executed: its case red at `4f0aacc8`; the old and new rules disagree on 0 calls over the tree |
 | 🟢 | round 2's finding 15 is closed — S1 states the newest-reading rule | `tests/test_a_released_row_is_read_again_in_a_fragment.py:16` | confirmed | closed at `43354f87`; read |
 | carried | round 1's nine findings are closed, as round 2 confirmed them | `seal/specs/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes/rounds/round-2.md:32` | confirmed | carried from round 2, not re-derived; the three that round 2's fixes touched (round 1's 2, 4 and 9) are answered by the rows above |
-| 🟡 16 | a narrowed `--reverify` answers only for families whose root sits in a file it read; narrowed to a release file holding a folded member, it writes nothing and exits 0 while `--strict` over the same file reads that member DRIFTED, and the home and L4 say it names that row | `skills/evidence-check/scripts/evidence_check.py:3215`, `docs/the-evidence-ledger.md:157`, `seal/ledger/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes.md:4` | open | executed: freeze `--into` 0 written, exit 0; no freeze exit 0, no `LEFT`; narrowed `--strict` exit 2; with the fix, 1 written and `--strict` exit 0; in code and sentences round 2's fix pass wrote, so the branch's to fix |
-| ⬜ 17 | a `Checked` cell holding a date the calendar does not have is named "the reading of no date" | `skills/evidence-check/scripts/evidence_check.py:2488` | open | executed: R dated `2026-13-45` reads "matches only the reading of no date" |
+| 🟡 16 | a narrowed `--reverify` answers only for families whose root sits in a file it read; narrowed to a release file holding a folded member, it writes nothing and exits 0 while `--strict` over the same file reads that member DRIFTED, and the home and L4 say it names that row | `skills/evidence-check/scripts/evidence_check.py:3215`, `docs/the-evidence-ledger.md:157`, `seal/ledger/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes.md:4` | deferred #740 | #740 — The run is capped at the reopening bound, which commissions nothing. #740 is in this release, because the code ships in it; it carries the report fix and cases. L4 was corrected at `45cae990` to state what the code does; executed: freeze `--into` 0 written, exit 0; no freeze exit 0, no `LEFT`; narrowed `--strict` exit 2; with the fix, 1 written and `--strict` exit 0; in code and sentences round 2's fix pass wrote, so the branch's to fix |
+| ⬜ 17 | a `Checked` cell holding a date the calendar does not have is named "the reading of no date" | `skills/evidence-check/scripts/evidence_check.py:2488` | deferred #740 | #740 — The same function and the same issue; executed: R dated `2026-13-45` reads "matches only the reading of no date" |
 
 ## Paste-ready fixes
 
