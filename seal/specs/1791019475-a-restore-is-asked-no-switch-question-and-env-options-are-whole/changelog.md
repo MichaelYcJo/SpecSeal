@@ -21,6 +21,8 @@
   `env --unset -iS '…'` and `env --env0-from f -iS '…'`. macOS `env` reads
   `-` as a letter and a word starting `--` as a cluster of letters. GNU's
   `env` has `--env0-from` and, unreleased, `--quoting-style`, and each takes
-  a value. `env`'s options are now read both ways and every string either
-  reading finds is judged, so the gate stops more and never less. `genv` is
-  read as GNU's alone.
+  a value. `env`'s options are now read both ways, and every string either
+  reading finds is judged, so the gate stops on every spelling either `env`
+  runs. A prefix of `--env0-from` or `--quoting-style` now takes the next
+  word as its value, as GNU reads it, so a string behind one is no longer
+  read where no `env` runs it. `genv` is read as GNU's alone.
