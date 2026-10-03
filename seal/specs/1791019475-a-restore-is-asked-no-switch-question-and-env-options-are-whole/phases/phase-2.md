@@ -23,8 +23,18 @@ GNU's. Answer M1 and W1 here.
 moved out of `reparsed_texts` into `_env_walk(word, rest, grammar,
 env_words)`, unchanged in its steps. The env arm calls it for "gnu" and, for
 `env` alone, for "bsd". It appends only the BSD walk's strings that the GNU
-walk did not already find, so `genv` and every GNU reading return exactly
-what they returned at `2b1dcb1f`.
+walk did not already find, so `genv` takes GNU's walk alone. That walk is
+not `2b1dcb1f`'s: it reads the two new rows, which GNU's prefixes now reach,
+and BSD's `-` letter, which `_ENV_SHORT` shares between the walks.
+`genv -i-S '…'` is found although GNU refuses the word, which is #733's
+merged-table over-read (`plan.md` E4).
+
+**Corrected 2026-10-03 by round 1's fix pass (white 4).** The sentence above
+said `genv` and every GNU reading return exactly what they returned at
+`2b1dcb1f`. Over round 1's shapes, `genv` gained 1,930 finds and lost 357.
+326 of the gains are strings the GNU model runs, and most of the rest are
+`genv -i-S '…'`. The 357 losses are prefixes of `--env0-from` and
+`--quoting-style` taking the next word, where no `env` runs the string.
 
 **Every new case was seen red.** At `2b1dcb1f`'s `hooks/cmdline.py`, all six
 S7 shapes failed in both `test_a_commit_in_a_string_or_a_substitution_is_read_as_unreadable`
