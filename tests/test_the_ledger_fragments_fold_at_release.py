@@ -459,7 +459,7 @@ def test_check_refuses_a_release_left_in_the_shared_ledger(tree):
     assert "seal/ledger.md still heads a release" in r.stdout, r.stdout
     assert f"0.4.1  at line {line}" in r.stdout, r.stdout
     assert "--split" not in r.stdout, r.stdout
-    assert "seal/releases/<X.Y.Z>.md" in r.stdout, r.stdout
+    assert "in the change that wrote it" in r.stdout, r.stdout
     assert f"seal/ledger/{LATE}.md" in r.stdout, r.stdout
     assert "1600000000-released-long-ago/evidence-todo.md" in r.stdout, r.stdout
 
