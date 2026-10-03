@@ -13,8 +13,10 @@ documents, each under the ceiling, and the entry could not outlive the split:
 once the file was back under the ceiling, the listing itself failed, which is
 how the entry came to be removed. The listing stayed, empty, for the next
 document taken past the ceiling before it could be split, and that was
-`docs/commit-review-gate-spec.md`: #692 took it to 1,039 lines, and its split
-is MichaelYcJo/SpecSeal#715's, on the owner's decision of 2026-10-02.
+`docs/commit-review-gate-spec.md`: #692 took it to 1,039 lines, the owner
+left its split to MichaelYcJo/SpecSeal#715 on 2026-10-02, and
+MichaelYcJo/SpecSeal#727 cut it along its headings into three documents. Its
+entry went with the cut, and the listing stayed, empty, again.
 
 The marker count is frozen, not the line count, because a marker is the one
 thing only a fold adds. A sibling that edits a listed document's prose moves

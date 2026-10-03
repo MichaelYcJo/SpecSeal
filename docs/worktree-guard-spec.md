@@ -622,15 +622,34 @@ redirection or a zsh prefix, and one after a spaced `--config-env`. The guard
 asks `hooks/cmdline.py` which kinds it finds that the frozen reading does not,
 and only at an exit where it was about to say nothing, so every deny, choice
 and ask the frozen reading earns still decides first. A creation reads consent
-first and stays silent under it, as at the base. Measured before it was wired:
-over the 27,351 distinct command and directory pairs recorded in this
+first and stays silent under it, as at the base. Each view the wider reading
+makes is read as git is handed it: a redirection glued to a word's end is cut
+off and then every redirection is taken out before the kind is read, so a
+redirection's word is never read as a branch name (#737). The question then
+follows one rule: the guard asks wherever a view's words hold a switch or a
+creation that none of the frozen segments the view was made from holds. Each
+side is read by its words alone: a `switch` or a `checkout` naming a word or
+`-` (other than `checkout`'s `.` and anything after `--`), a `checkout -b`, or a
+`worktree add`. The reading looks up no tree (#689), so it asks whether or not
+the command moves the tree, and a restore or a detach whose words read as a
+switch is asked as one when the frozen reading misses it. For example,
+`git checkout &>/dev/null README.md` is asked, because a file's name reads as
+a branch's, and `git checkout . &>/dev/null` is not, because its words name
+nothing; the two are examples, not the set. Measured before it was
+wired: over the 27,351 distinct command and directory pairs recorded in this
 repository's transcripts on the maintainer's machine before 2026-10-03, it
-would have stopped none (work item 1790993140, `phases/phase-3.md`). Where
-`hooks/cmdline.py` fails to load, the guard keeps its own rows and asks
-nothing it could not read.
+would have stopped none (work item 1790993140, `phases/phase-3.md`), and
+re-counted for #737's reading it still stops none (work item 1791019475,
+`phases/phase-1.md`). Where `hooks/cmdline.py` fails to load, the guard keeps
+its own rows and asks nothing it could not read.
 `test_what_only_the_wider_reading_finds_is_put_to_the_person` and
 `test_a_creation_only_the_wider_reading_finds_is_silent_under_consent`, in
-`tests/test_guard_resolves_the_tree_it_judges.py`, pin both halves.
+`tests/test_guard_resolves_the_tree_it_judges.py`, pin both halves, and
+`test_a_redirection_word_is_not_read_as_a_branch_name` and
+`test_no_restore_is_asked_whatever_the_redirection_and_wherever_it_stands`
+pin the restore, and
+`test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers`
+pins the rule over generated shapes.
 
 #692, the redesign of how the gates learn where a command acts, decided this
 reading on the owner's answers of 2026-10-01, and it stays. No git refuses a

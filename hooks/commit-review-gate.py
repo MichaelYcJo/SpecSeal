@@ -631,7 +631,7 @@ def changed_paths(cwd, invocations):
 # The line is the PARITY arm's alone. The review arm reads no paths, on
 # purpose: it asks whether anybody reads the change, and `docs/` here is the
 # policy the code conforms to. #518 measured it and kept the asymmetry --
-# `docs/commit-review-gate-spec.md` §*Review arm* holds the grounds, and
+# `docs/the-review-and-parity-arms.md` §*Review arm* holds the grounds, and
 # `test_the_review_arm_asks_on_a_document_only_commit` fails if this line
 # ever reaches the review arm.
 DOC_ROOTS = gate.DOC_ROOTS
@@ -646,7 +646,7 @@ def touches_code(cwd, invocations):
 
     Only the parity arm calls this. The review arm's question is not about an
     original, and `docs/` is where a measured share of the review chain's
-    fixed findings sit (`docs/commit-review-gate-spec.md` §*Review arm*,
+    fixed findings sit (`docs/the-review-and-parity-arms.md` §*Review arm*,
     #518).
     """
     return gate.touches_code(changed_paths(cwd, invocations))
@@ -1330,7 +1330,7 @@ def main():
     # reader could not place stands aside where the SESSION's clone is git's,
     # because that is the stand-in it would have been judged against; a
     # commit it would have reached in a clone carrying no hooks is the known
-    # limit `docs/commit-review-gate-spec.md` states. Only a command whose
+    # limit `docs/the-commit-gate-inside-git.md` states. Only a command whose
     # shape is known plain stands aside at all, and `hooks/tokens.py#is_plain`
     # is the one rule for that (`questions.md` P7, the owner's answer of
     # 2026-10-02, after three rounds each found words a list missed).
