@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 745 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `6999b001b90a09f4d11b67eb028501e6caf0eedd..e8808af1603aeeb6ff87f5f8785d756e88773fbe`, 4 commits |
+| Contract changes | none |
+| New units | _shapes (depth 1); _policy_text (depth 1); POLICY_RULE (depth 1); ASKABLE (depth 1); test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers (depth 1) |
 | Needs a fix | yes — 🟡 5, the policy sentence in `docs/worktree-guard-spec.md` §*Which tree* that still promises silence for a detach carrying a redirection and omits three hides the guard asks about |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 2 is a verifying round. It targets `72c8f5a4` over round 1's fix range `b4
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 5 | the policy still promises silence for a detach carrying a redirection, which C asks when the detach names a commit, and its list of asked file checkouts misses `&>>` before the name, a zsh prefix and a spaced `--config-env` | `docs/worktree-guard-spec.md:628` | open | executed: `switch --detach feature/x` and `checkout --detach feature/x` asked on 226 of 492 shapes each, and through `main()`; `&>>` 2 shapes; `noglob`, `nocorrect`, `repeat 2` and `--config-env` file checkouts asked through `main()`; at the build and at `2b1dcb1f`. Same class as round 1's yellow 1, at the half round 1 did not enumerate |
-| ⬜ 6 | the changelog's first bullet promises the same detach silence, and `git checkout -q &>/dev/null` is in none of the three categories it names | `seal/specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole/changelog.md:3` | open | executed: the detach shapes above asked at the build and at `2b1dcb1f`; bash 3.2 hands git `checkout -q`. A correction, not counted in `Needs a fix` |
-| ⬜ 7 | the changelog says a string behind a prefix of `--env0-from` or `--quoting-style` is no longer read where no `env` runs it; `env --e -S '…'` still is | `seal/specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole/changelog.md:26` | open | executed: read at the build and at `2b1dcb1f`, refused by macOS `env`; read: GNU takes `-S` as the value. A correction |
-| ⬜ 8 | N1 and phase 1 say zsh runs the numbered `>&` shapes as the creation and bash refuses each; zsh runs the `-C` ones before `checkout` or `switch` as a switch, and bash 3.2 hands git `{fd}` | `seal/ledger/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole.md` N1 | open | executed under bash 3.2.57 and zsh 5.9 with a recording `git`; the build asks the `-C` forms as a switch. From round 1's own fence. A correction |
+| 🟡 5 | the policy still promises silence for a detach carrying a redirection, which C asks when the detach names a commit, and its list of asked file checkouts misses `&>>` before the name, a zsh prefix and a spaced `--config-env` | `docs/worktree-guard-spec.md:628` | **fixed** `fdb342df` | fixed at fdb342df; executed: `switch --detach feature/x` and `checkout --detach feature/x` asked on 226 of 492 shapes each, and through `main()`; `&>>` 2 shapes; `noglob`, `nocorrect`, `repeat 2` and `--config-env` file checkouts asked through `main()`; at the build and at `2b1dcb1f`. Same class as round 1's yellow 1, at the half round 1 did not enumerate |
+| ⬜ 6 | the changelog's first bullet promises the same detach silence, and `git checkout -q &>/dev/null` is in none of the three categories it names | `seal/specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole/changelog.md:3` | answered | corrected at `336b20fa`; executed: the detach shapes above asked at the build and at `2b1dcb1f`; bash 3.2 hands git `checkout -q`. A correction, not counted in `Needs a fix` |
+| ⬜ 7 | the changelog says a string behind a prefix of `--env0-from` or `--quoting-style` is no longer read where no `env` runs it; `env --e -S '…'` still is | `seal/specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole/changelog.md:26` | answered | corrected at `074c9e69`; executed: read at the build and at `2b1dcb1f`, refused by macOS `env`; read: GNU takes `-S` as the value. A correction |
+| ⬜ 8 | N1 and phase 1 say zsh runs the numbered `>&` shapes as the creation and bash refuses each; zsh runs the `-C` ones before `checkout` or `switch` as a switch, and bash 3.2 hands git `{fd}` | `seal/ledger/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole.md` N1 | answered | corrected at `e8808af1`; executed under bash 3.2.57 and zsh 5.9 with a recording `git`; the build asks the `-C` forms as a switch. From round 1's own fence. A correction |
 | 🟢 | round 1's yellow 1 is closed for what it named: the five positions are named and asked, and a restore of `.` or a path after `--` is silent | `docs/worktree-guard-spec.md:628` | confirmed | executed: 0 of 388 generated shapes at a named position silent; `checkout .`, `checkout -- README.md` and `checkout feature/x -- README.md` asked on 0 shapes; the residual is finding 5 |
 | 🟢 | the two new cases and `HIDDEN_FILE_CHECKOUTS` are correct and were seen red as their docstrings say | `tests/test_guard_resolves_the_tree_it_judges.py` | confirmed | executed: the mutant `switch_kind` turns 4 of 4 red; the policy assertions fail 3 of 4 against `b4bd4ea1`'s doc; 12 passed at `72c8f5a4` |
 | 🟢 | round 1's white 2 is closed: N1 and phase 1 now name the numbered `>&` with a file, which bash refuses and zsh runs | `seal/ledger/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole.md` N1 | confirmed | executed: build against `2b1dcb1f` adds 50 of 380 shapes, drops 0; `2>&` and `3>&` refused by bash 3.2 and run by zsh; the residual wording is finding 8 |
