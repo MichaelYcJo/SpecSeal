@@ -204,7 +204,7 @@ stated rule stay mentions; that is the rule as written.
 ### 🟡 5 — The walker reads tables cmark-gfm does not render, in shapes the corpus does not reach
 
 `hooks/config.py:1044` (`gfm_table`'s line-above check) and `:942`
-(`absorbs_a_header`).
+(`absorbs_a_header`). · NAME NOT IN TREE
 
 S1 says *"No shape yields cells cmark-gfm does not"*, and `gfm_table`'s
 docstring says it *"reads what cmark-gfm renders, or refuses"*. The build's
@@ -213,7 +213,7 @@ corpus puts one kind at a time at each position. An independent generator
 headers, 300,000 documents — found two mechanisms by which the walker reads
 a table, with no refusal, where cmark-gfm renders none:
 
-- **A line directly above the header that `absorbs_a_header` reads wrong.**
+- **A line directly above the header that `absorbs_a_header` reads wrong.** · NAME NOT IN TREE
   Measured shapes: a table directly above (`| Name |`, `|---|`, `| x |`, then
   the header — cmark-gfm reads the header as a row of the first table);
   `Intro`, `-`, `2. second` (the `-` is a setext underline, so `2.` opens a
@@ -251,12 +251,12 @@ The fix (fenced below, run in the clone): refuse any non-blank line directly
 above the header (*leave a blank line above the header* is already the
 remedy the walker prints), which closes the first mechanism by construction
 rather than by mirroring more of cmark-gfm's block parser, and deletes
-`absorbs_a_header`; and refuse a header under an open kind 1–5 block. Re-run
+`absorbs_a_header`; and refuse a header under an open kind 1–5 block. Re-run · NAME NOT IN TREE
 over 300,000 documents, the disagreements fall from 315 to 15, every one a
 fence `unfenced` hides that cmark-gfm reads inside an HTML block — a
 property of `unfenced`, shared with `config_rows`, and named below as the
 remaining limit. The fix turns red the build's
-`test_a_line_above_the_header_is_refused_only_where_gfm_renders_no_table`,
+`test_a_line_above_the_header_is_refused_only_where_gfm_renders_no_table`, · NAME NOT IN TREE
 which pins the opposite choice (refuse only where GFM renders no table),
 and the one pinned sentence in `tests/test_a_signatory_declares_its_pact.py`.
 The trade is stated plainly: a pact written with a paragraph directly over
@@ -362,7 +362,7 @@ A correction to the run's paperwork, not counted in `Needs a fix`.
 | 🟡 2 | A second run records a change again: a BROKEN coordinate beside a moved one, and any coordinate or label holding `\|`, on every run, each changing the hash a pact review took | `skills/evidence-check/scripts/evidence_check.py:3576` | open | executed: two rows after two runs; three rows after three runs with `\|`. Fix run in the clone: one row |
 | 🟡 3 | An `amended` pact review, true at the hash it took, is refused at exit 2 once the record grows, and stays refused after a new `holds` review takes the grown record | `skills/evidence-check/scripts/pact_check.py:823` | open | executed with the build's fixture: exit 2. Fix run in the clone: no refusal |
 | 🟡 4 | `.`, `-` or `_` in place of the `/` (and before it) passes silently, inside the grammar's own "one mark" | `skills/evidence-check/scripts/pact_check.py:611` | open | executed over 21 shapes: the four of round 3 refused, these silent. Fix run in the clone: exit 2 |
-| 🟡 5 | The walker reads tables cmark-gfm does not render: a line above the header `absorbs_a_header` misjudges, and an HTML block of kinds 1–5 left open above a blank line | `hooks/config.py:1044` | open | executed: 300,000 random documents, 315 disagreements; with the fix, 15, all a fence inside an HTML block |
+| 🟡 5 | The walker reads tables cmark-gfm does not render: a line above the header `absorbs_a_header` misjudges, and an HTML block of kinds 1–5 left open above a blank line | `hooks/config.py:1044` | open | executed: 300,000 random documents, 315 disagreements; with the fix, 15, all a fence inside an HTML block | · NAME NOT IN TREE
 | ⬜ 6 | A cell is split at a pipe after two backslashes, where cmark-gfm does not split; a three-cell row reads as four, silently | `hooks/config.py:893` | open | executed against cmarkgfm |
 | ⬜ 7 | A pact review row naming a dropped signatory is refused at exit 2 for good, and no document says so | `skills/evidence-check/scripts/pact_check.py:688` | open | read |
 | ⬜ 8 | A pact review takes a whole record: a mixed record can only be taken as `holds`, and rows that are not this pact's re-open its taken rows | `skills/evidence-check/scripts/pact_check.py:823` | open | read; the code follows `spec.md` item 9 |
@@ -742,7 +742,7 @@ def raw_html_open(lines):
     return end is not None
 ```
 
-In `gfm_table`, replace the `top` loop, `run` and the `absorbs_a_header`
+In `gfm_table`, replace the `top` loop, `run` and the `absorbs_a_header` · NAME NOT IN TREE
 refusal with:
 
 ```python
@@ -760,8 +760,8 @@ refusal with:
         ]
 ```
 
-delete `absorbs_a_header`, and in `gfm_table`'s docstring replace the
-paragraph on `absorbs_a_header` with: *A header with a line directly above
+delete `absorbs_a_header`, and in `gfm_table`'s docstring replace the · NAME NOT IN TREE
+paragraph on `absorbs_a_header` with: *A header with a line directly above · NAME NOT IN TREE
 it is refused, because whether GFM renders a table there depends on block
 state no reader here tracks, and so is a header under an HTML block of
 kinds 1-5 left open. **What this cannot see** is a fence `unfenced` hides
@@ -769,7 +769,7 @@ that GFM reads inside an HTML block, and a header taken lazily into a list
 item two blocks up.*
 
 `tests/test_one_table_walker_reads_what_gfm_renders.py`: replace
-`test_a_line_above_the_header_is_refused_only_where_gfm_renders_no_table`
+`test_a_line_above_the_header_is_refused_only_where_gfm_renders_no_table` · NAME NOT IN TREE
 (it pins the choice this fix reverses) with:
 
 ```python
