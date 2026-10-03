@@ -805,8 +805,14 @@ def test_the_policy_document_owns_the_conflict_and_the_re_read():
 
 def test_a8_the_home_names_the_case_that_holds_it():
     """The pin is only as good as the next editor knowing it exists: the
-    home's conflict statement names this module in its `Enforced by:` line."""
-    assert f"Enforced by: tests/{os.path.basename(__file__)}" in read(HOME)
+    home's conflict statement names the guides' case in its `Enforced by:`
+    line, read under its own section so another statement's line cannot
+    stand in for it."""
+    section = read(HOME).split("## A correction a merge dropped")[1].split(" ## ")[0]
+    assert (
+        f"Enforced by: tests/{os.path.basename(__file__)}"
+        "::test_a8_both_guides_send_the_reader_to_the_rules_home" in section
+    )
 
 
 def test_the_skill_says_what_the_command_is_for_and_when_it_runs():

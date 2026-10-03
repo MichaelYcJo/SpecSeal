@@ -209,7 +209,7 @@ still stands. It reports the loss after the fact and cannot prevent it.
 It reads the shared file, every release file and every fragment, because a
 fragment becomes part of a release file at the release and a check that
 skipped fragments would go blind exactly while the rows are being written.
-Enforced by: tests/test_a_merge_cannot_silently_drop_a_correction.py::test_a8_both_rule_documents_say_what_to_do_at_the_conflict
+Enforced by: tests/test_a_merge_cannot_silently_drop_a_correction.py::test_a8_both_guides_send_the_reader_to_the_rules_home, tests/test_a_merge_cannot_silently_drop_a_correction.py::test_the_policy_document_owns_the_conflict_and_the_re_read
 
 <!-- specs/1790208643-the-spec-is-split-and-its-sentences-are-settled -->
 **Hunk by hunk has two halves, and only the notes are a union.** A row's
