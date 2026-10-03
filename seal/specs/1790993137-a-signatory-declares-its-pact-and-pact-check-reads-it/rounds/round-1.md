@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 735 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `0487fb5b362700e83870e01ad3956ee96f9dda98..62726cb98496e4d7269992d2118bbb91715a7b06`, 12 commits |
+| Contract changes | none |
+| New units | PACT_MENTION_RE (depth 1); test_a_name_quoted_in_a_pact_clause_heading_is_not_a_claim_here (depth 1); test_a_live_spec_citing_such_a_clause_leaves_the_signatorys_check_at_0 (depth 1); test_a_signatory_row_the_walk_cannot_read_is_refused (depth 1); PACT_LINES (depth 1); PACT_PRINTED (depth 1); test_a_clause_a_merge_did_not_keep_is_still_heads_history (depth 1); test_a_signatory_row_the_table_walk_cannot_read_is_exit_2 (depth 1); test_a_pact_anchor_that_does_not_parse_is_refused (depth 1); test_a_signatory_with_no_seal_root_is_one_sided (depth 1); test_a_signatory_config_that_will_not_read_is_unreadable (depth 1); test_an_anchor_file_that_will_not_read_is_unreadable (depth 1); test_a_pact_that_will_not_read_is_unreadable (depth 1); test_a_pact_listing_its_own_repository_says_so (depth 1) |
 | Needs a fix | yes — 🟡 1 (history simplification hides a superseded clause), 🟡 2 (an unreadable Signatory row drops signatories in silence), 🟡 3 (a backticked name in a pact anchor's heading turns the signatory's check red), 🟡 4 (a pact anchor that does not parse is graded by nobody) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,17 +31,17 @@ Round 1 targets `90c3323d`, over the build's diff `233f0455..90c3323d`. It was a
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | HEAD's history of the pact is read with default history simplification, so a clause version on the side a merge did not keep reads `UNMATCHED` where `SUPERSEDED` is true | `skills/evidence-check/scripts/pact_check.py:240` | open | executed: merge keeping the side branch's clause; signatory citing main's v2 read `UNMATCHED`; `--full-history` lists the hidden commit |
-| 🟡 2 | `pact_signatories` stops at the first row it cannot read and refuses nothing, so every signatory below it goes unread and `pact-check` exits 0 | `hooks/config.py:820` | open | executed: a row with no closing pipe, and a row with two cells, each dropped the signatory, `1 of 1 signatory read`, exit 0 |
-| 🟡 3 | The records arm reads a backticked name inside a pact anchor's heading as a claim about the signatory's tree, so the signatory's own `evidence-check` exits 2 | `skills/evidence-check/scripts/evidence_check.py:2930` | open | executed: `NOT-IN-TREE` at exit 2 for a field name in a cited clause heading; spec item 6 promises the exit status is left alone |
-| 🟡 4 | A pact anchor that does not parse is graded by nobody and `pact-check` exits 0 | `skills/evidence-check/scripts/pact_check.py:437` | open | read: only `PACT_ANCHOR_RE` matches are graded, and no reader names a near miss |
-| ⬜ 5 | `declared_pacts` has no production caller and answers an unreadable config as no row, the policy `pact-check` refuses | `hooks/config.py:799` | open | read: `git grep` finds only its test |
-| ⬜ 6 | 0.15.4's MALFORMED claim lists two patterns as exhaustive; a pact anchor is now a third, exempt match, and the claim was not corrected in place | `seal/releases/0.15.4.md:54` | open | read: paperwork correction |
-| ⬜ 7 | Two released rows had `seal.py#normalise_remote` re-pointed to `hooks/config.py#normalise_remote` rather than removed and re-stated in the fragment | `seal/releases/0.5.0.md:212` | open | read: `CLAUDE.md` REMOVED-not-re-pointed rule; trigger arguable because the alias still resolves; paperwork, and the orchestrator reads the rule |
-| ⬜ 8 | Four printed branches of `pact-check` (no-root `ONE-SIDED`, three `UNREADABLE`) are reached by no case | `skills/evidence-check/scripts/pact_check.py:393` | open | read: no case writes those states; §14 |
-| ⬜ 9 | A pact listing its own repository reads it as `NOT FOUND` on this machine | `skills/evidence-check/scripts/pact_check.py:387` | open | read: the sibling search skips the root, and nothing refuses the entry |
-| ⬜ 10 | The sibling search asks git once per sibling per signatory, and chain-check loads two readers on every run with a `config.md` | `skills/evidence-check/scripts/pact_check.py:195` | open | read |
-| ⬜ 11 | The word case holds the four texts S13 names; five more shipped texts carry the words unheld | `tests/test_one_word_one_meaning.py:565` | open | read: conforms to S13 as written; every added line outside `seal/` and `tests/` searched clean |
+| 🟡 1 | HEAD's history of the pact is read with default history simplification, so a clause version on the side a merge did not keep reads `UNMATCHED` where `SUPERSEDED` is true | `skills/evidence-check/scripts/pact_check.py:240` | **fixed** `2ba6a896` | fixed at 2ba6a896; executed: merge keeping the side branch's clause; signatory citing main's v2 read `UNMATCHED`; `--full-history` lists the hidden commit |
+| 🟡 2 | `pact_signatories` stops at the first row it cannot read and refuses nothing, so every signatory below it goes unread and `pact-check` exits 0 | `hooks/config.py:820` | **fixed** `bf0333e2` | fixed at bf0333e2; executed: a row with no closing pipe, and a row with two cells, each dropped the signatory, `1 of 1 signatory read`, exit 0 |
+| 🟡 3 | The records arm reads a backticked name inside a pact anchor's heading as a claim about the signatory's tree, so the signatory's own `evidence-check` exits 2 | `skills/evidence-check/scripts/evidence_check.py:2930` | **fixed** `bf035a2f` | fixed at bf035a2f — ; ledger notes `f299c650`; executed: `NOT-IN-TREE` at exit 2 for a field name in a cited clause heading; spec item 6 promises the exit status is left alone |
+| 🟡 4 | A pact anchor that does not parse is graded by nobody and `pact-check` exits 0 | `skills/evidence-check/scripts/pact_check.py:437` | **fixed** `532554f1` | fixed at 532554f1; read: only `PACT_ANCHOR_RE` matches are graded, and no reader names a near miss |
+| ⬜ 5 | `declared_pacts` has no production caller and answers an unreadable config as no row, the policy `pact-check` refuses | `hooks/config.py:799` | **fixed** `1e1bb977` | fixed at 1e1bb977 — `62726cb9`; read: `git grep` finds only its test |
+| ⬜ 6 | 0.15.4's MALFORMED claim lists two patterns as exhaustive; a pact anchor is now a third, exempt match, and the claim was not corrected in place | `seal/releases/0.15.4.md:54` | answered | corrected at `0ef9c8a0`; read: paperwork correction |
+| ⬜ 7 | Two released rows had `seal.py#normalise_remote` re-pointed to `hooks/config.py#normalise_remote` rather than removed and re-stated in the fragment | `seal/releases/0.5.0.md:212` | answered | The function moved intact into `hooks/config.py` and `seal.py` re-exports it, so its claim did not go with removed code; the dated re-point keeps the claim true. REMOVED is for a claim whose code is gone. The orchestrator's reading, no change; read: `CLAUDE.md` REMOVED-not-re-pointed rule; trigger arguable because the alias still resolves; paperwork, and the orchestrator reads the rule |
+| ⬜ 8 | Four printed branches of `pact-check` (no-root `ONE-SIDED`, three `UNREADABLE`) are reached by no case | `skills/evidence-check/scripts/pact_check.py:393` | **fixed** `9a277382` | fixed at 9a277382; read: no case writes those states; §14 |
+| ⬜ 9 | A pact listing its own repository reads it as `NOT FOUND` on this machine | `skills/evidence-check/scripts/pact_check.py:387` | **fixed** `6fa9cb60` | fixed at 6fa9cb60; read: the sibling search skips the root, and nothing refuses the entry |
+| ⬜ 10 | The sibling search asks git once per sibling per signatory, and chain-check loads two readers on every run with a `config.md` | `skills/evidence-check/scripts/pact_check.py:195` | answered | `pact-check` is a local command over a handful of signatories, and the two reader loads in `chain_check` cost milliseconds. The orchestrator's answer, no change; read |
+| ⬜ 11 | The word case holds the four texts S13 names; five more shipped texts carry the words unheld | `tests/test_one_word_one_meaning.py:565` | **fixed** `5d45ff4b` | fixed at 5d45ff4b; read: conforms to S13 as written; every added line outside `seal/` and `tests/` searched clean |
 | 🟢 | The `ANCHOR_RE` blanking sites are exactly `old_format_rows`, `malformed_rows` (two expressions) and `migrate`, and each blanks pact anchors first | `skills/evidence-check/scripts/evidence_check.py:1658` | confirmed | read: re-derived by `git grep` over every non-test `.py`; executed: the three cases went red with the `old_format_rows` blanking removed |
 | 🟢 | Git never decides `OK`; exit 0/1/2 classes match spec item 9, and every new status is in one exit set | `skills/evidence-check/scripts/pact_check.py:295` | confirmed | read: `grade` and `EXIT_ONE`/`EXIT_TWO`; executed: the module's 17 cases green |
 | 🟢 | `chain_check` moves no exit status on anything about a pact, before or after its early return | `skills/code-review/scripts/chain_check.py:4514` | confirmed | read: notices only, `errors` untouched; executed: the S5/S6 cases green |
