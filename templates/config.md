@@ -99,8 +99,8 @@ every repository, whatever either row says:
   translation, it is a broken gate.
 - **The markers and anchors.** `<!-- specs/<work-item-id> -->`, a release
   section's `## X.Y.Z — <date>`, a drained file's `drained` line, the `✅`
-  that closes a row and the `🔴` that opens one, and a ledger anchor's
-  `path#unit@hash`.
+  that closes a row and the `🔴` that opens one, a ledger anchor's
+  `path#unit@hash`, and a pact anchor's `pact:<name>/"<heading path>"@<hash>`.
 - **The `Pact notify` values.** `always`, `when the pact is touched` and
   `never` are read literally by `hooks/config.py#pact_declaration`, so a
   translated value is refused rather than read.

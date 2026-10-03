@@ -98,6 +98,38 @@ ANCHOR_RE = re.compile(
     r"@(?P<hash>[0-9a-f]{6,12})"
 )
 HASH_LEN = 8
+# A clause of a pact held in another repository, cited from a signatory
+# (#647, `docs/the-pact.md`): `pact:<name>/"<heading path>"@<hash>`. The name
+# is the last path segment of the pact's repository's normalised origin URL
+# (`hooks/config.py#pact_name`), the locator is this module's quoted heading
+# path with its `\|` and `\"` escapes, and the hash is `content_hash` of the
+# clause's region in `seal/pact.md`, the value a local coordinate to that
+# heading carries. `pact_check.py` grades these; nothing here does.
+#
+# **No `ANCHOR_RE` match can end inside one**, so the ledger arm, the records
+# arm, `--reverify` and `--migrate` pass it over: `ANCHOR_RE`'s path must end
+# right before a `#`, and inside a pact anchor every `#` follows a `"`, a `#`
+# or a space, none of which a path holds. `OLD_COORD_RE` is not blind to it
+# the same way -- a heading holding `v1.2:3` matches -- so every reader that
+# blanks `ANCHOR_RE` before reading a line with another pattern blanks these
+# first, through `blank_pact_anchors`. The one shape still read is a heading
+# whose own text holds a whole coordinate, which `check_text` would read as
+# one; that is a known limit rather than a case.
+PACT_NAME = r"[A-Za-z0-9_.-]+"
+PACT_ANCHOR_RE = re.compile(
+    r"(?<![A-Za-z0-9_.@/-])pact:(?P<name>" + PACT_NAME + r")/"
+    r"(?P<locator>\"(?:[^\"\n]|\\\")+\")"
+    r"@(?P<hash>[0-9a-f]{6,12})"
+)
+
+
+def blank_pact_anchors(text):
+    """TEXT with every pact anchor replaced by as many spaces, so a reader
+    that blanks coordinates before reading the rest with another pattern
+    reads no part of one, and every offset stays where it was."""
+    return PACT_ANCHOR_RE.sub(lambda m: " " * len(m.group(0)), text)
+
+
 # The old, pre-anchor coordinate shape — `path:line`, `path:start-end`. Nothing measures
 # from these any more, and the one unacceptable outcome is silence: a ledger
 # full of them once read `0 ok · 0 drifted · 0 broken`, exit 0, which stripped
@@ -1611,7 +1643,9 @@ def old_format_rows(text):
     it fails the run with or without `--strict`: a red build saying "run the
     migrator" beats a green build checking nothing. Only table rows are read,
     and new-format anchors are blanked first so a quoted locator that happens
-    to mention an old coordinate cannot trip this forever.
+    to mention an old coordinate cannot trip this forever. Pact anchors are
+    blanked before them (#647), because a pact clause's heading may hold
+    `v1.2:3` and is never this repository's coordinate.
     """
     findings, seen = [], set()
     # An example row in a fenced block that closes is not a row (#444), and
@@ -1621,7 +1655,7 @@ def old_format_rows(text):
     for line in gfm_lines(unquoted(text)):
         if not line.lstrip().startswith("|"):
             continue
-        for m in OLD_COORD_RE.finditer(ANCHOR_RE.sub(" ", line)):
+        for m in OLD_COORD_RE.finditer(ANCHOR_RE.sub(" ", blank_pact_anchors(line))):
             if URL_HOST_RE.search(line[: line.find(m.group(0))]):
                 continue
             if m.group(0) in seen:
@@ -1829,7 +1863,8 @@ def malformed_rows(text):
     in:
 
     - a coordinate the patterns refused: what is left of the cell once every
-      `ANCHOR_RE` and `OLD_COORD_RE` match is blanked, and every URL in it,
+      pact anchor (`PACT_ANCHOR_RE`, #647) and every `ANCHOR_RE` and
+      `OLD_COORD_RE` match is blanked, and every URL in it,
       still holds an `@` glued after a `#` (no whitespace between them
       outside a quoted string, which holds whitespace only in a code span),
       a `#` glued to a path or a file name, or a path followed by `@` and a
@@ -1855,7 +1890,12 @@ def malformed_rows(text):
 
     for cells, column in grounds_cells(text):
         cell = cells[column]
-        left = OLD_COORD_RE.sub(" ", ANCHOR_RE.sub(" ", cell))
+        # A pact anchor is a clause of another repository's pact, not a
+        # coordinate this ledger failed to write (#647): blanked before the
+        # two patterns, so neither its `#`s nor a `v1.2:3` in its heading is
+        # read as a refused coordinate here.
+        unpacted = blank_pact_anchors(cell)
+        left = OLD_COORD_RE.sub(" ", ANCHOR_RE.sub(" ", unpacted))
         spans = [m.group(2).strip() for m in CODE_SPAN_RE.finditer(left)]
         words = CODE_SPAN_RE.sub(" ", left).split()
         refused = [s for s in spans + words if refused_coordinate(s)]
@@ -1865,7 +1905,7 @@ def malformed_rows(text):
         elif (
             cell
             and not ANCHOR_RE.search(cell)
-            and not OLD_COORD_RE.search(cell)
+            and not OLD_COORD_RE.search(unpacted)
             and any(c for i, c in enumerate(cells) if i != column)
         ):
             found(
@@ -1999,7 +2039,11 @@ def migrate(ledgers, root, maps=None, default_repo=None):
             if n in quoted or not line.lstrip().startswith("|"):
                 out_lines.append(line)
                 continue
-            blanked = ANCHOR_RE.sub(lambda m: " " * len(m.group(0)), line)
+            # Pact anchors first (#647): a clause heading holding `v1.2:3`
+            # is another repository's, never a row to migrate.
+            blanked = ANCHOR_RE.sub(
+                lambda m: " " * len(m.group(0)), blank_pact_anchors(line)
+            )
             hits = [
                 m
                 for m in OLD_COORD_RE.finditer(blanked)

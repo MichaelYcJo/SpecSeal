@@ -93,6 +93,7 @@ seal/
 │                        mean the default, and `Mode` has none — an absent
 │                        one is filled in from where the root is
 ├── parity.md            migration config, only where one is declared
+├── pact.md              the pact, only in the repository that holds one
 ├── follow-up.md         schedulable items in a repository with no tracker
 └── specs/<work-item-id>/  one work item, whole
     ├── routing.md         which way it was routed, written before the first edit

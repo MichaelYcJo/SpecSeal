@@ -121,6 +121,7 @@ seal/
 │                     and the mode. Optional, and an absent row is not an
 │                     error
 ├── parity.md         migration config, only when declared
+├── pact.md           the pact, only in the repository that holds one
 ├── follow-up.md      schedulable items in a repository with no tracker
 └── specs/<work-item-id>/
     ├── routing.md    which way this work item goes, written before the first edit
