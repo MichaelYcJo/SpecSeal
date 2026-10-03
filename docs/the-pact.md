@@ -90,6 +90,22 @@ first, so a version in a clause heading is never an old-format coordinate
 there.
 Enforced by: tests/test_a_pact_anchor_is_no_coordinate_of_the_signatory.py::test_no_coordinate_pattern_matches_inside_a_pact_anchor, tests/test_a_pact_anchor_is_no_coordinate_of_the_signatory.py::test_a_pact_anchor_in_the_clause_cell_leaves_the_local_coordinate_alone, tests/test_a_pact_anchor_is_no_coordinate_of_the_signatory.py::test_migrate_leaves_a_pact_anchor_alone
 
+<!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
+**A token begins a pact anchor where `pact:<name>` is followed at once by
+`/` or `#`, or by the rest of an anchor with its `/` missing, and
+`pact-check` refuses a token that begins one and does not go on to parse.**
+The rest of an anchor is a quoted heading path closed by `@`, or `@` and a
+hash, at once or after one mark or one space, so the commonest typos are
+named rather than read by nobody. Anything else naming the pact is a
+mention and is left alone: `pact:<name>` followed by punctuation, a space or
+the end of a code span. The one form that begins an anchor and is not an
+attempt is the one this plugin prints to show the shape, its heading path a
+placeholder, `/"<heading path>"`. So `pact:<name>/` written in prose is
+refused, and the refusal names both ways out: quote the heading path and
+give it a hash, or, where the text shows the shape rather than citing a
+clause, put it in a fenced code block, which nothing reads.
+Enforced by: tests/test_pact_check.py::test_an_anchor_missing_its_slash_is_refused, tests/test_pact_check.py::test_the_refusal_names_both_remedies, tests/test_pact_check.py::test_prose_naming_the_pact_is_not_a_citation, tests/test_pact_check.py::test_a_pact_anchor_that_does_not_parse_is_refused
+
 ## A signatory's CI prints and verifies nothing
 
 <!-- specs/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it -->

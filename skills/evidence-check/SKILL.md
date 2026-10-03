@@ -480,7 +480,12 @@ Git is asked which way a mismatch points and never whether an anchor is `OK`.
 Exit 0 when every signatory was read and every anchor is `OK`, 1 for the three
 mismatches or a checkout not found, 2 for `BROKEN`, a refused row or file, an
 anchor naming the pact that does not parse, a relationship recorded on one
-side only, or no origin remote.
+side only, or no origin remote. A token that begins an anchor — `pact:<name>`
+followed by `/` or `#`, or by the rest of an anchor with its `/` missing —
+and does not parse is that last kind; the refusal names both ways out, a
+quoted heading path with a hash, or a fenced code block for an example.
+Every path it prints is in POSIX form on every platform: relative to its
+repository inside one, `~/`-relative under the home directory.
 
 **It is local only.** A signatory's pull request can read one repository, so
 its CI prints the relationship and verifies nothing (`chain-check`'s pact
