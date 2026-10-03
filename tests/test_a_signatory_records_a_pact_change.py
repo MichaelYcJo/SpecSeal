@@ -357,3 +357,61 @@ def test_a_vendored_copy_says_it_recorded_nothing(repo, tmp_path):
         "evidence_check.py has no hooks/ beside it to read the `Pact` row with — no "
         "pact change was recorded"
     ) in out, out
+
+
+def test_a_row_left_whole_moved_nothing_and_records_nothing(repo):
+    """A row with no date cell is left whole under `--checked`, hash
+    included, so no hash moved and nothing is owed."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    line = f"| O1 · the field list | `{CLAUSE}`, `src/orders.py#serialize@{old}` | read |\n"
+    ledger = cite(repo, [line])
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert ledger.read_text(encoding="utf-8") == line, out
+    assert code == 1 and "its hash moved and the row has no date cell" in out, out
+    assert not (repo / "seal" / "pact-changes").exists(), out
+
+
+def test_a_coordinate_naming_two_places_is_recorded_broken(repo):
+    """A coordinate whose unit now names two places, neither holding the
+    recorded content, is left and recorded `BROKEN`."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    cite(repo, [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}")])
+    (repo / "src" / "orders.py").write_text(
+        "def serialize(a):\n    return 1\n\n\ndef serialize(b):\n    return 2\n",
+        encoding="utf-8",
+    )
+    _code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/ledger/{ITEM}.md · O1 | `src/orders.py#serialize@{old}` "
+        "BROKEN | 2026-09-04 |"
+    ], out
+
+
+def test_a_released_coordinate_broken_is_recorded(repo):
+    """Under the freeze, a released row's coordinate a re-read cannot clear
+    is named for a `Corrected ·` row as before, and recorded `BROKEN`."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(
+            ("Mode", "shared"), ("Pact", PACT_URL), ("Ledger frozen from", "0")
+        ),
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "evict")
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("O2", f"`{CLAUSE}`, ", f"src/orders.py#evict@{old}"),
+        encoding="utf-8",
+    )
+    cite(repo, [])
+    (repo / "src" / "orders.py").write_text(
+        SOURCE.split("\n\n\ndef evict")[0] + "\n", encoding="utf-8"
+    )
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1 and "a re-read cannot clear it" in out, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · O2 | `src/orders.py#evict@{old}` "
+        "BROKEN | 2026-09-04 |"
+    ], out
