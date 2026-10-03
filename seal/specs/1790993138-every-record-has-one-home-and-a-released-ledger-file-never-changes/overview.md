@@ -25,7 +25,7 @@ A re-read of a released ledger row used to edit the released file in place, so t
 
 | Item | Who must answer |
 |---|---|
-| Whether the family union's failure direction (a coordinate whose content returns to a hash an earlier reading recorded reads OK again, spec D3) is acceptable in practice | the warden, reading D3 against the cases; the repository owner if it is contested |
+| ✅ Whether the family union's failure direction (a coordinate whose content returns to a hash an earlier reading recorded reads OK again, spec D3) is acceptable in practice | answered by round 1 (🟡 2), which found the union accepts a pair of hashes no reading saw together; the orchestrator decided the narrower rule in the fix pass — only the newest reading of each coordinate counts, ties a union — and spec D3 states it with its cost |
 | The freeze arm on a real pull request: the hygiene step passes `origin/<base>...HEAD`, and `frozen_changes` reads the base's version off that spelling; the cases drive a local `release/v0.1.0`, not CI's `origin/` form | CI, at this work item's pull request into `release/v0.18.0` |
 | `ledger_kind` and the citation re-rooting compare paths through `os.path.normcase`; nothing was run on Windows | CI's `windows-latest` leg |
 | The full suite, lint over the repository and the typecheck | the sealer, once the review rounds settle |
