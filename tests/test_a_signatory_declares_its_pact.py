@@ -124,7 +124,7 @@ def test_a_row_that_will_not_parse_is_refused_and_never_read_as_absent():
     ]
 
 
-def test_an_absent_config_is_no_row_and_an_unreadable_one_is_no_answer(tmp_path):
+def test_an_unreadable_config_is_no_declaration(tmp_path):
     """`declared_pacts` is what `pact-check` reads a signatory's rows
     through. No file is no row; a file that is there and will not read is
     None, which the caller refuses, because a written row read as absent is
