@@ -1859,12 +1859,14 @@ def _env_option(t, own, grammar="gnu"):
     string's unabbreviated spellings at a word's head count, as the base read
     them (#716).
 
-    GRAMMAR is "gnu" or "bsd" (#737). Under "bsd", a word among env's own
-    options that starts `--` with more after it is a cluster whose first
-    letter is `-`, as FreeBSD's getopt reads it: `--S` is `-i -S`, and
-    `--unset` is `-i -u nset`.
+    GRAMMAR is "gnu" or "bsd" (#737). Under "bsd" there is no long name: a
+    word that starts `--` is a cluster whose first letter is `-`, as FreeBSD's
+    getopt reads it, so `--S` is `-i -S` and `--unset` is `-i -u nset`. `--`
+    alone spells nothing either way, and the walk ends env's options there.
+    The split string's spellings read anywhere are GNU's, and the walk under
+    "gnu" keeps them.
     """
-    if t.startswith("--") and not (grammar == "bsd" and own and t != "--"):
+    if t.startswith("--") and grammar != "bsd":
         name, eq, attached = t.partition("=")
         value = _ENV_LONG.get(_env_long(name, own))
         if value == ENV_STRING:
