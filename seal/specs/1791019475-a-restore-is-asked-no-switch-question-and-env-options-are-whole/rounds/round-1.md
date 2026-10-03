@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 745 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `b4bd4ea1d2d1ad497735c1fe210fd51b8bca734d..36ddfb75725155c98a467e80b8aff16ee17dd858`, 4 commits |
+| Contract changes | none |
+| New units | HIDDEN_FILE_CHECKOUTS (depth 1); test_a_file_checkout_hidden_from_the_frozen_reader_is_asked_as_a_switch (depth 1); test_the_guard_policy_says_a_hidden_file_checkout_is_asked (depth 1) |
 | Needs a fix | yes — 🟡 1, the policy sentence in `docs/worktree-guard-spec.md` §*Which tree* that promises silence for restores the guard still asks about |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -29,10 +29,10 @@ Round 1 targets `150b40e1`, the build `2b1dcb1f..420cfcfc` plus a merge of #742.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | the policy says a restore carrying a redirection is not asked, and names one exception; five positions still ask *switches a branch*, `git checkout &>/dev/null README.md` among them | `docs/worktree-guard-spec.md:627` | open | executed at function level at the build and at `2b1dcb1f`; the sentence's general clause is wider than the behaviour and its exception narrower than the tree-blind class |
-| ⬜ 2 | N1 and phase 1 say C adds no question on a shape bash runs as nothing apart from 24; 60 commands (`2>&<file>`, `{fd}>&<file>` before `add` or `-C`'s value) are added, which bash refuses and zsh runs | `seal/ledger/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole.md` N1 | open | executed: bash 3.2.57 and 5.2.37 refuse as an ambiguous redirect, zsh 5.9 hands git `worktree add ../wt b`; asking is right for zsh, so only the record's figure is wrong |
-| ⬜ 3 | the changelog says the gate stops more and never less; 132 `env` and 357 `genv` finds of `2b1dcb1f` are dropped where no env runs the string | `seal/specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole/changelog.md` | open | executed against macOS `env`; the GNU half read through a model of `src/env.c`; zero misses either way |
-| ⬜ 4 | phase 2 says `genv` and every GNU reading return what they did at `2b1dcb1f`; `genv` reads BSD's `-` letter and the two new rows | `seal/specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole/phases/phase-2.md` | open | executed: 1,930 finds gained, 357 lost over my shapes; N2's row stays true |
+| 🟡 1 | the policy says a restore carrying a redirection is not asked, and names one exception; five positions still ask *switches a branch*, `git checkout &>/dev/null README.md` among them | `docs/worktree-guard-spec.md:627` | **fixed** `4a07ecec` | fixed at 4a07ecec; executed at function level at the build and at `2b1dcb1f`; the sentence's general clause is wider than the behaviour and its exception narrower than the tree-blind class |
+| ⬜ 2 | N1 and phase 1 say C adds no question on a shape bash runs as nothing apart from 24; 60 commands (`2>&<file>`, `{fd}>&<file>` before `add` or `-C`'s value) are added, which bash refuses and zsh runs | `seal/ledger/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole.md` N1 | answered | corrected at `870c3149`; executed: bash 3.2.57 and 5.2.37 refuse as an ambiguous redirect, zsh 5.9 hands git `worktree add ../wt b`; asking is right for zsh, so only the record's figure is wrong |
+| ⬜ 3 | the changelog says the gate stops more and never less; 132 `env` and 357 `genv` finds of `2b1dcb1f` are dropped where no env runs the string | `seal/specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole/changelog.md` | answered | corrected at `1b72b2c6`; executed against macOS `env`; the GNU half read through a model of `src/env.c`; zero misses either way |
+| ⬜ 4 | phase 2 says `genv` and every GNU reading return what they did at `2b1dcb1f`; `genv` reads BSD's `-` letter and the two new rows | `seal/specs/1791019475-a-restore-is-asked-no-switch-question-and-env-options-are-whole/phases/phase-2.md` | answered | corrected at `36ddfb75`; executed: 1,930 finds gained, 357 lost over my shapes; N2's row stays true |
 | 🟢 | C drops no question on a shape bash runs as a switch or a creation | `hooks/worktree-guard.py#_bare_words` | confirmed | executed: 1,473 dropped commands, every one refused, restore, detach or nothing under bash 5.2 and 3.2; the frozen decisions are identical at all three commits on all 65,460 commands |
 | 🟢 | the 24 shapes bash 3.2 cannot run are creations under bash 4.1 or later | `phases/phase-1.md` | confirmed | executed under bash 5.2.37 with a recording `git`, then real git on the argv |
 | 🟢 | the env walk misses nothing either env runs | `hooks/cmdline.py#_env_walk` | confirmed | executed: 0 of 322 macOS `env` runs missed; read: 0 of 5,806 GNU-model runs missed; `src/env.c`'s `longopts` read and matching `ENV_OPTIONS` |
