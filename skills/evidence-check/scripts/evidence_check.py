@@ -3199,16 +3199,15 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
             for key, m, status, detail in graded:
                 if ledger_kind(root, view.files[key[0]][0]) != "released":
                     continue
-                # Where the family is drifted, its newest released readings
-                # grade DRIFTED; an older one that matches is outranked and
-                # names nothing a re-read must cover. A newest reading in a
-                # fragment was re-stamped in place before this view was read.
-                if status == "DRIFTED":
-                    drifted.setdefault(top, {}).setdefault(coord, m)
-                    break
                 if status == "BROKEN":
                     broken.append((where(key), coord, detail))
                     break
+                # DRIFTED, or OK and outranked by a newer reading holding
+                # other content: the family owes a re-read either way. That
+                # newer reading may sit in a fragment LEDGERS left out, which
+                # nothing re-stamped (round 2, 🟡 12).
+                drifted.setdefault(top, {}).setdefault(coord, m)
+                break
     return view, drifted, broken
 
 
@@ -4412,7 +4411,28 @@ def main():
                 )
                 return 2
         if into is None and cutoff is None:
-            return reverify(ledgers, root, maps, default_repo, args.checked)
+            code = reverify(ledgers, root, maps, default_repo, args.checked)
+            # Re-stamping in place cannot clear a family whose newest reading
+            # sits in a file the narrowing left out, so the run names each
+            # released row it read that is still owed a re-read, rather than
+            # exit 0 while the family reads DRIFTED (round 2, 🟡 12).
+            view = list(ledgers)
+            known = {file_identity(p) for p in view}
+            view += [
+                p
+                for p in resolve_patterns(default_patterns(root))
+                if file_identity(p) not in known
+            ]
+            done, owed, _ = released_drift(ledgers, view, root, maps, default_repo)
+            for key in sorted(owed, key=lambda k: (done.files[k[0]][0], k[1])):
+                path, _, _, table = done.files[key[0]]
+                print(
+                    f"  LEFT  {built_name(path, root)}:{key[1]}  "
+                    f"{row_label(table[key[1]][1])} — still DRIFTED: the newest "
+                    f"reading of {', '.join(owed[key])} in its family sits in a "
+                    "file this run did not write; run it without `--ledger`"
+                )
+            return max(code, 1 if owed else 0)
         # A released file is not written: the fragments are re-stamped in
         # place as before, and then the released rows are re-read into INTO,
         # or named where there is no INTO. The view is read after the

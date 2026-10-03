@@ -1214,3 +1214,75 @@ def test_a_folded_double_correction_is_cleared_by_retiring_one(repo):
     )
     out = run(["--strict", "."], repo)
     assert out.returncode == 0, out.stdout
+
+
+def test_a_narrowed_into_re_reads_a_family_a_fragment_outranks(repo):
+    """The newest reading sits in a fragment `--ledger` leaves out, so no
+    in-place re-stamp reaches it: `--into` still owes the released row a
+    re-read (round 2, 🟡 12)."""
+    h1 = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h1}` | read | 2026-01-01 | |"
+        ],
+    )
+    edit_handler(repo)
+    h2 = unit_hash(repo, "src/service.py", "handler")
+    fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+            f"`src/service.py#handler@{h2}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+        name="2000000009-z",
+    )
+    frozen(repo, "0")
+    (repo / "src" / "service.py").write_text(SERVICE)
+    assert run(["--strict", "."], repo).returncode == 2
+    out = run(
+        [
+            "--reverify",
+            "--into",
+            INTO,
+            "--checked",
+            "2026-03-01",
+            "--ledger",
+            "seal/releases/0.1.0.md",
+            ".",
+        ],
+        repo,
+    )
+    assert "1 citing row written" in out.stdout, out.stdout
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_an_unfrozen_narrowed_reverify_names_a_family_it_could_not_clear(repo):
+    """Without the freeze `--reverify` re-stamps in place, but narrowed to the
+    release file it cannot reach the newer reading in a fragment the
+    narrowing left out. It exits 1 naming the row rather than 0 while the
+    family reads DRIFTED (round 2, 🟡 12's sibling)."""
+    h1 = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h1}` | read | 2026-01-01 | |"
+        ],
+    )
+    edit_handler(repo)
+    h2 = unit_hash(repo, "src/service.py", "handler")
+    fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+            f"`src/service.py#handler@{h2}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+        name="2000000009-z",
+    )
+    (repo / "src" / "service.py").write_text(SERVICE)
+    out = run(["--reverify", "--ledger", "seal/releases/0.1.0.md", "."], repo)
+    assert run(["--strict", "."], repo).returncode == 2
+    assert out.returncode == 1, out.stdout
+    left = [line for line in out.stdout.splitlines() if "LEFT" in line]
+    assert left and "seal/releases/0.1.0.md:5" in left[0], out.stdout
+    assert "newest reading" in left[0], left[0]

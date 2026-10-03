@@ -154,7 +154,10 @@ repository that does not declare the freeze re-stamps a re-read row in place
 with a dated note, corrects a false claim in place with a `Corrected <date>`
 note, and removes a row whose claim went with its code, writing the new claim
 into the branch's own fragment. That is what every installed copy does until
-it adds the row.
+it adds the row. Where citing rows exist anyway, a `--reverify` narrowed with
+`--ledger` names each released row it read whose family's newest reading sits
+in a file it did not write, and exits 1, because no in-place re-stamp of the
+files it read can clear that family.
 
 ## What the checker refuses, and what it says while refusing
 
