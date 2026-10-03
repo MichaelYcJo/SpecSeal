@@ -604,9 +604,10 @@ def test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit
     of its steps is `continue-on-error`, so nothing the seal meets can turn
     the workflow red. A hung suite ends at the step's `timeout-minutes`, and
     the job's own timeout sits under a job-level `continue-on-error` (round
-    1's 🟡 4). The token is on the drawing step alone. Seen red against the
-    workflow with no `seal` job, and the timeouts against the workflow
-    without them."""
+    1's 🟡 4). The token is on the drawing step alone, and the checkout does
+    not persist it in `.git/config`, so the suite at the tag runs with none
+    (round 1's 🟡 5). Seen red against the workflow with no `seal` job, and
+    the two round-1 halves against the workflow without them."""
     text = workflow()
     assert "tags: ['v*']" in text, "the workflow no longer fires on a tag push"
     assert "branches:" not in text, (
@@ -630,6 +631,9 @@ def test_the_workflow_fires_on_the_tag_and_writes_one_release_one_asset_one_edit
     ), seal
     held = steps(seal)
     assert len(held) == 5, held
+    assert any(line.strip() == "persist-credentials: false" for line in held[0]), held[
+        0
+    ]
     for step in held:
         assert any(line.strip() == "continue-on-error: true" for line in step), step
     tokened = [step for step in held if any("GH_TOKEN" in line for line in step)]

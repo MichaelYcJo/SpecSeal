@@ -83,6 +83,10 @@ jobs:
         continue-on-error: true
         with:
           fetch-depth: 0
+          # Nothing in this job pushes: the draw reaches GitHub through `gh`
+          # and `GH_TOKEN`. So the token is not left in `.git/config`, where
+          # every process of the suite at the tag could read it.
+          persist-credentials: false
       - uses: actions/setup-python@v5
         continue-on-error: true
         with:
@@ -93,7 +97,8 @@ jobs:
         continue-on-error: true
         run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0
       # `test.yml`'s ubuntu leg, plus the JUnit file the counts are read from.
-      # No token is in this step's environment.
+      # No token is in this step's environment, and the checkout left none in
+      # `.git/config`.
       - name: run the suite at the tag
         id: suite
         continue-on-error: true
