@@ -2385,6 +2385,29 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
         for key in parent
         if verb_of(key) == "Corrected" and root_of(parent[key]) != key
     }
+    # A released row corrected by more than one row carries two claims and
+    # nothing reconciles them: the conflict two in-place corrections used to
+    # meet on is gone, so each correcting row is named with the others
+    # (round 1, 🟡 4). Which claim stays is a person's judgment.
+    corrected_by = {}
+    for key in parent:
+        if verb_of(key) == "Corrected" and root_of(parent[key]) != key:
+            corrected_by.setdefault(root_of(parent[key]), []).append(key)
+    for keys in corrected_by.values():
+        if len(keys) < 2:
+            continue
+        keys.sort(key=lambda k: (str(k[0]), k[1]))
+        names = ", ".join(where(k) for k in keys)
+        for key in keys:
+            emit(
+                key,
+                (
+                    "DRIFTED",
+                    coordinate_of(citations[key]),
+                    f"the row it cites is corrected by {len(keys)} rows ({names}) "
+                    "— read them together and keep one claim",
+                ),
+            )
 
     memo = {}
 

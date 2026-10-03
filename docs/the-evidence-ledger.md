@@ -113,6 +113,10 @@ readings from two branches is still a union, so a revert to either reads OK.
 because a fragment moves at the fold — re-stamp that fragment's row in place
 instead. A citing row without its marker is refused. A citation whose row is
 gone is BROKEN, and one whose released file changed under it is DRIFTED.
+A released row corrected by two or more `Corrected ·` rows is two claims
+nothing has reconciled, so each of those rows is DRIFTED, naming the others:
+read them together and keep one claim. The second branch cannot cite the
+first one's row before the fold, so the repair is one row merging the two.
 
 **`evidence-check --reverify --into seal/ledger/<work-item-id>.md --checked
 <YYYY-MM-DD>` writes the re-reads.** It re-stamps the fragments in place,

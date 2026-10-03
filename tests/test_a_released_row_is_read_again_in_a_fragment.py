@@ -1088,3 +1088,56 @@ def test_a_moved_released_row_is_told_its_correction_carries_every_coordinate(
     advisor = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(advisor)
     assert "every coordinate the claim still rests on" in advisor.FROZEN_REPAIR
+
+
+def test_a_released_row_corrected_by_two_rows_names_both(repo):
+    """Two branches each find one released row false and each write a
+    `Corrected ·` row: two claims, both OK, and nothing reconciled them. The
+    conflict two in-place corrections used to meet on is gone, so both rows
+    are named DRIFTED, each listing the other (round 1, 🟡 4)."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    cite = citation(r, "R1 · handler adds one")
+    for name, claim in (("2000000001-a", "two"), ("2000000002-b", "three")):
+        fragment(
+            repo,
+            [
+                f"| Corrected · handler adds {claim} | `{cite}`, `src/service.py#handler@{h}` "
+                "| read | 2026-02-01 | Corrected 2026-02-01 |"
+            ],
+            name=name,
+        )
+    out = run(["--strict", "."], repo)
+    assert out.returncode == 2, out.stdout
+    named = [
+        line
+        for line in out.stdout.splitlines()
+        if line.strip().startswith("DRIFTED") and "corrected by 2 rows" in line
+    ]
+    assert len(named) == 2, out.stdout
+    for line in named:
+        assert "2000000001-a.md:1" in line and "2000000002-b.md:1" in line, line
+
+
+def test_a_released_row_corrected_once_is_not_named(repo):
+    """The control: one correction is the ordinary case and reads clean."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    fragment(
+        repo,
+        [
+            f"| Corrected · handler adds two | `{citation(r, 'R1 · handler adds one')}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Corrected 2026-02-01 |"
+        ],
+    )
+    assert run(["--strict", "."], repo).returncode == 0
