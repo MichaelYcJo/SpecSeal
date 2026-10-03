@@ -163,3 +163,31 @@ def test_the_template_and_the_config_skill_carry_both_rows_and_the_vocabulary():
     governs = template[start : template.index(" ## ", start + 1)]
     for value in config.NOTIFY_VALUES:
         assert f"`{value}`" in governs, value
+
+
+# --- S4: the routing step across repositories -------------------------------
+
+ORCHESTRATION = ("skills", "implement", "orchestration.md")
+
+
+def test_the_routing_step_mints_one_id_and_declares_only_in_gated_repositories():
+    """S4. The question is asked once, the id is minted once, and a
+    repository with no root is named and left alone, because writing into it
+    would opt it in."""
+    text = flat(*ORCHESTRATION)
+    start = text.index("### A work item that commits in more than one repository")
+    section = text[start : text.index(" ## ", start)]
+    for sentence in (
+        "**One id, minted once, names the directory in every repository.** "
+        "Take `date +%s` once, pick one slug, and use the resulting directory "
+        "name in every repository.",
+        "**Only a gated repository gets a declaration.**",
+        "A repository with no root is not opted in by this step",
+        "Name such a repository in the handback and write nothing into it.",
+        "each in a command of its own, and commit each with that repository's "
+        "absolute path written out after `git -C`",
+        "A sentence is contract when another repository's code would be wrong "
+        "if it changed.",
+        "The pact's repository needs no row",
+    ):
+        assert sentence in section, sentence
