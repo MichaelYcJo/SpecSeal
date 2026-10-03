@@ -7,20 +7,20 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 733 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `e74efba8dd0d72fc071a281eac9b2b562142d5f3..40214e980dd3a99339e20396cd5b933576645e4a`, 6 commits |
+| Contract changes | none |
+| New units | ENV_STRING (depth 1); ENV_OPTIONS (depth 1); _ENV_SHORT (depth 1); _ENV_LONG (depth 1); _env_long (depth 1); _env_option (depth 1); ENV_SPELLINGS (depth 1); ENV_GRAMMAR (depth 1); test_every_row_of_the_env_grammar_has_a_case (depth 1); test_a_cluster_behind_env_s_own_options_is_read (depth 1); test_the_split_string_after_the_options_is_read_past_a_redirection (depth 1); test_an_ambiguous_prefix_names_no_long_option (depth 1) |
 | Needs a fix | yes — 🟡 8 (a redirection glued to the subcommand went from asked to silent in the guard), 🟡 9 (an abbreviated long option's value ends env's own options), 🟡 10 (a redirection among env's options ends them) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
 Round 2 is a verifying round. It targets `f1629706` over round 1's fix range `25e5b01a..2f4e9933`. It was asked:
 - whether each of round 1's fixes holds;
-- whether the units the fix pass created are correct: the `env` option walk (`_env_split_at`, `_env_takes_next`, `ENV_VALUED`, `ENV_VALUED_LONG`), the quoted re-join, `command_strings`' `env_words=False`, candidate C's per-view subtraction, and the `SystemExit` guard;
+- whether the units the fix pass created are correct: the `env` option walk (`_env_split_at`, `_env_takes_next`, `ENV_VALUED`, `ENV_VALUED_LONG`), the quoted re-join, `command_strings`' `env_words=False`, candidate C's per-view subtraction, and the `SystemExit` guard; · NAME NOT IN TREE
 - whether 🟡 3's per-view version still fires on zero recorded pairs;
 - whether any fix silenced a stopped shape or stopped a silent non-commit line;
 - whether the ledger corrections and re-reads hold.
@@ -29,11 +29,11 @@ Round 2 is a verifying round. It targets `f1629706` over round 1's fix range `25
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 8 | candidate C compares a cut or glued view with the frozen parser, which never reads such a view, so a redirection glued to the subcommand (`git switch>/dev/null x`) went from asked to silent | `hooks/worktree-guard.py:356` | open | executed: three glued shapes ask at round 1's target and are silent at `f1629706`, and bash runs each; the fix fires on 0 of 27,351 corpus pairs |
-| 🟡 9 | an abbreviated long option that takes a value (`--un`, `--ch`, `--ar`) ends env's own options at its value, so `env --un FOO -iS 'git commit -m x'` is found by nothing | `hooks/cmdline.py:1768` | open | executed: four shapes found by nothing at `f1629706` and `233f0455`; read, not run on GNU env: getopt takes unambiguous prefixes, as `_env_split_at`'s docstring says |
-| 🟡 10 | a redirection among env's options ends them, so `env 2>/dev/null -iS 'git commit -m x'` is found by nothing | `hooks/cmdline.py:1739` | open | executed: macOS `env` runs the string behind the redirection; five shapes found by nothing at `f1629706` and `233f0455` |
-| ⬜ 11 | `--` does not end env's options, so `env -- -iS 'git commit -m y'` denies in a declared repository | `hooks/cmdline.py:1739` | open | executed: deny at `f1629706`, silent at `233f0455`; no real program is called `-iS` |
-| ⬜ 12 | `overview.md`'s `quiet`'s-discards row describes the subtraction before the fix, and no row names the `env -S` class | `seal/specs/1790993140-the-gates-read-config-env-env-s-and-an-unresolved-cd/overview.md:27` | open | read; paperwork correction, outside `Needs a fix` |
+| 🟡 8 | candidate C compares a cut or glued view with the frozen parser, which never reads such a view, so a redirection glued to the subcommand (`git switch>/dev/null x`) went from asked to silent | `hooks/worktree-guard.py:356` | **fixed** `07b67ac3` | fixed at 07b67ac3; executed: three glued shapes ask at round 1's target and are silent at `f1629706`, and bash runs each; the fix fires on 0 of 27,351 corpus pairs |
+| 🟡 9 | an abbreviated long option that takes a value (`--un`, `--ch`, `--ar`) ends env's own options at its value, so `env --un FOO -iS 'git commit -m x'` is found by nothing | `hooks/cmdline.py:1768` | **fixed** `49f27f09` | fixed at 49f27f09 — `043f3153`; executed: four shapes found by nothing at `f1629706` and `233f0455`; read, not run on GNU env: getopt takes unambiguous prefixes, as `_env_split_at`'s docstring says | · NAME NOT IN TREE
+| 🟡 10 | a redirection among env's options ends them, so `env 2>/dev/null -iS 'git commit -m x'` is found by nothing | `hooks/cmdline.py:1739` | **fixed** `49f27f09` | fixed at 49f27f09; executed: macOS `env` runs the string behind the redirection; five shapes found by nothing at `f1629706` and `233f0455` |
+| ⬜ 11 | `--` does not end env's options, so `env -- -iS 'git commit -m y'` denies in a declared repository | `hooks/cmdline.py:1739` | **fixed** `49f27f09` | fixed at 49f27f09; executed: deny at `f1629706`, silent at `233f0455`; no real program is called `-iS` |
+| ⬜ 12 | `overview.md`'s `quiet`'s-discards row describes the subtraction before the fix, and no row names the `env -S` class | `seal/specs/1790993140-the-gates-read-config-env-env-s-and-an-unresolved-cd/overview.md:27` | answered | corrected at `aa3bbf21`; read; paperwork correction, outside `Needs a fix` |
 | 🟢 | round 1's finding 1 is closed — env's own words are not asked the expansion question, and are quoted back into one word each | `hooks/cmdline.py:1950` | confirmed | executed: the six added no-commit controls are silent in a declared repository; `env -S '-i' "$CMD"` is silent at `f1629706` as at `233f0455` and as `env -i "$CMD"` |
 | 🟢 | round 1's finding 2 is closed for the shapes it named — a cluster ending in `S` and a `--split-string` prefix are read among env's own options | `hooks/cmdline.py:1736` | confirmed | executed: the six added `HANDED` shapes are found; the class is not closed, which is this round's findings 9, 10 and 11 |
 | 🟢 | round 1's finding 3 is closed — a restore before a hidden switch no longer silences the question | `hooks/worktree-guard.py:2260` | confirmed | executed: both restore cases ask, and both fail against round 1's target's guard; the built C fires on 0 of 27,351 pairs, re-counted; the comparison it introduced is this round's finding 8 |

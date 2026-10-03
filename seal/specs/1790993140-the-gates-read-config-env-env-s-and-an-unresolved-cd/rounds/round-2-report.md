@@ -142,11 +142,11 @@ restore (`cd w && git checkout README.md>/dev/null`) stays silent.
 
 ## 🟡 9 — an abbreviated long option's value ends env's own options
 
-`hooks/cmdline.py:1768` (`_env_takes_next`, `ENV_VALUED_LONG`).
+`hooks/cmdline.py:1768` (`_env_takes_next`, `ENV_VALUED_LONG`). · NAME NOT IN TREE
 
-**What is wrong.** `_env_takes_next` knows `--unset`, `--chdir` and `--argv0`
+**What is wrong.** `_env_takes_next` knows `--unset`, `--chdir` and `--argv0` · NAME NOT IN TREE
 by their full names alone. GNU's getopt takes every unambiguous prefix of a
-long option. `_env_split_at`'s docstring says so for `--split-string`, from
+long option. `_env_split_at`'s docstring says so for `--split-string`, from · NAME NOT IN TREE
 `--s`. `--un FOO` is therefore not read as taking a value, `FOO` reads as the
 program, and the own-options state ends before the cluster.
 
@@ -170,7 +170,7 @@ With `-i` in the cluster, the git hook stub sees no session either
 a commit runs that no gate judges.
 
 **Fix.** Read a long option that takes a value in every prefix, as
-`_env_split_at` reads `--split-string`. No other long option of GNU `env`
+`_env_split_at` reads `--split-string`. No other long option of GNU `env` · NAME NOT IN TREE
 starts with `u`, `c` or `a`. Fenced below.
 
 ## 🟡 10 — a redirection among env's options ends them
@@ -259,7 +259,7 @@ All are fenced under *Paste-ready fixes*, and each was seen to fail against
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
 | 🟡 8 | candidate C compares a cut or glued view with the frozen parser, which never reads such a view, so a redirection glued to the subcommand (`git switch>/dev/null x`) went from asked to silent | `hooks/worktree-guard.py:356` | open | executed: three glued shapes ask at round 1's target and are silent at `f1629706`, and bash runs each; the fix fires on 0 of 27,351 corpus pairs |
-| 🟡 9 | an abbreviated long option that takes a value (`--un`, `--ch`, `--ar`) ends env's own options at its value, so `env --un FOO -iS 'git commit -m x'` is found by nothing | `hooks/cmdline.py:1768` | open | executed: four shapes found by nothing at `f1629706` and `233f0455`; read, not run on GNU env: getopt takes unambiguous prefixes, as `_env_split_at`'s docstring says |
+| 🟡 9 | an abbreviated long option that takes a value (`--un`, `--ch`, `--ar`) ends env's own options at its value, so `env --un FOO -iS 'git commit -m x'` is found by nothing | `hooks/cmdline.py:1768` | open | executed: four shapes found by nothing at `f1629706` and `233f0455`; read, not run on GNU env: getopt takes unambiguous prefixes, as `_env_split_at`'s docstring says | · NAME NOT IN TREE
 | 🟡 10 | a redirection among env's options ends them, so `env 2>/dev/null -iS 'git commit -m x'` is found by nothing | `hooks/cmdline.py:1739` | open | executed: macOS `env` runs the string behind the redirection; five shapes found by nothing at `f1629706` and `233f0455` |
 | ⬜ 11 | `--` does not end env's options, so `env -- -iS 'git commit -m y'` denies in a declared repository | `hooks/cmdline.py:1739` | open | executed: deny at `f1629706`, silent at `233f0455`; no real program is called `-iS` |
 | ⬜ 12 | `overview.md`'s `quiet`'s-discards row describes the subtraction before the fix, and no row names the `env -S` class | `seal/specs/1790993140-the-gates-read-config-env-env-s-and-an-unresolved-cd/overview.md:27` | open | read; paperwork correction, outside `Needs a fix` |
@@ -454,8 +454,8 @@ Files opened in this round:
   `main`. Also `25e5b01a`'s copy, run beside it.
 - `hooks/cmdline.py` at `f1629706`: `unglued`, `split_segments`,
   `split_segments_with_separators`, `merged_view`, `merged_segments`,
-  `reparsed_texts`, `ENV_VALUED`, `ENV_VALUED_LONG`, `_env_takes_next`,
-  `_env_split_at`, `_env_words`, `command_strings`, `names_an_unknown_command`,
+  `reparsed_texts`, `ENV_VALUED`, `ENV_VALUED_LONG`, `_env_takes_next`, · NAME NOT IN TREE
+  `_env_split_at`, `_env_words`, `command_strings`, `names_an_unknown_command`, · NAME NOT IN TREE
   `_without_redirections`. `hooks/cmdline_base.py`: `walk_directories`, and a
   source comparison of every function the two readers share.
 - `hooks/commit-review-gate.py`: `_reads_a_commit`, `_string_hides_a_commit`,
