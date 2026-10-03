@@ -10,8 +10,11 @@
   `--into` writes the re-read that row is owed, and a run without `--into`
   names it with the `--into` form. That holds whichever rows carry the
   drifted coordinate, including one only fragment re-reads record. A
-  narrowing to a file that holds no member of the family, and a run without
-  `--ledger`, behave as before.
+  narrowing to a file that holds no member of the family behaves as before,
+  and so does a run without `--ledger`, with one exception: where a
+  coordinate only fragment re-reads record has lost the statement its anchor
+  names, the run now names the family's first row and exits 1, as it
+  already did where a released row recorded that coordinate.
 
 - A ledger row whose `Checked` cell holds a date the calendar does not have,
   such as `2026-13-45`, is now named with that date when `evidence-check`

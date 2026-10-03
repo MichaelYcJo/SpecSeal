@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 743 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `465adf3325b0ac6070ddc80484d8068ba1f25da6..604f8969f9aad34099706c59541415a0c9787082`, 10 commits |
 | Contract changes | three_readings → round-1-report.md, round-1.md, pytest; test_a_narrowed_reverify_exits_0_only_where_the_narrowed_strict_does → round-1-report.md, round-1.md |
 | New units | test_a_narrowed_reverify_answers_for_a_coordinate_only_fragments_carry (depth 1); test_a_family_rooted_in_a_fragment_is_owed_no_released_re_read (depth 1); test_a_frozen_reverify_narrowed_to_a_member_names_the_root_with_into (depth 1) |

@@ -71,6 +71,8 @@ The freeze branch of `main` currently passes `released` to `reverify_into`. It p
 
 **D3 — Unnarrowed runs do not change.** Every released file is already in `wanted` there. A family rooted in a fragment — a `Corrected ·` row there, or a citing row whose citation resolves to nothing — holds no released member, because a citation into a fragment joins nothing, and `released_drift` grades a family's coordinate only from a member under a released root; so every family that can owe a re-read is already answered. A change that widens which members grade a coordinate keeps that guard on the root's kind. The enumeration's unnarrowed column is the control that holds this.
 
+*Corrected 2026-10-03 at round 2's close (⬜ 10): one unnarrowed run does change. A coordinate only fragment re-reads carry whose anchored statement is gone is one no in-place re-stamp clears; it used to exit 0 while `--strict` exited 2, and it now names the released root and exits 1, as a released carrier already did.*
+
 *Corrected 2026-10-03 by round 1's fix pass (⬜ 9): D3 said "every family's root is released", which is false for the two fragment-rooted families named above; the conclusion held only through the released-member filter, which 🟡 1's fix widens under a released-root guard.*
 
 **D4 — The `LEFT` line and the written row name the family's root, even where the run did not read the root's file.** A `Re-read ·` row cites the root (`reverify_into`'s docstring), so the root is where the repair lands, and `--into` already prints `citing <root>`. The home's rewritten sentence says "by its root row", as the paste-ready text does.
