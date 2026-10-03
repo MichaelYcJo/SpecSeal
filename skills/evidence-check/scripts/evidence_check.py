@@ -2403,6 +2403,10 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
         if verb_of(key) == "Corrected" and root_of(parent[key]) != key:
             corrected_by.setdefault(root_of(parent[key]), []).append(key)
     for keys in corrected_by.values():
+        # A correcting row a later `Corrected ·` row supersedes is no longer
+        # a claim: that later row is the repair once both have folded, where
+        # neither can be edited (round 2, 🟡 11).
+        keys = [k for k in keys if k not in superseded]
         if len(keys) < 2:
             continue
         keys.sort(key=lambda k: (str(k[0]), k[1]))

@@ -124,6 +124,7 @@ A released row corrected by two or more `Corrected ·` rows is two claims
 nothing has reconciled, so each of those rows is DRIFTED, naming the others:
 read them together and keep one claim. The second branch cannot cite the
 first one's row before the fold, so the repair is one row merging the two.
+Once both have folded, a `Corrected ·` row citing one of them retires it.
 
 **`evidence-check --reverify --into seal/ledger/<work-item-id>.md --checked
 <YYYY-MM-DD>` writes the re-reads.** It re-stamps the fragments in place,

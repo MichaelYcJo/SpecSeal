@@ -1178,3 +1178,39 @@ def test_a_first_cell_that_also_ends_another_cell_still_gets_a_citation(repo):
 
     status, _, target = ec.cited_row(m, "Re-read", str(repo), {}, None, load)
     assert (status, target[1]) == ("OK", number), cite
+
+
+def test_a_folded_double_correction_is_cleared_by_retiring_one(repo):
+    """Both corrections folded, so neither can be edited: a third
+    `Corrected ·` row citing one of them retires it, and the notice goes
+    (round 2, 🟡 11)."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    cite = citation(r, "R1 · handler adds one")
+    sec = "### 2000000001-a-later-item"
+    c1, c2 = (
+        f"| Corrected · handler adds {n} | `{cite}`, `src/service.py#handler@{h}` "
+        "| read | 2026-02-01 | Corrected 2026-02-01 |"
+        for n in ("two", "three")
+    )
+    released(repo, [c1, c2], version="0.2.0", section=sec)
+    frozen(repo, "0")
+    assert run(["--strict", "."], repo).returncode == 2
+    retire = citation(
+        c2, "Corrected · handler adds three", version="0.2.0", section=sec
+    )
+    fragment(
+        repo,
+        [
+            f"| Corrected · handler adds two, as the other row says | `{retire}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-03-01 | Corrected 2026-03-01 |"
+        ],
+        name="3000000001-y",
+    )
+    out = run(["--strict", "."], repo)
+    assert out.returncode == 0, out.stdout
