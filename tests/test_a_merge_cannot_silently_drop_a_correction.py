@@ -1368,3 +1368,266 @@ def test_the_bound_covers_every_candidate_marker_site_the_corpus_carries():
         "is a qualifier, and raise the bound deliberately with this case "
         "re-driven:\n  " + "\n  ".join(unseen)
     )
+
+
+# --- #715: a released file is frozen, and a correction is a row of its own ---
+#
+# A released ledger file is not edited after its release, so a correction of
+# one of its rows is a `Corrected ·` row in the branch's fragment, citing the
+# released row. Dropping that row at a merge brings the false claim back to
+# life exactly as dropping a marker did, and the released row it cites always
+# still stands (S8). `Ledger frozen from` in `seal/config.md` then holds a
+# range to the freeze, keyed on the work items the range adds (S9, S10).
+
+RELEASED = "seal/releases/0.1.0.md"
+R_RELEASED = (
+    "| R1 · the released claim | `a/one.py#f@11111111` | Read. | 2026-01-01 | |"
+)
+RELEASED_TEXT = (
+    "## 0.1.0 — 2026-01-01\n\n### 1000000001-the-first\n\n" + R_RELEASED + "\n"
+)
+CITING = "seal/ledger/2000000001-a-later-item.md"
+C_ROW = (
+    '| Corrected · the claim was false | `seal/releases/0.1.0.md#"### '
+    '1000000001-the-first">"R1 · the released claim"@abcdef12`, `a/one.py#f@33333333` '
+    "| Read. | 2026-02-01 | Corrected 2026-02-01 by work item 2000000001: it never held |"
+)
+
+
+def repo_at(tmp, files):
+    root = pathlib.Path(tmp) / "repo"
+    root.mkdir(parents=True, exist_ok=True)
+    run(root, "init", "-q")
+    run(root, "config", "user.email", "t@example.com")
+    run(root, "config", "user.name", "t")
+    for path, text in files.items():
+        write(root, path, text)
+    return root, commit(root, "base")
+
+
+def test_s8_a_dropped_correction_row_is_a_loss(tmp_path):
+    """S8. Ours writes a `Corrected ·` row into its fragment; the merge
+    resolution leaves the fragment without it. The released row it cites
+    still stands, so the loss is named with the fragment, the merge and the
+    row it corrected."""
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT, CITING: ""})
+    run(root, "checkout", "-q", "-b", "ours")
+    write(root, CITING, C_ROW + "\n")
+    commit(root, "ours corrects the released row")
+    run(root, "checkout", "-q", start)
+    run(root, "checkout", "-q", "-b", "theirs")
+    write(root, "other.txt", "x\n")
+    commit(root, "theirs does something else")
+    run(root, "checkout", "-q", "ours")
+    run(root, "merge", "--no-commit", "--no-ff", "theirs", check=False)
+    write(root, CITING, "")
+    head = commit(root, "Merge branch 'theirs' into ours")
+    code, out = check(root, f"{start}..{head}")
+    assert code == 1, out
+    assert CITING in out and head[:7] in out, out
+    assert "R1 · the released claim" in out, out
+
+
+def test_s8_a_correction_row_the_merge_kept_is_no_loss(tmp_path):
+    """The control: the same merge keeping the row reports nothing."""
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT, CITING: ""})
+    run(root, "checkout", "-q", "-b", "ours")
+    write(root, CITING, C_ROW + "\n")
+    commit(root, "ours corrects the released row")
+    run(root, "checkout", "-q", start)
+    run(root, "checkout", "-q", "-b", "theirs")
+    write(root, "other.txt", "x\n")
+    commit(root, "theirs does something else")
+    run(root, "checkout", "-q", "ours")
+    run(root, "merge", "-q", "--no-ff", "-m", "merge", "theirs")
+    head = run(root, "rev-parse", "HEAD").stdout.strip()
+    code, out = check(root, f"{start}..{head}")
+    assert code == 0, out
+
+
+def frozen_config(value="1500000000"):
+    return (
+        f"# config\n\n| Item | Value |\n|---|---|\n| Ledger frozen from | {value} |\n"
+    )
+
+
+def branch_that(root, start, files, name="work"):
+    run(root, "checkout", "-q", "-b", name, start)
+    for path, text in files.items():
+        if text is None:
+            (pathlib.Path(root) / path).unlink()
+        else:
+            write(root, path, text)
+    return commit(root, "the branch's work")
+
+
+ROUTING_AT = "seal/specs/{}-an-item/routing.md"
+
+
+def test_s9_a_work_item_at_the_cutoff_that_edits_a_release_file_is_refused(tmp_path):
+    """S9. The range adds a work item at or above the cutoff and changes a
+    release file the base already had: exit 1, the file named."""
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config(), RELEASED: RELEASED_TEXT}
+    )
+    head = branch_that(
+        root,
+        start,
+        {
+            ROUTING_AT.format(1500000001): "| Review | straight to the PR |\n",
+            RELEASED: RELEASED_TEXT.replace("Read.", "Read again."),
+        },
+    )
+    code, out = check(root, f"{start}...{head}")
+    assert code == 1, out
+    assert RELEASED in out and "frozen" in out, out
+
+
+def test_s9_the_same_work_item_writing_only_its_fragment_passes(tmp_path):
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config(), RELEASED: RELEASED_TEXT}
+    )
+    head = branch_that(
+        root,
+        start,
+        {
+            ROUTING_AT.format(1500000001): "| Review | straight to the PR |\n",
+            "seal/ledger/1500000001-an-item.md": C_ROW + "\n",
+        },
+    )
+    code, out = check(root, f"{start}...{head}")
+    assert code == 0, out
+
+
+def test_s9_a_range_adding_no_work_item_that_edits_the_gathered_ledger_is_refused(
+    tmp_path,
+):
+    """A fold, a release preparation or a change belonging to no work item
+    adds no `routing.md`, and is held to the freeze."""
+    root, start = repo_at(
+        tmp_path,
+        {
+            "seal/config.md": frozen_config(),
+            "seal/ledger.md": "# map\n\n" + R_RELEASED + "\n",
+        },
+    )
+    head = branch_that(root, start, {"seal/ledger.md": "# map\n\nedited\n"})
+    code, out = check(root, f"{start}...{head}")
+    assert code == 1, out
+    assert "seal/ledger.md" in out, out
+
+
+def test_s10_a_work_item_below_the_cutoff_is_read_under_its_own_rule(tmp_path):
+    """S10. A branch cut before the rule keeps its exemption, and the report
+    says in one line which rule it was read under."""
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config(), RELEASED: RELEASED_TEXT}
+    )
+    head = branch_that(
+        root,
+        start,
+        {
+            ROUTING_AT.format(1400000001): "| Review | straight to the PR |\n",
+            RELEASED: RELEASED_TEXT.replace("Read.", "Read again."),
+        },
+    )
+    code, out = check(root, f"{start}...{head}")
+    assert code == 0, out
+    said = [line for line in out.splitlines() if "rule it was cut under" in line]
+    assert len(said) == 1 and "1400000001" in said[0], out
+
+
+def test_s10_adding_a_release_file_is_allowed(tmp_path):
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config(), RELEASED: RELEASED_TEXT}
+    )
+    head = branch_that(root, start, {"seal/releases/0.2.0.md": RELEASED_TEXT})
+    code, out = check(root, f"{start}...{head}")
+    assert code == 0, out
+
+
+def test_s10_the_release_file_named_for_the_base_s_own_version_may_join(tmp_path):
+    """#540: a second fold for one version joins that version's file before
+    the tag, on a `release/vX.Y.Z` base."""
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config(), RELEASED: RELEASED_TEXT}
+    )
+    run(root, "branch", "release/v0.1.0", start)
+    head = branch_that(
+        root, start, {RELEASED: RELEASED_TEXT + "\n### 1000000002-x\n\n" + R_RELEASED}
+    )
+    code, out = check(root, f"release/v0.1.0...{head}")
+    assert code == 0, out
+
+
+def test_s10_without_the_row_the_freeze_arm_is_off(tmp_path):
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT})
+    head = branch_that(root, start, {RELEASED: RELEASED_TEXT.replace("Read.", "x")})
+    code, out = check(root, f"{start}...{head}")
+    assert code == 0, out
+    assert "frozen" not in out, out
+
+
+def test_a_freeze_row_that_is_not_an_id_is_refused_and_nothing_is_judged(tmp_path):
+    root, start = repo_at(
+        tmp_path, {"seal/config.md": frozen_config("soon"), RELEASED: RELEASED_TEXT}
+    )
+    head = branch_that(root, start, {"x.txt": "x\n"})
+    code, out = check(root, f"{start}...{head}")
+    assert code == 2, out
+
+
+def correction_merge(tmp, base, ours, theirs, resolution, files=None):
+    """A merge of two branches over CITING, resolved by hand to RESOLUTION,
+    with the released file and FILES in the base."""
+    root, start = repo_at(tmp, {RELEASED: RELEASED_TEXT, CITING: base, **(files or {})})
+    run(root, "checkout", "-q", "-b", "ours")
+    write(root, CITING, ours)
+    commit(root, "ours")
+    run(root, "checkout", "-q", start)
+    run(root, "checkout", "-q", "-b", "theirs")
+    write(root, CITING, theirs)
+    write(root, "other.txt", "x\n")
+    commit(root, "theirs")
+    run(root, "checkout", "-q", "ours")
+    run(root, "merge", "--no-commit", "--no-ff", "theirs", check=False)
+    write(root, CITING, resolution)
+    return root, start, commit(root, "Merge branch 'theirs' into ours")
+
+
+def test_a_correction_row_a_parent_deleted_is_honoured(tmp_path):
+    """The base carried the row and ours deleted it: the merge taking ours'
+    deletion is doing its job, as it is for a marker."""
+    row = C_ROW + "\n"
+    root, start, head = correction_merge(tmp_path, row, "", row, "")
+    code, out = check(root, f"{start}..{head}")
+    assert code == 0, out
+
+
+def test_a_correction_row_both_parents_carried_is_reported_once(tmp_path):
+    """Both parents kept the base's row and the resolution dropped it: one
+    loss, not one per parent."""
+    row = C_ROW + "\n"
+    root, start, head = correction_merge(tmp_path, row, row, row, "")
+    code, out = check(root, f"{start}..{head}")
+    assert code == 1, out
+    assert out.count("  dropped     ") == 1, out
+
+
+def test_a_correction_whose_released_file_is_gone_is_not_judged_a_loss(tmp_path):
+    """The released row is what still stands. Where the merge result has no
+    file at the citation's path, there is no standing row to read as true."""
+    root, start = repo_at(tmp_path, {RELEASED: RELEASED_TEXT, CITING: ""})
+    run(root, "checkout", "-q", "-b", "ours")
+    write(root, CITING, C_ROW + "\n")
+    commit(root, "ours corrects the released row")
+    run(root, "checkout", "-q", start)
+    run(root, "checkout", "-q", "-b", "theirs")
+    (pathlib.Path(root) / RELEASED).unlink()
+    commit(root, "theirs removes the release file")
+    run(root, "checkout", "-q", "ours")
+    run(root, "merge", "--no-commit", "--no-ff", "theirs", check=False)
+    write(root, CITING, "")
+    head = commit(root, "Merge branch 'theirs' into ours")
+    code, out = check(root, f"{start}..{head}")
+    assert "  dropped     " not in out, out
