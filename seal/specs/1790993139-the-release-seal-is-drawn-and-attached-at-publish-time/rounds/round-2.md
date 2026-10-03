@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 731 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `a143af1d333f8cfce92a50c54ae215035b2cb96f..5ffe4b955f9f8b248d9e79e400490cf9430e4f43`, 4 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -41,10 +41,10 @@ Round 2 is a verifying round. It targets `8a8ab40e` over round 1's fix range `e0
 | 🟢 | the neighbour holds — `chain_counts` with this branch's code reads 0.17.0's tree as 10 · 27 · 6 · 12 | `.github/scripts/release_seal.py#chain_counts` | verified | Executed over a clone at `233f0455` with the live pull request list |
 | 🟢 | round 1's confirmations still stand — every exception in `seal_release` ends in exit 0; Pillow is imported by `release_seal.py` alone | `.github/scripts/release_seal.py` | verified | Executed: the three modules, 103 passed; the import grep exits 1 |
 | carried | round 1's confirmation that 909 was stale at the base (538, 915, 1,289 at `233f0455`) | `skills/verify/scripts/seal_stamp.py#MESSAGE_RESERVE` | carried, not re-derived | A base measurement pinned to `233f0455`; nothing in the fix range touches the base |
-| ⬜ 10 | A re-read note for `describe` sits on 0.16.0's changelog-gather G2 row, which cites no `dispatch.py` unit, while the `stop` group's G2 row that cites `describe` was re-stamped with no note | `seal/releases/0.16.0.md:35` | open | Read: correction under `seal/releases/`; the line-77 claim holds (executed over every gate in every group) |
-| ⬜ 11 | The changelog says the seal counts *how many issues the rounds deferred*; under ⬜ 6's answer it counts issues a Verdicts cell defers, and 0.17.0 is the case where the two differ | `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/changelog.md:11` | open | Read: correction under `seal/specs/`; keeps the decided rule |
-| ⬜ 12 | The checklist's reason list still gives a hand edit as the only way the table is missing, against the refusal `626be3ab` rewrote | `docs/release-checklist.md:341` | open | Read: round 1's ⬜ 7 class, one member left |
-| ⬜ 13 | The module docstring's by-hand route names neither the checkout at the tag nor the edit | `.github/scripts/release_seal.py:45` | open | Read: round 1's ⬜ 8 class, one member left |
+| ⬜ 10 | A re-read note for `describe` sits on 0.16.0's changelog-gather G2 row, which cites no `dispatch.py` unit, while the `stop` group's G2 row that cites `describe` was re-stamped with no note | `seal/releases/0.16.0.md:35` | answered | corrected at `3dbf7a1c`; Read: correction under `seal/releases/`; the line-77 claim holds (executed over every gate in every group) |
+| ⬜ 11 | The changelog says the seal counts *how many issues the rounds deferred*; under ⬜ 6's answer it counts issues a Verdicts cell defers, and 0.17.0 is the case where the two differ | `seal/specs/1790993139-the-release-seal-is-drawn-and-attached-at-publish-time/changelog.md:11` | answered | corrected at `4ac391e0`; Read: correction under `seal/specs/`; keeps the decided rule |
+| ⬜ 12 | The checklist's reason list still gives a hand edit as the only way the table is missing, against the refusal `626be3ab` rewrote | `docs/release-checklist.md:341` | **fixed** `729c644e` | fixed at 729c644e; Read: round 1's ⬜ 7 class, one member left |
+| ⬜ 13 | The module docstring's by-hand route names neither the checkout at the tag nor the edit | `.github/scripts/release_seal.py:45` | **fixed** `5ffe4b95` | fixed at 5ffe4b95; Read: round 1's ⬜ 8 class, one member left |
 | ❓ | What GitHub reports for the `seal` job when its own `timeout-minutes` fires under the job-level `continue-on-error` (the workflow comment says the run stays green), and that a step's timeout is honoured by that step's `continue-on-error` | `.github/workflows/publish-release.yml:79` | ❓ out of verified scope | Nothing local runs a job timeout; the note's fallback holds either way (read). The repository owner answers, from the first run that reaches a timeout |
 | ❓ | The `seal` job on GitHub's runners: Q11's font, Q9's browsers, and the suite at a tag push (carried from round 1) | `.github/workflows/publish-release.yml` | ❓ out of verified scope | The repository owner answers at 0.18.0's tag push, from the job log and the release page |
 
