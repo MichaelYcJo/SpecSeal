@@ -35,6 +35,8 @@ What the enumeration leaves out, and why:
 
 import ast
 import os
+import random
+import re
 
 import gfm_table_oracle as oracle
 import pytest
@@ -440,25 +442,122 @@ def test_every_delimiter_gfm_accepts_is_read(which):
 
 
 @pytest.mark.parametrize("which", sorted(HEADERS))
-def test_a_line_above_the_header_is_refused_only_where_gfm_renders_no_table(which):
-    """The property lets the walker refuse anything, so a walker that refused
-    too much would pass it. Above the header the walk refuses only what GFM
-    reads the header into: wherever cmark-gfm renders the table under a kind
-    written above it -- an empty quote, an empty list item, an HTML block
-    closed on its own line, a paragraph -- the walker reads it and refuses
-    nothing."""
+def test_a_line_directly_above_the_header_is_refused(which):
+    """Whether cmark-gfm renders a table under a line depends on the block
+    state above it, which the walker does not track, so a non-blank line the
+    walk is shown directly above a header is refused with the blank-line
+    remedy (round 1, yellow 5). This reverses the build's first choice,
+    which mirrored cmark-gfm's interruption rules line by line and was found
+    reading tables cmark-gfm does not render in shapes the corpus did not
+    reach. A kind whose last line `unfenced` hides, or a blank line, leaves
+    a gap or a blank above the header and is not this rule's."""
     header = HEADERS[which]
-    wrong = []
     for kind, lines in KINDS.items():
         for indent in INDENTS:
             text = document(header, lines, "before the header", indent)
-            want = oracle.rows_under(text, header)
-            if want is None:
+            split = text.splitlines()
+            head = split.index("| " + " | ".join(header) + " |")
+            shown = dict(config.unfenced(split, text))
+            above = shown.get(head - 1)
+            if above is None or not above.strip():
                 continue
-            rows, refusals = config.gfm_table(text, header)
-            if refusals or [cells for _line, cells in rows] != want:
-                wrong.append(f"{kind}, indent {indent!r}: {refusals}")
-    assert not wrong, "\n".join(wrong)
+            _rows, refusals = config.gfm_table(text, header)
+            assert refusals and "blank line above the header" in refusals[0], (
+                kind,
+                indent,
+                refusals,
+            )
+
+
+def test_the_shapes_round_1_measured_are_refused():
+    """Round 1's measured shapes, each a table cmark-gfm does not render and
+    the walker read: a table directly above, a setext `-` that makes the
+    next line a list, a seventh-kind tag after a list item, and an HTML
+    block of kinds 1-5 left open across a blank line."""
+    u = "https://example.com/org/a"
+    opener = "<" + "!-- old list, being retired"
+    for text in (
+        f"| Name |\n|---|\n| x |\n| Signatory |\n|---|\n| {u} |\n",
+        f"Intro\n-\n2. second\n| Signatory |\n|---|\n| {u} |\n",
+        f"1) one\n<a>\n___\n>\n| Signatory |\n|---|\n| {u} |\n",
+        f"# Pact\n\n{opener}\n\n| Signatory |\n|---|\n| {u} |\n",
+        f"<pre>\nexample\n\n| Signatory |\n|---|\n| {u} |\n",
+        f"<?php\n\n| Signatory |\n|---|\n| {u} |\n",
+        f"<![CDATA[\n\n| Signatory |\n|---|\n| {u} |\n",
+        f"<!DOCTYPE\n\n| Signatory |\n|---|\n| {u} |\n",
+    ):
+        assert oracle.rows_under(text, ("Signatory",)) is None, text
+        _rows, refusals = config.gfm_table(text, ("Signatory",))
+        assert refusals, text
+
+
+def test_an_html_block_closed_above_the_header_leaves_the_table(oracle_check=True):
+    """The other side of the open-block refusal: a kind 1-5 block closed on
+    a later line, a blank line, then the table, renders, and is read."""
+    u = "https://example.com/org/a"
+    for text in (
+        f"<pre>\nx\n</pre>\n\n| Signatory |\n|---|\n| {u} |\n",
+        f"<?php\nx\n?>\n\n| Signatory |\n|---|\n| {u} |\n",
+    ):
+        assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
+        rows, refusals = config.gfm_table(text, ("Signatory",))
+        assert refusals == [] and [c for _l, c in rows] == [(u,)], text
+
+
+# --- an independent generator (round 1, yellow 5) ---------------------------
+#
+# The corpus puts one kind at a time at each position; round 1 found the
+# walker's line-above mistakes with random documents instead. This is that
+# generator, held small and seeded so it runs in a few seconds: documents of
+# 2-9 lines drawn from a vocabulary of line kinds and table lines, judged by
+# cmark-gfm. Its one tolerated disagreement is `unfenced`'s limit, named in
+# `gfm_table`'s docstring: a fence line `unfenced` hides that cmark-gfm reads
+# inside an HTML block, which a blank line has not yet ended.
+
+GENERATOR_SEED = 647
+GENERATOR_DOCUMENTS = 3000
+FENCE_LINE = re.compile(r"^ {0,3}(?:`{3,}|~{3,})")
+HTML_LINE = re.compile(r"^ {0,3}<[A-Za-z!?/]")
+
+
+def vocabulary(header):
+    lines = [ln for kind in KINDS.values() for ln in kind]
+    head = "| " + " | ".join(header) + " |"
+    delimiter = "|" + "---|" * len(header)
+    table = [head, delimiter, row(header, 1), row(header, 2), "| x |", "|---|"]
+    return sorted(set(lines)) + table * 6 + ["", "", "", "text"]
+
+
+def inside_html_fence(text):
+    """True where a fence line stands under an HTML block start with no
+    blank line between: the limit `unfenced` shares with `config_rows`."""
+    opened = False
+    for line in text.splitlines():
+        if not line.strip():
+            opened = False
+        elif HTML_LINE.match(line):
+            opened = True
+        elif opened and FENCE_LINE.match(line):
+            return True
+    return False
+
+
+@pytest.mark.parametrize("which", sorted(HEADERS))
+def test_random_documents_are_read_as_cmark_gfm_renders_them_or_refused(which):
+    header = HEADERS[which]
+    words = vocabulary(header)
+    pick = random.Random(f"{GENERATOR_SEED}-{which}")
+    head = "| " + " | ".join(header) + " |"
+    wrong = []
+    for _n in range(GENERATOR_DOCUMENTS):
+        lines = [pick.choice(words) for _k in range(pick.randint(2, 9))]
+        if head not in lines:
+            lines.insert(pick.randint(0, len(lines)), head)
+        text = "\n".join(lines) + "\n"
+        said = disagreement(header, text)
+        if said and not inside_html_fence(text):
+            wrong.append(f"{said}\n{text}")
+    assert not wrong, f"{len(wrong)} disagreements:\n" + "\n".join(wrong[:5])
 
 
 def test_round_3s_shapes_are_inside_the_corpus():
@@ -501,3 +600,42 @@ def test_the_corpus_is_counted():
     reads."""
     sizes = {which: len(corpus(header)) for which, header in HEADERS.items()}
     assert sizes == {"signatory": 5454, "pact change": 5455, "pact review": 5455}, sizes
+
+
+def test_a_half_written_tag_does_not_hide_the_table_from_the_oracle():
+    """`<h1` with no `>` above a table: cmark-gfm renders the table, and an
+    oracle printing raw HTML handed `html.parser` a tag that swallowed the
+    `<table>` after it, so the oracle said no table."""
+    text = "<h1\n\n| Signatory |\n|---|\n| https://example.com/org/a |\n"
+    assert oracle.rows_under(text, ("Signatory",)) == [("https://example.com/org/a",)]
+
+
+@pytest.mark.parametrize(
+    "above",
+    [
+        "text\n```\nx\n```\n",
+        "text\n<!-- c -->\n",
+        "<div>\n\n",
+        "<pre>x</pre>\n\n",
+        "<? x ?>\n\n",
+        "<!DOCTYPE html>\n\n",
+    ],
+    ids=[
+        "a closed fence directly above, under a paragraph",
+        "a closed comment directly above, under a paragraph",
+        "a kind-6 block a blank line ends",
+        "a kind-1 block closed on its own line",
+        "a kind-3 block closed on its own line",
+        "a kind-4 block closed on its own line",
+    ],
+)
+def test_a_table_under_a_block_that_has_ended_is_read(above):
+    """The refusals reach no further than they must: a block `unfenced` hides
+    leaves a gap rather than a line above, a blank line ends a kind-6 block,
+    and a kind 1-5 block closed on its opening line is closed. cmark-gfm
+    renders each table, and the walker reads it."""
+    u = "https://example.com/org/a"
+    text = f"# Pact\n\n{above}| Signatory |\n|---|\n| {u} |\n"
+    assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
+    rows, refusals = config.gfm_table(text, ("Signatory",))
+    assert refusals == [] and [c for _l, c in rows] == [(u,)], (text, refusals)

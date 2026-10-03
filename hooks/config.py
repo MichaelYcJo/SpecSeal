@@ -939,55 +939,24 @@ def table_end(line):
     return None
 
 
-def absorbs_a_header(run):
-    """True where GFM reads a header written straight under RUN -- the lines
-    above it back to the last blank line or gap, top first -- as part of a
-    block RUN leaves open, so no table renders there: the paragraph of a list
-    item or a block quote, which takes the header as a lazy continuation, or
-    an HTML block whose end has not come.
-
-    Read top to bottom, because what is open at the header is what the last
-    block start left open: an HTML block closed two lines up absorbs nothing,
-    and a thematic break ends the list item above it. A list item interrupts
-    a paragraph only where CommonMark 5.2 lets it (a bullet, or the number 1,
-    with text after the marker), and an HTML block of the seventh kind never
-    does (4.6); otherwise the line is more of the paragraph."""
-    open_html, end, container, paragraph = False, None, False, False
-    for line in run:
-        if open_html:
-            if end is not None and end.search(line):
-                open_html = False
+def raw_html_open(lines):
+    """True where an HTML block of CommonMark 4.6's kinds 1-5 -- the kinds no
+    blank line ends -- is still open after LINES, so everything under it is
+    the block's raw text and GFM renders no table there (round 1 of #647 C
+    and D, yellow 5)."""
+    end = None
+    for line in lines:
+        if end is not None:
+            if end.search(line):
+                end = None
             continue
         if blocks.columns(line) >= 4:
             continue
         content = line.lstrip(" ")
-        if ATX_HEADING.match(content) or THEMATIC_BREAK.match(content):
-            container = paragraph = False
-            continue
-        number, end = html_start(content)
-        if number is not None and (number < 7 or not paragraph):
-            open_html = not (end is not None and end.search(content, 1))
-            container = paragraph = False
-            continue
-        if BLOCK_QUOTE.match(content):
-            container = paragraph = bool(content[1:].strip())
-            continue
-        marker = LIST_ITEM.match(content)
-        holds = bool(marker) and bool(content[marker.end() :].strip())
-        if marker and (
-            not paragraph
-            or (
-                holds
-                and (
-                    content[0] in "-+*"
-                    or int(content[: marker.end()].rstrip(".) \t")) == 1
-                )
-            )
-        ):
-            container = paragraph = holds
-            continue
-        paragraph = True
-    return open_html or container
+        number, closer = html_start(content)
+        if number is not None and number <= 5 and not closer.search(content, 1):
+            end = closer
+    return end is not None
 
 
 def gfm_table(text, header):
@@ -1013,12 +982,19 @@ def gfm_table(text, header):
         else       a row of another width or without its outer pipes, or a
                    line with no pipe, which GFM reads as one of the rows
 
-    A header GFM reads as part of the block above it (`absorbs_a_header`)
-    is refused too, where a reader would otherwise read a table GFM does
-    not render. **What this cannot see** is a header taken lazily into a
-    list item two blocks up, `- x`, a blank line, an indented paragraph,
-    then the header: telling that apart needs the container nesting, which
-    no table reader here tracks.
+    **A header with a line directly above it is refused**, with the
+    blank-line remedy, because whether GFM renders a table there depends on
+    block state no reader here tracks -- a paragraph, a list item's lazy
+    paragraph, a table above, a setext underline, an HTML block -- and the
+    first walker, which mirrored those rules line by line, read tables GFM
+    does not render (round 1 of #647 C and D, yellow 5). So is a header under
+    an HTML block of kinds 1-5 left open above it (`raw_html_open`), which no
+    blank line ends. **What this cannot see** is a fence `unfenced` hides that
+    GFM reads inside an HTML block of kinds 6 and 7 -- the walk sees a gap
+    where GFM sees raw text, a limit `unfenced` shares with `config_rows` --
+    and a header taken lazily into a list item two blocks up, `- x`, a blank
+    line, an indented paragraph, then the header: telling those apart needs
+    block state no table reader here tracks.
 
     Each refusal reads after a noun naming the file, as both callers of
     `pact_signatories` print it after "the pact ".
@@ -1035,17 +1011,17 @@ def gfm_table(text, header):
     if at is None:
         return [], [f"holds no `| {name} |` table"]
     head_index = shown[at][0]
-    top = at
-    while (
-        top > 0 and shown[top - 1][0] == shown[top][0] - 1 and shown[top - 1][1].strip()
-    ):
-        top -= 1
-    run = [line for _i, line in shown[top:at]]
-    if run and absorbs_a_header(run):
+    above = shown[at - 1] if at > 0 else None
+    if above is not None and above[0] == head_index - 1 and above[1].strip():
         return [], [
-            f"has a `| {name} |` header directly under `{run[-1].strip()}`, "
-            "which GFM reads as part of the block above it, so it renders no "
-            "table there — leave a blank line above the header"
+            f"has a `| {name} |` header directly under `{above[1].strip()}`, "
+            "and GFM renders a table under a line only in some of the shapes "
+            "that line can take — leave a blank line above the header"
+        ]
+    if raw_html_open([line for _i, line in shown[:at]]):
+        return [], [
+            f"has a `| {name} |` header inside an HTML block opened above it "
+            "and never closed, so GFM renders no table there — close the block"
         ]
     delimiter = shown[at + 1] if at + 1 < len(shown) else None
     if (

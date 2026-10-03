@@ -337,9 +337,9 @@ TABLE_ENDS = [
     (
         "a header GFM reads into a list item",
         f"# Pact\n\n- a note\n| Signatory |\n|---|\n| {WEB} |\n" + CLAUSE,
-        "has a `| Signatory |` header directly under `- a note`, which GFM "
-        "reads as part of the block above it, so it renders no table there — "
-        "leave a blank line above the header",
+        "has a `| Signatory |` header directly under `- a note`, and GFM "
+        "renders a table under a line only in some of the shapes that line "
+        "can take — leave a blank line above the header",
     ),
     (
         "no delimiter row",

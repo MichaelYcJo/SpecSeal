@@ -22,7 +22,7 @@ review there takes it.
 | Divergence | Spec says / code did | Chosen | Grounds |
 |---|---|---|---|
 | A row of another width than the header | `spec.md` item 1: the walker "reads what cmark-gfm reads and refuses, with the true cause, only what it cannot read". cmark-gfm pads a short row with empty cells and drops a long row's extra ones; the walker refuses both | refused | A padded cell is a value nobody wrote, and a dropped one is a value somebody wrote and nobody reads. #735's walk already refused a long row in the `Signatory` table (`TABLE_ENDS`' *too many cells*), and its sentence is pinned; a short row in a four-column record is the same silence one cell over. Refusing keeps S1's property, which allows a refusal on any shape |
-| A table GFM does not render, under a block that absorbs its header | spec silent; the corpus's *before the header* position found the walk at `2b1dcb1f` reading a table under `- a note` that cmark-gfm renders as part of the list item (656 of the 5,454 `Signatory` shapes wrong at the base; most of them this position) | refused, saying which line absorbed it | S1: "No shape yields cells cmark-gfm does not" |
+| A table GFM does not render, under a block that absorbs its header | spec silent; the corpus's *before the header* position found the walk at `2b1dcb1f` reading a table under `- a note` that cmark-gfm renders as part of the list item (656 of the 5,454 `Signatory` shapes wrong at the base; most of them this position) | refused, saying which line absorbed it; **then, in round 1's fix pass, any non-blank line directly above the header is refused**, and a header under an HTML block of kinds 1-5 left open | S1: "No shape yields cells cmark-gfm does not". Round 1 (🟡 5) found the line-by-line mirror of cmark-gfm's interruption rules reading tables cmark-gfm does not render; refusing every line above closes that by construction. The trade: a pact with a paragraph directly over its `Signatory` header, which GitHub does render, is refused with the blank-line remedy |
 | A tab before a row | `plan.md` §*Technical context*: each kind is tried "with a tab where the kind permits"; round 3 of #735 (⬜ 22) said GFM reads "a leading tab, on a row" | cmark-gfm ends the table at a tab-indented row (an indented code block), so the walker ends it there and refuses the row as unread | measured with `cmarkgfm` 2025.10.22 (`questions.md` Q13); round 3's sentence does not reproduce at this version |
 
 ## Not verified
@@ -40,6 +40,13 @@ review there takes it.
   the container nesting no table reader here tracks; `gfm_table`'s docstring
   and the corpus module's docstring name it, and nothing in a pact, a record
   of pact changes or a record of pact reviews writes that shape.
+- **A fence inside an HTML block.** `<div>`, a fenced block, then the header
+  with no blank line: cmark-gfm reads all of it as the HTML block's raw text
+  and renders no table, while `unfenced` hides the fence, so the walk sees a
+  gap and reads the table. It is `unfenced`'s limit, shared with
+  `config_rows` and older than this work item; `gfm_table`'s docstring names
+  it, and the seeded generator in the corpus module tolerates exactly that
+  class (round 1, 🟡 5, deferred by the reviewer to the orchestrator).
 - **A record a person edits by hand.** The record of pact changes is written
   by `--reverify` alone and said never to be edited by hand; a hand edit
   changes its content hash, which `pact-check` then reports as a record grown

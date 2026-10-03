@@ -19,9 +19,14 @@ reimplementation of it. The version is pinned in
 `.github/scripts/run_tests.py#CMARKGFM`, so the renderer cannot move under the
 suite.
 
-The document is rendered with GitHub's extensions and raw HTML kept (so an
-HTML block stays an HTML block rather than becoming a placeholder paragraph),
-and the HTML is read back with `html.parser`. A cell is the text inside its
+The document is rendered with GitHub's extensions and raw HTML left out, and
+the HTML is read back with `html.parser`. **Left out, not kept**: the
+renderer parses an HTML block exactly the same either way and only changes
+what it prints for it, `<!-- raw HTML omitted -->`. Kept, a half-written tag
+such as `<h1` lands in the output verbatim, `html.parser` reads it as a tag
+that swallows the `<table>` after it, and the oracle reported no table where
+cmark-gfm rendered one (round 1 of #647 C and D, measured while closing
+yellow 5). A cell is the text inside its
 `<th>` or `<td>`, stripped, with character references decoded: the text a
 person sees in the rendered table.
 """
@@ -73,9 +78,10 @@ class _Tables(html.parser.HTMLParser):
 
 
 def rendered(text):
-    """TEXT as GitHub renders it, raw HTML kept."""
+    """TEXT as GitHub renders it, raw HTML left out (see the module's
+    docstring for why)."""
     return cmarkgfm.github_flavored_markdown_to_html(
-        text, options=Options.CMARK_OPT_UNSAFE
+        text, options=Options.CMARK_OPT_DEFAULT
     )
 
 
