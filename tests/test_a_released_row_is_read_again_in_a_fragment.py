@@ -613,3 +613,33 @@ def test_a_citing_row_that_names_no_released_row_is_named(repo, grounds, said):
     ]
     assert named, out.stdout
     assert out.returncode == 2
+
+
+def test_a_citation_whose_literal_lands_on_prose_names_no_row(repo):
+    """The literal is unique in the section and on a line that is not a
+    ledger row -- the section's own prose. That line has no family, so the
+    citation is BROKEN rather than read as a row."""
+    old = unit_hash(repo, "src/service.py", "handler")
+    _, _, r = released(
+        repo,
+        [
+            "<!-- a note about handler and why it adds -->",
+            "",
+            f"| R1 · handler adds one | `src/service.py#handler@{old}` | read | 2026-01-01 | |",
+        ],
+    )
+    cite = (
+        citation(r, "a note about handler").rsplit("@", 1)[0]
+        + "@"
+        + line_hash("<!-- a note about handler and why it adds -->")
+    )
+    fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, `src/service.py#handler@{old}` "
+            "| read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+    )
+    out = run(["--strict", "."], repo)
+    named = [line for line in out.stdout.splitlines() if "not a ledger row" in line]
+    assert named and named[0].strip().startswith("BROKEN"), out.stdout
