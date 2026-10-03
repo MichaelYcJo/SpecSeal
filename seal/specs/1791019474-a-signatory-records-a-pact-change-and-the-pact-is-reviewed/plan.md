@@ -19,7 +19,7 @@ commit (contract §14), so phase 5 holds only what spans phases.
 ## Technical context
 
 - **The walker.** `hooks/config.py#pact_signatories` walks one table with its
-  own break list, `TABLE_BREAK`. Round 3 found three of that list's arms
+  own break list, `TABLE_BREAK`. Round 3 found three of that list's arms · NAME NOT IN TREE
   survive deletion and one is wrong (🟡 18). The repair is not another arm. It
   is one walker that takes a header tuple and is held to cmark-gfm by a
   property case over an enumerated corpus. `pact_signatories` keeps its
@@ -109,7 +109,7 @@ Vertical slices. Each phase ends with something runnable and verified.
 
 | Phase | Delivers | Verified by | Status |
 |---|---|---|---|
-| 1 | The cmark-gfm oracle (pinned, test-only, held like `MARKDOWN_IT`); one header-tuple walker in `hooks/config.py`; `pact_signatories` on it; the enumerated corpus and its property case; round 3's `TABLE_ENDS` entries; the census comment (⬜ 21); `pact_signatories`' docstring table rewritten to the walker's actual rules | the property case red with `TABLE_BREAK`'s `<` arm restored and with the indentation rule removed; `bin/mutation-check` over every arm of the walker, each one red or recorded as behaviour-equivalent with grounds; the five pact modules and `tests/test_every_reader_ends_a_line_where_gfm_does.py` green | |
+| 1 | The cmark-gfm oracle (pinned, test-only, held like `MARKDOWN_IT`); one header-tuple walker in `hooks/config.py`; `pact_signatories` on it; the enumerated corpus and its property case; round 3's `TABLE_ENDS` entries; the census comment (⬜ 21); `pact_signatories`' docstring table rewritten to the walker's actual rules | the property case red with `TABLE_BREAK`'s `<` arm restored and with the indentation rule removed; `bin/mutation-check` over every arm of the walker, each one red or recorded as behaviour-equivalent with grounds; the five pact modules and `tests/test_every_reader_ends_a_line_where_gfm_does.py` green | | · NAME NOT IN TREE
 | 2 | 🟡 19's pattern; ⬜ 23's refusal sentence naming both remedies; the grammar statement in `docs/the-pact.md` §*The pact anchor*; one display helper for every path `pact-check` prints, the `UNREADABLE` line among them | round 3's four missing-slash ids red against `2b1dcb1f`; the `ntpath` case red with the old `{their_home}/{CONFIG_FILE}` restored; `fold-check` exit 0; `test_pact_check.py` green | |
 | 3 | `--reverify` records pact changes in both paths: the trigger (item 4), the work item from `--into` or the branch's declaration, the notify filter, `BROKEN`, no duplicate rows; the pact-changes reader on the walker; the docs and skill text for the writer | S7–S11 each red with the writer's call removed; `bin/mutation-check` over the notify branches and the id resolution; the evidence-check modules naming `evidence_check.py` green | |
 | 4 | `pact-check` reads each signatory's record (`NOT TAKEN`, `NOTED`, the read filter, `REFUSED`, `UNREADABLE`); the pact-reviews reader on the walker; taking by content hash; the four review refusals; `templates/pact-review.md`; the docs and skill text for the reader and the pact review; every new sentence pinned | S12–S17 each seen red; `bin/mutation-check` over each refusal and over the hash comparison; `test_pact_check.py` green | |

@@ -129,8 +129,9 @@ python3 skills/evidence-check/scripts/evidence_check.py .
 Both forms run under `-n auto` unless you pass your own `-n`, `-p no:xdist`
 or `--pdb`, and the runner installs `pytest-xdist` into a `.venv` that lacks
 it (#337), and the pinned `markdown-it-py`, Pillow and `cmarkgfm` into one
-that lacks that version (#667, #718, #647). What the whole run costs is a figure with a date
-and a machine, recorded in the work item that measured it, not here.
+that lacks that version (#667, #718, #647). What the whole run costs is a
+figure with a date and a machine, recorded in the work item that measured
+it, not here.
 
 **The last of those is the lenient reader.** `broad-gate` runs the same script
 with `--strict`, where drift is exit 2 and the branch comes back `NOT SEALED`;

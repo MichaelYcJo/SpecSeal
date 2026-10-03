@@ -136,8 +136,11 @@ KINDS = {
     # §4.3 setext underlines (`---` is above).
     "setext ===": ["==="],
     "setext =": ["="],
-    # §4.4 indented code.
+    # §4.4 indented code, and indented code that holds a container's marker,
+    # which four columns make code rather than a container.
     "indented code": ["    code"],
+    "indented code, a list marker": ["    - x"],
+    "indented code, a quote marker": ["    > q"],
     # §4.5 fenced code: closed, unclosed, and a backtick info string.
     "fence ```": ["```", "x", "```"],
     "fence ~~~": ["~~~", "x", "~~~"],
@@ -189,6 +192,8 @@ KINDS = {
     "after a paragraph, list -, empty": ["text", "-"],
     "after a paragraph, quote": ["text", "> q"],
     "after a list item, a break": ["- x", "***"],
+    "after a list item, a comment": ["- x", "<!-- c -->"],
+    "after a list item, a fence": ["- x", "```", "x", "```"],
     # §4.7 a link reference definition.
     "link reference": ["[x]: https://example.com"],
     # §4.8 a paragraph line.
@@ -495,4 +500,4 @@ def test_the_corpus_is_counted():
     generating shapes is a red case rather than a smaller number nobody
     reads."""
     sizes = {which: len(corpus(header)) for which, header in HEADERS.items()}
-    assert sizes == {"signatory": 5354, "pact change": 5355, "pact review": 5355}, sizes
+    assert sizes == {"signatory": 5454, "pact change": 5455, "pact review": 5455}, sizes

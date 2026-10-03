@@ -28,7 +28,7 @@ code at `f2c542ea`, and the two new surfaces were judged as code.
   cmark-gfm, the renderer library GFM is defined by). The list also leaves out
   the thematic break.
 - **Claimed** (P8's note): "one case per way, each branch seen red by
-  `mutation-check`". **Found**: three arms of `TABLE_BREAK` survive their
+  `mutation-check`". **Found**: three arms of `TABLE_BREAK` survive their · NAME NOT IN TREE
   removal: the `<` arm, the two fence arms, and the ordered-list arm (executed).
   The `<` arm is the one that carries 🟡 18.
 - **Claimed** (commit `7090a9f4`, P9's note, the comment above
@@ -88,7 +88,7 @@ still refused.
 
 ### 🟡 18 — A signatory written as an autolink is dropped, and `pact-check` exits 0
 
-`hooks/config.py:831` (`TABLE_BREAK`, a unit round 2's fix pass created). The
+`hooks/config.py:831` (`TABLE_BREAK`, a unit round 2's fix pass created). The · NAME NOT IN TREE
 `<` arm reads any line that starts with `<` as an HTML block. So it ends the
 table there and reads nothing more. But GFM starts an HTML block only for a
 few shapes. An autolink, `<https://…>`, or a `<` and a space, is a body row
@@ -176,11 +176,11 @@ and the proposed case's four ids are red against the target.
 The claim cell says `pact_signatories` reads the table "through the walk
 `config_rows` uses", and the Notes say "it is the same walk". After
 `5b45e4c4` the two share `unfenced` and nothing else. The new walk has a
-delimiter-adjacency rule, a gap rule, a `TABLE_BREAK` list and its own
+delimiter-adjacency rule, a gap rule, a `TABLE_BREAK` list and its own · NAME NOT IN TREE
 refusals, so the claim was made false and was not corrected in place. The
 round-2 note says "the 14 ways ... one case per way, each branch seen red by
 `mutation-check`". But `TABLE_ENDS` holds 16 cases, and three arms of
-`TABLE_BREAK` survived their removal here (executed). This is a correction to
+`TABLE_BREAK` survived their removal here (executed). This is a correction to · NAME NOT IN TREE
 the run's paperwork, not counted in `Needs a fix`.
 
 ### ⬜ 21 — The census comment repeats P8's stale sentence
@@ -191,8 +191,8 @@ the run's paperwork, not counted in `Needs a fix`.
 
 ### ⬜ 22 — An indented header, delimiter or row is refused for the wrong cause
 
-`hooks/config.py:868`. `SIGNATORY_HEADER`, `SIGNATORY_ROW` and
-`SIGNATORY_DELIMITER` all anchor at `^\|`. Executed against cmark-gfm: GFM
+`hooks/config.py:868`. `SIGNATORY_HEADER`, `SIGNATORY_ROW` and · NAME NOT IN TREE
+`SIGNATORY_DELIMITER` all anchor at `^\|`. Executed against cmark-gfm: GFM · NAME NOT IN TREE
 reads one to three leading spaces (and a leading tab, on a row) on each of
 them, and the reader refuses each in a sentence that names another cause.
 An indented header gets *holds no `| Signatory |` table*. An indented
@@ -215,9 +215,9 @@ here asks for it to change.
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 18 | `TABLE_BREAK`'s `<` arm ends the table at an autolink row, which GFM reads as a signatory: `pact-check` prints *1 of 1 signatory read* and exits 0 with a second signatory in the rendered table; the thematic break, which ends a GFM table, is refused as a row | `hooks/config.py:831` | open | executed: 21 shapes against cmark-gfm, three silent drops all through the `<` arm; `pact-check` end to end exit 0; removing the `<` arm survives every case |
+| 🟡 18 | `TABLE_BREAK`'s `<` arm ends the table at an autolink row, which GFM reads as a signatory: `pact-check` prints *1 of 1 signatory read* and exits 0 with a second signatory in the rendered table; the thematic break, which ends a GFM table, is refused as a row | `hooks/config.py:831` | open | executed: 21 shapes against cmark-gfm, three silent drops all through the `<` arm; `pact-check` end to end exit 0; removing the `<` arm survives every case | · NAME NOT IN TREE
 | 🟡 19 | `PACT_MENTION_RE` passes an anchor whose `/` is missing (no slash, `:` or a space for it, or `@hash` alone), which round 1's net refused: read by nobody, exit 0 | `skills/evidence-check/scripts/pact_check.py:113` | open | executed: four shapes exit 0 at the target and match round 1's pattern; `skills/evidence-check/SKILL.md:465` says exit 2; the grammar is stated only in the account |
-| ⬜ 20 | P8's claim says the walk `config_rows` uses, and its note says each branch was seen red; three `TABLE_BREAK` arms survive | `seal/ledger/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it.md:8` | open | read: the two walks share `unfenced` alone; executed: three arms survived; a correction to the run's paperwork |
+| ⬜ 20 | P8's claim says the walk `config_rows` uses, and its note says each branch was seen red; three `TABLE_BREAK` arms survive | `seal/ledger/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it.md:8` | open | read: the two walks share `unfenced` alone; executed: three arms survived; a correction to the run's paperwork | · NAME NOT IN TREE
 | ⬜ 21 | The census comment says the pact's table is walked as `config_rows` walks its own | `tests/test_every_reader_ends_a_line_where_gfm_does.py:663` | open | read: the reason `F` still holds and the comment does not |
 | ⬜ 22 | An indented header, delimiter or row is refused in a sentence naming another cause | `hooks/config.py:868` | open | executed against cmark-gfm: GFM reads all three; each refused at exit 2, nothing lost |
 | ⬜ 23 | `pact:<name>/` in prose and a documented form with a real heading and `@<hash>` are refused at exit 2 | `skills/evidence-check/scripts/pact_check.py:113` | open | executed: both exit 2; the stated grammar's consequence; the remedy is a fence |
@@ -235,7 +235,7 @@ here asks for it to change.
 |---|---|
 | `bin/test` on five modules: `test_pact_check`, `test_a_signatory_declares_its_pact`, `test_one_word_one_meaning`, `test_a_signatorys_ci_prints_its_pact`, `test_a_pact_anchor_is_no_coordinate_of_the_signatory` | 114 passed, exit 0, with the fixes below applied in the clone; the same modules at the target are green (each mutation run's baseline) |
 | `bin/evidence-check --strict .` at the target | exit 0; the work item's fragment 93 ok; records arm 0 refused |
-| `bin/mutation-check`, eleven breaks one at a time over the fix pass's units (the tables above) | eight red; three `TABLE_BREAK` arms SURVIVED (`<`, the fences, the ordered list) |
+| `bin/mutation-check`, eleven breaks one at a time over the fix pass's units (the tables above) | eight red; three `TABLE_BREAK` arms SURVIVED (`<`, the fences, the ordered list) | · NAME NOT IN TREE
 | 21 table shapes through `pact_signatories` and through cmark-gfm, cells compared | three silent drops (autolink, scp-style autolink, `<` and a space); thematic breaks refused where GFM ends the table; the indented shapes refused where GFM reads them |
 | `pact-check` over a pact listing an autolink row (🟡 18) | *1 of 1 signatory read*, exit 0 |
 | `pact-check` over a pact with `***`, `---`, `___` under the last row | exit 2, *continues with … a line with no pipe that GFM reads as one of its rows* |

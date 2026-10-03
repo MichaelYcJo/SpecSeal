@@ -215,7 +215,7 @@ renamed the contract `pact`.
 
 | # | Scenario | Given / When / Then | Verifiable how |
 |---|---|---|---|
-| S1 | The walker agrees with cmark-gfm | Given every shape of the enumerated corpus (item 1), when the walker and the oracle read it, then their cells are equal or the walker refuses. No shape yields cells cmark-gfm does not | a property case over the corpus; seen red by restoring `TABLE_BREAK`'s `<` arm |
+| S1 | The walker agrees with cmark-gfm | Given every shape of the enumerated corpus (item 1), when the walker and the oracle read it, then their cells are equal or the walker refuses. No shape yields cells cmark-gfm does not | a property case over the corpus; seen red by restoring `TABLE_BREAK`'s `<` arm | · NAME NOT IN TREE
 | S2 | 🟡 18 end to end | Given a pact whose `Signatory` table lists one URL and then `<https://example.com/org/orders-mobile>`, when `pact-check` runs, then it does not print *1 of 1 signatory read* at exit 0 | the paste-ready `TABLE_ENDS` entries and a `pact-check` case; red against `2b1dcb1f` |
 | S3 | ⬜ 22 | Given a `Signatory` header, delimiter or row indented 1–3 spaces, then the walker reads it as cmark-gfm does | corpus shapes, red against the target |
 | S4 | 🟡 19 | Given each of the four missing-slash shapes as a signatory's only citation, then `pact-check` exits 2 and says *does not parse* | round 3's parametrised case, four ids red against the target |
