@@ -929,11 +929,12 @@ def test_a_glued_config_env_reads_as_it_did():
 
 
 # Round 2 of 1790993140: `env`'s option grammar, one case per row of
-# `cmdline.ENV_OPTIONS`. Written from GNU coreutils env's and BSD/macOS env's
-# synopses, not from the table: each spelling, with the value its synopsis
-# gives it, stands in front of a cluster that hides a commit. A flag read as
-# taking a value eats the cluster, and an option with a value read as a flag
-# ends env's options at its value; either way the commit is found by nothing.
+# `cmdline.ENV_OPTIONS`. Written from GNU coreutils' `src/env.c` and FreeBSD's
+# `usr.bin/env/env.c` (#737), not from the table: each spelling, with the
+# value its source gives it, stands in front of a cluster that hides a commit.
+# A flag read as taking a value eats the cluster, and an option with a value
+# read as a flag ends env's options at its value; either way the commit is
+# found by nothing.
 # GNU env is not installed here, so its half is read, not run.
 ENV_SPELLINGS = {
     "-i": "-i",

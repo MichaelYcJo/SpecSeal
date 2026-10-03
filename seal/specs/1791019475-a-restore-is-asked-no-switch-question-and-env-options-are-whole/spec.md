@@ -44,7 +44,7 @@ the synopses. Synopses are what missed `-` and `--env0-from`.
   `argv0`, `ignore-environment`, `env0-from` (required), `null`, `unset`,
   `chdir`, `default-signal`, `ignore-signal`, `block-signal` (each optional),
   `list-signal-handling`, `debug`, `quoting-style` (required), `split-string`,
-  `help` and `version`. After `getopt_long`, a lone `-` sets `-i` and is
+  `help` and `version`. After `getopt_long`, a lone `-` sets `-i` and is · NAME NOT IN TREE
   consumed. Because of the `+`, getopt has already stopped at it. GNU's NEWS
   dates `--env0-from` to 9.12 (2026-09-14) and lists `--quoting-style` under
   the unreleased section.

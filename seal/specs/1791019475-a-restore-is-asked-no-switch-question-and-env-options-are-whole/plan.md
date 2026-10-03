@@ -98,7 +98,7 @@ byte-identical to `a575739f`, round 3's target (`git diff --stat a575739f
 |---|---|---|
 | C1 — the round-3 fence for 🟡 13: one reading per view, a glued redirection cut, the `&` that `unglued` leaves taken off, then every redirection taken out | Its named shapes passed in the reviewer's clone. Its neighbours are unproven, and that is the failure three rounds share. So it is held to S4 and S5 before it is kept | **chosen**, under S4 and S5 |
 | C2 — keep the two readings (raw view and `unglued` view) and take redirections out of each | The raw view of `git checkout . &>/dev/null` still holds `&>/dev/null` until it is taken out. The `unglued` view of `.&>/dev/null` holds `.&`, which `switch_kind` reads as a name. The `&` trim is needed either way, and two readings of one view are two places to keep in step | rejected |
-| C3 — C1 plus #738's `_names_anew` | `cd w && git checkout README.md>/dev/null` asks *switches a branch* (the round-3 report's own run, 124 passed and 1 failed). That is a restore asked about, 🟡 13's class, inside the work item that removes it | rejected (Q2) |
+| C3 — C1 plus #738's `_names_anew` | `cd w && git checkout README.md>/dev/null` asks *switches a branch* (the round-3 report's own run, 124 passed and 1 failed). That is a restore asked about, 🟡 13's class, inside the work item that removes it | rejected (Q2) · NAME NOT IN TREE |
 | E1 — the round-3 fence for 🟡 14: `-` as a short letter, `--env0-from` added, and a `--word` read as a BSD cluster only where it names no GNU long option | `env --unset -iS 'git commit -m x'` and `env --un -vS '…'` run the commit on macOS (executed with `echo`, 2026-10-03). BSD reads `--unset` as `-i -u nset`. The fence reads it as GNU's `--unset`, takes `-iS` as its value, and finds nothing | rejected |
 | E2 — two walks over env's words, one per grammar, with the texts unioned. GNU: a `--word` is a long name. BSD (for `env` only): a `--word` other than `--` is a cluster led by `-`. The merged short table and everything else stay as #733 built them | It finds everything E1 finds, because the GNU walk is E1's long arm and the BSD walk takes E1's fallback for every `--word`. On top of that it finds the `--u…` shapes. Cost: one more pass over a handful of words, and a dedupe | **chosen** (decision E) |
 | E3 — two strict getopt emulations, stopping at the first error as env does | It removes #733's settled over-reads: an unknown long name read as a flag, a lone `-` read as an option, a refused letter walked past. Each costs a stop only where no env runs anything, and each was argued through #733's rounds. It is also the largest change, to the unit with the most rounds behind it | rejected |
@@ -197,7 +197,7 @@ like the one above.
 - **BSD.** Run macOS `env <words> 'echo MARK'` and look for `MARK`. Every
   value used is harmless: `-C /tmp`, `-P /bin`, `-u FOO`. A program word left
   over (`FOO`, `x`) does not exist.
-- **GNU.** A model of `getopt_long` with `+`, written from `src/env.c` and
+- **GNU.** A model of `getopt_long` with `+`, written from `src/env.c` and · NAME NOT IN TREE
   gnulib's rules. An exact name wins. A unique prefix names its option. A
   prefix of two options that differ is an error. A whitespace letter is an
   error. Getopt stops at the first word that is not an option. After the
