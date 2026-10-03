@@ -67,7 +67,7 @@ import shlex
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import console  # noqa: F401  (reconfigures the streams on import)
+import console
 import optin
 
 CHECKER = os.path.join(
@@ -255,4 +255,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # `hooks/console.py` says why every entry point makes this call rather than
+    # its import: run on its own, as the cases and anyone debugging it run it,
+    # this printed its repair in the locale's encoding, and a Windows reader
+    # expecting UTF-8 got the middle dot of `Corrected ·` as 0xB7.
+    console.to_utf8()
     main()
