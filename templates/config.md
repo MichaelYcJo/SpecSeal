@@ -449,3 +449,38 @@ file has now, to be written into the entry in the commit that changed them.
 The entry names its home, the issue or document that will split the file,
 and it fails once the file is back under the ceiling, so it cannot outlive the
 split.
+
+## The ledger freeze
+
+One row, read by `evidence-check` and `correction-check`. It declares that a
+released ledger file -- `seal/ledger.md`, or a `seal/releases/<X.Y.Z>.md`
+once its release is tagged -- is never edited again, and that a re-read or a
+correction of one of its rows is a citing row in the branch's own fragment
+instead (`docs/the-evidence-ledger.md`).
+
+```markdown
+| Ledger frozen from | 1790993141 |
+```
+
+| Row | Value | Absent |
+|---|---|---|
+| `Ledger frozen from` | a work-item id's epoch prefix, or `0`. A range whose added work items are all below it is read under the rule it was cut under; one adding a work item at or above it, or adding none, is held to the freeze | no released file is frozen, and `--reverify` re-stamps released rows in place |
+
+**What the row changes.** `evidence-check --reverify` writes no released file
+in a repository that declares it, whatever the value: it re-stamps the
+fragments in place, then exits 1 naming each released row it left, and
+`--reverify --into seal/ledger/<work-item-id>.md --checked YYYY-MM-DD` writes
+those rows as `Re-read ·` rows into the fragment. `correction-check --range`
+refuses a pull request that changes `seal/ledger.md`, or a release file the
+merge base already had, for work at or above the cutoff.
+
+**The comparison is on the work item, not on the merge base.** A branch cut
+before the row landed keeps its exemption after it merges the release branch
+in, because its own `routing.md` id does not move. That is why the value is
+an id rather than a date or a commit.
+
+**An absent row means not frozen, and that is the default every installed
+copy keeps.** A value that is not a whole number is refused: both commands
+exit 2 naming the row, and nothing is written. Lowering the value to `0` once
+no branch below it is open exempts nobody who still exists, so it needs no
+follow-up.

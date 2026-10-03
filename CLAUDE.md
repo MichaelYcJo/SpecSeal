@@ -98,112 +98,19 @@ worktree guard to ask about. That question offers to bring the changes along
 to the other branch or to leave them behind, and the answer that is usually
 right, *commit them here first*, is neither button.
 
-**A ledger coordinate names content, never a position:** `path#major@hash`,
-or `path#major>minor@hash` where a claim needs narrowing. The major level is
-the enclosing unit — a function or class for code, a heading path for a
-document. A row carries no line number and no commit SHA, and the CHECK calls
-git for nothing — the one exception is `--migrate`, a one-shot writer that
-consults the old stamp's commit before it trusts a line number.
-
-**An anchor degrades to DRIFTED, never to BROKEN.** Only the major level can be
-BROKEN. A stale minor anchor widens to its unit and says re-read, because
-BROKEN means *go edit the ledger* and that is the bookkeeping this removes.
-
-That removes a whole chain rather than a rule from it. A line number moves for
-edits unrelated to the claim, so the coordinate rotted, so the row was
-re-anchored, so its baseline reset, so a stamp was needed, so a squash orphaned
-the stamp. Three review rounds went on the links of that chain.
-
-The `Checked` column holds the date somebody read the code. Re-verifying is
-re-reading and then running `evidence-check --reverify`, which recomputes the
-hash and names what it changed. **`--checked <YYYY-MM-DD>` records the
-reading**: it writes that date into the date cell of every row whose hash it
-moves, and without it the dates are left and those rows are named. The flag
-says every one of those rows was re-read, so read each row citing a drifted
-coordinate first, or narrow the write with `--ledger` to the files you read.
-
-**A row whose anchor a change removes is REMOVED, not re-pointed.** Its claim
-went with the code. Write the new claim as a new row in the work item's own
-fragment.
+**Commit freely: a ledger row names no commit for a squash to orphan.** How a
+coordinate names code, how a released row is read again, and what to do when
+a ledger file conflicts live in `docs/the-evidence-ledger.md` §*A row is a
+content anchor, and it names no commit*, §*A released row is read again in
+the branch's fragment* and §*A correction a merge dropped*.
 
 ## Repo rule — a change writes fragments, never the shared file
 
-Two files used to take an append from every branch, and both cost a conflict
-at the worst moment — after the broad gate has run, which forces it to run
-again.
-
-| Instead of | Write |
-|---|---|
-| an entry under `CHANGELOG.md`'s `## Unreleased` | `seal/specs/<work-item-id>/changelog.md` |
-| rows appended to `seal/ledger.md` or a `seal/releases/<X.Y.Z>.md` | `seal/ledger/<work-item-id>.md` |
-
-No two work items share an id, so no two branches share a file.
-
-**Appended is the word, and a removal is not one — nor is an edit.** A branch
-that removes or edits code an existing ledger row cites — in `seal/ledger.md`
-or a `seal/releases/<X.Y.Z>.md` — must touch the file the row is in to leave
-the ledger true. A removal takes the row out there and writes the new claim
-into the branch's own fragment; an edit drifts the row, which is re-read
-against that edit and re-stamped there with a dated note, its claim first
-corrected in place with a `Corrected <date>` note where the edit made it
-false. Both are keeping an existing claim true, which is not appending.
-`CONTRIBUTING.md` carries the same sentence, and the two used to disagree: one
-forbade editing the file at all while the other forbade appending to it, which
-left a branch in this position with no reading that permits the only correct
-act.
-
-**When a ledger file conflicts — `seal/ledger.md`, a
-`seal/releases/<X.Y.Z>.md`, or a fragment two stacked branches both edited —
-resolve it hunk by hunk and read both sides.** Never `--ours` and never
-`--theirs`. A whole-file choice is wrong by construction once both branches
-have been correcting, and the measured instance is the argument: in #424 the
-two hunks resolved in opposite directions, because each side was the superset
-in one of them. Taking a side reverted three corrections that had each turned
-a false claim true.
-
-**Nothing downstream can see that, which is why the reading is yours.** A row
-reverted to a superseded state is byte-identical to a row nobody touched —
-there is no marker on it, and the hash `evidence-check` reads is correct for
-the restored text. `correction-check --range origin/<base>...HEAD` reads the
-`Corrected <date>` and `Re-read <date>` markers instead and names what a merge
-dropped from a row that still stands; the hygiene workflow runs it on every
-pull request into a release branch. It reports the loss after the fact and
-cannot prevent it.
-
-**Hunk by hunk has two halves, and only the notes are a union.** A row's
-`Re-read` and `Corrected` notes are both sides', because each records a
-reading somebody performed; the anchor's hash belongs to the side that edited
-the anchored unit, and to neither side where both did. `correction-check`
-cannot see a union that kept a stale hash, because no marker was dropped, so
-run `evidence-check` after the resolution: a drifted anchor is the tool naming
-the row, which is re-read against every edit the merged unit carries.
-`docs/the-evidence-ledger.md` §*A correction a merge dropped* owns the rule.
-
-`CONTRIBUTING.md` carries both paragraphs and the halves rule, and
-`tests/test_a_merge_cannot_silently_drop_a_correction.py` holds the two
-against each other.
-
-This overrides the `implement` skill and `agents/smith.md`, which tell a
-session to let the entry accumulate unreleased. That is the
-plugin's answer for a repository with no fragment convention; this repository
-has one, and the fragments are where an entry accumulates here. Neither
-document names a heading any more; the override is about WHERE, not about a
-sentence they no longer carry.
-
-**Both kinds of fragment are gathered at the release, by two commands in one
-commit.** `.github/scripts/gather_changelog.py --version X.Y.Z` concatenates
-every ungathered changelog fragment into the released section;
-`.github/scripts/fold_ledger.py --version X.Y.Z` moves every ledger
-fragment into that release's own file, `seal/releases/X.Y.Z.md`, and removes
-the fragment; `seal/ledger.md` keeps the notation and the rows from before
-the fragments existed. A fragment lives from the work item's first row to the
-release that ships it. The checker reads `seal/ledger.md`, the
-`seal/releases/*.md` glob and the `seal/ledger/*.md` glob alike, and a row is
-a content anchor, so the move changes no row's status. The
-fold refuses while any `seal/specs/<id>/evidence-todo.md` in the tree has an open
-row — a fact a reviewer verified that never reached the ledger — and the
-hygiene workflow runs `fold_ledger.py --check` on every pull request into
-`main`.
-
-A ledger fragment needs no header of its own. Every row in it carries its own
-anchor and hash, so there is nothing for a header to declare.
+Which file a change writes — its changelog entry, its ledger rows, and its
+re-reads and corrections of a released ledger row — is
+`docs/the-record-layout.md` §*A change writes fragments, never a shared
+file*. This repository declares `Ledger frozen from` in `seal/config.md`, so
+its released ledger files never change; `docs/the-evidence-ledger.md` §*A
+released row is read again in the branch's fragment* holds what that means
+for a branch. The release gathers and folds the fragments with the commands
+in `docs/release-checklist.md` §*2. Gather, fold, bump*.

@@ -223,105 +223,34 @@ when it arrives.
 
 ## House rules
 
-- **A change writes a fragment, never a shared registry.** Its changelog
-  entry goes in `seal/specs/<work-item-id>/changelog.md` and its evidence rows in
-  `seal/ledger/<work-item-id>.md`. A feature branch **appends** to neither
-  `CHANGELOG.md` nor a ledger file — `seal/ledger.md` or a release's
-  `seal/releases/<X.Y.Z>.md`. Three branches running in parallel
-  shared exactly one file between them and it was the changelog; the conflict
-  is three lines, and it arrives after the broad gate has run, where nothing
-  may be edited. Both kinds of fragment are gathered at the release
-  (`docs/branch-and-release.md`): the changelog fragments into the released
-  section, the ledger fragments into that release's own file,
-  `seal/releases/<X.Y.Z>.md`, where the rows stay. `seal/ledger.md` keeps
-  the notation and the rows from before the fragments existed, and stops
-  growing. A changelog fragment has no line starting `## `, because that
-  line ends the released section, and the gather refuses a fragment that
-  has one.
-
-  **Changing cited code is the case the rule has to answer, and it is not an
-  append.** Change what an existing ledger row cites — in `seal/ledger.md`
-  or a `seal/releases/` file — and the checker reports DRIFTED, which needs
-  that row touched in the file this rule covers. Three answers, and which one
-  applies is about the claim rather than the code:
-
-  - the claim still holds and you have re-read it — run
-    `evidence-check --reverify --checked <YYYY-MM-DD> .`, which recomputes
-    the hash, names what it changed and dates the reading in each row whose
-    hash moved. That date says every such row was read, so read each row
-    citing a drifted coordinate first, or narrow the write with `--ledger`;
-  - the code still stands and your edit made the claim false — correct the
-    claim in place first, with a `Corrected <date>` note, then run
-    `--reverify --checked <YYYY-MM-DD>`;
-  - the claim went with the code — **remove the row and write the new claim
-    into your own fragment.** A row is not re-pointed at whatever now sits
-    nearest to where it used to look.
-
-  All three are writes to the file the row is in, and none is an append. A
-  branch that removes or edits code an existing row cites is keeping an
-  existing claim true, which can only happen where the row stands; adding a
-  claim is what goes in your fragment, and always did.
-
-  So a claim leaves the ledger when the code it was about does, and comes
-  back at the release, folded in from the fragment that replaced it.
-
-  **When a ledger file conflicts — `seal/ledger.md`, a
-  `seal/releases/<X.Y.Z>.md`, or a fragment two stacked branches both edited —
-  resolve it hunk by hunk and read both sides.** The split into release files
-  made the files smaller, not the conflict rarer: two branches that re-stamp
-  one row still meet on it. Never `--ours` and never `--theirs`. A whole-file
-  choice is wrong by construction once both branches have been correcting, and
-  the measured instance is the argument: in #424 the two hunks resolved in
-  opposite directions, because each side was the superset in one of them.
-  Taking a side reverted three corrections that had each turned a false claim
-  true.
-
-  **Nothing downstream can see that, which is why the reading is yours.** A
-  row reverted to a superseded state is byte-identical to a row nobody
-  touched — there is no marker on it, and the hash `evidence-check` reads is
-  correct for the restored text. `correction-check --range
-  origin/<base>...HEAD` reads the `Corrected <date>` and `Re-read <date>`
-  markers instead and names what a merge dropped from a row that still
-  stands; the hygiene workflow runs it on every pull request into a release
-  branch. It reports the loss after the fact and cannot prevent it.
-
-  **Hunk by hunk has two halves, and only the notes are a union.** A row's
-  `Re-read` and `Corrected` notes are both sides', because each records a
-  reading somebody performed; the anchor's hash belongs to the side that
-  edited the anchored unit, and to neither side where both did.
-  `correction-check` cannot see a union that kept a stale hash, because no
-  marker was dropped, so run `evidence-check` after the resolution: a drifted
-  anchor is the tool naming the row, which is re-read against every edit the
-  merged unit carries. `docs/the-evidence-ledger.md` §*A correction a merge
-  dropped* owns the rule.
-
-  `CLAUDE.md` carries both paragraphs and the halves rule, and
-  `tests/test_a_merge_cannot_silently_drop_a_correction.py` holds the two
-  against each other.
+- **A change writes a fragment, never a shared registry.** Which file a
+  change writes — its changelog entry, its ledger rows, and its re-reads and
+  corrections of a released ledger row — is `docs/the-record-layout.md`
+  §*A change writes fragments, never a shared file*. How a released row is
+  read again, and what to do when a ledger file conflicts, is
+  `docs/the-evidence-ledger.md` §*A released row is read again in the
+  branch's fragment* and §*A correction a merge dropped*. Three branches
+  running in parallel once shared exactly one file between them, and it was
+  the changelog: the conflict was three lines, and it arrived after the broad
+  gate had run, where nothing may be edited.
 
   **Renamed a cited symbol or file?** `bin/evidence-check --reverify .`
-  re-anchors every row whose content provably moved intact and prints BROKEN
-  with the destination for anything it cannot prove. The command is the rule;
-  remembering it is not — forgetting costs one line at the very next commit,
-  printed by the post-commit advisory in the terminal where the rename just
-  happened, and CI prints the same line at the pull request.
+  re-anchors every row of a fragment whose content provably moved intact,
+  and prints BROKEN with the destination for anything it cannot prove,
+  including a released row, whose repair the evidence-ledger section above
+  gives. The command is the rule; remembering it is not — forgetting
+  costs one line at the very next commit, printed by the post-commit advisory
+  in the terminal where the rename just happened, and CI prints the same line
+  at the pull request.
 
   **One branch does edit `CHANGELOG.md`, and it is the one based on `main`.**
   A pull request into `main` is a release, so the entries are due there and
-  the hygiene workflow fails it while a fragment is still ungathered. Run:
-
-  ```bash
-  python3 .github/scripts/gather_changelog.py --version X.Y.Z   # --dry-run first
-  python3 .github/scripts/fold_ledger.py --split                # once; checklist §2
-  python3 .github/scripts/fold_ledger.py --version X.Y.Z        # --dry-run first
-  python3 .github/scripts/gather_changelog.py --check           # what the workflow runs
-  python3 .github/scripts/fold_ledger.py --check                # and this
-  ```
-
-  This is the rule above being satisfied rather than broken: the branch is not
-  adding an entry to a shared region, it is collecting the fragments that
-  already exist. A hotfix taken straight to `main` is the case that meets this
-  without expecting to.
+  the hygiene workflow fails it while a fragment is still ungathered. The
+  gather and the fold are the commands in `docs/release-checklist.md` §*2.
+  Gather, fold, bump*, run in that order. This is the rule above being
+  satisfied rather than broken: the branch is not adding an entry to a shared
+  region, it is collecting the fragments that already exist. A hotfix taken
+  straight to `main` is the case that meets this without expecting to.
 
   The fold refuses, naming the file, while any `seal/specs/<id>/evidence-todo.md`
   in the tree still has an open row: a row in a file with no `drained` line,

@@ -161,7 +161,7 @@ pre-0.4.0 `specs/<id>/` -- whose `<!-- specs/<id> -->` marker stands in
 `CHANGELOG.md` at the range's tip, because a gathered fragment is that
 released entry one file over (#307). A released section records what a past
 release did, in that release's words, and a released entry is not rewritten
-(`CLAUDE.md` §*Repo rule — a change writes fragments, never the shared
+(`docs/the-record-layout.md` §*A change writes fragments, never a shared
 file*): reported against one, the branch that changed the behaviour it
 describes could correct nothing, and two of the four ranges the 0.15.0
 release was measured on carried exactly that report. The region is read off
@@ -179,9 +179,10 @@ correction left. Only its n-grams that also occur in a sentence
 `CHANGELOG.md` itself lost count, and against that file's sentences alone,
 so a gathered rewording of a lost entry still splits that entry into runs.
 
-**A ledger row removed because its anchor left the code** (#603). `CLAUDE.md`
-says a row whose anchor a change removes is REMOVED, not re-pointed, because
-its claim went with the code. So its cells are not wording the range
+**A ledger row removed because its anchor left the code** (#603).
+`docs/the-evidence-ledger.md` §*A row is a content anchor, and it names no
+commit* says a row whose anchor a change removes is REMOVED, not re-pointed,
+because its claim went with the code. So its cells are not wording the range
 corrected, and a document still stating the rule survived nothing: #587's
 range reported eight places, every one sourced from the three rows it
 removed. A row takes this exit when it is a live table row of a ledger file
@@ -287,11 +288,12 @@ The grounds are not optional. What a reviewer reads is the written sentence,
 and a row without one silences 153 places on the strength of nothing, so it is
 not a row at all.
 
-**The deliberate-duplication case is not what the escape is for.** `CLAUDE.md`
-and `CONTRIBUTING.md` deliberately carry the same sentence about ledger
-removals. A branch correcting it in one and not the other IS reported, and that
-report is right: those two have already disagreed once, and the disagreement
-left a branch with no reading that permits the only correct act. The escape is
+**The deliberate-duplication case is not what the escape is for.** Two
+documents carrying one rule is the case a branch correcting it in one and not
+the other IS reported for, and that report is right: `CLAUDE.md` and
+`CONTRIBUTING.md` once carried the same sentence about ledger removals and
+disagreed, which left a branch with no reading that permits the only correct
+act, and the rule now has one home both link to (#715). The escape is
 for the third kind of carrier, text that quotes old wording in order to say it
 was wrong.
 

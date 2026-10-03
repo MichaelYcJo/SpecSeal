@@ -25,6 +25,12 @@ provable:
       BROKEN  src/app.py#greet  locator not found
     `bin/evidence-check --reverify .` re-anchors what it can prove.
 
+Where `seal/config.md` declares `Ledger frozen from` (#715), `--reverify`
+writes no released ledger file, so that last line says instead that a
+released row is re-pointed or retired by a `Corrected ·` row in the branch's
+own fragment, which carries every coordinate the claim still rests on, and
+that drift is re-read with `--reverify --into` (`FROZEN_REPAIR`).
+
 **Silent when clean, silent when the repository has no ledger, silent outside
 opted-in repositories.** A line that prints on every commit is a line people
 learn to skip; drift is not reported here for the same reason — a branch
@@ -61,7 +67,7 @@ import shlex
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import console  # noqa: F401  (reconfigures the streams on import)
+import console
 import optin
 
 CHECKER = os.path.join(
@@ -102,6 +108,31 @@ def commits_in(command):
     return False
 
 
+def checker():
+    """`evidence_check.py`, imported by path. Imported rather than spawned:
+    dispatch already paid for this interpreter."""
+    spec = importlib.util.spec_from_file_location("specseal_evidence", CHECKER)
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
+    return ec
+
+
+# The repair for a BROKEN row, where `seal/config.md` declares `Ledger frozen
+# from` (#715). `--reverify` writes no released file there, so the one-command
+# line would re-anchor the fragments and leave every released row as it was;
+# a released row is re-pointed or retired by a `Corrected ·` row instead, and
+# the line says so rather than naming a command that cannot repair it.
+FROZEN_REPAIR = (
+    "`bin/evidence-check --reverify .` re-anchors what it can prove in the "
+    "fragments; a released file is not edited after its release, so a released "
+    "row is re-pointed or retired by a `Corrected ·` row in your own fragment, "
+    "which carries every coordinate the claim still rests on, the moved one at "
+    "its new place, because a coordinate it leaves out is not checked again; "
+    "and drift is re-read with `--reverify --into seal/ledger/<work-item-id>.md "
+    "--checked YYYY-MM-DD` (docs/the-evidence-ledger.md)."
+)
+
+
 def failing_rows(root, home=None):
     """[(status, coord, detail)] for every BROKEN, OLD-FORMAT, MALFORMED and
     OVERFLOW row.
@@ -128,9 +159,7 @@ def failing_rows(root, home=None):
     part of the root that moved. Spelling `seal/` under `root` here is what
     left a local-mode ledger unread at every commit.
     """
-    spec = importlib.util.spec_from_file_location("specseal_evidence", CHECKER)
-    ec = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(ec)
+    ec = checker()
     import glob
 
     home = home or optin.home_at(root)
@@ -142,14 +171,20 @@ def failing_rows(root, home=None):
             os.path.join(home, "releases", "*.md"),
             *patterns,
         ]
+    ledgers = [
+        ledger for pat in patterns for ledger in sorted(glob.glob(pat, recursive=True))
+    ]
+    # One view of every ledger (#715): a released row whose unit is gone and
+    # which a fragment's `Corrected ·` row supersedes is not BROKEN, and only
+    # a reader holding both files can tell.
+    families = ec.ledger_families(ledgers, root, {})
     out = []
-    for pat in patterns:
-        for ledger in sorted(glob.glob(pat, recursive=True)):
-            for status, coord, detail in ec.check_ledger(ledger, root, {}):
-                if status == "OVERFLOW":
-                    coord = f"{ec.display_name(ledger, root)} {coord}"
-                if status in ("BROKEN", "OLD-FORMAT", "MALFORMED", "OVERFLOW"):
-                    out.append((status, coord, detail))
+    for ledger in ledgers:
+        for status, coord, detail in ec.check_ledger(ledger, root, {}, None, families):
+            if status == "OVERFLOW":
+                coord = f"{ec.display_name(ledger, root)} {coord}"
+            if status in ("BROKEN", "OLD-FORMAT", "MALFORMED", "OVERFLOW"):
+                out.append((status, coord, detail))
     return out
 
 
@@ -182,7 +217,12 @@ def main():
             f"evidence-check: this commit leaves {n} anchor{'s'[: n != 1]} broken"
         )
         lines += [f"  BROKEN  {coord}  {detail}" for coord, detail in broken]
-        lines.append("`bin/evidence-check --reverify .` re-anchors what it can prove.")
+        frozen, _ = checker().frozen_from(root)
+        lines.append(
+            FROZEN_REPAIR
+            if frozen is not None
+            else "`bin/evidence-check --reverify .` re-anchors what it can prove."
+        )
     if old:
         n = len(old)
         lines.append(
@@ -215,4 +255,9 @@ def main():
 
 
 if __name__ == "__main__":
+    # `hooks/console.py` says why every entry point makes this call rather than
+    # its import: run on its own, as the cases and anyone debugging it run it,
+    # this printed its repair in the locale's encoding, and a Windows reader
+    # expecting UTF-8 got the middle dot of `Corrected ·` as 0xB7.
+    console.to_utf8()
     main()

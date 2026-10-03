@@ -294,8 +294,9 @@ file under `## X.Y.Z — <date>`,
 one `###` section per work item marked with `<!-- specs/<work-item-id> -->`,
 and removes the fragment. `seal/ledger.md` keeps the notation and the rows
 from before the fragments existed, and stops growing; the sections folded into
-it before #547 move once, by `fold_ledger.py --split` at the release that
-ships that change (`docs/release-checklist.md` §2). Every row is copied byte
+it before #547 moved once, by a `--split` that #715 retired. A released file
+never changes again, so the fold refuses a version older than the newest
+release file (`docs/release-checklist.md` §2). Every row is copied byte
 for byte; a row is a content anchor, so `evidence-check` reports the same
 thing before and after. `--dry-run` prints the section and writes nothing;
 `--check` reports a fragment left behind, and the hygiene workflow runs it

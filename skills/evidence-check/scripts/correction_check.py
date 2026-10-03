@@ -2,9 +2,12 @@
 """Did a merge in this range drop a correction the ledger had already made?
 
 Issue #424. Two branches each corrected rows of `seal/ledger.md` that the
-other had not touched -- which `CLAUDE.md`'s fragment rule does not merely
-permit but REQUIRES, because a branch that falsifies what a row claims must
-repair it in the shared file. So the file conflicted, and the two hunks
+other had not touched -- which the fragment rule of the day did not merely
+permit but REQUIRED, because a branch that falsified what a row claimed had to
+repair it in the shared file. Since #715 a released file is not edited at all
+where the freeze is declared (`docs/the-evidence-ledger.md` §*A released row
+is read again in the branch's fragment*), and the arms below say what that
+changed here. So the file conflicted, and the two hunks
 resolved in opposite directions because each side was the superset in one.
 Taking a side wholesale reverted three corrections, each of which had turned a
 false claim true.
@@ -25,8 +28,34 @@ occurrences of `Corrected 2026-09-15` in a file that had had three.
 Exit codes: **0** no merge in the range dropped a marker -- including the
 common case of a range with no merge in it at all, which the report says in
 those words. **1** a marker was lost, each one named with its file, the merge,
-the parent it came from and the row that still stands. **2** unusable input.
-Nothing is ever written; this reads git and prints.
+the parent it came from and the row that still stands; or a `Corrected ·` row
+was dropped (below); or a released ledger file changed under the freeze
+(below). Each kind is named in its own words. **2** unusable input, a freeze
+row that is not a work-item id among it. Nothing is ever written; this reads
+git and prints.
+
+## Two arms #715 added
+
+**A dropped `Corrected ·` row is a loss.** A released ledger file is not
+edited after its release, so a correction of one of its rows is a citing row
+in the branch's fragment: a first cell opening `Corrected · `, and a first
+anchor naming the released row. A merge whose parent carried such a row and
+whose result carries it at no ledger path, while the released file it cites
+is still there, has brought the false claim back to life -- the same loss a
+dropped marker is, and invisible to the marker arm because the whole row went.
+The row is identified by its citation with the hash dropped, which no edit to
+the row moves. A row a parent deleted relative to the base is honoured, as a
+marker is.
+
+**The freeze.** Where `seal/config.md` at the range's tip declares
+`Ledger frozen from | <work-item id>`, a range that changes `seal/ledger.md`,
+or a `seal/releases/*.md` the merge base already had, is refused -- when the
+range adds a work item at or above the cutoff, or adds none. A range whose
+added work items all sit below it is read under the rule it was cut under,
+and one line says so. Adding a release file is allowed, and so is the file
+named for the base's own version on a `release/vX.Y.Z` base, which is a
+second fold joining its version before the tag (#540). Without the row the
+arm is off. `frozen_changes` holds the rule and `freeze_report` the words.
 
 ## What it does NOT do, and why that is the design
 
@@ -88,8 +117,9 @@ the ledger format changing -- a different work item.
 
 ## Row survival is the whole distinction
 
-A marker that vanishes **with its row** is `REMOVED` and correct: `CLAUDE.md`
-§*A row whose anchor a change removes is REMOVED, not re-pointed* is the
+A marker that vanishes **with its row** is `REMOVED` and correct:
+`docs/the-evidence-ledger.md` §*A row is a content anchor, and it names no
+commit* -- a row whose anchor a change removes is REMOVED, not re-pointed -- is the
 repository's own rule, and a branch that removes the code a row cites is
 obeying it. A marker that vanishes **while its row stands** is the defect.
 
@@ -162,11 +192,12 @@ written here is a figure nothing would ever re-take.
 
 **A row that moves between two of those paths at a merge is not identified
 on either.** The survival test identifies a row within one path, so a merge
-that moves a row from `seal/ledger.md` to a release file — the one-time
-`fold_ledger.py --split` at the release that ships #547 — is silent about
-that row's markers: the bias toward silence above, stated rather than met as
-a surprise. The split runs at a release-preparation commit with no merge in
-its range, which is what keeps that silence from hiding a loss.
+that moves a row from `seal/ledger.md` to a release file — as the one-time
+`fold_ledger.py --split` did at the release that shipped #547, before #715
+retired it — is silent about that row's markers: the bias toward silence
+above, stated rather than met as a surprise. The split ran at a
+release-preparation commit with no merge in its range, which kept that
+silence from hiding a loss.
 
 Only the committed root is readable at all. A repository in local mode keeps
 `seal/` under the git common directory and commits nothing, so it has no
@@ -227,6 +258,34 @@ def load_reader(path=READER):
 
 
 reader = load_reader()
+
+# `seal/config.md`'s one reader, `hooks/config.py#config_rows`, for the freeze
+# row (#715). Loaded by path beside the fence reader, and a copy without it is
+# refused the same way: this command ships with the plugin's `hooks/`.
+CONFIG_READER = os.path.join(HERE, "..", "..", "..", "hooks", "config.py")
+
+
+def load_config(path=CONFIG_READER):
+    """`hooks/config.py` as a module, or a sentence and exit 2."""
+    if not os.path.isfile(path):
+        sys.stderr.write(
+            f"correction-check: cannot read {path}, and it is what reads the "
+            "`Ledger frozen from` row of seal/config.md. This command ships "
+            "beside it in the plugin; a copy of one script taken on its own is "
+            "not a plugin. Nothing was examined.\n"
+        )
+        raise SystemExit(2)
+    sys.path.insert(0, os.path.dirname(path))
+    try:
+        spec = importlib.util.spec_from_file_location("specseal_config", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+    finally:
+        sys.path.pop(0)
+    return module
+
+
+config = load_config()
 
 # The three addresses a ledger lives at. The fragment glob is watched from the
 # first commit rather than added later, because `fold_ledger.py` moves every
@@ -510,6 +569,46 @@ def losses(parent_text, result_text):
     return found
 
 
+# A citing row (#715): its first cell opens with the verb and ` · `, and its
+# first anchor is the released row it reads. A `Corrected ·` row is identified
+# by that citation with its hash dropped, which no later edit to the row moves.
+CORRECTED_ROW = "Corrected · "
+# A citation's locator is quoted, and a quoted segment may hold `\|` -- the
+# closing-pipe literal `evidence_check.py#citation_for` writes, or a heading
+# with a pipe in it. `ANCHOR` stops at any `|`, so it is tried second
+# (round 1, 🟡 5).
+CITATION = re.compile(
+    r'([^\s`|]+\.[A-Za-z0-9]+#"(?:[^"\\]|\\.)*"(?:>"(?:[^"\\]|\\.)*")?)@[0-9a-f]{6,}'
+)
+
+
+def corrections(text):
+    """`{citation: row}` for every `Corrected ·` row of `text`."""
+    found = {}
+    for row in rows(text):
+        if not row.key.startswith(CORRECTED_ROW):
+            continue
+        cited = CITATION.search(row.raw) or ANCHOR.search(row.raw)
+        if cited:
+            found.setdefault(cited.group(1).strip(), row)
+    return found
+
+
+class Dropped:
+    """A `Corrected ·` row a merge dropped while the row it cites stands.
+
+    Shaped like `Loss` where `report` reads one -- `row` and `marker` -- so a
+    report names it with the same fields; `standing` is the released row's
+    citation, because the released row is what still stands.
+    """
+
+    def __init__(self, row, citation):
+        self.row = row
+        self.citation = citation
+        dated = MARKER.search(row.raw)
+        self.marker = (dated.group(1), dated.group(2)) if dated else ("Corrected", "?")
+
+
 def marker_counts(text):
     """`{(row key, marker): count}` for a whole file.
 
@@ -773,7 +872,153 @@ def examine(root, a, b):
                 parent, group = max(by_parent.items(), key=lambda kv: len(kv[1]))
                 for loss in group:
                     reports.append(Report(path, merge, parent, loss))
+        reports.extend(dropped_corrections(merge, base, kin, paths, listing, blobs))
     return reports, len(walk), unjudged
+
+
+def dropped_corrections(merge, base, kin, paths, listing, blobs):
+    """A `Report` for every `Corrected ·` row a parent carried at a path and
+    the merge result carries at none, whose cited released file the result
+    still has, and which no parent deleted relative to the base (#715).
+
+    The result is read across every ledger path, because a fold moves a
+    fragment's rows into a release file and a row that moved was not
+    dropped. The cited row always stands where its file does: a released
+    file is not edited, so the file is the row's survival."""
+    kept = set()
+    for path in listing[merge]:
+        kept.update(corrections(blobs.get((merge, path), "")))
+    found = []
+    for path in paths:
+        in_base = corrections(blobs.get((base, path), ""))
+        held_by = {p: corrections(blobs.get((p, path), "")) for p in kin}
+        held = list(held_by.values())
+        for parent, carried in held_by.items():
+            for citation, row in carried.items():
+                if citation in kept:
+                    continue
+                if citation in in_base and any(citation not in h for h in held):
+                    continue
+                cited = citation.partition("#")[0]
+                if cited not in listing[merge]:
+                    continue
+                if any(r.citation == citation for r in (f.loss for f in found)):
+                    continue
+                found.append(Report(path, merge, parent, Dropped(row, citation)))
+    return found
+
+
+# --- the freeze (#715) -----------------------------------------------------
+#
+# `Ledger frozen from | <work-item id>` in `seal/config.md` declares that a
+# released ledger file is not edited after its release. A range is held to it
+# when it adds a work item at or above the cutoff, or adds none -- a fold, a
+# release preparation, a change belonging to no work item. A range whose added
+# work items all sit below the cutoff was cut under the rule before, and is
+# read under that one; the key is the work item rather than the merge base,
+# because a branch that merges its release branch in moves its base past the
+# rule and keeps its id (spec D5).
+
+FROZEN_ROW = "Ledger frozen from"
+CONFIG = "seal/config.md"
+ROUTING = re.compile(r"^seal/specs/(\d+)-[^/]*/routing\.md$")
+RELEASE_FILE = re.compile(r"^seal/releases/(\d+\.\d+\.\d+)\.md$")
+BASE_VERSION = re.compile(r"release/v(\d+\.\d+\.\d+)$")
+
+
+def cutoff_at(root, rev):
+    """The `Ledger frozen from` value at REV, or None where the row is absent
+    or empty. A value that is not a whole number is `Refused`."""
+    text = git(root, "show", f"{rev}:{CONFIG}")
+    if text is None:
+        return None
+    values = [v for item, v in config.config_rows(text) if item == FROZEN_ROW]
+    if not values or not values[-1].strip():
+        return None
+    value = values[-1].strip()
+    if not value.isdigit():
+        raise Refused(
+            f"the `{FROZEN_ROW}` row of {CONFIG} holds `{value}`, which is not a "
+            "work-item id — write the epoch prefix of the first work item the "
+            "freeze binds, or `0` for every one"
+        )
+    return int(value)
+
+
+def frozen_changes(root, a, b, spec):
+    """`(cutoff, exempt ids, refused paths)` for the range, or None where the
+    arm is off: no row at B.
+
+    The base's own version is read off the range's left side as written,
+    `release/vX.Y.Z`, because a second fold for one version joins that
+    version's file before the tag (#540) and a resolved commit has no name.
+    """
+    cutoff = cutoff_at(root, b)
+    if cutoff is None:
+        return None
+    added = git(
+        root, "diff", "--name-only", "--diff-filter=A", a, b, "--", "seal/specs"
+    )
+    ids = sorted(
+        int(m.group(1))
+        for m in (ROUTING.match(p) for p in (added or "").split("\n"))
+        if m
+    )
+    if ids and all(i < cutoff for i in ids):
+        return cutoff, ids, []
+    left = spec.partition("...")[0] if "..." in spec else spec.partition("..")[0]
+    own = BASE_VERSION.search(left.strip())
+    changed = git(
+        root, "diff", "--no-renames", "--name-status", a, b, "--", LEDGER, RELEASES
+    )
+    refused = []
+    for line in (changed or "").split("\n"):
+        status, _, path = line.partition("\t")
+        if not path or status == "A":
+            continue
+        release = RELEASE_FILE.match(path)
+        if release and own and release.group(1) == own.group(1):
+            continue
+        if path == LEDGER or release:
+            refused.append(path)
+    return cutoff, [], refused
+
+
+def freeze_report(root, a, b, spec, out=sys.stdout, found=None):
+    """Print the freeze arm's answer and return its exit code. FOUND is
+    `frozen_changes`' answer where the caller already has it: `main` asks
+    before anything is printed, so a refused row stops the run unjudged."""
+    if found is None:
+        found = frozen_changes(root, a, b, spec)
+    if found is None:
+        return 0
+    cutoff, exempt, refused = found
+    if exempt:
+        print(
+            f"ledger freeze: every work item this range adds "
+            f"({', '.join(str(i) for i in exempt)}) is below `{FROZEN_ROW}` "
+            f"{cutoff}, so it is read under the rule it was cut under",
+            file=out,
+        )
+        return 0
+    if not refused:
+        print(
+            f"ledger freeze: no released ledger file changed (`{FROZEN_ROW}` {cutoff})",
+            file=out,
+        )
+        return 0
+    for path in refused:
+        print(f"  frozen      {path}", file=out)
+    print(
+        f"{len(refused)} released ledger file(s) changed in this range, and a "
+        f"released file is not edited after its release (`{FROZEN_ROW}` "
+        f"{cutoff}). Write each re-read or correction as a citing row in your "
+        "own fragment instead: `evidence-check --reverify --into "
+        "seal/ledger/<work-item-id>.md --checked YYYY-MM-DD` for a re-read, a "
+        "`Corrected ·` row for a claim that is false",
+        file=out,
+    )
+    return 1
 
 
 # --- the report ------------------------------------------------------------
@@ -809,6 +1054,24 @@ def report(reports, examined, unjudged, a, b, out=sys.stdout):
         print("  no correction marker was dropped at a merge", file=out)
         return 0
     print("", file=out)
+    dropped = [e for e in reports if isinstance(e.loss, Dropped)]
+    reports = [e for e in reports if not isinstance(e.loss, Dropped)]
+    for entry in dropped:
+        print(f"{entry.path}", file=out)
+        print(f"  dropped     {trim(entry.loss.row.key, 110)}", file=out)
+        print(f"  at merge    {entry.merge[:7]}", file=out)
+        print(f"  from parent {entry.parent[:7]}, which carried it", file=out)
+        print(f"  corrects    {trim(entry.loss.citation)}", file=out)
+        print("", file=out)
+    if dropped:
+        print(
+            f"{len(dropped)} `Corrected ·` row(s) a parent carried are gone from "
+            "the merge result, and the released row each corrected still stands, "
+            "so its false claim reads as true again. Put each row back",
+            file=out,
+        )
+    if not reports:
+        return 1
     for entry in reports:
         verb, date = entry.loss.marker
         print(f"{entry.path}", file=out)
@@ -845,7 +1108,9 @@ def main(argv=None, out=sys.stdout):
         root = os.path.abspath(args.root)
         a, b = parse_range(root, args.range)
         reports, examined, unjudged = examine(root, a, b)
-        return report(reports, examined, unjudged, a, b, out=out)
+        frozen = frozen_changes(root, a, b, args.range)
+        code = report(reports, examined, unjudged, a, b, out=out)
+        return max(code, freeze_report(root, a, b, args.range, out=out, found=frozen))
     except Refused as exc:
         print(f"correction-check: {exc}", file=sys.stderr)
         return 2
