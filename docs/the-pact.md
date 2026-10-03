@@ -270,3 +270,12 @@ local mode keeps
 repository reads the same changes as `NOT TAKEN`, which is loud in the right
 direction.
 Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing
+
+<!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
+**A pact review row naming a signatory the pact has since taken out of its
+`Signatory` table is refused at exit 2, and stays refused.** A pact review
+record is permanent, and a departed signatory and a mistyped URL are the
+same text, so the refusal cannot tell them apart and does not try. Take the
+pact review rows naming a signatory out with the signatory, in the same
+change.
+Enforced by: tests/test_a_pact_review_takes_a_pact_change.py::test_a_review_row_naming_a_signatory_since_dropped_stays_refused

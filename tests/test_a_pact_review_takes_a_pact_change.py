@@ -367,3 +367,23 @@ def test_an_amended_review_at_an_older_hash_is_not_judged_again(world):
     assert code == 0, out
     assert "REFUSED" not in out, out
     assert "2 pact changes read, 2 taken" in out, out
+
+
+def test_a_review_row_naming_a_signatory_since_dropped_stays_refused(world):
+    """A pact review record is permanent, so a row naming a signatory the
+    pact has since taken out of its `Signatory` table is refused at exit 2,
+    as a typo would be: the two are the same text (round 1, white 7). The
+    policy says to take such rows out with the signatory, in one change."""
+    _anchor, digest = record(world)
+    review(world, (SIGNATORY_URL, f"{ITEM}@{digest}", "holds"))
+    code, out = run(world)
+    assert code == 0, out
+    mobile = "https://example.com/org/orders-mobile"
+    write(world["api"], "seal/pact.md", pact(V2, (mobile,)))
+    commit(world["api"], "orders-web leaves the pact")
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        f"REFUSED {REVIEWS}:5 — the pact review names `{SIGNATORY_URL}`, which "
+        "the pact's `Signatory` table does not list"
+    ) in out, out
