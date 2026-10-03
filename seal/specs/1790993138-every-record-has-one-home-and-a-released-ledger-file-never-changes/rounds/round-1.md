@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | 736 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `f50f5f05c7dc06e725b3f4d177c7f95103e73caa..b726c91b97a54a75d9f1ff4ecb82913d29ed4537`, 13 commits |
 | Contract changes | none |
 | New units | CITATION (depth 1); PIPE_ROW (depth 1); test_a_closing_pipe_citation_is_keyed_by_the_citation (depth 1); test_a_dropped_closing_pipe_correction_is_reported (depth 1); test_into_re_reads_a_coordinate_a_folded_re_read_carries (depth 1); test_a_partial_revert_to_an_older_reading_is_drifted (depth 1); test_two_readings_of_one_coordinate_on_the_same_day_are_a_union (depth 1); test_into_re_reads_a_revert_a_folded_newer_reading_outranks (depth 1); test_a_moved_released_row_is_told_its_correction_carries_every_coordinate (depth 1); test_a_released_row_corrected_by_two_rows_names_both (depth 1); test_a_released_row_corrected_once_is_not_named (depth 1); test_a_first_cell_that_also_ends_another_cell_still_gets_a_citation (depth 1); test_the_checklist_repairs_preparation_drift_the_way_the_freeze_accepts (depth 1) |
