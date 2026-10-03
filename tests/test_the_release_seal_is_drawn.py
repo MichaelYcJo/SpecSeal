@@ -437,6 +437,33 @@ def test_a_capped_pull_request_with_no_work_item_leaves_the_tree_rows_unread(
     assert "#21" in capsys.readouterr().out
 
 
+def test_an_unlistable_rounds_leaves_rounds_unread_not_zero(tmp_path, capsys):
+    """S10 (round 1's 🟡 2). A `rounds` that is a file holds records nobody
+    can count: the rounds row is not read, and the log names it. Seen red at
+    `7966a9f9`, which drew `(1, 0, 0, None)`."""
+    root = tree(tmp_path)
+    item = tmp_path / "seal" / "specs" / "1700000000-an-item"
+    (item / "rounds").rmdir()
+    (item / "rounds").write_text("# round 1\n", encoding="utf-8")
+    assert seal().chain_counts(root, [pr(20, "feat/12-an-item")]) == (1, None, 0, None)
+    out = capsys.readouterr().out
+    assert "rounds" in out and "not read" in out, out
+
+
+def test_a_verdict_row_the_table_skipped_leaves_deferred_unread(tmp_path, capsys):
+    """S10 (round 1's 🟡 2). `verdict_table` skips a row too short for the
+    Verdict column; a deferral in it is a count nobody made, so deferred is
+    not read and the log names the record. Seen red at `7966a9f9`, which
+    counted 1."""
+    root = tree(tmp_path, verdicts=[["deferred #12"]])
+    record = (
+        tmp_path / "seal" / "specs" / "1700000000-an-item" / "rounds" / "round-1.md"
+    )
+    record.write_text(record.read_text(encoding="utf-8") + "| 2 |\n", encoding="utf-8")
+    assert seal().chain_counts(root, [pr(20, "feat/12-an-item")]) == (1, 1, 0, None)
+    assert "round-1.md" in capsys.readouterr().out
+
+
 def test_a_deferred_count_nobody_could_read_is_none_and_the_log_says_why(
     tmp_path, capsys
 ):

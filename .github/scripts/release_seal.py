@@ -408,8 +408,10 @@ def chain_counts(root, pulls):
     `hooks/routing.py#rounds`. `deferred` is the number of distinct issues
     named in a Verdicts cell whose verdict is `deferred`, read with
     `chain_check.verdict_table` and `#verdict_of`; a home that is a file
-    names no issue. A round record whose verdict table cannot be read leaves
-    `deferred` None -- an incomplete count is a wrong number -- and a reader
+    names no issue. A round record whose verdict table cannot be read, or
+    holds a row the table reader skipped, leaves `deferred` None -- an
+    incomplete count is a wrong number -- a `rounds` that cannot be listed
+    leaves `rounds` None as well, and a reader
     that will not load leaves all three tree counts None.
 
     A tree with no declaration at all, or a pull request labelled
@@ -432,6 +434,7 @@ def chain_counts(root, pulls):
         )
         return None, None, capped, None
     items, rounds, deferred, unread, lost = 0, 0, set(), [], []
+    rounds_unread = False
     for pull in pulls:
         item = routing.item_dir(root, pull.get("headRefName") or "")
         if not item:
@@ -440,7 +443,11 @@ def chain_counts(root, pulls):
             continue
         items += 1
         if routing.rounds_unreadable(item):
+            # Its records exist and cannot be listed, so its rounds are not
+            # zero; the rounds row is not read, and neither is deferred.
+            rounds_unread = True
             unread.append(os.path.join(item, routing.ROUNDS_DIR))
+            continue
         records = routing.rounds(item)
         rounds += len(records)
         for path in records:
@@ -450,10 +457,11 @@ def chain_counts(root, pulls):
             except (OSError, UnicodeDecodeError):
                 unread.append(path)
                 continue
-            rows, col, _header, _errors = chain.verdict_table(
+            rows, col, _header, errors = chain.verdict_table(
                 reader, reader.readable(text), path
             )
-            if col < 0:
+            # A row `verdict_table` skipped is a verdict nobody counted.
+            if col < 0 or errors:
                 unread.append(path)
                 continue
             for _line, seen in rows:
@@ -467,10 +475,15 @@ def chain_counts(root, pulls):
         return None, None, capped, None
     if unread:
         print(
-            "the deferred row is not read: no verdict table could be read in "
+            (
+                "the rounds and deferred rows are"
+                if rounds_unread
+                else "the deferred row is"
+            )
+            + " not read: no verdict table could be read in "
             + ", ".join(os.path.relpath(p, root) for p in unread)
         )
-        return items, rounds, capped, None
+        return items, None if rounds_unread else rounds, capped, None
     return items, rounds, capped, len(deferred)
 
 
