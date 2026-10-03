@@ -247,6 +247,8 @@ CONTROLS = {
     "env -S with a variable operand": "env -S 'echo' \"$X\"",
     "env -S with a quoted operand holding a list": "env -S 'echo' 'a && git commit -m y'",
     "env -S with a quoted operand holding a ;": "env -S 'printf %s' 'x; git commit -m y'",
+    # An option's value before the split string reaches `env` as one word too.
+    "env -S behind an option value holding a ;": "env -u 'a; git commit -m y' -S 'echo hi'",
     # Round 1 of 1790993140, yellow 2: a cluster ending in `S` after the
     # program is the program's (`ls -lS`), not a split string.
     "a program's own cluster ending in S": 'env ls -lS "$DIR"',
