@@ -102,6 +102,12 @@ def ledger_row(anchor):
 def world(tmp_path):
     """The pact's repository and the signatory as siblings under `work/`,
     and an empty HOME."""
+    return make_world(tmp_path)
+
+
+def make_world(tmp_path):
+    """`world`'s body, which `tests/test_a_pact_review_takes_a_pact_change.py`
+    builds its own fixture from."""
     work = tmp_path / "work"
     home = tmp_path / "home"
     home.mkdir()

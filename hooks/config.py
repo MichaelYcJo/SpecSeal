@@ -1172,6 +1172,36 @@ def pact_changes(text):
     return out, refusals
 
 
+# --- the record of pact reviews the pact's repository keeps (#647, step D) --
+#
+# `seal/pact-reviews/<work-item-id>.md` at the pact's repository, begun from
+# `templates/pact-review.md`: one row per signatory's record of pact changes
+# a pact review takes, naming the signatory, the record as `<work-item-id>@
+# <content hash>`, and the verdict.
+PACT_REVIEWS = "pact-reviews"
+PACT_REVIEW_HEADER = ("Signatory", "Change", "Verdict")
+VERDICT_HOLDS = "holds"
+VERDICT_AMENDED = "amended"
+VERDICTS = (VERDICT_HOLDS, VERDICT_AMENDED)
+
+
+def pact_reviews(text):
+    """(rows, refusals) for a record of pact reviews, read through
+    `gfm_table`: `rows` as `(line, signatory, change, verdict)` for every row
+    whose three cells are filled, and one sentence per row that is not,
+    reading after "the record ". Whether a row can be true -- the signatory
+    listed, the record held, the verdict one of two -- is `pact-check`'s,
+    which has the pact and the signatories to ask."""
+    rows, refusals = gfm_table(text, PACT_REVIEW_HEADER)
+    out = []
+    for line, (signatory, change, verdict) in rows:
+        if not (signatory and change and verdict):
+            refusals.append(f"has a row at line {line} with an empty cell")
+            continue
+        out.append((line, signatory, change, verdict))
+    return out, refusals
+
+
 def _signatory(refusal):
     """A walk refusal, in the words `pact-check` has always printed for the
     `Signatory` table: a row it leaves unread is a signatory."""
