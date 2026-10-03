@@ -7,9 +7,9 @@ than reconstructed at the end. Facts that must outlive this work item go to the
 evidence ledger, not here. -->
 
 📋 implement applied
-· spec:     written at the close of the build
-· evidence: written at the close of the build
-· verified: written at the close of the build
+· spec:     this work item's spec.md (items 1-12, S1-S14), plan.md (phases 1-6, Technical context), questions.md (Q1-Q13); CLAUDE.md §the fragment rule, §no real identifiers, §whose; seal/config.md (Fold shape from, Over the ceiling); skills/implement/SKILL.md §Document layout; docs/the-evidence-ledger.md; templates/config.md, templates/sdd-phase.md, templates/sdd-overview.md
+· evidence: seal/ledger/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it.md P1-P11 added; 49 rows re-read and noted in seal/ledger.md and seal/releases/0.4.0, 0.5.0, 0.6.0, 0.8.3, 0.9.1, 0.9.3, 0.12.0, 0.13.1, 0.14.0, 0.15.3, 0.15.4, 0.15.5, 0.16.0 and 0.17.0, two corrected in place
+· verified: executed — every new case seen red (stash or mutation-check), each phase's modules naming its files green, the three hygiene modules green, evidence-check --strict and fold-check exit 0, ruff on every touched Python file; unverified — the full suite, the repository-wide lint and typecheck (the sealer's)
 
 ## Why this work exists
 
@@ -32,8 +32,32 @@ repository says where the signatories disagree with it.
 
 ## Not done
 
-Written at the close of the build.
+- **#647's steps C and D**: the record of a pact change (`contract-changes`)
+  and its trigger on a drifted signatory row, and the contract review. They
+  are the second work item, stacked on this branch; `Pact notify` is read and
+  printed and nothing acts on it.
+- **No check that every share carries one id.** Stated in
+  `orchestration.md` and `docs/the-pact.md` with the reason: an id minted
+  twice cannot be told from a signatory's own work item citing the pact.
+- **The code's `home`**, which names a `seal/` root in `pact_check.py` and
+  `chain_check.py` as it does across this tree, was left as it is; S13 sweeps
+  the shipped prose, where the owner's rule applies.
 
 ## Fed back into the spec
 
-Written at the close of the build.
+Clauses this work added, *inferred during implementation*, which a planner
+may overturn:
+
+- `hooks/config.py#pact_signatories` reads the pact's `| Signatory |` table
+  through `config_rows`' walk; an absent table, an empty one and the
+  template's unfilled row are refused. Spec item 8.1 said `pact-check` reads
+  the table and named no reader.
+- `pact-check` statuses beyond the five anchor verdicts: `NOT FOUND` (exit 1),
+  and `ONE-SIDED`, `REFUSED` and `UNREADABLE` (exit 2). A signatory with no
+  `seal/` root is `ONE-SIDED`. A map line is trusted only where the checkout
+  it names has the signatory's origin, and two siblings with that origin are
+  named and not chosen between.
+- Each signatory read prints a `READ` line carrying its `Pact notify` value,
+  which is how spec item 3's *prints it* is met at the pact's repository.
+- "Another ref" is every branch, remote-tracking branch and tag HEAD does not
+  hold; the ref named is the first such one holding the version.
