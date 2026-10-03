@@ -441,3 +441,45 @@ def test_a_pact_anchor_that_does_not_parse_is_refused(world, anchor):
         'does not parse as `pact:orders-api/"<heading path>"@<hash>`, so '
         "nothing grades it"
     ) in out, out
+
+
+def test_a_signatory_with_no_seal_root_is_one_sided(world):
+    """Without a root it cannot name the pact, and nothing is read from the
+    directory the command happens to stand in."""
+    import shutil
+
+    shutil.rmtree(world["web"] / "seal")
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        f"ONE-SIDED {SIGNATORY_URL} {world['web']} — the pact lists it, and it "
+        "has no seal/ root to name this pact in: the relationship is recorded "
+        "on one side only"
+    ) in out, out
+
+
+def test_a_signatory_config_that_will_not_read_is_unreadable(world):
+    (world["web"] / "seal" / "config.md").unlink()
+    (world["web"] / "seal" / "config.md").mkdir()
+    code, out = run(world)
+    assert code == 2, out
+    home = os.path.join(str(world["web"]), "seal")
+    assert f"UNREADABLE {SIGNATORY_URL} {home}/config.md — could not be read" in out
+
+
+def test_an_anchor_file_that_will_not_read_is_unreadable(world):
+    (world["web"] / "seal" / "ledger" / "1790000000-x.md").mkdir(parents=True)
+    code, out = run(world)
+    assert code == 2, out
+    assert (
+        f"UNREADABLE {SIGNATORY_URL} seal/ledger/1790000000-x.md — could not be read"
+    ) in out, out
+
+
+def test_a_pact_that_will_not_read_is_unreadable(world):
+    (world["api"] / "seal" / "pact.md").unlink()
+    (world["api"] / "seal" / "pact.md").mkdir()
+    code, out = run(world)
+    assert code == 2, out
+    pact_path = os.path.join(str(world["api"]), "seal", "pact.md")
+    assert f"UNREADABLE {pact_path} — the pact could not be read" in out, out
