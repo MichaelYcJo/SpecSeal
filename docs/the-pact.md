@@ -228,7 +228,12 @@ verdict other than the two, a change not written `<work-item-id>@<hash>`,
 and `amended`, at the record's current hash, where a clause it cites still
 has the hash the record recorded. A review at an older hash is not judged
 again against rows the record gained since: what it said was about the
-record it took.
+record it took. A pact review takes a whole record, one verdict for every
+row in it. A record citing a clause the pact amended beside one it kept is
+taken as `holds`, the amendment written in the pact itself; and a row that is
+not this pact's — a `—` row, or one citing another pact — still changes the
+record's hash, so a record this pact took reads `NOT TAKEN` again when one is
+added.
 Enforced by: tests/test_a_pact_review_takes_a_pact_change.py::test_s15_a_record_grown_after_its_review_is_not_taken_again, tests/test_a_pact_review_takes_a_pact_change.py::test_s16_a_pact_review_row_that_cannot_be_true_is_refused, tests/test_a_pact_review_takes_a_pact_change.py::test_s17_a_review_that_will_not_read_or_parse_is_exit_2, tests/test_a_pact_review_takes_a_pact_change.py::test_an_amended_review_at_an_older_hash_is_not_judged_again
 
 <!-- specs/1791019474-a-signatory-records-a-pact-change-and-the-pact-is-reviewed -->
