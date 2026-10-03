@@ -685,7 +685,7 @@ def test_the_refusal_names_both_remedies(world):
         (r"D:\work\orders-web", None, r"C:\Users\x", "D:/work/orders-web"),
         (r"D:\Users\x\work", None, r"C:\Users\x", "D:/Users/x/work"),
         (r"Users\x\work", None, r"\Users\x", "Users/x/work"),
-        (r"C:\Users\xy\work", None, r"C:\Users\x", "C:/Users/xy/work"),
+        (r"D:\data\xy\work", None, r"D:\data\x", "D:/data/xy/work"),
         ("C:/Users/x/work/a\\b.md", r"C:\Users\x\work", None, "a/b.md"),
     ],
     ids=[

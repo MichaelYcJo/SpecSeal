@@ -11,7 +11,7 @@ still do.
 
 | Path | Quote | Grounds |
 |---|---|---|
-| `seal/releases/0.5.0.md` | `templates/seal-README.md#"## Layout"@8bbcc8e6` | a released row's coordinate list; the overlap is the old hashes P6 carried in #735's fragment before this branch re-stamped it. The released row is not edited after its release, and this item's fragment re-reads it (`Re-read · S9`) |
-| `seal/releases/0.16.0.md` | `.github/scripts/run_tests.py#MARKDOWN_IT@cdd27ddd` | a released row's coordinate list; the overlap is the old hashes R3 carried in #718's fragment before phase 1 re-stamped it. The released row is not edited after its release, and this item's fragment re-reads it (`Re-read · P1-1`) |
+| `seal/releases/0.5.0.md` | "## Layout"@8bbcc8e6 | a released row's coordinate list; the overlap is the old hashes P6 carried in #735's fragment before this branch re-stamped it. The released row is not edited after its release, and this item's fragment re-reads it (`Re-read · S9`) |
+| `seal/releases/0.16.0.md` | #MARKDOWN_IT@cdd27ddd | a released row's coordinate list; the overlap is the old hashes R3 carried in #718's fragment before phase 1 re-stamped it. The released row is not edited after its release, and this item's fragment re-reads it (`Re-read · P1-1`) |
 | `tests/test_a_signatory_declares_its_pact.py` | which is not a one-cell row written `\| … \|` | the pinned refusal `hooks/config.py#gfm_table` still prints for a one-column table, built from `shape` and `written` rather than spelled whole; the removed sentence is the old literal, and the case pins the same words |
 | `tests/test_a_signatory_declares_its_pact.py` | # --- every way GFM ends or breaks the `Signatory` table (round 2 of #647) --- | the heading of the cases that pin each end's sentence; the removed sentence is the old docstring's bold rule, which `gfm_table`'s docstring and the property case now carry, and the cases under the heading still cover each way |
