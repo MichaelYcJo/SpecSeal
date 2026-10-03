@@ -639,3 +639,21 @@ def test_a_table_under_a_block_that_has_ended_is_read(above):
     assert oracle.rows_under(text, ("Signatory",)) == [(u,)], text
     rows, refusals = config.gfm_table(text, ("Signatory",))
     assert refusals == [] and [c for _l, c in rows] == [(u,)], (text, refusals)
+
+
+@pytest.mark.parametrize(
+    "cell", ["a \\\\| b", "a \\\\\\\\| b"], ids=["two backslashes", "four backslashes"]
+)
+def test_a_pipe_after_an_even_run_of_backslashes_is_refused(cell):
+    """cmark-gfm reads `\\|` as an escaped pipe wherever it stands, so a pipe
+    after an even run of backslashes does not split its cell; `CELL` read
+    the backslashes in pairs and split there, and a three-cell row read as
+    four (round 1, white 6). Such a row is refused rather than guessed."""
+    header = HEADERS["pact change"]
+    text = (
+        "| Clause | Row | Code | Checked |\n|---|---|---|---|\n"
+        f"| {cell} | c | 2026-10-04 |\n"
+    )
+    assert oracle.rows_under(text, header) != [("a \\", "b", "c", "2026-10-04")]
+    rows, refusals = config.gfm_table(text, header)
+    assert rows == [] and refusals, (rows, refusals)

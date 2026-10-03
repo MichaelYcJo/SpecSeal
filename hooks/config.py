@@ -891,13 +891,20 @@ DELIMITER_ROW = re.compile(
 # every pipe `CELL` does not hold, so an escaped pipe stays inside its cell.
 TABLE_ROW = re.compile(rf"^ {{0,3}}\|(?P<cells>(?:{CELL}|\|)*)\|[ \t]*$")
 CELL_PIPE = re.compile(rf"((?:{CELL})*)(\|?)")
+# A pipe after an even run of backslashes: `CELL` reads the backslashes in
+# pairs and splits there, and cmark-gfm does not, because its cell scanner
+# reads `\|` as an escaped pipe wherever it stands (round 1 of #647 C and D,
+# white 6). A line holding one is no row this walker reads.
+EVEN_ESCAPED_PIPE = re.compile(r"(?<!\\)(?:\\\\)+\|")
 
 
 def table_cells(line):
     """The cells of LINE as a tuple, each stripped and with `\\|` reduced to a
-    pipe, where LINE is written `| … |`; otherwise None."""
+    pipe, where LINE is written `| … |`; otherwise None, which is also the
+    answer for a line holding a pipe after an even run of backslashes, which
+    cmark-gfm splits differently (`EVEN_ESCAPED_PIPE`)."""
     match = TABLE_ROW.match(line)
-    if not match:
+    if not match or EVEN_ESCAPED_PIPE.search(line):
         return None
     cells = []
     for piece in CELL_PIPE.finditer(match.group("cells")):
