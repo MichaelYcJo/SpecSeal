@@ -2437,7 +2437,7 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
         _, _, header, cells = row(key)
         column = date_column(header, cells)
         dates = CHECKED_RE.findall(cells[column[0]]) if column else []
-        return max(dates, default="")
+        return max((d for d in dates if calendar_date(d)), default="")
 
     readings, held_by = {}, {}
     for top, members in families.items():
@@ -2741,6 +2741,17 @@ def checked_refusal(value, reverifying, migrating, today):
             "a reading is not dated after the run that records it"
         )
     return None
+
+
+def calendar_date(text):
+    """Whether TEXT, a `CHECKED_RE` match, is a date the calendar has: a
+    `2026-13-45` would otherwise outrank every reading after it when
+    `family_view` orders readings by date (round 2, ⬜ 13)."""
+    try:
+        datetime.date.fromisoformat(text)
+    except ValueError:
+        return False
+    return True
 
 
 def date_column(header, cells):

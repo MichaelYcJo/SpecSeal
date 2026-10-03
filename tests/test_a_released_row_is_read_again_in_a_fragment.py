@@ -1286,3 +1286,23 @@ def test_an_unfrozen_narrowed_reverify_names_a_family_it_could_not_clear(repo):
     left = [line for line in out.stdout.splitlines() if "LEFT" in line]
     assert left and "seal/releases/0.1.0.md:5" in left[0], out.stdout
     assert "newest reading" in left[0], left[0]
+
+
+def test_a_checked_cell_the_calendar_does_not_have_does_not_outrank_a_re_read(repo):
+    """A `Checked` date now orders readings, so `2026-13-45`, compared as a
+    string, outranked every reading after it: `--into` reported a row written
+    and the family still read DRIFTED. A date the calendar does not have
+    orders nothing (round 2, ⬜ 13)."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-13-45 | |"
+        ],
+    )
+    frozen(repo, "0")
+    edit_handler(repo)
+    out = run(["--reverify", "--into", INTO, "--checked", "2026-03-01", "."], repo)
+    assert "1 citing row written" in out.stdout, out.stdout
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout
