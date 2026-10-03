@@ -10,7 +10,7 @@ Approved 2026-10-03 by the repository owner, whose `automation` answer covers th
 
 From the release this ships in, a branch writes one ledger file of its own: its fragment. A re-read or a correction of a released row becomes a citing row in that fragment.
 
-- `evidence-check` reads a released row together with the rows that cite it. A coordinate is OK when any reading recorded its current hash, and a correction supersedes the row it cites.
+- `evidence-check` reads a released row together with the rows that cite it. A coordinate is OK when one of its newest readings, ties together, recorded its current hash, and a correction supersedes the row it cites. *Amended by round 1's 🟡 2; it read "when any reading recorded its current hash".*
 - `--reverify --into` writes the citing rows.
 - `correction-check` refuses a changed released file for work cut after the rule, and reports a dropped correction.
 - The fold stops being able to write an old file.

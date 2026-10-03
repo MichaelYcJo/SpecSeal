@@ -13,7 +13,9 @@ The citation names the row R by content: the release file, the
 R's first cell. `evidence-check` then reads R together with every row that
 re-reads it, as one family:
 
-  S1  a coordinate is OK when any reading in R's family recorded what it holds
+  S1  a coordinate is OK when one of its newest readings in R's family -- the
+      members recording it with the newest `Checked` date, ties together --
+      recorded what it holds
   S2  a re-read is per row: it vouches for the row it cites and no other
   S3  a `Corrected ·` row supersedes R; its own coordinates are what is checked
   S4  a citation that does not hold is named, never skipped
