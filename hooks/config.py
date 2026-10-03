@@ -1137,6 +1137,41 @@ def pact_signatories(text):
     return signatories, out
 
 
+# --- the record of pact changes a signatory keeps (#647, step C) ------------
+#
+# `seal/pact-changes/<work-item-id>.md` in a signatory: one row per ledger row
+# whose code moved under a pact clause it cites, written by
+# `evidence-check --reverify` and read by `pact-check` at the pact's
+# repository. Permanent, one file per work item, never folded, never edited
+# by hand (`docs/the-pact.md`).
+PACT_CHANGES = "pact-changes"
+PACT_CHANGE_HEADER = ("Clause", "Row", "Code", "Checked")
+# The `Clause` cell of a row recorded under `always` that cites no clause.
+NO_CLAUSE = "—"
+CHECKED_DATE = re.compile(r"[0-9]{4}-[0-9]{2}-[0-9]{2}")
+
+
+def pact_changes(text):
+    """(rows, refusals) for a record of pact changes, read through
+    `gfm_table`: `rows` as `(line, clause, row, code, checked)`, one per row
+    whose four cells are filled and whose `Checked` is a date, and one
+    sentence per row that is not, reading after "the record "."""
+    rows, refusals = gfm_table(text, PACT_CHANGE_HEADER)
+    out = []
+    for line, (clause, row, code, checked) in rows:
+        if not (clause and row and code):
+            refusals.append(f"has a row at line {line} with an empty cell")
+            continue
+        if not CHECKED_DATE.fullmatch(checked):
+            refusals.append(
+                f"has a row at line {line} whose `Checked` is `{checked}`, not "
+                "a date written YYYY-MM-DD"
+            )
+            continue
+        out.append((line, clause, row, code, checked))
+    return out, refusals
+
+
 def _signatory(refusal):
     """A walk refusal, in the words `pact-check` has always printed for the
     `Signatory` table: a row it leaves unread is a signatory."""
