@@ -142,14 +142,20 @@ def failing_rows(root, home=None):
             os.path.join(home, "releases", "*.md"),
             *patterns,
         ]
+    ledgers = [
+        ledger for pat in patterns for ledger in sorted(glob.glob(pat, recursive=True))
+    ]
+    # One view of every ledger (#715): a released row whose unit is gone and
+    # which a fragment's `Corrected ·` row supersedes is not BROKEN, and only
+    # a reader holding both files can tell.
+    families = ec.ledger_families(ledgers, root, {})
     out = []
-    for pat in patterns:
-        for ledger in sorted(glob.glob(pat, recursive=True)):
-            for status, coord, detail in ec.check_ledger(ledger, root, {}):
-                if status == "OVERFLOW":
-                    coord = f"{ec.display_name(ledger, root)} {coord}"
-                if status in ("BROKEN", "OLD-FORMAT", "MALFORMED", "OVERFLOW"):
-                    out.append((status, coord, detail))
+    for ledger in ledgers:
+        for status, coord, detail in ec.check_ledger(ledger, root, {}, None, families):
+            if status == "OVERFLOW":
+                coord = f"{ec.display_name(ledger, root)} {coord}"
+            if status in ("BROKEN", "OLD-FORMAT", "MALFORMED", "OVERFLOW"):
+                out.append((status, coord, detail))
     return out
 
 

@@ -2727,7 +2727,9 @@ def test_the_two_commands_that_must_know_ask_for_the_flag(repo):
     `check_ledger` into `check_text` when the records arm was added (#190), so
     a stamp in a record is resolved by the same code as a row in a ledger.
     `check_ledger` is now that call plus `old_format_rows`, and the consumer
-    that has to act on the flag is the loop, wherever it lives."""
+    that has to act on the flag is the loop, wherever it lives. Since #715
+    the loop's body is `classify`, one occurrence at a time, because the
+    reader of a released row's family grades each reading by it too."""
     import ast as ast_mod
 
     tree = ast_mod.parse(open(SCRIPT, encoding="utf-8").read())
@@ -2739,7 +2741,7 @@ def test_the_two_commands_that_must_know_ask_for_the_flag(repo):
             if isinstance(inner, ast_mod.Call) and isinstance(inner.func, ast_mod.Name):
                 if inner.func.id in ("resolve", "resolve_unit"):
                     calls.setdefault(node.name, set()).add(inner.func.id)
-    for consumer in ("check_text", "reverify"):
+    for consumer in ("classify", "reverify"):
         assert calls.get(consumer) == {"resolve_unit"}, (
             f"{consumer} does not ask for the resurrection flag: {calls.get(consumer)}"
         )
