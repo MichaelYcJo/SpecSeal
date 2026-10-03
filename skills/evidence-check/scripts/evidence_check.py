@@ -2001,10 +2001,11 @@ def overflow_rows(text):
 # unit is the side whose hash matches it, and where both sides edited it,
 # neither matches and the row is DRIFTED. The cost: content back at a hash
 # only an older reading recorded reads DRIFTED, a partial revert and a whole
-# one alike, and costs a re-read, never a question; no pair of hashes nobody
-# read together is accepted (round 1, 🟡 2). A `Corrected ·` row supersedes
-# the family of the row it cites -- none of those coordinates is checked any
-# more -- and starts a family of its own.
+# one alike, and costs a re-read, never a question. Coordinates are still
+# judged one at a time, so readings of two units on two rows combine into a
+# pair neither row recorded (round 1, 🟡 2; round 2, 🟡 10). A `Corrected ·`
+# row supersedes the family of the row it cites -- none of those coordinates
+# is checked any more -- and starts a family of its own.
 #
 # The citation itself is a coordinate and is checked as one, except that a
 # row it no longer finds is BROKEN rather than the DRIFTED an ordinary minor
@@ -2450,9 +2451,11 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
         held_by[top] = {}
         for coord, graded in by_coord.items():
             # Only the newest reading of a coordinate counts, and readings
-            # that tie on that date are a union: a pair of hashes is accepted
-            # only where somebody read it, and two branches re-reading one row
-            # on one day both count (round 1, 🟡 2).
+            # that tie on that date are a union: a revert to content a newer
+            # reading superseded is caught, and two branches re-reading one
+            # row on one day both count (round 1, 🟡 2). Each coordinate is
+            # judged alone, so two rows' readings of two units can combine
+            # into a pair neither recorded (round 2, 🟡 10).
             newest = max(checked(r[0]) for r in graded)
             held = [r for r in graded if r[2] == "OK" and checked(r[0]) == newest]
             held_by[top][coord] = held

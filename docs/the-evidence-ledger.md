@@ -108,9 +108,13 @@ and where both edited it, neither matches. Its cost is stated: content that
 returns to a hash only an older reading recorded reads DRIFTED — a partial
 revert, one unit back at an old reading while another sits at a newer one,
 and a whole revert of one unit alike — though somebody once read the claim
-against it. The cost is a re-read, never a question, and it is the price of
-never accepting a pair of hashes no reading saw together. A same-day pair of
-readings from two branches is still a union, so a revert to either reads OK.
+against it. The cost is a re-read, never a question. What it buys is that a
+coordinate is held to its newest reading, so a revert to content a newer
+reading superseded is caught. Coordinates are still judged one at a time, as
+the halves rule judges units: two branches re-reading different units of one
+row leave a pair no single reading recorded, and it reads OK, because each
+side read the unit it edited. A same-day pair of readings from two branches is
+a union, so a revert to either reads OK.
 
 **A citation that does not hold is named.** One into a fragment is refused,
 because a fragment moves at the fold — re-stamp that fragment's row in place

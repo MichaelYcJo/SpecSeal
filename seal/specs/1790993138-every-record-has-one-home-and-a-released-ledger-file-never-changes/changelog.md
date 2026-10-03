@@ -17,9 +17,10 @@
   readings dated the same day count together: a coordinate is OK when one
   of them recorded what the code holds now, and DRIFTED when none did. Two
   branches that edited the same unit still leave the row DRIFTED, and code
-  reverted to a hash only an older reading recorded reads DRIFTED too, so a
-  pair of hashes nobody read together is never accepted. A `Corrected ·` row supersedes
-  the row it cites. A citation into a fragment, a citing row without its
+  reverted to a hash only a superseded reading recorded reads DRIFTED too.
+  A `Corrected ·` row supersedes the row it cites, and a released row
+  corrected by two or more rows names each of them DRIFTED until one claim
+  is kept. A citation into a fragment, a citing row without its
   `Re-read <date>` or `Corrected <date>` note, and a citation whose row is
   gone are each named.
 
