@@ -341,6 +341,46 @@ STRAY_WAYS = [
         )
         for ch in SPLITLINES_ONLY
     ),
+    # Round 1 of PR #793, yellow 2: an HTML table cell carries a value with
+    # no pipe beside it, so a file holding one reads every line naming a
+    # pact without the pipe condition.
+    *(
+        (f"an HTML table, {why}", CONFIG + "\n" + html, lines, ORDERS)
+        for why, html, lines in (
+            (
+                "one line",
+                "<table><tr><td>Pact notify</td><td>always</td></tr></table>\n",
+                ["<table><tr><td>Pact notify</td><td>always</td></tr></table>"],
+            ),
+            (
+                "a cell to a line",
+                "<table>\n<tr>\n<td>Pact notify</td>\n<td>always</td>\n</tr>\n</table>\n",
+                ["<td>Pact notify</td>"],
+            ),
+            (
+                "the item on a line of its own",
+                "<table>\n<tr>\n<TD>\nPact notify\n</TD>\n<td>always</td>\n</tr>\n</table>\n",
+                ["Pact notify"],
+            ),
+        )
+    ),
+    # Round 1 of PR #793, yellow 3: a transposed table names the item in its
+    # header and the value below it.
+    *(
+        (f"a transposed table, {why}", CONFIG + "\n" + table, [header], ORDERS)
+        for why, header, table in (
+            (
+                "Pact first",
+                "| Pact | Pact notify |",
+                f"| Pact | Pact notify |\n|---|---|\n| {URL} | always |\n",
+            ),
+            (
+                "another item first",
+                "| Mode | Pact notify |",
+                "| Mode | Pact notify |\n|---|---|\n| shared | always |\n",
+            ),
+        )
+    ),
 ]
 
 
@@ -597,6 +637,19 @@ def test_s4_the_configs_this_plugin_writes_or_copies_are_silent():
         config.NOTIFY_TOUCHED,
         [],
     )
+    # Round 1 of PR #793, yellow 1: `skills/commit-pr-convention/SKILL.md`
+    # tells a session to copy `templates/config.md` whole, so the template is
+    # a config too: no pact and no refusal to either reader, and `always`
+    # once its two rows are filled.
+    with open(os.path.join(ROOT, "templates", "config.md"), encoding="utf-8") as f:
+        template = f.read()
+    assert config.pact_declaration(template) == ([], None, [])
+    assert ec.notify_may_be_always(template) is False
+    filled = template.replace("| Pact |  |\n", f"| Pact | {URL} |\n", 1).replace(
+        "| Pact notify |  |\n", "| Pact notify | always |\n", 1
+    )
+    assert config.pact_declaration(filled) == (ORDERS, config.NOTIFY_ALWAYS, [])
+    assert ec.notify_may_be_always(filled) is True
 
 
 @pytest.mark.parametrize(
@@ -717,6 +770,10 @@ def test_s10_the_reader_and_the_vendored_copy_read_one_word():
         ec.PACT_WORD.pattern,
         ec.PACT_WORD.flags,
     )
+    assert (config.HTML_CELL.pattern, config.HTML_CELL.flags) == (
+        ec.HTML_CELL.pattern,
+        ec.HTML_CELL.flags,
+    )
     lines = {line for text in S2_TEXTS for line in text.splitlines()}
     lines |= {line for below, _ in SILENT for line in (CONFIG + below).splitlines()}
     lines |= set(OTHER_ITEMS)
@@ -734,6 +791,8 @@ BLIND_SIDE = [
     "[P](x)act notify",
     "P&zz;act notify",
     "P\u0430ct notify",
+    # Round 1 of PR #793, white 6: a look-alike from its own script.
+    "\u1d18\u1d00\u1d04\u1d1b notify",
 ]
 
 
@@ -793,7 +852,8 @@ def test_the_blind_side_is_read_as_no_line(item, gap):
         ),
         (
             ("templates", "config.md"),
-            "A sentence with no `|` in it may name the pact freely.",
+            "A sentence with no pipe in it may name the pact freely, which is why "
+            "this section is written without one: this file can be copied whole.",
         ),
     ],
     ids=[
@@ -823,7 +883,7 @@ def test_the_template_and_the_config_skill_carry_both_rows_and_the_vocabulary():
     template = flat("templates", "config.md")
     skill = flat("skills", "config", "SKILL.md")
     for row in (config.PACT_ROW, config.PACT_NOTIFY_ROW):
-        assert f"| `{row}` |" in template, row
+        assert f"**`{row}`**" in template, row
         assert f"| `{row}` |" in skill, row
     start = template.index("## What no row governs")
     governs = template[start : template.index(" ## ", start + 1)]

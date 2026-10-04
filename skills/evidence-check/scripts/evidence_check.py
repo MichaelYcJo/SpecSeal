@@ -3740,6 +3740,10 @@ NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
 # letter between them and no letter before the `p`. That comment says why;
 # `tests/test_a_signatory_declares_its_pact.py` holds the two equal (#759).
 PACT_WORD = re.compile(r"(?<![^\W\d_])p[\W\d_]*a[\W\d_]*c[\W\d_]*t", re.I)
+# `hooks/config.py#HTML_CELL`, copied for a copy with no `hooks/`: an HTML
+# table cell's opening tag, in whose file a line naming a pact needs no `|`
+# (round 1 of PR #793, yellow 2).
+HTML_CELL = re.compile(r"<t[dh][\s/>]", re.I)
 
 
 def names_a_pact(text, piped=True):
@@ -3758,8 +3762,9 @@ def notify_may_be_always(said):
     """True where a copy with no `hooks/` cannot rule out that SAID, the
     text of `seal/config.md`, makes `Pact notify` mean `always`: SAID is
     None (it would not read), some line names a pact and is neither a plain
-    `| Pact | … |` row nor a plain `| Pact notify | … |` row, or a plain row
-    of each carries a value.
+    `| Pact | … |` row nor a plain `| Pact notify | … |` row, reading a
+    two-cell row other than a table's header by its item alone, or a plain
+    row of each carries a value.
 
     **It reads the lines the plugin's reader reads, by the same word.** The
     plugin refuses every GFM line naming a pact that is not a walked pact
@@ -3768,20 +3773,33 @@ def notify_may_be_always(said):
     judges each line by the line's own shape, `CONFIG_ROW_RE`, on a line no
     `str.splitlines`-only character cuts. A row of that shape has its item
     read alone, as the plugin reads a walked row's; any other line is read
-    whole and needs a `|` (#759).
+    whole and needs a `|`, unless the file holds an HTML table cell
+    (`HTML_CELL`), which carries a value with no pipe (#759; round 1 of PR
+    #793, yellow 2).
+
+    **A table's header is read whole.** A row-shaped line directly above a
+    delimiter row is a header, and a transposed table names the item there
+    and puts the value in the row below, so its item alone says nothing
+    (round 1 of PR #793, yellow 3).
 
     Where the plugin refuses and this copy does not, nothing can mean
-    `always`: a plain `Pact` row standing outside the table, or a plain
-    `Pact notify` row with no `Pact` value. An empty value is the default,
-    and a notify row with no `Pact` value is ignored (round 2 of PR #756,
-    yellow 2)."""
+    `always`: a plain `Pact` row outside the table, a plain row with no
+    value, a `Pact` row written twice, a plain `Pact notify` row with no
+    `Pact` value, or a two-cell row whose item names no pact, whose value
+    this copy does not read as the plugin does not read a walked row's. An
+    empty value is the default, and a notify row with no `Pact` value is
+    ignored (round 2 of PR #756, yellow 2)."""
     if said is None:
         return True
     valued = set()
-    for line in gfm_lines(said):
-        match = CONFIG_ROW_RE.match(line) if line.splitlines() == [line] else None
+    lines = gfm_lines(said)
+    piped = HTML_CELL.search(said) is None
+    for at, line in enumerate(lines):
+        header = at + 1 < len(lines) and RULE_LINE_RE.match(lines[at + 1].strip())
+        plain = line.splitlines() == [line] and not header
+        match = CONFIG_ROW_RE.match(line) if plain else None
         if match is None:
-            if names_a_pact(line):
+            if names_a_pact(line, piped):
                 return True
             continue
         item = match.group("item").replace("\\|", "|")

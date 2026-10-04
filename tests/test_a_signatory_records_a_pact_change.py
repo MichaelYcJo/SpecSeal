@@ -1551,8 +1551,18 @@ ONE_SPELLING = (
             "moved, and `Pact notify` may be `always`",
         ),
         ((), f"\n| Pact | {PACT_URL} |\n", f"`{CLAUSE}`, ", "cites a pact clause"),
+        (
+            (("Pact", PACT_URL),),
+            "\n<table><tr><td>Pact notify</td><td>always</td></tr></table>\n",
+            "",
+            "moved, and `Pact notify` may be `always`",
+        ),
     ],
-    ids=["a notify row below the table", "a Pact row below the table"],
+    ids=[
+        "a notify row below the table",
+        "a Pact row below the table",
+        "an HTML table row, round 1 of PR #793",
+    ],
 )
 def test_s6_a_pact_line_below_the_table_leaves_the_moved_row(
     repo, rows, below, cites, why
@@ -1605,6 +1615,8 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "| <!-->Pact notify<!-- --> | always |\n",
         "| Pact&notify | always |\n",
         "\n```\n| Pact notify | always |\n```\n",
+        "\n<table><tr><td>Pact notify</td><td>always</td></tr></table>\n",
+        f"\n| Pact | Pact notify |\n|---|---|\n| {PACT_URL} | always |\n",
     ],
     ids=[
         "below the table",
@@ -1625,6 +1637,8 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "round 4, yellow 2: an empty comment",
         "round 4, yellow 3: a legacy name with no semicolon",
         "in a closed fence",
+        "round 1 of PR #793, yellow 2: an HTML table row",
+        "round 1 of PR #793, yellow 3: a transposed table",
     ],
 )
 def test_s9_a_vendored_copy_leaves_where_the_plugin_refuses_a_pact_line(

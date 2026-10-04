@@ -656,6 +656,14 @@ PACT_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
 # `evidence_check.py#PACT_WORD` is its copy, held equal by
 # `tests/test_a_signatory_declares_its_pact.py`.
 PACT_WORD = re.compile(r"(?<![^\W\d_])p[\W\d_]*a[\W\d_]*c[\W\d_]*t", re.I)
+# An HTML table cell's opening tag, `<td` or `<th`, any case. GFM passes raw
+# HTML through and a renderer shows such a cell, which carries a value with
+# no `|` beside it, so in a file holding one every line naming a pact is read
+# without the pipe condition (round 1 of PR #793, yellow 2). A token, not a
+# grammar: it fails closed, refusing more where it is wrong.
+# `evidence_check.py#HTML_CELL` is its copy, held equal by
+# `tests/test_a_signatory_declares_its_pact.py`.
+HTML_CELL = re.compile(r"<t[dh][\s/>]", re.I)
 
 
 def names_a_pact(text, piped=True):
@@ -894,7 +902,9 @@ def pact_lines_not_read(text, rows):
         and holds a `|` (`names_a_pact`). That is a line below the table's
         end, in a second table, a block quote, a fence or a comment, and a
         line a `str.splitlines`-only character cuts, even where each of its
-        pieces would be a row.
+        pieces would be a row. In a file holding an HTML table cell
+        (`HTML_CELL`) the `|` is not asked for, because such a cell carries
+        a value with no pipe beside it.
 
     **Fences and comments are read through, on purpose.** Exempting them
     would make the refusal depend on `hidden_lines` matching GFM's block
@@ -908,6 +918,7 @@ def pact_lines_not_read(text, rows):
     nothing is rendered: a line names a pact or it does not.
     """
     taken = {index: item for index, item, _value in rows}
+    piped = HTML_CELL.search(text) is None
     found, first = [], 0
     for whole in blocks.gfm_lines(text, keepends=True):
         pieces = len(whole.splitlines())
@@ -919,7 +930,7 @@ def pact_lines_not_read(text, rows):
                 item, piped=False
             ):
                 found.append(line)
-        elif names_a_pact(line):
+        elif names_a_pact(line, piped):
             found.append(line)
     return found
 
