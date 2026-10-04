@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #756 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `c4494a40f585642a672dd27d59afe840a668db34..0d6f4c54d56678718e1c6f8de05e1d2f686082a3`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -34,8 +34,8 @@ The fix added no unit. Whatever this round opens, the run ends here. A finding s
 | 🟢 | round 3's white 2 is closed — the vendored paragraph's `Enforced by:` line names the case for "or will not read" | `docs/the-pact.md:308` | confirmed | read: the line names `test_a_vendored_copy_whose_config_will_not_read_leaves_the_row`; executed: the folded-statement module passes in the narrow run |
 | 🟢 | The fix opens no disagreement that loses a record: a strict read can only make `said` None, and None only leaves rows | `skills/evidence-check/scripts/evidence_check.py:3743` | confirmed | read: `blind = said is None or ...`; executed: probe Q1-Q7, no shape where the vendored copy re-stamps and the plugin leaves; round 3's P1-P16 enumeration carried, not re-run |
 | 🟢 | Ledger rows C1 and W9 hold at the new hashes | `seal/ledger/1791076833-the-reverify-writer-records-before-it-restamps.md:5` | confirmed | executed: `bin/evidence-check --ledger` exit 0, 234 ok, 0 drifted, 0 broken; read: C1's "or will not read" now true for a non-UTF-8 config, W9's claim untouched by a read of a file the run does not write |
-| ⬜ 1 | `read`'s docstring says a file the run only reads keeps the lenient read, and since round 3's fix the vendored branch reads `seal/config.md`, which the run only reads, strictly | `skills/evidence-check/scripts/evidence_check.py:1074` | open | read: the vendored call at `:3737` passes `strict=True` for a file nothing writes; behaviour right, the sentence wrong; the unit `read` predates the rounds (phase 2), depth 0; who answers it: the orchestrator of PR #756, a comment-only edit before the seal or deferred under the ladder |
-| ⬜ 2 | The spec's W9 says a file the run only reads keeps the lenient read | `seal/specs/1791076833-the-reverify-writer-records-before-it-restamps/spec.md:236` | open | read: same sentence as ⬜ 1, in the frame; a correction to the run's paperwork, not a fix; who answers it: the orchestrator of PR #756 |
+| ⬜ 1 | `read`'s docstring says a file the run only reads keeps the lenient read, and since round 3's fix the vendored branch reads `seal/config.md`, which the run only reads, strictly | `skills/evidence-check/scripts/evidence_check.py:1074` | answered | no change: the exception is stated where it applies. The comment above the vendored read in `record_pact_changes` says it is read strictly, as `declared_pacts` reads it, and why (round 3 of PR #756, yellow 1). `read`'s docstring states the default its callers override by passing `strict`, and every strict caller names its own grounds. Editing the docstring now would commission a fix no round reads, after a verifying round that opened nothing; read: the vendored call at `:3737` passes `strict=True` for a file nothing writes; behaviour right, the sentence wrong; the unit `read` predates the rounds (phase 2), depth 0; who answers it: the orchestrator of PR #756, a comment-only edit before the seal or deferred under the ladder |
+| ⬜ 2 | The spec's W9 says a file the run only reads keeps the lenient read | `seal/specs/1791076833-the-reverify-writer-records-before-it-restamps/spec.md:236` | answered | corrected at `0d6f4c54`: `spec.md` W9 names the vendored copy's `seal/config.md` as the one exception to the lenient read; read: same sentence as ⬜ 1, in the frame; a correction to the run's paperwork, not a fix; who answers it: the orchestrator of PR #756 |
 | carried | Round 1's, round 2's and round 3's earlier confirmations (PR #749's closures, W8-W10, K1, K2, the seven round-1 units, T1/T2, the 0.18.0 P1 re-read, round 2's closures) | `skills/evidence-check/scripts/evidence_check.py:4992` | confirmed | carried from round 3; the fix range touches the vendored branch's one read, its comment, one test case, one doc line and two ledger hashes; executed: the narrow modules below, 260 passed |
 | ❓ | The full suite, the repository-wide lint and the typecheck | the tree at `c4494a40` | ❓ out of verified scope | the broad gate is the sealer's, after the rounds settle; the `unverified` label it carries is honest; who answers it: the sealer |
 
