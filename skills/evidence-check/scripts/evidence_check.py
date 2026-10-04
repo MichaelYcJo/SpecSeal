@@ -2978,6 +2978,115 @@ def row_label(cells):
     return label if len(label) <= LABEL_WIDTH else label[: LABEL_WIDTH - 1] + "…"
 
 
+def row_citation(line, header, cells):
+    """The citation of a citing row -- the first coordinate of its `Code
+    grounds` cell -- as an `ANCHOR_RE` match on LINE, or None where the row
+    cites nothing or is not a citing row. The match is found on the line,
+    escapes and all, as `family_view` finds it, so its offset is the line's."""
+    if not citing_verb(cells):
+        return None
+    grounds = cell_index(header, cells, CODE_GROUNDS)
+    cited = ANCHOR_RE.search(cells[grounds]) if grounds >= 0 else None
+    if cited is None:
+        return None
+    return next(
+        (
+            m
+            for m in ANCHOR_RE.finditer(line)
+            if m.group(0).replace("\\|", "|") == cited.group(0)
+        ),
+        None,
+    )
+
+
+def walked_move(held, old, new):
+    """`(first, landed, broken)` for one coordinate after one more walk.
+
+    HELD is the state before this walk, or None where no earlier walk
+    re-stamped or left the coordinate; OLD is the hash this walk read and NEW
+    the hash it wrote, or None where it left the coordinate. FIRST is the
+    hash the ledger held before the run, LANDED the last hash a walk wrote
+    (None where none did), and BROKEN whether the last walk that reached the
+    coordinate left it. NEW equal to OLD is a walk that read the coordinate
+    unchanged, which clears a BROKEN an earlier walk left (#791)."""
+    first, landed, _broken = held or (old, None, False)
+    if new == old:
+        # Read unchanged: whatever an earlier walk left resolves again here.
+        return first, landed, False
+    return first, landed if new is None else new, new is None
+
+
+def owed_moves(held):
+    """The `(old, new or None)` parts one coordinate owes the pact-change
+    record once the walks end (#791): the move that landed, from the hash the
+    ledger held before the run to the last hash a walk wrote, and BROKEN at
+    the hash the file holds where the last walk left it. A BROKEN a later
+    walk's move followed is no part, and a BROKEN repeated is one. A second
+    run finds each the record's last word and appends nothing."""
+    first, landed, broken = held
+    owed = [] if landed is None else [(first, landed)]
+    if broken:
+        owed.append((first if landed is None else landed, None))
+    return owed
+
+
+def cited_first(ledgers, root, maps, default_repo):
+    """`(once, again, walks)`: how `reverify` walks LEDGERS (#772).
+
+    ONCE is each file that can follow every file of LEDGERS a citing row in
+    it cites, in that order, ties kept in the given order. `reverify` hashes
+    a citation by `read`, which answers from the open plan, so a citation is
+    hashed against the line the plan writes only where the file it cites was
+    walked first. File order put a fragment before the release it cites, and
+    `seal/releases/0.10.0.md` before the `0.9.0.md` it cites, and one run
+    left those citations DRIFTED.
+
+    AGAIN is every file no such order places, in the given order: a file
+    citing a row of itself, which a second fold of the newest release writes
+    legally, files citing each other, which nothing writes legally, and each
+    file citing one of them. A file's own re-stamp enters the plan only when
+    its walk ends, so these are walked again until a walk re-stamps nothing,
+    at most WALKS times: two more than the citations among them, enough for
+    the longest chain they can hold and one walk to see it settled. A
+    citation that never settles -- a row citing itself -- is left for
+    `--strict` to name."""
+    index = {file_identity(path): n for n, path in enumerate(ledgers)}
+    needs = [set() for _ in ledgers]
+    # The file each citing row of a file cites, one entry per row.
+    cites = [[] for _ in ledgers]
+    for n, path in enumerate(ledgers):
+        text = read(path)
+        if text is None:
+            continue
+        lines = gfm_lines(text)
+        for number, header, cells in ledger_table_rows(text):
+            cite = row_citation(lines[number - 1], header, cells)
+            if cite is None:
+                continue
+            target, _ = citation_target(root, maps, default_repo, cite.group("path"))
+            cited = index.get(file_identity(target)) if target else None
+            if cited is not None:
+                needs[n].add(cited)
+                cites[n].append(cited)
+    order, done = [], set()
+    while True:
+        ready = next(
+            (n for n in range(len(ledgers)) if n not in done and needs[n] <= done),
+            None,
+        )
+        if ready is None:
+            break
+        done.add(ready)
+        order.append(ready)
+    rest = [n for n in range(len(ledgers)) if n not in done]
+    chain = sum(1 for n in rest for cited in cites[n] if cited not in done)
+    return (
+        [ledgers[n] for n in order],
+        [ledgers[n] for n in rest],
+        chain + 2 if rest else 0,
+    )
+
+
 def reverify(
     ledgers, root, maps, default_repo=None, checked=None, moves=None, told=None
 ):
@@ -2993,9 +3102,13 @@ def reverify(
     `(ledger, row number, coordinate, recorded hash, new hash or None)` per
     coordinate whose hash this rewrites, and per coordinate it leaves because
     no one place holds it (None, a BROKEN a re-read cannot clear). A row left
-    whole under `--checked` moved nothing and appends nothing. It is what
-    `record_pact_changes` writes a signatory's pact changes from, before the
-    hash it read is gone.
+    whole under `--checked` moved nothing and appends nothing. A coordinate
+    walked more than once (`cited_first`) appends its parts once the walks
+    end (`owed_moves`, #791): the move that landed, from the hash the ledger
+    held before the run to the last hash a walk wrote, and BROKEN at the
+    hash the file holds where the last walk that reached it left it. It is
+    what `record_pact_changes` writes a signatory's pact changes from, before
+    the hash it read is gone.
 
     Re-verifying is recomputing the hash, which is a person saying they have
     re-read the code. It is deliberately a separate command: a check that
@@ -3010,6 +3123,15 @@ def reverify(
     whose hash moved is named, with its date as it stands. A row whose hash
     did not move is never dated and never named; one whose file moved whole
     is re-pointed, and one that still resolves is not touched.
+
+    **A file is walked after every file of LEDGERS it cites** (`cited_first`,
+    #772), so a citation of a released line this run re-stamps is hashed
+    against the line the run writes, and one run leaves no citation it moved
+    DRIFTED. A file citing itself, and every file no order places, is walked
+    again until a walk changes nothing it plans, and a walk after the first
+    names nothing the first one named. A citing row's
+    citation, re-stamped, appends no move: it is a ledger line, not code
+    under the row (D3).
     """
     unreadable = []
     malformed = []
@@ -3018,25 +3140,80 @@ def reverify(
     # `(ledger, hash lines, dated, undated)` for every ledger this writes.
     written = []
     scan_cache = {}
-    for ledger in ledgers:
+    once, again, bound = cited_first(ledgers, root, maps, default_repo)
+    # Whether the last walk of AGAIN changed what it plans (`cited_first`).
+    moved = [False]
+    # The hash each coordinate held when the run first re-stamped it. A
+    # citation of a citing row is re-stamped again on a later walk, because
+    # the line it cites moves on two walks, and every line the run says about
+    # a coordinate is one line, from the hash the ledger held to the one it
+    # takes (round 2, yellow 1).
+    first_old = {}
+    # The move each coordinate owes, under the same key, from the hash the
+    # ledger held before the run to the one it takes. A ledger line among a
+    # row's Code grounds that is not its citation moves on every walk the
+    # line it names moves, and a part per walk would write the permanent
+    # record a hash no file held (#791). Handed to MOVES once the walks end.
+    parts = {}
+
+    def still(key, hash_):
+        """Fold a walk that read KEY's coordinate unchanged into its part,
+        where an earlier walk gave it one (#791)."""
+        if key in parts:
+            where, held = parts[key]
+            parts[key] = (where, walked_move(held, hash_, hash_))
+
+    def walks():
+        for ledger in once:
+            yield ledger, False
+        for walk in range(bound):
+            if walk and not moved[0]:
+                return
+            moved[0] = False
+            for ledger in again:
+                yield ledger, walk > 0
+
+    def quiet(*_args, **_kwargs):
+        return None
+
+    for ledger, repeat in walks():
+        # A walk after the first says nothing the first walk said: every
+        # line below was printed or listed then, and what it adds is the
+        # citations the first walk hashed against a line not yet planned.
+        say = quiet if repeat else print
         text = read(ledger, strict=True)
         if text is None:
             # `/` on every platform, as every path the writer prints.
-            unreadable.append(built_name(ledger, root))
+            if not repeat:
+                unreadable.append(built_name(ledger, root))
             continue
-        # Named and left, never healed (#299): which reading of a coordinate
-        # the parser refused was meant is not this command's call, and the
-        # remedy the line carries is the placeholder workflow this command
-        # already completes.
-        malformed.extend((coord, why) for _, coord, why in malformed_rows(text))
-        # The same for a row wider than its header (#585). Its coordinate is
-        # a line, and this command prints no per-ledger heading, so the line
-        # names the ledger too. The hashes in the row are still rewritten
-        # below where their anchors resolve: the hash is not what is wrong.
-        overflow.extend(
-            (f"{built_name(ledger, root)} {coord}", why)
-            for _, coord, why in overflow_rows(text)
-        )
+        lines = gfm_lines(text, keepends=True)
+        starts = [0]
+        for line in lines:
+            starts.append(starts[-1] + len(line))
+        rows = {n: (header, cells) for n, header, cells in ledger_table_rows(text)}
+        # Where each citing row's citation starts: a ledger line, not code
+        # under the row, so its re-stamp appends no move (D3, #772).
+        citations = set()
+        for number, (header, cells) in rows.items():
+            cite = row_citation(lines[number - 1], header, cells)
+            if cite is not None:
+                citations.add(starts[number - 1] + cite.start())
+        if not repeat:
+            # Named and left, never healed (#299): which reading of a
+            # coordinate the parser refused was meant is not this command's
+            # call, and the remedy the line carries is the placeholder
+            # workflow this command already completes.
+            malformed.extend((coord, why) for _, coord, why in malformed_rows(text))
+            # The same for a row wider than its header (#585). Its coordinate
+            # is a line, and this command prints no per-ledger heading, so the
+            # line names the ledger too. The hashes in the row are still
+            # rewritten below where their anchors resolve: the hash is not
+            # what is wrong.
+            overflow.extend(
+                (f"{built_name(ledger, root)} {coord}", why)
+                for _, coord, why in overflow_rows(text)
+            )
         # `(offset, coordinate, recorded hash, new hash or None)` for every
         # coordinate whose hash moves or which no one place holds (MOVES).
         pending = []
@@ -3048,13 +3225,21 @@ def reverify(
         # Matched in `unquoted(text)` and spliced from `text`: the two have
         # the same offsets, and an example row in a closed fence is never
         # rewritten (#444).
+        nth, key_at = {}, {}
         for m in ANCHOR_RE.finditer(unquoted(text)):
+            # What names this coordinate on every walk: its ledger, its row,
+            # its coordinate and which of that row's spellings of it this is.
+            # An offset is not stable, because a date written on an earlier
+            # walk moves every offset after it.
+            spot = (bisect.bisect_right(starts, m.start()), coordinate_of(m))
+            nth[spot] = nth.get(spot, 0) + 1
+            key = key_at[m.start()] = (planned_key(ledger), *spot, nth[spot])
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
             repo, rel = place(root, maps, default_repo, raw_path)
             left_as = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
             if repo is None:
-                print(f"  {left_as}  path escapes the repository — left")
+                say(f"  {left_as}  path escapes the repository — left")
                 continue
             body = read(os.path.join(repo, rel))
             places, resurrected = (
@@ -3070,6 +3255,7 @@ def reverify(
                     # which is what the check calls OK. Nothing to re-verify,
                     # and nothing to say — this printed `#Render -> #Render
                     # (identical content)` and counted a row (round 7, 🟢).
+                    still(key, m.group("hash"))
                     continue
                 if resurrected:
                     # No hash of its own to tell a declaration from a call, so
@@ -3088,7 +3274,7 @@ def reverify(
                     # local look-alike (round 4, 🔴 4) — the check reports
                     # such a row EXTERNAL or file-not-found, and reverify
                     # must agree with the check rather than out-heal it.
-                    print(
+                    say(
                         f"  {left_as}  not in any known checkout — pass "
                         "--map/--default-repo; left"
                     )
@@ -3122,6 +3308,8 @@ def reverify(
                     new_hash = content_hash(gfm_lines(target)[a - 1 : b])
                     if new_hash != m.group("hash"):
                         pending.append((m.start(), left_as, m.group("hash"), new_hash))
+                    else:
+                        still(key, new_hash)
                     edits.append(
                         (
                             m.start("path"),
@@ -3131,7 +3319,11 @@ def reverify(
                             + name
                             + text[m.end("locator") : m.start("hash")]
                             + new_hash,
-                            f"  {raw_path}#{locator} -> {shown}  (identical content)",
+                            (
+                                key,
+                                f"  {raw_path}#{locator} -> {shown}  "
+                                "(identical content)",
+                            ),
                             # A file moved whole reconstructs with the recorded
                             # hash, and only a rename moves it: the owner's rule
                             # dates a row whose HASH moved (#387).
@@ -3139,14 +3331,14 @@ def reverify(
                         )
                     )
                 else:
-                    print(
+                    say(
                         f"  {left_as}  {left_because(places, resurrected)}, and "
                         "no destination is provable — left"
                     )
                     pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
             if body is None:
-                print(f"  {left_as}  the file could not be read — left")
+                say(f"  {left_as}  the file could not be read — left")
                 # Recorded as BROKEN, as a coordinate no one place holds is
                 # (round 2 of PR #749, yellow 14).
                 pending.append((m.start(), left_as, m.group("hash"), None))
@@ -3155,7 +3347,7 @@ def reverify(
                 # Never silence. The check calls this row BROKEN and tells the
                 # reader to look; running the heal command and getting nothing
                 # back reads as a heal that happened (round 6, 🟢).
-                print(f"  {left_as}  {left_because(places, resurrected)} — left")
+                say(f"  {left_as}  {left_because(places, resurrected)} — left")
                 pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
             if claim:
@@ -3164,7 +3356,7 @@ def reverify(
                     # The check prints `— re-verify` for exactly this row, so
                     # answering it with nothing was the worst of the silences
                     # (round 7, 🟢).
-                    print(
+                    say(
                         f"  {left_as}  the anchored statement is gone from "
                         f"{locator} — the check calls this DRIFTED; left"
                     )
@@ -3174,6 +3366,7 @@ def reverify(
             start, end = places[0]
             got = content_hash(gfm_lines(body)[start - 1 : end])
             if got == m.group("hash"):
+                still(key, got)
                 continue
             shown = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
             pending.append((m.start(), shown, m.group("hash"), got))
@@ -3182,7 +3375,11 @@ def reverify(
                     m.start("hash"),
                     m.end("hash"),
                     got,
-                    f"  {shown}  {m.group('hash')} -> {got}",
+                    (
+                        key,
+                        f"  {shown}  "
+                        f"{first_old.setdefault(key, m.group('hash'))} -> {got}",
+                    ),
                     True,
                 )
             )
@@ -3191,11 +3388,6 @@ def reverify(
         # `<ledger>:<line>` is a coordinate this run built, so it takes `/`
         # on every platform, as the records arm's do (`built_name`).
         name = built_name(ledger, root)
-        lines = gfm_lines(text, keepends=True)
-        starts = [0]
-        for line in lines:
-            starts.append(starts[-1] + len(line))
-        rows = {n: (header, cells) for n, header, cells in ledger_table_rows(text)}
         dated, undated = [], []
         by_row = {}
         for edit in edits:
@@ -3214,7 +3406,8 @@ def reverify(
             where = f"{name}:{number}"
             if checked is not None:
                 if column is None:
-                    undatable.append(where)
+                    if where not in undatable:
+                        undatable.append(where)
                     left_whole.add(number)
                     continue
                 cell = dated_cell(lines[number - 1], column[0], checked)
@@ -3234,10 +3427,19 @@ def reverify(
                 )
             kept.extend(spliced)
         if moves is not None:
+            # A citing row's citation is a ledger line, not code under the
+            # row: re-stamping it is not a pact change (D3, #772), and the
+            # released row it cites records its own code move on its own row.
             for offset, coord, old, new in pending:
+                if offset in citations:
+                    continue
                 number = bisect.bisect_right(starts, offset)
                 if new is None or number not in left_whole:
-                    moves.append((ledger, number, coord, old, new))
+                    _where, held = parts.get(key_at[offset], (None, None))
+                    parts[key_at[offset]] = (
+                        (ledger, number, coord),
+                        walked_move(held, old, new),
+                    )
         out, at, said_here = [], 0, []
         for start, end, replacement, said in sorted(kept):
             out.append(text[at:start])
@@ -3247,16 +3449,26 @@ def reverify(
                 said_here.append(said)
         if out:
             out.append(text[at:])
+            if "".join(out) != text:
+                moved[0] = True
             put(ledger, "".join(out))
             written.append((ledger, said_here, dated, undated))
+    if moves is not None:
+        for where, held in parts.values():
+            moves.extend((*where, old, new) for old, new in owed_moves(held))
 
     def report(landed):
-        lines, dated, undated = [], [], []
+        said, dated, undated = {}, [], []
         for ledger, said_here, dated_here, undated_here in written:
             if landed_at(landed, ledger):
-                lines.extend(said_here)
-                dated.extend(dated_here)
-                undated.extend(undated_here)
+                # One line per coordinate, the last walk's: it names the hash
+                # the ledger held before the run and the one it takes.
+                said.update(said_here)
+                # A file walked more than once (`cited_first`) lists a row
+                # both walks dated once.
+                dated.extend(d for d in dated_here if d not in dated)
+                undated.extend(u for u in undated_here if u not in undated)
+        lines = list(said.values())
         changed = len(lines)
         lines.append(f"{changed} row{'' if changed == 1 else 's'} re-verified")
         if dated:
@@ -3400,6 +3612,96 @@ def current_hash(m, root, maps, default_repo):
     return content_hash(gfm_lines(body)[start - 1 : end])
 
 
+def newest_hash(view, key, coord, m):
+    """The hash the newest reading of COORD recorded in the family rooted at
+    KEY -- the row `view.newest` names, and its first reading of COORD -- or
+    M's own where KEY roots no family: a released row outside every family is
+    its own newest reading. A move a re-read records starts here, because it
+    is the content the code moved from (#774): the released member's hash,
+    where a newer reading outranks it, records a move from content nobody
+    read last, and from the hash the code is back at, a move to itself."""
+    at = view.newest.get(key, {}).get(coord)
+    if at is not None:
+        for reading in view.readings.get(key, {}).get(coord, []):
+            if reading[0] == at[1]:
+                return reading[1].group("hash")
+    return m.group("hash")
+
+
+def citations_left(ledgers, view_paths, root, maps, default_repo):
+    """`[(where, label, cited, target)]` for each citing row in a file of VIEW_PATHS
+    that LEDGERS leave out whose citation this run made DRIFTED: OK against
+    the released file on disk, DRIFTED against what the open plan writes
+    there (#772). Read while the plan is open, after the in-place walk.
+
+    One unnarrowed run re-stamps every such citation (`cited_first`). A run
+    narrowed with `--ledger` can re-stamp a released line that a citing row
+    in a file it does not write quotes, and that row is left DRIFTED; it is
+    named, the way a family the narrowing could not clear is. A citation
+    already DRIFTED before the run is not this run's to name."""
+    global PLANNED
+    held = PLANNED
+    if not held:
+        return []
+    read_here = {file_identity(p) for p in ledgers}
+
+    def loader():
+        files = {}
+
+        def load(path):
+            ident = file_identity(path)
+            if ident not in files:
+                body = read(path)
+                files[ident] = (
+                    None
+                    if body is None
+                    else (
+                        path,
+                        body,
+                        gfm_lines(unquoted(body)),
+                        {n: (h, c) for n, h, c in ledger_table_rows(body)},
+                    )
+                )
+            return ident, files[ident]
+
+        return load
+
+    now, before, found = loader(), loader(), []
+    for path in view_paths:
+        if file_identity(path) in read_here:
+            continue
+        body = read(path)
+        if body is None:
+            continue
+        lines = gfm_lines(body)
+        for number, header, cells in ledger_table_rows(body):
+            cite = row_citation(lines[number - 1], header, cells)
+            if cite is None:
+                continue
+            target, _ = citation_target(root, maps, default_repo, cite.group("path"))
+            if target is None or planned_key(target) not in held:
+                continue
+            verb = citing_verb(cells)
+            status, _, at = cited_row(cite, verb, root, maps, default_repo, now)
+            if status != "DRIFTED":
+                continue
+            PLANNED = None
+            try:
+                was = cited_row(cite, verb, root, maps, default_repo, before)[0]
+            finally:
+                PLANNED = held
+            if was == "OK":
+                found.append(
+                    (
+                        f"{built_name(path, root)}:{number}",
+                        row_label(cells),
+                        f"{built_name(target, root)}:{at[1]}",
+                        target,
+                    )
+                )
+    return found
+
+
 def released_drift(ledgers, view_paths, root, maps, default_repo):
     """`(view, drifted, broken)` for the rows of LEDGERS a re-read owes.
 
@@ -3416,7 +3718,8 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
     BROKEN is `[(where, coordinate, detail, row, hash)]` for the released
     coordinates a re-read cannot clear, which take a `Corrected ·` row
     instead; `row` is the `(file identity, line)` key `view.files` reads and
-    `hash` the one the row recorded.
+    `hash` the one the coordinate's newest reading recorded (`newest_hash`),
+    which outside every family is the row's own.
     """
     view = family_view(view_paths, root, maps, default_repo)
     wanted = {file_identity(p) for p in ledgers if ledger_kind(root, p) == "released"}
@@ -3475,7 +3778,9 @@ def released_drift(ledgers, view_paths, root, maps, default_repo):
                     continue
             key, m, status, detail = pick
             if status == "BROKEN":
-                broken.append((where(key), coord, detail, key, m.group("hash")))
+                broken.append(
+                    (where(key), coord, detail, key, newest_hash(view, top, coord, m))
+                )
                 continue
             # DRIFTED, or OK and outranked by a newer reading holding other
             # content: the family owes a re-read either way. That newer
@@ -3559,7 +3864,8 @@ def reverify_into(
     repair is a `Corrected ·` row (#746).
 
     MOVES is `reverify`'s: each coordinate a written row re-reads, and each
-    BROKEN one, is appended against the released row it belongs to. TOLD is
+    BROKEN one, is appended against the released row it belongs to, from the
+    hash the coordinate's newest reading recorded (`newest_hash`, #774). TOLD is
     `reverify`'s too: the `wrote` lines and the count of rows written wait
     until INTO lands, and the `LEFT` lines, which say nothing was written,
     print now.
@@ -3607,7 +3913,7 @@ def reverify_into(
                             path,
                             key[1],
                             coord,
-                            m.group("hash"),
+                            newest_hash(view, key, coord, m),
                             current_hash(m, root, maps, default_repo),
                         )
                     )
@@ -3640,14 +3946,18 @@ def reverify_into(
                 # Recorded BROKEN through the same record step (round 2 of
                 # PR #749, yellow 14).
                 if moves is not None:
-                    moves.append((path, key[1], coord, m.group("hash"), None))
+                    moves.append(
+                        (path, key[1], coord, newest_hash(view, key, coord, m), None)
+                    )
                 continue
             # M may come from any released member of the family, not from
             # KEY's own line (`released_drift`): slice the line it was matched
             # on, which is the string the match carries.
             stamped.append(spanned(m.string[m.start() : m.start("hash")] + new))
             if moves is not None:
-                moves.append((path, key[1], coord, m.group("hash"), new))
+                moves.append(
+                    (path, key[1], coord, newest_hash(view, key, coord, m), new)
+                )
         if not stamped:
             continue
         rows.append(
@@ -3705,11 +4015,13 @@ def reverify_into(
 # A signatory names the pact it signs in a `Pact` row of `seal/config.md` and
 # cites clauses as pact anchors in its ledger rows. When `--reverify` moves
 # the hash of a row citing a clause of a declared pact -- in place, or into a
-# `Re-read ·` row -- or leaves a coordinate of one BROKEN, the code a clause
-# binds moved, and the pact's repository is owed a look. The record is
-# written here, by the same command, because the re-read is the one act at
-# which a session acknowledges that code under a row moved: a step somebody
-# must remember is a step that gets skipped (`docs/the-pact.md`).
+# `Re-read ·` row -- finds the code under one moved where `--into` refuses it
+# a `Re-read ·` row for a stale `--checked`, or leaves a coordinate of one
+# BROKEN, the code a clause binds moved, and the pact's repository is owed a
+# look. The record is written here, by the same command, because the re-read
+# is the one act at which a session acknowledges that code under a row moved:
+# a step somebody must remember is a step that gets skipped
+# (`docs/the-pact.md`).
 
 ROUTING_READER = os.path.join(HERE, "..", "..", "..", "hooks", "routing.py")
 PACT_CHANGE_INTRO = (
@@ -3788,6 +4100,8 @@ def record_pact_changes(moves, root, into, checked):
     the same move or the same BROKEN is not recorded again, whatever its date,
     so a second run records nothing twice; a change that comes back after its
     revert is recorded, because the record's last word for it was the revert.
+    A coordinate whose old and new hash agree moved nothing and is dropped,
+    and a row with nothing left is not recorded (#774).
 
     Exit 1, recording nothing, where a row is owed and no work item names the
     file, where the file is there and will not read, decode or parse, where
@@ -3811,7 +4125,11 @@ def record_pact_changes(moves, root, into, checked):
         line = lines[number - 1] if 0 < number <= len(lines) else ""
         cells = dict((n, c) for n, _h, c in ledger_table_rows(text)).get(number, [])
         label = (cells[0] if cells else "").split(" · ", 1)[0].strip()
-        parts = list(dict.fromkeys(coords))
+        # A part whose two hashes agree moved nothing, whichever writer
+        # handed it over, and a row left with no part owes no record (#774).
+        parts = [p for p in dict.fromkeys(coords) if p[1] != p[2]]
+        if not parts:
+            continue
         where = f"{built_name(ledger, root)}:{number}"
         row = f"{built_name(ledger, root)} · {label or number}".replace("|", "\\|")
         entries.append((where, row, parts, list(PACT_ANCHOR_RE.finditer(line))))
@@ -5169,7 +5487,27 @@ def main():
                         f"reading of {', '.join(owed[key])} in its family sits in a "
                         "file this run did not write; run it without `--ledger`"
                     )
-                return recorded_then_applied(max(code, 1 if owed else 0))
+                # A citation of a line this run re-stamped, in a file the
+                # narrowing left out, is left DRIFTED: named, never silent
+                # (#772). Read before the plan is applied, against it. The
+                # line says the re-stamp happened, so it waits in TOLD for the
+                # cited file to land, as every line claiming a write does: a
+                # run that writes nothing claims nothing (W8, round 1,
+                # yellow 3).
+                left = citations_left(ledgers, view, root, maps, default_repo)
+
+                def left_cited(landed):
+                    return [
+                        f"  LEFT  {where}  {label} — its citation of {cited} is "
+                        "DRIFTED: this run re-stamps the line it cites, and the "
+                        "narrowing left this row's file out; run it without "
+                        "`--ledger`"
+                        for where, label, cited, target in left
+                        if landed_at(landed, target)
+                    ]
+
+                told.append(left_cited)
+                return recorded_then_applied(max(code, 1 if owed or left else 0))
             # A released file is not written: the fragments are re-stamped in
             # place as before, and then the released rows are re-read into INTO,
             # or named where there is no INTO. The view is read after the

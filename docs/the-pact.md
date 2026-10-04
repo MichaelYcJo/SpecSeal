@@ -116,14 +116,23 @@ Enforced by: tests/test_pact_check.py::test_an_anchor_missing_its_slash_is_refus
 row that cites a clause of a pact its `Pact` row declares, finds the code
 under such a row moved where `--into` refuses it a `Re-read ·` row for a
 stale `--checked`, or leaves a coordinate of one BROKEN, the same command
-records a pact change, and that test is the whole trigger.** It needs no
+records a pact change, and that test is the whole trigger.** The hash is a
+code coordinate's: a citing row's citation of a released row is a ledger
+line, so its re-stamp records nothing (#772). It needs no
 judgment: a row carrying a pact anchor and a local coordinate is the link,
 and a re-read is the one act at which a session says code under a row
 moved. The record is written in both of the re-read's forms, a re-stamp in
 place and a `Re-read ·` row under `--into`, before the hash it read is gone,
 one row per ledger row. A row `--into` refuses is recorded by the run that
 refuses it, because its repair may be a `Corrected ·` row that no later
-re-read reaches (#746). `Pact
+re-read reaches (#746). **A move `--into` records starts at the hash the
+coordinate's newest reading holds**, whether it writes the row's `Re-read ·`
+row or refuses it. That can be a later `Re-read ·` row's hash rather than the
+released row's, so code that went back to the released hash records the move
+back. A re-stamp in place records each row's move from that row's own hash,
+one move per coordinate however many walks re-stamp it, and BROKEN after it
+at the hash it holds where a later walk leaves it (#791).
+A move whose two hashes agree is no move and is not recorded (#774). `Pact
 notify` decides what is recorded: `when the pact is touched` records rows
 citing a clause of a declared pact, `always` also records every other row
 whose code moved, with `—` for its clause, and `never` records nothing. The
@@ -142,7 +151,7 @@ run that can record it. A run killed after recording leaves the record
 written and the ledger unstamped; the next run finds the change already the
 record's last word for it, records nothing twice, and re-stamps. An `--into`
 that is there and will not read is refused before anything is written.
-Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_s7_a_drifted_row_citing_a_clause_is_recorded, tests/test_a_signatory_records_a_pact_change.py::test_s8_a_released_row_drifted_is_recorded_beside_its_reread, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_declared_branch_names_the_record, tests/test_a_signatory_records_a_pact_change.py::test_s9_with_no_work_item_nothing_is_recorded_and_the_row_is_left, tests/test_a_signatory_records_a_pact_change.py::test_s7_the_ledger_is_written_exactly_as_before, tests/test_a_signatory_records_a_pact_change.py::test_a_change_left_is_recorded_by_the_remedy_it_names, tests/test_a_signatory_records_a_pact_change.py::test_a_pact_row_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_always_a_declaration_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_the_freeze_the_reread_row_is_never_written, tests/test_a_signatory_records_a_pact_change.py::test_a_run_killed_after_its_record_is_finished_by_the_next, tests/test_a_signatory_records_a_pact_change.py::test_an_into_that_will_not_read_is_refused_before_anything_is_written
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_s7_a_drifted_row_citing_a_clause_is_recorded, tests/test_a_signatory_records_a_pact_change.py::test_s8_a_released_row_drifted_is_recorded_beside_its_reread, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_declared_branch_names_the_record, tests/test_a_signatory_records_a_pact_change.py::test_s9_with_no_work_item_nothing_is_recorded_and_the_row_is_left, tests/test_a_signatory_records_a_pact_change.py::test_s7_the_ledger_is_written_exactly_as_before, tests/test_a_signatory_records_a_pact_change.py::test_a_change_left_is_recorded_by_the_remedy_it_names, tests/test_a_signatory_records_a_pact_change.py::test_a_pact_row_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_always_a_declaration_that_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_under_the_freeze_the_reread_row_is_never_written, tests/test_a_signatory_records_a_pact_change.py::test_a_run_killed_after_its_record_is_finished_by_the_next, tests/test_a_signatory_records_a_pact_change.py::test_an_into_that_will_not_read_is_refused_before_anything_is_written, tests/test_a_signatory_records_a_pact_change.py::test_a_row_refused_for_a_stale_date_records_its_move_once, tests/test_a_signatory_records_a_pact_change.py::test_a_row_dated_after_today_has_its_move_recorded_before_its_correction, tests/test_a_signatory_records_a_pact_change.py::test_a_recorded_move_starts_at_the_newest_reading, tests/test_a_signatory_records_a_pact_change.py::test_a_part_whose_two_hashes_agree_is_not_recorded
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **A line saying the run wrote a ledger file prints only once that file is
