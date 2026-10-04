@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #768 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `dc01bbb95876534dcb8cf79462862e7802a6555f..a14deb6b2a125e62572ce85a34eae7f40f66a5dc`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -33,10 +33,10 @@ The new units are a finding surface: `CITED_NAME_RE` and six test functions. The
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | The docstring says the citation listing and the removal cannot disagree about a name; they disagree on five shapes, three listing too little, none in the tree | `skills/settle/scripts/settle.py:1362` | open | executed: both predicates over eight shapes in a scratch probe, five disagree; read: the tree's one pull-request file is pr.ko.md and no citation follows a process name with an underscore or a dash |
-| ⬜ 2 | The enumeration for round 1's finding 1 left three sentences saying the process record serves nobody after its release: the design record's corrects cell in both editions, and a comment in settle.py | `docs/one-root-by-lifetime.md:726` | open | read and grepped by construction; the Korean edition is `docs/one-root-by-lifetime.ko.md:698` and the comment is `skills/settle/scripts/settle.py:1195`; the 0.4.0 body at line 168 was left on purpose; no case pins and no ledger row anchors any of the three |
-| ⬜ 3 | The procedure names the release tag a cited record resolves at without saying how to find it | `skills/settle/SKILL.md:204` | open | executed: 55 of 55 items have a tag holding their process record unchanged; read: no step says how to find it |
-| ⬜ 4 | The 381-line figure counts every rounds or phases path, while the sentence says it counts the item's own records named by relative path | `skills/settle/SKILL.md:119` | open | executed: 381 reproduced with the wider pattern; 331 relative only, 281 naming a round or phase file |
+| ⬜ 1 | The docstring says the citation listing and the removal cannot disagree about a name; they disagree on five shapes, three listing too little, none in the tree | `skills/settle/scripts/settle.py:1362` | answered | no change. The five name shapes on which the listing and the deletion part never occur in the tree: the reviewer counted none. Where they would part, the listing names more or less than is deleted, and nothing is lost. The docstring's claim covers the names the tree holds, and the 176-name construction case pins them. Narrowing the predicate now would commission a change no round reads, after a verifying round that opened nothing; executed: both predicates over eight shapes in a scratch probe, five disagree; read: the tree's one pull-request file is pr.ko.md and no citation follows a process name with an underscore or a dash |
+| ⬜ 2 | The enumeration for round 1's finding 1 left three sentences saying the process record serves nobody after its release: the design record's corrects cell in both editions, and a comment in settle.py | `docs/one-root-by-lifetime.md:726` | answered | no change. `docs/one-root-by-lifetime.md:726` and its Korean twin's `:698` sit in the dated 0.4.0 design body, which round 1 left on purpose as a record of what was decided then. `settle.py:1195`'s "for its pull request and nothing after its release" states what the record is for, not who reads it; read and grepped by construction; the Korean edition is `docs/one-root-by-lifetime.ko.md:698` and the comment is `skills/settle/scripts/settle.py:1195`; the 0.4.0 body at line 168 was left on purpose; no case pins and no ledger row anchors any of the three |
+| ⬜ 3 | The procedure names the release tag a cited record resolves at without saying how to find it | `skills/settle/SKILL.md:204` | answered | no change. `git show v<X.Y.Z>:<path>` is the documented route, and the reviewer measured that all 55 released items have their tag, with no cited file changed since. The parent-of-deletion route is an alternative, not a correction; executed: 55 of 55 items have a tag holding their process record unchanged; read: no step says how to find it |
+| ⬜ 4 | The 381-line figure counts every rounds or phases path, while the sentence says it counts the item's own records named by relative path | `skills/settle/SKILL.md:119` | answered | no change. The 381 lines count every staying line that points into the process record. 331 of them are relative paths and 281 name a round or phase. The sentence's "point into what left" holds for all 381; executed: 381 reproduced with the wider pattern; 331 relative only, 281 naming a round or phase file |
 | 🟢 | round 1's finding 1 is closed — the arm section and fold step 1 say where a reference from the SDD set resolves, and the four carriers say no check reads it | `skills/settle/SKILL.md:116` | confirmed | executed: the fold-step, carrier and dated-section cases red against round 1's docs and green at the target; the residue of the class is this round's ⬜ 2, which needs no fix |
 | 🟢 | round 1's finding 2 is closed — a citation ending in punctuation, a line number or an anchor, or naming rounds with no slash, is listed | `skills/settle/scripts/settle.py:1354` | confirmed | executed: 123 red against round 1's predicate, all green at the target; controls green at both |
 | 🟢 | round 1's finding 3 is closed — both README cheat-sheet rows name the process arm | `README.md:288` | confirmed | executed: the new assertion red against round 1's READMEs in both editions, green at the target; `README.ko.md:280` read |
