@@ -1741,3 +1741,181 @@ def test_a_checked_date_the_calendar_does_not_have_is_named_as_written(
     assert out.returncode == 2, out.stdout
     section = ledger_section(out.stdout, R_FILE)
     assert f"matches only {said}; the newest reading" in section, section
+
+
+# --- `--into` refuses a row its `--checked` date cannot make count (#746, ⬜ 12)
+#
+# A `Re-read ·` row is a new reading at exactly `--checked`. Where a newer
+# reading of a coordinate it carries sits out of the run's reach -- in a
+# fragment the narrowing left out, or in a released file -- that newer reading
+# outranks the new row and the family stays DRIFTED. The row is left whole,
+# named, and nothing of it is written or recorded.
+
+N_PLACE = {
+    "fragment": "seal/ledger/3000000003-the-newer-re-read.md:1",
+    "release": "seal/releases/0.3.0.md:5",
+}
+# Where N is a fragment, a run that reads it re-stamps it in place, which
+# clears the family before any `Re-read ·` row is owed; so the run is
+# narrowed to M's file, which leaves N out. A folded N is out of every run's
+# reach, so that run is not narrowed.
+STALE_TREES = [
+    (m_at, n_at, carrier)
+    for carrier in ("the root", "re-reads only")
+    for m_at in ("release", "fragment")
+    for n_at in ("fragment", "release")
+]
+
+
+def stale_run(repo, m_at, n_at, carrier, checked):
+    files = three_readings(repo, m_at, n_at, carrier)
+    frozen(repo, "0")
+    flags = ["--ledger", files["M"]] if n_at == "fragment" else []
+    out = run(
+        ["--reverify", "--into", MEMBER_INTO, "--checked", checked, *flags, "."], repo
+    )
+    return files, flags, out
+
+
+@pytest.mark.parametrize("m_at, n_at, carrier", STALE_TREES)
+def test_into_refuses_a_row_its_checked_date_cannot_make_count(
+    repo, m_at, n_at, carrier
+):
+    """⬜ 12 (A1, A2). `--checked 2026-02-15` falls between M (2026-02-01) and
+    N (2026-03-01, other content). The row it would write is outranked by N,
+    so the run writes nothing, prints no `wrote` line, and exits 1 naming the
+    root, the date, N's date and place, and the repair. It wrote the row and
+    exited 0 while `--strict` read the family DRIFTED."""
+    _, _, out = stale_run(repo, m_at, n_at, carrier, "2026-02-15")
+    assert out.returncode == 1, out.stdout + out.stderr
+    assert not (repo / MEMBER_INTO).exists(), out.stdout
+    assert "  wrote " not in out.stdout, out.stdout
+    assert "0 citing rows written · 1 released row left" in out.stdout, out.stdout
+    left = [line for line in out.stdout.splitlines() if line.startswith("  LEFT")]
+    unit = "handler" if carrier == "the root" else "other"
+    assert left == [
+        "  LEFT  seal/releases/0.1.0.md:5  R1 · handler adds one — "
+        "`--checked 2026-02-15` is older than the newest reading of "
+        f"src/service.py#{unit}, 2026-03-01 at {N_PLACE[n_at]}, so a "
+        "`Re-read ·` row dated 2026-02-15 would not outrank it and the row "
+        "would stay DRIFTED; nothing was written or recorded for this row — "
+        "read the code again and run it with the date of that reading"
+    ], out.stdout
+
+
+@pytest.mark.parametrize("m_at, n_at, carrier", STALE_TREES)
+def test_into_writes_a_row_dated_on_the_newest_reading(repo, m_at, n_at, carrier):
+    """A3. A `--checked` equal to N's date ties with it, the two readings are
+    a union, and the row is written and clears the family: only a date
+    strictly older than the newest reading is refused."""
+    _, flags, out = stale_run(repo, m_at, n_at, carrier, "2026-03-01")
+    assert out.returncode == 0, out.stdout + out.stderr
+    assert "1 citing row written · 0 released rows left" in out.stdout, out.stdout
+    assert run(["--strict", *flags, "."], repo).returncode == 0
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+@pytest.mark.parametrize("checked", ("2026-02-15", "2026-03-01"))
+@pytest.mark.parametrize("narrowed", ("M's file", "N's file", "no --ledger"))
+@pytest.mark.parametrize("m_at, n_at, carrier", STALE_TREES)
+def test_a_reverify_into_exits_0_only_where_strict_does_at_any_date(
+    repo, m_at, n_at, carrier, narrowed, checked
+):
+    """A4, the grid's invariant with the date as its axis (questions.md Q4):
+    the narrowed grid runs `--into` at a date newer than every reading, so a
+    date between M and N was never asked. Over every placement and carrier,
+    narrowed to M's file, to N's, or not at all, and at a date between M and
+    N or on N's: a `--reverify --into` that exits 0 is followed by a
+    `--strict` with the same narrowing that exits 0, and no released byte
+    moves."""
+    files = three_readings(repo, m_at, n_at, carrier)
+    frozen(repo, "0")
+    flags = [] if narrowed == "no --ledger" else ["--ledger", files[narrowed[0]]]
+    before = digests(repo)
+    fix = run(
+        ["--reverify", "--into", MEMBER_INTO, "--checked", checked, *flags, "."], repo
+    )
+    assert fix.returncode in (0, 1), fix.stdout + fix.stderr
+    assert digests(repo) == before, fix.stdout
+    if fix.returncode == 0:
+        check = run(["--strict", *flags, "."], repo)
+        assert check.returncode == 0, fix.stdout + "\n---\n" + check.stdout
+
+
+def test_a_refused_row_does_not_stop_the_rows_beside_it(repo):
+    """A6. Two drifted released rows in one run: R1 was read on 2026-01-01
+    and R2 on 2026-03-01. `--checked 2026-02-01` writes R1's `Re-read ·` row,
+    leaves R2's whole, and exits 1 for the row it left."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |",
+            f"| R2 · handler returns its sum | `src/service.py#handler@{h}` | read | 2026-03-01 | |",
+        ],
+    )
+    frozen(repo, "0")
+    edit_handler(repo)
+    out = run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
+    assert out.returncode == 1, out.stdout + out.stderr
+    written = (repo / INTO).read_text(encoding="utf-8").splitlines()
+    assert len(written) == 1 and written[0].startswith("| Re-read · R1 ·"), written
+    assert "1 citing row written · 1 released row left" in out.stdout, out.stdout
+    left = [line for line in out.stdout.splitlines() if line.startswith("  LEFT")]
+    assert len(left) == 1, out.stdout
+    assert left[0].startswith(
+        "  LEFT  seal/releases/0.1.0.md:6  R2 · handler returns its sum — "
+        "`--checked 2026-02-01` is older than the newest reading of "
+        "src/service.py#handler, 2026-03-01 at seal/releases/0.1.0.md:6"
+    ), left[0]
+
+
+def test_a_reading_dated_after_today_is_named_with_a_correction(repo):
+    """A7. A released row whose `Checked` date is after today: `--checked`
+    refuses a date after today, so no `Re-read ·` row can outrank that
+    reading, and the line names a `Corrected ·` row as the repair. `--strict`
+    does not refuse such a date (questions.md Q2, measured), so the tree is
+    an ordinary drifted row otherwise."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2999-01-01 | |"
+        ],
+    )
+    frozen(repo, "0")
+    edit_handler(repo)
+    out = run(["--reverify", "--into", INTO, "--checked", "2026-02-01", "."], repo)
+    assert out.returncode == 1, out.stdout + out.stderr
+    assert not (repo / INTO).exists(), out.stdout
+    left = [line for line in out.stdout.splitlines() if line.startswith("  LEFT")]
+    assert len(left) == 1, out.stdout
+    assert left[0].startswith(
+        "  LEFT  seal/releases/0.1.0.md:5  R1 · handler adds one — "
+        "`--checked 2026-02-01` is older than the newest reading of "
+        "src/service.py#handler, 2999-01-01 at seal/releases/0.1.0.md:5, "
+        "which is after today ("
+    ), left[0]
+    assert left[0].endswith(
+        "and `--checked` takes no date after today, so no `Re-read ·` row can "
+        "outrank it; nothing was written or recorded for this row — a "
+        "`Corrected ·` row in your own fragment supersedes the row and every "
+        "reading of it"
+    ), left[0]
+
+
+def test_the_refusal_reads_the_date_the_grading_reads():
+    """The refusal and the grading order readings by one function, so the two
+    cannot disagree about which reading is newest (spec S1): a date the
+    calendar does not have orders nothing, and the newest of several wins."""
+    header = list(ec.LEDGER_COLUMNS)
+    cells = [
+        "R1",
+        "`a.py#f@00000000`",
+        "read",
+        "2026-01-01 · 2026-13-45 · 2026-03-01",
+        "",
+    ]
+    assert ec.reading_date(header, cells) == "2026-03-01"
+    cells[3] = "2026-13-45"
+    assert ec.reading_date(header, cells) == ""

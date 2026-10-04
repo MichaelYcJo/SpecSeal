@@ -71,8 +71,11 @@ def config_text(*rows):
     )
 
 
-def row(label, cites, coord):
-    return f"| {label} · the field list | {cites}`{coord}` | read | 2026-10-01 | |\n"
+def row(label, cites, coord, checked="2026-09-01"):
+    """A ledger row read on CHECKED, which is before every `--checked` these
+    cases pass: a released row read after the run's date would outrank the
+    `Re-read ·` row the run writes, and `--into` refuses that row (#746)."""
+    return f"| {label} · the field list | {cites}`{coord}` | read | {checked} | |\n"
 
 
 @pytest.fixture
@@ -1577,3 +1580,46 @@ def test_a_left_line_names_its_ledger_in_posix_form(repo, monkeypatch, capsys, s
     assert ec.main() == 1
     out = capsys.readouterr().out
     assert f"  LEFT  {name}  {shape}" in out, out
+
+
+# --- #746: a row `--into` refuses for a stale date records nothing -----------
+
+
+def test_a_row_refused_for_a_stale_date_records_nothing(repo):
+    """A5 (#746 spec S6). The released row was read on 2026-09-10, after the
+    run's `--checked 2026-09-04`, so a `Re-read ·` row dated 2026-09-04 would
+    not outrank it. The row is refused in the plan, before its moves are
+    held: the record gains no row for it, no `Re-read ·` row is written, and
+    a second identical run refuses it again and leaves the record byte for
+    byte."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(
+            ("Mode", "shared"), ("Pact", PACT_URL), ("Ledger frozen from", "0")
+        ),
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{old}", "2026-09-10"),
+        encoding="utf-8",
+    )
+    fragment = cite(repo, [])
+    move_serialize(repo)
+    states = []
+    for _ in range(2):
+        code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+        assert code == 1, out
+        assert record_rows(repo) == [], out
+        assert "Re-read · O1" not in fragment.read_text(encoding="utf-8"), out
+        assert (
+            "  LEFT  seal/releases/0.1.0.md:5  O1 · the field list — "
+            "`--checked 2026-09-04` is older than the newest reading of "
+            "src/orders.py#serialize, 2026-09-10 at seal/releases/0.1.0.md:5"
+        ) in out, out
+        assert "nothing was written or recorded for this row" in out, out
+        record = repo / RECORD
+        states.append(record.read_bytes() if record.exists() else None)
+    assert states[0] == states[1]
