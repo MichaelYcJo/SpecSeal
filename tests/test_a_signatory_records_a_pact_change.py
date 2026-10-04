@@ -1529,6 +1529,44 @@ def test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause(
     assert not (repo / "seal" / "pact-changes").exists(), out
 
 
+# The eight characters `str.splitlines` ends a line at and GFM does not.
+SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"]
+
+
+@pytest.mark.parametrize(
+    "below",
+    [
+        "\n| Pact notify | always |\n",
+        *(f"| Pact notify | {ch}always |\n" for ch in SPLITLINES_ONLY),
+    ],
+    ids=[
+        "S12 below the table",
+        *(f"S13 cut at U+{ord(ch):04X}" for ch in SPLITLINES_ONLY),
+    ],
+)
+def test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify(
+    repo, tmp_path, below
+):
+    """S12 and S13 of #759. Where the plugin's reader refuses a `Pact notify`
+    row it does not reach, a copy with no `hooks/` leaves the moved row too.
+    It matches its shape on every line of both cuts: the reader's, which
+    finds a row under the table's end, and GFM's, which finds one the
+    reader cuts into two pieces neither of which is a row."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), ("Pact", PACT_URL)) + below,
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger_rows = [row("O2", "", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, ledger_rows)
+    move_serialize(repo)
+    code, out = _vendored(repo, tmp_path)
+    assert code == 1, out
+    assert "moved, and `Pact notify` may be `always`" in out, out
+    assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
+    assert not (repo / "seal" / "pact-changes").exists(), out
+
+
 @pytest.mark.parametrize(
     "rows",
     [
