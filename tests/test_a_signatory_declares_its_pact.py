@@ -392,6 +392,17 @@ STRAY_WAYS = [
             ),
         )
     ),
+    # Round 2 of PR #793, yellow 2: the cause is named only on the line the
+    # pipe condition alone would not refuse.
+    (
+        "an HTML table beside a piped line",
+        CONFIG
+        + "\n<table><tr><td>Pact notify</td><td>always</td></tr></table>\n\n"
+        + PLAIN
+        + "\n",
+        [("<table><tr><td>Pact notify</td><td>always</td></tr></table>", True), PLAIN],
+        ORDERS,
+    ),
     # Round 1 of PR #793, yellow 3: a transposed table names the item in its
     # header and the value below it.
     *(
