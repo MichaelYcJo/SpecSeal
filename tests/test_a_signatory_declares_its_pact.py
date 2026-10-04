@@ -88,6 +88,24 @@ def test_a_notify_value_outside_the_vocabulary_is_refused_naming_all_three():
     ]
 
 
+@pytest.mark.parametrize("first", ["always", "when the pact is touched", "never"])
+def test_a_notify_row_written_twice_has_no_value(first):
+    """A `Pact notify` row written twice is refused and read as no value, as
+    a value outside the vocabulary is: its first row is not the answer, so
+    no caller can rule `always` in or out from it (#647 C and D, round 1 of
+    PR #756, yellow 2)."""
+    pacts, notify, refusals = config.pact_declaration(
+        table(
+            ("Pact", "git@example.com:org/orders-api.git"),
+            ("Pact notify", first),
+            ("Pact notify", "always"),
+        )
+    )
+    assert len(pacts) == 1
+    assert notify is None
+    assert refusals == ["`Pact notify` appears 2 times — one value"]
+
+
 def test_no_row_and_an_empty_row_hold_no_pact_and_ignore_notify():
     """Absent means no pact is held elsewhere, and a `Pact notify` with no
     `Pact` is ignored rather than refused."""
@@ -232,6 +250,15 @@ def test_a_pact_with_no_table_or_an_unfilled_one_is_refused():
     assert signatories == [] and len(refusals) == 1 and "holds a space" in refusals[0]
     _, refusals = config.pact_signatories("| Signatory |\n|---|\n\n## A\n")
     assert refusals == ["has a `Signatory` table that lists nobody"]
+    # A header GFM renders no table under is that refusal alone: it names
+    # no table, so it cannot be one that lists nobody.
+    assert config.pact_signatories("| Signatory |\n\n## A\n") == (
+        [],
+        [
+            "has a `| Signatory |` header with no delimiter row under it, so "
+            "GFM renders no table there"
+        ],
+    )
 
 
 @pytest.mark.parametrize(
@@ -260,11 +287,15 @@ def test_a_signatory_row_the_walk_cannot_read_is_refused(row):
 
 # --- every way GFM ends or breaks the `Signatory` table (round 2 of #647) ---
 #
-# Enumerated from the GFM tables extension: a table is a header row, a
-# delimiter row of the same width, then body rows, and it is broken by a
-# blank line or by the start of another block. Each way is either read as
-# GFM reads it, or refused; none drops a signatory while the table reads as
-# complete.
+# A table is a header row, a delimiter row of the same width, then body rows,
+# and it is broken by a blank line or by the start of another block. Each way
+# is either read as GFM reads it, or refused; none drops a signatory while the
+# table reads as complete. These cases pin the SENTENCES the pact prints. That
+# the walk reads what GFM renders is not held here but by
+# `tests/test_one_table_walker_reads_what_gfm_renders.py`, over a corpus
+# enumerated from the block kinds and judged by cmark-gfm itself: a list like
+# this one, written by the walk's own author, is what round 3 of #735 found
+# short by an autolink.
 
 WEB = "https://example.com/org/orders-web"
 MOBILE = "https://example.com/org/orders-mobile"
@@ -297,6 +328,37 @@ TABLE_ENDS = [
     ("a block quote", HEAD + f"> a note\n| {MOBILE} |\n" + CLAUSE, ENDS_ABOVE),
     ("a list item", HEAD + f"- a note\n| {MOBILE} |\n" + CLAUSE, ENDS_ABOVE),
     ("the end of the file", HEAD, None),
+    # Round 3 of #735 (🟡 18): an autolink is a row to GFM, not an HTML
+    # block, and a thematic break ends the table rather than being a row.
+    (
+        "an autolink row",
+        HEAD + f"<{MOBILE}>\n" + CLAUSE,
+        f"has a `Signatory` table that continues with `<{MOBILE}>`, a line with "
+        "no pipe that GFM reads as one of its rows — write it as `| … |`",
+    ),
+    ("an HTML block", HEAD + f"<div>\n| {MOBILE} |\n" + CLAUSE, ENDS_ABOVE),
+    ("an ordered list item", HEAD + f"1. a note\n| {MOBILE} |\n" + CLAUSE, ENDS_ABOVE),
+    ("a thematic break", HEAD + f"***\n| {MOBILE} |\n" + CLAUSE, ENDS_ABOVE),
+    ("a thematic break, then a clause", HEAD + "---\n" + CLAUSE, None),
+    # ⬜ 22: indented as GFM permits, read rather than refused.
+    (
+        "an indented header, delimiter and row",
+        f"# Pact\n\n   | Signatory |\n  |---|\n | {WEB} |\n" + CLAUSE,
+        None,
+    ),
+    (
+        "a row four columns in",
+        HEAD + f"    | {MOBILE} |\n" + CLAUSE,
+        f"has a `Signatory` table that ends above `| {MOBILE} |`, a row the walk "
+        "never reaches — it and every signatory below it would go unread",
+    ),
+    (
+        "a header GFM reads into a list item",
+        f"# Pact\n\n- a note\n| Signatory |\n|---|\n| {WEB} |\n" + CLAUSE,
+        "has a `| Signatory |` header directly under `- a note`, and GFM "
+        "renders a table under a line only in some of the shapes that line "
+        "can take — leave a blank line above the header",
+    ),
     (
         "no delimiter row",
         f"# Pact\n\n| Signatory |\n| {WEB} |\n" + CLAUSE,

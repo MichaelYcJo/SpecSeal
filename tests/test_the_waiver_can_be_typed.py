@@ -80,7 +80,7 @@ def _waiver_repo_template():
         def g(*a):
             subprocess.run(["git", "-C", str(d), *a], check=True, capture_output=True)
 
-        (d / "f.py").write_text("x = 1\n")
+        (d / "f.py").write_text("x = 1\n", encoding="utf-8")
         g("add", "-A")
         g(
             "-c",
@@ -91,7 +91,7 @@ def _waiver_repo_template():
             "-qm",
             "base",
         )
-        (d / "f.py").write_text("x = 2\n")
+        (d / "f.py").write_text("x = 2\n", encoding="utf-8")
         g("add", "-A")
         atexit.register(shutil.rmtree, d, True)
         _WAIVER_REPO_TEMPLATE = d
@@ -225,7 +225,9 @@ def test_every_prompt_shows_the_runnable_form(tmp_path):
     others saying the thing that fails.
     """
     repo = opted_in_repo(tmp_path / "prompts")
-    (repo / "seal" / "parity.md").write_text("| Original repo | org/legacy |\n")
+    (repo / "seal" / "parity.md").write_text(
+        "| Original repo | org/legacy |\n", encoding="utf-8"
+    )
     seen = []
     for cmd, session in (
         ("git commit -m x", "s1"),  # deny: both arms, question form

@@ -300,7 +300,7 @@ def test_the_one_shell_site_is_run_and_it_applies_the_rewrite():
     """A2, the class by construction. `broad_gate.py` has exactly one call
     passing `shell=`, it is inside `run`, and the string it is handed is the
     one `handed_to_shell` produced. `gate`'s `SUITE` and `compare_at_base`'s
-    `suite-at-base` both reach a shell through it, so a third shell site
+    `suite-at-base-<k>` both reach a shell through it, so a third shell site
     written anywhere else turns this red rather than going unrewritten."""
     with open(GATE, encoding="utf-8") as handle:
         tree = ast.parse(handle.read())

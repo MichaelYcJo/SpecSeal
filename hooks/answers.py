@@ -143,7 +143,7 @@ def write(session, call, command, tokens, root=None, now=None):
     written = []
     for name in names:
         try:
-            open(os.path.join(d, name), "w").close()
+            open(os.path.join(d, name), "w", encoding="utf-8").close()
             written.append(name)
         except OSError:
             continue

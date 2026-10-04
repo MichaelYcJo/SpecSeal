@@ -49,11 +49,12 @@ def repo(tmp_path):
     git("init", "-q", "-b", "main")
     git("config", "user.email", "t@example.com")
     git("config", "user.name", "t")
-    (d / "src" / "service.py").write_text(OLD_SERVICE)
+    (d / "src" / "service.py").write_text(OLD_SERVICE, encoding="utf-8")
     (d / "seal" / "ledger" / "f.md").write_text(
         "# map\n\n"
         "| A | `src/service.py:1-2` | 2026-08-31 `9829412` |\n"
-        "| B | `src/service.py:999` | 2026-08-31 |\n"
+        "| B | `src/service.py:999` | 2026-08-31 |\n",
+        encoding="utf-8",
     )
     git("add", "-A")
     git("commit", "-qm", "an old-format ledger, committed")
@@ -78,7 +79,7 @@ def test_the_first_session_start_migrates_and_says_so_in_one_line(hook, repo):
     assert "ledger migrated to anchor format" in out, out
     assert "1 row" in out and "1 left" in out, out
     assert "review the diff and commit" in out, out
-    ledger = (repo / "seal" / "ledger" / "f.md").read_text()
+    ledger = (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8")
     assert "src/service.py#handler@" in ledger, ledger
     assert "src/service.py:1-2" not in ledger, ledger
     assert "src/service.py:999" in ledger, "the unprovable row was guessed at"
@@ -93,7 +94,9 @@ def test_an_old_format_row_in_a_release_file_is_migrated_too(hook, repo):
     left as it was and the hook counted one row where two migrated."""
     release = repo / "seal" / "releases" / "0.4.0.md"
     release.parent.mkdir()
-    release.write_text("# 0.4.0\n\n| R | `src/service.py:1-2` | 2026-08-31 |\n")
+    release.write_text(
+        "# 0.4.0\n\n| R | `src/service.py:1-2` | 2026-08-31 |\n", encoding="utf-8"
+    )
     subprocess.run(
         ["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True
     )
@@ -105,7 +108,7 @@ def test_an_old_format_row_in_a_release_file_is_migrated_too(hook, repo):
     out = start(hook, repo)
     assert "ledger migrated to anchor format" in out, out
     assert "2 rows" in out, out
-    text = release.read_text()
+    text = release.read_text(encoding="utf-8")
     assert "src/service.py#handler@" in text, text
     assert "src/service.py:1-2" not in text, text
 
@@ -123,11 +126,16 @@ def test_uncommitted_ledger_changes_are_never_overwritten(hook, repo):
     is NOT stamped — so the next session with a clean tree migrates — and the
     OLD-FORMAT failure stays loud in between."""
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text(ledger.read_text() + "| C | someone's half-written row |\n")
-    before = ledger.read_text()
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + "| C | someone's half-written row |\n",
+        encoding="utf-8",
+    )
+    before = ledger.read_text(encoding="utf-8")
     out = start(hook, repo)
     assert "uncommitted" in out, out
-    assert ledger.read_text() == before, "the hook overwrote work in progress"
+    assert ledger.read_text(encoding="utf-8") == before, (
+        "the hook overwrote work in progress"
+    )
 
     subprocess.run(
         ["git", "-C", str(repo), "commit", "-qam", "the wip lands"],
@@ -142,7 +150,9 @@ def test_uncommitted_ledger_changes_are_never_overwritten(hook, repo):
 
 def test_a_clean_ledger_says_nothing(hook, repo):
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text("# map\n\n| A | `src/service.py#handler@00000000` |\n")
+    ledger.write_text(
+        "# map\n\n| A | `src/service.py#handler@00000000` |\n", encoding="utf-8"
+    )
     subprocess.run(
         ["git", "-C", str(repo), "commit", "-qam", "already anchored"],
         check=True,
@@ -156,10 +166,10 @@ def test_a_scratch_repo_is_left_alone_even_with_an_old_ledger(hook, repo):
     repository can HOLD a ledger while not being opted in — `seal/`
     existing is the opt-in itself. Found by mutation: a fixture with no
     ledger at all passed whether or not the opt-in was consulted."""
-    (repo / ".git" / "specseal-scratch").write_text("")
-    before = (repo / "seal" / "ledger" / "f.md").read_text()
+    (repo / ".git" / "specseal-scratch").write_text("", encoding="utf-8")
+    before = (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8")
     assert start(hook, repo) == ""
-    assert (repo / "seal" / "ledger" / "f.md").read_text() == before
+    assert (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8") == before
 
 
 def test_a_git_that_cannot_answer_reads_as_dirty(hook, repo, monkeypatch):
@@ -177,11 +187,11 @@ def test_the_plain_checker_still_never_rewrites(repo):
     """Reading never rewrites — session start is the write moment, and the
     checker stays pure. Held here beside the hook so the pair is one read."""
     EC = os.path.join(ROOT, "skills", "evidence-check", "scripts", "evidence_check.py")
-    before = (repo / "seal" / "ledger" / "f.md").read_text()
+    before = (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8")
     subprocess.run(
         [sys.executable, EC, "."], cwd=str(repo), capture_output=True, encoding="utf-8"
     )
-    assert (repo / "seal" / "ledger" / "f.md").read_text() == before
+    assert (repo / "seal" / "ledger" / "f.md").read_text(encoding="utf-8") == before
 
 
 def test_the_hook_is_wired_into_session_start(hook):
@@ -225,13 +235,16 @@ def test_migrate_leaves_a_row_whose_lines_moved_since_the_stamp(repo):
     a user's choice, which is what makes the guard non-optional."""
     sha = head_sha(repo)
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text(f"# map\n\n| A | `src/service.py:1-2` | 2026-08-31 `{sha}` |\n")
+    ledger.write_text(
+        f"# map\n\n| A | `src/service.py:1-2` | 2026-08-31 `{sha}` |\n",
+        encoding="utf-8",
+    )
     (repo / "src" / "service.py").write_text(
-        "def intruder(y):\n    return y\n\n\n" + OLD_SERVICE
+        "def intruder(y):\n    return y\n\n\n" + OLD_SERVICE, encoding="utf-8"
     )
     r = cli(["--migrate", "."], repo)
     assert "1 left" in r.stdout and "changed since the stamp" in r.stdout, r.stdout
-    after = ledger.read_text()
+    after = ledger.read_text(encoding="utf-8")
     assert "src/service.py:1-2" in after, after
     assert "#intruder@" not in after, f"anchored to whatever sits there now:\n{after}"
 
@@ -241,11 +254,14 @@ def test_migrate_with_the_stamp_proof_says_nothing_extra(repo):
     migrates, and no caveat prints."""
     sha = head_sha(repo)
     ledger = repo / "seal" / "ledger" / "f.md"
-    ledger.write_text(f"# map\n\n| A | `src/service.py:1-2` | 2026-08-31 `{sha}` |\n")
+    ledger.write_text(
+        f"# map\n\n| A | `src/service.py:1-2` | 2026-08-31 `{sha}` |\n",
+        encoding="utf-8",
+    )
     r = cli(["--migrate", "."], repo)
     assert "1 row migrated" in r.stdout, r.stdout
     assert "without the since-the-stamp proof" not in r.stdout, r.stdout
-    assert "#handler@" in ledger.read_text()
+    assert "#handler@" in ledger.read_text(encoding="utf-8")
 
 
 def test_migrate_without_git_or_the_stamped_commit_says_so(repo):

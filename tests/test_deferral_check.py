@@ -38,7 +38,7 @@ def repo(tmp_path):
 
 
 def workflow(repo, name, text):
-    (repo / ".github" / "workflows" / name).write_text(text)
+    (repo / ".github" / "workflows" / name).write_text(text, encoding="utf-8")
 
 
 # --- the answerer exists -----------------------------------------------------
@@ -117,7 +117,8 @@ def test_runner_on_wrong_trigger_is_named_not_counted(repo):
 
 def test_pre_commit_is_reported_but_does_not_resolve(repo):
     (repo / ".pre-commit-config.yaml").write_text(
-        "repos:\n  - repo: local\n    hooks:\n      - id: t\n        entry: pytest\n"
+        "repos:\n  - repo: local\n    hooks:\n      - id: t\n        entry: pytest\n",
+        encoding="utf-8",
     )
     r = run(["--kind", "tests", str(repo)])
     assert r.returncode == 1
@@ -131,7 +132,9 @@ def test_pre_commit_is_reported_but_does_not_resolve(repo):
 def test_gitlab_ci_is_read(tmp_path):
     d = tmp_path / "gl"
     d.mkdir()
-    (d / ".gitlab-ci.yml").write_text("test:\n  script:\n    - pytest -q\n")
+    (d / ".gitlab-ci.yml").write_text(
+        "test:\n  script:\n    - pytest -q\n", encoding="utf-8"
+    )
     r = run(["--kind", "tests", str(d)])
     assert r.returncode == 0, r.stdout + r.stderr
     assert ".gitlab-ci.yml" in r.stdout

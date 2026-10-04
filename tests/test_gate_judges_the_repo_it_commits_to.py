@@ -71,7 +71,7 @@ def _gate_repo_template():
         def git(*a):
             subprocess.run(["git", "-C", str(d), *a], capture_output=True, check=True)
 
-        (d / "f.py").write_text("x = 1\n")
+        (d / "f.py").write_text("x = 1\n", encoding="utf-8")
         git("add", "-A")
         git(
             "-c",
@@ -82,7 +82,7 @@ def _gate_repo_template():
             "-qm",
             "base",
         )
-        (d / "f.py").write_text("x = 2\n")
+        (d / "f.py").write_text("x = 2\n", encoding="utf-8")
         git("add", "-A")
         atexit.register(shutil.rmtree, d, True)
         _GATE_REPO_TEMPLATE = d
@@ -1383,7 +1383,7 @@ def test_the_parity_arm_names_the_repository_too(tmp_path):
     """
     here = make_repo(tmp_path / "repoA", opted_in=True)
     there = make_repo(tmp_path / "repoB", opted_in=True)
-    (there / "seal" / "parity.md").write_text("# migration config\n")
+    (there / "seal" / "parity.md").write_text("# migration config\n", encoding="utf-8")
     command = f"git -C {sh(there)} commit -m 'change' [no-review]"
 
     first = run(command, here, session="s1")
@@ -1419,7 +1419,7 @@ def test_a_mark_in_the_shells_repository_does_not_answer_for_the_target(tmp_path
             encoding="utf-8",
             errors="replace",
         ).stdout.strip()
-        (Path(gd) / "specseal-reviewed").write_text(head)
+        (Path(gd) / "specseal-reviewed").write_text(head, encoding="utf-8")
 
     command = f"git -C {sh(there)} commit -m 'change'"
     mark(here)
@@ -1509,7 +1509,7 @@ def test_a_subdirectory_commit_does_not_hide_the_migration_arm(tmp_path):
     """
     repo = tmp_path / "repoP"
     (repo / "seal").mkdir(parents=True)
-    (repo / "seal" / "parity.md").write_text("# migration config\n")
+    (repo / "seal" / "parity.md").write_text("# migration config\n", encoding="utf-8")
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
 
     def git(*a):
@@ -1521,14 +1521,14 @@ def test_a_subdirectory_commit_does_not_hide_the_migration_arm(tmp_path):
             check=True,
         ).stdout.strip()
 
-    (repo / "f.py").write_text("x = 1\n")
+    (repo / "f.py").write_text("x = 1\n", encoding="utf-8")
     git("add", "-A")
     git("-c", "user.email=e@example.com", "-c", "user.name=e", "commit", "-qm", "base")
     (repo / "sub").mkdir()
     # Unstaged on purpose: the pathspec form is then the only view that sees it.
-    (repo / "f.py").write_text("x = 2\n")
+    (repo / "f.py").write_text("x = 2\n", encoding="utf-8")
     Path(git("rev-parse", "--absolute-git-dir"), "specseal-reviewed").write_text(
-        git("rev-parse", "HEAD")
+        git("rev-parse", "HEAD"), encoding="utf-8"
     )
 
     outside = tmp_path / "elsewhere"
@@ -1598,7 +1598,7 @@ def test_the_worktree_guard_is_no_longer_load_bearing_for_this_gate(tmp_path):
         if broken is None:
             (hooks / "worktree-guard.py").unlink()
         else:
-            (hooks / "worktree-guard.py").write_text(broken)
+            (hooks / "worktree-guard.py").write_text(broken, encoding="utf-8")
         after = (
             gate(aimed_at_opted_in, plain),
             gate(prose, opted),
@@ -1660,7 +1660,7 @@ def test_a_broken_command_reader_leaves_no_verdict_rather_than_a_wrong_one(tmp_p
         return decision_of(r.stdout)
 
     assert dispatch() == "ask", "the fixture itself has to reach the gate"
-    (hooks / "cmdline.py").write_text("def broken(:\n")
+    (hooks / "cmdline.py").write_text("def broken(:\n", encoding="utf-8")
     assert dispatch() == "silent", (
         "recorded, not endorsed: dispatch swallows the ImportError and the "
         "absence of a gate reads as an allow"

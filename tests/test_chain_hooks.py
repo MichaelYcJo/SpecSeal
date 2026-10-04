@@ -152,7 +152,9 @@ def test_gate_allows_when_cycle_reviewed(repo):
         encoding="utf-8",
         errors="replace",
     ).stdout.strip()
-    with open(os.path.join(git_dir(repo), "specseal-reviewed"), "w") as f:
+    with open(
+        os.path.join(git_dir(repo), "specseal-reviewed"), "w", encoding="utf-8"
+    ) as f:
         f.write(head)
     assert (
         decision_of(run_hook("commit-review-gate.py", payload("git commit -m x", repo)))
@@ -233,7 +235,9 @@ def test_the_posting_reminder_spells_all_three_paths_from_one_base(repo):
 def test_history_guard_silent_when_record_exists_on_post(repo):
     opt_in(repo)
     item = declare_routing(repo)
-    (rounds_dir(item) / "round-1.md").write_text("| Target SHA | abc |\n")
+    (rounds_dir(item) / "round-1.md").write_text(
+        "| Target SHA | abc |\n", encoding="utf-8"
+    )
     assert (
         run_hook(
             "review-history-guard.py", payload("gh pr comment 42 --body hi", repo)
@@ -257,7 +261,9 @@ def test_history_guard_says_nothing_where_no_work_item_is_declared(repo):
 def test_history_guard_reminds_reading_with_record(repo):
     opt_in(repo)
     item = declare_routing(repo)
-    (rounds_dir(item) / "round-1.md").write_text("| Target SHA | abc |\n")
+    (rounds_dir(item) / "round-1.md").write_text(
+        "| Target SHA | abc |\n", encoding="utf-8"
+    )
     out = run_hook(
         "review-history-guard.py", payload("gh pr view 42 --json comments", repo)
     )

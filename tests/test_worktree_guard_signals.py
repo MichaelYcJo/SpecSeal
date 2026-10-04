@@ -19,7 +19,7 @@ def iso(minutes_ago):
 
 
 def write_jsonl(path, events):
-    with open(path, "w") as f:
+    with open(path, "w", encoding="utf-8") as f:
         f.writelines(json.dumps(e) + "\n" for e in events)
 
 
@@ -240,7 +240,7 @@ def test_worktree_add_unreliable_offers_both_ways_on(monkeypatch, capsys, repo):
 
 
 def test_dirty_ask_lists_the_files(monkeypatch, capsys, repo):
-    (repo / "f.txt").write_text("changed\n")
+    (repo / "f.txt").write_text("changed\n", encoding="utf-8")
     d, reason = decide(monkeypatch, capsys, repo, "git switch feature/x")
     assert d == "ask" and "f.txt" in reason
 
@@ -254,7 +254,7 @@ def test_lease_entries_flow_into_deny(monkeypatch, capsys, repo):
 
 
 def test_tracked_changes_ignore_untracked(repo):
-    (repo / "new-untracked.txt").write_text("x")
+    (repo / "new-untracked.txt").write_text("x", encoding="utf-8")
     assert wg.tracked_changes(str(repo)) == []
 
 

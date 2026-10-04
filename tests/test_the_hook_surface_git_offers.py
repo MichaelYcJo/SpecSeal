@@ -34,7 +34,11 @@ ZERO = "0" * 40
 
 def _git_version():
     out = subprocess.run(
-        ["git", "--version"], capture_output=True, text=True, check=True, timeout=60
+        ["git", "--version"],
+        capture_output=True,
+        encoding="utf-8",
+        check=True,
+        timeout=60,
     ).stdout
     m = re.search(r"(\d+)\.(\d+)", out)
     return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
@@ -61,7 +65,7 @@ def g(d, *args, check=True, env=None):
     return subprocess.run(
         ["git", "-C", str(d), *args],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         check=check,
         env=e,
         stdin=subprocess.DEVNULL,
@@ -335,7 +339,9 @@ def test_only_git_commit_hands_reference_transaction_an_author_date(tmp_path):
     step("merge-no-ff", "merge", "-q", "--no-ff", "--no-edit", "other")
     step("branch-f", "branch", "-f", "other", "main")
     step("update-ref", "update-ref", "refs/heads/other", "main~1")
-    got = dict(line.split(" ", 1) for line in log.read_text().splitlines())
+    got = dict(
+        line.split(" ", 1) for line in log.read_text(encoding="utf-8").splitlines()
+    )
     dated = {label for label, value in got.items() if value.strip() == "dated"}
     assert dated == {"commit", "no-verify", "amend"}, got
     assert set(got) == {
@@ -379,7 +385,7 @@ def test_a_sequencer_that_stopped_on_a_conflict_commits_with_the_date(tmp_path):
     g(d, "rebase", "--continue", env={**env, "LABEL": "rebase-continue"})
     # A rebase also moves its branch at the end, undated; one dated line per
     # command is the fact.
-    lines = log.read_text().splitlines()
+    lines = log.read_text(encoding="utf-8").splitlines()
     dated = {line.split(" ", 1)[0] for line in lines if line.endswith(" dated")}
     assert dated == {"cherry-pick-continue", "rebase-continue"}, lines
 

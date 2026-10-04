@@ -200,7 +200,7 @@ def run(args, home, cwd=None):
     return subprocess.run(
         [sys.executable, SCRIPT, *args],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=env,
         cwd=cwd or ROOT,
     )
@@ -937,7 +937,7 @@ def test_a_floor_above_this_interpreter_refuses_before_anything_is_read(tmp_path
     result = subprocess.run(
         [sys.executable, str(copy), "--root", missing, "--sections"],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         cwd=ROOT,
     )
     assert result.returncode == 2, result.stdout + result.stderr

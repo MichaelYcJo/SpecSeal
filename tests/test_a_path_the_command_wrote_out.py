@@ -280,10 +280,10 @@ def make_repo(path, opted_in, local=False):
     git = lambda *a: subprocess.run(
         ["git", "-C", str(path), *a], check=True, capture_output=True
     )
-    (path / "f.py").write_text("x = 1\n")
+    (path / "f.py").write_text("x = 1\n", encoding="utf-8")
     git("add", "-A")
     git("-c", "user.email=e@example.com", "-c", "user.name=e", "commit", "-qm", "base")
-    (path / "f.py").write_text("x = 2\n")
+    (path / "f.py").write_text("x = 2\n", encoding="utf-8")
     git("add", "-A")
     if opted_in and local:
         local_home(path)

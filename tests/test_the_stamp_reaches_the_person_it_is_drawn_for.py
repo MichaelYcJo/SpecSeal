@@ -173,7 +173,7 @@ def test_pending_lists_the_undrawn_oldest_first_and_claim_takes_one_once(tmp_pat
     older = mod.write_values(str(tmp_path), "s-1", values(), now=1)
     newer = mod.write_values(str(tmp_path), "s-1", values(), now=2)
     directory = mod.values_dir(str(tmp_path), "s-1")
-    open(os.path.join(directory, ".3-aaa1111.tmp"), "w").close()
+    open(os.path.join(directory, ".3-aaa1111.tmp"), "w", encoding="utf-8").close()
     assert mod.pending(directory) == [older, newer]
     assert mod.claim(older) == mod.drawn_path(older)
     assert mod.claim(older) is None, "a claimed file was claimed a second time"
