@@ -22,11 +22,14 @@ rebasing and re-measure the baseline.
 ## What this phase found
 
 **The release branch moved, and the baseline was taken twice.** On phase 1's
-tree the ratchet measured 67 files, 184,317 words, 102 pairs sharing 2,064
-distinct 15-word runs and 197 maximal runs, with `CLAUDE.md` ↔
-`docs/branch-and-release.md` no longer a pair. `origin/release/v0.18.1` then
+tree the ratchet measured 67 files, 184,317 words and 102 pairs, whose
+per-pair counts of shared 15-word windows sum to 2,064 over 1,170 distinct
+windows, and 197 maximal runs counted pair by pair. `CLAUDE.md` ↔
+`docs/branch-and-release.md` is no longer a pair. `origin/release/v0.18.1` then
 moved to `edee5ca2` (#756, #757, #758) and was merged in at `8484c1f2`. After
-the merge: 68 files, 188,585 words, 103 pairs, 2,091 runs, 204 maximal runs.
+the merge: 68 files, 188,585 words, 103 pairs, a sum of 2,091 over 1,197
+distinct windows, 204 maximal runs. (Corrected in round 1's fix pass, ⬜ 4:
+this paragraph called the sums *distinct runs*.)
 #756 added `templates/pact-review.md`, which shares 10 runs with
 `docs/the-pact.md`, and raised `docs/the-pact.md` ↔
 `skills/evidence-check/SKILL.md` from 4 to 21. Both went into `BASELINE` at
