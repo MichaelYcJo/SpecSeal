@@ -394,7 +394,7 @@ here. The pact's repository needs no row: it is identified by holding
 | Row | Value | Absent |
 |---|---|---|
 | `Pact` | the origin remote URL of the pact's repository; a signatory of pacts held in more than one repository lists them separated by `;` | no pact is held elsewhere |
-| `Pact notify` | `always` · `when the pact is touched` · `never` | `when the pact is touched` where a `Pact` row stands, and ignored where none does |
+| `Pact notify` | `always` · `when the pact is touched` · `never` | `when the pact is touched` where a `Pact` row stands, and ignored where none does. Written anywhere but the table above, or spelled any other way, it is refused, not absent |
 
 **The URL is compared normalised**, so `git@example.com:org/orders-api.git`
 and `https://example.com/org/orders-api` name one repository. Its last path
@@ -418,6 +418,14 @@ At this repository's pull request `chain-check` prints the sentence and its
 exit status does not move: a signatory's CI prints and does not verify.
 `pact-check`, run at the pact's repository, reads the same rows through the
 same reader, `hooks/config.py#pact_declaration`, and exits 2 on them.
+
+**Both rows are read only where the table above holds them, spelled exactly
+`Pact` and `Pact notify`.** Any other line of `seal/config.md` that names a
+pact and holds a `|` is refused the same way: one written under the table,
+a fenced or commented example, or a row of the table whose item says
+`pact notify`, `**Pact notify**` or `` `Pact` ``. Keep both rows in that
+table, and keep examples like the one above out of `seal/config.md`. A
+sentence with no `|` in it may name the pact freely.
 
 ## The fold's values
 

@@ -336,7 +336,8 @@ named on a `LEFT` line and the run exits 1. A copy of this script with no
 `hooks/` beside it cannot read the `Pact` row: it names each row citing a
 pact on a `LEFT` line, and each other moved row where `seal/config.md` holds
 a `Pact` row and a `Pact notify` row that both carry a value, or will not
-read, records nothing, and exits 1. A `Pact
+read, or carries any other line the plugin's reader refuses for naming a
+pact outside its one spelling, records nothing, and exits 1. A `Pact
 notify` row written twice has no value, so it cannot rule `always` out
 either. Where the record is
 written, the ledger is written exactly as before. **The run records first

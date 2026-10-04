@@ -728,6 +728,92 @@ def test_s10_the_reader_and_the_vendored_copy_read_one_word():
             )
 
 
+# A letter between the word's letters, or a look-alike from another script.
+BLIND_SIDE = [
+    "P<b></b>act notify",
+    "[P](x)act notify",
+    "P&zz;act notify",
+    "P\u0430ct notify",
+]
+
+
+@pytest.mark.parametrize("gap", ["", "\n"], ids=["in the table", "below it"])
+@pytest.mark.parametrize("item", BLIND_SIDE, ids=ascii)
+def test_the_blind_side_is_read_as_no_line(item, gap):
+    """Q1's default, stated in `docs/the-pact.md` §*What this does not see*:
+    a spelling that puts a letter between the word's letters, or spells it
+    with a look-alike from another script, names no pact to either reader,
+    so the table's notify is read. A change to Q1's answer turns this red."""
+    text = CONFIG + gap + f"| {item} | always |\n"
+    assert config.pact_declaration(text) == (ORDERS, config.NOTIFY_DEFAULT, [])
+    assert ec.notify_may_be_always(text) is False
+
+
+@pytest.mark.parametrize(
+    "parts, sentence",
+    [
+        (
+            ("docs", "the-pact.md"),
+            "**A pact row is read in one spelling, and every other line of "
+            "`seal/config.md` that names a pact is refused.**",
+        ),
+        (
+            ("docs", "the-pact.md"),
+            "On a row of the table only the item is read, so a value that mentions "
+            "a pact is never refused.",
+        ),
+        (
+            ("docs", "the-pact.md"),
+            "An example kept in a fence or a comment is refused too, because "
+            "telling it from a live row would mean modelling GFM; delete it.",
+        ),
+        (
+            ("docs", "the-pact.md"),
+            "A line with no `|` has no value cell, so the pact can be named in prose.",
+        ),
+        (
+            ("docs", "the-pact.md"),
+            "**A pact line with a letter written between the word's letters, or "
+            "with a look-alike letter from another script, is read as no line at "
+            "all.**",
+        ),
+        (
+            ("docs", "the-pact.md"),
+            "So does `P\u0430ct` spelled with a Cyrillic `\u0430`, U+0430.",
+        ),
+        (
+            ("templates", "config.md"),
+            "**Both rows are read only where the table above holds them, spelled "
+            "exactly `Pact` and `Pact notify`.**",
+        ),
+        (
+            ("templates", "config.md"),
+            "Written anywhere but the table above, or spelled any other way, it is "
+            "refused, not absent",
+        ),
+        (
+            ("templates", "config.md"),
+            "A sentence with no `|` in it may name the pact freely.",
+        ),
+    ],
+    ids=[
+        "the pact: the rule",
+        "the pact: a walked row's item alone",
+        "the pact: an example refuses",
+        "the pact: no pipe",
+        "the pact: the blind side",
+        "the pact: a look-alike letter",
+        "template: the rule",
+        "template: the Absent cell",
+        "template: no pipe",
+    ],
+)
+def test_s12_the_documents_say_a_pact_row_is_read_in_one_spelling(parts, sentence):
+    """S12 of #759. Each sentence a person reads about the one spelling is
+    pinned whole; the refusal's own text is pinned by `refused` above."""
+    assert sentence in flat(*parts), sentence
+
+
 # --- the shipped rows -------------------------------------------------------
 
 

@@ -74,6 +74,26 @@ the same rows. A `Pact notify` value outside the vocabulary, or a row
 written twice, has no value at all: its first row is not the answer.
 Enforced by: tests/test_a_signatory_declares_its_pact.py::test_one_pact_reads_normalised_with_the_default_notify, tests/test_a_signatory_declares_its_pact.py::test_a_notify_value_outside_the_vocabulary_is_refused_naming_all_three, tests/test_a_signatory_declares_its_pact.py::test_a_notify_row_written_twice_has_no_value, tests/test_a_signatory_declares_its_pact.py::test_a_row_that_will_not_parse_is_refused_and_never_read_as_absent, tests/test_a_signatory_records_a_pact_change.py::test_s10_notify_decides_what_is_recorded
 
+<!-- specs/1791128260-a-pact-row-is-read-in-one-plain-spelling -->
+**A pact row is read in one spelling, and every other line of `seal/config.md`
+that names a pact is refused.** The one spelling is a row of the
+`| Item | Value |` table whose item is exactly `Pact` or `Pact notify`: that
+case, one space between the words, and nothing in its cell but the item and
+the spaces around it. A line names a pact where the letters `p`, `a`, `c` and
+`t` stand in that order with only non-letters between them and no letter
+before the `p`, as written or with its character references decoded, so
+`impact` names none. On a row of the table only the item is read, so a value
+that mentions a pact is never refused. Any other line is refused where it also
+holds a `|`: a row written below the table's end, in a second table, in a
+block quote, inside a code fence or an HTML comment, or cut by a character
+only Python ends a line at. An example kept in a fence or a comment is refused
+too, because telling it from a live row would mean modelling GFM; delete it.
+A line with no `|` has no value cell, so the pact can be named in prose. A
+refusal leaves `Pact notify` with no value, so `evidence-check --reverify`
+leaves every moved row it cannot rule out, `pact-check` exits 2, and a
+signatory's CI prints a notice.
+Enforced by: tests/test_a_signatory_declares_its_pact.py::test_s2_every_way_the_walk_passes_a_pact_row_by_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s2_a_pact_item_spelled_another_way_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s4_a_line_that_is_not_a_pact_row_in_another_spelling_is_silent, tests/test_a_signatory_declares_its_pact.py::test_s5_a_plain_row_in_a_fence_or_a_comment_is_refused_and_not_read, tests/test_a_signatory_records_a_pact_change.py::test_s6_a_pact_line_below_the_table_leaves_the_moved_row
+
 ## The pact anchor
 
 <!-- specs/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it -->
@@ -303,13 +323,29 @@ a signatory that types a new hash into a ledger row leaves no pact change,
 and nothing can see that it should have. A copy of the checker with no
 `hooks/` beside it cannot read the `Pact` row; it names each row citing a
 pact, and each other moved row where `seal/config.md` holds a `Pact` row and
-a `Pact notify` row that both carry a value, or will not read, says it
-recorded nothing, and re-stamps nothing, so the plugin's own checker records
-the change where the signatory is checked out. A pact under
+a `Pact notify` row that both carry a value, holds a line that names a pact
+by the plugin's word and is neither row in the one spelling, or will not
+read, says it recorded nothing, and re-stamps nothing, so the plugin's own
+checker records the change where the signatory is checked out. A pact under
 local mode keeps `seal/pact-reviews/` under the git directory, so another
 clone of the pact's repository reads the same changes as `NOT TAKEN`, which
 is loud in the right direction.
-Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_whose_config_will_not_read_leaves_the_row
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_whose_config_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_vendored_copy_leaves_where_the_plugin_refuses_a_pact_line, tests/test_a_signatory_declares_its_pact.py::test_s10_the_reader_and_the_vendored_copy_read_one_word
+
+<!-- specs/1791128260-a-pact-row-is-read-in-one-plain-spelling -->
+**A pact line with a letter written between the word's letters, or with a
+look-alike letter from another script, is read as no line at all.** The reader
+names a pact by its four letters with only non-letters between them, so the
+letters of markup break the word: a tag name in `P<b></b>act`, a link
+destination in `[P](x)act`, and an entity name the decode does not know. So
+does `Pаct` spelled with a Cyrillic `а`, U+0430. Each such line is read as it
+was before #759, and a notify value written in one is the default. Catching
+these would need a grammar of GFM's markup or a table of look-alike letters,
+and leaving both out is what keeps the rule one that refuses rather than one
+that models. Every spelling the review of the earlier design found is caught:
+`` `Pact notify` ``, `**Pact notify**`, `Pact` with a U+200B inside it,
+`[Pact notify](x)` and a character reference such as `P&#97;ct`.
+Enforced by: tests/test_a_signatory_declares_its_pact.py::test_the_blind_side_is_read_as_no_line, tests/test_a_signatory_declares_its_pact.py::test_s2_a_pact_item_spelled_another_way_is_refused
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **The record-first order holds against the process dying, and not against
