@@ -1258,6 +1258,11 @@ def test_the_guard_policy_says_a_hidden_file_checkout_is_asked():
     assert "it asks whether or not the command moves the tree" in text
     assert "the two are examples, not the set" in text
     assert "`git checkout &>/dev/null README.md` is asked" in text
+    assert (
+        "a `switch` naming a word or `-`, a `checkout` carrying `-b` or `-B`, a "
+        "`checkout` with no `--` among its words that names `-` or a word other "
+        "than `.`, or a `worktree add`"
+    ) in text
 
 
 def test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it(
@@ -1325,6 +1330,11 @@ KINDS = {
     "checkout .": (["git", "checkout", "."], None),
     "checkout -- path": (["git", "checkout", "--", "f"], None),
     "checkout with no name": (["git", "checkout", "-q"], None),
+    # §*Which tree*'s words: a `--` takes every name out of a checkout, and
+    # `-B` is a switch with or without one (round 3 of #737).
+    "checkout a name before --": (["git", "checkout", "x", "--", "f"], None),
+    "checkout -B with no name": (["git", "checkout", "-B"], "switch"),
+    "switch -- a name": (["git", "switch", "--", "x"], "switch"),
     "worktree add": (["git", "worktree", "add", "../wt"], "creation"),
     "worktree list": (["git", "worktree", "list"], None),
     "status": (["git", "status"], None),
