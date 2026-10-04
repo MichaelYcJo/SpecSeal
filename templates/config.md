@@ -416,8 +416,9 @@ pact's repository reads that record until a pact review there takes it:
 **A row that will not parse is refused in a sentence**, never read as absent.
 **So is a `Pact` or `Pact notify` row written where the table's reader does
 not reach it**, never read as the default: below the line that ended the
-table, indented or block-quoted, with a third cell, or with its item spelled
-another way. Write both rows inside the one `| Item | Value |` table. A
+table, indented or block-quoted, with no leading pipe, with a third cell, or
+with its item spelled another way, an invisible format character included.
+Write both rows inside the one `| Item | Value |` table. A
 `Pact notify` row with no `Pact` value anywhere is ignored, there as in the
 table. At this repository's pull request `chain-check` prints the sentence and its
 exit status does not move: a signatory's CI prints and does not verify.

@@ -481,6 +481,19 @@ def test_the_template_and_the_config_skill_carry_both_rows_and_the_vocabulary():
             ("templates", "config.md"),
             "Write both rows inside the one `| Item | Value |` table.",
         ),
+        (
+            ("docs", "the-pact.md"),
+            "indented, block-quoted, with no leading pipe, with a third cell, or "
+            "with its item spelled another way is passed by. A format character "
+            "inside the item, such as U+200B, is another spelling a renderer "
+            "shows as nothing.",
+        ),
+        (
+            ("templates", "config.md"),
+            "indented or block-quoted, with no leading pipe, with a third cell, "
+            "or with its item spelled another way, an invisible format character "
+            "included.",
+        ),
     ],
     ids=[
         "the pact: the rule",
@@ -488,6 +501,8 @@ def test_the_template_and_the_config_skill_carry_both_rows_and_the_vocabulary():
         "the pact: the vendored copy",
         "template: the rule",
         "template: the remedy",
+        "the pact: the ways, round 1 of PR #784",
+        "template: the ways, round 1 of PR #784",
     ],
 )
 def test_s16_the_documents_say_a_stray_pact_row_is_refused(parts, sentence):

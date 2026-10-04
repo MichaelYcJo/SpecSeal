@@ -79,11 +79,14 @@ Enforced by: tests/test_a_signatory_declares_its_pact.py::test_one_pact_reads_no
 refused, never read as the default.** The reader takes the rows of the first
 `| Item | Value |` table and stops at the first line that is not one of its
 rows, so a row written below a blank line, below prose or another table,
-indented, block-quoted, with a third cell, or with its item spelled another
-way is passed by. `hooks/config.py#pact_declaration` compares every line
-shaped as one of the two rows with a value against the lines the reader took,
-as `str.splitlines` cuts the file and as GFM does, and refuses each such line
-in a sentence naming it; `Pact notify` then has no value. A `Pact` row there
+indented, block-quoted, with no leading pipe, with a third cell, or with its
+item spelled another way is passed by. A format character inside the item,
+such as U+200B, is another spelling a renderer shows as nothing.
+`hooks/config.py#pact_declaration` removes every format character, then
+compares every line shaped as one of the two rows with a value against the
+lines the reader took, as `str.splitlines` cuts the file and as GFM does, and
+refuses each such line in a sentence naming it; `Pact notify` then has no
+value. A `Pact` row there
 always refuses. A `Pact notify` row there refuses only where a `Pact` value
 stands, because one with no pact is ignored wherever it is written. A row in
 a closed code fence or a closed HTML comment is an example and is not
