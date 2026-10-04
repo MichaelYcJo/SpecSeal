@@ -1869,13 +1869,27 @@ PYTEST_SUMMARY_RE = re.compile(
     r"(?: \(\d+:\d\d:\d\d\))?\s*=*$",
     re.M,
 )
+# The line that says pytest collected nothing: `no tests ran in 0.21s`, alone
+# on a line, bare under `-q` or between `=` rules as the summary is (#761).
+# Measured against pytest 9.1.1 and pytest-xdist 3.8.0 in that work item's
+# `phases/phase-1.md`: given a path that does not exist, plain pytest prints
+# it beside `ERROR: file or directory not found: <path>` and exits 4, and
+# under xdist it is the only trace and the exit is 5. It carries no leading
+# count, so `PYTEST_SUMMARY_RE` never reads it as a summary.
+NOTHING_COLLECTED_RE = re.compile(
+    r"^=*\s*no tests ran in \d+(?:\.\d+)?s(?: \(\d+:\d\d:\d\d\))?\s*=*$", re.M
+)
+# pytest's exit codes for a missing argument (4, a usage error) and for a run
+# that collected no test (5).
+NOTHING_COLLECTED_EXITS = (4, 5)
 # What a file reads where no run measured it (#747). Each starts `new?`, so it
 # is never read as `new`, and says the comparison was not measured.
 NOT_MEASURED = f"{NEW}? not measured"
 NO_RUNNER = (
     f"{NOT_MEASURED}: no part of the row printed a line the gate reads as "
     "pytest's summary at the base (each part tried is kept as "
-    "suite-at-base-<k>.txt)"
+    "suite-at-base-<k>.txt, or as suite-at-base-<k>-<n>.txt for the n-th "
+    "file run alone)"
 )
 STOPPED_EARLY = (
     f"{NOT_MEASURED}: the run at the base stopped before every test ran, "
@@ -1905,6 +1919,20 @@ def verdicts_at_base(text, files):
     named = set(FAILED_RE.findall(text)) | set(ERROR_RE.findall(text))
     unnamed = STOPPED_EARLY if STOPPED_EARLY_RE.search(text) else NEW
     return {f: (ON_BASE if f in named else unnamed) for f in files}
+
+
+def collected_nothing(text, code):
+    """True where one run at the base collected no test at all (#761):
+    pytest's `no tests ran in <t>s` alone on a line, and an exit of 4 or 5.
+
+    `compare_at_base` asks it of a file run alone, and there it is a
+    measurement: the base, run as the row runs it and from the directory the
+    row runs it in, has no test in that file to fail — the file is missing
+    there, or holds none. Either way the failing test arrived with this
+    branch. Both halves are needed: the line alone is text any part of a row
+    could print, and an exit of 4 or 5 alone is any program's.
+    """
+    return code in NOTHING_COLLECTED_EXITS and bool(NOTHING_COLLECTED_RE.search(text))
 
 
 # The operators that end one part of a row and begin the next, in each
@@ -2008,10 +2036,7 @@ def compare_at_base(root, base, command, files, keep):
     inferred.
 
     A scratch worktree at `base`, the part of the row that runs pytest run
-    there on the failing files the base actually carries, the worktree
-    removed whatever happened. A file the base does not carry cannot fail
-    there, so it reads `new` without a run -- which is the truth: the test
-    arrived with this branch.
+    there on the failing files, the worktree removed whatever happened.
 
     **The part that runs pytest is found by running, not by its name or its
     place** (#747). The row used to be cut at its first `&&`, and a
@@ -2036,11 +2061,31 @@ def compare_at_base(root, base, command, files, keep):
     The `run` call stays in this function's own body: the shell sites are
     `gate` and this function, and a case holds that.
 
-    **The absent ones are separated before the run rather than after it**
-    (round 1's 🟡 4). pytest handed a path that does not exist exits 4 with
-    `no tests ran` and prints no `FAILED` line at all, so one run over every
-    failing file loses the measurement for ALL of them and each comes back
-    `new`. Every branch that adds a test module is that shape.
+    **A file the base's tree lacks at the root is run alone, and that run
+    decides it** (#761). pytest handed a path that does not exist runs
+    nothing: plain, it prints `no tests ran` beside a not-found reply and
+    exits 4; under xdist it prints `no tests ran` alone and exits 5. One run
+    over every failing file therefore loses the measurement for ALL of them
+    (round 1's 🟡 4), and every branch that adds a test module is that
+    shape. So the root's tree is asked first, and only to NOMINATE: a failing
+    file whose path `HEAD` of the base does not carry is a candidate, and a
+    candidate is never given a word by that check. pytest names a failing
+    file from the directory it was invoked in, and a `cd` part, a `make -C`
+    or a runner script that changes directory moves that, so the root's
+    tree can be asking the wrong directory — it once gave `new` unrun to a
+    `cd` row's file the base fails (#761).
+
+    Every other failing file goes through the prefixes together, as above.
+    Each candidate then goes through them on its own, kept as
+    `suite-at-base-<k>-<n>.txt` for the n-th candidate at prefix k, and the
+    first prefix that settles it decides: a summary is read by
+    `verdicts_at_base` like any run; `collected_nothing` — the base, run as
+    the row runs it, has no test in that file — gives `new`, measured; and
+    where no prefix settles it, `NO_RUNNER`. A file the root's tree does
+    carry while the directory pytest runs in at the base does not is never
+    nominated: it runs with the others, that run collects nothing and prints
+    no summary, and each file of it reads `new?`, never a counterfeit.
+    `templates/config.md` rule 3 states the cost and both limits.
     """
     scratch = tempfile.mkdtemp(prefix="broad-gate-base-")
     added = git(root, "worktree", "add", "--detach", scratch, base)
@@ -2052,39 +2097,45 @@ def compare_at_base(root, base, command, files, keep):
             f: f"{NEW}? the base could not be checked out for comparison" for f in files
         }
     try:
-        # A file the base does not carry makes pytest exit 4 with `no tests
-        # ran` and print no FAILED line at all, so passing it alongside the
-        # others loses the measurement for ALL of them and every one comes
-        # back `new`. Asked of the base tree first, and the absent ones are
-        # `new` without a run — which is the truth: they arrived with this
-        # branch.
-        #
-        # Absent only where this branch's own root carries the path. pytest
-        # names a file from the directory it ran in, and a `cd` part moves
-        # that, so a path the root does not carry says nothing about the base
-        # and is run with the others (round 1's 🟡 2). Where the base lacks it
-        # there too, pytest finds no such file, prints no summary, and every
-        # file of that run reads `new?`.
-        absent = [
-            f
-            for f in files
-            if os.path.isfile(os.path.join(root, f))
-            and git(scratch, "cat-file", "-e", f"HEAD:{f}") is None
+        # The root's tree nominates and decides nothing (the docstring): a
+        # missing path would stop the run it is in, so a candidate is run
+        # alone, and the run decides.
+        candidates = [
+            f for f in files if git(scratch, "cat-file", "-e", f"HEAD:{f}") is None
         ]
-        present = [f for f in files if f not in absent]
-        verdicts = {f: NEW for f in absent}
-        if present:
-            paths = " ".join(quote(f) for f in present)
-            measured = None
-            for k, prefix in enumerate(row_prefixes(command, cmd_exe_reads()), 1):
+        others = [f for f in files if f not in candidates]
+        # One group of every other file, kept as `suite-at-base-<k>.txt`, then
+        # one group per candidate, kept as `suite-at-base-<k>-<n>.txt`. One
+        # loop runs them all, so the `run` call stays one call (the shell-site
+        # case counts calls).
+        groups = [(others, "")] if others else []
+        groups += [([f], f"-{n}") for n, f in enumerate(candidates, 1)]
+        prefixes = row_prefixes(command, cmd_exe_reads())
+        verdicts = {}
+        for group, alone in groups:
+            paths = " ".join(quote(f) for f in group)
+            measured, nothing = None, False
+            for k, prefix in enumerate(prefixes, 1):
                 tried = run(
-                    f"suite-at-base-{k}", f"{prefix} {paths}", scratch, keep, shell=True
+                    f"suite-at-base-{k}{alone}",
+                    f"{prefix} {paths}",
+                    scratch,
+                    keep,
+                    shell=True,
                 )
                 if PYTEST_SUMMARY_RE.search(tried.text):
                     measured = tried.text
                     break
-            verdicts.update(verdicts_at_base(measured, present))
-        return verdicts
+                # Only for a file run alone: a group of several that collects
+                # nothing does not say which of them the base lacks.
+                if alone and collected_nothing(tried.text, tried.code):
+                    nothing = True
+                    break
+            if nothing:
+                verdicts.update({f: NEW for f in group})
+            else:
+                verdicts.update(verdicts_at_base(measured, group))
+        return {f: verdicts[f] for f in files}
     finally:
         subprocess.run(
             ["git", "-C", root, "worktree", "remove", "--force", scratch],
