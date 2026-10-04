@@ -28,6 +28,9 @@
   tests a pytest plugin does, prints that inner run's lines above them. Read
   anywhere, an inner `FAILED` line gave `failing on base too` to a file the
   base passes, and an inner `no tests ran` hid a failure the base shares.
+  Under `-s`, what a test writes to stderr lands after pytest's own lines,
+  so an inner run written there is still read as the run's own, and a file
+  the base fails can read `new`; `templates/config.md` rule 3 names it.
 
   `templates/config.md` rule 3 states what this costs: one more run of the
   row's parts up to the runner for each such file, only when the broad gate

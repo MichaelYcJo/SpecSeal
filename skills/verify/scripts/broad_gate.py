@@ -1851,8 +1851,12 @@ ERROR_RE = re.compile(r"^ERROR\s+(\S+?)(?:::|\s)", re.M)
 # `! Interrupted: 1 error during collection !` (round 1's 🟡 4).
 STOPPED_EARLY_RE = re.compile(r"^!+ .+ !+$", re.M)
 # The rule pytest writes above its own `FAILED` and `ERROR` lines, padded
-# with `=` to the terminal's width (#761 round 2). Everything a test printed
-# stands above it, so a run's own lines are the ones after the last one.
+# with `=` to the terminal's width (#761 round 2). What a test printed into
+# its captured output stands above it, so where pytest wrote this rule a
+# run's own lines are the ones after the last one. pytest writes it only
+# where a line follows (none under `-rN`, and none for `-rP` on a run with
+# no failures), and a test's stderr under `-s` lands after it; in those
+# runs the last rule can be one a test printed (#761 round 3, #789).
 SHORT_SUMMARY_RE = re.compile(r"^=+ short test summary info =+$", re.M)
 # The line that says pytest ran: its counts and its wall clock alone on a
 # line, bare under `-q` or between `=` rules — `1 failed, 1 passed in 0.02s`,

@@ -4752,6 +4752,10 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "same-named file at the root but not below that directory, the file is "
         "not run alone: it runs with the others, that run collects nothing, "
         "and each file in it reads `new?`.",
+        # #761 round 3's 🟡 1: an inner run a `-s` test writes to stderr.
+        "an inner pytest run written there is read as the run's own, so a file "
+        "it names reads `failing on base too` and a file the base fails can "
+        "read `new`.",
         # #761 round 1's 🟡 2.
         "A row that runs pytest in more than one directory — `pytest -q && "
         "cd sub && pytest -q` — is asked about every failing file by the first "

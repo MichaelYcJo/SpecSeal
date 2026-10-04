@@ -34,7 +34,7 @@ That is `plan.md` Alternatives row G, not taken, and `spec.md` §*Out* names it.
 Two members of round 2's class stay as they were, on purpose:
 
 - `failing_files` reads every `FAILED` line in the branch's own run of the whole row. Reading only after the last `short test summary info` rule, as the base reading now does, would drop the first runner's files from a row whose two runners are joined by `;`, so a line a test printed can still add a file to the comparison. The gate fails the suite either way, so it is an extra line in the report, never a seal.
-- Under `-s` a test's output is written live, and what it writes to stderr lands after pytest's own lines, because the gate joins stdout and then stderr. An inner run written there can still decide. Telling the two streams apart needs `run` to keep them apart, which a fix pass may not add.
+- Under `-s` a test's output is written live, and what it writes to stderr lands after pytest's own lines, because the gate joins stdout and then stderr. An inner pytest run written there is read as the run's own in both directions: a file it names reads `failing on base too`, and its `short test summary info` rule hides the run's own `FAILED` lines, so a file the base fails reads `new` — which 0.18.1 read `failing on base too`. Telling the two streams apart needs `run` to keep them apart, which a fix pass may not add; `templates/config.md` rule 3 names the shape, and #789 holds the ground.
 
 ## Fed back into the spec
 
