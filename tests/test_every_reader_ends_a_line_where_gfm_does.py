@@ -681,13 +681,13 @@ OUT_OF_CLASS.update(
         # walk took whole is told from one a `str.splitlines`-only character
         # cuts (#759).
         ("hooks/config.py", "pact_lines_not_read"): (1, F),
-        # A copy with no hooks/ beside it looks for a `Pact notify` row in
-        # `seal/config.md` line by line as `config_rows` splits it, so it
-        # finds every row the plugin's reader finds (round 2 of PR #756,
-        # yellow 1).
-        ("skills/evidence-check/scripts/evidence_check.py", "record_pact_changes"): (
+        # A copy with no hooks/ beside it reads `seal/config.md` on GFM's
+        # lines, and reads a line by its row shape only where no
+        # `str.splitlines`-only character cuts it, as the plugin's reader
+        # reads a walked row (#759).
+        ("skills/evidence-check/scripts/evidence_check.py", "notify_may_be_always"): (
             1,
-            "`seal/config.md`, split where `config_rows` splits it",
+            F,
         ),
         # The one GFM table walker the pact's `Signatory` table and both pact
         # records are read through, reading what `unfenced` shows it as

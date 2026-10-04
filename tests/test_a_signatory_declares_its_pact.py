@@ -15,6 +15,7 @@ are that reader's (S1-S3 of the work item's `spec.md`), and the routing
 step's pinned sentences (S4).
 """
 
+import importlib.util
 import os
 import sys
 import unicodedata
@@ -535,15 +536,20 @@ def test_s3_a_plain_notify_row_with_no_pact_is_still_ignored():
     assert config.pact_declaration(CONFIG_TOP + PLAIN + "\n") == ([], None, [])
 
 
+# (below `CONFIG`, the notify read): lines that name no pact in another
+# spelling, each read as the table says.
+SILENT = [
+    ("| Broad gate | bin/test -k pact |\n", config.NOTIFY_DEFAULT),
+    ("\nThe impact | compact of this.\n", config.NOTIFY_DEFAULT),
+    ("\n<!-- this repository signs the orders pact -->\n", config.NOTIFY_DEFAULT),
+    ("\nThis repository signs the orders pact: always.\n", config.NOTIFY_DEFAULT),
+    ("|\u00a0Pact notify\u00a0| always |\n", "always"),
+]
+
+
 @pytest.mark.parametrize(
     "below, notify",
-    [
-        ("| Broad gate | bin/test -k pact |\n", config.NOTIFY_DEFAULT),
-        ("\nThe impact | compact of this.\n", config.NOTIFY_DEFAULT),
-        ("\n<!-- this repository signs the orders pact -->\n", config.NOTIFY_DEFAULT),
-        ("\nThis repository signs the orders pact: always.\n", config.NOTIFY_DEFAULT),
-        ("|\u00a0Pact notify\u00a0| always |\n", "always"),
-    ],
+    SILENT,
     ids=[
         "a walked row's value",
         "impact and compact with a pipe",
@@ -631,6 +637,76 @@ def test_config_rows_is_the_indexed_walk_without_its_places():
     assert [(i, v) for _, i, v in indexed] == config.config_rows(text)
     assert all(lines[n].startswith(f"| {item} |") for n, item, _ in indexed)
     assert [item for _, item, _ in indexed] == ["Mode", "Pact", "Pact notify"]
+
+
+def _vendored_checker():
+    path = os.path.join(
+        ROOT, "skills", "evidence-check", "scripts", "evidence_check.py"
+    )
+    spec = importlib.util.spec_from_file_location("ec_for_one_spelling", path)
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
+    return ec
+
+
+ec = _vendored_checker()
+# Every S2 text: the ways the walk passes a row by, the cut rows, and each
+# other spelling of the item in the table and below a blank line.
+S2_TEXTS = [
+    *(text for _id, text, _lines, _pacts in STRAY_WAYS),
+    *(CONFIG + f"| Pact notify | {ch}always |\n" for ch in SPLITLINES_ONLY),
+    *(
+        CONFIG + gap + f"| {item} | always |\n"
+        for item in OTHER_ITEMS
+        for gap in ("", "\n")
+    ),
+]
+
+
+def test_s9_the_vendored_copy_cannot_rule_always_out_on_any_s2_text():
+    """S9 (a). A copy with no `hooks/` leaves a moved row citing no clause
+    wherever `Pact notify` may be `always`. Over every S2 text, under a
+    `Pact` value, its decision says it may, so each leaves the row where the
+    plugin refuses. `tests/test_a_signatory_records_a_pact_change.py` runs a
+    sample of them end to end."""
+    missed = [t for t in S2_TEXTS if not ec.notify_may_be_always(t)]
+    assert missed == [], missed[:5]
+
+
+def test_s9_the_vendored_copy_reads_the_silent_set_as_the_table_says():
+    """S9 (b). Where the plugin reads no refusal, the copy is blind exactly
+    where the table's notify is `always`: a plain row of each, both carrying
+    a value. A plain notify row with no `Pact` value, the template's empty
+    pair, and this repository's own config re-stamp."""
+    for below, notify in SILENT:
+        assert ec.notify_may_be_always(CONFIG + below) == (notify == "always"), below
+    assert ec.notify_may_be_always(CONFIG_TOP + PLAIN + "\n") is False
+    assert (
+        ec.notify_may_be_always(CONFIG_TOP + "| Pact |  |\n| Pact notify |  |\n")
+        is False
+    )
+    assert ec.notify_may_be_always(None) is True
+    with open(os.path.join(ROOT, "seal", "config.md"), encoding="utf-8") as f:
+        assert ec.notify_may_be_always(f.read()) is False
+
+
+def test_s10_the_reader_and_the_vendored_copy_read_one_word():
+    """S10. A copy with no `hooks/` names a pact by the same word and the
+    same predicate as the plugin's reader: the patterns are equal, and the
+    two predicates answer alike on every S2 and S4 line, piped or not."""
+    assert (config.PACT_WORD.pattern, config.PACT_WORD.flags) == (
+        ec.PACT_WORD.pattern,
+        ec.PACT_WORD.flags,
+    )
+    lines = {line for text in S2_TEXTS for line in text.splitlines()}
+    lines |= {line for below, _ in SILENT for line in (CONFIG + below).splitlines()}
+    lines |= set(OTHER_ITEMS)
+    for line in sorted(lines):
+        for piped in (True, False):
+            assert config.names_a_pact(line, piped) == ec.names_a_pact(line, piped), (
+                line,
+                piped,
+            )
 
 
 # --- the shipped rows -------------------------------------------------------
