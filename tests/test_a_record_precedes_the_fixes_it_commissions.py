@@ -1152,8 +1152,8 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
 
     **Then the work item was retired, and two of the five went with its
     directory** (#497). The changelog fragment had been gathered, so its copy
-    is `CHANGELOG.md`'s block under the item's marker, the same move the
-    ledger copy makes. The overview is the memo `settle --retire` removes on
+    is the block under the item's marker in its release's file under
+    `changelog/` (#728), the same move the ledger copy makes. The overview is the memo `settle --retire` removes on
     purpose, and a memo is not a claim the tree makes: with it gone there are
     four copies, and the fifth is read only while its file is still there.
     """
@@ -1179,8 +1179,8 @@ def test_the_declared_limit_names_what_escapes_with_the_words_unchanged():
         if retired and where[-1] == "changelog.md":
             text = gathered_entry(ROOT, item)
             assert text is not None, (
-                f"{item} is retired and CHANGELOG.md carries no marker for "
-                "it — the changelog copy was never gathered"
+                f"{item} is retired and no release file under changelog/ "
+                "carries its marker — the changelog copy was never gathered"
             )
             text = " ".join(text.split())
         elif where[:2] == ("seal", "ledger") and not os.path.exists(

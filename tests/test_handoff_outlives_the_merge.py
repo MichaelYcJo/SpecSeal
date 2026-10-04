@@ -244,8 +244,16 @@ def test_every_migration_command_creates_its_destination():
     slash — what someone tries next — renames a single record to a FILE named
     `rounds`, which both readers then report as no review at all.
     """
+    # The released notes are one file per release since #728, and the
+    # migration commands this case was written for are in 0.4.0's.
+    released = sorted(
+        ("changelog", name)
+        for name in os.listdir(os.path.join(ROOT, "changelog"))
+        if re.fullmatch(r"\d+\.\d+\.\d+\.md", name)
+    )
+    assert ("changelog", "0.4.0.md") in released, released
     for parts in (
-        ("CHANGELOG.md",),
+        *released,
         ("hooks", "review-history-guard.py"),
         ("skills", "code-review", "scripts", "chain_check.py"),
     ):

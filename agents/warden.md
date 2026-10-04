@@ -401,12 +401,13 @@ two writes this file names and not a general permission.
 rules a repository applies to its own tree apply to your prose.** Two of them
 reach it in this one, and the contract walks you into the first.
 
-The no-real-identifiers rule (`CLAUDE.md`) is enforced over every tracked
-file, and §8 of the contract is what told you to write your clone's absolute
-path out. So the probe row that records the command you ran is the row that
-turns `tests/test_no_real_identifiers.py` red at the pull request, after your
-round has ended and where nobody can ask you what you meant. Name paths
-relative to the repository root, and spell a user path `/Users/x/`.
+The no-real-identifiers rule (`CONTRIBUTING.md` §*House rules*) is enforced
+over every tracked file, and §8 of the contract is what told you to write your
+clone's absolute path out. So the probe row that records the command you ran
+is the row that turns `tests/test_no_real_identifiers.py` red at the pull
+request, after your round has ended and where nobody can ask you what you
+meant. Name paths relative to the repository root, and spell a user path
+`/Users/x/`.
 
 The evidence checker reads every `.md` under a live work item and asks the
 tree for each backticked name carrying an underscore that it finds in prose.

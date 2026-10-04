@@ -969,7 +969,8 @@ def test_the_workflow_reader_finds_the_env_assignment_the_file_already_has():
 # Every shape #462 names, in one workflow: a flag in a whole-line comment, a
 # flag in a trailing comment, a `BASE:` under `with:` and one inside a
 # `run: |` block beside the one `env:` carries, and an empty quoted value.
-# Neutral values only (`CLAUDE.md`, no real identifiers).
+# Neutral values only (`CONTRIBUTING.md` §*House rules*, *No real
+# identifiers*).
 MISLEADING_WORKFLOW = """\
 jobs:
   release:

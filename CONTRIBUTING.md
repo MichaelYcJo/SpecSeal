@@ -247,9 +247,11 @@ when it arrives.
   in the terminal where the rename just happened, and CI prints the same line
   at the pull request.
 
-  **One branch does edit `CHANGELOG.md`, and it is the one based on `main`.**
+  **One branch does write the changelog, and it is the one based on `main`.**
   A pull request into `main` is a release, so the entries are due there and
   the hygiene workflow fails it while a fragment is still ungathered. The
+  gather writes the release's own file, `changelog/X.Y.Z.md`, and its heading
+  in the index `CHANGELOG.md`, and no other branch writes either. The
   gather and the fold are the commands in `docs/release-checklist.md` §*2.
   Gather, fold, bump*, run in that order. This is the rule above being
   satisfied rather than broken: the branch is not adding an entry to a shared
@@ -264,7 +266,10 @@ when it arrives.
   one commit on the release branch.
 - **No real identifiers.** Examples, fixtures, and docs use `example.com`
   and `/Users/x/` only. `tests/test_no_real_identifiers.py` enforces it in
-  CI — extend its allowlist deliberately, never to make a test pass.
+  CI — extend its allowlist deliberately, never to make a test pass. The rule
+  is held this hard because both incidents that forced a rewrite of this
+  repository's history entered exactly this way, as a real domain, path or
+  organisation name inlined into an example.
 - **Every file read or written names its encoding.** An `open`,
   `read_text`, `write_text` or text-mode `subprocess` call with no
   `encoding=` takes the locale's, which is cp1252 on the Windows leg and

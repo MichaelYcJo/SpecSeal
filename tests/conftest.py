@@ -367,21 +367,28 @@ def cutoff_item_is_traceable(root, reader, cutoff):
 
 
 def gathered_entry(root, work_item_id):
-    """The text `CHANGELOG.md` carries for a work item whose fragment was
-    gathered, or None when no marker for it is there.
+    """The text a release file under `changelog/` carries for a work item
+    whose fragment was gathered, or None when no marker for it is there.
 
     A changelog fragment moves once, the way a ledger fragment does:
     `gather_changelog.py` writes `<!-- specs/<id> -->` above the fragment's
-    body in the released section, and `settle --retire` later removes the
-    directory the fragment lived in. So a case pinning what a fragment says
-    reads the fragment while it exists and this block after. The block runs
-    from the marker to the next marker line or heading, which is where the
-    gatherer puts the next entry.
+    body in the release's own file, `changelog/X.Y.Z.md` since #728, and
+    `settle --retire` later removes the directory the fragment lived in. So a
+    case pinning what a fragment says reads the fragment while it exists and
+    this block after. The block runs from the marker to the next marker line
+    or heading, which is where the gatherer puts the next entry.
     """
-    with open(os.path.join(root, "CHANGELOG.md"), encoding="utf-8") as handle:
-        lines = handle.read().splitlines()
     start = f"<!-- specs/{work_item_id} -->"
-    if start not in lines:
+    directory = os.path.join(root, "changelog")
+    names = sorted(os.listdir(directory)) if os.path.isdir(directory) else []
+    for name in names:
+        if not re.fullmatch(r"\d+\.\d+\.\d+\.md", name):
+            continue
+        with open(os.path.join(directory, name), encoding="utf-8") as handle:
+            lines = handle.read().splitlines()
+        if start in lines:
+            break
+    else:
         return None
     body = []
     for line in lines[lines.index(start) + 1 :]:

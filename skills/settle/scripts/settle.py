@@ -20,13 +20,15 @@ which is the one thing the clause above forbids.
   settle --retire               remove the directories whose fold is recorded,
                                 and the released ones with no spec.md and
                                 nothing open
+  settle --retire-process       remove the process record of every released
+                                work item, fold or no fold
   settle --released-at REF      what counts as released (default origin/main)
   settle --root DIR             a repository other than this one
 
 **Released means present on the branch the release merges to**, which is why
 `--released-at` names a ref rather than a date. The two alternatives were
 measured on this repository and both are wrong: 11 work items carry no
-`<!-- specs/<id> -->` marker in `CHANGELOG.md` although they plainly shipped,
+`<!-- specs/<id> -->` marker in the changelog although they plainly shipped,
 and 15 carry none in `seal/ledger.md`.
 
 **The fold record is the provenance comment, and there is no second file.**
@@ -52,6 +54,16 @@ policy was written, which the marker is the proof of. Nothing that states a
 rule is removed without one, so the failure this arrangement can produce is a
 thin policy document, which a reader can see, rather than a directory deleted
 with nothing absorbing it, which nobody can.
+
+**The process arm is its own act, and the fold does not gate it (#729).**
+`--retire-process` removes a released work item's `rounds/`, `phases/`,
+`survivors.md` and the files written only for a pull request, and leaves
+`routing.md` and the SDD set for the fold. No check reads that part after
+the release, and removing it judges nothing, so it does not wait on the fold's
+judgment. What the SDD set still cites of it resolves at the release tag. It is an allow-list: a file on neither list is kept and named. Its
+guards are the fold's, asked per item — an open todo row, a ledger row
+anchored inside a file it would remove — and a citation into one is listed,
+never refused.
 
 **The rule arm, and why it needs no marker.** A released work item that wrote
 no `spec.md` states no rule — a release entry, a renumbering, a CI repair —
@@ -83,10 +95,12 @@ it; a directory of that name is not one, and is refused as no root.
 
 Exit codes: 0 the report was produced, or the retirement ran, or the root
 holds no work item at all — an empty or absent `seal/specs/` under a present
-`seal/` is the state a complete fold reaches · 1 a retirement was asked for
+`seal/` is the state a complete fold reaches — or the process arm found
+nothing left to remove · 1 a retirement was asked for
 and something refused it — a guard held a directory, or a spec-less
 directory's closure has not reached the merge base of `--released-at` and
-`HEAD` · 2 the arguments or the tree were unusable, which is seven states: a
+`HEAD`, or a guard held an item's process record · 2 the arguments or the
+tree were unusable, which is seven states: a
 `--released-at` ref that does not resolve, a `--released-at` ref sharing no
 commit with `HEAD` or a clone too shallow to reach the one they share, a root
 at neither place, a root in local mode, a
@@ -822,6 +836,11 @@ def survey(root, ref):
                 root, None, f"{SPECS}/{work_item_id}"
             )
         survey["citations"], survey["readers"] = citations(root, survey["retiring"])
+    # The process arm's dry run (#729), over every released directory, folded
+    # or not, since that arm does not wait for the fold. Its anchored rows are
+    # the ones above narrowed to the files it takes, not a second ledger read.
+    survey["process"] = process_plan(root, survey["released"])
+    survey["process_anchored"] = process_anchored(survey["anchored"], survey["process"])
     return survey
 
 
@@ -834,8 +853,12 @@ def has_spec(root, work_item_id):
 # (`seal/specs/`, the old `specs/`, a local-mode root). The name may be cut
 # short with an ellipsis, which is how this repository's prose abbreviates a
 # long id; a marker and a bare id carry no `/` after the name, so neither is
-# read as a citation.
-CITATION_RE = re.compile(r"specs/(\d{6,}[^\s/`'\"()\[\]|<>*]*)/")
+# read as a citation. `rest` is what follows the name, read by lookahead so
+# that it consumes nothing a second citation on the line could start with: the
+# process arm (#729) lists a citation only where it lands in a file it takes.
+CITATION_RE = re.compile(
+    r"specs/(\d{6,}[^\s/`'\"()\[\]|<>*]*)/(?=(?P<rest>[^\s`'\"()\[\]|<>*]*))"
+)
 ELLIPSES = ("…", "...")
 
 
@@ -870,7 +893,7 @@ def tracked_text(root):
         yield rel, data.decode("utf-8", "replace")
 
 
-def citations(root, work_item_ids):
+def citations(root, work_item_ids, inside=None):
     """`({id: ["path:line", ...]}, [tests/ files naming seal/specs])`.
 
     The two listings a fold otherwise builds by hand. A path outside
@@ -879,6 +902,10 @@ def citations(root, work_item_ids):
     and every `tests/` file that reads `seal/specs` is a check
     `skills/settle/SKILL.md` §3 says has to be answered before anything is
     removed. One scan of the tracked tree answers both.
+
+    `inside`, where given, narrows the first listing to the citations whose
+    path after the directory name it accepts. The process arm (#729) removes
+    part of a directory, and a citation into a file that stays still resolves.
     """
     cited = {i: [] for i in work_item_ids}
     readers = []
@@ -889,6 +916,8 @@ def citations(root, work_item_ids):
             continue
         for number, line in enumerate(text.split("\n"), start=1):
             for m in CITATION_RE.finditer(line):
+                if inside is not None and not inside(m.group("rest")):
+                    continue
                 for work_item_id in work_item_ids:
                     if names(m.group(1), work_item_id):
                         where = f"{rel}:{number}"
@@ -988,6 +1017,9 @@ def report(found, ref, out=sys.stdout):
         write(f"\n{READERS_HEADING}\n")
         for rel in found["readers"] or ["none under tests/"]:
             write(f"    {rel}\n")
+
+    if "process" in found:
+        write_process_section(found, out)
 
     write(
         "\nNothing was written and nothing was removed. `skills/settle/SKILL.md`\n"
@@ -1158,6 +1190,293 @@ def retire(found, root, out=sys.stdout):
     return 1 if kept else 0
 
 
+# --- the process record (#729) ---------------------------------------------
+
+# What a work item's directory holds for its pull request and nothing after
+# its release: the round records and the reviewer's reports, the phase
+# records, the survivor exemptions, and the files a pull request alone reads.
+# `docs/one-root-by-lifetime.md` names the class *the process record*. The
+# first three are `skills/code-review/scripts/survivor_check.py#
+# records_a_past_state`, the survivor sweep's own definition of a record of a
+# past state, and `tests/test_settle_retires_the_process_record.py` holds the
+# two to each other. The list is not imported from there: a destructive
+# allow-list is spelled where it acts, and the sweep's predicate has no reason
+# to know about `pr.*.md`.
+#
+# **An allow-list, because removal is the destructive direction.** A file on
+# neither list is kept and printed, never taken: one released directory once
+# held an `ab-comparison.md`, and a kind nobody anticipated is exactly the
+# file a guess would lose. That is `chain_check.py#REGULAR`'s direction, for
+# the same reason.
+PROCESS_DIRS = ("rounds", "phases")
+PROCESS_FILES = (
+    "survivors.md",
+    "broad-gate.md",
+    "handoff.md",
+    "tests-todo.md",
+    "evidence-todo.md",
+)
+# The two whose open row keeps the whole item, read by the rule the
+# evidence-todo guard already reads (`open_rows`).
+PROCESS_TODOS = ("evidence-todo.md", "tests-todo.md")
+# What stays until the fold retires the directory. `routing.md` is the item's
+# identity to `chain_check`, `release_seal` and `root-migrate`; `overview.md`
+# holds the `## Not verified` rows `unverified_check --baseline` counts; and
+# `changelog.md` is #728's to decide.
+DURABLE = (
+    "routing.md",
+    "spec.md",
+    "plan.md",
+    "questions.md",
+    "overview.md",
+    "changelog.md",
+)
+
+# What the arm prints, and the dry run's heading. Pinned by
+# `tests/test_settle_retires_the_process_record.py`, which also holds
+# `skills/settle/SKILL.md` to quoting each one, because a person acts on them.
+PROCESS_HEADING = (
+    "the process record — no check reads it after its work item's release, so\n"
+    "`settle --retire-process` takes it now, fold or no fold:"
+)
+PROCESS_TODO_HEADING = (
+    "kept whole — a todo file still holds an open row, and what a review left "
+    "for the\nimplementer may not leave with the record:"
+)
+PROCESS_ANCHORED_HEADING = (
+    "kept whole — a ledger row anchors inside the process record, and "
+    "removing it would\nleave the row BROKEN. Answer each row, then run "
+    "`settle --retire-process` again:"
+)
+PROCESS_UNKNOWN_HEADING = (
+    "not a process record — on neither of `settle`'s lists, so it is kept "
+    "rather than\nguessed at:"
+)
+PROCESS_CITED_HEADING = (
+    "cited from outside seal/specs/ — each of these now resolves only in git "
+    "history, at\nthe tag of the release that shipped it:"
+)
+PROCESS_DONE = (
+    "nothing left to retire: no released work item still holds a process record."
+)
+
+# One released item's process record, as the tree holds it now. `take` is
+# `(name, is_dir, file count)` per top-level entry the arm removes, `todo`
+# `{name: open rows}` for a todo file still open, and `unknown` the entries on
+# neither list.
+ProcessItem = collections.namedtuple("ProcessItem", "id take files todo unknown")
+
+
+def is_process_record(name, is_dir):
+    """Whether a top-level entry of a work item's directory is on the list."""
+    if is_dir:
+        return name in PROCESS_DIRS
+    return name in PROCESS_FILES or (name.startswith("pr.") and name.endswith(".md"))
+
+
+def process_plan(root, work_item_ids):
+    """`[ProcessItem]` for each of these directories still on disk.
+
+    Read from the tree each time it is asked. The report asks it for its
+    section and the retirement asks it again, for `retire`'s reason: a
+    classification made for a printed list is not a guard on a destructive
+    act. A link is never followed into: it is an entry of its own and is
+    removed as one, so nothing outside the directory can be reached."""
+    plan = []
+    for work_item_id in work_item_ids:
+        top = under(root, f"{SPECS}/{work_item_id}")
+        if not os.path.isdir(top):
+            continue
+        take, todo, unknown = [], {}, []
+        for name in sorted(os.listdir(top)):
+            path = os.path.join(top, name)
+            is_dir = os.path.isdir(path) and not os.path.islink(path)
+            if is_process_record(name, is_dir):
+                count = (
+                    sum(len(files) for _, _, files in os.walk(path)) if is_dir else 1
+                )
+                take.append((name, is_dir, count))
+                if name in PROCESS_TODOS:
+                    with open(path, encoding="utf-8") as f:
+                        rows = open_rows(f.read())
+                    if rows:
+                        todo[name] = len(rows)
+            elif is_dir or name not in DURABLE:
+                unknown.append(name + ("/" if is_dir else ""))
+        plan.append(
+            ProcessItem(work_item_id, take, sum(c for _, _, c in take), todo, unknown)
+        )
+    return plan
+
+
+def taken_by(path, plan):
+    """The id whose process record holds this repository-relative path, or
+    None where the path lies in a file the arm leaves standing."""
+    for entry in plan:
+        for name, is_dir, _ in entry.take:
+            spot = f"{SPECS}/{entry.id}/{name}"
+            if path == spot or (is_dir and path.startswith(spot + "/")):
+                return entry.id
+    return None
+
+
+def process_anchored(rows, plan):
+    """The rows of `anchored_rows` whose anchor lies inside a file this arm
+    removes, each narrowed to those anchors.
+
+    `anchored_rows` asks whether an anchor lies anywhere under the directory,
+    which is the fold's question, since the fold takes the whole of it. This
+    arm takes part, so an anchor into `spec.md` keeps resolving and holds
+    nothing; it is counted as live, and the verdict says *narrow* rather than
+    *REMOVED* where the row also cites a file that stays."""
+    found = []
+    for row in rows:
+        owners = {path: taken_by(path, plan) for path in row.dead}
+        dead = [path for path in row.dead if owners[path]]
+        if dead:
+            found.append(
+                row._replace(
+                    dead=dead,
+                    live=row.live + len(row.dead) - len(dead),
+                    items=sorted({owners[path] for path in dead}),
+                )
+            )
+    return found
+
+
+# A file or directory name as prose writes it: runs of name characters joined
+# by single dots, so it never ends in a dot. Whatever follows it in a sentence
+# — a closing `.` or `,`, a `:40`, a `#anchor`, a dash — is not part of it,
+# and a name that goes on (`handoff.md.bak`, `rounds-old`) is read whole.
+CITED_NAME_RE = re.compile(r"[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*")
+
+
+def cites_a_process_record(rest):
+    """Whether the path after a cited directory's name lands in a file the
+    process arm takes — `citations`' `inside` for this arm.
+
+    The name is read off the front of `rest` by `CITED_NAME_RE` rather than
+    by stripping the tails prose is known to add, because the list of tails
+    is the list that missed four shapes in #729's round 1. A name on
+    `PROCESS_DIRS` names the directory, with a slash after it or none. The
+    answer is `is_process_record`'s, so the listing and the removal cannot
+    disagree about a name; an empty name is on neither list."""
+    m = CITED_NAME_RE.match(rest)
+    name = m.group(0) if m else ""
+    return is_process_record(name, name in PROCESS_DIRS)
+
+
+def write_process_section(found, out):
+    """The dry run's section: what `settle --retire-process` would take now,
+    and what it would keep."""
+    plan = found["process"]
+    holding = {i for row in found.get("process_anchored", []) for i in row.items}
+    takeable = [p for p in plan if p.take and not p.todo and p.id not in holding]
+    files = sum(p.files for p in takeable)
+    out.write(f"\n{PROCESS_HEADING}\n")
+    out.write(
+        f"    {files} file{plural(files)} in {len(takeable)} released work "
+        f"item{plural(len(takeable))}\n"
+    )
+    for entry in plan:
+        for name, count in sorted(entry.todo.items()):
+            out.write(
+                f"    {entry.id}  kept: {count} open row{plural(count)} in {name}\n"
+            )
+        if entry.id in holding and not entry.todo:
+            out.write(
+                f"    {entry.id}  kept: a ledger row anchors inside its "
+                "process record (named under *anchored*)\n"
+            )
+    for entry in plan:
+        for name in entry.unknown:
+            out.write(f"    {SPECS}/{entry.id}/{name}  not a process record, kept\n")
+
+
+def retire_process(found, root, out=sys.stdout):
+    """Remove the process record of every released work item, and nothing
+    else (#729).
+
+    It does not wait for the fold, because it needs no judgment: what it
+    removes is read by no check after the release that ships the item, and the
+    SDD set and `routing.md` stay for the fold to absorb. A relative reference
+    from that SDD set into what goes is not listed: it is a pointer a person
+    follows, and it resolves at the release tag (#729's round 1, 🟡 1). *Released* is the
+    same test the fold uses — the directory is present at `--released-at` —
+    taken from `found` because only git answers it.
+
+    **The guards are `--retire`'s, asked per item.** A todo file with an open
+    row keeps the whole item and names it, because what a review left for the
+    implementer may not leave with the record that holds it. A ledger row
+    anchored inside a file this removes keeps the item and is named with what
+    `docs/the-evidence-ledger.md` requires of it. A path outside `seal/specs/`
+    that cites into a removed file is listed and never refused, as `--retire`
+    lists one: it resolves in git history at the release's tag, and the tree
+    already holds citations of that kind into directories a fold retired.
+
+    Exit 0 when nothing was held — including when nothing is left to remove,
+    which is the state a previous run leaves, not work still to do — and 1
+    when a guard kept an item.
+    """
+    present = set(work_items(root))
+    ids = sorted(present & set(found["released"]))
+    plan = process_plan(root, ids)
+    anchored = process_anchored(
+        anchored_rows(root, [p.id for p in plan if p.take]), plan
+    )
+    holding = {i for row in anchored for i in row.items}
+    held_todo = [p for p in plan if p.todo]
+    removable = [p for p in plan if p.take and not p.todo and p.id not in holding]
+    unknown = [(p.id, name) for p in plan for name in p.unknown]
+    if not removable and not held_todo and not holding and not unknown:
+        out.write(PROCESS_DONE + "\n")
+        return 0
+    cited = {}
+    if removable:
+        cited = citations(
+            root, [p.id for p in removable], inside=cites_a_process_record
+        )[0]
+    for entry in removable:
+        for name, is_dir, count in entry.take:
+            path = under(root, f"{SPECS}/{entry.id}/{name}")
+            if is_dir:
+                shutil.rmtree(path)
+                out.write(
+                    f"removed {SPECS}/{entry.id}/{name}/  ({count} file{plural(count)})\n"
+                )
+            else:
+                os.remove(path)
+                out.write(f"removed {SPECS}/{entry.id}/{name}\n")
+    if held_todo:
+        out.write(f"\n{PROCESS_TODO_HEADING}\n")
+        for entry in held_todo:
+            for name, count in sorted(entry.todo.items()):
+                out.write(
+                    f"    {entry.id}  ({count} open row{plural(count)} in {name})\n"
+                )
+    if anchored:
+        out.write(f"\n{PROCESS_ANCHORED_HEADING}\n")
+        write_anchored(anchored, out)
+    if unknown:
+        out.write(f"\n{PROCESS_UNKNOWN_HEADING}\n")
+        for work_item_id, name in unknown:
+            out.write(f"    {SPECS}/{work_item_id}/{name}\n")
+    if any(cited.values()):
+        out.write(f"\n{PROCESS_CITED_HEADING}\n")
+        for work_item_id in sorted(cited):
+            if cited[work_item_id]:
+                out.write(f"    {work_item_id}\n")
+                for where in cited[work_item_id]:
+                    out.write(f"        cited from {where}\n")
+    kept = len({p.id for p in held_todo} | holding)
+    files = sum(p.files for p in removable)
+    out.write(
+        f"\nretired the process record of {len(removable)} work "
+        f"item{plural(len(removable))} ({files} file{plural(files)}); {kept} kept\n"
+    )
+    return 1 if kept else 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         prog="settle",
@@ -1176,7 +1495,22 @@ def main(argv=None):
         "retired only when its record is closed at the merge base of this "
         "and HEAD too (default: origin/main)",
     )
-    ap.add_argument(
+    # Two removals, never one run of both: `--retire` is the second half of
+    # the fold and never its own act, and `--retire-process` is its own act
+    # and never waits for the fold. One flag with both meanings would make the
+    # first sentence false (#729's plan, *Fold `--retire-process` into
+    # `--retire`*).
+    arms = ap.add_mutually_exclusive_group()
+    arms.add_argument(
+        "--retire-process",
+        action="store_true",
+        help="remove the process record of every released work item — "
+        "rounds/, phases/, survivors.md and the files written only for a pull "
+        "request — and leave routing.md and the SDD set for the fold. Writes no "
+        "prose and does not wait for the fold. An item a todo row or a ledger "
+        "row holds is kept whole, and a file on neither list is kept and named",
+    )
+    arms.add_argument(
         "--retire",
         action="store_true",
         help="remove the directories whose fold `docs/` records, and the "
@@ -1296,6 +1630,8 @@ def main(argv=None):
 
     if args.retire:
         return retire(found, root)
+    if args.retire_process:
+        return retire_process(found, root)
     return report(found, args.released_at)
 
 

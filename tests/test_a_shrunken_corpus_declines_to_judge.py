@@ -168,6 +168,10 @@ APPLIES_THE_SHARED_GUARD = {
     # the index entry `git ls-files` just named, so the corpus the census is
     # taken over stays whole in the tree state that used to truncate it.
     "tests/test_a_merge_cannot_silently_drop_a_correction.py#ledger_corpus": 1,
+    # #730's ratchet. It judges what it finds and fails only on a count that
+    # rose, so a file listed and not on disk can lower a count and never
+    # raise one; it skips the missing half and does not decline.
+    "tests/test_no_passage_is_pasted_into_a_second_file.py#corpus": 1,
     # #741's two walks, the encoding half's corpus and the hook entry points.
     # Each returns the missing half, and its liveness half hands that to
     # `decline_if_shrunken`, the way `shipped_python` above does.

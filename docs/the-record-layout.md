@@ -15,7 +15,7 @@ is found, the copy is the defect.
 | Kind | Home | Size target | Index |
 |---|---|---|---|
 | The evidence ledger | `seal/ledger/<work-item-id>.md` while a work item is open; `seal/releases/<X.Y.Z>.md` once its release folds it; `seal/ledger.md` for the rows from before the fragments. The rules: `docs/the-evidence-ledger.md` | a release file is over target, and its reading unit is one `### <work-item-id>` section | the file name, by version, and the `### <work-item-id>` heading inside it |
-| The changelog | `seal/specs/<work-item-id>/changelog.md` while a work item is open; `CHANGELOG.md` once its release gathers it | `CHANGELOG.md` is over target; one release's section is the unit | the `## X.Y.Z` heading. One file per release is decided and not built (F2) |
+| The changelog | `seal/specs/<work-item-id>/changelog.md` while a work item is open; `changelog/<X.Y.Z>.md`, the release's own file, once its release gathers it | each release file is under target, and is the unit | the file name, by version, and `CHANGELOG.md`, which heads each release newest first with a link to its file (F2, built) |
 | A work item's files | `seal/specs/<work-item-id>/` | each file under target | the table under *seal/specs/<work-item-id>/* below |
 | The repository's rules | `CLAUDE.md` for the rules a session must hold, `CONTRIBUTING.md` for a contributor's procedure, and the `docs/` document each one links to | each file under target | this document, and the *docs/* table below |
 | The configuration | `seal/config.md`, one row per item; `templates/config.md` documents every row | under target | the `Item` column |
@@ -30,7 +30,7 @@ half is added because a ledger row is one long line: at 233f0455 the longest
 was 8,831 characters, so a ledger file can reach megabytes under any line
 cap.
 
-Two kinds are over target today, and each is named here rather than
+One kind is over target today, and it is named here rather than
 discovered:
 
 - **A release ledger file.** 37 files at 233f0455, 2.42 MB together, the
@@ -38,8 +38,10 @@ discovered:
   `docs/the-evidence-ledger.md`) and are not split. The reading unit is the
   section: all 148 `### <work-item-id>` sections measured then are at most
   58 KB, with a median of 14 KB.
-- **`CHANGELOG.md`.** 549 KB at 233f0455, with sections at a median of 12 KB
-  and at most 33 KB. F2 below moves it to one file per release.
+
+`CHANGELOG.md` was the second, 549 KB at 233f0455, until F2 below moved each
+release into a file of its own: 44 files at the move, the largest 525 lines
+and 33 KB.
 
 No index file is added inside `seal/releases/`. The file name is the index
 by version and the `### <work-item-id>` heading is the index inside a file;
@@ -66,8 +68,9 @@ fragment*.
 
 **Both kinds of fragment are gathered at the release, by two commands in one
 commit**, and `docs/release-checklist.md` §*2. Gather, fold, bump* holds the
-commands. The changelog fragments are concatenated into the released section
-of `CHANGELOG.md`. The ledger fragments move into that release's own file,
+commands. The changelog fragments are concatenated into the release's own
+file, `changelog/X.Y.Z.md`, and the release's heading goes into the index,
+`CHANGELOG.md`. The ledger fragments move into that release's own file,
 `seal/releases/X.Y.Z.md`, and the fragments are removed. A fragment lives
 from the work item's first row to the release that ships it.
 
@@ -139,8 +142,14 @@ retires the directory. Which file each agent writes is
 | `tests-todo.md`, `evidence-todo.md` | which cases and which verified facts a review left for the implementer |
 | `broad-gate.md` | the sealer's one broad run, where the work went straight to the pull request |
 
-How these files are laid out by lifetime is decided in principle and not
-built (F3).
+The files keep these paths and stop mattering at two different times (F3).
+`routing.md` and the SDD set (`spec.md`, `plan.md`, `questions.md`,
+`overview.md`, `changelog.md`) stay until the `settle` fold retires the
+directory. The process record (`rounds/`, `phases/`, `survivors.md`, the two
+todo files, `broad-gate.md`, and a `handoff.md` or `pr.*.md` where one was
+written) is read by no check after the release that ships the work item, and
+`settle --retire-process` removes it at the next release, fold or no fold.
+What the SDD set still cites of it resolves at the tag of that release.
 
 ## The root records
 
@@ -148,15 +157,16 @@ built (F3).
 |---|---|
 | `CLAUDE.md` | the rules a session in this repository must hold, each linking to its home |
 | `CONTRIBUTING.md` | how a contribution is made and checked, and what a change to a gate must carry |
-| `CHANGELOG.md` | what each release changed, one `## X.Y.Z` section each |
+| `CHANGELOG.md` | which releases there are: the index, one `## X.Y.Z — <date>` heading each, newest first, with a link to the release's file |
+| `changelog/<X.Y.Z>.md` | what one release changed, that release's section alone |
 | `README.md` and `README.ko.md` | what the plugin is and how to install it |
 
 ## What is decided and not built yet
 
 Four parts of this layout were decided here, each to be built by its own
-issue. F1 is built; the other three are not yet. Each says when, by the
-release it lands in relative to #716's; the issue's milestone names the
-version, so no number here goes stale when it ships.
+issue. All four are built, each by the issue its paragraph names. Each says
+when, by the release it lands in relative to #716's; the issue's milestone
+names the version, so no number here goes stale when it ships.
 
 **F1 — `docs/commit-review-gate-spec.md` is cut in three (#727, in the
 release #716 ships in, after #716 lands). Built by #727.** The table below
@@ -187,18 +197,49 @@ target is `changelog/<X.Y.Z>.md`, with all existing sections migrated and
 `CHANGELOG.md` kept as a short index linking each one; the GitHub Release
 reads the release's own file. Migrated rather than frozen, because no branch
 writes the changelog in parallel, and a link at an old tag keeps resolving at
-that tag.
+that tag. Built by #728. Each file opens with its release's `## X.Y.Z —
+<date>` line, and the index keeps that same line above each link, because the
+update skill an installed copy already carries checks that an update landed
+by the first `## ` line of `CHANGELOG.md`.
 
 **F3 — a work item's directory is laid out by lifetime (#729, in the release
-after #716's).**
+after #716's). Built by #729.**
 The principle: what outlives the merge stays, or folds into `docs/` and the
 ledger; what a review run needs only while it runs leaves the tree, or
-becomes one file per run. F3's own frame decides which, after reading the
-readers of `rounds/`, `phases/` and `survivors.md`.
+becomes one file per run. #729's frame read the readers and chose the first.
+
+- **The paths do not change.** Ten readers and the test suite name them, and
+  a regrouping under one subdirectory would show a reader nothing a listing
+  of `rounds/` and `phases/` does not.
+- **One file per run is rejected.** The round records of 41 of 53 runs
+  measured would together exceed the 64 KB a reader takes whole.
+- **The process record leaves after the release, without waiting for the
+  fold.** Once its release has merged to `main`, no check reads it: the
+  release pull request and the release seal were its last readers. A
+  person following a reference into it from the SDD set reads it at the
+  release tag, which keeps every file the arm removes. So
+  `settle --retire-process` removes it from every released work item as the
+  first act of `docs/release-checklist.md` §*2b*, on every release, and
+  leaves `routing.md` and the SDD set for the fold. Its guards are
+  `--retire`'s: an open todo row or an anchored ledger row keeps the item.
+- **Released items are not exempt.** The ledger freeze rests on content
+  anchors and parallel re-stamps, and no ledger row anchors inside a work
+  item's directory. The first run, over every item released before it, is
+  its own pull request at a release's step 2b.
 
 **F4 — the other rules `CLAUDE.md` restates get one home each (#730, in the
-release after #716's).** The merge-direction table, *no real identifiers*, the commit
-cadence, and every restated rule outside `CLAUDE.md` and `CONTRIBUTING.md`.
-#715 moved the ledger and fragment rules alone, because it rewrote them; the
-rest change no meaning, and finding a restated rule repository-wide needs a
-method of its own.
+release after #716's). Built by #730.** The merge method per direction lives
+in `docs/branch-and-release.md` §*Work accumulates on a release branch*, *no
+real identifiers* in `CONTRIBUTING.md` §*House rules*, and the commit cadence
+in step 2 of `skills/implement/SKILL.md`; the batch sentence at the foot of
+`CLAUDE.md`'s goal went to that skill's step 1. A `CLAUDE.md` row that points
+at a home carries three things: the home's path and section, the moment a
+session needs the rule, and the act in one sentence of the row's own, with
+the value the act needs. It carries no table, reasoning or history. Only the
+home's sentences are pinned, so a stale value in a row is a reviewer's
+finding; `tests/test_the_rules_claude_md_names_have_one_home.py` pins the
+homes and the links. Finding a restated rule anywhere is
+`tests/test_no_passage_is_pasted_into_a_second_file.py`: no two rule
+documents may share more 15-word runs than their pair was measured at. It
+does not see a rule restated in fresh words. The copies the tree already
+held, and a one-off pass over paraphrases, are #755's.

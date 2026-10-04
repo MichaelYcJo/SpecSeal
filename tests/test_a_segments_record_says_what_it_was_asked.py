@@ -281,9 +281,9 @@ def test_the_round_and_phase_records_do_not_diverge_on_which_file_moves():
 # (carrier, the phrase only the corrected wording uses, the claims it used to
 # carry). The first gone phrase is the carrier's own old wording at
 # `1fa25931`, the base #639 was cut from; the second is the #82 comparison
-# round 1 of that work item found unsupported. `CHANGELOG.md`'s released
-# 0.7.0 entry still says the first, and stays: a released entry is a record,
-# not a carrier.
+# round 1 of that work item found unsupported. The released 0.7.0 entry,
+# `changelog/0.7.0.md` since #728, still says the first, and stays: a released
+# entry is a record, not a carrier.
 CHEAPEST_81_CARRIERS = (
     (
         REVIEW_SKILL,

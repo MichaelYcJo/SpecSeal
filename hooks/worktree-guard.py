@@ -293,8 +293,13 @@ def switch_kind(parsed):
 
     `classify` answers the same question against a tree: a `checkout` of a
     path that exists, or of a name that is no ref, is not a switch there. This
-    reads no tree, so every `checkout` with a name in it counts: the upper
-    bound phase 3 of work item 1790993140 counted with (`questions.md` D3). A
+    reads no tree, so a `checkout` counts wherever its words alone can name a
+    branch, in `classify`'s order: one carrying `-b` or `-B` counts, with or
+    without a name; then one carrying `--` does not, whatever stands before
+    it; then one naming `-` or a word other than `.` does. That is the upper
+    bound phase 3 of work item 1790993140 counted with (`questions.md` D3),
+    and `docs/worktree-guard-spec.md` §*Which tree* states the same words. A
+    `switch` counts wherever it names a word or `-`, `--` or no `--`, and a
     `switch -c` needs no test of its own, because `-c` always takes a name.
     """
     if not parsed:

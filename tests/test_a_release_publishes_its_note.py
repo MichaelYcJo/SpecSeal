@@ -6,7 +6,7 @@ so the four directions that matter are the four this module holds:
 
   A1  a gathered `## X.Y.Z` section becomes the release note at that tag
   A2  a release already at the tag is left exactly as it is, exit 0
-  A3  a tag with no changelog section goes RED, naming the tag and the file
+  A3  a tag with no release file goes RED, naming the tag and the file
   A4  the title is the `release: X.Y.Z — <symptoms>` line, and where no such
       line is readable it is the tag name and the log says which was used
   A5  the note is a summary read from the release's pull requests -- counts,
@@ -20,7 +20,8 @@ fake tracker — the calls are recorded as argument tuples, in order, so a case
 can assert about a write that did NOT happen as well as one that did. Two of
 the four scenarios are exactly that.
 
-**The changelog is a fixture, and one case builds it with the real gatherer.**
+**The release's own file is a fixture, `changelog/X.Y.Z.md` since #728, and
+one case builds it with the real gatherer.**
 `test_the_reader_reads_what_the_gatherer_writes` runs
 `gather_changelog.py#section` and feeds its output to `publish_release_note.py`'s
 reader. That is the whole link between the two scripts: the gatherer has no
@@ -56,17 +57,15 @@ REPO = "example/repo"
 SYMPTOMS = "two acts nobody wrote down"
 NOTES = "- **A thing that changed.** And what it changes for a reader."
 
-CHANGELOG = f"""# Changelog
-
-## {VERSION} — 2026-01-02
+# The release's own file, as the gather writes it (#728).
+RELEASE_FILE = f"""## {VERSION} — 2026-01-02
 
 <!-- specs/1700000000-a-work-item -->
 {NOTES}
-
-## 1.2.2 — 2026-01-01
-
-- the release before it, which must not reach the note
 """
+
+# The release before it, in a file of its own, which must not reach the note.
+OLDER_FILE = "## 1.2.2 — 2026-01-01\n\n- the release before it\n"
 
 
 def module(path, name):
@@ -119,9 +118,16 @@ class Releases:
 
 
 def wire(
-    monkeypatch, tmp_path, changelog=CHANGELOG, message="", existing=(), pulls=(), **env
+    monkeypatch,
+    tmp_path,
+    changelog=RELEASE_FILE,
+    message="",
+    existing=(),
+    pulls=(),
+    **env,
 ):
-    """The script, with a fixture changelog and no route to GitHub."""
+    """The script, with fixture release files and no route to GitHub.
+    `changelog` is the tagged release's own file; None leaves it out."""
     mod = publisher()
     monkeypatch.setattr(
         mod,
@@ -130,7 +136,12 @@ def wire(
     )
     tracker = Releases(existing)
     tracker.message = message
-    (tmp_path / "CHANGELOG.md").write_text(changelog, encoding="utf-8")
+    (tmp_path / "changelog").mkdir(exist_ok=True)
+    (tmp_path / "changelog" / "1.2.2.md").write_text(OLDER_FILE, encoding="utf-8")
+    if changelog is not None:
+        (tmp_path / "changelog" / f"{VERSION}.md").write_text(
+            changelog, encoding="utf-8"
+        )
     monkeypatch.setattr(mod, "ROOT", str(tmp_path))
     monkeypatch.setattr(mod, "run", tracker.run)
     monkeypatch.setattr(mod, "release_exists", tracker.exists)
@@ -197,19 +208,26 @@ def test_an_existing_release_is_left_exactly_as_it_is(monkeypatch, tmp_path, cap
 # --- A3: a missing section goes red ----------------------------------------
 
 
-def test_a_tag_with_no_changelog_section_goes_red(monkeypatch, tmp_path, capsys):
+@pytest.mark.parametrize(
+    "changelog",
+    [
+        pytest.param(None, id="no release file"),
+        pytest.param("## 1.2.2 — 2026-01-01\n\n- misfiled\n", id="no heading"),
+    ],
+)
+def test_a_tag_with_no_changelog_section_goes_red(
+    monkeypatch, tmp_path, capsys, changelog
+):
     """A3. This is the release shipping unexplained, and the body is the whole
-    of what the job publishes — so it is the one direction that fails."""
+    of what the job publishes — so it is the one direction that fails. S9 of
+    #728: the file it names is the release's own, `changelog/X.Y.Z.md`."""
     mod, tracker = wire(
-        monkeypatch,
-        tmp_path,
-        changelog="# Changelog\n\n## 1.2.2 — 2026-01-01\n\n- an older one\n",
-        message=title_line(),
+        monkeypatch, tmp_path, changelog=changelog, message=title_line()
     )
     assert mod.main() == 1
     assert tracker.creates() == [], "it published a release with no notes"
     out = capsys.readouterr().out
-    assert TAG in out and "CHANGELOG.md" in out, (
+    assert TAG in out and f"changelog/{VERSION}.md" in out, (
         "the message names neither the tag nor the file it looked in, so the "
         "job log does not say what to fix"
     )
@@ -382,10 +400,14 @@ def test_the_section_is_kept_folded_under_the_summary(monkeypatch, tmp_path):
     """A5. The gathered section is the reasoning, and none of it is lost: it
     follows the summary whole, inside a fold, with a link to the file."""
     mod, body = published(monkeypatch, tmp_path, RELEASE)
-    section = mod.section_body(CHANGELOG, VERSION)
+    section = mod.section_body(RELEASE_FILE, VERSION)
     fold = body[body.index("<details>") :]
     assert f"<summary>{mod.FULL_SUMMARY}</summary>\n\n{section}\n\n</details>" in fold
-    assert f"https://github.com/{REPO}/blob/{TAG}/CHANGELOG.md" in fold
+    # S9 of #728: the link is the release's own file at the tag.
+    link = f"[`changelog/{VERSION}.md` at {TAG}]"
+    link += f"(https://github.com/{REPO}/blob/{TAG}/changelog/{VERSION}.md)"
+    assert fold.endswith(link), fold[-200:]
+    assert "the release before it" not in body, "an older release reached the note"
     assert body.index(mod.UPDATE_HEADING) < body.index("<details>")
     assert "/specseal:update" in body
 
@@ -413,7 +435,7 @@ def test_with_nothing_to_summarise_the_note_is_the_section(
     """A5 adds no way to fail the tag's job: a summary that cannot be built
     leaves the note the section alone, as it was before #572."""
     mod, body = published(monkeypatch, tmp_path, pulls)
-    assert body == mod.section_body(CHANGELOG, VERSION)
+    assert body == mod.section_body(RELEASE_FILE, VERSION)
     if pulls is None:
         assert "no outside contribution" not in capsys.readouterr().out, (
             "a list that could not be read is reported as a release nobody helped"
@@ -540,14 +562,18 @@ def test_the_reader_reads_what_the_gatherer_writes(tmp_path):
     """
     gather = gatherer()
     block = gather.section(VERSION, "2026-01-02", [("1700000000-a-work-item", NOTES)])
-    text = gather.insert(
-        "# Changelog\n\n## 1.2.2 — 2026-01-01\n\n- older\n", block, VERSION
+    # A release file is the section, as a new gather writes it (#728), and
+    # the same file after a second gather appended into it.
+    later = gather.insert(
+        block, gather.section(VERSION, "d", [("2-b", "later")]), VERSION
     )
-    assert publisher().section_body(text, VERSION) is not None, (
-        "the reader no longer recognises the section the gatherer writes, so "
-        "every release would publish with no notes at all"
-    )
-    assert NOTES in publisher().section_body(text, VERSION)
+    for text in (block, later):
+        assert publisher().section_body(text, VERSION) is not None, (
+            "the reader no longer recognises the section the gatherer writes, so "
+            "every release would publish with no notes at all"
+        )
+        assert NOTES in publisher().section_body(text, VERSION)
+    assert "later" in publisher().section_body(later, VERSION)
 
 
 # --- the workflow that runs it ---------------------------------------------

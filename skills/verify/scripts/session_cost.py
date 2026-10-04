@@ -2752,15 +2752,16 @@ def report_segments(segments, path):
     # It names the issue and not the release, because a loaded file may not
     # name a version that has not shipped (`tests/test_release_hygiene.py`,
     # the timer check), and this line is written before the release that
-    # carries it. `CHANGELOG.md` is where #377 is mapped to its version: the
-    # work item's fragment is gathered into that release's section.
+    # carries it. The changelog is where #377 is mapped to its version: the
+    # work item's fragment is gathered into that release's own file under
+    # `changelog/`.
     print(
         "\n  Family rows, in the run's own reading and in `--spawns`, are "
         "comparable only\n  with readings taken on a release that carries "
-        "#377, which `CHANGELOG.md` names:\n  before it, a `git` or `gh` call "
-        "after a `cd`, on a line of its own or after\n  a heredoc was charged "
-        "to `other`, and so was a test run after a heredoc. The\n  repeats "
-        "lines filter by family and moved with them."
+        "#377, which its file under\n  `changelog/` names: before it, a `git` "
+        "or `gh` call after a `cd`, on a line of\n  its own or after a heredoc "
+        "was charged to `other`, and so was a test run after\n  a heredoc. "
+        "The repeats lines filter by family and moved with them."
     )
     # #642 moved it a third time: a call that only read a file or listed a
     # directory was `other`, and it is `read`. `read` is judged after the

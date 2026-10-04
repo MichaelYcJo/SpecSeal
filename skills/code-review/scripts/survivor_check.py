@@ -152,17 +152,20 @@ records were in it -- a correction inside an HTML comment while the false
 claim rendered in bold -- and `seal/follow-up.md` names whose that loss is.
 
 **A released changelog section, and a gathered fragment.** Every line under
-a heading that names a version in the root `CHANGELOG.md` -- `## 0.15.0 —
-2026-09-23`, up to the next heading that names a version or `Unreleased`,
-so a `## ` line a gathered fragment carries does not end it (#564) -- is out
-of the **pool** and out of the **range**, on both sides of the range's path
-list; and so is a `<x>/specs/<id>/changelog.md` -- `seal/specs/<id>/` or the
-pre-0.4.0 `specs/<id>/` -- whose `<!-- specs/<id> -->` marker stands in
-`CHANGELOG.md` at the range's tip, because a gathered fragment is that
-released entry one file over (#307). A released section records what a past
-release did, in that release's words, and a released entry is not rewritten
-(`docs/the-record-layout.md` §*A change writes fragments, never a shared
-file*): reported against one, the branch that changed the behaviour it
+a heading that names a version in a changelog -- the root `CHANGELOG.md`, or
+a release's own file `changelog/<version>.md` at the root, the layout #728
+moved this repository's to (`a_changelog`) -- `## 0.15.0 — 2026-09-23`, up
+to the next heading that names a version or `Unreleased`, so a `## ` line a
+gathered fragment carries does not end it (#564) -- is out of the **pool**
+and out of the **range**, on both sides of the range's path list; and so is
+a `<x>/specs/<id>/changelog.md` -- `seal/specs/<id>/` or the pre-0.4.0
+`specs/<id>/` -- whose `<!-- specs/<id> -->` marker stands in a changelog at
+the range's tip, because a gathered fragment is that released entry one file
+over (#307). A range across the migration reads both shapes, the one-file
+changelog at its base and the release files at its tip, by the same rule.
+A released section records what a past release did, in that release's
+words, and a released entry is not rewritten (`docs/the-record-layout.md`
+§*A change writes fragments, never a shared file*): reported against one, the branch that changed the behaviour it
 describes could correct nothing, and two of the four ranges the 0.15.0
 release was measured on carried exactly that report. The region is read off
 the heading rather than the file being left out by path, so an
@@ -175,8 +178,8 @@ the fragment's sentences as removed, and the work items' own `spec.md` and
 `overview.md` would be reported at the release. The gathered text is held
 at the release and not written as the range's own (#557): the fragment's
 own branch wrote it, so it may not subtract a survivor the same commit's
-correction left. Only its n-grams that also occur in a sentence
-`CHANGELOG.md` itself lost count, and against that file's sentences alone,
+correction left. Only its n-grams that also occur in a sentence a
+changelog itself lost count, and against the changelogs' sentences alone,
 so a gathered rewording of a lost entry still splits that entry into runs.
 
 **A ledger row removed because its anchor left the code** (#603).
@@ -268,9 +271,10 @@ RESOLVED rather than string-matched, because CI spells the range
 same range. Resolving is what makes the range alone insufficient: that spelling
 is not a range, it is a RELATION, and it re-resolves to whatever range the
 checkout it is read on is over. Every `seal/specs/*/survivors.md` in the tree
-is handed to every run, and a `survivors.md` lives until the release that ships
-it, so one merged row in that spelling matched every later branch cut from the
-same base and excused its whole run. So the second anchor is the directory the
+is handed to every run, and a `survivors.md` stands until
+`settle --retire-process` takes it, after the release that ships it, so one
+merged row in that spelling matched every later branch cut from the same base
+and excused its whole run. So the second anchor is the directory the
 row lives in: a declaration holds only over a range that touches its own work
 item, which a work item's own range always does. In local mode nothing under
 the root is committed, so no range touches it, and the `Branch` row of the
@@ -321,6 +325,31 @@ elsewhere and held it, and the correction's other copies went unreported. So
 the retired side is read at the left end and takes part in the pairing, and
 only its departures that paired with nothing are then dropped. It is gone at
 the right end, so it adds nothing written.
+
+## A process record removed whole is out of the range too
+
+`settle --retire-process` (#729) removes a released work item's process record
+and leaves its directory standing. `rounds/`, `phases/` and `survivors.md` are
+already out of the range on both sides, by `records_a_past_state`. The rest of
+that arm's list — `broad-gate.md`, `handoff.md`, `pr.*.md`, `tests-todo.md` and
+`evidence-todo.md`, directly under the work item directory — is written for a
+pull request that has merged, and its sentences stand in the SDD set and in
+`docs/` because they were written there first. Measured on this repository's
+first drop, a `handoff.md` and a `broad-gate.md` reported 34 places, none of
+them a survivor of anything.
+
+So a file on that list that the range removed whole leaves the range, after
+the pairing, as a retired directory does. It stays in the pool while it
+stands: an in-flight work item's `handoff.md` that still carries a corrected
+sentence is reported, as it always was. Removing the file is not a correction
+of its wording.
+
+What it costs, measured in #729's round 1: such a file moved into one that
+stays, with a sentence reworded on the way, no longer has the reworded
+sentence's other copies reported. A round or phase record moved the same way
+has had that exemption since #365 and #460, and so has a retired directory.
+The file has to stand at the range's left end, so it is one an earlier pull
+request merged, never the branch's own in-flight record.
 
 ## What it does not answer
 
@@ -577,6 +606,21 @@ def blank_struck(text):
 # name. A changelog kept elsewhere or under another name keeps the reading
 # every other document has (#307's *Out*).
 CHANGELOG = "CHANGELOG.md"
+# And a release's own file, `changelog/<version>.md` at the root, the layout
+# this repository's changelog moved to (#728): the version in the name is
+# the `VERSION_HEADING` shape. Read as a changelog on the terms the root file
+# is, so its sections are released by their headings and nothing is left
+# out by path.
+RELEASE_FILE = re.compile(r"^changelog/v?\d+\.\d+(?:\.\d+)?\.md$")
+
+
+def a_changelog(path):
+    """True for the paths read as a changelog: the root `CHANGELOG.md`, and a
+    release's own file under `changelog/` (#728). The one predicate every
+    reader below asks, so the root file and a release file cannot be read by
+    two rules."""
+    return path == CHANGELOG or RELEASE_FILE.match(path) is not None
+
 
 # A heading that opens a RELEASED section: `## 0.15.0 — 2026-09-23`, and the
 # `## [1.2.3]` and `## v1.2.3` spellings other changelogs use. `## Unreleased`
@@ -833,7 +877,7 @@ def sentences(path, text):
     in the pool by construction."""
     if path.endswith(".py"):
         text = python_prose(text)
-    elif path == CHANGELOG:
+    elif a_changelog(path):
         text = blank_released(text)
     return [
         Sentence(path, line, raw) for line, raw in segments(blank_struck(text)) if raw
@@ -892,7 +936,38 @@ def records_a_past_state(path):
     return inside == ["survivors.md"] or (len(inside) > 1 and inside[0] == "phases")
 
 
-# The marker a gathered changelog fragment leaves in `CHANGELOG.md`, in the
+# The rest of `settle --retire-process`'s list, beside what
+# `records_a_past_state` already names: the files a work item writes for its
+# pull request, directly under its directory (#729).
+# `tests/test_a_process_record_drop_passes_the_readers.py` holds this and
+# `records_a_past_state` to `skills/settle/scripts/settle.py#is_process_record`,
+# so neither list can grow alone.
+PULL_REQUEST_FILES = (
+    "broad-gate.md",
+    "handoff.md",
+    "tests-todo.md",
+    "evidence-todo.md",
+)
+
+
+def written_for_a_pull_request(path):
+    """True for a work item's file on `PULL_REQUEST_FILES`, or a `pr.*.md`,
+    sitting directly under its `seal/specs/<id>/` directory.
+
+    `WORK_ITEM_DIR` anchors it, so a team's own `specs/` and a file of the
+    same name in prose are never matched."""
+    m = WORK_ITEM_DIR.match(path.replace("\\", "/"))
+    if m is None:
+        return False
+    rest = path.replace("\\", "/")[len(m.group(0)) :]
+    if "/" in rest:
+        return False
+    return rest in PULL_REQUEST_FILES or (
+        rest.startswith("pr.") and rest.endswith(".md")
+    )
+
+
+# The marker a gathered changelog fragment leaves in a changelog, in the
 # shape `unverified_check.py#FOLD_MARKER` already spells for the fold's
 # marker in `docs/`. Spelled here rather than imported from the gatherer:
 # `.github/scripts/gather_changelog.py` is this repository's release
@@ -900,12 +975,16 @@ def records_a_past_state(path):
 MARKER = re.compile(r"^<!-- specs/(\S+) -->$", re.M)
 
 
-def gathered_fragments(root, rev):
-    """The work item ids whose changelog fragment the tip's `CHANGELOG.md`
-    has gathered -- read off the marker each gather writes, at `rev`.
+def gathered_fragments(root, rev, paths=None):
+    """The work item ids whose changelog fragment a changelog at `rev` has
+    gathered -- read off the marker each gather writes, in every path
+    `a_changelog` names: the root `CHANGELOG.md`, and each release's own
+    file under `changelog/` since #728.
 
-    One `read_blobs` call and no path list: the question is what one file
-    says, never which files exist.
+    `paths` is the tree at `rev` where the caller has listed it already, and
+    is listed here otherwise. One `read_blobs` call for every changelog, and
+    each file's lines read on their own, so a block one file leaves open
+    hides no marker in the next.
 
     **A marker counts only on a live line**, read through
     `unverified_check.py#live_lines` as `folded_items` reads `docs/`. A
@@ -915,11 +994,14 @@ def gathered_fragments(root, rev):
     mistake keeps a fragment in the sweep, which a person sees.
 
     Its lines are the shared reader's `gfm_lines`, the split
-    `gather_changelog.py#live_markers` reads the same file by (#664)."""
-    text = read_blobs(root, rev, [CHANGELOG]).get(CHANGELOG, "")
+    `gather_changelog.py#live_markers` reads the same files by (#664)."""
+    if paths is None:
+        paths = tracked(root, rev)
+    texts = read_blobs(root, rev, sorted(p for p in paths if a_changelog(p)))
     loaded = reader()
     return {
         marker
+        for text in texts.values()
         for line, live in loaded.live_lines(loaded.gfm_lines(text))
         if live
         for marker in MARKER.findall(line)
@@ -932,7 +1014,7 @@ def a_gathered_fragment(path, gathered):
     as well; `corrected` reads the held text at exactly the paths this accepts.
 
     A gathered fragment is the released entry one file over: its text stands
-    verbatim under a version heading of `CHANGELOG.md`, whether the release
+    verbatim under a version heading of a changelog, whether the release
     that gathered it leaves the file standing, as this repository's gatherer
     does until `settle` retires the work item, or deletes it. So it is out
     of the pool and out of the range on both sides, the way a released
@@ -941,7 +1023,7 @@ def a_gathered_fragment(path, gathered):
 
     A sibling of `records_a_past_state` rather than a parameter on it,
     because that predicate is a pure function of the path and this one is
-    not: it needs the tip's `CHANGELOG.md`, so it carries its own argument
+    not: it needs the tip's changelogs, so it carries its own argument
     and is applied beside the other in `corrected` and `corpus`."""
     parts = path.replace("\\", "/").split("/")
     if "specs" not in parts:
@@ -1193,11 +1275,12 @@ def removed_ledger_rows(root, a, b, before, after):
 def corpus(root, rev):
     """`{path: [Sentence]}` for the tree at `rev`, less what is excluded --
     what `records_a_past_state` names, the changelog fragments the tip's
-    `CHANGELOG.md` has gathered, and the reference roots."""
-    gathered = gathered_fragments(root, rev)
+    changelogs have gathered, and the reference roots."""
+    listed = tracked(root, rev)
+    gathered = gathered_fragments(root, rev, listed)
     paths = [
         p
-        for p in tracked(root, rev)
+        for p in listed
         if not records_a_past_state(p)
         and not a_gathered_fragment(p, gathered)
         and not a_reference_root(root, p)
@@ -1213,7 +1296,7 @@ def corpus(root, rev):
 
 def corrected(root, a, b):
     """`[Sentence]` -- what the range removed -- the n-grams it wrote, and
-    the gathered n-grams that split `CHANGELOG.md`'s removed sentences alone.
+    the gathered n-grams that split a changelog's removed sentences alone.
 
     A sentence counts as corrected when the file holds it FEWER times at `b`
     than at `a`. Counted rather than tested for membership, so a sentence
@@ -1267,7 +1350,8 @@ def corrected(root, a, b):
     The section is live at `a` and blanked at `b`, so counted as any other
     file it reads as every sentence removed, and a document restating an
     entry is reported at the release with nothing anybody may correct. So
-    for `CHANGELOG.md` the sentences this range put under a version heading
+    for a changelog -- `a_changelog`, the root file or a release's own file
+    under `changelog/` -- the sentences this range put under a version heading
     -- the released sentences at `b` beyond those at `a` -- are added to the
     held count before the difference is taken; a sentence standing in an
     older release holds nothing. And where the file lost a sentence, their
@@ -1281,7 +1365,7 @@ def corrected(root, a, b):
     correction in the same commit left standing in another file (round 3's
     🟡 1, #557). Of a gathered sentence, only the n-grams that also occur in a
     sentence THIS file lost count, and they are the third return rather than
-    part of `written`: `score` subtracts them from `CHANGELOG.md`'s removed
+    part of `written`: `score` subtracts them from a changelog's removed
     sentences alone, so a live entry the release replaced with a gathered
     fragment rewording it is still split into the runs it no longer shares,
     as a reworded release is, while no gathered text subtracts another
@@ -1342,7 +1426,7 @@ def corrected(root, a, b):
         was = sentences(path, before[path]) if path in before else []
         now = sentences(path, after[path]) if path in after else []
         moved = []
-        if path == CHANGELOG and path in after:
+        if a_changelog(path) and path in after:
             # A release moves `## Unreleased` under a version heading. What
             # THIS range put under one is held, never a heading the file
             # already had: a sentence standing in an older release is not
@@ -1389,11 +1473,18 @@ def corrected(root, a, b):
     # went with its code, and its cells arriving verbatim in a new row were
     # paired above as the move they are.
     removed = removed_ledger_rows(root, a, b, before, after)
+    # A file written for a pull request that the range removed whole leaves
+    # here as well, in the same order (#729): `settle --retire-process` takes
+    # it from a released work item, and removing it corrects none of its
+    # wording. One that still stands at `b` is left alone.
     gone = [
         sentence
         for sentence in gone
         if not any(sentence.path.startswith(d + "/") for d in retired)
         and (sentence.path, sentence.line) not in removed
+        and not (
+            written_for_a_pull_request(sentence.path) and sentence.path not in after
+        )
     ]
     written = {gram for sentence in fresh for gram in sentence.grams()}
     return gone, written, split
@@ -1579,7 +1670,7 @@ def score(gone, keep, where, weight_of, floor, split=frozenset()):
     for source in gone:
         sequence = source.grams()
         mine = set(sequence) & keep
-        if source.path == CHANGELOG:
+        if a_changelog(source.path):
             # What a gathered rewording shares with the entry it replaced
             # splits that entry, and no other file's sentence (`corrected`).
             mine -= split
@@ -1901,7 +1992,8 @@ def whole_range(root, ranges, a, b):
     `origin/<base>...HEAD` is not a range, it is a RELATION, and it resolves to
     whatever range the checkout it is read on is over. `hygiene.yml` hands
     every `seal/specs/*/survivors.md` in the tree to every run, and a
-    `survivors.md` lives until the release that ships it -- so one merged
+    `survivors.md` stands until `settle --retire-process` takes it, after the
+    release that ships it -- so one merged
     declaration in that spelling matched every later branch cut from the same
     base, excused every one of its survivors and turned the step off for the
     rest of the release. That is the outcome the escape exists to prevent,
