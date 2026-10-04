@@ -346,8 +346,9 @@ def commit_invocations(command, cwd=None):
     # A JUDGMENT read, so the comments and the heredoc bodies both go first:
     # each is text the shell does not execute, and every newline in one was
     # being read as a segment separator. `has_marker` below is a CONSENT read
-    # and deliberately still sees the whole command, because a waiver token is
-    # written inside a comment on purpose.
+    # and deliberately still sees the comments, because a waiver token is
+    # written inside a comment on purpose. It does not see the heredoc bodies
+    # (#773): a token is typed in front of a command, and a body is not that.
     #
     # `drop_comments` was missing here while `hooks/worktree-guard.py:201` had
     # it, and for a while that cost nothing: a comment segment's first token is
@@ -671,10 +672,28 @@ def has_marker(command, marker):
     its own text as well as read it. The parameter that used to carry the
     judgment read's answer is gone rather than defaulted, so there is no
     argument left to pass it through again.
+
+    **A here-document body is not read (#773).** The same scan runs a second
+    time over `tokens.without_bodies(command)`, which keeps the comments, and
+    the marker counts only where both scans find it. Each scan measures its
+    own cleanliness, for the reason above. The second one alone would let a
+    token through that the command as written never offered: taking a body
+    out can close a split the raw text left open. The AND means this read can
+    only refuse where the base read honoured, and never the other way round.
+    A token inside a body a shell runs is refused too, and the way on is the
+    token typed in front of the Bash call's own command.
     """
-    segments, clean = split_segments(command)
+    return _reads_marker(command, marker) and _reads_marker(
+        tokens.without_bodies(command), marker
+    )
+
+
+def _reads_marker(text, marker):
+    """`has_marker`'s scan of one text: a bare word where `text` splits
+    cleanly, the substring test where it does not."""
+    segments, clean = split_segments(text)
     if not clean:
-        return marker in command
+        return marker in text
     return any(tok == marker for toks in segments for tok in toks)
 
 
@@ -1267,10 +1286,12 @@ def main():
     # as written, exactly as before. Nothing below is asked where a body is,
     # because the reduced text holds none. `is_plain` keeps the command as
     # written, because reading more of it can only keep the reading in. The
-    # consent reads (`has_marker`, here and in `judge`) also keep it, as at
-    # the base, and that runs the other way: a waiver token inside the body
-    # still counts, although the body is data to the commit reading. That is
-    # the base's behaviour, left to the consent reads' own work item (#773).
+    # consent reads (`has_marker`, here and in `judge`) take the command as
+    # written too, and read it without its bodies (#773): every body, not just
+    # this shape's, through `tokens.without_bodies`, and a token counts only
+    # where the command as written carries it as well. Both choices lean the
+    # closed way: `is_plain` reads more so the reading stays in, and the
+    # consent reads read less so a waiver can only be refused, never granted.
     reduced = one_heredoc.reduce(command)
     read = command if reduced is None else reduced
     try:

@@ -21,6 +21,12 @@ The rules are the two consent reads 0.16.0 had, joined:
     (`git commit -m "drop [no-review] later"`), which `has_marker` and
     `has_token` both refused to read as consent;
   * **comments are read** -- the documented form writes the token in one;
+  * **a here-document body reads nothing** (#773) -- a waiver is typed in
+    front of a command, and a body is text the command only carries, so a
+    token inside one silenced a commit nobody waived. `without_bodies` is the
+    text a consent read reads, and a token counts only where the command as
+    written carries it too, so leaving the bodies out can only refuse. A new
+    consent read starts here, and the commit gate's `has_marker` already does;
   * **a parenthesis riding on a word is not part of it** --
     `(git worktree add ../wt f [worktree-ok])` (the guard's `has_token`);
   * **an unbalanced quote reads nothing** -- the guard's choice over the
@@ -46,9 +52,38 @@ def words(command):
         return ()
 
 
+def without_bodies(command):
+    """`command` with its here-document bodies taken out and its comments kept:
+    the text a consent read reads beside the command as written (#773).
+
+    The bodies are the ones the commit gate already finds, by the two readers
+    it already has. Where `hooks/one_heredoc.py` matches the one shape byte
+    for byte, its reduced text, which holds no `<<`; everywhere else
+    `hooks/cmdline.py#drop_heredoc_bodies`, which copies a comment through and
+    opens no body inside one. No reader here decides where a body is.
+
+    It is never read alone. Taking a body out can make a split succeed that
+    failed on the raw text, and a token that split reads would be one the
+    command as written never offered, so each caller ANDs this read with its
+    read of the raw command.
+    """
+    import one_heredoc
+    from cmdline import drop_heredoc_bodies
+
+    command = command or ""
+    reduced = one_heredoc.reduce(command)
+    return drop_heredoc_bodies(command if reduced is None else reduced)
+
+
+def _bare(text):
+    return {w.strip("()") for w in words(text)}
+
+
 def given(command):
-    """The known tokens `command` carries as bare words, in `KNOWN`'s order."""
-    found = {w.strip("()") for w in words(command)}
+    """The known tokens `command` carries as bare words outside its
+    here-document bodies, in `KNOWN`'s order -- read in the command as written
+    AND in `without_bodies`, so a token in a body counts nowhere (#773)."""
+    found = _bare(command) & _bare(without_bodies(command))
     return tuple(t for t in KNOWN if t in found)
 
 
