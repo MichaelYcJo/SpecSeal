@@ -3581,7 +3581,9 @@ def reverify_into(
         )
     start = 0
     if rows:
-        text = read(into, strict=True) or ""
+        # Read leniently here because `main` already refused an INTO that is
+        # there and will not decode, before anything was planned.
+        text = read(into) or ""
         if text and not text.endswith("\n"):
             text += "\n"
         start = len(gfm_lines(text)) + 1

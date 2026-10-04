@@ -1309,3 +1309,23 @@ def test_the_documents_say_what_the_writer_does(doc, sentence):
     with open(os.path.join(ROOT, doc), encoding="utf-8") as handle:
         text = " ".join(handle.read().split())
     assert sentence in text, (doc, sentence)
+
+
+@UNREADABLE
+def test_an_into_step_three_cannot_write_claims_no_row_written(repo):
+    """W8 and W10 under the freeze. The record is written, then `--into`
+    cannot be replaced: no `wrote` line names a row in it, the count says
+    none was written, and the file is named on a `LEFT` line."""
+    _frozen_with_a_released_row(repo)
+    folder = repo / "seal" / "ledger"
+    before = (repo / FRAGMENT).read_bytes()
+    os.chmod(folder, 0o555)
+    try:
+        code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    finally:
+        os.chmod(folder, 0o755)
+    assert code == 1 and "Traceback" not in out, out
+    assert (repo / FRAGMENT).read_bytes() == before, out
+    assert len(record_rows(repo)) == 1, out
+    assert "  wrote " not in out and "0 citing rows written" in out, out
+    assert f"  LEFT  seal/ledger/{ITEM}.md  could not be written" in out, out
