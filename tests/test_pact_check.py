@@ -301,8 +301,9 @@ def test_s10_a_notify_row_below_the_signatorys_table_is_exit_2(world):
     assert (
         f"REFUSED {SIGNATORY_URL} seal/config.md — `| Pact notify | always |` "
         "is shaped as a `Pact notify` row and is not read as one, because it "
-        "stands outside the `| Item | Value |` table, spells the item another "
-        "way, or holds a character that cuts the line. Write it as "
+        "stands outside the `| Item | Value |` table, is not written as a "
+        "two-cell row, spells the item another way, or holds a character that "
+        "cuts the line. Write it as "
         "`| Pact notify | … |` inside that table"
     ) in out, out
     assert "— `Pact notify`: will not parse;" in out, out

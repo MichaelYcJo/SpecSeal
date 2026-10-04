@@ -212,8 +212,9 @@ def test_s11_a_notify_row_below_the_table_is_a_notice_naming_it(tmp_path):
     assert (
         "a `Pact` row this CI does not verify: `| Pact notify | always |` is "
         "shaped as a `Pact notify` row and is not read as one, because it "
-        "stands outside the `| Item | Value |` table, spells the item another "
-        "way, or holds a character that cuts the line. Write it as "
+        "stands outside the `| Item | Value |` table, is not written as a "
+        "two-cell row, spells the item another way, or holds a character that "
+        "cuts the line. Write it as "
         "`| Pact notify | … |` inside that table. Printed rather than refused"
     ) in out, out
     assert "(`Pact notify`: a value that will not parse)" in out, out

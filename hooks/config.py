@@ -919,9 +919,10 @@ def stray_refusal(item, line):
     )
     return (
         f"`{shown}` is shaped as a `{item}` row and is not read as one, "
-        "because it stands outside the `| Item | Value |` table, spells the "
-        "item another way, or holds a character that cuts the line. Write it "
-        f"as `| {item} | … |` inside that table"
+        "because it stands outside the `| Item | Value |` table, is not "
+        "written as a two-cell row, spells the item another way, or holds a "
+        f"character that cuts the line. Write it as `| {item} | … |` inside "
+        "that table"
     )
 
 

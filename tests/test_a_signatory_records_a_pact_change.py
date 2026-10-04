@@ -942,20 +942,32 @@ def test_under_always_a_declaration_that_will_not_read_leaves_the_row(repo, rows
 def stray_refusal(line, item):
     return (
         f"`{line}` is shaped as a `{item}` row and is not read as one, because "
-        "it stands outside the `| Item | Value |` table, spells the item "
-        "another way, or holds a character that cuts the line. Write it as "
+        "it stands outside the `| Item | Value |` table, is not written as a "
+        "two-cell row, spells the item another way, or holds a character that "
+        "cuts the line. Write it as "
         f"`| {item} | … |` inside that table"
     )
 
 
-def test_s9_a_notify_row_below_the_table_leaves_a_row_citing_no_clause(repo):
+@pytest.mark.parametrize(
+    "below, line",
+    [
+        ("\n| Pact notify | always |\n", "| Pact notify | always |"),
+        ("Pact notify | always |\n", "Pact notify | always |"),
+    ],
+    ids=["below a blank line", "no leading pipe, directly under the table"],
+)
+def test_s9_a_notify_row_below_the_table_leaves_a_row_citing_no_clause(
+    repo, below, line
+):
     """S9. `| Pact notify | always |` under a blank line that ended the table
     was read as the default, and a moved row citing no clause was re-stamped
     unrecorded. It is refused now, so the row is left: exit 1, the ledger
-    byte-identical, and no record (#759)."""
+    byte-identical, and no record (#759). GFM reads a line with no leading
+    pipe directly under the table as one of its rows, and so does a person
+    (round 1 of PR #784, yellow 1)."""
     (repo / "seal" / "config.md").write_text(
-        config_text(("Mode", "shared"), ("Pact", PACT_URL))
-        + "\n| Pact notify | always |\n",
+        config_text(("Mode", "shared"), ("Pact", PACT_URL)) + below,
         encoding="utf-8",
     )
     old = unit_hash(repo, "src/orders.py", "serialize")
@@ -967,7 +979,7 @@ def test_s9_a_notify_row_below_the_table_leaves_a_row_citing_no_clause(repo):
     assert (
         f"LEFT seal/ledger/{ITEM}.md:1 moved, and `Pact notify` may be "
         "`always`, and the `Pact` rows will not read: "
-        + stray_refusal("| Pact notify | always |", "Pact notify")
+        + stray_refusal(line, "Pact notify")
         + " — no pact change was recorded and nothing was re-stamped; fix the "
         "row and run it again"
     ) in " ".join(out.split()), out
@@ -1538,10 +1550,16 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
     [
         "\n| Pact notify | always |\n",
         *(f"| Pact notify | {ch}always |\n" for ch in SPLITLINES_ONLY),
+        "Pact notify | always |\n",
+        "| Pact\u200bnotify | always |\n",
+        "| Pact notify\ufeff | always |\n",
     ],
     ids=[
         "S12 below the table",
         *(f"S13 cut at U+{ord(ch):04X}" for ch in SPLITLINES_ONLY),
+        "no leading pipe, directly under the table",
+        "a format character inside the item",
+        "a format character after the item",
     ],
 )
 def test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify(

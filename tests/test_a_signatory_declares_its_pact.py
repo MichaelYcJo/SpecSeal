@@ -17,6 +17,8 @@ step's pinned sentences (S4).
 
 import importlib.util
 import os
+import sys
+import unicodedata
 
 import pytest
 from conftest import load_hook_module
@@ -187,13 +189,19 @@ CONFIG = CONFIG_TOP + f"| Pact | {URL} |\n"
 STRAY = "| Pact notify | always |"
 # The eight characters `str.splitlines` ends a line at and GFM does not.
 SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"]
+# Every format character (Unicode category Cf): GFM renders each as nothing,
+# so a row spelled with one reads as the item it would be without it.
+FORMAT_CHARACTERS = [
+    chr(c) for c in range(sys.maxunicode + 1) if unicodedata.category(chr(c)) == "Cf"
+]
 
 
 def refused_as(line, item="Pact notify"):
     return (
         f"`{line}` is shaped as a `{item}` row and is not read as one, because "
-        "it stands outside the `| Item | Value |` table, spells the item "
-        "another way, or holds a character that cuts the line. Write it as "
+        "it stands outside the `| Item | Value |` table, is not written as a "
+        "two-cell row, spells the item another way, or holds a character that "
+        "cuts the line. Write it as "
         f"`| {item} | … |` inside that table"
     )
 
@@ -247,6 +255,18 @@ STRAY_WAYS = [
         "| Pact notify | always\\|",
     ),
     ("W10 a cut line", CONFIG + "\nprose\u2028" + STRAY + "\n", STRAY),
+    # Round 1 of PR #784, yellow 1: GFM needs no pipe at either end, so a
+    # line directly under the table is one of its rows.
+    (
+        "W8 no leading pipe, directly under the table",
+        CONFIG + "Pact notify | always |\n",
+        "Pact notify | always |",
+    ),
+    (
+        "W8 no pipe at either end, directly under the table",
+        CONFIG + "Pact notify | always\n",
+        "Pact notify | always",
+    ),
 ]
 
 
@@ -302,6 +322,26 @@ def test_s4_a_notify_row_the_reader_cuts_in_two_is_refused(ch):
     )
 
 
+@pytest.mark.parametrize(
+    "ch", FORMAT_CHARACTERS, ids=[f"U+{ord(c):04X}" for c in FORMAT_CHARACTERS]
+)
+def test_s3_a_notify_row_spelled_with_a_format_character_is_refused(ch):
+    """S3, W9, round 1 of PR #784, yellow 2. A format character renders as
+    nothing, so GFM shows `Pact notify` while the walk takes another item
+    and `\\s` cannot cross it. Each is removed before the shape reads the
+    line, and shown as its code point in the sentence naming it."""
+    code = f"<U+{ord(ch):04X}>"
+    for row, shown in (
+        (f"| Pa{ch}ct notify | always |", f"| Pa{code}ct notify | always |"),
+        (f"| Pact{ch}notify | always |", f"| Pact{code}notify | always |"),
+        (f"| Pact notify{ch} | always |", f"| Pact notify{code} | always |"),
+    ):
+        assert config.pact_declaration(CONFIG + row + "\n")[1:] == (
+            None,
+            [refused_as(shown)],
+        ), row
+
+
 def test_s5_a_pact_row_below_the_table_is_refused_with_no_pact_in_it():
     """S5. A stray `Pact` row with none in the table: refused, and `pacts` is
     what the table parsed, which is nothing."""
@@ -320,6 +360,7 @@ def test_s6_a_stray_notify_row_with_no_pact_anywhere_is_ignored():
     for text in (
         CONFIG_TOP + "\n" + STRAY + "\n",
         CONFIG_TOP + "| Pact |  |\n\n" + STRAY + "\n",
+        CONFIG_TOP + "Pact notify | always |\n",
     ):
         assert config.pact_declaration(text) == ([], None, []), text
 
@@ -376,6 +417,11 @@ def test_s14_the_reader_and_the_vendored_copy_share_one_grammar():
     spec.loader.exec_module(ec)
     ours, theirs = config.PACT_ROW_SHAPE, ec.NOTIFY_ROW_SHAPE
     assert (ours.pattern, ours.flags) == (theirs.pattern, theirs.flags)
+    # The line each reads the shape through is one rule too (round 1 of PR
+    # #784, yellow 2): every format character removed, nothing else.
+    for ch in [*FORMAT_CHARACTERS, "\u00a0", "\u2028"]:
+        line = f"{ch}| Pa{ch}ct notify{ch} | x |"
+        assert config.shape_line(line) == ec.shape_line(line), hex(ord(ch))
 
 
 def test_config_rows_is_the_indexed_walk_without_its_places():
