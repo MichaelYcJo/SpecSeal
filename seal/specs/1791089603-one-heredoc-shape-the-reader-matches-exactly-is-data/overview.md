@@ -8,7 +8,7 @@ evidence ledger, not here. -->
 
 📋 implement applied
 · spec:     `spec.md` §*The shape* clauses A–F, §*Why this shape*, §*#739's three refusals*, S1–S10; `plan.md` phases 1–3 and alternatives B–H; `questions.md` Q1–Q5; `docs/commit-review-gate-spec.md` §*A file edit goes through the `Edit` tool*, §*Two readings that prompted that run stay as they are*, §*Only what the shell would EXECUTE is read as commands*; `skills/agent-contract/SKILL.md` §9
-· evidence: `seal/ledger/1791089603-one-heredoc-shape-the-reader-matches-exactly-is-data.md` — six `Re-read ·` rows (E1, E2, E6, E17, E18, G8) and three `Corrected ·` rows (E3, E7, I10)
+· evidence: `seal/ledger/1791089603-one-heredoc-shape-the-reader-matches-exactly-is-data.md` — eight `Re-read ·` rows (E1, E2, E6, E9, E17, E18, G8, C1) and three `Corrected ·` rows (E3, E7, I10)
 · verified: executed — the reader, gate, agreement and hygiene modules narrow, each new case red against a mutation; read — I10's generated corpus, not re-run
 
 ## Why this work exists
@@ -32,7 +32,7 @@ and no other command reads any differently.
 | Q3 for bash 5.x: whether bash 5 cuts every admitted string where the reader does, directly and through `eval` | the ubuntu leg of the test workflow at the pull request (`tests/test_one_heredoc_shape_agrees_with_the_shell.py`) |
 | Q4: whether the moved row reaches the shape on the Windows leg, where `shlex.quote` gives a single-quoted path with backslashes | the Windows leg of the test workflow at the pull request (`tests/test_no_shape_the_base_stops_reads_silent.py::test_the_moved_row_reads_silent`) |
 | The agreement test on the Windows leg, where `bash` is Git Bash or is skipped by `shell_probe` | the Windows leg of the test workflow at the pull request |
-| How many commands of I10's generated corpus (11,393) and recorded sessions are the one shape | nobody can without re-running `1790660768`'s generator; the correction says so and is labelled read |
+| How many commands of I10's generated corpus (11,393) and recorded sessions are the one shape | the repository owner, if the count is wanted: it takes `1790660768`'s generator re-run, and the I10 correction is labelled read until then |
 | The full suite, repository-wide lint and typecheck | the sealer, after the review rounds |
 
 ## Not done
