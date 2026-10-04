@@ -30,10 +30,9 @@ row is read in one spelling and every other line naming a pact is refused.
 
 ## Not done
 
-`templates/config.md` read whole as a config refuses on its documentation
-tables; nothing reads it as one, and making it silent needs the code-span
-exemption #784 kept re-opening (`spec.md` §*Out*). The blind side is
-documented and not closed (Q1, default (a)).
+The blind side is documented and not closed (Q1, default (a)). YAML front
+matter, which github.com renders as a table and cmark-gfm does not, is not
+read; the orchestrator ruled it out of scope in round 1 of PR #793.
 
 ## Fed back into the spec
 
@@ -42,3 +41,7 @@ documented and not closed (Q1, default (a)).
 - *Inferred during implementation:* one predicate serves both readings,
   `names_a_pact(text, piped=True)`, with `piped=False` for a walked row's item
   (the plan's `word(item)`).
+- *Inferred in round 1's fix pass of PR #793:* a file holding an HTML table
+  cell (`HTML_CELL`, `<td` or `<th`) drops the pipe condition for every
+  line, in both readers; the vendored copy reads a row-shaped line directly
+  above a delimiter row whole, as a table's header.

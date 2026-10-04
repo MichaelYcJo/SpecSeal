@@ -785,7 +785,7 @@ def test_s10_the_reader_and_the_vendored_copy_read_one_word():
             )
 
 
-# A letter between the word's letters, or a look-alike from another script.
+# A letter between the word's letters, or a look-alike letter.
 BLIND_SIDE = [
     "P<b></b>act notify",
     "[P](x)act notify",
@@ -801,7 +801,7 @@ BLIND_SIDE = [
 def test_the_blind_side_is_read_as_no_line(item, gap):
     """Q1's default, stated in `docs/the-pact.md` §*What this does not see*:
     a spelling that puts a letter between the word's letters, or spells it
-    with a look-alike from another script, names no pact to either reader,
+    with a look-alike letter, names no pact to either reader,
     so the table's notify is read. A change to Q1's answer turns this red."""
     text = CONFIG + gap + f"| {item} | always |\n"
     assert config.pact_declaration(text) == (ORDERS, config.NOTIFY_DEFAULT, [])
@@ -833,12 +833,30 @@ def test_the_blind_side_is_read_as_no_line(item, gap):
         (
             ("docs", "the-pact.md"),
             "**A pact line with a letter written between the word's letters, or "
-            "with a look-alike letter from another script, is read as no line at "
-            "all.**",
+            "with a look-alike letter, from another script or its own, is read as "
+            "no line at all.**",
         ),
         (
             ("docs", "the-pact.md"),
-            "So does `P\u0430ct` spelled with a Cyrillic `\u0430`, U+0430.",
+            "So does `P\u0430ct` spelled with a Cyrillic `\u0430`, U+0430, and "
+            "`\u1d18\u1d00\u1d04\u1d1b` in Latin small capitals, which NFKC does not fold.",
+        ),
+        (
+            ("docs", "the-pact.md"),
+            "as written or with its character references decoded and its "
+            "compatibility letters folded (NFKC), so a fullwidth or mathematical "
+            "`Pact` names one and `impact` names none.",
+        ),
+        (
+            ("docs", "the-pact.md"),
+            "In a file that holds an HTML table cell, `<td>` or `<th>`, a line "
+            "naming a pact is refused with or without a `|`, because such a cell "
+            "carries a value with no pipe beside it.",
+        ),
+        (
+            ("docs", "the-pact.md"),
+            "YAML front matter is not read either: github.com shows it as a table, "
+            "cmark-gfm does not, and no line of it holds a `|`.",
         ),
         (
             ("templates", "config.md"),
@@ -863,6 +881,9 @@ def test_the_blind_side_is_read_as_no_line(item, gap):
         "the pact: no pipe",
         "the pact: the blind side",
         "the pact: a look-alike letter",
+        "the pact: the NFKC fold, round 1 of PR #793",
+        "the pact: an HTML table cell, round 1 of PR #793",
+        "the pact: YAML front matter, round 1 of PR #793",
         "template: the rule",
         "template: the Absent cell",
         "template: no pipe",

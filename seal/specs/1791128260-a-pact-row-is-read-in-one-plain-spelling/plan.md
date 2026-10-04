@@ -104,7 +104,7 @@ walked row has its pipes.
 | Refuse a mangled `Pact notify` line only where a `Pact` value stands, as #784 did | Telling a mangled notify line from a mangled `Pact` line needs the item read through markup | rejected; both refuse. A plain notify row with no pact is still ignored |
 | Strip `<…>` and `(…)` crudely before matching, to catch `P<b></b>act` | Each crude strip is a union, so it can only add refusals. But it is a third and fourth transform for spellings no round found, and it starts the grammar again | not built; the blind side is documented, and Q1 can ask for it |
 | Keep the vendored constant's name `NOTIFY_ROW_SHAPE` so the released anchor 0.18.1 C1 resolves | The name then says "row shape" over a word pattern, in the one file a vendoring repository reads | rejected; the constant is renamed `PACT_WORD`, and a `Corrected ·` row re-points C1 |
-| Make the plugin's reader silent on `templates/config.md` | It needs a code-span exemption, which is the very rule #784 rounds 2–4 kept re-opening, for a file no code reads as a config | rejected |
+| Make the plugin's reader silent on `templates/config.md` | It needs a code-span exemption, which is the very rule #784 rounds 2–4 kept re-opening, for a file no code reads as a config | rejected. *Corrected in round 1's fix pass of PR #793:* a session copies the template whole, so it is made silent by rewriting §*Pact* without a pipe on any line naming a pact, which needs no exemption |
 
 ## Phases
 

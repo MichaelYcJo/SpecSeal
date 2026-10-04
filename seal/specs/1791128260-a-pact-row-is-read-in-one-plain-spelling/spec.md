@@ -146,7 +146,7 @@ Checked against everything that is, or is made into, a `seal/config.md`:
 | The stub `seal mode` writes (`skills/implement/scripts/seal.py#NEW_CONFIG`) | every reader | silent: a comment and a `Mode` row (read) |
 | The `## Broad gate` block `skills/config/SKILL.md` step 3 tells a session to copy below the live table (`templates/config.md` §*Broad gate* down to §*What is refused*) | every reader, once copied | silent: no word names a pact in it (read); S9 measures it |
 | The two rows `skills/implement/orchestration.md` §*the pact* writes into a signatory, `Pact` and `Pact notify` as `when the pact is touched` | every reader | silent **where they are written into the table**. Written below copied prose, they are refused, where today they are silently not read. That is the defect closing, loudly |
-| `templates/config.md` whole | **no code** reads it as a config (searched: every reader of `pact_declaration`, `declared_pacts` and `config_rows` takes `seal/config.md`; the tests read the template as text) | it would be refused: its `\| Row \| Value \| Absent \|` and `\| Value \| Recorded here \|` documentation tables name a pact with pipes. Nothing copies it whole, and a copy that did would be told which lines to remove. Its own first table, with `\| Pact \|  \|` and `\| Pact notify \|  \|`, is the plain spelling and silent |
+| `templates/config.md` whole | **no code** reads it as a config (searched: every reader of `pact_declaration`, `declared_pacts` and `config_rows` takes `seal/config.md`; the tests read the template as text) | it would be refused: its `\| Row \| Value \| Absent \|` and `\| Value \| Recorded here \|` documentation tables name a pact with pipes. Nothing copies it whole, and a copy that did would be told which lines to remove. Its own first table, with `\| Pact \|  \|` and `\| Pact notify \|  \|`, is the plain spelling and silent. **Corrected 2026-10-05 in round 1's fix pass of PR #793 (yellow 1):** the premise was false. `skills/commit-pr-convention/SKILL.md` and the template's own preface tell a session to copy it into the root whole, so it is a config to every reader. §*Pact* is rewritten so no line both names a pact and holds a pipe, and the template reads silent in both readers, `always` once filled |
 | A fenced or commented example of a pact row, in a signatory's config | every reader | **refused** — the deliberate cost above |
 | A walked non-pact row whose value names a pact | every reader | silent: only a walked row's item is read |
 | `impact`, `compact`, `Impacted` anywhere | — | silent: the look-behind |
@@ -193,6 +193,11 @@ the default that it is documented and accepted.
    value. Every vendored case on the base keeps its verdict (S12). The
    constant `NOTIFY_ROW_SHAPE` is replaced by `PACT_WORD`. A released ledger
    row cites `NOTIFY_ROW_SHAPE` (Data §*Ledger*).
+   *Corrected in round 1's fix pass of PR #793 (white 4, yellow 2, yellow
+   3):* as built, a two-cell row other than a table's header is read by its
+   item alone, as the plugin reads a walked row, so such a row whose item
+   names no pact leaves nothing; a table's header is read whole; and in a
+   file holding an HTML table cell the `|` is not asked for.
 3. **Delete** what #784 added and this replaces, wherever it reaches this
    branch: `PACT_ROW_SHAPE`, `shape_line` (both copies), `RAW_HTML`, <!-- NAME NOT IN TREE: #784's, never ported -->
    `TAG_END`, `_shaped_item`, `PACT_ITEMS`, the two-cut stray walk, and the <!-- NAME NOT IN TREE: #784's, never ported -->
@@ -229,7 +234,9 @@ the default that it is documented and accepted.
 - **The blind side above.** It is documented, not closed (Q1).
 - **`templates/config.md` as a config.** Nothing reads it as one. It is not
   made silent, because that would need the code-span exemption that #784
-  rounds 2–4 kept re-opening.
+  rounds 2–4 kept re-opening. *Corrected in round 1's fix pass of PR #793:*
+  a session copies it whole, so it is made silent by writing §*Pact* with no
+  pipe on a line naming a pact, which needs no exemption.
 
 ## User scenarios & acceptance *(mandatory)*
 

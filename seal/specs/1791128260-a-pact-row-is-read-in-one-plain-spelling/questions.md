@@ -22,6 +22,9 @@ owner's choice or the spawn left open. Each is answered in `spec.md` or in
   because exempting it depends on modelling GFM's block grammar.
 - **`templates/config.md`.** No code reads it as a config, and it is not
   made silent as one. Its own first table is the plain spelling.
+  *Corrected in round 1's fix pass of PR #793:* a session copies it whole,
+  so its §*Pact* is written with no line that names a pact and holds a pipe,
+  and the template reads silent (`spec.md` §*What this over-refuses*).
 - **A stray notify line with no `Pact` value.** Refused, like a stray `Pact`
   line, because telling them apart needs the item read through markup. A
   plain notify row with no pact stays ignored.

@@ -1302,16 +1302,18 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
             "docs/the-pact.md",
             "and each other moved row where `seal/config.md` holds a `Pact` row and "
             "a `Pact notify` row that both carry a value, holds a line that names a "
-            "pact by the plugin's word and is neither row in the one spelling, or "
-            "will not read, says it recorded nothing, and re-stamps nothing",
+            "pact by the plugin's word and is neither row in the one spelling, "
+            "reading a two-cell row other than a table's header by its item alone, "
+            "as the plugin reads a walked row, or will not read, says it recorded "
+            "nothing, and re-stamps nothing",
         ),
         (
             "skills/evidence-check/SKILL.md",
             "and each other moved row where `seal/config.md` holds a `Pact` row and "
             "a `Pact notify` row that both carry a value, or will not read, or "
-            "carries any other line the plugin's reader refuses for naming a pact "
-            "outside its one spelling, records nothing, and exits 1. A `Pact "
-            "notify` row written twice has no value",
+            "carries a line naming a pact that is neither plain row, a two-cell row "
+            "other than a table's header being read by its item alone, records "
+            "nothing, and exits 1. A `Pact notify` row written twice has no value",
         ),
         (
             "docs/the-pact.md",
