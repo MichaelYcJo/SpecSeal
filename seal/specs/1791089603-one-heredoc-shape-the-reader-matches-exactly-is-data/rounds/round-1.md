@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #769 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `dd5550383069ca336519e4311632b28b83473c70..bcf841ee688b098cf1527fb335a5e31270fe0e52`, 5 commits |
+| Contract changes | none |
+| New units | test_three_measured_shapes_are_refused_under_the_press (depth 1); PROGRAM_HEADS (depth 1); SUFFIXES (depth 1); program_corpus (depth 1); suffix_markers (depth 1); test_the_program_corpus_is_admitted_and_its_suffix_kept (depth 1); test_the_shell_runs_a_programs_suffix_and_no_line_of_its_body (depth 1) |
 | Needs a fix | yes — 🟡 1, the sentence in the comment in `main` that calls the consent read on the raw text safe |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -45,10 +45,10 @@ The orchestrator has already verified the changed modules and the hygiene module
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | `main`'s comment claims the consent read on the raw text is safe ("can only keep the reading in"), but a waiver token inside a data body silences a suffix commit | `hooks/commit-review-gate.py:1268-1270` | open | Executed: the program shape with the token in a Python string literal and a suffix commit to an undeclared repository was silent, and deny without the token. Identical at `edee5ca2`. The behaviour is deferred; the sentence is this diff's |
-| ⬜ 2 | Agreement module claims a program body cannot carry the oracle's lines, so clauses E and F (program arm) have no shell measurement | `tests/test_one_heredoc_shape_agrees_with_the_shell.py:24-26` | open | Executed probe: program heads with markers ran in bash and zsh, both modes, with no disagreement, which shows the oracle is possible |
-| ⬜ 3 | Test name and section header say four measured shapes; three remain | `tests/test_an_automation_run_meets_no_commit_prompt.py:170` | open | Read: `measured` returns three rows |
-| ⬜ 4 | Contract §9's summary omits the WORDs after `python3 -` and the WORD alphabet | `skills/agent-contract/SKILL.md:241-245` | open | Read against `docs/commit-review-gate-spec.md`'s paragraph and `_PROGRAM`. Fails closed, at the cost of a stop |
+| 🟡 1 | `main`'s comment claims the consent read on the raw text is safe ("can only keep the reading in"), but a waiver token inside a data body silences a suffix commit | `hooks/commit-review-gate.py:1268-1270` | **fixed** `a5eb3e0f` | fixed at a5eb3e0f; Executed: the program shape with the token in a Python string literal and a suffix commit to an undeclared repository was silent, and deny without the token. Identical at `edee5ca2`. The behaviour is deferred; the sentence is this diff's |
+| ⬜ 2 | Agreement module claims a program body cannot carry the oracle's lines, so clauses E and F (program arm) have no shell measurement | `tests/test_one_heredoc_shape_agrees_with_the_shell.py:24-26` | **fixed** `b277bb94` | fixed at b277bb94; Executed probe: program heads with markers ran in bash and zsh, both modes, with no disagreement, which shows the oracle is possible |
+| ⬜ 3 | Test name and section header say four measured shapes; three remain | `tests/test_an_automation_run_meets_no_commit_prompt.py:170` | **fixed** `b9407afa` | fixed at b9407afa; Read: `measured` returns three rows |
+| ⬜ 4 | Contract §9's summary omits the WORDs after `python3 -` and the WORD alphabet | `skills/agent-contract/SKILL.md:241-245` | **fixed** `9e863d67` | fixed at 9e863d67; Read against `docs/commit-review-gate-spec.md`'s paragraph and `_PROGRAM`. Fails closed, at the cost of a stop |
 | 🟢 | Clauses A–F built as `spec.md` §*The shape* states, with no import beyond `re` | `hooks/one_heredoc.py:45-106` | confirmed | Read, and the unit module passed |
 | 🟢 | `main` hands the reduced text to `commit_invocations` and the `unparsed` test; `is_plain` and the consent read see the raw text | `hooks/commit-review-gate.py:1271-1288` | confirmed | Read |
 | 🟢 | Every admitted sink string is cut where bash 3.2 and zsh 5.9 cut it, directly and through `eval` | `tests/test_one_heredoc_shape_agrees_with_the_shell.py` | confirmed | Executed: 400 passed across the three new modules |
