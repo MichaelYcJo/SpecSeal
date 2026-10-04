@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #756 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `ab8a4ecff78f2a321786843f72ca3a7c434e6e28..ec801b766ac015be2b0bd458242ebaabf78e64b1`, 2 commits |
+| Contract changes | test_a_vendored_copy_whose_config_will_not_read_leaves_the_row → round-3-report.md, round-3.md |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (the vendored copy reads `seal/config.md` leniently, so a config that is not UTF-8 is never "will not read", and a moved row the plugin leaves is re-stamped unrecorded) |
 | Loses a record or crashes | yes — 🟡 1 re-stamps a moved row citing no clause where a bad byte hides a `Pact notify` row whose value is `always`; the plugin cannot rule `always` out there, and once the byte is repaired the change is owed with its drift already gone |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -28,8 +28,8 @@ Open each fix, and judge whether each round-2 verdict is closed. Watch for what 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | The vendored copy reads `seal/config.md` leniently, so a byte that is not UTF-8 becomes U+FFFD. That never makes the file "will not read", and it can hide a `Pact notify` row. Under `\| Pact notify\xff \| always \|` the plugin leaves the moved row citing no clause (exit 1) and the vendored copy re-stamps it unrecorded (exit 0). The code comment, `docs/the-pact.md:302`, `skills/evidence-check/SKILL.md:337` and ledger row C1 all promise the row is left | `skills/evidence-check/scripts/evidence_check.py:3734` | open | executed: probe P4, plugin exit 1 and left, vendored exit 0 and re-stamped; P3 (bad byte in `Mode`, no notify row) disagrees the same way; read: `read` defaults to `errors="replace"`, `hooks/config.py#declared_pacts` reads strictly; with `strict=True` both match the plugin and the new row is red without it; line from `a5e359d3`, round 1's fix, depth 1; no unit added |
-| ⬜ 2 | The vendored-copy paragraph's `Enforced by:` line names no case for its "or will not read" half | `docs/the-pact.md:308` | open | read: `test_a_vendored_copy_whose_config_will_not_read_leaves_the_row` holds that half and is not listed; no behaviour wrong |
+| 🟡 1 | The vendored copy reads `seal/config.md` leniently, so a byte that is not UTF-8 becomes U+FFFD. That never makes the file "will not read", and it can hide a `Pact notify` row. Under `\| Pact notify\xff \| always \|` the plugin leaves the moved row citing no clause (exit 1) and the vendored copy re-stamps it unrecorded (exit 0). The code comment, `docs/the-pact.md:302`, `skills/evidence-check/SKILL.md:337` and ledger row C1 all promise the row is left | `skills/evidence-check/scripts/evidence_check.py:3734` | **fixed** `13300a7a` | fixed at 13300a7a; executed: probe P4, plugin exit 1 and left, vendored exit 0 and re-stamped; P3 (bad byte in `Mode`, no notify row) disagrees the same way; read: `read` defaults to `errors="replace"`, `hooks/config.py#declared_pacts` reads strictly; with `strict=True` both match the plugin and the new row is red without it; line from `a5e359d3`, round 1's fix, depth 1; no unit added |
+| ⬜ 2 | The vendored-copy paragraph's `Enforced by:` line names no case for its "or will not read" half | `docs/the-pact.md:308` | answered | corrected at `13300a7a`: `docs/the-pact.md`'s vendored paragraph's `Enforced by:` line names `test_a_vendored_copy_whose_config_will_not_read_leaves_the_row`; read: `test_a_vendored_copy_whose_config_will_not_read_leaves_the_row` holds that half and is not listed; no behaviour wrong |
 | 🟢 | round 2's yellow 1 is closed — the vendored copy leaves a moved row citing no clause beside U+00A0 or U+3000, or after U+2028, where the plugin records it | `skills/evidence-check/scripts/evidence_check.py:3650` | confirmed | executed: the three new rows fail against `aa4546f0`'s script and pass at the target; probe P7-P9, P12-P14 (U+0085, U+001E, lone CR, U+2029, tabs, `ALWAYS`): plugin records, vendored leaves; read: the reader takes no row with a value the shape misses |
 | 🟢 | round 2's yellow 2 is closed — the template's empty rows and a notify row with no `Pact` row are re-stamped at exit 0 by the vendored copy, as by the plugin | `skills/evidence-check/scripts/evidence_check.py:3740` | confirmed | executed: the two new rows fail against `aa4546f0`'s script and pass at the target |
 | 🟢 | round 2's white 3 is closed — a doubled `Pact notify` row's `pact-check` `READ` line and the CI print are pinned | `tests/test_pact_check.py:273` | confirmed | executed: both new rows fail with `9d2c1579`'s `hooks/config.py` and pass at the target |
