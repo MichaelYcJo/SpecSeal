@@ -1265,9 +1265,12 @@ def main():
     # which `docs/commit-review-gate-spec.md` already leaves unread as a
     # program whose operands are a script. Everywhere else it is the command
     # as written, exactly as before. Nothing below is asked where a body is,
-    # because the reduced text holds none. `is_plain`, the consent reads and
-    # `judge` keep the command as written: reading more of it can only keep
-    # the reading in, and a waiver is written where the person wrote it.
+    # because the reduced text holds none. `is_plain` keeps the command as
+    # written, because reading more of it can only keep the reading in. The
+    # consent reads (`has_marker`, here and in `judge`) also keep it, as at
+    # the base, and that runs the other way: a waiver token inside the body
+    # still counts, although the body is data to the commit reading. That is
+    # the base's behaviour, left to the consent reads' own work item (#773).
     reduced = one_heredoc.reduce(command)
     read = command if reduced is None else reduced
     try:
