@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #769 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `d5b8a20cc9e938b249b50bbfc85c7a828ae6aaa2..70d486830c1773d7a1f02c64172e6391b511dabe`, 6 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -34,10 +34,10 @@ Name findings by mechanism and coordinate. Write no literal command string that 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | Contract section 9 and the policy say one space between every two tokens and then `<<` and a quoted delimiter, so a session can write a space the reader refuses; the contract also admits an empty quoted word | `skills/agent-contract/SKILL.md:241-245` | open | Executed: the reader returns None for the spaced operator and for an empty quoted word, and reduces the in-shape control. Fails closed, one stop each. The same wording is at `docs/commit-review-gate-spec.md:182-187` |
-| ⬜ 2 | `program_corpus` docstring says it measures one body of all the near lines; clause A bans two of them, so that body is never admitted | `tests/test_one_heredoc_shape_agrees_with_the_shell.py:213-215` | open | Executed: 0 of 192 rows hold it; with the banned near lines left out it is admitted (12 rows) and green in both shells, both modes |
-| ⬜ 3 | Correction: the changelog fragment's grammar sentence drops the cd's word, the no-leading-dash rule and the heredoc operator, and leaves one line unwrapped | `seal/specs/1791089603-one-heredoc-shape-the-reader-matches-exactly-is-data/changelog.md:9-13` | open | Read against `hooks/one_heredoc.py:49-59`. Paperwork, outside Needs a fix |
-| ⬜ 4 | Correction: the S8 row still names the measured-shapes case by its pre-rename name | `seal/specs/1791089603-one-heredoc-shape-the-reader-matches-exactly-is-data/spec.md:182` | open | Read; the case is now `test_three_measured_shapes_are_refused_under_the_press`. Paperwork, outside Needs a fix |
+| ⬜ 1 | Contract section 9 and the policy say one space between every two tokens and then `<<` and a quoted delimiter, so a session can write a space the reader refuses; the contract also admits an empty quoted word | `skills/agent-contract/SKILL.md:241-245` | **fixed** `b6894faf` | fixed at b6894faf; Executed: the reader returns None for the spaced operator and for an empty quoted word, and reduces the in-shape control. Fails closed, one stop each. The same wording is at `docs/commit-review-gate-spec.md:182-187` |
+| ⬜ 2 | `program_corpus` docstring says it measures one body of all the near lines; clause A bans two of them, so that body is never admitted | `tests/test_one_heredoc_shape_agrees_with_the_shell.py:213-215` | **fixed** `1a60d76f` | fixed at 1a60d76f; Executed: 0 of 192 rows hold it; with the banned near lines left out it is admitted (12 rows) and green in both shells, both modes |
+| ⬜ 3 | Correction: the changelog fragment's grammar sentence drops the cd's word, the no-leading-dash rule and the heredoc operator, and leaves one line unwrapped | `seal/specs/1791089603-one-heredoc-shape-the-reader-matches-exactly-is-data/changelog.md:9-13` | answered | corrected at `5f0ed1c6`: the changelog fragment names `cd`'s word, the no-leading-`-` rule, `<<` with no space after it and the non-empty quoted word; Read against `hooks/one_heredoc.py:49-59`. Paperwork, outside Needs a fix |
+| ⬜ 4 | Correction: the S8 row still names the measured-shapes case by its pre-rename name | `seal/specs/1791089603-one-heredoc-shape-the-reader-matches-exactly-is-data/spec.md:182` | answered | corrected at `5f0ed1c6`: `spec.md`'s S8 row names the test by its new name; Read; the case is now `test_three_measured_shapes_are_refused_under_the_press`. Paperwork, outside Needs a fix |
 | 🟢 | round 1's fix-or-justify finding 1 is closed — the comment in `main` states the direction for `is_plain` and for the consent reads, and names #773 | `hooks/commit-review-gate.py:1268-1273` | confirmed | Read: the callers it names are at lines 1103, 1353 and 1397; #773 is open and holds the behaviour |
 | 🟢 | round 1's finding 2 is closed — the agreement module runs the program arm, and its oracle cannot pass while the shell runs a body line | `tests/test_one_heredoc_shape_agrees_with_the_shell.py:201-271` | confirmed | Executed: a shell made to run a body line was caught on 12 of 12 eligible rows; reader mutations went red (12 and 96 of 192); the module passed |
 | 🟢 | round 1's finding 3 is closed — the case, its header and the ledger anchor say three measured shapes | `tests/test_an_automation_run_meets_no_commit_prompt.py:170-197` | confirmed | Executed: the module passed; this work item's ledger fragment 38 ok, 0 drifted |
