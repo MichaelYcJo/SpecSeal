@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #786 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `c05d93ecf2f815e79fd228320e8377dd2ebf8ba5..98e8ba3931e4ed0bb46d6f8e7478ed3e3c56ae7b`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 1 (a ledger coordinate that is not a citation records one pact-change part per walk, the first naming a hash no file held) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,9 +24,9 @@ Round 3 of #774/#772/#775 (PR #786), the verifying round and the run's last, at 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A ledger coordinate that is not a row's citation, naming a line a walk of AGAIN moves twice, appends one MOVES part per walk, and the pact-change record writes both: the first ends at a hash no file ever held | `skills/evidence-check/scripts/evidence_check.py:3386` | open | Executed in the clone at 32d0acea: `Pact notify` always, self-citing `0.1.0.md` plus X1 naming the `Re-read ·` line, `--strict` 0 before; record row X1 carries `@5127adb5 → @07b2ad6b` and `@07b2ad6b → @46e82957` while the printed line is one; contradicts round 2's grounds (*the moves list needs no change*), E1's in-place clause, `docs/the-pact.md:132` and the MOVES docstring at `:3070`; the unit is round 1's repeated walk; the fix below gave one part and 509 passed |
-| ⬜ 2 | Round 1's closed record was hand-edited in a generated Grounds cell, and row 6 of the same table now points at a sentence row 1 no longer holds | `seal/specs/1791119072-one-reverify-leaves-the-ledger-clean-and-records-only-a-real-move/rounds/round-1.md:27` | open | Read: row 6 (line 32) says row 1 states the skip is equivalent only after the fix, and that a record of its moment is left as written; `docs/round-record-spec.md` §A record is derived, not typed; the correction already lives in round 2's record and `overview.md`; paperwork, a correction, not on the fix list |
-| ⬜ 3 | E3's Executed cell still says two short-circuits survive as equivalent, one of which round 2 showed load-bearing | `seal/ledger/1791119072-one-reverify-leaves-the-ledger-clean-and-records-only-a-real-move.md:3` | open | Read: the overview was corrected and E3 was not; E3 folds into the frozen 0.18.2 release file; paperwork, a correction, not on the fix list |
+| 🟡 1 | A ledger coordinate that is not a row's citation, naming a line a walk of AGAIN moves twice, appends one MOVES part per walk, and the pact-change record writes both: the first ends at a hash no file ever held | `skills/evidence-check/scripts/evidence_check.py:3386` | deferred #791 | #791 — The run is capped: round 2 was its one reopening and this record ends it. The unit is this branch's own repeated walk, so #791 is in milestone 54 and closes by a post-review fix on this pull request, read by a verifying pass; Executed in the clone at 32d0acea: `Pact notify` always, self-citing `0.1.0.md` plus X1 naming the `Re-read ·` line, `--strict` 0 before; record row X1 carries `@5127adb5 → @07b2ad6b` and `@07b2ad6b → @46e82957` while the printed line is one; contradicts round 2's grounds (*the moves list needs no change*), E1's in-place clause, `docs/the-pact.md:132` and the MOVES docstring at `:3070`; the unit is round 1's repeated walk; the fix below gave one part and 509 passed |
+| ⬜ 2 | Round 1's closed record was hand-edited in a generated Grounds cell, and row 6 of the same table now points at a sentence row 1 no longer holds | `seal/specs/1791119072-one-reverify-leaves-the-ledger-clean-and-records-only-a-real-move/rounds/round-1.md:27` | answered | A correction to a record: round 1's record is restored as `close` wrote it (98e8ba39); round 2's record and `overview.md` carry the correction.; Read: row 6 (line 32) says row 1 states the skip is equivalent only after the fix, and that a record of its moment is left as written; `docs/round-record-spec.md` §A record is derived, not typed; the correction already lives in round 2's record and `overview.md`; paperwork, a correction, not on the fix list |
+| ⬜ 3 | E3's Executed cell still says two short-circuits survive as equivalent, one of which round 2 showed load-bearing | `seal/ledger/1791119072-one-reverify-leaves-the-ledger-clean-and-records-only-a-real-move.md:3` | answered | A correction to a record: E3's Executed cell withdraws the equivalence round 2 disproved (98e8ba39).; Read: the overview was corrected and E3 was not; E3 folds into the frozen 0.18.2 release file; paperwork, a correction, not on the fix list |
 | 🟢 | round 2's finding 1 is closed — every hash line, re-point line and the count are keyed by ledger, row, coordinate and spelling, each coordinate named once from the hash the ledger held to the one it takes, the two-citing-rows cycle included | `skills/evidence-check/scripts/evidence_check.py:3188` | confirmed | Executed in the clone: planted cases green at 32d0acea; five mutants (no per-row count, offset key, no `first_old`, every walk's line kept, the checker at 89ca97ee) each red; the cycle shape names each citation once with the hash the file holds after the run, `4 rows re-verified` for four coordinates |
 | 🟢 | round 2's finding 2 is closed — a case holds the walked-file skip in `citations_left`, and the overview no longer calls it equivalent | `skills/evidence-check/scripts/evidence_check.py:3612` | confirmed | Executed: `test_one_unfrozen_run_names_a_citing_row_it_left_whole_once` green at 32d0acea and red with the skip removed; read `overview.md:12` against `phases/phase-2.md:66-72` |
 | 🟢 | the fragment re-stamp is a hash move and nothing else, and the strict check reads it clean | `seal/ledger/1791119072-one-reverify-leaves-the-ledger-clean-and-records-only-a-real-move.md` | confirmed | Executed: hash-masked comparison 89ca97ee..44e6f417, 15 rows moved only `reverify@999bffa4 → @9038b161`, E3 rewritten with the sixteenth and three new case coordinates (19 written); `bin/evidence-check --strict .` exit 0 at 32d0acea |
