@@ -1874,10 +1874,21 @@ PYTEST_SUMMARY_RE = re.compile(
 # Measured against pytest 9.1.1 and pytest-xdist 3.8.0 in that work item's
 # `phases/phase-1.md`: given a path that does not exist, plain pytest prints
 # it beside `ERROR: file or directory not found: <path>` and exits 4, and
-# under xdist it is the only trace and the exit is 5. It carries no leading
-# count, so `PYTEST_SUMMARY_RE` never reads it as a summary.
+# under xdist it is the only trace and the exit is 5.
+#
+# **Where the run counted warnings, their count takes its place** (#761 round
+# 1): `1 warning in 0.00s` plain and `3 warnings in 0.49s` under xdist, with
+# an ini key pytest does not know. `_pytest/terminal.py`'s
+# `_build_normal_summary_stats_line` writes one `<count> <type>` per type it
+# counted and `no tests ran` only where it counted none, and a run that
+# collected nothing counts no test outcome, so a count of warnings alone is
+# the one other line such a run ends with. A deselected count means tests
+# were collected, so `3 deselected in …` is a summary and not read here; so
+# is a warning count beside any other (`1 warning, 1 error in …`).
 NOTHING_COLLECTED_RE = re.compile(
-    r"^=*\s*no tests ran in \d+(?:\.\d+)?s(?: \(\d+:\d\d:\d\d\))?\s*=*$", re.M
+    r"^=*\s*(?:no tests ran|\d+ warnings?) in \d+(?:\.\d+)?s"
+    r"(?: \(\d+:\d\d:\d\d\))?\s*=*$",
+    re.M,
 )
 # pytest's exit codes for a missing argument (4, a usage error) and for a run
 # that collected no test (5).
@@ -1923,7 +1934,8 @@ def verdicts_at_base(text, files):
 
 def collected_nothing(text, code):
     """True where one run at the base collected no test at all (#761):
-    pytest's `no tests ran in <t>s` alone on a line, and an exit of 4 or 5.
+    pytest's `no tests ran in <t>s`, or a count of warnings alone, on a line
+    of its own (`NOTHING_COLLECTED_RE`), and an exit of 4 or 5.
 
     `compare_at_base` asks it of a file run alone, and there it is a
     measurement: the base, run as the row runs it and from the directory the
@@ -1933,6 +1945,21 @@ def collected_nothing(text, code):
     could print, and an exit of 4 or 5 alone is any program's.
     """
     return code in NOTHING_COLLECTED_EXITS and bool(NOTHING_COLLECTED_RE.search(text))
+
+
+def measured_summary(text):
+    """pytest's summary line in `text` where the run collected something, or
+    None (#761 round 1).
+
+    `PYTEST_SUMMARY_RE` reads any count and clock, and a run that collected
+    nothing but counted warnings ends `1 warning in 0.00s`, which it reads.
+    That run measured no file, so a line `NOTHING_COLLECTED_RE` reads is
+    never a summary, whatever the exit code: read as one, a run of several
+    files that the base lacks one of gave `new` for a file the base fails.
+    """
+    if NOTHING_COLLECTED_RE.search(text):
+        return None
+    return PYTEST_SUMMARY_RE.search(text)
 
 
 # The operators that end one part of a row and begin the next, in each
@@ -2043,12 +2070,13 @@ def compare_at_base(root, base, command, files, keep):
     lint-first row's first part is the linter: no `FAILED` line could
     appear, and every file read `new` whatever the base did. Now each prefix
     `row_prefixes` returns is run in turn, the failing files appended to
-    it, until one prints pytest's summary line (`PYTEST_SUMMARY_RE`); that
-    run is the measurement, and `verdicts_at_base` reads it. A prefix keeps
-    every part before it, so a `cd` or an `export` still applies, and the
-    parts before the runner run once per prefix tried. Each run is kept as
-    `suite-at-base-<k>.txt`. Where no prefix prints a line read as that
-    summary, every present file reads `new?`, never `new`.
+    it, until one prints pytest's summary line of a run that collected
+    something (`measured_summary`); that run is the measurement, and
+    `verdicts_at_base` reads it. A prefix keeps every part before it, so a
+    `cd` or an `export` still applies, and the parts before the runner run
+    once per prefix tried. Where no prefix prints such a line, each file of
+    the run reads `new?`; a file run alone is the one that can also read
+    `new` without one, below.
 
     **The one thing a summary does not prove is that the appended files
     ran.** A part that drops its arguments — a `sh -c '…'`, a `make` target —
@@ -2081,11 +2109,20 @@ def compare_at_base(root, base, command, files, keep):
     first prefix that settles it decides: a summary is read by
     `verdicts_at_base` like any run; `collected_nothing` — the base, run as
     the row runs it, has no test in that file — gives `new`, measured; and
-    where no prefix settles it, `NO_RUNNER`. A file the root's tree does
-    carry while the directory pytest runs in at the base does not is never
-    nominated: it runs with the others, that run collects nothing and prints
-    no summary, and each file of it reads `new?`, never a counterfeit.
-    `templates/config.md` rule 3 states the cost and both limits.
+    where no prefix settles it, `NO_RUNNER`. Every run is kept, the others'
+    as `suite-at-base-<k>.txt`. A file the root's tree does carry while the
+    directory pytest runs in at the base does not is never nominated: it
+    runs with the others, that run collects nothing, which is never read as
+    pytest's summary even where warnings give its last line a count, and
+    each file of it reads `new?`, never a counterfeit.
+
+    **A row with a runner in each of two directories is not measured by
+    this** (#761 round 1). A candidate's run settles at the first runner a
+    prefix reaches, in that runner's directory, and a file a later runner
+    named can read `new` or `failing on base too` from the wrong one.
+    Telling the runners apart would take a reading this module does not
+    have, so `templates/config.md` rule 3 names the shape for the row's
+    author, with the cost and both limits above.
     """
     scratch = tempfile.mkdtemp(prefix="broad-gate-base-")
     added = git(root, "worktree", "add", "--detach", scratch, base)
@@ -2123,13 +2160,14 @@ def compare_at_base(root, base, command, files, keep):
                     keep,
                     shell=True,
                 )
-                if PYTEST_SUMMARY_RE.search(tried.text):
-                    measured = tried.text
-                    break
                 # Only for a file run alone: a group of several that collects
-                # nothing does not say which of them the base lacks.
+                # nothing does not say which of them the base lacks, and its
+                # run is never read as a summary (`measured_summary`).
                 if alone and collected_nothing(tried.text, tried.code):
                     nothing = True
+                    break
+                if measured_summary(tried.text):
+                    measured = tried.text
                     break
             if nothing:
                 verdicts.update({f: NEW for f in group})

@@ -4488,6 +4488,72 @@ def test_a_candidate_whose_run_at_the_base_crashes_is_not_measured(tmp_path):
     assert verdict_of(out.stdout, "tests/test_two.py") == gate.NO_RUNNER, out.stdout
 
 
+@pytest.mark.parametrize("xdist", UNDER)
+def test_a_run_of_several_that_counted_only_warnings_is_not_measured(tmp_path, xdist):
+    """#761 round 1's 🟡 1. As the limit case, and the base's
+    `sub/tests/test_one.py` fails while an ini key pytest does not know gives
+    every run a warning. The run of the two files collects nothing, and its
+    last line is `1 warning in <t>s` (`3 warnings` under xdist) rather than
+    `no tests ran`. That line is not a measurement: `tests/test_one.py`,
+    which the base fails, reads `new?`, never `new`."""
+    repo = base_then_feature(
+        tmp_path / "repo",
+        f"cd sub && {suite_row(xdist)}",
+        {
+            "tests/test_two.py": PASSING_TWO,
+            "sub/tests/test_one.py": FAILING_TEST.replace("test_two", "test_one"),
+            "sub/pytest.ini": "[pytest]\nan_unknown_key = 1\n",
+        },
+        {
+            "sub/tests/test_one.py": FAILING_TWO.replace("test_two", "test_one"),
+            "sub/tests/test_two.py": FAILING_TWO,
+        },
+    )
+    out = run_gate(repo)
+    assert out.returncode == 1, f"exit {out.returncode}\n{out.stdout}\n{out.stderr}"
+    gate = gate_module()
+    assert verdict_of(out.stdout, "tests/test_one.py") == gate.NO_RUNNER, out.stdout
+    assert verdict_of(out.stdout, "tests/test_two.py") == gate.NO_RUNNER, out.stdout
+
+
+# The last line of a pytest 9.1.1 run, and whether it is the summary of a run
+# that collected something. `_pytest/terminal.py`'s
+# `_build_normal_summary_stats_line` joins one `<count> <type>` per type
+# counted, in `KNOWN_TYPES` order — failed, passed, skipped, deselected,
+# xfailed, xpassed, warnings, error, subtests passed, then a plugin's own —
+# and writes `no tests ran` where nothing was counted. A run that collected
+# nothing counts no test outcome, so its line is `no tests ran` or a count of
+# warnings alone (#761 round 1). `summary_stats` writes it between `=` rules,
+# bare under `-q`, and not at all under `-qq`. A run whose tests were all
+# deselected collected them, and its line is a summary: it measured that the
+# base has no selected test there.
+SUMMARIES = [
+    ("1 failed, 1 passed in 0.02s", True),
+    ("1 passed, 1 warning in 0.01s", True),
+    ("1 warning, 1 error in 0.01s", True),
+    ("3 deselected in 0.01s", True),
+    ("2 deselected, 1 warning in 0.01s", True),
+    ("==== 768 passed, 1 skipped, 3 warnings in 612.34s (0:10:12) ====", True),
+    ("no tests ran in 0.00s", False),
+    ("1 warning in 0.00s", False),
+    ("3 warnings in 0.49s", False),
+    (
+        "============================ 3 warnings in 0.49s ============================",
+        False,
+    ),
+    ("2 warnings in 65.00s (0:01:05)", False),
+]
+
+
+@pytest.mark.parametrize("line, summary", SUMMARIES)
+def test_a_run_that_collected_nothing_is_never_read_as_a_summary(line, summary):
+    """#761 round 1's 🟡 1. `PYTEST_SUMMARY_RE` reads `1 warning in 0.00s`,
+    because it is a count and a clock; it is still the line of a run that
+    collected nothing, so it measures no file."""
+    found = gate_module().measured_summary(f"F.\n{line}\n")
+    assert bool(found) is summary, line
+
+
 # What pytest 9.1.1 printed for a run that collected nothing, measured in
 # `phases/phase-1.md` (runs 1, 2 and 7), joined the way `run` joins stdout and
 # stderr, with the exit code. Each is `(output, exit code, nothing collected)`.
@@ -4519,6 +4585,14 @@ NOTHING_COLLECTED = [
         5,
         True,
     ),
+    # A run that collected nothing but counted warnings: pytest gives their
+    # count in place of `no tests ran` (#761 round 1, an ini key it does not
+    # know), plain beside the not-found reply and ruled under xdist.
+    ("1 warning in 0.00s\nERROR: file or directory not found: tests/x.py\n", 4, True),
+    ("=== 3 warnings in 0.49s ===\n", 5, True),
+    ("1 warning in 0.00s\n", 1, False),
+    ("1 passed, 1 warning in 0.01s\n", 0, False),
+    ("1 warning, 1 error in 0.01s\n", 2, False),
     # The line with an exit code pytest does not give for collecting nothing.
     ("no tests ran in 0.21s\n", 0, False),
     ("no tests ran in 0.21s\n", 1, False),
@@ -4554,15 +4628,28 @@ def test_the_solo_runs_cost_and_limits_are_told_where_the_row_is_written():
         "A failing file the base's tree does not carry at the repository root "
         "is run alone at the base, through the same prefixes, which costs one "
         "more run of each prefix up to and including the runner per such file.",
-        "A file that run collects nothing from (pytest's `no tests ran` line, "
-        "with exit 4 or 5) reads `new`, so a base file with no test in it reads "
-        "`new` too: the base cannot fail a test it does not have.",
+        "A file that run collects nothing from (pytest's `no tests ran` line, or "
+        "a count of warnings alone, with exit 4 or 5) reads `new`, so a base file "
+        "with no test in it reads `new` too: the base cannot fail a test it does "
+        "not have.",
         "Where a row runs its tests below a directory and the base carries a "
         "same-named file at the root but not below that directory, the file is "
         "not run alone: it runs with the others, that run collects nothing, "
         "and each file in it reads `new?`.",
+        # #761 round 1's 🟡 2.
+        "A row that runs pytest in more than one directory — `pytest -q && "
+        "cd sub && pytest -q` — is asked about every failing file by the first "
+        "runner a prefix reaches, in that runner's directory: a file a later "
+        "runner named reads `new` where that directory has no such file, and "
+        "`failing on base too` where a same-named file there fails at the base.",
     ):
         assert sentence in text, f"rule 3 does not carry: {sentence}"
+    # #761 round 1's ⬜ 8: the reader sent to the base by hand is told to open
+    # every kept run, the ones a file ran alone in included.
+    with open(
+        os.path.join(ROOT, "skills", "verify", "SKILL.md"), encoding="utf-8"
+    ) as handle:
+        assert "open the kept `suite-at-base-*.txt` files" in handle.read()
 
 
 def test_a_plugin_check_that_fails_is_named_and_the_suite_is_not_compared(repo):

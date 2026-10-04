@@ -157,9 +157,11 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "(file, token) so neither one lets the number through anywhere else"
     ),
     ("skills/verify/scripts/broad_gate.py", "9.1.1"): (
-        "pytest's, named in the comments over `ERROR_RE` and `STOPPED_EARLY_RE` "
-        "as the build whose endings were measured: the `ERROR` line shapes and "
-        "the `!` rules the base comparison reads (#747). The third member of "
+        "pytest's, named in the comments over `ERROR_RE`, `STOPPED_EARLY_RE` "
+        "and `NOTHING_COLLECTED_RE` as the build whose endings were measured: "
+        "the `ERROR` line shapes and the `!` rules the base comparison reads "
+        "(#747), and the line of a run that collected nothing (#761). The "
+        "third member of "
         "the class the row above names, a loaded file naming the tool build a "
         "measurement was taken on; an ending read off an unnamed pytest is "
         "not a measurement, and no release of SpecSeal makes the number wrong"

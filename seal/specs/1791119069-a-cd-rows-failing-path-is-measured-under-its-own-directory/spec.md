@@ -54,8 +54,10 @@ a different directory.** Read in pytest 9.1.1: the short-summary line names a
 file through `Config.cwd_relative_nodeid` (`_pytest/config/__init__.py`),
 relative to `invocation_params.dir`, and `resolve_collection_argument` · NAME NOT IN TREE
 (`_pytest/main.py`) resolves an appended argument against the same directory.
-So a run at the base, of the row as written, with the file appended, asks the
-right directory whatever moved it.
+So a run at the base, of a row with one runner as written, with the file
+appended, asks the right directory whatever moved it. A row with a runner
+in each of two directories is outside that sentence (§*Out*, added by round
+1's fix pass).
 
 What changes is which files get such a run. The root split stays, and it now
 only **nominates**: a failing file whose path the base's tree lacks at the
@@ -148,6 +150,7 @@ prints a summary.
 |---|---|---|
 | The issue's syntactic fix (a row that changes directory makes every unnamed file `new?`) | Misses `make -C`, `env -C`, `pnpm --dir` and a runner script that changes directory itself, and weakens every measurable `cd` row. `plan.md` §*Alternatives considered* | decided here, from the tree |
 | The direction the pre-filter never nominates (last row of the class table) | Honest `new?`, never counterfeit; closing it needs a solo fallback on any run that collects nothing, which is mechanism for a shape nobody has reported. `plan.md` Alternatives, G | the repository owner, if it is ever met — a new issue |
+| A row with a pytest runner in each of two directories (`pytest -q && cd sub && pytest -q`) | A candidate's run settles at the first runner a prefix reaches, in that runner's directory: `new` for a file the base fails, and a group's run can measure the root's same-named file, `failing on base too` for a file the base never ran. Measured by round 1's probes p1 and p1b, and the same at 94d7b2e0. Telling the runners apart needs a new reading, which a fix pass may not add, so rule 3 names the shape | the repository owner, if it is ever met — a new issue |
 | `--pyargs` rows | Their missing argument reads `module or package not found`; a solo run still prints `no tests ran` and exits 4, so the candidate reads `new` as for any row. No case for it | nobody needs to |
 | A runner whose directory change differs between the base's copy and the branch's copy (the branch edits `bin/test`) | The comparison runs the row *at the base*, with the base's scripts, by design since #747 | nobody — inherent to "the row at the base" |
 | `( … )` and `{ …; }` groups | Unchanged from #758's outcome table: not reached as a prefix, `new?` | — |
