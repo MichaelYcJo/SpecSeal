@@ -1523,6 +1523,60 @@ def test_a_vendored_copy_whose_config_will_not_read_leaves_the_row(
     assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
 
 
+# --- #759: a pact row is read in one plain spelling --------------------------
+#
+# The plugin's reader refuses every line of `seal/config.md` that names a pact
+# and is not a walked `Pact` or `Pact notify` row in the plain spelling, so
+# the writer leaves the moved rows that refusal leaves unknown (S6 of work
+# item 1791128260). A copy with no `hooks/` reads the same lines by the same
+# word and the same predicate (S9).
+
+ONE_SPELLING = (
+    "names a pact and is not a `Pact` or `Pact notify` row in the one "
+    "spelling read: write it as `| Pact | … |` or `| Pact notify | … |` inside "
+    "the `| Item | Value |` table, or take it out of this file"
+)
+
+
+@pytest.mark.parametrize(
+    "rows, below, cites, why",
+    [
+        (
+            (("Pact", PACT_URL),),
+            "\n| Pact notify | always |\n",
+            "",
+            "moved, and `Pact notify` may be `always`",
+        ),
+        ((), f"\n| Pact | {PACT_URL} |\n", f"`{CLAUSE}`, ", "cites a pact clause"),
+    ],
+    ids=["a notify row below the table", "a Pact row below the table"],
+)
+def test_s6_a_pact_line_below_the_table_leaves_the_moved_row(
+    repo, rows, below, cites, why
+):
+    """S6. A pact line under a blank line that ended the table was read as
+    the default, and the moved row was re-stamped unrecorded. It is refused
+    now, so the row is left: exit 1, the `LEFT` line naming the refused
+    line, the ledger byte-identical, and no record. A `Pact` line refuses
+    with no `Pact` row in the table too, and its clause's row is left."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), *rows) + below, encoding="utf-8"
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger_rows = [row("O1", cites, f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, ledger_rows)
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1, out
+    assert (
+        f"LEFT seal/ledger/{ITEM}.md:1 {why}, and the `Pact` rows will not "
+        f"read: `{below.strip()}` {ONE_SPELLING} — no pact change was recorded "
+        "and nothing was re-stamped; fix the row and run it again"
+    ) in " ".join(out.split()), out
+    assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
+    assert not (repo / "seal" / "pact-changes").exists(), out
+
+
 @pytest.mark.parametrize("shape", ["ledger unreadable", "could not be written"])
 def test_a_left_line_names_its_ledger_in_posix_form(repo, monkeypatch, capsys, shape):
     """Every path the writer prints is in `/` form on every platform, as
