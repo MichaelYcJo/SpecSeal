@@ -113,13 +113,17 @@ Enforced by: tests/test_pact_check.py::test_an_anchor_missing_its_slash_is_refus
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **When a signatory's `evidence-check --reverify` moves the hash of a ledger
-row that cites a clause of a pact its `Pact` row declares, or leaves a
-coordinate of one BROKEN, the same command records a pact change, and that
-test is the whole trigger.** It needs no judgment: a row carrying a pact
-anchor and a local coordinate is the link, and a re-read is the one act at
-which a session says code under a row moved. The record is written in both
-of the re-read's forms, a re-stamp in place and a `Re-read ·` row under
-`--into`, before the hash it read is gone, one row per ledger row. `Pact
+row that cites a clause of a pact its `Pact` row declares, finds the code
+under such a row moved where `--into` refuses it a `Re-read ·` row for a
+stale `--checked`, or leaves a coordinate of one BROKEN, the same command
+records a pact change, and that test is the whole trigger.** It needs no
+judgment: a row carrying a pact anchor and a local coordinate is the link,
+and a re-read is the one act at which a session says code under a row
+moved. The record is written in both of the re-read's forms, a re-stamp in
+place and a `Re-read ·` row under `--into`, before the hash it read is gone,
+one row per ledger row. A row `--into` refuses is recorded by the run that
+refuses it, because its repair may be a `Corrected ·` row that no later
+re-read reaches (#746). `Pact
 notify` decides what is recorded: `when the pact is touched` records rows
 citing a clause of a declared pact, `always` also records every other row
 whose code moved, with `—` for its clause, and `never` records nothing. The

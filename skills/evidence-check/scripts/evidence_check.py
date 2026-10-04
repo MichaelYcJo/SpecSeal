@@ -62,7 +62,10 @@ Usage:
                                           write one `Re-read ·` row into
                                           FRAGMENT for every released row
                                           with a drifted coordinate; no
-                                          released file is written. Where
+                                          released file is written. A row
+                                          a reading dated after --checked
+                                          outranks gets no Re-read row, is named,
+                                          and the run exits 1. Where
                                           seal/config.md declares `Ledger
                                           frozen from`, `--reverify` without
                                           `--into` writes no released file and
@@ -71,7 +74,8 @@ Usage:
 In a signatory -- a `Pact` row in seal/config.md -- every form of `--reverify`
 also appends one row per re-read ledger row citing a clause of a declared pact
 to seal/pact-changes/<work-item-id>.md, and prints a `recorded` line
-(`record_pact_changes`, #647).
+(`record_pact_changes`, #647). A row `--into` refuses a `Re-read ·` row for a
+stale --checked is recorded too, by the run that refuses it (#746).
 
 --map resolves cross-repo coordinates (e.g. a migration's original repo):
   a coordinate `legacy-api/src/service.py#handler@a1b2c3d` with
@@ -2396,6 +2400,10 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
       held       `{root row: {coordinate: [those readings that hold]}}`: the
                  OK readings among the newest-dated ones, empty where the
                  coordinate is drifted for the family
+      newest     `{root row: {coordinate: (date, row)}}`: the newest date
+                 any reading of the coordinate carries, by `reading_date`,
+                 and the first row holding it -- what a new reading must
+                 not fall below to count (`reverify_into`, #746)
 
     `out` is the rows of PATHS that cite a released row or are cited by one.
 
@@ -2566,13 +2574,8 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
         return memo[index]
 
     def checked(key):
-        """The newest date in KEY's `Checked` cell, or "" where it has none:
-        the moment that reading was taken, which is what orders two readings
-        of one coordinate (round 1, 🟡 2)."""
         _, _, header, cells = row(key)
-        column = date_column(header, cells)
-        dates = CHECKED_RE.findall(cells[column[0]]) if column else []
-        return max((d for d in dates if calendar_date(d)), default="")
+        return reading_date(header, cells)
 
     def reading(key):
         """KEY's reading as the DRIFTED line names it: by its newest calendar
@@ -2597,7 +2600,7 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
         listed = ", ".join(typed[:-1]) + f" and {typed[-1]}"
         return f"the reading dated {listed}, dates the calendar does not have"
 
-    readings, held_by = {}, {}
+    readings, held_by, newest_by = {}, {}, {}
     for top, members in families.items():
         if top in superseded:
             continue
@@ -2611,6 +2614,7 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
                 by_coord.setdefault(coord, []).append((key, m, status, detail))
         readings[top] = by_coord
         held_by[top] = {}
+        newest_by[top] = {}
         for coord, graded in by_coord.items():
             # Only the newest reading of a coordinate counts, and readings
             # that tie on that date are a union: a revert to content a newer
@@ -2622,6 +2626,7 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
             held = [r for r in graded if r[2] == "OK" and checked(r[0]) == newest]
             held_by[top][coord] = held
             last = next(r for r in graded if checked(r[0]) == newest)
+            newest_by[top][coord] = (newest, last[0])
             seen = set()
             for key, m, status, detail in graded:
                 if (key, m.group("hash")) in seen:
@@ -2650,6 +2655,7 @@ def family_view(paths, root, maps, default_repo=None, scan_cache=None):
         superseded=superseded,
         readings=readings,
         held=held_by,
+        newest=newest_by,
     )
 
 
@@ -2914,6 +2920,18 @@ def calendar_date(text):
     except ValueError:
         return False
     return True
+
+
+def reading_date(header, cells):
+    """The newest calendar date in a row's `Checked` cell, or "" where it has
+    none: the moment that reading was taken, which is what orders two
+    readings of one coordinate (round 1, 🟡 2). One rule for the grading
+    (`family_view`) and for what a new reading must reach to count
+    (`reverify_into`, #746): two spellings would be one rule today and two
+    after the first edit to either."""
+    column = date_column(header, cells)
+    dates = CHECKED_RE.findall(cells[column[0]]) if column else []
+    return max((d for d in dates if calendar_date(d)), default="")
 
 
 def date_column(header, cells):
@@ -3476,12 +3494,35 @@ INTO_REPAIR = (
     "YYYY-MM-DD` writes a `Re-read ·` row for it into your own fragment"
 )
 
+STALE_NOTHING = "no `Re-read ·` row was written for this row"
+
 
 def spanned(text):
     """TEXT as a code span, with a fence longer than any backtick run in it."""
     fence = "`" * (max((len(r) for r in re.findall(r"`+", text)), default=0) + 1)
     pad = " " if fence != "`" else ""
     return f"{fence}{pad}{text}{pad}{fence}"
+
+
+def later_reading(view, key, coords, checked):
+    """`(date, coordinate, row)` for the newest reading, among the
+    coordinates COORDS of row KEY, dated after CHECKED -- the one a
+    `Re-read ·` row dated CHECKED would not outrank -- or None where there is
+    none. KEY is a family's root, whose readings `family_view` dated, or a
+    released row outside every family, whose own `Checked` cell is its one
+    reading. Both are dated by `reading_date`, the rule the grading orders
+    readings by; a tie is not later, because readings on one date are a
+    union (#746)."""
+    found = None
+    for coord in coords:
+        if key in view.newest:
+            date, at = view.newest[key].get(coord, ("", key))
+        else:
+            header, cells = view.files[key[0]][3][key[1]]
+            date, at = reading_date(header, cells), key
+        if date > checked and (found is None or date > found[0]):
+            found = (date, coord, at)
+    return found
 
 
 def reverify_into(
@@ -3494,6 +3535,7 @@ def reverify_into(
     checked,
     moves=None,
     told=None,
+    today=None,
 ):
     """Write one `Re-read ·` row into INTO for every released row a re-read
     owes (`released_drift`): one outside every family in a released file of
@@ -3508,6 +3550,14 @@ def reverify_into(
     date in `Checked`, and `Re-read <date>` in Notes. One row per row, never
     one per coordinate (spec D4). Exit 1 where a row was left, else 0.
 
+    A row CHECKED cannot make count gets no `Re-read ·` row (`later_reading`):
+    where a coordinate it would carry has a reading dated after CHECKED, that
+    newer reading outranks the new row and the family stays DRIFTED. Its
+    moves still go to MOVES, because the code under it moved all the same. A
+    tie is not stale, because readings on the newest date are a union. TODAY,
+    the local date by default, tells a reading no `--checked` can reach, whose
+    repair is a `Corrected ·` row (#746).
+
     MOVES is `reverify`'s: each coordinate a written row re-reads, and each
     BROKEN one, is appended against the released row it belongs to. TOLD is
     `reverify`'s too: the `wrote` lines and the count of rows written wait
@@ -3517,6 +3567,7 @@ def reverify_into(
     view, drifted, broken = released_drift(
         ledgers, view_paths, root, maps, default_repo
     )
+    today = (today or datetime.date.today()).isoformat()
     # A fragment is named for its work item, so the row can say whose
     # reading it records, as the spec's own example does.
     item = os.path.splitext(os.path.basename(into))[0] if into else None
@@ -3538,6 +3589,48 @@ def reverify_into(
         cite = citation_for(root, path, key[1], body)
         if cite is None:
             left.append((where, f"{label} — no citation names this row alone"))
+            continue
+        stale = later_reading(view, key, drifted[key], checked)
+        if stale is not None:
+            # No `Re-read ·` row: dated CHECKED it would clear nothing (#746).
+            # The code under the row moved whatever the reading's date, and
+            # the repair the line names -- a reading dated again, or a
+            # `Corrected ·` row, which no later re-read reaches -- may never
+            # come back through here, so the moves are held for the record
+            # step now, as the loop below holds them. A pact change is never
+            # lost (#756), and a second run finds each the record's last word
+            # and appends nothing (W4). Round 1 of #746, yellow 2.
+            if moves is not None:
+                for coord, m in drifted[key].items():
+                    moves.append(
+                        (
+                            path,
+                            key[1],
+                            coord,
+                            m.group("hash"),
+                            current_hash(m, root, maps, default_repo),
+                        )
+                    )
+            date, coord, at = stale
+            said = (
+                f"{label} — `--checked {checked}` is older than the newest "
+                f"reading of {coord}, {date} at "
+                f"{built_name(view.files[at[0]][0], root)}:{at[1]}"
+            )
+            if date > today:
+                said += (
+                    f", which is after today ({today}), and `--checked` takes no "
+                    "date after today, so no `Re-read ·` row can outrank it; "
+                    f"{STALE_NOTHING} — a `Corrected ·` row in your own fragment "
+                    "supersedes the row and every reading of it"
+                )
+            else:
+                said += (
+                    f", so a `Re-read ·` row dated {checked} would not outrank it "
+                    f"and the row would stay DRIFTED; {STALE_NOTHING} — read the "
+                    "code again and run it with the date of that reading"
+                )
+            left.append((where, said))
             continue
         stamped = []
         for coord, m in drifted[key].items():
