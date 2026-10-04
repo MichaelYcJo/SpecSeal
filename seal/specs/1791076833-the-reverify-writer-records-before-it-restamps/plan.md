@@ -21,8 +21,8 @@ work item.
   the whole of C and D with round 1's and round 2's fixes. CI ran green on all
   three operating systems at that commit (`gh run view 37129036019`: pytest
   on macOS, Ubuntu and Windows, ledger, lint, arm-check-grammar; read, not
-  re-run). The worktree `/Users/yc/Documents/GitHub/SpecSeal-worktrees/647-pact-cd`
-  has it checked out.
+  re-run). The worktree `647-pact-cd`, beside this one in the worktrees
+  directory, has it checked out.
 - **The base moved only in records.** Since the old branch's merge base
   `aa7fb285`, `release/v0.18.1` (`e141980a`) changed `plugin.json`,
   `CHANGELOG.md`, `tests/test_a_record_precedes_the_fixes_it_commissions.py`,
