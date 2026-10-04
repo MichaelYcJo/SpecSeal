@@ -29,7 +29,7 @@ import sys
 
 import pytest
 from conftest import load_hook_module
-from test_no_shape_the_base_stops_reads_silent import make_repo, q
+from test_no_shape_the_base_stops_reads_silent import make_repo, moved_row, q
 from test_the_guard_asks_once_per_session import ask_entries, write_transcript
 
 gate = load_hook_module("commit-review-gate.py", "crg_automation")
@@ -167,7 +167,7 @@ def test_an_unreadable_stop_is_refused_every_time(
         assert "pressed `automation`" in reason
 
 
-# --- S4: the four measured shapes -------------------------------------------
+# --- S4: three of the four measured shapes refused, the fourth silent -------
 
 
 def measured(w):
@@ -179,22 +179,23 @@ def measured(w):
         "a ; after the cd, no heredoc": (
             f"cd {q(w)} && true ; git add f && git commit -m x"
         ),
-        "a patch whose body loops over a commit string": (
-            f"cd {q(w)} && python3 - <<'EOF'\ns = 'don\\'t'\n"
-            f"for c in ['cd {w}; git commit -m x']:\n    print(c)\nEOF"
-        ),
         "a body line equal to the delimiter ends it early": (
             "cat > note.md <<'EOF'\nquoted:\nEOF\ngit commit -m x\nEOF"
         ),
     }
 
 
-def test_the_four_measured_shapes_are_refused_under_the_press(
+def test_three_measured_shapes_are_refused_under_the_press(
     monkeypatch, capsys, projects, tmp_path
 ):
     """S4. The session directory is opted in and undeclared, and W is
     declared, as in the measured run. Without the press each is what it was:
-    a deny, then an ask. Under it, a deny both times."""
+    a deny, then an ask. Under it, a deny both times.
+
+    Three of the four. The fourth, a patch whose body loops over a commit
+    string, is the one heredoc shape work item 1791089603 (#739) makes data,
+    and it left on the owner's answer to that work item's Q1:
+    `test_the_fourth_measured_shape_is_silent_under_the_press` pins it."""
     session = make_repo(tmp_path / "session")
     w = make_repo(tmp_path / "w", declared=True)
     press(projects, session)
@@ -204,6 +205,20 @@ def test_the_four_measured_shapes_are_refused_under_the_press(
         assert plain == ["deny", "ask"], (name, plain)
         assert pressed == ["deny", "deny"], (name, pressed)
         forget_the_budget(session)
+
+
+def test_the_fourth_measured_shape_is_silent_under_the_press(
+    monkeypatch, capsys, projects, tmp_path
+):
+    """Q1 of work item 1791089603: the fourth measured shape is a Python
+    program's text, and nothing on it commits."""
+    session = make_repo(tmp_path / "session")
+    w = make_repo(tmp_path / "w", declared=True)
+    press(projects, session)
+    command = moved_row(w)
+    plain = [say(monkeypatch, capsys, command, session, PLAIN)[0] for _ in "12"]
+    pressed = [say(monkeypatch, capsys, command, session)[0] for _ in "12"]
+    assert plain == pressed == ["silent", "silent"], (plain, pressed)
 
 
 # --- S5: what the refusal says ----------------------------------------------
