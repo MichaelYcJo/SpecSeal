@@ -2008,3 +2008,331 @@ def test_the_home_and_the_usage_say_a_stale_row_is_left(where, sentence):
     with open(os.path.join(ROOT, where), encoding="utf-8") as handle:
         text = " ".join(handle.read().split())
     assert sentence in text, (where, sentence)
+
+
+# --- what no re-read clears (#746, ⬜ 11) ------------------------------------
+#
+# `docs/the-evidence-ledger.md` names five things `--reverify` leaves at exit 0
+# while `--strict` exits 2: a double correction, a BROKEN coordinate, a family
+# rooted in a fragment whose anchored statement is gone, a citing row refused
+# MALFORMED, and a citation whose released line changed. Each case below holds
+# one of them over the three modes, narrowed to the file holding a row
+# `--strict` names or not narrowed. Each pins behaviour that already held, so
+# each was seen red under a mutation of the code that grades it.
+
+WITHOUT_HANDLER = "def other(x):\n    return x * 2\n"
+
+
+def both_exits(repo, mode, flags):
+    """`(--reverify's exit, --strict's exit)` for one run in MODE, both
+    narrowed by FLAGS, the `--reverify` run's output beside them."""
+    if mode != "no freeze":
+        frozen(repo, "0")
+    into = ["--into", MEMBER_INTO, "--checked", "2026-04-01"]
+    fix = run(
+        ["--reverify", *(into if mode == "freeze with --into" else []), *flags, "."],
+        repo,
+    )
+    check = run(["--strict", *flags, "."], repo)
+    return fix.returncode, check.returncode, fix.stdout + fix.stderr
+
+
+def placed(repo, row, at, version, item):
+    """ROW written into a fragment named ITEM, or folded into
+    `seal/releases/<VERSION>.md` under ITEM's heading; its file, relative."""
+    if at == "folded":
+        released(repo, [row], version=version, section=f"### {item}")
+        return f"seal/releases/{version}.md"
+    fragment(repo, [row], name=item)
+    return f"seal/ledger/{item}.md"
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("narrowed", ("no --ledger", "the first", "the second"))
+@pytest.mark.parametrize("at", ("fragment", "folded"))
+def test_a_double_correction_is_left_at_exit_0_and_read_at_exit_2(
+    repo, at, narrowed, mode
+):
+    """A8. Two `Corrected ·` rows of one released row, both in fragments or
+    both folded: `--strict` names each and exits 2, and `--reverify` exits 0,
+    because which claim stays is a person's choice."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    cite = citation(r, "R1 · handler adds one")
+    files = [
+        placed(
+            repo,
+            f"| Corrected · handler adds {claim} | `{cite}`, `src/service.py#handler@{h}` "
+            "| read | 2026-02-01 | Corrected 2026-02-01 |",
+            at,
+            version,
+            item,
+        )
+        for claim, version, item in (
+            ("two", "0.2.0", "2000000001-a"),
+            ("three", "0.3.0", "2000000002-b"),
+        )
+    ]
+    flags = {
+        "no --ledger": [],
+        "the first": ["--ledger", files[0]],
+        "the second": ["--ledger", files[1]],
+    }[narrowed]
+    fix, check, out = both_exits(repo, mode, flags)
+    assert (fix, check) == (0, 2), out
+
+
+BROKEN_CARRIERS = ("a released row", "a fragment row", "a folded re-read", "a re-read")
+
+
+def broken_tree(repo, carrier):
+    """A coordinate whose unit is gone, carried as CARRIER says. A re-read
+    carries `other`, which its root does not cite, so where it sits in a
+    fragment no released row carries the coordinate. Returns the carrier's
+    file."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    if carrier == "a fragment row":
+        fragment(
+            repo,
+            [f"| F1 · handler | `src/service.py#handler@{h}` | read | 2026-01-01 | |"],
+            name="2000000001-f",
+        )
+        (repo / "src" / "service.py").write_text(WITHOUT_HANDLER, encoding="utf-8")
+        return "seal/ledger/2000000001-f.md"
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    if carrier == "a released row":
+        (repo / "src" / "service.py").write_text(WITHOUT_HANDLER, encoding="utf-8")
+        return R_FILE
+    at = "folded" if carrier == "a folded re-read" else "fragment"
+    where = placed(
+        repo,
+        f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+        f"`src/service.py#other@{o}` | read | 2026-02-01 | Re-read 2026-02-01 |",
+        at,
+        "0.2.0",
+        "2000000002-m",
+    )
+    (repo / "src" / "service.py").write_text(
+        SERVICE.split("\n\n\ndef other")[0] + "\n", encoding="utf-8"
+    )
+    return where
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("narrowed", (False, True))
+@pytest.mark.parametrize("carrier", BROKEN_CARRIERS)
+def test_a_broken_coordinate_is_named_only_where_a_released_row_carries_it_frozen(
+    repo, carrier, narrowed, mode
+):
+    """A9. `--strict` exits 2 over a BROKEN coordinate wherever it sits.
+    `--reverify` names it, with the `Corrected ·` repair, and exits 1 only
+    where a released row carries it under the freeze; where only fragment
+    rows carry it, or without the freeze, it exits 0."""
+    where = broken_tree(repo, carrier)
+    flags = ["--ledger", where] if narrowed else []
+    fix, check, out = both_exits(repo, mode, flags)
+    named = mode != "no freeze" and carrier in ("a released row", "a folded re-read")
+    assert (fix, check) == (1 if named else 0, 2), out
+    if named:
+        assert "BROKEN" in out and "`Corrected ·` row" in out, out
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("narrowed", (False, True))
+@pytest.mark.parametrize("at", ("fragment", "folded"))
+def test_a_correction_whose_anchored_statement_is_gone_is_named_only_released(
+    repo, at, narrowed, mode
+):
+    """A10. A `Corrected ·` row roots its own family, and its one coordinate
+    names a statement the code no longer has. In a fragment, the in-place
+    re-stamp has nothing to hash and leaves it, and a family rooted in a
+    fragment is owed no released re-read: `--reverify` exits 0 while
+    `--strict` exits 2. Folded, the root is released and the run names it and
+    exits 1."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    text = (repo / "src" / "service.py").read_text(encoding="utf-8")
+    places, _ = ec.resolve_unit("src/service.py", "other", text)
+    (inside,) = ec.minor_region("src/service.py", text, places[0], '"x * 2"')
+    stated = ec.content_hash(ec.gfm_lines(text)[inside[0] - 1 : inside[1]])
+    where = placed(
+        repo,
+        f"| Corrected · other doubles | `{citation(r, 'R1 · handler adds one')}`, "
+        f'`src/service.py#other>"x * 2"@{stated}` | read | 2026-02-01 | '
+        "Corrected 2026-02-01 by work item 2000000001 |",
+        at,
+        "0.2.0",
+        "2000000001-c",
+    )
+    (repo / "src" / "service.py").write_text(
+        SERVICE.replace("x * 2", "x * 3"), encoding="utf-8"
+    )
+    flags = ["--ledger", where] if narrowed else []
+    fix, check, out = both_exits(repo, mode, flags)
+    assert (fix, check) == (0 if at == "fragment" else 1, 2), out
+
+
+@pytest.mark.parametrize("mode", MODES)
+@pytest.mark.parametrize("narrowed", (False, True))
+@pytest.mark.parametrize("shape", ("no marker", "a citation into a fragment"))
+def test_a_citing_row_refused_malformed_is_left_at_exit_0(repo, shape, narrowed, mode):
+    """A citing row `family_view` refuses: one with no `Re-read <date>` in its
+    Notes, or one whose citation names a fragment row. `--strict` exits 2 on
+    the refusal, and `--reverify` exits 0, because the repair is an edit."""
+    h1 = unit_hash(repo, "src/service.py", "handler")
+    if shape == "no marker":
+        (r,) = released(
+            repo,
+            [
+                f"| R1 · handler adds one | `src/service.py#handler@{h1}` | read | 2026-01-01 | |"
+            ],
+        )
+        cite = citation(r, "R1 · handler adds one")
+        notes = "read again"
+    else:
+        f = fragment(
+            repo,
+            [f"| F1 · handler | `src/service.py#handler@{h1}` | read | 2026-01-01 | |"],
+            name="2000000001-f",
+        )
+        first = f.read_text(encoding="utf-8").splitlines()[0]
+        cite = f'seal/ledger/2000000001-f.md#"F1 · handler"@{line_hash(first)}'
+        notes = "Re-read 2026-02-01"
+    edit_handler(repo)
+    h2 = unit_hash(repo, "src/service.py", "handler")
+    fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{cite}`, "
+            f"`src/service.py#handler@{h2}` | read | 2026-02-01 | {notes} |"
+        ],
+        name="2000000002-g",
+    )
+    flags = ["--ledger", "seal/ledger/2000000002-g.md"] if narrowed else []
+    fix, check, out = both_exits(repo, mode, flags)
+    assert (fix, check) == (0, 2), out
+    strict = run(["--strict", *flags, "."], repo).stdout
+    assert any(line.strip().startswith("MALFORMED") for line in strict.splitlines()), (
+        strict
+    )
+
+
+@pytest.mark.parametrize("mode", ("freeze without --into", "freeze with --into"))
+@pytest.mark.parametrize("narrowed", (False, True))
+def test_a_folded_citation_whose_released_line_changed_is_left_at_exit_0(
+    repo, narrowed, mode
+):
+    """Under the freeze, a folded `Re-read ·` row whose cited released line
+    was edited: the citation is DRIFTED, `--strict` exits 2, and `--reverify`
+    exits 0, because no released file is written. The freeze forbids that
+    edit, and `correction-check` refuses it at the pull request."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    where = placed(
+        repo,
+        f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+        f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |",
+        "folded",
+        "0.2.0",
+        "2000000002-m",
+    )
+    path = repo / R_FILE
+    path.write_text(
+        path.read_text(encoding="utf-8").replace(
+            "| 2026-01-01 | |", "| 2026-01-01 | edited |"
+        ),
+        encoding="utf-8",
+    )
+    flags = ["--ledger", where] if narrowed else []
+    fix, check, out = both_exits(repo, mode, flags)
+    assert (fix, check) == (0, 2), out
+
+
+def test_an_unfrozen_restamp_of_a_released_row_moves_the_line_its_re_read_cites(
+    repo,
+):
+    """Without the freeze, R and its fragment re-read M both record `handler`
+    as it was, and the code moves. One run re-stamps both in place, which
+    moves R's line, so M's citation of R reads DRIFTED: the run exits 0 and
+    `--strict` exits 2. A second run re-stamps the citation, and the tree
+    checks clean."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    (r,) = released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+        ],
+    )
+    fragment(
+        repo,
+        [
+            f"| Re-read · R1 · handler adds one | `{citation(r, 'R1 · handler adds one')}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        ],
+        name="2000000002-m",
+    )
+    edit_handler(repo)
+    first = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert first.returncode == 0, first.stdout
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 2, check.stdout
+    assert "the released file changed under the row it cites" in check.stdout
+    second = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert second.returncode == 0, second.stdout
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+@pytest.mark.parametrize(
+    "sentence",
+    [
+        "**Five things no re-read clears, and `--reverify` exits 0 over each while "
+        "`--strict` exits 2.**",
+        "A released row corrected by two `Corrected ·` rows.",
+        "Only where a released row carries it under the freeze does `--reverify` "
+        "name it, with the `Corrected ·` repair, and exit 1.",
+        "A family rooted in a fragment, a `Corrected ·` row there, whose anchored "
+        "statement is gone.",
+        "A citing row refused `MALFORMED`: one without its marker, or one whose "
+        "citation names a fragment row.",
+        "A citation whose released line changed under it.",
+        "and a second run re-stamps those citations.",
+    ],
+    ids=[
+        "the five",
+        "double correction",
+        "broken",
+        "statement gone",
+        "malformed",
+        "citation",
+        "second run",
+    ],
+)
+def test_the_home_names_each_thing_no_re_read_clears(sentence):
+    """§14 for ⬜ 11: the paragraph a person reads before trusting a
+    `--reverify` that exited 0, pinned sentence by sentence (#746)."""
+    with open(
+        os.path.join(ROOT, "docs", "the-evidence-ledger.md"), encoding="utf-8"
+    ) as handle:
+        text = " ".join(handle.read().split())
+    assert sentence in text, sentence

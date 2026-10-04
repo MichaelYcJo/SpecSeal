@@ -174,9 +174,32 @@ member of, released or fragment, where no in-place re-stamp of the files it
 read clears that family, whichever members carry the drifted coordinate, and
 exits 1. The root is named even where the
 narrowing left its file out, because the root is the row a `Re-read ·` cites.
-A row corrected by two rows is not a re-read's to clear: `--strict` names
-each correcting row and exits 2, while `--reverify`, narrowed or not, exits
-0 and leaves the choice of claim to a person.
+
+**Five things no re-read clears, and `--reverify` exits 0 over each while
+`--strict` exits 2.** This holds without the freeze, under it, and under it
+with `--into`, over every ledger or narrowed with `--ledger` to the file
+holding a row `--strict` names, unless a sentence below says otherwise. Each
+repair is an edit or a correction, which a person makes.
+
+- A released row corrected by two `Corrected ·` rows. Each correcting row is
+  DRIFTED and names the others, and which claim stays is a person's choice.
+- A BROKEN coordinate. Only where a released row carries it under the freeze
+  does `--reverify` name it, with the `Corrected ·` repair, and exit 1. Where
+  only fragment rows carry it, or without the freeze, it exits 0.
+- A family rooted in a fragment, a `Corrected ·` row there, whose anchored
+  statement is gone. The in-place re-stamp has nothing to hash and leaves it,
+  and a family rooted in a fragment is owed no released re-read. Under a
+  released root the same coordinate is named, and the run exits 1.
+- A citing row refused `MALFORMED`: one without its marker, or one whose
+  citation names a fragment row.
+- A citation whose released line changed under it. Under the freeze that is a
+  folded citing row whose cited release file was edited, which
+  `correction-check` refuses at the pull request. Without the freeze, a run
+  over every ledger that re-stamps a released row in place moves the line its
+  fragment's citing rows cite, and a second run re-stamps those citations.
+
+A `Re-read ·` row with a `--checked` older than the newest reading is not
+among them: `--into` names it and exits 1, as its paragraph above says.
 
 ## What the checker refuses, and what it says while refusing
 
