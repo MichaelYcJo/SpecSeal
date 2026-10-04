@@ -332,7 +332,10 @@ and `never` records nothing. The work item is the `--into` fragment's, else
 the one a `routing.md` declares for the branch; with neither, the row is
 named on a `LEFT` line and the run exits 1. A copy of this script with no
 `hooks/` beside it cannot read the `Pact` row: it names each row citing a
-pact on a `LEFT` line, records nothing, and exits 1. Where the record is
+pact on a `LEFT` line, and each other moved row where `seal/config.md` holds
+a `Pact notify` row or will not read, records nothing, and exits 1. A `Pact
+notify` row written twice has no value, so it cannot rule `always` out
+either. Where the record is
 written, the ledger is written exactly as before. **The run records first
 and re-stamps after**: it plans every ledger write, writes the pact changes
 the plan owes, and only then writes the plan. Where a change is owed and

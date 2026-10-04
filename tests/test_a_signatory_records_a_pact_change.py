@@ -1295,12 +1295,31 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
             "The order holds against the process dying, not against a power "
             "loss: nothing is `fsync`ed",
         ),
+        (
+            "docs/the-pact.md",
+            "and each other moved row where `seal/config.md` holds a `Pact notify` "
+            "row or will not read, says it recorded nothing, and re-stamps nothing",
+        ),
+        (
+            "skills/evidence-check/SKILL.md",
+            "and each other moved row where `seal/config.md` holds a `Pact notify` "
+            "row or will not read, records nothing, and exits 1. A `Pact notify` "
+            "row written twice has no value",
+        ),
+        (
+            "docs/the-pact.md",
+            "A `Pact notify` value outside the vocabulary, or a row written twice, "
+            "has no value at all: its first row is not the answer.",
+        ),
     ],
     ids=[
         "the pact: W8-W10",
         "the pact: the power-loss limit",
         "skill: W8-W10",
         "skill: the limit",
+        "the pact: a vendored copy",
+        "skill: a vendored copy",
+        "the pact: a doubled notify",
     ],
 )
 def test_the_documents_say_what_the_writer_does(doc, sentence):
@@ -1329,3 +1348,124 @@ def test_an_into_step_three_cannot_write_claims_no_row_written(repo):
     assert len(record_rows(repo)) == 1, out
     assert "  wrote " not in out and "0 citing rows written" in out, out
     assert f"  LEFT  seal/ledger/{ITEM}.md  could not be written" in out, out
+
+
+# --- round 1 of PR #756: a `Pact notify` value treated as read when it was not
+
+
+@pytest.mark.parametrize("first", ["never", "when the pact is touched"])
+def test_a_notify_row_written_twice_leaves_a_row_citing_no_clause(repo, first):
+    """A `Pact notify` row written twice has no value, so it cannot rule
+    `always` out: a moved row citing no clause is left, not re-stamped, and
+    nothing is recorded (round 1 of PR #756, yellow 2)."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(
+            ("Mode", "shared"),
+            ("Pact", PACT_URL),
+            ("Pact notify", first),
+            ("Pact notify", "always"),
+        ),
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    rows = [row("O2", "", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, rows)
+    move_serialize(repo)
+    code, out = run(repo, "--into", FRAGMENT, "--checked", "2026-09-04")
+    assert code == 1 and "`Pact notify` may be `always`" in out, out
+    assert "`Pact notify` appears 2 times — one value" in out, out
+    assert UNDONE in out, out
+    assert ledger.read_text(encoding="utf-8") == "".join(rows), out
+
+
+def _vendored(repo, tmp_path):
+    """Run a copy of the checker with no `hooks/` and no `SKILL.md` beside it."""
+    vendored = tmp_path / "tools" / "evidence_check.py"
+    vendored.parent.mkdir()
+    with open(SCRIPT, encoding="utf-8") as handle:
+        vendored.write_text(handle.read(), encoding="utf-8")
+    done = subprocess.run(
+        [
+            sys.executable,
+            str(vendored),
+            "--reverify",
+            "--into",
+            FRAGMENT,
+            "--checked",
+            "2026-09-04",
+            str(repo),
+        ],
+        cwd=str(repo),
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+    )
+    return done.returncode, done.stdout + done.stderr
+
+
+@pytest.mark.parametrize(
+    "rows",
+    [
+        (("Pact", PACT_URL), ("Pact notify", "always")),
+        (("Pact", PACT_URL), ("Pact notify", "never")),
+    ],
+    ids=["always", "never, which this copy cannot read either"],
+)
+def test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause(
+    repo, tmp_path, rows
+):
+    """A copy with no `hooks/` reads no `Pact notify` value, so wherever the
+    config has a `Pact notify` row a moved row citing no clause may be owed
+    under `always`: it is left on a `LEFT` line, not re-stamped (round 1 of
+    PR #756, yellow 1). Leaving it under `never` too is the safe direction."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), *rows), encoding="utf-8"
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger_rows = [row("O2", "", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, ledger_rows)
+    move_serialize(repo)
+    code, out = _vendored(repo, tmp_path)
+    assert code == 1, out
+    assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
+    assert (
+        f"  LEFT  seal/ledger/{ITEM}.md:1  moved, and `Pact notify` may be "
+        "`always`, and this copy of evidence_check.py has no hooks/ beside it "
+        "to read the `Pact notify` row with — no pact change was recorded and "
+        "nothing was re-stamped"
+    ) in out, out
+    assert not (repo / "seal" / "pact-changes").exists(), out
+
+
+@pytest.mark.parametrize("shape", ["no notify row", "no config.md"])
+def test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause(
+    repo, tmp_path, shape
+):
+    """Without a `Pact notify` row nothing can mean `always`, so the vendored
+    copy still re-stamps a moved row citing no clause, at exit 0."""
+    if shape == "no config.md":
+        (repo / "seal" / "config.md").unlink()
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger = cite(repo, [row("O2", "", f"src/orders.py#serialize@{old}")])
+    new = move_serialize(repo)
+    code, out = _vendored(repo, tmp_path)
+    assert code == 0, out
+    assert f"@{new}" in ledger.read_text(encoding="utf-8"), out
+
+
+@UNREADABLE
+def test_a_vendored_copy_whose_config_will_not_read_leaves_the_row(repo, tmp_path):
+    """A `seal/config.md` the vendored copy cannot open cannot rule `always`
+    out either, so a moved row citing no clause is left."""
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger_rows = [row("O2", "", f"src/orders.py#serialize@{old}")]
+    ledger = cite(repo, ledger_rows)
+    move_serialize(repo)
+    config = repo / "seal" / "config.md"
+    os.chmod(config, 0)
+    try:
+        code, out = _vendored(repo, tmp_path)
+    finally:
+        os.chmod(config, 0o644)
+    assert code == 1 and "may be `always`" in out, out
+    assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out

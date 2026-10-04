@@ -747,7 +747,9 @@ def pact_declaration(text):
                 [] where no row names a pact
       notify    the `Pact notify` value, lowercased; `NOTIFY_DEFAULT` where a
                 `Pact` row stands with no `Pact notify`; None where no
-                `Pact` row does, because the notify row is then ignored
+                `Pact` row does, because the notify row is then ignored, and
+                None where the row is refused, outside the vocabulary or
+                written more than once
       refusals  one sentence per thing that would not parse, naming it
 
     **It refuses in sentences and stops nothing.** The two callers differ on
@@ -781,9 +783,13 @@ def pact_declaration(text):
     )
     refusals.extend(refused)
     if len(notify_rows) > 1:
+        # Refused, and no value: the first row is not the answer, so a
+        # caller that read it would rule `always` in or out on a row the
+        # signatory also contradicted (round 1 of PR #756, yellow 2).
         refusals.append(
             f"`{PACT_NOTIFY_ROW}` appears {len(notify_rows)} times — one value"
         )
+        return pacts, None, refusals
     notify = " ".join(notify_rows[0].split()).lower() if notify_rows else ""
     if not notify:
         notify = NOTIFY_DEFAULT

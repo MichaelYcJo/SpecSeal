@@ -3640,6 +3640,9 @@ CODE_PART = re.compile(
 # still there for the run that can record it (round 1 of PR #749, red 1;
 # round 2, red 10 and yellow 11).
 NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
+# Anything shaped like a `Pact notify` row, for a copy with no `hooks/` to
+# read its value with: any case, any indentation, quoted or fenced or not.
+NOTIFY_ROW_SHAPE = re.compile(r"^[ \t>]*\|[ \t]*Pact notify[ \t]*\|", re.M | re.I)
 PACT_CHANGE_UNDONE = (
     "  a pact change is owed and was not recorded, so this run wrote no ledger "
     "file: nothing was re-stamped"
@@ -3715,15 +3718,37 @@ def record_pact_changes(moves, root, into, checked):
         entries.append((where, row, parts, list(PACT_ANCHOR_RE.finditer(line))))
     config = plugin_module(CONFIG_READER, "specseal_config_for_pact_changes")
     if config is None:
-        citing = [e for e in entries if e[3]]
-        for where, _row, _parts, _anchors in citing:
-            print(
-                f"  LEFT  {where}  cites a pact clause, and this copy of "
-                "evidence_check.py has no hooks/ beside it to read the `Pact` "
-                f"row with — {NOT_RESTAMPED}; run the plugin's "
-                "`evidence-check --reverify` where the signatory is checked out"
-            )
-        return 1 if citing else 0
+        # This copy reads no `Pact notify` value either, so where the config
+        # holds anything shaped like a `Pact notify` row, or will not read, a
+        # moved row citing no clause may be owed under `always` and is left
+        # with the rows citing one (round 1 of PR #756, yellow 1). The shape
+        # is looser than the plugin's reader, so it leaves too much rather
+        # than too little; with no such row nothing can mean `always`.
+        declaration = os.path.join(seal_home(root), "config.md")
+        said = read(declaration) if os.path.lexists(declaration) else ""
+        blind = said is None or bool(NOTIFY_ROW_SHAPE.search(said))
+        left = 0
+        for where, _row, _parts, anchors in entries:
+            if anchors:
+                print(
+                    f"  LEFT  {where}  cites a pact clause, and this copy of "
+                    "evidence_check.py has no hooks/ beside it to read the "
+                    f"`Pact` row with — {NOT_RESTAMPED}; run the plugin's "
+                    "`evidence-check --reverify` where the signatory is "
+                    "checked out"
+                )
+            elif blind:
+                print(
+                    f"  LEFT  {where}  moved, and `Pact notify` may be `always`, "
+                    "and this copy of evidence_check.py has no hooks/ beside it "
+                    f"to read the `Pact notify` row with — {NOT_RESTAMPED}; run "
+                    "the plugin's `evidence-check --reverify` where the "
+                    "signatory is checked out"
+                )
+            else:
+                continue
+            left += 1
+        return 1 if left else 0
     declared = config.declared_pacts(seal_home(root))
     refused = (
         [f"{SEAL_PREFIX}config.md could not be read"]

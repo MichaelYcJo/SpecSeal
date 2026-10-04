@@ -88,6 +88,24 @@ def test_a_notify_value_outside_the_vocabulary_is_refused_naming_all_three():
     ]
 
 
+@pytest.mark.parametrize("first", ["always", "when the pact is touched", "never"])
+def test_a_notify_row_written_twice_has_no_value(first):
+    """A `Pact notify` row written twice is refused and read as no value, as
+    a value outside the vocabulary is: its first row is not the answer, so
+    no caller can rule `always` in or out from it (#647 C and D, round 1 of
+    PR #756, yellow 2)."""
+    pacts, notify, refusals = config.pact_declaration(
+        table(
+            ("Pact", "git@example.com:org/orders-api.git"),
+            ("Pact notify", first),
+            ("Pact notify", "always"),
+        )
+    )
+    assert len(pacts) == 1
+    assert notify is None
+    assert refusals == ["`Pact notify` appears 2 times — one value"]
+
+
 def test_no_row_and_an_empty_row_hold_no_pact_and_ignore_notify():
     """Absent means no pact is held elsewhere, and a `Pact notify` with no
     `Pact` is ignored rather than refused."""

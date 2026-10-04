@@ -70,8 +70,9 @@ record of a pact change (§*A signatory records a pact change*) and which of
 those `pact-check` reads. `hooks/config.py#pact_declaration` refuses
 what will not parse in a sentence and stops nothing, so the print at a
 signatory's pull request and the refusal at the pact's repository are about
-the same rows.
-Enforced by: tests/test_a_signatory_declares_its_pact.py::test_one_pact_reads_normalised_with_the_default_notify, tests/test_a_signatory_declares_its_pact.py::test_a_notify_value_outside_the_vocabulary_is_refused_naming_all_three, tests/test_a_signatory_declares_its_pact.py::test_a_row_that_will_not_parse_is_refused_and_never_read_as_absent, tests/test_a_signatory_records_a_pact_change.py::test_s10_notify_decides_what_is_recorded
+the same rows. A `Pact notify` value outside the vocabulary, or a row
+written twice, has no value at all: its first row is not the answer.
+Enforced by: tests/test_a_signatory_declares_its_pact.py::test_one_pact_reads_normalised_with_the_default_notify, tests/test_a_signatory_declares_its_pact.py::test_a_notify_value_outside_the_vocabulary_is_refused_naming_all_three, tests/test_a_signatory_declares_its_pact.py::test_a_notify_row_written_twice_has_no_value, tests/test_a_signatory_declares_its_pact.py::test_a_row_that_will_not_parse_is_refused_and_never_read_as_absent, tests/test_a_signatory_records_a_pact_change.py::test_s10_notify_decides_what_is_recorded
 
 ## The pact anchor
 
@@ -297,12 +298,14 @@ pact reviews on one machine.** The record is written inside `--reverify`, so
 a signatory that types a new hash into a ledger row leaves no pact change,
 and nothing can see that it should have. A copy of the checker with no
 `hooks/` beside it cannot read the `Pact` row; it names each row citing a
-pact, says it recorded nothing, and re-stamps nothing, so the plugin's own
-checker records the change where the signatory is checked out. A pact under
+pact, and each other moved row where `seal/config.md` holds a `Pact notify`
+row or will not read, says it recorded nothing, and re-stamps nothing, so
+the plugin's own checker records the change where the signatory is checked
+out. A pact under
 local mode keeps `seal/pact-reviews/` under the git directory, so another
 clone of the pact's repository reads the same changes as `NOT TAKEN`, which
 is loud in the right direction.
-Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **The record-first order holds against the process dying, and not against
