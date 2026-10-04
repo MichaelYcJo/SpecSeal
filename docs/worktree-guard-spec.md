@@ -747,7 +747,9 @@ at one prompt against a wrong allow breaking another session's tree.
     feature/x`) reaches only the wider reading, which looks up no tree, so a
     file behind the same operator (`git checkout 2>&1 README.md`) is asked
     too. In no pair did such an operator stand where only that reading held
-    the switch;
+    the switch. The same cut leaves the frozen reading the words before it
+    alone, so `git checkout feature/x <&1 -- README.md`, a restore, is judged
+    a switch to `feature/x`, as at the base;
   - `git checkout -U 3 feature/x` reads `feature/x` as the name, although git
     refuses `-U` without `-p`, so a command git refuses is asked.
 - On Windows the count of other sessions is always unusable. It walks the

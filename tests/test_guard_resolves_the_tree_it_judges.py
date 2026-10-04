@@ -1498,6 +1498,8 @@ SWITCHES = (
         for words in ("feature/x", "-", *(f"{v} feature/x" for v in VALUED))
     ),
     "switch -- feature/x",
+    # `-t` may take a value stuck only, so the next word is the name.
+    *(f"{sub} -t feature/x" for sub in CREATING),
 )
 # What switches nothing: a file, `.`, a name after `--`, an option's value
 # where a name would stand, a creating option after `--` or after
@@ -1507,6 +1509,7 @@ TWINS = (
     "checkout README.md",
     "checkout .",
     "checkout -- feature/x",
+    "checkout feature/x -- README.md",
     "checkout --conflict feature/x",
     "checkout --end-of-options -b y",
     "checkout -xb y",
@@ -1532,16 +1535,22 @@ def a_branch_and_a_file(monkeypatch, repo):
     return str(repo)
 
 
-def _kinds_read(command, cwd):
-    """The kinds the guard reads in COMMAND at function level: `classify` on
-    every frozen segment, as `main`'s loop reads them, then candidate C with
-    the kinds that loop judged."""
+def _read_apart(command, cwd):
+    """`(judged, wider)`: the kinds `classify` reads on COMMAND's frozen
+    segments, as `main`'s loop reads them, and the kinds candidate C then adds
+    to them."""
     judged = set()
     for tokens, _wheres in wg.walk_command(command, cwd):
         found = wg.classify(tokens, cwd)
         if found:
             judged.add("creation" if found == "worktree-add" else "switch")
-    return judged | wg.wider_only_kinds(command, cwd, judged)
+    return judged, wg.wider_only_kinds(command, cwd, judged)
+
+
+def _kinds_read(command, cwd):
+    """The kinds the guard reads in COMMAND at function level."""
+    judged, wider = _read_apart(command, cwd)
+    return judged | wider
 
 
 @pytest.mark.parametrize("verb", CREATIONS)
@@ -1583,20 +1592,25 @@ def test_no_constructed_switch_is_silent(a_branch_and_a_file):
 def test_no_twin_is_asked_unless_an_operator_cuts_the_segment(a_branch_and_a_file):
     """`spec.md` A5. A twin is silent wherever its redirection stands after
     the subcommand and holds no `&` or `|`. Where it stands before the
-    subcommand or holds one, only candidate C reads the switch, and C asks
-    what §*Which tree*'s rule says: the kind the verb's own words hold. Red at
-    `94d7b2e0`, which read `-b` after `--` as a creation."""
+    subcommand or holds one, only candidate C reads the whole switch, and C
+    asks what §*Which tree*'s rule says: the kind the verb's own words hold.
+    Red at `94d7b2e0`, which read `-b` after `--` as a creation.
+
+    Where an `&`- or `|`-led operator cuts the segment, the frozen loop reads
+    the words before the cut alone, so `git checkout feature/x <&1 --
+    README.md` is judged a switch to `feature/x`, as at `94d7b2e0`
+    (§*Known limits*); only C's half is held to the rule there."""
     wrong = []
     for verb in TWINS:
         own = {wg.switch_kind(wg.parse_git(["git", *verb.split()]))} - {None}
         for command, at, glued, op in _placed(verb):
-            kinds = _kinds_read(command, a_branch_and_a_file)
+            judged, wider = _read_apart(command, a_branch_and_a_file)
             after_the_subcommand = at > 2 or (at == 2 and not glued)
             if after_the_subcommand and not any(c in op for c in "&|"):
-                if kinds:
-                    wrong.append((command, sorted(kinds)))
-            elif not kinds <= own:
-                wrong.append((command, sorted(kinds), sorted(own)))
+                if judged | wider:
+                    wrong.append((command, sorted(judged | wider)))
+            elif not wider <= own:
+                wrong.append((command, sorted(wider), sorted(own)))
     assert not wrong, (len(wrong), wrong[:10])
 
 
@@ -1695,8 +1709,9 @@ def test_the_option_table_binds_the_installed_git(sub):
 def test_the_reduction_takes_out_every_redirection_the_reader_names():
     """`spec.md` A8. The guard's own reduction is bound to `hooks/cmdline.py`'s
     `_REDIRECTION` by this case, not by an import: `classify` keeps answering
-    where that module fails to load. Red with `&>` taken out of the guard's
-    copy."""
+    where that module fails to load. Red with `<>` taken out of the guard's
+    copy; `&>` taken out is not red, because the `&` a glued word keeps is
+    cut and dropped before the operator is read."""
     left = []
     for op, target in _redirections():
         gluable = not op[0].isdigit() and not op.startswith("{")
@@ -1734,3 +1749,14 @@ def test_a_long_option_named_exactly_wins_over_the_ones_it_begins():
     assert wg._long_option(options, "x") == (True, True)
     assert wg._long_option(options, "x=v") == (False, True)
     assert wg._long_option(options, "xy") == (False, False)
+
+
+def test_an_ambiguous_long_prefix_takes_nothing():
+    """git refuses a prefix two long names begin with (`git switch --c y`:
+    "ambiguous option: c (could be --create or --conflict)"), and a word git
+    refuses reads as an option that takes nothing and creates nothing."""
+    options = wg._Options(
+        short={}, long={"ab": (wg.VALUE, True), "ac": (wg.NONE, False)}
+    )
+    assert wg._long_option(options, "a") == (False, False)
+    assert wg._long_option(options, "ab") == (True, True)
