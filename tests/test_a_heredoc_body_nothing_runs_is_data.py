@@ -324,7 +324,12 @@ def test_a_written_file_a_line_could_run_keeps_its_body_read(tmp_path, runner):
     which a file the line wrote may be. From a declared repository, so the
     body is the only thing that can stop it."""
     session = make_repo(tmp_path / "session", declared=True)
-    for writer in ("cat > f.sh <<'EOF'", "tee f.sh <<'EOF'", "cat <<'EOF' | tee f.sh"):
+    for writer in (
+        "cat > f.sh <<'EOF'",
+        "tee f.sh <<'EOF'",
+        "cat <<'EOF' | tee f.sh",
+        "cat <<'EOF' &> f.sh",
+    ):
         command = f"{writer}\ngit commit -m x\nEOF\n{runner}"
         got, out = decide(command, session)
         assert got in ("deny", "ask"), (command, out)
@@ -365,6 +370,8 @@ def test_a_written_file_nothing_on_the_line_runs_is_data(tmp_path):
         f"cat <<'A' > pr.md\n{PR_BODY}\nA\npython3 - <<'B'\n{PY_BODY}\nB",
         f"cat <<'A' | grep -v x > /dev/null\n{PR_BODY}\nA",
         f"cat <<'A' <<'B'\n{PR_BODY}\nA\n{PR_BODY}\nB",
+        # A file another pipeline writes is not one this body reached.
+        f"cat <<'A' | grep -v x\n{PR_BODY}\nA\necho y > out.txt; git status",
     ],
 )
 def test_two_bodies_and_a_pipeline_are_each_judged(tmp_path, command):
@@ -390,6 +397,9 @@ tokens = load_hook_module("tokens.py", "tokens_heredoc_data")
         ("python3 - <<'EOF'\nbody\nEOF", [True]),
         # R2c: a word that steps around git's hooks keeps every body read.
         ("cat <<'EOF' CLAUDECODE=\nbody\nEOF", [False]),
+        # R2c: a `git -c` sets only a key `is_plain` allows.
+        ("git -c alias.x=y status; cat <<'EOF'\nbody\nEOF", [False]),
+        ("git -c user.name=y status; cat <<'EOF'\nbody\nEOF", [True]),
         # R2d: an opener the line reads differently from the reader -- here
         # `<<- 'EOF'`, whose dash stands apart -- keeps every body read.
         ("cat <<- 'EOF'\nbody\nEOF", [False]),
