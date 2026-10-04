@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #756 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-3 |
 | Fix range | `aa4546f0a6f8a4bc77ad774ad4f786a007c967a1..a94914a00d9ed4a59f634da5e837d8257793e9ed`, 2 commits |
 | Contract changes | test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause → round-1-report.md, round-1.md; test_s3_a_notify_value_outside_the_vocabulary_is_exit_2 → pytest only |
 | New units | none |
