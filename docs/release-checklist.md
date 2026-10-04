@@ -136,9 +136,10 @@ settle --retire-process
 The first command ends with what the second would take. The second removes
 `rounds/`, `phases/`, `survivors.md` and the files written only for a pull
 request from every work item already on `main`, which is every release before
-this one, and leaves `routing.md` and the SDD set for the fold below. Nothing
-reads that part after its release, and removing it judges nothing, so it runs
-on every release, including one that skips the fold. It is a branch and a
+this one, and leaves `routing.md` and the SDD set for the fold below. No
+check reads that part after its release, and removing it judges nothing, so
+it runs on every release, including one that skips the fold. What the SDD set
+still cites of it is read at the release tag. It is a branch and a
 pull request of its own, as the fold is, and it is not a work item either: its
 commit carries `: '[no-review]';` in front of the command. It exits 1 when a
 guard keeps an item: close an open todo row in a pull request of its own

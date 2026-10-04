@@ -3,8 +3,9 @@
 - `settle --retire-process` removes a released work item's process record
   without waiting for the fold (#729). The process record is `rounds/`,
   `phases/`, `survivors.md`, `broad-gate.md`, `handoff.md`, `pr.*.md`,
-  `tests-todo.md` and `evidence-todo.md`, and nothing reads it after the
-  release that shipped the work item. `routing.md`, `spec.md`, `plan.md`,
+  `tests-todo.md` and `evidence-todo.md`, and no check reads it after the
+  release that shipped the work item. A reference into it from the files
+  that stay is read at that release's tag. `routing.md`, `spec.md`, `plan.md`,
   `questions.md`, `overview.md` and `changelog.md` stay until the fold
   retires the directory. The arm writes no prose and runs first in the
   release checklist's step 2b, on every release, including one that skips

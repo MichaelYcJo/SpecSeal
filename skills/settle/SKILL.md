@@ -18,7 +18,7 @@ on disk forever: 98 work items, 1,338 files, 15M on the tree this shipped
 from. `seal/README.md` has said each one "waits until a later `settle` folds
 it" since the root existed, and until now nothing folded anything. Most of
 that weight was never the fold's to wait for: two thirds of it is the
-process record, which nothing reads after the release, and
+process record, which no check reads after the release, and
 `settle --retire-process` takes it at every release whether or not anything
 is folded (§*The process record leaves first, fold or no fold*).
 
@@ -88,7 +88,7 @@ A work item's directory holds two kinds of file, and they stop mattering at
 different times. The **SDD set** — `spec.md`, `plan.md`, `questions.md`,
 `overview.md`, `changelog.md` — and `routing.md` say what was decided and why,
 and they stay until the fold absorbs them and `settle --retire` takes the
-directory. The **process record** is read by nothing after the release that
+directory. The **process record** is read by no check after the release that
 ships the item, and this arm removes it from every released work item:
 
 - `rounds/` and `phases/`, whole;
@@ -112,6 +112,16 @@ The items of the release being prepared are not on `main` yet, so they are
 not taken. Their records are still read at the release pull request into
 `main` and when the release seal is drawn, and they leave at the next
 release's step 2b. After that they are in git history, at the release tag.
+
+**The SDD set that stays still points into what left.** A released item's
+`overview.md`, `questions.md`, `plan.md` and `spec.md` name its own
+`rounds/round-N.md` and `phases/phase-N.md` by relative path. Measured when
+this arm shipped, 381 lines in 157 of those files did, across 51 items. The
+arm does not list them, because the files that hold them stay and no check
+follows them: they are pointers a person reads. Each resolves at the tag of
+the release that shipped the item, as
+`git show v<X.Y.Z>:seal/specs/<id>/phases/phase-2.md`, and that is where the
+fold reads them.
 
 **It is an allow-list, because removal is the destructive direction.** A file
 on neither list is kept and named, never guessed at. A new kind of
@@ -170,7 +180,7 @@ items the arm would take, and names each item it would keep and each file on
 neither list:
 
 ```
-the process record — read by nothing after its work item's release, so
+the process record — no check reads it after its work item's release, so
 `settle --retire-process` takes it now, fold or no fold:
     525 files in 54 released work items
 ```
@@ -190,6 +200,10 @@ their ledger coordinates anchor in — and lists beside them: the ones it cannot
 group, the ones an open `evidence-todo.md` row is holding, the ones already
 folded and waiting to be retired, and every ledger row anchored inside a
 released directory (§4).
+
+Where a released item's SDD set cites one of its own round or phase records,
+`settle --retire-process` may already have taken it: read it at the tag of
+the release that shipped the item, `git show v<X.Y.Z>:<path>`.
 
 **A released work item with no `spec.md` is not yours to place.** It states
 no rule, so there is nothing to fold out of it, and `settle` prints it under

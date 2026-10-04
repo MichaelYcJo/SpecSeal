@@ -144,8 +144,9 @@ The files keep these paths and stop mattering at two different times (F3).
 `overview.md`, `changelog.md`) stay until the `settle` fold retires the
 directory. The process record (`rounds/`, `phases/`, `survivors.md`, the two
 todo files, `broad-gate.md`, and a `handoff.md` or `pr.*.md` where one was
-written) is read by nothing after the release that ships the work item, and
+written) is read by no check after the release that ships the work item, and
 `settle --retire-process` removes it at the next release, fold or no fold.
+What the SDD set still cites of it resolves at the tag of that release.
 
 ## The root records
 
@@ -206,8 +207,10 @@ becomes one file per run. #729's frame read the readers and chose the first.
 - **One file per run is rejected.** The round records of 41 of 53 runs
   measured would together exceed the 64 KB a reader takes whole.
 - **The process record leaves after the release, without waiting for the
-  fold.** Once its release has merged to `main`, nothing reads it: the
-  release pull request and the release seal were its last readers. So
+  fold.** Once its release has merged to `main`, no check reads it: the
+  release pull request and the release seal were its last readers. A
+  person following a reference into it from the SDD set reads it at the
+  release tag, which keeps every file the arm removes. So
   `settle --retire-process` removes it from every released work item as the
   first act of `docs/release-checklist.md` §*2b*, on every release, and
   leaves `routing.md` and the SDD set for the fold. Its guards are

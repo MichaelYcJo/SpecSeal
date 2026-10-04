@@ -58,9 +58,9 @@ with nothing absorbing it, which nobody can.
 **The process arm is its own act, and the fold does not gate it (#729).**
 `--retire-process` removes a released work item's `rounds/`, `phases/`,
 `survivors.md` and the files written only for a pull request, and leaves
-`routing.md` and the SDD set for the fold. Nothing reads that part after the
-release, and removing it judges nothing, so it does not wait on the fold's
-judgment. It is an allow-list: a file on neither list is kept and named. Its
+`routing.md` and the SDD set for the fold. No check reads that part after
+the release, and removing it judges nothing, so it does not wait on the fold's
+judgment. What the SDD set still cites of it resolves at the release tag. It is an allow-list: a file on neither list is kept and named. Its
 guards are the fold's, asked per item — an open todo row, a ledger row
 anchored inside a file it would remove — and a citation into one is listed,
 never refused.
@@ -1236,7 +1236,7 @@ DURABLE = (
 # `tests/test_settle_retires_the_process_record.py`, which also holds
 # `skills/settle/SKILL.md` to quoting each one, because a person acts on them.
 PROCESS_HEADING = (
-    "the process record — read by nothing after its work item's release, so\n"
+    "the process record — no check reads it after its work item's release, so\n"
     "`settle --retire-process` takes it now, fold or no fold:"
 )
 PROCESS_TODO_HEADING = (
@@ -1344,11 +1344,28 @@ def process_anchored(rows, plan):
     return found
 
 
+# A file or directory name as prose writes it: runs of name characters joined
+# by single dots, so it never ends in a dot. Whatever follows it in a sentence
+# — a closing `.` or `,`, a `:40`, a `#anchor`, a dash — is not part of it,
+# and a name that goes on (`handoff.md.bak`, `rounds-old`) is read whole.
+CITED_NAME_RE = re.compile(r"[A-Za-z0-9_-]+(?:\.[A-Za-z0-9_-]+)*")
+
+
 def cites_a_process_record(rest):
     """Whether the path after a cited directory's name lands in a file the
-    process arm takes — `citations`' `inside` for this arm."""
-    first, slash, _ = rest.partition("/")
-    return bool(first) and is_process_record(first, bool(slash))
+    process arm takes — `citations`' `inside` for this arm.
+
+    The name is read off the front of `rest` by `CITED_NAME_RE` rather than
+    by stripping the tails prose is known to add, because the list of tails
+    is the list that missed four shapes in #729's round 1. `rounds` with no
+    slash names the directory. The answer is `is_process_record`'s, so the
+    listing and the removal cannot disagree about a name."""
+    m = CITED_NAME_RE.match(rest)
+    if m is None:
+        return False
+    name = m.group(0)
+    is_dir = rest[m.end() : m.end() + 1] == "/" or name in PROCESS_DIRS
+    return is_process_record(name, is_dir)
 
 
 def write_process_section(found, out):
@@ -1383,8 +1400,10 @@ def retire_process(found, root, out=sys.stdout):
     else (#729).
 
     It does not wait for the fold, because it needs no judgment: what it
-    removes is read by nothing after the release that ships the item, and the
-    SDD set and `routing.md` stay for the fold to absorb. *Released* is the
+    removes is read by no check after the release that ships the item, and the
+    SDD set and `routing.md` stay for the fold to absorb. A relative reference
+    from that SDD set into what goes is not listed: it is a pointer a person
+    follows, and it resolves at the release tag (#729's round 1, 🟡 1). *Released* is the
     same test the fold uses — the directory is present at `--released-at` —
     taken from `found` because only git answers it.
 

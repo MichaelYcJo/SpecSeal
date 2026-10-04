@@ -10,7 +10,7 @@ show, each part written when it happened. -->
 
 ## Why this work exists
 
-Two thirds of `seal/specs/` was the process record of released work items, read by nothing and waiting on a fold that had not run since 2026-09-24. `settle --retire-process` now removes it at every release, and `routing.md` and the SDD set stay for the fold.
+Two thirds of `seal/specs/` was the process record of released work items, read by no check and waiting on a fold that had not run since 2026-09-24. `settle --retire-process` now removes it at every release, and `routing.md` and the SDD set stay for the fold.
 
 ## Where spec and implementation diverged
 

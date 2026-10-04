@@ -4,7 +4,7 @@ leaves the rest of its directory for the fold (#729).
 A work item's directory holds two kinds of file. The SDD set and `routing.md`
 say what was decided and why; the process record — `rounds/`, `phases/`,
 `survivors.md` and the files written only for a pull request — is read by
-nothing after the release that ships the item. Measured when this shipped, it
+no check after the release that ships the item. Measured when this shipped, it
 was 62% of the files under `seal/specs/` and 67% of the bytes, and it waited
 on the fold, a judgment it does not need. So it leaves by an arm of its own,
 which writes no prose and judges nothing.
@@ -437,3 +437,143 @@ def test_each_carrier_says_when_the_process_record_leaves(parts, standing, gone)
     text = document(*parts)
     assert standing in text, f"{'/'.join(parts)} does not say {standing!r}"
     assert gone not in text, f"{'/'.join(parts)} still says {gone!r}"
+
+
+# --- round 1's fixes -------------------------------------------------------
+
+# 🟡 2: a citation's path, as prose writes it. Built as every name on the
+# arm's list times every way a sentence can follow a file name, so a shape is
+# never one that was thought of; and the same tails after a name that is not
+# on the list, or after a name that continues past the list's spelling.
+TAILS = (
+    "",
+    ".",
+    ",",
+    ";",
+    ":",
+    "!",
+    "?",
+    ":40",
+    ":40-45",
+    "#anchor",
+    "#L40",
+    "@abcdef12",
+    "\\",
+    "…",
+    "—then",
+    ".\u00a0",
+)
+TAKEN_NAMES = (
+    "rounds",
+    "phases",
+    "survivors.md",
+    "broad-gate.md",
+    "handoff.md",
+    "tests-todo.md",
+    "evidence-todo.md",
+    "pr.ko.md",
+)
+NOT_TAKEN = (
+    "spec.md",
+    "overview.md",
+    "routing.md",
+    "notes.md",
+    "handoff.md.bak",
+    "rounds-old",
+    "phasesx",
+    "survivors.mdx",
+)
+
+
+@pytest.mark.parametrize("tail", TAILS)
+@pytest.mark.parametrize(
+    "name", (*TAKEN_NAMES, "rounds/", "rounds/round-1.md", "phases/phase-2.md")
+)
+def test_a_citation_into_a_taken_file_is_read_whatever_follows_it(name, tail):
+    """Round 1, 🟡 2: `handoff.md:40`, `survivors.md.`, `pr.ko.md,` and a
+    bare `rounds` all name a file the arm takes, and were not listed."""
+    assert settle.cites_a_process_record(name + tail), name + tail
+
+
+@pytest.mark.parametrize("tail", TAILS)
+@pytest.mark.parametrize("name", (*NOT_TAKEN, "rounds-old/round-1.md"))
+def test_a_citation_into_a_file_that_stays_is_not_read_as_one(name, tail):
+    assert not settle.cites_a_process_record(name + tail), name + tail
+
+
+def test_a_citation_written_as_prose_is_listed(repo):
+    """The same, end to end: a citation outside backticks ends with the
+    sentence's punctuation, a `path:line` ends with its line, and a directory
+    is named with no slash. Each still names a file the arm takes, and a
+    citation into `spec.md` written the same way is not listed."""
+    write(
+        repo / "docs" / "one-root.md",
+        "# a policy\n\nA rule.\n\n"
+        f"Measured in seal/specs/{ALPHA}/survivors.md.\n"
+        f"See seal/specs/{ALPHA}/handoff.md:40 for it.\n"
+        f"The `seal/specs/{ALPHA}/rounds` directory.\n"
+        f"In seal/specs/{ALPHA}/pr.ko.md, which.\n"
+        f"Decided in seal/specs/{ALPHA}/spec.md.\n",
+    )
+    git(repo, "add", "docs")
+    git(repo, "commit", "-qm", "prose citations")
+    code, text = run(repo, "--retire-process")
+    assert code == 0, text
+    for line in (5, 6, 7, 8):
+        assert f"        cited from docs/one-root.md:{line}" in text, (line, text)
+    assert "docs/one-root.md:9" not in text, text
+
+
+def test_the_fold_reads_a_reference_into_the_process_record_at_the_tag():
+    """Round 1, 🟡 1: the SDD set that stays names its own round and phase
+    records by relative path, and after the arm those resolve at the release
+    tag. The arm's section and the fold's first step both say so."""
+    with open(SKILL, encoding="utf-8") as f:
+        text = flat(f.read())
+    assert "The SDD set that stays still points into what left." in text
+    assert "`git show v<X.Y.Z>:seal/specs/<id>/phases/phase-2.md`" in text
+    first_step = text.split("### 1. Read what is waiting", 1)[1].split("### 2.", 1)[0]
+    assert "read it at the tag of the release that shipped the item" in first_step
+
+
+# Round 1, 🟡 1: each sentence that said nothing reads the process record now
+# says what holds — no check reads it, and a person following a reference
+# into it reads it at the release tag.
+@pytest.mark.parametrize(
+    "parts",
+    [
+        ("skills", "settle", "SKILL.md"),
+        ("skills", "settle", "scripts", "settle.py"),
+        ("docs", "the-record-layout.md"),
+        ("docs", "release-checklist.md"),
+    ],
+)
+def test_no_carrier_says_nothing_reads_the_process_record(parts):
+    text = document(*parts)
+    for said in (
+        "read by nothing after",
+        "Nothing reads that part",
+        "nothing reads it",
+        "which nothing reads after the release",
+    ):
+        assert said not in text, f"{'/'.join(parts)} still says {said!r}"
+    low = text.lower()
+    assert "no check reads" in low or "read by no check" in low, parts
+
+
+def test_the_design_records_dated_section_says_no_check_reads_it():
+    for edition, gone, standing in (
+        (
+            "one-root-by-lifetime.md",
+            "nothing reads it once its release has merged",
+            "no check reads it once its release has merged",
+        ),
+        (
+            "one-root-by-lifetime.ko.md",
+            "이것을 읽는 곳이 없습니다",
+            "이것을 읽는 검사가 없고",
+        ),
+    ):
+        text = document("docs", edition)
+        assert gone not in text, edition
+        assert standing in text, edition
