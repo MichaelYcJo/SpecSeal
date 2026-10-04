@@ -26,6 +26,7 @@ never-changes/spec.md` D2 and D3 are the decisions these cases hold.
 
 import importlib.util
 import os
+import re
 import subprocess
 import sys
 
@@ -2555,6 +2556,107 @@ def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
     assert named and len(named) == len(set(named)), fix.stdout
     check = run(["--strict", "."], repo)
     assert check.returncode == 0, check.stdout
+
+
+HASH_LINE = re.compile(r"^  (\S.*?)  ([0-9a-f]{6,12}) -> ([0-9a-f]{6,12})$")
+
+
+def ledger_texts(repo):
+    return "".join(
+        p.read_text(encoding="utf-8") for p in sorted((repo / "seal").rglob("*.md"))
+    )
+
+
+@pytest.mark.parametrize("checked", [True, False], ids=["dated", "undated"])
+@pytest.mark.parametrize("depth", [1, 2], ids=["two walks", "three walks"])
+def test_one_unfrozen_run_names_each_coordinate_it_restamps_once(repo, depth, checked):
+    """Round 2, yellow 1. A self-citing release holds R1 and a chain of
+    `Re-read ·` rows each citing the one before; a fragment cites the last.
+    The line a citation of a citing row quotes moves on more than one walk,
+    so the citation is re-stamped on each. The run names every coordinate it
+    re-stamps once, from the hash the tree held before the run to the hash
+    the tree holds after it, counts each once, and names each row it dated,
+    or left undated, once. Red at 2a4ed251, which
+    named such a citation once per walk -- the first line naming a hash no
+    file ever held -- and counted every line."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    rows = [
+        f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+    ]
+
+    def reread(cite, label):
+        return (
+            f"| Re-read · {label} | `{cite}`, `src/service.py#handler@{h}` "
+            "| read | 2026-02-01 | Re-read 2026-02-01 |"
+        )
+
+    # Each citation is taken with the row quoting it in place, until the two
+    # agree: a literal unique without the citing row may not be with it.
+    for label in ["the row it cites", "the re-read of it"][:depth]:
+        cite = citation(rows[-1], rows[-1].split(" | ")[0][2:])
+        for _ in range(3):
+            released(repo, [*rows, reread(cite, label)])
+            again = ec.citation_for(str(repo), str(repo / R_FILE), 4 + len(rows))
+            if again == cite:
+                break
+            cite = again
+        rows.append(reread(cite, label))
+    released(repo, rows)
+    last = ec.citation_for(str(repo), str(repo / R_FILE), 4 + len(rows))
+    fragment(repo, [reread(last, "the fragment's")])
+    assert run(["--strict", "."], repo).returncode == 0
+    before = ledger_texts(repo)
+    edit_handler(repo)
+    dated = ["--checked", "2026-03-01"] if checked else []
+    fix = run(["--reverify", *dated, "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    after = ledger_texts(repo)
+    named = [line for line in fix.stdout.splitlines() if line.startswith("    seal/")]
+    assert len(named) == len(set(named)) == depth + 2, fix.stdout
+    said = [HASH_LINE.match(line) for line in fix.stdout.splitlines()]
+    said = [m for m in said if m]
+    # R1's code, and each citing row's code and citation, the fragment's too.
+    assert len(said) == 1 + 2 * (depth + 1), fix.stdout
+    assert f"{len(said)} rows re-verified" in fix.stdout, fix.stdout
+    for m in said:
+        assert f"@{m.group(2)}`" in before, (m.group(0), fix.stdout)
+        assert f"@{m.group(3)}`" in after, (m.group(0), fix.stdout)
+    cited = [m.group(1) for m in said if m.group(1).startswith("seal/")]
+    assert len(cited) == len(set(cited)) == depth + 1, fix.stdout
+    assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_one_unfrozen_run_names_a_citing_row_it_left_whole_once(repo):
+    """Round 2, white 2: the walked-file skip in `citations_left`. A citing
+    row in a table with no date column is left whole by `--checked`, so its
+    citation of the line the run re-stamped stays DRIFTED. The `undatable`
+    line names it, and no line says a narrowing left its file out: no
+    narrowing did. Red with the skip removed."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    released(
+        repo,
+        [
+            f"| R1 · handler adds one | `src/service.py#handler@{h}` | read "
+            "| 2026-01-01 | |"
+        ],
+    )
+    cite = ec.citation_for(str(repo), str(repo / R_FILE), 5)
+    (repo / "seal" / "releases" / "0.2.0.md").write_text(
+        "## 0.2.0 — 2026-01-02\n\n### 1000000002-the-second-item\n\n"
+        "| Clause | Code grounds | Verified behavior | Notes |\n|---|---|---|---|\n"
+        f"| Re-read · the row it cites | `{cite}`, `src/service.py#handler@{h}` "
+        "| read | Re-read 2026-02-01 |\n",
+        encoding="utf-8",
+    )
+    assert run(["--strict", "."], repo).returncode == 0
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 1, fix.stdout
+    left = [line for line in fix.stdout.splitlines() if line.startswith("  LEFT")]
+    assert len(left) == 1, fix.stdout
+    assert left[0].startswith(
+        "  LEFT  seal/releases/0.2.0.md:7  its hash moved and the row has no date cell"
+    ), fix.stdout
 
 
 def test_the_walk_order_survives_a_self_citation_and_a_cycle(repo):

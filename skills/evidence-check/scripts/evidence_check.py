@@ -3108,6 +3108,12 @@ def reverify(
     once, again, bound = cited_first(ledgers, root, maps, default_repo)
     # Whether the last walk of AGAIN changed what it plans (`cited_first`).
     moved = [False]
+    # The hash each coordinate held when the run first re-stamped it. A
+    # citation of a citing row is re-stamped again on a later walk, because
+    # the line it cites moves on two walks, and every line the run says about
+    # a coordinate is one line, from the hash the ledger held to the one it
+    # takes (round 2, yellow 1).
+    first_old = {}
 
     def walks():
         for ledger in once:
@@ -3171,7 +3177,15 @@ def reverify(
         # Matched in `unquoted(text)` and spliced from `text`: the two have
         # the same offsets, and an example row in a closed fence is never
         # rewritten (#444).
+        nth = {}
         for m in ANCHOR_RE.finditer(unquoted(text)):
+            # What names this coordinate on every walk: its ledger, its row,
+            # its coordinate and which of that row's spellings of it this is.
+            # An offset is not stable, because a date written on an earlier
+            # walk moves every offset after it.
+            spot = (bisect.bisect_right(starts, m.start()), coordinate_of(m))
+            nth[spot] = nth.get(spot, 0) + 1
+            key = (planned_key(ledger), *spot, nth[spot])
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
             repo, rel = place(root, maps, default_repo, raw_path)
@@ -3254,7 +3268,11 @@ def reverify(
                             + name
                             + text[m.end("locator") : m.start("hash")]
                             + new_hash,
-                            f"  {raw_path}#{locator} -> {shown}  (identical content)",
+                            (
+                                key,
+                                f"  {raw_path}#{locator} -> {shown}  "
+                                "(identical content)",
+                            ),
                             # A file moved whole reconstructs with the recorded
                             # hash, and only a rename moves it: the owner's rule
                             # dates a row whose HASH moved (#387).
@@ -3305,7 +3323,11 @@ def reverify(
                     m.start("hash"),
                     m.end("hash"),
                     got,
-                    f"  {shown}  {m.group('hash')} -> {got}",
+                    (
+                        key,
+                        f"  {shown}  "
+                        f"{first_old.setdefault(key, m.group('hash'))} -> {got}",
+                    ),
                     True,
                 )
             )
@@ -3377,14 +3399,17 @@ def reverify(
             written.append((ledger, said_here, dated, undated))
 
     def report(landed):
-        lines, dated, undated = [], [], []
+        said, dated, undated = {}, [], []
         for ledger, said_here, dated_here, undated_here in written:
             if landed_at(landed, ledger):
-                lines.extend(said_here)
+                # One line per coordinate, the last walk's: it names the hash
+                # the ledger held before the run and the one it takes.
+                said.update(said_here)
                 # A file walked more than once (`cited_first`) lists a row
                 # both walks dated once.
                 dated.extend(d for d in dated_here if d not in dated)
                 undated.extend(u for u in undated_here if u not in undated)
+        lines = list(said.values())
         changed = len(lines)
         lines.append(f"{changed} row{'' if changed == 1 else 's'} re-verified")
         if dated:
