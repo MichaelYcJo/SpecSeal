@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #786 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `007364767d61e41f0a88a1e3d974d4f2ace10477..6ded9bdddc41fddba1145700e51a93323b458dfd`, 4 commits |
 | Contract changes | cited_first → round-1-report.md, round-1.md, reverify, pytest; test_a_narrowed_unfrozen_run_names_the_citation_it_moved_and_left → pytest only |
 | New units | LEAVINGS (depth 1); test_one_unfrozen_run_restamps_a_citation_no_order_places (depth 1); test_an_in_place_move_starts_at_the_rows_own_hash (depth 1) |
