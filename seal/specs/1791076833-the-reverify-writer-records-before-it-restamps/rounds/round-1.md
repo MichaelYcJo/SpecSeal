@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #756 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `9d2c157997f26197c3f02bb4ab7eba0cb0ddca14..013363e80f6ab5aeb65ff1c71355c8ee996646c7`, 3 commits |
+| Contract changes | none |
+| New units | NOTIFY_ROW_SHAPE (depth 1); test_a_notify_row_written_twice_has_no_value (depth 1); test_a_notify_row_written_twice_leaves_a_row_citing_no_clause (depth 1); _vendored (depth 1); test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause (depth 1); test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause (depth 1); test_a_vendored_copy_whose_config_will_not_read_leaves_the_row (depth 1) |
 | Needs a fix | yes — 🟡 1 (a vendored copy under `always` re-stamps a row citing no clause unrecorded), 🟡 2 (a doubled `Pact notify` row is read as its first value) |
 | Loses a record or crashes | yes — 🟡 1 and 🟡 2 each re-stamp a moved row whose pact change `always` owes, with nothing recorded, so the drift that would record it is gone |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,10 +24,10 @@ Round 1 of work item `1791076833-the-reverify-writer-records-before-it-restamps`
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 1 | A copy with no `hooks/`, under `Pact notify \| always`, re-stamps a moved row citing no clause at exit 0 and records nothing; the plugin's copy then finds nothing to record | `skills/evidence-check/scripts/evidence_check.py:3717` | open | executed in a temporary signatory; contradicts spec W5 and W6 and `docs/the-pact.md:134` and `:300`; fix run in the clone: red then green, 184 passed |
-| 🟡 2 | A `Pact notify` row written twice is read as its first value, so with `never` or the default first and `always` second a moved row citing no clause is re-stamped at exit 0, unrecorded and unannounced | `skills/evidence-check/scripts/evidence_check.py:3737` | open | executed for both first values; contradicts spec W6 and `docs/the-pact.md:133`; fix run in the clone: red then green |
-| ⬜ 3 | Ledger claim rows `W1 ·` and `W2 ·` (walker, `cmarkgfm`) share labels with the spec's writer-contract clauses W1 and W2, beside rows `W8 ·` to `W10 ·`, which are those clauses | `seal/ledger/1791076833-the-reverify-writer-records-before-it-restamps.md:1` | open | read; a correction to the run's paperwork, not counted in `Needs a fix` |
-| ⬜ 4 | This item's `plan.md` names a worktree by an absolute path under a real home directory, so `tests/test_no_real_identifiers.py` fails at the target | `seal/specs/1791076833-the-reverify-writer-records-before-it-restamps/plan.md:24` | open | executed: `test_only_fixture_user_paths` fails at `7517df8b`; came in with `20f2207c`; a correction to the run's paperwork, not counted in `Needs a fix`, and the pull request's pytest job will fail on it |
+| 🟡 1 | A copy with no `hooks/`, under `Pact notify \| always`, re-stamps a moved row citing no clause at exit 0 and records nothing; the plugin's copy then finds nothing to record | `skills/evidence-check/scripts/evidence_check.py:3717` | **fixed** `a5e359d3` | fixed at a5e359d3; executed in a temporary signatory; contradicts spec W5 and W6 and `docs/the-pact.md:134` and `:300`; fix run in the clone: red then green, 184 passed |
+| 🟡 2 | A `Pact notify` row written twice is read as its first value, so with `never` or the default first and `always` second a moved row citing no clause is re-stamped at exit 0, unrecorded and unannounced | `skills/evidence-check/scripts/evidence_check.py:3737` | **fixed** `a5e359d3` | fixed at a5e359d3; executed for both first values; contradicts spec W6 and `docs/the-pact.md:133`; fix run in the clone: red then green |
+| ⬜ 3 | Ledger claim rows `W1 ·` and `W2 ·` (walker, `cmarkgfm`) share labels with the spec's writer-contract clauses W1 and W2, beside rows `W8 ·` to `W10 ·`, which are those clauses | `seal/ledger/1791076833-the-reverify-writer-records-before-it-restamps.md:1` | answered | corrected at `013363e8`: the ledger rows `W1 ·` and `W2 ·` are relabelled `T1 ·` and `T2 ·`, and each row's Notes names where the old label still stands (PR #749's fragment, `plan.md`, `phases/phase-1.md`); read; a correction to the run's paperwork, not counted in `Needs a fix` |
+| ⬜ 4 | This item's `plan.md` names a worktree by an absolute path under a real home directory, so `tests/test_no_real_identifiers.py` fails at the target | `seal/specs/1791076833-the-reverify-writer-records-before-it-restamps/plan.md:24` | answered | corrected at `630a5abb`: `plan.md` names the old worktree by its directory name `647-pact-cd`; the work item directory and its fragment were grepped and held no other real path; `tests/test_no_real_identifiers.py` passes; executed: `test_only_fixture_user_paths` fails at `7517df8b`; came in with `20f2207c`; a correction to the run's paperwork, not counted in `Needs a fix`, and the pull request's pytest job will fail on it |
 | 🟢 | PR #749 round 1's blocking finding 1 is closed: an owed change that cannot be recorded re-stamps nothing on the five paths it named | `skills/evidence-check/scripts/evidence_check.py:4992` | confirmed | executed: 17 cases red with the plan applied before the record; in place with no work item, no claim line and the ledger kept. The vendored path's `always` arm is this round's yellow 1 |
 | 🟢 | PR #749 round 2's blocking finding 10 is closed: no step removes a ledger, and an `--into` that will not read is refused before anything is written | `skills/evidence-check/scripts/evidence_check.py:4962` | confirmed | read: the only removal is `write_atomic`'s temporary file; executed: the sibling case red under the apply-first mutation, a non-UTF-8 `--into` exit 2 and byte for byte |
 | 🟢 | PR #749 round 2's yellow 11 is closed: no window between a re-stamp and its record remains | `skills/evidence-check/scripts/evidence_check.py:4992` | confirmed | executed: the kill matrix, ten cells, each next run equal to a clean run |
