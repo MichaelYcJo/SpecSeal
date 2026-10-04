@@ -175,11 +175,12 @@ read clears that family, whichever members carry the drifted coordinate, and
 exits 1. The root is named even where the
 narrowing left its file out, because the root is the row a `Re-read ·` cites.
 
-**Five things no re-read clears, and `--reverify` exits 0 over each while
-`--strict` exits 2.** This holds without the freeze, under it, and under it
-with `--into`, over every ledger or narrowed with `--ledger` to the file
-holding a row `--strict` names, unless a sentence below says otherwise. Each
-repair is an edit or a correction, which a person makes.
+**Five things `--reverify` leaves at exit 0 while `--strict` exits 2.** This
+holds without the freeze, under it, and under it with `--into`, over every
+ledger or narrowed with `--ledger` to the file holding a row `--strict`
+names, unless a sentence below says otherwise. Each repair is an edit or a
+correction, which a person makes, except where the last item says a second
+run clears it.
 
 - A released row corrected by two `Corrected ·` rows. Each correcting row is
   DRIFTED and names the others, and which claim stays is a person's choice.

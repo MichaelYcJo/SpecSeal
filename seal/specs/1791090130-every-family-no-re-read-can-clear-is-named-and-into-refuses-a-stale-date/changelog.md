@@ -13,10 +13,10 @@
   today, which no `--checked` can reach, the line names a `Corrected ·` row
   as the repair.
 
-- `docs/the-evidence-ledger.md` names the five things no re-read clears,
-  where `--reverify` exits 0 and `--strict` exits 2 (#746). They are a
-  released row corrected twice, a BROKEN coordinate outside a released row
-  under the freeze, a family rooted in a fragment whose anchored statement is
-  gone, a citing row refused `MALFORMED`, and a citation whose released line
-  changed. It used to name the first one only. A case holds each one in
-  every mode, narrowed and not.
+- `docs/the-evidence-ledger.md` names the five things `--reverify` leaves at
+  exit 0 while `--strict` exits 2 (#746). They are a released row corrected
+  twice, a BROKEN coordinate outside a released row under the freeze, a
+  family rooted in a fragment whose anchored statement is gone, a citing row
+  refused `MALFORMED`, and a citation whose released line changed. It used to
+  name the first one only. A case holds each one in every mode, narrowed and
+  not.

@@ -2306,8 +2306,7 @@ def test_an_unfrozen_restamp_of_a_released_row_moves_the_line_its_re_read_cites(
 @pytest.mark.parametrize(
     "sentence",
     [
-        "**Five things no re-read clears, and `--reverify` exits 0 over each while "
-        "`--strict` exits 2.**",
+        "**Five things `--reverify` leaves at exit 0 while `--strict` exits 2.**",
         "A released row corrected by two `Corrected ·` rows.",
         "Only where a released row carries it under the freeze does `--reverify` "
         "name it, with the `Corrected ·` repair, and exit 1.",
