@@ -14,8 +14,8 @@ name: publish the release note
 # So the tag push publishes it. That is the release's last manual act and the
 # one `docs/branch-and-release.md` keeps a person's — nothing in CI pushes a
 # tag, and nothing here creates one either. By the time it exists, the
-# `CHANGELOG.md` section this publishes has been gathered, reviewed and merged
-# to `main`.
+# release's own file this publishes, `changelog/X.Y.Z.md`, has been gathered,
+# reviewed and merged to `main`.
 #
 # Then the seal (#718). A second job, `seal`, runs only when `publish` created
 # the release in this run (`created` is its output; a re-pushed tag or a full
@@ -95,9 +95,10 @@ jobs:
           python-version: '3.12'
       # The suite's packages and Pillow, at the versions
       # `.github/scripts/run_tests.py` pins; a case holds this line to them.
+      # cmarkgfm is among them since #647: the table walker's case imports it.
       - name: install the suite's packages and Pillow
         continue-on-error: true
-        run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0
+        run: pip install pytest pytest-xdist markdown-it-py==4.2.0 pillow==12.3.0 cmarkgfm==2025.10.22
       # `test.yml`'s ubuntu leg, plus the JUnit file the counts are read from.
       # No token is in this step's environment, and the checkout left none in
       # `.git/config`.

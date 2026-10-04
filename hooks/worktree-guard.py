@@ -293,8 +293,13 @@ def switch_kind(parsed):
 
     `classify` answers the same question against a tree: a `checkout` of a
     path that exists, or of a name that is no ref, is not a switch there. This
-    reads no tree, so every `checkout` with a name in it counts: the upper
-    bound phase 3 of work item 1790993140 counted with (`questions.md` D3). A
+    reads no tree, so a `checkout` counts wherever its words alone can name a
+    branch, in `classify`'s order: one carrying `-b` or `-B` counts, with or
+    without a name; then one carrying `--` does not, whatever stands before
+    it; then one naming `-` or a word other than `.` does. That is the upper
+    bound phase 3 of work item 1790993140 counted with (`questions.md` D3),
+    and `docs/worktree-guard-spec.md` §*Which tree* states the same words. A
+    `switch` counts wherever it names a word or `-`, `--` or no `--`, and a
     `switch -c` needs no test of its own, because `-c` always takes a name.
     """
     if not parsed:
@@ -1226,7 +1231,7 @@ def dead_session_ids(top: str):
     for name in names:
         record = {}
         try:
-            with open(os.path.join(d, name)) as f:
+            with open(os.path.join(d, name), encoding="utf-8") as f:
                 loaded = json.load(f)
             if isinstance(loaded, dict):
                 record = loaded
@@ -1291,7 +1296,7 @@ def fresh_leases(top: str, own_session_id: str = "", scanned_pids=frozenset()):
             # which leaves the record empty and the lease unattributable.
             record = {}
             try:
-                with open(path) as f:
+                with open(path, encoding="utf-8") as f:
                     loaded = json.load(f)
                 if isinstance(loaded, dict):
                     record = loaded
@@ -1696,7 +1701,7 @@ def already_asked(top: str, session: str, scope: str) -> bool:
         return True
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, "w").close()
+        open(path, "w", encoding="utf-8").close()
     except OSError:
         return True
     return False

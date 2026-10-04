@@ -225,7 +225,7 @@ def test_no_session_state_beside_the_root_is_in_the_zip(seal, repo, local, capsy
             continue  # it would take the opt-in back; its own case is below
         (common / name).write_text("session state\n", encoding="utf-8")
     (common / "specseal-worktree-choice").mkdir()
-    (common / "specseal-worktree-choice" / "a-branch").write_text("x")
+    (common / "specseal-worktree-choice" / "a-branch").write_text("x", encoding="utf-8")
 
     code, out = run(seal, ["export"], repo, capsys)
     assert code == 0, out
@@ -242,7 +242,9 @@ def test_a_link_out_of_the_root_is_skipped_and_named(seal, repo, local, capsys):
     target's bytes must not be in the zip, and the skip must be reported —
     silently dropping a file from a copy is how a copy is discovered to be
     incomplete on the machine that has nothing else."""
-    (repo / ".git" / "specseal-implementer").write_text("secret-branch\n")
+    (repo / ".git" / "specseal-implementer").write_text(
+        "secret-branch\n", encoding="utf-8"
+    )
     symlink_or_skip(os.path.join("..", "specseal-implementer"), str(local / "leak.md"))
     code, out = run(seal, ["export"], repo, capsys)
     assert code == 0, out
@@ -342,18 +344,24 @@ def test_a_second_differing_copy_is_numbered_never_overwritten(seal, carried, ca
     file with a long name."""
     zip_path, other, home = carried
     (home / "ledger").mkdir(parents=True)
-    (home / "ledger" / "1788000000-a-work-item.md").write_text("# mine\n")
-    (home / "ledger" / "1788000000-a-work-item.incoming.md").write_text("# earlier\n")
+    (home / "ledger" / "1788000000-a-work-item.md").write_text(
+        "# mine\n", encoding="utf-8"
+    )
+    (home / "ledger" / "1788000000-a-work-item.incoming.md").write_text(
+        "# earlier\n", encoding="utf-8"
+    )
 
     code, out = run(seal, ["import", zip_path], other, capsys)
     assert code == 0, out
-    assert (home / "ledger" / "1788000000-a-work-item.md").read_text() == "# mine\n"
-    assert (
-        home / "ledger" / "1788000000-a-work-item.incoming.md"
-    ).read_text() == "# earlier\n"
-    assert (
-        home / "ledger" / "1788000000-a-work-item.incoming-2.md"
-    ).read_text() == "# rows\n"
+    assert (home / "ledger" / "1788000000-a-work-item.md").read_text(
+        encoding="utf-8"
+    ) == "# mine\n"
+    assert (home / "ledger" / "1788000000-a-work-item.incoming.md").read_text(
+        encoding="utf-8"
+    ) == "# earlier\n"
+    assert (home / "ledger" / "1788000000-a-work-item.incoming-2.md").read_text(
+        encoding="utf-8"
+    ) == "# rows\n"
 
 
 def test_the_import_asks_nothing_and_names_the_next_command(seal, carried, capsys):
@@ -420,7 +428,7 @@ def test_a_repository_with_no_commit_records_no_head(seal, tmp_path, capsys):
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
     home = local_home(repo)
     home.mkdir(parents=True, exist_ok=True)
-    (home / "ledger.md").write_text("# ledger\n")
+    (home / "ledger.md").write_text("# ledger\n", encoding="utf-8")
 
     code, out = run(seal, ["export"], repo, capsys)
     assert code == 0, out
@@ -849,7 +857,9 @@ def test_the_reminder_is_one_line_and_writes_nothing(seal, repo, local, capsys):
     stdout rather than searching it: `and nothing else` is half the
     requirement."""
     assert run(seal, ["export"], repo, capsys)[0] == 0
-    (local / "specs" / "1788000000-a-work-item" / "spec.md").write_text("# edited\n")
+    (local / "specs" / "1788000000-a-work-item" / "spec.md").write_text(
+        "# edited\n", encoding="utf-8"
+    )
     before = files_under(local)
 
     code, out = run(seal, ["export", "--check"], repo, capsys)
@@ -923,7 +933,7 @@ def test_a_throwaway_repository_is_named_as_one(seal, repo, local, capsys):
     """The opt-out reaches this command through `optin.home_at`, and a
     fixture built to be thrown away has nothing worth exporting. Saying which
     marker did it beats a message about a root that is plainly there."""
-    (repo / ".git" / "specseal-scratch").write_text("")
+    (repo / ".git" / "specseal-scratch").write_text("", encoding="utf-8")
     code, out = run(seal, ["export"], repo, capsys)
     assert code == 1
     assert "specseal-scratch" in out
@@ -933,7 +943,7 @@ def test_a_file_that_is_not_a_zip_leaves_the_root_alone(seal, carried, capsys):
     """S17."""
     _zip_path, other, home = carried
     bad = other.parent / "not-a-zip.zip"
-    bad.write_text("hello")
+    bad.write_text("hello", encoding="utf-8")
     before = files_under(home)
     code, out = run(seal, ["import", str(bad)], other, capsys)
     assert code == 1
@@ -1072,7 +1082,9 @@ def test_a_broken_link_at_the_fallback_name_refuses_to_be_written_through(
     outside = other.parent / "outside"
     outside.mkdir()
     stolen = outside / "stolen.md"
-    (home / "ledger.md").write_text("bytes that differ from the zip's\n")
+    (home / "ledger.md").write_text(
+        "bytes that differ from the zip's\n", encoding="utf-8"
+    )
     symlink_or_skip(str(stolen), str(home / "ledger.incoming.md"))
     assert not stolen.exists(), "the link must be broken for this to be the case"
 
@@ -1143,7 +1155,7 @@ def test_a_link_at_the_partial_name_refuses_the_export(seal, repo, capsys):
     """
     home = local_home(repo)
     home.mkdir(parents=True, exist_ok=True)
-    (home / "ledger.md").write_text("# ledger\n")
+    (home / "ledger.md").write_text("# ledger\n", encoding="utf-8")
     outside = repo.parent / "outside"
     outside.mkdir()
     stem = the_stem_the_export_will_use(seal, repo)
@@ -1169,14 +1181,14 @@ def test_a_file_at_the_partial_name_survives_the_refusal(seal, repo, capsys):
     """
     home = local_home(repo)
     home.mkdir(parents=True, exist_ok=True)
-    (home / "ledger.md").write_text("# ledger\n")
+    (home / "ledger.md").write_text("# ledger\n", encoding="utf-8")
     stem = the_stem_the_export_will_use(seal, repo)
     partial = repo.parent / f"{stem}.zip.partial"
-    partial.write_text("somebody else's bytes\n")
+    partial.write_text("somebody else's bytes\n", encoding="utf-8")
 
     code, out = run(seal, ["export"], repo, capsys)
     assert code == 1, out
-    assert partial.read_text() == "somebody else's bytes\n", (
+    assert partial.read_text(encoding="utf-8") == "somebody else's bytes\n", (
         "the refusal removed a file it did not create"
     )
 
@@ -1197,7 +1209,7 @@ def test_the_export_refuses_the_link_where_o_excl_does_not_catch_it(
     """
     home = local_home(repo)
     home.mkdir(parents=True, exist_ok=True)
-    (home / "ledger.md").write_text("# ledger\n")
+    (home / "ledger.md").write_text("# ledger\n", encoding="utf-8")
     outside = repo.parent / "outside"
     outside.mkdir()
     stem = the_stem_the_export_will_use(seal, repo)
@@ -1226,7 +1238,7 @@ def test_a_broken_link_at_the_zips_own_name_is_not_a_free_name(seal, repo, capsy
     """
     home = local_home(repo)
     home.mkdir(parents=True, exist_ok=True)
-    (home / "ledger.md").write_text("# ledger\n")
+    (home / "ledger.md").write_text("# ledger\n", encoding="utf-8")
     stem = the_stem_the_export_will_use(seal, repo)
     taken = repo.parent / f"{stem}.zip"
     symlink_or_skip(str(repo.parent / "nowhere.bin"), str(taken))
@@ -1350,7 +1362,7 @@ def test_a_file_the_root_already_holds_blocks_a_member_under_it(seal, carried, c
     holds the name as a file. A check over the zip's own names alone would
     miss it."""
     _zip_path, other, home = carried
-    (home / "a").write_text("already a file\n")
+    (home / "a").write_text("already a file\n", encoding="utf-8")
     before = files_under(home)
     under = other.parent / "under.zip"
     with zipfile.ZipFile(under, "w") as archive:
@@ -1659,7 +1671,9 @@ def test_extractall_would_have_written_through_that_link(seal, tmp_path):
         handle.writestr("specs/1788000000-x/spec.md", "LANDED")
 
     zipfile.ZipFile(archive).extractall(destination)
-    assert (outside / "1788000000-x" / "spec.md").read_text() == "LANDED", (
+    assert (outside / "1788000000-x" / "spec.md").read_text(
+        encoding="utf-8"
+    ) == "LANDED", (
         "extractall no longer follows a linked destination directory — "
         "re-measure what the import's own check is still buying"
     )

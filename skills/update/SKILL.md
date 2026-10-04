@@ -42,7 +42,7 @@ which is correct; it is the installed copy that is stale. Read the one path
 the installer records and compare:
 
 ```bash
-p=$(python3 -c "import json,os;d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json')));print(d['plugins']['specseal@specseal'][0]['installPath'])")
+p=$(python3 -c "import json,os;d=json.load(open(os.path.expanduser('~/.claude/plugins/installed_plugins.json'),encoding='utf-8'));print(d['plugins']['specseal@specseal'][0]['installPath'])")
 grep -m1 '^## ' "$p/CHANGELOG.md"        # must name the version step 2 reported
 ```
 
@@ -69,10 +69,13 @@ the stale copy in place under another name for that reason. And
 directory breaks the install, while any other version directory is free to
 remove.
 
-**3. Name what changed.** Read `CHANGELOG.md` from the refreshed marketplace
-clone — `~/.claude/plugins/marketplaces/specseal/CHANGELOG.md` — and summarize
-every entry between the old version and the new one, oldest first. Lead each
-with what it changes for the user, not with the release number.
+**3. Name what changed.** Each release's notes are a file of their own in the
+refreshed marketplace clone, `~/.claude/plugins/marketplaces/specseal/changelog/<X.Y.Z>.md`,
+and `CHANGELOG.md` beside them is only the index: one heading per release,
+newest first, each with a link to its file. Read the file of every release
+after the old version up to the new one, oldest first, and summarize every
+entry in them. Lead each with what it changes for the user, not with the
+release number.
 
 Two kinds deserve to be called out on their own line, because a user who skips
 them gets surprised later:

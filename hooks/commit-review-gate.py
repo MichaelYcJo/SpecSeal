@@ -99,6 +99,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import console
 import gate
 import githooks
+import one_heredoc
 import optin
 import routing
 import tokens
@@ -587,7 +588,7 @@ def read_mark(cwd, git_dir, name):
         return ""
     path = os.path.join(cwd or ".", git_dir, name)
     try:
-        with open(path) as f:
+        with open(path, encoding="utf-8", errors="replace") as f:
             return f.read().strip()
     except OSError:
         return ""
@@ -699,7 +700,7 @@ def already_asked(cwd, git_dir, session):
         return True
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, "w").close()
+        open(path, "w", encoding="utf-8").close()
     except OSError:
         return True
     return False
@@ -1258,8 +1259,22 @@ def main():
         return
     command = (payload.get("tool_input") or {}).get("command", "")
     cwd = payload.get("cwd", "")
+    # Where the command is the one heredoc shape `hooks/one_heredoc.py`
+    # matches byte for byte, every reading for a COMMIT reads it with the body
+    # taken out (#739, #763): a file's text, or a Python program on stdin,
+    # which `docs/commit-review-gate-spec.md` already leaves unread as a
+    # program whose operands are a script. Everywhere else it is the command
+    # as written, exactly as before. Nothing below is asked where a body is,
+    # because the reduced text holds none. `is_plain` keeps the command as
+    # written, because reading more of it can only keep the reading in. The
+    # consent reads (`has_marker`, here and in `judge`) also keep it, as at
+    # the base, and that runs the other way: a waiver token inside the body
+    # still counts, although the body is data to the commit reading. That is
+    # the base's behaviour, left to the consent reads' own work item (#773).
+    reduced = one_heredoc.reduce(command)
+    read = command if reduced is None else reduced
     try:
-        invocations, clean = commit_invocations(command, cwd)
+        invocations, clean = commit_invocations(read, cwd)
     except RecursionError:
         # A backstop for an overflow outside `_hides_a_commit`, which answers
         # at the depth that overflowed and keeps what was found (round 2 of
@@ -1273,7 +1288,7 @@ def main():
     # declared repository named there silenced the session's own directory
     # (round 1 of 1790644505, red 1). The fallback now stands beside what was
     # found, which only adds a target.
-    unparsed = not clean and "git" in command and "commit" in command
+    unparsed = not clean and "git" in read and "commit" in read
     if not invocations and not unparsed:
         return
     if unparsed:

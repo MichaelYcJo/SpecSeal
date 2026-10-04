@@ -257,7 +257,9 @@ def test_uncommitted_changes_under_the_old_roots_refuse_the_move(hook, repo):
     """Work in progress outranks the move. The refusal says why, stamps
     nothing — so the next clean session start moves — and touches nothing."""
     ledger = repo / ".specseal" / "map.md"
-    ledger.write_text(ledger.read_text() + "| E | half a row |\n", encoding="utf-8")
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + "| E | half a row |\n", encoding="utf-8"
+    )
     out = message(start(hook, repo))
     assert "uncommitted changes" in out and "Commit, then" in out, out
     assert (repo / ".specseal" / "map.md").is_file()
@@ -272,7 +274,9 @@ def test_a_staged_edit_under_the_old_roots_is_work_in_progress_too(hook, repo):
     because that is what its own stopped run leaves. A staged MODIFICATION is
     somebody's edit, and it still refuses."""
     ledger = repo / ".specseal" / "map.md"
-    ledger.write_text(ledger.read_text() + "| E | half a row |\n", encoding="utf-8")
+    ledger.write_text(
+        ledger.read_text(encoding="utf-8") + "| E | half a row |\n", encoding="utf-8"
+    )
     git(repo, "add", "-A")
     assert "uncommitted changes" in message(start(hook, repo))
     assert not (repo / "seal").exists()
@@ -438,7 +442,7 @@ def test_a_moved_repository_is_stamped_so_an_old_branch_is_not_moved_again(hook,
 def test_a_marker_already_carrying_the_root_keeps_the_hook_silent(hook, repo):
     """Q8 (a): the ledger hook's rule. A refused-then-never-committed
     repository is not re-nagged every morning; the silent gates are the
-    backstop, and the CHANGELOG entry carries the by-hand sequence."""
+    backstop, and the changelog entry carries the by-hand sequence."""
     hook.stamp(str(repo))
     assert start(hook, repo) == ""
     assert (repo / ".specseal").is_dir()
@@ -1045,7 +1049,7 @@ def test_a_file_named_seal_under_the_git_directory_stamps_nothing(hook, tmp_path
     d = tmp_path / "fresh"
     d.mkdir()
     git(d, "init", "-q")
-    (d / ".git" / "seal").write_text("")
+    (d / ".git" / "seal").write_text("", encoding="utf-8")
     assert start(hook, d) == ""
     assert not stamped(hook, d)
 

@@ -223,20 +223,30 @@ the indentation did not match. Where the environment leaves no choice,
 assert that every substitution matched.
 
 And no Bash command line exists, so the commit gate has nothing to read. The
-gate reads a heredoc body as shell, on purpose, and two kinds of segment
-count. One is a segment whose command word is `git` with the `commit`
-subcommand, whatever the outer command does with the body — a patch to a
-file carrying shell commands as test data, or to a document showing a waiver
-example verbatim, can leave a commit in command position. That is why a
-fixture file can read clean whole and trip as a fragment: what counts is the
-position, never the presence of the word. A string a shell would run is a
-position too — the one `sh -c` is handed, or the inside of `$( … )` or a
-backtick pair — so a file whose strings hold a commit there trips whole. The
-other has no commit in it at all:
-an `eval` whose argument holds a variable, a command substitution or a glob
+gate reads a heredoc body as shell, on purpose, with one exception named
+below, and two kinds of segment count. One is a segment whose command word
+is `git` with the `commit` subcommand, whatever the outer command does with
+the body — a patch to a file carrying shell commands as test data, or to a
+document showing a waiver example verbatim, can leave a commit in command
+position. That is why a fixture file can read clean whole and trip as a
+fragment: what counts is the position, never the presence of the word. A
+string a shell would run is a position too — the one `sh -c` is handed, or
+the inside of `$( … )` or a backtick pair — so a file whose strings hold a
+commit there trips whole. The other has no commit in it at all: an `eval`
+whose argument holds a variable, a command substitution or a glob
 stops the session, because nothing can tell what it reduces to without
 running the shell, and the gate fails closed. So searching your patch for a
 commit and finding none does not clear it.
+
+The exception is one shape the gate matches byte for byte, and its body is
+data: `cat`, `tee` or `python3 -` fed by `<<` and a delimiter in single
+quotes, on a first line with nothing before the command, and nothing after
+the terminator when the body goes to a file. Any other spelling of the same
+body is read as shell, and the exception changes nothing about the first
+reason: an edit made through the shell still cannot fail the way an `Edit`
+call does. The grammar, slot by slot, has one home, and a session spelling a
+heredoc any other way reads it there first: `docs/commit-review-gate-spec.md`
+§*A file edit goes through the `Edit` tool*.
 
 That second reason is about a reader, and since #692 the reader judges a
 commit only where git's hooks cannot: a clone whose hooks slot is somebody

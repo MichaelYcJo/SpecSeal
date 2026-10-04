@@ -16,8 +16,9 @@ narrowed gate read silent while a real bash ran the commit. Those rounds'
 tables (`seal/specs/1790635415-a-gate-that-fails-to-load-says-so/rounds/
 round-2-report.md` and `round-3-report.md`, on
 `fix/28-a-gate-that-fails-to-load-says-so`) are rebuilt here row by row,
-controls included, beside the four shapes that prompted the person in the
-measured run and #662's reverse direction.
+controls included, beside three of the four shapes that prompted the person
+in the measured run and #662's reverse direction. The fourth is the one
+heredoc shape work item 1791089603 makes data, and `moved_row` holds it.
 
 Each command is issued twice without the press and twice with it, in a fresh
 session each way, because the base answers a first stop and a later one
@@ -66,10 +67,10 @@ def make_repo(path, declared=False):
         ["git", "-C", str(path), *a], check=True, capture_output=True
     )
     run("init", "-q")
-    (path / "f").write_text("1\n")
+    (path / "f").write_text("1\n", encoding="utf-8")
     run("add", "f")
     run("-c", "user.email=e@example.com", "-c", "user.name=e", "commit", "-qm", "b")
-    (path / "f").write_text("2\n")
+    (path / "f").write_text("2\n", encoding="utf-8")
     run("add", "f")
     (path / "seal").mkdir()
     if declared:
@@ -168,11 +169,10 @@ def corpus(w, m, h):
             "measured: ; after cd, no heredoc",
             f"cd {q(w)} && true ; git add f && {BODY}",
         ),
-        (
-            "measured: a patch whose body loops over a commit string",
-            f"cd {q(w)} && python3 - <<'EOF'\ns = 'don\\'t'\n"
-            f"for c in ['cd {w}; {BODY}']:\n    print(c)\nEOF",
-        ),
+        # "measured: a patch whose body loops over a commit string" left this
+        # corpus with work item 1791089603 (#739), on the owner's answer to
+        # its Q1: it is the one heredoc shape that work makes data, and
+        # `moved_row` below pins it silent.
         (
             "measured: a body line equal to the delimiter ends it early",
             f"cat > note.md <<'EOF'\nquoted:\nEOF\n{BODY}\nEOF",
@@ -206,6 +206,29 @@ def corpus(w, m, h):
     ]
 
 
+def moved_row(w):
+    """The one row that left the corpus (work item 1791089603, Q1). A LEAD
+    `cd`, a Python program on stdin and a quoted delimiter, with no suffix:
+    exactly the one shape `hooks/one_heredoc.py` admits, so its body is a
+    program's text and not a command. The owner answered #760's Q1 to move
+    it, and the redesign carried that answer."""
+    return (
+        f"cd {q(w)} && python3 - <<'EOF'\ns = 'don\\'t'\n"
+        f"for c in ['cd {w}; {BODY}']:\n    print(c)\nEOF"
+    )
+
+
+def test_the_moved_row_reads_silent(monkeypatch, capsys, projects, tmp_path):
+    """Q1 of 1791089603. The base stopped this row; it is silent now, with
+    the press and without it, and nothing else in the corpus moved."""
+    session = make_repo(tmp_path / "session")
+    w = make_repo(tmp_path / "w", declared=True)
+    for which, answers in with_and_without_the_press(
+        monkeypatch, capsys, projects, moved_row(w), session
+    ).items():
+        assert answers == ["silent", "silent"], (which, answers)
+
+
 def test_no_shape_the_base_stops_reads_silent(monkeypatch, capsys, projects, tmp_path):
     session = make_repo(tmp_path / "session")
     w = make_repo(tmp_path / "w", declared=True)
@@ -232,8 +255,8 @@ def test_a_parity_arm_is_not_waived_by_a_newly_read_commit(
     not answer. A commit the #670 reading found in a substitution or a shell
     string used to take that fallback away."""
     session = make_repo(tmp_path / "session", declared=True)
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     for command in (
         f": '[no-review]'; echo $({BODY}) $'it\\'s'",
@@ -358,8 +381,8 @@ def test_w1_keeps_the_directory_the_base_judged_under_a_waiver(
     session's directory went silent, while bash commits there."""
     session = make_repo(tmp_path / "session", declared=True)
     (session / "sub").mkdir(exist_ok=True)
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     command = f": '[no-review]'; {prefix} {BODY}"
     for which, got in with_and_without_the_press(
@@ -379,8 +402,8 @@ def test_w1_keeps_the_directory_a_parked_failure_came_from(
     waived it whole. No segment stands in front, because one would park the
     session's directory with itself as the previous one and hide the loss."""
     session = make_repo(tmp_path / "session", declared=True)
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     command = f"cd .. && 2>/dev/null cd nosuch || cd - && {BODY}  # [no-review]"
     for which, got in with_and_without_the_press(
@@ -474,8 +497,8 @@ def test_a_cd_with_a_redirection_among_its_words_lands(
     assert "silent" not in got, (command, got)
     session = make_repo(tmp_path / "session", declared=True)
     (session / "sub").mkdir()
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     command = f": '[no-review]'; {cd.format(d='sub')} && {BODY}"
     for which, got in with_and_without_the_press(
@@ -529,8 +552,8 @@ def test_a_cd_landed_past_a_redirection_keeps_the_directory_the_base_judged(
     were left, and the waiver took the refusal whole. bash commits nothing
     here; the case pins the invariant, not a commit."""
     session = make_repo(tmp_path / "session", declared=True)
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     plain = tmp_path / "plain"
     plain.mkdir()
@@ -550,8 +573,8 @@ def test_a_second_reading_that_unplaces_keeps_the_base_directory(
     2>/x/git commit -m git`, a commit to the base's reading, stopped on the
     parity arm at `86256492` and was silent at #674's head."""
     session = make_repo(tmp_path / "session", declared=True)
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     for shape in ("nice 2>/x/git commit -m git", "env </x/git commit -m git"):
         command = f": '[no-review]'; {shape}"
@@ -585,8 +608,8 @@ def test_a_chain_past_the_cap_keeps_the_directories_the_base_reached(
     never a directory the base reached."""
     session = make_repo(tmp_path / "session", declared=True)
     (session / "sub").mkdir()
-    (session / "seal" / "parity.md").write_text("# parity\n")
-    (session / "a.py").write_text("x = 1\n")
+    (session / "seal" / "parity.md").write_text("# parity\n", encoding="utf-8")
+    (session / "a.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(["git", "-C", str(session), "add", "a.py"], check=True)
     command = f": '[no-review]'; {CAP_CHAINS[name]}{BODY}"
     for which, got in with_and_without_the_press(

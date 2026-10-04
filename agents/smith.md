@@ -119,7 +119,7 @@ incorporation. This file only adds what the skill does not carry.
         `seal/specs/1788873640-a-corrected-sentence-survives-elsewhere-and-
         nothing-looks/questions.md` Q4 is where the question is open, and
         this paragraph is evidence for it rather than an answer to it.
-        Verified 2026-10-01 against "## Phases"@639bc11e. -->
+        Verified 2026-10-04 against "## Phases"@46d4ea35. -->
 
    Left to the commit, that token stops a session that had the answer in its
    first minute — which is why the declaration is written before you are
@@ -388,6 +388,8 @@ When the sealer reports a failure, the word beside each failing file already
 says whether it fails on the base commit as well: the gate re-ran those files
 there. `failing on base too` predates the work — a follow-up to name, not a
 defect to chase, and outside the scope you are allowed to change anyway.
+`new?` is neither: nothing at the base measured that file, and its reason
+says why. Run it at the base yourself before you treat it as either.
 Three returns through that gate and stop: a fourth says the narrow scope is
 missing a class of breakage, which is the architecture talking.
 

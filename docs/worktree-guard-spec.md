@@ -628,9 +628,10 @@ off and then every redirection is taken out before the kind is read, so a
 redirection's word is never read as a branch name (#737). The question then
 follows one rule: the guard asks wherever a view's words hold a switch or a
 creation that none of the frozen segments the view was made from holds. Each
-side is read by its words alone: a `switch` or a `checkout` naming a word or
-`-` (other than `checkout`'s `.` and anything after `--`), a `checkout -b`, or a
-`worktree add`. The reading looks up no tree (#689), so it asks whether or not
+side is read by its words alone: a `switch` naming a word or `-`, a `checkout`
+carrying `-b` or `-B`, a `checkout` with no `--` among its words that names
+`-` or a word other than `.`, or a `worktree add`. The reading looks up no
+tree (#689), so it asks whether or not
 the command moves the tree, and a restore or a detach whose words read as a
 switch is asked as one when the frozen reading misses it. For example,
 `git checkout &>/dev/null README.md` is asked, because a file's name reads as

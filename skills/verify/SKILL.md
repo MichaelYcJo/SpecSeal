@@ -502,6 +502,14 @@ about to run it a second time after the change.
   follow-up, and it does not block.
 - **New** — this work broke it. Back to the implement/review loop, and the
   broad gate runs again afterwards.
+- **New?**, with a reason — nothing at the base measured it: no part of the
+  `Broad gate` row printed a line the gate reads as pytest's summary there,
+  or the run there stopped
+  before every test ran. It is a question about the file, not a finding
+  either way; open the kept `suite-at-base-<k>.txt` files and run the file at
+  the base by hand before calling it either of the two above.
+  `templates/config.md` §*Choosing a value — the criterion*, rule 3, says
+  which rows the gate cannot measure.
 
 Measured on one repository: a full suite showed ten failures, all ten
 reproducing on the base commit and none of them in the domain being changed.
@@ -805,8 +813,8 @@ finished, not as a follow-up someone might do later:
 
    **A `git` call counts as `git` wherever it runs on the line, and that is
    worth knowing because it used to count only at the start (#377).** The
-   release that carries #377 is the one `CHANGELOG.md` lists it under, and
-   `--segments` prints the same warning on the page.
+   release that carries #377 is the one whose file under `changelog/` lists
+   it, and `--segments` prints the same warning on the page.
    The family was read by position, so `cd /x && git status` — the shape
    nearly every worktree session writes — was charged to `other`, and so was
    a `gh` call inside a loop or after a leading assignment. It is now read
@@ -825,8 +833,8 @@ finished, not as a follow-up someone might do later:
 
    **A call that only reads counts as `read`, and that is worth knowing
    because it used to count as `other` (#642).** The release that carries
-   #642 is the one `CHANGELOG.md` lists it under, and `--segments` prints
-   the same warning on the page. A call is `read` when every command on it
+   #642 is the one whose file under `changelog/` lists it, and `--segments`
+   prints the same warning on the page. A call is `read` when every command on it
    is a read word (`sed`, `grep`, `rg`, `cat`, `head`, `tail`, `ls`, `find`,
    `wc`, `awk`, `nl`, `sort`, `diff`) or a word that touches no file (for
    example `cd`, `echo`, `test`, `[[` and the words that close a loop or an

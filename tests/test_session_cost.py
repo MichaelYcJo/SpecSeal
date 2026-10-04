@@ -98,7 +98,7 @@ def transcript(tmp_path):
     lines += call("b", 15, 23, "pytest tests/unit -q | grep FAILED")
     lines += call("c", 28, 30, "git status --short")
     path = tmp_path / "t.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
 
@@ -128,7 +128,7 @@ def test_a_rerun_that_only_changes_the_pipe_counts_as_a_repeat(transcript):
 def test_the_family_split_charges_a_compound_command_to_its_test(tmp_path):
     lines = call("a", 0, 60, "ruff check . && pytest tests -q")
     path = tmp_path / "c.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     data = json.loads(run(["--json", str(path)]).stdout)
     assert data["by_family"]["test"]["seconds"] == 60
 
@@ -140,7 +140,9 @@ def test_the_report_names_batching_when_every_turn_sent_one_call(transcript):
 
 def test_a_malformed_line_does_not_stop_the_read(tmp_path):
     path = tmp_path / "b.jsonl"
-    path.write_text("not json\n" + "\n".join(call("a", 0, 5, "pytest -q")) + "\n")
+    path.write_text(
+        "not json\n" + "\n".join(call("a", 0, 5, "pytest -q")) + "\n", encoding="utf-8"
+    )
     assert run(["--json", str(path)]).returncode == 0
 
 
@@ -167,7 +169,9 @@ def test_an_unparseable_timestamp_drops_its_row_not_the_report(tmp_path):
         }
     )
     path = tmp_path / "ts.jsonl"
-    path.write_text("\n".join([bad, worse, *call("a", 0, 5, "pytest -q")]) + "\n")
+    path.write_text(
+        "\n".join([bad, worse, *call("a", 0, 5, "pytest -q")]) + "\n", encoding="utf-8"
+    )
     r = run(["--json", str(path)])
     assert r.returncode == 0, r.stderr
     assert json.loads(r.stdout)["calls"] == 1
@@ -175,7 +179,7 @@ def test_an_unparseable_timestamp_drops_its_row_not_the_report(tmp_path):
 
 def batch_data(tmp_path, lines, name="m.jsonl"):
     path = tmp_path / name
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     proc = run(["--json", str(path)])
     assert proc.returncode == 0, proc.stderr
     return json.loads(proc.stdout)
@@ -305,7 +309,7 @@ def test_the_report_stops_claiming_one_at_a_time_above_a_ratio_of_one(tmp_path):
             result(i * 10 + 1, f"b{i}"),
         ]
     path = tmp_path / "w.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     out = run([str(path)]).stdout
     assert "batching" in out
     assert "one at a time" not in out
@@ -339,7 +343,7 @@ def test_a_plain_reading_printed_at_the_advisory_is_not_flagged(tmp_path):
             result(second + 1, f"s{i}"),
         ]
     path = tmp_path / "p.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     data = json.loads(run(["--json", str(path)]).stdout)
     assert (data["calls"], data["call_turns"]) == (241, 201), data
     out = run([str(path)]).stdout
@@ -349,7 +353,7 @@ def test_a_plain_reading_printed_at_the_advisory_is_not_flagged(tmp_path):
 
 def test_a_transcript_with_no_tool_calls_says_so(tmp_path):
     path = tmp_path / "e.jsonl"
-    path.write_text("{}\n")
+    path.write_text("{}\n", encoding="utf-8")
     r = run([str(path)])
     assert r.returncode != 0 and "no tool calls" in r.stderr
 
@@ -415,11 +419,11 @@ def write_run(tmp_path, main_lines, subagents=None):
     That is the layout `newest` already walks — a run's subagent transcripts
     live in the directory named after the main transcript's own basename."""
     path = tmp_path / "main.jsonl"
-    path.write_text("\n".join(main_lines) + "\n")
+    path.write_text("\n".join(main_lines) + "\n", encoding="utf-8")
     for name, lines in (subagents or {}).items():
         target = tmp_path / "main" / "subagents" / name
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_text("\n".join(lines) + "\n")
+        target.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
 
@@ -571,7 +575,7 @@ def test_a_transcript_that_cannot_be_opened_is_skipped_rather_than_raised(tmp_pa
     permissions the walk could not see. Both totals shrink — one fewer
     transcript, and that segment's spend missing — and nothing raises."""
     good = tmp_path / "good.jsonl"
-    good.write_text(spend(0, output=9, message_id="s1") + "\n")
+    good.write_text(spend(0, output=9, message_id="s1") + "\n", encoding="utf-8")
     totals = load_script().token_totals([str(tmp_path / "gone.jsonl"), str(good)])
     assert (totals["transcripts"], totals["turns"], totals["output"]) == (1, 1, 9)
 
@@ -667,7 +671,10 @@ def test_a_transcript_with_usage_and_no_tool_call_still_reports_its_tokens(tmp_p
     that read and thought, which is exactly what the run-level table's
     per-kind token row is summed over."""
     path = tmp_path / "quiet.jsonl"
-    path.write_text(odd(0, {"output_tokens": 7, "cache_read_input_tokens": 70}) + "\n")
+    path.write_text(
+        odd(0, {"output_tokens": 7, "cache_read_input_tokens": 70}) + "\n",
+        encoding="utf-8",
+    )
     proc = run([str(path)])
     assert proc.returncode == 0, proc.stderr
     assert "no paired tool call in this transcript" in proc.stdout, proc.stdout
@@ -899,7 +906,8 @@ def test_a_span_of_zero_prints_what_it_can_rather_than_dividing_by_it(tmp_path):
     exist, and the times themselves are what was measured."""
     path = tmp_path / "zero.jsonl"
     path.write_text(
-        "\n".join(paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:00Z")) + "\n"
+        "\n".join(paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:00Z")) + "\n",
+        encoding="utf-8",
     )
 
     proc = run([str(path)])
@@ -975,7 +983,7 @@ def test_a_naive_stamp_does_not_end_the_report(tmp_path):
     )
     for name, lines, span, command_s in shapes:
         path = tmp_path / f"{name}.jsonl"
-        path.write_text("\n".join(lines) + "\n")
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
         proc = run([str(path)])
         assert proc.returncode == 0, f"{name}: {proc.stderr}"
@@ -1056,7 +1064,7 @@ def test_a_nan_token_count_does_not_end_the_report(tmp_path):
         path = tmp_path / f"{name}.jsonl"
         # `json.dumps` writes bare `NaN` and `Infinity`, which is exactly the
         # shape a harness produces and `json.loads` accepts back.
-        path.write_text("\n".join(lines) + "\n")
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
         proc = run([str(path)])
         assert proc.returncode == 0, f"{name}: {proc.stderr}"
@@ -1135,7 +1143,7 @@ def test_a_sum_of_entered_values_does_not_end_the_report(tmp_path):
             plain = {"input_tokens": 10, "output_tokens": 1}
             lines += turn_at(n, odd_usage if n in odd_indices else plain, f"c{n}")
         path = tmp_path / f"{name}.jsonl"
-        path.write_text("\n".join(lines) + "\n")
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
         proc = run([str(path)])
         assert proc.returncode == 0, f"{name}: {proc.stderr}"
@@ -1181,7 +1189,7 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
         at("2026-08-24T09:30:00Z", [{"type": "tool_result", "tool_use_id": "b"}]),
     ]
     path = tmp_path / "negative.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     proc = run([str(path)])
     assert proc.returncode == 0, proc.stderr
@@ -1216,7 +1224,7 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
         at("2026-08-24T09:00:00Z", [{"type": "tool_result", "tool_use_id": "b"}]),
     ]
     out_of_order = tmp_path / "out-of-order.jsonl"
-    out_of_order.write_text("\n".join(later) + "\n")
+    out_of_order.write_text("\n".join(later) + "\n", encoding="utf-8")
     third = run([str(out_of_order)])
     assert third.returncode == 0, third.stderr
     # 120 minutes, and neither non-positive sentence: call `a` really did run
@@ -1239,7 +1247,7 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
         at("2026-08-24T09:30:00Z", [{"type": "tool_result", "tool_use_id": "b"}]),
     ]
     repeats = tmp_path / "repeats.jsonl"
-    repeats.write_text("\n".join(repeated) + "\n")
+    repeats.write_text("\n".join(repeated) + "\n", encoding="utf-8")
     fourth = run([str(repeats)])
     assert fourth.returncode == 0, fourth.stderr
     assert re.search(r"^span\s+-\d", fourth.stdout, re.M), fourth.stdout
@@ -1262,7 +1270,7 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
         at("2026-08-24T09:30:00Z", [{"type": "tool_result", "tool_use_id": "y"}]),
     ]
     suppressed = tmp_path / "suppressed.jsonl"
-    suppressed.write_text("\n".join(batched) + "\n")
+    suppressed.write_text("\n".join(batched) + "\n", encoding="utf-8")
     fifth = run([str(suppressed)])
     assert fifth.returncode == 0, fifth.stderr
     assert re.search(r"^span\s+-\d", fifth.stdout, re.M), fifth.stdout
@@ -1272,7 +1280,8 @@ def test_a_negative_span_says_what_it_actually_saw(tmp_path):
     # And a span of exactly zero keeps the sentence written for it.
     zero = tmp_path / "zero.jsonl"
     zero.write_text(
-        "\n".join(paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:00Z")) + "\n"
+        "\n".join(paired("a", "2026-08-24T10:00:00Z", "2026-08-24T10:00:00Z")) + "\n",
+        encoding="utf-8",
     )
     other = run([str(zero)])
     assert other.returncode == 0, other.stderr
@@ -1309,7 +1318,7 @@ def test_a_charged_third_is_not_a_baseline_the_context_line_multiplies(tmp_path)
             )
             lines += turn_at(n, {**usage, "output_tokens": 1}, f"b{n}")
         path = tmp_path / f"{name}.jsonl"
-        path.write_text("\n".join(lines) + "\n")
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
         proc = run([str(path)])
         assert proc.returncode == 0, f"{name}: {proc.stderr}"
@@ -1329,7 +1338,7 @@ def test_the_context_line_still_prints_where_the_baseline_is_real(tmp_path):
     for n in range(6):
         lines += turn_at(n, {"input_tokens": 10 if n < 3 else 100}, f"g{n}")
     path = tmp_path / "real-growth.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     proc = run([str(path)])
     assert proc.returncode == 0, proc.stderr
@@ -1353,7 +1362,7 @@ def test_a_negative_input_count_is_dropped_and_a_zero_is_dropped_with_it(tmp_pat
     for n in range(6):
         negatives += turn_at(n, {"input_tokens": -10 if n < 3 else 10}, f"n{n}")
     path = tmp_path / "negative.jsonl"
-    path.write_text("\n".join(negatives) + "\n")
+    path.write_text("\n".join(negatives) + "\n", encoding="utf-8")
 
     proc = run(["--json", str(path)])
     assert proc.returncode == 0, proc.stderr
@@ -1365,7 +1374,7 @@ def test_a_negative_input_count_is_dropped_and_a_zero_is_dropped_with_it(tmp_pat
     for n in range(6):
         zeros += turn_at(n, {"input_tokens": 0}, f"z{n}")
     path = tmp_path / "zero-input.jsonl"
-    path.write_text("\n".join(zeros) + "\n")
+    path.write_text("\n".join(zeros) + "\n", encoding="utf-8")
 
     machine = run(["--json", str(path)])
     assert machine.returncode == 0, machine.stderr
@@ -1418,7 +1427,7 @@ def test_a_streamed_message_is_counted_at_its_largest_row(tmp_path):
         at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": "s"}])
     )
     path = tmp_path / "streamed.jsonl"
-    path.write_text("\n".join(rows) + "\n")
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
     data = json.loads(run(["--json", str(path)]).stdout)
     tokens = data["tokens"]
@@ -1442,7 +1451,7 @@ def test_a_message_whose_rows_arrive_out_of_order_keeps_the_completed_count(tmp_
         at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": "o"}])
     )
     path = tmp_path / "reordered.jsonl"
-    path.write_text("\n".join(rows) + "\n")
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
     tokens = json.loads(run(["--json", str(path)]).stdout)["tokens"]
     assert (tokens["turns"], tokens["output"]) == (1, 900), tokens
@@ -1472,7 +1481,7 @@ def test_a_split_message_is_still_one_turn_and_not_one_per_row(tmp_path):
         for n in range(3)
     ]
     path = tmp_path / "split.jsonl"
-    path.write_text("\n".join(rows) + "\n")
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
     tokens = json.loads(run(["--json", str(path)]).stdout)["tokens"]
     assert (tokens["turns"], tokens["output"], tokens["cache_read"]) == (1, 10, 500), (
@@ -1507,7 +1516,7 @@ def test_load_returns_input_counts_only(tmp_path):
         at("2026-08-24T10:00:05Z", [{"type": "tool_result", "tool_use_id": "l"}]),
     ]
     path = tmp_path / "load.jsonl"
-    path.write_text("\n".join(rows) + "\n")
+    path.write_text("\n".join(rows) + "\n", encoding="utf-8")
 
     _calls, turns = module.load(str(path))
     assert len(turns) == 1, turns
@@ -2079,7 +2088,7 @@ def test_the_reading_charges_reading_to_its_own_row(tmp_path):
     lines += call("a", 0, 4, "cd /x\nsed -n 1p f")
     lines += call("b", 9, 12, "cat > f <<'EOF'\nx\nEOF")
     path = tmp_path / "read.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     data = json.loads(run(["--json", str(path)]).stdout)
     assert data["by_family"]["read"] == {"calls": 1, "seconds": 4}, data["by_family"]
@@ -2099,7 +2108,7 @@ def test_the_family_reads_the_command_as_the_harness_recorded_it(tmp_path):
     lines += call("b", 15, 23, "cat > f <<'EOF'\nx\nEOF\npytest -q")
     lines += call("c", 28, 33, "cat > f <<'EOF'\nx\nEOF\npytest -q")
     path = tmp_path / "raw.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     data = json.loads(run(["--json", str(path)]).stdout)
     assert data["by_family"]["git"] == {"calls": 1, "seconds": 10}, data["by_family"]
@@ -2134,7 +2143,7 @@ def test_the_report_names_the_command_the_table_could_not(tmp_path):
     lines += call("e", 260, 460, "./bin/test --slow")
     lines += call("f", 470, 475, "pytest -q")
     unnamed_leads = tmp_path / "unnamed.jsonl"
-    unnamed_leads.write_text("\n".join(lines) + "\n")
+    unnamed_leads.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     out = run([str(unnamed_leads)]).stdout
     assert "`other` is the largest family and names nothing" in out, out
@@ -2153,7 +2162,7 @@ def test_the_report_names_the_command_the_table_could_not(tmp_path):
     named += call("d", 0, 120, "./bin/test -q")
     named += call("e", 130, 135, "./bin/deploy")
     test_leads = tmp_path / "named.jsonl"
-    test_leads.write_text("\n".join(named) + "\n")
+    test_leads.write_text("\n".join(named) + "\n", encoding="utf-8")
 
     other = run([str(test_leads)]).stdout
     assert "names nothing" not in other, other
@@ -2218,7 +2227,7 @@ def orchestrator(tmp_path):
     lines += spawn("B", 660, 1860, "specseal:warden", "Review round 1")
     lines += call("e", 1870, 1880, "./bin/test tests/test_x.py -q")
     path = tmp_path / "orchestrator.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return path
 
 
@@ -2276,7 +2285,7 @@ def test_a_row_with_no_call_keeps_its_place_in_the_partition(tmp_path):
     partitioning the run, which is the property above."""
     lines = spawn("A", 0, 60, "specseal:smith") + call("a", 70, 75, "git status")
     path = tmp_path / "no-head.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     rows = spawns_of(path)["rows"]
     assert [row["kind"] for row in rows] == ["head", "cycle", "tail"], rows
     assert rows[0]["numbers"] is None, rows[0]
@@ -2331,7 +2340,7 @@ def test_a_batch_of_two_spawns_is_bounded_by_when_each_report_arrived(tmp_path):
         result(900, "A"),
     ]
     path = tmp_path / "batch.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     rows = spawns_of(path)["rows"]
     cycles = [row for row in rows if row["kind"] == "cycle"]
     assert [row["subagent_type"] for row in cycles] == [
@@ -2428,7 +2437,7 @@ def test_a_report_stamped_before_its_call_does_not_move_a_call_out_of_its_row(
     ]
     lines += spawn("B", 200, 300, "specseal:warden")
     path = tmp_path / "backwards.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     data = json.loads(run(["--json", str(path)]).stdout)
     rows = data["spawns"]["rows"]
     head = rows[0]["numbers"]
@@ -2466,7 +2475,7 @@ def test_an_unparseable_turn_stamp_does_not_end_the_slicing(tmp_path):
     )
     lines = [bad, *spawn("A", 10, 70, "specseal:smith"), *call("a", 80, 85, "ls")]
     path = tmp_path / "odd-turn.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     proc = run(["--json", str(path)])
     assert proc.returncode == 0, proc.stderr
     rows = json.loads(proc.stdout)["spawns"]["rows"]
@@ -2518,7 +2527,7 @@ def test_two_prompts_that_differ_after_a_pipe_are_not_a_check_re_run(tmp_path):
         result(900, "A"),
     ]
     path = tmp_path / "pipes.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     first = spawns_of(path)["rows"][1]["numbers"]
     assert first["calls"] == 2, first
     assert first["repeat_same_work_s"] == 0, first
@@ -2624,7 +2633,7 @@ def test_a_delegated_column_of_seconds_says_which_of_two_things_it_is(
     present where none of them can."""
     quick = spawn("A", 0, 3, "specseal:smith") + call("a", 20, 25, "git status")
     path = tmp_path / "quick.jsonl"
-    path.write_text("\n".join(quick) + "\n")
+    path.write_text("\n".join(quick) + "\n", encoding="utf-8")
     out = run(["--spawns", str(path)]).stdout
     assert "`delegated` never reaches a minute here — 3s at most" in out, out
     # Whitespace-collapsed, so the wording is what this pins rather than
@@ -2675,7 +2684,7 @@ def test_the_delegated_note_follows_the_minute_the_column_prints(tmp_path):
     above."""
     over = spawn("A", 0, 59.6, "specseal:smith") + call("a", 80, 85, "git status")
     path = tmp_path / "over.jsonl"
-    path.write_text("\n".join(over) + "\n")
+    path.write_text("\n".join(over) + "\n", encoding="utf-8")
     out = run(["--spawns", str(path)]).stdout
     assert delegated_cells(out) == ["1.0m"], out
     assert "never reaches a minute" not in out, out
@@ -2688,7 +2697,7 @@ def test_the_delegated_note_follows_the_minute_the_column_prints(tmp_path):
 
     floor = spawn("A", 0, 57.0, "specseal:smith") + call("a", 80, 85, "git status")
     path = tmp_path / "floor.jsonl"
-    path.write_text("\n".join(floor) + "\n")
+    path.write_text("\n".join(floor) + "\n", encoding="utf-8")
     out = run(["--spawns", str(path)]).stdout
     assert delegated_cells(out) == ["0.9m"], out
     assert "`delegated` never reaches a minute here — 57s at most" in out, out
@@ -2709,7 +2718,7 @@ def test_the_delegated_wait_is_in_no_column_of_any_row(tmp_path):
     lines += call("b", 307, 310, "git log --oneline -5")
     lines += call("c", 315, 317, "cat seal/specs/x/spec.md")
     path = tmp_path / "accepted.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     rows = spawns_of(path)["rows"]
     tail = rows[-1]["numbers"]
     assert tail["span_s"] == 10, tail  # 307 to 317, not 7 to 317
@@ -2749,7 +2758,7 @@ def test_a_call_that_outlives_a_cut_prints_no_between_the_rows_figure(tmp_path):
     lines += call("b", 10, 12, "git status --short")
     lines += call("c", 990, 995, "git log --oneline -5")
     path = tmp_path / "outlives.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     rows = spawns_of(path)["rows"]
     spans = sum(row["numbers"]["span_s"] for row in rows if row["numbers"])
     data = json.loads(run(["--json", str(path)]).stdout)
@@ -2799,7 +2808,7 @@ def test_a_spawn_that_names_no_subagent_type_still_gets_a_row(tmp_path):
         result(60, "A"),
     ]
     path = tmp_path / "unnamed.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     rows = spawns_of(path)["rows"]
     assert rows[1]["subagent_type"] == "", rows[1]
     assert "cycle 1  ?" in run(["--spawns", str(path)]).stdout
@@ -2825,7 +2834,7 @@ def test_a_span_covers_every_call_it_counts(tmp_path):
     lines += call("b", 10, 12, "git status --short")
     lines += call("c", 990, 995, "git log --oneline -5")
     path = tmp_path / "outlives-the-span.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     data = json.loads(run(["--json", str(path)]).stdout)
     assert data["span_s"] == 1000, data["span_s"]
     # `slowest` is sorted by duration, so its head is the longest single
@@ -2859,7 +2868,7 @@ def test_a_head_call_outlives_the_cut_without_outliving_a_spawns_result(tmp_path
     lines += call("b", 6, 9, "pytest -q")
     lines += call("c", 9, 10, "git status --short")
     path = tmp_path / "head-cut.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     out = " ".join(run(["--spawns", str(path)]).stdout.split())
     assert "no between-the-rows figure" in out, out
     assert "outlived the cut its row ends at" in out, out
@@ -2886,7 +2895,7 @@ def test_an_exact_cover_reads_as_the_partition_agreeing(tmp_path):
     lines += spawn("A", 5, 7, "specseal:smith")
     lines += call("c", 10, 12, "git status --short")
     path = tmp_path / "exact-cover.jsonl"
-    path.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     rows = spawns_of(path)["rows"]
     spans = sum(row["numbers"]["span_s"] for row in rows if row["numbers"])
     data = json.loads(run(["--json", str(path)]).stdout)
@@ -3181,7 +3190,8 @@ def test_the_reading_says_its_family_rows_moved_at_377(run_with_segments):
         "Family rows, in the run's own reading and in `--spawns`, are comparable "
         "only with readings taken on a release that carries #377" in out
     ), out
-    assert "`CHANGELOG.md` names" in out, out
+    # #728: the release's own file, not the index, lists the issue.
+    assert "#377, which its file under `changelog/` names" in out, out
     assert (
         "on a line of its own or after a heredoc was charged to `other`, and so "
         "was a test run after a heredoc. The repeats lines filter by family and "
@@ -3392,7 +3402,7 @@ def test_a_row_with_no_kind_is_counted_as_ungraded(tmp_path):
     )
     deep = tmp_path / "main" / "subagents" / "inner" / "agent-deep.jsonl"
     deep.parent.mkdir(parents=True)
-    deep.write_text("\n".join(batched(5000, SINGLES, "d")) + "\n")
+    deep.write_text("\n".join(batched(5000, SINGLES, "d")) + "\n", encoding="utf-8")
     out = segment_report(path)
     assert grade_lines(out) == [
         "specseal:warden 1.07 tools per turn against the reviewing bar of 1.8"
@@ -4204,7 +4214,7 @@ def test_an_own_file_with_no_marker_keeps_the_empty_branch(tmp_path):
         "rows": [],
     }
     elsewhere = tmp_path / "copied.jsonl"
-    elsewhere.write_text(own.read_text())
+    elsewhere.write_text(own.read_text(encoding="utf-8"), encoding="utf-8")
     out = segment_report(own)
     assert out.startswith(f"0 segments found beside {own}\n"), out
     assert out.replace(str(own), "<t>") == segment_report(elsewhere).replace(
@@ -4325,7 +4335,10 @@ def test_the_plain_reading_of_a_resumed_file_adds_one_line_and_moves_nothing(
     assert rest.startswith("span "), rest
     reworded = own.parent / "reworded.jsonl"
     reworded.write_text(
-        own.read_text().replace("The coordinator sent a message", "Somebody wrote")
+        own.read_text(encoding="utf-8").replace(
+            "The coordinator sent a message", "Somebody wrote"
+        ),
+        encoding="utf-8",
     )
     assert run([str(reworded)]).stdout == rest
 
@@ -4421,7 +4434,9 @@ def test_a_resumed_file_copied_out_of_subagents_is_still_cut(resumed_segment, tm
     `subagents/`, so a directory condition added to either trigger kept them
     all green (round 1's ⬜ 2)."""
     copied = tmp_path / "copied-agent.jsonl"
-    copied.write_text(own_file(resumed_segment).read_text())
+    copied.write_text(
+        own_file(resumed_segment).read_text(encoding="utf-8"), encoding="utf-8"
+    )
     rows = segments_of(copied)["rows"]
     assert [(row["slice"], row["slices"]) for row in rows] == [(1, 2), (2, 2)], rows
     assert segments_of(copied)["own_file"] is True

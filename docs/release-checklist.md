@@ -81,7 +81,15 @@ Read them. Then:
 python3 .github/scripts/gather_changelog.py --version X.Y.Z
 python3 .github/scripts/fold_ledger.py --version X.Y.Z
 sed -i '' 's/"version": "A.B.C"/"version": "X.Y.Z"/' .claude-plugin/plugin.json
+git add -A changelog/ CHANGELOG.md seal/ .claude-plugin/plugin.json
 ```
+
+The gather writes a new file, the release's own `changelog/X.Y.Z.md`, and
+heads the index `CHANGELOG.md` with its line (#728); the fold removes the
+fragments it moved. Both are staged before §3 runs anything, because the
+suite lists files with `git ls-files`, which reads the index: an untracked
+release file and an unstaged removal are a tree the listing does not
+describe.
 
 The fold refuses while any `seal/specs/<id>/evidence-todo.md` has an open
 row; that is a review that never drained, not a release problem, and the
@@ -126,14 +134,31 @@ Enforced by: tests/test_release_hygiene.py, .github/scripts/fold_ledger.py::inse
 
 ## 2b. Settle what the release leaves behind — by hand, and not in that commit
 
+**First, the process record. This part is never skipped.**
+
 ```bash
 settle
+settle --retire-process
 ```
 
-It names the released work items whose `spec.md` no `docs/` policy has
-absorbed yet, grouped by the file their ledger rows anchor in. Read it, write
-one standing statement per segment into `docs/`, and hold what you wrote to
-the fold's two rules:
+The first command ends with what the second would take. The second removes
+`rounds/`, `phases/`, `survivors.md` and the files written only for a pull
+request from every work item already on `main`, which is every release before
+this one, and leaves `routing.md` and the SDD set for the fold below. No
+check reads that part after its release, and removing it judges nothing, so
+it runs on every release, including one that skips the fold. What the SDD set
+still cites of it is read at the release tag. It is a branch and a
+pull request of its own, as the fold is, and it is not a work item either: its
+commit carries `: '[no-review]';` in front of the command. It exits 1 when a
+guard keeps an item: close an open todo row in a pull request of its own
+first, and answer an anchored ledger row as the fold does.
+`skills/settle/SKILL.md` §*The process record leaves first, fold or no fold*
+is its procedure.
+
+**Then the fold.** `settle` names the released work items whose `spec.md`
+no `docs/` policy has absorbed yet, grouped by the file their ledger rows
+anchor in. Read it, write one standing statement per segment into `docs/`,
+and hold what you wrote to the fold's two rules:
 
 ```bash
 fold-check
@@ -151,8 +176,9 @@ settle --retire
 policy prose is a judgment act, and step 2 is two dry runs somebody reads
 followed by one mechanical commit; a release that stops for a person to write
 documentation is a release that stops. Nothing fails a build for an unsettled
-work item, so the honest answer on a busy release is to skip this step and run
-it on its own later.
+work item, so the honest answer on a busy release is to skip the fold and run
+it on its own later. The process record's removal above is not part of what
+is skipped, because it waits on no judgment.
 
 `skills/settle/SKILL.md` is the procedure. **A fold is not a work item**: it
 opens no directory under `seal/specs/`, the routing question is not asked for
@@ -165,9 +191,10 @@ the survivor sweep leaves a retired directory out of its range.
 ## 3. Verify before committing — all of it, here
 
 The preparation commit is the first time a fragment's prose is read by the
-tests that scan `CHANGELOG.md`, and the first time `seal/ledger/` is empty.
-Both found something the first time. So the whole gate runs on this tree,
-and every exit code is read directly rather than through a `| tail`.
+tests that scan the release files under `changelog/`, and the first time
+`seal/ledger/` is empty. Both found something the first time. So the whole
+gate runs on this tree, and every exit code is read directly rather than
+through a `| tail`.
 
 <!-- specs/1789687448-a-tracked-file-the-tree-deleted-stops-the-sweep -->
 **A sweep that walks a git listing judges what remains instead of stopping at
@@ -302,17 +329,18 @@ python3 .github/scripts/plugin_directory_check.py   # what the directory has
 
 - [ ] **A GitHub Release exists at `vX.Y.Z`** — `gh release view vX.Y.Z`.
       The tag push fires `.github/workflows/publish-release.yml`, which
-      publishes it from the `## X.Y.Z` section step 2 already gathered, with
+      publishes it from the release's file step 2 already gathered, with
       the title taken from the `release: X.Y.Z — <symptoms>` line step 5
       prescribes. **This box confirms the workflow fired; it is not where the
       note gets written.** Nothing there means the job went red or never ran,
       and `gh run list --workflow publish-release.yml` says which. The job
-      fails for a tag whose version `CHANGELOG.md` carries no section for,
-      which is step 2 not having happened; for a `v*` tag that is not
-      `vX.Y.Z`; and when a `gh` call it makes fails. A missing title line is
-      not one of them — it falls back to the tag name. The note opens with
-      a summary of the release's pull requests and a `### 🙌 Thanks to` line
-      for each outside contributor, over the section folded; where the job
+      fails for a tag whose release file, `changelog/X.Y.Z.md`, is not there
+      or carries no section for it, which is step 2 not having happened; for
+      a `v*` tag that is not `vX.Y.Z`; and when a `gh` call it makes fails.
+      A missing title line is not one of them — it falls back to the tag
+      name. The note opens with a summary of the release's pull requests
+      and a `### 🙌 Thanks to` line for each outside contributor, over the
+      section folded; where the job
       log says the pull requests could not be listed, the note went out as
       the section alone, which one `gh release edit` repairs. After the
       note, the same workflow's `seal` job attaches `seal.png` and puts it

@@ -490,10 +490,10 @@ def test_the_commit_gate_says_what_declining_does(tmp_path):
         ["git", "-C", str(repo), *a], capture_output=True, check=True
     )
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
-    (repo / "f.py").write_text("x = 1\n")
+    (repo / "f.py").write_text("x = 1\n", encoding="utf-8")
     git("add", "-A")
     git("-c", "user.email=e@example.com", "-c", "user.name=e", "commit", "-qm", "base")
-    (repo / "f.py").write_text("x = 2\n")
+    (repo / "f.py").write_text("x = 2\n", encoding="utf-8")
     git("add", "-A")
 
     out = run_hook(
@@ -532,11 +532,11 @@ def test_the_dirty_tree_row_reads_the_tree_the_switch_is_in(
     subprocess.run(
         ["git", "clone", "-q", str(repo), str(other)], check=True, capture_output=True
     )
-    (repo / "f.txt").write_text("changed on purpose\n")
+    (repo / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
     # A force-staged ignored path, which only the target tree's own
     # `check-ignore` can name: `phantom_entries` reads the same tree.
-    (repo / ".gitignore").write_text("ign.txt\n")
-    (repo / "ign.txt").write_text("x\n")
+    (repo / ".gitignore").write_text("ign.txt\n", encoding="utf-8")
+    (repo / "ign.txt").write_text("x\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "add", "-f", "ign.txt"],
         check=True,
@@ -563,13 +563,13 @@ def test_the_dirty_tree_row_reads_the_tree_the_switch_is_in(
         monkeypatch, capsys, f"git -C {other} switch feature/x", repo
     )
     assert decision == "silent", (decision, reason)
-    (repo / "f.txt").write_text("one\ntwo\nthree\n")
+    (repo / "f.txt").write_text("one\ntwo\nthree\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "reset", "-q", "ign.txt"],
         check=True,
         capture_output=True,
     )
-    (other / "f.txt").write_text("changed in the other clone\n")
+    (other / "f.txt").write_text("changed in the other clone\n", encoding="utf-8")
     decision, reason, _ = run(
         monkeypatch, capsys, f"git -C {other} switch feature/x", repo
     )
@@ -586,8 +586,8 @@ def test_the_force_staged_check_reads_from_the_root_of_the_tree(
     `sub/ign.txt`, and an anchored pattern named nothing. The third cell, a
     session sitting in the subdirectory, missed it before this work item too."""
     (repo / "sub").mkdir()
-    (repo / ".gitignore").write_text("/ign.txt\n")
-    (repo / "ign.txt").write_text("x\n")
+    (repo / ".gitignore").write_text("/ign.txt\n", encoding="utf-8")
+    (repo / "ign.txt").write_text("x\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "add", "-f", "ign.txt"],
         check=True,
@@ -687,7 +687,7 @@ def test_a_cd_behind_a_redirection_leaves_the_guard_on_the_tree_the_base_judged(
     session.mkdir()
     subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
     shutil.copytree(repo, session / "w")
-    (session / "w" / "f.txt").write_text("changed on purpose\n")
+    (session / "w" / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
     for command in (
         "cd w 2>/dev/null && git switch feature/x",
         "2>/dev/null cd w && git switch feature/x",
@@ -713,7 +713,7 @@ def test_a_chain_past_the_walks_cap_keeps_the_tree_the_base_judged(
     session.mkdir()
     subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
     shutil.copytree(repo, session / "w")
-    (session / "w" / "f.txt").write_text("changed on purpose\n")
+    (session / "w" / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
     chain = "2>/dev/null cd nosuch; " * 9 + "cd w && "
     decision, reason, _ = run(
         monkeypatch, capsys, chain + "git switch feature/x", session
@@ -756,7 +756,7 @@ def _a_dirty_w_under_a_clean_session(repo, tmp_path):
     session.mkdir()
     subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
     shutil.copytree(repo, session / "w")
-    (session / "w" / "f.txt").write_text("changed on purpose\n")
+    (session / "w" / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
     shutil.copytree(repo, session / "clean")
     other = tmp_path / "O"
     shutil.copytree(repo, other)
@@ -1209,20 +1209,25 @@ def test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers(
     no redirection, and one none of the frozen segments of the command as
     written holds. Checked by that condition, never by a list of shapes, so
     the policy's rule and the code cannot drift apart a position at a time.
-    Red against the round-1 sentence, which listed positions."""
+    Red against the round-1 sentence, which listed positions. The frozen half
+    is read from the wider splitter's segments with nothing subtracted first,
+    so it fails where the per-view subtraction is dropped (round 3 of #737,
+    white 10)."""
     assert POLICY_RULE in _policy_text()
     asked, outside = 0, []
     for verb in (*RESTORES, *ASKABLE):
         own = wg.switch_kind(wg.parse_git(["git", *verb.split()]))
         for command in _shapes(verb):
-            kinds = wg.wider_only_kinds(command, str(tmp_path))
+            # `judged=set()`: the function-level default subtracts what the
+            # frozen walk's words hold, which is this case's own frozen half,
+            # and would leave nothing for it to check.
+            kinds = wg.wider_only_kinds(command, str(tmp_path), judged=set())
             if not kinds:
                 continue
             asked += 1
-            frozen = {
-                wg.switch_kind(wg.parse_git(tokens))
-                for tokens, _wheres in wg.walk_command(command, str(tmp_path))
-            }
+            text = wg.wide.drop_heredoc_bodies(wg.wide.drop_comments(command))
+            items, _clean = wg.wide.split_segments_with_separators(text)
+            frozen = {wg.switch_kind(wg.parse_git(tokens)) for _sep, tokens in items}
             if kinds != {own} or own in frozen:
                 outside.append((command, sorted(kinds), own))
     assert asked, "the generator reached no shape the wider reading asks"
@@ -1258,6 +1263,11 @@ def test_the_guard_policy_says_a_hidden_file_checkout_is_asked():
     assert "it asks whether or not the command moves the tree" in text
     assert "the two are examples, not the set" in text
     assert "`git checkout &>/dev/null README.md` is asked" in text
+    assert (
+        "a `switch` naming a word or `-`, a `checkout` carrying `-b` or `-B`, a "
+        "`checkout` with no `--` among its words that names `-` or a word other "
+        "than `.`, or a `worktree add`"
+    ) in text
 
 
 def test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it(
@@ -1325,6 +1335,11 @@ KINDS = {
     "checkout .": (["git", "checkout", "."], None),
     "checkout -- path": (["git", "checkout", "--", "f"], None),
     "checkout with no name": (["git", "checkout", "-q"], None),
+    # §*Which tree*'s words: a `--` takes every name out of a checkout, and
+    # `-B` is a switch with or without one (round 3 of #737).
+    "checkout a name before --": (["git", "checkout", "x", "--", "f"], None),
+    "checkout -B with no name": (["git", "checkout", "-B"], "switch"),
+    "switch -- a name": (["git", "switch", "--", "x"], "switch"),
     "worktree add": (["git", "worktree", "add", "../wt"], "creation"),
     "worktree list": (["git", "worktree", "list"], None),
     "status": (["git", "status"], None),

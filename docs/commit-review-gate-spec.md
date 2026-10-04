@@ -159,8 +159,9 @@ Enforced by: tests/test_gate_judges_the_repo_it_commits_to.py::test_a_commit_aim
 **A file edit goes through the `Edit` tool, because a shell command that only
 edits a file is still a command line this gate reads.** Dropping a heredoc
 body from the walk decides where a commit lands; whether the command commits
-at all is asked of every body separately, as shell, on purpose, because a
-commit hidden in a body used to walk straight past (legacy #75). Two kinds of
+at all is asked of every body but one shape's separately, as shell, on
+purpose, because a commit hidden in a body used to walk straight past (legacy
+#75). Two kinds of
 segment count there. One is a segment whose command word is `git` with the
 `commit` subcommand, so what counts is the position and never the presence of
 the word: a fixture file of shell commands held in Python strings can read
@@ -173,9 +174,34 @@ commit in it at all — an `eval` whose argument the reader cannot expand
 stops the session, since nothing can tell what it reduces to without running
 the shell. So a session that searched its patch for a commit and found none
 has not cleared it, and an edit the `Edit` tool makes leaves no command line
-to read. Skipping a body that is only being written to a file would reopen
-#75, and that trade is the repository owner's to make.
-Enforced by: tests/test_edits_go_through_the_edit_tool.py::test_the_rule_names_the_tool_and_pairs_its_two_reasons, tests/test_gate_judges_the_repo_it_commits_to.py::test_an_interpreter_fed_heredoc_body_that_commits_stops
+to read.
+
+Skipping a body that is only being written to a file would reopen #75, and
+the repository owner made that trade for one shape alone, the one
+`hooks/one_heredoc.py` matches byte for byte (#739, #763). Its first line is,
+with one space between tokens and nothing before or after: optionally `cd`,
+one word and `&&`; then the consumer; then `<<` and, with no space between
+them, a delimiter of letters, digits and underscores in single quotes. The
+consumer is `cat` with `>` or `>>` and one word, `tee` or `tee -a` and one
+word, or `python3 -` and any number of words, where a word is a path of
+letters, digits, `_`, `.`, `/` and `-` not starting with `-`, or one
+single-quoted word that is not empty and holds no quote or newline. The body
+ends at the first line exactly equal to the delimiter, compared on the raw
+text. The command holds no carriage return, no NUL, no backslash before a
+newline, and no second `<<` outside the body. After `cat` or `tee` nothing
+but newlines may follow the terminator, because nothing may run after a file
+is written. After
+`python3 -` anything may, and it is read as before: a Python program on stdin
+is a program whose operand is a script, which this document already leaves
+unread. The gate reads such a command with its body and
+terminator taken out. Every other body is read as shell exactly as before: an
+unquoted, double-quoted or partly quoted delimiter, `<<-`, an assignment or a
+substitution on the first line, a parameter as a target or an argument, a
+program after a file sink, a second heredoc, and every body below the top
+level. Widening the shape needs a reader that knows where a quote or a
+substitution closes, and four review passes of #760 found that reader
+disagreeing with the shell each time, with a commit that went unread.
+Enforced by: tests/test_edits_go_through_the_edit_tool.py::test_the_rule_names_the_tool_and_pairs_its_two_reasons, tests/test_gate_judges_the_repo_it_commits_to.py::test_an_interpreter_fed_heredoc_body_that_commits_stops, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_refusal_1_as_recorded_is_silent, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_each_slot_of_the_shape_is_silent, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_a_string_that_fails_one_clause_still_stops, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_what_760_found_still_stops, tests/test_one_heredoc_shape_is_read_exactly.py::test_a_string_that_fails_one_clause_is_no_match, tests/test_one_heredoc_shape_agrees_with_the_shell.py::test_the_shell_cuts_every_admitted_body_where_the_reader_does
 
 <!-- specs/1788305134-the-reader-stops-where-it-need-not -->
 
@@ -511,7 +537,8 @@ Enforced by: tests/test_an_automation_run_meets_no_commit_prompt.py
 line and `git commit` on the next reaches the session's own directory whenever
 the `cd` fails, which is *Two operators consume one, not one* above (#662). A
 heredoc body is read as shell for whether it commits, which is *A file edit
-goes through the `Edit` tool* above (#665). Work item `1790635415` narrowed
+goes through the `Edit` tool* above (#665), and that paragraph names the one
+shape it does not read. Work item `1790635415` narrowed
 both — trusting an existing `cd` target not to fail, and reading a body fed
 to a known interpreter as data — and its rounds 2 and 3 found commands the
 narrowed gate read silent where the base stopped them, and a real bash ran the
@@ -522,7 +549,12 @@ narrowed further than its proof, so the reading stays where it was, and what
 changed is who a stop is put to. The changes to the reading are the two
 stricter ones above: a commit behind a reserved word (#669), and one behind a
 wrapper, in a shell string or in a substitution (#670). Every one of those
-commands still stops, with the press and without.
+commands still stops, with the press and without, but one. The measured
+prompt whose patch body loops over a commit string is a `cd`, a Python
+program on stdin and a quoted delimiter with nothing after it, which is
+exactly the one shape, so it left the corpus for a case that pins it silent.
+The repository owner decided that, in Q1 of work item `1791089603`, carrying
+the same answer given for #760. Every other row still stops.
 Enforced by: tests/test_no_shape_the_base_stops_reads_silent.py
 
 **Both arms, one call.** When both arms fire, the reason asks for two

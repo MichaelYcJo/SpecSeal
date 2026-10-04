@@ -189,7 +189,7 @@ def _leave_mark(cwd, head, date):
                     os.remove(p)
             except OSError:
                 pass
-        open(os.path.join(d, _key(head, tree, date)), "w").close()
+        open(os.path.join(d, _key(head, tree, date)), "w", encoding="utf-8").close()
     except OSError:
         pass
 

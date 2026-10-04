@@ -125,13 +125,16 @@ seal/
 │                     writes them
 ├── parity.md         migration config, only when declared
 ├── pact.md           the pact, only in the repository that holds one
+├── pact-changes/     a signatory's pact changes, a file per work item. Permanent
+├── pact-reviews/     the pact's repository's pact reviews, a file per work item. Permanent
 ├── follow-up.md      schedulable items in a repository with no tracker
 └── specs/<work-item-id>/
     ├── routing.md    the routing answer, written before the first edit —
     │                 the framer's where one runs, the session's where none does
     ├── spec.md · plan.md · questions.md · overview.md
     ├── rounds/
-    │   └── round-N.md    one review round — closed at merge and kept
+    │   └── round-N.md    one review round — closed at merge, removed by
+    │                     `settle --retire-process` after its release
     └── tests-todo.md · evidence-todo.md
 ```
 
@@ -591,7 +594,9 @@ Before the PR merges, every unresolved (⬜) row must move out:
 | Needs a decision | The policy document's open-questions section |
 
 Then say so in the round record: what went where, or `nothing to drain`. The
-records themselves stay. It used to be deleted here, and deletion was buying
+records themselves stay through the merge. `settle --retire-process` removes
+them after the release, when no round is left to inherit from them. The
+directory used to be deleted here, and deletion was buying
 one thing worth keeping — a deadline that forced the draining — while costing
 more than it bought: rows left for durable homes because the directory was
 about to disappear, and those homes are outside what the next reviewer reads.

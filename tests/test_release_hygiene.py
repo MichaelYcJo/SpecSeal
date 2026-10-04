@@ -156,6 +156,14 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "taken on*, it now has two members, and the exemption is keyed on "
         "(file, token) so neither one lets the number through anywhere else"
     ),
+    ("skills/verify/scripts/broad_gate.py", "9.1.1"): (
+        "pytest's, named in the comments over `ERROR_RE` and `STOPPED_EARLY_RE` "
+        "as the build whose endings were measured: the `ERROR` line shapes and "
+        "the `!` rules the base comparison reads (#747). The third member of "
+        "the class the row above names, a loaded file naming the tool build a "
+        "measurement was taken on; an ending read off an unnamed pytest is "
+        "not a measurement, and no release of SpecSeal makes the number wrong"
+    ),
     ("CONTRIBUTING.md", "4.2.0"): (
         "markdown-it-py's, the parser the suite's CommonMark oracle reads, "
         "pinned in `.github/scripts/run_tests.py#MARKDOWN_IT` (#667). The "
@@ -170,6 +178,14 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "the version the suite's pixel case is held to, and a case holds "
         "them to the runner's constant; no release of SpecSeal makes the "
         "number wrong"
+    ),
+    ("CONTRIBUTING.md", "2025.10.22"): (
+        "cmarkgfm's, GitHub's renderer the table walker's oracle reads, "
+        "pinned in `.github/scripts/run_tests.py#CMARKGFM` (#647). The class "
+        "is the two rows above: the fallback commands carry the pin so they "
+        "install the renderer the walker's property case is held to, and a "
+        "case holds them to the runner's constant; the package numbers its "
+        "releases by date, and no release of SpecSeal makes the number wrong"
     ),
     ("skills/verify/scripts/seal_stamp.py", "2.1.287"): (
         "Claude Code's, named above `MESSAGE_LIMIT` as the build on which the "
@@ -581,7 +597,8 @@ def test_no_loaded_file_names_a_version_at_or_above_the_running_one():
     Three exemptions, each argued where it is declared rather than here:
 
     - `RECORDS_OF_A_MOMENT` — files whose whole job is to name a moment.
-      `seal/specs/` and `CHANGELOG.md` are outside the scanned set entirely.
+      `seal/specs/`, `CHANGELOG.md` and `changelog/` are outside the scanned
+      set entirely.
       `docs/one-root-by-lifetime.md` is the 0.4.0 design and says so in every
       other paragraph, and `docs/experiments/` holds dated measurements whose
       numbers are the reading.
@@ -1327,6 +1344,14 @@ def test_the_newest_changelog_entry_is_the_version_being_shipped():
     newest = dated[0].split()[0]
     assert newest == version(), (
         f"CHANGELOG's newest entry is {newest}, plugin.json ships {version()}"
+    )
+    # S3 of #728: the index heads the release, and the release's own file is
+    # there too. A preparation commit that staged the index line and left
+    # `changelog/X.Y.Z.md` untracked ships a heading that links nowhere.
+    release = os.path.join(ROOT, "changelog", f"{newest}.md")
+    assert os.path.isfile(release), (
+        f"CHANGELOG.md heads {newest} and changelog/{newest}.md is not there. "
+        "`gather_changelog.py --version X.Y.Z` writes both; stage both"
     )
 
 

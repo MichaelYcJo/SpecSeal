@@ -295,18 +295,34 @@ def test_a_section_line_is_a_line_that_starts_one(tmp_path):
     assert gather.section_lines(str(root), "2-b") == [(3, "## one")]
 
 
-def test_the_gatherer_and_the_sweep_read_one_marker_alike(monkeypatch):
+@pytest.mark.parametrize("path", ["CHANGELOG.md", "changelog/1.0.0.md"])
+def test_the_gatherer_and_the_sweep_read_one_marker_alike(monkeypatch, path):
     """S6. A marker after a U+2028 on its line is not a line of its own to
-    GFM, so neither reader of `CHANGELOG.md` may call the fragment gathered.
-    The sweep's side is the one that excuses a fragment, and it was red."""
+    GFM, so neither reader of a changelog may call the fragment gathered.
+    The sweep's side is the one that excuses a fragment, and it was red.
+
+    Both shapes the sweep reads as a changelog since #728: the root file,
+    and a release's own file. The tree is handed over rather than listed,
+    which is what lets the case stand without a repository (#728's Q8)."""
     gather = _load("specseal_gather_s6", GATHER)
     survivor = _load("specseal_survivor_s6", SURVIVOR)
     text = f"# Changelog\n\n## 1.0.0 — 2026-01-01\n\nold{LS}<!-- specs/1-a -->\n"
-    monkeypatch.setattr(
-        survivor, "read_blobs", lambda root, rev, paths: {survivor.CHANGELOG: text}
-    )
-    assert survivor.gathered_fragments("unused", "HEAD") == set()
+    asked = []
+
+    def read_blobs(root, rev, paths):
+        asked.extend(paths)
+        return {p: text for p in paths if p == path}
+
+    monkeypatch.setattr(survivor, "read_blobs", read_blobs)
+    assert survivor.gathered_fragments("unused", "HEAD", [path, "docs/a.md"]) == set()
+    assert asked == [path], asked
     assert gather.live_markers(text) == []
+    # The positive control: the same marker on a line of its own is read,
+    # so the empty set above is the separator's doing and not a reader that
+    # never looked at the file.
+    text = text.replace(LS, "\n")
+    assert survivor.gathered_fragments("unused", "HEAD", [path]) == {"1-a"}
+    assert gather.live_markers(text) == ["1-a"]
 
 
 def test_the_sweep_loads_its_reader_once_per_path(tmp_path):
@@ -660,9 +676,18 @@ OUT_OF_CLASS.update(
         ("hooks/blocks.py", "walk_text"): (1, F),
         ("hooks/config.py", "config_rows"): (1, F),
         ("hooks/config.py", "refusal"): (1, F),
-        # The pact's `Signatory` table, walked as `config_rows` walks its own
-        # (#647).
-        ("hooks/config.py", "pact_signatories"): (1, F),
+        # A copy with no hooks/ beside it looks for a `Pact notify` row in
+        # `seal/config.md` line by line as `config_rows` splits it, so it
+        # finds every row the plugin's reader finds (round 2 of PR #756,
+        # yellow 1).
+        ("skills/evidence-check/scripts/evidence_check.py", "record_pact_changes"): (
+            1,
+            "`seal/config.md`, split where `config_rows` splits it",
+        ),
+        # The one GFM table walker the pact's `Signatory` table and both pact
+        # records are read through, reading what `unfenced` shows it as
+        # `config_rows` does (#647; ⬜ 21 of #735's round 3).
+        ("hooks/config.py", "gfm_table"): (1, F),
         # The machine-local map `pact-check` reads, the same walk (#647).
         ("skills/evidence-check/scripts/pact_check.py", "path_map"): (1, F),
         ("hooks/routing.py", "table_rows"): (1, F),

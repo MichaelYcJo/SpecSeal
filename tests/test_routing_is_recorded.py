@@ -322,8 +322,8 @@ def test_the_third_way_names_its_arm_where_two_are_listed(repo):
     say what it does NOT do.
     """
     opt_in(repo)
-    (repo / "seal" / "parity.md").write_text("# migration config\n")
-    (repo / "code.py").write_text("x = 1\n")
+    (repo / "seal" / "parity.md").write_text("# migration config\n", encoding="utf-8")
+    (repo / "code.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True
     )
@@ -354,9 +354,9 @@ def test_the_parity_arm_gains_no_third_way(repo):
     silences nothing.
     """
     opt_in(repo)
-    (repo / "seal" / "parity.md").write_text("# migration config\n")
+    (repo / "seal" / "parity.md").write_text("# migration config\n", encoding="utf-8")
     declare(repo, review=CHAIN)
-    (repo / "code.py").write_text("x = 1\n")
+    (repo / "code.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True
     )
@@ -379,9 +379,9 @@ def test_the_declaration_does_not_waive_the_parity_arm(repo):
     """Routing answers whether a reviewer sees the work. Whether the original
     was consulted is a different question, and nobody answered it."""
     opt_in(repo)
-    (repo / "seal" / "parity.md").write_text("# migration config\n")
+    (repo / "seal" / "parity.md").write_text("# migration config\n", encoding="utf-8")
     declare(repo, review=CHAIN)
-    (repo / "code.py").write_text("x = 1\n")
+    (repo / "code.py").write_text("x = 1\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "add", "-A"], check=True, capture_output=True
     )

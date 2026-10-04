@@ -107,7 +107,7 @@ def test_gate_rearms_after_commit_moves_head(repo):
     head = git(repo, "rev-parse", "HEAD").stdout.strip()
     with open(os.path.join(gd, "specseal-reviewed"), "w", encoding="utf-8") as f:
         f.write(head)
-    (repo / "f.txt").write_text("more\n")
+    (repo / "f.txt").write_text("more\n", encoding="utf-8")
     git(repo, "commit", "-qam", "next")  # cycle closes, mark goes stale
     assert fired(run_hook("commit-review-gate.py", payload("git commit -m x", repo)))
 
@@ -381,7 +381,9 @@ def parity_repo(repo):
     doing exactly its job.
     """
     (repo / "seal").mkdir(exist_ok=True)
-    (repo / "seal" / "parity.md").write_text("| Original repo | org/legacy |\n")
+    (repo / "seal" / "parity.md").write_text(
+        "| Original repo | org/legacy |\n", encoding="utf-8"
+    )
 
 
 def parity_only(command):
@@ -390,7 +392,7 @@ def parity_only(command):
 
 
 def stage(repo, name, body="x\n"):
-    (repo / name).write_text(body)
+    (repo / name).write_text(body, encoding="utf-8")
     git(repo, "add", name)
 
 
@@ -558,7 +560,9 @@ def test_parity_gate_sees_commits_that_never_touched_the_index(repo):
     people type by hand — reported an empty change and the gate went silent
     on them."""
     parity_repo(repo)
-    (repo / "f.txt").write_text("one\ntwo\nfour\n")  # tracked, never staged
+    (repo / "f.txt").write_text(
+        "one\ntwo\nfour\n", encoding="utf-8"
+    )  # tracked, never staged
     for cmd in (
         "git commit -am x",
         "git commit -a -m x",
@@ -574,10 +578,10 @@ def test_an_unstaged_document_change_still_does_not_ask(repo):
     """The `-a` fix must not turn every docs commit into a prompt."""
     parity_repo(repo)
     (repo / "docs").mkdir(exist_ok=True)
-    (repo / "docs" / "note.md").write_text("text\n")
+    (repo / "docs" / "note.md").write_text("text\n", encoding="utf-8")
     git(repo, "add", "docs/note.md")
     git(repo, "commit", "-qm", "docs")
-    (repo / "docs" / "note.md").write_text("more text\n")
+    (repo / "docs" / "note.md").write_text("more text\n", encoding="utf-8")
     cmd = parity_only("git commit -am x")
     assert (
         decision_of(run_hook("commit-review-gate.py", payload(cmd, repo))) == "silent"
@@ -910,8 +914,10 @@ ASKING_WINDOW = 140
 # other way never reached the window that would have refused it. Three
 # spellings were measured passing at exit 0:
 #
-#   *go in **one batch** before the first edit*  -- `CLAUDE.md:39` verbatim,
-#       where the emphasis markers break the literal;
+#   *go in **one batch** before the first edit*  -- verbatim from the
+#       sentence `CLAUDE.md`'s goal section carried until #730 left the rule
+#       to `skills/implement/SKILL.md` §1; the emphasis markers break the
+#       literal;
 #   *in a single batch* and *as a single batch* -- ordinary synonyms.
 #
 # So the preposition and the article are read as a small set, and emphasis

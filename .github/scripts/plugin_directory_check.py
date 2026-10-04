@@ -74,7 +74,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 # The two directory repositories, and the one form that submits to either.
 # They live here rather than in a document because they are real
-# organisations: `CLAUDE.md` §*no real identifiers in examples or fixtures*
+# organisations: `CONTRIBUTING.md` §*House rules*, *No real identifiers*,
 # keeps them out of prose and fixtures, and the script that reads them is
 # where a reader can check what was actually read.
 DIRECTORIES = (
@@ -168,21 +168,21 @@ def is_ancestor(root, sha, ref):
     known = subprocess.run(
         ["git", "-C", root, "cat-file", "-e", f"{sha}^{{commit}}"],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if known.returncode:
         return None
     resolved = subprocess.run(
         ["git", "-C", root, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if resolved.returncode:
         return None
     out = subprocess.run(
         ["git", "-C", root, "merge-base", "--is-ancestor", sha, ref],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     return out.returncode == 0
 

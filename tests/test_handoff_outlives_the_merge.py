@@ -244,8 +244,16 @@ def test_every_migration_command_creates_its_destination():
     slash — what someone tries next — renames a single record to a FILE named
     `rounds`, which both readers then report as no review at all.
     """
+    # The released notes are one file per release since #728, and the
+    # migration commands this case was written for are in 0.4.0's.
+    released = sorted(
+        ("changelog", name)
+        for name in os.listdir(os.path.join(ROOT, "changelog"))
+        if re.fullmatch(r"\d+\.\d+\.\d+\.md", name)
+    )
+    assert ("changelog", "0.4.0.md") in released, released
     for parts in (
-        ("CHANGELOG.md",),
+        *released,
         ("hooks", "review-history-guard.py"),
         ("skills", "code-review", "scripts", "chain_check.py"),
     ):
@@ -395,7 +403,7 @@ def test_a_stray_record_is_named_along_with_where_it_must_go(repo):
     """
     (repo / "seal").mkdir(exist_ok=True)
     item = declare_routing(repo)
-    (item / "round-1.md").write_text("| Target SHA | abc |\n")
+    (item / "round-1.md").write_text("| Target SHA | abc |\n", encoding="utf-8")
     out = run_hook(
         "review-history-guard.py", payload("gh pr comment 42 --body hi", repo)
     )
@@ -442,7 +450,7 @@ def test_a_stray_record_does_not_also_report_as_missing(repo):
     in the wrong place" teaches a reader to skim past both."""
     (repo / "seal").mkdir(exist_ok=True)
     item = declare_routing(repo)
-    (item / "round-1.md").write_text("| Target SHA | abc |\n")
+    (item / "round-1.md").write_text("| Target SHA | abc |\n", encoding="utf-8")
     out = run_hook(
         "review-history-guard.py", payload("gh pr comment 42 --body hi", repo)
     )
@@ -455,7 +463,9 @@ def test_a_migrated_work_item_is_not_told_to_migrate(repo):
     something people click through."""
     (repo / "seal").mkdir(exist_ok=True)
     item = declare_routing(repo)
-    (rounds_dir(item) / "round-1.md").write_text("| Target SHA | abc |\n")
+    (rounds_dir(item) / "round-1.md").write_text(
+        "| Target SHA | abc |\n", encoding="utf-8"
+    )
     out = run_hook(
         "review-history-guard.py", payload("gh pr comment 42 --body hi", repo)
     )
@@ -468,7 +478,9 @@ def test_a_migrated_work_item_is_not_told_to_migrate(repo):
 def test_a_merge_with_unclosed_records_is_reminded(repo):
     (repo / "seal").mkdir(exist_ok=True)
     item = declare_routing(repo)
-    (rounds_dir(item) / "round-1.md").write_text("| Target SHA | abc123 |\n")
+    (rounds_dir(item) / "round-1.md").write_text(
+        "| Target SHA | abc123 |\n", encoding="utf-8"
+    )
     out = run_hook("review-history-guard.py", payload("gh pr merge 7 --squash", repo))
     assert "no closing note" in out, out
 
@@ -476,7 +488,9 @@ def test_a_merge_with_unclosed_records_is_reminded(repo):
 def test_closed_records_are_not_reminded(repo):
     (repo / "seal").mkdir(exist_ok=True)
     item = declare_routing(repo)
-    (rounds_dir(item) / "round-1.md").write_text("| Deferred | nothing to drain |\n")
+    (rounds_dir(item) / "round-1.md").write_text(
+        "| Deferred | nothing to drain |\n", encoding="utf-8"
+    )
     out = run_hook("review-history-guard.py", payload("gh pr merge 7 --squash", repo))
     assert out.strip() == "", out
 

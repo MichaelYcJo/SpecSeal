@@ -9,8 +9,8 @@ has a command behind it, and that command never fails a release.
 **Nothing here reaches the network.** `fetch` is replaced at the module, and
 the fixtures below are the four `source` shapes measured over the two real
 files on 2026-09-22, rewritten onto neutral names. A fixture captured whole
-would carry real organisation names into the tree, which `CLAUDE.md` §*no
-real identifiers in examples or fixtures* refuses; the shapes are what the
+would carry real organisation names into the tree, which `CONTRIBUTING.md`
+§*House rules*, *No real identifiers*, refuses; the shapes are what the
 reader is about, and the shapes are what these carry.
 
 **The ancestry answer has three values, not two**, and that is the half a
@@ -178,12 +178,12 @@ def test_a_commit_this_clone_does_not_have_is_not_called_unreachable(tmp_path):
     repo = tmp_path / "r"
     repo.mkdir()
     git = lambda *a: subprocess.run(
-        ["git", "-C", str(repo), *a], check=True, capture_output=True, text=True
+        ["git", "-C", str(repo), *a], check=True, capture_output=True, encoding="utf-8"
     )
     git("init", "-q", "-b", "main")
     git("config", "user.email", "t@t")
     git("config", "user.name", "t")
-    (repo / "f.txt").write_text("one\n")
+    (repo / "f.txt").write_text("one\n", encoding="utf-8")
     git("add", "-A")
     git("commit", "-qm", "base")
     head = git("rev-parse", "HEAD").stdout.strip()

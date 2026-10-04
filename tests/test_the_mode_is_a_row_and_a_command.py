@@ -144,7 +144,8 @@ def test_a_committed_config_does_not_block_the_switch_it_advertises(
     config = shared_repo / "seal" / "config.md"
     config.write_text(
         "# Repository config\n\n| Item | Value |\n|---|---|\n"
-        "| Pull request language | English |\n"
+        "| Pull request language | English |\n",
+        encoding="utf-8",
     )
     git(shared_repo, "add", "-A")
     git(shared_repo, "commit", "-qm", "a config with no Mode row")
@@ -202,7 +203,8 @@ def test_an_untracked_workflow_is_not_deleted(seal, shared_repo, capsys):
     workflow = shared_repo / ".github" / "workflows" / "hygiene.yml"
     workflow.parent.mkdir(parents=True, exist_ok=True)
     workflow.write_text(
-        "# somebody's own, never committed\n" + seal.PLUGIN_CLONE + "\n"
+        "# somebody's own, never committed\n" + seal.PLUGIN_CLONE + "\n",
+        encoding="utf-8",
     )
 
     code, out = run(seal, ["mode", "local"], shared_repo, capsys)
@@ -218,7 +220,7 @@ def test_a_stage_that_fails_is_not_reported_as_staged(seal, local_repo, capsys):
     An ignore rule matching the root is the reachable cause: the root lands
     in the tree, nothing enters the index, and the person is told to commit.
     """
-    (local_repo / ".gitignore").write_text("seal/\n")
+    (local_repo / ".gitignore").write_text("seal/\n", encoding="utf-8")
     git(local_repo, "add", "-A")
     git(local_repo, "commit", "-qm", "ignore the root")
 
@@ -235,7 +237,8 @@ def test_two_mode_rows_converge(seal, shared_repo, capsys):
     config = shared_repo / "seal" / "config.md"
     config.write_text(
         "# Repository config\n\n| Item | Value |\n|---|---|\n"
-        "| Mode | local |\n| Mode | local |\n"
+        "| Mode | local |\n| Mode | local |\n",
+        encoding="utf-8",
     )
     code, out = run(seal, ["mode", "shared"], shared_repo, capsys)
     assert code == 0, out
@@ -273,7 +276,7 @@ def test_the_way_back_it_names_works_from_a_subdirectory(seal, local_repo, capsy
     `:/` makes each path mean the same thing from any directory.
     """
     (local_repo / "docs").mkdir(exist_ok=True)
-    (local_repo / "docs" / "x.md").write_text("x\n")
+    (local_repo / "docs" / "x.md").write_text("x\n", encoding="utf-8")
     git(local_repo, "add", "-A")
     git(local_repo, "commit", "-qm", "a subdirectory")
 
@@ -316,8 +319,8 @@ def test_the_recovery_commands_work_where_they_are_printed(seal, local_repo, cap
     have never run the prescription.
     """
     (local_repo / "docs").mkdir(exist_ok=True)
-    (local_repo / "docs" / "x.md").write_text("x\n")
-    (local_repo / ".gitignore").write_text(".github/\n")
+    (local_repo / "docs" / "x.md").write_text("x\n", encoding="utf-8")
+    (local_repo / ".gitignore").write_text(".github/\n", encoding="utf-8")
     git(local_repo, "add", "-A")
     git(local_repo, "commit", "-qm", "a subdirectory and an ignore rule")
 
@@ -353,7 +356,7 @@ def test_an_ignored_workflow_path_is_not_reported_as_staged(seal, local_repo, ca
     enters the index, and without this the command says `staged it` and `Now
     commit`, so the checks the switch exists to get never run.
     """
-    (local_repo / ".gitignore").write_text(".github/\n")
+    (local_repo / ".gitignore").write_text(".github/\n", encoding="utf-8")
     git(local_repo, "add", "-A")
     git(local_repo, "commit", "-qm", "ignore the workflow's directory")
 
@@ -375,7 +378,9 @@ def test_a_tracked_config_is_not_announced_as_untracked(seal, shared_repo, capsy
     that note plants a genuinely untracked file.
     """
     config = shared_repo / "seal" / "config.md"
-    config.write_text("# Repository config\n\n| Item | Value |\n|---|---|\n")
+    config.write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n", encoding="utf-8"
+    )
     git(shared_repo, "add", "-A")
     git(shared_repo, "commit", "-qm", "a config with no Mode row")
 
@@ -396,16 +401,20 @@ def test_a_staged_edit_to_the_config_still_refuses(seal, shared_repo, capsys, pa
     reddened nothing.
     """
     config = shared_repo / "seal" / "config.md"
-    config.write_text("# Repository config\n\n| Item | Value |\n|---|---|\n")
+    config.write_text(
+        "# Repository config\n\n| Item | Value |\n|---|---|\n", encoding="utf-8"
+    )
     git(shared_repo, "add", "-A")
     git(shared_repo, "commit", "-qm", "a config")
     config.write_text(
-        "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n"
+        "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n",
+        encoding="utf-8",
     )
     git(shared_repo, "add", "--", "seal/config.md")
     if pair == "MM":
         config.write_text(
-            "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | local |\n"
+            "# Repository config\n\n| Item | Value |\n|---|---|\n| Mode | local |\n",
+            encoding="utf-8",
         )
 
     code, out = run(seal, ["mode", "local"], shared_repo, capsys)
@@ -424,7 +433,7 @@ def test_a_submodule_outside_the_root_does_not_refuse(
     git(inner, "init", "-q", ".")
     git(inner, "config", "user.email", "a@b.c")
     git(inner, "config", "user.name", "a")
-    (inner / "x.md").write_text("x\n")
+    (inner / "x.md").write_text("x\n", encoding="utf-8")
     git(inner, "add", "-A")
     git(inner, "commit", "-qm", "x")
     added = git(
@@ -476,7 +485,7 @@ def test_a_submodule_under_the_root_refuses(seal, shared_repo, tmp_path, capsys)
     git(inner, "init", "-q", ".")
     git(inner, "config", "user.email", "a@b.c")
     git(inner, "config", "user.name", "a")
-    (inner / "x.md").write_text("x\n")
+    (inner / "x.md").write_text("x\n", encoding="utf-8")
     git(inner, "add", "-A")
     git(inner, "commit", "-qm", "x")
     added = git(

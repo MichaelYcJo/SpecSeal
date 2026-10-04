@@ -13,11 +13,11 @@ So this reads the tag instead of asking anybody to remember. It runs when a
 `v*` tag is pushed, which is the release's last manual act and the moment
 `docs/branch-and-release.md` says stays a person's.
 
-**The body is a summary a reader scans, over the `CHANGELOG.md` section the
-preparation commit gathered** (#572). By the time the tag exists that section
-is written, reviewed and on `main`: `gather_changelog.py --version X.Y.Z`
-wrote it and the hygiene workflow ran `--check` over it at the release pull
-request. It is also a page of reasoning per change, and a note that was only
+**The body is a summary a reader scans, over the release's own file the
+preparation commit gathered** (#572), `changelog/X.Y.Z.md` since #728. By the
+time the tag exists that file is written, reviewed and on `main`:
+`gather_changelog.py --version X.Y.Z` wrote it and the hygiene workflow ran
+`--check` over it at the release pull request. It is also a page of reasoning per change, and a note that was only
 that section read as a wall of prose to somebody asking what changed. So the
 note opens with what the pull requests merged into `release/vX.Y.Z` already
 say -- a count, one line per pull request under its conventional-commit type
@@ -82,7 +82,8 @@ Environment: `TAG` (`github.ref_name`), `REPO`, `GH_TOKEN`, and
 `GITHUB_OUTPUT` where the workflow runner sets it.
 
 Exit codes: 0 published, or already published, or a dry run -- 1 the tag is
-not `vX.Y.Z`, or `CHANGELOG.md` carries no section for it.
+not `vX.Y.Z`, or `changelog/X.Y.Z.md` is not there or carries no section for
+it.
 """
 
 import json
@@ -98,7 +99,8 @@ import console  # noqa: E402
 from close_issues_on_release import keywords_in  # noqa: E402
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
-CHANGELOG = "CHANGELOG.md"
+# Where each release's own file is, `changelog/X.Y.Z.md` (#728).
+RELEASES = "changelog"
 
 # `vX.Y.Z`. Anything else under `v*` -- `v1.2`, `vnext`, a typo -- is a shape
 # this cannot name a version for, and it says so rather than guessing one.
@@ -134,7 +136,7 @@ def section_heading_re(version):
 
 
 def run(*args):
-    out = subprocess.run(args, capture_output=True, text=True)
+    out = subprocess.run(args, capture_output=True, encoding="utf-8")
     if out.returncode:
         sys.exit(f"{' '.join(args)} failed: {out.stderr.strip()}")
     return out.stdout
@@ -160,6 +162,11 @@ def section_body(text, version):
     after = re.search(r"^## ", rest, re.M)
     body = rest[: after.start()] if after else rest
     return body.strip()
+
+
+def release_file(version):
+    """The release's own file, as a path from the repository root."""
+    return f"{RELEASES}/{version}.md"
 
 
 def title_from(message, version, tag):
@@ -196,7 +203,7 @@ def release_exists(repo, tag):
     out = subprocess.run(
         ["gh", "api", f"repos/{repo}/releases/tags/{tag}"],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if out.returncode:
         if "Not Found" in out.stderr or "404" in out.stderr:
@@ -265,7 +272,7 @@ def merged_pulls(repo, version):
             "number,title,author,body,labels,headRefName",
         ],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if out.returncode:
         print(
@@ -419,7 +426,7 @@ def release_body(section, pulls, owner, repo, tag):
     Read top to bottom it answers, in order, how big the release is, what
     changed -- one line per pull request under its type, with the issues it
     closed -- who outside the project helped, and how to get it. The gathered
-    `CHANGELOG.md` section follows, folded, because it is the reasoning a
+    release's own file follows, folded, because it is the reasoning a
     reader wants for one change rather than the list they read for all of
     them. Every line is read from the pull requests and the tree; nothing
     here writes a sentence.
@@ -430,6 +437,7 @@ def release_body(section, pulls, owner, repo, tag):
     work, closed, people = tally(pulls, owner)
     if not work:
         return section
+    shown = release_file(version_of(tag))
     groups = {}
     for pull in work:
         heading, text = kind_and_text(pull["title"])
@@ -468,7 +476,7 @@ def release_body(section, pulls, owner, repo, tag):
         "",
         "</details>",
         "",
-        f"[`CHANGELOG.md` at {tag}](https://github.com/{repo}/blob/{tag}/CHANGELOG.md)",
+        f"[`{shown}` at {tag}](https://github.com/{repo}/blob/{tag}/{shown})",
     ]
     return "\n".join(parts)
 
@@ -504,15 +512,18 @@ def main(argv=None):
         )
         return 1
 
-    path = os.path.join(ROOT, CHANGELOG)
-    with open(path, encoding="utf-8") as handle:
-        body = section_body(handle.read(), version)
+    shown = release_file(version)
+    path = os.path.join(ROOT, *shown.split("/"))
+    body = None
+    if os.path.isfile(path):
+        with open(path, encoding="utf-8") as handle:
+            body = section_body(handle.read(), version)
     if body is None:
         print(
-            f"{tag} was pushed and {CHANGELOG} carries no `## {version}` "
-            "section, so this release would be published with no notes at "
-            "all.\n"
-            "Release preparation gathers the fragments into that section:\n"
+            f"{tag} was pushed and {shown} is not there or carries no "
+            f"`## {version}` section, so this release would be published with "
+            "no notes at all.\n"
+            "Release preparation gathers the fragments into that file:\n"
             "  python3 .github/scripts/gather_changelog.py --version "
             f"{version}"
         )

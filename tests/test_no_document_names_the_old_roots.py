@@ -61,7 +61,7 @@ DESIGN_RECORD = {"docs/one-root-by-lifetime.md", "docs/one-root-by-lifetime.ko.m
 # checked to still occur somewhere, so a reason cannot outlive its line.
 KEEP = {
     ".specseal/handoff": "the retired handoff key, named where the reason it moved is kept",
-    "<!-- specs/<work-item-id> -->": "the marker text in CHANGELOG.md and the ledger is unchanged (Q2)",
+    "<!-- specs/<work-item-id> -->": "the marker text in the changelog and the ledger is unchanged (Q2)",
     "`.specseal/scratch`": "the predecessor of `.git/specseal-scratch`, named as past",
     "`.specseal/` or a top-level `specs/`": "the README saying what nothing reads any more",
     "`.specseal/`, or a top-level `specs/` with an entry named": (
