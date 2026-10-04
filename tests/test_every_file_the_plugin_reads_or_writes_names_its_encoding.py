@@ -28,12 +28,22 @@ then read for whether `None` means the locale. It does not for
 and is listed here by reading.
 
 - builtin `open`, `io.open`, `codecs.open`, `os.fdopen`, in a text mode;
-- `<expr>.open(...)` judged as `Path.open`, or as `zipfile.Path.open`,
-  whose encoding comes one place earlier, on a `zipfile.Path`; except on
-  `os`, `webbrowser`, `tarfile`, `shelve`, `dbm`, `dbm.dumb`, `wave`, PIL's
-  `Image` and a `ZipFile(...)` or `TarFile(...)` built in the receiver
-  itself, which open no text, and on a bare name no import binds; called on
-  the class (`Path.open(p)`), every position moves one to the right;
+- `<expr>.open(...)` judged as `Path.open`, except where the receiver, or
+  the class a call in the receiver builds, resolves through the file's
+  imports to one of these. A module whose `open` takes no locale encoding:
+  `os`, `webbrowser`, `tarfile`, `shelve`, `dbm` and its submodules `dumb`,
+  `gnu`, `ndbm` and `sqlite3`, `wave`, `aifc`, `sunau`, `tokenize`, `posix`,
+  `nt` and `ossaudiodev`. PIL's `Image`. `ZipFile` or `TarFile`, called on the class or
+  built in the receiver, which read bytes. Each of those is excused. And
+  `zipfile.Path`, called on the class or built in the receiver, is judged as
+  `zipfile.Path.open`, whose encoding comes one place earlier; one reached by
+  `/`, `.joinpath` or a name is not traced, so it is judged as `Path.open`,
+  and `encoding=` written as a keyword passes it. `importlib.resources`'s
+  `Traversable`, `ResourceHandle` and `ResourceContainer` take theirs in the
+  same place, and `pipes.Template.open(file, rw)` takes none. A receiver no import binds
+  is excused under no spelling, so `os.open(p, 0)` on a parameter named `os`
+  is judged. Called on the class (`Path.open(p)`), every position moves one
+  to the right;
 - `<expr>.read_text(...)` and `<expr>.write_text(...)`, the same way;
 - `subprocess.run` / `Popen` / `call` / `check_call` / `check_output` with
   `text=`, `universal_newlines=` or `errors=` and no `encoding`, the module
@@ -54,8 +64,12 @@ pass and no K1 row could catch them: a name rebound to an opener
 passed by reference (`map(Path.read_text, ps)`), `getattr`, `__import__` and
 a module loaded through `importlib`, `universal_newlines` given by position,
 `configparser`'s `.read`, whose name is too common to match without types,
-a file handler named in a string to `logging.config.dictConfig`, and a
-handler subclass whose constructor calls `super().__init__(p)`. Write the
+a file handler named in a string to `logging.config.dictConfig`, a
+handler subclass whose constructor calls `super().__init__(p)`, and a name an
+import binds that anything else in the file also binds, in any scope
+(`import wave`, then `wave = make(p)`, a loop variable `for wave in ws`, or a
+parameter `def f(wave)`), because imports are read for the whole file and
+not per scope, so that `.open` is excused as the module's. Write the
 call plainly instead. The walk errs the other way too: a `ZipFile` or
 `TarFile` bound to a name first (`with ZipFile(z) as zf: zf.open(n)`) is not
 traced, so its `.open` is reported though it reads bytes.
@@ -77,6 +91,7 @@ works is held there, behaviourally.
 """
 
 import ast
+import inspect
 import os
 
 import pytest
@@ -121,8 +136,19 @@ TEMPFILES = {
     "TemporaryFile": (0, 2),
     "SpooledTemporaryFile": (1, 3),
 }
-# `.open` receivers that open no text file: a module, or a class whose
-# instance's `.open` reads bytes (`zipfile.ZipFile(z).open(name)`).
+# `.open` receivers whose `open` takes no locale encoding, matched against
+# what `owner` resolves them to through the file's imports. A module whose
+# `open` opens no text file, or reads the encoding the file itself declares
+# (`tokenize`); or a class whose `.open` reads bytes, called on the class or
+# built in the receiver (`zipfile.ZipFile(z).open(name)`). The modules are
+# every standard-library module with a module-level `open` that no other
+# table holds, with PIL's `Image` beside them (#762). Each module that
+# imports on macOS was found by importing it on 3.12 to 3.14. Each one that
+# does not was read in its documentation instead: `dbm.gnu`, `nt` and
+# `ossaudiodev` carry an `open`, and `nis`, `spwd`, `msilib`, `msvcrt`,
+# `winreg`, `winsound` and the Windows-only submodules
+# `asyncio.windows_events`, `asyncio.windows_utils`, `encodings.mbcs`,
+# `encodings.oem` and `multiprocessing.popen_spawn_win32` carry none.
 NOT_A_FILE_OPENER = {
     "os",
     "webbrowser",
@@ -132,17 +158,53 @@ NOT_A_FILE_OPENER = {
     "shelve",
     "dbm",
     "dbm.dumb",
+    "dbm.gnu",
+    "dbm.ndbm",
+    "dbm.sqlite3",
     "wave",
+    "aifc",
+    "sunau",
+    "tokenize",
+    "posix",
+    "nt",
+    # 3.12 on Linux and FreeBSD, removed in 3.13: an audio device.
+    "ossaudiodev",
     "PIL.Image",
 }
 # Classes whose methods, called on the class, take the path first, so the
 # encoding's position moves one to the right: `Path.read_text(p, "utf-8")`.
+#
+# How the list was settled (#762, review rounds 1 and 2). On 3.12, 3.13 and
+# 3.14, every public class reachable from every importable public module and
+# submodule was listed with each `open`, `read_text` or `write_text` it has,
+# defined in its own body or inherited through its MRO. A class counts under
+# its home module, an `__all__` re-export, or a module `__getattr__` alias;
+# a name a module merely imported for itself (`json.tool.Path`,
+# `compileall.Path`, `importlib.metadata.SimplePath`) is left out. These are
+# the classes whose method, called on the class, reads text in the locale,
+# itself or by handing `encoding=None` on to the receiver's `open`:
+# `Traversable.read_text`, which `ResourceHandle` and `ResourceContainer`
+# inherit, does that. Left out: methods that open no text file (`imaplib`,
+# `telnetlib`, `tkinter.tix`, `urllib.request`, `webbrowser`, `ZipFile`,
+# `TarFile`), that read a fixed encoding (`importlib.metadata`), that raise
+# (`MultiplexedPath`), and protocol stubs. The modules that do not import on
+# macOS were read in CPython's 3.12 source and hold no such class.
 UNBOUND_RECEIVERS = {
     "pathlib.Path",
     "pathlib.PurePath",
     "pathlib.PosixPath",
     "pathlib.WindowsPath",
     "zipfile.Path",
+    "importlib.resources.abc.Traversable",
+    # The same class on 3.12 and 3.13, through `importlib.abc.__getattr__`.
+    "importlib.abc.Traversable",
+    "importlib.resources.simple.ResourceHandle",
+    "importlib.resources.simple.ResourceContainer",
+    # `importlib.simple` re-exports both in its `__all__`.
+    "importlib.simple.ResourceHandle",
+    "importlib.simple.ResourceContainer",
+    # 3.12 only, removed in 3.13.
+    "pipes.Template",
 }
 # Openers that are binary unless the mode carries `t`: (the mode's position,
 # the encoding's position or None where it is keyword-only).
@@ -177,7 +239,10 @@ TEXT_UNLESS_BINARY = {
     "argparse.FileType": (0, 2),
 }
 METHODS_TEXT_UNLESS_BINARY = {"makefile": (0, None), "write_results_file": (None, 4)}
-# The position of `mode` and of `encoding` in each opener's signature.
+# The position of `mode` and of `encoding` in each function opener's
+# signature. Functions only: `judge` matches this table by the call's dotted
+# name before its `.open` branch, so a method's row here would be judged
+# unshifted when the method is called on its class (#762).
 OPENERS = {
     "builtins.open": (1, 3),
     "io.open": (1, 3),
@@ -185,10 +250,28 @@ OPENERS = {
     # `fdopen(fd, mode, buffering, encoding)` is `open` with the fd in the
     # file's slot, so the positions are `open`'s.
     "os.fdopen": (1, 3),
-    "<expr>.open": (0, 2),
+}
+# The same positions for an `.open` method, by what `owner` resolves its
+# receiver to, `<expr>` for every receiver not listed. Read by the `.open`
+# branch of `judge` alone, which moves them one to the right on the class.
+OPEN_METHODS = {
+    "<expr>": (0, 2),
     # `zipfile.Path.open(mode, *args)` hands `args[0]` to `TextIOWrapper` as
     # the encoding, one place earlier than `pathlib.Path.open`.
-    "zipfile.Path.open": (0, 1),
+    "zipfile.Path": (0, 1),
+    # `open(mode='r', *args)` the same way: `Traversable`'s is abstract,
+    # `ResourceHandle`'s wraps the stream in `TextIOWrapper(stream, *args)`,
+    # and `ResourceContainer`'s raises. Each is listed so that a class in
+    # UNBOUND_RECEIVERS for its `read_text` keeps its encoding slot for `open`.
+    "importlib.resources.abc.Traversable": (0, 1),
+    "importlib.abc.Traversable": (0, 1),
+    "importlib.resources.simple.ResourceHandle": (0, 1),
+    "importlib.resources.simple.ResourceContainer": (0, 1),
+    "importlib.simple.ResourceHandle": (0, 1),
+    "importlib.simple.ResourceContainer": (0, 1),
+    # `Template.open(file, rw)` takes no encoding: slot 2 lies past its last
+    # parameter, so no position can name one, and a keyword is a TypeError.
+    "pipes.Template": (1, 2),
 }
 
 
@@ -288,11 +371,12 @@ def mode_node(call, position):
     return None
 
 
-def judge_opener(call, opener, shift=0):
-    """The kind to report for an opener call, or None if it names its
-    encoding or opens in binary. `shift` is 1 where the call is a method
-    called on its class, whose first argument is the path."""
-    mode_at, encoding_at = (at + shift for at in OPENERS[opener])
+def judge_opener(call, opener, positions, shift=0):
+    """The kind to report for a call to `opener`, whose mode and encoding sit
+    at `positions`, or None if it names its encoding or opens in binary.
+    `shift` is 1 where the call is a method called on its class, whose first
+    argument is the path."""
+    mode_at, encoding_at = (at + shift for at in positions)
     if names_encoding(call, encoding_at):
         return None
     mode = mode_of(call, mode_at)
@@ -312,7 +396,7 @@ def judge(call, bound):
     func = call.func
 
     if target in OPENERS:
-        return judge_opener(call, target)
+        return judge_opener(call, target, OPENERS[target])
     if target in ALWAYS_UNNAMED:
         return None if names_encoding(call) else f"{target}()"
     if target in BINARY_BY_DEFAULT:
@@ -378,8 +462,8 @@ def judge(call, bound):
         made_by = owner(func.value, bound)
         if made_by in NOT_A_FILE_OPENER:
             return None
-        opener = f"{made_by}.open" if f"{made_by}.open" in OPENERS else "<expr>.open"
-        return judge_opener(call, opener, shift)
+        made_by = made_by if made_by in OPEN_METHODS else "<expr>"
+        return judge_opener(call, f"{made_by}.open", OPEN_METHODS[made_by], shift)
     if func.attr == "read_text":
         if names_encoding(call, shift):
             return None
@@ -396,14 +480,14 @@ def judge(call, bound):
 
 
 def owner(receiver, bound):
-    """What a `.open` is called on: the dotted name of a receiver, of the
-    class a receiver call constructs (`zipfile.ZipFile(z)`), or a bare name no
-    import binds, read as itself (`os` taken as a parameter). An instance
-    bound to a name first (`with ZipFile(z) as zf`) is not traced."""
+    """What a `.open` is called on: the dotted name of a receiver, or of the
+    class a receiver call constructs (`zipfile.ZipFile(z)`), resolved through
+    the file's imports; None where no import binds the name. A name no import
+    binds is None whatever it is spelled, because the walk cannot prove that
+    a parameter named `os` is the module (K2). An instance bound to a name
+    first (`with ZipFile(z) as zf`) is not traced."""
     if isinstance(receiver, ast.Call):
         return dotted(receiver.func, bound)
-    if isinstance(receiver, ast.Name) and receiver.id not in bound:
-        return receiver.id
     return dotted(receiver, bound)
 
 
@@ -691,6 +775,55 @@ UNNAMED = {
         "import zipfile\nzipfile.Path(z).open()",
         "zipfile.Path.open()",
     ),
+    # #762: called on its class, `zipfile.Path.open` takes the path first, so
+    # `"r"` is the mode and no encoding is named.
+    "zipfile.Path open unbound, mode only": (
+        'import zipfile\nzipfile.Path.open(q, "r")',
+        "zipfile.Path.open()",
+    ),
+    "zipfile.Path open unbound, imported by name": (
+        'from zipfile import Path\nPath.open(q, "r")',
+        "zipfile.Path.open()",
+    ),
+    "zipfile.Path open unbound, aliased module": (
+        'import zipfile as z\nz.Path.open(q, "r")',
+        "zipfile.Path.open()",
+    ),
+    # #762: `Traversable.read_text(self, encoding=None)` passes `None` on to
+    # the locale, so called on the class, `t` is the traversable.
+    "Traversable.read_text unbound": (
+        "from importlib.resources.abc import Traversable\nTraversable.read_text(t)",
+        ".read_text()",
+    ),
+    "Traversable.read_text unbound, the importlib.abc spelling": (
+        "import importlib.abc\nimportlib.abc.Traversable.read_text(t)",
+        ".read_text()",
+    ),
+    # #762 round 2: both classes inherit `Traversable.read_text`.
+    "ResourceHandle.read_text unbound, inherited from Traversable": (
+        "from importlib.resources.simple import ResourceHandle\n"
+        "ResourceHandle.read_text(h)",
+        ".read_text()",
+    ),
+    "ResourceHandle.read_text unbound, the importlib.simple spelling": (
+        "import importlib.simple\nimportlib.simple.ResourceHandle.read_text(h)",
+        ".read_text()",
+    ),
+    "ResourceContainer.read_text unbound, inherited from Traversable": (
+        "from importlib.resources.simple import ResourceContainer\n"
+        "ResourceContainer.read_text(c)",
+        ".read_text()",
+    ),
+    "ResourceContainer.read_text unbound, the importlib.simple spelling": (
+        "import importlib.simple\nimportlib.simple.ResourceContainer.read_text(c)",
+        ".read_text()",
+    ),
+    # `Template.open(file, rw)` opens `file` with `open(file, rw)` or a pipe
+    # with `os.popen`, both in the locale, and takes no encoding.
+    "pipes.Template.open unbound": (
+        'import pipes\npipes.Template.open(t, f, "r")',
+        "pipes.Template.open()",
+    ),
 }
 
 # The same calls with the encoding named (by keyword, or positionally where
@@ -757,13 +890,49 @@ NAMED = {
     "ElementInclude.default_loader, text reads UTF-8 itself": (
         'from xml.etree import ElementInclude\nElementInclude.default_loader(h, "text")'
     ),
-    "os.open on a name no import binds": "def f(os):\n    return os.open(p, 0)",
     "dbm.dumb.open is not a text file": "import dbm.dumb\ndbm.dumb.open(p)",
     "zipfile.Path open, 2nd positional": (
         'import zipfile\nzipfile.Path(z).open("r", "utf-8")'
     ),
     "zipfile.Path open unbound, 3rd positional": (
         'import zipfile\nzipfile.Path.open(q, "r", "utf-8")'
+    ),
+    # #762: every standard-library module whose module-level `open` takes no
+    # locale encoding, enumerated over every importable module on 3.12 to 3.14.
+    "dbm.gnu.open is not a text file": "import dbm.gnu\ndbm.gnu.open(p)",
+    "dbm.ndbm.open is not a text file": "import dbm.ndbm\ndbm.ndbm.open(p)",
+    "dbm.sqlite3.open is not a text file": "import dbm.sqlite3\ndbm.sqlite3.open(p)",
+    "aifc.open is binary": "import aifc\naifc.open(p)",
+    "sunau.open is binary": "import sunau\nsunau.open(p)",
+    "tokenize.open reads the encoding the file declares": (
+        "import tokenize\ntokenize.open(p)"
+    ),
+    "posix.open is os.open": "import posix\nposix.open(p, 0)",
+    "nt.open is os.open": "import nt\nnt.open(p, 0)",
+    "ossaudiodev.open is an audio device": 'import ossaudiodev\nossaudiodev.open("w")',
+    # #762 round 2: `open(mode='r', *args)` hands `args[0]` to `TextIOWrapper`
+    # as the encoding, so called on the class it sits right after the mode.
+    "Traversable.open unbound, encoding after the mode": (
+        "from importlib.resources.abc import Traversable\n"
+        'Traversable.open(t, "r", "utf-8")'
+    ),
+    "Traversable.open unbound, the importlib.abc spelling": (
+        'import importlib.abc\nimportlib.abc.Traversable.open(t, "r", "utf-8")'
+    ),
+    "ResourceHandle.open unbound, encoding after the mode": (
+        "from importlib.resources.simple import ResourceHandle\n"
+        'ResourceHandle.open(h, "r", "utf-8")'
+    ),
+    "ResourceHandle.open unbound, the importlib.simple spelling": (
+        'import importlib.simple\nimportlib.simple.ResourceHandle.open(h, "r", "utf-8")'
+    ),
+    "ResourceContainer.open unbound, encoding after the mode": (
+        "from importlib.resources.simple import ResourceContainer\n"
+        'ResourceContainer.open(c, "r", "utf-8")'
+    ),
+    "ResourceContainer.open unbound, the importlib.simple spelling": (
+        "import importlib.simple\n"
+        'importlib.simple.ResourceContainer.open(c, "r", "utf-8")'
     ),
 }
 
@@ -778,6 +947,103 @@ def test_each_unnamed_shape_is_reported(shape):
 @pytest.mark.parametrize("shape", sorted(NAMED))
 def test_each_named_shape_is_not_reported(shape):
     assert unnamed_sites(NAMED[shape]) == []
+
+
+# #762: a receiver no import binds is a value the walk cannot prove (K2),
+# whatever it is spelled, so its `.open()` is judged as `Path.open`.
+# `(source, kind, qualname)`: the source holds the call on its last line.
+UNIMPORTED_RECEIVERS = {
+    "a local named after a module": (
+        "wave = make(p)\nwave.open()",
+        "<expr>.open()",
+        "<module>",
+    ),
+    "a parameter named after a module": (
+        "def f(tarfile):\n    return tarfile.open()",
+        "<expr>.open()",
+        "f",
+    ),
+    "a loop variable named after a module": (
+        'for shelve in d:\n    shelve.open("w")',
+        "<expr>.open()",
+        "<module>",
+    ),
+    "a parameter named os": (
+        "def f(os):\n    return os.open(p, 0)",
+        "<expr>.open(), mode not a literal",
+        "f",
+    ),
+    "a module the walk excuses, not imported": (
+        "dbm.gnu.open(p)",
+        "<expr>.open(), mode not a literal",
+        "<module>",
+    ),
+    "a bare module name the walk excuses, not imported": (
+        "tokenize.open(p)",
+        "<expr>.open(), mode not a literal",
+        "<module>",
+    ),
+}
+
+
+@pytest.mark.parametrize("shape", sorted(UNIMPORTED_RECEIVERS))
+def test_a_receiver_no_import_binds_is_judged_under_every_spelling(shape):
+    source, kind, qualname = UNIMPORTED_RECEIVERS[shape]
+    line = source.count("\n") + 1
+    assert unnamed_sites(source) == [(line, kind, qualname)]
+
+
+def tables_matched_by_dotted_name():
+    """`{name: table}` for every table `judge` tests `target in`, read from
+    `judge`'s own source, so a table added there later is read here too."""
+    tree = ast.parse(inspect.getsource(judge))
+    names = {
+        node.comparators[0].id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Compare)
+        and isinstance(node.left, ast.Name)
+        and node.left.id == "target"
+        and isinstance(node.ops[0], ast.In)
+        and isinstance(node.comparators[0], ast.Name)
+    }
+    return {name: globals()[name] for name in sorted(names)}
+
+
+def methods_of_unbound_receivers(tables):
+    """Each key of `tables` that is a method of a class in
+    `UNBOUND_RECEIVERS`, as `TABLE['key']`."""
+    return sorted(
+        f"{name}[{key!r}]"
+        for name, table in tables.items()
+        for key in table
+        if key.rsplit(".", 1)[0] in UNBOUND_RECEIVERS
+    )
+
+
+def test_no_method_is_matched_by_its_dotted_name():
+    """#762: a method called on its class takes the path first, and only the
+    `.open` branch of `judge` moves the positions for it. A method's row in a
+    table `judge` matches by dotted name is reached there first, unshifted,
+    so its path is read as the mode and its mode as the encoding."""
+    tables = tables_matched_by_dotted_name()
+    assert "OPENERS" in tables, tables
+    # The row #762 moved out, so the check is shown to name one.
+    moved = {"OPENERS": {"zipfile.Path.open": (0, 1), "io.open": (1, 3)}}
+    assert methods_of_unbound_receivers(moved) == ["OPENERS['zipfile.Path.open']"]
+    # The `.open` branch shifts a class's positions only for a class in
+    # UNBOUND_RECEIVERS, so a method row for any other class is judged
+    # unshifted when the method is called on its class.
+    unshifted = sorted(set(OPEN_METHODS) - {"<expr>"} - UNBOUND_RECEIVERS)
+    assert not unshifted, (
+        f"OPEN_METHODS rows {unshifted} name a class outside "
+        "UNBOUND_RECEIVERS, so the method called on its class is judged "
+        "without the shift"
+    )
+    methods = methods_of_unbound_receivers(tables)
+    assert not methods, (
+        f"{methods} are methods of a class in UNBOUND_RECEIVERS, matched by "
+        "their dotted name before the `.open` branch can shift them"
+    )
 
 
 # --- K2: what the walk cannot prove ----------------------------------------
