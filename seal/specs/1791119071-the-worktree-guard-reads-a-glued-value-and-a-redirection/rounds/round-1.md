@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #788 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `58d4b7a599a9eb8258b6e28d6ee4cb75b697d973..cd684fb2737f1f1e152347eb4f2cf5adef306107`, 3 commits |
+| Contract changes | none |
+| New units | _dashed (depth 1); _git_switches (depth 1); DASHED (depth 1); DASHED_SWITCHES (depth 1); DASHED_TWINS (depth 1); test_classify_reads_a_switch_wherever_its_dashes_stand (depth 1); test_a_bare_dashdash_names_the_branch_where_a_file_has_its_name (depth 1) |
 | Needs a fix | yes — 🔴 1, `git checkout <name> --` read as a restore by `classify` and `switch_kind`, and 48 placements the base asked now silent |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -24,8 +24,8 @@ Round 1 of #764/#738 (PR #788), at a7ab2a4e against `release/v0.18.2` (94d7b2e0)
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | `git checkout <name> --` with nothing after the `--` switches, and `classify` and `switch_kind` read any `--` as a restore; the build newly silences 48 generated shapes the base asked (`-->/dev/null` and its kin) | `hooks/worktree-guard.py:1022`, `hooks/worktree-guard.py:561`, `docs/worktree-guard-spec.md:644` | open | Executed under bash with git 2.54.0: six trailing-`--` spellings switch while both readers read no kind; the `_placed` sweep counts 460 of 492 silent at the build against 442 and 436 at the base; the fix below turns the four proposed cases from red at a7ab2a4e to green |
-| ⬜ 2 | A7 binds the table one way only: a `VALUE` entry git no longer lists as mandatory stays green and eats a name | `tests/test_guard_resolves_the_tree_it_judges.py:1685` | open | Read; every `VALUE` entry matches git 2.54.0 today (executed), so nothing ships wrong |
+| 🔴 1 | `git checkout <name> --` with nothing after the `--` switches, and `classify` and `switch_kind` read any `--` as a restore; the build newly silences 48 generated shapes the base asked (`-->/dev/null` and its kin) | `hooks/worktree-guard.py:1022`, `hooks/worktree-guard.py:561`, `docs/worktree-guard-spec.md:644` | **fixed** `e3c5101b031663dc670c84a83d85e74bf4dd0cbf` | fixed at e3c5101b031663dc670c84a83d85e74bf4dd0cbf; Executed under bash with git 2.54.0: six trailing-`--` spellings switch while both readers read no kind; the `_placed` sweep counts 460 of 492 silent at the build against 442 and 436 at the base; the fix below turns the four proposed cases from red at a7ab2a4e to green |
+| ⬜ 2 | A7 binds the table one way only: a `VALUE` entry git no longer lists as mandatory stays green and eats a name | `tests/test_guard_resolves_the_tree_it_judges.py:1685` | **fixed** `e3c5101b031663dc670c84a83d85e74bf4dd0cbf` | fixed at e3c5101b031663dc670c84a83d85e74bf4dd0cbf; Read; every `VALUE` entry matches git 2.54.0 today (executed), so nothing ships wrong |
 | 🟢 | `hooks/cmdline_base.py`, S11 and `hooks/cmdline.py` are unchanged | `hooks/cmdline_base.py` | confirmed | Executed: the diff over the four frozen-side files is empty |
 | 🟢 | The option table is git 2.54.0's, hidden options included | `hooks/worktree-guard.py:394` | confirmed | Executed: `--git-completion-helper-all` lists exactly the 22 and 15 long names, and `-h` lists the short letters and value markers |
 | 🟢 | Every newly asked no-switch shape stands at a C position | `hooks/worktree-guard.py:568` | confirmed | Executed over the module's 12,092 twin placements: 268 newly asked, none after the subcommand without `&` or a pipe; the 230 figure is the smith's set and is carried |
