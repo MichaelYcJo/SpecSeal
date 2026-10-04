@@ -374,7 +374,7 @@ def test_s3_a_notify_row_spelled_with_a_format_character_is_refused(ch):
 # of its own below.
 # The CommonMark inline constructs (6.1-6.11) a cell can hold, each as a way
 # to wrap or split an item. Every construct is applied to the pact items and
-# to OTHERS, spellings GFM shows as some other word, so both directions run.
+# to spellings GFM shows as some other word, so both directions run.
 WRAPS = {
     "emphasis": ["**{}**", "*{}*", "__{}__", "_{}_", "***{}***"],
     "strikethrough": ["~~{}~~", "~{}~"],
@@ -441,18 +441,28 @@ SPLITS = [
     "P&#97;ct notify",
     "`Pact` notify",
     "Pact `notify`",
+    # Spellings GFM shows as another word: the must-not direction.
+    "Pact notify 2",
+    "Pact 2 notify",
+    "Pacts notify",
+    "Pact notifyx",
 ]
-OTHERS = ["Pact notify 2", "Pact 2 notify", "Pacts notify", "Pact notifyx"]
 MARKUP = sorted(
     {
         wrap.format(item)
         for wraps in WRAPS.values()
         for wrap in wraps
-        for item in ("Pact notify", "Pact", *OTHERS)
+        for item in (
+            "Pact notify",
+            "Pact",
+            "Pact notify 2",
+            "Pact 2 notify",
+            "Pacts notify",
+            "Pact notifyx",
+        )
     }
     | {f"Pact{j}notify" for j in JOINS}
     | set(SPLITS)
-    | set(OTHERS)
 )
 
 
