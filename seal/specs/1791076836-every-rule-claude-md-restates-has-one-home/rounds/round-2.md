@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #767 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | no fixes to check |
+| Fix range | `e49839ec2fb28425c8ffe4e2f56de85817396dc9..b70617ea8fcffaf979a0eb0ef344bdf1b2520498`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | no |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -32,8 +32,8 @@ The one new unit, `test_a_paste_into_the_block_template_is_named` (depth 1), is 
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| ⬜ 1 | The comment calls *go in one batch (emphasised) before the first edit* verbatim from `CLAUDE.md`'s goal sentence, which emphasised the whole phrase at every commit from #44 to #730 | `tests/test_chain_hooks_hardening.py:917` | open | Read: `git show fd71605:CLAUDE.md` and the base both carry the whole phrase in emphasis; the case does not depend on the spelling |
-| ⬜ 2 | The `shared_counts` docstring says TEXTS holds raw text, and since the fix the region is dropped by `tree`, not by the function | `tests/test_no_passage_is_pasted_into_a_second_file.py:139` | open | Read: every caller passes `tree` output or synthetic text, so no case is wrong |
+| ⬜ 1 | The comment calls *go in one batch (emphasised) before the first edit* verbatim from `CLAUDE.md`'s goal sentence, which emphasised the whole phrase at every commit from #44 to #730 | `tests/test_chain_hooks_hardening.py:917` | answered | no change. The comment's coordinate was corrected in round 1, and its quotation is a paraphrase of the goal sentence's emphasis, which it labels verbatim. That misstates the source's typography and does not misstate the rule. Changing the comment now would open a round no round reads, after a verifying round that opened nothing; Read: `git show fd71605:CLAUDE.md` and the base both carry the whole phrase in emphasis; the case does not depend on the spelling |
+| ⬜ 2 | The `shared_counts` docstring says TEXTS holds raw text, and since the fix the region is dropped by `tree`, not by the function | `tests/test_no_passage_is_pasted_into_a_second_file.py:139` | answered | no change. `shared_counts`' docstring says the function takes raw text. Since round 1, the generated region is dropped one step earlier, in `tree`, and the function still receives the text as `tree` hands it over. The behaviour is pinned both ways by the generated-block case and the template case; Read: every caller passes `tree` output or synthetic text, so no case is wrong |
 | 🟢 | Round 1's yellow finding 1 is closed: the region is dropped from `CLAUDE.md` alone and the template is read whole | `tests/test_no_passage_is_pasted_into_a_second_file.py:182` | confirmed | Executed: `BASELINE` equals the counts both ways at 104 pairs; strip-everywhere turns the new case and the generated-block case red, strip-nowhere turns the generated-block and baseline cases red |
 | 🟢 | Round 1's yellow finding 2 is closed: `agents/warden.md` cites the home, and `LINKED` and `CARRIERS` hold it | `agents/warden.md:404` | confirmed | Executed: round 1's text put back fails the pin module; my enumeration of every `CLAUDE.md` mention found no other citation of the four rules |
 | 🟢 | Round 1's ⬜ 3 is closed on its coordinate: the line number is gone and the rule's new home is named | `tests/test_chain_hooks_hardening.py:917` | confirmed | Read; the remaining inaccuracy is ⬜ 1 |
