@@ -74,6 +74,24 @@ the same rows. A `Pact notify` value outside the vocabulary, or a row
 written twice, has no value at all: its first row is not the answer.
 Enforced by: tests/test_a_signatory_declares_its_pact.py::test_one_pact_reads_normalised_with_the_default_notify, tests/test_a_signatory_declares_its_pact.py::test_a_notify_value_outside_the_vocabulary_is_refused_naming_all_three, tests/test_a_signatory_declares_its_pact.py::test_a_notify_row_written_twice_has_no_value, tests/test_a_signatory_declares_its_pact.py::test_a_row_that_will_not_parse_is_refused_and_never_read_as_absent, tests/test_a_signatory_records_a_pact_change.py::test_s10_notify_decides_what_is_recorded
 
+<!-- specs/1791119073-a-pact-row-outside-the-config-table-is-refused -->
+**A `Pact` or `Pact notify` row the table's reader does not reach is
+refused, never read as the default.** The reader takes the rows of the first
+`| Item | Value |` table and stops at the first line that is not one of its
+rows, so a row written below a blank line, below prose or another table,
+indented, block-quoted, with a third cell, or with its item spelled another
+way is passed by. `hooks/config.py#pact_declaration` compares every line
+shaped as one of the two rows with a value against the lines the reader took,
+as `str.splitlines` cuts the file and as GFM does, and refuses each such line
+in a sentence naming it; `Pact notify` then has no value. A `Pact` row there
+always refuses. A `Pact notify` row there refuses only where a `Pact` value
+stands, because one with no pact is ignored wherever it is written. A row in
+a closed code fence or a closed HTML comment is an example and is not
+refused. Under `always`, a notify row read as the default let `evidence-check
+--reverify` re-stamp a moved row citing no clause, and that re-stamp cleared
+the drift that was the only trigger for its record.
+Enforced by: tests/test_a_signatory_declares_its_pact.py::test_s1_a_notify_row_below_a_blank_line_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s2_every_way_the_walk_passes_a_notify_row_by_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s3_a_notify_row_spelled_another_way_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s4_a_notify_row_the_reader_cuts_in_two_is_refused, tests/test_a_signatory_declares_its_pact.py::test_s5_a_pact_row_below_the_table_is_refused_with_no_pact_in_it, tests/test_a_signatory_declares_its_pact.py::test_s6_a_stray_notify_row_with_no_pact_anywhere_is_ignored, tests/test_a_signatory_declares_its_pact.py::test_s7_a_pact_row_that_is_not_a_stray_is_not_refused, tests/test_a_signatory_declares_its_pact.py::test_s8_a_line_whose_pieces_the_reader_reads_is_read_as_today, tests/test_a_signatory_records_a_pact_change.py::test_s9_a_notify_row_below_the_table_leaves_a_row_citing_no_clause, tests/test_pact_check.py::test_s10_a_notify_row_below_the_signatorys_table_is_exit_2, tests/test_a_signatorys_ci_prints_its_pact.py::test_s11_a_notify_row_below_the_table_is_a_notice_naming_it
+
 ## The pact anchor
 
 <!-- specs/1790993137-a-signatory-declares-its-pact-and-pact-check-reads-it -->
@@ -305,11 +323,13 @@ and nothing can see that it should have. A copy of the checker with no
 pact, and each other moved row where `seal/config.md` holds a `Pact` row and
 a `Pact notify` row that both carry a value, or will not read, says it
 recorded nothing, and re-stamps nothing, so the plugin's own checker records
-the change where the signatory is checked out. A pact under
-local mode keeps `seal/pact-reviews/` under the git directory, so another
+the change where the signatory is checked out. It looks for both rows on
+every line, as `str.splitlines` and as GFM cut the file, so it leaves a row
+wherever the plugin's reader refuses a notify row it does not reach. A pact
+under local mode keeps `seal/pact-reviews/` under the git directory, so another
 clone of the pact's repository reads the same changes as `NOT TAKEN`, which
 is loud in the right direction.
-Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_whose_config_will_not_read_leaves_the_row
+Enforced by: tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_says_it_recorded_nothing, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_under_a_notify_row_leaves_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_with_no_notify_row_restamps_a_row_citing_no_clause, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_whose_config_will_not_read_leaves_the_row, tests/test_a_signatory_records_a_pact_change.py::test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify
 
 <!-- specs/1791076833-the-reverify-writer-records-before-it-restamps -->
 **The record-first order holds against the process dying, and not against

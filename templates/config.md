@@ -414,7 +414,12 @@ pact's repository reads that record until a pact review there takes it:
 | `never` | nothing | nothing, whatever an earlier value recorded |
 
 **A row that will not parse is refused in a sentence**, never read as absent.
-At this repository's pull request `chain-check` prints the sentence and its
+**So is a `Pact` or `Pact notify` row written where the table's reader does
+not reach it**, never read as the default: below the line that ended the
+table, indented or block-quoted, with a third cell, or with its item spelled
+another way. Write both rows inside the one `| Item | Value |` table. A
+`Pact notify` row with no `Pact` value anywhere is ignored, there as in the
+table. At this repository's pull request `chain-check` prints the sentence and its
 exit status does not move: a signatory's CI prints and does not verify.
 `pact-check`, run at the pact's repository, reads the same rows through the
 same reader, `hooks/config.py#pact_declaration`, and exits 2 on them.

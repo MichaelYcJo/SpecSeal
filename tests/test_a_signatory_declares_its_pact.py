@@ -406,6 +406,50 @@ def test_the_template_and_the_config_skill_carry_both_rows_and_the_vocabulary():
         assert f"`{value}`" in governs, value
 
 
+@pytest.mark.parametrize(
+    "parts, sentence",
+    [
+        (
+            ("docs", "the-pact.md"),
+            "**A `Pact` or `Pact notify` row the table's reader does not reach "
+            "is refused, never read as the default.**",
+        ),
+        (
+            ("docs", "the-pact.md"),
+            "A `Pact` row there always refuses. A `Pact notify` row there "
+            "refuses only where a `Pact` value stands, because one with no pact "
+            "is ignored wherever it is written.",
+        ),
+        (
+            ("docs", "the-pact.md"),
+            "It looks for both rows on every line, as `str.splitlines` and as "
+            "GFM cut the file, so it leaves a row wherever the plugin's reader "
+            "refuses a notify row it does not reach.",
+        ),
+        (
+            ("templates", "config.md"),
+            "**So is a `Pact` or `Pact notify` row written where the table's "
+            "reader does not reach it**, never read as the default",
+        ),
+        (
+            ("templates", "config.md"),
+            "Write both rows inside the one `| Item | Value |` table.",
+        ),
+    ],
+    ids=[
+        "the pact: the rule",
+        "the pact: which row refuses",
+        "the pact: the vendored copy",
+        "template: the rule",
+        "template: the remedy",
+    ],
+)
+def test_s16_the_documents_say_a_stray_pact_row_is_refused(parts, sentence):
+    """S16 of #759. Each sentence a person reads about the stray rule is
+    pinned whole; the refusal's own text is pinned by S1 above."""
+    assert sentence in flat(*parts), sentence
+
+
 # --- S4: the routing step across repositories -------------------------------
 
 ORCHESTRATION = ("skills", "implement", "orchestration.md")
