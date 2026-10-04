@@ -6,11 +6,14 @@
   so a pull request body or a memory note that quoted a commit cost an
   unattended run the whole Bash call, three times in one session. The shape is
   matched byte for byte by a new reader that shares nothing with the
-  command-line splitter. Its first line is an optional `cd` and `&&`, then
-  `cat >`, `cat >>`, `tee` or `tee -a` with one file, or `python3 -` with any
-  number of arguments, then a delimiter of letters, digits and underscores in
-  single quotes, and nothing else. Each path or argument is a plain word of
-  letters, digits, `_`, `.`, `/` and `-`, or one single-quoted word. The body ends at the first line equal to the delimiter.
+  command-line splitter. Its first line is an optional `cd`, one path and
+  `&&`, then `cat >`, `cat >>`, `tee` or `tee -a` with one file, or
+  `python3 -` with any number of arguments, then `<<` and, with no space
+  between them, a delimiter of letters, digits and underscores in single
+  quotes, and nothing else; one space separates the other tokens. Each path
+  or argument is a plain word of letters, digits, `_`, `.`, `/` and `-` that
+  does not start with `-`, or one single-quoted word that is not empty. The
+  body ends at the first line equal to the delimiter.
   The command may hold no carriage return, NUL, backslash before a newline or
   second heredoc, and nothing may follow a file's terminator. Lines after a
   Python program's terminator are read as before, so a commit there is judged
