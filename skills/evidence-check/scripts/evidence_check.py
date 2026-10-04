@@ -3000,20 +3000,29 @@ def row_citation(line, header, cells):
 
 
 def cited_first(ledgers, root, maps, default_repo):
-    """LEDGERS in the order `reverify` walks them: each file after every
-    other file of LEDGERS a citing row in it cites, ties kept in the given
-    order (#772).
+    """`(once, again, walks)`: how `reverify` walks LEDGERS (#772).
 
-    `reverify` hashes a citation by `read`, which answers from the open plan,
-    so a citation is hashed against the line the plan writes only where the
-    file it cites was walked first. File order put a fragment before the
-    release it cites, and `seal/releases/0.10.0.md` before the `0.9.0.md` it
-    cites, and one run left those citations DRIFTED. A cycle cannot be
-    written legally -- a citation into a fragment is `MALFORMED`, and a fold
-    cites only older releases -- and where one is written anyway the files
-    on it keep the given order, which `--strict` still reports."""
+    ONCE is each file that can follow every file of LEDGERS a citing row in
+    it cites, in that order, ties kept in the given order. `reverify` hashes
+    a citation by `read`, which answers from the open plan, so a citation is
+    hashed against the line the plan writes only where the file it cites was
+    walked first. File order put a fragment before the release it cites, and
+    `seal/releases/0.10.0.md` before the `0.9.0.md` it cites, and one run
+    left those citations DRIFTED.
+
+    AGAIN is every file no such order places, in the given order: a file
+    citing a row of itself, which a second fold of the newest release writes
+    legally, files citing each other, which nothing writes legally, and each
+    file citing one of them. A file's own re-stamp enters the plan only when
+    its walk ends, so these are walked again until a walk re-stamps nothing,
+    at most WALKS times: two more than the citations among them, enough for
+    the longest chain they can hold and one walk to see it settled. A
+    citation that never settles -- a row citing itself -- is left for
+    `--strict` to name."""
     index = {file_identity(path): n for n, path in enumerate(ledgers)}
     needs = [set() for _ in ledgers]
+    # The file each citing row of a file cites, one entry per row.
+    cites = [[] for _ in ledgers]
     for n, path in enumerate(ledgers):
         text = read(path)
         if text is None:
@@ -3025,20 +3034,26 @@ def cited_first(ledgers, root, maps, default_repo):
                 continue
             target, _ = citation_target(root, maps, default_repo, cite.group("path"))
             cited = index.get(file_identity(target)) if target else None
-            if cited is not None and cited != n:
+            if cited is not None:
                 needs[n].add(cited)
+                cites[n].append(cited)
     order, done = [], set()
-    while len(order) < len(ledgers):
+    while True:
         ready = next(
             (n for n in range(len(ledgers)) if n not in done and needs[n] <= done),
             None,
         )
         if ready is None:
-            order.extend(n for n in range(len(ledgers)) if n not in done)
             break
         done.add(ready)
         order.append(ready)
-    return [ledgers[n] for n in order]
+    rest = [n for n in range(len(ledgers)) if n not in done]
+    chain = sum(1 for n in rest for cited in cites[n] if cited not in done)
+    return (
+        [ledgers[n] for n in order],
+        [ledgers[n] for n in rest],
+        chain + 2 if rest else 0,
+    )
 
 
 def reverify(
@@ -3077,8 +3092,11 @@ def reverify(
     **A file is walked after every file of LEDGERS it cites** (`cited_first`,
     #772), so a citation of a released line this run re-stamps is hashed
     against the line the run writes, and one run leaves no citation it moved
-    DRIFTED. A citing row's citation, re-stamped, appends no move: it is a
-    ledger line, not code under the row (D3).
+    DRIFTED. A file citing itself, and every file no order places, is walked
+    again until a walk re-stamps nothing; a walk after the first re-stamps
+    citations alone and names nothing the first one named. A citing row's
+    citation, re-stamped, appends no move: it is a ledger line, not code
+    under the row (D3).
     """
     unreadable = []
     malformed = []
@@ -3087,25 +3105,60 @@ def reverify(
     # `(ledger, hash lines, dated, undated)` for every ledger this writes.
     written = []
     scan_cache = {}
-    for ledger in cited_first(ledgers, root, maps, default_repo):
+    once, again, bound = cited_first(ledgers, root, maps, default_repo)
+    # Whether the last walk of AGAIN re-stamped anything (`cited_first`).
+    moved = [False]
+
+    def walks():
+        for ledger in once:
+            yield ledger, False
+        for walk in range(bound):
+            if walk and not moved[0]:
+                return
+            moved[0] = False
+            for ledger in again:
+                yield ledger, walk > 0
+
+    def quiet(*_args, **_kwargs):
+        return None
+
+    for ledger, repeat in walks():
+        # A walk after the first re-stamps citations alone and says nothing
+        # the first walk said: every line below was printed or listed then.
+        say = quiet if repeat else print
         text = read(ledger, strict=True)
         if text is None:
             # `/` on every platform, as every path the writer prints.
-            unreadable.append(built_name(ledger, root))
+            if not repeat:
+                unreadable.append(built_name(ledger, root))
             continue
-        # Named and left, never healed (#299): which reading of a coordinate
-        # the parser refused was meant is not this command's call, and the
-        # remedy the line carries is the placeholder workflow this command
-        # already completes.
-        malformed.extend((coord, why) for _, coord, why in malformed_rows(text))
-        # The same for a row wider than its header (#585). Its coordinate is
-        # a line, and this command prints no per-ledger heading, so the line
-        # names the ledger too. The hashes in the row are still rewritten
-        # below where their anchors resolve: the hash is not what is wrong.
-        overflow.extend(
-            (f"{built_name(ledger, root)} {coord}", why)
-            for _, coord, why in overflow_rows(text)
-        )
+        lines = gfm_lines(text, keepends=True)
+        starts = [0]
+        for line in lines:
+            starts.append(starts[-1] + len(line))
+        rows = {n: (header, cells) for n, header, cells in ledger_table_rows(text)}
+        # Where each citing row's citation starts: a ledger line, not code
+        # under the row, so its re-stamp appends no move (D3, #772).
+        citations = set()
+        for number, (header, cells) in rows.items():
+            cite = row_citation(lines[number - 1], header, cells)
+            if cite is not None:
+                citations.add(starts[number - 1] + cite.start())
+        if not repeat:
+            # Named and left, never healed (#299): which reading of a
+            # coordinate the parser refused was meant is not this command's
+            # call, and the remedy the line carries is the placeholder
+            # workflow this command already completes.
+            malformed.extend((coord, why) for _, coord, why in malformed_rows(text))
+            # The same for a row wider than its header (#585). Its coordinate
+            # is a line, and this command prints no per-ledger heading, so the
+            # line names the ledger too. The hashes in the row are still
+            # rewritten below where their anchors resolve: the hash is not
+            # what is wrong.
+            overflow.extend(
+                (f"{built_name(ledger, root)} {coord}", why)
+                for _, coord, why in overflow_rows(text)
+            )
         # `(offset, coordinate, recorded hash, new hash or None)` for every
         # coordinate whose hash moves or which no one place holds (MOVES).
         pending = []
@@ -3118,12 +3171,14 @@ def reverify(
         # the same offsets, and an example row in a closed fence is never
         # rewritten (#444).
         for m in ANCHOR_RE.finditer(unquoted(text)):
+            if repeat and m.start() not in citations:
+                continue
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
             repo, rel = place(root, maps, default_repo, raw_path)
             left_as = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
             if repo is None:
-                print(f"  {left_as}  path escapes the repository — left")
+                say(f"  {left_as}  path escapes the repository — left")
                 continue
             body = read(os.path.join(repo, rel))
             places, resurrected = (
@@ -3157,7 +3212,7 @@ def reverify(
                     # local look-alike (round 4, 🔴 4) — the check reports
                     # such a row EXTERNAL or file-not-found, and reverify
                     # must agree with the check rather than out-heal it.
-                    print(
+                    say(
                         f"  {left_as}  not in any known checkout — pass "
                         "--map/--default-repo; left"
                     )
@@ -3208,14 +3263,14 @@ def reverify(
                         )
                     )
                 else:
-                    print(
+                    say(
                         f"  {left_as}  {left_because(places, resurrected)}, and "
                         "no destination is provable — left"
                     )
                     pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
             if body is None:
-                print(f"  {left_as}  the file could not be read — left")
+                say(f"  {left_as}  the file could not be read — left")
                 # Recorded as BROKEN, as a coordinate no one place holds is
                 # (round 2 of PR #749, yellow 14).
                 pending.append((m.start(), left_as, m.group("hash"), None))
@@ -3224,7 +3279,7 @@ def reverify(
                 # Never silence. The check calls this row BROKEN and tells the
                 # reader to look; running the heal command and getting nothing
                 # back reads as a heal that happened (round 6, 🟢).
-                print(f"  {left_as}  {left_because(places, resurrected)} — left")
+                say(f"  {left_as}  {left_because(places, resurrected)} — left")
                 pending.append((m.start(), left_as, m.group("hash"), None))
                 continue
             if claim:
@@ -3233,7 +3288,7 @@ def reverify(
                     # The check prints `— re-verify` for exactly this row, so
                     # answering it with nothing was the worst of the silences
                     # (round 7, 🟢).
-                    print(
+                    say(
                         f"  {left_as}  the anchored statement is gone from "
                         f"{locator} — the check calls this DRIFTED; left"
                     )
@@ -3255,16 +3310,13 @@ def reverify(
                     True,
                 )
             )
+        if any(text[a:b] != new for a, b, new, *_ in edits):
+            moved[0] = True
         if not edits and not pending:
             continue
         # `<ledger>:<line>` is a coordinate this run built, so it takes `/`
         # on every platform, as the records arm's do (`built_name`).
         name = built_name(ledger, root)
-        lines = gfm_lines(text, keepends=True)
-        starts = [0]
-        for line in lines:
-            starts.append(starts[-1] + len(line))
-        rows = {n: (header, cells) for n, header, cells in ledger_table_rows(text)}
         dated, undated = [], []
         by_row = {}
         for edit in edits:
@@ -3283,7 +3335,8 @@ def reverify(
             where = f"{name}:{number}"
             if checked is not None:
                 if column is None:
-                    undatable.append(where)
+                    if where not in undatable:
+                        undatable.append(where)
                     left_whole.add(number)
                     continue
                 cell = dated_cell(lines[number - 1], column[0], checked)
@@ -3306,11 +3359,6 @@ def reverify(
             # A citing row's citation is a ledger line, not code under the
             # row: re-stamping it is not a pact change (D3, #772), and the
             # released row it cites records its own code move on its own row.
-            citations = set()
-            for number, (header, cells) in rows.items():
-                cite = row_citation(lines[number - 1], header, cells)
-                if cite is not None:
-                    citations.add(starts[number - 1] + cite.start())
             for offset, coord, old, new in pending:
                 if offset in citations:
                     continue
@@ -3334,8 +3382,10 @@ def reverify(
         for ledger, said_here, dated_here, undated_here in written:
             if landed_at(landed, ledger):
                 lines.extend(said_here)
-                dated.extend(dated_here)
-                undated.extend(undated_here)
+                # A file walked more than once (`cited_first`) lists a row
+                # both walks dated once.
+                dated.extend(d for d in dated_here if d not in dated)
+                undated.extend(u for u in undated_here if u not in undated)
         changed = len(lines)
         lines.append(f"{changed} row{'' if changed == 1 else 's'} re-verified")
         if dated:
@@ -3496,7 +3546,7 @@ def newest_hash(view, key, coord, m):
 
 
 def citations_left(ledgers, view_paths, root, maps, default_repo):
-    """`[(where, label, cited)]` for each citing row in a file of VIEW_PATHS
+    """`[(where, label, cited, target)]` for each citing row in a file of VIEW_PATHS
     that LEDGERS leave out whose citation this run made DRIFTED: OK against
     the released file on disk, DRIFTED against what the open plan writes
     there (#772). Read while the plan is open, after the in-place walk.
@@ -3563,6 +3613,7 @@ def citations_left(ledgers, view_paths, root, maps, default_repo):
                         f"{built_name(path, root)}:{number}",
                         row_label(cells),
                         f"{built_name(target, root)}:{at[1]}",
+                        target,
                     )
                 )
     return found
@@ -5355,15 +5406,24 @@ def main():
                     )
                 # A citation of a line this run re-stamped, in a file the
                 # narrowing left out, is left DRIFTED: named, never silent
-                # (#772). Read before the plan is applied, against it.
+                # (#772). Read before the plan is applied, against it. The
+                # line says the re-stamp happened, so it waits in TOLD for the
+                # cited file to land, as every line claiming a write does: a
+                # run that writes nothing claims nothing (W8, round 1,
+                # yellow 3).
                 left = citations_left(ledgers, view, root, maps, default_repo)
-                for where, label, cited in left:
-                    print(
+
+                def left_cited(landed):
+                    return [
                         f"  LEFT  {where}  {label} — its citation of {cited} is "
                         "DRIFTED: this run re-stamps the line it cites, and the "
                         "narrowing left this row's file out; run it without "
                         "`--ledger`"
-                    )
+                        for where, label, cited, target in left
+                        if landed_at(landed, target)
+                    ]
+
+                told.append(left_cited)
                 return recorded_then_applied(max(code, 1 if owed or left else 0))
             # A released file is not written: the fragments are re-stamped in
             # place as before, and then the released rows are re-read into INTO,

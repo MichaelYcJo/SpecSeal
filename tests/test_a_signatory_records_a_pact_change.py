@@ -1320,11 +1320,21 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
         ),
         (
             "docs/the-pact.md",
-            "**A recorded move starts at the hash the coordinate's newest reading "
-            "holds**, which under the freeze can be a later `Re-read ·` row's "
-            "rather than the released row's, so code that went back to the "
-            "released hash records the move back; a move whose two hashes agree "
-            "is no move and is not recorded (#774).",
+            "**A move `--into` records starts at the hash the coordinate's newest "
+            "reading holds**, whether it writes the row's `Re-read ·` row or "
+            "refuses it.",
+        ),
+        (
+            "docs/the-pact.md",
+            "A re-stamp in place records each row's move from that row's own "
+            "hash. A move whose two hashes agree is no move and is not recorded "
+            "(#774).",
+        ),
+        (
+            "docs/the-pact.md",
+            "The hash is a code coordinate's: a citing row's citation of a "
+            "released row is a ledger line, so its re-stamp records nothing "
+            "(#772).",
         ),
     ],
     ids=[
@@ -1335,7 +1345,9 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
         "the pact: a vendored copy",
         "skill: a vendored copy",
         "the pact: a doubled notify",
-        "the pact: a move starts at the newest reading",
+        "the pact: an --into move starts at the newest reading",
+        "the pact: an in-place move starts at the row's own hash",
+        "the pact: a citation's re-stamp is not the trigger",
     ],
 )
 def test_the_documents_say_what_the_writer_does(doc, sentence):
@@ -1925,3 +1937,56 @@ def test_a_citation_restamp_is_not_a_pact_change(repo):
             f"`src/orders.py#serialize@{old}` → `@{new}` | 2026-09-04 |",
         ]
     ), out
+
+
+def test_an_in_place_move_starts_at_the_rows_own_hash(repo):
+    """The newest-reading rule is `--into`'s (round 1, yellow 2). No freeze, a
+    declared branch: released R1 cites the clause at `h0`, another item's
+    fragment re-reads R1 at `h1`, and the code then moves to `h2`. The
+    in-place re-stamp records R1's move from R1's own hash, `h0 → h2`, as the
+    pact doc says; making it the newest reading's is #785's frame, not this."""
+    git(repo, "init", "-q", "-b", "feat/x")
+    (repo / "seal" / "specs" / ITEM).mkdir(parents=True)
+    (repo / "seal" / "specs" / ITEM / "routing.md").write_text(
+        "| Axis | Answer |\n|---|---|\n| Review | straight to the PR |\n"
+        "| Destination | open the pull request |\n| Branch | feat/x |\n",
+        encoding="utf-8",
+    )
+    h0 = unit_hash(repo, "src/orders.py", "serialize")
+    released = repo / "seal" / "releases" / "0.1.0.md"
+    released.parent.mkdir(parents=True)
+    released.write_text(
+        "## 0.1.0 — 2026-01-01\n\n### 1000000001-x\n\n"
+        + row("R1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{h0}"),
+        encoding="utf-8",
+    )
+    citation = ec.citation_for(str(repo), str(released), 5)
+    h1 = move_serialize(repo)
+    (repo / OTHER_ITEM).parent.mkdir(parents=True, exist_ok=True)
+    (repo / OTHER_ITEM).write_text(
+        f"| Re-read · R1 · the field list | `{citation}`, "
+        f"`src/orders.py#serialize@{h1}` | read | 2026-09-02 | Re-read 2026-09-02 |\n",
+        encoding="utf-8",
+    )
+    git(repo, "add", "-A")
+    git(
+        repo,
+        "-c",
+        "user.email=e@example.com",
+        "-c",
+        "user.name=e",
+        "commit",
+        "-qm",
+        "x",
+    )
+    (repo / "src" / "orders.py").write_text(
+        SOURCE.replace("'id': order.id", "'id': order.id, 'n': 1"), encoding="utf-8"
+    )
+    h2 = unit_hash(repo, "src/orders.py", "serialize")
+    assert len({h0, h1, h2}) == 3
+    code, out = run(repo, "--checked", "2026-09-04")
+    assert code == 0, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · R1 | "
+        f"`src/orders.py#serialize@{h0}` → `@{h2}` | 2026-09-04 |"
+    ], out

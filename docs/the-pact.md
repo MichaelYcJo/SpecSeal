@@ -116,18 +116,21 @@ Enforced by: tests/test_pact_check.py::test_an_anchor_missing_its_slash_is_refus
 row that cites a clause of a pact its `Pact` row declares, finds the code
 under such a row moved where `--into` refuses it a `Re-read ·` row for a
 stale `--checked`, or leaves a coordinate of one BROKEN, the same command
-records a pact change, and that test is the whole trigger.** It needs no
+records a pact change, and that test is the whole trigger.** The hash is a
+code coordinate's: a citing row's citation of a released row is a ledger
+line, so its re-stamp records nothing (#772). It needs no
 judgment: a row carrying a pact anchor and a local coordinate is the link,
 and a re-read is the one act at which a session says code under a row
 moved. The record is written in both of the re-read's forms, a re-stamp in
 place and a `Re-read ·` row under `--into`, before the hash it read is gone,
 one row per ledger row. A row `--into` refuses is recorded by the run that
 refuses it, because its repair may be a `Corrected ·` row that no later
-re-read reaches (#746). **A recorded move starts at the hash the
-coordinate's newest reading holds**, which under the freeze can be a later
-`Re-read ·` row's rather than the released row's, so code that went back to
-the released hash records the move back; a move whose two hashes agree is no
-move and is not recorded (#774). `Pact
+re-read reaches (#746). **A move `--into` records starts at the hash the
+coordinate's newest reading holds**, whether it writes the row's `Re-read ·`
+row or refuses it. That can be a later `Re-read ·` row's hash rather than the
+released row's, so code that went back to the released hash records the move
+back. A re-stamp in place records each row's move from that row's own hash.
+A move whose two hashes agree is no move and is not recorded (#774). `Pact
 notify` decides what is recorded: `when the pact is touched` records rows
 citing a clause of a declared pact, `always` also records every other row
 whose code moved, with `—` for its clause, and `never` records nothing. The

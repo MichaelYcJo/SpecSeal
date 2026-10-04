@@ -2369,14 +2369,32 @@ def test_one_unfrozen_run_walks_an_older_release_before_the_newer_citing_it(repo
     assert check.returncode == 0, check.stdout
 
 
-def test_a_narrowed_unfrozen_run_names_the_citation_it_moved_and_left(repo):
+@pytest.mark.parametrize("record", ["written", "refused"])
+def test_a_narrowed_unfrozen_run_names_the_citation_it_moved_and_left(repo, record):
     """S6 (#772). Narrowed to R's file, the run moves the line M cites and
     cannot re-stamp M, whose file the narrowing left out. It names M's row on
-    a `LEFT` line with the repair, and exits 1 rather than 0."""
+    a `LEFT` line with the repair, and exits 1 rather than 0. The line says
+    the run re-stamps R's line, so it prints only once that write landed: a
+    run whose pact-change record is refused writes nothing and says nothing
+    of the kind (W8, round 1, yellow 3)."""
     unfrozen_r_and_m(repo)
+    if record == "refused":
+        # `always` owes a record for every moved row, and no work item names one.
+        (repo / "seal" / "config.md").write_text(
+            "| Item | Value |\n|---|---|\n| Mode | shared |\n"
+            "| Pact | git@example.com:org/orders-api.git |\n"
+            "| Pact notify | always |\n",
+            encoding="utf-8",
+        )
+    before = (repo / R_FILE).read_bytes()
     fix = run(["--reverify", "--checked", "2026-03-01", "--ledger", R_FILE, "."], repo)
     assert fix.returncode == 1, fix.stdout
     left = [line for line in fix.stdout.splitlines() if line.startswith("  LEFT")]
+    if record == "refused":
+        assert "nothing was re-stamped" in fix.stdout, fix.stdout
+        assert "its citation of" not in fix.stdout, fix.stdout
+        assert (repo / R_FILE).read_bytes() == before
+        return
     assert left == [
         f"  LEFT  seal/ledger/{M_ITEM}.md:1  Re-read · R1 · handler adds one — its "
         f"citation of {R_FILE}:5 is DRIFTED: this run re-stamps the line it cites, "
@@ -2428,10 +2446,60 @@ def test_a_narrowed_unfrozen_run_names_no_citation_it_did_not_move(repo, shape):
     assert "its citation of" not in fix.stdout, fix.stdout
 
 
-def test_the_walk_order_survives_a_self_citation_and_a_cycle(repo):
-    """`cited_first` (#772). A file whose citing row cites a row of the same
-    file is not waiting on itself, so the file citing it still follows it;
-    two files citing each other keep the given order, and no file is lost."""
+@pytest.mark.parametrize(
+    "shape", ["a file citing itself", "two files citing each other"]
+)
+def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
+    """#772, round 1, yellow 1. A second fold of the newest release joins its
+    file, so a release file can hold R1 and a `Re-read ·` row citing R1. A
+    file's own re-stamp is planned only when its walk ends, so its citation
+    was hashed against the old line, and `--strict` exited 2 until a second
+    run. The same held for two files citing each other. Walked again until
+    they settle, one run leaves `--strict` at 0, and each row it dated is
+    named once."""
+    h = unit_hash(repo, "src/service.py", "handler")
+
+    def r(n):
+        return (
+            f"| R{n} · handler adds one | `src/service.py#handler@{h}` | read "
+            "| 2026-01-01 | |"
+        )
+
+    def reread(cite):
+        return (
+            f"| Re-read · the row it cites | `{cite}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        )
+
+    if shape == "a file citing itself":
+        # The citing row quotes R1's first cell, so the citation is taken with
+        # it in place: a literal R1's line alone holds would match both lines.
+        released(repo, [r(1), reread(citation(r(1), "R1 · handler adds one"))])
+        cite = ec.citation_for(str(repo), str(repo / R_FILE), 5)
+        released(repo, [r(1), reread(cite)])
+    else:
+        released(repo, [r(2)], version="0.3.0")
+        released(repo, [r(1)], version="0.4.0")
+        to_4 = ec.citation_for(str(repo), str(repo / "seal/releases/0.4.0.md"), 5)
+        to_3 = ec.citation_for(str(repo), str(repo / "seal/releases/0.3.0.md"), 5)
+        released(repo, [r(2), reread(to_4)], version="0.3.0")
+        released(repo, [r(1), reread(to_3)], version="0.4.0")
+    assert run(["--strict", "."], repo).returncode == 0
+    edit_handler(repo)
+    fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+    assert fix.returncode == 0, fix.stdout
+    named = [line for line in fix.stdout.splitlines() if line.startswith("    seal/")]
+    assert named and len(named) == len(set(named)), fix.stdout
+    check = run(["--strict", "."], repo)
+    assert check.returncode == 0, check.stdout
+
+
+def test_the_walk_order_places_what_it_can_and_walks_the_rest_again(repo):
+    """`cited_first` (#772). A file citing only placed files follows them. A
+    file citing a row of itself, two files citing each other, and a file
+    citing one of those are placed by no order: they keep the given order, to
+    be walked again, at most two more times than the four citations among
+    them. No file is lost."""
     h = unit_hash(repo, "src/service.py", "handler")
     rows = [
         f"| R{n} · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
@@ -2447,16 +2515,22 @@ def test_the_walk_order_survives_a_self_citation_and_a_cycle(repo):
 
     released(repo, [rows[0], reread("0.1.0", 1)], version="0.1.0")
     fragment(repo, [reread("0.1.0", 1)], name=M_ITEM)
+    released(repo, [rows[0]], version="0.2.0")
+    fragment(repo, [reread("0.2.0", 1)], name="2000000003-n")
     released(repo, [rows[1], reread("0.4.0", 1)], version="0.3.0")
     released(repo, [rows[0], reread("0.3.0", 2)], version="0.4.0")
     paths = [
         str(repo / f"seal/ledger/{M_ITEM}.md"),
+        str(repo / "seal/ledger/2000000003-n.md"),
         str(repo / "seal/releases/0.1.0.md"),
+        str(repo / "seal/releases/0.2.0.md"),
         str(repo / "seal/releases/0.3.0.md"),
         str(repo / "seal/releases/0.4.0.md"),
     ]
-    order = ec.cited_first(paths, str(repo), {}, None)
-    assert order == [paths[1], paths[0], paths[2], paths[3]], order
+    once, again, walks = ec.cited_first(paths, str(repo), {}, None)
+    assert once == [paths[3], paths[1]], once
+    assert again == [paths[0], paths[2], paths[4], paths[5]], again
+    assert walks == 6
 
 
 @pytest.mark.parametrize(
