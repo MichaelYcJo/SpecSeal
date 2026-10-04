@@ -7,7 +7,7 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #768 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fixes checked by | round-2 |
 | Fix range | `597d36254a39b85ebe33e89decde7e5348297e94..2fa080e3eb9b0e1e01c451a94591837fad1eda9b`, 5 commits |
 | Contract changes | none |
 | New units | CITED_NAME_RE (depth 1); TAILS (depth 1); TAKEN_NAMES (depth 1); NOT_TAKEN (depth 1); test_a_citation_into_a_taken_file_is_read_whatever_follows_it (depth 1); test_a_citation_into_a_file_that_stays_is_not_read_as_one (depth 1); test_a_citation_written_as_prose_is_listed (depth 1); test_the_fold_reads_a_reference_into_the_process_record_at_the_tag (depth 1); test_no_carrier_says_nothing_reads_the_process_record (depth 1); test_the_design_records_dated_section_says_no_check_reads_it (depth 1) |
