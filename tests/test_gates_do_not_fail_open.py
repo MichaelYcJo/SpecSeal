@@ -157,7 +157,9 @@ def test_a_ledger_that_could_not_be_read_is_never_read_as_empty(tmp_path, monkey
     ledger = tmp_path / "seal" / "ledger" / "f.md"
     ledger.parent.mkdir(parents=True)
     ledger.write_text("# frag\n\n| C | `src/a.py#f@00000000` |\n", encoding="utf-8")
-    monkeypatch.setattr(ec, "read", lambda path: None)
+    # `strict` is the writer's: `reverify` reads a ledger it would write
+    # strictly (#647 C and D, the writer's contract, W9).
+    monkeypatch.setattr(ec, "read", lambda path, strict=False: None)
 
     findings = ec.check_ledger(str(ledger), str(tmp_path), {})
     assert findings, "an unreadable ledger was checked as an empty one"
@@ -181,7 +183,9 @@ def test_the_common_directory_reader_that_decoded_nothing_answers_empty(
     directory, so no local root, so not opted in — and never raises."""
     linked = tmp_path / "linked"
     linked.mkdir()
-    (linked / ".git").write_text("gitdir: /nowhere/.git/worktrees/linked\n")
+    (linked / ".git").write_text(
+        "gitdir: /nowhere/.git/worktrees/linked\n", encoding="utf-8"
+    )
 
     def decoded_nothing(*args, **kwargs):
         return subprocess.CompletedProcess(args, 0, stdout=None, stderr=None)

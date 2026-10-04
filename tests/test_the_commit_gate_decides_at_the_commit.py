@@ -73,7 +73,7 @@ def g(d, *args, home, check=True, session=SESSION, **extra):
     return subprocess.run(
         ["git", "-C", str(d), *args],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         check=check,
         env=env(home, session, **extra),
         stdin=subprocess.DEVNULL,
@@ -155,7 +155,7 @@ class World:
             [BASH, "-c", command],
             cwd=str(cwd or self.main),
             capture_output=True,
-            text=True,
+            encoding="utf-8",
             env=env(self.home, session, **extra),
             stdin=subprocess.DEVNULL,
             timeout=60,
@@ -429,11 +429,35 @@ def test_a_row_that_does_not_end_is_named_and_leaves_nothing_behind(tmp_path):
         timeout=1,
     )
     assert not ended
-    assert time.monotonic() - started < 8, "the bound waited for the loop"
+    bound = time.monotonic()
+    assert bound - started < 8, "the bound waited for the loop"
     if os.name != "nt":
-        alive.unlink(missing_ok=True)
-        time.sleep(0.5)
-        assert not alive.exists(), "the row's loop outlived the bound"
+        assert _stays_gone(alive, since=bound), "the row's loop outlived the bound"
+
+
+# #748. One window is ten of the test loop's 0.1 s periods, so a loop still
+# running touches the marker in every window. The deadline is five windows
+# after the bound, and an orphaned loop lives at least ten seconds from its
+# start, so a loop the group kill missed is still touching when it falls --
+# and a loaded machine only slows the loop, which lengthens its life.
+GONE_WINDOW = 1.0
+GONE_DEADLINE = 5.0
+
+
+def _stays_gone(marker, *, since):
+    """Whether `marker`, unlinked at the start of a window, is still absent
+    at its end in some window before `GONE_DEADLINE` after `since`.
+
+    Polled rather than slept once: a fixed half second after the bound
+    failed on a loaded machine with nothing wrong (#748). Unlinking again at
+    each window is what makes a `touch` already in flight when the group was
+    killed harmless -- it can bring the marker back once, never twice."""
+    while time.monotonic() - since < GONE_DEADLINE:
+        marker.unlink(missing_ok=True)
+        time.sleep(GONE_WINDOW)
+        if not marker.exists():
+            return True
+    return False
 
 
 # `docs/the-commit-gate-inside-git.md` §*Known limits of the commit gate
@@ -830,6 +854,32 @@ def test_s5_an_attended_session_is_told_to_ask_and_the_second_attempt_is_the_sam
     assert "Then do what they picked." in text
 
 
+def test_the_refusal_reaches_an_ascii_console_as_written(world):
+    """#741 S8: `hooks/git/pre-commit.py` opens with `console.to_utf8()`.
+
+    Without the call the hook did not crash here, which is what #741's frame
+    expected: Python keeps `backslashreplace` on stderr whatever
+    `PYTHONIOENCODING` says, so the refusal arrived with every em dash and
+    ellipsis spelled `\\u2014` and `\\u2026` -- including inside the waiver it
+    tells the reader to type. Decoded here as UTF-8 rather than in the
+    locale's encoding, so the Windows leg reads the same bytes."""
+    world.change(world.main)
+    got = subprocess.run(
+        ["git", "-C", str(world.main), "commit", "-q", "-m", "x"],
+        capture_output=True,
+        encoding="utf-8",
+        errors="replace",
+        env=env(world.home, PYTHONIOENCODING="ascii", PYTHONUTF8="0"),
+        stdin=subprocess.DEVNULL,
+        timeout=60,
+    )
+    assert got.returncode != 0
+    assert "\\u20" not in got.stderr, got.stderr
+    assert (
+        got.stderr == gate.refusal(["review"], str(world.main), "release", False) + "\n"
+    )
+
+
 def test_s5_both_spellings_the_refusal_names_actually_commit(world):
     world.change(world.main)
     before = world.head(world.main)
@@ -872,7 +922,7 @@ def group(world, name, command, call):
         [sys.executable, str(HOOKS / "dispatch.py"), name],
         input=json.dumps(payload),
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=env(world.home),
         check=True,
         timeout=60,
@@ -890,7 +940,7 @@ def as_a_call(world, command):
         [str(claude), "-c", f'{q(BASH)} -c "$CALL_COMMAND"; exit $?'],
         cwd=str(world.main),
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=env(world.home, CALL_COMMAND=as_the_tool_spells_it(command)),
         stdin=subprocess.DEVNULL,
         timeout=60,
@@ -973,7 +1023,7 @@ def test_s9_the_lease_names_the_session_when_no_variable_is_exported(world):
         [str(claude), "-c", lease_then(world, "git commit -q -m x")],
         cwd=str(world.main),
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=env(world.home, session=""),
         stdin=subprocess.DEVNULL,
         timeout=60,
@@ -1002,7 +1052,7 @@ def test_s9_an_emptied_environment_is_still_judged_through_the_lease(world):
         ],
         cwd=str(world.main),
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=env(world.home, session=""),
         stdin=subprocess.DEVNULL,
         timeout=60,
@@ -1118,7 +1168,7 @@ def pre_bash(world, command, cwd):
         [sys.executable, str(HOOKS / "dispatch.py"), "pre-bash"],
         input=json.dumps(payload),
         capture_output=True,
-        text=True,
+        encoding="utf-8",
         env=env(world.home),
         timeout=60,
     ).stdout

@@ -405,7 +405,7 @@ CRITERION = "### Choosing a value — the criterion"
 THREE_RULES = [
     "red repository-wide for reasons unrelated to any branch",
     "A command that **fixes** the tree",
-    "The suite runner comes first",
+    "The suite runner is a part of the row a cut can stop after",
 ]
 
 
@@ -426,7 +426,12 @@ def test_each_rule_is_carried_with_the_reason_it_is_a_rule():
     body = flat(section(read(*TEMPLATE), CRITERION, 3))
     assert "block every future work item" in body, "rule 1 has no reason"
     assert "can only come back green" in body, "rule 2 has no reason"
-    assert "before the row's first `&&`" in body, "rule 3 has no reason"
+    assert "until one prints pytest's summary" in body, "rule 3 has no reason"
+    # #747: the reason used to be that the comparison re-ran the first `&&`
+    # part, and it stopped being true; Q2 states both orders and recommends
+    # neither.
+    assert "the order is the repository's trade" in body, "rule 3 picks an order"
+    assert "before the row's first `&&`" not in body, "rule 3 keeps a stale reason"
 
 
 def test_rule_three_was_folded_rather_than_copied_into_a_third_place():
@@ -441,7 +446,7 @@ def test_rule_three_was_folded_rather_than_copied_into_a_third_place():
     )
     assert "re-runs\n  what stands before the first" not in read(*CONFIG_SKILL)
     template_body = read(*TEMPLATE)
-    assert template_body.count("The suite runner comes first") == 1
+    assert template_body.count(THREE_RULES[2]) == 1
 
 
 def test_the_config_skill_sends_the_criterion_to_its_owner_by_name():

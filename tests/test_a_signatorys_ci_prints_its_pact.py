@@ -182,8 +182,12 @@ def test_a_pull_request_declaring_nothing_still_prints_the_pact(tmp_path):
             "a `Pact` row this CI does not verify: `Pact notify | sometimes` "
             "is not one of `always`, `when the pact is touched`, `never`",
         ),
+        (
+            [("Pact", PACT_URL), ("Pact notify", "never"), ("Pact notify", "always")],
+            "(`Pact notify`: a value that will not parse)",
+        ),
     ],
-    ids=["not a url", "notify outside the vocabulary"],
+    ids=["not a url", "notify outside the vocabulary", "notify written twice"],
 )
 def test_a_row_that_will_not_parse_is_a_notice_and_never_a_failure(
     tmp_path, rows, said

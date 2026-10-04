@@ -502,6 +502,14 @@ about to run it a second time after the change.
   follow-up, and it does not block.
 - **New** — this work broke it. Back to the implement/review loop, and the
   broad gate runs again afterwards.
+- **New?**, with a reason — nothing at the base measured it: no part of the
+  `Broad gate` row printed a line the gate reads as pytest's summary there,
+  or the run there stopped
+  before every test ran. It is a question about the file, not a finding
+  either way; open the kept `suite-at-base-<k>.txt` files and run the file at
+  the base by hand before calling it either of the two above.
+  `templates/config.md` §*Choosing a value — the criterion*, rule 3, says
+  which rows the gate cannot measure.
 
 Measured on one repository: a full suite showed ten failures, all ten
 reproducing on the base commit and none of them in the domain being changed.

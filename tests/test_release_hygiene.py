@@ -156,6 +156,14 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "taken on*, it now has two members, and the exemption is keyed on "
         "(file, token) so neither one lets the number through anywhere else"
     ),
+    ("skills/verify/scripts/broad_gate.py", "9.1.1"): (
+        "pytest's, named in the comments over `ERROR_RE` and `STOPPED_EARLY_RE` "
+        "as the build whose endings were measured: the `ERROR` line shapes and "
+        "the `!` rules the base comparison reads (#747). The third member of "
+        "the class the row above names, a loaded file naming the tool build a "
+        "measurement was taken on; an ending read off an unnamed pytest is "
+        "not a measurement, and no release of SpecSeal makes the number wrong"
+    ),
     ("CONTRIBUTING.md", "4.2.0"): (
         "markdown-it-py's, the parser the suite's CommonMark oracle reads, "
         "pinned in `.github/scripts/run_tests.py#MARKDOWN_IT` (#667). The "
@@ -170,6 +178,14 @@ VERSIONS_OF_ANOTHER_PRODUCT = {
         "the version the suite's pixel case is held to, and a case holds "
         "them to the runner's constant; no release of SpecSeal makes the "
         "number wrong"
+    ),
+    ("CONTRIBUTING.md", "2025.10.22"): (
+        "cmarkgfm's, GitHub's renderer the table walker's oracle reads, "
+        "pinned in `.github/scripts/run_tests.py#CMARKGFM` (#647). The class "
+        "is the two rows above: the fallback commands carry the pin so they "
+        "install the renderer the walker's property case is held to, and a "
+        "case holds them to the runner's constant; the package numbers its "
+        "releases by date, and no release of SpecSeal makes the number wrong"
     ),
     ("skills/verify/scripts/seal_stamp.py", "2.1.287"): (
         "Claude Code's, named above `MESSAGE_LIMIT` as the build on which the "

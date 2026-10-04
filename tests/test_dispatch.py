@@ -84,12 +84,12 @@ def test_post_edit_does_not_read_the_group_name_as_a_file(tmp_path):
     "post-edit" — that is, nothing at all."""
     proj = tmp_path / "proj"
     (proj / "bin").mkdir(parents=True)
-    (proj / "ruff.toml").write_text("line-length = 88\n")
+    (proj / "ruff.toml").write_text("line-length = 88\n", encoding="utf-8")
     target = proj / "a.py"
-    target.write_text("x=1\n")
+    target.write_text("x=1\n", encoding="utf-8")
     log = proj / "ruff.log"
     stub = proj / "bin" / "ruff"
-    stub.write_text(f'#!/bin/sh\necho "$@" >> {log}\n')
+    stub.write_text(f'#!/bin/sh\necho "$@" >> {log}\n', encoding="utf-8")
     stub.chmod(0o755)
 
     r = subprocess.run(
@@ -190,7 +190,7 @@ def test_a_crashing_gate_does_not_take_the_group_down(repo, monkeypatch):
 def anchored_row(repo, rename=False, edit=False):
     """A ledger row citing `handler`, with the file optionally moved on."""
     src = "def handler(x):\n    return x + 1\n"
-    (repo / "app.py").write_text(src)
+    (repo / "app.py").write_text(src, encoding="utf-8")
     advisor = load_hook_module("evidence-advisor.py", "evidence_advisor")
     import importlib.util
 
@@ -200,14 +200,14 @@ def anchored_row(repo, rename=False, edit=False):
     h = ec.content_hash(src.splitlines())
     (repo / "seal" / "ledger").mkdir(parents=True)
     (repo / "seal" / "ledger" / "f.md").write_text(
-        f"# frag\n\n| CLAUSE | `app.py#handler@{h}` |\n"
+        f"# frag\n\n| CLAUSE | `app.py#handler@{h}` |\n", encoding="utf-8"
     )
     out = src
     if rename:
         out = out.replace("handler", "total_price")
     if edit:
         out = out.replace("x + 1", "x + 9")
-    (repo / "app.py").write_text(out)
+    (repo / "app.py").write_text(out, encoding="utf-8")
 
 
 def test_a_commit_that_breaks_an_anchor_is_told_so(repo):
@@ -244,7 +244,7 @@ def test_a_command_without_a_commit_says_nothing(repo):
 
 def test_a_repo_that_never_opted_in_is_left_alone(repo):
     """A globally installed plugin must not nag unrelated repositories."""
-    (repo / "app.py").write_text("def handler(x):\n    return x\n")
+    (repo / "app.py").write_text("def handler(x):\n    return x\n", encoding="utf-8")
     out = run_dispatch("post-bash", payload("git commit -m x", repo))
     assert "evidence-check" not in out, out
 
@@ -255,7 +255,9 @@ def test_the_advisory_inherits_the_graded_hint(repo):
     than assumed, as ordered."""
     anchored_row(repo)
     (repo / "app.py").unlink()
-    (repo / "elsewhere.py").write_text("def handler(x):\n    return x + 1\n")
+    (repo / "elsewhere.py").write_text(
+        "def handler(x):\n    return x + 1\n", encoding="utf-8"
+    )
     out = run_dispatch("post-bash", payload("git commit -m move", repo))
     assert "identical content at elsewhere.py#handler (moved?)" in out, out
     assert "--reverify" in out, out
@@ -265,10 +267,12 @@ def test_a_commit_with_a_pre_anchor_ledger_is_pointed_at_the_migrator(repo):
     """OLD-FORMAT was absent from the advisory's filter — `broken_rows` read
     BROKEN alone — so the commit that needs the migration line most got
     silence from the hook (round 4, 🟡 6)."""
-    (repo / "app.py").write_text("def handler(x):\n    return x + 1\n")
+    (repo / "app.py").write_text(
+        "def handler(x):\n    return x + 1\n", encoding="utf-8"
+    )
     (repo / "seal" / "ledger").mkdir(parents=True)
     (repo / "seal" / "ledger" / "f.md").write_text(
-        "# frag\n\n| CLAUSE | `app.py:1-2` | 2026-08-31 |\n"
+        "# frag\n\n| CLAUSE | `app.py:1-2` | 2026-08-31 |\n", encoding="utf-8"
     )
     out = run_dispatch("post-bash", payload("git commit -m x", repo))
     assert "OLD-FORMAT" in out, out

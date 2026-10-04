@@ -128,7 +128,7 @@ def keywords_in(body):
 
 
 def run(*args):
-    out = subprocess.run(args, capture_output=True, text=True)
+    out = subprocess.run(args, capture_output=True, encoding="utf-8")
     if out.returncode:
         sys.exit(f"{' '.join(args)} failed: {out.stderr.strip()}")
     return out.stdout
@@ -142,7 +142,7 @@ def attempt(*args):
     it depend on nothing about it. The close loop reads this instead and
     decides at the end what the failures add up to.
     """
-    out = subprocess.run(args, capture_output=True, text=True)
+    out = subprocess.run(args, capture_output=True, encoding="utf-8")
     return out.returncode == 0, out.stderr.strip()
 
 
@@ -162,7 +162,7 @@ def _issue_api(repo, number):
     out = subprocess.run(
         ["gh", "api", f"repos/{repo}/issues/{number}"],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if out.returncode:
         if "Not Found" in out.stderr or "404" in out.stderr:
@@ -227,7 +227,7 @@ def drop_label(repo, number, label):
     out = subprocess.run(
         ["gh", "issue", "edit", str(number), "--repo", repo, "--remove-label", label],
         capture_output=True,
-        text=True,
+        encoding="utf-8",
     )
     if out.returncode:
         print(

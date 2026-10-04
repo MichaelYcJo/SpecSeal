@@ -490,10 +490,10 @@ def test_the_commit_gate_says_what_declining_does(tmp_path):
         ["git", "-C", str(repo), *a], capture_output=True, check=True
     )
     subprocess.run(["git", "init", "-q", str(repo)], check=True)
-    (repo / "f.py").write_text("x = 1\n")
+    (repo / "f.py").write_text("x = 1\n", encoding="utf-8")
     git("add", "-A")
     git("-c", "user.email=e@example.com", "-c", "user.name=e", "commit", "-qm", "base")
-    (repo / "f.py").write_text("x = 2\n")
+    (repo / "f.py").write_text("x = 2\n", encoding="utf-8")
     git("add", "-A")
 
     out = run_hook(
@@ -532,11 +532,11 @@ def test_the_dirty_tree_row_reads_the_tree_the_switch_is_in(
     subprocess.run(
         ["git", "clone", "-q", str(repo), str(other)], check=True, capture_output=True
     )
-    (repo / "f.txt").write_text("changed on purpose\n")
+    (repo / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
     # A force-staged ignored path, which only the target tree's own
     # `check-ignore` can name: `phantom_entries` reads the same tree.
-    (repo / ".gitignore").write_text("ign.txt\n")
-    (repo / "ign.txt").write_text("x\n")
+    (repo / ".gitignore").write_text("ign.txt\n", encoding="utf-8")
+    (repo / "ign.txt").write_text("x\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "add", "-f", "ign.txt"],
         check=True,
@@ -563,13 +563,13 @@ def test_the_dirty_tree_row_reads_the_tree_the_switch_is_in(
         monkeypatch, capsys, f"git -C {other} switch feature/x", repo
     )
     assert decision == "silent", (decision, reason)
-    (repo / "f.txt").write_text("one\ntwo\nthree\n")
+    (repo / "f.txt").write_text("one\ntwo\nthree\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "reset", "-q", "ign.txt"],
         check=True,
         capture_output=True,
     )
-    (other / "f.txt").write_text("changed in the other clone\n")
+    (other / "f.txt").write_text("changed in the other clone\n", encoding="utf-8")
     decision, reason, _ = run(
         monkeypatch, capsys, f"git -C {other} switch feature/x", repo
     )
@@ -586,8 +586,8 @@ def test_the_force_staged_check_reads_from_the_root_of_the_tree(
     `sub/ign.txt`, and an anchored pattern named nothing. The third cell, a
     session sitting in the subdirectory, missed it before this work item too."""
     (repo / "sub").mkdir()
-    (repo / ".gitignore").write_text("/ign.txt\n")
-    (repo / "ign.txt").write_text("x\n")
+    (repo / ".gitignore").write_text("/ign.txt\n", encoding="utf-8")
+    (repo / "ign.txt").write_text("x\n", encoding="utf-8")
     subprocess.run(
         ["git", "-C", str(repo), "add", "-f", "ign.txt"],
         check=True,
@@ -687,7 +687,7 @@ def test_a_cd_behind_a_redirection_leaves_the_guard_on_the_tree_the_base_judged(
     session.mkdir()
     subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
     shutil.copytree(repo, session / "w")
-    (session / "w" / "f.txt").write_text("changed on purpose\n")
+    (session / "w" / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
     for command in (
         "cd w 2>/dev/null && git switch feature/x",
         "2>/dev/null cd w && git switch feature/x",
@@ -713,7 +713,7 @@ def test_a_chain_past_the_walks_cap_keeps_the_tree_the_base_judged(
     session.mkdir()
     subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
     shutil.copytree(repo, session / "w")
-    (session / "w" / "f.txt").write_text("changed on purpose\n")
+    (session / "w" / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
     chain = "2>/dev/null cd nosuch; " * 9 + "cd w && "
     decision, reason, _ = run(
         monkeypatch, capsys, chain + "git switch feature/x", session
@@ -756,7 +756,7 @@ def _a_dirty_w_under_a_clean_session(repo, tmp_path):
     session.mkdir()
     subprocess.run(["git", "-C", str(session), "init", "-q"], check=True)
     shutil.copytree(repo, session / "w")
-    (session / "w" / "f.txt").write_text("changed on purpose\n")
+    (session / "w" / "f.txt").write_text("changed on purpose\n", encoding="utf-8")
     shutil.copytree(repo, session / "clean")
     other = tmp_path / "O"
     shutil.copytree(repo, other)

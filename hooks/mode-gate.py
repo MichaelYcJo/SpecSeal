@@ -119,7 +119,7 @@ def already_asked(git_dir, session, choice_dir=CHOICE_DIR):
         return True
     try:
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        open(path, "w").close()
+        open(path, "w", encoding="utf-8").close()
     except OSError:
         return True
     return False

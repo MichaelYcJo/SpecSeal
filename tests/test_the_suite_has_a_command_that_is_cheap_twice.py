@@ -64,7 +64,7 @@ def posix_entries():
     return sorted(n for n in os.listdir(BIN) if not n.endswith(".cmd"))
 
 
-def fake_venv(root, xdist=True, markdown_it=True, pillow=True):
+def fake_venv(root, xdist=True, markdown_it=True, pillow=True, cmarkgfm=True):
     """A directory that looks to `has_pytest` like a built environment, and
     to `has_xdist` like one that carries pytest-xdist (#337) -- the `xdist`
     package directory under site-packages, at the path each platform uses.
@@ -72,12 +72,15 @@ def fake_venv(root, xdist=True, markdown_it=True, pillow=True):
     and repairs. `markdown_it` is the same for the pinned parser (#667):
     its versioned `.dist-info` directory, or `markdown_it=False` for a
     `.venv` built before it, or a version string for one holding another
-    version. `pillow` is the same again for the pinned Pillow (#718)."""
+    version. `pillow` is the same again for the pinned Pillow (#718), and
+    `cmarkgfm` for the pinned renderer (#647)."""
     venv = root / ".venv"
     python = rt.venv_python(venv)
     python.parent.mkdir(parents=True)
-    python.write_text("")
-    (python.parent / ("pytest.exe" if os.name == "nt" else "pytest")).write_text("")
+    python.write_text("", encoding="utf-8")
+    (python.parent / ("pytest.exe" if os.name == "nt" else "pytest")).write_text(
+        "", encoding="utf-8"
+    )
     site = (
         venv / "Lib" / "site-packages"
         if os.name == "nt"
@@ -92,6 +95,9 @@ def fake_venv(root, xdist=True, markdown_it=True, pillow=True):
     if pillow:
         version = rt.PILLOW_VERSION if pillow is True else pillow
         (site / f"pillow-{version}.dist-info").mkdir()
+    if cmarkgfm:
+        version = rt.CMARKGFM_VERSION if cmarkgfm is True else cmarkgfm
+        (site / f"cmarkgfm-{version}.dist-info").mkdir()
     return venv
 
 
@@ -282,7 +288,7 @@ def test_an_environment_below_the_floor_is_refused(tmp_path, capsys):
     or this repository's own from before the floor moved -- ran the suite on a
     version nothing here supports, and said nothing."""
     venv = fake_venv(tmp_path)
-    (venv / "pyvenv.cfg").write_text("version = 3.9.6\n")
+    (venv / "pyvenv.cfg").write_text("version = 3.9.6\n", encoding="utf-8")
     assert rt.ensure(venv) is None
     err = capsys.readouterr().err
     assert "3.9.6" in err, (
@@ -305,7 +311,9 @@ def test_an_environment_that_says_nothing_about_its_version_is_kept(tmp_path):
     venv = fake_venv(tmp_path)
     assert not (venv / "pyvenv.cfg").exists()
     assert rt.ensure(venv) == rt.venv_python(venv)
-    (venv / "pyvenv.cfg").write_text("home = /usr/bin\nprompt = '.venv'\n")
+    (venv / "pyvenv.cfg").write_text(
+        "home = /usr/bin\nprompt = '.venv'\n", encoding="utf-8"
+    )
     assert rt.ensure(venv) == rt.venv_python(venv)
 
 
@@ -319,9 +327,9 @@ def test_the_environment_hides_itself_from_git(tmp_path):
     subprocess.run(["git", "init", "-q", str(tmp_path)], check=True)
     venv = tmp_path / ".venv"
     venv.mkdir()
-    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n")
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
     rt.hide_from_git(venv)
-    assert (venv / ".gitignore").read_text().strip() == "*"
+    assert (venv / ".gitignore").read_text(encoding="utf-8").strip() == "*"
     status = subprocess.run(
         ["git", "-C", str(tmp_path), "status", "--porcelain"],
         capture_output=True,
@@ -336,9 +344,9 @@ def test_an_existing_ignore_is_left_alone(tmp_path):
     editing another tool's file for no gain."""
     venv = tmp_path / ".venv"
     venv.mkdir()
-    (venv / ".gitignore").write_text("*\n# written by uv\n")
+    (venv / ".gitignore").write_text("*\n# written by uv\n", encoding="utf-8")
     rt.hide_from_git(venv)
-    assert "written by uv" in (venv / ".gitignore").read_text()
+    assert "written by uv" in (venv / ".gitignore").read_text(encoding="utf-8")
 
 
 def git_status(tmp_path):
@@ -371,7 +379,7 @@ def test_a_failed_build_still_leaves_no_trace_in_git(tmp_path, monkeypatch):
     monkeypatch.setattr(rt.subprocess, "run", run)
     assert rt.build(venv), "a failing build step still has to return a sentence"
     monkeypatch.undo()
-    assert (venv / ".gitignore").read_text().strip() == "*"
+    assert (venv / ".gitignore").read_text(encoding="utf-8").strip() == "*"
     status = git_status(tmp_path)
     assert ".venv" not in status, (
         f"the half-built virtualenv is visible to git: {status!r}"
@@ -385,9 +393,9 @@ def test_an_adopted_environment_is_hidden_too(tmp_path):
     is the one call in its life that could have written one."""
     REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
     venv = fake_venv(tmp_path)
-    (venv / "pyvenv.cfg").write_text(f"version = {rt.FLOOR_TEXT}.0\n")
+    (venv / "pyvenv.cfg").write_text(f"version = {rt.FLOOR_TEXT}.0\n", encoding="utf-8")
     assert rt.ensure(venv) == rt.venv_python(venv)
-    assert (venv / ".gitignore").read_text().strip() == "*"
+    assert (venv / ".gitignore").read_text(encoding="utf-8").strip() == "*"
     status = git_status(tmp_path)
     assert ".venv" not in status, (
         f"the adopted virtualenv is visible to git: {status!r}"
@@ -404,9 +412,9 @@ def test_a_refused_environment_is_hidden_too(tmp_path):
     every `git status` they run."""
     REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
     venv = fake_venv(tmp_path)
-    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n")
+    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n", encoding="utf-8")
     assert rt.ensure(venv) is None, "a below-floor environment is still refused"
-    assert (venv / ".gitignore").read_text().strip() == "*"
+    assert (venv / ".gitignore").read_text(encoding="utf-8").strip() == "*"
     status = git_status(tmp_path)
     assert ".venv" not in status, (
         f"the refused virtualenv is visible to git: {status!r}"
@@ -426,12 +434,12 @@ def test_a_directory_no_builder_can_finish_is_hidden_too(tmp_path, monkeypatch):
     REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
     venv = tmp_path / ".venv"
     venv.mkdir()
-    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n")
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin\n", encoding="utf-8")
     monkeypatch.setattr(rt.shutil, "which", lambda _: None)
     monkeypatch.setattr(rt, "sys", FakeSys())
     assert rt.ensure(venv) is None, "a machine with neither tool still refuses"
     monkeypatch.undo()
-    assert (venv / ".gitignore").read_text().strip() == "*"
+    assert (venv / ".gitignore").read_text(encoding="utf-8").strip() == "*"
     status = git_status(tmp_path)
     assert ".venv" not in status, (
         f"the unfinishable virtualenv is visible to git: {status!r}"
@@ -523,7 +531,7 @@ def test_an_unwritable_venv_leaves_the_refusal_a_sentence(
     REAL_RUN(["git", "init", "-q", str(tmp_path)], check=True)
     (tmp_path / "tests").mkdir()
     venv = fake_venv(tmp_path)
-    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n")
+    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n", encoding="utf-8")
     monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
     venv.chmod(0o555)
     try:
@@ -571,7 +579,7 @@ def test_the_unwritable_sentence_is_the_same_on_every_platform(
 
     monkeypatch.setattr(pathlib.Path, "write_text", refuse)
     venv = fake_venv(tmp_path)
-    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n")
+    (venv / "pyvenv.cfg").write_text("version = 3.11.9\n", encoding="utf-8")
     assert rt.ensure(venv) is None, "the refusal is unchanged"
     err = capsys.readouterr().err
     assert "Traceback" not in err, err
@@ -776,6 +784,12 @@ def test_a_fresh_build_installs_the_pinned_parser(tmp_path, monkeypatch, uv):
         f"the pinned Pillow: {install}"
     )
     assert f"pillow=={rt.PILLOW_VERSION}" == rt.PILLOW
+    # #647: the table walker's renderer, pinned the same way.
+    assert rt.CMARKGFM in install, (
+        f"the {'uv' if uv else 'pip'} strategy builds an environment without "
+        f"the pinned cmarkgfm: {install}"
+    )
+    assert f"cmarkgfm=={rt.CMARKGFM_VERSION}" == rt.CMARKGFM
 
 
 @pytest.mark.parametrize("held", [False, "3.0.0"], ids=["none", "another version"])
@@ -898,6 +912,63 @@ def test_a_failed_pillow_install_is_a_sentence_and_pytest_is_still_called(
     assert calls[1][-2:] == ["-n", "auto"], calls[1]
 
 
+@pytest.mark.parametrize("held", [False, "2024.11.20"], ids=["none", "another version"])
+@pytest.mark.parametrize("uv", ["/usr/bin/uv", None])
+def test_an_adopted_environment_is_given_the_pinned_renderer_once(
+    tmp_path, monkeypatch, uv, held
+):
+    """#647. A `.venv` built before cmarkgfm joined `PACKAGES` is adopted and
+    topped up in one step, `add_markdown_it`'s shape, then the suite runs
+    under `-n auto`."""
+    (tmp_path / "tests").mkdir()
+    venv = fake_venv(tmp_path, cmarkgfm=held)
+    recorder = Recorder()
+    monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(rt.shutil, "which", lambda _: uv)
+    monkeypatch.setattr(rt.subprocess, "run", recorder)
+    assert rt.main([]) == 0
+    assert len(recorder.calls) == 2, recorder.calls
+    install, run = recorder.calls
+    python = str(rt.venv_python(venv))
+    if uv:
+        assert install == [uv, "pip", "install", "--python", python, rt.CMARKGFM]
+    else:
+        assert install == [python, "-m", "pip", "install", "--quiet", rt.CMARKGFM]
+    assert run[:3] == [python, "-m", "pytest"]
+    assert run[-2:] == ["-n", "auto"], run
+
+
+def test_a_failed_renderer_install_is_a_sentence_and_pytest_is_still_called(
+    tmp_path, monkeypatch, capsys
+):
+    """#647. The top-up exits non-zero: one sentence names the pinned package,
+    says what its absence costs as pytest does it -- the walker's module fails
+    to collect, which a parallel run reports beside every other case and a
+    serial one stops at -- and names the remedy. pytest is still called, in
+    parallel, and the exit code is pytest's."""
+    (tmp_path / "tests").mkdir()
+    fake_venv(tmp_path, cmarkgfm=False)
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(list(command))
+        return subprocess.CompletedProcess(command, 1 if "install" in command else 0)
+
+    monkeypatch.setattr(rt, "repo_root", lambda: tmp_path)
+    monkeypatch.setattr(rt.shutil, "which", lambda _: "/usr/bin/uv")
+    monkeypatch.setattr(rt.subprocess, "run", run)
+    assert rt.main([]) == 0
+    err = capsys.readouterr().err
+    assert rt.CMARKGFM in err, err
+    assert "fails to collect with a ModuleNotFoundError" in err, err
+    assert "runs every other case and exits non-zero" in err, err
+    assert "stops at collection and runs no case" in err, err
+    assert "run bin/test again" in err, err
+    assert "Traceback" not in err, err
+    assert len(calls) == 2 and calls[1][2] == "pytest", calls
+    assert calls[1][-2:] == ["-n", "auto"], calls[1]
+
+
 def test_ci_installs_the_parser_the_runner_pins():
     """#667, phase 1. The pin is chosen once, in `MARKDOWN_IT`, and CI's
     pytest job installs its own list. A version bumped in one place and not
@@ -924,6 +995,13 @@ def test_ci_installs_the_parser_the_runner_pins():
         for words in installs
         for word in words
     ), installs
+    # #647: cmarkgfm joins the same line, at the version the runner pins.
+    assert any(rt.CMARKGFM in words for words in installs), installs
+    assert not any(
+        word.lower().startswith("cmarkgfm") and word != rt.CMARKGFM
+        for words in installs
+        for word in words
+    ), installs
 
 
 def test_the_section_names_the_parser_and_where_it_is_pinned():
@@ -939,8 +1017,15 @@ def test_the_section_names_the_parser_and_where_it_is_pinned():
     # #718: Pillow is named beside the parser, with the constant that pins it,
     # and the fallbacks carry its pin too.
     assert "Pillow" in section and "`PILLOW`" in section, section
-    assert f"--with {rt.MARKDOWN_IT} --with {rt.PILLOW} " in section, section
-    assert f"pip install pytest {rt.MARKDOWN_IT} {rt.PILLOW} " in section, section
+    # #647: the renderer is named with its constant, and the fallbacks carry
+    # its pin after Pillow's.
+    assert "`cmarkgfm`" in section and "`CMARKGFM`" in section, section
+    assert (
+        f"--with {rt.MARKDOWN_IT} --with {rt.PILLOW} --with {rt.CMARKGFM} " in section
+    ), section
+    assert (
+        f"pip install pytest {rt.MARKDOWN_IT} {rt.PILLOW} {rt.CMARKGFM} " in section
+    ), section
 
 
 @pytest.mark.parametrize(
