@@ -385,7 +385,12 @@ WRAPS = {
         "[{}](x 'a)b')",
     ],
     "an image": ["![{}]()", '![{}](x "t")'],
-    "an autolink": ["<https://example.com/{}>", "<{}@example.com>"],
+    "an autolink": [
+        "<https://example.com/{}>",
+        "<{}@example.com>",
+        "<https://example.com>{}",
+        "<a@example.com>{}",
+    ],
     "raw HTML": [
         "<b>{}</b>",
         '<span title="a">{}</span>',
@@ -396,7 +401,9 @@ WRAPS = {
         "<?x?>{}",
         "<![CDATA[]]>{}",
         "<![CDATA[{}]]>",
+        "<![CDATA[a>b]]>{}",
         "<!X y>{}",
+        "<!X 'a>b'>{}",
     ],
     "a code span": ["`{}`", "**`{}`**", "`{}`.", "{}`", "&#96;{}&#96;"],
     "a backslash escape": ["\\*{}\\*", "\\_{}\\_", "\\[{}\\]"],
