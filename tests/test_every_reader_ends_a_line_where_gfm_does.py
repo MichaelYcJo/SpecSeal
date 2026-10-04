@@ -674,8 +674,13 @@ OUT_OF_CLASS.update(
             "the pieces `riders_in` read, written back each with its own end",
         ),
         ("hooks/blocks.py", "walk_text"): (1, F),
-        ("hooks/config.py", "config_rows"): (1, F),
+        # `config_rows`' walk, which keeps each row's index since #759.
+        ("hooks/config.py", "indexed_config_rows"): (1, F),
         ("hooks/config.py", "refusal"): (1, F),
+        # Each GFM line counted in the reader's pieces of it, so a line the
+        # walk took whole is told from one a `str.splitlines`-only character
+        # cuts (#759).
+        ("hooks/config.py", "pact_lines_not_read"): (1, F),
         # A copy with no hooks/ beside it looks for a `Pact notify` row in
         # `seal/config.md` line by line as `config_rows` splits it, so it
         # finds every row the plugin's reader finds (round 2 of PR #756,

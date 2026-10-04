@@ -16,6 +16,8 @@ step's pinned sentences (S4).
 """
 
 import os
+import sys
+import unicodedata
 
 import pytest
 from conftest import load_hook_module
@@ -169,6 +171,453 @@ def test_seal_keeps_one_normaliser():
         "seal_for_the_pact",
     )
     assert seal.normalise_remote is seal.repo_config.normalise_remote
+
+
+# --- #759: a pact row is read in one plain spelling -------------------------
+#
+# A `| Pact notify | always |` the table walk did not take was read as the
+# default, and under `always` `evidence-check --reverify` re-stamped a moved
+# row citing no clause with no record. The reader now takes a pact row in one
+# spelling -- a walked row whose item is `Pact` or `Pact notify`, byte for
+# byte -- and refuses every other line that names a pact (S1-S5 of work item
+# 1791128260's `spec.md`). The corpus below is #784's generators, plus the
+# spellings its round 4 found and never planted: every spelling any round of
+# #784 found refuses here.
+
+URL = "git@example.com:org/orders-api.git"
+ORDERS = [(URL, "example.com/org/orders-api", "orders-api")]
+CONFIG_TOP = "# config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n"
+CONFIG = CONFIG_TOP + f"| Pact | {URL} |\n"
+PLAIN = "| Pact notify | always |"
+# The eight characters `str.splitlines` ends a line at and GFM does not.
+SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"]
+# Every format character (Unicode category Cf).
+FORMAT_CHARACTERS = [
+    chr(c) for c in range(sys.maxunicode + 1) if unicodedata.category(chr(c)) == "Cf"
+]
+
+
+def refused(line):
+    """The sentence a line naming a pact is refused in, written here rather
+    than asked of the reader, so the case pins what a person reads (S12)."""
+    shown = "".join(
+        f"<U+{ord(ch):04X}>"
+        if (ch.isspace() and ch != " ") or unicodedata.category(ch) == "Cf"
+        else ch
+        for ch in line.strip()
+    )
+    return (
+        f"`{shown}` names a pact and is not a `Pact` or `Pact notify` row in "
+        "the one spelling read: write it as `| Pact | … |` or "
+        "`| Pact notify | … |` inside the `| Item | Value |` table, or take it "
+        "out of this file"
+    )
+
+
+# (id, text, the lines refused, the pacts read): #784's `STRAY_WAYS`, each a
+# way the walk passes a pact row by.
+STRAY_WAYS = [
+    ("W1 above the header", PLAIN + "\n\n" + CONFIG, [PLAIN], ORDERS),
+    (
+        "W1 no header at all",
+        f"| Pact | {URL} |\n{PLAIN}\n",
+        [f"| Pact | {URL} |", PLAIN],
+        [],
+    ),
+    (
+        "W2 between the header and the first row",
+        "| Item | Value |\n|---|---|\n | Pact notify | always |\n"
+        f"| Mode | shared |\n| Pact | {URL} |\n",
+        [" | Pact notify | always |"],
+        ORDERS,
+    ),
+    ("W3 below a blank line", CONFIG + "\n" + PLAIN + "\n", [PLAIN], ORDERS),
+    ("W4 prose", CONFIG + "Some prose.\n" + PLAIN + "\n", [PLAIN], ORDERS),
+    ("W4 a heading", CONFIG + "## Notes\n" + PLAIN + "\n", [PLAIN], ORDERS),
+    ("W4 a list item", CONFIG + "- a note\n" + PLAIN + "\n", [PLAIN], ORDERS),
+    ("W4 a thematic break", CONFIG + "***\n" + PLAIN + "\n", [PLAIN], ORDERS),
+    ("W4 an HTML block line", CONFIG + "<div>\n" + PLAIN + "\n", [PLAIN], ORDERS),
+    (
+        "W5 a second header",
+        CONFIG + "| Item | Value |\n|---|---|\n" + PLAIN + "\n",
+        [PLAIN],
+        ORDERS,
+    ),
+    ("W6 a stray separator", CONFIG + "|---|---|\n" + PLAIN + "\n", [PLAIN], ORDERS),
+    (
+        "W7 a three-column header",
+        CONFIG + "| A | B | C |\n" + PLAIN + "\n",
+        [PLAIN],
+        ORDERS,
+    ),
+    ("W8 indented", CONFIG + "  " + PLAIN + "\n", [PLAIN], ORDERS),
+    ("W8 block-quoted", CONFIG + "> " + PLAIN + "\n", ["> " + PLAIN], ORDERS),
+    ("W8 three cells", CONFIG + PLAIN + " x |\n", [PLAIN + " x |"], ORDERS),
+    (
+        "W8 no closing pipe",
+        CONFIG + "| Pact notify | always\n",
+        ["| Pact notify | always"],
+        ORDERS,
+    ),
+    (
+        "W8 an escaped pipe against the closing one",
+        CONFIG + "| Pact notify | always\\|\n",
+        ["| Pact notify | always\\|"],
+        ORDERS,
+    ),
+    (
+        "W10 a cut line",
+        CONFIG + "\nprose\u2028" + PLAIN + "\n",
+        ["prose\u2028" + PLAIN],
+        ORDERS,
+    ),
+    (
+        "W8 no leading pipe, directly under the table",
+        CONFIG + "Pact notify | always |\n",
+        ["Pact notify | always |"],
+        ORDERS,
+    ),
+    (
+        "W8 no leading pipe, punctuation before the item",
+        CONFIG + "(Pact notify) | always |\n",
+        ["(Pact notify) | always |"],
+        ORDERS,
+    ),
+    *(
+        (
+            f"W8 no leading pipe, {mark!r} and U+{ord(space):04X} before the item",
+            CONFIG + f"{mark}{space}Pact notify | always |\n",
+            [f"{mark}{space}Pact notify | always |"],
+            ORDERS,
+        )
+        for mark, space in (
+            ("-", "\u00a0"),
+            ("*", "\u00a0"),
+            ("#", "\u00a0"),
+            ("+", "\u00a0"),
+            ("-", "\u2003"),
+        )
+    ),
+    (
+        "W8 no pipe at either end, directly under the table",
+        CONFIG + "Pact notify | always\n",
+        ["Pact notify | always"],
+        ORDERS,
+    ),
+    # Round 4 of PR #784, yellow 4: a row GFM keeps in the live table and the
+    # walk does not take, with the item in a code span.
+    *(
+        (f"round 4, yellow 4: {why}", CONFIG + line + "\n", [line], ORDERS)
+        for why, line in (
+            ("no leading pipe", "`Pact notify` | always |"),
+            ("no pipe at either end", "`Pact notify` | always"),
+            ("no trailing pipe", "| `Pact notify` | always"),
+            ("indented one space", " | `Pact notify` | always |"),
+            ("a third cell", "| `Pact notify` | always | x |"),
+        )
+    ),
+    # #784's S8, which it read: GFM's one line, which the reader cuts into
+    # two pieces that are each a plain row. The line is refused whole.
+    *(
+        (
+            f"one line of two plain rows, cut at U+{ord(ch):04X}",
+            CONFIG_TOP + f"| Pact | {URL} |{ch}{PLAIN}\n",
+            [f"| Pact | {URL} |{ch}{PLAIN}"],
+            ORDERS,
+        )
+        for ch in SPLITLINES_ONLY
+    ),
+]
+
+
+@pytest.mark.parametrize(
+    "text, lines, pacts", [w[1:] for w in STRAY_WAYS], ids=[w[0] for w in STRAY_WAYS]
+)
+def test_s2_every_way_the_walk_passes_a_pact_row_by_is_refused(text, lines, pacts):
+    """S2. Each way the table walk passes a pact row by: every line is
+    refused, naming it, `notify` is None, and `pacts` is what the plain
+    `Pact` row parsed."""
+    assert config.pact_declaration(text) == (pacts, None, [refused(x) for x in lines])
+
+
+# #784's generators of spellings of the item: emphasis, strikethrough, links,
+# images, autolinks, raw HTML, code spans, escapes and references around it,
+# and characters joining or splitting its words (`WRAPS` x items, `JOINS`,
+# `SPLITS`). #784 held each to cmark-gfm; here every one names a pact, so
+# every one refuses, including those GFM shows as another word.
+WRAPS = {
+    "emphasis": ["**{}**", "*{}*", "__{}__", "_{}_", "***{}***"],
+    "strikethrough": ["~~{}~~", "~{}~"],
+    "a link": [
+        "[{}]()",
+        "[{}](https://example.com/x)",
+        '[{}](x "a)b")',
+        "[{}](x 'a)b')",
+        # Round 4 of PR #784, yellow 1.
+        "[{}](it's)",
+        '[{}](a"b)',
+        "[{}](a(b(c)))",
+        '[{}](x "a\\"b")',
+        "[{}](a\\)b)",
+        "[{}](<a)b>)",
+    ],
+    "an image": ["![{}]()", '![{}](x "t")', "![a [b] c](x){}"],
+    "an autolink": [
+        "<https://example.com/{}>",
+        "<{}@example.com>",
+        "<https://example.com>{}",
+        "<a@example.com>{}",
+    ],
+    "raw HTML": [
+        "<b>{}</b>",
+        '<span title="a">{}</span>',
+        '<span title="a>b">{}</span>',
+        "<{}>",
+        "<!-- a note -->{}",
+        "<!-- {} -->",
+        "<?x?>{}",
+        "<![CDATA[]]>{}",
+        "<![CDATA[{}]]>",
+        "<![CDATA[a>b]]>{}",
+        "<!X y>{}",
+        "<!X 'a>b'>{}",
+        # Round 4 of PR #784, yellow 2: an empty comment.
+        "<!-->{}<!-- -->",
+        "<!--->{}<!-- -->",
+    ],
+    "a code span": ["`{}`", "**`{}`**", "`{}`.", "{}`", "&#96;{}&#96;"],
+    "a backslash escape": ["\\*{}\\*", "\\_{}\\_", "\\[{}\\]"],
+    "entity-encoded punctuation": [
+        "&ast;{}&ast;",
+        "&lowbar;{}&lowbar;",
+        "&#91;{}&#93;&#40;&#41;",
+    ],
+    "plain punctuation": ["({})"],
+}
+JOINS = [
+    "&#32;",
+    "&nbsp;",
+    "&#x200B;",
+    "&#8203;",
+    "\u200b",
+    "<b></b>",
+    "<?x?>",
+    "<![CDATA[]]>",
+    "<!X y>",
+    "* *",
+    "_",
+    "-",
+    ".",
+    "\\ ",
+    "&ast;",
+    "\u00a0",
+    # Round 4 of PR #784, yellow 3: a legacy name with no `;`.
+    "&",
+    " &",
+    "&nbsp ",
+]
+SPLITS = [
+    "*Pact* *notify*",
+    "**Pact** notify",
+    "[Pact]() notify",
+    "<i>Pact</i> notify",
+    "Pact <i>notify</i>",
+    "P&#97;ct notify",
+    "P&#x61;ct notify",
+    "`Pact` notify",
+    "Pact `notify`",
+    "Pact notify 2",
+    "Pact 2 notify",
+    "Pacts notify",
+    "Pact notifyx",
+]
+MARKUP = sorted(
+    {
+        wrap.format(item)
+        for wraps in WRAPS.values()
+        for wrap in wraps
+        for item in (
+            "Pact notify",
+            "Pact",
+            "Pact notify 2",
+            "Pact 2 notify",
+            "Pacts notify",
+            "Pact notifyx",
+        )
+    }
+    | {f"Pact{j}notify" for j in JOINS}
+    | set(SPLITS)
+)
+# Items the walk takes, each spelled another way: #784's S3 rows, its
+# code-span rows, every format character at three places, and the markup.
+OTHER_ITEMS = [
+    "pact notify",
+    "Pact  notify",
+    "Pact\u00a0notify",
+    "PACT",
+    "Pact Notify",
+    "Pact\\|notify",
+    "Pact&#124;notify",
+    "` Pact notify `",
+    "`Pact  notify`",
+    *(
+        spelled
+        for ch in FORMAT_CHARACTERS
+        for spelled in (f"Pa{ch}ct notify", f"Pact{ch}notify", f"Pact notify{ch}")
+    ),
+    *MARKUP,
+]
+
+
+@pytest.mark.parametrize("place", ["in the table", "below a blank line"])
+@pytest.mark.parametrize("item", OTHER_ITEMS, ids=[ascii(i) for i in OTHER_ITEMS])
+def test_s2_a_pact_item_spelled_another_way_is_refused(item, place):
+    """S2. Each spelling of #784's generators, as a row inside the table
+    under a `Pact` value and again below a blank line: refused, naming the
+    line, with `notify` None. In the table the walk takes it under another
+    item; below, the walk does not reach it."""
+    row = f"| {item} | always |"
+    text = CONFIG + ("" if place == "in the table" else "\n") + row + "\n"
+    assert config.pact_declaration(text) == (ORDERS, None, [refused(row)])
+
+
+@pytest.mark.parametrize(
+    "ch", SPLITLINES_ONLY, ids=[f"U+{ord(c):04X}" for c in SPLITLINES_ONLY]
+)
+def test_s2_a_notify_row_a_splitlines_character_cuts_is_refused(ch):
+    """S2, #784's W11. GFM shows one row, and the reader cuts it into two
+    pieces neither of which is a row: the GFM line is read whole."""
+    row = f"| Pact notify | {ch}always |"
+    assert config.pact_declaration(CONFIG + row + "\n") == (
+        ORDERS,
+        None,
+        [refused(row)],
+    )
+
+
+def test_s1_the_plain_spelling_is_read():
+    """S1. A plain `Pact notify` row in the table is read, and the
+    template's empty pair is no pact and no refusal."""
+    assert config.pact_declaration(CONFIG + PLAIN + "\n") == (ORDERS, "always", [])
+    assert config.pact_declaration(
+        CONFIG_TOP + "| Pact |  |\n| Pact notify |  |\n"
+    ) == ([], None, [])
+
+
+@pytest.mark.parametrize("line", [f"| Pact | {URL} |", PLAIN])
+def test_s3_a_pact_line_with_no_pact_in_the_table_is_refused(line):
+    """S3. No plain `Pact` row, and a line naming a pact below the table:
+    refused all the same. Telling a mangled `Pact` line from a mangled
+    notify line would need the item read through markup."""
+    assert config.pact_declaration(CONFIG_TOP + "\n" + line + "\n") == (
+        [],
+        None,
+        [refused(line)],
+    )
+
+
+def test_s3_a_plain_notify_row_with_no_pact_is_still_ignored():
+    """S3. A plain `Pact notify` row in the table with no `Pact` row is
+    ignored, as before #759."""
+    assert config.pact_declaration(CONFIG_TOP + PLAIN + "\n") == ([], None, [])
+
+
+@pytest.mark.parametrize(
+    "below, notify",
+    [
+        ("| Broad gate | bin/test -k pact |\n", config.NOTIFY_DEFAULT),
+        ("\nThe impact | compact of this.\n", config.NOTIFY_DEFAULT),
+        ("\n<!-- this repository signs the orders pact -->\n", config.NOTIFY_DEFAULT),
+        ("\nThis repository signs the orders pact: always.\n", config.NOTIFY_DEFAULT),
+        ("|\u00a0Pact notify\u00a0| always |\n", "always"),
+    ],
+    ids=[
+        "a walked row's value",
+        "impact and compact with a pipe",
+        "a comment with no pipe",
+        "prose with no pipe",
+        "a no-break space beside a pipe",
+    ],
+)
+def test_s4_a_line_that_is_not_a_pact_row_in_another_spelling_is_silent(below, notify):
+    """S4. A walked row's value is not read, a letter before the `p` keeps
+    `impact` and `compact` silent, a line with no pipe carries no value, and
+    a no-break space beside a pipe is the walk's own whitespace."""
+    assert config.pact_declaration(CONFIG + below) == (ORDERS, notify, [])
+
+
+def _broad_gate_block():
+    """The prose `skills/config/SKILL.md` step 3 tells a session to copy
+    below the live table: `templates/config.md` from `## Broad gate` down to
+    `### What is refused, and what stays allowed`."""
+    with open(os.path.join(ROOT, "templates", "config.md"), encoding="utf-8") as f:
+        text = f.read()
+    start = text.index("## Broad gate\n")
+    return text[start : text.index("### What is refused, and what stays allowed")]
+
+
+def test_s4_the_configs_this_plugin_writes_or_copies_are_silent():
+    """S4. This repository's own `seal/config.md`, the stub `seal mode`
+    writes, and that stub with the copied `## Broad gate` block below it --
+    with and without the pact rows `orchestration.md` writes into the table
+    -- give no refusal. Each is read from the tree, not retyped."""
+    seal = load_hook_module(
+        os.path.join("..", "skills", "implement", "scripts", "seal.py"),
+        "seal_for_the_silent_set",
+    )
+    with open(os.path.join(ROOT, "seal", "config.md"), encoding="utf-8") as f:
+        assert config.pact_declaration(f.read()) == ([], None, [])
+    stub = seal.NEW_CONFIG.format(item="Mode", value="shared")
+    block = _broad_gate_block()
+    assert "Broad gate" in block and "pact" not in block.lower()
+    assert config.pact_declaration(stub) == ([], None, [])
+    assert config.pact_declaration(stub + "\n" + block) == ([], None, [])
+    signed = stub + f"| Pact | {URL} |\n| Pact notify | when the pact is touched |\n"
+    assert config.pact_declaration(signed + "\n" + block) == (
+        ORDERS,
+        config.NOTIFY_TOUCHED,
+        [],
+    )
+
+
+@pytest.mark.parametrize(
+    "below",
+    ["\n```\n" + PLAIN + "\n```\n", "\n<!--\n" + PLAIN + "\n-->\n"],
+    ids=["a closed fence", "a closed comment"],
+)
+def test_s5_a_plain_row_in_a_fence_or_a_comment_is_refused_and_not_read(below):
+    """S5. Fences and comments are read through: an example there refuses,
+    and the walk still does not read it, so `notify` is None, not
+    `always`."""
+    assert config.pact_declaration(CONFIG + below) == (ORDERS, None, [refused(PLAIN)])
+
+
+def test_a_refusal_comes_after_a_doubled_pact_and_before_the_entries():
+    """Data: one refusal per refused line, in file order, after the
+    doubled-`Pact` refusal and before the entry refusals."""
+    text = (
+        CONFIG_TOP
+        + "| Pact | orders-api |\n| Pact | git@example.com:org/b.git |\n"
+        + "\n"
+        + PLAIN
+        + "\n**Pact**: x |\n"
+    )
+    _pacts, notify, refusals = config.pact_declaration(text)
+    assert notify is None
+    assert refusals[0].startswith("`Pact` appears 2 times")
+    assert refusals[1:3] == [refused(PLAIN), refused("**Pact**: x |")]
+    assert "is not a remote URL" in refusals[3] and len(refusals) == 4
+
+
+def test_config_rows_is_the_indexed_walk_without_its_places():
+    """`config_rows` returns what it returned before the walk kept indices:
+    the index is the place in `text.splitlines()` each row came from."""
+    text = CONFIG + PLAIN + "\n\n| Broad gate | x |\n"
+    indexed = config.indexed_config_rows(text)
+    lines = text.splitlines()
+    assert [(i, v) for _, i, v in indexed] == config.config_rows(text)
+    assert all(lines[n].startswith(f"| {item} |") for n, item, _ in indexed)
+    assert [item for _, item, _ in indexed] == ["Mode", "Pact", "Pact notify"]
 
 
 # --- the shipped rows -------------------------------------------------------

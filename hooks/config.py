@@ -333,9 +333,25 @@ def config_rows(text):
     lines the walk is shown: a line inside a code fence is not shown to it at
     all, so an example table pasted above the live one is no longer this
     reader's table (#429).
+
+    **The walk is `indexed_config_rows` below, and this is its rows without
+    their places** (#759). The pact reader needs to know WHICH line each row
+    came from, and a second walk written for that question would be a second
+    stop rule to keep in step with this one.
+    """
+    return [(item, value) for _index, item, value in indexed_config_rows(text)]
+
+
+def indexed_config_rows(text):
+    """`config_rows`' rows as (index, item, value), the index being the row's
+    line in `text.splitlines()`. `config_rows` is this walk's projection, and
+    its docstring is where the stop rule's reasoning lives.
+
+    The index is what lets `pact_lines_not_read` tell a line this walk took
+    as a row from every other line of the file (#759).
     """
     found, seen_header = [], False
-    for _index, line in unfenced(text.splitlines(), text):
+    for index, line in unfenced(text.splitlines(), text):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True
@@ -351,6 +367,7 @@ def config_rows(text):
             continue
         found.append(
             (
+                index,
                 unescaped(match.group("item").strip()),
                 unescaped(match.group("value").strip()),
             )
@@ -630,6 +647,45 @@ NOTIFY_DEFAULT = NOTIFY_TOUCHED
 # path segment of the pact's repository's normalised origin URL. The class is
 # `evidence_check.py#PACT_NAME`'s, which reads the anchor.
 PACT_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
+# The word a line names a pact by: the letters `p`, `a`, `c`, `t` in that
+# order, any case, with any run of characters that are not letters between
+# two of them, and no letter before the `p` (#759). "Not letters between" is
+# what reads emphasis, a code span, a character reference, a format
+# character or a pipe inside the word as nothing, without parsing any of
+# them; the look-behind is what keeps `impact` and `compact` silent.
+# `evidence_check.py#PACT_WORD` is its copy, held equal by
+# `tests/test_a_signatory_declares_its_pact.py`.
+PACT_WORD = re.compile(r"(?<![^\W\d_])p[\W\d_]*a[\W\d_]*c[\W\d_]*t", re.I)
+
+
+def names_a_pact(text, piped=True):
+    """True where TEXT names a pact: `PACT_WORD` finds the word in TEXT as
+    written, or in TEXT decoded -- `html.unescape`, then NFKC. Where PIPED,
+    TEXT must also hold a `|`, as written or decoded.
+
+    **Both readings, as a union, so the decode can only add.** It decodes
+    more than CommonMark does (a legacy name with no `;`), and that costs
+    nothing here: `Pact&notify` names a pact as written, whatever the decode
+    makes of it (round 4 of PR #784, yellow 3).
+
+    **The pipe is the one structural condition, and it is not a grammar.** A
+    GFM table row's cells are separated by pipes, so a line with none is one
+    cell at most and carries no value: a pact row with no value is the
+    default this reader already reads. cmark-gfm was measured to give such a
+    line an empty second cell (Q2 of the work item). So a signatory may name
+    its pact in prose or a comment of its own `config.md` and is not refused.
+
+    `evidence_check.py#names_a_pact` is its copy, held equal by
+    `tests/test_a_signatory_declares_its_pact.py`. The two imports are here
+    rather than at the top because a `PreToolUse` hook loads this module and
+    never reads a pact."""
+    import html
+    import unicodedata
+
+    decoded = unicodedata.normalize("NFKC", html.unescape(text))
+    if piped and "|" not in text and "|" not in decoded:
+        return False
+    return bool(PACT_WORD.search(text) or PACT_WORD.search(decoded))
 
 
 def normalise_remote(url):
@@ -749,7 +805,8 @@ def pact_declaration(text):
                 `Pact` row stands with no `Pact notify`; None where no
                 `Pact` row does, because the notify row is then ignored, and
                 None where the row is refused, outside the vocabulary or
-                written more than once
+                written more than once, and None where a line naming a pact
+                is not a pact row in the one spelling read
       refusals  one sentence per thing that would not parse, naming it
 
     **It refuses in sentences and stops nothing.** The two callers differ on
@@ -762,16 +819,28 @@ def pact_declaration(text):
     value that is there and does not parse is not that state, and it is
     refused rather than read as absent: a signatory that wrote a row and is
     read as having written none is the silence this reader exists to end.
+
+    **A pact row is read in one spelling, and every other line naming a pact
+    is refused** (#759). A `| Pact notify | always |` written where the
+    table walk does not take it was read as the default, and under `always`
+    `evidence-check --reverify` then re-stamped a moved row citing no clause
+    with no record -- the re-stamp clears the drift that was the only
+    trigger for the record. `pact_lines_not_read` names every such line, and
+    each is refused with `notify` None. This reader alone refuses where the
+    others fail silent, and only for these two rows: no other row's default
+    loses a record that cannot be recovered.
     """
-    rows = config_rows(text)
-    pact_rows = [value for item, value in rows if item == PACT_ROW]
-    notify_rows = [value for item, value in rows if item == PACT_NOTIFY_ROW]
+    rows = indexed_config_rows(text)
+    pact_rows = [value for _i, item, value in rows if item == PACT_ROW]
+    notify_rows = [value for _i, item, value in rows if item == PACT_NOTIFY_ROW]
     refusals = []
     if len(pact_rows) > 1:
         refusals.append(
             f"`{PACT_ROW}` appears {len(pact_rows)} times — list every pact in "
             f"one row, separated by `{PACT_SEPARATOR}`"
         )
+    not_read = pact_lines_not_read(text, rows)
+    refusals.extend(map(pact_line_refusal, not_read))
     value = pact_rows[0] if pact_rows else ""
     if not value:
         return [], None, refusals
@@ -799,7 +868,85 @@ def pact_declaration(text):
             + ", ".join(f"`{v}`" for v in NOTIFY_VALUES)
         )
         notify = None
+    if not_read:
+        # The line this reader does not read may be the one that says
+        # `always`, so no value read from the table is the answer (#759).
+        notify = None
     return pacts, notify, refusals
+
+
+def pact_lines_not_read(text, rows):
+    """Every line of TEXT that names a pact and is not a pact row in the one
+    spelling read, as written and in file order. ROWS is
+    `indexed_config_rows(text)`.
+
+    **A line is one GFM line** (`blocks.gfm_lines`), the coarsest cut any
+    reader here makes, so a word can only be whole on it where it is whole on
+    a finer one. Each line is one of two cases:
+
+      - **the walk took it whole as a row**: it holds no character only
+        `str.splitlines` ends a line at, and its one piece is a row of ROWS.
+        Its ITEM alone is read. `Pact` and `Pact notify`, byte for byte, are
+        the spelling read; any other item that names a pact is refused,
+        piped or not. Its value is not read, so a `Broad gate` row running
+        `-k pact` stays silent;
+      - **every other line**: read whole, and refused where it names a pact
+        and holds a `|` (`names_a_pact`). That is a line below the table's
+        end, in a second table, a block quote, a fence or a comment, and a
+        line a `str.splitlines`-only character cuts, even where each of its
+        pieces would be a row.
+
+    **Fences and comments are read through, on purpose.** Exempting them
+    would make the refusal depend on `hidden_lines` matching GFM's block
+    grammar, which is the modelling this reader gave up, and an unclosed
+    fence there hides everything below it. An example there refuses, which is
+    the loud direction: the person deletes the example. The walk still does
+    not read it, so it is refused and never read.
+
+    **No GFM is modelled.** #784 emulated what GFM renders as the item, and
+    four review rounds each found spellings the emulation missed. Here
+    nothing is rendered: a line names a pact or it does not.
+    """
+    taken = {index: item for index, item, _value in rows}
+    found, first = [], 0
+    for whole in blocks.gfm_lines(text, keepends=True):
+        pieces = len(whole.splitlines())
+        index, first = first, first + pieces
+        line = whole.rstrip("\r\n")
+        if pieces == 1 and index in taken:
+            item = taken[index]
+            if item not in (PACT_ROW, PACT_NOTIFY_ROW) and names_a_pact(
+                item, piped=False
+            ):
+                found.append(line)
+        elif names_a_pact(line):
+            found.append(line)
+    return found
+
+
+def pact_line_refusal(line):
+    """The sentence a line `pact_lines_not_read` names is refused in. It
+    quotes LINE stripped, with every whitespace character other than a space
+    and every format character (Unicode category Cf) shown as its code
+    point, because the character that cut the line or spelled the item
+    another way is otherwise invisible in the sentence that names it. It
+    opens lower-case and ends with no full stop, so it reads after each
+    caller's prefix: `chain-check`'s, `pact-check`'s `REFUSED` line, and the
+    writer's `LEFT` line."""
+    import unicodedata
+
+    shown = "".join(
+        f"<U+{ord(ch):04X}>"
+        if (ch.isspace() and ch != " ") or unicodedata.category(ch) == "Cf"
+        else ch
+        for ch in line.strip()
+    )
+    return (
+        f"`{shown}` names a pact and is not a `{PACT_ROW}` or "
+        f"`{PACT_NOTIFY_ROW}` row in the one spelling read: write it as "
+        f"`| {PACT_ROW} | … |` or `| {PACT_NOTIFY_ROW} | … |` inside the "
+        "`| Item | Value |` table, or take it out of this file"
+    )
 
 
 def declared_pacts(home):
