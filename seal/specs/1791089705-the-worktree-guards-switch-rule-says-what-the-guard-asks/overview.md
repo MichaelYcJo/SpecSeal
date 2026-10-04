@@ -9,7 +9,7 @@ evidence ledger, not here. -->
 📋 implement applied
 · spec:     `docs/worktree-guard-spec.md` §*Which tree, when the command walks to it*; this item's `spec.md`, `plan.md`, `questions.md`; round 3's report of 1791019475 (§*Findings* 🟡 9 and ⬜ 10, §*Paste-ready fixes*); `docs/the-evidence-ledger.md` §*A released row is read again in the branch's fragment*; agent contract §12, §14, §15
 · evidence: `seal/ledger/1791089705-the-worktree-guards-switch-rule-says-what-the-guard-asks.md` — G1 added; `Re-read ·` rows for M2 (0.16.0), K5 and K7 (0.18.0)
-· verified: executed — the pin red then green, three `KINDS` mutants red, the rule-case mutant surviving before C3 and red after, the narrow modules, `survivor-check`, `evidence-check --strict`; read — the sentence against `switch_kind` clause by clause
+· verified: executed — the pin red then green, three `KINDS` mutants red, the rule-case mutant surviving before C3 and red after, the narrow modules, `survivor-check`, `evidence-check --strict` (exit 2, every drifted row the wave-one squashes' and none this item's: this fragment reads 11 ok, 0 drifted; #766 re-reads the ten); read — the sentence against `switch_kind` clause by clause
 
 ## Why this work exists
 
