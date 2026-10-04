@@ -1803,3 +1803,59 @@ def test_a_part_whose_two_hashes_agree_is_not_recorded(repo, capsys, beside):
         f"`src/orders.py#evict@{e}` → `@abcdef12` | 2026-09-04 |"
     ], out
     assert out.count("  recorded ") == 1, out
+
+
+@pytest.mark.parametrize(
+    "where", ["a copy with no hooks/", "a declaration that will not read"]
+)
+def test_a_row_whose_parts_all_agree_is_not_left_either(
+    repo, capsys, monkeypatch, where
+):
+    """S2's other half (#774). A row whose only part moved nothing owes no
+    record, so the arms that LEAVE an owed row -- a vendored copy that cannot
+    read the `Pact` row, and a `Pact` row that will not read -- do not leave
+    it: no `LEFT` line and exit 0, where the row used to stop the run."""
+    s = unit_hash(repo, "src/orders.py", "serialize")
+    ledger = cite(repo, [row("O1", f"`{CLAUSE}`, ", f"src/orders.py#serialize@{s}")])
+    if where == "a copy with no hooks/":
+        monkeypatch.setattr(ec, "plugin_module", lambda path, name: None)
+    else:
+        (repo / "seal" / "config.md").write_text(
+            config_text(("Mode", "shared"), ("Pact", "not a url")), encoding="utf-8"
+        )
+    moves = [(str(ledger), 1, "src/orders.py#serialize", s, s)]
+    assert ec.record_pact_changes(moves, str(repo), str(ledger), "2026-09-04") == 0
+    out = capsys.readouterr().out
+    assert "LEFT" not in out and not (repo / RECORD).exists(), out
+
+
+def test_a_coordinate_left_under_a_newer_reading_names_the_newest_hash(repo):
+    """S1's `no one place` arm (#774). The released row cites a statement of
+    `serialize` at `h1`, another item's fragment re-reads it at `h2`, and the
+    statement is then gone: the run leaves the coordinate and records it
+    BROKEN from `h2`, the last content anybody read there."""
+    h1 = _minor_coordinate(repo)
+    _frozen_released_o1(repo, "2026-09-01", f"`{CLAUSE}`, `{h1}`")
+    move_serialize(repo)
+    h2 = _minor_coordinate(repo)
+    assert h2 != h1
+    citation = ec.citation_for(str(repo), str(repo / "seal/releases/0.1.0.md"), 5)
+    (repo / OTHER_ITEM).write_text(
+        f"| Re-read · O1 · the field list | `{citation}`, `{h2}` | read | "
+        "2026-09-10 | Re-read 2026-09-10 |\n",
+        encoding="utf-8",
+    )
+    _leave(repo, "the anchored statement is gone")
+    code, out = run(
+        repo,
+        "--ledger",
+        "seal/releases/0.1.0.md",
+        "--into",
+        FRAGMENT,
+        "--checked",
+        "2026-09-12",
+    )
+    assert code == 1 and "no one place to hash" in out, out
+    assert record_rows(repo) == [
+        f"| {CLAUSE} | seal/releases/0.1.0.md · O1 | `{h2}` BROKEN | 2026-09-12 |"
+    ], out
