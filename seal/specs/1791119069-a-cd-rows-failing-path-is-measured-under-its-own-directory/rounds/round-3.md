@@ -6,7 +6,7 @@
 | Written late | no |
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #787 |
-| Broad gate | not yet |
+| Broad gate | ab09ecfa against 94d7b2e0 |
 | Fixes checked by | no fixes to check |
 | Fix range | none |
 | Contract changes | none |
