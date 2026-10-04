@@ -1327,7 +1327,8 @@ def test_a_ledger_step_three_cannot_write_is_named_and_the_rest_written(repo):
         (
             "docs/the-pact.md",
             "A re-stamp in place records each row's move from that row's own "
-            "hash, one move per coordinate however many walks re-stamp it "
+            "hash, one move per coordinate however many walks re-stamp it, and "
+            "BROKEN after it at the hash it holds where a later walk leaves it "
             "(#791). A move whose two hashes agree is no move and is not "
             "recorded (#774).",
         ),

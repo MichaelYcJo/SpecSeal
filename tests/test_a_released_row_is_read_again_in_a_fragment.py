@@ -25,6 +25,7 @@ never-changes/spec.md` D2 and D3 are the decisions these cases hold.
 """
 
 import importlib.util
+import itertools
 import os
 import re
 import subprocess
@@ -2697,6 +2698,92 @@ def test_a_ledger_coordinate_restamped_on_two_walks_is_one_move(repo):
     assert x[0][3] == line.rsplit("@", 1)[1], moves
     assert f"@{x[0][4]}`" in after, moves
     assert run(["--strict", "."], repo).returncode == 0
+
+
+def test_a_restamp_a_later_walk_leaves_is_a_move_and_then_broken(repo):
+    """Post-review of #791. X1's coordinate names the `Re-read ·` line of its
+    own self-citing release, by a claim quoting that line's citation hash. A
+    walk moves X1 to the line as that walk found it, and the next walk
+    re-stamps the citation, so the quoted text is gone and X1 is left. The
+    file keeps the hash that walk wrote. MOVES holds that move and then
+    BROKEN at the hash the file holds; BROKEN from the hash the ledger held
+    before the run drops a re-stamp that landed. Red at 5ef5d315."""
+    h = unit_hash(repo, "src/service.py", "handler")
+    o = unit_hash(repo, "src/service.py", "other")
+    r1 = f"| R1 · handler adds one | `src/service.py#handler@{h}` | read | 2026-01-01 | |"
+
+    def reread(cite):
+        return (
+            f"| Re-read · the row it cites | `{cite}`, "
+            f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
+        )
+
+    released(repo, [r1, reread(citation(r1, "R1 · handler adds one"))])
+    cite = ec.citation_for(str(repo), str(repo / R_FILE), 5)
+    # X1 sits under a second heading, so its own copy of the quoted hash is
+    # outside the section its claim is read in.
+    line = citation(reread(cite), f"@{cite.rsplit('@', 1)[1]}")
+    (repo / R_FILE).write_text(
+        f"## 0.1.0 — 2026-01-01\n\n{SECTION}\n\n{r1}\n{reread(cite)}\n\n"
+        "### 1000000002-the-second-item\n\n"
+        f"| X1 · other, beside the re-read | `src/service.py#other@{o}`, "
+        f"`{line}` | read | 2026-01-01 | |\n",
+        encoding="utf-8",
+    )
+    assert run(["--strict", "."], repo).returncode == 0
+    edit_handler(repo)
+    moves = []
+    ec.reverify([str(repo / R_FILE)], str(repo), {}, None, "2026-03-01", moves)
+    after = (repo / R_FILE).read_text(encoding="utf-8")
+    held = re.search(r'"@[0-9a-f]+"@([0-9a-f]+)`', after).group(1)
+    x = [(old, new) for _ledger, number, _coord, old, new in moves if number == 10]
+    assert x == [(line.rsplit("@", 1)[1], held), (held, None)], (moves, held)
+
+
+WALK_OUTCOMES = ("moved", "unchanged", "left")
+
+
+@pytest.mark.parametrize(
+    "walks",
+    [
+        sequence
+        for n in (2, 3)
+        for sequence in itertools.product(WALK_OUTCOMES, repeat=n)
+    ],
+    ids=lambda walks: ", ".join(walks),
+)
+def test_every_walk_sequence_hands_over_what_the_file_holds(walks):
+    """#791, enumerated by construction. One coordinate walked two or three
+    times, each walk moving it to a new hash, reading it unchanged, or
+    leaving it. The parts `walked_move` and `owed_moves` hand over are the
+    move that landed, from the hash before the run to the hash the file
+    holds, and BROKEN at the hash the file holds where the last walk that
+    changed anything left it; a second run of `record_pact_changes`'s
+    last-word rule over the same coordinate appends nothing."""
+    held_hash, state, fresh = "h0", None, iter(f"h{n}" for n in range(1, 9))
+    for outcome in walks:
+        if outcome == "moved":
+            new = next(fresh)
+            state = ec.walked_move(state, held_hash, new)
+            held_hash = new
+        elif outcome == "left":
+            state = ec.walked_move(state, held_hash, None)
+        elif state is not None:
+            state = ec.walked_move(state, held_hash, held_hash)
+    parts = ec.owed_moves(state) if state is not None else []
+    moved = "moved" in walks
+    # A walk reading the coordinate unchanged clears a BROKEN before it, so
+    # only a last walk that left it leaves it BROKEN.
+    ends_left = walks[-1] == "left"
+    want = ([("h0", held_hash)] if moved else []) + (
+        [(held_hash, None)] if ends_left else []
+    )
+    assert parts == want, (walks, parts)
+    # A second run reads the file as the first left it: the coordinate is
+    # left again where the last walk left it, else unchanged.
+    recorded = parts[-1] if parts else None
+    again = (held_hash, None) if ends_left else None
+    assert again is None or again == recorded, (walks, parts)
 
 
 def test_one_unfrozen_run_names_a_citing_row_it_left_whole_once(repo):

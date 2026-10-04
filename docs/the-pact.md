@@ -130,7 +130,8 @@ coordinate's newest reading holds**, whether it writes the row's `Re-read ·`
 row or refuses it. That can be a later `Re-read ·` row's hash rather than the
 released row's, so code that went back to the released hash records the move
 back. A re-stamp in place records each row's move from that row's own hash,
-one move per coordinate however many walks re-stamp it (#791).
+one move per coordinate however many walks re-stamp it, and BROKEN after it
+at the hash it holds where a later walk leaves it (#791).
 A move whose two hashes agree is no move and is not recorded (#774). `Pact
 notify` decides what is recorded: `when the pact is touched` records rows
 citing a clause of a declared pact, `always` also records every other row

@@ -2999,6 +2999,37 @@ def row_citation(line, header, cells):
     )
 
 
+def walked_move(held, old, new):
+    """`(first, landed, broken)` for one coordinate after one more walk.
+
+    HELD is the state before this walk, or None where no earlier walk
+    re-stamped or left the coordinate; OLD is the hash this walk read and NEW
+    the hash it wrote, or None where it left the coordinate. FIRST is the
+    hash the ledger held before the run, LANDED the last hash a walk wrote
+    (None where none did), and BROKEN whether the last walk that reached the
+    coordinate left it. NEW equal to OLD is a walk that read the coordinate
+    unchanged, which clears a BROKEN an earlier walk left (#791)."""
+    first, landed, _broken = held or (old, None, False)
+    if new == old:
+        # Read unchanged: whatever an earlier walk left resolves again here.
+        return first, landed, False
+    return first, landed if new is None else new, new is None
+
+
+def owed_moves(held):
+    """The `(old, new or None)` parts one coordinate owes the pact-change
+    record once the walks end (#791): the move that landed, from the hash the
+    ledger held before the run to the last hash a walk wrote, and BROKEN at
+    the hash the file holds where the last walk left it. A BROKEN a later
+    walk's move followed is no part, and a BROKEN repeated is one. A second
+    run finds each the record's last word and appends nothing."""
+    first, landed, broken = held
+    owed = [] if landed is None else [(first, landed)]
+    if broken:
+        owed.append((first if landed is None else landed, None))
+    return owed
+
+
 def cited_first(ledgers, root, maps, default_repo):
     """`(once, again, walks)`: how `reverify` walks LEDGERS (#772).
 
@@ -3072,10 +3103,12 @@ def reverify(
     coordinate whose hash this rewrites, and per coordinate it leaves because
     no one place holds it (None, a BROKEN a re-read cannot clear). A row left
     whole under `--checked` moved nothing and appends nothing. A coordinate
-    re-stamped on more than one walk (`cited_first`) appends one part, from
-    the hash the ledger held before the run to the hash it takes, once the
-    walks end (#791). It is what `record_pact_changes` writes a signatory's
-    pact changes from, before the hash it read is gone.
+    walked more than once (`cited_first`) appends its parts once the walks
+    end (`owed_moves`, #791): the move that landed, from the hash the ledger
+    held before the run to the last hash a walk wrote, and BROKEN at the
+    hash the file holds where the last walk that reached it left it. It is
+    what `record_pact_changes` writes a signatory's pact changes from, before
+    the hash it read is gone.
 
     Re-verifying is recomputing the hash, which is a person saying they have
     re-read the code. It is deliberately a separate command: a check that
@@ -3122,6 +3155,13 @@ def reverify(
     # line it names moves, and a part per walk would write the permanent
     # record a hash no file held (#791). Handed to MOVES once the walks end.
     parts = {}
+
+    def still(key, hash_):
+        """Fold a walk that read KEY's coordinate unchanged into its part,
+        where an earlier walk gave it one (#791)."""
+        if key in parts:
+            where, held = parts[key]
+            parts[key] = (where, walked_move(held, hash_, hash_))
 
     def walks():
         for ledger in once:
@@ -3215,6 +3255,7 @@ def reverify(
                     # which is what the check calls OK. Nothing to re-verify,
                     # and nothing to say — this printed `#Render -> #Render
                     # (identical content)` and counted a row (round 7, 🟢).
+                    still(key, m.group("hash"))
                     continue
                 if resurrected:
                     # No hash of its own to tell a declaration from a call, so
@@ -3267,6 +3308,8 @@ def reverify(
                     new_hash = content_hash(gfm_lines(target)[a - 1 : b])
                     if new_hash != m.group("hash"):
                         pending.append((m.start(), left_as, m.group("hash"), new_hash))
+                    else:
+                        still(key, new_hash)
                     edits.append(
                         (
                             m.start("path"),
@@ -3323,6 +3366,7 @@ def reverify(
             start, end = places[0]
             got = content_hash(gfm_lines(body)[start - 1 : end])
             if got == m.group("hash"):
+                still(key, got)
                 continue
             shown = f"{raw_path}#{locator}" + (f">{claim}" if claim else "")
             pending.append((m.start(), shown, m.group("hash"), got))
@@ -3391,13 +3435,10 @@ def reverify(
                     continue
                 number = bisect.bisect_right(starts, offset)
                 if new is None or number not in left_whole:
-                    held = parts.get(key_at[offset])
+                    _where, held = parts.get(key_at[offset], (None, None))
                     parts[key_at[offset]] = (
-                        ledger,
-                        number,
-                        coord,
-                        held[3] if held else old,
-                        new,
+                        (ledger, number, coord),
+                        walked_move(held, old, new),
                     )
         out, at, said_here = [], 0, []
         for start, end, replacement, said in sorted(kept):
@@ -3413,7 +3454,8 @@ def reverify(
             put(ledger, "".join(out))
             written.append((ledger, said_here, dated, undated))
     if moves is not None:
-        moves.extend(parts.values())
+        for where, held in parts.values():
+            moves.extend((*where, old, new) for old, new in owed_moves(held))
 
     def report(landed):
         said, dated, undated = {}, [], []
