@@ -325,7 +325,9 @@ narrow the write with `--ledger` to the files you did read.
 `docs/the-pact.md`). Where `seal/config.md` names a pact in a `Pact` row and a
 row whose hash this moves — in place, or into a `Re-read ·` row under
 `--into` — cites one of its clauses as a pact anchor, or a coordinate of such
-a row is BROKEN, one row per ledger row is appended to
+a row is BROKEN, or `--into` refuses such a row a `Re-read ·` row for a stale
+`--checked` while the code under it moved, one row per ledger row is
+appended to
 `seal/pact-changes/<work-item-id>.md` and a `recorded` line names it. `Pact
 notify | always` records every row whose code moved, with `—` for its clause,
 and `never` records nothing. The work item is the `--into` fragment's, else

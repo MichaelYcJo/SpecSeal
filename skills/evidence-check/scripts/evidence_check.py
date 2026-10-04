@@ -74,7 +74,8 @@ Usage:
 In a signatory -- a `Pact` row in seal/config.md -- every form of `--reverify`
 also appends one row per re-read ledger row citing a clause of a declared pact
 to seal/pact-changes/<work-item-id>.md, and prints a `recorded` line
-(`record_pact_changes`, #647).
+(`record_pact_changes`, #647). A row `--into` refuses a `Re-read ·` row for a
+stale --checked is recorded too, by the run that refuses it (#746).
 
 --map resolves cross-repo coordinates (e.g. a migration's original repo):
   a coordinate `legacy-api/src/service.py#handler@a1b2c3d` with

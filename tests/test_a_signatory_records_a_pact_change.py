@@ -1582,7 +1582,7 @@ def test_a_left_line_names_its_ledger_in_posix_form(repo, monkeypatch, capsys, s
     assert f"  LEFT  {name}  {shape}" in out, out
 
 
-# --- #746: a row `--into` refuses for a stale date records nothing -----------
+# --- #746: a row `--into` refuses for a stale date records its pact change ---
 
 
 def _frozen_released_o1(repo, read_on, grounds):

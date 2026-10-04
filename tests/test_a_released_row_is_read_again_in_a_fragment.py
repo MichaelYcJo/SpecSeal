@@ -2000,8 +2000,20 @@ def test_a_refusal_names_the_newest_of_the_readings_that_outrank_the_row(repo):
             "A row a reading dated after --checked outranks gets no Re-read row, "
             "is named, and the run exits 1.",
         ),
+        (
+            "docs/the-pact.md",
+            "finds the code under such a row moved where `--into` refuses it a "
+            "`Re-read ·` row for a stale `--checked`, or leaves a coordinate of "
+            "one BROKEN, the same command records a pact change, and that test "
+            "is the whole trigger.",
+        ),
     ],
-    ids=["the home: the refusal", "the home: after today", "the usage"],
+    ids=[
+        "the home: the refusal",
+        "the home: after today",
+        "the usage",
+        "the pact's trigger",
+    ],
 )
 def test_the_home_and_the_usage_say_a_stale_row_is_left(where, sentence):
     """§14: the refusal is something a person reads before running `--into`
