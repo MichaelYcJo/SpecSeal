@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #760 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `903e56035d5bcb9f312acfabd50f8bc6f8eb7ec8..82e0680da3175ad20c54b82b59a43420998993de`, 1 commit |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🔴 1 (`hooks/tokens.py:475`) |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -31,7 +31,7 @@ Open each guard. Then attack the class the third one belongs to, by construction
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🔴 1 | The third guard tests an unquoted body's raw text for `$(` or a backtick, but the shell removes a backslash-newline in such a body before expanding it. A split `$(` passes the test, the line's quoted body is called data, and the file it wrote runs, so a commit passes the gate silently. The base read every body as shell and stopped this line | `hooks/tokens.py:475` (`heredoc_data`) | open | executed by the reviewing agent before its stop, in bash 3.2 and zsh 5.9: `main()` returned silent and the commit landed. Read by the orchestrator: the guard at `hooks/tokens.py:475-477` is a substring test over `r.text` |
+| 🔴 1 | The third guard tests an unquoted body's raw text for `$(` or a backtick, but the shell removes a backslash-newline in such a body before expanding it. A split `$(` passes the test, the line's quoted body is called data, and the file it wrote runs, so a commit passes the gate silently. The base read every body as shell and stopped this line | `hooks/tokens.py:475` (`heredoc_data`) | **fixed** `82e0680d` | fixed at 82e0680d; executed by the reviewing agent before its stop, in bash 3.2 and zsh 5.9: `main()` returned silent and the commit landed. Read by the orchestrator: the guard at `hooks/tokens.py:475-477` is a substring test over `r.text` |
 | 🟢 | Round 1's 🟡 1: `--output` and a `printf` option no longer leave a body data | `hooks/tokens.py:396` | confirmed | executed: both shapes give `heredoc_data` `[False]` at the target |
 
 ## Paste-ready fixes
