@@ -74,14 +74,15 @@ that runs, the git-native waiver first: `git -c specseal.waive=review commit
 …` (and `=parity`), which git hands the hook through `GIT_CONFIG_PARAMETERS`
 and which inside a message is prose. The older `: '[no-review]'; git commit …`
 keeps working (`questions.md` P3, answer (a)): `hooks/answer-write.py` reads
-the bare word out of the Bash call and `hooks/answers.py` carries it to the
-hook for that call alone. The parent and every subagent share one session id,
-so the answer is kept per call, under the payload's `tool_use_id` with the
-command beside it, and given only to a commit whose ancestry up to the
-`claude` process carries that command — the Bash tool's shell holds it in its
-argv. Another agent's commit in the same moment is its own command and is
-judged, and another agent's call starting or ending leaves the answer alone.
-Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s4_under_the_press_the_refusal_names_no_question_tool, tests/test_the_commit_gate_decides_at_the_commit.py::test_s5_an_attended_session_is_told_to_ask_and_the_second_attempt_is_the_same, tests/test_the_commit_gate_decides_at_the_commit.py::test_s5_both_spellings_the_refusal_names_actually_commit, tests/test_the_commit_gate_decides_at_the_commit.py::test_s6_inside_a_message_the_waiver_is_prose, tests/test_the_commit_gate_decides_at_the_commit.py::test_an_old_spelling_waives_no_other_agents_commit, tests/test_the_old_spellings_reach_the_hook.py::test_an_answer_is_given_to_the_call_that_carried_it_and_no_other, tests/test_the_old_spellings_reach_the_hook.py::test_another_call_neither_replaces_nor_clears_an_answer
+the bare word out of the Bash call, outside every heredoc body (#773), and
+`hooks/answers.py` carries it to the hook for that call alone. The parent and
+every subagent share one session id, so the answer is kept per call, under
+the payload's `tool_use_id` with the command beside it, and given only to a
+commit whose ancestry up to the `claude` process carries that command — the
+Bash tool's shell holds it in its argv. Another agent's commit in the same
+moment is its own command and is judged, and another agent's call starting or
+ending leaves the answer alone.
+Enforced by: tests/test_the_commit_gate_decides_at_the_commit.py::test_s4_under_the_press_the_refusal_names_no_question_tool, tests/test_the_commit_gate_decides_at_the_commit.py::test_s5_an_attended_session_is_told_to_ask_and_the_second_attempt_is_the_same, tests/test_the_commit_gate_decides_at_the_commit.py::test_s5_both_spellings_the_refusal_names_actually_commit, tests/test_the_commit_gate_decides_at_the_commit.py::test_s6_inside_a_message_the_waiver_is_prose, tests/test_the_commit_gate_decides_at_the_commit.py::test_an_old_spelling_waives_no_other_agents_commit, tests/test_the_old_spellings_reach_the_hook.py::test_an_answer_is_given_to_the_call_that_carried_it_and_no_other, tests/test_the_old_spellings_reach_the_hook.py::test_another_call_neither_replaces_nor_clears_an_answer, tests/test_the_old_spellings_reach_the_hook.py::test_a_token_is_a_bare_word_and_nothing_else, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s6_neither_read_honours_a_token_the_base_did_not
 
 <!-- specs/1790815613-a-gate-decides-at-the-moment-of-the-action-not-from-the-text -->
 **`--no-verify` is met where the branch moves, and nothing else that moves a

@@ -151,9 +151,15 @@ does with one. Neither does `$((…))` open one: the `<<` in `n=$((1<<2))` is an
 arithmetic left shift, and reading it as a redirect took `2))` for a delimiter
 and dropped every line after it looking for a match no line makes — so a
 commit written below it did not arrive misjudged, it did not arrive at all.
-This is a JUDGMENT read; the scan for a waiver token still sees the command as
-written.
-Enforced by: tests/test_gate_judges_the_repo_it_commits_to.py::test_a_commit_aimed_elsewhere_is_judged_there, tests/test_gate_judges_the_repo_it_commits_to.py::test_a_cd_reaches_the_repository_the_commit_lands_in
+This is a JUDGMENT read. The scan for a waiver token is a CONSENT read: it
+keeps the comments, because the documented form writes the token in one, and
+it skips every heredoc body, because a waiver is typed in front of a command
+and a body is text the command only carries (#773). The bodies it skips are
+the ones this reading already finds, and a token counts only where the command
+as written carries it too, so skipping a body can refuse a waiver and never
+grant one. A token inside a body a shell runs is refused with the rest; typed
+in front of the Bash call's own command, it waives.
+Enforced by: tests/test_gate_judges_the_repo_it_commits_to.py::test_a_commit_aimed_elsewhere_is_judged_there, tests/test_gate_judges_the_repo_it_commits_to.py::test_a_cd_reaches_the_repository_the_commit_lands_in, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s1_a_token_in_the_program_body_waives_nothing, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s2_a_token_in_a_body_outside_the_shape_waives_nothing, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s5_a_token_inside_a_body_a_shell_runs_waives_nothing, tests/test_one_heredoc_shape_is_data_to_the_commit_gate.py::test_s6_neither_read_honours_a_token_the_base_did_not
 
 <!-- specs/1788184145-the-gate-stops-the-session-editing-its-tests -->
 **A file edit goes through the `Edit` tool, because a shell command that only
