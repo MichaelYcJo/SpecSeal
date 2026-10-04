@@ -3,7 +3,7 @@
 | Field | Value |
 |---|---|
 | Phase | 1 |
-| Commit | pending — the commit that adds this record, named in the next one |
+| Commit | 95ac24fa |
 | Ran by | specseal:smith on claude-opus-5-5 |
 
 ## What this phase was asked
