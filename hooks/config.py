@@ -33,6 +33,7 @@ Everything here fails toward "nothing is declared". A file that cannot be read
 is not an answer somebody gave.
 """
 
+import html
 import os
 import re
 import sys
@@ -657,18 +658,40 @@ PACT_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
 # An empty value is the default, so it is not shaped as a row here. The
 # leading pipe is optional because GFM's is: a line directly under the table
 # with none is still one of its rows (round 1 of PR #784, yellow 1).
-PACT_ROW_SHAPE = re.compile(r"[\s>]*\|?\s*(Pact(?:\s*notify)?)\s*\|\s*[^\s|]", re.I)
+PACT_ROW_SHAPE = re.compile(
+    r"[\s>]*(?:\|[^\w|`]*|[^\w|`\s#+*\-=~>]*)(P[^\w|`]*a[^\w|`]*c[^\w|`]*t(?:[^\w|`]*n[^\w|`]*o[^\w|`]*t[^\w|`]*i[^\w|`]*f[^\w|`]*y)?)[^\w|`]*\|\s*[^\s|]",
+    re.I,
+)
 
 
 def shape_line(line):
-    """LINE as `PACT_ROW_SHAPE` reads it: every format character (Unicode
-    category Cf, U+200B, U+2060, U+FEFF, U+00AD and the rest) removed,
-    because GFM renders none of them and a person reads the row without
-    them. So `Pact` and `notify` may stand with nothing between them once
-    one is gone (round 1 of PR #784, yellow 2).
+    """LINE as `PACT_ROW_SHAPE` reads it: close to what GFM shows a person.
+    Inline HTML tags and comments go, character references are decoded,
+    format characters (Unicode category Cf) go, a link keeps its text, and
+    emphasis and strikethrough delimiters go -- a run of `*`, `_` or `~`
+    standing between two spaces stays, because that is a list marker or a
+    literal. The shape then reads the item by its letters alone (round 1 of
+    PR #784, yellow 2; round 2, yellow 1).
+
+    **What it may get wrong, and which way.** A Cf character is removed
+    whether or not it renders: thirteen of them -- the prepended
+    concatenation marks U+0600-U+0605, U+06DD, U+070F, U+0890, U+0891,
+    U+08E2, U+110BD and U+110CD -- show as a glyph, so a row holding one
+    beside the item is refused where a person may not read it as the item.
+    A backslash-escaped or unmatched delimiter is removed too. Each of these
+    refuses, never reads a row as the default, which is the safe direction
+    (round 2 of PR #784, white 3). A code span is left alone: the template's
+    `| Row | Value | Absent |` table names both items in one, so
+    `stray_pact_rows` reads a code span on the walk's own rows instead.
+
     `evidence_check.py#shape_line` is its copy, held equal by
-    `tests/test_a_signatory_declares_its_pact.py`."""
-    return "".join(ch for ch in line if unicodedata.category(ch) != "Cf")
+    `tests/test_a_signatory_declares_its_pact.py`, which also holds this
+    reading to cmark-gfm's rendered cell."""
+    shown = re.sub(r"<!--.*?-->|</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>", "", line)
+    shown = html.unescape(shown)
+    shown = "".join(ch for ch in shown if unicodedata.category(ch) != "Cf")
+    shown = re.sub(r"\]\([^)]*\)|\]\[[^\]]*\]|[\[\]]", "", shown)
+    return re.sub(r"(?<=\S)[*_~]+|[*_~]+(?=\S)", "", shown)
 
 
 def normalise_remote(url):
@@ -815,8 +838,7 @@ def pact_declaration(text):
     rows = indexed_config_rows(text)
     pact_rows = [value for _i, item, value in rows if item == PACT_ROW]
     notify_rows = [value for _i, item, value in rows if item == PACT_NOTIFY_ROW]
-    taken = {i for i, item, _v in rows if item in (PACT_ROW, PACT_NOTIFY_ROW)}
-    strays = stray_pact_rows(text, taken)
+    strays = stray_pact_rows(text, rows)
     refusals = []
     if len(pact_rows) > 1:
         refusals.append(
@@ -869,12 +891,11 @@ def pact_declaration(text):
     return pacts, notify, refusals
 
 
-def stray_pact_rows(text, taken):
+def stray_pact_rows(text, rows):
     """[(item, line)] for every line of TEXT shaped as a `Pact` or `Pact
     notify` row with a value (`PACT_ROW_SHAPE`) that the table walk did not
     take as that row, in file order. ITEM is `PACT_ROW` or `PACT_NOTIFY_ROW`,
-    LINE the line as written; TAKEN is the set of `text.splitlines()`
-    indices `indexed_config_rows` took a `Pact` or `Pact notify` row from.
+    LINE the line as written; ROWS is `indexed_config_rows(text)`.
 
     **It compares, and it lists no way a table ends** (#759). A row written
     under a blank line, under prose, under a second header, indented, with a
@@ -896,11 +917,21 @@ def stray_pact_rows(text, taken):
     hidden (`hidden_lines`, #429 and #667): a row in a closed fence or a
     closed HTML comment is an example.
     """
+    taken = {i for i, item, _v in rows if item in (PACT_ROW, PACT_NOTIFY_ROW)}
     shown = dict(unfenced(text.splitlines(), text))
     strays = {}
+    # A row the walk took whose item is a pact item in a code span renders
+    # as that item and is read as neither (round 2 of PR #784, yellow 2).
+    # The shape cannot read past a code span, because the template's
+    # `| Row | Value | Absent |` table names both items in one; the walk
+    # never reads that table, so only its own rows are read this way.
+    for index, item, value in rows:
+        spanned = len(item) > 1 and item[0] == item[-1] == "`"
+        if spanned and value and _letters(item) in PACT_ITEMS:
+            strays[index] = (PACT_ITEMS[_letters(item)], shown[index])
     for index, line in shown.items():
         match = PACT_ROW_SHAPE.match(shape_line(line))
-        if match and index not in taken:
+        if match and index not in taken and index not in strays:
             strays[index] = (_shaped_item(match), line)
     first = 0
     for whole in blocks.gfm_lines(text, keepends=True):
@@ -918,8 +949,15 @@ def stray_pact_rows(text, taken):
 
 
 def _shaped_item(match):
-    named = "".join(match.group(1).split()).lower()
-    return PACT_NOTIFY_ROW if named == "pactnotify" else PACT_ROW
+    return PACT_ITEMS[_letters(match.group(1))]
+
+
+def _letters(text):
+    return "".join(ch for ch in text.lower() if ch.isalpha())
+
+
+# A pact item reduced to its letters, as `_letters` reduces it.
+PACT_ITEMS = {"pact": PACT_ROW, "pactnotify": PACT_NOTIFY_ROW}
 
 
 def stray_refusal(item, line):

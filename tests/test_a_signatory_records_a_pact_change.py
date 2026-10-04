@@ -954,8 +954,15 @@ def stray_refusal(line, item):
     [
         ("\n| Pact notify | always |\n", "| Pact notify | always |"),
         ("Pact notify | always |\n", "Pact notify | always |"),
+        ("| **Pact notify** | always |\n", "| **Pact notify** | always |"),
+        ("| `Pact notify` | always |\n", "| `Pact notify` | always |"),
     ],
-    ids=["below a blank line", "no leading pipe, directly under the table"],
+    ids=[
+        "below a blank line",
+        "no leading pipe, directly under the table",
+        "in bold, in the table",
+        "in a code span, in the table",
+    ],
 )
 def test_s9_a_notify_row_below_the_table_leaves_a_row_citing_no_clause(
     repo, below, line
@@ -1553,6 +1560,9 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "Pact notify | always |\n",
         "| Pact\u200bnotify | always |\n",
         "| Pact notify\ufeff | always |\n",
+        "| **Pact notify** | always |\n",
+        "| Pact&#32;notify | always |\n",
+        "| [Pact notify]() | always |\n",
     ],
     ids=[
         "S12 below the table",
@@ -1560,13 +1570,17 @@ SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u
         "no leading pipe, directly under the table",
         "a format character inside the item",
         "a format character after the item",
+        "in bold",
+        "with a character reference",
+        "as a link",
     ],
 )
 def test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify(
     repo, tmp_path, below
 ):
     """S12 and S13 of #759. Where the plugin's reader refuses a `Pact notify`
-    row it does not reach, a copy with no `hooks/` leaves the moved row too.
+    row it does not reach, a copy with no `hooks/` leaves the moved row too,
+    with one exception the next case states: an item in a code span.
     It matches its shape on every line of both cuts: the reader's, which
     finds a row under the table's end, and GFM's, which finds one the
     reader cuts into two pieces neither of which is a row."""
@@ -1583,6 +1597,27 @@ def test_a_vendored_copy_leaves_where_the_plugin_refuses_a_stray_notify(
     assert "moved, and `Pact notify` may be `always`" in out, out
     assert ledger.read_text(encoding="utf-8") == "".join(ledger_rows), out
     assert not (repo / "seal" / "pact-changes").exists(), out
+
+
+def test_a_vendored_copy_reads_no_code_spanned_item(repo, tmp_path):
+    """The one place the vendored copy is less cautious than the plugin
+    (round 2 of PR #784, yellow 2), stated rather than left silent. The
+    plugin refuses `` `Pact notify` `` on the walk's own rows; the copy has
+    no walk, and reading past a code span on every line would make it blind
+    on every config built from the template, whose documentation table names
+    both items in code spans. So it re-stamps here, and `docs/the-pact.md`
+    names the limit."""
+    (repo / "seal" / "config.md").write_text(
+        config_text(("Mode", "shared"), ("Pact", PACT_URL))
+        + "| `Pact notify` | always |\n",
+        encoding="utf-8",
+    )
+    old = unit_hash(repo, "src/orders.py", "serialize")
+    ledger = cite(repo, [row("O2", "", f"src/orders.py#serialize@{old}")])
+    new = move_serialize(repo)
+    code, out = _vendored(repo, tmp_path)
+    assert code == 0, out
+    assert f"@{new}" in ledger.read_text(encoding="utf-8"), out
 
 
 @pytest.mark.parametrize(

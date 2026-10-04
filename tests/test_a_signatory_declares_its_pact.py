@@ -20,6 +20,7 @@ import os
 import sys
 import unicodedata
 
+import gfm_table_oracle as oracle
 import pytest
 from conftest import load_hook_module
 
@@ -342,6 +343,124 @@ def test_s3_a_notify_row_spelled_with_a_format_character_is_refused(ch):
         ), row
 
 
+# Round 2 of PR #784, yellow 1: the class is every spelling of the item a
+# person reads as `Pact notify` or `Pact` once GFM renders the row, reduced to
+# its letters. It is generated here from the inline constructs GFM renders
+# away -- emphasis, strikethrough, links, inline HTML, character references,
+# format characters -- and the reader is held to cmark-gfm's rendered cell in
+# both directions: it refuses exactly where the rendered item is the pact
+# item's letters. A code span is the one construct left out, and it has a case
+# of its own below.
+WRAPS = [
+    "**{}**",
+    "*{}*",
+    "__{}__",
+    "_{}_",
+    "~~{}~~",
+    "~{}~",
+    "***{}***",
+    "[{}]()",
+    "[{}](https://example.com/x)",
+    "<b>{}</b>",
+    '<span title="a">{}</span>',
+    "<!-- a note -->{}",
+    "\\*{}\\*",
+    "({})",
+]
+JOINS = [
+    "&#32;",
+    "&nbsp;",
+    "&#x200B;",
+    "&#8203;",
+    "\u200b",
+    "<b></b>",
+    "* *",
+    "_",
+    "-",
+    ".",
+    "\u00a0",
+]
+SPLITS = [
+    "*Pact* *notify*",
+    "**Pact** notify",
+    "[Pact]() notify",
+    "<i>Pact</i> notify",
+    "Pact <i>notify</i>",
+    "P&#97;ct notify",
+]
+MARKUP = sorted(
+    {w.format(item) for w in WRAPS for item in ("Pact notify", "Pact")}
+    | {f"Pact{j}notify" for j in JOINS}
+    | set(SPLITS)
+)
+
+
+def rendered_item(text):
+    """The item cell of TEXT's last table row, as cmark-gfm shows it."""
+    return oracle.rows_under(text, ("Item", "Value"))[-1][0]
+
+
+def letters(text):
+    return "".join(ch for ch in text.lower() if ch.isalpha())
+
+
+@pytest.mark.parametrize("item", MARKUP)
+def test_s3_an_item_is_refused_exactly_where_gfm_shows_a_pact_item(item):
+    """S3, W9, round 2 of PR #784, yellow 1. The reader refuses the row
+    exactly where cmark-gfm renders the item as `Pact notify` or `Pact`,
+    reduced to its letters, so no spelling a person reads as the item is
+    read as the default."""
+    value = "always" if "notify" in item else "https://example.com/org/other"
+    row = f"| {item} | {value} |"
+    text = CONFIG + row + "\n"
+    shown = letters(rendered_item(text))
+    _pacts, notify, refusals = config.pact_declaration(text)
+    if shown in ("pact", "pactnotify"):
+        assert notify is None, (item, shown)
+        assert len(refusals) == 1 and refusals[0].endswith(
+            "Write it as `| "
+            + ("Pact notify" if shown == "pactnotify" else "Pact")
+            + " | … |` inside that table"
+        ), (item, refusals)
+    else:
+        assert refusals == [], (item, shown, refusals)
+
+
+@pytest.mark.parametrize(
+    "row, item",
+    [
+        ("| `Pact notify` | always |", "Pact notify"),
+        ("| ` Pact notify ` | always |", "Pact notify"),
+        ("| `Pact  notify` | always |", "Pact notify"),
+        ("| `Pact` | https://example.com/org/other |", "Pact"),
+    ],
+    ids=["a code span", "padded", "a doubled space", "a code-spanned Pact"],
+)
+def test_s3_a_pact_item_in_a_code_span_is_refused_on_the_walks_rows(row, item):
+    """Round 2 of PR #784, yellow 2. GFM renders `<code>Pact notify</code>`
+    in the live table, and the walk takes the row under another item. Only
+    the walk's own rows are read this way: the template's and the config
+    skill's `| Row | Value | Absent |` tables name both items in code spans."""
+    assert letters(rendered_item(CONFIG + row + "\n")) == letters(item)
+    assert config.pact_declaration(CONFIG + row + "\n")[1:] == (
+        None,
+        [refused_as(row, item)],
+    )
+
+
+@pytest.mark.parametrize(
+    "below",
+    ["| `Pact notify` |  |\n", "\n| `Pact notify` | always |\n"],
+    ids=["an empty value", "outside the walk's table"],
+)
+def test_s7_a_code_spanned_item_off_the_walks_rows_or_empty_is_not_refused(below):
+    """S7. A code-spanned item with no value is the default, and one outside
+    the walk's table is documentation, as the template's own table is."""
+    pacts, notify, refusals = config.pact_declaration(CONFIG + below)
+    assert (notify, refusals) == (config.NOTIFY_DEFAULT, [])
+    assert [n for _, _, n in pacts] == ["orders-api"]
+
+
 def test_s5_a_pact_row_below_the_table_is_refused_with_no_pact_in_it():
     """S5. A stray `Pact` row with none in the table: refused, and `pacts` is
     what the table parsed, which is nothing."""
@@ -401,7 +520,11 @@ def test_the_shipped_configs_hold_no_stray_pact_row():
     """The template ships empty `Pact` rows inside its example table and
     shaped ones in its prose; neither it nor this repository's own config is
     refused (questions.md Q2)."""
-    for parts in (("templates", "config.md"), ("seal", "config.md")):
+    for parts in (
+        ("templates", "config.md"),
+        ("seal", "config.md"),
+        ("skills", "config", "SKILL.md"),
+    ):
         with open(os.path.join(ROOT, *parts), encoding="utf-8") as handle:
             assert config.pact_declaration(handle.read())[2] == [], parts
 
@@ -422,6 +545,9 @@ def test_s14_the_reader_and_the_vendored_copy_share_one_grammar():
     for ch in [*FORMAT_CHARACTERS, "\u00a0", "\u2028"]:
         line = f"{ch}| Pa{ch}ct notify{ch} | x |"
         assert config.shape_line(line) == ec.shape_line(line), hex(ord(ch))
+    for item in MARKUP:
+        line = f"| {item} | x |"
+        assert config.shape_line(line) == ec.shape_line(line), item
 
 
 def test_config_rows_is_the_indexed_walk_without_its_places():

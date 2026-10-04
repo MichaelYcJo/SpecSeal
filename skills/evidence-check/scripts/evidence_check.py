@@ -3747,14 +3747,23 @@ NOT_RESTAMPED = "no pact change was recorded and nothing was re-stamped"
 # yellow 2). Its twin is `hooks/config.py#PACT_ROW_SHAPE`, the grammar the
 # plugin's reader finds a stray pact row with, and
 # `tests/test_a_signatory_declares_its_pact.py` holds the two equal.
-NOTIFY_ROW_SHAPE = re.compile(r"[\s>]*\|?\s*(Pact(?:\s*notify)?)\s*\|\s*[^\s|]", re.I)
+NOTIFY_ROW_SHAPE = re.compile(
+    r"[\s>]*(?:\|[^\w|`]*|[^\w|`\s#+*\-=~>]*)(P[^\w|`]*a[^\w|`]*c[^\w|`]*t(?:[^\w|`]*n[^\w|`]*o[^\w|`]*t[^\w|`]*i[^\w|`]*f[^\w|`]*y)?)[^\w|`]*\|\s*[^\s|]",
+    re.I,
+)
 
 
 def shape_line(line):
     """`hooks/config.py#shape_line`, copied for a copy with no `hooks/`:
-    LINE with every format character (Unicode category Cf) removed, as GFM
-    renders it (round 1 of PR #784, yellow 2)."""
-    return "".join(ch for ch in line if unicodedata.category(ch) != "Cf")
+    LINE close to what GFM shows -- inline HTML gone, references decoded,
+    format characters (Unicode category Cf) gone, a link's text kept, and
+    emphasis delimiters gone. That docstring says which way it errs (round
+    1 of PR #784, yellow 2; round 2, yellow 1)."""
+    shown = re.sub(r"<!--.*?-->|</?[A-Za-z][A-Za-z0-9-]*(?:\s[^<>]*)?/?>", "", line)
+    shown = html.unescape(shown)
+    shown = "".join(ch for ch in shown if unicodedata.category(ch) != "Cf")
+    shown = re.sub(r"\]\([^)]*\)|\]\[[^\]]*\]|[\[\]]", "", shown)
+    return re.sub(r"(?<=\S)[*_~]+|[*_~]+(?=\S)", "", shown)
 
 
 PACT_CHANGE_UNDONE = (
@@ -3846,7 +3855,7 @@ def record_pact_changes(moves, root, into, checked):
         said = read(declaration, strict=True) if os.path.lexists(declaration) else ""
         lines = (said or "").splitlines() + gfm_lines(said or "")
         named = {
-            "".join(m.group(1).lower().split())
+            "".join(ch for ch in m.group(1).lower() if ch.isalpha())
             for m in map(NOTIFY_ROW_SHAPE.match, map(shape_line, lines))
             if m
         }
