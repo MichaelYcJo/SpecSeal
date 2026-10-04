@@ -3,9 +3,12 @@
 A signatory names the pact it signs in `seal/config.md` and cites clauses as
 pact anchors in its ledger rows. When `evidence-check --reverify` moves the
 hash of a row that cites a clause of a declared pact -- in place, or into a
-`Re-read ·` row under the freeze -- or leaves a coordinate of one BROKEN, it
-appends one row per ledger row to `seal/pact-changes/<work-item-id>.md` and
-prints a `recorded` line. S7-S11 of the work item's `spec.md`.
+`Re-read ·` row under the freeze -- finds the code under one moved where
+`--into` refuses it a `Re-read ·` row for a stale `--checked`, or leaves a
+coordinate of one BROKEN, it appends one row per ledger row to
+`seal/pact-changes/<work-item-id>.md` and prints a `recorded` line. S7-S11 of
+the work item's `spec.md`; the refused row is #746's, and a move starting at
+the newest reading is #774's.
 
 Each case builds a temporary signatory: `src/orders.py`, a ledger row citing
 `pact:orders-api/"## Order response shape / ### Fields"@1a2b3c4d` beside a
