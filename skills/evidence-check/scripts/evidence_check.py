@@ -3093,8 +3093,8 @@ def reverify(
     #772), so a citation of a released line this run re-stamps is hashed
     against the line the run writes, and one run leaves no citation it moved
     DRIFTED. A file citing itself, and every file no order places, is walked
-    again until a walk re-stamps nothing; a walk after the first re-stamps
-    citations alone and names nothing the first one named. A citing row's
+    again until a walk changes nothing it plans, and a walk after the first
+    names nothing the first one named. A citing row's
     citation, re-stamped, appends no move: it is a ledger line, not code
     under the row (D3).
     """
@@ -3106,7 +3106,7 @@ def reverify(
     written = []
     scan_cache = {}
     once, again, bound = cited_first(ledgers, root, maps, default_repo)
-    # Whether the last walk of AGAIN re-stamped anything (`cited_first`).
+    # Whether the last walk of AGAIN changed what it plans (`cited_first`).
     moved = [False]
 
     def walks():
@@ -3123,8 +3123,9 @@ def reverify(
         return None
 
     for ledger, repeat in walks():
-        # A walk after the first re-stamps citations alone and says nothing
-        # the first walk said: every line below was printed or listed then.
+        # A walk after the first says nothing the first walk said: every
+        # line below was printed or listed then, and what it adds is the
+        # citations the first walk hashed against a line not yet planned.
         say = quiet if repeat else print
         text = read(ledger, strict=True)
         if text is None:
@@ -3171,8 +3172,6 @@ def reverify(
         # the same offsets, and an example row in a closed fence is never
         # rewritten (#444).
         for m in ANCHOR_RE.finditer(unquoted(text)):
-            if repeat and m.start() not in citations:
-                continue
             raw_path = m.group("path")
             locator, claim = m.group("locator"), m.group("claim")
             repo, rel = place(root, maps, default_repo, raw_path)
@@ -3310,8 +3309,6 @@ def reverify(
                     True,
                 )
             )
-        if any(text[a:b] != new for a, b, new, *_ in edits):
-            moved[0] = True
         if not edits and not pending:
             continue
         # `<ledger>:<line>` is a coordinate this run built, so it takes `/`
@@ -3374,6 +3371,8 @@ def reverify(
                 said_here.append(said)
         if out:
             out.append(text[at:])
+            if "".join(out) != text:
+                moved[0] = True
             put(ledger, "".join(out))
             written.append((ledger, said_here, dated, undated))
 

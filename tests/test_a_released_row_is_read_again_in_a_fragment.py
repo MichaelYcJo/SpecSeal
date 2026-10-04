@@ -2369,14 +2369,17 @@ def test_one_unfrozen_run_walks_an_older_release_before_the_newer_citing_it(repo
     assert check.returncode == 0, check.stdout
 
 
-@pytest.mark.parametrize("record", ["written", "refused"])
-def test_a_narrowed_unfrozen_run_names_the_citation_it_moved_and_left(repo, record):
+@pytest.mark.parametrize("record", ["written", "refused", "R's file not written"])
+def test_a_narrowed_unfrozen_run_names_the_citation_it_moved_and_left(
+    repo, record, monkeypatch, capsys
+):
     """S6 (#772). Narrowed to R's file, the run moves the line M cites and
     cannot re-stamp M, whose file the narrowing left out. It names M's row on
     a `LEFT` line with the repair, and exits 1 rather than 0. The line says
     the run re-stamps R's line, so it prints only once that write landed: a
     run whose pact-change record is refused writes nothing and says nothing
-    of the kind (W8, round 1, yellow 3)."""
+    of the kind, and neither does a run whose write of R's file fails (W8,
+    round 1, yellow 3)."""
     unfrozen_r_and_m(repo)
     if record == "refused":
         # `always` owes a record for every moved row, and no work item names one.
@@ -2387,7 +2390,25 @@ def test_a_narrowed_unfrozen_run_names_the_citation_it_moved_and_left(repo, reco
             encoding="utf-8",
         )
     before = (repo / R_FILE).read_bytes()
-    fix = run(["--reverify", "--checked", "2026-03-01", "--ledger", R_FILE, "."], repo)
+    args = ["--reverify", "--checked", "2026-03-01", "--ledger", R_FILE, "."]
+    if record == "R's file not written":
+        real = ec.write_atomic
+
+        def refuses_r(path, text):
+            if os.path.basename(path) == os.path.basename(R_FILE):
+                raise PermissionError(13, "Permission denied")
+            return real(path, text)
+
+        monkeypatch.setattr(ec, "write_atomic", refuses_r)
+        monkeypatch.setattr(sys, "argv", ["evidence_check.py", *args])
+        monkeypatch.chdir(repo)
+        assert ec.main() == 1
+        out = capsys.readouterr().out
+        assert f"  LEFT  {R_FILE}  could not be written" in out, out
+        assert "its citation of" not in out, out
+        assert (repo / R_FILE).read_bytes() == before
+        return
+    fix = run(args, repo)
     assert fix.returncode == 1, fix.stdout
     left = [line for line in fix.stdout.splitlines() if line.startswith("  LEFT")]
     if record == "refused":
@@ -2446,8 +2467,11 @@ def test_a_narrowed_unfrozen_run_names_no_citation_it_did_not_move(repo, shape):
     assert "its citation of" not in fix.stdout, fix.stdout
 
 
+LEAVINGS = "a file citing itself, beside what the run leaves"
+
+
 @pytest.mark.parametrize(
-    "shape", ["a file citing itself", "two files citing each other"]
+    "shape", ["a file citing itself", "two files citing each other", LEAVINGS]
 )
 def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
     """#772, round 1, yellow 1. A second fold of the newest release joins its
@@ -2456,7 +2480,9 @@ def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
     was hashed against the old line, and `--strict` exited 2 until a second
     run. The same held for two files citing each other. Walked again until
     they settle, one run leaves `--strict` at 0, and each row it dated is
-    named once."""
+    named once. Beside a row it cannot date, a coordinate it cannot place and
+    a ledger citing it that will not decode, each of those is named once,
+    though the walk that names it is repeated."""
     h = unit_hash(repo, "src/service.py", "handler")
 
     def r(n):
@@ -2471,12 +2497,40 @@ def test_one_unfrozen_run_restamps_a_citation_no_order_places(repo, shape):
             f"`src/service.py#handler@{h}` | read | 2026-02-01 | Re-read 2026-02-01 |"
         )
 
-    if shape == "a file citing itself":
+    if shape != "two files citing each other":
+        left = []
+        if shape == LEAVINGS:
+            left = [
+                # Four cells: no date cell, so `--checked` leaves it whole.
+                f"| R2 · four cells | `src/service.py#handler@{h}` | read | 2026-01-01 |",
+                f"| R3 · a gone unit | `src/service.py#gone@{h}` | read | 2026-01-01 | |",
+            ]
         # The citing row quotes R1's first cell, so the citation is taken with
         # it in place: a literal R1's line alone holds would match both lines.
-        released(repo, [r(1), reread(citation(r(1), "R1 · handler adds one"))])
+        released(repo, [r(1), reread(citation(r(1), "R1 · handler adds one")), *left])
         cite = ec.citation_for(str(repo), str(repo / R_FILE), 5)
-        released(repo, [r(1), reread(cite)])
+        released(repo, [r(1), reread(cite), *left])
+        if shape == LEAVINGS:
+            (repo / "seal" / "ledger").mkdir(parents=True)
+            (repo / "seal" / "ledger" / "2000000004-bytes.md").write_bytes(
+                (reread(cite).replace("| read |", "| caf\xe9 |") + "\n").encode(
+                    "latin-1"
+                )
+            )
+            with pytest.raises(UnicodeDecodeError):
+                (repo / "seal" / "ledger" / "2000000004-bytes.md").read_text(
+                    encoding="utf-8"
+                )
+            edit_handler(repo)
+            fix = run(["--reverify", "--checked", "2026-03-01", "."], repo)
+            assert fix.returncode == 1, fix.stdout
+            for said in (
+                "ledger unreadable",
+                "its hash moved and the row has no date cell",
+                "src/service.py#gone",
+            ):
+                assert fix.stdout.count(said) == 1, (said, fix.stdout)
+            return
     else:
         released(repo, [r(2)], version="0.3.0")
         released(repo, [r(1)], version="0.4.0")
