@@ -3879,6 +3879,12 @@ def test_a_failing_file_the_base_lacks_does_not_cost_the_others_their_verdict(tm
             ["(cd sub && pytest)", "(cd sub && pytest) && lint"],
         ),
         ("echo 'unclosed && pytest", ["echo 'unclosed && pytest"]),
+        # Nothing escapes inside single quotes, and `"` means nothing there.
+        ("echo 'a\\' && pytest", ["echo 'a\\'", "echo 'a\\' && pytest"]),
+        ("echo '\"' && pytest", ["echo '\"'", "echo '\"' && pytest"]),
+        # `'` and `(` mean nothing inside double quotes.
+        ('echo "it\'s (" && pytest', ['echo "it\'s ("', 'echo "it\'s (" && pytest']),
+        ("; pytest", ["; pytest"]),
         ("lint   &&   pytest  ", ["lint", "lint   &&   pytest"]),
     ],
 )

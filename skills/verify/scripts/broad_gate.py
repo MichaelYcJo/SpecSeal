@@ -1910,17 +1910,16 @@ def row_prefixes(command, cmd_exe=False):
             stack.pop()
         elif not stack:
             op = next((op for op in cuts if command.startswith(op, i)), None)
-            if op and not (op == "&" and i and command[i - 1] in "<>"):
-                prefix = command[:i].rstrip()
-                if prefix and prefix not in prefixes:
-                    prefixes.append(prefix)
+            if op and not (op == "&" and command[i - 1 : i] in ("<", ">")):
+                # An operator before any command leaves nothing to run.
+                if command[:i].strip():
+                    prefixes.append(command[:i].rstrip())
                 i += len(op)
                 continue
         i += 1
-    whole = command.rstrip()
-    if whole and whole not in prefixes:
-        prefixes.append(whole)
-    return prefixes
+    # A prefix ends before its operator and the whole row runs past it, so
+    # the whole row is never one of the prefixes already kept.
+    return [*prefixes, command.rstrip()]
 
 
 def compare_at_base(root, base, command, files, keep):
