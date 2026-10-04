@@ -271,9 +271,10 @@ RESOLVED rather than string-matched, because CI spells the range
 same range. Resolving is what makes the range alone insufficient: that spelling
 is not a range, it is a RELATION, and it re-resolves to whatever range the
 checkout it is read on is over. Every `seal/specs/*/survivors.md` in the tree
-is handed to every run, and a `survivors.md` lives until the release that ships
-it, so one merged row in that spelling matched every later branch cut from the
-same base and excused its whole run. So the second anchor is the directory the
+is handed to every run, and a `survivors.md` stands until
+`settle --retire-process` takes it, after the release that ships it, so one
+merged row in that spelling matched every later branch cut from the same base
+and excused its whole run. So the second anchor is the directory the
 row lives in: a declaration holds only over a range that touches its own work
 item, which a work item's own range always does. In local mode nothing under
 the root is committed, so no range touches it, and the `Branch` row of the
@@ -324,6 +325,31 @@ elsewhere and held it, and the correction's other copies went unreported. So
 the retired side is read at the left end and takes part in the pairing, and
 only its departures that paired with nothing are then dropped. It is gone at
 the right end, so it adds nothing written.
+
+## A process record removed whole is out of the range too
+
+`settle --retire-process` (#729) removes a released work item's process record
+and leaves its directory standing. `rounds/`, `phases/` and `survivors.md` are
+already out of the range on both sides, by `records_a_past_state`. The rest of
+that arm's list — `broad-gate.md`, `handoff.md`, `pr.*.md`, `tests-todo.md` and
+`evidence-todo.md`, directly under the work item directory — is written for a
+pull request that has merged, and its sentences stand in the SDD set and in
+`docs/` because they were written there first. Measured on this repository's
+first drop, a `handoff.md` and a `broad-gate.md` reported 34 places, none of
+them a survivor of anything.
+
+So a file on that list that the range removed whole leaves the range, after
+the pairing, as a retired directory does. It stays in the pool while it
+stands: an in-flight work item's `handoff.md` that still carries a corrected
+sentence is reported, as it always was. Removing the file is not a correction
+of its wording.
+
+What it costs, measured in #729's round 1: such a file moved into one that
+stays, with a sentence reworded on the way, no longer has the reworded
+sentence's other copies reported. A round or phase record moved the same way
+has had that exemption since #365 and #460, and so has a retired directory.
+The file has to stand at the range's left end, so it is one an earlier pull
+request merged, never the branch's own in-flight record.
 
 ## What it does not answer
 
@@ -910,6 +936,37 @@ def records_a_past_state(path):
     return inside == ["survivors.md"] or (len(inside) > 1 and inside[0] == "phases")
 
 
+# The rest of `settle --retire-process`'s list, beside what
+# `records_a_past_state` already names: the files a work item writes for its
+# pull request, directly under its directory (#729).
+# `tests/test_a_process_record_drop_passes_the_readers.py` holds this and
+# `records_a_past_state` to `skills/settle/scripts/settle.py#is_process_record`,
+# so neither list can grow alone.
+PULL_REQUEST_FILES = (
+    "broad-gate.md",
+    "handoff.md",
+    "tests-todo.md",
+    "evidence-todo.md",
+)
+
+
+def written_for_a_pull_request(path):
+    """True for a work item's file on `PULL_REQUEST_FILES`, or a `pr.*.md`,
+    sitting directly under its `seal/specs/<id>/` directory.
+
+    `WORK_ITEM_DIR` anchors it, so a team's own `specs/` and a file of the
+    same name in prose are never matched."""
+    m = WORK_ITEM_DIR.match(path.replace("\\", "/"))
+    if m is None:
+        return False
+    rest = path.replace("\\", "/")[len(m.group(0)) :]
+    if "/" in rest:
+        return False
+    return rest in PULL_REQUEST_FILES or (
+        rest.startswith("pr.") and rest.endswith(".md")
+    )
+
+
 # The marker a gathered changelog fragment leaves in a changelog, in the
 # shape `unverified_check.py#FOLD_MARKER` already spells for the fold's
 # marker in `docs/`. Spelled here rather than imported from the gatherer:
@@ -1416,11 +1473,18 @@ def corrected(root, a, b):
     # went with its code, and its cells arriving verbatim in a new row were
     # paired above as the move they are.
     removed = removed_ledger_rows(root, a, b, before, after)
+    # A file written for a pull request that the range removed whole leaves
+    # here as well, in the same order (#729): `settle --retire-process` takes
+    # it from a released work item, and removing it corrects none of its
+    # wording. One that still stands at `b` is left alone.
     gone = [
         sentence
         for sentence in gone
         if not any(sentence.path.startswith(d + "/") for d in retired)
         and (sentence.path, sentence.line) not in removed
+        and not (
+            written_for_a_pull_request(sentence.path) and sentence.path not in after
+        )
     ]
     written = {gram for sentence in fresh for gram in sentence.grams()}
     return gone, written, split
@@ -1928,7 +1992,8 @@ def whole_range(root, ranges, a, b):
     `origin/<base>...HEAD` is not a range, it is a RELATION, and it resolves to
     whatever range the checkout it is read on is over. `hygiene.yml` hands
     every `seal/specs/*/survivors.md` in the tree to every run, and a
-    `survivors.md` lives until the release that ships it -- so one merged
+    `survivors.md` stands until `settle --retire-process` takes it, after the
+    release that ships it -- so one merged
     declaration in that spelling matched every later branch cut from the same
     base, excused every one of its survivors and turned the step off for the
     rest of the release. That is the outcome the escape exists to prevent,

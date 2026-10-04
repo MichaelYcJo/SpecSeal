@@ -1209,20 +1209,25 @@ def test_every_shape_the_wider_reading_asks_is_one_the_policy_rule_covers(
     no redirection, and one none of the frozen segments of the command as
     written holds. Checked by that condition, never by a list of shapes, so
     the policy's rule and the code cannot drift apart a position at a time.
-    Red against the round-1 sentence, which listed positions."""
+    Red against the round-1 sentence, which listed positions. The frozen half
+    is read from the wider splitter's segments with nothing subtracted first,
+    so it fails where the per-view subtraction is dropped (round 3 of #737,
+    white 10)."""
     assert POLICY_RULE in _policy_text()
     asked, outside = 0, []
     for verb in (*RESTORES, *ASKABLE):
         own = wg.switch_kind(wg.parse_git(["git", *verb.split()]))
         for command in _shapes(verb):
-            kinds = wg.wider_only_kinds(command, str(tmp_path))
+            # `judged=set()`: the function-level default subtracts what the
+            # frozen walk's words hold, which is this case's own frozen half,
+            # and would leave nothing for it to check.
+            kinds = wg.wider_only_kinds(command, str(tmp_path), judged=set())
             if not kinds:
                 continue
             asked += 1
-            frozen = {
-                wg.switch_kind(wg.parse_git(tokens))
-                for tokens, _wheres in wg.walk_command(command, str(tmp_path))
-            }
+            text = wg.wide.drop_heredoc_bodies(wg.wide.drop_comments(command))
+            items, _clean = wg.wide.split_segments_with_separators(text)
+            frozen = {wg.switch_kind(wg.parse_git(tokens)) for _sep, tokens in items}
             if kinds != {own} or own in frozen:
                 outside.append((command, sorted(kinds), own))
     assert asked, "the generator reached no shape the wider reading asks"
@@ -1258,6 +1263,11 @@ def test_the_guard_policy_says_a_hidden_file_checkout_is_asked():
     assert "it asks whether or not the command moves the tree" in text
     assert "the two are examples, not the set" in text
     assert "`git checkout &>/dev/null README.md` is asked" in text
+    assert (
+        "a `switch` naming a word or `-`, a `checkout` carrying `-b` or `-B`, a "
+        "`checkout` with no `--` among its words that names `-` or a word other "
+        "than `.`, or a `worktree add`"
+    ) in text
 
 
 def test_a_restore_the_frozen_parser_reads_is_not_hidden_from_it(
@@ -1325,6 +1335,11 @@ KINDS = {
     "checkout .": (["git", "checkout", "."], None),
     "checkout -- path": (["git", "checkout", "--", "f"], None),
     "checkout with no name": (["git", "checkout", "-q"], None),
+    # §*Which tree*'s words: a `--` takes every name out of a checkout, and
+    # `-B` is a switch with or without one (round 3 of #737).
+    "checkout a name before --": (["git", "checkout", "x", "--", "f"], None),
+    "checkout -B with no name": (["git", "checkout", "-B"], "switch"),
+    "switch -- a name": (["git", "switch", "--", "x"], "switch"),
     "worktree add": (["git", "worktree", "add", "../wt"], "creation"),
     "worktree list": (["git", "worktree", "list"], None),
     "status": (["git", "status"], None),

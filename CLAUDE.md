@@ -32,43 +32,27 @@ assumed. Time and stability are what the argument is being made for.
 This is a goal, not a rule, which is why it sits above them: it decides
 between options where no rule is broken either way. `CONTRIBUTING.md`'s *What
 a change to a gate must carry* turns it into something a pull request has to
-answer, and `skills/implement/SKILL.md` §1 holds the reasoning — the cost of a
-question is not its difficulty, it is when it arrives, and a question a
-document could have answered was never a question.
-
-Questions a person genuinely has to answer go in **one batch before the first
-edit**. Coming back mid-run is the failure this exists to prevent.
+answer. `skills/implement/SKILL.md` §*1. Read the spec before the code* holds
+the rule this goal produces for a session, with its reasoning: whatever needs
+a person is asked once, together, before the first edit, and nothing comes
+back mid-run.
 
 ## Repo rule — the merge method is fixed per direction, and it is not a preference
 
-| From | To | How |
-|---|---|---|
-| `main` | `release/vX.Y.Z` | cut a branch |
-| `release/vX.Y.Z` | a feature branch | cut a branch |
-| a feature branch | `release/vX.Y.Z` | **squash** |
-| anything | `main` | **3-way merge commit** |
-
-Never choose one of these on your own, and never pick a method because a
-button was convenient. Squashing the last row discards every commit the
-release branch wrote, and two things point at those commits by SHA: the
-`Verified … at <sha>` stamp on every `# RIDER:` comment, and the `Target SHA`
-in every `round-N.md`. That happened once, `tests/test_a_rider_reaches_
-its_file.py` went red, and a patch release exists to fix one line of it.
-
-Two rulesets enforce this, so the wrong button is not offered: `main` allows
-`merge` alone and `release/*` allows `squash` alone. Both require a pull
-request and have no bypass actors, which means the release-preparation commit
-needs a branch and a pull request too — it used to be pushed straight onto the
-release branch. `docs/branch-and-release.md` holds the same table, the release
-sequence around it, and the reasoning.
+`docs/branch-and-release.md` §*Work accumulates on a release branch* states
+this rule in its *Which button, for each direction* table and holds the
+reasoning; this row is the link, and it is here because a session about to
+merge a pull request has no other reason to open that file. A pull request
+into `release/vX.Y.Z` is squashed and one into `main` takes a merge commit,
+whichever button a page happens to offer first.
 
 ## Repo rule — no real identifiers in examples or fixtures
 
-Examples, fixtures, and docs use neutral values only: `example.com` for
-domains, `/Users/x/` for user paths. Enforced by
-`tests/test_no_real_identifiers.py` in CI — extend its allowlist consciously;
-never make a test pass by inlining a real domain, path, or org name.
-(Both incidents that forced a history rewrite entered exactly this way.)
+`CONTRIBUTING.md` §*House rules* states this rule in its *No real
+identifiers* bullet and holds the reasoning; this row is the link, and it is
+here because a session writing an example, a fixture or a document has no
+other reason to open that file. A domain written there is `example.com` and a
+user path is `/Users/x/`, never a real domain, path or organisation name.
 
 ## Repo rule — a thing more than one party can have is named with whose
 
@@ -86,17 +70,14 @@ not the repair, the check is.
 
 ## Repo rule — commit early; on a declared branch it costs nothing
 
-A feature branch squashes into its release branch, so every commit it writes
-stops existing at the merge. A committed `routing.md` keeps the commit gate's
-review arm silent, for either review answer. A review round records the
-`Target SHA` it read, so anything still uncommitted is invisible to the
-reviewer.
-
-So commit at the smallest step that stands on its own rather than waiting for
-"done enough". The wait buys nothing here, and it leaves a dirty tree for the
-worktree guard to ask about. That question offers to bring the changes along
-to the other branch or to leave them behind, and the answer that is usually
-right, *commit them here first*, is neither button.
+`skills/implement/SKILL.md` §*2. Implement, and feed evidence back where you
+verified it* states the commit cadence and holds the reasoning, and it tells a
+reader to check two conditions against their own repository; this row is that
+check for this one, and it is here because a session reaches the question
+after every edit without opening that file. Both conditions hold here: a
+feature branch squashes into its release branch, and every work item commits
+its `routing.md` before the first edit. So commit as soon as a step stands on
+its own.
 
 **Commit freely: a ledger row names no commit for a squash to orphan.** How a
 coordinate names code, how a released row is read again, and what to do when

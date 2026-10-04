@@ -914,8 +914,10 @@ ASKING_WINDOW = 140
 # other way never reached the window that would have refused it. Three
 # spellings were measured passing at exit 0:
 #
-#   *go in **one batch** before the first edit*  -- `CLAUDE.md:39` verbatim,
-#       where the emphasis markers break the literal;
+#   *go in **one batch** before the first edit*  -- verbatim from the
+#       sentence `CLAUDE.md`'s goal section carried until #730 left the rule
+#       to `skills/implement/SKILL.md` §1; the emphasis markers break the
+#       literal;
 #   *in a single batch* and *as a single batch* -- ordinary synonyms.
 #
 # So the preposition and the article are read as a small set, and emphasis
