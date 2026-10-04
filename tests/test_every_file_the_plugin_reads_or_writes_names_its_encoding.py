@@ -77,6 +77,7 @@ works is held there, behaviourally.
 """
 
 import ast
+import inspect
 import os
 
 import pytest
@@ -177,7 +178,10 @@ TEXT_UNLESS_BINARY = {
     "argparse.FileType": (0, 2),
 }
 METHODS_TEXT_UNLESS_BINARY = {"makefile": (0, None), "write_results_file": (None, 4)}
-# The position of `mode` and of `encoding` in each opener's signature.
+# The position of `mode` and of `encoding` in each function opener's
+# signature. Functions only: `judge` matches this table by the call's dotted
+# name before its `.open` branch, so a method's row here would be judged
+# unshifted when the method is called on its class (#762).
 OPENERS = {
     "builtins.open": (1, 3),
     "io.open": (1, 3),
@@ -185,10 +189,15 @@ OPENERS = {
     # `fdopen(fd, mode, buffering, encoding)` is `open` with the fd in the
     # file's slot, so the positions are `open`'s.
     "os.fdopen": (1, 3),
-    "<expr>.open": (0, 2),
+}
+# The same positions for an `.open` method, by what `owner` resolves its
+# receiver to, `<expr>` for every receiver not listed. Read by the `.open`
+# branch of `judge` alone, which moves them one to the right on the class.
+OPEN_METHODS = {
+    "<expr>": (0, 2),
     # `zipfile.Path.open(mode, *args)` hands `args[0]` to `TextIOWrapper` as
     # the encoding, one place earlier than `pathlib.Path.open`.
-    "zipfile.Path.open": (0, 1),
+    "zipfile.Path": (0, 1),
 }
 
 
@@ -288,11 +297,12 @@ def mode_node(call, position):
     return None
 
 
-def judge_opener(call, opener, shift=0):
-    """The kind to report for an opener call, or None if it names its
-    encoding or opens in binary. `shift` is 1 where the call is a method
-    called on its class, whose first argument is the path."""
-    mode_at, encoding_at = (at + shift for at in OPENERS[opener])
+def judge_opener(call, opener, positions, shift=0):
+    """The kind to report for a call to `opener`, whose mode and encoding sit
+    at `positions`, or None if it names its encoding or opens in binary.
+    `shift` is 1 where the call is a method called on its class, whose first
+    argument is the path."""
+    mode_at, encoding_at = (at + shift for at in positions)
     if names_encoding(call, encoding_at):
         return None
     mode = mode_of(call, mode_at)
@@ -312,7 +322,7 @@ def judge(call, bound):
     func = call.func
 
     if target in OPENERS:
-        return judge_opener(call, target)
+        return judge_opener(call, target, OPENERS[target])
     if target in ALWAYS_UNNAMED:
         return None if names_encoding(call) else f"{target}()"
     if target in BINARY_BY_DEFAULT:
@@ -378,8 +388,8 @@ def judge(call, bound):
         made_by = owner(func.value, bound)
         if made_by in NOT_A_FILE_OPENER:
             return None
-        opener = f"{made_by}.open" if f"{made_by}.open" in OPENERS else "<expr>.open"
-        return judge_opener(call, opener, shift)
+        made_by = made_by if made_by in OPEN_METHODS else "<expr>"
+        return judge_opener(call, f"{made_by}.open", OPEN_METHODS[made_by], shift)
     if func.attr == "read_text":
         if names_encoding(call, shift):
             return None
@@ -691,6 +701,20 @@ UNNAMED = {
         "import zipfile\nzipfile.Path(z).open()",
         "zipfile.Path.open()",
     ),
+    # #762: called on its class, `zipfile.Path.open` takes the path first, so
+    # `"r"` is the mode and no encoding is named.
+    "zipfile.Path open unbound, mode only": (
+        'import zipfile\nzipfile.Path.open(q, "r")',
+        "zipfile.Path.open()",
+    ),
+    "zipfile.Path open unbound, imported by name": (
+        'from zipfile import Path\nPath.open(q, "r")',
+        "zipfile.Path.open()",
+    ),
+    "zipfile.Path open unbound, aliased module": (
+        'import zipfile as z\nz.Path.open(q, "r")',
+        "zipfile.Path.open()",
+    ),
 }
 
 # The same calls with the encoding named (by keyword, or positionally where
@@ -778,6 +802,50 @@ def test_each_unnamed_shape_is_reported(shape):
 @pytest.mark.parametrize("shape", sorted(NAMED))
 def test_each_named_shape_is_not_reported(shape):
     assert unnamed_sites(NAMED[shape]) == []
+
+
+def tables_matched_by_dotted_name():
+    """`{name: table}` for every table `judge` tests `target in`, read from
+    `judge`'s own source, so a table added there later is read here too."""
+    tree = ast.parse(inspect.getsource(judge))
+    names = {
+        node.comparators[0].id
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Compare)
+        and isinstance(node.left, ast.Name)
+        and node.left.id == "target"
+        and isinstance(node.ops[0], ast.In)
+        and isinstance(node.comparators[0], ast.Name)
+    }
+    return {name: globals()[name] for name in sorted(names)}
+
+
+def methods_of_unbound_receivers(tables):
+    """Each key of `tables` that is a method of a class in
+    `UNBOUND_RECEIVERS`, as `TABLE['key']`."""
+    return sorted(
+        f"{name}[{key!r}]"
+        for name, table in tables.items()
+        for key in table
+        if key.rsplit(".", 1)[0] in UNBOUND_RECEIVERS
+    )
+
+
+def test_no_method_is_matched_by_its_dotted_name():
+    """#762: a method called on its class takes the path first, and only the
+    `.open` branch of `judge` moves the positions for it. A method's row in a
+    table `judge` matches by dotted name is reached there first, unshifted,
+    so its path is read as the mode and its mode as the encoding."""
+    tables = tables_matched_by_dotted_name()
+    assert "OPENERS" in tables, tables
+    # The row #762 moved out, so the check is shown to name one.
+    moved = {"OPENERS": {"zipfile.Path.open": (0, 1), "io.open": (1, 3)}}
+    assert methods_of_unbound_receivers(moved) == ["OPENERS['zipfile.Path.open']"]
+    methods = methods_of_unbound_receivers(tables)
+    assert not methods, (
+        f"{methods} are methods of a class in UNBOUND_RECEIVERS, matched by "
+        "their dotted name before the `.open` branch can shift them"
+    )
 
 
 # --- K2: what the walk cannot prove ----------------------------------------
