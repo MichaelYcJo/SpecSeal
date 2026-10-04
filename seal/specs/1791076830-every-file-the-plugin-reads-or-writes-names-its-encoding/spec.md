@@ -83,7 +83,7 @@ in the console half (the three git hooks).
 |---|---|
 | builtin `open(...)`, `io.open(...)`, `codecs.open(...)` | mode is text (no `b` in a literal mode, or no mode at all) and `encoding` is neither a keyword nor the 4th positional argument |
 | `os.fdopen(fd, ...)` | as `open`, positions shifted by the fd |
-| `<expr>.open(...)` on any receiver except `os`, `webbrowser`, `tarfile`, `shelve`, `dbm`, `wave`, PIL's `Image`, and a `ZipFile(...)` or `TarFile(...)` instance | judged as `Path.open`: text mode and `encoding` neither a keyword nor the 3rd positional, every position one to the right where the method is called on its class (`Path.open(p)`); the same shift holds for the two rows below |
+| `<expr>.open(...)` on any receiver except `os`, `webbrowser`, `tarfile`, `shelve`, `dbm`, `dbm.dumb`, `wave`, PIL's `Image`, a `ZipFile(...)` or `TarFile(...)` built in the receiver itself, and a bare name no import binds | judged as `Path.open`: text mode and `encoding` neither a keyword nor the 3rd positional (the 2nd on a `zipfile.Path`), every position one to the right where the method is called on its class (`Path.open(p)`); the same shift holds for the two rows below |
 | `<expr>.read_text(...)` | no `encoding` keyword and no positional argument |
 | `<expr>.write_text(...)` | no `encoding` keyword and fewer than two positional arguments |
 | `subprocess.run`, `.Popen`, `.call`, `.check_call`, `.check_output` | `text=`, `universal_newlines=` (any value but a literal `False`) or `errors=` is present, and `encoding` is not. The module name is resolved from the file's own imports, so `import subprocess as sp` and `from subprocess import run` are both seen |
