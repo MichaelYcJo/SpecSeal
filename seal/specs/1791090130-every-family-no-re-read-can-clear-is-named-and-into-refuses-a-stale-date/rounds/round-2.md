@@ -7,14 +7,14 @@
 | Ran by | specseal:warden on claude-opus-5-5 |
 | PR | #771 |
 | Broad gate | not yet |
-| Fixes checked by | nobody — the fixes are not yet written |
-| Fix range | none — the fixes are not yet written |
-| Contract changes | none — the fixes are not yet written |
-| New units | none — the fixes are not yet written |
+| Fixes checked by | nobody — the fixes are written and no round has opened them |
+| Fix range | `538f7e6ef37ec888f45f6195f0c5bbf1dcd8f696..080a03a33a64892ab7242ccae0a1d840b9707ca2`, 3 commits |
+| Contract changes | none |
+| New units | none |
 | Needs a fix | yes — 🟡 5, docs/the-pact.md names a moved hash or a BROKEN coordinate as the whole trigger for a pact change, and a row --into refuses for a stale date is now recorded with neither |
 | Loses a record or crashes | no |
 
-- [ ] Pass
+- [x] Pass
 
 ## What this round was asked
 
@@ -33,9 +33,9 @@ The new units the fixes created are a finding surface: `_frozen_released_o1` and
 
 | # | Finding | Location | Verdict | Grounds |
 |---|---|---|---|---|
-| 🟡 5 | `docs/the-pact.md` names a moved hash or a BROKEN coordinate as *the whole trigger* for a pact change, while a row `--into` refuses for a stale `--checked` is now recorded with its hash unmoved and no `Re-read ·` row | `docs/the-pact.md:115` | open | read against `evidence_check.py:3602-3612`; executed, P4: the refused row's move is recorded and its ledger is not written; `skills/evidence-check/SKILL.md:324-329` and the usage are true but incomplete, same class |
+| 🟡 5 | `docs/the-pact.md` names a moved hash or a BROKEN coordinate as *the whole trigger* for a pact change, while a row `--into` refuses for a stale `--checked` is now recorded with its hash unmoved and no `Re-read ·` row | `docs/the-pact.md:115` | **fixed** `080a03a3` | fixed at 080a03a3; read against `evidence_check.py:3602-3612`; executed, P4: the refused row's move is recorded and its ledger is not written; `skills/evidence-check/SKILL.md:324-329` and the usage are true but incomplete, same class |
 | ⬜ 6 | A coordinate that is OK but outranked by a newer reading holding other content is recorded as a move from its hash to the same hash, in the refusal arm the fix added as in the written arm | `skills/evidence-check/scripts/evidence_check.py:3602` | deferred to a new issue against #756's record writer | executed, P3: both arms record `57f678c6` → `@57f678c6` where the move was `7069baf7` → `57f678c6`; the written arm does the same at `edee5ca2`; W4 calls over-recording the safe direction |
-| ⬜ 7 | The pact module's section comment for the refused-row cases still says the row records nothing | `tests/test_a_signatory_records_a_pact_change.py:1585` | open | read; a sixth copy of round 1's yellow 1 class, in a comment only |
+| ⬜ 7 | The pact module's section comment for the refused-row cases still says the row records nothing | `tests/test_a_signatory_records_a_pact_change.py:1585` | **fixed** `080a03a3` | fixed at 080a03a3; read; a sixth copy of round 1's yellow 1 class, in a comment only |
 | 🟢 | round 1's yellow finding 2 is closed — a refused row's moves reach the record, including the after-today arm whose repair no later re-read reaches | `skills/evidence-check/scripts/evidence_check.py:3602` | confirmed | executed: the two modules pass at the target (439); the three new pact cases fail with `1640bf9a`'s checker; read: the row stays out of `rows` and the plan |
 | 🟢 | round 1's yellow finding 1 is closed — the `LEFT` line and its five copies say no `Re-read ·` row was written and the moves are recorded | `skills/evidence-check/scripts/evidence_check.py:3496` | confirmed | executed: the eight refusal cells, the after-today case and the usage pin fail with `1640bf9a`'s checker; read: the ledger home, `changelog.md:8`, F1 and the L4 correction |
 | 🟢 | round 1's ⬜ 3 and ⬜ 4 are closed — the changelog names the fifth family's modes and the overview lists the sibling cases | `seal/specs/1791090130-every-family-no-re-read-can-clear-is-named-and-into-refuses-a-stale-date/changelog.md:21` | confirmed | read at `d481638f`, against the two cases round 1 named |
