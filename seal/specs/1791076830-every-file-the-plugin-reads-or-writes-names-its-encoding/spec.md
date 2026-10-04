@@ -83,13 +83,23 @@ in the console half (the three git hooks).
 |---|---|
 | builtin `open(...)`, `io.open(...)`, `codecs.open(...)` | mode is text (no `b` in a literal mode, or no mode at all) and `encoding` is neither a keyword nor the 4th positional argument |
 | `os.fdopen(fd, ...)` | as `open`, positions shifted by the fd |
-| `<expr>.open(...)` on any receiver except the names `os` and `webbrowser` | judged as `Path.open`: text mode and `encoding` neither a keyword nor the 3rd positional |
+| `<expr>.open(...)` on any receiver except `os`, `webbrowser`, `tarfile`, `shelve`, `dbm`, `wave`, PIL's `Image`, and a `ZipFile(...)` or `TarFile(...)` instance | judged as `Path.open`: text mode and `encoding` neither a keyword nor the 3rd positional, every position one to the right where the method is called on its class (`Path.open(p)`); the same shift holds for the two rows below |
 | `<expr>.read_text(...)` | no `encoding` keyword and no positional argument |
 | `<expr>.write_text(...)` | no `encoding` keyword and fewer than two positional arguments |
 | `subprocess.run`, `.Popen`, `.call`, `.check_call`, `.check_output` | `text=`, `universal_newlines=` (any value but a literal `False`) or `errors=` is present, and `encoding` is not. The module name is resolved from the file's own imports, so `import subprocess as sp` and `from subprocess import run` are both seen |
-| `subprocess.getoutput`, `subprocess.getstatusoutput`, `os.popen` | always: they have no `encoding` parameter |
+| `subprocess.getoutput`, `subprocess.getstatusoutput`, `os.popen` | no `encoding` keyword, which `os.popen` cannot take and the other two can since 3.11 |
 | `tempfile.NamedTemporaryFile`, `.TemporaryFile`, `.SpooledTemporaryFile` | a literal text mode (the default is binary) and no `encoding` |
 | `io.TextIOWrapper(...)`, `fileinput.input(...)` | no `encoding` |
+
+*Inferred during implementation, round 1 of review:* the standard library's
+half of K1 was enumerated by construction (every public callable whose
+signature carries `encoding=None`, each read for whether `None` means the
+locale), which added the compressed openers in a text mode, the logging file
+handlers, `basicConfig(filename=)` and `fileConfig`, `fileinput.FileInput`
+and `hook_compressed`, `argparse.FileType`, `doctest`'s file readers,
+`ElementInclude`'s text loader, and the `.makefile()` and
+`.write_results_file()` methods. The module docstring holds the whole table,
+what the construction excluded and why, and the spellings no row can hold.
 
 **K2 — shapes the walker cannot prove, which therefore count as unnamed.** A
 non-literal mode, `encoding=None` written out, and a `**` splat on a K1 call
