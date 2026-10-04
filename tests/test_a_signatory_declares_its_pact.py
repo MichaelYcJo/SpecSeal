@@ -690,6 +690,25 @@ def test_s9_the_vendored_copy_reads_the_silent_set_as_the_table_says():
         assert ec.notify_may_be_always(f.read()) is False
 
 
+@pytest.mark.parametrize(
+    "ch", SPLITLINES_ONLY, ids=[f"U+{ord(c):04X}" for c in SPLITLINES_ONLY]
+)
+def test_s9_a_pact_row_a_splitlines_character_cuts_is_no_plain_row(ch):
+    """S9. A `Pact` row with a `str.splitlines`-only character in its value
+    is one GFM line the walk never took, so the reader refuses it with no
+    notify row anywhere, and the vendored copy, which judges a line by its
+    row shape, does not count it as a plain row: it leaves the moved row
+    where the plugin does, though the shape alone would read a plain row."""
+    line = f"| Pact | {ch}{URL} |"
+    assert config.pact_declaration(CONFIG_TOP + line + "\n") == (
+        [],
+        None,
+        [refused(line)],
+    )
+    assert ec.CONFIG_ROW_RE.match(line) is not None
+    assert ec.notify_may_be_always(CONFIG_TOP + line + "\n") is True
+
+
 def test_s10_the_reader_and_the_vendored_copy_read_one_word():
     """S10. A copy with no `hooks/` names a pact by the same word and the
     same predicate as the plugin's reader: the patterns are equal, and the
