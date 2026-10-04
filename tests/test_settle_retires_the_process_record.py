@@ -414,9 +414,18 @@ def document(*parts):
             "covers, along with every released one that wrote no `spec.md` and "
             "holds nothing open, which states no rule to fold. A fold is",
         ),
+        # Two copies of one sentence, in the module docstring and in
+        # `whole_range`'s, so each is pinned by the words that follow it.
         (
             ("skills", "code-review", "scripts", "survivor_check.py"),
-            "stands until `settle --retire-process` takes it",
+            "stands until `settle --retire-process` takes it, after the release "
+            "that ships it, so one merged row",
+            "lives until the release that ships it",
+        ),
+        (
+            ("skills", "code-review", "scripts", "survivor_check.py"),
+            "stands until `settle --retire-process` takes it, after the release "
+            "that ships it -- so one merged declaration",
             "lives until the release that ships it",
         ),
     ],
