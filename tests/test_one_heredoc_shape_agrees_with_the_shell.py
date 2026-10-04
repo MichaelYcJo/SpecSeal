@@ -211,13 +211,15 @@ SUFFIXES = [": > s", ": > s\n: > t\n"]
 
 def program_corpus():
     """(command, directory the suffix runs in) for every admitted
-    combination: one near line and its marker per body, and one body of all
-    of them."""
+    combination: one near line and its marker per body, and one body of every
+    near line clause A admits, each followed by its marker. That body is the
+    only place near lines follow one another."""
     rows = []
     for d in DELIMITERS:
         near = near_lines(d)
         bodies_ = [[line, f": > m{i}"] for i, line in enumerate(near)]
-        bodies_.append([x for i, line in enumerate(near) for x in (line, f": > n{i}")])
+        kept = [line for line in near if not any(b in line + "\n" for b in BANNED)]
+        bodies_.append([x for i, line in enumerate(kept) for x in (line, f": > n{i}")])
         for head, where in PROGRAM_HEADS:
             for lines in bodies_:
                 for suffix in SUFFIXES:
@@ -241,6 +243,10 @@ def suffix_markers(reduced, where):
 def test_the_program_corpus_is_admitted_and_its_suffix_kept():
     rows = program_corpus()
     assert len(rows) > 150, len(rows)
+    # The body of every admitted near line, under each delimiter, head and
+    # suffix: if clause A refused it, nothing would compare it.
+    combined = [command for command, _ in rows if ": > n1\n" in command]
+    assert len(combined) == len(DELIMITERS) * len(PROGRAM_HEADS) * len(SUFFIXES)
     for command, where in rows:
         reduced = reader.reduce(command)
         assert suffix_markers(reduced, where), command
