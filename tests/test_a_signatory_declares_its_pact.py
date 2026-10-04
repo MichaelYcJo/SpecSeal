@@ -15,6 +15,7 @@ are that reader's (S1-S3 of the work item's `spec.md`), and the routing
 step's pinned sentences (S4).
 """
 
+import importlib.util
 import os
 
 import pytest
@@ -169,6 +170,223 @@ def test_seal_keeps_one_normaliser():
         "seal_for_the_pact",
     )
     assert seal.normalise_remote is seal.repo_config.normalise_remote
+
+
+# --- #759: a pact row the table walk does not reach is refused --------------
+#
+# `config_rows` ends the table at the first line that is not a row, a second
+# header or a stray separator (#82), and a `Pact notify | always` row written
+# past that point used to be read as the default. Under `always` a moved row
+# citing no clause was then re-stamped unrecorded. The cases name each way the
+# walk passes a pact row by (W1-W11 of the work item's `spec.md`), and each is
+# refused with `notify` None.
+
+URL = "git@example.com:org/orders-api.git"
+CONFIG_TOP = "# config\n\n| Item | Value |\n|---|---|\n| Mode | shared |\n"
+CONFIG = CONFIG_TOP + f"| Pact | {URL} |\n"
+STRAY = "| Pact notify | always |"
+# The eight characters `str.splitlines` ends a line at and GFM does not.
+SPLITLINES_ONLY = ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x85", "\u2028", "\u2029"]
+
+
+def refused_as(line, item="Pact notify"):
+    return (
+        f"`{line}` is shaped as a `{item}` row and is not read as one, because "
+        "it stands outside the `| Item | Value |` table, spells the item "
+        "another way, or holds a character that cuts the line. Write it as "
+        f"`| {item} | … |` inside that table"
+    )
+
+
+def test_s1_a_notify_row_below_a_blank_line_is_refused():
+    """S1, W3. The row #759 was opened about: written under a blank line that
+    ended the table, it was read as the default."""
+    assert config.pact_declaration(CONFIG + "\n" + STRAY + "\n") == (
+        [(URL, "example.com/org/orders-api", "orders-api")],
+        None,
+        [refused_as(STRAY)],
+    )
+
+
+STRAY_WAYS = [
+    ("W1 above the header", STRAY + "\n\n" + CONFIG, STRAY),
+    (
+        "W1 no header at all",
+        f"| Pact | {URL} |\n{STRAY}\n",
+        None,
+    ),
+    (
+        "W2 between the header and the first row",
+        "| Item | Value |\n|---|---|\n | Pact notify | always |\n"
+        f"| Mode | shared |\n| Pact | {URL} |\n",
+        "| Pact notify | always |",
+    ),
+    ("W4 prose", CONFIG + "Some prose.\n" + STRAY + "\n", STRAY),
+    ("W4 a heading", CONFIG + "## Notes\n" + STRAY + "\n", STRAY),
+    ("W4 a list item", CONFIG + "- a note\n" + STRAY + "\n", STRAY),
+    ("W4 a thematic break", CONFIG + "***\n" + STRAY + "\n", STRAY),
+    ("W4 an HTML block line", CONFIG + "<div>\n" + STRAY + "\n", STRAY),
+    (
+        "W5 a second header",
+        CONFIG + "| Item | Value |\n|---|---|\n" + STRAY + "\n",
+        STRAY,
+    ),
+    ("W6 a stray separator", CONFIG + "|---|---|\n" + STRAY + "\n", STRAY),
+    ("W7 a three-column header", CONFIG + "| A | B | C |\n" + STRAY + "\n", STRAY),
+    ("W8 indented", CONFIG + "  " + STRAY + "\n", STRAY),
+    ("W8 block-quoted", CONFIG + "> " + STRAY + "\n", "> " + STRAY),
+    ("W8 three cells", CONFIG + STRAY + " x |\n", STRAY + " x |"),
+    (
+        "W8 no closing pipe",
+        CONFIG + "| Pact notify | always\n",
+        "| Pact notify | always",
+    ),
+    (
+        "W8 an escaped pipe against the closing one",
+        CONFIG + "| Pact notify | always\\|\n",
+        "| Pact notify | always\\|",
+    ),
+    ("W10 a cut line", CONFIG + "\nprose\u2028" + STRAY + "\n", STRAY),
+]
+
+
+@pytest.mark.parametrize(
+    "text, line", [w[1:] for w in STRAY_WAYS], ids=[w[0] for w in STRAY_WAYS]
+)
+def test_s2_every_way_the_walk_passes_a_notify_row_by_is_refused(text, line):
+    """S2. Each way `config_rows` passes a pact row by, with a `Pact` value
+    standing: refused, naming the line, and `notify` None."""
+    pacts, notify, refusals = config.pact_declaration(text)
+    assert notify is None
+    if line is None:
+        # No table at all: both rows are strays, and `Pact` is refused too.
+        assert pacts == []
+        assert refusals == [
+            refused_as(f"| Pact | {URL} |", "Pact"),
+            refused_as(STRAY),
+        ]
+    else:
+        assert [n for _, _, n in pacts] == ["orders-api"]
+        assert refusals == [refused_as(line)]
+
+
+@pytest.mark.parametrize(
+    "row, shown",
+    [
+        ("| pact notify | always |", "| pact notify | always |"),
+        ("| Pact  notify | always |", "| Pact  notify | always |"),
+        ("| Pact\u00a0notify | always |", "| Pact<U+00A0>notify | always |"),
+    ],
+    ids=["another case", "a doubled space", "a no-break space"],
+)
+def test_s3_a_notify_row_spelled_another_way_is_refused(row, shown):
+    """S3, W9. The walk takes the line as a row, under an item that is not
+    `Pact notify`. The no-break space is shown as its code point, because the
+    sentence naming the line would otherwise show nothing wrong with it."""
+    assert config.pact_declaration(CONFIG + row + "\n")[1:] == (
+        None,
+        [refused_as(shown)],
+    )
+
+
+@pytest.mark.parametrize(
+    "ch", SPLITLINES_ONLY, ids=[f"U+{ord(c):04X}" for c in SPLITLINES_ONLY]
+)
+def test_s4_a_notify_row_the_reader_cuts_in_two_is_refused(ch):
+    """S4, W11. GFM renders one row, and the reader cuts it into two pieces
+    neither of which is a row. Only GFM's cut sees it."""
+    row = f"| Pact notify | {ch}always |"
+    assert config.pact_declaration(CONFIG + row + "\n")[1:] == (
+        None,
+        [refused_as(f"| Pact notify | <U+{ord(ch):04X}>always |")],
+    )
+
+
+def test_s5_a_pact_row_below_the_table_is_refused_with_no_pact_in_it():
+    """S5. A stray `Pact` row with none in the table: refused, and `pacts` is
+    what the table parsed, which is nothing."""
+    line = f"| Pact | {URL} |"
+    assert config.pact_declaration(CONFIG_TOP + "\n" + line + "\n") == (
+        [],
+        None,
+        [refused_as(line, "Pact")],
+    )
+
+
+def test_s6_a_stray_notify_row_with_no_pact_anywhere_is_ignored():
+    """S6. A notify row with no `Pact` value is ignored wherever it stands,
+    as it is inside the table: refusing it would leave every moved row in a
+    repository that holds no pact (round 2 of PR #756, yellow 2)."""
+    for text in (
+        CONFIG_TOP + "\n" + STRAY + "\n",
+        CONFIG_TOP + "| Pact |  |\n\n" + STRAY + "\n",
+    ):
+        assert config.pact_declaration(text) == ([], None, []), text
+
+
+@pytest.mark.parametrize(
+    "below",
+    [
+        "\n```\n" + STRAY + "\n```\n",
+        "\n<!--\n" + STRAY + "\n-->\n",
+        "\n- " + STRAY + "\n",
+        "\n| Pact notify |  |\n",
+        "\n| Pact |  |\n",
+    ],
+    ids=["a closed fence", "a closed comment", "a list item", "empty", "empty pact"],
+)
+def test_s7_a_pact_row_that_is_not_a_stray_is_not_refused(below):
+    """S7. An example in a closed fence or comment, a list item, and an empty
+    value are not rows anybody wrote as live ones; the table reads as today."""
+    pacts, notify, refusals = config.pact_declaration(CONFIG + below)
+    assert refusals == []
+    assert notify == config.NOTIFY_DEFAULT
+    assert [n for _, _, n in pacts] == ["orders-api"]
+
+
+@pytest.mark.parametrize(
+    "ch", SPLITLINES_ONLY, ids=[f"U+{ord(c):04X}" for c in SPLITLINES_ONLY]
+)
+def test_s8_a_line_whose_pieces_the_reader_reads_is_read_as_today(ch):
+    """S8. GFM's cut sees one line, and the reader reads both of its pieces
+    as rows. A row the reader read on either cut is never refused."""
+    text = CONFIG_TOP + f"| Pact | {URL} |{ch}{STRAY}\n"
+    pacts, notify, refusals = config.pact_declaration(text)
+    assert (notify, refusals) == ("always", [])
+    assert [n for _, _, n in pacts] == ["orders-api"]
+
+
+def test_the_shipped_configs_hold_no_stray_pact_row():
+    """The template ships empty `Pact` rows inside its example table and
+    shaped ones in its prose; neither it nor this repository's own config is
+    refused (questions.md Q2)."""
+    for parts in (("templates", "config.md"), ("seal", "config.md")):
+        with open(os.path.join(ROOT, *parts), encoding="utf-8") as handle:
+            assert config.pact_declaration(handle.read())[2] == [], parts
+
+
+def test_s14_the_reader_and_the_vendored_copy_share_one_grammar():
+    """S14. A copy with no `hooks/` looks for the same rows with
+    `evidence_check.py#NOTIFY_ROW_SHAPE`; the two are one grammar."""
+    path = os.path.join(
+        ROOT, "skills", "evidence-check", "scripts", "evidence_check.py"
+    )
+    spec = importlib.util.spec_from_file_location("ec_for_the_pact_shape", path)
+    ec = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(ec)
+    ours, theirs = config.PACT_ROW_SHAPE, ec.NOTIFY_ROW_SHAPE
+    assert (ours.pattern, ours.flags) == (theirs.pattern, theirs.flags)
+
+
+def test_config_rows_is_the_indexed_walk_without_its_places():
+    """`config_rows` returns what it returned before the walk kept indices:
+    the index is the place in `text.splitlines()` each row came from."""
+    text = CONFIG + "| Pact notify | always |\n\n| Broad gate | x |\n"
+    indexed = config.indexed_config_rows(text)
+    lines = text.splitlines()
+    assert [(i, v) for _, i, v in indexed] == config.config_rows(text)
+    assert all(lines[n].startswith(f"| {item} |") for n, item, _ in indexed)
+    assert [item for _, item, _ in indexed] == ["Mode", "Pact", "Pact notify"]
 
 
 # --- the shipped rows -------------------------------------------------------

@@ -333,9 +333,26 @@ def config_rows(text):
     lines the walk is shown: a line inside a code fence is not shown to it at
     all, so an example table pasted above the live one is no longer this
     reader's table (#429).
+
+    **The walk is `indexed_config_rows` below, and this is its rows without
+    their places** (#759). The pact reader needs to know WHICH line each row
+    came from, and a second walk written for that question would be a second
+    stop rule to keep in step with this one.
+    """
+    return [(item, value) for _index, item, value in indexed_config_rows(text)]
+
+
+def indexed_config_rows(text):
+    """`config_rows`' rows as (index, item, value), the index being the row's
+    line in `text.splitlines()`. `config_rows` is this walk's projection, and
+    its docstring is where the stop rule's reasoning lives.
+
+    The index is what lets `stray_pact_rows` name a pact-shaped line this
+    walk did not take: it compares the lines against the places the walk
+    took rows from, rather than listing the ways a table ends (#759).
     """
     found, seen_header = [], False
-    for _index, line in unfenced(text.splitlines(), text):
+    for index, line in unfenced(text.splitlines(), text):
         if not seen_header:
             if CONFIG_HEADER.match(line):
                 seen_header = True
@@ -351,6 +368,7 @@ def config_rows(text):
             continue
         found.append(
             (
+                index,
                 unescaped(match.group("item").strip()),
                 unescaped(match.group("value").strip()),
             )
@@ -630,6 +648,13 @@ NOTIFY_DEFAULT = NOTIFY_TOUCHED
 # path segment of the pact's repository's normalised origin URL. The class is
 # `evidence_check.py#PACT_NAME`'s, which reads the anchor.
 PACT_NAME_RE = re.compile(r"[A-Za-z0-9_.-]+")
+# Anything shaped like a `Pact` or a `Pact notify` row with a value: any case,
+# any indentation, block-quoted or not, `\s` as Python reads it. It is
+# `evidence_check.py#NOTIFY_ROW_SHAPE` word for word -- the grammar a copy
+# with no `hooks/` looks for the same rows with -- and
+# `tests/test_a_signatory_declares_its_pact.py` holds the two equal (#759).
+# An empty value is the default, so it is not shaped as a row here.
+PACT_ROW_SHAPE = re.compile(r"[\s>]*\|\s*(Pact(?:\s+notify)?)\s*\|\s*[^\s|]", re.I)
 
 
 def normalise_remote(url):
@@ -749,7 +774,8 @@ def pact_declaration(text):
                 `Pact` row stands with no `Pact notify`; None where no
                 `Pact` row does, because the notify row is then ignored, and
                 None where the row is refused, outside the vocabulary or
-                written more than once
+                written more than once, and None where a pact row stands
+                that the table walk does not read
       refusals  one sentence per thing that would not parse, naming it
 
     **It refuses in sentences and stops nothing.** The two callers differ on
@@ -762,10 +788,21 @@ def pact_declaration(text):
     value that is there and does not parse is not that state, and it is
     refused rather than read as absent: a signatory that wrote a row and is
     read as having written none is the silence this reader exists to end.
+
+    **A pact row the table walk does not reach is the same silence** (#759).
+    A `| Pact notify | always |` written under the table's end was read as
+    the default, and `evidence-check --reverify` then re-stamped a moved row
+    citing no clause without recording it -- the re-stamp clears the drift
+    that was the only trigger for the record. `stray_pact_rows` finds such a
+    line and it is refused, with `notify` None. This reader alone refuses
+    where the others fail silent, and only for these two rows: no other
+    row's default loses a record that cannot be recovered.
     """
-    rows = config_rows(text)
-    pact_rows = [value for item, value in rows if item == PACT_ROW]
-    notify_rows = [value for item, value in rows if item == PACT_NOTIFY_ROW]
+    rows = indexed_config_rows(text)
+    pact_rows = [value for _i, item, value in rows if item == PACT_ROW]
+    notify_rows = [value for _i, item, value in rows if item == PACT_NOTIFY_ROW]
+    taken = {i for i, item, _v in rows if item in (PACT_ROW, PACT_NOTIFY_ROW)}
+    strays = stray_pact_rows(text, taken)
     refusals = []
     if len(pact_rows) > 1:
         refusals.append(
@@ -773,6 +810,18 @@ def pact_declaration(text):
             f"one row, separated by `{PACT_SEPARATOR}`"
         )
     value = pact_rows[0] if pact_rows else ""
+    # A stray `Pact notify` is refused only where a `Pact` value stands, in
+    # the table or on a stray line: a notify row with no pact is ignored
+    # wherever it stands, and refusing it would leave every moved row in a
+    # repository that holds no pact (round 2 of PR #756, yellow 2). A stray
+    # `Pact` line always refuses (#759).
+    pact_stands = bool(value) or any(item == PACT_ROW for item, _l in strays)
+    stray_refusals = [
+        stray_refusal(item, line)
+        for item, line in strays
+        if item == PACT_ROW or pact_stands
+    ]
+    refusals.extend(stray_refusals)
     if not value:
         return [], None, refusals
     pacts, refused = remote_entries(
@@ -799,7 +848,81 @@ def pact_declaration(text):
             + ", ".join(f"`{v}`" for v in NOTIFY_VALUES)
         )
         notify = None
+    if stray_refusals:
+        # The row the reader did not reach may be the one that says
+        # `always`, so no value read from the table is the answer (#759).
+        notify = None
     return pacts, notify, refusals
+
+
+def stray_pact_rows(text, taken):
+    """[(item, line)] for every line of TEXT shaped as a `Pact` or `Pact
+    notify` row with a value (`PACT_ROW_SHAPE`) that the table walk did not
+    take as that row, in file order. ITEM is `PACT_ROW` or `PACT_NOTIFY_ROW`,
+    LINE the line as written; TAKEN is the set of `text.splitlines()`
+    indices `indexed_config_rows` took a `Pact` or `Pact notify` row from.
+
+    **It compares, and it lists no way a table ends** (#759). A row written
+    under a blank line, under prose, under a second header, indented, with a
+    third cell or under another spelling of the item is each a way the walk
+    passes it by, and a list of those ways rots the moment the walk gains one
+    (#735's round 3 found three arms that survived their removal). A
+    pact-shaped line whose place the walk did not take is a stray however it
+    got there.
+
+    **Two cuts.** The reader's own, `unfenced(text.splitlines(), text)`, is
+    the line source `config_rows` reads, so every line it could have taken
+    is looked at the way it would have looked. GFM's cut, `blocks.gfm_lines`,
+    is the line a person sees: where a character only `str.splitlines` ends
+    a line at stands mid-row, GFM renders one row and the reader reads two
+    pieces that are neither (#664). Such a line is a stray only where the
+    walk took NONE of its pieces as a pact row and none of them was a stray
+    already, so a line whose pieces the reader reads as rows is read as it
+    is today. A line is not a stray on either cut where every piece of it is
+    hidden (`hidden_lines`, #429 and #667): a row in a closed fence or a
+    closed HTML comment is an example.
+    """
+    shown = dict(unfenced(text.splitlines(), text))
+    strays = {}
+    for index, line in shown.items():
+        match = PACT_ROW_SHAPE.match(line)
+        if match and index not in taken:
+            strays[index] = (_shaped_item(match), line)
+    first = 0
+    for whole in blocks.gfm_lines(text, keepends=True):
+        pieces = range(first, first + len(whole.splitlines()))
+        first = pieces.stop
+        if len(pieces) < 2 or not any(i in shown for i in pieces):
+            continue
+        if any(i in taken or i in strays for i in pieces):
+            continue
+        line = whole.rstrip("\r\n")
+        match = PACT_ROW_SHAPE.match(line)
+        if match:
+            strays[pieces.start] = (_shaped_item(match), line)
+    return [strays[index] for index in sorted(strays)]
+
+
+def _shaped_item(match):
+    named = " ".join(match.group(1).split()).lower()
+    return PACT_NOTIFY_ROW if named == PACT_NOTIFY_ROW.lower() else PACT_ROW
+
+
+def stray_refusal(item, line):
+    """The sentence a stray pact row is refused in. It names the line as
+    written, with every whitespace character other than a space shown as its
+    code point, because the character that cut the line or spelled the item
+    another way is otherwise invisible in the sentence that names it."""
+    shown = "".join(
+        f"<U+{ord(ch):04X}>" if ch.isspace() and ch != " " else ch
+        for ch in line.strip()
+    )
+    return (
+        f"`{shown}` is shaped as a `{item}` row and is not read as one, "
+        "because it stands outside the `| Item | Value |` table, spells the "
+        "item another way, or holds a character that cuts the line. Write it "
+        f"as `| {item} | … |` inside that table"
+    )
 
 
 def declared_pacts(home):
