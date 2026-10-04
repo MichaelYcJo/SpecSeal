@@ -28,8 +28,8 @@ builtin `open()` under `hooks/` in 11 files, 14 `subprocess.run(text=)` under
 **M4: no.** The unfixed `hooks/git/pre-commit.py`, refusing the S5 commit
 under `PYTHONIOENCODING=ascii PYTHONUTF8=0`, exits 1 with no traceback.
 Python keeps `backslashreplace` on stderr whatever `PYTHONIOENCODING` says,
-so the whole refusal arrived with each `—` and `…` spelled `—` /
-`…`, including the waiver it tells the reader to type. D6's *a traceback
+so the whole refusal arrived with each `—` and `…` spelled `\u2014` /
+`\u2026`, including the waiver it tells the reader to type. D6's *a traceback
 in place of the refusal* does not hold, and the frame's failure direction is
 milder than it says: the commit was refused before and after, and only the
 refusal's legibility changes. S8's own Then, *stderr carries the refusal*,
