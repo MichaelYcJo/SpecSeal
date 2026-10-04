@@ -395,12 +395,9 @@ def judge(call, bound):
 
 def owner(receiver, bound):
     """What a `.open` is called on: the dotted name of a receiver, or of the
-    class a receiver call constructs (`zipfile.ZipFile(z)`), or a bare name
-    the file never imported."""
+    class a receiver call constructs (`zipfile.ZipFile(z)`)."""
     if isinstance(receiver, ast.Call):
         return dotted(receiver.func, bound)
-    if isinstance(receiver, ast.Name) and receiver.id not in bound:
-        return receiver.id
     return dotted(receiver, bound)
 
 
@@ -785,6 +782,10 @@ UNPROVEN = {
     "a tempfile mode that is not a literal": (
         "import tempfile\ntempfile.TemporaryFile(m)",
         "tempfile.TemporaryFile(), mode not a literal",
+    ),
+    "a gzip mode that is not a literal": (
+        "import gzip\ngzip.open(p, m)",
+        "gzip.open(), mode not a literal",
     ),
 }
 
