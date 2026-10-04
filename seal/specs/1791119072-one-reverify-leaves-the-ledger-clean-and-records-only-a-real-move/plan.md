@@ -4,6 +4,8 @@
 artifact: where the work alters observable behaviour, approval of this plan is
 the gate. -->
 
+Approved 2026-10-04 by the orchestrator under the owner's `automation` routing, when `smith` was spawned.
+
 ## Summary
 
 The work is three edits to `skills/evidence-check/scripts/evidence_check.py`'s
