@@ -4066,6 +4066,12 @@ SUMMARY_LINES = [
     ("Resolved 12 packages in 3ms", False),
     ("3 files would be reformatted in 0.5s", False),
     ("4 checks in 12", False),
+    # Constructed, not measured: each holds one edge of the label's shape --
+    # a later label of three words, a first label of two, and counts that
+    # no comma separates (round 2).
+    ("1 passed, 3 files would reformat in 0.5s", False),
+    ("2 subtests passed in 0.01s", False),
+    ("3 tests 2 suites in 1.2s", False),
     ("1 passed in 0.01s, and a linter went on talking", False),
     ("\x1b[31m1 failed\x1b[0m, \x1b[32m1 passed\x1b[0m\x1b[31m in 0.02s\x1b[0m", False),
 ]
