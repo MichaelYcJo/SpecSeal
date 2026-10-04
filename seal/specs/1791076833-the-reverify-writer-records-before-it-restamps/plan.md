@@ -4,7 +4,7 @@
 — HOW, in phases. This is the Design Gate's artifact: where the work alters
 observable behaviour, approval of this plan is the gate. -->
 
-Approved <date> by <who>, when `smith` was spawned.
+Approved 2026-10-04 by the repository owner, whose `automation` answer covers this item, when `smith` was spawned.
 
 ## Summary
 
