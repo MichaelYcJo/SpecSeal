@@ -139,8 +139,14 @@ retires the directory. Which file each agent writes is
 | `tests-todo.md`, `evidence-todo.md` | which cases and which verified facts a review left for the implementer |
 | `broad-gate.md` | the sealer's one broad run, where the work went straight to the pull request |
 
-How these files are laid out by lifetime is decided in principle and not
-built (F3).
+The files keep these paths and stop mattering at two different times (F3).
+`routing.md` and the SDD set (`spec.md`, `plan.md`, `questions.md`,
+`overview.md`, `changelog.md`) stay until the `settle` fold retires the
+directory. The process record (`rounds/`, `phases/`, `survivors.md`, the two
+todo files, `broad-gate.md`, and a `handoff.md` or `pr.*.md` where one was
+written) is read by no check after the release that ships the work item, and
+`settle --retire-process` removes it at the next release, fold or no fold.
+What the SDD set still cites of it resolves at the tag of that release.
 
 ## The root records
 
@@ -190,11 +196,29 @@ writes the changelog in parallel, and a link at an old tag keeps resolving at
 that tag.
 
 **F3 — a work item's directory is laid out by lifetime (#729, in the release
-after #716's).**
+after #716's). Built by #729.**
 The principle: what outlives the merge stays, or folds into `docs/` and the
 ledger; what a review run needs only while it runs leaves the tree, or
-becomes one file per run. F3's own frame decides which, after reading the
-readers of `rounds/`, `phases/` and `survivors.md`.
+becomes one file per run. #729's frame read the readers and chose the first.
+
+- **The paths do not change.** Ten readers and the test suite name them, and
+  a regrouping under one subdirectory would show a reader nothing a listing
+  of `rounds/` and `phases/` does not.
+- **One file per run is rejected.** The round records of 41 of 53 runs
+  measured would together exceed the 64 KB a reader takes whole.
+- **The process record leaves after the release, without waiting for the
+  fold.** Once its release has merged to `main`, no check reads it: the
+  release pull request and the release seal were its last readers. A
+  person following a reference into it from the SDD set reads it at the
+  release tag, which keeps every file the arm removes. So
+  `settle --retire-process` removes it from every released work item as the
+  first act of `docs/release-checklist.md` §*2b*, on every release, and
+  leaves `routing.md` and the SDD set for the fold. Its guards are
+  `--retire`'s: an open todo row or an anchored ledger row keeps the item.
+- **Released items are not exempt.** The ledger freeze rests on content
+  anchors and parallel re-stamps, and no ledger row anchors inside a work
+  item's directory. The first run, over every item released before it, is
+  its own pull request at a release's step 2b.
 
 **F4 — the other rules `CLAUDE.md` restates get one home each (#730, in the
 release after #716's). Built by #730.** The merge method per direction lives

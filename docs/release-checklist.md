@@ -126,14 +126,31 @@ Enforced by: tests/test_release_hygiene.py, .github/scripts/fold_ledger.py::inse
 
 ## 2b. Settle what the release leaves behind — by hand, and not in that commit
 
+**First, the process record. This part is never skipped.**
+
 ```bash
 settle
+settle --retire-process
 ```
 
-It names the released work items whose `spec.md` no `docs/` policy has
-absorbed yet, grouped by the file their ledger rows anchor in. Read it, write
-one standing statement per segment into `docs/`, and hold what you wrote to
-the fold's two rules:
+The first command ends with what the second would take. The second removes
+`rounds/`, `phases/`, `survivors.md` and the files written only for a pull
+request from every work item already on `main`, which is every release before
+this one, and leaves `routing.md` and the SDD set for the fold below. No
+check reads that part after its release, and removing it judges nothing, so
+it runs on every release, including one that skips the fold. What the SDD set
+still cites of it is read at the release tag. It is a branch and a
+pull request of its own, as the fold is, and it is not a work item either: its
+commit carries `: '[no-review]';` in front of the command. It exits 1 when a
+guard keeps an item: close an open todo row in a pull request of its own
+first, and answer an anchored ledger row as the fold does.
+`skills/settle/SKILL.md` §*The process record leaves first, fold or no fold*
+is its procedure.
+
+**Then the fold.** `settle` names the released work items whose `spec.md`
+no `docs/` policy has absorbed yet, grouped by the file their ledger rows
+anchor in. Read it, write one standing statement per segment into `docs/`,
+and hold what you wrote to the fold's two rules:
 
 ```bash
 fold-check
@@ -151,8 +168,9 @@ settle --retire
 policy prose is a judgment act, and step 2 is two dry runs somebody reads
 followed by one mechanical commit; a release that stops for a person to write
 documentation is a release that stops. Nothing fails a build for an unsettled
-work item, so the honest answer on a busy release is to skip this step and run
-it on its own later.
+work item, so the honest answer on a busy release is to skip the fold and run
+it on its own later. The process record's removal above is not part of what
+is skipped, because it waits on no judgment.
 
 `skills/settle/SKILL.md` is the procedure. **A fold is not a work item**: it
 opens no directory under `seal/specs/`, the routing question is not asked for
