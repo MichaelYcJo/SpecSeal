@@ -62,7 +62,10 @@ Usage:
                                           write one `Re-read ·` row into
                                           FRAGMENT for every released row
                                           with a drifted coordinate; no
-                                          released file is written. Where
+                                          released file is written. A row
+                                          a reading dated after --checked
+                                          outranks is left whole and named,
+                                          and the run exits 1. Where
                                           seal/config.md declares `Ledger
                                           frozen from`, `--reverify` without
                                           `--into` writes no released file and

@@ -1976,3 +1976,35 @@ def test_a_refusal_names_the_newest_of_the_readings_that_outrank_the_row(repo):
         "the newest reading of src/service.py#other, 2026-04-01 at "
         "seal/ledger/3000000004-the-other-re-read.md:1, so a"
     ) in left[0], left[0]
+
+
+@pytest.mark.parametrize(
+    "where, sentence",
+    [
+        (
+            "docs/the-evidence-ledger.md",
+            "the run writes and records nothing for that row, names it with both "
+            "dates and the place of the later reading, and exits 1. Read the code "
+            "again and date that reading; a date equal to the newest ties and is "
+            "written",
+        ),
+        (
+            "docs/the-evidence-ledger.md",
+            "a newest reading dated after today, which no `--checked` reaches, "
+            "takes a `Corrected ·` row",
+        ),
+        (
+            "skills/evidence-check/scripts/evidence_check.py",
+            "A row a reading dated after --checked outranks is left whole and "
+            "named, and the run exits 1.",
+        ),
+    ],
+    ids=["the home: the refusal", "the home: after today", "the usage"],
+)
+def test_the_home_and_the_usage_say_a_stale_row_is_left(where, sentence):
+    """§14: the refusal is something a person reads before running `--into`
+    with a back-dated `--checked`, so each sentence is pinned where it
+    stands (#746)."""
+    with open(os.path.join(ROOT, where), encoding="utf-8") as handle:
+        text = " ".join(handle.read().split())
+    assert sentence in text, (where, sentence)
