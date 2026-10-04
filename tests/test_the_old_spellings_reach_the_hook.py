@@ -51,6 +51,7 @@ clearer = load_hook_module("answer-clear.py", "answer_clear_under_test")
         ),
         ("cat > f <<EOF\nbody\nEOF\ngit commit -m x  # [no-review]", ("[no-review]",)),
         ('cat <<EOF\n"\nEOF\necho [no-review] "\n"', ()),
+        (None, ()),
     ],
     ids=[
         "the no-op form",
@@ -66,6 +67,7 @@ clearer = load_hook_module("answer-clear.py", "answer_clear_under_test")
         "the no-op form beside a body",
         "a comment after a body's terminator",
         "a split only the bodiless text finishes reads what the raw text reads",
+        "no command at all reads nothing, as at the base",
     ],
 )
 def test_a_token_is_a_bare_word_and_nothing_else(command, found):
