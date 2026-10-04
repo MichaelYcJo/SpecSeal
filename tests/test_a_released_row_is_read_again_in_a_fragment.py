@@ -2363,11 +2363,15 @@ def test_a_narrowed_unfrozen_run_names_the_citation_it_moved_and_left(repo):
     ], fix.stdout
 
 
-@pytest.mark.parametrize("shape", ["drifted before the run", "another file moved"])
+@pytest.mark.parametrize(
+    "shape",
+    ["drifted before the run", "another file moved", "another row of its file moved"],
+)
 def test_a_narrowed_unfrozen_run_names_no_citation_it_did_not_move(repo, shape):
     """S6's other side. A citation already DRIFTED before the run is not
     this run's to name, and neither is one whose cited line the run does not
-    move: narrowed to another release file, R's line stays where M cites it."""
+    move: narrowed to another release file, or to R's own file where only
+    another row of it moves, R's line stays where M cites it."""
     unfrozen_r_and_m(repo)
     narrowed = R_FILE
     if shape == "drifted before the run":
@@ -2380,20 +2384,23 @@ def test_a_narrowed_unfrozen_run_names_no_citation_it_did_not_move(repo, shape):
         )
     else:
         h = unit_hash(repo, "src/service.py", "other")
-        released(
-            repo,
-            [
-                f"| R2 · other doubles | `src/service.py#other@{h}` | read | 2026-01-01 | |"
-            ],
-            version="0.2.0",
+        r2 = (
+            f"| R2 · other doubles | `src/service.py#other@{h}` | read | 2026-01-01 | |"
         )
+        if shape == "another file moved":
+            released(repo, [r2], version="0.2.0")
+            narrowed = "seal/releases/0.2.0.md"
+        else:
+            # R's file is written by the run, and M's line in it is not.
+            (repo / "src" / "service.py").write_text(SERVICE, encoding="utf-8")
+            r1 = (repo / R_FILE).read_text(encoding="utf-8").splitlines()[4]
+            released(repo, [r1, r2])
         (repo / "src" / "service.py").write_text(
             (repo / "src" / "service.py")
             .read_text(encoding="utf-8")
             .replace("x * 2", "x * 3"),
             encoding="utf-8",
         )
-        narrowed = "seal/releases/0.2.0.md"
     fix = run(
         ["--reverify", "--checked", "2026-03-01", "--ledger", narrowed, "."], repo
     )
